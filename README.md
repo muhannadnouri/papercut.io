@@ -2,7 +2,9 @@
   <img src="src-tauri/icons/icon.png" alt="Papercut App Icon" width="96" height="96">
 </p>
 
-# Papercut [![Latest release](https://img.shields.io/github/v/release/muhannadnouri/papercut.io?logo=github&color=6366f1)](https://github.com/muhannadnouri/papercut.io/releases/latest) [![CI](https://github.com/muhannadnouri/papercut.io/actions/workflows/ci.yml/badge.svg)](https://github.com/muhannadnouri/papercut.io/actions/workflows/ci.yml) [![React](https://img.shields.io/badge/React-19-20232A?logo=react&logoColor=61DAFB)](https://react.dev/) [![Tauri + Rust](https://img.shields.io/badge/Tauri_+_Rust-2.x_|_1.77+-24C8DB?logo=tauri&logoColor=white)](https://v2.tauri.app/) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md) [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io?ref=badge_shield&issueType=license)
+# Papercut
+
+[![Latest release](https://img.shields.io/github/v/release/muhannadnouri/papercut.io?logo=github&color=6366f1)](https://github.com/muhannadnouri/papercut.io/releases/latest) [![CI](https://github.com/muhannadnouri/papercut.io/actions/workflows/ci.yml/badge.svg)](https://github.com/muhannadnouri/papercut.io/actions/workflows/ci.yml) [![React](https://img.shields.io/badge/React-19-20232A?logo=react&logoColor=61DAFB)](https://react.dev/) [![Tauri + Rust](https://img.shields.io/badge/Tauri_+_Rust-2.x_|_1.77+-24C8DB?logo=tauri&logoColor=white)](https://v2.tauri.app/) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md) [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io?ref=badge_shield&issueType=license) [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io.svg?type=shield&issueType=security)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io?ref=badge_shield&issueType=security)
 
 **Homepage:** 👉 [https://trypapercut.app](https://trypapercut.app) 👈
 - (Backup) [Netlify Homepage URL](https://trypapercut.netlify.app) 
@@ -461,3 +463,7 @@ papercut.io/
 ## License
 
 Papercut is available under the [MIT License](LICENSE.md).
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io.svg?type=small)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io?ref=badge_small)
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io.svg?type=large&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io?ref=badge_large&issueType=license)
