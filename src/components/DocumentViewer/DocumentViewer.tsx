@@ -19,7 +19,6 @@ interface TtsHighlightOptions {
 
 interface DocumentViewerProps {
   url: string
-  title?: string
   format?: string
   content: string
   className?: string
@@ -34,7 +33,6 @@ interface DocumentViewerProps {
 
 export function DocumentViewer({
   url,
-  title,
   format,
   content,
   className = '',
@@ -149,9 +147,6 @@ export function DocumentViewer({
       <header className="header doc-header">
         <div className="header-left">
           <button className="back-button" onClick={onClose}>&larr; Back</button>
-        </div>
-        <div className="header-center">
-          <h1 className="app-title doc-title" title={title}>{title ?? 'Papercut'}</h1>
         </div>
         <div className="header-right">
           {appControls}

@@ -241,7 +241,6 @@ function App() {
     () => (selectedDoc ? libraryDocuments.find((doc) => doc.url === selectedDoc) : undefined),
     [selectedDoc, libraryDocuments],
   )
-  const selectedTitle = selectedDocument?.title
   const selectedFormat = selectedDocument?.format
 
   const runDocumentImport = useCallback(async (
@@ -331,7 +330,6 @@ function App() {
     return (
       <DocumentViewer
         url={selectedDoc}
-        title={selectedTitle}
         format={selectedFormat}
         content={docContent}
         className={hasFloatingAudioControls ? 'app-audio-floating' : ''}
