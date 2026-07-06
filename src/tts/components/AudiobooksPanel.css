@@ -36,7 +36,7 @@
   gap: 0.75rem;
   min-height: 2rem;
   padding: 0 0.5rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
   background: var(--surface);
   color: var(--text-body);
@@ -47,7 +47,7 @@
 }
 
 .audio-diagnostics-control:hover {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
 }
 
 .audio-diagnostics-value {
@@ -67,7 +67,7 @@
   position: relative;
   width: 2.1rem;
   height: 1.1rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 999px;
   background: var(--surface-muted);
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
@@ -87,7 +87,7 @@
 }
 
 .audio-diagnostics-control input:checked + .audio-diagnostics-switch {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
   background: var(--surface-accent-strong);
 }
 
@@ -218,7 +218,7 @@
   width: 1.6rem;
   height: 1.6rem;
   padding: 0;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
   background: var(--surface);
   color: var(--text-body);
@@ -229,13 +229,13 @@
 }
 
 .audio-speed-step:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--accent-text);
+  color: var(--accent-text);
 }
 
 .audio-speed-step:focus-visible {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--accent-text);
+  color: var(--accent-text);
   box-shadow: 0 0 0 3px var(--shadow-focus);
   outline: none;
 }
@@ -275,7 +275,7 @@
   width: 0.95rem;
   height: 0.95rem;
   margin-top: -0.33rem;
-  border: 2px solid var(--accent);
+  border: 2px solid var(--accent-text);
   border-radius: 50%;
   background: var(--surface);
   transition: border-color 0.15s, background 0.15s;
@@ -284,14 +284,14 @@
 .tts-speed-slider::-moz-range-thumb {
   width: 0.95rem;
   height: 0.95rem;
-  border: 2px solid var(--accent);
+  border: 2px solid var(--accent-text);
   border-radius: 50%;
   background: var(--surface);
 }
 
 .tts-speed-slider:hover::-webkit-slider-thumb,
 .tts-speed-slider:focus-visible::-webkit-slider-thumb {
-  background: var(--accent);
+  background: var(--accent-text);
 }
 
 .tts-speed-slider:focus-visible {
@@ -329,7 +329,7 @@
 .tts-select,
 .tts-btn {
   min-height: 2rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
   background: var(--surface);
   color: var(--text-body);
@@ -370,8 +370,8 @@
 .tts-select:hover,
 .tts-select:focus,
 .tts-btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--accent-text);
+  color: var(--accent-text);
   outline: none;
 }
 
@@ -468,7 +468,7 @@
 .audiobooks-setup-disclosure:hover,
 .audiobooks-setup-disclosure:focus-visible,
 .audiobooks-setup-disclosure-open {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
   background: var(--surface-accent);
   box-shadow: 0 8px 18px var(--shadow-soft);
   outline: none;
@@ -479,7 +479,7 @@
   place-items: center;
   width: 1.6rem;
   height: 1.6rem;
-  color: var(--accent-hover);
+  color: var(--accent-text);
   font-size: 1rem;
 }
 
@@ -516,7 +516,7 @@
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   background: var(--surface);
-  color: var(--accent-hover);
+  color: var(--accent-text);
   font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
@@ -525,7 +525,7 @@
 
 .audiobooks-import-btn:hover:not(:disabled),
 .audiobooks-import-btn:focus-visible {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
   background: var(--surface-accent);
   outline: none;
 }
@@ -608,7 +608,7 @@
 }
 
 .audiobook-item-saved:hover {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
 }
 
 .audiobook-saved-main {
@@ -641,9 +641,10 @@
 }
 
 .audiobook-text-action {
-  border: none;
-  background: none;
-  color: var(--accent);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent-text);
   font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
@@ -660,8 +661,9 @@
 }
 
 .audiobook-text-action:hover:not(:disabled) {
+  border-color: var(--accent-border);
+  background: var(--surface-accent);
   color: var(--accent-strong);
-  text-decoration: underline;
 }
 
 .audiobook-delete:hover:not(:disabled) {

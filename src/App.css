@@ -103,7 +103,7 @@
   width: 100%;
   padding: 0.875rem 1.25rem;
   font-size: 1rem;
-  border: 2px solid var(--border);
+  border: 2px solid var(--border-strong);
   border-radius: 12px;
   outline: none;
   transition: border-color 0.2s;
@@ -126,7 +126,7 @@
 
 .search-btn:hover:not(:disabled),
 .search-btn:focus-visible {
-  border-color: var(--accent-hover);
+  border-color: var(--accent-text);
   background: var(--accent-hover);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus-strong);
@@ -138,7 +138,7 @@
 }
 
 .search-input:focus {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
   background: var(--surface);
 }
 
@@ -201,7 +201,7 @@
   width: 16px;
   height: 16px;
   border: 2px solid var(--accent-border);
-  border-top-color: var(--accent);
+  border-top-color: var(--accent-text);
   border-radius: 50%;
   animation: spinner-rotate 0.7s linear infinite;
   flex-shrink: 0;
@@ -243,7 +243,7 @@
   border: 1px solid var(--border-strong);
   border-radius: 6px;
   background: var(--surface);
-  color: var(--accent-hover);
+  color: var(--accent-text);
   font-size: 0.8rem;
   font-weight: 600;
   padding: 0 0.7rem;
@@ -251,7 +251,7 @@
 }
 
 .document-import-btn:hover:not(:disabled) {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
   background: var(--surface-accent);
 }
 
@@ -271,7 +271,7 @@
 }
 
 .audio-filter-toggle input {
-  accent-color: var(--accent);
+  accent-color: var(--accent-text);
 }
 
 .document-import-options {
@@ -351,7 +351,7 @@
   min-width: 0;
   padding: 0.45rem 0.75rem;
   font-size: 0.85rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
   outline: none;
   background: var(--surface-muted);
@@ -359,7 +359,7 @@
 }
 
 .document-filter-input:focus {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
   background: var(--surface);
 }
 
@@ -421,7 +421,7 @@
 
 .author-group-action:hover,
 .author-group-action:focus-visible {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
   background: var(--accent);
   color: var(--text-inverse);
   outline: none;
@@ -456,7 +456,7 @@
 }
 
 .document-item input[type="checkbox"] {
-  accent-color: var(--accent);
+  accent-color: var(--accent-text);
   width: 16px;
   height: 16px;
   cursor: pointer;
@@ -488,7 +488,7 @@
 .document-view-btn,
 .document-delete-btn {
   background: none;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
   padding: 0.2rem 0.6rem;
   font-size: 0.8rem;
@@ -499,8 +499,8 @@
 }
 
 .document-view-btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--accent-text);
+  color: var(--accent-text);
 }
 
 .document-delete-btn:hover:not(:disabled) {
@@ -521,7 +521,7 @@
 .clear-filters {
   background: none;
   border: none;
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: 0.8rem;
   cursor: pointer;
   padding: 0.25rem 0;
@@ -546,6 +546,7 @@
   align-items: center;
   gap: 0.35rem;
   background: var(--surface-accent);
+  border: 1px solid var(--accent-border);
   color: var(--accent-strong);
   padding: 0.25rem 0.6rem;
   border-radius: 6px;
@@ -582,7 +583,7 @@
 }
 
 .result-card:hover:not(.result-card-disabled) {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
   box-shadow: 0 2px 8px var(--shadow-accent-soft);
 }
 
@@ -657,7 +658,7 @@
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   background: var(--surface);
-  color: var(--accent-hover);
+  color: var(--accent-text);
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
@@ -665,7 +666,7 @@
 
 .empty-actions button:hover,
 .empty-actions button:focus-visible {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
   background: var(--surface-accent);
   outline: none;
 }
@@ -727,7 +728,7 @@
   width: 2.35rem;
   height: 2.35rem;
   padding: 0;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
   background: var(--surface);
   color: var(--accent-strong);
@@ -772,8 +773,8 @@
 
 .theme-toggle-btn:hover,
 .theme-toggle-btn:focus-visible {
-  border-color: var(--accent);
-  color: var(--accent-hover);
+  border-color: var(--accent-text);
+  color: var(--accent-text);
   background: var(--surface-accent);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
@@ -784,7 +785,7 @@
   align-items: center;
   justify-content: center;
   background: none;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
   padding: 0.5rem 1rem;
   font-size: 0.9rem;
@@ -795,8 +796,8 @@
 }
 
 .back-button:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--accent-text);
+  color: var(--accent-text);
 }
 
 .find-btn {
@@ -805,7 +806,7 @@
   justify-content: center;
   min-height: 2.35rem;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
   padding: 0.5rem 1rem;
   font-size: 0.9rem;
@@ -816,8 +817,8 @@
 }
 
 .find-btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--accent-text);
+  color: var(--accent-text);
 }
 
 .find-btn:disabled {
@@ -871,7 +872,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 0 0 10px 10px;
   background: var(--surface);
   box-shadow: 0 2px 8px var(--shadow-soft);
@@ -882,7 +883,7 @@
   min-width: 0;
   padding: 0.45rem 0.75rem;
   font-size: 0.9rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
   outline: none;
   background: var(--surface-subtle);
@@ -890,7 +891,7 @@
 }
 
 .find-input:focus {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
   background: var(--surface);
 }
 
@@ -906,7 +907,7 @@
   min-width: 2.25rem;
   min-height: 2rem;
   background: none;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
   padding: 0;
   font-size: 0.75rem;
@@ -917,8 +918,8 @@
 }
 
 .find-nav-btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--accent-text);
+  color: var(--accent-text);
 }
 
 .find-nav-btn:disabled {
@@ -1201,7 +1202,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   width: 2.35rem;
   height: 2.35rem;
   flex: 0 0 auto;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
   background: var(--surface);
   color: var(--text-body);
@@ -1213,8 +1214,8 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 
 .audio-icon-btn:hover:not(:disabled),
 .audio-icon-btn:focus-visible {
-  border-color: var(--accent);
-  color: var(--accent-hover);
+  border-color: var(--accent-text);
+  color: var(--accent-text);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
@@ -1225,7 +1226,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 }
 
 .audio-primary-btn {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
   background: var(--accent);
   color: var(--text-inverse);
 }
@@ -1237,8 +1238,8 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 }
 
 .audio-menu-btn-open {
-  border-color: var(--accent);
-  color: var(--accent-hover);
+  border-color: var(--accent-text);
+  color: var(--accent-text);
 }
 
 .audio-save-spinner {
@@ -1539,6 +1540,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   margin-bottom: 1.5rem;
   padding: 0.3rem;
   background: var(--app-bg-alt);
+  border: 1px solid var(--border);
   border-radius: 12px;
 }
 
@@ -1566,7 +1568,8 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 
 .tab-nav-item-active {
   background: var(--surface-strong);
-  color: var(--accent-hover);
+  color: var(--accent-text);
+  outline: 1px solid var(--accent-border);
   box-shadow: 0 1px 3px var(--shadow-soft);
 }
 
@@ -1687,6 +1690,15 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 
 .panel-toggle:hover {
   background: var(--app-bg-alt);
+}
+
+.panel-toggle:focus-visible,
+.author-group-toggle:focus-visible,
+.clear-filters:focus-visible,
+.filter-tag-remove:focus-visible,
+.find-close:focus-visible {
+  outline: 3px solid var(--shadow-focus);
+  outline-offset: 2px;
 }
 
 .panel-title {

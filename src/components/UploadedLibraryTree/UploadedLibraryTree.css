@@ -19,7 +19,7 @@
   gap: 0.5rem;
   padding: 0;
   background: var(--surface-muted);
-  border-top: 1px solid var(--surface-hover);
+  border-top: 1px solid var(--border);
 }
 
 .uploaded-library-toolbar:hover {
@@ -78,15 +78,15 @@
 }
 
 .uploaded-library-edit-btn[aria-pressed="true"] {
-  border-color: var(--accent);
-  background: var(--surface);
+  border-color: var(--accent-text);
+  background: var(--surface-accent);
   color: var(--accent-strong);
 }
 
 .uploaded-library-edit-btn:hover:not(:disabled),
 .uploaded-library-actions button:hover:not(:disabled),
 .uploaded-library-move select:hover:not(:disabled) {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
 }
 
 .uploaded-library-edit-btn:disabled,
@@ -103,7 +103,7 @@
   padding-top: 0.65rem;
   padding-bottom: 0.65rem;
   background: var(--surface);
-  border-bottom: 1px solid var(--surface-hover);
+  border-bottom: 1px solid var(--border);
 }
 
 .uploaded-library-action-group {
@@ -241,6 +241,11 @@
   background: var(--surface-hover);
 }
 
+.uploaded-library-item[data-selected] .uploaded-library-content {
+  background: var(--surface-accent);
+  box-shadow: inset 3px 0 0 var(--accent-text);
+}
+
 .uploaded-library-row {
   display: flex;
   align-items: center;
@@ -266,7 +271,7 @@
   width: 1.35rem;
   height: 1.35rem;
   place-items: center;
-  border: none;
+  border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
   color: var(--text-muted);
@@ -298,7 +303,7 @@
   display: block;
   width: 100%;
   padding: 0.1rem 0.15rem;
-  border: none;
+  border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
   color: inherit;
@@ -316,6 +321,7 @@
 .uploaded-library-name-button:hover,
 .uploaded-library-name-button:focus-visible {
   color: var(--accent-strong);
+  background: var(--surface-accent);
   outline: none;
   text-decoration: none;
 }
@@ -331,13 +337,13 @@
   width: 1rem;
   height: 1rem;
   margin: 0;
-  accent-color: var(--accent);
+  accent-color: var(--accent-text);
   cursor: pointer;
 }
 
 .uploaded-library-opening {
   flex: 0 0 auto;
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: 0.75rem;
   font-weight: 600;
 }
@@ -349,7 +355,7 @@
   border: 1px solid var(--border-strong);
   border-radius: 5px;
   background: var(--surface);
-  color: var(--accent-hover);
+  color: var(--accent-text);
   font-size: 0.72rem;
   font-weight: 700;
   cursor: pointer;
@@ -357,7 +363,7 @@
 }
 
 .uploaded-library-row-action:hover:not(:disabled) {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
   background: var(--surface-accent);
 }
 

@@ -16,7 +16,7 @@
   max-height: calc(100vh - 2rem);
   overflow: auto;
   padding: 1rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 10px;
   background: var(--surface);
   color: var(--text-heading);
@@ -77,14 +77,14 @@
 
 .app-dialog-cancel:hover:not(:disabled),
 .app-dialog-cancel:focus-visible {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--accent-text);
+  color: var(--accent-text);
   outline: none;
 }
 
 .app-dialog-submit:hover:not(:disabled),
 .app-dialog-submit:focus-visible {
-  border-color: var(--accent-hover);
+  border-color: var(--accent-text);
   background: var(--accent-hover);
   outline: none;
 }
