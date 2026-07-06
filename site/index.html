@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme-choice="system">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -20,25 +20,55 @@
           <img src="assets/papercut-icon.png" alt="" width="36" height="36">
           <span>Papercut</span>
         </a>
-        <details class="nav-menu">
-          <summary aria-label="Toggle navigation" aria-expanded="false"><span class="nav-menu-icon" aria-hidden="true">
-              <svg class="nav-menu-icon-open" viewBox="0 0 20 20" focusable="false">
-                <path d="M4 6h12M4 10h12M4 14h12" />
+        <div class="header-actions">
+          <details class="nav-menu">
+            <summary aria-label="Toggle navigation" aria-expanded="false"><span class="nav-menu-icon" aria-hidden="true">
+                <svg class="nav-menu-icon-open" viewBox="0 0 20 20" focusable="false">
+                  <path d="M4 6h12M4 10h12M4 14h12" />
+                </svg>
+                <svg class="nav-menu-icon-close" viewBox="0 0 20 20" focusable="false">
+                  <path d="M5 12l5-5 5 5" />
+                </svg>
+              </span></summary>
+            <nav class="nav" aria-label="Main navigation">
+              <a href="#preview-title">Demo</a>
+              <a href="#features-title">Features</a>
+              <a href="#privacy-title">Privacy</a>
+              <a href="#use-cases-title">Use Cases</a>
+              <a href="#downloads-title">Download</a>
+              <a href="#install-notes-title">FAQ</a>
+              <a href="#contact-title">Contact</a>
+            </nav>
+          </details>
+
+          <button class="theme-toggle" type="button" aria-label="Theme: Use system theme. Switch to light theme." title="Theme: Use system theme. Click for light theme.">
+            <span class="theme-toggle-icon theme-toggle-icon-system" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M4 5.75A2.75 2.75 0 0 1 6.75 3h10.5A2.75 2.75 0 0 1 20 5.75v7.5A2.75 2.75 0 0 1 17.25 16H6.75A2.75 2.75 0 0 1 4 13.25v-7.5Z" />
+                <path d="M9.25 20h5.5" />
+                <path d="M12 16v4" />
               </svg>
-              <svg class="nav-menu-icon-close" viewBox="0 0 20 20" focusable="false">
-                <path d="M5 12l5-5 5 5" />
+            </span>
+            <span class="theme-toggle-icon theme-toggle-icon-light" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2.75v2.5" />
+                <path d="M12 18.75v2.5" />
+                <path d="m5.46 5.46 1.77 1.77" />
+                <path d="m16.77 16.77 1.77 1.77" />
+                <path d="M2.75 12h2.5" />
+                <path d="M18.75 12h2.5" />
+                <path d="m5.46 18.54 1.77-1.77" />
+                <path d="m16.77 7.23 1.77-1.77" />
               </svg>
-            </span></summary>
-          <nav class="nav" aria-label="Main navigation">
-            <a href="#preview-title">Demo</a>
-            <a href="#features-title">Features</a>
-            <a href="#privacy-title">Privacy</a>
-            <a href="#use-cases-title">Use Cases</a>
-            <a href="#downloads-title">Download</a>
-            <a href="#install-notes-title">FAQ</a>
-            <a href="#contact-title">Contact</a>
-          </nav>
-        </details>
+            </span>
+            <span class="theme-toggle-icon theme-toggle-icon-dark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M19.15 15.4A7.45 7.45 0 0 1 8.6 4.85 8.3 8.3 0 1 0 19.15 15.4Z" />
+              </svg>
+            </span>
+          </button>
+        </div>
       </header>
 
       <main id="main-content">
@@ -55,10 +85,10 @@
             <a class="button-secondary" href="https://github.com/muhannadnouri/papercut.io">View on GitHub</a>
           </div>
           <ul class="intro-trust" aria-label="Papercut trust signals">
-            <li>Offline-First Library</li>
-            <li>Local AI Audiobooks</li>
-            <li>No Login Required</li>
-            <li>Desktop & Mobile</li>
+            <li>📚 Offline-First Library</li>
+            <li>🎧 Local AI Audiobooks</li>
+            <li>🔒 No Login Required</li>
+            <li>💻 Desktop & Mobile</li>
           </ul>
         </section>
 
@@ -537,33 +567,18 @@
               <label>Do not fill this out if you are human: <input name="bot-field" autocomplete="off"></label>
             </p>
 
-            <fieldset class="contact-reasons">
-              <legend>Choose a topic</legend>
-              <label>
-                <input type="radio" name="reason" value="Bug or issue" required>
-                <span>Bug</span>
-              </label>
-              <label>
-                <input type="radio" name="reason" value="Language request">
-                <span>Language</span>
-              </label>
-              <label>
-                <input type="radio" name="reason" value="Voice or model request">
-                <span>Voice/Model</span>
-              </label>
-              <label>
-                <input type="radio" name="reason" value="Help">
-                <span>Help</span>
-              </label>
-              <label>
-                <input type="radio" name="reason" value="Feature idea">
-                <span>Feature</span>
-              </label>
-              <label>
-                <input type="radio" name="reason" value="Other">
-                <span>Other</span>
-              </label>
-            </fieldset>
+            <label class="contact-topic">
+              <span>Choose a topic <small class="required-mark" aria-hidden="true">*</small></span>
+              <select name="reason" required>
+                <option value="">Select a topic</option>
+                <option value="Bug or issue">Bug</option>
+                <option value="Language request">Language</option>
+                <option value="Voice or model request">Voice/Model</option>
+                <option value="Help">Help</option>
+                <option value="Feature idea">Feature</option>
+                <option value="Other">Other</option>
+              </select>
+            </label>
 
             <fieldset class="contact-subtopics" data-topic-panel="bug" hidden>
               <legend>Where is the bug?</legend>
@@ -607,31 +622,34 @@
             <div class="contact-fields">
               <label>
                 <span>Name <small>optional</small></span>
-                <input type="text" name="name" autocomplete="name">
+                <input type="text" name="name" autocomplete="name" placeholder="Name / Handle">
               </label>
               <label>
-                <span>Email</span>
-                <input type="email" name="email" autocomplete="email" required>
+                <span>Email <small class="required-mark" aria-hidden="true">*</small></span>
+                <input type="email" name="email" autocomplete="email" placeholder="you@example.com" required>
               </label>
               <label class="contact-full">
-                <span>Subject</span>
-                <input type="text" name="subject_text" maxlength="120" required>
+                <span>Subject <small class="required-mark" aria-hidden="true">*</small></span>
+                <input type="text" name="subject_text" maxlength="120" placeholder="Email Subject" required>
               </label>
               <label class="contact-full">
-                <span>Message</span>
-                <textarea name="message" rows="6" required></textarea>
+                <span>Message <small class="required-mark" aria-hidden="true">*</small></span>
+                <textarea name="message" rows="6" placeholder="What happened, what you expected, or what you would like to see." required></textarea>
               </label>
             </div>
 
             <div class="contact-submit">
               <button type="submit">Send</button>
-              <p>Topic details are included with your submission.</p>
+              <div class="contact-submit-notes">
+                <p><span aria-hidden="true">*</span> Required</p>
+                <p>Topic details are included with your submission.</p>
+              </div>
             </div>
           </form>
         </section>
 
         <footer class="site-footer">
-          <p class="footer-privacy">Open source. Private by design.</p>
+          <p class="footer-privacy">Open Source 🧩 · No Subscriptions 💳✂️</p>
           <p class="footer-meta">
             &copy; 2026 Muhannad Nouri &middot;
             <a href="https://github.com/muhannadnouri/papercut.io/blob/main/LICENSE.md">MIT License</a>
@@ -673,6 +691,41 @@
         menu.querySelectorAll('a').forEach((link) => {
           link.addEventListener('click', closeMenu)
         })
+      })()
+
+      ;(() => {
+        const root = document.documentElement
+        const button = document.querySelector('.theme-toggle')
+        if (!button) return
+
+        const options = [
+          { choice: 'system', label: 'Use system theme', nextLabel: 'light theme' },
+          { choice: 'light', label: 'Light theme', nextLabel: 'dark theme' },
+          { choice: 'dark', label: 'Dark theme', nextLabel: 'system theme' },
+        ]
+
+        let index = 0
+
+        const applyTheme = () => {
+          const current = options[index]
+          root.dataset.themeChoice = current.choice
+
+          if (current.choice === 'system') {
+            root.removeAttribute('data-theme')
+          } else {
+            root.dataset.theme = current.choice
+          }
+
+          button.setAttribute('aria-label', `Theme: ${current.label}. Switch to ${current.nextLabel}.`)
+          button.setAttribute('title', `Theme: ${current.label}. Click for ${current.nextLabel}.`)
+        }
+
+        button.addEventListener('click', () => {
+          index = (index + 1) % options.length
+          applyTheme()
+        })
+
+        applyTheme()
       })()
 
       ;(() => {
@@ -728,9 +781,7 @@
 
         form.addEventListener('submit', syncSubject)
         subjectText.addEventListener('input', syncSubject)
-        form.querySelectorAll('[name="reason"]').forEach((input) => {
-          input.addEventListener('change', syncPanels)
-        })
+        form.querySelector('[name="reason"]')?.addEventListener('change', syncPanels)
         form.querySelectorAll('[name="bug_area"]').forEach((input) => {
           input.addEventListener('change', syncPanels)
         })
