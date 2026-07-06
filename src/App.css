@@ -673,13 +673,10 @@
 
 .doc-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
-  grid-template-areas:
-    "title title"
-    "back controls";
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "back controls";
   align-items: center;
   gap: 0.75rem 1rem;
-  text-align: center;
   margin-bottom: 2rem;
   min-width: 0;
   overflow: visible;
@@ -690,14 +687,6 @@
   grid-area: back;
   justify-self: start;
   min-width: 0;
-}
-
-.header-center {
-  grid-area: title;
-  justify-self: center;
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
 }
 
 .header-right {
@@ -1496,24 +1485,34 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
     min-height: 2.75rem;
   }
 
-  .documents-list-header {
+  .documents-panel .documents-list-header {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
     padding: 0.65rem;
   }
 
-  .documents-list-header .document-filter-input {
-    flex-basis: 100%;
+  .documents-panel .documents-list-header .document-filter-input {
+    grid-column: 1 / -1;
   }
 
-  .document-import-menu {
+  .documents-panel .document-import-menu {
+    grid-column: 1;
     width: auto;
   }
 
-  .document-import-btn {
+  .documents-panel .document-import-btn {
     width: auto;
     min-height: 2.25rem;
   }
 
-  .document-import-options {
+  .documents-panel .audio-filter-toggle {
+    grid-column: 2;
+    justify-self: end;
+    min-height: 2.25rem;
+  }
+
+  .documents-panel .document-import-options {
     right: auto;
     left: 0;
     min-width: 0;
@@ -1594,17 +1593,6 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 
 .tab-panel {
   display: block;
-}
-
-/* Document title in the reader header (single-line, truncates). */
-.doc-title {
-  font-size: 1.25rem;
-  display: block;
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* Mobile: tab bar docks to the bottom, thumb-reachable. */
