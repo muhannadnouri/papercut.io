@@ -112,11 +112,11 @@ function searchOpenTargetForResult(result: SearchResult): SearchOpenTarget | und
   return hash || text ? { hash, text } : undefined
 }
 
-// Quoted searches use Pagefind/SQLite as broad candidate finders, then verify
-// the exact phrase against source text. Provider section counts are therefore
-// useful for unquoted searches, but misleading as "exact" counts.
 function resultMeta(result: SearchResult, exactPhrase: boolean): string | null {
-  if (exactPhrase) return null
+  if (exactPhrase) {
+    const count = result.matchCount
+    return count ? count + ' exact match' + (count === 1 ? '' : 'es') : null
+  }
 
   const parts = [
     result.sub_results?.[0]?.title

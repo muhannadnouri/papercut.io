@@ -68,6 +68,28 @@ export async function docContainsAllPhrases(
   return phrases.every((p) => lower.includes(p))
 }
 
+// Counts verified source-text occurrences after HTML/entity normalization, so
+// exact search counts match what the reader can find in rendered documents.
+export async function countPhraseOccurrences(
+  url: string,
+  phrases: string[],
+  loadSource?: DocumentSourceLoader,
+): Promise<number> {
+  const { lower } = await fetchDocText(url, loadSource)
+  if (lower.length === 0) return 0
+
+  let count = 0
+  for (const phrase of phrases) {
+    if (phrase.length === 0) continue
+    let index = lower.indexOf(phrase)
+    while (index !== -1) {
+      count += 1
+      index = lower.indexOf(phrase, index + phrase.length)
+    }
+  }
+  return count
+}
+
 export async function buildPhraseExcerpt(
   url: string,
   phrases: string[],

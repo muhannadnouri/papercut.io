@@ -4,6 +4,7 @@ import { searchUploadedDocuments, type UploadedDocumentSearchResult } from '../u
 import { normalizeForPhraseMatch, escapeHtml } from '../utils/textUtils'
 import {
   buildPhraseExcerpt,
+  countPhraseOccurrences,
   docContainsAllPhrases,
   extractQuotedPhrases,
   stripQuotes,
@@ -96,12 +97,15 @@ export function useSearch(
         )
         if (latestSearchKeyRef.current !== searchKey) return
         filtered = data.filter((_, i) => verdicts[i])
-        const excerpts = await Promise.all(
-          filtered.map((d) => buildPhraseExcerpt(d.url, phrases, options.loadDocumentSource)),
-        )
+        const [excerpts, matchCounts] = await Promise.all([
+          Promise.all(filtered.map((d) => buildPhraseExcerpt(d.url, phrases, options.loadDocumentSource))),
+          Promise.all(filtered.map((d) => countPhraseOccurrences(d.url, phrases, options.loadDocumentSource))),
+        ])
         if (latestSearchKeyRef.current !== searchKey) return
         filtered = filtered.map((d, i) =>
-          excerpts[i] ? { ...d, customExcerpt: excerpts[i] ?? undefined } : d,
+          excerpts[i]
+            ? { ...d, customExcerpt: excerpts[i] ?? undefined, matchCount: matchCounts[i] }
+            : { ...d, matchCount: matchCounts[i] },
         )
       }
 
