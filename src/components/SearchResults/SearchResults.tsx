@@ -2,8 +2,6 @@ import type { SearchOpenTarget, SearchResult } from '../../types/search'
 
 interface LastSearchInfo {
   phrases: string[]
-  candidateCount: number
-  resultCount: number
 }
 
 interface SearchResultsProps {

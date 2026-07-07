@@ -12,8 +12,6 @@ import {
 
 interface LastSearchInfo {
   phrases: string[]
-  candidateCount: number
-  resultCount: number
 }
 
 interface UseSearchOptions {
@@ -28,6 +26,7 @@ interface UseSearchReturn {
   submittedQuery: string
   lastSearchInfo: LastSearchInfo | null
   handleSearch: (searchQuery: string) => void
+  rerunSearch: () => void
   submitSearch: () => void
   removeResultsForUrl: (url: string) => void
 }
@@ -44,6 +43,7 @@ export function useSearch(
 
   const queryRef = useRef(query)
   queryRef.current = query
+  const submittedQueryRef = useRef('')
   const latestSearchKeyRef = useRef<string>('')
 
   const performSearch = useCallback(async (rawQuery: string) => {
@@ -54,6 +54,7 @@ export function useSearch(
     const scopeList = hasScope ? Array.from(scopeUrls ?? []).sort() : undefined
     const searchKey = normalized + '\0' + (scopeList?.join('\0') ?? '')
     latestSearchKeyRef.current = searchKey
+    submittedQueryRef.current = displayQuery
     setSubmittedQuery(displayQuery)
     if (normalized.length === 0) {
       setResults([])
@@ -107,8 +108,6 @@ export function useSearch(
       setResults(filtered)
       setLastSearchInfo({
         phrases: displayPhrases,
-        candidateCount: data.length,
-        resultCount: filtered.length,
       })
     } catch (err) {
       console.error('Search failed:', err)
@@ -137,11 +136,17 @@ export function useSearch(
     performSearch(queryRef.current)
   }, [performSearch])
 
+  const rerunSearch = useCallback(() => {
+    if (submittedQueryRef.current.trim().length > 0) {
+      performSearch(submittedQueryRef.current)
+    }
+  }, [performSearch])
+
   const removeResultsForUrl = useCallback((url: string) => {
     setResults((current) => current.filter((item) => item.url !== url))
   }, [])
 
-  return { query, results, loading, submittedQuery, lastSearchInfo, handleSearch, submitSearch, removeResultsForUrl }
+  return { query, results, loading, submittedQuery, lastSearchInfo, handleSearch, rerunSearch, submitSearch, removeResultsForUrl }
 }
 
 async function pagefindResultsInScope(

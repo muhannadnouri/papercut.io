@@ -225,9 +225,14 @@ function App() {
     submittedQuery,
     lastSearchInfo,
     handleSearch,
+    rerunSearch,
     submitSearch,
     removeResultsForUrl,
   } = useSearch(pagefindRef, { loadDocumentSource: loadHtmlDocument, scopeUrls: selectedFilters })
+
+  useEffect(() => {
+    rerunSearch()
+  }, [rerunSearch])
 
   const {
     showDocuments,
