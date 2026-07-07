@@ -40,13 +40,17 @@ export function SearchResults({
           {lastSearchInfo.phrases.length > 0 ? (
             <>
               {lastSearchInfo.resultCount} document{lastSearchInfo.resultCount === 1 ? '' : 's'} contain{lastSearchInfo.resultCount === 1 ? 's' : ''}{' '}
+              exact phrase{lastSearchInfo.phrases.length === 1 ? '' : 's'}{' '}
               {lastSearchInfo.phrases.map((p, i) => (
-                <span key={i} className="phrase-tag">&ldquo;{p}&rdquo;</span>
+                <span key={i} className="query-tag">&ldquo;{p}&rdquo;</span>
               ))}
               .
             </>
           ) : (
-            <>{lastSearchInfo.resultCount} document{lastSearchInfo.resultCount === 1 ? '' : 's'} matched &ldquo;{submittedQuery}&rdquo;.</>
+            <>
+              {lastSearchInfo.resultCount} document{lastSearchInfo.resultCount === 1 ? '' : 's'} matched terms{' '}
+              <span className="query-tag">&ldquo;{submittedQuery}&rdquo;</span>.
+            </>
           )}
         </div>
       )}
@@ -61,6 +65,7 @@ export function SearchResults({
       {filtered.map((result) => {
         const opening = openingDocumentUrl === result.url
         const disabled = openingDisabled || opening
+        const meta = resultMeta(result, Boolean(lastSearchInfo?.phrases.length))
         return (
           <button
             type="button"
@@ -70,9 +75,7 @@ export function SearchResults({
             onClick={() => { if (!disabled) onViewResult(result, searchOpenTargetForResult(result)) }}
           >
             <span className="result-title">{result.meta.title}{opening ? ' (Opening...)' : ''}</span>
-            <span className="result-meta">
-              {resultMeta(result, Boolean(lastSearchInfo?.phrases.length))}
-            </span>
+            {meta && <span className="result-meta">{meta}</span>}
             <span
               className="result-excerpt"
               dangerouslySetInnerHTML={{ __html: result.customExcerpt ?? result.excerpt }}
@@ -100,8 +103,8 @@ function searchOpenTargetForResult(result: SearchResult): SearchOpenTarget | und
 // Quoted searches use Pagefind/SQLite as broad candidate finders, then verify
 // the exact phrase against source text. Provider section counts are therefore
 // useful for unquoted searches, but misleading as "exact" counts.
-function resultMeta(result: SearchResult, exactPhrase: boolean): string {
-  if (exactPhrase) return 'Exact phrase match'
+function resultMeta(result: SearchResult, exactPhrase: boolean): string | null {
+  if (exactPhrase) return null
 
   const parts = [
     result.sub_results?.[0]?.title
