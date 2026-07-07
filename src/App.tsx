@@ -5,9 +5,9 @@ import {
   useMemo
 } from 'react'
 import './App.css'
-import papercutIcon from './assets/papercut-icon.png'
 import { usePagefind } from './hooks/usePagefind'
 import { useSearch } from './hooks/useSearch'
+import { AppHeader } from './components/AppHeader/AppHeader'
 import { SearchTab } from './components/SearchTab/SearchTab'
 import { LibraryTab } from './components/LibraryTab/LibraryTab'
 import { AudiobooksTab } from './components/AudiobooksTab/AudiobooksTab'
@@ -257,16 +257,7 @@ function App() {
 
   return (
     <div className="app">
-      <header className="header">
-        <div className="header-actions">
-          <ThemeToggle choice={theme.choice} onChange={theme.setChoice} />
-        </div>
-        <h1 className="app-title">
-          <img className="app-title-icon" src={papercutIcon} alt="" aria-hidden="true" />
-          <span>Papercut</span>
-        </h1>
-        <p className="app-subtitle">Search, Read, & Listen Offline</p>
-      </header>
+      <AppHeader actions={<ThemeToggle choice={theme.choice} onChange={theme.setChoice} />} />
 
       <TabNav
         active={activeTab}
