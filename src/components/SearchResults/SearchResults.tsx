@@ -30,16 +30,18 @@ export function SearchResults({
   const filtered = selectedFilters.size > 0
     ? results.filter((r) => selectedFilters.has(r.meta.title))
     : results
+  const hasFilters = selectedFilters.size > 0
+  const visibleCount = filtered.length
 
   return (
     <div className="results-container">
       {loading && <div className="search-loading">Searching...</div>}
 
-      {lastSearchInfo && !loading && submittedQuery.length > 0 && (
+      {lastSearchInfo && !loading && submittedQuery.length > 0 && visibleCount > 0 && (
         <div className="search-info">
           {lastSearchInfo.phrases.length > 0 ? (
             <>
-              {lastSearchInfo.resultCount} document{lastSearchInfo.resultCount === 1 ? '' : 's'} contain{lastSearchInfo.resultCount === 1 ? 's' : ''}{' '}
+              {visibleCount} {hasFilters ? 'filtered ' : ''}document{visibleCount === 1 ? '' : 's'} contain{visibleCount === 1 ? 's' : ''}{' '}
               exact phrase{lastSearchInfo.phrases.length === 1 ? '' : 's'}{' '}
               {lastSearchInfo.phrases.map((p, i) => (
                 <span key={i} className="query-tag">&ldquo;{p}&rdquo;</span>
@@ -48,7 +50,7 @@ export function SearchResults({
             </>
           ) : (
             <>
-              {lastSearchInfo.resultCount} document{lastSearchInfo.resultCount === 1 ? '' : 's'} matched terms{' '}
+              {visibleCount} {hasFilters ? 'filtered ' : ''}document{visibleCount === 1 ? '' : 's'} matched terms{' '}
               <span className="query-tag">&ldquo;{submittedQuery}&rdquo;</span>.
             </>
           )}
@@ -57,8 +59,20 @@ export function SearchResults({
 
       {submittedQuery.length > 0 && filtered.length === 0 && !loading && (
         <p className="no-results">
-          No documents found for &ldquo;{submittedQuery}&rdquo;
-          {selectedFilters.size > 0 && ' with the selected filters'}
+          {lastSearchInfo?.phrases.length ? (
+            <>
+              No {hasFilters ? 'filtered ' : ''}documents contain exact phrase{lastSearchInfo.phrases.length === 1 ? '' : 's'}{' '}
+              {lastSearchInfo.phrases.map((p, i) => (
+                <span key={i} className="query-tag">&ldquo;{p}&rdquo;</span>
+              ))}
+              .
+            </>
+          ) : (
+            <>
+              No {hasFilters ? 'filtered ' : ''}documents matched terms{' '}
+              <span className="query-tag">&ldquo;{submittedQuery}&rdquo;</span>.
+            </>
+          )}
         </p>
       )}
 
