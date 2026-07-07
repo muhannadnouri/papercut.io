@@ -396,8 +396,8 @@
   height: 2.35rem;
   padding: 0;
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  background: var(--surface);
+  border-radius: 6px;
+  background: var(--surface-muted);
   color: var(--accent-strong);
   cursor: pointer;
   line-height: 1;
@@ -451,7 +451,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: none;
+  background: var(--surface-muted);
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   padding: 0.5rem 1rem;
@@ -465,11 +465,13 @@
 .back-button:hover {
   border-color: var(--accent-text);
   color: var(--accent-text);
+  background: var(--surface-accent);
 }
 
 .back-button:focus-visible {
   border-color: var(--accent-text);
   color: var(--accent-text);
+  background: var(--surface-accent);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
@@ -479,7 +481,7 @@
   align-items: center;
   justify-content: center;
   min-height: 2.35rem;
-  background: var(--surface);
+  background: var(--surface-muted);
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   padding: 0.5rem 1rem;
@@ -493,11 +495,13 @@
 .find-btn:hover:not(:disabled) {
   border-color: var(--accent-text);
   color: var(--accent-text);
+  background: var(--surface-accent);
 }
 
 .find-btn:focus-visible {
   border-color: var(--accent-text);
   color: var(--accent-text);
+  background: var(--surface-accent);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
@@ -920,7 +924,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   flex: 0 0 auto;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
-  background: var(--surface);
+  background: var(--surface-muted);
   color: var(--text-body);
   cursor: pointer;
   touch-action: manipulation;
@@ -973,8 +977,8 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 }
 
 .audio-icon {
-  width: 1.05rem;
-  height: 1.05rem;
+  width: 1.18rem;
+  height: 1.18rem;
   fill: currentcolor;
 }
 
@@ -1228,7 +1232,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   padding: 0.3rem;
   background: var(--app-bg-alt);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 10px;
 }
 
 .tab-nav-item {
@@ -1240,7 +1244,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   gap: 0.45rem;
   padding: 0.6rem 0.9rem;
   border: none;
-  border-radius: 9px;
+  border-radius: 6px;
   background: transparent;
   color: var(--text-muted);
   font-size: 0.95rem;
@@ -1321,7 +1325,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
     min-height: 3.65rem;
     padding: 0.4rem 0.25rem;
     font-size: 0.75rem;
-    border-radius: 8px;
+    border-radius: 6px;
   }
 
   .tab-nav-item-active {
