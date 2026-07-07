@@ -757,6 +757,15 @@
   justify-content: center;
 }
 
+.header-control-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
 .header-controls-slot-disabled {
   pointer-events: none;
   opacity: 0.5;
@@ -885,7 +894,11 @@
 /* Larger touch targets for document-header buttons on mobile. */
 @media (max-width: 767px) {
   .doc-header {
+    grid-template-areas:
+      "back reader"
+      "audio audio";
     gap: 0.65rem 0.5rem;
+    align-items: start;
   }
 
   .header-actions {
@@ -911,7 +924,24 @@
   }
 
   .header-right {
-    max-width: 100%;
+    display: contents;
+  }
+
+  .header-control-group-reader {
+    grid-area: reader;
+    justify-self: end;
+  }
+
+  .header-control-group-audio {
+    grid-area: audio;
+    justify-self: end;
+    width: 100%;
+  }
+
+  .header-control-group-audio .audio-controls,
+  .header-control-group-audio .audio-compact-row {
+    width: 100%;
+    justify-content: flex-end;
   }
 }
 
@@ -1343,7 +1373,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   overflow: hidden;
   border: 1px solid var(--border-strong);
   border-radius: 10px;
-  background: var(--surface);
+  background: var(--surface-strong);
   color: var(--text-heading);
   box-shadow: 0 18px 40px var(--shadow-popover);
 }
@@ -1355,7 +1385,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   gap: 1rem;
   padding: 0.7rem 0.85rem;
   border-bottom: 1px solid var(--border);
-  background: var(--surface-muted);
+  background: var(--surface-panel-subtle);
   color: var(--text-body);
   font-size: 0.8rem;
   font-weight: 700;
@@ -1402,11 +1432,13 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   background: var(--surface-accent);
   color: var(--accent-ink);
   outline: none;
+  box-shadow: inset 3px 0 0 var(--accent-text);
 }
 
 .audio-chunk-item-current {
-  background: var(--surface-success-strong);
-  color: var(--success-ink);
+  background: var(--surface-accent);
+  color: var(--accent-ink);
+  box-shadow: inset 3px 0 0 var(--accent-text);
 }
 
 .audio-chunk-time,

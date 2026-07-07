@@ -149,23 +149,25 @@ export function DocumentViewer({
           <button className="back-button" onClick={onClose}>&larr; Back</button>
         </div>
         <div className="header-right">
-          {appControls}
           {headerControls && (
-            <div className={'header-controls-slot' + (loading ? ' header-controls-slot-disabled' : '')}>
+            <div className={'header-control-group header-control-group-audio header-controls-slot' + (loading ? ' header-controls-slot-disabled' : '')}>
               {headerControls}
             </div>
           )}
-          <ReaderSettings disabled={loading} {...readerSettingsProps} />
-          <button
-            className="find-btn"
-            disabled={loading || Boolean(loadError)}
-            onClick={() => {
-              setShowFind(true)
-              setTimeout(() => findInputRef.current?.focus(), 0)
-            }}
-          >
-            &#128269; Find
-          </button>
+          <div className="header-control-group header-control-group-reader">
+            {appControls}
+            <ReaderSettings disabled={loading} {...readerSettingsProps} />
+            <button
+              className="find-btn"
+              disabled={loading || Boolean(loadError)}
+              onClick={() => {
+                setShowFind(true)
+                setTimeout(() => findInputRef.current?.focus(), 0)
+              }}
+            >
+              &#128269; Find
+            </button>
+          </div>
         </div>
       </header>
 
