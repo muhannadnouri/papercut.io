@@ -497,7 +497,16 @@
   width: 1.6rem;
   height: 1.6rem;
   color: var(--accent-text);
-  font-size: 1rem;
+}
+
+.audiobooks-panel-icon {
+  width: 1.28rem;
+  height: 1.28rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .audiobooks-setup-disclosure-main {
@@ -528,6 +537,10 @@
 }
 
 .audiobooks-import-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
   min-height: 2.25rem;
   padding: 0 0.8rem;
   border: 1px solid var(--border-strong);
