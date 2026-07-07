@@ -10,7 +10,7 @@ import { usePagefind } from './hooks/usePagefind'
 import { useSearch } from './hooks/useSearch'
 import { SearchBar } from './components/SearchBar/SearchBar'
 import { SearchResults } from './components/SearchResults/SearchResults'
-import { DocumentsPanel } from './components/DocumentsPanel/DocumentsPanel'
+import { LibraryTab } from './components/LibraryTab/LibraryTab'
 import { DocumentViewer } from './components/DocumentViewer/DocumentViewer'
 import { TabNav, type AppTab } from './components/TabNav/TabNav'
 import { SearchScope } from './components/SearchScope/SearchScope'
@@ -209,6 +209,10 @@ function App() {
     await importAudiobookBundle(handleViewDocument)
   }, [handleViewDocument, importAudiobookBundle])
 
+  const handleToggleLibraryDocuments = useCallback(() => {
+    setShowDocuments((value) => !value)
+  }, [setShowDocuments])
+
   const handleDeleteUploadedDocument = useCallback(async (doc: DocumentInfo) => {
     if (doc.source !== 'upload') return
     const confirmed = await confirmDocumentAction({
@@ -310,51 +314,32 @@ function App() {
       )}
 
       {activeTab === 'library' && (
-        <section className="tab-panel" role="tabpanel" aria-label="Library" data-tab="library">
-          <DocumentsPanel
-            documentsLoading={documentsLoading}
-            showDocuments={showDocuments}
-            allDocuments={libraryDocuments}
-            audioSavedOnly={audioSavedOnly}
-            documentFilter={libraryDocumentFilter}
-            groupedDocs={libraryGroupedDocs}
-            docFilterLower={libraryDocFilterLower}
-            importOptions={[
-              {
-                id: 'html',
-                label: 'HTML',
-                detail: 'Import a local .html or .htm document',
-                statusLabel: documentImport.status === 'importing' && documentImport.message.includes('HTML') ? 'Importing HTML' : undefined,
-                disabled: documentImport.status === 'importing',
-                onSelect: handleImportHtmlDocument,
-              },
-              {
-                id: 'epub',
-                label: 'EPUB',
-                detail: 'Import a local .epub book',
-                statusLabel: documentImport.status === 'importing' && documentImport.message.includes('EPUB') ? 'Importing EPUB' : undefined,
-                disabled: documentImport.status === 'importing',
-                onSelect: handleImportEpubDocument,
-              },
-              // { id: 'pdf', label: 'PDF', detail: 'Import PDFs when text extraction support lands', future: true },
-            ]}
-            importStatuses={[documentImport]}
-            libraryOrganization={uploadedLibraryOrganization}
-            documentOpening={documentOpening}
-            openingDocumentUrl={documentLoad.status === 'loading' ? documentLoad.url : undefined}
-            collapsedAuthors={libraryCollapsedAuthors}
-            onToggleShow={() => setShowDocuments((v) => !v)}
-            onFilterChange={setLibraryDocumentFilter}
-            onAudioSavedOnlyChange={setAudioSavedOnly}
-            onCreateLibraryFolder={createLibraryFolder}
-            onDeleteDocument={handleDeleteUploadedDocument}
-            onDeleteLibraryFolder={deleteLibraryFolder}
-            onMoveLibraryDocuments={moveLibraryDocuments}
-            onRenameLibraryFolder={renameLibraryFolder}
-            onToggleAuthor={toggleLibraryAuthor}
-            onViewDocument={handleViewDocument}
-          />
-        </section>
+        <LibraryTab
+          documentsLoading={documentsLoading}
+          showDocuments={showDocuments}
+          allDocuments={libraryDocuments}
+          audioSavedOnly={audioSavedOnly}
+          documentFilter={libraryDocumentFilter}
+          groupedDocs={libraryGroupedDocs}
+          docFilterLower={libraryDocFilterLower}
+          documentImport={documentImport}
+          libraryOrganization={uploadedLibraryOrganization}
+          documentOpening={documentOpening}
+          openingDocumentUrl={documentLoad.status === 'loading' ? documentLoad.url : undefined}
+          collapsedAuthors={libraryCollapsedAuthors}
+          onToggleShow={handleToggleLibraryDocuments}
+          onFilterChange={setLibraryDocumentFilter}
+          onAudioSavedOnlyChange={setAudioSavedOnly}
+          onCreateLibraryFolder={createLibraryFolder}
+          onDeleteDocument={handleDeleteUploadedDocument}
+          onDeleteLibraryFolder={deleteLibraryFolder}
+          onMoveLibraryDocuments={moveLibraryDocuments}
+          onRenameLibraryFolder={renameLibraryFolder}
+          onToggleAuthor={toggleLibraryAuthor}
+          onImportHtmlDocument={handleImportHtmlDocument}
+          onImportEpubDocument={handleImportEpubDocument}
+          onViewDocument={handleViewDocument}
+        />
       )}
 
       {activeTab === 'audiobooks' && (
