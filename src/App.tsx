@@ -10,6 +10,7 @@ import { usePagefind } from './hooks/usePagefind'
 import { useSearch } from './hooks/useSearch'
 import { SearchTab } from './components/SearchTab/SearchTab'
 import { LibraryTab } from './components/LibraryTab/LibraryTab'
+import { AudiobooksTab } from './components/AudiobooksTab/AudiobooksTab'
 import { DocumentViewer } from './components/DocumentViewer/DocumentViewer'
 import { TabNav, type AppTab } from './components/TabNav/TabNav'
 import { ThemeToggle } from './components/ThemeToggle/ThemeToggle'
@@ -23,7 +24,6 @@ import { clearPhraseFetchCache } from './utils/phraseSearch'
 import { isDebugEnabled, setDebugEnabled } from './utils/debugFlags'
 import { AudioControls } from './tts/components/AudioControls'
 import { TtsDiagnosticsPanel } from './tts/components/TtsDiagnosticsPanel'
-import { AudiobooksPanel } from './tts/components/AudiobooksPanel'
 import { getImportedAudiobookSource } from './tts/api/nativeTts'
 import { getUserUploads, isUserUploadUrl, type UserUploadDocument } from './tts/storage/UserUploads'
 import { useAudiobookManager } from './tts/hooks/useAudiobookManager'
@@ -332,24 +332,18 @@ function App() {
       )}
 
       {activeTab === 'audiobooks' && (
-        <section className="tab-panel" role="tabpanel" aria-label="Audiobooks" data-tab="audiobooks">
-          <AudiobooksPanel
-            {...audiobooksPanelProps}
-            audioSetup={{
-              ...audioSetupProps,
-              debugEnabled: ttsDiagnosticsEnabled,
-              onDiagnosticsChange: handleTtsDiagnosticsChange,
-            }}
-            importState={audiobookImport}
-            documentOpening={documentOpening}
-            onImportAudiobook={handleImportAudiobook}
-            onOpenSaved={(record) => {
-              void openSavedAudiobook(record, handleViewDocument)
-            }}
-          />
-
-          <TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />
-        </section>
+        <AudiobooksTab
+          audiobooksPanelProps={audiobooksPanelProps}
+          audioSetupProps={audioSetupProps}
+          audiobookImport={audiobookImport}
+          documentOpening={documentOpening}
+          ttsDiagnosticsEnabled={ttsDiagnosticsEnabled}
+          onDiagnosticsChange={handleTtsDiagnosticsChange}
+          onImportAudiobook={handleImportAudiobook}
+          onOpenSaved={(record) => {
+            void openSavedAudiobook(record, handleViewDocument)
+          }}
+        />
       )}
       {documentConfirmationDialog}
       {audiobook.confirmationDialog}
