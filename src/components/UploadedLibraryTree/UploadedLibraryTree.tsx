@@ -6,6 +6,7 @@ import {
   type UploadedLibraryOrganization,
   isUploadedDocumentUrl,
 } from '../../uploads/DocumentUploads'
+import { useAppConfirmation } from '../AppDialog/useAppConfirmation'
 import { TextInputDialog } from '../TextInputDialog/TextInputDialog'
 import './UploadedLibraryTree.css'
 
@@ -75,6 +76,7 @@ export function UploadedLibraryTree({
   const [deleteInfoOpen, setDeleteInfoOpen] = useState(false)
   const [actionError, setActionError] = useState('')
   const [busy, setBusy] = useState(false)
+  const { confirm: confirmLibraryAction, dialog: libraryConfirmationDialog } = useAppConfirmation()
   const filterMode = mode === 'filter'
   const organizing = mode === 'library' && editMode
   const { nodes, folders, nodeByKey, folderOptions } = useMemo(
@@ -193,11 +195,18 @@ export function UploadedLibraryTree({
     if (!selectedSingleFolder) return
     if (!canDeleteSelectedFolder || !selectedFolder) return
     const folder = selectedFolder
-    const confirmed = window.confirm('Delete this empty folder? Documents inside folders are never deleted by this action.')
-    if (!confirmed) return
     if (!onDeleteFolder) return
     setActionError('')
     void (async () => {
+      const confirmed = await confirmLibraryAction({
+        title: 'Delete empty folder?',
+        description: 'Documents inside folders are never deleted by this action.',
+        details: [{ label: 'Folder', value: folder.title }],
+        confirmLabel: 'Delete Folder',
+        tone: 'danger',
+      })
+      if (!confirmed) return
+
       try {
         await runEditAction(() => onDeleteFolder(folder.id))
       } catch (err) {
@@ -391,6 +400,7 @@ export function UploadedLibraryTree({
           onSubmit={submitFolderDialog}
         />
       )}
+      {libraryConfirmationDialog}
     </section>
   )
 }

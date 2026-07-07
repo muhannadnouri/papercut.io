@@ -18,8 +18,8 @@ import {
   type AudiobookDownloadRecord,
 } from '../storage/AudiobookDownloadQueue'
 import { getAudioPreferences, saveAudioPreferences } from '../storage/audioPreferences'
-import { FALLBACK_TTS_MODELS, getTtsModel, suggestTtsModel } from '../models'
-import { formatAudiobookExportMessage, formatStorageSize } from '../utils/format'
+import { FALLBACK_TTS_MODELS, getTtsModel, getTtsVoiceName, suggestTtsModel } from '../models'
+import { formatAudiobookExportMessage, formatDuration, formatSpeedLabel, formatStorageSize } from '../utils/format'
 import {
   deleteNativeAudiobook,
   exportNativeAudiobook,
@@ -39,6 +39,7 @@ import { isUserUploadUrl, removeUserUpload, upsertUserUpload, type UserUploadDoc
 import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 import { useAudiobookCache } from './useAudiobookCache'
 import { useTtsPlayer } from './useTtsPlayer'
+import { useAppConfirmation } from '../../components/AppDialog/useAppConfirmation'
 
 type ImportedHighlightStatus = 'idle' | 'preparing' | 'ready' | 'unavailable'
 
@@ -82,6 +83,7 @@ export function useAudiobookManager({
   const [audiobookExport, setAudiobookExport] = useState<{ id: string; status: 'exporting' | 'exported' | 'cancelled' | 'error'; message: string } | null>(null)
   const [audiobookDelete, setAudiobookDelete] = useState<{ id: string; status: 'deleting' | 'deleted' | 'error'; message: string } | null>(null)
   const [audiobookImport, setAudiobookImport] = useState<{ status: 'idle' | 'importing' | 'imported' | 'cancelled' | 'error'; message: string }>({ status: 'idle', message: '' })
+  const { confirm: confirmAudiobookAction, dialog: confirmationDialog } = useAppConfirmation()
   const ttsModels = ttsCapabilities?.models.length ? ttsCapabilities.models : FALLBACK_TTS_MODELS
   const selectedTtsModel = getTtsModel(ttsModels, ttsModelId)
   const pendingDownloadPersistRef = useRef<AudiobookDownloadInput | null>(null)
@@ -588,18 +590,36 @@ export function useAudiobookManager({
 
   const handleSaveAudiobook = useCallback(async () => {
     if (!selectedDoc) return
+    const title = getDocumentTitle(selectedDoc)
+    const chunks = await getSelectedAudiobookSaveChunks()
+    const textPreprocessorName = selectedTtsModel.textPreprocessors.find((item) => item.id === ttsTextPreprocessor)?.name ?? ttsTextPreprocessor
+    const confirmed = await confirmAudiobookAction({
+      title: 'Save audiobook?',
+      description: 'Review these settings before Papercut starts generating and saving audio.',
+      details: [
+        { label: 'Document', value: title },
+        { label: 'Model', value: selectedTtsModel.name },
+        { label: 'Voice', value: getTtsVoiceName(ttsModels, ttsModelId, ttsVoice) },
+        { label: 'Speed', value: formatSpeedLabel(ttsSpeed) },
+        { label: 'Processing', value: textPreprocessorName },
+        { label: 'Threads', value: ttsThreadCount },
+        { label: 'Chunks', value: chunks.filter((chunk) => chunk.text.trim()).length },
+      ],
+      confirmLabel: 'Start Saving',
+    })
+    if (!confirmed) return
 
     startAudiobookSave({
       documentUrl: selectedDoc,
-      title: getDocumentTitle(selectedDoc),
+      title,
       modelId: ttsModelId,
       textPreprocessor: ttsTextPreprocessor,
-      chunks: await getSelectedAudiobookSaveChunks(),
+      chunks,
       voice: ttsVoice,
       speed: ttsSpeed,
       dtype: ttsDtype,
     })
-  }, [getDocumentTitle, getSelectedAudiobookSaveChunks, selectedDoc, startAudiobookSave, ttsDtype, ttsModelId, ttsSpeed, ttsTextPreprocessor, ttsVoice])
+  }, [confirmAudiobookAction, getDocumentTitle, getSelectedAudiobookSaveChunks, selectedDoc, selectedTtsModel.name, selectedTtsModel.textPreprocessors, startAudiobookSave, ttsDtype, ttsModelId, ttsModels, ttsSpeed, ttsTextPreprocessor, ttsThreadCount, ttsVoice])
 
   const handleResumeAudiobookDownload = useCallback(async (record: AudiobookDownloadRecord) => {
     startAudiobookSave({
@@ -676,11 +696,21 @@ export function useAudiobookManager({
 
   const handleDeleteSavedAudiobook = useCallback(async (record: SavedAudiobookRecord) => {
     const deleteUserUpload = isUserUploadUrl(record.documentUrl)
-    const confirmed = window.confirm(
-      deleteUserUpload
-        ? 'Delete this saved audiobook and imported User Upload from this device?'
-        : 'Delete this saved audiobook audio from this device?',
-    )
+    const duration = record.audioDurationSec ? formatDuration(record.audioDurationSec) : null
+    const storage = formatStorageSize(record.wavBytes)
+    const confirmed = await confirmAudiobookAction({
+      title: deleteUserUpload ? 'Delete saved audiobook and import?' : 'Delete saved audiobook?',
+      description: deleteUserUpload
+        ? 'This removes the generated audio and imported audiobook document from this device.'
+        : 'This removes the generated audio from this device.',
+      details: [
+        { label: 'Title', value: record.title },
+        ...(duration ? [{ label: 'Duration', value: duration }] : []),
+        ...(storage ? [{ label: 'Storage', value: storage }] : []),
+      ],
+      confirmLabel: 'Delete Audiobook',
+      tone: 'danger',
+    })
     if (!confirmed) return
 
     setAudiobookDelete({ id: record.id, status: 'deleting', message: 'Deleting saved audio' })
@@ -717,7 +747,7 @@ export function useAudiobookManager({
         message: err instanceof Error ? err.message : String(err),
       })
     }
-  }, [onClearDocument, onUserUploadsChanged, resetSelectedAudiobookState, selectedDoc, stopTts])
+  }, [confirmAudiobookAction, onClearDocument, onUserUploadsChanged, resetSelectedAudiobookState, selectedDoc, stopTts])
 
   const importAudiobook = useCallback(async (openDocument: (url: string) => Promise<void>) => {
     setAudiobookImport({ status: 'importing', message: '⏳ Importing Audiobook Bundle...' })
@@ -900,6 +930,7 @@ export function useAudiobookManager({
     audiobookImport,
     audioSavedOnly,
     closeDocumentAudio,
+    confirmationDialog,
     audiobooksPanelProps: {
       activeDownload: audiobookDownload,
       activeDownloadTitle,

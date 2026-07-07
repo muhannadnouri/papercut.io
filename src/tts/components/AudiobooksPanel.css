@@ -678,6 +678,8 @@
   color: var(--accent-text);
   font-size: 0.78rem;
   font-weight: 600;
+  min-height: 2.15rem;
+  padding: 0 0.6rem;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -688,7 +690,7 @@
 
 .audiobook-export,
 .audiobook-delete {
-  min-height: 2rem;
+  min-height: 2.15rem;
 }
 
 .audiobook-text-action:hover:not(:disabled) {
@@ -855,12 +857,17 @@
   }
 
   .audiobook-item-saved {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 0.45rem 0.5rem;
+  }
+
+  .audiobook-item-saved .audiobook-saved-main {
+    grid-column: 1 / -1;
   }
 
   .audiobook-export,
   .audiobook-delete {
-    justify-self: start;
+    justify-self: end;
     min-height: 2.25rem;
   }
 

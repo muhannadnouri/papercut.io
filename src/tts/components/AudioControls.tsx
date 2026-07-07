@@ -10,7 +10,7 @@ interface AudioControlsProps {
   canSkipForward: boolean
   isPdf: boolean
   saveInProgress: boolean
-  onCancelSave: () => void
+  onManageSave: () => void
   onPause: () => void
   onRead: () => void
   onResume: () => void
@@ -34,7 +34,7 @@ export function AudioControls({
   canSkipForward,
   isPdf,
   saveInProgress,
-  onCancelSave,
+  onManageSave,
   onPause,
   onRead,
   onResume,
@@ -155,7 +155,12 @@ export function AudioControls({
 
     if (isSaving) {
       return (
-        <button className="audio-icon-btn" onClick={onCancelSave} aria-label={'Pause audiobook save at ' + audiobookPercent + '%'} title={'Saving ' + audiobookPercent + '%'}>
+        <button
+          className="audio-icon-btn"
+          onClick={onManageSave}
+          aria-label={'Audiobook save is ' + audiobookPercent + '%. Open Audiobooks to manage it.'}
+          title={'Saving ' + audiobookPercent + '% - manage in Audiobooks'}
+        >
           <span className="spinner audio-save-spinner" />
         </button>
       )
