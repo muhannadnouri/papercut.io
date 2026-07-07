@@ -150,6 +150,7 @@ export function useSearch(
     queryRef.current = searchQuery
     if (searchQuery.trim().length === 0) {
       latestSearchKeyRef.current = ''
+      submittedQueryRef.current = ''
       setResults([])
       setSubmittedQuery('')
       setLastSearchInfo(null)
