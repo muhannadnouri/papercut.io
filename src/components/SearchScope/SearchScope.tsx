@@ -53,7 +53,7 @@ export function SearchScope({
         title={(
           <span className="search-scope-title">
             <svg className="search-scope-title-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M4 5h16l-6 7v5l-4 2v-7Z" />
+              <path d="M4 5h16l-6.5 7.5V19l-3 1.5v-8Z" />
             </svg>
             Filter By Document
           </span>

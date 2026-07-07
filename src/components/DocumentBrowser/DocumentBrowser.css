@@ -411,7 +411,7 @@
 .search-scope-title {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.55rem;
   min-width: 0;
 }
 
@@ -420,8 +420,8 @@
   height: 1.28rem;
   flex: 0 0 auto;
   fill: none;
-  stroke: currentcolor;
-  stroke-width: 1.9;
+  stroke: var(--accent-text);
+  stroke-width: 2.1;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
