@@ -94,17 +94,6 @@ function App() {
     return response.text()
   }, [])
 
-  const {
-    query,
-    results,
-    loading,
-    submittedQuery,
-    lastSearchInfo,
-    handleSearch,
-    submitSearch,
-    removeResultsForUrl,
-  } = useSearch(pagefindRef, { loadDocumentSource: loadHtmlDocument })
-
   const loadUploadedLibrary = useCallback(async (): Promise<UploadedLibraryState> => {
     const [documents, organization] = await Promise.all([
       listUploadedDocuments(),
@@ -228,6 +217,17 @@ function App() {
     toggleAllInGroup,
     setDocumentFilter: setSearchDocumentFilter,
   } = searchFilters
+
+  const {
+    query,
+    results,
+    loading,
+    submittedQuery,
+    lastSearchInfo,
+    handleSearch,
+    submitSearch,
+    removeResultsForUrl,
+  } = useSearch(pagefindRef, { loadDocumentSource: loadHtmlDocument, scopeUrls: selectedFilters })
 
   const {
     showDocuments,

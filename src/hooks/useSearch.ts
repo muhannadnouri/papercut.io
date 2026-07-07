@@ -18,6 +18,7 @@ interface LastSearchInfo {
 
 interface UseSearchOptions {
   loadDocumentSource?: DocumentSourceLoader
+  scopeUrls?: Set<string>
 }
 
 interface UseSearchReturn {
@@ -43,12 +44,16 @@ export function useSearch(
 
   const queryRef = useRef(query)
   queryRef.current = query
-  const latestQueryRef = useRef<string>('')
+  const latestSearchKeyRef = useRef<string>('')
 
   const performSearch = useCallback(async (rawQuery: string) => {
     const displayQuery = rawQuery.trim()
     const normalized = displayQuery.toLowerCase()
-    latestQueryRef.current = normalized
+    const scopeUrls = options.scopeUrls
+    const hasScope = Boolean(scopeUrls?.size)
+    const scopeList = hasScope ? Array.from(scopeUrls ?? []).sort() : undefined
+    const searchKey = normalized + '\0' + (scopeList?.join('\0') ?? '')
+    latestSearchKeyRef.current = searchKey
     setSubmittedQuery(displayQuery)
     if (normalized.length === 0) {
       setResults([])
@@ -72,28 +77,28 @@ export function useSearch(
       const pagefindPromise = pagefindRef.current
         ? pagefindRef.current.search(searchQuery)
         : Promise.resolve({ results: [] })
-      const uploadPromise = searchUploadedDocuments(searchQuery, 50)
+      const uploadPromise = searchUploadedDocuments(searchQuery, hasScope ? 100 : 50, scopeList)
       const [pagefindSearch, uploadedSearch] = await Promise.all([pagefindPromise, uploadPromise])
-      if (latestQueryRef.current !== normalized) return
+      if (latestSearchKeyRef.current !== searchKey) return
 
-      const pagefindData = await Promise.all(
-        pagefindSearch.results.slice(0, 50).map((r) => r.data()),
-      )
+      const pagefindData = await pagefindResultsInScope(pagefindSearch.results, scopeUrls)
       const uploadedData = uploadedSearchToResults(uploadedSearch)
-      const data = [...pagefindData, ...uploadedData].slice(0, 100)
-      if (latestQueryRef.current !== normalized) return
+      const data = [...pagefindData, ...uploadedData]
+        .filter((result) => !scopeUrls?.size || scopeUrls.has(result.url))
+        .slice(0, 100)
+      if (latestSearchKeyRef.current !== searchKey) return
 
       let filtered = data
       if (phrases.length > 0) {
         const verdicts = await Promise.all(
           data.map((d) => docContainsAllPhrases(d.url, phrases, options.loadDocumentSource)),
         )
-        if (latestQueryRef.current !== normalized) return
+        if (latestSearchKeyRef.current !== searchKey) return
         filtered = data.filter((_, i) => verdicts[i])
         const excerpts = await Promise.all(
           filtered.map((d) => buildPhraseExcerpt(d.url, phrases, options.loadDocumentSource)),
         )
-        if (latestQueryRef.current !== normalized) return
+        if (latestSearchKeyRef.current !== searchKey) return
         filtered = filtered.map((d, i) =>
           excerpts[i] ? { ...d, customExcerpt: excerpts[i] ?? undefined } : d,
         )
@@ -107,20 +112,20 @@ export function useSearch(
       })
     } catch (err) {
       console.error('Search failed:', err)
-      if (latestQueryRef.current === normalized) {
+      if (latestSearchKeyRef.current === searchKey) {
         setResults([])
         setLastSearchInfo(null)
       }
     } finally {
-      if (latestQueryRef.current === normalized) setLoading(false)
+      if (latestSearchKeyRef.current === searchKey) setLoading(false)
     }
-  }, [options.loadDocumentSource, pagefindRef])
+  }, [options.loadDocumentSource, options.scopeUrls, pagefindRef])
 
   const handleSearch = useCallback((searchQuery: string) => {
     setQuery(searchQuery)
     queryRef.current = searchQuery
     if (searchQuery.trim().length === 0) {
-      latestQueryRef.current = ''
+      latestSearchKeyRef.current = ''
       setResults([])
       setSubmittedQuery('')
       setLastSearchInfo(null)
@@ -137,6 +142,24 @@ export function useSearch(
   }, [])
 
   return { query, results, loading, submittedQuery, lastSearchInfo, handleSearch, submitSearch, removeResultsForUrl }
+}
+
+async function pagefindResultsInScope(
+  results: { id: string; data: () => Promise<SearchResult> }[],
+  scopeUrls?: Set<string>,
+): Promise<SearchResult[]> {
+  if (!scopeUrls?.size) {
+    return Promise.all(results.slice(0, 50).map((r) => r.data()))
+  }
+
+  const scoped: SearchResult[] = []
+  for (const result of results) {
+    const data = await result.data()
+    if (!scopeUrls.has(data.url)) continue
+    scoped.push(data)
+    if (scoped.length >= Math.min(scopeUrls.size, 100)) break
+  }
+  return scoped
 }
 
 function uploadedSearchToResult(result: UploadedDocumentSearchResult, matchCount?: number): SearchResult {
