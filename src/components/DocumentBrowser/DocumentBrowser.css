@@ -397,6 +397,21 @@
 
 .search-scope .active-filters {
   margin-top: 0.75rem;
+  max-height: min(28vh, 12rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.search-scope .active-filters:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+@media (max-width: 600px) {
+  .search-scope .active-filters {
+    max-height: 9rem;
+  }
 }
 
 /* Browse rows have no checkbox and no row-level click target. */
