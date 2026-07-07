@@ -20,7 +20,7 @@ async function fetchDocText(url: string, loadSource?: DocumentSourceLoader): Pro
   if (cached !== undefined) return cached
   try {
     const html = loadSource ? await loadSource(url) : await fetchSource(url)
-    const raw = normalizeForDisplay(html.replace(/<[^>]+>/g, ' '))
+    const raw = normalizeForDisplay(htmlToSearchText(html))
     const entry: DocText = { raw, lower: raw.toLowerCase() }
     phraseFetchCache.set(url, entry)
     return entry
@@ -28,6 +28,16 @@ async function fetchDocText(url: string, loadSource?: DocumentSourceLoader): Pro
     phraseFetchCache.set(url, EMPTY_DOC_TEXT)
     return EMPTY_DOC_TEXT
   }
+}
+
+// Exact phrase search needs decoded text, not raw HTML. DOMParser turns
+// entities like &nbsp; into whitespace before normalizeForDisplay collapses it.
+function htmlToSearchText(html: string): string {
+  if (typeof DOMParser === 'undefined') return html.replace(/<[^>]+>/g, ' ')
+
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  doc.querySelectorAll('script, style, noscript').forEach((node) => node.remove())
+  return doc.body.textContent ?? ''
 }
 
 async function fetchSource(url: string): Promise<string> {
