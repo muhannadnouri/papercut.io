@@ -4,6 +4,8 @@ import type { UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
 import { Panel } from '../Panel/Panel'
 import { DocumentList } from '../DocumentList/DocumentList'
 import { UploadedLibraryTree } from '../UploadedLibraryTree/UploadedLibraryTree'
+import { splitDocumentGroupsByUpload } from '../DocumentBrowser/documentGroups'
+import '../DocumentBrowser/DocumentBrowser.css'
 
 interface SearchScopeProps {
   collapsedAuthors: Set<string>
@@ -40,16 +42,13 @@ export function SearchScope({
   const scopeLabel = count === 0
     ? 'All documents'
     : `${count} document${count === 1 ? '' : 's'}`
-  const uploadDocs = groupedDocs.flatMap((group) => group.docs.filter((doc) => doc.source === 'upload'))
-  const nonUploadGroups = groupedDocs
-    .map((group) => ({ ...group, docs: group.docs.filter((doc) => doc.source !== 'upload') }))
-    .filter((group) => group.docs.length > 0)
+  const { uploadDocs, nonUploadGroups } = splitDocumentGroupsByUpload(groupedDocs)
   const showUploadedTree = Boolean(libraryOrganization && uploadDocs.length > 0)
 
   return (
     <div className="search-scope">
       <Panel
-        className="search-scope-panel"
+        className="document-browser-panel search-scope-panel"
         ariaLabel="Search scope"
         title="🌪️ Filter By Document"
         meta={scopeLabel}
