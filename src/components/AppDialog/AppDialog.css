@@ -138,6 +138,8 @@
   border-color: var(--danger-accent);
   background: var(--surface-danger);
   color: var(--danger-strong);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .app-dialog-actions button:disabled {
