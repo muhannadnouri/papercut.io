@@ -1,6 +1,6 @@
 .uploaded-library {
   border-top: 1px solid var(--border);
-  background: var(--surface);
+  background: var(--surface-subtle);
 }
 
 .uploaded-library-actions {
@@ -18,7 +18,7 @@
   width: 100%;
   gap: 0.5rem;
   padding: 0;
-  background: var(--surface-muted);
+  background: var(--surface-panel-subtle);
   border-top: 1px solid var(--border);
 }
 
@@ -100,6 +100,8 @@
 .uploaded-library-edit-btn:disabled,
 .uploaded-library-actions button:disabled,
 .uploaded-library-move select:disabled {
+  border-color: var(--border);
+  background: var(--surface-muted);
   color: var(--text-soft);
   cursor: not-allowed;
 }
@@ -110,7 +112,7 @@
   gap: 0.65rem 1rem;
   padding-top: 0.65rem;
   padding-bottom: 0.65rem;
-  background: var(--surface);
+  background: var(--surface-subtle);
   border-bottom: 1px solid var(--border);
 }
 
@@ -221,7 +223,14 @@
 
 .uploaded-library-move select {
   width: 100%;
-  padding: 0 0.55rem;
+  padding: 0 1.7rem 0 0.55rem;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--surface);
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 0.65rem;
 }
 
 .uploaded-library-tree {

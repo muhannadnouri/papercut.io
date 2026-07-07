@@ -70,10 +70,16 @@
   min-width: 0;
   width: 100%;
   min-height: 2.2rem;
-  padding: 0 0.55rem;
+  padding: 0 1.7rem 0 0.55rem;
   border: 1px solid var(--border-strong);
   border-radius: 7px;
-  background: var(--surface);
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--surface);
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 0.65rem;
   color: var(--text-heading);
   font-size: 0.82rem;
 }
@@ -115,7 +121,9 @@
 }
 
 .reader-setting-step:disabled {
-  opacity: 0.4;
+  border-color: var(--border);
+  background: var(--surface-muted);
+  color: var(--text-soft);
   cursor: not-allowed;
 }
 

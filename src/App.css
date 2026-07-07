@@ -133,7 +133,9 @@
 }
 
 .search-btn:disabled {
-  opacity: 0.5;
+  border-color: var(--border);
+  background: var(--surface-muted);
+  color: var(--text-soft);
   cursor: not-allowed;
 }
 
@@ -266,8 +268,10 @@
 }
 
 .document-import-btn:disabled {
+  border-color: var(--border);
+  background: var(--surface-muted);
   color: var(--text-soft);
-  cursor: wait;
+  cursor: not-allowed;
 }
 
 .audio-filter-toggle {
@@ -336,6 +340,7 @@
 }
 
 .document-import-option:disabled {
+  background: var(--surface-muted);
   color: var(--text-soft);
   cursor: not-allowed;
 }
@@ -539,13 +544,17 @@
 }
 
 .document-view-btn:disabled {
+  border-color: var(--border);
+  background: var(--surface-muted);
   color: var(--text-soft);
-  cursor: wait;
+  cursor: not-allowed;
 }
 
 .document-delete-btn:disabled {
+  border-color: var(--border);
+  background: var(--surface-muted);
   color: var(--text-soft);
-  cursor: wait;
+  cursor: not-allowed;
 }
 
 .clear-filters {
@@ -1061,10 +1070,10 @@
   width: 100%;
   min-height: 320px;
   display: block;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 10px;
-  background: var(--surface);
-  color: var(--text-body);
+  background: var(--reader-surface);
+  color: var(--reader-text);
   padding: 2rem 1.25rem;
   font-size: var(--reader-font-size, 16px);
   line-height: var(--reader-line-height, 1.65);
@@ -1128,7 +1137,7 @@
   margin-inline: 0;
   padding: 0.05em 0 0.05em 1.1em;
   border-left: 3px solid var(--accent-border);
-  color: var(--text-body);
+  color: var(--reader-text);
 }
 
 .document-html-content blockquote > :first-child {
@@ -1224,7 +1233,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 
 .document-html-content figcaption {
   margin-block-start: 0.45rem;
-  color: var(--text-muted);
+  color: var(--reader-muted);
   font-size: 0.9em;
   text-align: center;
 }
@@ -1282,7 +1291,9 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 }
 
 .audio-icon-btn:disabled {
-  opacity: 0.45;
+  border-color: var(--border);
+  background: var(--surface-muted);
+  color: var(--text-soft);
   cursor: not-allowed;
 }
 
@@ -1741,7 +1752,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 /* ── Panel: reusable collapsible section (Documents, Audiobooks, Diagnostics, Scope) ── */
 .panel {
   margin-bottom: 1.5rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 10px;
   background: var(--surface);
   overflow: hidden;
@@ -1762,7 +1773,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   gap: 0.75rem;
   padding: 0.75rem 1.25rem;
   border: none;
-  background: var(--surface-muted);
+  background: var(--surface-panel-subtle);
   color: var(--text);
   font-size: 0.95rem;
   font-weight: 600;
@@ -1804,6 +1815,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 
 .panel-body {
   border-top: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .search-scope {

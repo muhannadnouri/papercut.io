@@ -106,7 +106,8 @@
 }
 
 .audio-diagnostics-control input:disabled + .audio-diagnostics-switch {
-  opacity: 0.5;
+  border-color: var(--border);
+  background: var(--surface-muted);
 }
 
 .audio-settings-grid {
@@ -246,7 +247,9 @@
 }
 
 .audio-speed-step:disabled {
-  opacity: 0.45;
+  border-color: var(--border);
+  background: var(--surface-muted);
+  color: var(--text-soft);
   cursor: not-allowed;
 }
 
@@ -350,7 +353,7 @@
   appearance: none;
   -webkit-appearance: none;
   background-color: var(--surface);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%236b7280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: var(--select-chevron);
   background-repeat: no-repeat;
   background-position: right 0.55rem center;
   background-size: 0.6rem;
@@ -388,7 +391,9 @@
 }
 
 .tts-btn:disabled {
-  opacity: 0.55;
+  border-color: var(--border);
+  background: var(--surface-muted);
+  color: var(--text-soft);
   cursor: not-allowed;
 }
 
@@ -544,8 +549,10 @@
 }
 
 .audiobooks-import-btn:disabled {
+  border-color: var(--border);
+  background: var(--surface-muted);
   color: var(--text-soft);
-  cursor: wait;
+  cursor: not-allowed;
 }
 
 .audiobooks-import-status {
@@ -655,8 +662,9 @@
 }
 
 .audiobook-saved-main:disabled {
+  background: transparent;
   color: var(--text-soft);
-  cursor: wait;
+  cursor: not-allowed;
 }
 
 .audiobook-saved-main .audiobook-meta {
@@ -702,8 +710,10 @@
 }
 
 .audiobook-text-action:disabled {
+  border-color: transparent;
+  background: transparent;
   color: var(--text-soft);
-  cursor: wait;
+  cursor: not-allowed;
 }
 
 .audiobook-operation-status {
