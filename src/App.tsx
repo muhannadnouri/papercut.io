@@ -55,6 +55,19 @@ type UploadedLibraryState = {
   organization: UploadedLibraryOrganization
 }
 
+type BrowseScrollSnapshot = {
+  activeTab: AppTab
+  windowX: number
+  windowY: number
+  panelScrollTop: number | null
+}
+
+function getDocumentBrowserPanelBody(tab: AppTab): HTMLElement | null {
+  const label = tab === 'search' ? 'Search' : tab === 'library' ? 'Library' : 'Audiobooks'
+  const panel = document.querySelector(`.tab-panel[aria-label="${label}"] .document-browser-panel .panel-body`)
+  return panel instanceof HTMLElement ? panel : null
+}
+
 function App() {
   const theme = useTheme()
   const [selectedDoc, setSelectedDoc] = useState<string | null>(null)
@@ -62,6 +75,7 @@ function App() {
   const [documentLoad, setDocumentLoad] = useState<DocumentLoadState>({ status: 'idle' })
   const openDocumentRequestRef = useRef(0)
   const documentOpeningRef = useRef(false)
+  const browseScrollRef = useRef<BrowseScrollSnapshot | null>(null)
   const [activeTab, setActiveTab] = useState<AppTab>('library')
   const [userUploads, setUserUploads] = useState<UserUploadDocument[]>(() => getUserUploads())
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([])
@@ -139,6 +153,23 @@ function App() {
     setTtsDiagnosticsEnabled(enabled)
   }, [])
 
+  useEffect(() => {
+    if (selectedDoc) return
+    const snapshot = browseScrollRef.current
+    if (!snapshot || snapshot.activeTab !== activeTab) return
+
+    browseScrollRef.current = null
+    const frame = requestAnimationFrame(() => {
+      window.scrollTo(snapshot.windowX, snapshot.windowY)
+      const panelBody = getDocumentBrowserPanelBody(snapshot.activeTab)
+      if (panelBody && snapshot.panelScrollTop !== null) {
+        panelBody.scrollTop = snapshot.panelScrollTop
+      }
+    })
+
+    return () => cancelAnimationFrame(frame)
+  }, [activeTab, selectedDoc])
+
   const audiobook = useAudiobookManager({
     allDocuments,
     docContent,
@@ -208,6 +239,13 @@ function App() {
     documentOpeningRef.current = true
     const requestId = openDocumentRequestRef.current + 1
     openDocumentRequestRef.current = requestId
+    const panelBody = getDocumentBrowserPanelBody(activeTab)
+    browseScrollRef.current = {
+      activeTab,
+      windowX: window.scrollX,
+      windowY: window.scrollY,
+      panelScrollTop: panelBody?.scrollTop ?? null,
+    }
     prepareDocumentOpen()
     setSelectedDoc(url)
     setDocContent('')
@@ -228,7 +266,7 @@ function App() {
       setDocumentLoad({ status: 'error', url, message })
       console.error('Failed to load document:', err)
     }
-  }, [loadHtmlDocument, prepareDocumentOpen]) // 
+  }, [activeTab, loadHtmlDocument, prepareDocumentOpen])
 
   const handleCloseDocument = useCallback(() => {
     closeDocumentAudio()
@@ -240,6 +278,7 @@ function App() {
   }, [])
 
   const handleManageAudiobookSave = useCallback(() => {
+    browseScrollRef.current = null
     clearSelectedDocument()
     setActiveTab('audiobooks')
     window.scrollTo({ top: 0 })
