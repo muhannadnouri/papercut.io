@@ -527,6 +527,11 @@
   transition: all 0.15s;
 }
 
+.document-row-action-view {
+  color: var(--accent-text);
+  font-weight: 700;
+}
+
 .document-row-action-view:hover:not(:disabled),
 .document-row-action-view:focus-visible,
 .document-row-action-secondary:hover:not(:disabled),
