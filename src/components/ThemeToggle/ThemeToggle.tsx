@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { ThemeChoice } from '../../hooks/useTheme'
+import './ThemeToggle.css'
 
 const THEME_OPTIONS: Array<{ choice: ThemeChoice; icon: ReactNode; label: string }> = [
   { choice: 'system', icon: <SystemIcon />, label: 'Use system theme' },

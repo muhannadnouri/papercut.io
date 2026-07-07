@@ -1,0 +1,55 @@
+.panel {
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.panel-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  border: none;
+  background: var(--surface-panel-subtle);
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.panel-toggle:hover {
+  background: var(--app-bg-alt);
+}
+
+.panel-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+  outline-offset: 2px;
+}
+
+.panel-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.panel-meta {
+  min-width: 0;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-align: right;
+}
+
+.panel-body {
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}

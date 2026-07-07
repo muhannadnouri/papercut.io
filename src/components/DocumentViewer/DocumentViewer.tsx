@@ -10,6 +10,7 @@ import { useFindInPage } from '../../hooks/useFindInPage'
 import { useTtsHighlight } from '../../tts/hooks/useTtsHighlight'
 import type { SearchOpenTarget } from '../../types/search'
 import type { TtsChunk } from '../../tts/types'
+import './DocumentViewer.css'
 
 interface TtsHighlightOptions {
   enabled: boolean

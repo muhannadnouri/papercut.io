@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import './Panel.css'
 
 interface PanelProps {
   title: ReactNode

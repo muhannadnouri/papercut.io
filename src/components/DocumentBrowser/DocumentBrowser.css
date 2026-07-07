@@ -1,3 +1,28 @@
+.documents-panel {
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.documents-panel-loading {
+  background: var(--surface-muted);
+}
+
+.documents-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  color: var(--text-body);
+  font-size: 0.9rem;
+}
+
+.search-scope {
+  margin-bottom: 1.5rem;
+}
+
 .documents-list-header {
   display: flex;
   align-items: center;

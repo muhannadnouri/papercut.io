@@ -1,0 +1,53 @@
+.scroll-top-btn {
+  position: fixed;
+  bottom: calc(2rem + env(safe-area-inset-bottom));
+  right: 2rem;
+  min-width: 4.2rem;
+  height: 2.35rem;
+  background: var(--accent);
+  color: var(--text-inverse);
+  border: none;
+  border-radius: 10px;
+  padding: 0 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 8px var(--shadow-accent-strong);
+  transition: background 0.15s, right 0.15s, bottom 0.15s;
+  z-index: 10;
+}
+
+.app-audio-floating .scroll-top-btn {
+  right: 25.5rem;
+}
+
+.scroll-top-btn:hover {
+  background: var(--accent-hover);
+}
+
+.scroll-top-btn:focus-visible {
+  background: var(--accent-hover);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus-strong);
+}
+
+@media (max-width: 767px) {
+  .app-audio-floating .scroll-top-btn {
+    right: auto;
+    left: 1rem;
+    bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+
+  .scroll-top-btn {
+    min-width: 3.6rem;
+    height: 2.5rem;
+    padding: 0 0.65rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .app-audio-floating .scroll-top-btn {
+    left: 0.75rem;
+    right: auto;
+  }
+}
