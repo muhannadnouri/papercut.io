@@ -146,7 +146,13 @@ export function DocumentViewer({
     <div className={appClassName}>
       <header className="header doc-header">
         <div className="header-left">
-          <button className="back-button" onClick={onClose}>&larr; Back</button>
+          <button className="back-button" onClick={onClose}>
+            <svg className="back-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M19 12H5" />
+              <path d="m12 19-7-7 7-7" />
+            </svg>
+            Back
+          </button>
         </div>
         <div className="header-right">
           {headerControls && (
@@ -165,7 +171,11 @@ export function DocumentViewer({
                 setTimeout(() => findInputRef.current?.focus(), 0)
               }}
             >
-              &#128269; Find
+              <svg className="find-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m16 16 5 5" />
+              </svg>
+              Find
             </button>
           </div>
         </div>

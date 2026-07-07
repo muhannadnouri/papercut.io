@@ -95,7 +95,7 @@ export function SearchScope({
       </Panel>
 
       {count > 0 && (
-        <div className="active-filters">
+        <div className="active-filters" tabIndex={0} aria-label="Selected document filters">
           {Array.from(selectedFilters).map((title) => (
             <span key={title} className="filter-tag">
               {title}

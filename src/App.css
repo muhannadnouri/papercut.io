@@ -408,8 +408,8 @@
 .theme-toggle-icon {
   display: inline-grid;
   place-items: center;
-  width: 1.22rem;
-  height: 1.22rem;
+  width: 1.28rem;
+  height: 1.28rem;
 }
 
 .theme-toggle-icon svg {
@@ -421,16 +421,6 @@
   stroke-width: 1.9;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-.theme-toggle-btn-system .theme-toggle-icon {
-  width: 1.25rem;
-  height: 1.25rem;
-}
-
-.theme-toggle-btn-dark .theme-toggle-icon {
-  width: 1.28rem;
-  height: 1.28rem;
 }
 
 .theme-toggle-btn-dark .theme-toggle-icon svg {
@@ -451,6 +441,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.45rem;
   background: var(--surface-muted);
   border: 1px solid var(--border-strong);
   border-radius: 8px;
@@ -480,6 +471,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.45rem;
   min-height: 2.35rem;
   background: var(--surface-muted);
   border: 1px solid var(--border-strong);
@@ -509,6 +501,17 @@
 .find-btn:disabled {
   color: var(--text-soft);
   cursor: not-allowed;
+}
+
+.back-icon,
+.find-icon {
+  width: 1.28rem;
+  height: 1.28rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 
@@ -977,8 +980,8 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 }
 
 .audio-icon {
-  width: 1.18rem;
-  height: 1.18rem;
+  width: 1.28rem;
+  height: 1.28rem;
   fill: currentcolor;
 }
 
