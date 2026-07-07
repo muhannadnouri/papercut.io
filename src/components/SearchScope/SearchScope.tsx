@@ -50,7 +50,14 @@ export function SearchScope({
       <Panel
         className="document-browser-panel search-scope-panel"
         ariaLabel="Search scope"
-        title="🌪️ Filter By Document"
+        title={(
+          <span className="search-scope-title">
+            <svg className="search-scope-title-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M4 5h16l-6 7v5l-4 2v-7Z" />
+            </svg>
+            Filter By Document
+          </span>
+        )}
         meta={scopeLabel}
         defaultOpen={false}
       >

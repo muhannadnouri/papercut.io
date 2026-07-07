@@ -408,6 +408,24 @@
   outline-offset: 2px;
 }
 
+.search-scope-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.search-scope-title-icon {
+  width: 1.28rem;
+  height: 1.28rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 @media (max-width: 600px) {
   .search-scope .active-filters {
     max-height: 9rem;

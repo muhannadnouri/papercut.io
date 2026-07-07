@@ -26,6 +26,10 @@ export function SearchBar({ query, disabled, onChange, onSubmit }: SearchBarProp
           onClick={onSubmit}
           disabled={disabled || query.trim().length === 0}
         >
+          <svg className="search-btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m16 16 5 5" />
+          </svg>
           Search
         </button>
       </div>
