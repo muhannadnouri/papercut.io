@@ -592,6 +592,17 @@ export function useAudiobookManager({
     if (!selectedDoc) return
     const title = getDocumentTitle(selectedDoc)
     const chunks = await getSelectedAudiobookSaveChunks()
+    const speakableChunks = chunks.filter((chunk) => chunk.text.trim())
+    if (speakableChunks.length === 0) {
+      await confirmAudiobookAction({
+        title: 'Nothing to save',
+        description: 'This document does not contain any text that can be saved as audio.',
+        confirmLabel: 'OK',
+        cancelLabel: null,
+      })
+      return
+    }
+
     const textPreprocessorName = selectedTtsModel.textPreprocessors.find((item) => item.id === ttsTextPreprocessor)?.name ?? ttsTextPreprocessor
     const confirmed = await confirmAudiobookAction({
       title: 'Save audiobook?',
@@ -603,7 +614,7 @@ export function useAudiobookManager({
         { label: 'Speed', value: formatSpeedLabel(ttsSpeed) },
         { label: 'Processing', value: textPreprocessorName },
         { label: 'Threads', value: ttsThreadCount },
-        { label: 'Chunks', value: chunks.filter((chunk) => chunk.text.trim()).length },
+        { label: 'Chunks', value: speakableChunks.length },
       ],
       confirmLabel: 'Start Saving',
     })

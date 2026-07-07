@@ -13,7 +13,7 @@ interface ConfirmationOptions {
   description?: ReactNode
   details?: ConfirmationDetail[]
   confirmLabel?: string
-  cancelLabel?: string
+  cancelLabel?: string | null
   tone?: ConfirmationTone
 }
 
@@ -54,9 +54,11 @@ export function useAppConfirmation() {
         onCancel={() => close(false)}
         actions={
           <>
-            <button type="button" className="app-dialog-cancel" onClick={() => close(false)}>
-              {request.cancelLabel ?? 'Cancel'}
-            </button>
+            {request.cancelLabel !== null && (
+              <button type="button" className="app-dialog-cancel" onClick={() => close(false)}>
+                {request.cancelLabel ?? 'Cancel'}
+              </button>
+            )}
             <button type="button" className={confirmClassName} onClick={() => close(true)}>
               {request.confirmLabel ?? 'Confirm'}
             </button>
