@@ -63,18 +63,19 @@ export function SearchResults({
         const opening = openingDocumentUrl === result.url
         const disabled = openingDisabled || opening
         return (
-          <div
+          <button
+            type="button"
             key={result.id}
             className={'result-card' + (disabled ? ' result-card-disabled' : '')}
-            aria-disabled={disabled}
+            disabled={disabled}
             onClick={() => { if (!disabled) onViewResult(result) }}
           >
-            <h2 className="result-title">{result.meta.title}{opening ? ' (Opening...)' : ''}</h2>
-            <p
+            <span className="result-title">{result.meta.title}{opening ? ' (Opening...)' : ''}</span>
+            <span
               className="result-excerpt"
               dangerouslySetInnerHTML={{ __html: result.customExcerpt ?? result.excerpt }}
             />
-          </div>
+          </button>
         )
       })}
 

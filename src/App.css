@@ -140,6 +140,7 @@
 .search-input:focus {
   border-color: var(--accent-text);
   background: var(--surface);
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .search-input:disabled {
@@ -257,6 +258,13 @@
   background: var(--surface-accent);
 }
 
+.document-import-btn:focus-visible {
+  border-color: var(--accent-text);
+  background: var(--surface-accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
 .document-import-btn:disabled {
   color: var(--text-soft);
   cursor: wait;
@@ -324,6 +332,7 @@
   background: var(--surface-accent);
   color: var(--accent-strong);
   outline: none;
+  box-shadow: inset 3px 0 0 var(--accent-text);
 }
 
 .document-import-option:disabled {
@@ -363,6 +372,7 @@
 .document-filter-input:focus {
   border-color: var(--accent-text);
   background: var(--surface);
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .documents-scroll {
@@ -447,8 +457,9 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 1.25rem;
+  border-top: 1px solid var(--surface-hover);
   cursor: pointer;
-  transition: background 0.1s, color 0.1s;
+  transition: background 0.1s, box-shadow 0.1s, color 0.1s;
   font-size: 0.9rem;
   color: var(--text-body);
 }
@@ -457,6 +468,13 @@
 .document-item:focus-within {
   background: var(--surface-hover);
   color: var(--text-heading);
+}
+
+.document-item-selected,
+.document-item-opening {
+  background: var(--surface-accent);
+  color: var(--accent-ink);
+  box-shadow: inset 3px 0 0 var(--accent-text);
 }
 
 .document-item input[type="checkbox"] {
@@ -508,6 +526,7 @@
   background: var(--surface-accent);
   color: var(--accent-text);
   outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .document-delete-btn:hover:not(:disabled),
@@ -516,6 +535,7 @@
   background: var(--surface-danger);
   color: var(--danger-accent);
   outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .document-view-btn:disabled {
@@ -584,17 +604,28 @@
 }
 
 .result-card {
+  appearance: none;
+  display: block;
+  width: 100%;
   padding: 1.25rem;
   border: 1px solid var(--border);
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.15s;
   background: var(--surface);
+  color: inherit;
+  text-align: left;
 }
 
-.result-card:hover:not(.result-card-disabled) {
+.result-card:hover:not(:disabled) {
   border-color: var(--accent-text);
   box-shadow: 0 2px 8px var(--shadow-accent-soft);
+}
+
+.result-card:focus-visible {
+  border-color: var(--accent-text);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus), 0 2px 8px var(--shadow-accent-soft);
 }
 
 .result-card-disabled {
@@ -603,6 +634,7 @@
 }
 
 .result-title {
+  display: block;
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--text);
@@ -610,6 +642,7 @@
 }
 
 .result-excerpt {
+  display: block;
   font-size: 0.9rem;
   color: var(--text-body);
   line-height: 1.6;
@@ -799,6 +832,13 @@
   color: var(--accent-text);
 }
 
+.back-button:focus-visible {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
 .find-btn {
   display: inline-flex;
   align-items: center;
@@ -818,6 +858,13 @@
 .find-btn:hover:not(:disabled) {
   border-color: var(--accent-text);
   color: var(--accent-text);
+}
+
+.find-btn:focus-visible {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .find-btn:disabled {
@@ -892,6 +939,7 @@
 .find-input:focus {
   border-color: var(--accent-text);
   background: var(--surface);
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .find-count {
@@ -919,6 +967,13 @@
 .find-nav-btn:hover:not(:disabled) {
   border-color: var(--accent-text);
   color: var(--accent-text);
+}
+
+.find-nav-btn:focus-visible {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .find-nav-btn:disabled {
@@ -990,6 +1045,12 @@
 
 .scroll-top-btn:hover {
   background: var(--accent-hover);
+}
+
+.scroll-top-btn:focus-visible {
+  background: var(--accent-hover);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus-strong);
 }
 
 .document-view {
@@ -1215,6 +1276,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 .audio-icon-btn:focus-visible {
   border-color: var(--accent-text);
   color: var(--accent-text);
+  background: var(--surface-accent);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
@@ -1556,6 +1618,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 
 .tab-nav-item {
   flex: 1;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1568,6 +1631,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
+  overflow: hidden;
   transition: background 0.15s, color 0.15s, box-shadow 0.15s, outline-color 0.15s;
 }
 
@@ -1581,6 +1645,19 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   color: var(--accent-strong);
   outline: 1px solid var(--accent-border);
   box-shadow: 0 1px 3px var(--shadow-accent-soft);
+}
+
+.tab-nav-item-active::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--accent-text);
+}
+
+.tab-nav-item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .tab-nav-item:disabled {
@@ -1635,6 +1712,12 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   .tab-nav-item-active {
     background: var(--surface-accent);
     box-shadow: inset 0 0 0 1px var(--accent-border);
+  }
+
+  .tab-nav-item-active::before {
+    inset: 0 0 auto;
+    width: auto;
+    height: 3px;
   }
 
   .tab-nav-icon {
@@ -1697,7 +1780,8 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 .clear-filters:focus-visible,
 .filter-tag-remove:focus-visible,
 .find-close:focus-visible {
-  outline: 3px solid var(--shadow-focus);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
   outline-offset: 2px;
 }
 

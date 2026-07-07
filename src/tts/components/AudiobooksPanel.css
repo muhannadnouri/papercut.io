@@ -50,6 +50,11 @@
   border-color: var(--accent-text);
 }
 
+.audio-diagnostics-control:focus-within {
+  border-color: var(--accent-text);
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
 .audio-diagnostics-value {
   min-width: 0;
 }
@@ -375,6 +380,13 @@
   outline: none;
 }
 
+.tts-select:focus,
+.tts-btn:focus-visible {
+  border-color: var(--accent-text);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
 .tts-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
@@ -528,6 +540,7 @@
   border-color: var(--accent-text);
   background: var(--surface-accent);
   outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .audiobooks-import-btn:disabled {
@@ -611,6 +624,11 @@
   border-color: var(--accent-text);
 }
 
+.audiobook-item:focus-within {
+  border-color: var(--accent-text);
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
 .audiobook-saved-main {
   display: flex;
   align-items: center;
@@ -629,6 +647,11 @@
 
 .audiobook-saved-main:hover:not(:disabled) {
   color: var(--accent-strong);
+}
+
+.audiobook-saved-main:focus-visible {
+  color: var(--accent-strong);
+  outline: none;
 }
 
 .audiobook-saved-main:disabled {
@@ -664,6 +687,14 @@
   border-color: var(--accent-border);
   background: var(--surface-accent);
   color: var(--accent-strong);
+}
+
+.audiobook-text-action:focus-visible {
+  border-color: var(--accent-border);
+  background: var(--surface-accent);
+  color: var(--accent-strong);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .audiobook-delete:hover:not(:disabled) {
@@ -729,6 +760,7 @@
 .audio-progress-meter {
   height: 0.35rem;
   overflow: hidden;
+  border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--surface-accent-strong);
 }

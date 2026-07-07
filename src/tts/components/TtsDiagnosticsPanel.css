@@ -60,6 +60,13 @@
   cursor: pointer;
 }
 
+.tts-diagnostics-filter:focus-visible,
+.tts-diagnostics-clear:focus-visible {
+  border-color: var(--accent-text);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
 .tts-diagnostics-copy-status {
   color: var(--text-soft);
   font-size: 0.74rem;

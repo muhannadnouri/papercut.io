@@ -424,12 +424,19 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
   const filterDocuments = node.kind === 'folder' ? collectDocuments(node) : []
   const folderFilterSelected = filterDocuments.length > 0 && filterDocuments.every((doc) => options.selectedFilters?.has(doc.title))
   const documentFilterSelected = node.kind === 'document' && Boolean(options.selectedFilters?.has(node.title))
+  const selected = options.selectedKeys.has(node.key) || folderFilterSelected || documentFilterSelected
+  const className = [
+    'uploaded-library-item',
+    'uploaded-library-' + node.kind,
+    selected ? 'uploaded-library-item-selected' : '',
+    opening ? 'uploaded-library-item-opening' : '',
+  ].filter(Boolean).join(' ')
   return (
     <TreeItem
       key={node.key}
       id={node.key}
       textValue={node.title}
-      className={'uploaded-library-item uploaded-library-' + node.kind}
+      className={className}
     >
       <TreeItemContent>
         <div className="uploaded-library-content">
