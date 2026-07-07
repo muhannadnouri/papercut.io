@@ -403,7 +403,7 @@ Search is **explicit**: the app only searches when the user clicks the **Search*
 - The Pagefind `content` field on `result.data()` is unreliable for substring matching (truncated/normalized differently than the source), so phrase verification reads the actual file. Results are cached per URL in memory for the session to avoid re-fetching across queries.
 - Clearing the input clears the results panel immediately, without triggering a search.
 - In-flight stale results are dropped: if the user fires a new search before the previous one resolves, the earlier result set is discarded and never rendered.
-- Uploaded-document snippets are produced by SQLite FTS and sanitized again before rendering in React. Uploaded matches are collapsed to one result card per uploaded document, using the first/best matching snippet; users can open the document and use in-document Find to move through additional matches.
+- Uploaded-document snippets are produced by SQLite FTS and sanitized again before rendering in React. Uploaded matches are collapsed to one result card per uploaded document, using the first/best matching snippet. Opening a result jumps to the likely match and highlights it when the rendered reader text can be matched; users can still use in-document Find to move through additional matches.
 - The "No documents found" message only appears after a search has actually been submitted (via Search button or Enter), not while the user is still typing.
 
 </details>

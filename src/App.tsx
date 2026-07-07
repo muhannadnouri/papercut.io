@@ -19,7 +19,7 @@ import { ThemeToggle } from './components/ThemeToggle/ThemeToggle'
 import { useAppConfirmation } from './components/AppDialog/useAppConfirmation'
 import { useDocumentFilters } from './hooks/useDocumentFilters'
 import { useTheme } from './hooks/useTheme'
-import type { DocumentInfo } from './types/search'
+import type { DocumentInfo, SearchOpenTarget } from './types/search'
 import { clearPhraseFetchCache } from './utils/phraseSearch'
 import { isDebugEnabled, setDebugEnabled } from './utils/debugFlags'
 import { AudioControls } from './tts/components/AudioControls'
@@ -71,6 +71,7 @@ function getDocumentBrowserPanelBody(tab: AppTab): HTMLElement | null {
 function App() {
   const theme = useTheme()
   const [selectedDoc, setSelectedDoc] = useState<string | null>(null)
+  const [searchOpenTarget, setSearchOpenTarget] = useState<SearchOpenTarget | null>(null)
   const [docContent, setDocContent] = useState('')
   const [documentLoad, setDocumentLoad] = useState<DocumentLoadState>({ status: 'idle' })
   const openDocumentRequestRef = useRef(0)
@@ -140,6 +141,7 @@ function App() {
     openDocumentRequestRef.current += 1
     documentOpeningRef.current = false
     setSelectedDoc(null)
+    setSearchOpenTarget(null)
     setDocContent('')
     setDocumentLoad({ status: 'idle' })
   }, [])
@@ -234,7 +236,7 @@ function App() {
   const audioFilteredResults = filterResults(results)
   const documentOpening = documentLoad.status === 'loading'
 
-  const handleViewDocument = useCallback(async (url: string) => {
+  const handleViewDocument = useCallback(async (url: string, target?: SearchOpenTarget) => {
     if (documentOpeningRef.current) return
     documentOpeningRef.current = true
     const requestId = openDocumentRequestRef.current + 1
@@ -247,6 +249,7 @@ function App() {
       panelScrollTop: panelBody?.scrollTop ?? null,
     }
     prepareDocumentOpen()
+    setSearchOpenTarget(target ?? null)
     setSelectedDoc(url)
     setDocContent('')
     setDocumentLoad({ status: 'loading', url, message: 'Opening Document...' })
@@ -391,6 +394,7 @@ function App() {
           headerControls={<AudioControls {...audioControlsProps} onManageSave={handleManageAudiobookSave} />}
           beforeDocument={<TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />}
           ttsHighlight={ttsHighlight}
+          searchTarget={searchOpenTarget}
           loading={documentLoad.status === 'loading' && documentLoad.url === selectedDoc}
           loadError={documentLoad.status === 'error' && documentLoad.url === selectedDoc ? documentLoad.message : undefined}
           onClose={handleCloseDocument}
@@ -451,7 +455,7 @@ function App() {
             selectedFilters={selectedFilters}
             openingDisabled={documentOpening}
             openingDocumentUrl={documentLoad.status === 'loading' ? documentLoad.url : undefined}
-            onViewResult={(result) => handleViewDocument(result.url)}
+            onViewResult={(result, target) => handleViewDocument(result.url, target)}
           />
         </section>
       )}

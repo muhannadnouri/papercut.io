@@ -8,6 +8,7 @@ import { ExternalLinkPrompt } from '../ExternalLinkPrompt/ExternalLinkPrompt'
 import { getExternalLinkUrl, getInternalDocumentHash } from './linkUtils'
 import { useFindInPage } from '../../hooks/useFindInPage'
 import { useTtsHighlight } from '../../tts/hooks/useTtsHighlight'
+import type { SearchOpenTarget } from '../../types/search'
 import type { TtsChunk } from '../../tts/types'
 
 interface TtsHighlightOptions {
@@ -26,6 +27,7 @@ interface DocumentViewerProps {
   headerControls?: ReactNode
   beforeDocument?: ReactNode
   ttsHighlight?: TtsHighlightOptions
+  searchTarget?: SearchOpenTarget | null
   loading?: boolean
   loadError?: string
   onClose: () => void
@@ -40,6 +42,7 @@ export function DocumentViewer({
   headerControls,
   beforeDocument,
   ttsHighlight,
+  searchTarget,
   loading = false,
   loadError,
   onClose,
@@ -85,6 +88,21 @@ export function DocumentViewer({
     const targetTop = window.scrollY + target.getBoundingClientRect().top
     window.scrollTo({ top: Math.max(targetTop - 120, 0), behavior: 'smooth' })
   }, [])
+
+  useEffect(() => {
+    if (loading || loadError || !content || !searchTarget) return
+
+    const frame = requestAnimationFrame(() => {
+      const root = readerRef.current
+      if (!root) return
+      clearSearchTargetHighlight(root)
+      if (searchTarget.hash) scrollToHash(searchTarget.hash)
+      const target = searchTarget.text ? markFirstSearchTarget(root, searchTarget.text) : null
+      if (target) scrollToElement(target)
+    })
+
+    return () => cancelAnimationFrame(frame)
+  }, [content, loadError, loading, scrollToHash, searchTarget, url])
 
   // Direct rendering makes document links ordinary DOM events again. Internal
   // hash links scroll in-place; everything else asks before leaving the app.
@@ -239,4 +257,49 @@ function decodeHash(value: string): string {
   } catch {
     return value
   }
+}
+
+function clearSearchTargetHighlight(root: HTMLElement): void {
+  const doc = root.ownerDocument
+  root.querySelectorAll('mark[data-search-target]').forEach((mark) => {
+    const parent = mark.parentNode
+    if (!parent) return
+    parent.replaceChild(doc.createTextNode(mark.textContent ?? ''), mark)
+    parent.normalize()
+  })
+}
+
+function markFirstSearchTarget(root: HTMLElement, text: string): HTMLElement | null {
+  const query = text.trim().toLowerCase()
+  if (!query) return null
+
+  const doc = root.ownerDocument
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  let node: Node | null
+  while ((node = walker.nextNode())) {
+    if (node.parentElement?.closest('script, style, noscript, svg')) continue
+    const value = node.textContent ?? ''
+    const at = value.toLowerCase().indexOf(query)
+    if (at < 0) continue
+
+    const mark = doc.createElement('mark')
+    mark.dataset.searchTarget = 'true'
+    mark.textContent = value.slice(at, at + query.length)
+
+    const fragment = doc.createDocumentFragment()
+    if (at > 0) fragment.appendChild(doc.createTextNode(value.slice(0, at)))
+    fragment.appendChild(mark)
+    if (at + query.length < value.length) {
+      fragment.appendChild(doc.createTextNode(value.slice(at + query.length)))
+    }
+    node.parentNode?.replaceChild(fragment, node)
+    return mark
+  }
+
+  return null
+}
+
+function scrollToElement(target: Element): void {
+  const targetTop = window.scrollY + target.getBoundingClientRect().top
+  window.scrollTo({ top: Math.max(targetTop - window.innerHeight / 2, 0), behavior: 'smooth' })
 }

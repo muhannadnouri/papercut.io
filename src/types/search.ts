@@ -14,6 +14,11 @@ export interface SearchResult {
   customExcerpt?: string
 }
 
+export interface SearchOpenTarget {
+  hash?: string
+  text?: string
+}
+
 export interface PagefindInstance {
   search: (query: string) => Promise<{ results: { id: string; data: () => Promise<SearchResult> }[] }>
   destroy?: () => void
