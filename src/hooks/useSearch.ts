@@ -57,8 +57,8 @@ export function useSearch(
       return
     }
 
-    const phrases = extractQuotedPhrases(normalized)
     const displayPhrases = extractQuotedPhrases(displayQuery)
+    const phrases = displayPhrases.map(normalizeForPhraseMatch)
     const searchQuery = phrases.length > 0 ? stripQuotes(normalized) : normalized
     if (searchQuery.length === 0) {
       setResults([])
@@ -85,14 +85,13 @@ export function useSearch(
 
       let filtered = data
       if (phrases.length > 0) {
-        const normalizedPhrases = phrases.map(normalizeForPhraseMatch)
         const verdicts = await Promise.all(
-          data.map((d) => docContainsAllPhrases(d.url, normalizedPhrases, options.loadDocumentSource)),
+          data.map((d) => docContainsAllPhrases(d.url, phrases, options.loadDocumentSource)),
         )
         if (latestQueryRef.current !== normalized) return
         filtered = data.filter((_, i) => verdicts[i])
         const excerpts = await Promise.all(
-          filtered.map((d) => buildPhraseExcerpt(d.url, normalizedPhrases, options.loadDocumentSource)),
+          filtered.map((d) => buildPhraseExcerpt(d.url, phrases, options.loadDocumentSource)),
         )
         if (latestQueryRef.current !== normalized) return
         filtered = filtered.map((d, i) =>

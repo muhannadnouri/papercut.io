@@ -40,7 +40,7 @@ export function extractQuotedPhrases(q: string): string[] {
   const matches = q.match(/"([^"]+)"/g)
   if (!matches) return []
   return matches
-    .map((m) => m.slice(1, -1).trim().toLowerCase())
+    .map((m) => m.slice(1, -1).trim())
     .filter((p) => p.length > 0)
 }
 
