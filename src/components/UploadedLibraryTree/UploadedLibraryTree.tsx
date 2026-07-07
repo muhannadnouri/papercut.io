@@ -514,7 +514,7 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
             {opening && <span className="uploaded-library-opening">Opening...</span>}
             {node.kind === 'document' && !options.editMode && !options.filterMode && (
               <button
-                className="uploaded-library-row-action"
+                className="document-row-action document-row-action-view"
                 type="button"
                 disabled={options.documentOpening}
                 onClick={(event) => {
@@ -527,7 +527,7 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
             )}
             {node.kind === 'document' && options.editMode && !options.filterMode && options.onDeleteDocument && (
               <button
-                className="uploaded-library-row-action uploaded-library-danger"
+                className="document-row-action document-row-action-danger"
                 type="button"
                 disabled={options.documentOpening}
                 onClick={(event) => {
@@ -540,7 +540,7 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
             )}
             {options.editMode && !options.filterMode && node.kind === 'folder' && node.depth < 4 && (
               <button
-                className="uploaded-library-row-action"
+                className="document-row-action document-row-action-secondary"
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation()

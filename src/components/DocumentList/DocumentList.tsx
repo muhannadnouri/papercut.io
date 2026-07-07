@@ -133,7 +133,7 @@ function DocumentRow({
   const disabled = viewDisabled || opening
   const view = onViewDocument && (
     <button
-      className="document-view-btn"
+      className="document-row-action document-row-action-view"
       disabled={disabled}
       onClick={(e) => { e.preventDefault(); if (!disabled) onViewDocument(doc.url) }}
     >
@@ -142,7 +142,7 @@ function DocumentRow({
   )
   const remove = doc.source === 'upload' && onDeleteDocument && (
     <button
-      className="document-delete-btn"
+      className="document-row-action document-row-action-danger"
       disabled={deleteDisabled}
       onClick={(e) => { e.preventDefault(); void onDeleteDocument(doc) }}
     >

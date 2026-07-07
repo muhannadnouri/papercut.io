@@ -512,21 +512,25 @@
   white-space: nowrap;
 }
 
-.document-view-btn,
-.document-delete-btn {
-  background: none;
+.document-row-action {
+  flex: 0 0 auto;
+  min-height: 1.85rem;
+  padding: 0.2rem 0.6rem;
   border: 1px solid var(--border-strong);
   border-radius: 6px;
-  padding: 0.2rem 0.6rem;
-  font-size: 0.8rem;
+  background: var(--surface);
   color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
   cursor: pointer;
-  flex-shrink: 0;
+  white-space: nowrap;
   transition: all 0.15s;
 }
 
-.document-view-btn:hover:not(:disabled),
-.document-view-btn:focus-visible {
+.document-row-action-view:hover:not(:disabled),
+.document-row-action-view:focus-visible,
+.document-row-action-secondary:hover:not(:disabled),
+.document-row-action-secondary:focus-visible {
   border-color: var(--accent-text);
   background: var(--surface-accent);
   color: var(--accent-text);
@@ -534,8 +538,12 @@
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
-.document-delete-btn:hover:not(:disabled),
-.document-delete-btn:focus-visible {
+.document-row-action-danger {
+  color: var(--danger);
+}
+
+.document-row-action-danger:hover:not(:disabled),
+.document-row-action-danger:focus-visible {
   border-color: var(--danger-accent);
   background: var(--surface-danger);
   color: var(--danger-accent);
@@ -543,14 +551,7 @@
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
-.document-view-btn:disabled {
-  border-color: var(--border);
-  background: var(--surface-muted);
-  color: var(--text-soft);
-  cursor: not-allowed;
-}
-
-.document-delete-btn:disabled {
+.document-row-action:disabled {
   border-color: var(--border);
   background: var(--surface-muted);
   color: var(--text-soft);
@@ -1640,8 +1641,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
     padding-left: 1rem;
   }
 
-  .document-view-btn,
-  .document-delete-btn {
+  .document-row-action {
     min-height: 2.5rem;
     padding: 0.25rem 0.55rem;
   }
@@ -1795,6 +1795,24 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 }
 
 .panel.documents-panel-menu-open {
+  overflow: visible;
+}
+
+.panel.documents-panel .panel-body {
+  max-height: min(62vh, 42rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.panel.documents-panel-menu-open .panel-body {
+  max-height: none;
+  overflow: visible;
+}
+
+.panel.documents-panel .uploaded-library-tree,
+.panel.documents-panel .documents-scroll {
+  max-height: none;
   overflow: visible;
 }
 
