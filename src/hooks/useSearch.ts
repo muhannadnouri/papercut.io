@@ -77,7 +77,7 @@ export function useSearch(
       const pagefindData = await Promise.all(
         pagefindSearch.results.slice(0, 50).map((r) => r.data()),
       )
-      const uploadedData = firstUploadedResultPerDocument(uploadedSearch).map(uploadedSearchToResult)
+      const uploadedData = uploadedSearchToResults(uploadedSearch)
       const data = [...pagefindData, ...uploadedData].slice(0, 100)
       if (latestQueryRef.current !== normalized) return
 
@@ -138,27 +138,36 @@ export function useSearch(
   return { query, results, loading, submittedQuery, lastSearchInfo, handleSearch, submitSearch, removeResultsForUrl }
 }
 
-function uploadedSearchToResult(result: UploadedDocumentSearchResult): SearchResult {
+function uploadedSearchToResult(result: UploadedDocumentSearchResult, matchCount?: number): SearchResult {
   return {
     id: result.id,
     url: result.url,
     meta: { title: result.title },
     excerpt: sanitizeUploadedExcerpt(result.excerpt),
+    matchCount,
     sub_results: result.sectionTitle
       ? [{ url: result.url, title: result.sectionTitle }]
       : undefined,
   }
 }
 
-function firstUploadedResultPerDocument(results: UploadedDocumentSearchResult[]): UploadedDocumentSearchResult[] {
+// SQLite returns section-level hits, while the UI intentionally shows one card
+// per document. Preserve the section count for broad searches, but keep the
+// first ranked hit as the document's representative snippet.
+function uploadedSearchToResults(results: UploadedDocumentSearchResult[]): SearchResult[] {
+  const matchCounts = new Map<string, number>()
+  for (const result of results) {
+    matchCounts.set(result.url, (matchCounts.get(result.url) ?? 0) + 1)
+  }
+
   const seen = new Set<string>()
-  const deduped: UploadedDocumentSearchResult[] = []
+  const deduped: SearchResult[] = []
   for (const result of results) {
     // SQLite returns the best matching sections first, so the first result per uploaded
     // document is the snippet we want to show on the single document-level card.
     if (seen.has(result.url)) continue
     seen.add(result.url)
-    deduped.push(result)
+    deduped.push(uploadedSearchToResult(result, matchCounts.get(result.url)))
   }
   return deduped
 }

@@ -43,9 +43,7 @@ export function SearchResults({
               {lastSearchInfo.phrases.map((p, i) => (
                 <span key={i} className="phrase-tag">&ldquo;{p}&rdquo;</span>
               ))}
-              {lastSearchInfo.candidateCount !== lastSearchInfo.resultCount && (
-                <>. Checked {lastSearchInfo.candidateCount} possible match{lastSearchInfo.candidateCount === 1 ? '' : 'es'}.</>
-              )}
+              .
             </>
           ) : (
             <>{lastSearchInfo.resultCount} document{lastSearchInfo.resultCount === 1 ? '' : 's'} matched &ldquo;{submittedQuery}&rdquo;.</>
@@ -73,8 +71,7 @@ export function SearchResults({
           >
             <span className="result-title">{result.meta.title}{opening ? ' (Opening...)' : ''}</span>
             <span className="result-meta">
-              <span>{result.sub_results?.[0]?.title ? 'Section: ' + result.sub_results[0].title : lastSearchInfo?.phrases.length ? 'Exact phrase match' : 'Best matching passage'}</span>
-              <span>Open at match</span>
+              {resultMeta(result, Boolean(lastSearchInfo?.phrases.length))}
             </span>
             <span
               className="result-excerpt"
@@ -98,6 +95,24 @@ function searchOpenTargetForResult(result: SearchResult): SearchOpenTarget | und
   const hash = hashFromUrl(result.sub_results?.[0]?.url)
   const text = firstMarkedText(result.customExcerpt ?? result.sub_results?.[0]?.excerpt ?? result.excerpt)
   return hash || text ? { hash, text } : undefined
+}
+
+// Quoted searches use Pagefind/SQLite as broad candidate finders, then verify
+// the exact phrase against source text. Provider section counts are therefore
+// useful for unquoted searches, but misleading as "exact" counts.
+function resultMeta(result: SearchResult, exactPhrase: boolean): string {
+  if (exactPhrase) return 'Exact phrase match'
+
+  const parts = [
+    result.sub_results?.[0]?.title
+      ? 'Section: ' + result.sub_results[0].title
+      : 'Best matching passage',
+  ]
+  const count = result.matchCount ?? result.sub_results?.length
+  if (count && count > 1) {
+    parts.push(count + ' matching sections')
+  }
+  return parts.join(' · ')
 }
 
 function hashFromUrl(url?: string): string | undefined {

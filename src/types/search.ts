@@ -12,6 +12,7 @@ export interface SearchResult {
   content?: string
   sub_results?: PagefindSubResult[]
   customExcerpt?: string
+  matchCount?: number
 }
 
 export interface SearchOpenTarget {

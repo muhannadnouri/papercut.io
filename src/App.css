@@ -282,24 +282,14 @@
 }
 
 .result-meta {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
+  display: block;
   margin-bottom: 0.55rem;
   color: var(--text-muted);
   font-size: 0.78rem;
   font-weight: 600;
-}
-
-.result-meta span:first-child {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.result-meta span:last-child {
-  flex-shrink: 0;
-  color: var(--accent-text);
 }
 
 .result-excerpt {
@@ -318,14 +308,6 @@
 
 @media (max-width: 600px) {
   .result-meta {
-    display: block;
-  }
-
-  .result-meta span {
-    display: block;
-  }
-
-  .result-meta span:first-child {
     white-space: normal;
   }
 }
