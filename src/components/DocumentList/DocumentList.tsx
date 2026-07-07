@@ -11,7 +11,7 @@ interface DocumentListProps {
   /** Selection mode (search scope): renders checkboxes + per-group select-all. */
   selectable?: boolean
   selectedFilters?: Set<string>
-  onToggleFilter?: (title: string) => void
+  onToggleFilter?: (url: string) => void
   onToggleAllInGroup?: (docs: DocumentInfo[]) => void
 
   /** Browse actions: render a View and/or Delete button per row. */
@@ -50,13 +50,13 @@ export function DocumentList({
     )
   }
 
-  const isSelected = (title: string) => selectedFilters?.has(title) ?? false
+  const isSelected = (url: string) => selectedFilters?.has(url) ?? false
 
   return (
     <div className="documents-scroll">
       {groupedDocs.map(({ author, docs }) => {
         const collapsed = docFilterLower.length === 0 && collapsedAuthors.has(author)
-        const allSelected = selectable && docs.every((d) => isSelected(d.title))
+        const allSelected = selectable && docs.every((d) => isSelected(d.url))
         return (
           <div key={author} className="author-group">
             <div className="author-group-header">
@@ -80,7 +80,7 @@ export function DocumentList({
                 key={doc.url}
                 doc={doc}
                 selectable={selectable}
-                selected={isSelected(doc.title)}
+                selected={isSelected(doc.url)}
                 onToggleFilter={onToggleFilter}
                 onViewDocument={onViewDocument}
                 onDeleteDocument={onDeleteDocument}
@@ -100,7 +100,7 @@ interface DocumentRowProps {
   doc: DocumentInfo
   selectable: boolean
   selected: boolean
-  onToggleFilter?: (title: string) => void
+  onToggleFilter?: (url: string) => void
   onViewDocument?: (url: string) => void
   onDeleteDocument?: (doc: DocumentInfo) => void | Promise<void>
   deleteDisabled: boolean
@@ -157,7 +157,7 @@ function DocumentRow({
         <input
           type="checkbox"
           checked={selected}
-          onChange={() => onToggleFilter?.(doc.title)}
+          onChange={() => onToggleFilter?.(doc.url)}
         />
         {sourceIcon}
         <span className="document-item-title">{doc.title}</span>

@@ -11,6 +11,7 @@ interface SearchScopeProps {
   collapsedAuthors: Set<string>
   docFilterLower: string
   documentFilter: string
+  filterTitleByUrl: Map<string, string>
   groupedDocs: AuthorGroup[]
   libraryOrganization?: UploadedLibraryOrganization
   selectedFilters: Set<string>
@@ -18,7 +19,7 @@ interface SearchScopeProps {
   onFilterChange: (value: string) => void
   onToggleAllInGroup: (docs: DocumentInfo[]) => void
   onToggleAuthor: (author: string) => void
-  onToggleFilter: (title: string) => void
+  onToggleFilter: (url: string) => void
 }
 
 /**
@@ -29,6 +30,7 @@ export function SearchScope({
   collapsedAuthors,
   docFilterLower,
   documentFilter,
+  filterTitleByUrl,
   groupedDocs,
   libraryOrganization,
   selectedFilters,
@@ -103,10 +105,10 @@ export function SearchScope({
 
       {count > 0 && (
         <div className="active-filters" tabIndex={0} aria-label="Selected document filters">
-          {Array.from(selectedFilters).map((title) => (
-            <span key={title} className="filter-tag">
-              {title}
-              <button className="filter-tag-remove" onClick={() => onToggleFilter(title)}>
+          {Array.from(selectedFilters).map((url) => (
+            <span key={url} className="filter-tag">
+              {filterTitleByUrl.get(url) ?? url}
+              <button className="filter-tag-remove" onClick={() => onToggleFilter(url)}>
                 &times;
               </button>
             </span>

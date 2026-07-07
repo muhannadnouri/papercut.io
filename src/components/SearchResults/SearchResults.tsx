@@ -28,7 +28,7 @@ export function SearchResults({
   onViewResult,
 }: SearchResultsProps) {
   const filtered = selectedFilters.size > 0
-    ? results.filter((r) => selectedFilters.has(r.meta.title))
+    ? results.filter((r) => selectedFilters.has(r.url))
     : results
   const hasFilters = selectedFilters.size > 0
   const visibleCount = filtered.length
