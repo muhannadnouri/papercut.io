@@ -233,12 +233,13 @@
   align-items: center;
   min-height: 2.3rem;
   padding: 0.35rem 1.25rem 0.35rem calc(1rem + (var(--tree-item-level) - 1) * 1rem);
-  transition: background 0.1s;
+  transition: background 0.1s, box-shadow 0.1s;
 }
 
 .uploaded-library-item[data-hovered] .uploaded-library-content,
 .uploaded-library-item[data-focus-visible] .uploaded-library-content {
   background: var(--surface-hover);
+  box-shadow: inset 3px 0 0 var(--border-strong);
 }
 
 .uploaded-library-item[data-selected] .uploaded-library-content {
@@ -423,6 +424,7 @@
   }
 
   .uploaded-library-row-action {
+    min-height: 2.5rem;
     padding: 0 0.45rem;
   }
 }

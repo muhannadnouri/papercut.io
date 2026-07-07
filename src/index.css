@@ -164,12 +164,12 @@
 html[data-theme="dark"] {
   --color-scheme: dark;
   --app-bg: #0f172a;
-  --app-bg-alt: #1e293b;
-  --surface: #111827;
-  --surface-strong: #172033;
+  --app-bg-alt: #172033;
+  --surface: #1e293b;
+  --surface-strong: #263244;
   --surface-subtle: #172033;
-  --surface-muted: #1e293b;
-  --surface-hover: #263244;
+  --surface-muted: #263244;
+  --surface-hover: #334155;
   --surface-accent: #312e81;
   --surface-success: #10271d;
   --surface-danger: #32171b;

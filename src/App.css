@@ -226,6 +226,8 @@
   flex-wrap: wrap;
   gap: 0.5rem;
   padding: 0.5rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-subtle);
 }
 
 .document-import-menu {
@@ -446,13 +448,15 @@
   gap: 0.75rem;
   padding: 0.5rem 1.25rem;
   cursor: pointer;
-  transition: background 0.1s;
+  transition: background 0.1s, color 0.1s;
   font-size: 0.9rem;
   color: var(--text-body);
 }
 
-.document-item:hover {
+.document-item:hover,
+.document-item:focus-within {
   background: var(--surface-hover);
+  color: var(--text-heading);
 }
 
 .document-item input[type="checkbox"] {
@@ -498,14 +502,20 @@
   transition: all 0.15s;
 }
 
-.document-view-btn:hover:not(:disabled) {
+.document-view-btn:hover:not(:disabled),
+.document-view-btn:focus-visible {
   border-color: var(--accent-text);
+  background: var(--surface-accent);
   color: var(--accent-text);
+  outline: none;
 }
 
-.document-delete-btn:hover:not(:disabled) {
+.document-delete-btn:hover:not(:disabled),
+.document-delete-btn:focus-visible {
   border-color: var(--danger-accent);
+  background: var(--surface-danger);
   color: var(--danger-accent);
+  outline: none;
 }
 
 .document-view-btn:disabled {
@@ -1503,13 +1513,13 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 
   .documents-panel .document-import-btn {
     width: auto;
-    min-height: 2.25rem;
+    min-height: 2.75rem;
   }
 
   .documents-panel .audio-filter-toggle {
     grid-column: 2;
     justify-self: end;
-    min-height: 2.25rem;
+    min-height: 2.75rem;
   }
 
   .documents-panel .document-import-options {
@@ -1527,7 +1537,8 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 
   .document-view-btn,
   .document-delete-btn {
-    padding: 0.25rem 0.45rem;
+    min-height: 2.5rem;
+    padding: 0.25rem 0.55rem;
   }
 }
 
@@ -1557,7 +1568,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s, outline-color 0.15s;
 }
 
 .tab-nav-item:hover:not(:disabled):not(.tab-nav-item-active) {
@@ -1566,10 +1577,10 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 }
 
 .tab-nav-item-active {
-  background: var(--surface-strong);
-  color: var(--accent-text);
+  background: var(--surface-accent);
+  color: var(--accent-strong);
   outline: 1px solid var(--accent-border);
-  box-shadow: 0 1px 3px var(--shadow-soft);
+  box-shadow: 0 1px 3px var(--shadow-accent-soft);
 }
 
 .tab-nav-item:disabled {
@@ -1615,14 +1626,15 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   .tab-nav-item {
     flex-direction: column;
     gap: 0.15rem;
+    min-height: 3.65rem;
     padding: 0.4rem 0.25rem;
     font-size: 0.75rem;
     border-radius: 8px;
   }
 
   .tab-nav-item-active {
-    box-shadow: none;
     background: var(--surface-accent);
+    box-shadow: inset 0 0 0 1px var(--accent-border);
   }
 
   .tab-nav-icon {
