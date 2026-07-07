@@ -78,6 +78,7 @@ export function SearchResults({
         const opening = openingDocumentUrl === result.url
         const disabled = openingDisabled || opening
         const meta = resultMeta(result, Boolean(lastSearchInfo?.phrases.length))
+        const excerpt = resultExcerpt(result)
         return (
           <button
             type="button"
@@ -88,10 +89,12 @@ export function SearchResults({
           >
             <span className="result-title">{result.meta.title}{opening ? ' (Opening...)' : ''}</span>
             {meta && <span className="result-meta">{meta}</span>}
-            <span
-              className="result-excerpt"
-              dangerouslySetInnerHTML={{ __html: result.customExcerpt ?? result.excerpt }}
-            />
+            {excerpt && (
+              <span
+                className="result-excerpt"
+                dangerouslySetInnerHTML={{ __html: excerpt }}
+              />
+            )}
           </button>
         )
       })}
@@ -108,8 +111,25 @@ export function SearchResults({
 
 function searchOpenTargetForResult(result: SearchResult): SearchOpenTarget | undefined {
   const hash = hashFromUrl(result.sub_results?.[0]?.url)
-  const text = firstMarkedText(result.customExcerpt ?? result.sub_results?.[0]?.excerpt ?? result.excerpt)
+  const text = firstMarkedText(resultExcerpt(result) ?? '')
   return hash || text ? { hash, text } : undefined
+}
+
+// Use the richest safe snippet available, but avoid rendering a body line that
+// merely repeats the section label already shown in result metadata.
+function resultExcerpt(result: SearchResult): string | null {
+  const sectionTitle = result.sub_results?.[0]?.title
+  return usefulExcerpt(result.customExcerpt, sectionTitle)
+    ?? usefulExcerpt(result.sub_results?.[0]?.excerpt, sectionTitle)
+    ?? usefulExcerpt(result.excerpt, sectionTitle)
+}
+
+// Compare rendered text instead of raw HTML so highlighted snippets and plain
+// section titles can be recognized as duplicates.
+function usefulExcerpt(excerpt: string | undefined, sectionTitle: string | undefined): string | null {
+  if (!excerpt) return null
+  if (plainText(excerpt) === plainText(sectionTitle)) return null
+  return excerpt
 }
 
 function resultMeta(result: SearchResult, exactPhrase: boolean): string | null {
@@ -142,4 +162,13 @@ function firstMarkedText(html: string): string | undefined {
   const doc = new DOMParser().parseFromString(html, 'text/html')
   const text = doc.querySelector('mark')?.textContent?.trim()
   return text || undefined
+}
+
+// Converts snippet HTML into comparable visible text without letting entities,
+// tags, or <mark> wrappers change duplicate detection.
+function plainText(html?: string): string {
+  if (!html) return ''
+  if (typeof DOMParser === 'undefined') return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  return (doc.body.textContent ?? '').replace(/\s+/g, ' ').trim()
 }

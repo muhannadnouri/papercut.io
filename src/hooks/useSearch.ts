@@ -11,6 +11,10 @@ import {
   type DocumentSourceLoader,
 } from '../utils/phraseSearch'
 
+// Keep source reads bounded: provider snippets cover most results, and fallback
+// excerpts are mainly for the first screenful when Pagefind only returns a heading.
+const FUZZY_FALLBACK_EXCERPT_LIMIT = 12
+
 interface LastSearchInfo {
   phrases: string[]
 }
@@ -107,6 +111,23 @@ export function useSearch(
             ? { ...d, customExcerpt: excerpts[i] ?? undefined, matchCount: matchCounts[i] }
             : { ...d, matchCount: matchCounts[i] },
         )
+      } else if (options.loadDocumentSource) {
+        const terms = searchQuery.split(/\s+/).filter(Boolean)
+        const fallbackTargets = filtered
+          .slice(0, FUZZY_FALLBACK_EXCERPT_LIMIT)
+          .map((result, index) => ({ result, index }))
+          .filter(({ result }) => !hasUsefulProviderExcerpt(result))
+        if (fallbackTargets.length > 0) {
+          const excerpts = await Promise.all(
+            fallbackTargets.map(({ result }) => buildPhraseExcerpt(result.url, terms, options.loadDocumentSource)),
+          )
+          if (latestSearchKeyRef.current !== searchKey) return
+          filtered = filtered.map((result, index) => {
+            const targetIndex = fallbackTargets.findIndex((target) => target.index === index)
+            const excerpt = targetIndex === -1 ? null : excerpts[targetIndex]
+            return excerpt ? { ...result, customExcerpt: excerpt } : result
+          })
+        }
       }
 
       setResults(filtered)
@@ -209,4 +230,32 @@ function sanitizeUploadedExcerpt(excerpt: string): string {
   return escapeHtml(excerpt)
     .replace(/&lt;mark&gt;/g, '<mark>')
     .replace(/&lt;\/mark&gt;/g, '</mark>')
+}
+
+// Provider snippets can collapse to the section heading for generated EPUB
+// pages. Treat those as missing so we only fetch source text when the existing
+// snippet would not help the user decide whether to open the result.
+function hasUsefulProviderExcerpt(result: SearchResult): boolean {
+  const sectionTitle = result.sub_results?.[0]?.title
+  return Boolean(
+    usefulExcerpt(result.sub_results?.[0]?.excerpt, sectionTitle)
+      ?? usefulExcerpt(result.excerpt, sectionTitle),
+  )
+}
+
+// Compares rendered text, not raw markup, because snippets may wrap matches in
+// <mark> while section titles are plain strings.
+function usefulExcerpt(excerpt: string | undefined, sectionTitle: string | undefined): string | null {
+  if (!excerpt) return null
+  if (plainText(excerpt) === plainText(sectionTitle)) return null
+  return excerpt
+}
+
+// Small DOM-based text extraction keeps HTML entities and <mark> tags from
+// affecting duplicate-snippet checks.
+function plainText(html?: string): string {
+  if (!html) return ''
+  if (typeof DOMParser === 'undefined') return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  return (doc.body.textContent ?? '').replace(/\s+/g, ' ').trim()
 }
