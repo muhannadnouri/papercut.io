@@ -39,15 +39,16 @@ export function SearchResults({
         <div className="search-info">
           {lastSearchInfo.phrases.length > 0 ? (
             <>
-              Exact phrase{lastSearchInfo.phrases.length > 1 ? 's' : ''}:{' '}
+              {lastSearchInfo.resultCount} document{lastSearchInfo.resultCount === 1 ? '' : 's'} contain{lastSearchInfo.resultCount === 1 ? 's' : ''}{' '}
               {lastSearchInfo.phrases.map((p, i) => (
                 <span key={i} className="phrase-tag">&ldquo;{p}&rdquo;</span>
-              ))}{' '}
-              &mdash; kept {lastSearchInfo.resultCount} of {lastSearchInfo.candidateCount} candidate
-              {lastSearchInfo.candidateCount === 1 ? '' : 's'}.
+              ))}
+              {lastSearchInfo.candidateCount !== lastSearchInfo.resultCount && (
+                <>. Checked {lastSearchInfo.candidateCount} possible match{lastSearchInfo.candidateCount === 1 ? '' : 'es'}.</>
+              )}
             </>
           ) : (
-            <>{lastSearchInfo.resultCount} result{lastSearchInfo.resultCount === 1 ? '' : 's'}.</>
+            <>{lastSearchInfo.resultCount} document{lastSearchInfo.resultCount === 1 ? '' : 's'} matched &ldquo;{submittedQuery}&rdquo;.</>
           )}
         </div>
       )}
@@ -71,6 +72,10 @@ export function SearchResults({
             onClick={() => { if (!disabled) onViewResult(result, searchOpenTargetForResult(result)) }}
           >
             <span className="result-title">{result.meta.title}{opening ? ' (Opening...)' : ''}</span>
+            <span className="result-meta">
+              <span>{result.sub_results?.[0]?.title ? 'Section: ' + result.sub_results[0].title : lastSearchInfo?.phrases.length ? 'Exact phrase match' : 'Best matching passage'}</span>
+              <span>Open at match</span>
+            </span>
             <span
               className="result-excerpt"
               dangerouslySetInnerHTML={{ __html: result.customExcerpt ?? result.excerpt }}
