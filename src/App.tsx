@@ -19,6 +19,7 @@ import { useAppConfirmation } from './components/AppDialog/useAppConfirmation'
 import { useDocumentFilters } from './hooks/useDocumentFilters'
 import { useDocumentViewerState } from './hooks/useDocumentViewerState'
 import { useTheme } from './hooks/useTheme'
+import { useUploadedLibrary } from './hooks/useUploadedLibrary'
 import type { DocumentInfo, SearchOpenTarget } from './types/search'
 import { clearPhraseFetchCache } from './utils/phraseSearch'
 import { isDebugEnabled, setDebugEnabled } from './utils/debugFlags'
@@ -26,40 +27,32 @@ import { AudioControls } from './tts/components/AudioControls'
 import { TtsDiagnosticsPanel } from './tts/components/TtsDiagnosticsPanel'
 import { AudiobooksPanel } from './tts/components/AudiobooksPanel'
 import { getImportedAudiobookSource } from './tts/api/nativeTts'
-import { formatStorageSize } from './utils/formatUtils'
 import { getUserUploads, isUserUploadUrl, type UserUploadDocument } from './tts/storage/UserUploads'
 import { useAudiobookManager } from './tts/hooks/useAudiobookManager'
 import {
-  deleteUploadedDocument,
-  createUploadedLibraryFolder,
   getUploadedDocumentSource,
-  getUploadedLibraryOrganization,
-  importEpubDocument,
-  importHtmlDocument,
   isUploadedDocumentUrl,
-  listUploadedDocuments,
-  moveUploadedDocuments,
-  renameUploadedLibraryFolder,
-  deleteUploadedLibraryFolder,
-  type UploadedDocument,
-  type UploadedLibraryOrganization,
 } from './uploads/DocumentUploads'
-
-type UploadedLibraryState = {
-  documents: UploadedDocument[]
-  organization: UploadedLibraryOrganization
-}
 
 function App() {
   const theme = useTheme()
   const [activeTab, setActiveTab] = useState<AppTab>('library')
   const [userUploads, setUserUploads] = useState<UserUploadDocument[]>(() => getUserUploads())
-  const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([])
-  const [uploadedLibraryOrganization, setUploadedLibraryOrganization] = useState<UploadedLibraryOrganization>({ folders: [], documentLocations: [] })
-  const [documentImport, setDocumentImport] = useState<{ status: 'idle' | 'importing' | 'imported' | 'deleting' | 'deleted' | 'cancelled' | 'error'; message: string }>({ status: 'idle', message: '' })
   const [ttsDiagnosticsEnabled, setTtsDiagnosticsEnabled] = useState(() => isDebugEnabled())
   const { pagefindRef, pagefindReady, allDocuments, documentsLoading } = usePagefind()
   const { confirm: confirmDocumentAction, dialog: documentConfirmationDialog } = useAppConfirmation()
+  const {
+    createLibraryFolder,
+    deleteDocument: deleteUploadedLibraryDocument,
+    deleteLibraryFolder,
+    documentImport,
+    importEpubDocument,
+    importHtmlDocument,
+    moveLibraryDocuments,
+    renameLibraryFolder,
+    uploadedDocuments,
+    uploadedLibraryOrganization,
+  } = useUploadedLibrary()
 
   const loadHtmlDocument = useCallback(async (url: string): Promise<string> => {
     if (isUploadedDocumentUrl(url)) return getUploadedDocumentSource(url)
@@ -69,37 +62,6 @@ function App() {
     if (!response.ok) throw new Error('Failed to load document')
     return response.text()
   }, [])
-
-  const loadUploadedLibrary = useCallback(async (): Promise<UploadedLibraryState> => {
-    const [documents, organization] = await Promise.all([
-      listUploadedDocuments(),
-      getUploadedLibraryOrganization(),
-    ])
-    return { documents, organization }
-  }, [])
-
-  const applyUploadedLibrary = useCallback((library: UploadedLibraryState) => {
-    setUploadedDocuments(library.documents)
-    setUploadedLibraryOrganization(library.organization)
-  }, [])
-
-  const refreshUploadedLibrary = useCallback(async () => {
-    applyUploadedLibrary(await loadUploadedLibrary())
-  }, [applyUploadedLibrary, loadUploadedLibrary])
-
-  useEffect(() => {
-    let cancelled = false
-    loadUploadedLibrary().then((library) => {
-      if (!cancelled) applyUploadedLibrary(library)
-    }).catch((err) => {
-      console.warn('Unable to load uploaded documents:', err)
-    })
-
-    return () => {
-      cancelled = true
-    }
-  }, [applyUploadedLibrary, loadUploadedLibrary])
-
 
   const handleUserUploadsChanged = useCallback(() => {
     setUserUploads(getUserUploads())
@@ -229,36 +191,19 @@ function App() {
   )
   const selectedFormat = selectedDocument?.format
 
-  const runDocumentImport = useCallback(async (
-    importingMessage: string,
-    importer: () => Promise<UploadedDocument>,
-  ) => {
-    setDocumentImport({ status: 'importing', message: importingMessage })
-    try {
-      const result = await importer()
-      await refreshUploadedLibrary()
-      setShowDocuments(true)
-      setDocumentImport({ status: 'imported', message: 'Imported ' + result.title })
-      await handleViewDocument(result.url)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      const cancelled = message.toLowerCase().includes('cancelled')
-      setDocumentImport({
-        status: cancelled ? 'cancelled' : 'error',
-        message: cancelled ? 'Import cancelled.' : message,
-      })
-    }
-  }, [handleViewDocument, refreshUploadedLibrary, setShowDocuments])
+  const handleImportHtmlDocument = useCallback(async () => {
+    const result = await importHtmlDocument()
+    if (!result) return
+    setShowDocuments(true)
+    await handleViewDocument(result.url)
+  }, [handleViewDocument, importHtmlDocument, setShowDocuments])
 
-  const handleImportHtmlDocument = useCallback(
-    () => runDocumentImport('⏳ Importing HTML Document...', importHtmlDocument),
-    [runDocumentImport],
-  )
-
-  const handleImportEpubDocument = useCallback(
-    () => runDocumentImport('⏳ Importing EPUB Book...', importEpubDocument),
-    [runDocumentImport],
-  )
+  const handleImportEpubDocument = useCallback(async () => {
+    const result = await importEpubDocument()
+    if (!result) return
+    setShowDocuments(true)
+    await handleViewDocument(result.url)
+  }, [handleViewDocument, importEpubDocument, setShowDocuments])
 
   const handleImportAudiobook = useCallback(async () => {
     await importAudiobookBundle(handleViewDocument)
@@ -275,48 +220,15 @@ function App() {
     })
     if (!confirmed) return
 
-    setDocumentImport({ status: 'deleting', message: 'Deleting ' + doc.title })
-    try {
-      const result = await deleteUploadedDocument(doc.url)
-      await refreshUploadedLibrary()
-      removeResultsForUrl(doc.url)
-      clearPhraseFetchCache(doc.url)
-      removeFilter(doc.url)
-      if (selectedDoc === doc.url) {
-        handleCloseDocument()
-      }
-
-      const storage = formatStorageSize(result.bytesFreed)
-      setDocumentImport({
-        status: 'deleted',
-        message: storage ? 'Deleted ' + doc.title + ' and freed ' + storage + '.' : 'Deleted ' + doc.title + '.',
-      })
-    } catch (err) {
-      setDocumentImport({
-        status: 'error',
-        message: err instanceof Error ? err.message : String(err),
-      })
+    const deleted = await deleteUploadedLibraryDocument(doc)
+    if (!deleted) return
+    removeResultsForUrl(doc.url)
+    clearPhraseFetchCache(doc.url)
+    removeFilter(doc.url)
+    if (selectedDoc === doc.url) {
+      handleCloseDocument()
     }
-  }, [confirmDocumentAction, handleCloseDocument, refreshUploadedLibrary, removeFilter, removeResultsForUrl, selectedDoc])
-
-  const handleCreateLibraryFolder = useCallback(async (parentId: string | null, name: string) => {
-    await createUploadedLibraryFolder(parentId, name)
-    setUploadedLibraryOrganization(await getUploadedLibraryOrganization())
-  }, [])
-
-  const handleRenameLibraryFolder = useCallback(async (folderId: string, name: string) => {
-    await renameUploadedLibraryFolder(folderId, name)
-    setUploadedLibraryOrganization(await getUploadedLibraryOrganization())
-  }, [])
-
-  const handleDeleteLibraryFolder = useCallback(async (folderId: string) => {
-    await deleteUploadedLibraryFolder(folderId)
-    setUploadedLibraryOrganization(await getUploadedLibraryOrganization())
-  }, [])
-
-  const handleMoveLibraryDocuments = useCallback(async (documentIds: string[], folderId: string | null) => {
-    setUploadedLibraryOrganization(await moveUploadedDocuments(documentIds, folderId))
-  }, [])
+  }, [confirmDocumentAction, deleteUploadedLibraryDocument, handleCloseDocument, removeFilter, removeResultsForUrl, selectedDoc])
 
   if (selectedDoc) {
     return (
@@ -434,11 +346,11 @@ function App() {
             onToggleShow={() => setShowDocuments((v) => !v)}
             onFilterChange={setLibraryDocumentFilter}
             onAudioSavedOnlyChange={setAudioSavedOnly}
-            onCreateLibraryFolder={handleCreateLibraryFolder}
+            onCreateLibraryFolder={createLibraryFolder}
             onDeleteDocument={handleDeleteUploadedDocument}
-            onDeleteLibraryFolder={handleDeleteLibraryFolder}
-            onMoveLibraryDocuments={handleMoveLibraryDocuments}
-            onRenameLibraryFolder={handleRenameLibraryFolder}
+            onDeleteLibraryFolder={deleteLibraryFolder}
+            onMoveLibraryDocuments={moveLibraryDocuments}
+            onRenameLibraryFolder={renameLibraryFolder}
             onToggleAuthor={toggleLibraryAuthor}
             onViewDocument={handleViewDocument}
           />
