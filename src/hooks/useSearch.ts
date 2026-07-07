@@ -46,9 +46,10 @@ export function useSearch(
   const latestQueryRef = useRef<string>('')
 
   const performSearch = useCallback(async (rawQuery: string) => {
-    const normalized = rawQuery.trim().toLowerCase()
+    const displayQuery = rawQuery.trim()
+    const normalized = displayQuery.toLowerCase()
     latestQueryRef.current = normalized
-    setSubmittedQuery(normalized)
+    setSubmittedQuery(displayQuery)
     if (normalized.length === 0) {
       setResults([])
       setLastSearchInfo(null)
@@ -57,6 +58,7 @@ export function useSearch(
     }
 
     const phrases = extractQuotedPhrases(normalized)
+    const displayPhrases = extractQuotedPhrases(displayQuery)
     const searchQuery = phrases.length > 0 ? stripQuotes(normalized) : normalized
     if (searchQuery.length === 0) {
       setResults([])
@@ -100,7 +102,7 @@ export function useSearch(
 
       setResults(filtered)
       setLastSearchInfo({
-        phrases,
+        phrases: displayPhrases,
         candidateCount: data.length,
         resultCount: filtered.length,
       })
