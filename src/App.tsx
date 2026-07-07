@@ -8,12 +8,10 @@ import './App.css'
 import papercutIcon from './assets/papercut-icon.png'
 import { usePagefind } from './hooks/usePagefind'
 import { useSearch } from './hooks/useSearch'
-import { SearchBar } from './components/SearchBar/SearchBar'
-import { SearchResults } from './components/SearchResults/SearchResults'
+import { SearchTab } from './components/SearchTab/SearchTab'
 import { LibraryTab } from './components/LibraryTab/LibraryTab'
 import { DocumentViewer } from './components/DocumentViewer/DocumentViewer'
 import { TabNav, type AppTab } from './components/TabNav/TabNav'
-import { SearchScope } from './components/SearchScope/SearchScope'
 import { ThemeToggle } from './components/ThemeToggle/ThemeToggle'
 import { useAppConfirmation } from './components/AppDialog/useAppConfirmation'
 import { useDocumentFilters } from './hooks/useDocumentFilters'
@@ -277,40 +275,31 @@ function App() {
       />
 
       {activeTab === 'search' && (
-        <section className="tab-panel" role="tabpanel" aria-label="Search" data-tab="search">
-          <SearchBar
-            query={query}
-            disabled={!pagefindReady && uploadedDocuments.length === 0}
-            onChange={handleSearch}
-            onSubmit={submitSearch}
-          />
-
-          <SearchScope
-            groupedDocs={searchGroupedDocs}
-            collapsedAuthors={searchCollapsedAuthors}
-            docFilterLower={searchDocFilterLower}
-            documentFilter={searchDocumentFilter}
-            libraryOrganization={uploadedLibraryOrganization}
-            selectedFilters={selectedFilters}
-            filterTitleByUrl={searchFilterTitleByUrl}
-            onFilterChange={setSearchDocumentFilter}
-            onToggleFilter={toggleFilter}
-            onToggleAllInGroup={toggleAllInGroup}
-            onToggleAuthor={toggleSearchAuthor}
-            onClearFilters={clearFilters}
-          />
-
-          <SearchResults
-            results={audioFilteredResults}
-            loading={loading}
-            submittedQuery={submittedQuery}
-            lastSearchInfo={lastSearchInfo}
-            selectedFilters={selectedFilters}
-            openingDisabled={documentOpening}
-            openingDocumentUrl={documentLoad.status === 'loading' ? documentLoad.url : undefined}
-            onViewResult={(result, target) => handleViewDocument(result.url, target)}
-          />
-        </section>
+        <SearchTab
+          query={query}
+          disabled={!pagefindReady && uploadedDocuments.length === 0}
+          onChangeQuery={handleSearch}
+          onSubmitSearch={submitSearch}
+          groupedDocs={searchGroupedDocs}
+          collapsedAuthors={searchCollapsedAuthors}
+          docFilterLower={searchDocFilterLower}
+          documentFilter={searchDocumentFilter}
+          libraryOrganization={uploadedLibraryOrganization}
+          selectedFilters={selectedFilters}
+          filterTitleByUrl={searchFilterTitleByUrl}
+          onFilterChange={setSearchDocumentFilter}
+          onToggleFilter={toggleFilter}
+          onToggleAllInGroup={toggleAllInGroup}
+          onToggleAuthor={toggleSearchAuthor}
+          onClearFilters={clearFilters}
+          results={audioFilteredResults}
+          loading={loading}
+          submittedQuery={submittedQuery}
+          lastSearchInfo={lastSearchInfo}
+          openingDisabled={documentOpening}
+          openingDocumentUrl={documentLoad.status === 'loading' ? documentLoad.url : undefined}
+          onViewResult={(result, target) => handleViewDocument(result.url, target)}
+        />
       )}
 
       {activeTab === 'library' && (
