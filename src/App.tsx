@@ -94,17 +94,6 @@ function App() {
     return response.text()
   }, [])
 
-  const {
-    query,
-    results,
-    loading,
-    submittedQuery,
-    lastSearchInfo,
-    handleSearch,
-    submitSearch,
-    removeResultsForUrl,
-  } = useSearch(pagefindRef, { loadDocumentSource: loadHtmlDocument })
-
   const loadUploadedLibrary = useCallback(async (): Promise<UploadedLibraryState> => {
     const [documents, organization] = await Promise.all([
       listUploadedDocuments(),
@@ -220,6 +209,7 @@ function App() {
     collapsedAuthors: searchCollapsedAuthors,
     groupedDocs: searchGroupedDocs,
     docFilterLower: searchDocFilterLower,
+    filterTitleByUrl: searchFilterTitleByUrl,
     toggleFilter,
     clearFilters,
     removeFilter,
@@ -227,6 +217,22 @@ function App() {
     toggleAllInGroup,
     setDocumentFilter: setSearchDocumentFilter,
   } = searchFilters
+
+  const {
+    query,
+    results,
+    loading,
+    submittedQuery,
+    lastSearchInfo,
+    handleSearch,
+    rerunSearch,
+    submitSearch,
+    removeResultsForUrl,
+  } = useSearch(pagefindRef, { loadDocumentSource: loadHtmlDocument, scopeUrls: selectedFilters })
+
+  useEffect(() => {
+    rerunSearch()
+  }, [rerunSearch])
 
   const {
     showDocuments,
@@ -351,7 +357,7 @@ function App() {
       await refreshUploadedLibrary()
       removeResultsForUrl(doc.url)
       clearPhraseFetchCache(doc.url)
-      removeFilter(doc.title)
+      removeFilter(doc.url)
       if (selectedDoc === doc.url) {
         handleCloseDocument()
       }
@@ -446,6 +452,7 @@ function App() {
             documentFilter={searchDocumentFilter}
             libraryOrganization={uploadedLibraryOrganization}
             selectedFilters={selectedFilters}
+            filterTitleByUrl={searchFilterTitleByUrl}
             onFilterChange={setSearchDocumentFilter}
             onToggleFilter={toggleFilter}
             onToggleAllInGroup={toggleAllInGroup}

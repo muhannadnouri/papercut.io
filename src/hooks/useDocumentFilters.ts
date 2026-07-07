@@ -18,9 +18,10 @@ interface UseDocumentFiltersReturn {
   collapsedAuthors: Set<string>
   groupedDocs: AuthorGroup[]
   docFilterLower: string
-  toggleFilter: (title: string) => void
+  filterTitleByUrl: Map<string, string>
+  toggleFilter: (url: string) => void
   clearFilters: () => void
-  removeFilter: (title: string) => void
+  removeFilter: (url: string) => void
   toggleAuthor: (author: string) => void
   toggleAllInGroup: (docs: DocumentInfo[]) => void
   setShowDocuments: React.Dispatch<React.SetStateAction<boolean>>
@@ -38,6 +39,13 @@ export function useDocumentFilters(
 
   const { includeDocument } = options
   const docFilterLower = documentFilter.trim().toLowerCase()
+
+  const filterTitleByUrl = useMemo(() => {
+    const entries = allDocuments
+      .filter((doc) => !includeDocument || includeDocument(doc))
+      .map((doc) => [doc.url, doc.title] as const)
+    return new Map(entries)
+  }, [allDocuments, includeDocument])
 
   const groupedDocs = useMemo<AuthorGroup[]>(() => {
     const groups = new Map<string, DocumentInfo[]>()
@@ -68,11 +76,11 @@ export function useDocumentFilters(
       })
   }, [allDocuments, docFilterLower, includeDocument])
 
-  const toggleFilter = useCallback((title: string) => {
+  const toggleFilter = useCallback((url: string) => {
     setSelectedFilters((prev) => {
       const next = new Set(prev)
-      if (next.has(title)) next.delete(title)
-      else next.add(title)
+      if (next.has(url)) next.delete(url)
+      else next.add(url)
       return next
     })
   }, [])
@@ -81,11 +89,11 @@ export function useDocumentFilters(
     setSelectedFilters(new Set())
   }, [])
 
-  const removeFilter = useCallback((title: string) => {
+  const removeFilter = useCallback((url: string) => {
     setSelectedFilters((prev) => {
-      if (!prev.has(title)) return prev
+      if (!prev.has(url)) return prev
       const next = new Set(prev)
-      next.delete(title)
+      next.delete(url)
       return next
     })
   }, [])
@@ -102,9 +110,9 @@ export function useDocumentFilters(
   const toggleAllInGroup = useCallback((docs: DocumentInfo[]) => {
     setSelectedFilters((prev) => {
       const next = new Set(prev)
-      const allSelected = docs.every((d) => next.has(d.title))
-      if (allSelected) docs.forEach((d) => next.delete(d.title))
-      else docs.forEach((d) => next.add(d.title))
+      const allSelected = docs.every((d) => next.has(d.url))
+      if (allSelected) docs.forEach((d) => next.delete(d.url))
+      else docs.forEach((d) => next.add(d.url))
       return next
     })
   }, [])
@@ -116,6 +124,7 @@ export function useDocumentFilters(
     collapsedAuthors,
     groupedDocs,
     docFilterLower,
+    filterTitleByUrl,
     toggleFilter,
     clearFilters,
     removeFilter,

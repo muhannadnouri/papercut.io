@@ -70,11 +70,11 @@ export async function listUploadedDocuments(): Promise<UploadedDocument[]> {
   return invoke<UploadedDocument[]>('document_uploads_list')
 }
 
-export async function searchUploadedDocuments(query: string, limit = 50): Promise<UploadedDocumentSearchResult[]> {
+export async function searchUploadedDocuments(query: string, limit = 50, documentUrls?: string[]): Promise<UploadedDocumentSearchResult[]> {
   if (!isTauriRuntime() || query.trim().length === 0) return []
   const invoke = await loadTauriInvoke()
   return invoke<UploadedDocumentSearchResult[]>('document_uploads_search', {
-    request: { query, limit },
+    request: { query, limit, documentUrls },
   })
 }
 

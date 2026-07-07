@@ -181,7 +181,7 @@
   line-height: 1.4;
 }
 
-.search-info .phrase-tag {
+.query-tag {
   display: inline-block;
   margin: 0 0.2rem;
   padding: 0.05rem 0.4rem;
@@ -278,7 +278,18 @@
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--text);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.result-meta {
+  display: block;
+  margin-bottom: 0.55rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .result-excerpt {
@@ -293,6 +304,12 @@
   color: inherit;
   padding: 0.1em 0.15em;
   border-radius: 2px;
+}
+
+@media (max-width: 600px) {
+  .result-meta {
+    white-space: normal;
+  }
 }
 
 .no-results {

@@ -23,7 +23,7 @@ interface UploadedLibraryTreeProps {
   onMoveDocuments?: (documentIds: string[], folderId: string | null) => Promise<void> | void
   onRenameFolder?: (folderId: string, name: string) => Promise<void> | void
   onToggleAllInGroup?: (docs: DocumentInfo[]) => void
-  onToggleFilter?: (title: string) => void
+  onToggleFilter?: (url: string) => void
   onViewDocument?: (url: string) => void
 }
 
@@ -84,7 +84,7 @@ export function UploadedLibraryTree({
     [documents, filterMode, organization],
   )
   const rootDocuments = useMemo(() => nodes.flatMap(collectDocuments), [nodes])
-  const allRootSelected = rootDocuments.length > 0 && rootDocuments.every((doc) => selectedFilters?.has(doc.title))
+  const allRootSelected = rootDocuments.length > 0 && rootDocuments.every((doc) => selectedFilters?.has(doc.url))
   const selectedNodes = Array.from(selectedKeys)
     .map((key) => nodeByKey.get(String(key)))
     .filter((node): node is LibraryNode => Boolean(node))
@@ -413,7 +413,7 @@ interface RenderNodeOptions {
   openingDocumentUrl?: string
   onDeleteDocument?: (doc: DocumentInfo) => Promise<void> | void
   onToggleAllInGroup?: (docs: DocumentInfo[]) => void
-  onToggleFilter?: (title: string) => void
+  onToggleFilter?: (url: string) => void
   onToggleFolderExpanded: (key: string) => void
   onToggleSelection: (key: string) => void
   onViewDocument?: (url: string) => void
@@ -432,8 +432,8 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
   const opening = node.kind === 'document' && options.openingDocumentUrl === node.url
   const expanded = node.kind === 'folder' && options.expandedKeys.has(node.key)
   const filterDocuments = node.kind === 'folder' ? collectDocuments(node) : []
-  const folderFilterSelected = filterDocuments.length > 0 && filterDocuments.every((doc) => options.selectedFilters?.has(doc.title))
-  const documentFilterSelected = node.kind === 'document' && Boolean(options.selectedFilters?.has(node.title))
+  const folderFilterSelected = filterDocuments.length > 0 && filterDocuments.every((doc) => options.selectedFilters?.has(doc.url))
+  const documentFilterSelected = node.kind === 'document' && Boolean(options.selectedFilters?.has(node.url))
   const selected = options.selectedKeys.has(node.key) || folderFilterSelected || documentFilterSelected
   const className = [
     'uploaded-library-item',
@@ -492,7 +492,7 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
                 onClick={(event) => event.stopPropagation()}
                 onChange={(event) => {
                   event.stopPropagation()
-                  options.onToggleFilter?.(node.title)
+                  options.onToggleFilter?.(node.url)
                 }}
               />
             )}
