@@ -16,9 +16,10 @@ import { DocumentViewer } from './components/DocumentViewer/DocumentViewer'
 import { TabNav, type AppTab } from './components/TabNav/TabNav'
 import { SearchScope } from './components/SearchScope/SearchScope'
 import { ThemeToggle } from './components/ThemeToggle/ThemeToggle'
+import { useAppConfirmation } from './components/AppDialog/useAppConfirmation'
 import { useDocumentFilters } from './hooks/useDocumentFilters'
 import { useTheme } from './hooks/useTheme'
-import type { DocumentInfo } from './types/search'
+import type { DocumentInfo, SearchOpenTarget } from './types/search'
 import { clearPhraseFetchCache } from './utils/phraseSearch'
 import { isDebugEnabled, setDebugEnabled } from './utils/debugFlags'
 import { AudioControls } from './tts/components/AudioControls'
@@ -54,20 +55,35 @@ type UploadedLibraryState = {
   organization: UploadedLibraryOrganization
 }
 
+type BrowseScrollSnapshot = {
+  activeTab: AppTab
+  windowX: number
+  windowY: number
+  panelScrollTop: number | null
+}
+
+function getDocumentBrowserPanelBody(tab: AppTab): HTMLElement | null {
+  const panel = document.querySelector(`.tab-panel[data-tab="${tab}"] .document-browser-panel .panel-body`)
+  return panel instanceof HTMLElement ? panel : null
+}
+
 function App() {
   const theme = useTheme()
   const [selectedDoc, setSelectedDoc] = useState<string | null>(null)
+  const [searchOpenTarget, setSearchOpenTarget] = useState<SearchOpenTarget | null>(null)
   const [docContent, setDocContent] = useState('')
   const [documentLoad, setDocumentLoad] = useState<DocumentLoadState>({ status: 'idle' })
   const openDocumentRequestRef = useRef(0)
   const documentOpeningRef = useRef(false)
-  const [activeTab, setActiveTab] = useState<AppTab>('search')
+  const browseScrollRef = useRef<BrowseScrollSnapshot | null>(null)
+  const [activeTab, setActiveTab] = useState<AppTab>('library')
   const [userUploads, setUserUploads] = useState<UserUploadDocument[]>(() => getUserUploads())
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([])
   const [uploadedLibraryOrganization, setUploadedLibraryOrganization] = useState<UploadedLibraryOrganization>({ folders: [], documentLocations: [] })
   const [documentImport, setDocumentImport] = useState<{ status: 'idle' | 'importing' | 'imported' | 'deleting' | 'deleted' | 'cancelled' | 'error'; message: string }>({ status: 'idle', message: '' })
   const [ttsDiagnosticsEnabled, setTtsDiagnosticsEnabled] = useState(() => isDebugEnabled())
   const { pagefindRef, pagefindReady, allDocuments, documentsLoading } = usePagefind()
+  const { confirm: confirmDocumentAction, dialog: documentConfirmationDialog } = useAppConfirmation()
 
   const loadHtmlDocument = useCallback(async (url: string): Promise<string> => {
     if (isUploadedDocumentUrl(url)) return getUploadedDocumentSource(url)
@@ -124,6 +140,7 @@ function App() {
     openDocumentRequestRef.current += 1
     documentOpeningRef.current = false
     setSelectedDoc(null)
+    setSearchOpenTarget(null)
     setDocContent('')
     setDocumentLoad({ status: 'idle' })
   }, [])
@@ -136,6 +153,30 @@ function App() {
     setDebugEnabled(enabled)
     setTtsDiagnosticsEnabled(enabled)
   }, [])
+
+  useEffect(() => {
+    if (selectedDoc) return
+    const snapshot = browseScrollRef.current
+    if (!snapshot || snapshot.activeTab !== activeTab) return
+    if (documentsLoading) return
+
+    browseScrollRef.current = null
+    let innerFrame = 0
+    const frame = requestAnimationFrame(() => {
+      innerFrame = requestAnimationFrame(() => {
+        window.scrollTo(snapshot.windowX, snapshot.windowY)
+        const panelBody = getDocumentBrowserPanelBody(snapshot.activeTab)
+        if (panelBody && snapshot.panelScrollTop !== null) {
+          panelBody.scrollTop = snapshot.panelScrollTop
+        }
+      })
+    })
+
+    return () => {
+      cancelAnimationFrame(frame)
+      cancelAnimationFrame(innerFrame)
+    }
+  }, [activeTab, documentsLoading, selectedDoc])
 
   const audiobook = useAudiobookManager({
     allDocuments,
@@ -201,12 +242,20 @@ function App() {
   const audioFilteredResults = filterResults(results)
   const documentOpening = documentLoad.status === 'loading'
 
-  const handleViewDocument = useCallback(async (url: string) => {
+  const handleViewDocument = useCallback(async (url: string, target?: SearchOpenTarget) => {
     if (documentOpeningRef.current) return
     documentOpeningRef.current = true
     const requestId = openDocumentRequestRef.current + 1
     openDocumentRequestRef.current = requestId
+    const panelBody = getDocumentBrowserPanelBody(activeTab)
+    browseScrollRef.current = {
+      activeTab,
+      windowX: window.scrollX,
+      windowY: window.scrollY,
+      panelScrollTop: panelBody?.scrollTop ?? null,
+    }
     prepareDocumentOpen()
+    setSearchOpenTarget(target ?? null)
     setSelectedDoc(url)
     setDocContent('')
     setDocumentLoad({ status: 'loading', url, message: 'Opening Document...' })
@@ -226,7 +275,7 @@ function App() {
       setDocumentLoad({ status: 'error', url, message })
       console.error('Failed to load document:', err)
     }
-  }, [loadHtmlDocument, prepareDocumentOpen]) // 
+  }, [activeTab, loadHtmlDocument, prepareDocumentOpen])
 
   const handleCloseDocument = useCallback(() => {
     closeDocumentAudio()
@@ -237,11 +286,17 @@ function App() {
     setActiveTab(tab)
   }, [])
 
+  const handleManageAudiobookSave = useCallback(() => {
+    browseScrollRef.current = null
+    clearSelectedDocument()
+    setActiveTab('audiobooks')
+    window.scrollTo({ top: 0 })
+  }, [clearSelectedDocument])
+
   const selectedDocument = useMemo(
     () => (selectedDoc ? libraryDocuments.find((doc) => doc.url === selectedDoc) : undefined),
     [selectedDoc, libraryDocuments],
   )
-  const selectedTitle = selectedDocument?.title
   const selectedFormat = selectedDocument?.format
 
   const runDocumentImport = useCallback(async (
@@ -281,7 +336,13 @@ function App() {
 
   const handleDeleteUploadedDocument = useCallback(async (doc: DocumentInfo) => {
     if (doc.source !== 'upload') return
-    const confirmed = window.confirm('Delete this uploaded document from this device? This also removes it from local search results.')
+    const confirmed = await confirmDocumentAction({
+      title: 'Delete uploaded document?',
+      description: 'This removes the document from this device, local search results, and any folder organization in Papercut.',
+      details: [{ label: 'Title', value: doc.title }],
+      confirmLabel: 'Delete Document',
+      tone: 'danger',
+    })
     if (!confirmed) return
 
     setDocumentImport({ status: 'deleting', message: 'Deleting ' + doc.title })
@@ -306,7 +367,7 @@ function App() {
         message: err instanceof Error ? err.message : String(err),
       })
     }
-  }, [handleCloseDocument, refreshUploadedLibrary, removeFilter, removeResultsForUrl, selectedDoc])
+  }, [confirmDocumentAction, handleCloseDocument, refreshUploadedLibrary, removeFilter, removeResultsForUrl, selectedDoc])
 
   const handleCreateLibraryFolder = useCallback(async (parentId: string | null, name: string) => {
     await createUploadedLibraryFolder(parentId, name)
@@ -329,20 +390,24 @@ function App() {
 
   if (selectedDoc) {
     return (
-      <DocumentViewer
-        url={selectedDoc}
-        title={selectedTitle}
-        format={selectedFormat}
-        content={docContent}
-        className={hasFloatingAudioControls ? 'app-audio-floating' : ''}
-        appControls={<ThemeToggle choice={theme.choice} onChange={theme.setChoice} />}
-        headerControls={<AudioControls {...audioControlsProps} />}
-        beforeDocument={<TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />}
-        ttsHighlight={ttsHighlight}
-        loading={documentLoad.status === 'loading' && documentLoad.url === selectedDoc}
-        loadError={documentLoad.status === 'error' && documentLoad.url === selectedDoc ? documentLoad.message : undefined}
-        onClose={handleCloseDocument}
-      />
+      <>
+        <DocumentViewer
+          url={selectedDoc}
+          format={selectedFormat}
+          content={docContent}
+          className={hasFloatingAudioControls ? 'app-audio-floating' : ''}
+          appControls={<ThemeToggle choice={theme.choice} onChange={theme.setChoice} />}
+          headerControls={<AudioControls {...audioControlsProps} onManageSave={handleManageAudiobookSave} />}
+          beforeDocument={<TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />}
+          ttsHighlight={ttsHighlight}
+          searchTarget={searchOpenTarget}
+          loading={documentLoad.status === 'loading' && documentLoad.url === selectedDoc}
+          loadError={documentLoad.status === 'error' && documentLoad.url === selectedDoc ? documentLoad.message : undefined}
+          onClose={handleCloseDocument}
+        />
+        {documentConfirmationDialog}
+        {audiobook.confirmationDialog}
+      </>
     )
   }
 
@@ -366,7 +431,7 @@ function App() {
       />
 
       {activeTab === 'search' && (
-        <section className="tab-panel" role="tabpanel" aria-label="Search">
+        <section className="tab-panel" role="tabpanel" aria-label="Search" data-tab="search">
           <SearchBar
             query={query}
             disabled={!pagefindReady && uploadedDocuments.length === 0}
@@ -396,13 +461,13 @@ function App() {
             selectedFilters={selectedFilters}
             openingDisabled={documentOpening}
             openingDocumentUrl={documentLoad.status === 'loading' ? documentLoad.url : undefined}
-            onViewResult={(result) => handleViewDocument(result.url)}
+            onViewResult={(result, target) => handleViewDocument(result.url, target)}
           />
         </section>
       )}
 
       {activeTab === 'library' && (
-        <section className="tab-panel" role="tabpanel" aria-label="Library">
+        <section className="tab-panel" role="tabpanel" aria-label="Library" data-tab="library">
           <DocumentsPanel
             documentsLoading={documentsLoading}
             showDocuments={showDocuments}
@@ -450,7 +515,7 @@ function App() {
       )}
 
       {activeTab === 'audiobooks' && (
-        <section className="tab-panel" role="tabpanel" aria-label="Audiobooks">
+        <section className="tab-panel" role="tabpanel" aria-label="Audiobooks" data-tab="audiobooks">
           <AudiobooksPanel
             {...audiobooksPanelProps}
             audioSetup={{
@@ -469,6 +534,8 @@ function App() {
           <TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />
         </section>
       )}
+      {documentConfirmationDialog}
+      {audiobook.confirmationDialog}
     </div>
   )
 }

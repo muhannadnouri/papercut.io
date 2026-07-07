@@ -1,4 +1,4 @@
-import type { SearchResult } from '../../types/search'
+import type { SearchOpenTarget, SearchResult } from '../../types/search'
 
 interface LastSearchInfo {
   phrases: string[]
@@ -14,7 +14,7 @@ interface SearchResultsProps {
   selectedFilters: Set<string>
   openingDisabled?: boolean
   openingDocumentUrl?: string
-  onViewResult: (result: SearchResult) => void
+  onViewResult: (result: SearchResult, target?: SearchOpenTarget) => void
 }
 
 export function SearchResults({
@@ -63,18 +63,19 @@ export function SearchResults({
         const opening = openingDocumentUrl === result.url
         const disabled = openingDisabled || opening
         return (
-          <div
+          <button
+            type="button"
             key={result.id}
             className={'result-card' + (disabled ? ' result-card-disabled' : '')}
-            aria-disabled={disabled}
-            onClick={() => { if (!disabled) onViewResult(result) }}
+            disabled={disabled}
+            onClick={() => { if (!disabled) onViewResult(result, searchOpenTargetForResult(result)) }}
           >
-            <h2 className="result-title">{result.meta.title}{opening ? ' (Opening...)' : ''}</h2>
-            <p
+            <span className="result-title">{result.meta.title}{opening ? ' (Opening...)' : ''}</span>
+            <span
               className="result-excerpt"
               dangerouslySetInnerHTML={{ __html: result.customExcerpt ?? result.excerpt }}
             />
-          </div>
+          </button>
         )
       })}
 
@@ -86,4 +87,24 @@ export function SearchResults({
       )}
     </div>
   )
+}
+
+function searchOpenTargetForResult(result: SearchResult): SearchOpenTarget | undefined {
+  const hash = hashFromUrl(result.sub_results?.[0]?.url)
+  const text = firstMarkedText(result.customExcerpt ?? result.sub_results?.[0]?.excerpt ?? result.excerpt)
+  return hash || text ? { hash, text } : undefined
+}
+
+function hashFromUrl(url?: string): string | undefined {
+  const index = url?.indexOf('#') ?? -1
+  if (index < 0 || !url) return undefined
+  const hash = url.slice(index)
+  return hash.length > 1 ? hash : undefined
+}
+
+function firstMarkedText(html: string): string | undefined {
+  if (typeof DOMParser === 'undefined') return undefined
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  const text = doc.querySelector('mark')?.textContent?.trim()
+  return text || undefined
 }

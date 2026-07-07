@@ -36,7 +36,7 @@
   gap: 0.75rem;
   min-height: 2rem;
   padding: 0 0.5rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
   background: var(--surface);
   color: var(--text-body);
@@ -47,7 +47,12 @@
 }
 
 .audio-diagnostics-control:hover {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
+}
+
+.audio-diagnostics-control:focus-within {
+  border-color: var(--accent-text);
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .audio-diagnostics-value {
@@ -67,7 +72,7 @@
   position: relative;
   width: 2.1rem;
   height: 1.1rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 999px;
   background: var(--surface-muted);
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
@@ -87,7 +92,7 @@
 }
 
 .audio-diagnostics-control input:checked + .audio-diagnostics-switch {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
   background: var(--surface-accent-strong);
 }
 
@@ -101,7 +106,8 @@
 }
 
 .audio-diagnostics-control input:disabled + .audio-diagnostics-switch {
-  opacity: 0.5;
+  border-color: var(--border);
+  background: var(--surface-muted);
 }
 
 .audio-settings-grid {
@@ -218,7 +224,7 @@
   width: 1.6rem;
   height: 1.6rem;
   padding: 0;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
   background: var(--surface);
   color: var(--text-body);
@@ -229,19 +235,21 @@
 }
 
 .audio-speed-step:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--accent-text);
+  color: var(--accent-text);
 }
 
 .audio-speed-step:focus-visible {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--accent-text);
+  color: var(--accent-text);
   box-shadow: 0 0 0 3px var(--shadow-focus);
   outline: none;
 }
 
 .audio-speed-step:disabled {
-  opacity: 0.45;
+  border-color: var(--border);
+  background: var(--surface-muted);
+  color: var(--text-soft);
   cursor: not-allowed;
 }
 
@@ -275,7 +283,7 @@
   width: 0.95rem;
   height: 0.95rem;
   margin-top: -0.33rem;
-  border: 2px solid var(--accent);
+  border: 2px solid var(--accent-text);
   border-radius: 50%;
   background: var(--surface);
   transition: border-color 0.15s, background 0.15s;
@@ -284,14 +292,14 @@
 .tts-speed-slider::-moz-range-thumb {
   width: 0.95rem;
   height: 0.95rem;
-  border: 2px solid var(--accent);
+  border: 2px solid var(--accent-text);
   border-radius: 50%;
   background: var(--surface);
 }
 
 .tts-speed-slider:hover::-webkit-slider-thumb,
 .tts-speed-slider:focus-visible::-webkit-slider-thumb {
-  background: var(--accent);
+  background: var(--accent-text);
 }
 
 .tts-speed-slider:focus-visible {
@@ -329,7 +337,7 @@
 .tts-select,
 .tts-btn {
   min-height: 2rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
   background: var(--surface);
   color: var(--text-body);
@@ -345,7 +353,7 @@
   appearance: none;
   -webkit-appearance: none;
   background-color: var(--surface);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%236b7280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: var(--select-chevron);
   background-repeat: no-repeat;
   background-position: right 0.55rem center;
   background-size: 0.6rem;
@@ -370,13 +378,22 @@
 .tts-select:hover,
 .tts-select:focus,
 .tts-btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--accent-text);
+  color: var(--accent-text);
   outline: none;
 }
 
+.tts-select:focus,
+.tts-btn:focus-visible {
+  border-color: var(--accent-text);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
 .tts-btn:disabled {
-  opacity: 0.55;
+  border-color: var(--border);
+  background: var(--surface-muted);
+  color: var(--text-soft);
   cursor: not-allowed;
 }
 
@@ -468,7 +485,7 @@
 .audiobooks-setup-disclosure:hover,
 .audiobooks-setup-disclosure:focus-visible,
 .audiobooks-setup-disclosure-open {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
   background: var(--surface-accent);
   box-shadow: 0 8px 18px var(--shadow-soft);
   outline: none;
@@ -479,8 +496,17 @@
   place-items: center;
   width: 1.6rem;
   height: 1.6rem;
-  color: var(--accent-hover);
-  font-size: 1rem;
+  color: var(--accent-text);
+}
+
+.audiobooks-panel-icon {
+  width: 1.28rem;
+  height: 1.28rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .audiobooks-setup-disclosure-main {
@@ -511,12 +537,16 @@
 }
 
 .audiobooks-import-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
   min-height: 2.25rem;
   padding: 0 0.8rem;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   background: var(--surface);
-  color: var(--accent-hover);
+  color: var(--accent-text);
   font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
@@ -525,14 +555,17 @@
 
 .audiobooks-import-btn:hover:not(:disabled),
 .audiobooks-import-btn:focus-visible {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
   background: var(--surface-accent);
   outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .audiobooks-import-btn:disabled {
+  border-color: var(--border);
+  background: var(--surface-muted);
   color: var(--text-soft);
-  cursor: wait;
+  cursor: not-allowed;
 }
 
 .audiobooks-import-status {
@@ -608,7 +641,12 @@
 }
 
 .audiobook-item-saved:hover {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
+}
+
+.audiobook-item:focus-within {
+  border-color: var(--accent-text);
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .audiobook-saved-main {
@@ -631,9 +669,15 @@
   color: var(--accent-strong);
 }
 
+.audiobook-saved-main:focus-visible {
+  color: var(--accent-strong);
+  outline: none;
+}
+
 .audiobook-saved-main:disabled {
+  background: transparent;
   color: var(--text-soft);
-  cursor: wait;
+  cursor: not-allowed;
 }
 
 .audiobook-saved-main .audiobook-meta {
@@ -641,11 +685,14 @@
 }
 
 .audiobook-text-action {
-  border: none;
-  background: none;
-  color: var(--accent);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent-text);
   font-size: 0.78rem;
   font-weight: 600;
+  min-height: 2.15rem;
+  padding: 0 0.6rem;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -656,12 +703,21 @@
 
 .audiobook-export,
 .audiobook-delete {
-  min-height: 2rem;
+  min-height: 2.15rem;
 }
 
 .audiobook-text-action:hover:not(:disabled) {
+  border-color: var(--accent-border);
+  background: var(--surface-accent);
   color: var(--accent-strong);
-  text-decoration: underline;
+}
+
+.audiobook-text-action:focus-visible {
+  border-color: var(--accent-border);
+  background: var(--surface-accent);
+  color: var(--accent-strong);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .audiobook-delete:hover:not(:disabled) {
@@ -669,8 +725,10 @@
 }
 
 .audiobook-text-action:disabled {
+  border-color: transparent;
+  background: transparent;
   color: var(--text-soft);
-  cursor: wait;
+  cursor: not-allowed;
 }
 
 .audiobook-operation-status {
@@ -727,6 +785,7 @@
 .audio-progress-meter {
   height: 0.35rem;
   overflow: hidden;
+  border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--surface-accent-strong);
 }
@@ -811,12 +870,17 @@
   }
 
   .audiobook-item-saved {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 0.45rem 0.5rem;
+  }
+
+  .audiobook-item-saved .audiobook-saved-main {
+    grid-column: 1 / -1;
   }
 
   .audiobook-export,
   .audiobook-delete {
-    justify-self: start;
+    justify-self: end;
     min-height: 2.25rem;
   }
 

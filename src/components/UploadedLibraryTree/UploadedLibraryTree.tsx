@@ -6,6 +6,7 @@ import {
   type UploadedLibraryOrganization,
   isUploadedDocumentUrl,
 } from '../../uploads/DocumentUploads'
+import { useAppConfirmation } from '../AppDialog/useAppConfirmation'
 import { TextInputDialog } from '../TextInputDialog/TextInputDialog'
 import './UploadedLibraryTree.css'
 
@@ -75,6 +76,7 @@ export function UploadedLibraryTree({
   const [deleteInfoOpen, setDeleteInfoOpen] = useState(false)
   const [actionError, setActionError] = useState('')
   const [busy, setBusy] = useState(false)
+  const { confirm: confirmLibraryAction, dialog: libraryConfirmationDialog } = useAppConfirmation()
   const filterMode = mode === 'filter'
   const organizing = mode === 'library' && editMode
   const { nodes, folders, nodeByKey, folderOptions } = useMemo(
@@ -193,11 +195,18 @@ export function UploadedLibraryTree({
     if (!selectedSingleFolder) return
     if (!canDeleteSelectedFolder || !selectedFolder) return
     const folder = selectedFolder
-    const confirmed = window.confirm('Delete this empty folder? Documents inside folders are never deleted by this action.')
-    if (!confirmed) return
     if (!onDeleteFolder) return
     setActionError('')
     void (async () => {
+      const confirmed = await confirmLibraryAction({
+        title: 'Delete empty folder?',
+        description: 'Documents inside folders are never deleted by this action.',
+        details: [{ label: 'Folder', value: folder.title }],
+        confirmLabel: 'Delete Folder',
+        tone: 'danger',
+      })
+      if (!confirmed) return
+
       try {
         await runEditAction(() => onDeleteFolder(folder.id))
       } catch (err) {
@@ -391,6 +400,7 @@ export function UploadedLibraryTree({
           onSubmit={submitFolderDialog}
         />
       )}
+      {libraryConfirmationDialog}
     </section>
   )
 }
@@ -424,12 +434,19 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
   const filterDocuments = node.kind === 'folder' ? collectDocuments(node) : []
   const folderFilterSelected = filterDocuments.length > 0 && filterDocuments.every((doc) => options.selectedFilters?.has(doc.title))
   const documentFilterSelected = node.kind === 'document' && Boolean(options.selectedFilters?.has(node.title))
+  const selected = options.selectedKeys.has(node.key) || folderFilterSelected || documentFilterSelected
+  const className = [
+    'uploaded-library-item',
+    'uploaded-library-' + node.kind,
+    selected ? 'uploaded-library-item-selected' : '',
+    opening ? 'uploaded-library-item-opening' : '',
+  ].filter(Boolean).join(' ')
   return (
     <TreeItem
       key={node.key}
       id={node.key}
       textValue={node.title}
-      className={'uploaded-library-item uploaded-library-' + node.kind}
+      className={className}
     >
       <TreeItemContent>
         <div className="uploaded-library-content">
@@ -497,7 +514,7 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
             {opening && <span className="uploaded-library-opening">Opening...</span>}
             {node.kind === 'document' && !options.editMode && !options.filterMode && (
               <button
-                className="uploaded-library-row-action"
+                className="document-row-action document-row-action-view"
                 type="button"
                 disabled={options.documentOpening}
                 onClick={(event) => {
@@ -510,7 +527,7 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
             )}
             {node.kind === 'document' && options.editMode && !options.filterMode && options.onDeleteDocument && (
               <button
-                className="uploaded-library-row-action uploaded-library-danger"
+                className="document-row-action document-row-action-danger"
                 type="button"
                 disabled={options.documentOpening}
                 onClick={(event) => {
@@ -523,7 +540,7 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
             )}
             {options.editMode && !options.filterMode && node.kind === 'folder' && node.depth < 4 && (
               <button
-                className="uploaded-library-row-action"
+                className="document-row-action document-row-action-secondary"
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation()

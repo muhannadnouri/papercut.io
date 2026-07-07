@@ -133,7 +133,7 @@ function DocumentRow({
   const disabled = viewDisabled || opening
   const view = onViewDocument && (
     <button
-      className="document-view-btn"
+      className="document-row-action document-row-action-view"
       disabled={disabled}
       onClick={(e) => { e.preventDefault(); if (!disabled) onViewDocument(doc.url) }}
     >
@@ -142,7 +142,7 @@ function DocumentRow({
   )
   const remove = doc.source === 'upload' && onDeleteDocument && (
     <button
-      className="document-delete-btn"
+      className="document-row-action document-row-action-danger"
       disabled={deleteDisabled}
       onClick={(e) => { e.preventDefault(); void onDeleteDocument(doc) }}
     >
@@ -153,7 +153,7 @@ function DocumentRow({
   // Selection rows are labels so the whole row toggles the checkbox.
   if (selectable) {
     return (
-      <label className="document-item">
+      <label className={'document-item' + (selected ? ' document-item-selected' : '')}>
         <input
           type="checkbox"
           checked={selected}
@@ -168,7 +168,7 @@ function DocumentRow({
   }
 
   return (
-    <div className="document-item document-item-browse">
+    <div className={'document-item document-item-browse' + (opening ? ' document-item-opening' : '')}>
       {sourceIcon}
       <span className="document-item-title">{doc.title}</span>
       {view}

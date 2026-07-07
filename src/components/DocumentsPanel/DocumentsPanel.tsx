@@ -5,6 +5,8 @@ import type { UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
 import { Panel } from '../Panel/Panel'
 import { DocumentList } from '../DocumentList/DocumentList'
 import { UploadedLibraryTree } from '../UploadedLibraryTree/UploadedLibraryTree'
+import { splitDocumentGroupsByUpload } from '../DocumentBrowser/documentGroups'
+import '../DocumentBrowser/DocumentBrowser.css'
 
 interface DocumentsPanelStatus {
   status: string
@@ -76,10 +78,7 @@ export function DocumentsPanel({
   const activeImport = importOptions.find((option) => option.statusLabel)
   const hasImportOptions = importOptions.length > 0
   const deleteDisabled = importStatuses.some((item) => item.status === 'deleting')
-  const uploadDocs = groupedDocs.flatMap((group) => group.docs.filter((doc) => doc.source === 'upload'))
-  const nonUploadGroups = groupedDocs
-    .map((group) => ({ ...group, docs: group.docs.filter((doc) => doc.source !== 'upload') }))
-    .filter((group) => group.docs.length > 0)
+  const { uploadDocs, nonUploadGroups } = splitDocumentGroupsByUpload(groupedDocs)
   const canShowUploadedTree = Boolean(
     libraryOrganization &&
     onCreateLibraryFolder &&
@@ -101,7 +100,7 @@ export function DocumentsPanel({
 
   return (
     <Panel
-      className={'documents-panel' + (importMenuOpen ? ' documents-panel-menu-open' : '')}
+      className={'document-browser-panel documents-panel' + (importMenuOpen ? ' document-browser-panel-menu-open documents-panel-menu-open' : '')}
       ariaLabel="Documents"
       title={`Documents (${allDocuments.length})`}
       open={showDocuments}

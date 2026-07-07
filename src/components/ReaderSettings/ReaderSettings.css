@@ -9,21 +9,34 @@
   width: 2.25rem;
   height: 2.25rem;
   padding: 0;
-  background: none;
-  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
   color: var(--text-body);
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 1.15rem;
   line-height: 1;
   transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 
+.reader-settings-icon {
+  width: 1.28rem;
+  height: 1.28rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .reader-settings-btn:hover:not(:disabled),
-.reader-settings-btn[aria-expanded="true"] {
-  border-color: var(--accent);
-  color: var(--accent);
+.reader-settings-btn[aria-expanded="true"],
+.reader-settings-btn:focus-visible {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
   background: var(--surface-accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .reader-settings-btn:disabled {
@@ -41,7 +54,7 @@
   gap: 0.65rem;
   width: min(19rem, calc(100vw - 2rem));
   padding: 0.85rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 10px;
   background: var(--surface);
   box-shadow: 0 12px 28px var(--shadow-popover);
@@ -67,18 +80,30 @@
   min-width: 0;
   width: 100%;
   min-height: 2.2rem;
-  padding: 0 0.55rem;
+  padding: 0 1.7rem 0 0.55rem;
   border: 1px solid var(--border-strong);
   border-radius: 7px;
-  background: var(--surface);
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--surface);
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 0.65rem;
   color: var(--text-heading);
   font-size: 0.82rem;
+}
+
+.reader-setting-select:focus-visible {
+  border-color: var(--accent-text);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .reader-setting-slider {
   min-width: 0;
   width: 100%;
-  accent-color: var(--accent);
+  accent-color: var(--accent-text);
 }
 
 .reader-setting-step {
@@ -88,7 +113,7 @@
   width: 1.6rem;
   height: 1.6rem;
   padding: 0;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
   background: var(--surface);
   color: var(--text-body);
@@ -100,13 +125,15 @@
 
 .reader-setting-step:hover:not(:disabled),
 .reader-setting-step:focus-visible {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--accent-text);
+  color: var(--accent-text);
   outline: none;
 }
 
 .reader-setting-step:disabled {
-  opacity: 0.4;
+  border-color: var(--border);
+  background: var(--surface-muted);
+  color: var(--text-soft);
   cursor: not-allowed;
 }
 
@@ -121,7 +148,7 @@
   justify-self: end;
   min-height: 2rem;
   padding: 0 0.65rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 7px;
   background: var(--surface-muted);
   color: var(--text-body);
@@ -131,9 +158,17 @@
 }
 
 .reader-settings-reset:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--accent-text);
+  color: var(--accent-text);
   background: var(--surface-accent);
+}
+
+.reader-settings-reset:focus-visible {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+  background: var(--surface-accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 @media (max-width: 767px) {
@@ -141,7 +176,6 @@
     width: 2.5rem;
     height: 2.5rem;
     padding: 0;
-    font-size: 0.95rem;
   }
 
   .reader-settings-popover {

@@ -1,4 +1,4 @@
-import { useEffect, useId, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useId, useRef, type FormEvent, type ReactNode } from 'react'
 import './AppDialog.css'
 
 interface AppDialogProps {
@@ -13,8 +13,14 @@ interface AppDialogProps {
 export function AppDialog({ title, description, children, actions, onCancel, onSubmit }: AppDialogProps) {
   const titleId = useId()
   const descriptionId = useId()
+  const dialogRef = useRef<HTMLDivElement | HTMLFormElement | null>(null)
+  const setDialogRef = (node: HTMLDivElement | HTMLFormElement | null) => {
+    dialogRef.current = node
+  }
 
   useEffect(() => {
+    dialogRef.current?.focus()
+
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') onCancel()
     }
@@ -38,11 +44,13 @@ export function AppDialog({ title, description, children, actions, onCancel, onS
     <div className="app-dialog-backdrop" role="presentation" onClick={onCancel}>
       {onSubmit ? (
         <form
+          ref={setDialogRef}
           className="app-dialog"
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
           aria-describedby={description ? descriptionId : undefined}
+          tabIndex={-1}
           onClick={(event) => event.stopPropagation()}
           onSubmit={onSubmit}
         >
@@ -50,11 +58,13 @@ export function AppDialog({ title, description, children, actions, onCancel, onS
         </form>
       ) : (
         <div
+          ref={setDialogRef}
           className="app-dialog"
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
           aria-describedby={description ? descriptionId : undefined}
+          tabIndex={-1}
           onClick={(event) => event.stopPropagation()}
         >
           {content}

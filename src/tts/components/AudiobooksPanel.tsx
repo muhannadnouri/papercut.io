@@ -105,7 +105,8 @@ export function AudiobooksPanel({
           disabled={importState.status === 'importing'}
           onClick={onImportAudiobook}
         >
-          {importState.status === 'importing' ? '📂 Importing Bundle' : '📁 Import Bundle'}
+          <AudiobooksPanelIcon name={importState.status === 'importing' ? 'folder-open' : 'folder'} />
+          {importState.status === 'importing' ? 'Importing Bundle' : 'Import Bundle'}
         </button>
 
         <button
@@ -115,7 +116,9 @@ export function AudiobooksPanel({
           aria-controls="audiobooks-audio-setup"
           onClick={() => setSetupOpen((value) => !value)}
         >
-          <span className="audiobooks-setup-disclosure-icon" aria-hidden="true">⚙</span>
+          <span className="audiobooks-setup-disclosure-icon" aria-hidden="true">
+            <AudiobooksPanelIcon name="settings" />
+          </span>
           <span className="audiobooks-setup-disclosure-main">
             <span className="audiobooks-setup-disclosure-title">Audio Setup</span>
             <span className="audiobooks-setup-disclosure-summary">{setupSummary}</span>
@@ -260,6 +263,34 @@ export function AudiobooksPanel({
       </div>
     </Panel>
   )
+}
+
+function AudiobooksPanelIcon({
+  name,
+}: {
+  name: 'folder' | 'folder-open' | 'settings'
+}) {
+  return (
+    <svg className="audiobooks-panel-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      {renderAudiobooksPanelIconPath(name)}
+    </svg>
+  )
+}
+
+function renderAudiobooksPanelIconPath(name: 'folder' | 'folder-open' | 'settings') {
+  switch (name) {
+    case 'folder':
+      return <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h4l2 2.5h7A2.5 2.5 0 0 1 21 10v6.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5Z" />
+    case 'folder-open':
+      return <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h4l2 2.5h6A2.5 2.5 0 0 1 20 10v1M3 10.5h6.7a2 2 0 0 1 1.68.92L12.4 13H21l-2.2 5.1A2.5 2.5 0 0 1 16.5 19h-11A2.5 2.5 0 0 1 3 16.5Z" />
+    case 'settings':
+      return (
+        <>
+          <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
+          <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.08A1.7 1.7 0 0 0 9 19.36a1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.63 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.08A1.7 1.7 0 0 0 4.64 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.63a1.7 1.7 0 0 0 1-1.56V3a2 2 0 1 1 4 0v.08A1.7 1.7 0 0 0 15 4.64a1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.36 9a1.7 1.7 0 0 0 1.56 1H21a2 2 0 1 1 0 4h-.08A1.7 1.7 0 0 0 19.4 15Z" />
+        </>
+      )
+  }
 }
 
 function formatAudiobookMeta(isSaving: boolean, queueCount: number, savedCount: number): string | undefined {
