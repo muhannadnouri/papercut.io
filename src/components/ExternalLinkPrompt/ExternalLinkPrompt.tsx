@@ -2,11 +2,12 @@ import { AppDialog } from '../AppDialog/AppDialog'
 
 interface ExternalLinkPromptProps {
   url: string
+  error?: string
   onCancel: () => void
-  onOpen: () => void
+  onOpen: () => void | Promise<void>
 }
 
-export function ExternalLinkPrompt({ url, onCancel, onOpen }: ExternalLinkPromptProps) {
+export function ExternalLinkPrompt({ url, error, onCancel, onOpen }: ExternalLinkPromptProps) {
   return (
     <AppDialog
       title="Open External Link?"
@@ -20,6 +21,7 @@ export function ExternalLinkPrompt({ url, onCancel, onOpen }: ExternalLinkPrompt
       )}
     >
       <code className="app-dialog-code">{url}</code>
+      {error && <p className="app-dialog-error" role="alert">{error}</p>}
     </AppDialog>
   )
 }

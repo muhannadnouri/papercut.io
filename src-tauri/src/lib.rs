@@ -7,6 +7,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_native_audio::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(native_tts::NativeTtsState::default())
         .invoke_handler(tauri::generate_handler![
             document_uploads::commands::document_uploads_import_html,

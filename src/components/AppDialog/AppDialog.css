@@ -63,6 +63,13 @@
   overflow-wrap: anywhere;
 }
 
+.app-dialog-error {
+  margin: 0;
+  color: var(--danger-strong);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
 .app-dialog-details {
   display: grid;
   gap: 0.45rem;
