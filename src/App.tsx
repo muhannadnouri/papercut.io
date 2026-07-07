@@ -63,8 +63,7 @@ type BrowseScrollSnapshot = {
 }
 
 function getDocumentBrowserPanelBody(tab: AppTab): HTMLElement | null {
-  const label = tab === 'search' ? 'Search' : tab === 'library' ? 'Library' : 'Audiobooks'
-  const panel = document.querySelector(`.tab-panel[aria-label="${label}"] .document-browser-panel .panel-body`)
+  const panel = document.querySelector(`.tab-panel[data-tab="${tab}"] .document-browser-panel .panel-body`)
   return panel instanceof HTMLElement ? panel : null
 }
 
@@ -159,18 +158,25 @@ function App() {
     if (selectedDoc) return
     const snapshot = browseScrollRef.current
     if (!snapshot || snapshot.activeTab !== activeTab) return
+    if (documentsLoading) return
 
     browseScrollRef.current = null
+    let innerFrame = 0
     const frame = requestAnimationFrame(() => {
-      window.scrollTo(snapshot.windowX, snapshot.windowY)
-      const panelBody = getDocumentBrowserPanelBody(snapshot.activeTab)
-      if (panelBody && snapshot.panelScrollTop !== null) {
-        panelBody.scrollTop = snapshot.panelScrollTop
-      }
+      innerFrame = requestAnimationFrame(() => {
+        window.scrollTo(snapshot.windowX, snapshot.windowY)
+        const panelBody = getDocumentBrowserPanelBody(snapshot.activeTab)
+        if (panelBody && snapshot.panelScrollTop !== null) {
+          panelBody.scrollTop = snapshot.panelScrollTop
+        }
+      })
     })
 
-    return () => cancelAnimationFrame(frame)
-  }, [activeTab, selectedDoc])
+    return () => {
+      cancelAnimationFrame(frame)
+      cancelAnimationFrame(innerFrame)
+    }
+  }, [activeTab, documentsLoading, selectedDoc])
 
   const audiobook = useAudiobookManager({
     allDocuments,
@@ -425,7 +431,7 @@ function App() {
       />
 
       {activeTab === 'search' && (
-        <section className="tab-panel" role="tabpanel" aria-label="Search">
+        <section className="tab-panel" role="tabpanel" aria-label="Search" data-tab="search">
           <SearchBar
             query={query}
             disabled={!pagefindReady && uploadedDocuments.length === 0}
@@ -461,7 +467,7 @@ function App() {
       )}
 
       {activeTab === 'library' && (
-        <section className="tab-panel" role="tabpanel" aria-label="Library">
+        <section className="tab-panel" role="tabpanel" aria-label="Library" data-tab="library">
           <DocumentsPanel
             documentsLoading={documentsLoading}
             showDocuments={showDocuments}
@@ -509,7 +515,7 @@ function App() {
       )}
 
       {activeTab === 'audiobooks' && (
-        <section className="tab-panel" role="tabpanel" aria-label="Audiobooks">
+        <section className="tab-panel" role="tabpanel" aria-label="Audiobooks" data-tab="audiobooks">
           <AudiobooksPanel
             {...audiobooksPanelProps}
             audioSetup={{
