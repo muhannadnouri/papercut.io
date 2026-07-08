@@ -109,6 +109,10 @@
   font-size: 0.95rem;
 }
 
+.welcome-hint {
+  color: var(--text-muted);
+}
+
 @media (min-width: 1024px) {
   .results-container {
     gap: 1rem;
