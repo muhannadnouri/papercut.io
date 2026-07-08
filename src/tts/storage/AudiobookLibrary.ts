@@ -85,13 +85,13 @@ export function markAudiobookSaved(record: Omit<SavedAudiobookRecord, 'id' | 'sa
 
   const records = getSavedAudiobooks().filter((item) => item.id !== saved.id)
   records.push(saved)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records))
+  writeSavedAudiobooks(records)
   return saved
 }
 
 export function removeSavedAudiobook(id: string): void {
   const records = getSavedAudiobooks().filter((item) => item.id !== id)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records))
+  writeSavedAudiobooks(records)
 }
 
 export function hasSavedAudiobook(documentUrl: string, options: TtsOptions): boolean {
@@ -104,6 +104,14 @@ function normalizeDocumentUrl(documentUrl: string): string {
     return new URL(documentUrl, window.location.href).pathname
   } catch {
     return documentUrl.split('#')[0].split('?')[0]
+  }
+}
+
+function writeSavedAudiobooks(records: SavedAudiobookRecord[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records))
+  } catch {
+    // Saved-audio metadata is best effort; native audio files are managed separately.
   }
 }
 
