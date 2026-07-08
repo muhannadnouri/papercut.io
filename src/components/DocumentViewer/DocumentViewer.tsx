@@ -89,7 +89,7 @@ export function DocumentViewer({
     if (!target) return
 
     const targetTop = window.scrollY + target.getBoundingClientRect().top
-    window.scrollTo({ top: Math.max(targetTop - 120, 0), behavior: 'smooth' })
+    window.scrollTo({ top: Math.max(targetTop - 120, 0), behavior: readerScrollBehavior() })
   }, [])
 
   useEffect(() => {
@@ -100,6 +100,7 @@ export function DocumentViewer({
       if (!root) return
       clearSearchTargetHighlight(root)
       if (searchTarget.hash) scrollToHash(searchTarget.hash)
+      if (isIOSWebKit()) return
       const target = searchTarget.text ? markFirstSearchTarget(root, searchTarget.text) : null
       if (target) scrollToElement(target)
     })
@@ -249,7 +250,7 @@ export function DocumentViewer({
 
       <ScrollTopButton
         visible={showScrollTop}
-        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        onClick={() => window.scrollTo({ top: 0, behavior: readerScrollBehavior() })}
       />
 
       {pendingExternalUrl && (
@@ -314,5 +315,15 @@ function markFirstSearchTarget(root: HTMLElement, text: string): HTMLElement | n
 
 function scrollToElement(target: Element): void {
   const targetTop = window.scrollY + target.getBoundingClientRect().top
-  window.scrollTo({ top: Math.max(targetTop - window.innerHeight / 2, 0), behavior: 'smooth' })
+  window.scrollTo({ top: Math.max(targetTop - window.innerHeight / 2, 0), behavior: readerScrollBehavior() })
+}
+
+function readerScrollBehavior(): ScrollBehavior {
+  return isIOSWebKit() ? 'auto' : 'smooth'
+}
+
+function isIOSWebKit(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /iP(ad|hone|od)/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 }
