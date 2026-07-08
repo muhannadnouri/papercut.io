@@ -68,6 +68,7 @@ async function buildRustDeviceLib() {
     ...process.env,
     IPHONEOS_DEPLOYMENT_TARGET: iosDeploymentTarget,
     SHERPA_ONNX_LIB_DIR: iosSherpaLibDir(SHERPA_IOS_DEVICE_SLICE),
+    ORT_LIB_LOCATION: iosSherpaLibDir(SHERPA_IOS_DEVICE_SLICE),
   }
   runOrFail("cargo", [
     "build",
@@ -78,7 +79,7 @@ async function buildRustDeviceLib() {
     "--target",
     "aarch64-apple-ios",
     "--features",
-    "native-tts-static tauri/custom-protocol",
+    "native-tts-ios tauri/custom-protocol",
     "--lib",
     "--release",
   ], { env }, "[ios-device-check] Failed Rust iOS device build: ")

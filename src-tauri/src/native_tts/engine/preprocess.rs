@@ -100,17 +100,12 @@ impl TextPreprocessor {
 
 #[cfg(feature = "native-text-preprocessing")]
 /// Initialize `ort` once and load sherpa-onnx packaged ONNX Runtime.
-/// Sharing that platform library avoids a second runtime in desktop bundles/APKs.
+/// Dynamic builds load the packaged runtime; iOS links the same runtime statically.
 fn initialize_ort() -> Result<(), String> {
     static RESULT: OnceLock<Result<(), String>> = OnceLock::new();
     RESULT
         .get_or_init(|| {
-            let library = format!(
-                "{}onnxruntime{}",
-                std::env::consts::DLL_PREFIX,
-                std::env::consts::DLL_SUFFIX
-            );
-            catch_unwind(|| ort::init_from(library).commit())
+            catch_unwind(commit_ort_environment)
                 .map_err(|panic| {
                     format!(
                         "ONNX Runtime initialization panicked: {}",
@@ -122,8 +117,25 @@ fn initialize_ort() -> Result<(), String> {
         .clone()
 }
 
+#[cfg(all(feature = "native-text-preprocessing", feature = "native-text-preprocessing-dynamic"))]
+/// Load the packaged shared ONNX Runtime used by desktop and Android.
+fn commit_ort_environment() -> Result<(), ort::Error> {
+    let library = format!(
+        "{}onnxruntime{}",
+        std::env::consts::DLL_PREFIX,
+        std::env::consts::DLL_SUFFIX
+    );
+    ort::init_from(library).commit()
+}
+
+#[cfg(all(feature = "native-text-preprocessing", not(feature = "native-text-preprocessing-dynamic")))]
+/// Use the statically linked ONNX Runtime archive prepared for iOS.
+fn commit_ort_environment() -> Result<(), ort::Error> {
+    ort::init().commit()
+}
+
 #[cfg(feature = "native-text-preprocessing")]
-/// Load the bundled Libtashkeel ONNX model behind its dynamic engine interface.
+/// Load the bundled Libtashkeel ONNX model behind its ORT engine interface.
 fn create_inference_engine_default() -> Result<DynamicInferenceEngine, String> {
     create_inference_engine(None)
         .map_err(|err| format!("Failed to load bundled Libtashkeel model: {err}"))
