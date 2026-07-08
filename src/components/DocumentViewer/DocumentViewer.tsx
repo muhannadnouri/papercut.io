@@ -10,6 +10,8 @@ import { useFindInPage } from '../../hooks/useFindInPage'
 import { useTtsHighlight } from '../../tts/hooks/useTtsHighlight'
 import type { SearchOpenTarget } from '../../types/search'
 import type { TtsChunk } from '../../tts/types'
+import { openExternalUrl } from '../../utils/openExternalUrl'
+import './DocumentViewer.css'
 
 interface TtsHighlightOptions {
   enabled: boolean
@@ -50,6 +52,7 @@ export function DocumentViewer({
   const readerRef = useRef<HTMLElement | null>(null)
   const [showScrollTop, setShowScrollTop] = useState(false)
   const [pendingExternalUrl, setPendingExternalUrl] = useState<string | null>(null)
+  const [externalLinkError, setExternalLinkError] = useState('')
   const { readerSettingsStyle, readerSettingsProps } = useReaderSettings()
 
   const {
@@ -129,6 +132,7 @@ export function DocumentViewer({
       if (!externalUrl) return
 
       event.preventDefault()
+      setExternalLinkError('')
       setPendingExternalUrl(externalUrl)
     }
 
@@ -138,12 +142,20 @@ export function DocumentViewer({
 
   const closeExternalLinkPrompt = useCallback(() => {
     setPendingExternalUrl(null)
+    setExternalLinkError('')
   }, [])
 
-  const openPendingExternalUrl = useCallback(() => {
+  const openPendingExternalUrl = useCallback(async () => {
     if (!pendingExternalUrl) return
-    window.open(pendingExternalUrl, '_blank', 'noopener,noreferrer')
-    setPendingExternalUrl(null)
+    try {
+      await openExternalUrl(pendingExternalUrl)
+      setPendingExternalUrl(null)
+      setExternalLinkError('')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error('Failed to open external link:', err)
+      setExternalLinkError(message)
+    }
   }, [pendingExternalUrl])
 
   useEffect(() => {
@@ -243,6 +255,7 @@ export function DocumentViewer({
       {pendingExternalUrl && (
         <ExternalLinkPrompt
           url={pendingExternalUrl}
+          error={externalLinkError}
           onCancel={closeExternalLinkPrompt}
           onOpen={openPendingExternalUrl}
         />

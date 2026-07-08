@@ -132,7 +132,11 @@ function normalizeInterruptedDownload(record: AudiobookDownloadRecord): Audioboo
 }
 
 function writeDownloads(records: AudiobookDownloadRecord[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records))
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records))
+  } catch {
+    // Queue metadata is best effort; active native saves should not crash if storage is unavailable.
+  }
 }
 
 function isAudiobookDownloadRecord(value: unknown): value is AudiobookDownloadRecord {

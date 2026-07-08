@@ -46,13 +46,21 @@ export function upsertUserUpload(input: Omit<UserUploadDocument, 'importedAt'>):
   }
   const records = getUserUploads().filter((record) => record.url !== upload.url)
   records.push(upload)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records))
+  writeUserUploads(records)
   return upload
 }
 
 export function removeUserUpload(url: string): void {
   const records = getUserUploads().filter((record) => record.url !== url)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records))
+  writeUserUploads(records)
+}
+
+function writeUserUploads(records: UserUploadDocument[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records))
+  } catch {
+    // Metadata writes are best effort; native imported files still remain on disk if storage is unavailable.
+  }
 }
 
 function isUserUploadDocument(value: unknown): value is UserUploadDocument {

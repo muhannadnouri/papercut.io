@@ -1,3 +1,5 @@
+import './FindBar.css'
+
 interface FindBarProps {
   query: string
   matchCount: number

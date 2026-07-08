@@ -1,3 +1,5 @@
+import './ScrollTopButton.css'
+
 interface ScrollTopButtonProps {
   visible: boolean
   onClick: () => void

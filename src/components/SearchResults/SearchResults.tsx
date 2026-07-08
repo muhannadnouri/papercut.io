@@ -1,4 +1,5 @@
 import type { SearchOpenTarget, SearchResult } from '../../types/search'
+import './SearchResults.css'
 
 interface LastSearchInfo {
   phrases: string[]

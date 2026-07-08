@@ -1,3 +1,5 @@
+import './SearchBar.css'
+
 interface SearchBarProps {
   query: string
   disabled: boolean

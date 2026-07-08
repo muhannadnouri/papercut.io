@@ -1,0 +1,365 @@
+.doc-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "back controls";
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-bottom: 2rem;
+  min-width: 0;
+  overflow: visible;
+  z-index: 35;
+}
+
+.header-left {
+  grid-area: back;
+  justify-self: start;
+  min-width: 0;
+}
+
+.header-right {
+  grid-area: controls;
+  justify-self: end;
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.header-controls-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-control-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.header-controls-slot-disabled {
+  pointer-events: none;
+  opacity: 0.5;
+  filter: grayscale(0.25);
+}
+
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  background: var(--surface-muted);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: var(--text-body);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.back-button:hover {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+  background: var(--surface-accent);
+}
+
+.back-button:focus-visible {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+  background: var(--surface-accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+.find-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.35rem;
+  background: var(--surface-muted);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: var(--text-body);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.find-btn:hover:not(:disabled) {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+  background: var(--surface-accent);
+}
+
+.find-btn:focus-visible {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+  background: var(--surface-accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+.find-btn:disabled {
+  color: var(--text-soft);
+  cursor: not-allowed;
+}
+
+.back-icon,
+.find-icon {
+  width: 1.28rem;
+  height: 1.28rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.document-view {
+  margin-top: 1rem;
+}
+
+.document-html-surface {
+  width: 100%;
+  min-height: 320px;
+  display: block;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--reader-surface);
+  color: var(--reader-text);
+  padding: 2rem 1.25rem;
+  font-size: var(--reader-font-size, 16px);
+  line-height: var(--reader-line-height, 1.65);
+  overflow-wrap: anywhere;
+}
+
+.document-html-content {
+  max-width: min(100%, var(--reader-width, 72ch));
+  margin: 0 auto;
+  font-family: var(--reader-font-family, Georgia, serif);
+}
+
+.document-loading-surface {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 320px;
+  color: var(--text-body);
+  font-weight: 600;
+}
+
+.document-load-error {
+  flex-direction: column;
+  color: var(--danger-strong);
+  text-align: center;
+}
+
+.document-html-content > :first-child {
+  margin-top: 0;
+}
+
+.document-html-content :is(p, ul, ol, blockquote, figure, table) {
+  margin-block: 0.85em;
+}
+
+.document-html-content .epub-chapter {
+  margin-block: 0 2.5rem;
+  scroll-margin-top: 5rem;
+}
+
+.document-html-content .epub-chapter + .epub-chapter {
+  padding-block-start: 1.25rem;
+  border-top: 1px solid var(--surface-hover);
+}
+
+.document-html-content :is(ul, ol) {
+  padding-inline-start: 1.35em;
+}
+
+.document-html-content :is(li, a) {
+  overflow-wrap: anywhere;
+}
+
+.document-html-content li {
+  margin-block: 0.35em;
+}
+
+.document-html-content blockquote {
+  margin-block: 1.1em;
+  margin-inline: 0;
+  padding: 0.05em 0 0.05em 1.1em;
+  border-left: 3px solid var(--accent-border);
+  color: var(--reader-text);
+}
+
+.document-html-content blockquote > :first-child {
+  margin-block-start: 0;
+}
+
+.document-html-content blockquote > :last-child {
+  margin-block-end: 0;
+}
+
+.document-html-content :is(h1, h2, h3, h4, h5, h6) {
+  margin-block-start: 1.45em;
+  margin-block-end: 0.55em;
+  color: var(--text-heading);
+  line-height: 1.25;
+}
+
+.document-html-content :is(code, kbd, samp) {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface-muted);
+  color: var(--text-heading);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  padding: 0.1em 0.25em;
+}
+
+.document-html-content pre {
+  overflow-x: auto;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.document-html-content pre code {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.document-html-content img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1rem auto;
+  border-radius: 6px;
+}
+
+.document-html-content a {
+  color: var(--link);
+}
+
+.document-html-content a:hover {
+  color: var(--link-hover);
+}
+
+.document-html-content mark[data-search-target] {
+  border-radius: 3px;
+  background: var(--highlight-current);
+  color: var(--highlight-current-text);
+  padding: 0 0.12em;
+}
+
+/* Legacy imported audiobook bundles can restore pre-CSS HTML such as
+   <font color> and table bgcolor. In dark mode those fixed colors can create
+   white islands with pale text, so keep old presentational colors from
+   overriding the themed reader surface. */
+html[data-theme="dark"] .document-html-content :where(font[color], [color]) {
+  color: inherit;
+}
+
+html[data-theme="dark"] .document-html-content :where([bgcolor]) {
+  background-color: transparent;
+}
+
+.document-html-content table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.document-html-content :is(th, td) {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.document-html-content th {
+  background: var(--surface-muted);
+  color: var(--text-heading);
+}
+
+.document-html-content hr {
+  margin-block: 1.5rem;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.document-html-content figcaption {
+  margin-block-start: 0.45rem;
+  color: var(--reader-muted);
+  font-size: 0.9em;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .doc-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.7rem 0.75rem;
+  }
+
+  .header-right {
+    gap: 0.4rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .doc-header {
+    grid-template-areas:
+      "back reader"
+      "audio audio";
+    gap: 0.65rem 0.5rem;
+    align-items: start;
+  }
+
+  .find-btn,
+  .back-button {
+    min-height: 2.5rem;
+    padding: 0 0.85rem;
+    font-size: 0.95rem;
+  }
+
+  .header-right {
+    display: contents;
+  }
+
+  .header-control-group-reader {
+    grid-area: reader;
+    justify-self: end;
+  }
+
+  .header-control-group-audio {
+    grid-area: audio;
+    justify-self: end;
+    width: 100%;
+  }
+
+  .header-control-group-audio .audio-controls,
+  .header-control-group-audio .audio-compact-row {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .document-html-surface {
+    padding-inline: 1rem;
+  }
+
+  .document-html-content :is(ul, ol) {
+    padding-inline-start: 1.6em;
+  }
+}

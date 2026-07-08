@@ -1,3 +1,5 @@
+import './TabNav.css'
+
 export type AppTab = 'search' | 'library' | 'audiobooks'
 
 interface TabDef {
