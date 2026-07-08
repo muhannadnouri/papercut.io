@@ -59,7 +59,11 @@ export function AppDialog({ title, description, children, actions, onCancel, onS
       const first = focusable[0]
       const last = focusable[focusable.length - 1]
       const active = document.activeElement
-      if (event.shiftKey && (active === first || !dialogElement.contains(active))) {
+      const activeInside = active instanceof Node && dialogElement.contains(active)
+      if (!activeInside || active === dialogElement) {
+        event.preventDefault()
+        ;(event.shiftKey ? last : first).focus()
+      } else if (event.shiftKey && active === first) {
         event.preventDefault()
         last.focus()
       } else if (!event.shiftKey && active === last) {
