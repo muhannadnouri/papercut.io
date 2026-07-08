@@ -187,4 +187,8 @@
     max-height: calc(100vh - 7rem);
     overflow-y: auto;
   }
+
+  .reader-setting-select {
+    font-size: 16px;
+  }
 }
