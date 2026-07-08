@@ -47,7 +47,8 @@ async function fetchSource(url: string): Promise<string> {
 }
 
 export function extractQuotedPhrases(q: string): string[] {
-  const matches = q.match(/"([^"]+)"/g)
+  const query = normalizeQueryQuotes(q)
+  const matches = query.match(/"([^"]+)"/g)
   if (!matches) return []
   return matches
     .map((m) => m.slice(1, -1).trim())
@@ -55,7 +56,11 @@ export function extractQuotedPhrases(q: string): string[] {
 }
 
 export function stripQuotes(q: string): string {
-  return q.replace(/"/g, ' ').replace(/\s+/g, ' ').trim()
+  return normalizeQueryQuotes(q).replace(/"/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function normalizeQueryQuotes(q: string): string {
+  return q.replace(/[“”]/g, '"')
 }
 
 export async function docContainsAllPhrases(
