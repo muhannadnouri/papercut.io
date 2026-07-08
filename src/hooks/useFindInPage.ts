@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 
+const FIND_DEBOUNCE_MS = 180
+
 interface UseFindInPageReturn {
   showFind: boolean
   findQuery: string
@@ -21,6 +23,13 @@ export function useFindInPage(
   const [findMatchCount, setFindMatchCount] = useState(0)
   const [findCurrentIndex, setFindCurrentIndex] = useState(0)
   const findInputRef = useRef<HTMLInputElement | null>(null)
+  const findTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearPendingFind = useCallback(() => {
+    if (findTimerRef.current === null) return
+    clearTimeout(findTimerRef.current)
+    findTimerRef.current = null
+  }, [])
 
   const clearFindHighlights = useCallback(() => {
     const root = rootRef.current
@@ -98,35 +107,43 @@ export function useFindInPage(
     if (target) {
       target.classList.add('current')
       const absoluteTop = window.scrollY + target.getBoundingClientRect().top
-      window.scrollTo({ top: absoluteTop - window.innerHeight / 2, behavior: 'smooth' })
+      window.scrollTo({ top: absoluteTop - window.innerHeight / 2, behavior: findScrollBehavior() })
     }
   }, [rootRef])
 
   const closeFind = useCallback(() => {
+    clearPendingFind()
     setShowFind(false)
     setFindQuery('')
     setFindMatchCount(0)
     setFindCurrentIndex(0)
     clearFindHighlights()
-  }, [clearFindHighlights])
+  }, [clearFindHighlights, clearPendingFind])
 
   const handleFind = useCallback((searchQuery: string) => {
     setFindQuery(searchQuery)
-    if (!searchQuery.trim()) {
+  }, [])
+
+  useEffect(() => {
+    clearPendingFind()
+    const searchQuery = findQuery.trim()
+    if (!searchQuery) {
       clearFindHighlights()
       setFindMatchCount(0)
       setFindCurrentIndex(0)
       return
     }
-    const count = highlightFindMatches(searchQuery)
-    setFindMatchCount(count)
-    if (count > 0) {
+
+    findTimerRef.current = setTimeout(() => {
+      const count = highlightFindMatches(searchQuery)
+      setFindMatchCount(count)
       setFindCurrentIndex(0)
-      scrollToMatch(0)
-    } else {
-      setFindCurrentIndex(0)
-    }
-  }, [clearFindHighlights, highlightFindMatches, scrollToMatch])
+      if (count > 0) scrollToMatch(0)
+      findTimerRef.current = null
+    }, FIND_DEBOUNCE_MS)
+
+    return clearPendingFind
+  }, [clearFindHighlights, clearPendingFind, highlightFindMatches, scrollToMatch, findQuery])
 
   const findNext = useCallback(() => {
     if (findMatchCount === 0) return
@@ -167,4 +184,11 @@ export function useFindInPage(
     closeFind,
     setShowFind,
   }
+}
+
+function findScrollBehavior(): ScrollBehavior {
+  if (typeof navigator === 'undefined') return 'smooth'
+  const isiOS = /iP(ad|hone|od)/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  return isiOS ? 'auto' : 'smooth'
 }
