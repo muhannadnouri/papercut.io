@@ -3,14 +3,16 @@
 //! Submodules, with dependencies pointing downward:
 //!
 //! ```text
-//! { model, synth, save, cache, bundle } -> { paths, config, text_normalization } -> super::types
-//! save -> { synth, cache }   bundle -> { cache, save, paths }   synth -> cache
+//! { model, synth, save, cache, bundle } -> { manifest, paths, config, text_normalization } -> super::types
+//! save -> { synth, cache, prune }   bundle -> { cache, manifest, paths }   synth -> cache
 //! ```
 //!
 //! - [`config`]: pinned model metadata, event names, bundle format constants.
 //! - [`paths`]: app-data paths, ids, hashing, filesystem accounting.
 //! - [`synth`]: the sherpa engine handle and chunk synthesis.
 //! - [`text_normalization`]: shared cleanup plus English-only synthesis rewrites.
+//! - `manifest`: saved-audiobook manifest JSON and playback index validation.
+//! - `prune`: saved-audiobook chunk/temp cleanup.
 //! - [`cache`]: native audiobook directory scanning and WAV parsing.
 //! - [`save`]: long-running native audiobook save jobs and progress events.
 //! - [`bundle`]: audiobook export/import bundle format, plus delete.
@@ -23,11 +25,13 @@ mod bundle;
 mod cache;
 mod config;
 mod file_commit;
+mod manifest;
 mod model;
 mod models;
 mod paths;
 mod playback;
 mod preprocess;
+mod prune;
 mod save;
 mod synth;
 mod text_normalization;

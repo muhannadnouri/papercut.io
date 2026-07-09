@@ -22,12 +22,12 @@ use tauri_plugin_fs::{FsExt, OpenOptions};
 
 use super::super::config::{BUNDLE_MAGIC, CACHE_VERSION};
 use super::super::file_commit::commit_staged_file;
+use super::super::manifest::write_manifest;
 use super::super::models::model_definition;
 use super::super::paths::{
     audiobook_dir, chunk_path, create_native_audiobook_id, imported_upload_dir,
     playback_track_path, speakable_chunks, stable_hex_hash,
 };
-use super::super::save::write_manifest;
 use crate::native_tts::types::{
     NativeAudiobookImportResponse, NativeAudiobookSaveRequest, NativeTtsInputChunk,
 };
