@@ -42,6 +42,11 @@ interface AudiobookImportState {
   message: string
 }
 
+interface AudiobookNoticeState {
+  status: 'success' | 'cancelled' | 'error'
+  message: string
+}
+
 interface AudiobooksPanelProps {
   activeDownload: ActiveAudiobookSave | null
   audioSetup: AudioSetupPanelProps
@@ -50,12 +55,14 @@ interface AudiobooksPanelProps {
   downloadState: AudiobookCacheState
   exportState: AudiobookExportState | null
   importState: AudiobookImportState
+  noticeState: AudiobookNoticeState | null
   documentOpening?: boolean
   isSaving: boolean
   queuedDownloads: AudiobookDownloadRecord[]
   savedAudiobooks: SavedAudiobookRecord[]
   onCancelSave: () => void
   onDeleteSaved: (record: SavedAudiobookRecord) => void
+  onDismissNotice: () => void
   onExportSaved: (record: SavedAudiobookRecord, format: NativeAudiobookExportFormat) => void
   onImportAudiobook: () => void
   onOpenSaved: (record: SavedAudiobookRecord) => void
@@ -81,12 +88,14 @@ export function AudiobooksPanel({
   downloadState,
   exportState,
   importState,
+  noticeState,
   documentOpening = false,
   isSaving,
   queuedDownloads,
   savedAudiobooks,
   onCancelSave,
   onDeleteSaved,
+  onDismissNotice,
   onExportSaved,
   onImportAudiobook,
   onOpenSaved,
@@ -99,6 +108,9 @@ export function AudiobooksPanel({
   const savedCount = savedAudiobooks.length
   const queueCount = queuedDownloads.length
   const exportInProgress = exportState?.status === 'exporting'
+  const importInProgress = importState.status === 'importing'
+  const deleteInProgress = deleteState?.status === 'deleting'
+  const panelBusy = exportInProgress || importInProgress || deleteInProgress
   const meta = formatAudiobookMeta(isSaving, queueCount, savedCount)
   const hasAudiobooks = isSaving || queueCount > 0 || savedCount > 0
   const setupSummary = formatAudioSetupSummary(audioSetup)
@@ -124,55 +136,53 @@ export function AudiobooksPanel({
       meta={meta}
       defaultOpen
     >
-      <div className="audiobooks-actions-row">
-        <button
-          type="button"
-          className="audiobooks-import-btn"
-          disabled={importState.status === 'importing'}
-          onClick={onImportAudiobook}
-        >
-          <AudiobooksPanelIcon name={importState.status === 'importing' ? 'folder-open' : 'folder'} />
-          {importState.status === 'importing' ? 'Importing Bundle' : 'Import Bundle'}
-        </button>
+      <div className="audiobooks-panel-content" aria-busy={panelBusy}>
+        <div className="audiobooks-panel-interactive" inert={panelBusy ? true : undefined}>
+          <div className="audiobooks-actions-row">
+            <button
+              type="button"
+              className="audiobooks-import-btn"
+              disabled={panelBusy}
+              onClick={onImportAudiobook}
+            >
+              <AudiobooksPanelIcon name={importInProgress ? 'folder-open' : 'folder'} />
+              {importInProgress ? 'Importing Bundle' : 'Import Bundle'}
+            </button>
 
-        <button
-          type="button"
-          className={'audiobooks-setup-disclosure' + (setupOpen ? ' audiobooks-setup-disclosure-open' : '')}
-          aria-expanded={setupOpen}
-          aria-controls="audiobooks-audio-setup"
-          onClick={() => setSetupOpen((value) => !value)}
-        >
-          <span className="audiobooks-setup-disclosure-icon" aria-hidden="true">
-            <AudiobooksPanelIcon name="settings" />
-          </span>
-          <span className="audiobooks-setup-disclosure-main">
-            <span className="audiobooks-setup-disclosure-title">Audio Setup</span>
-            <span className="audiobooks-setup-disclosure-summary">{setupSummary}</span>
-          </span>
-          <span className="audiobooks-setup-disclosure-chevron" aria-hidden="true">{setupOpen ? '▲' : '▼'}</span>
-        </button>
-        {importState.message && importState.status !== 'idle' && (
-          <span className={'audiobooks-import-status document-import-' + importState.status}>
-            {importState.message}
-          </span>
-        )}
-      </div>
+            <button
+              type="button"
+              className={'audiobooks-setup-disclosure' + (setupOpen ? ' audiobooks-setup-disclosure-open' : '')}
+              aria-expanded={setupOpen}
+              aria-controls="audiobooks-audio-setup"
+              disabled={panelBusy}
+              onClick={() => setSetupOpen((value) => !value)}
+            >
+              <span className="audiobooks-setup-disclosure-icon" aria-hidden="true">
+                <AudiobooksPanelIcon name="settings" />
+              </span>
+              <span className="audiobooks-setup-disclosure-main">
+                <span className="audiobooks-setup-disclosure-title">Audio Setup</span>
+                <span className="audiobooks-setup-disclosure-summary">{setupSummary}</span>
+              </span>
+              <span className="audiobooks-setup-disclosure-chevron" aria-hidden="true">{setupOpen ? '▲' : '▼'}</span>
+            </button>
+          </div>
 
-      {setupOpen && (
-        <section id="audiobooks-audio-setup" className="audiobooks-section audiobooks-setup" aria-label="Audio Setup">
-          <AudioSetupPanel {...audioSetup} />
-        </section>
-      )}
+          {setupOpen && (
+            <section id="audiobooks-audio-setup" className="audiobooks-section audiobooks-setup" aria-label="Audio Setup">
+              <AudioSetupPanel {...audioSetup} />
+            </section>
+          )}
 
-      {!hasAudiobooks && (
-        <div className="audiobooks-empty">
-          <h2>No saved audiobooks yet</h2>
-          <p>Save audio from a document or import a Papercut audiobook bundle.</p>
-        </div>
-      )}
+          {!hasAudiobooks && (
+            <div className="audiobooks-empty">
+              <h2>No saved audiobooks yet</h2>
+              <p>Save audio from a document or import a Papercut audiobook bundle.</p>
+            </div>
+          )}
 
-      <div className="audiobooks-list">
-        {isSaving && (
+          <div className="audiobooks-list">
+            {isSaving && (
           <section className="audiobooks-section" aria-label="Saving audiobook">
             <h3 className="audiobooks-section-title">Saving</h3>
             <div className="audiobook-item audiobook-item-active">
@@ -186,12 +196,12 @@ export function AudiobooksPanel({
               <div className="audio-progress-meter" aria-label={'Saving audiobook ' + activePercent + '% complete'}>
                 <span style={{ width: activePercent + '%' }} />
               </div>
-              <button className="audiobook-text-action audiobook-secondary" onClick={onCancelSave}>Pause</button>
+              <button className="audiobook-text-action audiobook-secondary" disabled={panelBusy} onClick={onCancelSave}>Pause</button>
             </div>
           </section>
         )}
 
-        {queueCount > 0 && (
+            {queueCount > 0 && (
           <section className="audiobooks-section" aria-label="Audiobook queue">
             <h3 className="audiobooks-section-title">Queue</h3>
             {queuedDownloads.map((record) => {
@@ -210,10 +220,10 @@ export function AudiobooksPanel({
                   </div>
                   <div className="audiobook-actions">
                     <span className="audiobook-status-text">{record.message || record.status}</span>
-                    <button className="audiobook-text-action audiobook-resume" onClick={() => onResumeQueued(record)}>
+                    <button className="audiobook-text-action audiobook-resume" disabled={panelBusy} onClick={() => onResumeQueued(record)}>
                       {record.status === 'error' ? 'Retry' : 'Resume'}
                     </button>
-                    <button className="audiobook-text-action audiobook-secondary" onClick={() => onRemoveQueued(record.id)}>Remove</button>
+                    <button className="audiobook-text-action audiobook-secondary" disabled={panelBusy} onClick={() => onRemoveQueued(record.id)}>Remove</button>
                   </div>
                 </div>
               )
@@ -221,7 +231,7 @@ export function AudiobooksPanel({
           </section>
         )}
 
-        {savedCount > 0 && (
+            {savedCount > 0 && (
           <section className="audiobooks-section" aria-label="Saved audiobooks">
             <h3 className="audiobooks-section-title">Saved</h3>
             {savedAudiobooks.map((record) => {
@@ -230,12 +240,13 @@ export function AudiobooksPanel({
               const exporting = recordExportState?.status === 'exporting'
               const deleting = recordDeleteState?.status === 'deleting'
               const storage = formatStorageSize(record.wavBytes)
-              const exportDisabled = exportInProgress || deleting
+              const exportDisabled = panelBusy || deleting
+              const deleteDisabled = panelBusy || deleting
               return (
                 <div key={record.id} className="audiobook-item audiobook-item-saved">
                   <button
                     className="audiobook-saved-main"
-                    disabled={documentOpening}
+                    disabled={documentOpening || panelBusy}
                     onClick={() => { if (!documentOpening) onOpenSaved(record) }}
                   >
                     <span className="audiobook-title">{record.title}</span>
@@ -250,7 +261,7 @@ export function AudiobooksPanel({
                     <button
                       className="audiobook-text-action audiobook-export"
                       disabled={exportDisabled}
-                      aria-expanded={exportMenuOpen === record.id}
+                      aria-expanded={exportMenuOpen === record.id && !exportDisabled}
                       aria-haspopup="menu"
                       onClick={() => setExportMenuOpen((current) => current === record.id ? null : record.id)}
                     >
@@ -282,19 +293,11 @@ export function AudiobooksPanel({
                   </div>
                   <button
                     className="audiobook-text-action audiobook-delete"
-                    disabled={exporting || deleting}
+                    disabled={deleteDisabled}
                     onClick={() => onDeleteSaved(record)}
                   >
                     {deleting ? 'Deleting' : 'Delete'}
                   </button>
-                  {recordExportState && (
-                    <div
-                      className={'audiobook-status-text audiobook-operation-status audiobook-export-' + recordExportState.status}
-                      title={recordExportState.message}
-                    >
-                      {recordExportState.message}
-                    </div>
-                  )}
                   {recordDeleteState && (
                     <div
                       className={'audiobook-status-text audiobook-operation-status audiobook-delete-' + recordDeleteState.status}
@@ -307,14 +310,27 @@ export function AudiobooksPanel({
               )
             })}
           </section>
-        )}
-
-        {deleteState && deleteState.status !== 'deleting' && !savedAudiobooks.some((record) => record.id === deleteState.id) && (
-          <div className={'audiobook-status-text audiobook-delete-summary audiobook-delete-' + deleteState.status}>
-            {deleteState.message}
+            )}
           </div>
-        )}
+        </div>
       </div>
+      {noticeState && (
+        <div
+          className={'audiobook-action-toast audiobook-action-toast-' + noticeState.status}
+          role={noticeState.status === 'error' ? 'alert' : 'status'}
+          aria-live="polite"
+        >
+          <span>{noticeState.message}</span>
+          <button
+            type="button"
+            className="audiobook-action-toast-dismiss"
+            aria-label="Dismiss audiobook notice"
+            onClick={onDismissNotice}
+          >
+            ×
+          </button>
+        </div>
+      )}
     </Panel>
   )
 }

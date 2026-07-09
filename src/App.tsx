@@ -98,6 +98,8 @@ function App() {
   const {
     audioControlsProps,
     audioSetupProps,
+    audiobookActionBusy,
+    audiobookActionMessage,
     audiobookImport,
     audioSavedOnly,
     closeDocumentAudio,
@@ -240,21 +242,24 @@ function App() {
   if (selectedDoc) {
     return (
       <>
-        <DocumentViewer
-          url={selectedDoc}
-          format={selectedFormat}
-          content={docContent}
-          className={hasFloatingAudioControls ? 'app-audio-floating' : ''}
-          appControls={<ThemeToggle choice={theme.choice} onChange={theme.setChoice} />}
-          headerControls={<AudioControls {...audioControlsProps} onManageSave={handleManageAudiobookSave} />}
-          beforeDocument={<TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />}
-          ttsHighlight={ttsHighlight}
-          searchTarget={searchOpenTarget}
-          restoreBookmark={restoreBookmark}
-          loading={documentLoad.status === 'loading' && documentLoad.url === selectedDoc}
-          loadError={documentLoad.status === 'error' && documentLoad.url === selectedDoc ? documentLoad.message : undefined}
-          onClose={handleCloseDocument}
-        />
+        <div inert={audiobookActionBusy ? true : undefined}>
+          <DocumentViewer
+            url={selectedDoc}
+            format={selectedFormat}
+            content={docContent}
+            className={hasFloatingAudioControls ? 'app-audio-floating' : ''}
+            appControls={<ThemeToggle choice={theme.choice} onChange={theme.setChoice} />}
+            headerControls={<AudioControls {...audioControlsProps} onManageSave={handleManageAudiobookSave} />}
+            beforeDocument={<TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />}
+            ttsHighlight={ttsHighlight}
+            searchTarget={searchOpenTarget}
+            restoreBookmark={restoreBookmark}
+            loading={documentLoad.status === 'loading' && documentLoad.url === selectedDoc}
+            loadError={documentLoad.status === 'error' && documentLoad.url === selectedDoc ? documentLoad.message : undefined}
+            onClose={handleCloseDocument}
+          />
+        </div>
+        {audiobookActionBusy && <AppBusyOverlay message={audiobookActionMessage} />}
         {documentConfirmationDialog}
         {audiobook.confirmationDialog}
       </>
@@ -263,87 +268,111 @@ function App() {
 
   return (
     <div className="app">
-      <AppHeader actions={<ThemeToggle choice={theme.choice} onChange={theme.setChoice} />} />
+      <div
+        className={audiobookActionBusy ? 'app-header-shell app-header-shell-busy' : 'app-header-shell'}
+        inert={audiobookActionBusy ? true : undefined}
+      >
+        <AppHeader actions={<ThemeToggle choice={theme.choice} onChange={theme.setChoice} />} />
+      </div>
 
-      <TabNav
-        active={activeTab}
-        busyTabs={{ audiobooks: audiobooksPanelProps.isSaving }}
-        onChange={handleTabChange}
-      />
-
-      {activeTab === 'search' && (
-        <SearchTab
-          query={query}
-          disabled={!pagefindReady && uploadedDocuments.length === 0}
-          onChangeQuery={handleSearch}
-          onSubmitSearch={submitSearch}
-          groupedDocs={searchGroupedDocs}
-          collapsedAuthors={searchCollapsedAuthors}
-          docFilterLower={searchDocFilterLower}
-          documentFilter={searchDocumentFilter}
-          libraryOrganization={uploadedLibraryOrganization}
-          selectedFilters={selectedFilters}
-          filterTitleByUrl={searchFilterTitleByUrl}
-          onFilterChange={setSearchDocumentFilter}
-          onToggleFilter={toggleFilter}
-          onToggleAllInGroup={toggleAllInGroup}
-          onToggleAuthor={toggleSearchAuthor}
-          onClearFilters={clearFilters}
-          results={audioFilteredResults}
-          loading={loading}
-          submittedQuery={submittedQuery}
-          lastSearchInfo={lastSearchInfo}
-          openingDisabled={documentOpening}
-          openingDocumentUrl={documentLoad.status === 'loading' ? documentLoad.url : undefined}
-          onViewResult={(result, target) => handleViewDocument(result.url, target)}
+      <div inert={audiobookActionBusy ? true : undefined}>
+        <TabNav
+          active={activeTab}
+          busyTabs={{ audiobooks: audiobooksPanelProps.isSaving }}
+          onChange={handleTabChange}
         />
-      )}
 
-      {activeTab === 'library' && (
-        <LibraryTab
-          documentsLoading={documentsLoading}
-          showDocuments={showDocuments}
-          allDocuments={libraryDocuments}
-          audioSavedOnly={audioSavedOnly}
-          documentFilter={libraryDocumentFilter}
-          groupedDocs={libraryGroupedDocs}
-          docFilterLower={libraryDocFilterLower}
-          documentImport={documentImport}
-          libraryOrganization={uploadedLibraryOrganization}
-          documentOpening={documentOpening}
-          openingDocumentUrl={documentLoad.status === 'loading' ? documentLoad.url : undefined}
-          collapsedAuthors={libraryCollapsedAuthors}
-          onToggleShow={handleToggleLibraryDocuments}
-          onFilterChange={setLibraryDocumentFilter}
-          onAudioSavedOnlyChange={setAudioSavedOnly}
-          onCreateLibraryFolder={createLibraryFolder}
-          onDeleteDocument={handleDeleteUploadedDocument}
-          onDeleteLibraryFolder={deleteLibraryFolder}
-          onMoveLibraryDocuments={moveLibraryDocuments}
-          onRenameLibraryFolder={renameLibraryFolder}
-          onToggleAuthor={toggleLibraryAuthor}
-          onImportHtmlDocument={handleImportHtmlDocument}
-          onImportEpubDocument={handleImportEpubDocument}
-          onViewDocument={handleViewLibraryDocument}
-        />
-      )}
+        {activeTab === 'search' && (
+          <SearchTab
+            query={query}
+            disabled={!pagefindReady && uploadedDocuments.length === 0}
+            onChangeQuery={handleSearch}
+            onSubmitSearch={submitSearch}
+            groupedDocs={searchGroupedDocs}
+            collapsedAuthors={searchCollapsedAuthors}
+            docFilterLower={searchDocFilterLower}
+            documentFilter={searchDocumentFilter}
+            libraryOrganization={uploadedLibraryOrganization}
+            selectedFilters={selectedFilters}
+            filterTitleByUrl={searchFilterTitleByUrl}
+            onFilterChange={setSearchDocumentFilter}
+            onToggleFilter={toggleFilter}
+            onToggleAllInGroup={toggleAllInGroup}
+            onToggleAuthor={toggleSearchAuthor}
+            onClearFilters={clearFilters}
+            results={audioFilteredResults}
+            loading={loading}
+            submittedQuery={submittedQuery}
+            lastSearchInfo={lastSearchInfo}
+            openingDisabled={documentOpening}
+            openingDocumentUrl={documentLoad.status === 'loading' ? documentLoad.url : undefined}
+            onViewResult={(result, target) => handleViewDocument(result.url, target)}
+          />
+        )}
 
-      {activeTab === 'audiobooks' && (
-        <AudiobooksTab
-          audiobooksPanelProps={audiobooksPanelProps}
-          audioSetupProps={audioSetupProps}
-          audiobookImport={audiobookImport}
-          documentOpening={documentOpening}
-          ttsDiagnosticsEnabled={ttsDiagnosticsEnabled}
-          onDiagnosticsChange={handleTtsDiagnosticsChange}
-          onImportAudiobook={handleImportAudiobook}
-          onOpenSaved={(record) => {
-            void openSavedAudiobook(record, handleViewDocument)
-          }}
-        />
-      )}
+        {activeTab === 'library' && (
+          <LibraryTab
+            documentsLoading={documentsLoading}
+            showDocuments={showDocuments}
+            allDocuments={libraryDocuments}
+            audioSavedOnly={audioSavedOnly}
+            documentFilter={libraryDocumentFilter}
+            groupedDocs={libraryGroupedDocs}
+            docFilterLower={libraryDocFilterLower}
+            documentImport={documentImport}
+            libraryOrganization={uploadedLibraryOrganization}
+            documentOpening={documentOpening}
+            openingDocumentUrl={documentLoad.status === 'loading' ? documentLoad.url : undefined}
+            collapsedAuthors={libraryCollapsedAuthors}
+            onToggleShow={handleToggleLibraryDocuments}
+            onFilterChange={setLibraryDocumentFilter}
+            onAudioSavedOnlyChange={setAudioSavedOnly}
+            onCreateLibraryFolder={createLibraryFolder}
+            onDeleteDocument={handleDeleteUploadedDocument}
+            onDeleteLibraryFolder={deleteLibraryFolder}
+            onMoveLibraryDocuments={moveLibraryDocuments}
+            onRenameLibraryFolder={renameLibraryFolder}
+            onToggleAuthor={toggleLibraryAuthor}
+            onImportHtmlDocument={handleImportHtmlDocument}
+            onImportEpubDocument={handleImportEpubDocument}
+            onViewDocument={handleViewLibraryDocument}
+          />
+        )}
+
+        {activeTab === 'audiobooks' && (
+          <AudiobooksTab
+            audiobooksPanelProps={audiobooksPanelProps}
+            audioSetupProps={audioSetupProps}
+            audiobookImport={audiobookImport}
+            documentOpening={documentOpening}
+            ttsDiagnosticsEnabled={ttsDiagnosticsEnabled}
+            onDiagnosticsChange={handleTtsDiagnosticsChange}
+            onImportAudiobook={handleImportAudiobook}
+            onOpenSaved={(record) => {
+              void openSavedAudiobook(record, handleViewDocument)
+            }}
+          />
+        )}
+      </div>
+      {audiobookActionBusy && <AppBusyOverlay message={audiobookActionMessage} preserveHeader />}
       {documentConfirmationDialog}
       {audiobook.confirmationDialog}
+    </div>
+  )
+}
+
+function AppBusyOverlay({ message, preserveHeader = false }: { message: string; preserveHeader?: boolean }) {
+  return (
+    <div
+      className={preserveHeader ? 'app-busy-overlay app-busy-overlay-below-header' : 'app-busy-overlay'}
+      role="status"
+      aria-live="polite"
+      aria-label={message}
+    >
+      <div className="app-busy-card">
+        <span className="spinner" aria-hidden="true" />
+        <span>{message}</span>
+      </div>
     </div>
   )
 }

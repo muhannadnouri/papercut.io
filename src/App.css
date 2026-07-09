@@ -9,6 +9,7 @@
 }
 
 .app {
+  --app-busy-header-space: clamp(8.25rem, 16vh, 10rem);
   color-scheme: var(--color-scheme);
   width: min(100%, 1120px);
   margin: 0 auto;
@@ -16,6 +17,11 @@
   font-family: var(--ui-font);
   color: var(--text);
   min-height: 100vh;
+}
+
+.app-header-shell-busy {
+  pointer-events: none;
+  user-select: none;
 }
 
 .spinner {
@@ -26,6 +32,35 @@
   border-radius: 50%;
   animation: spinner-rotate 0.7s linear infinite;
   flex-shrink: 0;
+}
+
+.app-busy-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: var(--app-bg);
+}
+
+.app-busy-overlay-below-header {
+  top: var(--app-busy-header-space);
+}
+
+.app-busy-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  max-width: min(24rem, calc(100vw - 2rem));
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--accent-border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-heading);
+  box-shadow: 0 10px 28px var(--shadow-strong);
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 
 @keyframes spinner-rotate {
@@ -43,6 +78,7 @@
 
 @media (max-width: 767px) {
   .app {
+    --app-busy-header-space: calc(6.85rem + var(--mobile-safe-top-space));
     padding-top: calc(1.25rem + var(--mobile-safe-top-space));
     padding-bottom: calc(5rem + env(safe-area-inset-bottom));
   }
