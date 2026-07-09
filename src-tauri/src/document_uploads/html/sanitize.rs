@@ -93,22 +93,91 @@ fn sanitize_single_tag(tag: &str) -> String {
     safe
 }
 
-/// Strip all tags to plain text (each `>` becomes a space) and decode entities.
+/// Strip all tags to plain text and decode entities.
+///
+/// Inline markup must not become a word boundary: many EPUBs style drop caps or
+/// emphasis as adjacent inline tags, e.g. `<b>C</b><b>ORNELIA</b>`, and the FTS
+/// index needs to see the same word a reader sees. Block-like tags still add a
+/// separator so neighboring paragraphs do not collapse together.
 pub(crate) fn strip_tags(html: &str) -> String {
     let mut out = String::with_capacity(html.len());
-    let mut in_tag = false;
-    for ch in html.chars() {
-        match ch {
-            '<' => in_tag = true,
-            '>' => {
-                in_tag = false;
-                out.push(' ');
-            }
-            _ if !in_tag => out.push(ch),
-            _ => {}
+    let mut pos = 0usize;
+
+    while let Some(start_rel) = html[pos..].find('<') {
+        let start = pos + start_rel;
+        out.push_str(&html[pos..start]);
+
+        let Some(end_rel) = html[start..].find('>') else {
+            pos = html.len();
+            break;
+        };
+        let end = start + end_rel;
+        if tag_separates_text(&html[start + 1..end]) {
+            out.push(' ');
         }
+        pos = end + 1;
     }
+
+    out.push_str(&html[pos..]);
     decode_entities(&out)
+}
+
+/// Decide whether removing a tag should leave a word boundary in indexed text.
+///
+/// The list is intentionally a small block/row/line-break set. Inline tags like
+/// `b`, `i`, `span`, and `a` are omitted so styled words remain searchable as
+/// the continuous text users see in the reader.
+fn tag_separates_text(tag: &str) -> bool {
+    matches!(
+        tag_name(tag).as_str(),
+        "address"
+            | "article"
+            | "aside"
+            | "blockquote"
+            | "br"
+            | "caption"
+            | "dd"
+            | "div"
+            | "dl"
+            | "dt"
+            | "figcaption"
+            | "figure"
+            | "footer"
+            | "h1"
+            | "h2"
+            | "h3"
+            | "h4"
+            | "h5"
+            | "h6"
+            | "header"
+            | "hr"
+            | "li"
+            | "main"
+            | "nav"
+            | "ol"
+            | "p"
+            | "pre"
+            | "section"
+            | "td"
+            | "th"
+            | "tr"
+            | "ul"
+    )
+}
+
+/// Pull the element name out of a raw tag body from the lightweight scanner.
+///
+/// This intentionally handles only the shapes the sanitizer passes here, such as
+/// `p class="x"`, `/p`, and `br/`. If we ever need full HTML tokenization, this
+/// whole scanner should move to a DOM parser rather than grow custom parsing.
+fn tag_name(tag: &str) -> String {
+    tag.trim()
+        .trim_start_matches('/')
+        .split_whitespace()
+        .next()
+        .unwrap_or("")
+        .trim_end_matches('/')
+        .to_ascii_lowercase()
 }
 
 /// Decode the small set of HTML entities that appear in extracted text.
@@ -139,5 +208,21 @@ mod tests {
         assert!(sanitized.contains("Safe"));
         assert!(!sanitized.contains("alert(1)"));
         assert!(!sanitized.to_ascii_lowercase().contains("<script"));
+    }
+
+    #[test]
+    fn strip_tags_keeps_adjacent_inline_text_together() {
+        let text = normalize_text(&strip_tags(
+            "<div><b>C</b><b>ORNELIA</b> had <i>always</i> loved Saturnalia.</div>",
+        ));
+
+        assert_eq!(text, "CORNELIA had always loved Saturnalia.");
+    }
+
+    #[test]
+    fn strip_tags_separates_blocks_and_line_breaks() {
+        let text = normalize_text(&strip_tags("<p>First</p><p>Second<br/>line</p>"));
+
+        assert_eq!(text, "First Second line");
     }
 }
