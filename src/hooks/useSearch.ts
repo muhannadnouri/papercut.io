@@ -200,6 +200,7 @@ function uploadedSearchToResult(result: UploadedDocumentSearchResult, matchCount
     meta: { title: result.title },
     excerpt: sanitizeUploadedExcerpt(result.excerpt),
     matchCount,
+    matchScope: result.matchScope,
     sub_results: result.sectionTitle
       ? [{ url: result.url, title: result.sectionTitle }]
       : undefined,
@@ -212,7 +213,11 @@ function uploadedSearchToResult(result: UploadedDocumentSearchResult, matchCount
 function uploadedSearchToResults(results: UploadedDocumentSearchResult[]): SearchResult[] {
   const matchCounts = new Map<string, number>()
   for (const result of results) {
-    matchCounts.set(result.url, (matchCounts.get(result.url) ?? 0) + 1)
+    if (result.matchScope === 'document') {
+      matchCounts.set(result.url, Math.max(matchCounts.get(result.url) ?? 0, 1))
+    } else {
+      matchCounts.set(result.url, (matchCounts.get(result.url) ?? 0) + 1)
+    }
   }
 
   const seen = new Set<string>()

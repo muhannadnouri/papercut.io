@@ -29,6 +29,7 @@ pub(crate) struct UploadedDocumentSearchResult {
     pub(crate) excerpt: String,
     pub(crate) section_title: Option<String>,
     pub(crate) section_index: usize,
+    pub(crate) match_scope: String,
 }
 
 /// Outcome of a delete, including bytes reclaimed from app data.

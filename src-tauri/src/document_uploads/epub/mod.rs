@@ -275,7 +275,54 @@ fn read_zip_text_limited<R: Read + std::io::Seek>(
 fn sanitize_epub_fragment(fragment: &str) -> String {
     let mut builder = ammonia::Builder::default();
     builder.add_generic_attributes(&["id", "name"]);
-    builder.clean(fragment).to_string()
+    builder
+        .clean(&normalize_empty_pre_elements(fragment))
+        .to_string()
+}
+
+/// Preserve XHTML's empty `<pre/>` meaning before parsing fragments as HTML.
+///
+/// Project Gutenberg EPUBs can include `<pre/>` as a separator artifact. HTML
+/// parsers treat `pre` as non-void, so leaving that syntax alone can make the
+/// following prose render inside a large code/preformatted block.
+fn normalize_empty_pre_elements(fragment: &str) -> String {
+    let lower = fragment.to_ascii_lowercase();
+    let mut out = String::with_capacity(fragment.len());
+    let mut pos = 0usize;
+
+    while let Some(start_rel) = lower[pos..].find("<pre") {
+        let start = pos + start_rel;
+        out.push_str(&fragment[pos..start]);
+
+        let after_name = start + "<pre".len();
+        if !is_tag_name_boundary(fragment[after_name..].chars().next()) {
+            out.push('<');
+            pos = start + 1;
+            continue;
+        }
+
+        let Some(end_rel) = lower[start..].find('>') else {
+            out.push_str(&fragment[start..]);
+            return out;
+        };
+        let end = start + end_rel;
+        let tag_inner = fragment[start + 1..end].trim_end();
+        if let Some(open_inner) = tag_inner.strip_suffix('/') {
+            out.push('<');
+            out.push_str(open_inner.trim_end());
+            out.push_str("></pre>");
+        } else {
+            out.push_str(&fragment[start..=end]);
+        }
+        pos = end + 1;
+    }
+
+    out.push_str(&fragment[pos..]);
+    out
+}
+
+fn is_tag_name_boundary(ch: Option<char>) -> bool {
+    matches!(ch, Some('>' | '/' | ' ' | '\t' | '\n' | '\r' | '\u{000C}'))
 }
 
 #[cfg(test)]
@@ -321,6 +368,28 @@ mod tests {
         let mut zip = ZipArchive::new(Cursor::new(archive)).unwrap();
         let err = read_zip_text_limited(&mut zip, "OPS/text/chapter.xhtml", 8).unwrap_err();
         assert!(err.contains("exceeds the text size limit"));
+    }
+
+    #[test]
+    fn normalizes_empty_xhtml_pre_before_html_parsing() {
+        let normalized = normalize_empty_pre_elements("<pre/><p>After</p>");
+
+        assert_eq!(normalized, "<pre></pre><p>After</p>");
+    }
+
+    #[test]
+    fn normalizes_empty_xhtml_pre_with_attributes() {
+        let normalized = normalize_empty_pre_elements("<pre id=\"pg\" />Text");
+
+        assert_eq!(normalized, "<pre id=\"pg\"></pre>Text");
+    }
+
+    #[test]
+    fn leaves_non_pre_and_non_empty_pre_tags_alone() {
+        assert_eq!(
+            normalize_empty_pre_elements("<prefix/><pre>Code</pre>"),
+            "<prefix/><pre>Code</pre>"
+        );
     }
 
     #[test]

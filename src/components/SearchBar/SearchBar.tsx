@@ -35,6 +35,17 @@ export function SearchBar({ query, disabled, onChange, onSubmit }: SearchBarProp
           Search
         </button>
       </div>
+      <p className="search-help">
+        Search by words broadly, or use quotes for an exact phrase.
+      </p>
+      <div className="search-examples" aria-label="Search examples">
+        <button type="button" className="search-example" onClick={() => onChange('green gables')} disabled={disabled}>
+          green gables
+        </button>
+        <button type="button" className="search-example" onClick={() => onChange('"Anne Shirley"')} disabled={disabled}>
+          &quot;Anne Shirley&quot;
+        </button>
+      </div>
     </div>
   )
 }

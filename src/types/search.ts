@@ -13,6 +13,7 @@ export interface SearchResult {
   sub_results?: PagefindSubResult[]
   customExcerpt?: string
   matchCount?: number
+  matchScope?: 'section' | 'document'
 }
 
 export interface SearchOpenTarget {
