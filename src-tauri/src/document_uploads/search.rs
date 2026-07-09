@@ -23,7 +23,7 @@ pub(crate) fn search_uploads<R: Runtime>(
     app: &tauri::AppHandle<R>,
     request: UploadedDocumentSearchRequest,
 ) -> Result<Vec<UploadedDocumentSearchResult>, String> {
-    let terms = fts_terms(&request.query);
+    let terms = fts_fuzzy_terms(&request.query);
     if terms.is_empty() {
         return Ok(Vec::new());
     }
@@ -226,10 +226,10 @@ fn document_url_scope(document_urls: &[String]) -> (String, Vec<Value>) {
     )
 }
 
-/// Turn a raw user query into safe FTS5 terms: split on whitespace, preserve
-/// internal compounds like `well-made`, and cap term count so broad pasted text
-/// cannot explode fallback queries.
-fn fts_terms(query: &str) -> Vec<String> {
+/// Turn a broad/fuzzy query into safe FTS5 terms. Exact phrase semantics live
+/// in the frontend phrase verifier; this helper only builds candidate MATCH
+/// terms for uploaded-document FTS lookup.
+fn fts_fuzzy_terms(query: &str) -> Vec<String> {
     query
         .split_whitespace()
         .map(|part| part.trim_matches(|ch: char| !ch.is_alphanumeric() && ch != '_' && ch != '-'))
@@ -266,7 +266,7 @@ mod tests {
     use rusqlite::{params, Connection};
 
     use super::{
-        fts_and_query, fts_terms, search_cross_section_document_hits, search_section_hits,
+        fts_and_query, fts_fuzzy_terms, search_cross_section_document_hits, search_section_hits,
     };
 
     #[test]
@@ -283,7 +283,7 @@ mod tests {
             ],
         );
 
-        let terms = fts_terms("compass lantern");
+        let terms = fts_fuzzy_terms("compass lantern");
         let same_section =
             search_section_hits(&db, &fts_and_query(&terms), 10, &[]).expect("same-section search");
         assert!(same_section.is_empty());
@@ -319,7 +319,7 @@ mod tests {
             ],
         );
 
-        let terms = fts_terms("well-made astrolabe");
+        let terms = fts_fuzzy_terms("well-made astrolabe");
         assert_eq!(terms, vec!["well-made", "astrolabe"]);
 
         let same_section =
@@ -362,7 +362,7 @@ mod tests {
             200,
         );
 
-        let terms = fts_terms("compass lantern");
+        let terms = fts_fuzzy_terms("compass lantern");
         let excluded = HashSet::new();
         let fallback = search_cross_section_document_hits(&db, &terms, 1, &[], &excluded)
             .expect("cross-section fallback");
@@ -374,7 +374,7 @@ mod tests {
     #[test]
     fn fuzzy_terms_trim_edge_punctuation_but_keep_compounds() {
         assert_eq!(
-            fts_terms("(well-made) lantern, archive!"),
+            fts_fuzzy_terms("(well-made) lantern, archive!"),
             vec!["well-made", "lantern", "archive"]
         );
     }
@@ -390,7 +390,7 @@ mod tests {
             &["The field notes mention a compass and lantern together."],
         );
 
-        let terms = fts_terms("compass lantern");
+        let terms = fts_fuzzy_terms("compass lantern");
         let same_section =
             search_section_hits(&db, &fts_and_query(&terms), 10, &[]).expect("same-section search");
 
