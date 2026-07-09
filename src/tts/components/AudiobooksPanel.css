@@ -452,11 +452,13 @@
   color: var(--danger-strong);
 }
 
-.audiobooks-panel {
+.audiobooks-panel-menu-open,
+.audiobooks-panel-menu-open .panel-body,
+.audiobooks-panel-menu-open .audiobooks-list {
   overflow: visible;
 }
 
-.audiobooks-panel .panel-body {
+.audiobooks-panel-menu-open .audiobook-item-saved:focus-within {
   overflow: visible;
 }
 

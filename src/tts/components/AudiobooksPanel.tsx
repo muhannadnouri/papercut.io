@@ -130,7 +130,7 @@ export function AudiobooksPanel({
 
   return (
     <Panel
-      className="audiobooks-panel"
+      className={'audiobooks-panel' + (exportMenuOpen ? ' audiobooks-panel-menu-open' : '')}
       ariaLabel="Audiobooks"
       title="Audiobooks"
       meta={meta}

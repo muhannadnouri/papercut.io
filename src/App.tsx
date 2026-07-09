@@ -354,17 +354,17 @@ function App() {
           />
         )}
       </div>
-      {audiobookActionBusy && <AppBusyOverlay message={audiobookActionMessage} preserveHeader />}
+      {audiobookActionBusy && <AppBusyOverlay message={audiobookActionMessage} />}
       {documentConfirmationDialog}
       {audiobook.confirmationDialog}
     </div>
   )
 }
 
-function AppBusyOverlay({ message, preserveHeader = false }: { message: string; preserveHeader?: boolean }) {
+function AppBusyOverlay({ message }: { message: string }) {
   return (
     <div
-      className={preserveHeader ? 'app-busy-overlay app-busy-overlay-below-header' : 'app-busy-overlay'}
+      className="app-busy-overlay"
       role="status"
       aria-live="polite"
       aria-label={message}

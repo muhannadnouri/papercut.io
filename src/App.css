@@ -9,7 +9,6 @@
 }
 
 .app {
-  --app-busy-header-space: clamp(8.25rem, 16vh, 10rem);
   color-scheme: var(--color-scheme);
   width: min(100%, 1120px);
   margin: 0 auto;
@@ -20,6 +19,9 @@
 }
 
 .app-header-shell-busy {
+  position: relative;
+  z-index: 201;
+  background: var(--app-bg);
   pointer-events: none;
   user-select: none;
 }
@@ -42,10 +44,6 @@
   place-items: center;
   padding: 1rem;
   background: var(--app-bg);
-}
-
-.app-busy-overlay-below-header {
-  top: var(--app-busy-header-space);
 }
 
 .app-busy-card {
@@ -78,7 +76,6 @@
 
 @media (max-width: 767px) {
   .app {
-    --app-busy-header-space: calc(6.85rem + var(--mobile-safe-top-space));
     padding-top: calc(1.25rem + var(--mobile-safe-top-space));
     padding-bottom: calc(5rem + env(safe-area-inset-bottom));
   }
