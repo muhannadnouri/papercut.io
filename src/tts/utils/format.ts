@@ -1,5 +1,5 @@
-import { LIBTASHKEEL_TEXT_PREPROCESSOR } from '../types'
-import { FALLBACK_TTS_MODELS, getTtsVoiceName } from '../models'
+import { LIBTASHKEEL_TEXT_PREPROCESSOR, TEXT_PREPROCESSOR_NONE } from '../types'
+import { FALLBACK_TTS_MODELS, getTtsModel, getTtsVoiceName } from '../models'
 
 import { formatStorageSize } from '../../utils/formatUtils'
 // Re-export so modules importing from '../utils/format' (AudiobooksPanel,
@@ -42,6 +42,31 @@ export function formatAudiobookVoiceMeta(
   const voiceName = getTtsVoiceName(FALLBACK_TTS_MODELS, modelId, voice)
   const processingLabel = textPreprocessor === LIBTASHKEEL_TEXT_PREPROCESSOR ? ' • Arabic tashkeel' : ''
   return 'Voice 🔊 ' + voiceName + ' • ⚡' + formatSpeedLabel(speed) + ' • ' + dtype + processingLabel
+}
+
+export function formatSavedAudiobookMeta(
+  modelId: string,
+  voice: string,
+  speed: number,
+  textPreprocessor: string | undefined,
+  seconds: number | undefined,
+  bytes: number | undefined,
+): string {
+  const model = getTtsModel(FALLBACK_TTS_MODELS, modelId)
+  const voiceName = getTtsVoiceName(FALLBACK_TTS_MODELS, modelId, voice)
+  const parts = [
+    '🤖 ' + model.name,
+    '🔊 ' + voiceName,
+    '⚡ ' + formatSpeedLabel(speed),
+  ]
+  if (textPreprocessor && textPreprocessor !== TEXT_PREPROCESSOR_NONE) {
+    const processingName = model.textPreprocessors.find((item) => item.id === textPreprocessor)?.name
+    parts.push('✨ ' + (processingName ?? textPreprocessor))
+  }
+  if (seconds && seconds > 0) parts.push('⏱ ' + formatDuration(seconds))
+  const storage = formatStorageSize(bytes)
+  if (storage) parts.push('💾 ' + storage)
+  return parts.join(' • ')
 }
 
 export function formatDownloadSavedStatus(seconds: number | undefined, percent: number, bytes?: number): string {

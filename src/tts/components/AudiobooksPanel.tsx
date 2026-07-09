@@ -7,9 +7,8 @@ import type { AudiobookCacheState } from '../hooks/useAudiobookCache'
 import {
   formatAudiobookVoiceMeta,
   formatDownloadSavedStatus,
-  formatDuration,
+  formatSavedAudiobookMeta,
   formatSpeedLabel,
-  formatStorageSize,
 } from '../utils/format'
 import { Panel } from '../../components/Panel/Panel'
 import { AudioSetupPanel, type AudioSetupPanelProps } from './AudioSetupPanel'
@@ -239,7 +238,6 @@ export function AudiobooksPanel({
               const recordDeleteState = deleteState?.id === record.id ? deleteState : null
               const exporting = recordExportState?.status === 'exporting'
               const deleting = recordDeleteState?.status === 'deleting'
-              const storage = formatStorageSize(record.wavBytes)
               const exportDisabled = panelBusy || deleting
               const deleteDisabled = panelBusy || deleting
               return (
@@ -251,10 +249,14 @@ export function AudiobooksPanel({
                   >
                     <span className="audiobook-title">{record.title}</span>
                     <span className="audiobook-meta">
-                      {formatAudiobookVoiceMeta(record.modelId, record.voice, record.speed, record.dtype, record.textPreprocessor)}
-                      {' - ' + record.chunks + ' chunks'}
-                      {record.audioDurationSec ? ' - ' + formatDuration(record.audioDurationSec) : ''}
-                      {storage ? ' - ' + storage : ''}
+                      {formatSavedAudiobookMeta(
+                        record.modelId,
+                        record.voice,
+                        record.speed,
+                        record.textPreprocessor,
+                        record.audioDurationSec,
+                        record.wavBytes,
+                      )}
                     </span>
                   </button>
                   <div className="audiobook-export-menu">
