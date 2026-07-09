@@ -16,6 +16,7 @@ export interface UploadedDocumentSearchResult {
   excerpt: string
   sectionTitle?: string | null
   sectionIndex: number
+  matchScope?: 'section' | 'document'
 }
 
 export interface UploadedDocumentDeleteResult {

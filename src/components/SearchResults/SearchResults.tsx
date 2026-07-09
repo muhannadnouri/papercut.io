@@ -139,6 +139,10 @@ function resultMeta(result: SearchResult, exactPhrase: boolean): string | null {
     return count ? count + ' exact match' + (count === 1 ? '' : 'es') : null
   }
 
+  if (result.matchScope === 'document') {
+    return 'Terms found in different sections'
+  }
+
   const parts = [
     result.sub_results?.[0]?.title
       ? 'Section: ' + result.sub_results[0].title
