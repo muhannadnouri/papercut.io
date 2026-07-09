@@ -835,6 +835,8 @@
 
 .audiobook-action-toast-dismiss {
   flex: none;
+  display: inline-grid;
+  place-items: center;
   width: 1.85rem;
   height: 1.85rem;
   border: 1px solid var(--border-strong);
@@ -842,6 +844,7 @@
   background: var(--surface-muted);
   color: var(--text-muted);
   font: inherit;
+  font-size: 1.25rem;
   line-height: 1;
   cursor: pointer;
 }
