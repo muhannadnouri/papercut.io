@@ -264,6 +264,11 @@
   padding: 0 0.12em;
 }
 
+::highlight(search-target) {
+  background-color: var(--highlight-current);
+  color: var(--highlight-current-text);
+}
+
 /* Legacy imported audiobook bundles can restore pre-CSS HTML such as
    <font color> and table bgcolor. In dark mode those fixed colors can create
    white islands with pale text, so keep old presentational colors from
