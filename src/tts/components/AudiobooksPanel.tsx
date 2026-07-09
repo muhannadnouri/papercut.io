@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { SavedAudiobookRecord } from '../storage/AudiobookLibrary'
 import type { AudiobookDownloadRecord } from '../storage/AudiobookDownloadQueue'
 import type { TtsDtype, TtsVoice } from '../types'
+import type { NativeAudiobookExportFormat } from '../api/nativeTts'
 import type { AudiobookCacheState } from '../hooks/useAudiobookCache'
 import {
   formatAudiobookVoiceMeta,
@@ -55,12 +56,22 @@ interface AudiobooksPanelProps {
   savedAudiobooks: SavedAudiobookRecord[]
   onCancelSave: () => void
   onDeleteSaved: (record: SavedAudiobookRecord) => void
-  onExportSaved: (record: SavedAudiobookRecord) => void
+  onExportSaved: (record: SavedAudiobookRecord, format: NativeAudiobookExportFormat) => void
   onImportAudiobook: () => void
   onOpenSaved: (record: SavedAudiobookRecord) => void
   onRemoveQueued: (id: string) => void
   onResumeQueued: (record: AudiobookDownloadRecord) => void
 }
+
+const AUDIOBOOK_EXPORT_OPTIONS: Array<{
+  format: NativeAudiobookExportFormat
+  label: string
+  detail: string
+  code?: string
+}> = [
+  { format: 'bundle', label: 'Papercut Bundle', detail: 'Share or re-import', code: '.papercut-audiobook' },
+  { format: 'wav', label: 'WAV', detail: 'Play anywhere' },
+]
 
 export function AudiobooksPanel({
   activeDownload,
@@ -83,12 +94,27 @@ export function AudiobooksPanel({
   onResumeQueued,
 }: AudiobooksPanelProps) {
   const [setupOpen, setSetupOpen] = useState(false)
+  const [exportMenuOpen, setExportMenuOpen] = useState<string | null>(null)
   const activePercent = getDownloadPercent(downloadState.cachedChunks, downloadState.totalChunks)
   const savedCount = savedAudiobooks.length
   const queueCount = queuedDownloads.length
+  const exportInProgress = exportState?.status === 'exporting'
   const meta = formatAudiobookMeta(isSaving, queueCount, savedCount)
   const hasAudiobooks = isSaving || queueCount > 0 || savedCount > 0
   const setupSummary = formatAudioSetupSummary(audioSetup)
+
+  useEffect(() => {
+    if (!exportMenuOpen) return
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target
+      if (target instanceof Element && target.closest('.audiobook-export-menu')) return
+      setExportMenuOpen(null)
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [exportMenuOpen])
 
   return (
     <Panel
@@ -204,6 +230,7 @@ export function AudiobooksPanel({
               const exporting = recordExportState?.status === 'exporting'
               const deleting = recordDeleteState?.status === 'deleting'
               const storage = formatStorageSize(record.wavBytes)
+              const exportDisabled = exportInProgress || deleting
               return (
                 <div key={record.id} className="audiobook-item audiobook-item-saved">
                   <button
@@ -219,13 +246,40 @@ export function AudiobooksPanel({
                       {storage ? ' - ' + storage : ''}
                     </span>
                   </button>
-                  <button
-                    className="audiobook-text-action audiobook-export"
-                    disabled={exporting || deleting}
-                    onClick={() => onExportSaved(record)}
-                  >
-                    {exporting ? 'Exporting' : 'Export Bundle'}
-                  </button>
+                  <div className="audiobook-export-menu">
+                    <button
+                      className="audiobook-text-action audiobook-export"
+                      disabled={exportDisabled}
+                      aria-expanded={exportMenuOpen === record.id}
+                      aria-haspopup="menu"
+                      onClick={() => setExportMenuOpen((current) => current === record.id ? null : record.id)}
+                    >
+                      {exporting ? 'Exporting' : 'Export'}
+                      <span className="audiobook-export-arrow" aria-hidden="true">&#9662;</span>
+                    </button>
+                    {exportMenuOpen === record.id && !exportDisabled && (
+                      <div className="audiobook-export-options" role="menu">
+                        {AUDIOBOOK_EXPORT_OPTIONS.map((option) => (
+                          <button
+                            key={option.format}
+                            type="button"
+                            className="audiobook-export-option"
+                            role="menuitem"
+                            onClick={() => {
+                              setExportMenuOpen(null)
+                              onExportSaved(record, option.format)
+                            }}
+                          >
+                            <span>{option.label}</span>
+                            <small>
+                              {option.detail}
+                              {option.code ? <> <code>{option.code}</code></> : null}
+                            </small>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <button
                     className="audiobook-text-action audiobook-delete"
                     disabled={exporting || deleting}

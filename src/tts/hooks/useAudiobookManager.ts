@@ -30,6 +30,7 @@ import {
   installNativeTtsModel,
   listenNativeTtsModelInstallProgress,
   type NativeTtsCapabilities,
+  type NativeAudiobookExportFormat,
   type NativeTtsModelInstallProgress,
   type NativeTtsModelStatus,
 } from '../api/nativeTts'
@@ -671,11 +672,17 @@ export function useAudiobookManager({
     refreshAudiobookDownloads()
   }, [refreshAudiobookDownloads])
 
-  const handleExportSavedAudiobook = useCallback(async (record: SavedAudiobookRecord) => {
-    setAudiobookExport({ id: record.id, status: 'exporting', message: 'Exporting bundle' })
+  const handleExportSavedAudiobook = useCallback(async (record: SavedAudiobookRecord, exportFormat: NativeAudiobookExportFormat) => {
+    setAudiobookExport({
+      id: record.id,
+      status: 'exporting',
+      message: exportFormat === 'wav' ? 'Exporting WAV' : 'Exporting bundle',
+    })
     try {
       const chunks = await getAudiobookSaveChunksForDocument(record.documentUrl)
-      const sourceHtml = await loadHtmlDocument(record.documentUrl)
+      const sourceHtml = exportFormat === 'bundle'
+        ? await loadHtmlDocument(record.documentUrl)
+        : undefined
       const result = await exportNativeAudiobook({
         documentUrl: record.documentUrl,
         title: record.title,
@@ -688,11 +695,12 @@ export function useAudiobookManager({
           speed: record.speed,
           dtype: record.dtype as TtsDtype,
         },
+        exportFormat,
       })
       setAudiobookExport({
         id: record.id,
         status: 'exported',
-        message: formatAudiobookExportMessage(result.path),
+        message: formatAudiobookExportMessage(result.path, exportFormat),
       })
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)

@@ -327,7 +327,7 @@ See [docs/kokoro-tts.md](docs/kokoro-tts.md) for architecture, model metadata, m
 
 Narration chunks and generated WAV files remain native app user data. Desktop uses bounded chunk playback; Android prepares a reusable local `playback.wav` for background and lock-screen playback. Build helpers continue to orchestrate npm, Cargo, Tauri, Android SDK tooling, checked downloads, and platform library staging; they do not replace those package managers.
 
-The audio UI supports model, voice, and optional text-processing selection, saved-only playback, resumable generation, background controls, chunk navigation/highlighting, thread tuning, opt-in diagnostics, import/export/delete, and saved-audio filtering.
+The audio UI supports model, voice, and optional text-processing selection, saved-only playback, resumable generation, background controls, chunk navigation/highlighting, thread tuning, opt-in diagnostics, audiobook bundle import, bundle or WAV export, delete, and saved-audio filtering.
 
 ### Browser build and preview
 

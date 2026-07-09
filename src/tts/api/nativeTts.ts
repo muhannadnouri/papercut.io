@@ -129,6 +129,8 @@ export interface NativeAudiobookExportResult {
   wavBytes: number
 }
 
+export type NativeAudiobookExportFormat = 'bundle' | 'wav'
+
 export interface NativeImportedAudiobookMetadata {
   documentUrl: string
   modelId: string
@@ -359,9 +361,10 @@ export async function exportNativeAudiobook(
   input: {
     documentUrl: string
     title: string
-    sourceHtml: string
+    sourceHtml?: string
     chunks: TtsChunk[]
     options: TtsOptions
+    exportFormat?: NativeAudiobookExportFormat
   },
 ): Promise<NativeAudiobookExportResult> {
   await requireNativeTtsCapabilities()
@@ -371,13 +374,14 @@ export async function exportNativeAudiobook(
       audiobookId: createAudiobookId(input.documentUrl, input.options),
       documentUrl: input.documentUrl,
       title: input.title,
-      sourceHtml: input.sourceHtml,
+      sourceHtml: input.sourceHtml ?? null,
       chunks: toNativeTtsChunks(input.chunks),
       modelId: input.options.modelId,
       textPreprocessor: resolveTextPreprocessor(input.options),
       voice: input.options.voice,
       speed: input.options.speed,
       dtype: input.options.dtype ?? 'native',
+      exportFormat: input.exportFormat ?? 'bundle',
     },
   })
 }

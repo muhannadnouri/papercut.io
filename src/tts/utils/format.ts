@@ -54,9 +54,10 @@ export function formatDownloadSavedStatus(seconds: number | undefined, percent: 
   return parts.join(' • ')
 }
 
-export function formatAudiobookExportMessage(path: string): string {
+export function formatAudiobookExportMessage(path: string, format: 'bundle' | 'wav' = 'bundle'): string {
+  const label = format === 'wav' ? 'WAV' : 'bundle'
   if (path.startsWith('content://')) {
-    return 'Exported bundle to the selected file.'
+    return 'Exported ' + label + ' to the selected file.'
   }
-  return 'Exported bundle to ' + path
+  return 'Exported ' + label + ' to ' + path
 }
