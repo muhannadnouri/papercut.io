@@ -30,7 +30,8 @@ use super::paths::{
     speakable_chunks,
 };
 use super::preprocess::TextPreprocessor;
-use super::synth::{ensure_engine, synthesize_to_file, text_preview, SherpaTtsEngine};
+use super::synth::{ensure_engine, synthesize_to_file, SherpaTtsEngine};
+use super::text_normalization::text_preview;
 use crate::native_tts::platform::resolve_thread_count;
 use crate::native_tts::state::NativeTtsState;
 use crate::native_tts::types::{
