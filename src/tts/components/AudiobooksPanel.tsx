@@ -75,8 +75,8 @@ const AUDIOBOOK_EXPORT_OPTIONS: Array<{
   detail: string
   code?: string
 }> = [
-  { format: 'bundle', label: 'Papercut Bundle', detail: 'Share or re-import', code: '.papercut-audiobook' },
-  { format: 'wav', label: 'WAV', detail: 'Play anywhere' },
+  { format: 'bundle', label: 'Papercut Bundle', detail: 'Export as', code: '.papercut-audiobook' },
+  { format: 'wav', label: 'WAV', detail: 'Export as', code: '.wav' },
 ]
 
 export function AudiobooksPanel({
