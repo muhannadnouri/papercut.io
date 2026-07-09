@@ -11,6 +11,12 @@ use tauri::Runtime;
 use super::store::{db_err, open_db};
 use super::types::{UploadedDocumentSearchRequest, UploadedDocumentSearchResult};
 
+struct RankedDocumentHit {
+    score: f64,
+    imported_at_ms: i64,
+    result: UploadedDocumentSearchResult,
+}
+
 /// Run an FTS5 MATCH query, joining hits back to their section and document and
 /// returning BM25-ranked results with `<mark>`-highlighted snippets.
 pub(crate) fn search_uploads<R: Runtime>(
@@ -96,19 +102,24 @@ fn search_cross_section_document_hits(
 
     let mut candidate_ids = document_ids_matching_all_terms(db, terms, document_urls)?;
     candidate_ids.retain(|id| !excluded_document_ids.contains(id));
-    candidate_ids.truncate(limit as usize);
 
     let query = fts_or_query(terms);
-    let mut results = Vec::new();
+    let mut hits = Vec::new();
     for document_id in candidate_ids {
-        if let Some(result) = best_document_term_hit(db, &query, &document_id)? {
-            results.push(result);
-        }
-        if results.len() >= limit as usize {
-            break;
+        if let Some(hit) = best_document_term_hit(db, &query, &document_id)? {
+            hits.push(hit);
         }
     }
-    Ok(results)
+    hits.sort_by(|left, right| {
+        left.score
+            .total_cmp(&right.score)
+            .then_with(|| right.imported_at_ms.cmp(&left.imported_at_ms))
+    });
+    Ok(hits
+        .into_iter()
+        .take(limit as usize)
+        .map(|hit| hit.result)
+        .collect())
 }
 
 fn document_ids_matching_all_terms(
@@ -156,11 +167,12 @@ fn best_document_term_hit(
     db: &Connection,
     query: &str,
     document_id: &str,
-) -> Result<Option<UploadedDocumentSearchResult>, String> {
+) -> Result<Option<RankedDocumentHit>, String> {
     let mut stmt = db
         .prepare(
             "SELECT d.id, d.url, d.title, s.ordinal, s.heading, \
-                    snippet(uploaded_document_fts, 3, '<mark>', '</mark>', '…', 18) AS excerpt \
+                    snippet(uploaded_document_fts, 3, '<mark>', '</mark>', '…', 18) AS excerpt, \
+                    bm25(uploaded_document_fts) AS score, d.imported_at_ms \
              FROM uploaded_document_fts \
              JOIN uploaded_sections s ON s.id = uploaded_document_fts.section_id \
              JOIN uploaded_documents d ON d.id = uploaded_document_fts.document_id \
@@ -170,9 +182,13 @@ fn best_document_term_hit(
         )
         .map_err(db_err)?;
     match stmt.query_row(params![query, document_id], |row| {
-        row_to_search_result(row, "document")
+        Ok(RankedDocumentHit {
+            score: row.get(6)?,
+            imported_at_ms: row.get(7)?,
+            result: row_to_search_result(row, "document")?,
+        })
     }) {
-        Ok(result) => Ok(Some(result)),
+        Ok(hit) => Ok(Some(hit)),
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
         Err(err) => Err(db_err(err)),
     }
@@ -321,6 +337,41 @@ mod tests {
     }
 
     #[test]
+    fn cross_section_fallback_ranks_before_limiting() {
+        let db = test_db();
+        insert_document_with_imported_at(
+            &db,
+            "aaa-older-match",
+            "/uploads/aaa-older-match.html",
+            "Older Match",
+            &[
+                "The archive mentions a silver compass.",
+                "The appendix records a copper lantern.",
+            ],
+            100,
+        );
+        insert_document_with_imported_at(
+            &db,
+            "zzz-newer-match",
+            "/uploads/zzz-newer-match.html",
+            "Newer Match",
+            &[
+                "The archive mentions a silver compass.",
+                "The appendix records a copper lantern.",
+            ],
+            200,
+        );
+
+        let terms = fts_terms("compass lantern");
+        let excluded = HashSet::new();
+        let fallback = search_cross_section_document_hits(&db, &terms, 1, &[], &excluded)
+            .expect("cross-section fallback");
+
+        assert_eq!(fallback.len(), 1);
+        assert_eq!(fallback[0].document_id, "zzz-newer-match");
+    }
+
+    #[test]
     fn fuzzy_terms_trim_edge_punctuation_but_keep_compounds() {
         assert_eq!(
             fts_terms("(well-made) lantern, archive!"),
@@ -380,10 +431,21 @@ mod tests {
     }
 
     fn insert_document(db: &Connection, id: &str, url: &str, title: &str, sections: &[&str]) {
+        insert_document_with_imported_at(db, id, url, title, sections, 100);
+    }
+
+    fn insert_document_with_imported_at(
+        db: &Connection,
+        id: &str,
+        url: &str,
+        title: &str,
+        sections: &[&str],
+        imported_at_ms: i64,
+    ) {
         db.execute(
             "INSERT INTO uploaded_documents (id, url, title, format, imported_at_ms, bytes, sections)
-             VALUES (?1, ?2, ?3, 'epub', 100, 10, ?4)",
-            params![id, url, title, sections.len() as i64],
+             VALUES (?1, ?2, ?3, 'epub', ?4, 10, ?5)",
+            params![id, url, title, imported_at_ms, sections.len() as i64],
         )
         .expect("insert document");
 
