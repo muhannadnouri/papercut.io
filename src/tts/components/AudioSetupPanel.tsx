@@ -24,6 +24,16 @@ function snapSpeed(value: number): number {
   return Number(clamped.toFixed(2))
 }
 
+// The model metadata can be locale-specific (`ar-JO`) even when the UI should
+// present one human language. Keep the full model id intact and group only the
+// language dropdown by base language; the model dropdown carries dialect/engine detail.
+function getLanguageOption(model: TtsModelInfo): { label: string; value: string } {
+  return {
+    label: model.languageLabel.replace(/\s*\([^)]*\)$/, ''),
+    value: model.language.split('-')[0].toLowerCase() || model.language,
+  }
+}
+
 export interface AudioSetupPanelProps {
   appliedThreadCount: number | null
   debugEnabled?: boolean
@@ -82,12 +92,37 @@ export function AudioSetupPanel({
   const threadOptions = Array.from({ length: maxThreadCount }, (_, index) => index + 1)
   const showHighThreadWarning = threadCount > HIGH_THREAD_COUNT_WARNING_THRESHOLD
   const hasTextProcessing = textPreprocessors.length > 1
+  const selectedModel = models.find((model) => model.id === modelId) ?? models[0]
+  const selectedLanguage = selectedModel ? getLanguageOption(selectedModel).value : ''
+  const languageOptions = models.reduce<SelectOption[]>((options, model) => {
+    const languageOption = getLanguageOption(model)
+    const languageAlreadyAdded = options.some((option) => option.value === languageOption.value)
+    if (!languageAlreadyAdded) {
+      options.push(languageOption)
+    }
+    return options
+  }, [])
+  const modelsForLanguage = selectedLanguage
+    ? models.filter((model) => getLanguageOption(model).value === selectedLanguage)
+    : models
 
   return (
     <div className="audio-setup-panel">
       <section className="audio-setup-group" aria-label="Voice settings">
         <h4 className="audio-setup-group-title">Voice</h4>
         <div className="audio-settings-grid audio-settings-grid-main">
+          <SelectField
+            className="audio-field-language"
+            label="Language"
+            title="Speech language"
+            value={selectedLanguage}
+            options={languageOptions}
+            onChange={(language) => {
+              const nextModel = models.find((model) => getLanguageOption(model).value === language)
+              if (nextModel) onModelChange(nextModel.id)
+            }}
+          />
+
           <div className="audio-field audio-field-model">
             <div className="audio-field-heading">
               <span>
@@ -105,9 +140,9 @@ export function AudioSetupPanel({
               onChange={(event) => onModelChange(event.target.value)}
               title="Speech model"
             >
-              {models.map((model) => (
+              {modelsForLanguage.map((model) => (
                 <option key={model.id} value={model.id}>
-                  {model.languageLabel + ' - ' + model.name}
+                  {model.name}
                 </option>
               ))}
             </select>
