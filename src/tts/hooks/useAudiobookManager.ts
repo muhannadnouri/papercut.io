@@ -704,10 +704,32 @@ export function useAudiobookManager({
     cancelAudiobookSave()
   }, [audiobookDownload, cancelAudiobookSave, downloadAudiobookState.audioDurationSec, downloadAudiobookState.cachedChunks, downloadAudiobookState.totalChunks, downloadAudiobookState.wavBytes, scheduleAudiobookDownloadPersist])
 
-  const handleRemoveAudiobookDownload = useCallback((id: string) => {
+  const handleRemoveAudiobookDownload = useCallback(async (id: string) => {
+    const record = audiobookDownloads.find((item) => item.id === id)
+    if (!record) return
+
+    const progress = record.totalChunks > 0
+      ? record.cachedChunks + '/' + record.totalChunks + ' chunks'
+      : null
+    const duration = record.audioDurationSec ? formatDuration(record.audioDurationSec) : null
+    const storage = formatStorageSize(record.wavBytes)
+    const confirmed = await confirmAudiobookAction({
+      title: 'Remove audiobook save job?',
+      description: 'This removes the queued save job and its resume state. Saved audiobooks are not deleted.',
+      details: [
+        { label: 'Title', value: record.title },
+        ...(progress ? [{ label: 'Progress', value: progress }] : []),
+        ...(duration ? [{ label: 'Duration', value: duration }] : []),
+        ...(storage ? [{ label: 'Storage', value: storage }] : []),
+      ],
+      confirmLabel: 'Remove Job',
+      tone: 'danger',
+    })
+    if (!confirmed) return
+
     removeAudiobookDownload(id)
     refreshAudiobookDownloads()
-  }, [refreshAudiobookDownloads])
+  }, [audiobookDownloads, confirmAudiobookAction, refreshAudiobookDownloads])
 
   const handleExportSavedAudiobook = useCallback(async (record: SavedAudiobookRecord, exportFormat: NativeAudiobookExportFormat) => {
     dismissAudiobookNotice()
