@@ -276,6 +276,115 @@
   padding: 0 0.12em;
 }
 
+.reader-floating-actions,
+.reader-bookmark-notice {
+  position: fixed;
+  right: 2rem;
+  z-index: 11;
+}
+
+.reader-floating-actions {
+  bottom: calc(2rem + env(safe-area-inset-bottom));
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.reader-bookmark-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.85rem;
+  height: 2.85rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface-hover);
+  color: var(--text-heading);
+  box-shadow: 0 6px 18px var(--shadow-strong);
+  padding: 0;
+  cursor: pointer;
+}
+
+.reader-bookmark-btn:hover,
+.reader-bookmark-btn:focus-visible {
+  border-color: var(--accent-text);
+  background: var(--surface-accent);
+  color: var(--accent-text);
+  outline: none;
+}
+
+.reader-bookmark-btn-active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--text-inverse);
+}
+
+.reader-bookmark-btn-active:hover,
+.reader-bookmark-btn-active:focus-visible {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+  color: var(--text-inverse);
+}
+
+.reader-bookmark-icon {
+  width: 1.35rem;
+  height: 1.35rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.reader-bookmark-btn-active .reader-bookmark-icon {
+  fill: currentcolor;
+}
+
+.reader-bookmark-notice {
+  bottom: calc(9.1rem + env(safe-area-inset-bottom));
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: min(24rem, calc(100vw - 2rem));
+  border: 1px solid var(--accent-border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-body);
+  box-shadow: 0 8px 24px var(--shadow-strong);
+  padding: 0.55rem 0.65rem 0.55rem 0.8rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.app-audio-floating .reader-floating-actions,
+.app-audio-floating .reader-bookmark-notice {
+  right: 25.5rem;
+}
+
+.reader-bookmark-notice button {
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--accent-text);
+  font: inherit;
+  cursor: pointer;
+  padding: 0.28rem 0.55rem;
+}
+
+.reader-bookmark-notice button:hover,
+.reader-bookmark-notice button:focus-visible {
+  border-color: var(--accent-text);
+  background: var(--surface-accent);
+  outline: none;
+}
+
+.reader-bookmark-notice .reader-bookmark-dismiss {
+  width: 1.9rem;
+  height: 1.9rem;
+  padding: 0;
+  color: var(--text-muted);
+}
+
 ::highlight(search-target) {
   background-color: var(--highlight-current);
   color: var(--highlight-current-text);
@@ -374,6 +483,26 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 
   .document-html-surface {
     padding-inline: 1rem;
+  }
+
+  .reader-floating-actions,
+  .reader-bookmark-notice {
+    right: 1rem;
+  }
+
+  .app-audio-floating .reader-floating-actions {
+    right: auto;
+    left: 1rem;
+    bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+
+  .app-audio-floating .reader-bookmark-notice {
+    bottom: calc(8.1rem + env(safe-area-inset-bottom));
+  }
+
+  .reader-bookmark-notice {
+    bottom: calc(9.1rem + env(safe-area-inset-bottom));
+    max-width: calc(100vw - 2rem);
   }
 
   .document-html-content :is(ul, ol) {

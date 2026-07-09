@@ -76,6 +76,7 @@ function App() {
     documentLoad,
     documentOpening,
     openDocument,
+    restoreBookmark,
     searchOpenTarget,
     selectedDoc,
   } = useDocumentViewerState({
@@ -164,9 +165,13 @@ function App() {
 
   const audioFilteredResults = filterResults(results)
 
-  const handleViewDocument = useCallback((url: string, target?: SearchOpenTarget) => {
-    return openDocument(url, target, prepareDocumentOpen)
+  const handleViewDocument = useCallback((url: string, target?: SearchOpenTarget, options?: { restoreBookmark?: boolean }) => {
+    return openDocument(url, target, options, prepareDocumentOpen)
   }, [openDocument, prepareDocumentOpen])
+
+  const handleViewLibraryDocument = useCallback((url: string) => {
+    return handleViewDocument(url, undefined, { restoreBookmark: true })
+  }, [handleViewDocument])
 
   const handleCloseDocument = useCallback(() => {
     closeDocumentAudio()
@@ -245,6 +250,7 @@ function App() {
           beforeDocument={<TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />}
           ttsHighlight={ttsHighlight}
           searchTarget={searchOpenTarget}
+          restoreBookmark={restoreBookmark}
           loading={documentLoad.status === 'loading' && documentLoad.url === selectedDoc}
           loadError={documentLoad.status === 'error' && documentLoad.url === selectedDoc ? documentLoad.message : undefined}
           onClose={handleCloseDocument}
@@ -318,7 +324,7 @@ function App() {
           onToggleAuthor={toggleLibraryAuthor}
           onImportHtmlDocument={handleImportHtmlDocument}
           onImportEpubDocument={handleImportEpubDocument}
-          onViewDocument={handleViewDocument}
+          onViewDocument={handleViewLibraryDocument}
         />
       )}
 
