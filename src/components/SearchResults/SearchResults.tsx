@@ -145,7 +145,7 @@ function resultMeta(result: SearchResult, exactPhrase: boolean): string | null {
   }
 
   if (result.matchScope === 'document') {
-    return 'Terms found in different sections'
+    return 'Terms appear in separate sections'
   }
 
   const parts = [
