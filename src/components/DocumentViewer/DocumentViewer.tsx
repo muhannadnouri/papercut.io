@@ -7,6 +7,7 @@ import { useReaderSettings } from '../ReaderSettings/useReaderSettings'
 import { ExternalLinkPrompt } from '../ExternalLinkPrompt/ExternalLinkPrompt'
 import { getExternalLinkUrl, getInternalDocumentHash } from './linkUtils'
 import { useFindInPage } from '../../hooks/useFindInPage'
+import { useReaderBookmark } from '../../hooks/useReaderBookmark'
 import { useTtsHighlight } from '../../tts/hooks/useTtsHighlight'
 import type { SearchOpenTarget } from '../../types/search'
 import type { TtsChunk } from '../../tts/types'
@@ -14,6 +15,7 @@ import { openExternalUrl } from '../../utils/openExternalUrl'
 import './DocumentViewer.css'
 
 const SEARCH_TARGET_HIGHLIGHT_NAME = 'search-target'
+const FLOATING_READER_ACTION_SCROLL_Y = 180
 
 interface TtsHighlightOptions {
   enabled: boolean
@@ -32,6 +34,7 @@ interface DocumentViewerProps {
   beforeDocument?: ReactNode
   ttsHighlight?: TtsHighlightOptions
   searchTarget?: SearchOpenTarget | null
+  restoreBookmark?: boolean
   loading?: boolean
   loadError?: string
   onClose: () => void
@@ -47,6 +50,7 @@ export function DocumentViewer({
   beforeDocument,
   ttsHighlight,
   searchTarget,
+  restoreBookmark = false,
   loading = false,
   loadError,
   onClose,
@@ -56,6 +60,16 @@ export function DocumentViewer({
   const [pendingExternalUrl, setPendingExternalUrl] = useState<string | null>(null)
   const [externalLinkError, setExternalLinkError] = useState('')
   const { readerSettingsStyle, readerSettingsProps } = useReaderSettings()
+  const {
+    bookmarkNotice,
+    dismissBookmarkNotice,
+    hasBookmark,
+    isAtBookmark,
+    toggleBookmark,
+  } = useReaderBookmark(url, {
+    enabled: !loading && !loadError && Boolean(content),
+    restoreOnOpen: restoreBookmark,
+  })
 
   const {
     showFind,
@@ -152,6 +166,11 @@ export function DocumentViewer({
     setExternalLinkError('')
   }, [])
 
+  const scrollToTop = useCallback(() => {
+    dismissBookmarkNotice()
+    window.scrollTo({ top: 0, behavior: readerScrollBehavior() })
+  }, [dismissBookmarkNotice])
+
   const openPendingExternalUrl = useCallback(async () => {
     if (!pendingExternalUrl) return
     try {
@@ -167,7 +186,7 @@ export function DocumentViewer({
 
   useEffect(() => {
     function handleScroll() {
-      setShowScrollTop(window.scrollY > 300)
+      setShowScrollTop(window.scrollY > FLOATING_READER_ACTION_SCROLL_Y)
     }
 
     handleScroll()
@@ -254,10 +273,42 @@ export function DocumentViewer({
         )}
       </main>
 
-      <ScrollTopButton
-        visible={showScrollTop}
-        onClick={() => window.scrollTo({ top: 0, behavior: readerScrollBehavior() })}
-      />
+      {showScrollTop && (
+        <div className="reader-floating-actions">
+          <button
+            type="button"
+            className={'reader-bookmark-btn' + (isAtBookmark ? ' reader-bookmark-btn-active' : '')}
+            aria-label={bookmarkActionLabel(hasBookmark, isAtBookmark)}
+            title={bookmarkActionLabel(hasBookmark, isAtBookmark)}
+            onClick={toggleBookmark}
+          >
+            <svg className="reader-bookmark-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M6 4.75A2.75 2.75 0 0 1 8.75 2h6.5A2.75 2.75 0 0 1 18 4.75V21l-6-3.5L6 21z" />
+              {hasBookmark && <path d="m9 10.8 2 2 4-4" />}
+            </svg>
+          </button>
+
+          <ScrollTopButton
+            visible={showScrollTop}
+            onClick={scrollToTop}
+          />
+        </div>
+      )}
+
+      {bookmarkNotice && (
+        <div className="reader-bookmark-notice" role="status" aria-live="polite">
+          <span>{bookmarkNoticeText(bookmarkNotice)}</span>
+          {bookmarkNotice === 'restored' && <button type="button" onClick={scrollToTop}>Top</button>}
+          <button
+            type="button"
+            className="reader-bookmark-dismiss"
+            aria-label="Dismiss bookmark notice"
+            onClick={dismissBookmarkNotice}
+          >
+            &times;
+          </button>
+        </div>
+      )}
 
       {pendingExternalUrl && (
         <ExternalLinkPrompt
@@ -269,6 +320,17 @@ export function DocumentViewer({
       )}
     </div>
   )
+}
+
+function bookmarkNoticeText(notice: 'restored' | 'saved' | 'updated' | 'removed'): string {
+  if (notice === 'restored') return 'Restored bookmark.'
+  if (notice === 'removed') return 'Bookmark removed.'
+  return notice === 'updated' ? 'Bookmark updated.' : 'Bookmark saved.'
+}
+
+function bookmarkActionLabel(hasBookmark: boolean, isAtBookmark: boolean): string {
+  if (isAtBookmark) return 'Remove bookmark'
+  return hasBookmark ? 'Update bookmark' : 'Save bookmark'
 }
 
 function decodeHash(value: string): string {

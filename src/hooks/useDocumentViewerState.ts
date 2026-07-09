@@ -19,6 +19,10 @@ interface UseDocumentViewerStateOptions {
   loadHtmlDocument: (url: string) => Promise<string>
 }
 
+interface OpenDocumentOptions {
+  restoreBookmark?: boolean
+}
+
 function getDocumentBrowserPanelBody(tab: string): HTMLElement | null {
   const panel = document.querySelector(`.tab-panel[data-tab="${tab}"] .document-browser-panel .panel-body`)
   return panel instanceof HTMLElement ? panel : null
@@ -36,6 +40,7 @@ export function useDocumentViewerState({
 }: UseDocumentViewerStateOptions) {
   const [selectedDoc, setSelectedDoc] = useState<string | null>(null)
   const [searchOpenTarget, setSearchOpenTarget] = useState<SearchOpenTarget | null>(null)
+  const [restoreBookmark, setRestoreBookmark] = useState(false)
   const [docContent, setDocContent] = useState('')
   const [documentLoad, setDocumentLoad] = useState<DocumentLoadState>({ status: 'idle' })
   const openDocumentRequestRef = useRef(0)
@@ -48,6 +53,7 @@ export function useDocumentViewerState({
     documentOpeningRef.current = false
     setSelectedDoc(null)
     setSearchOpenTarget(null)
+    setRestoreBookmark(false)
     setDocContent('')
     setDocumentLoad({ status: 'idle' })
   }, [])
@@ -79,6 +85,7 @@ export function useDocumentViewerState({
   const openDocument = useCallback(async (
     url: string,
     target?: SearchOpenTarget,
+    options?: OpenDocumentOptions,
     prepareOpen?: () => void,
   ) => {
     if (documentOpeningRef.current) return
@@ -94,6 +101,7 @@ export function useDocumentViewerState({
     }
     prepareOpen?.()
     setSearchOpenTarget(target ?? null)
+    setRestoreBookmark(Boolean(options?.restoreBookmark))
     setSelectedDoc(url)
     setDocContent('')
     setDocumentLoad({ status: 'loading', url, message: 'Opening Document...' })
@@ -121,6 +129,7 @@ export function useDocumentViewerState({
     documentLoad,
     documentOpening: documentLoad.status === 'loading',
     openDocument,
+    restoreBookmark,
     searchOpenTarget,
     selectedDoc,
   }
