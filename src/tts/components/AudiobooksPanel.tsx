@@ -382,16 +382,16 @@ function formatAudioSetupSummary(audioSetup: AudioSetupPanelProps): string {
   const model = audioSetup.models.find((item) => item.id === audioSetup.modelId)
   const voice = audioSetup.voices.find((item) => item.id === audioSetup.voice)
   const pieces = [
-    model?.name ?? 'Model',
-    voice?.name ?? audioSetup.voice,
-    formatSpeedLabel(audioSetup.speed),
+    '🤖 ' + (model?.name ?? 'Model'),
+    '🔊 ' + (voice?.name ?? audioSetup.voice),
+    '⚡ ' + formatSpeedLabel(audioSetup.speed),
   ]
 
   const installSummary = formatModelInstallSummary(audioSetup.modelInstallProgress)
   if (installSummary) {
     pieces.push(installSummary)
   } else if (audioSetup.modelStatus?.installed) {
-    pieces.push('Installed')
+    pieces.push('✓ Installed')
   }
 
   return pieces.join(' · ')
