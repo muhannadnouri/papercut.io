@@ -210,11 +210,13 @@ fn document_url_scope(document_urls: &[String]) -> (String, Vec<Value>) {
     )
 }
 
-/// Turn a raw user query into safe FTS5 terms: split on non-alphanumerics and
-/// cap term count so broad pasted text cannot explode fallback queries.
+/// Turn a raw user query into safe FTS5 terms: split on whitespace, preserve
+/// internal compounds like `well-made`, and cap term count so broad pasted text
+/// cannot explode fallback queries.
 fn fts_terms(query: &str) -> Vec<String> {
     query
-        .split(|ch: char| !ch.is_alphanumeric() && ch != '_')
+        .split_whitespace()
+        .map(|part| part.trim_matches(|ch: char| !ch.is_alphanumeric() && ch != '_' && ch != '-'))
         .filter(|part| !part.is_empty())
         .take(12)
         .map(|term| term.replace('"', ""))
@@ -277,6 +279,53 @@ mod tests {
         assert_eq!(fallback.len(), 1);
         assert_eq!(fallback[0].document_id, "sample-cross-section");
         assert_eq!(fallback[0].match_scope, "document");
+    }
+
+    #[test]
+    fn fuzzy_search_keeps_hyphenated_terms_together() {
+        let db = test_db();
+        insert_document(
+            &db,
+            "compound-hit",
+            "/uploads/compound-hit.html",
+            "Compound Hit",
+            &["The workshop praised the well-made astrolabe."],
+        );
+        insert_document(
+            &db,
+            "scattered-words",
+            "/uploads/scattered-words.html",
+            "Scattered Words",
+            &[
+                "The first note mentions something well.",
+                "The second note says the tool was made elsewhere.",
+                "The third note studies astrolabe diagrams.",
+            ],
+        );
+
+        let terms = fts_terms("well-made astrolabe");
+        assert_eq!(terms, vec!["well-made", "astrolabe"]);
+
+        let same_section =
+            search_section_hits(&db, &fts_and_query(&terms), 10, &[]).expect("same-section search");
+        let excluded = same_section
+            .iter()
+            .map(|result| result.document_id.clone())
+            .collect::<HashSet<_>>();
+        let fallback = search_cross_section_document_hits(&db, &terms, 10, &[], &excluded)
+            .expect("cross-section fallback");
+
+        assert_eq!(same_section.len(), 1);
+        assert_eq!(same_section[0].document_id, "compound-hit");
+        assert!(fallback.is_empty());
+    }
+
+    #[test]
+    fn fuzzy_terms_trim_edge_punctuation_but_keep_compounds() {
+        assert_eq!(
+            fts_terms("(well-made) lantern, archive!"),
+            vec!["well-made", "lantern", "archive"]
+        );
     }
 
     #[test]
