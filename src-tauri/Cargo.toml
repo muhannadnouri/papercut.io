@@ -21,7 +21,11 @@ tauri-build = { version = "2.5.6", features = [] }
 default = []
 native-tts = ["native-tts-static"]
 native-tts-core = ["dep:bzip2", "dep:num2words", "dep:reqwest", "dep:sha2", "dep:tar", "dep:sherpa-onnx"]
-native-text-preprocessing = ["dep:libtashkeel_base", "dep:ort", "dep:ort-sys"]
+native-text-preprocessing = ["native-text-preprocessing-dynamic"]
+native-text-preprocessing-core = ["dep:libtashkeel_base", "dep:ort", "dep:ort-sys", "libtashkeel_base/ort", "ort/ndarray"]
+native-text-preprocessing-dynamic = ["native-text-preprocessing-core", "libtashkeel_base/ort-dylib", "ort/load-dynamic", "ort-sys/load-dynamic"]
+native-text-preprocessing-static = ["native-text-preprocessing-core"]
+native-tts-ios = ["native-tts-core", "native-text-preprocessing-static", "sherpa-onnx/static"]
 native-tts-static = ["native-tts-core", "sherpa-onnx/static"]
 native-tts-shared = ["native-tts-core", "native-text-preprocessing", "sherpa-onnx/shared"]
 
@@ -41,9 +45,9 @@ tar = { version = "0.4", optional = true }
 bzip2 = { version = "0.4", optional = true }
 reqwest = { version = "0.12", optional = true, default-features = false, features = ["blocking", "rustls-tls"] }
 sherpa-onnx = { version = "1.13.2", optional = true, default-features = false }
-libtashkeel_base = { version = "=1.5.0", optional = true, default-features = false, features = ["ort-dylib"] }
-ort = { version = "=2.0.0-rc.1", optional = true, default-features = false, features = ["load-dynamic", "ndarray"] }
-ort-sys = { version = "=2.0.0-rc.1", optional = true, default-features = false, features = ["load-dynamic"] }
+libtashkeel_base = { version = "=1.5.0", optional = true, default-features = false }
+ort = { version = "=2.0.0-rc.1", optional = true, default-features = false }
+ort-sys = { version = "=2.0.0-rc.1", optional = true, default-features = false }
 rusqlite = { version = "0.32", features = ["bundled"] }
 ammonia = "3.3"
 encoding_rs = "0.8"

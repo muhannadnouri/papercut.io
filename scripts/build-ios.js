@@ -44,8 +44,10 @@ if (initProject) {
   if (nativeTts) {
     const slice = sherpaSliceForTarget(effectiveTarget)
     await ensureIosSherpaLibs({ includeSimulator: slice === SHERPA_IOS_SIMULATOR_ARM64_SLICE })
-    env.SHERPA_ONNX_LIB_DIR = iosSherpaLibDir(slice)
-    featureArgs.push("--features", "native-tts-static")
+    const libDir = iosSherpaLibDir(slice)
+    env.SHERPA_ONNX_LIB_DIR = libDir
+    env.ORT_LIB_LOCATION = libDir
+    featureArgs.push("--features", "native-tts-ios")
     console.log("[ios-build] native TTS enabled with SHERPA_ONNX_LIB_DIR=" + env.SHERPA_ONNX_LIB_DIR)
   }
 

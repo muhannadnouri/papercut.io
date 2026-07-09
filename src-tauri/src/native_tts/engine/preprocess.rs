@@ -5,12 +5,12 @@
 
 use super::models::{ModelDefinition, TEXT_PREPROCESSOR_NONE};
 
-#[cfg(feature = "native-text-preprocessing")]
+#[cfg(feature = "native-text-preprocessing-core")]
 use std::panic::{catch_unwind, AssertUnwindSafe};
-#[cfg(feature = "native-text-preprocessing")]
+#[cfg(feature = "native-text-preprocessing-core")]
 use std::sync::OnceLock;
 
-#[cfg(feature = "native-text-preprocessing")]
+#[cfg(feature = "native-text-preprocessing-core")]
 use libtashkeel_base::{create_inference_engine, do_tashkeel, DynamicInferenceEngine};
 
 /// Loaded synthesis-text transformer selected from model capabilities.
@@ -24,7 +24,7 @@ pub(super) struct TextPreprocessor {
 
 enum TextPreprocessorBackend {
     Identity,
-    #[cfg(feature = "native-text-preprocessing")]
+    #[cfg(feature = "native-text-preprocessing-core")]
     Libtashkeel(DynamicInferenceEngine),
 }
 
@@ -48,7 +48,7 @@ impl TextPreprocessor {
 
         let backend = match definition.id {
             TEXT_PREPROCESSOR_NONE => TextPreprocessorBackend::Identity,
-            #[cfg(feature = "native-text-preprocessing")]
+            #[cfg(feature = "native-text-preprocessing-core")]
             super::models::TEXT_PREPROCESSOR_LIBTASHKEEL => {
                 initialize_ort()?;
                 let engine = catch_unwind(create_inference_engine_default).map_err(|panic| {
@@ -83,7 +83,7 @@ impl TextPreprocessor {
     pub(super) fn process(&self, source: &str) -> Result<String, String> {
         match &self.backend {
             TextPreprocessorBackend::Identity => Ok(source.to_string()),
-            #[cfg(feature = "native-text-preprocessing")]
+            #[cfg(feature = "native-text-preprocessing-core")]
             TextPreprocessorBackend::Libtashkeel(engine) => {
                 if !source.chars().any(is_arabic_character) {
                     return Ok(source.to_string());
@@ -98,19 +98,18 @@ impl TextPreprocessor {
     }
 }
 
-#[cfg(feature = "native-text-preprocessing")]
 /// Initialize `ort` once and load sherpa-onnx packaged ONNX Runtime.
-/// Sharing that platform library avoids a second runtime in desktop bundles/APKs.
+///
+/// `native-text-preprocessing-core` means Libtashkeel is compiled in; the
+/// dynamic/static subfeatures only decide how ORT is made available. Cache the
+/// result, including failures, so a bad native runtime setup does not keep
+/// retrying for every chunk in a long audiobook save.
+#[cfg(feature = "native-text-preprocessing-core")]
 fn initialize_ort() -> Result<(), String> {
     static RESULT: OnceLock<Result<(), String>> = OnceLock::new();
     RESULT
         .get_or_init(|| {
-            let library = format!(
-                "{}onnxruntime{}",
-                std::env::consts::DLL_PREFIX,
-                std::env::consts::DLL_SUFFIX
-            );
-            catch_unwind(|| ort::init_from(library).commit())
+            catch_unwind(commit_ort_environment)
                 .map_err(|panic| {
                     format!(
                         "ONNX Runtime initialization panicked: {}",
@@ -122,14 +121,39 @@ fn initialize_ort() -> Result<(), String> {
         .clone()
 }
 
-#[cfg(feature = "native-text-preprocessing")]
-/// Load the bundled Libtashkeel ONNX model behind its dynamic engine interface.
+/// Load the packaged shared ONNX Runtime used by desktop and Android.
+///
+/// Shared builds ship one `libonnxruntime` beside the sherpa libraries and ask
+/// `ort` to load it by platform name, so sherpa and Libtashkeel do not pull in
+/// separate runtime copies.
+#[cfg(all(feature = "native-text-preprocessing-core", feature = "native-text-preprocessing-dynamic"))]
+fn commit_ort_environment() -> Result<(), ort::Error> {
+    let library = format!(
+        "{}onnxruntime{}",
+        std::env::consts::DLL_PREFIX,
+        std::env::consts::DLL_SUFFIX
+    );
+    ort::init_from(library).commit()
+}
+
+/// Use the statically linked ONNX Runtime archive prepared for iOS.
+///
+/// iOS does not use runtime-loaded ONNX dylibs here; the Xcode/Cargo build
+/// phase points `ort-sys` at the same static archive directory as sherpa, and
+/// `ort::init()` binds to those linked symbols.
+#[cfg(all(feature = "native-text-preprocessing-core", not(feature = "native-text-preprocessing-dynamic")))]
+fn commit_ort_environment() -> Result<(), ort::Error> {
+    ort::init().commit()
+}
+
+#[cfg(feature = "native-text-preprocessing-core")]
+/// Load the bundled Libtashkeel ONNX model behind its ORT engine interface.
 fn create_inference_engine_default() -> Result<DynamicInferenceEngine, String> {
     create_inference_engine(None)
         .map_err(|err| format!("Failed to load bundled Libtashkeel model: {err}"))
 }
 
-#[cfg(feature = "native-text-preprocessing")]
+#[cfg(feature = "native-text-preprocessing-core")]
 /// Detect Arabic Unicode blocks to decide whether preprocessing is useful.
 fn is_arabic_character(character: char) -> bool {
     matches!(
@@ -138,7 +162,7 @@ fn is_arabic_character(character: char) -> bool {
     )
 }
 
-#[cfg(feature = "native-text-preprocessing")]
+#[cfg(feature = "native-text-preprocessing-core")]
 /// Convert an unwound backend panic payload into a useful command error.
 fn panic_message(payload: Box<dyn std::any::Any + Send>) -> String {
     if let Some(message) = payload.downcast_ref::<&str>() {
@@ -162,7 +186,7 @@ mod tests {
         let source = "Text  with punctuation - and العربية.";
         assert_eq!(preprocessor.process(source).unwrap(), source);
     }
-    #[cfg(feature = "native-text-preprocessing")]
+    #[cfg(feature = "native-text-preprocessing-core")]
     #[test]
     fn libtashkeel_adds_arabic_diacritics() {
         let model = model_definition("sherpa-onnx/vits-piper-ar_JO-kareem-medium").unwrap();

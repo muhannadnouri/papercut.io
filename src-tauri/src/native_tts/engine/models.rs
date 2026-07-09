@@ -15,7 +15,7 @@ pub(super) enum SherpaModelFamily {
 }
 
 pub(super) const TEXT_PREPROCESSOR_NONE: &str = "none";
-#[cfg(feature = "native-text-preprocessing")]
+#[cfg(feature = "native-text-preprocessing-core")]
 pub(super) const TEXT_PREPROCESSOR_LIBTASHKEEL: &str = "libtashkeel-1.5.0";
 
 #[derive(Clone, Copy, Debug)]
@@ -292,7 +292,7 @@ const IDENTITY_TEXT_PREPROCESSORS: &[TextPreprocessorDefinition] = &[TextPreproc
     description: "Synthesize source text without language preprocessing.",
 }];
 
-#[cfg(feature = "native-text-preprocessing")]
+#[cfg(feature = "native-text-preprocessing-core")]
 const PIPER_TEXT_PREPROCESSORS: &[TextPreprocessorDefinition] = &[
     TextPreprocessorDefinition {
         id: TEXT_PREPROCESSOR_NONE,
@@ -305,12 +305,12 @@ const PIPER_TEXT_PREPROCESSORS: &[TextPreprocessorDefinition] = &[
         description: "Restore Arabic tashkeel with Libtashkeel before Piper synthesis.",
     },
 ];
-#[cfg(not(feature = "native-text-preprocessing"))]
+#[cfg(not(feature = "native-text-preprocessing-core"))]
 const PIPER_TEXT_PREPROCESSORS: &[TextPreprocessorDefinition] = IDENTITY_TEXT_PREPROCESSORS;
 
-#[cfg(feature = "native-text-preprocessing")]
+#[cfg(feature = "native-text-preprocessing-core")]
 const PIPER_DEFAULT_TEXT_PREPROCESSOR: &str = TEXT_PREPROCESSOR_LIBTASHKEEL;
-#[cfg(not(feature = "native-text-preprocessing"))]
+#[cfg(not(feature = "native-text-preprocessing-core"))]
 const PIPER_DEFAULT_TEXT_PREPROCESSOR: &str = TEXT_PREPROCESSOR_NONE;
 
 const KOKORO_REQUIRED_FILES: &[&str] = &[
