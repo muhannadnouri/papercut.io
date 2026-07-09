@@ -78,15 +78,16 @@ export function SearchResults({
       {filtered.map((result) => {
         const opening = openingDocumentUrl === result.url
         const disabled = openingDisabled || opening
-        const meta = resultMeta(result, Boolean(lastSearchInfo?.phrases.length))
-        const excerpt = resultExcerpt(result)
+        const exactPhrase = Boolean(lastSearchInfo?.phrases.length)
+        const meta = resultMeta(result, exactPhrase)
+        const excerpt = resultExcerpt(result, exactPhrase)
         return (
           <button
             type="button"
             key={result.id}
             className={'result-card' + (disabled ? ' result-card-disabled' : '')}
             disabled={disabled}
-            onClick={() => { if (!disabled) onViewResult(result, searchOpenTargetForResult(result)) }}
+            onClick={() => { if (!disabled) onViewResult(result, searchOpenTargetForResult(result, exactPhrase)) }}
           >
             <span className="result-title">{result.meta.title}{opening ? ' (Opening...)' : ''}</span>
             {meta && <span className="result-meta">{meta}</span>}
@@ -110,19 +111,23 @@ export function SearchResults({
   )
 }
 
-function searchOpenTargetForResult(result: SearchResult): SearchOpenTarget | undefined {
+function searchOpenTargetForResult(result: SearchResult, exactPhrase: boolean): SearchOpenTarget | undefined {
   const hash = hashFromUrl(result.sub_results?.[0]?.url)
-  const text = firstMarkedText(resultExcerpt(result) ?? '')
+  const text = firstMarkedText(resultExcerpt(result, exactPhrase) ?? '')
   return hash || text ? { hash, text } : undefined
 }
 
 // Use the richest safe snippet available, but avoid rendering a body line that
 // merely repeats the section label already shown in result metadata.
-function resultExcerpt(result: SearchResult): string | null {
+function resultExcerpt(result: SearchResult, exactPhrase = false): string | null {
+  if (!exactPhrase && result.matchScope === 'document') return null
+
   const sectionTitle = result.sub_results?.[0]?.title
-  return usefulExcerpt(result.customExcerpt, sectionTitle)
+  const excerpt = usefulExcerpt(result.customExcerpt, sectionTitle)
     ?? usefulExcerpt(result.sub_results?.[0]?.excerpt, sectionTitle)
     ?? usefulExcerpt(result.excerpt, sectionTitle)
+  if (!exactPhrase && excerpt && !/<mark\b/i.test(excerpt)) return null
+  return excerpt
 }
 
 // Compare rendered text instead of raw HTML so highlighted snippets and plain
@@ -145,7 +150,7 @@ function resultMeta(result: SearchResult, exactPhrase: boolean): string | null {
 
   const parts = [
     result.sub_results?.[0]?.title
-      ? 'Section: ' + result.sub_results[0].title
+      ? 'Best matching section: ' + result.sub_results[0].title
       : 'Best matching passage',
   ]
   const count = result.matchCount ?? result.sub_results?.length
