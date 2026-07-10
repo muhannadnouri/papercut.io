@@ -6,6 +6,7 @@ import {
   type ReaderRangeConfig,
   type ReaderSettingsState,
 } from './useReaderSettings'
+import { AppSelect } from '../AppSelect/AppSelect'
 import './ReaderSettings.css'
 
 interface ReaderSettingsProps {
@@ -76,18 +77,19 @@ function EnabledReaderSettings({
       />
       {open && (
         <div className="reader-settings-popover" role="dialog" aria-label="Reader settings">
-          <label className="reader-setting-row">
-            <span>Font</span>
-            <select
-              className="reader-setting-select"
+          <div className="reader-setting-row">
+            <span id="reader-setting-font">Font</span>
+            <AppSelect
+              className="reader-setting-font-select"
               value={settings.fontFamily}
-              onChange={(event) => onChange({ fontFamily: event.target.value })}
-            >
-              {FONT_FAMILY_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
+              options={FONT_FAMILY_OPTIONS.map((option) => ({
+                ...option,
+                style: { fontFamily: option.value },
+              }))}
+              ariaLabelledBy="reader-setting-font"
+              onChange={(fontFamily) => onChange({ fontFamily })}
+            />
+          </div>
 
           <ReaderRange
             label="Size"
