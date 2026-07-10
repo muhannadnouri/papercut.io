@@ -58,6 +58,7 @@ export function AudioControls({
   ttsState,
   wordHighlightEnabled,
 }: AudioControlsProps) {
+  const controlsRef = useRef<HTMLElement | null>(null)
   const [chunkMenuOpen, setChunkMenuOpen] = useState(false)
   const isActive = ttsState.status === 'playing' ||
     ttsState.status === 'loading'
@@ -87,8 +88,29 @@ export function AudioControls({
     onPlaybackRateChange(nextPlaybackRate(playbackRate))
   }, [onPlaybackRateChange, playbackRate])
 
+  useEffect(() => {
+    if (!chunkMenuOpen) return
+
+    function handlePointerDown(event: PointerEvent) {
+      const root = controlsRef.current
+      if (!root || root.contains(event.target as Node)) return
+      setChunkMenuOpen(false)
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setChunkMenuOpen(false)
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [chunkMenuOpen])
+
   return (
-    <section className="audio-controls" aria-label="Audiobook controls">
+    <section ref={controlsRef} className="audio-controls" aria-label="Audiobook controls">
       <div className="audio-compact-row">
         {!showFloatingPlayback && canPlayAudiobook && (
           <button className="audio-icon-btn audio-primary-btn" onClick={onRead} aria-label="Play saved audiobook" title="Play saved audiobook">
@@ -268,14 +290,15 @@ const ChunkMenu = memo(function ChunkMenu({
           className="audio-word-highlight-toggle"
           onClick={() => onWordHighlightEnabledChange(!wordHighlightEnabled)}
           aria-pressed={wordHighlightEnabled}
+          aria-label={'Word highlight (experimental feature) is ' + (wordHighlightEnabled ? 'on' : 'off')}
         >
-          Word Highlight: {wordHighlightEnabled ? 'On' : 'Off'}
+          Word Highlight <span className="audio-beta-tag">BETA</span>: {wordHighlightEnabled ? 'On' : 'Off'}
         </button>
       </div>
       {chunks.length > 1 && (
         <>
           <div className="audio-chunk-menu-subheader">
-            <span>Chapters</span>
+            <span>Jump To</span>
             <span>{chunks.length} chunks</span>
           </div>
           <div
@@ -300,7 +323,7 @@ const ChunkMenu = memo(function ChunkMenu({
                       title={chunk.textPreview}
                     >
                       <span className="audio-chunk-time">{estimatedStart === null ? '--:--' : formatTtsTime(estimatedStart)}</span>
-                      <span className="audio-chunk-text">{chunk.textPreview}</span>
+                      <span className="audio-chunk-text" dir="auto">{chunk.textPreview}</span>
                       <span className="audio-chunk-number">{chunk.index + 1}</span>
                     </button>
                   )

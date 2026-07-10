@@ -85,7 +85,7 @@
   bottom: calc(5.1rem + env(safe-area-inset-bottom));
   z-index: 2147483647;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   width: min(28rem, calc(100vw - 2rem));
   max-height: min(52vh, 28rem);
   overflow: hidden;
@@ -151,9 +151,19 @@
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
+.audio-beta-tag {
+  font-size: 0.56rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+  vertical-align: super;
+}
+
 .audio-chunk-list {
   display: block;
   min-height: 0;
+  width: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -162,6 +172,7 @@
 
 .audio-chunk-virtual-space {
   position: relative;
+  min-width: 100%;
   width: 100%;
 }
 
@@ -170,13 +181,16 @@
   top: 0;
   right: 0;
   left: 0;
+  width: 100%;
+  min-width: 100%;
 }
 
 .audio-chunk-item {
   display: grid;
-  grid-template-columns: 4.4rem minmax(0, 1fr) auto;
+  grid-template-columns: 4.4rem minmax(0, 1fr) 2rem;
   align-items: center;
   gap: 0.6rem;
+  width: 100%;
   min-width: 0;
   padding: 0.6rem 0.85rem;
   border: none;
@@ -203,6 +217,7 @@
 
 .audio-chunk-time,
 .audio-chunk-number {
+  justify-self: end;
   color: var(--text-muted);
   font-size: 0.74rem;
   font-variant-numeric: tabular-nums;
@@ -211,12 +226,14 @@
 
 .audio-chunk-text {
   min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   color: inherit;
   font-size: 0.82rem;
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
+  unicode-bidi: isolate;
 }
 
 .audio-floating-playback {
@@ -282,8 +299,9 @@
 }
 
 .tts-meter {
-  height: 0.3rem;
+  height: 0.38rem;
   overflow: hidden;
+  contain: paint;
   border-radius: 999px;
   background: var(--accent-border);
 }
