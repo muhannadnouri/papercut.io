@@ -358,7 +358,8 @@
 
 .app-audio-floating .reader-floating-actions,
 .app-audio-floating .reader-bookmark-notice {
-  right: 25.5rem;
+  right: auto;
+  left: 2rem;
 }
 
 .reader-bookmark-notice button {
@@ -491,7 +492,6 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   }
 
   .app-audio-floating .reader-floating-actions {
-    right: auto;
     left: 1rem;
     bottom: calc(1rem + env(safe-area-inset-bottom));
   }
