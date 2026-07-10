@@ -112,28 +112,44 @@
 
 .audio-settings-grid {
   display: grid;
-  grid-template-areas:
-    "language model"
-    "voice speed";
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.45rem;
   align-items: start;
 }
 
 .audio-field-language {
-  grid-area: language;
+  grid-column: 1;
 }
 
 .audio-field-model {
-  grid-area: model;
+  grid-column: 2;
+}
+
+.audio-model-install {
+  display: grid;
+  gap: 0.45rem;
+  grid-column: 1 / -1;
+  min-width: 0;
 }
 
 .audio-field-voice {
-  grid-area: voice;
+  grid-column: 1;
 }
 
 .audio-field-speed {
-  grid-area: speed;
+  grid-column: 2;
+}
+
+.audio-field-text-processing {
+  grid-column: 1 / -1;
+}
+
+.audio-field-threads {
+  grid-column: 1;
+}
+
+.audio-field-diagnostics {
+  grid-column: 2;
 }
 
 .audiobooks-setup {
@@ -506,13 +522,24 @@
   transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 
-.audiobooks-setup-disclosure:hover,
 .audiobooks-setup-disclosure:focus-visible,
 .audiobooks-setup-disclosure-open {
   border-color: var(--accent-text);
   background: var(--surface-accent);
-  box-shadow: 0 8px 18px var(--shadow-soft);
   outline: none;
+}
+
+.audiobooks-setup-disclosure:focus-visible {
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .audiobooks-setup-disclosure:hover {
+    border-color: var(--accent-text);
+    background: var(--surface-accent);
+    box-shadow: 0 8px 18px var(--shadow-soft);
+    outline: none;
+  }
 }
 
 .audiobooks-setup-disclosure:disabled {
@@ -971,10 +998,6 @@
 }
 
 @media (max-width: 767px) {
-  .audio-field-threads {
-    grid-area: auto;
-  }
-
   .audio-field {
     font-size: 0.66rem;
   }
@@ -1053,30 +1076,25 @@
 }
 
 @media (max-width: 420px) {
-  .audio-settings-grid {
-    grid-template-areas:
-      "language language"
-      "model model"
-      "voice speed";
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-
-  .audio-setup-advanced {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .audio-thread-meta {
     font-size: 0.58rem;
   }
 }
 
 @media (max-width: 360px) {
-  .audio-settings-grid {
-    grid-template-areas:
-      "language"
-      "model"
-      "voice"
-      "speed";
+  .audio-settings-grid,
+  .audio-setup-advanced {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .audio-field-language,
+  .audio-field-model,
+  .audio-field-voice,
+  .audio-field-speed,
+  .audio-model-install,
+  .audio-field-text-processing,
+  .audio-field-threads,
+  .audio-field-diagnostics {
+    grid-column: 1 / -1;
   }
 }

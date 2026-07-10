@@ -105,6 +105,7 @@ export function AudioSetupPanel({
   const modelsForLanguage = selectedLanguage
     ? models.filter((model) => getLanguageOption(model).value === selectedLanguage)
     : models
+  const showModelInstallDetails = !modelInstalled || modelInstallProgress !== null || modelInstalling
 
   return (
     <div className="audio-setup-panel">
@@ -152,32 +153,40 @@ export function AudioSetupPanel({
                 <span>{modelSize ? modelSize + ' GitHub release' : 'GitHub release asset'}</span>
               </div>
             )}
-            {!modelInstalled && (
-              <button
-                type="button"
-                className="tts-btn tts-save-btn"
-                onClick={onInstallModel}
-                disabled={modelInstalling}
-                title="Download selected offline voice model"
-              >
-                <DownloadIcon />
-                <span>{modelInstalling ? 'Downloading Model...' : 'Download Voice Model'}</span>
-              </button>
-            )}
-            {(modelInstallProgress || modelInstalling) && (
-              <div className={'audiobook-status audiobook-status-' + (modelInstallProgress?.status === 'error' ? 'error' : modelInstalled ? 'saved' : 'saving')}>
-                <div className="audiobook-status-row">
-                  <span>{modelInstallProgress?.message ?? modelStatus?.message ?? 'Preparing model download'}</span>
-                  <span>{modelPercent}%</span>
-                </div>
-                {!modelInstalled && modelInstallProgress?.status !== 'error' && (
-                  <div className="audio-progress-meter" aria-label={'Voice model download ' + modelPercent + '% complete'}>
-                    <span style={{ width: modelPercent + '%' }} />
-                  </div>
-                )}
-              </div>
-            )}
           </div>
+
+          {showModelInstallDetails && (
+            <div className="audio-model-install">
+              {!modelInstalled && (
+                <button
+                  type="button"
+                  className="tts-btn tts-save-btn"
+                  onClick={onInstallModel}
+                  disabled={modelInstalling}
+                  title="Download selected offline voice model"
+                >
+                  <DownloadIcon />
+                  <span>{modelInstalling ? 'Downloading Model...' : 'Download Voice Model'}</span>
+                </button>
+              )}
+              {(modelInstallProgress || modelInstalling) && (
+                <div
+                  className={'audiobook-status audiobook-status-' + (modelInstallProgress?.status === 'error' ? 'error' : modelInstalled ? 'saved' : 'saving')}
+                  aria-live="polite"
+                >
+                  <div className="audiobook-status-row">
+                    <span>{modelInstallProgress?.message ?? modelStatus?.message ?? 'Preparing model download'}</span>
+                    <span>{modelPercent}%</span>
+                  </div>
+                  {!modelInstalled && modelInstallProgress?.status !== 'error' && (
+                    <div className="audio-progress-meter" aria-label={'Voice model download ' + modelPercent + '% complete'}>
+                      <span style={{ width: modelPercent + '%' }} />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <SelectField
             className="audio-field-voice"
