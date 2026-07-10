@@ -66,6 +66,13 @@ export function seekNativeAudio(position: number): Promise<NativeAudioState> {
   })
 }
 
+export function setNativeAudioRate(rate: number): Promise<NativeAudioState> {
+  return runLifecycleOperation(async () => {
+    const plugin = await loadPlugin()
+    return plugin.setRate(rate)
+  })
+}
+
 export function getNativeAudioState(): Promise<NativeAudioState> {
   return runLifecycleOperation(async () => {
     const plugin = await loadPlugin()

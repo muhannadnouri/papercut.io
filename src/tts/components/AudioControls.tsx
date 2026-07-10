@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import type { AudiobookCacheState } from '../hooks/useAudiobookCache'
 import type { TtsChunkSummary, TtsPlayerState } from '../hooks/useTtsPlayer'
+import { formatSpeedLabel } from '../utils/format'
 import './AudioControls.css'
 
 interface AudioControlsProps {
@@ -16,16 +17,19 @@ interface AudioControlsProps {
   onRead: () => void
   onResume: () => void
   onJumpToChunk: (index: number) => void
+  onPlaybackRateChange: (rate: number) => void
   onSave: () => void
   onSkipBackward: () => void
   onSkipForward: () => void
   onStop: () => void
   playbackDurationSec?: number
   playbackNotice?: string
+  playbackRate: number
   ttsState: TtsPlayerState
 }
 
 type AudioIconName = 'play' | 'pause' | 'resume' | 'stop' | 'back' | 'forward' | 'save' | 'menu'
+const PLAYBACK_RATE_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3]
 
 export function AudioControls({
   audiobookState,
@@ -40,12 +44,14 @@ export function AudioControls({
   onRead,
   onResume,
   onJumpToChunk,
+  onPlaybackRateChange,
   onSave,
   onSkipBackward,
   onSkipForward,
   onStop,
   playbackDurationSec,
   playbackNotice,
+  playbackRate,
   ttsState,
 }: AudioControlsProps) {
   const [chunkMenuOpen, setChunkMenuOpen] = useState(false)
@@ -66,11 +72,16 @@ export function AudioControls({
   const chunkPercent = Math.round(ttsState.currentChunkProgress * 100)
   const showChunkMenuButton = showFloatingPlayback && ttsState.chunkSummaries.length > 1
   const showPlaybackStatus = ttsState.status !== 'idle'
+  const playbackRateLabel = formatSpeedLabel(playbackRate)
 
   const handleChunkSelect = useCallback((index: number) => {
     setChunkMenuOpen(false)
     onJumpToChunk(index)
   }, [onJumpToChunk])
+
+  const handlePlaybackRateChange = useCallback(() => {
+    onPlaybackRateChange(nextPlaybackRate(playbackRate))
+  }, [onPlaybackRateChange, playbackRate])
 
   return (
     <section className="audio-controls" aria-label="Audiobook controls">
@@ -121,6 +132,15 @@ export function AudioControls({
               <AudioIcon name="menu" />
             </button>
           )}
+          <button
+            type="button"
+            className="audio-rate-control"
+            onClick={handlePlaybackRateChange}
+            aria-label={'Playback speed ' + playbackRateLabel + '. Tap to change speed.'}
+            title="Tap to change playback speed"
+          >
+            {playbackRateLabel}
+          </button>
           <button className="audio-icon-btn" onClick={onStop} aria-label="Stop audiobook" title="Stop">
             <AudioIcon name="stop" />
           </button>
@@ -172,13 +192,19 @@ export function AudioControls({
         className={'audio-icon-btn' + (audiobookState.complete ? ' audio-save-complete' : '')}
         onClick={onSave}
         disabled={!canSaveAudiobook || audiobookState.complete}
-        aria-label={audiobookState.complete ? 'Audiobook saved for this voice and speed' : 'Save audiobook'}
-        title={audiobookState.complete ? 'Audiobook saved for this voice and speed' : 'Save audiobook'}
+        aria-label={audiobookState.complete ? 'Audiobook saved for this voice and generated speed' : 'Save audiobook'}
+        title={audiobookState.complete ? 'Audiobook saved for this voice and generated speed' : 'Save audiobook'}
       >
         <AudioIcon name="save" />
       </button>
     )
   }
+}
+
+function nextPlaybackRate(currentRate: number): number {
+  const currentIndex = PLAYBACK_RATE_OPTIONS.findIndex((rate) => Math.abs(rate - currentRate) < 0.001)
+  if (currentIndex === -1 || currentIndex === PLAYBACK_RATE_OPTIONS.length - 1) return PLAYBACK_RATE_OPTIONS[0]
+  return PLAYBACK_RATE_OPTIONS[currentIndex + 1]
 }
 
 interface ChunkMenuProps {

@@ -269,6 +269,19 @@
   touch-action: none;
 }
 
+.tts-speed-slider:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.tts-speed-slider:disabled::-webkit-slider-thumb {
+  border-color: var(--text-soft);
+}
+
+.tts-speed-slider:disabled::-moz-range-thumb {
+  border-color: var(--text-soft);
+}
+
 .tts-speed-slider::-webkit-slider-runnable-track {
   height: 0.3rem;
   border-radius: 999px;
