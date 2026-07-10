@@ -33,8 +33,8 @@ const READER_FONT_STACKS = {
 export const DEFAULT_READER_SETTINGS: ReaderSettingsState = {
   fontFamily: READER_FONT_STACKS.literata,
   fontSizePx: 16,
-  lineHeight: 1.65,
-  widthCh: 72,
+  lineHeight: 1.5,
+  widthCh: 100,
 }
 
 // Single source of truth for slider UI and persisted-value validation.
