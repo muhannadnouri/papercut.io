@@ -113,7 +113,7 @@ export function AudioSetupPanel({
         <div className="audio-settings-grid audio-settings-grid-main">
           <SelectField
             className="audio-field-language"
-            label="Language"
+            label="🌐 Language"
             title="Speech language"
             value={selectedLanguage}
             options={languageOptions}
@@ -126,7 +126,7 @@ export function AudioSetupPanel({
           <div className="audio-field audio-field-model">
             <div className="audio-field-heading">
               <span>
-                Model
+                🤖 Model
                 {modelInstalled && (
                   <span className="audio-model-state audio-model-state-installed">
                     (<CheckIcon /><span>Installed</span>)
@@ -181,7 +181,7 @@ export function AudioSetupPanel({
 
           <SelectField
             className="audio-field-voice"
-            label="Voice"
+            label="🔊 Voice"
             title="Voice"
             value={voice}
             options={voices.map((item) => ({ label: item.name, value: item.id }))}
@@ -189,7 +189,7 @@ export function AudioSetupPanel({
           />
 
           <div className="audio-field audio-field-speed">
-            <span id="tts-speed-label">Speed</span>
+            <span id="tts-speed-label">⚡ Speed</span>
             <div className="audio-speed-row">
               <button
                 type="button"
@@ -235,7 +235,7 @@ export function AudioSetupPanel({
         {hasTextProcessing && (
           <SelectField
             className="audio-field-text-processing"
-            label="Text Processing"
+            label="✨ Text Processing"
             title="Optional language preprocessing before speech synthesis"
             value={textPreprocessor}
             options={textPreprocessors.map((item) => ({ label: item.name, value: item.id }))}
@@ -248,7 +248,7 @@ export function AudioSetupPanel({
         )}
         <SelectField
           className="audio-field-threads"
-          label="Threads"
+          label="🧵 Threads"
           selectClassName="tts-threads"
           title="Native TTS threads"
           value={threadCount}
@@ -269,7 +269,7 @@ export function AudioSetupPanel({
           )}
         </SelectField>
         <label className="audio-field audio-field-diagnostics" title="Show TTS diagnostic events and model source details">
-          <span>Diagnostics</span>
+          <span>🧪 Diagnostics</span>
           <span className="audio-diagnostics-control">
             <span className="audio-diagnostics-value">{debugEnabled ? 'On' : 'Off'}</span>
             <input

@@ -30,6 +30,7 @@ import {
   installNativeTtsModel,
   listenNativeTtsModelInstallProgress,
   type NativeTtsCapabilities,
+  type NativeAudiobookExportFormat,
   type NativeTtsModelInstallProgress,
   type NativeTtsModelStatus,
 } from '../api/nativeTts'
@@ -42,6 +43,10 @@ import { useTtsPlayer } from './useTtsPlayer'
 import { useAppConfirmation } from '../../components/AppDialog/useAppConfirmation'
 
 type ImportedHighlightStatus = 'idle' | 'preparing' | 'ready' | 'unavailable'
+type AudiobookExportState = { id: string; status: 'exporting' | 'exported' | 'cancelled' | 'error'; message: string }
+type AudiobookNoticeState = { id: string; status: 'success' | 'cancelled' | 'error'; message: string }
+
+const AUDIOBOOK_NOTICE_TIMEOUT_MS = 10000
 
 interface AudiobookManagerOptions {
   allDocuments: DocumentInfo[]
@@ -80,14 +85,16 @@ export function useAudiobookManager({
   const [audioSavedOnly, setAudioSavedOnly] = useState(initialAudioPreferences.audioSavedOnly)
   const [audiobookDownloads, setAudiobookDownloads] = useState<AudiobookDownloadRecord[]>(() => getAudiobookDownloads())
   const [audiobookDownload, setAudiobookDownload] = useState<{ title: string; url: string; modelId: string; textPreprocessor: string; voice: TtsVoice; speed: number; dtype: TtsDtype } | null>(null)
-  const [audiobookExport, setAudiobookExport] = useState<{ id: string; status: 'exporting' | 'exported' | 'cancelled' | 'error'; message: string } | null>(null)
+  const [audiobookExport, setAudiobookExport] = useState<AudiobookExportState | null>(null)
   const [audiobookDelete, setAudiobookDelete] = useState<{ id: string; status: 'deleting' | 'deleted' | 'error'; message: string } | null>(null)
   const [audiobookImport, setAudiobookImport] = useState<{ status: 'idle' | 'importing' | 'imported' | 'cancelled' | 'error'; message: string }>({ status: 'idle', message: '' })
+  const [audiobookNotice, setAudiobookNotice] = useState<AudiobookNoticeState | null>(null)
   const { confirm: confirmAudiobookAction, dialog: confirmationDialog } = useAppConfirmation()
   const ttsModels = ttsCapabilities?.models.length ? ttsCapabilities.models : FALLBACK_TTS_MODELS
   const selectedTtsModel = getTtsModel(ttsModels, ttsModelId)
   const pendingDownloadPersistRef = useRef<AudiobookDownloadInput | null>(null)
   const downloadPersistTimerRef = useRef<number | null>(null)
+  const audiobookNoticeTimerRef = useRef<number | null>(null)
   const autoSelectedDocumentRef = useRef<string | null>(null)
   const ttsModelIdRef = useRef(ttsModelId)
   const setTtsModelId = useCallback((modelId: string) => {
@@ -129,6 +136,33 @@ export function useAudiobookManager({
   const refreshAudiobookDownloads = useCallback(() => {
     setAudiobookDownloads(getAudiobookDownloads())
   }, [])
+
+  const clearAudiobookNoticeTimer = useCallback(() => {
+    if (audiobookNoticeTimerRef.current !== null) {
+      window.clearTimeout(audiobookNoticeTimerRef.current)
+      audiobookNoticeTimerRef.current = null
+    }
+  }, [])
+
+  const dismissAudiobookNotice = useCallback(() => {
+    clearAudiobookNoticeTimer()
+    setAudiobookNotice(null)
+  }, [clearAudiobookNoticeTimer])
+
+  const showAudiobookNotice = useCallback((nextNotice: AudiobookNoticeState) => {
+    clearAudiobookNoticeTimer()
+    setAudiobookNotice(nextNotice)
+    audiobookNoticeTimerRef.current = window.setTimeout(() => {
+      setAudiobookNotice((current) => (
+        current?.id === nextNotice.id &&
+        current.status === nextNotice.status &&
+        current.message === nextNotice.message
+          ? null
+          : current
+      ))
+      audiobookNoticeTimerRef.current = null
+    }, AUDIOBOOK_NOTICE_TIMEOUT_MS)
+  }, [clearAudiobookNoticeTimer])
 
   const flushAudiobookDownloadPersist = useCallback(() => {
     if (downloadPersistTimerRef.current !== null) {
@@ -181,6 +215,10 @@ export function useAudiobookManager({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void syncTtsRuntimeSettings(true)
   }, [syncTtsRuntimeSettings])
+
+  useEffect(() => {
+    return () => clearAudiobookNoticeTimer()
+  }, [clearAudiobookNoticeTimer])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -666,16 +704,45 @@ export function useAudiobookManager({
     cancelAudiobookSave()
   }, [audiobookDownload, cancelAudiobookSave, downloadAudiobookState.audioDurationSec, downloadAudiobookState.cachedChunks, downloadAudiobookState.totalChunks, downloadAudiobookState.wavBytes, scheduleAudiobookDownloadPersist])
 
-  const handleRemoveAudiobookDownload = useCallback((id: string) => {
+  const handleRemoveAudiobookDownload = useCallback(async (id: string) => {
+    const record = audiobookDownloads.find((item) => item.id === id)
+    if (!record) return
+
+    const progress = record.totalChunks > 0
+      ? record.cachedChunks + '/' + record.totalChunks + ' chunks'
+      : null
+    const duration = record.audioDurationSec ? formatDuration(record.audioDurationSec) : null
+    const storage = formatStorageSize(record.wavBytes)
+    const confirmed = await confirmAudiobookAction({
+      title: 'Remove audiobook save job?',
+      description: 'This removes the queued save job and its resume state. Saved audiobooks are not deleted.',
+      details: [
+        { label: 'Title', value: record.title },
+        ...(progress ? [{ label: 'Progress', value: progress }] : []),
+        ...(duration ? [{ label: 'Duration', value: duration }] : []),
+        ...(storage ? [{ label: 'Storage', value: storage }] : []),
+      ],
+      confirmLabel: 'Remove Job',
+      tone: 'danger',
+    })
+    if (!confirmed) return
+
     removeAudiobookDownload(id)
     refreshAudiobookDownloads()
-  }, [refreshAudiobookDownloads])
+  }, [audiobookDownloads, confirmAudiobookAction, refreshAudiobookDownloads])
 
-  const handleExportSavedAudiobook = useCallback(async (record: SavedAudiobookRecord) => {
-    setAudiobookExport({ id: record.id, status: 'exporting', message: 'Exporting bundle' })
+  const handleExportSavedAudiobook = useCallback(async (record: SavedAudiobookRecord, exportFormat: NativeAudiobookExportFormat) => {
+    dismissAudiobookNotice()
+    setAudiobookExport({
+      id: record.id,
+      status: 'exporting',
+      message: exportFormat === 'wav' ? 'Exporting WAV' : 'Exporting Papercut Bundle',
+    })
     try {
       const chunks = await getAudiobookSaveChunksForDocument(record.documentUrl)
-      const sourceHtml = await loadHtmlDocument(record.documentUrl)
+      const sourceHtml = exportFormat === 'bundle'
+        ? await loadHtmlDocument(record.documentUrl)
+        : undefined
       const result = await exportNativeAudiobook({
         documentUrl: record.documentUrl,
         title: record.title,
@@ -688,22 +755,25 @@ export function useAudiobookManager({
           speed: record.speed,
           dtype: record.dtype as TtsDtype,
         },
+        exportFormat,
       })
-      setAudiobookExport({
-        id: record.id,
-        status: 'exported',
-        message: formatAudiobookExportMessage(result.path),
+      setAudiobookExport(null)
+      showAudiobookNotice({
+        id: 'export:' + record.id,
+        status: 'success',
+        message: formatAudiobookExportMessage(result.path, exportFormat),
       })
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       const cancelled = message.toLowerCase().includes('cancelled')
-      setAudiobookExport({
-        id: record.id,
+      setAudiobookExport(null)
+      showAudiobookNotice({
+        id: 'export:' + record.id,
         status: cancelled ? 'cancelled' : 'error',
         message: cancelled ? 'Export cancelled.' : message,
       })
     }
-  }, [getAudiobookSaveChunksForDocument, loadHtmlDocument])
+  }, [dismissAudiobookNotice, getAudiobookSaveChunksForDocument, loadHtmlDocument, showAudiobookNotice])
 
   const handleDeleteSavedAudiobook = useCallback(async (record: SavedAudiobookRecord) => {
     const deleteUserUpload = isUserUploadUrl(record.documentUrl)
@@ -724,7 +794,7 @@ export function useAudiobookManager({
     })
     if (!confirmed) return
 
-    setAudiobookDelete({ id: record.id, status: 'deleting', message: 'Deleting saved audio' })
+    setAudiobookDelete({ id: record.id, status: 'deleting', message: 'Deleting Saved Audio' })
     try {
       const result = await deleteNativeAudiobook({
         audiobookId: record.id,
@@ -746,22 +816,25 @@ export function useAudiobookManager({
       }
 
       const storage = formatStorageSize(result.bytesFreed)
-      setAudiobookDelete({
-        id: record.id,
-        status: 'deleted',
+      setAudiobookDelete(null)
+      showAudiobookNotice({
+        id: 'delete:' + record.id,
+        status: 'success',
         message: storage ? 'Deleted saved audio and freed ' + storage + '.' : 'Deleted saved audio.',
       })
     } catch (err) {
-      setAudiobookDelete({
-        id: record.id,
+      setAudiobookDelete(null)
+      showAudiobookNotice({
+        id: 'delete:' + record.id,
         status: 'error',
         message: err instanceof Error ? err.message : String(err),
       })
     }
-  }, [confirmAudiobookAction, onClearDocument, onUserUploadsChanged, resetSelectedAudiobookState, selectedDoc, stopTts])
+  }, [confirmAudiobookAction, onClearDocument, onUserUploadsChanged, resetSelectedAudiobookState, selectedDoc, showAudiobookNotice, stopTts])
 
   const importAudiobook = useCallback(async (openDocument: (url: string) => Promise<void>) => {
-    setAudiobookImport({ status: 'importing', message: '⏳ Importing Audiobook Bundle...' })
+    dismissAudiobookNotice()
+    setAudiobookImport({ status: 'importing', message: 'Importing Audiobook Bundle...' })
     try {
       const result = await importNativeAudiobook()
       upsertUserUpload({
@@ -795,17 +868,16 @@ export function useAudiobookManager({
       setTtsVoice(result.voice as TtsVoice)
       setTtsTextPreprocessor(result.textPreprocessor)
       setTtsSpeed(result.speed)
-      setAudiobookImport({ status: 'imported', message: 'Imported ' + result.title })
+      setAudiobookImport({ status: 'idle', message: '' })
+      showAudiobookNotice({ id: 'import:' + result.documentUrl, status: 'success', message: 'Imported ' + result.title })
       await openDocument(result.documentUrl)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       const cancelled = message.toLowerCase().includes('cancelled')
-      setAudiobookImport({
-        status: cancelled ? 'cancelled' : 'error',
-        message: cancelled ? 'Import cancelled.' : message,
-      })
+      setAudiobookImport({ status: 'idle', message: '' })
+      showAudiobookNotice({ id: 'import', status: cancelled ? 'cancelled' : 'error', message: cancelled ? 'Import cancelled.' : message })
     }
-  }, [onUserUploadsChanged, setTtsModelId])
+  }, [dismissAudiobookNotice, onUserUploadsChanged, setTtsModelId, showAudiobookNotice])
 
   const openSavedAudiobook = useCallback(async (record: SavedAudiobookRecord, openDocument: (url: string) => Promise<void>) => {
     autoSelectedDocumentRef.current = record.documentUrl
@@ -894,8 +966,18 @@ export function useAudiobookManager({
   const ttsHighlightChunks = ttsSaveChunks && ttsSaveChunks.length === ttsState.chunks.length
     ? ttsSaveChunks
     : ttsState.chunks
+  const audiobookActionMessage = audiobookImport.status === 'importing'
+    ? audiobookImport.message || 'Importing Audiobook Bundle...'
+    : audiobookExport?.status === 'exporting'
+      ? audiobookExport.message + '...'
+      : audiobookDelete?.status === 'deleting'
+        ? audiobookDelete.message + '...'
+        : ''
+  const audiobookActionBusy = Boolean(audiobookActionMessage)
 
   return {
+    audiobookActionBusy,
+    audiobookActionMessage,
     audioControlsProps: {
       audiobookState: audioControlsAudiobookState,
       canPlayAudiobook: audioControlsAudiobookState.complete,
@@ -948,12 +1030,14 @@ export function useAudiobookManager({
       deleteState: audiobookDelete,
       downloadState: downloadAudiobookState,
       exportState: audiobookExport,
+      noticeState: audiobookNotice,
       isSaving: isSavingAudiobook,
       queuedDownloads: queuedAudiobookDownloads,
       savedAudiobooks: visibleSavedAudiobooks,
       onCancelSave: handleCancelAudiobookSave,
       onDeleteSaved: handleDeleteSavedAudiobook,
       onExportSaved: handleExportSavedAudiobook,
+      onDismissNotice: dismissAudiobookNotice,
       onRemoveQueued: handleRemoveAudiobookDownload,
       onResumeQueued: handleResumeAudiobookDownload,
     },

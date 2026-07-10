@@ -1,5 +1,5 @@
-import { LIBTASHKEEL_TEXT_PREPROCESSOR } from '../types'
-import { FALLBACK_TTS_MODELS, getTtsVoiceName } from '../models'
+import { LIBTASHKEEL_TEXT_PREPROCESSOR, TEXT_PREPROCESSOR_NONE } from '../types'
+import { FALLBACK_TTS_MODELS, getTtsModel, getTtsVoiceName } from '../models'
 
 import { formatStorageSize } from '../../utils/formatUtils'
 // Re-export so modules importing from '../utils/format' (AudiobooksPanel,
@@ -44,6 +44,31 @@ export function formatAudiobookVoiceMeta(
   return 'Voice 🔊 ' + voiceName + ' • ⚡' + formatSpeedLabel(speed) + ' • ' + dtype + processingLabel
 }
 
+export function formatSavedAudiobookMeta(
+  modelId: string,
+  voice: string,
+  speed: number,
+  textPreprocessor: string | undefined,
+  seconds: number | undefined,
+  bytes: number | undefined,
+): string {
+  const model = getTtsModel(FALLBACK_TTS_MODELS, modelId)
+  const voiceName = getTtsVoiceName(FALLBACK_TTS_MODELS, modelId, voice)
+  const parts = [
+    '🤖 ' + model.name,
+    '🔊 ' + voiceName,
+    '⚡ ' + formatSpeedLabel(speed),
+  ]
+  if (textPreprocessor && textPreprocessor !== TEXT_PREPROCESSOR_NONE) {
+    const processingName = model.textPreprocessors.find((item) => item.id === textPreprocessor)?.name
+    parts.push('✨ ' + (processingName ?? textPreprocessor))
+  }
+  if (seconds && seconds > 0) parts.push('⏱ ' + formatDuration(seconds))
+  const storage = formatStorageSize(bytes)
+  if (storage) parts.push('💾 ' + storage)
+  return parts.join(' • ')
+}
+
 export function formatDownloadSavedStatus(seconds: number | undefined, percent: number, bytes?: number): string {
   const boundedPercent = Math.min(Math.max(percent, 0), 100)
   const parts = seconds && seconds > 0
@@ -54,9 +79,10 @@ export function formatDownloadSavedStatus(seconds: number | undefined, percent: 
   return parts.join(' • ')
 }
 
-export function formatAudiobookExportMessage(path: string): string {
+export function formatAudiobookExportMessage(path: string, format: 'bundle' | 'wav' = 'bundle'): string {
+  const label = format === 'wav' ? 'WAV' : 'bundle'
   if (path.startsWith('content://')) {
-    return 'Exported bundle to the selected file.'
+    return 'Exported ' + label + ' to the selected file.'
   }
-  return 'Exported bundle to ' + path
+  return 'Exported ' + label + ' to ' + path
 }

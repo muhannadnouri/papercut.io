@@ -12,6 +12,10 @@ fn default_text_preprocessor() -> String {
     "none".into()
 }
 
+fn default_audiobook_export_format() -> String {
+    "bundle".into()
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 /// Whether native TTS is available, plus platform and thread defaults.
@@ -196,13 +200,13 @@ pub(crate) struct NativeAudiobookSaveRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-/// Inputs for exporting a saved audiobook to a bundle.
+/// Inputs for exporting a saved audiobook to a re-importable bundle or plain WAV.
 #[cfg_attr(not(feature = "native-tts-core"), allow(dead_code))]
 pub(crate) struct NativeAudiobookExportRequest {
     pub(crate) audiobook_id: String,
     pub(crate) document_url: String,
     pub(crate) title: String,
-    pub(crate) source_html: String,
+    pub(crate) source_html: Option<String>,
     pub(crate) chunks: Vec<NativeTtsInputChunk>,
     pub(crate) model_id: String,
     #[serde(default = "default_text_preprocessor")]
@@ -210,11 +214,13 @@ pub(crate) struct NativeAudiobookExportRequest {
     pub(crate) voice: String,
     pub(crate) speed: f32,
     pub(crate) dtype: String,
+    #[serde(default = "default_audiobook_export_format")]
+    pub(crate) export_format: String,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-/// Paths and totals describing a written export bundle.
+/// Paths and totals describing a written audiobook export.
 pub(crate) struct NativeAudiobookExportResponse {
     pub(crate) path: String,
     pub(crate) audio_path: String,
