@@ -189,7 +189,7 @@ export function AudioSetupPanel({
           />
 
           <div className="audio-field audio-field-speed">
-            <span id="tts-speed-label">⚡ Speed</span>
+            <span id="tts-speed-label">⚡ Generated Speed</span>
             <div className="audio-speed-row">
               <button
                 type="button"
@@ -209,7 +209,7 @@ export function AudioSetupPanel({
                 step={SPEED_STEP}
                 value={speed}
                 onChange={(event) => onSpeedChange(snapSpeed(Number(event.target.value)))}
-                title="Playback Speed"
+                title="Generated audio speed"
                 aria-labelledby="tts-speed-label"
               />
               <button

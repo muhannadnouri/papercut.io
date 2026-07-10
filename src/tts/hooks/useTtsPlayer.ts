@@ -14,6 +14,7 @@ import {
   pauseNativeAudio,
   playNativeAudio,
   seekNativeAudio,
+  setNativeAudioRate,
   setNativeAudioSource,
   stopNativeAudio,
   type NativeAudioState,
@@ -67,6 +68,7 @@ export interface TtsPlayerState {
 }
 
 const MOBILE_PROGRESS_UPDATE_MS = 250
+const DEFAULT_PLAYBACK_RATE = 1
 
 const EMPTY_PLAYBACK_STATE = {
   currentText: '',
@@ -87,7 +89,7 @@ const EMPTY_PLAYBACK_STATE = {
   | 'currentChunkDuration'
 >
 
-export function useTtsPlayer() {
+export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
   const [state, setState] = useState<TtsPlayerState>({
     status: 'idle',
     message: '',
@@ -131,6 +133,7 @@ export function useTtsPlayer() {
   const mobileForegroundReadyRef = useRef(false)
   const mobileForegroundSyncRef = useRef<Promise<void> | null>(null)
   const nativeAudioInitializedRef = useRef(false)
+  const playbackRateRef = useRef(playbackRate)
 
   // Increment generation whenever polling stops. Late async responses then fail
   // their generation fence and cannot overwrite newer playback/navigation state.
@@ -345,6 +348,7 @@ export function useTtsPlayer() {
     playingRef.current = true
     audio.src = item.url
     audio.currentTime = 0
+    audio.playbackRate = playbackRateRef.current
 
     setState((prev) => ({
       ...prev,
@@ -646,8 +650,21 @@ export function useTtsPlayer() {
   }, [clampChunkIndex, runNavigationWorker])
 
   useEffect(() => {
+    playbackRateRef.current = normalizePlaybackRate(playbackRate)
+    if (audioRef.current) {
+      audioRef.current.playbackRate = playbackRateRef.current
+    }
+    if (mobileModeRef.current && nativeAudioInitializedRef.current) {
+      void setNativeAudioRate(playbackRateRef.current).catch((err: unknown) => {
+        logTtsDiagnostic('[tts-playback] native rate update failed', { error: errorMessage(err) }, 'warn')
+      })
+    }
+  }, [playbackRate])
+
+  useEffect(() => {
     const audio = new Audio()
     audio.preload = 'auto'
+    audio.playbackRate = playbackRateRef.current
     audioRef.current = audio
 
     const updateProgress = () => {
@@ -786,6 +803,8 @@ export function useTtsPlayer() {
     if (jobIdRef.current !== jobId || !mobileModeRef.current) return
     pausedRef.current = false
     updateNativePlaybackState(sourceState)
+    await setNativeAudioRate(playbackRateRef.current)
+    if (jobIdRef.current !== jobId || !mobileModeRef.current) return
     updateNativePlaybackState(await playNativeAudio())
     await syncMobileForegroundState()
   }, [syncMobileForegroundState, updateNativePlaybackState])
@@ -1074,6 +1093,11 @@ function findPlaybackChunk(
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
+}
+
+function normalizePlaybackRate(rate: number): number {
+  if (!Number.isFinite(rate) || rate <= 0) return DEFAULT_PLAYBACK_RATE
+  return Number(Math.min(3, Math.max(0.5, rate)).toFixed(2))
 }
 
 function isTransientPlaybackInterruption(err: unknown): boolean {

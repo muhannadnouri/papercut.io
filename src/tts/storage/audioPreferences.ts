@@ -15,6 +15,7 @@ export interface AudioPreferences {
   modelId: TtsModelId
   voice: TtsVoice
   speed: number
+  playbackRate: number
   dtype: TtsDtype
   textPreprocessor: string
   audioSavedOnly: boolean
@@ -24,6 +25,7 @@ export const DEFAULT_AUDIO_PREFERENCES: AudioPreferences = {
   modelId: DEFAULT_TTS_MODEL_ID,
   voice: getTtsModel(FALLBACK_TTS_MODELS, DEFAULT_TTS_MODEL_ID).defaultVoice,
   speed: DEFAULT_TTS_SPEED,
+  playbackRate: 1,
   dtype: NATIVE_TTS_DTYPE,
   textPreprocessor: TEXT_PREPROCESSOR_NONE,
   audioSavedOnly: false,
@@ -46,6 +48,7 @@ export function getAudioPreferences(): AudioPreferences {
       modelId: model.id,
       voice,
       speed: isValidSpeed(parsed.speed) ? parsed.speed : DEFAULT_AUDIO_PREFERENCES.speed,
+      playbackRate: isValidPlaybackRate(parsed.playbackRate) ? parsed.playbackRate : DEFAULT_AUDIO_PREFERENCES.playbackRate,
       dtype: parsed.dtype === NATIVE_TTS_DTYPE ? parsed.dtype : DEFAULT_AUDIO_PREFERENCES.dtype,
       textPreprocessor: resolveModelTextPreprocessor(model, parsed.textPreprocessor),
       audioSavedOnly: typeof parsed.audioSavedOnly === 'boolean'
@@ -70,4 +73,8 @@ export function saveAudioPreferences(preferences: Partial<AudioPreferences>): vo
 
 function isValidSpeed(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
+}
+
+function isValidPlaybackRate(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0.5 && value <= 3
 }

@@ -73,6 +73,7 @@ export function useAudiobookManager({
   const [ttsModelId, setTtsModelIdState] = useState(initialAudioPreferences.modelId)
   const [ttsVoice, setTtsVoice] = useState<TtsVoice>(initialAudioPreferences.voice)
   const [ttsSpeed, setTtsSpeed] = useState(initialAudioPreferences.speed)
+  const [ttsPlaybackRate, setTtsPlaybackRate] = useState(initialAudioPreferences.playbackRate)
   const [ttsTextPreprocessor, setTtsTextPreprocessor] = useState<TextPreprocessorId>(initialAudioPreferences.textPreprocessor)
   const [ttsThreadCount, setTtsThreadCount] = useState(1)
   const [ttsCapabilities, setTtsCapabilities] = useState<NativeTtsCapabilities | null>(null)
@@ -112,7 +113,7 @@ export function useAudiobookManager({
     skipBackward: skipTtsBackward,
     skipForward: skipTtsForward,
     stop: stopTts,
-  } = useTtsPlayer()
+  } = useTtsPlayer(ttsPlaybackRate)
   const {
     state: selectedAudiobookState,
     check: checkSelectedAudiobook,
@@ -398,6 +399,10 @@ export function useAudiobookManager({
   }, [ttsSpeed])
 
   useEffect(() => {
+    saveAudioPreferences({ playbackRate: ttsPlaybackRate })
+  }, [ttsPlaybackRate])
+
+  useEffect(() => {
     saveAudioPreferences({ audioSavedOnly })
   }, [audioSavedOnly])
 
@@ -649,7 +654,7 @@ export function useAudiobookManager({
         { label: 'Document', value: title },
         { label: 'Model', value: selectedTtsModel.name },
         { label: 'Voice', value: getTtsVoiceName(ttsModels, ttsModelId, ttsVoice) },
-        { label: 'Speed', value: formatSpeedLabel(ttsSpeed) },
+        { label: 'Generated Speed', value: formatSpeedLabel(ttsSpeed) },
         { label: 'Processing', value: textPreprocessorName },
         { label: 'Threads', value: ttsThreadCount },
         { label: 'Chunks', value: speakableChunks.length },
@@ -995,8 +1000,10 @@ export function useAudiobookManager({
       onSkipBackward: skipTtsBackward,
       onSkipForward: skipTtsForward,
       onStop: stopTts,
+      onPlaybackRateChange: setTtsPlaybackRate,
       playbackDurationSec: audioControlsAudiobookState.audioDurationSec,
       playbackNotice: importedHighlightPreparing ? 'Preparing highlights...' : undefined,
+      playbackRate: ttsPlaybackRate,
       ttsState,
     },
     audioSetupProps: {

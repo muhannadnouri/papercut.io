@@ -193,6 +193,34 @@
   backdrop-filter: blur(8px);
 }
 
+.audio-rate-control {
+  display: inline-grid;
+  place-items: center;
+  min-width: 3.85rem;
+  height: 2.35rem;
+  flex: 0 0 auto;
+  padding: 0 0.65rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--text-body);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.audio-rate-control:hover,
+.audio-rate-control:focus-visible {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+  background: var(--surface-accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
 .audio-floating-status {
   display: grid;
   gap: 0.2rem;
@@ -258,6 +286,10 @@
     width: 2.5rem;
     height: 2.5rem;
   }
+
+  .audio-rate-control {
+    height: 2.5rem;
+  }
 }
 
 @media (max-width: 420px) {
@@ -269,6 +301,13 @@
   .audio-icon-btn {
     width: 2.35rem;
     height: 2.35rem;
+  }
+
+  .audio-rate-control {
+    height: 2.35rem;
+    min-width: 3.55rem;
+    padding-inline: 0.5rem;
+    font-size: 0.78rem;
   }
 
   .audio-chunk-item {
