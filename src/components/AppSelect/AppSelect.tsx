@@ -162,7 +162,9 @@ export function AppSelect({
               aria-disabled={option.disabled || undefined}
               disabled={option.disabled}
               style={option.style}
-              onMouseEnter={() => setActiveIndex(index)}
+              onMouseEnter={() => {
+                if (!option.disabled) setActiveIndex(index)
+              }}
               onClick={() => selectOption(option)}
             >
               <span className="app-select-option-label">{option.label}</span>
