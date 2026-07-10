@@ -109,6 +109,48 @@
   font-weight: 700;
 }
 
+.audio-chunk-menu-subheader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.audio-word-highlight-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.9rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text-body);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.audio-word-highlight-toggle[aria-pressed="true"] {
+  border-color: var(--accent-border);
+  background: var(--surface-accent);
+  color: var(--accent-ink);
+}
+
+.audio-word-highlight-toggle:hover,
+.audio-word-highlight-toggle:focus-visible {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
 .audio-chunk-list {
   display: block;
   min-height: 0;

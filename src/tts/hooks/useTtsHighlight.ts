@@ -79,6 +79,7 @@ interface UseTtsHighlightOptions {
   currentChunkTime?: number
   currentChunkDuration?: number
   isPlaying?: boolean
+  wordHighlightEnabled?: boolean
 }
 
 // Highlights the current saved-audiobook chunk inside the rendered reader DOM.
@@ -92,6 +93,7 @@ export function useTtsHighlight(
     currentChunkTime = 0,
     currentChunkDuration = 0,
     isPlaying = false,
+    wordHighlightEnabled = true,
   }: UseTtsHighlightOptions,
 ): void {
   const segmentIndexCacheRef = useRef<SegmentIndexCache | null>(null)
@@ -244,6 +246,7 @@ export function useTtsHighlight(
     const doc = root?.ownerDocument
     if (
       !enabled ||
+      !wordHighlightEnabled ||
       currentChunkIndex === null ||
       currentChunkDuration <= 0 ||
       !Number.isFinite(currentChunkTime)
@@ -288,6 +291,7 @@ export function useTtsHighlight(
     enabled,
     isPlaying,
     rootRef,
+    wordHighlightEnabled,
   ])
 }
 

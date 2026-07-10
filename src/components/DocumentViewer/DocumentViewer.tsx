@@ -25,6 +25,7 @@ interface TtsHighlightOptions {
   currentChunkTime?: number
   currentChunkDuration?: number
   isPlaying?: boolean
+  wordHighlightEnabled?: boolean
 }
 
 interface DocumentViewerProps {

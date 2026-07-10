@@ -16,6 +16,7 @@ export interface AudioPreferences {
   voice: TtsVoice
   speed: number
   playbackRate: number
+  wordHighlightEnabled: boolean
   dtype: TtsDtype
   textPreprocessor: string
   audioSavedOnly: boolean
@@ -26,6 +27,7 @@ export const DEFAULT_AUDIO_PREFERENCES: AudioPreferences = {
   voice: getTtsModel(FALLBACK_TTS_MODELS, DEFAULT_TTS_MODEL_ID).defaultVoice,
   speed: DEFAULT_TTS_SPEED,
   playbackRate: 1,
+  wordHighlightEnabled: true,
   dtype: NATIVE_TTS_DTYPE,
   textPreprocessor: TEXT_PREPROCESSOR_NONE,
   audioSavedOnly: false,
@@ -49,6 +51,9 @@ export function getAudioPreferences(): AudioPreferences {
       voice,
       speed: isValidSpeed(parsed.speed) ? parsed.speed : DEFAULT_AUDIO_PREFERENCES.speed,
       playbackRate: isValidPlaybackRate(parsed.playbackRate) ? parsed.playbackRate : DEFAULT_AUDIO_PREFERENCES.playbackRate,
+      wordHighlightEnabled: typeof parsed.wordHighlightEnabled === 'boolean'
+        ? parsed.wordHighlightEnabled
+        : DEFAULT_AUDIO_PREFERENCES.wordHighlightEnabled,
       dtype: parsed.dtype === NATIVE_TTS_DTYPE ? parsed.dtype : DEFAULT_AUDIO_PREFERENCES.dtype,
       textPreprocessor: resolveModelTextPreprocessor(model, parsed.textPreprocessor),
       audioSavedOnly: typeof parsed.audioSavedOnly === 'boolean'
