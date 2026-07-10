@@ -75,29 +75,8 @@
   color: var(--text-body);
 }
 
-.reader-setting-select {
+.reader-setting-font-select {
   grid-column: 2 / 6;
-  min-width: 0;
-  width: 100%;
-  min-height: 2.2rem;
-  padding: 0 1.7rem 0 0.55rem;
-  border: 1px solid var(--border-strong);
-  border-radius: 7px;
-  appearance: none;
-  -webkit-appearance: none;
-  background-color: var(--surface);
-  background-image: var(--select-chevron);
-  background-repeat: no-repeat;
-  background-position: right 0.6rem center;
-  background-size: 0.65rem;
-  color: var(--text-heading);
-  font-size: 0.82rem;
-}
-
-.reader-setting-select:focus-visible {
-  border-color: var(--accent-text);
-  outline: none;
-  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .reader-setting-slider {
@@ -185,10 +164,6 @@
     right: 1rem;
     width: auto;
     max-height: calc(100vh - 7rem);
-    overflow-y: auto;
-  }
-
-  .reader-setting-select {
-    font-size: 16px;
+    overflow: visible;
   }
 }

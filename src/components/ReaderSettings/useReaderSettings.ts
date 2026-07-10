@@ -33,15 +33,15 @@ const READER_FONT_STACKS = {
 export const DEFAULT_READER_SETTINGS: ReaderSettingsState = {
   fontFamily: READER_FONT_STACKS.literata,
   fontSizePx: 16,
-  lineHeight: 1.65,
-  widthCh: 72,
+  lineHeight: 1.5,
+  widthCh: 100,
 }
 
 // Single source of truth for slider UI and persisted-value validation.
 export const READER_SETTING_LIMITS = {
   fontSizePx: { min: 8, max: 24, step: 1, suffix: 'px' },
   lineHeight: { min: 0.5, max: 2.2, step: 0.05, suffix: '' },
-  widthCh: { min: 40, max: 100, step: 4, suffix: 'ch' },
+  widthCh: { min: 40, max: 200, step: 4, suffix: 'ch' },
 } satisfies Record<'fontSizePx' | 'lineHeight' | 'widthCh', ReaderRangeConfig>
 
 export const FONT_FAMILY_OPTIONS = [

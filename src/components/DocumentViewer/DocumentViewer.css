@@ -4,10 +4,18 @@
   grid-template-areas: "back controls";
   align-items: center;
   gap: 0.75rem 1rem;
-  margin-bottom: 2rem;
+  width: min(100%, 1120px);
+  margin-inline: auto;
+  margin-bottom: 2.25rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
   min-width: 0;
   overflow: visible;
   z-index: 35;
+}
+
+.app-reader {
+  width: min(100%, 2000px);
 }
 
 .header-left {
@@ -279,7 +287,7 @@
 .reader-floating-actions,
 .reader-bookmark-notice {
   position: fixed;
-  right: 2rem;
+  right: max(4rem, calc((100vw - 2000px) / 2 + 4rem));
   z-index: 11;
 }
 
@@ -359,7 +367,7 @@
 .app-audio-floating .reader-floating-actions,
 .app-audio-floating .reader-bookmark-notice {
   right: auto;
-  left: 2rem;
+  left: max(4rem, calc((100vw - 2000px) / 2 + 4rem));
 }
 
 .reader-bookmark-notice button {
@@ -446,6 +454,11 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 }
 
 @media (max-width: 767px) {
+  .app-reader {
+    padding-inline: 0.35rem;
+    background: var(--reader-surface);
+  }
+
   .doc-header {
     grid-template-areas:
       "back reader"
@@ -483,7 +496,9 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   }
 
   .document-html-surface {
-    padding-inline: 1rem;
+    border: 0;
+    border-radius: 0;
+    padding-inline: 0.75rem;
   }
 
   .reader-floating-actions,
