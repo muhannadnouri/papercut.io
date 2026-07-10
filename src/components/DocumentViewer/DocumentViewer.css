@@ -287,7 +287,7 @@
 .reader-floating-actions,
 .reader-bookmark-notice {
   position: fixed;
-  right: 2rem;
+  right: max(4rem, calc((100vw - 2000px) / 2 + 4rem));
   z-index: 11;
 }
 
@@ -367,7 +367,7 @@
 .app-audio-floating .reader-floating-actions,
 .app-audio-floating .reader-bookmark-notice {
   right: auto;
-  left: 2rem;
+  left: max(4rem, calc((100vw - 2000px) / 2 + 4rem));
 }
 
 .reader-bookmark-notice button {

@@ -81,7 +81,7 @@
 
 .audio-chunk-menu {
   position: fixed;
-  right: 2rem;
+  right: max(4rem, calc((100vw - 2000px) / 2 + 4rem));
   bottom: calc(5.1rem + env(safe-area-inset-bottom));
   z-index: 2147483647;
   display: grid;
@@ -179,7 +179,7 @@
 
 .audio-floating-playback {
   position: fixed;
-  right: 2rem;
+  right: max(4rem, calc((100vw - 2000px) / 2 + 4rem));
   bottom: calc(2rem + env(safe-area-inset-bottom));
   z-index: 2147483647;
   display: flex;
