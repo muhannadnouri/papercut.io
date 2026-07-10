@@ -188,16 +188,16 @@ export function AudioSetupPanel({
             onChange={(value) => onVoiceChange(value as TtsVoice)}
           />
 
-          <div className="audio-field audio-field-speed">
+          <div className="audio-field audio-field-speed audio-field-disabled">
             <span id="tts-speed-label">⚡ Generated Speed</span>
             <div className="audio-speed-row">
               <button
                 type="button"
                 className="audio-speed-step"
                 onClick={() => onSpeedChange(snapSpeed(speed - SPEED_STEP))}
-                disabled={speed <= SPEED_MIN}
+                disabled
                 aria-label="Decrease Speed"
-                title="Decrease Speed"
+                title="Generated speed is fixed at 1x"
               >
                 &minus;
               </button>
@@ -209,21 +209,26 @@ export function AudioSetupPanel({
                 step={SPEED_STEP}
                 value={speed}
                 onChange={(event) => onSpeedChange(snapSpeed(Number(event.target.value)))}
-                title="Generated audio speed"
+                disabled
+                title="Generated speed is fixed at 1x"
                 aria-labelledby="tts-speed-label"
+                aria-describedby="tts-speed-help"
               />
               <button
                 type="button"
                 className="audio-speed-step"
                 onClick={() => onSpeedChange(snapSpeed(speed + SPEED_STEP))}
-                disabled={speed >= SPEED_MAX}
+                disabled
                 aria-label="Increase Speed"
-                title="Increase Speed"
+                title="Generated speed is fixed at 1x"
               >
                 +
               </button>
               <span className="audio-speed-value">{formatSpeedLabel(speed)}</span>
             </div>
+            <span id="tts-speed-help" className="audio-thread-meta">
+              Generated at 1x - adjust playback speed while listening.
+            </span>
           </div>
         </div>
       </section>

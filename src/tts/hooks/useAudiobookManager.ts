@@ -35,7 +35,7 @@ import {
   type NativeTtsModelStatus,
 } from '../api/nativeTts'
 import { chunkAudiobookSaveHtmlWithSpans, type SpeechChunk } from '../utils/text'
-import type { TextPreprocessorId, TtsDtype, TtsVoice, TtsChunk } from '../types'
+import { DEFAULT_TTS_SPEED, type TextPreprocessorId, type TtsDtype, type TtsVoice, type TtsChunk } from '../types'
 import { isUserUploadUrl, removeUserUpload, upsertUserUpload, type UserUploadDocument } from '../storage/UserUploads'
 import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 import { useAudiobookCache } from './useAudiobookCache'
@@ -72,7 +72,7 @@ export function useAudiobookManager({
   const initialAudioPreferences = getAudioPreferences()
   const [ttsModelId, setTtsModelIdState] = useState(initialAudioPreferences.modelId)
   const [ttsVoice, setTtsVoice] = useState<TtsVoice>(initialAudioPreferences.voice)
-  const [ttsSpeed, setTtsSpeed] = useState(initialAudioPreferences.speed)
+  const [ttsSpeed, setTtsSpeed] = useState(DEFAULT_TTS_SPEED)
   const [ttsPlaybackRate, setTtsPlaybackRate] = useState(initialAudioPreferences.playbackRate)
   const [ttsTextPreprocessor, setTtsTextPreprocessor] = useState<TextPreprocessorId>(initialAudioPreferences.textPreprocessor)
   const [ttsThreadCount, setTtsThreadCount] = useState(1)
@@ -97,6 +97,7 @@ export function useAudiobookManager({
   const downloadPersistTimerRef = useRef<number | null>(null)
   const audiobookNoticeTimerRef = useRef<number | null>(null)
   const autoSelectedDocumentRef = useRef<string | null>(null)
+  const preserveGeneratedSpeedOnOpenRef = useRef(false)
   const ttsModelIdRef = useRef(ttsModelId)
   const setTtsModelId = useCallback((modelId: string) => {
     ttsModelIdRef.current = modelId
@@ -395,10 +396,6 @@ export function useAudiobookManager({
   }, [ttsModelId, ttsTextPreprocessor, ttsVoice])
 
   useEffect(() => {
-    saveAudioPreferences({ speed: ttsSpeed })
-  }, [ttsSpeed])
-
-  useEffect(() => {
     saveAudioPreferences({ playbackRate: ttsPlaybackRate })
   }, [ttsPlaybackRate])
 
@@ -515,6 +512,11 @@ export function useAudiobookManager({
   }, [preloadTts, selectedDoc])
 
   const prepareDocumentOpen = useCallback(() => {
+    if (preserveGeneratedSpeedOnOpenRef.current) {
+      preserveGeneratedSpeedOnOpenRef.current = false
+    } else {
+      setTtsSpeed(DEFAULT_TTS_SPEED)
+    }
     setTtsSaveChunks(null)
     resetSelectedAudiobookState()
   }, [resetSelectedAudiobookState])
@@ -654,7 +656,7 @@ export function useAudiobookManager({
         { label: 'Document', value: title },
         { label: 'Model', value: selectedTtsModel.name },
         { label: 'Voice', value: getTtsVoiceName(ttsModels, ttsModelId, ttsVoice) },
-        { label: 'Generated Speed', value: formatSpeedLabel(ttsSpeed) },
+        { label: 'Generated Speed', value: formatSpeedLabel(DEFAULT_TTS_SPEED) },
         { label: 'Processing', value: textPreprocessorName },
         { label: 'Threads', value: ttsThreadCount },
         { label: 'Chunks', value: speakableChunks.length },
@@ -670,10 +672,10 @@ export function useAudiobookManager({
       textPreprocessor: ttsTextPreprocessor,
       chunks,
       voice: ttsVoice,
-      speed: ttsSpeed,
+      speed: DEFAULT_TTS_SPEED,
       dtype: ttsDtype,
     })
-  }, [confirmAudiobookAction, getDocumentTitle, getSelectedAudiobookSaveChunks, selectedDoc, selectedTtsModel.name, selectedTtsModel.textPreprocessors, startAudiobookSave, ttsDtype, ttsModelId, ttsModels, ttsSpeed, ttsTextPreprocessor, ttsThreadCount, ttsVoice])
+  }, [confirmAudiobookAction, getDocumentTitle, getSelectedAudiobookSaveChunks, selectedDoc, selectedTtsModel.name, selectedTtsModel.textPreprocessors, startAudiobookSave, ttsDtype, ttsModelId, ttsModels, ttsTextPreprocessor, ttsThreadCount, ttsVoice])
 
   const handleResumeAudiobookDownload = useCallback(async (record: AudiobookDownloadRecord) => {
     startAudiobookSave({
@@ -869,6 +871,7 @@ export function useAudiobookManager({
       onUserUploadsChanged()
       setSavedAudiobooks(getSavedAudiobooks())
       autoSelectedDocumentRef.current = result.documentUrl
+      preserveGeneratedSpeedOnOpenRef.current = true
       setTtsModelId(result.modelId)
       setTtsVoice(result.voice as TtsVoice)
       setTtsTextPreprocessor(result.textPreprocessor)
@@ -886,6 +889,7 @@ export function useAudiobookManager({
 
   const openSavedAudiobook = useCallback(async (record: SavedAudiobookRecord, openDocument: (url: string) => Promise<void>) => {
     autoSelectedDocumentRef.current = record.documentUrl
+    preserveGeneratedSpeedOnOpenRef.current = true
     setTtsModelId(record.modelId)
     setTtsVoice(record.voice as TtsVoice)
     setTtsTextPreprocessor(record.textPreprocessor)
@@ -1016,13 +1020,13 @@ export function useAudiobookManager({
       modelStatus: ttsModelStatus,
       onInstallModel: handleInstallTtsModel,
       onModelChange: handleModelChange,
-      onSpeedChange: setTtsSpeed,
+      onSpeedChange: () => {},
       onTextPreprocessorChange: setTtsTextPreprocessor,
       onThreadCountChange: handleThreadCountChange,
       onVoiceChange: setTtsVoice,
       textPreprocessor: ttsTextPreprocessor,
       textPreprocessors: selectedTtsModel.textPreprocessors,
-      speed: ttsSpeed,
+      speed: DEFAULT_TTS_SPEED,
       threadCount: ttsThreadCount,
       voice: ttsVoice,
       voices: selectedTtsModel.voices,
