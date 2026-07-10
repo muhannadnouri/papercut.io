@@ -446,6 +446,10 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 }
 
 @media (max-width: 767px) {
+  .app-reader {
+    padding-inline: 0.35rem;
+  }
+
   .doc-header {
     grid-template-areas:
       "back reader"
@@ -483,7 +487,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   }
 
   .document-html-surface {
-    padding-inline: 1rem;
+    padding-inline: 0.75rem;
   }
 
   .reader-floating-actions,
