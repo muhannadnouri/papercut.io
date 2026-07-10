@@ -13,8 +13,40 @@ import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 import type { TtsChunk, TtsChunkSourceSpan } from '../types'
 
 const TTS_HIGHLIGHT_NAME = 'tts-current'
+const TTS_WORD_HIGHLIGHT_NAME = 'tts-current-word'
 const SCROLL_SETTLE_MS = 120
 const MAX_CACHED_RANGES = 128
+// Note - Recommended first value for testing:
+// - 0.18s lead while playing.
+// - If it still feels behind, bump to 0.25s;
+// - If it feels jumpy/ahead, drop to 0.12s.
+const WORD_HIGHLIGHT_LEAD_SECONDS = 0.25
+
+interface WordToken {
+  startOffset: number
+  endOffset: number
+}
+
+interface NormalizedTextPoint {
+  node: Text
+  offset: number
+}
+
+interface NormalizedRangePoints {
+  start: NormalizedTextPoint
+  end: NormalizedTextPoint
+}
+
+interface IntlSegment {
+  segment: string
+  index: number
+  isWordLike?: boolean
+}
+
+type IntlSegmenterCtor = new (
+  locale?: string | string[],
+  options?: { granularity: 'word' },
+) => { segment(input: string): Iterable<IntlSegment> }
 
 interface SegmentIndexCache {
   root: HTMLElement
@@ -34,6 +66,9 @@ interface AlignmentCache {
   ranges: Map<number, Range>
   failedRanges: Set<number>
   highlight: Highlight
+  wordHighlight: Highlight
+  wordTokens: Map<number, WordToken[]>
+  wordRanges: Map<number, Array<Range | null>>
 }
 
 interface UseTtsHighlightOptions {
@@ -41,12 +76,23 @@ interface UseTtsHighlightOptions {
   currentChunkIndex: number | null
   chunks: TtsChunk[]
   allowDomFallback?: boolean
+  currentChunkTime?: number
+  currentChunkDuration?: number
+  isPlaying?: boolean
 }
 
 // Highlights the current saved-audiobook chunk inside the rendered reader DOM.
 export function useTtsHighlight(
   rootRef: React.RefObject<HTMLElement | null>,
-  { enabled, currentChunkIndex, chunks, allowDomFallback = false }: UseTtsHighlightOptions,
+  {
+    enabled,
+    currentChunkIndex,
+    chunks,
+    allowDomFallback = false,
+    currentChunkTime = 0,
+    currentChunkDuration = 0,
+    isPlaying = false,
+  }: UseTtsHighlightOptions,
 ): void {
   const segmentIndexCacheRef = useRef<SegmentIndexCache | null>(null)
   const alignmentCacheRef = useRef<AlignmentCache | null>(null)
@@ -187,6 +233,62 @@ export function useTtsHighlight(
       if (scrollTimer !== null) window.clearTimeout(scrollTimer)
     }
   }, [allowDomFallback, chunks, currentChunkIndex, enabled, rootRef])
+
+  // Word highlighting is an intentionally cheap approximation: saved manifests
+  // only know chunk timings, so the active word is inferred from chunk progress.
+  // The small lead compensates for coarse desktop timeupdate/native poll cadence.
+  // ponytail: replace this with real word timestamps only if the TTS backend
+  // exposes them without changing saved-audiobook compatibility.
+  useEffect(() => {
+    const root = rootRef.current
+    const doc = root?.ownerDocument
+    if (
+      !enabled ||
+      currentChunkIndex === null ||
+      currentChunkDuration <= 0 ||
+      !Number.isFinite(currentChunkTime)
+    ) {
+      if (doc) clearTtsWordHighlight(doc, alignmentCacheRef.current)
+      return
+    }
+
+    let frame: number | null = window.requestAnimationFrame(() => {
+      frame = null
+      try {
+        highlightTtsWord(
+          rootRef.current,
+          currentChunkIndex,
+          chunks,
+          allowDomFallback,
+          Math.min(
+            Math.max(
+              (currentChunkTime + (isPlaying ? WORD_HIGHLIGHT_LEAD_SECONDS : 0)) / currentChunkDuration,
+              0,
+            ),
+            1,
+          ),
+          rootVersionRef.current,
+          segmentIndexCacheRef,
+          alignmentCacheRef,
+        )
+      } catch (err) {
+        console.warn('Unable to highlight current TTS word:', err)
+      }
+    })
+
+    return () => {
+      if (frame !== null) window.cancelAnimationFrame(frame)
+    }
+  }, [
+    allowDomFallback,
+    chunks,
+    currentChunkDuration,
+    currentChunkIndex,
+    currentChunkTime,
+    enabled,
+    isPlaying,
+    rootRef,
+  ])
 }
 
 // Reuse document/chunk cache when valid, then replace single named Highlight range.
@@ -205,12 +307,17 @@ function highlightTtsChunk(
 
   ensureTtsHighlightStyles(doc)
 
-  let cache = alignmentCacheRef.current
-  if (!isUsableAlignmentCache(cache, root, chunks, allowDomFallback, chunkIndex, rootVersion)) {
-    clearTtsHighlight(doc, cache)
-    cache = buildAlignmentCache(root, doc, view, chunks, allowDomFallback, rootVersion, segmentIndexCacheRef)
-    alignmentCacheRef.current = cache
-  }
+  const cache = getOrBuildAlignmentCache(
+    root,
+    doc,
+    view,
+    chunks,
+    allowDomFallback,
+    chunkIndex,
+    rootVersion,
+    segmentIndexCacheRef,
+    alignmentCacheRef,
+  )
 
   cache.highlight.clear()
   const range = getChunkRange(cache, chunkIndex)
@@ -219,6 +326,66 @@ function highlightTtsChunk(
   cache.highlight.add(range)
   view.CSS.highlights.set(TTS_HIGHLIGHT_NAME, cache.highlight)
   return { range }
+}
+
+function highlightTtsWord(
+  root: HTMLElement | null,
+  chunkIndex: number,
+  chunks: TtsChunk[],
+  allowDomFallback: boolean,
+  progress: number,
+  rootVersion: number,
+  segmentIndexCacheRef: React.MutableRefObject<SegmentIndexCache | null>,
+  alignmentCacheRef: React.MutableRefObject<AlignmentCache | null>,
+): void {
+  const doc = root?.ownerDocument
+  const view = doc?.defaultView
+  if (!root || !doc || !view) return
+
+  ensureTtsHighlightStyles(doc)
+  const cache = getOrBuildAlignmentCache(
+    root,
+    doc,
+    view,
+    chunks,
+    allowDomFallback,
+    chunkIndex,
+    rootVersion,
+    segmentIndexCacheRef,
+    alignmentCacheRef,
+  )
+
+  cache.wordHighlight.clear()
+  const chunkRange = getChunkRange(cache, chunkIndex)
+  const wordRange = chunkRange ? getActiveWordRange(cache, chunkIndex, chunkRange, progress) : null
+  if (!wordRange) {
+    clearTtsWordHighlight(doc, cache)
+    return
+  }
+
+  cache.wordHighlight.add(wordRange)
+  ;(cache.wordHighlight as Highlight & { priority?: number }).priority = 1
+  view.CSS.highlights.set(TTS_WORD_HIGHLIGHT_NAME, cache.wordHighlight)
+}
+
+function getOrBuildAlignmentCache(
+  root: HTMLElement,
+  doc: Document,
+  view: Window & typeof globalThis,
+  chunks: TtsChunk[],
+  allowDomFallback: boolean,
+  chunkIndex: number,
+  rootVersion: number,
+  segmentIndexCacheRef: React.MutableRefObject<SegmentIndexCache | null>,
+  alignmentCacheRef: React.MutableRefObject<AlignmentCache | null>,
+): AlignmentCache {
+  let cache = alignmentCacheRef.current
+  if (!isUsableAlignmentCache(cache, root, chunks, allowDomFallback, chunkIndex, rootVersion)) {
+    clearTtsHighlight(doc, cache)
+    cache = buildAlignmentCache(root, doc, view, chunks, allowDomFallback, rootVersion, segmentIndexCacheRef)
+    alignmentCacheRef.current = cache
+  }
+  return cache
 }
 
 // Alignment cache is tied to both live reader root and exact chunk-array identity.
@@ -243,6 +410,9 @@ function buildAlignmentCache(
     ranges: new Map(),
     failedRanges: new Set(),
     highlight: new view.Highlight(),
+    wordHighlight: new view.Highlight(),
+    wordTokens: new Map(),
+    wordRanges: new Map(),
   }
 }
 
@@ -318,6 +488,157 @@ function getChunkRange(cache: AlignmentCache, chunkIndex: number): Range | null 
     })
   }
   return range
+}
+
+// Pick a word inside the active chunk from elapsed playback progress. Papercut
+// does not store word timestamps, so this deliberately favors cheap,
+// deterministic approximation over expensive audio analysis or manifest churn.
+function getActiveWordRange(
+  cache: AlignmentCache,
+  chunkIndex: number,
+  chunkRange: Range,
+  progress: number,
+): Range | null {
+  const tokens = getWordTokens(cache, chunkIndex)
+  if (tokens.length === 0) return null
+
+  const tokenIndex = Math.min(Math.floor(progress * tokens.length), tokens.length - 1)
+  let ranges = cache.wordRanges.get(chunkIndex)
+  if (!ranges?.every((range) => !range || (range.startContainer.isConnected && range.endContainer.isConnected))) {
+    ranges = createNormalizedWordRanges(cache.doc, chunkRange, tokens)
+    cache.wordRanges.set(chunkIndex, ranges)
+  }
+  if (cache.wordRanges.size > MAX_CACHED_RANGES) {
+    const oldestIndex = cache.wordRanges.keys().next().value
+    if (oldestIndex !== undefined) cache.wordRanges.delete(oldestIndex)
+  }
+
+  const range = ranges[tokenIndex]
+  return range && range.startContainer.isConnected && range.endContainer.isConnected ? range : null
+}
+
+function getWordTokens(cache: AlignmentCache, chunkIndex: number): WordToken[] {
+  const cached = cache.wordTokens.get(chunkIndex)
+  if (cached) return cached
+
+  const text = cache.chunks[chunkIndex]?.text ?? ''
+  const tokens = segmentWordTokens(text)
+  cache.wordTokens.set(chunkIndex, tokens)
+  return tokens
+}
+
+// Prefer Intl.Segmenter because it handles scripts and punctuation better than
+// a regex; keep the regex fallback for older WebViews that may not expose it.
+function segmentWordTokens(text: string): WordToken[] {
+  const Segmenter = (Intl as typeof Intl & { Segmenter?: IntlSegmenterCtor }).Segmenter
+  if (Segmenter) {
+    const segmenter = new Segmenter(undefined, { granularity: 'word' })
+    return Array.from(segmenter.segment(text))
+      .filter((part) => part.isWordLike)
+      .map((part) => ({
+        startOffset: part.index,
+        endOffset: part.index + part.segment.length,
+      }))
+  }
+
+  const tokens: WordToken[] = []
+  const wordPattern = /[\p{L}\p{N}_]+(?:[-'][\p{L}\p{N}_]+)*/gu
+  for (const match of text.matchAll(wordPattern)) {
+    if (match.index === undefined) continue
+    tokens.push({
+      startOffset: match.index,
+      endOffset: match.index + match[0].length,
+    })
+  }
+  return tokens
+}
+
+function createNormalizedWordRanges(
+  doc: Document,
+  parentRange: Range,
+  tokens: WordToken[],
+): Array<Range | null> {
+  return findNormalizedWordRangePoints(parentRange, tokens).map((points) => {
+    if (!points) return null
+
+    const range = doc.createRange()
+    range.setStart(points.start.node, Math.min(points.start.offset, points.start.node.length))
+    range.setEnd(points.end.node, Math.min(points.end.offset + 1, points.end.node.length))
+    return range
+  })
+}
+
+// Replay normalized text inside one chunk Range once so word offsets from
+// chunk.text can become live DOM points without inserting spans into uploaded
+// documents. The returned array is token-aligned, so a failed word mapping does
+// not shift later words and make playback highlighting lie about position.
+function findNormalizedWordRangePoints(
+  range: Range,
+  tokens: WordToken[],
+): Array<NormalizedRangePoints | null> {
+  const pointsByToken = Array<NormalizedRangePoints | null>(tokens.length).fill(null)
+  if (tokens.length === 0) return pointsByToken
+
+  const doc = range.startContainer.ownerDocument
+  const root = range.commonAncestorContainer
+  const walkerRoot = root.nodeType === Node.TEXT_NODE ? root.parentNode : root
+  if (!doc || !walkerRoot) return pointsByToken
+
+  const walker = doc.createTreeWalker(walkerRoot, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) => range.intersectsNode(node)
+      ? NodeFilter.FILTER_ACCEPT
+      : NodeFilter.FILTER_REJECT,
+  })
+
+  let normalizedOffset = 0
+  let pendingWhitespace: NormalizedTextPoint | null = null
+  let start: NormalizedTextPoint | null = null
+  let tokenIndex = 0
+
+  const emit = (point: NormalizedTextPoint): boolean => {
+    while (tokenIndex < tokens.length && normalizedOffset >= tokens[tokenIndex].endOffset) {
+      tokenIndex += 1
+      start = null
+    }
+    const token = tokens[tokenIndex]
+    if (!token) return true
+
+    if (normalizedOffset === token.startOffset) start = point
+    if (normalizedOffset === token.endOffset - 1) {
+      if (start) pointsByToken[tokenIndex] = { start, end: point }
+      tokenIndex += 1
+      start = null
+    }
+
+    normalizedOffset += 1
+    return tokenIndex >= tokens.length
+  }
+
+  let current: Node | null = walker.currentNode
+  while (current) {
+    if (current.nodeType === Node.TEXT_NODE && range.intersectsNode(current)) {
+      const node = current as Text
+      const rawStart = node === range.startContainer ? range.startOffset : 0
+      const rawEnd = node === range.endContainer ? range.endOffset : node.data.length
+
+      for (let offset = rawStart; offset < rawEnd; offset++) {
+        if (/\s/.test(node.data[offset])) {
+          if (normalizedOffset > 0) pendingWhitespace = { node, offset }
+          continue
+        }
+
+        if (pendingWhitespace) {
+          if (emit(pendingWhitespace)) return pointsByToken
+          pendingWhitespace = null
+        }
+
+        if (emit({ node, offset })) return pointsByToken
+      }
+    }
+    current = walker.nextNode()
+  }
+
+  return pointsByToken
 }
 
 // Last-resort compatibility path for imported audiobook bundles. Old bundles
@@ -505,8 +826,15 @@ function invalidateTtsDomCaches(
 // Clear both owned Highlight object and global registry entry, including old docs.
 function clearTtsHighlight(doc: Document, cache: AlignmentCache | null): void {
   cache?.highlight.clear()
+  cache?.wordHighlight.clear()
   clearTtsHighlightRegistry(cache?.doc)
   if (cache?.doc !== doc) clearTtsHighlightRegistry(doc)
+}
+
+function clearTtsWordHighlight(doc: Document, cache: AlignmentCache | null): void {
+  cache?.wordHighlight.clear()
+  clearTtsWordHighlightRegistry(cache?.doc ?? doc)
+  if (cache?.doc !== doc) clearTtsWordHighlightRegistry(doc)
 }
 
 function clearTtsHighlightRegistry(doc: Document | undefined): void {
@@ -515,6 +843,15 @@ function clearTtsHighlightRegistry(doc: Document | undefined): void {
 
   registry.get(TTS_HIGHLIGHT_NAME)?.clear()
   registry.delete(TTS_HIGHLIGHT_NAME)
+  clearTtsWordHighlightRegistry(doc)
+}
+
+function clearTtsWordHighlightRegistry(doc: Document | undefined): void {
+  const registry = doc?.defaultView?.CSS.highlights
+  if (!registry) return
+
+  registry.get(TTS_WORD_HIGHLIGHT_NAME)?.clear()
+  registry.delete(TTS_WORD_HIGHLIGHT_NAME)
 }
 
 function ensureTtsHighlightStyles(doc: Document): void {
@@ -524,6 +861,11 @@ function ensureTtsHighlightStyles(doc: Document): void {
   style.textContent = `
     ::highlight(${TTS_HIGHLIGHT_NAME}) {
       background-color: var(--highlight-tts, #c7f9cc);
+      color: inherit;
+    }
+
+    ::highlight(${TTS_WORD_HIGHLIGHT_NAME}) {
+      background-color: var(--highlight-tts-word, #86efac);
       color: inherit;
     }
   `

@@ -1062,6 +1062,9 @@ export function useAudiobookManager({
     ttsHighlight: {
       enabled: Boolean(ttsState.currentText),
       currentChunkIndex: ttsState.currentChunkIndex,
+      currentChunkTime: ttsState.currentChunkTime,
+      currentChunkDuration: ttsState.currentChunkDuration,
+      isPlaying: ttsState.status === 'playing',
       chunks: ttsHighlightChunks,
       allowDomFallback: Boolean(selectedDoc && isUserUploadUrl(selectedDoc)),
     },
