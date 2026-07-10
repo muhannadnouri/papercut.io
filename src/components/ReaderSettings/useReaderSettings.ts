@@ -41,7 +41,7 @@ export const DEFAULT_READER_SETTINGS: ReaderSettingsState = {
 export const READER_SETTING_LIMITS = {
   fontSizePx: { min: 8, max: 24, step: 1, suffix: 'px' },
   lineHeight: { min: 0.5, max: 2.2, step: 0.05, suffix: '' },
-  widthCh: { min: 40, max: 100, step: 4, suffix: 'ch' },
+  widthCh: { min: 40, max: 200, step: 4, suffix: 'ch' },
 } satisfies Record<'fontSizePx' | 'lineHeight' | 'widthCh', ReaderRangeConfig>
 
 export const FONT_FAMILY_OPTIONS = [
