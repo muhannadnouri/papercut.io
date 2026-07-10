@@ -220,6 +220,7 @@ Update these files:
 - `src-tauri/tauri.conf.json` — Tauri app/bundle version used by installers.
 - `src-tauri/Cargo.toml` — Rust crate version.
 - `src-tauri/Cargo.lock` — refreshed if Cargo records the local crate version change.
+- `src-tauri/gen/apple/project.yml` and `src-tauri/gen/apple/app_iOS/Info.plist` — committed iOS project marketing/build versions.
 
 Suggested flow:
 
