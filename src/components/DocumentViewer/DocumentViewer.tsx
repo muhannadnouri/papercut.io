@@ -22,6 +22,10 @@ interface TtsHighlightOptions {
   currentChunkIndex: number | null
   chunks: TtsChunk[]
   allowDomFallback?: boolean
+  currentChunkTime?: number
+  currentChunkDuration?: number
+  isPlaying?: boolean
+  wordHighlightEnabled?: boolean
 }
 
 interface DocumentViewerProps {

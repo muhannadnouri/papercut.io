@@ -22,10 +22,12 @@ interface AudioControlsProps {
   onSkipBackward: () => void
   onSkipForward: () => void
   onStop: () => void
+  onWordHighlightEnabledChange: (enabled: boolean) => void
   playbackDurationSec?: number
   playbackNotice?: string
   playbackRate: number
   ttsState: TtsPlayerState
+  wordHighlightEnabled: boolean
 }
 
 type AudioIconName = 'play' | 'pause' | 'resume' | 'stop' | 'back' | 'forward' | 'save' | 'menu'
@@ -49,11 +51,14 @@ export function AudioControls({
   onSkipBackward,
   onSkipForward,
   onStop,
+  onWordHighlightEnabledChange,
   playbackDurationSec,
   playbackNotice,
   playbackRate,
   ttsState,
+  wordHighlightEnabled,
 }: AudioControlsProps) {
+  const controlsRef = useRef<HTMLElement | null>(null)
   const [chunkMenuOpen, setChunkMenuOpen] = useState(false)
   const isActive = ttsState.status === 'playing' ||
     ttsState.status === 'loading'
@@ -70,7 +75,7 @@ export function AudioControls({
     : visibleChunkIndex + 1
   const chunkTotal = ttsState.chunksTotal || Math.max(ttsState.chunksGenerated, ttsState.chunksPlayed)
   const chunkPercent = Math.round(ttsState.currentChunkProgress * 100)
-  const showChunkMenuButton = showFloatingPlayback && ttsState.chunkSummaries.length > 1
+  const showPlaybackMenuButton = showFloatingPlayback
   const showPlaybackStatus = ttsState.status !== 'idle'
   const playbackRateLabel = formatSpeedLabel(playbackRate)
 
@@ -83,8 +88,29 @@ export function AudioControls({
     onPlaybackRateChange(nextPlaybackRate(playbackRate))
   }, [onPlaybackRateChange, playbackRate])
 
+  useEffect(() => {
+    if (!chunkMenuOpen) return
+
+    function handlePointerDown(event: PointerEvent) {
+      const root = controlsRef.current
+      if (!root || root.contains(event.target as Node)) return
+      setChunkMenuOpen(false)
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setChunkMenuOpen(false)
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [chunkMenuOpen])
+
   return (
-    <section className="audio-controls" aria-label="Audiobook controls">
+    <section ref={controlsRef} className="audio-controls" aria-label="Audiobook controls">
       <div className="audio-compact-row">
         {!showFloatingPlayback && canPlayAudiobook && (
           <button className="audio-icon-btn audio-primary-btn" onClick={onRead} aria-label="Play saved audiobook" title="Play saved audiobook">
@@ -94,13 +120,15 @@ export function AudioControls({
         {!isPdf && renderSaveButton()}
       </div>
 
-      {showChunkMenuButton && chunkMenuOpen && (
+      {showPlaybackMenuButton && chunkMenuOpen && (
         <ChunkMenu
           chunks={ttsState.chunkSummaries}
           currentChunkIndex={ttsState.currentChunkIndex}
           chunksTotal={ttsState.chunksTotal}
           playbackDurationSec={playbackDurationSec}
+          wordHighlightEnabled={wordHighlightEnabled}
           onSelect={handleChunkSelect}
+          onWordHighlightEnabledChange={onWordHighlightEnabledChange}
         />
       )}
 
@@ -121,13 +149,13 @@ export function AudioControls({
           <button className="audio-icon-btn" onClick={onSkipForward} disabled={!canSkipForward} aria-label="Next audiobook chunk" title="Next chunk">
             <AudioIcon name="forward" />
           </button>
-          {showChunkMenuButton && (
+          {showPlaybackMenuButton && (
             <button
               className={'audio-icon-btn audio-menu-btn' + (chunkMenuOpen ? ' audio-menu-btn-open' : '')}
               onClick={() => setChunkMenuOpen((value) => !value)}
-              aria-label={chunkMenuOpen ? 'Hide audiobook chunk list' : 'Show audiobook chunk list'}
+              aria-label={chunkMenuOpen ? 'Hide playback menu' : 'Show playback menu'}
               aria-expanded={chunkMenuOpen}
-              title="Jump to chunk"
+              title="Playback menu"
             >
               <AudioIcon name="menu" />
             </button>
@@ -212,7 +240,9 @@ interface ChunkMenuProps {
   currentChunkIndex: number | null
   chunksTotal: number
   playbackDurationSec?: number
+  wordHighlightEnabled: boolean
   onSelect: (index: number) => void
+  onWordHighlightEnabledChange: (enabled: boolean) => void
 }
 
 const CHUNK_ROW_HEIGHT = 44
@@ -224,7 +254,9 @@ const ChunkMenu = memo(function ChunkMenu({
   currentChunkIndex,
   chunksTotal,
   playbackDurationSec,
+  wordHighlightEnabled,
   onSelect,
+  onWordHighlightEnabledChange,
 }: ChunkMenuProps) {
   const listRef = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
@@ -250,41 +282,57 @@ const ChunkMenu = memo(function ChunkMenu({
   }, [currentChunkIndex])
 
   return (
-    <div className="audio-chunk-menu" aria-label="Audiobook chunk list">
+    <div className="audio-chunk-menu" aria-label="Playback menu">
       <div className="audio-chunk-menu-header">
-        <span>Chapters</span>
-        <span>{chunks.length} chunks</span>
+        <span>Playback</span>
+        <button
+          type="button"
+          className="audio-word-highlight-toggle"
+          onClick={() => onWordHighlightEnabledChange(!wordHighlightEnabled)}
+          aria-pressed={wordHighlightEnabled}
+          aria-label={'Word highlight (experimental feature) is ' + (wordHighlightEnabled ? 'on' : 'off')}
+        >
+          Word Highlight <span className="audio-beta-tag">BETA</span>: {wordHighlightEnabled ? 'On' : 'Off'}
+        </button>
       </div>
-      <div
-        ref={listRef}
-        className="audio-chunk-list"
-        onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
-      >
-        <div className="audio-chunk-virtual-space" style={{ height: chunks.length * CHUNK_ROW_HEIGHT }}>
-          <div
-            className="audio-chunk-window"
-            style={{ transform: `translateY(${firstVisibleIndex * CHUNK_ROW_HEIGHT}px)` }}
-          >
-            {visibleChunks.map((chunk) => {
-              const isCurrent = chunk.index === currentChunkIndex
-              const estimatedStart = estimateChunkStart(chunk.index, chunksTotal, playbackDurationSec)
-              return (
-                <button
-                  key={chunk.chunkId}
-                  className={'audio-chunk-item' + (isCurrent ? ' audio-chunk-item-current' : '')}
-                  style={{ height: CHUNK_ROW_HEIGHT }}
-                  onClick={() => onSelect(chunk.index)}
-                  title={chunk.textPreview}
-                >
-                  <span className="audio-chunk-time">{estimatedStart === null ? '--:--' : formatTtsTime(estimatedStart)}</span>
-                  <span className="audio-chunk-text">{chunk.textPreview}</span>
-                  <span className="audio-chunk-number">{chunk.index + 1}</span>
-                </button>
-              )
-            })}
+      {chunks.length > 1 && (
+        <>
+          <div className="audio-chunk-menu-subheader">
+            <span>Jump To</span>
+            <span>{chunks.length} chunks</span>
           </div>
-        </div>
-      </div>
+          <div
+            ref={listRef}
+            className="audio-chunk-list"
+            onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+          >
+            <div className="audio-chunk-virtual-space" style={{ height: chunks.length * CHUNK_ROW_HEIGHT }}>
+              <div
+                className="audio-chunk-window"
+                style={{ transform: `translateY(${firstVisibleIndex * CHUNK_ROW_HEIGHT}px)` }}
+              >
+                {visibleChunks.map((chunk) => {
+                  const isCurrent = chunk.index === currentChunkIndex
+                  const estimatedStart = estimateChunkStart(chunk.index, chunksTotal, playbackDurationSec)
+                  return (
+                    <button
+                      key={chunk.chunkId}
+                      className={'audio-chunk-item' + (isCurrent ? ' audio-chunk-item-current' : '')}
+                      style={{ height: CHUNK_ROW_HEIGHT }}
+                      onClick={() => onSelect(chunk.index)}
+                      title={chunk.textPreview}
+                    >
+                      <span className="audio-chunk-time">{estimatedStart === null ? '--:--' : formatTtsTime(estimatedStart)}</span>
+                      <span className="audio-chunk-text" dir="auto">{chunk.textPreview}</span>
+                      <span className="audio-chunk-number">{chunk.index + 1}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 })

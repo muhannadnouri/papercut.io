@@ -74,6 +74,7 @@ export function useAudiobookManager({
   const [ttsVoice, setTtsVoice] = useState<TtsVoice>(initialAudioPreferences.voice)
   const [ttsSpeed, setTtsSpeed] = useState(DEFAULT_TTS_SPEED)
   const [ttsPlaybackRate, setTtsPlaybackRate] = useState(initialAudioPreferences.playbackRate)
+  const [ttsWordHighlightEnabled, setTtsWordHighlightEnabled] = useState(initialAudioPreferences.wordHighlightEnabled)
   const [ttsTextPreprocessor, setTtsTextPreprocessor] = useState<TextPreprocessorId>(initialAudioPreferences.textPreprocessor)
   const [ttsThreadCount, setTtsThreadCount] = useState(1)
   const [ttsCapabilities, setTtsCapabilities] = useState<NativeTtsCapabilities | null>(null)
@@ -398,6 +399,10 @@ export function useAudiobookManager({
   useEffect(() => {
     saveAudioPreferences({ playbackRate: ttsPlaybackRate })
   }, [ttsPlaybackRate])
+
+  useEffect(() => {
+    saveAudioPreferences({ wordHighlightEnabled: ttsWordHighlightEnabled })
+  }, [ttsWordHighlightEnabled])
 
   useEffect(() => {
     saveAudioPreferences({ audioSavedOnly })
@@ -1005,10 +1010,12 @@ export function useAudiobookManager({
       onSkipForward: skipTtsForward,
       onStop: stopTts,
       onPlaybackRateChange: setTtsPlaybackRate,
+      onWordHighlightEnabledChange: setTtsWordHighlightEnabled,
       playbackDurationSec: audioControlsAudiobookState.audioDurationSec,
       playbackNotice: importedHighlightPreparing ? 'Preparing highlights...' : undefined,
       playbackRate: ttsPlaybackRate,
       ttsState,
+      wordHighlightEnabled: ttsWordHighlightEnabled,
     },
     audioSetupProps: {
       appliedThreadCount: downloadAudiobookState.appliedThreadCount,
@@ -1062,6 +1069,10 @@ export function useAudiobookManager({
     ttsHighlight: {
       enabled: Boolean(ttsState.currentText),
       currentChunkIndex: ttsState.currentChunkIndex,
+      currentChunkTime: ttsState.currentChunkTime,
+      currentChunkDuration: ttsState.currentChunkDuration,
+      isPlaying: ttsState.status === 'playing',
+      wordHighlightEnabled: ttsWordHighlightEnabled,
       chunks: ttsHighlightChunks,
       allowDomFallback: Boolean(selectedDoc && isUserUploadUrl(selectedDoc)),
     },
