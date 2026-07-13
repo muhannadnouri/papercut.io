@@ -97,10 +97,7 @@ impl ModelDefinition {
         match self.backend {
             TtsModelBackend::SherpaOnnx => true,
             TtsModelBackend::SilmaSidecar => {
-                cfg!(all(
-                    any(target_os = "linux", target_os = "windows"),
-                    target_arch = "x86_64"
-                ))
+                cfg!(all(target_os = "linux", target_arch = "x86_64"))
             }
         }
     }
@@ -641,10 +638,7 @@ mod tests {
     fn silma_catalog_entry_is_dev_visible_and_release_gated() {
         let previous = std::env::var_os(SILMA_DEV_CATALOG_FLAG);
         std::env::remove_var(SILMA_DEV_CATALOG_FLAG);
-        if !cfg!(all(
-            any(target_os = "linux", target_os = "windows"),
-            target_arch = "x86_64"
-        )) {
+        if !cfg!(all(target_os = "linux", target_arch = "x86_64")) {
             assert!(model_definition(SILMA_MODEL_ID).is_err());
             assert!(visible_models().all(|item| item.id != SILMA_MODEL_ID));
             return;

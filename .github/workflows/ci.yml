@@ -444,10 +444,6 @@ jobs:
             runner: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             archive: papercut-silma-runtime-linux-x64-cpu.tar.bz2
-          - runtime_id: windows-x64-cpu
-            runner: windows-2022
-            target: x86_64-pc-windows-msvc
-            archive: papercut-silma-runtime-windows-x64-cpu.tar.bz2
     defaults:
       run:
         shell: bash

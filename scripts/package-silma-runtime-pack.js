@@ -6,6 +6,9 @@ import { runSync } from "./lib/process.js"
 
 const options = parseArgs(process.argv.slice(2))
 const target = options.target ?? currentTargetTriple()
+if (target !== "x86_64-unknown-linux-gnu") {
+  fail("Unsupported SILMA runtime target: " + target + ". SILMA runtime packs are currently Linux x64 only.")
+}
 const runtimeId = options.runtimeId ?? runtimeIdForTarget(target)
 const sourceDir =
   options.sourceDir ?? join(ROOT, "sidecars", "silma", "runtime", target, "onedir")
@@ -17,7 +20,7 @@ const archiveName = options.archiveName ?? "papercut-silma-runtime-" + runtimeId
 if (!archiveName.endsWith(".tar.bz2")) fail("--archive-name must end with .tar.bz2")
 const archivePath = join(outputDir, archiveName)
 const manifestPath = join(outputDir, archiveName.replace(/\.tar\.bz2$/, ".manifest.json"))
-const workerRelativePath = exeBase + "/" + exeBase + (target.includes("windows") ? ".exe" : "")
+const workerRelativePath = exeBase + "/" + exeBase
 
 if (!existsSync(join(sourceDir, workerRelativePath))) {
   fail("Missing prepared SILMA runtime worker at " + join(sourceDir, workerRelativePath))
@@ -91,24 +94,16 @@ function currentTargetTriple() {
   const platform = process.platform
   const arch = process.arch
   if (platform === "linux" && arch === "x64") return "x86_64-unknown-linux-gnu"
-  if (platform === "darwin" && arch === "x64") return "x86_64-apple-darwin"
-  if (platform === "darwin" && arch === "arm64") return "aarch64-apple-darwin"
-  if (platform === "win32" && arch === "x64") return "x86_64-pc-windows-msvc"
-  fail("Unsupported SILMA runtime target: " + platform + "/" + arch + ". Pass --target.")
+  fail("Unsupported SILMA runtime target: " + platform + "/" + arch + ". SILMA runtime packs are currently Linux x64 only.")
 }
 
 function runtimeIdForTarget(target) {
   if (target === "x86_64-unknown-linux-gnu") return "linux-x64-cpu"
-  if (target === "x86_64-apple-darwin") return "macos-x64-cpu"
-  if (target === "aarch64-apple-darwin") return "macos-aarch64-cpu"
-  if (target === "x86_64-pc-windows-msvc") return "windows-x64-cpu"
-  fail("No default runtime id for " + target + ". Pass --runtime-id.")
+  fail("No default runtime id for " + target + ". SILMA runtime packs are currently Linux x64 only.")
 }
 
 function platformForTarget(target) {
   if (target.includes("linux")) return "linux"
-  if (target.includes("apple-darwin")) return "macos"
-  if (target.includes("windows")) return "windows"
   return "unknown"
 }
 

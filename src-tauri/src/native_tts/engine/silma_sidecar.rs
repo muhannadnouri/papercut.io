@@ -224,6 +224,10 @@ struct SilmaLaunchCommand {
 
 /// Prefer explicit env overrides, then optional runtime packs, bundled resources, then the repo script.
 fn silma_launch_command(app: &tauri::AppHandle) -> Result<SilmaLaunchCommand, String> {
+    if !silma_supported_on_current_platform() {
+        return Err("SILMA runtime is currently supported on Linux x64 only".into());
+    }
+
     if let Ok(path) = std::env::var("PAPERCUT_SILMA_WORKER_BIN") {
         let worker_path = require_file("PAPERCUT_SILMA_WORKER_BIN", PathBuf::from(path))?;
         return Ok(SilmaLaunchCommand {
@@ -268,6 +272,16 @@ fn silma_launch_command(app: &tauri::AppHandle) -> Result<SilmaLaunchCommand, St
 
 /// Report whether SILMA can start without asking users for a Python install.
 pub(super) fn silma_runtime_status(app: &tauri::AppHandle) -> SilmaRuntimeStatus {
+    if !silma_supported_on_current_platform() {
+        return SilmaRuntimeStatus {
+            installed: false,
+            runtime_dir: None,
+            install_supported: false,
+            archive_bytes: 0,
+            message: "SILMA runtime is currently supported on Linux x64 only".into(),
+        };
+    }
+
     if let Ok(path) = std::env::var("PAPERCUT_SILMA_WORKER_BIN") {
         let path = PathBuf::from(path);
         return SilmaRuntimeStatus {
@@ -743,12 +757,6 @@ fn runtime_pack_work_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 fn runtime_pack_id() -> &'static str {
     if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
         "linux-x64-cpu"
-    } else if cfg!(all(target_os = "windows", target_arch = "x86_64")) {
-        "windows-x64-cpu"
-    } else if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
-        "macos-aarch64-cpu"
-    } else if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
-        "macos-x64-cpu"
     } else {
         "unsupported"
     }
@@ -760,22 +768,11 @@ fn runtime_pack_worker_relative_path() -> Option<PathBuf> {
             "silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu",
         ));
     }
-    if cfg!(all(target_os = "windows", target_arch = "x86_64")) {
-        return Some(PathBuf::from(
-            "silma-worker-x86_64-pc-windows-msvc/silma-worker-x86_64-pc-windows-msvc.exe",
-        ));
-    }
-    if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
-        return Some(PathBuf::from(
-            "silma-worker-aarch64-apple-darwin/silma-worker-aarch64-apple-darwin",
-        ));
-    }
-    if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
-        return Some(PathBuf::from(
-            "silma-worker-x86_64-apple-darwin/silma-worker-x86_64-apple-darwin",
-        ));
-    }
     None
+}
+
+fn silma_supported_on_current_platform() -> bool {
+    cfg!(all(target_os = "linux", target_arch = "x86_64"))
 }
 
 /// Recursively copy the PyInstaller onedir without pulling in another dependency.

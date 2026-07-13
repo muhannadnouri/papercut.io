@@ -19,8 +19,8 @@ Use a bundled desktop sidecar for SILMA first.
 - Download SILMA model files on demand, pinned by revision and verified by hash.
 - Do not bundle SILMA weights in app installers.
 - Do not support Android or iOS sidecar execution.
-- Do not advertise SILMA on macOS until the upstream Python dependency stack
-  installs cleanly there.
+- Ship SILMA only on Linux x64 until the upstream Python dependency stack
+  installs cleanly on Windows and macOS.
 - Do not introduce a general plugin system, remote service mode, or arbitrary
   user Python environment.
 
@@ -411,27 +411,20 @@ Runtime pack location:
 <app-data>/runtimes/silma/<runtime-id>/current/
 ```
 
-Runtime ids:
+Runtime id:
 
 ```text
 linux-x64-cpu
-macos-aarch64-cpu
-macos-x64-cpu
-windows-x64-cpu
 ```
 
-CI currently builds `linux-x64-cpu` and `windows-x64-cpu`. The macOS runtime ids
-are disabled metadata placeholders, and the native model catalog hides SILMA on
-macOS, until the SILMA Python dependency stack has installable macOS wheels for
-the required packages.
+CI currently builds only `linux-x64-cpu`. The native model catalog hides SILMA
+on Windows, macOS, Android, and iOS until the upstream Python dependency stack
+has a supported install path there.
 
 Expected worker paths inside runtime packs:
 
 ```text
 silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu
-silma-worker-aarch64-apple-darwin/silma-worker-aarch64-apple-darwin
-silma-worker-x86_64-apple-darwin/silma-worker-x86_64-apple-darwin
-silma-worker-x86_64-pc-windows-msvc/silma-worker-x86_64-pc-windows-msvc.exe
 ```
 
 SILMA worker launch order is now:
@@ -488,8 +481,8 @@ sidecars/silma/runtime/x86_64-unknown-linux-gnu/archive/papercut-silma-runtime-l
 sidecars/silma/runtime/x86_64-unknown-linux-gnu/archive/papercut-silma-runtime-linux-x64-cpu.manifest.json
 ```
 
-The CI runtime-pack matrix writes the same archive/manifest pair under each
-target's `sidecars/silma/runtime/<target>/archive/` directory.
+The CI runtime-pack job writes the same archive/manifest pair under
+`sidecars/silma/runtime/x86_64-unknown-linux-gnu/archive/`.
 
 Release runtime-pack metadata lives in:
 
@@ -515,21 +508,19 @@ This rewrites the matching `runtimeId` entry in
 
 CI runtime-pack build:
 
-- `.github/workflows/silma-runtime.yml` builds Linux x64 and Windows x64 CPU
-  runtime packs as Actions artifacts without running `npm run desktop`;
+- `.github/workflows/silma-runtime.yml` builds the Linux x64 CPU runtime pack
+  as an Actions artifact without running `npm run desktop`;
 - this avoids the `linuxdeploy` failure path because the Python/PyTorch runtime
   is never placed inside the AppImage/deb/rpm bundle;
 - PR validation: `.github/workflows/ci.yml` also builds and uploads the same
-  runtime-pack matrix when SILMA runtime files, packaging scripts, runtime
+  Linux runtime pack when SILMA runtime files, packaging scripts, runtime
   metadata, or related workflows changed, so artifacts can be downloaded before
   the manual workflow lands on the default branch;
-- macOS runtime-pack CI is intentionally disabled for now. On macOS, the
-  upstream SILMA dependency chain currently fails before packaging: `catt_tashkeel`
-  requests `onnxruntime-gpu>=1.22.0`, which has no macOS wheel in the tested
-  runner environment, and macOS x64 also hit required TorchVision wheel
-  availability issues. See `docs/silma-macos-runtime-dependency-report.md`.
-  Do not re-enable macOS runtime packs or advertise SILMA on macOS until the
-  dependency install is proven on the target runner;
+- Windows and macOS runtime-pack CI is intentionally disabled for now. The
+  upstream SILMA dependency chain currently fails before packaging on those
+  platforms. See `docs/silma-runtime-dependency-report.md`. Do not re-enable
+  Windows/macOS runtime packs or advertise SILMA there until upstream provides a
+  supported dependency path;
 - PR CI cancels older in-progress runs for the same PR so the expensive desktop,
   mobile, and SILMA runtime jobs do not keep burning minutes after a newer push;
 - pass `tag` to make the generated manifest use the predictable GitHub Release
@@ -562,8 +553,7 @@ Manual CI validation scopes:
 - `cheap`: lint, frontend build, and worker self-tests only;
 - `desktop`: cheap checks plus Linux, Windows, and macOS desktop packaging;
 - `mobile`: cheap checks plus Android and iOS packaging checks;
-- `silma-runtime`: cheap checks plus the Linux/Windows SILMA runtime-pack
-  artifact matrix;
+- `silma-runtime`: cheap checks plus the Linux x64 SILMA runtime-pack artifact;
 - `full`: all of the above.
 
 Each archive must extract so `current/` contains the expected worker path for
@@ -571,9 +561,6 @@ that platform:
 
 ```text
 silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu
-silma-worker-aarch64-apple-darwin/silma-worker-aarch64-apple-darwin
-silma-worker-x86_64-apple-darwin/silma-worker-x86_64-apple-darwin
-silma-worker-x86_64-pc-windows-msvc/silma-worker-x86_64-pc-windows-msvc.exe
 ```
 
 ## Diagnostics and Troubleshooting
@@ -674,27 +661,19 @@ Minimal local review before release artifacts exist:
 
 ## Desktop Platform Notes
 
-macOS:
-
-- sign every Mach-O binary and dylib in the sidecar directory;
-- include sidecar signing in the existing macOS release flow;
-- notarize the final app;
-- validate both Apple Silicon and Intel builds;
-- expect PyTorch/Python signing wrinkles.
-
-Windows:
-
-- build a Windows sidecar on Windows;
-- sign the sidecar executable;
-- test installer upgrade behavior;
-- expect occasional antivirus false positives with Python-packaged ML apps.
-
 Linux:
 
 - build on a conservative distro/container;
 - validate AppImage library loading;
 - check whether bundled PyTorch libraries conflict with system libraries;
 - keep the worker isolated from sherpa shared libraries.
+
+Windows and macOS:
+
+- SILMA is hidden on these platforms for now;
+- dependency installation fails before packaging starts;
+- use `docs/silma-runtime-dependency-report.md` when reporting upstream;
+- revisit only after upstream documents a supported dependency path.
 
 ## Rust Integration Tasks
 
@@ -1072,9 +1051,8 @@ Stage 2 SILMA synthesis status:
 - [x] Add app-data SILMA runtime-pack detection before implementing runtime
       downloads.
 - [ ] Keep Android and iOS build scripts untouched except for explicit exclusion.
-- [ ] Add CI smoke checks for sidecar presence in desktop bundles.
-- [ ] Extend macOS verification to check sidecar signing.
-- [ ] Extend release notes/build docs with SILMA desktop-only support.
+- [ ] Add CI smoke checks for Linux SILMA runtime-pack archives.
+- [ ] Extend release notes/build docs with SILMA Linux-only support.
 
 ## Security And Policy Tasks
 
@@ -1118,9 +1096,6 @@ Performance tests:
 
 Platform tests:
 
-- [ ] macOS Apple Silicon dev build;
-- [ ] macOS Intel release build if still supported;
-- [ ] Windows x64 release build;
 - [ ] Linux AppImage/deb/rpm behavior;
 - [ ] app upgrade with existing downloaded SILMA model;
 - [ ] app upgrade with existing downloaded SILMA runtime pack;
@@ -1199,8 +1174,8 @@ Exit criteria:
 - [x] Add SILMA runtime-pack download support behind checked release metadata.
 - [x] Add release helper to update checked runtime metadata from the packaged
       artifact.
-- [x] Add CI workflow to build desktop SILMA runtime packs as separate
-      artifacts.
+- [x] Add CI workflow to build the Linux SILMA runtime pack as a separate
+      artifact.
 - [ ] Fill checked SILMA runtime-pack release metadata.
 - [x] Add SILMA model-file in-app install support.
 - [x] Pin model-file source revision and hashes.
@@ -1221,7 +1196,7 @@ Exit criteria:
       every package format while iterating.
 - [x] Decide to keep SILMA out of ordinary desktop installers and use an
       optional runtime pack instead.
-- [x] Add separate CI packaging for desktop SILMA runtime packs.
+- [x] Add separate CI packaging for the Linux SILMA runtime pack.
 - [x] Cancel stale PR CI runs when a newer push arrives for the same PR.
 - [x] Run the temporary PR SILMA runtime-pack build only when SILMA runtime
       files, packaging scripts, runtime metadata, or related workflows changed.
@@ -1229,17 +1204,16 @@ Exit criteria:
       packaging jobs.
 - [x] Add manual PR validation scopes for cheap, desktop, mobile, SILMA runtime,
       or full CI.
-- [ ] Bundle sidecar dependencies correctly on each desktop OS.
-- [ ] Reduce sidecar size or move SILMA to an optional runtime download before
-      enabling it in ordinary release installers.
-- [ ] Sign/notarize macOS bundle.
-- [ ] Sign Windows sidecar/app.
+- [x] Move SILMA to an optional runtime download instead of enabling it in
+      ordinary release installers.
+- [ ] Bundle sidecar dependencies correctly in the Linux runtime pack.
 - [ ] Verify Linux bundles.
+- [ ] Revisit Windows/macOS runtime packs after upstream dependency fixes.
 
 Exit criteria:
 
-- clean install works on each supported desktop OS;
-- release artifacts include sidecar checks.
+- clean install works on Linux x64;
+- Linux release artifacts include sidecar checks.
 
 ### Stage 5: Product Polish
 
