@@ -216,7 +216,7 @@ SILMA-specific additions:
 - pin a Hugging Face revision, not just a moving branch;
 - verify each required file or verify one archive we control;
 - expect large downloads;
-- consider resumable/range downloads after the first successful desktop spike;
+- resume interrupted/range downloads for large model files;
 - store under `models/silma-tts/<model-directory>/`, using the same backend
   directory hook that keeps existing sherpa models under `models/sherpa-onnx`.
 
@@ -225,9 +225,15 @@ Required files are expected to include at least:
 - `model.pt`
 - `vocab.txt`
 
-The current dev-only local detection validates only those two files because the
-official worker path resolves them directly. Add `config.yaml` or other F5
-runtime files here only after the packaged sidecar proves it needs them.
+The current installer downloads only those two files because the official worker
+path resolves them directly. Add `config.yaml` or other F5 runtime files here
+only after the packaged sidecar proves it needs them.
+
+Current pinned SILMA model revision:
+
+```text
+d2515317033803648ecb8844765db9e583afecf9
+```
 
 If downloading individual Hugging Face files is fragile, create a pinned release
 archive in Papercut-controlled release storage that contains only upstream SILMA
@@ -538,14 +544,13 @@ Hidden SILMA catalog status:
 - Dev flag: `PAPERCUT_ENABLE_SILMA_TTS`
 
 The entry is not advertised in normal capabilities. With the dev flag set on a
-desktop build it can appear in the catalog for metadata testing, but the current
-installer deliberately rejects it because SILMA model download/install is a
-separate stage.
+desktop build it can appear in the catalog. The install button installs the
+missing SILMA piece in order: runtime pack first, then pinned model files.
 
 Model status now detects a manually populated
 `models/silma-tts/silma-tts/` directory, reports the expected local path when
-files are missing, and marks app install as unsupported so the frontend does
-not offer the sherpa archive downloader for SILMA.
+files are missing, and offers the SILMA-specific installer instead of the
+sherpa archive downloader.
 
 Model status also detects whether a SILMA runtime is available from dev env
 settings, the app-data runtime pack, the packaging-spike bundled resource, or
@@ -556,6 +561,8 @@ During development, `PAPERCUT_SILMA_MODEL_DIR` can point at the official SILMA
 Hugging Face cache root, for example `./.cache/silma-tts`. The status/runtime
 checks search that directory recursively for `model.pt` and `vocab.txt`, because
 the official downloader stores files under `models--silma-ai--silma-tts/...`.
+The app-owned installer stores those files directly under
+`models/silma-tts/silma-tts/`.
 
 ## Python Worker Tasks
 
@@ -938,10 +945,10 @@ Exit criteria:
 - [x] Add release helper to update checked runtime metadata from the packaged
       artifact.
 - [ ] Fill checked SILMA runtime-pack release metadata.
-- [ ] Add SILMA model-file in-app install support.
-- [ ] Pin model-file source revision and hashes.
-- [ ] Download model files to app data.
-- [ ] Validate required files.
+- [x] Add SILMA model-file in-app install support.
+- [x] Pin model-file source revision and hashes.
+- [x] Download model files to app data.
+- [x] Validate required files.
 
 Exit criteria:
 

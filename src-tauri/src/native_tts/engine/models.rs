@@ -524,7 +524,7 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         source_label: "silma-ai/silma-tts",
         source_url: "https://huggingface.co/silma-ai/silma-tts",
         sha256: "",
-        archive_bytes: 0,
+        archive_bytes: 2_603_245_629,
         model_file: "model.pt",
         required_files: SILMA_REQUIRED_FILES,
         default_voice: "silma-ar-default",
