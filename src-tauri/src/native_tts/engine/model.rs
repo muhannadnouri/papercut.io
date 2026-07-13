@@ -21,7 +21,10 @@ use tauri::Emitter;
 
 use super::config::MODEL_INSTALL_PROGRESS_EVENT;
 use super::models::{model_definition, visible_models, ModelDefinition, TtsModelBackend};
-use super::paths::{directory_size, installed_model_dir, model_work_dir, resolve_model_dir};
+use super::paths::{
+    directory_size, has_required_model_files, installed_model_dir, model_work_dir,
+    resolve_model_dir, runtime_model_dir,
+};
 use crate::native_tts::platform::{default_thread_count, max_thread_count};
 use crate::native_tts::state::NativeTtsState;
 use crate::native_tts::types::{
@@ -69,8 +72,8 @@ pub(crate) fn model_status(
         .lock()
         .map(|guard| guard.contains(model.directory_name))
         .unwrap_or(false);
-    match installed_model_dir(&app, model) {
-        Ok(model_dir) if model.has_required_files(&model_dir) => NativeTtsModelStatus {
+    match runtime_model_dir(&app, model) {
+        Ok(model_dir) if has_required_model_files(model, &model_dir) => NativeTtsModelStatus {
             model_id: model.id.into(),
             installed: true,
             installing,
@@ -123,7 +126,7 @@ pub(crate) async fn install_model(
 ) -> Result<NativeTtsModelInstallResponse, String> {
     let model = model_definition(&model_id)?;
     if !matches!(model.backend, TtsModelBackend::SherpaOnnx) {
-        let model_dir = installed_model_dir(&app, model)?;
+        let model_dir = runtime_model_dir(&app, model)?;
         return Err(format!(
             "{} uses the SILMA sidecar backend; app download is not implemented yet. Place {} in {}.",
             model.display_name,

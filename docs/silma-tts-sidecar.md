@@ -345,6 +345,7 @@ Linux:
       `synth.rs`.
 - [x] Add a minimal `SilmaSidecar` JSONL process wrapper for local worker
       request/response calls.
+- [x] Add `LoadedTtsEngine::Silma` and a dev `load_model` route.
 - [ ] Add `SilmaSidecar` process supervision:
       - spawn;
       - health check;
@@ -365,9 +366,9 @@ their public IDs and installed paths, while future SILMA entries can use
 `models/silma-tts` storage prefix without pretending to be a sherpa family.
 
 Runtime slot status: `NativeTtsState` now stores one `LoadedTtsEngine` enum.
-The only implemented variant is `Sherpa`, and `ensure_sherpa_engine` rejects
-SILMA with a clear "sidecar synthesis is not wired yet" error. Add the SILMA
-variant only when the sidecar can synthesize audiobook chunks.
+`Sherpa` remains the only audiobook synthesis route. `Silma` can start the
+worker, call `load_model`, and keep the sidecar resident, but the save loop does
+not call SILMA chunk synthesis yet.
 
 Hidden SILMA catalog status:
 
@@ -386,6 +387,11 @@ Model status now detects a manually populated
 `models/silma-tts/silma-tts/` directory, reports the expected local path when
 files are missing, and marks app install as unsupported so the frontend does
 not offer the sherpa archive downloader for SILMA.
+
+During development, `PAPERCUT_SILMA_MODEL_DIR` can point at the official SILMA
+Hugging Face cache root, for example `./.cache/silma-tts`. The status/runtime
+checks search that directory recursively for `model.pt` and `vocab.txt`, because
+the official downloader stores files under `models--silma-ai--silma-tts/...`.
 
 ## Python Worker Tasks
 
@@ -452,6 +458,13 @@ The run warned that `ffmpeg`/`avconv` was not found, but this short reference
 path still completed. Keep the packaging decision open until sidecar packaging
 and longer reference-audio cases are tested.
 
+To reuse this downloaded cache from Rust dev commands:
+
+```bash
+PAPERCUT_SILMA_MODEL_DIR=./.cache/silma-tts
+PAPERCUT_SILMA_PYTHON=./.venv-silma/bin/python
+```
+
 Stage 1 probe command:
 
 - Tauri command: `tts_probe_silma_sidecar`
@@ -469,6 +482,16 @@ SILMA model-load test. This probe uses Rust-owned `std::process::Command`
 instead of Tauri's shell plugin. The process wrapper now keeps stdin/stdout open
 for sequential JSONL request/response calls; production sidecar packaging,
 timeouts, and crash recovery remain later stages.
+
+Stage 2 load helper:
+
+- Runtime slot variant: `LoadedTtsEngine::Silma`
+- Loader: `ensure_silma_engine`
+- Worker request: `load_model`
+- Model dir override: `PAPERCUT_SILMA_MODEL_DIR`
+
+This keeps the worker resident after `load_model`, but is not yet connected to
+the audiobook chunk-generation loop.
 
 ## Frontend Tasks
 
@@ -556,8 +579,8 @@ Regression tests:
 ### Stage 0: Feasibility Spike
 
 - [x] Build a Python worker outside Tauri.
-- [ ] Synthesize one WAV with a local SILMA checkout/model.
-- [ ] Measure CPU RTF and memory on at least one real desktop.
+- [x] Synthesize one WAV with a local SILMA checkout/model.
+- [x] Measure CPU RTF on at least one real desktop.
 - [ ] Decide whether quality and speed justify app integration.
 
 Exit criteria:

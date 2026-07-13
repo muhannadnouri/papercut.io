@@ -21,6 +21,7 @@ use sherpa_onnx::{
 
 use super::models::{model_definition, ModelDefinition, SherpaModelFamily, TtsModelBackend};
 use super::paths::{audio_duration_sec, resolve_model_dir};
+use super::silma_sidecar::SilmaSidecar;
 use super::text_normalization::{normalize_english_synthesis_text, sanitize_tts_text};
 use super::wav_sink::{
     commit_synthesis_wav, write_silent_placeholder, FileSynthesisResult, SILENT_PLACEHOLDER_SEC,
@@ -37,10 +38,20 @@ pub(crate) struct SherpaTtsEngine {
     pub(super) num_threads: i32,
 }
 
-/// Single runtime engine slot. Only sherpa is implemented today; SILMA gets its
-/// own variant when the sidecar can synthesize audiobook chunks.
+/// Loaded SILMA worker plus the model directory it was initialized with.
+#[allow(dead_code)]
+pub(crate) struct SilmaTtsEngine {
+    pub(super) sidecar: SilmaSidecar,
+    pub(super) model: &'static ModelDefinition,
+    pub(super) model_dir: std::path::PathBuf,
+    pub(super) sample_rate: i32,
+}
+
+/// Single runtime engine slot. Only sherpa synthesis is implemented today; the
+/// SILMA variant proves load/retention before chunk generation is wired.
 pub(crate) enum LoadedTtsEngine {
     Sherpa(SherpaTtsEngine),
+    Silma(SilmaTtsEngine),
 }
 
 impl LoadedTtsEngine {
@@ -50,6 +61,20 @@ impl LoadedTtsEngine {
         match self {
             LoadedTtsEngine::Sherpa(engine)
                 if engine.model.id == model_id && engine.num_threads == threads =>
+            {
+                Some(engine)
+            }
+            _ => None,
+        }
+    }
+
+    /// Return the loaded SILMA worker only when it matches the requested model
+    /// and model directory; otherwise the caller must start/load a fresh worker.
+    #[allow(dead_code)]
+    fn matching_silma(&self, model_id: &str, model_dir: &Path) -> Option<&SilmaTtsEngine> {
+        match self {
+            LoadedTtsEngine::Silma(engine)
+                if engine.model.id == model_id && engine.model_dir.as_path() == model_dir =>
             {
                 Some(engine)
             }
@@ -96,6 +121,43 @@ pub(super) fn ensure_sherpa_engine<'a>(
         .as_ref()
         .and_then(|engine| engine.matching_sherpa(model.id, requested_threads))
         .ok_or_else(|| "Native sherpa TTS engine unavailable".to_string())
+}
+
+/// Start/load a SILMA worker into the shared engine slot.
+#[allow(dead_code)]
+pub(super) fn ensure_silma_engine<'a>(
+    app: &tauri::AppHandle,
+    guard: &'a mut Option<LoadedTtsEngine>,
+    model_id: &str,
+) -> Result<&'a SilmaTtsEngine, String> {
+    let model = model_definition(model_id)?;
+    if !matches!(model.backend, TtsModelBackend::SilmaSidecar) {
+        return Err(format!(
+            "{} is not a SILMA sidecar model",
+            model.display_name
+        ));
+    }
+    let model_dir = resolve_model_dir(app, model)?;
+    let should_create = guard
+        .as_ref()
+        .and_then(|engine| engine.matching_silma(model.id, &model_dir))
+        .is_none();
+
+    if should_create {
+        let mut sidecar = SilmaSidecar::start_dev()?;
+        let sample_rate = sidecar.load_model(&model_dir)?;
+        *guard = Some(LoadedTtsEngine::Silma(SilmaTtsEngine {
+            sidecar,
+            model,
+            model_dir: model_dir.clone(),
+            sample_rate,
+        }));
+    }
+
+    guard
+        .as_ref()
+        .and_then(|engine| engine.matching_silma(model.id, &model_dir))
+        .ok_or_else(|| "Native SILMA sidecar engine unavailable".to_string())
 }
 
 /// Synthesize `text` straight to `output_path` (for saving). Writes to a temp

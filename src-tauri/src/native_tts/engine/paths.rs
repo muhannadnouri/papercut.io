@@ -17,7 +17,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Manager;
 
 use super::config::CACHE_VERSION;
-use super::models::ModelDefinition;
+use super::models::{ModelDefinition, TtsModelBackend};
 use crate::native_tts::types::NativeTtsInputChunk;
 
 /// Where the installed voice model lives permanently: `<app-data>/models/...`.
@@ -33,6 +33,28 @@ pub(super) fn installed_model_dir(
         .join("models")
         .join(model.model_storage_dir_name())
         .join(model.directory_name))
+}
+
+/// Runtime directory used by an engine. SILMA can point at an official
+/// Hugging Face cache root during development; packaged install will later make
+/// this an app-owned path like sherpa.
+pub(super) fn runtime_model_dir(
+    app: &tauri::AppHandle,
+    model: &ModelDefinition,
+) -> Result<PathBuf, String> {
+    if matches!(model.backend, TtsModelBackend::SilmaSidecar) {
+        if let Ok(path) = std::env::var("PAPERCUT_SILMA_MODEL_DIR") {
+            let path = PathBuf::from(path);
+            if path.is_dir() {
+                return Ok(path);
+            }
+            return Err(format!(
+                "PAPERCUT_SILMA_MODEL_DIR does not point to a directory: {}",
+                path.display()
+            ));
+        }
+    }
+    installed_model_dir(app, model)
 }
 
 /// Scratch directory used only while downloading/extracting the model. Prefers
@@ -58,8 +80,8 @@ pub(super) fn resolve_model_dir(
     app: &tauri::AppHandle,
     model: &ModelDefinition,
 ) -> Result<PathBuf, String> {
-    let model_dir = installed_model_dir(app, model)?;
-    if model.has_required_files(&model_dir) {
+    let model_dir = runtime_model_dir(app, model)?;
+    if has_required_model_files(model, &model_dir) {
         return Ok(model_dir);
     }
 
@@ -68,6 +90,33 @@ pub(super) fn resolve_model_dir(
         model.display_name,
         model_dir.display()
     ))
+}
+
+/// Return true when a runtime model directory has the files the backend needs.
+pub(super) fn has_required_model_files(model: &ModelDefinition, dir: &Path) -> bool {
+    if matches!(model.backend, TtsModelBackend::SilmaSidecar) {
+        return model
+            .required_files
+            .iter()
+            .all(|file_name| contains_file_named(dir, file_name));
+    }
+    model.has_required_files(dir)
+}
+
+fn contains_file_named(dir: &Path, file_name: &str) -> bool {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return false;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file() && path.file_name().and_then(|name| name.to_str()) == Some(file_name) {
+            return true;
+        }
+        if path.is_dir() && contains_file_named(&path, file_name) {
+            return true;
+        }
+    }
+    false
 }
 
 /// Directory holding one saved audiobook's chunk WAVs. The audiobook id is

@@ -6,7 +6,7 @@
 //! later.
 
 use std::io::{BufRead, BufReader, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
 use serde_json::Value;
@@ -83,6 +83,19 @@ impl SilmaSidecar {
             return Err(format!("SILMA worker request failed: {response}"));
         }
         Ok(response)
+    }
+
+    /// Load SILMA once in the worker and return the sample rate it reports.
+    pub(super) fn load_model(&mut self, model_dir: &Path) -> Result<i32, String> {
+        let response = self.request(serde_json::json!({
+            "id": "load_model",
+            "op": "load_model",
+            "model_dir": model_dir.display().to_string(),
+        }))?;
+        Ok(response
+            .get("sample_rate")
+            .and_then(Value::as_i64)
+            .unwrap_or(24_000) as i32)
     }
 
     /// Ask the worker to exit and wait for it, surfacing abnormal status.
