@@ -153,7 +153,7 @@ pub(super) fn ensure_silma_engine<'a>(
         .is_none();
 
     if should_create {
-        let mut sidecar = SilmaSidecar::start_dev()?;
+        let mut sidecar = SilmaSidecar::start(app)?;
         let load = sidecar.load_model(&model_dir, requested_threads)?;
         *guard = Some(LoadedTtsEngine::Silma(SilmaTtsEngine {
             sidecar,

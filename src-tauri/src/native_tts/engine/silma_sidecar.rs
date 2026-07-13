@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
 use serde_json::Value;
+use tauri::Manager;
 
 pub(super) struct SilmaSidecar {
     child: Child,
@@ -32,9 +33,9 @@ pub(super) struct SilmaLoadResult {
 }
 
 impl SilmaSidecar {
-    /// Start the local worker used by development probes and early routing.
-    pub(super) fn start_dev() -> Result<Self, String> {
-        let launch = silma_launch_command()?;
+    /// Start the SILMA worker, preferring explicit dev overrides and then a bundled resource.
+    pub(super) fn start(app: &tauri::AppHandle) -> Result<Self, String> {
+        let launch = silma_launch_command(app)?;
         let mut child = Command::new(&launch.program)
             .args(launch.args.iter().map(|arg| arg.as_os_str()))
             .stdin(Stdio::piped())
@@ -203,15 +204,36 @@ struct SilmaLaunchCommand {
     worker_path: PathBuf,
 }
 
-/// Prefer a packaged JSONL executable when supplied; otherwise use the editable
-/// Python worker script. This keeps packaging tests out of the normal dev path.
-fn silma_launch_command() -> Result<SilmaLaunchCommand, String> {
+/// Prefer explicit env overrides, then a bundled onedir executable, then the editable repo script.
+fn silma_launch_command(app: &tauri::AppHandle) -> Result<SilmaLaunchCommand, String> {
     if let Ok(path) = std::env::var("PAPERCUT_SILMA_WORKER_BIN") {
         let worker_path = require_file("PAPERCUT_SILMA_WORKER_BIN", PathBuf::from(path))?;
         return Ok(SilmaLaunchCommand {
             program: worker_path.clone(),
             args: Vec::new(),
             python_command: "<packaged>".into(),
+            worker_path,
+        });
+    }
+
+    if std::env::var_os("PAPERCUT_SILMA_WORKER").is_some()
+        || std::env::var_os("PAPERCUT_SILMA_PYTHON").is_some()
+    {
+        let worker_path = silma_worker_path()?;
+        let python_command = silma_python_command();
+        return Ok(SilmaLaunchCommand {
+            program: PathBuf::from(&python_command),
+            args: vec![worker_path.clone()],
+            python_command,
+            worker_path,
+        });
+    }
+
+    if let Some(worker_path) = bundled_worker_path(app)? {
+        return Ok(SilmaLaunchCommand {
+            program: worker_path.clone(),
+            args: Vec::new(),
+            python_command: "<bundled>".into(),
             worker_path,
         });
     }
@@ -226,8 +248,7 @@ fn silma_launch_command() -> Result<SilmaLaunchCommand, String> {
     })
 }
 
-/// Resolve the dev worker script. Production packaging will replace this with a
-/// bundled sidecar/resource path, but the env override keeps local experiments cheap.
+/// Resolve the dev worker script. Env overrides keep local experiments cheap.
 fn silma_worker_path() -> Result<PathBuf, String> {
     if let Ok(path) = std::env::var("PAPERCUT_SILMA_WORKER") {
         return require_file("PAPERCUT_SILMA_WORKER", PathBuf::from(path));
@@ -242,6 +263,30 @@ fn silma_worker_path() -> Result<PathBuf, String> {
         return Ok(path);
     }
     Err(format!("SILMA worker not found at {}", path.display()))
+}
+
+fn bundled_worker_path(app: &tauri::AppHandle) -> Result<Option<PathBuf>, String> {
+    let Some(relative_path) = bundled_worker_relative_path() else {
+        return Ok(None);
+    };
+    let resource_dir = app
+        .path()
+        .resource_dir()
+        .map_err(|err| format!("Failed to resolve app resource dir for SILMA sidecar: {err}"))?;
+    let worker_path = resource_dir.join(relative_path);
+    if worker_path.is_file() {
+        return Ok(Some(worker_path));
+    }
+    Ok(None)
+}
+
+fn bundled_worker_relative_path() -> Option<PathBuf> {
+    if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+        return Some(PathBuf::from(
+            "silma-sidecar/silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu",
+        ));
+    }
+    None
 }
 
 fn require_file(var_name: &str, path: PathBuf) -> Result<PathBuf, String> {

@@ -31,7 +31,7 @@ pub(crate) fn probe_silma_sidecar(
     })?;
     let probe_wav_path = probe_dir.join("probe.wav");
 
-    let mut sidecar = SilmaSidecar::start_dev()?;
+    let mut sidecar = SilmaSidecar::start(&app)?;
     let worker_path = sidecar.worker_path.display().to_string();
     let python_command = sidecar.python_command.clone();
     let health = sidecar.request(json!({"id": "1", "op": "health"}))?;

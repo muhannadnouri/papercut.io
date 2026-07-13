@@ -314,6 +314,38 @@ Do not assume `externalBin` alone copies PyInstaller's whole `onedir`. If needed
 bundle the sidecar folder as a Tauri resource and spawn the executable from the
 resolved resource path.
 
+Linux packaging spike status:
+
+- `PAPERCUT_BUNDLE_SILMA_TTS=1 npm run desktop` stages the PyInstaller onedir
+  worker into `src-tauri/tts/runtime/silma-sidecar-linux-x64/` before Tauri
+  scans bundle resources.
+- `src-tauri/tauri.linux.conf.json` bundles that staged directory into the app
+  resource path `silma-sidecar/`.
+- Rust worker launch now checks, in order:
+  - `PAPERCUT_SILMA_WORKER_BIN`;
+  - explicit `PAPERCUT_SILMA_WORKER` or `PAPERCUT_SILMA_PYTHON`;
+  - bundled Linux resource executable;
+  - editable repo worker script.
+- Normal desktop builds keep an empty resource directory and do not build or
+  copy the large sidecar unless `PAPERCUT_BUNDLE_SILMA_TTS=1` is set.
+
+Linux packaged-sidecar validation command:
+
+```bash
+PAPERCUT_BUNDLE_SILMA_TTS=1 npm run desktop
+```
+
+Then launch the installed package or AppImage with only the runtime feature/model
+env vars, not Python worker env vars:
+
+```bash
+PAPERCUT_ENABLE_SILMA_TTS=1 \
+PAPERCUT_SILMA_MODEL_DIR="$PWD/.cache/silma-tts" \
+./path/to/Papercut*.AppImage
+```
+
+The diagnostics probe should report `pythonCommand: "<bundled>"`.
+
 ## Desktop Platform Notes
 
 macOS:
@@ -649,6 +681,8 @@ Stage 2 SILMA synthesis status:
       detected it without metadata.
 - [ ] Integrate sidecar prep into `scripts/build-desktop.js` behind a feature or
       build flag.
+- [x] Add opt-in Linux desktop resource staging for the PyInstaller onedir
+      sidecar with `PAPERCUT_BUNDLE_SILMA_TTS=1`.
 - [ ] Keep Android and iOS build scripts untouched except for explicit exclusion.
 - [ ] Add CI smoke checks for sidecar presence in desktop bundles.
 - [ ] Extend macOS verification to check sidecar signing.
@@ -775,7 +809,9 @@ Exit criteria:
 
 ### Stage 4: Production Packaging
 
-- [ ] Switch from onefile to onedir if needed.
+- [x] Switch from onefile to onedir after onefile extraction failed.
+- [x] Add opt-in Linux resource staging and runtime discovery for the onedir
+      sidecar.
 - [ ] Bundle sidecar dependencies correctly on each desktop OS.
 - [ ] Sign/notarize macOS bundle.
 - [ ] Sign Windows sidecar/app.
