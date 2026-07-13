@@ -15,6 +15,47 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      silma_runtime: ${{ steps.detect.outputs.silma_runtime }}
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Detect changed CI surfaces
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git rev-parse --verify HEAD^1 >/dev/null 2>&1; then
+            base=HEAD^1
+          else
+            git fetch --no-tags --depth=1 origin "$GITHUB_BASE_REF"
+            base=FETCH_HEAD
+          fi
+
+          changed="$(git diff --name-only "$base" HEAD)"
+          printf '%s\n' "$changed"
+
+          silma_runtime=false
+          while IFS= read -r path; do
+            case "$path" in
+              sidecars/silma/* | \
+              scripts/prepare-silma-sidecar.js | \
+              scripts/package-silma-runtime-pack.js | \
+              src-tauri/tts/silma-runtime-packs.json | \
+              .github/workflows/ci.yml | \
+              .github/workflows/silma-runtime.yml)
+                silma_runtime=true
+                ;;
+            esac
+          done <<< "$changed"
+          echo "silma_runtime=$silma_runtime" >> "$GITHUB_OUTPUT"
+
   build:
     strategy:
       fail-fast: false
@@ -267,7 +308,8 @@ jobs:
         run: npm run ios:ci:device
 
   build-silma-runtime:
-    if: contains(github.head_ref, 'silma')
+    needs: changes
+    if: needs.changes.outputs.silma_runtime == 'true'
     runs-on: ubuntu-24.04
 
     steps:

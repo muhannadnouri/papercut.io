@@ -500,9 +500,9 @@ CI runtime-pack build:
 - this avoids the `linuxdeploy` failure path because the Python/PyTorch runtime
   is never placed inside the AppImage/deb/rpm bundle;
 - temporary PR validation: `.github/workflows/ci.yml` also builds and uploads
-  `papercut-silma-runtime-linux-x64-cpu` for branches whose name contains
-  `silma`, so the artifact can be downloaded before the manual workflow lands
-  on the default branch;
+  `papercut-silma-runtime-linux-x64-cpu` when SILMA runtime files, packaging
+  scripts, runtime metadata, or related workflows changed, so the artifact can
+  be downloaded before the manual workflow lands on the default branch;
 - PR CI cancels older in-progress runs for the same PR so the expensive desktop,
   mobile, and SILMA runtime jobs do not keep burning minutes after a newer push;
 - pass `tag` to make the generated manifest use the predictable GitHub Release
@@ -512,6 +512,16 @@ CI runtime-pack build:
 - use the generated `.manifest.json` from CI to fill
   `src-tauri/tts/silma-runtime-packs.json` in a normal PR before enabling public
   runtime install for that release.
+
+Practical CI model:
+
+- always run cheap PR checks for lint, types, frontend build, and basic native
+  compile coverage;
+- gate expensive runtime-pack and platform packaging jobs from actual changed
+  files, not branch names;
+- keep full desktop/mobile/runtime artifact matrices for manual validation,
+  nightly checks, or release workflows;
+- use PR concurrency cancellation so superseded pushes stop spending minutes.
 
 The archive must extract so `current/` contains the expected worker path:
 
@@ -1150,6 +1160,11 @@ Exit criteria:
 - [x] Decide to keep SILMA out of ordinary desktop installers and use an
       optional runtime pack instead.
 - [x] Add separate CI packaging for the Linux x64 SILMA runtime pack.
+- [x] Cancel stale PR CI runs when a newer push arrives for the same PR.
+- [x] Run the temporary PR SILMA runtime-pack build only when SILMA runtime
+      files, packaging scripts, runtime metadata, or related workflows changed.
+- [ ] Split ordinary PR CI into cheap required checks and gated expensive
+      packaging jobs.
 - [ ] Bundle sidecar dependencies correctly on each desktop OS.
 - [ ] Reduce sidecar size or move SILMA to an optional runtime download before
       enabling it in ordinary release installers.
