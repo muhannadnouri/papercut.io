@@ -373,6 +373,7 @@ export function useAudiobookManager({
           setTtsVoice(metadata.voice as TtsVoice)
           setTtsTextPreprocessor(metadata.textPreprocessor)
           setTtsSpeed(metadata.speed)
+          setSilmaNfeStep(resolveSilmaNfeStep(metadata))
           setTtsSaveChunks(metadata.chunks)
           if (chunksHaveDurableSourceSpans(metadata.chunks)) {
             logTtsDiagnostic('[tts-highlight] imported durable source spans ready', {

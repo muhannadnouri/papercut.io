@@ -237,6 +237,8 @@ Current export disclosure:
   native save dialog.
 - Exported Papercut bundles include `silmaNfeStep` metadata so imported SILMA
   audiobooks restore the selected quality setting and cache identity.
+- Reopening an imported SILMA bundle restores that NFE value from native
+  metadata before checking saved-audio availability.
 
 ## Model Download
 
