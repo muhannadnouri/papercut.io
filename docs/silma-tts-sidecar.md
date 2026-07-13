@@ -464,6 +464,20 @@ npm run package:silma-runtime -- \
 This rewrites the matching `runtimeId` entry in
 `src-tauri/tts/silma-runtime-packs.json`.
 
+CI runtime-pack build:
+
+- `.github/workflows/silma-runtime.yml` builds the Linux x64 CPU runtime pack as
+  an Actions artifact without running `npm run desktop`;
+- this avoids the `linuxdeploy` failure path because the Python/PyTorch runtime
+  is never placed inside the AppImage/deb/rpm bundle;
+- pass `tag` to make the generated manifest use the predictable GitHub Release
+  URL;
+- set `upload_to_release` only after the release exists and you want the
+  workflow to attach the `.tar.bz2` and generated manifest to that release;
+- use the generated `.manifest.json` from CI to fill
+  `src-tauri/tts/silma-runtime-packs.json` in a normal PR before enabling public
+  runtime install for that release.
+
 The archive must extract so `current/` contains the expected worker path:
 
 ```text
@@ -944,6 +958,8 @@ Exit criteria:
 - [x] Add SILMA runtime-pack download support behind checked release metadata.
 - [x] Add release helper to update checked runtime metadata from the packaged
       artifact.
+- [x] Add CI workflow to build the Linux x64 SILMA runtime pack as a separate
+      artifact.
 - [ ] Fill checked SILMA runtime-pack release metadata.
 - [x] Add SILMA model-file in-app install support.
 - [x] Pin model-file source revision and hashes.
@@ -964,6 +980,7 @@ Exit criteria:
       every package format while iterating.
 - [x] Decide to keep SILMA out of ordinary desktop installers and use an
       optional runtime pack instead.
+- [x] Add separate CI packaging for the Linux x64 SILMA runtime pack.
 - [ ] Bundle sidecar dependencies correctly on each desktop OS.
 - [ ] Reduce sidecar size or move SILMA to an optional runtime download before
       enabling it in ordinary release installers.
