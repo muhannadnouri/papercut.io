@@ -358,6 +358,19 @@ their public IDs and installed paths, while future SILMA entries can use
 `TtsModelBackend::SilmaSidecar`, `TtsModelFamily::SilmaF5`, and the
 `models/silma-tts` storage prefix without pretending to be a sherpa family.
 
+Hidden SILMA catalog status:
+
+- Model id: `silma-ai/silma-tts`
+- Backend: `TtsModelBackend::SilmaSidecar`
+- Family: `TtsModelFamily::SilmaF5`
+- Storage prefix: `models/silma-tts`
+- Dev flag: `PAPERCUT_ENABLE_SILMA_TTS`
+
+The entry is not advertised in normal capabilities. With the dev flag set on a
+desktop build it can appear in the catalog for metadata testing, but the current
+installer deliberately rejects it because SILMA model download/install is a
+separate stage.
+
 ## Python Worker Tasks
 
 - [x] Create a minimal `silma_worker.py` that supports JSONL health/load/synth.
@@ -422,7 +435,9 @@ resolution remains a later stage.
 
 - [ ] Add SILMA model metadata to the TypeScript fallback catalog only after Rust
       capabilities can advertise it.
-- [ ] Show SILMA only when desktop sidecar support is available.
+- [x] Keep SILMA hidden by default and expose it only behind a desktop/dev
+      catalog flag.
+- [ ] Show SILMA in ordinary UI only when desktop sidecar support is complete.
 - [ ] Keep Android/iOS hidden or disabled with a clear native-unavailable reason.
 - [ ] Represent SILMA voices as reference voice profiles.
 - [ ] Ensure saved-audio filtering continues to include model id, voice id,
@@ -532,7 +547,7 @@ Linux machine is currently blocked before app code by missing
 ### Stage 2: Backend Integration
 
 - [ ] Add backend-aware loaded engine enum.
-- [ ] Add SILMA model catalog entry behind desktop feature gate.
+- [x] Add SILMA model catalog entry behind desktop feature gate.
 - [ ] Route save loop through shared synth-to-file boundary.
 - [ ] Reuse manifest/cache/export/playback.
 

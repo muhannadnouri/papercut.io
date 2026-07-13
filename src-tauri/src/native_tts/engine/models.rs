@@ -74,9 +74,25 @@ pub(super) struct ModelDefinition {
     pub(super) voices: &'static [VoiceDefinition],
     pub(super) default_text_preprocessor: &'static str,
     pub(super) text_preprocessors: &'static [TextPreprocessorDefinition],
+    pub(super) dev_catalog_flag: Option<&'static str>,
 }
 
 impl ModelDefinition {
+    /// Return whether this entry should be advertised to the UI catalog.
+    ///
+    /// Experimental sidecar models stay hidden unless an explicit developer flag
+    /// is present, and they are never advertised on mobile sidecar-less targets.
+    pub(super) fn is_catalog_visible(&self) -> bool {
+        if matches!(self.backend, TtsModelBackend::SilmaSidecar)
+            && cfg!(any(target_os = "android", target_os = "ios"))
+        {
+            return false;
+        }
+        self.dev_catalog_flag
+            .map(|flag| std::env::var_os(flag).is_some())
+            .unwrap_or(true)
+    }
+
     /// App-data subdirectory used for this backend's installed model files.
     pub(super) fn model_storage_dir_name(&self) -> &'static str {
         match self.backend {
@@ -330,10 +346,22 @@ const PIPER_KAREEM_VOICES: &[VoiceDefinition] = &[VoiceDefinition {
     speaker_id: 0,
 }];
 
+const SILMA_VOICES: &[VoiceDefinition] = &[VoiceDefinition {
+    id: "silma-ar-default",
+    name: "SILMA Arabic Reference",
+    speaker_id: 0,
+}];
+
 const IDENTITY_TEXT_PREPROCESSORS: &[TextPreprocessorDefinition] = &[TextPreprocessorDefinition {
     id: TEXT_PREPROCESSOR_NONE,
     name: "Original text",
     description: "Synthesize source text without language preprocessing.",
+}];
+
+const SILMA_TEXT_PREPROCESSORS: &[TextPreprocessorDefinition] = &[TextPreprocessorDefinition {
+    id: "silma-default",
+    name: "SILMA default",
+    description: "Use SILMA's default Arabic text processing before synthesis.",
 }];
 
 #[cfg(feature = "native-text-preprocessing-core")]
@@ -383,7 +411,11 @@ const PIPER_REQUIRED_FILES: &[&str] = &[
     "espeak-ng-data/ar_dict",
 ];
 
+const SILMA_REQUIRED_FILES: &[&str] = &["model.pt", "vocab.txt"];
+const SILMA_DEV_CATALOG_FLAG: &str = "PAPERCUT_ENABLE_SILMA_TTS";
+
 pub(super) const DEFAULT_MODEL_ID: &str = "sherpa-onnx/kokoro-multi-lang-v1_0";
+pub(super) const SILMA_MODEL_ID: &str = "silma-ai/silma-tts";
 
 pub(super) const MODELS: &[ModelDefinition] = &[
     ModelDefinition {
@@ -406,6 +438,7 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         voices: KOKORO_VOICES,
         default_text_preprocessor: TEXT_PREPROCESSOR_NONE,
         text_preprocessors: IDENTITY_TEXT_PREPROCESSORS,
+        dev_catalog_flag: None,
     },
     ModelDefinition {
         id: "sherpa-onnx/supertonic-3-en",
@@ -427,6 +460,7 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         voices: SUPERTONIC_VOICES,
         default_text_preprocessor: TEXT_PREPROCESSOR_NONE,
         text_preprocessors: IDENTITY_TEXT_PREPROCESSORS,
+        dev_catalog_flag: None,
     },
     ModelDefinition {
         id: "sherpa-onnx/supertonic-3-ar",
@@ -448,6 +482,7 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         voices: SUPERTONIC_VOICES,
         default_text_preprocessor: TEXT_PREPROCESSOR_NONE,
         text_preprocessors: IDENTITY_TEXT_PREPROCESSORS,
+        dev_catalog_flag: None,
     },
     ModelDefinition {
         id: "sherpa-onnx/vits-piper-ar_JO-kareem-medium",
@@ -469,8 +504,36 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         voices: PIPER_KAREEM_VOICES,
         default_text_preprocessor: PIPER_DEFAULT_TEXT_PREPROCESSOR,
         text_preprocessors: PIPER_TEXT_PREPROCESSORS,
+        dev_catalog_flag: None,
+    },
+    ModelDefinition {
+        id: SILMA_MODEL_ID,
+        directory_name: "silma-tts",
+        display_name: "SILMA Arabic TTS",
+        backend: TtsModelBackend::SilmaSidecar,
+        family: TtsModelFamily::SilmaF5,
+        sherpa_family: None,
+        language: "ar",
+        language_label: "Arabic",
+        supertonic_lang: None,
+        source_label: "silma-ai/silma-tts",
+        source_url: "https://huggingface.co/silma-ai/silma-tts",
+        sha256: "",
+        archive_bytes: 0,
+        model_file: "model.pt",
+        required_files: SILMA_REQUIRED_FILES,
+        default_voice: "silma-ar-default",
+        voices: SILMA_VOICES,
+        default_text_preprocessor: "silma-default",
+        text_preprocessors: SILMA_TEXT_PREPROCESSORS,
+        dev_catalog_flag: Some(SILMA_DEV_CATALOG_FLAG),
     },
 ];
+
+/// Models advertised to the frontend capability catalog.
+pub(super) fn visible_models() -> impl Iterator<Item = &'static ModelDefinition> {
+    MODELS.iter().filter(|model| model.is_catalog_visible())
+}
 
 /// Resolve the authoritative catalog entry used by install, synthesis, and import.
 pub(super) fn model_definition(model_id: &str) -> Result<&'static ModelDefinition, String> {
@@ -546,11 +609,26 @@ mod tests {
             voices: &[],
             default_text_preprocessor: TEXT_PREPROCESSOR_NONE,
             text_preprocessors: IDENTITY_TEXT_PREPROCESSORS,
+            dev_catalog_flag: None,
         };
 
         assert_eq!(model.model_storage_dir_name(), "silma-tts");
         assert_eq!(model.backend_name(), "silma-sidecar-f5");
         assert!(model.require_sherpa_family().is_err());
         assert_eq!(model.to_info().family, "silma-f5");
+    }
+
+    #[test]
+    fn silma_catalog_entry_is_hidden_by_default() {
+        let previous = std::env::var_os(SILMA_DEV_CATALOG_FLAG);
+        std::env::remove_var(SILMA_DEV_CATALOG_FLAG);
+        let model = model_definition(SILMA_MODEL_ID).unwrap();
+        assert_eq!(model.backend, TtsModelBackend::SilmaSidecar);
+        assert_eq!(model.model_storage_dir_name(), "silma-tts");
+        assert!(!model.is_catalog_visible());
+        assert!(visible_models().all(|item| item.id != SILMA_MODEL_ID));
+        if let Some(value) = previous {
+            std::env::set_var(SILMA_DEV_CATALOG_FLAG, value);
+        }
     }
 }

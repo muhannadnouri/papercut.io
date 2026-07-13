@@ -20,7 +20,7 @@ use sha2::{Digest, Sha256};
 use tauri::Emitter;
 
 use super::config::MODEL_INSTALL_PROGRESS_EVENT;
-use super::models::{model_definition, ModelDefinition, MODELS};
+use super::models::{model_definition, visible_models, ModelDefinition, TtsModelBackend};
 use super::paths::{directory_size, installed_model_dir, model_work_dir, resolve_model_dir};
 use crate::native_tts::platform::{default_thread_count, max_thread_count};
 use crate::native_tts::state::NativeTtsState;
@@ -39,7 +39,7 @@ pub(crate) fn native_capabilities(_app: tauri::AppHandle) -> NativeTtsCapabiliti
         platform: std::env::consts::OS.into(),
         default_thread_count: default_thread_count(),
         max_thread_count: max_thread_count(),
-        models: MODELS.iter().map(ModelDefinition::to_info).collect(),
+        models: visible_models().map(ModelDefinition::to_info).collect(),
     }
 }
 
@@ -110,6 +110,12 @@ pub(crate) async fn install_model(
     model_id: String,
 ) -> Result<NativeTtsModelInstallResponse, String> {
     let model = model_definition(&model_id)?;
+    if !matches!(model.backend, TtsModelBackend::SherpaOnnx) {
+        return Err(format!(
+            "{} uses the SILMA sidecar backend; model install is not implemented yet",
+            model.display_name
+        ));
+    }
     if let Ok(model_dir) = resolve_model_dir(&app, model) {
         return Ok(NativeTtsModelInstallResponse {
             model_id: model.id.into(),

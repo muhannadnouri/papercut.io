@@ -32,6 +32,14 @@ public/*
 # Downloaded local TTS assets are large and platform-specific.
 src-tauri/tts/runtime/*
 
+# Sidecar source is tracked; local Python envs, caches, model files, and probes are not.
+sidecars/**/.venv/
+sidecars/**/__pycache__/
+sidecars/**/.pytest_cache/
+sidecars/**/models/
+sidecars/**/runtime/
+sidecars/**/*.wav
+
 private_keys/
 
 # Apple signing/provisioning secrets.
