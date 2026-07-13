@@ -15,8 +15,9 @@ python -m venv .venv-silma
 pip install -r sidecars/silma/requirements.txt
 ```
 
-SILMA requires `ffmpeg` to be available on the system path for the official
-runtime path documented by SILMA.
+The current Papercut path uses SILMA's bundled WAV reference and writes WAV
+output, so it should not require `ffmpeg`. Keep custom reference audio as WAV
+unless we intentionally add and bundle ffmpeg later.
 
 ## Self-Test
 
@@ -49,6 +50,33 @@ python sidecars/silma/silma_worker.py \
   --smoke \
   --model-dir ./.cache/silma-tts \
   --output-wav ./.cache/silma-tts-smoke.wav \
+  --text "أنا نموذج سلمى لتحويل النص إلى كلام." \
+  --seed 1234
+```
+
+No-ffmpeg validation for the editable worker:
+
+```bash
+PATH="$PWD/.venv-silma/bin" \
+.venv-silma/bin/python sidecars/silma/silma_worker.py \
+  --smoke \
+  --model-dir ./.cache/silma-tts \
+  --output-wav ./.cache/silma-tts-no-ffmpeg.wav \
+  --text "أنا نموذج سلمى لتحويل النص إلى كلام." \
+  --seed 1234
+```
+
+No-ffmpeg validation for a packaged worker:
+
+```bash
+EMPTY_PATH="$PWD/.cache/empty-path"
+SILMA_WORKER_DIR="$PWD/sidecars/silma/runtime/x86_64-unknown-linux-gnu/onedir/silma-worker-x86_64-unknown-linux-gnu"
+SILMA_WORKER="$SILMA_WORKER_DIR/silma-worker-x86_64-unknown-linux-gnu"
+mkdir -p "$EMPTY_PATH"
+PATH="$EMPTY_PATH" "$SILMA_WORKER" \
+  --smoke \
+  --model-dir ./.cache/silma-tts \
+  --output-wav ./.cache/silma-tts-packaged-no-ffmpeg.wav \
   --text "أنا نموذج سلمى لتحويل النص إلى كلام." \
   --seed 1234
 ```

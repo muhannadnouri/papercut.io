@@ -219,6 +219,11 @@ Reference quality notes:
 - For Arabic references, an accurate diacritized transcript may help the model
   condition pronunciation. Papercut's bundled SILMA profile uses a diacritized
   transcript for the upstream `ar.ref.24k.wav` sample.
+- Keep first-release reference audio as WAV. SILMA's `pydub` import warns when
+  ffmpeg is missing, but the current bundled-WAV reference path does not need
+  ffmpeg in editable-worker smoke tests. User-imported mp3/m4a/webm reference
+  audio would be a separate feature that should bundle ffmpeg or transcode
+  before reaching SILMA.
 
 For production, use owned or explicitly licensed reference audio. Do not ship a
 "clone any voice" UI in the first release. That is a product/legal feature, not
@@ -566,9 +571,9 @@ Known recovery paths:
   stderr.
 - `No format specified ... .tmp`: the worker must write to an internal
   `.tmp.wav` path and rename it back to Rust's requested temp path.
-- `ffmpeg`/`avconv` warning: expected on systems without ffmpeg. Current short
-  reference tests still pass, but final release needs either bundled ffmpeg or a
-  proven inference path that never needs it.
+- `ffmpeg`/`avconv` warning: expected on systems without ffmpeg. The current
+  SILMA voice uses a bundled WAV reference and writes WAV output, so this is not
+  a blocker unless custom non-WAV reference audio is added.
 - `device=cpu`: expected on machines without CUDA/MPS/XPU. Reduce NFE steps or
   thread count for CPU tests; GPU acceleration depends on the packaged Torch
   build and available hardware.
@@ -690,7 +695,7 @@ The app-owned installer stores those files directly under
 - [x] Run and reject the PyInstaller onefile output on a desktop.
 - [x] Package with PyInstaller onedir for production validation.
 - [x] Document exact Python version and pinned runtime/build dependency inputs.
-- [ ] Decide whether `ffmpeg` is required at runtime; if yes, bundle it or avoid
+- [x] Decide whether `ffmpeg` is required at runtime; if yes, bundle it or avoid
       the code path that needs it.
 
 Stage 0 worker location:
@@ -747,9 +752,37 @@ Local smoke result, Python 3.12 venv on CPU:
 - Real-time factor: 20.72 on CPU
 - Output WAV: 174,676 bytes
 
-The run warned that `ffmpeg`/`avconv` was not found, but this short reference
-path still completed. Keep the packaging decision open until sidecar packaging
-and longer reference-audio cases are tested.
+The run warned that `ffmpeg`/`avconv` was not found, but this bundled-WAV
+reference path completed. Do not bundle ffmpeg for the first SILMA release path.
+Only revisit this if Papercut adds user-imported non-WAV reference audio or a
+packaged runtime smoke fails without ffmpeg.
+
+No-ffmpeg editable-worker validation command:
+
+```bash
+PATH="$PWD/.venv-silma/bin" \
+.venv-silma/bin/python sidecars/silma/silma_worker.py \
+  --smoke \
+  --model-dir ./.cache/silma-tts \
+  --output-wav ./.cache/silma-tts-no-ffmpeg.wav \
+  --text "أنا نموذج سلمى لتحويل النص إلى كلام." \
+  --seed 1234
+```
+
+No-ffmpeg packaged-worker validation command:
+
+```bash
+EMPTY_PATH="$PWD/.cache/empty-path"
+SILMA_WORKER_DIR="$PWD/sidecars/silma/runtime/x86_64-unknown-linux-gnu/onedir/silma-worker-x86_64-unknown-linux-gnu"
+SILMA_WORKER="$SILMA_WORKER_DIR/silma-worker-x86_64-unknown-linux-gnu"
+mkdir -p "$EMPTY_PATH"
+PATH="$EMPTY_PATH" "$SILMA_WORKER" \
+  --smoke \
+  --model-dir ./.cache/silma-tts \
+  --output-wav ./.cache/silma-tts-packaged-no-ffmpeg.wav \
+  --text "أنا نموذج سلمى لتحويل النص إلى كلام." \
+  --seed 1234
+```
 
 Packaged `load_model` note: SILMA imports `transformers.pipeline` through
 Transformers' lazy export path. The worker now imports
@@ -1120,7 +1153,6 @@ Exit criteria:
 - What is acceptable warm CPU real-time factor for full audiobook generation?
 - Which desktop platforms get SILMA in the first public build?
 - Which reference voices are legally safe to ship?
-- Does SILMA need ffmpeg for the exact inference path we will use?
 - Can we avoid bundling the Gradio/web app dependencies entirely?
 - Should SILMA downloads be individual upstream files or a Papercut-controlled
   archive of pinned upstream files?
