@@ -417,7 +417,7 @@ the official downloader stores files under `models--silma-ai--silma-tts/...`.
 - [x] Add a model-free probe WAV operation for sidecar/Tauri file-access testing.
 - [x] Add a PyInstaller onefile prep script for the first spike.
 - [x] Run and reject the PyInstaller onefile output on a desktop.
-- [ ] Package with PyInstaller onedir for production validation.
+- [x] Package with PyInstaller onedir for production validation.
 - [ ] Document exact Python version and locked dependencies.
 - [ ] Decide whether `ffmpeg` is required at runtime; if yes, bundle it or avoid
       the code path that needs it.
@@ -495,6 +495,14 @@ for sequential JSONL request/response calls; production sidecar packaging,
 timeouts, and crash recovery remain later stages.
 `PAPERCUT_SILMA_WORKER_BIN` can point at a packaged PyInstaller worker
 executable and skips Python entirely.
+
+Packaged Linux onedir result:
+
+- Command: `npm run prepare:silma-sidecar -- --clean --self-test`
+- Platform: Linux x86_64, Python 3.12.3, PyInstaller 6.21.0
+- Output: `sidecars/silma/runtime/x86_64-unknown-linux-gnu/onedir/`
+- Size: about 5.7 GB
+- Packaged `--self-test`: passed
 
 Stage 2 load helper:
 
@@ -623,7 +631,7 @@ Exit criteria:
 
 - [x] Add PyInstaller onefile packaging helper.
 - [x] Package worker with PyInstaller onefile and run the packaged worker.
-- [ ] Package worker with PyInstaller onedir and run the packaged worker.
+- [x] Package worker with PyInstaller onedir and run the packaged worker.
 - [x] Add temporary Rust command or dev-only path to spawn it.
 - [x] Generate one probe WAV into app data.
 - [ ] Validate Tauri sidecar mechanics in a running desktop app.
