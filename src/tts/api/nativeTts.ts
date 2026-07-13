@@ -153,6 +153,7 @@ export interface NativeImportedAudiobookMetadata {
   voice: string
   speed: number
   dtype: string
+  silmaNfeStep?: number
   chunks: TtsChunk[]
   audioDurationSec: number
   wavBytes: number
@@ -166,6 +167,7 @@ export interface NativeAudiobookImportResult {
   voice: string
   speed: number
   dtype: string
+  silmaNfeStep?: number
   chunks: number
   audioDurationSec: number
   wavBytes: number
@@ -400,6 +402,7 @@ export async function exportNativeAudiobook(
       voice: input.options.voice,
       speed: input.options.speed,
       dtype: input.options.dtype ?? 'native',
+      silmaNfeStep: resolveSilmaNfeStep(input.options),
       exportFormat: input.exportFormat ?? 'bundle',
     },
   })

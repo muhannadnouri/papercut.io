@@ -243,7 +243,7 @@ export function AudioSetupPanel({
           >
             {isSilmaModel && (
               <span className="audio-thread-meta">
-                SILMA uses its Arabic reference voice profile; custom references are not available yet.
+                SILMA speaks using its built-in Arabic sample voice. Custom sample voices are not available yet.
               </span>
             )}
           </SelectField>

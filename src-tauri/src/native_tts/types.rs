@@ -232,6 +232,7 @@ pub(crate) struct NativeAudiobookExportRequest {
     pub(crate) voice: String,
     pub(crate) speed: f32,
     pub(crate) dtype: String,
+    pub(crate) silma_nfe_step: Option<i32>,
     #[serde(default = "default_audiobook_export_format")]
     pub(crate) export_format: String,
 }
@@ -268,6 +269,7 @@ pub(crate) struct NativeImportedAudiobookMetadataResponse {
     pub(crate) voice: String,
     pub(crate) speed: f32,
     pub(crate) dtype: String,
+    pub(crate) silma_nfe_step: Option<i32>,
     pub(crate) chunks: Vec<NativeTtsInputChunk>,
     pub(crate) audio_duration_sec: f32,
     pub(crate) wav_bytes: usize,
@@ -284,6 +286,7 @@ pub(crate) struct NativeAudiobookImportResponse {
     pub(crate) voice: String,
     pub(crate) speed: f32,
     pub(crate) dtype: String,
+    pub(crate) silma_nfe_step: Option<i32>,
     pub(crate) chunks: usize,
     pub(crate) audio_duration_sec: f32,
     pub(crate) wav_bytes: usize,

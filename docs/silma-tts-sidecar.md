@@ -207,6 +207,15 @@ For production, use owned or explicitly licensed reference audio. Do not ship a
 "clone any voice" UI in the first release. That is a product/legal feature, not
 just an engineering switch.
 
+Current export disclosure:
+
+- SILMA saved-audiobook export options show an AI-generated voice disclosure
+  reminder.
+- Exporting a SILMA audiobook opens the standard confirmation dialog before the
+  native save dialog.
+- Exported Papercut bundles include `silmaNfeStep` metadata so imported SILMA
+  audiobooks restore the selected quality setting and cache identity.
+
 ## Model Download
 
 SILMA model files should follow the existing Papercut model install pattern:
@@ -904,7 +913,7 @@ Stage 2 SILMA synthesis status:
 - [ ] Do not expose a generic "run command" permission to the frontend.
 - [ ] Treat voice cloning as consent-sensitive.
 - [ ] Ship only owned/licensed reference voice profiles in the first release.
-- [ ] Add user-facing disclosure that SILMA audio is AI-generated if exported.
+- [x] Add user-facing disclosure that SILMA audio is AI-generated if exported.
 - [ ] Review SILMA code, model, CATT, NeMo, PyTorch, torchaudio, and ffmpeg
       licenses before distribution.
 
@@ -1057,7 +1066,7 @@ Exit criteria:
 - [x] Add download size warnings for the SILMA runtime/model install path.
 - [x] Add diagnostics and troubleshooting docs.
 - [ ] Add release notes.
-- [ ] Add voice consent/export disclosure.
+- [x] Add voice consent/export disclosure.
 
 Exit criteria:
 

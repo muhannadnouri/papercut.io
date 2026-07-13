@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { SavedAudiobookRecord } from '../storage/AudiobookLibrary'
 import type { AudiobookDownloadRecord } from '../storage/AudiobookDownloadQueue'
-import type { TtsDtype, TtsVoice } from '../types'
+import { SILMA_MODEL_ID, type TtsDtype, type TtsVoice } from '../types'
 import type { NativeAudiobookExportFormat } from '../api/nativeTts'
 import type { AudiobookCacheState } from '../hooks/useAudiobookCache'
 import {
@@ -288,6 +288,7 @@ export function AudiobooksPanel({
                             <small>
                               {option.detail}
                               {option.code ? <> <code>{option.code}</code></> : null}
+                              {record.modelId === SILMA_MODEL_ID ? ' · Label as AI-generated when sharing' : null}
                             </small>
                           </button>
                         ))}

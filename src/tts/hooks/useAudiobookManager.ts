@@ -38,6 +38,7 @@ import {
 import { chunkAudiobookSaveHtmlWithSpans, type SpeechChunk } from '../utils/text'
 import {
   DEFAULT_TTS_SPEED,
+  SILMA_MODEL_ID,
   resolveSilmaNfeStep,
   type TextPreprocessorId,
   type TtsDtype,
@@ -790,6 +791,20 @@ export function useAudiobookManager({
   }, [audiobookDownloads, confirmAudiobookAction, refreshAudiobookDownloads])
 
   const handleExportSavedAudiobook = useCallback(async (record: SavedAudiobookRecord, exportFormat: NativeAudiobookExportFormat) => {
+    if (record.modelId === SILMA_MODEL_ID) {
+      const confirmed = await confirmAudiobookAction({
+        title: 'Export SILMA audiobook?',
+        description: 'SILMA creates speech by matching a short example voice. Only export audio you are allowed to share, and tell listeners it is AI-generated when you publish it.',
+        details: [
+          { label: 'Title', value: record.title },
+          { label: 'Voice', value: getTtsVoiceName(ttsModels, record.modelId, record.voice) },
+          { label: 'Format', value: exportFormat === 'wav' ? 'WAV' : 'Papercut Bundle' },
+        ],
+        confirmLabel: 'Export',
+      })
+      if (!confirmed) return
+    }
+
     dismissAudiobookNotice()
     setAudiobookExport({
       id: record.id,
@@ -812,6 +827,7 @@ export function useAudiobookManager({
           voice: record.voice as TtsVoice,
           speed: record.speed,
           dtype: record.dtype as TtsDtype,
+          silmaNfeStep: record.silmaNfeStep,
         },
         exportFormat,
       })
@@ -831,7 +847,7 @@ export function useAudiobookManager({
         message: cancelled ? 'Export cancelled.' : message,
       })
     }
-  }, [dismissAudiobookNotice, getAudiobookSaveChunksForDocument, loadHtmlDocument, showAudiobookNotice])
+  }, [confirmAudiobookAction, dismissAudiobookNotice, getAudiobookSaveChunksForDocument, loadHtmlDocument, showAudiobookNotice, ttsModels])
 
   const handleDeleteSavedAudiobook = useCallback(async (record: SavedAudiobookRecord) => {
     const deleteUserUpload = isUserUploadUrl(record.documentUrl)
@@ -903,6 +919,7 @@ export function useAudiobookManager({
         voice: result.voice,
         speed: result.speed,
         dtype: result.dtype,
+        silmaNfeStep: result.silmaNfeStep,
         chunks: result.chunks,
         audioDurationSec: result.audioDurationSec,
         wavBytes: result.wavBytes,
@@ -915,6 +932,7 @@ export function useAudiobookManager({
         voice: result.voice,
         speed: result.speed,
         dtype: result.dtype,
+        silmaNfeStep: result.silmaNfeStep,
         chunks: result.chunks,
         audioDurationSec: result.audioDurationSec,
         wavBytes: result.wavBytes,
@@ -927,7 +945,7 @@ export function useAudiobookManager({
       setTtsVoice(result.voice as TtsVoice)
       setTtsTextPreprocessor(result.textPreprocessor)
       setTtsSpeed(result.speed)
-      setSilmaNfeStep(resolveSilmaNfeStep({}))
+      setSilmaNfeStep(resolveSilmaNfeStep({ silmaNfeStep: result.silmaNfeStep }))
       setAudiobookImport({ status: 'idle', message: '' })
       showAudiobookNotice({ id: 'import:' + result.documentUrl, status: 'success', message: 'Imported ' + result.title })
       await openDocument(result.documentUrl)

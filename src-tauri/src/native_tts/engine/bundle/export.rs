@@ -205,6 +205,7 @@ fn write_export_sidecars(
         "voice": request.voice,
         "speed": request.speed,
         "dtype": request.dtype,
+        "silmaNfeStep": request.silma_nfe_step,
         "modelId": request.model_id,
         "textPreprocessor": request.text_preprocessor,
         "cacheVersion": CACHE_VERSION,
