@@ -1,9 +1,10 @@
 # SILMA Worker
 
-Desktop-only Stage 0 worker for the SILMA TTS sidecar spike.
+Desktop-only JSONL worker for the SILMA TTS sidecar.
 
-This is not wired into Tauri yet. It is a standalone JSONL process used to prove
-that the official Python SILMA runtime can load once and write chunk WAV files.
+Tauri can start this worker for diagnostics, runtime probes, model loading, and
+audiobook chunk synthesis. It can also run standalone for local smoke tests and
+packaged-runtime validation.
 
 ## Setup
 
@@ -94,7 +95,7 @@ JSONL
 
 The worker writes protocol responses to stdout and runtime logs to stderr.
 
-## Stage 1 Probe
+## Tauri Probe
 
 The Rust command `tts_probe_silma_sidecar` starts this worker from the repo,
 performs a `health` request, asks it to write a tiny silent probe WAV into app
