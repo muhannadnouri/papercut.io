@@ -356,7 +356,7 @@ Rejected first spike:
 - produced a 3.18 GB Linux executable;
 - failed packaged `--self-test` while extracting `torch/lib/libtorch_cpu.so`,
   even with `TMPDIR` pointed outside `/tmp`;
-- keep only as a diagnostic option, not the release direction.
+- removed from the build helper.
 
 Production path:
 
@@ -716,7 +716,7 @@ The app-owned installer stores those files directly under
 - [x] Run the local `--smoke` command with installed SILMA deps and capture
       timing/quality results.
 - [x] Add a model-free probe WAV operation for sidecar/Tauri file-access testing.
-- [x] Add a PyInstaller onefile prep script for the first spike.
+- [x] Add and then remove a PyInstaller onefile prep path after the first spike.
 - [x] Run and reject the PyInstaller onefile output on a desktop.
 - [x] Package with PyInstaller onedir for production validation.
 - [x] Document exact Python version and pinned runtime/build dependency inputs.
@@ -983,8 +983,8 @@ Stage 2 SILMA synthesis status:
 
 - [x] Add `scripts/prepare-silma-sidecar.js` or platform-specific helpers.
 - [x] Produce target-triple sidecar names or resource directories.
-- [x] Add `onedir` packaging mode and make it the default after onefile failed
-      extraction.
+- [x] Make the SILMA packaging helper always build PyInstaller onedir after
+      onefile failed extraction.
 - [x] Add an optional packaged-worker `--self-test` to the prep script.
 - [x] Force-include the Transformers pipeline module needed by packaged
       `load_model`.
@@ -1078,8 +1078,7 @@ Exit criteria:
 
 ### Stage 1: Sidecar Prototype
 
-- [x] Add PyInstaller onefile packaging helper.
-- [x] Package worker with PyInstaller onefile and run the packaged worker.
+- [x] Add, run, reject, and remove PyInstaller onefile packaging.
 - [x] Package worker with PyInstaller onedir and run the packaged worker.
 - [x] Add temporary Rust command or dev-only path to spawn it.
 - [x] Generate one probe WAV into app data.
@@ -1182,8 +1181,6 @@ Exit criteria:
 - Can we avoid bundling the Gradio/web app dependencies entirely?
 - Should SILMA downloads be individual upstream files or a Papercut-controlled
   archive of pinned upstream files?
-- Does PyInstaller onedir fit cleanly into the Tauri bundle layout on all three
-  desktop platforms?
 - Do we need resumable downloads before first release because the model is much
   larger than current sherpa archives?
 

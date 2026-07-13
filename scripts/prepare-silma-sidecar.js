@@ -10,10 +10,9 @@ const CACHE_DIR = join(ROOT, ".cache", "silma-pyinstaller")
 const options = parseArgs(process.argv.slice(2))
 const target = options.target ?? currentTargetTriple()
 const python = options.python ?? defaultPython()
-const mode = options.mode ?? "onedir"
 const exeBase = "silma-worker-" + target
 const exeName = exeBase + (process.platform === "win32" ? ".exe" : "")
-const outputDir = options.outputDir ?? join(SILMA_DIR, "runtime", target, mode)
+const outputDir = options.outputDir ?? join(SILMA_DIR, "runtime", target, "onedir")
 
 if (options.clean) {
   rmSync(outputDir, { recursive: true, force: true })
@@ -46,7 +45,7 @@ const result = runSync(
     "PyInstaller",
     "--noconfirm",
     "--clean",
-    mode === "onefile" ? "--onefile" : "--onedir",
+    "--onedir",
     "--name",
     exeBase,
     "--distpath",
@@ -73,7 +72,7 @@ if (result.status !== 0) {
   process.exit(result.status ?? 1)
 }
 
-const workerPath = builtWorkerPath(outputDir, mode, exeBase, exeName)
+const workerPath = builtWorkerPath(outputDir, exeBase, exeName)
 console.log("[silma-sidecar] built " + workerPath)
 
 if (options.selfTest) {
@@ -98,12 +97,6 @@ function parseArgs(args) {
       parsed.python = requireValue(args, ++index, arg)
     } else if (arg === "--target") {
       parsed.target = requireValue(args, ++index, arg)
-    } else if (arg === "--mode") {
-      const mode = requireValue(args, ++index, arg)
-      if (mode !== "onefile" && mode !== "onedir") {
-        fail("--mode must be onefile or onedir")
-      }
-      parsed.mode = mode
     } else if (arg === "--output-dir") {
       parsed.outputDir = requireValue(args, ++index, arg)
     } else {
@@ -114,8 +107,8 @@ function parseArgs(args) {
 }
 
 // PyInstaller onedir nests the executable one level below distpath.
-function builtWorkerPath(outputDir, mode, exeBase, exeName) {
-  return mode === "onefile" ? join(outputDir, exeName) : join(outputDir, exeBase, exeName)
+function builtWorkerPath(outputDir, exeBase, exeName) {
+  return join(outputDir, exeBase, exeName)
 }
 
 // Keep option parsing dependency-free; every flag with a value uses this guard.
