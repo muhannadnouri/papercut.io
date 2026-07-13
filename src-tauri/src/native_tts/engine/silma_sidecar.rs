@@ -256,15 +256,6 @@ fn silma_launch_command(app: &tauri::AppHandle) -> Result<SilmaLaunchCommand, St
         });
     }
 
-    if let Some(worker_path) = bundled_worker_path(app)? {
-        return Ok(SilmaLaunchCommand {
-            program: worker_path.clone(),
-            args: Vec::new(),
-            python_command: "<bundled>".into(),
-            worker_path,
-        });
-    }
-
     let worker_path = silma_worker_path()?;
     let python_command = silma_python_command();
     Ok(SilmaLaunchCommand {
@@ -324,32 +315,16 @@ pub(super) fn silma_runtime_status(app: &tauri::AppHandle) -> SilmaRuntimeStatus
             archive_bytes: 0,
             message: "SILMA runtime pack installed".into(),
         },
-        Ok(None) => match bundled_worker_path(app) {
-            Ok(Some(worker_path)) => SilmaRuntimeStatus {
-                installed: true,
-                runtime_dir: worker_path.parent().map(Path::to_path_buf),
-                install_supported: false,
-                archive_bytes: 0,
-                message: "Bundled SILMA runtime available".into(),
-            },
-            Ok(None) if silma_runtime_pack_install_source().is_some() => SilmaRuntimeStatus {
-                installed: false,
-                runtime_dir: runtime_pack_dir(app).ok(),
-                install_supported: true,
-                archive_bytes: silma_runtime_pack_archive_bytes(),
-                message: silma_runtime_pack_install_source()
-                    .map(|source| source.status_message())
-                    .unwrap_or_else(|| "SILMA runtime pack is ready to install".into()),
-            },
-            Ok(None) => repo_worker_runtime_status(app),
-            Err(err) => SilmaRuntimeStatus {
-                installed: false,
-                runtime_dir: runtime_pack_dir(app).ok(),
-                install_supported: silma_runtime_pack_install_source().is_some(),
-                archive_bytes: silma_runtime_pack_archive_bytes(),
-                message: err,
-            },
+        Ok(None) if silma_runtime_pack_install_source().is_some() => SilmaRuntimeStatus {
+            installed: false,
+            runtime_dir: runtime_pack_dir(app).ok(),
+            install_supported: true,
+            archive_bytes: silma_runtime_pack_archive_bytes(),
+            message: silma_runtime_pack_install_source()
+                .map(|source| source.status_message())
+                .unwrap_or_else(|| "SILMA runtime pack is ready to install".into()),
         },
+        Ok(None) => repo_worker_runtime_status(app),
         Err(err) => SilmaRuntimeStatus {
             installed: false,
             runtime_dir: None,
@@ -846,30 +821,6 @@ fn download_percent(downloaded: u64, total: u64) -> u8 {
         return 0;
     }
     ((downloaded.saturating_mul(100) / total).min(100)) as u8
-}
-
-fn bundled_worker_path(app: &tauri::AppHandle) -> Result<Option<PathBuf>, String> {
-    let Some(relative_path) = bundled_worker_relative_path() else {
-        return Ok(None);
-    };
-    let resource_dir = app
-        .path()
-        .resource_dir()
-        .map_err(|err| format!("Failed to resolve app resource dir for SILMA sidecar: {err}"))?;
-    let worker_path = resource_dir.join(relative_path);
-    if worker_path.is_file() {
-        return Ok(Some(worker_path));
-    }
-    Ok(None)
-}
-
-fn bundled_worker_relative_path() -> Option<PathBuf> {
-    if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
-        return Some(PathBuf::from(
-            "silma-sidecar/silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu",
-        ));
-    }
-    None
 }
 
 fn require_file(var_name: &str, path: PathBuf) -> Result<PathBuf, String> {

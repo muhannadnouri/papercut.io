@@ -364,50 +364,26 @@ Production path:
 - faster startup;
 - fewer temp extraction problems;
 - easier to inspect and sign dependencies;
-- requires validating Tauri bundle layout so the executable can find its
-  `_internal` dependencies.
+- packaged as an optional runtime pack, not as a base app resource.
 
-Do not assume `externalBin` alone copies PyInstaller's whole `onedir`. If needed,
-bundle the sidecar folder as a Tauri resource and spawn the executable from the
-resolved resource path.
+Do not assume `externalBin` alone copies PyInstaller's whole `onedir`. The
+resource-bundled spike proved too large for the ordinary desktop installer, so
+the release path is an app-data runtime pack.
 
-Linux packaging spike status:
+Rejected Linux bundled-resource spike:
 
-- `PAPERCUT_BUNDLE_SILMA_TTS=1 npm run desktop` stages the PyInstaller onedir
-  worker into `src-tauri/tts/runtime/silma-sidecar-linux-x64/` before Tauri
-  scans bundle resources.
-- `src-tauri/tauri.linux.conf.json` bundles that staged directory into the app
-  resource path `silma-sidecar/`.
-- Rust worker launch now checks, in order:
-  - `PAPERCUT_SILMA_WORKER_BIN`;
-  - explicit `PAPERCUT_SILMA_WORKER` or `PAPERCUT_SILMA_PYTHON`;
-  - bundled Linux resource executable;
-  - editable repo worker script.
-- Normal desktop builds keep an empty resource directory and do not build or
-  copy the large sidecar unless `PAPERCUT_BUNDLE_SILMA_TTS=1` is set.
+- `PAPERCUT_BUNDLE_SILMA_TTS=1 npm run desktop` temporarily staged the
+  PyInstaller onedir worker into Tauri resources.
+- The runtime was multi-GB and made installer builds slow and fragile.
+- That path has been removed. Do not use `PAPERCUT_BUNDLE_SILMA_TTS`.
 
-Linux packaged-sidecar validation command:
+Current Rust worker launch order:
 
-```bash
-PAPERCUT_BUNDLE_SILMA_TTS=1 npm run desktop -- --bundles appimage
-```
-
-Use a single bundle while validating the sidecar. A full `npm run desktop` build
-packages the multi-GB PyInstaller runtime into every configured Linux artifact
-and can spend many minutes compressing `.deb`, `.rpm`, and AppImage outputs.
-For release verification, run the full bundle matrix after the sidecar size and
-distribution strategy are settled.
-
-Then launch the installed package or AppImage with only the runtime feature/model
-env vars, not Python worker env vars:
-
-```bash
-PAPERCUT_ENABLE_SILMA_TTS=1 \
-PAPERCUT_SILMA_MODEL_DIR="$PWD/.cache/silma-tts" \
-./path/to/Papercut*.AppImage
-```
-
-The diagnostics probe should report `pythonCommand: "<bundled>"`.
+- `PAPERCUT_SILMA_WORKER_BIN` for direct packaged-worker testing;
+- explicit `PAPERCUT_SILMA_WORKER` or `PAPERCUT_SILMA_PYTHON` for source-worker
+  development;
+- app-data runtime pack installed by the app;
+- editable repo worker script for local dev fallback.
 
 ## Optional Runtime Pack Plan
 
@@ -1014,10 +990,9 @@ Stage 2 SILMA synthesis status:
       `load_model`.
 - [x] Exclude optional `torchcodec` from the packaged worker after Transformers
       detected it without metadata.
-- [x] Integrate sidecar prep into `scripts/build-desktop.js` behind a feature or
-      build flag.
-- [x] Add opt-in Linux desktop resource staging for the PyInstaller onedir
-      sidecar with `PAPERCUT_BUNDLE_SILMA_TTS=1`.
+- [x] Prototype sidecar prep in `scripts/build-desktop.js` behind a build flag.
+- [x] Remove the opt-in Linux desktop resource staging spike after choosing
+      optional runtime packs.
 - [x] Allow packaging spikes to request one Tauri bundle type with
       `npm run desktop -- --bundles appimage`.
 - [x] Add app-data SILMA runtime-pack detection before implementing runtime
@@ -1167,8 +1142,8 @@ Exit criteria:
 ### Stage 4: Production Packaging
 
 - [x] Switch from onefile to onedir after onefile extraction failed.
-- [x] Add opt-in Linux resource staging and runtime discovery for the onedir
-      sidecar.
+- [x] Remove opt-in Linux resource staging after it proved too large for the
+      base installer.
 - [x] Add AppImage-only packaging validation so the Linux spike does not rebuild
       every package format while iterating.
 - [x] Decide to keep SILMA out of ordinary desktop installers and use an

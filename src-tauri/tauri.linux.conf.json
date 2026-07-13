@@ -9,8 +9,7 @@
       }
     },
     "resources": {
-      "tts/runtime/linux-x64-shared-libs/": "",
-      "tts/runtime/silma-sidecar-linux-x64/": "silma-sidecar/"
+      "tts/runtime/linux-x64-shared-libs/": ""
     }
   }
 }

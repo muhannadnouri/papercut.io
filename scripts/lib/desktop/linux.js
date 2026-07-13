@@ -1,13 +1,8 @@
-import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs"
-import { join } from "node:path"
+import { existsSync, mkdirSync } from "node:fs"
 import { NODE_VERSION } from "../constants.js"
 import {
   SHERPA_LINUX_SHARED_OUT_DIR,
   SHERPA_LINUX_SHARED_SOURCE_DIR,
-  SILMA_LINUX_EXE_BASE,
-  SILMA_LINUX_SIDECAR_OUT_DIR,
-  SILMA_LINUX_SIDECAR_SOURCE_DIR,
-  SILMA_LINUX_TARGET,
 } from "../linux/constants.js"
 import { runSync, shQuote, exitFromResult } from "../process.js"
 
@@ -18,7 +13,6 @@ export function prepareLinuxDesktopBuild({ isStatic }) {
 
   ensurePatchelf()
   ensureLinuxSharedResourceDir()
-  stageSilmaSidecarResource()
 }
 
 // Linux AppImage packaging needs NO_STRIP for hosts with newer ELF formats.
@@ -77,33 +71,4 @@ function ensureLinuxSharedResourceDir() {
   // Tauri validates configured resource paths before bundle hooks run, so the
   // gitignored directory must exist even when the selected link mode is static.
   mkdirSync(SHERPA_LINUX_SHARED_OUT_DIR, { recursive: true })
-}
-
-function stageSilmaSidecarResource() {
-  // Tauri validates configured resource paths before bundle hooks run. Keep an
-  // empty directory for normal builds; only copy the huge sidecar when requested.
-  mkdirSync(SILMA_LINUX_SIDECAR_OUT_DIR, { recursive: true })
-  if (process.env.PAPERCUT_BUNDLE_SILMA_TTS !== "1") return
-
-  const exePath = join(SILMA_LINUX_SIDECAR_SOURCE_DIR, SILMA_LINUX_EXE_BASE)
-  if (!existsSync(exePath)) {
-    const result = runSync("node", [
-      "scripts/prepare-silma-sidecar.js",
-      "--target",
-      SILMA_LINUX_TARGET,
-      "--self-test",
-    ])
-    if (result.error || result.status !== 0) {
-      exitFromResult(result, "[desktop-build] Failed to prepare SILMA sidecar: ")
-    }
-  }
-
-  rmSync(SILMA_LINUX_SIDECAR_OUT_DIR, { recursive: true, force: true })
-  mkdirSync(SILMA_LINUX_SIDECAR_OUT_DIR, { recursive: true })
-  cpSync(
-    SILMA_LINUX_SIDECAR_SOURCE_DIR,
-    join(SILMA_LINUX_SIDECAR_OUT_DIR, SILMA_LINUX_EXE_BASE),
-    { recursive: true },
-  )
-  console.log("[desktop-build] staged SILMA sidecar resource from " + SILMA_LINUX_SIDECAR_SOURCE_DIR)
 }
