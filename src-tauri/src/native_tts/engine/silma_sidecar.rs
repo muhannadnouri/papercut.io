@@ -6,11 +6,13 @@
 //! supervision come later.
 
 use std::fs;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
+use bzip2::read::BzDecoder;
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use tauri::Manager;
 
 pub(super) struct SilmaSidecar {
@@ -39,6 +41,7 @@ pub(super) struct SilmaRuntimeStatus {
     pub(super) runtime_dir: Option<PathBuf>,
     pub(super) message: String,
     pub(super) install_supported: bool,
+    pub(super) archive_bytes: u64,
 }
 
 impl SilmaSidecar {
@@ -274,6 +277,7 @@ pub(super) fn silma_runtime_status(app: &tauri::AppHandle) -> SilmaRuntimeStatus
             installed: path.is_file(),
             runtime_dir: path.parent().map(Path::to_path_buf),
             install_supported: false,
+            archive_bytes: 0,
             message: if path.is_file() {
                 "SILMA runtime available from PAPERCUT_SILMA_WORKER_BIN".into()
             } else {
@@ -293,12 +297,14 @@ pub(super) fn silma_runtime_status(app: &tauri::AppHandle) -> SilmaRuntimeStatus
                 installed: true,
                 runtime_dir: worker_path.parent().map(Path::to_path_buf),
                 install_supported: false,
+                archive_bytes: 0,
                 message: "SILMA runtime available from development Python settings".into(),
             },
             Err(err) => SilmaRuntimeStatus {
                 installed: false,
                 runtime_dir: None,
-                install_supported: silma_runtime_pack_source_dir().is_some(),
+                install_supported: silma_runtime_pack_install_source().is_some(),
+                archive_bytes: silma_runtime_pack_archive_bytes(),
                 message: err,
             },
         };
@@ -309,6 +315,7 @@ pub(super) fn silma_runtime_status(app: &tauri::AppHandle) -> SilmaRuntimeStatus
             installed: true,
             runtime_dir: worker_path.parent().map(Path::to_path_buf),
             install_supported: false,
+            archive_bytes: 0,
             message: "SILMA runtime pack installed".into(),
         },
         Ok(None) => match bundled_worker_path(app) {
@@ -316,26 +323,32 @@ pub(super) fn silma_runtime_status(app: &tauri::AppHandle) -> SilmaRuntimeStatus
                 installed: true,
                 runtime_dir: worker_path.parent().map(Path::to_path_buf),
                 install_supported: false,
+                archive_bytes: 0,
                 message: "Bundled SILMA runtime available".into(),
             },
-            Ok(None) if silma_runtime_pack_source_dir().is_some() => SilmaRuntimeStatus {
+            Ok(None) if silma_runtime_pack_install_source().is_some() => SilmaRuntimeStatus {
                 installed: false,
                 runtime_dir: runtime_pack_dir(app).ok(),
                 install_supported: true,
-                message: "Prepared SILMA runtime pack is ready to install".into(),
+                archive_bytes: silma_runtime_pack_archive_bytes(),
+                message: silma_runtime_pack_install_source()
+                    .map(|source| source.status_message())
+                    .unwrap_or_else(|| "SILMA runtime pack is ready to install".into()),
             },
             Ok(None) => repo_worker_runtime_status(app),
             Err(err) => SilmaRuntimeStatus {
                 installed: false,
                 runtime_dir: runtime_pack_dir(app).ok(),
-                install_supported: silma_runtime_pack_source_dir().is_some(),
+                install_supported: silma_runtime_pack_install_source().is_some(),
+                archive_bytes: silma_runtime_pack_archive_bytes(),
                 message: err,
             },
         },
         Err(err) => SilmaRuntimeStatus {
             installed: false,
             runtime_dir: None,
-            install_supported: silma_runtime_pack_source_dir().is_some(),
+            install_supported: silma_runtime_pack_install_source().is_some(),
+            archive_bytes: silma_runtime_pack_archive_bytes(),
             message: err,
         },
     }
@@ -347,25 +360,31 @@ fn repo_worker_runtime_status(app: &tauri::AppHandle) -> SilmaRuntimeStatus {
             installed: true,
             runtime_dir: worker_path.parent().map(Path::to_path_buf),
             install_supported: false,
+            archive_bytes: 0,
             message: "SILMA development worker available from the repository".into(),
         },
         Err(_) => SilmaRuntimeStatus {
             installed: false,
             runtime_dir: runtime_pack_dir(app).ok(),
-            install_supported: silma_runtime_pack_source_dir().is_some(),
+            install_supported: silma_runtime_pack_install_source().is_some(),
+            archive_bytes: silma_runtime_pack_archive_bytes(),
             message: "SILMA runtime pack is not installed".into(),
         },
     }
 }
 
 /// Promote a prepared PyInstaller onedir into the app-data runtime-pack slot.
-pub(super) fn install_silma_runtime_pack(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let source_dir = silma_runtime_pack_source_dir().ok_or_else(|| {
-        "SILMA runtime pack source is not available. Run `npm run prepare:silma-sidecar -- --self-test` or set PAPERCUT_SILMA_RUNTIME_PACK_DIR.".to_string()
+pub(super) fn install_silma_runtime_pack(
+    app: &tauri::AppHandle,
+    mut on_download: impl FnMut(u64, u64),
+) -> Result<PathBuf, String> {
+    let source = silma_runtime_pack_install_source().ok_or_else(|| {
+        "SILMA runtime pack source is not available. Run `npm run prepare:silma-sidecar -- --self-test`, set PAPERCUT_SILMA_RUNTIME_PACK_DIR, or set PAPERCUT_SILMA_RUNTIME_PACK_URL and PAPERCUT_SILMA_RUNTIME_PACK_SHA256.".to_string()
     })?;
     let final_dir = runtime_pack_dir(app)?;
     let work_dir = runtime_pack_work_dir(app)?;
     let staging_dir = work_dir.join("current.installing");
+    let archive_path = work_dir.join("silma-runtime-pack.tar.bz2");
     let _ = fs::remove_dir_all(&work_dir);
     fs::create_dir_all(&staging_dir).map_err(|err| {
         format!(
@@ -374,7 +393,14 @@ pub(super) fn install_silma_runtime_pack(app: &tauri::AppHandle) -> Result<PathB
         )
     })?;
     let work_guard = RuntimeWorkDirGuard::new(work_dir.clone());
-    copy_dir_contents(&source_dir, &staging_dir)?;
+    match source {
+        SilmaRuntimePackSource::Directory(path) => copy_dir_contents(&path, &staging_dir)?,
+        SilmaRuntimePackSource::Archive { url, sha256, bytes } => {
+            download_runtime_pack_archive(&url, bytes, &archive_path, &mut on_download)?;
+            verify_runtime_pack_archive(&archive_path, &sha256)?;
+            extract_runtime_pack_archive(&archive_path, &staging_dir)?;
+        }
+    }
     let worker_path = runtime_pack_worker_path_in(&staging_dir)?;
     verify_silma_runtime_worker(&worker_path)?;
     if let Some(parent) = final_dir.parent() {
@@ -422,6 +448,24 @@ impl Drop for RuntimeWorkDirGuard {
     }
 }
 
+enum SilmaRuntimePackSource {
+    Directory(PathBuf),
+    Archive {
+        url: String,
+        sha256: String,
+        bytes: u64,
+    },
+}
+
+impl SilmaRuntimePackSource {
+    fn status_message(&self) -> String {
+        match self {
+            Self::Directory(_) => "Prepared SILMA runtime pack is ready to install".into(),
+            Self::Archive { .. } => "SILMA runtime pack is ready to download".into(),
+        }
+    }
+}
+
 /// Resolve the dev worker script. Env overrides keep local experiments cheap.
 fn silma_worker_path() -> Result<PathBuf, String> {
     if let Ok(path) = std::env::var("PAPERCUT_SILMA_WORKER") {
@@ -439,15 +483,45 @@ fn silma_worker_path() -> Result<PathBuf, String> {
     Err(format!("SILMA worker not found at {}", path.display()))
 }
 
-/// Find a prepared runtime pack that can be promoted into app data.
-fn silma_runtime_pack_source_dir() -> Option<PathBuf> {
+/// Find an explicit source first, then a URL manifest, then the local build output.
+fn silma_runtime_pack_install_source() -> Option<SilmaRuntimePackSource> {
+    if let Some(path) = silma_runtime_pack_env_source_dir() {
+        return Some(SilmaRuntimePackSource::Directory(path));
+    }
+    if let Some(source) = silma_runtime_pack_archive_source() {
+        return Some(source);
+    }
+    silma_runtime_pack_default_source_dir().map(SilmaRuntimePackSource::Directory)
+}
+
+fn silma_runtime_pack_archive_bytes() -> u64 {
+    std::env::var("PAPERCUT_SILMA_RUNTIME_PACK_BYTES")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(0)
+}
+
+fn silma_runtime_pack_env_source_dir() -> Option<PathBuf> {
     if let Ok(path) = std::env::var("PAPERCUT_SILMA_RUNTIME_PACK_DIR") {
         let path = PathBuf::from(path);
         if runtime_pack_worker_path_in(&path).is_ok() {
             return Some(path);
         }
     }
+    None
+}
 
+fn silma_runtime_pack_archive_source() -> Option<SilmaRuntimePackSource> {
+    let url = std::env::var("PAPERCUT_SILMA_RUNTIME_PACK_URL").ok()?;
+    let sha256 = std::env::var("PAPERCUT_SILMA_RUNTIME_PACK_SHA256").ok()?;
+    Some(SilmaRuntimePackSource::Archive {
+        url,
+        sha256,
+        bytes: silma_runtime_pack_archive_bytes(),
+    })
+}
+
+fn silma_runtime_pack_default_source_dir() -> Option<PathBuf> {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let repo_root = manifest_dir.parent()?;
     let source = repo_root
@@ -460,6 +534,110 @@ fn silma_runtime_pack_source_dir() -> Option<PathBuf> {
         return Some(source);
     }
     None
+}
+
+/// Download a pinned runtime-pack archive, emitting coarse byte progress.
+fn download_runtime_pack_archive(
+    url: &str,
+    expected_bytes: u64,
+    archive_path: &Path,
+    on_download: &mut impl FnMut(u64, u64),
+) -> Result<(), String> {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(60 * 60))
+        .user_agent("Papercut SILMA runtime installer")
+        .build()
+        .map_err(|err| format!("Failed to create SILMA runtime downloader: {err}"))?;
+    let mut response = client
+        .get(url)
+        .send()
+        .map_err(|err| format!("Failed to download SILMA runtime pack from {url}: {err}"))?
+        .error_for_status()
+        .map_err(|err| format!("Failed to download SILMA runtime pack from {url}: {err}"))?;
+    let total = response.content_length().unwrap_or(expected_bytes);
+    let file = fs::File::create(archive_path).map_err(|err| {
+        format!(
+            "Failed to create SILMA runtime archive {}: {err}",
+            archive_path.display()
+        )
+    })?;
+    let mut writer = BufWriter::new(file);
+    let mut downloaded = 0u64;
+    let mut last_percent = 0u8;
+    let mut buffer = [0u8; 256 * 1024];
+    on_download(0, total);
+    loop {
+        let read = response
+            .read(&mut buffer)
+            .map_err(|err| format!("Failed while downloading SILMA runtime pack: {err}"))?;
+        if read == 0 {
+            break;
+        }
+        writer.write_all(&buffer[..read]).map_err(|err| {
+            format!(
+                "Failed to write SILMA runtime archive {}: {err}",
+                archive_path.display()
+            )
+        })?;
+        downloaded += read as u64;
+        let percent = download_percent(downloaded, total);
+        if percent >= last_percent.saturating_add(2) || percent == 100 {
+            last_percent = percent;
+            on_download(downloaded, total);
+        }
+    }
+    writer.flush().map_err(|err| {
+        format!(
+            "Failed to finish SILMA runtime archive {}: {err}",
+            archive_path.display()
+        )
+    })?;
+    Ok(())
+}
+
+/// Verify the downloaded runtime-pack archive before extraction.
+fn verify_runtime_pack_archive(archive_path: &Path, expected_sha256: &str) -> Result<(), String> {
+    let file = fs::File::open(archive_path).map_err(|err| {
+        format!(
+            "Failed to open SILMA runtime archive {}: {err}",
+            archive_path.display()
+        )
+    })?;
+    let mut reader = BufReader::new(file);
+    let mut hasher = Sha256::new();
+    let mut buffer = [0u8; 256 * 1024];
+    loop {
+        let read = reader
+            .read(&mut buffer)
+            .map_err(|err| format!("Failed to hash SILMA runtime archive: {err}"))?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+    let actual = format!("{:x}", hasher.finalize());
+    if actual == expected_sha256 {
+        Ok(())
+    } else {
+        Err(format!(
+            "SILMA runtime checksum mismatch. Expected {expected_sha256}, got {actual}"
+        ))
+    }
+}
+
+/// Extract the verified `.tar.bz2` runtime archive into staging.
+fn extract_runtime_pack_archive(archive_path: &Path, destination: &Path) -> Result<(), String> {
+    let file = fs::File::open(archive_path).map_err(|err| {
+        format!(
+            "Failed to open SILMA runtime archive {}: {err}",
+            archive_path.display()
+        )
+    })?;
+    let decoder = BzDecoder::new(file);
+    let mut archive = tar::Archive::new(decoder);
+    archive
+        .unpack(destination)
+        .map_err(|err| format!("Failed to extract SILMA runtime pack: {err}"))
 }
 
 fn runtime_pack_worker_path(app: &tauri::AppHandle) -> Result<Option<PathBuf>, String> {
@@ -586,6 +764,13 @@ fn verify_silma_runtime_worker(worker_path: &Path) -> Result<(), String> {
             "SILMA runtime self-test failed with status {status}"
         ))
     }
+}
+
+fn download_percent(downloaded: u64, total: u64) -> u8 {
+    if total == 0 {
+        return 0;
+    }
+    ((downloaded.saturating_mul(100) / total).min(100)) as u8
 }
 
 fn bundled_worker_path(app: &tauri::AppHandle) -> Result<Option<PathBuf>, String> {

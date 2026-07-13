@@ -93,7 +93,7 @@ pub(crate) fn model_status(
             runtime_dir: model_runtime_dir(runtime_status.as_ref()),
             source_url: model.source_url.into(),
             source_label: model.source_label.into(),
-            archive_bytes: model.archive_bytes,
+            archive_bytes: model_archive_bytes(model, runtime_status.as_ref()),
             sha256: model.sha256.into(),
             message: "Offline voice model installed".into(),
             runtime_message: model_runtime_message(runtime_status.as_ref()),
@@ -108,7 +108,7 @@ pub(crate) fn model_status(
             runtime_dir: model_runtime_dir(runtime_status.as_ref()),
             source_url: model.source_url.into(),
             source_label: model.source_label.into(),
-            archive_bytes: model.archive_bytes,
+            archive_bytes: model_archive_bytes(model, runtime_status.as_ref()),
             installed_bytes: directory_size(&model_dir).unwrap_or(0),
             sha256: model.sha256.into(),
             message: missing_model_message(model, &model_dir, installing),
@@ -124,13 +124,26 @@ pub(crate) fn model_status(
             runtime_dir: model_runtime_dir(runtime_status.as_ref()),
             source_url: model.source_url.into(),
             source_label: model.source_label.into(),
-            archive_bytes: model.archive_bytes,
+            archive_bytes: model_archive_bytes(model, runtime_status.as_ref()),
             installed_bytes: 0,
             sha256: model.sha256.into(),
             message: err,
             runtime_message: model_runtime_message(runtime_status.as_ref()),
         },
     }
+}
+
+/// SILMA's install button may install the runtime pack before model weights exist.
+fn model_archive_bytes(
+    model: &ModelDefinition,
+    status: Option<&super::silma_sidecar::SilmaRuntimeStatus>,
+) -> u64 {
+    if matches!(model.backend, TtsModelBackend::SilmaSidecar) {
+        return status
+            .map(|status| status.archive_bytes)
+            .unwrap_or(model.archive_bytes);
+    }
+    model.archive_bytes
 }
 
 fn model_install_supported(
@@ -246,7 +259,16 @@ async fn install_silma_runtime_pack_for_model(
     emit_model_progress(&app, model, "starting", "Installing SILMA runtime pack", 0);
     let app_for_task = app.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
-        let runtime_dir = install_silma_runtime_pack(&app_for_task)?;
+        let runtime_dir = install_silma_runtime_pack(&app_for_task, |downloaded, total| {
+            emit_model_progress_total(
+                &app_for_task,
+                model,
+                "downloading",
+                "Downloading SILMA runtime pack",
+                downloaded,
+                total,
+            );
+        })?;
         Ok(NativeTtsModelInstallResponse {
             model_id: model.id.into(),
             bytes: directory_size(&runtime_dir).unwrap_or(0),
@@ -547,6 +569,28 @@ fn emit_model_progress(
             downloaded_bytes,
             total_bytes: model.archive_bytes,
             percent: download_percent(downloaded_bytes, model.archive_bytes),
+        },
+    );
+}
+
+/// Emit progress for downloads whose size is not stored on `ModelDefinition`.
+fn emit_model_progress_total(
+    app: &tauri::AppHandle,
+    model: &ModelDefinition,
+    status: &str,
+    message: &str,
+    downloaded_bytes: u64,
+    total_bytes: u64,
+) {
+    let _ = app.emit(
+        MODEL_INSTALL_PROGRESS_EVENT,
+        NativeTtsModelInstallProgress {
+            model_id: model.id.into(),
+            status: status.into(),
+            message: message.into(),
+            downloaded_bytes,
+            total_bytes,
+            percent: download_percent(downloaded_bytes, total_bytes),
         },
     );
 }

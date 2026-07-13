@@ -402,12 +402,20 @@ Current runtime-pack install slice:
 
 - the SILMA install button can promote a prepared PyInstaller onedir into the
   app-data runtime-pack slot;
-- source lookup checks `PAPERCUT_SILMA_RUNTIME_PACK_DIR` first, then the local
+- source lookup checks `PAPERCUT_SILMA_RUNTIME_PACK_DIR` first;
+- next, source lookup can use an env-pinned
+  `.tar.bz2` runtime pack with `PAPERCUT_SILMA_RUNTIME_PACK_URL`,
+  `PAPERCUT_SILMA_RUNTIME_PACK_SHA256`, and optional
+  `PAPERCUT_SILMA_RUNTIME_PACK_BYTES`;
+- finally, source lookup falls back to the local
   `sidecars/silma/runtime/x86_64-unknown-linux-gnu/onedir/` build output;
 - install copies the onedir into a cache staging directory, runs the worker
   `--self-test`, and atomically promotes it to `current/`;
-- this is not the final network downloader yet. It validates the on-disk layout
-  and app-data launch path the downloader will use.
+- archive install downloads to cache, verifies SHA-256, extracts to the same
+  staging directory, runs the same `--self-test`, and promotes the same way;
+- this is not the final public manifest yet. It validates the on-disk layout,
+  hash-gated download path, and app-data launch path the release downloader will
+  use.
 
 Local runtime-pack install prep:
 
@@ -417,6 +425,22 @@ npm run prepare:silma-sidecar -- --self-test
 
 Then launch the dev app without `PAPERCUT_SILMA_WORKER_BIN`; the SILMA install
 button can copy that prepared runtime into app data.
+
+Runtime-pack archive install spike:
+
+```bash
+PAPERCUT_SILMA_RUNTIME_PACK_URL="https://example.invalid/papercut-silma-linux-x64-cpu.tar.bz2" \
+PAPERCUT_SILMA_RUNTIME_PACK_SHA256="<sha256>" \
+PAPERCUT_SILMA_RUNTIME_PACK_BYTES="<bytes>" \
+PAPERCUT_ENABLE_SILMA_TTS=1 \
+npm run tauri:dev
+```
+
+The archive must extract so `current/` contains the expected Linux worker path:
+
+```text
+silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu
+```
 
 ## Desktop Platform Notes
 
@@ -883,6 +907,8 @@ Exit criteria:
 - [x] Add SILMA model status/manual local-file detection.
 - [x] Add SILMA runtime-pack status detection.
 - [x] Add local SILMA runtime-pack install/promotion into app data.
+- [x] Add env-pinned SILMA runtime-pack archive download, SHA-256 verification,
+      extraction, self-test, and promotion.
 - [ ] Add SILMA in-app install support.
 - [ ] Add SILMA runtime-pack download support.
 - [ ] Pin source revision and hashes.
