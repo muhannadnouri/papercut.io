@@ -79,3 +79,17 @@ Optional environment overrides:
 PAPERCUT_SILMA_PYTHON=/path/to/venv/bin/python
 PAPERCUT_SILMA_WORKER=/path/to/silma_worker.py
 ```
+
+## Onefile Packaging Spike
+
+Install PyInstaller into the sidecar venv, then build a target-suffixed onefile
+worker executable:
+
+```bash
+. .venv-silma/bin/activate
+python -m pip install pyinstaller
+npm run prepare:silma-sidecar -- --clean
+```
+
+The output is written under `sidecars/silma/runtime/<target>/`, which is ignored
+by git. This is only the packaging spike; release builds do not bundle it yet.

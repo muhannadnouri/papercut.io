@@ -265,9 +265,9 @@ The worker may write WAV output, but Rust remains the final authority:
 - update manifest from WAV headers.
 
 `wav_sink.rs` now owns temp-file creation, WAV validation, atomic commit, timing
-metadata, and silent-placeholder writing. Sherpa still owns inference only; a
-future SILMA route should ask the sidecar to write to the temp path and then use
-the same sink commit path.
+metadata, and silent-placeholder writing. Sherpa and SILMA both write through
+this shared sink path; SILMA asks the sidecar to write to the temp path before
+Rust validates and commits it.
 
 ## Tauri Packaging Plan
 
@@ -367,9 +367,9 @@ their public IDs and installed paths, while future SILMA entries can use
 `models/silma-tts` storage prefix without pretending to be a sherpa family.
 
 Runtime slot status: `NativeTtsState` now stores one `LoadedTtsEngine` enum.
-`Sherpa` remains the only audiobook synthesis route. `Silma` can start the
-worker, call `load_model`, and keep the sidecar resident, but the save loop does
-not call SILMA chunk synthesis yet.
+`Sherpa` and `Silma` now both route through the native save loop. `Silma`
+starts the worker, calls `load_model`, keeps the sidecar resident, and asks it
+to synthesize missing chunk WAVs.
 
 Hidden SILMA catalog status:
 
@@ -407,7 +407,8 @@ the official downloader stores files under `models--silma-ai--silma-tts/...`.
 - [x] Run the local `--smoke` command with installed SILMA deps and capture
       timing/quality results.
 - [x] Add a model-free probe WAV operation for sidecar/Tauri file-access testing.
-- [ ] Package with PyInstaller onefile for the first spike.
+- [x] Add a PyInstaller onefile prep script for the first spike.
+- [ ] Run and validate the PyInstaller onefile output on a desktop.
 - [ ] Package with PyInstaller onedir for production validation.
 - [ ] Document exact Python version and locked dependencies.
 - [ ] Decide whether `ffmpeg` is required at runtime; if yes, bundle it or avoid
@@ -526,8 +527,8 @@ Stage 2 SILMA synthesis status:
 
 ## Build Script Tasks
 
-- [ ] Add `scripts/prepare-silma-sidecar.js` or platform-specific helpers.
-- [ ] Produce target-triple sidecar names or resource directories.
+- [x] Add `scripts/prepare-silma-sidecar.js` or platform-specific helpers.
+- [x] Produce target-triple sidecar names or resource directories.
 - [ ] Integrate sidecar prep into `scripts/build-desktop.js` behind a feature or
       build flag.
 - [ ] Keep Android and iOS build scripts untouched except for explicit exclusion.
@@ -606,7 +607,8 @@ Exit criteria:
 
 ### Stage 1: Sidecar Prototype
 
-- [ ] Package worker with PyInstaller onefile.
+- [x] Add PyInstaller onefile packaging helper.
+- [ ] Package worker with PyInstaller onefile and run the packaged worker.
 - [x] Add temporary Rust command or dev-only path to spawn it.
 - [x] Generate one probe WAV into app data.
 - [ ] Validate Tauri sidecar mechanics in a running desktop app.
