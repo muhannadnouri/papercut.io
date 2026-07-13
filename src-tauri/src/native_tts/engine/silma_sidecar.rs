@@ -1,9 +1,9 @@
 //! Minimal SILMA JSONL sidecar process wrapper.
 //!
-//! This is still a dev/local runner: it resolves the repo worker script and a
-//! Python executable, sends one JSON request, reads one JSON response, and keeps
-//! the process alive between calls. Packaging and long-lived supervision come
-//! later.
+//! This is still a dev/local runner: it resolves either the repo worker script
+//! plus a Python executable, or a packaged worker executable, then keeps the
+//! JSONL process alive between calls. Bundle discovery and long-lived
+//! supervision come later.
 
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -25,18 +25,20 @@ pub(super) struct SilmaSynthesisResult {
 }
 
 impl SilmaSidecar {
-    /// Start the local Python worker used by development probes and early routing.
+    /// Start the local worker used by development probes and early routing.
     pub(super) fn start_dev() -> Result<Self, String> {
-        let worker_path = silma_worker_path()?;
-        let python_command = silma_python_command();
-        let mut child = Command::new(&python_command)
-            .arg(&worker_path)
+        let launch = silma_launch_command()?;
+        let mut child = Command::new(&launch.program)
+            .args(launch.args.iter().map(|arg| arg.as_os_str()))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
             .spawn()
             .map_err(|err| {
-                format!("Failed to start SILMA worker with {python_command:?}: {err}")
+                format!(
+                    "Failed to start SILMA worker with {:?}: {err}",
+                    launch.program
+                )
             })?;
         let stdin = child
             .stdin
@@ -50,8 +52,8 @@ impl SilmaSidecar {
             child,
             stdin,
             stdout: BufReader::new(stdout),
-            python_command,
-            worker_path,
+            python_command: launch.python_command,
+            worker_path: launch.worker_path,
         })
     }
 
@@ -164,18 +166,41 @@ impl Drop for SilmaSidecar {
     }
 }
 
+struct SilmaLaunchCommand {
+    program: PathBuf,
+    args: Vec<PathBuf>,
+    python_command: String,
+    worker_path: PathBuf,
+}
+
+/// Prefer a packaged JSONL executable when supplied; otherwise use the editable
+/// Python worker script. This keeps packaging tests out of the normal dev path.
+fn silma_launch_command() -> Result<SilmaLaunchCommand, String> {
+    if let Ok(path) = std::env::var("PAPERCUT_SILMA_WORKER_BIN") {
+        let worker_path = require_file("PAPERCUT_SILMA_WORKER_BIN", PathBuf::from(path))?;
+        return Ok(SilmaLaunchCommand {
+            program: worker_path.clone(),
+            args: Vec::new(),
+            python_command: "<packaged>".into(),
+            worker_path,
+        });
+    }
+
+    let worker_path = silma_worker_path()?;
+    let python_command = silma_python_command();
+    Ok(SilmaLaunchCommand {
+        program: PathBuf::from(&python_command),
+        args: vec![worker_path.clone()],
+        python_command,
+        worker_path,
+    })
+}
+
 /// Resolve the dev worker script. Production packaging will replace this with a
 /// bundled sidecar/resource path, but the env override keeps local experiments cheap.
 fn silma_worker_path() -> Result<PathBuf, String> {
     if let Ok(path) = std::env::var("PAPERCUT_SILMA_WORKER") {
-        let path = PathBuf::from(path);
-        if path.is_file() {
-            return Ok(path);
-        }
-        return Err(format!(
-            "PAPERCUT_SILMA_WORKER does not point to a file: {}",
-            path.display()
-        ));
+        return require_file("PAPERCUT_SILMA_WORKER", PathBuf::from(path));
     }
 
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -187,6 +212,16 @@ fn silma_worker_path() -> Result<PathBuf, String> {
         return Ok(path);
     }
     Err(format!("SILMA worker not found at {}", path.display()))
+}
+
+fn require_file(var_name: &str, path: PathBuf) -> Result<PathBuf, String> {
+    if path.is_file() {
+        return Ok(path);
+    }
+    Err(format!(
+        "{var_name} does not point to a file: {}",
+        path.display()
+    ))
 }
 
 /// Pick the Python executable without adding project-wide configuration yet.

@@ -10,8 +10,10 @@ const CACHE_DIR = join(ROOT, ".cache", "silma-pyinstaller")
 const options = parseArgs(process.argv.slice(2))
 const target = options.target ?? currentTargetTriple()
 const python = options.python ?? defaultPython()
-const exeName = "silma-worker-" + target + (process.platform === "win32" ? ".exe" : "")
-const outputDir = options.outputDir ?? join(SILMA_DIR, "runtime", target)
+const mode = options.mode ?? "onedir"
+const exeBase = "silma-worker-" + target
+const exeName = exeBase + (process.platform === "win32" ? ".exe" : "")
+const outputDir = options.outputDir ?? join(SILMA_DIR, "runtime", target, mode)
 
 if (options.clean) {
   rmSync(outputDir, { recursive: true, force: true })
@@ -44,9 +46,9 @@ const result = runSync(
     "PyInstaller",
     "--noconfirm",
     "--clean",
-    "--onefile",
+    mode === "onefile" ? "--onefile" : "--onedir",
     "--name",
-    exeName.replace(/\.exe$/, ""),
+    exeBase,
     "--distpath",
     outputDir,
     "--workpath",
@@ -67,7 +69,7 @@ if (result.status !== 0) {
   process.exit(result.status ?? 1)
 }
 
-console.log("[silma-sidecar] built " + join(outputDir, exeName))
+console.log("[silma-sidecar] built " + builtWorkerPath(outputDir, mode, exeBase, exeName))
 
 function parseArgs(args) {
   const parsed = { clean: false }
@@ -79,6 +81,12 @@ function parseArgs(args) {
       parsed.python = requireValue(args, ++index, arg)
     } else if (arg === "--target") {
       parsed.target = requireValue(args, ++index, arg)
+    } else if (arg === "--mode") {
+      const mode = requireValue(args, ++index, arg)
+      if (mode !== "onefile" && mode !== "onedir") {
+        fail("--mode must be onefile or onedir")
+      }
+      parsed.mode = mode
     } else if (arg === "--output-dir") {
       parsed.outputDir = requireValue(args, ++index, arg)
     } else {
@@ -86,6 +94,10 @@ function parseArgs(args) {
     }
   }
   return parsed
+}
+
+function builtWorkerPath(outputDir, mode, exeBase, exeName) {
+  return mode === "onefile" ? join(outputDir, exeName) : join(outputDir, exeBase, exeName)
 }
 
 function requireValue(args, index, flag) {

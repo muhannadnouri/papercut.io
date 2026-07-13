@@ -78,12 +78,13 @@ Optional environment overrides:
 ```bash
 PAPERCUT_SILMA_PYTHON=/path/to/venv/bin/python
 PAPERCUT_SILMA_WORKER=/path/to/silma_worker.py
+PAPERCUT_SILMA_WORKER_BIN=/path/to/packaged/silma-worker
 ```
 
-## Onefile Packaging Spike
+## Packaging Spike
 
-Install PyInstaller into the sidecar venv, then build a target-suffixed onefile
-worker executable:
+Install PyInstaller into the sidecar venv, then build a target-suffixed onedir
+worker:
 
 ```bash
 . .venv-silma/bin/activate
@@ -91,5 +92,15 @@ python -m pip install pyinstaller
 npm run prepare:silma-sidecar -- --clean
 ```
 
-The output is written under `sidecars/silma/runtime/<target>/`, which is ignored
-by git. This is only the packaging spike; release builds do not bundle it yet.
+The output is written under `sidecars/silma/runtime/<target>/onedir/`, which is
+ignored by git. Point Rust at the executable with `PAPERCUT_SILMA_WORKER_BIN`.
+
+The first onefile Linux spike produced a 3.18 GB executable but failed
+`--self-test` when PyInstaller tried to extract Torch into `/tmp`. Keep onefile
+as a diagnostic option only:
+
+```bash
+npm run prepare:silma-sidecar -- --mode onefile --clean
+```
+
+This is only the packaging spike; release builds do not bundle it yet.

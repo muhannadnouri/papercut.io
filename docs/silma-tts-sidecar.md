@@ -288,10 +288,18 @@ Implementation tasks:
 
 Prototype path:
 
-- PyInstaller `onefile` sidecar;
-- easiest match for Tauri `externalBin`;
-- slower startup and temp extraction;
-- acceptable only for the first proof.
+- PyInstaller `onedir` sidecar;
+- easiest way to avoid extracting a multi-GB Torch payload into `/tmp`;
+- compatible with a direct executable env override while bundle layout is still
+  under test.
+
+Rejected first spike:
+
+- PyInstaller `onefile`;
+- produced a 3.18 GB Linux executable;
+- failed `--self-test` because extraction of `torch/lib/libtorch_cpu.so`
+  exhausted `/tmp`;
+- keep only as a diagnostic option, not the release direction.
 
 Production path:
 
@@ -408,7 +416,7 @@ the official downloader stores files under `models--silma-ai--silma-tts/...`.
       timing/quality results.
 - [x] Add a model-free probe WAV operation for sidecar/Tauri file-access testing.
 - [x] Add a PyInstaller onefile prep script for the first spike.
-- [ ] Run and validate the PyInstaller onefile output on a desktop.
+- [x] Run and reject the PyInstaller onefile output on a desktop.
 - [ ] Package with PyInstaller onedir for production validation.
 - [ ] Document exact Python version and locked dependencies.
 - [ ] Decide whether `ffmpeg` is required at runtime; if yes, bundle it or avoid
@@ -476,6 +484,7 @@ Stage 1 probe command:
 - Env overrides:
   - `PAPERCUT_SILMA_PYTHON`
   - `PAPERCUT_SILMA_WORKER`
+  - `PAPERCUT_SILMA_WORKER_BIN`
 
 The probe starts the Python worker from the repo, sends `health`, asks the
 worker to write a tiny silent WAV into Tauri app data, validates that WAV with
@@ -484,6 +493,8 @@ SILMA model-load test. This probe uses Rust-owned `std::process::Command`
 instead of Tauri's shell plugin. The process wrapper now keeps stdin/stdout open
 for sequential JSONL request/response calls; production sidecar packaging,
 timeouts, and crash recovery remain later stages.
+`PAPERCUT_SILMA_WORKER_BIN` can point at a packaged PyInstaller worker
+executable and skips Python entirely.
 
 Stage 2 load helper:
 
@@ -529,6 +540,8 @@ Stage 2 SILMA synthesis status:
 
 - [x] Add `scripts/prepare-silma-sidecar.js` or platform-specific helpers.
 - [x] Produce target-triple sidecar names or resource directories.
+- [x] Add `onedir` packaging mode and make it the default after onefile failed
+      extraction.
 - [ ] Integrate sidecar prep into `scripts/build-desktop.js` behind a feature or
       build flag.
 - [ ] Keep Android and iOS build scripts untouched except for explicit exclusion.
@@ -596,7 +609,7 @@ Regression tests:
 - [x] Build a Python worker outside Tauri.
 - [x] Synthesize one WAV with a local SILMA checkout/model.
 - [x] Measure CPU RTF on at least one real desktop.
-- [ ] Decide whether quality and speed justify app integration.
+- [x] Decide whether quality and speed justify app integration.
 
 Exit criteria:
 
@@ -608,7 +621,8 @@ Exit criteria:
 ### Stage 1: Sidecar Prototype
 
 - [x] Add PyInstaller onefile packaging helper.
-- [ ] Package worker with PyInstaller onefile and run the packaged worker.
+- [x] Package worker with PyInstaller onefile and run the packaged worker.
+- [ ] Package worker with PyInstaller onedir and run the packaged worker.
 - [x] Add temporary Rust command or dev-only path to spawn it.
 - [x] Generate one probe WAV into app data.
 - [ ] Validate Tauri sidecar mechanics in a running desktop app.
