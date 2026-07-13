@@ -516,9 +516,11 @@ CI runtime-pack build:
 Practical CI model:
 
 - always run cheap PR checks for lint, types, frontend build, and basic native
-  compile coverage;
+  worker protocol coverage;
 - gate expensive runtime-pack and platform packaging jobs from actual changed
   files, not branch names;
+- run desktop/mobile packaging only after cheap checks pass and only when native
+  runtime, platform, packaging, workflow, or dependency surfaces changed;
 - keep full desktop/mobile/runtime artifact matrices for manual validation,
   nightly checks, or release workflows;
 - use PR concurrency cancellation so superseded pushes stop spending minutes.
@@ -1163,7 +1165,7 @@ Exit criteria:
 - [x] Cancel stale PR CI runs when a newer push arrives for the same PR.
 - [x] Run the temporary PR SILMA runtime-pack build only when SILMA runtime
       files, packaging scripts, runtime metadata, or related workflows changed.
-- [ ] Split ordinary PR CI into cheap required checks and gated expensive
+- [x] Split ordinary PR CI into cheap required checks and gated expensive
       packaging jobs.
 - [ ] Bundle sidecar dependencies correctly on each desktop OS.
 - [ ] Reduce sidecar size or move SILMA to an optional runtime download before

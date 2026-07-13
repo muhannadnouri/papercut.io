@@ -18,31 +18,79 @@ jobs:
   changes:
     runs-on: ubuntu-24.04
     outputs:
+      android_packaging: ${{ steps.detect.outputs.android_packaging }}
+      desktop_packaging: ${{ steps.detect.outputs.desktop_packaging }}
+      ios_packaging: ${{ steps.detect.outputs.ios_packaging }}
       silma_runtime: ${{ steps.detect.outputs.silma_runtime }}
 
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-          fetch-depth: 2
+          fetch-depth: 1
 
       - name: Detect changed CI surfaces
         id: detect
         shell: bash
         run: |
           set -euo pipefail
-          if git rev-parse --verify HEAD^1 >/dev/null 2>&1; then
-            base=HEAD^1
-          else
-            git fetch --no-tags --depth=1 origin "$GITHUB_BASE_REF"
-            base=FETCH_HEAD
-          fi
-
+          base="${{ github.event.pull_request.base.sha }}"
+          git fetch --no-tags --depth=1 origin "$base"
           changed="$(git diff --name-only "$base" HEAD)"
           printf '%s\n' "$changed"
 
+          android_packaging=false
+          desktop_packaging=false
+          ios_packaging=false
           silma_runtime=false
           while IFS= read -r path; do
+            case "$path" in
+              .github/workflows/ci.yml | \
+              package.json | \
+              package-lock.json | \
+              src-tauri/Cargo.toml | \
+              src-tauri/Cargo.lock | \
+              src-tauri/build.rs | \
+              src-tauri/src/* | \
+              src-tauri/tts/* | \
+              src-tauri/vendor/sherpa-onnx-sys/* | \
+              scripts/lib/*)
+                android_packaging=true
+                desktop_packaging=true
+                ios_packaging=true
+                ;;
+            esac
+            case "$path" in
+              src-tauri/tauri.conf.json | \
+              src-tauri/tauri.linux.conf.json | \
+              src-tauri/tauri.macos.conf.json | \
+              src-tauri/Entitlements.plist | \
+              src-tauri/icons/* | \
+              scripts/build-desktop.js | \
+              scripts/copy-* | \
+              scripts/verify-* | \
+              scripts/lib/desktop/* | \
+              scripts/lib/linux/* | \
+              scripts/lib/macos/*)
+                desktop_packaging=true
+                ;;
+            esac
+            case "$path" in
+              scripts/build-android.js | \
+              scripts/lib/android/*)
+                android_packaging=true
+                ;;
+            esac
+            case "$path" in
+              src-tauri/tauri.ios.conf.json | \
+              src-tauri/gen/apple/* | \
+              src-tauri/icons/ios/* | \
+              scripts/build-ios.js | \
+              scripts/check-ios-device-build.js | \
+              scripts/lib/ios/*)
+                ios_packaging=true
+                ;;
+            esac
             case "$path" in
               sidecars/silma/* | \
               scripts/prepare-silma-sidecar.js | \
@@ -54,9 +102,41 @@ jobs:
                 ;;
             esac
           done <<< "$changed"
+          echo "android_packaging=$android_packaging" >> "$GITHUB_OUTPUT"
+          echo "desktop_packaging=$desktop_packaging" >> "$GITHUB_OUTPUT"
+          echo "ios_packaging=$ios_packaging" >> "$GITHUB_OUTPUT"
           echo "silma_runtime=$silma_runtime" >> "$GITHUB_OUTPUT"
 
+  checks:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build frontend + Pagefind index
+        run: npm run build
+
+      - name: SILMA worker self-test
+        run: python3 sidecars/silma/silma_worker.py --self-test
+
   build:
+    needs: [changes, checks]
+    if: needs.changes.outputs.desktop_packaging == 'true'
+
     strategy:
       fail-fast: false
       matrix:
@@ -121,13 +201,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
-        if: matrix.platform == 'linux'
-        run: npm run lint
-
-      - name: Build frontend + Pagefind index
-        run: npm run build
-
       - name: Build Tauri app
         run: npm run desktop
 
@@ -172,6 +245,9 @@ jobs:
           retention-days: 7
 
   build-android:
+    needs: [changes, checks]
+    if: needs.changes.outputs.android_packaging == 'true'
+
     runs-on: ubuntu-24.04
 
     steps:
@@ -212,9 +288,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build frontend + Pagefind index
-        run: npm run build
-
       - name: Build Android APK
         run: npm run android:apk:native-tts
         env:
@@ -228,6 +301,9 @@ jobs:
           retention-days: 7
 
   build-ios:
+    needs: [changes, checks]
+    if: needs.changes.outputs.ios_packaging == 'true'
+
     runs-on: macos-26
 
     steps:
@@ -290,9 +366,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build frontend + Pagefind index
-        run: npm run build
-
       - name: Verify generated iOS project files
         run: |
           test -d src-tauri/gen/apple
@@ -308,7 +381,7 @@ jobs:
         run: npm run ios:ci:device
 
   build-silma-runtime:
-    needs: changes
+    needs: [changes, checks]
     if: needs.changes.outputs.silma_runtime == 'true'
     runs-on: ubuntu-24.04
 
