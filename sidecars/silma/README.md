@@ -32,6 +32,10 @@ This imports SILMA, loads the model through the official `SilmaTTS` API, and
 writes one WAV. The first run may download model files into the provided cache
 directory.
 
+If this fails with `No module named 'silma_tts'`, the current Python did not
+install `sidecars/silma/requirements.txt`; activate `.venv-silma` or point the
+app at that interpreter with `PAPERCUT_SILMA_PYTHON`.
+
 Shortest form:
 
 ```bash

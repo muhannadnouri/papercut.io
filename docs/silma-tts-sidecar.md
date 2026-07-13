@@ -264,8 +264,10 @@ The worker may write WAV output, but Rust remains the final authority:
 - commit with `commit_staged_file`;
 - update manifest from WAV headers.
 
-Move silent-placeholder writing out of sherpa-specific code before SILMA uses the
-save loop. A tiny PCM WAV writer in Rust is enough.
+`wav_sink.rs` now owns temp-file creation, WAV validation, atomic commit, timing
+metadata, and silent-placeholder writing. Sherpa still owns inference only; a
+future SILMA route should ask the sidecar to write to the temp path and then use
+the same sink commit path.
 
 ## Tauri Packaging Plan
 
@@ -339,7 +341,7 @@ Linux:
 - [x] Keep one loaded engine at a time unless measurements prove switching is too
       costly.
 - [ ] Make `ensure_engine` route to sherpa or SILMA based on model definition.
-- [ ] Move shared WAV commit/validation/silent-placeholder code out of
+- [x] Move shared WAV commit/validation/silent-placeholder code out of
       `synth.rs`.
 - [ ] Add `SilmaSidecar` process supervision:
       - spawn;
@@ -412,6 +414,11 @@ The worker imports `SilmaTTS` lazily so `health` and `--self-test` can run
 without installing SILMA or downloading the model. `load_model` passes
 `model_dir` as `hf_cache_dir` because the current official API resolves
 `model.pt` and `vocab.txt` through `cached_path`.
+
+If `--smoke` returns `No module named 'silma_tts'`, the selected Python
+interpreter does not have the sidecar dependencies installed. Create/activate
+the sidecar venv and run `pip install -r sidecars/silma/requirements.txt`, then
+rerun the smoke command with that Python.
 
 Local SILMA smoke command:
 
@@ -562,7 +569,7 @@ Linux machine is currently blocked before app code by missing
 
 - [x] Add backend-aware loaded engine enum.
 - [x] Add SILMA model catalog entry behind desktop feature gate.
-- [ ] Route save loop through shared synth-to-file boundary.
+- [x] Route save loop through shared synth-to-file boundary.
 - [ ] Reuse manifest/cache/export/playback.
 
 Exit criteria:

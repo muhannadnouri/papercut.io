@@ -36,6 +36,7 @@ mod save;
 mod sidecar_probe;
 mod synth;
 mod text_normalization;
+mod wav_sink;
 
 pub(crate) use synth::LoadedTtsEngine;
 

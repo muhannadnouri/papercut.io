@@ -11,21 +11,20 @@
 //! touches the engine at a time; `.lock()` is like awaiting that lock.
 
 use std::collections::HashMap;
-use std::fs;
 use std::path::Path;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::Instant;
 
 use sherpa_onnx::{
-    write as write_wav_file, GeneratedAudio, GenerationConfig, OfflineTts, OfflineTtsConfig,
-    OfflineTtsKokoroModelConfig, OfflineTtsModelConfig, OfflineTtsSupertonicModelConfig,
-    OfflineTtsVitsModelConfig,
+    GeneratedAudio, GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsKokoroModelConfig,
+    OfflineTtsModelConfig, OfflineTtsSupertonicModelConfig, OfflineTtsVitsModelConfig,
 };
 
-use super::cache::wav_info;
-use super::file_commit::commit_staged_file;
 use super::models::{model_definition, ModelDefinition, SherpaModelFamily, TtsModelBackend};
 use super::paths::{audio_duration_sec, resolve_model_dir};
 use super::text_normalization::{normalize_english_synthesis_text, sanitize_tts_text};
+use super::wav_sink::{
+    commit_synthesis_wav, write_silent_placeholder, FileSynthesisResult, SILENT_PLACEHOLDER_SEC,
+};
 use crate::native_tts::platform::resolve_thread_count;
 
 /// A loaded sherpa-onnx model plus the settings it was built with. Kept alive
@@ -57,16 +56,6 @@ impl LoadedTtsEngine {
             _ => None,
         }
     }
-}
-
-/// Timing/size result of writing one synthesized chunk to a file.
-pub(super) struct FileSynthesisResult {
-    pub(super) generate_ms: u128,
-    pub(super) synthesis_ms: u128,
-    pub(super) write_ms: u128,
-    pub(super) validate_ms: u128,
-    pub(super) audio_duration_sec: f32,
-    pub(super) wav_bytes: usize,
 }
 
 /// Return a ready engine from the shared slot, (re)building it if absent or if
@@ -120,22 +109,6 @@ pub(super) fn synthesize_to_file(
     output_path: &Path,
 ) -> Result<FileSynthesisResult, String> {
     let started = Instant::now();
-    if let Some(parent) = output_path.parent() {
-        fs::create_dir_all(parent).map_err(|err| {
-            format!(
-                "Failed to create native audiobook chunk dir {}: {err}",
-                parent.display()
-            )
-        })?;
-    }
-    let temp_path = output_path.with_extension(format!(
-        "{}.tmp",
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|err| format!("System clock error: {err}"))?
-            .as_nanos()
-    ));
-
     // A chunk whose text is empty after sanitization (e.g. a paragraph of only
     // emoji or other dropped symbols) has nothing to synthesize. Failing here
     // would abort the whole save and wedge resume on the same chunk forever, so
@@ -146,78 +119,31 @@ pub(super) fn synthesize_to_file(
     let generated_audio = generate_audio(engine, text, voice, speed)?;
     let synthesis_ms = synthesis_started.elapsed().as_millis();
 
-    let write_started = Instant::now();
-    let fallback_duration_sec = match generated_audio {
-        Some(audio) => {
-            let duration = audio_duration_sec(audio.samples().len(), audio.sample_rate());
-            if !audio.save(&temp_path.display().to_string()) {
-                let _ = fs::remove_file(&temp_path);
-                return Err(format!(
-                    "sherpa-onnx failed to write generated WAV {}",
-                    temp_path.display()
-                ));
-            }
-            duration
-        }
-        None => {
-            let sample_rate = engine.tts.sample_rate();
-            log::warn!(
-                "Audiobook chunk had no speakable text after sanitization; writing {SILENT_PLACEHOLDER_SEC}s silent placeholder at {} ({sample_rate} Hz)",
-                output_path.display(),
-            );
-            write_silent_placeholder(&temp_path, sample_rate)?
-        }
-    };
-    let write_ms = write_started.elapsed().as_millis();
-
-    // Sanity-check the written file actually parses before committing it.
-    let validate_started = Instant::now();
-    let Some(info) = wav_info(&temp_path) else {
-        let _ = fs::remove_file(&temp_path);
-        return Err(format!("Generated invalid WAV {}", temp_path.display()));
-    };
-    commit_staged_file(&temp_path, output_path, "generated WAV")?;
-    let validate_ms = validate_started.elapsed().as_millis();
-
-    Ok(FileSynthesisResult {
-        generate_ms: started.elapsed().as_millis(),
+    commit_synthesis_wav(
+        started,
         synthesis_ms,
-        write_ms,
-        validate_ms,
-        audio_duration_sec: info.audio_duration_sec.max(fallback_duration_sec),
-        wav_bytes: info.wav_bytes,
-    })
-}
-
-/// Length of the silent WAV written for a chunk with no speakable text. Short
-/// enough to be an imperceptible gap, but nonzero so the WAV is a valid,
-/// indexable chunk (the playback index rejects zero-duration chunks).
-const SILENT_PLACEHOLDER_SEC: f64 = 0.25;
-
-/// Write [`SILENT_PLACEHOLDER_SEC`] of silence to `path` and return its exact
-/// duration in seconds.
-///
-/// Uses sherpa-onnx's own WAV writer — the same one [`OfflineTts`] generation
-/// goes through — so the file's encoding (mono 16-bit PCM at the engine's
-/// sample rate) is byte-identical to generated chunks by construction. That
-/// keeps its `fmt ` block matching theirs, which single-track export
-/// concatenation requires. Silence is simply a run of zero samples.
-fn write_silent_placeholder(path: &Path, sample_rate: i32) -> Result<f32, String> {
-    if sample_rate <= 0 {
-        return Err(format!(
-            "Engine reported a non-positive sample rate ({sample_rate}); cannot write a silent placeholder for {}",
-            path.display()
-        ));
-    }
-    let frame_count = (sample_rate as f64 * SILENT_PLACEHOLDER_SEC).round() as usize;
-    let silence = vec![0f32; frame_count];
-    if !write_wav_file(&path.display().to_string(), &silence, sample_rate) {
-        return Err(format!(
-            "sherpa-onnx failed to write silent placeholder WAV {}",
-            path.display()
-        ));
-    }
-    Ok(frame_count as f32 / sample_rate as f32)
+        output_path,
+        |temp_path| match generated_audio {
+            Some(audio) => {
+                let duration = audio_duration_sec(audio.samples().len(), audio.sample_rate());
+                if !audio.save(&temp_path.display().to_string()) {
+                    return Err(format!(
+                        "sherpa-onnx failed to write generated WAV {}",
+                        temp_path.display()
+                    ));
+                }
+                Ok(duration)
+            }
+            None => {
+                let sample_rate = engine.tts.sample_rate();
+                log::warn!(
+                    "Audiobook chunk had no speakable text after sanitization; writing {SILENT_PLACEHOLDER_SEC}s silent placeholder at {} ({sample_rate} Hz)",
+                    output_path.display(),
+                );
+                write_silent_placeholder(temp_path, sample_rate)
+            }
+        },
+    )
 }
 
 /// Run sherpa-onnx inference for one piece of text. Normalizes speed, maps the
@@ -349,24 +275,6 @@ fn create_engine(
 mod tests {
     use super::super::models::{model_definition, DEFAULT_MODEL_ID};
     use super::*;
-
-    #[test]
-    fn silent_placeholder_passes_wav_validation() {
-        // The placeholder written for an empty-after-sanitization chunk must parse
-        // as a valid, nonzero-duration WAV through the same reader the save commit
-        // and playback index use, or it would just move the failure downstream.
-        let nonce = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("clock")
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("papercut-silent-{nonce}.wav"));
-        let duration = write_silent_placeholder(&path, 24_000).expect("write silent placeholder");
-        assert!(duration > 0.0 && duration.is_finite());
-
-        let info = wav_info(&path).expect("silent placeholder must parse as WAV");
-        assert!(info.audio_duration_sec > 0.0);
-        let _ = fs::remove_file(&path);
-    }
 
     #[test]
     fn only_english_models_normalize_text() {

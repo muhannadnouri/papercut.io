@@ -7,6 +7,7 @@ Stdout is protocol only. Logs go to stderr.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import sys
 import tempfile
@@ -59,7 +60,7 @@ class Worker:
         model_dir = request.get("model_dir")
         model_dir_str = str(model_dir) if model_dir else None
 
-        from silma_tts.api import SilmaTTS
+        SilmaTTS = import_silma_tts()
 
         kwargs: dict[str, Any] = {}
         if model_dir_str:
@@ -155,6 +156,21 @@ def required_str(request: dict[str, Any], key: str) -> str:
     return value
 
 
+def import_silma_tts() -> Any:
+    """Import SILMA with an actionable setup hint when the sidecar venv is missing."""
+    try:
+        from silma_tts.api import SilmaTTS
+    except ModuleNotFoundError as exc:
+        if exc.name == "silma_tts":
+            raise RuntimeError(
+                "SILMA Python package is not installed for this interpreter. "
+                "Run: python3 -m venv .venv-silma && . .venv-silma/bin/activate && "
+                "pip install -r sidecars/silma/requirements.txt"
+            ) from exc
+        raise
+    return SilmaTTS
+
+
 def wav_info(path: Path) -> dict[str, Any]:
     """Return the small WAV facts Rust expects from synthesis responses."""
     with wave.open(str(path), "rb") as wav:
@@ -198,6 +214,9 @@ def run_self_test() -> int:
     assert missing["ok"] is False and "not loaded" in missing["error"]
     unknown = worker.handle({"id": "4", "op": "wat"})
     assert unknown["ok"] is False and "unsupported op" in unknown["error"]
+    if importlib.util.find_spec("silma_tts") is None:
+        load = worker.handle({"id": "5", "op": "load_model"})
+        assert load["ok"] is False and "pip install -r sidecars/silma/requirements.txt" in load["error"]
     print("silma_worker self-test passed")
     return 0
 
