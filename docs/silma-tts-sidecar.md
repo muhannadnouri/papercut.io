@@ -446,6 +446,18 @@ Copy the release artifact URL, `sha256`, and `archiveBytes` into that manifest.
 The current checked-in entry has an empty URL, so public runtime download stays
 disabled until real release metadata exists.
 
+After uploading the archive, update the checked app manifest from the generated
+artifact metadata:
+
+```bash
+npm run package:silma-runtime -- \
+  --url "https://example.com/papercut-silma-runtime-linux-x64-cpu.tar.bz2" \
+  --update-app-manifest
+```
+
+This rewrites the matching `runtimeId` entry in
+`src-tauri/tts/silma-runtime-packs.json`.
+
 The archive must extract so `current/` contains the expected worker path:
 
 ```text
@@ -923,6 +935,8 @@ Exit criteria:
 - [x] Resume interrupted SILMA runtime-pack archive downloads when the server
       supports range requests.
 - [x] Add SILMA runtime-pack download support behind checked release metadata.
+- [x] Add release helper to update checked runtime metadata from the packaged
+      artifact.
 - [ ] Fill checked SILMA runtime-pack release metadata.
 - [ ] Add SILMA model-file in-app install support.
 - [ ] Pin model-file source revision and hashes.
