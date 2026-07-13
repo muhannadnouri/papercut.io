@@ -340,12 +340,13 @@ Linux:
       loaded engine slot.
 - [x] Keep one loaded engine at a time unless measurements prove switching is too
       costly.
-- [ ] Make `ensure_engine` route to sherpa or SILMA based on model definition.
+- [x] Route the save loop to sherpa or SILMA based on model definition.
 - [x] Move shared WAV commit/validation/silent-placeholder code out of
       `synth.rs`.
 - [x] Add a minimal `SilmaSidecar` JSONL process wrapper for local worker
       request/response calls.
 - [x] Add `LoadedTtsEngine::Silma` and a dev `load_model` route.
+- [x] Add SILMA chunk synthesis through the shared WAV sink.
 - [ ] Add `SilmaSidecar` process supervision:
       - spawn;
       - health check;
@@ -490,8 +491,21 @@ Stage 2 load helper:
 - Worker request: `load_model`
 - Model dir override: `PAPERCUT_SILMA_MODEL_DIR`
 
-This keeps the worker resident after `load_model`, but is not yet connected to
-the audiobook chunk-generation loop.
+This keeps the worker resident after `load_model` and lets the save loop call
+the worker's `synthesize` op for missing chunks. The output still commits
+through Rust's shared WAV sink, so manifest/cache/export/playback can keep using
+the same saved-audiobook files as sherpa.
+
+Stage 2 SILMA synthesis status:
+
+- Save loop selects sherpa or SILMA from `ModelDefinition.backend`.
+- SILMA uses `TextPreprocessor` identity in Rust; the Python worker runs its own
+  SILMA normalization/tashkeel path.
+- SILMA validates the selected Papercut voice id, then ignores the numeric
+  speaker id because SILMA uses the reference voice path instead.
+- Still needs an end-to-end desktop save run with
+  `PAPERCUT_ENABLE_SILMA_TTS=1`, `PAPERCUT_SILMA_MODEL_DIR=./.cache/silma-tts`,
+  and `PAPERCUT_SILMA_PYTHON=./.venv-silma/bin/python`.
 
 ## Frontend Tasks
 
@@ -613,7 +627,7 @@ Linux machine is currently blocked before app code by missing
 - [x] Add backend-aware loaded engine enum.
 - [x] Add SILMA model catalog entry behind desktop feature gate.
 - [x] Route save loop through shared synth-to-file boundary.
-- [ ] Reuse manifest/cache/export/playback.
+- [x] Reuse manifest/cache/export/playback.
 
 Exit criteria:
 

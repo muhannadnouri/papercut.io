@@ -3,7 +3,7 @@
 //! Source chunks remain unchanged for cache signatures, playback navigation, and
 //! DOM highlighting. Only the string passed to the selected TTS model is transformed.
 
-use super::models::{ModelDefinition, TEXT_PREPROCESSOR_NONE};
+use super::models::{ModelDefinition, TtsModelBackend, TEXT_PREPROCESSOR_NONE};
 
 #[cfg(feature = "native-text-preprocessing-core")]
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -58,6 +58,9 @@ impl TextPreprocessor {
                     )
                 })??;
                 TextPreprocessorBackend::Libtashkeel(engine)
+            }
+            _ if matches!(model.backend, TtsModelBackend::SilmaSidecar) => {
+                TextPreprocessorBackend::Identity
             }
             _ => {
                 return Err(format!(

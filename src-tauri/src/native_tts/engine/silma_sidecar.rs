@@ -19,6 +19,11 @@ pub(super) struct SilmaSidecar {
     pub(super) worker_path: PathBuf,
 }
 
+pub(super) struct SilmaSynthesisResult {
+    pub(super) audio_duration_sec: f32,
+    pub(super) synthesis_ms: u128,
+}
+
 impl SilmaSidecar {
     /// Start the local Python worker used by development probes and early routing.
     pub(super) fn start_dev() -> Result<Self, String> {
@@ -96,6 +101,37 @@ impl SilmaSidecar {
             .get("sample_rate")
             .and_then(Value::as_i64)
             .unwrap_or(24_000) as i32)
+    }
+
+    /// Ask the loaded worker to synthesize one WAV at the exact path provided.
+    pub(super) fn synthesize_to_wav(
+        &mut self,
+        text: &str,
+        output_wav: &Path,
+        speed: f32,
+    ) -> Result<SilmaSynthesisResult, String> {
+        let speed = if speed.is_finite() && speed > 0.0 {
+            speed
+        } else {
+            1.0
+        };
+        let response = self.request(serde_json::json!({
+            "id": "synthesize",
+            "op": "synthesize",
+            "text": text,
+            "output_wav": output_wav.display().to_string(),
+            "speed": speed,
+        }))?;
+        Ok(SilmaSynthesisResult {
+            audio_duration_sec: response
+                .get("audio_duration_sec")
+                .and_then(Value::as_f64)
+                .unwrap_or(0.0) as f32,
+            synthesis_ms: response
+                .get("synthesis_ms")
+                .and_then(Value::as_u64)
+                .unwrap_or(0) as u128,
+        })
     }
 
     /// Ask the worker to exit and wait for it, surfacing abnormal status.

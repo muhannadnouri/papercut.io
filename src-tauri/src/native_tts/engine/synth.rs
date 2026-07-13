@@ -208,6 +208,35 @@ pub(super) fn synthesize_to_file(
     )
 }
 
+/// Synthesize one chunk through the SILMA sidecar and commit it through the
+/// same validated WAV path sherpa uses.
+pub(super) fn synthesize_silma_to_file(
+    engine: &mut SilmaTtsEngine,
+    text: &str,
+    voice: &str,
+    speed: f32,
+    output_path: &Path,
+) -> Result<FileSynthesisResult, String> {
+    engine.model.speaker_id(voice)?;
+    let started = Instant::now();
+    if text.trim().is_empty() {
+        return commit_synthesis_wav(started, 0, output_path, |temp_path| {
+            write_silent_placeholder(temp_path, engine.sample_rate)
+        });
+    }
+
+    let mut sidecar_synthesis_ms = 0;
+    let result = commit_synthesis_wav(started, 0, output_path, |temp_path| {
+        let sidecar_result = engine.sidecar.synthesize_to_wav(text, temp_path, speed)?;
+        sidecar_synthesis_ms = sidecar_result.synthesis_ms;
+        Ok(sidecar_result.audio_duration_sec)
+    })?;
+    Ok(FileSynthesisResult {
+        synthesis_ms: sidecar_synthesis_ms,
+        ..result
+    })
+}
+
 /// Run sherpa-onnx inference for one piece of text. Normalizes speed, maps the
 /// voice name to a speaker id, sanitizes the text, and asks the engine to
 /// generate. Returns `Ok(None)` when the text is empty after sanitization (the
