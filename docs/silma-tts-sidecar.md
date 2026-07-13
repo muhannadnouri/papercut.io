@@ -935,13 +935,17 @@ Packaged desktop probe result:
 - WAV bytes: 12,044
 - Result: passed from the Tauri UI diagnostics button
 
-Vite dev server note: the sidecar venv, packaged runtime, generated caches, and
-large public document tree are intentionally ignored by `vite.config.ts` file
-watching. Without that, Linux can hit the inotify watch limit while Vite scans
-generated SILMA files. Tauri has its own watcher too; if it reports
+Vite dev server note: the sidecar venv, packaged runtime, generated caches, root
+HTML/EPUB test documents, and large public document tree are intentionally
+ignored by `vite.config.ts` file watching. Without that, Linux can hit the
+inotify watch limit while Vite scans generated SILMA files or local book
+fixtures. Tauri has its own watcher too; if it reports
 `OS file watch limit reached` for a normal source file such as
 `src-tauri/Cargo.toml`, clean generated SILMA output first, then raise the Linux
-inotify limit if the workspace is still too large.
+inotify limit if the workspace is still too large. VSCodium/VS Code workspace
+settings also exclude `src-tauri/target`, `.venv-silma`, `.cache`, and local book
+fixtures from editor file watching; reload the editor window after changing
+those excludes so old watchers are released.
 
 In debug desktop builds, choose Arabic in the language control and
 `SILMA Arabic TTS` in the model control. Release/package validation builds still
