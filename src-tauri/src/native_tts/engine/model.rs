@@ -263,7 +263,8 @@ async fn install_silma_for_model(
 ) -> Result<NativeTtsModelInstallResponse, String> {
     let runtime_status = silma_runtime_status(&app);
     if !runtime_status.installed {
-        return install_silma_runtime_pack_for_model(app, state, model, runtime_status).await;
+        let _ = install_silma_runtime_pack_for_model(app.clone(), &state, model, runtime_status)
+            .await?;
     }
 
     if let Ok(model_dir) = resolve_model_dir(&app, model) {
@@ -274,13 +275,13 @@ async fn install_silma_for_model(
         });
     }
 
-    install_silma_model_files_for_model(app, state, model).await
+    install_silma_model_files_for_model(app, &state, model).await
 }
 
 /// Install the local SILMA runtime pack into app data.
 async fn install_silma_runtime_pack_for_model(
     app: tauri::AppHandle,
-    state: tauri::State<'_, NativeTtsState>,
+    state: &tauri::State<'_, NativeTtsState>,
     model: &'static ModelDefinition,
     runtime_status: super::silma_sidecar::SilmaRuntimeStatus,
 ) -> Result<NativeTtsModelInstallResponse, String> {
@@ -331,7 +332,13 @@ async fn install_silma_runtime_pack_for_model(
         if let Ok(mut engine) = state.engine.lock() {
             *engine = None;
         }
-        emit_model_progress(&app, model, "installed", "SILMA runtime pack installed", 0);
+        emit_model_progress(
+            &app,
+            model,
+            "runtime-installed",
+            "SILMA runtime installed; installing model files next",
+            0,
+        );
     }
     result
 }
@@ -339,7 +346,7 @@ async fn install_silma_runtime_pack_for_model(
 /// Download SILMA's pinned Hugging Face files into the app-owned model folder.
 async fn install_silma_model_files_for_model(
     app: tauri::AppHandle,
-    state: tauri::State<'_, NativeTtsState>,
+    state: &tauri::State<'_, NativeTtsState>,
     model: &'static ModelDefinition,
 ) -> Result<NativeTtsModelInstallResponse, String> {
     let installing = state.model_installing.clone();

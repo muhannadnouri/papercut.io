@@ -104,18 +104,18 @@ export function AudioSetupPanel({
   const modelInstallSupported = modelStatus?.installSupported ?? (selectedModel?.family !== 'silma-f5')
   const isSilmaModel = selectedModel?.family === 'silma-f5'
   const silmaRuntimeMissing = isSilmaModel && modelStatus?.runtimeInstalled === false
-  const installButtonLabel = silmaRuntimeMissing ? 'Install SILMA Runtime' : isSilmaModel ? 'Download SILMA Model' : 'Download Voice Model'
-  const installingButtonLabel = silmaRuntimeMissing ? 'Installing Runtime...' : isSilmaModel ? 'Downloading SILMA Model...' : 'Downloading Model...'
+  const installButtonLabel = silmaRuntimeMissing ? 'Install SILMA' : isSilmaModel ? 'Download SILMA Model' : 'Download Voice Model'
+  const installingButtonLabel = silmaRuntimeMissing ? 'Installing SILMA...' : isSilmaModel ? 'Downloading SILMA Model...' : 'Downloading Model...'
   const sourceAssetLabel = isSilmaModel ? 'Hugging Face files' : 'GitHub release asset'
   const silmaInstallNote = isSilmaModel
     ? [
         silmaRuntimeMissing
-          ? 'Installs the optional desktop runtime first; model files install next.'
+          ? 'Installs the optional desktop runtime and then the model files.'
           : modelInstalled
             ? 'SILMA model files are installed.'
             : 'Downloads pinned SILMA model.pt and vocab.txt from Hugging Face.',
         modelSize ? 'Size: ' + modelSize + '.' : '',
-        'Large downloads can take a while.',
+        'Large downloads can take a while and resume after interruption.',
       ].filter(Boolean).join(' ')
     : null
   const selectedLanguage = selectedModel ? getLanguageOption(selectedModel).value : ''

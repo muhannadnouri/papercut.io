@@ -470,8 +470,10 @@ Current runtime-pack install slice:
 - archive install downloads to cache, verifies SHA-256, extracts to the same
   staging directory, runs the same `--self-test`, and promotes the same way;
 - archive downloads resume from the cached partial `.tar.bz2` when the server
-  supports HTTP range requests. Extraction staging is still cleared on each
-  attempt, so interrupted installs cannot become active runtimes;
+  supports HTTP range requests. Failed install attempts clear extraction staging
+  but keep the partial archive cache for retry. Extraction staging is still
+  cleared on each attempt, so interrupted installs cannot become active
+  runtimes;
 - this is not the final public manifest yet. It validates the on-disk layout,
   hash-gated download path, and app-data launch path the release downloader will
   use.
@@ -658,8 +660,8 @@ Hidden SILMA catalog status:
 - Dev flag: `PAPERCUT_ENABLE_SILMA_TTS`
 
 The entry is not advertised in normal capabilities. With the dev flag set on a
-desktop build it can appear in the catalog. The install button installs the
-missing SILMA piece in order: runtime pack first, then pinned model files.
+desktop build it can appear in the catalog. One install click installs the
+missing SILMA pieces in order: runtime pack first, then pinned model files.
 
 Model status now detects a manually populated
 `models/silma-tts/silma-tts/` directory, reports the expected local path when
@@ -945,7 +947,7 @@ Stage 2 SILMA synthesis status:
 - [ ] Represent SILMA voices as reference voice profiles.
 - [ ] Ensure saved-audio filtering continues to include model id, voice id,
       speed, and text preprocessor.
-- [ ] Add install/download copy that warns about model size before download.
+- [x] Add install/download copy that warns about model size before download.
 - [x] Add diagnostic labels that distinguish `sherpa-onnx-*` from
       `silma-sidecar`.
 - [x] Surface SILMA runtime-pack status separately from model-file status.
@@ -1097,6 +1099,9 @@ Exit criteria:
 - [x] Add local SILMA runtime-pack archive packaging with a SHA-256 manifest.
 - [x] Resume interrupted SILMA runtime-pack archive downloads when the server
       supports range requests.
+- [x] Keep partial runtime-pack archives after recoverable install failures so
+      retry can resume instead of starting over.
+- [x] Install missing SILMA runtime and model files from one user action.
 - [x] Add SILMA runtime-pack download support behind checked release metadata.
 - [x] Add release helper to update checked runtime metadata from the packaged
       artifact.

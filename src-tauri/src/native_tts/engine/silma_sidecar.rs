@@ -404,7 +404,7 @@ pub(super) fn install_silma_runtime_pack(
             staging_dir.display()
         )
     })?;
-    let work_guard = RuntimeWorkDirGuard::new(work_dir.clone());
+    let staging_guard = RuntimeWorkDirGuard::new(staging_dir.clone());
     match source {
         SilmaRuntimePackSource::Directory(path) => copy_dir_contents(&path, &staging_dir)?,
         SilmaRuntimePackSource::Archive { url, sha256, bytes } => {
@@ -433,7 +433,7 @@ pub(super) fn install_silma_runtime_pack(
             final_dir.display()
         )
     })?;
-    work_guard.disarm();
+    staging_guard.disarm();
     let _ = fs::remove_dir_all(&work_dir);
     Ok(final_dir)
 }
