@@ -503,6 +503,8 @@ CI runtime-pack build:
   `papercut-silma-runtime-linux-x64-cpu` for branches whose name contains
   `silma`, so the artifact can be downloaded before the manual workflow lands
   on the default branch;
+- PR CI cancels older in-progress runs for the same PR so the expensive desktop,
+  mobile, and SILMA runtime jobs do not keep burning minutes after a newer push;
 - pass `tag` to make the generated manifest use the predictable GitHub Release
   URL;
 - set `upload_to_release` only after the release exists and you want the
