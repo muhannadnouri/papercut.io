@@ -57,6 +57,23 @@ type AudiobookNoticeState = { id: string; status: 'success' | 'cancelled' | 'err
 
 const AUDIOBOOK_NOTICE_TIMEOUT_MS = 10000
 
+function summarizeTtsModelStatus(status: NativeTtsModelStatus | null): Record<string, unknown> {
+  if (!status) return {}
+  return {
+    modelId: status.modelId,
+    installed: status.installed,
+    installing: status.installing,
+    installSupported: status.installSupported,
+    runtimeInstalled: status.runtimeInstalled,
+    archiveBytes: status.archiveBytes,
+    installedBytes: status.installedBytes,
+    modelDir: status.modelDir ?? '',
+    runtimeDir: status.runtimeDir ?? '',
+    message: status.message,
+    runtimeMessage: status.runtimeMessage,
+  }
+}
+
 interface AudiobookManagerOptions {
   allDocuments: DocumentInfo[]
   docContent: string
@@ -253,6 +270,11 @@ export function useAudiobookManager({
 
   const handleInstallTtsModel = useCallback(async () => {
     const installingSilmaRuntime = ttsModelStatus?.runtimeInstalled === false
+    logTtsDiagnostic('[tts-native] model install started', {
+      modelId: ttsModelId,
+      installingSilmaRuntime,
+      ...summarizeTtsModelStatus(ttsModelStatus),
+    })
     setTtsModelProgress({
       modelId: ttsModelId,
       status: 'starting',
@@ -262,10 +284,15 @@ export function useAudiobookManager({
       percent: 0,
     })
     try {
-      await installNativeTtsModel(ttsModelId)
+      const result = await installNativeTtsModel(ttsModelId)
       const status = await refreshTtsModelStatus()
       await syncTtsRuntimeSettings()
       if (ttsModelIdRef.current !== ttsModelId) return
+      logTtsDiagnostic('[tts-native] model install completed', {
+        resultModelDir: result.modelDir,
+        resultBytes: result.bytes,
+        ...summarizeTtsModelStatus(status),
+      }, status.installed && status.runtimeInstalled ? 'info' : 'warn')
       if (!status.installed) {
         setTtsModelProgress(null)
         return
@@ -281,6 +308,11 @@ export function useAudiobookManager({
       preloadTts()
     } catch (err) {
       if (ttsModelIdRef.current !== ttsModelId) return
+      logTtsDiagnostic('[tts-native] model install failed', {
+        modelId: ttsModelId,
+        error: err instanceof Error ? err.message : String(err),
+        ...summarizeTtsModelStatus(ttsModelStatus),
+      }, 'error')
       setTtsModelProgress({
         modelId: ttsModelId,
         status: 'error',
@@ -291,7 +323,7 @@ export function useAudiobookManager({
       })
       void refreshTtsModelStatus()
     }
-  }, [preloadTts, syncTtsRuntimeSettings, refreshTtsModelStatus, ttsModelId, ttsModelStatus?.archiveBytes, ttsModelStatus?.runtimeInstalled])
+  }, [preloadTts, syncTtsRuntimeSettings, refreshTtsModelStatus, ttsModelId, ttsModelStatus])
 
   const handleProbeSilmaSidecar = useCallback(async () => {
     // Diagnostics-only smoke path; real model loading/synthesis still runs through save.

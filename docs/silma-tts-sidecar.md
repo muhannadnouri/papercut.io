@@ -548,6 +548,14 @@ Useful entries:
 
 - `[tts-native] capabilities`: confirms the desktop backend is available and
   whether `silma-ai/silma-tts` is advertised.
+- `[tts-native] model install started`: records the selected model, install
+  support, runtime/model directories, and whether the click is starting with a
+  SILMA runtime install.
+- `[tts-native] model install completed`: records the final model/runtime status
+  after the install action. A warning level means the action completed but the
+  model is still not ready.
+- `[tts-native] model install failed`: records the install error plus the last
+  known runtime/model status.
 - `[tts-native] SILMA sidecar probe passed`: confirms Rust can spawn the worker,
   exchange JSONL, and write a probe WAV.
 - `[tts-save] native chunk start`: includes the backend label, model dir,
@@ -585,6 +593,42 @@ Known recovery paths:
   outside Vite's watched tree or exclude them from dev watching.
 - `linuxdeploy` failure while bundling: do not put the multi-GB SILMA runtime in
   ordinary app bundles. Use the optional runtime-pack artifact path.
+
+## Reviewer Test Recipe
+
+Minimal local review before release artifacts exist:
+
+1. Build or reuse a local runtime pack:
+
+   ```bash
+   . .venv-silma/bin/activate
+   python -m pip install -r sidecars/silma/requirements-build.txt
+   npm run prepare:silma-sidecar -- --clean --self-test
+   ```
+
+2. Remove only SILMA app-data runtime/model folders, not saved audiobooks:
+
+   ```bash
+   rm -rf ~/.local/share/io.papercut.desktop/runtimes/silma
+   rm -rf ~/.local/share/io.papercut.desktop/models/silma-tts
+   ```
+
+3. Launch the dev app with only the catalog gate:
+
+   ```bash
+   PAPERCUT_ENABLE_SILMA_TTS=1 npm run tauri:dev
+   ```
+
+4. In Audio Setup, select `SILMA Arabic TTS`, enable diagnostics, click
+   `Install SILMA`, then confirm diagnostics show model install start/completion.
+
+5. Click `Probe Sidecar`, then save a short Arabic audiobook. Confirm the save
+   diagnostics include `device`, `torch_threads`, `torch_interop`,
+   `preprocessor`, and `nfe_step` in the backend label.
+
+6. Quit and relaunch with the same single env var. SILMA should stay installed
+   from app data without `PAPERCUT_SILMA_PYTHON`, `PAPERCUT_SILMA_WORKER`, or
+   `PAPERCUT_SILMA_WORKER_BIN`.
 
 ## Desktop Platform Notes
 

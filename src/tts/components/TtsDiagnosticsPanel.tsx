@@ -162,6 +162,12 @@ function summarizeEvent(event: TtsDiagnosticEvent): string {
   const preferredKeys = [
     'reason',
     'error',
+    'status',
+    'message',
+    'modelId',
+    'runtimeInstalled',
+    'installed',
+    'percent',
     'actualDevice',
     'realTimeFactor',
     'chunkNumber',
