@@ -409,16 +409,22 @@ Runtime pack location:
 <app-data>/runtimes/silma/<runtime-id>/current/
 ```
 
-Current Linux x64 CPU runtime id:
+Current CPU runtime ids:
 
 ```text
 linux-x64-cpu
+macos-aarch64-cpu
+macos-x64-cpu
+windows-x64-cpu
 ```
 
-Current Linux x64 expected worker path inside the runtime pack:
+Expected worker paths inside runtime packs:
 
 ```text
 silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu
+silma-worker-aarch64-apple-darwin/silma-worker-aarch64-apple-darwin
+silma-worker-x86_64-apple-darwin/silma-worker-x86_64-apple-darwin
+silma-worker-x86_64-pc-windows-msvc/silma-worker-x86_64-pc-windows-msvc.exe
 ```
 
 SILMA worker launch order is now:
@@ -475,6 +481,9 @@ sidecars/silma/runtime/x86_64-unknown-linux-gnu/archive/papercut-silma-runtime-l
 sidecars/silma/runtime/x86_64-unknown-linux-gnu/archive/papercut-silma-runtime-linux-x64-cpu.manifest.json
 ```
 
+The CI runtime-pack matrix writes the same archive/manifest pair under each
+target's `sidecars/silma/runtime/<target>/archive/` directory.
+
 Release runtime-pack metadata lives in:
 
 ```text
@@ -499,14 +508,15 @@ This rewrites the matching `runtimeId` entry in
 
 CI runtime-pack build:
 
-- `.github/workflows/silma-runtime.yml` builds the Linux x64 CPU runtime pack as
-  an Actions artifact without running `npm run desktop`;
+- `.github/workflows/silma-runtime.yml` builds Linux x64, macOS arm64, macOS
+  x64, and Windows x64 CPU runtime packs as Actions artifacts without running
+  `npm run desktop`;
 - this avoids the `linuxdeploy` failure path because the Python/PyTorch runtime
   is never placed inside the AppImage/deb/rpm bundle;
-- temporary PR validation: `.github/workflows/ci.yml` also builds and uploads
-  `papercut-silma-runtime-linux-x64-cpu` when SILMA runtime files, packaging
-  scripts, runtime metadata, or related workflows changed, so the artifact can
-  be downloaded before the manual workflow lands on the default branch;
+- PR validation: `.github/workflows/ci.yml` also builds and uploads the same
+  runtime-pack matrix when SILMA runtime files, packaging scripts, runtime
+  metadata, or related workflows changed, so artifacts can be downloaded before
+  the manual workflow lands on the default branch;
 - PR CI cancels older in-progress runs for the same PR so the expensive desktop,
   mobile, and SILMA runtime jobs do not keep burning minutes after a newer push;
 - pass `tag` to make the generated manifest use the predictable GitHub Release
@@ -539,13 +549,18 @@ Manual CI validation scopes:
 - `cheap`: lint, frontend build, and worker self-tests only;
 - `desktop`: cheap checks plus Linux, Windows, and macOS desktop packaging;
 - `mobile`: cheap checks plus Android and iOS packaging checks;
-- `silma-runtime`: cheap checks plus the Linux x64 SILMA runtime pack artifact;
+- `silma-runtime`: cheap checks plus the desktop SILMA runtime-pack artifact
+  matrix;
 - `full`: all of the above.
 
-The archive must extract so `current/` contains the expected worker path:
+Each archive must extract so `current/` contains the expected worker path for
+that platform:
 
 ```text
 silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu
+silma-worker-aarch64-apple-darwin/silma-worker-aarch64-apple-darwin
+silma-worker-x86_64-apple-darwin/silma-worker-x86_64-apple-darwin
+silma-worker-x86_64-pc-windows-msvc/silma-worker-x86_64-pc-windows-msvc.exe
 ```
 
 ## Diagnostics and Troubleshooting
@@ -1171,8 +1186,8 @@ Exit criteria:
 - [x] Add SILMA runtime-pack download support behind checked release metadata.
 - [x] Add release helper to update checked runtime metadata from the packaged
       artifact.
-- [x] Add CI workflow to build the Linux x64 SILMA runtime pack as a separate
-      artifact.
+- [x] Add CI workflow to build desktop SILMA runtime packs as separate
+      artifacts.
 - [ ] Fill checked SILMA runtime-pack release metadata.
 - [x] Add SILMA model-file in-app install support.
 - [x] Pin model-file source revision and hashes.
@@ -1193,7 +1208,7 @@ Exit criteria:
       every package format while iterating.
 - [x] Decide to keep SILMA out of ordinary desktop installers and use an
       optional runtime pack instead.
-- [x] Add separate CI packaging for the Linux x64 SILMA runtime pack.
+- [x] Add separate CI packaging for desktop SILMA runtime packs.
 - [x] Cancel stale PR CI runs when a newer push arrives for the same PR.
 - [x] Run the temporary PR SILMA runtime-pack build only when SILMA runtime
       files, packaging scripts, runtime metadata, or related workflows changed.

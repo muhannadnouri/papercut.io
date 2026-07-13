@@ -10,6 +10,36 @@
       "archiveBytes": 0,
       "sha256": "",
       "workerPath": "silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu"
+    },
+    {
+      "runtimeId": "macos-aarch64-cpu",
+      "platform": "macos",
+      "arch": "arm64",
+      "target": "aarch64-apple-darwin",
+      "url": "",
+      "archiveBytes": 0,
+      "sha256": "",
+      "workerPath": "silma-worker-aarch64-apple-darwin/silma-worker-aarch64-apple-darwin"
+    },
+    {
+      "runtimeId": "macos-x64-cpu",
+      "platform": "macos",
+      "arch": "x64",
+      "target": "x86_64-apple-darwin",
+      "url": "",
+      "archiveBytes": 0,
+      "sha256": "",
+      "workerPath": "silma-worker-x86_64-apple-darwin/silma-worker-x86_64-apple-darwin"
+    },
+    {
+      "runtimeId": "windows-x64-cpu",
+      "platform": "windows",
+      "arch": "x64",
+      "target": "x86_64-pc-windows-msvc",
+      "url": "",
+      "archiveBytes": 0,
+      "sha256": "",
+      "workerPath": "silma-worker-x86_64-pc-windows-msvc/silma-worker-x86_64-pc-windows-msvc.exe"
     }
   ],
   "notes": [

@@ -7,8 +7,8 @@ on:
         description: "Optional release tag to upload to, for example v1.6.0"
         required: false
         type: string
-      artifact_url:
-        description: "Optional final URL to write into the generated runtime manifest"
+      artifact_base_url:
+        description: "Optional base URL used in generated manifests instead of the GitHub Release URL"
         required: false
         type: string
       upload_to_release:
@@ -22,11 +22,34 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  SILMA_RUNTIME_ARCHIVE: papercut-silma-runtime-linux-x64-cpu.tar.bz2
 
 jobs:
-  build-linux-x64-cpu:
-    runs-on: ubuntu-24.04
+  build-runtime:
+    name: ${{ matrix.runtime_id }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runtime_id: linux-x64-cpu
+            runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            archive: papercut-silma-runtime-linux-x64-cpu.tar.bz2
+          - runtime_id: macos-aarch64-cpu
+            runner: macos-15
+            target: aarch64-apple-darwin
+            archive: papercut-silma-runtime-macos-aarch64-cpu.tar.bz2
+          - runtime_id: macos-x64-cpu
+            runner: macos-15-intel
+            target: x86_64-apple-darwin
+            archive: papercut-silma-runtime-macos-x64-cpu.tar.bz2
+          - runtime_id: windows-x64-cpu
+            runner: windows-2022
+            target: x86_64-pc-windows-msvc
+            archive: papercut-silma-runtime-windows-x64-cpu.tar.bz2
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - uses: actions/checkout@v6
@@ -56,24 +79,28 @@ jobs:
       - name: Build packaged worker
         run: |
           node scripts/prepare-silma-sidecar.js \
-            --python "$(command -v python)" \
-            --target x86_64-unknown-linux-gnu \
+            --target "${{ matrix.target }}" \
             --clean \
             --self-test
 
       - name: Package runtime archive
         env:
           INPUT_TAG: ${{ inputs.tag }}
-          INPUT_URL: ${{ inputs.artifact_url }}
+          INPUT_BASE_URL: ${{ inputs.artifact_base_url }}
+          RUNTIME_ARCHIVE: ${{ matrix.archive }}
+          RUNTIME_TARGET: ${{ matrix.target }}
         run: |
-          runtime_url="$INPUT_URL"
+          runtime_url=""
+          if [ -n "$INPUT_BASE_URL" ]; then
+            runtime_url="${INPUT_BASE_URL%/}/${RUNTIME_ARCHIVE}"
+          fi
           if [ -z "$runtime_url" ] && [ -n "$INPUT_TAG" ]; then
-            runtime_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${INPUT_TAG}/${SILMA_RUNTIME_ARCHIVE}"
+            runtime_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${INPUT_TAG}/${RUNTIME_ARCHIVE}"
           fi
 
           args=(
-            --target x86_64-unknown-linux-gnu
-            --archive-name "$SILMA_RUNTIME_ARCHIVE"
+            --target "$RUNTIME_TARGET"
+            --archive-name "$RUNTIME_ARCHIVE"
           )
           if [ -n "$runtime_url" ]; then
             args+=(--url "$runtime_url")
@@ -83,10 +110,10 @@ jobs:
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v7
         with:
-          name: papercut-silma-runtime-linux-x64-cpu
+          name: papercut-silma-runtime-${{ matrix.runtime_id }}
           path: |
-            sidecars/silma/runtime/x86_64-unknown-linux-gnu/archive/*.tar.bz2
-            sidecars/silma/runtime/x86_64-unknown-linux-gnu/archive/*.manifest.json
+            sidecars/silma/runtime/${{ matrix.target }}/archive/*.tar.bz2
+            sidecars/silma/runtime/${{ matrix.target }}/archive/*.manifest.json
           if-no-files-found: error
           retention-days: 14
 
@@ -101,6 +128,6 @@ jobs:
             exit 1
           fi
           gh release upload "$INPUT_TAG" \
-            sidecars/silma/runtime/x86_64-unknown-linux-gnu/archive/*.tar.bz2 \
-            sidecars/silma/runtime/x86_64-unknown-linux-gnu/archive/*.manifest.json \
+            sidecars/silma/runtime/${{ matrix.target }}/archive/*.tar.bz2 \
+            sidecars/silma/runtime/${{ matrix.target }}/archive/*.manifest.json \
             --repo "$GITHUB_REPOSITORY"

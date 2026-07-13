@@ -760,6 +760,21 @@ fn runtime_pack_worker_relative_path() -> Option<PathBuf> {
             "silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu",
         ));
     }
+    if cfg!(all(target_os = "windows", target_arch = "x86_64")) {
+        return Some(PathBuf::from(
+            "silma-worker-x86_64-pc-windows-msvc/silma-worker-x86_64-pc-windows-msvc.exe",
+        ));
+    }
+    if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+        return Some(PathBuf::from(
+            "silma-worker-aarch64-apple-darwin/silma-worker-aarch64-apple-darwin",
+        ));
+    }
+    if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
+        return Some(PathBuf::from(
+            "silma-worker-x86_64-apple-darwin/silma-worker-x86_64-apple-darwin",
+        ));
+    }
     None
 }
 
