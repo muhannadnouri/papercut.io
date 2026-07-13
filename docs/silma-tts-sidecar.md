@@ -80,7 +80,7 @@ Reusable as-is:
 Needs backend work:
 
 - loaded engine state currently stores `SherpaTtsEngine` directly;
-- model install path assumes `models/sherpa-onnx`;
+- model install path now derives its backend directory from catalog metadata;
 - model archive extraction assumes sherpa-style tar.bz2 layouts;
 - `VoiceDefinition` assumes numeric speaker IDs;
 - silent placeholder writing uses sherpa's WAV writer;
@@ -217,8 +217,8 @@ SILMA-specific additions:
 - verify each required file or verify one archive we control;
 - expect large downloads;
 - consider resumable/range downloads after the first successful desktop spike;
-- store under `models/silma-tts/<model-directory>/`, not under
-  `models/sherpa-onnx`.
+- store under `models/silma-tts/<model-directory>/`, using the same backend
+  directory hook that keeps existing sherpa models under `models/sherpa-onnx`.
 
 Required files are expected to include at least:
 
@@ -328,9 +328,10 @@ Linux:
 
 ## Rust Integration Tasks
 
-- [ ] Add an explicit model backend/family field that can represent sherpa and
+- [x] Add an explicit model backend/family field that can represent sherpa and
       SILMA without overloading `SherpaModelFamily`.
-- [ ] Split generic model metadata from sherpa-only load metadata.
+- [x] Split generic model family/backend identity from sherpa-only family
+      selection.
 - [ ] Change `NativeTtsState` from `Option<SherpaTtsEngine>` to a backend-aware
       loaded engine slot.
 - [ ] Keep one loaded engine at a time unless measurements prove switching is too
@@ -350,6 +351,12 @@ Linux:
 - [ ] Add deterministic per-chunk seed support if SILMA output varies too much.
 - [ ] Add diagnostics fields for sidecar startup, model load, worker memory if
       easy, synthesis time, and worker crashes.
+
+Catalog scaffold status: `ModelDefinition` now has separate `backend`,
+user-visible `family`, and `sherpa_family` fields. Existing sherpa models keep
+their public IDs and installed paths, while future SILMA entries can use
+`TtsModelBackend::SilmaSidecar`, `TtsModelFamily::SilmaF5`, and the
+`models/silma-tts` storage prefix without pretending to be a sherpa family.
 
 ## Python Worker Tasks
 

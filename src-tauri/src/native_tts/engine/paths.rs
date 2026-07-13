@@ -30,7 +30,8 @@ pub(super) fn installed_model_dir(
         .app_data_dir()
         .map_err(|err| format!("Failed to resolve app data dir for offline voice model: {err}"))?;
     Ok(app_data
-        .join("models/sherpa-onnx")
+        .join("models")
+        .join(model.model_storage_dir_name())
         .join(model.directory_name))
 }
 

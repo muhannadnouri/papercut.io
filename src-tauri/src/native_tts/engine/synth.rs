@@ -251,7 +251,7 @@ fn create_engine(
         ..Default::default()
     };
 
-    match model.family {
+    match model.require_sherpa_family()? {
         SherpaModelFamily::Kokoro => {
             let lexicon = [
                 model_dir.join("lexicon-us-en.txt"),
