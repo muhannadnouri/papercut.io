@@ -9,7 +9,7 @@
 //!
 //! - [`config`]: pinned model metadata, event names, bundle format constants.
 //! - [`paths`]: app-data paths, ids, hashing, filesystem accounting.
-//! - [`synth`]: the sherpa engine handle and chunk synthesis.
+//! - [`synth`]: the loaded engine slot, sherpa handle, and chunk synthesis.
 //! - [`text_normalization`]: shared cleanup plus English-only synthesis rewrites.
 //! - `manifest`: saved-audiobook manifest JSON and playback index validation.
 //! - `prune`: saved-audiobook chunk/temp cleanup.
@@ -37,7 +37,7 @@ mod sidecar_probe;
 mod synth;
 mod text_normalization;
 
-pub(crate) use synth::SherpaTtsEngine;
+pub(crate) use synth::LoadedTtsEngine;
 
 pub(crate) use bundle::{
     delete_audiobook_native, export_audiobook_native, get_imported_audiobook_metadata,

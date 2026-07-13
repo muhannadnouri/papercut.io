@@ -27,7 +27,7 @@ use super::models::model_definition;
 use super::paths::{audiobook_dir, chunk_path, speakable_chunks};
 use super::preprocess::TextPreprocessor;
 use super::prune::{prune_orphan_chunk_files, prune_stale_temp_files};
-use super::synth::{ensure_engine, synthesize_to_file, SherpaTtsEngine};
+use super::synth::{ensure_sherpa_engine, synthesize_to_file, LoadedTtsEngine};
 use super::text_normalization::text_preview;
 use crate::native_tts::platform::resolve_thread_count;
 use crate::native_tts::state::NativeTtsState;
@@ -94,7 +94,7 @@ pub(crate) fn cancel_audiobook_save(
 /// event. Returns aggregate totals for the whole audiobook.
 fn save_audiobook_native_blocking(
     app: tauri::AppHandle,
-    engine_state: Arc<Mutex<Option<SherpaTtsEngine>>>,
+    engine_state: Arc<Mutex<Option<LoadedTtsEngine>>>,
     cancelled_jobs: Arc<Mutex<HashSet<String>>>,
     request: NativeAudiobookSaveRequest,
 ) -> Result<NativeAudiobookSaveResponse, String> {
@@ -182,7 +182,7 @@ fn save_audiobook_native_blocking(
     let mut guard = engine_state
         .lock()
         .map_err(|_| "Native TTS engine lock poisoned".to_string())?;
-    let engine = ensure_engine(&app, &mut guard, &request.model_id, Some(thread_count))?;
+    let engine = ensure_sherpa_engine(&app, &mut guard, &request.model_id, Some(thread_count))?;
     let backend = format!(
         "{}:{}:{}:threads={}",
         engine.model.backend_name(),

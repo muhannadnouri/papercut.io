@@ -334,9 +334,9 @@ Linux:
       SILMA without overloading `SherpaModelFamily`.
 - [x] Split generic model family/backend identity from sherpa-only family
       selection.
-- [ ] Change `NativeTtsState` from `Option<SherpaTtsEngine>` to a backend-aware
+- [x] Change `NativeTtsState` from `Option<SherpaTtsEngine>` to a backend-aware
       loaded engine slot.
-- [ ] Keep one loaded engine at a time unless measurements prove switching is too
+- [x] Keep one loaded engine at a time unless measurements prove switching is too
       costly.
 - [ ] Make `ensure_engine` route to sherpa or SILMA based on model definition.
 - [ ] Move shared WAV commit/validation/silent-placeholder code out of
@@ -359,6 +359,11 @@ user-visible `family`, and `sherpa_family` fields. Existing sherpa models keep
 their public IDs and installed paths, while future SILMA entries can use
 `TtsModelBackend::SilmaSidecar`, `TtsModelFamily::SilmaF5`, and the
 `models/silma-tts` storage prefix without pretending to be a sherpa family.
+
+Runtime slot status: `NativeTtsState` now stores one `LoadedTtsEngine` enum.
+The only implemented variant is `Sherpa`, and `ensure_sherpa_engine` rejects
+SILMA with a clear "sidecar synthesis is not wired yet" error. Add the SILMA
+variant only when the sidecar can synthesize audiobook chunks.
 
 Hidden SILMA catalog status:
 
@@ -555,7 +560,7 @@ Linux machine is currently blocked before app code by missing
 
 ### Stage 2: Backend Integration
 
-- [ ] Add backend-aware loaded engine enum.
+- [x] Add backend-aware loaded engine enum.
 - [x] Add SILMA model catalog entry behind desktop feature gate.
 - [ ] Route save loop through shared synth-to-file boundary.
 - [ ] Reuse manifest/cache/export/playback.

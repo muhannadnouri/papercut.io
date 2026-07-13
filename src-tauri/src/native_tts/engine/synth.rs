@@ -1,6 +1,6 @@
 //! Generic sherpa-onnx engine loading and single-chunk synthesis.
 //!
-//! Owns the loaded [`SherpaTtsEngine`] (rebuilt when the requested thread
+//! Owns the loaded [`LoadedTtsEngine`] (rebuilt when the requested thread
 //! count changes), the text sanitization applied before native tokenization,
 //! and the saved-audiobook synthesis sink: [`synthesize_to_file`], which writes
 //! validated WAV chunks atomically into the audiobook cache.
@@ -23,19 +23,40 @@ use sherpa_onnx::{
 
 use super::cache::wav_info;
 use super::file_commit::commit_staged_file;
-use super::models::{model_definition, ModelDefinition, SherpaModelFamily};
+use super::models::{model_definition, ModelDefinition, SherpaModelFamily, TtsModelBackend};
 use super::paths::{audio_duration_sec, resolve_model_dir};
 use super::text_normalization::{normalize_english_synthesis_text, sanitize_tts_text};
 use crate::native_tts::platform::resolve_thread_count;
 
-/// A loaded sherpa-onnx model plus the settings it was built with. Kept
-/// alive in shared state and reused across syntheses; rebuilt only when the
-/// requested thread count differs (see [`ensure_engine`]).
+/// A loaded sherpa-onnx model plus the settings it was built with. Kept alive
+/// in shared state and reused across syntheses; rebuilt when the requested
+/// model or thread count differs (see [`ensure_sherpa_engine`]).
 pub(crate) struct SherpaTtsEngine {
     pub(super) tts: OfflineTts,
     pub(super) model: &'static ModelDefinition,
     pub(super) model_dir: std::path::PathBuf,
     pub(super) num_threads: i32,
+}
+
+/// Single runtime engine slot. Only sherpa is implemented today; SILMA gets its
+/// own variant when the sidecar can synthesize audiobook chunks.
+pub(crate) enum LoadedTtsEngine {
+    Sherpa(SherpaTtsEngine),
+}
+
+impl LoadedTtsEngine {
+    /// Return the loaded sherpa engine only when it matches the requested model
+    /// and thread count; otherwise the caller must rebuild the slot.
+    fn matching_sherpa(&self, model_id: &str, threads: i32) -> Option<&SherpaTtsEngine> {
+        match self {
+            LoadedTtsEngine::Sherpa(engine)
+                if engine.model.id == model_id && engine.num_threads == threads =>
+            {
+                Some(engine)
+            }
+            _ => None,
+        }
+    }
 }
 
 /// Timing/size result of writing one synthesized chunk to a file.
@@ -51,34 +72,41 @@ pub(super) struct FileSynthesisResult {
 /// Return a ready engine from the shared slot, (re)building it if absent or if
 /// the thread count changed. `guard` is the locked `Option<engine>`; the
 /// returned `&SherpaTtsEngine` borrows from it for the rest of the call.
-pub(super) fn ensure_engine<'a>(
+pub(super) fn ensure_sherpa_engine<'a>(
     app: &tauri::AppHandle,
-    guard: &'a mut Option<SherpaTtsEngine>,
+    guard: &'a mut Option<LoadedTtsEngine>,
     model_id: &str,
     thread_count: Option<i32>,
 ) -> Result<&'a SherpaTtsEngine, String> {
     let model = model_definition(model_id)?;
+    if !matches!(model.backend, TtsModelBackend::SherpaOnnx) {
+        return Err(format!(
+            "{} uses the SILMA sidecar backend; audiobook synthesis is not wired yet",
+            model.display_name
+        ));
+    }
     let requested_threads = resolve_thread_count(thread_count);
     // Rebuild only when there's no engine yet, or the desired thread count
     // differs from the loaded one (changing threads needs a fresh engine).
     let should_create = guard
         .as_ref()
-        .map(|engine| engine.num_threads != requested_threads || engine.model.id != model.id)
-        .unwrap_or(true);
+        .and_then(|engine| engine.matching_sherpa(model.id, requested_threads))
+        .is_none();
 
     if should_create {
         let model_dir = resolve_model_dir(app, model)?;
-        *guard = Some(SherpaTtsEngine {
+        *guard = Some(LoadedTtsEngine::Sherpa(SherpaTtsEngine {
             tts: create_engine(model, &model_dir, requested_threads)?,
             model,
             model_dir,
             num_threads: requested_threads,
-        });
+        }));
     }
 
     guard
         .as_ref()
-        .ok_or_else(|| "Native TTS engine unavailable".to_string())
+        .and_then(|engine| engine.matching_sherpa(model.id, requested_threads))
+        .ok_or_else(|| "Native sherpa TTS engine unavailable".to_string())
 }
 
 /// Synthesize `text` straight to `output_path` (for saving). Writes to a temp
