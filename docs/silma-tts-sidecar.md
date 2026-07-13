@@ -1,6 +1,6 @@
 # SILMA TTS Python Sidecar Development Guide
 
-Last updated: 2026-07-12
+Last updated: 2026-07-13
 
 This is the working guide for bringing SILMA TTS into Papercut as a desktop-only
 Python sidecar while keeping the existing sherpa-onnx audiobook path.
@@ -602,9 +602,19 @@ Stage 2 SILMA synthesis status:
   may reduce quality.
 - Native diagnostics include the SILMA backend label with device, PyTorch
   threads, inter-op threads, preprocessor, and NFE step.
-- Still needs an end-to-end desktop save run with
-  `PAPERCUT_ENABLE_SILMA_TTS=1`, `PAPERCUT_SILMA_MODEL_DIR=./.cache/silma-tts`,
-  and `PAPERCUT_SILMA_PYTHON=./.venv-silma/bin/python`.
+- Dev-preview end-to-end saves now work with the source Python worker:
+
+  ```bash
+  PAPERCUT_ENABLE_SILMA_TTS=1 \
+  PAPERCUT_SILMA_MODEL_DIR="$PWD/.cache/silma-tts" \
+  PAPERCUT_SILMA_PYTHON="$PWD/.venv-silma/bin/python" \
+  PAPERCUT_SILMA_WORKER="$PWD/sidecars/silma/silma_worker.py" \
+  npm run tauri:dev
+  ```
+
+  This validates the app pipeline, not release packaging. Production still needs
+  bundled sidecar discovery, in-app model install, dependency locking, and
+  platform-specific package validation.
 
 ## Frontend Tasks
 
@@ -661,12 +671,12 @@ Stage 2 SILMA synthesis status:
 
 Proof tests:
 
-- [ ] worker health returns version;
-- [ ] worker loads model from a local dir;
-- [ ] worker writes one valid WAV;
-- [ ] Rust validates and commits that WAV;
-- [ ] save loop can generate one short document with SILMA;
-- [ ] saved playback works from the existing chunk cache;
+- [x] worker health returns version;
+- [x] worker loads model from a local dir;
+- [x] worker writes one valid WAV;
+- [x] Rust validates and commits that WAV;
+- [x] save loop can generate one short document with SILMA;
+- [x] saved playback works from the existing chunk cache;
 - [ ] export bundle and export WAV work without SILMA installed afterward.
 
 Performance tests:
@@ -743,6 +753,7 @@ Linux machine is currently blocked before app code by missing
 - [x] Add SILMA model catalog entry behind desktop feature gate.
 - [x] Route save loop through shared synth-to-file boundary.
 - [x] Reuse manifest/cache/export/playback.
+- [x] Validate source-worker dev preview with completed SILMA save/playback jobs.
 
 Exit criteria:
 
