@@ -360,7 +360,9 @@ Linux:
 - [x] Write output WAV to the exact path provided by the caller.
 - [x] Return duration, sample rate, byte size, and synthesis timing.
 - [x] Keep protocol on stdout and logs on stderr.
-- [ ] Add a tiny local smoke test that synthesizes one WAV from a known model dir.
+- [x] Add a local `--smoke` command that loads SILMA and synthesizes one WAV.
+- [ ] Run the local `--smoke` command with installed SILMA deps and capture
+      timing/quality results.
 - [x] Add a model-free probe WAV operation for sidecar/Tauri file-access testing.
 - [ ] Package with PyInstaller onefile for the first spike.
 - [ ] Package with PyInstaller onedir for production validation.
@@ -378,6 +380,20 @@ The worker imports `SilmaTTS` lazily so `health` and `--self-test` can run
 without installing SILMA or downloading the model. `load_model` passes
 `model_dir` as `hf_cache_dir` because the current official API resolves
 `model.pt` and `vocab.txt` through `cached_path`.
+
+Local SILMA smoke command:
+
+```bash
+python sidecars/silma/silma_worker.py \
+  --smoke \
+  --model-dir ./.cache/silma-tts \
+  --output-wav ./.cache/silma-tts-smoke.wav \
+  --text "أنا نموذج سلمى لتحويل النص إلى كلام." \
+  --seed 1234
+```
+
+This prints a JSON summary with model load timing, synthesis timing, output WAV
+metadata, and real-time factor. It may download model files on first run.
 
 Stage 1 probe command:
 

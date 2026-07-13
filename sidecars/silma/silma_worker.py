@@ -21,6 +21,7 @@ DEFAULT_REF_TEXT = (
     "ويدقق النظر في القرآن الكريم وسائر الكتب السماوية ويتبع مسالك الرسل "
     "العظام عليهم الصلاة والسلام."
 )
+DEFAULT_SMOKE_TEXT = "أنا نموذج سلمى لتحويل النص إلى كلام."
 
 
 @dataclass
@@ -201,13 +202,81 @@ def run_self_test() -> int:
     return 0
 
 
+def run_smoke(args: argparse.Namespace) -> int:
+    """Load SILMA once, synthesize one WAV, and print a machine-readable summary."""
+    worker = Worker()
+    load_request: dict[str, Any] = {
+        "id": "load",
+        "op": "load_model",
+        "model_dir": args.model_dir,
+    }
+    if args.disable_normalizer:
+        load_request["enable_normalizer"] = False
+    if args.disable_tashkeel:
+        load_request["force_tashkeel"] = False
+
+    synth_request: dict[str, Any] = {
+        "id": "synthesize",
+        "op": "synthesize",
+        "text": args.text,
+        "output_wav": args.output_wav,
+        "speed": args.speed,
+        "seed": args.seed,
+        "normalize_numbers": not args.disable_normalizer,
+        "force_tashkeel": not args.disable_tashkeel,
+    }
+    if args.ref_file:
+        synth_request["ref_file"] = args.ref_file
+    if args.ref_text:
+        synth_request["ref_text"] = args.ref_text
+
+    started = time.perf_counter()
+    load = worker.handle(load_request)
+    if not load.get("ok"):
+        print(json.dumps({"ok": False, "stage": "load_model", "response": load}, ensure_ascii=False))
+        return 1
+
+    synth = worker.handle(synth_request)
+    if not synth.get("ok"):
+        print(json.dumps({"ok": False, "stage": "synthesize", "load": load, "response": synth}, ensure_ascii=False))
+        return 1
+
+    total_ms = round((time.perf_counter() - started) * 1000)
+    audio_duration = float(synth.get("audio_duration_sec") or 0)
+    synthesis_ms = int(synth.get("synthesis_ms") or 0)
+    summary = {
+        "ok": True,
+        "version": VERSION,
+        "model_dir": args.model_dir,
+        "output_wav": args.output_wav,
+        "load": load,
+        "synthesis": synth,
+        "total_ms": total_ms,
+        "real_time_factor": synthesis_ms / (audio_duration * 1000) if audio_duration > 0 else None,
+    }
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
+    return 0
+
+
 def main() -> int:
     """CLI entrypoint for either the lightweight self-test or worker mode."""
     parser = argparse.ArgumentParser(description="SILMA TTS JSONL sidecar worker")
     parser.add_argument("--self-test", action="store_true")
+    parser.add_argument("--smoke", action="store_true", help="load SILMA and synthesize one WAV")
+    parser.add_argument("--model-dir", default="./.cache/silma-tts")
+    parser.add_argument("--output-wav", default="./.cache/silma-tts-smoke.wav")
+    parser.add_argument("--text", default=DEFAULT_SMOKE_TEXT)
+    parser.add_argument("--ref-file")
+    parser.add_argument("--ref-text")
+    parser.add_argument("--speed", type=float, default=1.0)
+    parser.add_argument("--seed", type=int, default=1234)
+    parser.add_argument("--disable-normalizer", action="store_true")
+    parser.add_argument("--disable-tashkeel", action="store_true")
     args = parser.parse_args()
     if args.self_test:
         return run_self_test()
+    if args.smoke:
+        return run_smoke(args)
     return run_jsonl()
 
 

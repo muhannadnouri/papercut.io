@@ -32,6 +32,25 @@ This imports SILMA, loads the model through the official `SilmaTTS` API, and
 writes one WAV. The first run may download model files into the provided cache
 directory.
 
+Shortest form:
+
+```bash
+python sidecars/silma/silma_worker.py --smoke
+```
+
+Useful explicit form:
+
+```bash
+python sidecars/silma/silma_worker.py \
+  --smoke \
+  --model-dir ./.cache/silma-tts \
+  --output-wav ./.cache/silma-tts-smoke.wav \
+  --text "أنا نموذج سلمى لتحويل النص إلى كلام." \
+  --seed 1234
+```
+
+JSONL form, matching the protocol Rust uses:
+
 ```bash
 python sidecars/silma/silma_worker.py <<'JSONL'
 {"id":"1","op":"health"}
