@@ -2,6 +2,7 @@ import {
   DEFAULT_TTS_MODEL_ID,
   LIBTASHKEEL_TEXT_PREPROCESSOR,
   PIPER_KAREEM_MODEL_ID,
+  SILMA_MODEL_ID,
   SUPERTONIC_AR_MODEL_ID,
   SUPERTONIC_EN_MODEL_ID,
   TEXT_PREPROCESSOR_NONE,
@@ -88,6 +89,21 @@ export const FALLBACK_TTS_MODELS: TtsModelInfo[] = [
       description: 'Synthesize source text without language preprocessing.',
     }],
     voices: [{ id: 'speaker_6', name: 'Speaker 6' }],
+  },
+  {
+    id: SILMA_MODEL_ID,
+    name: 'SILMA Arabic TTS',
+    family: 'silma-f5',
+    language: 'ar',
+    languageLabel: 'Arabic',
+    defaultVoice: 'silma-ar-default',
+    defaultTextPreprocessor: 'silma-default',
+    textPreprocessors: [{
+      id: 'silma-default',
+      name: 'SILMA default',
+      description: "Use SILMA's default Arabic text processing before synthesis.",
+    }],
+    voices: [{ id: 'silma-ar-default', name: 'SILMA Arabic Reference' }],
   },
 ]
 

@@ -590,8 +590,14 @@ Known recovery paths:
   build and available hardware.
 - `device=unreported`: the worker did not return device metadata. Rebuild or
   reinstall the SILMA runtime pack from a current worker.
-- Vite `ENOSPC` watcher error: keep `.venv-silma` and generated runtime folders
-  outside Vite's watched tree or exclude them from dev watching.
+- Vite/Tauri `ENOSPC` watcher error: keep `.venv-silma`, `.cache`, packaged
+  SILMA runtimes, and large test documents outside the watched tree when
+  possible. It is safe to delete generated SILMA build output with
+  `rm -rf .cache/silma-pyinstaller sidecars/silma/runtime dist`. Do not delete
+  `src-tauri/tts/runtime` as a generic cleanup step; Tauri validates the sherpa
+  Linux shared-lib resource path before bundling. If it was deleted, restore it
+  with `node scripts/copy-sherpa-linux-libs.js` after Cargo has downloaded the
+  sherpa shared libs.
 - `linuxdeploy` failure while bundling: do not put the multi-GB SILMA runtime in
   ordinary app bundles. Use the optional runtime-pack artifact path.
 
@@ -921,9 +927,13 @@ Packaged desktop probe result:
 - WAV bytes: 12,044
 - Result: passed from the Tauri UI diagnostics button
 
-Vite dev server note: the sidecar venv and packaged runtime are intentionally
-ignored by `vite.config.ts` file watching. Without that, Linux can hit the
-inotify watch limit while Vite scans `.venv-silma`.
+Vite dev server note: the sidecar venv, packaged runtime, generated caches, and
+large public document tree are intentionally ignored by `vite.config.ts` file
+watching. Without that, Linux can hit the inotify watch limit while Vite scans
+generated SILMA files. Tauri has its own watcher too; if it reports
+`OS file watch limit reached` for a normal source file such as
+`src-tauri/Cargo.toml`, clean generated SILMA output first, then raise the Linux
+inotify limit if the workspace is still too large.
 
 In debug desktop builds, choose Arabic in the language control and
 `SILMA Arabic TTS` in the model control. Release/package validation builds still
