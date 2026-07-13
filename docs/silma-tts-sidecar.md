@@ -565,8 +565,9 @@ Useful entries:
 
 Known recovery paths:
 
-- SILMA does not appear in the model list: this is still feature gated. In dev,
-  launch with `PAPERCUT_ENABLE_SILMA_TTS=1`.
+- SILMA does not appear in the model list: debug desktop builds show it by
+  default. Release/package validation builds still need
+  `PAPERCUT_ENABLE_SILMA_TTS=1` until public runtime metadata is filled.
 - `SILMA runtime pack is not installed`: install the optional runtime pack first.
   If public download is disabled, fill `src-tauri/tts/silma-runtime-packs.json`
   from a release artifact or use the local packaged runtime flow.
@@ -613,10 +614,10 @@ Minimal local review before release artifacts exist:
    rm -rf ~/.local/share/io.papercut.desktop/models/silma-tts
    ```
 
-3. Launch the dev app with only the catalog gate:
+3. Launch the dev app:
 
    ```bash
-   PAPERCUT_ENABLE_SILMA_TTS=1 npm run tauri:dev
+   npm run tauri:dev
    ```
 
 4. In Audio Setup, select `SILMA Arabic TTS`, enable diagnostics, click
@@ -626,8 +627,8 @@ Minimal local review before release artifacts exist:
    diagnostics include `device`, `torch_threads`, `torch_interop`,
    `preprocessor`, and `nfe_step` in the backend label.
 
-6. Quit and relaunch with the same single env var. SILMA should stay installed
-   from app data without `PAPERCUT_SILMA_PYTHON`, `PAPERCUT_SILMA_WORKER`, or
+6. Quit and relaunch with `npm run tauri:dev`. SILMA should stay installed from
+   app data without `PAPERCUT_SILMA_PYTHON`, `PAPERCUT_SILMA_WORKER`, or
    `PAPERCUT_SILMA_WORKER_BIN`.
 
 ## Desktop Platform Notes
@@ -695,17 +696,19 @@ Runtime slot status: `NativeTtsState` now stores one `LoadedTtsEngine` enum.
 starts the worker, calls `load_model`, keeps the sidecar resident, and asks it
 to synthesize missing chunk WAVs.
 
-Hidden SILMA catalog status:
+SILMA catalog status:
 
 - Model id: `silma-ai/silma-tts`
 - Backend: `TtsModelBackend::SilmaSidecar`
 - Family: `TtsModelFamily::SilmaF5`
 - Storage prefix: `models/silma-tts`
-- Dev flag: `PAPERCUT_ENABLE_SILMA_TTS`
+- Release/package validation flag: `PAPERCUT_ENABLE_SILMA_TTS`
 
-The entry is not advertised in normal capabilities. With the dev flag set on a
-desktop build it can appear in the catalog. One install click installs the
-missing SILMA pieces in order: runtime pack first, then pinned model files.
+Debug desktop builds advertise SILMA by default so local development can use
+plain `npm run tauri:dev`. Release/package validation builds still require the
+flag until public runtime metadata is filled. Mobile builds never advertise it.
+One install click installs the missing SILMA pieces in order: runtime pack
+first, then pinned model files.
 
 Model status now detects a manually populated
 `models/silma-tts/silma-tts/` directory, reports the expected local path when
@@ -922,9 +925,9 @@ Vite dev server note: the sidecar venv and packaged runtime are intentionally
 ignored by `vite.config.ts` file watching. Without that, Linux can hit the
 inotify watch limit while Vite scans `.venv-silma`.
 
-The SILMA model itself is hidden unless `PAPERCUT_ENABLE_SILMA_TTS=1` is present
-when the app process starts. Once visible, choose Arabic in the language control
-and `SILMA Arabic TTS` in the model control.
+In debug desktop builds, choose Arabic in the language control and
+`SILMA Arabic TTS` in the model control. Release/package validation builds still
+need `PAPERCUT_ENABLE_SILMA_TTS=1` until public runtime metadata is filled.
 
 Stage 2 load helper:
 
@@ -969,7 +972,6 @@ Stage 2 SILMA synthesis status:
 - Dev-preview end-to-end saves now work with the source Python worker:
 
   ```bash
-  PAPERCUT_ENABLE_SILMA_TTS=1 \
   PAPERCUT_SILMA_MODEL_DIR="$PWD/.cache/silma-tts" \
   PAPERCUT_SILMA_PYTHON="$PWD/.venv-silma/bin/python" \
   PAPERCUT_SILMA_WORKER="$PWD/sidecars/silma/silma_worker.py" \
@@ -984,8 +986,8 @@ Stage 2 SILMA synthesis status:
 
 - [ ] Add SILMA model metadata to the TypeScript fallback catalog only after Rust
       capabilities can advertise it.
-- [x] Keep SILMA hidden by default and expose it only behind a desktop/dev
-      catalog flag.
+- [x] Show SILMA by default in debug desktop builds; keep release/package
+      validation behind a flag until public runtime metadata is filled.
 - [ ] Show SILMA in ordinary UI only when desktop sidecar support is complete.
 - [ ] Keep Android/iOS hidden or disabled with a clear native-unavailable reason.
 - [ ] Represent SILMA voices as reference voice profiles.

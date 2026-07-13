@@ -88,9 +88,10 @@ impl ModelDefinition {
         {
             return false;
         }
-        self.dev_catalog_flag
-            .map(|flag| std::env::var_os(flag).is_some())
-            .unwrap_or(true)
+        match self.dev_catalog_flag {
+            Some(flag) => cfg!(debug_assertions) || std::env::var_os(flag).is_some(),
+            None => true,
+        }
     }
 
     /// App-data subdirectory used for this backend's installed model files.
@@ -626,14 +627,19 @@ mod tests {
     }
 
     #[test]
-    fn silma_catalog_entry_is_hidden_by_default() {
+    fn silma_catalog_entry_is_dev_visible_and_release_gated() {
         let previous = std::env::var_os(SILMA_DEV_CATALOG_FLAG);
         std::env::remove_var(SILMA_DEV_CATALOG_FLAG);
         let model = model_definition(SILMA_MODEL_ID).unwrap();
         assert_eq!(model.backend, TtsModelBackend::SilmaSidecar);
         assert_eq!(model.model_storage_dir_name(), "silma-tts");
-        assert!(!model.is_catalog_visible());
-        assert!(visible_models().all(|item| item.id != SILMA_MODEL_ID));
+        if cfg!(debug_assertions) {
+            assert!(model.is_catalog_visible());
+            assert!(visible_models().any(|item| item.id == SILMA_MODEL_ID));
+        } else {
+            assert!(!model.is_catalog_visible());
+            assert!(visible_models().all(|item| item.id != SILMA_MODEL_ID));
+        }
         if let Some(value) = previous {
             std::env::set_var(SILMA_DEV_CATALOG_FLAG, value);
         }
