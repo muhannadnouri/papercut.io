@@ -138,7 +138,7 @@ impl SilmaSidecar {
             device: response
                 .get("device")
                 .and_then(Value::as_str)
-                .unwrap_or("unknown")
+                .unwrap_or("unreported")
                 .to_string(),
             torch_threads: response
                 .get("torch_threads")

@@ -780,8 +780,10 @@ Stage 2 SILMA synthesis status:
 - The UI exposes a SILMA-only quality selector for F5 diffusion steps:
   `16` (default), `12`, `8`, and `4`. Lower values are for CPU benchmarking and
   may reduce quality.
-- Native diagnostics include the SILMA backend label with device, PyTorch
-  threads, inter-op threads, preprocessor, and NFE step.
+- Native diagnostics include the SILMA backend label with the detected Torch
+  device (`cpu`, `cuda`, `mps`, or `xpu`), PyTorch threads, inter-op threads,
+  preprocessor, and NFE step. Older sidecars that do not report a device are
+  shown as `unreported` rather than a guessed value.
 - Dev-preview end-to-end saves now work with the source Python worker:
 
   ```bash
@@ -808,7 +810,7 @@ Stage 2 SILMA synthesis status:
 - [ ] Ensure saved-audio filtering continues to include model id, voice id,
       speed, and text preprocessor.
 - [ ] Add install/download copy that warns about model size before download.
-- [ ] Add diagnostic labels that distinguish `sherpa-onnx-*` from
+- [x] Add diagnostic labels that distinguish `sherpa-onnx-*` from
       `silma-sidecar`.
 - [x] Surface SILMA runtime-pack status separately from model-file status.
 - [x] Show SILMA-only CPU tuning controls when the SILMA model is selected:

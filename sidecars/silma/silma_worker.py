@@ -89,7 +89,7 @@ class Worker:
         engine = SilmaTTS(**kwargs)
         load_ms = round((time.perf_counter() - started) * 1000)
         sample_rate = int(getattr(engine, "target_sample_rate", 24000))
-        device = str(getattr(engine, "device", "unknown"))
+        device = detect_torch_device(engine)
         self.loaded = LoadedModel(
             engine=engine,
             model_dir=model_dir_str,
@@ -226,6 +226,23 @@ def configure_torch(torch_threads: Any) -> dict[str, int]:
     }
 
 
+def detect_torch_device(engine: Any) -> str:
+    """Return the effective Torch device for diagnostics when SILMA omits it."""
+    engine_device = str(getattr(engine, "device", "")).strip().lower()
+    if engine_device and engine_device != "unknown":
+        return engine_device
+
+    import torch
+
+    if torch.cuda.is_available():
+        return "cuda"
+    if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+        return "mps"
+    if hasattr(torch, "xpu") and torch.xpu.is_available():
+        return "xpu"
+    return "cpu"
+
+
 def import_silma_tts() -> Any:
     """Import SILMA with an actionable setup hint when the sidecar venv is missing."""
     if importlib.util.find_spec("silma_tts") is None:
@@ -313,6 +330,7 @@ def run_self_test() -> int:
     probe_path.unlink(missing_ok=True)
     assert encoder_wav_path(Path("chunk.wav")) == Path("chunk.wav")
     assert encoder_wav_path(Path("chunk.tmp")) == Path("chunk.tmp.wav")
+    assert detect_torch_device(type("FakeEngine", (), {"device": "cuda:0"})()) == "cuda:0"
     assert silma_nfe_step(4) == 4
     assert silma_nfe_step("12") == 12
     assert silma_nfe_step(3) == 16
