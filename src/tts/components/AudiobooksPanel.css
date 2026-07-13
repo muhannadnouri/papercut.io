@@ -152,6 +152,34 @@
   grid-column: 2;
 }
 
+.audio-field-silma-probe {
+  grid-column: 1 / -1;
+}
+
+.audio-probe-button {
+  min-height: 2rem;
+  padding: 0 0.65rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-body);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.audio-probe-button:hover:not(:disabled),
+.audio-probe-button:focus-visible {
+  border-color: var(--accent-text);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+.audio-probe-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .audiobooks-setup {
   max-height: min(62vh, 26rem);
   overflow-y: auto;
@@ -1094,7 +1122,8 @@
   .audio-model-install,
   .audio-field-text-processing,
   .audio-field-threads,
-  .audio-field-diagnostics {
+  .audio-field-diagnostics,
+  .audio-field-silma-probe {
     grid-column: 1 / -1;
   }
 }

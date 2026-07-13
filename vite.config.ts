@@ -7,6 +7,10 @@ export default defineConfig({
   server: {
     watch: {
       ignored: [
+        '**/.cache/**',
+        '**/.venv-silma/**',
+        '**/sidecars/**/__pycache__/**',
+        '**/sidecars/**/runtime/**',
         '**/src-tauri/target/**',
         '**/src-tauri/tts/runtime/**',
       ],

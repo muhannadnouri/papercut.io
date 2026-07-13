@@ -45,6 +45,16 @@ export interface NativeTtsModelInstallResult {
   bytes: number
 }
 
+export interface NativeSilmaSidecarProbeResult {
+  workerPath: string
+  pythonCommand: string
+  probeWavPath: string
+  healthVersion: string
+  sampleRate: number
+  audioDurationSec: number
+  wavBytes: number
+}
+
 export interface NativeTtsChunkResult {
   chunk: TtsChunk
   wav: ArrayBuffer
@@ -404,6 +414,12 @@ export async function deleteNativeAudiobook(input: {
   return invoke<NativeAudiobookDeleteResult>('tts_delete_audiobook_native', {
     request: input,
   })
+}
+
+export async function probeNativeSilmaSidecar(): Promise<NativeSilmaSidecarProbeResult> {
+  await requireNativeTtsCapabilities()
+  const invoke = await loadTauriInvoke()
+  return invoke<NativeSilmaSidecarProbeResult>('tts_probe_silma_sidecar')
 }
 
 export async function getImportedAudiobookSource(documentUrl: string): Promise<string> {

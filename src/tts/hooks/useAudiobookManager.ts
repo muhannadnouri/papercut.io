@@ -29,6 +29,7 @@ import {
   importNativeAudiobook,
   installNativeTtsModel,
   listenNativeTtsModelInstallProgress,
+  probeNativeSilmaSidecar,
   type NativeTtsCapabilities,
   type NativeAudiobookExportFormat,
   type NativeTtsModelInstallProgress,
@@ -90,6 +91,7 @@ export function useAudiobookManager({
   const [audiobookExport, setAudiobookExport] = useState<AudiobookExportState | null>(null)
   const [audiobookDelete, setAudiobookDelete] = useState<{ id: string; status: 'deleting' | 'deleted' | 'error'; message: string } | null>(null)
   const [audiobookImport, setAudiobookImport] = useState<{ status: 'idle' | 'importing' | 'imported' | 'cancelled' | 'error'; message: string }>({ status: 'idle', message: '' })
+  const [silmaProbeRunning, setSilmaProbeRunning] = useState(false)
   const [audiobookNotice, setAudiobookNotice] = useState<AudiobookNoticeState | null>(null)
   const { confirm: confirmAudiobookAction, dialog: confirmationDialog } = useAppConfirmation()
   const ttsModels = ttsCapabilities?.models.length ? ttsCapabilities.models : FALLBACK_TTS_MODELS
@@ -276,6 +278,21 @@ export function useAudiobookManager({
       void refreshTtsModelStatus()
     }
   }, [preloadTts, syncTtsRuntimeSettings, refreshTtsModelStatus, ttsModelId, ttsModelStatus?.archiveBytes])
+
+  const handleProbeSilmaSidecar = useCallback(async () => {
+    if (silmaProbeRunning) return
+    setSilmaProbeRunning(true)
+    try {
+      const result = await probeNativeSilmaSidecar()
+      logTtsDiagnostic('[tts-native] SILMA sidecar probe passed', { ...result })
+    } catch (err) {
+      logTtsDiagnostic('[tts-native] SILMA sidecar probe failed', {
+        error: err instanceof Error ? err.message : String(err),
+      }, 'error')
+    } finally {
+      setSilmaProbeRunning(false)
+    }
+  }, [silmaProbeRunning])
 
   useEffect(() => {
     if (window.requestIdleCallback) {
@@ -1027,6 +1044,7 @@ export function useAudiobookManager({
       modelStatus: ttsModelStatus,
       onInstallModel: handleInstallTtsModel,
       onModelChange: handleModelChange,
+      onProbeSilmaSidecar: handleProbeSilmaSidecar,
       onSpeedChange: () => {},
       onTextPreprocessorChange: setTtsTextPreprocessor,
       onThreadCountChange: handleThreadCountChange,
@@ -1034,6 +1052,7 @@ export function useAudiobookManager({
       textPreprocessor: ttsTextPreprocessor,
       textPreprocessors: selectedTtsModel.textPreprocessors,
       speed: DEFAULT_TTS_SPEED,
+      silmaProbeRunning,
       threadCount: ttsThreadCount,
       voice: ttsVoice,
       voices: selectedTtsModel.voices,

@@ -481,6 +481,8 @@ Stage 1 probe command:
 - Rust module: `src-tauri/src/native_tts/engine/sidecar_probe.rs`
 - Process wrapper: `src-tauri/src/native_tts/engine/silma_sidecar.rs`
 - Worker op: `write_probe_wav`
+- Frontend trigger: diagnostics-only `Probe Sidecar` button for the SILMA model
+  in `AudioSetupPanel`
 - Env overrides:
   - `PAPERCUT_SILMA_PYTHON`
   - `PAPERCUT_SILMA_WORKER`
@@ -503,6 +505,33 @@ Packaged Linux onedir result:
 - Output: `sidecars/silma/runtime/x86_64-unknown-linux-gnu/onedir/`
 - Size: about 5.7 GB
 - Packaged `--self-test`: passed
+
+Desktop packaged-worker probe command for a dev run:
+
+```bash
+PAPERCUT_ENABLE_SILMA_TTS=1 \
+PAPERCUT_SILMA_WORKER_BIN="$PWD/sidecars/silma/runtime/x86_64-unknown-linux-gnu/onedir/silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu" \
+npm run tauri:dev
+```
+
+`npm run desktop` builds the installer. If the `.deb` is installed and launched
+from the desktop environment, it will not inherit the shell env vars used during
+the build. For an installed Linux package, launch the installed binary from a
+terminal with the same env vars, or add them to a temporary wrapper script while
+this remains a dev-gated feature.
+
+In the app, enable TTS diagnostics and click
+`Probe Sidecar`. A passing run logs `[tts-native] SILMA sidecar probe passed`
+with the worker path, health version, probe WAV path, sample rate, duration, and
+byte size.
+
+Vite dev server note: the sidecar venv and packaged runtime are intentionally
+ignored by `vite.config.ts` file watching. Without that, Linux can hit the
+inotify watch limit while Vite scans `.venv-silma`.
+
+The SILMA model itself is hidden unless `PAPERCUT_ENABLE_SILMA_TTS=1` is present
+when the app process starts. Once visible, choose Arabic in the language control
+and `SILMA Arabic TTS` in the model control.
 
 Stage 2 load helper:
 
@@ -634,6 +663,7 @@ Exit criteria:
 - [x] Package worker with PyInstaller onedir and run the packaged worker.
 - [x] Add temporary Rust command or dev-only path to spawn it.
 - [x] Generate one probe WAV into app data.
+- [x] Add diagnostics UI trigger for the packaged-worker probe.
 - [ ] Validate Tauri sidecar mechanics in a running desktop app.
 
 Exit criteria:

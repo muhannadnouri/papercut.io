@@ -46,11 +46,13 @@ export interface AudioSetupPanelProps {
   onDiagnosticsChange?: (enabled: boolean) => void
   onInstallModel: () => void
   onModelChange: (modelId: string) => void
+  onProbeSilmaSidecar?: () => void
   onSpeedChange: (speed: number) => void
   onTextPreprocessorChange: (textPreprocessor: string) => void
   onThreadCountChange: (threadCount: number) => void
   onVoiceChange: (voice: TtsVoice) => void
   speed: number
+  silmaProbeRunning?: boolean
   textPreprocessor: string
   textPreprocessors: TextPreprocessorInfo[]
   threadCount: number
@@ -70,11 +72,13 @@ export function AudioSetupPanel({
   onDiagnosticsChange,
   onInstallModel,
   onModelChange,
+  onProbeSilmaSidecar,
   onSpeedChange,
   onTextPreprocessorChange,
   onThreadCountChange,
   onVoiceChange,
   speed,
+  silmaProbeRunning = false,
   textPreprocessor,
   textPreprocessors,
   threadCount,
@@ -303,6 +307,20 @@ export function AudioSetupPanel({
             <span className="audio-diagnostics-switch" aria-hidden="true" />
           </span>
         </label>
+        {debugEnabled && onProbeSilmaSidecar && (
+          <div className="audio-field audio-field-silma-probe">
+            <span>SILMA Sidecar</span>
+            <button
+              type="button"
+              className="audio-probe-button"
+              onClick={onProbeSilmaSidecar}
+              disabled={silmaProbeRunning}
+              title="Run the SILMA sidecar probe"
+            >
+              {silmaProbeRunning ? 'Probing...' : 'Probe Sidecar'}
+            </button>
+          </div>
+        )}
       </section>
     </div>
   )
