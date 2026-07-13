@@ -104,8 +104,20 @@ export function AudioSetupPanel({
   const modelInstallSupported = modelStatus?.installSupported ?? (selectedModel?.family !== 'silma-f5')
   const isSilmaModel = selectedModel?.family === 'silma-f5'
   const silmaRuntimeMissing = isSilmaModel && modelStatus?.runtimeInstalled === false
-  const installButtonLabel = silmaRuntimeMissing ? 'Install SILMA Runtime' : 'Download Voice Model'
-  const installingButtonLabel = silmaRuntimeMissing ? 'Installing Runtime...' : 'Downloading Model...'
+  const installButtonLabel = silmaRuntimeMissing ? 'Install SILMA Runtime' : isSilmaModel ? 'Download SILMA Model' : 'Download Voice Model'
+  const installingButtonLabel = silmaRuntimeMissing ? 'Installing Runtime...' : isSilmaModel ? 'Downloading SILMA Model...' : 'Downloading Model...'
+  const sourceAssetLabel = isSilmaModel ? 'Hugging Face files' : 'GitHub release asset'
+  const silmaInstallNote = isSilmaModel
+    ? [
+        silmaRuntimeMissing
+          ? 'Installs the optional desktop runtime first; model files install next.'
+          : modelInstalled
+            ? 'SILMA model files are installed.'
+            : 'Downloads pinned SILMA model.pt and vocab.txt from Hugging Face.',
+        modelSize ? 'Size: ' + modelSize + '.' : '',
+        'Large downloads can take a while.',
+      ].filter(Boolean).join(' ')
+    : null
   const selectedLanguage = selectedModel ? getLanguageOption(selectedModel).value : ''
   const languageOptions = models.reduce<SelectOption[]>((options, model) => {
     const languageOption = getLanguageOption(model)
@@ -163,7 +175,7 @@ export function AudioSetupPanel({
             {debugEnabled && (
               <div className="audio-model-source" title={modelStatus?.sourceUrl}>
                 <span>{modelStatus?.sourceLabel ?? 'sherpa-onnx offline TTS'}</span>
-                <span>{modelSize ? modelSize + ' GitHub release' : 'GitHub release asset'}</span>
+                <span>{modelSize ? modelSize + ' ' + sourceAssetLabel : sourceAssetLabel}</span>
               </div>
             )}
           </div>
@@ -176,12 +188,13 @@ export function AudioSetupPanel({
                   className="tts-btn tts-save-btn"
                   onClick={onInstallModel}
                   disabled={modelInstalling}
-                  title={silmaRuntimeMissing ? 'Install the prepared SILMA desktop runtime pack' : 'Download selected offline voice model'}
+                  title={silmaRuntimeMissing ? 'Install the optional SILMA desktop runtime pack' : isSilmaModel ? 'Download SILMA model files' : 'Download selected offline voice model'}
                 >
                   <DownloadIcon />
                   <span>{modelInstalling ? installingButtonLabel : installButtonLabel}</span>
                 </button>
               )}
+              {silmaInstallNote && <span className="audio-thread-meta">{silmaInstallNote}</span>}
               {!modelInstalled && !modelInstallSupported && (
                 <div className="audiobook-status audiobook-status-error" aria-live="polite">
                   <div className="audiobook-status-row">
@@ -227,7 +240,13 @@ export function AudioSetupPanel({
             value={voice}
             options={voices.map((item) => ({ label: item.name, value: item.id }))}
             onChange={(value) => onVoiceChange(value as TtsVoice)}
-          />
+          >
+            {isSilmaModel && (
+              <span className="audio-thread-meta">
+                SILMA uses its Arabic reference voice profile; custom references are not available yet.
+              </span>
+            )}
+          </SelectField>
 
           <div className="audio-field audio-field-speed audio-field-disabled">
             <span id="tts-speed-label">⚡ Generated Speed</span>

@@ -196,6 +196,13 @@ ID. It is a voice profile:
 For the proof of concept, use SILMA's sample reference only if its license and
 redistribution terms are acceptable for development use.
 
+Current implementation exposes one voice profile because the packaged
+`silma_tts` runtime only includes one reference sample:
+`infer/ref_audio_samples/ar.ref.24k.wav`. Additional SILMA "voices" should be
+modeled as more reference profiles, not speaker ids. Each profile needs a
+reference WAV, matching reference text, stable id, display name, and explicit
+license/consent metadata.
+
 For production, use owned or explicitly licensed reference audio. Do not ship a
 "clone any voice" UI in the first release. That is a product/legal feature, not
 just an engineering switch.
@@ -1001,8 +1008,8 @@ Exit criteria:
 
 ### Stage 5: Product Polish
 
-- [ ] Add final model/voice UI copy.
-- [ ] Add download size warnings.
+- [x] Add initial model/voice UI copy.
+- [x] Add download size warnings for the SILMA runtime/model install path.
 - [ ] Add diagnostics and troubleshooting docs.
 - [ ] Add release notes.
 - [ ] Add voice consent/export disclosure.
