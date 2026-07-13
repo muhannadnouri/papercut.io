@@ -523,7 +523,17 @@ Practical CI model:
   runtime, platform, packaging, workflow, or dependency surfaces changed;
 - keep full desktop/mobile/runtime artifact matrices for manual validation,
   nightly checks, or release workflows;
+- use the manual `CI` workflow dispatch when a PR needs release-level confidence
+  even though path detection would skip some expensive jobs;
 - use PR concurrency cancellation so superseded pushes stop spending minutes.
+
+Manual CI validation scopes:
+
+- `cheap`: lint, frontend build, and worker self-tests only;
+- `desktop`: cheap checks plus Linux, Windows, and macOS desktop packaging;
+- `mobile`: cheap checks plus Android and iOS packaging checks;
+- `silma-runtime`: cheap checks plus the Linux x64 SILMA runtime pack artifact;
+- `full`: all of the above.
 
 The archive must extract so `current/` contains the expected worker path:
 
@@ -1167,6 +1177,8 @@ Exit criteria:
       files, packaging scripts, runtime metadata, or related workflows changed.
 - [x] Split ordinary PR CI into cheap required checks and gated expensive
       packaging jobs.
+- [x] Add manual PR validation scopes for cheap, desktop, mobile, SILMA runtime,
+      or full CI.
 - [ ] Bundle sidecar dependencies correctly on each desktop OS.
 - [ ] Reduce sidecar size or move SILMA to an optional runtime download before
       enabling it in ordinary release installers.

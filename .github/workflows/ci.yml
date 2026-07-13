@@ -3,12 +3,25 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      validation_scope:
+        description: "Validation scope to run"
+        required: true
+        default: full
+        type: choice
+        options:
+          - full
+          - desktop
+          - mobile
+          - silma-runtime
+          - cheap
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-pr-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -32,17 +45,58 @@ jobs:
       - name: Detect changed CI surfaces
         id: detect
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          VALIDATION_SCOPE: ${{ inputs.validation_scope || '' }}
         run: |
           set -euo pipefail
-          base="${{ github.event.pull_request.base.sha }}"
-          git fetch --no-tags --depth=1 origin "$base"
-          changed="$(git diff --name-only "$base" HEAD)"
-          printf '%s\n' "$changed"
-
           android_packaging=false
           desktop_packaging=false
           ios_packaging=false
           silma_runtime=false
+
+          emit_outputs() {
+            echo "android_packaging=$android_packaging" >> "$GITHUB_OUTPUT"
+            echo "desktop_packaging=$desktop_packaging" >> "$GITHUB_OUTPUT"
+            echo "ios_packaging=$ios_packaging" >> "$GITHUB_OUTPUT"
+            echo "silma_runtime=$silma_runtime" >> "$GITHUB_OUTPUT"
+          }
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            case "$VALIDATION_SCOPE" in
+              full)
+                android_packaging=true
+                desktop_packaging=true
+                ios_packaging=true
+                silma_runtime=true
+                ;;
+              desktop)
+                desktop_packaging=true
+                ;;
+              mobile)
+                android_packaging=true
+                ios_packaging=true
+                ;;
+              silma-runtime)
+                silma_runtime=true
+                ;;
+              cheap)
+                ;;
+              *)
+                echo "Unsupported validation_scope: $VALIDATION_SCOPE" >&2
+                exit 1
+                ;;
+            esac
+            emit_outputs
+            exit 0
+          fi
+
+          base="$PR_BASE_SHA"
+          git fetch --no-tags --depth=1 origin "$base"
+          changed="$(git diff --name-only "$base" HEAD)"
+          printf '%s\n' "$changed"
+
           while IFS= read -r path; do
             case "$path" in
               .github/workflows/ci.yml | \
@@ -102,10 +156,7 @@ jobs:
                 ;;
             esac
           done <<< "$changed"
-          echo "android_packaging=$android_packaging" >> "$GITHUB_OUTPUT"
-          echo "desktop_packaging=$desktop_packaging" >> "$GITHUB_OUTPUT"
-          echo "ios_packaging=$ios_packaging" >> "$GITHUB_OUTPUT"
-          echo "silma_runtime=$silma_runtime" >> "$GITHUB_OUTPUT"
+          emit_outputs
 
   checks:
     runs-on: ubuntu-24.04
