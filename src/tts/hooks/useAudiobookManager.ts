@@ -293,7 +293,7 @@ export function useAudiobookManager({
         resultBytes: result.bytes,
         ...summarizeTtsModelStatus(status),
       }, status.installed && status.runtimeInstalled ? 'info' : 'warn')
-      if (!status.installed) {
+      if (!status.installed || !status.runtimeInstalled) {
         setTtsModelProgress(null)
         return
       }

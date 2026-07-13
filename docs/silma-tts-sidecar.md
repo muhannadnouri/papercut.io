@@ -436,7 +436,9 @@ Current runtime-pack install slice:
 - the SILMA install button can promote a prepared PyInstaller onedir into the
   app-data runtime-pack slot;
 - `npm run package:silma-runtime` can archive the prepared onedir and emit a
-  JSON manifest with SHA-256 and byte size;
+  JSON manifest with SHA-256 and byte size. Runtime archives must use the
+  `.tar.bz2` suffix so the generated `.manifest.json` cannot collide with the
+  archive path;
 - source lookup checks `src-tauri/tts/silma-runtime-packs.json` for the current
   platform runtime id;
 - source lookup falls back to the local
@@ -508,7 +510,10 @@ CI runtime-pack build:
 - pass `tag` to make the generated manifest use the predictable GitHub Release
   URL;
 - set `upload_to_release` only after the release exists and you want the
-  workflow to attach the `.tar.bz2` and generated manifest to that release;
+  workflow to attach the `.tar.bz2` and generated manifest to that release.
+  Published runtime-pack assets are immutable; if an upload target already
+  exists, create a new release/tag or delete the bad asset deliberately rather
+  than overwriting it from CI;
 - use the generated `.manifest.json` from CI to fill
   `src-tauri/tts/silma-runtime-packs.json` in a normal PR before enabling public
   runtime install for that release.
@@ -728,10 +733,11 @@ instead of claiming the voice model alone makes SILMA ready.
 
 During development, `PAPERCUT_SILMA_MODEL_DIR` can point at the official SILMA
 Hugging Face cache root, for example `./.cache/silma-tts`. The status/runtime
-checks search that directory recursively for `model.pt` and `vocab.txt`, because
-the official downloader stores files under `models--silma-ai--silma-tts/...`.
-The app-owned installer stores those files directly under
-`models/silma-tts/silma-tts/`.
+checks search that directory recursively for one directory containing both
+`model.pt` and `vocab.txt`, because the official downloader stores files under
+`models--silma-ai--silma-tts/...`. Split files in different snapshots do not
+count as an installed model. The app-owned installer stores those files directly
+under `models/silma-tts/silma-tts/`.
 
 ## Python Worker Tasks
 

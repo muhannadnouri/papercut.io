@@ -95,28 +95,26 @@ pub(super) fn resolve_model_dir(
 /// Return true when a runtime model directory has the files the backend needs.
 pub(super) fn has_required_model_files(model: &ModelDefinition, dir: &Path) -> bool {
     if matches!(model.backend, TtsModelBackend::SilmaSidecar) {
-        return model
-            .required_files
-            .iter()
-            .all(|file_name| contains_file_named(dir, file_name));
+        return contains_complete_file_set(dir, model.required_files);
     }
     model.has_required_files(dir)
 }
 
-fn contains_file_named(dir: &Path, file_name: &str) -> bool {
+fn contains_complete_file_set(dir: &Path, required_files: &[&str]) -> bool {
+    if required_files
+        .iter()
+        .all(|file_name| dir.join(file_name).is_file())
+    {
+        return true;
+    }
+
     let Ok(entries) = fs::read_dir(dir) else {
         return false;
     };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_file() && path.file_name().and_then(|name| name.to_str()) == Some(file_name) {
-            return true;
-        }
-        if path.is_dir() && contains_file_named(&path, file_name) {
-            return true;
-        }
-    }
-    false
+    entries
+        .flatten()
+        .map(|entry| entry.path())
+        .any(|path| path.is_dir() && contains_complete_file_set(&path, required_files))
 }
 
 /// Directory holding one saved audiobook's chunk WAVs. The audiobook id is
@@ -417,7 +415,31 @@ pub(super) fn stable_hex_hash(value: &str) -> String {
 }
 #[cfg(test)]
 mod tests {
+    use super::super::models::{model_definition, SILMA_MODEL_ID};
     use super::*;
+
+    #[test]
+    fn silma_required_files_must_share_one_directory() {
+        let nonce = unique_nonce();
+        let dir = std::env::temp_dir().join(format!("papercut-silma-files-{nonce}"));
+        let split_a = dir.join("snapshot-a");
+        let split_b = dir.join("snapshot-b");
+        fs::create_dir_all(&split_a).unwrap();
+        fs::create_dir_all(&split_b).unwrap();
+        fs::write(split_a.join("model.pt"), b"model").unwrap();
+        fs::write(split_b.join("vocab.txt"), b"vocab").unwrap();
+
+        let model = model_definition(SILMA_MODEL_ID).unwrap();
+        assert!(!has_required_model_files(model, &dir));
+
+        let complete = dir.join("snapshot-complete");
+        fs::create_dir_all(&complete).unwrap();
+        fs::write(complete.join("model.pt"), b"model").unwrap();
+        fs::write(complete.join("vocab.txt"), b"vocab").unwrap();
+        assert!(has_required_model_files(model, &dir));
+
+        fs::remove_dir_all(dir).unwrap();
+    }
 
     #[test]
     fn preprocessing_preserves_legacy_ids_and_separates_diacritized_audio() {
@@ -444,5 +466,12 @@ mod tests {
         );
         assert!(diacritized.contains("|libtashkeel-1.5.0|"));
         assert_ne!(diacritized, legacy);
+    }
+
+    fn unique_nonce() -> u128 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
     }
 }

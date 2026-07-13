@@ -14,6 +14,7 @@ const outputDir =
 const appRuntimeManifestPath = join(ROOT, "src-tauri", "tts", "silma-runtime-packs.json")
 const exeBase = "silma-worker-" + target
 const archiveName = options.archiveName ?? "papercut-silma-runtime-" + runtimeId + ".tar.bz2"
+if (!archiveName.endsWith(".tar.bz2")) fail("--archive-name must end with .tar.bz2")
 const archivePath = join(outputDir, archiveName)
 const manifestPath = join(outputDir, archiveName.replace(/\.tar\.bz2$/, ".manifest.json"))
 const workerRelativePath = exeBase + "/" + exeBase + (target.includes("windows") ? ".exe" : "")
