@@ -12,6 +12,7 @@ import json
 import sys
 import tempfile
 import time
+import traceback
 import wave
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,8 +34,10 @@ class LoadedModel:
 
 
 class Worker:
-    def __init__(self) -> None:
+    def __init__(self, *, log_tracebacks: bool = True) -> None:
+        """Create a worker; tests can quiet tracebacks for expected protocol failures."""
         self.loaded: LoadedModel | None = None
+        self.log_tracebacks = log_tracebacks
 
     def handle(self, request: dict[str, Any]) -> dict[str, Any]:
         """Dispatch one JSONL protocol request without letting exceptions escape."""
@@ -53,6 +56,8 @@ class Worker:
                 return self.ok(request_id, shutdown=True)
             return self.err(request_id, f"unsupported op: {op!r}")
         except Exception as exc:  # noqa: BLE001 - protocol boundary must not crash on bad input.
+            if self.log_tracebacks:
+                traceback.print_exc(file=sys.stderr)
             return self.err(request_id, str(exc))
 
     def load_model(self, request_id: str, request: dict[str, Any]) -> dict[str, Any]:
@@ -158,6 +163,13 @@ def required_str(request: dict[str, Any], key: str) -> str:
 
 def import_silma_tts() -> Any:
     """Import SILMA with an actionable setup hint when the sidecar venv is missing."""
+    if importlib.util.find_spec("silma_tts") is None:
+        raise RuntimeError(
+            "SILMA Python package is not installed for this interpreter. "
+            "Run: python3 -m venv .venv-silma && . .venv-silma/bin/activate && "
+            "pip install -r sidecars/silma/requirements.txt"
+        )
+    ensure_transformers_pipeline()
     try:
         from silma_tts.api import SilmaTTS
     except ModuleNotFoundError as exc:
@@ -169,6 +181,20 @@ def import_silma_tts() -> Any:
             ) from exc
         raise
     return SilmaTTS
+
+
+def ensure_transformers_pipeline() -> None:
+    """Force PyInstaller to include the lazy Transformers pipeline export SILMA imports."""
+    try:
+        from transformers.pipelines import pipeline as _pipeline
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "SILMA dependency is missing: transformers.pipelines. "
+            "Reinstall sidecars/silma/requirements.txt and rebuild the sidecar."
+        ) from exc
+    except Exception as exc:  # noqa: BLE001 - keep the real dependency failure visible.
+        raise RuntimeError(f"Could not import transformers.pipelines.pipeline: {exc}") from exc
+    _ = _pipeline
 
 
 def wav_info(path: Path) -> dict[str, Any]:
@@ -195,6 +221,7 @@ def run_jsonl() -> int:
                 raise ValueError("request must be a JSON object")
             response = worker.handle(request)
         except Exception as exc:  # noqa: BLE001 - malformed protocol input still returns JSON.
+            traceback.print_exc(file=sys.stderr)
             response = {"id": "", "ok": False, "error": str(exc)}
         print(json.dumps(response, ensure_ascii=False), flush=True)
         if response.get("ok") and response.get("shutdown"):
@@ -204,7 +231,7 @@ def run_jsonl() -> int:
 
 def run_self_test() -> int:
     """Exercise protocol behavior that does not require installing or loading SILMA."""
-    worker = Worker()
+    worker = Worker(log_tracebacks=False)
     assert worker.handle({"id": "1", "op": "health"})["ok"] is True
     probe_path = Path(tempfile.gettempdir()) / "papercut-silma-worker-probe.wav"
     probe = worker.handle({"id": "2", "op": "write_probe_wav", "output_wav": str(probe_path)})

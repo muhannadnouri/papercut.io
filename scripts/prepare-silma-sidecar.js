@@ -57,6 +57,8 @@ const result = runSync(
     join(CACHE_DIR, "spec"),
     "--collect-all",
     "silma_tts",
+    "--hidden-import",
+    "transformers.pipelines",
     WORKER,
   ],
   { cwd: ROOT },
@@ -109,10 +111,12 @@ function parseArgs(args) {
   return parsed
 }
 
+// PyInstaller onedir nests the executable one level below distpath.
 function builtWorkerPath(outputDir, mode, exeBase, exeName) {
   return mode === "onefile" ? join(outputDir, exeName) : join(outputDir, exeBase, exeName)
 }
 
+// Keep option parsing dependency-free; every flag with a value uses this guard.
 function requireValue(args, index, flag) {
   const value = args[index]
   if (!value || value.startsWith("--")) {
@@ -121,6 +125,7 @@ function requireValue(args, index, flag) {
   return value
 }
 
+// Prefer the sidecar venv, but let CI/release scripts point at a platform Python.
 function defaultPython() {
   const envPython = process.env.PAPERCUT_SILMA_PYTHON
   if (envPython) return envPython
@@ -134,6 +139,7 @@ function defaultPython() {
   return process.platform === "win32" ? "python" : "python3"
 }
 
+// Fail before the expensive build if the selected interpreter cannot run PyInstaller.
 function hasPyInstaller(python) {
   const result = runSync(python, ["-m", "PyInstaller", "--version"], {
     cwd: ROOT,
@@ -142,6 +148,7 @@ function hasPyInstaller(python) {
   return !result.error && result.status === 0
 }
 
+// Use Tauri/Rust-style triples so runtime folders line up with desktop targets.
 function currentTargetTriple() {
   const platform = process.platform
   const arch = process.arch
@@ -154,6 +161,7 @@ function currentTargetTriple() {
   fail("Unsupported sidecar target: " + platform + "/" + arch + ". Pass --target explicitly.")
 }
 
+// Print one consistent prefix so script failures are easy to spot in npm logs.
 function fail(message) {
   console.error("[silma-sidecar] " + message)
   process.exit(1)

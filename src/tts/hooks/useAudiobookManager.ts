@@ -280,6 +280,7 @@ export function useAudiobookManager({
   }, [preloadTts, syncTtsRuntimeSettings, refreshTtsModelStatus, ttsModelId, ttsModelStatus?.archiveBytes])
 
   const handleProbeSilmaSidecar = useCallback(async () => {
+    // Diagnostics-only smoke path; real model loading/synthesis still runs through save.
     if (silmaProbeRunning) return
     setSilmaProbeRunning(true)
     try {

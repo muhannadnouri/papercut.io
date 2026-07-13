@@ -417,6 +417,7 @@ export async function deleteNativeAudiobook(input: {
 }
 
 export async function probeNativeSilmaSidecar(): Promise<NativeSilmaSidecarProbeResult> {
+  // Dev-only bridge: validates the packaged worker can start and write app-owned WAVs.
   await requireNativeTtsCapabilities()
   const invoke = await loadTauriInvoke()
   return invoke<NativeSilmaSidecarProbeResult>('tts_probe_silma_sidecar')

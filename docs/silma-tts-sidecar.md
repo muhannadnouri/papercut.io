@@ -468,6 +468,23 @@ The run warned that `ffmpeg`/`avconv` was not found, but this short reference
 path still completed. Keep the packaging decision open until sidecar packaging
 and longer reference-audio cases are tested.
 
+Packaged `load_model` note: SILMA imports `transformers.pipeline` through
+Transformers' lazy export path. The worker now imports
+`transformers.pipelines.pipeline` directly and the packaging script marks
+`transformers.pipelines` as a hidden import so PyInstaller includes that lazy
+module path. If `load_model` still fails, check the sidecar stderr traceback
+before adding more PyInstaller includes.
+
+After changing worker/package imports, rebuild the packaged worker before
+testing the app:
+
+```bash
+npm run prepare:silma-sidecar -- --clean --self-test
+printf '%s\n' \
+  '{"id":"load_model","op":"load_model","model_dir":"./.cache/silma-tts"}' \
+  | sidecars/silma/runtime/x86_64-unknown-linux-gnu/onedir/silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu
+```
+
 To reuse this downloaded cache from Rust dev commands:
 
 ```bash
@@ -525,6 +542,17 @@ In the app, enable TTS diagnostics and click
 with the worker path, health version, probe WAV path, sample rate, duration, and
 byte size.
 
+Packaged desktop probe result:
+
+- Worker: packaged PyInstaller onedir executable
+- Health version: `0.1.0`
+- Probe WAV path:
+  `~/.local/share/io.papercut.desktop/silma-sidecar-probe/probe.wav`
+- Sample rate: 24,000 Hz
+- Duration: 0.25 s
+- WAV bytes: 12,044
+- Result: passed from the Tauri UI diagnostics button
+
 Vite dev server note: the sidecar venv and packaged runtime are intentionally
 ignored by `vite.config.ts` file watching. Without that, Linux can hit the
 inotify watch limit while Vite scans `.venv-silma`.
@@ -580,6 +608,8 @@ Stage 2 SILMA synthesis status:
 - [x] Add `onedir` packaging mode and make it the default after onefile failed
       extraction.
 - [x] Add an optional packaged-worker `--self-test` to the prep script.
+- [x] Force-include the Transformers pipeline module needed by packaged
+      `load_model`.
 - [ ] Integrate sidecar prep into `scripts/build-desktop.js` behind a feature or
       build flag.
 - [ ] Keep Android and iOS build scripts untouched except for explicit exclusion.
@@ -664,7 +694,7 @@ Exit criteria:
 - [x] Add temporary Rust command or dev-only path to spawn it.
 - [x] Generate one probe WAV into app data.
 - [x] Add diagnostics UI trigger for the packaged-worker probe.
-- [ ] Validate Tauri sidecar mechanics in a running desktop app.
+- [x] Validate Tauri sidecar mechanics in a running desktop app.
 
 Exit criteria:
 
