@@ -297,8 +297,8 @@ Rejected first spike:
 
 - PyInstaller `onefile`;
 - produced a 3.18 GB Linux executable;
-- failed `--self-test` because extraction of `torch/lib/libtorch_cpu.so`
-  exhausted `/tmp`;
+- failed packaged `--self-test` while extracting `torch/lib/libtorch_cpu.so`,
+  even with `TMPDIR` pointed outside `/tmp`;
 - keep only as a diagnostic option, not the release direction.
 
 Production path:
@@ -542,6 +542,7 @@ Stage 2 SILMA synthesis status:
 - [x] Produce target-triple sidecar names or resource directories.
 - [x] Add `onedir` packaging mode and make it the default after onefile failed
       extraction.
+- [x] Add an optional packaged-worker `--self-test` to the prep script.
 - [ ] Integrate sidecar prep into `scripts/build-desktop.js` behind a feature or
       build flag.
 - [ ] Keep Android and iOS build scripts untouched except for explicit exclusion.

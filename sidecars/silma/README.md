@@ -89,18 +89,18 @@ worker:
 ```bash
 . .venv-silma/bin/activate
 python -m pip install pyinstaller
-npm run prepare:silma-sidecar -- --clean
+npm run prepare:silma-sidecar -- --clean --self-test
 ```
 
 The output is written under `sidecars/silma/runtime/<target>/onedir/`, which is
 ignored by git. Point Rust at the executable with `PAPERCUT_SILMA_WORKER_BIN`.
 
-The first onefile Linux spike produced a 3.18 GB executable but failed
-`--self-test` when PyInstaller tried to extract Torch into `/tmp`. Keep onefile
-as a diagnostic option only:
+The first onefile Linux spike produced a 3.18 GB executable, but packaged
+`--self-test` failed while extracting `torch/lib/libtorch_cpu.so`, even with
+`TMPDIR` pointed outside `/tmp`. Keep onefile as a diagnostic option only:
 
 ```bash
-npm run prepare:silma-sidecar -- --mode onefile --clean
+npm run prepare:silma-sidecar -- --mode onefile --clean --self-test
 ```
 
 This is only the packaging spike; release builds do not bundle it yet.

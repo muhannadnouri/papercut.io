@@ -69,7 +69,18 @@ if (result.status !== 0) {
   process.exit(result.status ?? 1)
 }
 
-console.log("[silma-sidecar] built " + builtWorkerPath(outputDir, mode, exeBase, exeName))
+const workerPath = builtWorkerPath(outputDir, mode, exeBase, exeName)
+console.log("[silma-sidecar] built " + workerPath)
+
+if (options.selfTest) {
+  const selfTest = runSync(workerPath, ["--self-test"], { cwd: ROOT })
+  if (selfTest.error) {
+    fail("Failed to start packaged worker self-test: " + selfTest.error.message)
+  }
+  if (selfTest.status !== 0) {
+    process.exit(selfTest.status ?? 1)
+  }
+}
 
 function parseArgs(args) {
   const parsed = { clean: false }
@@ -77,6 +88,8 @@ function parseArgs(args) {
     const arg = args[index]
     if (arg === "--clean") {
       parsed.clean = true
+    } else if (arg === "--self-test") {
+      parsed.selfTest = true
     } else if (arg === "--python") {
       parsed.python = requireValue(args, ++index, arg)
     } else if (arg === "--target") {
