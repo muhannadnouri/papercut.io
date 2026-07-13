@@ -30,6 +30,8 @@ DEFAULT_SMOKE_TEXT = "أنا نموذج سلمى لتحويل النص إلى ك
 
 @dataclass
 class LoadedModel:
+    """Resident SILMA engine plus runtime facts returned to Rust diagnostics."""
+
     engine: Any
     model_dir: str | None
     sample_rate: int
@@ -39,6 +41,8 @@ class LoadedModel:
 
 
 class Worker:
+    """Stateful JSONL protocol handler that keeps one SILMA model loaded."""
+
     def __init__(self, *, log_tracebacks: bool = True) -> None:
         """Create a worker; tests can quiet tracebacks for expected protocol failures."""
         self.loaded: LoadedModel | None = None
@@ -202,7 +206,7 @@ def silma_nfe_step(value: Any) -> int:
 
 
 def configure_torch(torch_threads: Any) -> dict[str, int]:
-    """Apply CPU thread settings before loading SILMA's PyTorch models."""
+    """Apply CPU thread settings before model load; inter-op threads can only be set once."""
     import torch
 
     try:
@@ -211,6 +215,7 @@ def configure_torch(torch_threads: Any) -> dict[str, int]:
         requested_threads = torch.get_num_threads()
     requested_threads = max(1, requested_threads)
     torch.set_num_threads(requested_threads)
+    # PyTorch only allows changing inter-op threads before parallel work starts.
     try:
         torch.set_num_interop_threads(1)
     except RuntimeError:
@@ -280,6 +285,7 @@ def wav_info(path: Path) -> dict[str, Any]:
 def run_jsonl() -> int:
     """Run the stdin/stdout JSONL loop used by Rust's sidecar supervisor."""
     worker = Worker()
+    # Keep the original stdout for JSON responses; SILMA dependencies are noisy.
     protocol_stdout = sys.stdout
     for line in sys.stdin:
         try:
@@ -350,6 +356,7 @@ def run_smoke(args: argparse.Namespace) -> int:
         synth_request["ref_text"] = args.ref_text
 
     started = time.perf_counter()
+    # Keep the final smoke JSON parseable even when SILMA prints progress.
     with redirect_stdout(sys.stderr):
         load = worker.handle(load_request)
     if not load.get("ok"):
