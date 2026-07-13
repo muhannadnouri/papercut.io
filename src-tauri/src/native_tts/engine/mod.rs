@@ -34,6 +34,7 @@ mod preprocess;
 mod prune;
 mod save;
 mod sidecar_probe;
+mod silma_sidecar;
 mod synth;
 mod text_normalization;
 mod wav_sink;

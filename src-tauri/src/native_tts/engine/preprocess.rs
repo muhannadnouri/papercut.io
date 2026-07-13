@@ -126,7 +126,10 @@ fn initialize_ort() -> Result<(), String> {
 /// Shared builds ship one `libonnxruntime` beside the sherpa libraries and ask
 /// `ort` to load it by platform name, so sherpa and Libtashkeel do not pull in
 /// separate runtime copies.
-#[cfg(all(feature = "native-text-preprocessing-core", feature = "native-text-preprocessing-dynamic"))]
+#[cfg(all(
+    feature = "native-text-preprocessing-core",
+    feature = "native-text-preprocessing-dynamic"
+))]
 fn commit_ort_environment() -> Result<(), ort::Error> {
     let library = format!(
         "{}onnxruntime{}",
@@ -141,7 +144,10 @@ fn commit_ort_environment() -> Result<(), ort::Error> {
 /// iOS does not use runtime-loaded ONNX dylibs here; the Xcode/Cargo build
 /// phase points `ort-sys` at the same static archive directory as sherpa, and
 /// `ort::init()` binds to those linked symbols.
-#[cfg(all(feature = "native-text-preprocessing-core", not(feature = "native-text-preprocessing-dynamic")))]
+#[cfg(all(
+    feature = "native-text-preprocessing-core",
+    not(feature = "native-text-preprocessing-dynamic")
+))]
 fn commit_ort_environment() -> Result<(), ort::Error> {
     ort::init().commit()
 }

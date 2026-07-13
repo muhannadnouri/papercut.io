@@ -343,6 +343,8 @@ Linux:
 - [ ] Make `ensure_engine` route to sherpa or SILMA based on model definition.
 - [x] Move shared WAV commit/validation/silent-placeholder code out of
       `synth.rs`.
+- [x] Add a minimal `SilmaSidecar` JSONL process wrapper for local worker
+      request/response calls.
 - [ ] Add `SilmaSidecar` process supervision:
       - spawn;
       - health check;
@@ -395,7 +397,7 @@ not offer the sherpa archive downloader for SILMA.
 - [x] Return duration, sample rate, byte size, and synthesis timing.
 - [x] Keep protocol on stdout and logs on stderr.
 - [x] Add a local `--smoke` command that loads SILMA and synthesizes one WAV.
-- [ ] Run the local `--smoke` command with installed SILMA deps and capture
+- [x] Run the local `--smoke` command with installed SILMA deps and capture
       timing/quality results.
 - [x] Add a model-free probe WAV operation for sidecar/Tauri file-access testing.
 - [ ] Package with PyInstaller onefile for the first spike.
@@ -434,10 +436,27 @@ python sidecars/silma/silma_worker.py \
 This prints a JSON summary with model load timing, synthesis timing, output WAV
 metadata, and real-time factor. It may download model files on first run.
 
+Local smoke result, Python 3.12 venv on CPU:
+
+- Model/cache dir: `./.cache/silma-tts`
+- Downloaded SILMA snapshot: `d2515317033803648ecb8844765db9e583afecf9`
+- Downloaded model weights: `model.pt` reconstructed to 2.60 GB
+- Downloaded Vocos weights: `pytorch_model.bin` reconstructed to 54.4 MB
+- Sample rate: 24,000 Hz
+- First load: 208,599 ms
+- Synthesis: 75,380 ms for 3.638 s of audio
+- Real-time factor: 20.72 on CPU
+- Output WAV: 174,676 bytes
+
+The run warned that `ffmpeg`/`avconv` was not found, but this short reference
+path still completed. Keep the packaging decision open until sidecar packaging
+and longer reference-audio cases are tested.
+
 Stage 1 probe command:
 
 - Tauri command: `tts_probe_silma_sidecar`
 - Rust module: `src-tauri/src/native_tts/engine/sidecar_probe.rs`
+- Process wrapper: `src-tauri/src/native_tts/engine/silma_sidecar.rs`
 - Worker op: `write_probe_wav`
 - Env overrides:
   - `PAPERCUT_SILMA_PYTHON`
@@ -447,8 +466,9 @@ The probe starts the Python worker from the repo, sends `health`, asks the
 worker to write a tiny silent WAV into Tauri app data, validates that WAV with
 Papercut's existing WAV parser, then sends `shutdown`. It is deliberately not a
 SILMA model-load test. This probe uses Rust-owned `std::process::Command`
-instead of Tauri's shell plugin; production sidecar packaging/resource
-resolution remains a later stage.
+instead of Tauri's shell plugin. The process wrapper now keeps stdin/stdout open
+for sequential JSONL request/response calls; production sidecar packaging,
+timeouts, and crash recovery remain later stages.
 
 ## Frontend Tasks
 
