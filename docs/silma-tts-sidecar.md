@@ -193,6 +193,11 @@ ID. It is a voice profile:
 - license/consent metadata;
 - default seed policy.
 
+Reference-voice models, such as SILMA/F5, use the reference WAV and its matching
+transcript as a voice/style prompt at generation time. Built-in speaker models,
+such as Kokoro, expose fixed voices from the model package; selecting a Kokoro
+voice does not provide a new example recording to the model.
+
 For the proof of concept, use SILMA's sample reference only if its license and
 redistribution terms are acceptable for development use.
 
@@ -202,6 +207,18 @@ Current implementation exposes one voice profile because the packaged
 modeled as more reference profiles, not speaker ids. Each profile needs a
 reference WAV, matching reference text, stable id, display name, and explicit
 license/consent metadata.
+
+Reference quality notes:
+
+- The reference transcript should match the audio exactly; changing text without
+  changing the audio can make results worse.
+- A better reference recording can improve voice/style consistency when it is
+  clean, natural, not clipped, and close to the target language/accent/style.
+- More sophisticated prose is not automatically better. Useful coverage is
+  phonetic/prosodic, not literary.
+- For Arabic references, an accurate diacritized transcript may help the model
+  condition pronunciation. Papercut's bundled SILMA profile uses a diacritized
+  transcript for the upstream `ar.ref.24k.wav` sample.
 
 For production, use owned or explicitly licensed reference audio. Do not ship a
 "clone any voice" UI in the first release. That is a product/legal feature, not
