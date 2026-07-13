@@ -395,6 +395,9 @@ function formatAudioSetupSummary(audioSetup: AudioSetupPanelProps): string {
   } else if (audioSetup.modelStatus?.installed) {
     pieces.push('✓ Installed')
   }
+  if (model?.family === 'silma-f5' && audioSetup.modelStatus?.runtimeInstalled === false) {
+    pieces.push('Runtime missing')
+  }
 
   return pieces.join(' · ')
 }

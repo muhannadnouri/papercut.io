@@ -43,13 +43,16 @@ pub(super) fn model_status(
         installed: false,
         installing: false,
         install_supported: false,
+        runtime_installed: false,
         model_dir: None,
+        runtime_dir: None,
         source_url: String::new(),
         source_label: "sherpa-onnx offline TTS".into(),
         archive_bytes: 0,
         installed_bytes: 0,
         sha256: String::new(),
         message: NOT_COMPILED.into(),
+        runtime_message: NOT_COMPILED.into(),
     }
 }
 

@@ -25,6 +25,7 @@ use super::paths::{
     directory_size, has_required_model_files, installed_model_dir, model_work_dir,
     resolve_model_dir, runtime_model_dir,
 };
+use super::silma_sidecar::silma_runtime_status;
 use crate::native_tts::platform::{default_thread_count, max_thread_count};
 use crate::native_tts::state::NativeTtsState;
 use crate::native_tts::types::{
@@ -58,14 +59,22 @@ pub(crate) fn model_status(
             installed: false,
             installing: false,
             install_supported: false,
+            runtime_installed: false,
             model_dir: None,
+            runtime_dir: None,
             source_url: String::new(),
             source_label: "Unsupported model".into(),
             archive_bytes: 0,
             installed_bytes: 0,
             sha256: String::new(),
             message: "Unsupported native TTS model".into(),
+            runtime_message: "Unsupported native TTS model".into(),
         };
+    };
+    let runtime_status = if matches!(model.backend, TtsModelBackend::SilmaSidecar) {
+        Some(silma_runtime_status(&app))
+    } else {
+        None
     };
     let installing = state
         .model_installing
@@ -78,41 +87,69 @@ pub(crate) fn model_status(
             installed: true,
             installing,
             install_supported: model.install_supported(),
+            runtime_installed: model_runtime_installed(runtime_status.as_ref()),
             installed_bytes: directory_size(&model_dir).unwrap_or(0),
             model_dir: Some(model_dir.display().to_string()),
+            runtime_dir: model_runtime_dir(runtime_status.as_ref()),
             source_url: model.source_url.into(),
             source_label: model.source_label.into(),
             archive_bytes: model.archive_bytes,
             sha256: model.sha256.into(),
             message: "Offline voice model installed".into(),
+            runtime_message: model_runtime_message(runtime_status.as_ref()),
         },
         Ok(model_dir) => NativeTtsModelStatus {
             model_id: model.id.into(),
             installed: false,
             installing,
             install_supported: model.install_supported(),
+            runtime_installed: model_runtime_installed(runtime_status.as_ref()),
             model_dir: missing_model_dir(model, &model_dir),
+            runtime_dir: model_runtime_dir(runtime_status.as_ref()),
             source_url: model.source_url.into(),
             source_label: model.source_label.into(),
             archive_bytes: model.archive_bytes,
             installed_bytes: directory_size(&model_dir).unwrap_or(0),
             sha256: model.sha256.into(),
             message: missing_model_message(model, &model_dir, installing),
+            runtime_message: model_runtime_message(runtime_status.as_ref()),
         },
         Err(err) => NativeTtsModelStatus {
             model_id: model.id.into(),
             installed: false,
             installing,
             install_supported: model.install_supported(),
+            runtime_installed: model_runtime_installed(runtime_status.as_ref()),
             model_dir: None,
+            runtime_dir: model_runtime_dir(runtime_status.as_ref()),
             source_url: model.source_url.into(),
             source_label: model.source_label.into(),
             archive_bytes: model.archive_bytes,
             installed_bytes: 0,
             sha256: model.sha256.into(),
             message: err,
+            runtime_message: model_runtime_message(runtime_status.as_ref()),
         },
     }
+}
+
+/// Non-SILMA models are compiled into the native backend, so their runtime is always present.
+fn model_runtime_installed(status: Option<&super::silma_sidecar::SilmaRuntimeStatus>) -> bool {
+    status.map(|status| status.installed).unwrap_or(true)
+}
+
+/// Report the SILMA runtime folder when status can resolve one.
+fn model_runtime_dir(status: Option<&super::silma_sidecar::SilmaRuntimeStatus>) -> Option<String> {
+    status
+        .and_then(|status| status.runtime_dir.as_ref())
+        .map(|path| path.display().to_string())
+}
+
+/// Keep a friendly runtime message for sherpa entries while exposing SILMA details.
+fn model_runtime_message(status: Option<&super::silma_sidecar::SilmaRuntimeStatus>) -> String {
+    status
+        .map(|status| status.message.clone())
+        .unwrap_or_else(|| "Native TTS runtime available".into())
 }
 
 /// Install one catalog model without blocking the async runtime.

@@ -67,13 +67,16 @@ pub(crate) struct NativeTtsModelStatus {
     pub(crate) installed: bool,
     pub(crate) installing: bool,
     pub(crate) install_supported: bool,
+    pub(crate) runtime_installed: bool,
     pub(crate) model_dir: Option<String>,
+    pub(crate) runtime_dir: Option<String>,
     pub(crate) source_url: String,
     pub(crate) source_label: String,
     pub(crate) archive_bytes: u64,
     pub(crate) installed_bytes: u64,
     pub(crate) sha256: String,
     pub(crate) message: String,
+    pub(crate) runtime_message: String,
 }
 
 #[derive(Debug, Serialize, Clone)]

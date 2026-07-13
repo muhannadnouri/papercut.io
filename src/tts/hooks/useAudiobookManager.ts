@@ -1008,7 +1008,7 @@ export function useAudiobookManager({
     activeDownloadId !== selectedAudiobookId &&
     activeDownloadIsRunning,
   )
-  const canSaveAudiobook = Boolean(ttsModelStatus?.installed) &&
+  const canSaveAudiobook = Boolean(ttsModelStatus?.installed && ttsModelStatus.runtimeInstalled) &&
     audioControlsAudiobookState.status !== 'checking' &&
     !isDifferentAudiobookSaving
   const isSavingAudiobook = activeDownloadIsRunning

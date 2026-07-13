@@ -103,6 +103,7 @@ export function AudioSetupPanel({
   const selectedModel = models.find((model) => model.id === modelId) ?? models[0]
   const modelInstallSupported = modelStatus?.installSupported ?? (selectedModel?.family !== 'silma-f5')
   const isSilmaModel = selectedModel?.family === 'silma-f5'
+  const silmaRuntimeMissing = isSilmaModel && modelStatus?.runtimeInstalled === false
   const selectedLanguage = selectedModel ? getLanguageOption(selectedModel).value : ''
   const languageOptions = models.reduce<SelectOption[]>((options, model) => {
     const languageOption = getLanguageOption(model)
@@ -115,7 +116,7 @@ export function AudioSetupPanel({
   const modelsForLanguage = selectedLanguage
     ? models.filter((model) => getLanguageOption(model).value === selectedLanguage)
     : models
-  const showModelInstallDetails = !modelInstalled || modelInstallProgress !== null || modelInstalling
+  const showModelInstallDetails = !modelInstalled || silmaRuntimeMissing || modelInstallProgress !== null || modelInstalling
 
   return (
     <div className="audio-setup-panel">
@@ -198,6 +199,18 @@ export function AudioSetupPanel({
                   {!modelInstalled && modelInstallProgress?.status !== 'error' && (
                     <div className="audio-progress-meter" aria-label={'Voice model download ' + modelPercent + '% complete'}>
                       <span style={{ width: modelPercent + '%' }} />
+                    </div>
+                  )}
+                </div>
+              )}
+              {silmaRuntimeMissing && (
+                <div className="audiobook-status audiobook-status-error" aria-live="polite">
+                  <div className="audiobook-status-row">
+                    <span>{modelStatus?.runtimeMessage ?? 'SILMA runtime pack is not installed'}</span>
+                  </div>
+                  {modelStatus?.runtimeDir && (
+                    <div className="audiobook-status-row">
+                      <span>{modelStatus.runtimeDir}</span>
                     </div>
                   )}
                 </div>

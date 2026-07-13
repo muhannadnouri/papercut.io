@@ -32,6 +32,12 @@ pub(super) struct SilmaLoadResult {
     pub(super) torch_interop_threads: i32,
 }
 
+pub(super) struct SilmaRuntimeStatus {
+    pub(super) installed: bool,
+    pub(super) runtime_dir: Option<PathBuf>,
+    pub(super) message: String,
+}
+
 impl SilmaSidecar {
     /// Start the SILMA worker, preferring explicit dev overrides and then a bundled resource.
     pub(super) fn start(app: &tauri::AppHandle) -> Result<Self, String> {
@@ -204,7 +210,7 @@ struct SilmaLaunchCommand {
     worker_path: PathBuf,
 }
 
-/// Prefer explicit env overrides, then a bundled onedir executable, then the editable repo script.
+/// Prefer explicit env overrides, then optional runtime packs, bundled resources, then the repo script.
 fn silma_launch_command(app: &tauri::AppHandle) -> Result<SilmaLaunchCommand, String> {
     if let Ok(path) = std::env::var("PAPERCUT_SILMA_WORKER_BIN") {
         let worker_path = require_file("PAPERCUT_SILMA_WORKER_BIN", PathBuf::from(path))?;
@@ -229,6 +235,15 @@ fn silma_launch_command(app: &tauri::AppHandle) -> Result<SilmaLaunchCommand, St
         });
     }
 
+    if let Some(worker_path) = runtime_pack_worker_path(app)? {
+        return Ok(SilmaLaunchCommand {
+            program: worker_path.clone(),
+            args: Vec::new(),
+            python_command: "<runtime-pack>".into(),
+            worker_path,
+        });
+    }
+
     if let Some(worker_path) = bundled_worker_path(app)? {
         return Ok(SilmaLaunchCommand {
             program: worker_path.clone(),
@@ -248,6 +263,83 @@ fn silma_launch_command(app: &tauri::AppHandle) -> Result<SilmaLaunchCommand, St
     })
 }
 
+/// Report whether SILMA can start without asking users for a Python install.
+pub(super) fn silma_runtime_status(app: &tauri::AppHandle) -> SilmaRuntimeStatus {
+    if let Ok(path) = std::env::var("PAPERCUT_SILMA_WORKER_BIN") {
+        let path = PathBuf::from(path);
+        return SilmaRuntimeStatus {
+            installed: path.is_file(),
+            runtime_dir: path.parent().map(Path::to_path_buf),
+            message: if path.is_file() {
+                "SILMA runtime available from PAPERCUT_SILMA_WORKER_BIN".into()
+            } else {
+                format!(
+                    "PAPERCUT_SILMA_WORKER_BIN does not point to a file: {}",
+                    path.display()
+                )
+            },
+        };
+    }
+
+    if std::env::var_os("PAPERCUT_SILMA_WORKER").is_some()
+        || std::env::var_os("PAPERCUT_SILMA_PYTHON").is_some()
+    {
+        return match silma_worker_path() {
+            Ok(worker_path) => SilmaRuntimeStatus {
+                installed: true,
+                runtime_dir: worker_path.parent().map(Path::to_path_buf),
+                message: "SILMA runtime available from development Python settings".into(),
+            },
+            Err(err) => SilmaRuntimeStatus {
+                installed: false,
+                runtime_dir: None,
+                message: err,
+            },
+        };
+    }
+
+    match runtime_pack_worker_path(app) {
+        Ok(Some(worker_path)) => SilmaRuntimeStatus {
+            installed: true,
+            runtime_dir: worker_path.parent().map(Path::to_path_buf),
+            message: "SILMA runtime pack installed".into(),
+        },
+        Ok(None) => match bundled_worker_path(app) {
+            Ok(Some(worker_path)) => SilmaRuntimeStatus {
+                installed: true,
+                runtime_dir: worker_path.parent().map(Path::to_path_buf),
+                message: "Bundled SILMA runtime available".into(),
+            },
+            Ok(None) => repo_worker_runtime_status(app),
+            Err(err) => SilmaRuntimeStatus {
+                installed: false,
+                runtime_dir: runtime_pack_dir(app).ok(),
+                message: err,
+            },
+        },
+        Err(err) => SilmaRuntimeStatus {
+            installed: false,
+            runtime_dir: None,
+            message: err,
+        },
+    }
+}
+
+fn repo_worker_runtime_status(app: &tauri::AppHandle) -> SilmaRuntimeStatus {
+    match silma_worker_path() {
+        Ok(worker_path) => SilmaRuntimeStatus {
+            installed: true,
+            runtime_dir: worker_path.parent().map(Path::to_path_buf),
+            message: "SILMA development worker available from the repository".into(),
+        },
+        Err(_) => SilmaRuntimeStatus {
+            installed: false,
+            runtime_dir: runtime_pack_dir(app).ok(),
+            message: "SILMA runtime pack is not installed".into(),
+        },
+    }
+}
+
 /// Resolve the dev worker script. Env overrides keep local experiments cheap.
 fn silma_worker_path() -> Result<PathBuf, String> {
     if let Ok(path) = std::env::var("PAPERCUT_SILMA_WORKER") {
@@ -263,6 +355,52 @@ fn silma_worker_path() -> Result<PathBuf, String> {
         return Ok(path);
     }
     Err(format!("SILMA worker not found at {}", path.display()))
+}
+
+fn runtime_pack_worker_path(app: &tauri::AppHandle) -> Result<Option<PathBuf>, String> {
+    let Some(relative_path) = runtime_pack_worker_relative_path() else {
+        return Ok(None);
+    };
+    let worker_path = runtime_pack_dir(app)?.join(relative_path);
+    if worker_path.is_file() {
+        return Ok(Some(worker_path));
+    }
+    Ok(None)
+}
+
+fn runtime_pack_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .map_err(|err| format!("Failed to resolve app data dir for SILMA runtime pack: {err}"))?;
+    Ok(app_data
+        .join("runtimes")
+        .join("silma")
+        .join(runtime_pack_id())
+        .join("current"))
+}
+
+fn runtime_pack_id() -> &'static str {
+    if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+        "linux-x64-cpu"
+    } else if cfg!(all(target_os = "windows", target_arch = "x86_64")) {
+        "windows-x64-cpu"
+    } else if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+        "macos-aarch64-cpu"
+    } else if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
+        "macos-x64-cpu"
+    } else {
+        "unsupported"
+    }
+}
+
+fn runtime_pack_worker_relative_path() -> Option<PathBuf> {
+    if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+        return Some(PathBuf::from(
+            "silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu",
+        ));
+    }
+    None
 }
 
 fn bundled_worker_path(app: &tauri::AppHandle) -> Result<Option<PathBuf>, String> {

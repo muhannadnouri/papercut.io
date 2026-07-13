@@ -21,13 +21,16 @@ export interface NativeTtsModelStatus {
   installed: boolean
   installing: boolean
   installSupported: boolean
+  runtimeInstalled: boolean
   modelDir?: string | null
+  runtimeDir?: string | null
   sourceUrl: string
   sourceLabel: string
   archiveBytes: number
   installedBytes: number
   sha256: string
   message: string
+  runtimeMessage: string
 }
 
 export interface NativeTtsModelInstallProgress {
@@ -253,13 +256,16 @@ export async function getNativeTtsModelStatus(modelId: string): Promise<NativeTt
       installed: false,
       installing: false,
       installSupported: false,
+      runtimeInstalled: false,
       modelDir: null,
+      runtimeDir: null,
       sourceUrl: '',
       sourceLabel: 'sherpa-onnx offline TTS',
       archiveBytes: 0,
       installedBytes: 0,
       sha256: '',
       message: 'Native TTS is only available in the desktop or Android app.',
+      runtimeMessage: 'Native TTS is only available in the desktop or Android app.',
     }
   }
   const invoke = await loadTauriInvoke()

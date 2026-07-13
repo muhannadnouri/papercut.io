@@ -332,8 +332,14 @@ Linux packaging spike status:
 Linux packaged-sidecar validation command:
 
 ```bash
-PAPERCUT_BUNDLE_SILMA_TTS=1 npm run desktop
+PAPERCUT_BUNDLE_SILMA_TTS=1 npm run desktop -- --bundles appimage
 ```
+
+Use a single bundle while validating the sidecar. A full `npm run desktop` build
+packages the multi-GB PyInstaller runtime into every configured Linux artifact
+and can spend many minutes compressing `.deb`, `.rpm`, and AppImage outputs.
+For release verification, run the full bundle matrix after the sidecar size and
+distribution strategy are settled.
 
 Then launch the installed package or AppImage with only the runtime feature/model
 env vars, not Python worker env vars:
@@ -345,6 +351,52 @@ PAPERCUT_SILMA_MODEL_DIR="$PWD/.cache/silma-tts" \
 ```
 
 The diagnostics probe should report `pythonCommand: "<bundled>"`.
+
+## Optional Runtime Pack Plan
+
+Do not ship the SILMA Python/PyTorch runtime inside ordinary Papercut
+installers. The PyInstaller onedir output is multi-GB and made AppImage
+packaging fail at `linuxdeploy` after the app itself built successfully.
+
+Production direction:
+
+- keep the base desktop app small;
+- download a platform-specific SILMA runtime pack only when the user enables
+  SILMA;
+- download SILMA model files separately, pinned and verified;
+- store both under app data;
+- validate the runtime with the existing worker `--self-test`/probe before
+  marking it usable.
+
+Runtime pack location:
+
+```text
+<app-data>/runtimes/silma/<runtime-id>/current/
+```
+
+Current Linux x64 CPU runtime id:
+
+```text
+linux-x64-cpu
+```
+
+Current Linux x64 expected worker path inside the runtime pack:
+
+```text
+silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu
+```
+
+SILMA worker launch order is now:
+
+1. `PAPERCUT_SILMA_WORKER_BIN`;
+2. explicit `PAPERCUT_SILMA_WORKER` or `PAPERCUT_SILMA_PYTHON`;
+3. app-data runtime pack;
+4. bundled resource from the packaging spike;
+5. editable repo worker script.
+
+Model status reports SILMA runtime availability separately from SILMA model-file
+availability. This lets the UI say whether the missing piece is the runtime
+pack, the model files, or both before runtime-pack download support exists.
 
 ## Desktop Platform Notes
 
@@ -428,6 +480,11 @@ Model status now detects a manually populated
 `models/silma-tts/silma-tts/` directory, reports the expected local path when
 files are missing, and marks app install as unsupported so the frontend does
 not offer the sherpa archive downloader for SILMA.
+
+Model status also detects whether a SILMA runtime is available from dev env
+settings, the app-data runtime pack, the packaging-spike bundled resource, or
+the editable repo worker. The UI surfaces a SILMA-only runtime-missing message
+instead of claiming the voice model alone makes SILMA ready.
 
 During development, `PAPERCUT_SILMA_MODEL_DIR` can point at the official SILMA
 Hugging Face cache root, for example `./.cache/silma-tts`. The status/runtime
@@ -662,6 +719,7 @@ Stage 2 SILMA synthesis status:
 - [ ] Add install/download copy that warns about model size before download.
 - [ ] Add diagnostic labels that distinguish `sherpa-onnx-*` from
       `silma-sidecar`.
+- [x] Surface SILMA runtime-pack status separately from model-file status.
 - [x] Show SILMA-only CPU tuning controls when the SILMA model is selected:
       PyTorch threads through the existing thread selector and F5 NFE step
       through a compact quality selector.
@@ -679,10 +737,14 @@ Stage 2 SILMA synthesis status:
       `load_model`.
 - [x] Exclude optional `torchcodec` from the packaged worker after Transformers
       detected it without metadata.
-- [ ] Integrate sidecar prep into `scripts/build-desktop.js` behind a feature or
+- [x] Integrate sidecar prep into `scripts/build-desktop.js` behind a feature or
       build flag.
 - [x] Add opt-in Linux desktop resource staging for the PyInstaller onedir
       sidecar with `PAPERCUT_BUNDLE_SILMA_TTS=1`.
+- [x] Allow packaging spikes to request one Tauri bundle type with
+      `npm run desktop -- --bundles appimage`.
+- [x] Add app-data SILMA runtime-pack detection before implementing runtime
+      downloads.
 - [ ] Keep Android and iOS build scripts untouched except for explicit exclusion.
 - [ ] Add CI smoke checks for sidecar presence in desktop bundles.
 - [ ] Extend macOS verification to check sidecar signing.
@@ -723,6 +785,7 @@ Performance tests:
       the same Arabic sample;
 - [ ] peak memory;
 - [ ] package size;
+- [ ] sidecar runtime size after excluding unused packaged dependencies;
 - [ ] long Arabic chapter save;
 - [ ] cancellation between chunks;
 - [ ] worker crash recovery.
@@ -734,6 +797,7 @@ Platform tests:
 - [ ] Windows x64 release build;
 - [ ] Linux AppImage/deb/rpm behavior;
 - [ ] app upgrade with existing downloaded SILMA model;
+- [ ] app upgrade with existing downloaded SILMA runtime pack;
 - [ ] app uninstall leaves/removes user data according to existing policy.
 
 Regression tests:
@@ -797,7 +861,9 @@ Exit criteria:
 ### Stage 3: Model Install
 
 - [x] Add SILMA model status/manual local-file detection.
+- [x] Add SILMA runtime-pack status detection.
 - [ ] Add SILMA in-app install support.
+- [ ] Add SILMA runtime-pack install support.
 - [ ] Pin source revision and hashes.
 - [ ] Download to app data.
 - [ ] Validate required files.
@@ -812,7 +878,13 @@ Exit criteria:
 - [x] Switch from onefile to onedir after onefile extraction failed.
 - [x] Add opt-in Linux resource staging and runtime discovery for the onedir
       sidecar.
+- [x] Add AppImage-only packaging validation so the Linux spike does not rebuild
+      every package format while iterating.
+- [x] Decide to keep SILMA out of ordinary desktop installers and use an
+      optional runtime pack instead.
 - [ ] Bundle sidecar dependencies correctly on each desktop OS.
+- [ ] Reduce sidecar size or move SILMA to an optional runtime download before
+      enabling it in ordinary release installers.
 - [ ] Sign/notarize macOS bundle.
 - [ ] Sign Windows sidecar/app.
 - [ ] Verify Linux bundles.
