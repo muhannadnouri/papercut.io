@@ -495,6 +495,51 @@ The archive must extract so `current/` contains the expected worker path:
 silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu
 ```
 
+## Diagnostics and Troubleshooting
+
+When SILMA fails, turn on **TTS Diagnostics** in Audio Setup and copy the JSON.
+Useful entries:
+
+- `[tts-native] capabilities`: confirms the desktop backend is available and
+  whether `silma-ai/silma-tts` is advertised.
+- `[tts-native] SILMA sidecar probe passed`: confirms Rust can spawn the worker,
+  exchange JSONL, and write a probe WAV.
+- `[tts-save] native chunk start`: includes the backend label, model dir,
+  detected Torch device, PyTorch thread count, text preprocessor, and NFE step.
+- `[tts-save] failed`: usually carries the worker error response or Rust-side
+  file validation error.
+
+Known recovery paths:
+
+- SILMA does not appear in the model list: this is still feature gated. In dev,
+  launch with `PAPERCUT_ENABLE_SILMA_TTS=1`.
+- `SILMA runtime pack is not installed`: install the optional runtime pack first.
+  If public download is disabled, fill `src-tauri/tts/silma-runtime-packs.json`
+  from a release artifact or use the local packaged runtime flow.
+- Model files are missing: click the SILMA model install button after the runtime
+  is installed. The app downloads pinned `model.pt` and `vocab.txt` and verifies
+  them before promotion.
+- Probe passes but save fails: copy diagnostics and check the worker stderr. The
+  most useful backend label fields are `device=...`, `torch_threads=...`,
+  `torch_interop=...`, `preprocessor=...`, and `nfe_step=...`.
+- `Failed to parse SILMA worker response`: third-party Python logs reached
+  stdout. The worker must keep stdout as protocol-only JSONL and send logs to
+  stderr.
+- `No format specified ... .tmp`: the worker must write to an internal
+  `.tmp.wav` path and rename it back to Rust's requested temp path.
+- `ffmpeg`/`avconv` warning: expected on systems without ffmpeg. Current short
+  reference tests still pass, but final release needs either bundled ffmpeg or a
+  proven inference path that never needs it.
+- `device=cpu`: expected on machines without CUDA/MPS/XPU. Reduce NFE steps or
+  thread count for CPU tests; GPU acceleration depends on the packaged Torch
+  build and available hardware.
+- `device=unreported`: the worker did not return device metadata. Rebuild or
+  reinstall the SILMA runtime pack from a current worker.
+- Vite `ENOSPC` watcher error: keep `.venv-silma` and generated runtime folders
+  outside Vite's watched tree or exclude them from dev watching.
+- `linuxdeploy` failure while bundling: do not put the multi-GB SILMA runtime in
+  ordinary app bundles. Use the optional runtime-pack artifact path.
+
 ## Desktop Platform Notes
 
 macOS:
@@ -1010,7 +1055,7 @@ Exit criteria:
 
 - [x] Add initial model/voice UI copy.
 - [x] Add download size warnings for the SILMA runtime/model install path.
-- [ ] Add diagnostics and troubleshooting docs.
+- [x] Add diagnostics and troubleshooting docs.
 - [ ] Add release notes.
 - [ ] Add voice consent/export disclosure.
 
