@@ -251,19 +251,24 @@ export function useAudiobookManager({
   }, [refreshTtsModelStatus, ttsModelId])
 
   const handleInstallTtsModel = useCallback(async () => {
+    const installingSilmaRuntime = ttsModelStatus?.runtimeInstalled === false
     setTtsModelProgress({
       modelId: ttsModelId,
       status: 'starting',
-      message: 'Preparing offline voice model download',
+      message: installingSilmaRuntime ? 'Installing SILMA runtime pack' : 'Preparing offline voice model download',
       downloadedBytes: 0,
       totalBytes: ttsModelStatus?.archiveBytes ?? 0,
       percent: 0,
     })
     try {
       await installNativeTtsModel(ttsModelId)
-      await refreshTtsModelStatus()
+      const status = await refreshTtsModelStatus()
       await syncTtsRuntimeSettings()
       if (ttsModelIdRef.current !== ttsModelId) return
+      if (!status.installed) {
+        setTtsModelProgress(null)
+        return
+      }
       setTtsModelProgress((prev) => ({
         modelId: ttsModelId,
         status: 'installed',
@@ -285,7 +290,7 @@ export function useAudiobookManager({
       })
       void refreshTtsModelStatus()
     }
-  }, [preloadTts, syncTtsRuntimeSettings, refreshTtsModelStatus, ttsModelId, ttsModelStatus?.archiveBytes])
+  }, [preloadTts, syncTtsRuntimeSettings, refreshTtsModelStatus, ttsModelId, ttsModelStatus?.archiveBytes, ttsModelStatus?.runtimeInstalled])
 
   const handleProbeSilmaSidecar = useCallback(async () => {
     // Diagnostics-only smoke path; real model loading/synthesis still runs through save.

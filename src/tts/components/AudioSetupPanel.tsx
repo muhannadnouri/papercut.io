@@ -104,6 +104,8 @@ export function AudioSetupPanel({
   const modelInstallSupported = modelStatus?.installSupported ?? (selectedModel?.family !== 'silma-f5')
   const isSilmaModel = selectedModel?.family === 'silma-f5'
   const silmaRuntimeMissing = isSilmaModel && modelStatus?.runtimeInstalled === false
+  const installButtonLabel = silmaRuntimeMissing ? 'Install SILMA Runtime' : 'Download Voice Model'
+  const installingButtonLabel = silmaRuntimeMissing ? 'Installing Runtime...' : 'Downloading Model...'
   const selectedLanguage = selectedModel ? getLanguageOption(selectedModel).value : ''
   const languageOptions = models.reduce<SelectOption[]>((options, model) => {
     const languageOption = getLanguageOption(model)
@@ -168,16 +170,16 @@ export function AudioSetupPanel({
 
           {showModelInstallDetails && (
             <div className="audio-model-install">
-              {!modelInstalled && modelInstallSupported && (
+              {(!modelInstalled || silmaRuntimeMissing) && modelInstallSupported && (
                 <button
                   type="button"
                   className="tts-btn tts-save-btn"
                   onClick={onInstallModel}
                   disabled={modelInstalling}
-                  title="Download selected offline voice model"
+                  title={silmaRuntimeMissing ? 'Install the prepared SILMA desktop runtime pack' : 'Download selected offline voice model'}
                 >
                   <DownloadIcon />
-                  <span>{modelInstalling ? 'Downloading Model...' : 'Download Voice Model'}</span>
+                  <span>{modelInstalling ? installingButtonLabel : installButtonLabel}</span>
                 </button>
               )}
               {!modelInstalled && !modelInstallSupported && (

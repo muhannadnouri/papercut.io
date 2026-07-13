@@ -398,6 +398,26 @@ Model status reports SILMA runtime availability separately from SILMA model-file
 availability. This lets the UI say whether the missing piece is the runtime
 pack, the model files, or both before runtime-pack download support exists.
 
+Current runtime-pack install slice:
+
+- the SILMA install button can promote a prepared PyInstaller onedir into the
+  app-data runtime-pack slot;
+- source lookup checks `PAPERCUT_SILMA_RUNTIME_PACK_DIR` first, then the local
+  `sidecars/silma/runtime/x86_64-unknown-linux-gnu/onedir/` build output;
+- install copies the onedir into a cache staging directory, runs the worker
+  `--self-test`, and atomically promotes it to `current/`;
+- this is not the final network downloader yet. It validates the on-disk layout
+  and app-data launch path the downloader will use.
+
+Local runtime-pack install prep:
+
+```bash
+npm run prepare:silma-sidecar -- --self-test
+```
+
+Then launch the dev app without `PAPERCUT_SILMA_WORKER_BIN`; the SILMA install
+button can copy that prepared runtime into app data.
+
 ## Desktop Platform Notes
 
 macOS:
@@ -862,8 +882,9 @@ Exit criteria:
 
 - [x] Add SILMA model status/manual local-file detection.
 - [x] Add SILMA runtime-pack status detection.
+- [x] Add local SILMA runtime-pack install/promotion into app data.
 - [ ] Add SILMA in-app install support.
-- [ ] Add SILMA runtime-pack install support.
+- [ ] Add SILMA runtime-pack download support.
 - [ ] Pin source revision and hashes.
 - [ ] Download to app data.
 - [ ] Validate required files.

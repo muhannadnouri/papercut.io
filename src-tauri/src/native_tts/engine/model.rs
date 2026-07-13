@@ -25,7 +25,7 @@ use super::paths::{
     directory_size, has_required_model_files, installed_model_dir, model_work_dir,
     resolve_model_dir, runtime_model_dir,
 };
-use super::silma_sidecar::silma_runtime_status;
+use super::silma_sidecar::{install_silma_runtime_pack, silma_runtime_status};
 use crate::native_tts::platform::{default_thread_count, max_thread_count};
 use crate::native_tts::state::NativeTtsState;
 use crate::native_tts::types::{
@@ -86,7 +86,7 @@ pub(crate) fn model_status(
             model_id: model.id.into(),
             installed: true,
             installing,
-            install_supported: model.install_supported(),
+            install_supported: model_install_supported(model, runtime_status.as_ref()),
             runtime_installed: model_runtime_installed(runtime_status.as_ref()),
             installed_bytes: directory_size(&model_dir).unwrap_or(0),
             model_dir: Some(model_dir.display().to_string()),
@@ -102,7 +102,7 @@ pub(crate) fn model_status(
             model_id: model.id.into(),
             installed: false,
             installing,
-            install_supported: model.install_supported(),
+            install_supported: model_install_supported(model, runtime_status.as_ref()),
             runtime_installed: model_runtime_installed(runtime_status.as_ref()),
             model_dir: missing_model_dir(model, &model_dir),
             runtime_dir: model_runtime_dir(runtime_status.as_ref()),
@@ -118,7 +118,7 @@ pub(crate) fn model_status(
             model_id: model.id.into(),
             installed: false,
             installing,
-            install_supported: model.install_supported(),
+            install_supported: model_install_supported(model, runtime_status.as_ref()),
             runtime_installed: model_runtime_installed(runtime_status.as_ref()),
             model_dir: None,
             runtime_dir: model_runtime_dir(runtime_status.as_ref()),
@@ -131,6 +131,18 @@ pub(crate) fn model_status(
             runtime_message: model_runtime_message(runtime_status.as_ref()),
         },
     }
+}
+
+fn model_install_supported(
+    model: &ModelDefinition,
+    status: Option<&super::silma_sidecar::SilmaRuntimeStatus>,
+) -> bool {
+    if matches!(model.backend, TtsModelBackend::SilmaSidecar) {
+        return status
+            .map(|status| !status.installed && status.install_supported)
+            .unwrap_or(false);
+    }
+    model.install_supported()
 }
 
 /// Non-SILMA models are compiled into the native backend, so their runtime is always present.
@@ -163,13 +175,7 @@ pub(crate) async fn install_model(
 ) -> Result<NativeTtsModelInstallResponse, String> {
     let model = model_definition(&model_id)?;
     if !matches!(model.backend, TtsModelBackend::SherpaOnnx) {
-        let model_dir = runtime_model_dir(&app, model)?;
-        return Err(format!(
-            "{} uses the SILMA sidecar backend; app download is not implemented yet. Place {} in {}.",
-            model.display_name,
-            model.required_files.join(", "),
-            model_dir.display()
-        ));
+        return install_silma_runtime_pack_for_model(app, state, model).await;
     }
     if let Ok(model_dir) = resolve_model_dir(&app, model) {
         return Ok(NativeTtsModelInstallResponse {
@@ -201,6 +207,64 @@ pub(crate) async fn install_model(
 
     if let Ok(mut guard) = installing.lock() {
         guard.remove(model.directory_name);
+    }
+    result
+}
+
+/// Install the local SILMA runtime pack into app data; model-file download stays separate.
+async fn install_silma_runtime_pack_for_model(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, NativeTtsState>,
+    model: &'static ModelDefinition,
+) -> Result<NativeTtsModelInstallResponse, String> {
+    let runtime_status = silma_runtime_status(&app);
+    if runtime_status.installed {
+        let model_dir = runtime_model_dir(&app, model)?;
+        return Err(format!(
+            "SILMA runtime is installed. Place SILMA model files ({}) in {}.",
+            model.required_files.join(", "),
+            model_dir.display()
+        ));
+    }
+    if !runtime_status.install_supported {
+        return Err(format!(
+            "{}. Run `npm run prepare:silma-sidecar -- --self-test` or set PAPERCUT_SILMA_RUNTIME_PACK_DIR.",
+            runtime_status.message
+        ));
+    }
+
+    let installing = state.model_installing.clone();
+    {
+        let mut guard = installing
+            .lock()
+            .map_err(|_| "Native TTS model install lock poisoned".to_string())?;
+        if !guard.insert(model.directory_name.to_string()) {
+            return Err("SILMA runtime pack install is already in progress".into());
+        }
+    }
+
+    emit_model_progress(&app, model, "starting", "Installing SILMA runtime pack", 0);
+    let app_for_task = app.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let runtime_dir = install_silma_runtime_pack(&app_for_task)?;
+        Ok(NativeTtsModelInstallResponse {
+            model_id: model.id.into(),
+            bytes: directory_size(&runtime_dir).unwrap_or(0),
+            model_dir: runtime_dir.display().to_string(),
+        })
+    })
+    .await
+    .map_err(|err| format!("SILMA runtime pack install task failed: {err}"))
+    .and_then(|inner| inner);
+
+    if let Ok(mut guard) = installing.lock() {
+        guard.remove(model.directory_name);
+    }
+    if result.is_ok() {
+        if let Ok(mut engine) = state.engine.lock() {
+            *engine = None;
+        }
+        emit_model_progress(&app, model, "installed", "SILMA runtime pack installed", 0);
     }
     result
 }

@@ -5,6 +5,7 @@
 //! JSONL process alive between calls. Bundle discovery and long-lived
 //! supervision come later.
 
+use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -32,10 +33,12 @@ pub(super) struct SilmaLoadResult {
     pub(super) torch_interop_threads: i32,
 }
 
+/// Lightweight status used by model status without starting Python.
 pub(super) struct SilmaRuntimeStatus {
     pub(super) installed: bool,
     pub(super) runtime_dir: Option<PathBuf>,
     pub(super) message: String,
+    pub(super) install_supported: bool,
 }
 
 impl SilmaSidecar {
@@ -270,6 +273,7 @@ pub(super) fn silma_runtime_status(app: &tauri::AppHandle) -> SilmaRuntimeStatus
         return SilmaRuntimeStatus {
             installed: path.is_file(),
             runtime_dir: path.parent().map(Path::to_path_buf),
+            install_supported: false,
             message: if path.is_file() {
                 "SILMA runtime available from PAPERCUT_SILMA_WORKER_BIN".into()
             } else {
@@ -288,11 +292,13 @@ pub(super) fn silma_runtime_status(app: &tauri::AppHandle) -> SilmaRuntimeStatus
             Ok(worker_path) => SilmaRuntimeStatus {
                 installed: true,
                 runtime_dir: worker_path.parent().map(Path::to_path_buf),
+                install_supported: false,
                 message: "SILMA runtime available from development Python settings".into(),
             },
             Err(err) => SilmaRuntimeStatus {
                 installed: false,
                 runtime_dir: None,
+                install_supported: silma_runtime_pack_source_dir().is_some(),
                 message: err,
             },
         };
@@ -302,24 +308,34 @@ pub(super) fn silma_runtime_status(app: &tauri::AppHandle) -> SilmaRuntimeStatus
         Ok(Some(worker_path)) => SilmaRuntimeStatus {
             installed: true,
             runtime_dir: worker_path.parent().map(Path::to_path_buf),
+            install_supported: false,
             message: "SILMA runtime pack installed".into(),
         },
         Ok(None) => match bundled_worker_path(app) {
             Ok(Some(worker_path)) => SilmaRuntimeStatus {
                 installed: true,
                 runtime_dir: worker_path.parent().map(Path::to_path_buf),
+                install_supported: false,
                 message: "Bundled SILMA runtime available".into(),
+            },
+            Ok(None) if silma_runtime_pack_source_dir().is_some() => SilmaRuntimeStatus {
+                installed: false,
+                runtime_dir: runtime_pack_dir(app).ok(),
+                install_supported: true,
+                message: "Prepared SILMA runtime pack is ready to install".into(),
             },
             Ok(None) => repo_worker_runtime_status(app),
             Err(err) => SilmaRuntimeStatus {
                 installed: false,
                 runtime_dir: runtime_pack_dir(app).ok(),
+                install_supported: silma_runtime_pack_source_dir().is_some(),
                 message: err,
             },
         },
         Err(err) => SilmaRuntimeStatus {
             installed: false,
             runtime_dir: None,
+            install_supported: silma_runtime_pack_source_dir().is_some(),
             message: err,
         },
     }
@@ -330,13 +346,79 @@ fn repo_worker_runtime_status(app: &tauri::AppHandle) -> SilmaRuntimeStatus {
         Ok(worker_path) => SilmaRuntimeStatus {
             installed: true,
             runtime_dir: worker_path.parent().map(Path::to_path_buf),
+            install_supported: false,
             message: "SILMA development worker available from the repository".into(),
         },
         Err(_) => SilmaRuntimeStatus {
             installed: false,
             runtime_dir: runtime_pack_dir(app).ok(),
+            install_supported: silma_runtime_pack_source_dir().is_some(),
             message: "SILMA runtime pack is not installed".into(),
         },
+    }
+}
+
+/// Promote a prepared PyInstaller onedir into the app-data runtime-pack slot.
+pub(super) fn install_silma_runtime_pack(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let source_dir = silma_runtime_pack_source_dir().ok_or_else(|| {
+        "SILMA runtime pack source is not available. Run `npm run prepare:silma-sidecar -- --self-test` or set PAPERCUT_SILMA_RUNTIME_PACK_DIR.".to_string()
+    })?;
+    let final_dir = runtime_pack_dir(app)?;
+    let work_dir = runtime_pack_work_dir(app)?;
+    let staging_dir = work_dir.join("current.installing");
+    let _ = fs::remove_dir_all(&work_dir);
+    fs::create_dir_all(&staging_dir).map_err(|err| {
+        format!(
+            "Failed to create SILMA runtime staging directory {}: {err}",
+            staging_dir.display()
+        )
+    })?;
+    let work_guard = RuntimeWorkDirGuard::new(work_dir.clone());
+    copy_dir_contents(&source_dir, &staging_dir)?;
+    let worker_path = runtime_pack_worker_path_in(&staging_dir)?;
+    verify_silma_runtime_worker(&worker_path)?;
+    if let Some(parent) = final_dir.parent() {
+        fs::create_dir_all(parent).map_err(|err| {
+            format!(
+                "Failed to create SILMA runtime directory {}: {err}",
+                parent.display()
+            )
+        })?;
+    }
+    let _ = fs::remove_dir_all(&final_dir);
+    fs::rename(&staging_dir, &final_dir).map_err(|err| {
+        format!(
+            "Failed to install SILMA runtime pack {}: {err}",
+            final_dir.display()
+        )
+    })?;
+    work_guard.disarm();
+    let _ = fs::remove_dir_all(&work_dir);
+    Ok(final_dir)
+}
+
+struct RuntimeWorkDirGuard {
+    path: PathBuf,
+    armed: bool,
+}
+
+impl RuntimeWorkDirGuard {
+    /// Arm cleanup for the large runtime staging tree until promotion succeeds.
+    fn new(path: PathBuf) -> Self {
+        Self { path, armed: true }
+    }
+
+    /// Consume the guard after a successful install so Drop skips cleanup.
+    fn disarm(mut self) {
+        self.armed = false;
+    }
+}
+
+impl Drop for RuntimeWorkDirGuard {
+    fn drop(&mut self) {
+        if self.armed {
+            let _ = fs::remove_dir_all(&self.path);
+        }
     }
 }
 
@@ -357,6 +439,29 @@ fn silma_worker_path() -> Result<PathBuf, String> {
     Err(format!("SILMA worker not found at {}", path.display()))
 }
 
+/// Find a prepared runtime pack that can be promoted into app data.
+fn silma_runtime_pack_source_dir() -> Option<PathBuf> {
+    if let Ok(path) = std::env::var("PAPERCUT_SILMA_RUNTIME_PACK_DIR") {
+        let path = PathBuf::from(path);
+        if runtime_pack_worker_path_in(&path).is_ok() {
+            return Some(path);
+        }
+    }
+
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let repo_root = manifest_dir.parent()?;
+    let source = repo_root
+        .join("sidecars")
+        .join("silma")
+        .join("runtime")
+        .join("x86_64-unknown-linux-gnu")
+        .join("onedir");
+    if runtime_pack_worker_path_in(&source).is_ok() {
+        return Some(source);
+    }
+    None
+}
+
 fn runtime_pack_worker_path(app: &tauri::AppHandle) -> Result<Option<PathBuf>, String> {
     let Some(relative_path) = runtime_pack_worker_relative_path() else {
         return Ok(None);
@@ -366,6 +471,20 @@ fn runtime_pack_worker_path(app: &tauri::AppHandle) -> Result<Option<PathBuf>, S
         return Ok(Some(worker_path));
     }
     Ok(None)
+}
+
+/// Resolve the executable inside a runtime-pack root and reject wrong layouts.
+fn runtime_pack_worker_path_in(root: &Path) -> Result<PathBuf, String> {
+    let relative_path = runtime_pack_worker_relative_path()
+        .ok_or_else(|| "SILMA runtime packs are not supported on this platform yet".to_string())?;
+    let worker_path = root.join(relative_path);
+    if worker_path.is_file() {
+        return Ok(worker_path);
+    }
+    Err(format!(
+        "SILMA runtime pack is missing worker executable at {}",
+        worker_path.display()
+    ))
 }
 
 fn runtime_pack_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -378,6 +497,19 @@ fn runtime_pack_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
         .join("silma")
         .join(runtime_pack_id())
         .join("current"))
+}
+
+/// Cache-backed staging area used before atomically promoting the runtime pack.
+fn runtime_pack_work_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let cache_dir = app
+        .path()
+        .app_cache_dir()
+        .or_else(|_| app.path().app_data_dir())
+        .map_err(|err| format!("Failed to resolve cache dir for SILMA runtime install: {err}"))?;
+    Ok(cache_dir
+        .join("runtime-installer")
+        .join("silma")
+        .join(runtime_pack_id()))
 }
 
 fn runtime_pack_id() -> &'static str {
@@ -401,6 +533,59 @@ fn runtime_pack_worker_relative_path() -> Option<PathBuf> {
         ));
     }
     None
+}
+
+/// Recursively copy the PyInstaller onedir without pulling in another dependency.
+fn copy_dir_contents(source: &Path, destination: &Path) -> Result<(), String> {
+    for entry in fs::read_dir(source).map_err(|err| {
+        format!(
+            "Failed to read SILMA runtime source directory {}: {err}",
+            source.display()
+        )
+    })? {
+        let entry = entry.map_err(|err| format!("Failed to read SILMA runtime entry: {err}"))?;
+        let source_path = entry.path();
+        let destination_path = destination.join(entry.file_name());
+        let metadata = fs::metadata(&source_path)
+            .map_err(|err| format!("Failed to inspect SILMA runtime entry: {err}"))?;
+        if metadata.is_dir() {
+            fs::create_dir_all(&destination_path).map_err(|err| {
+                format!(
+                    "Failed to create SILMA runtime directory {}: {err}",
+                    destination_path.display()
+                )
+            })?;
+            copy_dir_contents(&source_path, &destination_path)?;
+        } else if metadata.is_file() {
+            fs::copy(&source_path, &destination_path).map_err(|err| {
+                format!(
+                    "Failed to copy SILMA runtime file {}: {err}",
+                    source_path.display()
+                )
+            })?;
+        }
+    }
+    Ok(())
+}
+
+/// Run the packaged worker's model-free self-test before trusting the runtime.
+fn verify_silma_runtime_worker(worker_path: &Path) -> Result<(), String> {
+    let status = Command::new(worker_path)
+        .arg("--self-test")
+        .status()
+        .map_err(|err| {
+            format!(
+                "Failed to run SILMA runtime self-test {}: {err}",
+                worker_path.display()
+            )
+        })?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "SILMA runtime self-test failed with status {status}"
+        ))
+    }
 }
 
 fn bundled_worker_path(app: &tauri::AppHandle) -> Result<Option<PathBuf>, String> {
