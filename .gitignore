@@ -40,6 +40,8 @@ sidecars/**/models/
 sidecars/**/runtime/
 sidecars/**/*.wav
 
+.venv-silma/
+
 private_keys/
 
 # Apple signing/provisioning secrets.
