@@ -444,14 +444,6 @@ jobs:
             runner: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             archive: papercut-silma-runtime-linux-x64-cpu.tar.bz2
-          - runtime_id: macos-aarch64-cpu
-            runner: macos-15
-            target: aarch64-apple-darwin
-            archive: papercut-silma-runtime-macos-aarch64-cpu.tar.bz2
-          - runtime_id: macos-x64-cpu
-            runner: macos-15-intel
-            target: x86_64-apple-darwin
-            archive: papercut-silma-runtime-macos-x64-cpu.tar.bz2
           - runtime_id: windows-x64-cpu
             runner: windows-2022
             target: x86_64-pc-windows-msvc

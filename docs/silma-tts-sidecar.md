@@ -19,6 +19,8 @@ Use a bundled desktop sidecar for SILMA first.
 - Download SILMA model files on demand, pinned by revision and verified by hash.
 - Do not bundle SILMA weights in app installers.
 - Do not support Android or iOS sidecar execution.
+- Do not advertise SILMA on macOS until the upstream Python dependency stack
+  installs cleanly there.
 - Do not introduce a general plugin system, remote service mode, or arbitrary
   user Python environment.
 
@@ -409,7 +411,7 @@ Runtime pack location:
 <app-data>/runtimes/silma/<runtime-id>/current/
 ```
 
-Current CPU runtime ids:
+Runtime ids:
 
 ```text
 linux-x64-cpu
@@ -417,6 +419,11 @@ macos-aarch64-cpu
 macos-x64-cpu
 windows-x64-cpu
 ```
+
+CI currently builds `linux-x64-cpu` and `windows-x64-cpu`. The macOS runtime ids
+are disabled metadata placeholders, and the native model catalog hides SILMA on
+macOS, until the SILMA Python dependency stack has installable macOS wheels for
+the required packages.
 
 Expected worker paths inside runtime packs:
 
@@ -508,15 +515,21 @@ This rewrites the matching `runtimeId` entry in
 
 CI runtime-pack build:
 
-- `.github/workflows/silma-runtime.yml` builds Linux x64, macOS arm64, macOS
-  x64, and Windows x64 CPU runtime packs as Actions artifacts without running
-  `npm run desktop`;
+- `.github/workflows/silma-runtime.yml` builds Linux x64 and Windows x64 CPU
+  runtime packs as Actions artifacts without running `npm run desktop`;
 - this avoids the `linuxdeploy` failure path because the Python/PyTorch runtime
   is never placed inside the AppImage/deb/rpm bundle;
 - PR validation: `.github/workflows/ci.yml` also builds and uploads the same
   runtime-pack matrix when SILMA runtime files, packaging scripts, runtime
   metadata, or related workflows changed, so artifacts can be downloaded before
   the manual workflow lands on the default branch;
+- macOS runtime-pack CI is intentionally disabled for now. On macOS, the
+  upstream SILMA dependency chain currently fails before packaging: `catt_tashkeel`
+  requests `onnxruntime-gpu>=1.22.0`, which has no macOS wheel in the tested
+  runner environment, and macOS x64 also hit required TorchVision wheel
+  availability issues. See `docs/silma-macos-runtime-dependency-report.md`.
+  Do not re-enable macOS runtime packs or advertise SILMA on macOS until the
+  dependency install is proven on the target runner;
 - PR CI cancels older in-progress runs for the same PR so the expensive desktop,
   mobile, and SILMA runtime jobs do not keep burning minutes after a newer push;
 - pass `tag` to make the generated manifest use the predictable GitHub Release
@@ -549,8 +562,8 @@ Manual CI validation scopes:
 - `cheap`: lint, frontend build, and worker self-tests only;
 - `desktop`: cheap checks plus Linux, Windows, and macOS desktop packaging;
 - `mobile`: cheap checks plus Android and iOS packaging checks;
-- `silma-runtime`: cheap checks plus the desktop SILMA runtime-pack artifact
-  matrix;
+- `silma-runtime`: cheap checks plus the Linux/Windows SILMA runtime-pack
+  artifact matrix;
 - `full`: all of the above.
 
 Each archive must extract so `current/` contains the expected worker path for

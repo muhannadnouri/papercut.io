@@ -363,7 +363,7 @@ export function AudioSetupPanel({
             <span className="audio-diagnostics-switch" aria-hidden="true" />
           </span>
         </label>
-        {debugEnabled && onProbeSilmaSidecar && (
+        {debugEnabled && isSilmaModel && onProbeSilmaSidecar && (
           <div className="audio-field audio-field-silma-probe">
             <span>SILMA Sidecar</span>
             <button

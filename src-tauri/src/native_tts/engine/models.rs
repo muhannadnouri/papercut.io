@@ -83,14 +83,25 @@ impl ModelDefinition {
     /// Experimental sidecar models stay hidden unless an explicit developer flag
     /// is present, and they are never advertised on mobile sidecar-less targets.
     pub(super) fn is_catalog_visible(&self) -> bool {
-        if matches!(self.backend, TtsModelBackend::SilmaSidecar)
-            && cfg!(any(target_os = "android", target_os = "ios"))
-        {
+        if !self.is_supported_on_current_platform() {
             return false;
         }
         match self.dev_catalog_flag {
             Some(flag) => cfg!(debug_assertions) || std::env::var_os(flag).is_some(),
             None => true,
+        }
+    }
+
+    /// Return whether this model's backend can run on the current build target.
+    pub(super) fn is_supported_on_current_platform(&self) -> bool {
+        match self.backend {
+            TtsModelBackend::SherpaOnnx => true,
+            TtsModelBackend::SilmaSidecar => {
+                cfg!(all(
+                    any(target_os = "linux", target_os = "windows"),
+                    target_arch = "x86_64"
+                ))
+            }
         }
     }
 
@@ -545,7 +556,7 @@ pub(super) fn visible_models() -> impl Iterator<Item = &'static ModelDefinition>
 pub(super) fn model_definition(model_id: &str) -> Result<&'static ModelDefinition, String> {
     MODELS
         .iter()
-        .find(|model| model.id == model_id)
+        .find(|model| model.id == model_id && model.is_supported_on_current_platform())
         .ok_or_else(|| format!("Unsupported native TTS model: {model_id}"))
 }
 
@@ -630,6 +641,14 @@ mod tests {
     fn silma_catalog_entry_is_dev_visible_and_release_gated() {
         let previous = std::env::var_os(SILMA_DEV_CATALOG_FLAG);
         std::env::remove_var(SILMA_DEV_CATALOG_FLAG);
+        if !cfg!(all(
+            any(target_os = "linux", target_os = "windows"),
+            target_arch = "x86_64"
+        )) {
+            assert!(model_definition(SILMA_MODEL_ID).is_err());
+            assert!(visible_models().all(|item| item.id != SILMA_MODEL_ID));
+            return;
+        }
         let model = model_definition(SILMA_MODEL_ID).unwrap();
         assert_eq!(model.backend, TtsModelBackend::SilmaSidecar);
         assert_eq!(model.model_storage_dir_name(), "silma-tts");
