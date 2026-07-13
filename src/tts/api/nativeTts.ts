@@ -20,6 +20,7 @@ export interface NativeTtsModelStatus {
   modelId: string
   installed: boolean
   installing: boolean
+  installSupported: boolean
   modelDir?: string | null
   sourceUrl: string
   sourceLabel: string
@@ -241,6 +242,7 @@ export async function getNativeTtsModelStatus(modelId: string): Promise<NativeTt
       modelId,
       installed: false,
       installing: false,
+      installSupported: false,
       modelDir: null,
       sourceUrl: '',
       sourceLabel: 'sherpa-onnx offline TTS',

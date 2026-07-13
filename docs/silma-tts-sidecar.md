@@ -224,8 +224,10 @@ Required files are expected to include at least:
 
 - `model.pt`
 - `vocab.txt`
-- `config.yaml`
-- any SILMA/F5 inference config files required by the packaged runtime
+
+The current dev-only local detection validates only those two files because the
+official worker path resolves them directly. Add `config.yaml` or other F5
+runtime files here only after the packaged sidecar proves it needs them.
 
 If downloading individual Hugging Face files is fragile, create a pinned release
 archive in Papercut-controlled release storage that contains only upstream SILMA
@@ -371,6 +373,11 @@ desktop build it can appear in the catalog for metadata testing, but the current
 installer deliberately rejects it because SILMA model download/install is a
 separate stage.
 
+Model status now detects a manually populated
+`models/silma-tts/silma-tts/` directory, reports the expected local path when
+files are missing, and marks app install as unsupported so the frontend does
+not offer the sherpa archive downloader for SILMA.
+
 ## Python Worker Tasks
 
 - [x] Create a minimal `silma_worker.py` that supports JSONL health/load/synth.
@@ -445,6 +452,8 @@ resolution remains a later stage.
 - [ ] Add install/download copy that warns about model size before download.
 - [ ] Add diagnostic labels that distinguish `sherpa-onnx-*` from
       `silma-sidecar`.
+- [x] Hide the install button for model entries that the current app installer
+      cannot download.
 
 ## Build Script Tasks
 
@@ -558,7 +567,8 @@ Exit criteria:
 
 ### Stage 3: Model Install
 
-- [ ] Add SILMA model status/install support.
+- [x] Add SILMA model status/manual local-file detection.
+- [ ] Add SILMA in-app install support.
 - [ ] Pin source revision and hashes.
 - [ ] Download to app data.
 - [ ] Validate required files.

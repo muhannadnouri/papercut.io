@@ -42,6 +42,7 @@ pub(super) fn model_status(
         model_id,
         installed: false,
         installing: false,
+        install_supported: false,
         model_dir: None,
         source_url: String::new(),
         source_label: "sherpa-onnx offline TTS".into(),

@@ -66,6 +66,7 @@ pub(crate) struct NativeTtsModelStatus {
     pub(crate) model_id: String,
     pub(crate) installed: bool,
     pub(crate) installing: bool,
+    pub(crate) install_supported: bool,
     pub(crate) model_dir: Option<String>,
     pub(crate) source_url: String,
     pub(crate) source_label: String,

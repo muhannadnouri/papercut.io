@@ -101,6 +101,11 @@ impl ModelDefinition {
         }
     }
 
+    /// Whether the current in-app installer knows how to fetch this model.
+    pub(super) fn install_supported(&self) -> bool {
+        matches!(self.backend, TtsModelBackend::SherpaOnnx)
+    }
+
     /// Return true only when every file required by this model family is installed.
     pub(super) fn has_required_files(&self, dir: &Path) -> bool {
         self.required_files
@@ -563,6 +568,7 @@ mod tests {
         let en = model_definition("sherpa-onnx/supertonic-3-en").unwrap();
         let ar = model_definition("sherpa-onnx/supertonic-3-ar").unwrap();
         assert_eq!(en.backend, TtsModelBackend::SherpaOnnx);
+        assert!(en.install_supported());
         assert_eq!(en.family, TtsModelFamily::Supertonic);
         assert_eq!(ar.family, TtsModelFamily::Supertonic);
         assert_eq!(
@@ -614,6 +620,7 @@ mod tests {
 
         assert_eq!(model.model_storage_dir_name(), "silma-tts");
         assert_eq!(model.backend_name(), "silma-sidecar-f5");
+        assert!(!model.install_supported());
         assert!(model.require_sherpa_family().is_err());
         assert_eq!(model.to_info().family, "silma-f5");
     }

@@ -54,6 +54,7 @@ pub(crate) fn model_status(
             model_id,
             installed: false,
             installing: false,
+            install_supported: false,
             model_dir: None,
             source_url: String::new(),
             source_label: "Unsupported model".into(),
@@ -68,11 +69,12 @@ pub(crate) fn model_status(
         .lock()
         .map(|guard| guard.contains(model.directory_name))
         .unwrap_or(false);
-    match resolve_model_dir(&app, model) {
-        Ok(model_dir) => NativeTtsModelStatus {
+    match installed_model_dir(&app, model) {
+        Ok(model_dir) if model.has_required_files(&model_dir) => NativeTtsModelStatus {
             model_id: model.id.into(),
             installed: true,
             installing,
+            install_supported: model.install_supported(),
             installed_bytes: directory_size(&model_dir).unwrap_or(0),
             model_dir: Some(model_dir.display().to_string()),
             source_url: model.source_url.into(),
@@ -81,21 +83,31 @@ pub(crate) fn model_status(
             sha256: model.sha256.into(),
             message: "Offline voice model installed".into(),
         },
-        Err(_) => NativeTtsModelStatus {
+        Ok(model_dir) => NativeTtsModelStatus {
             model_id: model.id.into(),
             installed: false,
             installing,
+            install_supported: model.install_supported(),
+            model_dir: missing_model_dir(model, &model_dir),
+            source_url: model.source_url.into(),
+            source_label: model.source_label.into(),
+            archive_bytes: model.archive_bytes,
+            installed_bytes: directory_size(&model_dir).unwrap_or(0),
+            sha256: model.sha256.into(),
+            message: missing_model_message(model, &model_dir, installing),
+        },
+        Err(err) => NativeTtsModelStatus {
+            model_id: model.id.into(),
+            installed: false,
+            installing,
+            install_supported: model.install_supported(),
             model_dir: None,
             source_url: model.source_url.into(),
             source_label: model.source_label.into(),
             archive_bytes: model.archive_bytes,
             installed_bytes: 0,
             sha256: model.sha256.into(),
-            message: if installing {
-                "Offline voice model download in progress".into()
-            } else {
-                "Offline voice model is not installed".into()
-            },
+            message: err,
         },
     }
 }
@@ -111,9 +123,12 @@ pub(crate) async fn install_model(
 ) -> Result<NativeTtsModelInstallResponse, String> {
     let model = model_definition(&model_id)?;
     if !matches!(model.backend, TtsModelBackend::SherpaOnnx) {
+        let model_dir = installed_model_dir(&app, model)?;
         return Err(format!(
-            "{} uses the SILMA sidecar backend; model install is not implemented yet",
-            model.display_name
+            "{} uses the SILMA sidecar backend; app download is not implemented yet. Place {} in {}.",
+            model.display_name,
+            model.required_files.join(", "),
+            model_dir.display()
         ));
     }
     if let Ok(model_dir) = resolve_model_dir(&app, model) {
@@ -148,6 +163,29 @@ pub(crate) async fn install_model(
         guard.remove(model.directory_name);
     }
     result
+}
+
+/// Return an absent-model message that matches the backend's real install path.
+fn missing_model_message(model: &ModelDefinition, model_dir: &Path, installing: bool) -> String {
+    if installing {
+        return "Offline voice model download in progress".into();
+    }
+    if matches!(model.backend, TtsModelBackend::SilmaSidecar) {
+        return format!(
+            "Place SILMA model files ({}) in {}. App download is not implemented yet.",
+            model.required_files.join(", "),
+            model_dir.display()
+        );
+    }
+    "Offline voice model is not installed".into()
+}
+
+/// Keep sherpa's historical missing-model shape while exposing SILMA's manual path.
+fn missing_model_dir(model: &ModelDefinition, model_dir: &Path) -> Option<String> {
+    if matches!(model.backend, TtsModelBackend::SilmaSidecar) {
+        return Some(model_dir.display().to_string());
+    }
+    None
 }
 
 /// Run the checked install transaction: download, hash, extract, validate, then promote.

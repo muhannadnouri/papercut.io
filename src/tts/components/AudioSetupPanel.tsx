@@ -93,6 +93,7 @@ export function AudioSetupPanel({
   const showHighThreadWarning = threadCount > HIGH_THREAD_COUNT_WARNING_THRESHOLD
   const hasTextProcessing = textPreprocessors.length > 1
   const selectedModel = models.find((model) => model.id === modelId) ?? models[0]
+  const modelInstallSupported = modelStatus?.installSupported ?? (selectedModel?.family !== 'silma-f5')
   const selectedLanguage = selectedModel ? getLanguageOption(selectedModel).value : ''
   const languageOptions = models.reduce<SelectOption[]>((options, model) => {
     const languageOption = getLanguageOption(model)
@@ -157,7 +158,7 @@ export function AudioSetupPanel({
 
           {showModelInstallDetails && (
             <div className="audio-model-install">
-              {!modelInstalled && (
+              {!modelInstalled && modelInstallSupported && (
                 <button
                   type="button"
                   className="tts-btn tts-save-btn"
@@ -168,6 +169,13 @@ export function AudioSetupPanel({
                   <DownloadIcon />
                   <span>{modelInstalling ? 'Downloading Model...' : 'Download Voice Model'}</span>
                 </button>
+              )}
+              {!modelInstalled && !modelInstallSupported && (
+                <div className="audiobook-status audiobook-status-error" aria-live="polite">
+                  <div className="audiobook-status-row">
+                    <span>{modelStatus?.message ?? 'Manual model install required'}</span>
+                  </div>
+                </div>
               )}
               {(modelInstallProgress || modelInstalling) && (
                 <div
