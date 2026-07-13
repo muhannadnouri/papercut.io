@@ -42,3 +42,17 @@ JSONL
 ```
 
 The worker writes protocol responses to stdout and runtime logs to stderr.
+
+## Stage 1 Probe
+
+The Rust command `tts_probe_silma_sidecar` starts this worker from the repo,
+performs a `health` request, asks it to write a tiny silent probe WAV into app
+data, validates that WAV with the native audiobook WAV parser, and shuts the
+worker down.
+
+Optional environment overrides:
+
+```bash
+PAPERCUT_SILMA_PYTHON=/path/to/venv/bin/python
+PAPERCUT_SILMA_WORKER=/path/to/silma_worker.py
+```

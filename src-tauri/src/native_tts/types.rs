@@ -97,6 +97,19 @@ pub(crate) struct NativeTtsModelInstallResponse {
     pub(crate) bytes: u64,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Dev/prototype health check for the desktop SILMA Python worker.
+pub(crate) struct NativeSilmaSidecarProbeResponse {
+    pub(crate) worker_path: String,
+    pub(crate) python_command: String,
+    pub(crate) probe_wav_path: String,
+    pub(crate) health_version: String,
+    pub(crate) sample_rate: i32,
+    pub(crate) audio_duration_sec: f32,
+    pub(crate) wav_bytes: usize,
+}
+
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 /// Runtime-only source locator for a chunk in the reader's readable DOM segments.

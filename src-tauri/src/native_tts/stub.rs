@@ -13,8 +13,8 @@ use super::types::{
     NativeAudiobookPlaybackRequest, NativeAudiobookPlaybackResponse, NativeAudiobookSaveRequest,
     NativeAudiobookSaveResponse, NativeAudiobookStatusRequest, NativeAudiobookStatusResponse,
     NativeImportedAudiobookMetadataResponse, NativeImportedAudiobookSourceRequest,
-    NativeTtsCapabilities, NativeTtsChunkResponse, NativeTtsModelInstallResponse,
-    NativeTtsModelStatus,
+    NativeSilmaSidecarProbeResponse, NativeTtsCapabilities, NativeTtsChunkResponse,
+    NativeTtsModelInstallResponse, NativeTtsModelStatus,
 };
 
 const NOT_COMPILED: &str =
@@ -127,5 +127,11 @@ pub(super) fn delete_audiobook_native(
     _app: tauri::AppHandle,
     _request: NativeAudiobookDeleteRequest,
 ) -> Result<NativeAudiobookDeleteResponse, String> {
+    Err(NOT_COMPILED.into())
+}
+
+pub(super) fn probe_silma_sidecar(
+    _app: tauri::AppHandle,
+) -> Result<NativeSilmaSidecarProbeResponse, String> {
     Err(NOT_COMPILED.into())
 }

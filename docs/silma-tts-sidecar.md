@@ -361,6 +361,7 @@ Linux:
 - [x] Return duration, sample rate, byte size, and synthesis timing.
 - [x] Keep protocol on stdout and logs on stderr.
 - [ ] Add a tiny local smoke test that synthesizes one WAV from a known model dir.
+- [x] Add a model-free probe WAV operation for sidecar/Tauri file-access testing.
 - [ ] Package with PyInstaller onefile for the first spike.
 - [ ] Package with PyInstaller onedir for production validation.
 - [ ] Document exact Python version and locked dependencies.
@@ -377,6 +378,22 @@ The worker imports `SilmaTTS` lazily so `health` and `--self-test` can run
 without installing SILMA or downloading the model. `load_model` passes
 `model_dir` as `hf_cache_dir` because the current official API resolves
 `model.pt` and `vocab.txt` through `cached_path`.
+
+Stage 1 probe command:
+
+- Tauri command: `tts_probe_silma_sidecar`
+- Rust module: `src-tauri/src/native_tts/engine/sidecar_probe.rs`
+- Worker op: `write_probe_wav`
+- Env overrides:
+  - `PAPERCUT_SILMA_PYTHON`
+  - `PAPERCUT_SILMA_WORKER`
+
+The probe starts the Python worker from the repo, sends `health`, asks the
+worker to write a tiny silent WAV into Tauri app data, validates that WAV with
+Papercut's existing WAV parser, then sends `shutdown`. It is deliberately not a
+SILMA model-load test. This probe uses Rust-owned `std::process::Command`
+instead of Tauri's shell plugin; production sidecar packaging/resource
+resolution remains a later stage.
 
 ## Frontend Tasks
 
@@ -474,15 +491,20 @@ Exit criteria:
 ### Stage 1: Sidecar Prototype
 
 - [ ] Package worker with PyInstaller onefile.
-- [ ] Add temporary Rust command or dev-only path to spawn it.
-- [ ] Generate one WAV into app data.
-- [ ] Validate shell/plugin/Tauri sidecar mechanics.
+- [x] Add temporary Rust command or dev-only path to spawn it.
+- [x] Generate one probe WAV into app data.
+- [ ] Validate Tauri sidecar mechanics in a running desktop app.
 
 Exit criteria:
 
 - app can call sidecar from Rust;
 - sidecar can write app-owned WAV;
 - no frontend UI changes yet.
+
+Current verification note: direct worker protocol checks pass, including
+`write_probe_wav`. A full `cargo check --features native-tts-shared` on this
+Linux machine is currently blocked before app code by missing
+`javascriptcoregtk-4.1.pc`, a Tauri/WebKitGTK system dependency.
 
 ### Stage 2: Backend Integration
 
