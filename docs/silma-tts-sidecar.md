@@ -470,6 +470,10 @@ CI runtime-pack build:
   an Actions artifact without running `npm run desktop`;
 - this avoids the `linuxdeploy` failure path because the Python/PyTorch runtime
   is never placed inside the AppImage/deb/rpm bundle;
+- temporary PR validation: `.github/workflows/ci.yml` also builds and uploads
+  `papercut-silma-runtime-linux-x64-cpu` for branches whose name contains
+  `silma`, so the artifact can be downloaded before the manual workflow lands
+  on the default branch;
 - pass `tag` to make the generated manifest use the predictable GitHub Release
   URL;
 - set `upload_to_release` only after the release exists and you want the
