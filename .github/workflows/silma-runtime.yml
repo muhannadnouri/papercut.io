@@ -44,12 +44,14 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: sidecars/silma/requirements.txt
+          cache-dependency-path: |
+            sidecars/silma/requirements.txt
+            sidecars/silma/requirements-build.txt
 
       - name: Install SILMA sidecar dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r sidecars/silma/requirements.txt pyinstaller
+          python -m pip install -r sidecars/silma/requirements-build.txt
 
       - name: Build packaged worker
         run: |

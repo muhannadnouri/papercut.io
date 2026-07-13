@@ -314,6 +314,19 @@ Tauri supports desktop sidecars through bundled external binaries. The current
 app does not yet initialize `tauri-plugin-shell` and does not configure
 `bundle.externalBin`.
 
+Official Tauri guidance treats Python code as an executable sidecar after it is
+bundled, commonly with PyInstaller. If the sidecar is shipped inside the app,
+Tauri expects the configured `bundle.externalBin` path to have a matching
+target-triple-suffixed executable next to it, such as
+`my-sidecar-x86_64-unknown-linux-gnu`. Rust can then launch that bundled sidecar
+with `app.shell().sidecar("my-sidecar")`; JavaScript launch paths require shell
+plugin permissions.
+
+For SILMA, the ordinary release path is not `externalBin`. The PyTorch/Python
+runtime is too large for every base installer, so production uses an optional
+runtime pack stored in app data and spawned by Rust from an app-owned path. The
+Tauri bundled-sidecar path remains useful for validation spikes only.
+
 Implementation tasks:
 
 - add `tauri-plugin-shell` to `src-tauri/Cargo.toml`;
@@ -676,7 +689,7 @@ The app-owned installer stores those files directly under
 - [x] Add a PyInstaller onefile prep script for the first spike.
 - [x] Run and reject the PyInstaller onefile output on a desktop.
 - [x] Package with PyInstaller onedir for production validation.
-- [ ] Document exact Python version and locked dependencies.
+- [x] Document exact Python version and pinned runtime/build dependency inputs.
 - [ ] Decide whether `ffmpeg` is required at runtime; if yes, bundle it or avoid
       the code path that needs it.
 
@@ -685,6 +698,18 @@ Stage 0 worker location:
 - `sidecars/silma/silma_worker.py`
 - `sidecars/silma/README.md`
 - `sidecars/silma/requirements.txt`
+- `sidecars/silma/requirements-build.txt`
+
+Dependency inputs:
+
+- CI runtime-pack builds use Python 3.12.
+- `requirements.txt` pins the direct SILMA runtime dependency used by smoke
+  tests and editable-worker dev runs.
+- `requirements-build.txt` includes the runtime requirements and pins
+  PyInstaller for optional runtime-pack builds.
+- Do not hand-maintain a transitive lock from a local machine. If the public
+  runtime pack needs a fully hashed lock later, generate it from the release CI
+  image that actually builds the pack.
 
 The worker imports `SilmaTTS` lazily so `health` and `--self-test` can run
 without installing SILMA or downloading the model. `load_model` passes

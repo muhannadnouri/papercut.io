@@ -83,12 +83,13 @@ PAPERCUT_SILMA_WORKER_BIN=/path/to/packaged/silma-worker
 
 ## Packaging Spike
 
-Install PyInstaller into the sidecar venv, then build a target-suffixed onedir
+Install the build requirements into the sidecar venv, then build a
+target-suffixed onedir
 worker:
 
 ```bash
 . .venv-silma/bin/activate
-python -m pip install pyinstaller
+python -m pip install -r sidecars/silma/requirements-build.txt
 npm run prepare:silma-sidecar -- --clean --self-test
 ```
 

@@ -1,0 +1,4 @@
+-r requirements.txt
+
+# PyInstaller is only needed when producing the optional desktop runtime pack.
+pyinstaller==6.21.0

@@ -32,7 +32,7 @@ if (!hasPyInstaller(python)) {
       python +
       "\nRun: " +
       python +
-      " -m pip install pyinstaller",
+      " -m pip install -r sidecars/silma/requirements-build.txt",
   )
 }
 
