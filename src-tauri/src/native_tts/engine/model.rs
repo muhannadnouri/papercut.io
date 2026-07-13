@@ -241,7 +241,7 @@ async fn install_silma_runtime_pack_for_model(
     }
     if !runtime_status.install_supported {
         return Err(format!(
-            "{}. Run `npm run prepare:silma-sidecar -- --self-test` or set PAPERCUT_SILMA_RUNTIME_PACK_DIR.",
+            "{}. Run `npm run prepare:silma-sidecar -- --self-test` or add release metadata to src-tauri/tts/silma-runtime-packs.json.",
             runtime_status.message
         ));
     }

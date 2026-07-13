@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "runtimes": [
+    {
+      "runtimeId": "linux-x64-cpu",
+      "platform": "linux",
+      "arch": "x64",
+      "target": "x86_64-unknown-linux-gnu",
+      "url": "",
+      "archiveBytes": 0,
+      "sha256": "",
+      "workerPath": "silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu"
+    }
+  ],
+  "notes": [
+    "SILMA runtime packs are downloaded on demand and are not packaged into ordinary desktop installers.",
+    "Fill url, archiveBytes, and sha256 from the runtime-pack release artifact before enabling public installs."
+  ]
+}

@@ -35,6 +35,7 @@ const manifest = {
   platform: platformForTarget(target),
   arch: archForTarget(target),
   target,
+  url: options.url ?? "",
   archive: basename(archivePath),
   archiveBytes: statSync(archivePath).size,
   sha256: await sha256File(archivePath),
@@ -61,6 +62,8 @@ function parseArgs(args) {
       parsed.outputDir = requireValue(args, ++index, arg)
     } else if (arg === "--archive-name") {
       parsed.archiveName = requireValue(args, ++index, arg)
+    } else if (arg === "--url") {
+      parsed.url = requireValue(args, ++index, arg)
     } else {
       fail("Unknown option: " + arg)
     }

@@ -14,9 +14,12 @@ use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use bzip2::read::BzDecoder;
 use reqwest::header::RANGE;
 use reqwest::StatusCode;
+use serde::Deserialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use tauri::Manager;
+
+const SILMA_RUNTIME_PACK_MANIFEST: &str = include_str!("../../../tts/silma-runtime-packs.json");
 
 pub(super) struct SilmaSidecar {
     child: Child,
@@ -382,7 +385,7 @@ pub(super) fn install_silma_runtime_pack(
     mut on_download: impl FnMut(u64, u64),
 ) -> Result<PathBuf, String> {
     let source = silma_runtime_pack_install_source().ok_or_else(|| {
-        "SILMA runtime pack source is not available. Run `npm run prepare:silma-sidecar -- --self-test`, set PAPERCUT_SILMA_RUNTIME_PACK_DIR, or set PAPERCUT_SILMA_RUNTIME_PACK_URL and PAPERCUT_SILMA_RUNTIME_PACK_SHA256.".to_string()
+        "SILMA runtime pack source is not available. Run `npm run prepare:silma-sidecar -- --self-test`, or add release metadata to src-tauri/tts/silma-runtime-packs.json.".to_string()
     })?;
     let final_dir = runtime_pack_dir(app)?;
     let work_dir = runtime_pack_work_dir(app)?;
@@ -476,6 +479,13 @@ impl SilmaRuntimePackSource {
             Self::Archive { .. } => "SILMA runtime pack is ready to download".into(),
         }
     }
+
+    fn archive_bytes(&self) -> u64 {
+        match self {
+            Self::Directory(_) => 0,
+            Self::Archive { bytes, .. } => *bytes,
+        }
+    }
 }
 
 /// Resolve the dev worker script. Env overrides keep local experiments cheap.
@@ -495,42 +505,52 @@ fn silma_worker_path() -> Result<PathBuf, String> {
     Err(format!("SILMA worker not found at {}", path.display()))
 }
 
-/// Find an explicit source first, then a URL manifest, then the local build output.
+/// Prefer the checked runtime manifest, then the local build output used by dev.
 fn silma_runtime_pack_install_source() -> Option<SilmaRuntimePackSource> {
-    if let Some(path) = silma_runtime_pack_env_source_dir() {
-        return Some(SilmaRuntimePackSource::Directory(path));
-    }
-    if let Some(source) = silma_runtime_pack_archive_source() {
+    if let Some(source) = silma_runtime_pack_manifest_source() {
         return Some(source);
     }
     silma_runtime_pack_default_source_dir().map(SilmaRuntimePackSource::Directory)
 }
 
 fn silma_runtime_pack_archive_bytes() -> u64 {
-    std::env::var("PAPERCUT_SILMA_RUNTIME_PACK_BYTES")
-        .ok()
-        .and_then(|value| value.parse::<u64>().ok())
+    silma_runtime_pack_manifest_source()
+        .map(|source| source.archive_bytes())
         .unwrap_or(0)
 }
 
-fn silma_runtime_pack_env_source_dir() -> Option<PathBuf> {
-    if let Ok(path) = std::env::var("PAPERCUT_SILMA_RUNTIME_PACK_DIR") {
-        let path = PathBuf::from(path);
-        if runtime_pack_worker_path_in(&path).is_ok() {
-            return Some(path);
-        }
-    }
-    None
+#[derive(Deserialize)]
+struct SilmaRuntimePackManifest {
+    runtimes: Vec<SilmaRuntimePackManifestEntry>,
 }
 
-fn silma_runtime_pack_archive_source() -> Option<SilmaRuntimePackSource> {
-    let url = std::env::var("PAPERCUT_SILMA_RUNTIME_PACK_URL").ok()?;
-    let sha256 = std::env::var("PAPERCUT_SILMA_RUNTIME_PACK_SHA256").ok()?;
-    Some(SilmaRuntimePackSource::Archive {
-        url,
-        sha256,
-        bytes: silma_runtime_pack_archive_bytes(),
-    })
+#[derive(Deserialize)]
+struct SilmaRuntimePackManifestEntry {
+    #[serde(rename = "runtimeId")]
+    runtime_id: String,
+    url: String,
+    sha256: String,
+    #[serde(rename = "archiveBytes")]
+    archive_bytes: u64,
+}
+
+fn silma_runtime_pack_manifest_source() -> Option<SilmaRuntimePackSource> {
+    let manifest: SilmaRuntimePackManifest =
+        serde_json::from_str(SILMA_RUNTIME_PACK_MANIFEST).ok()?;
+    manifest
+        .runtimes
+        .into_iter()
+        .find(|entry| {
+            entry.runtime_id == runtime_pack_id()
+                && !entry.url.is_empty()
+                && !entry.sha256.is_empty()
+                && entry.archive_bytes > 0
+        })
+        .map(|entry| SilmaRuntimePackSource::Archive {
+            url: entry.url,
+            sha256: entry.sha256,
+            bytes: entry.archive_bytes,
+        })
 }
 
 fn silma_runtime_pack_default_source_dir() -> Option<PathBuf> {

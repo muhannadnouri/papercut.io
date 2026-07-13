@@ -396,7 +396,7 @@ SILMA worker launch order is now:
 
 Model status reports SILMA runtime availability separately from SILMA model-file
 availability. This lets the UI say whether the missing piece is the runtime
-pack, the model files, or both before runtime-pack download support exists.
+pack, the model files, or both.
 
 Current runtime-pack install slice:
 
@@ -404,12 +404,9 @@ Current runtime-pack install slice:
   app-data runtime-pack slot;
 - `npm run package:silma-runtime` can archive the prepared onedir and emit a
   JSON manifest with SHA-256 and byte size;
-- source lookup checks `PAPERCUT_SILMA_RUNTIME_PACK_DIR` first;
-- next, source lookup can use an env-pinned
-  `.tar.bz2` runtime pack with `PAPERCUT_SILMA_RUNTIME_PACK_URL`,
-  `PAPERCUT_SILMA_RUNTIME_PACK_SHA256`, and optional
-  `PAPERCUT_SILMA_RUNTIME_PACK_BYTES`;
-- finally, source lookup falls back to the local
+- source lookup checks `src-tauri/tts/silma-runtime-packs.json` for the current
+  platform runtime id;
+- source lookup falls back to the local
   `sidecars/silma/runtime/x86_64-unknown-linux-gnu/onedir/` build output;
 - install copies the onedir into a cache staging directory, runs the worker
   `--self-test`, and atomically promotes it to `current/`;
@@ -439,20 +436,17 @@ sidecars/silma/runtime/x86_64-unknown-linux-gnu/archive/papercut-silma-runtime-l
 sidecars/silma/runtime/x86_64-unknown-linux-gnu/archive/papercut-silma-runtime-linux-x64-cpu.manifest.json
 ```
 
-Use the manifest's `sha256` and `archiveBytes` fields as the env-pinned install
-values while the public release manifest is still being built.
+Release runtime-pack metadata lives in:
 
-Runtime-pack archive install spike:
-
-```bash
-PAPERCUT_SILMA_RUNTIME_PACK_URL="https://example.invalid/papercut-silma-linux-x64-cpu.tar.bz2" \
-PAPERCUT_SILMA_RUNTIME_PACK_SHA256="<sha256>" \
-PAPERCUT_SILMA_RUNTIME_PACK_BYTES="<bytes>" \
-PAPERCUT_ENABLE_SILMA_TTS=1 \
-npm run tauri:dev
+```text
+src-tauri/tts/silma-runtime-packs.json
 ```
 
-The archive must extract so `current/` contains the expected Linux worker path:
+Copy the release artifact URL, `sha256`, and `archiveBytes` into that manifest.
+The current checked-in entry has an empty URL, so public runtime download stays
+disabled until real release metadata exists.
+
+The archive must extract so `current/` contains the expected worker path:
 
 ```text
 silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu
@@ -923,15 +917,16 @@ Exit criteria:
 - [x] Add SILMA model status/manual local-file detection.
 - [x] Add SILMA runtime-pack status detection.
 - [x] Add local SILMA runtime-pack install/promotion into app data.
-- [x] Add env-pinned SILMA runtime-pack archive download, SHA-256 verification,
+- [x] Add manifest-backed SILMA runtime-pack archive download, SHA-256 verification,
       extraction, self-test, and promotion.
 - [x] Add local SILMA runtime-pack archive packaging with a SHA-256 manifest.
 - [x] Resume interrupted SILMA runtime-pack archive downloads when the server
       supports range requests.
-- [ ] Add SILMA in-app install support.
-- [ ] Add SILMA runtime-pack download support.
-- [ ] Pin source revision and hashes.
-- [ ] Download to app data.
+- [x] Add SILMA runtime-pack download support behind checked release metadata.
+- [ ] Fill checked SILMA runtime-pack release metadata.
+- [ ] Add SILMA model-file in-app install support.
+- [ ] Pin model-file source revision and hashes.
+- [ ] Download model files to app data.
 - [ ] Validate required files.
 
 Exit criteria:
