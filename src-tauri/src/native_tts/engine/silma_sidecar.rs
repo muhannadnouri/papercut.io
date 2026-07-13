@@ -6,11 +6,14 @@
 //! supervision come later.
 
 use std::fs;
+use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
 use bzip2::read::BzDecoder;
+use reqwest::header::RANGE;
+use reqwest::StatusCode;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use tauri::Manager;
@@ -385,7 +388,13 @@ pub(super) fn install_silma_runtime_pack(
     let work_dir = runtime_pack_work_dir(app)?;
     let staging_dir = work_dir.join("current.installing");
     let archive_path = work_dir.join("silma-runtime-pack.tar.bz2");
-    let _ = fs::remove_dir_all(&work_dir);
+    fs::create_dir_all(&work_dir).map_err(|err| {
+        format!(
+            "Failed to create SILMA runtime work directory {}: {err}",
+            work_dir.display()
+        )
+    })?;
+    let _ = fs::remove_dir_all(&staging_dir);
     fs::create_dir_all(&staging_dir).map_err(|err| {
         format!(
             "Failed to create SILMA runtime staging directory {}: {err}",
@@ -397,7 +406,10 @@ pub(super) fn install_silma_runtime_pack(
         SilmaRuntimePackSource::Directory(path) => copy_dir_contents(&path, &staging_dir)?,
         SilmaRuntimePackSource::Archive { url, sha256, bytes } => {
             download_runtime_pack_archive(&url, bytes, &archive_path, &mut on_download)?;
-            verify_runtime_pack_archive(&archive_path, &sha256)?;
+            if let Err(err) = verify_runtime_pack_archive(&archive_path, &sha256) {
+                let _ = fs::remove_file(&archive_path);
+                return Err(err);
+            }
             extract_runtime_pack_archive(&archive_path, &staging_dir)?;
         }
     }
@@ -536,36 +548,61 @@ fn silma_runtime_pack_default_source_dir() -> Option<PathBuf> {
     None
 }
 
-/// Download a pinned runtime-pack archive, emitting coarse byte progress.
+/// Download a pinned runtime-pack archive, resuming partial cache files when the server allows it.
 fn download_runtime_pack_archive(
     url: &str,
     expected_bytes: u64,
     archive_path: &Path,
     on_download: &mut impl FnMut(u64, u64),
 ) -> Result<(), String> {
+    let resume_from = runtime_archive_resume_offset(archive_path, expected_bytes)?;
+    let expected_total = if expected_bytes > 0 {
+        expected_bytes
+    } else {
+        resume_from
+    };
+    if expected_bytes > 0 && resume_from == expected_bytes {
+        on_download(resume_from, expected_bytes);
+        return Ok(());
+    }
+
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(60 * 60))
         .user_agent("Papercut SILMA runtime installer")
         .build()
         .map_err(|err| format!("Failed to create SILMA runtime downloader: {err}"))?;
-    let mut response = client
-        .get(url)
+    let mut request = client.get(url);
+    if resume_from > 0 {
+        request = request.header(RANGE, format!("bytes={resume_from}-"));
+    }
+    let mut response = request
         .send()
         .map_err(|err| format!("Failed to download SILMA runtime pack from {url}: {err}"))?
         .error_for_status()
         .map_err(|err| format!("Failed to download SILMA runtime pack from {url}: {err}"))?;
-    let total = response.content_length().unwrap_or(expected_bytes);
-    let file = fs::File::create(archive_path).map_err(|err| {
-        format!(
-            "Failed to create SILMA runtime archive {}: {err}",
-            archive_path.display()
-        )
-    })?;
+    let appending = resume_from > 0 && response.status() == StatusCode::PARTIAL_CONTENT;
+    let mut downloaded = if appending { resume_from } else { 0 };
+    let total = response
+        .content_length()
+        .map(|length| length.saturating_add(downloaded))
+        .filter(|value| *value > 0)
+        .unwrap_or(expected_total);
+    let file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .append(appending)
+        .truncate(!appending)
+        .open(archive_path)
+        .map_err(|err| {
+            format!(
+                "Failed to create SILMA runtime archive {}: {err}",
+                archive_path.display()
+            )
+        })?;
     let mut writer = BufWriter::new(file);
-    let mut downloaded = 0u64;
-    let mut last_percent = 0u8;
+    let mut last_percent = download_percent(downloaded, total);
     let mut buffer = [0u8; 256 * 1024];
-    on_download(0, total);
+    on_download(downloaded, total);
     loop {
         let read = response
             .read(&mut buffer)
@@ -593,6 +630,24 @@ fn download_runtime_pack_archive(
         )
     })?;
     Ok(())
+}
+
+/// Return the cached archive byte count that is safe to resume from.
+fn runtime_archive_resume_offset(archive_path: &Path, expected_bytes: u64) -> Result<u64, String> {
+    let Ok(metadata) = fs::metadata(archive_path) else {
+        return Ok(0);
+    };
+    let size = metadata.len();
+    if expected_bytes > 0 && size > expected_bytes {
+        fs::remove_file(archive_path).map_err(|err| {
+            format!(
+                "Failed to remove oversized SILMA runtime archive {}: {err}",
+                archive_path.display()
+            )
+        })?;
+        return Ok(0);
+    }
+    Ok(size)
 }
 
 /// Verify the downloaded runtime-pack archive before extraction.

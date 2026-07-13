@@ -402,6 +402,8 @@ Current runtime-pack install slice:
 
 - the SILMA install button can promote a prepared PyInstaller onedir into the
   app-data runtime-pack slot;
+- `npm run package:silma-runtime` can archive the prepared onedir and emit a
+  JSON manifest with SHA-256 and byte size;
 - source lookup checks `PAPERCUT_SILMA_RUNTIME_PACK_DIR` first;
 - next, source lookup can use an env-pinned
   `.tar.bz2` runtime pack with `PAPERCUT_SILMA_RUNTIME_PACK_URL`,
@@ -413,6 +415,9 @@ Current runtime-pack install slice:
   `--self-test`, and atomically promotes it to `current/`;
 - archive install downloads to cache, verifies SHA-256, extracts to the same
   staging directory, runs the same `--self-test`, and promotes the same way;
+- archive downloads resume from the cached partial `.tar.bz2` when the server
+  supports HTTP range requests. Extraction staging is still cleared on each
+  attempt, so interrupted installs cannot become active runtimes;
 - this is not the final public manifest yet. It validates the on-disk layout,
   hash-gated download path, and app-data launch path the release downloader will
   use.
@@ -421,10 +426,21 @@ Local runtime-pack install prep:
 
 ```bash
 npm run prepare:silma-sidecar -- --self-test
+npm run package:silma-runtime
 ```
 
 Then launch the dev app without `PAPERCUT_SILMA_WORKER_BIN`; the SILMA install
 button can copy that prepared runtime into app data.
+
+The package command writes:
+
+```text
+sidecars/silma/runtime/x86_64-unknown-linux-gnu/archive/papercut-silma-runtime-linux-x64-cpu.tar.bz2
+sidecars/silma/runtime/x86_64-unknown-linux-gnu/archive/papercut-silma-runtime-linux-x64-cpu.manifest.json
+```
+
+Use the manifest's `sha256` and `archiveBytes` fields as the env-pinned install
+values while the public release manifest is still being built.
 
 Runtime-pack archive install spike:
 
@@ -909,6 +925,9 @@ Exit criteria:
 - [x] Add local SILMA runtime-pack install/promotion into app data.
 - [x] Add env-pinned SILMA runtime-pack archive download, SHA-256 verification,
       extraction, self-test, and promotion.
+- [x] Add local SILMA runtime-pack archive packaging with a SHA-256 manifest.
+- [x] Resume interrupted SILMA runtime-pack archive downloads when the server
+      supports range requests.
 - [ ] Add SILMA in-app install support.
 - [ ] Add SILMA runtime-pack download support.
 - [ ] Pin source revision and hashes.

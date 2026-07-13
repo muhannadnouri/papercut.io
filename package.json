@@ -17,6 +17,7 @@
     "desktop": "node scripts/build-desktop.js",
     "desktop:static": "node scripts/build-desktop.js --static",
     "prepare:silma-sidecar": "node scripts/prepare-silma-sidecar.js",
+    "package:silma-runtime": "node scripts/package-silma-runtime-pack.js",
     "verify:appimage-media": "node scripts/verify-appimage-media.js",
     "android:apk": "node scripts/build-android.js",
     "android:apk:native-tts": "node scripts/build-android.js --native-tts",
