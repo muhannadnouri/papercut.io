@@ -24,6 +24,13 @@ pub(super) struct SilmaSynthesisResult {
     pub(super) synthesis_ms: u128,
 }
 
+pub(super) struct SilmaLoadResult {
+    pub(super) sample_rate: i32,
+    pub(super) device: String,
+    pub(super) torch_threads: i32,
+    pub(super) torch_interop_threads: i32,
+}
+
 impl SilmaSidecar {
     /// Start the local worker used by development probes and early routing.
     pub(super) fn start_dev() -> Result<Self, String> {
@@ -93,16 +100,36 @@ impl SilmaSidecar {
     }
 
     /// Load SILMA once in the worker and return the sample rate it reports.
-    pub(super) fn load_model(&mut self, model_dir: &Path) -> Result<i32, String> {
+    pub(super) fn load_model(
+        &mut self,
+        model_dir: &Path,
+        torch_threads: i32,
+    ) -> Result<SilmaLoadResult, String> {
         let response = self.request(serde_json::json!({
             "id": "load_model",
             "op": "load_model",
             "model_dir": model_dir.display().to_string(),
+            "torch_threads": torch_threads,
         }))?;
-        Ok(response
-            .get("sample_rate")
-            .and_then(Value::as_i64)
-            .unwrap_or(24_000) as i32)
+        Ok(SilmaLoadResult {
+            sample_rate: response
+                .get("sample_rate")
+                .and_then(Value::as_i64)
+                .unwrap_or(24_000) as i32,
+            device: response
+                .get("device")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown")
+                .to_string(),
+            torch_threads: response
+                .get("torch_threads")
+                .and_then(Value::as_i64)
+                .unwrap_or(torch_threads as i64) as i32,
+            torch_interop_threads: response
+                .get("torch_interop_threads")
+                .and_then(Value::as_i64)
+                .unwrap_or(0) as i32,
+        })
     }
 
     /// Ask the loaded worker to synthesize one WAV at the exact path provided.
@@ -111,18 +138,21 @@ impl SilmaSidecar {
         text: &str,
         output_wav: &Path,
         speed: f32,
+        nfe_step: i32,
     ) -> Result<SilmaSynthesisResult, String> {
         let speed = if speed.is_finite() && speed > 0.0 {
             speed
         } else {
             1.0
         };
+        let nfe_step = normalize_silma_nfe_step(nfe_step);
         let response = self.request(serde_json::json!({
             "id": "synthesize",
             "op": "synthesize",
             "text": text,
             "output_wav": output_wav.display().to_string(),
             "speed": speed,
+            "nfe_step": nfe_step,
         }))?;
         Ok(SilmaSynthesisResult {
             audio_duration_sec: response
@@ -233,4 +263,11 @@ fn silma_python_command() -> String {
             "python3".into()
         }
     })
+}
+
+pub(super) fn normalize_silma_nfe_step(step: i32) -> i32 {
+    match step {
+        4 | 8 | 12 | 16 => step,
+        _ => 16,
+    }
 }

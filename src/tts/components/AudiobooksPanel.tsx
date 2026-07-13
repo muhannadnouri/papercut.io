@@ -21,6 +21,7 @@ interface ActiveAudiobookSave {
   textPreprocessor: string
   voice: TtsVoice
   speed: number
+  silmaNfeStep?: number
   dtype: TtsDtype
 }
 
@@ -190,7 +191,7 @@ export function AudiobooksPanel({
                 <span className="audiobook-meta">{downloadState.cachedChunks}/{downloadState.totalChunks}</span>
               </div>
               <div className="audiobook-status-text">
-                {activeDownload ? formatAudiobookVoiceMeta(activeDownload.modelId, activeDownload.voice, activeDownload.speed, activeDownload.dtype, activeDownload.textPreprocessor) + ' - ' : ''}{formatDownloadSavedStatus(downloadState.audioDurationSec, activePercent, downloadState.wavBytes)}
+                {activeDownload ? formatAudiobookVoiceMeta(activeDownload.modelId, activeDownload.voice, activeDownload.speed, activeDownload.dtype, activeDownload.textPreprocessor, activeDownload.silmaNfeStep) + ' - ' : ''}{formatDownloadSavedStatus(downloadState.audioDurationSec, activePercent, downloadState.wavBytes)}
               </div>
               <div className="audio-progress-meter" aria-label={'Saving audiobook ' + activePercent + '% complete'}>
                 <span style={{ width: activePercent + '%' }} />
@@ -212,7 +213,7 @@ export function AudiobooksPanel({
                     <span className="audiobook-meta">{record.cachedChunks}/{record.totalChunks}</span>
                   </div>
                   <div className="audiobook-status-text">
-                    {formatAudiobookVoiceMeta(record.modelId, record.voice, record.speed, record.dtype, record.textPreprocessor) + ' - ' + formatDownloadSavedStatus(record.audioDurationSec, percent, record.wavBytes)}
+                    {formatAudiobookVoiceMeta(record.modelId, record.voice, record.speed, record.dtype, record.textPreprocessor, record.silmaNfeStep) + ' - ' + formatDownloadSavedStatus(record.audioDurationSec, percent, record.wavBytes)}
                   </div>
                   <div className="audio-progress-meter" aria-label={'Audiobook save ' + percent + '% complete'}>
                     <span style={{ width: percent + '%' }} />
@@ -386,6 +387,7 @@ function formatAudioSetupSummary(audioSetup: AudioSetupPanelProps): string {
     '🔊 ' + (voice?.name ?? audioSetup.voice),
     '⚡ ' + formatSpeedLabel(audioSetup.speed),
   ]
+  if (model?.family === 'silma-f5') pieces.push('🎚️ NFE ' + audioSetup.silmaNfeStep)
 
   const installSummary = formatModelInstallSummary(audioSetup.modelInstallProgress)
   if (installSummary) {

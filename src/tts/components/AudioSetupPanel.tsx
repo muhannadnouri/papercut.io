@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { NativeTtsModelInstallProgress, NativeTtsModelStatus } from '../api/nativeTts'
-import type { TextPreprocessorInfo, TtsModelInfo, TtsVoice, TtsVoiceInfo } from '../types'
+import { SILMA_NFE_STEP_OPTIONS, type TextPreprocessorInfo, type TtsModelInfo, type TtsVoice, type TtsVoiceInfo } from '../types'
 import { formatSpeedLabel } from '../utils/format'
 
 const HIGH_THREAD_COUNT_WARNING_THRESHOLD = 4
@@ -47,12 +47,14 @@ export interface AudioSetupPanelProps {
   onInstallModel: () => void
   onModelChange: (modelId: string) => void
   onProbeSilmaSidecar?: () => void
+  onSilmaNfeStepChange: (nfeStep: number) => void
   onSpeedChange: (speed: number) => void
   onTextPreprocessorChange: (textPreprocessor: string) => void
   onThreadCountChange: (threadCount: number) => void
   onVoiceChange: (voice: TtsVoice) => void
   speed: number
   silmaProbeRunning?: boolean
+  silmaNfeStep: number
   textPreprocessor: string
   textPreprocessors: TextPreprocessorInfo[]
   threadCount: number
@@ -73,12 +75,14 @@ export function AudioSetupPanel({
   onInstallModel,
   onModelChange,
   onProbeSilmaSidecar,
+  onSilmaNfeStepChange,
   onSpeedChange,
   onTextPreprocessorChange,
   onThreadCountChange,
   onVoiceChange,
   speed,
   silmaProbeRunning = false,
+  silmaNfeStep,
   textPreprocessor,
   textPreprocessors,
   threadCount,
@@ -98,6 +102,7 @@ export function AudioSetupPanel({
   const hasTextProcessing = textPreprocessors.length > 1
   const selectedModel = models.find((model) => model.id === modelId) ?? models[0]
   const modelInstallSupported = modelStatus?.installSupported ?? (selectedModel?.family !== 'silma-f5')
+  const isSilmaModel = selectedModel?.family === 'silma-f5'
   const selectedLanguage = selectedModel ? getLanguageOption(selectedModel).value : ''
   const languageOptions = models.reduce<SelectOption[]>((options, model) => {
     const languageOption = getLanguageOption(model)
@@ -294,6 +299,23 @@ export function AudioSetupPanel({
             </span>
           )}
         </SelectField>
+        {isSilmaModel && (
+          <SelectField
+            className="audio-field-silma-quality"
+            label="🎚️ SILMA Quality"
+            title="SILMA diffusion steps"
+            value={silmaNfeStep}
+            options={SILMA_NFE_STEP_OPTIONS.map((step) => ({
+              label: silmaNfeStepLabel(step),
+              value: step,
+            }))}
+            onChange={(value) => onSilmaNfeStepChange(Number(value))}
+          >
+            <span className="audio-thread-meta">
+              Higher steps usually sound better and run slower; lower steps are for benchmarking.
+            </span>
+          </SelectField>
+        )}
         <label className="audio-field audio-field-diagnostics" title="Show TTS diagnostic events and model source details">
           <span>🧪 Diagnostics</span>
           <span className="audio-diagnostics-control">
@@ -324,6 +346,13 @@ export function AudioSetupPanel({
       </section>
     </div>
   )
+}
+
+function silmaNfeStepLabel(step: number): string {
+  if (step === 16) return 'High Quality (16)'
+  if (step === 12) return 'Balanced (12)'
+  if (step === 8) return 'Fast (8)'
+  return 'Fastest (' + step + ')'
 }
 
 function SelectField({

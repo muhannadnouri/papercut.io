@@ -59,6 +59,8 @@ const result = runSync(
     "silma_tts",
     "--hidden-import",
     "transformers.pipelines",
+    "--exclude-module",
+    "torchcodec",
     WORKER,
   ],
   { cwd: ROOT },

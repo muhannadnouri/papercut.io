@@ -21,7 +21,7 @@ use sherpa_onnx::{
 
 use super::models::{model_definition, ModelDefinition, SherpaModelFamily, TtsModelBackend};
 use super::paths::{audio_duration_sec, resolve_model_dir};
-use super::silma_sidecar::SilmaSidecar;
+use super::silma_sidecar::{normalize_silma_nfe_step, SilmaSidecar};
 use super::text_normalization::{normalize_english_synthesis_text, sanitize_tts_text};
 use super::wav_sink::{
     commit_synthesis_wav, write_silent_placeholder, FileSynthesisResult, SILENT_PLACEHOLDER_SEC,
@@ -38,17 +38,19 @@ pub(crate) struct SherpaTtsEngine {
     pub(super) num_threads: i32,
 }
 
-/// Loaded SILMA worker plus the model directory it was initialized with.
-#[allow(dead_code)]
+/// Loaded SILMA worker plus the runtime settings that decide whether it can be
+/// reused for the next audiobook job.
 pub(crate) struct SilmaTtsEngine {
     pub(super) sidecar: SilmaSidecar,
     pub(super) model: &'static ModelDefinition,
     pub(super) model_dir: std::path::PathBuf,
     pub(super) sample_rate: i32,
+    pub(super) device: String,
+    pub(super) torch_threads: i32,
+    pub(super) torch_interop_threads: i32,
 }
 
-/// Single runtime engine slot. Only sherpa synthesis is implemented today; the
-/// SILMA variant proves load/retention before chunk generation is wired.
+/// Single runtime engine slot shared by all native audiobook jobs.
 pub(crate) enum LoadedTtsEngine {
     Sherpa(SherpaTtsEngine),
     Silma(SilmaTtsEngine),
@@ -70,11 +72,17 @@ impl LoadedTtsEngine {
 
     /// Return the loaded SILMA worker only when it matches the requested model
     /// and model directory; otherwise the caller must start/load a fresh worker.
-    #[allow(dead_code)]
-    fn matching_silma(&self, model_id: &str, model_dir: &Path) -> Option<&SilmaTtsEngine> {
+    fn matching_silma(
+        &self,
+        model_id: &str,
+        model_dir: &Path,
+        torch_threads: i32,
+    ) -> Option<&SilmaTtsEngine> {
         match self {
             LoadedTtsEngine::Silma(engine)
-                if engine.model.id == model_id && engine.model_dir.as_path() == model_dir =>
+                if engine.model.id == model_id
+                    && engine.model_dir.as_path() == model_dir
+                    && engine.torch_threads == torch_threads =>
             {
                 Some(engine)
             }
@@ -124,11 +132,11 @@ pub(super) fn ensure_sherpa_engine<'a>(
 }
 
 /// Start/load a SILMA worker into the shared engine slot.
-#[allow(dead_code)]
 pub(super) fn ensure_silma_engine<'a>(
     app: &tauri::AppHandle,
     guard: &'a mut Option<LoadedTtsEngine>,
     model_id: &str,
+    thread_count: Option<i32>,
 ) -> Result<&'a SilmaTtsEngine, String> {
     let model = model_definition(model_id)?;
     if !matches!(model.backend, TtsModelBackend::SilmaSidecar) {
@@ -138,25 +146,29 @@ pub(super) fn ensure_silma_engine<'a>(
         ));
     }
     let model_dir = resolve_model_dir(app, model)?;
+    let requested_threads = resolve_thread_count(thread_count);
     let should_create = guard
         .as_ref()
-        .and_then(|engine| engine.matching_silma(model.id, &model_dir))
+        .and_then(|engine| engine.matching_silma(model.id, &model_dir, requested_threads))
         .is_none();
 
     if should_create {
         let mut sidecar = SilmaSidecar::start_dev()?;
-        let sample_rate = sidecar.load_model(&model_dir)?;
+        let load = sidecar.load_model(&model_dir, requested_threads)?;
         *guard = Some(LoadedTtsEngine::Silma(SilmaTtsEngine {
             sidecar,
             model,
             model_dir: model_dir.clone(),
-            sample_rate,
+            sample_rate: load.sample_rate,
+            device: load.device,
+            torch_threads: load.torch_threads,
+            torch_interop_threads: load.torch_interop_threads,
         }));
     }
 
     guard
         .as_ref()
-        .and_then(|engine| engine.matching_silma(model.id, &model_dir))
+        .and_then(|engine| engine.matching_silma(model.id, &model_dir, requested_threads))
         .ok_or_else(|| "Native SILMA sidecar engine unavailable".to_string())
 }
 
@@ -215,6 +227,7 @@ pub(super) fn synthesize_silma_to_file(
     text: &str,
     voice: &str,
     speed: f32,
+    nfe_step: i32,
     output_path: &Path,
 ) -> Result<FileSynthesisResult, String> {
     engine.model.speaker_id(voice)?;
@@ -227,7 +240,12 @@ pub(super) fn synthesize_silma_to_file(
 
     let mut sidecar_synthesis_ms = 0;
     let result = commit_synthesis_wav(started, 0, output_path, |temp_path| {
-        let sidecar_result = engine.sidecar.synthesize_to_wav(text, temp_path, speed)?;
+        let sidecar_result = engine.sidecar.synthesize_to_wav(
+            text,
+            temp_path,
+            speed,
+            normalize_silma_nfe_step(nfe_step),
+        )?;
         sidecar_synthesis_ms = sidecar_result.synthesis_ms;
         Ok(sidecar_result.audio_duration_sec)
     })?;

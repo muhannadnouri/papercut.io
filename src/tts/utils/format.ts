@@ -38,10 +38,14 @@ export function formatAudiobookVoiceMeta(
   speed: number,
   dtype: string,
   textPreprocessor?: string,
+  silmaNfeStep?: number,
 ): string {
+  const model = getTtsModel(FALLBACK_TTS_MODELS, modelId)
   const voiceName = getTtsVoiceName(FALLBACK_TTS_MODELS, modelId, voice)
-  const processingLabel = textPreprocessor === LIBTASHKEEL_TEXT_PREPROCESSOR ? ' • Arabic tashkeel' : ''
-  return 'Voice 🔊 ' + voiceName + ' • ⚡' + formatSpeedLabel(speed) + ' • ' + dtype + processingLabel
+  const parts = ['Voice 🔊 ' + voiceName, '⚡' + formatSpeedLabel(speed), dtype]
+  if (model.family === 'silma-f5' && silmaNfeStep) parts.push('NFE ' + silmaNfeStep)
+  if (textPreprocessor === LIBTASHKEEL_TEXT_PREPROCESSOR) parts.push('Arabic tashkeel')
+  return parts.join(' • ')
 }
 
 export function formatSavedAudiobookMeta(

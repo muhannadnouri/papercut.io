@@ -7,6 +7,7 @@ Stdout is protocol only. Logs go to stderr.
 from __future__ import annotations
 
 import argparse
+import importlib.metadata
 import importlib.util
 import json
 import sys
@@ -14,6 +15,7 @@ import tempfile
 import time
 import traceback
 import wave
+from contextlib import redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -31,6 +33,9 @@ class LoadedModel:
     engine: Any
     model_dir: str | None
     sample_rate: int
+    device: str
+    torch_threads: int
+    torch_interop_threads: int
 
 
 class Worker:
@@ -66,6 +71,7 @@ class Worker:
         model_dir_str = str(model_dir) if model_dir else None
 
         SilmaTTS = import_silma_tts()
+        torch_settings = configure_torch(request.get("torch_threads"))
 
         kwargs: dict[str, Any] = {}
         if model_dir_str:
@@ -79,11 +85,22 @@ class Worker:
         engine = SilmaTTS(**kwargs)
         load_ms = round((time.perf_counter() - started) * 1000)
         sample_rate = int(getattr(engine, "target_sample_rate", 24000))
-        self.loaded = LoadedModel(engine=engine, model_dir=model_dir_str, sample_rate=sample_rate)
+        device = str(getattr(engine, "device", "unknown"))
+        self.loaded = LoadedModel(
+            engine=engine,
+            model_dir=model_dir_str,
+            sample_rate=sample_rate,
+            device=device,
+            torch_threads=torch_settings["torch_threads"],
+            torch_interop_threads=torch_settings["torch_interop_threads"],
+        )
         return self.ok(
             request_id,
             model_dir=model_dir_str,
             sample_rate=sample_rate,
+            device=device,
+            torch_threads=torch_settings["torch_threads"],
+            torch_interop_threads=torch_settings["torch_interop_threads"],
             load_ms=load_ms,
         )
 
@@ -94,7 +111,10 @@ class Worker:
 
         text = required_str(request, "text").strip()
         output_wav = Path(required_str(request, "output_wav"))
+        engine_output_wav = encoder_wav_path(output_wav)
         output_wav.parent.mkdir(parents=True, exist_ok=True)
+        if engine_output_wav != output_wav:
+            engine_output_wav.unlink(missing_ok=True)
         ref_file = request.get("ref_file")
         ref_text = request.get("ref_text", DEFAULT_REF_TEXT)
 
@@ -108,13 +128,16 @@ class Worker:
             ref_file=str(ref_file),
             ref_text=str(ref_text),
             gen_text=text,
-            file_wave=str(output_wav),
+            file_wave=str(engine_output_wav),
             seed=request.get("seed"),
             speed=float(request.get("speed", 1.0)),
+            nfe_step=silma_nfe_step(request.get("nfe_step")),
             normalize_numbers=bool(request.get("normalize_numbers", True)),
             force_tashkeel=bool(request.get("force_tashkeel", True)),
         )
         synthesis_ms = round((time.perf_counter() - started) * 1000)
+        if engine_output_wav != output_wav:
+            engine_output_wav.replace(output_wav)
         info = wav_info(output_wav)
         return self.ok(
             request_id,
@@ -122,6 +145,7 @@ class Worker:
             audio_duration_sec=info["audio_duration_sec"],
             wav_bytes=info["wav_bytes"],
             synthesis_ms=synthesis_ms,
+            nfe_step=silma_nfe_step(request.get("nfe_step")),
         )
 
     def write_probe_wav(self, request_id: str, request: dict[str, Any]) -> dict[str, Any]:
@@ -161,6 +185,42 @@ def required_str(request: dict[str, Any], key: str) -> str:
     return value
 
 
+def encoder_wav_path(output_wav: Path) -> Path:
+    """Return a .wav staging path for encoders that infer format from extension."""
+    if output_wav.suffix.lower() == ".wav":
+        return output_wav
+    return Path(str(output_wav) + ".wav")
+
+
+def silma_nfe_step(value: Any) -> int:
+    """Clamp SILMA diffusion steps to the small set exposed by the UI."""
+    try:
+        step = int(value)
+    except (TypeError, ValueError):
+        return 16
+    return step if step in {4, 8, 12, 16} else 16
+
+
+def configure_torch(torch_threads: Any) -> dict[str, int]:
+    """Apply CPU thread settings before loading SILMA's PyTorch models."""
+    import torch
+
+    try:
+        requested_threads = int(torch_threads)
+    except (TypeError, ValueError):
+        requested_threads = torch.get_num_threads()
+    requested_threads = max(1, requested_threads)
+    torch.set_num_threads(requested_threads)
+    try:
+        torch.set_num_interop_threads(1)
+    except RuntimeError:
+        pass
+    return {
+        "torch_threads": int(torch.get_num_threads()),
+        "torch_interop_threads": int(torch.get_num_interop_threads()),
+    }
+
+
 def import_silma_tts() -> Any:
     """Import SILMA with an actionable setup hint when the sidecar venv is missing."""
     if importlib.util.find_spec("silma_tts") is None:
@@ -187,6 +247,12 @@ def ensure_transformers_pipeline() -> None:
     """Force PyInstaller to include the lazy Transformers pipeline export SILMA imports."""
     try:
         from transformers.pipelines import pipeline as _pipeline
+    except importlib.metadata.PackageNotFoundError as exc:
+        raise RuntimeError(
+            "Packaged SILMA dependency metadata is missing while importing "
+            f"transformers.pipelines: {exc}. Rebuild the sidecar with "
+            "scripts/prepare-silma-sidecar.js."
+        ) from exc
     except ModuleNotFoundError as exc:
         raise RuntimeError(
             "SILMA dependency is missing: transformers.pipelines. "
@@ -214,16 +280,18 @@ def wav_info(path: Path) -> dict[str, Any]:
 def run_jsonl() -> int:
     """Run the stdin/stdout JSONL loop used by Rust's sidecar supervisor."""
     worker = Worker()
+    protocol_stdout = sys.stdout
     for line in sys.stdin:
         try:
             request = json.loads(line)
             if not isinstance(request, dict):
                 raise ValueError("request must be a JSON object")
-            response = worker.handle(request)
+            with redirect_stdout(sys.stderr):
+                response = worker.handle(request)
         except Exception as exc:  # noqa: BLE001 - malformed protocol input still returns JSON.
             traceback.print_exc(file=sys.stderr)
             response = {"id": "", "ok": False, "error": str(exc)}
-        print(json.dumps(response, ensure_ascii=False), flush=True)
+        print(json.dumps(response, ensure_ascii=False), file=protocol_stdout, flush=True)
         if response.get("ok") and response.get("shutdown"):
             return 0
     return 0
@@ -237,6 +305,11 @@ def run_self_test() -> int:
     probe = worker.handle({"id": "2", "op": "write_probe_wav", "output_wav": str(probe_path)})
     assert probe["ok"] is True and probe["wav_bytes"] > 44
     probe_path.unlink(missing_ok=True)
+    assert encoder_wav_path(Path("chunk.wav")) == Path("chunk.wav")
+    assert encoder_wav_path(Path("chunk.tmp")) == Path("chunk.tmp.wav")
+    assert silma_nfe_step(4) == 4
+    assert silma_nfe_step("12") == 12
+    assert silma_nfe_step(3) == 16
     missing = worker.handle({"id": "3", "op": "synthesize", "text": "x", "output_wav": "x.wav"})
     assert missing["ok"] is False and "not loaded" in missing["error"]
     unknown = worker.handle({"id": "4", "op": "wat"})
@@ -277,12 +350,14 @@ def run_smoke(args: argparse.Namespace) -> int:
         synth_request["ref_text"] = args.ref_text
 
     started = time.perf_counter()
-    load = worker.handle(load_request)
+    with redirect_stdout(sys.stderr):
+        load = worker.handle(load_request)
     if not load.get("ok"):
         print(json.dumps({"ok": False, "stage": "load_model", "response": load}, ensure_ascii=False))
         return 1
 
-    synth = worker.handle(synth_request)
+    with redirect_stdout(sys.stderr):
+        synth = worker.handle(synth_request)
     if not synth.get("ok"):
         print(json.dumps({"ok": False, "stage": "synthesize", "load": load, "response": synth}, ensure_ascii=False))
         return 1

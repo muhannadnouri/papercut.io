@@ -148,6 +148,10 @@
   grid-column: 1;
 }
 
+.audio-field-silma-quality {
+  grid-column: 2;
+}
+
 .audio-field-diagnostics {
   grid-column: 2;
 }
@@ -1122,6 +1126,7 @@
   .audio-model-install,
   .audio-field-text-processing,
   .audio-field-threads,
+  .audio-field-silma-quality,
   .audio-field-diagnostics,
   .audio-field-silma-probe {
     grid-column: 1 / -1;

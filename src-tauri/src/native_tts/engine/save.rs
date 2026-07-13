@@ -27,6 +27,7 @@ use super::models::{model_definition, TtsModelBackend};
 use super::paths::{audiobook_dir, chunk_path, speakable_chunks};
 use super::preprocess::TextPreprocessor;
 use super::prune::{prune_orphan_chunk_files, prune_stale_temp_files};
+use super::silma_sidecar::normalize_silma_nfe_step;
 use super::synth::{
     ensure_sherpa_engine, ensure_silma_engine, synthesize_silma_to_file, synthesize_to_file,
     LoadedTtsEngine,
@@ -198,18 +199,30 @@ fn save_audiobook_native_blocking(
             )
         }
         TtsModelBackend::SilmaSidecar => {
-            let engine = ensure_silma_engine(&app, &mut guard, &request.model_id)?;
+            let engine =
+                ensure_silma_engine(&app, &mut guard, &request.model_id, request.thread_count)?;
             format!(
-                "{}:{}:{}:sample_rate={}",
+                "{}:{}:{}:sample_rate={}:device={}:torch_threads={}:torch_interop={}",
                 engine.model.backend_name(),
                 engine.model.id,
                 engine.model_dir.display(),
-                engine.sample_rate
+                engine.sample_rate,
+                engine.device,
+                engine.torch_threads,
+                engine.torch_interop_threads,
             )
         }
     };
     let text_preprocessor = TextPreprocessor::create(model, &request.text_preprocessor)?;
-    let backend = format!("{backend}:preprocessor={}", text_preprocessor.id());
+    let silma_nfe_step = normalize_silma_nfe_step(request.silma_nfe_step.unwrap_or(16));
+    let backend = match model.backend {
+        TtsModelBackend::SilmaSidecar => format!(
+            "{backend}:preprocessor={}:nfe={}",
+            text_preprocessor.id(),
+            silma_nfe_step
+        ),
+        TtsModelBackend::SherpaOnnx => format!("{backend}:preprocessor={}", text_preprocessor.id()),
+    };
 
     for (index, chunk) in chunks.iter().enumerate() {
         // Cooperative cancellation: bail out cleanly between chunks if asked.
@@ -319,6 +332,7 @@ fn save_audiobook_native_blocking(
                     &synthesis_text,
                     &request.voice,
                     request.speed,
+                    silma_nfe_step,
                     &output_path,
                 ),
                 _ => Err("Native SILMA sidecar engine unavailable".into()),

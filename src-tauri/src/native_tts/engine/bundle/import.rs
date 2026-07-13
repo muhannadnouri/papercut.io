@@ -232,6 +232,7 @@ pub(crate) fn import_audiobook_native(
         voice: manifest.voice.clone(),
         speed: manifest.speed,
         thread_count: None,
+        silma_nfe_step: None,
     };
     write_manifest(&audiobook_dir, &save_request, &speakable, 0)?;
     // write_manifest invalidates old derived playback files. Commit staged bundle

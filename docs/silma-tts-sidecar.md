@@ -472,8 +472,11 @@ Packaged `load_model` note: SILMA imports `transformers.pipeline` through
 Transformers' lazy export path. The worker now imports
 `transformers.pipelines.pipeline` directly and the packaging script marks
 `transformers.pipelines` as a hidden import so PyInstaller includes that lazy
-module path. If `load_model` still fails, check the sidecar stderr traceback
-before adding more PyInstaller includes.
+module path. The package script also excludes top-level `torchcodec`; SILMA does
+not use that optional Transformers audio/video decoder path, and PyInstaller can
+otherwise freeze enough of it for Transformers to detect it without freezing its
+distribution metadata. If `load_model` still fails, check the sidecar stderr
+traceback before adding more PyInstaller includes.
 
 After changing worker/package imports, rebuild the packaged worker before
 testing the app:
@@ -573,6 +576,17 @@ the worker's `synthesize` op for missing chunks. The output still commits
 through Rust's shared WAV sink, so manifest/cache/export/playback can keep using
 the same saved-audiobook files as sherpa.
 
+The JSONL worker redirects third-party stdout from SILMA/Nemo/Transformers to
+stderr while handling requests. Rust reads stdout as strict one-line JSON, so
+model logs such as `Preloading nemo normalizers ...` must never appear on the
+protocol stream.
+
+Rust passes a `.tmp` staging path to the sidecar because all audiobook backends
+commit chunks through the shared atomic WAV sink. SILMA's Python writer infers
+format from the filename extension, so the worker writes to an internal
+`.tmp.wav` path and then renames it back to Rust's requested `.tmp` path before
+returning.
+
 Stage 2 SILMA synthesis status:
 
 - Save loop selects sherpa or SILMA from `ModelDefinition.backend`.
@@ -580,6 +594,14 @@ Stage 2 SILMA synthesis status:
   SILMA normalization/tashkeel path.
 - SILMA validates the selected Papercut voice id, then ignores the numeric
   speaker id because SILMA uses the reference voice path instead.
+- The existing thread selector is honored for SILMA by applying it to PyTorch
+  CPU inference threads before model construction. Changing the thread count
+  reloads the SILMA worker.
+- The UI exposes a SILMA-only quality selector for F5 diffusion steps:
+  `16` (default), `12`, `8`, and `4`. Lower values are for CPU benchmarking and
+  may reduce quality.
+- Native diagnostics include the SILMA backend label with device, PyTorch
+  threads, inter-op threads, preprocessor, and NFE step.
 - Still needs an end-to-end desktop save run with
   `PAPERCUT_ENABLE_SILMA_TTS=1`, `PAPERCUT_SILMA_MODEL_DIR=./.cache/silma-tts`,
   and `PAPERCUT_SILMA_PYTHON=./.venv-silma/bin/python`.
@@ -598,6 +620,9 @@ Stage 2 SILMA synthesis status:
 - [ ] Add install/download copy that warns about model size before download.
 - [ ] Add diagnostic labels that distinguish `sherpa-onnx-*` from
       `silma-sidecar`.
+- [x] Show SILMA-only CPU tuning controls when the SILMA model is selected:
+      PyTorch threads through the existing thread selector and F5 NFE step
+      through a compact quality selector.
 - [x] Hide the install button for model entries that the current app installer
       cannot download.
 
@@ -610,6 +635,8 @@ Stage 2 SILMA synthesis status:
 - [x] Add an optional packaged-worker `--self-test` to the prep script.
 - [x] Force-include the Transformers pipeline module needed by packaged
       `load_model`.
+- [x] Exclude optional `torchcodec` from the packaged worker after Transformers
+      detected it without metadata.
 - [ ] Integrate sidecar prep into `scripts/build-desktop.js` behind a feature or
       build flag.
 - [ ] Keep Android and iOS build scripts untouched except for explicit exclusion.
@@ -647,6 +674,9 @@ Performance tests:
 - [ ] cold worker startup time;
 - [ ] model load time;
 - [ ] warm chunk real-time factor;
+- [ ] compare SILMA NFE `16`, `12`, `8`, and `4` on the same Arabic sample;
+- [ ] compare SILMA PyTorch thread counts `1`, `2`, `4`, and detected max on
+      the same Arabic sample;
 - [ ] peak memory;
 - [ ] package size;
 - [ ] long Arabic chapter save;

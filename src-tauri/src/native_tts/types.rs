@@ -210,6 +210,7 @@ pub(crate) struct NativeAudiobookSaveRequest {
     pub(crate) voice: String,
     pub(crate) speed: f32,
     pub(crate) thread_count: Option<i32>,
+    pub(crate) silma_nfe_step: Option<i32>,
 }
 
 #[derive(Debug, Deserialize)]

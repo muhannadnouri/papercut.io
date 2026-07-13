@@ -1,5 +1,5 @@
 import { createAudiobookId } from '../storage/AudiobookLibrary'
-import { resolveTextPreprocessor, type TtsModelInfo, type TtsOptions, type TtsChunk } from '../types'
+import { resolveSilmaNfeStep, resolveTextPreprocessor, type TtsModelInfo, type TtsOptions, type TtsChunk } from '../types'
 import { FALLBACK_TTS_MODELS } from '../models'
 
 const SAVE_PROGRESS_EVENT = 'tts-native-save-progress'
@@ -359,6 +359,7 @@ export async function saveNativeAudiobook(
       voice: input.options.voice,
       speed: input.options.speed,
       threadCount: input.options.threadCount,
+      silmaNfeStep: resolveSilmaNfeStep(input.options),
     },
   })
 }

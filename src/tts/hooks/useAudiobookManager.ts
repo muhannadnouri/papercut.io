@@ -36,7 +36,14 @@ import {
   type NativeTtsModelStatus,
 } from '../api/nativeTts'
 import { chunkAudiobookSaveHtmlWithSpans, type SpeechChunk } from '../utils/text'
-import { DEFAULT_TTS_SPEED, type TextPreprocessorId, type TtsDtype, type TtsVoice, type TtsChunk } from '../types'
+import {
+  DEFAULT_TTS_SPEED,
+  resolveSilmaNfeStep,
+  type TextPreprocessorId,
+  type TtsDtype,
+  type TtsVoice,
+  type TtsChunk,
+} from '../types'
 import { isUserUploadUrl, removeUserUpload, upsertUserUpload, type UserUploadDocument } from '../storage/UserUploads'
 import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 import { useAudiobookCache } from './useAudiobookCache'
@@ -78,6 +85,7 @@ export function useAudiobookManager({
   const [ttsWordHighlightEnabled, setTtsWordHighlightEnabled] = useState(initialAudioPreferences.wordHighlightEnabled)
   const [ttsTextPreprocessor, setTtsTextPreprocessor] = useState<TextPreprocessorId>(initialAudioPreferences.textPreprocessor)
   const [ttsThreadCount, setTtsThreadCount] = useState(1)
+  const [silmaNfeStep, setSilmaNfeStep] = useState(() => resolveSilmaNfeStep(initialAudioPreferences))
   const [ttsCapabilities, setTtsCapabilities] = useState<NativeTtsCapabilities | null>(null)
   const ttsDtype: TtsDtype = initialAudioPreferences.dtype
   const [ttsSaveChunks, setTtsSaveChunks] = useState<TtsChunk[] | null>(null)
@@ -87,7 +95,7 @@ export function useAudiobookManager({
   const [savedAudiobooks, setSavedAudiobooks] = useState<SavedAudiobookRecord[]>(() => getSavedAudiobooks())
   const [audioSavedOnly, setAudioSavedOnly] = useState(initialAudioPreferences.audioSavedOnly)
   const [audiobookDownloads, setAudiobookDownloads] = useState<AudiobookDownloadRecord[]>(() => getAudiobookDownloads())
-  const [audiobookDownload, setAudiobookDownload] = useState<{ title: string; url: string; modelId: string; textPreprocessor: string; voice: TtsVoice; speed: number; dtype: TtsDtype } | null>(null)
+  const [audiobookDownload, setAudiobookDownload] = useState<{ title: string; url: string; modelId: string; textPreprocessor: string; voice: TtsVoice; speed: number; dtype: TtsDtype; silmaNfeStep?: number } | null>(null)
   const [audiobookExport, setAudiobookExport] = useState<AudiobookExportState | null>(null)
   const [audiobookDelete, setAudiobookDelete] = useState<{ id: string; status: 'deleting' | 'deleted' | 'error'; message: string } | null>(null)
   const [audiobookImport, setAudiobookImport] = useState<{ status: 'idle' | 'importing' | 'imported' | 'cancelled' | 'error'; message: string }>({ status: 'idle', message: '' })
@@ -405,14 +413,15 @@ export function useAudiobookManager({
       speed: ttsSpeed,
       dtype: ttsDtype,
       threadCount: ttsThreadCount,
+      silmaNfeStep,
       documentUrl: selectedDoc,
       title: getDocumentTitle(selectedDoc),
     })
-  }, [checkSelectedAudiobook, getDocumentTitle, selectedDoc, ttsDtype, ttsModelId, ttsSaveChunks, ttsSpeed, ttsTextPreprocessor, ttsThreadCount, ttsVoice])
+  }, [checkSelectedAudiobook, getDocumentTitle, selectedDoc, silmaNfeStep, ttsDtype, ttsModelId, ttsSaveChunks, ttsSpeed, ttsTextPreprocessor, ttsThreadCount, ttsVoice])
 
   useEffect(() => {
-    saveAudioPreferences({ modelId: ttsModelId, voice: ttsVoice, textPreprocessor: ttsTextPreprocessor })
-  }, [ttsModelId, ttsTextPreprocessor, ttsVoice])
+    saveAudioPreferences({ modelId: ttsModelId, voice: ttsVoice, textPreprocessor: ttsTextPreprocessor, silmaNfeStep })
+  }, [silmaNfeStep, ttsModelId, ttsTextPreprocessor, ttsVoice])
 
   useEffect(() => {
     saveAudioPreferences({ playbackRate: ttsPlaybackRate })
@@ -438,6 +447,7 @@ export function useAudiobookManager({
         textPreprocessor: audiobookDownload.textPreprocessor,
         voice: audiobookDownload.voice,
         speed: audiobookDownload.speed,
+        silmaNfeStep: audiobookDownload.silmaNfeStep,
         dtype: audiobookDownload.dtype,
         status: 'saving',
         cachedChunks: downloadAudiobookState.cachedChunks,
@@ -457,6 +467,7 @@ export function useAudiobookManager({
         textPreprocessor: audiobookDownload.textPreprocessor,
         voice: audiobookDownload.voice,
         speed: audiobookDownload.speed,
+        silmaNfeStep: audiobookDownload.silmaNfeStep,
         dtype: audiobookDownload.dtype,
         status: 'paused',
         cachedChunks: downloadAudiobookState.cachedChunks,
@@ -476,6 +487,7 @@ export function useAudiobookManager({
         textPreprocessor: audiobookDownload.textPreprocessor,
         voice: audiobookDownload.voice,
         speed: audiobookDownload.speed,
+        silmaNfeStep: audiobookDownload.silmaNfeStep,
         dtype: audiobookDownload.dtype,
         status: 'error',
         cachedChunks: downloadAudiobookState.cachedChunks,
@@ -498,6 +510,7 @@ export function useAudiobookManager({
       textPreprocessor: audiobookDownload.textPreprocessor,
       voice: audiobookDownload.voice,
       speed: audiobookDownload.speed,
+      silmaNfeStep: audiobookDownload.silmaNfeStep,
       dtype: audiobookDownload.dtype,
       chunks: downloadAudiobookState.totalChunks,
       audioDurationSec: downloadAudiobookState.audioDurationSec,
@@ -508,6 +521,7 @@ export function useAudiobookManager({
       textPreprocessor: audiobookDownload.textPreprocessor,
       voice: audiobookDownload.voice,
       speed: audiobookDownload.speed,
+      silmaNfeStep: audiobookDownload.silmaNfeStep,
       dtype: audiobookDownload.dtype,
     })
     setSavedAudiobooks(getSavedAudiobooks())
@@ -575,10 +589,11 @@ export function useAudiobookManager({
       speed: ttsSpeed,
       dtype: ttsDtype,
       threadCount: ttsThreadCount,
+      silmaNfeStep,
       documentUrl: selectedDoc ?? undefined,
       title: selectedDoc ? getDocumentTitle(selectedDoc) : undefined,
     })
-  }, [getDocumentTitle, getSelectedAudiobookSaveChunks, selectedAudiobookState.complete, selectedDoc, speakTts, ttsDtype, ttsModelId, ttsSpeed, ttsTextPreprocessor, ttsThreadCount, ttsVoice])
+  }, [getDocumentTitle, getSelectedAudiobookSaveChunks, selectedAudiobookState.complete, selectedDoc, silmaNfeStep, speakTts, ttsDtype, ttsModelId, ttsSpeed, ttsTextPreprocessor, ttsThreadCount, ttsVoice])
 
   useEffect(() => {
     if (!selectedDoc || !selectedAudiobookState.complete) return
@@ -590,6 +605,7 @@ export function useAudiobookManager({
       textPreprocessor: ttsTextPreprocessor,
       voice: ttsVoice,
       speed: ttsSpeed,
+      silmaNfeStep,
       dtype: ttsDtype,
       chunks: selectedAudiobookState.totalChunks,
       audioDurationSec: selectedAudiobookState.audioDurationSec,
@@ -597,7 +613,7 @@ export function useAudiobookManager({
     })
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSavedAudiobooks(getSavedAudiobooks())
-  }, [getDocumentTitle, selectedAudiobookState.audioDurationSec, selectedAudiobookState.complete, selectedAudiobookState.totalChunks, selectedAudiobookState.wavBytes, selectedDoc, ttsDtype, ttsModelId, ttsSpeed, ttsTextPreprocessor, ttsVoice])
+  }, [getDocumentTitle, selectedAudiobookState.audioDurationSec, selectedAudiobookState.complete, selectedAudiobookState.totalChunks, selectedAudiobookState.wavBytes, selectedDoc, silmaNfeStep, ttsDtype, ttsModelId, ttsSpeed, ttsTextPreprocessor, ttsVoice])
 
   const handleModelChange = useCallback((modelId: string) => {
     const model = getTtsModel(ttsModels, modelId)
@@ -623,6 +639,7 @@ export function useAudiobookManager({
     chunks: TtsChunk[]
     voice: TtsVoice
     speed: number
+    silmaNfeStep?: number
     dtype: TtsDtype
   }) => {
     const speakableChunks = input.chunks.filter((chunk) => chunk.text.trim())
@@ -636,6 +653,7 @@ export function useAudiobookManager({
       textPreprocessor: input.textPreprocessor,
       voice: input.voice,
       speed: input.speed,
+      silmaNfeStep: input.silmaNfeStep,
       dtype: input.dtype,
       status: 'queued',
       cachedChunks: 0,
@@ -643,7 +661,7 @@ export function useAudiobookManager({
       message: 'Queued',
       audioDurationSec: 0,
     }, true)
-    setAudiobookDownload({ title: input.title, url: input.documentUrl, modelId: input.modelId, textPreprocessor: input.textPreprocessor, voice: input.voice, speed: input.speed, dtype: input.dtype })
+    setAudiobookDownload({ title: input.title, url: input.documentUrl, modelId: input.modelId, textPreprocessor: input.textPreprocessor, voice: input.voice, speed: input.speed, dtype: input.dtype, silmaNfeStep: input.silmaNfeStep })
     saveAudiobook(input.chunks, {
       modelId: input.modelId,
       textPreprocessor: input.textPreprocessor,
@@ -651,6 +669,7 @@ export function useAudiobookManager({
       speed: input.speed,
       dtype: input.dtype,
       threadCount: ttsThreadCount,
+      silmaNfeStep: input.silmaNfeStep,
       documentUrl: input.documentUrl,
       title: input.title,
     })
@@ -682,6 +701,7 @@ export function useAudiobookManager({
         { label: 'Generated Speed', value: formatSpeedLabel(DEFAULT_TTS_SPEED) },
         { label: 'Processing', value: textPreprocessorName },
         { label: 'Threads', value: ttsThreadCount },
+        ...(selectedTtsModel.family === 'silma-f5' ? [{ label: 'SILMA Quality', value: 'NFE ' + silmaNfeStep }] : []),
         { label: 'Chunks', value: speakableChunks.length },
       ],
       confirmLabel: 'Start Saving',
@@ -696,9 +716,10 @@ export function useAudiobookManager({
       chunks,
       voice: ttsVoice,
       speed: DEFAULT_TTS_SPEED,
+      silmaNfeStep,
       dtype: ttsDtype,
     })
-  }, [confirmAudiobookAction, getDocumentTitle, getSelectedAudiobookSaveChunks, selectedDoc, selectedTtsModel.name, selectedTtsModel.textPreprocessors, startAudiobookSave, ttsDtype, ttsModelId, ttsModels, ttsTextPreprocessor, ttsThreadCount, ttsVoice])
+  }, [confirmAudiobookAction, getDocumentTitle, getSelectedAudiobookSaveChunks, selectedDoc, selectedTtsModel.family, selectedTtsModel.name, selectedTtsModel.textPreprocessors, silmaNfeStep, startAudiobookSave, ttsDtype, ttsModelId, ttsModels, ttsTextPreprocessor, ttsThreadCount, ttsVoice])
 
   const handleResumeAudiobookDownload = useCallback(async (record: AudiobookDownloadRecord) => {
     startAudiobookSave({
@@ -709,6 +730,7 @@ export function useAudiobookManager({
       textPreprocessor: record.textPreprocessor,
       voice: record.voice,
       speed: record.speed,
+      silmaNfeStep: record.silmaNfeStep,
       dtype: record.dtype,
     })
   }, [getAudiobookSaveChunksForDocument, startAudiobookSave])
@@ -722,6 +744,7 @@ export function useAudiobookManager({
         textPreprocessor: audiobookDownload.textPreprocessor,
         voice: audiobookDownload.voice,
         speed: audiobookDownload.speed,
+        silmaNfeStep: audiobookDownload.silmaNfeStep,
         dtype: audiobookDownload.dtype,
         status: 'paused',
         cachedChunks: downloadAudiobookState.cachedChunks,
@@ -899,6 +922,7 @@ export function useAudiobookManager({
       setTtsVoice(result.voice as TtsVoice)
       setTtsTextPreprocessor(result.textPreprocessor)
       setTtsSpeed(result.speed)
+      setSilmaNfeStep(resolveSilmaNfeStep({}))
       setAudiobookImport({ status: 'idle', message: '' })
       showAudiobookNotice({ id: 'import:' + result.documentUrl, status: 'success', message: 'Imported ' + result.title })
       await openDocument(result.documentUrl)
@@ -917,6 +941,7 @@ export function useAudiobookManager({
     setTtsVoice(record.voice as TtsVoice)
     setTtsTextPreprocessor(record.textPreprocessor)
     setTtsSpeed(record.speed)
+    setSilmaNfeStep(resolveSilmaNfeStep(record))
     await openDocument(record.documentUrl)
   }, [setTtsModelId])
 
@@ -927,8 +952,9 @@ export function useAudiobookManager({
       voice: ttsVoice,
       speed: ttsSpeed,
       dtype: ttsDtype,
+      silmaNfeStep,
     }))
-  ), [audioSavedOnly, savedAudiobookIds, ttsDtype, ttsModelId, ttsSpeed, ttsTextPreprocessor, ttsVoice])
+  ), [audioSavedOnly, savedAudiobookIds, silmaNfeStep, ttsDtype, ttsModelId, ttsSpeed, ttsTextPreprocessor, ttsVoice])
 
   const filterResults = useCallback((results: SearchResult[]) => (
     audioSavedOnly
@@ -938,9 +964,10 @@ export function useAudiobookManager({
         voice: ttsVoice,
         speed: ttsSpeed,
         dtype: ttsDtype,
+        silmaNfeStep,
       })))
       : results
-  ), [audioSavedOnly, savedAudiobookIds, ttsDtype, ttsModelId, ttsSpeed, ttsTextPreprocessor, ttsVoice])
+  ), [audioSavedOnly, savedAudiobookIds, silmaNfeStep, ttsDtype, ttsModelId, ttsSpeed, ttsTextPreprocessor, ttsVoice])
 
   const ttsIsNavigable = ttsState.status === 'playing' ||
     ttsState.status === 'loading' ||
@@ -957,6 +984,7 @@ export function useAudiobookManager({
       voice: ttsVoice,
       speed: ttsSpeed,
       dtype: ttsDtype,
+      silmaNfeStep,
     })
     : null
   const activeDownloadId = audiobookDownload
@@ -966,6 +994,7 @@ export function useAudiobookManager({
       voice: audiobookDownload.voice,
       speed: audiobookDownload.speed,
       dtype: audiobookDownload.dtype,
+      silmaNfeStep: audiobookDownload.silmaNfeStep,
     })
     : null
   const downloadIsForSelectedDoc = Boolean(selectedAudiobookId && activeDownloadId === selectedAudiobookId)
@@ -1046,6 +1075,7 @@ export function useAudiobookManager({
       onInstallModel: handleInstallTtsModel,
       onModelChange: handleModelChange,
       onProbeSilmaSidecar: handleProbeSilmaSidecar,
+      onSilmaNfeStepChange: (nfeStep) => setSilmaNfeStep(resolveSilmaNfeStep({ silmaNfeStep: nfeStep })),
       onSpeedChange: () => {},
       onTextPreprocessorChange: setTtsTextPreprocessor,
       onThreadCountChange: handleThreadCountChange,
@@ -1054,6 +1084,7 @@ export function useAudiobookManager({
       textPreprocessors: selectedTtsModel.textPreprocessors,
       speed: DEFAULT_TTS_SPEED,
       silmaProbeRunning,
+      silmaNfeStep,
       threadCount: ttsThreadCount,
       voice: ttsVoice,
       voices: selectedTtsModel.voices,

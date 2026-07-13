@@ -14,6 +14,7 @@ export interface AudiobookDownloadRecord {
   textPreprocessor: string
   voice: TtsVoice
   speed: number
+  silmaNfeStep?: number
   dtype: TtsDtype
   cacheVersion?: string
   status: AudiobookDownloadStatus
@@ -34,6 +35,7 @@ export interface AudiobookDownloadInput {
   textPreprocessor?: string
   voice: TtsVoice
   speed: number
+  silmaNfeStep?: number
   dtype?: TtsDtype
   status: AudiobookDownloadStatus
   cachedChunks?: number
@@ -79,6 +81,7 @@ export function upsertAudiobookDownload(input: AudiobookDownloadInput): Audioboo
     modelId: input.modelId,
     voice: input.voice,
     speed: input.speed,
+    silmaNfeStep: input.silmaNfeStep,
     dtype: input.dtype ?? NATIVE_TTS_DTYPE,
     textPreprocessor: input.textPreprocessor,
   })
@@ -90,6 +93,7 @@ export function upsertAudiobookDownload(input: AudiobookDownloadInput): Audioboo
     modelId: input.modelId,
     voice: input.voice,
     speed: input.speed,
+    silmaNfeStep: input.silmaNfeStep,
     dtype: input.dtype ?? existing?.dtype ?? NATIVE_TTS_DTYPE,
     textPreprocessor: input.textPreprocessor ?? existing?.textPreprocessor ?? TEXT_PREPROCESSOR_NONE,
     cacheVersion: TTS_AUDIO_CACHE_VERSION,
@@ -151,6 +155,7 @@ function isAudiobookDownloadRecord(value: unknown): value is AudiobookDownloadRe
     (typeof record.dtype === 'string' || record.dtype === undefined) &&
     (typeof record.cacheVersion === 'string' || record.cacheVersion === undefined) &&
     (typeof record.textPreprocessor === 'string' || record.textPreprocessor === undefined) &&
+    (typeof record.silmaNfeStep === 'number' || record.silmaNfeStep === undefined) &&
     isDownloadStatus(record.status) &&
     typeof record.cachedChunks === 'number' &&
     typeof record.totalChunks === 'number' &&

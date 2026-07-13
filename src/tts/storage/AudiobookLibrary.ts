@@ -2,8 +2,11 @@ import {
   TTS_AUDIO_CACHE_VERSION,
   NATIVE_TTS_DTYPE,
   DEFAULT_TTS_MODEL_ID,
+  DEFAULT_SILMA_NFE_STEP,
   resolveTtsDtype,
+  resolveSilmaNfeStep,
   resolveTextPreprocessor,
+  SILMA_MODEL_ID,
   type TtsOptions,
   TEXT_PREPROCESSOR_NONE,
 } from '../types'
@@ -20,6 +23,7 @@ export interface SavedAudiobookRecord {
   speed: number
   modelId: string
   textPreprocessor: string
+  silmaNfeStep?: number
   cacheVersion?: string
   dtype: string
   savedAt: number
@@ -41,6 +45,10 @@ export function createAudiobookId(documentUrl: string, options: TtsOptions): str
     options.speed.toFixed(2),
   ]
   if (textPreprocessor !== TEXT_PREPROCESSOR_NONE) parts.push(textPreprocessor)
+  const silmaNfeStep = resolveSilmaNfeStep(options)
+  if (options.modelId === SILMA_MODEL_ID && silmaNfeStep !== DEFAULT_SILMA_NFE_STEP) {
+    parts.push('nfe' + silmaNfeStep)
+  }
   parts.push(normalizeDocumentUrl(documentUrl))
   return parts.join('|')
 }
@@ -75,11 +83,13 @@ export function markAudiobookSaved(record: Omit<SavedAudiobookRecord, 'id' | 'sa
       speed: record.speed,
       dtype: dtype as TtsOptions['dtype'],
       textPreprocessor: record.textPreprocessor,
+      silmaNfeStep: record.silmaNfeStep,
     }),
     modelId: record.modelId,
     cacheVersion: TTS_AUDIO_CACHE_VERSION,
     dtype,
     textPreprocessor: record.textPreprocessor ?? TEXT_PREPROCESSOR_NONE,
+    silmaNfeStep: record.silmaNfeStep,
     savedAt: Date.now(),
   }
 
@@ -126,6 +136,7 @@ function isSavedAudiobookRecord(value: unknown): value is SavedAudiobookRecord {
     (typeof record.modelId === 'string' || record.modelId === undefined) &&
     (typeof record.cacheVersion === 'string' || record.cacheVersion === undefined) &&
     (typeof record.textPreprocessor === 'string' || record.textPreprocessor === undefined) &&
+    (typeof record.silmaNfeStep === 'number' || record.silmaNfeStep === undefined) &&
     typeof record.savedAt === 'number' &&
     typeof record.chunks === 'number' &&
     (typeof record.audioDurationSec === 'number' || record.audioDurationSec === undefined) &&
