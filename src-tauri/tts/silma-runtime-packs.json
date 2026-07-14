@@ -7,8 +7,8 @@
       "arch": "x64",
       "target": "x86_64-unknown-linux-gnu",
       "url": "",
-      "archiveBytes": 3048494100,
-      "sha256": "6fd29b9e18ad0cd1f816777ece40dbe2693d6aa7f6f287ca4be85f272d87051d",
+      "archiveBytes": 3048496145,
+      "sha256": "0dbaeca76f4f3b7db19a1c4d2e071338dab4ee6fac992c58b03a967e4d97323f",
       "parts": [
         {
           "url": "https://github.com/muhannadnouri/papercut.io/releases/download/v1.7.0/papercut-silma-runtime-linux-x64-cpu.tar.bz2.part001",
@@ -18,7 +18,7 @@
         {
           "url": "https://github.com/muhannadnouri/papercut.io/releases/download/v1.7.0/papercut-silma-runtime-linux-x64-cpu.tar.bz2.part002",
           "archive": "papercut-silma-runtime-linux-x64-cpu.tar.bz2.part002",
-          "bytes": 1148494100
+          "bytes": 1148496145
         }
       ],
       "workerPath": "silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu"
