@@ -915,11 +915,13 @@ After changing worker/package imports, rebuild the packaged worker before
 testing the app:
 
 ```bash
-npm run prepare:silma-sidecar -- --clean --self-test
-printf '%s\n' \
-  '{"id":"load_model","op":"load_model","model_dir":"./.cache/silma-tts"}' \
-  | sidecars/silma/runtime/x86_64-unknown-linux-gnu/onedir/silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu
+npm run prepare:silma-sidecar -- --clean --self-test --import-check
 ```
+
+`--self-test` proves the JSONL protocol and file-writing path. `--import-check`
+imports SILMA's real API path inside the packaged worker without downloading
+model weights. This is the CI gate that should catch packaged `x_transformers`
+TorchScript source lookup failures before runtime artifacts are published.
 
 To reuse this downloaded cache from Rust dev commands:
 
@@ -1223,6 +1225,8 @@ Exit criteria:
       artifact.
 - [x] Add CI workflow to build the Linux SILMA runtime pack as a separate
       artifact.
+- [x] Add a packaged-worker SILMA import check so CI catches TorchScript source
+      lookup failures before publishing runtime artifacts.
 - [x] Fill checked SILMA runtime-pack release metadata.
 - [x] Split the Linux runtime pack into GitHub Release-safe asset parts and
       reassemble/verify it during install.

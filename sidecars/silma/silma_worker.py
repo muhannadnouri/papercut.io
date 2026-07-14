@@ -346,6 +346,23 @@ def run_self_test() -> int:
     return 0
 
 
+def run_import_check() -> int:
+    """Import SILMA's real API path without downloading model weights."""
+    with redirect_stdout(sys.stderr):
+        SilmaTTS = import_silma_tts()
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "version": VERSION,
+                "silma_api": f"{SilmaTTS.__module__}.{SilmaTTS.__name__}",
+            },
+            ensure_ascii=False,
+        )
+    )
+    return 0
+
+
 def run_smoke(args: argparse.Namespace) -> int:
     """Load SILMA once, synthesize one WAV, and print a machine-readable summary."""
     worker = Worker()
@@ -409,6 +426,7 @@ def main() -> int:
     """CLI entrypoint for either the lightweight self-test or worker mode."""
     parser = argparse.ArgumentParser(description="SILMA TTS JSONL sidecar worker")
     parser.add_argument("--self-test", action="store_true")
+    parser.add_argument("--import-check", action="store_true", help="import SILMA API without loading weights")
     parser.add_argument("--smoke", action="store_true", help="load SILMA and synthesize one WAV")
     parser.add_argument("--model-dir", default="./.cache/silma-tts")
     parser.add_argument("--output-wav", default="./.cache/silma-tts-smoke.wav")
@@ -422,6 +440,8 @@ def main() -> int:
     args = parser.parse_args()
     if args.self_test:
         return run_self_test()
+    if args.import_check:
+        return run_import_check()
     if args.smoke:
         return run_smoke(args)
     return run_jsonl()

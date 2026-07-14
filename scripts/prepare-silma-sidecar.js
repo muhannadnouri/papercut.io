@@ -87,6 +87,15 @@ if (options.selfTest) {
     process.exit(selfTest.status ?? 1)
   }
 }
+if (options.importCheck) {
+  const importCheck = runSync(workerPath, ["--import-check"], { cwd: ROOT })
+  if (importCheck.error) {
+    fail("Failed to start packaged worker import check: " + importCheck.error.message)
+  }
+  if (importCheck.status !== 0) {
+    process.exit(importCheck.status ?? 1)
+  }
+}
 
 function parseArgs(args) {
   const parsed = { clean: false }
@@ -96,6 +105,8 @@ function parseArgs(args) {
       parsed.clean = true
     } else if (arg === "--self-test") {
       parsed.selfTest = true
+    } else if (arg === "--import-check") {
+      parsed.importCheck = true
     } else if (arg === "--python") {
       parsed.python = requireValue(args, ++index, arg)
     } else if (arg === "--target") {

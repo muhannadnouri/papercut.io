@@ -77,7 +77,8 @@ jobs:
           node scripts/prepare-silma-sidecar.js \
             --target "${{ matrix.target }}" \
             --clean \
-            --self-test
+            --self-test \
+            --import-check
 
       - name: Package runtime archive
         env:
