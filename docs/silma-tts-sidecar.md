@@ -1227,7 +1227,7 @@ Exit criteria:
 - [x] Add initial model/voice UI copy.
 - [x] Add download size warnings for the SILMA runtime/model install path.
 - [x] Add diagnostics and troubleshooting docs.
-- [ ] Add release notes.
+- [x] Add release notes.
 - [x] Add voice consent/export disclosure.
 
 Exit criteria:
