@@ -74,22 +74,12 @@ pub(super) struct ModelDefinition {
     pub(super) voices: &'static [VoiceDefinition],
     pub(super) default_text_preprocessor: &'static str,
     pub(super) text_preprocessors: &'static [TextPreprocessorDefinition],
-    pub(super) dev_catalog_flag: Option<&'static str>,
 }
 
 impl ModelDefinition {
     /// Return whether this entry should be advertised to the UI catalog.
-    ///
-    /// Experimental sidecar models stay hidden unless an explicit developer flag
-    /// is present, and they are never advertised on mobile sidecar-less targets.
     pub(super) fn is_catalog_visible(&self) -> bool {
-        if !self.is_supported_on_current_platform() {
-            return false;
-        }
-        match self.dev_catalog_flag {
-            Some(flag) => cfg!(debug_assertions) || std::env::var_os(flag).is_some(),
-            None => true,
-        }
+        self.is_supported_on_current_platform()
     }
 
     /// Return whether this model's backend can run on the current build target.
@@ -426,7 +416,6 @@ const PIPER_REQUIRED_FILES: &[&str] = &[
 ];
 
 const SILMA_REQUIRED_FILES: &[&str] = &["model.pt", "vocab.txt"];
-const SILMA_DEV_CATALOG_FLAG: &str = "PAPERCUT_ENABLE_SILMA_TTS";
 
 pub(super) const DEFAULT_MODEL_ID: &str = "sherpa-onnx/kokoro-multi-lang-v1_0";
 pub(super) const SILMA_MODEL_ID: &str = "silma-ai/silma-tts";
@@ -452,7 +441,6 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         voices: KOKORO_VOICES,
         default_text_preprocessor: TEXT_PREPROCESSOR_NONE,
         text_preprocessors: IDENTITY_TEXT_PREPROCESSORS,
-        dev_catalog_flag: None,
     },
     ModelDefinition {
         id: "sherpa-onnx/supertonic-3-en",
@@ -474,7 +462,6 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         voices: SUPERTONIC_VOICES,
         default_text_preprocessor: TEXT_PREPROCESSOR_NONE,
         text_preprocessors: IDENTITY_TEXT_PREPROCESSORS,
-        dev_catalog_flag: None,
     },
     ModelDefinition {
         id: "sherpa-onnx/supertonic-3-ar",
@@ -496,7 +483,6 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         voices: SUPERTONIC_VOICES,
         default_text_preprocessor: TEXT_PREPROCESSOR_NONE,
         text_preprocessors: IDENTITY_TEXT_PREPROCESSORS,
-        dev_catalog_flag: None,
     },
     ModelDefinition {
         id: "sherpa-onnx/vits-piper-ar_JO-kareem-medium",
@@ -518,7 +504,6 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         voices: PIPER_KAREEM_VOICES,
         default_text_preprocessor: PIPER_DEFAULT_TEXT_PREPROCESSOR,
         text_preprocessors: PIPER_TEXT_PREPROCESSORS,
-        dev_catalog_flag: None,
     },
     ModelDefinition {
         id: SILMA_MODEL_ID,
@@ -540,7 +525,6 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         voices: SILMA_VOICES,
         default_text_preprocessor: "silma-default",
         text_preprocessors: SILMA_TEXT_PREPROCESSORS,
-        dev_catalog_flag: Some(SILMA_DEV_CATALOG_FLAG),
     },
 ];
 
@@ -624,7 +608,6 @@ mod tests {
             voices: &[],
             default_text_preprocessor: TEXT_PREPROCESSOR_NONE,
             text_preprocessors: IDENTITY_TEXT_PREPROCESSORS,
-            dev_catalog_flag: None,
         };
 
         assert_eq!(model.model_storage_dir_name(), "silma-tts");
@@ -635,9 +618,7 @@ mod tests {
     }
 
     #[test]
-    fn silma_catalog_entry_is_dev_visible_and_release_gated() {
-        let previous = std::env::var_os(SILMA_DEV_CATALOG_FLAG);
-        std::env::remove_var(SILMA_DEV_CATALOG_FLAG);
+    fn silma_catalog_entry_is_release_visible_on_linux_x64() {
         if !cfg!(all(target_os = "linux", target_arch = "x86_64")) {
             assert!(model_definition(SILMA_MODEL_ID).is_err());
             assert!(visible_models().all(|item| item.id != SILMA_MODEL_ID));
@@ -646,15 +627,7 @@ mod tests {
         let model = model_definition(SILMA_MODEL_ID).unwrap();
         assert_eq!(model.backend, TtsModelBackend::SilmaSidecar);
         assert_eq!(model.model_storage_dir_name(), "silma-tts");
-        if cfg!(debug_assertions) {
-            assert!(model.is_catalog_visible());
-            assert!(visible_models().any(|item| item.id == SILMA_MODEL_ID));
-        } else {
-            assert!(!model.is_catalog_visible());
-            assert!(visible_models().all(|item| item.id != SILMA_MODEL_ID));
-        }
-        if let Some(value) = previous {
-            std::env::set_var(SILMA_DEV_CATALOG_FLAG, value);
-        }
+        assert!(model.is_catalog_visible());
+        assert!(visible_models().any(|item| item.id == SILMA_MODEL_ID));
     }
 }

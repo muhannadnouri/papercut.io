@@ -502,8 +502,8 @@ src-tauri/tts/silma-runtime-packs.json
 ```
 
 Copy the release artifact URL(s), `sha256`, and `archiveBytes` into that
-manifest. The v1.7.0 checked-in entry points at the split Linux x64 runtime
-pack attached to the v1.7.0 GitHub Release and pins its original archive byte
+manifest. The v1.7.1 checked-in entry points at the split Linux x64 runtime
+pack attached to the v1.7.1 GitHub Release and pins its original archive byte
 size and SHA-256.
 
 After generating release assets, update the checked app manifest from the
@@ -600,9 +600,9 @@ Useful entries:
 
 Known recovery paths:
 
-- SILMA does not appear in the model list: debug desktop builds show it by
-  default. Release/package validation builds still need
-  `PAPERCUT_ENABLE_SILMA_TTS=1` until public runtime metadata is filled.
+- SILMA does not appear in the model list: confirm the app is a Linux x64 build
+  from a commit that includes the public runtime metadata. Windows, macOS, and
+  mobile builds intentionally hide SILMA in v1.7.1.
 - `SILMA runtime pack is not installed`: install the optional runtime pack first.
   If public download is disabled, fill `src-tauri/tts/silma-runtime-packs.json`
   from a release artifact or use the local packaged runtime flow.
@@ -735,11 +735,8 @@ SILMA catalog status:
 - Backend: `TtsModelBackend::SilmaSidecar`
 - Family: `TtsModelFamily::SilmaF5`
 - Storage prefix: `models/silma-tts`
-- Release/package validation flag: `PAPERCUT_ENABLE_SILMA_TTS`
-
-Debug desktop builds advertise SILMA by default so local development can use
-plain `npm run tauri:dev`. Release/package validation builds still require the
-flag until public runtime metadata is filled. Mobile builds never advertise it.
+Linux x64 desktop builds advertise SILMA by default. Windows, macOS, and mobile
+builds never advertise it in v1.7.1.
 One install click installs the missing SILMA pieces in order: runtime pack
 first, then pinned model files.
 
@@ -928,16 +925,14 @@ Packaged Linux onedir result:
 Desktop packaged-worker probe command for a dev run:
 
 ```bash
-PAPERCUT_ENABLE_SILMA_TTS=1 \
 PAPERCUT_SILMA_WORKER_BIN="$PWD/sidecars/silma/runtime/x86_64-unknown-linux-gnu/onedir/silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu" \
 npm run tauri:dev
 ```
 
 `npm run desktop` builds the installer. If the `.deb` is installed and launched
 from the desktop environment, it will not inherit the shell env vars used during
-the build. For an installed Linux package, launch the installed binary from a
-terminal with the same env vars, or add them to a temporary wrapper script while
-this remains a dev-gated feature.
+the build. Public SILMA installs do not require an env var; the packaged app
+uses the checked runtime metadata.
 
 In the app, enable TTS diagnostics and click
 `Probe Sidecar`. A passing run logs `[tts-native] SILMA sidecar probe passed`
@@ -968,8 +963,8 @@ fixtures from editor file watching; reload the editor window after changing
 those excludes so old watchers are released.
 
 In debug desktop builds, choose Arabic in the language control and
-`SILMA Arabic TTS` in the model control. Release/package validation builds still
-need `PAPERCUT_ENABLE_SILMA_TTS=1` until public runtime metadata is filled.
+`SILMA Arabic TTS` in the model control. Release Linux x64 builds show the same
+option.
 
 Stage 2 load helper:
 
