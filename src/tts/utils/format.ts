@@ -38,10 +38,14 @@ export function formatAudiobookVoiceMeta(
   speed: number,
   dtype: string,
   textPreprocessor?: string,
+  silmaNfeStep?: number,
 ): string {
+  const model = getTtsModel(FALLBACK_TTS_MODELS, modelId)
   const voiceName = getTtsVoiceName(FALLBACK_TTS_MODELS, modelId, voice)
-  const processingLabel = textPreprocessor === LIBTASHKEEL_TEXT_PREPROCESSOR ? ' • Arabic tashkeel' : ''
-  return 'Voice 🔊 ' + voiceName + ' • ⚡' + formatSpeedLabel(speed) + ' • ' + dtype + processingLabel
+  const parts = ['Voice 🔊 ' + voiceName, '⚡' + formatSpeedLabel(speed), dtype]
+  if (model.family === 'silma-f5' && silmaNfeStep) parts.push('NFE ' + silmaNfeStep)
+  if (textPreprocessor === LIBTASHKEEL_TEXT_PREPROCESSOR) parts.push('Arabic tashkeel')
+  return parts.join(' • ')
 }
 
 export function formatSavedAudiobookMeta(
@@ -58,7 +62,9 @@ export function formatSavedAudiobookMeta(
     '🤖 ' + model.name,
     '🔊 ' + voiceName,
     '⚡ ' + formatSpeedLabel(speed),
+    'AI-generated',
   ]
+  if (model.family === 'silma-f5') parts.push('reference voice')
   if (textPreprocessor && textPreprocessor !== TEXT_PREPROCESSOR_NONE) {
     const processingName = model.textPreprocessors.find((item) => item.id === textPreprocessor)?.name
     parts.push('✨ ' + (processingName ?? textPreprocessor))

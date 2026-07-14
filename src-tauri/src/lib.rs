@@ -36,6 +36,7 @@ pub fn run() {
             native_tts::commands::tts_get_imported_audiobook_source,
             native_tts::commands::tts_get_imported_audiobook_metadata,
             native_tts::commands::tts_delete_audiobook_native,
+            native_tts::commands::tts_probe_silma_sidecar,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

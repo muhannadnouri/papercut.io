@@ -1,0 +1,15 @@
+{
+    "window.autoDetectColorScheme": true,
+    "workbench.preferredDarkColorTheme": "GitHub Dark High Contrast",
+    "workbench.preferredLightColorTheme": "GitHub Light High Contrast",
+    "files.watcherExclude": {
+        "**/.cache/**": true,
+        "**/.venv-silma/**": true,
+        "**/public/documents/**": true,
+        "**/sidecars/silma/runtime/**": true,
+        "**/src-tauri/target/**": true,
+        "**/src-tauri/tts/runtime/**": true,
+        "**/src-tauri/gen/**": true,
+        "**/*.epub": true
+    }
+}

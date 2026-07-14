@@ -66,13 +66,17 @@ pub(crate) struct NativeTtsModelStatus {
     pub(crate) model_id: String,
     pub(crate) installed: bool,
     pub(crate) installing: bool,
+    pub(crate) install_supported: bool,
+    pub(crate) runtime_installed: bool,
     pub(crate) model_dir: Option<String>,
+    pub(crate) runtime_dir: Option<String>,
     pub(crate) source_url: String,
     pub(crate) source_label: String,
     pub(crate) archive_bytes: u64,
     pub(crate) installed_bytes: u64,
     pub(crate) sha256: String,
     pub(crate) message: String,
+    pub(crate) runtime_message: String,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -95,6 +99,19 @@ pub(crate) struct NativeTtsModelInstallResponse {
     pub(crate) model_id: String,
     pub(crate) model_dir: String,
     pub(crate) bytes: u64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Dev/prototype health check for the desktop SILMA Python worker.
+pub(crate) struct NativeSilmaSidecarProbeResponse {
+    pub(crate) worker_path: String,
+    pub(crate) python_command: String,
+    pub(crate) probe_wav_path: String,
+    pub(crate) health_version: String,
+    pub(crate) sample_rate: i32,
+    pub(crate) audio_duration_sec: f32,
+    pub(crate) wav_bytes: usize,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -196,6 +213,7 @@ pub(crate) struct NativeAudiobookSaveRequest {
     pub(crate) voice: String,
     pub(crate) speed: f32,
     pub(crate) thread_count: Option<i32>,
+    pub(crate) silma_nfe_step: Option<i32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -214,6 +232,7 @@ pub(crate) struct NativeAudiobookExportRequest {
     pub(crate) voice: String,
     pub(crate) speed: f32,
     pub(crate) dtype: String,
+    pub(crate) silma_nfe_step: Option<i32>,
     #[serde(default = "default_audiobook_export_format")]
     pub(crate) export_format: String,
 }
@@ -250,6 +269,7 @@ pub(crate) struct NativeImportedAudiobookMetadataResponse {
     pub(crate) voice: String,
     pub(crate) speed: f32,
     pub(crate) dtype: String,
+    pub(crate) silma_nfe_step: Option<i32>,
     pub(crate) chunks: Vec<NativeTtsInputChunk>,
     pub(crate) audio_duration_sec: f32,
     pub(crate) wav_bytes: usize,
@@ -266,6 +286,7 @@ pub(crate) struct NativeAudiobookImportResponse {
     pub(crate) voice: String,
     pub(crate) speed: f32,
     pub(crate) dtype: String,
+    pub(crate) silma_nfe_step: Option<i32>,
     pub(crate) chunks: usize,
     pub(crate) audio_duration_sec: f32,
     pub(crate) wav_bytes: usize,

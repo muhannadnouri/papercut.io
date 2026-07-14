@@ -393,6 +393,7 @@ mod tests {
             voice: "af_heart".into(),
             speed: 1.0,
             thread_count: Some(1),
+            silma_nfe_step: None,
         };
 
         write_pending_manifest(&dir, &request, &chunks).expect("write pending manifest");

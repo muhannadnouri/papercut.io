@@ -237,6 +237,7 @@ export function useAudiobookCache() {
         backend: progress.backend,
         dtype: resolveTtsDtype(options),
         threadCount: options.threadCount,
+        silmaNfeStep: options.silmaNfeStep,
         appliedThreadCount: progress.appliedThreadCount,
       })
     }
@@ -261,6 +262,7 @@ export function useAudiobookCache() {
         backend: progress.backend,
         dtype: resolveTtsDtype(options),
         threadCount: options.threadCount,
+        silmaNfeStep: options.silmaNfeStep,
         appliedThreadCount: progress.appliedThreadCount,
       })
     }
@@ -288,6 +290,7 @@ export function useAudiobookCache() {
         backend: progress.backend,
         dtype: resolveTtsDtype(options),
         threadCount: options.threadCount,
+        silmaNfeStep: options.silmaNfeStep,
         appliedThreadCount: progress.appliedThreadCount,
       })
     }

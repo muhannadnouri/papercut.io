@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { NativeTtsModelInstallProgress, NativeTtsModelStatus } from '../api/nativeTts'
-import type { TextPreprocessorInfo, TtsModelInfo, TtsVoice, TtsVoiceInfo } from '../types'
+import { SILMA_NFE_STEP_OPTIONS, type TextPreprocessorInfo, type TtsModelInfo, type TtsVoice, type TtsVoiceInfo } from '../types'
 import { formatSpeedLabel } from '../utils/format'
 
 const HIGH_THREAD_COUNT_WARNING_THRESHOLD = 4
@@ -46,11 +46,15 @@ export interface AudioSetupPanelProps {
   onDiagnosticsChange?: (enabled: boolean) => void
   onInstallModel: () => void
   onModelChange: (modelId: string) => void
+  onProbeSilmaSidecar?: () => void
+  onSilmaNfeStepChange: (nfeStep: number) => void
   onSpeedChange: (speed: number) => void
   onTextPreprocessorChange: (textPreprocessor: string) => void
   onThreadCountChange: (threadCount: number) => void
   onVoiceChange: (voice: TtsVoice) => void
   speed: number
+  silmaProbeRunning?: boolean
+  silmaNfeStep: number
   textPreprocessor: string
   textPreprocessors: TextPreprocessorInfo[]
   threadCount: number
@@ -70,11 +74,15 @@ export function AudioSetupPanel({
   onDiagnosticsChange,
   onInstallModel,
   onModelChange,
+  onProbeSilmaSidecar,
+  onSilmaNfeStepChange,
   onSpeedChange,
   onTextPreprocessorChange,
   onThreadCountChange,
   onVoiceChange,
   speed,
+  silmaProbeRunning = false,
+  silmaNfeStep,
   textPreprocessor,
   textPreprocessors,
   threadCount,
@@ -93,6 +101,23 @@ export function AudioSetupPanel({
   const showHighThreadWarning = threadCount > HIGH_THREAD_COUNT_WARNING_THRESHOLD
   const hasTextProcessing = textPreprocessors.length > 1
   const selectedModel = models.find((model) => model.id === modelId) ?? models[0]
+  const modelInstallSupported = modelStatus?.installSupported ?? (selectedModel?.family !== 'silma-f5')
+  const isSilmaModel = selectedModel?.family === 'silma-f5'
+  const silmaRuntimeMissing = isSilmaModel && modelStatus?.runtimeInstalled === false
+  const installButtonLabel = silmaRuntimeMissing ? 'Install SILMA' : isSilmaModel ? 'Download SILMA Model' : 'Download Voice Model'
+  const installingButtonLabel = silmaRuntimeMissing ? 'Installing SILMA...' : isSilmaModel ? 'Downloading SILMA Model...' : 'Downloading Model...'
+  const sourceAssetLabel = isSilmaModel ? 'Hugging Face files' : 'GitHub release asset'
+  const silmaInstallNote = isSilmaModel
+    ? [
+        silmaRuntimeMissing
+          ? 'Installs the optional desktop runtime and then the model files.'
+          : modelInstalled
+            ? 'SILMA model files are installed.'
+            : 'Downloads pinned SILMA model.pt and vocab.txt from Hugging Face.',
+        modelSize ? 'Size: ' + modelSize + '.' : '',
+        'Large downloads can take a while and resume after interruption.',
+      ].filter(Boolean).join(' ')
+    : null
   const selectedLanguage = selectedModel ? getLanguageOption(selectedModel).value : ''
   const languageOptions = models.reduce<SelectOption[]>((options, model) => {
     const languageOption = getLanguageOption(model)
@@ -105,7 +130,7 @@ export function AudioSetupPanel({
   const modelsForLanguage = selectedLanguage
     ? models.filter((model) => getLanguageOption(model).value === selectedLanguage)
     : models
-  const showModelInstallDetails = !modelInstalled || modelInstallProgress !== null || modelInstalling
+  const showModelInstallDetails = !modelInstalled || silmaRuntimeMissing || modelInstallProgress !== null || modelInstalling
 
   return (
     <div className="audio-setup-panel">
@@ -150,24 +175,32 @@ export function AudioSetupPanel({
             {debugEnabled && (
               <div className="audio-model-source" title={modelStatus?.sourceUrl}>
                 <span>{modelStatus?.sourceLabel ?? 'sherpa-onnx offline TTS'}</span>
-                <span>{modelSize ? modelSize + ' GitHub release' : 'GitHub release asset'}</span>
+                <span>{modelSize ? modelSize + ' ' + sourceAssetLabel : sourceAssetLabel}</span>
               </div>
             )}
           </div>
 
           {showModelInstallDetails && (
             <div className="audio-model-install">
-              {!modelInstalled && (
+              {(!modelInstalled || silmaRuntimeMissing) && modelInstallSupported && (
                 <button
                   type="button"
                   className="tts-btn tts-save-btn"
                   onClick={onInstallModel}
                   disabled={modelInstalling}
-                  title="Download selected offline voice model"
+                  title={silmaRuntimeMissing ? 'Install the optional SILMA desktop runtime pack' : isSilmaModel ? 'Download SILMA model files' : 'Download selected offline voice model'}
                 >
                   <DownloadIcon />
-                  <span>{modelInstalling ? 'Downloading Model...' : 'Download Voice Model'}</span>
+                  <span>{modelInstalling ? installingButtonLabel : installButtonLabel}</span>
                 </button>
+              )}
+              {silmaInstallNote && <span className="audio-thread-meta">{silmaInstallNote}</span>}
+              {!modelInstalled && !modelInstallSupported && (
+                <div className="audiobook-status audiobook-status-error" aria-live="polite">
+                  <div className="audiobook-status-row">
+                    <span>{modelStatus?.message ?? 'Manual model install required'}</span>
+                  </div>
+                </div>
               )}
               {(modelInstallProgress || modelInstalling) && (
                 <div
@@ -185,6 +218,18 @@ export function AudioSetupPanel({
                   )}
                 </div>
               )}
+              {silmaRuntimeMissing && (
+                <div className="audiobook-status audiobook-status-error" aria-live="polite">
+                  <div className="audiobook-status-row">
+                    <span>{modelStatus?.runtimeMessage ?? 'SILMA runtime pack is not installed'}</span>
+                  </div>
+                  {modelStatus?.runtimeDir && (
+                    <div className="audiobook-status-row">
+                      <span>{modelStatus.runtimeDir}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -195,7 +240,13 @@ export function AudioSetupPanel({
             value={voice}
             options={voices.map((item) => ({ label: item.name, value: item.id }))}
             onChange={(value) => onVoiceChange(value as TtsVoice)}
-          />
+          >
+            {isSilmaModel && (
+              <span className="audio-thread-meta">
+                SILMA speaks using its built-in Arabic sample voice. Custom sample voices are not available yet.
+              </span>
+            )}
+          </SelectField>
 
           <div className="audio-field audio-field-speed audio-field-disabled">
             <span id="tts-speed-label">⚡ Generated Speed</span>
@@ -282,6 +333,23 @@ export function AudioSetupPanel({
             </span>
           )}
         </SelectField>
+        {isSilmaModel && (
+          <SelectField
+            className="audio-field-silma-quality"
+            label="🎚️ SILMA Quality"
+            title="SILMA diffusion steps"
+            value={silmaNfeStep}
+            options={SILMA_NFE_STEP_OPTIONS.map((step) => ({
+              label: silmaNfeStepLabel(step),
+              value: step,
+            }))}
+            onChange={(value) => onSilmaNfeStepChange(Number(value))}
+          >
+            <span className="audio-thread-meta">
+              Higher steps usually sound better and run slower; lower steps are for benchmarking.
+            </span>
+          </SelectField>
+        )}
         <label className="audio-field audio-field-diagnostics" title="Show TTS diagnostic events and model source details">
           <span>🧪 Diagnostics</span>
           <span className="audio-diagnostics-control">
@@ -295,9 +363,30 @@ export function AudioSetupPanel({
             <span className="audio-diagnostics-switch" aria-hidden="true" />
           </span>
         </label>
+        {debugEnabled && isSilmaModel && onProbeSilmaSidecar && (
+          <div className="audio-field audio-field-silma-probe">
+            <span>SILMA Sidecar</span>
+            <button
+              type="button"
+              className="audio-probe-button"
+              onClick={onProbeSilmaSidecar}
+              disabled={silmaProbeRunning}
+              title="Run the SILMA sidecar probe"
+            >
+              {silmaProbeRunning ? 'Probing...' : 'Probe Sidecar'}
+            </button>
+          </div>
+        )}
       </section>
     </div>
   )
+}
+
+function silmaNfeStepLabel(step: number): string {
+  if (step === 16) return 'High Quality (16)'
+  if (step === 12) return 'Balanced (12)'
+  if (step === 8) return 'Fast (8)'
+  return 'Fastest (' + step + ')'
 }
 
 function SelectField({

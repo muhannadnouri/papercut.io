@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { SavedAudiobookRecord } from '../storage/AudiobookLibrary'
 import type { AudiobookDownloadRecord } from '../storage/AudiobookDownloadQueue'
-import type { TtsDtype, TtsVoice } from '../types'
+import { SILMA_MODEL_ID, type TtsDtype, type TtsVoice } from '../types'
 import type { NativeAudiobookExportFormat } from '../api/nativeTts'
 import type { AudiobookCacheState } from '../hooks/useAudiobookCache'
 import {
@@ -21,6 +21,7 @@ interface ActiveAudiobookSave {
   textPreprocessor: string
   voice: TtsVoice
   speed: number
+  silmaNfeStep?: number
   dtype: TtsDtype
 }
 
@@ -76,7 +77,7 @@ const AUDIOBOOK_EXPORT_OPTIONS: Array<{
   code?: string
 }> = [
   { format: 'bundle', label: 'Papercut Bundle', detail: 'Export as', code: '.papercut-audiobook' },
-  { format: 'wav', label: 'WAV', detail: 'Export as', code: '.wav' },
+  { format: 'wav', label: 'WAV Audio', detail: 'Export as', code: '.wav' },
 ]
 
 export function AudiobooksPanel({
@@ -190,7 +191,7 @@ export function AudiobooksPanel({
                 <span className="audiobook-meta">{downloadState.cachedChunks}/{downloadState.totalChunks}</span>
               </div>
               <div className="audiobook-status-text">
-                {activeDownload ? formatAudiobookVoiceMeta(activeDownload.modelId, activeDownload.voice, activeDownload.speed, activeDownload.dtype, activeDownload.textPreprocessor) + ' - ' : ''}{formatDownloadSavedStatus(downloadState.audioDurationSec, activePercent, downloadState.wavBytes)}
+                {activeDownload ? formatAudiobookVoiceMeta(activeDownload.modelId, activeDownload.voice, activeDownload.speed, activeDownload.dtype, activeDownload.textPreprocessor, activeDownload.silmaNfeStep) + ' - ' : ''}{formatDownloadSavedStatus(downloadState.audioDurationSec, activePercent, downloadState.wavBytes)}
               </div>
               <div className="audio-progress-meter" aria-label={'Saving audiobook ' + activePercent + '% complete'}>
                 <span style={{ width: activePercent + '%' }} />
@@ -212,7 +213,7 @@ export function AudiobooksPanel({
                     <span className="audiobook-meta">{record.cachedChunks}/{record.totalChunks}</span>
                   </div>
                   <div className="audiobook-status-text">
-                    {formatAudiobookVoiceMeta(record.modelId, record.voice, record.speed, record.dtype, record.textPreprocessor) + ' - ' + formatDownloadSavedStatus(record.audioDurationSec, percent, record.wavBytes)}
+                    {formatAudiobookVoiceMeta(record.modelId, record.voice, record.speed, record.dtype, record.textPreprocessor, record.silmaNfeStep) + ' - ' + formatDownloadSavedStatus(record.audioDurationSec, percent, record.wavBytes)}
                   </div>
                   <div className="audio-progress-meter" aria-label={'Audiobook save ' + percent + '% complete'}>
                     <span style={{ width: percent + '%' }} />
@@ -286,10 +287,14 @@ export function AudiobooksPanel({
                             <span>{option.label}</span>
                             <small>
                               {option.detail}
-                              {option.code ? <> <code>{option.code}</code></> : null}
+                              {option.code ? <> · <code>{option.code}</code></> : null}
                             </small>
                           </button>
                         ))}
+                        <div className="audiobook-export-note">
+                          <span>Label as AI-generated if shared.</span>
+                          {record.modelId === SILMA_MODEL_ID ? <span>Use only permitted reference voices.</span> : null}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -386,12 +391,16 @@ function formatAudioSetupSummary(audioSetup: AudioSetupPanelProps): string {
     '🔊 ' + (voice?.name ?? audioSetup.voice),
     '⚡ ' + formatSpeedLabel(audioSetup.speed),
   ]
+  if (model?.family === 'silma-f5') pieces.push('🎚️ NFE ' + audioSetup.silmaNfeStep)
 
   const installSummary = formatModelInstallSummary(audioSetup.modelInstallProgress)
   if (installSummary) {
     pieces.push(installSummary)
   } else if (audioSetup.modelStatus?.installed) {
     pieces.push('✓ Installed')
+  }
+  if (model?.family === 'silma-f5' && audioSetup.modelStatus?.runtimeInstalled === false) {
+    pieces.push('Runtime missing')
   }
 
   return pieces.join(' · ')

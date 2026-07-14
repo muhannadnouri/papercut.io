@@ -17,7 +17,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Manager;
 
 use super::config::CACHE_VERSION;
-use super::models::ModelDefinition;
+use super::models::{ModelDefinition, TtsModelBackend};
 use crate::native_tts::types::NativeTtsInputChunk;
 
 /// Where the installed voice model lives permanently: `<app-data>/models/...`.
@@ -30,8 +30,31 @@ pub(super) fn installed_model_dir(
         .app_data_dir()
         .map_err(|err| format!("Failed to resolve app data dir for offline voice model: {err}"))?;
     Ok(app_data
-        .join("models/sherpa-onnx")
+        .join("models")
+        .join(model.model_storage_dir_name())
         .join(model.directory_name))
+}
+
+/// Runtime directory used by an engine. SILMA can point at an official
+/// Hugging Face cache root during development; packaged install will later make
+/// this an app-owned path like sherpa.
+pub(super) fn runtime_model_dir(
+    app: &tauri::AppHandle,
+    model: &ModelDefinition,
+) -> Result<PathBuf, String> {
+    if matches!(model.backend, TtsModelBackend::SilmaSidecar) {
+        if let Ok(path) = std::env::var("PAPERCUT_SILMA_MODEL_DIR") {
+            let path = PathBuf::from(path);
+            if path.is_dir() {
+                return Ok(path);
+            }
+            return Err(format!(
+                "PAPERCUT_SILMA_MODEL_DIR does not point to a directory: {}",
+                path.display()
+            ));
+        }
+    }
+    installed_model_dir(app, model)
 }
 
 /// Scratch directory used only while downloading/extracting the model. Prefers
@@ -57,8 +80,8 @@ pub(super) fn resolve_model_dir(
     app: &tauri::AppHandle,
     model: &ModelDefinition,
 ) -> Result<PathBuf, String> {
-    let model_dir = installed_model_dir(app, model)?;
-    if model.has_required_files(&model_dir) {
+    let model_dir = runtime_model_dir(app, model)?;
+    if has_required_model_files(model, &model_dir) {
         return Ok(model_dir);
     }
 
@@ -67,6 +90,31 @@ pub(super) fn resolve_model_dir(
         model.display_name,
         model_dir.display()
     ))
+}
+
+/// Return true when a runtime model directory has the files the backend needs.
+pub(super) fn has_required_model_files(model: &ModelDefinition, dir: &Path) -> bool {
+    if matches!(model.backend, TtsModelBackend::SilmaSidecar) {
+        return contains_complete_file_set(dir, model.required_files);
+    }
+    model.has_required_files(dir)
+}
+
+fn contains_complete_file_set(dir: &Path, required_files: &[&str]) -> bool {
+    if required_files
+        .iter()
+        .all(|file_name| dir.join(file_name).is_file())
+    {
+        return true;
+    }
+
+    let Ok(entries) = fs::read_dir(dir) else {
+        return false;
+    };
+    entries
+        .flatten()
+        .map(|entry| entry.path())
+        .any(|path| path.is_dir() && contains_complete_file_set(&path, required_files))
 }
 
 /// Directory holding one saved audiobook's chunk WAVs. The audiobook id is
@@ -367,7 +415,31 @@ pub(super) fn stable_hex_hash(value: &str) -> String {
 }
 #[cfg(test)]
 mod tests {
+    use super::super::models::{model_definition, SILMA_MODEL_ID};
     use super::*;
+
+    #[test]
+    fn silma_required_files_must_share_one_directory() {
+        let nonce = unique_nonce();
+        let dir = std::env::temp_dir().join(format!("papercut-silma-files-{nonce}"));
+        let split_a = dir.join("snapshot-a");
+        let split_b = dir.join("snapshot-b");
+        fs::create_dir_all(&split_a).unwrap();
+        fs::create_dir_all(&split_b).unwrap();
+        fs::write(split_a.join("model.pt"), b"model").unwrap();
+        fs::write(split_b.join("vocab.txt"), b"vocab").unwrap();
+
+        let model = model_definition(SILMA_MODEL_ID).unwrap();
+        assert!(!has_required_model_files(model, &dir));
+
+        let complete = dir.join("snapshot-complete");
+        fs::create_dir_all(&complete).unwrap();
+        fs::write(complete.join("model.pt"), b"model").unwrap();
+        fs::write(complete.join("vocab.txt"), b"vocab").unwrap();
+        assert!(has_required_model_files(model, &dir));
+
+        fs::remove_dir_all(dir).unwrap();
+    }
 
     #[test]
     fn preprocessing_preserves_legacy_ids_and_separates_diacritized_audio() {
@@ -394,5 +466,12 @@ mod tests {
         );
         assert!(diacritized.contains("|libtashkeel-1.5.0|"));
         assert_ne!(diacritized, legacy);
+    }
+
+    fn unique_nonce() -> u128 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
     }
 }

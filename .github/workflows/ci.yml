@@ -3,15 +3,191 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      validation_scope:
+        description: "Validation scope to run"
+        required: true
+        default: full
+        type: choice
+        options:
+          - full
+          - desktop
+          - mobile
+          - silma-runtime
+          - cheap
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      android_packaging: ${{ steps.detect.outputs.android_packaging }}
+      desktop_packaging: ${{ steps.detect.outputs.desktop_packaging }}
+      ios_packaging: ${{ steps.detect.outputs.ios_packaging }}
+      silma_runtime: ${{ steps.detect.outputs.silma_runtime }}
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Detect changed CI surfaces
+        id: detect
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          VALIDATION_SCOPE: ${{ inputs.validation_scope || '' }}
+        run: |
+          set -euo pipefail
+          android_packaging=false
+          desktop_packaging=false
+          ios_packaging=false
+          silma_runtime=false
+
+          emit_outputs() {
+            echo "android_packaging=$android_packaging" >> "$GITHUB_OUTPUT"
+            echo "desktop_packaging=$desktop_packaging" >> "$GITHUB_OUTPUT"
+            echo "ios_packaging=$ios_packaging" >> "$GITHUB_OUTPUT"
+            echo "silma_runtime=$silma_runtime" >> "$GITHUB_OUTPUT"
+          }
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            case "$VALIDATION_SCOPE" in
+              full)
+                android_packaging=true
+                desktop_packaging=true
+                ios_packaging=true
+                silma_runtime=true
+                ;;
+              desktop)
+                desktop_packaging=true
+                ;;
+              mobile)
+                android_packaging=true
+                ios_packaging=true
+                ;;
+              silma-runtime)
+                silma_runtime=true
+                ;;
+              cheap)
+                ;;
+              *)
+                echo "Unsupported validation_scope: $VALIDATION_SCOPE" >&2
+                exit 1
+                ;;
+            esac
+            emit_outputs
+            exit 0
+          fi
+
+          base="$PR_BASE_SHA"
+          git fetch --no-tags --depth=1 origin "$base"
+          changed="$(git diff --name-only "$base" HEAD)"
+          printf '%s\n' "$changed"
+
+          while IFS= read -r path; do
+            case "$path" in
+              .github/workflows/ci.yml | \
+              package.json | \
+              package-lock.json | \
+              src-tauri/Cargo.toml | \
+              src-tauri/Cargo.lock | \
+              src-tauri/build.rs | \
+              src-tauri/src/* | \
+              src-tauri/tts/* | \
+              src-tauri/vendor/sherpa-onnx-sys/* | \
+              scripts/lib/*)
+                android_packaging=true
+                desktop_packaging=true
+                ios_packaging=true
+                ;;
+            esac
+            case "$path" in
+              src-tauri/tauri.conf.json | \
+              src-tauri/tauri.linux.conf.json | \
+              src-tauri/tauri.macos.conf.json | \
+              src-tauri/Entitlements.plist | \
+              src-tauri/icons/* | \
+              scripts/build-desktop.js | \
+              scripts/copy-* | \
+              scripts/verify-* | \
+              scripts/lib/desktop/* | \
+              scripts/lib/linux/* | \
+              scripts/lib/macos/*)
+                desktop_packaging=true
+                ;;
+            esac
+            case "$path" in
+              scripts/build-android.js | \
+              scripts/lib/android/*)
+                android_packaging=true
+                ;;
+            esac
+            case "$path" in
+              src-tauri/tauri.ios.conf.json | \
+              src-tauri/gen/apple/* | \
+              src-tauri/icons/ios/* | \
+              scripts/build-ios.js | \
+              scripts/check-ios-device-build.js | \
+              scripts/lib/ios/*)
+                ios_packaging=true
+                ;;
+            esac
+            case "$path" in
+              sidecars/silma/* | \
+              scripts/prepare-silma-sidecar.js | \
+              scripts/package-silma-runtime-pack.js | \
+              src-tauri/tts/silma-runtime-packs.json | \
+              .github/workflows/ci.yml | \
+              .github/workflows/silma-runtime.yml)
+                silma_runtime=true
+                ;;
+            esac
+          done <<< "$changed"
+          emit_outputs
+
+  checks:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build frontend + Pagefind index
+        run: npm run build
+
+      - name: SILMA worker self-test
+        run: python3 sidecars/silma/silma_worker.py --self-test
+
   build:
+    needs: [changes, checks]
+    if: needs.changes.outputs.desktop_packaging == 'true'
+
     strategy:
       fail-fast: false
       matrix:
@@ -76,13 +252,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
-        if: matrix.platform == 'linux'
-        run: npm run lint
-
-      - name: Build frontend + Pagefind index
-        run: npm run build
-
       - name: Build Tauri app
         run: npm run desktop
 
@@ -127,6 +296,9 @@ jobs:
           retention-days: 7
 
   build-android:
+    needs: [changes, checks]
+    if: needs.changes.outputs.android_packaging == 'true'
+
     runs-on: ubuntu-24.04
 
     steps:
@@ -167,9 +339,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build frontend + Pagefind index
-        run: npm run build
-
       - name: Build Android APK
         run: npm run android:apk:native-tts
         env:
@@ -183,6 +352,9 @@ jobs:
           retention-days: 7
 
   build-ios:
+    needs: [changes, checks]
+    if: needs.changes.outputs.ios_packaging == 'true'
+
     runs-on: macos-26
 
     steps:
@@ -245,9 +417,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build frontend + Pagefind index
-        run: npm run build
-
       - name: Verify generated iOS project files
         run: |
           test -d src-tauri/gen/apple
@@ -261,3 +430,67 @@ jobs:
 
       - name: Build unsigned iOS device app with native TTS
         run: npm run ios:ci:device
+
+  build-silma-runtime:
+    needs: [changes, checks]
+    if: needs.changes.outputs.silma_runtime == 'true'
+    name: SILMA runtime (${{ matrix.runtime_id }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runtime_id: linux-x64-cpu
+            runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            archive: papercut-silma-runtime-linux-x64-cpu.tar.bz2
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            sidecars/silma/requirements.txt
+            sidecars/silma/requirements-build.txt
+
+      - name: Install SILMA sidecar dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r sidecars/silma/requirements-build.txt
+
+      - name: Build packaged SILMA worker
+        run: |
+          node scripts/prepare-silma-sidecar.js \
+            --target "${{ matrix.target }}" \
+            --clean \
+            --self-test
+
+      - name: Package SILMA runtime archive
+        run: |
+          node scripts/package-silma-runtime-pack.js \
+            --target "${{ matrix.target }}" \
+            --archive-name "${{ matrix.archive }}"
+
+      - name: Upload SILMA runtime artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: papercut-silma-runtime-${{ matrix.runtime_id }}
+          path: |
+            sidecars/silma/runtime/${{ matrix.target }}/archive/*.tar.bz2
+            sidecars/silma/runtime/${{ matrix.target }}/archive/*.manifest.json
+          if-no-files-found: error
+          retention-days: 7

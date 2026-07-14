@@ -1,5 +1,5 @@
 import { createAudiobookId } from '../storage/AudiobookLibrary'
-import { resolveTextPreprocessor, type TtsModelInfo, type TtsOptions, type TtsChunk } from '../types'
+import { resolveSilmaNfeStep, resolveTextPreprocessor, type TtsModelInfo, type TtsOptions, type TtsChunk } from '../types'
 import { FALLBACK_TTS_MODELS } from '../models'
 
 const SAVE_PROGRESS_EVENT = 'tts-native-save-progress'
@@ -20,13 +20,17 @@ export interface NativeTtsModelStatus {
   modelId: string
   installed: boolean
   installing: boolean
+  installSupported: boolean
+  runtimeInstalled: boolean
   modelDir?: string | null
+  runtimeDir?: string | null
   sourceUrl: string
   sourceLabel: string
   archiveBytes: number
   installedBytes: number
   sha256: string
   message: string
+  runtimeMessage: string
 }
 
 export interface NativeTtsModelInstallProgress {
@@ -42,6 +46,16 @@ export interface NativeTtsModelInstallResult {
   modelId: string
   modelDir: string
   bytes: number
+}
+
+export interface NativeSilmaSidecarProbeResult {
+  workerPath: string
+  pythonCommand: string
+  probeWavPath: string
+  healthVersion: string
+  sampleRate: number
+  audioDurationSec: number
+  wavBytes: number
 }
 
 export interface NativeTtsChunkResult {
@@ -139,6 +153,7 @@ export interface NativeImportedAudiobookMetadata {
   voice: string
   speed: number
   dtype: string
+  silmaNfeStep?: number
   chunks: TtsChunk[]
   audioDurationSec: number
   wavBytes: number
@@ -152,6 +167,7 @@ export interface NativeAudiobookImportResult {
   voice: string
   speed: number
   dtype: string
+  silmaNfeStep?: number
   chunks: number
   audioDurationSec: number
   wavBytes: number
@@ -241,13 +257,17 @@ export async function getNativeTtsModelStatus(modelId: string): Promise<NativeTt
       modelId,
       installed: false,
       installing: false,
+      installSupported: false,
+      runtimeInstalled: false,
       modelDir: null,
+      runtimeDir: null,
       sourceUrl: '',
       sourceLabel: 'sherpa-onnx offline TTS',
       archiveBytes: 0,
       installedBytes: 0,
       sha256: '',
       message: 'Native TTS is only available in the desktop or Android app.',
+      runtimeMessage: 'Native TTS is only available in the desktop or Android app.',
     }
   }
   const invoke = await loadTauriInvoke()
@@ -347,6 +367,7 @@ export async function saveNativeAudiobook(
       voice: input.options.voice,
       speed: input.options.speed,
       threadCount: input.options.threadCount,
+      silmaNfeStep: resolveSilmaNfeStep(input.options),
     },
   })
 }
@@ -381,6 +402,7 @@ export async function exportNativeAudiobook(
       voice: input.options.voice,
       speed: input.options.speed,
       dtype: input.options.dtype ?? 'native',
+      silmaNfeStep: resolveSilmaNfeStep(input.options),
       exportFormat: input.exportFormat ?? 'bundle',
     },
   })
@@ -402,6 +424,13 @@ export async function deleteNativeAudiobook(input: {
   return invoke<NativeAudiobookDeleteResult>('tts_delete_audiobook_native', {
     request: input,
   })
+}
+
+export async function probeNativeSilmaSidecar(): Promise<NativeSilmaSidecarProbeResult> {
+  // Dev-only bridge: validates the packaged worker can start and write app-owned WAVs.
+  await requireNativeTtsCapabilities()
+  const invoke = await loadTauriInvoke()
+  return invoke<NativeSilmaSidecarProbeResult>('tts_probe_silma_sidecar')
 }
 
 export async function getImportedAudiobookSource(documentUrl: string): Promise<string> {

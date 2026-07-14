@@ -1,10 +1,28 @@
-//! Supported offline TTS models and their sherpa-onnx loading metadata.
+//! Supported offline TTS models, backend identity, and loading metadata.
 
 use std::path::Path;
 
 use crate::native_tts::types::{
     NativeTextPreprocessorInfo, NativeTtsModelInfo, NativeTtsVoiceInfo,
 };
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// Runtime backend that owns inference for a model catalog entry.
+pub(super) enum TtsModelBackend {
+    SherpaOnnx,
+    #[allow(dead_code)]
+    SilmaSidecar,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// User-visible model family; this is intentionally not the same as backend.
+pub(super) enum TtsModelFamily {
+    Kokoro,
+    Supertonic,
+    Vits,
+    #[allow(dead_code)]
+    SilmaF5,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 /// sherpa-onnx configuration family used to build the correct native model block.
@@ -40,7 +58,9 @@ pub(super) struct ModelDefinition {
     pub(super) id: &'static str,
     pub(super) directory_name: &'static str,
     pub(super) display_name: &'static str,
-    pub(super) family: SherpaModelFamily,
+    pub(super) backend: TtsModelBackend,
+    pub(super) family: TtsModelFamily,
+    pub(super) sherpa_family: Option<SherpaModelFamily>,
     pub(super) language: &'static str,
     pub(super) language_label: &'static str,
     pub(super) supertonic_lang: Option<&'static str>,
@@ -54,9 +74,47 @@ pub(super) struct ModelDefinition {
     pub(super) voices: &'static [VoiceDefinition],
     pub(super) default_text_preprocessor: &'static str,
     pub(super) text_preprocessors: &'static [TextPreprocessorDefinition],
+    pub(super) dev_catalog_flag: Option<&'static str>,
 }
 
 impl ModelDefinition {
+    /// Return whether this entry should be advertised to the UI catalog.
+    ///
+    /// Experimental sidecar models stay hidden unless an explicit developer flag
+    /// is present, and they are never advertised on mobile sidecar-less targets.
+    pub(super) fn is_catalog_visible(&self) -> bool {
+        if !self.is_supported_on_current_platform() {
+            return false;
+        }
+        match self.dev_catalog_flag {
+            Some(flag) => cfg!(debug_assertions) || std::env::var_os(flag).is_some(),
+            None => true,
+        }
+    }
+
+    /// Return whether this model's backend can run on the current build target.
+    pub(super) fn is_supported_on_current_platform(&self) -> bool {
+        match self.backend {
+            TtsModelBackend::SherpaOnnx => true,
+            TtsModelBackend::SilmaSidecar => {
+                cfg!(all(target_os = "linux", target_arch = "x86_64"))
+            }
+        }
+    }
+
+    /// App-data subdirectory used for this backend's installed model files.
+    pub(super) fn model_storage_dir_name(&self) -> &'static str {
+        match self.backend {
+            TtsModelBackend::SherpaOnnx => "sherpa-onnx",
+            TtsModelBackend::SilmaSidecar => "silma-tts",
+        }
+    }
+
+    /// Whether the current in-app installer knows how to fetch this model.
+    pub(super) fn install_supported(&self) -> bool {
+        matches!(self.backend, TtsModelBackend::SherpaOnnx)
+    }
+
     /// Return true only when every file required by this model family is installed.
     pub(super) fn has_required_files(&self, dir: &Path) -> bool {
         self.required_files
@@ -83,20 +141,35 @@ impl ModelDefinition {
         self.text_preprocessors.iter().any(|item| item.id == id)
     }
 
+    /// Return the sherpa family only for sherpa-backed entries.
+    ///
+    /// SILMA and future non-sherpa models should fail here until their own
+    /// backend routes are implemented, rather than pretending to be VITS/Kokoro.
+    pub(super) fn require_sherpa_family(&self) -> Result<SherpaModelFamily, String> {
+        self.sherpa_family.ok_or_else(|| {
+            format!(
+                "Model {} is not a sherpa-onnx model and cannot use the sherpa loader",
+                self.display_name
+            )
+        })
+    }
+
     /// English-only synthesis-text normalization (year expansion, roman numerals,
     /// semicolon/decimal cleanup) only helps the English eSpeak/Kokoro path. Other
     /// languages (e.g. Arabic Piper) must never have Western number words or
     /// English-specific punctuation rewrites spliced into their synthesis text.
     pub(super) fn english_text_normalization(&self) -> bool {
-        matches!(self.family, SherpaModelFamily::Kokoro) && self.language.starts_with("en")
+        matches!(self.family, TtsModelFamily::Kokoro) && self.language.starts_with("en")
     }
 
-    /// Stable diagnostic label identifying the active sherpa model family.
+    /// Stable diagnostic label identifying the active model backend and family.
     pub(super) fn backend_name(&self) -> &'static str {
-        match self.family {
-            SherpaModelFamily::Kokoro => "sherpa-onnx-kokoro",
-            SherpaModelFamily::Supertonic => "sherpa-onnx-supertonic",
-            SherpaModelFamily::Vits => "sherpa-onnx-vits",
+        match (self.backend, self.family) {
+            (TtsModelBackend::SherpaOnnx, TtsModelFamily::Kokoro) => "sherpa-onnx-kokoro",
+            (TtsModelBackend::SherpaOnnx, TtsModelFamily::Supertonic) => "sherpa-onnx-supertonic",
+            (TtsModelBackend::SherpaOnnx, TtsModelFamily::Vits) => "sherpa-onnx-vits",
+            (TtsModelBackend::SilmaSidecar, TtsModelFamily::SilmaF5) => "silma-sidecar-f5",
+            _ => "native-tts-unknown",
         }
     }
 
@@ -106,9 +179,10 @@ impl ModelDefinition {
             id: self.id.into(),
             name: self.display_name.into(),
             family: match self.family {
-                SherpaModelFamily::Kokoro => "kokoro",
-                SherpaModelFamily::Supertonic => "supertonic",
-                SherpaModelFamily::Vits => "vits",
+                TtsModelFamily::Kokoro => "kokoro",
+                TtsModelFamily::Supertonic => "supertonic",
+                TtsModelFamily::Vits => "vits",
+                TtsModelFamily::SilmaF5 => "silma-f5",
             }
             .into(),
             language: self.language.into(),
@@ -286,10 +360,22 @@ const PIPER_KAREEM_VOICES: &[VoiceDefinition] = &[VoiceDefinition {
     speaker_id: 0,
 }];
 
+const SILMA_VOICES: &[VoiceDefinition] = &[VoiceDefinition {
+    id: "silma-ar-default",
+    name: "SILMA Arabic Reference",
+    speaker_id: 0,
+}];
+
 const IDENTITY_TEXT_PREPROCESSORS: &[TextPreprocessorDefinition] = &[TextPreprocessorDefinition {
     id: TEXT_PREPROCESSOR_NONE,
     name: "Original text",
     description: "Synthesize source text without language preprocessing.",
+}];
+
+const SILMA_TEXT_PREPROCESSORS: &[TextPreprocessorDefinition] = &[TextPreprocessorDefinition {
+    id: "silma-default",
+    name: "SILMA default",
+    description: "Use SILMA's default Arabic text processing before synthesis.",
 }];
 
 #[cfg(feature = "native-text-preprocessing-core")]
@@ -339,14 +425,20 @@ const PIPER_REQUIRED_FILES: &[&str] = &[
     "espeak-ng-data/ar_dict",
 ];
 
+const SILMA_REQUIRED_FILES: &[&str] = &["model.pt", "vocab.txt"];
+const SILMA_DEV_CATALOG_FLAG: &str = "PAPERCUT_ENABLE_SILMA_TTS";
+
 pub(super) const DEFAULT_MODEL_ID: &str = "sherpa-onnx/kokoro-multi-lang-v1_0";
+pub(super) const SILMA_MODEL_ID: &str = "silma-ai/silma-tts";
 
 pub(super) const MODELS: &[ModelDefinition] = &[
     ModelDefinition {
         id: DEFAULT_MODEL_ID,
         directory_name: "kokoro-multi-lang-v1_0",
         display_name: "Kokoro v1.0",
-        family: SherpaModelFamily::Kokoro,
+        backend: TtsModelBackend::SherpaOnnx,
+        family: TtsModelFamily::Kokoro,
+        sherpa_family: Some(SherpaModelFamily::Kokoro),
         language: "en-US",
         language_label: "English",
         supertonic_lang: None,
@@ -360,12 +452,15 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         voices: KOKORO_VOICES,
         default_text_preprocessor: TEXT_PREPROCESSOR_NONE,
         text_preprocessors: IDENTITY_TEXT_PREPROCESSORS,
+        dev_catalog_flag: None,
     },
     ModelDefinition {
         id: "sherpa-onnx/supertonic-3-en",
         directory_name: "sherpa-onnx-supertonic-3-tts-int8-2026-05-11",
         display_name: "Supertonic 3 English",
-        family: SherpaModelFamily::Supertonic,
+        backend: TtsModelBackend::SherpaOnnx,
+        family: TtsModelFamily::Supertonic,
+        sherpa_family: Some(SherpaModelFamily::Supertonic),
         language: "en-US",
         language_label: "English",
         supertonic_lang: Some("en"),
@@ -379,12 +474,15 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         voices: SUPERTONIC_VOICES,
         default_text_preprocessor: TEXT_PREPROCESSOR_NONE,
         text_preprocessors: IDENTITY_TEXT_PREPROCESSORS,
+        dev_catalog_flag: None,
     },
     ModelDefinition {
         id: "sherpa-onnx/supertonic-3-ar",
         directory_name: "sherpa-onnx-supertonic-3-tts-int8-2026-05-11",
         display_name: "Supertonic 3 Arabic",
-        family: SherpaModelFamily::Supertonic,
+        backend: TtsModelBackend::SherpaOnnx,
+        family: TtsModelFamily::Supertonic,
+        sherpa_family: Some(SherpaModelFamily::Supertonic),
         language: "ar",
         language_label: "Arabic",
         supertonic_lang: Some("ar"),
@@ -398,12 +496,15 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         voices: SUPERTONIC_VOICES,
         default_text_preprocessor: TEXT_PREPROCESSOR_NONE,
         text_preprocessors: IDENTITY_TEXT_PREPROCESSORS,
+        dev_catalog_flag: None,
     },
     ModelDefinition {
         id: "sherpa-onnx/vits-piper-ar_JO-kareem-medium",
         directory_name: "vits-piper-ar_JO-kareem-medium",
         display_name: "Piper Kareem Medium",
-        family: SherpaModelFamily::Vits,
+        backend: TtsModelBackend::SherpaOnnx,
+        family: TtsModelFamily::Vits,
+        sherpa_family: Some(SherpaModelFamily::Vits),
         language: "ar-JO",
         language_label: "Arabic (Jordan)",
         supertonic_lang: None,
@@ -417,14 +518,42 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         voices: PIPER_KAREEM_VOICES,
         default_text_preprocessor: PIPER_DEFAULT_TEXT_PREPROCESSOR,
         text_preprocessors: PIPER_TEXT_PREPROCESSORS,
+        dev_catalog_flag: None,
+    },
+    ModelDefinition {
+        id: SILMA_MODEL_ID,
+        directory_name: "silma-tts",
+        display_name: "SILMA Arabic TTS",
+        backend: TtsModelBackend::SilmaSidecar,
+        family: TtsModelFamily::SilmaF5,
+        sherpa_family: None,
+        language: "ar",
+        language_label: "Arabic",
+        supertonic_lang: None,
+        source_label: "silma-ai/silma-tts",
+        source_url: "https://huggingface.co/silma-ai/silma-tts",
+        sha256: "",
+        archive_bytes: 2_603_245_629,
+        model_file: "model.pt",
+        required_files: SILMA_REQUIRED_FILES,
+        default_voice: "silma-ar-default",
+        voices: SILMA_VOICES,
+        default_text_preprocessor: "silma-default",
+        text_preprocessors: SILMA_TEXT_PREPROCESSORS,
+        dev_catalog_flag: Some(SILMA_DEV_CATALOG_FLAG),
     },
 ];
+
+/// Models advertised to the frontend capability catalog.
+pub(super) fn visible_models() -> impl Iterator<Item = &'static ModelDefinition> {
+    MODELS.iter().filter(|model| model.is_catalog_visible())
+}
 
 /// Resolve the authoritative catalog entry used by install, synthesis, and import.
 pub(super) fn model_definition(model_id: &str) -> Result<&'static ModelDefinition, String> {
     MODELS
         .iter()
-        .find(|model| model.id == model_id)
+        .find(|model| model.id == model_id && model.is_supported_on_current_platform())
         .ok_or_else(|| format!("Unsupported native TTS model: {model_id}"))
 }
 
@@ -439,27 +568,93 @@ mod tests {
         assert_eq!(ids.len(), MODELS.len());
         assert_eq!(
             model_definition(DEFAULT_MODEL_ID).unwrap().family,
-            SherpaModelFamily::Kokoro
+            TtsModelFamily::Kokoro
         );
     }
 
     #[test]
-    #[test]
     fn supertonic_entries_share_archive_and_have_lang_codes() {
         let en = model_definition("sherpa-onnx/supertonic-3-en").unwrap();
         let ar = model_definition("sherpa-onnx/supertonic-3-ar").unwrap();
-        assert_eq!(en.family, SherpaModelFamily::Supertonic);
-        assert_eq!(ar.family, SherpaModelFamily::Supertonic);
+        assert_eq!(en.backend, TtsModelBackend::SherpaOnnx);
+        assert!(en.install_supported());
+        assert_eq!(en.family, TtsModelFamily::Supertonic);
+        assert_eq!(ar.family, TtsModelFamily::Supertonic);
+        assert_eq!(
+            en.require_sherpa_family().unwrap(),
+            SherpaModelFamily::Supertonic
+        );
         assert_eq!(en.directory_name, ar.directory_name);
         assert_eq!(en.supertonic_lang, Some("en"));
         assert_eq!(ar.supertonic_lang, Some("ar"));
         assert_eq!(en.speaker_id("speaker_6").unwrap(), 6);
     }
 
+    #[test]
     fn piper_kareem_has_one_valid_voice() {
         let model = model_definition("sherpa-onnx/vits-piper-ar_JO-kareem-medium").unwrap();
-        assert_eq!(model.family, SherpaModelFamily::Vits);
+        assert_eq!(model.family, TtsModelFamily::Vits);
+        assert_eq!(
+            model.require_sherpa_family().unwrap(),
+            SherpaModelFamily::Vits
+        );
         assert_eq!(model.speaker_id("kareem").unwrap(), 0);
         assert!(model.speaker_id("af_heart").is_err());
+    }
+
+    #[test]
+    fn silma_backend_metadata_has_its_own_storage_and_label() {
+        let model = ModelDefinition {
+            id: "silma/smoke",
+            directory_name: "silma-smoke",
+            display_name: "SILMA Smoke",
+            backend: TtsModelBackend::SilmaSidecar,
+            family: TtsModelFamily::SilmaF5,
+            sherpa_family: None,
+            language: "ar",
+            language_label: "Arabic",
+            supertonic_lang: None,
+            source_label: "SILMA smoke",
+            source_url: "",
+            sha256: "",
+            archive_bytes: 0,
+            model_file: "model.pt",
+            required_files: &["model.pt"],
+            default_voice: "silma-ar-default",
+            voices: &[],
+            default_text_preprocessor: TEXT_PREPROCESSOR_NONE,
+            text_preprocessors: IDENTITY_TEXT_PREPROCESSORS,
+            dev_catalog_flag: None,
+        };
+
+        assert_eq!(model.model_storage_dir_name(), "silma-tts");
+        assert_eq!(model.backend_name(), "silma-sidecar-f5");
+        assert!(!model.install_supported());
+        assert!(model.require_sherpa_family().is_err());
+        assert_eq!(model.to_info().family, "silma-f5");
+    }
+
+    #[test]
+    fn silma_catalog_entry_is_dev_visible_and_release_gated() {
+        let previous = std::env::var_os(SILMA_DEV_CATALOG_FLAG);
+        std::env::remove_var(SILMA_DEV_CATALOG_FLAG);
+        if !cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+            assert!(model_definition(SILMA_MODEL_ID).is_err());
+            assert!(visible_models().all(|item| item.id != SILMA_MODEL_ID));
+            return;
+        }
+        let model = model_definition(SILMA_MODEL_ID).unwrap();
+        assert_eq!(model.backend, TtsModelBackend::SilmaSidecar);
+        assert_eq!(model.model_storage_dir_name(), "silma-tts");
+        if cfg!(debug_assertions) {
+            assert!(model.is_catalog_visible());
+            assert!(visible_models().any(|item| item.id == SILMA_MODEL_ID));
+        } else {
+            assert!(!model.is_catalog_visible());
+            assert!(visible_models().all(|item| item.id != SILMA_MODEL_ID));
+        }
+        if let Some(value) = previous {
+            std::env::set_var(SILMA_DEV_CATALOG_FLAG, value);
+        }
     }
 }

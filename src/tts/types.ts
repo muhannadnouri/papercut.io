@@ -8,11 +8,15 @@ export const DEFAULT_TTS_VOICE = 'af_heart'
 export const DEFAULT_TTS_SPEED = 1
 export const TEXT_PREPROCESSOR_NONE = 'none'
 export const LIBTASHKEEL_TEXT_PREPROCESSOR = 'libtashkeel-1.5.0'
+export const SILMA_MODEL_ID = 'silma-ai/silma-tts'
+export const DEFAULT_SILMA_NFE_STEP = 16
+export const SILMA_NFE_STEP_OPTIONS = [16, 12, 8, 4] as const
 
 export type TtsModelId = string
 export type TtsVoice = string
 export type TtsDtype = 'native'
 export type TextPreprocessorId = string
+export type SilmaNfeStep = typeof SILMA_NFE_STEP_OPTIONS[number]
 
 export interface TtsVoiceInfo {
   id: TtsVoice
@@ -44,6 +48,7 @@ export interface TtsOptions {
   textPreprocessor?: TextPreprocessorId
   dtype?: TtsDtype
   threadCount?: number
+  silmaNfeStep?: number
   documentUrl?: string
   title?: string
 }
@@ -56,6 +61,14 @@ export function resolveTextPreprocessor(
   options: Pick<TtsOptions, 'textPreprocessor'>,
 ): TextPreprocessorId {
   return options.textPreprocessor ?? TEXT_PREPROCESSOR_NONE
+}
+
+export function resolveSilmaNfeStep(
+  options: Pick<TtsOptions, 'silmaNfeStep'>,
+): SilmaNfeStep {
+  return SILMA_NFE_STEP_OPTIONS.includes(options.silmaNfeStep as SilmaNfeStep)
+    ? options.silmaNfeStep as SilmaNfeStep
+    : DEFAULT_SILMA_NFE_STEP
 }
 
 export interface TtsChunkSourceSpan {

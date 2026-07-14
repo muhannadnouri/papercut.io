@@ -6,7 +6,7 @@
 //! ```text
 //! commands -> { engine | stub } -> { platform, types }
 //! engine: model | synth | save | cache | bundle -> { paths, config } -> types
-//! state  -> engine (SherpaTtsEngine handle)
+//! state  -> engine (LoadedTtsEngine slot)
 //! ```
 //!
 //! - [`commands`]: the thin `#[tauri::command]` edge; dispatches to `engine` or

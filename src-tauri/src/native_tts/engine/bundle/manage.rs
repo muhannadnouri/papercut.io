@@ -36,6 +36,7 @@ struct ImportedAudiobookMetadataFile {
     voice: String,
     speed: f32,
     dtype: String,
+    silma_nfe_step: Option<i32>,
     #[serde(default = "default_model_id")]
     model_id: String,
     #[serde(default = "default_text_preprocessor")]
@@ -109,6 +110,7 @@ pub(crate) fn get_imported_audiobook_metadata(
         voice: metadata.voice,
         speed: metadata.speed,
         dtype: metadata.dtype,
+        silma_nfe_step: metadata.silma_nfe_step,
         chunks: metadata
             .chunks
             .into_iter()

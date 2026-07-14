@@ -13,8 +13,8 @@ use super::types::{
     NativeAudiobookPlaybackRequest, NativeAudiobookPlaybackResponse, NativeAudiobookSaveRequest,
     NativeAudiobookSaveResponse, NativeAudiobookStatusRequest, NativeAudiobookStatusResponse,
     NativeImportedAudiobookMetadataResponse, NativeImportedAudiobookSourceRequest,
-    NativeTtsCapabilities, NativeTtsChunkResponse, NativeTtsModelInstallResponse,
-    NativeTtsModelStatus,
+    NativeSilmaSidecarProbeResponse, NativeTtsCapabilities, NativeTtsChunkResponse,
+    NativeTtsModelInstallResponse, NativeTtsModelStatus,
 };
 
 const NOT_COMPILED: &str =
@@ -42,13 +42,17 @@ pub(super) fn model_status(
         model_id,
         installed: false,
         installing: false,
+        install_supported: false,
+        runtime_installed: false,
         model_dir: None,
+        runtime_dir: None,
         source_url: String::new(),
         source_label: "sherpa-onnx offline TTS".into(),
         archive_bytes: 0,
         installed_bytes: 0,
         sha256: String::new(),
         message: NOT_COMPILED.into(),
+        runtime_message: NOT_COMPILED.into(),
     }
 }
 
@@ -127,5 +131,11 @@ pub(super) fn delete_audiobook_native(
     _app: tauri::AppHandle,
     _request: NativeAudiobookDeleteRequest,
 ) -> Result<NativeAudiobookDeleteResponse, String> {
+    Err(NOT_COMPILED.into())
+}
+
+pub(super) fn probe_silma_sidecar(
+    _app: tauri::AppHandle,
+) -> Result<NativeSilmaSidecarProbeResponse, String> {
     Err(NOT_COMPILED.into())
 }

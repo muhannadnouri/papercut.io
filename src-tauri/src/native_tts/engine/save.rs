@@ -23,11 +23,15 @@ use tauri::Emitter;
 use super::cache::{scan_audiobook, wav_info};
 use super::config::SAVE_PROGRESS_EVENT;
 use super::manifest::{write_manifest, write_pending_manifest};
-use super::models::model_definition;
+use super::models::{model_definition, TtsModelBackend};
 use super::paths::{audiobook_dir, chunk_path, speakable_chunks};
 use super::preprocess::TextPreprocessor;
 use super::prune::{prune_orphan_chunk_files, prune_stale_temp_files};
-use super::synth::{ensure_engine, synthesize_to_file, SherpaTtsEngine};
+use super::silma_sidecar::normalize_silma_nfe_step;
+use super::synth::{
+    ensure_sherpa_engine, ensure_silma_engine, synthesize_silma_to_file, synthesize_to_file,
+    LoadedTtsEngine,
+};
 use super::text_normalization::text_preview;
 use crate::native_tts::platform::resolve_thread_count;
 use crate::native_tts::state::NativeTtsState;
@@ -94,7 +98,7 @@ pub(crate) fn cancel_audiobook_save(
 /// event. Returns aggregate totals for the whole audiobook.
 fn save_audiobook_native_blocking(
     app: tauri::AppHandle,
-    engine_state: Arc<Mutex<Option<SherpaTtsEngine>>>,
+    engine_state: Arc<Mutex<Option<LoadedTtsEngine>>>,
     cancelled_jobs: Arc<Mutex<HashSet<String>>>,
     request: NativeAudiobookSaveRequest,
 ) -> Result<NativeAudiobookSaveResponse, String> {
@@ -135,7 +139,7 @@ fn save_audiobook_native_blocking(
     prune_orphan_chunk_files(&dir, &chunks);
 
     // Scan with prune=true so invalid leftovers are removed and regenerated.
-    let backend = "sherpa-onnx".to_string();
+    let backend = model.backend_name().to_string();
     let mut scan = scan_audiobook(&dir, &chunks, true);
     let mut cached_chunks = scan.cached_chunks;
     let mut generated_chunks = 0usize;
@@ -182,16 +186,43 @@ fn save_audiobook_native_blocking(
     let mut guard = engine_state
         .lock()
         .map_err(|_| "Native TTS engine lock poisoned".to_string())?;
-    let engine = ensure_engine(&app, &mut guard, &request.model_id, Some(thread_count))?;
-    let backend = format!(
-        "{}:{}:{}:threads={}",
-        engine.model.backend_name(),
-        engine.model.id,
-        engine.model_dir.display(),
-        engine.num_threads
-    );
-    let text_preprocessor = TextPreprocessor::create(engine.model, &request.text_preprocessor)?;
-    let backend = format!("{backend}:preprocessor={}", text_preprocessor.id());
+    let backend = match model.backend {
+        TtsModelBackend::SherpaOnnx => {
+            let engine =
+                ensure_sherpa_engine(&app, &mut guard, &request.model_id, Some(thread_count))?;
+            format!(
+                "{}:{}:{}:threads={}",
+                engine.model.backend_name(),
+                engine.model.id,
+                engine.model_dir.display(),
+                engine.num_threads
+            )
+        }
+        TtsModelBackend::SilmaSidecar => {
+            let engine =
+                ensure_silma_engine(&app, &mut guard, &request.model_id, request.thread_count)?;
+            format!(
+                "{}:{}:{}:sample_rate={}:device={}:torch_threads={}:torch_interop={}",
+                engine.model.backend_name(),
+                engine.model.id,
+                engine.model_dir.display(),
+                engine.sample_rate,
+                engine.device,
+                engine.torch_threads,
+                engine.torch_interop_threads,
+            )
+        }
+    };
+    let text_preprocessor = TextPreprocessor::create(model, &request.text_preprocessor)?;
+    let silma_nfe_step = normalize_silma_nfe_step(request.silma_nfe_step.unwrap_or(16));
+    let backend = match model.backend {
+        TtsModelBackend::SilmaSidecar => format!(
+            "{backend}:preprocessor={}:nfe={}",
+            text_preprocessor.id(),
+            silma_nfe_step
+        ),
+        TtsModelBackend::SherpaOnnx => format!("{backend}:preprocessor={}", text_preprocessor.id()),
+    };
 
     for (index, chunk) in chunks.iter().enumerate() {
         // Cooperative cancellation: bail out cleanly between chunks if asked.
@@ -284,13 +315,29 @@ fn save_audiobook_native_blocking(
             text_preview(&chunk.text),
             text_preview(&synthesis_text),
         );
-        let result = synthesize_to_file(
-            engine,
-            &synthesis_text,
-            &request.voice,
-            request.speed,
-            &output_path,
-        )?;
+        let result = match model.backend {
+            TtsModelBackend::SherpaOnnx => match guard.as_ref() {
+                Some(LoadedTtsEngine::Sherpa(engine)) => synthesize_to_file(
+                    engine,
+                    &synthesis_text,
+                    &request.voice,
+                    request.speed,
+                    &output_path,
+                ),
+                _ => Err("Native sherpa TTS engine unavailable".into()),
+            },
+            TtsModelBackend::SilmaSidecar => match guard.as_mut() {
+                Some(LoadedTtsEngine::Silma(engine)) => synthesize_silma_to_file(
+                    engine,
+                    &synthesis_text,
+                    &request.voice,
+                    request.speed,
+                    silma_nfe_step,
+                    &output_path,
+                ),
+                _ => Err("Native SILMA sidecar engine unavailable".into()),
+            },
+        }?;
         generated_chunks += 1;
         cached_chunks += 1;
         total_generate_ms += result.generate_ms;

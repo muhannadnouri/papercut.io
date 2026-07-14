@@ -148,8 +148,40 @@
   grid-column: 1;
 }
 
+.audio-field-silma-quality {
+  grid-column: 2;
+}
+
 .audio-field-diagnostics {
   grid-column: 2;
+}
+
+.audio-field-silma-probe {
+  grid-column: 1;
+}
+
+.audio-probe-button {
+  min-height: 2rem;
+  padding: 0 0.65rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-body);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.audio-probe-button:hover:not(:disabled),
+.audio-probe-button:focus-visible {
+  border-color: var(--accent-text);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+.audio-probe-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .audiobooks-setup {
@@ -786,7 +818,7 @@
   right: 0;
   z-index: 70;
   display: grid;
-  min-width: min(13.5rem, calc(100vw - 2rem));
+  min-width: min(16rem, calc(100vw - 2rem));
   overflow: hidden;
   border: 1px solid var(--border-strong);
   border-radius: 6px;
@@ -809,7 +841,7 @@
   text-align: left;
 }
 
-.audiobook-export-option:last-child {
+.audiobook-export-option:last-of-type {
   border-bottom: none;
 }
 
@@ -839,6 +871,18 @@
   background: var(--surface-accent);
   color: var(--accent-strong);
   outline: none;
+}
+
+.audiobook-export-note {
+  display: grid;
+  gap: 0.12rem;
+  padding: 0.55rem 0.8rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.25;
 }
 
 .audiobook-action-toast {
@@ -1094,7 +1138,9 @@
   .audio-model-install,
   .audio-field-text-processing,
   .audio-field-threads,
-  .audio-field-diagnostics {
+  .audio-field-silma-quality,
+  .audio-field-diagnostics,
+  .audio-field-silma-probe {
     grid-column: 1 / -1;
   }
 }

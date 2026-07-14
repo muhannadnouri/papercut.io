@@ -15,8 +15,8 @@ use super::types::{
     NativeAudiobookPlaybackRequest, NativeAudiobookPlaybackResponse, NativeAudiobookSaveRequest,
     NativeAudiobookSaveResponse, NativeAudiobookStatusRequest, NativeAudiobookStatusResponse,
     NativeImportedAudiobookMetadataResponse, NativeImportedAudiobookSourceRequest,
-    NativeTtsCapabilities, NativeTtsChunkResponse, NativeTtsModelInstallResponse,
-    NativeTtsModelStatus,
+    NativeSilmaSidecarProbeResponse, NativeTtsCapabilities, NativeTtsChunkResponse,
+    NativeTtsModelInstallResponse, NativeTtsModelStatus,
 };
 
 #[cfg(feature = "native-tts-core")]
@@ -24,7 +24,8 @@ use super::engine::{
     cancel_audiobook_save, delete_audiobook_native, export_audiobook_native,
     get_imported_audiobook_metadata, get_imported_audiobook_source, get_native_audiobook_chunk,
     import_audiobook_native, install_model, model_status, native_audiobook_status,
-    native_capabilities, prepare_native_audiobook_playback, save_audiobook_native,
+    native_capabilities, prepare_native_audiobook_playback, probe_silma_sidecar,
+    save_audiobook_native,
 };
 
 #[cfg(not(feature = "native-tts-core"))]
@@ -32,7 +33,8 @@ use super::stub::{
     cancel_audiobook_save, delete_audiobook_native, export_audiobook_native,
     get_imported_audiobook_metadata, get_imported_audiobook_source, get_native_audiobook_chunk,
     import_audiobook_native, install_model, model_status, native_audiobook_status,
-    native_capabilities, prepare_native_audiobook_playback, save_audiobook_native,
+    native_capabilities, prepare_native_audiobook_playback, probe_silma_sidecar,
+    save_audiobook_native,
 };
 
 /// Is native TTS usable on this build/device, and is the voice model installed?
@@ -161,4 +163,14 @@ pub async fn tts_delete_audiobook_native(
     tauri::async_runtime::spawn_blocking(move || delete_audiobook_native(app, request))
         .await
         .map_err(|err| format!("Native audiobook delete task failed: {err}"))?
+}
+
+/// Dev/prototype probe for Stage 1 SILMA sidecar mechanics.
+#[tauri::command]
+pub async fn tts_probe_silma_sidecar(
+    app: tauri::AppHandle,
+) -> Result<NativeSilmaSidecarProbeResponse, String> {
+    tauri::async_runtime::spawn_blocking(move || probe_silma_sidecar(app))
+        .await
+        .map_err(|err| format!("SILMA sidecar probe task failed: {err}"))?
 }

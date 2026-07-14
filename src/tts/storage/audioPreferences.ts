@@ -2,8 +2,10 @@ import { FALLBACK_TTS_MODELS, getTtsModel, resolveModelTextPreprocessor } from '
 import {
   DEFAULT_TTS_MODEL_ID,
   DEFAULT_TTS_SPEED,
+  DEFAULT_SILMA_NFE_STEP,
   NATIVE_TTS_DTYPE,
   TEXT_PREPROCESSOR_NONE,
+  resolveSilmaNfeStep,
   type TtsDtype,
   type TtsModelId,
   type TtsVoice,
@@ -19,6 +21,7 @@ export interface AudioPreferences {
   wordHighlightEnabled: boolean
   dtype: TtsDtype
   textPreprocessor: string
+  silmaNfeStep: number
   audioSavedOnly: boolean
 }
 
@@ -30,6 +33,7 @@ export const DEFAULT_AUDIO_PREFERENCES: AudioPreferences = {
   wordHighlightEnabled: true,
   dtype: NATIVE_TTS_DTYPE,
   textPreprocessor: TEXT_PREPROCESSOR_NONE,
+  silmaNfeStep: DEFAULT_SILMA_NFE_STEP,
   audioSavedOnly: false,
 }
 
@@ -56,6 +60,7 @@ export function getAudioPreferences(): AudioPreferences {
         : DEFAULT_AUDIO_PREFERENCES.wordHighlightEnabled,
       dtype: parsed.dtype === NATIVE_TTS_DTYPE ? parsed.dtype : DEFAULT_AUDIO_PREFERENCES.dtype,
       textPreprocessor: resolveModelTextPreprocessor(model, parsed.textPreprocessor),
+      silmaNfeStep: resolveSilmaNfeStep({ silmaNfeStep: parsed.silmaNfeStep }),
       audioSavedOnly: typeof parsed.audioSavedOnly === 'boolean'
         ? parsed.audioSavedOnly
         : DEFAULT_AUDIO_PREFERENCES.audioSavedOnly,

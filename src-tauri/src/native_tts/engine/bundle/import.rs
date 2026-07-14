@@ -48,6 +48,7 @@ struct NativeAudiobookBundleManifest {
     voice: String,
     speed: f32,
     dtype: String,
+    silma_nfe_step: Option<i32>,
     model_id: String,
     #[serde(default = "default_text_preprocessor")]
     text_preprocessor: String,
@@ -120,7 +121,7 @@ pub(crate) fn import_audiobook_native(
         )
     })?;
 
-    let audiobook_id = create_native_audiobook_id(
+    let mut audiobook_id = create_native_audiobook_id(
         &manifest.model_id,
         &document_url,
         &manifest.voice,
@@ -128,6 +129,11 @@ pub(crate) fn import_audiobook_native(
         &manifest.dtype,
         &manifest.text_preprocessor,
     );
+    if manifest.model_id == "silma-ai/silma-tts" && manifest.silma_nfe_step != Some(16) {
+        if let Some(step) = manifest.silma_nfe_step {
+            audiobook_id = add_silma_nfe_to_audiobook_id(&audiobook_id, step);
+        }
+    }
     let audiobook_dir = audiobook_dir(&app, &audiobook_id)?;
     fs::create_dir_all(audiobook_dir.join("chunks")).map_err(|err| {
         format!(
@@ -232,6 +238,7 @@ pub(crate) fn import_audiobook_native(
         voice: manifest.voice.clone(),
         speed: manifest.speed,
         thread_count: None,
+        silma_nfe_step: manifest.silma_nfe_step,
     };
     write_manifest(&audiobook_dir, &save_request, &speakable, 0)?;
     // write_manifest invalidates old derived playback files. Commit staged bundle
@@ -253,10 +260,19 @@ pub(crate) fn import_audiobook_native(
         voice: manifest.voice,
         speed: manifest.speed,
         dtype: manifest.dtype,
+        silma_nfe_step: manifest.silma_nfe_step,
         chunks: speakable.len(),
         audio_duration_sec: manifest.audio.duration_sec,
         wav_bytes: manifest.audio.bytes,
     })
+}
+
+/// Insert SILMA's NFE cache segment before the normalized document URL.
+fn add_silma_nfe_to_audiobook_id(audiobook_id: &str, step: i32) -> String {
+    match audiobook_id.rsplit_once('|') {
+        Some((prefix, document_url)) => format!("{prefix}|nfe{step}|{document_url}"),
+        None => audiobook_id.to_string(),
+    }
 }
 
 /// Read and JSON-parse the bundle header from the front of `reader`.
