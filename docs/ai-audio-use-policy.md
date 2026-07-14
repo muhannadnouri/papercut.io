@@ -44,3 +44,15 @@ For Canadian distribution, keep these policy lines clear:
 
 Before public release, have Canadian counsel review the final Privacy Policy,
 Terms/Acceptable Use text, and in-app export notice.
+
+## Reference Voice Shipping
+
+Do not ship a default reference voice unless the recording is owned by Papercut
+or explicitly licensed for redistribution, commercial use, TTS reference use,
+generated-audio output, and app-user access. A permissive model or code license
+does not automatically clear rights in the reference recording, the speaker's
+performance, or the speaker's identity.
+
+For SILMA, keep the upstream sample voice as development-only until upstream
+confirms the reference WAV can be redistributed and exposed as a default voice
+profile in Papercut.

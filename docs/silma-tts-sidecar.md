@@ -229,7 +229,9 @@ Reference quality notes:
 
 For production, use owned or explicitly licensed reference audio. Do not ship a
 "clone any voice" UI in the first release. That is a product/legal feature, not
-just an engineering switch.
+just an engineering switch. Treat SILMA's upstream bundled sample voice as
+development-only until upstream confirms that the reference WAV can be
+redistributed and exposed as a default Papercut voice profile.
 
 Current export disclosure:
 
@@ -1066,6 +1068,8 @@ Stage 2 SILMA synthesis status:
 - [ ] Do not expose a generic "run command" permission to the frontend.
 - [ ] Treat voice cloning as consent-sensitive.
 - [ ] Ship only owned/licensed reference voice profiles in the first release.
+- [ ] Confirm upstream SILMA sample-reference redistribution rights before
+      shipping it as a default voice.
 - [x] Add user-facing disclosure that exported audiobooks are AI-generated.
 - [ ] Review SILMA code, model, CATT, NeMo, PyTorch, torchaudio, and ffmpeg
       licenses before distribution.
