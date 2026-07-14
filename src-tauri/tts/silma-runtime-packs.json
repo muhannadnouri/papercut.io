@@ -22,10 +22,22 @@
         }
       ],
       "workerPath": "silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu"
+    },
+    {
+      "runtimeId": "linux-x64-cuda",
+      "platform": "linux",
+      "arch": "x64",
+      "target": "x86_64-unknown-linux-gnu",
+      "url": "",
+      "archiveBytes": 0,
+      "sha256": "",
+      "parts": [],
+      "workerPath": "silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu"
     }
   ],
   "notes": [
     "SILMA runtime packs are downloaded on demand and are not packaged into ordinary desktop installers.",
-    "The v1.7.2 Linux runtime is split into GitHub Release assets below GitHub's per-file upload limit, then reassembled and verified before extraction."
+    "The v1.7.2 Linux CPU runtime is split into GitHub Release assets below GitHub's per-file upload limit, then reassembled and verified before extraction.",
+    "The Linux CUDA runtime slot is present for CI artifact generation, but stays disabled in-app until release metadata is filled."
   ]
 }

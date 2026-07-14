@@ -420,11 +420,15 @@ Runtime id:
 
 ```text
 linux-x64-cpu
+linux-x64-cuda
 ```
 
-CI currently builds only `linux-x64-cpu`. The native model catalog hides SILMA
-on Windows, macOS, Android, and iOS until the upstream Python dependency stack
-has a supported install path there.
+The checked app manifest currently installs `linux-x64-cpu` by default. CI can
+also build `linux-x64-cuda` for NVIDIA validation, but that runtime is not
+offered in-app until its release metadata is filled and the UI has a runtime
+choice. The native model catalog hides SILMA on Windows, macOS, Android, and
+iOS until the upstream Python dependency stack has a supported install path
+there.
 
 Expected worker paths inside runtime packs:
 
@@ -473,11 +477,24 @@ Current runtime-pack install slice:
   release asset URL(s), original archive byte size, and original archive
   SHA-256.
 
-Local runtime-pack install prep:
+Local CPU runtime-pack install prep:
 
 ```bash
 npm run prepare:silma-sidecar -- --self-test
 npm run package:silma-runtime
+```
+
+Local CUDA runtime-pack prep uses the same worker build, but the Python
+environment must install CUDA PyTorch wheels first:
+
+```bash
+python -m pip install -r sidecars/silma/requirements-build.txt
+python -m pip install --upgrade torch torchvision torchaudio \
+  --index-url https://download.pytorch.org/whl/cu128
+npm run prepare:silma-sidecar -- --clean --self-test
+npm run package:silma-runtime -- \
+  --runtime-id linux-x64-cuda \
+  --archive-name papercut-silma-runtime-linux-x64-cuda.tar.bz2
 ```
 
 Then launch the dev app without `PAPERCUT_SILMA_WORKER_BIN`; the SILMA install
@@ -520,12 +537,15 @@ This rewrites the matching `runtimeId` entry in
 
 CI runtime-pack build:
 
-- `.github/workflows/silma-runtime.yml` builds the Linux x64 CPU runtime pack
-  as an Actions artifact without running `npm run desktop`;
+- `.github/workflows/silma-runtime.yml` builds Linux x64 CPU and CUDA runtime
+  packs as Actions artifacts without running `npm run desktop`;
+- the CPU job forces PyTorch's CPU wheel index; the CUDA job forces PyTorch's
+  CUDA 12.8 wheel index. PyTorch's install selector documents Linux pip
+  compute-platform installs using `--index-url` for CPU/CUDA wheels;
 - this avoids the `linuxdeploy` failure path because the Python/PyTorch runtime
   is never placed inside the AppImage/deb/rpm bundle;
-- PR validation: `.github/workflows/ci.yml` also builds and uploads the same
-  Linux runtime pack when SILMA runtime files, packaging scripts, runtime
+- PR validation: `.github/workflows/ci.yml` also builds and uploads the Linux
+  runtime packs when SILMA runtime files, packaging scripts, runtime
   metadata, or related workflows changed, so artifacts can be downloaded before
   the manual workflow lands on the default branch;
 - Windows and macOS runtime-pack CI is intentionally disabled for now. The
@@ -546,6 +566,17 @@ CI runtime-pack build:
 - use the generated `.manifest.json` from CI to fill
   `src-tauri/tts/silma-runtime-packs.json` in a normal PR before enabling public
   runtime install for that release.
+
+CUDA runtime policy:
+
+- ship CPU first because it is universal on supported Linux x64 desktops;
+- keep CUDA as the only GPU runtime lane for now because NVIDIA CUDA is the
+  most common acceleration path for this model class;
+- do not add ROCm, Intel XPU, Windows, or macOS runtime packs until there is a
+  tester and an upstream-supported dependency path;
+- after CI produces a CUDA manifest, fill the `linux-x64-cuda` entry and add a
+  small UI selector that lets Linux users choose CPU or NVIDIA GPU before
+  installing SILMA.
 
 Practical CI model:
 
