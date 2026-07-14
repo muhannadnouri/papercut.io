@@ -396,10 +396,27 @@ pub(super) fn install_silma_runtime_pack(
     let staging_guard = RuntimeWorkDirGuard::new(staging_dir.clone());
     match source {
         SilmaRuntimePackSource::Directory(path) => copy_dir_contents(&path, &staging_dir)?,
-        SilmaRuntimePackSource::Archive { url, sha256, bytes } => {
-            download_runtime_pack_archive(&url, bytes, &archive_path, &mut on_download)?;
+        SilmaRuntimePackSource::Archive {
+            url,
+            parts,
+            sha256,
+            bytes,
+        } => {
+            if parts.is_empty() {
+                let url = url.ok_or_else(|| "SILMA runtime pack URL is missing".to_string())?;
+                download_runtime_pack_file(&url, bytes, &archive_path, 0, bytes, &mut on_download)?;
+            } else {
+                download_runtime_pack_parts(
+                    &parts,
+                    bytes,
+                    &archive_path,
+                    &work_dir,
+                    &mut on_download,
+                )?;
+            }
             if let Err(err) = verify_runtime_pack_archive(&archive_path, &sha256) {
                 let _ = fs::remove_file(&archive_path);
+                remove_runtime_pack_part_cache(&work_dir);
                 return Err(err);
             }
             extract_runtime_pack_archive(&archive_path, &staging_dir)?;
@@ -455,10 +472,16 @@ impl Drop for RuntimeWorkDirGuard {
 enum SilmaRuntimePackSource {
     Directory(PathBuf),
     Archive {
-        url: String,
+        url: Option<String>,
+        parts: Vec<SilmaRuntimePackPart>,
         sha256: String,
         bytes: u64,
     },
+}
+
+struct SilmaRuntimePackPart {
+    url: String,
+    bytes: u64,
 }
 
 impl SilmaRuntimePackSource {
@@ -517,10 +540,19 @@ struct SilmaRuntimePackManifest {
 struct SilmaRuntimePackManifestEntry {
     #[serde(rename = "runtimeId")]
     runtime_id: String,
+    #[serde(default)]
     url: String,
     sha256: String,
     #[serde(rename = "archiveBytes")]
     archive_bytes: u64,
+    #[serde(default)]
+    parts: Vec<SilmaRuntimePackManifestPart>,
+}
+
+#[derive(Deserialize)]
+struct SilmaRuntimePackManifestPart {
+    url: String,
+    bytes: u64,
 }
 
 fn silma_runtime_pack_manifest_source() -> Option<SilmaRuntimePackSource> {
@@ -531,15 +563,33 @@ fn silma_runtime_pack_manifest_source() -> Option<SilmaRuntimePackSource> {
         .into_iter()
         .find(|entry| {
             entry.runtime_id == runtime_pack_id()
-                && !entry.url.is_empty()
                 && !entry.sha256.is_empty()
                 && entry.archive_bytes > 0
+                && (!entry.url.is_empty() || valid_runtime_pack_parts(entry))
         })
         .map(|entry| SilmaRuntimePackSource::Archive {
-            url: entry.url,
+            url: (!entry.url.is_empty()).then_some(entry.url),
+            parts: entry
+                .parts
+                .into_iter()
+                .map(|part| SilmaRuntimePackPart {
+                    url: part.url,
+                    bytes: part.bytes,
+                })
+                .collect(),
             sha256: entry.sha256,
             bytes: entry.archive_bytes,
         })
+}
+
+/// Accept split release metadata only when its parts exactly rebuild the archive.
+fn valid_runtime_pack_parts(entry: &SilmaRuntimePackManifestEntry) -> bool {
+    !entry.parts.is_empty()
+        && entry
+            .parts
+            .iter()
+            .all(|part| !part.url.is_empty() && part.bytes > 0)
+        && entry.parts.iter().map(|part| part.bytes).sum::<u64>() == entry.archive_bytes
 }
 
 fn silma_runtime_pack_default_source_dir() -> Option<PathBuf> {
@@ -557,21 +607,23 @@ fn silma_runtime_pack_default_source_dir() -> Option<PathBuf> {
     None
 }
 
-/// Download a pinned runtime-pack archive, resuming partial cache files when the server allows it.
-fn download_runtime_pack_archive(
+/// Download a pinned runtime-pack file, resuming partial cache files when the server allows it.
+fn download_runtime_pack_file(
     url: &str,
     expected_bytes: u64,
-    archive_path: &Path,
+    destination: &Path,
+    completed_before_file: u64,
+    reported_total: u64,
     on_download: &mut impl FnMut(u64, u64),
 ) -> Result<(), String> {
-    let resume_from = runtime_archive_resume_offset(archive_path, expected_bytes)?;
+    let resume_from = runtime_archive_resume_offset(destination, expected_bytes)?;
     let expected_total = if expected_bytes > 0 {
         expected_bytes
     } else {
         resume_from
     };
     if expected_bytes > 0 && resume_from == expected_bytes {
-        on_download(resume_from, expected_bytes);
+        on_download(completed_before_file + resume_from, reported_total);
         return Ok(());
     }
 
@@ -601,17 +653,18 @@ fn download_runtime_pack_archive(
         .write(true)
         .append(appending)
         .truncate(!appending)
-        .open(archive_path)
+        .open(destination)
         .map_err(|err| {
             format!(
                 "Failed to create SILMA runtime archive {}: {err}",
-                archive_path.display()
+                destination.display()
             )
         })?;
     let mut writer = BufWriter::new(file);
     let mut last_percent = download_percent(downloaded, total);
     let mut buffer = [0u8; 256 * 1024];
-    on_download(downloaded, total);
+    let progress_total = reported_total.max(completed_before_file + total);
+    on_download(completed_before_file + downloaded, progress_total);
     loop {
         let read = response
             .read(&mut buffer)
@@ -622,23 +675,103 @@ fn download_runtime_pack_archive(
         writer.write_all(&buffer[..read]).map_err(|err| {
             format!(
                 "Failed to write SILMA runtime archive {}: {err}",
-                archive_path.display()
+                destination.display()
             )
         })?;
         downloaded += read as u64;
         let percent = download_percent(downloaded, total);
         if percent >= last_percent.saturating_add(2) || percent == 100 {
             last_percent = percent;
-            on_download(downloaded, total);
+            on_download(completed_before_file + downloaded, progress_total);
         }
+    }
+    writer.flush().map_err(|err| {
+        format!(
+            "Failed to finish SILMA runtime archive {}: {err}",
+            destination.display()
+        )
+    })?;
+    Ok(())
+}
+
+/// Download every GitHub Release part into cache before rebuilding the archive.
+fn download_runtime_pack_parts(
+    parts: &[SilmaRuntimePackPart],
+    expected_bytes: u64,
+    archive_path: &Path,
+    work_dir: &Path,
+    on_download: &mut impl FnMut(u64, u64),
+) -> Result<(), String> {
+    let mut completed = 0;
+    let mut part_paths = Vec::with_capacity(parts.len());
+    for (index, part) in parts.iter().enumerate() {
+        let part_path = work_dir.join(format!("silma-runtime-pack.part{:03}", index + 1));
+        download_runtime_pack_file(
+            &part.url,
+            part.bytes,
+            &part_path,
+            completed,
+            expected_bytes,
+            on_download,
+        )?;
+        completed += part.bytes;
+        part_paths.push(part_path);
+    }
+    assemble_runtime_pack_parts(&part_paths, archive_path)?;
+    on_download(expected_bytes, expected_bytes);
+    Ok(())
+}
+
+/// Recreate the original archive from verified-size release asset parts.
+fn assemble_runtime_pack_parts(part_paths: &[PathBuf], archive_path: &Path) -> Result<(), String> {
+    let file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(archive_path)
+        .map_err(|err| {
+            format!(
+                "Failed to create SILMA runtime archive {}: {err}",
+                archive_path.display()
+            )
+        })?;
+    let mut writer = BufWriter::new(file);
+    for part_path in part_paths {
+        let mut part = fs::File::open(part_path).map_err(|err| {
+            format!(
+                "Failed to open SILMA runtime archive part {}: {err}",
+                part_path.display()
+            )
+        })?;
+        std::io::copy(&mut part, &mut writer).map_err(|err| {
+            format!(
+                "Failed to assemble SILMA runtime archive from {}: {err}",
+                part_path.display()
+            )
+        })?;
     }
     writer.flush().map_err(|err| {
         format!(
             "Failed to finish SILMA runtime archive {}: {err}",
             archive_path.display()
         )
-    })?;
-    Ok(())
+    })
+}
+
+/// Clear cached parts after a checksum failure so retry starts from trusted bytes.
+fn remove_runtime_pack_part_cache(work_dir: &Path) {
+    if let Ok(entries) = fs::read_dir(work_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with("silma-runtime-pack.part"))
+            {
+                let _ = fs::remove_file(path);
+            }
+        }
+    }
 }
 
 /// Return the cached archive byte count that is safe to resume from.

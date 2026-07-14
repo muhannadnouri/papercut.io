@@ -490,7 +490,7 @@ jobs:
         with:
           name: papercut-silma-runtime-${{ matrix.runtime_id }}
           path: |
-            sidecars/silma/runtime/${{ matrix.target }}/archive/*.tar.bz2
+            sidecars/silma/runtime/${{ matrix.target }}/archive/*.tar.bz2*
             sidecars/silma/runtime/${{ matrix.target }}/archive/*.manifest.json
           if-no-files-found: error
           retention-days: 7

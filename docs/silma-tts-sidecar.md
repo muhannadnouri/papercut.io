@@ -460,14 +460,18 @@ Current runtime-pack install slice:
   `--self-test`, and atomically promotes it to `current/`;
 - archive install downloads to cache, verifies SHA-256, extracts to the same
   staging directory, runs the same `--self-test`, and promotes the same way;
+- archives larger than GitHub Release's per-file limit are published as
+  numbered `.partNNN` assets. The app downloads each part, reassembles the
+  original `.tar.bz2`, then verifies the original archive SHA-256 before
+  extraction;
 - archive downloads resume from the cached partial `.tar.bz2` when the server
-  supports HTTP range requests. Failed install attempts clear extraction staging
-  but keep the partial archive cache for retry. Extraction staging is still
-  cleared on each attempt, so interrupted installs cannot become active
-  runtimes;
-- this is not the final public manifest yet. It validates the on-disk layout,
-  hash-gated download path, and app-data launch path the release downloader will
-  use.
+  supports HTTP range requests. Split archive downloads resume each cached part.
+  Failed install attempts clear extraction staging but keep the partial archive
+  cache for retry. Extraction staging is still cleared on each attempt, so
+  interrupted installs cannot become active runtimes;
+- the checked manifest is the public install source. Each runtime entry pins the
+  release asset URL(s), original archive byte size, and original archive
+  SHA-256.
 
 Local runtime-pack install prep:
 
@@ -479,14 +483,16 @@ npm run package:silma-runtime
 Then launch the dev app without `PAPERCUT_SILMA_WORKER_BIN`; the SILMA install
 button can copy that prepared runtime into app data.
 
-The package command writes:
+The package command writes a manifest plus either one archive or numbered parts
+when the archive is too large for a single GitHub Release asset:
 
 ```text
-sidecars/silma/runtime/x86_64-unknown-linux-gnu/archive/papercut-silma-runtime-linux-x64-cpu.tar.bz2
+sidecars/silma/runtime/x86_64-unknown-linux-gnu/archive/papercut-silma-runtime-linux-x64-cpu.tar.bz2.part001
+sidecars/silma/runtime/x86_64-unknown-linux-gnu/archive/papercut-silma-runtime-linux-x64-cpu.tar.bz2.part002
 sidecars/silma/runtime/x86_64-unknown-linux-gnu/archive/papercut-silma-runtime-linux-x64-cpu.manifest.json
 ```
 
-The CI runtime-pack job writes the same archive/manifest pair under
+The CI runtime-pack job writes the same assets under
 `sidecars/silma/runtime/x86_64-unknown-linux-gnu/archive/`.
 
 Release runtime-pack metadata lives in:
@@ -495,12 +501,13 @@ Release runtime-pack metadata lives in:
 src-tauri/tts/silma-runtime-packs.json
 ```
 
-Copy the release artifact URL, `sha256`, and `archiveBytes` into that manifest.
-The v1.7.0 checked-in entry points at the Linux x64 runtime pack attached to
-the v1.7.0 GitHub Release and pins its byte size and SHA-256.
+Copy the release artifact URL(s), `sha256`, and `archiveBytes` into that
+manifest. The v1.7.0 checked-in entry points at the split Linux x64 runtime
+pack attached to the v1.7.0 GitHub Release and pins its original archive byte
+size and SHA-256.
 
-After uploading the archive, update the checked app manifest from the generated
-artifact metadata:
+After generating release assets, update the checked app manifest from the
+generated artifact metadata:
 
 ```bash
 npm run package:silma-runtime -- \
@@ -531,7 +538,8 @@ CI runtime-pack build:
 - pass `tag` to make the generated manifest use the predictable GitHub Release
   URL;
 - set `upload_to_release` only after the release exists and you want the
-  workflow to attach the `.tar.bz2` and generated manifest to that release.
+  workflow to attach the `.tar.bz2.partNNN` files and generated manifest to
+  that release.
   Published runtime-pack assets are immutable; if an upload target already
   exists, create a new release/tag or delete the bad asset deliberately rather
   than overwriting it from CI;
@@ -1184,6 +1192,8 @@ Exit criteria:
 - [x] Add CI workflow to build the Linux SILMA runtime pack as a separate
       artifact.
 - [x] Fill checked SILMA runtime-pack release metadata.
+- [x] Split the Linux runtime pack into GitHub Release-safe asset parts and
+      reassemble/verify it during install.
 - [x] Add SILMA model-file in-app install support.
 - [x] Pin model-file source revision and hashes.
 - [x] Download model files to app data.

@@ -99,7 +99,7 @@ jobs:
         with:
           name: papercut-silma-runtime-${{ matrix.runtime_id }}
           path: |
-            sidecars/silma/runtime/${{ matrix.target }}/archive/*.tar.bz2
+            sidecars/silma/runtime/${{ matrix.target }}/archive/*.tar.bz2*
             sidecars/silma/runtime/${{ matrix.target }}/archive/*.manifest.json
           if-no-files-found: error
           retention-days: 14
@@ -115,6 +115,6 @@ jobs:
             exit 1
           fi
           gh release upload "$INPUT_TAG" \
-            sidecars/silma/runtime/${{ matrix.target }}/archive/*.tar.bz2 \
+            sidecars/silma/runtime/${{ matrix.target }}/archive/*.tar.bz2* \
             sidecars/silma/runtime/${{ matrix.target }}/archive/*.manifest.json \
             --repo "$GITHUB_REPOSITORY"

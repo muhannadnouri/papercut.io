@@ -6,14 +6,26 @@
       "platform": "linux",
       "arch": "x64",
       "target": "x86_64-unknown-linux-gnu",
-      "url": "https://github.com/muhannadnouri/papercut.io/releases/download/v1.7.0/papercut-silma-runtime-linux-x64-cpu.tar.bz2",
+      "url": "",
       "archiveBytes": 3048494100,
       "sha256": "6fd29b9e18ad0cd1f816777ece40dbe2693d6aa7f6f287ca4be85f272d87051d",
+      "parts": [
+        {
+          "url": "https://github.com/muhannadnouri/papercut.io/releases/download/v1.7.0/papercut-silma-runtime-linux-x64-cpu.tar.bz2.part001",
+          "archive": "papercut-silma-runtime-linux-x64-cpu.tar.bz2.part001",
+          "bytes": 1900000000
+        },
+        {
+          "url": "https://github.com/muhannadnouri/papercut.io/releases/download/v1.7.0/papercut-silma-runtime-linux-x64-cpu.tar.bz2.part002",
+          "archive": "papercut-silma-runtime-linux-x64-cpu.tar.bz2.part002",
+          "bytes": 1148494100
+        }
+      ],
       "workerPath": "silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu"
     }
   ],
   "notes": [
     "SILMA runtime packs are downloaded on demand and are not packaged into ordinary desktop installers.",
-    "Fill url, archiveBytes, and sha256 from the runtime-pack release artifact before enabling public installs."
+    "The v1.7.0 Linux runtime is split into GitHub Release assets below GitHub's per-file upload limit, then reassembled and verified before extraction."
   ]
 }
