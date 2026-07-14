@@ -496,8 +496,8 @@ src-tauri/tts/silma-runtime-packs.json
 ```
 
 Copy the release artifact URL, `sha256`, and `archiveBytes` into that manifest.
-The current checked-in entry has an empty URL, so public runtime download stays
-disabled until real release metadata exists.
+The v1.7.0 checked-in entry points at the Linux x64 runtime pack attached to
+the v1.7.0 GitHub Release and pins its byte size and SHA-256.
 
 After uploading the archive, update the checked app manifest from the generated
 artifact metadata:
@@ -1183,7 +1183,7 @@ Exit criteria:
       artifact.
 - [x] Add CI workflow to build the Linux SILMA runtime pack as a separate
       artifact.
-- [ ] Fill checked SILMA runtime-pack release metadata.
+- [x] Fill checked SILMA runtime-pack release metadata.
 - [x] Add SILMA model-file in-app install support.
 - [x] Pin model-file source revision and hashes.
 - [x] Download model files to app data.
