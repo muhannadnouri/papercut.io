@@ -233,14 +233,17 @@ just an engineering switch.
 
 Current export disclosure:
 
-- SILMA saved-audiobook export options show an AI-generated voice disclosure
-  reminder.
-- Exporting a SILMA audiobook opens the standard confirmation dialog before the
-  native save dialog.
+- All saved-audiobook export options remind users to label AI-generated audio if
+  shared.
+- Exporting any saved audiobook opens the standard confirmation dialog before
+  the native save dialog.
+- SILMA adds a reference-voice permission warning because it uses a reference
+  recording as part of generation.
 - Exported Papercut bundles include `silmaNfeStep` metadata so imported SILMA
   audiobooks restore the selected quality setting and cache identity.
 - Reopening an imported SILMA bundle restores that NFE value from native
   metadata before checking saved-audio availability.
+- Shared policy wording lives in [ai-audio-use-policy.md](ai-audio-use-policy.md).
 
 ## Model Download
 
@@ -1063,7 +1066,7 @@ Stage 2 SILMA synthesis status:
 - [ ] Do not expose a generic "run command" permission to the frontend.
 - [ ] Treat voice cloning as consent-sensitive.
 - [ ] Ship only owned/licensed reference voice profiles in the first release.
-- [x] Add user-facing disclosure that SILMA audio is AI-generated if exported.
+- [x] Add user-facing disclosure that exported audiobooks are AI-generated.
 - [ ] Review SILMA code, model, CATT, NeMo, PyTorch, torchaudio, and ffmpeg
       licenses before distribution.
 

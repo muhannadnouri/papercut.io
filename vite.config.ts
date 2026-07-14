@@ -21,6 +21,7 @@ export default defineConfig({
         '**/sidecars/**/__pycache__/**',
         '**/sidecars/**/runtime/**',
         '**/src-tauri/target/**',
+        '**/src-tauri/gen/**',
         '**/src-tauri/tts/runtime/**',
         '*.epub',
         '*.zip',

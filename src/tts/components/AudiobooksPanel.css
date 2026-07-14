@@ -818,7 +818,7 @@
   right: 0;
   z-index: 70;
   display: grid;
-  min-width: min(13.5rem, calc(100vw - 2rem));
+  min-width: min(16rem, calc(100vw - 2rem));
   overflow: hidden;
   border: 1px solid var(--border-strong);
   border-radius: 6px;
@@ -841,7 +841,7 @@
   text-align: left;
 }
 
-.audiobook-export-option:last-child {
+.audiobook-export-option:last-of-type {
   border-bottom: none;
 }
 
@@ -871,6 +871,18 @@
   background: var(--surface-accent);
   color: var(--accent-strong);
   outline: none;
+}
+
+.audiobook-export-note {
+  display: grid;
+  gap: 0.12rem;
+  padding: 0.55rem 0.8rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.25;
 }
 
 .audiobook-action-toast {

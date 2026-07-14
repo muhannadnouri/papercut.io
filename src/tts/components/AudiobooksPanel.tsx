@@ -77,7 +77,7 @@ const AUDIOBOOK_EXPORT_OPTIONS: Array<{
   code?: string
 }> = [
   { format: 'bundle', label: 'Papercut Bundle', detail: 'Export as', code: '.papercut-audiobook' },
-  { format: 'wav', label: 'WAV', detail: 'Export as', code: '.wav' },
+  { format: 'wav', label: 'WAV Audio', detail: 'Export as', code: '.wav' },
 ]
 
 export function AudiobooksPanel({
@@ -287,11 +287,14 @@ export function AudiobooksPanel({
                             <span>{option.label}</span>
                             <small>
                               {option.detail}
-                              {option.code ? <> <code>{option.code}</code></> : null}
-                              {record.modelId === SILMA_MODEL_ID ? ' · Label as AI-generated when sharing' : null}
+                              {option.code ? <> · <code>{option.code}</code></> : null}
                             </small>
                           </button>
                         ))}
+                        <div className="audiobook-export-note">
+                          <span>Label as AI-generated if shared.</span>
+                          {record.modelId === SILMA_MODEL_ID ? <span>Use only permitted reference voices.</span> : null}
+                        </div>
                       </div>
                     )}
                   </div>
