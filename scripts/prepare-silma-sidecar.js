@@ -5,6 +5,7 @@ import { runSync } from "./lib/process.js"
 
 const SILMA_DIR = join(ROOT, "sidecars", "silma")
 const WORKER = join(SILMA_DIR, "silma_worker.py")
+const HOOKS_DIR = join(SILMA_DIR, "pyinstaller-hooks")
 const CACHE_DIR = join(ROOT, ".cache", "silma-pyinstaller")
 
 const options = parseArgs(process.argv.slice(2))
@@ -54,6 +55,8 @@ const result = runSync(
     join(CACHE_DIR, "build"),
     "--specpath",
     join(CACHE_DIR, "spec"),
+    "--additional-hooks-dir",
+    HOOKS_DIR,
     "--collect-all",
     "silma_tts",
     "--hidden-import",

@@ -502,8 +502,8 @@ src-tauri/tts/silma-runtime-packs.json
 ```
 
 Copy the release artifact URL(s), `sha256`, and `archiveBytes` into that
-manifest. The v1.7.1 checked-in entry points at the split Linux x64 runtime
-pack attached to the v1.7.1 GitHub Release and pins its original archive byte
+manifest. The v1.7.2 checked-in entry points at the split Linux x64 runtime
+pack attached to the v1.7.2 GitHub Release and pins its original archive byte
 size and SHA-256.
 
 After generating release assets, update the checked app manifest from the
@@ -602,7 +602,7 @@ Known recovery paths:
 
 - SILMA does not appear in the model list: confirm the app is a Linux x64 build
   from a commit that includes the public runtime metadata. Windows, macOS, and
-  mobile builds intentionally hide SILMA in v1.7.1.
+  mobile builds intentionally hide SILMA in v1.7.2.
 - `SILMA runtime pack is not installed`: install the optional runtime pack first.
   If public download is disabled, fill `src-tauri/tts/silma-runtime-packs.json`
   from a release artifact or use the local packaged runtime flow.
@@ -736,7 +736,7 @@ SILMA catalog status:
 - Family: `TtsModelFamily::SilmaF5`
 - Storage prefix: `models/silma-tts`
 Linux x64 desktop builds advertise SILMA by default. Windows, macOS, and mobile
-builds never advertise it in v1.7.1.
+builds never advertise it in v1.7.2.
 One install click installs the missing SILMA pieces in order: runtime pack
 first, then pinned model files.
 
@@ -873,6 +873,12 @@ not use that optional Transformers audio/video decoder path, and PyInstaller can
 otherwise freeze enough of it for Transformers to detect it without freezing its
 distribution metadata. If `load_model` still fails, check the sidecar stderr
 traceback before adding more PyInstaller includes.
+
+Packaged TorchScript note: SILMA's F5/x-transformers path compiles helpers such
+as `softclamp` through TorchScript, which asks Python for function source at
+runtime. The local PyInstaller hook for `x_transformers` sets
+`module_collection_mode = "py"` so those modules stay available as external
+`.py` files inside the runtime pack.
 
 After changing worker/package imports, rebuild the packaged worker before
 testing the app:
@@ -1218,7 +1224,7 @@ Exit criteria:
       or full CI.
 - [x] Move SILMA to an optional runtime download instead of enabling it in
       ordinary release installers.
-- [ ] Bundle sidecar dependencies correctly in the Linux runtime pack.
+- [x] Bundle sidecar dependencies correctly in the Linux runtime pack.
 - [ ] Verify Linux bundles.
 - [ ] Revisit Windows/macOS runtime packs after upstream dependency fixes.
 
