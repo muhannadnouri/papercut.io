@@ -307,14 +307,25 @@ If Cargo prints `Blocking waiting for file lock on artifact directory`, another 
 
 ### Offline native multilingual text-to-speech
 
-Papercut uses one native sherpa-onnx TTS architecture on desktop, arm64 Android, and iOS. React selects a catalog model and voice; Rust downloads, verifies, loads, and caches that model through a generic engine interface. Browser preview can display the UI but cannot synthesize audio. iOS uses the official sherpa-onnx static XCFramework archive rather than desktop dylib bundling.
+Papercut uses native offline TTS for saved audiobooks. Kokoro, Piper, and
+Supertonic run through sherpa-onnx on desktop, arm64 Android, and iOS. SILMA
+Arabic TTS is available on Linux x64 desktop as an optional Python sidecar
+runtime pack that downloads only when selected. Browser preview can display the
+UI but cannot synthesize audio. iOS uses the official sherpa-onnx static
+XCFramework archive rather than desktop dylib bundling.
 
 Supported catalog models:
 
 - **Kokoro English v1.0**: existing default, 27 voices, 349,418,188-byte archive.
 - **Piper Kareem Medium (`ar-JO`)**: Arabic option using sherpa VITS, one voice, 67,177,830-byte archive. SHA-256: `9ebbcea30e0fbd588f7b2cb45ee897d6aeb1bf5791cbc037a7b5a3f641e3dbce`.
+- **SILMA Arabic TTS**: Linux x64 desktop-only Arabic option using a
+  downloadable sidecar runtime pack and separate on-demand model files.
 
-Models are not packaged in installers, APKs, or IPAs. The selected model is downloaded on demand from the pinned official sherpa-onnx TTS-model release, verified before extraction, and stored in Tauri app data. Desktop, Android, and iOS share model archives; only native sherpa libraries differ by platform.
+Models are not packaged in installers, APKs, or IPAs. The selected model is
+downloaded on demand, verified before extraction, and stored in Tauri app data.
+Desktop, Android, and iOS share sherpa model archives; only native sherpa
+libraries differ by platform. SILMA's large Python runtime also stays out of the
+ordinary installer and is installed as an optional Linux x64 runtime pack.
 
 Arabic-dominant documents automatically suggest Piper Kareem. Users can override the model selector. Arabic sentence and clause punctuation is recognized during chunking, and every synthesis request has a hard character bound to reduce native crashes on long unpunctuated text. Piper is practical and much smaller, but it should not be described as Kokoro-equivalent quality; voice naturalness must be evaluated on target Arabic material and devices. The upstream model repository is MIT-licensed, while its dataset provenance/license is not clearly stated, so redistribution should receive a license review. On-demand download reduces app distribution risk but does not replace that review.
 

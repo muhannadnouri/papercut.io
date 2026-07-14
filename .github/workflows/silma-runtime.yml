@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Optional release tag to upload to, for example v1.6.0"
+        description: "Optional release tag to upload to, for example v1.7.0"
         required: false
         type: string
       artifact_base_url:
