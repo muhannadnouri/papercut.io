@@ -221,11 +221,11 @@ Reference quality notes:
 - For Arabic references, an accurate diacritized transcript may help the model
   condition pronunciation. Papercut's bundled SILMA profile uses a diacritized
   transcript for the upstream `ar.ref.24k.wav` sample.
-- Keep first-release reference audio as WAV. SILMA's `pydub` import warns when
-  ffmpeg is missing, but the current bundled-WAV reference path does not need
-  ffmpeg in editable-worker smoke tests. User-imported mp3/m4a/webm reference
-  audio would be a separate feature that should bundle ffmpeg or transcode
-  before reaching SILMA.
+- Keep first-release reference audio as WAV. SILMA's `pydub` import can warn
+  when the `ffmpeg` executable is missing during editable-worker smoke tests,
+  but release runtime packs still bundle FFmpeg shared libraries for TorchCodec.
+  User-imported mp3/m4a/webm reference audio would be a separate feature that
+  should explicitly transcode before reaching SILMA.
 
 For production, use owned or explicitly licensed reference audio. Do not ship a
 "clone any voice" UI in the first release. That is a product/legal feature, not
@@ -485,6 +485,7 @@ Current runtime-pack install slice:
 Local CPU runtime-pack install prep:
 
 ```bash
+sudo apt-get install -y --no-install-recommends ffmpeg
 python -m pip install -r sidecars/silma/requirements-build.txt
 python -m pip install --upgrade --force-reinstall torch torchvision torchaudio torchcodec \
   --index-url https://download.pytorch.org/whl/cpu
@@ -502,6 +503,7 @@ Local CUDA runtime-pack prep uses the same worker build, but the Python
 environment must install CUDA PyTorch wheels first:
 
 ```bash
+sudo apt-get install -y --no-install-recommends ffmpeg
 python -m pip install -r sidecars/silma/requirements-build.txt
 python -m pip install --upgrade --force-reinstall torch torchvision torchaudio torchcodec \
   --index-url https://download.pytorch.org/whl/cu128
@@ -560,6 +562,10 @@ CI runtime-pack build:
   CPU/CUDA wheels. `torchcodec` must be installed from the same index as
   `torch`; otherwise a CPU pack can accidentally contain CUDA-linked
   TorchCodec libraries and fail later with missing `libc10_cuda.so`;
+- the runtime-pack job installs Ubuntu's FFmpeg package and copies the versioned
+  FFmpeg shared libraries into the optional SILMA runtime. TorchCodec needs
+  those `libav*`/`libsw*` libraries even when Papercut only passes WAV reference
+  audio;
 - this avoids the `linuxdeploy` failure path because the Python/PyTorch runtime
   is never placed inside the AppImage/deb/rpm bundle;
 - PR validation: `.github/workflows/ci.yml` also builds and uploads the Linux
@@ -675,9 +681,10 @@ Known recovery paths:
   stderr.
 - `No format specified ... .tmp`: the worker must write to an internal
   `.tmp.wav` path and rename it back to Rust's requested temp path.
-- `ffmpeg`/`avconv` warning: expected on systems without ffmpeg. The current
-  SILMA voice uses a bundled WAV reference and writes WAV output, so this is not
-  a blocker unless custom non-WAV reference audio is added.
+- `ffmpeg`/`avconv` warning in editable-worker dev: expected on systems without
+  the ffmpeg executable. Packaged runtime installs should include the FFmpeg
+  shared libraries copied during `prepare:silma-sidecar`; missing `libav*`
+  diagnostics mean the runtime pack is invalid.
 - `device=cpu`: expected on machines without CUDA/MPS/XPU. Reduce NFE steps or
   thread count for CPU tests; GPU acceleration depends on the packaged Torch
   build and available hardware.
@@ -835,6 +842,8 @@ under `models/silma-tts/silma-tts/`.
 - [x] Document exact Python version and pinned runtime/build dependency inputs.
 - [x] Decide whether `ffmpeg` is required at runtime; if yes, bundle it or avoid
       the code path that needs it.
+- [x] Bundle direct FFmpeg shared libraries in the optional Linux SILMA runtime
+      pack after TorchCodec proved it needs `libav*` at import time.
 
 Stage 0 worker location:
 
@@ -891,12 +900,9 @@ Local smoke result, Python 3.12 venv on CPU:
 - Output WAV: 174,676 bytes
 
 The editable-worker run warned that `ffmpeg`/`avconv` was not found, but this
-bundled-WAV reference path completed. Packaged runtimes still must pass
-`--dependency-check`, because TorchCodec can fail earlier than synthesis if its
-FFmpeg/PyTorch native libraries do not match the selected CPU/CUDA wheel stack.
-Only bundle FFmpeg after that check proves the remaining failure is a missing
-FFmpeg shared-library dependency rather than a mismatched Torch/TorchCodec
-install.
+bundled-WAV reference path completed. Packaged runtimes are stricter: the
+runtime pack bundles FFmpeg shared libraries because TorchCodec can fail before
+synthesis when `libavutil`/related FFmpeg libraries are unavailable.
 
 No-ffmpeg editable-worker validation command:
 
@@ -910,17 +916,15 @@ PATH="$PWD/.venv-silma/bin" \
   --seed 1234
 ```
 
-No-ffmpeg packaged-worker validation command:
+Packaged-worker validation command:
 
 ```bash
-EMPTY_PATH="$PWD/.cache/empty-path"
 SILMA_WORKER_DIR="$PWD/sidecars/silma/runtime/x86_64-unknown-linux-gnu/onedir/silma-worker-x86_64-unknown-linux-gnu"
 SILMA_WORKER="$SILMA_WORKER_DIR/silma-worker-x86_64-unknown-linux-gnu"
-mkdir -p "$EMPTY_PATH"
-PATH="$EMPTY_PATH" "$SILMA_WORKER" \
+"$SILMA_WORKER" \
   --smoke \
   --model-dir ./.cache/silma-tts \
-  --output-wav ./.cache/silma-tts-packaged-no-ffmpeg.wav \
+  --output-wav ./.cache/silma-tts-packaged.wav \
   --text "أنا نموذج سلمى لتحويل النص إلى كلام." \
   --seed 1234
 ```
@@ -1288,6 +1292,7 @@ Exit criteria:
 - [x] Move SILMA to an optional runtime download instead of enabling it in
       ordinary release installers.
 - [x] Bundle sidecar dependencies correctly in the Linux runtime pack.
+- [x] Bundle FFmpeg shared libraries in the optional Linux SILMA runtime pack.
 - [ ] Rebuild the Linux CPU runtime pack with CPU `torchcodec` pinned from the
       PyTorch CPU wheel index and verify a clean install.
 - [ ] Verify Linux bundles.

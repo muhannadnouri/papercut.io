@@ -38,6 +38,7 @@ if (!existsSync(join(pythonInfo.prefix, "lib"))) {
 
 mkdirSync(appDir, { recursive: true })
 copyPythonPrefix(pythonInfo.prefix, join(appDir, "python"))
+copyFfmpegLibraries(join(appDir, "ffmpeg", "lib"))
 mkdirSync(join(appDir, "worker"), { recursive: true })
 cpSync(WORKER, join(appDir, "worker", "silma_worker.py"))
 writeLauncher(workerPath)
@@ -112,6 +113,52 @@ function shouldSkipPythonPath(path) {
   )
 }
 
+// TorchCodec dlopens versioned FFmpeg sonames at import time, so the runtime
+// pack carries the same libav/libsw shared libraries CI validated.
+function copyFfmpegLibraries(destination) {
+  if (!target.includes("linux")) return
+  const required = [
+    "libavcodec",
+    "libavdevice",
+    "libavfilter",
+    "libavformat",
+    "libavutil",
+    "libswresample",
+    "libswscale",
+  ]
+  const entries = loadLdconfigEntries()
+  mkdirSync(destination, { recursive: true })
+
+  const copied = []
+  for (const name of required) {
+    const source = findVersionedLibrary(entries, name)
+    if (!source) fail("Missing FFmpeg shared library " + name + ". Install ffmpeg before packaging SILMA.")
+    cpSync(source.path, join(destination, source.soname), { dereference: true })
+    copied.push(source.soname)
+  }
+  console.log("[silma-sidecar] bundled FFmpeg libraries " + copied.join(", "))
+}
+
+// Reuse the platform loader cache instead of guessing distro-specific lib dirs.
+function loadLdconfigEntries() {
+  const result = runSync("ldconfig", ["-p"], { cwd: ROOT, stdio: "pipe" })
+  if (result.error) fail("Failed to inspect system shared libraries with ldconfig: " + result.error.message)
+  if (result.status !== 0) fail("ldconfig failed: " + result.stderr.toString())
+  return result.stdout
+    .toString()
+    .split("\n")
+    .map((line) => line.match(/^\s*(\S+)\s+\([^)]*\)\s+=>\s+(.+)$/))
+    .filter(Boolean)
+    .map((match) => ({ soname: match[1], path: match[2] }))
+}
+
+// Prefer the ordinary distro FFmpeg libs over optional codec-extra variants.
+function findVersionedLibrary(entries, name) {
+  return entries
+    .filter((entry) => new RegExp("^" + name + "[.]so[.]\\d+$").test(entry.soname))
+    .sort((left, right) => Number(left.path.includes("/codecs-extra/")) - Number(right.path.includes("/codecs-extra/")))[0]
+}
+
 // Build a tiny shell entrypoint instead of freezing Python; relocated Torch and
 // CUDA wheels need their bundled native-library directories visible at launch.
 function writeLauncher(path) {
@@ -126,6 +173,9 @@ fi
 export PYTHONHOME="$DIR/python"
 export PYTHONNOUSERSITE=1
 LIB_PATH="$DIR/python/lib"
+if [ -d "$DIR/ffmpeg/lib" ]; then
+  LIB_PATH="$LIB_PATH:$DIR/ffmpeg/lib"
+fi
 for EXTRA_LIB_DIR in \\
   "$DIR"/python/lib/python*/site-packages/torch/lib \\
   "$DIR"/python/lib/python*/site-packages/torchaudio/lib \\

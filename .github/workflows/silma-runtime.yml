@@ -59,6 +59,11 @@ jobs:
             sidecars/silma/requirements.txt
             sidecars/silma/requirements-build.txt
 
+      - name: Install FFmpeg runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
       - name: Install SILMA sidecar dependencies
         env:
           TORCH_INDEX_URL: ${{ matrix.torch_index_url }}
