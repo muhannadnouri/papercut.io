@@ -49,7 +49,7 @@ export const FONT_FAMILY_OPTIONS = [
   { label: 'Atkinson Hyperlegible', value: READER_FONT_STACKS.atkinson },
   { label: 'System Serif', value: READER_FONT_STACKS.systemSerif },
   { label: 'System Sans', value: READER_FONT_STACKS.systemSans },
-  { label: 'Naskh Arabic', value: READER_FONT_STACKS.naskhArabic },
+  { label: 'Naskh Arabic', value: READER_FONT_STACKS.naskhArabic, style: { fontFamily: 'var(--ui-font)' } },
   { label: 'Droid Arabic Naskh', value: READER_FONT_STACKS.droidArabicNaskh },
   { label: 'Scheherazade New', value: READER_FONT_STACKS.scheherazadeNew },
   { label: 'Readex Pro', value: READER_FONT_STACKS.readexPro },

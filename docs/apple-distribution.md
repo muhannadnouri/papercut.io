@@ -468,7 +468,7 @@ First CI success only means Apple accepted upload. Still need:
 - Missing hardened runtime or wrong entitlements can make notarization fail or app launch fail after signing.
 - Native dylibs in Resources must be signed/notarized as part of bundle.
 - iOS CI cannot build a signed IPA until the generated `src-tauri/gen/apple` files are committed and the Apple Distribution certificate/provisioning profile secrets exist in the protected `apple-release` environment.
-- iOS native TTS uses the official `sherpa-onnx-v1.13.2-ios.tar.bz2` static XCFramework archive. CI verifies the archive checksum before extraction. Real-device TestFlight validation is still required for model download, generation speed, playback, background controls, and highlighting.
+- iOS native TTS uses the official `sherpa-onnx-v1.13.4-ios.tar.bz2` static XCFramework archive, matching the shared sherpa version used by desktop and Android build helpers. CI verifies the archive checksum before extraction. Real-device TestFlight validation is still required for model download, Supertonic generation, playback, background controls, and highlighting.
 - Current App ID `io.papercut.desktop` may be accepted but is a poor long-term iOS identifier.
 - Apple private keys are high-value secrets. Losing the private key used for CSR means the downloaded certificate cannot be used.
 

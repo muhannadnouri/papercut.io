@@ -11,7 +11,7 @@ export const SHERPA_IOS_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/do
   SHERPA_VERSION +
   "/" +
   SHERPA_IOS_ARCHIVE_NAME
-export const SHERPA_IOS_SHA256 = "2886a04df4f8d5066c6c8b6e712278d65d7b60fc9e45990223df50262861d38b"
+export const SHERPA_IOS_SHA256 = "596f33bff80046a52144745745fe54d55e8b23659d92209f5ab7d94c1259fe6d"
 
 export const SHERPA_IOS_DEVICE_SLICE = "ios-arm64"
 export const SHERPA_IOS_SIMULATOR_UPSTREAM_SLICE = "ios-arm64_x86_64-simulator"
@@ -20,10 +20,11 @@ export const SHERPA_IOS_DEFAULT_SLICE = SHERPA_IOS_DEVICE_SLICE
 
 export const SHERPA_IOS_BUILD_ROOT = join(SHERPA_IOS_RUNTIME_ROOT, "build-ios")
 export const SHERPA_IOS_SHERPA_XCFRAMEWORK = join(SHERPA_IOS_BUILD_ROOT, "sherpa-onnx.xcframework")
+// Upstream keeps this symlink pointed at the bundled ONNX Runtime version, so
+// sherpa bumps do not also require a hardcoded ORT directory update here.
 export const SHERPA_IOS_ONNXRUNTIME_XCFRAMEWORK = join(
   SHERPA_IOS_BUILD_ROOT,
   "ios-onnxruntime",
-  "1.17.1",
   "onnxruntime.xcframework",
 )
 
