@@ -77,17 +77,15 @@ PATH="$PWD/.venv-silma/bin" \
   --seed 1234
 ```
 
-No-ffmpeg validation for a packaged worker:
+Packaged-worker validation:
 
 ```bash
-EMPTY_PATH="$PWD/.cache/empty-path"
 SILMA_WORKER_DIR="$PWD/sidecars/silma/runtime/x86_64-unknown-linux-gnu/onedir/silma-worker-x86_64-unknown-linux-gnu"
 SILMA_WORKER="$SILMA_WORKER_DIR/silma-worker-x86_64-unknown-linux-gnu"
-mkdir -p "$EMPTY_PATH"
-PATH="$EMPTY_PATH" "$SILMA_WORKER" \
+"$SILMA_WORKER" \
   --smoke \
   --model-dir ./.cache/silma-tts \
-  --output-wav ./.cache/silma-tts-packaged-no-ffmpeg.wav \
+  --output-wav ./.cache/silma-tts-packaged.wav \
   --text "أنا نموذج سلمى لتحويل النص إلى كلام." \
   --seed 1234
 ```
@@ -126,6 +124,7 @@ Install the build requirements into a full Python prefix, then build a
 source-preserving target-suffixed runtime:
 
 ```bash
+sudo apt-get install -y --no-install-recommends ffmpeg
 python -m pip install -r sidecars/silma/requirements-build.txt
 npm run prepare:silma-sidecar -- --clean --self-test --import-check --dependency-check
 ```

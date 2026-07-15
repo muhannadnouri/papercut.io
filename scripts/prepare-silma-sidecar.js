@@ -1,4 +1,14 @@
-import { chmodSync, cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
+import {
+  chmodSync,
+  copyFileSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs"
 import { dirname, join } from "node:path"
 import { ROOT } from "./lib/paths.js"
 import { runSync } from "./lib/process.js"
@@ -133,10 +143,19 @@ function copyFfmpegLibraries(destination) {
   for (const name of required) {
     const source = findVersionedLibrary(entries, name)
     if (!source) fail("Missing FFmpeg shared library " + name + ". Install ffmpeg before packaging SILMA.")
-    cpSync(source.path, join(destination, source.soname), { dereference: true })
+    copySharedLibrary(source, join(destination, source.soname))
     copied.push(source.soname)
   }
   console.log("[silma-sidecar] bundled FFmpeg libraries " + copied.join(", "))
+}
+
+// Resolve loader-cache symlinks before copying so Node never treats them as directories.
+function copySharedLibrary(source, destination) {
+  const realPath = realpathSync(source.path)
+  if (!statSync(realPath).isFile()) {
+    fail("Expected " + source.soname + " to resolve to a file, got " + realPath)
+  }
+  copyFileSync(realPath, destination)
 }
 
 // Reuse the platform loader cache instead of guessing distro-specific lib dirs.
@@ -149,7 +168,11 @@ function loadLdconfigEntries() {
     .split("\n")
     .map((line) => line.match(/^\s*(\S+)\s+\([^)]*\)\s+=>\s+(.+)$/))
     .filter(Boolean)
-    .map((match) => ({ soname: match[1], path: match[2] }))
+    .map((match) => ({ soname: match[1], path: normalizeLdconfigPath(match[2]) }))
+}
+
+function normalizeLdconfigPath(path) {
+  return path.trim().replace(/\/+$/, "")
 }
 
 // Prefer the ordinary distro FFmpeg libs over optional codec-extra variants.
