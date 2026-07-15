@@ -20,6 +20,7 @@ use sha2::{Digest, Sha256};
 use tauri::Manager;
 
 const SILMA_RUNTIME_PACK_MANIFEST: &str = include_str!("../../../tts/silma-runtime-packs.json");
+const SILMA_LOCAL_RUNTIME_MANIFEST: &str = "silma-runtime.local.json";
 pub(super) const DEFAULT_SILMA_NFE_STEP: i32 = 32;
 
 pub(super) struct SilmaSidecar {
@@ -223,7 +224,13 @@ struct SilmaLaunchCommand {
     worker_path: PathBuf,
 }
 
-/// Prefer explicit env overrides, then optional runtime packs, bundled resources, then the repo script.
+struct InstalledSilmaRuntime {
+    worker_path: PathBuf,
+    label: &'static str,
+    message: &'static str,
+}
+
+/// Prefer explicit env overrides, then user-installed local runtimes, runtime packs, and finally repo dev scripts.
 fn silma_launch_command(app: &tauri::AppHandle) -> Result<SilmaLaunchCommand, String> {
     if !silma_supported_on_current_platform() {
         return Err("SILMA runtime is currently supported on Linux x64 only".into());
@@ -252,12 +259,12 @@ fn silma_launch_command(app: &tauri::AppHandle) -> Result<SilmaLaunchCommand, St
         });
     }
 
-    if let Some(worker_path) = runtime_pack_worker_path(app)? {
+    if let Some(runtime) = installed_runtime_worker_path(app)? {
         return Ok(SilmaLaunchCommand {
-            program: worker_path.clone(),
+            program: runtime.worker_path.clone(),
             args: Vec::new(),
-            python_command: "<runtime-pack>".into(),
-            worker_path,
+            python_command: runtime.label.into(),
+            worker_path: runtime.worker_path,
         });
     }
 
@@ -322,13 +329,13 @@ pub(super) fn silma_runtime_status(app: &tauri::AppHandle) -> SilmaRuntimeStatus
         };
     }
 
-    match runtime_pack_worker_path(app) {
-        Ok(Some(worker_path)) => SilmaRuntimeStatus {
+    match installed_runtime_worker_path(app) {
+        Ok(Some(runtime)) => SilmaRuntimeStatus {
             installed: true,
-            runtime_dir: worker_path.parent().map(Path::to_path_buf),
+            runtime_dir: runtime.worker_path.parent().map(Path::to_path_buf),
             install_supported: false,
             archive_bytes: 0,
-            message: "SILMA runtime pack installed".into(),
+            message: runtime.message.into(),
         },
         Ok(None) if silma_runtime_pack_install_source().is_some() => SilmaRuntimeStatus {
             installed: false,
@@ -849,6 +856,78 @@ fn runtime_pack_worker_path(app: &tauri::AppHandle) -> Result<Option<PathBuf>, S
     Ok(None)
 }
 
+/// Prefer a user-local runtime manifest over the downloaded CPU pack.
+fn installed_runtime_worker_path(
+    app: &tauri::AppHandle,
+) -> Result<Option<InstalledSilmaRuntime>, String> {
+    if let Some(worker_path) = local_runtime_worker_path(app)? {
+        return Ok(Some(InstalledSilmaRuntime {
+            worker_path,
+            label: "<local-runtime>",
+            message: "SILMA local runtime installed",
+        }));
+    }
+    if let Some(worker_path) = runtime_pack_worker_path(app)? {
+        return Ok(Some(InstalledSilmaRuntime {
+            worker_path,
+            label: "<runtime-pack>",
+            message: "SILMA runtime pack installed",
+        }));
+    }
+    Ok(None)
+}
+
+fn local_runtime_worker_path(app: &tauri::AppHandle) -> Result<Option<PathBuf>, String> {
+    let manifest_path = local_runtime_manifest_path(app)?;
+    if !manifest_path.is_file() {
+        return Ok(None);
+    }
+    local_runtime_manifest_worker_path(&manifest_path)
+}
+
+/// Resolve a user-installed CUDA/runtime wrapper from app data without trusting cwd.
+fn local_runtime_manifest_worker_path(manifest_path: &Path) -> Result<Option<PathBuf>, String> {
+    let content = fs::read_to_string(manifest_path).map_err(|err| {
+        format!(
+            "Failed to read SILMA local runtime manifest {}: {err}",
+            manifest_path.display()
+        )
+    })?;
+    let manifest: SilmaLocalRuntimeManifest = serde_json::from_str(&content).map_err(|err| {
+        format!(
+            "Failed to parse SILMA local runtime manifest {}: {err}",
+            manifest_path.display()
+        )
+    })?;
+    let worker_path = PathBuf::from(manifest.worker_path);
+    let worker_path = if worker_path.is_absolute() {
+        worker_path
+    } else {
+        manifest_path
+            .parent()
+            .unwrap_or_else(|| Path::new(""))
+            .join(worker_path)
+    };
+    Ok(worker_path.is_file().then_some(worker_path))
+}
+
+#[derive(Deserialize)]
+struct SilmaLocalRuntimeManifest {
+    #[serde(rename = "workerPath", alias = "worker")]
+    worker_path: String,
+}
+
+fn local_runtime_manifest_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .map_err(|err| format!("Failed to resolve app data dir for SILMA local runtime: {err}"))?;
+    Ok(app_data
+        .join("runtimes")
+        .join("silma")
+        .join(SILMA_LOCAL_RUNTIME_MANIFEST))
+}
+
 /// Resolve the executable inside a runtime-pack root and reject wrong layouts.
 fn runtime_pack_worker_path_in(root: &Path) -> Result<PathBuf, String> {
     let relative_path = runtime_pack_worker_relative_path()
@@ -1000,6 +1079,7 @@ pub(super) fn normalize_silma_nfe_step(step: i32) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn silma_nfe_step_matches_ui_quality_options() {
@@ -1007,5 +1087,30 @@ mod tests {
             assert_eq!(normalize_silma_nfe_step(step), step);
         }
         assert_eq!(normalize_silma_nfe_step(3), DEFAULT_SILMA_NFE_STEP);
+    }
+
+    #[test]
+    fn local_runtime_manifest_resolves_relative_worker() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("papercut-silma-local-runtime-{nonce}"));
+        let worker = dir.join("run-silma-worker");
+        let manifest = dir.join(SILMA_LOCAL_RUNTIME_MANIFEST);
+        fs::create_dir_all(&dir).expect("create temp runtime dir");
+        fs::write(&worker, "").expect("create worker");
+        fs::write(
+            &manifest,
+            r#"{"runtimeId":"linux-x64-cuda-local","workerPath":"run-silma-worker"}"#,
+        )
+        .expect("create manifest");
+
+        assert_eq!(
+            local_runtime_manifest_worker_path(&manifest).expect("resolve manifest"),
+            Some(worker)
+        );
+
+        let _ = fs::remove_dir_all(dir);
     }
 }
