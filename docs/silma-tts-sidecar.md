@@ -535,8 +535,8 @@ src-tauri/tts/silma-runtime-packs.json
 ```
 
 Copy the release artifact URL(s), `sha256`, and `archiveBytes` into that
-manifest. The v1.7.2 checked-in entry points at the split Linux x64 runtime
-pack attached to the v1.7.2 GitHub Release and pins its original archive byte
+manifest. The v1.7.3 checked-in entry points at the split Linux x64 runtime
+pack attached to the v1.7.3 GitHub Release and pins its original archive byte
 size and SHA-256.
 
 After generating release assets, update the checked app manifest from the
@@ -553,15 +553,15 @@ This rewrites the matching `runtimeId` entry in
 
 CI runtime-pack build:
 
-- `.github/workflows/silma-runtime.yml` builds Linux x64 CPU and CUDA source
-  runtime packs as Actions artifacts without running `npm run desktop`;
-- the CPU job forces PyTorch's CPU wheel index; the CUDA job forces PyTorch's
-  CUDA 12.8 wheel index. PyTorch's install selector documents Linux pip
-  compute-platform installs using `--index-url` for CPU/CUDA wheels;
+- `.github/workflows/silma-runtime.yml` builds the Linux x64 CPU source runtime
+  pack as an Actions artifact without running `npm run desktop`;
+- the CPU job forces PyTorch's CPU wheel index. PyTorch's install selector
+  documents Linux pip compute-platform installs using `--index-url` for
+  CPU/CUDA wheels; CUDA is deferred until its runtime imports cleanly;
 - this avoids the `linuxdeploy` failure path because the Python/PyTorch runtime
   is never placed inside the AppImage/deb/rpm bundle;
 - PR validation: `.github/workflows/ci.yml` also builds and uploads the Linux
-  runtime packs when SILMA runtime files, packaging scripts, runtime
+  CPU runtime pack when SILMA runtime files, packaging scripts, runtime
   metadata, or related workflows changed, so artifacts can be downloaded before
   the manual workflow lands on the default branch;
 - Windows and macOS runtime-pack CI is intentionally disabled for now. The
@@ -657,7 +657,7 @@ Known recovery paths:
 
 - SILMA does not appear in the model list: confirm the app is a Linux x64 build
   from a commit that includes the public runtime metadata. Windows, macOS, and
-  mobile builds intentionally hide SILMA in v1.7.2.
+  mobile builds intentionally hide SILMA in v1.7.3.
 - `SILMA runtime pack is not installed`: install the optional runtime pack first.
   If public download is disabled, fill `src-tauri/tts/silma-runtime-packs.json`
   from a release artifact or use the local packaged runtime flow.
@@ -791,7 +791,7 @@ SILMA catalog status:
 - Family: `TtsModelFamily::SilmaF5`
 - Storage prefix: `models/silma-tts`
 Linux x64 desktop builds advertise SILMA by default. Windows, macOS, and mobile
-builds never advertise it in v1.7.2.
+builds never advertise it in v1.7.3.
 One install click installs the missing SILMA pieces in order: runtime pack
 first, then pinned model files.
 
