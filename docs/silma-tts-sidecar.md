@@ -520,25 +520,45 @@ CUDA runtime direction:
 Do not publish a CUDA runtime pack from CI yet. GitHub-hosted runners can build
 files, but they cannot prove RTX-class runtime behavior without an NVIDIA
 driver/GPU. CUDA support should be installed locally by an explicit Linux NVIDIA
-setup script that creates a Papercut-owned Python environment, installs the
-matching PyTorch CUDA wheels, validates FFmpeg and `torch.cuda.is_available()`,
-then writes `silma-runtime.local.json`.
+setup script that creates a Papercut-owned micromamba environment, installs
+Python 3.12, FFmpeg, the matching PyTorch CUDA wheels, validates
+`torch.cuda.is_available()`, then writes `silma-runtime.local.json`.
 
-Expected future manual shape:
+Micromamba is a small conda-compatible package manager. Papercut uses it here so
+the CUDA runtime can have its own Python and FFmpeg without touching the user's
+system Python, distro packages, or shell startup files.
+
+Current repo command:
 
 ```bash
-nvidia-smi
-python3.12 -m venv "$HOME/.local/share/io.papercut.desktop/runtimes/silma/linux-x64-cuda/current/venv"
-"$HOME/.local/share/io.papercut.desktop/runtimes/silma/linux-x64-cuda/current/venv/bin/pip" install silma-tts==1.0.5
-"$HOME/.local/share/io.papercut.desktop/runtimes/silma/linux-x64-cuda/current/venv/bin/pip" install \
-  --force-reinstall torch torchvision torchaudio torchcodec \
-  --index-url https://download.pytorch.org/whl/cu126
+npm run install:silma-cuda-runtime
 ```
 
-The script should create a tiny executable wrapper and write the local runtime
+The script creates a tiny executable wrapper and writes the local runtime
 manifest only after the CUDA probe passes. The app can then use GPU
 automatically without environment variables. If the local CUDA runtime is
 absent, the downloaded CPU runtime remains the fallback.
+
+Current CUDA setup script:
+
+- lives at `scripts/install-silma-cuda-runtime.sh`;
+- requires Linux x64, `nvidia-smi`, network access, and either existing
+  `micromamba` or `curl`/`wget` to download it;
+- installs under
+  `<app-data>/runtimes/silma/linux-x64-cuda/current/`;
+- copies the checked-in `sidecars/silma/silma_worker.py` source into the local
+  runtime so TorchScript/source lookups still work;
+- uses micromamba to install Python 3.12, FFmpeg, and pip inside
+  `<app-data>/runtimes/silma/linux-x64-cuda/current/env/`;
+- installs `silma-tts==1.0.5`, then force-reinstalls `torch`, `torchvision`,
+  `torchaudio`, and `torchcodec` from the CUDA PyTorch wheel index;
+- keeps ONNX Runtime on CPU because CATT/tashkeel uses ONNX Runtime while SILMA
+  generation uses PyTorch;
+- runs `--self-test`, `--dependency-check`, and a CUDA availability probe before
+  writing `silma-runtime.local.json`;
+- accepts `PAPERCUT_SILMA_TORCH_INDEX_URL`, `PAPERCUT_MICROMAMBA_BIN`,
+  `PAPERCUT_SILMA_RUNTIME_ROOT`, and `PAPERCUT_SILMA_WORKER_SOURCE` for test
+  machines.
 
 The package command writes a manifest plus either one archive or numbered parts
 when the archive is too large for a single GitHub Release asset:
@@ -1151,6 +1171,10 @@ Stage 2 SILMA synthesis status:
 - [x] Add app-data SILMA runtime-pack detection before implementing runtime
       downloads.
 - [x] Add user-local SILMA runtime manifest detection for future CUDA setup.
+- [x] Add repo-run local SILMA CUDA setup script that writes that manifest after
+      CUDA validation.
+- [x] Move CUDA setup script Python and FFmpeg handling into a Papercut-local
+      micromamba environment.
 - [ ] Keep Android and iOS build scripts untouched except for explicit exclusion.
 - [ ] Add CI smoke checks for Linux SILMA runtime-pack archives.
 - [ ] Extend release notes/build docs with SILMA Linux-only support.

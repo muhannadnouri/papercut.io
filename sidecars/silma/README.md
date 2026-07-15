@@ -138,3 +138,40 @@ The first onefile Linux spike produced a 3.18 GB executable, but packaged
 
 Release builds publish this as an optional runtime pack, not inside the base app
 installer.
+
+## Local CUDA Runtime
+
+Linux NVIDIA users can create a user-local CUDA runtime that Papercut discovers
+before the downloaded CPU runtime pack:
+
+```bash
+npm run install:silma-cuda-runtime
+```
+
+Prerequisites:
+
+- Linux x64;
+- working NVIDIA driver with `nvidia-smi`;
+- network access;
+- `curl` or `wget` if `micromamba` is not already installed.
+
+Micromamba is a tiny conda-compatible environment manager. Here it gives
+Papercut its own Python 3.12 and FFmpeg install under app data, without touching
+your system Python or distro packages.
+
+The script creates an isolated micromamba environment under
+`~/.local/share/io.papercut.desktop/runtimes/silma/linux-x64-cuda/current/env/`,
+installs Python 3.12, FFmpeg, SILMA, and CUDA PyTorch wheels, verifies the worker and
+`torch.cuda.is_available()`, then writes:
+
+```text
+~/.local/share/io.papercut.desktop/runtimes/silma/silma-runtime.local.json
+```
+
+Override knobs for testing:
+
+```bash
+PAPERCUT_SILMA_TORCH_INDEX_URL=https://download.pytorch.org/whl/cu128
+PAPERCUT_MICROMAMBA_BIN=/custom/bin/micromamba
+PAPERCUT_SILMA_RUNTIME_ROOT=/custom/runtimes/silma
+```
