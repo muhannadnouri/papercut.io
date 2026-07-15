@@ -594,9 +594,9 @@ CUDA runtime policy:
   PyTorch, while CATT/tashkeel uses ONNX Runtime during preprocessing;
 - reinstall CPU ONNX Runtime with `--no-deps` so pip does not upgrade NumPy
   beyond the versions accepted by SILMA's librosa/numba stack;
-- the generated launcher adds bundled `site-packages/nvidia/*/lib` directories
-  to `LD_LIBRARY_PATH` so CUDA PyTorch and torchaudio can find pip-installed
-  CUDA runtime libraries after the Python prefix is moved into app data;
+- the generated launcher adds bundled `torch/lib`, `torchaudio/lib`, and
+  `site-packages/nvidia/*/lib` directories to `LD_LIBRARY_PATH` so relocated
+  PyTorch/torchaudio can find pip-installed native libraries;
 - do not add ROCm, Intel XPU, Windows, or macOS runtime packs until there is a
   tester and an upstream-supported dependency path;
 - after CI produces a CUDA manifest, fill the `linux-x64-cuda` entry and add a

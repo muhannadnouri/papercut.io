@@ -107,8 +107,8 @@ function shouldSkipPythonPath(path) {
   )
 }
 
-// Build a tiny shell entrypoint instead of freezing Python; CUDA wheels place
-// native libraries under site-packages/nvidia/*/lib, so expose those at launch.
+// Build a tiny shell entrypoint instead of freezing Python; relocated Torch and
+// CUDA wheels need their bundled native-library directories visible at launch.
 function writeLauncher(path) {
   const script = `#!/usr/bin/env sh
 set -eu
@@ -121,9 +121,12 @@ fi
 export PYTHONHOME="$DIR/python"
 export PYTHONNOUSERSITE=1
 LIB_PATH="$DIR/python/lib"
-for CUDA_LIB_DIR in "$DIR"/python/lib/python*/site-packages/nvidia/*/lib; do
-  if [ -d "$CUDA_LIB_DIR" ]; then
-    LIB_PATH="$LIB_PATH:$CUDA_LIB_DIR"
+for EXTRA_LIB_DIR in \\
+  "$DIR"/python/lib/python*/site-packages/torch/lib \\
+  "$DIR"/python/lib/python*/site-packages/torchaudio/lib \\
+  "$DIR"/python/lib/python*/site-packages/nvidia/*/lib; do
+  if [ -d "$EXTRA_LIB_DIR" ]; then
+    LIB_PATH="$LIB_PATH:$EXTRA_LIB_DIR"
   fi
 done
 export LD_LIBRARY_PATH="$LIB_PATH\${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
