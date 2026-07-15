@@ -445,11 +445,6 @@ jobs:
             target: x86_64-unknown-linux-gnu
             archive: papercut-silma-runtime-linux-x64-cpu.tar.bz2
             torch_index_url: https://download.pytorch.org/whl/cpu
-          - runtime_id: linux-x64-cuda
-            runner: ubuntu-24.04
-            target: x86_64-unknown-linux-gnu
-            archive: papercut-silma-runtime-linux-x64-cuda.tar.bz2
-            torch_index_url: https://download.pytorch.org/whl/cu128
     defaults:
       run:
         shell: bash

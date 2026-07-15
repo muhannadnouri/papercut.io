@@ -420,15 +420,13 @@ Runtime id:
 
 ```text
 linux-x64-cpu
-linux-x64-cuda
 ```
 
-The checked app manifest currently installs `linux-x64-cpu` by default. CI can
-also build `linux-x64-cuda` for NVIDIA validation, but that runtime is not
-offered in-app until its release metadata is filled and the UI has a runtime
-choice. The native model catalog hides SILMA on Windows, macOS, Android, and
-iOS until the upstream Python dependency stack has a supported install path
-there.
+The checked app manifest currently installs `linux-x64-cpu` by default. CUDA is
+deferred until the runtime pack can import torchaudio with a loadable
+`libcudart.so.12` in CI and on a real NVIDIA Linux desktop. The native model
+catalog hides SILMA on Windows, macOS, Android, and iOS until the upstream
+Python dependency stack has a supported install path there.
 
 Expected worker launcher path inside runtime packs:
 
@@ -599,9 +597,10 @@ CUDA runtime policy:
   PyTorch/torchaudio can find pip-installed native libraries;
 - do not add ROCm, Intel XPU, Windows, or macOS runtime packs until there is a
   tester and an upstream-supported dependency path;
-- after CI produces a CUDA manifest, fill the `linux-x64-cuda` entry and add a
-  small UI selector that lets Linux users choose CPU or NVIDIA GPU before
-  installing SILMA.
+- do not re-enable CUDA CI until a source-preserving runtime can pass
+  `--import-check` with torchaudio and a loadable `libcudart.so.12`; after that,
+  add a CUDA manifest entry and a small UI selector that lets Linux users choose
+  CPU or NVIDIA GPU before installing SILMA.
 
 Practical CI model:
 

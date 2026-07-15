@@ -38,6 +38,6 @@
   "notes": [
     "SILMA runtime packs are downloaded on demand and are not packaged into ordinary desktop installers.",
     "The v1.7.2 Linux CPU runtime is split into GitHub Release assets below GitHub's per-file upload limit, then reassembled and verified before extraction.",
-    "The Linux CUDA runtime slot is present for CI artifact generation, but stays disabled in-app until release metadata is filled."
+    "The Linux CUDA runtime slot stays disabled until its source-preserving runtime can pass packaged import checks with a loadable CUDA runtime."
   ]
 }
