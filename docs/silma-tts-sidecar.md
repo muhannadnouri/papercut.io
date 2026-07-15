@@ -490,6 +490,8 @@ Local CPU runtime-pack install prep:
 python -m pip install -r sidecars/silma/requirements-build.txt
 python -m pip install --upgrade torch torchvision torchaudio \
   --index-url https://download.pytorch.org/whl/cpu
+python -m pip uninstall -y onnxruntime-gpu
+python -m pip install --upgrade --force-reinstall onnxruntime
 npm run prepare:silma-sidecar -- --clean --self-test --import-check
 npm run package:silma-runtime
 ```
@@ -505,6 +507,8 @@ environment must install CUDA PyTorch wheels first:
 python -m pip install -r sidecars/silma/requirements-build.txt
 python -m pip install --upgrade torch torchvision torchaudio \
   --index-url https://download.pytorch.org/whl/cu128
+python -m pip uninstall -y onnxruntime-gpu
+python -m pip install --upgrade --force-reinstall onnxruntime
 npm run prepare:silma-sidecar -- --clean --self-test --import-check
 npm run package:silma-runtime -- \
   --runtime-id linux-x64-cuda \
@@ -586,6 +590,8 @@ CUDA runtime policy:
 - ship CPU first because it is universal on supported Linux x64 desktops;
 - keep CUDA as the only GPU runtime lane for now because NVIDIA CUDA is the
   most common acceleration path for this model class;
+- keep ONNX Runtime on CPU in both runtime packs; SILMA's heavy generation path is
+  PyTorch, while CATT/tashkeel uses ONNX Runtime during preprocessing;
 - do not add ROCm, Intel XPU, Windows, or macOS runtime packs until there is a
   tester and an upstream-supported dependency path;
 - after CI produces a CUDA manifest, fill the `linux-x64-cuda` entry and add a
@@ -913,7 +919,8 @@ Packaged import note: SILMA imports NeMo/Pynini native extensions and compiles
 x-transformers helpers through TorchScript. The runtime pack now preserves the
 normal Python source/package layout instead of freezing those modules with
 PyInstaller. If `--import-check` fails, treat the runtime pack as invalid and fix
-the Python environment before publishing artifacts.
+the Python environment before publishing artifacts. The check imports SILMA's
+public API directly and does not pre-import optional Transformers pipeline modules.
 
 After changing worker/package imports, rebuild the packaged worker before
 testing the app:

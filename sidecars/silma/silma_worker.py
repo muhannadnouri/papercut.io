@@ -7,7 +7,6 @@ Stdout is protocol only. Logs go to stderr.
 from __future__ import annotations
 
 import argparse
-import importlib.metadata
 import importlib.util
 import json
 import sys
@@ -245,14 +244,13 @@ def detect_torch_device(engine: Any) -> str:
 
 
 def import_silma_tts() -> Any:
-    """Import SILMA with an actionable setup hint when the sidecar venv is missing."""
+    """Import only SILMA's public API; optional Transformers imports can pull unused native deps."""
     if importlib.util.find_spec("silma_tts") is None:
         raise RuntimeError(
             "SILMA Python package is not installed for this interpreter. "
             "Run: python3 -m venv .venv-silma && . .venv-silma/bin/activate && "
             "pip install -r sidecars/silma/requirements.txt"
         )
-    ensure_transformers_pipeline()
     try:
         from silma_tts.api import SilmaTTS
     except ModuleNotFoundError as exc:
@@ -264,26 +262,6 @@ def import_silma_tts() -> Any:
             ) from exc
         raise
     return SilmaTTS
-
-
-def ensure_transformers_pipeline() -> None:
-    """Force PyInstaller to include the lazy Transformers pipeline export SILMA imports."""
-    try:
-        from transformers.pipelines import pipeline as _pipeline
-    except importlib.metadata.PackageNotFoundError as exc:
-        raise RuntimeError(
-            "Packaged SILMA dependency metadata is missing while importing "
-            f"transformers.pipelines: {exc}. Rebuild the sidecar with "
-            "scripts/prepare-silma-sidecar.js."
-        ) from exc
-    except ModuleNotFoundError as exc:
-        raise RuntimeError(
-            "SILMA dependency is missing: transformers.pipelines. "
-            "Reinstall sidecars/silma/requirements.txt and rebuild the sidecar."
-        ) from exc
-    except Exception as exc:  # noqa: BLE001 - keep the real dependency failure visible.
-        raise RuntimeError(f"Could not import transformers.pipelines.pipeline: {exc}") from exc
-    _ = _pipeline
 
 
 def wav_info(path: Path) -> dict[str, Any]:
