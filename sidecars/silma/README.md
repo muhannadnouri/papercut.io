@@ -17,8 +17,9 @@ pip install -r sidecars/silma/requirements.txt
 ```
 
 The current Papercut path uses SILMA's bundled WAV reference and writes WAV
-output, so it should not require `ffmpeg`. Keep custom reference audio as WAV
-unless we intentionally add and bundle ffmpeg later.
+output. Still run packaged `--dependency-check` before publishing runtime packs:
+TorchCodec can require compatible FFmpeg/PyTorch native libraries even before a
+full synthesis smoke test.
 
 ## Self-Test
 
@@ -26,6 +27,15 @@ This does not import or download SILMA.
 
 ```bash
 python sidecars/silma/silma_worker.py --self-test
+```
+
+## Packaged Dependency Check
+
+This imports SILMA plus the native audio stack that commonly fails only after
+runtime packaging:
+
+```bash
+python sidecars/silma/silma_worker.py --dependency-check
 ```
 
 ## Manual Smoke
@@ -112,14 +122,12 @@ PAPERCUT_SILMA_WORKER_BIN=/path/to/packaged/silma-worker
 
 ## Packaging Spike
 
-Install the build requirements into the sidecar venv, then build a
-target-suffixed onedir
-worker:
+Install the build requirements into a full Python prefix, then build a
+source-preserving target-suffixed runtime:
 
 ```bash
-. .venv-silma/bin/activate
 python -m pip install -r sidecars/silma/requirements-build.txt
-npm run prepare:silma-sidecar -- --clean --self-test
+npm run prepare:silma-sidecar -- --clean --self-test --import-check --dependency-check
 ```
 
 The output is written under `sidecars/silma/runtime/<target>/onedir/`, which is
@@ -129,4 +137,5 @@ The first onefile Linux spike produced a 3.18 GB executable, but packaged
 `--self-test` failed while extracting `torch/lib/libtorch_cpu.so`, even with
 `TMPDIR` pointed outside `/tmp`. The build helper now only supports onedir.
 
-This is only the packaging spike; release builds do not bundle it yet.
+Release builds publish this as an optional runtime pack, not inside the base app
+installer.

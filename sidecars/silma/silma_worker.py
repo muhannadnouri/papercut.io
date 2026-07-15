@@ -7,6 +7,7 @@ Stdout is protocol only. Logs go to stderr.
 from __future__ import annotations
 
 import argparse
+import importlib.metadata
 import importlib.util
 import json
 import sys
@@ -341,6 +342,53 @@ def run_import_check() -> int:
     return 0
 
 
+def run_dependency_check() -> int:
+    """Import native audio dependencies that can fail only after packaging."""
+    with redirect_stdout(sys.stderr):
+        import torch
+        import torchaudio  # noqa: F401 - import loads torchaudio native extension.
+
+        if importlib.util.find_spec("torchcodec") is not None:
+            import torchcodec  # noqa: F401 - import loads libtorchcodec/FFmpeg bindings.
+        if importlib.util.find_spec("transformers.audio_utils") is not None:
+            import transformers.audio_utils  # noqa: F401 - mirrors the failing SILMA path.
+        SilmaTTS = import_silma_tts()
+
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "version": VERSION,
+                "silma_api": f"{SilmaTTS.__module__}.{SilmaTTS.__name__}",
+                "torch": torch.__version__,
+                "packages": package_versions(
+                    [
+                        "silma-tts",
+                        "torch",
+                        "torchvision",
+                        "torchaudio",
+                        "torchcodec",
+                        "transformers",
+                    ]
+                ),
+            },
+            ensure_ascii=False,
+        )
+    )
+    return 0
+
+
+def package_versions(names: list[str]) -> dict[str, str]:
+    """Report package versions for CI logs without making any package required."""
+    versions: dict[str, str] = {}
+    for name in names:
+        try:
+            versions[name] = importlib.metadata.version(name)
+        except importlib.metadata.PackageNotFoundError:
+            versions[name] = "<missing>"
+    return versions
+
+
 def run_smoke(args: argparse.Namespace) -> int:
     """Load SILMA once, synthesize one WAV, and print a machine-readable summary."""
     worker = Worker()
@@ -405,6 +453,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="SILMA TTS JSONL sidecar worker")
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--import-check", action="store_true", help="import SILMA API without loading weights")
+    parser.add_argument("--dependency-check", action="store_true", help="import packaged native audio deps")
     parser.add_argument("--smoke", action="store_true", help="load SILMA and synthesize one WAV")
     parser.add_argument("--model-dir", default="./.cache/silma-tts")
     parser.add_argument("--output-wav", default="./.cache/silma-tts-smoke.wav")
@@ -420,6 +469,8 @@ def main() -> int:
         return run_self_test()
     if args.import_check:
         return run_import_check()
+    if args.dependency_check:
+        return run_dependency_check()
     if args.smoke:
         return run_smoke(args)
     return run_jsonl()

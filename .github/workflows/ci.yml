@@ -474,7 +474,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r sidecars/silma/requirements-build.txt
-          python -m pip install --upgrade torch torchvision torchaudio --index-url "$TORCH_INDEX_URL"
+          python -m pip install --upgrade --force-reinstall torch torchvision torchaudio torchcodec --index-url "$TORCH_INDEX_URL"
           # CATT/tashkeel imports ONNX Runtime, but only PyTorch should vary CPU vs CUDA.
           python -m pip uninstall -y onnxruntime-gpu
           python -m pip install --upgrade --force-reinstall --no-deps onnxruntime
@@ -485,7 +485,8 @@ jobs:
             --target "${{ matrix.target }}" \
             --clean \
             --self-test \
-            --import-check
+            --import-check \
+            --dependency-check
 
       - name: Package SILMA runtime archive
         run: |

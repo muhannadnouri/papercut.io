@@ -50,6 +50,9 @@ if (options.selfTest) {
 if (options.importCheck) {
   runWorkerCheck(workerPath, "--import-check", "import check")
 }
+if (options.dependencyCheck) {
+  runWorkerCheck(workerPath, "--dependency-check", "dependency check")
+}
 
 function parseArgs(args) {
   const parsed = { clean: false }
@@ -61,6 +64,8 @@ function parseArgs(args) {
       parsed.selfTest = true
     } else if (arg === "--import-check") {
       parsed.importCheck = true
+    } else if (arg === "--dependency-check") {
+      parsed.dependencyCheck = true
     } else if (arg === "--python") {
       parsed.python = requireValue(args, ++index, arg)
     } else if (arg === "--target") {

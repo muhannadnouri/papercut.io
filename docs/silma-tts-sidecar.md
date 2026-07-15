@@ -486,11 +486,11 @@ Local CPU runtime-pack install prep:
 
 ```bash
 python -m pip install -r sidecars/silma/requirements-build.txt
-python -m pip install --upgrade torch torchvision torchaudio \
+python -m pip install --upgrade --force-reinstall torch torchvision torchaudio torchcodec \
   --index-url https://download.pytorch.org/whl/cpu
 python -m pip uninstall -y onnxruntime-gpu
 python -m pip install --upgrade --force-reinstall --no-deps onnxruntime
-npm run prepare:silma-sidecar -- --clean --self-test --import-check
+npm run prepare:silma-sidecar -- --clean --self-test --import-check --dependency-check
 npm run package:silma-runtime
 ```
 
@@ -503,11 +503,11 @@ environment must install CUDA PyTorch wheels first:
 
 ```bash
 python -m pip install -r sidecars/silma/requirements-build.txt
-python -m pip install --upgrade torch torchvision torchaudio \
+python -m pip install --upgrade --force-reinstall torch torchvision torchaudio torchcodec \
   --index-url https://download.pytorch.org/whl/cu128
 python -m pip uninstall -y onnxruntime-gpu
 python -m pip install --upgrade --force-reinstall --no-deps onnxruntime
-npm run prepare:silma-sidecar -- --clean --self-test --import-check
+npm run prepare:silma-sidecar -- --clean --self-test --import-check --dependency-check
 npm run package:silma-runtime -- \
   --runtime-id linux-x64-cuda \
   --archive-name papercut-silma-runtime-linux-x64-cuda.tar.bz2
@@ -557,7 +557,9 @@ CI runtime-pack build:
   pack as an Actions artifact without running `npm run desktop`;
 - the CPU job forces PyTorch's CPU wheel index. PyTorch's install selector
   documents Linux pip compute-platform installs using `--index-url` for
-  CPU/CUDA wheels; CUDA is deferred until its runtime imports cleanly;
+  CPU/CUDA wheels. `torchcodec` must be installed from the same index as
+  `torch`; otherwise a CPU pack can accidentally contain CUDA-linked
+  TorchCodec libraries and fail later with missing `libc10_cuda.so`;
 - this avoids the `linuxdeploy` failure path because the Python/PyTorch runtime
   is never placed inside the AppImage/deb/rpm bundle;
 - PR validation: `.github/workflows/ci.yml` also builds and uploads the Linux
@@ -598,9 +600,10 @@ CUDA runtime policy:
 - do not add ROCm, Intel XPU, Windows, or macOS runtime packs until there is a
   tester and an upstream-supported dependency path;
 - do not re-enable CUDA CI until a source-preserving runtime can pass
-  `--import-check` with torchaudio and a loadable `libcudart.so.12`; after that,
-  add a CUDA manifest entry and a small UI selector that lets Linux users choose
-  CPU or NVIDIA GPU before installing SILMA.
+  `--dependency-check` with torchaudio, torchcodec, and a loadable
+  `libcudart.so.12`; after that, add a CUDA manifest entry and a small UI
+  selector that lets Linux users choose CPU or NVIDIA GPU before installing
+  SILMA.
 
 Practical CI model:
 
@@ -700,7 +703,7 @@ Minimal local review before release artifacts exist:
    ```bash
    . .venv-silma/bin/activate
    python -m pip install -r sidecars/silma/requirements-build.txt
-   npm run prepare:silma-sidecar -- --clean --self-test --import-check
+   npm run prepare:silma-sidecar -- --clean --self-test --import-check --dependency-check
    ```
 
 2. Remove only SILMA app-data runtime/model folders, not saved audiobooks:
@@ -845,8 +848,8 @@ Dependency inputs:
 - CI runtime-pack builds use Python 3.12.
 - `requirements.txt` pins the direct SILMA runtime dependency used by smoke
   tests and editable-worker dev runs.
-- `requirements-build.txt` includes the runtime requirements and pins
-  PyInstaller for optional runtime-pack builds.
+- `requirements-build.txt` includes the runtime requirements and stays as the
+  CI cache key/build input for source-preserving runtime-pack builds.
 - Do not hand-maintain a transitive lock from a local machine. If the public
   runtime pack needs a fully hashed lock later, generate it from the release CI
   image that actually builds the pack.
@@ -887,10 +890,13 @@ Local smoke result, Python 3.12 venv on CPU:
 - Real-time factor: 20.72 on CPU
 - Output WAV: 174,676 bytes
 
-The run warned that `ffmpeg`/`avconv` was not found, but this bundled-WAV
-reference path completed. Do not bundle ffmpeg for the first SILMA release path.
-Only revisit this if Papercut adds user-imported non-WAV reference audio or a
-packaged runtime smoke fails without ffmpeg.
+The editable-worker run warned that `ffmpeg`/`avconv` was not found, but this
+bundled-WAV reference path completed. Packaged runtimes still must pass
+`--dependency-check`, because TorchCodec can fail earlier than synthesis if its
+FFmpeg/PyTorch native libraries do not match the selected CPU/CUDA wheel stack.
+Only bundle FFmpeg after that check proves the remaining failure is a missing
+FFmpeg shared-library dependency rather than a mismatched Torch/TorchCodec
+install.
 
 No-ffmpeg editable-worker validation command:
 
@@ -922,21 +928,25 @@ PATH="$EMPTY_PATH" "$SILMA_WORKER" \
 Packaged import note: SILMA imports NeMo/Pynini native extensions and compiles
 x-transformers helpers through TorchScript. The runtime pack now preserves the
 normal Python source/package layout instead of freezing those modules with
-PyInstaller. If `--import-check` fails, treat the runtime pack as invalid and fix
-the Python environment before publishing artifacts. The check imports SILMA's
-public API directly and does not pre-import optional Transformers pipeline modules.
+PyInstaller. If `--import-check` or `--dependency-check` fails, treat the runtime
+pack as invalid and fix the Python environment before publishing artifacts.
+`--import-check` imports SILMA's public API. `--dependency-check` also imports
+the packaged Torch, torchaudio, TorchCodec, and Transformers audio utility path
+that caught the v1.7.3 CPU runtime's CUDA-linked TorchCodec mismatch.
 
 After changing worker/package imports, rebuild the packaged worker before
 testing the app:
 
 ```bash
-npm run prepare:silma-sidecar -- --clean --self-test --import-check
+npm run prepare:silma-sidecar -- --clean --self-test --import-check --dependency-check
 ```
 
 `--self-test` proves the JSONL protocol and file-writing path. `--import-check`
 imports SILMA's real API path inside the packaged worker without downloading
-model weights. This is the CI gate that should catch packaged `x_transformers`
-TorchScript source lookup failures before runtime artifacts are published.
+model weights. `--dependency-check` imports the native audio stack without
+downloading model weights. These are the CI gates that should catch packaged
+`x_transformers` TorchScript source lookup failures and CPU/CUDA wheel
+mismatches before runtime artifacts are published.
 
 To reuse this downloaded cache from Rust dev commands:
 
@@ -970,12 +980,13 @@ skips repo Python discovery.
 
 Packaged Linux runtime result:
 
-- Command: `npm run prepare:silma-sidecar -- --clean --self-test --import-check`
+- Command: `npm run prepare:silma-sidecar -- --clean --self-test --import-check --dependency-check`
 - Platform: Linux x86_64, Python 3.12 full prefix
 - Output: `sidecars/silma/runtime/x86_64-unknown-linux-gnu/onedir/`
 - Contents: launcher, copied Python prefix, and source `silma_worker.py`
 - Packaged `--self-test`: required to pass
 - Packaged `--import-check`: required to pass before publishing artifacts
+- Packaged `--dependency-check`: required to pass before publishing artifacts
 
 Desktop packaged-worker probe command for a dev run:
 
@@ -1103,7 +1114,8 @@ Stage 2 SILMA synthesis status:
       after PyInstaller failed on native/source-inspection dependencies.
 - [x] Add optional packaged-worker `--self-test` and `--import-check` gates to
       the prep script.
-      detected it without metadata.
+- [x] Add packaged-worker `--dependency-check` so CI imports TorchCodec and
+      catches mismatched CPU/CUDA native wheels before publishing runtime packs.
 - [x] Prototype sidecar prep in `scripts/build-desktop.js` behind a build flag.
 - [x] Remove the opt-in Linux desktop resource staging spike after choosing
       optional runtime packs.
@@ -1241,6 +1253,8 @@ Exit criteria:
       artifact.
 - [x] Add a packaged-worker SILMA import check so CI catches TorchScript source
       lookup failures before publishing runtime artifacts.
+- [x] Add a packaged-worker dependency check so CI catches TorchCodec/FFmpeg and
+      CPU/CUDA wheel mismatches before publishing runtime artifacts.
 - [x] Fill checked SILMA runtime-pack release metadata.
 - [x] Split the Linux runtime pack into GitHub Release-safe asset parts and
       reassemble/verify it during install.
@@ -1274,6 +1288,8 @@ Exit criteria:
 - [x] Move SILMA to an optional runtime download instead of enabling it in
       ordinary release installers.
 - [x] Bundle sidecar dependencies correctly in the Linux runtime pack.
+- [ ] Rebuild the Linux CPU runtime pack with CPU `torchcodec` pinned from the
+      PyTorch CPU wheel index and verify a clean install.
 - [ ] Verify Linux bundles.
 - [ ] Revisit Windows/macOS runtime packs after upstream dependency fixes.
 
