@@ -20,6 +20,7 @@ use sha2::{Digest, Sha256};
 use tauri::Manager;
 
 const SILMA_RUNTIME_PACK_MANIFEST: &str = include_str!("../../../tts/silma-runtime-packs.json");
+pub(super) const DEFAULT_SILMA_NFE_STEP: i32 = 32;
 
 pub(super) struct SilmaSidecar {
     child: Child,
@@ -991,7 +992,20 @@ fn silma_python_command() -> String {
 
 pub(super) fn normalize_silma_nfe_step(step: i32) -> i32 {
     match step {
-        4 | 8 | 12 | 16 => step,
-        _ => 16,
+        4 | 8 | 12 | 16 | 32 | 64 => step,
+        _ => DEFAULT_SILMA_NFE_STEP,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn silma_nfe_step_matches_ui_quality_options() {
+        for step in [4, 8, 12, 16, 32, 64] {
+            assert_eq!(normalize_silma_nfe_step(step), step);
+        }
+        assert_eq!(normalize_silma_nfe_step(3), DEFAULT_SILMA_NFE_STEP);
     }
 }

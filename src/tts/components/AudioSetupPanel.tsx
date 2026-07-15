@@ -383,9 +383,11 @@ export function AudioSetupPanel({
 }
 
 function silmaNfeStepLabel(step: number): string {
-  if (step === 16) return 'High Quality (16)'
-  if (step === 12) return 'Balanced (12)'
-  if (step === 8) return 'Fast (8)'
+  if (step === 64) return 'Highest Quality (64)'
+  if (step === 32) return 'High Quality (32)'
+  if (step === 16) return 'Balanced (16)'
+  if (step === 12) return 'Fast (12)'
+  if (step === 8) return 'Faster (8)'
   return 'Fastest (' + step + ')'
 }
 

@@ -27,7 +27,7 @@ use super::models::{model_definition, TtsModelBackend};
 use super::paths::{audiobook_dir, chunk_path, speakable_chunks};
 use super::preprocess::TextPreprocessor;
 use super::prune::{prune_orphan_chunk_files, prune_stale_temp_files};
-use super::silma_sidecar::normalize_silma_nfe_step;
+use super::silma_sidecar::{normalize_silma_nfe_step, DEFAULT_SILMA_NFE_STEP};
 use super::synth::{
     ensure_sherpa_engine, ensure_silma_engine, synthesize_silma_to_file, synthesize_to_file,
     LoadedTtsEngine,
@@ -214,7 +214,8 @@ fn save_audiobook_native_blocking(
         }
     };
     let text_preprocessor = TextPreprocessor::create(model, &request.text_preprocessor)?;
-    let silma_nfe_step = normalize_silma_nfe_step(request.silma_nfe_step.unwrap_or(16));
+    let silma_nfe_step =
+        normalize_silma_nfe_step(request.silma_nfe_step.unwrap_or(DEFAULT_SILMA_NFE_STEP));
     let backend = match model.backend {
         TtsModelBackend::SilmaSidecar => format!(
             "{backend}:preprocessor={}:nfe={}",

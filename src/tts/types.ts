@@ -9,8 +9,8 @@ export const DEFAULT_TTS_SPEED = 1
 export const TEXT_PREPROCESSOR_NONE = 'none'
 export const LIBTASHKEEL_TEXT_PREPROCESSOR = 'libtashkeel-1.5.0'
 export const SILMA_MODEL_ID = 'silma-ai/silma-tts'
-export const DEFAULT_SILMA_NFE_STEP = 16
-export const SILMA_NFE_STEP_OPTIONS = [16, 12, 8, 4] as const
+export const DEFAULT_SILMA_NFE_STEP = 32
+export const SILMA_NFE_STEP_OPTIONS = [64, 32, 16, 12, 8, 4] as const
 
 export type TtsModelId = string
 export type TtsVoice = string

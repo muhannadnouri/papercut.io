@@ -28,6 +28,7 @@ use super::super::paths::{
     audiobook_dir, chunk_path, create_native_audiobook_id, imported_upload_dir,
     playback_track_path, speakable_chunks, stable_hex_hash,
 };
+use super::super::silma_sidecar::DEFAULT_SILMA_NFE_STEP;
 use crate::native_tts::types::{
     NativeAudiobookImportResponse, NativeAudiobookSaveRequest, NativeTtsInputChunk,
 };
@@ -129,7 +130,9 @@ pub(crate) fn import_audiobook_native(
         &manifest.dtype,
         &manifest.text_preprocessor,
     );
-    if manifest.model_id == "silma-ai/silma-tts" && manifest.silma_nfe_step != Some(16) {
+    if manifest.model_id == "silma-ai/silma-tts"
+        && manifest.silma_nfe_step != Some(DEFAULT_SILMA_NFE_STEP)
+    {
         if let Some(step) = manifest.silma_nfe_step {
             audiobook_id = add_silma_nfe_to_audiobook_id(&audiobook_id, step);
         }

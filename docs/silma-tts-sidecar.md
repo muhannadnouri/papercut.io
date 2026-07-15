@@ -685,9 +685,10 @@ Known recovery paths:
   the ffmpeg executable. Packaged runtime installs should include the FFmpeg
   shared libraries copied during `prepare:silma-sidecar`; missing `libav*`
   diagnostics mean the runtime pack is invalid.
-- `device=cpu`: expected on machines without CUDA/MPS/XPU. Reduce NFE steps or
-  thread count for CPU tests; GPU acceleration depends on the packaged Torch
-  build and available hardware.
+- `device=cpu`: expected on machines without CUDA/MPS/XPU. NFE `32` is the
+  app default because it matches the normal F5-TTS quality setting; reduce NFE
+  for CPU speed tests or try `64` for slower quality checks. GPU acceleration
+  depends on the packaged Torch build and available hardware.
 - `device=unreported`: the worker did not return device metadata. Rebuild or
   reinstall the SILMA runtime pack from a current worker.
 - Vite/Tauri `ENOSPC` watcher error: keep `.venv-silma`, `.cache`, packaged
@@ -1070,8 +1071,9 @@ Stage 2 SILMA synthesis status:
   CPU inference threads before model construction. Changing the thread count
   reloads the SILMA worker.
 - The UI exposes a SILMA-only quality selector for F5 diffusion steps:
-  `16` (default), `12`, `8`, and `4`. Lower values are for CPU benchmarking and
-  may reduce quality.
+  `32` (default/recommended), `64`, `16`, `12`, `8`, and `4`. SILMA is built on
+  F5-TTS, whose official demo/default material uses NFE `32`; lower values are
+  for speed tests and may sound more synthetic.
 - Native diagnostics include the SILMA backend label with the detected Torch
   device (`cpu`, `cuda`, `mps`, or `xpu`), PyTorch threads, inter-op threads,
   preprocessor, and NFE step. Older sidecars that do not report a device are
@@ -1163,7 +1165,7 @@ Performance tests:
 - [ ] cold worker startup time;
 - [ ] model load time;
 - [ ] warm chunk real-time factor;
-- [ ] compare SILMA NFE `16`, `12`, `8`, and `4` on the same Arabic sample;
+- [ ] compare SILMA NFE `64`, `32`, `16`, `12`, `8`, and `4` on the same Arabic sample;
 - [ ] compare SILMA PyTorch thread counts `1`, `2`, `4`, and detected max on
       the same Arabic sample;
 - [ ] peak memory;

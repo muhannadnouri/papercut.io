@@ -202,8 +202,8 @@ def silma_nfe_step(value: Any) -> int:
     try:
         step = int(value)
     except (TypeError, ValueError):
-        return 16
-    return step if step in {4, 8, 12, 16} else 16
+        return 32
+    return step if step in {4, 8, 12, 16, 32, 64} else 32
 
 
 def configure_torch(torch_threads: Any) -> dict[str, int]:
@@ -311,9 +311,11 @@ def run_self_test() -> int:
     assert encoder_wav_path(Path("chunk.wav")) == Path("chunk.wav")
     assert encoder_wav_path(Path("chunk.tmp")) == Path("chunk.tmp.wav")
     assert detect_torch_device(type("FakeEngine", (), {"device": "cuda:0"})()) == "cuda:0"
+    assert silma_nfe_step(None) == 32
+    assert silma_nfe_step(64) == 64
     assert silma_nfe_step(4) == 4
     assert silma_nfe_step("12") == 12
-    assert silma_nfe_step(3) == 16
+    assert silma_nfe_step(3) == 32
     missing = worker.handle({"id": "3", "op": "synthesize", "text": "x", "output_wav": "x.wav"})
     assert missing["ok"] is False and "not loaded" in missing["error"]
     unknown = worker.handle({"id": "4", "op": "wat"})
