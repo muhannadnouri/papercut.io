@@ -107,6 +107,8 @@ function shouldSkipPythonPath(path) {
   )
 }
 
+// Build a tiny shell entrypoint instead of freezing Python; CUDA wheels place
+// native libraries under site-packages/nvidia/*/lib, so expose those at launch.
 function writeLauncher(path) {
   const script = `#!/usr/bin/env sh
 set -eu
@@ -118,7 +120,13 @@ if [ ! -x "$PY" ]; then
 fi
 export PYTHONHOME="$DIR/python"
 export PYTHONNOUSERSITE=1
-export LD_LIBRARY_PATH="$DIR/python/lib\${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+LIB_PATH="$DIR/python/lib"
+for CUDA_LIB_DIR in "$DIR"/python/lib/python*/site-packages/nvidia/*/lib; do
+  if [ -d "$CUDA_LIB_DIR" ]; then
+    LIB_PATH="$LIB_PATH:$CUDA_LIB_DIR"
+  fi
+done
+export LD_LIBRARY_PATH="$LIB_PATH\${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 exec "$PY" "$DIR/worker/silma_worker.py" "$@"
 `
   mkdirSync(dirname(path), { recursive: true })
