@@ -537,8 +537,8 @@ src-tauri/tts/silma-runtime-packs.json
 ```
 
 Copy the release artifact URL(s), `sha256`, and `archiveBytes` into that
-manifest. The v1.7.3 checked-in entry points at the split Linux x64 runtime
-pack attached to the v1.7.3 GitHub Release and pins its original archive byte
+manifest. The v1.7.4 checked-in entry points at the split Linux x64 runtime
+pack attached to the v1.7.4 GitHub Release and pins its original archive byte
 size and SHA-256.
 
 After generating release assets, update the checked app manifest from the
@@ -666,7 +666,7 @@ Known recovery paths:
 
 - SILMA does not appear in the model list: confirm the app is a Linux x64 build
   from a commit that includes the public runtime metadata. Windows, macOS, and
-  mobile builds intentionally hide SILMA in v1.7.3.
+  mobile builds intentionally hide SILMA in v1.7.4.
 - `SILMA runtime pack is not installed`: install the optional runtime pack first.
   If public download is disabled, fill `src-tauri/tts/silma-runtime-packs.json`
   from a release artifact or use the local packaged runtime flow.
@@ -801,7 +801,7 @@ SILMA catalog status:
 - Family: `TtsModelFamily::SilmaF5`
 - Storage prefix: `models/silma-tts`
 Linux x64 desktop builds advertise SILMA by default. Windows, macOS, and mobile
-builds never advertise it in v1.7.3.
+builds never advertise it in v1.7.4.
 One install click installs the missing SILMA pieces in order: runtime pack
 first, then pinned model files.
 
