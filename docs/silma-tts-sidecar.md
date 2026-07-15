@@ -397,8 +397,8 @@ Current Rust worker launch order:
 ## Optional Runtime Pack Plan
 
 Do not ship the SILMA Python/PyTorch runtime inside ordinary Papercut
-installers. The PyInstaller onedir output is multi-GB and made AppImage
-packaging fail at `linuxdeploy` after the app itself built successfully.
+installers. The runtime is multi-GB and made AppImage packaging fail at
+`linuxdeploy` after the app itself built successfully.
 
 Production direction:
 
@@ -430,11 +430,16 @@ choice. The native model catalog hides SILMA on Windows, macOS, Android, and
 iOS until the upstream Python dependency stack has a supported install path
 there.
 
-Expected worker paths inside runtime packs:
+Expected worker launcher path inside runtime packs:
 
 ```text
 silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu
 ```
+
+That path is a tiny shell launcher. The runtime directory also contains a copied
+Python prefix under `python/` and the source worker under `worker/`. This keeps
+SILMA, NeMo, Pynini, and TorchScript source/native-extension lookups in a normal
+Python package layout instead of freezing them into a PyInstaller executable.
 
 SILMA worker launch order is now:
 
@@ -450,9 +455,11 @@ pack, the model files, or both.
 
 Current runtime-pack install slice:
 
-- the SILMA install button can promote a prepared PyInstaller onedir into the
-  app-data runtime-pack slot;
-- `npm run package:silma-runtime` can archive the prepared onedir and emit a
+- the SILMA install button can promote a prepared source-preserving Python
+  runtime into the app-data runtime-pack slot;
+- `npm run prepare:silma-sidecar` copies a full Python prefix, the source worker,
+  and a launcher into the runtime `onedir`;
+- `npm run package:silma-runtime` can archive the prepared runtime and emit a
   JSON manifest with SHA-256 and byte size. Runtime archives must use the
   `.tar.bz2` suffix so the generated `.manifest.json` cannot collide with the
   archive path;
@@ -460,8 +467,8 @@ Current runtime-pack install slice:
   platform runtime id;
 - source lookup falls back to the local
   `sidecars/silma/runtime/x86_64-unknown-linux-gnu/onedir/` build output;
-- install copies the onedir into a cache staging directory, runs the worker
-  `--self-test`, and atomically promotes it to `current/`;
+- install copies the runtime directory into a cache staging directory, runs the
+  worker `--self-test`, and atomically promotes it to `current/`;
 - archive install downloads to cache, verifies SHA-256, extracts to the same
   staging directory, runs the same `--self-test`, and promotes the same way;
 - archives larger than GitHub Release's per-file limit are published as
@@ -480,9 +487,16 @@ Current runtime-pack install slice:
 Local CPU runtime-pack install prep:
 
 ```bash
-npm run prepare:silma-sidecar -- --self-test
+python -m pip install -r sidecars/silma/requirements-build.txt
+python -m pip install --upgrade torch torchvision torchaudio \
+  --index-url https://download.pytorch.org/whl/cpu
+npm run prepare:silma-sidecar -- --clean --self-test --import-check
 npm run package:silma-runtime
 ```
+
+`prepare:silma-sidecar` must run against a full Python prefix, not a virtual
+environment, because release runtime packs need to include the interpreter,
+stdlib, source packages, and native extensions.
 
 Local CUDA runtime-pack prep uses the same worker build, but the Python
 environment must install CUDA PyTorch wheels first:
@@ -491,7 +505,7 @@ environment must install CUDA PyTorch wheels first:
 python -m pip install -r sidecars/silma/requirements-build.txt
 python -m pip install --upgrade torch torchvision torchaudio \
   --index-url https://download.pytorch.org/whl/cu128
-npm run prepare:silma-sidecar -- --clean --self-test
+npm run prepare:silma-sidecar -- --clean --self-test --import-check
 npm run package:silma-runtime -- \
   --runtime-id linux-x64-cuda \
   --archive-name papercut-silma-runtime-linux-x64-cuda.tar.bz2
@@ -537,8 +551,8 @@ This rewrites the matching `runtimeId` entry in
 
 CI runtime-pack build:
 
-- `.github/workflows/silma-runtime.yml` builds Linux x64 CPU and CUDA runtime
-  packs as Actions artifacts without running `npm run desktop`;
+- `.github/workflows/silma-runtime.yml` builds Linux x64 CPU and CUDA source
+  runtime packs as Actions artifacts without running `npm run desktop`;
 - the CPU job forces PyTorch's CPU wheel index; the CUDA job forces PyTorch's
   CUDA 12.8 wheel index. PyTorch's install selector documents Linux pip
   compute-platform installs using `--index-url` for CPU/CUDA wheels;
@@ -676,7 +690,7 @@ Minimal local review before release artifacts exist:
    ```bash
    . .venv-silma/bin/activate
    python -m pip install -r sidecars/silma/requirements-build.txt
-   npm run prepare:silma-sidecar -- --clean --self-test
+   npm run prepare:silma-sidecar -- --clean --self-test --import-check
    ```
 
 2. Remove only SILMA app-data runtime/model folders, not saved audiobooks:
@@ -895,21 +909,11 @@ PATH="$EMPTY_PATH" "$SILMA_WORKER" \
   --seed 1234
 ```
 
-Packaged `load_model` note: SILMA imports `transformers.pipeline` through
-Transformers' lazy export path. The worker now imports
-`transformers.pipelines.pipeline` directly and the packaging script marks
-`transformers.pipelines` as a hidden import so PyInstaller includes that lazy
-module path. The package script also excludes top-level `torchcodec`; SILMA does
-not use that optional Transformers audio/video decoder path, and PyInstaller can
-otherwise freeze enough of it for Transformers to detect it without freezing its
-distribution metadata. If `load_model` still fails, check the sidecar stderr
-traceback before adding more PyInstaller includes.
-
-Packaged TorchScript note: SILMA's F5/x-transformers path compiles helpers such
-as `softclamp` through TorchScript, which asks Python for function source at
-runtime. The local PyInstaller hook for `x_transformers` sets
-`module_collection_mode = "py"` so those modules stay available as external
-`.py` files inside the runtime pack.
+Packaged import note: SILMA imports NeMo/Pynini native extensions and compiles
+x-transformers helpers through TorchScript. The runtime pack now preserves the
+normal Python source/package layout instead of freezing those modules with
+PyInstaller. If `--import-check` fails, treat the runtime pack as invalid and fix
+the Python environment before publishing artifacts.
 
 After changing worker/package imports, rebuild the packaged worker before
 testing the app:
@@ -950,16 +954,17 @@ SILMA model-load test. This probe uses Rust-owned `std::process::Command`
 instead of Tauri's shell plugin. The process wrapper now keeps stdin/stdout open
 for sequential JSONL request/response calls; production sidecar packaging,
 timeouts, and crash recovery remain later stages.
-`PAPERCUT_SILMA_WORKER_BIN` can point at a packaged PyInstaller worker
-executable and skips Python entirely.
+`PAPERCUT_SILMA_WORKER_BIN` can point at the packaged runtime launcher and
+skips repo Python discovery.
 
-Packaged Linux onedir result:
+Packaged Linux runtime result:
 
-- Command: `npm run prepare:silma-sidecar -- --clean --self-test`
-- Platform: Linux x86_64, Python 3.12.3, PyInstaller 6.21.0
+- Command: `npm run prepare:silma-sidecar -- --clean --self-test --import-check`
+- Platform: Linux x86_64, Python 3.12 full prefix
 - Output: `sidecars/silma/runtime/x86_64-unknown-linux-gnu/onedir/`
-- Size: about 5.7 GB
-- Packaged `--self-test`: passed
+- Contents: launcher, copied Python prefix, and source `silma_worker.py`
+- Packaged `--self-test`: required to pass
+- Packaged `--import-check`: required to pass before publishing artifacts
 
 Desktop packaged-worker probe command for a dev run:
 
@@ -980,7 +985,7 @@ byte size.
 
 Packaged desktop probe result:
 
-- Worker: packaged PyInstaller onedir executable
+- Worker: packaged source-preserving runtime launcher
 - Health version: `0.1.0`
 - Probe WAV path:
   `~/.local/share/io.papercut.desktop/silma-sidecar-probe/probe.wav`
@@ -1083,12 +1088,10 @@ Stage 2 SILMA synthesis status:
 
 - [x] Add `scripts/prepare-silma-sidecar.js` or platform-specific helpers.
 - [x] Produce target-triple sidecar names or resource directories.
-- [x] Make the SILMA packaging helper always build PyInstaller onedir after
-      onefile failed extraction.
-- [x] Add an optional packaged-worker `--self-test` to the prep script.
-- [x] Force-include the Transformers pipeline module needed by packaged
-      `load_model`.
-- [x] Exclude optional `torchcodec` from the packaged worker after Transformers
+- [x] Make the SILMA packaging helper build a source-preserving Python runtime
+      after PyInstaller failed on native/source-inspection dependencies.
+- [x] Add optional packaged-worker `--self-test` and `--import-check` gates to
+      the prep script.
       detected it without metadata.
 - [x] Prototype sidecar prep in `scripts/build-desktop.js` behind a build flag.
 - [x] Remove the opt-in Linux desktop resource staging spike after choosing
@@ -1177,7 +1180,7 @@ Exit criteria:
 ### Stage 1: Sidecar Prototype
 
 - [x] Add, run, reject, and remove PyInstaller onefile packaging.
-- [x] Package worker with PyInstaller onedir and run the packaged worker.
+- [x] Package worker with PyInstaller onedir, run it, and reject that format.
 - [x] Add temporary Rust command or dev-only path to spawn it.
 - [x] Generate one probe WAV into app data.
 - [x] Add diagnostics UI trigger for the packaged-worker probe.

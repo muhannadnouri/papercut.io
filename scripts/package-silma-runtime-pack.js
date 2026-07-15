@@ -34,7 +34,7 @@ const manifestPath = join(outputDir, archiveName.replace(/\.tar\.bz2$/, ".manife
 const workerRelativePath = exeBase + "/" + exeBase
 
 if (!existsSync(join(sourceDir, workerRelativePath))) {
-  fail("Missing prepared SILMA runtime worker at " + join(sourceDir, workerRelativePath))
+  fail("Missing prepared SILMA runtime launcher at " + join(sourceDir, workerRelativePath))
 }
 
 mkdirSync(outputDir, { recursive: true })

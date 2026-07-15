@@ -1,4 +1,4 @@
 -r requirements.txt
 
-# PyInstaller is only needed when producing the optional desktop runtime pack.
-pyinstaller==6.21.0
+# Source-preserving runtime packs copy the selected Python prefix directly.
+# Keep this file for CI cache keys and future build-only helpers.

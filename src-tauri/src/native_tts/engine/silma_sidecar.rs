@@ -368,7 +368,7 @@ fn repo_worker_runtime_status(app: &tauri::AppHandle) -> SilmaRuntimeStatus {
     }
 }
 
-/// Promote a prepared PyInstaller onedir into the app-data runtime-pack slot.
+/// Promote a prepared source-preserving Python runtime into the app-data runtime-pack slot.
 pub(super) fn install_silma_runtime_pack(
     app: &tauri::AppHandle,
     mut on_download: impl FnMut(u64, u64),
@@ -908,7 +908,7 @@ fn silma_supported_on_current_platform() -> bool {
     cfg!(all(target_os = "linux", target_arch = "x86_64"))
 }
 
-/// Recursively copy the PyInstaller onedir without pulling in another dependency.
+/// Recursively copy a prepared runtime directory without pulling in another dependency.
 fn copy_dir_contents(source: &Path, destination: &Path) -> Result<(), String> {
     for entry in fs::read_dir(source).map_err(|err| {
         format!(
