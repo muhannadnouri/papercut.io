@@ -17,7 +17,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Manager;
 
 use super::config::CACHE_VERSION;
-use super::models::{ModelDefinition, TtsModelBackend};
+use super::models::{ModelDefinition, TtsModelBackend, SILMA_HF_CACHE_REPO_DIR, SILMA_HF_REVISION};
 use crate::native_tts::types::NativeTtsInputChunk;
 
 /// Where the installed voice model lives permanently: `<app-data>/models/...`.
@@ -95,15 +95,19 @@ pub(super) fn resolve_model_dir(
 /// Return true when a runtime model directory has the files the backend needs.
 pub(super) fn has_required_model_files(model: &ModelDefinition, dir: &Path) -> bool {
     if matches!(model.backend, TtsModelBackend::SilmaSidecar) {
-        return contains_complete_file_set(dir, model.required_files);
+        return contains_complete_silma_cache(dir, model.required_files);
     }
     model.has_required_files(dir)
 }
 
-fn contains_complete_file_set(dir: &Path, required_files: &[&str]) -> bool {
-    if required_files
+/// Require the snapshot and its matching `main` ref in the same HF cache root.
+fn contains_complete_silma_cache(dir: &Path, required_files: &[&str]) -> bool {
+    let files_present = required_files
         .iter()
-        .all(|file_name| dir.join(file_name).is_file())
+        .all(|file_name| dir.join(file_name).is_file());
+    let ref_path = dir.join(SILMA_HF_CACHE_REPO_DIR).join("refs").join("main");
+    if files_present
+        && fs::read_to_string(ref_path).is_ok_and(|revision| revision.trim() == SILMA_HF_REVISION)
     {
         return true;
     }
@@ -114,7 +118,7 @@ fn contains_complete_file_set(dir: &Path, required_files: &[&str]) -> bool {
     entries
         .flatten()
         .map(|entry| entry.path())
-        .any(|path| path.is_dir() && contains_complete_file_set(&path, required_files))
+        .any(|path| path.is_dir() && contains_complete_silma_cache(&path, required_files))
 }
 
 /// Directory holding one saved audiobook's chunk WAVs. The audiobook id is
@@ -436,6 +440,14 @@ mod tests {
         fs::create_dir_all(&complete).unwrap();
         fs::write(complete.join("model.pt"), b"model").unwrap();
         fs::write(complete.join("vocab.txt"), b"vocab").unwrap();
+        assert!(!has_required_model_files(model, &dir));
+
+        let main_ref = dir.join(SILMA_HF_CACHE_REPO_DIR).join("refs").join("main");
+        fs::create_dir_all(main_ref.parent().unwrap()).unwrap();
+        fs::write(&main_ref, "wrong-revision").unwrap();
+        assert!(!has_required_model_files(model, &dir));
+
+        fs::write(main_ref, SILMA_HF_REVISION).unwrap();
         assert!(has_required_model_files(model, &dir));
 
         fs::remove_dir_all(dir).unwrap();

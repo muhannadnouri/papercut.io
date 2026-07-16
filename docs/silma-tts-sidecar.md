@@ -430,8 +430,8 @@ linux-x64-cpu
 ```
 
 The checked app manifest currently installs `linux-x64-cpu` by default. CUDA is
-moving to a user-local setup script instead of a published multi-GB runtime pack.
-The app now has a discovery slot for that future installer:
+installed by the current user-local setup script instead of a published
+multi-GB runtime pack. The app discovers that installation through:
 
 ```text
 <app-data>/runtimes/silma/silma-runtime.local.json
@@ -441,14 +441,15 @@ The local manifest points at a wrapper executable with either `workerPath` or
 `worker`, relative to the manifest directory or absolute:
 
 ```json
-{"runtimeId":"linux-x64-cuda-local","workerPath":"linux-x64-cuda/current/run-silma-worker"}
+{"runtimeId":"linux-x64-cuda-local","workerPath":"linux-x64-cuda/installs/<install-id>/run-silma-worker"}
 ```
 
 Rust prefers this user-local runtime before the downloaded CPU runtime pack.
-The setup script still must verify `torch.cuda.is_available()` before writing
-the manifest. The native model catalog hides SILMA on Windows, macOS, Android,
-and iOS until the upstream Python dependency stack has a supported install path
-there.
+The setup script verifies `torch.cuda.is_available()` before atomically writing
+the manifest. A malformed local manifest is reported when no runtime is
+available, but it does not block a valid downloaded CPU fallback. The native
+model catalog hides SILMA on Windows, macOS, Android, and iOS until the upstream
+Python dependency stack has a supported install path there.
 
 Expected worker launcher path inside runtime packs:
 
@@ -548,23 +549,28 @@ absent, the downloaded CPU runtime remains the fallback.
 Current CUDA setup script:
 
 - lives at `scripts/install-silma-cuda-runtime.sh`;
-- requires Linux x64, `nvidia-smi`, network access, and either existing
-  `micromamba` or `curl`/`wget` to download it;
-- installs under
-  `<app-data>/runtimes/silma/linux-x64-cuda/current/`;
+- requires Linux x64, `nvidia-smi`, network access, `sha256sum`, and
+  `curl` or `wget`;
+- downloads the app-owned micromamba `2.8.1-0` binary from its fixed release URL
+  and verifies SHA-256 before executing it;
+- builds each candidate under
+  `<app-data>/runtimes/silma/linux-x64-cuda/installs/<install-id>/` while the
+  prior manifest and runtime remain active;
 - copies the checked-in `sidecars/silma/silma_worker.py` source into the local
   runtime so TorchScript/source lookups still work;
 - uses micromamba to install Python 3.12, FFmpeg, and pip inside
-  `<app-data>/runtimes/silma/linux-x64-cuda/current/env/`;
-- installs `silma-tts==1.0.5`, then force-reinstalls `torch`, `torchvision`,
-  `torchaudio`, and `torchcodec` from the CUDA PyTorch wheel index;
+  that versioned candidate;
+- installs `silma-tts==1.0.5` plus the tested CUDA 12.6 package set:
+  `torch==2.13.0+cu126`, `torchvision==0.28.0+cu126`,
+  `torchaudio==2.11.0+cu126`, and `torchcodec==0.15.0+cu126`;
 - keeps ONNX Runtime on CPU because CATT/tashkeel uses ONNX Runtime while SILMA
-  generation uses PyTorch;
+  generation uses PyTorch, and pins it to `onnxruntime==1.27.0`;
 - runs `--self-test`, `--dependency-check`, and a CUDA availability probe before
-  writing `silma-runtime.local.json`;
-- accepts `PAPERCUT_SILMA_TORCH_INDEX_URL`, `PAPERCUT_MICROMAMBA_BIN`,
-  `PAPERCUT_SILMA_RUNTIME_ROOT`, and `PAPERCUT_SILMA_WORKER_SOURCE` for test
-  machines.
+  atomically replacing `silma-runtime.local.json`. Failed candidates are
+  removed without disturbing the previously active runtime; superseded
+  runtimes are removed only after successful activation;
+- accepts `PAPERCUT_SILMA_RUNTIME_ROOT` and
+  `PAPERCUT_SILMA_WORKER_SOURCE` for test machines.
 - SILMA worker launches strip inherited AppImage loader variables and all
   inherited `PYTHON*` variables before starting the worker. The worker launchers
   then set their own Python/FFmpeg paths, which avoids Arch-like `/bin/sh`
@@ -889,7 +895,9 @@ The app-owned installer writes that layout directly so the first real synthesis
 run does not download the 2.5 GB SILMA checkpoint a second time. If an older
 Papercut build already downloaded flat `model.pt` and `vocab.txt` files, the
 installer can reuse those files while promoting the directory to Hugging Face
-cache layout.
+cache layout. Installed-state validation also requires `refs/main` to contain
+the pinned revision shown above; snapshot files alone are not enough because
+SILMA's `cached_path` request resolves the default Hugging Face branch.
 
 ## Python Worker Tasks
 
@@ -1212,8 +1220,10 @@ Stage 2 SILMA synthesis status:
 
 ## Security And Policy Tasks
 
-- [ ] Pin and verify SILMA model sources.
-- [ ] Store downloaded models under app data, not arbitrary user paths.
+- [x] Pin and verify SILMA model sources.
+- [x] Pin the CUDA compatibility stack and verify the downloaded micromamba
+      bootstrap binary.
+- [x] Store downloaded models under app data, not arbitrary user paths.
 - [ ] Validate all paths sent to the sidecar are app-owned paths.
 - [ ] Do not pass shell-interpreted arguments.
 - [ ] Do not expose a generic "run command" permission to the frontend.
@@ -1346,7 +1356,11 @@ Exit criteria:
 - [x] Add SILMA model-file in-app install support.
 - [x] Pin model-file source revision and hashes.
 - [x] Download model files to app data.
-- [x] Validate required files.
+- [x] Validate required files and the pinned Hugging Face `refs/main` value.
+- [x] Build local CUDA candidates off to the side and atomically activate their
+      manifest only after runtime and CUDA checks pass.
+- [x] Fall back to the downloaded CPU runtime when an optional local CUDA
+      manifest is malformed.
 
 Exit criteria:
 

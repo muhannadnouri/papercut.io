@@ -153,25 +153,28 @@ Prerequisites:
 - Linux x64;
 - working NVIDIA driver with `nvidia-smi`;
 - network access;
-- `curl` or `wget` if `micromamba` is not already installed.
+- `sha256sum`;
+- `curl` or `wget`.
 
 Micromamba is a tiny conda-compatible environment manager. Here it gives
 Papercut its own Python 3.12 and FFmpeg install under app data, without touching
 your system Python or distro packages.
 
-The script creates an isolated micromamba environment under
-`~/.local/share/io.papercut.desktop/runtimes/silma/linux-x64-cuda/current/env/`,
-installs Python 3.12, FFmpeg, SILMA, and CUDA PyTorch wheels, verifies the worker and
-`torch.cuda.is_available()`, then writes:
+The script verifies a pinned app-owned micromamba binary, then creates an
+isolated environment under
+`~/.local/share/io.papercut.desktop/runtimes/silma/linux-x64-cuda/installs/`.
+It installs Python 3.12, FFmpeg, SILMA, and a pinned CUDA 12.6 PyTorch stack,
+verifies the worker and `torch.cuda.is_available()`, then atomically writes:
 
 ```text
 ~/.local/share/io.papercut.desktop/runtimes/silma/silma-runtime.local.json
 ```
 
-Override knobs for testing:
+The previous runtime remains active if installation fails. After activation,
+older local CUDA environments are removed. Test machines can redirect the app
+data root or worker source:
 
 ```bash
-PAPERCUT_SILMA_TORCH_INDEX_URL=https://download.pytorch.org/whl/cu128
-PAPERCUT_MICROMAMBA_BIN=/custom/bin/micromamba
 PAPERCUT_SILMA_RUNTIME_ROOT=/custom/runtimes/silma
+PAPERCUT_SILMA_WORKER_SOURCE=/custom/silma_worker.py
 ```

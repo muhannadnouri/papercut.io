@@ -905,21 +905,42 @@ fn runtime_pack_worker_path(app: &tauri::AppHandle) -> Result<Option<PathBuf>, S
 fn installed_runtime_worker_path(
     app: &tauri::AppHandle,
 ) -> Result<Option<InstalledSilmaRuntime>, String> {
-    if let Some(worker_path) = local_runtime_worker_path(app)? {
-        return Ok(Some(InstalledSilmaRuntime {
-            worker_path,
-            label: "<local-runtime>",
-            message: "SILMA local runtime installed",
-        }));
-    }
-    if let Some(worker_path) = runtime_pack_worker_path(app)? {
+    select_installed_runtime(
+        local_runtime_worker_path(app),
+        runtime_pack_worker_path(app),
+    )
+}
+
+/// Keep a malformed optional local manifest actionable without sacrificing CPU fallback.
+fn select_installed_runtime(
+    local: Result<Option<PathBuf>, String>,
+    runtime_pack: Result<Option<PathBuf>, String>,
+) -> Result<Option<InstalledSilmaRuntime>, String> {
+    let local_error = match local {
+        Ok(Some(worker_path)) => {
+            return Ok(Some(InstalledSilmaRuntime {
+                worker_path,
+                label: "<local-runtime>",
+                message: "SILMA local runtime installed",
+            }));
+        }
+        Ok(None) => None,
+        Err(err) => Some(err),
+    };
+    if let Some(worker_path) = runtime_pack? {
+        if let Some(err) = local_error.as_ref() {
+            log::warn!("Ignoring invalid SILMA local runtime manifest; using CPU runtime: {err}");
+        }
         return Ok(Some(InstalledSilmaRuntime {
             worker_path,
             label: "<runtime-pack>",
             message: "SILMA runtime pack installed",
         }));
     }
-    Ok(None)
+    match local_error {
+        Some(err) => Err(err),
+        None => Ok(None),
+    }
 }
 
 fn local_runtime_worker_path(app: &tauri::AppHandle) -> Result<Option<PathBuf>, String> {
@@ -1189,6 +1210,35 @@ mod tests {
         assert_eq!(
             local_runtime_manifest_worker_path(&manifest).expect("resolve manifest"),
             Some(worker)
+        );
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn invalid_local_runtime_falls_back_to_cpu_pack() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("papercut-silma-invalid-runtime-{nonce}"));
+        let manifest = dir.join(SILMA_LOCAL_RUNTIME_MANIFEST);
+        fs::create_dir_all(&dir).expect("create temp runtime dir");
+        fs::write(&manifest, "{").expect("write malformed manifest");
+        let local_error = local_runtime_manifest_worker_path(&manifest)
+            .err()
+            .expect("malformed manifest must fail");
+        let cpu_worker = PathBuf::from("/tmp/papercut-silma-cpu-worker");
+        let selected =
+            select_installed_runtime(Err(local_error.clone()), Ok(Some(cpu_worker.clone())))
+                .expect("select CPU fallback")
+                .expect("runtime available");
+
+        assert_eq!(selected.worker_path, cpu_worker);
+        assert_eq!(selected.label, "<runtime-pack>");
+        assert_eq!(
+            select_installed_runtime(Err(local_error.clone()), Ok(None)).err(),
+            Some(local_error)
         );
 
         let _ = fs::remove_dir_all(dir);

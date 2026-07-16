@@ -23,7 +23,10 @@ use sha2::{Digest, Sha256};
 use tauri::Emitter;
 
 use super::config::MODEL_INSTALL_PROGRESS_EVENT;
-use super::models::{model_definition, visible_models, ModelDefinition, TtsModelBackend};
+use super::models::{
+    model_definition, visible_models, ModelDefinition, TtsModelBackend, SILMA_HF_CACHE_REPO_DIR,
+    SILMA_HF_REVISION,
+};
 use super::paths::{
     directory_size, has_required_model_files, installed_model_dir, model_work_dir,
     resolve_model_dir, runtime_model_dir,
@@ -52,9 +55,6 @@ const SILMA_MODEL_FILES: &[SilmaModelFile] = &[
         bytes: 36_357,
     },
 ];
-const SILMA_HF_CACHE_REPO_DIR: &str = "models--silma-ai--silma-tts";
-const SILMA_HF_REVISION: &str = "d2515317033803648ecb8844765db9e583afecf9";
-
 struct SilmaModelFile {
     name: &'static str,
     blob: &'static str,
@@ -141,7 +141,7 @@ pub(crate) fn model_status(
             archive_bytes: model_archive_bytes(model, runtime_status.as_ref()),
             installed_bytes: directory_size(&model_dir).unwrap_or(0),
             sha256: model.sha256.into(),
-            message: missing_model_message(model, &model_dir, installing),
+            message: missing_model_message(model, installing),
             runtime_message: model_runtime_message(runtime_status.as_ref()),
         },
         Err(err) => NativeTtsModelStatus {
@@ -379,15 +379,13 @@ async fn install_silma_model_files_for_model(
 }
 
 /// Return an absent-model message that matches the backend's real install path.
-fn missing_model_message(model: &ModelDefinition, model_dir: &Path, installing: bool) -> String {
+fn missing_model_message(model: &ModelDefinition, installing: bool) -> String {
     if installing {
         return "Offline voice model download in progress".into();
     }
     if matches!(model.backend, TtsModelBackend::SilmaSidecar) {
-        return format!(
-            "Download SILMA model files (model.pt, vocab.txt) to {}.",
-            model_dir.display()
-        );
+        return "Open Audio Setup and choose Install SILMA to download the required model files."
+            .into();
     }
     "Offline voice model is not installed".into()
 }
@@ -430,7 +428,7 @@ fn install_silma_model_files_blocking(
         completed_bytes += file.bytes;
     }
     write_silma_hf_ref(&temp_model_dir)?;
-    if !model.has_required_files(&temp_model_dir) {
+    if !has_required_model_files(model, &temp_model_dir) {
         return Err("Downloaded SILMA model is missing required files".into());
     }
     if let Some(parent) = final_dir.parent() {
