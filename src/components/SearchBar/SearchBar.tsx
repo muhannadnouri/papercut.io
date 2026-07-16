@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import './SearchBar.css'
 
 interface SearchBarProps {
@@ -8,13 +9,17 @@ interface SearchBarProps {
 }
 
 export function SearchBar({ query, disabled, onChange, onSubmit }: SearchBarProps) {
+  const { t } = useTranslation()
+  const broadExample = t('search.input.exampleBroad')
+  const exactExample = t('search.input.exampleExact')
+
   return (
     <div className="search-container">
       <div className="search-row">
         <input
           type="text"
           className="search-input"
-          placeholder={disabled ? 'Loading Search Index...' : 'Search Documents...'}
+          placeholder={disabled ? t('search.input.loadingPlaceholder') : t('search.input.placeholder')}
           value={query}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {
@@ -32,18 +37,18 @@ export function SearchBar({ query, disabled, onChange, onSubmit }: SearchBarProp
             <circle cx="11" cy="11" r="7" />
             <path d="m16 16 5 5" />
           </svg>
-          Search
+          {t('search.input.button')}
         </button>
       </div>
       <p className="search-help">
-        Search by words broadly, or use quotes for an exact phrase.
+        {t('search.input.help')}
       </p>
-      <div className="search-examples" aria-label="Search examples">
-        <button type="button" className="search-example" onClick={() => onChange('green gables')} disabled={disabled}>
-          green gables
+      <div className="search-examples" aria-label={t('search.input.examplesLabel')}>
+        <button type="button" className="search-example" onClick={() => onChange(broadExample)} disabled={disabled}>
+          {broadExample}
         </button>
-        <button type="button" className="search-example" onClick={() => onChange('"Anne Shirley"')} disabled={disabled}>
-          &quot;Anne Shirley&quot;
+        <button type="button" className="search-example" onClick={() => onChange(exactExample)} disabled={disabled}>
+          {exactExample}
         </button>
       </div>
     </div>

@@ -4,6 +4,7 @@ import {
   useCallback,
   useMemo
 } from 'react'
+import { useTranslation } from 'react-i18next'
 import './App.css'
 import { usePagefind } from './hooks/usePagefind'
 import { useSearch } from './hooks/useSearch'
@@ -33,6 +34,7 @@ import {
 } from './uploads/DocumentUploads'
 
 function App() {
+  const { t } = useTranslation()
   const theme = useTheme()
   const [activeTab, setActiveTab] = useState<AppTab>('library')
   const [userUploads, setUserUploads] = useState<UserUploadDocument[]>(() => getUserUploads())
@@ -221,10 +223,10 @@ function App() {
   const handleDeleteUploadedDocument = useCallback(async (doc: DocumentInfo) => {
     if (doc.source !== 'upload') return
     const confirmed = await confirmDocumentAction({
-      title: 'Delete uploaded document?',
-      description: 'This removes the document from this device, local search results, and any folder organization in Papercut.',
-      details: [{ label: 'Title', value: doc.title }],
-      confirmLabel: 'Delete Document',
+      title: t('library.confirmDeleteDocument.title'),
+      description: t('library.confirmDeleteDocument.description'),
+      details: [{ label: t('library.confirmDeleteDocument.documentTitle'), value: <bdi>{doc.title}</bdi> }],
+      confirmLabel: t('library.confirmDeleteDocument.confirm'),
       tone: 'danger',
     })
     if (!confirmed) return
@@ -237,7 +239,7 @@ function App() {
     if (selectedDoc === doc.url) {
       handleCloseDocument()
     }
-  }, [confirmDocumentAction, deleteUploadedLibraryDocument, handleCloseDocument, removeFilter, removeResultsForUrl, selectedDoc])
+  }, [confirmDocumentAction, deleteUploadedLibraryDocument, handleCloseDocument, removeFilter, removeResultsForUrl, selectedDoc, t])
 
   if (selectedDoc) {
     return (

@@ -11,13 +11,166 @@
   "common": {
     "cancel": "إلغاء",
     "confirm": "تأكيد",
+    "create": "إنشاء",
+    "delete": "حذف",
+    "deselectAll": "إلغاء تحديد الكل",
     "done": "تم",
     "open": "فتح",
-    "save": "حفظ"
+    "opening": "جارٍ الفتح...",
+    "save": "حفظ",
+    "selectAll": "تحديد الكل",
+    "view": "عرض"
   },
   "externalLink": {
     "title": "فتح رابط خارجي؟",
     "description": "سيفتح هذا الرابط خارج Papercut."
+  },
+  "search": {
+    "tabLabel": "البحث",
+    "input": {
+      "loadingPlaceholder": "جارٍ تحميل فهرس البحث...",
+      "placeholder": "ابحث في المستندات...",
+      "button": "بحث",
+      "help": "ابحث بالكلمات، أو استخدم علامتَي الاقتباس للبحث عن عبارة مطابقة.",
+      "examplesLabel": "أمثلة على البحث",
+      "exampleBroad": "العدالة الاجتماعية",
+      "exampleExact": "\"الثورة الصناعية\""
+    },
+    "scope": {
+      "ariaLabel": "نطاق البحث",
+      "title": "تصفية حسب المستند",
+      "allDocuments": "جميع المستندات",
+      "documentCount_zero": "لا مستندات",
+      "documentCount_one": "مستند واحد",
+      "documentCount_two": "مستندان",
+      "documentCount_few": "{{count, number}} مستندات",
+      "documentCount_many": "{{count, number}} مستندًا",
+      "documentCount_other": "{{count, number}} مستند",
+      "filterPlaceholder": "صفِّ المستندات...",
+      "clear": "مسح عوامل التصفية",
+      "selectedFiltersLabel": "عوامل تصفية المستندات المحددة",
+      "removeFilter": "إزالة {{title}} من نطاق البحث"
+    },
+    "results": {
+      "searching": "جارٍ البحث...",
+      "resultCount_zero": "لا نتائج",
+      "resultCount_one": "نتيجة واحدة",
+      "resultCount_two": "نتيجتان",
+      "resultCount_few": "{{count, number}} نتائج",
+      "resultCount_many": "{{count, number}} نتيجة",
+      "resultCount_other": "{{count, number}} نتيجة",
+      "filtered": "بعد التصفية",
+      "exactPhrase": "العبارة المطابقة:",
+      "exactPhrases": "العبارات المطابقة:",
+      "matchedTerms": "المصطلحات المطابقة:",
+      "noResults": "لا توجد نتائج.",
+      "filtersApplied": "تُطبَّق عوامل تصفية المستندات.",
+      "searchTerms": "مصطلحات البحث:",
+      "welcome": "اكتب استعلامًا واضغط على «بحث» أو مفتاح الإدخال للبحث في جميع المستندات المفهرسة.",
+      "welcomeHint": "ضع العبارة بين علامتَي اقتباس للبحث عن تطابق تام.",
+      "exactMatch_zero": "لا تطابقات تامة",
+      "exactMatch_one": "تطابق تام واحد",
+      "exactMatch_two": "تطابقان تامان",
+      "exactMatch_few": "{{count, number}} تطابقات تامة",
+      "exactMatch_many": "{{count, number}} تطابقًا تامًا",
+      "exactMatch_other": "{{count, number}} تطابق تام",
+      "termsSeparateSections": "تظهر المصطلحات في أقسام منفصلة",
+      "bestSection": "أفضل قسم مطابق: {{title}}",
+      "bestPassage": "أفضل مقطع مطابق",
+      "matchingSections_zero": "لا أقسام مطابقة",
+      "matchingSections_one": "قسم مطابق واحد",
+      "matchingSections_two": "قسمان مطابقان",
+      "matchingSections_few": "{{count, number}} أقسام مطابقة",
+      "matchingSections_many": "{{count, number}} قسمًا مطابقًا",
+      "matchingSections_other": "{{count, number}} قسم مطابق"
+    }
+  },
+  "library": {
+    "tabLabel": "المكتبة",
+    "documents": {
+      "ariaLabel": "المستندات",
+      "title": "المستندات ({{count, number}})",
+      "loading": "جارٍ تحميل المستندات...",
+      "filterPlaceholder": "صفِّ المستندات...",
+      "import": "استيراد",
+      "future": "لاحقًا",
+      "savedAudio": "صوت محفوظ",
+      "empty": "لا توجد مستندات بعد.",
+      "emptySavedAudio": "لا يوجد صوت محفوظ مطابق.",
+      "emptyFilter": "لا توجد مستندات تطابق عامل التصفية.",
+      "audiobookImport": "كتاب صوتي مستورد، غير مفهرس للبحث"
+    },
+    "import": {
+      "htmlDetail": "استيراد مستند محلي بصيغة ‎.html أو ‎.htm",
+      "epubDetail": "استيراد كتاب محلي بصيغة ‎.epub",
+      "importingHtml": "جارٍ استيراد HTML",
+      "importingEpub": "جارٍ استيراد EPUB"
+    },
+    "status": {
+      "importingHtml": "جارٍ استيراد مستند HTML...",
+      "importingEpub": "جارٍ استيراد كتاب EPUB...",
+      "imported": "تم استيراد <title>{{title}}</title>.",
+      "cancelled": "أُلغي الاستيراد.",
+      "deleting": "جارٍ حذف <title>{{title}}</title>...",
+      "deleted": "تم حذف <title>{{title}}</title>.",
+      "deletedWithStorage": "تم حذف <title>{{title}}</title> وتحرير {{storage}}."
+    },
+    "groups": {
+      "importedAudiobooks": "الكتب الصوتية المستوردة",
+      "uncategorized": "غير مصنّف",
+      "userUploads": "ملفات المستخدم"
+    },
+    "tree": {
+      "filterAriaLabel": "عوامل تصفية المستندات المرفوعة",
+      "organizationAriaLabel": "تنظيم مكتبة الملفات المرفوعة",
+      "editActionsAriaLabel": "إجراءات تنظيم المكتبة",
+      "uploadedDocumentsAriaLabel": "المستندات المرفوعة",
+      "folders": "المجلدات",
+      "organize": "تنظيم",
+      "finishEditing": "إنهاء التحرير",
+      "newFolder": "مجلد جديد",
+      "newSubfolder": "مجلد فرعي جديد",
+      "rename": "إعادة تسمية",
+      "deleteFolder": "حذف المجلد",
+      "folderNotEmpty": "المجلد غير فارغ",
+      "moveContentsFirst": "انقل المحتويات أولًا.",
+      "moveDocuments": "نقل المستندات",
+      "selectDocumentsOnly": "حدّد المستندات فقط...",
+      "selectedCount_zero": "لا مستندات محددة...",
+      "selectedCount_one": "مستند واحد محدد...",
+      "selectedCount_two": "مستندان محددان...",
+      "selectedCount_few": "{{count, number}} مستندات محددة...",
+      "selectedCount_many": "{{count, number}} مستندًا محددًا...",
+      "selectedCount_other": "{{count, number}} مستند محدد...",
+      "selectDocumentsFirst": "حدّد المستندات أولًا...",
+      "root": "الجذر",
+      "noMatches": "لا توجد مستندات مرفوعة مطابقة.",
+      "select": "تحديد {{title}}",
+      "selectAllIn": "تحديد الكل في {{title}}",
+      "filterBy": "التصفية حسب {{title}}",
+      "selectOneFolder": "حدّد مجلدًا واحدًا لحذفه.",
+      "moveOrRemoveContents": "انقل المحتويات أو أزلها قبل الحذف.",
+      "deleteSelectedFolder": "حذف المجلد المحدد."
+    },
+    "folderDialog": {
+      "renameTitle": "إعادة تسمية المجلد",
+      "newFolderTitle": "مجلد جديد",
+      "newSubfolderTitle": "مجلد فرعي جديد",
+      "folderName": "اسم المجلد",
+      "subfolderName": "اسم المجلد الفرعي",
+      "inside": "داخل <name>{{name}}</name>"
+    },
+    "confirmDeleteFolder": {
+      "title": "حذف المجلد الفارغ؟",
+      "description": "لن يؤدي هذا الإجراء إلى حذف المستندات الموجودة داخل المجلدات.",
+      "folder": "المجلد"
+    },
+    "confirmDeleteDocument": {
+      "title": "حذف المستند المرفوع؟",
+      "description": "يؤدي هذا إلى إزالة المستند من هذا الجهاز ومن نتائج البحث المحلية ومن تنظيم المجلدات في Papercut.",
+      "documentTitle": "العنوان",
+      "confirm": "حذف المستند"
+    }
   },
   "settings": {
     "button": "إعدادات التطبيق",

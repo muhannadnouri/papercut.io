@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { DocumentInfo } from '../types/search'
-import { formatStorageSize } from '../utils/formatUtils'
 import {
   createUploadedLibraryFolder,
   deleteUploadedDocument,
@@ -20,9 +19,14 @@ type UploadedLibraryState = {
   organization: UploadedLibraryOrganization
 }
 
-type DocumentImportStatus = {
+// Keep operation state locale-neutral so the owning UI can translate it and
+// isolate user titles without parsing preformatted English messages.
+export type DocumentImportStatus = {
   status: 'idle' | 'importing' | 'imported' | 'deleting' | 'deleted' | 'cancelled' | 'error'
-  message: string
+  format?: 'html' | 'epub'
+  title?: string
+  bytesFreed?: number
+  message?: string
 }
 
 async function loadUploadedLibrary(): Promise<UploadedLibraryState> {
@@ -41,7 +45,7 @@ async function loadUploadedLibrary(): Promise<UploadedLibraryState> {
 export function useUploadedLibrary() {
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([])
   const [uploadedLibraryOrganization, setUploadedLibraryOrganization] = useState<UploadedLibraryOrganization>({ folders: [], documentLocations: [] })
-  const [documentImport, setDocumentImport] = useState<DocumentImportStatus>({ status: 'idle', message: '' })
+  const [documentImport, setDocumentImport] = useState<DocumentImportStatus>({ status: 'idle' })
 
   const applyUploadedLibrary = useCallback((library: UploadedLibraryState) => {
     setUploadedDocuments(library.documents)
@@ -66,47 +70,48 @@ export function useUploadedLibrary() {
   }, [applyUploadedLibrary])
 
   const importDocument = useCallback(async (
-    importingMessage: string,
+    format: 'html' | 'epub',
     importer: () => Promise<UploadedDocument>,
   ): Promise<UploadedDocument | null> => {
-    setDocumentImport({ status: 'importing', message: importingMessage })
+    setDocumentImport({ status: 'importing', format })
     try {
       const result = await importer()
       await refreshUploadedLibrary()
-      setDocumentImport({ status: 'imported', message: 'Imported ' + result.title })
+      setDocumentImport({ status: 'imported', format, title: result.title })
       return result
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       const cancelled = message.toLowerCase().includes('cancelled')
       setDocumentImport({
         status: cancelled ? 'cancelled' : 'error',
-        message: cancelled ? 'Import cancelled.' : message,
+        format,
+        message: cancelled ? undefined : message,
       })
       return null
     }
   }, [refreshUploadedLibrary])
 
   const importHtmlDocument = useCallback(
-    () => importDocument('⏳ Importing HTML Document...', importHtmlDocumentSource),
+    () => importDocument('html', importHtmlDocumentSource),
     [importDocument],
   )
 
   const importEpubDocument = useCallback(
-    () => importDocument('⏳ Importing EPUB Book...', importEpubDocumentSource),
+    () => importDocument('epub', importEpubDocumentSource),
     [importDocument],
   )
 
   const deleteDocument = useCallback(async (doc: DocumentInfo): Promise<boolean> => {
     if (doc.source !== 'upload') return false
 
-    setDocumentImport({ status: 'deleting', message: 'Deleting ' + doc.title })
+    setDocumentImport({ status: 'deleting', title: doc.title })
     try {
       const result = await deleteUploadedDocument(doc.url)
       await refreshUploadedLibrary()
-      const storage = formatStorageSize(result.bytesFreed)
       setDocumentImport({
         status: 'deleted',
-        message: storage ? 'Deleted ' + doc.title + ' and freed ' + storage + '.' : 'Deleted ' + doc.title + '.',
+        title: doc.title,
+        bytesFreed: result.bytesFreed,
       })
       return true
     } catch (err) {

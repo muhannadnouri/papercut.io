@@ -11,13 +11,146 @@
   "common": {
     "cancel": "Cancel",
     "confirm": "Confirm",
+    "create": "Create",
+    "delete": "Delete",
+    "deselectAll": "Deselect All",
     "done": "Done",
     "open": "Open",
-    "save": "Save"
+    "opening": "Opening...",
+    "save": "Save",
+    "selectAll": "Select All",
+    "view": "View"
   },
   "externalLink": {
     "title": "Open External Link?",
     "description": "This link will open outside Papercut."
+  },
+  "search": {
+    "tabLabel": "Search",
+    "input": {
+      "loadingPlaceholder": "Loading Search Index...",
+      "placeholder": "Search Documents...",
+      "button": "Search",
+      "help": "Search by words broadly, or use quotes for an exact phrase.",
+      "examplesLabel": "Search examples",
+      "exampleBroad": "green gables",
+      "exampleExact": "\"Anne Shirley\""
+    },
+    "scope": {
+      "ariaLabel": "Search scope",
+      "title": "Filter By Document",
+      "allDocuments": "All documents",
+      "documentCount_one": "{{count, number}} document",
+      "documentCount_other": "{{count, number}} documents",
+      "filterPlaceholder": "Filter Documents...",
+      "clear": "Clear Filters",
+      "selectedFiltersLabel": "Selected document filters",
+      "removeFilter": "Remove {{title}} from the search scope"
+    },
+    "results": {
+      "searching": "Searching...",
+      "resultCount_one": "{{count, number}} result",
+      "resultCount_other": "{{count, number}} results",
+      "filtered": "Filtered",
+      "exactPhrase": "Exact phrase:",
+      "exactPhrases": "Exact phrases:",
+      "matchedTerms": "Matched terms:",
+      "noResults": "No results.",
+      "filtersApplied": "Document filters are applied.",
+      "searchTerms": "Search terms:",
+      "welcome": "Type a query and press Search (or Enter) to search across all indexed documents.",
+      "welcomeHint": "Wrap a phrase in double quotes for exact-match search.",
+      "exactMatch_one": "{{count, number}} exact match",
+      "exactMatch_other": "{{count, number}} exact matches",
+      "termsSeparateSections": "Terms appear in separate sections",
+      "bestSection": "Best matching section: {{title}}",
+      "bestPassage": "Best matching passage",
+      "matchingSections_one": "{{count, number}} matching section",
+      "matchingSections_other": "{{count, number}} matching sections"
+    }
+  },
+  "library": {
+    "tabLabel": "Library",
+    "documents": {
+      "ariaLabel": "Documents",
+      "title": "Documents ({{count, number}})",
+      "loading": "Loading Documents...",
+      "filterPlaceholder": "Filter Documents...",
+      "import": "Import",
+      "future": "Future",
+      "savedAudio": "Saved Audio",
+      "empty": "No documents available yet.",
+      "emptySavedAudio": "No saved audio matches.",
+      "emptyFilter": "No documents match the filter.",
+      "audiobookImport": "Audiobook import, not indexed for search"
+    },
+    "import": {
+      "htmlDetail": "Import a local .html or .htm document",
+      "epubDetail": "Import a local .epub book",
+      "importingHtml": "Importing HTML",
+      "importingEpub": "Importing EPUB"
+    },
+    "status": {
+      "importingHtml": "Importing HTML document...",
+      "importingEpub": "Importing EPUB book...",
+      "imported": "Imported <title>{{title}}</title>.",
+      "cancelled": "Import cancelled.",
+      "deleting": "Deleting <title>{{title}}</title>...",
+      "deleted": "Deleted <title>{{title}}</title>.",
+      "deletedWithStorage": "Deleted <title>{{title}}</title> and freed {{storage}}."
+    },
+    "groups": {
+      "importedAudiobooks": "Imported Audiobooks",
+      "uncategorized": "Uncategorized",
+      "userUploads": "User Uploads"
+    },
+    "tree": {
+      "filterAriaLabel": "Uploaded document filters",
+      "organizationAriaLabel": "Uploaded library organization",
+      "editActionsAriaLabel": "Library edit actions",
+      "uploadedDocumentsAriaLabel": "Uploaded documents",
+      "folders": "Folders",
+      "organize": "Organize",
+      "finishEditing": "Finish Editing",
+      "newFolder": "New Folder",
+      "newSubfolder": "New Subfolder",
+      "rename": "Rename",
+      "deleteFolder": "Delete Folder",
+      "folderNotEmpty": "Folder Is Not Empty",
+      "moveContentsFirst": "Move contents out first.",
+      "moveDocuments": "Move Documents",
+      "selectDocumentsOnly": "Select Documents Only...",
+      "selectedCount_one": "{{count, number}} Selected...",
+      "selectedCount_other": "{{count, number}} Selected...",
+      "selectDocumentsFirst": "Select Documents First...",
+      "root": "Root",
+      "noMatches": "No uploaded documents match.",
+      "select": "Select {{title}}",
+      "selectAllIn": "Select all in {{title}}",
+      "filterBy": "Filter by {{title}}",
+      "selectOneFolder": "Select one folder to delete.",
+      "moveOrRemoveContents": "Move or remove contents before deleting.",
+      "deleteSelectedFolder": "Delete selected folder."
+    },
+    "folderDialog": {
+      "renameTitle": "Rename Folder",
+      "newFolderTitle": "New Folder",
+      "newSubfolderTitle": "New Subfolder",
+      "folderName": "Folder Name",
+      "subfolderName": "Subfolder Name",
+      "inside": "Inside <name>{{name}}</name>"
+    },
+    "confirmDeleteFolder": {
+      "title": "Delete empty folder?",
+      "description": "Documents inside folders are never deleted by this action.",
+      "folder": "Folder"
+    },
+    "confirmDeleteDocument": {
+      "title": "Delete uploaded document?",
+      "description": "This removes the document from this device, local search results, and any folder organization in Papercut.",
+      "documentTitle": "Title",
+      "confirm": "Delete Document"
+    }
   },
   "settings": {
     "button": "App settings",

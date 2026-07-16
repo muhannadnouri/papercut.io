@@ -10,6 +10,10 @@ from the language of an open document.
   language, then stores the user's explicit choice in local storage.
 - App Settings, the header subtitle, primary navigation, shared confirmation
   defaults, text-input actions, and the external-link prompt are translated.
+- Search and Library are translated, including import/delete status messages,
+  folder organization, accessible action labels, and localized plural forms.
+- Document and folder tie-break sorting uses the active UI locale. Search
+  relevance and explicit library `sortOrder` values remain authoritative.
 - Arabic sets the app shell to `dir="rtl"` and uses the bundled Readex Pro font.
 - Unmigrated feature screens still fall back to their existing English text.
 
@@ -31,12 +35,13 @@ locale for direction-aware component behavior.
 - Navigation arrows mirror in RTL; media playback controls do not.
 
 `npm run check:i18n` verifies that every locale contains the same non-empty
-keys as English and runs automatically during `npm run build`.
+message families as English, including the CLDR plural categories required by
+each locale, and runs automatically during `npm run build`.
 
 ## Remaining Stages
 
 - [x] Migrate shared dialogs and common actions.
-- [ ] Migrate Search and Library, including plural messages and locale-aware sorting.
+- [x] Migrate Search and Library, including plural messages and locale-aware sorting.
 - [ ] Preserve imported HTML/EPUB language and direction in the reader.
 - [ ] Complete the RTL CSS and bidirectional-content audit.
 - [ ] Migrate audiobook and TTS status text.

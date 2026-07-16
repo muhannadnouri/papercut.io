@@ -36,7 +36,7 @@
   border: 0;
   background: transparent;
   cursor: pointer;
-  text-align: left;
+  text-align: start;
 }
 
 .uploaded-library-title {
@@ -223,7 +223,8 @@
 
 .uploaded-library-move select {
   width: 100%;
-  padding: 0 1.7rem 0 0.55rem;
+  padding-block: 0;
+  padding-inline: 0.55rem 1.7rem;
   appearance: none;
   -webkit-appearance: none;
   background-color: var(--surface);
@@ -249,7 +250,9 @@
   display: flex;
   align-items: center;
   min-height: 2.3rem;
-  padding: 0.35rem 1.25rem 0.35rem calc(1rem + (var(--tree-item-level) - 1) * 1rem);
+  padding-block: 0.35rem;
+  padding-inline-end: 1.25rem;
+  padding-inline-start: calc(1rem + (var(--tree-item-level) - 1) * 1rem);
   border-top: 1px solid var(--surface-hover);
   transition: background 0.1s, box-shadow 0.1s;
 }
@@ -335,7 +338,7 @@
   color: inherit;
   cursor: pointer;
   font: inherit;
-  text-align: left;
+  text-align: start;
   text-decoration: none;
 }
 
@@ -398,8 +401,7 @@
   }
 
   .uploaded-library-info-popover {
-    right: 0;
-    left: auto;
+    inset-inline: auto 0;
     transform: none;
   }
 
@@ -412,12 +414,35 @@
   }
 
   .uploaded-library-content {
-    padding-right: 0.65rem;
-    padding-left: calc(0.65rem + (var(--tree-item-level) - 1) * 0.75rem);
+    padding-inline-end: 0.65rem;
+    padding-inline-start: calc(0.65rem + (var(--tree-item-level) - 1) * 0.75rem);
   }
 
   .uploaded-library-row .document-row-action {
     min-height: 2.5rem;
     padding: 0 0.45rem;
   }
+}
+
+html[dir="rtl"] .uploaded-library-move select {
+  background-position: left 0.6rem center;
+}
+
+html[dir="rtl"] .uploaded-library-chevron {
+  transform: rotate(180deg);
+}
+
+html[dir="rtl"] .uploaded-library-item[data-expanded] .uploaded-library-chevron {
+  transform: rotate(90deg);
+}
+
+html[dir="rtl"] .uploaded-library-item[data-hovered] .uploaded-library-content,
+html[dir="rtl"] .uploaded-library-item[data-focus-visible] .uploaded-library-content {
+  box-shadow: inset -3px 0 0 var(--border-strong);
+}
+
+html[dir="rtl"] .uploaded-library-item[data-selected] .uploaded-library-content,
+html[dir="rtl"] .uploaded-library-item-selected .uploaded-library-content,
+html[dir="rtl"] .uploaded-library-item-opening .uploaded-library-content {
+  box-shadow: inset -3px 0 0 var(--accent-text);
 }

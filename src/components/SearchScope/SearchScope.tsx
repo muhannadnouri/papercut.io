@@ -1,3 +1,5 @@
+import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { DocumentInfo } from '../../types/search'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
 import type { UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
@@ -40,24 +42,35 @@ export function SearchScope({
   onToggleAuthor,
   onToggleFilter,
 }: SearchScopeProps) {
+  const { t, i18n } = useTranslation()
   const count = selectedFilters.size
   const scopeLabel = count === 0
-    ? 'All documents'
-    : `${count} document${count === 1 ? '' : 's'}`
+    ? t('search.scope.allDocuments')
+    : t('search.scope.documentCount', { count })
   const { uploadDocs, nonUploadGroups } = splitDocumentGroupsByUpload(groupedDocs)
   const showUploadedTree = Boolean(libraryOrganization && uploadDocs.length > 0)
+  const selectedFilterUrls = useMemo(() => {
+    const collator = new Intl.Collator(i18n.resolvedLanguage ?? i18n.language, {
+      numeric: true,
+      sensitivity: 'base',
+    })
+    return Array.from(selectedFilters).sort((a, b) => collator.compare(
+      filterTitleByUrl.get(a) ?? a,
+      filterTitleByUrl.get(b) ?? b,
+    ))
+  }, [filterTitleByUrl, i18n.language, i18n.resolvedLanguage, selectedFilters])
 
   return (
     <div className="search-scope">
       <Panel
         className="document-browser-panel search-scope-panel"
-        ariaLabel="Search scope"
+        ariaLabel={t('search.scope.ariaLabel')}
         title={(
           <span className="search-scope-title">
             <svg className="search-scope-title-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M4 5h16l-6.5 7.5V19l-3 1.5v-8Z" />
             </svg>
-            Filter By Document
+            {t('search.scope.title')}
           </span>
         )}
         meta={scopeLabel}
@@ -67,13 +80,13 @@ export function SearchScope({
           <input
             type="text"
             className="document-filter-input"
-            placeholder="Filter Documents..."
+            placeholder={t('search.scope.filterPlaceholder')}
             value={documentFilter}
             onChange={(e) => onFilterChange(e.target.value)}
           />
           {count > 0 && (
             <button className="clear-filters" onClick={onClearFilters}>
-              Clear Filters
+              {t('search.scope.clear')}
             </button>
           )}
         </div>
@@ -104,15 +117,22 @@ export function SearchScope({
       </Panel>
 
       {count > 0 && (
-        <div className="active-filters" tabIndex={0} aria-label="Selected document filters">
-          {Array.from(selectedFilters).map((url) => (
-            <span key={url} className="filter-tag">
-              {filterTitleByUrl.get(url) ?? url}
-              <button className="filter-tag-remove" onClick={() => onToggleFilter(url)}>
-                &times;
-              </button>
-            </span>
-          ))}
+        <div className="active-filters" tabIndex={0} aria-label={t('search.scope.selectedFiltersLabel')}>
+          {selectedFilterUrls.map((url) => {
+            const title = filterTitleByUrl.get(url) ?? url
+            return (
+              <span key={url} className="filter-tag">
+                <bdi>{title}</bdi>
+                <button
+                  className="filter-tag-remove"
+                  aria-label={t('search.scope.removeFilter', { title })}
+                  onClick={() => onToggleFilter(url)}
+                >
+                  &times;
+                </button>
+              </span>
+            )
+          })}
         </div>
       )}
     </div>

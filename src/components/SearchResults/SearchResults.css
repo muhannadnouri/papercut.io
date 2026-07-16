@@ -44,7 +44,7 @@
   transition: all 0.15s;
   background: var(--surface);
   color: inherit;
-  text-align: left;
+  text-align: start;
 }
 
 .result-card:hover:not(:disabled) {
