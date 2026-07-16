@@ -606,11 +606,17 @@
 .audiobooks-setup-disclosure-summary {
   min-width: 0;
   color: var(--text-muted);
+  direction: ltr;
   font-size: 0.74rem;
   line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
+  unicode-bidi: isolate;
   white-space: nowrap;
+}
+
+html[dir="rtl"] .audiobooks-setup-disclosure-summary {
+  text-align: right;
 }
 
 .audiobooks-setup-disclosure-chevron {

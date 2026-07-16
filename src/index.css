@@ -257,6 +257,12 @@ textarea {
   color: var(--text-heading);
 }
 
+/* Empty auto-direction inputs cannot infer direction from placeholder text. */
+html[dir="rtl"] input[dir="auto"]:placeholder-shown {
+  direction: rtl;
+  text-align: right;
+}
+
 body {
   margin: 0;
   background: var(--app-bg);

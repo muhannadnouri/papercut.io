@@ -94,7 +94,7 @@ export function AudiobooksPanel({
   onRemoveQueued,
   onResumeQueued,
 }: AudiobooksPanelProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [setupOpen, setSetupOpen] = useState(false)
   const [exportMenuOpen, setExportMenuOpen] = useState<string | null>(null)
   const activePercent = getDownloadPercent(downloadState.cachedChunks, downloadState.totalChunks)
@@ -106,7 +106,7 @@ export function AudiobooksPanel({
   const panelBusy = exportInProgress || importInProgress || deleteInProgress
   const meta = formatAudiobookMeta(isSaving, queueCount, savedCount, t)
   const hasAudiobooks = isSaving || queueCount > 0 || savedCount > 0
-  const setupSummary = formatAudioSetupSummary(audioSetup, t)
+  const setupSummary = formatAudioSetupSummary(audioSetup, i18n.getFixedT('en'))
   const exportOptions = [
     { format: 'bundle' as const, label: t('tts.audiobooks.exportBundle'), code: '.papercut-audiobook' },
     { format: 'wav' as const, label: t('tts.audiobooks.exportWav'), code: '.wav' },
@@ -146,7 +146,7 @@ export function AudiobooksPanel({
               </span>
               <span className="audiobooks-setup-disclosure-main">
                 <span className="audiobooks-setup-disclosure-title">{t('tts.audiobooks.audioSetup')}</span>
-                <span className="audiobooks-setup-disclosure-summary" dir="auto">{setupSummary}</span>
+                <span className="audiobooks-setup-disclosure-summary" dir="ltr">{setupSummary}</span>
               </span>
               <span className="audiobooks-setup-disclosure-chevron" aria-hidden="true">{setupOpen ? '▲' : '▼'}</span>
             </button>

@@ -35,17 +35,20 @@
 .panel-title {
   flex: 1;
   min-width: 0;
+  line-height: 1.5;
 }
 
 .panel-meta {
   min-width: 0;
   max-width: 55%;
   overflow: hidden;
+  padding-block: 0.2em;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-muted);
   font-size: 0.8rem;
   font-weight: 500;
+  line-height: 1.5;
   text-align: end;
 }
 
