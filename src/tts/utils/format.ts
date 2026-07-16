@@ -51,7 +51,7 @@ export function formatAudiobookVoiceMeta(
 export function formatSavedAudiobookMeta(
   modelId: string,
   voice: string,
-  speed: number,
+  _speed: number,
   textPreprocessor: string | undefined,
   seconds: number | undefined,
   bytes: number | undefined,
@@ -61,10 +61,8 @@ export function formatSavedAudiobookMeta(
   const parts = [
     '🤖 ' + model.name,
     '🔊 ' + voiceName,
-    '⚡ ' + formatSpeedLabel(speed),
     'AI-generated',
   ]
-  if (model.family === 'silma-f5') parts.push('reference voice')
   if (textPreprocessor && textPreprocessor !== TEXT_PREPROCESSOR_NONE) {
     const processingName = model.textPreprocessors.find((item) => item.id === textPreprocessor)?.name
     parts.push('✨ ' + (processingName ?? textPreprocessor))
