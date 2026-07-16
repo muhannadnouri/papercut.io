@@ -13,7 +13,7 @@ import { LibraryTab } from './components/LibraryTab/LibraryTab'
 import { AudiobooksTab } from './components/AudiobooksTab/AudiobooksTab'
 import { DocumentViewer } from './components/DocumentViewer/DocumentViewer'
 import { TabNav, type AppTab } from './components/TabNav/TabNav'
-import { ThemeToggle } from './components/ThemeToggle/ThemeToggle'
+import { AppSettings } from './components/AppSettings/AppSettings'
 import { useAppConfirmation } from './components/AppDialog/useAppConfirmation'
 import { useDocumentFilters } from './hooks/useDocumentFilters'
 import { useDocumentViewerState } from './hooks/useDocumentViewerState'
@@ -248,7 +248,7 @@ function App() {
             format={selectedFormat}
             content={docContent}
             className={hasFloatingAudioControls ? 'app-audio-floating' : ''}
-            appControls={<ThemeToggle choice={theme.choice} onChange={theme.setChoice} />}
+            appControls={<AppSettings themeChoice={theme.choice} onThemeChange={theme.setChoice} />}
             headerControls={<AudioControls {...audioControlsProps} onManageSave={handleManageAudiobookSave} />}
             beforeDocument={<TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />}
             ttsHighlight={ttsHighlight}
@@ -272,7 +272,7 @@ function App() {
         className={audiobookActionBusy ? 'app-header-shell app-header-shell-busy' : 'app-header-shell'}
         inert={audiobookActionBusy ? true : undefined}
       >
-        <AppHeader actions={<ThemeToggle choice={theme.choice} onChange={theme.setChoice} />} />
+        <AppHeader actions={<AppSettings themeChoice={theme.choice} onThemeChange={theme.setChoice} />} />
       </div>
 
       <div inert={audiobookActionBusy ? true : undefined}>

@@ -19,14 +19,12 @@
   transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 
-.reader-settings-icon {
-  width: 1.28rem;
-  height: 1.28rem;
-  fill: none;
-  stroke: currentcolor;
-  stroke-width: 1.9;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.reader-settings-type-icon {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
 }
 
 .reader-settings-btn:hover:not(:disabled),
