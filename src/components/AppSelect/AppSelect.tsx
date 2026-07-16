@@ -7,6 +7,7 @@ import {
   type KeyboardEvent,
   type ReactNode
 } from 'react'
+import { Popover } from 'react-aria-components'
 import './AppSelect.css'
 
 export interface AppSelectOption {
@@ -37,26 +38,12 @@ export function AppSelect({
   className = '',
 }: AppSelectProps) {
   const listboxId = useId()
-  const rootRef = useRef<HTMLDivElement | null>(null)
   const buttonRef = useRef<HTMLButtonElement | null>(null)
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([])
   const [open, setOpen] = useState(false)
   const selectedIndex = Math.max(0, options.findIndex((option) => option.value === value))
   const [activeIndex, setActiveIndex] = useState(selectedIndex)
   const selectedOption = options[selectedIndex]
-
-  useEffect(() => {
-    if (!open) return
-
-    function handlePointerDown(event: PointerEvent) {
-      const root = rootRef.current
-      if (!root || root.contains(event.target as Node)) return
-      setOpen(false)
-    }
-
-    document.addEventListener('pointerdown', handlePointerDown)
-    return () => document.removeEventListener('pointerdown', handlePointerDown)
-  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -124,7 +111,6 @@ export function AppSelect({
   return (
     <div
       className={['app-select', open ? 'app-select-open' : '', className].filter(Boolean).join(' ')}
-      ref={rootRef}
       onKeyDown={handleKeyDown}
     >
       <button
@@ -144,8 +130,28 @@ export function AppSelect({
         <span className="app-select-chevron" aria-hidden="true">▾</span>
       </button>
 
-      {open && (
-        <div className="app-select-menu" id={listboxId} role="listbox" aria-label={ariaLabel} aria-labelledby={ariaLabelledBy}>
+      <Popover
+        className="app-select-popover"
+        isOpen={open}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) close()
+        }}
+        triggerRef={buttonRef}
+        placement="bottom start"
+        offset={6}
+        containerPadding={8}
+        shouldFlip
+        isNonModal
+        aria-label={ariaLabel}
+        aria-labelledby={ariaLabelledBy}
+      >
+        <div
+          className="app-select-menu"
+          id={listboxId}
+          role="listbox"
+          aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledBy}
+        >
           {options.map((option, index) => (
             <button
               key={option.value}
@@ -172,7 +178,7 @@ export function AppSelect({
             </button>
           ))}
         </div>
-      )}
+      </Popover>
     </div>
   )
 }

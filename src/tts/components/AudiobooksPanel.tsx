@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import type { SavedAudiobookRecord } from '../storage/AudiobookLibrary'
 import type { AudiobookDownloadRecord } from '../storage/AudiobookDownloadQueue'
-import { SILMA_MODEL_ID, type TtsDtype, type TtsVoice } from '../types'
+import type { TtsDtype, TtsVoice } from '../types'
 import type { NativeAudiobookExportFormat } from '../api/nativeTts'
 import type { AudiobookCacheState } from '../hooks/useAudiobookCache'
 import {
@@ -12,6 +12,7 @@ import {
   formatSavedAudiobookMeta,
 } from '../utils/format'
 import { Panel } from '../../components/Panel/Panel'
+import { AudiobookExportMenu } from './AudiobookExportMenu'
 import { AudioSetupPanel, type AudioSetupPanelProps } from './AudioSetupPanel'
 import './AudiobooksPanel.css'
 
@@ -111,22 +112,9 @@ export function AudiobooksPanel({
     { format: 'wav' as const, label: t('tts.audiobooks.exportWav'), code: '.wav' },
   ]
 
-  useEffect(() => {
-    if (!exportMenuOpen) return
-
-    function handlePointerDown(event: PointerEvent) {
-      const target = event.target
-      if (target instanceof Element && target.closest('.audiobook-export-menu')) return
-      setExportMenuOpen(null)
-    }
-
-    document.addEventListener('pointerdown', handlePointerDown)
-    return () => document.removeEventListener('pointerdown', handlePointerDown)
-  }, [exportMenuOpen])
-
   return (
     <Panel
-      className={'audiobooks-panel' + (exportMenuOpen ? ' audiobooks-panel-menu-open' : '')}
+      className="audiobooks-panel"
       ariaLabel={t('tts.audiobooks.title')}
       title={t('tts.audiobooks.title')}
       meta={meta}
@@ -257,43 +245,19 @@ export function AudiobooksPanel({
                       )}
                     </span>
                   </button>
-                  <div className="audiobook-export-menu">
-                    <button
-                      className="audiobook-text-action audiobook-export"
-                      disabled={exportDisabled}
-                      aria-expanded={exportMenuOpen === record.id && !exportDisabled}
-                      aria-haspopup="menu"
-                      onClick={() => setExportMenuOpen((current) => current === record.id ? null : record.id)}
-                    >
-                      {exporting ? t('tts.audiobooks.exporting') : t('tts.audiobooks.export')}
-                      <span className="audiobook-export-arrow" aria-hidden="true">&#9662;</span>
-                    </button>
-                    {exportMenuOpen === record.id && !exportDisabled && (
-                      <div className="audiobook-export-options" role="menu">
-                        {exportOptions.map((option) => (
-                          <button
-                            key={option.format}
-                            type="button"
-                            className="audiobook-export-option"
-                            role="menuitem"
-                            onClick={() => {
-                              setExportMenuOpen(null)
-                              onExportSaved(record, option.format)
-                            }}
-                          >
-                            <span>{option.label}</span>
-                            <small>
-                              {t('tts.audiobooks.exportAs')} · <code>{option.code}</code>
-                            </small>
-                          </button>
-                        ))}
-                        <div className="audiobook-export-note">
-                          <span>{t('tts.audiobooks.aiSharedNote')}</span>
-                          {record.modelId === SILMA_MODEL_ID ? <span>{t('tts.audiobooks.referenceVoiceNote')}</span> : null}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <AudiobookExportMenu
+                    t={t}
+                    record={record}
+                    options={exportOptions}
+                    open={exportMenuOpen === record.id && !exportDisabled}
+                    disabled={exportDisabled}
+                    exporting={exporting}
+                    onOpenChange={(open) => setExportMenuOpen(open ? record.id : null)}
+                    onExport={(format) => {
+                      setExportMenuOpen(null)
+                      onExportSaved(record, format)
+                    }}
+                  />
                   <button
                     className="audiobook-text-action audiobook-delete"
                     disabled={deleteDisabled}

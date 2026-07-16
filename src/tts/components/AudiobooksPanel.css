@@ -514,16 +514,6 @@
   color: var(--danger-strong);
 }
 
-.audiobooks-panel-menu-open,
-.audiobooks-panel-menu-open .panel-body,
-.audiobooks-panel-menu-open .audiobooks-list {
-  overflow: visible;
-}
-
-.audiobooks-panel-menu-open .audiobook-item-saved:focus-within {
-  overflow: visible;
-}
-
 .audiobooks-panel-content {
   position: relative;
   min-width: 0;
@@ -790,100 +780,8 @@
   color: var(--danger);
 }
 
-.audiobook-export,
 .audiobook-delete {
   min-height: 2.15rem;
-}
-
-.audiobook-export-menu {
-  position: relative;
-  justify-self: end;
-  min-width: 0;
-}
-
-.audiobook-export {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.audiobook-export-arrow {
-  color: currentcolor;
-  font-size: 0.65rem;
-  line-height: 1;
-}
-
-.audiobook-export-options {
-  position: absolute;
-  top: calc(100% + 0.35rem);
-  inset-inline-end: 0;
-  z-index: 70;
-  display: grid;
-  min-width: min(16rem, calc(100vw - 2rem));
-  overflow: hidden;
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  background: var(--surface);
-  box-shadow: 0 12px 28px var(--shadow-popover);
-}
-
-.audiobook-export-option {
-  display: grid;
-  gap: 0.15rem;
-  width: 100%;
-  padding: 0.65rem 0.8rem;
-  border: none;
-  border-bottom: 1px solid var(--surface-hover);
-  background: var(--surface);
-  color: var(--text-heading);
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-align: start;
-}
-
-.audiobook-export-option:last-of-type {
-  border-bottom: none;
-}
-
-.audiobook-export-option small {
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  font-weight: 500;
-  line-height: 1.25;
-}
-
-.audiobook-export-option code {
-  display: inline-block;
-  padding: 0.05rem 0.25rem;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--surface-muted);
-  color: var(--accent-strong);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 0.68rem;
-  overflow-wrap: normal;
-  white-space: nowrap;
-  word-break: keep-all;
-}
-
-.audiobook-export-option:hover,
-.audiobook-export-option:focus-visible {
-  background: var(--surface-accent);
-  color: var(--accent-strong);
-  outline: none;
-}
-
-.audiobook-export-note {
-  display: grid;
-  gap: 0.12rem;
-  padding: 0.55rem 0.8rem;
-  border-top: 1px solid var(--border);
-  background: var(--surface-muted);
-  color: var(--text-muted);
-  font-size: 0.7rem;
-  font-weight: 500;
-  line-height: 1.25;
 }
 
 .audiobook-action-toast {
@@ -1105,12 +1003,10 @@ html[dir="rtl"] .audiobook-action-toast {
     grid-column: 1 / -1;
   }
 
-  .audiobook-export-menu,
   .audiobook-delete {
     justify-self: end;
   }
 
-  .audiobook-export,
   .audiobook-delete {
     min-height: 2.25rem;
   }
