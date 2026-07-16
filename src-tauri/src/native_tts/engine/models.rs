@@ -203,137 +203,137 @@ impl ModelDefinition {
 const KOKORO_VOICES: &[VoiceDefinition] = &[
     VoiceDefinition {
         id: "af_alloy",
-        name: "Alloy",
+        name: "🇺🇸 Alloy (C)",
         speaker_id: 0,
     },
     VoiceDefinition {
         id: "af_aoede",
-        name: "Aoede",
+        name: "🇺🇸 Aoede (C+)",
         speaker_id: 1,
     },
     VoiceDefinition {
         id: "af_bella",
-        name: "Bella",
+        name: "🇺🇸 Bella (A-)",
         speaker_id: 2,
     },
     VoiceDefinition {
         id: "af_heart",
-        name: "Heart",
+        name: "🇺🇸 Heart (A)",
         speaker_id: 3,
     },
     VoiceDefinition {
         id: "af_jessica",
-        name: "Jessica",
+        name: "🇺🇸 Jessica (D)",
         speaker_id: 4,
     },
     VoiceDefinition {
         id: "af_kore",
-        name: "Kore",
+        name: "🇺🇸 Kore (C+)",
         speaker_id: 5,
     },
     VoiceDefinition {
         id: "af_nicole",
-        name: "Nicole",
+        name: "🇺🇸 Nicole (B-)",
         speaker_id: 6,
     },
     VoiceDefinition {
         id: "af_nova",
-        name: "Nova",
+        name: "🇺🇸 Nova (C)",
         speaker_id: 7,
     },
     VoiceDefinition {
         id: "af_river",
-        name: "River",
+        name: "🇺🇸 River (D)",
         speaker_id: 8,
     },
     VoiceDefinition {
         id: "af_sarah",
-        name: "Sarah",
+        name: "🇺🇸 Sarah (C+)",
         speaker_id: 9,
     },
     VoiceDefinition {
         id: "af_sky",
-        name: "Sky",
+        name: "🇺🇸 Sky (C-)",
         speaker_id: 10,
     },
     VoiceDefinition {
         id: "am_echo",
-        name: "Echo",
+        name: "🇺🇸 Echo (D)",
         speaker_id: 12,
     },
     VoiceDefinition {
         id: "am_eric",
-        name: "Eric",
+        name: "🇺🇸 Eric (D)",
         speaker_id: 13,
     },
     VoiceDefinition {
         id: "am_fenrir",
-        name: "Fenrir",
+        name: "🇺🇸 Fenrir (C+)",
         speaker_id: 14,
     },
     VoiceDefinition {
         id: "am_liam",
-        name: "Liam",
+        name: "🇺🇸 Liam (D)",
         speaker_id: 15,
     },
     VoiceDefinition {
         id: "am_michael",
-        name: "Michael",
+        name: "🇺🇸 Michael (C+)",
         speaker_id: 16,
     },
     VoiceDefinition {
         id: "am_onyx",
-        name: "Onyx",
+        name: "🇺🇸 Onyx (D)",
         speaker_id: 17,
     },
     VoiceDefinition {
         id: "am_puck",
-        name: "Puck",
+        name: "🇺🇸 Puck (C+)",
         speaker_id: 18,
     },
     VoiceDefinition {
         id: "am_santa",
-        name: "Santa",
+        name: "🇺🇸 Santa (D-)",
         speaker_id: 19,
     },
     VoiceDefinition {
         id: "bf_alice",
-        name: "Alice",
+        name: "🇬🇧 Alice (D)",
         speaker_id: 20,
     },
     VoiceDefinition {
         id: "bf_emma",
-        name: "Emma",
+        name: "🇬🇧 Emma (B-)",
         speaker_id: 21,
     },
     VoiceDefinition {
         id: "bf_isabella",
-        name: "Isabella",
+        name: "🇬🇧 Isabella (C)",
         speaker_id: 22,
     },
     VoiceDefinition {
         id: "bf_lily",
-        name: "Lily",
+        name: "🇬🇧 Lily (D)",
         speaker_id: 23,
     },
     VoiceDefinition {
         id: "bm_daniel",
-        name: "Daniel",
+        name: "🇬🇧 Daniel (D)",
         speaker_id: 24,
     },
     VoiceDefinition {
         id: "bm_fable",
-        name: "Fable",
+        name: "🇬🇧 Fable (C)",
         speaker_id: 25,
     },
     VoiceDefinition {
         id: "bm_george",
-        name: "George",
+        name: "🇬🇧 George (C)",
         speaker_id: 26,
     },
     VoiceDefinition {
         id: "bm_lewis",
-        name: "Lewis",
+        name: "🇬🇧 Lewis (D+)",
         speaker_id: 27,
     },
 ];
@@ -558,6 +558,31 @@ mod tests {
         assert_eq!(
             model_definition(DEFAULT_MODEL_ID).unwrap().family,
             TtsModelFamily::Kokoro
+        );
+    }
+
+    #[test]
+    fn kokoro_voice_identity_is_stable_while_labels_include_locale_and_grade() {
+        let kokoro = model_definition(DEFAULT_MODEL_ID).unwrap();
+        assert_eq!(kokoro.speaker_id("af_heart").unwrap(), 3);
+        assert_eq!(kokoro.speaker_id("bf_emma").unwrap(), 21);
+        assert_eq!(
+            kokoro
+                .voices
+                .iter()
+                .find(|voice| voice.id == "af_heart")
+                .unwrap()
+                .name,
+            "🇺🇸 Heart (A)"
+        );
+        assert_eq!(
+            kokoro
+                .voices
+                .iter()
+                .find(|voice| voice.id == "bf_emma")
+                .unwrap()
+                .name,
+            "🇬🇧 Emma (B-)"
         );
     }
 

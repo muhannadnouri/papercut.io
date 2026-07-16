@@ -38,6 +38,14 @@ These archives come from `https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts
 
 SupertonicTTS 3 is exposed as two experimental catalog entries, English and Arabic, backed by one shared multilingual int8 archive. sherpa selects language through `GenerationConfig.extra["lang"]`, so Papercut keeps separate model IDs for cache identity while installing the same model directory. Treat Supertonic speed and quality as measured device behavior, not a guaranteed win over Piper or Kokoro; use TTS diagnostics to compare `realTimeFactor`, `synthesisMs`, and `preprocessMs` before changing defaults.
 
+Kokoro keeps one English model entry and its existing stable voice IDs, but selects
+`en-us` for American `a*` voices and `en-gb` for British `b*` voices per synthesis
+request. Voice labels show the upstream locale and overall training-data grade;
+the [upstream voice catalog](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md)
+describes those grades as estimates rather than guarantees of subjective voice
+quality. These display and phonemization changes do not alter audiobook identity
+or invalidate existing saved WAV files.
+
 Piper Kareem is about 64 MB compressed and suitable for offline Arabic, but a medium Piper voice is not expected to match Kokoro's naturalness. Treat quality as an empirical product decision. The Piper voice repository declares MIT for model files; the dataset card does not clearly state training-data licensing, so legal/provenance review is required before bundling or broadly redistributing it. Papercut currently downloads it on demand rather than embedding it.
 
 Existing saved audiobook files are unchanged. The cache version stays `native-save-v4-segmented`; Kokoro retains the same model ID, voice IDs, and audiobook identity. Legacy preferences, download records, saved records, imported uploads, native manifests, and bundles default missing model metadata to Kokoro and missing preprocessing metadata to `none`. Existing completed WAV audiobooks remain playable. Diacritized Piper saves use a distinct ID and never overwrite or reuse undiacritized audio. Documents unaffected by the wrapper-text omission keep the same narration text. An affected document must be regenerated to include the newly retained prose; the corrected source signature and chunk sequence intentionally differ from the incomplete generation.

@@ -271,14 +271,15 @@ fn generate_audio(
     } else {
         1.0
     };
-    let extra = engine.model.supertonic_lang.map(|lang| {
+    let sid = engine.model.speaker_id(voice)?;
+    let extra = generation_language(engine.model, voice).map(|lang| {
         let mut extra = HashMap::new();
         extra.insert("lang".to_string(), serde_json::json!(lang));
         extra
     });
     let generation = GenerationConfig {
         speed,
-        sid: engine.model.speaker_id(voice)?,
+        sid,
         extra,
         ..Default::default()
     };
@@ -300,6 +301,19 @@ fn generate_audio(
         .generate_with_config(&sanitized, &generation, None::<fn(&[f32], f32) -> bool>)
         .map(Some)
         .ok_or_else(|| "sherpa-onnx failed to synthesize audio".to_string())
+}
+
+/// Select the phonemizer locale per voice without changing model or voice identity.
+///
+/// Kokoro's `a*` and `b*` voice IDs are its stable American/British convention;
+/// Supertonic instead selects one language for the whole catalog entry.
+fn generation_language(model: &ModelDefinition, voice: &str) -> Option<&'static str> {
+    match model.require_sherpa_family().ok()? {
+        SherpaModelFamily::Kokoro if voice.starts_with('a') => Some("en-us"),
+        SherpaModelFamily::Kokoro if voice.starts_with('b') => Some("en-gb"),
+        SherpaModelFamily::Supertonic => model.supertonic_lang,
+        _ => None,
+    }
 }
 
 /// Construct one sherpa-onnx engine from catalog metadata.
@@ -395,5 +409,12 @@ mod tests {
                 .unwrap()
                 .english_text_normalization()
         );
+    }
+
+    #[test]
+    fn kokoro_voice_prefix_selects_american_or_british_phonemization() {
+        let model = model_definition(DEFAULT_MODEL_ID).unwrap();
+        assert_eq!(generation_language(model, "af_heart"), Some("en-us"));
+        assert_eq!(generation_language(model, "bf_emma"), Some("en-gb"));
     }
 }
