@@ -14,6 +14,17 @@ interface SelectOption {
   value: string | number
 }
 
+const LANGUAGE_LABELS: Record<string, { label: string; sortKey: string }> = {
+  ar: { label: 'العربية (Arabic)', sortKey: 'Arabic' },
+  en: { label: 'English', sortKey: 'English' },
+  es: { label: 'Español (Spanish)', sortKey: 'Spanish' },
+  fr: { label: 'Français (French)', sortKey: 'French' },
+  hi: { label: 'हिन्दी (Hindi)', sortKey: 'Hindi' },
+  it: { label: 'Italiano (Italian)', sortKey: 'Italian' },
+  pt: { label: 'Português (Brasil) - Portuguese (Brazil)', sortKey: 'Portuguese' },
+  zh: { label: '中文（普通话） - Chinese (Mandarin)', sortKey: 'Chinese' },
+}
+
 // Snap to the slider step and clamp to range. The saved-audiobook cache id buckets
 // speed to 2 decimals on both the JS and Rust side, so values must round-trip cleanly
 // at that precision; this also avoids float drift breaking equality checks on reload.
@@ -28,9 +39,12 @@ function snapSpeed(value: number): number {
 // present one human language. Keep the full model id intact and group only the
 // language dropdown by base language; the model dropdown carries dialect/engine detail.
 function getLanguageOption(model: TtsModelInfo): { label: string; value: string } {
+  const value = model.language.split('-')[0].toLowerCase() || model.language
+  const languageLabel = LANGUAGE_LABELS[value]?.label
+    ?? model.languageLabel
   return {
-    label: model.languageLabel.replace(/\s*\([^)]*\)$/, ''),
-    value: model.language.split('-')[0].toLowerCase() || model.language,
+    label: languageLabel,
+    value,
   }
 }
 
@@ -126,7 +140,11 @@ export function AudioSetupPanel({
       options.push(languageOption)
     }
     return options
-  }, [])
+  }, []).sort((a, b) => {
+    const aSortKey = LANGUAGE_LABELS[String(a.value)]?.sortKey ?? a.label
+    const bSortKey = LANGUAGE_LABELS[String(b.value)]?.sortKey ?? b.label
+    return aSortKey.localeCompare(bSortKey)
+  })
   const modelsForLanguage = selectedLanguage
     ? models.filter((model) => getLanguageOption(model).value === selectedLanguage)
     : models

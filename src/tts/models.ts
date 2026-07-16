@@ -49,7 +49,7 @@ export const FALLBACK_TTS_MODELS: TtsModelInfo[] = [
     name: 'Kokoro v1.0 Mandarin (Experimental)',
     family: 'kokoro',
     language: 'zh-CN',
-    languageLabel: 'Mandarin Chinese',
+    languageLabel: 'Chinese (Mandarin)',
     defaultVoice: 'zf_xiaobei',
     defaultTextPreprocessor: TEXT_PREPROCESSOR_NONE,
     textPreprocessors: [{
@@ -138,7 +138,7 @@ export const FALLBACK_TTS_MODELS: TtsModelInfo[] = [
     name: 'Kokoro v1.0 Brazilian Portuguese (Experimental)',
     family: 'kokoro',
     language: 'pt-BR',
-    languageLabel: 'Brazilian Portuguese',
+    languageLabel: 'Portuguese (Brazil)',
     defaultVoice: 'pf_dora',
     defaultTextPreprocessor: TEXT_PREPROCESSOR_NONE,
     textPreprocessors: [{
