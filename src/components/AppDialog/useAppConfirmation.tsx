@@ -72,7 +72,7 @@ export function useAppConfirmation() {
             {request.details.map((detail) => (
               <div key={detail.label} className="app-dialog-detail-row">
                 <dt>{detail.label}</dt>
-                <dd>{detail.value}</dd>
+                <dd dir="auto">{detail.value}</dd>
               </div>
             ))}
           </dl>

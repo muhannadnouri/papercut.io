@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
+import i18n from '../../i18n'
 import {
   cancelNativeAudiobookSave,
   getNativeAudiobookStatus,
@@ -61,7 +62,7 @@ export function useAudiobookCache() {
     setState((prev) => ({
       ...prev,
       status: 'checking',
-      message: 'Checking saved audio',
+      message: i18n.t('tts.status.checkingSaved'),
       totalChunks,
       cachedChunks: 0,
       complete: false,
@@ -77,7 +78,7 @@ export function useAudiobookCache() {
         if (checkIdRef.current !== checkId) return
         setState({
           status: status.complete ? 'saved' : 'partial',
-          message: status.complete ? 'Audiobook saved' : 'Audiobook not saved',
+          message: status.complete ? i18n.t('tts.status.saved') : i18n.t('tts.status.notSaved'),
           cachedChunks: status.cachedChunks,
           totalChunks: status.totalChunks,
           complete: status.complete,
@@ -114,7 +115,7 @@ export function useAudiobookCache() {
 
     setState({
       status: 'checking',
-      message: 'Checking native TTS and saved audio',
+      message: i18n.t('tts.status.checkingNativeAndSaved'),
       cachedChunks: 0,
       totalChunks: speakableChunks.length,
       complete: false,
@@ -140,7 +141,7 @@ export function useAudiobookCache() {
         const result = await saveNativeAudiobook({
           jobId: nativeJobId,
           documentUrl: options.documentUrl,
-          title: options.title ?? 'Audiobook',
+          title: options.title ?? i18n.t('tts.audiobooks.defaultTitle'),
           chunks: speakableChunks,
           options,
         })
@@ -165,7 +166,7 @@ export function useAudiobookCache() {
 
         setState({
           status: 'saved',
-          message: 'Audiobook saved',
+          message: i18n.t('tts.status.saved'),
           cachedChunks: result.cachedChunks,
           totalChunks: result.totalChunks,
           complete: result.complete,
@@ -207,7 +208,7 @@ export function useAudiobookCache() {
       ...prev,
       status: prev.cachedChunks === prev.totalChunks && prev.totalChunks > 0 ? 'saved' : 'partial',
       complete: prev.cachedChunks === prev.totalChunks && prev.totalChunks > 0,
-      message: 'Audiobook save cancelled',
+      message: i18n.t('tts.status.saveCancelled'),
     }))
   }, [])
 
@@ -297,7 +298,7 @@ export function useAudiobookCache() {
 
     setState({
       status,
-      message: progress.message,
+      message: formatNativeProgressMessage(progress),
       cachedChunks: progress.cachedChunks,
       totalChunks: progress.totalChunks,
       complete: progress.status === 'saved' || (
@@ -308,6 +309,18 @@ export function useAudiobookCache() {
       appliedThreadCount: progress.appliedThreadCount,
     })
   }
+}
+
+function formatNativeProgressMessage(progress: NativeAudiobookSaveProgress): string {
+  if (progress.status === 'checking') return i18n.t('tts.status.checkingCache')
+  if (progress.status === 'saved') return i18n.t('tts.status.saved')
+  if (progress.chunkNumber) {
+    return i18n.t(progress.generateMs ? 'tts.status.savedChunk' : 'tts.status.savingChunk', {
+      current: progress.chunkNumber,
+      total: progress.totalChunks,
+    })
+  }
+  return progress.message
 }
 
 function realTimeFactor(generateMs: number, audioDurationSec: number): number {

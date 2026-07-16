@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import i18n from '../../i18n'
 import {
   getNativeSavedAudiobookChunk,
   getNativeTtsCapabilities,
@@ -197,7 +198,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
       setState((prev) => ({
         ...prev,
         status: 'error',
-        message: nativeState.error || 'Native audio playback failed',
+        message: nativeState.error || i18n.t('tts.status.nativePlaybackFailed'),
       }))
       return
     }
@@ -225,7 +226,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
       status: nativeState.isPlaying
         ? 'playing'
         : (nativeState.status === 'idle' ? 'paused' : 'loading'),
-      message: nativeState.buffering ? 'Buffering audiobook' : '',
+      message: nativeState.buffering ? i18n.t('tts.status.buffering') : '',
       chunksGenerated: totalChunksRef.current,
       chunksPlayed: timing.index,
       currentText: chunk.text,
@@ -334,7 +335,10 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
       setState((prev) => ({
         ...prev,
         status: 'loading',
-        message: 'Loading chunk ' + (index + 1) + '/' + totalChunksRef.current,
+        message: i18n.t('tts.status.loadingChunk', {
+          current: index + 1,
+          total: totalChunksRef.current,
+        }),
       }))
       return false
     }
@@ -378,7 +382,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
         setState((prev) => ({
           ...prev,
           status: 'loading',
-          message: 'Switching audiobook chunk',
+          message: i18n.t('tts.status.switchingChunk'),
         }))
         return
       }
@@ -432,7 +436,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     let promise = loadingByIndexRef.current.get(index)
     if (!promise) {
       const chunk = chunks[index]
-      if (!options.documentUrl) throw new Error('Saved audiobook playback requires a document URL')
+      if (!options.documentUrl) throw new Error(i18n.t('tts.status.playbackNeedsDocument'))
 
       promise = getNativeSavedAudiobookChunk(options.documentUrl, chunk, index, options).then((nativeSaved) => {
         if (!nativeSaved) return null
@@ -455,7 +459,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     const loaded = await promise
     if (jobIdRef.current !== jobId || !shouldAccept()) return false
     if (!loaded) {
-      throw new Error('Saved audiobook chunk missing. Save this audiobook before playback.')
+      throw new Error(i18n.t('tts.status.missingSavedChunk'))
     }
     if (audioByIndexRef.current.has(index)) return true
 
@@ -531,7 +535,10 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
         setState((prev) => ({
           ...prev,
           status: 'loading',
-          message: 'Seeking to chunk ' + (targetIndex + 1) + '/' + totalChunksRef.current,
+          message: i18n.t('tts.status.seekingChunk', {
+            current: targetIndex + 1,
+            total: totalChunksRef.current,
+          }),
           pendingChunkIndex: targetIndex,
         }))
         const nativeState = await seekNativeAudio(timing.startSec)
@@ -601,7 +608,10 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
         setState((prev) => ({
           ...prev,
           status: 'loading',
-          message: 'Loading chunk ' + (targetIndex + 1) + '/' + totalChunksRef.current,
+          message: i18n.t('tts.status.loadingChunk', {
+            current: targetIndex + 1,
+            total: totalChunksRef.current,
+          }),
           pendingChunkIndex: targetIndex,
           currentChunkProgress: 0,
           currentChunkTime: 0,
@@ -746,7 +756,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
       ? {
         ...prev,
         status: 'loading',
-        message: 'Checking native TTS',
+        message: i18n.t('tts.status.checkingNative'),
         progress: undefined,
       }
       : prev))
@@ -770,13 +780,13 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     jobId: number,
   ) => {
     if (!options.documentUrl) {
-      throw new Error('Saved audiobook playback requires a document URL')
+      throw new Error(i18n.t('tts.status.playbackNeedsDocument'))
     }
     mobileModeRef.current = true
     setState((prev) => ({
       ...prev,
       status: 'loading',
-      message: 'Preparing background playback',
+      message: i18n.t('tts.status.preparingPlayback'),
     }))
     const prepareStarted = performance.now()
     const playback = await prepareNativeAudiobookPlayback(options.documentUrl, chunks, options)
@@ -850,7 +860,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     setState((prev) => ({
       ...prev,
       status: 'loading',
-      message: 'Checking saved audio',
+      message: i18n.t('tts.status.checkingSaved'),
       progress: undefined,
       chunksGenerated: 0,
       chunksPlayed: 0,

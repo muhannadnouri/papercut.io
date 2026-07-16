@@ -12,6 +12,10 @@ from the language of an open document.
   defaults, text-input actions, and the external-link prompt are translated.
 - Search and Library are translated, including import/delete status messages,
   folder organization, accessible action labels, and localized plural forms.
+- Audiobook setup, save/playback controls, queue and library actions,
+  confirmation dialogs, and ordinary progress messages are translated.
+  Model names, voice names, persisted identifiers, and raw native or diagnostic
+  errors remain unchanged.
 - Document and folder tie-break sorting uses the active UI locale. Search
   relevance and explicit library `sortOrder` values remain authoritative.
 - Arabic sets the app shell to `dir="rtl"` and uses the bundled Readex Pro font.
@@ -54,7 +58,7 @@ each locale, and runs automatically during `npm run build`.
 - [x] Migrate Search and Library, including plural messages and locale-aware sorting.
 - [x] Preserve imported HTML/EPUB language and direction in the reader.
 - [x] Complete the RTL CSS and bidirectional-content audit.
-- [ ] Migrate audiobook and TTS status text.
+- [x] Migrate audiobook and TTS controls and ordinary status text.
 - [ ] Replace expected native English error strings with stable error codes.
 - [ ] Add Spanish, French, Italian, Brazilian Portuguese, Hindi, and Simplified Chinese.
 - [ ] Complete native-speaker and desktop/mobile visual review.
