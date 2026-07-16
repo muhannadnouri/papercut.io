@@ -1088,12 +1088,23 @@ fn verify_silma_runtime_worker(worker_path: &Path) -> Result<(), String> {
     }
 }
 
-/// AppImage launches can export loader paths that break `/bin/sh` before the
-/// worker launcher resets its own Python paths, so strip only that inherited bit.
+/// AppImage launches can export loader/Python paths that break the worker before
+/// its launcher resets paths, so start SILMA without inherited Python state.
 fn silma_worker_command(program: &Path) -> Command {
     let mut command = Command::new(program);
-    command.env_remove("LD_LIBRARY_PATH");
+    scrub_worker_environment(&mut command);
     command
+}
+
+/// Keep the parent app's runtime env out of SILMA's independent Python runtime.
+fn scrub_worker_environment(command: &mut Command) {
+    command.env_remove("LD_LIBRARY_PATH");
+    command.env_remove("LD_PRELOAD");
+    for (key, _) in std::env::vars_os() {
+        if key.as_encoded_bytes().starts_with(b"PYTHON") {
+            command.env_remove(key);
+        }
+    }
 }
 
 fn worker_check_failure_detail(output: &std::process::Output) -> String {

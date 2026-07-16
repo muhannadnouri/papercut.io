@@ -92,6 +92,7 @@ for EXTRA_LIB_DIR in \
     LIB_PATH="$LIB_PATH:$EXTRA_LIB_DIR"
   fi
 done
+unset PYTHONHOME PYTHONPATH PYTHONUSERBASE PYTHONPLATLIBDIR PYTHONEXECUTABLE PYTHONSTARTUP
 export PYTHONNOUSERSITE=1
 # Keep micromamba's FFmpeg executable and native libs ahead of system packages.
 export PATH="$DIR/env/bin${PATH:+:$PATH}"
