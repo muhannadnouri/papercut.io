@@ -823,6 +823,8 @@ Windows and macOS:
       request/response calls.
 - [x] Add `LoadedTtsEngine::Silma` and a dev `load_model` route.
 - [x] Add SILMA chunk synthesis through the shared WAV sink.
+- [x] Add SILMA-specific save chunk sizing to avoid a second awkward split in
+      the Python F5 runtime.
 - [ ] Add `SilmaSidecar` process supervision:
       - spawn;
       - health check;
@@ -1130,6 +1132,11 @@ Stage 2 SILMA synthesis status:
 - Save loop selects sherpa or SILMA from `ModelDefinition.backend`.
 - SILMA uses `TextPreprocessor` identity in Rust; the Python worker runs its own
   SILMA normalization/tashkeel path.
+- Frontend save chunking uses a smaller SILMA-only profile, currently 80
+  characters max, because SILMA/F5 internally re-chunks around 120 characters
+  after Arabic normalization and tashkeel. Keeping Papercut chunks shorter
+  reduces skipped short words around punctuation and avoids odd pauses in short
+  final clauses.
 - SILMA validates the selected Papercut voice id, then ignores the numeric
   speaker id because SILMA uses the reference voice path instead.
 - The existing thread selector is honored for SILMA by applying it to PyTorch

@@ -35,7 +35,11 @@ import {
   type NativeTtsModelInstallProgress,
   type NativeTtsModelStatus,
 } from '../api/nativeTts'
-import { chunkAudiobookSaveHtmlWithSpans, type SpeechChunk } from '../utils/text'
+import {
+  chunkAudiobookSaveHtmlWithSpans,
+  SILMA_AUDIOBOOK_SAVE_CHUNK_PROFILE,
+  type SpeechChunk,
+} from '../utils/text'
 import {
   DEFAULT_TTS_SPEED,
   SILMA_MODEL_ID,
@@ -614,14 +618,17 @@ export function useAudiobookManager({
     setImportedHighlightStatus('idle')
   }, [stopTts])
 
-  const getAudiobookSaveChunksForDocument = useCallback(async (documentUrl: string): Promise<TtsChunk[]> => {
+  const getAudiobookSaveChunksForDocument = useCallback(async (
+    documentUrl: string,
+    modelId = ttsModelId,
+  ): Promise<TtsChunk[]> => {
     if (isUserUploadUrl(documentUrl)) {
       return (await getImportedAudiobookMetadata(documentUrl)).chunks
     }
 
     const html = await loadHtmlDocument(documentUrl)
-    return audiobookSaveChunksFromHtml(html)
-  }, [loadHtmlDocument])
+    return audiobookSaveChunksFromHtml(html, modelId)
+  }, [loadHtmlDocument, ttsModelId])
 
   const getSelectedAudiobookSaveChunks = useCallback(async (): Promise<TtsChunk[]> => {
     if (!selectedDoc) return []
@@ -775,7 +782,7 @@ export function useAudiobookManager({
     startAudiobookSave({
       documentUrl: record.documentUrl,
       title: record.title,
-      chunks: await getAudiobookSaveChunksForDocument(record.documentUrl),
+      chunks: await getAudiobookSaveChunksForDocument(record.documentUrl, record.modelId),
       modelId: record.modelId,
       textPreprocessor: record.textPreprocessor,
       voice: record.voice,
@@ -855,7 +862,7 @@ export function useAudiobookManager({
       message: exportFormat === 'wav' ? 'Exporting WAV' : 'Exporting Papercut Bundle',
     })
     try {
-      const chunks = await getAudiobookSaveChunksForDocument(record.documentUrl)
+      const chunks = await getAudiobookSaveChunksForDocument(record.documentUrl, record.modelId)
       const sourceHtml = exportFormat === 'bundle'
         ? await loadHtmlDocument(record.documentUrl)
         : undefined
@@ -1312,10 +1319,11 @@ function previewImportedGraftCodePoints(text: string): string {
     .join(' ')
 }
 
-// Rebuild runtime source spans from current HTML every open. Saved audio remains
-// compatible because ids/text are unchanged and spans never cross native IPC.
-function audiobookSaveChunksFromHtml(html: string): TtsChunk[] {
-  return buildRuntimeChunks(chunkAudiobookSaveHtmlWithSpans(html), 'save-c')
+// Rebuild runtime source spans from current HTML every open. The selected model
+// chooses the chunk profile, so SILMA can keep requests below its F5 subchunker.
+function audiobookSaveChunksFromHtml(html: string, modelId: string): TtsChunk[] {
+  const profile = modelId === SILMA_MODEL_ID ? SILMA_AUDIOBOOK_SAVE_CHUNK_PROFILE : undefined
+  return buildRuntimeChunks(chunkAudiobookSaveHtmlWithSpans(html, profile), 'save-c')
 }
 
 // Assign deterministic cache ids while carrying optional UI-only highlight spans.
