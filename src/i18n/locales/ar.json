@@ -204,6 +204,27 @@
     "saveBookmark": "حفظ علامة مرجعية",
     "top": "الأعلى",
     "dismissBookmarkNotice": "إغلاق إشعار العلامة المرجعية",
+    "settings": {
+      "button": "مظهر القراءة",
+      "dialogLabel": "إعدادات القارئ",
+      "font": "الخط",
+      "size": "حجم الخط",
+      "lineSpacing": "تباعد الأسطر",
+      "width": "عرض القراءة",
+      "reset": "إعادة الضبط",
+      "decrease": "تقليل {{setting}}",
+      "increase": "زيادة {{setting}}",
+      "fonts": {
+        "literata": "Literata",
+        "atkinson": "Atkinson Hyperlegible",
+        "systemSerif": "خط النظام المذيّل",
+        "systemSans": "خط النظام بلا تذييل",
+        "naskhArabic": "نسخ عربي",
+        "droidArabicNaskh": "Droid Arabic Naskh",
+        "scheherazadeNew": "Scheherazade New",
+        "readexPro": "Readex Pro"
+      }
+    },
     "findBar": {
       "placeholder": "ابحث...",
       "noMatches": "لا توجد نتائج",

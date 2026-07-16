@@ -16,8 +16,9 @@ from the language of an open document.
   confirmation dialogs, and ordinary progress messages are translated.
   Model names, voice names, persisted identifiers, and raw native or diagnostic
   errors remain unchanged.
-- Reader chrome is translated, including Back, Find, document loading/error
-  states, bookmark actions, and the in-document Find bar.
+- Reader chrome is translated, including Back, Find, reader appearance
+  settings, document loading/error states, bookmark actions, and the
+  in-document Find bar.
 - Native TTS commands return a stable error code with the original diagnostic
   message. React translates known user-actionable codes while diagnostics keep
   the original message and unknown failures remain visible for troubleshooting.

@@ -184,6 +184,27 @@
     "saveBookmark": "Save bookmark",
     "top": "Top",
     "dismissBookmarkNotice": "Dismiss bookmark notice",
+    "settings": {
+      "button": "Reading appearance",
+      "dialogLabel": "Reader settings",
+      "font": "Font",
+      "size": "Font size",
+      "lineSpacing": "Line spacing",
+      "width": "Reading width",
+      "reset": "Reset",
+      "decrease": "Decrease {{setting}}",
+      "increase": "Increase {{setting}}",
+      "fonts": {
+        "literata": "Literata",
+        "atkinson": "Atkinson Hyperlegible",
+        "systemSerif": "System Serif",
+        "systemSans": "System Sans",
+        "naskhArabic": "Naskh Arabic",
+        "droidArabicNaskh": "Droid Arabic Naskh",
+        "scheherazadeNew": "Scheherazade New",
+        "readexPro": "Readex Pro"
+      }
+    },
     "findBar": {
       "placeholder": "Find...",
       "noMatches": "No matches",

@@ -62,7 +62,7 @@
 
 .reader-setting-row {
   display: grid;
-  grid-template-columns: 3.4rem 1.6rem minmax(0, 1fr) 1.6rem 3.5rem;
+  grid-template-columns: 5.25rem 1.6rem minmax(0, 1fr) 1.6rem 3.5rem;
   align-items: center;
   gap: 0.55rem;
   font-size: 0.8rem;

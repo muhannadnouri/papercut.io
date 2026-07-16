@@ -45,15 +45,15 @@ export const READER_SETTING_LIMITS = {
 } satisfies Record<'fontSizePx' | 'lineHeight' | 'widthCh', ReaderRangeConfig>
 
 export const FONT_FAMILY_OPTIONS = [
-  { label: 'Literata', value: READER_FONT_STACKS.literata },
-  { label: 'Atkinson Hyperlegible', value: READER_FONT_STACKS.atkinson },
-  { label: 'System Serif', value: READER_FONT_STACKS.systemSerif },
-  { label: 'System Sans', value: READER_FONT_STACKS.systemSans },
-  { label: 'Naskh Arabic', value: READER_FONT_STACKS.naskhArabic, style: { fontFamily: 'var(--ui-font)' } },
-  { label: 'Droid Arabic Naskh', value: READER_FONT_STACKS.droidArabicNaskh },
-  { label: 'Scheherazade New', value: READER_FONT_STACKS.scheherazadeNew },
-  { label: 'Readex Pro', value: READER_FONT_STACKS.readexPro },
-]
+  { labelKey: 'reader.settings.fonts.literata', value: READER_FONT_STACKS.literata },
+  { labelKey: 'reader.settings.fonts.atkinson', value: READER_FONT_STACKS.atkinson },
+  { labelKey: 'reader.settings.fonts.systemSerif', value: READER_FONT_STACKS.systemSerif },
+  { labelKey: 'reader.settings.fonts.systemSans', value: READER_FONT_STACKS.systemSans },
+  { labelKey: 'reader.settings.fonts.naskhArabic', value: READER_FONT_STACKS.naskhArabic, style: { fontFamily: 'var(--ui-font)' } },
+  { labelKey: 'reader.settings.fonts.droidArabicNaskh', value: READER_FONT_STACKS.droidArabicNaskh },
+  { labelKey: 'reader.settings.fonts.scheherazadeNew', value: READER_FONT_STACKS.scheherazadeNew },
+  { labelKey: 'reader.settings.fonts.readexPro', value: READER_FONT_STACKS.readexPro },
+] as const
 
 const LEGACY_FONT_FAMILY_MAP = new Map([
   ['Georgia, serif', READER_FONT_STACKS.literata],
