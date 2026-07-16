@@ -69,11 +69,12 @@ async function extractIosArchive() {
   await extractTar({ archive: SHERPA_IOS_ARCHIVE, destination: SHERPA_IOS_RUNTIME_ROOT, compression: "bzip2" })
 }
 
-// Device slices already contain thin aggregate static archives that Rust can link.
+// The sherpa device archive is thin, but ORT 1.27 wraps its arm64 static archive
+// in a one-architecture Mach-O universal container that Cargo cannot link.
 async function syncDeviceCargoLibs() {
   const target = await resetCargoLibDir(SHERPA_IOS_DEVICE_SLICE)
   await linkOrCopy(sherpaArchiveLib(SHERPA_IOS_DEVICE_SLICE), join(target, "libsherpa-onnx.a"))
-  await linkOrCopy(onnxRuntimeArchiveLib(SHERPA_IOS_DEVICE_SLICE), join(target, "libonnxruntime.a"))
+  await thinArchive(onnxRuntimeArchiveLib(SHERPA_IOS_DEVICE_SLICE), join(target, "libonnxruntime.a"), "arm64")
 }
 
 // Upstream simulator archives are universal; Rust wants a thin arm64 archive for aarch64-sim CI.
@@ -111,7 +112,7 @@ function sherpaArchiveLib(slice) {
 }
 
 function onnxRuntimeArchiveLib(slice) {
-  return join(SHERPA_IOS_ONNXRUNTIME_XCFRAMEWORK, slice, "libonnxruntime.a")
+  return join(SHERPA_IOS_ONNXRUNTIME_XCFRAMEWORK, slice, "onnxruntime.framework", "onnxruntime")
 }
 
 async function linkOrCopy(source, target) {
