@@ -31,10 +31,10 @@ export function AppSettings({ themeChoice, onThemeChange }: AppSettingsProps) {
   const [version, setVersion] = useState<string | null>(() => tauriRuntime ? null : '')
   const zoom = useAppZoom()
   const closeSettings = useCallback(() => setOpen(false), [])
-  const themeOptions: Array<{ choice: ThemeChoice; label: string }> = [
+  const themeOptions: Array<{ choice: ThemeChoice; label: string; icon?: string }> = [
     { choice: 'system', label: t('settings.themeSystem') },
-    { choice: 'light', label: t('settings.themeLight') },
-    { choice: 'dark', label: t('settings.themeDark') },
+    { choice: 'light', label: t('settings.themeLight'), icon: '☀️' },
+    { choice: 'dark', label: t('settings.themeDark'), icon: '🌙' },
   ]
 
   useEffect(() => {
@@ -101,6 +101,7 @@ export function AppSettings({ themeChoice, onThemeChange }: AppSettingsProps) {
                     aria-pressed={themeChoice === option.choice}
                     onClick={() => onThemeChange(option.choice)}
                   >
+                    {option.icon && <span aria-hidden="true">{option.icon}</span>}
                     {option.label}
                   </button>
                 ))}

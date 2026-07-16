@@ -55,17 +55,18 @@
   z-index: 200;
   width: var(--trigger-width);
   max-height: min(18rem, calc(100vh - 8rem));
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-heading);
+  box-shadow: 0 12px 28px var(--shadow-popover);
+  overflow: hidden;
 }
 
 .app-select-menu {
   display: grid;
   max-height: inherit;
   overflow-y: auto;
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text-heading);
-  box-shadow: 0 12px 28px var(--shadow-popover);
   -webkit-overflow-scrolling: touch;
 }
 
