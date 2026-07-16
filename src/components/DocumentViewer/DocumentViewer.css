@@ -217,8 +217,9 @@
 .document-html-content blockquote {
   margin-block: 1.1em;
   margin-inline: 0;
-  padding: 0.05em 0 0.05em 1.1em;
-  border-left: 3px solid var(--accent-border);
+  padding-block: 0.05em;
+  padding-inline-start: 1.1em;
+  border-inline-start: 3px solid var(--accent-border);
   color: var(--reader-text);
 }
 

@@ -15,6 +15,11 @@ from the language of an open document.
 - Document and folder tie-break sorting uses the active UI locale. Search
   relevance and explicit library `sortOrder` values remain authoritative.
 - Arabic sets the app shell to `dir="rtl"` and uses the bundled Readex Pro font.
+- Imported HTML keeps valid root/body `lang` and `dir` metadata on the reader
+  surface. EPUB imports preserve package language/direction and chapter
+  overrides in the generated reading document.
+- Document direction remains independent from the app shell. Content without
+  explicit direction uses native `dir="auto"` detection.
 - Unmigrated feature screens still fall back to their existing English text.
 
 The locale foundation lives in `src/i18n/`. `i18next` owns application
@@ -42,7 +47,7 @@ each locale, and runs automatically during `npm run build`.
 
 - [x] Migrate shared dialogs and common actions.
 - [x] Migrate Search and Library, including plural messages and locale-aware sorting.
-- [ ] Preserve imported HTML/EPUB language and direction in the reader.
+- [x] Preserve imported HTML/EPUB language and direction in the reader.
 - [ ] Complete the RTL CSS and bidirectional-content audit.
 - [ ] Migrate audiobook and TTS status text.
 - [ ] Replace expected native English error strings with stable error codes.

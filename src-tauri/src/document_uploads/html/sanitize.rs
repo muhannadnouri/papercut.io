@@ -225,4 +225,14 @@ mod tests {
 
         assert_eq!(text, "First Second line");
     }
+
+    #[test]
+    fn keeps_document_language_and_direction_attributes() {
+        let sanitized = sanitize_html(
+            r#"<html lang="ar" dir="rtl"><body lang="ar-SA"><p>نص آمن</p></body></html>"#,
+        );
+
+        assert!(sanitized.contains(r#"<html lang="ar" dir="rtl">"#));
+        assert!(sanitized.contains(r#"<body lang="ar-SA">"#));
+    }
 }

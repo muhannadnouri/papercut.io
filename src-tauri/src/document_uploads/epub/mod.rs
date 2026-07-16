@@ -29,6 +29,7 @@ const MAX_CONTAINER_XML_BYTES: u64 = 1024 * 1024;
 const MAX_OPF_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_CHAPTER_TEXT_BYTES: u64 = 20 * 1024 * 1024;
 const MAX_TOTAL_CHAPTER_TEXT_BYTES: u64 = 120 * 1024 * 1024;
+const XML_NAMESPACE: &str = "http://www.w3.org/XML/1998/namespace";
 
 /// Parse an EPUB archive into Papercut's format-neutral document shape.
 ///
@@ -70,6 +71,7 @@ pub(crate) fn parse_epub_document(
         if total_chapter_text_bytes > MAX_TOTAL_CHAPTER_TEXT_BYTES {
             return Err("EPUB chapter text is too large to import".into());
         }
+        let (language, direction) = extract_xhtml_metadata(&raw);
         let body = extract_body_inner(&raw).unwrap_or(raw.as_str());
         let sanitized = sanitize_epub_fragment(body);
         if normalize_text(&strip_tags(&sanitized)).is_empty() {
@@ -80,6 +82,8 @@ pub(crate) fn parse_epub_document(
             path: chapter_path.clone(),
             anchors: collect_fragment_anchors(&sanitized),
             sanitized,
+            language,
+            direction,
         });
     }
 
@@ -103,14 +107,25 @@ pub(crate) fn parse_epub_document(
             &anchor_indexes,
             &image_assets,
         );
-        chapters.push(render_chapter(chapter.index, &chapter.path, &rewritten));
+        chapters.push(render_chapter(
+            chapter.index,
+            &chapter.path,
+            &rewritten,
+            chapter.language.as_deref(),
+            chapter.direction.as_deref(),
+        ));
     }
 
     if chapters.is_empty() {
         return Err("EPUB did not contain readable text".into());
     }
 
-    let view_html = render_reading_html(&package.title, &chapters);
+    let view_html = render_reading_html(
+        &package.title,
+        &chapters,
+        package.language.as_deref(),
+        package.direction.as_deref(),
+    );
     let parsed = parsed_html_document(package.title, "epub", view_html);
     if parsed.sections.is_empty() {
         return Err("EPUB did not contain readable sections".into());
@@ -120,6 +135,8 @@ pub(crate) fn parse_epub_document(
 
 struct ParsedPackage {
     title: String,
+    language: Option<String>,
+    direction: Option<String>,
     spine_paths: Vec<String>,
     manifest: Vec<ManifestItem>,
 }
@@ -129,6 +146,8 @@ struct ChapterDraft {
     path: String,
     sanitized: String,
     anchors: HashSet<String>,
+    language: Option<String>,
+    direction: Option<String>,
 }
 
 /// Verify the EPUB-required `mimetype` entry before trusting the ZIP contents.
@@ -182,6 +201,14 @@ fn parse_opf(opf: &str, opf_path: &str, fallback_title: &str) -> Result<ParsedPa
         .map(normalize_text)
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| fallback_title.to_string());
+    let language = document_language(
+        doc.descendants()
+            .find(|node| node.tag_name().name() == "language")
+            .and_then(|node| node.text())
+            .or_else(|| doc.root_element().attribute("lang"))
+            .or_else(|| doc.root_element().attribute((XML_NAMESPACE, "lang"))),
+    );
+    let direction = document_direction(doc.root_element().attribute("dir"));
 
     let mut manifest_by_id = HashMap::new();
     let mut manifest = Vec::new();
@@ -222,9 +249,54 @@ fn parse_opf(opf: &str, opf_path: &str, fallback_title: &str) -> Result<ParsedPa
 
     Ok(ParsedPackage {
         title,
+        language,
+        direction,
         spine_paths,
         manifest,
     })
+}
+
+/// Read root/body metadata before EPUB chapter wrappers are discarded.
+fn extract_xhtml_metadata(html: &str) -> (Option<String>, Option<String>) {
+    let Ok(doc) = Document::parse(html) else {
+        return (None, None);
+    };
+    let root = doc.root_element();
+    let body = doc
+        .descendants()
+        .find(|node| node.tag_name().name().eq_ignore_ascii_case("body"));
+    let language = document_language(
+        body.and_then(|node| {
+            node.attribute("lang")
+                .or_else(|| node.attribute((XML_NAMESPACE, "lang")))
+        })
+        .or_else(|| root.attribute("lang"))
+        .or_else(|| root.attribute((XML_NAMESPACE, "lang"))),
+    );
+    let direction = document_direction(
+        body.and_then(|node| node.attribute("dir"))
+            .or_else(|| root.attribute("dir")),
+    );
+    (language, direction)
+}
+
+fn document_language(value: Option<&str>) -> Option<String> {
+    let language = value?.trim();
+    (!language.is_empty()
+        && language.len() <= 64
+        && language
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || character == '-'))
+    .then(|| language.to_string())
+}
+
+fn document_direction(value: Option<&str>) -> Option<String> {
+    match value?.trim().to_ascii_lowercase().as_str() {
+        "ltr" => Some("ltr".into()),
+        "rtl" => Some("rtl".into()),
+        "auto" => Some("auto".into()),
+        _ => None,
+    }
 }
 
 /// Decide whether a spine item is text-like enough for the generated reader.
@@ -390,6 +462,40 @@ mod tests {
             normalize_empty_pre_elements("<prefix/><pre>Code</pre>"),
             "<prefix/><pre>Code</pre>"
         );
+    }
+
+    #[test]
+    fn preserves_package_and_chapter_language_direction() {
+        let package = parse_opf(
+            r#"<package dir="rtl"><metadata><title>Arabic Book</title><language>ar</language></metadata><manifest><item id="c1" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c1"/></spine></package>"#,
+            "OPS/package.opf",
+            "Fallback",
+        )
+        .unwrap();
+        assert_eq!(package.language.as_deref(), Some("ar"));
+        assert_eq!(package.direction.as_deref(), Some("rtl"));
+
+        let (language, direction) = extract_xhtml_metadata(
+            r#"<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" dir="ltr"><body lang="ar" dir="rtl"><p>نص</p></body></html>"#,
+        );
+        assert_eq!(language.as_deref(), Some("ar"));
+        assert_eq!(direction.as_deref(), Some("rtl"));
+
+        let chapter = render_chapter(
+            0,
+            "chapter.xhtml",
+            "<p>نص</p>",
+            language.as_deref(),
+            direction.as_deref(),
+        );
+        let html = render_reading_html(
+            &package.title,
+            &[chapter],
+            package.language.as_deref(),
+            package.direction.as_deref(),
+        );
+        assert!(html.contains(r#"<html lang="ar" dir="rtl">"#));
+        assert!(html.contains(r#"<section class="epub-chapter" id="chapter-0" data-source="chapter.xhtml" lang="ar" dir="rtl">"#));
     }
 
     #[test]
