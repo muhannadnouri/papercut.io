@@ -61,6 +61,11 @@ import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 import { useAudiobookCache } from './useAudiobookCache'
 import { useTtsPlayer } from './useTtsPlayer'
 import { useAppConfirmation } from '../../components/AppDialog/useAppConfirmation'
+import {
+  isNativeTtsCancellation,
+  nativeTtsErrorDetail,
+  nativeTtsErrorMessage,
+} from '../utils/errors'
 
 type ImportedHighlightStatus = 'idle' | 'preparing' | 'ready' | 'unavailable'
 type AudiobookExportState = { id: string; status: 'exporting' | 'exported' | 'cancelled' | 'error'; message: string }
@@ -332,13 +337,13 @@ export function useAudiobookManager({
       if (ttsModelIdRef.current !== ttsModelId) return
       logTtsDiagnostic('[tts-native] model install failed', {
         modelId: ttsModelId,
-        error: err instanceof Error ? err.message : String(err),
+        error: nativeTtsErrorDetail(err),
         ...summarizeTtsModelStatus(ttsModelStatus),
       }, 'error')
       setTtsModelProgress({
         modelId: ttsModelId,
         status: 'error',
-        message: err instanceof Error ? err.message : String(err),
+        message: nativeTtsErrorMessage(err),
         downloadedBytes: 0,
         totalBytes: ttsModelStatus?.archiveBytes ?? 0,
         percent: 0,
@@ -356,7 +361,7 @@ export function useAudiobookManager({
       logTtsDiagnostic('[tts-native] SILMA sidecar probe passed', { ...result })
     } catch (err) {
       logTtsDiagnostic('[tts-native] SILMA sidecar probe failed', {
-        error: err instanceof Error ? err.message : String(err),
+        error: nativeTtsErrorDetail(err),
       }, 'error')
     } finally {
       setSilmaProbeRunning(false)
@@ -904,8 +909,8 @@ export function useAudiobookManager({
         message: formatAudiobookExportMessage(i18n.t, result.path, exportFormat),
       })
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      const cancelled = message.toLowerCase().includes('cancelled')
+      const message = nativeTtsErrorMessage(err)
+      const cancelled = isNativeTtsCancellation(err)
       setAudiobookExport(null)
       showAudiobookNotice({
         id: 'export:' + record.id,
@@ -969,7 +974,7 @@ export function useAudiobookManager({
       showAudiobookNotice({
         id: 'delete:' + record.id,
         status: 'error',
-        message: err instanceof Error ? err.message : String(err),
+        message: nativeTtsErrorMessage(err),
       })
     }
   }, [confirmAudiobookAction, onClearDocument, onUserUploadsChanged, resetSelectedAudiobookState, selectedDoc, showAudiobookNotice, stopTts])
@@ -1022,8 +1027,8 @@ export function useAudiobookManager({
       })
       await openDocument(result.documentUrl)
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      const cancelled = message.toLowerCase().includes('cancelled')
+      const message = nativeTtsErrorMessage(err)
+      const cancelled = isNativeTtsCancellation(err)
       setAudiobookImport({ status: 'idle', message: '' })
       showAudiobookNotice({
         id: 'import',

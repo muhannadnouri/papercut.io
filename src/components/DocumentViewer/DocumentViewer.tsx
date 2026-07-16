@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react'
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { resolveViewer } from '../../viewers/registry'
 import { FindBar } from '../FindBar/FindBar'
 import { ScrollTopButton } from '../ScrollTopButton/ScrollTopButton'
@@ -59,6 +61,7 @@ export function DocumentViewer({
   loadError,
   onClose,
 }: DocumentViewerProps) {
+  const { t } = useTranslation()
   const readerRef = useRef<HTMLElement | null>(null)
   const [showScrollTop, setShowScrollTop] = useState(false)
   const [pendingExternalUrl, setPendingExternalUrl] = useState<string | null>(null)
@@ -211,7 +214,7 @@ export function DocumentViewer({
               <path d="M19 12H5" />
               <path d="m12 19-7-7 7-7" />
             </svg>
-            Back
+            {t('reader.back')}
           </button>
         </div>
         <div className="header-right">
@@ -235,7 +238,7 @@ export function DocumentViewer({
                 <circle cx="11" cy="11" r="7" />
                 <path d="m16 16 5 5" />
               </svg>
-              Find
+              {t('reader.find')}
             </button>
           </div>
         </div>
@@ -260,11 +263,11 @@ export function DocumentViewer({
         {loading ? (
           <div className="document-html-surface document-loading-surface" role="status" aria-live="polite">
             <span className="spinner" aria-hidden="true" />
-            <span>Opening Document...</span>
+            <span>{t('reader.openingDocument')}</span>
           </div>
         ) : loadError ? (
           <div className="document-html-surface document-loading-surface document-load-error" role="alert">
-            <strong>Unable to open document.</strong>
+            <strong>{t('reader.unableToOpen')}</strong>
             <span dir="auto">{loadError}</span>
           </div>
         ) : (
@@ -282,8 +285,8 @@ export function DocumentViewer({
           <button
             type="button"
             className={'reader-bookmark-btn' + (isAtBookmark ? ' reader-bookmark-btn-active' : '')}
-            aria-label={bookmarkActionLabel(hasBookmark, isAtBookmark)}
-            title={bookmarkActionLabel(hasBookmark, isAtBookmark)}
+            aria-label={bookmarkActionLabel(hasBookmark, isAtBookmark, t)}
+            title={bookmarkActionLabel(hasBookmark, isAtBookmark, t)}
             onClick={toggleBookmark}
           >
             <svg className="reader-bookmark-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -301,12 +304,12 @@ export function DocumentViewer({
 
       {bookmarkNotice && (
         <div className="reader-bookmark-notice" role="status" aria-live="polite">
-          <span>{bookmarkNoticeText(bookmarkNotice)}</span>
-          {bookmarkNotice === 'restored' && <button type="button" onClick={scrollToTop}>Top</button>}
+          <span>{bookmarkNoticeText(bookmarkNotice, t)}</span>
+          {bookmarkNotice === 'restored' && <button type="button" onClick={scrollToTop}>{t('reader.top')}</button>}
           <button
             type="button"
             className="reader-bookmark-dismiss"
-            aria-label="Dismiss bookmark notice"
+            aria-label={t('reader.dismissBookmarkNotice')}
             onClick={dismissBookmarkNotice}
           >
             &times;
@@ -326,15 +329,22 @@ export function DocumentViewer({
   )
 }
 
-function bookmarkNoticeText(notice: 'restored' | 'saved' | 'updated' | 'removed'): string {
-  if (notice === 'restored') return 'Restored bookmark.'
-  if (notice === 'removed') return 'Bookmark removed.'
-  return notice === 'updated' ? 'Bookmark updated.' : 'Bookmark saved.'
+function bookmarkNoticeText(
+  notice: 'restored' | 'saved' | 'updated' | 'removed',
+  t: TFunction,
+): string {
+  if (notice === 'restored') return t('reader.bookmarkRestored')
+  if (notice === 'removed') return t('reader.bookmarkRemoved')
+  return notice === 'updated' ? t('reader.bookmarkUpdated') : t('reader.bookmarkSaved')
 }
 
-function bookmarkActionLabel(hasBookmark: boolean, isAtBookmark: boolean): string {
-  if (isAtBookmark) return 'Remove bookmark'
-  return hasBookmark ? 'Update bookmark' : 'Save bookmark'
+function bookmarkActionLabel(
+  hasBookmark: boolean,
+  isAtBookmark: boolean,
+  t: TFunction,
+): string {
+  if (isAtBookmark) return t('reader.removeBookmark')
+  return hasBookmark ? t('reader.updateBookmark') : t('reader.saveBookmark')
 }
 
 function decodeHash(value: string): string {

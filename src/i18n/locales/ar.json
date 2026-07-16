@@ -190,7 +190,43 @@
     "versionUnavailable": "غير متاح",
     "webBuild": "نسخة الويب"
   },
+  "reader": {
+    "back": "رجوع",
+    "find": "بحث",
+    "openingDocument": "جارٍ فتح المستند...",
+    "unableToOpen": "تعذّر فتح المستند.",
+    "bookmarkRestored": "تمت استعادة العلامة المرجعية.",
+    "bookmarkRemoved": "تمت إزالة العلامة المرجعية.",
+    "bookmarkUpdated": "تم تحديث العلامة المرجعية.",
+    "bookmarkSaved": "تم حفظ العلامة المرجعية.",
+    "removeBookmark": "إزالة العلامة المرجعية",
+    "updateBookmark": "تحديث العلامة المرجعية",
+    "saveBookmark": "حفظ علامة مرجعية",
+    "top": "الأعلى",
+    "dismissBookmarkNotice": "إغلاق إشعار العلامة المرجعية",
+    "findBar": {
+      "placeholder": "ابحث...",
+      "noMatches": "لا توجد نتائج",
+      "matchPosition": "{{current, number}} من {{total, number}}",
+      "previous": "السابق (Shift+Enter)",
+      "next": "التالي (Enter)",
+      "close": "إغلاق البحث"
+    }
+  },
   "tts": {
+    "errors": {
+      "nativeUnavailable": "تحويل النص إلى كلام غير متاح على هذا الجهاز.",
+      "unsupportedModel": "نموذج النطق أو خيار معالجة النص هذا غير مدعوم.",
+      "operationInProgress": "هذا التنزيل أو التثبيت قيد التنفيذ بالفعل.",
+      "runtimeNotInstalled": "بيئة تشغيل SILMA المطلوبة غير مثبّتة.",
+      "modelNotInstalled": "نموذج النطق المحدد غير مثبّت.",
+      "documentRequired": "يجب فتح مستند لاستخدام ميزات الكتاب الصوتي.",
+      "noSpeakableText": "لا يحتوي هذا المستند على نص يمكن نطقه.",
+      "operationCancelled": "أُلغيت العملية.",
+      "audiobookCacheMismatch": "لم يعد الكتاب الصوتي المحفوظ مطابقًا لهذا المستند. احفظه مجددًا للمتابعة.",
+      "wavTooLarge": "هذا الكتاب الصوتي أكبر من أن يُصدَّر في ملف WAV واحد.",
+      "invalidBundle": "الملف المحدد ليس حزمة كتاب صوتي صالحة أو مدعومة من Papercut."
+    },
     "setup": {
       "voiceSettings": "إعدادات الصوت",
       "voiceSection": "الصوت",

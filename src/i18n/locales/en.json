@@ -170,7 +170,43 @@
     "versionUnavailable": "Unavailable",
     "webBuild": "Web build"
   },
+  "reader": {
+    "back": "Back",
+    "find": "Find",
+    "openingDocument": "Opening Document...",
+    "unableToOpen": "Unable to open document.",
+    "bookmarkRestored": "Restored bookmark.",
+    "bookmarkRemoved": "Bookmark removed.",
+    "bookmarkUpdated": "Bookmark updated.",
+    "bookmarkSaved": "Bookmark saved.",
+    "removeBookmark": "Remove bookmark",
+    "updateBookmark": "Update bookmark",
+    "saveBookmark": "Save bookmark",
+    "top": "Top",
+    "dismissBookmarkNotice": "Dismiss bookmark notice",
+    "findBar": {
+      "placeholder": "Find...",
+      "noMatches": "No matches",
+      "matchPosition": "{{current, number}} of {{total, number}}",
+      "previous": "Previous (Shift+Enter)",
+      "next": "Next (Enter)",
+      "close": "Close Find"
+    }
+  },
   "tts": {
+    "errors": {
+      "nativeUnavailable": "Native text-to-speech is not available on this device.",
+      "unsupportedModel": "This speech model or text-processing option is not supported.",
+      "operationInProgress": "This download or installation is already in progress.",
+      "runtimeNotInstalled": "The required SILMA runtime is not installed.",
+      "modelNotInstalled": "The selected speech model is not installed.",
+      "documentRequired": "A document must be open to use audiobook features.",
+      "noSpeakableText": "This document does not contain text that can be spoken.",
+      "operationCancelled": "The operation was cancelled.",
+      "audiobookCacheMismatch": "The saved audiobook no longer matches this document. Save it again to continue.",
+      "wavTooLarge": "This audiobook is too large to export as one WAV file.",
+      "invalidBundle": "The selected file is not a valid or supported Papercut audiobook bundle."
+    },
     "setup": {
       "voiceSettings": "Voice settings",
       "voiceSection": "Voice",

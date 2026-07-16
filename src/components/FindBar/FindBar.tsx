@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import './FindBar.css'
 
 interface FindBarProps {
@@ -21,6 +22,7 @@ export function FindBar({
   onPrev,
   onClose,
 }: FindBarProps) {
+  const { t } = useTranslation()
   return (
     <div className="find-bar">
       <input
@@ -28,7 +30,7 @@ export function FindBar({
         type="text"
         dir="auto"
         className="find-input"
-        placeholder="Find..."
+        placeholder={t('reader.findBar.placeholder')}
         value={query}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
@@ -39,12 +41,14 @@ export function FindBar({
       />
       {query.trim().length > 0 && (
         <span className="find-count">
-          {matchCount === 0 ? 'No matches' : `${currentIndex + 1} of ${matchCount}`}
+          {matchCount === 0
+            ? t('reader.findBar.noMatches')
+            : t('reader.findBar.matchPosition', { current: currentIndex + 1, total: matchCount })}
         </span>
       )}
-      <button className="find-nav-btn" onClick={onPrev} disabled={matchCount === 0} title="Previous (Shift+Enter)">&#9650;</button>
-      <button className="find-nav-btn" onClick={onNext} disabled={matchCount === 0} title="Next (Enter)">&#9660;</button>
-      <button className="find-close" onClick={onClose}>&times;</button>
+      <button className="find-nav-btn" onClick={onPrev} disabled={matchCount === 0} title={t('reader.findBar.previous')} aria-label={t('reader.findBar.previous')}>&#9650;</button>
+      <button className="find-nav-btn" onClick={onNext} disabled={matchCount === 0} title={t('reader.findBar.next')} aria-label={t('reader.findBar.next')}>&#9660;</button>
+      <button className="find-close" onClick={onClose} aria-label={t('reader.findBar.close')}>&times;</button>
     </div>
   )
 }

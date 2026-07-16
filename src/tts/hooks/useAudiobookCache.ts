@@ -6,9 +6,11 @@ import {
   getNativeTtsCapabilities,
   listenNativeAudiobookSaveProgress,
   saveNativeAudiobook,
+  NativeTtsError,
   type NativeAudiobookSaveProgress,
 } from '../api/nativeTts'
 import { logTtsDiagnostic, summarizeTtsCapabilities } from '../diagnostics/TtsDiagnostics'
+import { nativeTtsErrorDetail, nativeTtsErrorMessage } from '../utils/errors'
 import {
   resolveTtsDtype,
   type TtsOptions,
@@ -73,7 +75,7 @@ export function useAudiobookCache() {
 
     void (async () => {
       try {
-        if (!options.documentUrl) throw new Error('Saved audiobook status requires a document URL')
+        if (!options.documentUrl) throw new Error(i18n.t('tts.errors.documentRequired'))
         const status = await getNativeAudiobookStatus(options.documentUrl, chunks, options)
         if (checkIdRef.current !== checkId) return
         setState({
@@ -90,7 +92,7 @@ export function useAudiobookCache() {
         if (checkIdRef.current !== checkId) return
         setState({
           status: 'error',
-          message: err instanceof Error ? err.message : String(err),
+          message: nativeTtsErrorMessage(err),
           cachedChunks: 0,
           totalChunks,
           complete: false,
@@ -129,8 +131,10 @@ export function useAudiobookCache() {
       try {
         const capabilities = await getNativeTtsCapabilities()
         logTtsDiagnostic('[tts-native] capabilities', summarizeTtsCapabilities(capabilities))
-        if (!capabilities.available) throw new Error(capabilities.reason)
-        if (!options.documentUrl) throw new Error('Native audiobook save requires a document URL')
+        if (!capabilities.available) {
+          throw new NativeTtsError('native-tts-unavailable', capabilities.reason)
+        }
+        if (!options.documentUrl) throw new Error(i18n.t('tts.errors.documentRequired'))
         if (jobIdRef.current !== jobId) return
 
         unlisten = await listenNativeAudiobookSaveProgress((progress) => {
@@ -180,11 +184,11 @@ export function useAudiobookCache() {
           totalMs: Math.round(performance.now() - saveStartedAtRef.current),
           dtype: resolveTtsDtype(options),
           threadCount: options.threadCount,
-          error: err instanceof Error ? err.message : String(err),
+          error: nativeTtsErrorDetail(err),
         }, 'error')
         setState({
           status: 'error',
-          message: err instanceof Error ? err.message : String(err),
+          message: nativeTtsErrorMessage(err),
           cachedChunks: 0,
           totalChunks: speakableChunks.length,
           complete: false,

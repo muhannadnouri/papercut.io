@@ -16,6 +16,11 @@ from the language of an open document.
   confirmation dialogs, and ordinary progress messages are translated.
   Model names, voice names, persisted identifiers, and raw native or diagnostic
   errors remain unchanged.
+- Reader chrome is translated, including Back, Find, document loading/error
+  states, bookmark actions, and the in-document Find bar.
+- Native TTS commands return a stable error code with the original diagnostic
+  message. React translates known user-actionable codes while diagnostics keep
+  the original message and unknown failures remain visible for troubleshooting.
 - Document and folder tie-break sorting uses the active UI locale. Search
   relevance and explicit library `sortOrder` values remain authoritative.
 - Arabic sets the app shell to `dir="rtl"` and uses the bundled Readex Pro font.
@@ -59,6 +64,6 @@ each locale, and runs automatically during `npm run build`.
 - [x] Preserve imported HTML/EPUB language and direction in the reader.
 - [x] Complete the RTL CSS and bidirectional-content audit.
 - [x] Migrate audiobook and TTS controls and ordinary status text.
-- [ ] Replace expected native English error strings with stable error codes.
+- [x] Replace expected native English command errors with stable error codes.
 - [ ] Add Spanish, French, Italian, Brazilian Portuguese, Hindi, and Simplified Chinese.
 - [ ] Complete native-speaker and desktop/mobile visual review.

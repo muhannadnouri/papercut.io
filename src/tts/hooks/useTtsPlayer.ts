@@ -21,6 +21,7 @@ import {
   type NativeAudioState,
 } from '../playback/nativeMobileAudio'
 import type { TtsOptions, TtsChunk } from '../types'
+import { nativeTtsErrorDetail, nativeTtsErrorMessage } from '../utils/errors'
 
 type TtsStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'error'
 
@@ -187,7 +188,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
       mobilePlaybackRef.current = null
       mobileModeRef.current = false
       void stopNativeAudio().catch((err: unknown) => {
-        logTtsDiagnostic('[tts-playback] native reset failed', { error: errorMessage(err) }, 'warn')
+        logTtsDiagnostic('[tts-playback] native reset failed', { error: nativeTtsErrorDetail(err) }, 'warn')
       })
       finishPlayback()
       return
@@ -271,7 +272,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
         if (generation === mobilePollGenerationRef.current) {
           logTtsDiagnostic(
             '[tts-playback] native state poll failed',
-            { error: errorMessage(err) },
+            { error: nativeTtsErrorDetail(err) },
             'warn',
           )
         }
@@ -392,7 +393,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
       setState((prev) => ({
         ...prev,
         status: 'error',
-        message: err instanceof Error ? err.message : String(err),
+        message: nativeTtsErrorMessage(err),
       }))
     })
 
@@ -573,7 +574,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
         setState((prev) => ({
           ...prev,
           status: 'error',
-          message: errorMessage(err),
+          message: nativeTtsErrorMessage(err),
           pendingChunkIndex: null,
         }))
       })
@@ -653,7 +654,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
         setState((prev) => ({
           ...prev,
           status: 'error',
-          message: err instanceof Error ? err.message : String(err),
+          message: nativeTtsErrorMessage(err),
         }))
       })
     })
@@ -666,7 +667,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     }
     if (mobileModeRef.current && nativeAudioInitializedRef.current) {
       void setNativeAudioRate(playbackRateRef.current).catch((err: unknown) => {
-        logTtsDiagnostic('[tts-playback] native rate update failed', { error: errorMessage(err) }, 'warn')
+        logTtsDiagnostic('[tts-playback] native rate update failed', { error: nativeTtsErrorDetail(err) }, 'warn')
       })
     }
   }, [playbackRate])
@@ -731,7 +732,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
         return
       }
       void syncMobileForegroundState().catch((err: unknown) => {
-        logTtsDiagnostic('[tts-playback] foreground sync failed', { error: errorMessage(err) }, 'warn')
+        logTtsDiagnostic('[tts-playback] foreground sync failed', { error: nativeTtsErrorDetail(err) }, 'warn')
       })
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -745,7 +746,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
       if (nativeAudioInitializedRef.current) {
         nativeAudioInitializedRef.current = false
         void disposeNativeAudio().catch((err: unknown) => {
-          logTtsDiagnostic('[tts-playback] native dispose failed', { error: errorMessage(err) }, 'warn')
+          logTtsDiagnostic('[tts-playback] native dispose failed', { error: nativeTtsErrorDetail(err) }, 'warn')
         })
       }
     }
@@ -889,7 +890,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
         setState((prev) => ({
           ...prev,
           status: 'error',
-          message: err instanceof Error ? err.message : String(err),
+          message: nativeTtsErrorMessage(err),
         }))
       })
   }, [resetMobileForegroundSync, revokeAudioUrls, startNativePlayback, startPlaybackAt])
@@ -906,7 +907,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
           setState((prev) => ({
             ...prev,
             status: 'error',
-            message: err instanceof Error ? err.message : String(err),
+            message: nativeTtsErrorMessage(err),
           }))
         })
       setState((prev) => ({ ...prev, status: 'paused' }))
@@ -926,7 +927,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
           setState((prev) => ({
             ...prev,
             status: 'error',
-            message: err instanceof Error ? err.message : String(err),
+            message: nativeTtsErrorMessage(err),
           }))
         })
       return
@@ -942,7 +943,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
           setState((prev) => ({
             ...prev,
             status: 'error',
-            message: err instanceof Error ? err.message : String(err),
+            message: nativeTtsErrorMessage(err),
           }))
         })
       return
@@ -972,7 +973,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
           setState((prev) => ({
             ...prev,
             status: 'error',
-            message: errorMessage(err),
+            message: nativeTtsErrorMessage(err),
           }))
         })
       return
@@ -998,7 +999,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
           setState((prev) => ({
             ...prev,
             status: 'error',
-            message: errorMessage(err),
+            message: nativeTtsErrorMessage(err),
           }))
         })
       return
@@ -1040,7 +1041,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     audioRef.current?.pause()
     if (shouldStopNativeAudio) {
       void stopNativeAudio().catch((err: unknown) => {
-        logTtsDiagnostic('[tts-playback] native reset failed', { error: errorMessage(err) }, 'warn')
+        logTtsDiagnostic('[tts-playback] native reset failed', { error: nativeTtsErrorDetail(err) }, 'warn')
       })
     }
     revokeAudioUrls()
@@ -1099,10 +1100,6 @@ function findPlaybackChunk(
   }
 
   return currentTime < chunks[0].startSec ? chunks[0] : chunks[chunks.length - 1]
-}
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err)
 }
 
 function normalizePlaybackRate(rate: number): number {
