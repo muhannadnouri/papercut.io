@@ -196,14 +196,14 @@
       "decrease": "{{setting}} घटाएँ",
       "increase": "{{setting}} बढ़ाएँ",
       "fonts": {
-        "literata": "साहित्यकार",
-        "atkinson": "एटकिंसन हाइपरलेजिबल",
-        "systemSerif": "सिस्टम सेरिफ़",
-        "systemSans": "सिस्टम सैंस",
-        "naskhArabic": "नस्ख अरबी",
-        "droidArabicNaskh": "ड्रॉइड अरबी नस्ख",
-        "scheherazadeNew": "शेहेरज़ादे नया",
-        "readexPro": "रीडेक्स प्रो"
+        "literata": "Literata",
+        "atkinson": "Atkinson Hyperlegible",
+        "systemSerif": "System Serif",
+        "systemSans": "System Sans",
+        "naskhArabic": "Noto Naskh Arabic",
+        "droidArabicNaskh": "Droid Arabic Naskh",
+        "scheherazadeNew": "Scheherazade New",
+        "readexPro": "Readex Pro"
       }
     },
     "findBar": {

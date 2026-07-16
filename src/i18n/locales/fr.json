@@ -201,14 +201,14 @@
       "decrease": "Diminuer {{setting}}",
       "increase": "Augmenter {{setting}}",
       "fonts": {
-        "literata": "Littérature",
-        "atkinson": "Atkinson hyperlisible",
-        "systemSerif": "Système Serif",
-        "systemSans": "Système Sans",
-        "naskhArabic": "Arabe naskh",
-        "droidArabicNaskh": "Droïde arabe Naskh",
-        "scheherazadeNew": "Shéhérazade Nouveau",
-        "readexPro": "Lirex Pro"
+        "literata": "Literata",
+        "atkinson": "Atkinson Hyperlegible",
+        "systemSerif": "System Serif",
+        "systemSans": "System Sans",
+        "naskhArabic": "Noto Naskh Arabic",
+        "droidArabicNaskh": "Droid Arabic Naskh",
+        "scheherazadeNew": "Scheherazade New",
+        "readexPro": "Readex Pro"
       }
     },
     "findBar": {

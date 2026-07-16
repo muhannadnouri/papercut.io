@@ -191,13 +191,13 @@
       "decrease": "减少{{setting}}",
       "increase": "增加{{setting}}",
       "fonts": {
-        "literata": "文学界",
-        "atkinson": "阿特金森超易读",
-        "systemSerif": "系统衬线",
-        "systemSans": "系统无字体",
-        "naskhArabic": "纳斯赫阿拉伯语",
-        "droidArabicNaskh": "Droid 阿拉伯语纳斯赫",
-        "scheherazadeNew": "山鲁佐德 新",
+        "literata": "Literata",
+        "atkinson": "Atkinson Hyperlegible",
+        "systemSerif": "System Serif",
+        "systemSans": "System Sans",
+        "naskhArabic": "Noto Naskh Arabic",
+        "droidArabicNaskh": "Droid Arabic Naskh",
+        "scheherazadeNew": "Scheherazade New",
         "readexPro": "Readex Pro"
       }
     },

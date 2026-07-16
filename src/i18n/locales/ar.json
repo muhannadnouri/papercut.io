@@ -46,7 +46,7 @@
       "documentCount_few": "{{count, number}} مستندات",
       "documentCount_many": "{{count, number}} مستندًا",
       "documentCount_other": "{{count, number}} مستند",
-      "filterPlaceholder": "صفِّ المستندات...",
+      "filterPlaceholder": "تصفية المستندات...",
       "clear": "مسح عوامل التصفية",
       "selectedFiltersLabel": "عوامل تصفية المستندات المحددة",
       "removeFilter": "إزالة {{title}} من نطاق البحث"
@@ -91,7 +91,7 @@
       "ariaLabel": "المستندات",
       "title": "المستندات ({{count, number}})",
       "loading": "جارٍ تحميل المستندات...",
-      "filterPlaceholder": "صفِّ المستندات...",
+      "filterPlaceholder": "تصفية المستندات...",
       "import": "استيراد",
       "future": "لاحقًا",
       "savedAudio": "صوت محفوظ",
@@ -218,9 +218,9 @@
       "fonts": {
         "literata": "Literata",
         "atkinson": "Atkinson Hyperlegible",
-        "systemSerif": "خط النظام المذيّل",
-        "systemSans": "خط النظام بلا تذييل",
-        "naskhArabic": "نسخ عربي",
+        "systemSerif": "System Serif",
+        "systemSans": "System Sans",
+        "naskhArabic": "Noto Naskh Arabic",
         "droidArabicNaskh": "Droid Arabic Naskh",
         "scheherazadeNew": "Scheherazade New",
         "readexPro": "Readex Pro"

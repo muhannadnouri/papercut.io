@@ -202,12 +202,12 @@
       "increase": "Aumentar {{setting}}",
       "fonts": {
         "literata": "Literata",
-        "atkinson": "Atkinson hiperlegível",
-        "systemSerif": "Serifa do sistema",
-        "systemSans": "Sistema Sans",
-        "naskhArabic": "Naskh árabe",
-        "droidArabicNaskh": "Droid Árabe Naskh",
-        "scheherazadeNew": "Scheherazade Novo",
+        "atkinson": "Atkinson Hyperlegible",
+        "systemSerif": "System Serif",
+        "systemSans": "System Sans",
+        "naskhArabic": "Noto Naskh Arabic",
+        "droidArabicNaskh": "Droid Arabic Naskh",
+        "scheherazadeNew": "Scheherazade New",
         "readexPro": "Readex Pro"
       }
     },

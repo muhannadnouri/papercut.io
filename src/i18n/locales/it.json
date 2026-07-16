@@ -202,13 +202,13 @@
       "increase": "Aumenta {{setting}}",
       "fonts": {
         "literata": "Literata",
-        "atkinson": "Atkinson iperleggibile",
-        "systemSerif": "Serif",
-        "systemSans": "Sistema Sans",
-        "naskhArabic": "Arabo Naskh",
-        "droidArabicNaskh": "Droide arabo Naskh",
-        "scheherazadeNew": "Scheherazade Nuovo",
-        "readexPro": "ReadExPro"
+        "atkinson": "Atkinson Hyperlegible",
+        "systemSerif": "System Serif",
+        "systemSans": "System Sans",
+        "naskhArabic": "Noto Naskh Arabic",
+        "droidArabicNaskh": "Droid Arabic Naskh",
+        "scheherazadeNew": "Scheherazade New",
+        "readexPro": "Readex Pro"
       }
     },
     "findBar": {
