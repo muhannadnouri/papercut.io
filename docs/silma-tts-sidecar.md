@@ -870,11 +870,24 @@ instead of claiming the voice model alone makes SILMA ready.
 
 During development, `PAPERCUT_SILMA_MODEL_DIR` can point at the official SILMA
 Hugging Face cache root, for example `./.cache/silma-tts`. The status/runtime
-checks search that directory recursively for one directory containing both
-`model.pt` and `vocab.txt`, because the official downloader stores files under
-`models--silma-ai--silma-tts/...`. Split files in different snapshots do not
-count as an installed model. The app-owned installer stores those files directly
-under `models/silma-tts/silma-tts/`.
+checks require the same Hugging Face cache layout that SILMA's own `cached_path`
+loader uses:
+
+```text
+models/silma-tts/silma-tts/
+  models--silma-ai--silma-tts/
+    refs/main
+    blobs/<cached blob ids>
+    snapshots/d2515317033803648ecb8844765db9e583afecf9/
+      model.pt
+      vocab.txt
+```
+
+The app-owned installer writes that layout directly so the first real synthesis
+run does not download the 2.5 GB SILMA checkpoint a second time. If an older
+Papercut build already downloaded flat `model.pt` and `vocab.txt` files, the
+installer can reuse those files while promoting the directory to Hugging Face
+cache layout.
 
 ## Python Worker Tasks
 
@@ -1309,6 +1322,8 @@ Exit criteria:
 - [x] Keep partial runtime-pack archives after recoverable install failures so
       retry can resume instead of starting over.
 - [x] Install missing SILMA runtime and model files from one user action.
+- [x] Store SILMA model files in Hugging Face cache layout so SILMA's Python
+      loader reuses the app download instead of fetching the checkpoint again.
 - [x] Add SILMA runtime-pack download support behind checked release metadata.
 - [x] Add release helper to update checked runtime metadata from the packaged
       artifact.

@@ -419,20 +419,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn silma_required_files_must_share_one_directory() {
+    fn silma_required_files_must_use_hugging_face_cache_layout() {
         let nonce = unique_nonce();
         let dir = std::env::temp_dir().join(format!("papercut-silma-files-{nonce}"));
-        let split_a = dir.join("snapshot-a");
-        let split_b = dir.join("snapshot-b");
-        fs::create_dir_all(&split_a).unwrap();
-        fs::create_dir_all(&split_b).unwrap();
-        fs::write(split_a.join("model.pt"), b"model").unwrap();
-        fs::write(split_b.join("vocab.txt"), b"vocab").unwrap();
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("model.pt"), b"model").unwrap();
+        fs::write(dir.join("vocab.txt"), b"vocab").unwrap();
 
         let model = model_definition(SILMA_MODEL_ID).unwrap();
         assert!(!has_required_model_files(model, &dir));
 
-        let complete = dir.join("snapshot-complete");
+        let complete = dir
+            .join("models--silma-ai--silma-tts")
+            .join("snapshots")
+            .join("d2515317033803648ecb8844765db9e583afecf9");
         fs::create_dir_all(&complete).unwrap();
         fs::write(complete.join("model.pt"), b"model").unwrap();
         fs::write(complete.join("vocab.txt"), b"vocab").unwrap();
