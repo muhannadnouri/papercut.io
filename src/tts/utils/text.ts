@@ -38,6 +38,14 @@ export const AUDIOBOOK_SAVE_CHUNK_PROFILE: SpeechChunkProfile = {
   minChunkLength: 80,
 }
 
+// SILMA/F5 re-chunks internally at about 120 chars after Arabic normalization
+// and tashkeel. Keep app chunks shorter so punctuation and final clauses do not
+// get split a second time inside the Python model.
+export const SILMA_AUDIOBOOK_SAVE_CHUNK_PROFILE: SpeechChunkProfile = {
+  maxChunkLength: 80,
+  minChunkLength: 50,
+}
+
 // Compatibility wrapper for callers that still need one normalized readable string.
 export function extractReadableTextFromHtml(html: string): string {
   return extractReadableTextFromSegments(extractReadableSegmentsFromHtml(html))
@@ -63,10 +71,13 @@ export function chunkAudiobookSaveText(text: string): string[] {
 
 // Builds save-time audiobook chunks from HTML segments so headings, paragraphs,
 // and lists stay aligned with the viewer highlight index.
-export function chunkAudiobookSaveHtmlWithSpans(html: string): SpeechChunk[] {
+export function chunkAudiobookSaveHtmlWithSpans(
+  html: string,
+  profile: SpeechChunkProfile = AUDIOBOOK_SAVE_CHUNK_PROFILE,
+): SpeechChunk[] {
   return chunkReadableSegmentsWithSpans(
     extractReadableSegmentsFromHtml(html),
-    AUDIOBOOK_SAVE_CHUNK_PROFILE,
+    profile,
   )
 }
 

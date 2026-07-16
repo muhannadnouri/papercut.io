@@ -1,6 +1,6 @@
 # SILMA TTS Python Sidecar Development Guide
 
-Last updated: 2026-07-13
+Last updated: 2026-07-15
 
 This is the working guide for bringing SILMA TTS into Papercut as a desktop-only
 Python sidecar while keeping the existing sherpa-onnx audiobook path.
@@ -218,9 +218,15 @@ Reference quality notes:
   clean, natural, not clipped, and close to the target language/accent/style.
 - More sophisticated prose is not automatically better. Useful coverage is
   phonetic/prosodic, not literary.
-- For Arabic references, an accurate diacritized transcript may help the model
-  condition pronunciation. Papercut's bundled SILMA profile uses a diacritized
-  transcript for the upstream `ar.ref.24k.wav` sample.
+- For the upstream `ar.ref.24k.wav` sample, keep the reference transcript
+  identical to SILMA's official undiacritized example. SILMA estimates generated
+  duration from reference-audio length and reference-text length, so adding
+  diacritics to that transcript without changing the WAV can compress output and
+  make words easier to skip.
+- For custom Arabic references, an accurate matching transcript matters more
+  than literary sophistication. Use diacritics only when the transcript still
+  faithfully matches the reference audio and improves conditioning in listening
+  tests.
 - Keep first-release reference audio as WAV. SILMA's `pydub` import can warn
   when the `ffmpeg` executable is missing during editable-worker smoke tests,
   but release runtime packs still bundle FFmpeg shared libraries for TorchCodec.
@@ -391,6 +397,7 @@ Current Rust worker launch order:
 - `PAPERCUT_SILMA_WORKER_BIN` for direct packaged-worker testing;
 - explicit `PAPERCUT_SILMA_WORKER` or `PAPERCUT_SILMA_PYTHON` for source-worker
   development;
+- user-local runtime manifest installed under app data;
 - app-data runtime pack installed by the app;
 - editable repo worker script for local dev fallback.
 
@@ -423,9 +430,25 @@ linux-x64-cpu
 ```
 
 The checked app manifest currently installs `linux-x64-cpu` by default. CUDA is
-deferred until the runtime pack can import torchaudio with a loadable
-`libcudart.so.12` in CI and on a real NVIDIA Linux desktop. The native model
-catalog hides SILMA on Windows, macOS, Android, and iOS until the upstream
+installed by the current user-local setup script instead of a published
+multi-GB runtime pack. The app discovers that installation through:
+
+```text
+<app-data>/runtimes/silma/silma-runtime.local.json
+```
+
+The local manifest points at a wrapper executable with either `workerPath` or
+`worker`, relative to the manifest directory or absolute:
+
+```json
+{"runtimeId":"linux-x64-cuda-local","workerPath":"linux-x64-cuda/installs/<install-id>/run-silma-worker"}
+```
+
+Rust prefers this user-local runtime before the downloaded CPU runtime pack.
+The setup script verifies `torch.cuda.is_available()` before atomically writing
+the manifest. A malformed local manifest is reported when no runtime is
+available, but it does not block a valid downloaded CPU fallback. The native
+model catalog hides SILMA on Windows, macOS, Android, and iOS until the upstream
 Python dependency stack has a supported install path there.
 
 Expected worker launcher path inside runtime packs:
@@ -443,8 +466,8 @@ SILMA worker launch order is now:
 
 1. `PAPERCUT_SILMA_WORKER_BIN`;
 2. explicit `PAPERCUT_SILMA_WORKER` or `PAPERCUT_SILMA_PYTHON`;
-3. app-data runtime pack;
-4. bundled resource from the packaging spike;
+3. user-local runtime manifest;
+4. app-data CPU runtime pack;
 5. editable repo worker script.
 
 Model status reports SILMA runtime availability separately from SILMA model-file
@@ -499,24 +522,60 @@ npm run package:silma-runtime
 environment, because release runtime packs need to include the interpreter,
 stdlib, source packages, and native extensions.
 
-Local CUDA runtime-pack prep uses the same worker build, but the Python
-environment must install CUDA PyTorch wheels first:
+CUDA runtime direction:
+
+Do not publish a CUDA runtime pack from CI yet. GitHub-hosted runners can build
+files, but they cannot prove RTX-class runtime behavior without an NVIDIA
+driver/GPU. CUDA support should be installed locally by an explicit Linux NVIDIA
+setup script that creates a Papercut-owned micromamba environment, installs
+Python 3.12, FFmpeg, the matching PyTorch CUDA wheels, validates
+`torch.cuda.is_available()`, then writes `silma-runtime.local.json`.
+
+Micromamba is a small conda-compatible package manager. Papercut uses it here so
+the CUDA runtime can have its own Python and FFmpeg without touching the user's
+system Python, distro packages, or shell startup files.
+
+Current repo command:
 
 ```bash
-sudo apt-get install -y --no-install-recommends ffmpeg
-python -m pip install -r sidecars/silma/requirements-build.txt
-python -m pip install --upgrade --force-reinstall torch torchvision torchaudio torchcodec \
-  --index-url https://download.pytorch.org/whl/cu128
-python -m pip uninstall -y onnxruntime-gpu
-python -m pip install --upgrade --force-reinstall --no-deps onnxruntime
-npm run prepare:silma-sidecar -- --clean --self-test --import-check --dependency-check
-npm run package:silma-runtime -- \
-  --runtime-id linux-x64-cuda \
-  --archive-name papercut-silma-runtime-linux-x64-cuda.tar.bz2
+npm run install:silma-cuda-runtime
 ```
 
-Then launch the dev app without `PAPERCUT_SILMA_WORKER_BIN`; the SILMA install
-button can copy that prepared runtime into app data.
+The script creates a tiny executable wrapper and writes the local runtime
+manifest only after the CUDA probe passes. The app can then use GPU
+automatically without environment variables. If the local CUDA runtime is
+absent, the downloaded CPU runtime remains the fallback.
+
+Current CUDA setup script:
+
+- lives at `scripts/install-silma-cuda-runtime.sh`;
+- requires Linux x64, `nvidia-smi`, network access, `sha256sum`, and
+  `curl` or `wget`;
+- downloads the app-owned micromamba `2.8.1-0` binary from its fixed release URL
+  and verifies SHA-256 before executing it;
+- builds each candidate under
+  `<app-data>/runtimes/silma/linux-x64-cuda/installs/<install-id>/` while the
+  prior manifest and runtime remain active;
+- copies the checked-in `sidecars/silma/silma_worker.py` source into the local
+  runtime so TorchScript/source lookups still work;
+- uses micromamba to install Python 3.12, FFmpeg, and pip inside
+  that versioned candidate;
+- installs `silma-tts==1.0.5` plus the tested CUDA 12.6 package set:
+  `torch==2.13.0+cu126`, `torchvision==0.28.0+cu126`,
+  `torchaudio==2.11.0+cu126`, and `torchcodec==0.15.0+cu126`;
+- keeps ONNX Runtime on CPU because CATT/tashkeel uses ONNX Runtime while SILMA
+  generation uses PyTorch, and pins it to `onnxruntime==1.27.0`;
+- runs `--self-test`, `--dependency-check`, and a CUDA availability probe before
+  atomically replacing `silma-runtime.local.json`. Failed candidates are
+  removed without disturbing the previously active runtime; superseded
+  runtimes are removed only after successful activation;
+- accepts `PAPERCUT_SILMA_RUNTIME_ROOT` and
+  `PAPERCUT_SILMA_WORKER_SOURCE` for test machines.
+- SILMA worker launches strip inherited AppImage loader variables and all
+  inherited `PYTHON*` variables before starting the worker. The worker launchers
+  then set their own Python/FFmpeg paths, which avoids Arch-like `/bin/sh`
+  symbol lookup failures and AppImage Python state leaking into micromamba
+  runtimes.
 
 The package command writes a manifest plus either one archive or numbered parts
 when the archive is too large for a single GitHub Release asset:
@@ -596,6 +655,7 @@ CUDA runtime policy:
 - ship CPU first because it is universal on supported Linux x64 desktops;
 - keep CUDA as the only GPU runtime lane for now because NVIDIA CUDA is the
   most common acceleration path for this model class;
+- use a user-local CUDA setup script before attempting hosted CUDA runtime packs;
 - keep ONNX Runtime on CPU in both runtime packs; SILMA's heavy generation path is
   PyTorch, while CATT/tashkeel uses ONNX Runtime during preprocessing;
 - reinstall CPU ONNX Runtime with `--no-deps` so pip does not upgrade NumPy
@@ -605,11 +665,9 @@ CUDA runtime policy:
   PyTorch/torchaudio can find pip-installed native libraries;
 - do not add ROCm, Intel XPU, Windows, or macOS runtime packs until there is a
   tester and an upstream-supported dependency path;
-- do not re-enable CUDA CI until a source-preserving runtime can pass
-  `--dependency-check` with torchaudio, torchcodec, and a loadable
-  `libcudart.so.12`; after that, add a CUDA manifest entry and a small UI
-  selector that lets Linux users choose CPU or NVIDIA GPU before installing
-  SILMA.
+- do not re-enable hosted CUDA runtime-pack CI until there is a real NVIDIA
+  validation machine. A non-GPU CI runner cannot prove `libcudart.so.12`,
+  torchaudio, TorchCodec, and driver compatibility for end users.
 
 Practical CI model:
 
@@ -771,6 +829,8 @@ Windows and macOS:
       request/response calls.
 - [x] Add `LoadedTtsEngine::Silma` and a dev `load_model` route.
 - [x] Add SILMA chunk synthesis through the shared WAV sink.
+- [x] Add SILMA-specific save chunk sizing to avoid a second awkward split in
+      the Python F5 runtime.
 - [ ] Add `SilmaSidecar` process supervision:
       - spawn;
       - health check;
@@ -818,11 +878,26 @@ instead of claiming the voice model alone makes SILMA ready.
 
 During development, `PAPERCUT_SILMA_MODEL_DIR` can point at the official SILMA
 Hugging Face cache root, for example `./.cache/silma-tts`. The status/runtime
-checks search that directory recursively for one directory containing both
-`model.pt` and `vocab.txt`, because the official downloader stores files under
-`models--silma-ai--silma-tts/...`. Split files in different snapshots do not
-count as an installed model. The app-owned installer stores those files directly
-under `models/silma-tts/silma-tts/`.
+checks require the same Hugging Face cache layout that SILMA's own `cached_path`
+loader uses:
+
+```text
+models/silma-tts/silma-tts/
+  models--silma-ai--silma-tts/
+    refs/main
+    blobs/<cached blob ids>
+    snapshots/d2515317033803648ecb8844765db9e583afecf9/
+      model.pt
+      vocab.txt
+```
+
+The app-owned installer writes that layout directly so the first real synthesis
+run does not download the 2.5 GB SILMA checkpoint a second time. If an older
+Papercut build already downloaded flat `model.pt` and `vocab.txt` files, the
+installer can reuse those files while promoting the directory to Hugging Face
+cache layout. Installed-state validation also requires `refs/main` to contain
+the pinned revision shown above; snapshot files alone are not enough because
+SILMA's `cached_path` request resolves the default Hugging Face branch.
 
 ## Python Worker Tasks
 
@@ -1065,6 +1140,11 @@ Stage 2 SILMA synthesis status:
 - Save loop selects sherpa or SILMA from `ModelDefinition.backend`.
 - SILMA uses `TextPreprocessor` identity in Rust; the Python worker runs its own
   SILMA normalization/tashkeel path.
+- Frontend save chunking uses a smaller SILMA-only profile, currently 80
+  characters max, because SILMA/F5 internally re-chunks around 120 characters
+  after Arabic normalization and tashkeel. Keeping Papercut chunks shorter
+  reduces skipped short words around punctuation and avoids odd pauses in short
+  final clauses.
 - SILMA validates the selected Papercut voice id, then ignores the numeric
   speaker id because SILMA uses the reference voice path instead.
 - The existing thread selector is honored for SILMA by applying it to PyTorch
@@ -1129,14 +1209,21 @@ Stage 2 SILMA synthesis status:
       `npm run desktop -- --bundles appimage`.
 - [x] Add app-data SILMA runtime-pack detection before implementing runtime
       downloads.
+- [x] Add user-local SILMA runtime manifest detection for future CUDA setup.
+- [x] Add repo-run local SILMA CUDA setup script that writes that manifest after
+      CUDA validation.
+- [x] Move CUDA setup script Python and FFmpeg handling into a Papercut-local
+      micromamba environment.
 - [ ] Keep Android and iOS build scripts untouched except for explicit exclusion.
 - [ ] Add CI smoke checks for Linux SILMA runtime-pack archives.
 - [ ] Extend release notes/build docs with SILMA Linux-only support.
 
 ## Security And Policy Tasks
 
-- [ ] Pin and verify SILMA model sources.
-- [ ] Store downloaded models under app data, not arbitrary user paths.
+- [x] Pin and verify SILMA model sources.
+- [x] Pin the CUDA compatibility stack and verify the downloaded micromamba
+      bootstrap binary.
+- [x] Store downloaded models under app data, not arbitrary user paths.
 - [ ] Validate all paths sent to the sidecar are app-owned paths.
 - [ ] Do not pass shell-interpreted arguments.
 - [ ] Do not expose a generic "run command" permission to the frontend.
@@ -1252,6 +1339,8 @@ Exit criteria:
 - [x] Keep partial runtime-pack archives after recoverable install failures so
       retry can resume instead of starting over.
 - [x] Install missing SILMA runtime and model files from one user action.
+- [x] Store SILMA model files in Hugging Face cache layout so SILMA's Python
+      loader reuses the app download instead of fetching the checkpoint again.
 - [x] Add SILMA runtime-pack download support behind checked release metadata.
 - [x] Add release helper to update checked runtime metadata from the packaged
       artifact.
@@ -1267,7 +1356,11 @@ Exit criteria:
 - [x] Add SILMA model-file in-app install support.
 - [x] Pin model-file source revision and hashes.
 - [x] Download model files to app data.
-- [x] Validate required files.
+- [x] Validate required files and the pinned Hugging Face `refs/main` value.
+- [x] Build local CUDA candidates off to the side and atomically activate their
+      manifest only after runtime and CUDA checks pass.
+- [x] Fall back to the downloaded CPU runtime when an optional local CUDA
+      manifest is malformed.
 
 Exit criteria:
 
@@ -1295,8 +1388,9 @@ Exit criteria:
       ordinary release installers.
 - [x] Bundle sidecar dependencies correctly in the Linux runtime pack.
 - [x] Bundle FFmpeg shared libraries in the optional Linux SILMA runtime pack.
-- [ ] Rebuild the Linux CPU runtime pack with CPU `torchcodec` pinned from the
+- [x] Rebuild the Linux CPU runtime pack with CPU `torchcodec` pinned from the
       PyTorch CPU wheel index and verify a clean install.
+- [x] Add local-runtime discovery before building the Linux CUDA setup script.
 - [ ] Verify Linux bundles.
 - [ ] Revisit Windows/macOS runtime packs after upstream dependency fixes.
 

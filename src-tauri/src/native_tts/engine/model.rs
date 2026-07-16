@@ -23,7 +23,10 @@ use sha2::{Digest, Sha256};
 use tauri::Emitter;
 
 use super::config::MODEL_INSTALL_PROGRESS_EVENT;
-use super::models::{model_definition, visible_models, ModelDefinition, TtsModelBackend};
+use super::models::{
+    model_definition, visible_models, ModelDefinition, TtsModelBackend, SILMA_HF_CACHE_REPO_DIR,
+    SILMA_HF_REVISION,
+};
 use super::paths::{
     directory_size, has_required_model_files, installed_model_dir, model_work_dir,
     resolve_model_dir, runtime_model_dir,
@@ -38,21 +41,23 @@ use crate::native_tts::types::{
 
 const SILMA_MODEL_FILES: &[SilmaModelFile] = &[
     SilmaModelFile {
-        path: "model.pt",
+        name: "model.pt",
+        blob: "f43256d0b78b8803c638aed0875da5a4b372b4a784690a0156e5baff14f7336c",
         url: "https://huggingface.co/silma-ai/silma-tts/resolve/d2515317033803648ecb8844765db9e583afecf9/model.pt",
         sha256: "f43256d0b78b8803c638aed0875da5a4b372b4a784690a0156e5baff14f7336c",
         bytes: 2_603_209_272,
     },
     SilmaModelFile {
-        path: "vocab.txt",
+        name: "vocab.txt",
+        blob: "b678d831888af2e3c662b94bc248fa6845bebf61",
         url: "https://huggingface.co/silma-ai/silma-tts/resolve/d2515317033803648ecb8844765db9e583afecf9/vocab.txt",
         sha256: "5c2ffc48802a52bbdf715dacf1d6519d3fee96e391aef690261963a692b8e661",
         bytes: 36_357,
     },
 ];
-
 struct SilmaModelFile {
-    path: &'static str,
+    name: &'static str,
+    blob: &'static str,
     url: &'static str,
     sha256: &'static str,
     bytes: u64,
@@ -136,7 +141,7 @@ pub(crate) fn model_status(
             archive_bytes: model_archive_bytes(model, runtime_status.as_ref()),
             installed_bytes: directory_size(&model_dir).unwrap_or(0),
             sha256: model.sha256.into(),
-            message: missing_model_message(model, &model_dir, installing),
+            message: missing_model_message(model, installing),
             runtime_message: model_runtime_message(runtime_status.as_ref()),
         },
         Err(err) => NativeTtsModelStatus {
@@ -305,16 +310,10 @@ async fn install_silma_runtime_pack_for_model(
     emit_model_progress(&app, model, "starting", "Installing SILMA runtime pack", 0);
     let app_for_task = app.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
-        let runtime_dir = install_silma_runtime_pack(&app_for_task, |downloaded, total| {
-            emit_model_progress_total(
-                &app_for_task,
-                model,
-                "downloading",
-                "Downloading SILMA runtime pack",
-                downloaded,
-                total,
-            );
-        })?;
+        let runtime_dir =
+            install_silma_runtime_pack(&app_for_task, |status, message, downloaded, total| {
+                emit_model_progress_total(&app_for_task, model, status, message, downloaded, total);
+            })?;
         Ok(NativeTtsModelInstallResponse {
             model_id: model.id.into(),
             bytes: directory_size(&runtime_dir).unwrap_or(0),
@@ -380,16 +379,13 @@ async fn install_silma_model_files_for_model(
 }
 
 /// Return an absent-model message that matches the backend's real install path.
-fn missing_model_message(model: &ModelDefinition, model_dir: &Path, installing: bool) -> String {
+fn missing_model_message(model: &ModelDefinition, installing: bool) -> String {
     if installing {
         return "Offline voice model download in progress".into();
     }
     if matches!(model.backend, TtsModelBackend::SilmaSidecar) {
-        return format!(
-            "Download SILMA model files ({}) to {}.",
-            model.required_files.join(", "),
-            model_dir.display()
-        );
+        return "Open Audio Setup and choose Install SILMA to download the required model files."
+            .into();
     }
     "Offline voice model is not installed".into()
 }
@@ -417,7 +413,8 @@ fn install_silma_model_files_blocking(
     let total_bytes = silma_model_files_total_bytes();
     let mut completed_bytes = 0;
     for file in SILMA_MODEL_FILES {
-        let destination = temp_model_dir.join(file.path);
+        let destination = silma_hf_blob_path(&temp_model_dir, file);
+        seed_silma_hf_blob_from_legacy_file(&final_dir, file, &destination)?;
         download_silma_model_file(
             &app,
             model,
@@ -426,10 +423,12 @@ fn install_silma_model_files_blocking(
             completed_bytes,
             total_bytes,
         )?;
-        verify_file_sha256(&destination, file.sha256, file.path)?;
+        verify_file_sha256(&destination, file.sha256, file.name)?;
+        link_silma_hf_snapshot_file(&temp_model_dir, file, &destination)?;
         completed_bytes += file.bytes;
     }
-    if !model.has_required_files(&temp_model_dir) {
+    write_silma_hf_ref(&temp_model_dir)?;
+    if !has_required_model_files(model, &temp_model_dir) {
         return Err("Downloaded SILMA model is missing required files".into());
     }
     if let Some(parent) = final_dir.parent() {
@@ -468,6 +467,120 @@ fn silma_model_files_total_bytes() -> u64 {
     SILMA_MODEL_FILES.iter().map(|file| file.bytes).sum()
 }
 
+fn silma_hf_blob_path(root: &Path, file: &SilmaModelFile) -> PathBuf {
+    root.join(SILMA_HF_CACHE_REPO_DIR)
+        .join("blobs")
+        .join(file.blob)
+}
+
+fn silma_hf_snapshot_path(root: &Path, file: &SilmaModelFile) -> PathBuf {
+    root.join(SILMA_HF_CACHE_REPO_DIR)
+        .join("snapshots")
+        .join(SILMA_HF_REVISION)
+        .join(file.name)
+}
+
+/// Reuse the old flat Papercut download when upgrading to Hugging Face cache layout.
+fn seed_silma_hf_blob_from_legacy_file(
+    final_dir: &Path,
+    file: &SilmaModelFile,
+    destination: &Path,
+) -> Result<(), String> {
+    if destination.exists() {
+        return Ok(());
+    }
+    let legacy_file = final_dir.join(file.name);
+    if !legacy_file.is_file() {
+        return Ok(());
+    }
+    copy_or_hard_link_file(&legacy_file, destination)
+}
+
+/// Put the blob at SILMA's expected snapshot path without copying 2.5GB when possible.
+fn link_silma_hf_snapshot_file(
+    root: &Path,
+    file: &SilmaModelFile,
+    blob_path: &Path,
+) -> Result<(), String> {
+    let snapshot_path = silma_hf_snapshot_path(root, file);
+    if let Some(parent) = snapshot_path.parent() {
+        fs::create_dir_all(parent).map_err(|err| {
+            format!(
+                "Failed to create SILMA Hugging Face snapshot directory {}: {err}",
+                parent.display()
+            )
+        })?;
+    }
+    let _ = fs::remove_file(&snapshot_path);
+    create_silma_snapshot_link(file, blob_path, &snapshot_path)
+}
+
+/// `cached_path` delegates to `huggingface_hub`, which resolves branch names through refs.
+fn write_silma_hf_ref(root: &Path) -> Result<(), String> {
+    let ref_path = root.join(SILMA_HF_CACHE_REPO_DIR).join("refs").join("main");
+    if let Some(parent) = ref_path.parent() {
+        fs::create_dir_all(parent).map_err(|err| {
+            format!(
+                "Failed to create SILMA Hugging Face ref directory {}: {err}",
+                parent.display()
+            )
+        })?;
+    }
+    fs::write(&ref_path, SILMA_HF_REVISION).map_err(|err| {
+        format!(
+            "Failed to write SILMA Hugging Face ref {}: {err}",
+            ref_path.display()
+        )
+    })
+}
+
+fn copy_or_hard_link_file(source: &Path, destination: &Path) -> Result<(), String> {
+    if let Some(parent) = destination.parent() {
+        fs::create_dir_all(parent).map_err(|err| {
+            format!(
+                "Failed to create SILMA model file directory {}: {err}",
+                parent.display()
+            )
+        })?;
+    }
+    let _ = fs::remove_file(destination);
+    match fs::hard_link(source, destination) {
+        Ok(()) => Ok(()),
+        Err(_) => fs::copy(source, destination).map(|_| ()).map_err(|err| {
+            format!(
+                "Failed to copy SILMA model file {} to {}: {err}",
+                source.display(),
+                destination.display()
+            )
+        }),
+    }
+}
+
+#[cfg(unix)]
+fn create_silma_snapshot_link(
+    file: &SilmaModelFile,
+    _blob_path: &Path,
+    snapshot_path: &Path,
+) -> Result<(), String> {
+    let relative_blob = Path::new("..").join("..").join("blobs").join(file.blob);
+    std::os::unix::fs::symlink(&relative_blob, snapshot_path).map_err(|err| {
+        format!(
+            "Failed to link SILMA snapshot file {} to {}: {err}",
+            snapshot_path.display(),
+            relative_blob.display()
+        )
+    })
+}
+
+#[cfg(not(unix))]
+fn create_silma_snapshot_link(
+    _file: &SilmaModelFile,
+    blob_path: &Path,
+    snapshot_path: &Path,
+) -> Result<(), String> {
+    copy_or_hard_link_file(blob_path, snapshot_path)
+}
+
 /// Download one pinned SILMA file, resuming an interrupted partial file if possible.
 fn download_silma_model_file(
     app: &tauri::AppHandle,
@@ -491,7 +604,7 @@ fn download_silma_model_file(
             app,
             model,
             "downloading",
-            &format!("Downloaded {}", file.path),
+            &format!("Downloaded {}", file.name),
             completed_bytes + resume_from,
             total_bytes,
         );
@@ -509,9 +622,9 @@ fn download_silma_model_file(
     }
     let mut response = request
         .send()
-        .map_err(|err| format!("Failed to download SILMA model file {}: {err}", file.path))?
+        .map_err(|err| format!("Failed to download SILMA model file {}: {err}", file.name))?
         .error_for_status()
-        .map_err(|err| format!("Failed to download SILMA model file {}: {err}", file.path))?;
+        .map_err(|err| format!("Failed to download SILMA model file {}: {err}", file.name))?;
     let appending = resume_from > 0 && response.status() == StatusCode::PARTIAL_CONTENT;
     let mut downloaded = if appending { resume_from } else { 0 };
     let file_handle = OpenOptions::new()
@@ -533,7 +646,7 @@ fn download_silma_model_file(
         app,
         model,
         "downloading",
-        &format!("Downloading {}", file.path),
+        &format!("Downloading {}", file.name),
         completed_bytes + downloaded,
         total_bytes,
     );
@@ -541,7 +654,7 @@ fn download_silma_model_file(
         let read = response.read(&mut buffer).map_err(|err| {
             format!(
                 "Failed while downloading SILMA model file {}: {err}",
-                file.path
+                file.name
             )
         })?;
         if read == 0 {
@@ -561,7 +674,7 @@ fn download_silma_model_file(
                 app,
                 model,
                 "downloading",
-                &format!("Downloading {}", file.path),
+                &format!("Downloading {}", file.name),
                 completed_bytes + downloaded,
                 total_bytes,
             );

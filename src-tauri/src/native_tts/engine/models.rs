@@ -415,10 +415,15 @@ const PIPER_REQUIRED_FILES: &[&str] = &[
     "espeak-ng-data/ar_dict",
 ];
 
-const SILMA_REQUIRED_FILES: &[&str] = &["model.pt", "vocab.txt"];
+const SILMA_REQUIRED_FILES: &[&str] = &[
+    "models--silma-ai--silma-tts/snapshots/d2515317033803648ecb8844765db9e583afecf9/model.pt",
+    "models--silma-ai--silma-tts/snapshots/d2515317033803648ecb8844765db9e583afecf9/vocab.txt",
+];
 
 pub(super) const DEFAULT_MODEL_ID: &str = "sherpa-onnx/kokoro-multi-lang-v1_0";
 pub(super) const SILMA_MODEL_ID: &str = "silma-ai/silma-tts";
+pub(super) const SILMA_HF_CACHE_REPO_DIR: &str = "models--silma-ai--silma-tts";
+pub(super) const SILMA_HF_REVISION: &str = "d2515317033803648ecb8844765db9e583afecf9";
 
 pub(super) const MODELS: &[ModelDefinition] = &[
     ModelDefinition {
