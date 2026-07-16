@@ -403,7 +403,7 @@ export function useAudiobookManager({
           }
           cancelHighlightBuild = scheduleImportedHighlightBuild(() => {
             if (cancelled) return
-            const rebuiltChunks = audiobookSaveChunksFromHtml(docContent)
+            const rebuiltChunks = audiobookSaveChunksFromHtml(docContent, metadata.modelId)
             const graftedChunks = graftImportedSourceSpans(metadata.chunks, rebuiltChunks, {
               documentUrl: selectedDoc,
               modelId: metadata.modelId,
@@ -420,7 +420,7 @@ export function useAudiobookManager({
         })
         .catch(() => {
           if (cancelled) return
-          setTtsSaveChunks(audiobookSaveChunksFromHtml(docContent))
+          setTtsSaveChunks(audiobookSaveChunksFromHtml(docContent, ttsModelId))
           setImportedHighlightStatus('unavailable')
         })
       return () => {
@@ -430,8 +430,8 @@ export function useAudiobookManager({
     }
 
     setImportedHighlightStatus('ready')
-    setTtsSaveChunks(audiobookSaveChunksFromHtml(docContent))
-  }, [docContent, selectedDoc, setTtsModelId])
+    setTtsSaveChunks(audiobookSaveChunksFromHtml(docContent, ttsModelId))
+  }, [docContent, selectedDoc, setTtsModelId, ttsModelId])
 
   useEffect(() => {
     if (!selectedDoc || !ttsSaveChunks || autoSelectedDocumentRef.current === selectedDoc) return
