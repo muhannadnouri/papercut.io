@@ -383,6 +383,19 @@ export function AudioSetupPanel({
             </span>
           )}
         </SelectField>
+        <label className="audio-field audio-field-diagnostics" title={t('tts.setup.diagnosticsTitle')}>
+          <span>{'🧪 ' + t('tts.setup.diagnostics')}</span>
+          <span className="audio-diagnostics-control">
+            <span className="audio-diagnostics-value">{debugEnabled ? t('tts.setup.on') : t('tts.setup.off')}</span>
+            <input
+              type="checkbox"
+              checked={debugEnabled}
+              onChange={(event) => onDiagnosticsChange?.(event.target.checked)}
+              disabled={!onDiagnosticsChange}
+            />
+            <span className="audio-diagnostics-switch" aria-hidden="true" />
+          </span>
+        </label>
         {isSilmaModel && (
           <SelectField
             className="audio-field-silma-quality"
@@ -400,20 +413,7 @@ export function AudioSetupPanel({
             </span>
           </SelectField>
         )}
-        <label className="audio-field audio-field-diagnostics" title={t('tts.setup.diagnosticsTitle')}>
-          <span>{'🧪 ' + t('tts.setup.diagnostics')}</span>
-          <span className="audio-diagnostics-control">
-            <span className="audio-diagnostics-value">{debugEnabled ? t('tts.setup.on') : t('tts.setup.off')}</span>
-            <input
-              type="checkbox"
-              checked={debugEnabled}
-              onChange={(event) => onDiagnosticsChange?.(event.target.checked)}
-              disabled={!onDiagnosticsChange}
-            />
-            <span className="audio-diagnostics-switch" aria-hidden="true" />
-          </span>
-        </label>
-        {debugEnabled && isSilmaModel && onProbeSilmaSidecar && (
+        {isSilmaModel && onProbeSilmaSidecar && (
           <div className="audio-field audio-field-silma-probe">
             <span>{t('tts.setup.silmaSidecar')}</span>
             <button
