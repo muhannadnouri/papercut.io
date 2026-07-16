@@ -218,9 +218,15 @@ Reference quality notes:
   clean, natural, not clipped, and close to the target language/accent/style.
 - More sophisticated prose is not automatically better. Useful coverage is
   phonetic/prosodic, not literary.
-- For Arabic references, an accurate diacritized transcript may help the model
-  condition pronunciation. Papercut's bundled SILMA profile uses a diacritized
-  transcript for the upstream `ar.ref.24k.wav` sample.
+- For the upstream `ar.ref.24k.wav` sample, keep the reference transcript
+  identical to SILMA's official undiacritized example. SILMA estimates generated
+  duration from reference-audio length and reference-text length, so adding
+  diacritics to that transcript without changing the WAV can compress output and
+  make words easier to skip.
+- For custom Arabic references, an accurate matching transcript matters more
+  than literary sophistication. Use diacritics only when the transcript still
+  faithfully matches the reference audio and improves conditioning in listening
+  tests.
 - Keep first-release reference audio as WAV. SILMA's `pydub` import can warn
   when the `ffmpeg` executable is missing during editable-worker smoke tests,
   but release runtime packs still bundle FFmpeg shared libraries for TorchCodec.
@@ -559,10 +565,11 @@ Current CUDA setup script:
 - accepts `PAPERCUT_SILMA_TORCH_INDEX_URL`, `PAPERCUT_MICROMAMBA_BIN`,
   `PAPERCUT_SILMA_RUNTIME_ROOT`, and `PAPERCUT_SILMA_WORKER_SOURCE` for test
   machines.
-- SILMA worker launches strip the inherited AppImage `LD_LIBRARY_PATH` before
-  starting the worker. The worker launchers then set their own Python/FFmpeg
-  library paths, which avoids Arch-like `/bin/sh` symbol lookup failures during
-  runtime-pack self-tests.
+- SILMA worker launches strip inherited AppImage loader variables and all
+  inherited `PYTHON*` variables before starting the worker. The worker launchers
+  then set their own Python/FFmpeg paths, which avoids Arch-like `/bin/sh`
+  symbol lookup failures and AppImage Python state leaking into micromamba
+  runtimes.
 
 The package command writes a manifest plus either one archive or numbered parts
 when the archive is too large for a single GitHub Release asset:
