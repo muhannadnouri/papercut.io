@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AppDialog } from '../AppDialog/AppDialog'
 import './TextInputDialog.css'
 
@@ -20,13 +21,14 @@ export function TextInputDialog({
   label,
   description,
   initialValue = '',
-  confirmLabel = 'Save',
+  confirmLabel,
   busy = false,
   error,
   maxLength,
   onCancel,
   onSubmit,
 }: TextInputDialogProps) {
+  const { t } = useTranslation()
   const [value, setValue] = useState(initialValue)
   const inputRef = useRef<HTMLInputElement>(null)
   const trimmedValue = value.trim()
@@ -55,10 +57,10 @@ export function TextInputDialog({
       actions={(
         <>
           <button type="button" className="app-dialog-cancel" disabled={busy} onClick={onCancel}>
-            Cancel
+            {t('common.cancel')}
           </button>
           <button type="submit" className="app-dialog-submit" disabled={busy || !trimmedValue}>
-            {confirmLabel}
+            {confirmLabel ?? t('common.save')}
           </button>
         </>
       )}

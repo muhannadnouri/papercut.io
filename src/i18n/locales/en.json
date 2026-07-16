@@ -8,10 +8,20 @@
     "library": "Library",
     "audiobooks": "Audiobooks"
   },
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "done": "Done",
+    "open": "Open",
+    "save": "Save"
+  },
+  "externalLink": {
+    "title": "Open External Link?",
+    "description": "This link will open outside Papercut."
+  },
   "settings": {
     "button": "App settings",
     "title": "App Settings",
-    "done": "Done",
     "appearance": "Appearance",
     "language": "Language",
     "theme": "Theme",

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AppDialog } from './AppDialog'
 
 type ConfirmationTone = 'default' | 'danger'
@@ -18,6 +19,7 @@ interface ConfirmationOptions {
 }
 
 export function useAppConfirmation() {
+  const { t } = useTranslation()
   const [request, setRequest] = useState<ConfirmationOptions | null>(null)
   const resolverRef = useRef<((confirmed: boolean) => void) | null>(null)
 
@@ -56,11 +58,11 @@ export function useAppConfirmation() {
           <>
             {request.cancelLabel !== null && (
               <button type="button" className="app-dialog-cancel" onClick={() => close(false)}>
-                {request.cancelLabel ?? 'Cancel'}
+                {request.cancelLabel ?? t('common.cancel')}
               </button>
             )}
             <button type="button" className={confirmClassName} onClick={() => close(true)}>
-              {request.confirmLabel ?? 'Confirm'}
+              {request.confirmLabel ?? t('common.confirm')}
             </button>
           </>
         }
@@ -77,7 +79,7 @@ export function useAppConfirmation() {
         )}
       </AppDialog>
     )
-  }, [close, request])
+  }, [close, request, t])
 
   return { confirm, dialog }
 }

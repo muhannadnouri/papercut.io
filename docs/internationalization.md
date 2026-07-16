@@ -8,7 +8,8 @@ from the language of an open document.
 - English (`en`) and Arabic (`ar`) locale resources are bundled with the app.
 - The first launch uses the first supported browser or operating-system
   language, then stores the user's explicit choice in local storage.
-- App Settings, the header subtitle, and primary navigation are translated.
+- App Settings, the header subtitle, primary navigation, shared confirmation
+  defaults, text-input actions, and the external-link prompt are translated.
 - Arabic sets the app shell to `dir="rtl"` and uses the bundled Readex Pro font.
 - Unmigrated feature screens still fall back to their existing English text.
 
@@ -34,7 +35,7 @@ keys as English and runs automatically during `npm run build`.
 
 ## Remaining Stages
 
-- [ ] Migrate shared dialogs and common actions.
+- [x] Migrate shared dialogs and common actions.
 - [ ] Migrate Search and Library, including plural messages and locale-aware sorting.
 - [ ] Preserve imported HTML/EPUB language and direction in the reader.
 - [ ] Complete the RTL CSS and bidirectional-content audit.

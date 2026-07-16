@@ -67,7 +67,7 @@ export function AppSettings({ themeChoice, onThemeChange }: AppSettingsProps) {
           onCancel={closeSettings}
           actions={(
             <button type="button" className="app-dialog-submit" onClick={closeSettings}>
-              {t('settings.done')}
+              {t('common.done')}
             </button>
           )}
         >

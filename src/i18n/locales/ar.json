@@ -8,10 +8,20 @@
     "library": "المكتبة",
     "audiobooks": "الكتب الصوتية"
   },
+  "common": {
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "done": "تم",
+    "open": "فتح",
+    "save": "حفظ"
+  },
+  "externalLink": {
+    "title": "فتح رابط خارجي؟",
+    "description": "سيفتح هذا الرابط خارج Papercut."
+  },
   "settings": {
     "button": "إعدادات التطبيق",
     "title": "إعدادات التطبيق",
-    "done": "تم",
     "appearance": "المظهر",
     "language": "اللغة",
     "theme": "السمة",
