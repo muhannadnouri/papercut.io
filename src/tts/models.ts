@@ -1,5 +1,6 @@
 import {
   DEFAULT_TTS_MODEL_ID,
+  KOKORO_ZH_MODEL_ID,
   LIBTASHKEEL_TEXT_PREPROCESSOR,
   PIPER_KAREEM_MODEL_ID,
   SILMA_MODEL_ID,
@@ -41,6 +42,26 @@ export const FALLBACK_TTS_MODELS: TtsModelInfo[] = [
       ['bf_lily', '🇬🇧 Lily (D)'], ['bm_george', '🇬🇧 George (C)'],
       ['bm_lewis', '🇬🇧 Lewis (D+)'], ['bm_daniel', '🇬🇧 Daniel (D)'],
       ['bm_fable', '🇬🇧 Fable (C)'],
+    ].map(([id, name]) => ({ id, name })),
+  },
+  {
+    id: KOKORO_ZH_MODEL_ID,
+    name: 'Kokoro v1.0 Mandarin',
+    family: 'kokoro',
+    language: 'zh-CN',
+    languageLabel: 'Mandarin Chinese',
+    defaultVoice: 'zf_xiaobei',
+    defaultTextPreprocessor: TEXT_PREPROCESSOR_NONE,
+    textPreprocessors: [{
+      id: TEXT_PREPROCESSOR_NONE,
+      name: 'Original text',
+      description: 'Synthesize source text without language preprocessing.',
+    }],
+    voices: [
+      ['zf_xiaobei', '🇨🇳 Xiaobei (D)'], ['zf_xiaoni', '🇨🇳 Xiaoni (D)'],
+      ['zf_xiaoxiao', '🇨🇳 Xiaoxiao (D)'], ['zf_xiaoyi', '🇨🇳 Xiaoyi (D)'],
+      ['zm_yunjian', '🇨🇳 Yunjian (D)'], ['zm_yunxi', '🇨🇳 Yunxi (D)'],
+      ['zm_yunxia', '🇨🇳 Yunxia (D)'], ['zm_yunyang', '🇨🇳 Yunyang (D)'],
     ].map(([id, name]) => ({ id, name })),
   },
   {
@@ -133,14 +154,24 @@ export function resolveModelTextPreprocessor(
 
 export function suggestTtsModel(models: TtsModelInfo[], chunks: TtsChunk[]): TtsModelInfo {
   let arabic = 0
+  let han = 0
+  let kana = 0
   let latin = 0
   for (const chunk of chunks) {
     for (const char of chunk.text) {
       if (/[\u0600-\u06ff]/u.test(char)) arabic += 1
+      else if (/\p{Script=Han}/u.test(char)) han += 1
+      else if (/[\u3040-\u30ff]/u.test(char)) kana += 1
       else if (/[A-Za-z]/.test(char)) latin += 1
     }
   }
 
+  // Han characters dominate Mandarin prose, while kana prevents Japanese text
+  // from being incorrectly suggested as Chinese.
+  if (han > latin && han > arabic && han >= 20 && kana < 5) {
+    return models.find((model) => model.language.toLowerCase().startsWith('zh'))
+      ?? getTtsModel(models, DEFAULT_TTS_MODEL_ID)
+  }
   if (arabic > latin && arabic >= 20) {
     return models.find((model) => model.language.toLowerCase().startsWith('ar'))
       ?? getTtsModel(models, DEFAULT_TTS_MODEL_ID)

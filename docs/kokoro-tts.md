@@ -30,6 +30,7 @@ Pinned models:
 | Model | Family | Language | Archive bytes | SHA-256 |
 | --- | --- | --- | ---: | --- |
 | Kokoro English v1.0 | Kokoro | `en-US` | 349,418,188 | `c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046` |
+| Kokoro Mandarin v1.0 | Kokoro | `zh-CN` | 349,418,188 (shared) | `c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046` |
 | Piper Kareem Medium | VITS/Piper | `ar-JO` | 67,177,830 | `9ebbcea30e0fbd588f7b2cb45ee897d6aeb1bf5791cbc037a7b5a3f641e3dbce` |
 | Supertonic 3 English | SupertonicTTS | `en-US` | ~123,000,000 | `82fa96f91c4ef8abaae3a14a3f4153facf88bed821d1f7331cec2700f432c427` |
 | Supertonic 3 Arabic | SupertonicTTS | `ar` | ~123,000,000 | `82fa96f91c4ef8abaae3a14a3f4153facf88bed821d1f7331cec2700f432c427` |
@@ -45,6 +46,14 @@ the [upstream voice catalog](https://huggingface.co/hexgrad/Kokoro-82M/blob/main
 describes those grades as estimates rather than guarantees of subjective voice
 quality. These display and phonemization changes do not alter audiobook identity
 or invalidate existing saved WAV files.
+
+Mandarin is a separate catalog entry with its own stable model ID and the eight
+official `zf_*`/`zm_*` speakers, but it reuses the same `kokoro-multi-lang-v1_0`
+directory and verified archive as English. sherpa receives the archive's Chinese
+lexicon plus `phone-zh.fst`, `date-zh.fst`, and `number-zh.fst`; the per-request
+language is `zh`. Existing English preferences and saved-audiobook identities are
+unchanged, while Mandarin generations remain distinct because they use the new
+model ID.
 
 Piper Kareem is about 64 MB compressed and suitable for offline Arabic, but a medium Piper voice is not expected to match Kokoro's naturalness. Treat quality as an empirical product decision. The Piper voice repository declares MIT for model files; the dataset card does not clearly state training-data licensing, so legal/provenance review is required before bundling or broadly redistributing it. Papercut currently downloads it on demand rather than embedding it.
 

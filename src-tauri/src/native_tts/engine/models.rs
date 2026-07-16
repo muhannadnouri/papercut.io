@@ -338,6 +338,49 @@ const KOKORO_VOICES: &[VoiceDefinition] = &[
     },
 ];
 
+const KOKORO_ZH_VOICES: &[VoiceDefinition] = &[
+    VoiceDefinition {
+        id: "zf_xiaobei",
+        name: "🇨🇳 Xiaobei (D)",
+        speaker_id: 45,
+    },
+    VoiceDefinition {
+        id: "zf_xiaoni",
+        name: "🇨🇳 Xiaoni (D)",
+        speaker_id: 46,
+    },
+    VoiceDefinition {
+        id: "zf_xiaoxiao",
+        name: "🇨🇳 Xiaoxiao (D)",
+        speaker_id: 47,
+    },
+    VoiceDefinition {
+        id: "zf_xiaoyi",
+        name: "🇨🇳 Xiaoyi (D)",
+        speaker_id: 48,
+    },
+    VoiceDefinition {
+        id: "zm_yunjian",
+        name: "🇨🇳 Yunjian (D)",
+        speaker_id: 49,
+    },
+    VoiceDefinition {
+        id: "zm_yunxi",
+        name: "🇨🇳 Yunxi (D)",
+        speaker_id: 50,
+    },
+    VoiceDefinition {
+        id: "zm_yunxia",
+        name: "🇨🇳 Yunxia (D)",
+        speaker_id: 51,
+    },
+    VoiceDefinition {
+        id: "zm_yunyang",
+        name: "🇨🇳 Yunyang (D)",
+        speaker_id: 52,
+    },
+];
+
 const SUPERTONIC_VOICES: &[VoiceDefinition] = &[VoiceDefinition {
     id: "speaker_6",
     name: "Speaker 6",
@@ -398,6 +441,17 @@ const KOKORO_REQUIRED_FILES: &[&str] = &[
     "lexicon-us-en.txt",
 ];
 
+const KOKORO_ZH_REQUIRED_FILES: &[&str] = &[
+    "model.onnx",
+    "voices.bin",
+    "tokens.txt",
+    "espeak-ng-data/phontab",
+    "lexicon-zh.txt",
+    "phone-zh.fst",
+    "date-zh.fst",
+    "number-zh.fst",
+];
+
 const SUPERTONIC_REQUIRED_FILES: &[&str] = &[
     "duration_predictor.int8.onnx",
     "text_encoder.int8.onnx",
@@ -421,6 +475,7 @@ const SILMA_REQUIRED_FILES: &[&str] = &[
 ];
 
 pub(super) const DEFAULT_MODEL_ID: &str = "sherpa-onnx/kokoro-multi-lang-v1_0";
+pub(super) const KOKORO_ZH_MODEL_ID: &str = "sherpa-onnx/kokoro-multi-lang-v1_0-zh";
 pub(super) const SILMA_MODEL_ID: &str = "silma-ai/silma-tts";
 pub(super) const SILMA_HF_CACHE_REPO_DIR: &str = "models--silma-ai--silma-tts";
 pub(super) const SILMA_HF_REVISION: &str = "d2515317033803648ecb8844765db9e583afecf9";
@@ -444,6 +499,27 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         required_files: KOKORO_REQUIRED_FILES,
         default_voice: "af_heart",
         voices: KOKORO_VOICES,
+        default_text_preprocessor: TEXT_PREPROCESSOR_NONE,
+        text_preprocessors: IDENTITY_TEXT_PREPROCESSORS,
+    },
+    ModelDefinition {
+        id: KOKORO_ZH_MODEL_ID,
+        directory_name: "kokoro-multi-lang-v1_0",
+        display_name: "Kokoro v1.0 Mandarin",
+        backend: TtsModelBackend::SherpaOnnx,
+        family: TtsModelFamily::Kokoro,
+        sherpa_family: Some(SherpaModelFamily::Kokoro),
+        language: "zh-CN",
+        language_label: "Mandarin Chinese",
+        supertonic_lang: None,
+        source_label: "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
+        source_url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
+        sha256: "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
+        archive_bytes: 349_418_188,
+        model_file: "model.onnx",
+        required_files: KOKORO_ZH_REQUIRED_FILES,
+        default_voice: "zf_xiaobei",
+        voices: KOKORO_ZH_VOICES,
         default_text_preprocessor: TEXT_PREPROCESSOR_NONE,
         text_preprocessors: IDENTITY_TEXT_PREPROCESSORS,
     },
@@ -584,6 +660,19 @@ mod tests {
                 .name,
             "🇬🇧 Emma (B-)"
         );
+    }
+
+    #[test]
+    fn kokoro_mandarin_reuses_the_archive_and_maps_official_speakers() {
+        let english = model_definition(DEFAULT_MODEL_ID).unwrap();
+        let mandarin = model_definition(KOKORO_ZH_MODEL_ID).unwrap();
+        assert_eq!(mandarin.directory_name, english.directory_name);
+        assert_eq!(mandarin.source_url, english.source_url);
+        assert_eq!(mandarin.sha256, english.sha256);
+        assert_eq!(mandarin.speaker_id("zf_xiaobei").unwrap(), 45);
+        assert_eq!(mandarin.speaker_id("zm_yunyang").unwrap(), 52);
+        assert_eq!(mandarin.voices.len(), 8);
+        assert!(!mandarin.english_text_normalization());
     }
 
     #[test]

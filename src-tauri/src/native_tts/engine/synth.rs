@@ -305,12 +305,13 @@ fn generate_audio(
 
 /// Select the phonemizer locale per voice without changing model or voice identity.
 ///
-/// Kokoro's `a*` and `b*` voice IDs are its stable American/British convention;
-/// Supertonic instead selects one language for the whole catalog entry.
+/// Kokoro voice prefixes are its stable locale convention; Supertonic instead
+/// selects one language for the whole catalog entry.
 fn generation_language(model: &ModelDefinition, voice: &str) -> Option<&'static str> {
     match model.require_sherpa_family().ok()? {
         SherpaModelFamily::Kokoro if voice.starts_with('a') => Some("en-us"),
         SherpaModelFamily::Kokoro if voice.starts_with('b') => Some("en-gb"),
+        SherpaModelFamily::Kokoro if voice.starts_with('z') => Some("zh"),
         SherpaModelFamily::Supertonic => model.supertonic_lang,
         _ => None,
     }
@@ -345,7 +346,11 @@ fn create_engine(
                 tokens: Some(model_dir.join("tokens.txt").display().to_string()),
                 data_dir: Some(model_dir.join("espeak-ng-data").display().to_string()),
                 lexicon: (!lexicon.is_empty()).then_some(lexicon),
-                lang: Some("en-us".into()),
+                lang: Some(if model.language.starts_with("zh") {
+                    "zh".into()
+                } else {
+                    "en-us".into()
+                }),
                 ..Default::default()
             };
         }
@@ -385,8 +390,16 @@ fn create_engine(
         }
     }
 
+    // sherpa's Mandarin Kokoro path uses these transducers for phone numbers,
+    // dates, and general numeric text. English keeps its historical no-FST path.
+    let rule_fsts = model.language.starts_with("zh").then(|| {
+        ["phone-zh.fst", "date-zh.fst", "number-zh.fst"]
+            .map(|name| model_dir.join(name).display().to_string())
+            .join(",")
+    });
     let config = OfflineTtsConfig {
         model: model_config,
+        rule_fsts,
         max_num_sentences: 1,
         ..Default::default()
     };
@@ -396,7 +409,7 @@ fn create_engine(
 
 #[cfg(test)]
 mod tests {
-    use super::super::models::{model_definition, DEFAULT_MODEL_ID};
+    use super::super::models::{model_definition, DEFAULT_MODEL_ID, KOKORO_ZH_MODEL_ID};
     use super::*;
 
     #[test]
@@ -412,9 +425,13 @@ mod tests {
     }
 
     #[test]
-    fn kokoro_voice_prefix_selects_american_or_british_phonemization() {
+    fn kokoro_voice_prefix_selects_its_phonemizer_language() {
         let model = model_definition(DEFAULT_MODEL_ID).unwrap();
         assert_eq!(generation_language(model, "af_heart"), Some("en-us"));
         assert_eq!(generation_language(model, "bf_emma"), Some("en-gb"));
+        assert_eq!(
+            generation_language(model_definition(KOKORO_ZH_MODEL_ID).unwrap(), "zf_xiaobei"),
+            Some("zh")
+        );
     }
 }
