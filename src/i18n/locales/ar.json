@@ -33,8 +33,8 @@
       "button": "بحث",
       "help": "ابحث بالكلمات، أو استخدم علامتَي الاقتباس للبحث عن عبارة مطابقة.",
       "examplesLabel": "أمثلة على البحث",
-      "exampleBroad": "العدالة الاجتماعية",
-      "exampleExact": "\"الثورة الصناعية\""
+      "exampleBroad": "كلمات البحث",
+      "exampleExact": "\"عبارة مطابقة\""
     },
     "scope": {
       "ariaLabel": "نطاق البحث",
@@ -177,6 +177,7 @@
     "title": "إعدادات التطبيق",
     "appearance": "المظهر",
     "language": "اللغة",
+    "experimental": "تجريبي",
     "theme": "السمة",
     "themeSystem": "النظام",
     "themeLight": "فاتح",

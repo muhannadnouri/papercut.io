@@ -157,6 +157,7 @@
     "title": "App Settings",
     "appearance": "Appearance",
     "language": "Language",
+    "experimental": "Experimental",
     "theme": "Theme",
     "themeSystem": "System",
     "themeLight": "Light",

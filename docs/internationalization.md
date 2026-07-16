@@ -5,7 +5,13 @@ from the language of an open document.
 
 ## Current Stage
 
-- English (`en`) and Arabic (`ar`) locale resources are bundled with the app.
+- English (`en`), Arabic (`ar`), Spanish (`es`), French (`fr`), Italian
+  (`it`), Brazilian Portuguese (`pt-BR`), Hindi (`hi`), and Simplified Chinese
+  (`zh-CN`) locale resources are bundled with the app.
+- Spanish, French, Italian, Brazilian Portuguese, Hindi, and Simplified
+  Chinese are marked experimental in App Settings. Their first-pass
+  translations must receive native-speaker review before that marker is
+  removed.
 - The first launch uses the first supported browser or operating-system
   language, then stores the user's explicit choice in local storage.
 - App Settings, the header subtitle, primary navigation, shared confirmation
@@ -66,5 +72,5 @@ each locale, and runs automatically during `npm run build`.
 - [x] Complete the RTL CSS and bidirectional-content audit.
 - [x] Migrate audiobook and TTS controls and ordinary status text.
 - [x] Replace expected native English command errors with stable error codes.
-- [ ] Add Spanish, French, Italian, Brazilian Portuguese, Hindi, and Simplified Chinese.
+- [x] Add Spanish, French, Italian, Brazilian Portuguese, Hindi, and Simplified Chinese.
 - [ ] Complete native-speaker and desktop/mobile visual review.

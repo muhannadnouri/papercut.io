@@ -1,10 +1,12 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-const localeUrls = {
-  en: new URL('../src/i18n/locales/en.json', import.meta.url),
-  ar: new URL('../src/i18n/locales/ar.json', import.meta.url),
-}
+const localeDirectory = new URL('../src/i18n/locales/', import.meta.url)
+const localeUrls = Object.fromEntries(
+  readdirSync(fileURLToPath(localeDirectory))
+    .filter((name) => name.endsWith('.json'))
+    .map((name) => [name.slice(0, -5), new URL(name, localeDirectory)]),
+)
 const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/
 
 const resources = Object.fromEntries(

@@ -79,7 +79,12 @@ export function AppSettings({ themeChoice, onThemeChange }: AppSettingsProps) {
               <AppSelect
                 className="app-setting-select"
                 value={currentAppLocale()}
-                options={APP_LOCALE_OPTIONS.map((option) => ({ ...option }))}
+                options={APP_LOCALE_OPTIONS.map((option) => ({
+                  value: option.value,
+                  label: option.experimental
+                    ? `${option.label} (${t('settings.experimental')})`
+                    : option.label,
+                }))}
                 ariaLabelledBy="app-setting-language"
                 onChange={(locale) => { void changeAppLocale(locale) }}
               />
