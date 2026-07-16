@@ -305,16 +305,10 @@ async fn install_silma_runtime_pack_for_model(
     emit_model_progress(&app, model, "starting", "Installing SILMA runtime pack", 0);
     let app_for_task = app.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
-        let runtime_dir = install_silma_runtime_pack(&app_for_task, |downloaded, total| {
-            emit_model_progress_total(
-                &app_for_task,
-                model,
-                "downloading",
-                "Downloading SILMA runtime pack",
-                downloaded,
-                total,
-            );
-        })?;
+        let runtime_dir =
+            install_silma_runtime_pack(&app_for_task, |status, message, downloaded, total| {
+                emit_model_progress_total(&app_for_task, model, status, message, downloaded, total);
+            })?;
         Ok(NativeTtsModelInstallResponse {
             model_id: model.id.into(),
             bytes: directory_size(&runtime_dir).unwrap_or(0),

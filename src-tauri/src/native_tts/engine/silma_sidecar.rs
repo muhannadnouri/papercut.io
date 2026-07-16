@@ -56,7 +56,8 @@ impl SilmaSidecar {
     /// Start the SILMA worker, preferring explicit dev overrides and then a bundled resource.
     pub(super) fn start(app: &tauri::AppHandle) -> Result<Self, String> {
         let launch = silma_launch_command(app)?;
-        let mut child = Command::new(&launch.program)
+        let mut command = silma_worker_command(&launch.program);
+        let mut child = command
             .args(launch.args.iter().map(|arg| arg.as_os_str()))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -379,11 +380,12 @@ fn repo_worker_runtime_status(app: &tauri::AppHandle) -> SilmaRuntimeStatus {
 /// Promote a prepared source-preserving Python runtime into the app-data runtime-pack slot.
 pub(super) fn install_silma_runtime_pack(
     app: &tauri::AppHandle,
-    mut on_download: impl FnMut(u64, u64),
+    mut on_progress: impl FnMut(&str, &str, u64, u64),
 ) -> Result<PathBuf, String> {
     let source = silma_runtime_pack_install_source().ok_or_else(|| {
         "SILMA runtime pack source is not available. Run `npm run prepare:silma-sidecar -- --self-test`, or add release metadata to src-tauri/tts/silma-runtime-packs.json.".to_string()
     })?;
+    let progress_total = source.archive_bytes().max(1);
     let final_dir = runtime_pack_dir(app)?;
     let work_dir = runtime_pack_work_dir(app)?;
     let staging_dir = work_dir.join("current.installing");
@@ -403,7 +405,15 @@ pub(super) fn install_silma_runtime_pack(
     })?;
     let staging_guard = RuntimeWorkDirGuard::new(staging_dir.clone());
     match source {
-        SilmaRuntimePackSource::Directory(path) => copy_dir_contents(&path, &staging_dir)?,
+        SilmaRuntimePackSource::Directory(path) => {
+            on_progress(
+                "extracting",
+                "Preparing SILMA runtime pack",
+                0,
+                progress_total,
+            );
+            copy_dir_contents(&path, &staging_dir)?;
+        }
         SilmaRuntimePackSource::Archive {
             url,
             parts,
@@ -412,26 +422,61 @@ pub(super) fn install_silma_runtime_pack(
         } => {
             if parts.is_empty() {
                 let url = url.ok_or_else(|| "SILMA runtime pack URL is missing".to_string())?;
-                download_runtime_pack_file(&url, bytes, &archive_path, 0, bytes, &mut on_download)?;
+                download_runtime_pack_file(
+                    &url,
+                    bytes,
+                    &archive_path,
+                    0,
+                    bytes,
+                    &mut |downloaded, total| {
+                        on_progress(
+                            "downloading",
+                            "Downloading SILMA runtime pack",
+                            downloaded,
+                            total,
+                        );
+                    },
+                )?;
             } else {
                 download_runtime_pack_parts(
                     &parts,
                     bytes,
                     &archive_path,
                     &work_dir,
-                    &mut on_download,
+                    &mut |downloaded, total| {
+                        on_progress(
+                            "downloading",
+                            "Downloading SILMA runtime pack",
+                            downloaded,
+                            total,
+                        );
+                    },
                 )?;
             }
+            on_progress("verifying", "Verifying SILMA runtime pack", bytes, bytes);
             if let Err(err) = verify_runtime_pack_archive(&archive_path, &sha256) {
                 let _ = fs::remove_file(&archive_path);
                 remove_runtime_pack_part_cache(&work_dir);
                 return Err(err);
             }
+            on_progress("extracting", "Extracting SILMA runtime pack", bytes, bytes);
             extract_runtime_pack_archive(&archive_path, &staging_dir)?;
         }
     }
     let worker_path = runtime_pack_worker_path_in(&staging_dir)?;
+    on_progress(
+        "testing",
+        "Testing SILMA runtime pack",
+        progress_total,
+        progress_total,
+    );
     verify_silma_runtime_worker(&worker_path)?;
+    on_progress(
+        "installing",
+        "Installing SILMA runtime pack",
+        progress_total,
+        progress_total,
+    );
     if let Some(parent) = final_dir.parent() {
         fs::create_dir_all(parent).map_err(|err| {
             format!(
@@ -1023,21 +1068,45 @@ fn copy_dir_contents(source: &Path, destination: &Path) -> Result<(), String> {
 
 /// Run the packaged worker's model-free self-test before trusting the runtime.
 fn verify_silma_runtime_worker(worker_path: &Path) -> Result<(), String> {
-    let status = Command::new(worker_path)
+    let output = silma_worker_command(worker_path)
         .arg("--self-test")
-        .status()
+        .output()
         .map_err(|err| {
             format!(
                 "Failed to run SILMA runtime self-test {}: {err}",
                 worker_path.display()
             )
         })?;
-    if status.success() {
+    if output.status.success() {
         Ok(())
     } else {
+        let detail = worker_check_failure_detail(&output);
         Err(format!(
-            "SILMA runtime self-test failed with status {status}"
+            "SILMA runtime self-test failed with status {}{}",
+            output.status, detail
         ))
+    }
+}
+
+/// AppImage launches can export loader paths that break `/bin/sh` before the
+/// worker launcher resets its own Python paths, so strip only that inherited bit.
+fn silma_worker_command(program: &Path) -> Command {
+    let mut command = Command::new(program);
+    command.env_remove("LD_LIBRARY_PATH");
+    command
+}
+
+fn worker_check_failure_detail(output: &std::process::Output) -> String {
+    let bytes = if output.stderr.is_empty() {
+        &output.stdout
+    } else {
+        &output.stderr
+    };
+    let text = String::from_utf8_lossy(bytes).trim().to_string();
+    if text.is_empty() {
+        String::new()
+    } else {
+        format!(": {text}")
     }
 }
 

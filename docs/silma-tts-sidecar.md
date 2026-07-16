@@ -559,6 +559,10 @@ Current CUDA setup script:
 - accepts `PAPERCUT_SILMA_TORCH_INDEX_URL`, `PAPERCUT_MICROMAMBA_BIN`,
   `PAPERCUT_SILMA_RUNTIME_ROOT`, and `PAPERCUT_SILMA_WORKER_SOURCE` for test
   machines.
+- SILMA worker launches strip the inherited AppImage `LD_LIBRARY_PATH` before
+  starting the worker. The worker launchers then set their own Python/FFmpeg
+  library paths, which avoids Arch-like `/bin/sh` symbol lookup failures during
+  runtime-pack self-tests.
 
 The package command writes a manifest plus either one archive or numbered parts
 when the archive is too large for a single GitHub Release asset:
