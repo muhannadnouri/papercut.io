@@ -31,6 +31,8 @@ export function AudiobooksTab({
 }: AudiobooksTabProps) {
   return (
     <section className="tab-panel" role="tabpanel" aria-label="Audiobooks" data-tab="audiobooks">
+      <TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />
+
       <AudiobooksPanel
         {...audiobooksPanelProps}
         audioSetup={{
@@ -43,8 +45,6 @@ export function AudiobooksTab({
         onImportAudiobook={onImportAudiobook}
         onOpenSaved={onOpenSaved}
       />
-
-      <TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />
     </section>
   )
 }
