@@ -1,0 +1,30 @@
+{
+  "app": {
+    "subtitle": "ابحث واقرأ واستمع دون اتصال بالإنترنت"
+  },
+  "navigation": {
+    "label": "أقسام التطبيق",
+    "search": "البحث",
+    "library": "المكتبة",
+    "audiobooks": "الكتب الصوتية"
+  },
+  "settings": {
+    "button": "إعدادات التطبيق",
+    "title": "إعدادات التطبيق",
+    "done": "تم",
+    "appearance": "المظهر",
+    "language": "اللغة",
+    "theme": "السمة",
+    "themeSystem": "النظام",
+    "themeLight": "فاتح",
+    "themeDark": "داكن",
+    "zoom": "التكبير",
+    "zoomDecrease": "تصغير واجهة التطبيق",
+    "zoomIncrease": "تكبير واجهة التطبيق",
+    "zoomReset": "إعادة الضبط",
+    "version": "الإصدار",
+    "versionLoading": "جارٍ التحميل...",
+    "versionUnavailable": "غير متاح",
+    "webBuild": "نسخة الويب"
+  }
+}

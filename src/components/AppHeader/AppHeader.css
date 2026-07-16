@@ -8,7 +8,7 @@
 .app-header-actions {
   position: absolute;
   top: 0;
-  right: 0;
+  inset-inline-end: 0;
   display: flex;
   justify-content: flex-end;
 }
@@ -60,7 +60,7 @@
 @media (max-width: 767px) {
   .app-header-actions {
     top: 0;
-    right: 0;
+    inset-inline-end: 0;
   }
 
   .app-header {

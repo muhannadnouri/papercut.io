@@ -239,6 +239,10 @@ html {
   color: var(--text);
 }
 
+html[lang="ar"] {
+  --ui-font: "Papercut Readex Pro", system-ui, sans-serif;
+}
+
 button,
 input,
 select,

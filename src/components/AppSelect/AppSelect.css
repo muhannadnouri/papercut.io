@@ -19,7 +19,7 @@
   font: inherit;
   font-size: 0.82rem;
   font-weight: 700;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 
@@ -54,8 +54,7 @@
 .app-select-menu {
   position: absolute;
   top: calc(100% + 0.35rem);
-  right: 0;
-  left: 0;
+  inset-inline: 0;
   z-index: 40;
   display: grid;
   max-height: min(18rem, calc(100vh - 8rem));
@@ -79,7 +78,7 @@
   background: transparent;
   color: inherit;
   font: inherit;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 

@@ -62,6 +62,10 @@
   color: var(--text-body);
 }
 
+.app-setting-select {
+  grid-column: 2 / 4;
+}
+
 .app-theme-options {
   grid-column: 2 / 4;
   display: grid;
@@ -75,7 +79,7 @@
   min-height: 2rem;
   padding: 0 0.5rem;
   border: 0;
-  border-right: 1px solid var(--border);
+  border-inline-end: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-body);
   font-size: 0.76rem;
@@ -84,7 +88,7 @@
 }
 
 .app-theme-option:last-child {
-  border-right: 0;
+  border-inline-end: 0;
 }
 
 .app-theme-option:hover,
@@ -117,11 +121,13 @@
 }
 
 .app-zoom-control button:first-child {
-  border-radius: 7px 0 0 7px;
+  border-start-start-radius: 7px;
+  border-end-start-radius: 7px;
 }
 
 .app-zoom-control button:last-child {
-  border-radius: 0 7px 7px 0;
+  border-start-end-radius: 7px;
+  border-end-end-radius: 7px;
 }
 
 .app-zoom-control output {

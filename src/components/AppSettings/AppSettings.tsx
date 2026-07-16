@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { getVersion } from '@tauri-apps/api/app'
 import { isTauri } from '@tauri-apps/api/core'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import type { ThemeChoice } from '../../hooks/useTheme'
+import {
+  APP_LOCALE_OPTIONS,
+  changeAppLocale,
+  currentAppLocale,
+} from '../../i18n'
 import { AppDialog } from '../AppDialog/AppDialog'
+import { AppSelect } from '../AppSelect/AppSelect'
 import './AppSettings.css'
 
 const ZOOM_STORAGE_KEY = 'papercut.zoom.v1'
@@ -12,38 +19,43 @@ const MIN_ZOOM = 70
 const MAX_ZOOM = 200
 const ZOOM_STEP = 10
 
-const THEME_OPTIONS: Array<{ choice: ThemeChoice; label: string }> = [
-  { choice: 'system', label: 'System' },
-  { choice: 'light', label: 'Light' },
-  { choice: 'dark', label: 'Dark' },
-]
-
 interface AppSettingsProps {
   themeChoice: ThemeChoice
   onThemeChange: (choice: ThemeChoice) => void
 }
 
 export function AppSettings({ themeChoice, onThemeChange }: AppSettingsProps) {
+  const { t } = useTranslation()
+  const tauriRuntime = isTauri()
   const [open, setOpen] = useState(false)
-  const [version, setVersion] = useState<string | null>(() => isTauri() ? null : 'Web build')
+  const [version, setVersion] = useState<string | null>(() => tauriRuntime ? null : '')
   const zoom = useAppZoom()
   const closeSettings = useCallback(() => setOpen(false), [])
+  const themeOptions: Array<{ choice: ThemeChoice; label: string }> = [
+    { choice: 'system', label: t('settings.themeSystem') },
+    { choice: 'light', label: t('settings.themeLight') },
+    { choice: 'dark', label: t('settings.themeDark') },
+  ]
 
   useEffect(() => {
-    if (!open || version !== null) return
+    if (!tauriRuntime || !open || version !== null) return
     void getVersion()
       .then(setVersion)
-      .catch(() => setVersion('Unavailable'))
-  }, [open, version])
+      .catch(() => setVersion(''))
+  }, [open, tauriRuntime, version])
+
+  const versionLabel = version === null
+    ? t('settings.versionLoading')
+    : version || (tauriRuntime ? t('settings.versionUnavailable') : t('settings.webBuild'))
 
   return (
     <div className="app-settings">
       <button
         type="button"
         className="app-settings-btn"
-        aria-label="App settings"
+        aria-label={t('settings.button')}
         aria-haspopup="dialog"
-        title="App settings"
+        title={t('settings.button')}
         onClick={() => setOpen(true)}
       >
         <SettingsIcon />
@@ -51,21 +63,32 @@ export function AppSettings({ themeChoice, onThemeChange }: AppSettingsProps) {
 
       {open && (
         <AppDialog
-          title="App Settings"
+          title={t('settings.title')}
           onCancel={closeSettings}
           actions={(
             <button type="button" className="app-dialog-submit" onClick={closeSettings}>
-              Done
+              {t('settings.done')}
             </button>
           )}
         >
           <section className="app-settings-section" aria-labelledby="app-settings-appearance">
-            <h3 id="app-settings-appearance">Appearance</h3>
+            <h3 id="app-settings-appearance">{t('settings.appearance')}</h3>
 
             <div className="app-setting">
-              <span id="app-setting-theme">Theme</span>
+              <span id="app-setting-language">{t('settings.language')}</span>
+              <AppSelect
+                className="app-setting-select"
+                value={currentAppLocale()}
+                options={APP_LOCALE_OPTIONS.map((option) => ({ ...option }))}
+                ariaLabelledBy="app-setting-language"
+                onChange={(locale) => { void changeAppLocale(locale) }}
+              />
+            </div>
+
+            <div className="app-setting">
+              <span id="app-setting-theme">{t('settings.theme')}</span>
               <div className="app-theme-options" role="group" aria-labelledby="app-setting-theme">
-                {THEME_OPTIONS.map((option) => (
+                {themeOptions.map((option) => (
                   <button
                     key={option.choice}
                     type="button"
@@ -81,12 +104,12 @@ export function AppSettings({ themeChoice, onThemeChange }: AppSettingsProps) {
 
             {zoom.supported && (
               <div className="app-setting">
-                <span id="app-setting-zoom">Zoom</span>
+                <span id="app-setting-zoom">{t('settings.zoom')}</span>
                 <div className="app-zoom-control" role="group" aria-labelledby="app-setting-zoom">
                   <button
                     type="button"
-                    aria-label="Decrease app zoom"
-                    title="Decrease app zoom"
+                    aria-label={t('settings.zoomDecrease')}
+                    title={t('settings.zoomDecrease')}
                     disabled={zoom.value <= MIN_ZOOM}
                     onClick={() => zoom.setValue(zoom.value - ZOOM_STEP)}
                   >
@@ -95,8 +118,8 @@ export function AppSettings({ themeChoice, onThemeChange }: AppSettingsProps) {
                   <output aria-live="polite">{zoom.value}%</output>
                   <button
                     type="button"
-                    aria-label="Increase app zoom"
-                    title="Increase app zoom"
+                    aria-label={t('settings.zoomIncrease')}
+                    title={t('settings.zoomIncrease')}
                     disabled={zoom.value >= MAX_ZOOM}
                     onClick={() => zoom.setValue(zoom.value + ZOOM_STEP)}
                   >
@@ -105,7 +128,7 @@ export function AppSettings({ themeChoice, onThemeChange }: AppSettingsProps) {
                 </div>
                 {zoom.value !== DEFAULT_ZOOM && (
                   <button className="app-zoom-reset" type="button" onClick={() => zoom.setValue(DEFAULT_ZOOM)}>
-                    Reset
+                    {t('settings.zoomReset')}
                   </button>
                 )}
               </div>
@@ -113,8 +136,8 @@ export function AppSettings({ themeChoice, onThemeChange }: AppSettingsProps) {
           </section>
 
           <div className="app-settings-version">
-            <span>Version</span>
-            <strong>{version ?? 'Loading...'}</strong>
+            <span>{t('settings.version')}</span>
+            <strong>{versionLabel}</strong>
           </div>
         </AppDialog>
       )}

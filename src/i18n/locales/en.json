@@ -1,0 +1,30 @@
+{
+  "app": {
+    "subtitle": "Search, Read, & Listen Offline"
+  },
+  "navigation": {
+    "label": "App sections",
+    "search": "Search",
+    "library": "Library",
+    "audiobooks": "Audiobooks"
+  },
+  "settings": {
+    "button": "App settings",
+    "title": "App Settings",
+    "done": "Done",
+    "appearance": "Appearance",
+    "language": "Language",
+    "theme": "Theme",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "zoom": "Zoom",
+    "zoomDecrease": "Decrease app zoom",
+    "zoomIncrease": "Increase app zoom",
+    "zoomReset": "Reset",
+    "version": "Version",
+    "versionLoading": "Loading...",
+    "versionUnavailable": "Unavailable",
+    "webBuild": "Web build"
+  }
+}
