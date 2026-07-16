@@ -79,6 +79,7 @@ export function SearchScope({
         <div className="documents-list-header">
           <input
             type="text"
+            dir="auto"
             className="document-filter-input"
             placeholder={t('search.scope.filterPlaceholder')}
             value={documentFilter}

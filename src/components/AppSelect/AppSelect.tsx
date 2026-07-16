@@ -140,7 +140,7 @@ export function AppSelect({
         disabled={disabled}
         onClick={() => (open ? close() : openAt(selectedIndex))}
       >
-        <span className="app-select-value" style={selectedOption?.style}>{selectedOption?.label ?? value}</span>
+        <span className="app-select-value" style={selectedOption?.style} dir="auto">{selectedOption?.label ?? value}</span>
         <span className="app-select-chevron" aria-hidden="true">▾</span>
       </button>
 
@@ -167,8 +167,8 @@ export function AppSelect({
               }}
               onClick={() => selectOption(option)}
             >
-              <span className="app-select-option-label">{option.label}</span>
-              {option.description && <span className="app-select-option-description">{option.description}</span>}
+              <span className="app-select-option-label" dir="auto">{option.label}</span>
+              {option.description && <span className="app-select-option-description" dir="auto">{option.description}</span>}
             </button>
           ))}
         </div>

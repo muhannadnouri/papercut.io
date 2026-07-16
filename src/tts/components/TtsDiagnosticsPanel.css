@@ -14,7 +14,7 @@
   color: var(--text-muted);
   font-size: 0.78rem;
   font-weight: 500;
-  text-align: right;
+  text-align: end;
 }
 
 .tts-diagnostics-body {
@@ -43,7 +43,8 @@
 
 .tts-diagnostics-filter {
   min-height: 1.85rem;
-  padding: 0 1.55rem 0 0.5rem;
+  padding-block: 0;
+  padding-inline: 0.5rem 1.55rem;
   border: 1px solid var(--border-strong);
   border-radius: 6px;
   background: var(--surface);
@@ -86,18 +87,18 @@
   gap: 0.45rem;
   padding: 0.6rem;
   border: 1px solid var(--border-strong);
-  border-left: 3px solid var(--accent-text);
+  border-inline-start: 3px solid var(--accent-text);
   border-radius: 6px;
   background: var(--surface);
 }
 
 .tts-diagnostic-error {
-  border-left-color: var(--danger-accent);
+  border-inline-start-color: var(--danger-accent);
   background: var(--surface-danger);
 }
 
 .tts-diagnostic-warn {
-  border-left-color: var(--warning-accent);
+  border-inline-start-color: var(--warning-accent);
   background: var(--surface-warning);
 }
 

@@ -212,11 +212,11 @@ export function AudioSetupPanel({
                   <span>{modelInstalling ? installingButtonLabel : installButtonLabel}</span>
                 </button>
               )}
-              {silmaInstallNote && <span className="audio-thread-meta">{silmaInstallNote}</span>}
+              {silmaInstallNote && <span className="audio-thread-meta" dir="auto">{silmaInstallNote}</span>}
               {!modelInstalled && !modelInstallSupported && (
                 <div className="audiobook-status audiobook-status-error" aria-live="polite">
                   <div className="audiobook-status-row">
-                    <span>{modelStatus?.message ?? 'Manual model install required'}</span>
+                    <span dir="auto">{modelStatus?.message ?? 'Manual model install required'}</span>
                   </div>
                 </div>
               )}
@@ -226,7 +226,7 @@ export function AudioSetupPanel({
                   aria-live="polite"
                 >
                   <div className="audiobook-status-row">
-                    <span>{modelInstallProgress?.message ?? modelStatus?.message ?? 'Preparing model download'}</span>
+                    <span dir="auto">{modelInstallProgress?.message ?? modelStatus?.message ?? 'Preparing model download'}</span>
                     <span>{modelPercent}%</span>
                   </div>
                   {!modelInstalled && modelInstallProgress?.status !== 'error' && (
@@ -239,11 +239,11 @@ export function AudioSetupPanel({
               {silmaRuntimeMissing && (
                 <div className="audiobook-status audiobook-status-error" aria-live="polite">
                   <div className="audiobook-status-row">
-                    <span>{modelStatus?.runtimeMessage ?? 'SILMA runtime pack is not installed'}</span>
+                    <span dir="auto">{modelStatus?.runtimeMessage ?? 'SILMA runtime pack is not installed'}</span>
                   </div>
                   {modelStatus?.runtimeDir && (
                     <div className="audiobook-status-row">
-                      <span>{modelStatus.runtimeDir}</span>
+                      <span dir="ltr">{modelStatus.runtimeDir}</span>
                     </div>
                   )}
                 </div>

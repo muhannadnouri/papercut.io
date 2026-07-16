@@ -179,8 +179,7 @@
 .audio-chunk-window {
   position: absolute;
   top: 0;
-  right: 0;
-  left: 0;
+  inset-inline: 0;
   width: 100%;
   min-width: 100%;
 }
@@ -197,7 +196,7 @@
   border-bottom: 1px solid var(--surface-hover);
   background: var(--surface);
   color: var(--text-body);
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 
@@ -329,8 +328,7 @@
   }
 
   .audio-chunk-menu {
-    right: 1rem;
-    left: 1rem;
+    inset-inline: 1rem;
     bottom: calc(4.75rem + env(safe-area-inset-bottom));
     width: auto;
     max-height: min(56vh, 26rem);
@@ -350,6 +348,12 @@
   .audio-rate-control {
     height: 2.5rem;
   }
+}
+
+html[dir="rtl"] .audio-chunk-item:hover,
+html[dir="rtl"] .audio-chunk-item:focus-visible,
+html[dir="rtl"] .audio-chunk-item-current {
+  box-shadow: inset -3px 0 0 var(--accent-text);
 }
 
 @media (max-width: 420px) {

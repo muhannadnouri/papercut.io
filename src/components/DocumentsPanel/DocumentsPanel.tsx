@@ -111,6 +111,7 @@ export function DocumentsPanel({
       <div className="documents-list-header">
         <input
           type="text"
+          dir="auto"
           className="document-filter-input"
           placeholder={t('library.documents.filterPlaceholder')}
           value={documentFilter}

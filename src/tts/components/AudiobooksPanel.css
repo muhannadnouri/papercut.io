@@ -82,13 +82,13 @@
   content: "";
   position: absolute;
   top: 50%;
-  left: 0.12rem;
+  inset-inline-start: 0.12rem;
   width: 0.78rem;
   height: 0.78rem;
   border-radius: 50%;
   background: var(--text-soft);
   transform: translateY(-50%);
-  transition: transform 0.15s, background 0.15s;
+  transition: inset-inline-start 0.15s, background 0.15s;
 }
 
 .audio-diagnostics-control input:checked + .audio-diagnostics-switch {
@@ -97,8 +97,8 @@
 }
 
 .audio-diagnostics-control input:checked + .audio-diagnostics-switch::after {
+  inset-inline-start: 1.08rem;
   background: var(--accent-hover);
-  transform: translate(0.96rem, -50%);
 }
 
 .audio-diagnostics-control input:focus-visible + .audio-diagnostics-switch {
@@ -265,7 +265,7 @@
   font-size: 0.78rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  text-align: right;
+  text-align: end;
 }
 
 .audio-speed-step {
@@ -414,7 +414,8 @@
 .tts-select {
   width: 100%;
   min-width: 0;
-  padding: 0 1.6rem 0 0.5rem;
+  padding-block: 0;
+  padding-inline: 0.5rem 1.6rem;
   appearance: none;
   -webkit-appearance: none;
   background-color: var(--surface);
@@ -549,7 +550,7 @@
   border-radius: 8px;
   background: var(--surface);
   color: var(--text-body);
-  text-align: left;
+  text-align: start;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
@@ -712,7 +713,7 @@
   border-radius: 8px;
   background: var(--surface);
   color: var(--text-body);
-  text-align: left;
+  text-align: start;
   overflow: hidden;
 }
 
@@ -749,7 +750,7 @@
   border: none;
   background: none;
   color: inherit;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 
@@ -815,7 +816,7 @@
 .audiobook-export-options {
   position: absolute;
   top: calc(100% + 0.35rem);
-  right: 0;
+  inset-inline-end: 0;
   z-index: 70;
   display: grid;
   min-width: min(16rem, calc(100vw - 2rem));
@@ -838,7 +839,7 @@
   cursor: pointer;
   font-size: 0.85rem;
   font-weight: 600;
-  text-align: left;
+  text-align: start;
 }
 
 .audiobook-export-option:last-of-type {
@@ -887,14 +888,15 @@
 
 .audiobook-action-toast {
   position: fixed;
-  right: max(1rem, env(safe-area-inset-right));
+  inset-inline-end: max(1rem, env(safe-area-inset-right));
   bottom: calc(5.25rem + env(safe-area-inset-bottom));
   z-index: 120;
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
   max-width: min(34rem, calc(100vw - 2rem));
-  padding: 0.6rem 0.6rem 0.6rem 0.8rem;
+  padding-block: 0.6rem;
+  padding-inline: 0.8rem 0.6rem;
   border: 1px solid var(--success-border);
   border-radius: 10px;
   background: var(--surface-success);
@@ -938,6 +940,14 @@
   border-color: currentcolor;
   color: var(--text-heading);
   outline: none;
+}
+
+html[dir="rtl"] .tts-select {
+  background-position: left 0.55rem center;
+}
+
+html[dir="rtl"] .audiobook-action-toast {
+  inset-inline-end: max(1rem, env(safe-area-inset-left));
 }
 
 .audiobook-text-action:hover:not(:disabled) {

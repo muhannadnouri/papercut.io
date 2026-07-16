@@ -265,7 +265,7 @@ export function DocumentViewer({
         ) : loadError ? (
           <div className="document-html-surface document-loading-surface document-load-error" role="alert">
             <strong>Unable to open document.</strong>
-            <span>{loadError}</span>
+            <span dir="auto">{loadError}</span>
           </div>
         ) : (
           <ViewerComponent

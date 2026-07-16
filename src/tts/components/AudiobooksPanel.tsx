@@ -161,7 +161,7 @@ export function AudiobooksPanel({
               </span>
               <span className="audiobooks-setup-disclosure-main">
                 <span className="audiobooks-setup-disclosure-title">Audio Setup</span>
-                <span className="audiobooks-setup-disclosure-summary">{setupSummary}</span>
+                <span className="audiobooks-setup-disclosure-summary" dir="auto">{setupSummary}</span>
               </span>
               <span className="audiobooks-setup-disclosure-chevron" aria-hidden="true">{setupOpen ? '▲' : '▼'}</span>
             </button>
@@ -186,10 +186,10 @@ export function AudiobooksPanel({
             <h3 className="audiobooks-section-title">Saving</h3>
             <div className="audiobook-item audiobook-item-active">
               <div className="audiobook-row">
-                <span className="audiobook-title">{activeDownloadTitle}</span>
-                <span className="audiobook-meta">{downloadState.cachedChunks}/{downloadState.totalChunks}</span>
+                <bdi className="audiobook-title">{activeDownloadTitle}</bdi>
+                <span className="audiobook-meta" dir="ltr">{downloadState.cachedChunks}/{downloadState.totalChunks}</span>
               </div>
-              <div className="audiobook-status-text">
+              <div className="audiobook-status-text" dir="auto">
                 {activeDownload ? formatAudiobookVoiceMeta(activeDownload.modelId, activeDownload.voice, activeDownload.speed, activeDownload.dtype, activeDownload.textPreprocessor, activeDownload.silmaNfeStep) + ' - ' : ''}{formatDownloadSavedStatus(downloadState.audioDurationSec, activePercent, downloadState.wavBytes)}
               </div>
               <div className="audio-progress-meter" aria-label={'Saving audiobook ' + activePercent + '% complete'}>
@@ -208,17 +208,17 @@ export function AudiobooksPanel({
               return (
                 <div key={record.id} className={'audiobook-item audiobook-item-' + record.status}>
                   <div className="audiobook-row">
-                    <span className="audiobook-title">{record.title}</span>
-                    <span className="audiobook-meta">{record.cachedChunks}/{record.totalChunks}</span>
+                    <bdi className="audiobook-title">{record.title}</bdi>
+                    <span className="audiobook-meta" dir="ltr">{record.cachedChunks}/{record.totalChunks}</span>
                   </div>
-                  <div className="audiobook-status-text">
+                  <div className="audiobook-status-text" dir="auto">
                     {formatAudiobookVoiceMeta(record.modelId, record.voice, record.speed, record.dtype, record.textPreprocessor, record.silmaNfeStep) + ' - ' + formatDownloadSavedStatus(record.audioDurationSec, percent, record.wavBytes)}
                   </div>
                   <div className="audio-progress-meter" aria-label={'Audiobook save ' + percent + '% complete'}>
                     <span style={{ width: percent + '%' }} />
                   </div>
                   <div className="audiobook-actions">
-                    <span className="audiobook-status-text">{record.message || record.status}</span>
+                    <span className="audiobook-status-text" dir="auto">{record.message || record.status}</span>
                     <button className="audiobook-text-action audiobook-resume" disabled={panelBusy} onClick={() => onResumeQueued(record)}>
                       {record.status === 'error' ? 'Retry' : 'Resume'}
                     </button>
@@ -247,8 +247,8 @@ export function AudiobooksPanel({
                     disabled={documentOpening || panelBusy}
                     onClick={() => { if (!documentOpening) onOpenSaved(record) }}
                   >
-                    <span className="audiobook-title">{record.title}</span>
-                    <span className="audiobook-meta">
+                    <bdi className="audiobook-title">{record.title}</bdi>
+                    <span className="audiobook-meta" dir="auto">
                       {formatSavedAudiobookMeta(
                         record.modelId,
                         record.voice,
@@ -308,6 +308,7 @@ export function AudiobooksPanel({
                     <div
                       className={'audiobook-status-text audiobook-operation-status audiobook-delete-' + recordDeleteState.status}
                       title={recordDeleteState.message}
+                      dir="auto"
                     >
                       {recordDeleteState.message}
                     </div>
@@ -326,7 +327,7 @@ export function AudiobooksPanel({
           role={noticeState.status === 'error' ? 'alert' : 'status'}
           aria-live="polite"
         >
-          <span>{noticeState.message}</span>
+          <span dir="auto">{noticeState.message}</span>
           <button
             type="button"
             className="audiobook-action-toast-dismiss"

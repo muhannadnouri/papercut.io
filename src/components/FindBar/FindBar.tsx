@@ -26,6 +26,7 @@ export function FindBar({
       <input
         ref={inputRef}
         type="text"
+        dir="auto"
         className="find-input"
         placeholder="Find..."
         value={query}

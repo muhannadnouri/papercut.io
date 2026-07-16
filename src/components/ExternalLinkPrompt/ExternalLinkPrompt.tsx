@@ -24,7 +24,7 @@ export function ExternalLinkPrompt({ url, error, onCancel, onOpen }: ExternalLin
       )}
     >
       <code className="app-dialog-code" dir="ltr">{url}</code>
-      {error && <p className="app-dialog-error" role="alert">{error}</p>}
+      {error && <p className="app-dialog-error" role="alert" dir="auto">{error}</p>}
     </AppDialog>
   )
 }

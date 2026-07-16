@@ -5,7 +5,7 @@ export function EpubViewer({ url }: ViewerProps) {
   return (
     <div className="viewer-stub">
       <p>Raw EPUB viewer not yet implemented.</p>
-      <p><code>{url}</code></p>
+      <p><code dir="ltr">{url}</code></p>
     </div>
   )
 }

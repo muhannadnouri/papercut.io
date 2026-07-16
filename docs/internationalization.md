@@ -20,6 +20,11 @@ from the language of an open document.
   overrides in the generated reading document.
 - Document direction remains independent from the app shell. Content without
   explicit direction uses native `dir="auto"` detection.
+- Shared panels, popovers, selectors, and text alignment use logical CSS
+  properties. Navigation arrows mirror in RTL, while playback transport
+  controls and their collision-avoidance placement remain physically stable.
+- User-authored titles and free-form status text use `bdi` or `dir="auto"`.
+  URLs, filesystem paths, JSON, and raw diagnostics remain explicitly LTR.
 - Unmigrated feature screens still fall back to their existing English text.
 
 The locale foundation lives in `src/i18n/`. `i18next` owns application
@@ -48,7 +53,7 @@ each locale, and runs automatically during `npm run build`.
 - [x] Migrate shared dialogs and common actions.
 - [x] Migrate Search and Library, including plural messages and locale-aware sorting.
 - [x] Preserve imported HTML/EPUB language and direction in the reader.
-- [ ] Complete the RTL CSS and bidirectional-content audit.
+- [x] Complete the RTL CSS and bidirectional-content audit.
 - [ ] Migrate audiobook and TTS status text.
 - [ ] Replace expected native English error strings with stable error codes.
 - [ ] Add Spanish, French, Italian, Brazilian Portuguese, Hindi, and Simplified Chinese.

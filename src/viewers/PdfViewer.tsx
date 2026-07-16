@@ -6,7 +6,7 @@ export function PdfViewer({ url }: ViewerProps) {
   return (
     <div className="viewer-stub">
       <p>PDF viewer not yet implemented.</p>
-      <p><code>{url}</code></p>
+      <p><code dir="ltr">{url}</code></p>
     </div>
   )
 }

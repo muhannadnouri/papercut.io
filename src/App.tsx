@@ -373,7 +373,7 @@ function AppBusyOverlay({ message }: { message: string }) {
     >
       <div className="app-busy-card">
         <span className="spinner" aria-hidden="true" />
-        <span>{message}</span>
+        <span dir="auto">{message}</span>
       </div>
     </div>
   )

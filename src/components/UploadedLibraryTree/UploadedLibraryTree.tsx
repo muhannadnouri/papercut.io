@@ -354,7 +354,7 @@ export function UploadedLibraryTree({
             </label>
           </div>
           {actionError && (
-            <p className="uploaded-library-action-error" role="alert">
+            <p className="uploaded-library-action-error" role="alert" dir="auto">
               {actionError}
             </p>
           )}

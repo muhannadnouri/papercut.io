@@ -70,13 +70,14 @@ export function TextInputDialog({
         <input
           ref={inputRef}
           type="text"
+          dir="auto"
           value={value}
           maxLength={maxLength}
           disabled={busy}
           onChange={(event) => setValue(event.target.value)}
         />
       </label>
-      {error && <p className="text-input-dialog-error">{error}</p>}
+      {error && <p className="text-input-dialog-error" dir="auto">{error}</p>}
     </AppDialog>
   )
 }

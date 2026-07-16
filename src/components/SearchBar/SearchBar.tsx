@@ -18,6 +18,7 @@ export function SearchBar({ query, disabled, onChange, onSubmit }: SearchBarProp
       <div className="search-row">
         <input
           type="text"
+          dir="auto"
           className="search-input"
           placeholder={disabled ? t('search.input.loadingPlaceholder') : t('search.input.placeholder')}
           value={query}

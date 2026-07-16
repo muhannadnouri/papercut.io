@@ -132,6 +132,10 @@
   stroke-linejoin: round;
 }
 
+html[dir="rtl"] .back-icon {
+  transform: scaleX(-1);
+}
+
 .document-view {
   margin-top: 1rem;
 }

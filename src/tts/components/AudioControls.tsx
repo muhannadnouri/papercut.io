@@ -173,7 +173,7 @@ export function AudioControls({
             <AudioIcon name="stop" />
           </button>
           {showPlaybackStatus && (
-            <div className={'audio-floating-status tts-status-' + ttsState.status}>
+            <div className={'audio-floating-status tts-status-' + ttsState.status} dir="auto">
               <span>{ttsState.status === 'error' ? ttsState.message : 'Chunk ' + (currentChunkNumber || 0) + '/' + chunkTotal}</span>
               {ttsState.status !== 'error' && playbackNotice && (
                 <span>{playbackNotice}</span>
