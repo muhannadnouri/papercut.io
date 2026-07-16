@@ -8,7 +8,6 @@ import {
   formatAudiobookVoiceMeta,
   formatDownloadSavedStatus,
   formatSavedAudiobookMeta,
-  formatSpeedLabel,
 } from '../utils/format'
 import { Panel } from '../../components/Panel/Panel'
 import { AudioSetupPanel, type AudioSetupPanelProps } from './AudioSetupPanel'
@@ -389,7 +388,6 @@ function formatAudioSetupSummary(audioSetup: AudioSetupPanelProps): string {
   const pieces = [
     '🤖 ' + (model?.name ?? 'Model'),
     '🔊 ' + (voice?.name ?? audioSetup.voice),
-    '⚡ ' + formatSpeedLabel(audioSetup.speed),
   ]
   if (model?.family === 'silma-f5') pieces.push('🎚️ NFE ' + audioSetup.silmaNfeStep)
 
