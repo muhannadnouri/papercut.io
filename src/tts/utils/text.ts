@@ -171,7 +171,7 @@ function appendSegmentChunks(
   }
 
   const sentences = paragraph
-    .match(/[^.!?؟]+[.!?؟]+["')\]]*|[^.!?؟]+$/g)
+    .match(/[^.!?؟。！？।॥]+[.!?؟。！？।॥]+["'”’»)\]）】」』》]*|[^.!?؟。！？।॥]+$/g)
     ?.map((sentence) => sentence.trim())
     .filter(Boolean) ?? [paragraph]
 
@@ -197,9 +197,10 @@ function appendSegmentChunks(
 }
 
 function splitLongSentence(sentence: string, profile: SpeechChunkProfile): string[] {
-  // Fall back to Latin/Arabic clause boundaries, then hard-wrap long clauses.
+  // Fall back to common Latin, Arabic, CJK, and Devanagari clause boundaries,
+  // then hard-wrap long clauses.
   const parts = sentence
-    .split(/([,;:،؛]\s*)/)
+    .split(/([,;:،؛，；：、]\s*)/)
     .reduce<string[]>((acc, part, idx, source) => {
       if (idx % 2 === 0) {
         acc.push(part + (source[idx + 1] ?? ''))

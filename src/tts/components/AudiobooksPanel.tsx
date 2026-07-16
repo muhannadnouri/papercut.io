@@ -387,7 +387,7 @@ function formatAudioSetupSummary(audioSetup: AudioSetupPanelProps): string {
   const voice = audioSetup.voices.find((item) => item.id === audioSetup.voice)
   const pieces = [
     '🤖 ' + (model?.name ?? 'Model'),
-    '🔊 ' + (voice?.name ?? audioSetup.voice),
+    '🔊 ' + (voice?.name ?? audioSetup.voice).replace(/\s+\([A-F][+-]?\)$/, ''),
   ]
   if (model?.family === 'silma-f5') pieces.push('🎚️ NFE ' + audioSetup.silmaNfeStep)
 

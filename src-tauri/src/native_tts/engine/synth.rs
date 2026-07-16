@@ -311,6 +311,11 @@ fn generation_language(model: &ModelDefinition, voice: &str) -> Option<&'static 
     match model.require_sherpa_family().ok()? {
         SherpaModelFamily::Kokoro if voice.starts_with('a') => Some("en-us"),
         SherpaModelFamily::Kokoro if voice.starts_with('b') => Some("en-gb"),
+        SherpaModelFamily::Kokoro if voice.starts_with('e') => Some("es"),
+        SherpaModelFamily::Kokoro if voice.starts_with('f') => Some("fr"),
+        SherpaModelFamily::Kokoro if voice.starts_with('h') => Some("hi"),
+        SherpaModelFamily::Kokoro if voice.starts_with('i') => Some("it"),
+        SherpaModelFamily::Kokoro if voice.starts_with('p') => Some("pt-br"),
         SherpaModelFamily::Kokoro if voice.starts_with('z') => Some("zh"),
         SherpaModelFamily::Supertonic => model.supertonic_lang,
         _ => None,
@@ -346,11 +351,7 @@ fn create_engine(
                 tokens: Some(model_dir.join("tokens.txt").display().to_string()),
                 data_dir: Some(model_dir.join("espeak-ng-data").display().to_string()),
                 lexicon: (!lexicon.is_empty()).then_some(lexicon),
-                lang: Some(if model.language.starts_with("zh") {
-                    "zh".into()
-                } else {
-                    "en-us".into()
-                }),
+                lang: generation_language(model, model.default_voice).map(str::to_owned),
                 ..Default::default()
             };
         }
@@ -433,5 +434,21 @@ mod tests {
             generation_language(model_definition(KOKORO_ZH_MODEL_ID).unwrap(), "zf_xiaobei"),
             Some("zh")
         );
+        for (model_id, voice, language) in [
+            ("sherpa-onnx/kokoro-multi-lang-v1_0-es", "ef_dora", "es"),
+            ("sherpa-onnx/kokoro-multi-lang-v1_0-fr", "ff_siwis", "fr"),
+            ("sherpa-onnx/kokoro-multi-lang-v1_0-hi", "hf_alpha", "hi"),
+            ("sherpa-onnx/kokoro-multi-lang-v1_0-it", "if_sara", "it"),
+            (
+                "sherpa-onnx/kokoro-multi-lang-v1_0-pt-br",
+                "pf_dora",
+                "pt-br",
+            ),
+        ] {
+            assert_eq!(
+                generation_language(model_definition(model_id).unwrap(), voice),
+                Some(language)
+            );
+        }
     }
 }

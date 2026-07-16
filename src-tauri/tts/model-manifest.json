@@ -24,6 +24,61 @@
       "platforms": ["desktop", "android"]
     },
     {
+      "id": "sherpa-onnx/kokoro-multi-lang-v1_0-es",
+      "family": "kokoro",
+      "language": "es-ES",
+      "modelName": "kokoro-multi-lang-v1_0",
+      "sourceLabel": "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
+      "sha256": "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
+      "archiveBytes": 349418188,
+      "platforms": ["desktop", "android"]
+    },
+    {
+      "id": "sherpa-onnx/kokoro-multi-lang-v1_0-fr",
+      "family": "kokoro",
+      "language": "fr-FR",
+      "modelName": "kokoro-multi-lang-v1_0",
+      "sourceLabel": "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
+      "sha256": "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
+      "archiveBytes": 349418188,
+      "platforms": ["desktop", "android"]
+    },
+    {
+      "id": "sherpa-onnx/kokoro-multi-lang-v1_0-hi",
+      "family": "kokoro",
+      "language": "hi-IN",
+      "modelName": "kokoro-multi-lang-v1_0",
+      "sourceLabel": "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
+      "sha256": "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
+      "archiveBytes": 349418188,
+      "platforms": ["desktop", "android"]
+    },
+    {
+      "id": "sherpa-onnx/kokoro-multi-lang-v1_0-it",
+      "family": "kokoro",
+      "language": "it-IT",
+      "modelName": "kokoro-multi-lang-v1_0",
+      "sourceLabel": "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
+      "sha256": "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
+      "archiveBytes": 349418188,
+      "platforms": ["desktop", "android"]
+    },
+    {
+      "id": "sherpa-onnx/kokoro-multi-lang-v1_0-pt-br",
+      "family": "kokoro",
+      "language": "pt-BR",
+      "modelName": "kokoro-multi-lang-v1_0",
+      "sourceLabel": "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
+      "sha256": "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
+      "archiveBytes": 349418188,
+      "platforms": ["desktop", "android"]
+    },
+    {
       "id": "sherpa-onnx/vits-piper-ar_JO-kareem-medium",
       "family": "vits",
       "language": "ar-JO",
