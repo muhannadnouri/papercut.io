@@ -1,5 +1,6 @@
 import {
   DEFAULT_TTS_MODEL_ID,
+  KOKORO_ZH_MODEL_ID,
   LIBTASHKEEL_TEXT_PREPROCESSOR,
   PIPER_KAREEM_MODEL_ID,
   SILMA_MODEL_ID,
@@ -27,16 +28,129 @@ export const FALLBACK_TTS_MODELS: TtsModelInfo[] = [
       description: 'Synthesize source text without language preprocessing.',
     }],
     voices: [
-      ['af_heart', 'Heart'], ['af_bella', 'Bella'], ['af_nicole', 'Nicole'],
-      ['af_sarah', 'Sarah'], ['af_sky', 'Sky'], ['af_nova', 'Nova'],
-      ['af_alloy', 'Alloy'], ['af_aoede', 'Aoede'], ['af_kore', 'Kore'],
-      ['af_jessica', 'Jessica'], ['af_river', 'River'], ['am_fenrir', 'Fenrir'],
-      ['am_michael', 'Michael'], ['am_puck', 'Puck'], ['am_liam', 'Liam'],
-      ['am_onyx', 'Onyx'], ['am_echo', 'Echo'], ['am_eric', 'Eric'],
-      ['am_santa', 'Santa'], ['bf_emma', 'Emma'], ['bf_isabella', 'Isabella'],
-      ['bf_alice', 'Alice'], ['bf_lily', 'Lily'], ['bm_george', 'George'],
-      ['bm_lewis', 'Lewis'], ['bm_daniel', 'Daniel'], ['bm_fable', 'Fable'],
+      ['af_heart', '🇺🇸 Heart (A)'], ['af_bella', '🇺🇸 Bella (A-)'],
+      ['af_nicole', '🇺🇸 Nicole (B-)'], ['af_sarah', '🇺🇸 Sarah (C+)'],
+      ['af_sky', '🇺🇸 Sky (C-)'], ['af_nova', '🇺🇸 Nova (C)'],
+      ['af_alloy', '🇺🇸 Alloy (C)'], ['af_aoede', '🇺🇸 Aoede (C+)'],
+      ['af_kore', '🇺🇸 Kore (C+)'], ['af_jessica', '🇺🇸 Jessica (D)'],
+      ['af_river', '🇺🇸 River (D)'], ['am_fenrir', '🇺🇸 Fenrir (C+)'],
+      ['am_michael', '🇺🇸 Michael (C+)'], ['am_puck', '🇺🇸 Puck (C+)'],
+      ['am_liam', '🇺🇸 Liam (D)'], ['am_onyx', '🇺🇸 Onyx (D)'],
+      ['am_echo', '🇺🇸 Echo (D)'], ['am_eric', '🇺🇸 Eric (D)'],
+      ['am_santa', '🇺🇸 Santa (D-)'], ['bf_emma', '🇬🇧 Emma (B-)'],
+      ['bf_isabella', '🇬🇧 Isabella (C)'], ['bf_alice', '🇬🇧 Alice (D)'],
+      ['bf_lily', '🇬🇧 Lily (D)'], ['bm_george', '🇬🇧 George (C)'],
+      ['bm_lewis', '🇬🇧 Lewis (D+)'], ['bm_daniel', '🇬🇧 Daniel (D)'],
+      ['bm_fable', '🇬🇧 Fable (C)'],
     ].map(([id, name]) => ({ id, name })),
+  },
+  {
+    id: KOKORO_ZH_MODEL_ID,
+    name: 'Kokoro v1.0 Mandarin (Experimental)',
+    family: 'kokoro',
+    language: 'zh-CN',
+    languageLabel: 'Chinese (Mandarin)',
+    defaultVoice: 'zf_xiaobei',
+    defaultTextPreprocessor: TEXT_PREPROCESSOR_NONE,
+    textPreprocessors: [{
+      id: TEXT_PREPROCESSOR_NONE,
+      name: 'Original text',
+      description: 'Synthesize source text without language preprocessing.',
+    }],
+    voices: [
+      ['zf_xiaobei', '🇨🇳 Xiaobei (D)'], ['zf_xiaoni', '🇨🇳 Xiaoni (D)'],
+      ['zf_xiaoxiao', '🇨🇳 Xiaoxiao (D)'], ['zf_xiaoyi', '🇨🇳 Xiaoyi (D)'],
+      ['zm_yunjian', '🇨🇳 Yunjian (D)'], ['zm_yunxi', '🇨🇳 Yunxi (D)'],
+      ['zm_yunxia', '🇨🇳 Yunxia (D)'], ['zm_yunyang', '🇨🇳 Yunyang (D)'],
+    ].map(([id, name]) => ({ id, name })),
+  },
+  {
+    id: 'sherpa-onnx/kokoro-multi-lang-v1_0-es',
+    name: 'Kokoro v1.0 Spanish (Experimental)',
+    family: 'kokoro',
+    language: 'es-ES',
+    languageLabel: 'Spanish',
+    defaultVoice: 'ef_dora',
+    defaultTextPreprocessor: TEXT_PREPROCESSOR_NONE,
+    textPreprocessors: [{
+      id: TEXT_PREPROCESSOR_NONE,
+      name: 'Original text',
+      description: 'Synthesize source text without language preprocessing.',
+    }],
+    voices: [
+      { id: 'ef_dora', name: '🇪🇸 Dora' },
+      { id: 'em_alex', name: '🇪🇸 Alex' },
+    ],
+  },
+  {
+    id: 'sherpa-onnx/kokoro-multi-lang-v1_0-fr',
+    name: 'Kokoro v1.0 French (Experimental)',
+    family: 'kokoro',
+    language: 'fr-FR',
+    languageLabel: 'French',
+    defaultVoice: 'ff_siwis',
+    defaultTextPreprocessor: TEXT_PREPROCESSOR_NONE,
+    textPreprocessors: [{
+      id: TEXT_PREPROCESSOR_NONE,
+      name: 'Original text',
+      description: 'Synthesize source text without language preprocessing.',
+    }],
+    voices: [{ id: 'ff_siwis', name: '🇫🇷 Siwis (B-)' }],
+  },
+  {
+    id: 'sherpa-onnx/kokoro-multi-lang-v1_0-hi',
+    name: 'Kokoro v1.0 Hindi (Experimental)',
+    family: 'kokoro',
+    language: 'hi-IN',
+    languageLabel: 'Hindi',
+    defaultVoice: 'hf_alpha',
+    defaultTextPreprocessor: TEXT_PREPROCESSOR_NONE,
+    textPreprocessors: [{
+      id: TEXT_PREPROCESSOR_NONE,
+      name: 'Original text',
+      description: 'Synthesize source text without language preprocessing.',
+    }],
+    voices: [
+      ['hf_alpha', '🇮🇳 Alpha (C)'], ['hf_beta', '🇮🇳 Beta (C)'],
+      ['hm_omega', '🇮🇳 Omega (C)'], ['hm_psi', '🇮🇳 Psi (C)'],
+    ].map(([id, name]) => ({ id, name })),
+  },
+  {
+    id: 'sherpa-onnx/kokoro-multi-lang-v1_0-it',
+    name: 'Kokoro v1.0 Italian (Experimental)',
+    family: 'kokoro',
+    language: 'it-IT',
+    languageLabel: 'Italian',
+    defaultVoice: 'if_sara',
+    defaultTextPreprocessor: TEXT_PREPROCESSOR_NONE,
+    textPreprocessors: [{
+      id: TEXT_PREPROCESSOR_NONE,
+      name: 'Original text',
+      description: 'Synthesize source text without language preprocessing.',
+    }],
+    voices: [
+      { id: 'if_sara', name: '🇮🇹 Sara (C)' },
+      { id: 'im_nicola', name: '🇮🇹 Nicola (C)' },
+    ],
+  },
+  {
+    id: 'sherpa-onnx/kokoro-multi-lang-v1_0-pt-br',
+    name: 'Kokoro v1.0 Brazilian Portuguese (Experimental)',
+    family: 'kokoro',
+    language: 'pt-BR',
+    languageLabel: 'Portuguese (Brazil)',
+    defaultVoice: 'pf_dora',
+    defaultTextPreprocessor: TEXT_PREPROCESSOR_NONE,
+    textPreprocessors: [{
+      id: TEXT_PREPROCESSOR_NONE,
+      name: 'Original text',
+      description: 'Synthesize source text without language preprocessing.',
+    }],
+    voices: [
+      { id: 'pf_dora', name: '🇧🇷 Dora' },
+      { id: 'pm_alex', name: '🇧🇷 Alex' },
+      { id: 'pm_santa', name: '🇧🇷 Santa' },
+    ],
   },
   {
     id: PIPER_KAREEM_MODEL_ID,
@@ -128,14 +242,24 @@ export function resolveModelTextPreprocessor(
 
 export function suggestTtsModel(models: TtsModelInfo[], chunks: TtsChunk[]): TtsModelInfo {
   let arabic = 0
+  let han = 0
+  let kana = 0
   let latin = 0
   for (const chunk of chunks) {
     for (const char of chunk.text) {
       if (/[\u0600-\u06ff]/u.test(char)) arabic += 1
+      else if (/\p{Script=Han}/u.test(char)) han += 1
+      else if (/[\u3040-\u30ff]/u.test(char)) kana += 1
       else if (/[A-Za-z]/.test(char)) latin += 1
     }
   }
 
+  // Han characters dominate Mandarin prose, while kana prevents Japanese text
+  // from being incorrectly suggested as Chinese.
+  if (han > latin && han > arabic && han >= 20 && kana < 5) {
+    return models.find((model) => model.language.toLowerCase().startsWith('zh'))
+      ?? getTtsModel(models, DEFAULT_TTS_MODEL_ID)
+  }
   if (arabic > latin && arabic >= 20) {
     return models.find((model) => model.language.toLowerCase().startsWith('ar'))
       ?? getTtsModel(models, DEFAULT_TTS_MODEL_ID)

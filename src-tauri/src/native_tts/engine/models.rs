@@ -203,138 +203,254 @@ impl ModelDefinition {
 const KOKORO_VOICES: &[VoiceDefinition] = &[
     VoiceDefinition {
         id: "af_alloy",
-        name: "Alloy",
+        name: "🇺🇸 Alloy (C)",
         speaker_id: 0,
     },
     VoiceDefinition {
         id: "af_aoede",
-        name: "Aoede",
+        name: "🇺🇸 Aoede (C+)",
         speaker_id: 1,
     },
     VoiceDefinition {
         id: "af_bella",
-        name: "Bella",
+        name: "🇺🇸 Bella (A-)",
         speaker_id: 2,
     },
     VoiceDefinition {
         id: "af_heart",
-        name: "Heart",
+        name: "🇺🇸 Heart (A)",
         speaker_id: 3,
     },
     VoiceDefinition {
         id: "af_jessica",
-        name: "Jessica",
+        name: "🇺🇸 Jessica (D)",
         speaker_id: 4,
     },
     VoiceDefinition {
         id: "af_kore",
-        name: "Kore",
+        name: "🇺🇸 Kore (C+)",
         speaker_id: 5,
     },
     VoiceDefinition {
         id: "af_nicole",
-        name: "Nicole",
+        name: "🇺🇸 Nicole (B-)",
         speaker_id: 6,
     },
     VoiceDefinition {
         id: "af_nova",
-        name: "Nova",
+        name: "🇺🇸 Nova (C)",
         speaker_id: 7,
     },
     VoiceDefinition {
         id: "af_river",
-        name: "River",
+        name: "🇺🇸 River (D)",
         speaker_id: 8,
     },
     VoiceDefinition {
         id: "af_sarah",
-        name: "Sarah",
+        name: "🇺🇸 Sarah (C+)",
         speaker_id: 9,
     },
     VoiceDefinition {
         id: "af_sky",
-        name: "Sky",
+        name: "🇺🇸 Sky (C-)",
         speaker_id: 10,
     },
     VoiceDefinition {
         id: "am_echo",
-        name: "Echo",
+        name: "🇺🇸 Echo (D)",
         speaker_id: 12,
     },
     VoiceDefinition {
         id: "am_eric",
-        name: "Eric",
+        name: "🇺🇸 Eric (D)",
         speaker_id: 13,
     },
     VoiceDefinition {
         id: "am_fenrir",
-        name: "Fenrir",
+        name: "🇺🇸 Fenrir (C+)",
         speaker_id: 14,
     },
     VoiceDefinition {
         id: "am_liam",
-        name: "Liam",
+        name: "🇺🇸 Liam (D)",
         speaker_id: 15,
     },
     VoiceDefinition {
         id: "am_michael",
-        name: "Michael",
+        name: "🇺🇸 Michael (C+)",
         speaker_id: 16,
     },
     VoiceDefinition {
         id: "am_onyx",
-        name: "Onyx",
+        name: "🇺🇸 Onyx (D)",
         speaker_id: 17,
     },
     VoiceDefinition {
         id: "am_puck",
-        name: "Puck",
+        name: "🇺🇸 Puck (C+)",
         speaker_id: 18,
     },
     VoiceDefinition {
         id: "am_santa",
-        name: "Santa",
+        name: "🇺🇸 Santa (D-)",
         speaker_id: 19,
     },
     VoiceDefinition {
         id: "bf_alice",
-        name: "Alice",
+        name: "🇬🇧 Alice (D)",
         speaker_id: 20,
     },
     VoiceDefinition {
         id: "bf_emma",
-        name: "Emma",
+        name: "🇬🇧 Emma (B-)",
         speaker_id: 21,
     },
     VoiceDefinition {
         id: "bf_isabella",
-        name: "Isabella",
+        name: "🇬🇧 Isabella (C)",
         speaker_id: 22,
     },
     VoiceDefinition {
         id: "bf_lily",
-        name: "Lily",
+        name: "🇬🇧 Lily (D)",
         speaker_id: 23,
     },
     VoiceDefinition {
         id: "bm_daniel",
-        name: "Daniel",
+        name: "🇬🇧 Daniel (D)",
         speaker_id: 24,
     },
     VoiceDefinition {
         id: "bm_fable",
-        name: "Fable",
+        name: "🇬🇧 Fable (C)",
         speaker_id: 25,
     },
     VoiceDefinition {
         id: "bm_george",
-        name: "George",
+        name: "🇬🇧 George (C)",
         speaker_id: 26,
     },
     VoiceDefinition {
         id: "bm_lewis",
-        name: "Lewis",
+        name: "🇬🇧 Lewis (D+)",
         speaker_id: 27,
+    },
+];
+
+const KOKORO_ZH_VOICES: &[VoiceDefinition] = &[
+    VoiceDefinition {
+        id: "zf_xiaobei",
+        name: "🇨🇳 Xiaobei (D)",
+        speaker_id: 45,
+    },
+    VoiceDefinition {
+        id: "zf_xiaoni",
+        name: "🇨🇳 Xiaoni (D)",
+        speaker_id: 46,
+    },
+    VoiceDefinition {
+        id: "zf_xiaoxiao",
+        name: "🇨🇳 Xiaoxiao (D)",
+        speaker_id: 47,
+    },
+    VoiceDefinition {
+        id: "zf_xiaoyi",
+        name: "🇨🇳 Xiaoyi (D)",
+        speaker_id: 48,
+    },
+    VoiceDefinition {
+        id: "zm_yunjian",
+        name: "🇨🇳 Yunjian (D)",
+        speaker_id: 49,
+    },
+    VoiceDefinition {
+        id: "zm_yunxi",
+        name: "🇨🇳 Yunxi (D)",
+        speaker_id: 50,
+    },
+    VoiceDefinition {
+        id: "zm_yunxia",
+        name: "🇨🇳 Yunxia (D)",
+        speaker_id: 51,
+    },
+    VoiceDefinition {
+        id: "zm_yunyang",
+        name: "🇨🇳 Yunyang (D)",
+        speaker_id: 52,
+    },
+];
+
+const KOKORO_ES_VOICES: &[VoiceDefinition] = &[
+    VoiceDefinition {
+        id: "ef_dora",
+        name: "🇪🇸 Dora",
+        speaker_id: 28,
+    },
+    VoiceDefinition {
+        id: "em_alex",
+        name: "🇪🇸 Alex",
+        speaker_id: 29,
+    },
+];
+
+const KOKORO_FR_VOICES: &[VoiceDefinition] = &[VoiceDefinition {
+    id: "ff_siwis",
+    name: "🇫🇷 Siwis (B-)",
+    speaker_id: 30,
+}];
+
+const KOKORO_HI_VOICES: &[VoiceDefinition] = &[
+    VoiceDefinition {
+        id: "hf_alpha",
+        name: "🇮🇳 Alpha (C)",
+        speaker_id: 31,
+    },
+    VoiceDefinition {
+        id: "hf_beta",
+        name: "🇮🇳 Beta (C)",
+        speaker_id: 32,
+    },
+    VoiceDefinition {
+        id: "hm_omega",
+        name: "🇮🇳 Omega (C)",
+        speaker_id: 33,
+    },
+    VoiceDefinition {
+        id: "hm_psi",
+        name: "🇮🇳 Psi (C)",
+        speaker_id: 34,
+    },
+];
+
+const KOKORO_IT_VOICES: &[VoiceDefinition] = &[
+    VoiceDefinition {
+        id: "if_sara",
+        name: "🇮🇹 Sara (C)",
+        speaker_id: 35,
+    },
+    VoiceDefinition {
+        id: "im_nicola",
+        name: "🇮🇹 Nicola (C)",
+        speaker_id: 36,
+    },
+];
+
+const KOKORO_PT_BR_VOICES: &[VoiceDefinition] = &[
+    VoiceDefinition {
+        id: "pf_dora",
+        name: "🇧🇷 Dora",
+        speaker_id: 42,
+    },
+    VoiceDefinition {
+        id: "pm_alex",
+        name: "🇧🇷 Alex",
+        speaker_id: 43,
+    },
+    VoiceDefinition {
+        id: "pm_santa",
+        name: "🇧🇷 Santa",
+        speaker_id: 44,
     },
 ];
 
@@ -394,8 +510,35 @@ const KOKORO_REQUIRED_FILES: &[&str] = &[
     "voices.bin",
     "tokens.txt",
     "espeak-ng-data/phontab",
+    "espeak-ng-data/phonindex",
+    "espeak-ng-data/phondata",
+    "espeak-ng-data/intonations",
     "espeak-ng-data/en_dict",
     "lexicon-us-en.txt",
+];
+
+const KOKORO_ESPEAK_REQUIRED_FILES: &[&str] = &[
+    "model.onnx",
+    "voices.bin",
+    "tokens.txt",
+    "espeak-ng-data/phontab",
+    "espeak-ng-data/phonindex",
+    "espeak-ng-data/phondata",
+    "espeak-ng-data/intonations",
+];
+
+const KOKORO_ZH_REQUIRED_FILES: &[&str] = &[
+    "model.onnx",
+    "voices.bin",
+    "tokens.txt",
+    "espeak-ng-data/phontab",
+    "espeak-ng-data/phonindex",
+    "espeak-ng-data/phondata",
+    "espeak-ng-data/intonations",
+    "lexicon-zh.txt",
+    "phone-zh.fst",
+    "date-zh.fst",
+    "number-zh.fst",
 ];
 
 const SUPERTONIC_REQUIRED_FILES: &[&str] = &[
@@ -421,6 +564,7 @@ const SILMA_REQUIRED_FILES: &[&str] = &[
 ];
 
 pub(super) const DEFAULT_MODEL_ID: &str = "sherpa-onnx/kokoro-multi-lang-v1_0";
+pub(super) const KOKORO_ZH_MODEL_ID: &str = "sherpa-onnx/kokoro-multi-lang-v1_0-zh";
 pub(super) const SILMA_MODEL_ID: &str = "silma-ai/silma-tts";
 pub(super) const SILMA_HF_CACHE_REPO_DIR: &str = "models--silma-ai--silma-tts";
 pub(super) const SILMA_HF_REVISION: &str = "d2515317033803648ecb8844765db9e583afecf9";
@@ -444,6 +588,132 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         required_files: KOKORO_REQUIRED_FILES,
         default_voice: "af_heart",
         voices: KOKORO_VOICES,
+        default_text_preprocessor: TEXT_PREPROCESSOR_NONE,
+        text_preprocessors: IDENTITY_TEXT_PREPROCESSORS,
+    },
+    ModelDefinition {
+        id: KOKORO_ZH_MODEL_ID,
+        directory_name: "kokoro-multi-lang-v1_0",
+        display_name: "Kokoro v1.0 Mandarin (Experimental)",
+        backend: TtsModelBackend::SherpaOnnx,
+        family: TtsModelFamily::Kokoro,
+        sherpa_family: Some(SherpaModelFamily::Kokoro),
+        language: "zh-CN",
+        language_label: "Chinese (Mandarin)",
+        supertonic_lang: None,
+        source_label: "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
+        source_url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
+        sha256: "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
+        archive_bytes: 349_418_188,
+        model_file: "model.onnx",
+        required_files: KOKORO_ZH_REQUIRED_FILES,
+        default_voice: "zf_xiaobei",
+        voices: KOKORO_ZH_VOICES,
+        default_text_preprocessor: TEXT_PREPROCESSOR_NONE,
+        text_preprocessors: IDENTITY_TEXT_PREPROCESSORS,
+    },
+    ModelDefinition {
+        id: "sherpa-onnx/kokoro-multi-lang-v1_0-es",
+        directory_name: "kokoro-multi-lang-v1_0",
+        display_name: "Kokoro v1.0 Spanish (Experimental)",
+        backend: TtsModelBackend::SherpaOnnx,
+        family: TtsModelFamily::Kokoro,
+        sherpa_family: Some(SherpaModelFamily::Kokoro),
+        language: "es-ES",
+        language_label: "Spanish",
+        supertonic_lang: None,
+        source_label: "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
+        source_url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
+        sha256: "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
+        archive_bytes: 349_418_188,
+        model_file: "model.onnx",
+        required_files: KOKORO_ESPEAK_REQUIRED_FILES,
+        default_voice: "ef_dora",
+        voices: KOKORO_ES_VOICES,
+        default_text_preprocessor: TEXT_PREPROCESSOR_NONE,
+        text_preprocessors: IDENTITY_TEXT_PREPROCESSORS,
+    },
+    ModelDefinition {
+        id: "sherpa-onnx/kokoro-multi-lang-v1_0-fr",
+        directory_name: "kokoro-multi-lang-v1_0",
+        display_name: "Kokoro v1.0 French (Experimental)",
+        backend: TtsModelBackend::SherpaOnnx,
+        family: TtsModelFamily::Kokoro,
+        sherpa_family: Some(SherpaModelFamily::Kokoro),
+        language: "fr-FR",
+        language_label: "French",
+        supertonic_lang: None,
+        source_label: "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
+        source_url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
+        sha256: "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
+        archive_bytes: 349_418_188,
+        model_file: "model.onnx",
+        required_files: KOKORO_ESPEAK_REQUIRED_FILES,
+        default_voice: "ff_siwis",
+        voices: KOKORO_FR_VOICES,
+        default_text_preprocessor: TEXT_PREPROCESSOR_NONE,
+        text_preprocessors: IDENTITY_TEXT_PREPROCESSORS,
+    },
+    ModelDefinition {
+        id: "sherpa-onnx/kokoro-multi-lang-v1_0-hi",
+        directory_name: "kokoro-multi-lang-v1_0",
+        display_name: "Kokoro v1.0 Hindi (Experimental)",
+        backend: TtsModelBackend::SherpaOnnx,
+        family: TtsModelFamily::Kokoro,
+        sherpa_family: Some(SherpaModelFamily::Kokoro),
+        language: "hi-IN",
+        language_label: "Hindi",
+        supertonic_lang: None,
+        source_label: "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
+        source_url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
+        sha256: "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
+        archive_bytes: 349_418_188,
+        model_file: "model.onnx",
+        required_files: KOKORO_ESPEAK_REQUIRED_FILES,
+        default_voice: "hf_alpha",
+        voices: KOKORO_HI_VOICES,
+        default_text_preprocessor: TEXT_PREPROCESSOR_NONE,
+        text_preprocessors: IDENTITY_TEXT_PREPROCESSORS,
+    },
+    ModelDefinition {
+        id: "sherpa-onnx/kokoro-multi-lang-v1_0-it",
+        directory_name: "kokoro-multi-lang-v1_0",
+        display_name: "Kokoro v1.0 Italian (Experimental)",
+        backend: TtsModelBackend::SherpaOnnx,
+        family: TtsModelFamily::Kokoro,
+        sherpa_family: Some(SherpaModelFamily::Kokoro),
+        language: "it-IT",
+        language_label: "Italian",
+        supertonic_lang: None,
+        source_label: "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
+        source_url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
+        sha256: "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
+        archive_bytes: 349_418_188,
+        model_file: "model.onnx",
+        required_files: KOKORO_ESPEAK_REQUIRED_FILES,
+        default_voice: "if_sara",
+        voices: KOKORO_IT_VOICES,
+        default_text_preprocessor: TEXT_PREPROCESSOR_NONE,
+        text_preprocessors: IDENTITY_TEXT_PREPROCESSORS,
+    },
+    ModelDefinition {
+        id: "sherpa-onnx/kokoro-multi-lang-v1_0-pt-br",
+        directory_name: "kokoro-multi-lang-v1_0",
+        display_name: "Kokoro v1.0 Brazilian Portuguese (Experimental)",
+        backend: TtsModelBackend::SherpaOnnx,
+        family: TtsModelFamily::Kokoro,
+        sherpa_family: Some(SherpaModelFamily::Kokoro),
+        language: "pt-BR",
+        language_label: "Portuguese (Brazil)",
+        supertonic_lang: None,
+        source_label: "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
+        source_url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
+        sha256: "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
+        archive_bytes: 349_418_188,
+        model_file: "model.onnx",
+        required_files: KOKORO_ESPEAK_REQUIRED_FILES,
+        default_voice: "pf_dora",
+        voices: KOKORO_PT_BR_VOICES,
         default_text_preprocessor: TEXT_PREPROCESSOR_NONE,
         text_preprocessors: IDENTITY_TEXT_PREPROCESSORS,
     },
@@ -559,6 +829,64 @@ mod tests {
             model_definition(DEFAULT_MODEL_ID).unwrap().family,
             TtsModelFamily::Kokoro
         );
+    }
+
+    #[test]
+    fn kokoro_voice_identity_is_stable_while_labels_include_locale_and_grade() {
+        let kokoro = model_definition(DEFAULT_MODEL_ID).unwrap();
+        assert_eq!(kokoro.speaker_id("af_heart").unwrap(), 3);
+        assert_eq!(kokoro.speaker_id("bf_emma").unwrap(), 21);
+        assert_eq!(
+            kokoro
+                .voices
+                .iter()
+                .find(|voice| voice.id == "af_heart")
+                .unwrap()
+                .name,
+            "🇺🇸 Heart (A)"
+        );
+        assert_eq!(
+            kokoro
+                .voices
+                .iter()
+                .find(|voice| voice.id == "bf_emma")
+                .unwrap()
+                .name,
+            "🇬🇧 Emma (B-)"
+        );
+    }
+
+    #[test]
+    fn kokoro_mandarin_reuses_the_archive_and_maps_official_speakers() {
+        let english = model_definition(DEFAULT_MODEL_ID).unwrap();
+        let mandarin = model_definition(KOKORO_ZH_MODEL_ID).unwrap();
+        assert_eq!(mandarin.directory_name, english.directory_name);
+        assert_eq!(mandarin.source_url, english.source_url);
+        assert_eq!(mandarin.sha256, english.sha256);
+        assert_eq!(mandarin.speaker_id("zf_xiaobei").unwrap(), 45);
+        assert_eq!(mandarin.speaker_id("zm_yunyang").unwrap(), 52);
+        assert_eq!(mandarin.voices.len(), 8);
+        assert!(!mandarin.english_text_normalization());
+    }
+
+    #[test]
+    fn kokoro_extra_languages_share_the_archive_and_keep_official_speaker_ids() {
+        let english = model_definition(DEFAULT_MODEL_ID).unwrap();
+        let cases = [
+            ("sherpa-onnx/kokoro-multi-lang-v1_0-es", "ef_dora", 28),
+            ("sherpa-onnx/kokoro-multi-lang-v1_0-fr", "ff_siwis", 30),
+            ("sherpa-onnx/kokoro-multi-lang-v1_0-hi", "hf_alpha", 31),
+            ("sherpa-onnx/kokoro-multi-lang-v1_0-it", "if_sara", 35),
+            ("sherpa-onnx/kokoro-multi-lang-v1_0-pt-br", "pf_dora", 42),
+        ];
+        for (model_id, voice_id, speaker_id) in cases {
+            let model = model_definition(model_id).unwrap();
+            assert_eq!(model.directory_name, english.directory_name);
+            assert_eq!(model.source_url, english.source_url);
+            assert_eq!(model.sha256, english.sha256);
+            assert_eq!(model.speaker_id(voice_id).unwrap(), speaker_id);
+            assert!(!model.english_text_normalization());
+        }
     }
 
     #[test]

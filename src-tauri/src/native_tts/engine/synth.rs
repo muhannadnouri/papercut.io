@@ -271,14 +271,15 @@ fn generate_audio(
     } else {
         1.0
     };
-    let extra = engine.model.supertonic_lang.map(|lang| {
+    let sid = engine.model.speaker_id(voice)?;
+    let extra = generation_language(engine.model, voice).map(|lang| {
         let mut extra = HashMap::new();
         extra.insert("lang".to_string(), serde_json::json!(lang));
         extra
     });
     let generation = GenerationConfig {
         speed,
-        sid: engine.model.speaker_id(voice)?,
+        sid,
         extra,
         ..Default::default()
     };
@@ -300,6 +301,25 @@ fn generate_audio(
         .generate_with_config(&sanitized, &generation, None::<fn(&[f32], f32) -> bool>)
         .map(Some)
         .ok_or_else(|| "sherpa-onnx failed to synthesize audio".to_string())
+}
+
+/// Select the phonemizer locale per voice without changing model or voice identity.
+///
+/// Kokoro voice prefixes are its stable locale convention; Supertonic instead
+/// selects one language for the whole catalog entry.
+fn generation_language(model: &ModelDefinition, voice: &str) -> Option<&'static str> {
+    match model.require_sherpa_family().ok()? {
+        SherpaModelFamily::Kokoro if voice.starts_with('a') => Some("en-us"),
+        SherpaModelFamily::Kokoro if voice.starts_with('b') => Some("en-gb"),
+        SherpaModelFamily::Kokoro if voice.starts_with('e') => Some("es"),
+        SherpaModelFamily::Kokoro if voice.starts_with('f') => Some("fr"),
+        SherpaModelFamily::Kokoro if voice.starts_with('h') => Some("hi"),
+        SherpaModelFamily::Kokoro if voice.starts_with('i') => Some("it"),
+        SherpaModelFamily::Kokoro if voice.starts_with('p') => Some("pt-br"),
+        SherpaModelFamily::Kokoro if voice.starts_with('z') => Some("zh"),
+        SherpaModelFamily::Supertonic => model.supertonic_lang,
+        _ => None,
+    }
 }
 
 /// Construct one sherpa-onnx engine from catalog metadata.
@@ -331,7 +351,7 @@ fn create_engine(
                 tokens: Some(model_dir.join("tokens.txt").display().to_string()),
                 data_dir: Some(model_dir.join("espeak-ng-data").display().to_string()),
                 lexicon: (!lexicon.is_empty()).then_some(lexicon),
-                lang: Some("en-us".into()),
+                lang: generation_language(model, model.default_voice).map(str::to_owned),
                 ..Default::default()
             };
         }
@@ -371,8 +391,16 @@ fn create_engine(
         }
     }
 
+    // sherpa's Mandarin Kokoro path uses these transducers for phone numbers,
+    // dates, and general numeric text. English keeps its historical no-FST path.
+    let rule_fsts = model.language.starts_with("zh").then(|| {
+        ["phone-zh.fst", "date-zh.fst", "number-zh.fst"]
+            .map(|name| model_dir.join(name).display().to_string())
+            .join(",")
+    });
     let config = OfflineTtsConfig {
         model: model_config,
+        rule_fsts,
         max_num_sentences: 1,
         ..Default::default()
     };
@@ -382,7 +410,7 @@ fn create_engine(
 
 #[cfg(test)]
 mod tests {
-    use super::super::models::{model_definition, DEFAULT_MODEL_ID};
+    use super::super::models::{model_definition, DEFAULT_MODEL_ID, KOKORO_ZH_MODEL_ID};
     use super::*;
 
     #[test]
@@ -395,5 +423,32 @@ mod tests {
                 .unwrap()
                 .english_text_normalization()
         );
+    }
+
+    #[test]
+    fn kokoro_voice_prefix_selects_its_phonemizer_language() {
+        let model = model_definition(DEFAULT_MODEL_ID).unwrap();
+        assert_eq!(generation_language(model, "af_heart"), Some("en-us"));
+        assert_eq!(generation_language(model, "bf_emma"), Some("en-gb"));
+        assert_eq!(
+            generation_language(model_definition(KOKORO_ZH_MODEL_ID).unwrap(), "zf_xiaobei"),
+            Some("zh")
+        );
+        for (model_id, voice, language) in [
+            ("sherpa-onnx/kokoro-multi-lang-v1_0-es", "ef_dora", "es"),
+            ("sherpa-onnx/kokoro-multi-lang-v1_0-fr", "ff_siwis", "fr"),
+            ("sherpa-onnx/kokoro-multi-lang-v1_0-hi", "hf_alpha", "hi"),
+            ("sherpa-onnx/kokoro-multi-lang-v1_0-it", "if_sara", "it"),
+            (
+                "sherpa-onnx/kokoro-multi-lang-v1_0-pt-br",
+                "pf_dora",
+                "pt-br",
+            ),
+        ] {
+            assert_eq!(
+                generation_language(model_definition(model_id).unwrap(), voice),
+                Some(language)
+            );
+        }
     }
 }

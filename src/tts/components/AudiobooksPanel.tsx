@@ -387,7 +387,7 @@ function formatAudioSetupSummary(audioSetup: AudioSetupPanelProps): string {
   const voice = audioSetup.voices.find((item) => item.id === audioSetup.voice)
   const pieces = [
     '🤖 ' + (model?.name ?? 'Model'),
-    '🔊 ' + (voice?.name ?? audioSetup.voice),
+    '🔊 ' + formatVoiceSummary(voice?.name ?? audioSetup.voice),
   ]
   if (model?.family === 'silma-f5') pieces.push('🎚️ NFE ' + audioSetup.silmaNfeStep)
 
@@ -402,6 +402,14 @@ function formatAudioSetupSummary(audioSetup: AudioSetupPanelProps): string {
   }
 
   return pieces.join(' · ')
+}
+
+// Accent flags and quality grades help when choosing a voice but add noise to
+// the collapsed setup summary, where only the selected voice name is needed.
+function formatVoiceSummary(name: string): string {
+  return name
+    .replace(/^(?:\p{Regional_Indicator}{2})+\s*/u, '')
+    .replace(/\s+\([A-F][+-]?\)$/, '')
 }
 
 function formatModelInstallSummary(

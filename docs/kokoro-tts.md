@@ -30,6 +30,12 @@ Pinned models:
 | Model | Family | Language | Archive bytes | SHA-256 |
 | --- | --- | --- | ---: | --- |
 | Kokoro English v1.0 | Kokoro | `en-US` | 349,418,188 | `c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046` |
+| Kokoro Mandarin v1.0 | Kokoro | `zh-CN` | 349,418,188 (shared) | `c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046` |
+| Kokoro Spanish v1.0 | Kokoro | `es-ES` | 349,418,188 (shared) | `c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046` |
+| Kokoro French v1.0 | Kokoro | `fr-FR` | 349,418,188 (shared) | `c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046` |
+| Kokoro Hindi v1.0 | Kokoro | `hi-IN` | 349,418,188 (shared) | `c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046` |
+| Kokoro Italian v1.0 | Kokoro | `it-IT` | 349,418,188 (shared) | `c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046` |
+| Kokoro Brazilian Portuguese v1.0 | Kokoro | `pt-BR` | 349,418,188 (shared) | `c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046` |
 | Piper Kareem Medium | VITS/Piper | `ar-JO` | 67,177,830 | `9ebbcea30e0fbd588f7b2cb45ee897d6aeb1bf5791cbc037a7b5a3f641e3dbce` |
 | Supertonic 3 English | SupertonicTTS | `en-US` | ~123,000,000 | `82fa96f91c4ef8abaae3a14a3f4153facf88bed821d1f7331cec2700f432c427` |
 | Supertonic 3 Arabic | SupertonicTTS | `ar` | ~123,000,000 | `82fa96f91c4ef8abaae3a14a3f4153facf88bed821d1f7331cec2700f432c427` |
@@ -37,6 +43,42 @@ Pinned models:
 These archives come from `https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models` and are listed in `src-tauri/tts/model-manifest.json`. Rust downloads into a temporary cache directory, verifies SHA-256, extracts, validates required files, and atomically promotes the selected model into `models/sherpa-onnx/<model-directory>/`. Incomplete installs are not used.
 
 SupertonicTTS 3 is exposed as two experimental catalog entries, English and Arabic, backed by one shared multilingual int8 archive. sherpa selects language through `GenerationConfig.extra["lang"]`, so Papercut keeps separate model IDs for cache identity while installing the same model directory. Treat Supertonic speed and quality as measured device behavior, not a guaranteed win over Piper or Kokoro; use TTS diagnostics to compare `realTimeFactor`, `synthesisMs`, and `preprocessMs` before changing defaults.
+
+Kokoro keeps one English model entry and its existing stable voice IDs, but selects
+`en-us` for American `a*` voices and `en-gb` for British `b*` voices per synthesis
+request. Voice labels show the upstream locale and overall training-data grade;
+the [upstream voice catalog](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md)
+describes those grades as estimates rather than guarantees of subjective voice
+quality. These display and phonemization changes do not alter audiobook identity
+or invalidate existing saved WAV files.
+
+Mandarin is a separate catalog entry with its own stable model ID and the eight
+official `zf_*`/`zm_*` speakers, but it reuses the same `kokoro-multi-lang-v1_0`
+directory and verified archive as English. sherpa receives the archive's Chinese
+lexicon plus `phone-zh.fst`, `date-zh.fst`, and `number-zh.fst`; the per-request
+language is `zh`. Existing English preferences and saved-audiobook identities are
+unchanged, while Mandarin generations remain distinct because they use the new
+model ID.
+
+Spanish, French, Hindi, Italian, and Brazilian Portuguese are exposed through
+[sherpa-onnx's multilingual Kokoro frontend](https://github.com/k2-fsa/sherpa-onnx/pull/2303)
+and their matching Kokoro speaker embeddings.
+They reuse the same archive and install directory but receive separate model IDs
+so saved-audiobook identity remains language-specific. These entries still need
+native-speaker validation: upstream warns that non-English quality can be
+limited by G2P and training-data coverage. Voice labels retain a grade from the
+[upstream voice catalog](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md)
+when one exists; Spanish and Portuguese omit grades because upstream does not
+publish one.
+
+Shared audiobook chunking recognizes Latin and Arabic sentence punctuation,
+Chinese `。！？`, Hindi `।॥`, and common CJK clause marks. This keeps long
+multilingual prose bounded at natural pauses before native synthesis.
+
+Japanese speaker embeddings exist in `voices.bin`, but native Japanese text is
+not exposed because sherpa-onnx does not currently ship the Japanese frontend
+needed to convert it into Kokoro token IDs. In Papercut's current runtime those
+embeddings are accent choices, not working Japanese-language support.
 
 Piper Kareem is about 64 MB compressed and suitable for offline Arabic, but a medium Piper voice is not expected to match Kokoro's naturalness. Treat quality as an empirical product decision. The Piper voice repository declares MIT for model files; the dataset card does not clearly state training-data licensing, so legal/provenance review is required before bundling or broadly redistributing it. Papercut currently downloads it on demand rather than embedding it.
 
@@ -187,6 +229,17 @@ The document header exposes one consolidated audio control surface:
 - Threads controls the native ONNX Runtime thread count for benchmarking save throughput on the current device. Options extend to the logical CPU parallelism detected by Rust, each app session starts with the conservative native platform default (1 on Android, up to 4 on desktop), and the UI reports the backend-confirmed count applied to the active or most recent save. Selecting more than 4 threads shows a warning because extra parallelism can increase memory use, heat, battery drain, and thermal throttling without guaranteeing faster synthesis.
 
 The home screen Audiobooks panel shows active or resumable saves with progress bars, completed saved audiobooks, export/delete actions, saved duration, saved percent, stored size, and the model, voice, generated speed, and preprocessing metadata for each item. Completed saved audiobooks are shown regardless of the currently selected voice; opening one switches the app to the model, voice, stored generated speed, and preprocessing choice stored on that record before viewing the document. The Audio Setup speed control remains fixed at `1x` for new saves. The document list/search results can still be filtered to documents with saved audio for the current model, voice, stored generated speed, and preprocessing selection. Playback rate is not part of that filter.
+
+## Multilingual Quality Validation
+
+Non-English Kokoro entries remain marked `Experimental` until native speakers
+validate complete audiobook saves. For each language, test at least one
+multi-page prose sample with names, dates, numbers, quotations, and paragraph
+boundaries; listen for skipped words, wrong phonemes, unstable pacing, and
+sentence-boundary artifacts. Exercise every available voice and at least one
+desktop and one mobile build before removing the experimental label. Passing
+model load or generating a WAV is not sufficient evidence of comprehensible,
+high-quality narration.
 
 ## Diagnostics
 

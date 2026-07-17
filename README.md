@@ -317,6 +317,8 @@ XCFramework archive rather than desktop dylib bundling.
 Supported catalog models:
 
 - **Kokoro English v1.0**: existing default, 27 voices, 349,418,188-byte archive.
+- **Kokoro Mandarin v1.0**: 8 voices sharing the installed English Kokoro archive, so selecting Mandarin does not download a second model.
+- **Additional Kokoro languages**: Spanish, French, Hindi, Italian, and Brazilian Portuguese also share the same archive. English and Arabic remain Papercut's quality-validated languages; these additional Kokoro languages need broader native-speaker testing.
 - **Piper Kareem Medium (`ar-JO`)**: Arabic option using sherpa VITS, one voice, 67,177,830-byte archive. SHA-256: `9ebbcea30e0fbd588f7b2cb45ee897d6aeb1bf5791cbc037a7b5a3f641e3dbce`.
 - **SILMA Arabic TTS**: Linux x64 desktop-only Arabic option using a
   downloadable sidecar runtime pack and separate on-demand model files.
