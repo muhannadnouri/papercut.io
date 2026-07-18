@@ -17,6 +17,7 @@ interface UploadedLibraryTreeProps {
   organization: UploadedLibraryOrganization
   mode?: 'library' | 'filter'
   documentOpening?: boolean
+  deleteDisabled?: boolean
   openingDocumentUrl?: string
   selectedFilters?: Set<string>
   onCreateFolder?: (parentId: string | null, name: string) => Promise<void> | void
@@ -58,6 +59,7 @@ export function UploadedLibraryTree({
   organization,
   mode = 'library',
   documentOpening = false,
+  deleteDisabled = false,
   openingDocumentUrl,
   selectedFilters,
   onCreateFolder,
@@ -379,6 +381,7 @@ export function UploadedLibraryTree({
             filterMode,
             expandedKeys,
             onDeleteDocument,
+            deleteDisabled,
             onToggleFolderExpanded: toggleFolderExpanded,
             onToggleAllInGroup,
             onToggleFilter,
@@ -430,6 +433,7 @@ export function UploadedLibraryTree({
 
 interface RenderNodeOptions {
   documentOpening: boolean
+  deleteDisabled: boolean
   editMode: boolean
   filterMode: boolean
   expandedKeys: Set<Key>
@@ -557,10 +561,10 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
               <button
                 className="document-row-action document-row-action-danger"
                 type="button"
-                disabled={options.documentOpening}
+                disabled={options.deleteDisabled}
                 onClick={(event) => {
                   event.stopPropagation()
-                  if (!options.documentOpening) void options.onDeleteDocument?.(node.doc)
+                  if (!options.deleteDisabled) void options.onDeleteDocument?.(node.doc)
                 }}
               >
                 {options.t('common.delete')}

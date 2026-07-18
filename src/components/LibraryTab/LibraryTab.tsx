@@ -62,6 +62,7 @@ export function LibraryTab({
   onViewDocument,
 }: LibraryTabProps) {
   const { t } = useTranslation()
+  const operationBusy = documentImport.status === 'importing' || documentImport.status === 'deleting'
   const statusMessage = documentImportStatusMessage(documentImport, t)
 
   return (
@@ -82,7 +83,7 @@ export function LibraryTab({
             statusLabel: documentImport.status === 'importing' && documentImport.format === 'html'
               ? t('library.import.importingHtml')
               : undefined,
-            disabled: documentImport.status === 'importing',
+            disabled: operationBusy,
             onSelect: onImportHtmlDocument,
           },
           {
@@ -92,7 +93,7 @@ export function LibraryTab({
             statusLabel: documentImport.status === 'importing' && documentImport.format === 'epub'
               ? t('library.import.importingEpub')
               : undefined,
-            disabled: documentImport.status === 'importing',
+            disabled: operationBusy,
             onSelect: onImportEpubDocument,
           },
           // { id: 'pdf', label: 'PDF', detail: 'Import PDFs when text extraction support lands', future: true },

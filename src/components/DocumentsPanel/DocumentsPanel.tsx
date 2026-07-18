@@ -79,7 +79,8 @@ export function DocumentsPanel({
   const [importMenuOpen, setImportMenuOpen] = useState(false)
   const activeImport = importOptions.find((option) => option.statusLabel)
   const hasImportOptions = importOptions.length > 0
-  const deleteDisabled = importStatuses.some((item) => item.status === 'deleting')
+  const operationBusy = importStatuses.some((item) => item.status === 'importing' || item.status === 'deleting')
+  const importDisabled = hasImportOptions && importOptions.every((option) => option.disabled || option.future || !option.onSelect)
   const { uploadDocs, nonUploadGroups } = splitDocumentGroupsByUpload(groupedDocs)
   const canShowUploadedTree = Boolean(
     libraryOrganization &&
@@ -122,6 +123,7 @@ export function DocumentsPanel({
             <button
               className="document-import-btn"
               aria-expanded={importMenuOpen}
+              disabled={importDisabled}
               onClick={() => setImportMenuOpen((value) => !value)}
               type="button"
             >
@@ -175,6 +177,7 @@ export function DocumentsPanel({
           documents={uploadDocs}
           organization={libraryOrganization}
           documentOpening={documentOpening}
+          deleteDisabled={operationBusy || documentOpening}
           openingDocumentUrl={openingDocumentUrl}
           onCreateFolder={onCreateLibraryFolder!}
           onDeleteDocument={onDeleteDocument}
@@ -202,7 +205,7 @@ export function DocumentsPanel({
           onToggleAuthor={onToggleAuthor}
           onViewDocument={onViewDocument}
           onDeleteDocument={onDeleteDocument}
-          deleteDisabled={deleteDisabled || documentOpening}
+          deleteDisabled={operationBusy || documentOpening}
           openingDocumentUrl={openingDocumentUrl}
           viewDisabled={documentOpening}
         />

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DocumentInfo } from '../types/search'
 import {
   createUploadedLibraryFolder,
@@ -46,6 +46,7 @@ export function useUploadedLibrary() {
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([])
   const [uploadedLibraryOrganization, setUploadedLibraryOrganization] = useState<UploadedLibraryOrganization>({ folders: [], documentLocations: [] })
   const [documentImport, setDocumentImport] = useState<DocumentImportStatus>({ status: 'idle' })
+  const operationInProgressRef = useRef(false)
 
   const applyUploadedLibrary = useCallback((library: UploadedLibraryState) => {
     setUploadedDocuments(library.documents)
@@ -73,6 +74,8 @@ export function useUploadedLibrary() {
     format: 'html' | 'epub',
     importer: () => Promise<UploadedDocument>,
   ): Promise<UploadedDocument | null> => {
+    if (operationInProgressRef.current) return null
+    operationInProgressRef.current = true
     setDocumentImport({ status: 'importing', format })
     try {
       const result = await importer()
@@ -88,6 +91,8 @@ export function useUploadedLibrary() {
         message: cancelled ? undefined : message,
       })
       return null
+    } finally {
+      operationInProgressRef.current = false
     }
   }, [refreshUploadedLibrary])
 
@@ -102,8 +107,9 @@ export function useUploadedLibrary() {
   )
 
   const deleteDocument = useCallback(async (doc: DocumentInfo): Promise<boolean> => {
-    if (doc.source !== 'upload') return false
+    if (doc.source !== 'upload' || operationInProgressRef.current) return false
 
+    operationInProgressRef.current = true
     setDocumentImport({ status: 'deleting', title: doc.title })
     try {
       const result = await deleteUploadedDocument(doc.url)
@@ -120,6 +126,8 @@ export function useUploadedLibrary() {
         message: err instanceof Error ? err.message : String(err),
       })
       return false
+    } finally {
+      operationInProgressRef.current = false
     }
   }, [refreshUploadedLibrary])
 
