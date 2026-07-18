@@ -1025,7 +1025,15 @@ export function useAudiobookManager({
         status: 'success',
         message: i18n.t('tts.audiobooks.imported', { title: result.title }),
       })
-      await openDocument(result.documentUrl)
+      try {
+        await openDocument(result.documentUrl)
+      } catch (err) {
+        showAudiobookNotice({
+          id: 'open:' + result.documentUrl,
+          status: 'error',
+          message: i18n.t('reader.unableToOpen') + ' ' + nativeTtsErrorMessage(err),
+        })
+      }
     } catch (err) {
       const message = nativeTtsErrorMessage(err)
       const cancelled = isNativeTtsCancellation(err)
