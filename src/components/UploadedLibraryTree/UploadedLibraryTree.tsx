@@ -18,6 +18,7 @@ interface UploadedLibraryTreeProps {
   mode?: 'library' | 'filter'
   documentOpening?: boolean
   deleteDisabled?: boolean
+  mutationDisabled?: boolean
   openingDocumentUrl?: string
   selectedFilters?: Set<string>
   onCreateFolder?: (parentId: string | null, name: string) => Promise<void> | void
@@ -60,6 +61,7 @@ export function UploadedLibraryTree({
   mode = 'library',
   documentOpening = false,
   deleteDisabled = false,
+  mutationDisabled = false,
   openingDocumentUrl,
   selectedFilters,
   onCreateFolder,
@@ -99,14 +101,14 @@ export function UploadedLibraryTree({
     .map((node) => node.id)
   const selectedFolders = selectedNodes.filter((node) => node.kind === 'folder')
   const hasMixedSelection = selectedDocumentIds.length > 0 && selectedFolders.length > 0
-  const canMoveDocuments = organizing && selectedDocumentIds.length > 0 && selectedFolders.length === 0
+  const canMoveDocuments = organizing && !mutationDisabled && selectedDocumentIds.length > 0 && selectedFolders.length === 0
   const selectedSingleFolder = selectedFolders.length === 1 && selectedDocumentIds.length === 0
   const selectedFolder = selectedSingleFolder ? selectedFolders[0] : undefined
   const selectedFolderHasContents = Boolean(selectedFolder && (
     selectedFolder.documentCount > 0 || selectedFolder.children.length > 0
   ))
-  const canDeleteSelectedFolder = Boolean(selectedFolder && !selectedFolderHasContents && !busy)
-  const deleteFolderBlocked = Boolean(selectedFolderHasContents && !busy)
+  const canDeleteSelectedFolder = Boolean(selectedFolder && !selectedFolderHasContents && !busy && !mutationDisabled)
+  const deleteFolderBlocked = Boolean(selectedFolderHasContents && !busy && !mutationDisabled)
   const deleteFolderHelp = !selectedSingleFolder
     ? t('library.tree.selectOneFolder')
     : selectedFolderHasContents
@@ -118,7 +120,18 @@ export function UploadedLibraryTree({
     setActionError('')
   }, [selectedKeys, editMode])
 
+  // A batch import owns the shared library mutation slot, so leave organize
+  // mode and close any pending folder edit before new documents arrive.
+  useEffect(() => {
+    if (!mutationDisabled) return
+    setEditMode(false)
+    setSelectedKeys(new Set())
+    setFolderDialog(null)
+    setDeleteInfoOpen(false)
+  }, [mutationDisabled])
+
   const runEditAction = async (action: () => Promise<void> | void) => {
+    if (mutationDisabled) return
     setBusy(true)
     try {
       await action()
@@ -160,7 +173,7 @@ export function UploadedLibraryTree({
   }
 
   const submitFolderDialog = (name: string) => {
-    if (!folderDialog) return
+    if (!folderDialog || mutationDisabled) return
     const target = folderDialog
     void (async () => {
       try {
@@ -270,7 +283,7 @@ export function UploadedLibraryTree({
           <button
             className="uploaded-library-edit-btn"
             type="button"
-            disabled={busy}
+            disabled={busy || mutationDisabled}
             aria-pressed={editMode}
             onClick={() => {
               setEditMode((value) => !value)
@@ -290,12 +303,12 @@ export function UploadedLibraryTree({
           <div className="uploaded-library-action-group">
             <span className="uploaded-library-action-label">{t('library.tree.folders')}</span>
             <div className="uploaded-library-action-row">
-              <button type="button" disabled={busy} onClick={() => openFolderDialog(null)}>
+              <button type="button" disabled={busy || mutationDisabled} onClick={() => openFolderDialog(null)}>
                 {t('library.tree.newFolder')}
               </button>
               <button
                 type="button"
-                disabled={busy || !selectedSingleFolder}
+                disabled={busy || mutationDisabled || !selectedSingleFolder}
                 onClick={renameSelectedFolder}
               >
                 {t('library.tree.rename')}
@@ -304,7 +317,7 @@ export function UploadedLibraryTree({
                 <button
                   type="button"
                   className={'uploaded-library-delete-btn' + (deleteFolderBlocked ? ' uploaded-library-delete-btn-blocked' : '')}
-                  disabled={busy || (!canDeleteSelectedFolder && !deleteFolderBlocked)}
+                  disabled={busy || mutationDisabled || (!canDeleteSelectedFolder && !deleteFolderBlocked)}
                   aria-disabled={deleteFolderBlocked}
                   aria-expanded={deleteFolderBlocked ? deleteInfoOpen : undefined}
                   aria-controls={deleteFolderBlocked ? 'uploaded-library-delete-info' : undefined}
@@ -330,7 +343,7 @@ export function UploadedLibraryTree({
             <label className="uploaded-library-move">
               <span className="uploaded-library-action-label">{t('library.tree.moveDocuments')}</span>
               <select
-                disabled={busy || !canMoveDocuments}
+                disabled={busy || mutationDisabled || !canMoveDocuments}
                 defaultValue=""
                 onChange={(event) => {
                   const value = event.target.value

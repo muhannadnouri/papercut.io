@@ -1,16 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DocumentInfo } from '../types/search'
 import {
+  cancelDocumentBatch as cancelDocumentBatchSource,
   createUploadedLibraryFolder,
   deleteUploadedDocument,
   deleteUploadedLibraryFolder,
   getUploadedLibraryOrganization,
+  importDocumentBatch as importDocumentBatchSource,
   importEpubDocument as importEpubDocumentSource,
   importHtmlDocument as importHtmlDocumentSource,
   listUploadedDocuments,
+  listenDocumentBatchProgress,
   moveUploadedDocuments,
   renameUploadedLibraryFolder,
   type UploadedDocument,
+  type UploadedDocumentBatchProgress,
+  type UploadedDocumentBatchResult,
   type UploadedLibraryOrganization,
 } from '../uploads/DocumentUploads'
 
@@ -23,10 +28,13 @@ type UploadedLibraryState = {
 // isolate user titles without parsing preformatted English messages.
 export type DocumentImportStatus = {
   status: 'idle' | 'importing' | 'imported' | 'deleting' | 'deleted' | 'cancelled' | 'error'
-  format?: 'html' | 'epub'
+  format?: 'html' | 'epub' | 'batch'
   title?: string
   bytesFreed?: number
   message?: string
+  batchProgress?: UploadedDocumentBatchProgress
+  batchResult?: UploadedDocumentBatchResult
+  cancelRequested?: boolean
 }
 
 async function loadUploadedLibrary(): Promise<UploadedLibraryState> {
@@ -106,6 +114,55 @@ export function useUploadedLibrary() {
     [importDocument],
   )
 
+  /** Subscribe before opening the picker so even the first native progress event
+   * is retained; successful siblings are refreshed even when others fail. */
+  const importDocumentBatch = useCallback(async (): Promise<UploadedDocumentBatchResult | null> => {
+    if (operationInProgressRef.current) return null
+    operationInProgressRef.current = true
+    setDocumentImport({ status: 'importing', format: 'batch' })
+    let unlisten: (() => void) | undefined
+    try {
+      unlisten = await listenDocumentBatchProgress((batchProgress) => {
+        setDocumentImport((current) => current.status === 'importing' && current.format === 'batch'
+          ? { ...current, batchProgress }
+          : current)
+      })
+      const batchResult = await importDocumentBatchSource()
+      if (batchResult.imported.length > 0) await refreshUploadedLibrary()
+      setDocumentImport({
+        status: batchResult.cancelled ? 'cancelled' : 'imported',
+        format: 'batch',
+        batchResult,
+      })
+      return batchResult
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      const cancelled = message.toLowerCase().includes('cancelled')
+      setDocumentImport({
+        status: cancelled ? 'cancelled' : 'error',
+        format: 'batch',
+        message: cancelled ? undefined : message,
+      })
+      return null
+    } finally {
+      unlisten?.()
+      operationInProgressRef.current = false
+    }
+  }, [refreshUploadedLibrary])
+
+  /** Cancellation is cooperative: mark the UI only after Rust confirms that a
+   * batch is active, then let the current file finish safely. */
+  const cancelDocumentBatch = useCallback(async (): Promise<void> => {
+    try {
+      if (!await cancelDocumentBatchSource()) return
+      setDocumentImport((current) => current.status === 'importing' && current.format === 'batch'
+        ? { ...current, cancelRequested: true }
+        : current)
+    } catch (err) {
+      console.warn('Unable to cancel document batch import:', err)
+    }
+  }, [])
+
   const deleteDocument = useCallback(async (doc: DocumentInfo): Promise<boolean> => {
     if (doc.source !== 'upload' || operationInProgressRef.current) return false
 
@@ -131,32 +188,52 @@ export function useUploadedLibrary() {
     }
   }, [refreshUploadedLibrary])
 
-  const createLibraryFolder = useCallback(async (parentId: string | null, name: string) => {
+  /** Serialize folder/order writes with imports and deletion because all of them
+   * refresh or mutate the same uploaded-library state. */
+  const runOrganizationMutation = useCallback(async (action: () => Promise<void>) => {
+    if (operationInProgressRef.current) return
+    operationInProgressRef.current = true
+    try {
+      await action()
+    } finally {
+      operationInProgressRef.current = false
+    }
+  }, [])
+
+  const createLibraryFolder = useCallback((parentId: string | null, name: string) => runOrganizationMutation(async () => {
     await createUploadedLibraryFolder(parentId, name)
     setUploadedLibraryOrganization(await getUploadedLibraryOrganization())
-  }, [])
+  }), [runOrganizationMutation])
 
   const renameLibraryFolder = useCallback(async (folderId: string, name: string) => {
-    await renameUploadedLibraryFolder(folderId, name)
-    setUploadedLibraryOrganization(await getUploadedLibraryOrganization())
-  }, [])
+    await runOrganizationMutation(async () => {
+      await renameUploadedLibraryFolder(folderId, name)
+      setUploadedLibraryOrganization(await getUploadedLibraryOrganization())
+    })
+  }, [runOrganizationMutation])
 
   const deleteLibraryFolder = useCallback(async (folderId: string) => {
-    await deleteUploadedLibraryFolder(folderId)
-    setUploadedLibraryOrganization(await getUploadedLibraryOrganization())
-  }, [])
+    await runOrganizationMutation(async () => {
+      await deleteUploadedLibraryFolder(folderId)
+      setUploadedLibraryOrganization(await getUploadedLibraryOrganization())
+    })
+  }, [runOrganizationMutation])
 
   const moveLibraryDocuments = useCallback(async (documentIds: string[], folderId: string | null) => {
-    setUploadedLibraryOrganization(await moveUploadedDocuments(documentIds, folderId))
-  }, [])
+    await runOrganizationMutation(async () => {
+      setUploadedLibraryOrganization(await moveUploadedDocuments(documentIds, folderId))
+    })
+  }, [runOrganizationMutation])
 
   return {
     createLibraryFolder,
+    cancelDocumentBatch,
     deleteDocument,
     deleteLibraryFolder,
     documentImport,
     importEpubDocument,
     importHtmlDocument,
+    importDocumentBatch,
     moveLibraryDocuments,
     renameLibraryFolder,
     uploadedDocuments,

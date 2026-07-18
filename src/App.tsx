@@ -42,12 +42,14 @@ function App() {
   const { pagefindRef, pagefindReady, allDocuments, documentsLoading } = usePagefind()
   const { confirm: confirmDocumentAction, dialog: documentConfirmationDialog } = useAppConfirmation()
   const {
+    cancelDocumentBatch,
     createLibraryFolder,
     deleteDocument: deleteUploadedLibraryDocument,
     deleteLibraryFolder,
     documentImport,
     importEpubDocument,
     importHtmlDocument,
+    importDocumentBatch,
     moveLibraryDocuments,
     renameLibraryFolder,
     uploadedDocuments,
@@ -212,6 +214,11 @@ function App() {
     await handleViewDocument(result.url)
   }, [handleViewDocument, importEpubDocument, setShowDocuments])
 
+  const handleImportDocumentBatch = useCallback(async () => {
+    const result = await importDocumentBatch()
+    if (result?.imported.length) setShowDocuments(true)
+  }, [importDocumentBatch, setShowDocuments])
+
   const handleImportAudiobook = useCallback(async () => {
     await importAudiobookBundle(handleViewDocument)
   }, [handleViewDocument, importAudiobookBundle])
@@ -337,6 +344,8 @@ function App() {
             onToggleAuthor={toggleLibraryAuthor}
             onImportHtmlDocument={handleImportHtmlDocument}
             onImportEpubDocument={handleImportEpubDocument}
+            onImportDocumentBatch={handleImportDocumentBatch}
+            onCancelDocumentBatch={cancelDocumentBatch}
             onViewDocument={handleViewLibraryDocument}
           />
         )}

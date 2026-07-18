@@ -57,7 +57,7 @@ Storage:
 - Sanitized uploaded HTML is stored under Tauri app data at `document_uploads/{upload_id}/source.html`.
 - New upload ids are full SHA-256 hashes of the original file bytes. Existing timestamp-derived ids remain valid; the first re-import of a document created by an older app version may create one hash-identified copy, after which exact re-imports reuse it.
 - Single-file and batch entry points share the same picker-independent per-file importer, so limits, parsing, duplicate handling, storage, and indexing cannot drift between UI paths.
-- The native batch command accepts up to 500 selected HTML/EPUB files, imports them sequentially, emits count-based progress, keeps successful files when siblings fail, and supports cooperative cancellation between files. The frontend API is ready; the library UI has not exposed the multi-file picker yet.
+- The Library import menu can select up to 500 HTML/EPUB files in one batch. The app imports them sequentially, shows count-based progress and the current filename, supports cooperative cancellation between files, keeps successful files when siblings fail, and exposes per-file failures in an expandable summary.
 - EPUB stores a sanitized generated reading HTML copy at the same stored-source path. Search and TTS depend on the generated safe reading copy and normalized sections, not on rendering the raw EPUB archive in React. Local PNG, JPEG, GIF, and WebP manifest images referenced by retained reader content are inlined as data URLs with a 5 MB per-image cap and 30 MB total-image cap; remote images and SVG are skipped. The original EPUB archive is not retained by the current MVP.
 - The runtime search index lives at `document_uploads/search.sqlite3`.
 - Uploaded-document folders and manual order live in SQLite metadata tables beside the search index. Existing uploaded documents are assigned root-level locations automatically. Moving a document between folders changes only organization metadata, not the uploaded document URL, source HTML, FTS rows, or audiobook cache identity.
@@ -173,7 +173,7 @@ Keeping this shape stable lets the UI and SQLite indexing remain format-agnostic
 
 1. Add more EPUB parser fixtures for malformed OPF/container cases, spine edge cases, oversized image skipping, and metadata fallback.
 2. Detect EPUB 2/3 cover metadata and render a safe retained raster cover near the top of generated reading HTML, still respecting existing image caps and SVG skipping.
-3. Expose the native multi-file import command in the library UI with inline progress, cancellation, and an expandable partial-failure summary; add desktop-only folder selection afterward.
+3. Add desktop-only folder selection for HTML/EPUB files directly inside one selected folder, reusing the batch pipeline and leaving recursive traversal and folder mirroring until users demonstrate a need for them.
 4. Add a reindex action for uploaded documents if parser or sanitizer behavior changes after import.
 5. Add richer EPUB reader features such as TOC, location restore, pagination, EPUB-specific appearance controls, or a foliate-js/epub.js-backed viewer if generated reading HTML is not enough.
 6. Add a runtime PDF import module later that extracts page text and stores page records in the same SQLite schema.

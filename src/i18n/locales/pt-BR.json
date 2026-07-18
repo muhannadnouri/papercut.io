@@ -89,12 +89,24 @@
       "audiobookImport": "Importação de audiolivro, não indexada para pesquisa"
     },
     "import": {
+      "multipleFiles": "Vários arquivos",
+      "multipleFilesDetail": "Importe até 500 arquivos HTML e EPUB",
       "htmlDetail": "Importe um documento .html ou .htm local",
       "epubDetail": "Importe um livro .epub local",
+      "importingBatch": "Importando documentos",
       "importingHtml": "Importando HTML",
       "importingEpub": "Importando EPUB"
     },
     "status": {
+      "preparingBatch": "Escolha arquivos HTML ou EPUB para importar...",
+      "importingBatchProgress": "Importando {{current, number}} de {{total, number}}",
+      "batchProgress": "Processados {{processed, number}} de {{total, number}}",
+      "stoppingBatch": "Parando após o arquivo atual...",
+      "stopping": "Parando...",
+      "batchProgressLabel": "Progresso da importação de documentos",
+      "batchComplete": "Importação concluída. Importados: {{imported, number}}. Falhas: {{failed, number}}.",
+      "batchCancelled": "Importação interrompida. Importados: {{imported, number}}. Falhas: {{failed, number}}.",
+      "failedFiles": "Arquivos com falha: {{count, number}}",
       "importingHtml": "Importando documento HTML...",
       "importingEpub": "Importando livro EPUB...",
       "imported": "Importado <title>{{title}}</title>.",

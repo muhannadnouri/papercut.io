@@ -85,12 +85,24 @@
       "audiobookImport": "ऑडियोबुक आयात, खोज के लिए अनुक्रमित नहीं"
     },
     "import": {
+      "multipleFiles": "एकाधिक फ़ाइलें",
+      "multipleFilesDetail": "अधिकतम 500 HTML और EPUB फ़ाइलें आयात करें",
       "htmlDetail": "एक स्थानीय .html या .htm दस्तावेज़ आयात करें",
       "epubDetail": "एक स्थानीय .epub पुस्तक आयात करें",
+      "importingBatch": "दस्तावेज़ आयात किए जा रहे हैं",
       "importingHtml": "HTML आयात किया जा रहा है",
       "importingEpub": "EPUB आयात किया जा रहा है"
     },
     "status": {
+      "preparingBatch": "आयात करने के लिए HTML या EPUB फ़ाइलें चुनें...",
+      "importingBatchProgress": "{{total, number}} में से {{current, number}} आयात हो रहा है",
+      "batchProgress": "{{total, number}} में से {{processed, number}} संसाधित",
+      "stoppingBatch": "वर्तमान फ़ाइल के बाद रोका जा रहा है...",
+      "stopping": "रोका जा रहा है...",
+      "batchProgressLabel": "दस्तावेज़ आयात प्रगति",
+      "batchComplete": "आयात पूरा हुआ। आयातित: {{imported, number}}। विफल: {{failed, number}}।",
+      "batchCancelled": "आयात रोक दिया गया। आयातित: {{imported, number}}। विफल: {{failed, number}}।",
+      "failedFiles": "विफल फ़ाइलें: {{count, number}}",
       "importingHtml": "HTML दस्तावेज़ आयात किया जा रहा है...",
       "importingEpub": "EPUB पुस्तक आयात की जा रही है...",
       "imported": "आयातित <title>{{title}}</title>।",

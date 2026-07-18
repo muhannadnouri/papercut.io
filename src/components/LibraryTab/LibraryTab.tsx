@@ -26,6 +26,8 @@ interface LibraryTabProps {
   onDeleteDocument: (doc: DocumentInfo) => void | Promise<void>
   onDeleteLibraryFolder: (folderId: string) => void | Promise<void>
   onFilterChange: (value: string) => void
+  onCancelDocumentBatch: () => void | Promise<void>
+  onImportDocumentBatch: () => void | Promise<void>
   onImportEpubDocument: () => void | Promise<void>
   onImportHtmlDocument: () => void | Promise<void>
   onMoveLibraryDocuments: (documentIds: string[], folderId: string | null) => void | Promise<void>
@@ -53,6 +55,8 @@ export function LibraryTab({
   onDeleteDocument,
   onDeleteLibraryFolder,
   onFilterChange,
+  onCancelDocumentBatch,
+  onImportDocumentBatch,
   onImportEpubDocument,
   onImportHtmlDocument,
   onMoveLibraryDocuments,
@@ -63,7 +67,7 @@ export function LibraryTab({
 }: LibraryTabProps) {
   const { t } = useTranslation()
   const operationBusy = documentImport.status === 'importing' || documentImport.status === 'deleting'
-  const statusMessage = documentImportStatusMessage(documentImport, t)
+  const statusMessage = documentImportStatusMessage(documentImport, t, onCancelDocumentBatch)
 
   return (
     <section className="tab-panel" role="tabpanel" aria-label={t('library.tabLabel')} data-tab="library">
@@ -76,6 +80,16 @@ export function LibraryTab({
         groupedDocs={groupedDocs}
         docFilterLower={docFilterLower}
         importOptions={[
+          {
+            id: 'batch',
+            label: t('library.import.multipleFiles'),
+            detail: t('library.import.multipleFilesDetail'),
+            statusLabel: documentImport.status === 'importing' && documentImport.format === 'batch'
+              ? t('library.import.importingBatch')
+              : undefined,
+            disabled: operationBusy,
+            onSelect: onImportDocumentBatch,
+          },
           {
             id: 'html',
             label: 'HTML',
@@ -119,8 +133,15 @@ export function LibraryTab({
 }
 
 /** Render semantic upload state where translations and bidi isolation are available. */
-function documentImportStatusMessage(status: DocumentImportStatus, t: TFunction): ReactNode {
+function documentImportStatusMessage(
+  status: DocumentImportStatus,
+  t: TFunction,
+  onCancelBatch: () => void | Promise<void>,
+): ReactNode {
   if (status.status === 'idle') return null
+  if (status.format === 'batch') {
+    return <DocumentBatchImportStatus status={status} t={t} onCancel={onCancelBatch} />
+  }
   if (status.status === 'importing') {
     return t(status.format === 'epub' ? 'library.status.importingEpub' : 'library.status.importingHtml')
   }
@@ -139,4 +160,87 @@ function documentImportStatusMessage(status: DocumentImportStatus, t: TFunction)
   return storage
     ? <Trans i18nKey="library.status.deletedWithStorage" values={{ title, storage }} components={{ title: <bdi /> }} />
     : <Trans i18nKey="library.status.deleted" values={{ title }} components={{ title: <bdi /> }} />
+}
+
+/** Keep the long-running batch status in the existing library status row while
+ * exposing determinate counts, cooperative cancellation, and per-file errors. */
+function DocumentBatchImportStatus({
+  status,
+  t,
+  onCancel,
+}: {
+  status: DocumentImportStatus
+  t: TFunction
+  onCancel: () => void | Promise<void>
+}) {
+  const progress = status.batchProgress
+  const result = status.batchResult
+  const failures = result?.failures ?? []
+  const importing = status.status === 'importing'
+  const total = progress?.total ?? 0
+  const processed = progress?.processed ?? 0
+  const current = progress?.fileName ? Math.min(processed + 1, total) : processed
+
+  let message: ReactNode
+  if (importing && status.cancelRequested) {
+    message = t('library.status.stoppingBatch')
+  } else if (importing && total > 0) {
+    message = (
+      <>
+        {t(progress?.fileName ? 'library.status.importingBatchProgress' : 'library.status.batchProgress', {
+          current,
+          processed,
+          total,
+        })}
+        {progress?.fileName ? <> · <bdi>{progress.fileName}</bdi></> : null}
+      </>
+    )
+  } else if (importing) {
+    message = t('library.status.preparingBatch')
+  } else if (result) {
+    message = t(result.cancelled ? 'library.status.batchCancelled' : 'library.status.batchComplete', {
+      imported: result.imported.length,
+      failed: failures.length,
+    })
+  } else {
+    message = status.status === 'error' ? status.message : t('library.status.cancelled')
+  }
+
+  return (
+    <div className="document-batch-status" aria-live="polite">
+      <div className="document-batch-status-row">
+        <span>{message}</span>
+        {importing && (
+          <button
+            type="button"
+            className="document-batch-cancel"
+            disabled={status.cancelRequested}
+            onClick={() => void onCancel()}
+          >
+            {t(status.cancelRequested ? 'library.status.stopping' : 'common.cancel')}
+          </button>
+        )}
+      </div>
+      {importing && (
+        <progress
+          className="document-batch-progress"
+          aria-label={t('library.status.batchProgressLabel')}
+          max={total || undefined}
+          value={total ? processed : undefined}
+        />
+      )}
+      {failures.length > 0 && (
+        <details className="document-batch-failures">
+          <summary>{t('library.status.failedFiles', { count: failures.length })}</summary>
+          <ul>
+            {failures.map((failure, index) => (
+              <li key={`${failure.fileName}-${index}`}>
+                <bdi>{failure.fileName}</bdi>: <span dir="auto">{failure.error}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
+  )
 }

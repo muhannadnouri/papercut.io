@@ -101,12 +101,24 @@
       "audiobookImport": "كتاب صوتي مستورد، غير مفهرس للبحث"
     },
     "import": {
+      "multipleFiles": "ملفات متعددة",
+      "multipleFilesDetail": "استيراد ما يصل إلى 500 ملف HTML وEPUB",
       "htmlDetail": "استيراد مستند محلي بصيغة ‎.html أو ‎.htm",
       "epubDetail": "استيراد كتاب محلي بصيغة ‎.epub",
+      "importingBatch": "جارٍ استيراد المستندات",
       "importingHtml": "جارٍ استيراد HTML",
       "importingEpub": "جارٍ استيراد EPUB"
     },
     "status": {
+      "preparingBatch": "اختر ملفات HTML أو EPUB لاستيرادها...",
+      "importingBatchProgress": "جارٍ استيراد {{current, number}} من {{total, number}}",
+      "batchProgress": "تمت معالجة {{processed, number}} من {{total, number}}",
+      "stoppingBatch": "جارٍ الإيقاف بعد الملف الحالي...",
+      "stopping": "جارٍ الإيقاف...",
+      "batchProgressLabel": "تقدم استيراد المستندات",
+      "batchComplete": "اكتمل الاستيراد. تم الاستيراد: {{imported, number}}. فشل: {{failed, number}}.",
+      "batchCancelled": "توقف الاستيراد. تم الاستيراد: {{imported, number}}. فشل: {{failed, number}}.",
+      "failedFiles": "الملفات التي فشل استيرادها: {{count, number}}",
       "importingHtml": "جارٍ استيراد مستند HTML...",
       "importingEpub": "جارٍ استيراد كتاب EPUB...",
       "imported": "تم استيراد <title>{{title}}</title>.",

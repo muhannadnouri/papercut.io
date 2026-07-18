@@ -178,6 +178,7 @@ export function DocumentsPanel({
           organization={libraryOrganization}
           documentOpening={documentOpening}
           deleteDisabled={operationBusy || documentOpening}
+          mutationDisabled={operationBusy}
           openingDocumentUrl={openingDocumentUrl}
           onCreateFolder={onCreateLibraryFolder!}
           onDeleteDocument={onDeleteDocument}
