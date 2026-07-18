@@ -37,8 +37,9 @@ Frontend:
 
 Rust:
 
-- `src-tauri/src/document_uploads/` owns the runtime upload feature, split one concern per file (dependencies point downward, currently `commands → { pipeline, organization, search, store } → { epub, html, parsed, storage, types }`):
+- `src-tauri/src/document_uploads/` owns the runtime upload feature, split one concern per file (dependencies point downward, currently `commands → { batch, pipeline, organization, search, store } → { epub, html, parsed, storage, types }`):
   - `commands.rs` — the `#[tauri::command]` edge; each command just moves the blocking work onto the thread pool and delegates.
+  - `batch.rs` / `state.rs` — one guarded sequential multi-file import, cooperative cancellation between files, progress events, and partial-success results.
   - `pipeline.rs` — import / get-source / delete orchestration (no SQL or parsing of its own).
   - `html/` — HTML-specific parsing (`parser.rs`), sanitization (`sanitize.rs`), and small shared HTML helpers (`util.rs`).
   - `epub/` — EPUB ZIP/container/OPF/spine parsing, with path resolution (`paths.rs`), bounded image inlining (`assets.rs`), DOM-based link/resource rewriting (`rewrite.rs`), and generated reading HTML assembly (`render.rs`) split into focused helpers.
@@ -55,6 +56,8 @@ Storage:
 
 - Sanitized uploaded HTML is stored under Tauri app data at `document_uploads/{upload_id}/source.html`.
 - New upload ids are full SHA-256 hashes of the original file bytes. Existing timestamp-derived ids remain valid; the first re-import of a document created by an older app version may create one hash-identified copy, after which exact re-imports reuse it.
+- Single-file and batch entry points share the same picker-independent per-file importer, so limits, parsing, duplicate handling, storage, and indexing cannot drift between UI paths.
+- The native batch command accepts up to 500 selected HTML/EPUB files, imports them sequentially, emits count-based progress, keeps successful files when siblings fail, and supports cooperative cancellation between files. The frontend API is ready; the library UI has not exposed the multi-file picker yet.
 - EPUB stores a sanitized generated reading HTML copy at the same stored-source path. Search and TTS depend on the generated safe reading copy and normalized sections, not on rendering the raw EPUB archive in React. Local PNG, JPEG, GIF, and WebP manifest images referenced by retained reader content are inlined as data URLs with a 5 MB per-image cap and 30 MB total-image cap; remote images and SVG are skipped. The original EPUB archive is not retained by the current MVP.
 - The runtime search index lives at `document_uploads/search.sqlite3`.
 - Uploaded-document folders and manual order live in SQLite metadata tables beside the search index. Existing uploaded documents are assigned root-level locations automatically. Moving a document between folders changes only organization metadata, not the uploaded document URL, source HTML, FTS rows, or audiobook cache identity.
@@ -170,7 +173,7 @@ Keeping this shape stable lets the UI and SQLite indexing remain format-agnostic
 
 1. Add more EPUB parser fixtures for malformed OPF/container cases, spine edge cases, oversized image skipping, and metadata fallback.
 2. Detect EPUB 2/3 cover metadata and render a safe retained raster cover near the top of generated reading HTML, still respecting existing image caps and SVG skipping.
-3. Add a shared sequential batch command with progress, cancellation, and partial-success reporting, then expose multi-file selection before desktop-only folder selection.
+3. Expose the native multi-file import command in the library UI with inline progress, cancellation, and an expandable partial-failure summary; add desktop-only folder selection afterward.
 4. Add a reindex action for uploaded documents if parser or sanitizer behavior changes after import.
 5. Add richer EPUB reader features such as TOC, location restore, pagination, EPUB-specific appearance controls, or a foliate-js/epub.js-backed viewer if generated reading HTML is not enough.
 6. Add a runtime PDF import module later that extracts page text and stores page records in the same SQLite schema.

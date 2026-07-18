@@ -18,6 +18,37 @@ pub(crate) struct UploadedDocument {
     pub(crate) sections: usize,
 }
 
+/// One file that could not be imported while the rest of its batch continued.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentBatchFailure {
+    pub(crate) file_name: String,
+    pub(crate) error: String,
+}
+
+/// Count-based progress emitted while a sequential document batch runs.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentBatchProgress {
+    pub(crate) phase: String,
+    pub(crate) processed: usize,
+    pub(crate) total: usize,
+    pub(crate) imported: usize,
+    pub(crate) failed: usize,
+    pub(crate) file_name: Option<String>,
+}
+
+/// Final batch outcome, including successes retained alongside per-file failures.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentBatchResult {
+    pub(crate) selected: usize,
+    pub(crate) processed: usize,
+    pub(crate) imported: Vec<UploadedDocument>,
+    pub(crate) failures: Vec<UploadedDocumentBatchFailure>,
+    pub(crate) cancelled: bool,
+}
+
 /// One FTS hit: a matching section with a highlighted snippet.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

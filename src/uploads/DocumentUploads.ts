@@ -25,6 +25,30 @@ export interface UploadedDocumentDeleteResult {
   bytesFreed: number
 }
 
+export interface UploadedDocumentBatchFailure {
+  fileName: string
+  error: string
+}
+
+export interface UploadedDocumentBatchProgress {
+  phase: 'importing' | 'completed' | 'cancelled'
+  processed: number
+  total: number
+  imported: number
+  failed: number
+  fileName?: string | null
+}
+
+export interface UploadedDocumentBatchResult {
+  selected: number
+  processed: number
+  imported: UploadedDocument[]
+  failures: UploadedDocumentBatchFailure[]
+  cancelled: boolean
+}
+
+const DOCUMENT_IMPORT_PROGRESS_EVENT = 'document-uploads-import-progress'
+
 export interface UploadedLibraryFolder {
   id: string
   parentId?: string | null
@@ -63,6 +87,26 @@ export async function importHtmlDocument(): Promise<UploadedDocument> {
 export async function importEpubDocument(): Promise<UploadedDocument> {
   const invoke = await loadTauriInvoke()
   return invoke<UploadedDocument>('document_uploads_import_epub')
+}
+
+export async function importDocumentBatch(): Promise<UploadedDocumentBatchResult> {
+  const invoke = await loadTauriInvoke()
+  return invoke<UploadedDocumentBatchResult>('document_uploads_import_batch')
+}
+
+export async function cancelDocumentBatch(): Promise<boolean> {
+  const invoke = await loadTauriInvoke()
+  return invoke<boolean>('document_uploads_cancel_import_batch')
+}
+
+export async function listenDocumentBatchProgress(
+  handler: (progress: UploadedDocumentBatchProgress) => void,
+): Promise<() => void> {
+  if (!isTauriRuntime()) return () => {}
+  const mod = await import('@tauri-apps/api/event')
+  return mod.listen<UploadedDocumentBatchProgress>(DOCUMENT_IMPORT_PROGRESS_EVENT, (event) => {
+    handler(event.payload)
+  })
 }
 
 export async function listUploadedDocuments(): Promise<UploadedDocument[]> {

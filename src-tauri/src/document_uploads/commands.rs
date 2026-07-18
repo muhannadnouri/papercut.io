@@ -7,6 +7,7 @@
 
 use tauri::Runtime;
 
+use super::batch::import_batch;
 use super::organization::{
     create_folder, delete_folder, list_organization, move_documents, move_folder, rename_folder,
     reorder,
@@ -15,12 +16,14 @@ use super::pipeline::{delete_upload, get_source, import_epub, import_html};
 use super::search::search_uploads;
 use super::store::list_uploads;
 use super::types::{
-    UploadedDocument, UploadedDocumentDeleteRequest, UploadedDocumentDeleteResult,
-    UploadedDocumentSearchRequest, UploadedDocumentSearchResult, UploadedDocumentSourceRequest,
-    UploadedLibraryCreateFolderRequest, UploadedLibraryDeleteFolderRequest,
-    UploadedLibraryMoveDocumentsRequest, UploadedLibraryMoveFolderRequest,
-    UploadedLibraryOrganization, UploadedLibraryRenameFolderRequest, UploadedLibraryReorderRequest,
+    UploadedDocument, UploadedDocumentBatchResult, UploadedDocumentDeleteRequest,
+    UploadedDocumentDeleteResult, UploadedDocumentSearchRequest, UploadedDocumentSearchResult,
+    UploadedDocumentSourceRequest, UploadedLibraryCreateFolderRequest,
+    UploadedLibraryDeleteFolderRequest, UploadedLibraryMoveDocumentsRequest,
+    UploadedLibraryMoveFolderRequest, UploadedLibraryOrganization,
+    UploadedLibraryRenameFolderRequest, UploadedLibraryReorderRequest,
 };
+use super::DocumentUploadState;
 
 /// Open the native picker, import the chosen HTML file, and return its metadata.
 #[tauri::command]
@@ -40,6 +43,26 @@ pub async fn document_uploads_import_epub<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || import_epub(app))
         .await
         .map_err(|err| format!("Document import task failed: {err}"))?
+}
+
+/// Pick multiple HTML/EPUB files and import them as one cancellable sequential batch.
+#[tauri::command]
+pub async fn document_uploads_import_batch<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    state: tauri::State<'_, DocumentUploadState>,
+) -> Result<UploadedDocumentBatchResult, String> {
+    let control = state.begin_batch()?;
+    tauri::async_runtime::spawn_blocking(move || import_batch(app, control))
+        .await
+        .map_err(|err| format!("Document batch import task failed: {err}"))?
+}
+
+/// Request cancellation after the currently importing file finishes.
+#[tauri::command]
+pub fn document_uploads_cancel_import_batch(
+    state: tauri::State<'_, DocumentUploadState>,
+) -> Result<bool, String> {
+    state.cancel_batch()
 }
 
 /// List all stored uploads, newest first.

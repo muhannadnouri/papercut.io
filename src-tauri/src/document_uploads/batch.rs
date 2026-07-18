@@ -1,0 +1,248 @@
+//! Sequential multi-file document import with progress and partial results.
+
+use std::path::Path;
+
+use percent_encoding::percent_decode_str;
+use tauri::{Emitter, Runtime};
+use tauri_plugin_dialog::{DialogExt, FilePath};
+
+use super::pipeline::{import_epub_source, import_html_source};
+use super::state::DocumentBatchControl;
+use super::types::{
+    UploadedDocument, UploadedDocumentBatchFailure, UploadedDocumentBatchProgress,
+    UploadedDocumentBatchResult,
+};
+
+pub(crate) const DOCUMENT_IMPORT_PROGRESS_EVENT: &str = "document-uploads-import-progress";
+const MAX_BATCH_FILES: usize = 500;
+
+enum DocumentFormat {
+    Html,
+    Epub,
+}
+
+struct BatchRun<T> {
+    selected: usize,
+    processed: usize,
+    imported: Vec<T>,
+    failures: Vec<UploadedDocumentBatchFailure>,
+    cancelled: bool,
+}
+
+/// Open one multi-file picker and process every selected document in sequence.
+/// A bad file is reported in the result and does not discard successful imports.
+pub(crate) fn import_batch<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    control: DocumentBatchControl,
+) -> Result<UploadedDocumentBatchResult, String> {
+    let sources = app
+        .dialog()
+        .file()
+        .set_title("Import Documents")
+        .add_filter("HTML and EPUB Documents", &["html", "htm", "epub"])
+        .blocking_pick_files()
+        .ok_or_else(|| "Document import cancelled".to_string())?;
+    if sources.len() > MAX_BATCH_FILES {
+        return Err(format!(
+            "Select at most {MAX_BATCH_FILES} documents in one import"
+        ));
+    }
+
+    let run = process_sources(
+        sources,
+        || control.is_cancelled(),
+        |source| import_source(&app, source),
+        |progress| {
+            let _ = app.emit(DOCUMENT_IMPORT_PROGRESS_EVENT, progress);
+        },
+    )?;
+    let phase = if run.cancelled {
+        "cancelled"
+    } else {
+        "completed"
+    };
+    let _ = app.emit(
+        DOCUMENT_IMPORT_PROGRESS_EVENT,
+        UploadedDocumentBatchProgress {
+            phase: phase.into(),
+            processed: run.processed,
+            total: run.selected,
+            imported: run.imported.len(),
+            failed: run.failures.len(),
+            file_name: None,
+        },
+    );
+
+    Ok(UploadedDocumentBatchResult {
+        selected: run.selected,
+        processed: run.processed,
+        imported: run.imported,
+        failures: run.failures,
+        cancelled: run.cancelled,
+    })
+}
+
+/// Keep cancellation at file boundaries so a parser or persistence transaction
+/// is never interrupted halfway through one document.
+fn process_sources<T, C, I, P>(
+    sources: Vec<FilePath>,
+    mut is_cancelled: C,
+    mut import: I,
+    mut progress: P,
+) -> Result<BatchRun<T>, String>
+where
+    C: FnMut() -> Result<bool, String>,
+    I: FnMut(FilePath) -> Result<T, String>,
+    P: FnMut(UploadedDocumentBatchProgress),
+{
+    let selected = sources.len();
+    let mut run = BatchRun {
+        selected,
+        processed: 0,
+        imported: Vec::new(),
+        failures: Vec::new(),
+        cancelled: false,
+    };
+
+    for source in sources {
+        if is_cancelled()? {
+            run.cancelled = true;
+            break;
+        }
+        let file_name = source_file_name(&source);
+        progress(UploadedDocumentBatchProgress {
+            phase: "importing".into(),
+            processed: run.processed,
+            total: selected,
+            imported: run.imported.len(),
+            failed: run.failures.len(),
+            file_name: Some(file_name.clone()),
+        });
+
+        match import(source) {
+            Ok(document) => run.imported.push(document),
+            Err(error) => run
+                .failures
+                .push(UploadedDocumentBatchFailure { file_name, error }),
+        }
+        run.processed += 1;
+        progress(UploadedDocumentBatchProgress {
+            phase: "importing".into(),
+            processed: run.processed,
+            total: selected,
+            imported: run.imported.len(),
+            failed: run.failures.len(),
+            file_name: None,
+        });
+    }
+
+    Ok(run)
+}
+
+/// Route a selected source through the same format-specific pipeline used by
+/// single-file import, keeping validation and persistence behavior identical.
+fn import_source<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    source: FilePath,
+) -> Result<UploadedDocument, String> {
+    match document_format(&source)? {
+        DocumentFormat::Html => import_html_source(app, source),
+        DocumentFormat::Epub => import_epub_source(app, source),
+    }
+}
+
+/// Native dialogs return filesystem paths on desktop and may return content
+/// URLs on mobile, so format detection must support both representations.
+fn document_format(source: &FilePath) -> Result<DocumentFormat, String> {
+    let extension = match source {
+        FilePath::Path(path) => path.extension().and_then(|value| value.to_str()),
+        FilePath::Url(url) => Path::new(url.path())
+            .extension()
+            .and_then(|value| value.to_str()),
+    }
+    .unwrap_or_default()
+    .to_ascii_lowercase();
+
+    match extension.as_str() {
+        "html" | "htm" => Ok(DocumentFormat::Html),
+        "epub" => Ok(DocumentFormat::Epub),
+        _ => Err(format!(
+            "Unsupported document type for {}",
+            source_file_name(source)
+        )),
+    }
+}
+
+/// Return only a readable basename for progress/errors; never expose a user's
+/// full local path to the frontend status surface.
+fn source_file_name(source: &FilePath) -> String {
+    match source {
+        FilePath::Path(path) => path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("document")
+            .to_string(),
+        FilePath::Url(url) => url
+            .path_segments()
+            .and_then(|mut segments| segments.next_back())
+            .filter(|value| !value.is_empty())
+            .map(|value| percent_decode_str(value).decode_utf8_lossy().into_owned())
+            .unwrap_or_else(|| "document".into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::*;
+
+    fn source(name: &str) -> FilePath {
+        FilePath::Path(PathBuf::from(name))
+    }
+
+    #[test]
+    fn batch_continues_after_failure_and_stops_between_files() {
+        let sources = vec![source("one.html"), source("bad.epub"), source("later.htm")];
+        let mut cancellation_checks = 0;
+        let mut events = Vec::new();
+        let run = process_sources(
+            sources,
+            || {
+                cancellation_checks += 1;
+                Ok(cancellation_checks > 2)
+            },
+            |source| {
+                let name = source_file_name(&source);
+                if name == "bad.epub" {
+                    Err("invalid archive".into())
+                } else {
+                    Ok(name)
+                }
+            },
+            |progress| events.push(progress),
+        )
+        .expect("batch result");
+
+        assert_eq!(run.selected, 3);
+        assert_eq!(run.processed, 2);
+        assert_eq!(run.imported, vec!["one.html"]);
+        assert_eq!(run.failures.len(), 1);
+        assert_eq!(run.failures[0].file_name, "bad.epub");
+        assert!(run.cancelled);
+        assert_eq!(events.len(), 4);
+    }
+
+    #[test]
+    fn document_formats_are_case_insensitive() {
+        assert!(matches!(
+            document_format(&source("book.EPUB")),
+            Ok(DocumentFormat::Epub)
+        ));
+        assert!(matches!(
+            document_format(&source("page.HTM")),
+            Ok(DocumentFormat::Html)
+        ));
+        assert!(document_format(&source("notes.txt")).is_err());
+    }
+}
