@@ -37,7 +37,6 @@ export function AudiobookExportMenu({
         className="audiobook-text-action audiobook-export"
         disabled={disabled}
         aria-expanded={open}
-        aria-haspopup="menu"
         onClick={() => onOpenChange(!open)}
       >
         {exporting ? t('tts.audiobooks.exporting') : t('tts.audiobooks.export')}
@@ -54,13 +53,12 @@ export function AudiobookExportMenu({
         shouldFlip
         isNonModal
       >
-        <div className="audiobook-export-options" role="menu">
+        <div className="audiobook-export-options">
           {options.map((option) => (
             <button
               key={option.format}
               type="button"
               className="audiobook-export-option"
-              role="menuitem"
               onClick={() => onExport(option.format)}
             >
               <span>{option.label}</span>
