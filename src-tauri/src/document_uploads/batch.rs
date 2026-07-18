@@ -1,7 +1,8 @@
 //! Sequential multi-file/folder document import with progress and partial results.
 
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+#[cfg(desktop)]
+use std::{fs, path::PathBuf};
 
 use percent_encoding::percent_decode_str;
 use tauri::{Emitter, Runtime};
@@ -49,6 +50,7 @@ pub(crate) fn import_batch<R: Runtime>(
 /// Pick one desktop folder and import only its direct supported file children.
 /// Subfolders and symlinks are intentionally skipped; recursion can be added
 /// later without changing the shared import runner if users need it.
+#[cfg(desktop)]
 pub(crate) fn import_folder<R: Runtime>(
     app: tauri::AppHandle<R>,
     control: DocumentBatchControl,
@@ -64,6 +66,16 @@ pub(crate) fn import_folder<R: Runtime>(
         return Err("The selected folder has no HTML or EPUB files".into());
     }
     import_sources(app, control, sources)
+}
+
+/// Keep command registration uniform across targets without compiling the
+/// desktop-only folder dialog API into mobile builds.
+#[cfg(mobile)]
+pub(crate) fn import_folder<R: Runtime>(
+    _app: tauri::AppHandle<R>,
+    _control: DocumentBatchControl,
+) -> Result<UploadedDocumentBatchResult, String> {
+    Err("Folder import is available on desktop only".into())
 }
 
 /// Run picker-produced sources through one progress/cancellation path so file
@@ -116,6 +128,7 @@ fn import_sources<R: Runtime>(
 /// Convert a desktop folder into a stable list of direct, regular document
 /// files. URL-backed folders are rejected because mobile providers do not
 /// expose a directory that Rust can enumerate safely.
+#[cfg(desktop)]
 fn folder_sources(folder: FilePath) -> Result<Vec<FilePath>, String> {
     let FilePath::Path(folder) = folder else {
         return Err("Folder import is available on desktop only".into());
