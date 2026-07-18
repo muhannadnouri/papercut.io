@@ -3,15 +3,12 @@
 //! Pure path/id/byte helpers with no SQL or parsing knowledge. The URL prefix
 //! and size limit constants also live here since they define the storage contract.
 
-use std::collections::hash_map::DefaultHasher;
 use std::fs;
-use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use sha2::{Digest, Sha256};
 use tauri::{Manager, Runtime};
-
-use super::parsed::ParsedSection;
 
 /// URL prefix that marks a document as a runtime upload (vs. a bundled doc).
 pub(crate) const UPLOAD_URL_PREFIX: &str = "/uploads/";
@@ -20,22 +17,12 @@ pub(crate) const MAX_UPLOAD_BYTES: u64 = 25 * 1024 * 1024;
 /// Hard cap on imported EPUB file size (100 MB).
 pub(crate) const MAX_EPUB_UPLOAD_BYTES: u64 = 100 * 1024 * 1024;
 
-/// Derive a stable hex id from a document's format, title, import time, and the text
-/// of its first 16 sections.
-pub(crate) fn upload_id(
-    format: &str,
-    title: &str,
-    sections: &[ParsedSection],
-    imported_at_ms: u128,
-) -> String {
-    let mut hasher = DefaultHasher::new();
-    format.hash(&mut hasher);
-    title.hash(&mut hasher);
-    imported_at_ms.hash(&mut hasher);
-    for section in sections.iter().take(16) {
-        section.text.hash(&mut hasher);
-    }
-    format!("{:016x}", hasher.finish())
+/// Use the original file bytes as the stable identity for new uploads.
+///
+/// Legacy timestamp-derived ids remain valid; exact files imported after this
+/// change reuse one stored document instead of creating duplicates.
+pub(crate) fn source_upload_id(bytes: &[u8]) -> String {
+    format!("{:x}", Sha256::digest(bytes))
 }
 
 /// Recover and validate the upload id embedded in an uploaded-document URL,
@@ -107,4 +94,18 @@ pub(crate) fn now_ms() -> Result<u128, String> {
         .duration_since(UNIX_EPOCH)
         .map_err(|err| format!("System clock error: {err}"))?
         .as_millis())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::source_upload_id;
+
+    #[test]
+    fn source_upload_id_is_stable_sha256() {
+        assert_eq!(
+            source_upload_id(b"abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        assert_ne!(source_upload_id(b"abc"), source_upload_id(b"abd"));
+    }
 }
