@@ -106,6 +106,7 @@ export function AudiobooksPanel({
   const panelBusy = exportInProgress || importInProgress || deleteInProgress
   const meta = formatAudiobookMeta(isSaving, queueCount, savedCount, t)
   const hasAudiobooks = isSaving || queueCount > 0 || savedCount > 0
+  // Keep model, voice, and runtime metadata stable and LTR across UI locales.
   const setupSummary = formatAudioSetupSummary(audioSetup, i18n.getFixedT('en'))
   const exportOptions = [
     { format: 'bundle' as const, label: t('tts.audiobooks.exportBundle'), code: '.papercut-audiobook' },
