@@ -89,11 +89,14 @@
       "audiobookImport": "Importation de livres audio, non indexés pour la recherche"
     },
     "import": {
+      "folder": "Dossier",
+      "folderDetail": "Importe les fichiers HTML et EPUB directs ; les sous-dossiers sont ignorés",
       "multipleFiles": "Plusieurs fichiers",
       "multipleFilesDetail": "Importer jusqu’à 500 fichiers HTML et EPUB",
       "htmlDetail": "Importer un document local .html ou .htm",
       "epubDetail": "Importer un livre .epub local",
       "importingBatch": "Importation des documents",
+      "importingFolder": "Importation du dossier",
       "importingHtml": "Importation de HTML",
       "importingEpub": "Importation de EPUB"
     },

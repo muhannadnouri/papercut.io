@@ -94,6 +94,11 @@ export async function importDocumentBatch(): Promise<UploadedDocumentBatchResult
   return invoke<UploadedDocumentBatchResult>('document_uploads_import_batch')
 }
 
+export async function importDocumentFolder(): Promise<UploadedDocumentBatchResult> {
+  const invoke = await loadTauriInvoke()
+  return invoke<UploadedDocumentBatchResult>('document_uploads_import_folder')
+}
+
 export async function cancelDocumentBatch(): Promise<boolean> {
   const invoke = await loadTauriInvoke()
   return invoke<boolean>('document_uploads_cancel_import_batch')

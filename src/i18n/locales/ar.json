@@ -101,11 +101,14 @@
       "audiobookImport": "كتاب صوتي مستورد، غير مفهرس للبحث"
     },
     "import": {
+      "folder": "مجلد",
+      "folderDetail": "استيراد ملفات HTML وEPUB المباشرة؛ تُتجاهل المجلدات الفرعية",
       "multipleFiles": "ملفات متعددة",
       "multipleFilesDetail": "استيراد ما يصل إلى 500 ملف HTML وEPUB",
       "htmlDetail": "استيراد مستند محلي بصيغة ‎.html أو ‎.htm",
       "epubDetail": "استيراد كتاب محلي بصيغة ‎.epub",
       "importingBatch": "جارٍ استيراد المستندات",
+      "importingFolder": "جارٍ استيراد المجلد",
       "importingHtml": "جارٍ استيراد HTML",
       "importingEpub": "جارٍ استيراد EPUB"
     },

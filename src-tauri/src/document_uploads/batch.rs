@@ -1,6 +1,7 @@
-//! Sequential multi-file document import with progress and partial results.
+//! Sequential multi-file/folder document import with progress and partial results.
 
-use std::path::Path;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 use percent_encoding::percent_decode_str;
 use tauri::{Emitter, Runtime};
@@ -42,6 +43,36 @@ pub(crate) fn import_batch<R: Runtime>(
         .add_filter("HTML and EPUB Documents", &["html", "htm", "epub"])
         .blocking_pick_files()
         .ok_or_else(|| "Document import cancelled".to_string())?;
+    import_sources(app, control, sources)
+}
+
+/// Pick one desktop folder and import only its direct supported file children.
+/// Subfolders and symlinks are intentionally skipped; recursion can be added
+/// later without changing the shared import runner if users need it.
+pub(crate) fn import_folder<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    control: DocumentBatchControl,
+) -> Result<UploadedDocumentBatchResult, String> {
+    let folder = app
+        .dialog()
+        .file()
+        .set_title("Import Documents from Folder")
+        .blocking_pick_folder()
+        .ok_or_else(|| "Document import cancelled".to_string())?;
+    let sources = folder_sources(folder)?;
+    if sources.is_empty() {
+        return Err("The selected folder has no HTML or EPUB files".into());
+    }
+    import_sources(app, control, sources)
+}
+
+/// Run picker-produced sources through one progress/cancellation path so file
+/// and folder selection cannot drift in import behavior.
+fn import_sources<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    control: DocumentBatchControl,
+    sources: Vec<FilePath>,
+) -> Result<UploadedDocumentBatchResult, String> {
     if sources.len() > MAX_BATCH_FILES {
         return Err(format!(
             "Select at most {MAX_BATCH_FILES} documents in one import"
@@ -80,6 +111,33 @@ pub(crate) fn import_batch<R: Runtime>(
         failures: run.failures,
         cancelled: run.cancelled,
     })
+}
+
+/// Convert a desktop folder into a stable list of direct, regular document
+/// files. URL-backed folders are rejected because mobile providers do not
+/// expose a directory that Rust can enumerate safely.
+fn folder_sources(folder: FilePath) -> Result<Vec<FilePath>, String> {
+    let FilePath::Path(folder) = folder else {
+        return Err("Folder import is available on desktop only".into());
+    };
+    let mut paths = Vec::<PathBuf>::new();
+    for entry in
+        fs::read_dir(&folder).map_err(|err| format!("Failed to read selected folder: {err}"))?
+    {
+        let entry = entry.map_err(|err| format!("Failed to read folder entry: {err}"))?;
+        let file_type = entry
+            .file_type()
+            .map_err(|err| format!("Failed to inspect folder entry: {err}"))?;
+        if !file_type.is_file() {
+            continue;
+        }
+        let source = FilePath::Path(entry.path());
+        if document_format(&source).is_ok() {
+            paths.push(entry.path());
+        }
+    }
+    paths.sort();
+    Ok(paths.into_iter().map(FilePath::Path).collect())
 }
 
 /// Keep cancellation at file boundaries so a parser or persistence transaction
@@ -193,7 +251,7 @@ fn source_file_name(source: &FilePath) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::*;
 
@@ -244,5 +302,28 @@ mod tests {
             Ok(DocumentFormat::Html)
         ));
         assert!(document_format(&source("notes.txt")).is_err());
+    }
+
+    #[test]
+    fn folder_sources_include_only_direct_supported_regular_files() {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "papercut-document-folder-test-{}-{suffix}",
+            std::process::id()
+        ));
+        fs::create_dir_all(root.join("nested")).expect("create test folders");
+        fs::write(root.join("b.epub"), b"test").expect("write epub");
+        fs::write(root.join("a.HTML"), b"test").expect("write html");
+        fs::write(root.join("notes.txt"), b"test").expect("write text");
+        fs::write(root.join("nested/ignored.html"), b"test").expect("write nested html");
+
+        let sources = folder_sources(FilePath::Path(root.clone())).expect("folder sources");
+        let names: Vec<_> = sources.iter().map(source_file_name).collect();
+        assert_eq!(names, vec!["a.HTML", "b.epub"]);
+
+        fs::remove_dir_all(root).expect("remove test folder");
     }
 }

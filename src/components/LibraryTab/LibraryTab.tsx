@@ -28,6 +28,7 @@ interface LibraryTabProps {
   onFilterChange: (value: string) => void
   onCancelDocumentBatch: () => void | Promise<void>
   onImportDocumentBatch: () => void | Promise<void>
+  onImportDocumentFolder: () => void | Promise<void>
   onImportEpubDocument: () => void | Promise<void>
   onImportHtmlDocument: () => void | Promise<void>
   onMoveLibraryDocuments: (documentIds: string[], folderId: string | null) => void | Promise<void>
@@ -57,6 +58,7 @@ export function LibraryTab({
   onFilterChange,
   onCancelDocumentBatch,
   onImportDocumentBatch,
+  onImportDocumentFolder,
   onImportEpubDocument,
   onImportHtmlDocument,
   onMoveLibraryDocuments,
@@ -68,6 +70,7 @@ export function LibraryTab({
   const { t } = useTranslation()
   const operationBusy = documentImport.status === 'importing' || documentImport.status === 'deleting'
   const statusMessage = documentImportStatusMessage(documentImport, t, onCancelDocumentBatch)
+  const folderImportSupported = !isMobilePlatform()
 
   return (
     <section className="tab-panel" role="tabpanel" aria-label={t('library.tabLabel')} data-tab="library">
@@ -80,6 +83,16 @@ export function LibraryTab({
         groupedDocs={groupedDocs}
         docFilterLower={docFilterLower}
         importOptions={[
+          ...(folderImportSupported ? [{
+            id: 'folder',
+            label: t('library.import.folder'),
+            detail: t('library.import.folderDetail'),
+            statusLabel: documentImport.status === 'importing' && documentImport.format === 'folder'
+              ? t('library.import.importingFolder')
+              : undefined,
+            disabled: operationBusy,
+            onSelect: onImportDocumentFolder,
+          }] : []),
           {
             id: 'batch',
             label: t('library.import.multipleFiles'),
@@ -139,7 +152,7 @@ function documentImportStatusMessage(
   onCancelBatch: () => void | Promise<void>,
 ): ReactNode {
   if (status.status === 'idle') return null
-  if (status.format === 'batch') {
+  if (status.format === 'batch' || status.format === 'folder') {
     return <DocumentBatchImportStatus status={status} t={t} onCancel={onCancelBatch} />
   }
   if (status.status === 'importing') {
@@ -160,6 +173,13 @@ function documentImportStatusMessage(
   return storage
     ? <Trans i18nKey="library.status.deletedWithStorage" values={{ title, storage }} components={{ title: <bdi /> }} />
     : <Trans i18nKey="library.status.deleted" values={{ title }} components={{ title: <bdi /> }} />
+}
+
+/** Folder enumeration needs a real desktop filesystem; mobile retains the
+ * portable single/multi-file pickers without exposing an unsupported action. */
+function isMobilePlatform(): boolean {
+  return /Android|iP(ad|hone|od)/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 }
 
 /** Keep the long-running batch status in the existing library status row while

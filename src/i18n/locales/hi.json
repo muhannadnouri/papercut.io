@@ -85,11 +85,14 @@
       "audiobookImport": "ऑडियोबुक आयात, खोज के लिए अनुक्रमित नहीं"
     },
     "import": {
+      "folder": "फ़ोल्डर",
+      "folderDetail": "सीधी HTML और EPUB फ़ाइलें आयात करें; उपफ़ोल्डर छोड़ दिए जाते हैं",
       "multipleFiles": "एकाधिक फ़ाइलें",
       "multipleFilesDetail": "अधिकतम 500 HTML और EPUB फ़ाइलें आयात करें",
       "htmlDetail": "एक स्थानीय .html या .htm दस्तावेज़ आयात करें",
       "epubDetail": "एक स्थानीय .epub पुस्तक आयात करें",
       "importingBatch": "दस्तावेज़ आयात किए जा रहे हैं",
+      "importingFolder": "फ़ोल्डर आयात किया जा रहा है",
       "importingHtml": "HTML आयात किया जा रहा है",
       "importingEpub": "EPUB आयात किया जा रहा है"
     },

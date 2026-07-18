@@ -7,6 +7,7 @@ import {
   deleteUploadedLibraryFolder,
   getUploadedLibraryOrganization,
   importDocumentBatch as importDocumentBatchSource,
+  importDocumentFolder as importDocumentFolderSource,
   importEpubDocument as importEpubDocumentSource,
   importHtmlDocument as importHtmlDocumentSource,
   listUploadedDocuments,
@@ -28,7 +29,7 @@ type UploadedLibraryState = {
 // isolate user titles without parsing preformatted English messages.
 export type DocumentImportStatus = {
   status: 'idle' | 'importing' | 'imported' | 'deleting' | 'deleted' | 'cancelled' | 'error'
-  format?: 'html' | 'epub' | 'batch'
+  format?: 'html' | 'epub' | 'batch' | 'folder'
   title?: string
   bytesFreed?: number
   message?: string
@@ -115,23 +116,26 @@ export function useUploadedLibrary() {
   )
 
   /** Subscribe before opening the picker so even the first native progress event
-   * is retained; successful siblings are refreshed even when others fail. */
-  const importDocumentBatch = useCallback(async (): Promise<UploadedDocumentBatchResult | null> => {
+   * is retained; both collection pickers share refresh and partial-result flow. */
+  const importDocumentCollection = useCallback(async (
+    format: 'batch' | 'folder',
+    importer: () => Promise<UploadedDocumentBatchResult>,
+  ): Promise<UploadedDocumentBatchResult | null> => {
     if (operationInProgressRef.current) return null
     operationInProgressRef.current = true
-    setDocumentImport({ status: 'importing', format: 'batch' })
+    setDocumentImport({ status: 'importing', format })
     let unlisten: (() => void) | undefined
     try {
       unlisten = await listenDocumentBatchProgress((batchProgress) => {
-        setDocumentImport((current) => current.status === 'importing' && current.format === 'batch'
+        setDocumentImport((current) => current.status === 'importing' && current.format === format
           ? { ...current, batchProgress }
           : current)
       })
-      const batchResult = await importDocumentBatchSource()
+      const batchResult = await importer()
       if (batchResult.imported.length > 0) await refreshUploadedLibrary()
       setDocumentImport({
         status: batchResult.cancelled ? 'cancelled' : 'imported',
-        format: 'batch',
+        format,
         batchResult,
       })
       return batchResult
@@ -140,7 +144,7 @@ export function useUploadedLibrary() {
       const cancelled = message.toLowerCase().includes('cancelled')
       setDocumentImport({
         status: cancelled ? 'cancelled' : 'error',
-        format: 'batch',
+        format,
         message: cancelled ? undefined : message,
       })
       return null
@@ -150,12 +154,23 @@ export function useUploadedLibrary() {
     }
   }, [refreshUploadedLibrary])
 
+  const importDocumentBatch = useCallback(
+    () => importDocumentCollection('batch', importDocumentBatchSource),
+    [importDocumentCollection],
+  )
+
+  const importDocumentFolder = useCallback(
+    () => importDocumentCollection('folder', importDocumentFolderSource),
+    [importDocumentCollection],
+  )
+
   /** Cancellation is cooperative: mark the UI only after Rust confirms that a
    * batch is active, then let the current file finish safely. */
   const cancelDocumentBatch = useCallback(async (): Promise<void> => {
     try {
       if (!await cancelDocumentBatchSource()) return
-      setDocumentImport((current) => current.status === 'importing' && current.format === 'batch'
+      setDocumentImport((current) => current.status === 'importing' &&
+        (current.format === 'batch' || current.format === 'folder')
         ? { ...current, cancelRequested: true }
         : current)
     } catch (err) {
@@ -234,6 +249,7 @@ export function useUploadedLibrary() {
     importEpubDocument,
     importHtmlDocument,
     importDocumentBatch,
+    importDocumentFolder,
     moveLibraryDocuments,
     renameLibraryFolder,
     uploadedDocuments,

@@ -89,11 +89,14 @@
       "audiobookImport": "Importazione di audiolibri, non indicizzati per la ricerca"
     },
     "import": {
+      "folder": "Cartella",
+      "folderDetail": "Importa i file HTML ed EPUB diretti; le sottocartelle vengono ignorate",
       "multipleFiles": "Più file",
       "multipleFilesDetail": "Importa fino a 500 file HTML ed EPUB",
       "htmlDetail": "Importa un documento .html o .htm locale",
       "epubDetail": "Importa un libro .epub locale",
       "importingBatch": "Importazione dei documenti",
+      "importingFolder": "Importazione della cartella",
       "importingHtml": "Importazione di HTML",
       "importingEpub": "Importazione di EPUB"
     },

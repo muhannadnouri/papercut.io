@@ -50,6 +50,7 @@ function App() {
     importEpubDocument,
     importHtmlDocument,
     importDocumentBatch,
+    importDocumentFolder,
     moveLibraryDocuments,
     renameLibraryFolder,
     uploadedDocuments,
@@ -219,6 +220,11 @@ function App() {
     if (result?.imported.length) setShowDocuments(true)
   }, [importDocumentBatch, setShowDocuments])
 
+  const handleImportDocumentFolder = useCallback(async () => {
+    const result = await importDocumentFolder()
+    if (result?.imported.length) setShowDocuments(true)
+  }, [importDocumentFolder, setShowDocuments])
+
   const handleImportAudiobook = useCallback(async () => {
     await importAudiobookBundle(handleViewDocument)
   }, [handleViewDocument, importAudiobookBundle])
@@ -345,6 +351,7 @@ function App() {
             onImportHtmlDocument={handleImportHtmlDocument}
             onImportEpubDocument={handleImportEpubDocument}
             onImportDocumentBatch={handleImportDocumentBatch}
+            onImportDocumentFolder={handleImportDocumentFolder}
             onCancelDocumentBatch={cancelDocumentBatch}
             onViewDocument={handleViewLibraryDocument}
           />

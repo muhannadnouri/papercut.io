@@ -7,7 +7,7 @@
 
 use tauri::Runtime;
 
-use super::batch::import_batch;
+use super::batch::{import_batch, import_folder};
 use super::organization::{
     create_folder, delete_folder, list_organization, move_documents, move_folder, rename_folder,
     reorder,
@@ -55,6 +55,18 @@ pub async fn document_uploads_import_batch<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || import_batch(app, control))
         .await
         .map_err(|err| format!("Document batch import task failed: {err}"))?
+}
+
+/// Pick one desktop folder and import its direct HTML/EPUB children as a batch.
+#[tauri::command]
+pub async fn document_uploads_import_folder<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    state: tauri::State<'_, DocumentUploadState>,
+) -> Result<UploadedDocumentBatchResult, String> {
+    let control = state.begin_batch()?;
+    tauri::async_runtime::spawn_blocking(move || import_folder(app, control))
+        .await
+        .map_err(|err| format!("Document folder import task failed: {err}"))?
 }
 
 /// Request cancellation after the currently importing file finishes.
