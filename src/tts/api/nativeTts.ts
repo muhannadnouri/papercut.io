@@ -495,8 +495,8 @@ async function invokeNative<T>(
   command: string,
   args?: Record<string, unknown>,
 ): Promise<T> {
-  const invoke = await loadTauriInvoke()
   try {
+    const invoke = await loadTauriInvoke()
     return await invoke<T>(command, args)
   } catch (error) {
     throw toNativeTtsError(error)
