@@ -12,7 +12,7 @@ use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_fs::FsExt;
 
 use super::epub::parse_epub_document;
-use super::html::{decode_html_bytes, parse_html_document};
+use super::html::{decode_html_bytes, parse_html_document, sanitize_html};
 use super::parsed::ParsedDocument;
 use super::storage::directory_size;
 use super::storage::{
@@ -150,8 +150,11 @@ pub(crate) fn get_source<R: Runtime>(
 ) -> Result<String, String> {
     let id = upload_id_from_url(&request.document_url)?;
     let path = upload_dir(app, &id)?.join("source.html");
-    fs::read_to_string(&path)
-        .map_err(|err| format!("Failed to read uploaded document {}: {err}", path.display()))
+    let source = fs::read_to_string(&path)
+        .map_err(|err| format!("Failed to read uploaded document {}: {err}", path.display()))?;
+    // Re-sanitize on read so documents imported by older app versions cannot
+    // bypass a newer security policy merely because their stored file persists.
+    Ok(sanitize_html(&source))
 }
 
 /// Delete one upload: remove its stored directory and all of its SQLite rows,

@@ -149,9 +149,13 @@ export function DocumentViewer({
       if (!link || !readerRoot.contains(link)) return
 
       const href = link.getAttribute('href') ?? ''
+      // Imported content never gets browser-default link behavior. Papercut
+      // explicitly handles safe hashes and approved external protocols below;
+      // malformed or disallowed URLs remain inert even if backend sanitation
+      // regresses or an older stored document reaches this reader.
+      event.preventDefault()
       const internalHash = getInternalDocumentHash(href)
       if (internalHash) {
-        event.preventDefault()
         scrollToHash(internalHash)
         return
       }
@@ -159,7 +163,6 @@ export function DocumentViewer({
       const externalUrl = getExternalLinkUrl(href)
       if (!externalUrl) return
 
-      event.preventDefault()
       setExternalLinkError('')
       setPendingExternalUrl(externalUrl)
     }
