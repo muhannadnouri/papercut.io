@@ -79,16 +79,6 @@ export function isUploadedDocumentUrl(url: string): boolean {
   return /^\/uploads\/[a-fA-F0-9]+\.html(?:[#?].*)?$/.test(url)
 }
 
-export async function importHtmlDocument(): Promise<UploadedDocument> {
-  const invoke = await loadTauriInvoke()
-  return invoke<UploadedDocument>('document_uploads_import_html')
-}
-
-export async function importEpubDocument(): Promise<UploadedDocument> {
-  const invoke = await loadTauriInvoke()
-  return invoke<UploadedDocument>('document_uploads_import_epub')
-}
-
 export async function importDocumentBatch(): Promise<UploadedDocumentBatchResult> {
   const invoke = await loadTauriInvoke()
   return invoke<UploadedDocumentBatchResult>('document_uploads_import_batch')

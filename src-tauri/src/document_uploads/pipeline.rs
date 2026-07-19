@@ -9,7 +9,7 @@ use std::io::Read;
 use std::path::Path;
 
 use tauri::Runtime;
-use tauri_plugin_dialog::{DialogExt, FilePath};
+use tauri_plugin_dialog::FilePath;
 use tauri_plugin_fs::FsExt;
 
 use super::epub::parse_epub_document;
@@ -26,22 +26,7 @@ use super::types::{
     UploadedDocumentSourceRequest,
 };
 
-/// Full import path: pick a file, enforce size limits, decode HTML bytes, parse and sanitize
-/// it, store the sanitized source under app data, and index it into SQLite.
-pub(crate) fn import_html<R: Runtime>(
-    app: tauri::AppHandle<R>,
-) -> Result<UploadedDocument, String> {
-    let source = pick_file(
-        &app,
-        "Import HTML Document",
-        "HTML Document",
-        &["html", "htm"],
-    )?;
-    import_html_source(&app, source)
-}
-
-/// Import one already-selected HTML source; batch import can reuse this path
-/// without opening another native dialog.
+/// Import one already-selected HTML source without coupling parsing to a picker.
 pub(crate) fn import_html_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
@@ -68,14 +53,6 @@ pub(crate) fn import_html_source<R: Runtime>(
     persist_document(app, id, parsed, bytes.len() as u64)
 }
 
-/// Pick, parse, store, and index a local EPUB file.
-pub(crate) fn import_epub<R: Runtime>(
-    app: tauri::AppHandle<R>,
-) -> Result<UploadedDocument, String> {
-    let source = pick_file(&app, "Import EPUB Book", "EPUB Book", &["epub"])?;
-    import_epub_source(&app, source)
-}
-
 /// Import one already-selected EPUB source without coupling parsing to a picker.
 pub(crate) fn import_epub_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
@@ -99,20 +76,6 @@ pub(crate) fn import_epub_source<R: Runtime>(
     }
 
     persist_document(app, id, parsed, bytes.len() as u64)
-}
-
-fn pick_file<R: Runtime>(
-    app: &tauri::AppHandle<R>,
-    title: &str,
-    filter_name: &str,
-    extensions: &[&str],
-) -> Result<FilePath, String> {
-    app.dialog()
-        .file()
-        .set_title(title)
-        .add_filter(filter_name, extensions)
-        .blocking_pick_file()
-        .ok_or_else(|| "Document import cancelled".to_string())
 }
 
 fn read_file<R: Runtime>(

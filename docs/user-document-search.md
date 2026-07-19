@@ -11,7 +11,7 @@ This avoids the trap of trying to rebuild Pagefind on a user's device every time
 
 The current upload branch supports local HTML and EPUB files:
 
-- Users open **Import** from the document list and choose one HTML/EPUB file, multiple files, or a desktop folder.
+- Users open **Import** from the document list and choose **Files** for one or more HTML/EPUB files, or **Folder** for a desktop folder.
 - Tauri opens the native filesystem picker for `.html`/`.htm` or `.epub` files. Desktop folder import includes supported files directly inside the selected folder and skips subfolders.
 - Rust reads the selected HTML file, enforces a 25 MB limit, decodes UTF-8 or declared legacy browser encodings, sanitizes the HTML, extracts readable sections, stores the sanitized source, and indexes the sections into SQLite FTS5.
 - Rust reads the selected EPUB file, enforces a 100 MB limit, validates the EPUB ZIP/container, follows OPF spine order, sanitizes XHTML chapters into generated reading HTML, rewrites and target-validates local chapter, TOC, and footnote links, retains supported local raster images within safety caps, extracts readable sections, and indexes the sections into SQLite FTS5.
@@ -56,8 +56,8 @@ Storage:
 
 - Sanitized uploaded HTML is stored under Tauri app data at `document_uploads/{upload_id}/source.html`.
 - New upload ids are full SHA-256 hashes of the original file bytes. Existing timestamp-derived ids remain valid; the first re-import of a document created by an older app version may create one hash-identified copy, after which exact re-imports reuse it.
-- Single-file, multi-file, and folder entry points share the same picker-independent per-file importer, so limits, parsing, duplicate handling, storage, and indexing cannot drift between UI paths.
-- The Library import menu can select up to 500 HTML/EPUB files in one batch. The app imports them sequentially, shows count-based progress and the current filename, supports cooperative cancellation between files, keeps successful files when siblings fail, and exposes per-file failures in an expandable summary.
+- File and folder entry points share the same picker-independent per-file importer, so limits, parsing, duplicate handling, storage, and indexing cannot drift between UI paths.
+- **Files** can select one or up to 500 HTML/EPUB files. A single successful import opens immediately; larger selections remain in the Library with count-based progress, the current filename, cooperative cancellation between files, retained successful files when siblings fail, and an expandable per-file failure summary.
 - Desktop builds can select one folder and feed up to 500 direct HTML/EPUB children into that same batch pipeline. Folder traversal is non-recursive and does not recreate the filesystem folder in Papercut.
 - EPUB stores a sanitized generated reading HTML copy at the same stored-source path. Search and TTS depend on the generated safe reading copy and normalized sections, not on rendering the raw EPUB archive in React. Local PNG, JPEG, GIF, and WebP manifest images referenced by retained reader content are inlined as data URLs with a 5 MB per-image cap and 30 MB total-image cap; remote images and SVG are skipped. The original EPUB archive is not retained by the current MVP.
 - The runtime search index lives at `document_uploads/search.sqlite3`.
@@ -188,7 +188,7 @@ For the first shippable upload branch, keep the generic document work separate f
 - Include `src/uploads/DocumentUploads.ts`.
 - Include `src-tauri/src/document_uploads/` and the command registration in `src-tauri/src/lib.rs`.
 - Include the `rusqlite` dependency.
-- Include App UI changes for the **Import > HTML** option, **User Uploads**, uploaded-document delete, and merged search.
+- Include App UI changes for **Import > Files**, **User Uploads**, uploaded-document delete, and merged search.
 - Exclude `.papercut-audiobook` import/export work if you want a non-TTS branch.
 
 That gives users HTML import and runtime search first. TTS bundle import can remain a later branch that reuses the same reader/playback surface once the document source exists in the app.

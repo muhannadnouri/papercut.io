@@ -101,16 +101,12 @@
       "audiobookImport": "كتاب صوتي مستورد، غير مفهرس للبحث"
     },
     "import": {
+      "files": "ملفات",
+      "filesDetail": "استيراد ملف واحد أو أكثر بصيغة HTML أو EPUB",
       "folder": "مجلد",
-      "folderDetail": "استيراد ملفات HTML وEPUB المباشرة؛ تُتجاهل المجلدات الفرعية",
-      "multipleFiles": "ملفات متعددة",
-      "multipleFilesDetail": "استيراد ما يصل إلى 500 ملف HTML وEPUB",
-      "htmlDetail": "استيراد مستند محلي بصيغة ‎.html أو ‎.htm",
-      "epubDetail": "استيراد كتاب محلي بصيغة ‎.epub",
+      "folderDetail": "استيراد ملفات HTML وEPUB الموجودة داخل مجلد واحد؛ تُتجاهل المجلدات الفرعية",
       "importingBatch": "جارٍ استيراد المستندات",
-      "importingFolder": "جارٍ استيراد المجلد",
-      "importingHtml": "جارٍ استيراد HTML",
-      "importingEpub": "جارٍ استيراد EPUB"
+      "importingFolder": "جارٍ استيراد المجلد"
     },
     "status": {
       "preparingBatch": "اختر ملفات HTML أو EPUB لاستيرادها...",
@@ -122,8 +118,6 @@
       "batchComplete": "اكتمل الاستيراد. تم الاستيراد: {{imported, number}}. فشل: {{failed, number}}.",
       "batchCancelled": "توقف الاستيراد. تم الاستيراد: {{imported, number}}. فشل: {{failed, number}}.",
       "failedFiles": "الملفات التي فشل استيرادها: {{count, number}}",
-      "importingHtml": "جارٍ استيراد مستند HTML...",
-      "importingEpub": "جارٍ استيراد كتاب EPUB...",
       "imported": "تم استيراد <title>{{title}}</title>.",
       "cancelled": "أُلغي الاستيراد.",
       "deleting": "جارٍ حذف <title>{{title}}</title>...",

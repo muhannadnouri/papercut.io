@@ -47,8 +47,6 @@ function App() {
     deleteDocument: deleteUploadedLibraryDocument,
     deleteLibraryFolder,
     documentImport,
-    importEpubDocument,
-    importHtmlDocument,
     importDocumentBatch,
     importDocumentFolder,
     moveLibraryDocuments,
@@ -201,24 +199,14 @@ function App() {
   )
   const selectedFormat = selectedDocument?.format
 
-  const handleImportHtmlDocument = useCallback(async () => {
-    const result = await importHtmlDocument()
-    if (!result) return
-    setShowDocuments(true)
-    await handleViewDocument(result.url)
-  }, [handleViewDocument, importHtmlDocument, setShowDocuments])
-
-  const handleImportEpubDocument = useCallback(async () => {
-    const result = await importEpubDocument()
-    if (!result) return
-    setShowDocuments(true)
-    await handleViewDocument(result.url)
-  }, [handleViewDocument, importEpubDocument, setShowDocuments])
-
   const handleImportDocumentBatch = useCallback(async () => {
     const result = await importDocumentBatch()
-    if (result?.imported.length) setShowDocuments(true)
-  }, [importDocumentBatch, setShowDocuments])
+    if (!result?.imported.length) return
+    setShowDocuments(true)
+    if (result.selected === 1 && result.imported.length === 1) {
+      await handleViewDocument(result.imported[0].url)
+    }
+  }, [handleViewDocument, importDocumentBatch, setShowDocuments])
 
   const handleImportDocumentFolder = useCallback(async () => {
     const result = await importDocumentFolder()
@@ -348,8 +336,6 @@ function App() {
             onMoveLibraryDocuments={moveLibraryDocuments}
             onRenameLibraryFolder={renameLibraryFolder}
             onToggleAuthor={toggleLibraryAuthor}
-            onImportHtmlDocument={handleImportHtmlDocument}
-            onImportEpubDocument={handleImportEpubDocument}
             onImportDocumentBatch={handleImportDocumentBatch}
             onImportDocumentFolder={handleImportDocumentFolder}
             onCancelDocumentBatch={cancelDocumentBatch}

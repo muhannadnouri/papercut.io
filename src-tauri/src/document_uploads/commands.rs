@@ -12,7 +12,7 @@ use super::organization::{
     create_folder, delete_folder, list_organization, move_documents, move_folder, rename_folder,
     reorder,
 };
-use super::pipeline::{delete_upload, get_source, import_epub, import_html};
+use super::pipeline::{delete_upload, get_source};
 use super::search::search_uploads;
 use super::store::list_uploads;
 use super::types::{
@@ -24,26 +24,6 @@ use super::types::{
     UploadedLibraryRenameFolderRequest, UploadedLibraryReorderRequest,
 };
 use super::DocumentUploadState;
-
-/// Open the native picker, import the chosen HTML file, and return its metadata.
-#[tauri::command]
-pub async fn document_uploads_import_html<R: Runtime>(
-    app: tauri::AppHandle<R>,
-) -> Result<UploadedDocument, String> {
-    tauri::async_runtime::spawn_blocking(move || import_html(app))
-        .await
-        .map_err(|err| format!("Document import task failed: {err}"))?
-}
-
-/// Open the native picker, import the chosen EPUB file, and return its metadata.
-#[tauri::command]
-pub async fn document_uploads_import_epub<R: Runtime>(
-    app: tauri::AppHandle<R>,
-) -> Result<UploadedDocument, String> {
-    tauri::async_runtime::spawn_blocking(move || import_epub(app))
-        .await
-        .map_err(|err| format!("Document import task failed: {err}"))?
-}
 
 /// Pick multiple HTML/EPUB files and import them as one cancellable sequential batch.
 #[tauri::command]

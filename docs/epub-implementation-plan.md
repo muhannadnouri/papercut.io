@@ -156,12 +156,11 @@ Acceptance checks:
 
 ### 5. Wire EPUB Import UI And Commands
 
-- Add a Tauri command such as `document_uploads_import_epub`, or add one generic
-  import command with a format argument.
-- Add frontend API helper `importEpubDocument`.
-- Add Import > EPUB option in `DocumentsPanel`.
-- Use the same import status state shape as HTML.
-- Refresh uploaded document list and open the imported EPUB after success.
+- Route HTML and EPUB selections through the generic `document_uploads_import_batch` command.
+- Keep the frontend API format-neutral through `importDocumentBatch`.
+- Add **Import > Files** in `DocumentsPanel` for one or more HTML/EPUB files.
+- Use the same progress, cancellation, and partial-failure state for both formats.
+- Refresh the uploaded document list and open the document when exactly one selected file imports successfully.
 - Keep audiobook bundle import separate from generic document import.
 
 Acceptance checks:

@@ -29,8 +29,6 @@ interface LibraryTabProps {
   onCancelDocumentBatch: () => void | Promise<void>
   onImportDocumentBatch: () => void | Promise<void>
   onImportDocumentFolder: () => void | Promise<void>
-  onImportEpubDocument: () => void | Promise<void>
-  onImportHtmlDocument: () => void | Promise<void>
   onMoveLibraryDocuments: (documentIds: string[], folderId: string | null) => void | Promise<void>
   onRenameLibraryFolder: (folderId: string, name: string) => void | Promise<void>
   onToggleAuthor: (author: string) => void
@@ -59,8 +57,6 @@ export function LibraryTab({
   onCancelDocumentBatch,
   onImportDocumentBatch,
   onImportDocumentFolder,
-  onImportEpubDocument,
-  onImportHtmlDocument,
   onMoveLibraryDocuments,
   onRenameLibraryFolder,
   onToggleAuthor,
@@ -83,6 +79,16 @@ export function LibraryTab({
         groupedDocs={groupedDocs}
         docFilterLower={docFilterLower}
         importOptions={[
+          {
+            id: 'batch',
+            label: t('library.import.files'),
+            detail: t('library.import.filesDetail'),
+            statusLabel: documentImport.status === 'importing' && documentImport.format === 'batch'
+              ? t('library.import.importingBatch')
+              : undefined,
+            disabled: operationBusy,
+            onSelect: onImportDocumentBatch,
+          },
           ...(folderImportSupported ? [{
             id: 'folder',
             label: t('library.import.folder'),
@@ -93,36 +99,6 @@ export function LibraryTab({
             disabled: operationBusy,
             onSelect: onImportDocumentFolder,
           }] : []),
-          {
-            id: 'batch',
-            label: t('library.import.multipleFiles'),
-            detail: t('library.import.multipleFilesDetail'),
-            statusLabel: documentImport.status === 'importing' && documentImport.format === 'batch'
-              ? t('library.import.importingBatch')
-              : undefined,
-            disabled: operationBusy,
-            onSelect: onImportDocumentBatch,
-          },
-          {
-            id: 'html',
-            label: 'HTML',
-            detail: t('library.import.htmlDetail'),
-            statusLabel: documentImport.status === 'importing' && documentImport.format === 'html'
-              ? t('library.import.importingHtml')
-              : undefined,
-            disabled: operationBusy,
-            onSelect: onImportHtmlDocument,
-          },
-          {
-            id: 'epub',
-            label: 'EPUB',
-            detail: t('library.import.epubDetail'),
-            statusLabel: documentImport.status === 'importing' && documentImport.format === 'epub'
-              ? t('library.import.importingEpub')
-              : undefined,
-            disabled: operationBusy,
-            onSelect: onImportEpubDocument,
-          },
           // { id: 'pdf', label: 'PDF', detail: 'Import PDFs when text extraction support lands', future: true },
         ]}
         importStatuses={statusMessage ? [{ status: documentImport.status, message: statusMessage }] : []}
@@ -154,9 +130,6 @@ function documentImportStatusMessage(
   if (status.status === 'idle') return null
   if (status.format === 'batch' || status.format === 'folder') {
     return <DocumentBatchImportStatus status={status} t={t} onCancel={onCancelBatch} />
-  }
-  if (status.status === 'importing') {
-    return t(status.format === 'epub' ? 'library.status.importingEpub' : 'library.status.importingHtml')
   }
   if (status.status === 'cancelled') return t('library.status.cancelled')
   if (status.status === 'error') return status.message ?? null

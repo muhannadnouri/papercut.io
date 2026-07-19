@@ -8,8 +8,6 @@ import {
   getUploadedLibraryOrganization,
   importDocumentBatch as importDocumentBatchSource,
   importDocumentFolder as importDocumentFolderSource,
-  importEpubDocument as importEpubDocumentSource,
-  importHtmlDocument as importHtmlDocumentSource,
   listUploadedDocuments,
   listenDocumentBatchProgress,
   moveUploadedDocuments,
@@ -29,7 +27,7 @@ type UploadedLibraryState = {
 // isolate user titles without parsing preformatted English messages.
 export type DocumentImportStatus = {
   status: 'idle' | 'importing' | 'imported' | 'deleting' | 'deleted' | 'cancelled' | 'error'
-  format?: 'html' | 'epub' | 'batch' | 'folder'
+  format?: 'batch' | 'folder'
   title?: string
   bytesFreed?: number
   message?: string
@@ -78,42 +76,6 @@ export function useUploadedLibrary() {
       cancelled = true
     }
   }, [applyUploadedLibrary])
-
-  const importDocument = useCallback(async (
-    format: 'html' | 'epub',
-    importer: () => Promise<UploadedDocument>,
-  ): Promise<UploadedDocument | null> => {
-    if (operationInProgressRef.current) return null
-    operationInProgressRef.current = true
-    setDocumentImport({ status: 'importing', format })
-    try {
-      const result = await importer()
-      await refreshUploadedLibrary()
-      setDocumentImport({ status: 'imported', format, title: result.title })
-      return result
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      const cancelled = message.toLowerCase().includes('cancelled')
-      setDocumentImport({
-        status: cancelled ? 'cancelled' : 'error',
-        format,
-        message: cancelled ? undefined : message,
-      })
-      return null
-    } finally {
-      operationInProgressRef.current = false
-    }
-  }, [refreshUploadedLibrary])
-
-  const importHtmlDocument = useCallback(
-    () => importDocument('html', importHtmlDocumentSource),
-    [importDocument],
-  )
-
-  const importEpubDocument = useCallback(
-    () => importDocument('epub', importEpubDocumentSource),
-    [importDocument],
-  )
 
   /** Subscribe before opening the picker so even the first native progress event
    * is retained; both collection pickers share refresh and partial-result flow. */
@@ -246,8 +208,6 @@ export function useUploadedLibrary() {
     deleteDocument,
     deleteLibraryFolder,
     documentImport,
-    importEpubDocument,
-    importHtmlDocument,
     importDocumentBatch,
     importDocumentFolder,
     moveLibraryDocuments,

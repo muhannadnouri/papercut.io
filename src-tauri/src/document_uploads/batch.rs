@@ -210,8 +210,8 @@ where
     Ok(run)
 }
 
-/// Route a selected source through the same format-specific pipeline used by
-/// single-file import, keeping validation and persistence behavior identical.
+/// Route every selected source through the shared format-specific validation
+/// and persistence pipeline.
 fn import_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,

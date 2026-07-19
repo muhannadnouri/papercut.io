@@ -89,16 +89,12 @@
       "audiobookImport": "Importazione di audiolibri, non indicizzati per la ricerca"
     },
     "import": {
+      "files": "File",
+      "filesDetail": "Importa uno o più file HTML o EPUB",
       "folder": "Cartella",
-      "folderDetail": "Importa i file HTML ed EPUB diretti; le sottocartelle vengono ignorate",
-      "multipleFiles": "Più file",
-      "multipleFilesDetail": "Importa fino a 500 file HTML ed EPUB",
-      "htmlDetail": "Importa un documento .html o .htm locale",
-      "epubDetail": "Importa un libro .epub locale",
+      "folderDetail": "Importa i file HTML ed EPUB da una cartella; le sottocartelle vengono ignorate",
       "importingBatch": "Importazione dei documenti",
-      "importingFolder": "Importazione della cartella",
-      "importingHtml": "Importazione di HTML",
-      "importingEpub": "Importazione di EPUB"
+      "importingFolder": "Importazione della cartella"
     },
     "status": {
       "preparingBatch": "Scegli i file HTML o EPUB da importare...",
@@ -110,8 +106,6 @@
       "batchComplete": "Importazione completata. Importati: {{imported, number}}. Non riusciti: {{failed, number}}.",
       "batchCancelled": "Importazione interrotta. Importati: {{imported, number}}. Non riusciti: {{failed, number}}.",
       "failedFiles": "File non riusciti: {{count, number}}",
-      "importingHtml": "Importazione del documento HTML...",
-      "importingEpub": "Importazione del libro EPUB...",
       "imported": "<title>{{title}}</title> importato.",
       "cancelled": "Importazione annullata.",
       "deleting": "Eliminazione di <title>{{title}}</title>...",

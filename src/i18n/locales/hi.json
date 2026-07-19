@@ -85,16 +85,12 @@
       "audiobookImport": "ऑडियोबुक आयात, खोज के लिए अनुक्रमित नहीं"
     },
     "import": {
+      "files": "फ़ाइलें",
+      "filesDetail": "एक या अधिक HTML या EPUB फ़ाइलें आयात करें",
       "folder": "फ़ोल्डर",
-      "folderDetail": "सीधी HTML और EPUB फ़ाइलें आयात करें; उपफ़ोल्डर छोड़ दिए जाते हैं",
-      "multipleFiles": "एकाधिक फ़ाइलें",
-      "multipleFilesDetail": "अधिकतम 500 HTML और EPUB फ़ाइलें आयात करें",
-      "htmlDetail": "एक स्थानीय .html या .htm दस्तावेज़ आयात करें",
-      "epubDetail": "एक स्थानीय .epub पुस्तक आयात करें",
+      "folderDetail": "एक फ़ोल्डर की HTML और EPUB फ़ाइलें आयात करें; उपफ़ोल्डर छोड़ दिए जाते हैं",
       "importingBatch": "दस्तावेज़ आयात किए जा रहे हैं",
-      "importingFolder": "फ़ोल्डर आयात किया जा रहा है",
-      "importingHtml": "HTML आयात किया जा रहा है",
-      "importingEpub": "EPUB आयात किया जा रहा है"
+      "importingFolder": "फ़ोल्डर आयात किया जा रहा है"
     },
     "status": {
       "preparingBatch": "आयात करने के लिए HTML या EPUB फ़ाइलें चुनें...",
@@ -106,8 +102,6 @@
       "batchComplete": "आयात पूरा हुआ। आयातित: {{imported, number}}। विफल: {{failed, number}}।",
       "batchCancelled": "आयात रोक दिया गया। आयातित: {{imported, number}}। विफल: {{failed, number}}।",
       "failedFiles": "विफल फ़ाइलें: {{count, number}}",
-      "importingHtml": "HTML दस्तावेज़ आयात किया जा रहा है...",
-      "importingEpub": "EPUB पुस्तक आयात की जा रही है...",
       "imported": "आयातित <title>{{title}}</title>।",
       "cancelled": "आयात रद्द कर दिया गया.",
       "deleting": "<title>{{title}}</title> हटाया जा रहा है...",
