@@ -6,10 +6,12 @@ import {
   exportLibrary,
   getLibrarySendStatus,
   importLibrary,
+  listenLibraryTransferProgress,
   receiveLibrary,
   startLibrarySend,
   type LibraryTransferExportResult,
   type LibraryTransferImportResult,
+  type LibraryTransferProgress,
   type LibraryTransferSendStatus,
 } from './libraryTransfer'
 import { listNativeSavedAudiobooks } from '../tts/api/nativeTts'
@@ -22,6 +24,7 @@ interface LibraryTransferDialogProps {
   onImported: () => void | Promise<void>
 }
 
+type TransferMode = 'send' | 'receive'
 type TransferStatus =
   | { state: 'idle' }
   | { state: 'exporting' }
@@ -33,8 +36,10 @@ type TransferStatus =
   | { state: 'error'; message: string }
 
 export function LibraryTransferDialog({ documentCount, onClose, onImported }: LibraryTransferDialogProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const [mode, setMode] = useState<TransferMode>('send')
   const [status, setStatus] = useState<TransferStatus>({ state: 'idle' })
+  const [progress, setProgress] = useState<LibraryTransferProgress | null>(null)
   const [savedAudiobookCount, setSavedAudiobookCount] = useState(0)
   const [includeAudiobooks, setIncludeAudiobooks] = useState(false)
   const [sendStatus, setSendStatus] = useState<LibraryTransferSendStatus | null>(null)
@@ -43,11 +48,26 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
   const operationBusy = ['exporting', 'importing', 'preparingSend', 'receiving'].includes(status.state)
   const sendActive = sendStatus?.state === 'waiting' || sendStatus?.state === 'sending'
   const busy = operationBusy || sendActive
+  const hasContent = documentCount > 0 || (includeAudiobooks && savedAudiobookCount > 0)
 
   useEffect(() => {
     void listNativeSavedAudiobooks()
       .then((records) => setSavedAudiobookCount(records.length))
       .catch(() => setSavedAudiobookCount(0))
+  }, [])
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined
+    let disposed = false
+    void listenLibraryTransferProgress((next) => setProgress(next))
+      .then((stop) => {
+        if (disposed) stop()
+        else unlisten = stop
+      })
+    return () => {
+      disposed = true
+      unlisten?.()
+    }
   }, [])
 
   useEffect(() => {
@@ -64,7 +84,7 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
         .catch((error) => {
           setStatus({ state: 'error', message: error instanceof Error ? error.message : String(error) })
         })
-    }, 750)
+    }, 500)
     return () => window.clearInterval(timer)
   }, [sendActive, t])
 
@@ -86,10 +106,12 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
       })
     }
     if (result.imported > 0 || result.audiobooksImported > 0) await onImported()
+    setProgress(null)
     setStatus({ state: 'imported', result })
   }
 
   const handleExport = async () => {
+    setProgress(null)
     setStatus({ state: 'exporting' })
     try {
       const result = await exportLibrary(includeAudiobooks)
@@ -100,6 +122,7 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
   }
 
   const handleImport = async () => {
+    setProgress(null)
     setStatus({ state: 'importing' })
     try {
       const result = await importLibrary()
@@ -114,6 +137,7 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
   }
 
   const handleStartSend = async () => {
+    setProgress(null)
     setStatus({ state: 'preparingSend' })
     try {
       setSendStatus(await startLibrarySend(includeAudiobooks))
@@ -133,12 +157,20 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
   }
 
   const handleReceive = async () => {
+    setProgress(null)
     setStatus({ state: 'receiving' })
     try {
       await applyImportResult(await receiveLibrary(sourceAddress, pairingCode))
     } catch (error) {
       setStatus({ state: 'error', message: error instanceof Error ? error.message : String(error) })
     }
+  }
+
+  const selectMode = (nextMode: TransferMode) => {
+    if (busy) return
+    setMode(nextMode)
+    setStatus({ state: 'idle' })
+    setProgress(null)
   }
 
   return (
@@ -148,116 +180,131 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
       onCancel={busy ? () => {} : onClose}
       actions={(
         <button type="button" className="app-dialog-submit" disabled={busy} onClick={onClose}>
-          {t('common.done')}
+          {t('common.close')}
         </button>
       )}
     >
+      <div className="library-transfer-mode" role="group" aria-label={t('libraryTransfer.modeLabel')}>
+        <button type="button" aria-pressed={mode === 'send'} disabled={busy} onClick={() => selectMode('send')}>
+          {t('libraryTransfer.modeSend')}
+        </button>
+        <button type="button" aria-pressed={mode === 'receive'} disabled={busy} onClick={() => selectMode('receive')}>
+          {t('libraryTransfer.modeReceive')}
+        </button>
+      </div>
+
       <div className="library-transfer-actions">
-        {savedAudiobookCount > 0 && (
-          <label className="library-transfer-audiobooks">
-            <input
-              type="checkbox"
-              checked={includeAudiobooks}
-              disabled={busy}
-              onChange={(event) => setIncludeAudiobooks(event.target.checked)}
-            />
-            <span>
-              <strong>{t('libraryTransfer.includeAudiobooks', { count: savedAudiobookCount })}</strong>
-              <small>{t('libraryTransfer.includeAudiobooksDescription')}</small>
-            </span>
-          </label>
+        {mode === 'send' ? (
+          <>
+            <section className="library-transfer-primary-section">
+              <header>
+                <h3>{t('libraryTransfer.sendTitle')}</h3>
+                <p>{t('libraryTransfer.sendDescription')}</p>
+              </header>
+              {savedAudiobookCount > 0 && (
+                <label className="library-transfer-audiobooks">
+                  <input
+                    type="checkbox"
+                    checked={includeAudiobooks}
+                    disabled={busy}
+                    onChange={(event) => setIncludeAudiobooks(event.target.checked)}
+                  />
+                  <span>
+                    <strong>{t('libraryTransfer.includeAudiobooks', { count: savedAudiobookCount })}</strong>
+                    <small>{t('libraryTransfer.includeAudiobooksDescription')}</small>
+                  </span>
+                </label>
+              )}
+              {sendActive ? (
+                <button type="button" className="library-transfer-stop" onClick={() => { void handleCancelSend() }}>
+                  {t('libraryTransfer.stopSending')}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="library-transfer-primary"
+                  disabled={operationBusy || !hasContent}
+                  onClick={() => { void handleStartSend() }}
+                >
+                  {status.state === 'preparingSend'
+                    ? t('libraryTransfer.preparingSend')
+                    : t('libraryTransfer.startSending')}
+                </button>
+              )}
+              <LibrarySendStatusMessage status={sendStatus} locale={i18n.resolvedLanguage ?? i18n.language} />
+            </section>
+
+            <section className="library-transfer-alternate">
+              <div>
+                <h3>{t('libraryTransfer.exportTitle')}</h3>
+                <p>{t('libraryTransfer.exportDescription', { count: documentCount })}</p>
+              </div>
+              <button type="button" disabled={busy || !hasContent} onClick={() => { void handleExport() }}>
+                {status.state === 'exporting' ? t('libraryTransfer.exporting') : t('libraryTransfer.export')}
+              </button>
+            </section>
+          </>
+        ) : (
+          <>
+            <section className="library-transfer-primary-section">
+              <header>
+                <h3>{t('libraryTransfer.receiveTitle')}</h3>
+                <p>{t('libraryTransfer.receiveDescription')}</p>
+              </header>
+              <div className="library-transfer-pairing-fields">
+                <label>
+                  <span>{t('libraryTransfer.sourceAddress')}</span>
+                  <input
+                    type="text"
+                    dir="ltr"
+                    value={sourceAddress}
+                    disabled={busy}
+                    placeholder="192.168.1.20:49152"
+                    onChange={(event) => setSourceAddress(event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span>{t('libraryTransfer.pairingCode')}</span>
+                  <input
+                    type="text"
+                    dir="ltr"
+                    value={pairingCode}
+                    disabled={busy}
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    placeholder="ABCD-EFGH"
+                    onChange={(event) => setPairingCode(event.target.value)}
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                className="library-transfer-primary"
+                disabled={busy || !sourceAddress.trim() || !pairingCode.trim()}
+                onClick={() => { void handleReceive() }}
+              >
+                {status.state === 'receiving' ? t('libraryTransfer.receiving') : t('libraryTransfer.receive')}
+              </button>
+              {status.state === 'receiving' && progress?.operation === 'receive' && (
+                <TransferProgressMessage progress={progress} locale={i18n.resolvedLanguage ?? i18n.language} />
+              )}
+            </section>
+
+            <section className="library-transfer-alternate">
+              <div>
+                <h3>{t('libraryTransfer.importTitle')}</h3>
+                <p>{t('libraryTransfer.importDescription')}</p>
+              </div>
+              <button type="button" disabled={busy} onClick={() => { void handleImport() }}>
+                {status.state === 'importing' ? t('libraryTransfer.importing') : t('libraryTransfer.import')}
+              </button>
+            </section>
+            {status.state === 'importing' && progress?.operation === 'import' && (
+              <TransferProgressMessage progress={progress} locale={i18n.resolvedLanguage ?? i18n.language} />
+            )}
+          </>
         )}
-
-        <div className="library-transfer-action">
-          <div>
-            <strong>{t('libraryTransfer.exportTitle')}</strong>
-            <p>{t('libraryTransfer.exportDescription', { count: documentCount })}</p>
-          </div>
-          <button
-            type="button"
-            disabled={busy || (documentCount === 0 && !(includeAudiobooks && savedAudiobookCount > 0))}
-            onClick={() => { void handleExport() }}
-          >
-            {status.state === 'exporting' ? t('libraryTransfer.exporting') : t('libraryTransfer.export')}
-          </button>
-        </div>
-
-        <div className="library-transfer-action">
-          <div>
-            <strong>{t('libraryTransfer.importTitle')}</strong>
-            <p>{t('libraryTransfer.importDescription')}</p>
-          </div>
-          <button type="button" disabled={busy} onClick={() => { void handleImport() }}>
-            {status.state === 'importing' ? t('libraryTransfer.importing') : t('libraryTransfer.import')}
-          </button>
-        </div>
-
-        <h3 className="library-transfer-section-title">{t('libraryTransfer.nearbyTitle')}</h3>
-
-        <div className="library-transfer-action library-transfer-nearby-action">
-          <div>
-            <strong>{t('libraryTransfer.sendTitle')}</strong>
-            <p>{t('libraryTransfer.sendDescription')}</p>
-          </div>
-          {sendActive ? (
-            <button type="button" className="library-transfer-stop" onClick={() => { void handleCancelSend() }}>
-              {t('libraryTransfer.stopSending')}
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={operationBusy || (documentCount === 0 && !(includeAudiobooks && savedAudiobookCount > 0))}
-              onClick={() => { void handleStartSend() }}
-            >
-              {status.state === 'preparingSend'
-                ? t('libraryTransfer.preparingSend')
-                : t('libraryTransfer.startSending')}
-            </button>
-          )}
-        </div>
-
-        <LibrarySendStatusMessage status={sendStatus} />
-
-        <div className="library-transfer-action library-transfer-receive-action">
-          <div>
-            <strong>{t('libraryTransfer.receiveTitle')}</strong>
-            <p>{t('libraryTransfer.receiveDescription')}</p>
-            <div className="library-transfer-pairing-fields">
-              <label>
-                <span>{t('libraryTransfer.sourceAddress')}</span>
-                <input
-                  type="text"
-                  dir="ltr"
-                  value={sourceAddress}
-                  disabled={busy}
-                  placeholder="192.168.1.20:49152"
-                  onChange={(event) => setSourceAddress(event.target.value)}
-                />
-              </label>
-              <label>
-                <span>{t('libraryTransfer.pairingCode')}</span>
-                <input
-                  type="text"
-                  dir="ltr"
-                  value={pairingCode}
-                  disabled={busy}
-                  autoCapitalize="characters"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  placeholder="ABCD-EFGH"
-                  onChange={(event) => setPairingCode(event.target.value)}
-                />
-              </label>
-            </div>
-          </div>
-          <button
-            type="button"
-            disabled={busy || !sourceAddress.trim() || !pairingCode.trim()}
-            onClick={() => { void handleReceive() }}
-          >
-            {status.state === 'receiving' ? t('libraryTransfer.receiving') : t('libraryTransfer.receive')}
-          </button>
-        </div>
       </div>
 
       <TransferStatusMessage status={status} />
@@ -265,26 +312,52 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
   )
 }
 
+function TransferProgressMessage({ progress, locale }: { progress: LibraryTransferProgress; locale: string }) {
+  const { t } = useTranslation()
+  const bytesKnown = progress.bytesProcessed !== undefined && progress.bytesTotal !== undefined
+  const itemsKnown = progress.itemsProcessed !== undefined && progress.itemsTotal !== undefined
+  const value = bytesKnown ? progress.bytesProcessed : itemsKnown ? progress.itemsProcessed : undefined
+  const max = bytesKnown ? progress.bytesTotal : itemsKnown ? progress.itemsTotal : undefined
+  const message = progress.phase === 'connecting'
+    ? t('libraryTransfer.progressConnecting')
+    : progress.phase === 'receiving' && bytesKnown
+      ? t('libraryTransfer.progressReceiving', {
+          processed: formatBytes(progress.bytesProcessed!, locale),
+          total: formatBytes(progress.bytesTotal!, locale),
+        })
+      : progress.phase === 'verifying'
+        ? t('libraryTransfer.progressVerifying')
+        : progress.phase === 'importingDocuments' && itemsKnown
+          ? t('libraryTransfer.progressImportingDocuments', {
+              processed: progress.itemsProcessed,
+              total: progress.itemsTotal,
+            })
+          : progress.phase === 'restoringAudiobooks' && itemsKnown
+            ? t('libraryTransfer.progressRestoringAudiobooks', {
+                processed: progress.itemsProcessed,
+                total: progress.itemsTotal,
+              })
+            : t('libraryTransfer.importing')
+
+  return (
+    <div className="library-transfer-progress" role="status" aria-live="polite">
+      <span>{message}</span>
+      <progress value={value} max={max} />
+      {progress.item && <small dir="auto"><bdi>{progress.item}</bdi></small>}
+    </div>
+  )
+}
+
 function TransferStatusMessage({ status }: { status: TransferStatus }) {
   const { t } = useTranslation()
-  if (status.state === 'idle') return null
-  if (
-    status.state === 'exporting'
-    || status.state === 'importing'
-    || status.state === 'preparingSend'
-    || status.state === 'receiving'
-  ) {
-    const message = status.state === 'exporting'
-      ? t('libraryTransfer.exporting')
-      : status.state === 'importing'
-        ? t('libraryTransfer.importing')
-        : status.state === 'preparingSend'
-          ? t('libraryTransfer.preparingSend')
-          : t('libraryTransfer.receiving')
+  if (status.state === 'idle' || status.state === 'preparingSend' || status.state === 'receiving' || status.state === 'importing') {
+    return null
+  }
+  if (status.state === 'exporting') {
     return (
       <div className="library-transfer-status library-transfer-status-busy" role="status" aria-live="polite">
         <span className="spinner" aria-hidden="true" />
-        <span>{message}</span>
+        <span>{t('libraryTransfer.exporting')}</span>
       </div>
     )
   }
@@ -332,7 +405,7 @@ function TransferStatusMessage({ status }: { status: TransferStatus }) {
   )
 }
 
-function LibrarySendStatusMessage({ status }: { status: LibraryTransferSendStatus | null }) {
+function LibrarySendStatusMessage({ status, locale }: { status: LibraryTransferSendStatus | null; locale: string }) {
   const { t } = useTranslation()
   if (!status || status.state === 'cancelled') return null
   if (status.state === 'failed') {
@@ -341,11 +414,16 @@ function LibrarySendStatusMessage({ status }: { status: LibraryTransferSendStatu
   if (status.state === 'complete') {
     return <p className="library-transfer-status" role="status">{t('libraryTransfer.sendComplete')}</p>
   }
+  const sending = status.state === 'sending'
   return (
     <div className="library-transfer-session" role="status" aria-live="polite">
-      <span>{status.state === 'sending'
-        ? t('libraryTransfer.sending')
+      <span>{sending
+        ? t('libraryTransfer.progressSending', {
+            processed: formatBytes(status.bytesTransferred, locale),
+            total: formatBytes(status.packageBytes, locale),
+          })
         : t('libraryTransfer.waitingForReceiver')}</span>
+      {sending && <progress value={status.bytesTransferred} max={status.packageBytes} />}
       <dl>
         <div>
           <dt>{t('libraryTransfer.sourceAddress')}</dt>
@@ -359,4 +437,15 @@ function LibrarySendStatusMessage({ status }: { status: LibraryTransferSendStatu
       <small>{t('libraryTransfer.keepOpen')}</small>
     </div>
   )
+}
+
+function formatBytes(bytes: number, locale: string): string {
+  const units = ['B', 'KB', 'MB', 'GB']
+  let value = bytes
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit += 1
+  }
+  return `${new Intl.NumberFormat(locale, { maximumFractionDigits: unit === 0 ? 0 : 1 }).format(value)} ${units[unit]}`
 }

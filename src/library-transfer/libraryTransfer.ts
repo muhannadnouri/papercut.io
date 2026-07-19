@@ -49,8 +49,29 @@ export interface LibraryTransferSendStatus {
   documents: number
   audiobooks: number
   packageBytes: number
+  bytesTransferred: number
   error?: string
 }
+
+export type LibraryTransferOperation = 'import' | 'receive'
+export type LibraryTransferProgressPhase =
+  | 'connecting'
+  | 'receiving'
+  | 'verifying'
+  | 'importingDocuments'
+  | 'restoringAudiobooks'
+
+export interface LibraryTransferProgress {
+  operation: LibraryTransferOperation
+  phase: LibraryTransferProgressPhase
+  bytesProcessed?: number
+  bytesTotal?: number
+  itemsProcessed?: number
+  itemsTotal?: number
+  item?: string
+}
+
+const LIBRARY_TRANSFER_PROGRESS_EVENT = 'library-transfer-progress'
 
 export async function exportLibrary(includeAudiobooks = false): Promise<LibraryTransferExportResult | null> {
   if (!isTauri()) return null
@@ -83,5 +104,15 @@ export async function cancelLibrarySend(): Promise<void> {
 export async function receiveLibrary(address: string, code: string): Promise<LibraryTransferImportResult> {
   return invoke<LibraryTransferImportResult>('library_transfer_receive', {
     request: { address, code },
+  })
+}
+
+export async function listenLibraryTransferProgress(
+  onProgress: (progress: LibraryTransferProgress) => void,
+): Promise<() => void> {
+  if (!isTauri()) return () => {}
+  const { listen } = await import('@tauri-apps/api/event')
+  return listen<LibraryTransferProgress>(LIBRARY_TRANSFER_PROGRESS_EVENT, (event) => {
+    onProgress(event.payload)
   })
 }

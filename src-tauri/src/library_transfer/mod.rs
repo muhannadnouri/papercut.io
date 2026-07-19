@@ -15,7 +15,7 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use tauri::{Manager, Runtime};
+use tauri::{Emitter, Manager, Runtime};
 use tauri_plugin_dialog::{DialogExt, FilePath};
 use tauri_plugin_fs::{FsExt, OpenOptions};
 use zip::ZipArchive;
@@ -33,6 +33,7 @@ use package::{
 };
 
 const PACKAGE_EXTENSION: &str = "papercut-library";
+pub(crate) const LIBRARY_TRANSFER_PROGRESS_EVENT: &str = "library-transfer-progress";
 
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -61,6 +62,47 @@ pub struct LibraryTransferImportResult {
     audiobooks_failed: usize,
     imported_audiobooks: Vec<crate::native_tts::NativeSavedAudiobookRecord>,
     failures: Vec<LibraryTransferFailure>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct LibraryTransferProgress {
+    operation: String,
+    phase: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    bytes_processed: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    bytes_total: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    items_processed: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    items_total: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    item: Option<String>,
+}
+
+/// Emit locale-neutral transfer facts; the WebView owns wording and number
+/// formatting while Rust remains the authority for bytes and restored items.
+pub(crate) fn emit_transfer_progress(
+    app: &tauri::AppHandle,
+    operation: &str,
+    phase: &str,
+    bytes: Option<(u64, u64)>,
+    items: Option<(usize, usize)>,
+    item: Option<String>,
+) {
+    let _ = app.emit(
+        LIBRARY_TRANSFER_PROGRESS_EVENT,
+        LibraryTransferProgress {
+            operation: operation.into(),
+            phase: phase.into(),
+            bytes_processed: bytes.map(|value| value.0),
+            bytes_total: bytes.map(|value| value.1),
+            items_processed: items.map(|value| value.0),
+            items_total: items.map(|value| value.1),
+            item,
+        },
+    );
 }
 
 struct PreparedPackage {
@@ -141,7 +183,7 @@ fn import_library(app: tauri::AppHandle) -> Result<Option<LibraryTransferImportR
     let temp_path = transfer_temp_path(&app, "import")?;
     let import_result = (|| {
         copy_source_to_temp(&app, source, &temp_path)?;
-        import_library_package(&app, &temp_path)
+        import_library_package(&app, &temp_path, "import")
     })();
     let _ = fs::remove_file(&temp_path);
     import_result.map(Some)
@@ -191,7 +233,9 @@ fn build_library_package(
 fn import_library_package(
     app: &tauri::AppHandle,
     path: &Path,
+    operation: &str,
 ) -> Result<LibraryTransferImportResult, String> {
+    emit_transfer_progress(app, operation, "verifying", None, None, None);
     let file = File::open(path).map_err(|err| {
         format!(
             "Failed to open temporary library package {}: {err}",
@@ -201,7 +245,7 @@ fn import_library_package(
     let mut archive = ZipArchive::new(BufReader::new(file))
         .map_err(|err| format!("Selected file is not a valid Papercut library: {err}"))?;
     let manifest = read_manifest(&mut archive)?;
-    restore_manifest(app, &mut archive, manifest)
+    restore_manifest(app, &mut archive, manifest, operation)
 }
 
 /// Build the manifest without loading every source into memory. Sources are
@@ -305,6 +349,7 @@ fn restore_manifest<T: Read + std::io::Seek>(
     app: &tauri::AppHandle,
     archive: &mut ZipArchive<T>,
     manifest: TransferManifest,
+    operation: &str,
 ) -> Result<LibraryTransferImportResult, String> {
     let existing_ids: HashSet<String> = list_uploads(app)?
         .into_iter()
@@ -314,9 +359,36 @@ fn restore_manifest<T: Read + std::io::Seek>(
     let mut skipped = 0;
     let mut failures = Vec::new();
 
-    for document in &manifest.documents {
+    let document_total = manifest.documents.len();
+    if document_total > 0 {
+        emit_transfer_progress(
+            app,
+            operation,
+            "importingDocuments",
+            None,
+            Some((0, document_total)),
+            None,
+        );
+    }
+    for (index, document) in manifest.documents.iter().enumerate() {
+        emit_transfer_progress(
+            app,
+            operation,
+            "importingDocuments",
+            None,
+            Some((index, document_total)),
+            Some(document.title.clone()),
+        );
         if existing_ids.contains(&document.id) {
             skipped += 1;
+            emit_transfer_progress(
+                app,
+                operation,
+                "importingDocuments",
+                None,
+                Some((index + 1, document_total)),
+                None,
+            );
             continue;
         }
         let result = read_document_source(archive, document).and_then(|source_html| {
@@ -336,6 +408,14 @@ fn restore_manifest<T: Read + std::io::Seek>(
                 error,
             }),
         }
+        emit_transfer_progress(
+            app,
+            operation,
+            "importingDocuments",
+            None,
+            Some((index + 1, document_total)),
+            None,
+        );
     }
 
     let (folders_created, mut organization_failures) =
@@ -345,7 +425,26 @@ fn restore_manifest<T: Read + std::io::Seek>(
     let mut audiobooks_imported = Vec::new();
     let mut audiobooks_skipped = 0;
     let mut audiobooks_failed = 0;
-    for audiobook in &manifest.audiobooks {
+    let audiobook_total = manifest.audiobooks.len();
+    if audiobook_total > 0 {
+        emit_transfer_progress(
+            app,
+            operation,
+            "restoringAudiobooks",
+            None,
+            Some((0, audiobook_total)),
+            None,
+        );
+    }
+    for (index, audiobook) in manifest.audiobooks.iter().enumerate() {
+        emit_transfer_progress(
+            app,
+            operation,
+            "restoringAudiobooks",
+            None,
+            Some((index, audiobook_total)),
+            Some(audiobook.title.clone()),
+        );
         match restore_audiobook(app, archive, audiobook) {
             Ok(Some(record)) => audiobooks_imported.push(record),
             Ok(None) => audiobooks_skipped += 1,
@@ -357,6 +456,14 @@ fn restore_manifest<T: Read + std::io::Seek>(
                 });
             }
         }
+        emit_transfer_progress(
+            app,
+            operation,
+            "restoringAudiobooks",
+            None,
+            Some((index + 1, audiobook_total)),
+            None,
+        );
     }
     Ok(LibraryTransferImportResult {
         selected: manifest.documents.len(),

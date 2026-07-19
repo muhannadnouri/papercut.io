@@ -105,10 +105,12 @@ avoids discarding useful work because one payload is damaged.
 
 App Settings owns the entry point because transfer is device-level data
 management rather than another document format. A **Data** section opens a
-dedicated **Transfer Library** dialog with two explicit actions:
+dedicated **Transfer Library** dialog organized by the user's role:
 
-- **Export Library** creates a package from this device;
-- **Import Library** merges a selected package into this device.
+- **Send** makes nearby transfer the primary action and offers **Save Transfer
+  File** as the manual alternative;
+- **Receive** accepts the source address and one-use code, with **Import
+  Transfer File** as the manual alternative.
 
 The export action offers a default-off **Include saved audiobooks** checkbox when
 completed audio exists. The dialog reports document and audiobook counts plus
@@ -134,8 +136,10 @@ The first LAN implementation is intentionally foreground and manual:
 
 The socket lifecycle and protocol live in
 `src-tauri/src/library_transfer/network.rs`; storage remains owned by
-`package.rs` and `mod.rs`. The React UI polls only coarse session state. It does
-not read library bytes or implement networking in the WebView.
+`package.rs` and `mod.rs`. The React UI polls source session state and listens
+for locale-neutral receiver progress events. Rust reports transferred bytes,
+package verification, document counts, and optional audiobook counts; it never
+moves library bytes or networking into the WebView.
 
 iOS and macOS bundles include `NSLocalNetworkUsageDescription`, and the transfer
 starts only from a user action while Papercut is foregrounded. Android currently
@@ -154,7 +158,8 @@ required by Android's local-network privacy model.
 - [x] Stage 2: add optional completed-audiobook payloads, defaulting to excluded.
 - [x] Stage 3: add foreground, authenticated same-network transfer using this package.
 - [x] Stage 3: add one-use expiry and foreground sender cancellation.
-- [ ] Stage 3: add byte-level phases, free-space checks, and resume for large audio.
+- [x] Stage 3: add byte-level transfer and item-level restore phases.
+- [ ] Stage 3: add free-space checks and resume for large audio.
 - [ ] Stage 4: evaluate automatic discovery only after QR/manual pairing is proven.
 - [ ] Later: evaluate an optional reading-data category for bookmarks and preferences.
 

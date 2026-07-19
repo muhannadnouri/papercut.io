@@ -1,6 +1,7 @@
 //! Sequential document import/delete batches with progress and partial results.
 
 use std::collections::HashSet;
+use std::io::Read;
 use std::path::Path;
 #[cfg(desktop)]
 use std::{fs, path::PathBuf};
@@ -8,6 +9,7 @@ use std::{fs, path::PathBuf};
 use percent_encoding::percent_decode_str;
 use tauri::{Emitter, Runtime};
 use tauri_plugin_dialog::{DialogExt, FilePath};
+use tauri_plugin_fs::FsExt;
 
 use super::pipeline::{delete_upload, import_epub_source, import_html_source};
 use super::state::DocumentBatchControl;
@@ -23,6 +25,7 @@ pub(crate) const DOCUMENT_IMPORT_PROGRESS_EVENT: &str = "document-uploads-import
 pub(crate) const DOCUMENT_DELETE_PROGRESS_EVENT: &str = "document-uploads-delete-progress";
 const MAX_BATCH_DOCUMENTS: usize = 500;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum DocumentFormat {
     Html,
     Epub,
@@ -259,8 +262,13 @@ fn folder_sources(folder: FilePath) -> Result<Vec<FilePath>, String> {
         if !file_type.is_file() {
             continue;
         }
-        let source = FilePath::Path(entry.path());
-        if document_format(&source).is_ok() {
+        let extension = entry
+            .path()
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        if document_format_from(&extension, &[]).is_some() {
             paths.push(entry.path());
         }
     }
@@ -331,15 +339,20 @@ fn import_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
 ) -> Result<UploadedDocument, String> {
-    match document_format(&source)? {
+    match document_format(app, &source)? {
         DocumentFormat::Html => import_html_source(app, source),
         DocumentFormat::Epub => import_epub_source(app, source),
     }
 }
 
 /// Native dialogs return filesystem paths on desktop and may return content
-/// URLs on mobile, so format detection must support both representations.
-fn document_format(source: &FilePath) -> Result<DocumentFormat, String> {
+/// URLs on mobile. Some Android providers expose an extensionless `document`
+/// URL, so only that ambiguous case reads a small prefix and lets the normal
+/// EPUB/HTML parser perform the full validation afterward.
+fn document_format<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    source: &FilePath,
+) -> Result<DocumentFormat, String> {
     let extension = match source {
         FilePath::Path(path) => path.extension().and_then(|value| value.to_str()),
         FilePath::Url(url) => Path::new(url.path())
@@ -349,14 +362,43 @@ fn document_format(source: &FilePath) -> Result<DocumentFormat, String> {
     .unwrap_or_default()
     .to_ascii_lowercase();
 
-    match extension.as_str() {
-        "html" | "htm" => Ok(DocumentFormat::Html),
-        "epub" => Ok(DocumentFormat::Epub),
-        _ => Err(format!(
-            "Unsupported document type for {}",
-            source_file_name(source)
-        )),
+    if let Some(format) = document_format_from(&extension, &[]) {
+        return Ok(format);
     }
+
+    let mut options = tauri_plugin_fs::OpenOptions::new();
+    options.read(true);
+    let mut file = app
+        .fs()
+        .open(source.clone(), options)
+        .map_err(|err| format!("Failed to inspect selected document: {err}"))?;
+    let mut prefix = [0u8; 512];
+    let read = file
+        .read(&mut prefix)
+        .map_err(|err| format!("Failed to inspect selected document: {err}"))?;
+    document_format_from("", &prefix[..read])
+        .ok_or_else(|| format!("Unsupported document type for {}", source_file_name(source)))
+}
+
+fn document_format_from(extension: &str, prefix: &[u8]) -> Option<DocumentFormat> {
+    match extension {
+        "html" | "htm" => return Some(DocumentFormat::Html),
+        "epub" => return Some(DocumentFormat::Epub),
+        _ => {}
+    }
+
+    if prefix.starts_with(b"PK\x03\x04")
+        || prefix.starts_with(b"PK\x05\x06")
+        || prefix.starts_with(b"PK\x07\x08")
+    {
+        return Some(DocumentFormat::Epub);
+    }
+    if prefix.starts_with(&[0xff, 0xfe]) || prefix.starts_with(&[0xfe, 0xff]) {
+        return Some(DocumentFormat::Html);
+    }
+    let text = String::from_utf8_lossy(prefix);
+    let text = text.trim_start_matches('\u{feff}').trim_start();
+    text.starts_with('<').then_some(DocumentFormat::Html)
 }
 
 /// Return only a readable basename for progress/errors; never expose a user's
@@ -379,6 +421,8 @@ fn source_file_name(source: &FilePath) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+    #[cfg(desktop)]
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::*;
@@ -420,6 +464,23 @@ mod tests {
     }
 
     #[test]
+    fn extensionless_mobile_documents_are_sniffed_before_import() {
+        assert_eq!(
+            document_format_from("", b"PK\x03\x04epub payload"),
+            Some(DocumentFormat::Epub)
+        );
+        assert_eq!(
+            document_format_from("", b"  <!doctype html><html></html>"),
+            Some(DocumentFormat::Html)
+        );
+        assert_eq!(
+            document_format_from("", &[0xff, 0xfe, b'<' as u8, 0]),
+            Some(DocumentFormat::Html)
+        );
+        assert_eq!(document_format_from("", b"plain text"), None);
+    }
+
+    #[test]
     fn delete_batch_retains_successes_after_a_failure() {
         let urls = vec!["/uploads/aa.html", "/uploads/bb.html", "/uploads/cc.html"]
             .into_iter()
@@ -448,18 +509,16 @@ mod tests {
 
     #[test]
     fn document_formats_are_case_insensitive() {
-        assert!(matches!(
-            document_format(&source("book.EPUB")),
-            Ok(DocumentFormat::Epub)
-        ));
-        assert!(matches!(
-            document_format(&source("page.HTM")),
-            Ok(DocumentFormat::Html)
-        ));
-        assert!(document_format(&source("notes.txt")).is_err());
+        assert_eq!(
+            document_format_from("epub", &[]),
+            Some(DocumentFormat::Epub)
+        );
+        assert_eq!(document_format_from("htm", &[]), Some(DocumentFormat::Html));
+        assert_eq!(document_format_from("txt", &[]), None);
     }
 
     #[test]
+    #[cfg(desktop)]
     fn folder_sources_include_only_direct_supported_regular_files() {
         let suffix = SystemTime::now()
             .duration_since(UNIX_EPOCH)

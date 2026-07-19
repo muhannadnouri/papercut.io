@@ -42,7 +42,7 @@ use tauri::State;
 
 use super::package::MAX_PACKAGE_BYTES;
 use super::{
-    build_library_package, import_library_package, transfer_temp_path,
+    build_library_package, emit_transfer_progress, import_library_package, transfer_temp_path,
     LibraryTransferExportRequest, LibraryTransferImportResult,
 };
 
@@ -55,6 +55,8 @@ const CODE_ALPHABET: &[u8; 32] = b"23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 const CODE_CHARS: usize = 8;
 const SESSION_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const SOCKET_TIMEOUT: Duration = Duration::from_secs(30);
+const COPY_BUFFER_BYTES: usize = 64 * 1024;
+const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -78,6 +80,7 @@ pub struct LibraryTransferSendStatus {
     documents: usize,
     audiobooks: usize,
     package_bytes: u64,
+    bytes_transferred: u64,
     error: Option<String>,
 }
 
@@ -201,6 +204,7 @@ fn start_send(
         documents: prepared.documents,
         audiobooks: prepared.audiobooks,
         package_bytes,
+        bytes_transferred: 0,
         error: None,
     }));
     let cancel = Arc::new(AtomicBool::new(false));
@@ -253,7 +257,11 @@ fn run_sender(
         match listener.accept() {
             Ok((stream, _)) => {
                 set_send_status(status, LibraryTransferSendState::Sending, None);
-                let result = send_package(stream, tls_config, code, package_path);
+                let result = send_package(stream, tls_config, code, package_path, status, cancel);
+                if cancel.load(Ordering::Relaxed) {
+                    set_send_status(status, LibraryTransferSendState::Cancelled, None);
+                    return;
+                }
                 match result {
                     Ok(()) => set_send_status(status, LibraryTransferSendState::Complete, None),
                     Err(error) => {
@@ -281,6 +289,7 @@ fn receive_library(
     app: tauri::AppHandle,
     request: LibraryTransferReceiveRequest,
 ) -> Result<LibraryTransferImportResult, String> {
+    emit_transfer_progress(&app, "receive", "connecting", None, None, None);
     let address = parse_local_address(&request.address)?;
     let code = normalize_code(&request.code)?;
     let temp_path = transfer_temp_path(&app, "lan-receive")?;
@@ -289,12 +298,21 @@ fn receive_library(
             File::create(&temp_path)
                 .map_err(|err| format!("Failed to create received library package: {err}"))?,
         );
-        receive_package(address, &code, &mut output)?;
+        receive_package(address, &code, &mut output, |processed, total| {
+            emit_transfer_progress(
+                &app,
+                "receive",
+                "receiving",
+                Some((processed, total)),
+                None,
+                None,
+            );
+        })?;
         output
             .flush()
             .map_err(|err| format!("Failed to finish received library package: {err}"))?;
         drop(output);
-        import_library_package(&app, &temp_path)
+        import_library_package(&app, &temp_path, "receive")
     })();
     let _ = fs::remove_file(&temp_path);
     result
@@ -305,6 +323,8 @@ fn send_package(
     tls_config: Arc<ServerConfig>,
     code: &str,
     package_path: &Path,
+    status: &Arc<Mutex<LibraryTransferSendStatus>>,
+    cancel: &AtomicBool,
 ) -> Result<(), String> {
     configure_socket(&socket)?;
     let mut connection = ServerConnection::new(tls_config)
@@ -329,17 +349,35 @@ fn send_package(
     stream
         .write_all(&package_bytes.to_be_bytes())
         .map_err(|err| format!("Failed to send library package header: {err}"))?;
-    io::copy(&mut BufReader::new(package), &mut stream)
-        .map_err(|err| format!("Failed to send library package: {err}"))?;
+    let mut last_progress = Instant::now() - PROGRESS_INTERVAL;
+    let copied = copy_exact_with_progress(
+        &mut BufReader::new(package),
+        &mut stream,
+        package_bytes,
+        || cancel.load(Ordering::Relaxed),
+        |processed| {
+            if processed == package_bytes || last_progress.elapsed() >= PROGRESS_INTERVAL {
+                if let Ok(mut current) = status.lock() {
+                    current.bytes_transferred = processed;
+                }
+                last_progress = Instant::now();
+            }
+        },
+    )
+    .map_err(|err| format!("Failed to send library package: {err}"))?;
+    if copied != package_bytes {
+        return Err("Prepared library package changed before sending completed".into());
+    }
     stream
         .flush()
         .map_err(|err| format!("Failed to finish library send: {err}"))
 }
 
-fn receive_package<W: Write>(
+fn receive_package<W: Write, P: FnMut(u64, u64)>(
     address: SocketAddrV4,
     code: &str,
     output: &mut W,
+    mut progress: P,
 ) -> Result<(), String> {
     let mut socket = TcpStream::connect_timeout(&SocketAddr::V4(address), SOCKET_TIMEOUT)
         .map_err(|err| format!("Could not connect to the source device: {err}"))?;
@@ -368,12 +406,62 @@ fn receive_package<W: Write>(
     if size == 0 || size > MAX_PACKAGE_BYTES {
         return Err("Source device reported an unsupported library package size".into());
     }
-    let copied = io::copy(&mut stream.take(size), output)
-        .map_err(|err| format!("Failed to receive library package: {err}"))?;
+    let mut last_progress = Instant::now() - PROGRESS_INTERVAL;
+    let copied = copy_exact_with_progress(
+        &mut stream,
+        output,
+        size,
+        || false,
+        |processed| {
+            if processed == size || last_progress.elapsed() >= PROGRESS_INTERVAL {
+                progress(processed, size);
+                last_progress = Instant::now();
+            }
+        },
+    )
+    .map_err(|err| format!("Failed to receive library package: {err}"))?;
     if copied != size {
         return Err("Source device disconnected before the library package was complete".into());
     }
     Ok(())
+}
+
+/// Copy an announced byte count without buffering the whole package. The
+/// callback is throttled by callers, while cancellation is checked between
+/// chunks so stopping a sender also interrupts an active transfer.
+fn copy_exact_with_progress<R, W, C, P>(
+    reader: &mut R,
+    writer: &mut W,
+    total: u64,
+    mut cancelled: C,
+    mut progress: P,
+) -> io::Result<u64>
+where
+    R: Read,
+    W: Write,
+    C: FnMut() -> bool,
+    P: FnMut(u64),
+{
+    let mut buffer = [0u8; COPY_BUFFER_BYTES];
+    let mut copied = 0u64;
+    while copied < total {
+        if cancelled() {
+            return Err(io::Error::new(
+                io::ErrorKind::Interrupted,
+                "library transfer cancelled",
+            ));
+        }
+        let remaining = usize::try_from((total - copied).min(COPY_BUFFER_BYTES as u64))
+            .unwrap_or(COPY_BUFFER_BYTES);
+        let read = reader.read(&mut buffer[..remaining])?;
+        if read == 0 {
+            break;
+        }
+        writer.write_all(&buffer[..read])?;
+        copied += read as u64;
+        progress(copied);
+    }
+    Ok(copied)
 }
 
 /// The ephemeral certificate encrypts TLS, while the HMAC below authenticates
@@ -637,16 +725,28 @@ mod tests {
         let sender_path = package_path.clone();
         let sender = thread::spawn(move || {
             let (stream, _) = listener.accept().unwrap();
+            let status = Arc::new(Mutex::new(LibraryTransferSendStatus {
+                state: LibraryTransferSendState::Sending,
+                address: address.to_string(),
+                code: "2345-ABCD".into(),
+                documents: 1,
+                audiobooks: 0,
+                package_bytes: package.len() as u64,
+                bytes_transferred: 0,
+                error: None,
+            }));
             send_package(
                 stream,
                 server_tls_config().unwrap(),
                 "2345ABCD",
                 &sender_path,
+                &status,
+                &AtomicBool::new(false),
             )
         });
 
         let mut received = Vec::new();
-        receive_package(address, "2345ABCD", &mut received).unwrap();
+        receive_package(address, "2345ABCD", &mut received, |_, _| {}).unwrap();
         sender.join().unwrap().unwrap();
         let _ = fs::remove_file(package_path);
 
