@@ -44,6 +44,12 @@ The package does not carry derived or platform-specific data:
 - TTS models, SILMA runtimes, generated playback caches, or diagnostics;
 - incomplete audiobook jobs or application build artifacts.
 
+Completed audiobook metadata is now discovered from the native manifest stored
+beside each audiobook's canonical chunk WAVs. The saved-audiobook UI no longer
+depends on a duplicate WebView `localStorage` registry, which means a later
+transfer import can restore native files and have them appear automatically.
+Audiobook bytes remain excluded from package version 1.
+
 The receiver parses and sanitizes every transferred HTML document again, then
 rebuilds SQLite metadata, sections, and FTS rows with its installed app version.
 Document ids come from the manifest rather than a hash of normalized HTML;
@@ -99,7 +105,7 @@ stages that need them.
 - [x] Stage 1: import, verify, sanitize, and rebuild target search data.
 - [x] Stage 1: expose file-based transfer from App Settings.
 - [x] Stage 1: cover package validation, duplicate handling, and folder mapping.
-- [ ] Stage 2: make native audiobook manifests the authoritative completed-audio registry.
+- [x] Stage 2: make native audiobook manifests the authoritative completed-audio registry.
 - [ ] Stage 2: add optional completed-audiobook payloads, defaulting to excluded.
 - [ ] Stage 3: add foreground, authenticated same-network transfer using this package.
 - [ ] Stage 3: add transfer phases, cancellation, free-space checks, and resume for large audio.
@@ -108,8 +114,8 @@ stages that need them.
 
 ## Deferred Decisions
 
-- Audiobook packages require a native manifest scan so restored audio does not
-  depend on WebView `localStorage` records.
+- Optional audiobook transfer must copy only complete manifest-backed audio and
+  preserve the cache-key identity checked by the native registry.
 - Same-network transport must use standard TLS and one-use session credentials;
   an unauthenticated local HTTP server is not acceptable.
 - Android and iOS local-network permissions and discovery belong to the LAN

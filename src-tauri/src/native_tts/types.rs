@@ -240,6 +240,26 @@ pub(crate) struct NativeAudiobookStatusResponse {
     pub(crate) wav_bytes: usize,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// One completed audiobook discovered from its native on-disk manifest.
+pub(crate) struct NativeSavedAudiobookRecord {
+    pub(crate) id: String,
+    pub(crate) document_url: String,
+    pub(crate) title: String,
+    pub(crate) voice: String,
+    pub(crate) speed: f32,
+    pub(crate) model_id: String,
+    pub(crate) text_preprocessor: String,
+    pub(crate) silma_nfe_step: Option<i32>,
+    pub(crate) cache_version: String,
+    pub(crate) dtype: String,
+    pub(crate) saved_at: u64,
+    pub(crate) chunks: usize,
+    pub(crate) audio_duration_sec: f64,
+    pub(crate) wav_bytes: usize,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 /// Request to read one saved chunk WAV from the cache.
