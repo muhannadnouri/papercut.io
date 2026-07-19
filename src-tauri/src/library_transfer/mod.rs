@@ -1,9 +1,13 @@
 //! Portable, one-way Papercut library transfer.
 //!
-//! This module owns package export/import only. Same-network transport is a
-//! later layer over the same document-and-optional-audiobook package contract.
+//! Package export/import remains the storage boundary. The `network` module
+//! transports that same document-and-optional-audiobook package without
+//! introducing a second serialization or restore path.
 
+pub(crate) mod network;
 mod package;
+
+pub use network::LibraryTransferState;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs::{self, File};
@@ -110,43 +114,14 @@ fn export_library(
     let Some(destination) = destination else {
         return Ok(None);
     };
-    let documents = list_uploads(&app)?;
-    let organization = list_organization(&app)?;
-    let prepared = prepare_manifest(&app, &documents, organization, include_audiobooks)?;
-    if prepared.manifest.documents.is_empty() && prepared.manifest.audiobooks.is_empty() {
-        return Err("There are no uploaded documents or saved audiobooks to export".into());
-    }
     let temp_path = transfer_temp_path(&app, "export")?;
-    let build_result: Result<(), String> = (|| {
-        let writer = BufWriter::new(File::create(&temp_path).map_err(|err| {
-            format!(
-                "Failed to create temporary library package {}: {err}",
-                temp_path.display()
-            )
-        })?);
-        write_package(writer, &prepared.manifest, |path| {
-            let path = prepared
-                .payloads
-                .get(path)
-                .ok_or_else(|| format!("Missing prepared transfer payload: {path}"))?;
-            let file = File::open(&path).map_err(|err| {
-                format!(
-                    "Failed to open transferred payload {}: {err}",
-                    path.display()
-                )
-            })?;
-            Ok(Box::new(BufReader::new(file)))
-        })?;
+    let build_result: Result<LibraryTransferExportResult, String> = (|| {
+        let result = build_library_package(&app, &temp_path, include_audiobooks)?;
         copy_temp_to_destination(&app, &temp_path, destination)?;
-        Ok(())
+        Ok(result)
     })();
     let _ = fs::remove_file(&temp_path);
-    build_result?;
-
-    Ok(Some(LibraryTransferExportResult {
-        documents: prepared.manifest.documents.len(),
-        audiobooks: prepared.manifest.audiobooks.len(),
-    }))
+    build_result.map(Some)
 }
 
 /// Stage picker input into a seekable local file, validate the complete archive,
@@ -166,19 +141,67 @@ fn import_library(app: tauri::AppHandle) -> Result<Option<LibraryTransferImportR
     let temp_path = transfer_temp_path(&app, "import")?;
     let import_result = (|| {
         copy_source_to_temp(&app, source, &temp_path)?;
-        let file = File::open(&temp_path).map_err(|err| {
-            format!(
-                "Failed to open temporary library package {}: {err}",
-                temp_path.display()
-            )
-        })?;
-        let mut archive = ZipArchive::new(BufReader::new(file))
-            .map_err(|err| format!("Selected file is not a valid Papercut library: {err}"))?;
-        let manifest = read_manifest(&mut archive)?;
-        restore_manifest(&app, &mut archive, manifest)
+        import_library_package(&app, &temp_path)
     })();
     let _ = fs::remove_file(&temp_path);
     import_result.map(Some)
+}
+
+/// Build the canonical package at an app-owned path so file export and LAN
+/// transfer cannot drift into separate serialization or validation paths.
+fn build_library_package(
+    app: &tauri::AppHandle,
+    path: &Path,
+    include_audiobooks: bool,
+) -> Result<LibraryTransferExportResult, String> {
+    let documents = list_uploads(app)?;
+    let organization = list_organization(app)?;
+    let prepared = prepare_manifest(app, &documents, organization, include_audiobooks)?;
+    if prepared.manifest.documents.is_empty() && prepared.manifest.audiobooks.is_empty() {
+        return Err("There are no uploaded documents or saved audiobooks to export".into());
+    }
+    let result = LibraryTransferExportResult {
+        documents: prepared.manifest.documents.len(),
+        audiobooks: prepared.manifest.audiobooks.len(),
+    };
+    let writer = BufWriter::new(File::create(path).map_err(|err| {
+        format!(
+            "Failed to create temporary library package {}: {err}",
+            path.display()
+        )
+    })?);
+    write_package(writer, &prepared.manifest, |archive_path| {
+        let payload_path = prepared
+            .payloads
+            .get(archive_path)
+            .ok_or_else(|| format!("Missing prepared transfer payload: {archive_path}"))?;
+        let file = File::open(payload_path).map_err(|err| {
+            format!(
+                "Failed to open transferred payload {}: {err}",
+                payload_path.display()
+            )
+        })?;
+        Ok(Box::new(BufReader::new(file)))
+    })?;
+    Ok(result)
+}
+
+/// Open and restore one already-staged package. Network receive deliberately
+/// enters through the same archive checks and merge logic as picker import.
+fn import_library_package(
+    app: &tauri::AppHandle,
+    path: &Path,
+) -> Result<LibraryTransferImportResult, String> {
+    let file = File::open(path).map_err(|err| {
+        format!(
+            "Failed to open temporary library package {}: {err}",
+            path.display()
+        )
+    })?;
+    let mut archive = ZipArchive::new(BufReader::new(file))
+        .map_err(|err| format!("Selected file is not a valid Papercut library: {err}"))?;
+    let manifest = read_manifest(&mut archive)?;
+    restore_manifest(app, &mut archive, manifest)
 }
 
 /// Build the manifest without loading every source into memory. Sources are

@@ -22,8 +22,8 @@ Papercut storage -> package export -> user-selected transport -> package import 
 
 Stage 1 uses the operating system file picker. A user can move the package by
 USB, shared storage, AirDrop, Quick Share, LocalSend, or any other mechanism.
-Future same-network transfer must send the same package contract rather than
-introducing a second persistence format.
+Stage 3 can send that exact package directly to another Papercut device on the
+same network; it does not introduce a second persistence format.
 
 Rust ownership lives under `src-tauri/src/library_transfer/`. React ownership
 lives under `src/library-transfer/`; shared dialogs and controls remain in their
@@ -112,8 +112,36 @@ dedicated **Transfer Library** dialog with two explicit actions:
 
 The export action offers a default-off **Include saved audiobooks** checkbox when
 completed audio exists. The dialog reports document and audiobook counts plus
-failures. Network pairing, device roles, byte-level progress, and resumability
-appear only in the stages that need them.
+failures. The same dialog also exposes explicit source and target roles for
+same-network transfer. The source displays a local address and one-use code;
+the target enters both values and receives the same package through the normal
+import boundary.
+
+## Same-Network Transport
+
+The first LAN implementation is intentionally foreground and manual:
+
+1. The source builds an app-owned temporary `.papercut-library` package.
+2. It binds an ephemeral IPv4 port and shows `address:port` plus an eight-character
+   pairing code. The session expires after ten minutes.
+3. The target connects over ephemeral TLS. Both devices prove knowledge of the
+   code with HMAC-SHA256 values bound to the TLS exporter, so the self-signed
+   channel is authenticated without a permanent app key or certificate prompt.
+4. The source streams the package once, then deletes its temporary file. The
+   first connection attempt consumes the session to prevent online code guessing.
+5. The target stages the bytes in app cache and invokes the same archive parser,
+   checksums, sanitizer, merge rules, and index rebuild used by file import.
+
+The socket lifecycle and protocol live in
+`src-tauri/src/library_transfer/network.rs`; storage remains owned by
+`package.rs` and `mod.rs`. The React UI polls only coarse session state. It does
+not read library bytes or implement networking in the WebView.
+
+iOS and macOS bundles include `NSLocalNetworkUsageDescription`, and the transfer
+starts only from a user action while Papercut is foregrounded. Android currently
+targets SDK 36 and uses its existing normal `INTERNET` permission. Before raising
+the target to Android 17 / SDK 37, add and request `ACCESS_LOCAL_NETWORK` as
+required by Android's local-network privacy model.
 
 ## Delivery Checklist
 
@@ -124,17 +152,19 @@ appear only in the stages that need them.
 - [x] Stage 1: cover package validation, duplicate handling, and folder mapping.
 - [x] Stage 2: make native audiobook manifests the authoritative completed-audio registry.
 - [x] Stage 2: add optional completed-audiobook payloads, defaulting to excluded.
-- [ ] Stage 3: add foreground, authenticated same-network transfer using this package.
-- [ ] Stage 3: add transfer phases, cancellation, free-space checks, and resume for large audio.
+- [x] Stage 3: add foreground, authenticated same-network transfer using this package.
+- [x] Stage 3: add one-use expiry and foreground sender cancellation.
+- [ ] Stage 3: add byte-level phases, free-space checks, and resume for large audio.
 - [ ] Stage 4: evaluate automatic discovery only after QR/manual pairing is proven.
 - [ ] Later: evaluate an optional reading-data category for bookmarks and preferences.
 
 ## Deferred Decisions
 
-- Same-network transport must use standard TLS and one-use session credentials;
-  an unauthenticated local HTTP server is not acceptable.
-- Android and iOS local-network permissions and discovery belong to the LAN
-  stage, not the portable package implementation.
+- Automatic discovery and QR pairing remain deferred; the first LAN release
+  proves the smaller address-and-code workflow before adding multicast or a QR
+  dependency.
+- Android 17 local-network permission handling is required when Papercut raises
+  its Android target from SDK 36 to SDK 37.
 - Original EPUB archives are not transferable because the current upload
   pipeline stores only generated, sanitized reading HTML. Retaining originals
   would be a separate storage and migration feature.

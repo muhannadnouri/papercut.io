@@ -10,6 +10,7 @@ pub fn run() {
         .plugin(tauri_plugin_native_audio::init())
         .plugin(tauri_plugin_opener::init())
         .manage(document_uploads::DocumentUploadState::default())
+        .manage(library_transfer::LibraryTransferState::default())
         .manage(native_tts::NativeTtsState::default())
         .invoke_handler(tauri::generate_handler![
             document_uploads::commands::document_uploads_import_batch,
@@ -29,6 +30,10 @@ pub fn run() {
             document_uploads::commands::document_uploads_reorder_library,
             library_transfer::library_transfer_export,
             library_transfer::library_transfer_import,
+            library_transfer::network::library_transfer_send_start,
+            library_transfer::network::library_transfer_send_status,
+            library_transfer::network::library_transfer_send_cancel,
+            library_transfer::network::library_transfer_receive,
             native_tts::commands::tts_native_capabilities,
             native_tts::commands::tts_model_status,
             native_tts::commands::tts_install_model,

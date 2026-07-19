@@ -54,6 +54,7 @@ targets:
         CFBundleShortVersionString: 1.7.4
         CFBundleVersion: "1.7.4"
         ITSAppUsesNonExemptEncryption: false
+        NSLocalNetworkUsageDescription: Papercut uses your local network only when you choose to transfer a library between nearby devices.
         UIBackgroundModes:
           - audio
     entitlements:
