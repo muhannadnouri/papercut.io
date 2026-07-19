@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AppDialog } from '../components/AppDialog/AppDialog'
 import {
@@ -7,6 +7,8 @@ import {
   type LibraryTransferExportResult,
   type LibraryTransferImportResult,
 } from './libraryTransfer'
+import { listNativeSavedAudiobooks } from '../tts/api/nativeTts'
+import { isUserUploadUrl, upsertUserUpload } from '../tts/storage/UserUploads'
 import './LibraryTransferDialog.css'
 
 interface LibraryTransferDialogProps {
@@ -26,12 +28,20 @@ type TransferStatus =
 export function LibraryTransferDialog({ documentCount, onClose, onImported }: LibraryTransferDialogProps) {
   const { t } = useTranslation()
   const [status, setStatus] = useState<TransferStatus>({ state: 'idle' })
+  const [savedAudiobookCount, setSavedAudiobookCount] = useState(0)
+  const [includeAudiobooks, setIncludeAudiobooks] = useState(false)
   const busy = status.state === 'exporting' || status.state === 'importing'
+
+  useEffect(() => {
+    void listNativeSavedAudiobooks()
+      .then((records) => setSavedAudiobookCount(records.length))
+      .catch(() => setSavedAudiobookCount(0))
+  }, [])
 
   const handleExport = async () => {
     setStatus({ state: 'exporting' })
     try {
-      const result = await exportLibrary()
+      const result = await exportLibrary(includeAudiobooks)
       setStatus(result ? { state: 'exported', result } : { state: 'idle' })
     } catch (error) {
       setStatus({ state: 'error', message: error instanceof Error ? error.message : String(error) })
@@ -46,7 +56,23 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
         setStatus({ state: 'idle' })
         return
       }
-      if (result.imported > 0) await onImported()
+      for (const record of result.importedAudiobooks) {
+        if (!isUserUploadUrl(record.documentUrl)) continue
+        upsertUserUpload({
+          url: record.documentUrl,
+          title: record.title,
+          modelId: record.modelId,
+          textPreprocessor: record.textPreprocessor,
+          voice: record.voice,
+          speed: record.speed,
+          dtype: record.dtype,
+          silmaNfeStep: record.silmaNfeStep,
+          chunks: record.chunks,
+          audioDurationSec: record.audioDurationSec,
+          wavBytes: record.wavBytes,
+        })
+      }
+      if (result.imported > 0 || result.audiobooksImported > 0) await onImported()
       setStatus({ state: 'imported', result })
     } catch (error) {
       setStatus({ state: 'error', message: error instanceof Error ? error.message : String(error) })
@@ -69,8 +95,26 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
           <div>
             <strong>{t('libraryTransfer.exportTitle')}</strong>
             <p>{t('libraryTransfer.exportDescription', { count: documentCount })}</p>
+            {savedAudiobookCount > 0 && (
+              <label className="library-transfer-audiobooks">
+                <input
+                  type="checkbox"
+                  checked={includeAudiobooks}
+                  disabled={busy}
+                  onChange={(event) => setIncludeAudiobooks(event.target.checked)}
+                />
+                <span>
+                  <strong>{t('libraryTransfer.includeAudiobooks', { count: savedAudiobookCount })}</strong>
+                  <small>{t('libraryTransfer.includeAudiobooksDescription')}</small>
+                </span>
+              </label>
+            )}
           </div>
-          <button type="button" disabled={busy || documentCount === 0} onClick={() => { void handleExport() }}>
+          <button
+            type="button"
+            disabled={busy || (documentCount === 0 && !(includeAudiobooks && savedAudiobookCount > 0))}
+            onClick={() => { void handleExport() }}
+          >
             {status.state === 'exporting' ? t('libraryTransfer.exporting') : t('libraryTransfer.export')}
           </button>
         </div>
@@ -111,6 +155,9 @@ function TransferStatusMessage({ status }: { status: TransferStatus }) {
     return (
       <div className="library-transfer-status" role="status" aria-live="polite">
         <span>{t('libraryTransfer.exportComplete', { count: status.result.documents })}</span>
+        {status.result.audiobooks > 0 && (
+          <span>{t('libraryTransfer.audiobooksExported', { count: status.result.audiobooks })}</span>
+        )}
       </div>
     )
   }
@@ -122,6 +169,13 @@ function TransferStatusMessage({ status }: { status: TransferStatus }) {
         skipped: status.result.skipped,
         failed: status.result.failed,
       })}</span>
+      {status.result.audiobooksSelected > 0 && (
+        <span>{t('libraryTransfer.audiobooksImportComplete', {
+          imported: status.result.audiobooksImported,
+          skipped: status.result.audiobooksSkipped,
+          failed: status.result.audiobooksFailed,
+        })}</span>
+      )}
       {status.result.failures.length > 0 && (
         <details>
           <summary>{t('libraryTransfer.failureDetails')}</summary>

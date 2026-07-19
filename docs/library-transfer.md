@@ -36,6 +36,8 @@ The package carries canonical user data:
 - sanitized, normalized `source.html` for each generic HTML or EPUB upload;
 - stable document ids and import metadata;
 - uploaded-library folders and document placement metadata;
+- optional completed-audiobook manifests, canonical chunk WAVs, and imported
+  audiobook source documents;
 - a manifest with package and payload checksums.
 
 The package does not carry derived or platform-specific data:
@@ -44,11 +46,11 @@ The package does not carry derived or platform-specific data:
 - TTS models, SILMA runtimes, generated playback caches, or diagnostics;
 - incomplete audiobook jobs or application build artifacts.
 
-Completed audiobook metadata is now discovered from the native manifest stored
+Completed audiobook metadata is discovered from the native manifest stored
 beside each audiobook's canonical chunk WAVs. The saved-audiobook UI no longer
-depends on a duplicate WebView `localStorage` registry, which means a later
-transfer import can restore native files and have them appear automatically.
-Audiobook bytes remain excluded from package version 1.
+depends on a duplicate WebView `localStorage` registry, so restored native files
+appear automatically. Audiobook export is optional and off by default because
+these payloads can make a transfer package several gigabytes larger.
 
 The receiver parses and sanitizes every transferred HTML document again, then
 rebuilds SQLite metadata, sections, and FTS rows with its installed app version.
@@ -56,9 +58,9 @@ Document ids come from the manifest rather than a hash of normalized HTML;
 otherwise transferred EPUBs would get new URLs because their original archive
 bytes are not retained by Papercut.
 
-## Package Version 1
+## Package Versions
 
-The archive contains:
+Version 1 remains the document-only format:
 
 ```text
 manifest.json
@@ -67,8 +69,18 @@ documents/<document-id>/source.html
 
 `manifest.json` identifies `papercut-library`, schema version `1`, creation
 time, every document payload and SHA-256 checksum, and folder organization.
-Version 1 is limited to 500 documents and generic document uploads. Audiobooks
-and reading preferences are intentionally not represented yet.
+Version 2 adds optional completed audiobooks:
+
+```text
+audiobooks/<storage-key>/manifest.json
+audiobooks/<storage-key>/chunks/<chunk>.wav
+audiobooks/<storage-key>/source/source.html     # imported bundles only
+audiobooks/<storage-key>/source/metadata.json   # imported bundles only
+```
+
+Both versions are limited to 500 documents. Version 2 is also limited to 500
+completed audiobooks and 100,000 audiobook files, with an 8 GiB expanded package
+limit. Reading preferences are not represented.
 
 Import rules:
 
@@ -80,6 +92,10 @@ Import rules:
 - reject unsupported schemas, malformed ids, duplicate archive paths, checksum
   mismatches, unexpected entries, oversized manifests, and oversized payloads;
 - never extract archive paths directly onto the filesystem.
+- stage and checksum every audiobook file, then require the native registry to
+  validate its manifest, chunk set, and cache identity before installation;
+- skip an already installed valid audiobook and never overwrite its files;
+- re-sanitize imported audiobook source HTML before restoring it.
 
 The importer retains successful documents if a later document fails and reports
 partial results. This matches Papercut's existing batch-import behavior and
@@ -94,9 +110,10 @@ dedicated **Transfer Library** dialog with two explicit actions:
 - **Export Library** creates a package from this device;
 - **Import Library** merges a selected package into this device.
 
-The dialog reports document counts and failures. Network pairing, device roles,
-byte-level progress, resumability, and audiobook selection appear only in the
-stages that need them.
+The export action offers a default-off **Include saved audiobooks** checkbox when
+completed audio exists. The dialog reports document and audiobook counts plus
+failures. Network pairing, device roles, byte-level progress, and resumability
+appear only in the stages that need them.
 
 ## Delivery Checklist
 
@@ -106,7 +123,7 @@ stages that need them.
 - [x] Stage 1: expose file-based transfer from App Settings.
 - [x] Stage 1: cover package validation, duplicate handling, and folder mapping.
 - [x] Stage 2: make native audiobook manifests the authoritative completed-audio registry.
-- [ ] Stage 2: add optional completed-audiobook payloads, defaulting to excluded.
+- [x] Stage 2: add optional completed-audiobook payloads, defaulting to excluded.
 - [ ] Stage 3: add foreground, authenticated same-network transfer using this package.
 - [ ] Stage 3: add transfer phases, cancellation, free-space checks, and resume for large audio.
 - [ ] Stage 4: evaluate automatic discovery only after QR/manual pairing is proven.
@@ -114,8 +131,6 @@ stages that need them.
 
 ## Deferred Decisions
 
-- Optional audiobook transfer must copy only complete manifest-backed audio and
-  preserve the cache-key identity checked by the native registry.
 - Same-network transport must use standard TLS and one-use session credentials;
   an unauthenticated local HTTP server is not acceptable.
 - Android and iOS local-network permissions and discovery belong to the LAN

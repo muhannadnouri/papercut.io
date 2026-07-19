@@ -199,6 +199,8 @@
     "description": "Move uploaded documents and folders between Papercut devices without an account.",
     "exportTitle": "Export from this device",
     "exportDescription": "Package {{count}} uploaded documents and their folders.",
+    "includeAudiobooks": "Include saved audiobooks ({{count}})",
+    "includeAudiobooksDescription": "Adds completed audio and can make the package much larger.",
     "export": "Export Library",
     "exporting": "Preparing...",
     "importTitle": "Import to this device",
@@ -206,7 +208,9 @@
     "import": "Import Library",
     "importing": "Importing...",
     "exportComplete": "Documents exported: {{count}}.",
+    "audiobooksExported": "Saved audiobooks exported: {{count}}.",
     "importComplete": "Imported: {{imported}} · Already present: {{skipped}} · Failed: {{failed}}",
+    "audiobooksImportComplete": "Audiobooks imported: {{imported}} · Already present: {{skipped}} · Failed: {{failed}}",
     "failureDetails": "Show failures"
   },
   "reader": {

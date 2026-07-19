@@ -47,5 +47,4 @@ pub(crate) use types::{
     UploadedLibraryMoveDocumentsRequest, UploadedLibraryOrganization,
 };
 
-#[cfg(feature = "native-tts-core")]
 pub(crate) use html::sanitize_html;

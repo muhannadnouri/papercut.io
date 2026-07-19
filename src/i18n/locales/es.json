@@ -204,6 +204,8 @@
     "description": "Transfiere documentos subidos y carpetas entre dispositivos Papercut sin una cuenta.",
     "exportTitle": "Exportar desde este dispositivo",
     "exportDescription": "Empaqueta {{count}} documentos subidos y sus carpetas.",
+    "includeAudiobooks": "Incluir audiolibros guardados ({{count}})",
+    "includeAudiobooksDescription": "Añade audio completo y puede aumentar mucho el tamaño del paquete.",
     "export": "Exportar biblioteca",
     "exporting": "Preparando...",
     "importTitle": "Importar a este dispositivo",
@@ -211,7 +213,9 @@
     "import": "Importar biblioteca",
     "importing": "Importando...",
     "exportComplete": "Documentos exportados: {{count}}.",
+    "audiobooksExported": "Audiolibros exportados: {{count}}.",
     "importComplete": "Importados: {{imported}} · Ya presentes: {{skipped}} · Fallidos: {{failed}}",
+    "audiobooksImportComplete": "Audiolibros importados: {{imported}} · Ya presentes: {{skipped}} · Fallidos: {{failed}}",
     "failureDetails": "Mostrar fallos"
   },
   "reader": {

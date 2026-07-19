@@ -21,8 +21,8 @@ use super::paths::{
 };
 use super::silma_sidecar::DEFAULT_SILMA_NFE_STEP;
 use crate::native_tts::types::{
-    NativeAudiobookPlaybackChunk, NativeAudiobookSaveRequest, NativeSavedAudiobookRecord,
-    NativeTtsInputChunk,
+    NativeAudiobookPlaybackChunk, NativeAudiobookSaveRequest, NativeAudiobookTransferFile,
+    NativeAudiobookTransferPayload, NativeSavedAudiobookRecord, NativeTtsInputChunk,
 };
 
 const PLAYBACK_TIMING_TOLERANCE_SEC: f64 = 0.05;
@@ -255,6 +255,105 @@ pub(crate) fn list_saved_audiobooks(
     }
     records.sort_by(|left, right| right.saved_at.cmp(&left.saved_at));
     Ok(records)
+}
+
+/// Return only canonical files from registry-valid audiobooks.
+///
+/// Derived playback files are intentionally omitted. Imported audiobook source
+/// files travel with their chunks because their `/user-uploads/...` document
+/// URL would otherwise be unreadable on the receiving device.
+pub(crate) fn list_audiobook_transfer_payloads(
+    app: &tauri::AppHandle,
+) -> Result<Vec<NativeAudiobookTransferPayload>, String> {
+    let root = audiobooks_dir(app)?;
+    if !root.is_dir() {
+        return Ok(Vec::new());
+    }
+
+    let mut payloads = Vec::new();
+    for entry in fs::read_dir(&root)
+        .map_err(|err| format!("Failed to read native audiobook directory: {err}"))?
+        .flatten()
+    {
+        let dir = entry.path();
+        let record = match saved_record_from_dir(&dir) {
+            Ok(Some(record)) => record,
+            Ok(None) => continue,
+            Err(err) => {
+                log::warn!("Skipping unreadable audiobook during transfer: {err}");
+                continue;
+            }
+        };
+        let manifest = read_manifest(&dir)?;
+        let Some(storage_key) = dir
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(str::to_string)
+        else {
+            continue;
+        };
+        let mut files = vec![NativeAudiobookTransferFile {
+            relative_path: "manifest.json".into(),
+            source_path: dir.join("manifest.json"),
+        }];
+        for (index, chunk) in manifest.chunks.iter().enumerate() {
+            let source_path = chunk_path(&dir, index, chunk);
+            let file_name = source_path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .ok_or_else(|| "Saved audiobook chunk path is invalid".to_string())?;
+            files.push(NativeAudiobookTransferFile {
+                relative_path: format!("chunks/{file_name}"),
+                source_path,
+            });
+        }
+
+        if let Ok(upload_id) =
+            super::paths::imported_upload_id_from_document_url(&record.document_url)
+        {
+            let upload_dir = super::paths::imported_upload_dir(app, &upload_id)?;
+            let source_path = upload_dir.join("source.html");
+            if !source_path.is_file() {
+                log::warn!(
+                    "Skipping audiobook transfer with missing imported source: {}",
+                    record.title
+                );
+                continue;
+            }
+            files.push(NativeAudiobookTransferFile {
+                relative_path: "source/source.html".into(),
+                source_path,
+            });
+            let metadata_path = upload_dir.join("metadata.json");
+            if metadata_path.is_file() {
+                files.push(NativeAudiobookTransferFile {
+                    relative_path: "source/metadata.json".into(),
+                    source_path: metadata_path,
+                });
+            }
+        }
+
+        payloads.push(NativeAudiobookTransferPayload {
+            record,
+            storage_key,
+            files,
+        });
+    }
+    payloads.sort_by(|left, right| right.record.saved_at.cmp(&left.record.saved_at));
+    Ok(payloads)
+}
+
+/// Reuse the registry's full completion and identity checks on a staged import.
+pub(crate) fn validate_transferred_audiobook(
+    dir: &Path,
+    expected_id: &str,
+) -> Result<NativeSavedAudiobookRecord, String> {
+    let record = saved_record_from_dir(dir)?
+        .ok_or_else(|| "Transferred audiobook is incomplete".to_string())?;
+    if record.id != expected_id {
+        return Err("Transferred audiobook identity does not match its manifest".into());
+    }
+    Ok(record)
 }
 
 /// Convert one cache directory into a registry record after checking the

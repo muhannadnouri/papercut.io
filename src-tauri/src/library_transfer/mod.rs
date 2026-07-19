@@ -1,7 +1,7 @@
 //! Portable, one-way Papercut library transfer.
 //!
-//! This module owns package export/import only. Same-network transport and
-//! audiobook payloads are later layers over the same package contract.
+//! This module owns package export/import only. Same-network transport is a
+//! later layer over the same document-and-optional-audiobook package contract.
 
 mod package;
 
@@ -10,7 +10,7 @@ use std::fs::{self, File};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{Manager, Runtime};
 use tauri_plugin_dialog::{DialogExt, FilePath};
 use tauri_plugin_fs::{FsExt, OpenOptions};
@@ -22,17 +22,25 @@ use crate::document_uploads::{
     UploadedLibraryFolder, UploadedLibraryMoveDocumentsRequest,
 };
 use package::{
-    document_source_path, read_document_source, read_manifest, sha256_reader, write_package,
+    audiobook_file_path, copy_audiobook_file, document_source_path, read_document_source,
+    read_manifest, sha256_reader, write_package, TransferAudiobook, TransferAudiobookFile,
     TransferDocument, TransferDocumentLocation, TransferFolder, TransferManifest,
     TransferOrganization, MAX_PACKAGE_BYTES, PACKAGE_KIND, PACKAGE_VERSION,
 };
 
 const PACKAGE_EXTENSION: &str = "papercut-library";
 
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryTransferExportRequest {
+    include_audiobooks: bool,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LibraryTransferExportResult {
     documents: usize,
+    audiobooks: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -43,7 +51,17 @@ pub struct LibraryTransferImportResult {
     skipped: usize,
     failed: usize,
     folders_created: usize,
+    audiobooks_selected: usize,
+    audiobooks_imported: usize,
+    audiobooks_skipped: usize,
+    audiobooks_failed: usize,
+    imported_audiobooks: Vec<crate::native_tts::NativeSavedAudiobookRecord>,
     failures: Vec<LibraryTransferFailure>,
+}
+
+struct PreparedPackage {
+    manifest: TransferManifest,
+    payloads: HashMap<String, PathBuf>,
 }
 
 #[derive(Debug, Serialize)]
@@ -56,27 +74,31 @@ struct LibraryTransferFailure {
 /// Pick an OS-owned destination and create a documents/folders package.
 /// `None` is normal picker cancellation rather than an operation failure.
 #[tauri::command]
-pub async fn library_transfer_export<R: Runtime>(
-    app: tauri::AppHandle<R>,
+pub async fn library_transfer_export(
+    app: tauri::AppHandle,
+    request: Option<LibraryTransferExportRequest>,
 ) -> Result<Option<LibraryTransferExportResult>, String> {
-    tauri::async_runtime::spawn_blocking(move || export_library(app))
-        .await
-        .map_err(|err| format!("Library export task failed: {err}"))?
+    tauri::async_runtime::spawn_blocking(move || {
+        export_library(app, request.unwrap_or_default().include_audiobooks)
+    })
+    .await
+    .map_err(|err| format!("Library export task failed: {err}"))?
 }
 
 /// Pick a package, merge new documents, and rebuild their target-side FTS rows.
 /// `None` is normal picker cancellation rather than an operation failure.
 #[tauri::command]
-pub async fn library_transfer_import<R: Runtime>(
-    app: tauri::AppHandle<R>,
+pub async fn library_transfer_import(
+    app: tauri::AppHandle,
 ) -> Result<Option<LibraryTransferImportResult>, String> {
     tauri::async_runtime::spawn_blocking(move || import_library(app))
         .await
         .map_err(|err| format!("Library import task failed: {err}"))?
 }
 
-fn export_library<R: Runtime>(
-    app: tauri::AppHandle<R>,
+fn export_library(
+    app: tauri::AppHandle,
+    include_audiobooks: bool,
 ) -> Result<Option<LibraryTransferExportResult>, String> {
     let destination = app
         .dialog()
@@ -89,11 +111,11 @@ fn export_library<R: Runtime>(
         return Ok(None);
     };
     let documents = list_uploads(&app)?;
-    if documents.is_empty() {
-        return Err("There are no uploaded documents to export".into());
-    }
     let organization = list_organization(&app)?;
-    let manifest = prepare_manifest(&app, &documents, organization)?;
+    let prepared = prepare_manifest(&app, &documents, organization, include_audiobooks)?;
+    if prepared.manifest.documents.is_empty() && prepared.manifest.audiobooks.is_empty() {
+        return Err("There are no uploaded documents or saved audiobooks to export".into());
+    }
     let temp_path = transfer_temp_path(&app, "export")?;
     let build_result: Result<(), String> = (|| {
         let writer = BufWriter::new(File::create(&temp_path).map_err(|err| {
@@ -102,11 +124,14 @@ fn export_library<R: Runtime>(
                 temp_path.display()
             )
         })?);
-        write_package(writer, &manifest, |document| {
-            let path = upload_dir(&app, &document.id)?.join("source.html");
+        write_package(writer, &prepared.manifest, |path| {
+            let path = prepared
+                .payloads
+                .get(path)
+                .ok_or_else(|| format!("Missing prepared transfer payload: {path}"))?;
             let file = File::open(&path).map_err(|err| {
                 format!(
-                    "Failed to open transferred document {}: {err}",
+                    "Failed to open transferred payload {}: {err}",
                     path.display()
                 )
             })?;
@@ -119,16 +144,15 @@ fn export_library<R: Runtime>(
     build_result?;
 
     Ok(Some(LibraryTransferExportResult {
-        documents: manifest.documents.len(),
+        documents: prepared.manifest.documents.len(),
+        audiobooks: prepared.manifest.audiobooks.len(),
     }))
 }
 
 /// Stage picker input into a seekable local file, validate the complete archive,
 /// then merge each payload through the normal upload pipeline. The staging file
 /// is removed whether validation, restoration, or organization fails.
-fn import_library<R: Runtime>(
-    app: tauri::AppHandle<R>,
-) -> Result<Option<LibraryTransferImportResult>, String> {
+fn import_library(app: tauri::AppHandle) -> Result<Option<LibraryTransferImportResult>, String> {
     let source = app
         .dialog()
         .file()
@@ -159,12 +183,14 @@ fn import_library<R: Runtime>(
 
 /// Build the manifest without loading every source into memory. Sources are
 /// opened again during ZIP writing and must retain the same size/checksum.
-fn prepare_manifest<R: Runtime>(
-    app: &tauri::AppHandle<R>,
+fn prepare_manifest(
+    app: &tauri::AppHandle,
     documents: &[UploadedDocument],
     organization: crate::document_uploads::UploadedLibraryOrganization,
-) -> Result<TransferManifest, String> {
+    include_audiobooks: bool,
+) -> Result<PreparedPackage, String> {
     let mut transfer_documents = Vec::with_capacity(documents.len());
+    let mut payloads = HashMap::new();
     for document in documents {
         let path = upload_dir(app, &document.id)?.join("source.html");
         let mut reader = BufReader::new(File::open(&path).map_err(|err| {
@@ -182,11 +208,44 @@ fn prepare_manifest<R: Runtime>(
             source_bytes,
             source_sha256,
         });
+        payloads.insert(document_source_path(&document.id), path);
     }
 
-    Ok(TransferManifest {
+    let mut transfer_audiobooks = Vec::new();
+    if include_audiobooks {
+        for audiobook in crate::native_tts::list_audiobook_transfer_payloads(app)? {
+            let mut files = Vec::with_capacity(audiobook.files.len());
+            for file in audiobook.files {
+                let mut reader = BufReader::new(
+                    File::open(&file.source_path)
+                        .map_err(|err| format!("Failed to open saved audiobook payload: {err}"))?,
+                );
+                let (sha256, bytes) = sha256_reader(&mut reader)?;
+                let path = audiobook_file_path(&audiobook.storage_key, &file.relative_path);
+                payloads.insert(path.clone(), file.source_path);
+                files.push(TransferAudiobookFile {
+                    relative_path: file.relative_path,
+                    path,
+                    bytes,
+                    sha256,
+                });
+            }
+            transfer_audiobooks.push(TransferAudiobook {
+                id: audiobook.record.id,
+                title: audiobook.record.title,
+                storage_key: audiobook.storage_key,
+                files,
+            });
+        }
+    }
+
+    let manifest = TransferManifest {
         kind: PACKAGE_KIND.into(),
-        schema_version: PACKAGE_VERSION,
+        schema_version: if transfer_audiobooks.is_empty() {
+            1
+        } else {
+            PACKAGE_VERSION
+        },
         created_at_ms: u64::try_from(now_ms()?)
             .map_err(|_| "System timestamp is invalid".to_string())?,
         documents: transfer_documents,
@@ -212,13 +271,15 @@ fn prepare_manifest<R: Runtime>(
                 })
                 .collect(),
         },
-    })
+        audiobooks: transfer_audiobooks,
+    };
+    Ok(PreparedPackage { manifest, payloads })
 }
 
 /// Import documents independently so one damaged payload does not discard valid
 /// siblings. Organization is applied only to ids newly created by this import.
-fn restore_manifest<R: Runtime, T: Read + std::io::Seek>(
-    app: &tauri::AppHandle<R>,
+fn restore_manifest<T: Read + std::io::Seek>(
+    app: &tauri::AppHandle,
     archive: &mut ZipArchive<T>,
     manifest: TransferManifest,
 ) -> Result<LibraryTransferImportResult, String> {
@@ -257,14 +318,130 @@ fn restore_manifest<R: Runtime, T: Read + std::io::Seek>(
     let (folders_created, mut organization_failures) =
         merge_organization(app, &manifest.organization, &imported_ids)?;
     failures.append(&mut organization_failures);
+    let document_failures = failures.len();
+    let mut audiobooks_imported = Vec::new();
+    let mut audiobooks_skipped = 0;
+    let mut audiobooks_failed = 0;
+    for audiobook in &manifest.audiobooks {
+        match restore_audiobook(app, archive, audiobook) {
+            Ok(Some(record)) => audiobooks_imported.push(record),
+            Ok(None) => audiobooks_skipped += 1,
+            Err(error) => {
+                audiobooks_failed += 1;
+                failures.push(LibraryTransferFailure {
+                    item: audiobook.title.clone(),
+                    error,
+                });
+            }
+        }
+    }
     Ok(LibraryTransferImportResult {
         selected: manifest.documents.len(),
         imported: imported_ids.len(),
         skipped,
-        failed: failures.len(),
+        failed: document_failures,
         folders_created,
+        audiobooks_selected: manifest.audiobooks.len(),
+        audiobooks_imported: audiobooks_imported.len(),
+        audiobooks_skipped,
+        audiobooks_failed,
+        imported_audiobooks: audiobooks_imported,
         failures,
     })
+}
+
+/// Restore one audiobook through a same-filesystem staging directory, then ask
+/// the native registry to validate identity, manifest totals, and every chunk
+/// before atomically promoting it into the live audiobook directory.
+fn restore_audiobook<T: Read + std::io::Seek>(
+    app: &tauri::AppHandle,
+    archive: &mut ZipArchive<T>,
+    audiobook: &TransferAudiobook,
+) -> Result<Option<crate::native_tts::NativeSavedAudiobookRecord>, String> {
+    let root = crate::native_tts::audiobooks_dir(app)?;
+    fs::create_dir_all(&root)
+        .map_err(|err| format!("Failed to create native audiobook directory: {err}"))?;
+    let destination = root.join(&audiobook.storage_key);
+    if destination.is_dir() {
+        crate::native_tts::validate_transferred_audiobook(&destination, &audiobook.id)?;
+        return Ok(None);
+    }
+
+    let staging_root = root.join(format!(".transfer-{}-{}", audiobook.storage_key, now_ms()?));
+    let staging_audio = staging_root.join(&audiobook.storage_key);
+    let staging_source = staging_root.join("source");
+    let result = (|| {
+        fs::create_dir_all(staging_audio.join("chunks"))
+            .map_err(|err| format!("Failed to stage transferred audiobook: {err}"))?;
+        for file in &audiobook.files {
+            let target = if let Some(name) = file.relative_path.strip_prefix("source/") {
+                fs::create_dir_all(&staging_source)
+                    .map_err(|err| format!("Failed to stage imported source: {err}"))?;
+                staging_source.join(name)
+            } else {
+                staging_audio.join(&file.relative_path)
+            };
+            let mut writer = BufWriter::new(
+                File::create(&target)
+                    .map_err(|err| format!("Failed to create staged audiobook payload: {err}"))?,
+            );
+            copy_audiobook_file(archive, file, &mut writer)?;
+            writer
+                .flush()
+                .map_err(|err| format!("Failed to finish staged audiobook payload: {err}"))?;
+        }
+
+        let record =
+            crate::native_tts::validate_transferred_audiobook(&staging_audio, &audiobook.id)?;
+        let installed_source = restore_imported_audiobook_source(app, &record, &staging_source)?;
+        if let Err(err) = fs::rename(&staging_audio, &destination) {
+            if let Some(path) = installed_source {
+                let _ = fs::remove_dir_all(path);
+            }
+            return Err(format!("Failed to install transferred audiobook: {err}"));
+        }
+        Ok(record)
+    })();
+    let _ = fs::remove_dir_all(&staging_root);
+    result.map(Some)
+}
+
+/// Imported audiobook bundles own their reading HTML outside the audio cache.
+/// Re-sanitize it at this trust boundary and never overwrite an existing upload.
+fn restore_imported_audiobook_source(
+    app: &tauri::AppHandle,
+    record: &crate::native_tts::NativeSavedAudiobookRecord,
+    staging_source: &Path,
+) -> Result<Option<PathBuf>, String> {
+    let Ok(upload_id) =
+        crate::native_tts::imported_upload_id_from_document_url(&record.document_url)
+    else {
+        return Ok(None);
+    };
+    let source_path = staging_source.join("source.html");
+    if !source_path.is_file() {
+        return Err("Transferred imported audiobook is missing its source document".into());
+    }
+    let source_html = fs::read_to_string(&source_path)
+        .map_err(|err| format!("Failed to read transferred audiobook source: {err}"))?;
+    fs::write(
+        &source_path,
+        crate::document_uploads::sanitize_html(&source_html),
+    )
+    .map_err(|err| format!("Failed to sanitize transferred audiobook source: {err}"))?;
+
+    let destination = crate::native_tts::imported_upload_dir(app, &upload_id)?;
+    if destination.exists() {
+        return Ok(None);
+    }
+    let parent = destination
+        .parent()
+        .ok_or_else(|| "Imported audiobook destination is invalid".to_string())?;
+    fs::create_dir_all(parent)
+        .map_err(|err| format!("Failed to create imported audiobook directory: {err}"))?;
+    fs::rename(staging_source, &destination)
+        .map_err(|err| format!("Failed to install imported audiobook source: {err}"))?;
+    Ok(Some(destination))
 }
 
 /// Map source folders onto target siblings by parent/name, creating only missing

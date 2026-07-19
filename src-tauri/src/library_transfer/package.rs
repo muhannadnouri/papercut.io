@@ -9,13 +9,19 @@ use zip::write::FileOptions;
 use zip::{CompressionMethod, ZipArchive, ZipWriter};
 
 pub(super) const PACKAGE_KIND: &str = "papercut-library";
-pub(super) const PACKAGE_VERSION: u32 = 1;
+pub(super) const PACKAGE_VERSION: u32 = 2;
+const DOCUMENTS_ONLY_PACKAGE_VERSION: u32 = 1;
 const MANIFEST_PATH: &str = "manifest.json";
 const MAX_DOCUMENTS: usize = 500;
+const MAX_AUDIOBOOKS: usize = 500;
+const MAX_AUDIOBOOK_FILES: usize = 100_000;
 const MAX_FOLDERS: usize = 2_000;
 const MAX_FOLDER_DEPTH: usize = 4;
 const MAX_FOLDER_NAME_CHARS: usize = 80;
 const MAX_MANIFEST_BYTES: u64 = 4 * 1024 * 1024;
+const MAX_NATIVE_AUDIOBOOK_MANIFEST_BYTES: u64 = 16 * 1024 * 1024;
+const MAX_IMPORTED_AUDIOBOOK_SOURCE_BYTES: u64 = 256 * 1024 * 1024;
+const MAX_IMPORTED_AUDIOBOOK_METADATA_BYTES: u64 = 4 * 1024 * 1024;
 pub(super) const MAX_PACKAGE_BYTES: u64 = 8 * 1024 * 1024 * 1024;
 const MAX_DOCUMENT_SOURCE_BYTES: u64 = 128 * 1024 * 1024;
 
@@ -27,6 +33,8 @@ pub(super) struct TransferManifest {
     pub(super) created_at_ms: u64,
     pub(super) documents: Vec<TransferDocument>,
     pub(super) organization: TransferOrganization,
+    #[serde(default)]
+    pub(super) audiobooks: Vec<TransferAudiobook>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -67,8 +75,30 @@ pub(super) struct TransferDocumentLocation {
     pub(super) sort_order: i64,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct TransferAudiobook {
+    pub(super) id: String,
+    pub(super) title: String,
+    pub(super) storage_key: String,
+    pub(super) files: Vec<TransferAudiobookFile>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct TransferAudiobookFile {
+    pub(super) relative_path: String,
+    pub(super) path: String,
+    pub(super) bytes: u64,
+    pub(super) sha256: String,
+}
+
 pub(super) fn document_source_path(id: &str) -> String {
     format!("documents/{id}/source.html")
+}
+
+pub(super) fn audiobook_file_path(storage_key: &str, relative_path: &str) -> String {
+    format!("audiobooks/{storage_key}/{relative_path}")
 }
 
 /// Hash a reader without buffering an entire document and return bytes consumed.
@@ -96,11 +126,11 @@ pub(super) fn sha256_reader<R: Read>(reader: &mut R) -> Result<(String, u64), St
 pub(super) fn write_package<W, O>(
     writer: W,
     manifest: &TransferManifest,
-    mut open_source: O,
+    mut open_payload: O,
 ) -> Result<(), String>
 where
     W: Write + Seek,
-    O: FnMut(&TransferDocument) -> Result<Box<dyn Read>, String>,
+    O: FnMut(&str) -> Result<Box<dyn Read>, String>,
 {
     validate_manifest(manifest)?;
     let manifest_json = serde_json::to_vec_pretty(manifest)
@@ -121,36 +151,61 @@ where
         .map_err(|err| format!("Failed to write library-transfer package: {err}"))?;
 
     for document in &manifest.documents {
-        archive
-            .start_file(&document.source_path, options)
-            .map_err(zip_write_err)?;
-        let mut source = open_source(document)?;
-        let mut hasher = Sha256::new();
-        let mut total = 0u64;
-        let mut buffer = [0u8; 64 * 1024];
-        loop {
-            let read = source
-                .read(&mut buffer)
-                .map_err(|err| format!("Failed to read {}: {err}", document.source_path))?;
-            if read == 0 {
-                break;
-            }
-            archive
-                .write_all(&buffer[..read])
-                .map_err(|err| format!("Failed to write library-transfer package: {err}"))?;
-            hasher.update(&buffer[..read]);
-            total += read as u64;
-        }
-        let checksum = format!("{:x}", hasher.finalize());
-        if total != document.source_bytes || checksum != document.source_sha256 {
-            return Err(format!(
-                "Document changed while exporting: {}",
-                document.title
-            ));
+        write_payload(
+            &mut archive,
+            options,
+            &document.source_path,
+            document.source_bytes,
+            &document.source_sha256,
+            &mut open_payload,
+        )?;
+    }
+    for audiobook in &manifest.audiobooks {
+        for file in &audiobook.files {
+            write_payload(
+                &mut archive,
+                options,
+                &file.path,
+                file.bytes,
+                &file.sha256,
+                &mut open_payload,
+            )?;
         }
     }
 
     archive.finish().map_err(zip_write_err)?;
+    Ok(())
+}
+
+fn write_payload<W: Write + Seek, O: FnMut(&str) -> Result<Box<dyn Read>, String>>(
+    archive: &mut ZipWriter<W>,
+    options: FileOptions,
+    path: &str,
+    expected_bytes: u64,
+    expected_sha256: &str,
+    open_payload: &mut O,
+) -> Result<(), String> {
+    archive.start_file(path, options).map_err(zip_write_err)?;
+    let mut source = open_payload(path)?;
+    let mut hasher = Sha256::new();
+    let mut total = 0u64;
+    let mut buffer = [0u8; 64 * 1024];
+    loop {
+        let read = source
+            .read(&mut buffer)
+            .map_err(|err| format!("Failed to read {path}: {err}"))?;
+        if read == 0 {
+            break;
+        }
+        archive
+            .write_all(&buffer[..read])
+            .map_err(|err| format!("Failed to write library-transfer package: {err}"))?;
+        hasher.update(&buffer[..read]);
+        total += read as u64;
+    }
+    if total != expected_bytes || format!("{:x}", hasher.finalize()) != expected_sha256 {
+        return Err(format!("Payload changed while exporting: {path}"));
+    }
     Ok(())
 }
 
@@ -214,17 +269,67 @@ pub(super) fn read_document_source<R: Read + Seek>(
     })
 }
 
+/// Stream one declared binary payload to a staged path while enforcing its
+/// decompressed size and checksum. No archive pathname is ever extracted.
+pub(super) fn copy_audiobook_file<R: Read + Seek, W: Write>(
+    archive: &mut ZipArchive<R>,
+    file: &TransferAudiobookFile,
+    target: &mut W,
+) -> Result<(), String> {
+    let mut entry = archive
+        .by_name(&file.path)
+        .map_err(|_| format!("Library-transfer payload is missing: {}", file.path))?;
+    if entry.is_dir() || entry.size() != file.bytes {
+        return Err(format!(
+            "Library-transfer payload size does not match: {}",
+            file.path
+        ));
+    }
+    let mut hasher = Sha256::new();
+    let mut total = 0u64;
+    let mut buffer = [0u8; 64 * 1024];
+    loop {
+        let read = entry
+            .read(&mut buffer)
+            .map_err(|err| format!("Failed to read {}: {err}", file.path))?;
+        if read == 0 {
+            break;
+        }
+        target
+            .write_all(&buffer[..read])
+            .map_err(|err| format!("Failed to restore {}: {err}", file.path))?;
+        hasher.update(&buffer[..read]);
+        total += read as u64;
+    }
+    if total != file.bytes || format!("{:x}", hasher.finalize()) != file.sha256 {
+        return Err(format!(
+            "Library-transfer payload checksum does not match: {}",
+            file.path
+        ));
+    }
+    Ok(())
+}
+
 /// Enforce package bounds and referential integrity before export or import.
 /// Archive entry validation remains separate because export has no ZIP to read.
 fn validate_manifest(manifest: &TransferManifest) -> Result<(), String> {
-    if manifest.kind != PACKAGE_KIND || manifest.schema_version != PACKAGE_VERSION {
+    if manifest.kind != PACKAGE_KIND
+        || !matches!(
+            manifest.schema_version,
+            DOCUMENTS_ONLY_PACKAGE_VERSION | PACKAGE_VERSION
+        )
+    {
         return Err(format!(
             "Unsupported library-transfer package {:?} version {}",
             manifest.kind, manifest.schema_version
         ));
     }
-    if manifest.documents.is_empty() {
-        return Err("Library-transfer package contains no documents".into());
+    if manifest.documents.is_empty() && manifest.audiobooks.is_empty() {
+        return Err("Library-transfer package contains no content".into());
+    }
+    if manifest.schema_version == DOCUMENTS_ONLY_PACKAGE_VERSION && !manifest.audiobooks.is_empty()
+    {
+        return Err("Library-transfer package version 1 cannot contain audiobooks".into());
     }
     if manifest.documents.len() > MAX_DOCUMENTS {
         return Err(format!(
@@ -279,7 +384,92 @@ fn validate_manifest(manifest: &TransferManifest) -> Result<(), String> {
         }
     }
 
-    validate_organization(&manifest.organization, &document_ids)
+    validate_organization(&manifest.organization, &document_ids)?;
+    validate_audiobooks(&manifest.audiobooks, &mut total_source_bytes)
+}
+
+/// Validate the exact canonical audiobook file set without interpreting native
+/// manifest JSON; the native registry performs that semantic check after staging.
+fn validate_audiobooks(
+    audiobooks: &[TransferAudiobook],
+    total_payload_bytes: &mut u64,
+) -> Result<(), String> {
+    if audiobooks.len() > MAX_AUDIOBOOKS {
+        return Err(format!(
+            "Library-transfer package contains more than {MAX_AUDIOBOOKS} audiobooks"
+        ));
+    }
+    let mut ids = HashSet::new();
+    let mut paths = HashSet::new();
+    let mut file_count = 0usize;
+    for audiobook in audiobooks {
+        if audiobook.id.is_empty()
+            || audiobook.id.len() > 4096
+            || audiobook.id.chars().any(char::is_control)
+            || !ids.insert(audiobook.id.as_str())
+        {
+            return Err("Transferred audiobook id is invalid or duplicated".into());
+        }
+        validate_hex_id(&audiobook.storage_key, "audiobook storage")?;
+        if audiobook.storage_key.len() != 16 || audiobook.title.trim().is_empty() {
+            return Err("Transferred audiobook metadata is invalid".into());
+        }
+        let mut relative_paths = HashSet::new();
+        let mut has_manifest = false;
+        let mut has_chunk = false;
+        let mut has_source = false;
+        for file in &audiobook.files {
+            file_count += 1;
+            if file_count > MAX_AUDIOBOOK_FILES {
+                return Err("Library-transfer package contains too many audiobook files".into());
+            }
+            let valid_relative = file.relative_path == "manifest.json"
+                || file.relative_path == "source/source.html"
+                || file.relative_path == "source/metadata.json"
+                || (file.relative_path.starts_with("chunks/")
+                    && file.relative_path.ends_with(".wav")
+                    && !file.relative_path["chunks/".len()..].contains('/'));
+            let expected_path = audiobook_file_path(&audiobook.storage_key, &file.relative_path);
+            if !valid_relative
+                || file.path != expected_path
+                || !relative_paths.insert(file.relative_path.as_str())
+                || !paths.insert(file.path.as_str())
+                || file.bytes == 0
+            {
+                return Err(format!("Invalid transferred audiobook path: {}", file.path));
+            }
+            let exceeds_role_limit = (file.relative_path == "manifest.json"
+                && file.bytes > MAX_NATIVE_AUDIOBOOK_MANIFEST_BYTES)
+                || (file.relative_path == "source/source.html"
+                    && file.bytes > MAX_IMPORTED_AUDIOBOOK_SOURCE_BYTES)
+                || (file.relative_path == "source/metadata.json"
+                    && file.bytes > MAX_IMPORTED_AUDIOBOOK_METADATA_BYTES);
+            if exceeds_role_limit {
+                return Err(format!(
+                    "Transferred audiobook payload is too large: {}",
+                    file.path
+                ));
+            }
+            has_manifest |= file.relative_path == "manifest.json";
+            has_chunk |= file.relative_path.starts_with("chunks/");
+            has_source |= file.relative_path == "source/source.html";
+            validate_sha256(&file.sha256)?;
+            *total_payload_bytes = total_payload_bytes
+                .checked_add(file.bytes)
+                .ok_or_else(|| "Library-transfer package is too large".to_string())?;
+            if *total_payload_bytes > MAX_PACKAGE_BYTES {
+                return Err("Library-transfer package expands beyond the supported size".into());
+            }
+        }
+        let has_source_metadata = relative_paths.contains("source/metadata.json");
+        if !has_manifest || !has_chunk || (has_source_metadata && !has_source) {
+            return Err(format!(
+                "Transferred audiobook payload is incomplete: {}",
+                audiobook.title
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Validate the folder graph and document placements without trusting order in
@@ -358,6 +548,12 @@ fn validate_archive_entries<R: Read + Seek>(
         .iter()
         .map(|document| document.source_path.as_str())
         .collect();
+    expected.extend(
+        manifest
+            .audiobooks
+            .iter()
+            .flat_map(|audiobook| audiobook.files.iter().map(|file| file.path.as_str())),
+    );
     expected.insert(MANIFEST_PATH);
     let mut seen = HashSet::new();
     for index in 0..archive.len() {
@@ -484,6 +680,44 @@ mod tests {
         .contains("Duplicate transferred document id"));
     }
 
+    #[test]
+    fn package_round_trip_streams_optional_audiobook_files() {
+        let document = b"<p>Hello</p>".to_vec();
+        let native_manifest = br#"{"version":4}"#.to_vec();
+        let wav = b"RIFF-test".to_vec();
+        let mut manifest = test_manifest(&document);
+        let storage_key = "b".repeat(16);
+        manifest.audiobooks.push(TransferAudiobook {
+            id: "kokoro|test".into(),
+            title: "Test audio".into(),
+            storage_key: storage_key.clone(),
+            files: vec![
+                test_audiobook_file(&storage_key, "manifest.json", &native_manifest),
+                test_audiobook_file(&storage_key, "chunks/00001-test.wav", &wav),
+            ],
+        });
+        let mut bytes = Cursor::new(Vec::new());
+        write_package(&mut bytes, &manifest, |path| {
+            let payload = if path == manifest.documents[0].source_path.as_str() {
+                document.clone()
+            } else if path.ends_with("manifest.json") {
+                native_manifest.clone()
+            } else {
+                wav.clone()
+            };
+            Ok(Box::new(Cursor::new(payload)))
+        })
+        .expect("write package with audiobook");
+
+        bytes.set_position(0);
+        let mut archive = ZipArchive::new(bytes).expect("open package");
+        let restored = read_manifest(&mut archive).expect("read manifest");
+        let mut output = Vec::new();
+        copy_audiobook_file(&mut archive, &restored.audiobooks[0].files[1], &mut output)
+            .expect("copy audio");
+        assert_eq!(output, wav);
+    }
+
     fn test_manifest(source: &[u8]) -> TransferManifest {
         let id = "a".repeat(64);
         TransferManifest {
@@ -501,6 +735,20 @@ mod tests {
                 source_sha256: format!("{:x}", Sha256::digest(source)),
             }],
             organization: TransferOrganization::default(),
+            audiobooks: Vec::new(),
+        }
+    }
+
+    fn test_audiobook_file(
+        storage_key: &str,
+        relative_path: &str,
+        payload: &[u8],
+    ) -> TransferAudiobookFile {
+        TransferAudiobookFile {
+            relative_path: relative_path.into(),
+            path: audiobook_file_path(storage_key, relative_path),
+            bytes: payload.len() as u64,
+            sha256: format!("{:x}", Sha256::digest(payload)),
         }
     }
 }

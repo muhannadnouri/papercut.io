@@ -204,6 +204,8 @@
     "description": "Transférez les documents importés et les dossiers entre appareils Papercut sans compte.",
     "exportTitle": "Exporter depuis cet appareil",
     "exportDescription": "Regroupez {{count}} documents importés et leurs dossiers.",
+    "includeAudiobooks": "Inclure les livres audio enregistrés ({{count}})",
+    "includeAudiobooksDescription": "Ajoute l’audio terminé et peut fortement augmenter la taille du paquet.",
     "export": "Exporter la bibliothèque",
     "exporting": "Préparation...",
     "importTitle": "Importer sur cet appareil",
@@ -211,7 +213,9 @@
     "import": "Importer la bibliothèque",
     "importing": "Importation...",
     "exportComplete": "Documents exportés : {{count}}.",
+    "audiobooksExported": "Livres audio exportés : {{count}}.",
     "importComplete": "Importés : {{imported}} · Déjà présents : {{skipped}} · Échecs : {{failed}}",
+    "audiobooksImportComplete": "Livres audio importés : {{imported}} · Déjà présents : {{skipped}} · Échecs : {{failed}}",
     "failureDetails": "Afficher les échecs"
   },
   "reader": {

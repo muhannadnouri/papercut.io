@@ -219,6 +219,8 @@
     "description": "انقل المستندات المرفوعة والمجلدات بين أجهزة Papercut دون حساب.",
     "exportTitle": "التصدير من هذا الجهاز",
     "exportDescription": "اجمع {{count}} من المستندات المرفوعة ومجلداتها في حزمة.",
+    "includeAudiobooks": "تضمين الكتب الصوتية المحفوظة ({{count}})",
+    "includeAudiobooksDescription": "يضيف الصوت المكتمل وقد يزيد حجم الحزمة كثيرًا.",
     "export": "تصدير المكتبة",
     "exporting": "جارٍ التحضير...",
     "importTitle": "الاستيراد إلى هذا الجهاز",
@@ -226,7 +228,9 @@
     "import": "استيراد المكتبة",
     "importing": "جارٍ الاستيراد...",
     "exportComplete": "المستندات المصدَّرة: {{count}}.",
+    "audiobooksExported": "الكتب الصوتية المصدَّرة: {{count}}.",
     "importComplete": "تم الاستيراد: {{imported}} · موجود مسبقًا: {{skipped}} · تعذّر: {{failed}}",
+    "audiobooksImportComplete": "الكتب الصوتية المستوردة: {{imported}} · موجودة مسبقًا: {{skipped}} · تعذّر: {{failed}}",
     "failureDetails": "عرض العناصر المتعذرة"
   },
   "reader": {

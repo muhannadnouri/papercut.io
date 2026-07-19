@@ -28,6 +28,29 @@
   line-height: 1.4;
 }
 
+.library-transfer-audiobooks {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+  cursor: pointer;
+}
+
+.library-transfer-audiobooks input {
+  margin-top: 0.15rem;
+}
+
+.library-transfer-audiobooks span {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.library-transfer-audiobooks small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
 .library-transfer-action button {
   min-height: 2.25rem;
   padding-inline: 0.75rem;

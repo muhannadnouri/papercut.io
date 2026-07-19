@@ -1195,6 +1195,7 @@ export function useAudiobookManager({
     includeDocumentInList,
     openSavedAudiobook,
     prepareDocumentOpen,
+    refreshSavedAudiobooks,
     setAudioSavedOnly,
     ttsHighlight: {
       enabled: Boolean(ttsState.currentText),

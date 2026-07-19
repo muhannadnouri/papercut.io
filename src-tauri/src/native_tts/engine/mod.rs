@@ -46,8 +46,11 @@ pub(crate) use bundle::{
     get_imported_audiobook_source, import_audiobook_native,
 };
 pub(crate) use cache::{get_native_audiobook_chunk, native_audiobook_status};
-pub(crate) use manifest::list_saved_audiobooks;
+pub(crate) use manifest::{
+    list_audiobook_transfer_payloads, list_saved_audiobooks, validate_transferred_audiobook,
+};
 pub(crate) use model::{install_model, model_status, native_capabilities};
+pub(crate) use paths::{audiobooks_dir, imported_upload_dir, imported_upload_id_from_document_url};
 pub(crate) use playback::prepare_native_audiobook_playback;
 pub(crate) use save::{cancel_audiobook_save, save_audiobook_native};
 pub(crate) use sidecar_probe::probe_silma_sidecar;

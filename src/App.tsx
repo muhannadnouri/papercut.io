@@ -115,6 +115,7 @@ function App() {
     includeDocumentInList,
     openSavedAudiobook,
     prepareDocumentOpen,
+    refreshSavedAudiobooks,
     setAudioSavedOnly,
     ttsHighlight,
   } = audiobook
@@ -219,6 +220,12 @@ function App() {
     await importAudiobookBundle(handleViewDocument)
   }, [handleViewDocument, importAudiobookBundle])
 
+  const handleLibraryTransferImported = useCallback(async () => {
+    await refreshUploadedLibrary()
+    handleUserUploadsChanged()
+    await refreshSavedAudiobooks()
+  }, [handleUserUploadsChanged, refreshSavedAudiobooks, refreshUploadedLibrary])
+
   const handleToggleLibraryDocuments = useCallback(() => {
     setShowDocuments((value) => !value)
   }, [setShowDocuments])
@@ -272,7 +279,7 @@ function App() {
                 themeChoice={theme.choice}
                 onThemeChange={theme.setChoice}
                 libraryDocumentCount={uploadedDocuments.length}
-                onLibraryImported={refreshUploadedLibrary}
+                onLibraryImported={handleLibraryTransferImported}
               />
             )}
             headerControls={<AudioControls {...audioControlsProps} onManageSave={handleManageAudiobookSave} />}
@@ -303,7 +310,7 @@ function App() {
             themeChoice={theme.choice}
             onThemeChange={theme.setChoice}
             libraryDocumentCount={uploadedDocuments.length}
-            onLibraryImported={refreshUploadedLibrary}
+            onLibraryImported={handleLibraryTransferImported}
           />
         )} />
       </div>

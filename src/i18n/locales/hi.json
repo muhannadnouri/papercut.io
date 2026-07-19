@@ -199,6 +199,8 @@
     "description": "बिना खाते के अपलोड किए गए दस्तावेज़ और फ़ोल्डर Papercut डिवाइसों के बीच ले जाएँ।",
     "exportTitle": "इस डिवाइस से निर्यात करें",
     "exportDescription": "{{count}} अपलोड किए गए दस्तावेज़ों और उनके फ़ोल्डरों का पैकेज बनाएँ।",
+    "includeAudiobooks": "सहेजी गई ऑडियोबुक शामिल करें ({{count}})",
+    "includeAudiobooksDescription": "पूर्ण ऑडियो जोड़ता है और पैकेज का आकार बहुत बढ़ सकता है।",
     "export": "लाइब्रेरी निर्यात करें",
     "exporting": "तैयार हो रहा है...",
     "importTitle": "इस डिवाइस में आयात करें",
@@ -206,7 +208,9 @@
     "import": "लाइब्रेरी आयात करें",
     "importing": "आयात हो रहा है...",
     "exportComplete": "निर्यात किए गए दस्तावेज़: {{count}}।",
+    "audiobooksExported": "निर्यात की गई ऑडियोबुक: {{count}}।",
     "importComplete": "आयातित: {{imported}} · पहले से मौजूद: {{skipped}} · विफल: {{failed}}",
+    "audiobooksImportComplete": "आयातित ऑडियोबुक: {{imported}} · पहले से मौजूद: {{skipped}} · विफल: {{failed}}",
     "failureDetails": "विफलताएँ दिखाएँ"
   },
   "reader": {

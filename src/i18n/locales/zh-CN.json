@@ -194,6 +194,8 @@
     "description": "无需账户，即可在 Papercut 设备之间传输已上传的文档和文件夹。",
     "exportTitle": "从此设备导出",
     "exportDescription": "打包 {{count}} 个已上传文档及其文件夹。",
+    "includeAudiobooks": "包含已保存的有声书（{{count}}）",
+    "includeAudiobooksDescription": "加入已完成的音频，可能会显著增大包的大小。",
     "export": "导出资料库",
     "exporting": "正在准备...",
     "importTitle": "导入到此设备",
@@ -201,7 +203,9 @@
     "import": "导入资料库",
     "importing": "正在导入...",
     "exportComplete": "已导出文档：{{count}}。",
+    "audiobooksExported": "已导出有声书：{{count}}。",
     "importComplete": "已导入：{{imported}} · 已存在：{{skipped}} · 失败：{{failed}}",
+    "audiobooksImportComplete": "已导入有声书：{{imported}} · 已存在：{{skipped}} · 失败：{{failed}}",
     "failureDetails": "显示失败项目"
   },
   "reader": {
