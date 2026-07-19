@@ -22,7 +22,7 @@ Papercut storage -> package export -> user-selected transport -> package import 
 
 Stage 1 uses the operating system file picker. A user can move the package by
 USB, shared storage, AirDrop, Quick Share, LocalSend, or any other mechanism.
-Stage 3 can send that exact package directly to another Papercut device on the
+Stage 3 sends that exact package directly to another Papercut device on the
 same network; it does not introduce a second persistence format.
 
 Rust ownership lives under `src-tauri/src/library_transfer/`. React ownership
@@ -123,7 +123,7 @@ dedicated **Transfer Library** dialog organized by the user's role:
 The export action offers a default-off **Include saved audiobooks** checkbox when
 completed audio exists. The dialog reports document and audiobook counts plus
 failures. The same dialog also exposes explicit source and target roles for
-same-network transfer. The source displays a local address and one-use code;
+same-network transfer. The source displays a local address and pairing code;
 the target enters both values and receives the same package through the normal
 import boundary.
 
@@ -137,10 +137,22 @@ The first LAN implementation is intentionally foreground and manual:
 3. The target connects over ephemeral TLS. Both devices prove knowledge of the
    code with HMAC-SHA256 values bound to the TLS exporter, so the self-signed
    channel is authenticated without a permanent app key or certificate prompt.
-4. The source streams the package once, then deletes its temporary file. The
-   first connection attempt consumes the session to prevent online code guessing.
+4. The target reports the size of any partial package retained for this source
+   address and pairing code. The source seeks to that offset and sends only the
+   remaining bytes. An authenticated interruption returns the source to its
+   waiting state, and choosing **Receive Library** again resumes the transfer.
 5. The target stages the bytes in app cache and invokes the same archive parser,
    checksums, sanitizer, merge rules, and index rebuild used by file import.
+   Starting a different authenticated session removes older partial packages.
+6. The target forwards its verification and restore progress over the same TLS
+   connection. The source mirrors those phases and reports success only after
+   the target confirms that import has completed.
+
+Failed authentication still consumes the source session to prevent online code
+guessing. Partial files survive network interruption and insufficient-space
+errors, but are removed after a successful import or a non-recoverable package
+error. A resumed package is always checksum-verified in full before restore, so
+the byte offset is an optimization rather than a trust boundary.
 
 The socket lifecycle and protocol live in
 `src-tauri/src/library_transfer/network.rs`; storage remains owned by
@@ -168,7 +180,7 @@ required by Android's local-network privacy model.
 - [x] Stage 3: add one-use expiry and foreground sender cancellation.
 - [x] Stage 3: add byte-level transfer and item-level restore phases.
 - [x] Stage 3: reject package staging and restoration when storage is insufficient.
-- [ ] Stage 3: resume interrupted transfers, especially large audio.
+- [x] Stage 3: resume interrupted transfers, especially large audio.
 - [ ] Stage 4: evaluate automatic discovery only after QR/manual pairing is proven.
 - [ ] Later: evaluate an optional reading-data category for bookmarks and preferences.
 

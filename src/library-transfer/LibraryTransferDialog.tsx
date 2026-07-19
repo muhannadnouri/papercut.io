@@ -417,15 +417,28 @@ function LibrarySendStatusMessage({ status, locale }: { status: LibraryTransferS
     return <p className="library-transfer-status" role="status">{t('libraryTransfer.sendComplete')}</p>
   }
   const sending = status.state === 'sending'
+  const receivingProgress = sending ? status.receiverProgress : undefined
   return (
-    <div className="library-transfer-session" role="status" aria-live="polite">
-      <span>{sending
-        ? t('libraryTransfer.progressSending', {
-            processed: formatBytes(status.bytesTransferred, locale),
-            total: formatBytes(status.packageBytes, locale),
-          })
-        : t('libraryTransfer.waitingForReceiver')}</span>
-      {sending && <progress value={status.bytesTransferred} max={status.packageBytes} />}
+    <div
+      className="library-transfer-session"
+      role={receivingProgress ? undefined : 'status'}
+      aria-live={receivingProgress ? undefined : 'polite'}
+    >
+      {receivingProgress ? (
+        <TransferProgressMessage progress={receivingProgress} locale={locale} />
+      ) : (
+        <>
+          <span>{sending
+            ? t('libraryTransfer.progressSending', {
+                processed: formatBytes(status.bytesTransferred, locale),
+                total: formatBytes(status.packageBytes, locale),
+              })
+            : status.error
+              ? t('libraryTransfer.waitingToResume')
+              : t('libraryTransfer.waitingForReceiver')}</span>
+          {sending && <progress value={status.bytesTransferred} max={status.packageBytes} />}
+        </>
+      )}
       <dl>
         <div>
           <dt>{t('libraryTransfer.sourceAddress')}</dt>

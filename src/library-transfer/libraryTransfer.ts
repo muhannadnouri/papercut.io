@@ -50,6 +50,7 @@ export interface LibraryTransferSendStatus {
   audiobooks: number
   packageBytes: number
   bytesTransferred: number
+  receiverProgress?: LibraryTransferProgress
   error?: string
 }
 

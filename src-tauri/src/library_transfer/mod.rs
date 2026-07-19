@@ -36,7 +36,7 @@ const PACKAGE_EXTENSION: &str = "papercut-library";
 pub(crate) const LIBRARY_TRANSFER_PROGRESS_EVENT: &str = "library-transfer-progress";
 const STORAGE_RESERVE_BYTES: u64 = 64 * 1024 * 1024;
 const DOCUMENT_STORAGE_MULTIPLIER: u64 = 3;
-const INSUFFICIENT_SPACE_CODE: &str = "LIBRARY_TRANSFER_INSUFFICIENT_SPACE";
+pub(crate) const INSUFFICIENT_SPACE_CODE: &str = "LIBRARY_TRANSFER_INSUFFICIENT_SPACE";
 
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -67,7 +67,7 @@ pub struct LibraryTransferImportResult {
     failures: Vec<LibraryTransferFailure>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct LibraryTransferProgress {
     operation: String,
@@ -93,19 +93,37 @@ pub(crate) fn emit_transfer_progress(
     bytes: Option<(u64, u64)>,
     items: Option<(usize, usize)>,
     item: Option<String>,
+) -> LibraryTransferProgress {
+    let progress = LibraryTransferProgress {
+        operation: operation.into(),
+        phase: phase.into(),
+        bytes_processed: bytes.map(|value| value.0),
+        bytes_total: bytes.map(|value| value.1),
+        items_processed: items.map(|value| value.0),
+        items_total: items.map(|value| value.1),
+        item,
+    };
+    let _ = app.emit(LIBRARY_TRANSFER_PROGRESS_EVENT, progress.clone());
+    progress
+}
+
+type TransferProgressForwarder<'a> = Option<&'a mut dyn FnMut(&LibraryTransferProgress)>;
+
+/// Publish one canonical progress value locally and, for LAN receives, forward
+/// that exact value to the authenticated sender over the existing connection.
+fn report_transfer_progress(
+    app: &tauri::AppHandle,
+    operation: &str,
+    phase: &str,
+    bytes: Option<(u64, u64)>,
+    items: Option<(usize, usize)>,
+    item: Option<String>,
+    forwarder: &mut TransferProgressForwarder<'_>,
 ) {
-    let _ = app.emit(
-        LIBRARY_TRANSFER_PROGRESS_EVENT,
-        LibraryTransferProgress {
-            operation: operation.into(),
-            phase: phase.into(),
-            bytes_processed: bytes.map(|value| value.0),
-            bytes_total: bytes.map(|value| value.1),
-            items_processed: items.map(|value| value.0),
-            items_total: items.map(|value| value.1),
-            item,
-        },
-    );
+    let progress = emit_transfer_progress(app, operation, phase, bytes, items, item);
+    if let Some(forward) = forwarder.as_deref_mut() {
+        forward(&progress);
+    }
 }
 
 struct PreparedPackage {
@@ -186,7 +204,7 @@ fn import_library(app: tauri::AppHandle) -> Result<Option<LibraryTransferImportR
     let temp_path = transfer_temp_path(&app, "import")?;
     let import_result = (|| {
         copy_source_to_temp(&app, source, &temp_path)?;
-        import_library_package(&app, &temp_path, "import")
+        import_library_package(&app, &temp_path, "import", None)
     })();
     let _ = fs::remove_file(&temp_path);
     import_result.map(Some)
@@ -242,8 +260,17 @@ fn import_library_package(
     app: &tauri::AppHandle,
     path: &Path,
     operation: &str,
+    mut forwarder: TransferProgressForwarder<'_>,
 ) -> Result<LibraryTransferImportResult, String> {
-    emit_transfer_progress(app, operation, "verifying", None, None, None);
+    report_transfer_progress(
+        app,
+        operation,
+        "verifying",
+        None,
+        None,
+        None,
+        &mut forwarder,
+    );
     let file = File::open(path).map_err(|err| {
         format!(
             "Failed to open temporary library package {}: {err}",
@@ -253,7 +280,7 @@ fn import_library_package(
     let mut archive = ZipArchive::new(BufReader::new(file))
         .map_err(|err| format!("Selected file is not a valid Papercut library: {err}"))?;
     let manifest = read_manifest(&mut archive)?;
-    restore_manifest(app, &mut archive, manifest, operation)
+    restore_manifest(app, &mut archive, manifest, operation, &mut forwarder)
 }
 
 /// Build the manifest without loading every source into memory. Sources are
@@ -358,6 +385,7 @@ fn restore_manifest<T: Read + std::io::Seek>(
     archive: &mut ZipArchive<T>,
     manifest: TransferManifest,
     operation: &str,
+    forwarder: &mut TransferProgressForwarder<'_>,
 ) -> Result<LibraryTransferImportResult, String> {
     let existing_ids: HashSet<String> = list_uploads(app)?
         .into_iter()
@@ -370,33 +398,36 @@ fn restore_manifest<T: Read + std::io::Seek>(
 
     let document_total = manifest.documents.len();
     if document_total > 0 {
-        emit_transfer_progress(
+        report_transfer_progress(
             app,
             operation,
             "importingDocuments",
             None,
             Some((0, document_total)),
             None,
+            forwarder,
         );
     }
     for (index, document) in manifest.documents.iter().enumerate() {
-        emit_transfer_progress(
+        report_transfer_progress(
             app,
             operation,
             "importingDocuments",
             None,
             Some((index, document_total)),
             Some(document.title.clone()),
+            forwarder,
         );
         if existing_ids.contains(&document.id) {
             skipped += 1;
-            emit_transfer_progress(
+            report_transfer_progress(
                 app,
                 operation,
                 "importingDocuments",
                 None,
                 Some((index + 1, document_total)),
                 None,
+                forwarder,
             );
             continue;
         }
@@ -417,13 +448,14 @@ fn restore_manifest<T: Read + std::io::Seek>(
                 error,
             }),
         }
-        emit_transfer_progress(
+        report_transfer_progress(
             app,
             operation,
             "importingDocuments",
             None,
             Some((index + 1, document_total)),
             None,
+            forwarder,
         );
     }
 
@@ -436,23 +468,25 @@ fn restore_manifest<T: Read + std::io::Seek>(
     let mut audiobooks_failed = 0;
     let audiobook_total = manifest.audiobooks.len();
     if audiobook_total > 0 {
-        emit_transfer_progress(
+        report_transfer_progress(
             app,
             operation,
             "restoringAudiobooks",
             None,
             Some((0, audiobook_total)),
             None,
+            forwarder,
         );
     }
     for (index, audiobook) in manifest.audiobooks.iter().enumerate() {
-        emit_transfer_progress(
+        report_transfer_progress(
             app,
             operation,
             "restoringAudiobooks",
             None,
             Some((index, audiobook_total)),
             Some(audiobook.title.clone()),
+            forwarder,
         );
         match restore_audiobook(app, archive, audiobook) {
             Ok(Some(record)) => audiobooks_imported.push(record),
@@ -465,13 +499,14 @@ fn restore_manifest<T: Read + std::io::Seek>(
                 });
             }
         }
-        emit_transfer_progress(
+        report_transfer_progress(
             app,
             operation,
             "restoringAudiobooks",
             None,
             Some((index + 1, audiobook_total)),
             None,
+            forwarder,
         );
     }
     Ok(LibraryTransferImportResult {
@@ -702,6 +737,15 @@ fn transfer_temp_path<R: Runtime>(
     app: &tauri::AppHandle<R>,
     operation: &str,
 ) -> Result<PathBuf, String> {
+    let cache = transfer_cache_dir(app)?;
+    Ok(cache.join(format!(
+        "library-transfer-{operation}-{}-{}.tmp",
+        std::process::id(),
+        now_ms()?
+    )))
+}
+
+pub(crate) fn transfer_cache_dir<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
     let cache = app
         .path()
         .app_cache_dir()
@@ -712,11 +756,7 @@ fn transfer_temp_path<R: Runtime>(
             cache.display()
         )
     })?;
-    Ok(cache.join(format!(
-        "library-transfer-{operation}-{}-{}.tmp",
-        std::process::id(),
-        now_ms()?
-    )))
+    Ok(cache)
 }
 
 /// Reject a transfer before it starts writing when the target filesystem cannot
