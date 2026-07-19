@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { DocumentInfo } from '../../types/search'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
 
@@ -31,7 +32,7 @@ export function DocumentList({
   collapsedAuthors,
   docFilterLower,
   onToggleAuthor,
-  emptyMessage = 'No documents match the filter.',
+  emptyMessage,
   selectable = false,
   selectedFilters,
   onToggleFilter,
@@ -42,10 +43,11 @@ export function DocumentList({
   openingDocumentUrl,
   viewDisabled = false,
 }: DocumentListProps) {
+  const { t, i18n } = useTranslation()
   if (groupedDocs.length === 0) {
     return (
       <div className="documents-scroll">
-        <p className="no-results">{emptyMessage}</p>
+        <p className="no-results">{emptyMessage ?? t('library.documents.emptyFilter')}</p>
       </div>
     )
   }
@@ -62,15 +64,17 @@ export function DocumentList({
             <div className="author-group-header">
               <button className="author-group-toggle" onClick={() => onToggleAuthor(author)}>
                 <span className={'toggle-arrow ' + (collapsed ? '' : 'open')}>&#9662;</span>
-                <span className="author-group-title">{author}</span>
-                <span className="author-group-count">({docs.length})</span>
+                <bdi className="author-group-title">{author}</bdi>
+                <span className="author-group-count">
+                  ({docs.length.toLocaleString(i18n.resolvedLanguage ?? i18n.language)})
+                </span>
               </button>
               {selectable && onToggleAllInGroup && (
                 <button
                   className="author-group-action"
                   onClick={(e) => { e.stopPropagation(); onToggleAllInGroup(docs) }}
                 >
-                  {allSelected ? 'Deselect All' : 'Select All'}
+                  {allSelected ? t('common.deselectAll') : t('common.selectAll')}
                 </button>
               )}
             </div>
@@ -119,11 +123,12 @@ function DocumentRow({
   openingDocumentUrl,
   viewDisabled,
 }: DocumentRowProps) {
+  const { t } = useTranslation()
   const sourceIcon = doc.source === 'audiobook-upload' && (
     <span
       className="document-source-icon document-source-audiobook"
-      aria-label="Audiobook import, not indexed for search"
-      title="Audiobook import, not indexed for search"
+      aria-label={t('library.documents.audiobookImport')}
+      title={t('library.documents.audiobookImport')}
     >
       🎧
     </span>
@@ -137,7 +142,7 @@ function DocumentRow({
       disabled={disabled}
       onClick={(e) => { e.preventDefault(); if (!disabled) onViewDocument(doc.url) }}
     >
-      {opening ? 'Opening...' : 'View'}
+      {opening ? t('common.opening') : t('common.view')}
     </button>
   )
   const remove = doc.source === 'upload' && onDeleteDocument && (
@@ -146,7 +151,7 @@ function DocumentRow({
       disabled={deleteDisabled}
       onClick={(e) => { e.preventDefault(); void onDeleteDocument(doc) }}
     >
-      Delete
+      {t('common.delete')}
     </button>
   )
 
@@ -160,7 +165,7 @@ function DocumentRow({
           onChange={() => onToggleFilter?.(doc.url)}
         />
         {sourceIcon}
-        <span className="document-item-title">{doc.title}</span>
+        <bdi className="document-item-title">{doc.title}</bdi>
         {view}
         {remove}
       </label>
@@ -170,7 +175,7 @@ function DocumentRow({
   return (
     <div className={'document-item document-item-browse' + (opening ? ' document-item-opening' : '')}>
       {sourceIcon}
-      <span className="document-item-title">{doc.title}</span>
+      <bdi className="document-item-title">{doc.title}</bdi>
       {view}
       {remove}
     </div>

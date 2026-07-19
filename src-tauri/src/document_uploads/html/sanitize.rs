@@ -1,96 +1,165 @@
-//! Conservative HTML sanitization and text normalization.
-//!
-//! A first-pass, dependency-free sanitizer: it strips active elements, drops
-//! risky attributes, and provides the tag-stripping / entity-decoding / whitespace
-//! helpers the parser reuses. Not a full standards-compliant sanitizer.
+//! Parser-based HTML sanitization and text normalization.
 
-/// Strip active/risky elements and unsafe attributes, returning storable HTML.
+use std::borrow::Cow;
+use std::collections::HashSet;
+
+use ammonia::Builder;
+use kuchikiki::{parse_html, traits::TendrilSink, NodeRef};
+
+/// Sanitize an untrusted HTML document and retain only reader-safe metadata.
+///
+/// Ammonia is the security boundary: it parses browser-style HTML, allowlists
+/// elements/attributes, and validates decoded URL schemes. Rebuilding the outer
+/// document keeps title/language/direction metadata without retaining an
+/// untrusted head, stylesheet, or document-level attribute.
 pub(crate) fn sanitize_html(html: &str) -> String {
-    let without_active = strip_element(html, "script");
-    let without_active = strip_element(&without_active, "style");
-    let without_active = strip_element(&without_active, "iframe");
-    let without_active = strip_element(&without_active, "object");
-    let without_active = strip_element(&without_active, "embed");
-    sanitize_tag_attributes(&without_active)
-}
+    let document = parse_html().one(html).document_node;
+    let title = selected_text(&document, "title");
+    let root_language = selected_attribute(&document, "html", "lang").and_then(valid_language);
+    let root_direction = selected_attribute(&document, "html", "dir").and_then(valid_direction);
+    let body_language = selected_attribute(&document, "body", "lang").and_then(valid_language);
+    let body_direction = selected_attribute(&document, "body", "dir").and_then(valid_direction);
+    let body = document
+        .select_first("body")
+        .ok()
+        .map(|node| node.as_node().clone())
+        .unwrap_or_else(|| document.clone());
 
-/// Remove every `<tag>...</tag>` region (case-insensitive) for the named element;
-/// drops to end-of-input if a closing tag is missing.
-fn strip_element(html: &str, tag: &str) -> String {
-    let mut out = String::with_capacity(html.len());
-    let lower = html.to_ascii_lowercase();
-    let open_prefix = format!("<{tag}");
-    let close = format!("</{tag}>");
-    let mut pos = 0usize;
+    let mut builder = Builder::default();
+    builder
+        .add_tags(&["main", "section"])
+        .add_generic_attributes(&["dir", "id", "name"])
+        .add_allowed_classes("section", &["epub-chapter"])
+        .url_schemes(HashSet::from(["data", "http", "https", "mailto", "tel"]))
+        .attribute_filter(filter_reader_attribute);
+    let safe_body = builder.clean(&serialize_children(&body)).to_string();
 
-    while let Some(start_rel) = lower[pos..].find(&open_prefix) {
-        let start = pos + start_rel;
-        out.push_str(&html[pos..start]);
-        if let Some(close_rel) = lower[start..].find(&close) {
-            pos = start + close_rel + close.len();
-        } else {
-            pos = html.len();
-            break;
-        }
+    let mut safe = String::from("<!doctype html><html");
+    push_document_attributes(
+        &mut safe,
+        root_language.as_deref(),
+        root_direction.as_deref(),
+    );
+    safe.push_str("><head>");
+    if let Some(title) = title.filter(|title| !title.is_empty()) {
+        safe.push_str("<title>");
+        safe.push_str(&escape_html_text(&title));
+        safe.push_str("</title>");
     }
-    out.push_str(&html[pos..]);
-    out
-}
-
-/// Walk every tag and rewrite it through [`sanitize_single_tag`], passing through
-/// the non-tag text between them unchanged.
-fn sanitize_tag_attributes(html: &str) -> String {
-    let mut out = String::with_capacity(html.len());
-    let mut pos = 0usize;
-
-    while let Some(start_rel) = html[pos..].find('<') {
-        let start = pos + start_rel;
-        out.push_str(&html[pos..start]);
-        let Some(end_rel) = html[start..].find('>') else {
-            out.push_str(&html[start..]);
-            return out;
-        };
-        let end = start + end_rel;
-        let tag = &html[start + 1..end];
-        out.push('<');
-        out.push_str(&sanitize_single_tag(tag));
-        out.push('>');
-        pos = end + 1;
-    }
-    out.push_str(&html[pos..]);
-    out
-}
-
-/// Sanitize one tag's inner text: keep closing/doctype/PI tags as-is, otherwise
-/// drop `on*`, `style`, `src`, and `javascript:` href attributes.
-fn sanitize_single_tag(tag: &str) -> String {
-    let trimmed = tag.trim();
-    if trimmed.starts_with('/') || trimmed.starts_with('!') || trimmed.starts_with('?') {
-        return trimmed.to_string();
-    }
-
-    let self_closing = trimmed.ends_with('/');
-    let inner = trimmed.trim_end_matches('/').trim();
-    let mut parts = inner.split_whitespace();
-    let Some(name) = parts.next() else {
-        return String::new();
-    };
-    let mut safe = String::from(name);
-    for attr in parts {
-        let lower = attr.to_ascii_lowercase();
-        if lower.starts_with("on") || lower.starts_with("style") || lower.starts_with("src=") {
-            continue;
-        }
-        if lower.starts_with("href=") && lower.contains("javascript:") {
-            continue;
-        }
-        safe.push(' ');
-        safe.push_str(attr);
-    }
-    if self_closing {
-        safe.push_str(" /");
-    }
+    safe.push_str("</head><body");
+    push_document_attributes(
+        &mut safe,
+        body_language.as_deref(),
+        body_direction.as_deref(),
+    );
+    safe.push('>');
+    safe.push_str(&safe_body);
+    safe.push_str("</body></html>");
     safe
+}
+
+/// Keep only URLs that the app reader knows how to handle.
+///
+/// Ammonia validates decoded schemes before this callback. The extra policy
+/// rejects cross-file relative links and remote images while retaining local
+/// footnotes and the bounded raster data URLs generated by the EPUB importer.
+fn filter_reader_attribute<'a>(
+    element: &str,
+    attribute: &str,
+    value: &'a str,
+) -> Option<Cow<'a, str>> {
+    match (element, attribute) {
+        ("a", "href") if is_reader_href(value) => Some(Cow::Borrowed(value)),
+        ("a", "href") => None,
+        ("img", "src") if is_safe_raster_data_url(value) => Some(Cow::Borrowed(value)),
+        ("img", "src") => None,
+        (_, _) if value.trim_start().to_ascii_lowercase().starts_with("data:") => None,
+        _ => Some(Cow::Borrowed(value)),
+    }
+}
+
+fn is_reader_href(value: &str) -> bool {
+    let lower = value.trim().to_ascii_lowercase();
+    lower.starts_with('#')
+        || lower.starts_with("http://")
+        || lower.starts_with("https://")
+        || lower.starts_with("mailto:")
+        || lower.starts_with("tel:")
+}
+
+fn is_safe_raster_data_url(value: &str) -> bool {
+    let lower = value.trim().to_ascii_lowercase();
+    [
+        "data:image/png;base64,",
+        "data:image/jpeg;base64,",
+        "data:image/gif;base64,",
+        "data:image/webp;base64,",
+    ]
+    .iter()
+    .any(|prefix| lower.starts_with(prefix))
+}
+
+fn selected_text(document: &NodeRef, selector: &str) -> Option<String> {
+    document
+        .select_first(selector)
+        .ok()
+        .map(|node| normalize_text(&node.text_contents()))
+}
+
+/// Read a local-name attribute regardless of whether parsed XHTML namespaced it.
+fn selected_attribute(document: &NodeRef, selector: &str, attribute: &str) -> Option<String> {
+    let node = document.select_first(selector).ok()?;
+    let attributes = node.attributes.borrow();
+    attributes
+        .map
+        .iter()
+        .find(|(name, _)| name.local.as_ref().eq_ignore_ascii_case(attribute))
+        .map(|(_, value)| value.value.to_string())
+}
+
+fn valid_language(value: String) -> Option<String> {
+    let value = value.trim();
+    (value.len() <= 64
+        && !value.is_empty()
+        && value
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '-'))
+    .then(|| value.to_string())
+}
+
+fn valid_direction(value: String) -> Option<String> {
+    let value = value.trim().to_ascii_lowercase();
+    matches!(value.as_str(), "ltr" | "rtl" | "auto").then_some(value)
+}
+
+fn push_document_attributes(html: &mut String, language: Option<&str>, direction: Option<&str>) {
+    if let Some(language) = language {
+        html.push_str(" lang=\"");
+        html.push_str(language);
+        html.push('"');
+    }
+    if let Some(direction) = direction {
+        html.push_str(" dir=\"");
+        html.push_str(direction);
+        html.push('"');
+    }
+}
+
+fn escape_html_text(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
+fn serialize_children(node: &NodeRef) -> String {
+    let mut bytes = Vec::new();
+    for child in node.children() {
+        if child.serialize(&mut bytes).is_err() {
+            return String::new();
+        }
+    }
+    String::from_utf8(bytes).unwrap_or_default()
 }
 
 /// Strip all tags to plain text and decode entities.
@@ -126,7 +195,7 @@ pub(crate) fn strip_tags(html: &str) -> String {
 ///
 /// The list is intentionally a small block/row/line-break set. Inline tags like
 /// `b`, `i`, `span`, and `a` are omitted so styled words remain searchable as
-/// the continuous text users see in the reader.
+/// the continuous text users see.
 fn tag_separates_text(tag: &str) -> bool {
     matches!(
         tag_name(tag).as_str(),
@@ -165,11 +234,7 @@ fn tag_separates_text(tag: &str) -> bool {
     )
 }
 
-/// Pull the element name out of a raw tag body from the lightweight scanner.
-///
-/// This intentionally handles only the shapes the sanitizer passes here, such as
-/// `p class="x"`, `/p`, and `br/`. If we ever need full HTML tokenization, this
-/// whole scanner should move to a DOM parser rather than grow custom parsing.
+/// Pull the element name out of a raw tag body from the lightweight text scanner.
 fn tag_name(tag: &str) -> String {
     tag.trim()
         .trim_start_matches('/')
@@ -200,14 +265,36 @@ mod tests {
     use super::*;
 
     #[test]
-    fn strips_active_elements_when_unicode_precedes_tag() {
-        let html = "<p>İ before script</p><SCRIPT>alert(1)</SCRIPT><p>Safe</p>";
+    fn removes_active_content_and_decoded_script_urls() {
+        let html = r##"
+            <html><body onload="alert(1)">
+              <script>alert(1)</script><style>body{display:none}</style>
+              <a href="java&#x73;cript:alert(2)" onclick="alert(3)">Unsafe</a>
+              <a href="#note-1">Footnote</a><p id="note-1" style="color:red">Safe</p>
+            </body></html>
+        "##;
         let sanitized = sanitize_html(html);
 
-        assert!(sanitized.contains("İ before script"));
-        assert!(sanitized.contains("Safe"));
-        assert!(!sanitized.contains("alert(1)"));
-        assert!(!sanitized.to_ascii_lowercase().contains("<script"));
+        assert!(!sanitized.contains("alert("));
+        assert!(!sanitized.contains("style="));
+        assert!(!sanitized.contains("javascript:"));
+        assert!(sanitized.contains(r##"href="#note-1""##));
+        assert!(sanitized.contains(r#"id="note-1""#));
+    }
+
+    #[test]
+    fn keeps_only_generated_raster_images() {
+        let sanitized = sanitize_html(
+            r#"<body>
+                <img src="https://example.com/track.png" alt="Remote">
+                <img src="data:image/svg+xml;base64,PHN2Zz4=" alt="SVG">
+                <img src="data:image/png;base64,iVBORw0KGgo=" alt="Cover">
+            </body>"#,
+        );
+
+        assert!(!sanitized.contains("https://example.com/track.png"));
+        assert!(!sanitized.contains("image/svg+xml"));
+        assert!(sanitized.contains("data:image/png;base64,iVBORw0KGgo="));
     }
 
     #[test]
@@ -224,5 +311,19 @@ mod tests {
         let text = normalize_text(&strip_tags("<p>First</p><p>Second<br/>line</p>"));
 
         assert_eq!(text, "First Second line");
+    }
+
+    #[test]
+    fn keeps_title_language_direction_and_epub_chapters() {
+        let sanitized = sanitize_html(
+            r#"<html lang="ar" dir="rtl"><head><title>عنوان آمن</title></head>
+               <body lang="ar-SA"><section class="epub-chapter" id="chapter-1">نص آمن</section></body></html>"#,
+        );
+
+        assert!(sanitized.contains(r#"<html lang="ar" dir="rtl">"#));
+        assert!(sanitized.contains("<title>عنوان آمن</title>"));
+        assert!(sanitized.contains(r#"<body lang="ar-SA">"#));
+        assert!(sanitized.contains(r#"class="epub-chapter""#));
+        assert!(sanitized.contains(r#"id="chapter-1""#));
     }
 }

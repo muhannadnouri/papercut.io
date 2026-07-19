@@ -12,6 +12,7 @@ use super::super::paths::{
     audiobook_dir, imported_upload_dir, imported_upload_id_from_document_url,
     remove_dir_and_count_bytes,
 };
+use crate::document_uploads::sanitize_html;
 use crate::native_tts::types::{
     NativeAudiobookDeleteRequest, NativeAudiobookDeleteResponse,
     NativeImportedAudiobookMetadataResponse, NativeImportedAudiobookSourceRequest,
@@ -64,12 +65,15 @@ pub(crate) fn get_imported_audiobook_source(
 ) -> Result<String, String> {
     let upload_id = imported_upload_id_from_document_url(&request.document_url)?;
     let path = imported_upload_dir(&app, &upload_id)?.join("source.html");
-    fs::read_to_string(&path).map_err(|err| {
+    let source = fs::read_to_string(&path).map_err(|err| {
         format!(
             "Failed to read imported audiobook source {}: {err}",
             path.display()
         )
-    })
+    })?;
+    // Imported bundles can outlive the sanitizer version that first accepted
+    // them, so the reader receives content checked against today's allowlist.
+    Ok(sanitize_html(&source))
 }
 
 /// Return original bundle chunks/options for an imported audiobook document.

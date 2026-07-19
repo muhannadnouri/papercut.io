@@ -239,6 +239,10 @@ html {
   color: var(--text);
 }
 
+html[lang="ar"] {
+  --ui-font: "Papercut Readex Pro", system-ui, sans-serif;
+}
+
 button,
 input,
 select,
@@ -251,6 +255,12 @@ select,
 textarea {
   background: var(--surface);
   color: var(--text-heading);
+}
+
+/* Empty auto-direction inputs cannot infer direction from placeholder text. */
+html[dir="rtl"] input[dir="auto"]:placeholder-shown {
+  direction: rtl;
+  text-align: right;
 }
 
 body {

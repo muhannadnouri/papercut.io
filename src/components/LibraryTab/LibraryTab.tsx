@@ -1,12 +1,12 @@
+import { Trans, useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
+import type { ReactNode } from 'react'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
+import type { DocumentImportStatus } from '../../hooks/useUploadedLibrary'
 import type { DocumentInfo } from '../../types/search'
 import type { UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
+import { formatStorageSize } from '../../utils/formatUtils'
 import { DocumentsPanel } from '../DocumentsPanel/DocumentsPanel'
-
-interface DocumentImportStatus {
-  status: string
-  message: string
-}
 
 interface LibraryTabProps {
   allDocuments: DocumentInfo[]
@@ -61,8 +61,12 @@ export function LibraryTab({
   onToggleShow,
   onViewDocument,
 }: LibraryTabProps) {
+  const { t } = useTranslation()
+  const operationBusy = documentImport.status === 'importing' || documentImport.status === 'deleting'
+  const statusMessage = documentImportStatusMessage(documentImport, t)
+
   return (
-    <section className="tab-panel" role="tabpanel" aria-label="Library" data-tab="library">
+    <section className="tab-panel" role="tabpanel" aria-label={t('library.tabLabel')} data-tab="library">
       <DocumentsPanel
         documentsLoading={documentsLoading}
         showDocuments={showDocuments}
@@ -75,22 +79,26 @@ export function LibraryTab({
           {
             id: 'html',
             label: 'HTML',
-            detail: 'Import a local .html or .htm document',
-            statusLabel: documentImport.status === 'importing' && documentImport.message.includes('HTML') ? 'Importing HTML' : undefined,
-            disabled: documentImport.status === 'importing',
+            detail: t('library.import.htmlDetail'),
+            statusLabel: documentImport.status === 'importing' && documentImport.format === 'html'
+              ? t('library.import.importingHtml')
+              : undefined,
+            disabled: operationBusy,
             onSelect: onImportHtmlDocument,
           },
           {
             id: 'epub',
             label: 'EPUB',
-            detail: 'Import a local .epub book',
-            statusLabel: documentImport.status === 'importing' && documentImport.message.includes('EPUB') ? 'Importing EPUB' : undefined,
-            disabled: documentImport.status === 'importing',
+            detail: t('library.import.epubDetail'),
+            statusLabel: documentImport.status === 'importing' && documentImport.format === 'epub'
+              ? t('library.import.importingEpub')
+              : undefined,
+            disabled: operationBusy,
             onSelect: onImportEpubDocument,
           },
           // { id: 'pdf', label: 'PDF', detail: 'Import PDFs when text extraction support lands', future: true },
         ]}
-        importStatuses={[documentImport]}
+        importStatuses={statusMessage ? [{ status: documentImport.status, message: statusMessage }] : []}
         libraryOrganization={libraryOrganization}
         documentOpening={documentOpening}
         openingDocumentUrl={openingDocumentUrl}
@@ -108,4 +116,27 @@ export function LibraryTab({
       />
     </section>
   )
+}
+
+/** Render semantic upload state where translations and bidi isolation are available. */
+function documentImportStatusMessage(status: DocumentImportStatus, t: TFunction): ReactNode {
+  if (status.status === 'idle') return null
+  if (status.status === 'importing') {
+    return t(status.format === 'epub' ? 'library.status.importingEpub' : 'library.status.importingHtml')
+  }
+  if (status.status === 'cancelled') return t('library.status.cancelled')
+  if (status.status === 'error') return status.message ?? null
+
+  const title = status.title ?? ''
+  if (status.status === 'imported') {
+    return <Trans i18nKey="library.status.imported" values={{ title }} components={{ title: <bdi /> }} />
+  }
+  if (status.status === 'deleting') {
+    return <Trans i18nKey="library.status.deleting" values={{ title }} components={{ title: <bdi /> }} />
+  }
+
+  const storage = formatStorageSize(status.bytesFreed)
+  return storage
+    ? <Trans i18nKey="library.status.deletedWithStorage" values={{ title, storage }} components={{ title: <bdi /> }} />
+    : <Trans i18nKey="library.status.deleted" values={{ title }} components={{ title: <bdi /> }} />
 }

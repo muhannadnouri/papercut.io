@@ -228,6 +228,16 @@ function createChunkSourceSignature(chunks: TtsChunk[]): string {
 
 let capabilitiesPromise: Promise<NativeTtsCapabilities> | null = null
 
+export class NativeTtsError extends Error {
+  readonly code: string
+
+  constructor(code: string, message: string) {
+    super(message)
+    this.name = 'NativeTtsError'
+    this.code = code
+  }
+}
+
 export function isNativeTtsRuntime(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 }
@@ -246,7 +256,10 @@ export async function getNativeTtsCapabilities(): Promise<NativeTtsCapabilities>
 export async function requireNativeTtsCapabilities(): Promise<NativeTtsCapabilities> {
   const capabilities = await getNativeTtsCapabilities()
   if (!capabilities.available) {
-    throw new Error(capabilities.reason || 'Native TTS is not available')
+    throw new NativeTtsError(
+      'native-tts-unavailable',
+      capabilities.reason || 'Native TTS is not available',
+    )
   }
   return capabilities
 }
@@ -270,13 +283,11 @@ export async function getNativeTtsModelStatus(modelId: string): Promise<NativeTt
       runtimeMessage: 'Native TTS is only available in the desktop or Android app.',
     }
   }
-  const invoke = await loadTauriInvoke()
-  return invoke<NativeTtsModelStatus>('tts_model_status', { modelId })
+  return invokeNative<NativeTtsModelStatus>('tts_model_status', { modelId })
 }
 
 export async function installNativeTtsModel(modelId: string): Promise<NativeTtsModelInstallResult> {
-  const invoke = await loadTauriInvoke()
-  const result = await invoke<NativeTtsModelInstallResult>('tts_install_model', { modelId })
+  const result = await invokeNative<NativeTtsModelInstallResult>('tts_install_model', { modelId })
   resetNativeTtsCapabilities()
   return result
 }
@@ -296,8 +307,7 @@ export async function getNativeAudiobookStatus(
   options: TtsOptions,
 ): Promise<NativeAudiobookStatus> {
   await requireNativeTtsCapabilities()
-  const invoke = await loadTauriInvoke()
-  return invoke<NativeAudiobookStatus>('tts_native_audiobook_status', {
+  return invokeNative<NativeAudiobookStatus>('tts_native_audiobook_status', {
     request: {
       audiobookId: createAudiobookId(documentUrl, options),
       sourceSignature: createChunkSourceSignature(chunks),
@@ -313,8 +323,7 @@ export async function prepareNativeAudiobookPlayback(
   options: TtsOptions,
 ): Promise<NativeAudiobookPlayback> {
   await requireNativeTtsCapabilities()
-  const invoke = await loadTauriInvoke()
-  return invoke<NativeAudiobookPlayback>('tts_prepare_native_audiobook_playback', {
+  return invokeNative<NativeAudiobookPlayback>('tts_prepare_native_audiobook_playback', {
     request: {
       audiobookId: createAudiobookId(documentUrl, options),
       sourceSignature: createChunkSourceSignature(chunks),
@@ -329,9 +338,8 @@ export async function getNativeSavedAudiobookChunk(
   options: TtsOptions,
 ): Promise<NativeTtsChunkResult | null> {
   if (!isNativeTtsRuntime()) return null
-  const invoke = await loadTauriInvoke()
   try {
-    const response = await invoke<NativeTtsChunkResponse>('tts_get_native_audiobook_chunk', {
+    const response = await invokeNative<NativeTtsChunkResponse>('tts_get_native_audiobook_chunk', {
       request: {
         audiobookId: createAudiobookId(documentUrl, options),
         chunk: toNativeTtsChunk(chunk),
@@ -354,8 +362,7 @@ export async function saveNativeAudiobook(
   },
 ): Promise<NativeAudiobookSaveResult> {
   await requireNativeTtsCapabilities()
-  const invoke = await loadTauriInvoke()
-  return invoke<NativeAudiobookSaveResult>('tts_save_audiobook_native', {
+  return invokeNative<NativeAudiobookSaveResult>('tts_save_audiobook_native', {
     request: {
       jobId: input.jobId,
       audiobookId: createAudiobookId(input.documentUrl, input.options),
@@ -374,8 +381,7 @@ export async function saveNativeAudiobook(
 
 export async function cancelNativeAudiobookSave(jobId: string): Promise<void> {
   if (!isNativeTtsRuntime()) return
-  const invoke = await loadTauriInvoke()
-  await invoke('tts_cancel_audiobook_save', { jobId })
+  await invokeNative('tts_cancel_audiobook_save', { jobId })
 }
 
 export async function exportNativeAudiobook(
@@ -389,8 +395,7 @@ export async function exportNativeAudiobook(
   },
 ): Promise<NativeAudiobookExportResult> {
   await requireNativeTtsCapabilities()
-  const invoke = await loadTauriInvoke()
-  return invoke<NativeAudiobookExportResult>('tts_export_audiobook_native', {
+  return invokeNative<NativeAudiobookExportResult>('tts_export_audiobook_native', {
     request: {
       audiobookId: createAudiobookId(input.documentUrl, input.options),
       documentUrl: input.documentUrl,
@@ -410,8 +415,7 @@ export async function exportNativeAudiobook(
 
 export async function importNativeAudiobook(): Promise<NativeAudiobookImportResult> {
   await requireNativeTtsCapabilities()
-  const invoke = await loadTauriInvoke()
-  return invoke<NativeAudiobookImportResult>('tts_import_audiobook_native')
+  return invokeNative<NativeAudiobookImportResult>('tts_import_audiobook_native')
 }
 
 export async function deleteNativeAudiobook(input: {
@@ -420,8 +424,7 @@ export async function deleteNativeAudiobook(input: {
   deleteUserUpload: boolean
 }): Promise<NativeAudiobookDeleteResult> {
   await requireNativeTtsCapabilities()
-  const invoke = await loadTauriInvoke()
-  return invoke<NativeAudiobookDeleteResult>('tts_delete_audiobook_native', {
+  return invokeNative<NativeAudiobookDeleteResult>('tts_delete_audiobook_native', {
     request: input,
   })
 }
@@ -429,20 +432,17 @@ export async function deleteNativeAudiobook(input: {
 export async function probeNativeSilmaSidecar(): Promise<NativeSilmaSidecarProbeResult> {
   // Dev-only bridge: validates the packaged worker can start and write app-owned WAVs.
   await requireNativeTtsCapabilities()
-  const invoke = await loadTauriInvoke()
-  return invoke<NativeSilmaSidecarProbeResult>('tts_probe_silma_sidecar')
+  return invokeNative<NativeSilmaSidecarProbeResult>('tts_probe_silma_sidecar')
 }
 
 export async function getImportedAudiobookSource(documentUrl: string): Promise<string> {
-  const invoke = await loadTauriInvoke()
-  return invoke<string>('tts_get_imported_audiobook_source', {
+  return invokeNative<string>('tts_get_imported_audiobook_source', {
     request: { documentUrl },
   })
 }
 
 export async function getImportedAudiobookMetadata(documentUrl: string): Promise<NativeImportedAudiobookMetadata> {
-  const invoke = await loadTauriInvoke()
-  return invoke<NativeImportedAudiobookMetadata>('tts_get_imported_audiobook_metadata', {
+  return invokeNative<NativeImportedAudiobookMetadata>('tts_get_imported_audiobook_metadata', {
     request: { documentUrl },
   })
 }
@@ -471,8 +471,7 @@ async function loadNativeTtsCapabilities(): Promise<NativeTtsCapabilities> {
   }
 
   try {
-    const invoke = await loadTauriInvoke()
-    return await invoke<NativeTtsCapabilities>('tts_native_capabilities')
+    return await invokeNative<NativeTtsCapabilities>('tts_native_capabilities')
   } catch (err) {
     return {
       available: false,
@@ -489,6 +488,42 @@ async function loadNativeTtsCapabilities(): Promise<NativeTtsCapabilities> {
 async function loadTauriInvoke() {
   const mod = await import('@tauri-apps/api/core')
   return mod.invoke
+}
+
+// Normalize Tauri's object rejection into an Error while retaining its stable code.
+async function invokeNative<T>(
+  command: string,
+  args?: Record<string, unknown>,
+): Promise<T> {
+  try {
+    const invoke = await loadTauriInvoke()
+    return await invoke<T>(command, args)
+  } catch (error) {
+    throw toNativeTtsError(error)
+  }
+}
+
+// Accept object errors from current Rust commands and plain strings from older builds.
+function toNativeTtsError(error: unknown): NativeTtsError {
+  if (error instanceof NativeTtsError) return error
+  if (isNativeTtsErrorPayload(error)) return new NativeTtsError(error.code, error.message)
+  if (error instanceof Error) return new NativeTtsError('native-tts-failed', error.message)
+  if (typeof error === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(error)
+      if (isNativeTtsErrorPayload(parsed)) return new NativeTtsError(parsed.code, parsed.message)
+    } catch {
+      // Older native builds reject with a plain diagnostic string.
+    }
+    return new NativeTtsError('native-tts-failed', error)
+  }
+  return new NativeTtsError('native-tts-failed', String(error))
+}
+
+function isNativeTtsErrorPayload(value: unknown): value is { code: string; message: string } {
+  if (!value || typeof value !== 'object') return false
+  const payload = value as Record<string, unknown>
+  return typeof payload.code === 'string' && typeof payload.message === 'string'
 }
 
 function responseToChunkResult(chunk: TtsChunk, response: NativeTtsChunkResponse): NativeTtsChunkResult {

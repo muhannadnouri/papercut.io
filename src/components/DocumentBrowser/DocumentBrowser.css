@@ -91,7 +91,7 @@
 .document-import-options {
   position: absolute;
   top: calc(100% + 0.35rem);
-  right: 0;
+  inset-inline-end: 0;
   z-index: 60;
   display: grid;
   min-width: min(18rem, calc(100vw - 2rem));
@@ -117,7 +117,7 @@
   cursor: pointer;
   font-size: 0.85rem;
   font-weight: 600;
-  text-align: left;
+  text-align: start;
 }
 
 .document-import-option:last-child {
@@ -219,7 +219,7 @@
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--text-heading);
-  text-align: left;
+  text-align: start;
 }
 
 .author-group-toggle:focus-visible,
@@ -233,7 +233,8 @@
 .author-group-action {
   flex-shrink: 0;
   padding: 0 0.75rem;
-  margin: 0.25rem 0.5rem 0.25rem 0;
+  margin-block: 0.25rem;
+  margin-inline-end: 0.5rem;
   background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: 6px;
@@ -513,8 +514,7 @@
   }
 
   .document-browser-panel .document-import-options {
-    right: auto;
-    left: 0;
+    inset-inline: 0 auto;
     min-width: 0;
     width: min(18rem, calc(100vw - 2rem));
     max-height: min(16rem, calc(100vh - 18rem));
@@ -522,11 +522,18 @@
 
   .document-item {
     gap: 0.45rem;
-    padding-left: 1rem;
+    padding-inline-start: 1rem;
   }
 
   .document-row-action {
     min-height: 2.5rem;
     padding: 0.25rem 0.55rem;
   }
+}
+
+html[dir="rtl"] .document-import-option:hover:not(:disabled),
+html[dir="rtl"] .document-import-option:focus-visible,
+html[dir="rtl"] .document-item-selected,
+html[dir="rtl"] .document-item-opening {
+  box-shadow: inset -3px 0 0 var(--accent-text);
 }

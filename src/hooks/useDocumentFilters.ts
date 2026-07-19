@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { DocumentInfo } from '../types/search'
 import { deriveAuthor, UNCATEGORIZED } from '../utils/documentUtils'
 
@@ -32,13 +33,19 @@ export function useDocumentFilters(
   allDocuments: DocumentInfo[],
   options: UseDocumentFiltersOptions = {},
 ): UseDocumentFiltersReturn {
+  const { t, i18n } = useTranslation()
   const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set())
   const [showDocuments, setShowDocuments] = useState(true)
   const [documentFilter, setDocumentFilter] = useState('')
   const [collapsedAuthors, setCollapsedAuthors] = useState<Set<string>>(new Set())
 
   const { includeDocument } = options
-  const docFilterLower = documentFilter.trim().toLowerCase()
+  const locale = i18n.resolvedLanguage ?? i18n.language
+  const docFilterLower = documentFilter.trim().toLocaleLowerCase(locale)
+  const collator = useMemo(
+    () => new Intl.Collator(locale, { numeric: true, sensitivity: 'base' }),
+    [locale],
+  )
 
   const filterTitleByUrl = useMemo(() => {
     const entries = allDocuments
@@ -52,11 +59,18 @@ export function useDocumentFilters(
     for (const doc of allDocuments) {
       if (includeDocument && !includeDocument(doc)) continue
 
-      const author = doc.source === 'audiobook-upload' ? 'Imported Audiobooks' : deriveAuthor(doc.url)
+      const derivedAuthor = deriveAuthor(doc.url)
+      const author = doc.source === 'audiobook-upload'
+        ? t('library.groups.importedAudiobooks')
+        : doc.source === 'upload'
+          ? t('library.groups.userUploads')
+          : derivedAuthor === UNCATEGORIZED
+            ? t('library.groups.uncategorized')
+            : derivedAuthor
       if (
         docFilterLower.length > 0 &&
-        !doc.title.toLowerCase().includes(docFilterLower) &&
-        !author.toLowerCase().includes(docFilterLower)
+        !doc.title.toLocaleLowerCase(locale).includes(docFilterLower) &&
+        !author.toLocaleLowerCase(locale).includes(docFilterLower)
       ) {
         continue
       }
@@ -67,14 +81,15 @@ export function useDocumentFilters(
     return Array.from(groups.entries())
       .map(([author, docs]) => ({
         author,
-        docs: docs.slice().sort((a, b) => a.title.localeCompare(b.title)),
+        docs: docs.slice().sort((a, b) => collator.compare(a.title, b.title)),
       }))
       .sort((a, b) => {
-        if (a.author === UNCATEGORIZED) return 1
-        if (b.author === UNCATEGORIZED) return -1
-        return a.author.localeCompare(b.author)
+        const uncategorized = t('library.groups.uncategorized')
+        if (a.author === uncategorized) return 1
+        if (b.author === uncategorized) return -1
+        return collator.compare(a.author, b.author)
       })
-  }, [allDocuments, docFilterLower, includeDocument])
+  }, [allDocuments, collator, docFilterLower, includeDocument, locale, t])
 
   const toggleFilter = useCallback((url: string) => {
     setSelectedFilters((prev) => {

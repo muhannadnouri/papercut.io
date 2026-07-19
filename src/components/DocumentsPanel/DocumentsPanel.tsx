@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { DocumentInfo } from '../../types/search'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
 import type { UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
@@ -10,7 +11,7 @@ import '../DocumentBrowser/DocumentBrowser.css'
 
 interface DocumentsPanelStatus {
   status: string
-  message: string
+  message: ReactNode
 }
 
 export interface DocumentImportOption {
@@ -74,10 +75,12 @@ export function DocumentsPanel({
   onToggleShow,
   onViewDocument,
 }: DocumentsPanelProps) {
+  const { t } = useTranslation()
   const [importMenuOpen, setImportMenuOpen] = useState(false)
   const activeImport = importOptions.find((option) => option.statusLabel)
   const hasImportOptions = importOptions.length > 0
-  const deleteDisabled = importStatuses.some((item) => item.status === 'deleting')
+  const operationBusy = importStatuses.some((item) => item.status === 'importing' || item.status === 'deleting')
+  const importDisabled = hasImportOptions && importOptions.every((option) => option.disabled || option.future || !option.onSelect)
   const { uploadDocs, nonUploadGroups } = splitDocumentGroupsByUpload(groupedDocs)
   const canShowUploadedTree = Boolean(
     libraryOrganization &&
@@ -92,7 +95,7 @@ export function DocumentsPanel({
       <div className="documents-panel documents-panel-loading">
         <div className="documents-loading">
           <span className="spinner" aria-hidden="true" />
-          <span>Loading Documents&#8230;</span>
+          <span>{t('library.documents.loading')}</span>
         </div>
       </div>
     )
@@ -101,16 +104,17 @@ export function DocumentsPanel({
   return (
     <Panel
       className={'document-browser-panel documents-panel' + (importMenuOpen ? ' document-browser-panel-menu-open documents-panel-menu-open' : '')}
-      ariaLabel="Documents"
-      title={`Documents (${allDocuments.length})`}
+      ariaLabel={t('library.documents.ariaLabel')}
+      title={t('library.documents.title', { count: allDocuments.length })}
       open={showDocuments}
       onToggle={onToggleShow}
     >
       <div className="documents-list-header">
         <input
           type="text"
+          dir="auto"
           className="document-filter-input"
-          placeholder="Filter Documents..."
+          placeholder={t('library.documents.filterPlaceholder')}
           value={documentFilter}
           onChange={(e) => onFilterChange(e.target.value)}
         />
@@ -119,10 +123,11 @@ export function DocumentsPanel({
             <button
               className="document-import-btn"
               aria-expanded={importMenuOpen}
+              disabled={importDisabled}
               onClick={() => setImportMenuOpen((value) => !value)}
               type="button"
             >
-              {activeImport?.statusLabel ?? 'Import'}
+              {activeImport?.statusLabel ?? t('library.documents.import')}
               <span className={`toggle-arrow ${importMenuOpen ? 'open' : ''}`}>&#9662;</span>
             </button>
             {importMenuOpen && (
@@ -140,7 +145,7 @@ export function DocumentsPanel({
                       }}
                       type="button"
                     >
-                      <span>{option.label}{option.future ? ' (Future)' : ''}</span>
+                      <span>{option.label}{option.future ? ` (${t('library.documents.future')})` : ''}</span>
                       {option.detail && <small>{option.detail}</small>}
                     </button>
                   )
@@ -156,7 +161,7 @@ export function DocumentsPanel({
               checked={audioSavedOnly}
               onChange={(e) => onAudioSavedOnlyChange(e.target.checked)}
             />
-            <span>Saved Audio</span>
+            <span>{t('library.documents.savedAudio')}</span>
           </label>
         )}
       </div>
@@ -172,6 +177,7 @@ export function DocumentsPanel({
           documents={uploadDocs}
           organization={libraryOrganization}
           documentOpening={documentOpening}
+          deleteDisabled={operationBusy || documentOpening}
           openingDocumentUrl={openingDocumentUrl}
           onCreateFolder={onCreateLibraryFolder!}
           onDeleteDocument={onDeleteDocument}
@@ -187,23 +193,23 @@ export function DocumentsPanel({
           groupedDocs={canShowUploadedTree ? nonUploadGroups : groupedDocs}
           collapsedAuthors={collapsedAuthors}
           docFilterLower={docFilterLower}
-          emptyMessage={getEmptyMessage(allDocuments.length, audioSavedOnly, documentFilter)}
+          emptyMessage={
+            allDocuments.length === 0
+              ? t('library.documents.empty')
+              : audioSavedOnly
+                ? t('library.documents.emptySavedAudio')
+                : documentFilter.trim()
+                  ? t('library.documents.emptyFilter')
+                  : t('library.documents.empty')
+          }
           onToggleAuthor={onToggleAuthor}
           onViewDocument={onViewDocument}
           onDeleteDocument={onDeleteDocument}
-          deleteDisabled={deleteDisabled || documentOpening}
+          deleteDisabled={operationBusy || documentOpening}
           openingDocumentUrl={openingDocumentUrl}
           viewDisabled={documentOpening}
         />
       )}
     </Panel>
   )
-}
-
-
-function getEmptyMessage(documentCount: number, audioSavedOnly: boolean, documentFilter: string): string {
-  if (documentCount === 0) return 'No documents available yet.'
-  if (audioSavedOnly) return 'No saved audio matches.'
-  if (documentFilter.trim()) return 'No documents match the filter.'
-  return 'No documents available yet.'
 }

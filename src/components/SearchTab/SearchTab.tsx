@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
 import type { DocumentInfo, SearchOpenTarget, SearchResult } from '../../types/search'
 import type { UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
@@ -60,8 +61,10 @@ export function SearchTab({
   onToggleFilter,
   onViewResult,
 }: SearchTabProps) {
+  const { t } = useTranslation()
+
   return (
-    <section className="tab-panel" role="tabpanel" aria-label="Search" data-tab="search">
+    <section className="tab-panel" role="tabpanel" aria-label={t('search.tabLabel')} data-tab="search">
       <SearchBar
         query={query}
         disabled={disabled}

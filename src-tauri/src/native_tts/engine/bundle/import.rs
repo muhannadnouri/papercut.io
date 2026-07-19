@@ -29,9 +29,12 @@ use super::super::paths::{
     playback_track_path, speakable_chunks, stable_hex_hash,
 };
 use super::super::silma_sidecar::DEFAULT_SILMA_NFE_STEP;
+use crate::document_uploads::sanitize_html;
 use crate::native_tts::types::{
     NativeAudiobookImportResponse, NativeAudiobookSaveRequest, NativeTtsInputChunk,
 };
+
+const MAX_BUNDLE_SOURCE_HTML_BYTES: u64 = 256 * 1024 * 1024;
 
 /// Version-2 bundles predating preprocessing represent original, undiacritized text.
 fn default_text_preprocessor() -> String {
@@ -178,7 +181,11 @@ pub(crate) fn import_audiobook_native(
         // `_` arm skips unknown optional file kinds.
         match entry.role.as_str() {
             "sourceHtml" => {
-                copy_payload_to_path(&mut reader, &upload_dir.join("source.html"), entry.bytes)?;
+                copy_sanitized_html_payload_to_path(
+                    &mut reader,
+                    &upload_dir.join("source.html"),
+                    entry.bytes,
+                )?;
                 imported_source = true;
             }
             "metadata" => {
@@ -356,13 +363,7 @@ fn copy_payload_to_path<R: Read>(reader: &mut R, path: &Path, bytes: u64) -> Res
         fs::create_dir_all(parent)
             .map_err(|err| format!("Failed to create directory {}: {err}", parent.display()))?;
     }
-    let temp_path = path.with_extension(format!(
-        "import.{}.tmp",
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|err| format!("System clock error: {err}"))?
-            .as_nanos()
-    ));
+    let temp_path = import_staging_path(path)?;
     let file = fs::File::create(&temp_path).map_err(|err| {
         format!(
             "Failed to create imported audiobook file {}: {err}",
@@ -390,6 +391,55 @@ fn copy_payload_to_path<R: Read>(reader: &mut R, path: &Path, bytes: u64) -> Res
         ));
     }
     commit_staged_file(&temp_path, path, "imported audiobook file")
+}
+
+/// Read and sanitize a bundle's HTML payload before atomically exposing it.
+///
+/// Unlike WAV payloads, source HTML must be parsed before it reaches the stored
+/// reader path. Keeping the unsafe bytes in memory also prevents a failed UTF-8
+/// decode or sanitizer pass from replacing an existing imported document.
+fn copy_sanitized_html_payload_to_path<R: Read>(
+    reader: &mut R,
+    path: &Path,
+    bytes: u64,
+) -> Result<(), String> {
+    if bytes > MAX_BUNDLE_SOURCE_HTML_BYTES {
+        return Err("Audiobook bundle source HTML exceeds the 256 MB limit".into());
+    }
+    let mut source = Vec::with_capacity(bytes.min(32 * 1024 * 1024) as usize);
+    let copied = reader
+        .take(bytes)
+        .read_to_end(&mut source)
+        .map_err(|err| format!("Failed to read imported audiobook HTML: {err}"))?;
+    if copied as u64 != bytes {
+        return Err("Audiobook bundle ended while reading source HTML".into());
+    }
+    let source = String::from_utf8(source)
+        .map_err(|err| format!("Audiobook bundle source HTML is not valid UTF-8: {err}"))?;
+    let sanitized = sanitize_html(&source);
+
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|err| format!("Failed to create directory {}: {err}", parent.display()))?;
+    }
+    let temp_path = import_staging_path(path)?;
+    fs::write(&temp_path, sanitized.as_bytes()).map_err(|err| {
+        format!(
+            "Failed to write imported audiobook HTML {}: {err}",
+            temp_path.display()
+        )
+    })?;
+    commit_staged_file(&temp_path, path, "imported audiobook HTML")
+}
+
+fn import_staging_path(path: &Path) -> Result<std::path::PathBuf, String> {
+    Ok(path.with_extension(format!(
+        "import.{}.tmp",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|err| format!("System clock error: {err}"))?
+            .as_nanos()
+    )))
 }
 
 /// Discard `bytes` from the reader by copying them into a null sink. Used to
@@ -430,4 +480,34 @@ fn imported_upload_id(manifest: &NativeAudiobookBundleManifest) -> String {
     .chars()
     .take(24)
     .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
+
+    use super::*;
+
+    #[test]
+    fn sanitizes_bundle_html_before_committing_it() {
+        let source = br##"<body><a href="java&#x73;cript:alert(1)">Bad</a><a href="#note">Note</a><p id="note">Safe</p></body>"##;
+        let dir = std::env::temp_dir().join(format!(
+            "papercut-bundle-html-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("test clock should be valid")
+                .as_nanos()
+        ));
+        let path = dir.join("source.html");
+
+        copy_sanitized_html_payload_to_path(&mut Cursor::new(source), &path, source.len() as u64)
+            .expect("bundle HTML should import");
+        let stored = fs::read_to_string(&path).expect("sanitized HTML should be stored");
+
+        assert!(!stored.contains("javascript:"));
+        assert!(stored.contains(r##"href="#note""##));
+        assert!(stored.contains(r#"id="note""#));
+        let _ = fs::remove_dir_all(dir);
+    }
 }

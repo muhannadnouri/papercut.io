@@ -16,7 +16,7 @@ use super::types::{
     NativeAudiobookSaveResponse, NativeAudiobookStatusRequest, NativeAudiobookStatusResponse,
     NativeImportedAudiobookMetadataResponse, NativeImportedAudiobookSourceRequest,
     NativeSilmaSidecarProbeResponse, NativeTtsCapabilities, NativeTtsChunkResponse,
-    NativeTtsModelInstallResponse, NativeTtsModelStatus,
+    NativeTtsCommandError, NativeTtsModelInstallResponse, NativeTtsModelStatus,
 };
 
 #[cfg(feature = "native-tts-core")]
@@ -59,8 +59,10 @@ pub async fn tts_install_model(
     app: tauri::AppHandle,
     state: tauri::State<'_, NativeTtsState>,
     model_id: String,
-) -> Result<NativeTtsModelInstallResponse, String> {
-    install_model(app, state, model_id).await
+) -> Result<NativeTtsModelInstallResponse, NativeTtsCommandError> {
+    install_model(app, state, model_id)
+        .await
+        .map_err(Into::into)
 }
 
 /// How many of a document's chunks are already saved (for the "Saved" UI).
@@ -68,8 +70,8 @@ pub async fn tts_install_model(
 pub fn tts_native_audiobook_status(
     app: tauri::AppHandle,
     request: NativeAudiobookStatusRequest,
-) -> Result<NativeAudiobookStatusResponse, String> {
-    native_audiobook_status(app, request)
+) -> Result<NativeAudiobookStatusResponse, NativeTtsCommandError> {
+    native_audiobook_status(app, request).map_err(Into::into)
 }
 
 /// Read one already-saved chunk WAV from the cache (returns a base64 WAV).
@@ -77,8 +79,8 @@ pub fn tts_native_audiobook_status(
 pub fn tts_get_native_audiobook_chunk(
     app: tauri::AppHandle,
     request: NativeAudiobookChunkRequest,
-) -> Result<NativeTtsChunkResponse, String> {
-    get_native_audiobook_chunk(app, request)
+) -> Result<NativeTtsChunkResponse, NativeTtsCommandError> {
+    get_native_audiobook_chunk(app, request).map_err(Into::into)
 }
 
 /// Prepare/reuse one seekable native track and return global chunk boundaries.
@@ -87,10 +89,17 @@ pub fn tts_get_native_audiobook_chunk(
 pub async fn tts_prepare_native_audiobook_playback(
     app: tauri::AppHandle,
     request: NativeAudiobookPlaybackRequest,
-) -> Result<NativeAudiobookPlaybackResponse, String> {
-    tauri::async_runtime::spawn_blocking(move || prepare_native_audiobook_playback(app, request))
-        .await
-        .map_err(|err| format!("Native audiobook playback preparation failed: {err}"))?
+) -> Result<NativeAudiobookPlaybackResponse, NativeTtsCommandError> {
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        prepare_native_audiobook_playback(app, request)
+    })
+    .await
+    .map_err(|err| {
+        NativeTtsCommandError::new(format!(
+            "Native audiobook playback preparation failed: {err}"
+        ))
+    })?;
+    result.map_err(Into::into)
 }
 
 /// Start (or resume) a full-audiobook save; streams progress events as it runs.
@@ -99,8 +108,10 @@ pub async fn tts_save_audiobook_native(
     app: tauri::AppHandle,
     state: tauri::State<'_, NativeTtsState>,
     request: NativeAudiobookSaveRequest,
-) -> Result<NativeAudiobookSaveResponse, String> {
-    save_audiobook_native(app, state, request).await
+) -> Result<NativeAudiobookSaveResponse, NativeTtsCommandError> {
+    save_audiobook_native(app, state, request)
+        .await
+        .map_err(Into::into)
 }
 
 /// Request cancellation of an in-progress save by job id.
@@ -108,8 +119,8 @@ pub async fn tts_save_audiobook_native(
 pub fn tts_cancel_audiobook_save(
     state: tauri::State<'_, NativeTtsState>,
     job_id: String,
-) -> Result<(), String> {
-    cancel_audiobook_save(state, job_id)
+) -> Result<(), NativeTtsCommandError> {
+    cancel_audiobook_save(state, job_id).map_err(Into::into)
 }
 
 /// Export a saved audiobook to a single `.papercut-audiobook` bundle file.
@@ -120,20 +131,27 @@ pub fn tts_cancel_audiobook_save(
 pub async fn tts_export_audiobook_native(
     app: tauri::AppHandle,
     request: NativeAudiobookExportRequest,
-) -> Result<NativeAudiobookExportResponse, String> {
-    tauri::async_runtime::spawn_blocking(move || export_audiobook_native(app, request))
-        .await
-        .map_err(|err| format!("Native audiobook export task failed: {err}"))?
+) -> Result<NativeAudiobookExportResponse, NativeTtsCommandError> {
+    let result =
+        tauri::async_runtime::spawn_blocking(move || export_audiobook_native(app, request))
+            .await
+            .map_err(|err| {
+                NativeTtsCommandError::new(format!("Native audiobook export task failed: {err}"))
+            })?;
+    result.map_err(Into::into)
 }
 
 /// Import a `.papercut-audiobook` bundle and restore it into app data.
 #[tauri::command]
 pub async fn tts_import_audiobook_native(
     app: tauri::AppHandle,
-) -> Result<NativeAudiobookImportResponse, String> {
-    tauri::async_runtime::spawn_blocking(move || import_audiobook_native(app))
+) -> Result<NativeAudiobookImportResponse, NativeTtsCommandError> {
+    let result = tauri::async_runtime::spawn_blocking(move || import_audiobook_native(app))
         .await
-        .map_err(|err| format!("Native audiobook import task failed: {err}"))?
+        .map_err(|err| {
+            NativeTtsCommandError::new(format!("Native audiobook import task failed: {err}"))
+        })?;
+    result.map_err(Into::into)
 }
 
 /// Read the stored source HTML of an imported audiobook document.
@@ -141,8 +159,8 @@ pub async fn tts_import_audiobook_native(
 pub fn tts_get_imported_audiobook_source(
     app: tauri::AppHandle,
     request: NativeImportedAudiobookSourceRequest,
-) -> Result<String, String> {
-    get_imported_audiobook_source(app, request)
+) -> Result<String, NativeTtsCommandError> {
+    get_imported_audiobook_source(app, request).map_err(Into::into)
 }
 
 /// Read the original bundle chunks/options for an imported audiobook document.
@@ -150,8 +168,8 @@ pub fn tts_get_imported_audiobook_source(
 pub fn tts_get_imported_audiobook_metadata(
     app: tauri::AppHandle,
     request: NativeImportedAudiobookSourceRequest,
-) -> Result<NativeImportedAudiobookMetadataResponse, String> {
-    get_imported_audiobook_metadata(app, request)
+) -> Result<NativeImportedAudiobookMetadataResponse, NativeTtsCommandError> {
+    get_imported_audiobook_metadata(app, request).map_err(Into::into)
 }
 
 /// Delete a saved audiobook's audio (and optionally its imported source).
@@ -159,18 +177,25 @@ pub fn tts_get_imported_audiobook_metadata(
 pub async fn tts_delete_audiobook_native(
     app: tauri::AppHandle,
     request: NativeAudiobookDeleteRequest,
-) -> Result<NativeAudiobookDeleteResponse, String> {
-    tauri::async_runtime::spawn_blocking(move || delete_audiobook_native(app, request))
-        .await
-        .map_err(|err| format!("Native audiobook delete task failed: {err}"))?
+) -> Result<NativeAudiobookDeleteResponse, NativeTtsCommandError> {
+    let result =
+        tauri::async_runtime::spawn_blocking(move || delete_audiobook_native(app, request))
+            .await
+            .map_err(|err| {
+                NativeTtsCommandError::new(format!("Native audiobook delete task failed: {err}"))
+            })?;
+    result.map_err(Into::into)
 }
 
 /// Dev/prototype probe for Stage 1 SILMA sidecar mechanics.
 #[tauri::command]
 pub async fn tts_probe_silma_sidecar(
     app: tauri::AppHandle,
-) -> Result<NativeSilmaSidecarProbeResponse, String> {
-    tauri::async_runtime::spawn_blocking(move || probe_silma_sidecar(app))
+) -> Result<NativeSilmaSidecarProbeResponse, NativeTtsCommandError> {
+    let result = tauri::async_runtime::spawn_blocking(move || probe_silma_sidecar(app))
         .await
-        .map_err(|err| format!("SILMA sidecar probe task failed: {err}"))?
+        .map_err(|err| {
+            NativeTtsCommandError::new(format!("SILMA sidecar probe task failed: {err}"))
+        })?;
+    result.map_err(Into::into)
 }

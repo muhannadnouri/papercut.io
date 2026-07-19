@@ -7,7 +7,8 @@
     "dev": "vite",
     "tauri": "tauri",
     "tauri:dev": "tauri dev --features native-tts-shared",
-    "build": "npm run build:typecheck && npm run build:vite && npm run build:search-index",
+    "build": "npm run check:i18n && npm run build:typecheck && npm run build:vite && npm run build:search-index",
+    "check:i18n": "node scripts/check-i18n.mjs",
     "build:typecheck": "tsc -b",
     "build:vite": "vite build",
     "build:search-index": "npx pagefind --site dist --glob \"documents/**/*.html\"",
@@ -36,9 +37,11 @@
   },
   "dependencies": {
     "@tauri-apps/plugin-opener": "2.5.3",
+    "i18next": "^26.3.6",
     "react": "^19.2.0",
     "react-aria-components": "^1.19.0",
     "react-dom": "^19.2.0",
+    "react-i18next": "^17.0.10",
     "tauri-plugin-native-audio-api": "1.0.5"
   },
   "devDependencies": {

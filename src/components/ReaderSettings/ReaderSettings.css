@@ -46,7 +46,7 @@
 .reader-settings-popover {
   position: absolute;
   top: calc(100% + 0.5rem);
-  right: 0;
+  inset-inline-end: 0;
   z-index: 30;
   display: grid;
   gap: 0.65rem;
@@ -57,12 +57,12 @@
   background: var(--surface);
   box-shadow: 0 12px 28px var(--shadow-popover);
   color: var(--text-heading);
-  text-align: left;
+  text-align: start;
 }
 
 .reader-setting-row {
   display: grid;
-  grid-template-columns: 3.4rem 1.6rem minmax(0, 1fr) 1.6rem 3.5rem;
+  grid-template-columns: 5.25rem 1.6rem minmax(0, 1fr) 1.6rem 3.5rem;
   align-items: center;
   gap: 0.55rem;
   font-size: 0.8rem;
@@ -158,8 +158,7 @@
   .reader-settings-popover {
     position: fixed;
     top: calc(var(--mobile-safe-top-space) + 7.25rem);
-    left: 1rem;
-    right: 1rem;
+    inset-inline: 1rem;
     width: auto;
     max-height: calc(100vh - 7rem);
     overflow: visible;

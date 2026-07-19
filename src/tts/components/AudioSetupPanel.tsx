@@ -1,6 +1,16 @@
 import type { ReactNode } from 'react'
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 import type { NativeTtsModelInstallProgress, NativeTtsModelStatus } from '../api/nativeTts'
-import { SILMA_NFE_STEP_OPTIONS, type TextPreprocessorInfo, type TtsModelInfo, type TtsVoice, type TtsVoiceInfo } from '../types'
+import {
+  LIBTASHKEEL_TEXT_PREPROCESSOR,
+  SILMA_NFE_STEP_OPTIONS,
+  TEXT_PREPROCESSOR_NONE,
+  type TextPreprocessorInfo,
+  type TtsModelInfo,
+  type TtsVoice,
+  type TtsVoiceInfo,
+} from '../types'
 import { formatSpeedLabel } from '../utils/format'
 
 const HIGH_THREAD_COUNT_WARNING_THRESHOLD = 4
@@ -103,6 +113,7 @@ export function AudioSetupPanel({
   voice,
   voices,
 }: AudioSetupPanelProps) {
+  const { t } = useTranslation()
   const modelInstalling = modelStatus?.installing || (
     modelInstallProgress !== null &&
     modelInstallProgress.status !== 'installed' &&
@@ -110,6 +121,7 @@ export function AudioSetupPanel({
   )
   const modelInstalled = Boolean(modelStatus?.installed || modelInstallProgress?.status === 'installed')
   const modelPercent = modelInstallProgress?.percent ?? 0
+  const modelProgressMessage = formatModelInstallProgressMessage(modelInstallProgress, t)
   const modelSize = formatModelSize(modelStatus?.archiveBytes ?? modelInstallProgress?.totalBytes ?? 0)
   const threadOptions = Array.from({ length: maxThreadCount }, (_, index) => index + 1)
   const showHighThreadWarning = threadCount > HIGH_THREAD_COUNT_WARNING_THRESHOLD
@@ -118,18 +130,22 @@ export function AudioSetupPanel({
   const modelInstallSupported = modelStatus?.installSupported ?? (selectedModel?.family !== 'silma-f5')
   const isSilmaModel = selectedModel?.family === 'silma-f5'
   const silmaRuntimeMissing = isSilmaModel && modelStatus?.runtimeInstalled === false
-  const installButtonLabel = silmaRuntimeMissing ? 'Install SILMA' : isSilmaModel ? 'Download SILMA Model' : 'Download Voice Model'
-  const installingButtonLabel = silmaRuntimeMissing ? 'Installing SILMA...' : isSilmaModel ? 'Downloading SILMA Model...' : 'Downloading Model...'
-  const sourceAssetLabel = isSilmaModel ? 'Hugging Face files' : 'GitHub release asset'
+  const installButtonLabel = silmaRuntimeMissing
+    ? t('tts.setup.installSilma')
+    : isSilmaModel ? t('tts.setup.downloadSilma') : t('tts.setup.downloadModel')
+  const installingButtonLabel = silmaRuntimeMissing
+    ? t('tts.setup.installingSilma')
+    : isSilmaModel ? t('tts.setup.downloadingSilma') : t('tts.setup.downloadingModel')
+  const sourceAssetLabel = isSilmaModel ? t('tts.setup.sourceHuggingFace') : t('tts.setup.sourceGitHub')
   const silmaInstallNote = isSilmaModel
     ? [
         silmaRuntimeMissing
-          ? 'Installs the optional desktop runtime and then the model files.'
+          ? t('tts.setup.installRuntimeNote')
           : modelInstalled
-            ? 'SILMA model files are installed.'
-            : 'Downloads pinned SILMA model.pt and vocab.txt from Hugging Face.',
-        modelSize ? 'Size: ' + modelSize + '.' : '',
-        'Large downloads can take a while and resume after interruption.',
+            ? t('tts.setup.silmaInstalledNote')
+            : t('tts.setup.silmaDownloadNote'),
+        modelSize ? t('tts.setup.downloadSize', { size: modelSize }) : '',
+        t('tts.setup.largeDownloadNote'),
       ].filter(Boolean).join(' ')
     : null
   const selectedLanguage = selectedModel ? getLanguageOption(selectedModel).value : ''
@@ -152,13 +168,13 @@ export function AudioSetupPanel({
 
   return (
     <div className="audio-setup-panel">
-      <section className="audio-setup-group" aria-label="Voice settings">
-        <h4 className="audio-setup-group-title">Voice</h4>
+      <section className="audio-setup-group" aria-label={t('tts.setup.voiceSettings')}>
+        <h4 className="audio-setup-group-title">{t('tts.setup.voiceSection')}</h4>
         <div className="audio-settings-grid audio-settings-grid-main">
           <SelectField
             className="audio-field-language"
-            label="🌐 Language"
-            title="Speech language"
+            label={'🌐 ' + t('tts.setup.language')}
+            title={t('tts.setup.speechLanguage')}
             value={selectedLanguage}
             options={languageOptions}
             onChange={(language) => {
@@ -170,10 +186,10 @@ export function AudioSetupPanel({
           <div className="audio-field audio-field-model">
             <div className="audio-field-heading">
               <span>
-                🤖 Model
+                {'🤖 ' + t('tts.setup.model')}
                 {modelInstalled && (
                   <span className="audio-model-state audio-model-state-installed">
-                    (<CheckIcon /><span>Installed</span>)
+                    (<CheckIcon /><span>{t('tts.setup.installed')}</span>)
                   </span>
                 )}
               </span>
@@ -182,7 +198,7 @@ export function AudioSetupPanel({
               className="tts-select"
               value={modelId}
               onChange={(event) => onModelChange(event.target.value)}
-              title="Speech model"
+              title={t('tts.setup.speechModel')}
             >
               {modelsForLanguage.map((model) => (
                 <option key={model.id} value={model.id}>
@@ -192,7 +208,7 @@ export function AudioSetupPanel({
             </select>
             {debugEnabled && (
               <div className="audio-model-source" title={modelStatus?.sourceUrl}>
-                <span>{modelStatus?.sourceLabel ?? 'sherpa-onnx offline TTS'}</span>
+                <span>{modelStatus?.sourceLabel ?? t('tts.setup.sourceSherpa')}</span>
                 <span>{modelSize ? modelSize + ' ' + sourceAssetLabel : sourceAssetLabel}</span>
               </div>
             )}
@@ -206,17 +222,19 @@ export function AudioSetupPanel({
                   className="tts-btn tts-save-btn"
                   onClick={onInstallModel}
                   disabled={modelInstalling}
-                  title={silmaRuntimeMissing ? 'Install the optional SILMA desktop runtime pack' : isSilmaModel ? 'Download SILMA model files' : 'Download selected offline voice model'}
+                  title={silmaRuntimeMissing
+                    ? t('tts.setup.installRuntimeTitle')
+                    : isSilmaModel ? t('tts.setup.downloadSilmaTitle') : t('tts.setup.downloadModelTitle')}
                 >
                   <DownloadIcon />
                   <span>{modelInstalling ? installingButtonLabel : installButtonLabel}</span>
                 </button>
               )}
-              {silmaInstallNote && <span className="audio-thread-meta">{silmaInstallNote}</span>}
+              {silmaInstallNote && <span className="audio-thread-meta" dir="auto">{silmaInstallNote}</span>}
               {!modelInstalled && !modelInstallSupported && (
                 <div className="audiobook-status audiobook-status-error" aria-live="polite">
                   <div className="audiobook-status-row">
-                    <span>{modelStatus?.message ?? 'Manual model install required'}</span>
+                    <span dir="auto">{modelStatus?.message ?? t('tts.setup.manualInstall')}</span>
                   </div>
                 </div>
               )}
@@ -226,7 +244,7 @@ export function AudioSetupPanel({
                   aria-live="polite"
                 >
                   <div className="audiobook-status-row">
-                    <span>{modelInstallProgress?.message ?? modelStatus?.message ?? 'Preparing model download'}</span>
+                    <span dir="auto">{modelProgressMessage ?? modelStatus?.message ?? t('tts.setup.preparingDownload')}</span>
                     <span>{modelPercent}%</span>
                   </div>
                   {!modelInstalled && modelInstallProgress?.status !== 'error' && (
@@ -239,11 +257,11 @@ export function AudioSetupPanel({
               {silmaRuntimeMissing && (
                 <div className="audiobook-status audiobook-status-error" aria-live="polite">
                   <div className="audiobook-status-row">
-                    <span>{modelStatus?.runtimeMessage ?? 'SILMA runtime pack is not installed'}</span>
+                    <span dir="auto">{modelStatus?.runtimeMessage ?? t('tts.setup.runtimeMissing')}</span>
                   </div>
                   {modelStatus?.runtimeDir && (
                     <div className="audiobook-status-row">
-                      <span>{modelStatus.runtimeDir}</span>
+                      <span dir="ltr">{modelStatus.runtimeDir}</span>
                     </div>
                   )}
                 </div>
@@ -253,29 +271,29 @@ export function AudioSetupPanel({
 
           <SelectField
             className="audio-field-voice"
-            label="🔊 Voice"
-            title="Voice"
+            label={'🔊 ' + t('tts.setup.voice')}
+            title={t('tts.setup.voice')}
             value={voice}
             options={voices.map((item) => ({ label: item.name, value: item.id }))}
             onChange={(value) => onVoiceChange(value as TtsVoice)}
           >
             {isSilmaModel && (
               <span className="audio-thread-meta">
-                SILMA speaks using its built-in Arabic sample voice. Custom sample voices are not available yet.
+                {t('tts.setup.silmaVoiceHelp')}
               </span>
             )}
           </SelectField>
 
           <div className="audio-field audio-field-speed audio-field-disabled">
-            <span id="tts-speed-label">⚡ Generated Speed</span>
+            <span id="tts-speed-label">{'⚡ ' + t('tts.setup.generatedSpeed')}</span>
             <div className="audio-speed-row">
               <button
                 type="button"
                 className="audio-speed-step"
                 onClick={() => onSpeedChange(snapSpeed(speed - SPEED_STEP))}
                 disabled
-                aria-label="Decrease Speed"
-                title="Generated speed is fixed at 1x"
+                aria-label={t('tts.setup.decreaseSpeed')}
+                title={t('tts.setup.fixedSpeed')}
               >
                 &minus;
               </button>
@@ -288,7 +306,7 @@ export function AudioSetupPanel({
                 value={speed}
                 onChange={(event) => onSpeedChange(snapSpeed(Number(event.target.value)))}
                 disabled
-                title="Generated speed is fixed at 1x"
+                title={t('tts.setup.fixedSpeed')}
                 aria-labelledby="tts-speed-label"
                 aria-describedby="tts-speed-help"
               />
@@ -297,81 +315,78 @@ export function AudioSetupPanel({
                 className="audio-speed-step"
                 onClick={() => onSpeedChange(snapSpeed(speed + SPEED_STEP))}
                 disabled
-                aria-label="Increase Speed"
-                title="Generated speed is fixed at 1x"
+                aria-label={t('tts.setup.increaseSpeed')}
+                title={t('tts.setup.fixedSpeed')}
               >
                 +
               </button>
               <span className="audio-speed-value">{formatSpeedLabel(speed)}</span>
             </div>
             <span id="tts-speed-help" className="audio-thread-meta">
-              Generated at 1x - adjust playback speed while listening.
+              {t('tts.setup.speedHelp')}
             </span>
           </div>
         </div>
       </section>
 
-      <section className="audio-setup-group audio-setup-advanced" aria-label="Advanced audio settings">
+      <section className="audio-setup-group audio-setup-advanced" aria-label={t('tts.setup.advancedSettings')}>
         <div className="audio-setup-group-heading">
-          <h4 className="audio-setup-group-title">Advanced</h4>
+          <h4 className="audio-setup-group-title">{t('tts.setup.advanced')}</h4>
         </div>
         {hasTextProcessing && (
           <SelectField
             className="audio-field-text-processing"
-            label="✨ Text Processing"
-            title="Optional language preprocessing before speech synthesis"
+            label={'✨ ' + t('tts.setup.textProcessing')}
+            title={t('tts.setup.textProcessingTitle')}
             value={textPreprocessor}
-            options={textPreprocessors.map((item) => ({ label: item.name, value: item.id }))}
+            options={textPreprocessors.map((item) => ({
+              label: localizeTextPreprocessor(item, t).name,
+              value: item.id,
+            }))}
             onChange={onTextPreprocessorChange}
           >
             <span className="audio-thread-meta">
-              {textPreprocessors.find((item) => item.id === textPreprocessor)?.description}
+              {localizeTextPreprocessor(
+                textPreprocessors.find((item) => item.id === textPreprocessor),
+                t,
+              ).description}
             </span>
           </SelectField>
         )}
         <SelectField
           className="audio-field-threads"
-          label="🧵 Threads"
+          label={'🧵 ' + t('tts.setup.threads')}
           selectClassName="tts-threads"
-          title="Native TTS threads"
+          title={t('tts.setup.threadsTitle')}
           value={threadCount}
           options={threadOptions.map((count) => ({
-            label: count + ' ' + (count === 1 ? 'thread' : 'threads'),
+            label: t('tts.setup.threadCount', { count }),
             value: count,
           }))}
           onChange={(value) => onThreadCountChange(Number(value))}
         >
           <span className="audio-thread-meta">
-            Default {defaultThreadCount}, detected max {maxThreadCount}
-            {appliedThreadCount !== null ? `, save applied ${appliedThreadCount}` : ''}
+            {appliedThreadCount !== null
+              ? t('tts.setup.threadSummaryApplied', {
+                  default: defaultThreadCount,
+                  max: maxThreadCount,
+                  applied: appliedThreadCount,
+                })
+              : t('tts.setup.threadSummary', {
+                  default: defaultThreadCount,
+                  max: maxThreadCount,
+                })}
           </span>
           {showHighThreadWarning && (
             <span className="audio-thread-warning" role="alert">
-              High thread counts can increase memory use, heat, battery drain, and thermal throttling. More threads may be slower.
+              {t('tts.setup.threadWarning')}
             </span>
           )}
         </SelectField>
-        {isSilmaModel && (
-          <SelectField
-            className="audio-field-silma-quality"
-            label="🎚️ SILMA Quality"
-            title="SILMA diffusion steps"
-            value={silmaNfeStep}
-            options={SILMA_NFE_STEP_OPTIONS.map((step) => ({
-              label: silmaNfeStepLabel(step),
-              value: step,
-            }))}
-            onChange={(value) => onSilmaNfeStepChange(Number(value))}
-          >
-            <span className="audio-thread-meta">
-              Higher steps usually sound better and run slower; lower steps are for benchmarking.
-            </span>
-          </SelectField>
-        )}
-        <label className="audio-field audio-field-diagnostics" title="Show TTS diagnostic events and model source details">
-          <span>🧪 Diagnostics</span>
+        <label className="audio-field audio-field-diagnostics" title={t('tts.setup.diagnosticsTitle')}>
+          <span>{'🧪 ' + t('tts.setup.diagnostics')}</span>
           <span className="audio-diagnostics-control">
-            <span className="audio-diagnostics-value">{debugEnabled ? 'On' : 'Off'}</span>
+            <span className="audio-diagnostics-value">{debugEnabled ? t('tts.setup.on') : t('tts.setup.off')}</span>
             <input
               type="checkbox"
               checked={debugEnabled}
@@ -381,17 +396,34 @@ export function AudioSetupPanel({
             <span className="audio-diagnostics-switch" aria-hidden="true" />
           </span>
         </label>
-        {debugEnabled && isSilmaModel && onProbeSilmaSidecar && (
+        {isSilmaModel && (
+          <SelectField
+            className="audio-field-silma-quality"
+            label={'🎚️ ' + t('tts.setup.silmaQuality')}
+            title={t('tts.setup.silmaQualityTitle')}
+            value={silmaNfeStep}
+            options={SILMA_NFE_STEP_OPTIONS.map((step) => ({
+              label: silmaNfeStepLabel(step, t),
+              value: step,
+            }))}
+            onChange={(value) => onSilmaNfeStepChange(Number(value))}
+          >
+            <span className="audio-thread-meta">
+              {t('tts.setup.qualityHelp')}
+            </span>
+          </SelectField>
+        )}
+        {isSilmaModel && onProbeSilmaSidecar && (
           <div className="audio-field audio-field-silma-probe">
-            <span>SILMA Sidecar</span>
+            <span>{t('tts.setup.silmaSidecar')}</span>
             <button
               type="button"
               className="audio-probe-button"
               onClick={onProbeSilmaSidecar}
               disabled={silmaProbeRunning}
-              title="Run the SILMA sidecar probe"
+              title={t('tts.setup.probeTitle')}
             >
-              {silmaProbeRunning ? 'Probing...' : 'Probe Sidecar'}
+              {silmaProbeRunning ? t('tts.setup.probing') : t('tts.setup.probeSidecar')}
             </button>
           </div>
         )}
@@ -400,13 +432,55 @@ export function AudioSetupPanel({
   )
 }
 
-function silmaNfeStepLabel(step: number): string {
-  if (step === 64) return 'Highest Quality (64)'
-  if (step === 32) return 'High Quality (32)'
-  if (step === 16) return 'Balanced (16)'
-  if (step === 12) return 'Fast (12)'
-  if (step === 8) return 'Faster (8)'
-  return 'Fastest (' + step + ')'
+function silmaNfeStepLabel(step: number, t: TFunction): string {
+  if (step === 64) return t('tts.setup.qualityHighest', { step })
+  if (step === 32) return t('tts.setup.qualityHigh', { step })
+  if (step === 16) return t('tts.setup.qualityBalanced', { step })
+  if (step === 12) return t('tts.setup.qualityFast', { step })
+  if (step === 8) return t('tts.setup.qualityFaster', { step })
+  return t('tts.setup.qualityFastest', { step })
+}
+
+function localizeTextPreprocessor(
+  item: TextPreprocessorInfo | undefined,
+  t: TFunction,
+): Pick<TextPreprocessorInfo, 'name' | 'description'> {
+  if (!item) return { name: '', description: '' }
+  if (item.id === TEXT_PREPROCESSOR_NONE) {
+    return {
+      name: t('tts.setup.preprocessorOriginal'),
+      description: item.description.includes('Arabic')
+        ? t('tts.setup.preprocessorArabicOriginalDescription')
+        : t('tts.setup.preprocessorOriginalDescription'),
+    }
+  }
+  if (item.id === LIBTASHKEEL_TEXT_PREPROCESSOR) {
+    return {
+      name: t('tts.setup.preprocessorTashkeel'),
+      description: t('tts.setup.preprocessorTashkeelDescription'),
+    }
+  }
+  if (item.id === 'silma-default') {
+    return {
+      name: t('tts.setup.preprocessorSilma'),
+      description: t('tts.setup.preprocessorSilmaDescription'),
+    }
+  }
+  return item
+}
+
+function formatModelInstallProgressMessage(
+  progress: NativeTtsModelInstallProgress | null,
+  t: TFunction,
+): string | undefined {
+  if (!progress) return undefined
+  if (progress.status === 'error') return progress.message
+  if (progress.status === 'installed') return t('tts.setup.installed')
+  if (progress.status === 'extracting') return t('tts.audiobooks.extracting')
+  if (progress.status === 'downloading') {
+    return t('tts.audiobooks.downloadingPercent', { percent: progress.percent })
+  }
+  return t('tts.audiobooks.startingDownload')
 }
 
 function SelectField({

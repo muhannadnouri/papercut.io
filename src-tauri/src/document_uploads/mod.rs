@@ -30,3 +30,6 @@ mod search;
 mod storage;
 mod store;
 mod types;
+
+#[cfg(feature = "native-tts-core")]
+pub(crate) use html::sanitize_html;

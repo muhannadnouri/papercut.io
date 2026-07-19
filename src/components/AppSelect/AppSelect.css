@@ -19,7 +19,7 @@
   font: inherit;
   font-size: 0.82rem;
   font-weight: 700;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 
@@ -51,20 +51,22 @@
   line-height: 1;
 }
 
-.app-select-menu {
-  position: absolute;
-  top: calc(100% + 0.35rem);
-  right: 0;
-  left: 0;
-  z-index: 40;
-  display: grid;
+.app-select-popover {
+  z-index: 200;
+  width: var(--trigger-width);
   max-height: min(18rem, calc(100vh - 8rem));
-  overflow-y: auto;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   background: var(--surface);
   color: var(--text-heading);
   box-shadow: 0 12px 28px var(--shadow-popover);
+  overflow: hidden;
+}
+
+.app-select-menu {
+  display: grid;
+  max-height: inherit;
+  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -79,7 +81,7 @@
   background: transparent;
   color: inherit;
   font: inherit;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 

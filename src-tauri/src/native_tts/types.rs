@@ -7,6 +7,88 @@
 
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Stable command error code plus the original diagnostic detail.
+pub(crate) struct NativeTtsCommandError {
+    pub(crate) code: &'static str,
+    pub(crate) message: String,
+}
+
+impl NativeTtsCommandError {
+    pub(crate) fn new(message: String) -> Self {
+        Self {
+            code: native_tts_error_code(&message),
+            message,
+        }
+    }
+}
+
+impl From<String> for NativeTtsCommandError {
+    fn from(message: String) -> Self {
+        Self::new(message)
+    }
+}
+
+/// Classify only expected user-actionable failures; unknown details stay generic.
+fn native_tts_error_code(message: &str) -> &'static str {
+    let message = message.to_ascii_lowercase();
+    if message.contains("cancelled") {
+        return "operation-cancelled";
+    }
+    if message.contains("not compiled")
+        || message.contains("currently supported on linux x64 only")
+        || message.contains("not supported on this platform yet")
+        || message.contains("native tts is not available")
+    {
+        return "native-tts-unavailable";
+    }
+    if message.contains("unsupported native tts model")
+        || message.contains("is not supported by model")
+    {
+        return "unsupported-model";
+    }
+    if message.contains("already in progress") {
+        return "operation-in-progress";
+    }
+    if message.contains("runtime pack is not installed")
+        || message.contains("worker not found")
+        || message.contains("missing worker executable")
+    {
+        return "runtime-not-installed";
+    }
+    if message.contains("offline voice model is not installed")
+        || (message.starts_with("missing ") && message.contains("voice model"))
+        || message.contains("required model files")
+        || message.contains("missing required files")
+    {
+        return "model-not-installed";
+    }
+    if message.contains("no speakable audiobook chunks")
+        || message.contains("audiobook with no chunks")
+    {
+        return "no-speakable-text";
+    }
+    if message.contains("does not match the current document chunks") {
+        return "audiobook-cache-mismatch";
+    }
+    if message.contains("4 gb riff/wav limit") {
+        return "wav-too-large";
+    }
+    if message.contains("audiobook bundle")
+        && (message.contains("not a current")
+            || message.contains("not a supported")
+            || message.contains("did not contain")
+            || message.contains("does not contain")
+            || message.contains("invalid")
+            || message.contains("ended unexpectedly")
+            || message.contains("without a content type"))
+    {
+        return "invalid-audiobook-bundle";
+    }
+    "native-tts-failed"
+}
+
 /// IPC requests from older frontends retain historical identity processing.
 fn default_text_preprocessor() -> String {
     "none".into()
@@ -374,4 +456,29 @@ pub(crate) struct NativeTtsChunkResponse {
     pub(crate) wav_bytes: usize,
     pub(crate) generate_ms: u128,
     pub(crate) backend: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::native_tts_error_code;
+
+    #[test]
+    fn expected_native_tts_errors_have_stable_codes() {
+        assert_eq!(
+            native_tts_error_code("Offline voice model is not installed"),
+            "model-not-installed"
+        );
+        assert_eq!(
+            native_tts_error_code("Audiobook export cancelled"),
+            "operation-cancelled"
+        );
+        assert_eq!(
+            native_tts_error_code("Selected file is not a supported Papercut audiobook bundle"),
+            "invalid-audiobook-bundle"
+        );
+        assert_eq!(
+            native_tts_error_code("unexpected library detail"),
+            "native-tts-failed"
+        );
+    }
 }

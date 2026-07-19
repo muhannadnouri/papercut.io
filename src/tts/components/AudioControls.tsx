@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { AudiobookCacheState } from '../hooks/useAudiobookCache'
 import type { TtsChunkSummary, TtsPlayerState } from '../hooks/useTtsPlayer'
 import { formatSpeedLabel } from '../utils/format'
@@ -58,6 +59,7 @@ export function AudioControls({
   ttsState,
   wordHighlightEnabled,
 }: AudioControlsProps) {
+  const { t } = useTranslation()
   const controlsRef = useRef<HTMLElement | null>(null)
   const [chunkMenuOpen, setChunkMenuOpen] = useState(false)
   const isActive = ttsState.status === 'playing' ||
@@ -110,10 +112,10 @@ export function AudioControls({
   }, [chunkMenuOpen])
 
   return (
-    <section ref={controlsRef} className="audio-controls" aria-label="Audiobook controls">
+    <section ref={controlsRef} className="audio-controls" aria-label={t('tts.controls.ariaLabel')}>
       <div className="audio-compact-row">
         {!showFloatingPlayback && canPlayAudiobook && (
-          <button className="audio-icon-btn audio-primary-btn" onClick={onRead} aria-label="Play saved audiobook" title="Play saved audiobook">
+          <button className="audio-icon-btn audio-primary-btn" onClick={onRead} aria-label={t('tts.controls.playSaved')} title={t('tts.controls.playSaved')}>
             <AudioIcon name="play" />
           </button>
         )}
@@ -133,29 +135,29 @@ export function AudioControls({
       )}
 
       {showFloatingPlayback && (
-        <div className="audio-floating-playback" aria-label="Playback controls">
-          <button className="audio-icon-btn" onClick={onSkipBackward} disabled={!canSkipBackward} aria-label="Previous audiobook chunk" title="Previous chunk">
+        <div className="audio-floating-playback" aria-label={t('tts.controls.playbackControls')}>
+          <button className="audio-icon-btn" onClick={onSkipBackward} disabled={!canSkipBackward} aria-label={t('tts.controls.previousChunk')} title={t('tts.controls.previousChunkTitle')}>
             <AudioIcon name="back" />
           </button>
           {isPaused ? (
-            <button className="audio-icon-btn audio-primary-btn" onClick={onResume} aria-label="Resume audiobook" title="Resume">
+            <button className="audio-icon-btn audio-primary-btn" onClick={onResume} aria-label={t('tts.controls.resume')} title={t('tts.controls.resumeTitle')}>
               <AudioIcon name="resume" />
             </button>
           ) : (
-            <button className="audio-icon-btn audio-primary-btn" onClick={onPause} disabled={ttsState.status === 'loading'} aria-label="Pause audiobook" title="Pause">
+            <button className="audio-icon-btn audio-primary-btn" onClick={onPause} disabled={ttsState.status === 'loading'} aria-label={t('tts.controls.pause')} title={t('tts.controls.pauseTitle')}>
               <AudioIcon name="pause" />
             </button>
           )}
-          <button className="audio-icon-btn" onClick={onSkipForward} disabled={!canSkipForward} aria-label="Next audiobook chunk" title="Next chunk">
+          <button className="audio-icon-btn" onClick={onSkipForward} disabled={!canSkipForward} aria-label={t('tts.controls.nextChunk')} title={t('tts.controls.nextChunkTitle')}>
             <AudioIcon name="forward" />
           </button>
           {showPlaybackMenuButton && (
             <button
               className={'audio-icon-btn audio-menu-btn' + (chunkMenuOpen ? ' audio-menu-btn-open' : '')}
               onClick={() => setChunkMenuOpen((value) => !value)}
-              aria-label={chunkMenuOpen ? 'Hide playback menu' : 'Show playback menu'}
+              aria-label={chunkMenuOpen ? t('tts.controls.hideMenu') : t('tts.controls.showMenu')}
               aria-expanded={chunkMenuOpen}
-              title="Playback menu"
+              title={t('tts.controls.menuTitle')}
             >
               <AudioIcon name="menu" />
             </button>
@@ -164,17 +166,19 @@ export function AudioControls({
             type="button"
             className="audio-rate-control"
             onClick={handlePlaybackRateChange}
-            aria-label={'Playback speed ' + playbackRateLabel + '. Tap to change speed.'}
-            title="Tap to change playback speed"
+            aria-label={t('tts.controls.playbackSpeed', { speed: playbackRateLabel })}
+            title={t('tts.controls.playbackSpeedTitle')}
           >
             {playbackRateLabel}
           </button>
-          <button className="audio-icon-btn" onClick={onStop} aria-label="Stop audiobook" title="Stop">
+          <button className="audio-icon-btn" onClick={onStop} aria-label={t('tts.controls.stop')} title={t('tts.controls.stopTitle')}>
             <AudioIcon name="stop" />
           </button>
           {showPlaybackStatus && (
-            <div className={'audio-floating-status tts-status-' + ttsState.status}>
-              <span>{ttsState.status === 'error' ? ttsState.message : 'Chunk ' + (currentChunkNumber || 0) + '/' + chunkTotal}</span>
+            <div className={'audio-floating-status tts-status-' + ttsState.status} dir="auto">
+              <span>{ttsState.status === 'error'
+                ? ttsState.message
+                : t('tts.controls.chunkProgress', { current: currentChunkNumber || 0, total: chunkTotal })}</span>
               {ttsState.status !== 'error' && playbackNotice && (
                 <span>{playbackNotice}</span>
               )}
@@ -182,7 +186,7 @@ export function AudioControls({
                 <span>{formatTtsTime(ttsState.currentChunkTime)} / {formatTtsTime(ttsState.currentChunkDuration)}</span>
               )}
               {ttsState.status !== 'error' && (
-                <div className="tts-meter" aria-label={'Current chunk ' + chunkPercent + '% complete'}>
+                <div className="tts-meter" aria-label={t('tts.controls.currentChunkPercent', { percent: chunkPercent })}>
                   <span style={{ width: chunkPercent + '%' }} />
                 </div>
               )}
@@ -196,7 +200,7 @@ export function AudioControls({
   function renderSaveButton() {
     if (isPreparingSave) {
       return (
-        <button className="audio-icon-btn" disabled aria-label="Preparing audiobook save" title="Preparing audiobook save">
+        <button className="audio-icon-btn" disabled aria-label={t('tts.controls.preparingSave')} title={t('tts.controls.preparingSave')}>
           <AudioIcon name="save" />
         </button>
       )
@@ -207,8 +211,8 @@ export function AudioControls({
         <button
           className="audio-icon-btn"
           onClick={onManageSave}
-          aria-label={'Audiobook save is ' + audiobookPercent + '%. Open Audiobooks to manage it.'}
-          title={'Saving ' + audiobookPercent + '% - manage in Audiobooks'}
+          aria-label={t('tts.controls.saveProgress', { percent: audiobookPercent })}
+          title={t('tts.controls.saveProgressTitle', { percent: audiobookPercent })}
         >
           <span className="spinner audio-save-spinner" />
         </button>
@@ -220,8 +224,8 @@ export function AudioControls({
         className={'audio-icon-btn' + (audiobookState.complete ? ' audio-save-complete' : '')}
         onClick={onSave}
         disabled={!canSaveAudiobook || audiobookState.complete}
-        aria-label={audiobookState.complete ? 'Audiobook saved for this voice and generated speed' : 'Save audiobook'}
-        title={audiobookState.complete ? 'Audiobook saved for this voice and generated speed' : 'Save audiobook'}
+        aria-label={audiobookState.complete ? t('tts.controls.savedForVoice') : t('tts.controls.save')}
+        title={audiobookState.complete ? t('tts.controls.savedForVoice') : t('tts.controls.save')}
       >
         <AudioIcon name="save" />
       </button>
@@ -258,6 +262,7 @@ const ChunkMenu = memo(function ChunkMenu({
   onSelect,
   onWordHighlightEnabledChange,
 }: ChunkMenuProps) {
+  const { t } = useTranslation()
   const listRef = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const firstVisibleIndex = Math.max(
@@ -282,24 +287,26 @@ const ChunkMenu = memo(function ChunkMenu({
   }, [currentChunkIndex])
 
   return (
-    <div className="audio-chunk-menu" aria-label="Playback menu">
+    <div className="audio-chunk-menu" aria-label={t('tts.controls.menuTitle')}>
       <div className="audio-chunk-menu-header">
-        <span>Playback</span>
+        <span>{t('tts.controls.playback')}</span>
         <button
           type="button"
           className="audio-word-highlight-toggle"
           onClick={() => onWordHighlightEnabledChange(!wordHighlightEnabled)}
           aria-pressed={wordHighlightEnabled}
-          aria-label={'Word highlight (experimental feature) is ' + (wordHighlightEnabled ? 'on' : 'off')}
+          aria-label={t('tts.controls.wordHighlightState', {
+            state: wordHighlightEnabled ? t('tts.setup.on') : t('tts.setup.off'),
+          })}
         >
-          Word Highlight <span className="audio-beta-tag">BETA</span>: {wordHighlightEnabled ? 'On' : 'Off'}
+          {t('tts.controls.wordHighlight')} <span className="audio-beta-tag">{t('tts.controls.experimental')}</span>: {wordHighlightEnabled ? t('tts.setup.on') : t('tts.setup.off')}
         </button>
       </div>
       {chunks.length > 1 && (
         <>
           <div className="audio-chunk-menu-subheader">
-            <span>Jump To</span>
-            <span>{chunks.length} chunks</span>
+            <span>{t('tts.controls.jumpTo')}</span>
+            <span>{t('tts.controls.chunkCount', { count: chunks.length })}</span>
           </div>
           <div
             ref={listRef}

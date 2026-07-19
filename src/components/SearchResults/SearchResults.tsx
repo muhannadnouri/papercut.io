@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import type { SearchOpenTarget, SearchResult } from '../../types/search'
 import './SearchResults.css'
 
@@ -26,6 +28,7 @@ export function SearchResults({
   openingDocumentUrl,
   onViewResult,
 }: SearchResultsProps) {
+  const { t } = useTranslation()
   const filtered = selectedFilters.size > 0
     ? results.filter((r) => selectedFilters.has(r.url))
     : results
@@ -34,44 +37,37 @@ export function SearchResults({
 
   return (
     <div className="results-container">
-      {loading && <div className="search-loading">Searching...</div>}
+      {loading && <div className="search-loading">{t('search.results.searching')}</div>}
 
       {lastSearchInfo && !loading && submittedQuery.length > 0 && visibleCount > 0 && (
         <div className="search-info">
-          {lastSearchInfo.phrases.length > 0 ? (
-            <>
-              {visibleCount} {hasFilters ? 'filtered ' : ''}document{visibleCount === 1 ? '' : 's'} contain{visibleCount === 1 ? 's' : ''}{' '}
-              exact phrase{lastSearchInfo.phrases.length === 1 ? '' : 's'}{' '}
-              {lastSearchInfo.phrases.map((p, i) => (
-                <span key={i} className="query-tag">&ldquo;{p}&rdquo;</span>
-              ))}
-              .
-            </>
-          ) : (
-            <>
-              {visibleCount} {hasFilters ? 'filtered ' : ''}document{visibleCount === 1 ? '' : 's'} matched terms{' '}
-              <span className="query-tag">&ldquo;{submittedQuery}&rdquo;</span>.
-            </>
-          )}
+          <strong>{t('search.results.resultCount', { count: visibleCount })}</strong>
+          {hasFilters && <> · {t('search.results.filtered')}</>}
+          {' · '}
+          {lastSearchInfo.phrases.length > 0
+            ? t(lastSearchInfo.phrases.length === 1 ? 'search.results.exactPhrase' : 'search.results.exactPhrases')
+            : t('search.results.matchedTerms')}
+          {' '}
+          {(lastSearchInfo.phrases.length > 0 ? lastSearchInfo.phrases : [submittedQuery]).map((phrase, index) => (
+            <bdi key={index} className="query-tag">&ldquo;{phrase}&rdquo;</bdi>
+          ))}
         </div>
       )}
 
       {submittedQuery.length > 0 && filtered.length === 0 && !loading && (
         <p className="no-results">
-          {lastSearchInfo?.phrases.length ? (
-            <>
-              No {hasFilters ? 'filtered ' : ''}documents contain exact phrase{lastSearchInfo.phrases.length === 1 ? '' : 's'}{' '}
-              {lastSearchInfo.phrases.map((p, i) => (
-                <span key={i} className="query-tag">&ldquo;{p}&rdquo;</span>
-              ))}
-              .
-            </>
-          ) : (
-            <>
-              No {hasFilters ? 'filtered ' : ''}documents matched terms{' '}
-              <span className="query-tag">&ldquo;{submittedQuery}&rdquo;</span>.
-            </>
-          )}
+          <span>{t('search.results.noResults')}</span>
+          {hasFilters && <> <span>{t('search.results.filtersApplied')}</span></>}
+          {' '}
+          <span>
+            {lastSearchInfo?.phrases.length
+              ? t(lastSearchInfo.phrases.length === 1 ? 'search.results.exactPhrase' : 'search.results.exactPhrases')
+              : t('search.results.searchTerms')}
+          </span>
+          {' '}
+          {(lastSearchInfo?.phrases.length ? lastSearchInfo.phrases : [submittedQuery]).map((phrase, index) => (
+            <bdi key={index} className="query-tag">&ldquo;{phrase}&rdquo;</bdi>
+          ))}
         </p>
       )}
 
@@ -79,7 +75,7 @@ export function SearchResults({
         const opening = openingDocumentUrl === result.url
         const disabled = openingDisabled || opening
         const exactPhrase = Boolean(lastSearchInfo?.phrases.length)
-        const meta = resultMeta(result, exactPhrase)
+        const meta = resultMeta(result, exactPhrase, t)
         const excerpt = resultExcerpt(result, exactPhrase)
         return (
           <button
@@ -89,11 +85,15 @@ export function SearchResults({
             disabled={disabled}
             onClick={() => { if (!disabled) onViewResult(result, searchOpenTargetForResult(result, exactPhrase)) }}
           >
-            <span className="result-title">{result.meta.title}{opening ? ' (Opening...)' : ''}</span>
-            {meta && <span className="result-meta">{meta}</span>}
+            <span className="result-title">
+              <bdi>{result.meta.title}</bdi>
+              {opening ? ` (${t('common.opening')})` : ''}
+            </span>
+            {meta && <span className="result-meta" dir="auto">{meta}</span>}
             {excerpt && (
               <span
                 className="result-excerpt"
+                dir="auto"
                 dangerouslySetInnerHTML={{ __html: excerpt }}
               />
             )}
@@ -103,8 +103,8 @@ export function SearchResults({
 
       {submittedQuery.length === 0 && (
         <div className="welcome">
-          <p>Type a query and press Search (or Enter) to search across all indexed documents.</p>
-          <p className="welcome-hint">Wrap a phrase in double quotes for exact-match search.</p>
+          <p>{t('search.results.welcome')}</p>
+          <p className="welcome-hint">{t('search.results.welcomeHint')}</p>
         </div>
       )}
     </div>
@@ -138,24 +138,24 @@ function usefulExcerpt(excerpt: string | undefined, sectionTitle: string | undef
   return excerpt
 }
 
-function resultMeta(result: SearchResult, exactPhrase: boolean): string | null {
+function resultMeta(result: SearchResult, exactPhrase: boolean, t: TFunction): string | null {
   if (exactPhrase) {
     const count = result.matchCount
-    return count ? count + ' exact match' + (count === 1 ? '' : 'es') : null
+    return count ? t('search.results.exactMatch', { count }) : null
   }
 
   if (result.matchScope === 'document') {
-    return 'Terms appear in separate sections'
+    return t('search.results.termsSeparateSections')
   }
 
   const parts = [
     result.sub_results?.[0]?.title
-      ? 'Best matching section: ' + result.sub_results[0].title
-      : 'Best matching passage',
+      ? t('search.results.bestSection', { title: result.sub_results[0].title })
+      : t('search.results.bestPassage'),
   ]
   const count = result.matchCount ?? result.sub_results?.length
   if (count && count > 1) {
-    parts.push(count + ' matching sections')
+    parts.push(t('search.results.matchingSections', { count }))
   }
   return parts.join(' · ')
 }

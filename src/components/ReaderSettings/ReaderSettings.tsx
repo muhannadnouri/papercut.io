@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   FONT_FAMILY_OPTIONS,
   READER_SETTING_LIMITS,
@@ -45,6 +46,7 @@ function EnabledReaderSettings({
   onChange,
   onReset,
 }: Omit<ReaderSettingsProps, 'disabled'>) {
+  const { t } = useTranslation()
   const rootRef = useRef<HTMLDivElement | null>(null)
   const [open, setOpen] = useState(false)
 
@@ -76,14 +78,15 @@ function EnabledReaderSettings({
         onClick={() => setOpen((value) => !value)}
       />
       {open && (
-        <div className="reader-settings-popover" role="dialog" aria-label="Reader settings">
+        <div className="reader-settings-popover" role="dialog" aria-label={t('reader.settings.dialogLabel')}>
           <div className="reader-setting-row">
-            <span id="reader-setting-font">Font</span>
+            <span id="reader-setting-font">{t('reader.settings.font')}</span>
             <AppSelect
               className="reader-setting-font-select"
               value={settings.fontFamily}
               options={FONT_FAMILY_OPTIONS.map((option) => ({
                 ...option,
+                label: t(option.labelKey),
                 style: { fontFamily: option.value },
               }))}
               ariaLabelledBy="reader-setting-font"
@@ -92,25 +95,28 @@ function EnabledReaderSettings({
           </div>
 
           <ReaderRange
-            label="Size"
+            id="size"
+            label={t('reader.settings.size')}
             value={settings.fontSizePx}
             config={READER_SETTING_LIMITS.fontSizePx}
             onChange={(value) => onChange({ fontSizePx: value })}
           />
           <ReaderRange
-            label="Line"
+            id="line-spacing"
+            label={t('reader.settings.lineSpacing')}
             value={settings.lineHeight}
             config={READER_SETTING_LIMITS.lineHeight}
             onChange={(value) => onChange({ lineHeight: value })}
           />
           <ReaderRange
-            label="Width"
+            id="width"
+            label={t('reader.settings.width')}
             value={settings.widthCh}
             config={READER_SETTING_LIMITS.widthCh}
             onChange={(value) => onChange({ widthCh: value })}
           />
 
-          <button className="reader-settings-reset" type="button" onClick={onReset}>Reset</button>
+          <button className="reader-settings-reset" type="button" onClick={onReset}>{t('reader.settings.reset')}</button>
         </div>
       )}
     </div>
@@ -126,12 +132,13 @@ function ReaderSettingsButton({
   open: boolean
   onClick: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <button
       className="reader-settings-btn"
-      aria-label="Reading appearance"
+      aria-label={t('reader.settings.button')}
       aria-expanded={!disabled && open}
-      title="Reading appearance"
+      title={t('reader.settings.button')}
       disabled={disabled}
       onClick={onClick}
       type="button"
@@ -142,17 +149,20 @@ function ReaderSettingsButton({
 }
 
 function ReaderRange({
+  id,
   label,
   value,
   config,
   onChange,
 }: {
+  id: string
   label: string
   value: number
   config: ReaderRangeConfig
   onChange: (value: number) => void
 }) {
-  const labelId = `reader-setting-${label.toLowerCase()}`
+  const { t } = useTranslation()
+  const labelId = `reader-setting-${id}`
 
   return (
     <div className="reader-setting-row reader-setting-range" role="group" aria-labelledby={labelId}>
@@ -162,8 +172,8 @@ function ReaderRange({
         className="reader-setting-step"
         onClick={() => onChange(stepReaderValue(value, config, -1))}
         disabled={value <= config.min}
-        aria-label={`Decrease ${label}`}
-        title={`Decrease ${label}`}
+        aria-label={t('reader.settings.decrease', { setting: label })}
+        title={t('reader.settings.decrease', { setting: label })}
       >
         &minus;
       </button>
@@ -182,8 +192,8 @@ function ReaderRange({
         className="reader-setting-step"
         onClick={() => onChange(stepReaderValue(value, config, 1))}
         disabled={value >= config.max}
-        aria-label={`Increase ${label}`}
-        title={`Increase ${label}`}
+        aria-label={t('reader.settings.increase', { setting: label })}
+        title={t('reader.settings.increase', { setting: label })}
       >
         +
       </button>
