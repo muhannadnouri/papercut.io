@@ -4,17 +4,21 @@ import {
   cancelDocumentBatch as cancelDocumentBatchSource,
   createUploadedLibraryFolder,
   deleteUploadedDocument,
+  deleteUploadedDocuments,
   deleteUploadedLibraryFolder,
   getUploadedLibraryOrganization,
   importDocumentBatch as importDocumentBatchSource,
   importDocumentFolder as importDocumentFolderSource,
   listUploadedDocuments,
   listenDocumentBatchProgress,
+  listenDocumentDeleteProgress,
   moveUploadedDocuments,
   renameUploadedLibraryFolder,
   type UploadedDocument,
   type UploadedDocumentBatchProgress,
   type UploadedDocumentBatchResult,
+  type UploadedDocumentDeleteBatchProgress,
+  type UploadedDocumentDeleteBatchResult,
   type UploadedLibraryOrganization,
 } from '../uploads/DocumentUploads'
 
@@ -27,12 +31,14 @@ type UploadedLibraryState = {
 // isolate user titles without parsing preformatted English messages.
 export type DocumentImportStatus = {
   status: 'idle' | 'importing' | 'imported' | 'deleting' | 'deleted' | 'cancelled' | 'error'
-  format?: 'batch' | 'folder'
+  format?: 'batch' | 'folder' | 'delete-batch'
   title?: string
   bytesFreed?: number
   message?: string
   batchProgress?: UploadedDocumentBatchProgress
   batchResult?: UploadedDocumentBatchResult
+  deleteProgress?: UploadedDocumentDeleteBatchProgress
+  deleteResult?: UploadedDocumentDeleteBatchResult
   cancelRequested?: boolean
 }
 
@@ -165,6 +171,46 @@ export function useUploadedLibrary() {
     }
   }, [refreshUploadedLibrary])
 
+  /** Run one bounded native delete batch and refresh shared library state once,
+   * retaining partial failures for the selection UI to offer a retry. */
+  const deleteDocuments = useCallback(async (
+    documents: DocumentInfo[],
+  ): Promise<UploadedDocumentDeleteBatchResult | null> => {
+    const documentUrls = documents
+      .filter((doc) => doc.source === 'upload')
+      .map((doc) => doc.url)
+    if (documentUrls.length === 0 || operationInProgressRef.current) return null
+
+    operationInProgressRef.current = true
+    setDocumentImport({ status: 'deleting', format: 'delete-batch' })
+    let unlisten: (() => void) | undefined
+    try {
+      unlisten = await listenDocumentDeleteProgress((deleteProgress) => {
+        setDocumentImport((current) => current.status === 'deleting' && current.format === 'delete-batch'
+          ? { ...current, deleteProgress }
+          : current)
+      })
+      const deleteResult = await deleteUploadedDocuments(documentUrls)
+      if (deleteResult.deleted.length > 0) await refreshUploadedLibrary()
+      setDocumentImport({
+        status: deleteResult.failures.length > 0 ? 'error' : 'deleted',
+        format: 'delete-batch',
+        deleteResult,
+      })
+      return deleteResult
+    } catch (err) {
+      setDocumentImport({
+        status: 'error',
+        format: 'delete-batch',
+        message: err instanceof Error ? err.message : String(err),
+      })
+      return null
+    } finally {
+      unlisten?.()
+      operationInProgressRef.current = false
+    }
+  }, [refreshUploadedLibrary])
+
   /** Serialize folder/order writes with imports and deletion because all of them
    * refresh or mutate the same uploaded-library state. */
   const runOrganizationMutation = useCallback(async (action: () => Promise<void>) => {
@@ -206,6 +252,7 @@ export function useUploadedLibrary() {
     createLibraryFolder,
     cancelDocumentBatch,
     deleteDocument,
+    deleteDocuments,
     deleteLibraryFolder,
     documentImport,
     importDocumentBatch,

@@ -122,6 +122,10 @@
   gap: 0.35rem;
 }
 
+.uploaded-library-action-group-documents {
+  flex: 1 1 22rem;
+}
+
 .uploaded-library-action-group-move {
   flex: 1 1 18rem;
   min-width: min(18rem, 100%);
@@ -135,8 +139,27 @@
 
 .uploaded-library-action-row {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 0.45rem;
+}
+
+.uploaded-library-selection-count {
+  min-width: 5rem;
+  color: var(--text-heading);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.uploaded-library-actions .uploaded-library-batch-delete {
+  border-color: var(--danger-border);
+  color: var(--danger);
+}
+
+.uploaded-library-actions .uploaded-library-batch-delete:hover:not(:disabled),
+.uploaded-library-actions .uploaded-library-batch-delete:focus-visible {
+  border-color: var(--danger-accent);
+  color: var(--danger-accent);
 }
 
 .uploaded-library-action-error {

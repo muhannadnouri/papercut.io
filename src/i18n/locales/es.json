@@ -106,6 +106,11 @@
       "batchComplete": "Importación completa. Importados: {{imported, number}}. Fallidos: {{failed, number}}.",
       "batchCancelled": "Importación detenida. Importados: {{imported, number}}. Fallidos: {{failed, number}}.",
       "failedFiles": "Archivos fallidos: {{count, number}}",
+      "preparingDeleteBatch": "Preparando la eliminación de documentos...",
+      "deleteBatchProgress": "Eliminando {{processed, number}} de {{total, number}} documentos...",
+      "deleteBatchProgressLabel": "Progreso de eliminación de documentos",
+      "deleteBatchComplete": "Eliminados: {{deleted, number}}. Fallidos: {{failed, number}}.",
+      "failedDeletes": "Documentos que no se pudieron eliminar: {{count, number}}",
       "imported": "Importado <title>{{title}}</title>.",
       "cancelled": "Importación cancelada.",
       "deleting": "Eliminando <title>{{title}}</title>...",
@@ -123,7 +128,8 @@
       "editActionsAriaLabel": "Acciones de edición de biblioteca",
       "uploadedDocumentsAriaLabel": "Documentos cargados",
       "folders": "Carpetas",
-      "organize": "Organizar",
+      "documents": "Documentos",
+      "organize": "Gestionar",
       "finishEditing": "Terminar de editar",
       "newFolder": "Nueva carpeta",
       "newSubfolder": "Nueva subcarpeta",
@@ -142,9 +148,9 @@
       "selectOneFolder": "Seleccione una carpeta para eliminar.",
       "moveOrRemoveContents": "Mueva o elimine contenidos antes de eliminarlos.",
       "deleteSelectedFolder": "Eliminar la carpeta seleccionada.",
-      "selectedCount_one": "{{count, number}} Seleccionado...",
-      "selectedCount_many": "{{count, number}} Seleccionado...",
-      "selectedCount_other": "{{count, number}} Seleccionado..."
+      "selectedCount_one": "{{count, number}} seleccionado",
+      "selectedCount_many": "{{count, number}} seleccionados",
+      "selectedCount_other": "{{count, number}} seleccionados"
     },
     "folderDialog": {
       "renameTitle": "Cambiar nombre de carpeta",
@@ -164,6 +170,12 @@
       "description": "Esto elimina el documento de este dispositivo, de los resultados de la búsqueda local y de cualquier organización de carpetas en Papercut.",
       "documentTitle": "Título",
       "confirm": "Eliminar documento"
+    },
+    "confirmDeleteDocuments": {
+      "title": "¿Eliminar los documentos seleccionados?",
+      "description": "Esto elimina permanentemente los documentos seleccionados de este dispositivo, los resultados de búsqueda locales y las carpetas de Papercut.",
+      "count": "Documentos",
+      "confirm": "Eliminar seleccionados"
     }
   },
   "settings": {

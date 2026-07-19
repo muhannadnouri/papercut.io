@@ -102,6 +102,11 @@
       "batchComplete": "Import complete. Imported: {{imported, number}}. Failed: {{failed, number}}.",
       "batchCancelled": "Import stopped. Imported: {{imported, number}}. Failed: {{failed, number}}.",
       "failedFiles": "Failed files: {{count, number}}",
+      "preparingDeleteBatch": "Preparing document deletion...",
+      "deleteBatchProgress": "Deleting {{processed, number}} of {{total, number}} documents...",
+      "deleteBatchProgressLabel": "Document deletion progress",
+      "deleteBatchComplete": "Deleted: {{deleted, number}}. Failed: {{failed, number}}.",
+      "failedDeletes": "Documents that could not be deleted: {{count, number}}",
       "imported": "Imported <title>{{title}}</title>.",
       "cancelled": "Import cancelled.",
       "deleting": "Deleting <title>{{title}}</title>...",
@@ -119,7 +124,8 @@
       "editActionsAriaLabel": "Library edit actions",
       "uploadedDocumentsAriaLabel": "Uploaded documents",
       "folders": "Folders",
-      "organize": "Organize",
+      "documents": "Documents",
+      "organize": "Manage",
       "finishEditing": "Finish Editing",
       "newFolder": "New Folder",
       "newSubfolder": "New Subfolder",
@@ -129,8 +135,8 @@
       "moveContentsFirst": "Move contents out first.",
       "moveDocuments": "Move Documents",
       "selectDocumentsOnly": "Select Documents Only...",
-      "selectedCount_one": "{{count, number}} Selected...",
-      "selectedCount_other": "{{count, number}} Selected...",
+      "selectedCount_one": "{{count, number}} selected",
+      "selectedCount_other": "{{count, number}} selected",
       "selectDocumentsFirst": "Select Documents First...",
       "root": "Root",
       "noMatches": "No uploaded documents match.",
@@ -159,6 +165,12 @@
       "description": "This removes the document from this device, local search results, and any folder organization in Papercut.",
       "documentTitle": "Title",
       "confirm": "Delete Document"
+    },
+    "confirmDeleteDocuments": {
+      "title": "Delete selected documents?",
+      "description": "This permanently removes the selected documents from this device, local search results, and Papercut folders.",
+      "count": "Documents",
+      "confirm": "Delete Selected"
     }
   },
   "settings": {

@@ -45,6 +45,7 @@ function App() {
     cancelDocumentBatch,
     createLibraryFolder,
     deleteDocument: deleteUploadedLibraryDocument,
+    deleteDocuments: deleteUploadedLibraryDocuments,
     deleteLibraryFolder,
     documentImport,
     importDocumentBatch,
@@ -242,6 +243,20 @@ function App() {
     }
   }, [confirmDocumentAction, deleteUploadedLibraryDocument, handleCloseDocument, removeFilter, removeResultsForUrl, selectedDoc, t])
 
+  const handleDeleteUploadedDocuments = useCallback(async (docs: DocumentInfo[]) => {
+    const result = await deleteUploadedLibraryDocuments(docs)
+    if (!result) return null
+
+    const deletedUrls = new Set(result.deleted.map((document) => document.url))
+    for (const url of deletedUrls) {
+      removeResultsForUrl(url)
+      clearPhraseFetchCache(url)
+      removeFilter(url)
+    }
+    if (selectedDoc && deletedUrls.has(selectedDoc)) handleCloseDocument()
+    return result
+  }, [deleteUploadedLibraryDocuments, handleCloseDocument, removeFilter, removeResultsForUrl, selectedDoc])
+
   if (selectedDoc) {
     return (
       <>
@@ -332,6 +347,7 @@ function App() {
             onAudioSavedOnlyChange={setAudioSavedOnly}
             onCreateLibraryFolder={createLibraryFolder}
             onDeleteDocument={handleDeleteUploadedDocument}
+            onDeleteDocuments={handleDeleteUploadedDocuments}
             onDeleteLibraryFolder={deleteLibraryFolder}
             onMoveLibraryDocuments={moveLibraryDocuments}
             onRenameLibraryFolder={renameLibraryFolder}

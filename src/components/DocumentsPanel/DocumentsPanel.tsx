@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Button, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components'
 import type { DocumentInfo } from '../../types/search'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
-import type { UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
+import type { UploadedDocumentDeleteBatchResult, UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
 import { Panel } from '../Panel/Panel'
 import { DocumentList } from '../DocumentList/DocumentList'
 import { UploadedLibraryTree } from '../UploadedLibraryTree/UploadedLibraryTree'
@@ -42,6 +42,7 @@ interface DocumentsPanelProps {
   onAudioSavedOnlyChange?: (enabled: boolean) => void
   onCreateLibraryFolder?: (parentId: string | null, name: string) => void | Promise<void>
   onDeleteDocument?: (doc: DocumentInfo) => void | Promise<void>
+  onDeleteDocuments?: (docs: DocumentInfo[]) => Promise<UploadedDocumentDeleteBatchResult | null>
   onDeleteLibraryFolder?: (folderId: string) => void | Promise<void>
   onFilterChange: (value: string) => void
   onMoveLibraryDocuments?: (documentIds: string[], folderId: string | null) => void | Promise<void>
@@ -68,6 +69,7 @@ export function DocumentsPanel({
   onAudioSavedOnlyChange,
   onCreateLibraryFolder,
   onDeleteDocument,
+  onDeleteDocuments,
   onDeleteLibraryFolder,
   onFilterChange,
   onMoveLibraryDocuments,
@@ -80,12 +82,14 @@ export function DocumentsPanel({
   const [importMenuOpen, setImportMenuOpen] = useState(false)
   const activeImport = importOptions.find((option) => option.statusLabel)
   const hasImportOptions = importOptions.length > 0
+  const importBusy = importStatuses.some((item) => item.status === 'importing')
   const operationBusy = importStatuses.some((item) => item.status === 'importing' || item.status === 'deleting')
   const importDisabled = hasImportOptions && importOptions.every((option) => option.disabled || option.future || !option.onSelect)
   const { uploadDocs, nonUploadGroups } = splitDocumentGroupsByUpload(groupedDocs)
   const canShowUploadedTree = Boolean(
     libraryOrganization &&
     onCreateLibraryFolder &&
+    onDeleteDocuments &&
     onDeleteLibraryFolder &&
     onMoveLibraryDocuments &&
     onRenameLibraryFolder,
@@ -180,11 +184,11 @@ export function DocumentsPanel({
           documents={uploadDocs}
           organization={libraryOrganization}
           documentOpening={documentOpening}
-          deleteDisabled={operationBusy || documentOpening}
           mutationDisabled={operationBusy}
+          resetEditing={importBusy}
           openingDocumentUrl={openingDocumentUrl}
           onCreateFolder={onCreateLibraryFolder!}
-          onDeleteDocument={onDeleteDocument}
+          onDeleteDocuments={onDeleteDocuments!}
           onDeleteFolder={onDeleteLibraryFolder!}
           onMoveDocuments={onMoveLibraryDocuments!}
           onRenameFolder={onRenameLibraryFolder!}

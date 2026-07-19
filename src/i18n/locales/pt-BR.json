@@ -110,7 +110,12 @@
       "cancelled": "Importação cancelada.",
       "deleting": "Excluindo <title>{{title}}</title>...",
       "deleted": "<title>{{title}}</title> excluído.",
-      "deletedWithStorage": "<title>{{title}}</title> excluído e {{storage}} liberado."
+      "deletedWithStorage": "<title>{{title}}</title> excluído e {{storage}} liberado.",
+      "preparingDeleteBatch": "Preparando a exclusão de documentos...",
+      "deleteBatchProgress": "Excluindo {{processed, number}} de {{total, number}} documentos...",
+      "deleteBatchProgressLabel": "Progresso da exclusão de documentos",
+      "deleteBatchComplete": "Excluídos: {{deleted, number}}. Falhas: {{failed, number}}.",
+      "failedDeletes": "Documentos que não puderam ser excluídos: {{count, number}}"
     },
     "groups": {
       "importedAudiobooks": "Audiolivros importados",
@@ -122,8 +127,9 @@
       "organizationAriaLabel": "Organização da biblioteca carregada",
       "editActionsAriaLabel": "Ações de edição da biblioteca",
       "uploadedDocumentsAriaLabel": "Documentos enviados",
+      "documents": "Documentos",
       "folders": "Pastas",
-      "organize": "Organizar",
+      "organize": "Gerenciar",
       "finishEditing": "Concluir a edição",
       "newFolder": "Nova pasta",
       "newSubfolder": "Nova subpasta",
@@ -142,9 +148,9 @@
       "selectOneFolder": "Selecione uma pasta para excluir.",
       "moveOrRemoveContents": "Mova ou remova conteúdo antes de excluir.",
       "deleteSelectedFolder": "Exclua a pasta selecionada.",
-      "selectedCount_one": "{{count, number}} selecionado...",
-      "selectedCount_many": "{{count, number}} selecionado...",
-      "selectedCount_other": "{{count, number}} selecionado..."
+      "selectedCount_one": "{{count, number}} selecionado",
+      "selectedCount_many": "{{count, number}} selecionados",
+      "selectedCount_other": "{{count, number}} selecionados"
     },
     "folderDialog": {
       "renameTitle": "Renomear pasta",
@@ -164,6 +170,12 @@
       "description": "Isso remove o documento deste dispositivo, dos resultados da pesquisa local e de qualquer organização de pastas em Papercut.",
       "documentTitle": "Título",
       "confirm": "Excluir documento"
+    },
+    "confirmDeleteDocuments": {
+      "title": "Excluir documentos selecionados?",
+      "description": "Isso excluirá permanentemente os documentos selecionados deste dispositivo, dos resultados da pesquisa local e das pastas do Papercut.",
+      "count": "Documentos",
+      "confirm": "Excluir selecionados"
     }
   },
   "settings": {

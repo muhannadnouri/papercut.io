@@ -110,7 +110,12 @@
       "cancelled": "Importazione annullata.",
       "deleting": "Eliminazione di <title>{{title}}</title>...",
       "deleted": "Eliminato <title>{{title}}</title>.",
-      "deletedWithStorage": "Cancellato <title>{{title}}</title> e liberato {{storage}}."
+      "deletedWithStorage": "Cancellato <title>{{title}}</title> e liberato {{storage}}.",
+      "preparingDeleteBatch": "Preparazione dell'eliminazione dei documenti...",
+      "deleteBatchProgress": "Eliminazione di {{processed, number}} documenti su {{total, number}}...",
+      "deleteBatchProgressLabel": "Avanzamento dell'eliminazione dei documenti",
+      "deleteBatchComplete": "Eliminati: {{deleted, number}}. Non riusciti: {{failed, number}}.",
+      "failedDeletes": "Documenti che non è stato possibile eliminare: {{count, number}}"
     },
     "groups": {
       "importedAudiobooks": "Audiolibri importati",
@@ -122,8 +127,9 @@
       "organizationAriaLabel": "Organizzazione della biblioteca caricata",
       "editActionsAriaLabel": "Azioni di modifica della libreria",
       "uploadedDocumentsAriaLabel": "Documenti caricati",
+      "documents": "Documenti",
       "folders": "Cartelle",
-      "organize": "Organizzare",
+      "organize": "Gestisci",
       "finishEditing": "Termina la modifica",
       "newFolder": "Nuova cartella",
       "newSubfolder": "Nuova sottocartella",
@@ -142,9 +148,9 @@
       "selectOneFolder": "Seleziona una cartella da eliminare.",
       "moveOrRemoveContents": "Sposta o rimuovi i contenuti prima di eliminarli.",
       "deleteSelectedFolder": "Elimina la cartella selezionata.",
-      "selectedCount_one": "{{count, number}} Selezionato...",
-      "selectedCount_many": "{{count, number}} Selezionato...",
-      "selectedCount_other": "{{count, number}} Selezionato..."
+      "selectedCount_one": "{{count, number}} selezionato",
+      "selectedCount_many": "{{count, number}} selezionati",
+      "selectedCount_other": "{{count, number}} selezionati"
     },
     "folderDialog": {
       "renameTitle": "Rinomina cartella",
@@ -164,6 +170,12 @@
       "description": "Ciò rimuove il documento da questo dispositivo, dai risultati della ricerca locale e da qualsiasi organizzazione di cartelle in Papercut.",
       "documentTitle": "Titolo",
       "confirm": "Elimina documento"
+    },
+    "confirmDeleteDocuments": {
+      "title": "Eliminare i documenti selezionati?",
+      "description": "I documenti selezionati verranno eliminati definitivamente dal dispositivo, dai risultati della ricerca locale e dalle cartelle di Papercut.",
+      "count": "Documenti",
+      "confirm": "Elimina selezionati"
     }
   },
   "settings": {

@@ -106,7 +106,12 @@
       "cancelled": "आयात रद्द कर दिया गया.",
       "deleting": "<title>{{title}}</title> हटाया जा रहा है...",
       "deleted": "<title>{{title}}</title> हटा दिया गया।",
-      "deletedWithStorage": "<title>{{title}}</title> को हटा दिया गया और {{storage}} को मुक्त कर दिया गया।"
+      "deletedWithStorage": "<title>{{title}}</title> को हटा दिया गया और {{storage}} को मुक्त कर दिया गया।",
+      "preparingDeleteBatch": "दस्तावेज़ हटाने की तैयारी हो रही है...",
+      "deleteBatchProgress": "{{total, number}} में से {{processed, number}} दस्तावेज़ हटाए जा रहे हैं...",
+      "deleteBatchProgressLabel": "दस्तावेज़ हटाने की प्रगति",
+      "deleteBatchComplete": "हटाए गए: {{deleted, number}}। विफल: {{failed, number}}।",
+      "failedDeletes": "जो दस्तावेज़ नहीं हटाए जा सके: {{count, number}}"
     },
     "groups": {
       "importedAudiobooks": "आयातित ऑडियोबुक",
@@ -118,8 +123,9 @@
       "organizationAriaLabel": "अपलोड किया गया पुस्तकालय संगठन",
       "editActionsAriaLabel": "लाइब्रेरी संपादन क्रियाएँ",
       "uploadedDocumentsAriaLabel": "दस्तावेज़ अपलोड किए गए",
+      "documents": "दस्तावेज़",
       "folders": "फ़ोल्डर",
-      "organize": "आयोजन",
+      "organize": "प्रबंधित करें",
       "finishEditing": "संपादन समाप्त करें",
       "newFolder": "नया फ़ोल्डर",
       "newSubfolder": "नया सबफ़ोल्डर",
@@ -138,8 +144,8 @@
       "selectOneFolder": "हटाने के लिए एक फ़ोल्डर चुनें.",
       "moveOrRemoveContents": "हटाने से पहले सामग्री को हटाएँ या हटाएँ।",
       "deleteSelectedFolder": "चयनित फ़ोल्डर हटाएँ.",
-      "selectedCount_one": "{{count, number}} चयनित...",
-      "selectedCount_other": "{{count, number}} चयनित..."
+      "selectedCount_one": "{{count, number}} चयनित",
+      "selectedCount_other": "{{count, number}} चयनित"
     },
     "folderDialog": {
       "renameTitle": "फ़ोल्डर का नाम बदलें",
@@ -159,6 +165,12 @@
       "description": "यह इस डिवाइस से दस्तावेज़, स्थानीय खोज परिणाम और Papercut में किसी भी फ़ोल्डर संगठन को हटा देता है।",
       "documentTitle": "शीर्षक",
       "confirm": "दस्तावेज़ हटाएँ"
+    },
+    "confirmDeleteDocuments": {
+      "title": "चयनित दस्तावेज़ हटाएं?",
+      "description": "यह चयनित दस्तावेज़ों को इस डिवाइस, स्थानीय खोज परिणामों और Papercut फ़ोल्डरों से स्थायी रूप से हटा देगा।",
+      "count": "दस्तावेज़",
+      "confirm": "चयनित हटाएं"
     }
   },
   "settings": {
