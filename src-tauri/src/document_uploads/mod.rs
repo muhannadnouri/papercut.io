@@ -8,7 +8,7 @@
 //! ```
 //!
 //! - [`commands`]: the thin `#[tauri::command]` edge exposed to the frontend.
-//! - [`batch`]: sequential multi-file import, progress, and cancellation.
+//! - [`batch`]: sequential import/delete batches, progress, and import cancellation.
 //! - [`pipeline`]: orchestrates import / get-source / delete.
 //! - [`html`]: HTML-specific parsing + sanitization.
 //! - [`epub`]: EPUB-specific parsing, sanitization, and generated reading HTML.

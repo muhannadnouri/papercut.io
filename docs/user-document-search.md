@@ -18,7 +18,7 @@ The current upload branch supports local HTML and EPUB files:
 - New imports use the original file's SHA-256 as their stable upload id. Selecting the same unchanged file again reuses its existing stored document instead of creating another copy.
 - React lists imported files under **User Uploads** and opens them through the shared document reader. EPUB uses the generated reading HTML for the first release.
 - Search queries run through `src/hooks/useSearch.ts`, which queries Pagefind and SQLite FTS in parallel and returns one shared result shape.
-- Users can delete uploaded HTML and EPUB documents from the document list. Delete removes SQLite metadata, section rows, FTS rows, and the stored source directory.
+- Users can delete uploaded HTML and EPUB documents from the document list. Delete removes SQLite metadata, section rows, FTS rows, and the stored source directory. The native boundary also supports bounded sequential batch deletion with count progress and per-document failures; the contextual multi-select UI is the next stage.
 
 This path is intentionally independent from `.papercut-audiobook` import/export. Audiobook bundle import remains TTS-specific, while generic document import is designed to be shippable as its own branch. EPUB implementation notes and remaining reader-quality work live in [epub-implementation-plan.md](epub-implementation-plan.md).
 
@@ -39,7 +39,7 @@ Rust:
 
 - `src-tauri/src/document_uploads/` owns the runtime upload feature, split one concern per file (dependencies point downward, currently `commands → { batch, pipeline, organization, search, store } → { epub, html, parsed, storage, types }`):
   - `commands.rs` — the `#[tauri::command]` edge; each command just moves the blocking work onto the thread pool and delegates.
-  - `batch.rs` / `state.rs` — one guarded sequential multi-file/folder import, cooperative cancellation between files, progress events, and partial-success results.
+  - `batch.rs` / `state.rs` — sequential multi-file/folder import and document deletion, progress events, partial-success results, and cooperative import cancellation between files.
   - `pipeline.rs` — import / get-source / delete orchestration (no SQL or parsing of its own).
   - `html/` — HTML-specific parsing (`parser.rs`), sanitization (`sanitize.rs`), and small shared HTML helpers (`util.rs`).
   - `epub/` — EPUB ZIP/container/OPF/spine parsing, with path resolution (`paths.rs`), bounded image inlining (`assets.rs`), DOM-based link/resource rewriting (`rewrite.rs`), and generated reading HTML assembly (`render.rs`) split into focused helpers.
@@ -104,7 +104,7 @@ The runtime upload path follows a parser pipeline that can be reused for future 
 6. **Store source**: save the sanitized viewable document to app data.
 7. **Index sections**: write metadata and sections to SQLite, then populate the FTS5 table.
 8. **Render/search**: React opens the stored source and searches through the same result-card UI as bundled docs.
-9. **Delete**: when requested, Rust removes the document rows from SQLite and deletes the stored source directory from app data.
+9. **Delete**: when requested, Rust stages the stored source directory, removes the document rows in one SQLite transaction, and then removes the staged files. A database failure restores the directory. Batch requests are capped at 500 upload URLs, deduplicated before execution, run sequentially, and retain per-document failures alongside successes.
 
 EPUB plugs in at step 3 by validating the ZIP/container, reading OPF metadata and spine order, sanitizing each XHTML spine item, generating safe reading HTML, and outputting the same normalized section shape. PDF should later plug into the same shared store/search path with page-aware locators and a PDF-specific viewer.
 

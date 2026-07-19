@@ -7,7 +7,7 @@
 
 use tauri::Runtime;
 
-use super::batch::{import_batch, import_folder};
+use super::batch::{delete_batch, import_batch, import_folder};
 use super::organization::{
     create_folder, delete_folder, list_organization, move_documents, move_folder, rename_folder,
     reorder,
@@ -16,12 +16,12 @@ use super::pipeline::{delete_upload, get_source};
 use super::search::search_uploads;
 use super::store::list_uploads;
 use super::types::{
-    UploadedDocument, UploadedDocumentBatchResult, UploadedDocumentDeleteRequest,
-    UploadedDocumentDeleteResult, UploadedDocumentSearchRequest, UploadedDocumentSearchResult,
-    UploadedDocumentSourceRequest, UploadedLibraryCreateFolderRequest,
-    UploadedLibraryDeleteFolderRequest, UploadedLibraryMoveDocumentsRequest,
-    UploadedLibraryMoveFolderRequest, UploadedLibraryOrganization,
-    UploadedLibraryRenameFolderRequest, UploadedLibraryReorderRequest,
+    UploadedDocument, UploadedDocumentBatchResult, UploadedDocumentDeleteBatchRequest,
+    UploadedDocumentDeleteBatchResult, UploadedDocumentDeleteRequest, UploadedDocumentDeleteResult,
+    UploadedDocumentSearchRequest, UploadedDocumentSearchResult, UploadedDocumentSourceRequest,
+    UploadedLibraryCreateFolderRequest, UploadedLibraryDeleteFolderRequest,
+    UploadedLibraryMoveDocumentsRequest, UploadedLibraryMoveFolderRequest,
+    UploadedLibraryOrganization, UploadedLibraryRenameFolderRequest, UploadedLibraryReorderRequest,
 };
 use super::DocumentUploadState;
 
@@ -98,6 +98,17 @@ pub async fn document_uploads_delete<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || delete_upload(&app, request))
         .await
         .map_err(|err| format!("Document upload delete task failed: {err}"))?
+}
+
+/// Delete selected uploads sequentially and retain per-document failures.
+#[tauri::command]
+pub async fn document_uploads_delete_batch<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedDocumentDeleteBatchRequest,
+) -> Result<UploadedDocumentDeleteBatchResult, String> {
+    tauri::async_runtime::spawn_blocking(move || delete_batch(app, request))
+        .await
+        .map_err(|err| format!("Document upload delete batch task failed: {err}"))?
 }
 
 /// Return uploaded-document folder and manual ordering metadata.

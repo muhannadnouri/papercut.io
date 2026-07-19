@@ -72,6 +72,37 @@ pub(crate) struct UploadedDocumentDeleteResult {
     pub(crate) bytes_freed: u64,
 }
 
+/// One document that could not be deleted while the rest of its batch continued.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentDeleteBatchFailure {
+    pub(crate) document_url: String,
+    pub(crate) error: String,
+}
+
+/// Count-based progress emitted while a sequential delete batch runs.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentDeleteBatchProgress {
+    pub(crate) phase: String,
+    pub(crate) processed: usize,
+    pub(crate) total: usize,
+    pub(crate) deleted: usize,
+    pub(crate) failed: usize,
+    pub(crate) document_url: Option<String>,
+}
+
+/// Final delete-batch outcome, retaining successes alongside per-item failures.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentDeleteBatchResult {
+    pub(crate) selected: usize,
+    pub(crate) processed: usize,
+    pub(crate) deleted: Vec<UploadedDocumentDeleteResult>,
+    pub(crate) failures: Vec<UploadedDocumentDeleteBatchFailure>,
+    pub(crate) bytes_freed: u64,
+}
+
 /// Request to read the stored source HTML of an uploaded document.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -93,6 +124,13 @@ pub(crate) struct UploadedDocumentSearchRequest {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentDeleteRequest {
     pub(crate) document_url: String,
+}
+
+/// Request to delete a bounded set of uploaded documents by URL.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentDeleteBatchRequest {
+    pub(crate) document_urls: Vec<String>,
 }
 
 /// A user-created library folder for organizing uploaded documents.

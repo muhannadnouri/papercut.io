@@ -25,6 +25,28 @@ export interface UploadedDocumentDeleteResult {
   bytesFreed: number
 }
 
+export interface UploadedDocumentDeleteBatchFailure {
+  documentUrl: string
+  error: string
+}
+
+export interface UploadedDocumentDeleteBatchProgress {
+  phase: 'deleting' | 'completed'
+  processed: number
+  total: number
+  deleted: number
+  failed: number
+  documentUrl?: string | null
+}
+
+export interface UploadedDocumentDeleteBatchResult {
+  selected: number
+  processed: number
+  deleted: UploadedDocumentDeleteResult[]
+  failures: UploadedDocumentDeleteBatchFailure[]
+  bytesFreed: number
+}
+
 export interface UploadedDocumentBatchFailure {
   fileName: string
   error: string
@@ -48,6 +70,7 @@ export interface UploadedDocumentBatchResult {
 }
 
 const DOCUMENT_IMPORT_PROGRESS_EVENT = 'document-uploads-import-progress'
+const DOCUMENT_DELETE_PROGRESS_EVENT = 'document-uploads-delete-progress'
 
 export interface UploadedLibraryFolder {
   id: string
@@ -129,6 +152,23 @@ export async function deleteUploadedDocument(documentUrl: string): Promise<Uploa
   const invoke = await loadTauriInvoke()
   return invoke<UploadedDocumentDeleteResult>('document_uploads_delete', {
     request: { documentUrl },
+  })
+}
+
+export async function deleteUploadedDocuments(documentUrls: string[]): Promise<UploadedDocumentDeleteBatchResult> {
+  const invoke = await loadTauriInvoke()
+  return invoke<UploadedDocumentDeleteBatchResult>('document_uploads_delete_batch', {
+    request: { documentUrls },
+  })
+}
+
+export async function listenDocumentDeleteProgress(
+  handler: (progress: UploadedDocumentDeleteBatchProgress) => void,
+): Promise<() => void> {
+  if (!isTauriRuntime()) return () => {}
+  const mod = await import('@tauri-apps/api/event')
+  return mod.listen<UploadedDocumentDeleteBatchProgress>(DOCUMENT_DELETE_PROGRESS_EVENT, (event) => {
+    handler(event.payload)
   })
 }
 

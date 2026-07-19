@@ -182,34 +182,78 @@ pub(crate) fn get_source<R: Runtime>(
     Ok(sanitize_html(&source))
 }
 
-/// Delete one upload: remove its stored directory and all of its SQLite rows,
-/// reporting how many bytes the directory freed.
+/// Delete one upload through the same compensating filesystem/SQLite flow used
+/// by both single and batch commands.
 pub(crate) fn delete_upload<R: Runtime>(
     app: &tauri::AppHandle<R>,
     request: UploadedDocumentDeleteRequest,
 ) -> Result<UploadedDocumentDeleteResult, String> {
     let id = upload_id_from_url(&request.document_url)?;
     let dir = upload_dir(app, &id)?;
-    let bytes_freed = directory_size(&dir)?;
     let mut db = open_db(app)?;
-
-    if dir.exists() {
-        fs::remove_dir_all(&dir).map_err(|err| {
-            format!(
-                "Failed to delete uploaded document files {}: {err}",
-                dir.display()
-            )
-        })?;
-    }
-
-    // Delete search rows in one transaction so the FTS table and metadata cannot drift apart.
-    delete_document_rows(&mut db, &id)?;
+    let bytes_freed = delete_stored_document(&dir, &id, || {
+        // Store deletion is transactional, keeping metadata, sections, and FTS in sync.
+        delete_document_rows(&mut db, &id)
+    })?;
 
     Ok(UploadedDocumentDeleteResult {
         id,
         url: request.document_url,
         bytes_freed,
     })
+}
+
+/// Stage files beside their live directory so a failed SQLite transaction can
+/// restore them. A leftover staging directory is restored first, making a retry
+/// recover from an interruption on either side of the database commit.
+fn delete_stored_document<F>(dir: &Path, id: &str, mut delete_rows: F) -> Result<u64, String>
+where
+    F: FnMut() -> Result<(), String>,
+{
+    let staged = dir.with_file_name(format!(".{id}.deleting"));
+    if staged.exists() {
+        if dir.exists() {
+            return Err(format!(
+                "Uploaded document has conflicting live and staged storage for {id}"
+            ));
+        }
+        fs::rename(&staged, dir).map_err(|err| {
+            format!(
+                "Failed to recover interrupted document deletion {}: {err}",
+                staged.display()
+            )
+        })?;
+    }
+
+    let bytes_freed = directory_size(dir)?;
+    if !dir.exists() {
+        delete_rows()?;
+        return Ok(0);
+    }
+    fs::rename(dir, &staged).map_err(|err| {
+        format!(
+            "Failed to stage uploaded document files {}: {err}",
+            dir.display()
+        )
+    })?;
+
+    if let Err(error) = delete_rows() {
+        return match fs::rename(&staged, dir) {
+            Ok(()) => Err(error),
+            Err(restore_error) => Err(format!(
+                "{error}; failed to restore uploaded document files {}: {restore_error}",
+                dir.display()
+            )),
+        };
+    }
+
+    fs::remove_dir_all(&staged).map_err(|err| {
+        format!(
+            "Document metadata was deleted, but staged files could not be removed {}: {err}",
+            staged.display()
+        )
+    })?;
+    Ok(bytes_freed)
 }
 
 #[cfg(test)]
@@ -219,7 +263,7 @@ mod tests {
 
     use rusqlite::Connection;
 
-    use super::write_and_index_document;
+    use super::{delete_stored_document, write_and_index_document};
     use crate::document_uploads::parsed::{ParsedDocument, ParsedSection};
 
     #[test]
@@ -250,5 +294,28 @@ mod tests {
         assert!(error.contains("Document upload database error"));
         assert!(!dir.exists());
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn failed_delete_transaction_restores_staged_files() {
+        let root = std::env::temp_dir().join(format!(
+            "papercut-upload-delete-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        let dir = root.join("abc");
+        fs::create_dir_all(&dir).expect("create document directory");
+        fs::write(dir.join("source.html"), b"test").expect("write document source");
+
+        let error = delete_stored_document(&dir, "abc", || Err("database failed".into()))
+            .expect_err("delete must fail");
+
+        assert_eq!(error, "database failed");
+        assert!(dir.join("source.html").is_file());
+        assert!(!root.join(".abc.deleting").exists());
+        fs::remove_dir_all(root).expect("remove test directory");
     }
 }

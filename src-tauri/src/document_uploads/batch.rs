@@ -1,5 +1,6 @@
-//! Sequential multi-file/folder document import with progress and partial results.
+//! Sequential document import/delete batches with progress and partial results.
 
+use std::collections::HashSet;
 use std::path::Path;
 #[cfg(desktop)]
 use std::{fs, path::PathBuf};
@@ -8,15 +9,19 @@ use percent_encoding::percent_decode_str;
 use tauri::{Emitter, Runtime};
 use tauri_plugin_dialog::{DialogExt, FilePath};
 
-use super::pipeline::{import_epub_source, import_html_source};
+use super::pipeline::{delete_upload, import_epub_source, import_html_source};
 use super::state::DocumentBatchControl;
+use super::storage::upload_id_from_url;
 use super::types::{
     UploadedDocument, UploadedDocumentBatchFailure, UploadedDocumentBatchProgress,
-    UploadedDocumentBatchResult,
+    UploadedDocumentBatchResult, UploadedDocumentDeleteBatchFailure,
+    UploadedDocumentDeleteBatchProgress, UploadedDocumentDeleteBatchRequest,
+    UploadedDocumentDeleteBatchResult, UploadedDocumentDeleteRequest,
 };
 
 pub(crate) const DOCUMENT_IMPORT_PROGRESS_EVENT: &str = "document-uploads-import-progress";
-const MAX_BATCH_FILES: usize = 500;
+pub(crate) const DOCUMENT_DELETE_PROGRESS_EVENT: &str = "document-uploads-delete-progress";
+const MAX_BATCH_DOCUMENTS: usize = 500;
 
 enum DocumentFormat {
     Html,
@@ -29,6 +34,13 @@ struct BatchRun<T> {
     imported: Vec<T>,
     failures: Vec<UploadedDocumentBatchFailure>,
     cancelled: bool,
+}
+
+struct DeleteBatchRun<T> {
+    selected: usize,
+    processed: usize,
+    deleted: Vec<T>,
+    failures: Vec<UploadedDocumentDeleteBatchFailure>,
 }
 
 /// Open one multi-file picker and process every selected document in sequence.
@@ -85,9 +97,9 @@ fn import_sources<R: Runtime>(
     control: DocumentBatchControl,
     sources: Vec<FilePath>,
 ) -> Result<UploadedDocumentBatchResult, String> {
-    if sources.len() > MAX_BATCH_FILES {
+    if sources.len() > MAX_BATCH_DOCUMENTS {
         return Err(format!(
-            "Select at most {MAX_BATCH_FILES} documents in one import"
+            "Select at most {MAX_BATCH_DOCUMENTS} documents in one import"
         ));
     }
 
@@ -123,6 +135,109 @@ fn import_sources<R: Runtime>(
         failures: run.failures,
         cancelled: run.cancelled,
     })
+}
+
+/// Delete a bounded, deduplicated URL list sequentially so one bad document
+/// cannot discard successful siblings or produce hundreds of concurrent DB writes.
+pub(crate) fn delete_batch<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedDocumentDeleteBatchRequest,
+) -> Result<UploadedDocumentDeleteBatchResult, String> {
+    if request.document_urls.is_empty() {
+        return Err("Select at least one document to delete".into());
+    }
+    if request.document_urls.len() > MAX_BATCH_DOCUMENTS {
+        return Err(format!(
+            "Select at most {MAX_BATCH_DOCUMENTS} documents to delete at once"
+        ));
+    }
+
+    let mut seen = HashSet::new();
+    let document_urls: Vec<_> = request
+        .document_urls
+        .into_iter()
+        .filter(|url| seen.insert(url.clone()))
+        .collect();
+    for document_url in &document_urls {
+        upload_id_from_url(document_url)?;
+    }
+
+    let run = process_deletions(
+        document_urls,
+        |document_url| delete_upload(&app, UploadedDocumentDeleteRequest { document_url }),
+        |progress| {
+            let _ = app.emit(DOCUMENT_DELETE_PROGRESS_EVENT, progress);
+        },
+    );
+    let bytes_freed = run.deleted.iter().map(|result| result.bytes_freed).sum();
+    let _ = app.emit(
+        DOCUMENT_DELETE_PROGRESS_EVENT,
+        UploadedDocumentDeleteBatchProgress {
+            phase: "completed".into(),
+            processed: run.processed,
+            total: run.selected,
+            deleted: run.deleted.len(),
+            failed: run.failures.len(),
+            document_url: None,
+        },
+    );
+
+    Ok(UploadedDocumentDeleteBatchResult {
+        selected: run.selected,
+        processed: run.processed,
+        deleted: run.deleted,
+        failures: run.failures,
+        bytes_freed,
+    })
+}
+
+/// Keep partial-result accounting independent from Tauri so one focused unit
+/// test covers continuation and progress behavior.
+fn process_deletions<T, D, P>(
+    document_urls: Vec<String>,
+    mut delete: D,
+    mut progress: P,
+) -> DeleteBatchRun<T>
+where
+    D: FnMut(String) -> Result<T, String>,
+    P: FnMut(UploadedDocumentDeleteBatchProgress),
+{
+    let selected = document_urls.len();
+    let mut run = DeleteBatchRun {
+        selected,
+        processed: 0,
+        deleted: Vec::new(),
+        failures: Vec::new(),
+    };
+
+    for document_url in document_urls {
+        progress(UploadedDocumentDeleteBatchProgress {
+            phase: "deleting".into(),
+            processed: run.processed,
+            total: selected,
+            deleted: run.deleted.len(),
+            failed: run.failures.len(),
+            document_url: Some(document_url.clone()),
+        });
+        match delete(document_url.clone()) {
+            Ok(result) => run.deleted.push(result),
+            Err(error) => run.failures.push(UploadedDocumentDeleteBatchFailure {
+                document_url,
+                error,
+            }),
+        }
+        run.processed += 1;
+        progress(UploadedDocumentDeleteBatchProgress {
+            phase: "deleting".into(),
+            processed: run.processed,
+            total: selected,
+            deleted: run.deleted.len(),
+            failed: run.failures.len(),
+            document_url: None,
+        });
+    }
+
+    run
 }
 
 /// Convert a desktop folder into a stable list of direct, regular document
@@ -302,6 +417,33 @@ mod tests {
         assert_eq!(run.failures[0].file_name, "bad.epub");
         assert!(run.cancelled);
         assert_eq!(events.len(), 4);
+    }
+
+    #[test]
+    fn delete_batch_retains_successes_after_a_failure() {
+        let urls = vec!["/uploads/aa.html", "/uploads/bb.html", "/uploads/cc.html"]
+            .into_iter()
+            .map(str::to_string)
+            .collect();
+        let mut events = Vec::new();
+        let run = process_deletions(
+            urls,
+            |url| {
+                if url.contains("bb") {
+                    Err("locked".into())
+                } else {
+                    Ok(url)
+                }
+            },
+            |progress| events.push(progress),
+        );
+
+        assert_eq!(run.selected, 3);
+        assert_eq!(run.processed, 3);
+        assert_eq!(run.deleted.len(), 2);
+        assert_eq!(run.failures.len(), 1);
+        assert_eq!(run.failures[0].document_url, "/uploads/bb.html");
+        assert_eq!(events.len(), 6);
     }
 
     #[test]
