@@ -51,6 +51,7 @@ function App() {
     importDocumentBatch,
     importDocumentFolder,
     moveLibraryDocuments,
+    refreshUploadedLibrary,
     renameLibraryFolder,
     uploadedDocuments,
     uploadedLibraryOrganization,
@@ -266,7 +267,14 @@ function App() {
             format={selectedFormat}
             content={docContent}
             className={hasFloatingAudioControls ? 'app-audio-floating' : ''}
-            appControls={<AppSettings themeChoice={theme.choice} onThemeChange={theme.setChoice} />}
+            appControls={(
+              <AppSettings
+                themeChoice={theme.choice}
+                onThemeChange={theme.setChoice}
+                libraryDocumentCount={uploadedDocuments.length}
+                onLibraryImported={refreshUploadedLibrary}
+              />
+            )}
             headerControls={<AudioControls {...audioControlsProps} onManageSave={handleManageAudiobookSave} />}
             beforeDocument={<TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />}
             ttsHighlight={ttsHighlight}
@@ -290,7 +298,14 @@ function App() {
         className={audiobookActionBusy ? 'app-header-shell app-header-shell-busy' : 'app-header-shell'}
         inert={audiobookActionBusy ? true : undefined}
       >
-        <AppHeader actions={<AppSettings themeChoice={theme.choice} onThemeChange={theme.setChoice} />} />
+        <AppHeader actions={(
+          <AppSettings
+            themeChoice={theme.choice}
+            onThemeChange={theme.setChoice}
+            libraryDocumentCount={uploadedDocuments.length}
+            onLibraryImported={refreshUploadedLibrary}
+          />
+        )} />
       </div>
 
       <div inert={audiobookActionBusy ? true : undefined}>

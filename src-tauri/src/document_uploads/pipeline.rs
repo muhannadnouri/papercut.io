@@ -140,6 +140,49 @@ fn persist_document<R: Runtime>(
     })
 }
 
+/// Restore normalized HTML from a library-transfer package while preserving
+/// the source-derived id that existing document URLs and audiobook references
+/// use. The transferred source still passes through the current sanitizer and
+/// parser so search rows are rebuilt with this app version.
+pub(crate) fn restore_transferred_document<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    id: String,
+    source_html: String,
+    format: String,
+    imported_at_ms: u128,
+    bytes: u64,
+) -> Result<UploadedDocument, String> {
+    let url = format!("{UPLOAD_URL_PREFIX}{id}.html");
+    upload_id_from_url(&url)?;
+    if imported_at_ms > i64::MAX as u128 {
+        return Err("Transferred document timestamp is invalid".into());
+    }
+    if !matches!(format.as_str(), "html" | "epub") {
+        return Err(format!(
+            "Unsupported transferred document format {format:?}"
+        ));
+    }
+
+    let mut parsed = parse_html_document(&source_html);
+    parsed.format = format;
+    if parsed.sections.is_empty() {
+        return Err("Transferred document did not contain readable text".into());
+    }
+    let dir = upload_dir(app, &id)?;
+    let mut db = open_db(app)?;
+    write_and_index_document(&dir, &mut db, &id, &url, &parsed, imported_at_ms, bytes)?;
+
+    Ok(UploadedDocument {
+        id,
+        url,
+        title: parsed.title,
+        format: parsed.format,
+        imported_at_ms,
+        bytes,
+        sections: parsed.sections.len(),
+    })
+}
+
 /// Keep filesystem and SQLite failures from leaving a newly created upload
 /// directory behind. A process crash can still interrupt the two storage systems.
 fn write_and_index_document(

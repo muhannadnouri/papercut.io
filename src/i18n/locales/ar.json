@@ -207,10 +207,27 @@
     "zoomDecrease": "تصغير واجهة التطبيق",
     "zoomIncrease": "تكبير واجهة التطبيق",
     "zoomReset": "إعادة الضبط",
+    "data": "البيانات",
+    "transferLibrary": "نقل المكتبة",
     "version": "الإصدار",
     "versionLoading": "جارٍ التحميل...",
     "versionUnavailable": "غير متاح",
     "webBuild": "نسخة الويب"
+  },
+  "libraryTransfer": {
+    "title": "نقل المكتبة",
+    "description": "انقل المستندات المرفوعة والمجلدات بين أجهزة Papercut دون حساب.",
+    "exportTitle": "التصدير من هذا الجهاز",
+    "exportDescription": "اجمع {{count}} من المستندات المرفوعة ومجلداتها في حزمة.",
+    "export": "تصدير المكتبة",
+    "exporting": "جارٍ التحضير...",
+    "importTitle": "الاستيراد إلى هذا الجهاز",
+    "importDescription": "ادمج حزمة مكتبة Papercut وأعِد بناء البحث المحلي.",
+    "import": "استيراد المكتبة",
+    "importing": "جارٍ الاستيراد...",
+    "exportComplete": "المستندات المصدَّرة: {{count}}.",
+    "importComplete": "تم الاستيراد: {{imported}} · موجود مسبقًا: {{skipped}} · تعذّر: {{failed}}",
+    "failureDetails": "عرض العناصر المتعذرة"
   },
   "reader": {
     "back": "رجوع",

@@ -9,6 +9,7 @@ import {
   changeAppLocale,
   currentAppLocale,
 } from '../../i18n'
+import { LibraryTransferDialog } from '../../library-transfer/LibraryTransferDialog'
 import { AppDialog } from '../AppDialog/AppDialog'
 import { AppSelect } from '../AppSelect/AppSelect'
 import './AppSettings.css'
@@ -22,12 +23,20 @@ const ZOOM_STEP = 10
 interface AppSettingsProps {
   themeChoice: ThemeChoice
   onThemeChange: (choice: ThemeChoice) => void
+  libraryDocumentCount: number
+  onLibraryImported: () => void | Promise<void>
 }
 
-export function AppSettings({ themeChoice, onThemeChange }: AppSettingsProps) {
+export function AppSettings({
+  themeChoice,
+  onThemeChange,
+  libraryDocumentCount,
+  onLibraryImported,
+}: AppSettingsProps) {
   const { t } = useTranslation()
   const tauriRuntime = isTauri()
   const [open, setOpen] = useState(false)
+  const [transferOpen, setTransferOpen] = useState(false)
   const [version, setVersion] = useState<string | null>(() => tauriRuntime ? null : '')
   const zoom = useAppZoom()
   const closeSettings = useCallback(() => setOpen(false), [])
@@ -141,11 +150,35 @@ export function AppSettings({ themeChoice, onThemeChange }: AppSettingsProps) {
             )}
           </section>
 
+          {tauriRuntime && (
+            <section className="app-settings-section app-settings-data" aria-labelledby="app-settings-data">
+              <h3 id="app-settings-data">{t('settings.data')}</h3>
+              <button
+                type="button"
+                className="app-settings-data-action"
+                onClick={() => {
+                  setOpen(false)
+                  setTransferOpen(true)
+                }}
+              >
+                {t('settings.transferLibrary')}
+              </button>
+            </section>
+          )}
+
           <div className="app-settings-version">
             <span>{t('settings.version')}</span>
             <strong>{versionLabel}</strong>
           </div>
         </AppDialog>
+      )}
+
+      {transferOpen && (
+        <LibraryTransferDialog
+          documentCount={libraryDocumentCount}
+          onClose={() => setTransferOpen(false)}
+          onImported={onLibraryImported}
+        />
       )}
     </div>
   )

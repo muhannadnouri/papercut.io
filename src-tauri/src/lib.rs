@@ -1,4 +1,5 @@
 mod document_uploads;
+mod library_transfer;
 mod native_tts;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -26,6 +27,8 @@ pub fn run() {
             document_uploads::commands::document_uploads_move_documents,
             document_uploads::commands::document_uploads_move_folder,
             document_uploads::commands::document_uploads_reorder_library,
+            library_transfer::library_transfer_export,
+            library_transfer::library_transfer_import,
             native_tts::commands::tts_native_capabilities,
             native_tts::commands::tts_model_status,
             native_tts::commands::tts_install_model,

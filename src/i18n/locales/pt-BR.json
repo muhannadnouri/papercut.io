@@ -192,10 +192,27 @@
     "zoomDecrease": "Diminuir o zoom do aplicativo",
     "zoomIncrease": "Aumentar o zoom do aplicativo",
     "zoomReset": "Reiniciar",
+    "data": "Dados",
+    "transferLibrary": "Transferir biblioteca",
     "version": "Versão",
     "versionLoading": "Carregando...",
     "versionUnavailable": "Indisponível",
     "webBuild": "Construção da web"
+  },
+  "libraryTransfer": {
+    "title": "Transferir biblioteca",
+    "description": "Transfira documentos enviados e pastas entre dispositivos Papercut sem uma conta.",
+    "exportTitle": "Exportar deste dispositivo",
+    "exportDescription": "Empacote {{count}} documentos enviados e suas pastas.",
+    "export": "Exportar biblioteca",
+    "exporting": "Preparando...",
+    "importTitle": "Importar para este dispositivo",
+    "importDescription": "Mescle um pacote de biblioteca do Papercut e reconstrua a busca local.",
+    "import": "Importar biblioteca",
+    "importing": "Importando...",
+    "exportComplete": "Documentos exportados: {{count}}.",
+    "importComplete": "Importados: {{imported}} · Já existentes: {{skipped}} · Falhas: {{failed}}",
+    "failureDetails": "Mostrar falhas"
   },
   "reader": {
     "back": "Voltar",

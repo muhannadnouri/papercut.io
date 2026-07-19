@@ -258,6 +258,7 @@ export function useUploadedLibrary() {
     importDocumentBatch,
     importDocumentFolder,
     moveLibraryDocuments,
+    refreshUploadedLibrary,
     renameLibraryFolder,
     uploadedDocuments,
     uploadedLibraryOrganization,
