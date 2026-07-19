@@ -44,9 +44,6 @@
 }
 
 .reader-settings-popover {
-  position: absolute;
-  top: calc(100% + 0.5rem);
-  inset-inline-end: 0;
   z-index: 30;
   display: grid;
   gap: 0.65rem;
@@ -156,10 +153,7 @@
   }
 
   .reader-settings-popover {
-    position: fixed;
-    top: calc(var(--mobile-safe-top-space) + 7.25rem);
-    inset-inline: 1rem;
-    width: auto;
+    width: calc(100vw - 2rem);
     max-height: calc(100vh - 7rem);
     overflow: visible;
   }

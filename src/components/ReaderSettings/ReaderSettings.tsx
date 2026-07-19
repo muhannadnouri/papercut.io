@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState, type Ref } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Popover } from 'react-aria-components'
 import {
   FONT_FAMILY_OPTIONS,
   READER_SETTING_LIMITS,
@@ -47,87 +48,77 @@ function EnabledReaderSettings({
   onReset,
 }: Omit<ReaderSettingsProps, 'disabled'>) {
   const { t } = useTranslation()
-  const rootRef = useRef<HTMLDivElement | null>(null)
+  const buttonRef = useRef<HTMLButtonElement | null>(null)
   const [open, setOpen] = useState(false)
 
-  useEffect(() => {
-    if (!open) return
-
-    function handlePointerDown(event: PointerEvent) {
-      const root = rootRef.current
-      if (!root || root.contains(event.target as Node)) return
-      setOpen(false)
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpen(false)
-    }
-
-    document.addEventListener('pointerdown', handlePointerDown)
-    document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.removeEventListener('pointerdown', handlePointerDown)
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [open])
-
   return (
-    <div className="reader-settings" ref={rootRef}>
+    <div className="reader-settings">
       <ReaderSettingsButton
+        buttonRef={buttonRef}
         open={open}
         onClick={() => setOpen((value) => !value)}
       />
-      {open && (
-        <div className="reader-settings-popover" role="dialog" aria-label={t('reader.settings.dialogLabel')}>
-          <div className="reader-setting-row">
-            <span id="reader-setting-font">{t('reader.settings.font')}</span>
-            <AppSelect
-              className="reader-setting-font-select"
-              value={settings.fontFamily}
-              options={FONT_FAMILY_OPTIONS.map((option) => ({
-                ...option,
-                label: t(option.labelKey),
-                style: { fontFamily: option.value },
-              }))}
-              ariaLabelledBy="reader-setting-font"
-              onChange={(fontFamily) => onChange({ fontFamily })}
-            />
-          </div>
-
-          <ReaderRange
-            id="size"
-            label={t('reader.settings.size')}
-            value={settings.fontSizePx}
-            config={READER_SETTING_LIMITS.fontSizePx}
-            onChange={(value) => onChange({ fontSizePx: value })}
+      <Popover
+        className="reader-settings-popover"
+        isOpen={open}
+        onOpenChange={setOpen}
+        triggerRef={buttonRef}
+        placement="bottom end"
+        offset={8}
+        containerPadding={8}
+        shouldFlip
+        aria-label={t('reader.settings.dialogLabel')}
+      >
+        <div className="reader-setting-row">
+          <span id="reader-setting-font">{t('reader.settings.font')}</span>
+          <AppSelect
+            className="reader-setting-font-select"
+            value={settings.fontFamily}
+            options={FONT_FAMILY_OPTIONS.map((option) => ({
+              ...option,
+              label: t(option.labelKey),
+              style: { fontFamily: option.value },
+            }))}
+            ariaLabelledBy="reader-setting-font"
+            onChange={(fontFamily) => onChange({ fontFamily })}
           />
-          <ReaderRange
-            id="line-spacing"
-            label={t('reader.settings.lineSpacing')}
-            value={settings.lineHeight}
-            config={READER_SETTING_LIMITS.lineHeight}
-            onChange={(value) => onChange({ lineHeight: value })}
-          />
-          <ReaderRange
-            id="width"
-            label={t('reader.settings.width')}
-            value={settings.widthCh}
-            config={READER_SETTING_LIMITS.widthCh}
-            onChange={(value) => onChange({ widthCh: value })}
-          />
-
-          <button className="reader-settings-reset" type="button" onClick={onReset}>{t('reader.settings.reset')}</button>
         </div>
-      )}
+
+        <ReaderRange
+          id="size"
+          label={t('reader.settings.size')}
+          value={settings.fontSizePx}
+          config={READER_SETTING_LIMITS.fontSizePx}
+          onChange={(value) => onChange({ fontSizePx: value })}
+        />
+        <ReaderRange
+          id="line-spacing"
+          label={t('reader.settings.lineSpacing')}
+          value={settings.lineHeight}
+          config={READER_SETTING_LIMITS.lineHeight}
+          onChange={(value) => onChange({ lineHeight: value })}
+        />
+        <ReaderRange
+          id="width"
+          label={t('reader.settings.width')}
+          value={settings.widthCh}
+          config={READER_SETTING_LIMITS.widthCh}
+          onChange={(value) => onChange({ widthCh: value })}
+        />
+
+        <button className="reader-settings-reset" type="button" onClick={onReset}>{t('reader.settings.reset')}</button>
+      </Popover>
     </div>
   )
 }
 
 function ReaderSettingsButton({
+  buttonRef,
   disabled = false,
   open,
   onClick,
 }: {
+  buttonRef?: Ref<HTMLButtonElement>
   disabled?: boolean
   open: boolean
   onClick: () => void
@@ -135,6 +126,7 @@ function ReaderSettingsButton({
   const { t } = useTranslation()
   return (
     <button
+      ref={buttonRef}
       className="reader-settings-btn"
       aria-label={t('reader.settings.button')}
       aria-expanded={!disabled && open}
