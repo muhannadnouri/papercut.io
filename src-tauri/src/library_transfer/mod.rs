@@ -34,6 +34,9 @@ use package::{
 
 const PACKAGE_EXTENSION: &str = "papercut-library";
 pub(crate) const LIBRARY_TRANSFER_PROGRESS_EVENT: &str = "library-transfer-progress";
+const STORAGE_RESERVE_BYTES: u64 = 64 * 1024 * 1024;
+const DOCUMENT_STORAGE_MULTIPLIER: u64 = 3;
+const INSUFFICIENT_SPACE_CODE: &str = "LIBRARY_TRANSFER_INSUFFICIENT_SPACE";
 
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -206,6 +209,11 @@ fn build_library_package(
         documents: prepared.manifest.documents.len(),
         audiobooks: prepared.manifest.audiobooks.len(),
     };
+    ensure_available_space(
+        path.parent()
+            .ok_or_else(|| "Temporary library package path has no parent".to_string())?,
+        manifest_payload_bytes(&prepared.manifest)?,
+    )?;
     let writer = BufWriter::new(File::create(path).map_err(|err| {
         format!(
             "Failed to create temporary library package {}: {err}",
@@ -355,6 +363,7 @@ fn restore_manifest<T: Read + std::io::Seek>(
         .into_iter()
         .map(|document| document.id)
         .collect();
+    ensure_restore_space(app, &manifest, &existing_ids)?;
     let mut imported_ids = Vec::new();
     let mut skipped = 0;
     let mut failures = Vec::new();
@@ -710,6 +719,97 @@ fn transfer_temp_path<R: Runtime>(
     )))
 }
 
+/// Reject a transfer before it starts writing when the target filesystem cannot
+/// hold the payload plus a small reserve for metadata and concurrent app writes.
+pub(crate) fn ensure_available_space(path: &Path, payload_bytes: u64) -> Result<(), String> {
+    if payload_bytes == 0 {
+        return Ok(());
+    }
+    let required = required_space_bytes(payload_bytes)?;
+    let available = fs2::available_space(path).map_err(|err| {
+        format!(
+            "Failed to inspect available storage at {}: {err}",
+            path.display()
+        )
+    })?;
+    if available < required {
+        return Err(format!("{INSUFFICIENT_SPACE_CODE}:{required}:{available}"));
+    }
+    Ok(())
+}
+
+fn required_space_bytes(payload_bytes: u64) -> Result<u64, String> {
+    payload_bytes
+        .checked_add(STORAGE_RESERVE_BYTES)
+        .ok_or_else(|| "Library transfer storage estimate is too large".to_string())
+}
+
+fn manifest_payload_bytes(manifest: &TransferManifest) -> Result<u64, String> {
+    let mut bytes = 0u64;
+    for document in &manifest.documents {
+        bytes = bytes
+            .checked_add(document.source_bytes)
+            .ok_or_else(|| "Library transfer storage estimate is too large".to_string())?;
+    }
+    for audiobook in &manifest.audiobooks {
+        for file in &audiobook.files {
+            bytes = bytes
+                .checked_add(file.bytes)
+                .ok_or_else(|| "Library transfer storage estimate is too large".to_string())?;
+        }
+    }
+    Ok(bytes)
+}
+
+/// Estimate only data absent from the target. Document source bytes are tripled
+/// to cover source HTML, SQLite section text, and its FTS index; audiobook files
+/// already carry their final uncompressed sizes in the manifest.
+fn ensure_restore_space(
+    app: &tauri::AppHandle,
+    manifest: &TransferManifest,
+    existing_document_ids: &HashSet<String>,
+) -> Result<(), String> {
+    let mut required = 0u64;
+    for document in &manifest.documents {
+        if existing_document_ids.contains(&document.id) {
+            continue;
+        }
+        let document_bytes = document
+            .source_bytes
+            .checked_mul(DOCUMENT_STORAGE_MULTIPLIER)
+            .ok_or_else(|| "Library transfer storage estimate is too large".to_string())?;
+        required = required
+            .checked_add(document_bytes)
+            .ok_or_else(|| "Library transfer storage estimate is too large".to_string())?;
+    }
+
+    if !manifest.audiobooks.is_empty() {
+        let audiobook_root = crate::native_tts::audiobooks_dir(app)?;
+        for audiobook in &manifest.audiobooks {
+            if audiobook_root.join(&audiobook.storage_key).is_dir() {
+                continue;
+            }
+            for file in &audiobook.files {
+                required = required
+                    .checked_add(file.bytes)
+                    .ok_or_else(|| "Library transfer storage estimate is too large".to_string())?;
+            }
+        }
+    }
+
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .map_err(|err| format!("Failed to resolve app data directory: {err}"))?;
+    fs::create_dir_all(&app_data).map_err(|err| {
+        format!(
+            "Failed to create app data directory {}: {err}",
+            app_data.display()
+        )
+    })?;
+    ensure_available_space(&app_data, required)
+}
+
 /// Copy a completed local package through Tauri's filesystem handle so desktop
 /// paths and mobile document-provider URIs share one destination path.
 fn copy_temp_to_destination<R: Runtime>(
@@ -756,6 +856,19 @@ fn copy_source_to_temp<R: Runtime>(
             .fs()
             .open(source, options)
             .map_err(|err| format!("Failed to open selected library package: {err}"))?;
+        if let Ok(source_bytes) = input.metadata().map(|metadata| metadata.len()) {
+            if source_bytes > MAX_PACKAGE_BYTES {
+                return Err("Selected library package is larger than the supported size".into());
+            }
+            if source_bytes > 0 {
+                ensure_available_space(
+                    temp_path.parent().ok_or_else(|| {
+                        "Temporary library package path has no parent".to_string()
+                    })?,
+                    source_bytes,
+                )?;
+            }
+        }
         let mut input = BufReader::new(input).take(MAX_PACKAGE_BYTES + 1);
         let mut output = BufWriter::new(File::create(temp_path).map_err(|err| {
             format!(
@@ -819,6 +932,15 @@ mod tests {
             matching_target_folder(&folders, None, "history").map(|folder| folder.id.as_str()),
             Some("other")
         );
+    }
+
+    #[test]
+    fn storage_estimate_keeps_headroom_and_rejects_overflow() {
+        assert_eq!(
+            required_space_bytes(1024).unwrap(),
+            STORAGE_RESERVE_BYTES + 1024
+        );
+        assert!(required_space_bytes(u64::MAX).is_err());
     }
 
     fn test_folder(id: &str, parent_id: Option<&str>, name: &str) -> UploadedLibraryFolder {

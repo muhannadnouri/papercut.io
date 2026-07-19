@@ -237,6 +237,7 @@
     "progressRestoringAudiobooks": "{{total}} में से ऑडियोबुक {{processed}} पुनर्स्थापित हो रही है",
     "sendComplete": "लाइब्रेरी सफलतापूर्वक भेजी गई।",
     "sendFailed": "लाइब्रेरी भेजना विफल रहा।",
+    "insufficientSpace": "पर्याप्त स्टोरेज नहीं है। Papercut को {{required}} खाली जगह चाहिए, लेकिन केवल {{available}} उपलब्ध है।",
     "keepOpen": "कोड एक बार काम करता है और 10 मिनट बाद समाप्त हो जाता है।",
     "failureDetails": "विफलताएँ दिखाएँ"
   },

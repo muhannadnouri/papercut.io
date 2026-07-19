@@ -242,6 +242,7 @@
     "progressRestoringAudiobooks": "Ripristino audiolibro {{processed}} di {{total}}",
     "sendComplete": "Libreria inviata correttamente.",
     "sendFailed": "Invio della libreria non riuscito.",
+    "insufficientSpace": "Spazio insufficiente. Papercut richiede {{required}} liberi, ma sono disponibili solo {{available}}.",
     "keepOpen": "Il codice funziona una volta e scade dopo 10 minuti.",
     "failureDetails": "Mostra errori"
   },

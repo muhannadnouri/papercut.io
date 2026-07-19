@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { AppDialog } from '../components/AppDialog/AppDialog'
 import {
   cancelLibrarySend,
@@ -49,6 +50,7 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
   const sendActive = sendStatus?.state === 'waiting' || sendStatus?.state === 'sending'
   const busy = operationBusy || sendActive
   const hasContent = documentCount > 0 || (includeAudiobooks && savedAudiobookCount > 0)
+  const locale = i18n.resolvedLanguage ?? i18n.language
 
   useEffect(() => {
     void listNativeSavedAudiobooks()
@@ -82,11 +84,11 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
           }
         })
         .catch((error) => {
-          setStatus({ state: 'error', message: error instanceof Error ? error.message : String(error) })
+          setStatus({ state: 'error', message: formatTransferError(error, locale, t) })
         })
     }, 500)
     return () => window.clearInterval(timer)
-  }, [sendActive, t])
+  }, [sendActive, locale, t])
 
   const applyImportResult = async (result: LibraryTransferImportResult) => {
     for (const record of result.importedAudiobooks) {
@@ -117,7 +119,7 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
       const result = await exportLibrary(includeAudiobooks)
       setStatus(result ? { state: 'exported', result } : { state: 'idle' })
     } catch (error) {
-      setStatus({ state: 'error', message: error instanceof Error ? error.message : String(error) })
+      setStatus({ state: 'error', message: formatTransferError(error, locale, t) })
     }
   }
 
@@ -132,7 +134,7 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
       }
       await applyImportResult(result)
     } catch (error) {
-      setStatus({ state: 'error', message: error instanceof Error ? error.message : String(error) })
+      setStatus({ state: 'error', message: formatTransferError(error, locale, t) })
     }
   }
 
@@ -143,7 +145,7 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
       setSendStatus(await startLibrarySend(includeAudiobooks))
       setStatus({ state: 'idle' })
     } catch (error) {
-      setStatus({ state: 'error', message: error instanceof Error ? error.message : String(error) })
+      setStatus({ state: 'error', message: formatTransferError(error, locale, t) })
     }
   }
 
@@ -152,7 +154,7 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
       await cancelLibrarySend()
       setSendStatus((current) => current ? { ...current, state: 'cancelled' } : current)
     } catch (error) {
-      setStatus({ state: 'error', message: error instanceof Error ? error.message : String(error) })
+      setStatus({ state: 'error', message: formatTransferError(error, locale, t) })
     }
   }
 
@@ -162,7 +164,7 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
     try {
       await applyImportResult(await receiveLibrary(sourceAddress, pairingCode))
     } catch (error) {
-      setStatus({ state: 'error', message: error instanceof Error ? error.message : String(error) })
+      setStatus({ state: 'error', message: formatTransferError(error, locale, t) })
     }
   }
 
@@ -231,7 +233,7 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
                     : t('libraryTransfer.startSending')}
                 </button>
               )}
-              <LibrarySendStatusMessage status={sendStatus} locale={i18n.resolvedLanguage ?? i18n.language} />
+              <LibrarySendStatusMessage status={sendStatus} locale={locale} />
             </section>
 
             <section className="library-transfer-alternate">
@@ -287,7 +289,7 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
                 {status.state === 'receiving' ? t('libraryTransfer.receiving') : t('libraryTransfer.receive')}
               </button>
               {status.state === 'receiving' && progress?.operation === 'receive' && (
-                <TransferProgressMessage progress={progress} locale={i18n.resolvedLanguage ?? i18n.language} />
+                <TransferProgressMessage progress={progress} locale={locale} />
               )}
             </section>
 
@@ -301,7 +303,7 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
               </button>
             </section>
             {status.state === 'importing' && progress?.operation === 'import' && (
-              <TransferProgressMessage progress={progress} locale={i18n.resolvedLanguage ?? i18n.language} />
+              <TransferProgressMessage progress={progress} locale={locale} />
             )}
           </>
         )}
@@ -448,4 +450,14 @@ function formatBytes(bytes: number, locale: string): string {
     unit += 1
   }
   return `${new Intl.NumberFormat(locale, { maximumFractionDigits: unit === 0 ? 0 : 1 }).format(value)} ${units[unit]}`
+}
+
+function formatTransferError(error: unknown, locale: string, t: TFunction): string {
+  const message = error instanceof Error ? error.message : String(error)
+  const match = message.match(/LIBRARY_TRANSFER_INSUFFICIENT_SPACE:(\d+):(\d+)/)
+  if (!match) return message
+  return t('libraryTransfer.insufficientSpace', {
+    required: formatBytes(Number(match[1]), locale),
+    available: formatBytes(Number(match[2]), locale),
+  })
 }

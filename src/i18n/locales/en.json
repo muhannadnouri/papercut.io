@@ -237,6 +237,7 @@
     "progressRestoringAudiobooks": "Restoring audiobook {{processed}} of {{total}}",
     "sendComplete": "Library sent successfully.",
     "sendFailed": "Library send failed.",
+    "insufficientSpace": "Not enough storage. Papercut needs {{required}} free, but only {{available}} is available.",
     "keepOpen": "The code works once and expires after 10 minutes.",
     "failureDetails": "Show failures"
   },

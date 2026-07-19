@@ -232,6 +232,7 @@
     "progressRestoringAudiobooks": "正在恢复有声书 {{processed}} / {{total}}",
     "sendComplete": "资料库发送成功。",
     "sendFailed": "资料库发送失败。",
+    "insufficientSpace": "存储空间不足。Papercut 需要 {{required}} 可用空间，但目前只有 {{available}}。",
     "keepOpen": "代码仅可使用一次，并在 10 分钟后过期。",
     "failureDetails": "显示失败项目"
   },

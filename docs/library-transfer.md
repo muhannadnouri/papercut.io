@@ -101,6 +101,14 @@ The importer retains successful documents if a later document fails and reports
 partial results. This matches Papercut's existing batch-import behavior and
 avoids discarding useful work because one payload is damaged.
 
+Before writing, Papercut checks the target filesystem with a 64 MiB reserve.
+Package creation checks the expanded payload estimate, LAN/file staging checks
+the archive byte size when the provider reports it, and restoration checks only
+missing manifest payloads in app data. Document estimates also reserve space for
+normalized HTML, SQLite section rows, and the FTS index. These checks prevent
+predictable failures but cannot reserve disk space against another process, so
+normal write errors remain authoritative.
+
 ## User Experience
 
 App Settings owns the entry point because transfer is device-level data
@@ -159,7 +167,8 @@ required by Android's local-network privacy model.
 - [x] Stage 3: add foreground, authenticated same-network transfer using this package.
 - [x] Stage 3: add one-use expiry and foreground sender cancellation.
 - [x] Stage 3: add byte-level transfer and item-level restore phases.
-- [ ] Stage 3: add free-space checks and resume for large audio.
+- [x] Stage 3: reject package staging and restoration when storage is insufficient.
+- [ ] Stage 3: resume interrupted transfers, especially large audio.
 - [ ] Stage 4: evaluate automatic discovery only after QR/manual pairing is proven.
 - [ ] Later: evaluate an optional reading-data category for bookmarks and preferences.
 

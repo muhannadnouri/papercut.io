@@ -42,8 +42,8 @@ use tauri::State;
 
 use super::package::MAX_PACKAGE_BYTES;
 use super::{
-    build_library_package, emit_transfer_progress, import_library_package, transfer_temp_path,
-    LibraryTransferExportRequest, LibraryTransferImportResult,
+    build_library_package, emit_transfer_progress, ensure_available_space, import_library_package,
+    transfer_temp_path, LibraryTransferExportRequest, LibraryTransferImportResult,
 };
 
 const PROTOCOL_MAGIC: &[u8; 8] = b"PCLAN001";
@@ -294,11 +294,14 @@ fn receive_library(
     let code = normalize_code(&request.code)?;
     let temp_path = transfer_temp_path(&app, "lan-receive")?;
     let result = (|| {
+        let cache = temp_path
+            .parent()
+            .ok_or_else(|| "Temporary library package path has no parent".to_string())?;
         let mut output = BufWriter::new(
             File::create(&temp_path)
                 .map_err(|err| format!("Failed to create received library package: {err}"))?,
         );
-        receive_package(address, &code, &mut output, |processed, total| {
+        receive_package(address, &code, cache, &mut output, |processed, total| {
             emit_transfer_progress(
                 &app,
                 "receive",
@@ -376,6 +379,7 @@ fn send_package(
 fn receive_package<W: Write, P: FnMut(u64, u64)>(
     address: SocketAddrV4,
     code: &str,
+    staging_dir: &Path,
     output: &mut W,
     mut progress: P,
 ) -> Result<(), String> {
@@ -406,6 +410,7 @@ fn receive_package<W: Write, P: FnMut(u64, u64)>(
     if size == 0 || size > MAX_PACKAGE_BYTES {
         return Err("Source device reported an unsupported library package size".into());
     }
+    ensure_available_space(staging_dir, size)?;
     let mut last_progress = Instant::now() - PROGRESS_INTERVAL;
     let copied = copy_exact_with_progress(
         &mut stream,
@@ -746,7 +751,14 @@ mod tests {
         });
 
         let mut received = Vec::new();
-        receive_package(address, "2345ABCD", &mut received, |_, _| {}).unwrap();
+        receive_package(
+            address,
+            "2345ABCD",
+            package_path.parent().unwrap(),
+            &mut received,
+            |_, _| {},
+        )
+        .unwrap();
         sender.join().unwrap().unwrap();
         let _ = fs::remove_file(package_path);
 

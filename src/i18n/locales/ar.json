@@ -257,6 +257,7 @@
     "progressRestoringAudiobooks": "جارٍ استعادة الكتاب الصوتي {{processed}} من {{total}}",
     "sendComplete": "تم إرسال المكتبة بنجاح.",
     "sendFailed": "تعذّر إرسال المكتبة.",
+    "insufficientSpace": "لا توجد مساحة تخزين كافية. يحتاج Papercut إلى {{required}} من المساحة الحرة، لكن المتاح هو {{available}} فقط.",
     "keepOpen": "يعمل الرمز مرة واحدة وتنتهي صلاحيته بعد 10 دقائق.",
     "failureDetails": "عرض العناصر المتعذرة"
   },

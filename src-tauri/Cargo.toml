@@ -55,6 +55,7 @@ ort-sys = { version = "=2.0.0-rc.1", optional = true, default-features = false }
 rusqlite = { version = "0.32", features = ["bundled"] }
 ammonia = "3.3"
 encoding_rs = "0.8"
+fs2 = "0.4.3"
 roxmltree = "0.20"
 zip = { version = "0.6", default-features = false, features = ["deflate"] }
 percent-encoding = "2.3"
