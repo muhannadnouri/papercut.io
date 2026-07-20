@@ -181,9 +181,15 @@ pub(super) fn local_ipv4() -> Result<Ipv4Addr, String> {
         .map_err(|err| format!("Failed to inspect local network address: {err}"))?
         .ip()
     {
-        std::net::IpAddr::V4(ip) if !ip.is_unspecified() && !ip.is_loopback() => Ok(ip),
+        std::net::IpAddr::V4(ip) if is_local_network_ipv4(ip) => Ok(ip),
         _ => Err("Could not find this device's local IPv4 address".into()),
     }
+}
+
+/// Keep source advertisement and receiver validation on the same deliberately
+/// narrow address policy so Papercut never displays an address it later rejects.
+fn is_local_network_ipv4(ip: Ipv4Addr) -> bool {
+    ip.is_private() || ip.is_link_local() || ip.is_loopback()
 }
 
 pub(super) fn parse_local_address(value: &str) -> Result<SocketAddrV4, String> {
@@ -192,7 +198,7 @@ pub(super) fn parse_local_address(value: &str) -> Result<SocketAddrV4, String> {
         .parse::<SocketAddrV4>()
         .map_err(|_| "Enter the source address exactly as shown on the other device".to_string())?;
     let ip = address.ip();
-    if !(ip.is_private() || ip.is_link_local() || ip.is_loopback()) {
+    if !is_local_network_ipv4(*ip) {
         return Err("The source address must be on the local network".into());
     }
     Ok(address)
@@ -250,5 +256,14 @@ mod tests {
             pairing_proof(code, b"first channel", RECEIVER_ROLE).unwrap()
         );
         assert_eq!(normalize_code("2345-abcd").unwrap(), code);
+    }
+
+    #[test]
+    fn source_and_receiver_share_the_local_address_policy() {
+        assert!(is_local_network_ipv4(Ipv4Addr::new(192, 168, 1, 20)));
+        assert!(is_local_network_ipv4(Ipv4Addr::new(169, 254, 1, 20)));
+        assert!(is_local_network_ipv4(Ipv4Addr::LOCALHOST));
+        assert!(!is_local_network_ipv4(Ipv4Addr::new(203, 0, 113, 20)));
+        assert!(!is_local_network_ipv4(Ipv4Addr::UNSPECIFIED));
     }
 }

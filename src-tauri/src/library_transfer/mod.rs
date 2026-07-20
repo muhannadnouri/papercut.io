@@ -13,6 +13,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use percent_encoding::percent_decode_str;
 use serde::{Deserialize, Serialize};
@@ -37,6 +38,7 @@ const PACKAGE_EXTENSION: &str = "papercut-library";
 pub(crate) const LIBRARY_TRANSFER_PROGRESS_EVENT: &str = "library-transfer-progress";
 const STORAGE_RESERVE_BYTES: u64 = 64 * 1024 * 1024;
 const DOCUMENT_STORAGE_MULTIPLIER: u64 = 3;
+const STALE_TRANSFER_FILE_AGE: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 pub(crate) const INSUFFICIENT_SPACE_CODE: &str = "LIBRARY_TRANSFER_INSUFFICIENT_SPACE";
 
 #[derive(Debug, Default, Deserialize)]
@@ -811,7 +813,39 @@ pub(crate) fn transfer_cache_dir<R: Runtime>(app: &tauri::AppHandle<R>) -> Resul
             cache.display()
         )
     })?;
+    cleanup_stale_transfer_files(&cache);
     Ok(cache)
+}
+
+/// Best-effort cleanup bounds disk use after crashes without delaying or
+/// failing a new transfer when cache metadata cannot be read or removed.
+fn cleanup_stale_transfer_files(cache: &Path) {
+    let Ok(entries) = fs::read_dir(cache) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else {
+            continue;
+        };
+        let Some(age) = entry
+            .metadata()
+            .ok()
+            .and_then(|metadata| metadata.modified().ok())
+            .and_then(|modified| modified.elapsed().ok())
+        else {
+            continue;
+        };
+        if is_stale_transfer_file(name, age) {
+            let _ = fs::remove_file(entry.path());
+        }
+    }
+}
+
+fn is_stale_transfer_file(name: &str, age: Duration) -> bool {
+    name.starts_with("library-transfer-")
+        && (name.ends_with(".tmp") || name.ends_with(".part"))
+        && age >= STALE_TRANSFER_FILE_AGE
 }
 
 /// Reject a transfer before it starts writing when the target filesystem cannot
@@ -1046,6 +1080,24 @@ mod tests {
         assert!(!is_bundled_document_url("data:text/html,<script></script>"));
         assert!(!is_bundled_document_url("/documents/%2e%2e/index.html"));
         assert!(!is_bundled_document_url("/documents/..\\index.html"));
+    }
+
+    #[test]
+    fn stale_cleanup_only_targets_transfer_temporaries() {
+        let stale = STALE_TRANSFER_FILE_AGE;
+        assert!(is_stale_transfer_file(
+            "library-transfer-export-1-2.tmp",
+            stale
+        ));
+        assert!(is_stale_transfer_file(
+            "library-transfer-lan-receive-session.part",
+            stale
+        ));
+        assert!(!is_stale_transfer_file("other-cache.tmp", stale));
+        assert!(!is_stale_transfer_file(
+            "library-transfer-active.tmp",
+            stale - Duration::from_secs(1)
+        ));
     }
 
     fn test_folder(id: &str, parent_id: Option<&str>, name: &str) -> UploadedLibraryFolder {

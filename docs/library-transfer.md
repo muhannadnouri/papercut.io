@@ -164,6 +164,11 @@ errors, but are removed after a successful import or a non-recoverable package
 error. A resumed package is always checksum-verified in full before restore, so
 the byte offset is an optimization rather than a trust boundary.
 
+Source address discovery uses the same private, link-local, or loopback IPv4
+policy enforced by the receiver. Transfer temporaries and resumable partials
+left untouched for seven days are removed on the next transfer operation, which
+bounds cache growth after crashes while preserving ordinary retries.
+
 The receiver marks only explicit insufficient-storage failures as retryable.
 Invalid schemas, checksums, payloads, or restore data fail the sender session
 instead of offering a retry that would reproduce the same result. Cancelling the
@@ -203,6 +208,7 @@ required by Android's local-network privacy model.
 - [x] Review hardening: constrain audiobook document URLs and cross-platform archive paths.
 - [x] Review hardening: verify transferred WAV contents against measured playback metadata.
 - [x] Review hardening: classify terminal receiver failures and interrupt active sends on cancel.
+- [x] Review hardening: align local-address policy and prune stale transfer cache files.
 - [ ] Later: evaluate an optional reading-data category for bookmarks and preferences.
 
 ## Deferred Decisions
