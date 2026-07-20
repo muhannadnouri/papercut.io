@@ -16,7 +16,7 @@ import {
   type AudiobookDownloadRecord,
 } from '../storage/AudiobookDownloadQueue'
 import { getAudioPreferences, saveAudioPreferences } from '../storage/audioPreferences'
-import { FALLBACK_TTS_MODELS, getTtsModel, getTtsVoiceName, suggestTtsModel } from '../models'
+import { getTtsModel, getTtsVoiceName, suggestTtsModel } from '../models'
 import {
   formatAudiobookExportMessage,
   formatDuration,
@@ -27,18 +27,10 @@ import {
 import {
   deleteNativeAudiobook,
   exportNativeAudiobook,
-  getNativeTtsCapabilities,
-  getNativeTtsModelStatus,
   getImportedAudiobookMetadata,
   importNativeAudiobook,
-  installNativeTtsModel,
   listNativeSavedAudiobooks,
-  listenNativeTtsModelInstallProgress,
-  probeNativeSilmaSidecar,
-  type NativeTtsCapabilities,
   type NativeAudiobookExportFormat,
-  type NativeTtsModelInstallProgress,
-  type NativeTtsModelStatus,
 } from '../api/nativeTts'
 import {
   chunkAudiobookSaveHtmlWithSpans,
@@ -57,6 +49,7 @@ import {
 import { isUserUploadUrl, removeUserUpload, upsertUserUpload, type UserUploadDocument } from '../storage/UserUploads'
 import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 import { useAudiobookCache } from './useAudiobookCache'
+import { useTtsModelRuntime } from './useTtsModelRuntime'
 import { useTtsPlayer } from './useTtsPlayer'
 import { useAppConfirmation } from '../../components/AppDialog/useAppConfirmation'
 import {
@@ -87,23 +80,6 @@ function getAiAudioExportDisclosure(record: SavedAudiobookRecord): string {
   return i18n.t('tts.confirm.disclosureAi')
 }
 
-function summarizeTtsModelStatus(status: NativeTtsModelStatus | null): Record<string, unknown> {
-  if (!status) return {}
-  return {
-    modelId: status.modelId,
-    installed: status.installed,
-    installing: status.installing,
-    installSupported: status.installSupported,
-    runtimeInstalled: status.runtimeInstalled,
-    archiveBytes: status.archiveBytes,
-    installedBytes: status.installedBytes,
-    modelDir: status.modelDir ?? '',
-    runtimeDir: status.runtimeDir ?? '',
-    message: status.message,
-    runtimeMessage: status.runtimeMessage,
-  }
-}
-
 interface AudiobookManagerOptions {
   allDocuments: DocumentInfo[]
   docContent: string
@@ -126,20 +102,15 @@ export function useAudiobookManager({
   onUserUploadsChanged,
 }: AudiobookManagerOptions) {
   const initialAudioPreferences = getAudioPreferences()
-  const [ttsModelId, setTtsModelIdState] = useState(initialAudioPreferences.modelId)
   const [ttsVoice, setTtsVoice] = useState<TtsVoice>(initialAudioPreferences.voice)
   const [ttsSpeed, setTtsSpeed] = useState(DEFAULT_TTS_SPEED)
   const [ttsPlaybackRate, setTtsPlaybackRate] = useState(initialAudioPreferences.playbackRate)
   const [ttsWordHighlightEnabled, setTtsWordHighlightEnabled] = useState(initialAudioPreferences.wordHighlightEnabled)
   const [ttsTextPreprocessor, setTtsTextPreprocessor] = useState<TextPreprocessorId>(initialAudioPreferences.textPreprocessor)
-  const [ttsThreadCount, setTtsThreadCount] = useState(1)
   const [silmaNfeStep, setSilmaNfeStep] = useState(() => resolveSilmaNfeStep(initialAudioPreferences))
-  const [ttsCapabilities, setTtsCapabilities] = useState<NativeTtsCapabilities | null>(null)
   const ttsDtype: TtsDtype = initialAudioPreferences.dtype
   const [ttsSaveChunks, setTtsSaveChunks] = useState<TtsChunk[] | null>(null)
   const [importedHighlightStatus, setImportedHighlightStatus] = useState<ImportedHighlightStatus>('idle')
-  const [ttsModelStatus, setTtsModelStatus] = useState<NativeTtsModelStatus | null>(null)
-  const [ttsModelProgress, setTtsModelProgress] = useState<NativeTtsModelInstallProgress | null>(null)
   const [savedAudiobooks, setSavedAudiobooks] = useState<SavedAudiobookRecord[]>([])
   const [audioSavedOnly, setAudioSavedOnly] = useState(initialAudioPreferences.audioSavedOnly)
   const [audiobookDownloads, setAudiobookDownloads] = useState<AudiobookDownloadRecord[]>(() => getAudiobookDownloads())
@@ -147,22 +118,13 @@ export function useAudiobookManager({
   const [audiobookExport, setAudiobookExport] = useState<AudiobookExportState | null>(null)
   const [audiobookDelete, setAudiobookDelete] = useState<{ id: string; status: 'deleting' | 'deleted' | 'error'; message: string } | null>(null)
   const [audiobookImport, setAudiobookImport] = useState<{ status: 'idle' | 'importing' | 'imported' | 'cancelled' | 'error'; message: string }>({ status: 'idle', message: '' })
-  const [silmaProbeRunning, setSilmaProbeRunning] = useState(false)
   const [audiobookNotice, setAudiobookNotice] = useState<AudiobookNoticeState | null>(null)
   const { confirm: confirmAudiobookAction, dialog: confirmationDialog } = useAppConfirmation()
-  const ttsModels = ttsCapabilities?.models.length ? ttsCapabilities.models : FALLBACK_TTS_MODELS
-  const selectedTtsModel = getTtsModel(ttsModels, ttsModelId)
   const pendingDownloadPersistRef = useRef<AudiobookDownloadInput | null>(null)
   const downloadPersistTimerRef = useRef<number | null>(null)
   const audiobookNoticeTimerRef = useRef<number | null>(null)
   const autoSelectedDocumentRef = useRef<string | null>(null)
   const preserveGeneratedSpeedOnOpenRef = useRef(false)
-  const ttsModelIdRef = useRef(ttsModelId)
-  const setTtsModelId = useCallback((modelId: string) => {
-    ttsModelIdRef.current = modelId
-    setTtsModelIdState(modelId)
-  }, [])
-
   const {
     state: ttsState,
     preload: preloadTts,
@@ -174,6 +136,24 @@ export function useAudiobookManager({
     skipForward: skipTtsForward,
     stop: stopTts,
   } = useTtsPlayer(ttsPlaybackRate)
+  const {
+    defaultThreadCount: ttsDefaultThreadCount,
+    installModel: handleInstallTtsModel,
+    maxThreadCount: ttsMaxThreadCount,
+    modelId: ttsModelId,
+    modelProgress: ttsModelProgress,
+    models: ttsModels,
+    modelStatus: ttsModelStatus,
+    onThreadCountChange: handleThreadCountChange,
+    probeSilmaSidecar: handleProbeSilmaSidecar,
+    setModelId: setTtsModelId,
+    silmaProbeRunning,
+    threadCount: ttsThreadCount,
+  } = useTtsModelRuntime({
+    initialModelId: initialAudioPreferences.modelId,
+    preload: preloadTts,
+  })
+  const selectedTtsModel = getTtsModel(ttsModels, ttsModelId)
   const {
     state: selectedAudiobookState,
     check: checkSelectedAudiobook,
@@ -262,31 +242,6 @@ export function useAudiobookManager({
     }, 1200)
   }, [flushAudiobookDownloadPersist])
 
-  // Loads and normalizes native TTS capabilities for the UI, then synchronizes
-  // this session's thread selection: initialize from the platform default at
-  // startup, or preserve the current choice while clamping it to the detected max.
-  const syncTtsRuntimeSettings = useCallback(async (initializeThreadCount = false) => {
-    const capabilities = await getNativeTtsCapabilities()
-    const maxThreadCount = Math.max(1, capabilities.maxThreadCount)
-    const defaultThreadCount = Math.min(maxThreadCount, Math.max(1, capabilities.defaultThreadCount))
-    setTtsCapabilities({ ...capabilities, defaultThreadCount, maxThreadCount })
-    setTtsThreadCount((current) => initializeThreadCount
-      ? defaultThreadCount
-      : Math.min(maxThreadCount, Math.max(1, current)))
-    return capabilities
-  }, [])
-
-  const refreshTtsModelStatus = useCallback(async () => {
-    const status = await getNativeTtsModelStatus(ttsModelId)
-    if (ttsModelIdRef.current === status.modelId) setTtsModelStatus(status)
-    return status
-  }, [ttsModelId])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void syncTtsRuntimeSettings(true)
-  }, [syncTtsRuntimeSettings])
-
   useEffect(() => {
     // Native manifests are the completed-audio registry; WebView storage is not durable enough.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -296,106 +251,6 @@ export function useAudiobookManager({
   useEffect(() => {
     return () => clearAudiobookNoticeTimer()
   }, [clearAudiobookNoticeTimer])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void refreshTtsModelStatus()
-    let cancelled = false
-    let unlisten: (() => void) | null = null
-    listenNativeTtsModelInstallProgress((progress) => {
-      if (!cancelled && progress.modelId === ttsModelId) setTtsModelProgress(progress)
-    }).then((value) => {
-      if (cancelled) value()
-      else unlisten = value
-    })
-    return () => {
-      cancelled = true
-      unlisten?.()
-    }
-  }, [refreshTtsModelStatus, ttsModelId])
-
-  const handleInstallTtsModel = useCallback(async () => {
-    const installingSilmaRuntime = ttsModelStatus?.runtimeInstalled === false
-    logTtsDiagnostic('[tts-native] model install started', {
-      modelId: ttsModelId,
-      installingSilmaRuntime,
-      ...summarizeTtsModelStatus(ttsModelStatus),
-    })
-    setTtsModelProgress({
-      modelId: ttsModelId,
-      status: 'starting',
-      message: installingSilmaRuntime ? i18n.t('tts.setup.installingSilma') : i18n.t('tts.setup.preparingDownload'),
-      downloadedBytes: 0,
-      totalBytes: ttsModelStatus?.archiveBytes ?? 0,
-      percent: 0,
-    })
-    try {
-      const result = await installNativeTtsModel(ttsModelId)
-      const status = await refreshTtsModelStatus()
-      await syncTtsRuntimeSettings()
-      if (ttsModelIdRef.current !== ttsModelId) return
-      logTtsDiagnostic('[tts-native] model install completed', {
-        resultModelDir: result.modelDir,
-        resultBytes: result.bytes,
-        ...summarizeTtsModelStatus(status),
-      }, status.installed && status.runtimeInstalled ? 'info' : 'warn')
-      if (!status.installed || !status.runtimeInstalled) {
-        setTtsModelProgress(null)
-        return
-      }
-      setTtsModelProgress((prev) => ({
-        modelId: ttsModelId,
-        status: 'installed',
-        message: i18n.t('tts.setup.installed'),
-        downloadedBytes: prev?.totalBytes ?? ttsModelStatus?.archiveBytes ?? 0,
-        totalBytes: prev?.totalBytes ?? ttsModelStatus?.archiveBytes ?? 0,
-        percent: 100,
-      }))
-      preloadTts()
-    } catch (err) {
-      if (ttsModelIdRef.current !== ttsModelId) return
-      logTtsDiagnostic('[tts-native] model install failed', {
-        modelId: ttsModelId,
-        error: nativeTtsErrorDetail(err),
-        ...summarizeTtsModelStatus(ttsModelStatus),
-      }, 'error')
-      setTtsModelProgress({
-        modelId: ttsModelId,
-        status: 'error',
-        message: nativeTtsErrorMessage(err),
-        downloadedBytes: 0,
-        totalBytes: ttsModelStatus?.archiveBytes ?? 0,
-        percent: 0,
-      })
-      void refreshTtsModelStatus()
-    }
-  }, [preloadTts, syncTtsRuntimeSettings, refreshTtsModelStatus, ttsModelId, ttsModelStatus])
-
-  const handleProbeSilmaSidecar = useCallback(async () => {
-    // Diagnostics-only smoke path; real model loading/synthesis still runs through save.
-    if (silmaProbeRunning) return
-    setSilmaProbeRunning(true)
-    try {
-      const result = await probeNativeSilmaSidecar()
-      logTtsDiagnostic('[tts-native] SILMA sidecar probe passed', { ...result })
-    } catch (err) {
-      logTtsDiagnostic('[tts-native] SILMA sidecar probe failed', {
-        error: nativeTtsErrorDetail(err),
-      }, 'error')
-    } finally {
-      setSilmaProbeRunning(false)
-    }
-  }, [silmaProbeRunning])
-
-  useEffect(() => {
-    if (window.requestIdleCallback) {
-      const handle = window.requestIdleCallback(() => preloadTts(), { timeout: 4000 })
-      return () => window.cancelIdleCallback(handle)
-    }
-
-    const timeout = window.setTimeout(() => preloadTts(), 1500)
-    return () => window.clearTimeout(timeout)
-  }, [preloadTts])
 
   useEffect(() => {
     if (!selectedDoc || !docContent) {
@@ -481,8 +336,8 @@ export function useAudiobookManager({
     const suggested = suggestTtsModel(ttsModels, ttsSaveChunks)
     if (suggested.id !== ttsModelId) {
       // One-time per-document language suggestion; user changes remain authoritative afterward.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTtsModelId(suggested.id)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTtsVoice(suggested.defaultVoice)
       setTtsTextPreprocessor(suggested.defaultTextPreprocessor)
     }
@@ -674,17 +529,10 @@ export function useAudiobookManager({
     const model = getTtsModel(ttsModels, modelId)
     stopTts()
     resetSelectedAudiobookState()
-    setTtsModelProgress(null)
-    setTtsModelStatus(null)
     setTtsModelId(model.id)
     setTtsVoice(model.defaultVoice)
     setTtsTextPreprocessor(model.defaultTextPreprocessor)
   }, [resetSelectedAudiobookState, setTtsModelId, stopTts, ttsModels])
-
-  const handleThreadCountChange = useCallback((threadCount: number) => {
-    const maxThreadCount = ttsCapabilities?.maxThreadCount ?? 1
-    setTtsThreadCount(Math.min(maxThreadCount, Math.max(1, threadCount)))
-  }, [ttsCapabilities?.maxThreadCount])
 
   const startAudiobookSave = useCallback((input: {
     documentUrl: string
@@ -1150,8 +998,8 @@ export function useAudiobookManager({
     },
     audioSetupProps: {
       appliedThreadCount: downloadAudiobookState.appliedThreadCount,
-      defaultThreadCount: ttsCapabilities?.defaultThreadCount ?? 1,
-      maxThreadCount: ttsCapabilities?.maxThreadCount ?? 1,
+      defaultThreadCount: ttsDefaultThreadCount,
+      maxThreadCount: ttsMaxThreadCount,
       modelId: ttsModelId,
       models: ttsModels,
       modelInstallProgress: ttsModelProgress,

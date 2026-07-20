@@ -15,6 +15,7 @@ The boundary is intentionally small:
 - `src/tts/hooks/useTtsPlayer.ts` exposes one playback state contract to the UI. Desktop reads a bounded window of saved chunk WAVs; mobile maps one native track timeline back to chunk-local state. It never synthesizes missing chunks live.
 - `src/tts/playback/browserAudioCache.ts` owns the desktop window of WAV Blob URLs, concurrent chunk reads, and deterministic URL revocation. Browser playback itself stays on the standard `HTMLAudioElement` API.
 - `src/tts/playback/nativeMobileAudio.ts` is the narrow adapter around the official, exactly pinned `tauri-plugin-native-audio` 1.0.5 API. Papercut serializes bridge commands and owns its foreground polling cadence instead of forking or modifying the plugin.
+- `src/tts/hooks/useTtsModelRuntime.ts` owns model selection, native capability discovery, thread limits, install status/progress, and SILMA sidecar probing.
 - `src/tts/hooks/useAudiobookCache.ts` checks native audiobook files and starts long-running native save jobs.
 - `src/tts/hooks/useAudiobookManager.ts` coordinates React audiobook state, playback actions, saved-download/import/export/delete flows, and the prop bundles consumed by the audio UI components. Saved audiobooks can export either a re-importable `.papercut-audiobook` bundle or a plain stitched `.wav` file for use outside Papercut.
 - `src/components/DocumentViewer/DocumentViewer.tsx` hosts the reader shell and exposes slots for TTS controls/diagnostics while owning Find, scroll-to-top, same-document link scrolling, and current-chunk highlighting.
