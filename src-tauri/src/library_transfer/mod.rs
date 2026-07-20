@@ -14,6 +14,7 @@ use std::fs::{self, File};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 
+use percent_encoding::percent_decode_str;
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager, Runtime};
 use tauri_plugin_dialog::{DialogExt, FilePath};
@@ -22,8 +23,8 @@ use zip::ZipArchive;
 
 use crate::document_uploads::{
     create_folder, list_organization, list_uploads, move_documents, now_ms,
-    restore_transferred_document, upload_dir, UploadedDocument, UploadedLibraryCreateFolderRequest,
-    UploadedLibraryFolder, UploadedLibraryMoveDocumentsRequest,
+    restore_transferred_document, upload_dir, upload_id_from_url, UploadedDocument,
+    UploadedLibraryCreateFolderRequest, UploadedLibraryFolder, UploadedLibraryMoveDocumentsRequest,
 };
 use package::{
     audiobook_file_path, copy_audiobook_file, document_source_path, read_document_source,
@@ -567,6 +568,7 @@ fn restore_audiobook<T: Read + std::io::Seek>(
 
         let record =
             crate::native_tts::validate_transferred_audiobook(&staging_audio, &audiobook.id)?;
+        validate_transferred_audiobook_document(app, &record, &staging_source)?;
         let installed_source = restore_imported_audiobook_source(app, &record, &staging_source)?;
         if let Err(err) = fs::rename(&staging_audio, &destination) {
             if let Some(path) = installed_source {
@@ -578,6 +580,59 @@ fn restore_audiobook<T: Read + std::io::Seek>(
     })();
     let _ = fs::remove_dir_all(&staging_root);
     result.map(Some)
+}
+
+/// Ensure a transferred audiobook can only reopen an app-owned document.
+/// Imported bundle sources must travel beside the audio, generic uploads must
+/// already have been restored, and bundled documents stay below `/documents/`.
+fn validate_transferred_audiobook_document(
+    app: &tauri::AppHandle,
+    record: &crate::native_tts::NativeSavedAudiobookRecord,
+    staging_source: &Path,
+) -> Result<(), String> {
+    if crate::native_tts::imported_upload_id_from_document_url(&record.document_url).is_ok() {
+        return staging_source
+            .join("source.html")
+            .is_file()
+            .then_some(())
+            .ok_or_else(|| "Transferred imported audiobook is missing its source document".into());
+    }
+    if let Ok(upload_id) = upload_id_from_url(&record.document_url) {
+        let canonical_url = format!("/uploads/{upload_id}.html");
+        if record.document_url == canonical_url
+            && upload_dir(app, &upload_id)?.join("source.html").is_file()
+        {
+            return Ok(());
+        }
+        return Err("Transferred audiobook references a missing uploaded document".into());
+    }
+    if is_bundled_document_url(&record.document_url) {
+        return Ok(());
+    }
+    Err("Transferred audiobook document URL is not app-owned".into())
+}
+
+/// Decode the relative bundled path before checking components so encoded dot
+/// segments cannot escape `/documents/` when the WebView resolves the URL.
+fn is_bundled_document_url(document_url: &str) -> bool {
+    let Some(encoded_path) = document_url.strip_prefix("/documents/") else {
+        return false;
+    };
+    if encoded_path.is_empty()
+        || document_url.contains(['?', '#', '\\'])
+        || document_url.chars().any(char::is_control)
+    {
+        return false;
+    }
+    let Ok(decoded_path) = percent_decode_str(encoded_path).decode_utf8() else {
+        return false;
+    };
+    decoded_path.ends_with(".html")
+        && !decoded_path.contains('\\')
+        && !decoded_path.chars().any(char::is_control)
+        && Path::new(decoded_path.as_ref())
+            .components()
+            .all(|component| matches!(component, std::path::Component::Normal(_)))
 }
 
 /// Imported audiobook bundles own their reading HTML outside the audio cache.
@@ -981,6 +1036,16 @@ mod tests {
             STORAGE_RESERVE_BYTES + 1024
         );
         assert!(required_space_bytes(u64::MAX).is_err());
+    }
+
+    #[test]
+    fn bundled_document_urls_stay_below_the_documents_root() {
+        assert!(is_bundled_document_url(
+            "/documents/Linea%20Proletaria/Article.html"
+        ));
+        assert!(!is_bundled_document_url("data:text/html,<script></script>"));
+        assert!(!is_bundled_document_url("/documents/%2e%2e/index.html"));
+        assert!(!is_bundled_document_url("/documents/..\\index.html"));
     }
 
     fn test_folder(id: &str, parent_id: Option<&str>, name: &str) -> UploadedLibraryFolder {

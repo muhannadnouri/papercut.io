@@ -2,6 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::io::{Read, Seek, Write};
+use std::path::{Component, Path};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -426,9 +427,7 @@ fn validate_audiobooks(
             let valid_relative = file.relative_path == "manifest.json"
                 || file.relative_path == "source/source.html"
                 || file.relative_path == "source/metadata.json"
-                || (file.relative_path.starts_with("chunks/")
-                    && file.relative_path.ends_with(".wav")
-                    && !file.relative_path["chunks/".len()..].contains('/'));
+                || is_canonical_chunk_path(&file.relative_path);
             let expected_path = audiobook_file_path(&audiobook.storage_key, &file.relative_path);
             if !valid_relative
                 || file.path != expected_path
@@ -470,6 +469,23 @@ fn validate_audiobooks(
         }
     }
     Ok(())
+}
+
+/// Accept exactly one normal filename below `chunks`; rejecting both separator
+/// forms keeps validation identical on Unix and Windows hosts.
+fn is_canonical_chunk_path(relative_path: &str) -> bool {
+    let Some(file_name) = relative_path.strip_prefix("chunks/") else {
+        return false;
+    };
+    if file_name.is_empty()
+        || !file_name.ends_with(".wav")
+        || file_name.contains(['/', '\\'])
+        || file_name.chars().any(char::is_control)
+    {
+        return false;
+    }
+    let mut components = Path::new(file_name).components();
+    matches!(components.next(), Some(Component::Normal(_))) && components.next().is_none()
 }
 
 /// Validate the folder graph and document placements without trusting order in
@@ -716,6 +732,27 @@ mod tests {
         copy_audiobook_file(&mut archive, &restored.audiobooks[0].files[1], &mut output)
             .expect("copy audio");
         assert_eq!(output, wav);
+    }
+
+    #[test]
+    fn package_rejects_windows_chunk_path_traversal() {
+        let document = b"<p>Hello</p>".to_vec();
+        let native_manifest = br#"{"version":4}"#.to_vec();
+        let wav = b"RIFF-test".to_vec();
+        let mut manifest = test_manifest(&document);
+        let storage_key = "b".repeat(16);
+        manifest.audiobooks.push(TransferAudiobook {
+            id: "kokoro|test".into(),
+            title: "Test audio".into(),
+            storage_key: storage_key.clone(),
+            files: vec![
+                test_audiobook_file(&storage_key, "manifest.json", &native_manifest),
+                test_audiobook_file(&storage_key, "chunks/..\\outside.wav", &wav),
+            ],
+        });
+
+        let error = validate_manifest(&manifest).expect_err("backslash traversal");
+        assert!(error.contains("Invalid transferred audiobook path"));
     }
 
     fn test_manifest(source: &[u8]) -> TransferManifest {

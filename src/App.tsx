@@ -33,6 +33,19 @@ import {
   isUploadedDocumentUrl,
 } from './uploads/DocumentUploads'
 
+function isBundledDocumentUrl(url: string): boolean {
+  try {
+    const candidate = new URL(url, window.location.href)
+    const current = new URL(window.location.href)
+    return url.startsWith('/documents/') &&
+      candidate.protocol === current.protocol &&
+      candidate.host === current.host &&
+      candidate.pathname.startsWith('/documents/')
+  } catch {
+    return false
+  }
+}
+
 function App() {
   const { t } = useTranslation()
   const theme = useTheme()
@@ -60,6 +73,7 @@ function App() {
   const loadHtmlDocument = useCallback(async (url: string): Promise<string> => {
     if (isUploadedDocumentUrl(url)) return getUploadedDocumentSource(url)
     if (isUserUploadUrl(url)) return getImportedAudiobookSource(url)
+    if (!isBundledDocumentUrl(url)) throw new Error('Unsupported document URL')
 
     const response = await fetch(url)
     if (!response.ok) throw new Error('Failed to load document')
