@@ -9,6 +9,7 @@ import {
   type ReadableDomSegmentIndex,
   type ReadableDomTextLocatorIndex,
 } from '../alignment/domTextSegments'
+import { segmentWordTokens, type WordToken } from '../alignment/wordTiming'
 import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 import type { TtsChunk, TtsChunkSourceSpan } from '../types'
 
@@ -22,11 +23,6 @@ const MAX_CACHED_RANGES = 128
 // - If it feels jumpy/ahead, drop to 0.12s.
 const WORD_HIGHLIGHT_LEAD_SECONDS = 0.25
 
-interface WordToken {
-  startOffset: number
-  endOffset: number
-}
-
 interface NormalizedTextPoint {
   node: Text
   offset: number
@@ -36,17 +32,6 @@ interface NormalizedRangePoints {
   start: NormalizedTextPoint
   end: NormalizedTextPoint
 }
-
-interface IntlSegment {
-  segment: string
-  index: number
-  isWordLike?: boolean
-}
-
-type IntlSegmenterCtor = new (
-  locale?: string | string[],
-  options?: { granularity: 'word' },
-) => { segment(input: string): Iterable<IntlSegment> }
 
 interface SegmentIndexCache {
   root: HTMLElement
@@ -528,32 +513,6 @@ function getWordTokens(cache: AlignmentCache, chunkIndex: number): WordToken[] {
   const text = cache.chunks[chunkIndex]?.text ?? ''
   const tokens = segmentWordTokens(text)
   cache.wordTokens.set(chunkIndex, tokens)
-  return tokens
-}
-
-// Prefer Intl.Segmenter because it handles scripts and punctuation better than
-// a regex; keep the regex fallback for older WebViews that may not expose it.
-function segmentWordTokens(text: string): WordToken[] {
-  const Segmenter = (Intl as typeof Intl & { Segmenter?: IntlSegmenterCtor }).Segmenter
-  if (Segmenter) {
-    const segmenter = new Segmenter(undefined, { granularity: 'word' })
-    return Array.from(segmenter.segment(text))
-      .filter((part) => part.isWordLike)
-      .map((part) => ({
-        startOffset: part.index,
-        endOffset: part.index + part.segment.length,
-      }))
-  }
-
-  const tokens: WordToken[] = []
-  const wordPattern = /[\p{L}\p{N}_]+(?:[-'][\p{L}\p{N}_]+)*/gu
-  for (const match of text.matchAll(wordPattern)) {
-    if (match.index === undefined) continue
-    tokens.push({
-      startOffset: match.index,
-      endOffset: match.index + match[0].length,
-    })
-  }
   return tokens
 }
 

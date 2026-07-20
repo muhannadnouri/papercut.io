@@ -20,6 +20,14 @@ import {
   stopNativeAudio,
   type NativeAudioState,
 } from '../playback/nativeMobileAudio'
+import {
+  DEFAULT_PLAYBACK_RATE,
+  findPlaybackChunk,
+  isNativeMobilePlatform,
+  isTransientPlaybackInterruption,
+  normalizePlaybackRate,
+  textPreview,
+} from '../playback/playbackState'
 import type { TtsOptions, TtsChunk } from '../types'
 import { nativeTtsErrorDetail, nativeTtsErrorMessage } from '../utils/errors'
 
@@ -70,8 +78,6 @@ export interface TtsPlayerState {
 }
 
 const MOBILE_PROGRESS_UPDATE_MS = 250
-const DEFAULT_PLAYBACK_RATE = 1
-
 const EMPTY_PLAYBACK_STATE = {
   currentText: '',
   currentChunkIndex: null,
@@ -1071,57 +1077,4 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     stop,
     resetNativeTtsCapabilities,
   }
-}
-
-function isNativeMobilePlatform(platform: string): boolean {
-  return platform === 'android' || platform === 'ios'
-}
-
-function findPlaybackChunk(
-  playback: NativeAudiobookPlayback,
-  currentTime: number,
-): NativeAudiobookPlayback['chunks'][number] | null {
-  const chunks = playback.chunks
-  if (chunks.length === 0) return null
-
-  let low = 0
-  let high = chunks.length - 1
-  while (low <= high) {
-    const middle = Math.floor((low + high) / 2)
-    const chunk = chunks[middle]
-    const nextStart = chunks[middle + 1]?.startSec ?? playback.audioDurationSec
-    if (currentTime < chunk.startSec) {
-      high = middle - 1
-    } else if (currentTime >= nextStart && middle < chunks.length - 1) {
-      low = middle + 1
-    } else {
-      return chunk
-    }
-  }
-
-  return currentTime < chunks[0].startSec ? chunks[0] : chunks[chunks.length - 1]
-}
-
-function normalizePlaybackRate(rate: number): number {
-  if (!Number.isFinite(rate) || rate <= 0) return DEFAULT_PLAYBACK_RATE
-  return Number(Math.min(3, Math.max(0.5, rate)).toFixed(2))
-}
-
-function isTransientPlaybackInterruption(err: unknown): boolean {
-  // Mobile browsers reject play() with AbortError/interruption messages when a
-  // user quickly replaces the audio source. Those are navigation noise, not a
-  // real TTS failure, so they should not collapse the floating controls.
-  if (!(err instanceof Error)) return false
-  const name = err.name.toLowerCase()
-  const message = err.message.toLowerCase()
-  return name === 'aborterror' ||
-    message.includes('interrupted') ||
-    message.includes('new load request') ||
-    message.includes('pause')
-}
-
-function textPreview(text: string): string {
-  const normalized = text.replace(/\s+/g, ' ').trim()
-  if (normalized.length <= 96) return normalized
-  return normalized.slice(0, 95).trimEnd() + '...'
 }

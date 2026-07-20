@@ -171,6 +171,12 @@ npm run tauri:dev
 
 This starts the Vite dev server and launches the Tauri desktop window with hot reload. Bundled-document search requires a built Pagefind index, so bundled search is only available after `npm run build`. Runtime uploaded-document search works inside the Tauri app after documents are imported.
 
+Run the focused frontend unit tests with:
+
+```bash
+npm test
+```
+
 <details>
 <summary><strong>Production, release, Android, TTS, and browser builds</strong></summary>
 
