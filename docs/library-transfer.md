@@ -93,7 +93,8 @@ Import rules:
   mismatches, unexpected entries, oversized manifests, and oversized payloads;
 - never extract archive paths directly onto the filesystem.
 - stage and checksum every audiobook file, then require the native registry to
-  validate its manifest, chunk set, and cache identity before installation;
+  validate its manifest, chunk set, cache identity, WAV headers, and measured
+  playback timing/byte totals before installation;
 - accept audiobook files only at canonical manifest, source, and single-level
   `chunks/<filename>.wav` paths on every operating system;
 - allow restored audiobooks to reference only bundled `/documents/` routes,
@@ -195,6 +196,7 @@ required by Android's local-network privacy model.
 - [x] Stage 3: separate session orchestration, transport framing, and pairing security.
 - [x] Stage 3: keep nearby transfer primary and progressively disclose file fallback actions.
 - [x] Review hardening: constrain audiobook document URLs and cross-platform archive paths.
+- [x] Review hardening: verify transferred WAV contents against measured playback metadata.
 - [ ] Later: evaluate an optional reading-data category for bookmarks and preferences.
 
 ## Deferred Decisions

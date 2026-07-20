@@ -343,7 +343,8 @@ pub(crate) fn list_audiobook_transfer_payloads(
     Ok(payloads)
 }
 
-/// Reuse the registry's full completion and identity checks on a staged import.
+/// Reuse registry identity checks, then measure every staged WAV so transferred
+/// manifests cannot substitute arbitrary bytes or invented playback metadata.
 pub(crate) fn validate_transferred_audiobook(
     dir: &Path,
     expected_id: &str,
@@ -352,6 +353,28 @@ pub(crate) fn validate_transferred_audiobook(
         .ok_or_else(|| "Transferred audiobook is incomplete".to_string())?;
     if record.id != expected_id {
         return Err("Transferred audiobook identity does not match its manifest".into());
+    }
+    let manifest = read_manifest(dir)?;
+    let (measured_chunks, measured_duration_sec, measured_wav_bytes) =
+        build_playback_index(dir, &manifest.chunks)?;
+    let timing_matches =
+        measured_chunks
+            .iter()
+            .zip(&manifest.playback_chunks)
+            .all(|(measured, stored)| {
+                measured.index == stored.index
+                    && measured.chunk_id == stored.chunk_id
+                    && (measured.start_sec - stored.start_sec).abs()
+                        <= PLAYBACK_TIMING_TOLERANCE_SEC
+                    && (measured.duration_sec - stored.duration_sec).abs()
+                        <= PLAYBACK_TIMING_TOLERANCE_SEC
+            });
+    if measured_wav_bytes != manifest.wav_bytes
+        || (measured_duration_sec - manifest.audio_duration_sec).abs()
+            > PLAYBACK_TIMING_TOLERANCE_SEC
+        || !timing_matches
+    {
+        return Err("Transferred audiobook WAV metadata does not match its manifest".into());
     }
     Ok(record)
 }
@@ -642,7 +665,7 @@ mod tests {
     }
 
     #[test]
-    fn new_save_writes_current_pending_and_complete_manifests() {
+    fn new_save_and_transfer_validation_use_measured_wav_metadata() {
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("clock")
@@ -698,6 +721,21 @@ mod tests {
             .expect("completed record");
         assert_eq!(record.id, audiobook_id);
         assert_eq!(record.chunks, chunks.len());
+
+        validate_transferred_audiobook(&dir, audiobook_id)
+            .expect("accept measured transfer metadata");
+        let mut mismatched = read_manifest(&dir).expect("read complete manifest");
+        mismatched.wav_bytes += 1;
+        write_manifest_file(&dir, &mismatched).expect("write mismatched manifest");
+        assert!(validate_transferred_audiobook(&dir, audiobook_id)
+            .expect_err("reject mismatched WAV totals")
+            .contains("WAV metadata does not match"));
+
+        write_manifest(&dir, &request, &chunks, 1).expect("restore complete manifest");
+        fs::write(chunk_path(&dir, 0, &chunks[0]), b"not a WAV").expect("write invalid WAV");
+        assert!(validate_transferred_audiobook(&dir, audiobook_id)
+            .expect_err("reject invalid WAV")
+            .contains("Missing or invalid saved audiobook chunk"));
         let _ = fs::remove_dir_all(root);
     }
 }
