@@ -18,7 +18,8 @@ The boundary is intentionally small:
 - `src/tts/hooks/useTtsModelRuntime.ts` owns model selection, native capability discovery, thread limits, install status/progress, and SILMA sidecar probing.
 - `src/tts/hooks/useAudiobookCache.ts` checks native audiobook files and starts long-running native save jobs.
 - `src/tts/hooks/useAudiobookDownloadQueue.ts` owns the active native save, resumable queue records, throttled progress persistence, cancellation, and completed-job cleanup.
-- `src/tts/hooks/useAudiobookManager.ts` coordinates document-specific audiobook state, playback actions, saved-audiobook import/export/delete flows, and the prop bundles consumed by the audio UI components. Saved audiobooks can export either a re-importable `.papercut-audiobook` bundle or a plain stitched `.wav` file for use outside Papercut.
+- `src/tts/hooks/useSavedAudiobookActions.ts` owns native saved-audiobook import, export, and delete execution plus their busy states and transient notices.
+- `src/tts/hooks/useAudiobookManager.ts` coordinates document-specific audiobook state, playback actions, confirmations, reader updates after saved-audiobook actions, and the prop bundles consumed by the audio UI components. Saved audiobooks can export either a re-importable `.papercut-audiobook` bundle or a plain stitched `.wav` file for use outside Papercut.
 - `src/components/DocumentViewer/DocumentViewer.tsx` hosts the reader shell and exposes slots for TTS controls/diagnostics while owning Find, scroll-to-top, same-document link scrolling, and current-chunk highlighting.
 - `src/tts/components/AudioControls.tsx`, `src/tts/components/AudiobooksPanel.tsx`, `src/tts/hooks/useTtsHighlight.ts`, `src/tts/alignment/highlightRanges.ts`, and `src/tts/utils/format.ts` keep document playback controls, saved-download UI, React highlight lifecycle, DOM range mapping, and audiobook display formatting out of `App.tsx`.
 
