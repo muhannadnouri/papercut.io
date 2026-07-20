@@ -10,6 +10,7 @@ import {
   currentAppLocale,
 } from '../../i18n'
 import { LibraryTransferDialog } from '../../library-transfer/LibraryTransferDialog'
+import { isMobileUserAgent } from '../../utils/platform'
 import { AppDialog } from '../AppDialog/AppDialog'
 import { AppSelect } from '../AppSelect/AppSelect'
 import './AppSettings.css'
@@ -203,7 +204,7 @@ function TransferIcon() {
 }
 
 function useAppZoom() {
-  const supported = isTauri() && !isMobilePlatform()
+  const supported = isTauri() && !isMobileUserAgent()
   const [value, setValueState] = useState(() => loadZoom())
   const setZoom = useCallback((next: number) => {
     const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next))
@@ -259,11 +260,4 @@ function saveZoom(value: number): void {
   } catch {
     // Zoom still works when preference persistence is unavailable.
   }
-}
-
-// Tauri's WebView zoom API is desktop-only; mobile keeps theme and version
-// settings while reader typography remains under Reader Settings.
-function isMobilePlatform(): boolean {
-  return /Android|iP(ad|hone|od)/.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 }

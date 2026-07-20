@@ -13,6 +13,7 @@ import { useReaderBookmark } from '../../hooks/useReaderBookmark'
 import { useTtsHighlight } from '../../tts/hooks/useTtsHighlight'
 import type { SearchOpenTarget } from '../../types/search'
 import type { TtsChunk } from '../../tts/types'
+import { isIOSWebKit } from '../../utils/platform'
 import { openExternalUrl } from '../../utils/openExternalUrl'
 import './DocumentViewer.css'
 
@@ -471,10 +472,4 @@ function scrollToRange(range: Range): void {
 
 function readerScrollBehavior(): ScrollBehavior {
   return isIOSWebKit() ? 'auto' : 'smooth'
-}
-
-function isIOSWebKit(): boolean {
-  if (typeof navigator === 'undefined') return false
-  return /iP(ad|hone|od)/.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 }

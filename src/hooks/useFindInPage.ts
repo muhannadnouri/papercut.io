@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { isIOSWebKit } from '../utils/platform'
 
 const FIND_DEBOUNCE_MS = 180
 
@@ -190,8 +191,5 @@ export function useFindInPage(
 }
 
 function findScrollBehavior(): ScrollBehavior {
-  if (typeof navigator === 'undefined') return 'smooth'
-  const isiOS = /iP(ad|hone|od)/.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-  return isiOS ? 'auto' : 'smooth'
+  return isIOSWebKit() ? 'auto' : 'smooth'
 }

@@ -6,6 +6,7 @@ import type { DocumentImportStatus } from '../../hooks/useUploadedLibrary'
 import type { DocumentInfo } from '../../types/search'
 import type { UploadedDocumentDeleteBatchResult, UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
 import { formatStorageSize } from '../../utils/formatUtils'
+import { isMobileUserAgent } from '../../utils/platform'
 import { DocumentsPanel } from '../DocumentsPanel/DocumentsPanel'
 
 interface LibraryTabProps {
@@ -68,7 +69,7 @@ export function LibraryTab({
   const { t } = useTranslation()
   const operationBusy = documentImport.status === 'importing' || documentImport.status === 'deleting'
   const statusMessage = documentImportStatusMessage(documentImport, t, onCancelDocumentBatch, allDocuments)
-  const folderImportSupported = !isMobilePlatform()
+  const folderImportSupported = !isMobileUserAgent()
 
   return (
     <section className="tab-panel" role="tabpanel" aria-label={t('library.tabLabel')} data-tab="library">
@@ -212,13 +213,6 @@ function DocumentBatchDeleteStatus({
       )}
     </div>
   )
-}
-
-/** Folder enumeration needs a real desktop filesystem; mobile retains the
- * portable single/multi-file pickers without exposing an unsupported action. */
-function isMobilePlatform(): boolean {
-  return /Android|iP(ad|hone|od)/.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 }
 
 /** Keep the long-running batch status in the existing library status row while
