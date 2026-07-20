@@ -17,8 +17,8 @@
 //!
 //! Sessions stay foreground-only and expire after ten minutes. Failed
 //! authentication consumes the code to prevent online guessing; an authenticated
-//! interruption may reconnect with the same code. Device discovery and
-//! background transfer remain outside this module.
+//! interruption may reconnect with the same code. Background transfer remains
+//! outside this module.
 
 use std::fs;
 use std::io;

@@ -190,14 +190,10 @@ required by Android's local-network privacy model.
 - [x] Stage 3: resume interrupted transfers, especially large audio.
 - [x] Stage 3: separate session orchestration, transport framing, and pairing security.
 - [x] Stage 3: keep nearby transfer primary and progressively disclose file fallback actions.
-- [ ] Stage 4: evaluate automatic discovery only after QR/manual pairing is proven.
 - [ ] Later: evaluate an optional reading-data category for bookmarks and preferences.
 
 ## Deferred Decisions
 
-- Automatic discovery and QR pairing remain deferred; the first LAN release
-  proves the smaller address-and-code workflow before adding multicast or a QR
-  dependency.
 - Android 17 local-network permission handling is required when Papercut raises
   its Android target from SDK 36 to SDK 37.
 - Original EPUB archives are not transferable because the current upload
