@@ -115,10 +115,15 @@ App Settings owns the entry point because transfer is device-level data
 management rather than another document format. A **Data** section opens a
 dedicated **Transfer Library** dialog organized by the user's role:
 
-- **Send** makes nearby transfer the primary action and offers **Save Transfer
-  File** as the manual alternative;
-- **Receive** accepts the source address and one-use code, with **Import
-  Transfer File** as the manual alternative.
+- **Send** presents **Send to a nearby device** as the primary action and keeps
+  **Save Transfer File** under an expandable manual fallback;
+- **Receive** presents **Receive from a nearby device**, accepts the sending
+  device's address and one-use code, and keeps **Import Transfer File** under
+  the same secondary fallback.
+
+The role control remains visible throughout the dialog. Nearby transfer is the
+default path, while the transfer-file disclosures explain that files can be
+moved through USB, shared storage, or another user-chosen method.
 
 The export action offers a default-off **Include saved audiobooks** checkbox when
 completed audio exists. The dialog reports document and audiobook counts plus
@@ -184,6 +189,7 @@ required by Android's local-network privacy model.
 - [x] Stage 3: reject package staging and restoration when storage is insufficient.
 - [x] Stage 3: resume interrupted transfers, especially large audio.
 - [x] Stage 3: separate session orchestration, transport framing, and pairing security.
+- [x] Stage 3: keep nearby transfer primary and progressively disclose file fallback actions.
 - [ ] Stage 4: evaluate automatic discovery only after QR/manual pairing is proven.
 - [ ] Later: evaluate an optional reading-data category for bookmarks and preferences.
 

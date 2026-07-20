@@ -41,7 +41,7 @@ export function AppSettings({
   const zoom = useAppZoom()
   const closeSettings = useCallback(() => setOpen(false), [])
   const themeOptions: Array<{ choice: ThemeChoice; label: string; icon?: string }> = [
-    { choice: 'system', label: t('settings.themeSystem') },
+    { choice: 'system', label: t('settings.themeSystem'), icon: '🖥️' },
     { choice: 'light', label: t('settings.themeLight'), icon: '☀️' },
     { choice: 'dark', label: t('settings.themeDark'), icon: '🌙' },
   ]

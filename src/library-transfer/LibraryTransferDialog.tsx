@@ -236,15 +236,15 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
               <LibrarySendStatusMessage status={sendStatus} locale={locale} />
             </section>
 
-            <section className="library-transfer-alternate">
-              <div>
-                <h3>{t('libraryTransfer.exportTitle')}</h3>
+            <details className="library-transfer-alternate">
+              <summary>{t('libraryTransfer.exportTitle')}</summary>
+              <div className="library-transfer-alternate-content">
                 <p>{t('libraryTransfer.exportDescription', { count: documentCount })}</p>
+                <button type="button" disabled={busy || !hasContent} onClick={() => { void handleExport() }}>
+                  {status.state === 'exporting' ? t('libraryTransfer.exporting') : t('libraryTransfer.export')}
+                </button>
               </div>
-              <button type="button" disabled={busy || !hasContent} onClick={() => { void handleExport() }}>
-                {status.state === 'exporting' ? t('libraryTransfer.exporting') : t('libraryTransfer.export')}
-              </button>
-            </section>
+            </details>
           </>
         ) : (
           <>
@@ -293,15 +293,15 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
               )}
             </section>
 
-            <section className="library-transfer-alternate">
-              <div>
-                <h3>{t('libraryTransfer.importTitle')}</h3>
+            <details className="library-transfer-alternate">
+              <summary>{t('libraryTransfer.importTitle')}</summary>
+              <div className="library-transfer-alternate-content">
                 <p>{t('libraryTransfer.importDescription')}</p>
+                <button type="button" disabled={busy} onClick={() => { void handleImport() }}>
+                  {status.state === 'importing' ? t('libraryTransfer.importing') : t('libraryTransfer.import')}
+                </button>
               </div>
-              <button type="button" disabled={busy} onClick={() => { void handleImport() }}>
-                {status.state === 'importing' ? t('libraryTransfer.importing') : t('libraryTransfer.import')}
-              </button>
-            </section>
+            </details>
             {status.state === 'importing' && progress?.operation === 'import' && (
               <TransferProgressMessage progress={progress} locale={locale} />
             )}
