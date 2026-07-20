@@ -7,12 +7,7 @@ import {
   type SavedAudiobookRecord,
 } from '../storage/AudiobookLibrary'
 import {
-  clearCompletedAudiobookDownload,
   createAudiobookDownloadId,
-  getAudiobookDownloads,
-  removeAudiobookDownload,
-  upsertAudiobookDownload,
-  type AudiobookDownloadInput,
   type AudiobookDownloadRecord,
 } from '../storage/AudiobookDownloadQueue'
 import { getAudioPreferences, saveAudioPreferences } from '../storage/audioPreferences'
@@ -49,6 +44,7 @@ import {
 import { isUserUploadUrl, removeUserUpload, upsertUserUpload, type UserUploadDocument } from '../storage/UserUploads'
 import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 import { useAudiobookCache } from './useAudiobookCache'
+import { useAudiobookDownloadQueue } from './useAudiobookDownloadQueue'
 import { useTtsModelRuntime } from './useTtsModelRuntime'
 import { useTtsPlayer } from './useTtsPlayer'
 import { useAppConfirmation } from '../../components/AppDialog/useAppConfirmation'
@@ -113,15 +109,11 @@ export function useAudiobookManager({
   const [importedHighlightStatus, setImportedHighlightStatus] = useState<ImportedHighlightStatus>('idle')
   const [savedAudiobooks, setSavedAudiobooks] = useState<SavedAudiobookRecord[]>([])
   const [audioSavedOnly, setAudioSavedOnly] = useState(initialAudioPreferences.audioSavedOnly)
-  const [audiobookDownloads, setAudiobookDownloads] = useState<AudiobookDownloadRecord[]>(() => getAudiobookDownloads())
-  const [audiobookDownload, setAudiobookDownload] = useState<{ title: string; url: string; modelId: string; textPreprocessor: string; voice: TtsVoice; speed: number; dtype: TtsDtype; silmaNfeStep?: number } | null>(null)
   const [audiobookExport, setAudiobookExport] = useState<AudiobookExportState | null>(null)
   const [audiobookDelete, setAudiobookDelete] = useState<{ id: string; status: 'deleting' | 'deleted' | 'error'; message: string } | null>(null)
   const [audiobookImport, setAudiobookImport] = useState<{ status: 'idle' | 'importing' | 'imported' | 'cancelled' | 'error'; message: string }>({ status: 'idle', message: '' })
   const [audiobookNotice, setAudiobookNotice] = useState<AudiobookNoticeState | null>(null)
   const { confirm: confirmAudiobookAction, dialog: confirmationDialog } = useAppConfirmation()
-  const pendingDownloadPersistRef = useRef<AudiobookDownloadInput | null>(null)
-  const downloadPersistTimerRef = useRef<number | null>(null)
   const audiobookNoticeTimerRef = useRef<number | null>(null)
   const autoSelectedDocumentRef = useRef<string | null>(null)
   const preserveGeneratedSpeedOnOpenRef = useRef(false)
@@ -159,11 +151,6 @@ export function useAudiobookManager({
     check: checkSelectedAudiobook,
     reset: resetSelectedAudiobookState,
   } = useAudiobookCache()
-  const {
-    state: downloadAudiobookState,
-    save: saveAudiobook,
-    cancel: cancelAudiobookSave,
-  } = useAudiobookCache()
 
   const savedAudiobookIds = useMemo(() => new Set(savedAudiobooks.map((record) => record.id)), [savedAudiobooks])
 
@@ -174,10 +161,6 @@ export function useAudiobookManager({
       ?? decodeURIComponent(url.split('/').pop() ?? url)
   }, [allDocuments, uploadedDocuments, userUploads])
 
-  const refreshAudiobookDownloads = useCallback(() => {
-    setAudiobookDownloads(getAudiobookDownloads())
-  }, [])
-
   const refreshSavedAudiobooks = useCallback(async () => {
     try {
       setSavedAudiobooks(await listNativeSavedAudiobooks())
@@ -187,6 +170,18 @@ export function useAudiobookManager({
       }, 'warn')
     }
   }, [])
+
+  const {
+    activeDownload: audiobookDownload,
+    downloads: audiobookDownloads,
+    state: downloadAudiobookState,
+    start: startAudiobookSave,
+    cancel: handleCancelAudiobookSave,
+    remove: removeQueuedAudiobookDownload,
+  } = useAudiobookDownloadQueue({
+    threadCount: ttsThreadCount,
+    onCompleted: refreshSavedAudiobooks,
+  })
 
   const clearAudiobookNoticeTimer = useCallback(() => {
     if (audiobookNoticeTimerRef.current !== null) {
@@ -214,33 +209,6 @@ export function useAudiobookManager({
       audiobookNoticeTimerRef.current = null
     }, AUDIOBOOK_NOTICE_TIMEOUT_MS)
   }, [clearAudiobookNoticeTimer])
-
-  const flushAudiobookDownloadPersist = useCallback(() => {
-    if (downloadPersistTimerRef.current !== null) {
-      window.clearTimeout(downloadPersistTimerRef.current)
-      downloadPersistTimerRef.current = null
-    }
-
-    const pending = pendingDownloadPersistRef.current
-    if (!pending) return
-
-    pendingDownloadPersistRef.current = null
-    upsertAudiobookDownload(pending)
-    refreshAudiobookDownloads()
-  }, [refreshAudiobookDownloads])
-
-  const scheduleAudiobookDownloadPersist = useCallback((input: AudiobookDownloadInput, immediate = false) => {
-    pendingDownloadPersistRef.current = input
-    if (immediate) {
-      flushAudiobookDownloadPersist()
-      return
-    }
-
-    if (downloadPersistTimerRef.current !== null) return
-    downloadPersistTimerRef.current = window.setTimeout(() => {
-      flushAudiobookDownloadPersist()
-    }, 1200)
-  }, [flushAudiobookDownloadPersist])
 
   useEffect(() => {
     // Native manifests are the completed-audio registry; WebView storage is not durable enough.
@@ -376,100 +344,6 @@ export function useAudiobookManager({
   }, [audioSavedOnly])
 
   useEffect(() => {
-    if (!audiobookDownload || downloadAudiobookState.complete) return
-
-    if (downloadAudiobookState.status === 'checking' || downloadAudiobookState.status === 'saving') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      scheduleAudiobookDownloadPersist({
-        documentUrl: audiobookDownload.url,
-        title: audiobookDownload.title,
-        modelId: audiobookDownload.modelId,
-        textPreprocessor: audiobookDownload.textPreprocessor,
-        voice: audiobookDownload.voice,
-        speed: audiobookDownload.speed,
-        silmaNfeStep: audiobookDownload.silmaNfeStep,
-        dtype: audiobookDownload.dtype,
-        status: 'saving',
-        cachedChunks: downloadAudiobookState.cachedChunks,
-        totalChunks: downloadAudiobookState.totalChunks,
-        message: downloadAudiobookState.message,
-        audioDurationSec: downloadAudiobookState.audioDurationSec,
-        wavBytes: downloadAudiobookState.wavBytes,
-      })
-      return
-    }
-
-    if (downloadAudiobookState.status === 'partial') {
-      scheduleAudiobookDownloadPersist({
-        documentUrl: audiobookDownload.url,
-        title: audiobookDownload.title,
-        modelId: audiobookDownload.modelId,
-        textPreprocessor: audiobookDownload.textPreprocessor,
-        voice: audiobookDownload.voice,
-        speed: audiobookDownload.speed,
-        silmaNfeStep: audiobookDownload.silmaNfeStep,
-        dtype: audiobookDownload.dtype,
-        status: 'paused',
-        cachedChunks: downloadAudiobookState.cachedChunks,
-        totalChunks: downloadAudiobookState.totalChunks,
-        message: downloadAudiobookState.message || i18n.t('tts.status.readyToResume'),
-        audioDurationSec: downloadAudiobookState.audioDurationSec,
-        wavBytes: downloadAudiobookState.wavBytes,
-      }, true)
-      return
-    }
-
-    if (downloadAudiobookState.status === 'error') {
-      scheduleAudiobookDownloadPersist({
-        documentUrl: audiobookDownload.url,
-        title: audiobookDownload.title,
-        modelId: audiobookDownload.modelId,
-        textPreprocessor: audiobookDownload.textPreprocessor,
-        voice: audiobookDownload.voice,
-        speed: audiobookDownload.speed,
-        silmaNfeStep: audiobookDownload.silmaNfeStep,
-        dtype: audiobookDownload.dtype,
-        status: 'error',
-        cachedChunks: downloadAudiobookState.cachedChunks,
-        totalChunks: downloadAudiobookState.totalChunks,
-        message: downloadAudiobookState.message,
-        audioDurationSec: downloadAudiobookState.audioDurationSec,
-        wavBytes: downloadAudiobookState.wavBytes,
-      }, true)
-    }
-  }, [audiobookDownload, downloadAudiobookState, scheduleAudiobookDownloadPersist])
-
-  useEffect(() => {
-    if (!downloadAudiobookState.complete || !audiobookDownload) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    flushAudiobookDownloadPersist()
-    clearCompletedAudiobookDownload(audiobookDownload.url, {
-      modelId: audiobookDownload.modelId,
-      textPreprocessor: audiobookDownload.textPreprocessor,
-      voice: audiobookDownload.voice,
-      speed: audiobookDownload.speed,
-      silmaNfeStep: audiobookDownload.silmaNfeStep,
-      dtype: audiobookDownload.dtype,
-    })
-    void refreshSavedAudiobooks()
-    refreshAudiobookDownloads()
-  }, [audiobookDownload, downloadAudiobookState.complete, flushAudiobookDownloadPersist, refreshAudiobookDownloads, refreshSavedAudiobooks])
-
-  useEffect(() => {
-    function flushPendingDownload() {
-      flushAudiobookDownloadPersist()
-    }
-
-    document.addEventListener('visibilitychange', flushPendingDownload)
-    window.addEventListener('pagehide', flushPendingDownload)
-    return () => {
-      document.removeEventListener('visibilitychange', flushPendingDownload)
-      window.removeEventListener('pagehide', flushPendingDownload)
-      flushAudiobookDownloadPersist()
-    }
-  }, [flushAudiobookDownloadPersist])
-
-  useEffect(() => {
     if (!selectedDoc) return
     const timeout = window.setTimeout(() => preloadTts(), 250)
     return () => window.clearTimeout(timeout)
@@ -533,50 +407,6 @@ export function useAudiobookManager({
     setTtsVoice(model.defaultVoice)
     setTtsTextPreprocessor(model.defaultTextPreprocessor)
   }, [resetSelectedAudiobookState, setTtsModelId, stopTts, ttsModels])
-
-  const startAudiobookSave = useCallback((input: {
-    documentUrl: string
-    title: string
-    modelId: string
-    textPreprocessor: string
-    chunks: TtsChunk[]
-    voice: TtsVoice
-    speed: number
-    silmaNfeStep?: number
-    dtype: TtsDtype
-  }) => {
-    const speakableChunks = input.chunks.filter((chunk) => chunk.text.trim())
-    if (speakableChunks.length === 0) return
-
-    // Queue state is persisted before the native save starts so interrupted saves can resume.
-    scheduleAudiobookDownloadPersist({
-      documentUrl: input.documentUrl,
-      title: input.title,
-      modelId: input.modelId,
-      textPreprocessor: input.textPreprocessor,
-      voice: input.voice,
-      speed: input.speed,
-      silmaNfeStep: input.silmaNfeStep,
-      dtype: input.dtype,
-      status: 'queued',
-      cachedChunks: 0,
-      totalChunks: speakableChunks.length,
-      message: i18n.t('tts.status.queued'),
-      audioDurationSec: 0,
-    }, true)
-    setAudiobookDownload({ title: input.title, url: input.documentUrl, modelId: input.modelId, textPreprocessor: input.textPreprocessor, voice: input.voice, speed: input.speed, dtype: input.dtype, silmaNfeStep: input.silmaNfeStep })
-    saveAudiobook(input.chunks, {
-      modelId: input.modelId,
-      textPreprocessor: input.textPreprocessor,
-      voice: input.voice,
-      speed: input.speed,
-      dtype: input.dtype,
-      threadCount: ttsThreadCount,
-      silmaNfeStep: input.silmaNfeStep,
-      documentUrl: input.documentUrl,
-      title: input.title,
-    })
-  }, [saveAudiobook, scheduleAudiobookDownloadPersist, ttsThreadCount])
 
   const handleSaveAudiobook = useCallback(async () => {
     if (!selectedDoc) return
@@ -644,28 +474,6 @@ export function useAudiobookManager({
     })
   }, [getAudiobookSaveChunksForDocument, startAudiobookSave])
 
-  const handleCancelAudiobookSave = useCallback(() => {
-    if (audiobookDownload) {
-      scheduleAudiobookDownloadPersist({
-        documentUrl: audiobookDownload.url,
-        title: audiobookDownload.title,
-        modelId: audiobookDownload.modelId,
-        textPreprocessor: audiobookDownload.textPreprocessor,
-        voice: audiobookDownload.voice,
-        speed: audiobookDownload.speed,
-        silmaNfeStep: audiobookDownload.silmaNfeStep,
-        dtype: audiobookDownload.dtype,
-        status: 'paused',
-        cachedChunks: downloadAudiobookState.cachedChunks,
-        totalChunks: downloadAudiobookState.totalChunks,
-        message: i18n.t('tts.status.pausedReady'),
-        audioDurationSec: downloadAudiobookState.audioDurationSec,
-        wavBytes: downloadAudiobookState.wavBytes,
-      }, true)
-    }
-    cancelAudiobookSave()
-  }, [audiobookDownload, cancelAudiobookSave, downloadAudiobookState.audioDurationSec, downloadAudiobookState.cachedChunks, downloadAudiobookState.totalChunks, downloadAudiobookState.wavBytes, scheduleAudiobookDownloadPersist])
-
   const handleRemoveAudiobookDownload = useCallback(async (id: string) => {
     const record = audiobookDownloads.find((item) => item.id === id)
     if (!record) return
@@ -692,9 +500,8 @@ export function useAudiobookManager({
     })
     if (!confirmed) return
 
-    removeAudiobookDownload(id)
-    refreshAudiobookDownloads()
-  }, [audiobookDownloads, confirmAudiobookAction, refreshAudiobookDownloads])
+    removeQueuedAudiobookDownload(id)
+  }, [audiobookDownloads, confirmAudiobookAction, removeQueuedAudiobookDownload])
 
   const handleExportSavedAudiobook = useCallback(async (record: SavedAudiobookRecord, exportFormat: NativeAudiobookExportFormat) => {
     const confirmed = await confirmAudiobookAction({
