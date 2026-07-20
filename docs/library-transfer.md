@@ -164,6 +164,11 @@ errors, but are removed after a successful import or a non-recoverable package
 error. A resumed package is always checksum-verified in full before restore, so
 the byte offset is an optimization rather than a trust boundary.
 
+The receiver marks only explicit insufficient-storage failures as retryable.
+Invalid schemas, checksums, payloads, or restore data fail the sender session
+instead of offering a retry that would reproduce the same result. Cancelling the
+source closes its active socket, including while it waits for target-side import.
+
 The command and session lifecycle lives in
 `src-tauri/src/library_transfer/network.rs`, resumable package streaming and
 progress framing live in `network/transport.rs`, and TLS plus one-use pairing
@@ -197,6 +202,7 @@ required by Android's local-network privacy model.
 - [x] Stage 3: keep nearby transfer primary and progressively disclose file fallback actions.
 - [x] Review hardening: constrain audiobook document URLs and cross-platform archive paths.
 - [x] Review hardening: verify transferred WAV contents against measured playback metadata.
+- [x] Review hardening: classify terminal receiver failures and interrupt active sends on cancel.
 - [ ] Later: evaluate an optional reading-data category for bookmarks and preferences.
 
 ## Deferred Decisions

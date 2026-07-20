@@ -22,7 +22,7 @@
 
 use std::fs;
 use std::io;
-use std::net::{Ipv4Addr, SocketAddrV4, TcpListener};
+use std::net::{Ipv4Addr, Shutdown, SocketAddrV4, TcpListener, TcpStream};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -61,6 +61,7 @@ pub struct LibraryTransferState {
 #[derive(Clone)]
 struct SendSession {
     cancel: Arc<AtomicBool>,
+    active_socket: Arc<Mutex<Option<TcpStream>>>,
     status: Arc<Mutex<LibraryTransferSendStatus>>,
 }
 
@@ -129,6 +130,9 @@ pub fn library_transfer_send_cancel(state: State<'_, LibraryTransferState>) -> R
     let send = lock(&state.send)?;
     if let Some(session) = send.as_ref() {
         session.cancel.store(true, Ordering::Relaxed);
+        if let Some(socket) = take_active_socket(&session.active_socket) {
+            let _ = socket.shutdown(Shutdown::Both);
+        }
     }
     Ok(())
 }
@@ -205,8 +209,10 @@ fn start_send(
         error: None,
     }));
     let cancel = Arc::new(AtomicBool::new(false));
+    let active_socket = Arc::new(Mutex::new(None));
     let session = SendSession {
         cancel: Arc::clone(&cancel),
+        active_socket: Arc::clone(&active_socket),
         status: Arc::clone(&status),
     };
     *lock(&state.send)? = Some(session);
@@ -220,6 +226,7 @@ fn start_send(
             &package_path,
             &thread_status,
             &cancel,
+            &active_socket,
         );
         let _ = fs::remove_file(package_path);
     });
@@ -236,6 +243,7 @@ fn run_sender(
     package_path: &Path,
     status: &Arc<Mutex<LibraryTransferSendStatus>>,
     cancel: &AtomicBool,
+    active_socket: &Mutex<Option<TcpStream>>,
 ) {
     let deadline = Instant::now() + SESSION_TIMEOUT;
     loop {
@@ -253,6 +261,17 @@ fn run_sender(
         }
         match listener.accept() {
             Ok((stream, _)) => {
+                if let Err(error) = track_active_socket(&stream, active_socket) {
+                    set_send_status(status, LibraryTransferSendState::Failed, Some(error));
+                    return;
+                }
+                if cancel.load(Ordering::Relaxed) {
+                    if let Some(socket) = take_active_socket(active_socket) {
+                        let _ = socket.shutdown(Shutdown::Both);
+                    }
+                    set_send_status(status, LibraryTransferSendState::Cancelled, None);
+                    return;
+                }
                 set_send_active(status);
                 let result = send_package(
                     stream,
@@ -262,6 +281,7 @@ fn run_sender(
                     status,
                     cancel,
                 );
+                let _ = take_active_socket(active_socket);
                 if cancel.load(Ordering::Relaxed) {
                     set_send_status(status, LibraryTransferSendState::Cancelled, None);
                     return;
@@ -333,15 +353,22 @@ fn receive_library(
                 Ok(result)
             }
             Err(error) => {
+                let retryable = is_retryable_import_failure(&error);
                 let _ =
                     write_receiver_message(&mut stream, &ReceiverMessage::Failed(error.clone()));
-                if !error.contains(INSUFFICIENT_SPACE_CODE) {
+                if !retryable {
                     let _ = fs::remove_file(&temp_path);
                 }
                 Err(error)
             }
         }
     })()
+}
+
+/// Only an explicit insufficient-space result retains a complete partial for
+/// retry; corrupt or unsupported packages will fail identically on every try.
+fn is_retryable_import_failure(error: &str) -> bool {
+    error.starts_with(INSUFFICIENT_SPACE_CODE)
 }
 
 fn set_send_status(
@@ -373,8 +400,42 @@ fn set_send_retry_waiting(status: &Mutex<LibraryTransferSendStatus>, error: Stri
     }
 }
 
+/// Keep a clone solely so the command thread can interrupt blocking TLS I/O
+/// without taking ownership from the sender worker.
+fn track_active_socket(
+    socket: &TcpStream,
+    active_socket: &Mutex<Option<TcpStream>>,
+) -> Result<(), String> {
+    let cancellation_socket = socket
+        .try_clone()
+        .map_err(|error| format!("Failed to prepare library send cancellation: {error}"))?;
+    *lock(active_socket)? = Some(cancellation_socket);
+    Ok(())
+}
+
+/// Take the cancellation-only socket clone so shutting it down wakes whichever
+/// blocking TLS phase currently owns the original stream.
+fn take_active_socket(active_socket: &Mutex<Option<TcpStream>>) -> Option<TcpStream> {
+    active_socket.lock().ok()?.take()
+}
+
 fn lock<T>(mutex: &Mutex<T>) -> Result<std::sync::MutexGuard<'_, T>, String> {
     mutex
         .lock()
         .map_err(|_| "Library transfer state is unavailable".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_retryable_import_failure;
+
+    #[test]
+    fn only_insufficient_space_import_failures_are_retryable() {
+        assert!(is_retryable_import_failure(
+            "LIBRARY_TRANSFER_INSUFFICIENT_SPACE:100:50"
+        ));
+        assert!(!is_retryable_import_failure(
+            "Library-transfer package checksum does not match"
+        ));
+    }
 }

@@ -17,7 +17,7 @@ use super::security::{
     client_tls_config, pairing_proof, read_and_verify_proof, tls_exporter, PROTOCOL_MAGIC,
     RECEIVER_ROLE, SENDER_ROLE,
 };
-use super::LibraryTransferSendStatus;
+use super::{is_retryable_import_failure, LibraryTransferSendStatus};
 use crate::library_transfer::package::MAX_PACKAGE_BYTES;
 use crate::library_transfer::{
     ensure_available_space, transfer_cache_dir, LibraryTransferProgress,
@@ -148,9 +148,13 @@ pub(super) fn send_package(
             }
             ReceiverMessage::Complete => return Ok(()),
             ReceiverMessage::Failed(error) => {
-                return Err(SendAttemptError::Retryable(format!(
-                    "The receiving device could not finish the import: {error}"
-                )));
+                let retryable = is_retryable_import_failure(&error);
+                let error = format!("The receiving device could not finish the import: {error}");
+                return Err(if retryable {
+                    SendAttemptError::Retryable(error)
+                } else {
+                    SendAttemptError::Fatal(error)
+                });
             }
         }
     }
