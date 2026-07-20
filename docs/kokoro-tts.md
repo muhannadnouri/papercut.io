@@ -17,7 +17,7 @@ The boundary is intentionally small:
 - `src/tts/hooks/useAudiobookCache.ts` checks native audiobook files and starts long-running native save jobs.
 - `src/tts/hooks/useAudiobookManager.ts` coordinates React audiobook state, playback actions, saved-download/import/export/delete flows, and the prop bundles consumed by the audio UI components. Saved audiobooks can export either a re-importable `.papercut-audiobook` bundle or a plain stitched `.wav` file for use outside Papercut.
 - `src/components/DocumentViewer/DocumentViewer.tsx` hosts the reader shell and exposes slots for TTS controls/diagnostics while owning Find, scroll-to-top, same-document link scrolling, and current-chunk highlighting.
-- `src/tts/components/AudioControls.tsx`, `src/tts/components/AudiobooksPanel.tsx`, `src/tts/hooks/useTtsHighlight.ts`, and `src/tts/utils/format.ts` keep document playback controls, saved-download UI, highlight behavior, and audiobook display formatting out of `App.tsx`.
+- `src/tts/components/AudioControls.tsx`, `src/tts/components/AudiobooksPanel.tsx`, `src/tts/hooks/useTtsHighlight.ts`, `src/tts/alignment/highlightRanges.ts`, and `src/tts/utils/format.ts` keep document playback controls, saved-download UI, React highlight lifecycle, DOM range mapping, and audiobook display formatting out of `App.tsx`.
 
 This keeps expensive inference and large WAV writes out of the WebView while preserving the existing React UI, highlighting contract, portable bundle format, and offline cache metadata.
 
