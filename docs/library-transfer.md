@@ -154,9 +154,11 @@ errors, but are removed after a successful import or a non-recoverable package
 error. A resumed package is always checksum-verified in full before restore, so
 the byte offset is an optimization rather than a trust boundary.
 
-The socket lifecycle and protocol live in
-`src-tauri/src/library_transfer/network.rs`; storage remains owned by
-`package.rs` and `mod.rs`. The React UI polls source session state and listens
+The command and session lifecycle lives in
+`src-tauri/src/library_transfer/network.rs`, resumable package streaming and
+progress framing live in `network/transport.rs`, and TLS plus one-use pairing
+live in `network/security.rs`. Storage remains owned by `package.rs` and
+`mod.rs`. The React UI polls source session state and listens
 for locale-neutral receiver progress events. Rust reports transferred bytes,
 package verification, document counts, and optional audiobook counts; it never
 moves library bytes or networking into the WebView.
@@ -181,6 +183,7 @@ required by Android's local-network privacy model.
 - [x] Stage 3: add byte-level transfer and item-level restore phases.
 - [x] Stage 3: reject package staging and restoration when storage is insufficient.
 - [x] Stage 3: resume interrupted transfers, especially large audio.
+- [x] Stage 3: separate session orchestration, transport framing, and pairing security.
 - [ ] Stage 4: evaluate automatic discovery only after QR/manual pairing is proven.
 - [ ] Later: evaluate an optional reading-data category for bookmarks and preferences.
 
