@@ -81,19 +81,33 @@
       "audiobookImport": "有声读物导入，未建立搜索索引"
     },
     "import": {
-      "htmlDetail": "导入本地 .html 或 .htm 文档",
-      "epubDetail": "导入本地 .epub 书籍",
-      "importingHtml": "导入HTML",
-      "importingEpub": "导入EPUB"
+      "files": "文件",
+      "filesDetail": "导入一个或多个 HTML 或 EPUB 文件",
+      "folder": "文件夹",
+      "folderDetail": "导入一个文件夹中的 HTML 和 EPUB 文件；跳过子文件夹",
+      "importingBatch": "正在导入文档",
+      "importingFolder": "正在导入文件夹"
     },
     "status": {
-      "importingHtml": "正在导入 HTML 文档...",
-      "importingEpub": "正在导入 EPUB 书...",
+      "preparingBatch": "选择要导入的 HTML 或 EPUB 文件...",
+      "importingBatchProgress": "正在导入第 {{current, number}} 个，共 {{total, number}} 个",
+      "batchProgress": "已处理 {{processed, number}} 个，共 {{total, number}} 个",
+      "stoppingBatch": "将在当前文件完成后停止...",
+      "stopping": "正在停止...",
+      "batchProgressLabel": "文档导入进度",
+      "batchComplete": "导入完成。已导入：{{imported, number}}。失败：{{failed, number}}。",
+      "batchCancelled": "导入已停止。已导入：{{imported, number}}。失败：{{failed, number}}。",
+      "failedFiles": "失败的文件：{{count, number}}",
       "imported": "进口<title>{{title}}</title>。",
       "cancelled": "导入已取消。",
       "deleting": "正在删除 <title>{{title}}</title>...",
       "deleted": "删除了 <title>{{title}}</title>。",
-      "deletedWithStorage": "删除了 <title>{{title}}</title> 并释放了 {{storage}}。"
+      "deletedWithStorage": "删除了 <title>{{title}}</title> 并释放了 {{storage}}。",
+      "preparingDeleteBatch": "正在准备删除文档...",
+      "deleteBatchProgress": "正在删除第 {{processed, number}} 个文档，共 {{total, number}} 个...",
+      "deleteBatchProgressLabel": "文档删除进度",
+      "deleteBatchComplete": "已删除：{{deleted, number}}。失败：{{failed, number}}。",
+      "failedDeletes": "无法删除的文档：{{count, number}}"
     },
     "groups": {
       "importedAudiobooks": "进口有声读物",
@@ -105,8 +119,9 @@
       "organizationAriaLabel": "上传的图书馆组织",
       "editActionsAriaLabel": "库编辑操作",
       "uploadedDocumentsAriaLabel": "上传的文件",
+      "documents": "文档",
       "folders": "文件夹",
-      "organize": "组织",
+      "organize": "管理",
       "finishEditing": "完成编辑",
       "newFolder": "新建文件夹",
       "newSubfolder": "新建子文件夹",
@@ -125,7 +140,7 @@
       "selectOneFolder": "选择一个要删除的文件夹。",
       "moveOrRemoveContents": "删除前移动或删除内容。",
       "deleteSelectedFolder": "删除选定的文件夹。",
-      "selectedCount_other": "{{count, number}} 已选..."
+      "selectedCount_other": "已选择 {{count, number}} 个"
     },
     "folderDialog": {
       "renameTitle": "重命名文件夹",
@@ -145,6 +160,12 @@
       "description": "这将从该设备、本地搜索结果以及 Papercut 中的任何文件夹组织中删除文档。",
       "documentTitle": "标题",
       "confirm": "删除文档"
+    },
+    "confirmDeleteDocuments": {
+      "title": "删除所选文档？",
+      "description": "此操作会从此设备、本地搜索结果和 Papercut 文件夹中永久删除所选文档。",
+      "count": "文档",
+      "confirm": "删除所选项"
     }
   },
   "settings": {

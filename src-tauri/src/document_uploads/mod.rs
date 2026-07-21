@@ -4,10 +4,11 @@
 //! independently. Dependencies only point downward:
 //!
 //! ```text
-//! commands -> pipeline -> { epub, html, parsed, store, search, storage } -> types
+//! commands -> { batch, pipeline, organization, search, store } -> { epub, html, parsed, storage, types }
 //! ```
 //!
 //! - [`commands`]: the thin `#[tauri::command]` edge exposed to the frontend.
+//! - [`batch`]: sequential import/delete batches, progress, and import cancellation.
 //! - [`pipeline`]: orchestrates import / get-source / delete.
 //! - [`html`]: HTML-specific parsing + sanitization.
 //! - [`epub`]: EPUB-specific parsing, sanitization, and generated reading HTML.
@@ -20,6 +21,7 @@
 
 // `commands` is `pub(crate)` so `generate_handler!` in `lib.rs` can reach both
 // each command and the hidden `__cmd__*` helper the macro generates beside it.
+mod batch;
 pub(crate) mod commands;
 mod epub;
 mod html;
@@ -27,9 +29,12 @@ mod organization;
 mod parsed;
 mod pipeline;
 mod search;
+mod state;
 mod storage;
 mod store;
 mod types;
+
+pub(crate) use state::DocumentUploadState;
 
 #[cfg(feature = "native-tts-core")]
 pub(crate) use html::sanitize_html;

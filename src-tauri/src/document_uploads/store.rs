@@ -4,7 +4,7 @@
 //! and row deletion. Search-time reads live in [`super::search`]; this module
 //! keeps everything that defines or mutates the database layout.
 
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension, Row};
 use tauri::Runtime;
 
 use super::parsed::ParsedDocument;
@@ -23,20 +23,37 @@ pub(crate) fn list_uploads<R: Runtime>(
         )
         .map_err(db_err)?;
     let rows = stmt
-        .query_map([], |row| {
-            Ok(UploadedDocument {
-                id: row.get(0)?,
-                url: row.get(1)?,
-                title: row.get(2)?,
-                format: row.get(3)?,
-                imported_at_ms: row.get::<_, i64>(4)? as u128,
-                bytes: row.get::<_, i64>(5)? as u64,
-                sections: row.get::<_, i64>(6)? as usize,
-            })
-        })
+        .query_map([], uploaded_document_from_row)
         .map_err(db_err)?;
 
     rows.collect::<Result<Vec<_>, _>>().map_err(db_err)
+}
+
+/// Look up an existing upload by its stable source-derived id.
+pub(crate) fn find_upload_by_id(
+    db: &Connection,
+    id: &str,
+) -> Result<Option<UploadedDocument>, String> {
+    db.query_row(
+        "SELECT id, url, title, format, imported_at_ms, bytes, sections \
+         FROM uploaded_documents WHERE id = ?1",
+        [id],
+        uploaded_document_from_row,
+    )
+    .optional()
+    .map_err(db_err)
+}
+
+fn uploaded_document_from_row(row: &Row<'_>) -> rusqlite::Result<UploadedDocument> {
+    Ok(UploadedDocument {
+        id: row.get(0)?,
+        url: row.get(1)?,
+        title: row.get(2)?,
+        format: row.get(3)?,
+        imported_at_ms: row.get::<_, i64>(4)? as u128,
+        bytes: row.get::<_, i64>(5)? as u64,
+        sections: row.get::<_, i64>(6)? as usize,
+    })
 }
 
 /// Open (creating if needed) the search database and ensure the schema exists.
@@ -206,7 +223,7 @@ pub(crate) fn db_err(err: rusqlite::Error) -> String {
 mod tests {
     use rusqlite::Connection;
 
-    use super::upsert_document;
+    use super::{find_upload_by_id, upsert_document};
     use crate::document_uploads::parsed::{ParsedDocument, ParsedSection};
 
     /// Regression test for SQLite's `INSERT OR REPLACE` footgun:
@@ -217,6 +234,13 @@ mod tests {
         let first = parsed_document("First Title", &["Old body"]);
         upsert_document(&mut db, "abc123", "/uploads/abc123.html", &first, 100, 10)
             .expect("initial insert");
+        let stored = find_upload_by_id(&db, "abc123")
+            .expect("lookup existing upload")
+            .expect("stored upload");
+        assert_eq!(stored.id, "abc123");
+        assert!(find_upload_by_id(&db, "missing")
+            .expect("lookup missing upload")
+            .is_none());
         db.execute(
             "INSERT INTO uploaded_folders \
              (id, parent_id, name, depth, sort_order, created_at_ms, updated_at_ms) \

@@ -20,7 +20,7 @@ tauri-build = { version = "2.5.6", features = [] }
 [features]
 default = []
 native-tts = ["native-tts-static"]
-native-tts-core = ["dep:bzip2", "dep:num2words", "dep:reqwest", "dep:sha2", "dep:tar", "dep:sherpa-onnx"]
+native-tts-core = ["dep:bzip2", "dep:num2words", "dep:reqwest", "dep:tar", "dep:sherpa-onnx"]
 native-text-preprocessing = ["native-text-preprocessing-dynamic"]
 native-text-preprocessing-core = ["dep:libtashkeel_base", "dep:ort", "dep:ort-sys", "libtashkeel_base/ort", "ort/ndarray"]
 native-text-preprocessing-dynamic = ["native-text-preprocessing-core", "libtashkeel_base/ort-dylib", "ort/load-dynamic", "ort-sys/load-dynamic"]
@@ -40,7 +40,7 @@ tauri-plugin-fs = "2"
 tauri-plugin-native-audio = "=1.0.5"
 base64 = "0.22"
 num2words = { version = "1.2", optional = true }
-sha2 = { version = "0.10", optional = true }
+sha2 = "0.10"
 tar = { version = "0.4", optional = true }
 bzip2 = { version = "0.4", optional = true }
 reqwest = { version = "0.12", optional = true, default-features = false, features = ["blocking", "rustls-tls"] }

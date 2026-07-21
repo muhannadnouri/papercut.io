@@ -89,14 +89,28 @@
       "audiobookImport": "Importation de livres audio, non indexés pour la recherche"
     },
     "import": {
-      "htmlDetail": "Importer un document local .html ou .htm",
-      "epubDetail": "Importer un livre .epub local",
-      "importingHtml": "Importation de HTML",
-      "importingEpub": "Importation de EPUB"
+      "files": "Fichiers",
+      "filesDetail": "Importez un ou plusieurs fichiers HTML ou EPUB",
+      "folder": "Dossier",
+      "folderDetail": "Importez les fichiers HTML et EPUB d’un dossier ; les sous-dossiers sont ignorés",
+      "importingBatch": "Importation des documents",
+      "importingFolder": "Importation du dossier"
     },
     "status": {
-      "importingHtml": "Importation du document HTML...",
-      "importingEpub": "Importation du livre EPUB...",
+      "preparingBatch": "Choisissez les fichiers HTML ou EPUB à importer...",
+      "importingBatchProgress": "Importation de {{current, number}} sur {{total, number}}",
+      "batchProgress": "{{processed, number}} fichiers traités sur {{total, number}}",
+      "stoppingBatch": "Arrêt après le fichier en cours...",
+      "stopping": "Arrêt...",
+      "batchProgressLabel": "Progression de l’importation des documents",
+      "batchComplete": "Importation terminée. Importés : {{imported, number}}. Échecs : {{failed, number}}.",
+      "batchCancelled": "Importation arrêtée. Importés : {{imported, number}}. Échecs : {{failed, number}}.",
+      "failedFiles": "Fichiers en échec : {{count, number}}",
+      "preparingDeleteBatch": "Préparation de la suppression des documents...",
+      "deleteBatchProgress": "Suppression de {{processed, number}} documents sur {{total, number}}...",
+      "deleteBatchProgressLabel": "Progression de la suppression des documents",
+      "deleteBatchComplete": "Supprimés : {{deleted, number}}. Échecs : {{failed, number}}.",
+      "failedDeletes": "Documents qui n’ont pas pu être supprimés : {{count, number}}",
       "imported": "Importé <title>{{title}}</title>.",
       "cancelled": "Importation annulée.",
       "deleting": "Suppression de <title>{{title}}</title>...",
@@ -114,7 +128,8 @@
       "editActionsAriaLabel": "Actions de modification de la bibliothèque",
       "uploadedDocumentsAriaLabel": "Documents téléchargés",
       "folders": "Dossiers",
-      "organize": "Organiser",
+      "documents": "Documents",
+      "organize": "Gérer",
       "finishEditing": "Terminer l'édition",
       "newFolder": "Nouveau dossier",
       "newSubfolder": "Nouveau sous-dossier",
@@ -133,9 +148,9 @@
       "selectOneFolder": "Sélectionnez un dossier à supprimer.",
       "moveOrRemoveContents": "Déplacez ou supprimez le contenu avant de le supprimer.",
       "deleteSelectedFolder": "Supprimer le dossier sélectionné.",
-      "selectedCount_one": "{{count, number}} Sélectionné...",
-      "selectedCount_many": "{{count, number}} Sélectionné...",
-      "selectedCount_other": "{{count, number}} Sélectionné..."
+      "selectedCount_one": "{{count, number}} sélectionné",
+      "selectedCount_many": "{{count, number}} sélectionnés",
+      "selectedCount_other": "{{count, number}} sélectionnés"
     },
     "folderDialog": {
       "renameTitle": "Renommer le dossier",
@@ -155,6 +170,12 @@
       "description": "Cela supprime le document de cet appareil, les résultats de la recherche locale et toute organisation de dossiers dans Papercut.",
       "documentTitle": "Titre",
       "confirm": "Supprimer un document"
+    },
+    "confirmDeleteDocuments": {
+      "title": "Supprimer les documents sélectionnés ?",
+      "description": "Cette action supprime définitivement les documents sélectionnés de cet appareil, des résultats de recherche locaux et des dossiers Papercut.",
+      "count": "Documents",
+      "confirm": "Supprimer la sélection"
     }
   },
   "settings": {

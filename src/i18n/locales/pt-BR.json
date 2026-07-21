@@ -89,19 +89,33 @@
       "audiobookImport": "Importação de audiolivro, não indexada para pesquisa"
     },
     "import": {
-      "htmlDetail": "Importe um documento .html ou .htm local",
-      "epubDetail": "Importe um livro .epub local",
-      "importingHtml": "Importando HTML",
-      "importingEpub": "Importando EPUB"
+      "files": "Arquivos",
+      "filesDetail": "Importe um ou mais arquivos HTML ou EPUB",
+      "folder": "Pasta",
+      "folderDetail": "Importe arquivos HTML e EPUB de uma pasta; as subpastas são ignoradas",
+      "importingBatch": "Importando documentos",
+      "importingFolder": "Importando pasta"
     },
     "status": {
-      "importingHtml": "Importando documento HTML...",
-      "importingEpub": "Importando livro EPUB...",
+      "preparingBatch": "Escolha arquivos HTML ou EPUB para importar...",
+      "importingBatchProgress": "Importando {{current, number}} de {{total, number}}",
+      "batchProgress": "Processados {{processed, number}} de {{total, number}}",
+      "stoppingBatch": "Parando após o arquivo atual...",
+      "stopping": "Parando...",
+      "batchProgressLabel": "Progresso da importação de documentos",
+      "batchComplete": "Importação concluída. Importados: {{imported, number}}. Falhas: {{failed, number}}.",
+      "batchCancelled": "Importação interrompida. Importados: {{imported, number}}. Falhas: {{failed, number}}.",
+      "failedFiles": "Arquivos com falha: {{count, number}}",
       "imported": "Importado <title>{{title}}</title>.",
       "cancelled": "Importação cancelada.",
       "deleting": "Excluindo <title>{{title}}</title>...",
       "deleted": "<title>{{title}}</title> excluído.",
-      "deletedWithStorage": "<title>{{title}}</title> excluído e {{storage}} liberado."
+      "deletedWithStorage": "<title>{{title}}</title> excluído e {{storage}} liberado.",
+      "preparingDeleteBatch": "Preparando a exclusão de documentos...",
+      "deleteBatchProgress": "Excluindo {{processed, number}} de {{total, number}} documentos...",
+      "deleteBatchProgressLabel": "Progresso da exclusão de documentos",
+      "deleteBatchComplete": "Excluídos: {{deleted, number}}. Falhas: {{failed, number}}.",
+      "failedDeletes": "Documentos que não puderam ser excluídos: {{count, number}}"
     },
     "groups": {
       "importedAudiobooks": "Audiolivros importados",
@@ -113,8 +127,9 @@
       "organizationAriaLabel": "Organização da biblioteca carregada",
       "editActionsAriaLabel": "Ações de edição da biblioteca",
       "uploadedDocumentsAriaLabel": "Documentos enviados",
+      "documents": "Documentos",
       "folders": "Pastas",
-      "organize": "Organizar",
+      "organize": "Gerenciar",
       "finishEditing": "Concluir a edição",
       "newFolder": "Nova pasta",
       "newSubfolder": "Nova subpasta",
@@ -133,9 +148,9 @@
       "selectOneFolder": "Selecione uma pasta para excluir.",
       "moveOrRemoveContents": "Mova ou remova conteúdo antes de excluir.",
       "deleteSelectedFolder": "Exclua a pasta selecionada.",
-      "selectedCount_one": "{{count, number}} selecionado...",
-      "selectedCount_many": "{{count, number}} selecionado...",
-      "selectedCount_other": "{{count, number}} selecionado..."
+      "selectedCount_one": "{{count, number}} selecionado",
+      "selectedCount_many": "{{count, number}} selecionados",
+      "selectedCount_other": "{{count, number}} selecionados"
     },
     "folderDialog": {
       "renameTitle": "Renomear pasta",
@@ -155,6 +170,12 @@
       "description": "Isso remove o documento deste dispositivo, dos resultados da pesquisa local e de qualquer organização de pastas em Papercut.",
       "documentTitle": "Título",
       "confirm": "Excluir documento"
+    },
+    "confirmDeleteDocuments": {
+      "title": "Excluir documentos selecionados?",
+      "description": "Isso excluirá permanentemente os documentos selecionados deste dispositivo, dos resultados da pesquisa local e das pastas do Papercut.",
+      "count": "Documentos",
+      "confirm": "Excluir selecionados"
     }
   },
   "settings": {

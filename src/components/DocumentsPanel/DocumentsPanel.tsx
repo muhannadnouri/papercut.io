@@ -1,8 +1,9 @@
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Button, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components'
 import type { DocumentInfo } from '../../types/search'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
-import type { UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
+import type { UploadedDocumentDeleteBatchResult, UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
 import { Panel } from '../Panel/Panel'
 import { DocumentList } from '../DocumentList/DocumentList'
 import { UploadedLibraryTree } from '../UploadedLibraryTree/UploadedLibraryTree'
@@ -41,6 +42,7 @@ interface DocumentsPanelProps {
   onAudioSavedOnlyChange?: (enabled: boolean) => void
   onCreateLibraryFolder?: (parentId: string | null, name: string) => void | Promise<void>
   onDeleteDocument?: (doc: DocumentInfo) => void | Promise<void>
+  onDeleteDocuments?: (docs: DocumentInfo[]) => Promise<UploadedDocumentDeleteBatchResult | null>
   onDeleteLibraryFolder?: (folderId: string) => void | Promise<void>
   onFilterChange: (value: string) => void
   onMoveLibraryDocuments?: (documentIds: string[], folderId: string | null) => void | Promise<void>
@@ -67,6 +69,7 @@ export function DocumentsPanel({
   onAudioSavedOnlyChange,
   onCreateLibraryFolder,
   onDeleteDocument,
+  onDeleteDocuments,
   onDeleteLibraryFolder,
   onFilterChange,
   onMoveLibraryDocuments,
@@ -79,12 +82,14 @@ export function DocumentsPanel({
   const [importMenuOpen, setImportMenuOpen] = useState(false)
   const activeImport = importOptions.find((option) => option.statusLabel)
   const hasImportOptions = importOptions.length > 0
+  const importBusy = importStatuses.some((item) => item.status === 'importing')
   const operationBusy = importStatuses.some((item) => item.status === 'importing' || item.status === 'deleting')
   const importDisabled = hasImportOptions && importOptions.every((option) => option.disabled || option.future || !option.onSelect)
   const { uploadDocs, nonUploadGroups } = splitDocumentGroupsByUpload(groupedDocs)
   const canShowUploadedTree = Boolean(
     libraryOrganization &&
     onCreateLibraryFolder &&
+    onDeleteDocuments &&
     onDeleteLibraryFolder &&
     onMoveLibraryDocuments &&
     onRenameLibraryFolder,
@@ -103,7 +108,7 @@ export function DocumentsPanel({
 
   return (
     <Panel
-      className={'document-browser-panel documents-panel' + (importMenuOpen ? ' document-browser-panel-menu-open documents-panel-menu-open' : '')}
+      className="document-browser-panel documents-panel"
       ariaLabel={t('library.documents.ariaLabel')}
       title={t('library.documents.title', { count: allDocuments.length })}
       open={showDocuments}
@@ -120,38 +125,40 @@ export function DocumentsPanel({
         />
         {hasImportOptions && (
           <div className="document-import-menu">
-            <button
-              className="document-import-btn"
-              aria-expanded={importMenuOpen}
-              disabled={importDisabled}
-              onClick={() => setImportMenuOpen((value) => !value)}
-              type="button"
-            >
-              {activeImport?.statusLabel ?? t('library.documents.import')}
-              <span className={`toggle-arrow ${importMenuOpen ? 'open' : ''}`}>&#9662;</span>
-            </button>
-            {importMenuOpen && (
-              <div className="document-import-options">
-                {importOptions.map((option) => {
-                  const disabled = option.disabled || option.future || !option.onSelect
-                  return (
-                    <button
-                      key={option.id}
-                      className="document-import-option"
-                      disabled={disabled}
-                      onClick={() => {
-                        setImportMenuOpen(false)
-                        option.onSelect?.()
-                      }}
-                      type="button"
-                    >
-                      <span>{option.label}{option.future ? ` (${t('library.documents.future')})` : ''}</span>
-                      {option.detail && <small>{option.detail}</small>}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
+            <MenuTrigger isOpen={importMenuOpen} onOpenChange={setImportMenuOpen}>
+              <Button className="document-import-btn" isDisabled={importDisabled}>
+                {activeImport?.statusLabel ?? t('library.documents.import')}
+                <span className={`toggle-arrow ${importMenuOpen ? 'open' : ''}`} aria-hidden="true">&#9662;</span>
+              </Button>
+              <Popover
+                className="document-import-popover"
+                placement="bottom end"
+                offset={6}
+                containerPadding={8}
+                shouldFlip
+              >
+                <Menu className="document-import-options" aria-label={t('library.documents.import')}>
+                  {importOptions.map((option) => {
+                    const disabled = option.disabled || option.future || !option.onSelect
+                    const label = option.label + (option.future ? ` (${t('library.documents.future')})` : '')
+                    return (
+                      <MenuItem
+                        key={option.id}
+                        id={option.id}
+                        className="document-import-option"
+                        isDisabled={disabled}
+                        textValue={label}
+                        aria-label={option.detail ? `${label}. ${option.detail}` : label}
+                        onAction={option.onSelect}
+                      >
+                        <span>{label}</span>
+                        {option.detail && <small>{option.detail}</small>}
+                      </MenuItem>
+                    )
+                  })}
+                </Menu>
+              </Popover>
+            </MenuTrigger>
           </div>
         )}
         {onAudioSavedOnlyChange && (
@@ -177,10 +184,11 @@ export function DocumentsPanel({
           documents={uploadDocs}
           organization={libraryOrganization}
           documentOpening={documentOpening}
-          deleteDisabled={operationBusy || documentOpening}
+          mutationDisabled={operationBusy}
+          resetEditing={importBusy}
           openingDocumentUrl={openingDocumentUrl}
           onCreateFolder={onCreateLibraryFolder!}
-          onDeleteDocument={onDeleteDocument}
+          onDeleteDocuments={onDeleteDocuments!}
           onDeleteFolder={onDeleteLibraryFolder!}
           onMoveDocuments={onMoveLibraryDocuments!}
           onRenameFolder={onRenameLibraryFolder!}

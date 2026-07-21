@@ -42,12 +42,14 @@ function App() {
   const { pagefindRef, pagefindReady, allDocuments, documentsLoading } = usePagefind()
   const { confirm: confirmDocumentAction, dialog: documentConfirmationDialog } = useAppConfirmation()
   const {
+    cancelDocumentBatch,
     createLibraryFolder,
     deleteDocument: deleteUploadedLibraryDocument,
+    deleteDocuments: deleteUploadedLibraryDocuments,
     deleteLibraryFolder,
     documentImport,
-    importEpubDocument,
-    importHtmlDocument,
+    importDocumentBatch,
+    importDocumentFolder,
     moveLibraryDocuments,
     renameLibraryFolder,
     uploadedDocuments,
@@ -198,19 +200,19 @@ function App() {
   )
   const selectedFormat = selectedDocument?.format
 
-  const handleImportHtmlDocument = useCallback(async () => {
-    const result = await importHtmlDocument()
-    if (!result) return
+  const handleImportDocumentBatch = useCallback(async () => {
+    const result = await importDocumentBatch()
+    if (!result?.imported.length) return
     setShowDocuments(true)
-    await handleViewDocument(result.url)
-  }, [handleViewDocument, importHtmlDocument, setShowDocuments])
+    if (result.selected === 1 && result.imported.length === 1) {
+      await handleViewDocument(result.imported[0].url)
+    }
+  }, [handleViewDocument, importDocumentBatch, setShowDocuments])
 
-  const handleImportEpubDocument = useCallback(async () => {
-    const result = await importEpubDocument()
-    if (!result) return
-    setShowDocuments(true)
-    await handleViewDocument(result.url)
-  }, [handleViewDocument, importEpubDocument, setShowDocuments])
+  const handleImportDocumentFolder = useCallback(async () => {
+    const result = await importDocumentFolder()
+    if (result?.imported.length) setShowDocuments(true)
+  }, [importDocumentFolder, setShowDocuments])
 
   const handleImportAudiobook = useCallback(async () => {
     await importAudiobookBundle(handleViewDocument)
@@ -240,6 +242,20 @@ function App() {
       handleCloseDocument()
     }
   }, [confirmDocumentAction, deleteUploadedLibraryDocument, handleCloseDocument, removeFilter, removeResultsForUrl, selectedDoc, t])
+
+  const handleDeleteUploadedDocuments = useCallback(async (docs: DocumentInfo[]) => {
+    const result = await deleteUploadedLibraryDocuments(docs)
+    if (!result) return null
+
+    const deletedUrls = new Set(result.deleted.map((document) => document.url))
+    for (const url of deletedUrls) {
+      removeResultsForUrl(url)
+      clearPhraseFetchCache(url)
+      removeFilter(url)
+    }
+    if (selectedDoc && deletedUrls.has(selectedDoc)) handleCloseDocument()
+    return result
+  }, [deleteUploadedLibraryDocuments, handleCloseDocument, removeFilter, removeResultsForUrl, selectedDoc])
 
   if (selectedDoc) {
     return (
@@ -331,12 +347,14 @@ function App() {
             onAudioSavedOnlyChange={setAudioSavedOnly}
             onCreateLibraryFolder={createLibraryFolder}
             onDeleteDocument={handleDeleteUploadedDocument}
+            onDeleteDocuments={handleDeleteUploadedDocuments}
             onDeleteLibraryFolder={deleteLibraryFolder}
             onMoveLibraryDocuments={moveLibraryDocuments}
             onRenameLibraryFolder={renameLibraryFolder}
             onToggleAuthor={toggleLibraryAuthor}
-            onImportHtmlDocument={handleImportHtmlDocument}
-            onImportEpubDocument={handleImportEpubDocument}
+            onImportDocumentBatch={handleImportDocumentBatch}
+            onImportDocumentFolder={handleImportDocumentFolder}
+            onCancelDocumentBatch={cancelDocumentBatch}
             onViewDocument={handleViewLibraryDocument}
           />
         )}

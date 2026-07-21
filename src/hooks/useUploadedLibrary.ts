@@ -1,16 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DocumentInfo } from '../types/search'
 import {
+  cancelDocumentBatch as cancelDocumentBatchSource,
   createUploadedLibraryFolder,
   deleteUploadedDocument,
+  deleteUploadedDocuments,
   deleteUploadedLibraryFolder,
   getUploadedLibraryOrganization,
-  importEpubDocument as importEpubDocumentSource,
-  importHtmlDocument as importHtmlDocumentSource,
+  importDocumentBatch as importDocumentBatchSource,
+  importDocumentFolder as importDocumentFolderSource,
   listUploadedDocuments,
+  listenDocumentBatchProgress,
+  listenDocumentDeleteProgress,
   moveUploadedDocuments,
   renameUploadedLibraryFolder,
   type UploadedDocument,
+  type UploadedDocumentBatchProgress,
+  type UploadedDocumentBatchResult,
+  type UploadedDocumentDeleteBatchProgress,
+  type UploadedDocumentDeleteBatchResult,
   type UploadedLibraryOrganization,
 } from '../uploads/DocumentUploads'
 
@@ -23,10 +31,15 @@ type UploadedLibraryState = {
 // isolate user titles without parsing preformatted English messages.
 export type DocumentImportStatus = {
   status: 'idle' | 'importing' | 'imported' | 'deleting' | 'deleted' | 'cancelled' | 'error'
-  format?: 'html' | 'epub'
+  format?: 'batch' | 'folder' | 'delete-batch'
   title?: string
   bytesFreed?: number
   message?: string
+  batchProgress?: UploadedDocumentBatchProgress
+  batchResult?: UploadedDocumentBatchResult
+  deleteProgress?: UploadedDocumentDeleteBatchProgress
+  deleteResult?: UploadedDocumentDeleteBatchResult
+  cancelRequested?: boolean
 }
 
 async function loadUploadedLibrary(): Promise<UploadedLibraryState> {
@@ -70,18 +83,30 @@ export function useUploadedLibrary() {
     }
   }, [applyUploadedLibrary])
 
-  const importDocument = useCallback(async (
-    format: 'html' | 'epub',
-    importer: () => Promise<UploadedDocument>,
-  ): Promise<UploadedDocument | null> => {
+  /** Subscribe before opening the picker so even the first native progress event
+   * is retained; both collection pickers share refresh and partial-result flow. */
+  const importDocumentCollection = useCallback(async (
+    format: 'batch' | 'folder',
+    importer: () => Promise<UploadedDocumentBatchResult>,
+  ): Promise<UploadedDocumentBatchResult | null> => {
     if (operationInProgressRef.current) return null
     operationInProgressRef.current = true
     setDocumentImport({ status: 'importing', format })
+    let unlisten: (() => void) | undefined
     try {
-      const result = await importer()
-      await refreshUploadedLibrary()
-      setDocumentImport({ status: 'imported', format, title: result.title })
-      return result
+      unlisten = await listenDocumentBatchProgress((batchProgress) => {
+        setDocumentImport((current) => current.status === 'importing' && current.format === format
+          ? { ...current, batchProgress }
+          : current)
+      })
+      const batchResult = await importer()
+      if (batchResult.imported.length > 0) await refreshUploadedLibrary()
+      setDocumentImport({
+        status: batchResult.cancelled ? 'cancelled' : 'imported',
+        format,
+        batchResult,
+      })
+      return batchResult
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       const cancelled = message.toLowerCase().includes('cancelled')
@@ -92,19 +117,34 @@ export function useUploadedLibrary() {
       })
       return null
     } finally {
+      unlisten?.()
       operationInProgressRef.current = false
     }
   }, [refreshUploadedLibrary])
 
-  const importHtmlDocument = useCallback(
-    () => importDocument('html', importHtmlDocumentSource),
-    [importDocument],
+  const importDocumentBatch = useCallback(
+    () => importDocumentCollection('batch', importDocumentBatchSource),
+    [importDocumentCollection],
   )
 
-  const importEpubDocument = useCallback(
-    () => importDocument('epub', importEpubDocumentSource),
-    [importDocument],
+  const importDocumentFolder = useCallback(
+    () => importDocumentCollection('folder', importDocumentFolderSource),
+    [importDocumentCollection],
   )
+
+  /** Cancellation is cooperative: mark the UI only after Rust confirms that a
+   * batch is active, then let the current file finish safely. */
+  const cancelDocumentBatch = useCallback(async (): Promise<void> => {
+    try {
+      if (!await cancelDocumentBatchSource()) return
+      setDocumentImport((current) => current.status === 'importing' &&
+        (current.format === 'batch' || current.format === 'folder')
+        ? { ...current, cancelRequested: true }
+        : current)
+    } catch (err) {
+      console.warn('Unable to cancel document batch import:', err)
+    }
+  }, [])
 
   const deleteDocument = useCallback(async (doc: DocumentInfo): Promise<boolean> => {
     if (doc.source !== 'upload' || operationInProgressRef.current) return false
@@ -131,32 +171,92 @@ export function useUploadedLibrary() {
     }
   }, [refreshUploadedLibrary])
 
-  const createLibraryFolder = useCallback(async (parentId: string | null, name: string) => {
+  /** Run one bounded native delete batch and refresh shared library state once,
+   * retaining partial failures for the selection UI to offer a retry. */
+  const deleteDocuments = useCallback(async (
+    documents: DocumentInfo[],
+  ): Promise<UploadedDocumentDeleteBatchResult | null> => {
+    const documentUrls = documents
+      .filter((doc) => doc.source === 'upload')
+      .map((doc) => doc.url)
+    if (documentUrls.length === 0 || operationInProgressRef.current) return null
+
+    operationInProgressRef.current = true
+    setDocumentImport({ status: 'deleting', format: 'delete-batch' })
+    let unlisten: (() => void) | undefined
+    try {
+      unlisten = await listenDocumentDeleteProgress((deleteProgress) => {
+        setDocumentImport((current) => current.status === 'deleting' && current.format === 'delete-batch'
+          ? { ...current, deleteProgress }
+          : current)
+      })
+      const deleteResult = await deleteUploadedDocuments(documentUrls)
+      if (deleteResult.deleted.length > 0) await refreshUploadedLibrary()
+      setDocumentImport({
+        status: deleteResult.failures.length > 0 ? 'error' : 'deleted',
+        format: 'delete-batch',
+        deleteResult,
+      })
+      return deleteResult
+    } catch (err) {
+      setDocumentImport({
+        status: 'error',
+        format: 'delete-batch',
+        message: err instanceof Error ? err.message : String(err),
+      })
+      return null
+    } finally {
+      unlisten?.()
+      operationInProgressRef.current = false
+    }
+  }, [refreshUploadedLibrary])
+
+  /** Serialize folder/order writes with imports and deletion because all of them
+   * refresh or mutate the same uploaded-library state. */
+  const runOrganizationMutation = useCallback(async (action: () => Promise<void>) => {
+    if (operationInProgressRef.current) return
+    operationInProgressRef.current = true
+    try {
+      await action()
+    } finally {
+      operationInProgressRef.current = false
+    }
+  }, [])
+
+  const createLibraryFolder = useCallback((parentId: string | null, name: string) => runOrganizationMutation(async () => {
     await createUploadedLibraryFolder(parentId, name)
     setUploadedLibraryOrganization(await getUploadedLibraryOrganization())
-  }, [])
+  }), [runOrganizationMutation])
 
   const renameLibraryFolder = useCallback(async (folderId: string, name: string) => {
-    await renameUploadedLibraryFolder(folderId, name)
-    setUploadedLibraryOrganization(await getUploadedLibraryOrganization())
-  }, [])
+    await runOrganizationMutation(async () => {
+      await renameUploadedLibraryFolder(folderId, name)
+      setUploadedLibraryOrganization(await getUploadedLibraryOrganization())
+    })
+  }, [runOrganizationMutation])
 
   const deleteLibraryFolder = useCallback(async (folderId: string) => {
-    await deleteUploadedLibraryFolder(folderId)
-    setUploadedLibraryOrganization(await getUploadedLibraryOrganization())
-  }, [])
+    await runOrganizationMutation(async () => {
+      await deleteUploadedLibraryFolder(folderId)
+      setUploadedLibraryOrganization(await getUploadedLibraryOrganization())
+    })
+  }, [runOrganizationMutation])
 
   const moveLibraryDocuments = useCallback(async (documentIds: string[], folderId: string | null) => {
-    setUploadedLibraryOrganization(await moveUploadedDocuments(documentIds, folderId))
-  }, [])
+    await runOrganizationMutation(async () => {
+      setUploadedLibraryOrganization(await moveUploadedDocuments(documentIds, folderId))
+    })
+  }, [runOrganizationMutation])
 
   return {
     createLibraryFolder,
+    cancelDocumentBatch,
     deleteDocument,
+    deleteDocuments,
     deleteLibraryFolder,
     documentImport,
-    importEpubDocument,
-    importHtmlDocument,
+    importDocumentBatch,
+    importDocumentFolder,
     moveLibraryDocuments,
     renameLibraryFolder,
     uploadedDocuments,
