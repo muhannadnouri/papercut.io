@@ -921,7 +921,7 @@ pub(crate) fn ensure_available_space(path: &Path, payload_bytes: u64) -> Library
         return Ok(());
     }
     let required = required_space_bytes(payload_bytes)?;
-    let available = fs2::available_space(path).map_err(|err| {
+    let available = fs4::available_space(path).map_err(|err| {
         format!(
             "Failed to inspect available storage at {}: {err}",
             path.display()
