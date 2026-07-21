@@ -7,6 +7,7 @@ import {
   exportLibrary,
   getLibrarySendStatus,
   importLibrary,
+  isLibraryTransferErrorPayload,
   listenLibraryTransferProgress,
   receiveLibrary,
   startLibrarySend,
@@ -466,11 +467,17 @@ function formatBytes(bytes: number, locale: string): string {
 }
 
 function formatTransferError(error: unknown, locale: string, t: TFunction): string {
-  const message = error instanceof Error ? error.message : String(error)
-  const match = message.match(/LIBRARY_TRANSFER_INSUFFICIENT_SPACE:(\d+):(\d+)/)
-  if (!match) return message
-  return t('libraryTransfer.insufficientSpace', {
-    required: formatBytes(Number(match[1]), locale),
-    available: formatBytes(Number(match[2]), locale),
-  })
+  if (
+    isLibraryTransferErrorPayload(error)
+    && error.code === 'insufficient-space'
+    && error.requiredBytes !== undefined
+    && error.availableBytes !== undefined
+  ) {
+    return t('libraryTransfer.insufficientSpace', {
+      required: formatBytes(error.requiredBytes, locale),
+      available: formatBytes(error.availableBytes, locale),
+    })
+  }
+  if (isLibraryTransferErrorPayload(error)) return error.message
+  return error instanceof Error ? error.message : String(error)
 }

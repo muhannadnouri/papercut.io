@@ -39,7 +39,71 @@ pub(crate) const LIBRARY_TRANSFER_PROGRESS_EVENT: &str = "library-transfer-progr
 const STORAGE_RESERVE_BYTES: u64 = 64 * 1024 * 1024;
 const DOCUMENT_STORAGE_MULTIPLIER: u64 = 3;
 const STALE_TRANSFER_FILE_AGE: Duration = Duration::from_secs(7 * 24 * 60 * 60);
-pub(crate) const INSUFFICIENT_SPACE_CODE: &str = "LIBRARY_TRANSFER_INSUFFICIENT_SPACE";
+const TRANSFER_FAILED_CODE: &str = "library-transfer-failed";
+const INSUFFICIENT_SPACE_CODE: &str = "insufficient-space";
+
+/// Stable failure facts shared by Tauri command rejections and authenticated
+/// receiver status frames; localized wording remains a frontend concern.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryTransferError {
+    code: String,
+    message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    required_bytes: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    available_bytes: Option<u64>,
+}
+
+impl LibraryTransferError {
+    fn message(message: impl Into<String>) -> Self {
+        Self {
+            code: TRANSFER_FAILED_CODE.into(),
+            message: message.into(),
+            required_bytes: None,
+            available_bytes: None,
+        }
+    }
+
+    fn insufficient_space(required_bytes: u64, available_bytes: u64) -> Self {
+        Self {
+            code: INSUFFICIENT_SPACE_CODE.into(),
+            message: format!(
+                "Not enough storage for library transfer: {required_bytes} bytes required, {available_bytes} available"
+            ),
+            required_bytes: Some(required_bytes),
+            available_bytes: Some(available_bytes),
+        }
+    }
+
+    /// Only storage pressure can succeed by retrying the same verified package
+    /// later; malformed or incompatible packages will fail identically.
+    pub(crate) fn is_retryable(&self) -> bool {
+        self.code == INSUFFICIENT_SPACE_CODE
+    }
+}
+
+impl std::fmt::Display for LibraryTransferError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for LibraryTransferError {}
+
+impl From<String> for LibraryTransferError {
+    fn from(message: String) -> Self {
+        Self::message(message)
+    }
+}
+
+impl From<&str> for LibraryTransferError {
+    fn from(message: &str) -> Self {
+        Self::message(message)
+    }
+}
+
+pub(crate) type LibraryTransferResult<T> = Result<T, LibraryTransferError>;
 
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -147,7 +211,7 @@ struct LibraryTransferFailure {
 pub async fn library_transfer_export(
     app: tauri::AppHandle,
     request: Option<LibraryTransferExportRequest>,
-) -> Result<Option<LibraryTransferExportResult>, String> {
+) -> LibraryTransferResult<Option<LibraryTransferExportResult>> {
     tauri::async_runtime::spawn_blocking(move || {
         export_library(app, request.unwrap_or_default().include_audiobooks)
     })
@@ -160,7 +224,7 @@ pub async fn library_transfer_export(
 #[tauri::command]
 pub async fn library_transfer_import(
     app: tauri::AppHandle,
-) -> Result<Option<LibraryTransferImportResult>, String> {
+) -> LibraryTransferResult<Option<LibraryTransferImportResult>> {
     tauri::async_runtime::spawn_blocking(move || import_library(app))
         .await
         .map_err(|err| format!("Library import task failed: {err}"))?
@@ -169,7 +233,7 @@ pub async fn library_transfer_import(
 fn export_library(
     app: tauri::AppHandle,
     include_audiobooks: bool,
-) -> Result<Option<LibraryTransferExportResult>, String> {
+) -> LibraryTransferResult<Option<LibraryTransferExportResult>> {
     let destination = app
         .dialog()
         .file()
@@ -181,7 +245,7 @@ fn export_library(
         return Ok(None);
     };
     let temp_path = transfer_temp_path(&app, "export")?;
-    let build_result: Result<LibraryTransferExportResult, String> = (|| {
+    let build_result: LibraryTransferResult<LibraryTransferExportResult> = (|| {
         let result = build_library_package(&app, &temp_path, include_audiobooks)?;
         copy_temp_to_destination(&app, &temp_path, destination)?;
         Ok(result)
@@ -193,7 +257,9 @@ fn export_library(
 /// Stage picker input into a seekable local file, validate the complete archive,
 /// then merge each payload through the normal upload pipeline. The staging file
 /// is removed whether validation, restoration, or organization fails.
-fn import_library(app: tauri::AppHandle) -> Result<Option<LibraryTransferImportResult>, String> {
+fn import_library(
+    app: tauri::AppHandle,
+) -> LibraryTransferResult<Option<LibraryTransferImportResult>> {
     let source = app
         .dialog()
         .file()
@@ -219,7 +285,7 @@ fn build_library_package(
     app: &tauri::AppHandle,
     path: &Path,
     include_audiobooks: bool,
-) -> Result<LibraryTransferExportResult, String> {
+) -> LibraryTransferResult<LibraryTransferExportResult> {
     let documents = list_uploads(app)?;
     let organization = list_organization(app)?;
     let prepared = prepare_manifest(app, &documents, organization, include_audiobooks)?;
@@ -264,7 +330,7 @@ fn import_library_package(
     path: &Path,
     operation: &str,
     mut forwarder: TransferProgressForwarder<'_>,
-) -> Result<LibraryTransferImportResult, String> {
+) -> LibraryTransferResult<LibraryTransferImportResult> {
     report_transfer_progress(
         app,
         operation,
@@ -389,7 +455,7 @@ fn restore_manifest<T: Read + std::io::Seek>(
     manifest: TransferManifest,
     operation: &str,
     forwarder: &mut TransferProgressForwarder<'_>,
-) -> Result<LibraryTransferImportResult, String> {
+) -> LibraryTransferResult<LibraryTransferImportResult> {
     let existing_ids: HashSet<String> = list_uploads(app)?
         .into_iter()
         .map(|document| document.id)
@@ -850,7 +916,7 @@ fn is_stale_transfer_file(name: &str, age: Duration) -> bool {
 
 /// Reject a transfer before it starts writing when the target filesystem cannot
 /// hold the payload plus a small reserve for metadata and concurrent app writes.
-pub(crate) fn ensure_available_space(path: &Path, payload_bytes: u64) -> Result<(), String> {
+pub(crate) fn ensure_available_space(path: &Path, payload_bytes: u64) -> LibraryTransferResult<()> {
     if payload_bytes == 0 {
         return Ok(());
     }
@@ -862,7 +928,9 @@ pub(crate) fn ensure_available_space(path: &Path, payload_bytes: u64) -> Result<
         )
     })?;
     if available < required {
-        return Err(format!("{INSUFFICIENT_SPACE_CODE}:{required}:{available}"));
+        return Err(LibraryTransferError::insufficient_space(
+            required, available,
+        ));
     }
     Ok(())
 }
@@ -897,7 +965,7 @@ fn ensure_restore_space(
     app: &tauri::AppHandle,
     manifest: &TransferManifest,
     existing_document_ids: &HashSet<String>,
-) -> Result<(), String> {
+) -> LibraryTransferResult<()> {
     let mut required = 0u64;
     for document in &manifest.documents {
         if existing_document_ids.contains(&document.id) {
@@ -976,9 +1044,9 @@ fn copy_source_to_temp<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
     temp_path: &Path,
-) -> Result<(), String> {
+) -> LibraryTransferResult<()> {
     let scoped_path = source.clone();
-    let copy_result: Result<(), String> = (|| {
+    let copy_result: LibraryTransferResult<()> = (|| {
         let mut options = OpenOptions::new();
         options.read(true);
         let input = app
@@ -1017,7 +1085,7 @@ fn copy_source_to_temp<R: Runtime>(
     })();
     let release_result = release_picker_access(app, scoped_path);
     copy_result?;
-    release_result
+    Ok(release_result?)
 }
 
 /// Tauri starts iOS security-scoped access when a picker URL is opened; release
@@ -1070,6 +1138,18 @@ mod tests {
             STORAGE_RESERVE_BYTES + 1024
         );
         assert!(required_space_bytes(u64::MAX).is_err());
+    }
+
+    #[test]
+    fn insufficient_space_error_keeps_retry_and_ipc_details_structured() {
+        let error = LibraryTransferError::insufficient_space(100, 50);
+        let payload = serde_json::to_value(&error).unwrap();
+
+        assert!(error.is_retryable());
+        assert_eq!(payload["code"], INSUFFICIENT_SPACE_CODE);
+        assert_eq!(payload["requiredBytes"], 100);
+        assert_eq!(payload["availableBytes"], 50);
+        assert!(!LibraryTransferError::message("invalid package").is_retryable());
     }
 
     #[test]

@@ -173,6 +173,9 @@ The receiver marks only explicit insufficient-storage failures as retryable.
 Invalid schemas, checksums, payloads, or restore data fail the sender session
 instead of offering a retry that would reproduce the same result. Cancelling the
 source closes its active socket, including while it waits for target-side import.
+Transfer failures cross the LAN and Tauri boundaries as a structured code,
+diagnostic message, and optional storage byte counts, so retry decisions and
+localized storage guidance never depend on parsing human-readable text.
 
 The command and session lifecycle lives in
 `src-tauri/src/library_transfer/network.rs`, resumable package streaming and

@@ -17,10 +17,11 @@ use super::security::{
     client_tls_config, pairing_proof, read_and_verify_proof, tls_exporter, PROTOCOL_MAGIC,
     RECEIVER_ROLE, SENDER_ROLE,
 };
-use super::{is_retryable_import_failure, LibraryTransferSendStatus};
+use super::LibraryTransferSendStatus;
 use crate::library_transfer::package::MAX_PACKAGE_BYTES;
 use crate::library_transfer::{
-    ensure_available_space, transfer_cache_dir, LibraryTransferProgress,
+    ensure_available_space, transfer_cache_dir, LibraryTransferError, LibraryTransferProgress,
+    LibraryTransferResult,
 };
 
 const SOCKET_TIMEOUT: Duration = Duration::from_secs(30);
@@ -35,7 +36,7 @@ const RECEIVE_PART_PREFIX: &str = "library-transfer-lan-receive-";
 pub(super) enum ReceiverMessage {
     Progress(LibraryTransferProgress),
     Complete,
-    Failed(String),
+    Failed(LibraryTransferError),
 }
 
 #[derive(Debug)]
@@ -148,7 +149,7 @@ pub(super) fn send_package(
             }
             ReceiverMessage::Complete => return Ok(()),
             ReceiverMessage::Failed(error) => {
-                let retryable = is_retryable_import_failure(&error);
+                let retryable = error.is_retryable();
                 let error = format!("The receiving device could not finish the import: {error}");
                 return Err(if retryable {
                     SendAttemptError::Retryable(error)
@@ -167,7 +168,7 @@ pub(super) fn receive_package<P: FnMut(u64, u64)>(
     code: &str,
     output_path: &Path,
     mut progress: P,
-) -> Result<StreamOwned<ClientConnection, TcpStream>, String> {
+) -> LibraryTransferResult<StreamOwned<ClientConnection, TcpStream>> {
     let mut socket = TcpStream::connect_timeout(&SocketAddr::V4(address), SOCKET_TIMEOUT)
         .map_err(|err| format!("Could not connect to the source device: {err}"))?;
     configure_socket(&socket)?;

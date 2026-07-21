@@ -35,8 +35,8 @@ use tauri::State;
 
 use super::{
     build_library_package, emit_transfer_progress, import_library_package, transfer_temp_path,
-    LibraryTransferExportRequest, LibraryTransferImportResult, LibraryTransferProgress,
-    INSUFFICIENT_SPACE_CODE,
+    LibraryTransferError, LibraryTransferExportRequest, LibraryTransferImportResult,
+    LibraryTransferProgress, LibraryTransferResult,
 };
 
 mod security;
@@ -104,7 +104,7 @@ pub async fn library_transfer_send_start(
     app: tauri::AppHandle,
     state: State<'_, LibraryTransferState>,
     request: Option<LibraryTransferExportRequest>,
-) -> Result<LibraryTransferSendStatus, String> {
+) -> LibraryTransferResult<LibraryTransferSendStatus> {
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         start_send(app, state, request.unwrap_or_default().include_audiobooks)
@@ -116,17 +116,20 @@ pub async fn library_transfer_send_start(
 #[tauri::command]
 pub fn library_transfer_send_status(
     state: State<'_, LibraryTransferState>,
-) -> Result<Option<LibraryTransferSendStatus>, String> {
+) -> LibraryTransferResult<Option<LibraryTransferSendStatus>> {
     let send = lock(&state.send)?;
-    send.as_ref()
+    Ok(send
+        .as_ref()
         .map(|session| lock(&session.status).map(|status| status.clone()))
-        .transpose()
+        .transpose()?)
 }
 
 /// Stop a waiting or active foreground sender. The worker owns package cleanup
 /// so cancellation cannot remove a file while another thread is reading it.
 #[tauri::command]
-pub fn library_transfer_send_cancel(state: State<'_, LibraryTransferState>) -> Result<(), String> {
+pub fn library_transfer_send_cancel(
+    state: State<'_, LibraryTransferState>,
+) -> LibraryTransferResult<()> {
     let send = lock(&state.send)?;
     if let Some(session) = send.as_ref() {
         session.cancel.store(true, Ordering::Relaxed);
@@ -144,7 +147,7 @@ pub fn library_transfer_send_cancel(state: State<'_, LibraryTransferState>) -> R
 pub async fn library_transfer_receive(
     app: tauri::AppHandle,
     request: LibraryTransferReceiveRequest,
-) -> Result<LibraryTransferImportResult, String> {
+) -> LibraryTransferResult<LibraryTransferImportResult> {
     tauri::async_runtime::spawn_blocking(move || receive_library(app, request))
         .await
         .map_err(|err| format!("Library receive task failed: {err}"))?
@@ -156,7 +159,7 @@ fn start_send(
     app: tauri::AppHandle,
     state: LibraryTransferState,
     include_audiobooks: bool,
-) -> Result<LibraryTransferSendStatus, String> {
+) -> LibraryTransferResult<LibraryTransferSendStatus> {
     {
         let send = lock(&state.send)?;
         if send.as_ref().is_some_and(|session| {
@@ -216,7 +219,7 @@ fn start_send(
             active_socket: Arc::clone(&active_socket),
             status: Arc::clone(&status),
         });
-        Ok::<_, String>((listener, tls_config, code, status, cancel, active_socket))
+        Ok::<_, LibraryTransferError>((listener, tls_config, code, status, cancel, active_socket))
     })();
     let (listener, tls_config, code, status, cancel, active_socket) = match setup {
         Ok(setup) => setup,
@@ -239,7 +242,7 @@ fn start_send(
         );
         let _ = fs::remove_file(package_path);
     });
-    lock(&status).map(|status| status.clone())
+    Ok(lock(&status).map(|status| status.clone())?)
 }
 
 /// Keep one package/code alive for authenticated resume attempts until import
@@ -329,7 +332,7 @@ fn run_sender(
 fn receive_library(
     app: tauri::AppHandle,
     request: LibraryTransferReceiveRequest,
-) -> Result<LibraryTransferImportResult, String> {
+) -> LibraryTransferResult<LibraryTransferImportResult> {
     emit_transfer_progress(&app, "receive", "connecting", None, None, None);
     let address = parse_local_address(&request.address)?;
     let code = normalize_code(&request.code)?;
@@ -362,7 +365,7 @@ fn receive_library(
                 Ok(result)
             }
             Err(error) => {
-                let retryable = is_retryable_import_failure(&error);
+                let retryable = error.is_retryable();
                 let _ =
                     write_receiver_message(&mut stream, &ReceiverMessage::Failed(error.clone()));
                 if !retryable {
@@ -372,12 +375,6 @@ fn receive_library(
             }
         }
     })()
-}
-
-/// Only an explicit insufficient-space result retains a complete partial for
-/// retry; corrupt or unsupported packages will fail identically on every try.
-fn is_retryable_import_failure(error: &str) -> bool {
-    error.starts_with(INSUFFICIENT_SPACE_CODE)
 }
 
 fn set_send_status(
@@ -432,19 +429,4 @@ fn lock<T>(mutex: &Mutex<T>) -> Result<std::sync::MutexGuard<'_, T>, String> {
     mutex
         .lock()
         .map_err(|_| "Library transfer state is unavailable".to_string())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::is_retryable_import_failure;
-
-    #[test]
-    fn only_insufficient_space_import_failures_are_retryable() {
-        assert!(is_retryable_import_failure(
-            "LIBRARY_TRANSFER_INSUFFICIENT_SPACE:100:50"
-        ));
-        assert!(!is_retryable_import_failure(
-            "Library-transfer package checksum does not match"
-        ));
-    }
 }

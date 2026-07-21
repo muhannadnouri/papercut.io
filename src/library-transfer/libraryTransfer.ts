@@ -1,5 +1,12 @@
 import { invoke, isTauri } from '@tauri-apps/api/core'
 
+export interface LibraryTransferErrorPayload {
+  code: string
+  message: string
+  requiredBytes?: number
+  availableBytes?: number
+}
+
 export interface LibraryTransferExportResult {
   documents: number
   audiobooks: number
@@ -116,4 +123,13 @@ export async function listenLibraryTransferProgress(
   return listen<LibraryTransferProgress>(LIBRARY_TRANSFER_PROGRESS_EVENT, (event) => {
     onProgress(event.payload)
   })
+}
+
+export function isLibraryTransferErrorPayload(value: unknown): value is LibraryTransferErrorPayload {
+  if (!value || typeof value !== 'object') return false
+  const payload = value as Record<string, unknown>
+  return typeof payload.code === 'string'
+    && typeof payload.message === 'string'
+    && (payload.requiredBytes === undefined || typeof payload.requiredBytes === 'number')
+    && (payload.availableBytes === undefined || typeof payload.availableBytes === 'number')
 }
