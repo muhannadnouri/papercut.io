@@ -74,7 +74,7 @@ export function useAudiobookManager({
   onClearDocument,
   onUserUploadsChanged,
 }: AudiobookManagerOptions) {
-  const initialAudioPreferences = getAudioPreferences()
+  const [initialAudioPreferences] = useState(getAudioPreferences)
   const [ttsVoice, setTtsVoice] = useState<TtsVoice>(initialAudioPreferences.voice)
   const [ttsSpeed, setTtsSpeed] = useState(DEFAULT_TTS_SPEED)
   const [ttsPlaybackRate, setTtsPlaybackRate] = useState(initialAudioPreferences.playbackRate)
