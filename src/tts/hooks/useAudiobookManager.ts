@@ -19,15 +19,10 @@ import {
   formatTextPreprocessorLabel,
 } from '../utils/format'
 import {
-  getImportedAudiobookMetadata,
   listNativeSavedAudiobooks,
   type NativeAudiobookExportFormat,
+  type NativeImportedAudiobookMetadata,
 } from '../api/nativeTts'
-import {
-  chunkAudiobookSaveHtmlWithSpans,
-  SILMA_AUDIOBOOK_SAVE_CHUNK_PROFILE,
-  type SpeechChunk,
-} from '../utils/text'
 import {
   DEFAULT_TTS_SPEED,
   SILMA_MODEL_ID,
@@ -35,24 +30,17 @@ import {
   type TextPreprocessorId,
   type TtsDtype,
   type TtsVoice,
-  type TtsChunk,
 } from '../types'
 import { isUserUploadUrl, type UserUploadDocument } from '../storage/UserUploads'
 import { logTtsDiagnostic } from '../diagnostics/TtsDiagnostics'
 import { useAudiobookCache } from './useAudiobookCache'
+import { useAudiobookDocument } from './useAudiobookDocument'
 import { useAudiobookDownloadQueue } from './useAudiobookDownloadQueue'
 import { useSavedAudiobookActions } from './useSavedAudiobookActions'
 import { useTtsModelRuntime } from './useTtsModelRuntime'
 import { useTtsPlayer } from './useTtsPlayer'
 import { useAppConfirmation } from '../../components/AppDialog/useAppConfirmation'
 import { nativeTtsErrorDetail } from '../utils/errors'
-import {
-  chunksHaveDurableSourceSpans,
-  countChunkSourceSpans,
-  graftImportedSourceSpans,
-} from '../alignment/importedSourceSpans'
-
-type ImportedHighlightStatus = 'idle' | 'preparing' | 'ready' | 'unavailable'
 
 function getAiAudioExportDescription(record: SavedAudiobookRecord): string {
   const description = i18n.t('tts.confirm.exportDescription')
@@ -94,8 +82,6 @@ export function useAudiobookManager({
   const [ttsTextPreprocessor, setTtsTextPreprocessor] = useState<TextPreprocessorId>(initialAudioPreferences.textPreprocessor)
   const [silmaNfeStep, setSilmaNfeStep] = useState(() => resolveSilmaNfeStep(initialAudioPreferences))
   const ttsDtype: TtsDtype = initialAudioPreferences.dtype
-  const [ttsSaveChunks, setTtsSaveChunks] = useState<TtsChunk[] | null>(null)
-  const [importedHighlightStatus, setImportedHighlightStatus] = useState<ImportedHighlightStatus>('idle')
   const [savedAudiobooks, setSavedAudiobooks] = useState<SavedAudiobookRecord[]>([])
   const [audioSavedOnly, setAudioSavedOnly] = useState(initialAudioPreferences.audioSavedOnly)
   const { confirm: confirmAudiobookAction, dialog: confirmationDialog } = useAppConfirmation()
@@ -128,6 +114,26 @@ export function useAudiobookManager({
   } = useTtsModelRuntime({
     initialModelId: initialAudioPreferences.modelId,
     preload: preloadTts,
+  })
+  const restoreImportedAudiobookMetadata = useCallback((metadata: NativeImportedAudiobookMetadata) => {
+    setTtsModelId(metadata.modelId)
+    setTtsVoice(metadata.voice as TtsVoice)
+    setTtsTextPreprocessor(metadata.textPreprocessor)
+    setTtsSpeed(metadata.speed)
+    setSilmaNfeStep(resolveSilmaNfeStep(metadata))
+  }, [setTtsModelId])
+  const {
+    chunks: ttsSaveChunks,
+    getChunksForDocument: getAudiobookSaveChunksForDocument,
+    getSelectedChunks: getSelectedAudiobookSaveChunks,
+    importedHighlightStatus,
+    reset: resetAudiobookDocument,
+  } = useAudiobookDocument({
+    docContent,
+    loadHtmlDocument,
+    modelId: ttsModelId,
+    selectedDoc,
+    onImportedMetadata: restoreImportedAudiobookMetadata,
   })
   const selectedTtsModel = getTtsModel(ttsModels, ttsModelId)
   const {
@@ -188,73 +194,6 @@ export function useAudiobookManager({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refreshSavedAudiobooks()
   }, [refreshSavedAudiobooks])
-
-  useEffect(() => {
-    if (!selectedDoc || !docContent) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTtsSaveChunks(null)
-      setImportedHighlightStatus('idle')
-      return
-    }
-
-    let cancelled = false
-    let cancelHighlightBuild: (() => void) | null = null
-    if (isUserUploadUrl(selectedDoc)) {
-      // Imported audiobook bundles must play against their saved manifest chunks.
-      // Highlight spans are rebuilt lazily and grafted only on an exact match.
-      setTtsSaveChunks(null)
-      setImportedHighlightStatus('preparing')
-      void getImportedAudiobookMetadata(selectedDoc)
-        .then((metadata) => {
-          if (cancelled) return
-          setTtsModelId(metadata.modelId)
-          setTtsVoice(metadata.voice as TtsVoice)
-          setTtsTextPreprocessor(metadata.textPreprocessor)
-          setTtsSpeed(metadata.speed)
-          setSilmaNfeStep(resolveSilmaNfeStep(metadata))
-          setTtsSaveChunks(metadata.chunks)
-          if (chunksHaveDurableSourceSpans(metadata.chunks)) {
-            logTtsDiagnostic('[tts-highlight] imported durable source spans ready', {
-              chunks: metadata.chunks.length,
-              sourceSpans: countChunkSourceSpans(metadata.chunks),
-              modelId: metadata.modelId,
-              textPreprocessor: metadata.textPreprocessor,
-              documentUrl: selectedDoc,
-            })
-            setImportedHighlightStatus('ready')
-            return
-          }
-          cancelHighlightBuild = scheduleImportedHighlightBuild(() => {
-            if (cancelled) return
-            const rebuiltChunks = audiobookSaveChunksFromHtml(docContent, metadata.modelId)
-            const graftedChunks = graftImportedSourceSpans(metadata.chunks, rebuiltChunks, {
-              documentUrl: selectedDoc,
-              modelId: metadata.modelId,
-              textPreprocessor: metadata.textPreprocessor,
-            })
-            if (cancelled) return
-            if (graftedChunks) {
-              setTtsSaveChunks(graftedChunks)
-              setImportedHighlightStatus('ready')
-            } else {
-              setImportedHighlightStatus('unavailable')
-            }
-          })
-        })
-        .catch(() => {
-          if (cancelled) return
-          setTtsSaveChunks(audiobookSaveChunksFromHtml(docContent, ttsModelId))
-          setImportedHighlightStatus('unavailable')
-        })
-      return () => {
-        cancelled = true
-        cancelHighlightBuild?.()
-      }
-    }
-
-    setImportedHighlightStatus('ready')
-    setTtsSaveChunks(audiobookSaveChunksFromHtml(docContent, ttsModelId))
-  }, [docContent, selectedDoc, setTtsModelId, ttsModelId])
 
   useEffect(() => {
     if (!selectedDoc || !ttsSaveChunks || autoSelectedDocumentRef.current === selectedDoc) return
@@ -324,32 +263,14 @@ export function useAudiobookManager({
     } else {
       setTtsSpeed(DEFAULT_TTS_SPEED)
     }
-    setTtsSaveChunks(null)
+    resetAudiobookDocument()
     resetSelectedAudiobookState()
-  }, [resetSelectedAudiobookState])
+  }, [resetAudiobookDocument, resetSelectedAudiobookState])
 
   const closeDocumentAudio = useCallback(() => {
     stopTts()
-    setTtsSaveChunks(null)
-    setImportedHighlightStatus('idle')
-  }, [stopTts])
-
-  const getAudiobookSaveChunksForDocument = useCallback(async (
-    documentUrl: string,
-    modelId = ttsModelId,
-  ): Promise<TtsChunk[]> => {
-    if (isUserUploadUrl(documentUrl)) {
-      return (await getImportedAudiobookMetadata(documentUrl)).chunks
-    }
-
-    const html = await loadHtmlDocument(documentUrl)
-    return audiobookSaveChunksFromHtml(html, modelId)
-  }, [loadHtmlDocument, ttsModelId])
-
-  const getSelectedAudiobookSaveChunks = useCallback(async (): Promise<TtsChunk[]> => {
-    if (!selectedDoc) return []
-    return ttsSaveChunks ?? getAudiobookSaveChunksForDocument(selectedDoc)
-  }, [getAudiobookSaveChunksForDocument, selectedDoc, ttsSaveChunks])
+    resetAudiobookDocument()
+  }, [resetAudiobookDocument, stopTts])
 
   const handleReadDocument = useCallback(async () => {
     if (!selectedAudiobookState.complete) return
@@ -520,11 +441,11 @@ export function useAudiobookManager({
         resetSelectedAudiobookState()
         if (deletedUserUpload) {
           onClearDocument()
-          setTtsSaveChunks(null)
+          resetAudiobookDocument()
         }
       }
     })
-  }, [confirmAudiobookAction, deleteSavedAudiobook, onClearDocument, resetSelectedAudiobookState, selectedDoc, stopTts])
+  }, [confirmAudiobookAction, deleteSavedAudiobook, onClearDocument, resetAudiobookDocument, resetSelectedAudiobookState, selectedDoc, stopTts])
 
   const importAudiobook = useCallback(async (openDocument: (url: string) => Promise<void>) => {
     await importSavedAudiobook(openDocument, (result) => {
@@ -724,32 +645,4 @@ export function useAudiobookManager({
       allowDomFallback: Boolean(selectedDoc && isUserUploadUrl(selectedDoc)),
     },
   }
-}
-
-// Defer imported highlight rebuilding so Play can become available from the
-// bundle manifest before DOM span work finishes.
-function scheduleImportedHighlightBuild(task: () => void): () => void {
-  if (window.requestIdleCallback) {
-    const handle = window.requestIdleCallback(task, { timeout: 1500 })
-    return () => window.cancelIdleCallback(handle)
-  }
-
-  const handle = window.setTimeout(task, 0)
-  return () => window.clearTimeout(handle)
-}
-
-// Rebuild runtime source spans from current HTML every open. The selected model
-// chooses the chunk profile, so SILMA can keep requests below its F5 subchunker.
-function audiobookSaveChunksFromHtml(html: string, modelId: string): TtsChunk[] {
-  const profile = modelId === SILMA_MODEL_ID ? SILMA_AUDIOBOOK_SAVE_CHUNK_PROFILE : undefined
-  return buildRuntimeChunks(chunkAudiobookSaveHtmlWithSpans(html, profile), 'save-c')
-}
-
-// Assign deterministic cache ids while carrying optional UI-only highlight spans.
-function buildRuntimeChunks(chunks: SpeechChunk[], prefix: string): TtsChunk[] {
-  return chunks.map((chunk, index) => ({
-    id: prefix + String(index + 1).padStart(5, '0'),
-    text: chunk.text,
-    sourceSpan: chunk.sourceSpan,
-  }))
 }
