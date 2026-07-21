@@ -365,6 +365,12 @@ fn document_format<R: Runtime>(
     if let Some(format) = document_format_from(&extension, &[]) {
         return Ok(format);
     }
+    if !extension.is_empty() {
+        return Err(format!(
+            "Unsupported document type for {}",
+            source_file_name(source)
+        ));
+    }
 
     let mut options = tauri_plugin_fs::OpenOptions::new();
     options.read(true);
@@ -376,7 +382,7 @@ fn document_format<R: Runtime>(
     let read = file
         .read(&mut prefix)
         .map_err(|err| format!("Failed to inspect selected document: {err}"))?;
-    document_format_from("", &prefix[..read])
+    document_format_from(&extension, &prefix[..read])
         .ok_or_else(|| format!("Unsupported document type for {}", source_file_name(source)))
 }
 
@@ -384,7 +390,8 @@ fn document_format_from(extension: &str, prefix: &[u8]) -> Option<DocumentFormat
     match extension {
         "html" | "htm" => return Some(DocumentFormat::Html),
         "epub" => return Some(DocumentFormat::Epub),
-        _ => {}
+        "" => {}
+        _ => return None,
     }
 
     if prefix.starts_with(b"PK\x03\x04")
@@ -515,6 +522,7 @@ mod tests {
         );
         assert_eq!(document_format_from("htm", &[]), Some(DocumentFormat::Html));
         assert_eq!(document_format_from("txt", &[]), None);
+        assert_eq!(document_format_from("txt", b"<html></html>"), None);
     }
 
     #[test]

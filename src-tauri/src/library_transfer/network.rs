@@ -182,40 +182,49 @@ fn start_send(
             return Err(error);
         }
     };
-    let package_bytes = fs::metadata(&package_path)
-        .map_err(|err| format!("Failed to inspect prepared library package: {err}"))?
-        .len();
-    let listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0))
-        .map_err(|err| format!("Failed to start local library transfer: {err}"))?;
-    listener
-        .set_nonblocking(true)
-        .map_err(|err| format!("Failed to configure local library transfer: {err}"))?;
-    let port = listener
-        .local_addr()
-        .map_err(|err| format!("Failed to read local library transfer address: {err}"))?
-        .port();
-    let address = SocketAddrV4::new(local_ipv4()?, port).to_string();
-    let code = new_pairing_code()?;
-    let tls_config = server_tls_config()?;
-    let status = Arc::new(Mutex::new(LibraryTransferSendStatus {
-        state: LibraryTransferSendState::Waiting,
-        address,
-        code: display_code(&code),
-        documents: prepared.documents,
-        audiobooks: prepared.audiobooks,
-        package_bytes,
-        bytes_transferred: 0,
-        receiver_progress: None,
-        error: None,
-    }));
-    let cancel = Arc::new(AtomicBool::new(false));
-    let active_socket = Arc::new(Mutex::new(None));
-    let session = SendSession {
-        cancel: Arc::clone(&cancel),
-        active_socket: Arc::clone(&active_socket),
-        status: Arc::clone(&status),
+    let setup = (|| {
+        let package_bytes = fs::metadata(&package_path)
+            .map_err(|err| format!("Failed to inspect prepared library package: {err}"))?
+            .len();
+        let listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0))
+            .map_err(|err| format!("Failed to start local library transfer: {err}"))?;
+        listener
+            .set_nonblocking(true)
+            .map_err(|err| format!("Failed to configure local library transfer: {err}"))?;
+        let port = listener
+            .local_addr()
+            .map_err(|err| format!("Failed to read local library transfer address: {err}"))?
+            .port();
+        let address = SocketAddrV4::new(local_ipv4()?, port).to_string();
+        let code = new_pairing_code()?;
+        let tls_config = server_tls_config()?;
+        let status = Arc::new(Mutex::new(LibraryTransferSendStatus {
+            state: LibraryTransferSendState::Waiting,
+            address,
+            code: display_code(&code),
+            documents: prepared.documents,
+            audiobooks: prepared.audiobooks,
+            package_bytes,
+            bytes_transferred: 0,
+            receiver_progress: None,
+            error: None,
+        }));
+        let cancel = Arc::new(AtomicBool::new(false));
+        let active_socket = Arc::new(Mutex::new(None));
+        *lock(&state.send)? = Some(SendSession {
+            cancel: Arc::clone(&cancel),
+            active_socket: Arc::clone(&active_socket),
+            status: Arc::clone(&status),
+        });
+        Ok::<_, String>((listener, tls_config, code, status, cancel, active_socket))
+    })();
+    let (listener, tls_config, code, status, cancel, active_socket) = match setup {
+        Ok(setup) => setup,
+        Err(error) => {
+            let _ = fs::remove_file(&package_path);
+            return Err(error);
+        }
     };
-    *lock(&state.send)? = Some(session);
 
     let thread_status = Arc::clone(&status);
     thread::spawn(move || {
