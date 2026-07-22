@@ -201,9 +201,23 @@ export function UploadedLibraryTree({
   }
 
   const handleAction = (key: Key) => {
-    if (filterMode || editMode || documentOpening) return
+    if (documentOpening) return
     const node = nodeByKey.get(String(key))
-    if (node?.kind === 'document') onViewDocument?.(node.url)
+    if (!node) return
+    if (filterMode) {
+      if (node.kind === 'folder') onToggleAllInGroup?.(collectDocuments(node))
+      else onToggleFilter?.(node.url)
+      return
+    }
+    if (editMode) {
+      toggleSelection(String(key))
+      return
+    }
+    if (node.kind === 'folder') {
+      toggleFolderExpanded(node.key)
+      return
+    }
+    if (node.kind === 'document') onViewDocument?.(node.url)
   }
 
   const openFolderDialog = (parentId: string | null, parentName?: string) => {
@@ -542,9 +556,22 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
   const folderFilterSelected = filterDocuments.length > 0 && filterDocuments.every((doc) => options.selectedFilters?.has(doc.url))
   const documentFilterSelected = node.kind === 'document' && Boolean(options.selectedFilters?.has(node.url))
   const selected = options.selectedKeys.has(node.key) || folderFilterSelected || documentFilterSelected
+  const selectionEnabled = options.editMode || options.filterMode
+  const selectionDisabled = options.filterMode && node.kind === 'folder' && filterDocuments.length === 0
+  const selectionLabel = options.editMode
+    ? options.t('library.tree.select', { title: node.title })
+    : node.kind === 'folder'
+      ? options.t('library.tree.selectAllIn', { title: node.title })
+      : options.t('library.tree.filterBy', { title: node.title })
+  const toggleNodeSelection = () => {
+    if (options.editMode) options.onToggleSelection(node.key)
+    else if (node.kind === 'folder') options.onToggleAllInGroup?.(filterDocuments)
+    else options.onToggleFilter?.(node.url)
+  }
   const className = [
     'uploaded-library-item',
     'uploaded-library-' + node.kind,
+    selectionEnabled || node.kind === 'folder' ? 'uploaded-library-item-actionable' : '',
     selected ? 'uploaded-library-item-selected' : '',
     opening ? 'uploaded-library-item-opening' : '',
   ].filter(Boolean).join(' ')
@@ -563,47 +590,33 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
             </Button>
           )}
           <div className="uploaded-library-row">
-            {options.editMode && (
-              <input
-                className="uploaded-library-select"
-                type="checkbox"
-                checked={options.selectedKeys.has(node.key)}
-                aria-label={options.t('library.tree.select', { title: node.title })}
-                onClick={(event) => event.stopPropagation()}
-                onChange={(event) => {
-                  event.stopPropagation()
-                  options.onToggleSelection(node.key)
-                }}
-              />
-            )}
-            {options.filterMode && node.kind === 'folder' && (
-              <input
-                className="uploaded-library-select"
-                type="checkbox"
-                checked={folderFilterSelected}
-                disabled={filterDocuments.length === 0}
-                aria-label={options.t('library.tree.selectAllIn', { title: node.title })}
-                onClick={(event) => event.stopPropagation()}
-                onChange={(event) => {
-                  event.stopPropagation()
-                  options.onToggleAllInGroup?.(filterDocuments)
-                }}
-              />
-            )}
-            {options.filterMode && node.kind === 'document' && (
-              <input
-                className="uploaded-library-select"
-                type="checkbox"
-                checked={documentFilterSelected}
-                aria-label={options.t('library.tree.filterBy', { title: node.title })}
-                onClick={(event) => event.stopPropagation()}
-                onChange={(event) => {
-                  event.stopPropagation()
-                  options.onToggleFilter?.(node.url)
-                }}
-              />
-            )}
-            {node.kind === 'folder' ? (
+            {selectionEnabled ? (
+              <span className="uploaded-library-name uploaded-library-selection">
+                <input
+                  className="uploaded-library-select"
+                  type="checkbox"
+                  checked={selected}
+                  disabled={selectionDisabled}
+                  aria-label={selectionLabel}
+                  onClick={(event) => event.stopPropagation()}
+                  onChange={(event) => {
+                    event.stopPropagation()
+                    toggleNodeSelection()
+                  }}
+                />
+                <span className="uploaded-library-selection-text">
+                  <bdi>{node.title}</bdi>
+                  {node.kind === 'folder' && (
+                    <>
+                      {' '}
+                      <span className="uploaded-library-folder-count">
+                        ({node.documentCount.toLocaleString(options.locale)})
+                      </span>
+                    </>
+                  )}
+                </span>
+              </span>
+            ) : node.kind === 'folder' ? (
               <button
                 className="uploaded-library-name uploaded-library-name-button"
                 type="button"

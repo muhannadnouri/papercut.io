@@ -270,6 +270,10 @@
   outline: none;
 }
 
+.uploaded-library-item-actionable .uploaded-library-content {
+  cursor: pointer;
+}
+
 .uploaded-library-content {
   display: flex;
   align-items: center;
@@ -346,6 +350,21 @@
 
 .uploaded-library-name {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.uploaded-library-selection {
+  display: flex;
+  align-self: stretch;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+}
+
+.uploaded-library-selection-text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
