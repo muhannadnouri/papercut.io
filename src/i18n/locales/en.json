@@ -112,6 +112,7 @@
       "batchComplete": "Import complete. Imported: {{imported, number}}. Failed: {{failed, number}}.",
       "batchCancelled": "Import stopped. Imported: {{imported, number}}. Failed: {{failed, number}}.",
       "failedFiles": "Failed files: {{count, number}}",
+      "dismissNotice": "Dismiss library notice",
       "preparingDeleteBatch": "Preparing document deletion...",
       "deleteBatchProgress": "Deleting {{processed, number}} of {{total, number}} documents...",
       "deleteBatchProgressLabel": "Document deletion progress",

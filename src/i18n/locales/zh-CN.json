@@ -108,6 +108,7 @@
       "batchComplete": "导入完成。已导入：{{imported, number}}。失败：{{failed, number}}。",
       "batchCancelled": "导入已停止。已导入：{{imported, number}}。失败：{{failed, number}}。",
       "failedFiles": "失败的文件：{{count, number}}",
+      "dismissNotice": "关闭媒体库通知",
       "imported": "进口<title>{{title}}</title>。",
       "cancelled": "导入已取消。",
       "deleting": "正在删除 <title>{{title}}</title>...",

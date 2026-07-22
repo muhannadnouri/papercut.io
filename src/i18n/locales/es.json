@@ -116,6 +116,7 @@
       "batchComplete": "Importación completa. Importados: {{imported, number}}. Fallidos: {{failed, number}}.",
       "batchCancelled": "Importación detenida. Importados: {{imported, number}}. Fallidos: {{failed, number}}.",
       "failedFiles": "Archivos fallidos: {{count, number}}",
+      "dismissNotice": "Descartar aviso de la biblioteca",
       "preparingDeleteBatch": "Preparando la eliminación de documentos...",
       "deleteBatchProgress": "Eliminando {{processed, number}} de {{total, number}} documentos...",
       "deleteBatchProgressLabel": "Progreso de eliminación de documentos",

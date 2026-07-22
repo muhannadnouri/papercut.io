@@ -112,6 +112,7 @@
       "batchComplete": "आयात पूरा हुआ। आयातित: {{imported, number}}। विफल: {{failed, number}}।",
       "batchCancelled": "आयात रोक दिया गया। आयातित: {{imported, number}}। विफल: {{failed, number}}।",
       "failedFiles": "विफल फ़ाइलें: {{count, number}}",
+      "dismissNotice": "लाइब्रेरी सूचना बंद करें",
       "imported": "आयातित <title>{{title}}</title>।",
       "cancelled": "आयात रद्द कर दिया गया.",
       "deleting": "<title>{{title}}</title> हटाया जा रहा है...",

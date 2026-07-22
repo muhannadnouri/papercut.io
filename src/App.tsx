@@ -60,6 +60,7 @@ function App() {
     deleteDocument: deleteUploadedLibraryDocument,
     deleteDocuments: deleteUploadedLibraryDocuments,
     deleteLibraryFolder,
+    dismissDocumentImportStatus,
     documentImport,
     importDocumentBatch,
     importDocumentFolder,
@@ -395,6 +396,7 @@ function App() {
             onDeleteDocument={handleDeleteUploadedDocument}
             onDeleteDocuments={handleDeleteUploadedDocuments}
             onDeleteLibraryFolder={deleteLibraryFolder}
+            onDismissDocumentImportStatus={dismissDocumentImportStatus}
             onMoveLibraryDocuments={moveLibraryDocuments}
             onRenameLibraryFolder={renameLibraryFolder}
             onToggleAuthor={toggleLibraryAuthor}

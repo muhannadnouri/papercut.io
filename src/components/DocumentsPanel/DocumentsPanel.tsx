@@ -15,6 +15,7 @@ import '../DocumentBrowser/DocumentBrowser.css'
 interface DocumentsPanelStatus {
   status: string
   message: ReactNode
+  onDismiss?: () => void
 }
 
 export interface DocumentImportOption {
@@ -172,6 +173,21 @@ export function DocumentsPanel({
             </MenuTrigger>
           </div>
         )}
+        {developerMode && (
+          <button
+            type="button"
+            className="library-view-toggle"
+            aria-label={view === 'gallery' ? t('library.documents.listView') : t('library.documents.galleryView')}
+            title={view === 'gallery' ? t('library.documents.listView') : t('library.documents.galleryView')}
+            onClick={() => {
+              const nextView = view === 'gallery' ? 'list' : 'gallery'
+              setPreferredView(nextView)
+              savePreference(VIEW_STORAGE_KEY, nextView)
+            }}
+          >
+            <ViewIcon view={view === 'gallery' ? 'list' : 'gallery'} />
+          </button>
+        )}
         {onAudioSavedOnlyChange && (
           <label className="audio-filter-toggle">
             <input
@@ -182,37 +198,27 @@ export function DocumentsPanel({
             <span>{t('library.documents.savedAudio')}</span>
           </label>
         )}
-        {developerMode && (
-          <div className="library-view-options" role="group" aria-label={t('library.documents.viewLabel')}>
-            <button
-              type="button"
-              className={view === 'gallery' ? 'library-view-option active' : 'library-view-option'}
-              aria-pressed={view === 'gallery'}
-              onClick={() => {
-                setPreferredView('gallery')
-                savePreference(VIEW_STORAGE_KEY, 'gallery')
-              }}
-            >
-              ▦ {t('library.documents.galleryView')}
-            </button>
-            <button
-              type="button"
-              className={view === 'list' ? 'library-view-option active' : 'library-view-option'}
-              aria-pressed={view === 'list'}
-              onClick={() => {
-                setPreferredView('list')
-                savePreference(VIEW_STORAGE_KEY, 'list')
-              }}
-            >
-              ☰ {t('library.documents.listView')}
-            </button>
-          </div>
-        )}
       </div>
 
       {importStatuses.map((item, index) => item.message && item.status !== 'idle' ? (
-        <div key={item.status + index} className={'document-import-status document-import-' + item.status}>
-          {item.message}
+        <div
+          key={item.status + index}
+          className={'document-import-status document-import-' + item.status}
+          role={item.status === 'error' ? 'alert' : 'status'}
+          aria-live={item.status === 'error' ? 'assertive' : 'polite'}
+        >
+          <div className="document-import-status-content">{item.message}</div>
+          {item.onDismiss && (
+            <button
+              type="button"
+              className="document-import-dismiss"
+              aria-label={t('library.status.dismissNotice')}
+              title={t('common.close')}
+              onClick={item.onDismiss}
+            >
+              &times;
+            </button>
+          )}
         </div>
       ) : null)}
 
@@ -271,6 +277,26 @@ export function DocumentsPanel({
         </>
       )}
     </Panel>
+  )
+}
+
+function ViewIcon({ view }: { view: LibraryView }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      {view === 'list' ? (
+        <>
+          <path d="M3 6h.01M3 12h.01M3 18h.01" />
+          <path d="M8 6h13M8 12h13M8 18h13" />
+        </>
+      ) : (
+        <>
+          <rect x="3" y="3" width="7" height="7" rx="1" />
+          <rect x="14" y="3" width="7" height="7" rx="1" />
+          <rect x="3" y="14" width="7" height="7" rx="1" />
+          <rect x="14" y="14" width="7" height="7" rx="1" />
+        </>
+      )}
+    </svg>
   )
 }
 

@@ -116,6 +116,7 @@
       "batchComplete": "Importação concluída. Importados: {{imported, number}}. Falhas: {{failed, number}}.",
       "batchCancelled": "Importação interrompida. Importados: {{imported, number}}. Falhas: {{failed, number}}.",
       "failedFiles": "Arquivos com falha: {{count, number}}",
+      "dismissNotice": "Dispensar aviso da biblioteca",
       "imported": "Importado <title>{{title}}</title>.",
       "cancelled": "Importação cancelada.",
       "deleting": "Excluindo <title>{{title}}</title>...",

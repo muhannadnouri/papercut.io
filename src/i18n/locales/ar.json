@@ -128,6 +128,7 @@
       "batchComplete": "اكتمل الاستيراد. تم الاستيراد: {{imported, number}}. فشل: {{failed, number}}.",
       "batchCancelled": "توقف الاستيراد. تم الاستيراد: {{imported, number}}. فشل: {{failed, number}}.",
       "failedFiles": "الملفات التي فشل استيرادها: {{count, number}}",
+      "dismissNotice": "إغلاق إشعار المكتبة",
       "preparingDeleteBatch": "جارٍ تحضير حذف المستندات...",
       "deleteBatchProgress": "جارٍ حذف {{processed, number}} من أصل {{total, number}} مستندًا...",
       "deleteBatchProgressLabel": "تقدم حذف المستندات",
