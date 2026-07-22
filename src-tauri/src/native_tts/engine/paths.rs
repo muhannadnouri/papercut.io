@@ -123,13 +123,15 @@ fn contains_complete_silma_cache(dir: &Path, required_files: &[&str]) -> bool {
 
 /// Directory holding one saved audiobook's chunk WAVs. The audiobook id is
 /// hashed so the folder name is short and filesystem-safe regardless of input.
-pub(super) fn audiobook_dir(app: &tauri::AppHandle, audiobook_id: &str) -> Result<PathBuf, String> {
+pub(crate) fn audiobooks_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let app_data = app.path().app_data_dir().map_err(|err| {
         format!("Failed to resolve app data dir for native audiobook cache: {err}")
     })?;
-    Ok(app_data
-        .join("audiobooks")
-        .join(stable_hex_hash(audiobook_id)))
+    Ok(app_data.join("audiobooks"))
+}
+
+pub(super) fn audiobook_dir(app: &tauri::AppHandle, audiobook_id: &str) -> Result<PathBuf, String> {
+    Ok(audiobooks_dir(app)?.join(stable_hex_hash(audiobook_id)))
 }
 
 /// Deterministic file path for a single chunk's WAV inside an audiobook dir.
@@ -245,7 +247,7 @@ pub(super) fn directory_size(path: &Path) -> Result<u64, String> {
 /// Pull the upload id back out of an imported document URL
 /// (`/user-uploads/<id>.html`), validating the shape and that the id is hex.
 /// Returns an error for any URL that isn't an imported upload.
-pub(super) fn imported_upload_id_from_document_url(document_url: &str) -> Result<String, String> {
+pub(crate) fn imported_upload_id_from_document_url(document_url: &str) -> Result<String, String> {
     let prefix = "/user-uploads/";
     let suffix = ".html";
     if !document_url.starts_with(prefix) || !document_url.ends_with(suffix) {
@@ -260,7 +262,7 @@ pub(super) fn imported_upload_id_from_document_url(document_url: &str) -> Result
 
 /// Directory where an imported document's source HTML/metadata is stored:
 /// `<app-data>/user_uploads/<id>`.
-pub(super) fn imported_upload_dir(
+pub(crate) fn imported_upload_dir(
     app: &tauri::AppHandle,
     upload_id: &str,
 ) -> Result<PathBuf, String> {
@@ -296,17 +298,23 @@ pub(super) fn create_native_audiobook_id(
     parts.join("|")
 }
 
-/// Strip the `#fragment` and `?query` from a document URL so the same document
-/// always produces the same cache key regardless of trailing anchors/params.
+/// Match the WebView cache key by reducing absolute URLs to their path and
+/// stripping `#fragment` / `?query` suffixes.
 fn normalize_native_document_url(document_url: &str) -> String {
-    document_url
+    let value = document_url
         .split('#')
         .next()
         .unwrap_or(document_url)
         .split('?')
         .next()
-        .unwrap_or(document_url)
-        .to_string()
+        .unwrap_or(document_url);
+    if let Some((_, after_scheme)) = value.split_once("://") {
+        return after_scheme
+            .find('/')
+            .map(|index| after_scheme[index..].to_string())
+            .unwrap_or_else(|| "/".into());
+    }
+    value.to_string()
 }
 
 /// Convert a sample count + sample rate into seconds of audio (0 if rate is 0).
@@ -478,6 +486,11 @@ mod tests {
         );
         assert!(diacritized.contains("|libtashkeel-1.5.0|"));
         assert_ne!(diacritized, legacy);
+
+        assert_eq!(
+            normalize_native_document_url("http://localhost:1420/documents/book.html?q=1#two"),
+            "/documents/book.html"
+        );
     }
 
     fn unique_nonce() -> u128 {

@@ -9,6 +9,7 @@ import {
   changeAppLocale,
   currentAppLocale,
 } from '../../i18n'
+import { LibraryTransferDialog } from '../../library-transfer/LibraryTransferDialog'
 import { AppDialog } from '../AppDialog/AppDialog'
 import { AppSelect } from '../AppSelect/AppSelect'
 import './AppSettings.css'
@@ -22,17 +23,25 @@ const ZOOM_STEP = 10
 interface AppSettingsProps {
   themeChoice: ThemeChoice
   onThemeChange: (choice: ThemeChoice) => void
+  libraryDocumentCount: number
+  onLibraryImported: () => void | Promise<void>
 }
 
-export function AppSettings({ themeChoice, onThemeChange }: AppSettingsProps) {
+export function AppSettings({
+  themeChoice,
+  onThemeChange,
+  libraryDocumentCount,
+  onLibraryImported,
+}: AppSettingsProps) {
   const { t } = useTranslation()
   const tauriRuntime = isTauri()
   const [open, setOpen] = useState(false)
+  const [transferOpen, setTransferOpen] = useState(false)
   const [version, setVersion] = useState<string | null>(() => tauriRuntime ? null : '')
   const zoom = useAppZoom()
   const closeSettings = useCallback(() => setOpen(false), [])
   const themeOptions: Array<{ choice: ThemeChoice; label: string; icon?: string }> = [
-    { choice: 'system', label: t('settings.themeSystem') },
+    { choice: 'system', label: t('settings.themeSystem'), icon: '🖥️' },
     { choice: 'light', label: t('settings.themeLight'), icon: '☀️' },
     { choice: 'dark', label: t('settings.themeDark'), icon: '🌙' },
   ]
@@ -141,11 +150,36 @@ export function AppSettings({ themeChoice, onThemeChange }: AppSettingsProps) {
             )}
           </section>
 
+          {tauriRuntime && (
+            <section className="app-settings-section app-settings-data" aria-labelledby="app-settings-data">
+              <h3 id="app-settings-data">{t('settings.data')}</h3>
+              <button
+                type="button"
+                className="app-settings-data-action"
+                onClick={() => {
+                  setOpen(false)
+                  setTransferOpen(true)
+                }}
+              >
+                <TransferIcon />
+                {t('settings.transferLibrary')}
+              </button>
+            </section>
+          )}
+
           <div className="app-settings-version">
             <span>{t('settings.version')}</span>
             <strong>{versionLabel}</strong>
           </div>
         </AppDialog>
+      )}
+
+      {transferOpen && (
+        <LibraryTransferDialog
+          documentCount={libraryDocumentCount}
+          onClose={() => setTransferOpen(false)}
+          onImported={onLibraryImported}
+        />
       )}
     </div>
   )
@@ -156,6 +190,14 @@ function SettingsIcon() {
     <svg className="app-settings-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
       <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.08A1.7 1.7 0 0 0 9 19.36a1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.63 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.08A1.7 1.7 0 0 0 4.64 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.63a1.7 1.7 0 0 0 1-1.56V3a2 2 0 1 1 4 0v.08A1.7 1.7 0 0 0 15 4.64a1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.36 9a1.7 1.7 0 0 0 1.56 1H21a2 2 0 1 1 0 4h-.08A1.7 1.7 0 0 0 19.4 15Z" />
+    </svg>
+  )
+}
+
+function TransferIcon() {
+  return (
+    <svg className="app-settings-data-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M7 7h13m0 0-3-3m3 3-3 3M17 17H4m0 0 3 3m-3-3 3-3" />
     </svg>
   )
 }

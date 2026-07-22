@@ -36,5 +36,15 @@ mod types;
 
 pub(crate) use state::DocumentUploadState;
 
-#[cfg(feature = "native-tts-core")]
+// Library transfer consumes this narrow storage API so its removable package
+// module never duplicates document parsing, sanitization, indexing, or folder rules.
+pub(crate) use organization::{create_folder, list_organization, move_documents};
+pub(crate) use pipeline::restore_transferred_document;
+pub(crate) use storage::{now_ms, upload_dir, upload_id_from_url};
+pub(crate) use store::list_uploads;
+pub(crate) use types::{
+    UploadedDocument, UploadedLibraryCreateFolderRequest, UploadedLibraryFolder,
+    UploadedLibraryMoveDocumentsRequest, UploadedLibraryOrganization,
+};
+
 pub(crate) use html::sanitize_html;

@@ -33,6 +33,19 @@ import {
   isUploadedDocumentUrl,
 } from './uploads/DocumentUploads'
 
+function isBundledDocumentUrl(url: string): boolean {
+  try {
+    const candidate = new URL(url, window.location.href)
+    const current = new URL(window.location.href)
+    return url.startsWith('/documents/') &&
+      candidate.protocol === current.protocol &&
+      candidate.host === current.host &&
+      candidate.pathname.startsWith('/documents/')
+  } catch {
+    return false
+  }
+}
+
 function App() {
   const { t } = useTranslation()
   const theme = useTheme()
@@ -51,6 +64,7 @@ function App() {
     importDocumentBatch,
     importDocumentFolder,
     moveLibraryDocuments,
+    refreshUploadedLibrary,
     renameLibraryFolder,
     uploadedDocuments,
     uploadedLibraryOrganization,
@@ -59,6 +73,7 @@ function App() {
   const loadHtmlDocument = useCallback(async (url: string): Promise<string> => {
     if (isUploadedDocumentUrl(url)) return getUploadedDocumentSource(url)
     if (isUserUploadUrl(url)) return getImportedAudiobookSource(url)
+    if (!isBundledDocumentUrl(url)) throw new Error('Unsupported document URL')
 
     const response = await fetch(url)
     if (!response.ok) throw new Error('Failed to load document')
@@ -114,6 +129,7 @@ function App() {
     includeDocumentInList,
     openSavedAudiobook,
     prepareDocumentOpen,
+    refreshSavedAudiobooks,
     setAudioSavedOnly,
     ttsHighlight,
   } = audiobook
@@ -218,6 +234,12 @@ function App() {
     await importAudiobookBundle(handleViewDocument)
   }, [handleViewDocument, importAudiobookBundle])
 
+  const handleLibraryTransferImported = useCallback(async () => {
+    await refreshUploadedLibrary()
+    handleUserUploadsChanged()
+    await refreshSavedAudiobooks()
+  }, [handleUserUploadsChanged, refreshSavedAudiobooks, refreshUploadedLibrary])
+
   const handleToggleLibraryDocuments = useCallback(() => {
     setShowDocuments((value) => !value)
   }, [setShowDocuments])
@@ -266,7 +288,14 @@ function App() {
             format={selectedFormat}
             content={docContent}
             className={hasFloatingAudioControls ? 'app-audio-floating' : ''}
-            appControls={<AppSettings themeChoice={theme.choice} onThemeChange={theme.setChoice} />}
+            appControls={(
+              <AppSettings
+                themeChoice={theme.choice}
+                onThemeChange={theme.setChoice}
+                libraryDocumentCount={uploadedDocuments.length}
+                onLibraryImported={handleLibraryTransferImported}
+              />
+            )}
             headerControls={<AudioControls {...audioControlsProps} onManageSave={handleManageAudiobookSave} />}
             beforeDocument={<TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />}
             ttsHighlight={ttsHighlight}
@@ -290,7 +319,14 @@ function App() {
         className={audiobookActionBusy ? 'app-header-shell app-header-shell-busy' : 'app-header-shell'}
         inert={audiobookActionBusy ? true : undefined}
       >
-        <AppHeader actions={<AppSettings themeChoice={theme.choice} onThemeChange={theme.setChoice} />} />
+        <AppHeader actions={(
+          <AppSettings
+            themeChoice={theme.choice}
+            onThemeChange={theme.setChoice}
+            libraryDocumentCount={uploadedDocuments.length}
+            onLibraryImported={handleLibraryTransferImported}
+          />
+        )} />
       </div>
 
       <div inert={audiobookActionBusy ? true : undefined}>

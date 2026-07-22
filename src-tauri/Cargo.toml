@@ -39,7 +39,11 @@ tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-native-audio = "=1.0.5"
 base64 = "0.22"
+getrandom = "0.3"
+hmac = "0.12"
 num2words = { version = "1.2", optional = true }
+rcgen = "0.13"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 sha2 = "0.10"
 tar = { version = "0.4", optional = true }
 bzip2 = { version = "0.4", optional = true }
@@ -51,6 +55,7 @@ ort-sys = { version = "=2.0.0-rc.1", optional = true, default-features = false }
 rusqlite = { version = "0.32", features = ["bundled"] }
 ammonia = "3.3"
 encoding_rs = "0.8"
+fs4 = { version = "1", features = ["sync"] }
 roxmltree = "0.20"
 zip = { version = "0.6", default-features = false, features = ["deflate"] }
 percent-encoding = "2.3"

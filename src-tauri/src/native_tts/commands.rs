@@ -15,26 +15,27 @@ use super::types::{
     NativeAudiobookPlaybackRequest, NativeAudiobookPlaybackResponse, NativeAudiobookSaveRequest,
     NativeAudiobookSaveResponse, NativeAudiobookStatusRequest, NativeAudiobookStatusResponse,
     NativeImportedAudiobookMetadataResponse, NativeImportedAudiobookSourceRequest,
-    NativeSilmaSidecarProbeResponse, NativeTtsCapabilities, NativeTtsChunkResponse,
-    NativeTtsCommandError, NativeTtsModelInstallResponse, NativeTtsModelStatus,
+    NativeSavedAudiobookRecord, NativeSilmaSidecarProbeResponse, NativeTtsCapabilities,
+    NativeTtsChunkResponse, NativeTtsCommandError, NativeTtsModelInstallResponse,
+    NativeTtsModelStatus,
 };
 
 #[cfg(feature = "native-tts-core")]
 use super::engine::{
     cancel_audiobook_save, delete_audiobook_native, export_audiobook_native,
     get_imported_audiobook_metadata, get_imported_audiobook_source, get_native_audiobook_chunk,
-    import_audiobook_native, install_model, model_status, native_audiobook_status,
-    native_capabilities, prepare_native_audiobook_playback, probe_silma_sidecar,
-    save_audiobook_native,
+    import_audiobook_native, install_model, list_saved_audiobooks, model_status,
+    native_audiobook_status, native_capabilities, prepare_native_audiobook_playback,
+    probe_silma_sidecar, save_audiobook_native,
 };
 
 #[cfg(not(feature = "native-tts-core"))]
 use super::stub::{
     cancel_audiobook_save, delete_audiobook_native, export_audiobook_native,
     get_imported_audiobook_metadata, get_imported_audiobook_source, get_native_audiobook_chunk,
-    import_audiobook_native, install_model, model_status, native_audiobook_status,
-    native_capabilities, prepare_native_audiobook_playback, probe_silma_sidecar,
-    save_audiobook_native,
+    import_audiobook_native, install_model, list_saved_audiobooks, model_status,
+    native_audiobook_status, native_capabilities, prepare_native_audiobook_playback,
+    probe_silma_sidecar, save_audiobook_native,
 };
 
 /// Is native TTS usable on this build/device, and is the voice model installed?
@@ -72,6 +73,14 @@ pub fn tts_native_audiobook_status(
     request: NativeAudiobookStatusRequest,
 ) -> Result<NativeAudiobookStatusResponse, NativeTtsCommandError> {
     native_audiobook_status(app, request).map_err(Into::into)
+}
+
+/// Return the completed-audiobook registry derived from native manifests.
+#[tauri::command]
+pub fn tts_list_saved_audiobooks(
+    app: tauri::AppHandle,
+) -> Result<Vec<NativeSavedAudiobookRecord>, NativeTtsCommandError> {
+    list_saved_audiobooks(app).map_err(Into::into)
 }
 
 /// Read one already-saved chunk WAV from the cache (returns a base64 WAV).

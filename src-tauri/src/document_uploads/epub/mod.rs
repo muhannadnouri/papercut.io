@@ -584,8 +584,8 @@ mod tests {
 
     /// Build a compact EPUB 2-style archive with TOC links, footnotes, and backlinks.
     ///
-    /// Mirrors the older Calibre/MIA pattern from the Engels sample: flat archive
-    /// paths, `.htm` spine items, and notes stored in a final `notes.htm` chapter.
+    /// Models an older EPUB 2 layout with flat archive paths, `.htm` spine items,
+    /// and notes stored in a final `notes.htm` chapter.
     fn epub2_footnote_fixture() -> Vec<u8> {
         let mut archive = Vec::new();
         {

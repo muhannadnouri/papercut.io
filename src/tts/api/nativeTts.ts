@@ -1,4 +1,4 @@
-import { createAudiobookId } from '../storage/AudiobookLibrary'
+import { createAudiobookId, type SavedAudiobookRecord } from '../storage/AudiobookLibrary'
 import { resolveSilmaNfeStep, resolveTextPreprocessor, type TtsModelInfo, type TtsOptions, type TtsChunk } from '../types'
 import { FALLBACK_TTS_MODELS } from '../models'
 
@@ -314,6 +314,11 @@ export async function getNativeAudiobookStatus(
       totalChunks: chunks.filter((chunk) => chunk.text.trim()).length,
     },
   })
+}
+
+export async function listNativeSavedAudiobooks(): Promise<SavedAudiobookRecord[]> {
+  if (!isNativeTtsRuntime()) return []
+  return invokeNative<SavedAudiobookRecord[]>('tts_list_saved_audiobooks')
 }
 
 

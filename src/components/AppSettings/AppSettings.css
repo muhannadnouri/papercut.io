@@ -47,6 +47,47 @@
   margin: 0;
   font-size: 0.86rem;
   line-height: 1.2;
+  text-align: start;
+}
+
+.app-settings-data {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.app-settings-data-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.35rem;
+  padding-inline: 0.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: start;
+  cursor: pointer;
+}
+
+.app-settings-data-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.app-settings-data-action:hover,
+.app-settings-data-action:focus-visible {
+  border-color: var(--accent-text);
+  background: var(--surface-accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .app-setting {
@@ -60,10 +101,16 @@
 
 .app-setting > span {
   color: var(--text-body);
+  text-align: start;
 }
 
 .app-setting-select {
   grid-column: 2 / 4;
+}
+
+.app-setting-select .app-select-button {
+  min-height: 2.35rem;
+  border-radius: 8px;
 }
 
 .app-theme-options {
@@ -71,7 +118,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   border: 1px solid var(--border-strong);
-  border-radius: 7px;
+  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -80,7 +127,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.3rem;
-  min-height: 2rem;
+  min-height: 2.35rem;
   padding: 0 0.5rem;
   border: 0;
   border-inline-end: 1px solid var(--border);
@@ -115,7 +162,7 @@
 
 .app-zoom-control button,
 .app-zoom-reset {
-  min-height: 2rem;
+  min-height: 2.35rem;
   padding: 0;
   border: 1px solid var(--border-strong);
   background: var(--surface);
@@ -125,19 +172,19 @@
 }
 
 .app-zoom-control button:first-child {
-  border-start-start-radius: 7px;
-  border-end-start-radius: 7px;
+  border-start-start-radius: 8px;
+  border-end-start-radius: 8px;
 }
 
 .app-zoom-control button:last-child {
-  border-start-end-radius: 7px;
-  border-end-end-radius: 7px;
+  border-start-end-radius: 8px;
+  border-end-end-radius: 8px;
 }
 
 .app-zoom-control output {
   display: grid;
   place-items: center;
-  min-height: 2rem;
+  min-height: 2.35rem;
   border-block: 1px solid var(--border-strong);
   color: var(--text-heading);
   font-size: 0.78rem;
@@ -160,9 +207,8 @@
 }
 
 .app-zoom-reset {
-  min-height: 1.8rem;
   padding-inline: 0.55rem;
-  border-radius: 7px;
+  border-radius: 8px;
   font-size: 0.74rem;
 }
 
@@ -189,5 +235,17 @@
 
   .app-theme-option {
     min-height: 2.5rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .app-setting {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.35rem;
+  }
+
+  .app-setting-select,
+  .app-theme-options {
+    grid-column: 1;
   }
 }

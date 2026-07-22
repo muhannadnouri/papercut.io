@@ -1,0 +1,135 @@
+import { invoke, isTauri } from '@tauri-apps/api/core'
+
+export interface LibraryTransferErrorPayload {
+  code: string
+  message: string
+  requiredBytes?: number
+  availableBytes?: number
+}
+
+export interface LibraryTransferExportResult {
+  documents: number
+  audiobooks: number
+}
+
+export interface LibraryTransferFailure {
+  item: string
+  error: string
+}
+
+export interface LibraryTransferImportResult {
+  selected: number
+  imported: number
+  skipped: number
+  failed: number
+  foldersCreated: number
+  audiobooksSelected: number
+  audiobooksImported: number
+  audiobooksSkipped: number
+  audiobooksFailed: number
+  importedAudiobooks: ImportedAudiobookRecord[]
+  failures: LibraryTransferFailure[]
+}
+
+export interface ImportedAudiobookRecord {
+  id: string
+  documentUrl: string
+  title: string
+  voice: string
+  speed: number
+  modelId: string
+  textPreprocessor: string
+  silmaNfeStep?: number
+  dtype: string
+  savedAt: number
+  chunks: number
+  audioDurationSec: number
+  wavBytes: number
+}
+
+export type LibraryTransferSendState = 'waiting' | 'sending' | 'complete' | 'cancelled' | 'failed'
+
+export interface LibraryTransferSendStatus {
+  state: LibraryTransferSendState
+  address: string
+  code: string
+  documents: number
+  audiobooks: number
+  packageBytes: number
+  bytesTransferred: number
+  receiverProgress?: LibraryTransferProgress
+  error?: string
+}
+
+export type LibraryTransferOperation = 'import' | 'receive'
+export type LibraryTransferProgressPhase =
+  | 'connecting'
+  | 'receiving'
+  | 'verifying'
+  | 'importingDocuments'
+  | 'restoringAudiobooks'
+
+export interface LibraryTransferProgress {
+  operation: LibraryTransferOperation
+  phase: LibraryTransferProgressPhase
+  bytesProcessed?: number
+  bytesTotal?: number
+  itemsProcessed?: number
+  itemsTotal?: number
+  item?: string
+}
+
+const LIBRARY_TRANSFER_PROGRESS_EVENT = 'library-transfer-progress'
+
+export async function exportLibrary(includeAudiobooks = false): Promise<LibraryTransferExportResult | null> {
+  if (!isTauri()) return null
+  return invoke<LibraryTransferExportResult | null>('library_transfer_export', {
+    request: { includeAudiobooks },
+  })
+}
+
+export async function importLibrary(): Promise<LibraryTransferImportResult | null> {
+  if (!isTauri()) return null
+  return invoke<LibraryTransferImportResult | null>('library_transfer_import')
+}
+
+export async function startLibrarySend(includeAudiobooks = false): Promise<LibraryTransferSendStatus> {
+  return invoke<LibraryTransferSendStatus>('library_transfer_send_start', {
+    request: { includeAudiobooks },
+  })
+}
+
+export async function getLibrarySendStatus(): Promise<LibraryTransferSendStatus | null> {
+  if (!isTauri()) return null
+  return invoke<LibraryTransferSendStatus | null>('library_transfer_send_status')
+}
+
+export async function cancelLibrarySend(): Promise<void> {
+  if (!isTauri()) return
+  await invoke('library_transfer_send_cancel')
+}
+
+export async function receiveLibrary(address: string, code: string): Promise<LibraryTransferImportResult> {
+  return invoke<LibraryTransferImportResult>('library_transfer_receive', {
+    request: { address, code },
+  })
+}
+
+export async function listenLibraryTransferProgress(
+  onProgress: (progress: LibraryTransferProgress) => void,
+): Promise<() => void> {
+  if (!isTauri()) return () => {}
+  const { listen } = await import('@tauri-apps/api/event')
+  return listen<LibraryTransferProgress>(LIBRARY_TRANSFER_PROGRESS_EVENT, (event) => {
+    onProgress(event.payload)
+  })
+}
+
+export function isLibraryTransferErrorPayload(value: unknown): value is LibraryTransferErrorPayload {
+  if (!value || typeof value !== 'object') return false
+  const payload = value as Record<string, unknown>
+  return typeof payload.code === 'string'
+    && typeof payload.message === 'string'
+    && (payload.requiredBytes === undefined || typeof payload.requiredBytes === 'number')
+    && (payload.availableBytes === undefined || typeof payload.availableBytes === 'number')
+}

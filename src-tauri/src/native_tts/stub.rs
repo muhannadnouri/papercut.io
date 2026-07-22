@@ -13,8 +13,8 @@ use super::types::{
     NativeAudiobookPlaybackRequest, NativeAudiobookPlaybackResponse, NativeAudiobookSaveRequest,
     NativeAudiobookSaveResponse, NativeAudiobookStatusRequest, NativeAudiobookStatusResponse,
     NativeImportedAudiobookMetadataResponse, NativeImportedAudiobookSourceRequest,
-    NativeSilmaSidecarProbeResponse, NativeTtsCapabilities, NativeTtsChunkResponse,
-    NativeTtsModelInstallResponse, NativeTtsModelStatus,
+    NativeSavedAudiobookRecord, NativeSilmaSidecarProbeResponse, NativeTtsCapabilities,
+    NativeTtsChunkResponse, NativeTtsModelInstallResponse, NativeTtsModelStatus,
 };
 
 const NOT_COMPILED: &str =
@@ -69,6 +69,12 @@ pub(super) fn native_audiobook_status(
     _request: NativeAudiobookStatusRequest,
 ) -> Result<NativeAudiobookStatusResponse, String> {
     Err(NOT_COMPILED.into())
+}
+
+pub(super) fn list_saved_audiobooks(
+    _app: tauri::AppHandle,
+) -> Result<Vec<NativeSavedAudiobookRecord>, String> {
+    Ok(Vec::new())
 }
 
 pub(super) fn get_native_audiobook_chunk(

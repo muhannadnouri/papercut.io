@@ -5,6 +5,8 @@
 //! `pub(crate)` so the feature modules can construct/read them, but they stay
 //! internal to the crate.
 
+use std::path::PathBuf;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize)]
@@ -238,6 +240,39 @@ pub(crate) struct NativeAudiobookStatusResponse {
     pub(crate) dir: String,
     pub(crate) audio_duration_sec: f32,
     pub(crate) wav_bytes: usize,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// One completed audiobook discovered from its native on-disk manifest.
+pub(crate) struct NativeSavedAudiobookRecord {
+    pub(crate) id: String,
+    pub(crate) document_url: String,
+    pub(crate) title: String,
+    pub(crate) voice: String,
+    pub(crate) speed: f32,
+    pub(crate) model_id: String,
+    pub(crate) text_preprocessor: String,
+    pub(crate) silma_nfe_step: Option<i32>,
+    pub(crate) cache_version: String,
+    pub(crate) dtype: String,
+    pub(crate) saved_at: u64,
+    pub(crate) chunks: usize,
+    pub(crate) audio_duration_sec: f64,
+    pub(crate) wav_bytes: usize,
+}
+
+/// One canonical file owned by a completed audiobook transfer payload.
+pub(crate) struct NativeAudiobookTransferFile {
+    pub(crate) relative_path: String,
+    pub(crate) source_path: PathBuf,
+}
+
+/// Registry-approved files for one complete audiobook.
+pub(crate) struct NativeAudiobookTransferPayload {
+    pub(crate) record: NativeSavedAudiobookRecord,
+    pub(crate) storage_key: String,
+    pub(crate) files: Vec<NativeAudiobookTransferFile>,
 }
 
 #[derive(Debug, Deserialize)]

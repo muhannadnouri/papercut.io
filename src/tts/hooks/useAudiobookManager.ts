@@ -4,9 +4,6 @@ import type { DocumentInfo, SearchResult } from '../../types/search'
 import type { UploadedDocument } from '../../uploads/DocumentUploads'
 import {
   createAudiobookId,
-  getSavedAudiobooks,
-  markAudiobookSaved,
-  removeSavedAudiobook,
   type SavedAudiobookRecord,
 } from '../storage/AudiobookLibrary'
 import {
@@ -35,6 +32,7 @@ import {
   getImportedAudiobookMetadata,
   importNativeAudiobook,
   installNativeTtsModel,
+  listNativeSavedAudiobooks,
   listenNativeTtsModelInstallProgress,
   probeNativeSilmaSidecar,
   type NativeTtsCapabilities,
@@ -137,7 +135,7 @@ export function useAudiobookManager({
   const [importedHighlightStatus, setImportedHighlightStatus] = useState<ImportedHighlightStatus>('idle')
   const [ttsModelStatus, setTtsModelStatus] = useState<NativeTtsModelStatus | null>(null)
   const [ttsModelProgress, setTtsModelProgress] = useState<NativeTtsModelInstallProgress | null>(null)
-  const [savedAudiobooks, setSavedAudiobooks] = useState<SavedAudiobookRecord[]>(() => getSavedAudiobooks())
+  const [savedAudiobooks, setSavedAudiobooks] = useState<SavedAudiobookRecord[]>([])
   const [audioSavedOnly, setAudioSavedOnly] = useState(initialAudioPreferences.audioSavedOnly)
   const [audiobookDownloads, setAudiobookDownloads] = useState<AudiobookDownloadRecord[]>(() => getAudiobookDownloads())
   const [audiobookDownload, setAudiobookDownload] = useState<{ title: string; url: string; modelId: string; textPreprocessor: string; voice: TtsVoice; speed: number; dtype: TtsDtype; silmaNfeStep?: number } | null>(null)
@@ -193,6 +191,16 @@ export function useAudiobookManager({
 
   const refreshAudiobookDownloads = useCallback(() => {
     setAudiobookDownloads(getAudiobookDownloads())
+  }, [])
+
+  const refreshSavedAudiobooks = useCallback(async () => {
+    try {
+      setSavedAudiobooks(await listNativeSavedAudiobooks())
+    } catch (err) {
+      logTtsDiagnostic('[tts-native] saved audiobook registry failed', {
+        error: nativeTtsErrorDetail(err),
+      }, 'warn')
+    }
   }, [])
 
   const clearAudiobookNoticeTimer = useCallback(() => {
@@ -273,6 +281,12 @@ export function useAudiobookManager({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void syncTtsRuntimeSettings(true)
   }, [syncTtsRuntimeSettings])
+
+  useEffect(() => {
+    // Native manifests are the completed-audio registry; WebView storage is not durable enough.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refreshSavedAudiobooks()
+  }, [refreshSavedAudiobooks])
 
   useEffect(() => {
     return () => clearAudiobookNoticeTimer()
@@ -569,19 +583,6 @@ export function useAudiobookManager({
     if (!downloadAudiobookState.complete || !audiobookDownload) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
     flushAudiobookDownloadPersist()
-    markAudiobookSaved({
-      documentUrl: audiobookDownload.url,
-      title: audiobookDownload.title,
-        modelId: audiobookDownload.modelId,
-      textPreprocessor: audiobookDownload.textPreprocessor,
-      voice: audiobookDownload.voice,
-      speed: audiobookDownload.speed,
-      silmaNfeStep: audiobookDownload.silmaNfeStep,
-      dtype: audiobookDownload.dtype,
-      chunks: downloadAudiobookState.totalChunks,
-      audioDurationSec: downloadAudiobookState.audioDurationSec,
-      wavBytes: downloadAudiobookState.wavBytes,
-    })
     clearCompletedAudiobookDownload(audiobookDownload.url, {
       modelId: audiobookDownload.modelId,
       textPreprocessor: audiobookDownload.textPreprocessor,
@@ -590,9 +591,9 @@ export function useAudiobookManager({
       silmaNfeStep: audiobookDownload.silmaNfeStep,
       dtype: audiobookDownload.dtype,
     })
-    setSavedAudiobooks(getSavedAudiobooks())
+    void refreshSavedAudiobooks()
     refreshAudiobookDownloads()
-  }, [audiobookDownload, downloadAudiobookState.audioDurationSec, downloadAudiobookState.complete, downloadAudiobookState.totalChunks, downloadAudiobookState.wavBytes, flushAudiobookDownloadPersist, refreshAudiobookDownloads])
+  }, [audiobookDownload, downloadAudiobookState.complete, flushAudiobookDownloadPersist, refreshAudiobookDownloads, refreshSavedAudiobooks])
 
   useEffect(() => {
     function flushPendingDownload() {
@@ -663,26 +664,6 @@ export function useAudiobookManager({
       title: selectedDoc ? getDocumentTitle(selectedDoc) : undefined,
     })
   }, [getDocumentTitle, getSelectedAudiobookSaveChunks, selectedAudiobookState.complete, selectedDoc, silmaNfeStep, speakTts, ttsDtype, ttsModelId, ttsSpeed, ttsTextPreprocessor, ttsThreadCount, ttsVoice])
-
-  useEffect(() => {
-    if (!selectedDoc || !selectedAudiobookState.complete) return
-
-    markAudiobookSaved({
-      documentUrl: selectedDoc,
-      title: getDocumentTitle(selectedDoc),
-      modelId: ttsModelId,
-      textPreprocessor: ttsTextPreprocessor,
-      voice: ttsVoice,
-      speed: ttsSpeed,
-      silmaNfeStep,
-      dtype: ttsDtype,
-      chunks: selectedAudiobookState.totalChunks,
-      audioDurationSec: selectedAudiobookState.audioDurationSec,
-      wavBytes: selectedAudiobookState.wavBytes,
-    })
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSavedAudiobooks(getSavedAudiobooks())
-  }, [getDocumentTitle, selectedAudiobookState.audioDurationSec, selectedAudiobookState.complete, selectedAudiobookState.totalChunks, selectedAudiobookState.wavBytes, selectedDoc, silmaNfeStep, ttsDtype, ttsModelId, ttsSpeed, ttsTextPreprocessor, ttsVoice])
 
   const handleModelChange = useCallback((modelId: string) => {
     const model = getTtsModel(ttsModels, modelId)
@@ -947,9 +928,8 @@ export function useAudiobookManager({
         deleteUserUpload,
       })
 
-      removeSavedAudiobook(record.id)
       if (deleteUserUpload) removeUserUpload(record.documentUrl)
-      setSavedAudiobooks(getSavedAudiobooks())
+      await refreshSavedAudiobooks()
       onUserUploadsChanged()
       if (selectedDoc === record.documentUrl) {
         stopTts()
@@ -977,7 +957,7 @@ export function useAudiobookManager({
         message: nativeTtsErrorMessage(err),
       })
     }
-  }, [confirmAudiobookAction, onClearDocument, onUserUploadsChanged, resetSelectedAudiobookState, selectedDoc, showAudiobookNotice, stopTts])
+  }, [confirmAudiobookAction, onClearDocument, onUserUploadsChanged, refreshSavedAudiobooks, resetSelectedAudiobookState, selectedDoc, showAudiobookNotice, stopTts])
 
   const importAudiobook = useCallback(async (openDocument: (url: string) => Promise<void>) => {
     dismissAudiobookNotice()
@@ -997,21 +977,8 @@ export function useAudiobookManager({
         audioDurationSec: result.audioDurationSec,
         wavBytes: result.wavBytes,
       })
-      markAudiobookSaved({
-        documentUrl: result.documentUrl,
-        title: result.title,
-        modelId: result.modelId,
-        textPreprocessor: result.textPreprocessor,
-        voice: result.voice,
-        speed: result.speed,
-        dtype: result.dtype,
-        silmaNfeStep: result.silmaNfeStep,
-        chunks: result.chunks,
-        audioDurationSec: result.audioDurationSec,
-        wavBytes: result.wavBytes,
-      })
       onUserUploadsChanged()
-      setSavedAudiobooks(getSavedAudiobooks())
+      await refreshSavedAudiobooks()
       autoSelectedDocumentRef.current = result.documentUrl
       preserveGeneratedSpeedOnOpenRef.current = true
       setTtsModelId(result.modelId)
@@ -1044,7 +1011,7 @@ export function useAudiobookManager({
         message: cancelled ? i18n.t('tts.audiobooks.importCancelled') : message,
       })
     }
-  }, [dismissAudiobookNotice, onUserUploadsChanged, setTtsModelId, showAudiobookNotice])
+  }, [dismissAudiobookNotice, onUserUploadsChanged, refreshSavedAudiobooks, setTtsModelId, showAudiobookNotice])
 
   const openSavedAudiobook = useCallback(async (record: SavedAudiobookRecord, openDocument: (url: string) => Promise<void>) => {
     autoSelectedDocumentRef.current = record.documentUrl
@@ -1228,6 +1195,7 @@ export function useAudiobookManager({
     includeDocumentInList,
     openSavedAudiobook,
     prepareDocumentOpen,
+    refreshSavedAudiobooks,
     setAudioSavedOnly,
     ttsHighlight: {
       enabled: Boolean(ttsState.currentText),
