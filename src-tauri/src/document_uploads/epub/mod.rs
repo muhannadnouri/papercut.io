@@ -386,41 +386,49 @@ fn sanitize_epub_fragment(fragment: &str) -> String {
     let mut builder = ammonia::Builder::default();
     builder.add_generic_attributes(&["id", "name"]);
     builder
-        .clean(&normalize_empty_pre_elements(fragment))
+        .clean(&normalize_empty_xhtml_elements(fragment))
         .to_string()
 }
 
-/// Preserve XHTML's empty `<pre/>` meaning before parsing fragments as HTML.
+/// Preserve XHTML empty-element semantics before parsing fragments as HTML.
 ///
-/// Project Gutenberg EPUBs can include `<pre/>` as a separator artifact. HTML
-/// parsers treat `pre` as non-void, so leaving that syntax alone can make the
-/// following prose render inside a large code/preformatted block.
-fn normalize_empty_pre_elements(fragment: &str) -> String {
-    let lower = fragment.to_ascii_lowercase();
+/// HTML parsers do not self-close non-void tags such as `<a/>`, `<div/>`, or
+/// `<pre/>`; leaving them intact can wrap the rest of a chapter in that element.
+/// Keep genuine HTML void tags unchanged and expand every other XHTML empty tag.
+fn normalize_empty_xhtml_elements(fragment: &str) -> String {
     let mut out = String::with_capacity(fragment.len());
     let mut pos = 0usize;
 
-    while let Some(start_rel) = lower[pos..].find("<pre") {
+    while let Some(start_rel) = fragment[pos..].find('<') {
         let start = pos + start_rel;
         out.push_str(&fragment[pos..start]);
 
-        let after_name = start + "<pre".len();
-        if !is_tag_name_boundary(fragment[after_name..].chars().next()) {
+        let name_start = start + 1;
+        let name_end = fragment[name_start..]
+            .find(|ch: char| !is_xhtml_tag_name_char(ch))
+            .map(|offset| name_start + offset)
+            .unwrap_or(fragment.len());
+        if name_end == name_start {
             out.push('<');
-            pos = start + 1;
+            pos = name_start;
             continue;
         }
 
-        let Some(end_rel) = lower[start..].find('>') else {
+        let Some(end) = find_xhtml_tag_end(fragment, name_end) else {
             out.push_str(&fragment[start..]);
             return out;
         };
-        let end = start + end_rel;
+        let tag_name = &fragment[name_start..name_end];
         let tag_inner = fragment[start + 1..end].trim_end();
-        if let Some(open_inner) = tag_inner.strip_suffix('/') {
+        if let Some(open_inner) = tag_inner
+            .strip_suffix('/')
+            .filter(|_| !is_html_void_element(tag_name))
+        {
             out.push('<');
             out.push_str(open_inner.trim_end());
-            out.push_str("></pre>");
+            out.push_str("></");
+            out.push_str(tag_name);
+            out.push('>');
         } else {
             out.push_str(&fragment[start..=end]);
         }
@@ -431,8 +439,33 @@ fn normalize_empty_pre_elements(fragment: &str) -> String {
     out
 }
 
-fn is_tag_name_boundary(ch: Option<char>) -> bool {
-    matches!(ch, Some('>' | '/' | ' ' | '\t' | '\n' | '\r' | '\u{000C}'))
+fn is_xhtml_tag_name_char(ch: char) -> bool {
+    ch.is_ascii_alphanumeric() || matches!(ch, '-' | ':' | '_')
+}
+
+/// Locate `>` outside quoted attributes so values containing angle brackets do
+/// not make the XHTML compatibility pass split a tag early.
+fn find_xhtml_tag_end(fragment: &str, from: usize) -> Option<usize> {
+    let mut quote = None;
+    for (offset, ch) in fragment[from..].char_indices() {
+        match quote {
+            Some(active) if ch == active => quote = None,
+            Some(_) => {}
+            None if matches!(ch, '\'' | '"') => quote = Some(ch),
+            None if ch == '>' => return Some(from + offset),
+            None => {}
+        }
+    }
+    None
+}
+
+fn is_html_void_element(tag_name: &str) -> bool {
+    [
+        "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param",
+        "source", "track", "wbr",
+    ]
+    .iter()
+    .any(|candidate| tag_name.eq_ignore_ascii_case(candidate))
 }
 
 #[cfg(test)]
@@ -481,25 +514,41 @@ mod tests {
     }
 
     #[test]
-    fn normalizes_empty_xhtml_pre_before_html_parsing() {
-        let normalized = normalize_empty_pre_elements("<pre/><p>After</p>");
-
-        assert_eq!(normalized, "<pre></pre><p>After</p>");
-    }
-
-    #[test]
-    fn normalizes_empty_xhtml_pre_with_attributes() {
-        let normalized = normalize_empty_pre_elements("<pre id=\"pg\" />Text");
-
-        assert_eq!(normalized, "<pre id=\"pg\"></pre>Text");
-    }
-
-    #[test]
-    fn leaves_non_pre_and_non_empty_pre_tags_alone() {
-        assert_eq!(
-            normalize_empty_pre_elements("<prefix/><pre>Code</pre>"),
-            "<prefix/><pre>Code</pre>"
+    fn normalizes_empty_xhtml_non_void_elements_before_html_parsing() {
+        let normalized = normalize_empty_xhtml_elements(
+            r#"<h2><a id="chap01"/>I.</h2><div/><pre/><p>After</p>"#,
         );
+
+        assert_eq!(
+            normalized,
+            r#"<h2><a id="chap01"></a>I.</h2><div></div><pre></pre><p>After</p>"#
+        );
+    }
+
+    #[test]
+    fn preserves_html_void_elements_and_quoted_angle_brackets() {
+        let normalized =
+            normalize_empty_xhtml_elements(r#"<a title="1 > 0"/><br/><img src="cover.jpg"/><hr/>"#);
+
+        assert_eq!(
+            normalized,
+            r#"<a title="1 > 0"></a><br/><img src="cover.jpg"/><hr/>"#
+        );
+    }
+
+    #[test]
+    fn self_closing_xhtml_anchor_does_not_wrap_chapter_prose() {
+        let sanitized = sanitize_epub_fragment(r#"<h2><a id="chap01"/>I.</h2><p>Body</p>"#);
+
+        let anchor_end = sanitized.find("</a>").expect("anchor should be preserved");
+        let heading_text = sanitized
+            .find("I.</h2>")
+            .expect("heading should be preserved");
+        let body_text = sanitized.find("Body").expect("body should be preserved");
+
+        assert!(anchor_end < heading_text);
+        assert!(anchor_end < body_text);
+        assert_eq!(sanitized.matches("id=\"chap01\"").count(), 1);
     }
 
     #[test]

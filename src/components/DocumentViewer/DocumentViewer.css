@@ -274,11 +274,11 @@ html[dir="rtl"] .back-icon {
   border-radius: 6px;
 }
 
-.document-html-content a {
+.document-html-content a[href] {
   color: var(--link);
 }
 
-.document-html-content a:hover {
+.document-html-content a[href]:hover {
   color: var(--link-hover);
 }
 
