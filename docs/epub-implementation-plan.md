@@ -42,7 +42,7 @@ should not depend on rendering the original archive in React.
 
 The MVP path is implemented with generated reading HTML, SQLite FTS indexing, Library import, existing TTS save/playback support, rewritten and target-validated internal EPUB links, retained safe local raster images, app-owned DOM reader link scrolling, and fixture coverage for TOC links, cross-chapter links, EPUB 2 footnotes/backlinks, image manifest assets, generated section extraction, sanitizer regressions, missing-fragment fallback, and empty-spine rejection.
 
-The EPUB parser is split into focused ZIP/XML parsing, path, asset, DOM rewrite, and render helpers. It uses crate-backed base64/percent decoding plus DOM-based fragment rewriting. Current EPUB image retention covers supported local raster images referenced by retained reader content. Newly imported EPUBs also resolve EPUB 3 `cover-image` properties and EPUB 2 `meta name="cover"` references, retain a declared raster cover under the existing 5 MB image cap, and persist nullable cover media metadata. Existing imports remain valid without cover metadata.
+The EPUB parser is split into focused ZIP/XML parsing, path, asset, DOM rewrite, and render helpers. It uses crate-backed base64/percent decoding plus DOM-based fragment rewriting. Current EPUB image retention covers supported local raster images referenced by retained reader content. Newly imported EPUBs also resolve EPUB 3 `cover-image` properties and EPUB 2 `meta name="cover"` references, retain a declared raster cover under the existing 5 MB image cap, persist nullable cover media metadata, and generate a bounded gallery thumbnail. Existing imports remain valid without cover metadata; retained covers from earlier versions are thumbnailed lazily when first displayed.
 
 ## Remaining Follow-Ups
 
@@ -254,7 +254,7 @@ Manual smoke tests:
 
 Richer EPUB reader:
 
-- Retained EPUB 2/3 cover assets are served only to visible developer-gated Library gallery cards through a narrow validated and size-bounded command. Cover rendering stays out of generated reader HTML so opening and audiobook processing do not pay for gallery artwork.
+- Retained EPUB 2/3 cover assets are served only to visible developer-gated Library gallery cards through a narrow validated command. The command returns persisted display-sized thumbnails and serializes lazy thumbnail backfills for older imports so original high-resolution covers cannot create a burst of concurrent decodes. Cover rendering stays out of generated reader HTML so opening and audiobook processing do not pay for gallery artwork.
 - Evaluate foliate-js, `epub.js`, or Readium only after normalized import ships.
 - Keep search/TTS source independent from the renderer.
 - Add TOC, pagination, EPUB-specific appearance controls, and location restore as reader-quality work. App-wide Light/System/Dark theme already applies to the generated HTML reader.

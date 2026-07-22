@@ -13,6 +13,9 @@ use tauri::Runtime;
 use tauri_plugin_dialog::FilePath;
 use tauri_plugin_fs::FsExt;
 
+use super::cover::{
+    backfill_thumbnail, write_thumbnail, THUMBNAIL_FILE_NAME, THUMBNAIL_MEDIA_TYPE,
+};
 use super::epub::parse_epub_document;
 use super::html::{decode_html_bytes, parse_html_document, sanitize_html};
 use super::parsed::ParsedDocument;
@@ -215,6 +218,9 @@ fn write_and_index_document(
         if let Some(cover) = &parsed.cover {
             fs::write(dir.join(cover.file_name), &cover.bytes)
                 .map_err(|err| format!("Failed to write imported document cover: {err}"))?;
+            if let Err(error) = write_thumbnail(dir, &cover.bytes) {
+                log::warn!("Skipping unusable imported document cover thumbnail: {error}");
+            }
         }
         upsert_document(db, id, url, parsed, imported_at_ms, bytes)
     })();
@@ -244,10 +250,11 @@ pub(crate) fn get_source<R: Runtime>(
     Ok(sanitize_html(&source))
 }
 
-/// Return only the allowlisted cover associated with a validated upload URL.
+/// Return only a display-sized cover associated with a validated upload URL.
 ///
 /// The database MIME value selects a fixed filename, so neither the frontend nor
 /// stored metadata can turn this command into arbitrary app-data file access.
+/// Existing imports receive the same persisted thumbnail lazily on first access.
 pub(crate) fn get_cover<R: Runtime>(
     app: &tauri::AppHandle<R>,
     request: UploadedDocumentSourceRequest,
@@ -263,14 +270,26 @@ pub(crate) fn get_cover<R: Runtime>(
     let Some(file_name) = stored_cover_file_name(media_type) else {
         return Ok(None);
     };
-    let path = upload_dir(app, &id)?.join(file_name);
-    let mut file = match fs::File::open(&path) {
+    let dir = upload_dir(app, &id)?;
+    let source_path = dir.join(file_name);
+    let thumbnail_path = dir.join(THUMBNAIL_FILE_NAME);
+    if !thumbnail_path.is_file() {
+        match backfill_thumbnail(&dir, &source_path) {
+            Ok(()) => {}
+            Err(_) if !source_path.is_file() => return Ok(None),
+            Err(error) => {
+                log::warn!("Skipping unusable uploaded document cover thumbnail: {error}");
+                return Ok(None);
+            }
+        }
+    }
+    let mut file = match fs::File::open(&thumbnail_path) {
         Ok(file) => file,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(error) => {
             return Err(format!(
-                "Failed to open uploaded document cover {}: {error}",
-                path.display()
+                "Failed to open uploaded document cover thumbnail {}: {error}",
+                thumbnail_path.display()
             ))
         }
     };
@@ -280,10 +299,10 @@ pub(crate) fn get_cover<R: Runtime>(
         .read_to_end(&mut bytes)
         .map_err(|error| format!("Failed to read uploaded document cover: {error}"))?;
     if bytes.len() as u64 > MAX_STORED_COVER_BYTES {
-        return Err("Uploaded document cover exceeds the 5 MB limit".into());
+        return Err("Uploaded document cover thumbnail exceeds the 5 MB limit".into());
     }
     Ok(Some(format!(
-        "data:{media_type};base64,{}",
+        "data:{THUMBNAIL_MEDIA_TYPE};base64,{}",
         BASE64_STANDARD.encode(bytes)
     )))
 }

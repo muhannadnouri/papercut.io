@@ -4,11 +4,12 @@
 //! independently. Dependencies only point downward:
 //!
 //! ```text
-//! commands -> { batch, pipeline, organization, search, store } -> { epub, html, parsed, storage, types }
+//! commands -> { batch, pipeline, organization, search, store } -> { cover, epub, html, parsed, storage, types }
 //! ```
 //!
 //! - [`commands`]: the thin `#[tauri::command]` edge exposed to the frontend.
 //! - [`batch`]: sequential import/delete batches, progress, and import cancellation.
+//! - [`cover`]: bounded gallery-thumbnail decoding and persistence.
 //! - [`pipeline`]: orchestrates import / get-source / delete.
 //! - [`html`]: HTML-specific parsing + sanitization.
 //! - [`epub`]: EPUB-specific parsing, sanitization, and generated reading HTML.
@@ -23,6 +24,7 @@
 // each command and the hidden `__cmd__*` helper the macro generates beside it.
 mod batch;
 pub(crate) mod commands;
+mod cover;
 mod epub;
 mod html;
 mod organization;

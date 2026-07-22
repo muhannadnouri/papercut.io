@@ -172,7 +172,7 @@ function BookCard({
     >
       <span ref={coverRef} className={placeholderClass}>
         {cover
-          ? <img className="library-book-cover-image" src={cover} alt="" />
+          ? <img className="library-book-cover-image" src={cover} alt="" decoding="async" />
           : <bdi>{doc.title}</bdi>}
         {hasSavedAudio && (
           <span
