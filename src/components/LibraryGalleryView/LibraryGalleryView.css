@@ -86,9 +86,9 @@
 
 .library-book-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 10.5rem));
+  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 9rem));
   gap: 1rem 0.85rem;
-  justify-content: start;
+  justify-content: center;
   padding: 0 1.25rem 0.5rem;
 }
 
@@ -200,6 +200,12 @@
 .library-book-cover.placeholder-3 { background: #8a4f4f; }
 .library-book-cover.placeholder-4 { background: #526a8a; }
 .library-book-cover.placeholder-5 { background: #6f6246; }
+
+@media (min-width: 720px) and (max-width: 1000px) {
+  .library-book-grid {
+    grid-template-columns: repeat(5, minmax(0, 8rem));
+  }
+}
 
 @media (max-width: 600px) {
   .library-view-toggle {
