@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import i18n from '../../i18n'
 import type { DocumentInfo } from '../../types/search'
 import type { UploadedDocument } from '../../uploads/DocumentUploads'
-import type { SavedAudiobookRecord } from '../storage/AudiobookLibrary'
+import {
+  getSavedAudiobooksForDocument,
+  type SavedAudiobookRecord,
+} from '../storage/AudiobookLibrary'
 import {
   createAudiobookDownloadId,
   type AudiobookDownloadRecord,
@@ -459,16 +462,22 @@ export function useAudiobookManager({
     })
   }, [importSavedAudiobook, setTtsModelId])
 
-  const openSavedAudiobook = useCallback(async (record: SavedAudiobookRecord, openDocument: (url: string) => Promise<void>) => {
+  const selectSavedAudiobook = useCallback((record: SavedAudiobookRecord) => {
     autoSelectedDocumentRef.current = record.documentUrl
-    preserveGeneratedSpeedOnOpenRef.current = true
+    stopTts()
+    resetSelectedAudiobookState()
     setTtsModelId(record.modelId)
     setTtsVoice(record.voice as TtsVoice)
     setTtsTextPreprocessor(record.textPreprocessor)
     setTtsSpeed(record.speed)
     setSilmaNfeStep(resolveSilmaNfeStep(record))
+  }, [resetSelectedAudiobookState, setTtsModelId, stopTts])
+
+  const openSavedAudiobook = useCallback(async (record: SavedAudiobookRecord, openDocument: (url: string) => Promise<void>) => {
+    preserveGeneratedSpeedOnOpenRef.current = true
+    selectSavedAudiobook(record)
     await openDocument(record.documentUrl)
-  }, [setTtsModelId])
+  }, [selectSavedAudiobook])
 
   const includeDocumentInList = useCallback((doc: DocumentInfo) => (
     !audioSavedOnly || savedAudiobookDocumentUrls.has(doc.url)
@@ -492,6 +501,9 @@ export function useAudiobookManager({
       silmaNfeStep,
     })
     : null
+  const selectedDocumentSavedAudiobooks = selectedDoc
+    ? getSavedAudiobooksForDocument(savedAudiobooks, selectedDoc).sort((a, b) => b.savedAt - a.savedAt)
+    : []
   const activeDownloadId = audiobookDownload
     ? createAudiobookDownloadId(audiobookDownload.url, {
       modelId: audiobookDownload.modelId,
@@ -547,6 +559,7 @@ export function useAudiobookManager({
       onPause: pauseTts,
       onRead: handleReadDocument,
       onResume: resumeTts,
+      onSelectSavedAudiobook: selectSavedAudiobook,
       onJumpToChunk: jumpTtsToChunk,
       onSave: handleSaveAudiobook,
       onSkipBackward: skipTtsBackward,
@@ -557,6 +570,8 @@ export function useAudiobookManager({
       playbackDurationSec: audioControlsAudiobookState.audioDurationSec,
       playbackNotice: importedHighlightPreparing ? i18n.t('tts.status.preparingHighlights') : undefined,
       playbackRate: ttsPlaybackRate,
+      savedAudiobooks: selectedDocumentSavedAudiobooks,
+      selectedAudiobookId,
       ttsState,
       wordHighlightEnabled: ttsWordHighlightEnabled,
     },

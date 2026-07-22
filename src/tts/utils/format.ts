@@ -48,6 +48,26 @@ export function formatSavedAudiobookMeta(
   seconds: number | undefined,
   bytes: number | undefined,
 ): string {
+  return formatSavedAudiobookMetaParts(
+    t,
+    modelId,
+    voice,
+    _speed,
+    textPreprocessor,
+    seconds,
+    bytes,
+  ).join(' • ')
+}
+
+export function formatSavedAudiobookMetaParts(
+  t: TFunction,
+  modelId: string,
+  voice: string,
+  _speed: number,
+  textPreprocessor: string | undefined,
+  seconds: number | undefined,
+  bytes: number | undefined,
+): string[] {
   const model = getTtsModel(FALLBACK_TTS_MODELS, modelId)
   const voiceName = getTtsVoiceName(FALLBACK_TTS_MODELS, modelId, voice)
   const parts = [
@@ -59,10 +79,10 @@ export function formatSavedAudiobookMeta(
     const processingName = model.textPreprocessors.find((item) => item.id === textPreprocessor)?.name
     parts.push('✨ ' + formatTextPreprocessorLabel(t, textPreprocessor, processingName))
   }
-  if (seconds && seconds > 0) parts.push('⏱ ' + formatDuration(seconds))
+  if (seconds && seconds > 0) parts.push('⏱\u00a0' + formatDuration(seconds))
   const storage = formatStorageSize(bytes)
   if (storage) parts.push('💾 ' + storage)
-  return parts.join(' • ')
+  return parts
 }
 
 export function formatTextPreprocessorLabel(

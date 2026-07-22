@@ -26,6 +26,13 @@ export interface SavedAudiobookRecord {
   wavBytes?: number
 }
 
+export function getSavedAudiobooksForDocument(
+  records: SavedAudiobookRecord[],
+  documentUrl: string,
+): SavedAudiobookRecord[] {
+  return records.filter((record) => record.documentUrl === documentUrl)
+}
+
 export function createAudiobookId(documentUrl: string, options: TtsOptions): string {
   const dtype = resolveTtsDtype(options)
   const textPreprocessor = resolveTextPreprocessor(options)
