@@ -3,8 +3,6 @@ import { LIBTASHKEEL_TEXT_PREPROCESSOR, TEXT_PREPROCESSOR_NONE } from '../types'
 import { FALLBACK_TTS_MODELS, getTtsModel, getTtsVoiceName } from '../models'
 
 import { formatStorageSize } from '../../utils/formatUtils'
-// Re-export so modules importing from '../utils/format' (AudiobooksPanel,
-// useAudiobookManager) get it here too, alongside this file's own formatters.
 export { formatStorageSize }
 
 export function formatDuration(seconds: number): string {
@@ -23,15 +21,6 @@ export function formatSpeedLabel(speed: number): string {
   if (!Number.isFinite(speed)) return '1x'
   return speed.toFixed(speed % 1 === 0 ? 0 : 2).replace(/0$/, '').replace(/\.$/, '') + 'x'
 }
-
-// export function formatStorageSize(bytes: number | undefined): string | null {
-//   if (!bytes || !Number.isFinite(bytes) || bytes <= 0) return null
-//   if (bytes >= 1024 * 1024 * 1024) {
-//     const gb = bytes / 1024 / 1024 / 1024
-//     return gb.toFixed(gb >= 10 ? 1 : 2) + ' GB'
-//   }
-//   return Math.max(1, Math.ceil(bytes / 1024 / 1024)) + ' MB'
-// }
 
 export function formatAudiobookVoiceMeta(
   t: TFunction,
