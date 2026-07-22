@@ -182,7 +182,7 @@ export function LibraryTransferDialog({ documentCount, onBack, onImported }: Lib
       description={t('libraryTransfer.description')}
       onCancel={busy ? () => {} : onBack}
       actions={(
-        <button type="button" className="app-dialog-submit" disabled={busy} onClick={onBack}>
+        <button type="button" className="app-dialog-cancel" disabled={busy} onClick={onBack}>
           {t('common.back')}
         </button>
       )}
