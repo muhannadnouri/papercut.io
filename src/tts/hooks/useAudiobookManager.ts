@@ -14,7 +14,6 @@ import { getAudioPreferences, saveAudioPreferences } from '../storage/audioPrefe
 import { getTtsModel, getTtsVoiceName, suggestTtsModel } from '../models'
 import {
   formatDuration,
-  formatSpeedLabel,
   formatStorageSize,
   formatTextPreprocessorLabel,
 } from '../utils/format'
@@ -328,7 +327,6 @@ export function useAudiobookManager({
         { label: i18n.t('tts.confirm.document'), value: title },
         { label: i18n.t('tts.confirm.model'), value: selectedTtsModel.name },
         { label: i18n.t('tts.confirm.voice'), value: getTtsVoiceName(ttsModels, ttsModelId, ttsVoice) },
-        { label: i18n.t('tts.confirm.generatedSpeed'), value: formatSpeedLabel(DEFAULT_TTS_SPEED) },
         { label: i18n.t('tts.confirm.processing'), value: textPreprocessorName },
         { label: i18n.t('tts.confirm.threads'), value: ttsThreadCount },
         ...(selectedTtsModel.family === 'silma-f5'
@@ -587,13 +585,11 @@ export function useAudiobookManager({
       onModelChange: handleModelChange,
       onProbeSilmaSidecar: handleProbeSilmaSidecar,
       onSilmaNfeStepChange: (nfeStep: number) => setSilmaNfeStep(resolveSilmaNfeStep({ silmaNfeStep: nfeStep })),
-      onSpeedChange: () => {},
       onTextPreprocessorChange: setTtsTextPreprocessor,
       onThreadCountChange: handleThreadCountChange,
       onVoiceChange: setTtsVoice,
       textPreprocessor: ttsTextPreprocessor,
       textPreprocessors: selectedTtsModel.textPreprocessors,
-      speed: DEFAULT_TTS_SPEED,
       silmaProbeRunning,
       silmaNfeStep,
       threadCount: ttsThreadCount,
