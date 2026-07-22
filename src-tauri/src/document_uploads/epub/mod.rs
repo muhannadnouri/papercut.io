@@ -11,14 +11,14 @@ use roxmltree::Document;
 use zip::ZipArchive;
 
 use super::html::{extract_body_inner, normalize_text, parsed_html_document, strip_tags};
-use super::parsed::ParsedDocument;
+use super::parsed::{ParsedDocument, ParsedDocumentCover};
 
 mod assets;
 mod paths;
 mod render;
 mod rewrite;
 
-use assets::{load_image_assets, ManifestItem};
+use assets::{load_cover_asset, load_image_assets, ManifestItem};
 use paths::{opf_base_dir, resolve_archive_path};
 use render::{render_chapter, render_reading_html};
 use rewrite::{collect_fragment_anchors, rewrite_epub_fragment};
@@ -53,6 +53,12 @@ pub(crate) fn parse_epub_document(
         return Err("EPUB package has no readable spine items".into());
     }
 
+    let cover =
+        load_cover_asset(&mut archive, package.cover.as_ref()).map(|cover| ParsedDocumentCover {
+            media_type: cover.media_type,
+            file_name: cover.file_name,
+            bytes: cover.bytes,
+        });
     let image_assets = load_image_assets(&mut archive, &package.manifest);
     let chapter_indexes: HashMap<String, usize> = package
         .spine_paths
@@ -126,10 +132,11 @@ pub(crate) fn parse_epub_document(
         package.language.as_deref(),
         package.direction.as_deref(),
     );
-    let parsed = parsed_html_document(package.title, "epub", view_html);
+    let mut parsed = parsed_html_document(package.title, "epub", view_html);
     if parsed.sections.is_empty() {
         return Err("EPUB did not contain readable sections".into());
     }
+    parsed.cover = cover;
     Ok(parsed)
 }
 
@@ -139,6 +146,7 @@ struct ParsedPackage {
     direction: Option<String>,
     spine_paths: Vec<String>,
     manifest: Vec<ManifestItem>,
+    cover: Option<ManifestItem>,
 }
 
 struct ChapterDraft {
@@ -210,8 +218,22 @@ fn parse_opf(opf: &str, opf_path: &str, fallback_title: &str) -> Result<ParsedPa
     );
     let direction = document_direction(doc.root_element().attribute("dir"));
 
+    let epub2_cover_id = doc
+        .descendants()
+        .find(|node| {
+            node.tag_name().name() == "meta"
+                && node
+                    .attribute("name")
+                    .is_some_and(|name| name.eq_ignore_ascii_case("cover"))
+        })
+        .and_then(|node| node.attribute("content"))
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .map(ToOwned::to_owned);
+
     let mut manifest_by_id = HashMap::new();
     let mut manifest = Vec::new();
+    let mut cover = None;
     for item in doc
         .descendants()
         .filter(|node| node.tag_name().name() == "item")
@@ -222,13 +244,28 @@ fn parse_opf(opf: &str, opf_path: &str, fallback_title: &str) -> Result<ParsedPa
         let Some(href) = item.attribute("href") else {
             continue;
         };
+        let is_epub3_cover = item
+            .attribute("properties")
+            .unwrap_or_default()
+            .split_ascii_whitespace()
+            .any(|property| property == "cover-image");
         let media_type = item.attribute("media-type").unwrap_or_default().to_string();
         let item = ManifestItem {
             href: resolve_archive_path(&base, href)?,
             media_type,
         };
+        if cover.is_none() && is_epub3_cover {
+            cover = Some(item.clone());
+        }
         manifest_by_id.insert(id.to_string(), item.clone());
         manifest.push(item);
+    }
+
+    if cover.is_none() {
+        cover = epub2_cover_id
+            .as_deref()
+            .and_then(|id| manifest_by_id.get(id))
+            .cloned();
     }
 
     let mut spine_paths = Vec::new();
@@ -253,6 +290,7 @@ fn parse_opf(opf: &str, opf_path: &str, fallback_title: &str) -> Result<ParsedPa
         direction,
         spine_paths,
         manifest,
+        cover,
     })
 }
 
@@ -509,6 +547,10 @@ mod tests {
         assert!(parsed.view_html.contains("alt=\"Cover\""));
         assert!(!parsed.view_html.contains("OPS/text/chapter1.xhtml#start"));
         assert!(!parsed.view_html.contains("../images/cover.png"));
+        let cover = parsed.cover.expect("EPUB 3 cover-image asset");
+        assert_eq!(cover.media_type, "image/png");
+        assert_eq!(cover.file_name, "cover.png");
+        assert_eq!(cover.bytes, b"\x89PNG\r\n\x1a\nimage");
     }
 
     #[test]
@@ -527,6 +569,10 @@ mod tests {
         assert!(parsed.view_html.contains("href=\"#chapter-2\""));
         assert!(!parsed.view_html.contains("notes.htm#"));
         assert!(!parsed.view_html.contains("ch01.htm#"));
+        assert_eq!(
+            parsed.cover.expect("EPUB 2 metadata cover").media_type,
+            "image/jpeg"
+        );
     }
 
     #[test]
@@ -599,6 +645,8 @@ mod tests {
             zip.write_all(flat_container_xml().as_bytes()).unwrap();
             zip.start_file("content.opf", deflated).unwrap();
             zip.write_all(epub2_opf_xml().as_bytes()).unwrap();
+            zip.start_file("cover.jpg", deflated).unwrap();
+            zip.write_all(b"jpeg-cover").unwrap();
             zip.start_file("index_split1.htm", deflated).unwrap();
             zip.write_all(
                 b"<html><body><h3>Contents</h3><p><a href='ch01.htm'>Chapter 1</a></p></body></html>",
@@ -682,7 +730,7 @@ mod tests {
     }
 
     fn epub2_opf_xml() -> &'static str {
-        r#"<?xml version="1.0"?><package><metadata><title>EPUB 2 Fixture</title></metadata><manifest><item id="toc" href="index_split1.htm" media-type="application/xhtml+xml"/><item id="c1" href="ch01.htm" media-type="application/xhtml+xml"/><item id="notes" href="notes.htm" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="toc"/><itemref idref="c1"/><itemref idref="notes"/></spine></package>"#
+        r#"<?xml version="1.0"?><package><metadata><title>EPUB 2 Fixture</title><meta name="cover" content="cover-image"/></metadata><manifest><item id="toc" href="index_split1.htm" media-type="application/xhtml+xml"/><item id="c1" href="ch01.htm" media-type="application/xhtml+xml"/><item id="notes" href="notes.htm" media-type="application/xhtml+xml"/><item id="cover-image" href="cover.jpg" media-type="image/jpeg"/></manifest><spine><itemref idref="toc"/><itemref idref="c1"/><itemref idref="notes"/></spine></package>"#
     }
 
     fn container_xml() -> &'static str {
@@ -694,6 +742,6 @@ mod tests {
     }
 
     fn opf_xml() -> &'static str {
-        r#"<?xml version="1.0"?><package><metadata><title>Fixture</title></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml"/><item id="c1" href="text/chapter1.xhtml" media-type="application/xhtml+xml"/><item id="c2" href="text/chapter2.xhtml" media-type="application/xhtml+xml"/><item id="img" href="images/cover.png" media-type="image/png"/></manifest><spine><itemref idref="nav"/><itemref idref="c1"/><itemref idref="c2"/></spine></package>"#
+        r#"<?xml version="1.0"?><package><metadata><title>Fixture</title></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml"/><item id="c1" href="text/chapter1.xhtml" media-type="application/xhtml+xml"/><item id="c2" href="text/chapter2.xhtml" media-type="application/xhtml+xml"/><item id="img" href="images/cover.png" media-type="image/png" properties="cover-image"/></manifest><spine><itemref idref="nav"/><itemref idref="c1"/><itemref idref="c2"/></spine></package>"#
     }
 }

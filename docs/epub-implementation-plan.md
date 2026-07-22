@@ -42,21 +42,22 @@ should not depend on rendering the original archive in React.
 
 The MVP path is implemented with generated reading HTML, SQLite FTS indexing, Library import, existing TTS save/playback support, rewritten and target-validated internal EPUB links, retained safe local raster images, app-owned DOM reader link scrolling, and fixture coverage for TOC links, cross-chapter links, EPUB 2 footnotes/backlinks, image manifest assets, generated section extraction, sanitizer regressions, missing-fragment fallback, and empty-spine rejection.
 
-The EPUB parser is split into focused ZIP/XML parsing, path, asset, DOM rewrite, and render helpers. It uses crate-backed base64/percent decoding plus DOM-based fragment rewriting. Current EPUB image retention covers supported local raster images referenced by retained reader content; manifest covers that are not referenced by the spine are a future reader-polish item.
+The EPUB parser is split into focused ZIP/XML parsing, path, asset, DOM rewrite, and render helpers. It uses crate-backed base64/percent decoding plus DOM-based fragment rewriting. Current EPUB image retention covers supported local raster images referenced by retained reader content. Newly imported EPUBs also resolve EPUB 3 `cover-image` properties and EPUB 2 `meta name="cover"` references, retain a declared raster cover under the existing 5 MB image cap, and persist nullable cover media metadata. Existing imports remain valid without cover metadata.
 
 ## Remaining Follow-Ups
 
-1. Add schema versioning before durable metadata changes such as locators, source kind, original archive retention, or view-source layout changes.
+1. Keep durable metadata changes as explicit schema migrations; cover metadata introduced schema version 3 without rebuilding existing search or organization rows.
 2. Add per-section locator metadata so uploaded search results can jump to chapter/page locations.
 3. Add more EPUB parser fixtures for malformed OPF/container cases, spine edge cases, oversized image skipping, and metadata fallback.
-4. Detect EPUB 2/3 cover metadata and render a safe retained raster cover near the top of generated reading HTML, still respecting existing image caps and SVG skipping.
-5. Add duplicate detection based on source hash so repeated imports can update or skip existing records.
-6. Add a reindex action for uploaded documents if parser or sanitizer behavior changes after import.
-7. Add import progress reporting for very large EPUB/PDF files.
-8. Add richer EPUB reader features such as TOC, location restore, pagination, EPUB-specific appearance controls, or a foliate-js/epub.js-backed viewer if generated reading HTML is not enough. App-wide Light/System/Dark theme already applies to the generated HTML reader.
-9. For very large books, move from one fully-rendered generated HTML document toward chapter/page-level rendering with locator-aware Find and TTS ranges. Current TTS caches are mutation-aware, but the next highlight after a large DOM mutation can still rebuild the active reader text index.
-10. Add a runtime PDF import module later that extracts page text and stores page records in the same SQLite schema.
-11. Decide whether Pagefind remains the bundled-document engine long term or whether all documents should eventually share SQLite FTS.
+4. Expose retained covers through a narrow validated read command, then render them in the developer-gated Library gallery without changing generated reader HTML.
+5. Include retained covers in library-transfer packages once gallery cover serving is stable.
+6. Add duplicate detection based on source hash so repeated imports can update or skip existing records.
+7. Add a reindex action for uploaded documents if parser or sanitizer behavior changes after import.
+8. Add import progress reporting for very large EPUB/PDF files.
+9. Add richer EPUB reader features such as TOC, location restore, pagination, EPUB-specific appearance controls, or a foliate-js/epub.js-backed viewer if generated reading HTML is not enough. App-wide Light/System/Dark theme already applies to the generated HTML reader.
+10. For very large books, move from one fully-rendered generated HTML document toward chapter/page-level rendering with locator-aware Find and TTS ranges. Current TTS caches are mutation-aware, but the next highlight after a large DOM mutation can still rebuild the active reader text index.
+11. Add a runtime PDF import module later that extracts page text and stores page records in the same SQLite schema.
+12. Decide whether Pagefind remains the bundled-document engine long term or whether all documents should eventually share SQLite FTS.
 
 ## Historical Task Notes
 
@@ -254,7 +255,7 @@ Manual smoke tests:
 
 Richer EPUB reader:
 
-- Detect EPUB 2/3 cover metadata and render safe retained raster covers in the generated reading HTML, even when the cover image is present only in the manifest and not referenced by a spine chapter.
+- Serve retained EPUB 2/3 cover assets to the developer-gated Library gallery through a narrow validated boundary. Keep cover rendering out of generated reader HTML so opening and audiobook processing do not pay for gallery artwork.
 - Evaluate foliate-js, `epub.js`, or Readium only after normalized import ships.
 - Keep search/TTS source independent from the renderer.
 - Add TOC, pagination, EPUB-specific appearance controls, and location restore as reader-quality work. App-wide Light/System/Dark theme already applies to the generated HTML reader.

@@ -128,6 +128,10 @@ fn persist_document<R: Runtime>(
     let dir = upload_dir(app, &id)?;
     let mut db = open_db(app)?;
     write_and_index_document(&dir, &mut db, &id, &url, &parsed, imported_at_ms, bytes)?;
+    let cover_media_type = parsed
+        .cover
+        .as_ref()
+        .map(|cover| cover.media_type.to_string());
 
     Ok(UploadedDocument {
         id,
@@ -137,6 +141,7 @@ fn persist_document<R: Runtime>(
         imported_at_ms,
         bytes,
         sections: parsed.sections.len(),
+        cover_media_type,
     })
 }
 
@@ -171,6 +176,10 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
     let dir = upload_dir(app, &id)?;
     let mut db = open_db(app)?;
     write_and_index_document(&dir, &mut db, &id, &url, &parsed, imported_at_ms, bytes)?;
+    let cover_media_type = parsed
+        .cover
+        .as_ref()
+        .map(|cover| cover.media_type.to_string());
 
     Ok(UploadedDocument {
         id,
@@ -180,6 +189,7 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
         imported_at_ms,
         bytes,
         sections: parsed.sections.len(),
+        cover_media_type,
     })
 }
 
@@ -196,9 +206,15 @@ fn write_and_index_document(
 ) -> Result<(), String> {
     fs::create_dir_all(&dir)
         .map_err(|err| format!("Failed to create upload directory {}: {err}", dir.display()))?;
-    let result = fs::write(dir.join("source.html"), parsed.view_html.as_bytes())
-        .map_err(|err| format!("Failed to write imported document source: {err}"))
-        .and_then(|_| upsert_document(db, id, url, parsed, imported_at_ms, bytes));
+    let result = (|| {
+        fs::write(dir.join("source.html"), parsed.view_html.as_bytes())
+            .map_err(|err| format!("Failed to write imported document source: {err}"))?;
+        if let Some(cover) = &parsed.cover {
+            fs::write(dir.join(cover.file_name), &cover.bytes)
+                .map_err(|err| format!("Failed to write imported document cover: {err}"))?;
+        }
+        upsert_document(db, id, url, parsed, imported_at_ms, bytes)
+    })();
     if let Err(error) = result {
         fs::remove_dir_all(dir).map_err(|cleanup_error| {
             format!(
@@ -327,6 +343,7 @@ mod tests {
                 heading: None,
                 text: "Test".into(),
             }],
+            cover: None,
         };
         let mut db = Connection::open_in_memory().expect("open database without upload schema");
 

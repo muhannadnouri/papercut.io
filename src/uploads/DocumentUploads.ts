@@ -6,6 +6,7 @@ export interface UploadedDocument {
   importedAtMs: number
   bytes: number
   sections: number
+  coverMediaType?: string | null
 }
 
 export interface UploadedDocumentSearchResult {

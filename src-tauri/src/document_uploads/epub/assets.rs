@@ -9,6 +9,12 @@ use zip::ZipArchive;
 const MAX_IMAGE_BYTES: u64 = 5 * 1024 * 1024;
 const MAX_TOTAL_IMAGE_BYTES: u64 = 30 * 1024 * 1024;
 
+pub(super) struct LoadedCover {
+    pub(super) media_type: &'static str,
+    pub(super) file_name: &'static str,
+    pub(super) bytes: Vec<u8>,
+}
+
 #[derive(Clone)]
 pub(super) struct ManifestItem {
     pub(super) href: String,
@@ -26,23 +32,39 @@ pub(super) fn is_supported_image_item(media_type: &str, href: &str) -> bool {
         || href.ends_with(".webp")
 }
 
-/// Return the safe browser media type for an image we are willing to inline.
+/// Return the safe media type and fixed stored-cover name for an allowed image.
 ///
 /// SVG is intentionally excluded: it can carry active content and is harder to
 /// sanitize correctly than the raster formats we need for current EPUB covers and
 /// illustrations.
-fn media_type_for_image(media_type: &str, href: &str) -> Option<&'static str> {
+fn image_format(media_type: &str, href: &str) -> Option<(&'static str, &'static str)> {
     match media_type {
-        "image/png" => Some("image/png"),
-        "image/jpeg" | "image/jpg" => Some("image/jpeg"),
-        "image/gif" => Some("image/gif"),
-        "image/webp" => Some("image/webp"),
-        _ if href.ends_with(".png") => Some("image/png"),
-        _ if href.ends_with(".jpg") || href.ends_with(".jpeg") => Some("image/jpeg"),
-        _ if href.ends_with(".gif") => Some("image/gif"),
-        _ if href.ends_with(".webp") => Some("image/webp"),
+        "image/png" => Some(("image/png", "cover.png")),
+        "image/jpeg" | "image/jpg" => Some(("image/jpeg", "cover.jpg")),
+        "image/gif" => Some(("image/gif", "cover.gif")),
+        "image/webp" => Some(("image/webp", "cover.webp")),
+        _ if href.ends_with(".png") => Some(("image/png", "cover.png")),
+        _ if href.ends_with(".jpg") || href.ends_with(".jpeg") => Some(("image/jpeg", "cover.jpg")),
+        _ if href.ends_with(".gif") => Some(("image/gif", "cover.gif")),
+        _ if href.ends_with(".webp") => Some(("image/webp", "cover.webp")),
         _ => None,
     }
+}
+
+/// Read a declared EPUB cover through the same raster allowlist and size cap used
+/// for reader images. Invalid, active, or oversized cover assets are simply absent.
+pub(super) fn load_cover_asset<R: Read + std::io::Seek>(
+    archive: &mut ZipArchive<R>,
+    item: Option<&ManifestItem>,
+) -> Option<LoadedCover> {
+    let item = item?;
+    let (media_type, file_name) = image_format(&item.media_type, &item.href)?;
+    let bytes = read_zip_bytes_limited(archive, &item.href, MAX_IMAGE_BYTES)?;
+    Some(LoadedCover {
+        media_type,
+        file_name,
+        bytes,
+    })
 }
 
 /// Read a binary ZIP member only when its declared and actual size fit a cap.
@@ -81,7 +103,7 @@ pub(super) fn load_image_assets<R: Read + std::io::Seek>(
         if !is_supported_image_item(&item.media_type, &item.href) {
             continue;
         }
-        let Some(media_type) = media_type_for_image(&item.media_type, &item.href) else {
+        let Some((media_type, _)) = image_format(&item.media_type, &item.href) else {
             continue;
         };
         if total >= MAX_TOTAL_IMAGE_BYTES {

@@ -46,6 +46,7 @@ pub(crate) fn parsed_html_document(
         format: format.into(),
         view_html: sanitized_html,
         sections,
+        cover: None,
     }
 }
 
