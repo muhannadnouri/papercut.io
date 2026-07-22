@@ -120,7 +120,7 @@ export function DocumentsPanel({
 
   return (
     <Panel
-      className="document-browser-panel documents-panel"
+      className={`document-browser-panel documents-panel${view === 'gallery' ? ' documents-panel-gallery' : ''}`}
       ariaLabel={t('library.documents.ariaLabel')}
       title={t('library.documents.title', { count: allDocuments.length })}
       open={showDocuments}

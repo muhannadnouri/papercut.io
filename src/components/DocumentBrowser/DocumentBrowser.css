@@ -574,6 +574,10 @@
 }
 
 @media (max-width: 600px) {
+  .panel.documents-panel-gallery .panel-body {
+    max-height: min(68dvh, 46rem);
+  }
+
   .document-browser-panel .documents-list-header {
     display: grid;
     grid-template-columns: auto auto minmax(0, 1fr);
