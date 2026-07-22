@@ -133,7 +133,7 @@
 }
 
 .audio-field-voice {
-  grid-column: 1 / -1;
+  grid-column: 1;
 }
 
 .audio-probe-button {
