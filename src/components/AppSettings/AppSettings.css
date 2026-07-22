@@ -109,9 +109,19 @@
   text-align: start;
 }
 
+.app-setting-toggle {
+  grid-template-columns: minmax(0, 1fr) auto;
+  cursor: pointer;
+}
+
+.app-setting-toggle > span:first-child {
+  overflow-wrap: anywhere;
+}
+
 .app-settings-switch {
   position: relative;
   grid-column: 2;
+  justify-self: end;
   width: 2.35rem;
   height: 1.35rem;
   cursor: pointer;
@@ -303,8 +313,12 @@
   }
 
   .app-setting-select,
-  .app-theme-options,
-  .app-settings-switch {
+  .app-theme-options {
     grid-column: 1;
+  }
+
+  .app-setting-toggle {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.75rem;
   }
 }

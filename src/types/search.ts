@@ -31,4 +31,5 @@ export interface DocumentInfo {
   url: string
   format?: string
   source?: 'bundled' | 'upload' | 'audiobook-upload'
+  coverMediaType?: string | null
 }

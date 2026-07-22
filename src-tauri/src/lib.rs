@@ -19,6 +19,7 @@ pub fn run() {
             document_uploads::commands::document_uploads_list,
             document_uploads::commands::document_uploads_search,
             document_uploads::commands::document_uploads_get_source,
+            document_uploads::commands::document_uploads_get_cover,
             document_uploads::commands::document_uploads_delete,
             document_uploads::commands::document_uploads_delete_batch,
             document_uploads::commands::document_uploads_library_organization,

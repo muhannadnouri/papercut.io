@@ -8,6 +8,7 @@ use std::fs;
 use std::io::Read;
 use std::path::Path;
 
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use tauri::Runtime;
 use tauri_plugin_dialog::FilePath;
 use tauri_plugin_fs::FsExt;
@@ -25,6 +26,8 @@ use super::types::{
     UploadedDocument, UploadedDocumentDeleteRequest, UploadedDocumentDeleteResult,
     UploadedDocumentSourceRequest,
 };
+
+const MAX_STORED_COVER_BYTES: u64 = 5 * 1024 * 1024;
 
 /// Import one already-selected HTML source without coupling parsing to a picker.
 pub(crate) fn import_html_source<R: Runtime>(
@@ -241,6 +244,60 @@ pub(crate) fn get_source<R: Runtime>(
     Ok(sanitize_html(&source))
 }
 
+/// Return only the allowlisted cover associated with a validated upload URL.
+///
+/// The database MIME value selects a fixed filename, so neither the frontend nor
+/// stored metadata can turn this command into arbitrary app-data file access.
+pub(crate) fn get_cover<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    request: UploadedDocumentSourceRequest,
+) -> Result<Option<String>, String> {
+    let id = upload_id_from_url(&request.document_url)?;
+    let db = open_db(app)?;
+    let Some(document) = find_upload_by_id(&db, &id)? else {
+        return Ok(None);
+    };
+    let Some(media_type) = document.cover_media_type.as_deref() else {
+        return Ok(None);
+    };
+    let Some(file_name) = stored_cover_file_name(media_type) else {
+        return Ok(None);
+    };
+    let path = upload_dir(app, &id)?.join(file_name);
+    let mut file = match fs::File::open(&path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => {
+            return Err(format!(
+                "Failed to open uploaded document cover {}: {error}",
+                path.display()
+            ))
+        }
+    };
+    let mut bytes = Vec::new();
+    file.by_ref()
+        .take(MAX_STORED_COVER_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("Failed to read uploaded document cover: {error}"))?;
+    if bytes.len() as u64 > MAX_STORED_COVER_BYTES {
+        return Err("Uploaded document cover exceeds the 5 MB limit".into());
+    }
+    Ok(Some(format!(
+        "data:{media_type};base64,{}",
+        BASE64_STANDARD.encode(bytes)
+    )))
+}
+
+fn stored_cover_file_name(media_type: &str) -> Option<&'static str> {
+    match media_type {
+        "image/png" => Some("cover.png"),
+        "image/jpeg" => Some("cover.jpg"),
+        "image/gif" => Some("cover.gif"),
+        "image/webp" => Some("cover.webp"),
+        _ => None,
+    }
+}
+
 /// Delete one upload through the same compensating filesystem/SQLite flow used
 /// by both single and batch commands.
 pub(crate) fn delete_upload<R: Runtime>(
@@ -322,8 +379,16 @@ mod tests {
 
     use rusqlite::Connection;
 
-    use super::{delete_stored_document, write_and_index_document};
+    use super::{delete_stored_document, stored_cover_file_name, write_and_index_document};
     use crate::document_uploads::parsed::{ParsedDocument, ParsedSection};
+
+    #[test]
+    fn stored_cover_names_are_fixed_to_safe_raster_types() {
+        assert_eq!(stored_cover_file_name("image/png"), Some("cover.png"));
+        assert_eq!(stored_cover_file_name("image/jpeg"), Some("cover.jpg"));
+        assert_eq!(stored_cover_file_name("image/svg+xml"), None);
+        assert_eq!(stored_cover_file_name("../../source.html"), None);
+    }
 
     #[test]
     fn failed_index_write_removes_incomplete_upload_directory() {

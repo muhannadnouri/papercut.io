@@ -28,7 +28,7 @@ Frontend:
 
 - `src/uploads/DocumentUploads.ts` is the small client API for user-upload commands and shared TypeScript types.
 - `src/App.tsx` wires upload/search state into reusable hooks and components, and provides source loading for uploaded URLs.
-- `src/components/DocumentsPanel/DocumentsPanel.tsx` owns the document dropdown UI, including the option-driven Import menu, Saved audio filtering, uploaded-document management, and active filter chips. Uploaded documents can be rendered through the folder-aware tree UI, while bundled documents and audiobook imports keep the existing grouped list. Developer Mode also exposes an experimental Gallery/List preference; `LibraryGalleryView` derives EPUB/PDF books from the existing format field and keeps HTML documents in the shared dense list. Newly imported EPUBs retain declared EPUB 2/3 raster covers and expose their media type in upload metadata, while the gallery continues to use placeholders until a narrow cover-read boundary is added.
+- `src/components/DocumentsPanel/DocumentsPanel.tsx` owns the document dropdown UI, including the option-driven Import menu, Saved audio filtering, uploaded-document management, and active filter chips. Uploaded documents can be rendered through the folder-aware tree UI, while bundled documents and audiobook imports keep the existing grouped list. Developer Mode also exposes an experimental Gallery/List preference; `LibraryGalleryView` derives EPUB/PDF books from the existing format field and keeps HTML documents in the shared dense list. Newly imported EPUBs retain declared EPUB 2/3 raster covers and expose them to visible gallery cards through a validated, size-bounded read command. Existing and coverless imports keep the generated title placeholder.
 - `src/components/UploadedLibraryTree/UploadedLibraryTree.tsx` renders uploaded-document organization using React Aria Components tree primitives. `src/components/SearchScope/SearchScope.tsx` reuses the same tree for the Search tab's **Filter By Document** panel, while Library **Manage** mode owns select-all, move, batch-delete, and create/rename/delete-empty-folder actions. Document and folder selection remain mutually exclusive so each action has one clear target type.
 - `src/components/DocumentViewer/DocumentViewer.tsx` owns the reader shell, viewer plugin resolution, in-document Find, same-document link scrolling, scroll-to-top behavior, and the slots used by TTS controls/diagnostics.
 - Search-result clicks can pass a lightweight reader target into `DocumentViewer`: a Pagefind heading hash when available and/or the first highlighted snippet text. The reader keeps the clean document URL, then jumps to the likely match after the document renders. Reader text matching spans inline markup such as emphasis, links, and bold text without crossing readable block boundaries. The preferred visual marker is a named CSS Highlight range so large iOS/WebKit reader DOMs are not rewritten just to mark a search result.
@@ -176,13 +176,12 @@ Keeping this shape stable lets the UI and SQLite indexing remain format-agnostic
 ## Recommended Next Steps
 
 1. Add more EPUB parser fixtures for malformed OPF/container cases, spine edge cases, oversized image skipping, and metadata fallback.
-2. Expose retained covers through a narrow validated read command and use them in the developer-gated gallery without broadening access to app-data files.
-3. Include retained covers in library-transfer packages once gallery cover serving is stable.
-4. Add a reindex action for uploaded documents if parser or sanitizer behavior changes after import.
-5. Add richer EPUB reader features such as TOC, location restore, pagination, EPUB-specific appearance controls, or a foliate-js/epub.js-backed viewer if generated reading HTML is not enough.
-6. Add a runtime PDF import module later that extracts page text and stores page records in the same SQLite schema.
-7. Keep future viewer-specific theme work format-aware: EPUB/HTML can inherit CSS tokens, while PDF should theme surrounding controls without recoloring document pages by default.
-8. Decide whether Pagefind remains the bundled-document engine long term or whether all documents should eventually share SQLite FTS.
+2. Include retained covers in library-transfer packages so covers survive device-to-device transfer.
+3. Add a reindex action for uploaded documents if parser or sanitizer behavior changes after import.
+4. Add richer EPUB reader features such as TOC, location restore, pagination, EPUB-specific appearance controls, or a foliate-js/epub.js-backed viewer if generated reading HTML is not enough.
+5. Add a runtime PDF import module later that extracts page text and stores page records in the same SQLite schema.
+6. Keep future viewer-specific theme work format-aware: EPUB/HTML can inherit CSS tokens, while PDF should theme surrounding controls without recoloring document pages by default.
+7. Decide whether Pagefind remains the bundled-document engine long term or whether all documents should eventually share SQLite FTS.
 
 ## Branching Guidance
 

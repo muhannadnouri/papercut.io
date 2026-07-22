@@ -149,6 +149,14 @@ export async function getUploadedDocumentSource(documentUrl: string): Promise<st
   })
 }
 
+export async function getUploadedDocumentCover(documentUrl: string): Promise<string | null> {
+  if (!isTauriRuntime()) return null
+  const invoke = await loadTauriInvoke()
+  return invoke<string | null>('document_uploads_get_cover', {
+    request: { documentUrl },
+  })
+}
+
 export async function deleteUploadedDocument(documentUrl: string): Promise<UploadedDocumentDeleteResult> {
   const invoke = await loadTauriInvoke()
   return invoke<UploadedDocumentDeleteResult>('document_uploads_delete', {

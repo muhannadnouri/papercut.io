@@ -1,6 +1,8 @@
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
 import type { DocumentInfo } from '../../types/search'
+import { getUploadedDocumentCover } from '../../uploads/DocumentUploads'
 import { DocumentList } from '../DocumentList/DocumentList'
 import { isBookDocument } from './libraryCategories'
 import './LibraryGalleryView.css'
@@ -129,6 +131,36 @@ function BookCard({
   onOpen: (url: string) => void
 }) {
   const placeholderClass = `library-book-cover placeholder-${titleColor(doc.title)}`
+  const coverRef = useRef<HTMLSpanElement>(null)
+  const [cover, setCover] = useState<string | null>(null)
+
+  // Avoid decoding every retained cover in a large library; nearby cards load
+  // shortly before scrolling brings them into view.
+  useEffect(() => {
+    if (doc.source !== 'upload' || !doc.coverMediaType) return
+    let cancelled = false
+    const load = () => {
+      void getUploadedDocumentCover(doc.url)
+        .then((value) => {
+          if (!cancelled) setCover(value)
+        })
+        .catch(() => undefined)
+    }
+    if (!('IntersectionObserver' in window)) {
+      load()
+      return () => { cancelled = true }
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return
+      observer.disconnect()
+      load()
+    }, { rootMargin: '200px' })
+    if (coverRef.current) observer.observe(coverRef.current)
+    return () => {
+      cancelled = true
+      observer.disconnect()
+    }
+  }, [doc.coverMediaType, doc.source, doc.url])
 
   return (
     <button
@@ -138,8 +170,10 @@ function BookCard({
       aria-label={opening ? openingLabel : doc.title}
       onClick={() => onOpen(doc.url)}
     >
-      <span className={placeholderClass}>
-        <bdi>{doc.title}</bdi>
+      <span ref={coverRef} className={placeholderClass}>
+        {cover
+          ? <img className="library-book-cover-image" src={cover} alt="" />
+          : <bdi>{doc.title}</bdi>}
         {hasSavedAudio && (
           <span
             className="library-book-audio"

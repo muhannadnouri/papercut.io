@@ -109,6 +109,14 @@
   overflow-wrap: anywhere;
 }
 
+.library-book-cover-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .library-book-card:hover .library-book-cover,
 .library-book-card:focus-visible .library-book-cover {
   border-color: var(--accent-text);
@@ -138,6 +146,7 @@
   color: #12182a;
   font-size: 0.85rem;
   box-shadow: 0 1px 4px rgb(0 0 0 / 20%);
+  z-index: 1;
 }
 
 .library-book-title {

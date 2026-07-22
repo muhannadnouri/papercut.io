@@ -136,7 +136,13 @@ function App() {
 
   const libraryDocuments = useMemo<DocumentInfo[]>(() => [
     ...allDocuments.map((doc) => ({ ...doc, format: 'html', source: 'bundled' as const })),
-    ...uploadedDocuments.map((upload) => ({ title: upload.title, url: upload.url, format: upload.format, source: 'upload' as const })),
+    ...uploadedDocuments.map((upload) => ({
+      title: upload.title,
+      url: upload.url,
+      format: upload.format,
+      source: 'upload' as const,
+      coverMediaType: upload.coverMediaType,
+    })),
     ...userUploads.map((upload) => ({ title: upload.title, url: upload.url, format: 'html', source: 'audiobook-upload' as const })),
   ], [allDocuments, uploadedDocuments, userUploads]) 
 

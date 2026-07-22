@@ -174,18 +174,17 @@ export function AppSettings({
 
           <section className="app-settings-section app-settings-developer" aria-labelledby="app-settings-developer">
             <h3 id="app-settings-developer">{t('settings.developer')}</h3>
-            <div className="app-setting">
-              <span id="app-setting-developer-mode">{t('settings.developerMode')}</span>
-              <label className="app-settings-switch">
+            <label className="app-setting app-setting-toggle">
+              <span>{t('settings.developerMode')}</span>
+              <span className="app-settings-switch">
                 <input
                   type="checkbox"
                   checked={developerMode}
-                  aria-labelledby="app-setting-developer-mode"
                   onChange={(event) => onDeveloperModeChange(event.target.checked)}
                 />
                 <span aria-hidden="true" />
-              </label>
-            </div>
+              </span>
+            </label>
           </section>
 
           <div className="app-settings-version">
