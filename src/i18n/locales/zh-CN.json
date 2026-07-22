@@ -142,6 +142,8 @@
       "folderNotEmpty": "文件夹不为空",
       "moveContentsFirst": "先将内容移出。",
       "moveDocuments": "移动文档",
+      "chooseDestination": "选择目标文件夹...",
+      "folderSelected": "已选择 1 个文件夹",
       "selectDocumentsOnly": "仅选择文档...",
       "selectDocumentsFirst": "首先选择文档...",
       "root": "根",

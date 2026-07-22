@@ -150,6 +150,8 @@
       "folderNotEmpty": "Le dossier n'est pas vide",
       "moveContentsFirst": "Déplacez d'abord le contenu.",
       "moveDocuments": "Déplacer des documents",
+      "chooseDestination": "Choisir une destination...",
+      "folderSelected": "1 dossier sélectionné",
       "selectDocumentsOnly": "Sélectionnez Documents uniquement...",
       "selectDocumentsFirst": "Sélectionnez d'abord les documents...",
       "root": "Racine",

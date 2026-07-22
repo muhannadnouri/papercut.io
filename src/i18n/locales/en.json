@@ -146,6 +146,8 @@
       "folderNotEmpty": "Folder Is Not Empty",
       "moveContentsFirst": "Move contents out first.",
       "moveDocuments": "Move Documents",
+      "chooseDestination": "Choose Destination...",
+      "folderSelected": "1 Folder Selected",
       "selectDocumentsOnly": "Select Documents Only...",
       "selectedCount_one": "{{count, number}} selected",
       "selectedCount_other": "{{count, number}} selected",

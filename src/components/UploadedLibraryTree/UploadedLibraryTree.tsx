@@ -335,121 +335,136 @@ export function UploadedLibraryTree({
             {allRootSelected ? t('common.deselectAll') : t('common.selectAll')}
           </button>
         ) : (
-          <button
-            className="uploaded-library-edit-btn"
-            type="button"
-            disabled={busy || mutationDisabled}
-            aria-pressed={editMode}
-            onClick={() => {
-              setEditMode((value) => !value)
-              setSelectedKeys(new Set())
-              setFolderDialog(null)
-              setFolderDialogError('')
-              setDeleteInfoOpen(false)
-            }}
-          >
-            {editMode ? t('common.done') : t('library.tree.organize')}
-          </button>
+          <div className="uploaded-library-toolbar-actions">
+            {organizing && (
+              <button
+                className="uploaded-library-edit-btn"
+                type="button"
+                disabled={busy || mutationDisabled}
+                onClick={() => openFolderDialog(null)}
+              >
+                {t('library.tree.newFolder')}
+              </button>
+            )}
+            <button
+              className="uploaded-library-edit-btn"
+              type="button"
+              disabled={busy || mutationDisabled}
+              aria-pressed={editMode}
+              onClick={() => {
+                setEditMode((value) => !value)
+                setSelectedKeys(new Set())
+                setFolderDialog(null)
+                setFolderDialogError('')
+                setDeleteInfoOpen(false)
+              }}
+            >
+              {editMode ? t('common.done') : t('library.tree.organize')}
+            </button>
+          </div>
         )}
       </div>
 
       {!rootCollapsed && organizing && (
-        <div className="uploaded-library-actions" aria-label={t('library.tree.editActionsAriaLabel')}>
-          <div className="uploaded-library-action-group uploaded-library-action-group-documents">
-            <span className="uploaded-library-action-label">{t('library.tree.documents')}</span>
-            <div className="uploaded-library-action-row">
-              <strong className="uploaded-library-selection-count">
-                {t('library.tree.selectedCount', { count: selectedDocumentIds.length })}
+        <div
+          className="uploaded-library-actions"
+          role="group"
+          aria-label={t('library.tree.editActionsAriaLabel')}
+        >
+          <div className="uploaded-library-context-actions">
+            <div className="uploaded-library-selection-actions">
+              <strong className="uploaded-library-selection-count" aria-live="polite">
+                {selectedFolder
+                  ? t('library.tree.folderSelected')
+                  : t('library.tree.selectedCount', { count: selectedDocumentIds.length })}
               </strong>
-              <button
-                type="button"
-                disabled={busy || mutationDisabled || allDocumentsSelected || documentNodes.length === 0}
-                onClick={selectAllDocuments}
-              >
-                {t('common.selectAll')}
-              </button>
-              <button
-                type="button"
-                disabled={busy || mutationDisabled || selectedKeys.size === 0}
-                onClick={clearSelection}
-              >
-                {t('common.deselectAll')}
-              </button>
-              <button
-                type="button"
-                className="uploaded-library-batch-delete"
-                disabled={!canDeleteDocuments}
-                onClick={deleteSelectedDocuments}
-              >
-                {t('common.delete')}
-              </button>
-            </div>
-          </div>
-          <div className="uploaded-library-action-group uploaded-library-action-group-move">
-            <label className="uploaded-library-move">
-              <span className="uploaded-library-action-label">{t('library.tree.moveDocuments')}</span>
-              <select
-                disabled={busy || mutationDisabled || !canMoveDocuments}
-                defaultValue=""
-                onChange={(event) => {
-                  const value = event.target.value
-                  if (!value) return
-                  event.target.value = ''
-                  moveSelectedDocuments(value === 'root' ? null : value)
-                }}
-              >
-                <option value="">
-                  {selectedDocumentIds.length > 0
-                    ? t('library.tree.selectedCount', { count: selectedDocumentIds.length })
-                    : t('library.tree.selectDocumentsFirst')}
-                </option>
-                <option value="root">{t('library.tree.root')}</option>
-                {folderOptions.map((folder) => (
-                  <option key={folder.id} value={folder.id}>
-                    {folder.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div className="uploaded-library-action-group">
-            <span className="uploaded-library-action-label">{t('library.tree.folders')}</span>
-            <div className="uploaded-library-action-row">
-              <button type="button" disabled={busy || mutationDisabled} onClick={() => openFolderDialog(null)}>
-                {t('library.tree.newFolder')}
-              </button>
-              <button
-                type="button"
-                disabled={busy || mutationDisabled || !selectedSingleFolder}
-                onClick={renameSelectedFolder}
-              >
-                {t('library.tree.rename')}
-              </button>
-              <span className="uploaded-library-delete-control" title={deleteFolderHelp}>
+              {!selectedFolder && selectedDocumentIds.length === 0 && (
                 <button
                   type="button"
-                  className={'uploaded-library-delete-btn' + (deleteFolderBlocked ? ' uploaded-library-delete-btn-blocked' : '')}
-                  disabled={busy || mutationDisabled || (!canDeleteSelectedFolder && !deleteFolderBlocked)}
-                  aria-disabled={deleteFolderBlocked}
-                  aria-expanded={deleteFolderBlocked ? deleteInfoOpen : undefined}
-                  aria-controls={deleteFolderBlocked ? 'uploaded-library-delete-info' : undefined}
-                  onClick={deleteSelectedFolder}
+                  disabled={busy || mutationDisabled || allDocumentsSelected || documentNodes.length === 0}
+                  onClick={selectAllDocuments}
                 >
-                  {t('library.tree.deleteFolder')}
-                  {deleteFolderBlocked && <span className="uploaded-library-warning-icon" aria-hidden="true">!</span>}
+                  {t('common.selectAll')}
                 </button>
-                {deleteInfoOpen && (
-                  <span
-                    id="uploaded-library-delete-info"
-                    className="uploaded-library-info-popover"
-                    role="tooltip"
-                  >
-                    <strong>{t('library.tree.folderNotEmpty')}</strong>
-                    <span>{t('library.tree.moveContentsFirst')}</span>
-                  </span>
-                )}
-              </span>
+              )}
+              {selectedKeys.size > 0 && (
+                <button
+                  type="button"
+                  disabled={busy || mutationDisabled}
+                  onClick={clearSelection}
+                >
+                  {t('common.deselectAll')}
+                </button>
+              )}
             </div>
+            {selectedDocumentIds.length > 0 && (
+              <div className="uploaded-library-task-actions">
+                <label className="uploaded-library-move">
+                  <span className="uploaded-library-action-label">{t('library.tree.moveDocuments')}</span>
+                  <select
+                    disabled={busy || mutationDisabled || !canMoveDocuments}
+                    defaultValue=""
+                    onChange={(event) => {
+                      const value = event.target.value
+                      if (!value) return
+                      event.target.value = ''
+                      moveSelectedDocuments(value === 'root' ? null : value)
+                    }}
+                  >
+                    <option value="">{t('library.tree.chooseDestination')}</option>
+                    <option value="root">{t('library.tree.root')}</option>
+                    {folderOptions.map((folder) => (
+                      <option key={folder.id} value={folder.id}>
+                        {folder.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="uploaded-library-batch-delete"
+                  disabled={!canDeleteDocuments}
+                  onClick={deleteSelectedDocuments}
+                >
+                  {t('common.delete')}
+                </button>
+              </div>
+            )}
+            {selectedFolder && (
+              <div className="uploaded-library-task-actions">
+                <button
+                  type="button"
+                  disabled={busy || mutationDisabled || !selectedSingleFolder}
+                  onClick={renameSelectedFolder}
+                >
+                  {t('library.tree.rename')}
+                </button>
+                <span className="uploaded-library-delete-control" title={deleteFolderHelp}>
+                  <button
+                    type="button"
+                    className={'uploaded-library-delete-btn' + (deleteFolderBlocked ? ' uploaded-library-delete-btn-blocked' : '')}
+                    disabled={busy || mutationDisabled || (!canDeleteSelectedFolder && !deleteFolderBlocked)}
+                    aria-disabled={deleteFolderBlocked}
+                    aria-expanded={deleteFolderBlocked ? deleteInfoOpen : undefined}
+                    aria-controls={deleteFolderBlocked ? 'uploaded-library-delete-info' : undefined}
+                    onClick={deleteSelectedFolder}
+                  >
+                    {t('library.tree.deleteFolder')}
+                    {deleteFolderBlocked && <span className="uploaded-library-warning-icon" aria-hidden="true">!</span>}
+                  </button>
+                  {deleteInfoOpen && (
+                    <span
+                      id="uploaded-library-delete-info"
+                      className="uploaded-library-info-popover"
+                      role="tooltip"
+                    >
+                      <strong>{t('library.tree.folderNotEmpty')}</strong>
+                      <span>{t('library.tree.moveContentsFirst')}</span>
+                    </span>
+                  )}
+                </span>
+              </div>
+            )}
           </div>
           {actionError && (
             <p className="uploaded-library-action-error" role="alert" dir="auto">

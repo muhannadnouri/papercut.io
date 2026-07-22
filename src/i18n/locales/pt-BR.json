@@ -150,6 +150,8 @@
       "folderNotEmpty": "A pasta não está vazia",
       "moveContentsFirst": "Remova o conteúdo primeiro.",
       "moveDocuments": "Mover documentos",
+      "chooseDestination": "Escolher destino...",
+      "folderSelected": "1 pasta selecionada",
       "selectDocumentsOnly": "Selecione apenas documentos...",
       "selectDocumentsFirst": "Selecione os documentos primeiro...",
       "root": "Raiz",

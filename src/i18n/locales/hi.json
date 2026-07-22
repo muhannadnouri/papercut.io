@@ -146,6 +146,8 @@
       "folderNotEmpty": "फ़ोल्डर खाली नहीं है",
       "moveContentsFirst": "पहले सामग्री बाहर निकालें.",
       "moveDocuments": "दस्तावेज़ ले जाएँ",
+      "chooseDestination": "गंतव्य चुनें...",
+      "folderSelected": "1 फ़ोल्डर चुना गया",
       "selectDocumentsOnly": "केवल दस्तावेज़ चुनें...",
       "selectDocumentsFirst": "पहले दस्तावेज़ चुनें...",
       "root": "जड़",

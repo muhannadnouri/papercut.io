@@ -162,6 +162,8 @@
       "folderNotEmpty": "المجلد غير فارغ",
       "moveContentsFirst": "انقل المحتويات أولًا.",
       "moveDocuments": "نقل المستندات",
+      "chooseDestination": "اختر الوجهة...",
+      "folderSelected": "مجلد واحد محدد",
       "selectDocumentsOnly": "حدّد المستندات فقط...",
       "selectedCount_zero": "لا مستندات محددة",
       "selectedCount_one": "مستند واحد محدد",
