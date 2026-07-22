@@ -197,7 +197,10 @@ export function AppSettings({
       {transferOpen && (
         <LibraryTransferDialog
           documentCount={libraryDocumentCount}
-          onClose={() => setTransferOpen(false)}
+          onBack={() => {
+            setTransferOpen(false)
+            setOpen(true)
+          }}
           onImported={onLibraryImported}
         />
       )}

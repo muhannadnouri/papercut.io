@@ -141,7 +141,6 @@ export function AppSelect({
         offset={6}
         containerPadding={8}
         shouldFlip
-        isNonModal
         aria-label={ariaLabel}
         aria-labelledby={ariaLabelledBy}
       >

@@ -51,7 +51,6 @@ export function AudiobookExportMenu({
         offset={6}
         containerPadding={8}
         shouldFlip
-        isNonModal
       >
         <div className="audiobook-export-options">
           {options.map((option) => (

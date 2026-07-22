@@ -9,6 +9,7 @@
     "audiobooks": "Audiolivros"
   },
   "common": {
+    "back": "Voltar",
     "cancel": "Cancelar",
     "close": "Fechar",
     "confirm": "Confirmar",

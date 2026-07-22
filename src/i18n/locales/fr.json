@@ -9,6 +9,7 @@
     "audiobooks": "Livres audio"
   },
   "common": {
+    "back": "Retour",
     "cancel": "Annuler",
     "close": "Fermer",
     "confirm": "Confirmer",

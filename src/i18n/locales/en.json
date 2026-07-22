@@ -9,6 +9,7 @@
     "audiobooks": "Audiobooks"
   },
   "common": {
+    "back": "Back",
     "cancel": "Cancel",
     "close": "Close",
     "confirm": "Confirm",
