@@ -79,7 +79,16 @@
       "empty": "尚无可用文件。",
       "emptySavedAudio": "没有包含已保存音频的文档。",
       "emptyFilter": "没有文档与过滤器匹配。",
-      "audiobookImport": "有声读物导入，未建立搜索索引"
+      "audiobookImport": "有声读物导入，未建立搜索索引",
+      "viewLabel": "资料库视图",
+      "galleryView": "图库",
+      "listView": "列表",
+      "categoryLabel": "资料库类别",
+      "books": "书籍（{{count, number}}）",
+      "documentCategory": "文件（{{count, number}}）",
+      "emptyBooks": "没有符合当前筛选条件的书籍。",
+      "emptyCategoryDocuments": "没有符合当前筛选条件的文件。",
+      "savedAudioAvailable": "有已保存的音频"
     },
     "import": {
       "files": "文件",
@@ -185,6 +194,8 @@
     "zoomReset": "重置",
     "data": "数据",
     "transferLibrary": "传输资料库",
+    "developer": "开发者",
+    "developerMode": "启用开发者模式",
     "version": "版本",
     "versionLoading": "加载中...",
     "versionUnavailable": "不可用",

@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Button, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components'
 import type { DocumentInfo } from '../../types/search'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
@@ -7,6 +8,7 @@ import type { UploadedDocumentDeleteBatchResult, UploadedLibraryOrganization } f
 import { Panel } from '../Panel/Panel'
 import { DocumentList } from '../DocumentList/DocumentList'
 import { UploadedLibraryTree } from '../UploadedLibraryTree/UploadedLibraryTree'
+import { LibraryGalleryView, type LibraryGalleryCategory } from '../LibraryGalleryView/LibraryGalleryView'
 import { splitDocumentGroupsByUpload } from '../DocumentBrowser/documentGroups'
 import '../DocumentBrowser/DocumentBrowser.css'
 
@@ -29,6 +31,7 @@ interface DocumentsPanelProps {
   allDocuments: DocumentInfo[]
   audioSavedOnly?: boolean
   collapsedAuthors: Set<string>
+  developerMode?: boolean
   docFilterLower: string
   documentFilter: string
   documentsLoading: boolean
@@ -38,6 +41,7 @@ interface DocumentsPanelProps {
   libraryOrganization?: UploadedLibraryOrganization
   documentOpening?: boolean
   openingDocumentUrl?: string
+  savedAudiobookDocumentUrls?: ReadonlySet<string>
   showDocuments: boolean
   onAudioSavedOnlyChange?: (enabled: boolean) => void
   onCreateLibraryFolder?: (parentId: string | null, name: string) => void | Promise<void>
@@ -56,6 +60,7 @@ export function DocumentsPanel({
   allDocuments,
   audioSavedOnly = false,
   collapsedAuthors,
+  developerMode = false,
   docFilterLower,
   documentFilter,
   documentsLoading,
@@ -65,6 +70,7 @@ export function DocumentsPanel({
   libraryOrganization,
   documentOpening = false,
   openingDocumentUrl,
+  savedAudiobookDocumentUrls = new Set(),
   showDocuments,
   onAudioSavedOnlyChange,
   onCreateLibraryFolder,
@@ -80,6 +86,11 @@ export function DocumentsPanel({
 }: DocumentsPanelProps) {
   const { t } = useTranslation()
   const [importMenuOpen, setImportMenuOpen] = useState(false)
+  const [preferredView, setPreferredView] = useState<LibraryView>(loadView)
+  const [galleryCategory, setGalleryCategory] = useState<LibraryGalleryCategory>(
+    loadCategory,
+  )
+  const view = developerMode ? preferredView : 'list'
   const activeImport = importOptions.find((option) => option.statusLabel)
   const hasImportOptions = importOptions.length > 0
   const importBusy = importStatuses.some((item) => item.status === 'importing')
@@ -171,6 +182,32 @@ export function DocumentsPanel({
             <span>{t('library.documents.savedAudio')}</span>
           </label>
         )}
+        {developerMode && (
+          <div className="library-view-options" role="group" aria-label={t('library.documents.viewLabel')}>
+            <button
+              type="button"
+              className={view === 'gallery' ? 'library-view-option active' : 'library-view-option'}
+              aria-pressed={view === 'gallery'}
+              onClick={() => {
+                setPreferredView('gallery')
+                savePreference(VIEW_STORAGE_KEY, 'gallery')
+              }}
+            >
+              ▦ {t('library.documents.galleryView')}
+            </button>
+            <button
+              type="button"
+              className={view === 'list' ? 'library-view-option active' : 'library-view-option'}
+              aria-pressed={view === 'list'}
+              onClick={() => {
+                setPreferredView('list')
+                savePreference(VIEW_STORAGE_KEY, 'list')
+              }}
+            >
+              ☰ {t('library.documents.listView')}
+            </button>
+          </div>
+        )}
       </div>
 
       {importStatuses.map((item, index) => item.message && item.status !== 'idle' ? (
@@ -179,45 +216,95 @@ export function DocumentsPanel({
         </div>
       ) : null)}
 
-      {canShowUploadedTree && libraryOrganization && (
-        <UploadedLibraryTree
-          documents={uploadDocs}
-          organization={libraryOrganization}
-          documentOpening={documentOpening}
-          mutationDisabled={operationBusy}
-          resetEditing={importBusy}
-          openingDocumentUrl={openingDocumentUrl}
-          onCreateFolder={onCreateLibraryFolder!}
-          onDeleteDocuments={onDeleteDocuments!}
-          onDeleteFolder={onDeleteLibraryFolder!}
-          onMoveDocuments={onMoveLibraryDocuments!}
-          onRenameFolder={onRenameLibraryFolder!}
-          onViewDocument={onViewDocument}
-        />
-      )}
-
-      {(!canShowUploadedTree || nonUploadGroups.length > 0 || uploadDocs.length === 0) && (
-        <DocumentList
-          groupedDocs={canShowUploadedTree ? nonUploadGroups : groupedDocs}
+      {view === 'gallery' ? (
+        <LibraryGalleryView
+          category={galleryCategory}
           collapsedAuthors={collapsedAuthors}
           docFilterLower={docFilterLower}
-          emptyMessage={
-            allDocuments.length === 0
-              ? t('library.documents.empty')
-              : audioSavedOnly
-                ? t('library.documents.emptySavedAudio')
-                : documentFilter.trim()
-                  ? t('library.documents.emptyFilter')
-                  : t('library.documents.empty')
-          }
+          groupedDocs={groupedDocs}
+          savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
+          documentOpening={documentOpening}
+          mutationDisabled={operationBusy}
+          openingDocumentUrl={openingDocumentUrl}
+          emptyMessage={emptyMessage(allDocuments.length, audioSavedOnly, documentFilter, t)}
+          onCategoryChange={(category) => {
+            setGalleryCategory(category)
+            savePreference(CATEGORY_STORAGE_KEY, category)
+          }}
+          onDeleteDocument={onDeleteDocument}
           onToggleAuthor={onToggleAuthor}
           onViewDocument={onViewDocument}
-          onDeleteDocument={onDeleteDocument}
-          deleteDisabled={operationBusy || documentOpening}
-          openingDocumentUrl={openingDocumentUrl}
-          viewDisabled={documentOpening}
         />
+      ) : (
+        <>
+          {canShowUploadedTree && libraryOrganization && (
+            <UploadedLibraryTree
+              documents={uploadDocs}
+              organization={libraryOrganization}
+              documentOpening={documentOpening}
+              mutationDisabled={operationBusy}
+              resetEditing={importBusy}
+              openingDocumentUrl={openingDocumentUrl}
+              onCreateFolder={onCreateLibraryFolder!}
+              onDeleteDocuments={onDeleteDocuments!}
+              onDeleteFolder={onDeleteLibraryFolder!}
+              onMoveDocuments={onMoveLibraryDocuments!}
+              onRenameFolder={onRenameLibraryFolder!}
+              onViewDocument={onViewDocument}
+            />
+          )}
+
+          {(!canShowUploadedTree || nonUploadGroups.length > 0 || uploadDocs.length === 0) && (
+            <DocumentList
+              groupedDocs={canShowUploadedTree ? nonUploadGroups : groupedDocs}
+              collapsedAuthors={collapsedAuthors}
+              docFilterLower={docFilterLower}
+              emptyMessage={emptyMessage(allDocuments.length, audioSavedOnly, documentFilter, t)}
+              onToggleAuthor={onToggleAuthor}
+              onViewDocument={onViewDocument}
+              onDeleteDocument={onDeleteDocument}
+              deleteDisabled={operationBusy || documentOpening}
+              openingDocumentUrl={openingDocumentUrl}
+              viewDisabled={documentOpening}
+            />
+          )}
+        </>
       )}
     </Panel>
   )
+}
+
+type LibraryView = 'gallery' | 'list'
+
+const VIEW_STORAGE_KEY = 'papercut.library-view.v1'
+const CATEGORY_STORAGE_KEY = 'papercut.library-gallery-category.v1'
+
+function emptyMessage(documentCount: number, audioSavedOnly: boolean, filter: string, t: TFunction): string {
+  if (documentCount === 0) return t('library.documents.empty')
+  if (audioSavedOnly) return t('library.documents.emptySavedAudio')
+  return filter.trim() ? t('library.documents.emptyFilter') : t('library.documents.empty')
+}
+
+function loadView(): LibraryView {
+  try {
+    return window.localStorage.getItem(VIEW_STORAGE_KEY) === 'gallery' ? 'gallery' : 'list'
+  } catch {
+    return 'list'
+  }
+}
+
+function loadCategory(): LibraryGalleryCategory {
+  try {
+    return window.localStorage.getItem(CATEGORY_STORAGE_KEY) === 'documents' ? 'documents' : 'books'
+  } catch {
+    return 'books'
+  }
+}
+
+function savePreference(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(key, value)
+  } catch {
+    // The view still changes when preference persistence is unavailable.
+  }
 }

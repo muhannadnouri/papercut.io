@@ -83,7 +83,16 @@
       "empty": "No documents available yet.",
       "emptySavedAudio": "No documents with saved audio.",
       "emptyFilter": "No documents match the filter.",
-      "audiobookImport": "Audiobook import, not indexed for search"
+      "audiobookImport": "Audiobook import, not indexed for search",
+      "viewLabel": "Library view",
+      "galleryView": "Gallery",
+      "listView": "List",
+      "categoryLabel": "Library category",
+      "books": "Books ({{count, number}})",
+      "documentCategory": "Documents ({{count, number}})",
+      "emptyBooks": "No books match the current filters.",
+      "emptyCategoryDocuments": "No documents match the current filters.",
+      "savedAudioAvailable": "Saved audio available"
     },
     "import": {
       "files": "Files",
@@ -190,6 +199,8 @@
     "zoomReset": "Reset",
     "data": "Data",
     "transferLibrary": "Transfer Library",
+    "developer": "Developer",
+    "developerMode": "Enable Developer Mode",
     "version": "Version",
     "versionLoading": "Loading...",
     "versionUnavailable": "Unavailable",

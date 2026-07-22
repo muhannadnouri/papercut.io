@@ -87,7 +87,16 @@
       "empty": "Aún no hay documentos disponibles.",
       "emptySavedAudio": "No hay documentos con audio guardado.",
       "emptyFilter": "Ningún documento coincide con el filtro.",
-      "audiobookImport": "Importación de audiolibros, no indexados para búsqueda"
+      "audiobookImport": "Importación de audiolibros, no indexados para búsqueda",
+      "viewLabel": "Vista de la biblioteca",
+      "galleryView": "Galería",
+      "listView": "Lista",
+      "categoryLabel": "Categoría de la biblioteca",
+      "books": "Libros ({{count, number}})",
+      "documentCategory": "Documentos ({{count, number}})",
+      "emptyBooks": "Ningún libro coincide con los filtros actuales.",
+      "emptyCategoryDocuments": "Ningún documento coincide con los filtros actuales.",
+      "savedAudioAvailable": "Audio guardado disponible"
     },
     "import": {
       "files": "Archivos",
@@ -195,6 +204,8 @@
     "zoomReset": "Restablecer",
     "data": "Datos",
     "transferLibrary": "Transferir biblioteca",
+    "developer": "Desarrollador",
+    "developerMode": "Activar el modo de desarrollador",
     "version": "Versión",
     "versionLoading": "Cargando...",
     "versionUnavailable": "Indisponible",

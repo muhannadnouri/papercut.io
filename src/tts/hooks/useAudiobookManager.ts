@@ -623,6 +623,7 @@ export function useAudiobookManager({
     openSavedAudiobook,
     prepareDocumentOpen,
     refreshSavedAudiobooks,
+    savedAudiobookDocumentUrls,
     setAudioSavedOnly,
     ttsHighlight: {
       enabled: Boolean(ttsState.currentText),

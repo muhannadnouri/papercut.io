@@ -129,6 +129,7 @@ function App() {
     openSavedAudiobook,
     prepareDocumentOpen,
     refreshSavedAudiobooks,
+    savedAudiobookDocumentUrls,
     setAudioSavedOnly,
     ttsHighlight,
   } = audiobook
@@ -289,6 +290,8 @@ function App() {
               <AppSettings
                 themeChoice={theme.choice}
                 onThemeChange={theme.setChoice}
+                developerMode={ttsDiagnosticsEnabled}
+                onDeveloperModeChange={handleTtsDiagnosticsChange}
                 libraryDocumentCount={uploadedDocuments.length}
                 onLibraryImported={handleLibraryTransferImported}
               />
@@ -320,6 +323,8 @@ function App() {
           <AppSettings
             themeChoice={theme.choice}
             onThemeChange={theme.setChoice}
+            developerMode={ttsDiagnosticsEnabled}
+            onDeveloperModeChange={handleTtsDiagnosticsChange}
             libraryDocumentCount={uploadedDocuments.length}
             onLibraryImported={handleLibraryTransferImported}
           />
@@ -367,6 +372,8 @@ function App() {
             showDocuments={showDocuments}
             allDocuments={libraryDocuments}
             audioSavedOnly={audioSavedOnly}
+            developerMode={ttsDiagnosticsEnabled}
+            savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
             documentFilter={libraryDocumentFilter}
             groupedDocs={libraryGroupedDocs}
             docFilterLower={libraryDocFilterLower}

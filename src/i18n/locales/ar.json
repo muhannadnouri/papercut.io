@@ -99,7 +99,16 @@
       "empty": "لا توجد مستندات بعد.",
       "emptySavedAudio": "لا توجد مستندات ذات صوت محفوظ.",
       "emptyFilter": "لا توجد مستندات تطابق عامل التصفية.",
-      "audiobookImport": "كتاب صوتي مستورد، غير مفهرس للبحث"
+      "audiobookImport": "كتاب صوتي مستورد، غير مفهرس للبحث",
+      "viewLabel": "عرض المكتبة",
+      "galleryView": "معرض",
+      "listView": "قائمة",
+      "categoryLabel": "فئة المكتبة",
+      "books": "الكتب ({{count, number}})",
+      "documentCategory": "المستندات ({{count, number}})",
+      "emptyBooks": "لا توجد كتب تطابق عوامل التصفية الحالية.",
+      "emptyCategoryDocuments": "لا توجد مستندات تطابق عوامل التصفية الحالية.",
+      "savedAudioAvailable": "يتوفر صوت محفوظ"
     },
     "import": {
       "files": "ملفات",
@@ -210,6 +219,8 @@
     "zoomReset": "إعادة الضبط",
     "data": "البيانات",
     "transferLibrary": "نقل المكتبة",
+    "developer": "المطور",
+    "developerMode": "تفعيل وضع المطور",
     "version": "الإصدار",
     "versionLoading": "جارٍ التحميل...",
     "versionUnavailable": "غير متاح",

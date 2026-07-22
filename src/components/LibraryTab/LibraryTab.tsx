@@ -17,10 +17,12 @@ interface LibraryTabProps {
   documentFilter: string
   documentImport: DocumentImportStatus
   documentOpening: boolean
+  developerMode: boolean
   documentsLoading: boolean
   groupedDocs: AuthorGroup[]
   libraryOrganization: UploadedLibraryOrganization
   openingDocumentUrl?: string
+  savedAudiobookDocumentUrls: ReadonlySet<string>
   showDocuments: boolean
   onAudioSavedOnlyChange: (enabled: boolean) => void
   onCreateLibraryFolder: (parentId: string | null, name: string) => void | Promise<void>
@@ -46,10 +48,12 @@ export function LibraryTab({
   documentFilter,
   documentImport,
   documentOpening,
+  developerMode,
   documentsLoading,
   groupedDocs,
   libraryOrganization,
   openingDocumentUrl,
+  savedAudiobookDocumentUrls,
   showDocuments,
   onAudioSavedOnlyChange,
   onCreateLibraryFolder,
@@ -107,7 +111,9 @@ export function LibraryTab({
         importStatuses={statusMessage ? [{ status: documentImport.status, message: statusMessage }] : []}
         libraryOrganization={libraryOrganization}
         documentOpening={documentOpening}
+        developerMode={developerMode}
         openingDocumentUrl={openingDocumentUrl}
+        savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
         collapsedAuthors={collapsedAuthors}
         onToggleShow={onToggleShow}
         onFilterChange={onFilterChange}

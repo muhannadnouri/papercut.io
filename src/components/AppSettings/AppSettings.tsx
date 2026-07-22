@@ -24,6 +24,8 @@ const ZOOM_STEP = 10
 interface AppSettingsProps {
   themeChoice: ThemeChoice
   onThemeChange: (choice: ThemeChoice) => void
+  developerMode: boolean
+  onDeveloperModeChange: (enabled: boolean) => void
   libraryDocumentCount: number
   onLibraryImported: () => void | Promise<void>
 }
@@ -31,6 +33,8 @@ interface AppSettingsProps {
 export function AppSettings({
   themeChoice,
   onThemeChange,
+  developerMode,
+  onDeveloperModeChange,
   libraryDocumentCount,
   onLibraryImported,
 }: AppSettingsProps) {
@@ -167,6 +171,22 @@ export function AppSettings({
               </button>
             </section>
           )}
+
+          <section className="app-settings-section app-settings-developer" aria-labelledby="app-settings-developer">
+            <h3 id="app-settings-developer">{t('settings.developer')}</h3>
+            <div className="app-setting">
+              <span id="app-setting-developer-mode">{t('settings.developerMode')}</span>
+              <label className="app-settings-switch">
+                <input
+                  type="checkbox"
+                  checked={developerMode}
+                  aria-labelledby="app-setting-developer-mode"
+                  onChange={(event) => onDeveloperModeChange(event.target.checked)}
+                />
+                <span aria-hidden="true" />
+              </label>
+            </div>
+          </section>
 
           <div className="app-settings-version">
             <span>{t('settings.version')}</span>

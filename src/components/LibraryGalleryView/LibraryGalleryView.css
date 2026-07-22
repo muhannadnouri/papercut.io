@@ -1,0 +1,191 @@
+.library-view-options,
+.library-gallery-categories {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.library-view-option,
+.library-gallery-category {
+  min-height: 2rem;
+  padding: 0 0.65rem;
+  border: 0;
+  border-inline-end: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-body);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.library-view-option:last-child,
+.library-gallery-category:last-child {
+  border-inline-end: 0;
+}
+
+.library-view-option:hover,
+.library-view-option:focus-visible,
+.library-gallery-category:hover,
+.library-gallery-category:focus-visible {
+  color: var(--accent-text);
+  background: var(--surface-accent);
+  outline: none;
+}
+
+.library-view-option.active,
+.library-gallery-category.active {
+  color: var(--accent-strong);
+  background: var(--surface-accent-strong);
+}
+
+.library-gallery-view {
+  padding-block-end: 0.75rem;
+}
+
+.library-gallery-categories {
+  margin: 0.75rem 1.25rem;
+}
+
+.library-gallery-category {
+  min-width: 8.5rem;
+  min-height: 2.25rem;
+}
+
+.library-book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 10.5rem));
+  gap: 1rem 0.85rem;
+  justify-content: start;
+  padding: 0 1.25rem 0.5rem;
+}
+
+.library-book-card {
+  display: grid;
+  gap: 0.38rem;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-body);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.library-book-card:disabled {
+  cursor: wait;
+}
+
+.library-book-cover {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  padding: 0.8rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  color: #fff;
+  box-shadow: 0 3px 8px var(--shadow-subtle);
+  transition: border-color 0.15s, box-shadow 0.15s, translate 0.15s;
+}
+
+.library-book-cover bdi {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.library-book-card:hover .library-book-cover,
+.library-book-card:focus-visible .library-book-cover {
+  border-color: var(--accent-text);
+  box-shadow: 0 0 0 3px var(--shadow-focus), 0 4px 10px var(--shadow-subtle);
+  translate: 0 -2px;
+}
+
+.library-book-card:focus-visible {
+  outline: none;
+}
+
+.library-book-card.opening .library-book-cover {
+  border-color: var(--accent-text);
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+.library-book-audio {
+  position: absolute;
+  inset-block-start: 0.45rem;
+  inset-inline-end: 0.45rem;
+  display: grid;
+  place-items: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 90%);
+  color: #12182a;
+  font-size: 0.85rem;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 20%);
+}
+
+.library-book-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  min-height: 2.45em;
+  font-size: 0.82rem;
+  font-weight: 650;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.library-book-format {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.library-book-cover.placeholder-0 { background: #355070; }
+.library-book-cover.placeholder-1 { background: #6d597a; }
+.library-book-cover.placeholder-2 { background: #3a6b5d; }
+.library-book-cover.placeholder-3 { background: #8a4f4f; }
+.library-book-cover.placeholder-4 { background: #526a8a; }
+.library-book-cover.placeholder-5 { background: #6f6246; }
+
+@media (max-width: 600px) {
+  .library-view-options {
+    order: 4;
+    width: 100%;
+  }
+
+  .library-view-option {
+    min-height: 2.35rem;
+  }
+
+  .library-gallery-categories {
+    display: grid;
+    margin-inline: 0.75rem;
+  }
+
+  .library-gallery-category {
+    min-width: 0;
+  }
+
+  .library-book-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-inline: 0.75rem;
+  }
+}
