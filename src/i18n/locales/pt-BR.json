@@ -85,7 +85,7 @@
       "future": "Futuro",
       "savedAudio": "Áudio salvo",
       "empty": "Ainda não há documentos disponíveis.",
-      "emptySavedAudio": "Nenhuma correspondência de áudio salva.",
+      "emptySavedAudio": "Nenhum documento com áudio salvo.",
       "emptyFilter": "Nenhum documento corresponde ao filtro.",
       "audiobookImport": "Importação de audiolivro, não indexada para pesquisa"
     },

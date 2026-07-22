@@ -77,7 +77,7 @@
       "future": "未来",
       "savedAudio": "已保存的音频",
       "empty": "尚无可用文件。",
-      "emptySavedAudio": "没有保存的音频匹配。",
+      "emptySavedAudio": "没有包含已保存音频的文档。",
       "emptyFilter": "没有文档与过滤器匹配。",
       "audiobookImport": "有声读物导入，未建立搜索索引"
     },

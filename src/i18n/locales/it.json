@@ -85,7 +85,7 @@
       "future": "Futuro",
       "savedAudio": "Audio salvato",
       "empty": "Nessun documento ancora disponibile.",
-      "emptySavedAudio": "Nessuna corrispondenza audio salvata.",
+      "emptySavedAudio": "Nessun documento con audio salvato.",
       "emptyFilter": "Nessun documento corrisponde al filtro.",
       "audiobookImport": "Importazione di audiolibri, non indicizzati per la ricerca"
     },

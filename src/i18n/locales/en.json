@@ -81,7 +81,7 @@
       "future": "Future",
       "savedAudio": "Saved Audio",
       "empty": "No documents available yet.",
-      "emptySavedAudio": "No saved audio matches.",
+      "emptySavedAudio": "No documents with saved audio.",
       "emptyFilter": "No documents match the filter.",
       "audiobookImport": "Audiobook import, not indexed for search"
     },

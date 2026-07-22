@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import i18n from '../../i18n'
-import type { DocumentInfo, SearchResult } from '../../types/search'
+import type { DocumentInfo } from '../../types/search'
 import type { UploadedDocument } from '../../uploads/DocumentUploads'
-import {
-  createAudiobookId,
-  type SavedAudiobookRecord,
-} from '../storage/AudiobookLibrary'
+import type { SavedAudiobookRecord } from '../storage/AudiobookLibrary'
 import {
   createAudiobookDownloadId,
   type AudiobookDownloadRecord,
@@ -142,7 +139,10 @@ export function useAudiobookManager({
     reset: resetSelectedAudiobookState,
   } = useAudiobookCache()
 
-  const savedAudiobookIds = useMemo(() => new Set(savedAudiobooks.map((record) => record.id)), [savedAudiobooks])
+  const savedAudiobookDocumentUrls = useMemo(
+    () => new Set(savedAudiobooks.map((record) => record.documentUrl)),
+    [savedAudiobooks],
+  )
 
   const getDocumentTitle = useCallback((url: string): string => {
     return uploadedDocuments.find((doc) => doc.url === url)?.title
@@ -471,28 +471,8 @@ export function useAudiobookManager({
   }, [setTtsModelId])
 
   const includeDocumentInList = useCallback((doc: DocumentInfo) => (
-    !audioSavedOnly || savedAudiobookIds.has(createAudiobookId(doc.url, {
-      modelId: ttsModelId,
-      textPreprocessor: ttsTextPreprocessor,
-      voice: ttsVoice,
-      speed: ttsSpeed,
-      dtype: ttsDtype,
-      silmaNfeStep,
-    }))
-  ), [audioSavedOnly, savedAudiobookIds, silmaNfeStep, ttsDtype, ttsModelId, ttsSpeed, ttsTextPreprocessor, ttsVoice])
-
-  const filterResults = useCallback((results: SearchResult[]) => (
-    audioSavedOnly
-      ? results.filter((result) => savedAudiobookIds.has(createAudiobookId(result.url, {
-        modelId: ttsModelId,
-        textPreprocessor: ttsTextPreprocessor,
-        voice: ttsVoice,
-        speed: ttsSpeed,
-        dtype: ttsDtype,
-        silmaNfeStep,
-      })))
-      : results
-  ), [audioSavedOnly, savedAudiobookIds, silmaNfeStep, ttsDtype, ttsModelId, ttsSpeed, ttsTextPreprocessor, ttsVoice])
+    !audioSavedOnly || savedAudiobookDocumentUrls.has(doc.url)
+  ), [audioSavedOnly, savedAudiobookDocumentUrls])
 
   const ttsIsNavigable = ttsState.status === 'playing' ||
     ttsState.status === 'loading' ||
@@ -626,7 +606,6 @@ export function useAudiobookManager({
       onRemoveQueued: handleRemoveAudiobookDownload,
       onResumeQueued: handleResumeAudiobookDownload,
     },
-    filterResults,
     hasFloatingAudioControls: ttsIsNavigable,
     importAudiobook,
     includeDocumentInList,
