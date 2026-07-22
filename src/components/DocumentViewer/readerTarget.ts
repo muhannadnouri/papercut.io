@@ -1,4 +1,8 @@
 import { isIOSWebKit } from '../../utils/platform'
+import {
+  findReaderTextMatches,
+  type ReaderTextMatch,
+} from './readerTextRanges'
 
 const SEARCH_TARGET_HIGHLIGHT_NAME = 'search-target'
 
@@ -27,42 +31,17 @@ export function clearSearchTargetHighlight(root: HTMLElement): void {
 // then scroll to the Range rect. The DOM fallback is only for non-iOS WebViews
 // that do not expose CSS.highlights.
 export function highlightFirstSearchTarget(root: HTMLElement, text: string): Range | null {
-  const range = findFirstSearchTargetRange(root, text)
-  if (!range) return null
+  const match = findReaderTextMatches(root, text, 1)[0]
+  if (!match) return null
+  const { range } = match
   if (setSearchTargetRegistryHighlight(root.ownerDocument, range)) return range
 
   if (!isIOSWebKit()) {
-    const mark = markRangeSearchTarget(range)
+    const mark = markSearchTargetMatch(match)
     return mark ? rangeForElement(mark) : range
   }
 
   return range
-}
-
-// Finds the first visible text-node occurrence that matches the result snippet.
-// This is intentionally a simple first-match locator because search cards are
-// document-level summaries; durable section/page locators are the later scalable
-// fix for repeated phrases in very large books.
-function findFirstSearchTargetRange(root: HTMLElement, text: string): Range | null {
-  const query = text.trim().toLowerCase()
-  if (!query) return null
-
-  const doc = root.ownerDocument
-  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT)
-  let node: Node | null
-  while ((node = walker.nextNode())) {
-    if (node.parentElement?.closest('script, style, noscript, svg')) continue
-    const value = node.textContent ?? ''
-    const at = value.toLowerCase().indexOf(query)
-    if (at < 0) continue
-
-    const range = doc.createRange()
-    range.setStart(node, at)
-    range.setEnd(node, at + query.length)
-    return range
-  }
-
-  return null
 }
 
 // Own one CSS Highlight registry entry. Do not clear the whole registry here:
@@ -84,29 +63,31 @@ function clearSearchTargetRegistry(doc: Document): void {
   registry.delete(SEARCH_TARGET_HIGHLIGHT_NAME)
 }
 
-// Last-resort compatibility for older non-iOS WebViews. It only handles the
-// single-text-node ranges created above; cross-node wrapping is avoided because
-// the search-result target is a convenience jump, not a full document highlighter.
-function markRangeSearchTarget(range: Range): HTMLElement | null {
-  const doc = range.startContainer.ownerDocument
-  if (!doc) return null
-  if (range.startContainer !== range.endContainer || range.startContainer.nodeType !== Node.TEXT_NODE) return null
+// Older non-iOS WebViews keep the existing DOM fallback. Each Text node is
+// wrapped independently so inline formatting remains intact across the match.
+function markSearchTargetMatch(match: ReaderTextMatch): HTMLElement | null {
+  let firstMark: HTMLElement | null = null
+  for (const part of match.parts) {
+    const parent = part.node.parentNode
+    if (!parent) continue
+    const doc = part.node.ownerDocument
+    const text = part.node.data
+    const mark = doc.createElement('mark')
+    mark.dataset.searchTarget = 'true'
+    mark.textContent = text.slice(part.startOffset, part.endOffset)
 
-  const text = range.startContainer.textContent ?? ''
-  const start = range.startOffset
-  const end = range.endOffset
-  const mark = doc.createElement('mark')
-  mark.dataset.searchTarget = 'true'
-  mark.textContent = text.slice(start, end)
-
-  const fragment = doc.createDocumentFragment()
-  if (start > 0) fragment.appendChild(doc.createTextNode(text.slice(0, start)))
-  fragment.appendChild(mark)
-  if (end < text.length) {
-    fragment.appendChild(doc.createTextNode(text.slice(end)))
+    const fragment = doc.createDocumentFragment()
+    if (part.startOffset > 0) {
+      fragment.appendChild(doc.createTextNode(text.slice(0, part.startOffset)))
+    }
+    fragment.appendChild(mark)
+    if (part.endOffset < text.length) {
+      fragment.appendChild(doc.createTextNode(text.slice(part.endOffset)))
+    }
+    parent.replaceChild(fragment, part.node)
+    firstMark ??= mark
   }
-  range.startContainer.parentNode?.replaceChild(fragment, range.startContainer)
-  return mark
+  return firstMark
 }
 
 function rangeForElement(element: Element): Range {
