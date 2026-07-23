@@ -1,0 +1,53 @@
+import { describe, expect, it } from 'vitest'
+import type { DocumentInfo } from '../../types/search'
+import {
+  buildBundledDocumentTree,
+  bundledDocumentFolderNames,
+} from './bundledDocuments'
+
+describe('buildBundledDocumentTree', () => {
+  it('preserves nested bundled folders and descendant counts', () => {
+    const tree = buildBundledDocumentTree([
+      document('Published', '/documents/johnSmith/publishings/book.html'),
+      document('Draft', '/documents/johnSmith/notes/draft.html'),
+      document('Root page', '/documents/root.html'),
+    ], 'en')
+
+    expect(tree.documentCount).toBe(3)
+    expect(tree.documents.map((item) => item.title)).toEqual(['Root page'])
+    expect(tree.folders[0]).toMatchObject({
+      id: '/documents/johnSmith',
+      name: 'johnSmith',
+      documentCount: 2,
+    })
+    expect(tree.folders[0].folders.map((folder) => folder.name)).toEqual([
+      'notes',
+      'publishings',
+    ])
+  })
+
+  it('keeps duplicate filenames distinct by their canonical URLs', () => {
+    const tree = buildBundledDocumentTree([
+      document('First copy', '/documents/first/shared.html'),
+      document('Second copy', '/documents/second/shared.html'),
+    ], 'en')
+
+    expect(tree.folders.map((folder) => folder.documents[0].url)).toEqual([
+      '/documents/first/shared.html',
+      '/documents/second/shared.html',
+    ])
+  })
+})
+
+describe('bundledDocumentFolderNames', () => {
+  it('decodes each directory and ignores filenames, queries, and hashes', () => {
+    expect(bundledDocumentFolderNames(
+      '/documents/John%20Smith/Research%20Notes/page.html?view=1#section',
+    )).toEqual(['John Smith', 'Research Notes'])
+    expect(bundledDocumentFolderNames('/documents/root.html')).toEqual([])
+  })
+})
+
+function document(title: string, url: string): DocumentInfo {
+  return { title, url, format: 'html', source: 'bundled' }
+}
