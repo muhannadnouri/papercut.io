@@ -3,10 +3,11 @@ import { useTranslation } from 'react-i18next'
 import type { DocumentInfo } from '../../types/search'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
 import type { UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
+import { BundledDocumentTree } from '../BundledDocumentTree/BundledDocumentTree'
 import { Panel } from '../Panel/Panel'
 import { DocumentList } from '../DocumentList/DocumentList'
 import { UploadedLibraryTree } from '../UploadedLibraryTree/UploadedLibraryTree'
-import { splitDocumentGroupsByUpload } from '../DocumentBrowser/documentGroups'
+import { splitDocumentGroupsBySource } from '../DocumentBrowser/documentGroups'
 import '../DocumentBrowser/DocumentBrowser.css'
 
 interface SearchScopeProps {
@@ -47,8 +48,15 @@ export function SearchScope({
   const scopeLabel = count === 0
     ? t('search.scope.allDocuments')
     : t('search.scope.documentCount', { count })
-  const { uploadDocs, nonUploadGroups } = splitDocumentGroupsByUpload(groupedDocs)
+  const {
+    uploadDocs,
+    bundledDocs,
+    nonBundledGroups,
+    otherGroups,
+  } = splitDocumentGroupsBySource(groupedDocs)
   const showUploadedTree = Boolean(libraryOrganization && uploadDocs.length > 0)
+  const documentListGroups = showUploadedTree ? otherGroups : nonBundledGroups
+  const hasFolderTree = bundledDocs.length > 0 || showUploadedTree
   const selectedFilterUrls = useMemo(() => {
     const collator = new Intl.Collator(i18n.resolvedLanguage ?? i18n.language, {
       numeric: true,
@@ -103,10 +111,21 @@ export function SearchScope({
           />
         )}
 
-        {(nonUploadGroups.length > 0 || !showUploadedTree) && (
+        {bundledDocs.length > 0 && (
+          <BundledDocumentTree
+            mode="filter"
+            documents={bundledDocs}
+            filterActive={docFilterLower.length > 0}
+            selectedFilters={selectedFilters}
+            onToggleFilter={onToggleFilter}
+            onToggleAllInGroup={onToggleAllInGroup}
+          />
+        )}
+
+        {(documentListGroups.length > 0 || !hasFolderTree) && (
           <DocumentList
             selectable
-            groupedDocs={showUploadedTree ? nonUploadGroups : groupedDocs}
+            groupedDocs={documentListGroups}
             collapsedAuthors={collapsedAuthors}
             docFilterLower={docFilterLower}
             selectedFilters={selectedFilters}

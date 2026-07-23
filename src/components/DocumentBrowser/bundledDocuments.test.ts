@@ -4,6 +4,7 @@ import {
   buildBundledDocumentTree,
   bundledDocumentFolderNames,
 } from './bundledDocuments'
+import { splitDocumentGroupsBySource } from './documentGroups'
 
 describe('buildBundledDocumentTree', () => {
   it('preserves nested bundled folders and descendant counts', () => {
@@ -48,6 +49,27 @@ describe('bundledDocumentFolderNames', () => {
   })
 })
 
-function document(title: string, url: string): DocumentInfo {
-  return { title, url, format: 'html', source: 'bundled' }
+describe('splitDocumentGroupsBySource', () => {
+  it('keeps bundled, uploaded, and audiobook documents on separate render paths', () => {
+    const uploaded = document('Upload', '/uploads/123.html', 'upload')
+    const bundled = document('Bundled', '/documents/source/page.html', 'bundled')
+    const audiobook = document('Audiobook', '/user-uploads/book.html', 'audiobook-upload')
+    const split = splitDocumentGroupsBySource([{
+      author: 'Mixed',
+      docs: [uploaded, bundled, audiobook],
+    }])
+
+    expect(split.uploadDocs).toEqual([uploaded])
+    expect(split.bundledDocs).toEqual([bundled])
+    expect(split.otherGroups[0].docs).toEqual([audiobook])
+    expect(split.nonBundledGroups[0].docs).toEqual([uploaded, audiobook])
+  })
+})
+
+function document(
+  title: string,
+  url: string,
+  source: DocumentInfo['source'] = 'bundled',
+): DocumentInfo {
+  return { title, url, format: 'html', source }
 }

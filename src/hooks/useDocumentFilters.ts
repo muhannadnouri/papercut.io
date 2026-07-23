@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { DocumentInfo } from '../types/search'
+import { bundledDocumentFolderNames } from '../components/DocumentBrowser/bundledDocuments'
 import { deriveAuthor, UNCATEGORIZED } from '../utils/documentUtils'
 
 export interface AuthorGroup {
@@ -67,10 +68,15 @@ export function useDocumentFilters(
           : derivedAuthor === UNCATEGORIZED
             ? t('library.groups.uncategorized')
             : derivedAuthor
+      const bundledFolderMatches = doc.source === 'bundled' &&
+        bundledDocumentFolderNames(doc.url).some((folder) => (
+          folder.toLocaleLowerCase(locale).includes(docFilterLower)
+        ))
       if (
         docFilterLower.length > 0 &&
         !doc.title.toLocaleLowerCase(locale).includes(docFilterLower) &&
-        !author.toLocaleLowerCase(locale).includes(docFilterLower)
+        !author.toLocaleLowerCase(locale).includes(docFilterLower) &&
+        !bundledFolderMatches
       ) {
         continue
       }

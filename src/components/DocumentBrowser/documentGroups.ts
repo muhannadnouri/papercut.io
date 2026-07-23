@@ -1,17 +1,23 @@
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
 
 /**
- * Split grouped documents into the two render paths used by the document browser.
+ * Split grouped documents into the render paths used by the document browser.
  *
- * Uploaded documents are rendered through UploadedLibraryTree so folder organization
- * can be shared by Library and Search. Everything else stays grouped by author/source
- * for the simpler DocumentList path.
+ * Uploaded and bundled documents use their respective folder trees. Imported
+ * audiobook documents stay grouped for the simpler DocumentList path.
  */
-export function splitDocumentGroupsByUpload(groupedDocs: AuthorGroup[]) {
+export function splitDocumentGroupsBySource(groupedDocs: AuthorGroup[]) {
   const uploadDocs = groupedDocs.flatMap((group) => group.docs.filter((doc) => doc.source === 'upload'))
-  const nonUploadGroups = groupedDocs
-    .map((group) => ({ ...group, docs: group.docs.filter((doc) => doc.source !== 'upload') }))
+  const bundledDocs = groupedDocs.flatMap((group) => group.docs.filter((doc) => doc.source === 'bundled'))
+  const nonBundledGroups = groupedDocs
+    .map((group) => ({ ...group, docs: group.docs.filter((doc) => doc.source !== 'bundled') }))
+    .filter((group) => group.docs.length > 0)
+  const otherGroups = groupedDocs
+    .map((group) => ({
+      ...group,
+      docs: group.docs.filter((doc) => doc.source !== 'upload' && doc.source !== 'bundled'),
+    }))
     .filter((group) => group.docs.length > 0)
 
-  return { uploadDocs, nonUploadGroups }
+  return { uploadDocs, bundledDocs, nonBundledGroups, otherGroups }
 }
