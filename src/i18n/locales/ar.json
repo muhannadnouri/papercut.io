@@ -414,7 +414,7 @@
       "preparingSave": "جارٍ إعداد حفظ الكتاب الصوتي",
       "saveProgress": "بلغ حفظ الكتاب الصوتي {{percent, number}}٪. افتح قسم الكتب الصوتية لإدارته.",
       "saveProgressTitle": "جارٍ الحفظ بنسبة {{percent, number}}٪ - الإدارة من قسم الكتب الصوتية",
-      "savedForVoice": "حُفظ الكتاب الصوتي لهذا الصوت وسرعة التوليد",
+      "savedForCurrentSetup": "تم حفظ الكتاب الصوتي للإعداد الحالي",
       "save": "حفظ الكتاب الصوتي",
       "saveCurrentSetup": "حفظ الكتاب الصوتي بالإعداد الحالي",
       "savedVersions": "الكتب الصوتية المحفوظة ({{count, number}})",

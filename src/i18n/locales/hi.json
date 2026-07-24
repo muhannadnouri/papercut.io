@@ -390,7 +390,7 @@
       "preparingSave": "ऑडियोबुक सेव तैयार किया जा रहा है",
       "saveProgress": "ऑडियोबुक सेव {{percent, number}}% है। इसे प्रबंधित करने के लिए ऑडियोबुक खोलें।",
       "saveProgressTitle": "{{percent, number}}% की बचत - ऑडियोबुक में प्रबंधित करें",
-      "savedForVoice": "इस आवाज़ के लिए ऑडियोबुक सहेजा गया और गति उत्पन्न की गई",
+      "savedForCurrentSetup": "मौजूदा सेटअप के लिए ऑडियोबुक सहेजी गई",
       "save": "ऑडियोबुक सहेजें",
       "saveCurrentSetup": "मौजूदा सेटअप के साथ ऑडियोबुक सहेजें",
       "savedVersions": "सहेजी गई ऑडियोबुक ({{count, number}})",

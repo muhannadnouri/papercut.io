@@ -384,7 +384,7 @@
       "preparingSave": "准备有声读物保存",
       "saveProgress": "有声读物保存率为 {{percent, number}}%。打开有声读物进行管理。",
       "saveProgressTitle": "节省 {{percent, number}}% - 在有声读物中管理",
-      "savedForVoice": "为此语音保存的有声读物和生成的速度",
+      "savedForCurrentSetup": "已为当前设置保存有声读物",
       "save": "保存有声读物",
       "saveCurrentSetup": "使用当前设置保存有声读物",
       "savedVersions": "已保存的有声读物（{{count, number}}）",

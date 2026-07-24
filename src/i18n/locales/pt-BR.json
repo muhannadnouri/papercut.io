@@ -396,7 +396,7 @@
       "preparingSave": "Preparando o salvamento do audiolivro",
       "saveProgress": "O salvamento do audiolivro é {{percent, number}}%. Abra Audiolivros para gerenciá-lo.",
       "saveProgressTitle": "Economizando {{percent, number}}% - gerencie em audiolivros",
-      "savedForVoice": "Audiolivro salvo para esta voz e velocidade gerada",
+      "savedForCurrentSetup": "Audiolivro salvo para a configuração atual",
       "save": "Salvar audiolivro",
       "saveCurrentSetup": "Salvar audiolivro com a configuração atual",
       "savedVersions": "Audiolivros salvos ({{count, number}})",
