@@ -411,7 +411,7 @@
       "preparingSave": "Préparation de la sauvegarde du livre audio",
       "saveProgress": "La sauvegarde du livre audio est de {{percent, number}}%. Ouvrez les livres audio pour le gérer.",
       "saveProgressTitle": "Économie de {{percent, number}}% - gérer dans les livres audio",
-      "savedForVoice": "Livre audio enregistré pour cette voix et vitesse générée",
+      "savedForCurrentSetup": "Livre audio enregistré pour la configuration actuelle",
       "save": "Enregistrer le livre audio",
       "saveCurrentSetup": "Enregistrer le livre audio avec la configuration actuelle",
       "savedVersions": "Livres audio enregistrés ({{count, number}})",

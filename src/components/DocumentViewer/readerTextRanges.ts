@@ -25,6 +25,11 @@ interface SearchTextPoint {
   endOffset: number
 }
 
+interface ReaderTextSegment {
+  nodes: Text[]
+  breaksBefore: boolean[]
+}
+
 // Match the reader's rendered text inside each readable block. Inline markup
 // remains transparent, while block boundaries prevent unrelated paragraphs
 // from becoming one accidental match.
@@ -36,18 +41,19 @@ export function findReaderTextMatches(
   if (limit <= 0) return []
 
   const matches: ReaderTextMatch[] = []
-  for (const textNodes of collectReaderTextSegments(root)) {
+  for (const segment of collectReaderTextSegments(root)) {
     const remaining = limit - matches.length
     if (remaining <= 0) break
 
     const partMatches = findTextPartMatches(
-      textNodes.map((node) => node.data),
+      segment.nodes.map((node) => node.data),
       query,
       remaining,
+      segment.breaksBefore,
     )
     for (const partMatch of partMatches) {
       const parts = partMatch.map((part) => ({
-        node: textNodes[part.partIndex],
+        node: segment.nodes[part.partIndex],
         startOffset: part.startOffset,
         endOffset: part.endOffset,
       }))
@@ -70,11 +76,12 @@ export function findTextPartMatches(
   parts: readonly string[],
   query: string,
   limit = Number.POSITIVE_INFINITY,
+  breaksBefore: readonly boolean[] = [],
 ): TextPartMatch[][] {
   const needle = normalizeSearchQuery(query)
   if (!needle || limit <= 0) return []
 
-  const { text, points } = buildSearchText(parts)
+  const { text, points } = buildSearchText(parts, breaksBefore)
   const matches: TextPartMatch[][] = []
   let at = text.indexOf(needle)
   while (at >= 0 && matches.length < limit) {
@@ -86,30 +93,58 @@ export function findTextPartMatches(
   return matches
 }
 
-function collectReaderTextSegments(root: HTMLElement): Text[][] {
-  const segments: Array<{ owner: Element; nodes: Text[] }> = []
+function collectReaderTextSegments(root: HTMLElement): ReaderTextSegment[] {
+  const segments: Array<ReaderTextSegment & { owner: Element }> = []
   const fallback: Text[] = []
-  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  const fallbackBreaksBefore: boolean[] = []
+  const walker = root.ownerDocument.createTreeWalker(
+    root,
+    NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+  )
+  let pendingBreakOwner: Element | null = null
+  let pendingFallbackBreak = false
   let current: Node | null
 
   while ((current = walker.nextNode())) {
+    if (current instanceof Element) {
+      if (
+        current.tagName === 'BR'
+        && !current.closest(READER_TEXT_SKIP_SELECTOR)
+      ) {
+        pendingBreakOwner = current.parentElement
+          ? nearestReadableOwner(current.parentElement, root)
+          : null
+        pendingFallbackBreak = true
+      }
+      continue
+    }
+
     const node = current as Text
     const parent = node.parentElement
     if (!parent || parent.closest(READER_TEXT_SKIP_SELECTOR)) continue
     fallback.push(node)
+    fallbackBreaksBefore.push(pendingFallbackBreak)
+    pendingFallbackBreak = false
 
     const owner = nearestReadableOwner(parent, root)
     if (!owner) continue
     const previous = segments[segments.length - 1]
-    if (previous?.owner === owner) previous.nodes.push(node)
-    else segments.push({ owner, nodes: [node] })
+    if (previous?.owner === owner) {
+      previous.breaksBefore.push(pendingBreakOwner === owner)
+      previous.nodes.push(node)
+    } else {
+      segments.push({ owner, nodes: [node], breaksBefore: [false] })
+    }
+    if (pendingBreakOwner === owner) pendingBreakOwner = null
   }
 
   const readable = segments
-    .map((segment) => segment.nodes)
-    .filter((nodes) => nodes.some((node) => /\S/.test(node.data)))
+    .filter((segment) => segment.nodes.some((node) => /\S/.test(node.data)))
+    .map(({ nodes, breaksBefore }) => ({ nodes, breaksBefore }))
   if (readable.length > 0) return readable
-  return fallback.some((node) => /\S/.test(node.data)) ? [fallback] : []
+  return fallback.some((node) => /\S/.test(node.data))
+    ? [{ nodes: fallback, breaksBefore: fallbackBreaksBefore }]
+    : []
 }
 
 function nearestReadableOwner(element: Element, root: HTMLElement): Element | null {
@@ -122,7 +157,10 @@ function nearestReadableOwner(element: Element, root: HTMLElement): Element | nu
   return null
 }
 
-function buildSearchText(parts: readonly string[]): {
+function buildSearchText(
+  parts: readonly string[],
+  breaksBefore: readonly boolean[],
+): {
   text: string
   points: SearchTextPoint[]
 } {
@@ -136,6 +174,11 @@ function buildSearchText(parts: readonly string[]): {
   }
 
   parts.forEach((part, partIndex) => {
+    // A <br> has no Text node of its own. Map its searchable space to a
+    // zero-width point; trimmed queries ensure it can never become a range end.
+    if (breaksBefore[partIndex] && text && !pendingWhitespace) {
+      pendingWhitespace = { partIndex, startOffset: 0, endOffset: 0 }
+    }
     for (let offset = 0; offset < part.length;) {
       const codePoint = part.codePointAt(offset)
       if (codePoint === undefined) break

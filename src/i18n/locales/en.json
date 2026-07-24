@@ -405,7 +405,7 @@
       "preparingSave": "Preparing audiobook save",
       "saveProgress": "Audiobook save is {{percent, number}}%. Open Audiobooks to manage it.",
       "saveProgressTitle": "Saving {{percent, number}}% - manage in Audiobooks",
-      "savedForVoice": "Audiobook saved for this voice and generated speed",
+      "savedForCurrentSetup": "Audiobook saved for the current setup",
       "save": "Save audiobook",
       "saveCurrentSetup": "Save Audiobook with Current Setup",
       "savedVersions": "Saved Audiobooks ({{count, number}})",
