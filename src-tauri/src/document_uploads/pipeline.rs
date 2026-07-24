@@ -126,14 +126,14 @@ fn existing_upload<R: Runtime>(
 fn persist_document<R: Runtime>(
     app: &tauri::AppHandle<R>,
     id: String,
-    parsed: ParsedDocument,
+    mut parsed: ParsedDocument,
     bytes: u64,
 ) -> Result<UploadedDocument, String> {
     let imported_at_ms = now_ms()?;
     let url = format!("{UPLOAD_URL_PREFIX}{id}.html");
     let dir = upload_dir(app, &id)?;
     let mut db = open_db(app)?;
-    write_and_index_document(&dir, &mut db, &id, &url, &parsed, imported_at_ms, bytes)?;
+    write_and_index_document(&dir, &mut db, &id, &url, &mut parsed, imported_at_ms, bytes)?;
     let cover_media_type = parsed
         .cover
         .as_ref()
@@ -181,7 +181,7 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
     }
     let dir = upload_dir(app, &id)?;
     let mut db = open_db(app)?;
-    write_and_index_document(&dir, &mut db, &id, &url, &parsed, imported_at_ms, bytes)?;
+    write_and_index_document(&dir, &mut db, &id, &url, &mut parsed, imported_at_ms, bytes)?;
     let cover_media_type = parsed
         .cover
         .as_ref()
@@ -199,14 +199,15 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
     })
 }
 
-/// Keep filesystem and SQLite failures from leaving a newly created upload
-/// directory behind. A process crash can still interrupt the two storage systems.
+/// Validate an optional cover before storing its bytes or metadata, then keep
+/// filesystem and SQLite failures from leaving an incomplete upload directory.
+/// A process crash can still interrupt the two storage systems.
 fn write_and_index_document(
     dir: &Path,
     db: &mut rusqlite::Connection,
     id: &str,
     url: &str,
-    parsed: &ParsedDocument,
+    parsed: &mut ParsedDocument,
     imported_at_ms: u128,
     bytes: u64,
 ) -> Result<(), String> {
@@ -215,11 +216,16 @@ fn write_and_index_document(
     let result = (|| {
         fs::write(dir.join("source.html"), parsed.view_html.as_bytes())
             .map_err(|err| format!("Failed to write imported document source: {err}"))?;
-        if let Some(cover) = &parsed.cover {
-            fs::write(dir.join(cover.file_name), &cover.bytes)
-                .map_err(|err| format!("Failed to write imported document cover: {err}"))?;
-            if let Err(error) = write_thumbnail(dir, &cover.bytes) {
-                log::warn!("Skipping unusable imported document cover thumbnail: {error}");
+        if let Some(cover) = parsed.cover.take() {
+            match write_thumbnail(dir, &cover.bytes) {
+                Ok(()) => {
+                    fs::write(dir.join(cover.file_name), &cover.bytes)
+                        .map_err(|err| format!("Failed to write imported document cover: {err}"))?;
+                    parsed.cover = Some(cover);
+                }
+                Err(error) => {
+                    log::warn!("Skipping unusable imported document cover: {error}");
+                }
             }
         }
         upsert_document(db, id, url, parsed, imported_at_ms, bytes)
@@ -399,7 +405,7 @@ mod tests {
     use rusqlite::Connection;
 
     use super::{delete_stored_document, stored_cover_file_name, write_and_index_document};
-    use crate::document_uploads::parsed::{ParsedDocument, ParsedSection};
+    use crate::document_uploads::parsed::{ParsedDocument, ParsedDocumentCover, ParsedSection};
 
     #[test]
     fn stored_cover_names_are_fixed_to_safe_raster_types() {
@@ -410,7 +416,7 @@ mod tests {
     }
 
     #[test]
-    fn failed_index_write_removes_incomplete_upload_directory() {
+    fn invalid_cover_is_dropped_before_failed_index_cleanup() {
         let dir = std::env::temp_dir().join(format!(
             "papercut-upload-cleanup-{}-{}",
             std::process::id(),
@@ -419,7 +425,7 @@ mod tests {
                 .expect("clock")
                 .as_nanos()
         ));
-        let parsed = ParsedDocument {
+        let mut parsed = ParsedDocument {
             title: "Test".into(),
             format: "html".into(),
             view_html: "<html><body>Test</body></html>".into(),
@@ -427,15 +433,20 @@ mod tests {
                 heading: None,
                 text: "Test".into(),
             }],
-            cover: None,
+            cover: Some(ParsedDocumentCover {
+                media_type: "image/png",
+                file_name: "cover.png",
+                bytes: b"not an image".to_vec(),
+            }),
         };
         let mut db = Connection::open_in_memory().expect("open database without upload schema");
 
         let error =
-            write_and_index_document(&dir, &mut db, "abc", "/uploads/abc.html", &parsed, 1, 4)
+            write_and_index_document(&dir, &mut db, "abc", "/uploads/abc.html", &mut parsed, 1, 4)
                 .expect_err("missing schema must fail");
 
         assert!(error.contains("Document upload database error"));
+        assert!(parsed.cover.is_none());
         assert!(!dir.exists());
         let _ = fs::remove_dir_all(dir);
     }
