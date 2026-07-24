@@ -4,7 +4,9 @@
 //! and row deletion. Search-time reads live in [`super::search`]; this module
 //! keeps everything that defines or mutates the database layout.
 
-use rusqlite::{params, Connection, OptionalExtension, Row};
+use std::time::Duration;
+
+use rusqlite::{params, Connection, OptionalExtension, Row, TransactionBehavior};
 use tauri::Runtime;
 
 use super::parsed::ParsedDocument;
@@ -18,7 +20,7 @@ pub(crate) fn list_uploads<R: Runtime>(
     let db = open_db(app)?;
     let mut stmt = db
         .prepare(
-            "SELECT id, url, title, format, imported_at_ms, bytes, sections \
+            "SELECT id, url, title, format, imported_at_ms, bytes, sections, cover_media_type \
              FROM uploaded_documents ORDER BY imported_at_ms DESC",
         )
         .map_err(db_err)?;
@@ -35,7 +37,7 @@ pub(crate) fn find_upload_by_id(
     id: &str,
 ) -> Result<Option<UploadedDocument>, String> {
     db.query_row(
-        "SELECT id, url, title, format, imported_at_ms, bytes, sections \
+        "SELECT id, url, title, format, imported_at_ms, bytes, sections, cover_media_type \
          FROM uploaded_documents WHERE id = ?1",
         [id],
         uploaded_document_from_row,
@@ -53,6 +55,7 @@ fn uploaded_document_from_row(row: &Row<'_>) -> rusqlite::Result<UploadedDocumen
         imported_at_ms: row.get::<_, i64>(4)? as u128,
         bytes: row.get::<_, i64>(5)? as u64,
         sections: row.get::<_, i64>(6)? as usize,
+        cover_media_type: row.get(7)?,
     })
 }
 
@@ -64,15 +67,21 @@ pub(crate) fn open_db<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Connectio
     let root = uploads_root(app)?;
     std::fs::create_dir_all(&root)
         .map_err(|err| format!("Failed to create upload storage {}: {err}", root.display()))?;
-    let db = Connection::open(root.join("search.sqlite3")).map_err(db_err)?;
+    let mut db = Connection::open(root.join("search.sqlite3")).map_err(db_err)?;
+    db.busy_timeout(Duration::from_secs(5)).map_err(db_err)?;
     db.execute_batch(
         "PRAGMA journal_mode = WAL;
-         PRAGMA foreign_keys = ON;
-         CREATE TABLE IF NOT EXISTS upload_schema_metadata (
+         PRAGMA foreign_keys = ON;",
+    )
+    .map_err(db_err)?;
+    let tx = db
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(db_err)?;
+    tx.execute_batch(
+        "CREATE TABLE IF NOT EXISTS upload_schema_metadata (
            key TEXT PRIMARY KEY,
            value TEXT NOT NULL
          );
-         INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('schema_version', '2');
          CREATE TABLE IF NOT EXISTS uploaded_documents (
            id TEXT PRIMARY KEY,
            url TEXT NOT NULL UNIQUE,
@@ -80,7 +89,8 @@ pub(crate) fn open_db<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Connectio
            format TEXT NOT NULL,
            imported_at_ms INTEGER NOT NULL,
            bytes INTEGER NOT NULL,
-           sections INTEGER NOT NULL
+           sections INTEGER NOT NULL,
+           cover_media_type TEXT
          );
          CREATE TABLE IF NOT EXISTS uploaded_sections (
            id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -125,7 +135,36 @@ pub(crate) fn open_db<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Connectio
            SELECT id, NULL, -imported_at_ms FROM uploaded_documents;",
     )
     .map_err(db_err)?;
+    ensure_cover_metadata_column(&tx)?;
+    tx.execute(
+        "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('schema_version', '3')",
+        [],
+    )
+    .map_err(db_err)?;
+    tx.commit().map_err(db_err)?;
     Ok(db)
+}
+
+/// Add nullable cover metadata to existing version-2 databases without rebuilding
+/// their document, folder, section, or FTS tables.
+fn ensure_cover_metadata_column(db: &Connection) -> Result<(), String> {
+    let mut stmt = db
+        .prepare("PRAGMA table_info(uploaded_documents)")
+        .map_err(db_err)?;
+    let columns = stmt
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(db_err)?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(db_err)?;
+    drop(stmt);
+    if !columns.iter().any(|column| column == "cover_media_type") {
+        db.execute(
+            "ALTER TABLE uploaded_documents ADD COLUMN cover_media_type TEXT",
+            [],
+        )
+        .map_err(db_err)?;
+    }
+    Ok(())
 }
 
 /// Remove a document's metadata, section, and FTS rows in one transaction so
@@ -168,15 +207,16 @@ pub(crate) fn upsert_document(
         .map_err(db_err)?;
     tx.execute(
         "INSERT INTO uploaded_documents \
-         (id, url, title, format, imported_at_ms, bytes, sections) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) \
+         (id, url, title, format, imported_at_ms, bytes, sections, cover_media_type) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) \
          ON CONFLICT(id) DO UPDATE SET \
            url = excluded.url, \
            title = excluded.title, \
            format = excluded.format, \
            imported_at_ms = excluded.imported_at_ms, \
            bytes = excluded.bytes, \
-           sections = excluded.sections",
+           sections = excluded.sections, \
+           cover_media_type = excluded.cover_media_type",
         params![
             id,
             url,
@@ -185,6 +225,7 @@ pub(crate) fn upsert_document(
             imported_at_ms as i64,
             bytes as i64,
             parsed.sections.len() as i64,
+            parsed.cover.as_ref().map(|cover| cover.media_type),
         ],
     )
     .map_err(db_err)?;
@@ -223,7 +264,7 @@ pub(crate) fn db_err(err: rusqlite::Error) -> String {
 mod tests {
     use rusqlite::Connection;
 
-    use super::{find_upload_by_id, upsert_document};
+    use super::{ensure_cover_metadata_column, find_upload_by_id, upsert_document};
     use crate::document_uploads::parsed::{ParsedDocument, ParsedSection};
 
     /// Regression test for SQLite's `INSERT OR REPLACE` footgun:
@@ -295,6 +336,27 @@ mod tests {
         assert_eq!(fts_count, 2);
     }
 
+    #[test]
+    fn adds_cover_metadata_to_existing_upload_schema() {
+        let db = Connection::open_in_memory().expect("open database");
+        db.execute("CREATE TABLE uploaded_documents (id TEXT PRIMARY KEY)", [])
+            .expect("create old schema");
+
+        ensure_cover_metadata_column(&db).expect("migrate cover metadata");
+        ensure_cover_metadata_column(&db).expect("migration remains idempotent");
+
+        let has_cover_column = db
+            .prepare("PRAGMA table_info(uploaded_documents)")
+            .expect("inspect schema")
+            .query_map([], |row| row.get::<_, String>(1))
+            .expect("read columns")
+            .collect::<Result<Vec<_>, _>>()
+            .expect("collect columns")
+            .iter()
+            .any(|column| column == "cover_media_type");
+        assert!(has_cover_column);
+    }
+
     /// Minimal in-memory schema for `upsert_document` without booting a Tauri app.
     fn test_db() -> Connection {
         let db = Connection::open_in_memory().expect("open test db");
@@ -307,7 +369,8 @@ mod tests {
                format TEXT NOT NULL,
                imported_at_ms INTEGER NOT NULL,
                bytes INTEGER NOT NULL,
-               sections INTEGER NOT NULL
+               sections INTEGER NOT NULL,
+               cover_media_type TEXT
              );
              CREATE TABLE uploaded_sections (
                id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -360,6 +423,7 @@ mod tests {
                     text: (*text).to_string(),
                 })
                 .collect(),
+            cover: None,
         }
     }
 }

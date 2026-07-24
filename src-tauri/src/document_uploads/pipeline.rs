@@ -8,10 +8,14 @@ use std::fs;
 use std::io::Read;
 use std::path::Path;
 
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use tauri::Runtime;
 use tauri_plugin_dialog::FilePath;
 use tauri_plugin_fs::FsExt;
 
+use super::cover::{
+    backfill_thumbnail, write_thumbnail, THUMBNAIL_FILE_NAME, THUMBNAIL_MEDIA_TYPE,
+};
 use super::epub::parse_epub_document;
 use super::html::{decode_html_bytes, parse_html_document, sanitize_html};
 use super::parsed::ParsedDocument;
@@ -25,6 +29,8 @@ use super::types::{
     UploadedDocument, UploadedDocumentDeleteRequest, UploadedDocumentDeleteResult,
     UploadedDocumentSourceRequest,
 };
+
+const MAX_STORED_COVER_BYTES: u64 = 5 * 1024 * 1024;
 
 /// Import one already-selected HTML source without coupling parsing to a picker.
 pub(crate) fn import_html_source<R: Runtime>(
@@ -120,14 +126,18 @@ fn existing_upload<R: Runtime>(
 fn persist_document<R: Runtime>(
     app: &tauri::AppHandle<R>,
     id: String,
-    parsed: ParsedDocument,
+    mut parsed: ParsedDocument,
     bytes: u64,
 ) -> Result<UploadedDocument, String> {
     let imported_at_ms = now_ms()?;
     let url = format!("{UPLOAD_URL_PREFIX}{id}.html");
     let dir = upload_dir(app, &id)?;
     let mut db = open_db(app)?;
-    write_and_index_document(&dir, &mut db, &id, &url, &parsed, imported_at_ms, bytes)?;
+    write_and_index_document(&dir, &mut db, &id, &url, &mut parsed, imported_at_ms, bytes)?;
+    let cover_media_type = parsed
+        .cover
+        .as_ref()
+        .map(|cover| cover.media_type.to_string());
 
     Ok(UploadedDocument {
         id,
@@ -137,6 +147,7 @@ fn persist_document<R: Runtime>(
         imported_at_ms,
         bytes,
         sections: parsed.sections.len(),
+        cover_media_type,
     })
 }
 
@@ -170,7 +181,11 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
     }
     let dir = upload_dir(app, &id)?;
     let mut db = open_db(app)?;
-    write_and_index_document(&dir, &mut db, &id, &url, &parsed, imported_at_ms, bytes)?;
+    write_and_index_document(&dir, &mut db, &id, &url, &mut parsed, imported_at_ms, bytes)?;
+    let cover_media_type = parsed
+        .cover
+        .as_ref()
+        .map(|cover| cover.media_type.to_string());
 
     Ok(UploadedDocument {
         id,
@@ -180,25 +195,41 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
         imported_at_ms,
         bytes,
         sections: parsed.sections.len(),
+        cover_media_type,
     })
 }
 
-/// Keep filesystem and SQLite failures from leaving a newly created upload
-/// directory behind. A process crash can still interrupt the two storage systems.
+/// Validate an optional cover before storing its bytes or metadata, then keep
+/// filesystem and SQLite failures from leaving an incomplete upload directory.
+/// A process crash can still interrupt the two storage systems.
 fn write_and_index_document(
     dir: &Path,
     db: &mut rusqlite::Connection,
     id: &str,
     url: &str,
-    parsed: &ParsedDocument,
+    parsed: &mut ParsedDocument,
     imported_at_ms: u128,
     bytes: u64,
 ) -> Result<(), String> {
     fs::create_dir_all(&dir)
         .map_err(|err| format!("Failed to create upload directory {}: {err}", dir.display()))?;
-    let result = fs::write(dir.join("source.html"), parsed.view_html.as_bytes())
-        .map_err(|err| format!("Failed to write imported document source: {err}"))
-        .and_then(|_| upsert_document(db, id, url, parsed, imported_at_ms, bytes));
+    let result = (|| {
+        fs::write(dir.join("source.html"), parsed.view_html.as_bytes())
+            .map_err(|err| format!("Failed to write imported document source: {err}"))?;
+        if let Some(cover) = parsed.cover.take() {
+            match write_thumbnail(dir, &cover.bytes) {
+                Ok(()) => {
+                    fs::write(dir.join(cover.file_name), &cover.bytes)
+                        .map_err(|err| format!("Failed to write imported document cover: {err}"))?;
+                    parsed.cover = Some(cover);
+                }
+                Err(error) => {
+                    log::warn!("Skipping unusable imported document cover: {error}");
+                }
+            }
+        }
+        upsert_document(db, id, url, parsed, imported_at_ms, bytes)
+    })();
     if let Err(error) = result {
         fs::remove_dir_all(dir).map_err(|cleanup_error| {
             format!(
@@ -223,6 +254,73 @@ pub(crate) fn get_source<R: Runtime>(
     // Re-sanitize on read so documents imported by older app versions cannot
     // bypass a newer security policy merely because their stored file persists.
     Ok(sanitize_html(&source))
+}
+
+/// Return only a display-sized cover associated with a validated upload URL.
+///
+/// The database MIME value selects a fixed filename, so neither the frontend nor
+/// stored metadata can turn this command into arbitrary app-data file access.
+/// Existing imports receive the same persisted thumbnail lazily on first access.
+pub(crate) fn get_cover<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    request: UploadedDocumentSourceRequest,
+) -> Result<Option<String>, String> {
+    let id = upload_id_from_url(&request.document_url)?;
+    let db = open_db(app)?;
+    let Some(document) = find_upload_by_id(&db, &id)? else {
+        return Ok(None);
+    };
+    let Some(media_type) = document.cover_media_type.as_deref() else {
+        return Ok(None);
+    };
+    let Some(file_name) = stored_cover_file_name(media_type) else {
+        return Ok(None);
+    };
+    let dir = upload_dir(app, &id)?;
+    let source_path = dir.join(file_name);
+    let thumbnail_path = dir.join(THUMBNAIL_FILE_NAME);
+    if !thumbnail_path.is_file() {
+        match backfill_thumbnail(&dir, &source_path) {
+            Ok(()) => {}
+            Err(_) if !source_path.is_file() => return Ok(None),
+            Err(error) => {
+                log::warn!("Skipping unusable uploaded document cover thumbnail: {error}");
+                return Ok(None);
+            }
+        }
+    }
+    let mut file = match fs::File::open(&thumbnail_path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => {
+            return Err(format!(
+                "Failed to open uploaded document cover thumbnail {}: {error}",
+                thumbnail_path.display()
+            ))
+        }
+    };
+    let mut bytes = Vec::new();
+    file.by_ref()
+        .take(MAX_STORED_COVER_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("Failed to read uploaded document cover: {error}"))?;
+    if bytes.len() as u64 > MAX_STORED_COVER_BYTES {
+        return Err("Uploaded document cover thumbnail exceeds the 5 MB limit".into());
+    }
+    Ok(Some(format!(
+        "data:{THUMBNAIL_MEDIA_TYPE};base64,{}",
+        BASE64_STANDARD.encode(bytes)
+    )))
+}
+
+fn stored_cover_file_name(media_type: &str) -> Option<&'static str> {
+    match media_type {
+        "image/png" => Some("cover.png"),
+        "image/jpeg" => Some("cover.jpg"),
+        "image/gif" => Some("cover.gif"),
+        "image/webp" => Some("cover.webp"),
+        _ => None,
+    }
 }
 
 /// Delete one upload through the same compensating filesystem/SQLite flow used
@@ -306,11 +404,19 @@ mod tests {
 
     use rusqlite::Connection;
 
-    use super::{delete_stored_document, write_and_index_document};
-    use crate::document_uploads::parsed::{ParsedDocument, ParsedSection};
+    use super::{delete_stored_document, stored_cover_file_name, write_and_index_document};
+    use crate::document_uploads::parsed::{ParsedDocument, ParsedDocumentCover, ParsedSection};
 
     #[test]
-    fn failed_index_write_removes_incomplete_upload_directory() {
+    fn stored_cover_names_are_fixed_to_safe_raster_types() {
+        assert_eq!(stored_cover_file_name("image/png"), Some("cover.png"));
+        assert_eq!(stored_cover_file_name("image/jpeg"), Some("cover.jpg"));
+        assert_eq!(stored_cover_file_name("image/svg+xml"), None);
+        assert_eq!(stored_cover_file_name("../../source.html"), None);
+    }
+
+    #[test]
+    fn invalid_cover_is_dropped_before_failed_index_cleanup() {
         let dir = std::env::temp_dir().join(format!(
             "papercut-upload-cleanup-{}-{}",
             std::process::id(),
@@ -319,7 +425,7 @@ mod tests {
                 .expect("clock")
                 .as_nanos()
         ));
-        let parsed = ParsedDocument {
+        let mut parsed = ParsedDocument {
             title: "Test".into(),
             format: "html".into(),
             view_html: "<html><body>Test</body></html>".into(),
@@ -327,14 +433,20 @@ mod tests {
                 heading: None,
                 text: "Test".into(),
             }],
+            cover: Some(ParsedDocumentCover {
+                media_type: "image/png",
+                file_name: "cover.png",
+                bytes: b"not an image".to_vec(),
+            }),
         };
         let mut db = Connection::open_in_memory().expect("open database without upload schema");
 
         let error =
-            write_and_index_document(&dir, &mut db, "abc", "/uploads/abc.html", &parsed, 1, 4)
+            write_and_index_document(&dir, &mut db, "abc", "/uploads/abc.html", &mut parsed, 1, 4)
                 .expect_err("missing schema must fail");
 
         assert!(error.contains("Document upload database error"));
+        assert!(parsed.cover.is_none());
         assert!(!dir.exists());
         let _ = fs::remove_dir_all(dir);
     }

@@ -24,6 +24,8 @@ const ZOOM_STEP = 10
 interface AppSettingsProps {
   themeChoice: ThemeChoice
   onThemeChange: (choice: ThemeChoice) => void
+  developerMode: boolean
+  onDeveloperModeChange: (enabled: boolean) => void
   libraryDocumentCount: number
   onLibraryImported: () => void | Promise<void>
 }
@@ -31,6 +33,8 @@ interface AppSettingsProps {
 export function AppSettings({
   themeChoice,
   onThemeChange,
+  developerMode,
+  onDeveloperModeChange,
   libraryDocumentCount,
   onLibraryImported,
 }: AppSettingsProps) {
@@ -168,6 +172,21 @@ export function AppSettings({
             </section>
           )}
 
+          <section className="app-settings-section app-settings-developer" aria-labelledby="app-settings-developer">
+            <h3 id="app-settings-developer">{t('settings.developer')}</h3>
+            <label className="app-setting app-setting-toggle">
+              <span>{t('settings.developerMode')}</span>
+              <span className="app-settings-switch">
+                <input
+                  type="checkbox"
+                  checked={developerMode}
+                  onChange={(event) => onDeveloperModeChange(event.target.checked)}
+                />
+                <span aria-hidden="true" />
+              </span>
+            </label>
+          </section>
+
           <div className="app-settings-version">
             <span>{t('settings.version')}</span>
             <strong>{versionLabel}</strong>
@@ -178,7 +197,10 @@ export function AppSettings({
       {transferOpen && (
         <LibraryTransferDialog
           documentCount={libraryDocumentCount}
-          onClose={() => setTransferOpen(false)}
+          onBack={() => {
+            setTransferOpen(false)
+            setOpen(true)
+          }}
           onImported={onLibraryImported}
         />
       )}

@@ -248,7 +248,7 @@ high-quality narration.
 
 ## Diagnostics
 
-The in-app TTS diagnostics panel is the primary way to monitor desktop and mobile builds without devtools. Enable it from Audiobooks -> Audio Setup -> Advanced -> Diagnostics, or with the existing debug flag during development. When enabled, the panel appears below the Audiobooks panel and model source/release details are shown inside Audio Setup; the normal Installed status remains visible even when diagnostics are off.
+The in-app TTS diagnostics panel is the primary way to monitor desktop and mobile builds without devtools. Enable it from App Settings -> Developer -> Enable Developer Mode, from Audiobooks -> Audio Setup -> Advanced -> Diagnostics, or with the existing debug flag during development. When enabled, the panel appears below the Audiobooks panel and model source/release details are shown inside Audio Setup; the normal Installed status remains visible even when diagnostics are off.
 
 The panel stores only the latest bounded set of events in localStorage, supports category and severity filters, and can copy the filtered events as JSON for bug reports. Capability events are summarized before logging so the panel shows useful fields such as model count and model ids instead of dumping large nested model objects. Nested diagnostic values are still preserved in bounded form when they are useful for debugging.
 

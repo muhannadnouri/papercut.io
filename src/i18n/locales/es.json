@@ -9,6 +9,7 @@
     "audiobooks": "Audiolibros"
   },
   "common": {
+    "back": "Atrás",
     "cancel": "Cancelar",
     "close": "Cerrar",
     "confirm": "Confirmar",
@@ -87,7 +88,16 @@
       "empty": "Aún no hay documentos disponibles.",
       "emptySavedAudio": "No hay documentos con audio guardado.",
       "emptyFilter": "Ningún documento coincide con el filtro.",
-      "audiobookImport": "Importación de audiolibros, no indexados para búsqueda"
+      "audiobookImport": "Importación de audiolibros, no indexados para búsqueda",
+      "viewLabel": "Vista de la biblioteca",
+      "galleryView": "Galería",
+      "listView": "Lista",
+      "categoryLabel": "Categoría de la biblioteca",
+      "books": "Libros ({{count, number}})",
+      "documentCategory": "Documentos ({{count, number}})",
+      "emptyBooks": "Ningún libro coincide con los filtros actuales.",
+      "emptyCategoryDocuments": "Ningún documento coincide con los filtros actuales.",
+      "savedAudioAvailable": "Audio guardado disponible"
     },
     "import": {
       "files": "Archivos",
@@ -107,6 +117,7 @@
       "batchComplete": "Importación completa. Importados: {{imported, number}}. Fallidos: {{failed, number}}.",
       "batchCancelled": "Importación detenida. Importados: {{imported, number}}. Fallidos: {{failed, number}}.",
       "failedFiles": "Archivos fallidos: {{count, number}}",
+      "dismissNotice": "Descartar aviso de la biblioteca",
       "preparingDeleteBatch": "Preparando la eliminación de documentos...",
       "deleteBatchProgress": "Eliminando {{processed, number}} de {{total, number}} documentos...",
       "deleteBatchProgressLabel": "Progreso de eliminación de documentos",
@@ -139,6 +150,8 @@
       "folderNotEmpty": "La carpeta no está vacía",
       "moveContentsFirst": "Saque el contenido primero.",
       "moveDocuments": "Mover documentos",
+      "chooseDestination": "Elegir destino...",
+      "folderSelected": "1 carpeta seleccionada",
       "selectDocumentsOnly": "Seleccionar sólo documentos...",
       "selectDocumentsFirst": "Seleccione documentos primero...",
       "root": "Raíz",
@@ -195,6 +208,8 @@
     "zoomReset": "Restablecer",
     "data": "Datos",
     "transferLibrary": "Transferir biblioteca",
+    "developer": "Desarrollador",
+    "developerMode": "Activar el modo de desarrollador",
     "version": "Versión",
     "versionLoading": "Cargando...",
     "versionUnavailable": "Indisponible",

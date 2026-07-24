@@ -22,7 +22,7 @@ import './LibraryTransferDialog.css'
 
 interface LibraryTransferDialogProps {
   documentCount: number
-  onClose: () => void
+  onBack: () => void
   onImported: () => void | Promise<void>
 }
 
@@ -37,7 +37,7 @@ type TransferStatus =
   | { state: 'imported'; result: LibraryTransferImportResult }
   | { state: 'error'; message: string }
 
-export function LibraryTransferDialog({ documentCount, onClose, onImported }: LibraryTransferDialogProps) {
+export function LibraryTransferDialog({ documentCount, onBack, onImported }: LibraryTransferDialogProps) {
   const { t, i18n } = useTranslation()
   const [mode, setMode] = useState<TransferMode>('send')
   const [status, setStatus] = useState<TransferStatus>({ state: 'idle' })
@@ -180,10 +180,10 @@ export function LibraryTransferDialog({ documentCount, onClose, onImported }: Li
     <AppDialog
       title={t('libraryTransfer.title')}
       description={t('libraryTransfer.description')}
-      onCancel={busy ? () => {} : onClose}
+      onCancel={busy ? () => {} : onBack}
       actions={(
-        <button type="button" className="app-dialog-submit" disabled={busy} onClick={onClose}>
-          {t('common.close')}
+        <button type="button" className="app-dialog-cancel" disabled={busy} onClick={onBack}>
+          {t('common.back')}
         </button>
       )}
     >

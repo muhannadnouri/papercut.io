@@ -27,6 +27,8 @@ type UploadedLibraryState = {
   organization: UploadedLibraryOrganization
 }
 
+const IMPORT_NOTICE_MS = 6000
+
 // Keep operation state locale-neutral so the owning UI can translate it and
 // isolate user titles without parsing preformatted English messages.
 export type DocumentImportStatus = {
@@ -40,6 +42,12 @@ export type DocumentImportStatus = {
   deleteProgress?: UploadedDocumentDeleteBatchProgress
   deleteResult?: UploadedDocumentDeleteBatchResult
   cancelRequested?: boolean
+}
+
+/** Auto-dismiss only outcomes that have no file-level failure details to retain. */
+export function shouldAutoDismissDocumentImport(status: DocumentImportStatus): boolean {
+  if (status.status !== 'imported' && status.status !== 'cancelled') return false
+  return (status.batchResult?.failures.length ?? 0) === 0
 }
 
 async function loadUploadedLibrary(): Promise<UploadedLibraryState> {
@@ -83,6 +91,18 @@ export function useUploadedLibrary() {
     }
   }, [applyUploadedLibrary])
 
+  useEffect(() => {
+    if (!shouldAutoDismissDocumentImport(documentImport)) return
+    const timer = window.setTimeout(() => {
+      setDocumentImport((current) => current === documentImport ? { status: 'idle' } : current)
+    }, IMPORT_NOTICE_MS)
+    return () => window.clearTimeout(timer)
+  }, [documentImport])
+
+  const dismissDocumentImportStatus = useCallback(() => {
+    setDocumentImport({ status: 'idle' })
+  }, [])
+
   /** Subscribe before opening the picker so even the first native progress event
    * is retained; both collection pickers share refresh and partial-result flow. */
   const importDocumentCollection = useCallback(async (
@@ -102,7 +122,9 @@ export function useUploadedLibrary() {
       const batchResult = await importer()
       if (batchResult.imported.length > 0) await refreshUploadedLibrary()
       setDocumentImport({
-        status: batchResult.cancelled ? 'cancelled' : 'imported',
+        status: batchResult.failures.length > 0
+          ? 'error'
+          : batchResult.cancelled ? 'cancelled' : 'imported',
         format,
         batchResult,
       })
@@ -254,6 +276,7 @@ export function useUploadedLibrary() {
     deleteDocument,
     deleteDocuments,
     deleteLibraryFolder,
+    dismissDocumentImportStatus,
     documentImport,
     importDocumentBatch,
     importDocumentFolder,

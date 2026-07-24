@@ -17,16 +17,19 @@ interface LibraryTabProps {
   documentFilter: string
   documentImport: DocumentImportStatus
   documentOpening: boolean
+  developerMode: boolean
   documentsLoading: boolean
   groupedDocs: AuthorGroup[]
   libraryOrganization: UploadedLibraryOrganization
   openingDocumentUrl?: string
+  savedAudiobookDocumentUrls: ReadonlySet<string>
   showDocuments: boolean
   onAudioSavedOnlyChange: (enabled: boolean) => void
   onCreateLibraryFolder: (parentId: string | null, name: string) => void | Promise<void>
   onDeleteDocument: (doc: DocumentInfo) => void | Promise<void>
   onDeleteDocuments: (docs: DocumentInfo[]) => Promise<UploadedDocumentDeleteBatchResult | null>
   onDeleteLibraryFolder: (folderId: string) => void | Promise<void>
+  onDismissDocumentImportStatus: () => void
   onFilterChange: (value: string) => void
   onCancelDocumentBatch: () => void | Promise<void>
   onImportDocumentBatch: () => void | Promise<void>
@@ -46,16 +49,19 @@ export function LibraryTab({
   documentFilter,
   documentImport,
   documentOpening,
+  developerMode,
   documentsLoading,
   groupedDocs,
   libraryOrganization,
   openingDocumentUrl,
+  savedAudiobookDocumentUrls,
   showDocuments,
   onAudioSavedOnlyChange,
   onCreateLibraryFolder,
   onDeleteDocument,
   onDeleteDocuments,
   onDeleteLibraryFolder,
+  onDismissDocumentImportStatus,
   onFilterChange,
   onCancelDocumentBatch,
   onImportDocumentBatch,
@@ -104,10 +110,16 @@ export function LibraryTab({
           }] : []),
           // { id: 'pdf', label: 'PDF', detail: 'Import PDFs when text extraction support lands', future: true },
         ]}
-        importStatuses={statusMessage ? [{ status: documentImport.status, message: statusMessage }] : []}
+        importStatuses={statusMessage ? [{
+          status: documentImport.status,
+          message: statusMessage,
+          onDismiss: operationBusy ? undefined : onDismissDocumentImportStatus,
+        }] : []}
         libraryOrganization={libraryOrganization}
         documentOpening={documentOpening}
+        developerMode={developerMode}
         openingDocumentUrl={openingDocumentUrl}
+        savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
         collapsedAuthors={collapsedAuthors}
         onToggleShow={onToggleShow}
         onFilterChange={onFilterChange}
@@ -186,7 +198,7 @@ function DocumentBatchDeleteStatus({
       : status.message
 
   return (
-    <div className="document-batch-status" aria-live="polite">
+    <div className="document-batch-status">
       <div className="document-batch-status-row">
         <span>{message}</span>
       </div>
@@ -260,7 +272,7 @@ function DocumentBatchImportStatus({
   }
 
   return (
-    <div className="document-batch-status" aria-live="polite">
+    <div className="document-batch-status">
       <div className="document-batch-status-row">
         <span>{message}</span>
         {importing && (

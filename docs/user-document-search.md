@@ -28,8 +28,8 @@ Frontend:
 
 - `src/uploads/DocumentUploads.ts` is the small client API for user-upload commands and shared TypeScript types.
 - `src/App.tsx` wires upload/search state into reusable hooks and components, and provides source loading for uploaded URLs.
-- `src/components/DocumentsPanel/DocumentsPanel.tsx` owns the document dropdown UI, including the option-driven Import menu, Saved audio filtering, uploaded-document management, and active filter chips. Uploaded documents can be rendered through the folder-aware tree UI, while bundled documents and audiobook imports keep the existing grouped list.
-- `src/components/UploadedLibraryTree/UploadedLibraryTree.tsx` renders uploaded-document organization using React Aria Components tree primitives. `src/components/SearchScope/SearchScope.tsx` reuses the same tree for the Search tab's **Filter By Document** panel, while Library **Manage** mode owns select-all, move, batch-delete, and create/rename/delete-empty-folder actions. Document and folder selection remain mutually exclusive so each action has one clear target type.
+- `src/components/DocumentsPanel/DocumentsPanel.tsx` owns the document dropdown UI, including the option-driven Import menu, Saved audio filtering, uploaded-document management, and active filter chips. Uploaded documents can be rendered through the folder-aware tree UI, while bundled documents and audiobook imports keep the existing grouped list. Developer Mode also exposes an experimental Gallery/List preference; `LibraryGalleryView` derives EPUB/PDF books from the existing format field and keeps HTML documents in the shared dense list. Newly imported EPUBs retain declared EPUB 2/3 raster covers and expose persisted display-sized thumbnails to visible gallery cards through a validated, size-bounded read command. Existing retained covers are thumbnailed lazily, while coverless imports keep the generated title placeholder.
+- `src/components/UploadedLibraryTree/UploadedLibraryTree.tsx` renders uploaded-document organization using React Aria Components tree primitives. `src/components/SearchScope/SearchScope.tsx` reuses the same tree for the Search tab's **Filter By Document** panel, while Library **Manage** mode exposes contextual select-all, move, batch-delete, and create/rename/delete-empty-folder actions for the current selection. Document and folder selection remain mutually exclusive so each action has one clear target type.
 - `src/components/DocumentViewer/DocumentViewer.tsx` owns the reader shell, viewer plugin resolution, in-document Find, same-document link scrolling, scroll-to-top behavior, and the slots used by TTS controls/diagnostics.
 - Search-result clicks can pass a lightweight reader target into `DocumentViewer`: a Pagefind heading hash when available and/or the first highlighted snippet text. The reader keeps the clean document URL, then jumps to the likely match after the document renders. Reader text matching spans inline markup such as emphasis, links, and bold text, treats explicit line breaks as normalized whitespace, and does not cross readable block boundaries. The preferred visual marker is a named CSS Highlight range so large iOS/WebKit reader DOMs are not rewritten just to mark a search result.
 - `src/hooks/useDocumentFilters.ts` owns document filter text, selected filters, author grouping, collapsed groups, and the optional inclusion predicate used by the Saved audio filter.
@@ -57,7 +57,7 @@ Storage:
 - Sanitized uploaded HTML is stored under Tauri app data at `document_uploads/{upload_id}/source.html`.
 - New upload ids are full SHA-256 hashes of the original file bytes. Existing timestamp-derived ids remain valid; the first re-import of a document created by an older app version may create one hash-identified copy, after which exact re-imports reuse it.
 - File and folder entry points share the same picker-independent per-file importer, so limits, parsing, duplicate handling, storage, and indexing cannot drift between UI paths.
-- **Files** can select one or up to 500 HTML/EPUB files. A single successful import opens immediately; larger selections remain in the Library with count-based progress, the current filename, cooperative cancellation between files, retained successful files when siblings fail, and an expandable per-file failure summary.
+- **Files** can select one or up to 500 HTML/EPUB files. A single successful import opens immediately; larger selections remain in the Library with count-based progress, the current filename, cooperative cancellation between files, retained successful files when siblings fail, and an expandable per-file failure summary. Successful and cancelled import notices dismiss automatically after six seconds; failures remain available until dismissed.
 - Android document providers may expose selected files through extensionless content URLs. In that ambiguous case Papercut reads only a small prefix to distinguish ZIP-based EPUB from HTML, then runs the same full size, EPUB-container, parser, and sanitizer validation used for named files.
 - Desktop builds can select one folder and feed up to 500 direct HTML/EPUB children into that same batch pipeline. Folder traversal is non-recursive and does not recreate the filesystem folder in Papercut.
 - Batch deletion is sequential and bounded like import: the frontend subscribes before invoking the native command, displays count progress, refreshes shared library state once, and keeps only failed documents selected after a partial result. Folder deletion remains metadata-only and requires an empty folder.
@@ -155,7 +155,7 @@ Yes, upload formats should have separate sanitization/parser modules. HTML, PDF,
 
 The shared output should be boring and stable:
 
-`{ title, format, viewHtml, sections: [{ ordinal, heading?, text, locator? }] }`
+`{ title, format, viewHtml, sections: [{ ordinal, heading?, text, locator? }], cover? }`
 
 Keeping this shape stable lets the UI and SQLite indexing remain format-agnostic. See [epub-implementation-plan.md](epub-implementation-plan.md) for the ordered EPUB task list and acceptance checks.
 
@@ -163,7 +163,7 @@ Keeping this shape stable lets the UI and SQLite indexing remain format-agnostic
 
 - Runtime import supports HTML and EPUB; PDF is not implemented yet.
 - HTML files must be at most 25 MB. UTF-8 is used directly; non-UTF-8 HTML can import when it declares a supported browser charset such as Windows-1252.
-- EPUB files must be readable ZIP-based EPUB archives with a valid container and OPF spine, and must be at most 100 MB. Only local PNG, JPEG, GIF, and WebP images are retained, with 5 MB per image and 30 MB total image caps.
+- EPUB files must be readable ZIP-based EPUB archives with a valid container and OPF spine, and must be at most 100 MB. Only local PNG, JPEG, GIF, and WebP images are retained, with 5 MB per image and 30 MB total reader-image caps. A declared EPUB 2/3 cover is retained beside the generated source only after the bounded thumbnail decoder validates it under the same 5 MB per-image cap; an invalid optional cover falls back to the generated title placeholder without failing the document import. The Library gallery serves the persisted display-sized PNG thumbnail rather than decoding the original cover. Existing imports with retained covers receive that thumbnail lazily on first gallery access; imports without cover metadata are not retroactively reparsed.
 - HTML and EPUB content use the parser-based `ammonia` allowlist before storage. The shared reader boundary validates browser-decoded URL schemes, preserves same-document footnote anchors and EPUB-generated raster images, and strips active elements, event handlers, inline styles, remote images, SVG data URLs, and unsupported links. Uploaded documents and audiobook-bundle sources are sanitized again when read so files retained from older app versions receive the current policy before entering the app DOM.
 - Uploaded-document search only runs inside the Tauri app, not plain browser preview.
 - Folder import is desktop-only, reads direct supported files only, and skips nested folders and symlinks.
@@ -176,7 +176,7 @@ Keeping this shape stable lets the UI and SQLite indexing remain format-agnostic
 ## Recommended Next Steps
 
 1. Add more EPUB parser fixtures for malformed OPF/container cases, spine edge cases, oversized image skipping, and metadata fallback.
-2. Detect EPUB 2/3 cover metadata and render a safe retained raster cover near the top of generated reading HTML, still respecting existing image caps and SVG skipping.
+2. Include retained covers in library-transfer packages so covers survive device-to-device transfer.
 3. Add a reindex action for uploaded documents if parser or sanitizer behavior changes after import.
 4. Add richer EPUB reader features such as TOC, location restore, pagination, EPUB-specific appearance controls, or a foliate-js/epub.js-backed viewer if generated reading HTML is not enough.
 5. Add a runtime PDF import module later that extracts page text and stores page records in the same SQLite schema.

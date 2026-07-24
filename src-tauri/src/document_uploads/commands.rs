@@ -12,7 +12,7 @@ use super::organization::{
     create_folder, delete_folder, list_organization, move_documents, move_folder, rename_folder,
     reorder,
 };
-use super::pipeline::{delete_upload, get_source};
+use super::pipeline::{delete_upload, get_cover, get_source};
 use super::search::search_uploads;
 use super::store::list_uploads;
 use super::types::{
@@ -87,6 +87,17 @@ pub async fn document_uploads_get_source<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || get_source(&app, request))
         .await
         .map_err(|err| format!("Document upload source task failed: {err}"))?
+}
+
+/// Read one retained EPUB cover through the validated upload boundary.
+#[tauri::command]
+pub async fn document_uploads_get_cover<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedDocumentSourceRequest,
+) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || get_cover(&app, request))
+        .await
+        .map_err(|err| format!("Document upload cover task failed: {err}"))?
 }
 
 /// Delete an uploaded document's rows and stored source directory.

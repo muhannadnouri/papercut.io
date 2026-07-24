@@ -55,6 +55,11 @@
   border-top: 1px solid var(--border);
 }
 
+.app-settings-developer {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
 .app-settings-data-action {
   display: inline-flex;
   align-items: center;
@@ -102,6 +107,69 @@
 .app-setting > span {
   color: var(--text-body);
   text-align: start;
+}
+
+.app-setting-toggle {
+  grid-template-columns: minmax(0, 1fr) auto;
+  cursor: pointer;
+}
+
+.app-setting-toggle > span:first-child {
+  overflow-wrap: anywhere;
+}
+
+.app-settings-switch {
+  position: relative;
+  grid-column: 2;
+  justify-self: end;
+  width: 2.35rem;
+  height: 1.35rem;
+  cursor: pointer;
+}
+
+.app-settings-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.app-settings-switch span {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.app-settings-switch span::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 0.17rem;
+  inset-inline-start: 0.18rem;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: translate 0.15s, background 0.15s;
+}
+
+.app-settings-switch input:checked + span {
+  border-color: var(--accent-text);
+  background: var(--accent-text);
+}
+
+.app-settings-switch input:checked + span::after {
+  background: var(--text-inverse);
+  translate: 1rem 0;
+}
+
+[dir='rtl'] .app-settings-switch input:checked + span::after {
+  translate: -1rem 0;
+}
+
+.app-settings-switch input:focus-visible + span {
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .app-setting-select {
@@ -247,5 +315,10 @@
   .app-setting-select,
   .app-theme-options {
     grid-column: 1;
+  }
+
+  .app-setting-toggle {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.75rem;
   }
 }

@@ -9,6 +9,7 @@
     "audiobooks": "ऑडियो पुस्तकें"
   },
   "common": {
+    "back": "पीछे",
     "cancel": "रद्द करें",
     "close": "बंद करें",
     "confirm": "पुष्टि करें",
@@ -83,7 +84,16 @@
       "empty": "अभी तक कोई दस्तावेज़ उपलब्ध नहीं है.",
       "emptySavedAudio": "सहेजे गए ऑडियो वाला कोई दस्तावेज़ नहीं है।",
       "emptyFilter": "कोई दस्तावेज़ फ़िल्टर से मेल नहीं खाता.",
-      "audiobookImport": "ऑडियोबुक आयात, खोज के लिए अनुक्रमित नहीं"
+      "audiobookImport": "ऑडियोबुक आयात, खोज के लिए अनुक्रमित नहीं",
+      "viewLabel": "लाइब्रेरी दृश्य",
+      "galleryView": "गैलरी",
+      "listView": "सूची",
+      "categoryLabel": "लाइब्रेरी श्रेणी",
+      "books": "पुस्तकें ({{count, number}})",
+      "documentCategory": "दस्तावेज़ ({{count, number}})",
+      "emptyBooks": "कोई पुस्तक वर्तमान फ़िल्टर से मेल नहीं खाती।",
+      "emptyCategoryDocuments": "कोई दस्तावेज़ वर्तमान फ़िल्टर से मेल नहीं खाता।",
+      "savedAudioAvailable": "सहेजा गया ऑडियो उपलब्ध है"
     },
     "import": {
       "files": "फ़ाइलें",
@@ -103,6 +113,7 @@
       "batchComplete": "आयात पूरा हुआ। आयातित: {{imported, number}}। विफल: {{failed, number}}।",
       "batchCancelled": "आयात रोक दिया गया। आयातित: {{imported, number}}। विफल: {{failed, number}}।",
       "failedFiles": "विफल फ़ाइलें: {{count, number}}",
+      "dismissNotice": "लाइब्रेरी सूचना बंद करें",
       "imported": "आयातित <title>{{title}}</title>।",
       "cancelled": "आयात रद्द कर दिया गया.",
       "deleting": "<title>{{title}}</title> हटाया जा रहा है...",
@@ -135,6 +146,8 @@
       "folderNotEmpty": "फ़ोल्डर खाली नहीं है",
       "moveContentsFirst": "पहले सामग्री बाहर निकालें.",
       "moveDocuments": "दस्तावेज़ ले जाएँ",
+      "chooseDestination": "गंतव्य चुनें...",
+      "folderSelected": "1 फ़ोल्डर चुना गया",
       "selectDocumentsOnly": "केवल दस्तावेज़ चुनें...",
       "selectDocumentsFirst": "पहले दस्तावेज़ चुनें...",
       "root": "जड़",
@@ -190,6 +203,8 @@
     "zoomReset": "रीसेट करें",
     "data": "डेटा",
     "transferLibrary": "लाइब्रेरी स्थानांतरित करें",
+    "developer": "डेवलपर",
+    "developerMode": "डेवलपर मोड सक्षम करें",
     "version": "संस्करण",
     "versionLoading": "लोड हो रहा है...",
     "versionUnavailable": "अनुपलब्ध",

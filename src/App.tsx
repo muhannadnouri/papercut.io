@@ -60,6 +60,7 @@ function App() {
     deleteDocument: deleteUploadedLibraryDocument,
     deleteDocuments: deleteUploadedLibraryDocuments,
     deleteLibraryFolder,
+    dismissDocumentImportStatus,
     documentImport,
     importDocumentBatch,
     importDocumentFolder,
@@ -129,13 +130,20 @@ function App() {
     openSavedAudiobook,
     prepareDocumentOpen,
     refreshSavedAudiobooks,
+    savedAudiobookDocumentUrls,
     setAudioSavedOnly,
     ttsHighlight,
   } = audiobook
 
   const libraryDocuments = useMemo<DocumentInfo[]>(() => [
     ...allDocuments.map((doc) => ({ ...doc, format: 'html', source: 'bundled' as const })),
-    ...uploadedDocuments.map((upload) => ({ title: upload.title, url: upload.url, format: upload.format, source: 'upload' as const })),
+    ...uploadedDocuments.map((upload) => ({
+      title: upload.title,
+      url: upload.url,
+      format: upload.format,
+      source: 'upload' as const,
+      coverMediaType: upload.coverMediaType,
+    })),
     ...userUploads.map((upload) => ({ title: upload.title, url: upload.url, format: 'html', source: 'audiobook-upload' as const })),
   ], [allDocuments, uploadedDocuments, userUploads]) 
 
@@ -289,6 +297,8 @@ function App() {
               <AppSettings
                 themeChoice={theme.choice}
                 onThemeChange={theme.setChoice}
+                developerMode={ttsDiagnosticsEnabled}
+                onDeveloperModeChange={handleTtsDiagnosticsChange}
                 libraryDocumentCount={uploadedDocuments.length}
                 onLibraryImported={handleLibraryTransferImported}
               />
@@ -320,6 +330,8 @@ function App() {
           <AppSettings
             themeChoice={theme.choice}
             onThemeChange={theme.setChoice}
+            developerMode={ttsDiagnosticsEnabled}
+            onDeveloperModeChange={handleTtsDiagnosticsChange}
             libraryDocumentCount={uploadedDocuments.length}
             onLibraryImported={handleLibraryTransferImported}
           />
@@ -367,6 +379,8 @@ function App() {
             showDocuments={showDocuments}
             allDocuments={libraryDocuments}
             audioSavedOnly={audioSavedOnly}
+            developerMode={ttsDiagnosticsEnabled}
+            savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
             documentFilter={libraryDocumentFilter}
             groupedDocs={libraryGroupedDocs}
             docFilterLower={libraryDocFilterLower}
@@ -382,6 +396,7 @@ function App() {
             onDeleteDocument={handleDeleteUploadedDocument}
             onDeleteDocuments={handleDeleteUploadedDocuments}
             onDeleteLibraryFolder={deleteLibraryFolder}
+            onDismissDocumentImportStatus={dismissDocumentImportStatus}
             onMoveLibraryDocuments={moveLibraryDocuments}
             onRenameLibraryFolder={renameLibraryFolder}
             onToggleAuthor={toggleLibraryAuthor}

@@ -6,6 +6,7 @@ export interface UploadedDocument {
   importedAtMs: number
   bytes: number
   sections: number
+  coverMediaType?: string | null
 }
 
 export interface UploadedDocumentSearchResult {
@@ -144,6 +145,14 @@ export async function searchUploadedDocuments(query: string, limit = 50, documen
 export async function getUploadedDocumentSource(documentUrl: string): Promise<string> {
   const invoke = await loadTauriInvoke()
   return invoke<string>('document_uploads_get_source', {
+    request: { documentUrl },
+  })
+}
+
+export async function getUploadedDocumentCover(documentUrl: string): Promise<string | null> {
+  if (!isTauriRuntime()) return null
+  const invoke = await loadTauriInvoke()
+  return invoke<string | null>('document_uploads_get_cover', {
     request: { documentUrl },
   })
 }

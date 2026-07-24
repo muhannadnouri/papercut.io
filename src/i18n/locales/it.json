@@ -9,6 +9,7 @@
     "audiobooks": "Audiolibri"
   },
   "common": {
+    "back": "Indietro",
     "cancel": "Annulla",
     "close": "Chiudi",
     "confirm": "Conferma",
@@ -87,7 +88,16 @@
       "empty": "Nessun documento ancora disponibile.",
       "emptySavedAudio": "Nessun documento con audio salvato.",
       "emptyFilter": "Nessun documento corrisponde al filtro.",
-      "audiobookImport": "Importazione di audiolibri, non indicizzati per la ricerca"
+      "audiobookImport": "Importazione di audiolibri, non indicizzati per la ricerca",
+      "viewLabel": "Vista della libreria",
+      "galleryView": "Galleria",
+      "listView": "Elenco",
+      "categoryLabel": "Categoria della libreria",
+      "books": "Libri ({{count, number}})",
+      "documentCategory": "Documenti ({{count, number}})",
+      "emptyBooks": "Nessun libro corrisponde ai filtri attuali.",
+      "emptyCategoryDocuments": "Nessun documento corrisponde ai filtri attuali.",
+      "savedAudioAvailable": "Audio salvato disponibile"
     },
     "import": {
       "files": "File",
@@ -107,6 +117,7 @@
       "batchComplete": "Importazione completata. Importati: {{imported, number}}. Non riusciti: {{failed, number}}.",
       "batchCancelled": "Importazione interrotta. Importati: {{imported, number}}. Non riusciti: {{failed, number}}.",
       "failedFiles": "File non riusciti: {{count, number}}",
+      "dismissNotice": "Chiudi avviso della biblioteca",
       "imported": "<title>{{title}}</title> importato.",
       "cancelled": "Importazione annullata.",
       "deleting": "Eliminazione di <title>{{title}}</title>...",
@@ -139,6 +150,8 @@
       "folderNotEmpty": "La cartella non è vuota",
       "moveContentsFirst": "Prima sposta i contenuti.",
       "moveDocuments": "Sposta documenti",
+      "chooseDestination": "Scegli destinazione...",
+      "folderSelected": "1 cartella selezionata",
       "selectDocumentsOnly": "Seleziona Solo documenti...",
       "selectDocumentsFirst": "Seleziona prima i documenti...",
       "root": "Radice",
@@ -195,6 +208,8 @@
     "zoomReset": "Reset",
     "data": "Dati",
     "transferLibrary": "Trasferisci libreria",
+    "developer": "Sviluppatore",
+    "developerMode": "Attiva modalità sviluppatore",
     "version": "Versione",
     "versionLoading": "Caricamento...",
     "versionUnavailable": "Non disponibile",

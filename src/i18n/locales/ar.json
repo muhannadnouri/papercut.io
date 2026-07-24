@@ -9,6 +9,7 @@
     "audiobooks": "الكتب الصوتية"
   },
   "common": {
+    "back": "رجوع",
     "cancel": "إلغاء",
     "close": "إغلاق",
     "confirm": "تأكيد",
@@ -99,7 +100,16 @@
       "empty": "لا توجد مستندات بعد.",
       "emptySavedAudio": "لا توجد مستندات ذات صوت محفوظ.",
       "emptyFilter": "لا توجد مستندات تطابق عامل التصفية.",
-      "audiobookImport": "كتاب صوتي مستورد، غير مفهرس للبحث"
+      "audiobookImport": "كتاب صوتي مستورد، غير مفهرس للبحث",
+      "viewLabel": "عرض المكتبة",
+      "galleryView": "معرض",
+      "listView": "قائمة",
+      "categoryLabel": "فئة المكتبة",
+      "books": "الكتب ({{count, number}})",
+      "documentCategory": "المستندات ({{count, number}})",
+      "emptyBooks": "لا توجد كتب تطابق عوامل التصفية الحالية.",
+      "emptyCategoryDocuments": "لا توجد مستندات تطابق عوامل التصفية الحالية.",
+      "savedAudioAvailable": "يتوفر صوت محفوظ"
     },
     "import": {
       "files": "ملفات",
@@ -119,6 +129,7 @@
       "batchComplete": "اكتمل الاستيراد. تم الاستيراد: {{imported, number}}. فشل: {{failed, number}}.",
       "batchCancelled": "توقف الاستيراد. تم الاستيراد: {{imported, number}}. فشل: {{failed, number}}.",
       "failedFiles": "الملفات التي فشل استيرادها: {{count, number}}",
+      "dismissNotice": "إغلاق إشعار المكتبة",
       "preparingDeleteBatch": "جارٍ تحضير حذف المستندات...",
       "deleteBatchProgress": "جارٍ حذف {{processed, number}} من أصل {{total, number}} مستندًا...",
       "deleteBatchProgressLabel": "تقدم حذف المستندات",
@@ -151,6 +162,8 @@
       "folderNotEmpty": "المجلد غير فارغ",
       "moveContentsFirst": "انقل المحتويات أولًا.",
       "moveDocuments": "نقل المستندات",
+      "chooseDestination": "اختر الوجهة...",
+      "folderSelected": "مجلد واحد محدد",
       "selectDocumentsOnly": "حدّد المستندات فقط...",
       "selectedCount_zero": "لا مستندات محددة",
       "selectedCount_one": "مستند واحد محدد",
@@ -210,6 +223,8 @@
     "zoomReset": "إعادة الضبط",
     "data": "البيانات",
     "transferLibrary": "نقل المكتبة",
+    "developer": "المطور",
+    "developerMode": "تفعيل وضع المطور",
     "version": "الإصدار",
     "versionLoading": "جارٍ التحميل...",
     "versionUnavailable": "غير متاح",

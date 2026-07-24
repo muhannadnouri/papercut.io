@@ -42,6 +42,7 @@
 .library-transfer-primary-section {
   display: grid;
   gap: 0.75rem;
+  text-align: start;
 }
 
 .library-transfer-primary-section header {
@@ -113,7 +114,7 @@
 .library-transfer-audiobooks {
   display: flex;
   align-items: flex-start;
-  justify-self: center;
+  justify-self: stretch;
   max-width: 100%;
   gap: 0.5rem;
   text-align: start;
@@ -160,15 +161,18 @@
 
 .library-transfer-alternate-content {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 1fr;
   gap: 0.75rem;
-  align-items: center;
   margin-top: 0.65rem;
+}
+
+.library-transfer-alternate-content button {
+  justify-self: start;
 }
 
 .library-transfer-pairing-fields {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 0.6rem;
 }
 
@@ -285,11 +289,6 @@
 }
 
 @media (max-width: 480px) {
-  .library-transfer-alternate-content,
-  .library-transfer-pairing-fields {
-    grid-template-columns: 1fr;
-  }
-
   .library-transfer-alternate button {
     width: 100%;
   }
