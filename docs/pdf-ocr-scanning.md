@@ -34,6 +34,36 @@ Feature parity does not mean pretending a PDF is HTML. Papercut should preserve
 the PDF's fixed-layout pages while deriving the text and coordinates needed for
 search and TTS.
 
+## First PDF Release
+
+The first release is deliberately limited to text-native PDFs that already
+contain usable text.
+
+Included:
+
+- Import, duplicate detection, deletion, and local storage.
+- Original fixed-layout page rendering.
+- Page navigation, zoom, fit-width, and fit-page.
+- Document outline navigation when an outline exists.
+- Page-level SQLite FTS indexing and search-result navigation.
+- In-document Find across the complete document.
+- TTS generation, playback, and page-coordinate highlighting.
+- Page/location restoration and a first-page Library thumbnail.
+- Library transfer compatibility.
+
+Not included:
+
+- OCR, camera scanning, or image imports.
+- Password entry or PDF decryption. The first release detects and clearly
+  rejects encrypted/password-protected files.
+- PDF editing, forms, annotations, signatures, printing, or text correction.
+- Reflowed/simplified HTML reading mode.
+- Exporting or creating PDFs.
+- Desktop webcam capture.
+
+These exclusions avoid building OCR and authoring features before Papercut has
+a proven page-aware reading path.
+
 ## Scope Decisions
 
 These are the working decisions. Ask before changing one because each affects
@@ -145,6 +175,140 @@ assumptions must change deliberately:
 The smallest sound refactor is therefore source-kind storage, page locators,
 and narrow viewer capabilities. A broad document subsystem rewrite is not a
 prerequisite.
+
+## Stage 0 Baseline
+
+### Supported Platform Baseline
+
+Papercut currently builds for Linux, Windows, Intel/Apple Silicon macOS,
+Android, and iOS. The configured minimums relevant to this work are:
+
+| Platform | Current baseline |
+| --- | --- |
+| Android | API 26; universal release builds currently cover arm64, armv7, x86, and x86_64 |
+| iOS | iOS 14 |
+| macOS | macOS 10.13 |
+| Rust | 1.77.2 minimum |
+| Frontend | React 19, Tauri 2, and the platform WebView |
+
+Passing desktop development tests alone is insufficient. Every Stage 1
+candidate must build for Android and iOS before it can become the production
+choice.
+
+### Existing Behavior To Preserve
+
+The PDF work must not regress these HTML/EPUB behaviors:
+
+| Capability | Current baseline |
+| --- | --- |
+| Import | HTML and EPUB share one bounded batch pipeline with duplicate detection, cancellation between files, partial results, and atomic cleanup |
+| Search | Explicit-submit Pagefind and SQLite FTS queries return one shared result shape |
+| Search navigation | Results can open a document and target matching reader text |
+| Find | Matches normalized text across adjacent inline formatting nodes without highlighting surrounding paragraph text |
+| TTS | Format adapters feed `ReadableSegment` values into shared chunking; saved audio can reopen and highlight mapped source ranges |
+| Reader state | Reader appearance and location are app-owned state rather than changes to stored source |
+| Library | Uploaded formats share listing, folders, Saved Audio filtering, deletion, and Gallery/List views |
+| Transfer | Uploaded source and selected saved audiobooks can move between Papercut devices and rebuild derived search data |
+
+The current frontend baseline is 8 passing Vitest files and 17 passing tests as
+of 2026-07-24. The local Rust test command was blocked on this machine by a
+missing `javascriptcoregtk-4.1` development package; CI remains the required
+Rust and mobile build baseline.
+
+### Fixture Corpus
+
+Use two fixture tiers:
+
+1. **Committed synthetic fixtures** are small, license-safe, deterministic, and
+   suitable for automated parser/search tests.
+2. **Manual benchmark fixtures** may be larger or externally sourced. Record
+   provenance, license, checksum, page count, and expected behavior, but do not
+   commit copyrighted or oversized files.
+
+Materialize the committed PDFs during Stage 1 after the spike identifies the
+smallest deterministic generation method. Do not hand-maintain opaque binary
+fixtures when a short generator can produce the same case.
+
+| ID | Fixture | Required assertion |
+| --- | --- | --- |
+| P01 | Basic Latin text, headings, and links | Text order, metadata fallback, links, page count, Find, and search target are correct |
+| P02 | Inline font/style changes inside one phrase | Find and search match only the requested phrase across spans |
+| P03 | Arabic RTL text with diacritics | Extraction order, glyph placement, search, TTS text, and highlight coordinates remain correct |
+| P04 | Hindi/Devanagari text | Unicode extraction, search, and highlighting remain correct |
+| P05 | Simplified Chinese text | Unicode extraction, search, and highlighting remain correct |
+| P06 | Two-column page | Reading order completes the first column before the second |
+| P07 | Body text with footnotes | Body and note order is deterministic and page navigation targets the correct region |
+| P08 | Table plus surrounding paragraphs | Table extraction does not reorder or duplicate surrounding prose |
+| P09 | Image-only pages | Text-native import identifies that OCR is required instead of indexing empty text |
+| P10 | Hybrid native-text and image-only pages | Native pages are retained and only missing pages are marked for later OCR |
+| P11 | Encrypted/password-protected PDF | Import rejects early with a specific, non-destructive error |
+| P12 | Truncated or malformed PDF | Import fails within limits and leaves no source or index residue |
+| P13 | 100-page performance document | Measures normal import, first-page render, Find, navigation, memory, and cleanup |
+| P14 | 500-page stress document | Verifies bounded page rendering, cancellation, and absence of unbounded memory growth |
+| O01 | Clean photographed Latin page | Establishes OCR character accuracy and coordinate baseline |
+| O02 | Noisy/skewed Arabic page | Measures recognition, reading order, diacritics handling, and confidence |
+| O03 | Chinese and Devanagari pages | Prevents selecting an OCR engine based only on Latin accuracy |
+| O04 | Multi-page interrupted scan | Verifies durable capture, resume, reorder, delete, and retry behavior |
+
+### Functional Acceptance Criteria
+
+- Importing an unchanged PDF returns the existing document rather than creating
+  another copy.
+- A failed, cancelled, malformed, or encrypted import leaves no orphaned source,
+  thumbnail, text layer, or SQLite rows.
+- Search results identify the correct page and highlight only the matching text.
+- Find searches every page, reports the correct occurrence count, supports
+  next/previous navigation, and does not require all pages to be rendered.
+- Text extraction never silently duplicates or drops golden-fixture paragraphs.
+- TTS narration follows the fixture's expected reading order and active
+  highlighting stays on the spoken words.
+- Closing and reopening restores the saved page/location within one visible
+  text block.
+- PDF source, metadata, and organization survive Library Transfer; derived FTS
+  and thumbnails may be rebuilt.
+- Existing HTML/EPUB import, search, Find, TTS, saved audio, and transfer tests
+  continue to pass.
+
+### Performance Budgets
+
+These are initial engineering budgets, not marketing claims. Record the exact
+hardware, OS, build type, fixture checksum, and cold/warm state with every
+measurement.
+
+| Measure | Text-native PDF target |
+| --- | --- |
+| First visible page after opening | <= 2 seconds on reference desktop; <= 3 seconds on reference mobile |
+| Navigate to an already extracted page | Feedback begins within 100 ms; target page becomes visible within 1 second |
+| Visible page window | At most the visible pages plus two adjacent pages in each direction |
+| Blank page while ordinary scrolling | No visible blank page lasting more than 500 ms after scrolling stops |
+| 100-page import/index | <= 10 seconds desktop; <= 20 seconds mobile |
+| 500-page import/index | <= 60 seconds on each reference device or clear cancellable progress if the budget cannot be met |
+| Peak PDF viewer memory above idle | <= 250 MB desktop; <= 150 MB mobile for P14 |
+| Compressed application-size increase before OCR | <= 10 MB per shipped platform |
+| Search/Find result correctness | 100% of golden fixture queries target the expected page and text |
+| TTS text integrity | Zero omitted or duplicated golden-fixture blocks |
+
+Before public release, measure one lower-end supported Android device, one
+supported iPhone/iPad, and one desktop in each platform family used for release
+smoke testing. A candidate that passes only on the development machine fails
+the gate.
+
+### Later OCR Budgets
+
+These guide the Stage 6 benchmark and do not select an engine today:
+
+| Measure | Initial OCR target |
+| --- | --- |
+| Clean printed Latin character error rate | <= 2% |
+| Clean printed Arabic, Chinese, and Devanagari character error rate | <= 5% per tested script |
+| Golden-page block reading order | >= 95% correctly ordered blocks |
+| Coordinate coverage | >= 98% of recognized non-whitespace text has usable bounds |
+| Typical photographed page | <= 8 seconds per page on the lower-end reference mobile device |
+| Cancellation | Stops after the active page without losing completed pages |
+| Source integrity | Original page image remains byte-for-byte available after failure or retry |
+
+Language-specific human review remains required. A character-error score alone
+does not prove that generated speech is understandable.
 
 ## PDF Rendering And Extraction
 
@@ -318,19 +482,20 @@ Legend: unchecked items are not started. Every stage ends with a decision gate.
 
 ### Stage 0: Baseline And Acceptance Criteria
 
-Stage status: Not started
+Stage status: Awaiting product-owner approval
 
-- [ ] Assemble fixtures for text-native English, Arabic/RTL, Hindi/Devanagari,
-      and Chinese PDFs.
-- [ ] Add multi-column, footnote, table, image-only, hybrid, encrypted,
-      malformed, and large-document fixtures.
-- [ ] Record expected text order, page targets, and highlight locations.
-- [ ] Define import-time, memory, viewer-scroll, app-size, and OCR-accuracy
+- [x] Define the text-native English, Arabic/RTL, Hindi/Devanagari, and Chinese
+      fixture corpus.
+- [x] Define multi-column, footnote, table, image-only, hybrid, encrypted,
+      malformed, and large-document cases.
+- [x] Define required text order, page targets, and highlight assertions.
+- [x] Define import-time, memory, viewer-scroll, app-size, and OCR-accuracy
       budgets for desktop, Android, and iOS.
-- [ ] Define PDF MVP controls and explicitly defer nonessential features.
-- [ ] Confirm the scope decisions in this document with the product owner.
-- [ ] Record baseline HTML/EPUB Find, search, TTS, and bookmark behavior that
-      PDF must not regress.
+- [x] Define PDF MVP controls and explicitly defer nonessential features.
+- [ ] Confirm the scope decisions, fixture matrix, and budgets with the product
+      owner.
+- [x] Record baseline HTML/EPUB Find, search, TTS, bookmark, Library, and
+      transfer behavior that PDF must not regress.
 
 Decision gate: the corpus and measurable acceptance criteria are agreed before
 selecting dependencies.
@@ -529,6 +694,8 @@ Stage status: Deferred
 | 2026-07-24 | Planning | Preserve PDF/images as canonical source | HTML conversion would lose fixed-layout fidelity and make OCR correction/rebuild harder |
 | 2026-07-24 | Planning | Use mobile-native capture for the first scan release | It provides mature crop/edge/reorder UX without owning camera processing on three platforms |
 | 2026-07-24 | Planning | Defer OCR engine selection to a benchmark | No reviewed option simultaneously proves all target languages, coordinate quality, mobile packaging, and performance |
+| 2026-07-24 | Stage 0 | Keep large/copyrighted benchmark documents out of Git | Small generated fixtures cover automation; checksummed external fixtures cover realistic performance without repository bloat |
+| 2026-07-24 | Stage 0 | Treat text-native PDF as the first release boundary | It delivers useful PDF support while postponing OCR/runtime packaging until the page-aware reader path is proven |
 
 ## References
 
