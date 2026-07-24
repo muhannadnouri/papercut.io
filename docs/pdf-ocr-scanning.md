@@ -1,0 +1,551 @@
+# PDF, OCR, And Document Scanning Plan
+
+Status: Planning  
+Last updated: 2026-07-24
+
+This document is the source of truth for adding PDF reading, searchable OCR,
+and mobile document scanning to Papercut. It records the research, current
+architecture constraints, decisions, risks, and staged delivery checklist.
+
+Update this file after every stage:
+
+1. Check completed work and record validation evidence.
+2. Record decisions in the decision log.
+3. Correct assumptions invalidated by implementation or testing.
+4. Update risks, deferred work, and the next stage.
+5. Do not start the next stage until the current decision gate passes.
+
+## Product Goal
+
+Papercut should eventually let users:
+
+- Import and read text-native PDFs offline.
+- Search PDF text and open a result at the correct page and location.
+- Use Find, TTS, highlighting, bookmarks, and location restoration with
+  behavior comparable to HTML and EPUB.
+- Import image-only or hybrid PDFs and create a searchable text layer through
+  on-device OCR.
+- On mobile, scan one page or a multi-page document, review the captured pages,
+  and save them as one searchable Papercut document.
+- Retain the original PDF or page images so OCR can be retried without losing
+  the source.
+
+Feature parity does not mean pretending a PDF is HTML. Papercut should preserve
+the PDF's fixed-layout pages while deriving the text and coordinates needed for
+search and TTS.
+
+## Scope Decisions
+
+These are the working decisions. Ask before changing one because each affects
+storage, compatibility, and the order of implementation.
+
+1. **Implement text-native PDF support before camera scanning.** PDF establishes
+   the page model, viewer, search locators, and TTS mapping that OCR will reuse.
+2. **Do not convert PDF or scanned pages into canonical HTML.** Preserve the
+   original PDF or images and create a derived page text layer.
+3. **Use a real PDF viewer.** HTML/EPUB can keep the shared DOM reader; PDF
+   should render original pages with PDF-specific navigation and highlighting.
+4. **Keep camera capture mobile-only for the first release.** Desktop users can
+   import existing PDFs or images. Desktop webcam scanning is deferred until
+   there is demonstrated demand.
+5. **Keep processing offline and on-device.** No cloud OCR or account is
+   required.
+6. **Treat “unlimited pages” as a resumable workflow, not an unbounded in-memory
+   operation.** Capture and processing must use bounded batches and durable
+   intermediate state.
+7. **Do not release PDF as complete until Find, search-result navigation, and
+   TTS highlighting meet the agreed acceptance criteria.**
+8. **Choose an OCR engine only after a representative benchmark.** Arabic,
+   Chinese, Devanagari, Latin text, page coordinates, mobile packaging, and
+   runtime cost must be tested.
+
+## Recommended Architecture
+
+```text
+Original PDF or scanned pages
+├── PDF viewer renders the original pages
+└── Extractor or OCR produces PageTextLayer
+    ├── SQLite FTS search records
+    ├── Find and search-result navigation
+    ├── TTS readable segments
+    └── Page-coordinate highlights
+```
+
+The original source is canonical. Text extraction and OCR are derived data that
+can be rebuilt when parsers, OCR models, or indexing rules change.
+
+### Page Text Layer
+
+The exact serialized schema should be proven during the PDF spike. The minimum
+useful shape is:
+
+```text
+PageTextLayer {
+  page_index,
+  blocks: [{
+    text,
+    bounds,
+    order,
+    confidence?
+  }]
+}
+```
+
+SQLite should store page-level searchable text and page locators. Richer block
+coordinates can live in a bounded sidecar file so the FTS database does not
+become a layout-data store.
+
+Search results should identify at least the document, page, and matching text.
+TTS chunks should retain enough source mapping to convert a spoken range back
+to one or more page-coordinate rectangles.
+
+### Viewer Capabilities
+
+Avoid rewriting the whole reader before PDF support. Introduce only the
+capabilities needed to let the existing reader shell coordinate different
+viewer types:
+
+```text
+navigateToLocator(locator)
+highlightRange(range)
+clearHighlight()
+```
+
+HTML and generated EPUB HTML keep their DOM ranges. PDF uses page and coordinate
+locators. Any broader viewer interface should wait until a second implementation
+demonstrates a real need.
+
+## Current Papercut Architecture
+
+The existing code is close to supporting another import format, but several
+assumptions must change deliberately:
+
+- `src-tauri/src/document_uploads/parsed.rs` exposes a format-neutral
+  `ParsedDocument` and ordered `ParsedSection`, but sections do not yet have
+  durable page locators.
+- `src-tauri/src/document_uploads/store.rs` stores section ordinal, heading, and
+  text in SQLite/FTS. It does not store page or coordinate metadata.
+- `src-tauri/src/document_uploads/pipeline.rs` persists imported reading content
+  as `source.html`; source storage needs to distinguish HTML from the original
+  PDF.
+- Library transfer and audiobook bundle paths contain the same `source.html`
+  assumption and must remain compatible when PDF is added.
+- `src/viewers/PdfViewer.tsx` is currently a placeholder.
+- `src/hooks/useDocumentViewerState.ts` and
+  `src/components/DocumentViewer/DocumentViewer.tsx` assume a loaded HTML string
+  and one live reader DOM.
+- `src/tts/utils/text.ts` already provides the reusable,
+  format-neutral `chunkReadableSegments` entry point. A PDF adapter should emit
+  readable segments rather than duplicate chunking rules.
+- `src/tts/hooks/useAudiobookManager.ts` currently treats opened documents as
+  non-PDF.
+- The Library gallery already treats future PDF records as books and can use a
+  first-page thumbnail when cover metadata is unavailable.
+
+The smallest sound refactor is therefore source-kind storage, page locators,
+and narrow viewer capabilities. A broad document subsystem rewrite is not a
+prerequisite.
+
+## PDF Rendering And Extraction
+
+### Rendering Recommendation
+
+Use [PDF.js](https://github.com/mozilla/pdf.js) through `pdfjs-dist` for the
+shared React viewer unless the spike reveals a blocking Tauri WebView issue.
+PDF.js is mature, Apache-2.0 licensed, supports page rendering and text content,
+and avoids owning separate Apple, Android, and desktop viewers.
+
+Render only visible pages plus a small adjacent buffer. Recycle canvases and
+text layers as pages leave that window. Loading every page canvas is not
+acceptable for large books or mobile memory limits.
+
+PDF pages should retain their original colors. Dark mode should theme viewer
+chrome and the surrounding surface, not recolor document pixels by default.
+
+Native PDFKit is strong on Apple platforms, but choosing it as the primary
+viewer would require separate Android and desktop implementations with different
+selection and highlight behavior. That complexity is not justified for the
+first PDF release.
+
+### Extraction Candidates
+
+The extractor must be selected by a fixture-driven spike:
+
+- [`pdf-extract`](https://docs.rs/pdf-extract/latest/pdf_extract/) is a small,
+  MIT-licensed option for page-separated text. Its public API is simple, but it
+  does not provide the rich coordinate and reading-order model needed without
+  additional work.
+- [`pdf_oxide`](https://docs.rs/pdf_oxide/latest/pdf_oxide/) exposes spans,
+  bounds, reading-order features, and RTL claims under MIT/Apache licensing. It
+  is newer and heavier, so correctness and mobile cross-compilation must be
+  verified rather than assumed.
+- PDF.js can extract text through `getTextContent`, keeping rendering and
+  extraction on one parser. Performing the complete import/index pipeline in
+  the WebView would, however, increase large-data IPC and lifecycle complexity.
+
+The tentative direction is PDF.js for rendering and a Rust extractor only if
+the benchmark proves one reliable across Papercut's corpus and mobile targets.
+Do not add both extraction paths to production “for flexibility.”
+
+### Tauri Data Boundary
+
+Do not send PDF binaries or complete page-image sets through JSON/base64 IPC.
+Use a scoped local asset URL for source access and Tauri channels for ordered
+progress events. Tauri's mobile plugin bridge is appropriate for the later
+native scanner integration.
+
+## OCR Strategy
+
+OCR is a second pipeline layered onto the PDF page model:
+
+1. Detect whether each page already has usable text.
+2. Extract native text where available.
+3. OCR only image-only or unusable pages.
+4. Normalize both paths into `PageTextLayer`.
+5. Store extraction/OCR provenance and version so derived data can be rebuilt.
+
+An OCR failure must not delete or invalidate the original PDF or scan.
+
+### OCR Candidates
+
+- [Tesseract](https://github.com/tesseract-ocr/tesseract) supports more than
+  100 languages, including Papercut's Arabic, Hindi, Chinese, and Latin-script
+  targets. It can emit text plus hOCR, TSV, ALTO, or PAGE coordinate data. Its
+  C++ packaging, model footprint, and quality on photographed pages require
+  measurement.
+- [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR/blob/main/docs/version3.x/algorithm/PP-OCRv5/PP-OCRv5_multi_languages.en.md)
+  provides multilingual and mobile-oriented models, including Arabic and
+  Devanagari coverage. It brings a heavier runtime and model-management stack.
+- Apple Vision provides on-device recognition, confidence, and bounding boxes
+  on Apple platforms, but it would create platform-dependent OCR output.
+- Android ML Kit Text Recognition v2 covers Latin, Chinese, Devanagari,
+  Japanese, and Korean scripts, but its documented language table does not
+  cover Arabic. It cannot be Papercut's only OCR engine.
+
+Benchmark Tesseract and PaddleOCR against the same corpus. Include Apple Vision
+as a quality/performance comparison on iOS. Prefer one common OCR engine if it
+meets quality and packaging requirements; use native OCR selectively only if
+the common engine demonstrably fails platform constraints.
+
+## Mobile Scanning
+
+Capture and OCR should remain separate:
+
+- Android's [ML Kit Document Scanner](https://developers.google.com/ml-kit/vision/doc-scanner)
+  supplies native capture UI, edge detection, crop, rotation, cleanup, page
+  reordering, and PDF/JPEG output. It runs on-device and does not require the
+  app to request camera permission, though its scanner resources may download
+  on first use and device requirements must be enforced.
+- iOS should use
+  [`VNDocumentCameraViewController`](https://developer.apple.com/documentation/visionkit/vndocumentcameraviewcontroller)
+  for the native capture experience.
+- A small Tauri mobile plugin should normalize both platforms into the same
+  page-image or PDF result consumed by the import pipeline.
+
+The review step should let users inspect thumbnails, crop, rotate, delete,
+reorder, rescan, and import existing photos. The source pages should be saved
+before OCR begins so recognition can be retried.
+
+Desktop camera capture is deferred. Importing existing PDFs and images covers
+the desktop use case without introducing webcam permissions and a third capture
+experience.
+
+## User Experience
+
+The workflow should expose meaningful stages rather than one indefinite
+spinner:
+
+1. Preparing pages.
+2. Recognizing page X of Y.
+3. Indexing document.
+4. Ready.
+
+Long operations need progress, cancel, and a resumable state. Per-page failures
+should identify the failed page and allow retry without discarding successful
+pages. This follows Nielsen Norman Group guidance on
+[visibility of system status](https://www.nngroup.com/articles/visibility-system-status/)
+and [user control and freedom](https://www.nngroup.com/articles/user-control-and-freedom/).
+
+The first PDF UI should include:
+
+- Import through the existing Library import menu.
+- Password/encryption and unsupported-file errors before indexing.
+- Page number, previous/next page, zoom, fit-width, and fit-page controls.
+- Outline navigation when the PDF contains one.
+- Find across the document.
+- Search-result navigation to the matching page and highlight.
+- Loading and failure states that distinguish rendering from extraction.
+
+The scan UI should be mobile-only and should not appear on unsupported devices.
+Do not advertise “unlimited” pages; communicate that users can add pages in
+multiple resumable batches.
+
+## Security, Privacy, And Accessibility
+
+- Treat every PDF and image as untrusted input. Enforce size, page-count,
+  decompression, image, and processing-time limits.
+- Reject or clearly handle malformed, encrypted, and password-protected files.
+- Keep parser and renderer versions current because PDFs are a complex input
+  boundary.
+- Keep OCR and source files local unless the user explicitly exports them.
+- Do not expose arbitrary local filesystem paths to the WebView. Scope viewer
+  access to validated app-data files.
+- Provide a selectable/accessibility text layer over PDF canvases.
+- Preserve reading order and language metadata where known.
+- Validate keyboard, screen-reader, high-contrast, zoom, RTL, and mobile touch
+  behavior.
+- Never use OCR confidence as proof that text is correct. TTS and search should
+  identify OCR-derived content where correction may matter.
+
+## Principal Risks
+
+| Risk | Consequence | Mitigation |
+| --- | --- | --- |
+| Incorrect reading order | Search snippets and TTS read columns, tables, or footnotes incorrectly | Benchmark representative fixtures and retain ordered blocks, not one unexamined page string |
+| Extractor/viewer disagreement | Search result or TTS highlight lands on the wrong glyphs | Compare extracted text/coordinates with PDF.js output and reject mismatched candidates during the spike |
+| Mobile canvas memory | Crashes or disappearing pages during scroll | Virtualize pages, bound the adjacent-page window, and release canvases/text layers |
+| OCR errors | Incorrect search, pronunciation, or omitted words | Preserve source images, confidence/provenance, per-page retry, and later correction tools |
+| Native packaging size | Larger apps and difficult iOS/Android builds | Measure engines/models before selection and ship only required language assets |
+| Parser vulnerabilities | Malicious documents affect the app | Strict limits, current dependencies, isolated app-data access, and malformed-file tests |
+| Storage migration assumptions | Existing HTML/EPUB, transfer, or audiobook bundles break | Add explicit migrations and compatibility fixtures before changing source storage |
+| Canvas-only viewer | Poor selection and screen-reader behavior | Maintain an aligned text/accessibility layer |
+| Encrypted PDFs | Confusing failures or unsupported imports | Detect early and provide a specific message; password support is a separate product decision |
+| Partial imports | Orphaned files or index rows | Stage writes and commit source, metadata, FTS, and derived artifacts atomically where possible |
+
+## Delivery Checklist
+
+Legend: unchecked items are not started. Every stage ends with a decision gate.
+
+### Stage 0: Baseline And Acceptance Criteria
+
+Stage status: Not started
+
+- [ ] Assemble fixtures for text-native English, Arabic/RTL, Hindi/Devanagari,
+      and Chinese PDFs.
+- [ ] Add multi-column, footnote, table, image-only, hybrid, encrypted,
+      malformed, and large-document fixtures.
+- [ ] Record expected text order, page targets, and highlight locations.
+- [ ] Define import-time, memory, viewer-scroll, app-size, and OCR-accuracy
+      budgets for desktop, Android, and iOS.
+- [ ] Define PDF MVP controls and explicitly defer nonessential features.
+- [ ] Confirm the scope decisions in this document with the product owner.
+- [ ] Record baseline HTML/EPUB Find, search, TTS, and bookmark behavior that
+      PDF must not regress.
+
+Decision gate: the corpus and measurable acceptance criteria are agreed before
+selecting dependencies.
+
+### Stage 1: Renderer And Extractor Spike
+
+Stage status: Not started
+
+- [ ] Render representative PDFs with PDF.js in desktop, Android, and iOS
+      Tauri WebViews.
+- [ ] Verify worker loading, local asset access, canvas cleanup, text selection,
+      and accessibility-layer behavior.
+- [ ] Compare `pdf-extract`, `pdf_oxide`, and PDF.js text extraction against the
+      fixture expectations.
+- [ ] Measure text order, coordinate fidelity, import time, memory, binary size,
+      and mobile cross-compilation.
+- [ ] Test malformed, encrypted, and password-protected inputs.
+- [ ] Select one production extraction path and remove abandoned spike code.
+- [ ] Record the selected versions, licensing, evidence, and rejected options
+      in the decision log.
+
+Decision gate: one renderer/extractor combination meets the corpus, mobile
+build, licensing, and performance criteria.
+
+### Stage 2: Source Storage And Locator Foundation
+
+Stage status: Not started
+
+- [ ] Add explicit source-kind metadata and store original PDFs as `source.pdf`
+      without changing existing HTML/EPUB URLs.
+- [ ] Add a schema migration for page-aware section/search locators.
+- [ ] Define and version the bounded `PageTextLayer` sidecar format.
+- [ ] Update source loading so callers do not assume `source.html`.
+- [ ] Update delete, duplicate detection, disk accounting, and partial-import
+      cleanup for PDF artifacts.
+- [ ] Update library transfer and relevant export/import paths for original PDF
+      sources and derived-data rebuild rules.
+- [ ] Add migration and backward-compatibility tests for existing app data.
+
+Decision gate: existing HTML/EPUB documents, saved audiobooks, deletion, and
+library transfer pass unchanged while a fixture PDF can be stored and located.
+
+### Stage 3: Text-Native PDF Import And Search
+
+Stage status: Not started
+
+- [ ] Add PDF validation, metadata/title extraction, page count, and size limits.
+- [ ] Extract ordered page text and page locators outside the React render path.
+- [ ] Index page-level text in SQLite FTS without storing binary data in SQLite.
+- [ ] Return page-aware search results and sanitized snippets.
+- [ ] Generate a bounded first-page thumbnail for the Library gallery.
+- [ ] Add import progress, cancellation, clear failures, and atomic cleanup.
+- [ ] Add parser/index tests for the Stage 0 corpus.
+
+Decision gate: text-native fixtures import, list, search, reopen, transfer, and
+delete correctly without a PDF viewer-specific workaround in the search index.
+
+### Stage 4: PDF Viewer
+
+Stage status: Not started
+
+- [ ] Implement the PDF.js viewer as a focused viewer component.
+- [ ] Load source through a scoped local asset boundary rather than JSON/base64.
+- [ ] Render visible and adjacent pages only and release off-window resources.
+- [ ] Add page navigation, zoom, fit-width, fit-page, and available outline
+      navigation.
+- [ ] Add selectable/accessibility text layers aligned to rendered pages.
+- [ ] Integrate reader loading, error, theme, mobile, and keyboard behavior.
+- [ ] Confirm dark mode leaves PDF page colors unchanged by default.
+
+Decision gate: large PDFs scroll without disappearing pages, unbounded memory
+growth, or blocking the rest of the app.
+
+### Stage 5: Find, Search Navigation, TTS, And Bookmarks
+
+Stage status: Not started
+
+- [ ] Add Find across all extracted pages without rendering all pages.
+- [ ] Navigate search results to the correct page and matched coordinates.
+- [ ] Adapt PDF page blocks to existing `ReadableSegment` chunking.
+- [ ] Persist source ranges needed for page-coordinate TTS highlighting.
+- [ ] Highlight active TTS text across block and line boundaries.
+- [ ] Restore page/location bookmarks after reopen.
+- [ ] Verify saved audiobook create, play, reopen, export, and import behavior.
+- [ ] Compare all agreed parity cases against HTML/EPUB.
+
+Decision gate: Find, global search, TTS playback/highlighting, and location
+restoration pass the Stage 0 parity suite.
+
+### Stage 6: OCR Engine Benchmark
+
+Stage status: Not started
+
+- [ ] Build one benchmark harness and corpus for Tesseract, PaddleOCR, and Apple
+      Vision comparison where available.
+- [ ] Measure Arabic, Chinese, Devanagari, and Latin text accuracy.
+- [ ] Measure reading order, bounding boxes, confidence, skew/noise tolerance,
+      speed, RAM, package/model size, and mobile integration.
+- [ ] Test photographed pages as well as clean image-only PDFs.
+- [ ] Review licenses and model redistribution terms.
+- [ ] Select one common engine or document evidence for a narrowly scoped native
+      exception.
+- [ ] Pin runtime/model versions and record the decision.
+
+Decision gate: the selected OCR approach meets language, coordinate, offline,
+packaging, and performance requirements on supported devices.
+
+### Stage 7: Image-Only And Hybrid PDF OCR
+
+Stage status: Not started
+
+- [ ] Detect usable native text page by page.
+- [ ] OCR only pages without an acceptable text layer.
+- [ ] Normalize OCR output into the same `PageTextLayer` contract.
+- [ ] Store OCR engine/model version, language, provenance, and confidence.
+- [ ] Add language selection or detection with a retry path.
+- [ ] Add page-level progress, cancellation, resume, failure, and retry.
+- [ ] Prevent duplicate native and OCR text in hybrid PDFs.
+- [ ] Re-run PDF Find, search, TTS, and highlight acceptance tests.
+
+Decision gate: image-only and hybrid fixtures are searchable and speakable
+without harming native-text PDF behavior or source files.
+
+### Stage 8: Native Mobile Capture
+
+Stage status: Not started
+
+- [ ] Add one small Tauri mobile plugin with Android and iOS scanner adapters.
+- [ ] Integrate ML Kit Document Scanner on supported Android devices.
+- [ ] Integrate VisionKit document camera on supported iOS devices.
+- [ ] Support page thumbnails, crop, rotation, delete, reorder, rescan, and
+      importing existing images.
+- [ ] Save source pages before OCR begins.
+- [ ] Process bounded batches and allow users to append/resume large scans.
+- [ ] Handle unavailable scanner services, resource download, permissions,
+      interruption, low storage, and unsupported devices.
+- [ ] Keep scanning controls absent from unsupported desktop builds.
+
+Decision gate: a multi-page scan survives interruption and produces a durable
+source PDF or page set without holding the entire book in memory.
+
+### Stage 9: Scan-To-Book Integration
+
+Stage status: Not started
+
+- [ ] Let users set title and recognition language before processing.
+- [ ] Feed captured pages through OCR, indexing, PDF viewing, search, and TTS.
+- [ ] Show low-confidence and failed pages with targeted retry.
+- [ ] Allow pages to be appended to an existing unfinished scan.
+- [ ] Restore interrupted scan state after app restart.
+- [ ] Verify folder organization, gallery thumbnail, saved audio, transfer, and
+      deletion.
+
+Decision gate: scan-to-book works end to end on one supported Android and one
+supported iOS device with representative multi-language fixtures.
+
+### Stage 10: Hardening And Release
+
+Stage status: Not started
+
+- [ ] Run malformed, encrypted, large, high-page-count, and low-storage tests.
+- [ ] Run memory and performance tests on minimum supported desktop and mobile
+      hardware.
+- [ ] Complete keyboard, screen-reader, RTL, localization, zoom, and touch
+      reviews.
+- [ ] Review parser, local asset, IPC, native plugin, and file cleanup security.
+- [ ] Verify upgrades, library transfer, backup/export, and deletion against
+      production-like app data.
+- [ ] Add user documentation, privacy wording, known limitations, and release
+      notes.
+- [ ] Decide whether PDF/OCR remains behind Developer Mode or enters a public
+      beta.
+- [ ] Remove diagnostic-only code, unused dependencies, and abandoned feature
+      flags.
+
+Decision gate: all supported platforms pass automated checks and the complete
+manual acceptance matrix before public release.
+
+### Stage 11: Evidence-Driven Follow-Ups
+
+Stage status: Deferred
+
+- [ ] Add OCR text correction only if real users need it.
+- [ ] Add a simplified/reflow reading mode only if fixed-layout reading is
+      insufficient; keep it derived rather than canonical.
+- [ ] Export searchable PDFs only after import/search is stable.
+- [ ] Add desktop camera capture only if desktop users request it.
+- [ ] Add advanced table, equation, or layout analysis only after corpus data
+      demonstrates the need.
+
+## Decision Log
+
+| Date | Stage | Decision | Evidence / Notes |
+| --- | --- | --- | --- |
+| 2026-07-24 | Planning | Build text-native PDF before OCR scanning | It establishes the page, viewer, locator, search, and TTS contracts OCR needs |
+| 2026-07-24 | Planning | Preserve PDF/images as canonical source | HTML conversion would lose fixed-layout fidelity and make OCR correction/rebuild harder |
+| 2026-07-24 | Planning | Use mobile-native capture for the first scan release | It provides mature crop/edge/reorder UX without owning camera processing on three platforms |
+| 2026-07-24 | Planning | Defer OCR engine selection to a benchmark | No reviewed option simultaneously proves all target languages, coordinate quality, mobile packaging, and performance |
+
+## References
+
+- [PDF.js repository](https://github.com/mozilla/pdf.js)
+- [PDF.js examples](https://mozilla.github.io/pdf.js/examples/)
+- [PDF.js `PDFPageProxy` API](https://mozilla.github.io/pdf.js/api/draft/module-pdfjsLib-PDFPageProxy.html)
+- [`pdf-extract` documentation](https://docs.rs/pdf-extract/latest/pdf_extract/)
+- [`pdf_oxide` documentation](https://docs.rs/pdf_oxide/latest/pdf_oxide/)
+- [Tauri command channels](https://v2.tauri.app/develop/calling-rust/)
+- [Tauri mobile plugin development](https://v2.tauri.app/develop/plugins/develop-mobile/)
+- [Apple PDFKit](https://developer.apple.com/documentation/pdfkit)
+- [Apple VisionKit document camera](https://developer.apple.com/documentation/visionkit/vndocumentcameraviewcontroller)
+- [Apple Vision text recognition](https://developer.apple.com/documentation/vision/vnrecognizetextrequest)
+- [ML Kit Document Scanner](https://developers.google.com/ml-kit/vision/doc-scanner)
+- [ML Kit Text Recognition languages](https://developers.google.com/ml-kit/vision/text-recognition/v2/languages)
+- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract)
+- [PaddleOCR multilingual recognition](https://github.com/PaddlePaddle/PaddleOCR/blob/main/docs/version3.x/algorithm/PP-OCRv5/PP-OCRv5_multi_languages.en.md)
+- [Speechify scan workflow overview](https://speechify.com/blog/scan-books-and-printed-text/)
+- [Nielsen Norman Group: Visibility of system status](https://www.nngroup.com/articles/visibility-system-status/)
+- [Nielsen Norman Group: User control and freedom](https://www.nngroup.com/articles/user-control-and-freedom/)

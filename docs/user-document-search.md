@@ -109,7 +109,7 @@ The runtime upload path follows a parser pipeline that can be reused for future 
 8. **Render/search**: React opens the stored source and searches through the same result-card UI as bundled docs.
 9. **Delete**: when requested, Rust stages the stored source directory, removes the document rows in one SQLite transaction, and then removes the staged files. A database failure restores the directory. Batch requests are capped at 500 upload URLs, deduplicated before execution, run sequentially, and retain per-document failures alongside successes.
 
-EPUB plugs in at step 3 by validating the ZIP/container, reading OPF metadata and spine order, sanitizing each XHTML spine item, generating safe reading HTML, and outputting the same normalized section shape. PDF should later plug into the same shared store/search path with page-aware locators and a PDF-specific viewer.
+EPUB plugs in at step 3 by validating the ZIP/container, reading OPF metadata and spine order, sanitizing each XHTML spine item, generating safe reading HTML, and outputting the same normalized section shape. PDF will use the same shared store/search path with page-aware locators and a PDF-specific viewer; its architecture, research, and staged delivery checklist live in [pdf-ocr-scanning.md](pdf-ocr-scanning.md).
 
 ## Search Flow
 
@@ -158,7 +158,7 @@ The shared output should be boring and stable:
 
 `{ title, format, viewHtml, sections: [{ ordinal, heading?, text, locator? }], cover? }`
 
-Keeping this shape stable lets the UI and SQLite indexing remain format-agnostic. See [epub-implementation-plan.md](epub-implementation-plan.md) for the ordered EPUB task list and acceptance checks.
+Keeping this shape stable lets the UI and SQLite indexing remain format-agnostic. See [epub-implementation-plan.md](epub-implementation-plan.md) for the ordered EPUB task list and acceptance checks, and [pdf-ocr-scanning.md](pdf-ocr-scanning.md) for the PDF, OCR, and mobile scanning plan.
 
 ## Current Limitations
 
@@ -180,9 +180,8 @@ Keeping this shape stable lets the UI and SQLite indexing remain format-agnostic
 2. Include retained covers in library-transfer packages so covers survive device-to-device transfer.
 3. Add a reindex action for uploaded documents if parser or sanitizer behavior changes after import.
 4. Add richer EPUB reader features such as TOC, location restore, pagination, EPUB-specific appearance controls, or a foliate-js/epub.js-backed viewer if generated reading HTML is not enough.
-5. Add a runtime PDF import module later that extracts page text and stores page records in the same SQLite schema.
-6. Keep future viewer-specific theme work format-aware: EPUB/HTML can inherit CSS tokens, while PDF should theme surrounding controls without recoloring document pages by default.
-7. Decide whether Pagefind remains the bundled-document engine long term or whether all documents should eventually share SQLite FTS.
+5. Follow [pdf-ocr-scanning.md](pdf-ocr-scanning.md) for PDF import, page-aware viewing/search/TTS, OCR, and mobile scanning; do not implement those concerns as isolated additions here.
+6. Decide whether Pagefind remains the bundled-document engine long term or whether all documents should eventually share SQLite FTS.
 
 ## Branching Guidance
 
