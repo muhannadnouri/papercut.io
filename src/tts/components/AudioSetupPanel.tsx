@@ -11,13 +11,8 @@ import {
   type TtsVoice,
   type TtsVoiceInfo,
 } from '../types'
-import { formatSpeedLabel } from '../utils/format'
 
 const HIGH_THREAD_COUNT_WARNING_THRESHOLD = 4
-
-const SPEED_MIN = 0.5
-const SPEED_MAX = 2
-const SPEED_STEP = 0.05
 
 interface SelectOption {
   label: string
@@ -33,16 +28,6 @@ const LANGUAGE_LABELS: Record<string, { label: string; sortKey: string }> = {
   it: { label: 'Italiano (Italian)', sortKey: 'Italian' },
   pt: { label: 'Português (Brasil) - Portuguese (Brazil)', sortKey: 'Portuguese' },
   zh: { label: '中文（普通话） - Chinese (Mandarin)', sortKey: 'Chinese' },
-}
-
-// Snap to the slider step and clamp to range. The saved-audiobook cache id buckets
-// speed to 2 decimals on both the JS and Rust side, so values must round-trip cleanly
-// at that precision; this also avoids float drift breaking equality checks on reload.
-function snapSpeed(value: number): number {
-  if (!Number.isFinite(value)) return 1
-  const snapped = Math.round(value / SPEED_STEP) * SPEED_STEP
-  const clamped = Math.min(SPEED_MAX, Math.max(SPEED_MIN, snapped))
-  return Number(clamped.toFixed(2))
 }
 
 // The model metadata can be locale-specific (`ar-JO`) even when the UI should
@@ -72,11 +57,9 @@ export interface AudioSetupPanelProps {
   onModelChange: (modelId: string) => void
   onProbeSilmaSidecar?: () => void
   onSilmaNfeStepChange: (nfeStep: number) => void
-  onSpeedChange: (speed: number) => void
   onTextPreprocessorChange: (textPreprocessor: string) => void
   onThreadCountChange: (threadCount: number) => void
   onVoiceChange: (voice: TtsVoice) => void
-  speed: number
   silmaProbeRunning?: boolean
   silmaNfeStep: number
   textPreprocessor: string
@@ -100,11 +83,9 @@ export function AudioSetupPanel({
   onModelChange,
   onProbeSilmaSidecar,
   onSilmaNfeStepChange,
-  onSpeedChange,
   onTextPreprocessorChange,
   onThreadCountChange,
   onVoiceChange,
-  speed,
   silmaProbeRunning = false,
   silmaNfeStep,
   textPreprocessor,
@@ -284,48 +265,6 @@ export function AudioSetupPanel({
             )}
           </SelectField>
 
-          <div className="audio-field audio-field-speed audio-field-disabled">
-            <span id="tts-speed-label">{'⚡ ' + t('tts.setup.generatedSpeed')}</span>
-            <div className="audio-speed-row">
-              <button
-                type="button"
-                className="audio-speed-step"
-                onClick={() => onSpeedChange(snapSpeed(speed - SPEED_STEP))}
-                disabled
-                aria-label={t('tts.setup.decreaseSpeed')}
-                title={t('tts.setup.fixedSpeed')}
-              >
-                &minus;
-              </button>
-              <input
-                type="range"
-                className="tts-speed-slider"
-                min={SPEED_MIN}
-                max={SPEED_MAX}
-                step={SPEED_STEP}
-                value={speed}
-                onChange={(event) => onSpeedChange(snapSpeed(Number(event.target.value)))}
-                disabled
-                title={t('tts.setup.fixedSpeed')}
-                aria-labelledby="tts-speed-label"
-                aria-describedby="tts-speed-help"
-              />
-              <button
-                type="button"
-                className="audio-speed-step"
-                onClick={() => onSpeedChange(snapSpeed(speed + SPEED_STEP))}
-                disabled
-                aria-label={t('tts.setup.increaseSpeed')}
-                title={t('tts.setup.fixedSpeed')}
-              >
-                +
-              </button>
-              <span className="audio-speed-value">{formatSpeedLabel(speed)}</span>
-            </div>
-            <span id="tts-speed-help" className="audio-thread-meta">
-              {t('tts.setup.speedHelp')}
-            </span>
-          </div>
         </div>
       </section>
 

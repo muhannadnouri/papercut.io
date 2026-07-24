@@ -35,11 +35,20 @@ export function SearchResults({
   const hasFilters = selectedFilters.size > 0
   const visibleCount = filtered.length
 
-  return (
-    <div className="results-container">
-      {loading && <div className="search-loading">{t('search.results.searching')}</div>}
+  if (loading) {
+    return (
+      <div className="results-container" aria-busy="true">
+        <div className="search-loading" role="status" aria-live="polite" aria-atomic="true">
+          <span className="spinner" aria-hidden="true" />
+          <span>{t('search.results.searching')}</span>
+        </div>
+      </div>
+    )
+  }
 
-      {lastSearchInfo && !loading && submittedQuery.length > 0 && visibleCount > 0 && (
+  return (
+    <div className="results-container" aria-busy="false">
+      {lastSearchInfo && submittedQuery.length > 0 && visibleCount > 0 && (
         <div className="search-info">
           <strong>{t('search.results.resultCount', { count: visibleCount })}</strong>
           {hasFilters && <> · {t('search.results.filtered')}</>}
@@ -54,7 +63,7 @@ export function SearchResults({
         </div>
       )}
 
-      {submittedQuery.length > 0 && filtered.length === 0 && !loading && (
+      {submittedQuery.length > 0 && filtered.length === 0 && (
         <p className="no-results">
           <span>{t('search.results.noResults')}</span>
           {hasFilters && <> <span>{t('search.results.filtersApplied')}</span></>}

@@ -2,7 +2,9 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AudiobookCacheState } from '../hooks/useAudiobookCache'
 import type { TtsChunkSummary, TtsPlayerState } from '../hooks/useTtsPlayer'
+import type { SavedAudiobookRecord } from '../storage/AudiobookLibrary'
 import { formatSpeedLabel } from '../utils/format'
+import { SavedAudiobooksMenu } from './SavedAudiobooksMenu'
 import './AudioControls.css'
 
 interface AudioControlsProps {
@@ -17,6 +19,7 @@ interface AudioControlsProps {
   onPause: () => void
   onRead: () => void
   onResume: () => void
+  onSelectSavedAudiobook: (record: SavedAudiobookRecord) => void
   onJumpToChunk: (index: number) => void
   onPlaybackRateChange: (rate: number) => void
   onSave: () => void
@@ -27,6 +30,8 @@ interface AudioControlsProps {
   playbackDurationSec?: number
   playbackNotice?: string
   playbackRate: number
+  savedAudiobooks: SavedAudiobookRecord[]
+  selectedAudiobookId: string | null
   ttsState: TtsPlayerState
   wordHighlightEnabled: boolean
 }
@@ -46,6 +51,7 @@ export function AudioControls({
   onPause,
   onRead,
   onResume,
+  onSelectSavedAudiobook,
   onJumpToChunk,
   onPlaybackRateChange,
   onSave,
@@ -56,6 +62,8 @@ export function AudioControls({
   playbackDurationSec,
   playbackNotice,
   playbackRate,
+  savedAudiobooks,
+  selectedAudiobookId,
   ttsState,
   wordHighlightEnabled,
 }: AudioControlsProps) {
@@ -114,6 +122,13 @@ export function AudioControls({
   return (
     <section ref={controlsRef} className="audio-controls" aria-label={t('tts.controls.ariaLabel')}>
       <div className="audio-compact-row">
+        {savedAudiobooks.length > 0 && (
+          <SavedAudiobooksMenu
+            records={savedAudiobooks}
+            selectedId={selectedAudiobookId}
+            onSelect={onSelectSavedAudiobook}
+          />
+        )}
         {!showFloatingPlayback && canPlayAudiobook && (
           <button className="audio-icon-btn audio-primary-btn" onClick={onRead} aria-label={t('tts.controls.playSaved')} title={t('tts.controls.playSaved')}>
             <AudioIcon name="play" />
@@ -219,18 +234,24 @@ export function AudioControls({
       )
     }
 
+    const saveLabel = savedAudiobooks.length > 0
+      ? t('tts.controls.saveCurrentSetup')
+      : t('tts.controls.save')
+    const buttonLabel = audiobookState.complete ? t('tts.controls.savedForCurrentSetup') : saveLabel
+
     return (
       <button
         className={'audio-icon-btn' + (audiobookState.complete ? ' audio-save-complete' : '')}
         onClick={onSave}
         disabled={!canSaveAudiobook || audiobookState.complete}
-        aria-label={audiobookState.complete ? t('tts.controls.savedForVoice') : t('tts.controls.save')}
-        title={audiobookState.complete ? t('tts.controls.savedForVoice') : t('tts.controls.save')}
+        aria-label={buttonLabel}
+        title={buttonLabel}
       >
         <AudioIcon name="save" />
       </button>
     )
   }
+
 }
 
 function nextPlaybackRate(currentRate: number): number {

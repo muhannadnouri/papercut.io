@@ -123,7 +123,6 @@ function App() {
     audioSavedOnly,
     closeDocumentAudio,
     audiobooksPanelProps,
-    filterResults,
     hasFloatingAudioControls,
     importAudiobook: importAudiobookBundle,
     includeDocumentInList,
@@ -140,7 +139,7 @@ function App() {
     ...userUploads.map((upload) => ({ title: upload.title, url: upload.url, format: 'html', source: 'audiobook-upload' as const })),
   ], [allDocuments, uploadedDocuments, userUploads]) 
 
-  const searchFilters = useDocumentFilters(libraryDocuments, { includeDocument: includeDocumentInList })
+  const searchFilters = useDocumentFilters(libraryDocuments)
   const libraryFilters = useDocumentFilters(libraryDocuments, { includeDocument: includeDocumentInList })
 
   const {
@@ -184,8 +183,6 @@ function App() {
     setShowDocuments,
     setDocumentFilter: setLibraryDocumentFilter,
   } = libraryFilters 
-
-  const audioFilteredResults = filterResults(results)
 
   const handleViewDocument = useCallback((url: string, target?: SearchOpenTarget, options?: { restoreBookmark?: boolean }) => {
     return openDocument(url, target, options, prepareDocumentOpen)
@@ -354,7 +351,7 @@ function App() {
             onToggleAllInGroup={toggleAllInGroup}
             onToggleAuthor={toggleSearchAuthor}
             onClearFilters={clearFilters}
-            results={audioFilteredResults}
+            results={results}
             loading={loading}
             submittedQuery={submittedQuery}
             lastSearchInfo={lastSearchInfo}
