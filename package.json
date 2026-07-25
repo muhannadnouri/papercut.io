@@ -19,6 +19,7 @@
     "desktop": "node scripts/build-desktop.js",
     "desktop:static": "node scripts/build-desktop.js --static",
     "prepare:silma-sidecar": "node scripts/prepare-silma-sidecar.js",
+    "test:pdf-extraction": "node scripts/check-pdf-extraction.mjs scripts/fixtures/pdf/extraction-inline-columns.pdf",
     "package:silma-runtime": "node scripts/package-silma-runtime-pack.js",
     "install:silma-cuda-runtime": "bash scripts/install-silma-cuda-runtime.sh",
     "verify:appimage-media": "node scripts/verify-appimage-media.js",
