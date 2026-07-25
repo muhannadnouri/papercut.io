@@ -16,6 +16,10 @@ import {
   getUploadedPdfAssetUrl,
   isUploadedPdfDocumentUrl,
 } from '../uploads/DocumentUploads'
+import {
+  applyPdfTtsHighlight,
+  clearPdfTtsHighlight,
+} from '../pdf/pdfTtsHighlight'
 import { createPdfFindAdapter } from './pdfFind'
 import {
   PdfControls,
@@ -69,6 +73,7 @@ export function PdfViewer({
   url,
   toolbarTarget,
   searchTarget,
+  pdfTtsHighlightSpans,
   onFindApiChange,
   onFindResult,
 }: ViewerProps) {
@@ -76,6 +81,7 @@ export function PdfViewer({
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<HTMLDivElement>(null)
   const pdfViewerRef = useRef<PdfJsViewer | null>(null)
+  const eventBusRef = useRef<EventBus | null>(null)
   const linkServiceRef = useRef<PDFLinkService | null>(null)
   const findAdapterRef = useRef<ReturnType<typeof createPdfFindAdapter> | null>(null)
   const spreadModesRef = useRef<{ NONE: number; ODD: number } | null>(null)
@@ -142,6 +148,7 @@ export function PdfViewer({
 
       spreadModesRef.current = viewerModule.SpreadMode
       eventBus = new viewerModule.EventBus()
+      eventBusRef.current = eventBus
       linkService = new viewerModule.PDFLinkService({ eventBus })
       findController = new viewerModule.PDFFindController({
         eventBus,
@@ -242,11 +249,48 @@ export function PdfViewer({
       linkService?.setDocument(null)
       pdfViewer?.cleanup()
       pdfViewerRef.current = null
+      eventBusRef.current = null
       linkServiceRef.current = null
       spreadModesRef.current = null
       void loadingTask?.destroy()
     }
   }, [onFindApiChange, onFindResult, url])
+
+  useEffect(() => {
+    const pdfViewer = pdfViewerRef.current
+    const eventBus = eventBusRef.current
+    const doc = viewerRef.current?.ownerDocument
+    if (status.state !== 'ready' || !pdfViewer || !eventBus || !doc) return
+
+    clearPdfTtsHighlight(doc)
+    if (!pdfTtsHighlightSpans?.length) return
+
+    let scrolled = false
+    const renderHighlight = () => {
+      const firstRange = applyPdfTtsHighlight(pdfViewer, pdfTtsHighlightSpans, doc)
+      if (!firstRange || scrolled) return
+      scrolled = true
+      firstRange.startContainer.parentElement?.scrollIntoView({
+        block: 'center',
+        behavior: 'smooth',
+      })
+    }
+    const firstPage = Math.min(
+      Math.max(pdfTtsHighlightSpans[0].pageIndex + 1, 1),
+      status.pages,
+    )
+    pdfViewer.currentPageNumber = firstPage
+    eventBus.on('textlayerrendered', renderHighlight)
+    eventBus.on('updatetextlayermatches', renderHighlight)
+    const frame = requestAnimationFrame(renderHighlight)
+
+    return () => {
+      cancelAnimationFrame(frame)
+      eventBus.off('textlayerrendered', renderHighlight)
+      eventBus.off('updatetextlayermatches', renderHighlight)
+      clearPdfTtsHighlight(doc)
+    }
+  }, [pdfTtsHighlightSpans, status])
 
   useEffect(() => {
     if (status.state !== 'ready' || !searchTarget) return

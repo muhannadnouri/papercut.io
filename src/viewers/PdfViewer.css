@@ -8,6 +8,11 @@
   width: 100%;
 }
 
+::highlight(pdf-tts-current) {
+  background-color: var(--highlight-tts, #c7f9cc);
+  color: inherit;
+}
+
 .pdf-viewer-body {
   display: flex;
   flex: 1 1 auto;

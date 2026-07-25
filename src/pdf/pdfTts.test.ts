@@ -3,7 +3,10 @@ import {
   AUDIOBOOK_SAVE_CHUNK_PROFILE,
   chunkAudiobookSaveSegmentsWithSpans,
 } from '../tts/utils/text'
-import { pdfNarrationToReadableSegments } from './pdfTts'
+import {
+  pdfNarrationToReadableSegments,
+  pdfSourceSpansForChunk,
+} from './pdfTts'
 
 describe('pdfNarrationToReadableSegments', () => {
   it('keeps reconstructed text and source runs in stable order', () => {
@@ -47,5 +50,62 @@ describe('pdfNarrationToReadableSegments', () => {
     expect(chunks.length).toBeGreaterThan(1)
     expect(chunks.every((chunk) => chunk.text.length <= AUDIOBOOK_SAVE_CHUNK_PROFILE.maxChunkLength)).toBe(true)
     expect(chunks.map((chunk) => chunk.text).join(' ')).toBe(text)
+  })
+
+  it('maps a chunk across PDF text items and segment boundaries', () => {
+    const segments = pdfNarrationToReadableSegments([
+      {
+        text: 'First line',
+        sourceRuns: [{
+          pageIndex: 0,
+          blockOrder: 3,
+          startOffset: 0,
+          endOffset: 10,
+          sourceStartOffset: 0,
+          sourceEndOffset: 10,
+        }],
+      },
+      {
+        text: 'final file',
+        sourceRuns: [
+          {
+            pageIndex: 1,
+            blockOrder: 0,
+            startOffset: 0,
+            endOffset: 6,
+            sourceStartOffset: 0,
+            sourceEndOffset: 6,
+          },
+          {
+            pageIndex: 1,
+            blockOrder: 1,
+            startOffset: 6,
+            endOffset: 8,
+            sourceStartOffset: 0,
+            sourceEndOffset: 1,
+          },
+          {
+            pageIndex: 1,
+            blockOrder: 1,
+            startOffset: 8,
+            endOffset: 10,
+            sourceStartOffset: 1,
+            sourceEndOffset: 3,
+          },
+        ],
+      },
+    ])
+
+    expect(pdfSourceSpansForChunk(segments, {
+      startSegmentIndex: 0,
+      startOffset: 6,
+      endSegmentIndex: 1,
+      endOffset: 9,
+    })).toEqual([
+      { pageIndex: 0, blockOrder: 3, startOffset: 6, endOffset: 10 },
+      { pageIndex: 1, blockOrder: 0, startOffset: 0, endOffset: 6 },
+      { pageIndex: 1, blockOrder: 1, startOffset: 0, endOffset: 1 },
+      { pageIndex: 1, blockOrder: 1, startOffset: 1, endOffset: 2 },
+    ])
   })
 })

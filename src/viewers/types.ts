@@ -1,4 +1,5 @@
 import type React from 'react'
+import type { PdfTtsSourceSpan } from '../tts/types'
 import type { SearchOpenTarget } from '../types/search'
 
 export interface ViewerFindResult {
@@ -20,6 +21,7 @@ export interface ViewerProps {
   contentRef?: React.RefObject<HTMLElement | null>
   toolbarTarget?: HTMLElement | null
   searchTarget?: SearchOpenTarget | null
+  pdfTtsHighlightSpans?: PdfTtsSourceSpan[]
   onFindApiChange?: (api: ViewerFindApi | null) => void
   onFindResult?: (result: ViewerFindResult) => void
 }

@@ -79,9 +79,19 @@ export interface TtsChunkSourceSpan {
   endOffset: number
 }
 
+export interface PdfTtsSourceSpan {
+  pageIndex: number
+  blockOrder: number
+  startOffset: number
+  endOffset: number
+}
+
 export interface TtsChunk {
   id: string
   text: string
   textHash?: string | null
   sourceSpan?: TtsChunkSourceSpan
+  // Runtime-only PDF coordinates. Native manifests keep sourceSpan as the
+  // durable identity and rebuild these bounded active-view ranges on reopen.
+  pdfSourceSpans?: PdfTtsSourceSpan[]
 }

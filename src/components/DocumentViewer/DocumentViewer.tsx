@@ -102,11 +102,19 @@ export function DocumentViewer({
     handleViewerFindResult,
   } = useFindInPage(readerRef, viewerFindApi)
 
-  useTtsHighlight(readerRef, ttsHighlight ?? {
-    enabled: false,
-    currentChunkIndex: null,
-    chunks: [],
-  })
+  useTtsHighlight(readerRef, ttsHighlight
+    ? { ...ttsHighlight, enabled: ttsHighlight.enabled && plugin.id !== 'pdf' }
+    : {
+      enabled: false,
+      currentChunkIndex: null,
+      chunks: [],
+    })
+
+  const pdfTtsHighlightSpans = plugin.id === 'pdf' &&
+    ttsHighlight?.enabled &&
+    ttsHighlight.currentChunkIndex !== null
+    ? ttsHighlight.chunks[ttsHighlight.currentChunkIndex]?.pdfSourceSpans
+    : undefined
 
   // Uploaded HTML/EPUB is already sanitized by the backend and rendered in the
   // app DOM. Handle internal anchors here so ToC/footnote clicks do not mutate
@@ -302,6 +310,7 @@ export function DocumentViewer({
             contentRef={readerRef}
             toolbarTarget={viewerToolbarTarget}
             searchTarget={searchTarget}
+            pdfTtsHighlightSpans={pdfTtsHighlightSpans}
             onFindApiChange={setViewerFindApi}
             onFindResult={handleViewerFindResult}
           />

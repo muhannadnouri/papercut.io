@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   pdfNarrationToReadableSegments,
+  pdfSourceSpansForChunk,
   type PdfReadableSegment,
 } from '../../pdf/pdfTts'
 import {
@@ -25,7 +26,6 @@ import {
   SILMA_AUDIOBOOK_SAVE_CHUNK_PROFILE,
   type SpeechChunk,
 } from '../utils/text'
-import type { ReadableSegment } from '../alignment/readableSegments'
 
 type ImportedHighlightStatus = 'idle' | 'preparing' | 'ready' | 'unavailable'
 
@@ -204,11 +204,15 @@ function audiobookSaveChunksFromHtml(html: string, modelId: string): TtsChunk[] 
 }
 
 function audiobookSaveChunksFromSegments(
-  segments: ReadableSegment[],
+  segments: PdfReadableSegment[],
   modelId: string,
 ): TtsChunk[] {
   const profile = modelId === SILMA_MODEL_ID ? SILMA_AUDIOBOOK_SAVE_CHUNK_PROFILE : undefined
-  return buildRuntimeChunks(chunkAudiobookSaveSegmentsWithSpans(segments, profile), 'save-c')
+  const sourceChunks = chunkAudiobookSaveSegmentsWithSpans(segments, profile)
+  return buildRuntimeChunks(sourceChunks, 'save-c').map((chunk, index) => ({
+    ...chunk,
+    pdfSourceSpans: pdfSourceSpansForChunk(segments, sourceChunks[index].sourceSpan),
+  }))
 }
 
 function buildRuntimeChunks(sourceChunks: SpeechChunk[], prefix: string): TtsChunk[] {
