@@ -106,7 +106,7 @@ pub(crate) struct UploadedDocumentDeleteBatchResult {
     pub(crate) bytes_freed: u64,
 }
 
-/// Request to read the stored source HTML of an uploaded document.
+/// Request identifying one stored upload at a validated source boundary.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentSourceRequest {

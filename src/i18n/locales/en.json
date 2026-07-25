@@ -97,14 +97,14 @@
     },
     "import": {
       "files": "Files",
-      "filesDetail": "Import one or more HTML or EPUB files",
+      "filesDetail": "Import one or more HTML, EPUB, or PDF files",
       "folder": "Folder",
-      "folderDetail": "Import HTML and EPUB files in one folder; subfolders are skipped",
+      "folderDetail": "Import HTML, EPUB, and PDF files in one folder; subfolders are skipped",
       "importingBatch": "Importing documents",
       "importingFolder": "Importing folder"
     },
     "status": {
-      "preparingBatch": "Choose HTML or EPUB files to import...",
+      "preparingBatch": "Choose HTML, EPUB, or PDF files to import...",
       "importingBatchProgress": "Importing {{current, number}} of {{total, number}}",
       "batchProgress": "Processed {{processed, number}} of {{total, number}}",
       "stoppingBatch": "Stopping after the current file...",

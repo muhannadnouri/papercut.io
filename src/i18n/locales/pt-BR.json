@@ -101,14 +101,14 @@
     },
     "import": {
       "files": "Arquivos",
-      "filesDetail": "Importe um ou mais arquivos HTML ou EPUB",
+      "filesDetail": "Importe um ou mais arquivos HTML, EPUB ou PDF",
       "folder": "Pasta",
-      "folderDetail": "Importe arquivos HTML e EPUB de uma pasta; as subpastas são ignoradas",
+      "folderDetail": "Importe arquivos HTML, EPUB e PDF de uma pasta; as subpastas são ignoradas",
       "importingBatch": "Importando documentos",
       "importingFolder": "Importando pasta"
     },
     "status": {
-      "preparingBatch": "Escolha arquivos HTML ou EPUB para importar...",
+      "preparingBatch": "Escolha arquivos HTML, EPUB ou PDF para importar...",
       "importingBatchProgress": "Importando {{current, number}} de {{total, number}}",
       "batchProgress": "Processados {{processed, number}} de {{total, number}}",
       "stoppingBatch": "Parando após o arquivo atual...",

@@ -97,14 +97,14 @@
     },
     "import": {
       "files": "फ़ाइलें",
-      "filesDetail": "एक या अधिक HTML या EPUB फ़ाइलें आयात करें",
+      "filesDetail": "एक या अधिक HTML, EPUB या PDF फ़ाइलें आयात करें",
       "folder": "फ़ोल्डर",
-      "folderDetail": "एक फ़ोल्डर की HTML और EPUB फ़ाइलें आयात करें; उपफ़ोल्डर छोड़ दिए जाते हैं",
+      "folderDetail": "एक फ़ोल्डर की HTML, EPUB और PDF फ़ाइलें आयात करें; उपफ़ोल्डर छोड़ दिए जाते हैं",
       "importingBatch": "दस्तावेज़ आयात किए जा रहे हैं",
       "importingFolder": "फ़ोल्डर आयात किया जा रहा है"
     },
     "status": {
-      "preparingBatch": "आयात करने के लिए HTML या EPUB फ़ाइलें चुनें...",
+      "preparingBatch": "आयात करने के लिए HTML, EPUB या PDF फ़ाइलें चुनें...",
       "importingBatchProgress": "{{total, number}} में से {{current, number}} आयात हो रहा है",
       "batchProgress": "{{total, number}} में से {{processed, number}} संसाधित",
       "stoppingBatch": "वर्तमान फ़ाइल के बाद रोका जा रहा है...",

@@ -72,6 +72,19 @@ export interface UploadedDocumentBatchResult {
   cancelled: boolean
 }
 
+export interface PdfPageTextLayer {
+  schemaVersion: 1
+  pageIndex: number
+  width: number
+  height: number
+  blocks: Array<{
+    text: string
+    bounds: [number, number, number, number]
+    order: number
+    confidence: number | null
+  }>
+}
+
 const DOCUMENT_IMPORT_PROGRESS_EVENT = 'document-uploads-import-progress'
 const DOCUMENT_DELETE_PROGRESS_EVENT = 'document-uploads-delete-progress'
 
@@ -160,6 +173,36 @@ export async function getUploadedDocumentCover(documentUrl: string): Promise<str
   const invoke = await loadTauriInvoke()
   return invoke<string | null>('document_uploads_get_cover', {
     request: { documentUrl },
+  })
+}
+
+export async function getUploadedPdfSource(documentUrl: string): Promise<Uint8Array> {
+  const invoke = await loadTauriInvoke()
+  const source = await invoke<ArrayBuffer | Uint8Array | number[]>('document_uploads_get_pdf_source', {
+    request: { documentUrl },
+  })
+  if (source instanceof Uint8Array) return source
+  return new Uint8Array(source)
+}
+
+export async function storeUploadedPdfPageText(
+  documentUrl: string,
+  layer: PdfPageTextLayer,
+): Promise<void> {
+  const invoke = await loadTauriInvoke()
+  await invoke<void>('document_uploads_store_pdf_page_text', {
+    request: { documentUrl, layer },
+  })
+}
+
+export async function finalizeUploadedPdf(
+  documentUrl: string,
+  title: string | undefined,
+  pageCount: number,
+): Promise<UploadedDocument> {
+  const invoke = await loadTauriInvoke()
+  return invoke<UploadedDocument>('document_uploads_finalize_pdf', {
+    request: { documentUrl, title, pageCount },
   })
 }
 

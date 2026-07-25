@@ -222,6 +222,7 @@ pub(crate) fn upsert_document(
     id: &str,
     url: &str,
     parsed: &ParsedDocument,
+    source_kind: StoredSourceKind,
     imported_at_ms: u128,
     bytes: u64,
 ) -> Result<(), String> {
@@ -236,7 +237,7 @@ pub(crate) fn upsert_document(
     tx.execute(
         "INSERT INTO uploaded_documents \
          (id, url, title, format, source_kind, imported_at_ms, bytes, sections, cover_media_type) \
-         VALUES (?1, ?2, ?3, ?4, 'html', ?5, ?6, ?7, ?8) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) \
          ON CONFLICT(id) DO UPDATE SET \
            url = excluded.url, \
            title = excluded.title, \
@@ -251,6 +252,7 @@ pub(crate) fn upsert_document(
             url,
             parsed.title,
             parsed.format,
+            source_kind.as_str(),
             imported_at_ms as i64,
             bytes as i64,
             parsed.sections.len() as i64,
@@ -267,9 +269,15 @@ pub(crate) fn upsert_document(
 
     for (index, section) in parsed.sections.iter().enumerate() {
         tx.execute(
-            "INSERT INTO uploaded_sections (document_id, ordinal, heading, text) \
-             VALUES (?1, ?2, ?3, ?4)",
-            params![id, index as i64, section.heading, section.text],
+            "INSERT INTO uploaded_sections (document_id, ordinal, page_index, heading, text) \
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                id,
+                index as i64,
+                section.page_index.map(i64::from),
+                section.heading,
+                section.text
+            ],
         )
         .map_err(db_err)?;
         let section_id = tx.last_insert_rowid();
@@ -285,7 +293,7 @@ pub(crate) fn upsert_document(
 }
 
 /// Store a canonical source whose derived sections are intentionally absent.
-/// PDF transfer uses this before Stage 3 rebuilds searchable page rows.
+/// PDF transfer and staging use this until PDF.js rebuilds searchable page rows.
 pub(crate) fn upsert_unindexed_document(
     db: &mut Connection,
     id: &str,
@@ -343,6 +351,7 @@ mod tests {
 
     use super::{ensure_schema_columns, find_upload_by_id, upsert_document};
     use crate::document_uploads::parsed::{ParsedDocument, ParsedSection};
+    use crate::document_uploads::StoredSourceKind;
 
     /// Regression test for SQLite's `INSERT OR REPLACE` footgun:
     /// same-id document updates must not delete library placement metadata.
@@ -350,8 +359,16 @@ mod tests {
     fn upsert_document_preserves_existing_library_location() {
         let mut db = test_db();
         let first = parsed_document("First Title", &["Old body"]);
-        upsert_document(&mut db, "abc123", "/uploads/abc123.html", &first, 100, 10)
-            .expect("initial insert");
+        upsert_document(
+            &mut db,
+            "abc123",
+            "/uploads/abc123.html",
+            &first,
+            StoredSourceKind::Html,
+            100,
+            10,
+        )
+        .expect("initial insert");
         let stored = find_upload_by_id(&db, "abc123")
             .expect("lookup existing upload")
             .expect("stored upload");
@@ -374,8 +391,16 @@ mod tests {
         .expect("move document");
 
         let second = parsed_document("Second Title", &["New body", "Another section"]);
-        upsert_document(&mut db, "abc123", "/uploads/abc123.html", &second, 200, 20)
-            .expect("update existing document");
+        upsert_document(
+            &mut db,
+            "abc123",
+            "/uploads/abc123.html",
+            &second,
+            StoredSourceKind::Html,
+            200,
+            20,
+        )
+        .expect("update existing document");
 
         let location: (Option<String>, i64) = db
             .query_row(
@@ -411,6 +436,38 @@ mod tests {
             .expect("fts count");
         assert_eq!(section_count, 2);
         assert_eq!(fts_count, 2);
+    }
+
+    #[test]
+    fn upsert_pdf_document_persists_page_locator_and_source_kind() {
+        let mut db = test_db();
+        let mut parsed = parsed_document("PDF Title", &["Page text"]);
+        parsed.format = "pdf".into();
+        parsed.view_html.clear();
+        parsed.sections[0].page_index = Some(7);
+
+        upsert_document(
+            &mut db,
+            "pdf123",
+            "/uploads/pdf123.pdf",
+            &parsed,
+            StoredSourceKind::Pdf,
+            100,
+            20,
+        )
+        .expect("insert PDF");
+
+        let stored: (String, Option<i64>) = db
+            .query_row(
+                "SELECT d.source_kind, s.page_index \
+                 FROM uploaded_documents d \
+                 JOIN uploaded_sections s ON s.document_id = d.id \
+                 WHERE d.id = 'pdf123'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("stored PDF page");
+        assert_eq!(stored, ("pdf".into(), Some(7)));
     }
 
     #[test]
@@ -525,6 +582,7 @@ mod tests {
                 .map(|(index, text)| ParsedSection {
                     heading: Some(format!("Section {}", index + 1)),
                     text: (*text).to_string(),
+                    page_index: None,
                 })
                 .collect(),
             cover: None,

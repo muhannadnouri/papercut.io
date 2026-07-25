@@ -225,7 +225,9 @@ function App() {
     const result = await importDocumentBatch()
     if (!result?.imported.length) return
     setShowDocuments(true)
-    if (result.selected === 1 && result.imported.length === 1) {
+    if (result.selected === 1 &&
+        result.imported.length === 1 &&
+        result.imported[0].sourceKind === 'html') {
       await handleViewDocument(result.imported[0].url)
     }
   }, [handleViewDocument, importDocumentBatch, setShowDocuments])

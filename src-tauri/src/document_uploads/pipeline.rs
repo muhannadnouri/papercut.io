@@ -11,7 +11,6 @@ use std::path::Path;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use tauri::Runtime;
 use tauri_plugin_dialog::FilePath;
-use tauri_plugin_fs::FsExt;
 
 use super::cover::{
     backfill_thumbnail, write_thumbnail, THUMBNAIL_FILE_NAME, THUMBNAIL_MEDIA_TYPE,
@@ -21,8 +20,9 @@ use super::html::{decode_html_bytes, parse_html_document, sanitize_html};
 use super::parsed::ParsedDocument;
 use super::storage::directory_size;
 use super::storage::{
-    now_ms, source_upload_id, upload_dir, upload_id_from_url, upload_reference_from_url,
-    upload_source_path, upload_url, StoredSourceKind, MAX_EPUB_UPLOAD_BYTES, MAX_UPLOAD_BYTES,
+    now_ms, read_source_bytes, source_upload_id, upload_dir, upload_id_from_url,
+    upload_reference_from_url, upload_source_path, upload_url, StoredSourceKind,
+    MAX_EPUB_UPLOAD_BYTES, MAX_UPLOAD_BYTES,
 };
 use super::store::{delete_document_rows, find_upload_by_id, open_db, upsert_document};
 use super::types::{
@@ -37,7 +37,7 @@ pub(crate) fn import_html_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
 ) -> Result<UploadedDocument, String> {
-    let bytes = read_file(
+    let bytes = read_source_bytes(
         app,
         source,
         MAX_UPLOAD_BYTES,
@@ -64,7 +64,7 @@ pub(crate) fn import_epub_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
 ) -> Result<UploadedDocument, String> {
-    let bytes = read_file(
+    let bytes = read_source_bytes(
         app,
         source,
         MAX_EPUB_UPLOAD_BYTES,
@@ -82,31 +82,6 @@ pub(crate) fn import_epub_source<R: Runtime>(
     }
 
     persist_document(app, id, parsed, bytes.len() as u64)
-}
-
-fn read_file<R: Runtime>(
-    app: &tauri::AppHandle<R>,
-    source: FilePath,
-    max_bytes: u64,
-    too_large_message: &str,
-    open_error_prefix: &str,
-    read_error_prefix: &str,
-) -> Result<Vec<u8>, String> {
-    let mut options = tauri_plugin_fs::OpenOptions::new();
-    options.read(true);
-    let mut file = app
-        .fs()
-        .open(source, options)
-        .map_err(|err| format!("{open_error_prefix}: {err}"))?;
-    let mut bytes = Vec::new();
-    file.by_ref()
-        .take(max_bytes + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|err| format!("{read_error_prefix}: {err}"))?;
-    if bytes.len() as u64 > max_bytes {
-        return Err(too_large_message.into());
-    }
-    Ok(bytes)
 }
 
 /// Return an exact previously imported file only when its stored reader source
@@ -227,7 +202,15 @@ fn write_and_index_document(
                 log::warn!("Skipping unusable imported document cover thumbnail: {error}");
             }
         }
-        upsert_document(db, id, url, parsed, imported_at_ms, bytes)
+        upsert_document(
+            db,
+            id,
+            url,
+            parsed,
+            StoredSourceKind::Html,
+            imported_at_ms,
+            bytes,
+        )
     })();
     if let Err(error) = result {
         fs::remove_dir_all(dir).map_err(|cleanup_error| {
@@ -440,6 +423,7 @@ mod tests {
             sections: vec![ParsedSection {
                 heading: None,
                 text: "Test".into(),
+                page_index: None,
             }],
             cover: None,
         };

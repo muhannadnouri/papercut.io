@@ -21,4 +21,5 @@ pub(crate) struct ParsedDocumentCover {
 pub(crate) struct ParsedSection {
     pub(crate) heading: Option<String>,
     pub(crate) text: String,
+    pub(crate) page_index: Option<u32>,
 }

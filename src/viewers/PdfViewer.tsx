@@ -5,24 +5,9 @@ import type {
   RenderTask,
   TextLayer,
 } from 'pdfjs-dist/legacy/build/pdf.mjs'
-import pdfWorkerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'
+import { loadPdfJs, pdfJsAssetRoot } from '../pdf/pdfJs'
 import './PdfViewer.css'
 import type { ViewerProps } from './types'
-
-let pdfJsPromise: Promise<typeof import('pdfjs-dist/legacy/build/pdf.mjs')> | undefined
-const pdfJsAssetRoot = new URL('pdfjs/', document.baseURI).href
-
-// Keep the large renderer and text-layer stylesheet out of normal app startup.
-function loadPdfJs() {
-  pdfJsPromise ??= Promise.all([
-    import('pdfjs-dist/legacy/build/pdf.mjs'),
-    import('pdfjs-dist/web/pdf_viewer.css'),
-  ]).then(([pdfjs]) => {
-    pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
-    return pdfjs
-  })
-  return pdfJsPromise
-}
 
 type PdfViewerStatus =
   | { state: 'loading' }
@@ -44,12 +29,16 @@ export function PdfViewer({ url }: ViewerProps) {
 
     async function renderFirstPage() {
       setStatus({ state: 'loading' })
-      const pdfjs = await loadPdfJs()
+      const [pdfjs] = await Promise.all([
+        loadPdfJs(),
+        import('pdfjs-dist/web/pdf_viewer.css'),
+      ])
       if (cancelled) return
+      const assetRoot = pdfJsAssetRoot()
       loadingTask = pdfjs.getDocument({
         url,
-        standardFontDataUrl: `${pdfJsAssetRoot}standard_fonts/`,
-        wasmUrl: `${pdfJsAssetRoot}wasm/`,
+        standardFontDataUrl: `${assetRoot}standard_fonts/`,
+        wasmUrl: `${assetRoot}wasm/`,
       })
       const pdf = await loadingTask.promise
       page = await pdf.getPage(1)

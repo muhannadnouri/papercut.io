@@ -12,6 +12,10 @@ use super::organization::{
     create_folder, delete_folder, list_organization, move_documents, move_folder, rename_folder,
     reorder,
 };
+use super::pdf::{
+    finalize_pdf_index, get_pdf_source_bytes, store_pdf_page_text, PdfFinalizeRequest,
+    PdfPageTextRequest,
+};
 use super::pipeline::{delete_upload, get_cover, get_source};
 use super::search::search_uploads;
 use super::store::list_uploads;
@@ -25,7 +29,7 @@ use super::types::{
 };
 use super::DocumentUploadState;
 
-/// Pick multiple HTML/EPUB files and import them as one cancellable sequential batch.
+/// Pick multiple HTML, EPUB, or PDF files and import them as one cancellable batch.
 #[tauri::command]
 pub async fn document_uploads_import_batch<R: Runtime>(
     app: tauri::AppHandle<R>,
@@ -37,7 +41,7 @@ pub async fn document_uploads_import_batch<R: Runtime>(
         .map_err(|err| format!("Document batch import task failed: {err}"))?
 }
 
-/// Pick one desktop folder and import its direct HTML/EPUB children as a batch.
+/// Pick one desktop folder and import its direct supported children as a batch.
 #[tauri::command]
 pub async fn document_uploads_import_folder<R: Runtime>(
     app: tauri::AppHandle<R>,
@@ -98,6 +102,42 @@ pub async fn document_uploads_get_cover<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || get_cover(&app, request))
         .await
         .map_err(|err| format!("Document upload cover task failed: {err}"))?
+}
+
+/// Stream one canonical PDF source to PDF.js as binary IPC, not JSON/base64.
+#[tauri::command]
+pub async fn document_uploads_get_pdf_source<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedDocumentSourceRequest,
+) -> Result<tauri::ipc::Response, String> {
+    let bytes = tauri::async_runtime::spawn_blocking(move || {
+        get_pdf_source_bytes(&app, &request.document_url)
+    })
+    .await
+    .map_err(|err| format!("PDF source task failed: {err}"))??;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+/// Persist one bounded page text layer emitted by PDF.js.
+#[tauri::command]
+pub async fn document_uploads_store_pdf_page_text<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: PdfPageTextRequest,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || store_pdf_page_text(&app, request))
+        .await
+        .map_err(|err| format!("PDF page text task failed: {err}"))?
+}
+
+/// Replace a PDF's page and FTS rows after all sidecars are durable.
+#[tauri::command]
+pub async fn document_uploads_finalize_pdf<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: PdfFinalizeRequest,
+) -> Result<UploadedDocument, String> {
+    tauri::async_runtime::spawn_blocking(move || finalize_pdf_index(&app, request))
+        .await
+        .map_err(|err| format!("PDF index task failed: {err}"))?
 }
 
 /// Delete an uploaded document's rows and stored source directory.

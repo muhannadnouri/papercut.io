@@ -401,6 +401,28 @@ mod tests {
         assert_eq!(same_section[0].match_scope, "section");
     }
 
+    #[test]
+    fn pdf_search_hit_retains_its_page_index() {
+        let db = test_db();
+        insert_document(
+            &db,
+            "pdf-page-hit",
+            "/uploads/pdf-page-hit.pdf",
+            "PDF Sample",
+            &["The indexed page mentions an astrolabe."],
+        );
+        db.execute(
+            "UPDATE uploaded_sections SET page_index = 6 WHERE document_id = ?1",
+            params!["pdf-page-hit"],
+        )
+        .expect("set PDF page locator");
+
+        let hits = search_section_hits(&db, "\"astrolabe\"", 10, &[]).expect("search PDF page");
+
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].page_index, Some(6));
+    }
+
     fn test_db() -> Connection {
         let db = Connection::open_in_memory().expect("open test db");
         db.execute_batch(

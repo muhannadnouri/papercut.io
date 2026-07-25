@@ -93,14 +93,14 @@
     },
     "import": {
       "files": "文件",
-      "filesDetail": "导入一个或多个 HTML 或 EPUB 文件",
+      "filesDetail": "导入一个或多个 HTML、EPUB 或 PDF 文件",
       "folder": "文件夹",
-      "folderDetail": "导入一个文件夹中的 HTML 和 EPUB 文件；跳过子文件夹",
+      "folderDetail": "导入一个文件夹中的 HTML、EPUB 和 PDF 文件；跳过子文件夹",
       "importingBatch": "正在导入文档",
       "importingFolder": "正在导入文件夹"
     },
     "status": {
-      "preparingBatch": "选择要导入的 HTML 或 EPUB 文件...",
+      "preparingBatch": "选择要导入的 HTML、EPUB 或 PDF 文件...",
       "importingBatchProgress": "正在导入第 {{current, number}} 个，共 {{total, number}} 个",
       "batchProgress": "已处理 {{processed, number}} 个，共 {{total, number}} 个",
       "stoppingBatch": "将在当前文件完成后停止...",

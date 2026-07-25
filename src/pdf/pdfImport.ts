@@ -1,0 +1,156 @@
+import type {
+  TextContent,
+  TextItem,
+} from 'pdfjs-dist/types/src/display/api'
+import {
+  deleteUploadedDocument,
+  finalizeUploadedPdf,
+  getUploadedPdfSource,
+  storeUploadedPdfPageText,
+  type PdfPageTextLayer,
+  type UploadedDocument,
+  type UploadedDocumentBatchProgress,
+  type UploadedDocumentBatchResult,
+} from '../uploads/DocumentUploads'
+import { loadPdfJs, pdfJsAssetRoot } from './pdfJs'
+
+const MAX_PDF_PAGES = 2_000
+
+interface PdfImportOptions {
+  signal?: AbortSignal
+  onProgress?: (progress: UploadedDocumentBatchProgress) => void
+}
+
+/**
+ * Complete native-staged PDFs sequentially so PDF.js work remains bounded and
+ * one bad PDF becomes a normal batch failure without discarding other imports.
+ */
+export async function indexImportedPdfs(
+  result: UploadedDocumentBatchResult,
+  options: PdfImportOptions = {},
+): Promise<UploadedDocumentBatchResult> {
+  const completed = result.imported.filter((document) => document.sourceKind !== 'pdf' || document.sections > 0)
+  const pending = result.imported.filter((document) => document.sourceKind === 'pdf' && document.sections === 0)
+  const failures = [...result.failures]
+
+  for (let index = 0; index < pending.length; index += 1) {
+    const document = pending[index]
+    if (options.signal?.aborted) {
+      await removePendingPdfs(pending.slice(index))
+      return { ...result, imported: completed, failures, cancelled: true }
+    }
+    options.onProgress?.({
+      phase: 'importing',
+      processed: completed.length + failures.length,
+      total: result.selected,
+      imported: completed.length,
+      failed: failures.length,
+      fileName: document.title,
+    })
+
+    try {
+      completed.push(await extractAndIndexPdf(document, options.signal))
+    } catch (error) {
+      await deleteUploadedDocument(document.url).catch(() => undefined)
+      if (options.signal?.aborted) {
+        await removePendingPdfs(pending.slice(index + 1))
+        return { ...result, imported: completed, failures, cancelled: true }
+      }
+      failures.push({
+        fileName: document.title,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
+  return { ...result, imported: completed, failures }
+}
+
+async function extractAndIndexPdf(
+  document: UploadedDocument,
+  signal?: AbortSignal,
+): Promise<UploadedDocument> {
+  throwIfAborted(signal)
+  const pdfjs = await loadPdfJs()
+  const assetRoot = pdfJsAssetRoot()
+  const loadingTask = pdfjs.getDocument({
+    data: await getUploadedPdfSource(document.url),
+    standardFontDataUrl: `${assetRoot}standard_fonts/`,
+    wasmUrl: `${assetRoot}wasm/`,
+  })
+
+  try {
+    const pdf = await loadingTask.promise
+    if (pdf.numPages > MAX_PDF_PAGES) {
+      throw new Error(`PDF exceeds the ${MAX_PDF_PAGES}-page import limit`)
+    }
+    const metadata = await pdf.getMetadata().catch(() => null)
+    const title = metadataTitle(metadata?.info)
+
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      throwIfAborted(signal)
+      const page = await pdf.getPage(pageNumber)
+      try {
+        const viewport = page.getViewport({ scale: 1 })
+        const content = await page.getTextContent({ disableNormalization: true })
+        await storeUploadedPdfPageText(document.url, pageTextLayer(
+          pdfjs.Util.transform,
+          content,
+          pageNumber - 1,
+          viewport.width,
+          viewport.height,
+          viewport.transform,
+        ))
+      } finally {
+        page.cleanup()
+      }
+    }
+
+    return finalizeUploadedPdf(document.url, title, pdf.numPages)
+  } finally {
+    await loadingTask.destroy()
+  }
+}
+
+type Transform = (m1: number[], m2: number[]) => number[]
+
+/** Convert PDF.js items into the versioned page-coordinate contract shared by
+ * search now and viewer/TTS highlighting later. */
+export function pageTextLayer(
+  transform: Transform,
+  content: TextContent,
+  pageIndex: number,
+  width: number,
+  height: number,
+  viewportTransform: number[],
+): PdfPageTextLayer {
+  const blocks = content.items
+    .filter((item): item is TextItem => 'str' in item)
+    .map((item, order) => {
+      const matrix = transform(viewportTransform, item.transform)
+      const blockHeight = Math.hypot(matrix[2], matrix[3])
+      return {
+        text: item.str + (item.hasEOL ? '\n' : ''),
+        bounds: [matrix[4], matrix[5] - blockHeight, Math.abs(item.width), blockHeight] as [number, number, number, number],
+        order,
+        confidence: null,
+      }
+    })
+
+  return { schemaVersion: 1, pageIndex, width, height, blocks }
+}
+
+function metadataTitle(info: unknown): string | undefined {
+  if (!info || typeof info !== 'object' || !('Title' in info)) return undefined
+  const title = (info as { Title?: unknown }).Title
+  return typeof title === 'string' && title.trim() ? title.trim() : undefined
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new DOMException('PDF import cancelled', 'AbortError')
+}
+
+async function removePendingPdfs(documents: UploadedDocument[]): Promise<void> {
+  await Promise.all(documents.map((document) =>
+    deleteUploadedDocument(document.url).catch(() => undefined)))
+}

@@ -1,6 +1,6 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 2 implementation complete; compatibility decision gate pending
+Status: Stage 3 text-native import/search slice implemented; manual gate pending
 Last updated: 2026-07-24
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -158,18 +158,22 @@ The existing code is close to supporting another import format, but several
 assumptions must change deliberately:
 
 - `src-tauri/src/document_uploads/parsed.rs` exposes a format-neutral
-  `ParsedDocument` and ordered `ParsedSection`, but sections do not yet have
-  durable page locators.
+  `ParsedDocument` and ordered `ParsedSection` with an optional page locator.
 - `src-tauri/src/document_uploads/store.rs` now stores explicit source kind and
-  an optional page index beside each section. Stage 3 will populate page-level
-  search rows; block coordinates remain in bounded PDF sidecars.
+  an optional page index beside each section. PDF imports populate one FTS row
+  per page; block coordinates remain in bounded PDF sidecars.
 - `src-tauri/src/document_uploads/pipeline.rs` keeps HTML/EPUB reader sources as
   `source.html`. `src-tauri/src/document_uploads/pdf/` owns canonical
-  `source.pdf` and page-text storage.
+  `source.pdf`, bounded page-text sidecars, and atomic page-index finalization.
+- `src/pdf/pdfImport.ts` lazy-loads the selected PDF.js parser, extracts one page
+  at a time, and sends only that page's text layer across IPC. Rust retains the
+  original PDF and commits searchable rows only after every expected page
+  sidecar validates.
 - Library transfer package v3 carries original PDF sources and deliberately
   omits rebuildable page-text sidecars. Existing v1/v2 HTML packages remain
   accepted.
-- `src/viewers/PdfViewer.tsx` is currently a placeholder.
+- `src/viewers/PdfViewer.tsx` remains a first-page validation harness rather
+  than the production virtualized viewer planned for Stage 4.
 - `src/hooks/useDocumentViewerState.ts` and
   `src/components/DocumentViewer/DocumentViewer.tsx` assume a loaded HTML string
   and one live reader DOM.
@@ -505,9 +509,11 @@ automatically schedule both mobile packaging jobs in Papercut CI.
 ### Tauri Data Boundary
 
 Do not send PDF binaries or complete page-image sets through JSON/base64 IPC.
-Use a scoped local asset URL for source access and Tauri channels for ordered
-progress events. Tauri's mobile plugin bridge is appropriate for the later
-native scanner integration.
+Stage 3 reads a selected source once through Tauri's raw binary response, then
+sends bounded page-text payloads back one page at a time. Stage 4 should use a
+scoped local asset boundary for repeated viewer access instead of repeatedly
+copying the full source. Tauri's mobile plugin bridge is appropriate for the
+later native scanner integration.
 
 ## OCR Strategy
 
@@ -702,7 +708,7 @@ gate rather than blocking the storage foundation.
 
 ### Stage 2: Source Storage And Locator Foundation
 
-Stage status: Implementation complete; manual compatibility gate pending
+Stage status: Complete
 
 - [x] Add explicit source-kind metadata and store original PDFs as `source.pdf`
       without changing existing HTML/EPUB URLs.
@@ -714,11 +720,11 @@ Stage status: Implementation complete; manual compatibility gate pending
 - [x] Update library transfer and relevant export/import paths for original PDF
       sources and derived-data rebuild rules.
 - [x] Add migration and backward-compatibility tests for existing app data.
-- [ ] Run the manual HTML/EPUB import, search, delete, saved-audiobook, and
+- [x] Run the manual HTML/EPUB import, search, delete, saved-audiobook, and
       library-transfer regression smoke test.
 
 Automated evidence: the TypeScript build check passes, and the focused Rust
-suite passes 50 upload, migration, search, cleanup, and PDF sidecar tests.
+suite passes the upload, migration, search, cleanup, and PDF sidecar tests.
 Library-transfer package tests cover v1/v2 compatibility, v3 PDF source
 round-tripping, checksum enforcement, and rejection of PDFs mislabeled as
 legacy packages.
@@ -728,15 +734,22 @@ library transfer pass unchanged while a fixture PDF can be stored and located.
 
 ### Stage 3: Text-Native PDF Import And Search
 
-Stage status: Not started
+Stage status: In progress; import/search slice implemented, decision gate pending
 
-- [ ] Add PDF validation, metadata/title extraction, page count, and size limits.
-- [ ] Extract ordered page text and page locators outside the React render path.
-- [ ] Index page-level text in SQLite FTS without storing binary data in SQLite.
-- [ ] Return page-aware search results and sanitized snippets.
+- [x] Add PDF validation, metadata/title extraction, page count, and size limits.
+- [x] Extract ordered page text and page locators outside the React render path.
+- [x] Index page-level text in SQLite FTS without storing binary data in SQLite.
+- [x] Return page-aware search results and sanitized snippets.
 - [ ] Generate a bounded first-page thumbnail for the Library gallery.
-- [ ] Add import progress, cancellation, clear failures, and atomic cleanup.
+- [x] Add bounded import progress, between-page cancellation, clear failures, and
+      cleanup of failed or cancelled staged PDFs.
 - [ ] Add parser/index tests for the Stage 0 corpus.
+
+Automated evidence: the production frontend build, PDF.js extraction fixture,
+TypeScript check, focused ESLint pass, all frontend tests, all locale checks,
+and all 70 Rust library tests pass. The focused page-text tests cover inline
+format boundaries, line endings, finite coordinates, sidecar validation, FTS
+indexing, and returned page locators.
 
 Decision gate: text-native fixtures import, list, search, reopen, transfer, and
 delete correctly without a PDF viewer-specific workaround in the search index.
@@ -897,6 +910,9 @@ Stage status: Deferred
 | 2026-07-24 | Stage 2 | Isolate PDF persistence under `document_uploads/pdf` | Shared code knows only source kind, URL/path selection, and nullable page locators; canonical PDF and page-sidecar details remain removable |
 | 2026-07-24 | Stage 2 | Transfer only canonical PDF sources | Package v3 adds `sourceKind` and `source.pdf`; derived page-text data is rebuilt instead of copied across devices |
 | 2026-07-24 | Stage 2 | Keep existing HTML/EPUB URLs and package compatibility | Database defaults migrate old rows to HTML, and transfer v1/v2 remain accepted as HTML-only |
+| 2026-07-24 | Stage 3 | Reuse PDF.js for import-time text extraction | One selected parser supplies metadata, page text, reading order, and coordinates without adding a second PDF dependency |
+| 2026-07-24 | Stage 3 | Keep PDF import memory and IPC bounded by page | Rust caps source size at 250 MB, PDF.js caps documents at 2,000 pages, and only one page-text layer is persisted per IPC call |
+| 2026-07-24 | Stage 3 | Commit FTS rows only after all page sidecars validate | Failed or cancelled imports remove newly staged PDFs; partial page rows never become searchable |
 
 ## References
 

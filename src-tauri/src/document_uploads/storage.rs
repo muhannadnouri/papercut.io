@@ -4,11 +4,14 @@
 //! and size limit constants also live here since they define the storage contract.
 
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use sha2::{Digest, Sha256};
 use tauri::{Manager, Runtime};
+use tauri_plugin_dialog::FilePath;
+use tauri_plugin_fs::FsExt;
 
 use super::pdf;
 
@@ -18,6 +21,34 @@ pub(crate) const UPLOAD_URL_PREFIX: &str = "/uploads/";
 pub(crate) const MAX_UPLOAD_BYTES: u64 = 25 * 1024 * 1024;
 /// Hard cap on imported EPUB file size (100 MB).
 pub(crate) const MAX_EPUB_UPLOAD_BYTES: u64 = 100 * 1024 * 1024;
+/// Hard cap on imported PDF file size (250 MB).
+pub(crate) const MAX_PDF_UPLOAD_BYTES: u64 = 250 * 1024 * 1024;
+
+/// Read a picker-provided path or mobile content URL with a hard byte cap.
+pub(crate) fn read_source_bytes<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    source: FilePath,
+    max_bytes: u64,
+    too_large_message: &str,
+    open_error_prefix: &str,
+    read_error_prefix: &str,
+) -> Result<Vec<u8>, String> {
+    let mut options = tauri_plugin_fs::OpenOptions::new();
+    options.read(true);
+    let mut file = app
+        .fs()
+        .open(source, options)
+        .map_err(|err| format!("{open_error_prefix}: {err}"))?;
+    let mut bytes = Vec::new();
+    file.by_ref()
+        .take(max_bytes + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|err| format!("{read_error_prefix}: {err}"))?;
+    if bytes.len() as u64 > max_bytes {
+        return Err(too_large_message.into());
+    }
+    Ok(bytes)
+}
 
 /// Stored source representation, distinct from the user-facing document format:
 /// EPUB and HTML both produce reader HTML, while PDFs retain their binary source.

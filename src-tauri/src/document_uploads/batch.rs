@@ -11,6 +11,7 @@ use tauri::{Emitter, Runtime};
 use tauri_plugin_dialog::{DialogExt, FilePath};
 use tauri_plugin_fs::FsExt;
 
+use super::pdf::import_pdf_source;
 use super::pipeline::{delete_upload, import_epub_source, import_html_source};
 use super::state::DocumentBatchControl;
 use super::storage::upload_id_from_url;
@@ -29,6 +30,7 @@ const MAX_BATCH_DOCUMENTS: usize = 500;
 enum DocumentFormat {
     Html,
     Epub,
+    Pdf,
 }
 
 struct BatchRun<T> {
@@ -56,7 +58,7 @@ pub(crate) fn import_batch<R: Runtime>(
         .dialog()
         .file()
         .set_title("Import Documents")
-        .add_filter("HTML and EPUB Documents", &["html", "htm", "epub"])
+        .add_filter("Documents", &["html", "htm", "epub", "pdf"])
         .blocking_pick_files()
         .ok_or_else(|| "Document import cancelled".to_string())?;
     import_sources(app, control, sources)
@@ -78,7 +80,7 @@ pub(crate) fn import_folder<R: Runtime>(
         .ok_or_else(|| "Document import cancelled".to_string())?;
     let sources = folder_sources(folder)?;
     if sources.is_empty() {
-        return Err("The selected folder has no HTML or EPUB files".into());
+        return Err("The selected folder has no HTML, EPUB, or PDF files".into());
     }
     import_sources(app, control, sources)
 }
@@ -342,6 +344,10 @@ fn import_source<R: Runtime>(
     match document_format(app, &source)? {
         DocumentFormat::Html => import_html_source(app, source),
         DocumentFormat::Epub => import_epub_source(app, source),
+        DocumentFormat::Pdf => {
+            let title = source_title(&source);
+            import_pdf_source(app, source, title)
+        }
     }
 }
 
@@ -390,6 +396,7 @@ fn document_format_from(extension: &str, prefix: &[u8]) -> Option<DocumentFormat
     match extension {
         "html" | "htm" => return Some(DocumentFormat::Html),
         "epub" => return Some(DocumentFormat::Epub),
+        "pdf" => return Some(DocumentFormat::Pdf),
         "" => {}
         _ => return None,
     }
@@ -399,6 +406,9 @@ fn document_format_from(extension: &str, prefix: &[u8]) -> Option<DocumentFormat
         || prefix.starts_with(b"PK\x07\x08")
     {
         return Some(DocumentFormat::Epub);
+    }
+    if prefix.starts_with(b"%PDF-") {
+        return Some(DocumentFormat::Pdf);
     }
     if prefix.starts_with(&[0xff, 0xfe]) || prefix.starts_with(&[0xfe, 0xff]) {
         return Some(DocumentFormat::Html);
@@ -424,6 +434,16 @@ fn source_file_name(source: &FilePath) -> String {
             .map(|value| percent_decode_str(value).decode_utf8_lossy().into_owned())
             .unwrap_or_else(|| "document".into()),
     }
+}
+
+fn source_title(source: &FilePath) -> String {
+    let file_name = source_file_name(source);
+    Path::new(&file_name)
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .filter(|value| !value.is_empty())
+        .unwrap_or("Imported PDF")
+        .to_string()
 }
 
 #[cfg(test)]
@@ -481,6 +501,10 @@ mod tests {
             Some(DocumentFormat::Html)
         );
         assert_eq!(
+            document_format_from("", b"%PDF-1.7\n"),
+            Some(DocumentFormat::Pdf)
+        );
+        assert_eq!(
             document_format_from("", &[0xff, 0xfe, b'<' as u8, 0]),
             Some(DocumentFormat::Html)
         );
@@ -521,6 +545,7 @@ mod tests {
             Some(DocumentFormat::Epub)
         );
         assert_eq!(document_format_from("htm", &[]), Some(DocumentFormat::Html));
+        assert_eq!(document_format_from("pdf", &[]), Some(DocumentFormat::Pdf));
         assert_eq!(document_format_from("txt", &[]), None);
         assert_eq!(document_format_from("txt", b"<html></html>"), None);
     }

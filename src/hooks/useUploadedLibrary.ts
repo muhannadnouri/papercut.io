@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DocumentInfo } from '../types/search'
+import { indexImportedPdfs } from '../pdf/pdfImport'
 import {
   cancelDocumentBatch as cancelDocumentBatchSource,
   createUploadedLibraryFolder,
@@ -68,6 +69,7 @@ export function useUploadedLibrary() {
   const [uploadedLibraryOrganization, setUploadedLibraryOrganization] = useState<UploadedLibraryOrganization>({ folders: [], documentLocations: [] })
   const [documentImport, setDocumentImport] = useState<DocumentImportStatus>({ status: 'idle' })
   const operationInProgressRef = useRef(false)
+  const importAbortRef = useRef<AbortController | null>(null)
 
   const applyUploadedLibrary = useCallback((library: UploadedLibraryState) => {
     setUploadedDocuments(library.documents)
@@ -119,7 +121,16 @@ export function useUploadedLibrary() {
           ? { ...current, batchProgress }
           : current)
       })
-      const batchResult = await importer()
+      const abort = new AbortController()
+      importAbortRef.current = abort
+      const batchResult = await indexImportedPdfs(await importer(), {
+        signal: abort.signal,
+        onProgress: (batchProgress) => {
+          setDocumentImport((current) => current.status === 'importing' && current.format === format
+            ? { ...current, batchProgress }
+            : current)
+        },
+      })
       if (batchResult.imported.length > 0) await refreshUploadedLibrary()
       setDocumentImport({
         status: batchResult.failures.length > 0
@@ -140,6 +151,7 @@ export function useUploadedLibrary() {
       return null
     } finally {
       unlisten?.()
+      importAbortRef.current = null
       operationInProgressRef.current = false
     }
   }, [refreshUploadedLibrary])
@@ -158,7 +170,10 @@ export function useUploadedLibrary() {
    * batch is active, then let the current file finish safely. */
   const cancelDocumentBatch = useCallback(async (): Promise<void> => {
     try {
-      if (!await cancelDocumentBatchSource()) return
+      const abort = importAbortRef.current
+      abort?.abort()
+      const nativeCancelled = await cancelDocumentBatchSource()
+      if (!abort && !nativeCancelled) return
       setDocumentImport((current) => current.status === 'importing' &&
         (current.format === 'batch' || current.format === 'folder')
         ? { ...current, cancelRequested: true }
