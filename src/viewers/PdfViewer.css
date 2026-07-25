@@ -1,9 +1,11 @@
 .pdf-viewer {
   background: var(--surface-muted);
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  height: clamp(28rem, 72dvh, 64rem);
+  height: auto;
   min-height: 18rem;
+  width: 100%;
 }
 
 .pdf-viewer-body {
@@ -126,10 +128,6 @@
 }
 
 @media (max-width: 720px) {
-  .pdf-viewer {
-    height: 74dvh;
-  }
-
   .pdf-outline {
     bottom: 0;
     box-shadow: 3px 0 12px var(--shadow-soft);

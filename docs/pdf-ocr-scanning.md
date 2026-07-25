@@ -799,12 +799,16 @@ Tauri's asset protocol is limited to
 metadata, source kind, existence, and the 250 MB limit before returning a path.
 The responsive `PdfControls` toolbar uses those same viewer primitives for
 bounded page input, 25-400% zoom, fit-width, fit-page, and conditional outline
-navigation. Controls retain at least 44-pixel touch targets at narrow widths,
-use logical-direction layout for RTL locales, and expose labels and pressed
-state to assistive technology. The production frontend build, locale check,
-lint, TypeScript check, and 22 focused tests pass. A full local Rust check
-remains blocked in this shell by the missing `javascriptcoregtk-4.1`
-development package, before Papercut compilation begins.
+navigation. Page and zoom controls stay centered on wide screens while
+secondary fit controls remain at the logical end. Fine-pointer layouts use
+compact controls, narrow and coarse-pointer layouts retain 44-pixel touch
+targets, and all layouts expose labels and pressed state to assistive
+technology. Viewer chrome follows the app theme, and the PDF viewport consumes
+the reader height left by optional Find and Diagnostics UI instead of using a
+fixed viewport percentage. The production frontend build, locale check,
+TypeScript check, and 25 focused tests pass. A full local Rust check remains
+blocked in this shell by the missing `javascriptcoregtk-4.1` development
+package, before Papercut compilation begins.
 
 Manual evidence: a large-document desktop smoke test scrolled normally without
 disappearing pages or a noticeable memory spike. Page, zoom, fit, and outline
@@ -1022,6 +1026,7 @@ Stage status: Deferred
 | 2026-07-25 | Stage 4 | Pass the large-document viewer performance gate | Manual scrolling completed without disappearing pages or a noticeable memory spike; responsive and RTL control behavior remains the final Stage 4 smoke test |
 | 2026-07-25 | Stage 4 | Pass responsive PDF control smoke testing | Page, zoom, fit, and outline controls worked at desktop and narrow widths; RTL remains the final visual gate |
 | 2026-07-25 | Stage 4 | Close the PDF viewer stage | The compact controls remained usable at desktop and narrow widths in both LTR and Arabic RTL layouts |
+| 2026-07-25 | Stage 4 | Let the reader shell size the PDF viewport | Flex layout reclaims space when optional Find or Diagnostics UI is absent; wide controls center primary navigation while preserving 44-pixel touch targets |
 
 ## References
 

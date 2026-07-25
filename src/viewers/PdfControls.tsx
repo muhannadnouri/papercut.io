@@ -127,7 +127,7 @@ export function PdfControls({
         </button>
       </div>
 
-      <div className="pdf-control-group" role="group" aria-label={t('reader.pdf.zoom')}>
+      <div className="pdf-control-group pdf-zoom-controls" role="group" aria-label={t('reader.pdf.zoom')}>
         <button
           type="button"
           className="pdf-control-button"
