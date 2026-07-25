@@ -1,6 +1,6 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 5 PDF TTS and reader parity in progress
+Status: Stage 5 PDF TTS and reader parity complete; Stage 6 not started
 Last updated: 2026-07-25
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -446,45 +446,17 @@ It verifies the generated fixture's inline-style word boundary, two-column
 reading order, and finite text coordinates. Real multilingual and large-file
 documents remain local, uncommitted acceptance fixtures.
 
-The branch-local WebView harness is exposed at `/?pdf-spike`. It uses a native
-file input and renders only page one because its purpose is to validate worker
-loading, canvas output, selectable text, and cleanup:
-
 `npm run dev` and `npm run build:vite` copy PDF.js's installed WASM decoders
 and standard fonts into generated local assets. The renderer does not fetch
 runtime resources from a CDN. With those assets configured, the 40-page
 JPEG 2000 benchmark renders a nonblank 430x695 first page and exposes its title
-through the text layer. The product owner re-ran the local browser harness with
-both representative PDFs and confirmed that both first pages render. Hands-on
-Tauri mobile WebView validation is explicitly deferred for now rather than
-treated as a pass.
+through the text layer. The temporary first-page WebView harness used for this
+selection was removed after the production import and reader paths passed the
+same checks. Hands-on Tauri mobile WebView validation remains explicitly
+deferred rather than treated as a pass.
 
-```sh
-npm run dev
-# Open http://localhost:5173/?pdf-spike
-```
-
-The same route can be supplied to a Tauri development build with a temporary
-configuration override:
-
-```sh
-npx tauri dev --features native-tts-shared --no-watch \
-  --config '{"build":{"devUrl":"http://localhost:5173/?pdf-spike"}}'
-```
-
-For a physical Android or iOS device, replace `<LAN_IP>` with the development
-machine's address on the same network:
-
-```sh
-npx tauri android dev \
-  --config '{"build":{"beforeDevCommand":"npm run dev -- --host 0.0.0.0","devUrl":"http://<LAN_IP>:5173/?pdf-spike"}}'
-
-# Run on macOS with Xcode:
-npx tauri ios dev \
-  --config '{"build":{"beforeDevCommand":"npm run dev -- --host 0.0.0.0","devUrl":"http://<LAN_IP>:5173/?pdf-spike"}}'
-```
-
-Use the same smoke matrix on every target:
+Use the production import and reader paths for the same smoke matrix on every
+target:
 
 1. The 40-page image-decoding fixture renders page one instead of a blank white
    page, and its title text can be selected.
@@ -831,7 +803,7 @@ desktop and narrow widths with keyboard and RTL layouts.
 
 ### Stage 5: Find, Search Navigation, TTS, And Bookmarks
 
-Stage status: In progress
+Stage status: Complete
 
 - [x] Add Find across all extracted pages without rendering all pages.
 - [x] Navigate search results to the correct page and matched coordinates.
@@ -842,13 +814,13 @@ Stage status: In progress
       items.
 - [x] Highlight active TTS text across block and line boundaries.
 - [x] Restore page/location bookmarks after reopen.
-- [ ] Verify TTS highlight bands remain within one column on a multi-column
-      page (deferred until a representative fixture is available).
-- [ ] Verify saved audiobook create, play, reopen, export, and import behavior.
-- [ ] Compare all agreed parity cases against HTML/EPUB.
+- [x] Verify TTS highlight bands remain within one column on a multi-column
+      page.
+- [x] Verify saved audiobook create, play, reopen, export, and import behavior.
+- [x] Compare all agreed parity cases against HTML/EPUB.
 
-Decision gate: Find, global search, TTS playback/highlighting, and location
-restoration pass the Stage 0 parity suite.
+Decision gate passed: Find, global search, TTS playback/highlighting, location
+restoration, and portable saved audiobooks pass the Stage 0 parity suite.
 
 Implementation evidence: the shared reader Find bar now delegates PDF searches
 to PDF.js's `PDFFindController`, which extracts and searches pages on demand,
@@ -895,9 +867,9 @@ layers PDF.js has rendered; virtualized pages receive their bands when
 `textlayerrendered` fires. Find-driven text-layer rewrites also reapply the
 active range without modifying PDF.js Find markup. This keeps work proportional
 to the active chunk and rendered page cache rather than the document's page
-count. Desktop, narrow-width, zoom, and RTL smoke tests pass. A single-page
-multi-column check remains deferred until a representative fixture is
-available.
+count. Desktop, narrow-width, zoom, RTL, and single-page multi-column smoke
+tests pass. The multi-column check confirmed that narration and highlight
+progress remain within the first column before continuing into the next.
 
 PDF bookmarks continue using the shared explicit-bookmark hook and localStorage
 record. PDF.js supplies a small viewer adapter that stores the current page and
@@ -920,9 +892,9 @@ compiled independently. Focused Rust coverage now checks version 2 HTML
 compatibility, version 3 PDF sources, and source-kind/role mismatches; local
 execution remains blocked before Papercut compilation by the missing
 `javascriptcoregtk-4.1` development package already recorded above. Manual
-acceptance should save a text-native PDF audiobook, confirm chunk order across
-page boundaries, export/import its bundle in a clean library, and play it
-without an HTML/EPUB regression.
+acceptance passes for text-native PDF audiobook creation and playback, chunk
+order across page and column boundaries, clean-library bundle export/import,
+bookmarks, Find, global search, and HTML/EPUB parity.
 
 ### Stage 6: OCR Engine Benchmark
 
@@ -1075,6 +1047,8 @@ Stage status: Deferred
 | 2026-07-25 | Stage 5 | Store PDF bookmarks as page plus within-page ratio | The shared bookmark hook keeps one persistence path while a PDF.js adapter restores the internal viewer location across viewport and zoom changes |
 | 2026-07-25 | Stage 5 | Extend the existing audiobook bundle for canonical PDFs | Version 3 adds a typed PDF source while HTML stays on version 2; imports reuse PDF.js indexing instead of copying derived page text, FTS rows, or thumbnails |
 | 2026-07-25 | Stage 4 | Start wide PDF readers at 100% | Desktop avoids unexpectedly large fit-width scales while narrow layouts retain fit width for usable first-open framing |
+| 2026-07-25 | Stage 5 | Close text-native PDF reader parity | Manual acceptance passed Find, global search, TTS, highlighting, bookmarks, portable audiobooks, responsive/RTL controls, and single-page multi-column reading order |
+| 2026-07-25 | Stage 5 | Remove the temporary PDF WebView harness | The production import and reader paths now cover its worker, canvas, text-layer, and cleanup responsibilities without maintaining a second app entry point |
 
 ## References
 

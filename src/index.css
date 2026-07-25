@@ -6,18 +6,6 @@
   src: url("/fonts/reader/literata/Literata.ttf") format("truetype");
 }
 
-.pdf-spike {
-  margin-inline: auto;
-  max-width: 72rem;
-  padding: 1rem;
-}
-
-.pdf-spike > label {
-  display: grid;
-  gap: 0.5rem;
-  max-width: 24rem;
-}
-
 @font-face {
   font-family: "Papercut Literata";
   font-style: italic;
