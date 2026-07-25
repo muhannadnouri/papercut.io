@@ -8,11 +8,6 @@
   width: 100%;
 }
 
-::highlight(pdf-tts-current) {
-  background-color: var(--highlight-tts, #c7f9cc);
-  color: inherit;
-}
-
 .pdf-viewer-body {
   display: flex;
   flex: 1 1 auto;
@@ -40,6 +35,19 @@
 
 .pdf-viewer .pdfViewer .page {
   box-shadow: 0 1px 5px var(--shadow-soft);
+}
+
+.pdf-tts-highlight-layer {
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+}
+
+.pdf-tts-highlight-band {
+  background: var(--highlight-tts, rgb(199 249 204 / 0.6));
+  position: absolute;
 }
 
 .pdf-viewer-status {

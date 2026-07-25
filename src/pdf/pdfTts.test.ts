@@ -7,6 +7,7 @@ import {
   pdfNarrationToReadableSegments,
   pdfSourceSpansForChunk,
 } from './pdfTts'
+import { mergePdfTtsHighlightRects } from './pdfTtsHighlight'
 
 describe('pdfNarrationToReadableSegments', () => {
   it('keeps reconstructed text and source runs in stable order', () => {
@@ -106,6 +107,21 @@ describe('pdfNarrationToReadableSegments', () => {
       { pageIndex: 1, blockOrder: 0, startOffset: 0, endOffset: 6 },
       { pageIndex: 1, blockOrder: 1, startOffset: 0, endOffset: 1 },
       { pageIndex: 1, blockOrder: 1, startOffset: 1, endOffset: 2 },
+    ])
+  })
+})
+
+describe('mergePdfTtsHighlightRects', () => {
+  it('bridges word spaces without joining lines or columns', () => {
+    expect(mergePdfTtsHighlightRects([
+      { top: 10, right: 30, bottom: 20, left: 10 },
+      { top: 10, right: 54, bottom: 20, left: 34 },
+      { top: 24, right: 30, bottom: 34, left: 10 },
+      { top: 10, right: 230, bottom: 20, left: 210 },
+    ])).toEqual([
+      { top: 10, right: 54, bottom: 20, left: 10 },
+      { top: 10, right: 230, bottom: 20, left: 210 },
+      { top: 24, right: 30, bottom: 34, left: 10 },
     ])
   })
 })

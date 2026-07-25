@@ -1049,7 +1049,7 @@ Stage status: Deferred
 | 2026-07-25 | Stage 4 | Retain the reader divider with responsive spacing | Wide PDF layouts reclaim vertical space around the shared header divider while narrow layouts keep the established borderless-reader separation |
 | 2026-07-25 | Stage 4 | Use PDF.js for optional two-page spreads | Wide layouts pair pages 1-2, 3-4, and so on through `SpreadMode.ODD`; narrow layouts return to the default single-page view without another renderer or persisted preference |
 | 2026-07-25 | Stage 4 | Share the wide reader header with PDF controls | One portaled toolbar occupies the centered header zone on wide screens and falls back to a second row when space is constrained; primary page and zoom actions remain visible |
-| 2026-07-25 | Stage 5 | Resolve active narration spans through PDF.js text items | Runtime-only page/item offsets rebuild from durable segment spans, CSS Highlight paints only rendered active ranges, and saved-audiobook manifests remain unchanged |
+| 2026-07-25 | Stage 5 | Resolve active narration spans through PDF.js text items | Runtime-only page/item offsets rebuild from durable segment spans, same-line range bands paint only rendered active text without PDF.js word seams, and saved-audiobook manifests remain unchanged |
 
 ## References
 
