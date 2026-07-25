@@ -202,6 +202,13 @@ export async function getUploadedPdfAssetUrl(documentUrl: string): Promise<strin
   return mod.convertFileSrc(path)
 }
 
+export async function getUploadedPdfReadableBlocks(documentUrl: string): Promise<string[][]> {
+  const invoke = await loadTauriInvoke()
+  return invoke<string[][]>('document_uploads_get_pdf_readable_blocks', {
+    request: { documentUrl },
+  })
+}
+
 export async function storeUploadedPdfPageText(
   documentUrl: string,
   layer: PdfPageTextLayer,

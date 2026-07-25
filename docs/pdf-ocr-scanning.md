@@ -1,6 +1,6 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 5 PDF Find and search navigation in progress
+Status: Stage 5 PDF TTS and reader parity in progress
 Last updated: 2026-07-25
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -820,7 +820,7 @@ Stage status: In progress
 
 - [x] Add Find across all extracted pages without rendering all pages.
 - [x] Navigate search results to the correct page and matched coordinates.
-- [ ] Adapt PDF page blocks to existing `ReadableSegment` chunking.
+- [x] Adapt PDF page blocks to existing `ReadableSegment` chunking.
 - [ ] Persist source ranges needed for page-coordinate TTS highlighting.
 - [ ] Highlight active TTS text across block and line boundaries.
 - [ ] Restore page/location bookmarks after reopen.
@@ -844,6 +844,23 @@ The focused PDF Find adapter test, full 23-test frontend suite, TypeScript
 check, focused ESLint pass, and production Vite build pass. Manual acceptance
 should cover a match on a late unrendered page, next/previous wraparound, a
 quoted global-search result, RTL text, no matches, and closing Find.
+
+PDF narration now reads the already validated page sidecars as ordered,
+text-only block arrays and converts them to the same `ReadableSegment` contract
+used by HTML and EPUB. The currently opened PDF is cached once in the audiobook
+hook, then model changes re-run only the shared chunker rather than filesystem
+I/O or PDF parsing. Saved chunks retain deterministic segment spans while PDF
+DOM highlighting remains disabled until the next checklist item maps those
+spans back to page coordinates. Re-importable audiobook bundles still require
+HTML source and remain part of the later saved-audio parity gate; this stage
+does not introduce a second PDF bundle format.
+
+Automated validation for this slice passes TypeScript, focused ESLint, all 24
+frontend tests, i18n validation, and the production build/search-index pipeline.
+The local Rust check remains blocked before Papercut compilation by the missing
+`javascriptcoregtk-4.1` development package already recorded above. Manual
+acceptance should save a text-native PDF audiobook, confirm chunk order across
+page boundaries, and play it without an HTML/EPUB regression.
 
 ### Stage 6: OCR Engine Benchmark
 
@@ -982,6 +999,7 @@ Stage status: Deferred
 | 2026-07-25 | Stage 4 | Keep reader controls as a focused PDF.js adapter | A separate responsive `PdfControls` component directly drives page, zoom, fit, and optional outline APIs without adding `react-pdf`, a toolbar dependency, or speculative controls |
 | 2026-07-25 | Stage 5 | Delegate PDF Find to `PDFFindController` | Reusing PDF.js search, text-layer highlighting, and page navigation preserves bounded rendering and avoids a second PDF text search implementation |
 | 2026-07-25 | Stage 5 | Carry indexed PDF page locators through shared search results | SQLite already knows the matching page; preserving that value lets PDF.js target the correct page and phrase without loading full extracted documents into React |
+| 2026-07-25 | Stage 5 | Reuse persisted PDF blocks for TTS chunking | A text-only IPC read feeds the existing `ReadableSegment` chunker, keeps coordinate payloads out of whole-document narration setup, and avoids reparsing PDFs or adding another chunking path |
 | 2026-07-25 | Stage 4 | Pass the large-document viewer performance gate | Manual scrolling completed without disappearing pages or a noticeable memory spike; responsive and RTL control behavior remains the final Stage 4 smoke test |
 | 2026-07-25 | Stage 4 | Pass responsive PDF control smoke testing | Page, zoom, fit, and outline controls worked at desktop and narrow widths; RTL remains the final visual gate |
 | 2026-07-25 | Stage 4 | Close the PDF viewer stage | The compact controls remained usable at desktop and narrow widths in both LTR and Arabic RTL layouts |

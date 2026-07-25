@@ -48,6 +48,39 @@ pub(crate) fn store_pdf_page_text<R: Runtime>(
     write_page_text_layer(&upload_dir(app, &id)?, &request.layer)
 }
 
+/// Load validated block text for narration in stable page and extraction order.
+///
+/// Papercut currently materializes a complete audiobook chunk list before
+/// synthesis, so one validated read reuses that contract without reparsing the
+/// canonical PDF. Coordinates stay in sidecars until the active-page highlight
+/// path needs them, keeping this whole-document IPC payload text-only.
+pub(crate) fn get_pdf_readable_blocks<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    document_url: &str,
+) -> Result<Vec<Vec<String>>, String> {
+    let (id, _) = validated_pdf_upload(app, document_url)?;
+    let db = open_db(app)?;
+    let document =
+        find_upload_by_id(&db, &id)?.ok_or_else(|| "PDF upload metadata is missing".to_string())?;
+    if StoredSourceKind::from_str(&document.source_kind)? != StoredSourceKind::Pdf {
+        return Err("Uploaded PDF source metadata does not match its URL".into());
+    }
+    let page_count =
+        u32::try_from(document.sections).map_err(|_| "PDF page count is invalid".to_string())?;
+    if page_count == 0 || page_count > MAX_PDF_PAGES {
+        return Err("PDF text has not been indexed".into());
+    }
+
+    let dir = upload_dir(app, &id)?;
+    (0..page_count)
+        .map(|page_index| {
+            let mut layer = read_page_text_layer(&dir, page_index)?;
+            layer.blocks.sort_by_key(|block| block.order);
+            Ok(layer.blocks.into_iter().map(|block| block.text).collect())
+        })
+        .collect()
+}
+
 /// Commit all page rows and their FTS entries only after every expected sidecar
 /// exists and passes validation. The source PDF remains canonical and sidecars
 /// can be rebuilt by a later extractor version.

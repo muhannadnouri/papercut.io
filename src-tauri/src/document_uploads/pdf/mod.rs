@@ -9,7 +9,8 @@ mod page_text;
 mod source;
 
 pub(crate) use index::{
-    finalize_pdf_index, store_pdf_page_text, PdfFinalizeRequest, PdfPageTextRequest,
+    finalize_pdf_index, get_pdf_readable_blocks, store_pdf_page_text, PdfFinalizeRequest,
+    PdfPageTextRequest,
 };
 pub(crate) use source::{
     get_pdf_source_bytes, get_pdf_source_path, import_pdf_source, restore_transferred_pdf,

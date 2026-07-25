@@ -13,8 +13,8 @@ use super::organization::{
     reorder,
 };
 use super::pdf::{
-    finalize_pdf_index, get_pdf_source_bytes, get_pdf_source_path, store_pdf_page_text,
-    PdfFinalizeRequest, PdfPageTextRequest,
+    finalize_pdf_index, get_pdf_readable_blocks, get_pdf_source_bytes, get_pdf_source_path,
+    store_pdf_page_text, PdfFinalizeRequest, PdfPageTextRequest,
 };
 use super::pipeline::{delete_upload, get_cover, get_source};
 use super::search::search_uploads;
@@ -132,6 +132,19 @@ pub async fn document_uploads_get_pdf_asset_path<R: Runtime>(
     })
     .await
     .map_err(|err| format!("PDF asset path task failed: {err}"))?
+}
+
+/// Return validated, ordered block text for narration without PDF geometry.
+#[tauri::command]
+pub async fn document_uploads_get_pdf_readable_blocks<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedDocumentSourceRequest,
+) -> Result<Vec<Vec<String>>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        get_pdf_readable_blocks(&app, &request.document_url)
+    })
+    .await
+    .map_err(|err| format!("PDF readable text task failed: {err}"))?
 }
 
 /// Persist one bounded page text layer emitted by PDF.js.

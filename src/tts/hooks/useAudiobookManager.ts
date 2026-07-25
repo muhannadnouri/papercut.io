@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import i18n from '../../i18n'
 import type { DocumentInfo } from '../../types/search'
 import type { UploadedDocument } from '../../uploads/DocumentUploads'
+import { isUploadedPdfDocumentUrl } from '../../uploads/DocumentUploads'
 import {
   getSavedAudiobooksForDocument,
   type SavedAudiobookRecord,
@@ -551,7 +552,6 @@ export function useAudiobookManager({
       canSaveAudiobook,
       canSkipBackward: ttsCanSkipBackward,
       canSkipForward: ttsCanSkipForward,
-      isPdf: false,
       saveInProgress: downloadIsForSelectedDoc && activeDownloadIsRunning,
       onCancelSave: handleCancelAudiobookSave,
       onPause: pauseTts,
@@ -626,7 +626,7 @@ export function useAudiobookManager({
     savedAudiobookDocumentUrls,
     setAudioSavedOnly,
     ttsHighlight: {
-      enabled: Boolean(ttsState.currentText),
+      enabled: Boolean(ttsState.currentText) && !isUploadedPdfDocumentUrl(selectedDoc ?? ''),
       currentChunkIndex: ttsState.currentChunkIndex,
       currentChunkTime: ttsState.currentChunkTime,
       currentChunkDuration: ttsState.currentChunkDuration,
