@@ -367,6 +367,7 @@ are directional rather than release benchmarks.
 | PDF.js `ArabicCIDTrueType.pdf` | `1cad1de912ba29f89a6d8b08bc5b0f84382874ffedab2c8f9e05ef608c265bb1` | RTL rendering, logical text, direction, and coordinates |
 | PDF.js `pr6531_2.pdf` | `e85d22b832a61be1d302a811e29c5df5ccd2a3795633178449d0b2e0e2451118` | Missing-password detection |
 | First 12,000 bytes of `tracemonkey.pdf` | `07fdfd318a374e1802af3a1bb697a8c0e0faea72b7625ee994bb665f81ca306f` | Truncated/invalid input rejection |
+| Local `Forgotten Legacy Contribution of Socialist Ukrainians to Canada.pdf` | `e79694e2bab2a7b7e8e4db45cf7f46bcceea661343c80dd1ac2b851549e18b95` | JPEG 2000 page-image decoding and standard-font asset loading |
 
 | Candidate | Version / license | Evidence | Current disposition |
 | --- | --- | --- | --- |
@@ -393,7 +394,8 @@ The costs are material but bounded:
   viewer stylesheet, 1.30 MB local worker, and a 5 KB text-selection cursor
   asset. Together these add about 2.02 MB minified, or 579 KB gzip. Dynamic
   imports keep the normal startup delta to about 2.4 KB JavaScript and 0.5 KB
-  CSS before gzip.
+  CSS before gzip. Runtime WASM decoders and standard fonts add another 2.21
+  MiB to the package and are fetched only when a PDF requires them.
 - `pdf_oxide` with default features disabled resolved a much larger Rust graph
   than `pdf-extract` and produced several gigabytes of clean build artifacts
   during an optimized spike. Final application-size impact still needs
@@ -414,6 +416,12 @@ The branch-local WebView harness is exposed at `/?pdf-spike`. It uses a native
 file input and renders only page one because its purpose is to validate worker
 loading, canvas output, selectable text, and cleanup:
 
+`npm run dev` and `npm run build:vite` copy PDF.js's installed WASM decoders
+and standard fonts into generated local assets. The renderer does not fetch
+runtime resources from a CDN. With those assets configured, the 40-page
+JPEG 2000 benchmark renders a nonblank 430x695 first page and exposes its title
+through the text layer; hands-on target WebView validation remains open.
+
 ```sh
 npm run dev
 # Open http://localhost:5173/?pdf-spike
@@ -427,11 +435,41 @@ npx tauri dev --features native-tts-shared --no-watch \
   --config '{"build":{"devUrl":"http://localhost:5173/?pdf-spike"}}'
 ```
 
+For a physical Android or iOS device, replace `<LAN_IP>` with the development
+machine's address on the same network:
+
+```sh
+npx tauri android dev \
+  --config '{"build":{"beforeDevCommand":"npm run dev -- --host 0.0.0.0","devUrl":"http://<LAN_IP>:5173/?pdf-spike"}}'
+
+# Run on macOS with Xcode:
+npx tauri ios dev \
+  --config '{"build":{"beforeDevCommand":"npm run dev -- --host 0.0.0.0","devUrl":"http://<LAN_IP>:5173/?pdf-spike"}}'
+```
+
+Use the same smoke matrix on every target:
+
+1. The `Forgotten Legacy` benchmark renders page one instead of a blank white
+   page, and its title text can be selected.
+2. The `Phenomenology of Spirit` benchmark renders its green image-only cover.
+3. The Arabic fixture preserves its visual direction and selectable text.
+4. Switching among the three files does not retain the previous canvas or
+   produce an error.
+5. The worker, OpenJPEG WASM decoder, and standard fonts load from the local
+   application/dev-server origin rather than a CDN.
+
 The optimized frontend build, TypeScript check, ESLint check, local worker
 emission, and lazy chunk split pass. The desktop Tauri launch on this machine
 is blocked before WebView startup by the missing `javascriptcoregtk-4.1`
 development package, so desktop and mobile hands-on rendering remain open
 instead of being inferred from the browser build.
+
+An arm64 Android debug APK also builds successfully. Inspection of its embedded
+Tauri asset table confirms the PDF worker, `openjpeg.wasm`, and standard fonts
+are packaged. No Android device or emulator is available in the current
+environment, and iOS execution requires macOS/Xcode, so neither packaging
+result is recorded as a visual WebView pass. Changes to `package.json`
+automatically schedule both mobile packaging jobs in Papercut CI.
 
 ### Tauri Data Boundary
 
@@ -592,8 +630,13 @@ Stage status: In progress
       command-line canvas probe.
 - [x] Add an exposed first-page PDF.js WebView harness with a local file input,
       high-DPI canvas, selectable text layer, and effect cleanup.
+- [x] Package PDF.js's local WASM decoders and standard fonts so JPEG 2000
+      images and unembedded standard fonts render in development and packaged
+      builds.
 - [x] Verify the optimized frontend build emits a local worker and lazy-loads
       the renderer and text-layer CSS outside normal app startup.
+- [x] Build an arm64 Android APK and verify its embedded Tauri assets include
+      the PDF worker, OpenJPEG WASM decoder, and standard fonts.
 - [ ] Verify worker loading, local asset access, canvas cleanup, text selection,
       and accessibility-layer behavior in each target Tauri WebView.
 - [ ] Compare `pdf-extract`, `pdf_oxide`, and PDF.js text extraction against the
@@ -796,6 +839,7 @@ Stage status: Deferred
 | 2026-07-24 | Stage 1 | Keep `pdf_oxide` 0.3.75 as the native extractor candidate | It exposes ordered spans/characters, matches PDF.js page coordinates, and cross-checks for Android/iOS; size and device corpus validation remain |
 | 2026-07-24 | Stage 1 | Treat Rust 1.88 as conditional on selecting `pdf_oxide` | Papercut's 1.77.2 value is a declared MSRV while CI uses stable; bumping it before the dependency passes the gate would create compatibility churn without product value |
 | 2026-07-24 | Stage 1 | Lazy-load PDF.js outside normal app startup | The optimized spike adds about 2.02 MB minified to the package, but only about 2.9 KB of eagerly loaded JavaScript and CSS before gzip |
+| 2026-07-24 | Stage 1 | Generate local PDF.js runtime assets from the pinned npm package | PDF.js resolves JPEG 2000 decoders and standard fonts by stable filename; copying only those installed directories avoids CDN access, committed binary duplication, and another build dependency |
 
 ## References
 

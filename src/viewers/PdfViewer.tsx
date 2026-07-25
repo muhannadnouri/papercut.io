@@ -10,6 +10,7 @@ import './PdfViewer.css'
 import type { ViewerProps } from './types'
 
 let pdfJsPromise: Promise<typeof import('pdfjs-dist/legacy/build/pdf.mjs')> | undefined
+const pdfJsAssetRoot = new URL('pdfjs/', document.baseURI).href
 
 // Keep the large renderer and text-layer stylesheet out of normal app startup.
 function loadPdfJs() {
@@ -45,7 +46,11 @@ export function PdfViewer({ url }: ViewerProps) {
       setStatus({ state: 'loading' })
       const pdfjs = await loadPdfJs()
       if (cancelled) return
-      loadingTask = pdfjs.getDocument({ url })
+      loadingTask = pdfjs.getDocument({
+        url,
+        standardFontDataUrl: `${pdfJsAssetRoot}standard_fonts/`,
+        wasmUrl: `${pdfJsAssetRoot}wasm/`,
+      })
       const pdf = await loadingTask.promise
       page = await pdf.getPage(1)
       if (cancelled) return
