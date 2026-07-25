@@ -483,7 +483,7 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   text-align: center;
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 1100px) {
   .app-reader-pdf .doc-header {
     grid-template-areas: "back viewer controls";
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);

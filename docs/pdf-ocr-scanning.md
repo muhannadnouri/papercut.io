@@ -812,9 +812,9 @@ theme, and the PDF viewport consumes
 the reader height left by optional Find and Diagnostics UI instead of using a
 fixed viewport percentage. Wide layouts tighten the PDF header spacing while
 narrow layouts retain the divider breathing room used by the borderless reader.
-At wide desktop widths, the existing PDF toolbar is portaled into the reader
-header's centered slot; smaller layouts retain a separate centered row without
-duplicating viewer state or controls.
+At desktop widths of 1100 CSS pixels and above, the existing PDF toolbar is
+portaled into the reader header's centered slot; smaller layouts retain a
+separate centered row without duplicating viewer state or controls.
 The production frontend build, locale check,
 TypeScript check, and 25 focused tests pass. A full local Rust check remains
 blocked in this shell by the missing `javascriptcoregtk-4.1` development
