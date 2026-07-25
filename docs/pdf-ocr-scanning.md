@@ -1035,7 +1035,7 @@ Stage status: Deferred
 | 2026-07-25 | Stage 4 | Close the PDF viewer stage | The compact controls remained usable at desktop and narrow widths in both LTR and Arabic RTL layouts |
 | 2026-07-25 | Stage 4 | Let the reader shell size the PDF viewport | Flex layout reclaims space when optional Find or Diagnostics UI is absent; wide controls center primary navigation while preserving 44-pixel touch targets |
 | 2026-07-25 | Stage 4 | Retain the reader divider with responsive spacing | Wide PDF layouts reclaim vertical space around the shared header divider while narrow layouts keep the established borderless-reader separation |
-| 2026-07-25 | Stage 4 | Use PDF.js for optional book spreads | Wide layouts expose a cover-first two-page toggle through `SpreadMode.EVEN`; narrow layouts return to the default single-page view without another renderer or persisted preference |
+| 2026-07-25 | Stage 4 | Use PDF.js for optional two-page spreads | Wide layouts pair pages 1-2, 3-4, and so on through `SpreadMode.ODD`; narrow layouts return to the default single-page view without another renderer or persisted preference |
 
 ## References
 

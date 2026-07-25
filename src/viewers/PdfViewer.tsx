@@ -76,7 +76,7 @@ export function PdfViewer({
   const pdfViewerRef = useRef<PdfJsViewer | null>(null)
   const linkServiceRef = useRef<PDFLinkService | null>(null)
   const findAdapterRef = useRef<ReturnType<typeof createPdfFindAdapter> | null>(null)
-  const spreadModesRef = useRef<{ NONE: number; EVEN: number } | null>(null)
+  const spreadModesRef = useRef<{ NONE: number; ODD: number } | null>(null)
   const outlineCloseRef = useRef<HTMLButtonElement>(null)
   const [status, setStatus] = useState<PdfViewerStatus>({ state: 'loading' })
   const [currentPage, setCurrentPage] = useState(1)
@@ -91,8 +91,8 @@ export function PdfViewer({
     const pdfViewer = pdfViewerRef.current
     const modes = spreadModesRef.current
     if (pdfViewer && modes) {
-      // EVEN keeps the cover alone, then pairs pages 2-3, 4-5, and so on.
-      pdfViewer.spreadMode = next === 'spread' ? modes.EVEN : modes.NONE
+      // ODD pairs 1-2, 3-4, and so on; EVEN would leave the cover by itself.
+      pdfViewer.spreadMode = next === 'spread' ? modes.ODD : modes.NONE
     }
   }, [])
 
