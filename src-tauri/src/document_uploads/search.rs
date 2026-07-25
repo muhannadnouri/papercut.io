@@ -522,6 +522,43 @@ mod tests {
     }
 
     #[test]
+    fn committed_pdf_fixture_phrase_is_searchable_once_on_its_page() {
+        let db = test_db();
+        insert_document(
+            &db,
+            "pdf-fixture",
+            "/uploads/pdf-fixture.pdf",
+            "PDF Fixture",
+            &["P01 BASIC LATIN P02 INLINE FORMAT PRESERVED P06 LEFT 1 P06 RIGHT 1"],
+        );
+        db.execute(
+            "UPDATE uploaded_sections SET page_index = 0, heading = NULL WHERE document_id = ?1",
+            params!["pdf-fixture"],
+        )
+        .expect("set fixture page locator");
+        db.execute(
+            "UPDATE uploaded_documents SET format = 'pdf' WHERE id = ?1",
+            params!["pdf-fixture"],
+        )
+        .expect("mark fixture as PDF");
+        db.execute(
+            "UPDATE uploaded_document_fts SET heading = NULL WHERE document_id = ?1",
+            params!["pdf-fixture"],
+        )
+        .expect("clear fixture page heading");
+
+        let queries = fts_phrase_queries(&["inline format preserved".to_string()]);
+        let candidates = search_section_hits(&db, &fts_and_query(&queries), 10, &[])
+            .expect("fixture phrase candidates");
+        let hits =
+            retain_exact_phrase_hits(&db, candidates, &["inline format preserved".to_string()])
+                .expect("verify fixture phrase");
+
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].page_index, Some(0));
+    }
+
+    #[test]
     fn phrase_search_rejects_words_with_an_intervening_token() {
         let db = test_db();
         insert_document(

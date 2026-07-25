@@ -45,6 +45,29 @@ describe('pageTextLayer', () => {
       order: 0,
     })
   })
+
+  it('preserves multilingual text without normalization or reordering', () => {
+    const content = {
+      items: [
+        textItem('العَرَبِيَّة', 10),
+        textItem(' हिन्दी', 80),
+        textItem(' 简体中文', 140),
+      ],
+      styles: {},
+      lang: null,
+    } as unknown as TextContent
+
+    const layer = pageTextLayer(
+      (_viewport, item) => item,
+      content,
+      0,
+      612,
+      792,
+      [1, 0, 0, 1, 0, 0],
+    )
+
+    expect(layer.blocks.map((block) => block.text).join('')).toBe('العَرَبِيَّة हिन्दी 简体中文')
+  })
 })
 
 describe('pdfThumbnailSize', () => {
@@ -61,3 +84,15 @@ describe('pdfThumbnailSize', () => {
     })
   })
 })
+
+function textItem(str: string, x: number) {
+  return {
+    str,
+    dir: 'ltr',
+    transform: [1, 0, 0, 12, x, 30],
+    width: 60,
+    height: 12,
+    fontName: 'f1',
+    hasEOL: false,
+  }
+}

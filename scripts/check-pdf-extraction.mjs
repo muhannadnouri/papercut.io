@@ -36,9 +36,16 @@ try {
   for (const expected of expectedText) {
     const offset = text.indexOf(expected, cursor)
     assert.notEqual(offset, -1, `Missing or reordered ${JSON.stringify(expected)} in ${JSON.stringify(text)}`)
+    assert.equal(
+      text.split(expected).length - 1,
+      1,
+      `Duplicated ${JSON.stringify(expected)} in ${JSON.stringify(text)}`,
+    )
     cursor = offset + expected.length
   }
 
+  const viewport = page.getViewport({ scale: 1 })
+  assert.ok(viewport.width > 0 && viewport.height > 0, 'PDF page dimensions must be positive')
   for (const item of items) {
     assert.ok(
       [...item.transform, item.width, item.height].every(Number.isFinite),

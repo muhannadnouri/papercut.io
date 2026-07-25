@@ -1,6 +1,6 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 3 text-native import/search slice implemented; manual gate pending
+Status: Stage 3 text-native import/search complete; Stage 4 viewer is next
 Last updated: 2026-07-25
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -225,8 +225,8 @@ The PDF work must not regress these HTML/EPUB behaviors:
 | Library | Uploaded formats share listing, folders, Saved Audio filtering, deletion, and Gallery/List views |
 | Transfer | Uploaded source and selected saved audiobooks can move between Papercut devices and rebuild derived search data |
 
-The current frontend baseline is 8 passing Vitest files and 17 passing tests as
-of 2026-07-24. The sandbox shell lacks the `javascriptcoregtk-4.1` development
+The current frontend baseline is 10 passing Vitest files and 21 passing tests as
+of 2026-07-25. The sandbox shell lacks the `javascriptcoregtk-4.1` development
 package, so focused Rust tests run through the host toolchain. CI remains the
 required full Rust and mobile build baseline.
 
@@ -734,7 +734,7 @@ library transfer pass unchanged while a fixture PDF can be stored and located.
 
 ### Stage 3: Text-Native PDF Import And Search
 
-Stage status: In progress; import/search slice implemented, decision gate pending
+Stage status: Complete
 
 - [x] Add PDF validation, metadata/title extraction, page count, and size limits.
 - [x] Extract ordered page text and page locators outside the React render path.
@@ -746,7 +746,9 @@ Stage status: In progress; import/search slice implemented, decision gate pendin
 - [x] Generate a bounded first-page thumbnail for the Library gallery.
 - [x] Add bounded import progress, between-page cancellation, clear failures, and
       cleanup of failed or cancelled staged PDFs.
-- [ ] Add parser/index tests for the Stage 0 corpus.
+- [x] Add parser/index tests for the committed text-native Stage 0 corpus;
+      retain external multilingual, malformed, encrypted, and large fixtures
+      for the later release-hardening matrix.
 
 Automated evidence through the preceding checkpoint: the production frontend
 build, PDF.js extraction fixture, TypeScript check, focused ESLint pass, all
@@ -759,10 +761,16 @@ Rust test binary awaits CI because this workstation lacks
 opened for text extraction to create a best-effort 480 by 720 maximum PNG.
 Rust revalidates and normalizes that image through the existing uploaded-cover
 pipeline; thumbnail failure leaves a valid searchable PDF with the normal
-placeholder rather than failing the import.
+placeholder rather than failing the import. The committed extraction check now
+rejects missing, reordered, or duplicated golden markers and invalid page/text
+geometry. Focused adapter and SQLite tests retain multilingual text, literal
+inline-format phrases, and page locators. Manual smoke tests passed fuzzy and
+exact-phrase search plus first-page gallery cover generation on imported PDFs.
 
-Decision gate: text-native fixtures import, list, search, reopen, transfer, and
-delete correctly without a PDF viewer-specific workaround in the search index.
+Decision gate: text-native fixtures import, list, fuzzy/exact search, thumbnail,
+transfer, and delete through shared storage/index contracts without a
+viewer-specific search workaround. Opening and in-document Find remain Stage 4
+and Stage 5 work.
 
 ### Stage 4: PDF Viewer
 
@@ -927,6 +935,7 @@ Stage status: Deferred
 | 2026-07-25 | Stage 3 | Build uploaded-document snippets from indexed body text | PDF pages intentionally have no heading, so FTS snippets target the text column and retain headingless page coverage |
 | 2026-07-25 | Stage 3 | Verify quoted PDF searches behind the FTS candidate filter | SQLite narrows the candidate set without loading PDF sources into React; Rust then preserves the existing normalized literal-phrase contract despite Porter stemming |
 | 2026-07-25 | Stage 3 | Reuse the first PDF.js page render for gallery thumbnails | One bounded best-effort PNG feeds the existing uploaded-cover pipeline without adding a renderer or making cover generation part of import correctness |
+| 2026-07-25 | Stage 3 | Close text-native import and search before building the viewer | The committed fixture covers deterministic parser/index contracts; external multilingual, malformed, encrypted, and large files stay in the later release-hardening matrix |
 
 ## References
 
