@@ -175,7 +175,11 @@ export function PdfViewer({
       linkService.setViewer(pdfViewer)
 
       const handlePagesInit = () => {
-        if (pdfViewer) pdfViewer.currentScaleValue = 'page-width'
+        if (pdfViewer) {
+          pdfViewer.currentScaleValue = window.matchMedia(WIDE_PDF_VIEW).matches
+            ? '1'
+            : 'page-width'
+        }
       }
       const handlePageChange = ({ pageNumber }: { pageNumber: number }) => {
         setCurrentPage(pageNumber)

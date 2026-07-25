@@ -15,6 +15,6 @@ pub(crate) use index::{
 };
 pub(crate) use narration::PdfNarrationSegment;
 pub(crate) use source::{
-    get_pdf_source_bytes, get_pdf_source_path, import_pdf_source, restore_transferred_pdf,
-    SOURCE_FILE_NAME,
+    get_pdf_source_bytes, get_pdf_source_path, import_pdf_source, restore_audiobook_pdf,
+    restore_transferred_pdf, SOURCE_FILE_NAME,
 };

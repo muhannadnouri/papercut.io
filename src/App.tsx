@@ -116,6 +116,7 @@ function App() {
     userUploads,
     onClearDocument: clearSelectedDocument,
     onUserUploadsChanged: handleUserUploadsChanged,
+    onUploadedDocumentsChanged: refreshUploadedLibrary,
   })
   const {
     audioControlsProps,

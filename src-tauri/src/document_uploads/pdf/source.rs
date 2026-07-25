@@ -147,6 +147,36 @@ pub(crate) fn restore_transferred_pdf<R: Runtime>(
     })
 }
 
+/// Restore a PDF carried by an audiobook bundle into the normal upload store.
+///
+/// Unlike library transfer, the bundle already names its source URL before its
+/// payload is read. Recomputing the content id here prevents a crafted bundle
+/// from writing PDF bytes under another document's stable identity.
+pub(crate) fn restore_audiobook_pdf<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    document_url: &str,
+    title: String,
+    source: Vec<u8>,
+) -> Result<UploadedDocument, String> {
+    if source.len() as u64 > MAX_PDF_UPLOAD_BYTES {
+        return Err("Audiobook bundle PDF exceeds the 250 MB import limit".into());
+    }
+    if !source.starts_with(b"%PDF-") {
+        return Err("Audiobook bundle PDF source has an invalid header".into());
+    }
+    let (id, source_kind) = upload_reference_from_url(document_url)?;
+    if source_kind != StoredSourceKind::Pdf || source_upload_id(&source) != id {
+        return Err("Audiobook bundle PDF source does not match its document URL".into());
+    }
+    if let Some(existing) = existing_pdf(app, &id)? {
+        return Ok(existing);
+    }
+
+    let imported_at_ms = now_ms()?;
+    let url = upload_url(&id, source_kind);
+    persist_unindexed_pdf(app, id, url, title, source, imported_at_ms)
+}
+
 fn existing_pdf<R: Runtime>(
     app: &tauri::AppHandle<R>,
     id: &str,

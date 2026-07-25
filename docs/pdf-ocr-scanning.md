@@ -776,7 +776,7 @@ and Stage 5 work.
 
 ### Stage 4: PDF Viewer
 
-Stage status: In progress
+Stage status: Complete
 
 - [x] Implement the PDF.js viewer as a focused viewer component.
 - [x] Load source through a scoped local asset boundary rather than JSON/base64.
@@ -794,8 +794,9 @@ Stage status: In progress
 - [x] Smoke-test single/spread navigation and narrow-screen fallback.
 
 Implementation evidence: the viewer lazy-loads PDF.js's `PDFViewer`,
-`PDFLinkService`, and `EventBus`; defaults to fit width; disables external and
-auto-detected links; and requests source data in on-demand 1 MiB ranges.
+`PDFLinkService`, and `EventBus`; starts wide layouts at 100% and narrow
+layouts at fit width; disables external and auto-detected links; and requests
+source data in on-demand 1 MiB ranges.
 Tauri's asset protocol is limited to
 `$APPDATA/document_uploads/*/source.pdf`, while Rust verifies URL, database
 metadata, source kind, existence, and the 250 MB limit before returning a path.
@@ -877,10 +878,16 @@ The currently opened PDF is cached once in the audiobook hook, then model
 changes re-run only the shared chunker rather than filesystem I/O or PDF
 parsing. Runtime PDF chunks resolve their deterministic segment spans into
 page/text-item offsets; persisted audiobook manifests retain the existing
-format and rebuild those bounded runtime offsets on reopen. Re-importable
-audiobook bundles still require HTML source and remain part of the later
-saved-audio parity gate; this stage does not introduce a second PDF bundle
-format.
+format and rebuild those bounded runtime offsets on reopen.
+
+Re-importable audiobook bundles now carry either sanitized HTML or the
+canonical PDF source in the existing container. HTML exports remain version 2
+for backward compatibility; version 3 adds `sourceKind: "pdf"` and one
+`sourcePdf` payload. Rust streams the stored PDF directly into the bundle
+instead of copying it through frontend IPC. Import verifies its content-derived
+document URL, restores it into the normal upload store, and then calls the
+existing PDF.js indexing path so page text, FTS rows, metadata, and the cover
+remain derived and rebuildable. Version 2 HTML imports remain accepted.
 
 The PDF TTS highlighter reuses PDF.js's pinned text-item mapping. It navigates
 to the active chunk's first page and adds same-line visual bands only for text
@@ -897,9 +904,9 @@ record. PDF.js supplies a small viewer adapter that stores the current page and
 within-page ratio, restores that location after the first page renders, and
 drives the existing bookmark/top controls from its internal scroll container.
 HTML and EPUB retain their existing window-scroll bookmark fields and behavior.
-Automated parsing coverage preserves compatibility with those older records;
-manual PDF save, close, reopen, restore, update, and remove acceptance remains
-required.
+Automated parsing coverage preserves compatibility with those older records.
+Manual PDF save, close, reopen, restore, update, remove, and scroll-to-top
+acceptance passes.
 
 PDF format adapters use the audiobook-save chunk profile explicitly. This keeps
 reconstructed paragraphs under the same native request ceiling as HTML/EPUB
@@ -909,11 +916,13 @@ smaller model-specific profile.
 Automated validation for this slice passes TypeScript, focused ESLint, all 28
 frontend tests, i18n validation, and the production build/search-index pipeline.
 Both focused reconstruction tests also pass when the PDF narration module is
-compiled independently. The full local Rust check remains blocked before
-Papercut compilation by the missing `javascriptcoregtk-4.1` development package
-already recorded above. Manual acceptance should save a text-native PDF
-audiobook, confirm chunk order across page boundaries, and play it without an
-HTML/EPUB regression.
+compiled independently. Focused Rust coverage now checks version 2 HTML
+compatibility, version 3 PDF sources, and source-kind/role mismatches; local
+execution remains blocked before Papercut compilation by the missing
+`javascriptcoregtk-4.1` development package already recorded above. Manual
+acceptance should save a text-native PDF audiobook, confirm chunk order across
+page boundaries, export/import its bundle in a clean library, and play it
+without an HTML/EPUB regression.
 
 ### Stage 6: OCR Engine Benchmark
 
@@ -1064,6 +1073,8 @@ Stage status: Deferred
 | 2026-07-25 | Stage 4 | Share the wide reader header with PDF controls | One portaled toolbar occupies the centered header zone on wide screens and falls back to a second row when space is constrained; primary page and zoom actions remain visible |
 | 2026-07-25 | Stage 5 | Resolve active narration spans through PDF.js text items | Runtime-only page/item offsets rebuild from durable segment spans, same-line range bands paint only rendered active text without PDF.js word seams, and saved-audiobook manifests remain unchanged |
 | 2026-07-25 | Stage 5 | Store PDF bookmarks as page plus within-page ratio | The shared bookmark hook keeps one persistence path while a PDF.js adapter restores the internal viewer location across viewport and zoom changes |
+| 2026-07-25 | Stage 5 | Extend the existing audiobook bundle for canonical PDFs | Version 3 adds a typed PDF source while HTML stays on version 2; imports reuse PDF.js indexing instead of copying derived page text, FTS rows, or thumbnails |
+| 2026-07-25 | Stage 4 | Start wide PDF readers at 100% | Desktop avoids unexpectedly large fit-width scales while narrow layouts retain fit width for usable first-open framing |
 
 ## References
 

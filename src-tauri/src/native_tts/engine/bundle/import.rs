@@ -29,16 +29,21 @@ use super::super::paths::{
     playback_track_path, speakable_chunks, stable_hex_hash,
 };
 use super::super::silma_sidecar::DEFAULT_SILMA_NFE_STEP;
-use crate::document_uploads::sanitize_html;
+use crate::document_uploads::{restore_audiobook_pdf, sanitize_html};
 use crate::native_tts::types::{
     NativeAudiobookImportResponse, NativeAudiobookSaveRequest, NativeTtsInputChunk,
 };
 
 const MAX_BUNDLE_SOURCE_HTML_BYTES: u64 = 256 * 1024 * 1024;
+const MAX_BUNDLE_SOURCE_PDF_BYTES: u64 = 250 * 1024 * 1024;
 
 /// Version-2 bundles predating preprocessing represent original, undiacritized text.
 fn default_text_preprocessor() -> String {
     "none".into()
+}
+
+fn default_source_kind() -> String {
+    "html".into()
 }
 
 /// The bundle's top-level JSON manifest, parsed from the header.
@@ -47,6 +52,8 @@ fn default_text_preprocessor() -> String {
 struct NativeAudiobookBundleManifest {
     version: u32,
     kind: String,
+    #[serde(default = "default_source_kind")]
+    source_kind: String,
     source_document_url: String,
     title: String,
     voice: String,
@@ -113,17 +120,25 @@ pub(crate) fn import_audiobook_native(
     let manifest = read_bundle_manifest(&mut reader)?;
     validate_bundle_manifest(&manifest)?;
 
-    // A content-derived id keeps re-imports idempotent and produces the virtual
-    // document URL the rest of the app uses for uploaded HTML.
-    let upload_id = imported_upload_id(&manifest);
-    let document_url = format!("/user-uploads/{upload_id}.html");
-    let upload_dir = imported_upload_dir(&app, &upload_id)?;
-    fs::create_dir_all(&upload_dir).map_err(|err| {
-        format!(
-            "Failed to create imported audiobook directory {}: {err}",
-            upload_dir.display()
-        )
-    })?;
+    // HTML bundles retain their audiobook-owned virtual upload. PDF bundles
+    // restore their canonical content-addressed URL into the normal library.
+    let upload_dir = if manifest.source_kind == "html" {
+        let upload_id = imported_upload_id(&manifest);
+        let dir = imported_upload_dir(&app, &upload_id)?;
+        fs::create_dir_all(&dir).map_err(|err| {
+            format!(
+                "Failed to create imported audiobook directory {}: {err}",
+                dir.display()
+            )
+        })?;
+        Some((upload_id, dir))
+    } else {
+        None
+    };
+    let document_url = upload_dir
+        .as_ref()
+        .map(|(upload_id, _)| format!("/user-uploads/{upload_id}.html"))
+        .unwrap_or_else(|| manifest.source_document_url.clone());
 
     let mut audiobook_id = create_native_audiobook_id(
         &manifest.model_id,
@@ -155,10 +170,12 @@ pub(crate) fn import_audiobook_native(
     let mut consumed = 0u64;
     let mut imported_chunks = 0usize;
     let mut imported_source = false;
+    let mut imported_pdf_source = None;
     let mut imported_metadata = false;
     let mut imported_track = false;
-    // Keep imported single track staged until source HTML, every canonical chunk,
-    // and new manifest validate. Failed imports cannot replace a working track.
+    // Keep the imported single track staged until the source document, every
+    // canonical chunk, and the new manifest validate. Failed imports cannot
+    // replace a working track.
     let imported_track_staging = audiobook_dir.join("playback.import.wav");
     let _ = fs::remove_file(&imported_track_staging);
 
@@ -181,15 +198,30 @@ pub(crate) fn import_audiobook_native(
         // `_` arm skips unknown optional file kinds.
         match entry.role.as_str() {
             "sourceHtml" => {
+                let upload_dir = upload_dir.as_ref().ok_or_else(|| {
+                    "PDF audiobook bundle declared an HTML source payload".to_string()
+                })?;
                 copy_sanitized_html_payload_to_path(
                     &mut reader,
-                    &upload_dir.join("source.html"),
+                    &upload_dir.1.join("source.html"),
                     entry.bytes,
                 )?;
                 imported_source = true;
             }
+            "sourcePdf" => {
+                imported_pdf_source = Some(read_pdf_payload(&mut reader, entry.bytes)?);
+                imported_source = true;
+            }
             "metadata" => {
-                copy_payload_to_path(&mut reader, &upload_dir.join("metadata.json"), entry.bytes)?;
+                if let Some((_, upload_dir)) = &upload_dir {
+                    copy_payload_to_path(
+                        &mut reader,
+                        &upload_dir.join("metadata.json"),
+                        entry.bytes,
+                    )?;
+                } else {
+                    skip_payload(&mut reader, entry.bytes)?;
+                }
                 imported_metadata = true;
             }
             "chunkWav" => {
@@ -223,7 +255,7 @@ pub(crate) fn import_audiobook_native(
     // Validate we got everything a usable audiobook needs.
     let speakable = speakable_chunks(&manifest.chunks);
     if !imported_source {
-        return Err("Audiobook bundle did not contain source HTML".into());
+        return Err("Audiobook bundle did not contain its source document".into());
     }
     if imported_chunks != speakable.len() {
         return Err(format!(
@@ -231,8 +263,13 @@ pub(crate) fn import_audiobook_native(
             speakable.len()
         ));
     }
+    if let Some(source) = imported_pdf_source {
+        restore_audiobook_pdf(&app, &document_url, manifest.title.clone(), source)?;
+    }
     if !imported_metadata {
-        let _ = fs::write(upload_dir.join("metadata.json"), b"{}" as &[u8]);
+        if let Some((_, upload_dir)) = &upload_dir {
+            let _ = fs::write(upload_dir.join("metadata.json"), b"{}" as &[u8]);
+        }
     }
 
     // Write the same manifest a local save would, so playback treats this
@@ -264,6 +301,7 @@ pub(crate) fn import_audiobook_native(
 
     Ok(NativeAudiobookImportResponse {
         document_url,
+        source_kind: manifest.source_kind,
         title: manifest.title,
         model_id: manifest.model_id,
         text_preprocessor: manifest.text_preprocessor,
@@ -321,8 +359,25 @@ fn read_bundle_manifest<R: Read>(reader: &mut R) -> Result<NativeAudiobookBundle
 /// model or cache version (audio wouldn't match), non-WAV audio, no chunks, or a
 /// file entry missing its content type.
 fn validate_bundle_manifest(manifest: &NativeAudiobookBundleManifest) -> Result<(), String> {
-    if manifest.version != 2 || manifest.kind != "papercut-audiobook-bundle" {
+    if !matches!(manifest.version, 2 | 3) || manifest.kind != "papercut-audiobook-bundle" {
         return Err("Selected file is not a supported Papercut audiobook bundle".into());
+    }
+    if manifest.version == 2 && manifest.source_kind != "html" {
+        return Err("Version 2 audiobook bundles must contain HTML source".into());
+    }
+    let source_role = match manifest.source_kind.as_str() {
+        "html" => "sourceHtml",
+        "pdf" if manifest.version == 3 => "sourcePdf",
+        _ => return Err("Audiobook bundle has an unsupported source kind".into()),
+    };
+    let mut source_entries = manifest
+        .files
+        .iter()
+        .filter(|entry| matches!(entry.role.as_str(), "sourceHtml" | "sourcePdf"));
+    if source_entries.next().map(|entry| entry.role.as_str()) != Some(source_role)
+        || source_entries.next().is_some()
+    {
+        return Err("Audiobook bundle must contain exactly one source document".into());
     }
     let model = model_definition(&manifest.model_id)?;
     model.speaker_id(&manifest.voice)?;
@@ -432,6 +487,22 @@ fn copy_sanitized_html_payload_to_path<R: Read>(
     commit_staged_file(&temp_path, path, "imported audiobook HTML")
 }
 
+/// Read one bounded canonical PDF payload before content-id validation/storage.
+fn read_pdf_payload<R: Read>(reader: &mut R, bytes: u64) -> Result<Vec<u8>, String> {
+    if bytes > MAX_BUNDLE_SOURCE_PDF_BYTES {
+        return Err("Audiobook bundle PDF exceeds the 250 MB import limit".into());
+    }
+    let mut source = Vec::with_capacity(bytes.min(32 * 1024 * 1024) as usize);
+    let copied = reader
+        .take(bytes)
+        .read_to_end(&mut source)
+        .map_err(|err| format!("Failed to read audiobook bundle PDF: {err}"))?;
+    if copied as u64 != bytes {
+        return Err("Audiobook bundle ended while reading source PDF".into());
+    }
+    Ok(source)
+}
+
 fn import_staging_path(path: &Path) -> Result<std::path::PathBuf, String> {
     Ok(path.with_extension(format!(
         "import.{}.tmp",
@@ -487,6 +558,59 @@ mod tests {
     use std::io::Cursor;
 
     use super::*;
+
+    fn bundle_manifest(
+        version: u32,
+        source_kind: Option<&str>,
+        source_role: &str,
+    ) -> NativeAudiobookBundleManifest {
+        let mut value = serde_json::json!({
+            "version": version,
+            "kind": "papercut-audiobook-bundle",
+            "sourceDocumentUrl": "/uploads/0123456789abcdef.pdf",
+            "title": "Fixture",
+            "voice": "af_heart",
+            "speed": 1.0,
+            "dtype": "native",
+            "modelId": "sherpa-onnx/kokoro-multi-lang-v1_0",
+            "cacheVersion": CACHE_VERSION,
+            "chunks": [{ "id": "chunk-1", "text": "Hello", "textHash": null }],
+            "files": [{
+                "path": if source_role == "sourcePdf" { "source.pdf" } else { "source.html" },
+                "role": source_role,
+                "contentType": if source_role == "sourcePdf" { "application/pdf" } else { "text/html" },
+                "bytes": 5,
+                "payloadOffset": 0,
+                "chunkIndex": null
+            }],
+            "audio": {
+                "format": "wav",
+                "singleTrack": true,
+                "durationSec": 1.0,
+                "bytes": 44
+            }
+        });
+        if let Some(source_kind) = source_kind {
+            value["sourceKind"] = serde_json::Value::String(source_kind.into());
+        }
+        serde_json::from_value(value).expect("fixture bundle manifest")
+    }
+
+    #[test]
+    fn accepts_legacy_html_and_current_pdf_bundle_sources() {
+        let legacy = bundle_manifest(2, None, "sourceHtml");
+        assert_eq!(legacy.source_kind, "html");
+        validate_bundle_manifest(&legacy).expect("version 2 HTML bundle");
+
+        let pdf = bundle_manifest(3, Some("pdf"), "sourcePdf");
+        validate_bundle_manifest(&pdf).expect("version 3 PDF bundle");
+    }
+
+    #[test]
+    fn rejects_source_kind_and_payload_role_mismatches() {
+        let manifest = bundle_manifest(3, Some("pdf"), "sourceHtml");
+        assert!(validate_bundle_manifest(&manifest).is_err());
+    }
 
     #[test]
     fn sanitizes_bundle_html_before_committing_it() {

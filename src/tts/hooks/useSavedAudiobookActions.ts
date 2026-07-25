@@ -7,7 +7,15 @@ import {
   type NativeAudiobookExportFormat,
   type NativeAudiobookImportResult,
 } from '../api/nativeTts'
-import type { SavedAudiobookRecord } from '../storage/AudiobookLibrary'
+import { indexImportedPdfs } from '../../pdf/pdfImport'
+import {
+  listUploadedDocuments,
+  type UploadedDocumentBatchResult,
+} from '../../uploads/DocumentUploads'
+import {
+  createAudiobookId,
+  type SavedAudiobookRecord,
+} from '../storage/AudiobookLibrary'
 import { isUserUploadUrl, removeUserUpload, upsertUserUpload } from '../storage/UserUploads'
 import type { TtsChunk, TtsDtype } from '../types'
 import { isNativeTtsCancellation, nativeTtsErrorMessage } from '../utils/errors'
@@ -22,6 +30,7 @@ type ExportPreparation = { chunks: TtsChunk[]; sourceHtml?: string }
 interface SavedAudiobookActionsOptions {
   refreshSavedAudiobooks: () => void | Promise<void>
   onUserUploadsChanged: () => void
+  onUploadedDocumentsChanged: () => void | Promise<void>
 }
 
 const NOTICE_TIMEOUT_MS = 10000
@@ -31,6 +40,7 @@ const IDLE_IMPORT_STATE: ImportState = { status: 'idle', message: '' }
 export function useSavedAudiobookActions({
   refreshSavedAudiobooks,
   onUserUploadsChanged,
+  onUploadedDocumentsChanged,
 }: SavedAudiobookActionsOptions) {
   const [exportState, setExportState] = useState<ExportState | null>(null)
   const [deleteState, setDeleteState] = useState<DeleteState | null>(null)
@@ -157,20 +167,53 @@ export function useSavedAudiobookActions({
     setImportState({ status: 'importing', message: i18n.t('tts.audiobooks.importingAction') })
     try {
       const result = await importNativeAudiobook()
-      upsertUserUpload({
-        url: result.documentUrl,
-        title: result.title,
-        modelId: result.modelId,
-        textPreprocessor: result.textPreprocessor,
-        voice: result.voice,
-        speed: result.speed,
-        dtype: result.dtype,
-        silmaNfeStep: result.silmaNfeStep,
-        chunks: result.chunks,
-        audioDurationSec: result.audioDurationSec,
-        wavBytes: result.wavBytes,
-      })
-      onUserUploadsChanged()
+      if (result.sourceKind === 'pdf') {
+        try {
+          const document = (await listUploadedDocuments())
+            .find((item) => item.url === result.documentUrl)
+          if (!document) throw new Error('Imported audiobook PDF is missing from the library')
+          const indexed = await indexImportedPdfs({
+            selected: 1,
+            processed: 1,
+            imported: [document],
+            failures: [],
+            cancelled: false,
+          } satisfies UploadedDocumentBatchResult)
+          if (indexed.failures.length > 0 || indexed.imported.length !== 1) {
+            throw new Error(indexed.failures[0]?.error ?? 'Imported audiobook PDF could not be indexed')
+          }
+          await onUploadedDocumentsChanged()
+        } catch (error) {
+          await deleteNativeAudiobook({
+            audiobookId: createAudiobookId(result.documentUrl, {
+              modelId: result.modelId,
+              textPreprocessor: result.textPreprocessor,
+              voice: result.voice,
+              speed: result.speed,
+              dtype: result.dtype as TtsDtype,
+              silmaNfeStep: result.silmaNfeStep,
+            }),
+            documentUrl: result.documentUrl,
+            deleteUserUpload: false,
+          }).catch(() => undefined)
+          throw error
+        }
+      } else {
+        upsertUserUpload({
+          url: result.documentUrl,
+          title: result.title,
+          modelId: result.modelId,
+          textPreprocessor: result.textPreprocessor,
+          voice: result.voice,
+          speed: result.speed,
+          dtype: result.dtype,
+          silmaNfeStep: result.silmaNfeStep,
+          chunks: result.chunks,
+          audioDurationSec: result.audioDurationSec,
+          wavBytes: result.wavBytes,
+        })
+        onUserUploadsChanged()
+      }
       await refreshSavedAudiobooks()
       await onImported(result)
       setImportState(IDLE_IMPORT_STATE)
@@ -199,7 +242,7 @@ export function useSavedAudiobookActions({
           : nativeTtsErrorMessage(error),
       })
     }
-  }, [dismissNotice, onUserUploadsChanged, refreshSavedAudiobooks, showNotice])
+  }, [dismissNotice, onUploadedDocumentsChanged, onUserUploadsChanged, refreshSavedAudiobooks, showNotice])
 
   useEffect(() => () => clearNoticeTimer(), [clearNoticeTimer])
 

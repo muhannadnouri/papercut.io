@@ -1,7 +1,7 @@
 //! Export saved audiobook audio as a `.papercut-audiobook` bundle or plain WAV.
 //!
 //! Bundle export stitches the per-chunk WAVs into one combined WAV, writes JSON
-//! metadata and source HTML sidecars, then packs those files behind the bundle
+//! metadata, and packs the canonical HTML or PDF source behind the bundle
 //! header. WAV export reuses the same stitching path and writes only the final
 //! audio file.
 //!
@@ -25,9 +25,18 @@ use super::super::paths::{
     audiobook_dir, chunk_path, sanitize_export_basename, speakable_chunks, unique_export_work_dir,
 };
 use super::{stitch_audiobook_wav, WavExportSummary};
+use crate::document_uploads::get_pdf_source_path;
 use crate::native_tts::types::{
     NativeAudiobookExportRequest, NativeAudiobookExportResponse, NativeTtsInputChunk,
 };
+
+struct BundleSource {
+    path: std::path::PathBuf,
+    file_name: &'static str,
+    role: &'static str,
+    content_type: &'static str,
+    kind: &'static str,
+}
 
 /// Top-level export entry point. The frontend chooses between the re-importable
 /// Papercut bundle and a plain stitched WAV for use outside Papercut.
@@ -54,11 +63,6 @@ fn export_audiobook_bundle(
     if chunks.is_empty() {
         return Err("No speakable audiobook chunks to export".into());
     }
-    let source_html = request
-        .source_html
-        .as_deref()
-        .ok_or_else(|| "Source HTML is required for audiobook bundle export".to_string())?;
-
     // Open the native "Save As" dialog. `blocking_save_file` returns None if the
     // user cancels, which `ok_or_else` turns into an error.
     let basename = sanitize_export_basename(&request.title);
@@ -86,16 +90,15 @@ fn export_audiobook_bundle(
     let audio_filename = format!("{basename}.wav");
     let audio_path = export_dir.join(&audio_filename);
     let metadata_path = export_dir.join("metadata.json");
-    let html_path = export_dir.join("source.html");
+    let source = bundle_source(&app, &request, &export_dir)?;
     let export = stitch_audiobook_wav(&dir, &chunks, &audio_path)?;
     write_export_sidecars(
         &request,
-        source_html,
+        &source,
         &chunks,
         &export,
         &audio_path,
         &metadata_path,
-        &html_path,
     )?;
     write_export_bundle(
         &app,
@@ -105,7 +108,7 @@ fn export_audiobook_bundle(
         &export,
         &audio_path,
         &metadata_path,
-        &html_path,
+        &source,
         &audio_filename,
     )?;
     let _ = fs::remove_dir_all(&export_dir);
@@ -114,7 +117,7 @@ fn export_audiobook_bundle(
         path: destination_label,
         audio_path: audio_filename,
         metadata_path: "metadata.json".into(),
-        html_path: "source.html".into(),
+        html_path: source.file_name.into(),
         chunks: export.chunks,
         audio_duration_sec: export.audio_duration_sec,
         wav_bytes: export.wav_bytes,
@@ -173,21 +176,56 @@ fn export_audiobook_wav(
     })
 }
 
-/// Write the two human/portable sidecar files next to the combined WAV: the
-/// original `source.html` and a `metadata.json` describing the export (voice,
-/// speed, model id, chunk list, etc.). These are also packed into the bundle.
+/// Resolve the canonical source payload without copying large PDFs through IPC.
+///
+/// HTML remains frontend-provided because bundled/EPUB reader HTML may not live
+/// in the upload store. Uploaded PDFs are read directly from their validated
+/// app-data path and streamed into the final bundle.
+fn bundle_source(
+    app: &tauri::AppHandle,
+    request: &NativeAudiobookExportRequest,
+    export_dir: &Path,
+) -> Result<BundleSource, String> {
+    if request
+        .document_url
+        .split(['?', '#'])
+        .next()
+        .is_some_and(|url| url.ends_with(".pdf"))
+    {
+        return Ok(BundleSource {
+            path: get_pdf_source_path(app, &request.document_url)?,
+            file_name: "source.pdf",
+            role: "sourcePdf",
+            content_type: "application/pdf",
+            kind: "pdf",
+        });
+    }
+
+    let source_html = request
+        .source_html
+        .as_deref()
+        .ok_or_else(|| "Source HTML is required for audiobook bundle export".to_string())?;
+    let path = export_dir.join("source.html");
+    fs::write(&path, source_html.as_bytes())
+        .map_err(|err| format!("Failed to write source HTML {}: {err}", path.display()))?;
+    Ok(BundleSource {
+        path,
+        file_name: "source.html",
+        role: "sourceHtml",
+        content_type: "text/html; charset=utf-8",
+        kind: "html",
+    })
+}
+
+/// Write portable metadata describing the source, voice, chunks, and audio.
 fn write_export_sidecars(
     request: &NativeAudiobookExportRequest,
-    source_html: &str,
+    source: &BundleSource,
     chunks: &[NativeTtsInputChunk],
     export: &WavExportSummary,
     audio_path: &Path,
     metadata_path: &Path,
-    html_path: &Path,
 ) -> Result<(), String> {
-    fs::write(html_path, source_html.as_bytes())
-        .map_err(|err| format!("Failed to write source HTML {}: {err}", html_path.display()))?;
-
     let exported_at_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|err| format!("System clock error: {err}"))?
@@ -211,9 +249,10 @@ fn write_export_sidecars(
         "cacheVersion": CACHE_VERSION,
         "audiobookId": request.audiobook_id,
         "exportedAtMs": exported_at_ms,
+        "sourceKind": source.kind,
         "files": {
             "audio": audio_file,
-            "sourceHtml": "source.html"
+            "source": source.file_name
         },
         "audio": {
             "format": "wav",
@@ -248,15 +287,15 @@ fn write_export_bundle(
     export: &WavExportSummary,
     audio_path: &Path,
     metadata_path: &Path,
-    html_path: &Path,
+    source: &BundleSource,
     audio_filename: &str,
 ) -> Result<(), String> {
     let dir = audiobook_dir(app, &request.audiobook_id)?;
     let metadata_bytes = fs::metadata(metadata_path)
         .map_err(|err| format!("Failed to inspect export metadata: {err}"))?
         .len();
-    let html_bytes = fs::metadata(html_path)
-        .map_err(|err| format!("Failed to inspect export HTML: {err}"))?
+    let source_bytes = fs::metadata(&source.path)
+        .map_err(|err| format!("Failed to inspect export source: {err}"))?
         .len();
     let exported_at_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -278,10 +317,10 @@ fn write_export_bundle(
     );
     push_bundle_entry(
         &mut manifest_entries,
-        "source.html",
-        "sourceHtml",
-        "text/html; charset=utf-8",
-        html_bytes,
+        source.file_name,
+        source.role,
+        source.content_type,
+        source_bytes,
         &mut payload_offset,
         None,
     );
@@ -321,8 +360,9 @@ fn write_export_bundle(
     );
 
     let manifest = json!({
-        "version": 2,
+        "version": if source.kind == "pdf" { 3 } else { 2 },
         "kind": "papercut-audiobook-bundle",
+        "sourceKind": source.kind,
         "sourceDocumentUrl": request.document_url,
         "title": request.title,
         "voice": request.voice,
@@ -361,7 +401,7 @@ fn write_export_bundle(
     writer.write_all(&manifest_json).map_err(write_export_err)?;
     // Payloads, in the exact order their offsets were assigned above.
     write_file_payload(&mut writer, metadata_path)?;
-    write_file_payload(&mut writer, html_path)?;
+    write_file_payload(&mut writer, &source.path)?;
     for (index, chunk) in chunks.iter().enumerate() {
         if chunk.text.trim().is_empty() {
             continue;

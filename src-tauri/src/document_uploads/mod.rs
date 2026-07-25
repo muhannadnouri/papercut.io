@@ -43,7 +43,7 @@ pub(crate) use state::DocumentUploadState;
 // Library transfer consumes this narrow storage API so its removable package
 // module never duplicates document parsing, sanitization, indexing, or folder rules.
 pub(crate) use organization::{create_folder, list_organization, move_documents};
-pub(crate) use pdf::restore_transferred_pdf;
+pub(crate) use pdf::{get_pdf_source_path, restore_audiobook_pdf, restore_transferred_pdf};
 pub(crate) use pipeline::restore_transferred_document;
 pub(crate) use storage::{
     now_ms, upload_dir, upload_id_from_url, upload_source_path, StoredSourceKind,

@@ -1,7 +1,8 @@
 # EPUB Upload, Reader, Search, And Audiobook Plan
 
-This document records the EPUB implementation path and remaining follow-up work
-while keeping the path open for later PDF support. The first EPUB ship is a
+This document records the EPUB implementation path and remaining follow-up work.
+PDF now uses the same document/search contract through its own adapter and is
+tracked separately in [pdf-ocr-scanning.md](pdf-ocr-scanning.md). The first EPUB ship is a
 normalized import path: parse EPUB natively, store a sanitized generated reading
 HTML copy, index chapter/block sections into SQLite FTS, and let the existing
 reader/TTS surface open that stored reading copy. A richer EPUB-specific viewer
@@ -55,7 +56,7 @@ The EPUB parser is split into focused ZIP/XML parsing, path, asset, DOM rewrite,
 7. Add import progress reporting for very large EPUB/PDF files.
 8. Add richer EPUB reader features such as TOC, location restore, pagination, EPUB-specific appearance controls, or a foliate-js/epub.js-backed viewer if generated reading HTML is not enough. App-wide Light/System/Dark theme already applies to the generated HTML reader.
 9. For very large books, move from one fully-rendered generated HTML document toward chapter/page-level rendering with locator-aware Find and TTS ranges. Current TTS caches are mutation-aware, but the next highlight after a large DOM mutation can still rebuild the active reader text index.
-10. Add a runtime PDF import module later that extracts page text and stores page records in the same SQLite schema.
+10. Keep the implemented PDF adapter on the shared SQLite document/search schema; remaining PDF/OCR work is tracked in [pdf-ocr-scanning.md](pdf-ocr-scanning.md).
 11. Decide whether Pagefind remains the bundled-document engine long term or whether all documents should eventually share SQLite FTS.
 
 ## Historical Task Notes
@@ -250,7 +251,7 @@ Manual smoke tests:
 - Play, pause, skip, and verify highlight.
 - Delete upload and confirm search result disappears.
 
-### 10. Defer Rich EPUB Reader And PDF Work
+### 10. Defer Rich EPUB Reader; Share The PDF Contract
 
 Richer EPUB reader:
 
@@ -259,14 +260,14 @@ Richer EPUB reader:
 - Keep search/TTS source independent from the renderer.
 - Add TOC, pagination, EPUB-specific appearance controls, and location restore as reader-quality work. App-wide Light/System/Dark theme already applies to the generated HTML reader.
 - Keep Arabic typography script-aware. Bundled Arabic-focused fonts should remain explicit reader choices unless a future per-script font setting proves safe across mixed-language books.
-- For very large books, bound reader work by rendering/indexing the active chapter or page instead of one generated DOM for the whole book. TTS chunk highlighting should then map through stored locators rather than scanning every rendered text node after a large mutation. New `.papercut-audiobook` exports preserve optional chunk source spans for the generated reader DOM, and older imports keep a cached live-DOM text-match fallback for legacy compatibility. Future EPUB/PDF work should still add format-aware chapter/page locators so imports and playback do not depend on one fully rendered document.
+- For very large EPUBs, bound reader work by rendering/indexing the active chapter instead of one generated DOM for the whole book. TTS chunk highlighting should then map through stored locators rather than scanning every rendered text node after a large mutation. New `.papercut-audiobook` exports preserve optional chunk source spans for the generated reader DOM, and older imports keep a cached live-DOM text-match fallback for legacy compatibility. PDF already uses page virtualization and page/text-item locators.
 
 PDF:
 
-- Reuse `ParsedDocument` and SQLite FTS sections.
-- Store page-based locators instead of chapter locators.
-- Use PDF-specific viewer and text extraction; do not force PDF visual rendering
-  into generated HTML.
+- PDF reuses the shared SQLite document/FTS store with page records.
+- PDF stores page/text-item locators instead of chapter locators.
+- PDF uses PDF.js for viewer rendering and text extraction rather than forcing
+  page visuals into generated HTML.
 
 ## External References
 

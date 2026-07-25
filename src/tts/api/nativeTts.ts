@@ -161,6 +161,7 @@ export interface NativeImportedAudiobookMetadata {
 
 export interface NativeAudiobookImportResult {
   documentUrl: string
+  sourceKind: 'html' | 'pdf'
   modelId: string
   textPreprocessor: string
   title: string
