@@ -65,7 +65,7 @@ fn search_section_hits(
     let (scope_sql, mut values) = document_url_scope(document_urls);
     let sql = format!(
         "SELECT d.id, d.url, d.title, s.ordinal, s.page_index, s.heading, \
-                snippet(uploaded_document_fts, 3, '<mark>', '</mark>', '…', 18) AS excerpt \
+                snippet(uploaded_document_fts, 4, '<mark>', '</mark>', '…', 18) AS excerpt \
          FROM uploaded_document_fts \
          JOIN uploaded_sections s ON s.id = uploaded_document_fts.section_id \
          JOIN uploaded_documents d ON d.id = uploaded_document_fts.document_id \
@@ -171,7 +171,7 @@ fn best_document_term_hit(
     let mut stmt = db
         .prepare(
             "SELECT d.id, d.url, d.title, s.ordinal, s.page_index, s.heading, \
-                    snippet(uploaded_document_fts, 3, '<mark>', '</mark>', '…', 18) AS excerpt, \
+                    snippet(uploaded_document_fts, 4, '<mark>', '</mark>', '…', 18) AS excerpt, \
                     bm25(uploaded_document_fts) AS score, d.imported_at_ms \
              FROM uploaded_document_fts \
              JOIN uploaded_sections s ON s.id = uploaded_document_fts.section_id \
@@ -412,15 +412,21 @@ mod tests {
             &["The indexed page mentions an astrolabe."],
         );
         db.execute(
-            "UPDATE uploaded_sections SET page_index = 6 WHERE document_id = ?1",
+            "UPDATE uploaded_sections SET page_index = 6, heading = NULL WHERE document_id = ?1",
             params!["pdf-page-hit"],
         )
         .expect("set PDF page locator");
+        db.execute(
+            "UPDATE uploaded_document_fts SET heading = NULL WHERE document_id = ?1",
+            params!["pdf-page-hit"],
+        )
+        .expect("clear PDF page heading");
 
         let hits = search_section_hits(&db, "\"astrolabe\"", 10, &[]).expect("search PDF page");
 
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].page_index, Some(6));
+        assert!(hits[0].excerpt.contains("<mark>astrolabe</mark>"));
     }
 
     fn test_db() -> Connection {

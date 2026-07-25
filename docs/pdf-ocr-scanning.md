@@ -1,7 +1,7 @@
 # PDF, OCR, And Document Scanning Plan
 
 Status: Stage 3 text-native import/search slice implemented; manual gate pending
-Last updated: 2026-07-24
+Last updated: 2026-07-25
 
 This document is the source of truth for adding PDF reading, searchable OCR,
 and mobile document scanning to Papercut. It records the research, current
@@ -750,7 +750,8 @@ Automated evidence: the production frontend build, PDF.js extraction fixture,
 TypeScript check, focused ESLint pass, all frontend tests, all locale checks,
 and all 70 Rust library tests pass. The focused page-text tests cover inline
 format boundaries, line endings, finite coordinates, sidecar validation, FTS
-indexing, returned page locators, and shared Library/Search tree visibility.
+indexing, headingless PDF-page snippets, returned page locators, and shared
+Library/Search tree visibility.
 
 Decision gate: text-native fixtures import, list, search, reopen, transfer, and
 delete correctly without a PDF viewer-specific workaround in the search index.
@@ -915,6 +916,7 @@ Stage status: Deferred
 | 2026-07-24 | Stage 3 | Keep PDF import memory and IPC bounded by page | Rust caps source size at 250 MB, PDF.js caps documents at 2,000 pages, and only one page-text layer is persisted per IPC call |
 | 2026-07-24 | Stage 3 | Commit FTS rows only after all page sidecars validate | Failed or cancelled imports remove newly staged PDFs; partial page rows never become searchable |
 | 2026-07-25 | Stage 3 | Reuse the shared uploaded-document tree for PDF visibility | The upload URL parser now accepts both canonical `.html` and `.pdf` URLs, keeping Library and Search document lists on one hierarchy |
+| 2026-07-25 | Stage 3 | Build uploaded-document snippets from indexed body text | PDF pages intentionally have no heading, so FTS snippets target the text column and retain headingless page coverage |
 
 ## References
 
