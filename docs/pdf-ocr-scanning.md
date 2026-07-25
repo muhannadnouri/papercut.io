@@ -865,7 +865,12 @@ new page/block runs. Re-importable audiobook bundles still require HTML source
 and remain part of the later saved-audio parity gate; this stage does not
 introduce a second PDF bundle format.
 
-Automated validation for this slice passes TypeScript, focused ESLint, all 24
+PDF format adapters use the audiobook-save chunk profile explicitly. This keeps
+reconstructed paragraphs under the same native request ceiling as HTML/EPUB
+instead of inheriting the larger interactive-playback default; SILMA retains its
+smaller model-specific profile.
+
+Automated validation for this slice passes TypeScript, focused ESLint, all 25
 frontend tests, i18n validation, and the production build/search-index pipeline.
 Both focused reconstruction tests also pass when the PDF narration module is
 compiled independently. The full local Rust check remains blocked before
@@ -1013,6 +1018,7 @@ Stage status: Deferred
 | 2026-07-25 | Stage 5 | Carry indexed PDF page locators through shared search results | SQLite already knows the matching page; preserving that value lets PDF.js target the correct page and phrase without loading full extracted documents into React |
 | 2026-07-25 | Stage 5 | Reuse persisted PDF blocks for TTS chunking | A text-only IPC read feeds the existing `ReadableSegment` chunker, keeps coordinate payloads out of whole-document narration setup, and avoids reparsing PDFs or adding another chunking path |
 | 2026-07-25 | Stage 5 | Reconstruct logical prose before PDF TTS chunking | PDF.js visual line and inline-style fragments are joined in a PDF-owned Rust adapter; shared chunk limits stay unchanged, and compact UTF-16 page/block runs prepare highlighting without transferring whole-document geometry |
+| 2026-07-25 | Stage 5 | Apply save-sized chunks after PDF reconstruction | Logical paragraphs expose the generic 900-character playback default; a shared save wrapper restores the 360-character native request ceiling used by HTML/EPUB and retains SILMA's smaller override |
 | 2026-07-25 | Stage 4 | Pass the large-document viewer performance gate | Manual scrolling completed without disappearing pages or a noticeable memory spike; responsive and RTL control behavior remains the final Stage 4 smoke test |
 | 2026-07-25 | Stage 4 | Pass responsive PDF control smoke testing | Page, zoom, fit, and outline controls worked at desktop and narrow widths; RTL remains the final visual gate |
 | 2026-07-25 | Stage 4 | Close the PDF viewer stage | The compact controls remained usable at desktop and narrow widths in both LTR and Arabic RTL layouts |

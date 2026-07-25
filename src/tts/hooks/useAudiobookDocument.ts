@@ -21,7 +21,7 @@ import { isUserUploadUrl } from '../storage/UserUploads'
 import { SILMA_MODEL_ID, type TtsChunk } from '../types'
 import {
   chunkAudiobookSaveHtmlWithSpans,
-  chunkReadableSegmentsWithSpans,
+  chunkAudiobookSaveSegmentsWithSpans,
   SILMA_AUDIOBOOK_SAVE_CHUNK_PROFILE,
   type SpeechChunk,
 } from '../utils/text'
@@ -208,7 +208,7 @@ function audiobookSaveChunksFromSegments(
   modelId: string,
 ): TtsChunk[] {
   const profile = modelId === SILMA_MODEL_ID ? SILMA_AUDIOBOOK_SAVE_CHUNK_PROFILE : undefined
-  return buildRuntimeChunks(chunkReadableSegmentsWithSpans(segments, profile), 'save-c')
+  return buildRuntimeChunks(chunkAudiobookSaveSegmentsWithSpans(segments, profile), 'save-c')
 }
 
 function buildRuntimeChunks(sourceChunks: SpeechChunk[], prefix: string): TtsChunk[] {

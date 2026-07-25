@@ -75,10 +75,16 @@ export function chunkAudiobookSaveHtmlWithSpans(
   html: string,
   profile: SpeechChunkProfile = AUDIOBOOK_SAVE_CHUNK_PROFILE,
 ): SpeechChunk[] {
-  return chunkReadableSegmentsWithSpans(
-    extractReadableSegmentsFromHtml(html),
-    profile,
-  )
+  return chunkAudiobookSaveSegmentsWithSpans(extractReadableSegmentsFromHtml(html), profile)
+}
+
+// Keeps format adapters on save-sized requests instead of the larger playback
+// default; long PDF paragraphs otherwise reach native TTS as oversized chunks.
+export function chunkAudiobookSaveSegmentsWithSpans(
+  segments: ReadableSegment[],
+  profile: SpeechChunkProfile = AUDIOBOOK_SAVE_CHUNK_PROFILE,
+): SpeechChunk[] {
+  return chunkReadableSegmentsWithSpans(segments, profile)
 }
 
 // Shared chunking entry point for format adapters. EPUB/PDF should emit
