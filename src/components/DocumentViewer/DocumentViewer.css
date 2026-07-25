@@ -25,7 +25,8 @@
 }
 
 .app-reader-pdf .doc-header {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0;
+  padding-bottom: 0.75rem;
 }
 
 .app-reader-pdf .document-view {
@@ -479,6 +480,11 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   .app-reader {
     padding-inline: 0.35rem;
     background: var(--reader-surface);
+  }
+
+  .app-reader-pdf .doc-header {
+    margin-bottom: 0.75rem;
+    padding-bottom: 1.25rem;
   }
 
   .find-btn,

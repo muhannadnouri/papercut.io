@@ -805,7 +805,9 @@ compact controls, narrow and coarse-pointer layouts retain 44-pixel touch
 targets, and all layouts expose labels and pressed state to assistive
 technology. Viewer chrome follows the app theme, and the PDF viewport consumes
 the reader height left by optional Find and Diagnostics UI instead of using a
-fixed viewport percentage. The production frontend build, locale check,
+fixed viewport percentage. Wide layouts tighten the PDF header spacing while
+narrow layouts retain the divider breathing room used by the borderless reader.
+The production frontend build, locale check,
 TypeScript check, and 25 focused tests pass. A full local Rust check remains
 blocked in this shell by the missing `javascriptcoregtk-4.1` development
 package, before Papercut compilation begins.
@@ -1027,6 +1029,7 @@ Stage status: Deferred
 | 2026-07-25 | Stage 4 | Pass responsive PDF control smoke testing | Page, zoom, fit, and outline controls worked at desktop and narrow widths; RTL remains the final visual gate |
 | 2026-07-25 | Stage 4 | Close the PDF viewer stage | The compact controls remained usable at desktop and narrow widths in both LTR and Arabic RTL layouts |
 | 2026-07-25 | Stage 4 | Let the reader shell size the PDF viewport | Flex layout reclaims space when optional Find or Diagnostics UI is absent; wide controls center primary navigation while preserving 44-pixel touch targets |
+| 2026-07-25 | Stage 4 | Retain the reader divider with responsive spacing | Wide PDF layouts reclaim vertical space around the shared header divider while narrow layouts keep the established borderless-reader separation |
 
 ## References
 
