@@ -27,7 +27,7 @@ import {
   type PdfSpreadMode,
 } from './PdfControls'
 import './PdfViewer.css'
-import type { ViewerProps } from './types'
+import type { ViewerBookmarkApi, ViewerBookmarkLocation, ViewerProps } from './types'
 
 type PdfViewerStatus =
   | { state: 'loading' }
@@ -74,6 +74,7 @@ export function PdfViewer({
   toolbarTarget,
   searchTarget,
   pdfTtsHighlightSpans,
+  onBookmarkApiChange,
   onFindApiChange,
   onFindResult,
 }: ViewerProps) {
@@ -129,6 +130,7 @@ export function PdfViewer({
     setOutline([])
     setOutlineOpen(false)
     setSpreadMode('single')
+    onBookmarkApiChange?.(null)
 
     async function openPdf() {
       setStatus({ state: 'loading' })
@@ -218,7 +220,10 @@ export function PdfViewer({
           if (!cancelled) setOutline([])
         })
       await pdfViewer.onePageRendered
-      if (!cancelled) setStatus({ state: 'ready', pages: pdf.numPages })
+      if (!cancelled) {
+        onBookmarkApiChange?.(createPdfBookmarkApi(pdfViewer, container, viewer))
+        setStatus({ state: 'ready', pages: pdf.numPages })
+      }
 
       return () => {
         eventBus?.off('pagesinit', handlePagesInit)
@@ -246,6 +251,7 @@ export function PdfViewer({
       findAdapter?.dispose()
       if (findAdapterRef.current === findAdapter) findAdapterRef.current = null
       onFindApiChange?.(null)
+      onBookmarkApiChange?.(null)
       linkService?.setDocument(null)
       pdfViewer?.cleanup()
       pdfViewerRef.current = null
@@ -254,7 +260,7 @@ export function PdfViewer({
       spreadModesRef.current = null
       void loadingTask?.destroy()
     }
-  }, [onFindApiChange, onFindResult, url])
+  }, [onBookmarkApiChange, onFindApiChange, onFindResult, url])
 
   useEffect(() => {
     const pdfViewer = pdfViewerRef.current
@@ -412,4 +418,67 @@ export function PdfViewer({
       </div>
     </div>
   )
+}
+
+/**
+ * Adapt PDF.js's internal scroll viewport to Papercut's explicit bookmark.
+ *
+ * Page number survives layout changes; the within-page ratio keeps restoration
+ * close to the same paragraph after zoom or viewport changes.
+ */
+function createPdfBookmarkApi(
+  pdfViewer: PdfJsViewer,
+  container: HTMLElement,
+  viewer: HTMLElement,
+): ViewerBookmarkApi {
+  const pageElement = (pageNumber: number) => (
+    viewer.querySelector<HTMLElement>(`.page[data-page-number="${pageNumber}"]`)
+  )
+  const pageNumber = (value: number) => Math.min(pdfViewer.pagesCount, Math.max(1, value))
+  const pageTop = (page: HTMLElement) => (
+    page.getBoundingClientRect().top -
+    container.getBoundingClientRect().top +
+    container.scrollTop
+  )
+  const locationTop = (location: ViewerBookmarkLocation) => {
+    const page = pageElement(pageNumber(location.pageNumber))
+    return page
+      ? pageTop(page) + location.pageOffsetRatio * page.getBoundingClientRect().height
+      : container.scrollTop
+  }
+
+  return {
+    capture: () => {
+      const pageNumber = pdfViewer.currentPageNumber
+      const page = pageElement(pageNumber)
+      const pageHeight = page?.getBoundingClientRect().height ?? 0
+      const pageOffsetRatio = page && pageHeight
+        ? (container.scrollTop - pageTop(page)) / pageHeight
+        : 0
+      return {
+        pageNumber,
+        pageOffsetRatio: Math.min(1, Math.max(0, pageOffsetRatio)),
+      }
+    },
+    isCurrent: (location) => (
+      pdfViewer.currentPageNumber === pageNumber(location.pageNumber) &&
+      Math.abs(container.scrollTop - locationTop(location)) <=
+        Math.max(180, container.clientHeight * 0.2)
+    ),
+    isPastStart: () => pdfViewer.currentPageNumber > 1 || container.scrollTop > 180,
+    restore: (location) => {
+      pdfViewer.currentPageNumber = pageNumber(location.pageNumber)
+      requestAnimationFrame(() => {
+        if (container.isConnected) container.scrollTop = locationTop(location)
+      })
+    },
+    scrollToTop: () => {
+      pdfViewer.currentPageNumber = 1
+      container.scrollTo({ top: 0, behavior: 'smooth' })
+    },
+    subscribe: (listener) => {
+      container.addEventListener('scroll', listener, { passive: true })
+      return () => container.removeEventListener('scroll', listener)
+    },
+  }
 }

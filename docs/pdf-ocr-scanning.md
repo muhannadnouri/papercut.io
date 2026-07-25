@@ -840,7 +840,9 @@ Stage status: In progress
 - [x] Resolve active chunk source spans through page/block runs and text-layer
       items.
 - [x] Highlight active TTS text across block and line boundaries.
-- [ ] Restore page/location bookmarks after reopen.
+- [x] Restore page/location bookmarks after reopen.
+- [ ] Verify TTS highlight bands remain within one column on a multi-column
+      page (deferred until a representative fixture is available).
 - [ ] Verify saved audiobook create, play, reopen, export, and import behavior.
 - [ ] Compare all agreed parity cases against HTML/EPUB.
 
@@ -880,20 +882,31 @@ audiobook bundles still require HTML source and remain part of the later
 saved-audio parity gate; this stage does not introduce a second PDF bundle
 format.
 
-The PDF TTS highlighter reuses PDF.js's pinned text-item mapping and the
-browser's CSS Highlight API. It navigates to the active chunk's first page and
-adds ranges only for text layers PDF.js has rendered; virtualized pages receive
-their ranges when `textlayerrendered` fires. Find-driven text-layer rewrites
-also reapply the active range without modifying PDF.js Find markup. This keeps
-work proportional to the active chunk and rendered page cache rather than the
-document's page count.
+The PDF TTS highlighter reuses PDF.js's pinned text-item mapping. It navigates
+to the active chunk's first page and adds same-line visual bands only for text
+layers PDF.js has rendered; virtualized pages receive their bands when
+`textlayerrendered` fires. Find-driven text-layer rewrites also reapply the
+active range without modifying PDF.js Find markup. This keeps work proportional
+to the active chunk and rendered page cache rather than the document's page
+count. Desktop, narrow-width, zoom, and RTL smoke tests pass. A single-page
+multi-column check remains deferred until a representative fixture is
+available.
+
+PDF bookmarks continue using the shared explicit-bookmark hook and localStorage
+record. PDF.js supplies a small viewer adapter that stores the current page and
+within-page ratio, restores that location after the first page renders, and
+drives the existing bookmark/top controls from its internal scroll container.
+HTML and EPUB retain their existing window-scroll bookmark fields and behavior.
+Automated parsing coverage preserves compatibility with those older records;
+manual PDF save, close, reopen, restore, update, and remove acceptance remains
+required.
 
 PDF format adapters use the audiobook-save chunk profile explicitly. This keeps
 reconstructed paragraphs under the same native request ceiling as HTML/EPUB
 instead of inheriting the larger interactive-playback default; SILMA retains its
 smaller model-specific profile.
 
-Automated validation for this slice passes TypeScript, focused ESLint, all 25
+Automated validation for this slice passes TypeScript, focused ESLint, all 28
 frontend tests, i18n validation, and the production build/search-index pipeline.
 Both focused reconstruction tests also pass when the PDF narration module is
 compiled independently. The full local Rust check remains blocked before
@@ -1050,6 +1063,7 @@ Stage status: Deferred
 | 2026-07-25 | Stage 4 | Use PDF.js for optional two-page spreads | Wide layouts pair pages 1-2, 3-4, and so on through `SpreadMode.ODD`; narrow layouts return to the default single-page view without another renderer or persisted preference |
 | 2026-07-25 | Stage 4 | Share the wide reader header with PDF controls | One portaled toolbar occupies the centered header zone on wide screens and falls back to a second row when space is constrained; primary page and zoom actions remain visible |
 | 2026-07-25 | Stage 5 | Resolve active narration spans through PDF.js text items | Runtime-only page/item offsets rebuild from durable segment spans, same-line range bands paint only rendered active text without PDF.js word seams, and saved-audiobook manifests remain unchanged |
+| 2026-07-25 | Stage 5 | Store PDF bookmarks as page plus within-page ratio | The shared bookmark hook keeps one persistence path while a PDF.js adapter restores the internal viewer location across viewport and zoom changes |
 
 ## References
 

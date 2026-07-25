@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { resolveViewer } from '../../viewers/registry'
-import type { ViewerFindApi } from '../../viewers/types'
+import type { ViewerBookmarkApi, ViewerFindApi } from '../../viewers/types'
 import { FindBar } from '../FindBar/FindBar'
 import { ScrollTopButton } from '../ScrollTopButton/ScrollTopButton'
 import { ReaderSettings } from '../ReaderSettings/ReaderSettings'
@@ -71,6 +71,7 @@ export function DocumentViewer({
   const { t } = useTranslation()
   const readerRef = useRef<HTMLElement | null>(null)
   const plugin = resolveViewer(url, format)
+  const [viewerBookmarkApi, setViewerBookmarkApi] = useState<ViewerBookmarkApi | null>(null)
   const [viewerFindApi, setViewerFindApi] = useState<ViewerFindApi | null>(null)
   const [viewerToolbarTarget, setViewerToolbarTarget] = useState<HTMLDivElement | null>(null)
   const [showScrollTop, setShowScrollTop] = useState(false)
@@ -84,8 +85,11 @@ export function DocumentViewer({
     isAtBookmark,
     toggleBookmark,
   } = useReaderBookmark(url, {
-    enabled: !loading && !loadError && Boolean(content),
+    enabled: !loading &&
+      !loadError &&
+      (plugin.id === 'pdf' ? Boolean(viewerBookmarkApi) : Boolean(content)),
     restoreOnOpen: restoreBookmark,
+    viewerApi: plugin.id === 'pdf' ? viewerBookmarkApi : null,
   })
 
   const {
@@ -197,8 +201,12 @@ export function DocumentViewer({
 
   const scrollToTop = useCallback(() => {
     dismissBookmarkNotice()
+    if (plugin.id === 'pdf' && viewerBookmarkApi) {
+      viewerBookmarkApi.scrollToTop()
+      return
+    }
     window.scrollTo({ top: 0, behavior: readerScrollBehavior() })
-  }, [dismissBookmarkNotice])
+  }, [dismissBookmarkNotice, plugin.id, viewerBookmarkApi])
 
   const openPendingExternalUrl = useCallback(async () => {
     if (!pendingExternalUrl) return
@@ -214,6 +222,12 @@ export function DocumentViewer({
   }, [pendingExternalUrl])
 
   useEffect(() => {
+    if (plugin.id === 'pdf' && viewerBookmarkApi) {
+      const update = () => setShowScrollTop(viewerBookmarkApi.isPastStart())
+      update()
+      return viewerBookmarkApi.subscribe(update)
+    }
+
     function handleScroll() {
       setShowScrollTop(window.scrollY > FLOATING_READER_ACTION_SCROLL_Y)
     }
@@ -221,7 +235,7 @@ export function DocumentViewer({
     handleScroll()
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [url])
+  }, [plugin.id, url, viewerBookmarkApi])
 
   const ViewerComponent = plugin.Component
   const appClassName = [
@@ -311,6 +325,7 @@ export function DocumentViewer({
             toolbarTarget={viewerToolbarTarget}
             searchTarget={searchTarget}
             pdfTtsHighlightSpans={pdfTtsHighlightSpans}
+            onBookmarkApiChange={setViewerBookmarkApi}
             onFindApiChange={setViewerFindApi}
             onFindResult={handleViewerFindResult}
           />

@@ -14,6 +14,20 @@ export interface ViewerFindApi {
   clear: () => void
 }
 
+export interface ViewerBookmarkLocation {
+  pageNumber: number
+  pageOffsetRatio: number
+}
+
+export interface ViewerBookmarkApi {
+  capture: () => ViewerBookmarkLocation
+  isCurrent: (location: ViewerBookmarkLocation) => boolean
+  isPastStart: () => boolean
+  restore: (location: ViewerBookmarkLocation) => void
+  scrollToTop: () => void
+  subscribe: (listener: () => void) => () => void
+}
+
 export interface ViewerProps {
   url: string
   format?: string
@@ -22,6 +36,7 @@ export interface ViewerProps {
   toolbarTarget?: HTMLElement | null
   searchTarget?: SearchOpenTarget | null
   pdfTtsHighlightSpans?: PdfTtsSourceSpan[]
+  onBookmarkApiChange?: (api: ViewerBookmarkApi | null) => void
   onFindApiChange?: (api: ViewerFindApi | null) => void
   onFindResult?: (result: ViewerFindResult) => void
 }
