@@ -31,6 +31,7 @@ import { useAudiobookManager } from './tts/hooks/useAudiobookManager'
 import {
   getUploadedDocumentSource,
   isUploadedHtmlDocumentUrl,
+  isUploadedPdfDocumentUrl,
 } from './uploads/DocumentUploads'
 
 function isBundledDocumentUrl(url: string): boolean {
@@ -73,6 +74,7 @@ function App() {
 
   const loadHtmlDocument = useCallback(async (url: string): Promise<string> => {
     if (isUploadedHtmlDocumentUrl(url)) return getUploadedDocumentSource(url)
+    if (isUploadedPdfDocumentUrl(url)) return ''
     if (isUserUploadUrl(url)) return getImportedAudiobookSource(url)
     if (!isBundledDocumentUrl(url)) throw new Error('Unsupported document URL')
 

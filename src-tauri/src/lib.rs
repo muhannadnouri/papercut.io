@@ -21,6 +21,7 @@ pub fn run() {
             document_uploads::commands::document_uploads_get_source,
             document_uploads::commands::document_uploads_get_cover,
             document_uploads::commands::document_uploads_get_pdf_source,
+            document_uploads::commands::document_uploads_get_pdf_asset_path,
             document_uploads::commands::document_uploads_store_pdf_page_text,
             document_uploads::commands::document_uploads_finalize_pdf,
             document_uploads::commands::document_uploads_delete,

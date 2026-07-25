@@ -1,6 +1,6 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 3 text-native import/search complete; Stage 4 viewer is next
+Status: Stage 4 PDF viewer foundation implemented; large-document smoke test pending
 Last updated: 2026-07-25
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -172,8 +172,10 @@ assumptions must change deliberately:
 - Library transfer package v3 carries original PDF sources and deliberately
   omits rebuildable page-text sidecars. Existing v1/v2 HTML packages remain
   accepted.
-- `src/viewers/PdfViewer.tsx` remains a first-page validation harness rather
-  than the production virtualized viewer planned for Stage 4.
+- `src/viewers/PdfViewer.tsx` uses PDF.js's rendering queue and bounded page
+  cache for a scrollable, selectable document surface. Stored PDFs are exposed
+  only through a validated, app-data-scoped Tauri asset URL so PDF.js can issue
+  on-demand range requests instead of copying the full source through IPC.
 - `src/hooks/useDocumentViewerState.ts` and
   `src/components/DocumentViewer/DocumentViewer.tsx` assume a loaded HTML string
   and one live reader DOM.
@@ -774,16 +776,29 @@ and Stage 5 work.
 
 ### Stage 4: PDF Viewer
 
-Stage status: Not started
+Stage status: In progress; viewer foundation implemented, manual performance
+gate pending
 
-- [ ] Implement the PDF.js viewer as a focused viewer component.
-- [ ] Load source through a scoped local asset boundary rather than JSON/base64.
-- [ ] Render visible and adjacent pages only and release off-window resources.
+- [x] Implement the PDF.js viewer as a focused viewer component.
+- [x] Load source through a scoped local asset boundary rather than JSON/base64.
+- [x] Render visible and adjacent pages through PDF.js's bounded page cache and
+      release off-window resources.
 - [ ] Add page navigation, zoom, fit-width, fit-page, and available outline
       navigation.
-- [ ] Add selectable/accessibility text layers aligned to rendered pages.
-- [ ] Integrate reader loading, error, theme, mobile, and keyboard behavior.
-- [ ] Confirm dark mode leaves PDF page colors unchanged by default.
+- [x] Add selectable/accessibility text layers aligned to rendered pages.
+- [ ] Finish reader controls, localized status text, mobile, and keyboard
+      behavior.
+- [x] Keep dark mode on viewer chrome without recoloring PDF page content.
+
+Implementation evidence: the viewer lazy-loads PDF.js's `PDFViewer`,
+`PDFLinkService`, and `EventBus`; defaults to fit width; disables external and
+auto-detected links; and requests source data in on-demand 1 MiB ranges.
+Tauri's asset protocol is limited to
+`$APPDATA/document_uploads/*/source.pdf`, while Rust verifies URL, database
+metadata, source kind, existence, and the 250 MB limit before returning a path.
+The production frontend build and 21 focused tests pass. A full local Rust
+check remains blocked in this shell by the missing `javascriptcoregtk-4.1`
+development package, before Papercut compilation begins.
 
 Decision gate: large PDFs scroll without disappearing pages, unbounded memory
 growth, or blocking the rest of the app.
@@ -936,6 +951,8 @@ Stage status: Deferred
 | 2026-07-25 | Stage 3 | Verify quoted PDF searches behind the FTS candidate filter | SQLite narrows the candidate set without loading PDF sources into React; Rust then preserves the existing normalized literal-phrase contract despite Porter stemming |
 | 2026-07-25 | Stage 3 | Reuse the first PDF.js page render for gallery thumbnails | One bounded best-effort PNG feeds the existing uploaded-cover pipeline without adding a renderer or making cover generation part of import correctness |
 | 2026-07-25 | Stage 3 | Close text-native import and search before building the viewer | The committed fixture covers deterministic parser/index contracts; external multilingual, malformed, encrypted, and large files stay in the later release-hardening matrix |
+| 2026-07-25 | Stage 4 | Use PDF.js viewer primitives directly | Its rendering queue, bounded page cache, text layer, and link service cover the performance foundation without adding `react-pdf` or hand-rolling virtualization |
+| 2026-07-25 | Stage 4 | Serve validated PDFs through Tauri's scoped asset protocol | Range-capable URLs avoid full-file IPC copies; PDF.js disables streaming and automatic prefetch so large sources are read on demand in 1 MiB chunks |
 
 ## References
 

@@ -13,8 +13,8 @@ use super::organization::{
     reorder,
 };
 use super::pdf::{
-    finalize_pdf_index, get_pdf_source_bytes, store_pdf_page_text, PdfFinalizeRequest,
-    PdfPageTextRequest,
+    finalize_pdf_index, get_pdf_source_bytes, get_pdf_source_path, store_pdf_page_text,
+    PdfFinalizeRequest, PdfPageTextRequest,
 };
 use super::pipeline::{delete_upload, get_cover, get_source};
 use super::search::search_uploads;
@@ -116,6 +116,22 @@ pub async fn document_uploads_get_pdf_source<R: Runtime>(
     .await
     .map_err(|err| format!("PDF source task failed: {err}"))??;
     Ok(tauri::ipc::Response::new(bytes))
+}
+
+/// Return a validated app-data path for Tauri's scoped, range-capable asset protocol.
+#[tauri::command]
+pub async fn document_uploads_get_pdf_asset_path<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedDocumentSourceRequest,
+) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = get_pdf_source_path(&app, &request.document_url)?;
+        path.into_os_string()
+            .into_string()
+            .map_err(|_| "PDF source path is not valid UTF-8".to_string())
+    })
+    .await
+    .map_err(|err| format!("PDF asset path task failed: {err}"))?
 }
 
 /// Persist one bounded page text layer emitted by PDF.js.

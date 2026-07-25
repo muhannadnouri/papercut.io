@@ -194,6 +194,14 @@ export async function getUploadedPdfSource(documentUrl: string): Promise<Uint8Ar
   return new Uint8Array(source)
 }
 
+export async function getUploadedPdfAssetUrl(documentUrl: string): Promise<string> {
+  const mod = await import('@tauri-apps/api/core')
+  const path = await mod.invoke<string>('document_uploads_get_pdf_asset_path', {
+    request: { documentUrl },
+  })
+  return mod.convertFileSrc(path)
+}
+
 export async function storeUploadedPdfPageText(
   documentUrl: string,
   layer: PdfPageTextLayer,

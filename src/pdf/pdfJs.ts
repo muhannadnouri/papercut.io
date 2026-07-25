@@ -1,6 +1,7 @@
 import pdfWorkerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'
 
 let pdfJsPromise: Promise<typeof import('pdfjs-dist/legacy/build/pdf.mjs')> | undefined
+let pdfViewerPromise: Promise<typeof import('pdfjs-dist/legacy/web/pdf_viewer.mjs')> | undefined
 
 export function pdfJsAssetRoot(): string {
   return new URL('pdfjs/', document.baseURI).href
@@ -13,4 +14,13 @@ export function loadPdfJs() {
     return pdfjs
   })
   return pdfJsPromise
+}
+
+/**
+ * Load viewer primitives after the legacy PDF.js build has populated the
+ * global expected by its viewer module.
+ */
+export function loadPdfViewer() {
+  pdfViewerPromise ??= loadPdfJs().then(() => import('pdfjs-dist/legacy/web/pdf_viewer.mjs'))
+  return pdfViewerPromise
 }

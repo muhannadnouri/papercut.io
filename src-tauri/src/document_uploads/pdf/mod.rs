@@ -12,5 +12,6 @@ pub(crate) use index::{
     finalize_pdf_index, store_pdf_page_text, PdfFinalizeRequest, PdfPageTextRequest,
 };
 pub(crate) use source::{
-    get_pdf_source_bytes, import_pdf_source, restore_transferred_pdf, SOURCE_FILE_NAME,
+    get_pdf_source_bytes, get_pdf_source_path, import_pdf_source, restore_transferred_pdf,
+    SOURCE_FILE_NAME,
 };

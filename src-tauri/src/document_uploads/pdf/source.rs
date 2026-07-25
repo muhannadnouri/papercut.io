@@ -1,6 +1,6 @@
 //! Canonical PDF source persistence.
 
-use std::fs;
+use std::{fs, path::PathBuf};
 
 use tauri::Runtime;
 use tauri_plugin_dialog::FilePath;
@@ -50,6 +50,18 @@ pub(crate) fn get_pdf_source_bytes<R: Runtime>(
     app: &tauri::AppHandle<R>,
     document_url: &str,
 ) -> Result<Vec<u8>, String> {
+    let path = get_pdf_source_path(app, document_url)?;
+    fs::read(&path).map_err(|err| format!("Failed to read PDF source: {err}"))
+}
+
+/// Resolve a PDF only after its URL, database row, source kind, and size agree.
+///
+/// The viewer uses the returned path through Tauri's narrowly scoped asset
+/// protocol so PDF.js can issue range requests without exposing arbitrary files.
+pub(crate) fn get_pdf_source_path<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    document_url: &str,
+) -> Result<PathBuf, String> {
     let (id, source_kind) = upload_reference_from_url(document_url)?;
     if source_kind != StoredSourceKind::Pdf {
         return Err("Document is not an uploaded PDF".into());
@@ -66,7 +78,7 @@ pub(crate) fn get_pdf_source_bytes<R: Runtime>(
     if metadata.len() > MAX_PDF_UPLOAD_BYTES {
         return Err("Stored PDF exceeds the 250 MB import limit".into());
     }
-    fs::read(&path).map_err(|err| format!("Failed to read PDF source: {err}"))
+    Ok(path)
 }
 
 /// Restore a checksum-verified transfer payload without trying to parse or
