@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import './PdfControls.css'
 
 export type PdfFitMode = 'page-width' | 'page-fit' | null
+export type PdfSpreadMode = 'single' | 'spread'
 
 const MIN_ZOOM = 25
 const MAX_ZOOM = 400
@@ -27,12 +28,14 @@ type PdfControlsProps = {
   outlineOpen: boolean
   pages: number
   ready: boolean
+  spreadMode: PdfSpreadMode
   zoom: number
   onFitChange: (mode: Exclude<PdfFitMode, null>) => void
   onOutlineChange: (open: boolean) => void
   onPageChange: (page: number) => void
   onPageNext: () => void
   onPagePrevious: () => void
+  onSpreadChange: (mode: PdfSpreadMode) => void
   onZoomChange: (percentage: number) => void
 }
 
@@ -43,12 +46,14 @@ export function PdfControls({
   outlineOpen,
   pages,
   ready,
+  spreadMode,
   zoom,
   onFitChange,
   onOutlineChange,
   onPageChange,
   onPageNext,
   onPagePrevious,
+  onSpreadChange,
   onZoomChange,
 }: PdfControlsProps) {
   const { t } = useTranslation()
@@ -172,7 +177,7 @@ export function PdfControls({
         </button>
       </div>
 
-      <div className="pdf-control-group pdf-fit-controls" role="group" aria-label={t('reader.pdf.fit')}>
+      <div className="pdf-control-group pdf-fit-controls" role="group" aria-label={t('reader.pdf.view')}>
         <button
           type="button"
           className={`pdf-control-button${fitMode === 'page-width' ? ' active' : ''}`}
@@ -198,6 +203,20 @@ export function PdfControls({
         >
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          className={`pdf-control-button pdf-spread-toggle${spreadMode === 'spread' ? ' active' : ''}`}
+          disabled={!ready}
+          aria-label={t('reader.pdf.twoPageSpread')}
+          aria-pressed={spreadMode === 'spread'}
+          title={t('reader.pdf.twoPageSpread')}
+          onClick={() => onSpreadChange(spreadMode === 'spread' ? 'single' : 'spread')}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <rect x="3" y="4" width="7" height="16" rx="1" />
+            <rect x="14" y="4" width="7" height="16" rx="1" />
           </svg>
         </button>
         {hasOutline && (

@@ -776,7 +776,7 @@ and Stage 5 work.
 
 ### Stage 4: PDF Viewer
 
-Stage status: Complete
+Stage status: In progress
 
 - [x] Implement the PDF.js viewer as a focused viewer component.
 - [x] Load source through a scoped local asset boundary rather than JSON/base64.
@@ -790,6 +790,8 @@ Stage status: Complete
 - [x] Smoke-test controls at desktop and narrow widths.
 - [x] Smoke-test controls in RTL.
 - [x] Keep dark mode on viewer chrome without recoloring PDF page content.
+- [x] Add an optional wide-screen two-page spread through PDF.js.
+- [ ] Smoke-test single/spread navigation and narrow-screen fallback.
 
 Implementation evidence: the viewer lazy-loads PDF.js's `PDFViewer`,
 `PDFLinkService`, and `EventBus`; defaults to fit width; disables external and
@@ -798,12 +800,15 @@ Tauri's asset protocol is limited to
 `$APPDATA/document_uploads/*/source.pdf`, while Rust verifies URL, database
 metadata, source kind, existence, and the 250 MB limit before returning a path.
 The responsive `PdfControls` toolbar uses those same viewer primitives for
-bounded page input, 25-400% zoom, fit-width, fit-page, and conditional outline
-navigation. Page and zoom controls stay centered on wide screens while
-fit controls remain in the same compact control cluster. Fine-pointer layouts use
+bounded page input, 25-400% zoom, fit-width, fit-page, optional two-page
+spreads, and conditional outline navigation. Page and zoom controls stay
+centered on wide screens while view controls remain in the same compact
+control cluster. Fine-pointer layouts use
 compact controls, narrow and coarse-pointer layouts retain 44-pixel touch
 targets, and all layouts expose labels and pressed state to assistive
-technology. Viewer chrome follows the app theme, and the PDF viewport consumes
+technology. Reading appearance controls are disabled for PDFs because PDF.js
+renders the document's own page appearance. Viewer chrome follows the app
+theme, and the PDF viewport consumes
 the reader height left by optional Find and Diagnostics UI instead of using a
 fixed viewport percentage. Wide layouts tighten the PDF header spacing while
 narrow layouts retain the divider breathing room used by the borderless reader.
@@ -1030,6 +1035,7 @@ Stage status: Deferred
 | 2026-07-25 | Stage 4 | Close the PDF viewer stage | The compact controls remained usable at desktop and narrow widths in both LTR and Arabic RTL layouts |
 | 2026-07-25 | Stage 4 | Let the reader shell size the PDF viewport | Flex layout reclaims space when optional Find or Diagnostics UI is absent; wide controls center primary navigation while preserving 44-pixel touch targets |
 | 2026-07-25 | Stage 4 | Retain the reader divider with responsive spacing | Wide PDF layouts reclaim vertical space around the shared header divider while narrow layouts keep the established borderless-reader separation |
+| 2026-07-25 | Stage 4 | Use PDF.js for optional book spreads | Wide layouts expose a cover-first two-page toggle through `SpreadMode.EVEN`; narrow layouts return to the default single-page view without another renderer or persisted preference |
 
 ## References
 

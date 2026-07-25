@@ -180,6 +180,12 @@ html[dir='rtl'] .pdf-page-next svg {
   }
 }
 
+@media (max-width: 899px) {
+  .pdf-spread-toggle {
+    display: none;
+  }
+}
+
 @media (max-width: 720px), (pointer: coarse) {
   .pdf-control-button,
   .pdf-page-input,

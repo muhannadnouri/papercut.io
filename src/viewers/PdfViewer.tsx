@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type {
   PDFDocumentLoadingTask,
@@ -16,7 +16,11 @@ import {
   isUploadedPdfDocumentUrl,
 } from '../uploads/DocumentUploads'
 import { createPdfFindAdapter } from './pdfFind'
-import { PdfControls, type PdfFitMode } from './PdfControls'
+import {
+  PdfControls,
+  type PdfFitMode,
+  type PdfSpreadMode,
+} from './PdfControls'
 import './PdfViewer.css'
 import type { ViewerProps } from './types'
 
@@ -28,6 +32,7 @@ type PdfViewerStatus =
 type PdfOutlineItem = Awaited<ReturnType<PDFDocumentProxy['getOutline']>>[number]
 type PdfDestination = Parameters<PDFLinkService['goToDestination']>[0]
 const ignoreFindResult: NonNullable<ViewerProps['onFindResult']> = () => {}
+const WIDE_PDF_VIEW = '(min-width: 900px)'
 
 function OutlineItems({
   items,
@@ -71,6 +76,7 @@ export function PdfViewer({
   const pdfViewerRef = useRef<PdfJsViewer | null>(null)
   const linkServiceRef = useRef<PDFLinkService | null>(null)
   const findAdapterRef = useRef<ReturnType<typeof createPdfFindAdapter> | null>(null)
+  const spreadModesRef = useRef<{ NONE: number; EVEN: number } | null>(null)
   const outlineCloseRef = useRef<HTMLButtonElement>(null)
   const [status, setStatus] = useState<PdfViewerStatus>({ state: 'loading' })
   const [currentPage, setCurrentPage] = useState(1)
@@ -78,6 +84,27 @@ export function PdfViewer({
   const [fitMode, setFitMode] = useState<PdfFitMode>('page-width')
   const [outline, setOutline] = useState<PdfOutlineItem[]>([])
   const [outlineOpen, setOutlineOpen] = useState(false)
+  const [spreadMode, setSpreadMode] = useState<PdfSpreadMode>('single')
+
+  const applySpreadMode = useCallback((next: PdfSpreadMode) => {
+    setSpreadMode(next)
+    const pdfViewer = pdfViewerRef.current
+    const modes = spreadModesRef.current
+    if (pdfViewer && modes) {
+      // EVEN keeps the cover alone, then pairs pages 2-3, 4-5, and so on.
+      pdfViewer.spreadMode = next === 'spread' ? modes.EVEN : modes.NONE
+    }
+  }, [])
+
+  useEffect(() => {
+    const media = window.matchMedia(WIDE_PDF_VIEW)
+    const resetNarrowSpread = () => {
+      if (!media.matches) applySpreadMode('single')
+    }
+    resetNarrowSpread()
+    media.addEventListener('change', resetNarrowSpread)
+    return () => media.removeEventListener('change', resetNarrowSpread)
+  }, [applySpreadMode])
 
   useEffect(() => {
     let cancelled = false
@@ -93,6 +120,7 @@ export function PdfViewer({
     setFitMode('page-width')
     setOutline([])
     setOutlineOpen(false)
+    setSpreadMode('single')
 
     async function openPdf() {
       setStatus({ state: 'loading' })
@@ -110,6 +138,7 @@ export function PdfViewer({
       ])
       if (cancelled) return
 
+      spreadModesRef.current = viewerModule.SpreadMode
       eventBus = new viewerModule.EventBus()
       linkService = new viewerModule.PDFLinkService({ eventBus })
       findController = new viewerModule.PDFFindController({
@@ -212,6 +241,7 @@ export function PdfViewer({
       pdfViewer?.cleanup()
       pdfViewerRef.current = null
       linkServiceRef.current = null
+      spreadModesRef.current = null
       void loadingTask?.destroy()
     }
   }, [onFindApiChange, onFindResult, url])
@@ -262,6 +292,7 @@ export function PdfViewer({
         outlineOpen={outlineOpen}
         pages={pages}
         ready={ready}
+        spreadMode={spreadMode}
         zoom={zoom}
         onFitChange={(mode) => {
           if (pdfViewerRef.current) pdfViewerRef.current.currentScaleValue = mode
@@ -272,6 +303,7 @@ export function PdfViewer({
         }}
         onPageNext={() => pdfViewerRef.current?.nextPage()}
         onPagePrevious={() => pdfViewerRef.current?.previousPage()}
+        onSpreadChange={applySpreadMode}
         onZoomChange={(percentage) => {
           if (pdfViewerRef.current) {
             pdfViewerRef.current.currentScaleValue = String(percentage / 100)
