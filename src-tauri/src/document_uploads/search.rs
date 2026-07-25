@@ -64,7 +64,7 @@ fn search_section_hits(
 ) -> Result<Vec<UploadedDocumentSearchResult>, String> {
     let (scope_sql, mut values) = document_url_scope(document_urls);
     let sql = format!(
-        "SELECT d.id, d.url, d.title, s.ordinal, s.heading, \
+        "SELECT d.id, d.url, d.title, s.ordinal, s.page_index, s.heading, \
                 snippet(uploaded_document_fts, 3, '<mark>', '</mark>', '…', 18) AS excerpt \
          FROM uploaded_document_fts \
          JOIN uploaded_sections s ON s.id = uploaded_document_fts.section_id \
@@ -170,7 +170,7 @@ fn best_document_term_hit(
 ) -> Result<Option<RankedDocumentHit>, String> {
     let mut stmt = db
         .prepare(
-            "SELECT d.id, d.url, d.title, s.ordinal, s.heading, \
+            "SELECT d.id, d.url, d.title, s.ordinal, s.page_index, s.heading, \
                     snippet(uploaded_document_fts, 3, '<mark>', '</mark>', '…', 18) AS excerpt, \
                     bm25(uploaded_document_fts) AS score, d.imported_at_ms \
              FROM uploaded_document_fts \
@@ -183,8 +183,8 @@ fn best_document_term_hit(
         .map_err(db_err)?;
     match stmt.query_row(params![query, document_id], |row| {
         Ok(RankedDocumentHit {
-            score: row.get(6)?,
-            imported_at_ms: row.get(7)?,
+            score: row.get(7)?,
+            imported_at_ms: row.get(8)?,
             result: row_to_search_result(row, "document")?,
         })
     }) {
@@ -206,8 +206,11 @@ fn row_to_search_result(
         url: row.get(1)?,
         title: row.get(2)?,
         section_index: section_index as usize,
-        section_title: row.get(4)?,
-        excerpt: row.get(5)?,
+        page_index: row
+            .get::<_, Option<i64>>(4)?
+            .map(|page_index| page_index as usize),
+        section_title: row.get(5)?,
+        excerpt: row.get(6)?,
         match_scope: match_scope.to_string(),
     })
 }
@@ -414,6 +417,7 @@ mod tests {
                id INTEGER PRIMARY KEY AUTOINCREMENT,
                document_id TEXT NOT NULL,
                ordinal INTEGER NOT NULL,
+               page_index INTEGER,
                heading TEXT,
                text TEXT NOT NULL
              );

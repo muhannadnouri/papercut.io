@@ -21,8 +21,8 @@ use super::html::{decode_html_bytes, parse_html_document, sanitize_html};
 use super::parsed::ParsedDocument;
 use super::storage::directory_size;
 use super::storage::{
-    now_ms, source_upload_id, upload_dir, upload_id_from_url, MAX_EPUB_UPLOAD_BYTES,
-    MAX_UPLOAD_BYTES, UPLOAD_URL_PREFIX,
+    now_ms, source_upload_id, upload_dir, upload_id_from_url, upload_reference_from_url,
+    upload_source_path, upload_url, StoredSourceKind, MAX_EPUB_UPLOAD_BYTES, MAX_UPLOAD_BYTES,
 };
 use super::store::{delete_document_rows, find_upload_by_id, open_db, upsert_document};
 use super::types::{
@@ -119,7 +119,8 @@ fn existing_upload<R: Runtime>(
     let Some(existing) = find_upload_by_id(&db, id)? else {
         return Ok(None);
     };
-    let source_exists = upload_dir(app, id)?.join("source.html").is_file();
+    let source_kind = StoredSourceKind::from_str(&existing.source_kind)?;
+    let source_exists = upload_source_path(app, id, source_kind)?.is_file();
     Ok(source_exists.then_some(existing))
 }
 
@@ -130,7 +131,8 @@ fn persist_document<R: Runtime>(
     bytes: u64,
 ) -> Result<UploadedDocument, String> {
     let imported_at_ms = now_ms()?;
-    let url = format!("{UPLOAD_URL_PREFIX}{id}.html");
+    let source_kind = StoredSourceKind::Html;
+    let url = upload_url(&id, source_kind);
     let dir = upload_dir(app, &id)?;
     let mut db = open_db(app)?;
     write_and_index_document(&dir, &mut db, &id, &url, &parsed, imported_at_ms, bytes)?;
@@ -144,6 +146,7 @@ fn persist_document<R: Runtime>(
         url,
         title: parsed.title,
         format: parsed.format,
+        source_kind: source_kind.as_str().into(),
         imported_at_ms,
         bytes,
         sections: parsed.sections.len(),
@@ -163,7 +166,8 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
     imported_at_ms: u128,
     bytes: u64,
 ) -> Result<UploadedDocument, String> {
-    let url = format!("{UPLOAD_URL_PREFIX}{id}.html");
+    let source_kind = StoredSourceKind::Html;
+    let url = upload_url(&id, source_kind);
     upload_id_from_url(&url)?;
     if imported_at_ms > i64::MAX as u128 {
         return Err("Transferred document timestamp is invalid".into());
@@ -192,6 +196,7 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
         url,
         title: parsed.title,
         format: parsed.format,
+        source_kind: source_kind.as_str().into(),
         imported_at_ms,
         bytes,
         sections: parsed.sections.len(),
@@ -241,8 +246,17 @@ pub(crate) fn get_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     request: UploadedDocumentSourceRequest,
 ) -> Result<String, String> {
-    let id = upload_id_from_url(&request.document_url)?;
-    let path = upload_dir(app, &id)?.join("source.html");
+    let (id, source_kind) = upload_reference_from_url(&request.document_url)?;
+    if source_kind != StoredSourceKind::Html {
+        return Err("PDF sources must be loaded through the PDF viewer".into());
+    }
+    let db = open_db(app)?;
+    let document = find_upload_by_id(&db, &id)?
+        .ok_or_else(|| "Uploaded document metadata is missing".to_string())?;
+    if StoredSourceKind::from_str(&document.source_kind)? != source_kind {
+        return Err("Uploaded document source metadata does not match its URL".into());
+    }
+    let path = upload_source_path(app, &id, source_kind)?;
     let source = fs::read_to_string(&path)
         .map_err(|err| format!("Failed to read uploaded document {}: {err}", path.display()))?;
     // Re-sanitize on read so documents imported by older app versions cannot

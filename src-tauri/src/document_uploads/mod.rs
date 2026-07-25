@@ -4,7 +4,7 @@
 //! independently. Dependencies only point downward:
 //!
 //! ```text
-//! commands -> { batch, pipeline, organization, search, store } -> { cover, epub, html, parsed, storage, types }
+//! commands -> { batch, pipeline, organization, search, store } -> { cover, epub, html, pdf, parsed, storage, types }
 //! ```
 //!
 //! - [`commands`]: the thin `#[tauri::command]` edge exposed to the frontend.
@@ -13,6 +13,7 @@
 //! - [`pipeline`]: orchestrates import / get-source / delete.
 //! - [`html`]: HTML-specific parsing + sanitization.
 //! - [`epub`]: EPUB-specific parsing, sanitization, and generated reading HTML.
+//! - [`pdf`]: canonical PDF and bounded per-page text-layer storage.
 //! - [`organization`]: folder and manual ordering metadata for uploaded docs.
 //! - [`parsed`]: format-neutral parsed document shape.
 //! - [`store`]: SQLite schema, persistence, and listing.
@@ -29,6 +30,7 @@ mod epub;
 mod html;
 mod organization;
 mod parsed;
+mod pdf;
 mod pipeline;
 mod search;
 mod state;
@@ -41,8 +43,11 @@ pub(crate) use state::DocumentUploadState;
 // Library transfer consumes this narrow storage API so its removable package
 // module never duplicates document parsing, sanitization, indexing, or folder rules.
 pub(crate) use organization::{create_folder, list_organization, move_documents};
+pub(crate) use pdf::restore_transferred_pdf;
 pub(crate) use pipeline::restore_transferred_document;
-pub(crate) use storage::{now_ms, upload_dir, upload_id_from_url};
+pub(crate) use storage::{
+    now_ms, upload_dir, upload_id_from_url, upload_source_path, StoredSourceKind,
+};
 pub(crate) use store::list_uploads;
 pub(crate) use types::{
     UploadedDocument, UploadedLibraryCreateFolderRequest, UploadedLibraryFolder,

@@ -1,6 +1,6 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 1 complete; Stage 2 next
+Status: Stage 2 implementation complete; compatibility decision gate pending
 Last updated: 2026-07-24
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -106,12 +106,14 @@ can be rebuilt when parsers, OCR models, or indexing rules change.
 
 ### Page Text Layer
 
-The exact serialized schema should be proven during the PDF spike. The minimum
-useful shape is:
+Stage 2 establishes this versioned, per-page JSON sidecar:
 
 ```text
 PageTextLayer {
+  schema_version,
   page_index,
+  width,
+  height,
   blocks: [{
     text,
     bounds,
@@ -120,6 +122,11 @@ PageTextLayer {
   }]
 }
 ```
+
+Each page is stored independently below the upload directory and is capped at
+4 MB, 50,000 blocks, and 2 MB of text. Dimensions, bounds, and optional
+confidence values must be finite. The sidecars are derived data: the original
+PDF remains canonical and corrupt, stale, or missing sidecars are rebuilt.
 
 SQLite should store page-level searchable text and page locators. Richer block
 coordinates can live in a bounded sidecar file so the FTS database does not
@@ -153,13 +160,15 @@ assumptions must change deliberately:
 - `src-tauri/src/document_uploads/parsed.rs` exposes a format-neutral
   `ParsedDocument` and ordered `ParsedSection`, but sections do not yet have
   durable page locators.
-- `src-tauri/src/document_uploads/store.rs` stores section ordinal, heading, and
-  text in SQLite/FTS. It does not store page or coordinate metadata.
-- `src-tauri/src/document_uploads/pipeline.rs` persists imported reading content
-  as `source.html`; source storage needs to distinguish HTML from the original
-  PDF.
-- Library transfer and audiobook bundle paths contain the same `source.html`
-  assumption and must remain compatible when PDF is added.
+- `src-tauri/src/document_uploads/store.rs` now stores explicit source kind and
+  an optional page index beside each section. Stage 3 will populate page-level
+  search rows; block coordinates remain in bounded PDF sidecars.
+- `src-tauri/src/document_uploads/pipeline.rs` keeps HTML/EPUB reader sources as
+  `source.html`. `src-tauri/src/document_uploads/pdf/` owns canonical
+  `source.pdf` and page-text storage.
+- Library transfer package v3 carries original PDF sources and deliberately
+  omits rebuildable page-text sidecars. Existing v1/v2 HTML packages remain
+  accepted.
 - `src/viewers/PdfViewer.tsx` is currently a placeholder.
 - `src/hooks/useDocumentViewerState.ts` and
   `src/components/DocumentViewer/DocumentViewer.tsx` assume a loaded HTML string
@@ -213,9 +222,9 @@ The PDF work must not regress these HTML/EPUB behaviors:
 | Transfer | Uploaded source and selected saved audiobooks can move between Papercut devices and rebuild derived search data |
 
 The current frontend baseline is 8 passing Vitest files and 17 passing tests as
-of 2026-07-24. The local Rust test command was blocked on this machine by a
-missing `javascriptcoregtk-4.1` development package; CI remains the required
-Rust and mobile build baseline.
+of 2026-07-24. The sandbox shell lacks the `javascriptcoregtk-4.1` development
+package, so focused Rust tests run through the host toolchain. CI remains the
+required full Rust and mobile build baseline.
 
 ### Fixture Corpus
 
@@ -693,18 +702,26 @@ gate rather than blocking the storage foundation.
 
 ### Stage 2: Source Storage And Locator Foundation
 
-Stage status: Not started
+Stage status: Implementation complete; manual compatibility gate pending
 
-- [ ] Add explicit source-kind metadata and store original PDFs as `source.pdf`
+- [x] Add explicit source-kind metadata and store original PDFs as `source.pdf`
       without changing existing HTML/EPUB URLs.
-- [ ] Add a schema migration for page-aware section/search locators.
-- [ ] Define and version the bounded `PageTextLayer` sidecar format.
-- [ ] Update source loading so callers do not assume `source.html`.
-- [ ] Update delete, duplicate detection, disk accounting, and partial-import
+- [x] Add a schema migration for page-aware section/search locators.
+- [x] Define and version the bounded `PageTextLayer` sidecar format.
+- [x] Update source loading so callers do not assume `source.html`.
+- [x] Update delete, duplicate detection, disk accounting, and partial-import
       cleanup for PDF artifacts.
-- [ ] Update library transfer and relevant export/import paths for original PDF
+- [x] Update library transfer and relevant export/import paths for original PDF
       sources and derived-data rebuild rules.
-- [ ] Add migration and backward-compatibility tests for existing app data.
+- [x] Add migration and backward-compatibility tests for existing app data.
+- [ ] Run the manual HTML/EPUB import, search, delete, saved-audiobook, and
+      library-transfer regression smoke test.
+
+Automated evidence: the TypeScript build check passes, and the focused Rust
+suite passes 50 upload, migration, search, cleanup, and PDF sidecar tests.
+Library-transfer package tests cover v1/v2 compatibility, v3 PDF source
+round-tripping, checksum enforcement, and rejection of PDFs mislabeled as
+legacy packages.
 
 Decision gate: existing HTML/EPUB documents, saved audiobooks, deletion, and
 library transfer pass unchanged while a fixture PDF can be stored and located.
@@ -877,6 +894,9 @@ Stage status: Deferred
 | 2026-07-24 | Stage 1 | Use PDF.js directly instead of adding `react-pdf` | The wrapper still depends on PDF.js and its runtime setup, while Papercut needs direct page-coordinate, cancellation, virtualization, Find, and TTS-highlight control |
 | 2026-07-24 | Stage 1 | Remove the rejected native extraction spike | Its comparison evidence is recorded; retaining 172 Rust packages after selecting PDF.js would add maintenance without product value |
 | 2026-07-24 | Stage 1 | Defer hands-on mobile WebView validation | The browser harness and Android asset packaging pass are recorded separately; physical Android and iOS WebView behavior remains an explicit unchecked gate |
+| 2026-07-24 | Stage 2 | Isolate PDF persistence under `document_uploads/pdf` | Shared code knows only source kind, URL/path selection, and nullable page locators; canonical PDF and page-sidecar details remain removable |
+| 2026-07-24 | Stage 2 | Transfer only canonical PDF sources | Package v3 adds `sourceKind` and `source.pdf`; derived page-text data is rebuilt instead of copied across devices |
+| 2026-07-24 | Stage 2 | Keep existing HTML/EPUB URLs and package compatibility | Database defaults migrate old rows to HTML, and transfer v1/v2 remain accepted as HTML-only |
 
 ## References
 

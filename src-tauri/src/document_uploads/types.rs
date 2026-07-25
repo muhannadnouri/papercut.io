@@ -13,6 +13,7 @@ pub(crate) struct UploadedDocument {
     pub(crate) url: String,
     pub(crate) title: String,
     pub(crate) format: String,
+    pub(crate) source_kind: String,
     pub(crate) imported_at_ms: u128,
     pub(crate) bytes: u64,
     pub(crate) sections: usize,
@@ -61,6 +62,7 @@ pub(crate) struct UploadedDocumentSearchResult {
     pub(crate) excerpt: String,
     pub(crate) section_title: Option<String>,
     pub(crate) section_index: usize,
+    pub(crate) page_index: Option<usize>,
     pub(crate) match_scope: String,
 }
 

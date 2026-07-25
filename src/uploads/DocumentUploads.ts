@@ -3,6 +3,7 @@ export interface UploadedDocument {
   url: string
   title: string
   format: 'html' | string
+  sourceKind: 'html' | 'pdf'
   importedAtMs: number
   bytes: number
   sections: number
@@ -17,6 +18,7 @@ export interface UploadedDocumentSearchResult {
   excerpt: string
   sectionTitle?: string | null
   sectionIndex: number
+  pageIndex?: number | null
   matchScope?: 'section' | 'document'
 }
 
@@ -100,6 +102,10 @@ export interface UploadedLibraryOrderItem {
 }
 
 export function isUploadedDocumentUrl(url: string): boolean {
+  return /^\/uploads\/[a-fA-F0-9]+\.(?:html|pdf)(?:[#?].*)?$/.test(url)
+}
+
+export function isUploadedHtmlDocumentUrl(url: string): boolean {
   return /^\/uploads\/[a-fA-F0-9]+\.html(?:[#?].*)?$/.test(url)
 }
 
