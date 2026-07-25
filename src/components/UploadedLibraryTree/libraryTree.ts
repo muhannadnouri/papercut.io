@@ -175,7 +175,7 @@ function folderPath(folder: UploadedLibraryFolder, byId: Map<string, UploadedLib
 
 /** Extract the backend upload id from the app-local uploaded document URL. */
 function uploadIdFromUrl(url: string): string | null {
-  const match = url.match(/^\/uploads\/([a-fA-F0-9]+)\.html(?:[#?].*)?$/)
+  const match = url.match(/^\/uploads\/([a-fA-F0-9]+)\.(?:html|pdf)(?:[#?].*)?$/)
   return match?.[1] ?? null
 }
 

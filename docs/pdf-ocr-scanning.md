@@ -740,6 +740,7 @@ Stage status: In progress; import/search slice implemented, decision gate pendin
 - [x] Extract ordered page text and page locators outside the React render path.
 - [x] Index page-level text in SQLite FTS without storing binary data in SQLite.
 - [x] Return page-aware search results and sanitized snippets.
+- [x] List indexed PDFs in the shared Library and Search document tree.
 - [ ] Generate a bounded first-page thumbnail for the Library gallery.
 - [x] Add bounded import progress, between-page cancellation, clear failures, and
       cleanup of failed or cancelled staged PDFs.
@@ -749,7 +750,7 @@ Automated evidence: the production frontend build, PDF.js extraction fixture,
 TypeScript check, focused ESLint pass, all frontend tests, all locale checks,
 and all 70 Rust library tests pass. The focused page-text tests cover inline
 format boundaries, line endings, finite coordinates, sidecar validation, FTS
-indexing, and returned page locators.
+indexing, returned page locators, and shared Library/Search tree visibility.
 
 Decision gate: text-native fixtures import, list, search, reopen, transfer, and
 delete correctly without a PDF viewer-specific workaround in the search index.
@@ -913,6 +914,7 @@ Stage status: Deferred
 | 2026-07-24 | Stage 3 | Reuse PDF.js for import-time text extraction | One selected parser supplies metadata, page text, reading order, and coordinates without adding a second PDF dependency |
 | 2026-07-24 | Stage 3 | Keep PDF import memory and IPC bounded by page | Rust caps source size at 250 MB, PDF.js caps documents at 2,000 pages, and only one page-text layer is persisted per IPC call |
 | 2026-07-24 | Stage 3 | Commit FTS rows only after all page sidecars validate | Failed or cancelled imports remove newly staged PDFs; partial page rows never become searchable |
+| 2026-07-25 | Stage 3 | Reuse the shared uploaded-document tree for PDF visibility | The upload URL parser now accepts both canonical `.html` and `.pdf` URLs, keeping Library and Search document lists on one hierarchy |
 
 ## References
 
