@@ -374,12 +374,13 @@ are directional rather than release benchmarks.
 | PDF.js `ArabicCIDTrueType.pdf` | `1cad1de912ba29f89a6d8b08bc5b0f84382874ffedab2c8f9e05ef608c265bb1` | RTL rendering, logical text, direction, and coordinates |
 | PDF.js `pr6531_2.pdf` | `e85d22b832a61be1d302a811e29c5df5ccd2a3795633178449d0b2e0e2451118` | Missing-password detection |
 | First 12,000 bytes of `tracemonkey.pdf` | `07fdfd318a374e1802af3a1bb697a8c0e0faea72b7625ee994bb665f81ca306f` | Truncated/invalid input rejection |
-| Local `Forgotten Legacy Contribution of Socialist Ukrainians to Canada.pdf` | `e79694e2bab2a7b7e8e4db45cf7f46bcceea661343c80dd1ac2b851549e18b95` | JPEG 2000 page-image decoding and standard-font asset loading |
+| Local 40-page image-decoding fixture | `e79694e2bab2a7b7e8e4db45cf7f46bcceea661343c80dd1ac2b851549e18b95` | JPEG 2000 page-image decoding and standard-font asset loading |
+| Local 539-page large-book fixture | `a9d99e48f591a81db649dbfaa27b1b7edffec64a794de84a38545e92d0c98349` | Large-book extraction throughput and image-only first-page rendering |
 
 | Candidate | Version / license | Evidence | Current disposition |
 | --- | --- | --- | --- |
 | PDF.js | `pdfjs-dist` 6.1.200, Apache-2.0 | Rendered the Arabic page to a 595x842 command-line canvas; exposed text items with transforms, dimensions, direction, and line boundaries; distinguished missing-password and invalid/truncated-PDF failures; and now has an exposed first-page WebView spike with a selectable text layer | Preferred renderer, pending hands-on Tauri desktop/Android/iOS WebView validation |
-| `pdf_oxide` | 0.3.75, MIT OR Apache-2.0, Rust 1.88 | With default features disabled, extracted ordered text, spans, characters, and bounding boxes; Android arm64 and iOS arm64 `cargo check` passed on stable Rust | Preferred native extractor candidate, pending full corpus, optimized-size, and device validation |
+| `pdf_oxide` | 0.3.75, MIT OR Apache-2.0, Rust 1.88 | With default features disabled, extracted ordered text, spans, characters, and finite bounding boxes; Android arm64 and iOS arm64 `cargo check` passed on stable Rust; the committed release probe processed 40 pages in 70 ms and 539 pages in 3.02 s | Preferred native extractor candidate, pending full multilingual/layout corpus and final application-size validation |
 | `pdf-extract` | 0.12.0, MIT | Extracted Latin text with a small API and release probe, but reversed the Arabic fixture's logical order and exposes no direct coordinate model | Rejected for Papercut's multilingual page-aware requirements |
 
 PDF.js and `pdf_oxide` reported matching page-space positions for corresponding
@@ -403,10 +404,11 @@ The costs are material but bounded:
   imports keep the normal startup delta to about 2.4 KB JavaScript and 0.5 KB
   CSS before gzip. Runtime WASM decoders and standard fonts add another 2.21
   MiB to the package and are fetched only when a PDF requires them.
-- `pdf_oxide` with default features disabled resolved a much larger Rust graph
-  than `pdf-extract` and produced several gigabytes of clean build artifacts
-  during an optimized spike. Final application-size impact still needs
-  measurement in Papercut's release profile.
+- `pdf_oxide` with default features disabled resolved 172 packages and produced
+  about 3.0 GB of clean debug plus optimized build artifacts. The standalone
+  optimized probe is 9,982,632 bytes. That binary is an upper bound rather than
+  Papercut's final application delta, but the compile and package costs are
+  large enough that final selection still requires an application-size check.
 - `pdf-extract` and its current transitive dependency resolution do not compile
   cleanly with Cargo 1.77.2 because dependencies now use Rust 2024 manifests.
   Pinning old transitives would add maintenance without solving its RTL and
@@ -419,6 +421,30 @@ minimum to Rust 1.88 and add an explicit minimum-version CI check in the same
 change. Do not change the project-wide minimum merely to keep experimental code
 alive.
 
+The committed native extraction probe is isolated from the Tauri package so
+running it does not compile GTK, WebKit, or Papercut's unrelated Rust
+dependencies. Its own lockfile pins the benchmark graph, and the 100 MB input
+limit reflects the current proposed PDF import ceiling:
+
+```sh
+cargo +stable run --release \
+  --manifest-path scripts/pdf-extraction-spike/Cargo.toml -- \
+  path/to/document.pdf
+```
+
+On the 11th-generation Intel Core i5-1135G7 development machine with 39 GiB
+RAM and stable Rust 1.96.1, the 1.27 MiB image-decoding fixture yielded 40
+pages, 36 text-bearing pages, 71,970 text characters, and 1,023 spans in 70
+ms. The 2.54 MiB large-book fixture yielded 539 pages, 535 text-bearing pages,
+1,458,686 characters, and 40,509 spans in 3.02 seconds.
+Every reported span had finite bounds. A malformed non-PDF input failed with an
+invalid cross-reference error rather than producing partial output.
+
+The large-book preview also fused at least one visible word boundary
+(`influentialtexts`). The fixture's expected text and PDF.js output must be
+compared before deciding whether this is source encoding, extractor ordering,
+or a normalization defect. Throughput alone does not pass the extraction gate.
+
 The branch-local WebView harness is exposed at `/?pdf-spike`. It uses a native
 file input and renders only page one because its purpose is to validate worker
 loading, canvas output, selectable text, and cleanup:
@@ -427,7 +453,10 @@ loading, canvas output, selectable text, and cleanup:
 and standard fonts into generated local assets. The renderer does not fetch
 runtime resources from a CDN. With those assets configured, the 40-page
 JPEG 2000 benchmark renders a nonblank 430x695 first page and exposes its title
-through the text layer; hands-on target WebView validation remains open.
+through the text layer. The product owner re-ran the local browser harness with
+both representative PDFs and confirmed that both first pages render. Hands-on
+Tauri mobile WebView validation is explicitly deferred for now rather than
+treated as a pass.
 
 ```sh
 npm run dev
@@ -456,9 +485,9 @@ npx tauri ios dev \
 
 Use the same smoke matrix on every target:
 
-1. The `Forgotten Legacy` benchmark renders page one instead of a blank white
+1. The 40-page image-decoding fixture renders page one instead of a blank white
    page, and its title text can be selected.
-2. The `Phenomenology of Spirit` benchmark renders its green image-only cover.
+2. The 539-page large-book fixture renders its image-only first page.
 3. The Arabic fixture preserves its visual direction and selectable text.
 4. Switching among the three files does not retain the previous canvas or
    produce an error.
@@ -644,16 +673,23 @@ Stage status: In progress
       the renderer and text-layer CSS outside normal app startup.
 - [x] Build an arm64 Android APK and verify its embedded Tauri assets include
       the PDF worker, OpenJPEG WASM decoder, and standard fonts.
+- [x] Re-run the exposed browser WebView harness with the representative local
+      40-page and 539-page PDFs and verify both first pages render.
 - [ ] Verify worker loading, local asset access, canvas cleanup, text selection,
       and accessibility-layer behavior in each target Tauri WebView.
+- [ ] Run the PDF.js harness inside desktop, Android, and iOS Tauri WebViews.
+      Hands-on mobile validation is intentionally deferred for now.
 - [ ] Compare `pdf-extract`, `pdf_oxide`, and PDF.js text extraction against the
       fixture expectations.
 - [x] Compare all three candidates on shared Latin and Arabic smoke fixtures.
+- [x] Add a bounded, reproducible `pdf_oxide` extraction probe isolated from
+      Papercut's Tauri build graph.
 - [ ] Measure text order, coordinate fidelity, import time, memory, binary size,
       and mobile cross-compilation.
 - [x] Verify the preferred native extractor candidate compiles for Android
       arm64 and iOS arm64 on stable Rust.
-- [ ] Test malformed, encrypted, and password-protected inputs.
+- [x] Verify the native extractor rejects malformed non-PDF input.
+- [ ] Test encrypted and password-protected inputs with the native extractor.
 - [x] Verify PDF.js distinguishes a missing password from a truncated/invalid
       PDF in the command-line probe.
 - [ ] Select one production extraction path and remove abandoned spike code.
@@ -848,6 +884,8 @@ Stage status: Deferred
 | 2026-07-24 | Stage 1 | Lazy-load PDF.js outside normal app startup | The optimized spike adds about 2.02 MB minified to the package, but only about 2.9 KB of eagerly loaded JavaScript and CSS before gzip |
 | 2026-07-24 | Stage 1 | Generate local PDF.js runtime assets from the pinned npm package | PDF.js resolves JPEG 2000 decoders and standard fonts by stable filename; copying only those installed directories avoids CDN access, committed binary duplication, and another build dependency |
 | 2026-07-24 | Stage 1 | Use PDF.js directly instead of adding `react-pdf` | The wrapper still depends on PDF.js and its runtime setup, while Papercut needs direct page-coordinate, cancellation, virtualization, Find, and TTS-highlight control |
+| 2026-07-24 | Stage 1 | Isolate the committed `pdf_oxide` probe from the Tauri package | The probe remains reproducible without changing Papercut's MSRV or compiling GTK, WebKit, and unrelated application dependencies before the extractor is selected |
+| 2026-07-24 | Stage 1 | Defer hands-on mobile WebView validation | The browser harness and Android asset packaging pass are recorded separately; physical Android and iOS WebView behavior remains an explicit unchecked gate |
 
 ## References
 

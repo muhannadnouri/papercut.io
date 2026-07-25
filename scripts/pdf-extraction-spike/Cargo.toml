@@ -1,0 +1,9 @@
+[package]
+name = "papercut-pdf-extraction-spike"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+publish = false
+
+[dependencies]
+pdf_oxide = { version = "=0.3.75", default-features = false }

@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+scripts/pdf-extraction-spike/target/
 *.local
 
 # Editor directories and files
