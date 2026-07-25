@@ -319,6 +319,26 @@
       "previous": "السابق (Shift+Enter)",
       "next": "التالي (Enter)",
       "close": "إغلاق البحث"
+    },
+    "pdf": {
+      "toolbar": "عناصر تحكم PDF",
+      "pages": "التنقل بين الصفحات",
+      "previousPage": "الصفحة السابقة",
+      "nextPage": "الصفحة التالية",
+      "pageNumber": "رقم الصفحة",
+      "pageTotal": "من {{total, number}}",
+      "zoom": "التكبير",
+      "zoomOut": "تصغير",
+      "zoomIn": "تكبير",
+      "zoomLevel": "نسبة التكبير",
+      "fit": "ملاءمة الصفحة",
+      "fitWidth": "ملاءمة العرض",
+      "fitPage": "ملاءمة الصفحة",
+      "outline": "مخطط المستند",
+      "closeOutline": "إغلاق مخطط المستند",
+      "loading": "جارٍ تحميل ملف PDF...",
+      "document": "مستند PDF",
+      "documentPages": "مستند PDF، {{count, number}} صفحة"
     }
   },
   "tts": {

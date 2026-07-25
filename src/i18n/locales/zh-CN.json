@@ -294,6 +294,26 @@
       "previous": "上一页 (Shift+Enter)",
       "next": "下一页 (Enter)",
       "close": "关闭查找"
+    },
+    "pdf": {
+      "toolbar": "PDF 控件",
+      "pages": "页面导航",
+      "previousPage": "上一页",
+      "nextPage": "下一页",
+      "pageNumber": "页码",
+      "pageTotal": "共 {{total, number}} 页",
+      "zoom": "缩放",
+      "zoomOut": "缩小",
+      "zoomIn": "放大",
+      "zoomLevel": "缩放百分比",
+      "fit": "页面适配",
+      "fitWidth": "适合宽度",
+      "fitPage": "适合页面",
+      "outline": "文档大纲",
+      "closeOutline": "关闭文档大纲",
+      "loading": "正在加载 PDF...",
+      "document": "PDF 文档",
+      "documentPages": "PDF 文档，共 {{count, number}} 页"
     }
   },
   "tts": {

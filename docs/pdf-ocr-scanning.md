@@ -1,6 +1,6 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 4 PDF viewer foundation implemented; large-document smoke test pending
+Status: Stage 4 PDF viewer controls implemented; RTL control smoke test pending
 Last updated: 2026-07-25
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -776,18 +776,20 @@ and Stage 5 work.
 
 ### Stage 4: PDF Viewer
 
-Stage status: In progress; viewer foundation implemented, manual performance
-gate pending
+Stage status: In progress; viewer performance and responsive control gates
+passed, RTL control smoke test pending
 
 - [x] Implement the PDF.js viewer as a focused viewer component.
 - [x] Load source through a scoped local asset boundary rather than JSON/base64.
 - [x] Render visible and adjacent pages through PDF.js's bounded page cache and
       release off-window resources.
-- [ ] Add page navigation, zoom, fit-width, fit-page, and available outline
+- [x] Add page navigation, zoom, fit-width, fit-page, and available outline
       navigation.
 - [x] Add selectable/accessibility text layers aligned to rendered pages.
-- [ ] Finish reader controls, localized status text, mobile, and keyboard
+- [x] Finish reader controls, localized status text, mobile, and keyboard
       behavior.
+- [x] Smoke-test controls at desktop and narrow widths.
+- [ ] Smoke-test controls in RTL.
 - [x] Keep dark mode on viewer chrome without recoloring PDF page content.
 
 Implementation evidence: the viewer lazy-loads PDF.js's `PDFViewer`,
@@ -796,12 +798,22 @@ auto-detected links; and requests source data in on-demand 1 MiB ranges.
 Tauri's asset protocol is limited to
 `$APPDATA/document_uploads/*/source.pdf`, while Rust verifies URL, database
 metadata, source kind, existence, and the 250 MB limit before returning a path.
-The production frontend build and 21 focused tests pass. A full local Rust
-check remains blocked in this shell by the missing `javascriptcoregtk-4.1`
+The responsive `PdfControls` toolbar uses those same viewer primitives for
+bounded page input, 25-400% zoom, fit-width, fit-page, and conditional outline
+navigation. Controls retain at least 44-pixel touch targets at narrow widths,
+use logical-direction layout for RTL locales, and expose labels and pressed
+state to assistive technology. The production frontend build, locale check,
+lint, TypeScript check, and 22 focused tests pass. A full local Rust check
+remains blocked in this shell by the missing `javascriptcoregtk-4.1`
 development package, before Papercut compilation begins.
 
+Manual evidence: a large-document desktop smoke test scrolled normally without
+disappearing pages or a noticeable memory spike. Page, zoom, fit, and outline
+controls also worked at desktop and narrow widths.
+
 Decision gate: large PDFs scroll without disappearing pages, unbounded memory
-growth, or blocking the rest of the app.
+growth, or blocking the rest of the app; controls remain usable at desktop and
+narrow widths with keyboard and RTL layouts.
 
 ### Stage 5: Find, Search Navigation, TTS, And Bookmarks
 
@@ -953,6 +965,9 @@ Stage status: Deferred
 | 2026-07-25 | Stage 3 | Close text-native import and search before building the viewer | The committed fixture covers deterministic parser/index contracts; external multilingual, malformed, encrypted, and large files stay in the later release-hardening matrix |
 | 2026-07-25 | Stage 4 | Use PDF.js viewer primitives directly | Its rendering queue, bounded page cache, text layer, and link service cover the performance foundation without adding `react-pdf` or hand-rolling virtualization |
 | 2026-07-25 | Stage 4 | Serve validated PDFs through Tauri's scoped asset protocol | Range-capable URLs avoid full-file IPC copies; PDF.js disables streaming and automatic prefetch so large sources are read on demand in 1 MiB chunks |
+| 2026-07-25 | Stage 4 | Keep reader controls as a focused PDF.js adapter | A separate responsive `PdfControls` component directly drives page, zoom, fit, and optional outline APIs without adding `react-pdf`, a toolbar dependency, or speculative controls |
+| 2026-07-25 | Stage 4 | Pass the large-document viewer performance gate | Manual scrolling completed without disappearing pages or a noticeable memory spike; responsive and RTL control behavior remains the final Stage 4 smoke test |
+| 2026-07-25 | Stage 4 | Pass responsive PDF control smoke testing | Page, zoom, fit, and outline controls worked at desktop and narrow widths; RTL remains the final visual gate |
 
 ## References
 

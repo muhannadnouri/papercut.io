@@ -304,6 +304,26 @@
       "previous": "Anterior (Shift+Enter)",
       "next": "Siguiente (Enter)",
       "close": "Cerrar Buscar"
+    },
+    "pdf": {
+      "toolbar": "Controles de PDF",
+      "pages": "Navegación de páginas",
+      "previousPage": "Página anterior",
+      "nextPage": "Página siguiente",
+      "pageNumber": "Número de página",
+      "pageTotal": "de {{total, number}}",
+      "zoom": "Zoom",
+      "zoomOut": "Alejar",
+      "zoomIn": "Acercar",
+      "zoomLevel": "Porcentaje de zoom",
+      "fit": "Ajuste de página",
+      "fitWidth": "Ajustar al ancho",
+      "fitPage": "Ajustar página",
+      "outline": "Índice del documento",
+      "closeOutline": "Cerrar índice del documento",
+      "loading": "Cargando PDF...",
+      "document": "Documento PDF",
+      "documentPages": "Documento PDF, {{count, number}} páginas"
     }
   },
   "tts": {

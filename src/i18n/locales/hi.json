@@ -299,6 +299,26 @@
       "previous": "पिछला (Shift+Enter)",
       "next": "अगला (Enter)",
       "close": "ढूँढ़ें बंद करें"
+    },
+    "pdf": {
+      "toolbar": "PDF नियंत्रण",
+      "pages": "पृष्ठ नेविगेशन",
+      "previousPage": "पिछला पृष्ठ",
+      "nextPage": "अगला पृष्ठ",
+      "pageNumber": "पृष्ठ संख्या",
+      "pageTotal": "{{total, number}} में से",
+      "zoom": "ज़ूम",
+      "zoomOut": "ज़ूम कम करें",
+      "zoomIn": "ज़ूम बढ़ाएँ",
+      "zoomLevel": "ज़ूम प्रतिशत",
+      "fit": "पृष्ठ फ़िट",
+      "fitWidth": "चौड़ाई में फ़िट करें",
+      "fitPage": "पृष्ठ फ़िट करें",
+      "outline": "दस्तावेज़ रूपरेखा",
+      "closeOutline": "दस्तावेज़ रूपरेखा बंद करें",
+      "loading": "PDF लोड हो रहा है...",
+      "document": "PDF दस्तावेज़",
+      "documentPages": "PDF दस्तावेज़, {{count, number}} पृष्ठ"
     }
   },
   "tts": {

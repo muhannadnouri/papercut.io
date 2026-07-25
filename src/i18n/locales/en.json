@@ -299,6 +299,26 @@
       "previous": "Previous (Shift+Enter)",
       "next": "Next (Enter)",
       "close": "Close Find"
+    },
+    "pdf": {
+      "toolbar": "PDF controls",
+      "pages": "Page navigation",
+      "previousPage": "Previous page",
+      "nextPage": "Next page",
+      "pageNumber": "Page number",
+      "pageTotal": "of {{total, number}}",
+      "zoom": "Zoom",
+      "zoomOut": "Zoom out",
+      "zoomIn": "Zoom in",
+      "zoomLevel": "Zoom percentage",
+      "fit": "Page fit",
+      "fitWidth": "Fit width",
+      "fitPage": "Fit page",
+      "outline": "Document outline",
+      "closeOutline": "Close document outline",
+      "loading": "Loading PDF...",
+      "document": "PDF document",
+      "documentPages": "PDF document, {{count, number}} pages"
     }
   },
   "tts": {
