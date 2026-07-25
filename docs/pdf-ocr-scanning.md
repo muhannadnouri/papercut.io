@@ -800,7 +800,7 @@ metadata, source kind, existence, and the 250 MB limit before returning a path.
 The responsive `PdfControls` toolbar uses those same viewer primitives for
 bounded page input, 25-400% zoom, fit-width, fit-page, and conditional outline
 navigation. Page and zoom controls stay centered on wide screens while
-secondary fit controls remain at the logical end. Fine-pointer layouts use
+fit controls remain in the same compact control cluster. Fine-pointer layouts use
 compact controls, narrow and coarse-pointer layouts retain 44-pixel touch
 targets, and all layouts expose labels and pressed state to assistive
 technology. Viewer chrome follows the app theme, and the PDF viewport consumes
