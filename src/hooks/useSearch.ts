@@ -222,6 +222,7 @@ function uploadedSearchToResult(result: UploadedDocumentSearchResult, matchCount
     url: result.url,
     meta: { title: result.title },
     excerpt: sanitizeUploadedExcerpt(result.excerpt),
+    pageIndex: result.pageIndex,
     matchCount,
     matchScope: result.matchScope,
     sub_results: result.sectionTitle

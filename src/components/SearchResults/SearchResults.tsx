@@ -92,7 +92,14 @@ export function SearchResults({
             key={result.id}
             className={'result-card' + (disabled ? ' result-card-disabled' : '')}
             disabled={disabled}
-            onClick={() => { if (!disabled) onViewResult(result, searchOpenTargetForResult(result, exactPhrase)) }}
+            onClick={() => {
+              if (!disabled) {
+                onViewResult(result, searchOpenTargetForResult(
+                  result,
+                  exactPhrase ? lastSearchInfo?.phrases[0] : undefined,
+                ))
+              }
+            }}
           >
             <span className="result-title">
               <bdi>{result.meta.title}</bdi>
@@ -120,10 +127,11 @@ export function SearchResults({
   )
 }
 
-function searchOpenTargetForResult(result: SearchResult, exactPhrase: boolean): SearchOpenTarget | undefined {
+function searchOpenTargetForResult(result: SearchResult, exactPhrase?: string): SearchOpenTarget | undefined {
   const hash = hashFromUrl(result.sub_results?.[0]?.url)
-  const text = firstMarkedText(resultExcerpt(result, exactPhrase) ?? '')
-  return hash || text ? { hash, text } : undefined
+  const text = exactPhrase?.trim() || firstMarkedText(resultExcerpt(result, Boolean(exactPhrase)) ?? '')
+  const pageIndex = result.pageIndex ?? undefined
+  return hash || text || pageIndex !== undefined ? { hash, text, pageIndex } : undefined
 }
 
 // Use the richest safe snippet available, but avoid rendering a body line that

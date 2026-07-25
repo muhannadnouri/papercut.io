@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { resolveViewer } from '../../viewers/registry'
+import type { ViewerFindApi } from '../../viewers/types'
 import { FindBar } from '../FindBar/FindBar'
 import { ScrollTopButton } from '../ScrollTopButton/ScrollTopButton'
 import { ReaderSettings } from '../ReaderSettings/ReaderSettings'
@@ -69,6 +70,8 @@ export function DocumentViewer({
 }: DocumentViewerProps) {
   const { t } = useTranslation()
   const readerRef = useRef<HTMLElement | null>(null)
+  const plugin = resolveViewer(url, format)
+  const [viewerFindApi, setViewerFindApi] = useState<ViewerFindApi | null>(null)
   const [showScrollTop, setShowScrollTop] = useState(false)
   const [pendingExternalUrl, setPendingExternalUrl] = useState<string | null>(null)
   const [externalLinkError, setExternalLinkError] = useState('')
@@ -95,7 +98,8 @@ export function DocumentViewer({
     findPrev,
     closeFind,
     setShowFind,
-  } = useFindInPage(readerRef)
+    handleViewerFindResult,
+  } = useFindInPage(readerRef, viewerFindApi)
 
   useTtsHighlight(readerRef, ttsHighlight ?? {
     enabled: false,
@@ -122,7 +126,7 @@ export function DocumentViewer({
   }, [])
 
   useEffect(() => {
-    if (loading || loadError || !content || !searchTarget) return
+    if (plugin.id === 'pdf' || loading || loadError || !content || !searchTarget) return
 
     let highlightedRoot: HTMLElement | null = null
     const frame = requestAnimationFrame(() => {
@@ -139,7 +143,7 @@ export function DocumentViewer({
       cancelAnimationFrame(frame)
       if (highlightedRoot) clearSearchTargetHighlight(highlightedRoot)
     }
-  }, [content, loadError, loading, scrollToHash, searchTarget, url])
+  }, [content, loadError, loading, plugin.id, scrollToHash, searchTarget, url])
 
   // Direct rendering makes document links ordinary DOM events again. Internal
   // hash links scroll in-place; everything else asks before leaving the app.
@@ -210,7 +214,6 @@ export function DocumentViewer({
     return () => window.removeEventListener('scroll', handleScroll)
   }, [url])
 
-  const plugin = resolveViewer(url, format)
   const ViewerComponent = plugin.Component
   const appClassName = [
     'app',
@@ -290,6 +293,9 @@ export function DocumentViewer({
             format={format}
             content={content}
             contentRef={readerRef}
+            searchTarget={searchTarget}
+            onFindApiChange={setViewerFindApi}
+            onFindResult={handleViewerFindResult}
           />
         )}
       </main>

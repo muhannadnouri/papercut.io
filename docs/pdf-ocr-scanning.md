@@ -1,6 +1,6 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 4 PDF viewer complete; Stage 5 is next
+Status: Stage 5 PDF Find and search navigation in progress
 Last updated: 2026-07-25
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -816,10 +816,10 @@ desktop and narrow widths with keyboard and RTL layouts.
 
 ### Stage 5: Find, Search Navigation, TTS, And Bookmarks
 
-Stage status: Not started
+Stage status: In progress
 
-- [ ] Add Find across all extracted pages without rendering all pages.
-- [ ] Navigate search results to the correct page and matched coordinates.
+- [x] Add Find across all extracted pages without rendering all pages.
+- [x] Navigate search results to the correct page and matched coordinates.
 - [ ] Adapt PDF page blocks to existing `ReadableSegment` chunking.
 - [ ] Persist source ranges needed for page-coordinate TTS highlighting.
 - [ ] Highlight active TTS text across block and line boundaries.
@@ -829,6 +829,21 @@ Stage status: Not started
 
 Decision gate: Find, global search, TTS playback/highlighting, and location
 restoration pass the Stage 0 parity suite.
+
+Implementation evidence: the shared reader Find bar now delegates PDF searches
+to PDF.js's `PDFFindController`, which extracts and searches pages on demand,
+updates Papercut's existing match count, renders highlights through the PDF.js
+text layer, and navigates next/previous matches without rendering the complete
+document. HTML and EPUB retain their existing DOM-range implementation.
+
+Uploaded-PDF SQLite hits now preserve their indexed zero-based page locator
+through the shared search-result shape. Opening a result selects that page and
+uses PDF.js to locate and highlight the marked term or original quoted phrase;
+the PDF source and complete extracted text are not copied into React state.
+The focused PDF Find adapter test, full 23-test frontend suite, TypeScript
+check, focused ESLint pass, and production Vite build pass. Manual acceptance
+should cover a match on a late unrendered page, next/previous wraparound, a
+quoted global-search result, RTL text, no matches, and closing Find.
 
 ### Stage 6: OCR Engine Benchmark
 
@@ -965,6 +980,8 @@ Stage status: Deferred
 | 2026-07-25 | Stage 4 | Use PDF.js viewer primitives directly | Its rendering queue, bounded page cache, text layer, and link service cover the performance foundation without adding `react-pdf` or hand-rolling virtualization |
 | 2026-07-25 | Stage 4 | Serve validated PDFs through Tauri's scoped asset protocol | Range-capable URLs avoid full-file IPC copies; PDF.js disables streaming and automatic prefetch so large sources are read on demand in 1 MiB chunks |
 | 2026-07-25 | Stage 4 | Keep reader controls as a focused PDF.js adapter | A separate responsive `PdfControls` component directly drives page, zoom, fit, and optional outline APIs without adding `react-pdf`, a toolbar dependency, or speculative controls |
+| 2026-07-25 | Stage 5 | Delegate PDF Find to `PDFFindController` | Reusing PDF.js search, text-layer highlighting, and page navigation preserves bounded rendering and avoids a second PDF text search implementation |
+| 2026-07-25 | Stage 5 | Carry indexed PDF page locators through shared search results | SQLite already knows the matching page; preserving that value lets PDF.js target the correct page and phrase without loading full extracted documents into React |
 | 2026-07-25 | Stage 4 | Pass the large-document viewer performance gate | Manual scrolling completed without disappearing pages or a noticeable memory spike; responsive and RTL control behavior remains the final Stage 4 smoke test |
 | 2026-07-25 | Stage 4 | Pass responsive PDF control smoke testing | Page, zoom, fit, and outline controls worked at desktop and narrow widths; RTL remains the final visual gate |
 | 2026-07-25 | Stage 4 | Close the PDF viewer stage | The compact controls remained usable at desktop and narrow widths in both LTR and Arabic RTL layouts |

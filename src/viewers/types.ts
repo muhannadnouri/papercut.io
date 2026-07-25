@@ -1,10 +1,26 @@
 import type React from 'react'
+import type { SearchOpenTarget } from '../types/search'
+
+export interface ViewerFindResult {
+  currentIndex: number
+  matchCount: number
+}
+
+export interface ViewerFindApi {
+  search: (query: string) => void
+  next: () => void
+  previous: () => void
+  clear: () => void
+}
 
 export interface ViewerProps {
   url: string
   format?: string
   content?: string
   contentRef?: React.RefObject<HTMLElement | null>
+  searchTarget?: SearchOpenTarget | null
+  onFindApiChange?: (api: ViewerFindApi | null) => void
+  onFindResult?: (result: ViewerFindResult) => void
 }
 
 export interface ViewerPlugin {

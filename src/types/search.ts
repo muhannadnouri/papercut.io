@@ -9,6 +9,7 @@ export interface SearchResult {
   url: string
   meta: { title: string }
   excerpt: string
+  pageIndex?: number | null
   content?: string
   sub_results?: PagefindSubResult[]
   customExcerpt?: string
@@ -19,6 +20,7 @@ export interface SearchResult {
 export interface SearchOpenTarget {
   hash?: string
   text?: string
+  pageIndex?: number
 }
 
 export interface PagefindInstance {

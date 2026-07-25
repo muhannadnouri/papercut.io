@@ -5,6 +5,7 @@ import {
 } from '../components/DocumentViewer/readerTextRanges'
 import { clearSearchTargetHighlight } from '../components/DocumentViewer/readerTarget'
 import { isIOSWebKit } from '../utils/platform'
+import type { ViewerFindApi, ViewerFindResult } from '../viewers/types'
 
 const FIND_DEBOUNCE_MS = 180
 
@@ -19,10 +20,12 @@ interface UseFindInPageReturn {
   findPrev: () => void
   closeFind: () => void
   setShowFind: React.Dispatch<React.SetStateAction<boolean>>
+  handleViewerFindResult: (result: ViewerFindResult) => void
 }
 
 export function useFindInPage(
   rootRef: React.RefObject<HTMLElement | null>,
+  viewerFindApi?: ViewerFindApi | null,
 ): UseFindInPageReturn {
   const [showFind, setShowFind] = useState(false)
   const [findQuery, setFindQuery] = useState('')
@@ -91,8 +94,9 @@ export function useFindInPage(
     setFindQuery('')
     setFindMatchCount(0)
     setFindCurrentIndex(0)
+    viewerFindApi?.clear()
     clearFindHighlights()
-  }, [clearFindHighlights, clearPendingFind])
+  }, [clearFindHighlights, clearPendingFind, viewerFindApi])
 
   const handleFind = useCallback((searchQuery: string) => {
     setFindQuery(searchQuery)
@@ -100,8 +104,9 @@ export function useFindInPage(
     clearPendingFind()
     setFindMatchCount(0)
     setFindCurrentIndex(0)
+    viewerFindApi?.clear()
     clearFindHighlights()
-  }, [clearFindHighlights, clearPendingFind])
+  }, [clearFindHighlights, clearPendingFind, viewerFindApi])
 
   useEffect(() => {
     clearPendingFind()
@@ -112,6 +117,11 @@ export function useFindInPage(
     }
 
     findTimerRef.current = setTimeout(() => {
+      if (viewerFindApi) {
+        viewerFindApi.search(searchQuery)
+        findTimerRef.current = null
+        return
+      }
       const count = highlightFindMatches(searchQuery)
       setFindMatchCount(count)
       setFindCurrentIndex(0)
@@ -120,21 +130,34 @@ export function useFindInPage(
     }, FIND_DEBOUNCE_MS)
 
     return clearPendingFind
-  }, [clearFindHighlights, clearPendingFind, highlightFindMatches, scrollToMatch, findQuery])
+  }, [clearFindHighlights, clearPendingFind, highlightFindMatches, scrollToMatch, findQuery, viewerFindApi])
 
   const findNext = useCallback(() => {
     if (findMatchCount === 0) return
+    if (viewerFindApi) {
+      viewerFindApi.next()
+      return
+    }
     const next = (findCurrentIndex + 1) % findMatchCount
     setFindCurrentIndex(next)
     scrollToMatch(next)
-  }, [findMatchCount, findCurrentIndex, scrollToMatch])
+  }, [findMatchCount, findCurrentIndex, scrollToMatch, viewerFindApi])
 
   const findPrev = useCallback(() => {
     if (findMatchCount === 0) return
+    if (viewerFindApi) {
+      viewerFindApi.previous()
+      return
+    }
     const prev = (findCurrentIndex - 1 + findMatchCount) % findMatchCount
     setFindCurrentIndex(prev)
     scrollToMatch(prev)
-  }, [findMatchCount, findCurrentIndex, scrollToMatch])
+  }, [findMatchCount, findCurrentIndex, scrollToMatch, viewerFindApi])
+
+  const handleViewerFindResult = useCallback((result: ViewerFindResult) => {
+    setFindMatchCount(result.matchCount)
+    setFindCurrentIndex(result.currentIndex)
+  }, [])
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -160,6 +183,7 @@ export function useFindInPage(
     findPrev,
     closeFind,
     setShowFind,
+    handleViewerFindResult,
   }
 }
 

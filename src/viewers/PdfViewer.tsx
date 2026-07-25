@@ -6,6 +6,7 @@ import type {
 } from 'pdfjs-dist/legacy/build/pdf.mjs'
 import type {
   EventBus,
+  PDFFindController,
   PDFLinkService,
   PDFViewer as PdfJsViewer,
 } from 'pdfjs-dist/legacy/web/pdf_viewer.mjs'
@@ -14,6 +15,7 @@ import {
   getUploadedPdfAssetUrl,
   isUploadedPdfDocumentUrl,
 } from '../uploads/DocumentUploads'
+import { createPdfFindAdapter } from './pdfFind'
 import { PdfControls, type PdfFitMode } from './PdfControls'
 import './PdfViewer.css'
 import type { ViewerProps } from './types'
@@ -25,6 +27,7 @@ type PdfViewerStatus =
 
 type PdfOutlineItem = Awaited<ReturnType<PDFDocumentProxy['getOutline']>>[number]
 type PdfDestination = Parameters<PDFLinkService['goToDestination']>[0]
+const ignoreFindResult: NonNullable<ViewerProps['onFindResult']> = () => {}
 
 function OutlineItems({
   items,
@@ -56,12 +59,18 @@ function OutlineItems({
   )
 }
 
-export function PdfViewer({ url }: ViewerProps) {
+export function PdfViewer({
+  url,
+  searchTarget,
+  onFindApiChange,
+  onFindResult,
+}: ViewerProps) {
   const { t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<HTMLDivElement>(null)
   const pdfViewerRef = useRef<PdfJsViewer | null>(null)
   const linkServiceRef = useRef<PDFLinkService | null>(null)
+  const findAdapterRef = useRef<ReturnType<typeof createPdfFindAdapter> | null>(null)
   const outlineCloseRef = useRef<HTMLButtonElement>(null)
   const [status, setStatus] = useState<PdfViewerStatus>({ state: 'loading' })
   const [currentPage, setCurrentPage] = useState(1)
@@ -76,6 +85,8 @@ export function PdfViewer({ url }: ViewerProps) {
     let pdfViewer: PdfJsViewer | undefined
     let linkService: PDFLinkService | undefined
     let eventBus: EventBus | undefined
+    let findController: PDFFindController | undefined
+    let findAdapter: ReturnType<typeof createPdfFindAdapter> | undefined
 
     setCurrentPage(1)
     setZoom(100)
@@ -101,12 +112,21 @@ export function PdfViewer({ url }: ViewerProps) {
 
       eventBus = new viewerModule.EventBus()
       linkService = new viewerModule.PDFLinkService({ eventBus })
+      findController = new viewerModule.PDFFindController({
+        eventBus,
+        linkService,
+        delay: 0,
+      })
+      findAdapter = createPdfFindAdapter(eventBus, onFindResult ?? ignoreFindResult)
+      findAdapterRef.current = findAdapter
+      onFindApiChange?.(findAdapter.api)
       linkService.externalLinkEnabled = false
       pdfViewer = new viewerModule.PDFViewer({
         container,
         viewer,
         eventBus,
         linkService,
+        findController,
         annotationMode: pdfjs.AnnotationMode.ENABLE,
         enableAutoLinking: false,
       })
@@ -185,13 +205,35 @@ export function PdfViewer({ url }: ViewerProps) {
     return () => {
       cancelled = true
       removeEventListeners?.()
+      findAdapter?.dispose()
+      if (findAdapterRef.current === findAdapter) findAdapterRef.current = null
+      onFindApiChange?.(null)
       linkService?.setDocument(null)
       pdfViewer?.cleanup()
       pdfViewerRef.current = null
       linkServiceRef.current = null
       void loadingTask?.destroy()
     }
-  }, [url])
+  }, [onFindApiChange, onFindResult, url])
+
+  useEffect(() => {
+    if (status.state !== 'ready' || !searchTarget) return
+    const pdfViewer = pdfViewerRef.current
+    if (!pdfViewer) return
+
+    if (searchTarget.pageIndex !== undefined) {
+      pdfViewer.currentPageNumber = Math.min(
+        Math.max(searchTarget.pageIndex + 1, 1),
+        status.pages,
+      )
+    }
+    if (!searchTarget.text?.trim()) return
+
+    const frame = requestAnimationFrame(() => {
+      findAdapterRef.current?.api.search(searchTarget.text!)
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [searchTarget, status])
 
   useEffect(() => {
     if (!outlineOpen) return
