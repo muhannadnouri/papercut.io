@@ -85,6 +85,18 @@ export interface PdfPageTextLayer {
   }>
 }
 
+export interface PdfNarrationSegment {
+  text: string
+  sourceRuns: Array<{
+    pageIndex: number
+    blockOrder: number
+    startOffset: number
+    endOffset: number
+    sourceStartOffset: number
+    sourceEndOffset: number
+  }>
+}
+
 const DOCUMENT_IMPORT_PROGRESS_EVENT = 'document-uploads-import-progress'
 const DOCUMENT_DELETE_PROGRESS_EVENT = 'document-uploads-delete-progress'
 
@@ -202,9 +214,11 @@ export async function getUploadedPdfAssetUrl(documentUrl: string): Promise<strin
   return mod.convertFileSrc(path)
 }
 
-export async function getUploadedPdfReadableBlocks(documentUrl: string): Promise<string[][]> {
+export async function getUploadedPdfNarrationSegments(
+  documentUrl: string,
+): Promise<PdfNarrationSegment[]> {
   const invoke = await loadTauriInvoke()
-  return invoke<string[][]>('document_uploads_get_pdf_readable_blocks', {
+  return invoke<PdfNarrationSegment[]>('document_uploads_get_pdf_narration_segments', {
     request: { documentUrl },
   })
 }

@@ -1,14 +1,17 @@
 import type { ReadableSegment } from '../tts/alignment/readableSegments'
+import type { PdfNarrationSegment } from '../uploads/DocumentUploads'
+
+export type PdfReadableSegment = ReadableSegment & PdfNarrationSegment
 
 /**
- * Flatten page-ordered PDF.js blocks into the narration segments used by
- * HTML/EPUB. Array positions remain stable so highlighting can later resolve
- * segment indexes against the corresponding persisted coordinate sidecars.
+ * Add the shared structural kind without discarding PDF source runs. Segment
+ * indexes and UTF-16 offsets can therefore resolve through the persisted
+ * page/block sidecars during the next highlighting stage.
  */
-export function pdfBlocksToReadableSegments(
-  pages: string[][],
-): ReadableSegment[] {
-  return pages.flatMap((blocks) => blocks
-    .filter((text) => text.trim())
-    .map((text) => ({ text, kind: 'paragraph' as const })))
+export function pdfNarrationToReadableSegments(
+  segments: PdfNarrationSegment[],
+): PdfReadableSegment[] {
+  return segments
+    .filter((segment) => segment.text.trim())
+    .map((segment) => ({ ...segment, kind: 'paragraph' as const }))
 }

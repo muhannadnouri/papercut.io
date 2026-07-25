@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { pdfBlocksToReadableSegments } from '../../pdf/pdfTts'
 import {
-  getUploadedPdfReadableBlocks,
+  pdfNarrationToReadableSegments,
+  type PdfReadableSegment,
+} from '../../pdf/pdfTts'
+import {
+  getUploadedPdfNarrationSegments,
   isUploadedPdfDocumentUrl,
 } from '../../uploads/DocumentUploads'
 import {
@@ -46,17 +49,17 @@ export function useAudiobookDocument({
   const [importedHighlightStatus, setImportedHighlightStatus] = useState<ImportedHighlightStatus>('idle')
   const pdfSegmentsRef = useRef<{
     documentUrl: string
-    promise: Promise<ReadableSegment[]>
+    promise: Promise<PdfReadableSegment[]>
   } | null>(null)
 
-  const getPdfSegments = useCallback((documentUrl: string): Promise<ReadableSegment[]> => {
+  const getPdfSegments = useCallback((documentUrl: string): Promise<PdfReadableSegment[]> => {
     if (pdfSegmentsRef.current?.documentUrl === documentUrl) {
       return pdfSegmentsRef.current.promise
     }
 
     const entry = {
       documentUrl,
-      promise: getUploadedPdfReadableBlocks(documentUrl).then(pdfBlocksToReadableSegments),
+      promise: getUploadedPdfNarrationSegments(documentUrl).then(pdfNarrationToReadableSegments),
     }
     pdfSegmentsRef.current = entry
     void entry.promise.catch(() => {

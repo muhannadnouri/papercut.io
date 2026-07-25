@@ -11,6 +11,7 @@ use super::super::storage::{
 };
 use super::super::store::{find_upload_by_id, open_db, upsert_document};
 use super::super::types::UploadedDocument;
+use super::narration::{reconstruct_narration_segments, PdfNarrationSegment};
 use super::page_text::{read_page_text_layer, write_page_text_layer, PageTextLayer};
 
 pub(crate) const MAX_PDF_PAGES: u32 = 2_000;
@@ -48,16 +49,16 @@ pub(crate) fn store_pdf_page_text<R: Runtime>(
     write_page_text_layer(&upload_dir(app, &id)?, &request.layer)
 }
 
-/// Load validated block text for narration in stable page and extraction order.
+/// Load validated sidecars and reconstruct logical prose for narration.
 ///
 /// Papercut currently materializes a complete audiobook chunk list before
-/// synthesis, so one validated read reuses that contract without reparsing the
-/// canonical PDF. Coordinates stay in sidecars until the active-page highlight
-/// path needs them, keeping this whole-document IPC payload text-only.
-pub(crate) fn get_pdf_readable_blocks<R: Runtime>(
+/// synthesis. Returning compact page/block runs avoids reparsing the canonical
+/// PDF or sending full geometry while retaining the locator data needed by the
+/// active-page highlight path.
+pub(crate) fn get_pdf_narration_segments<R: Runtime>(
     app: &tauri::AppHandle<R>,
     document_url: &str,
-) -> Result<Vec<Vec<String>>, String> {
+) -> Result<Vec<PdfNarrationSegment>, String> {
     let (id, _) = validated_pdf_upload(app, document_url)?;
     let db = open_db(app)?;
     let document =
@@ -72,13 +73,9 @@ pub(crate) fn get_pdf_readable_blocks<R: Runtime>(
     }
 
     let dir = upload_dir(app, &id)?;
-    (0..page_count)
-        .map(|page_index| {
-            let mut layer = read_page_text_layer(&dir, page_index)?;
-            layer.blocks.sort_by_key(|block| block.order);
-            Ok(layer.blocks.into_iter().map(|block| block.text).collect())
-        })
-        .collect()
+    reconstruct_narration_segments(page_count, |page_index| {
+        read_page_text_layer(&dir, page_index)
+    })
 }
 
 /// Commit all page rows and their FTS entries only after every expected sidecar
