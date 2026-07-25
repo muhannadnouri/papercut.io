@@ -3,6 +3,8 @@
 use serde::Deserialize;
 use tauri::Runtime;
 
+use super::super::cover::{write_pdf_thumbnail, PNG_COVER_FILE_NAME, THUMBNAIL_MEDIA_TYPE};
+use super::super::parsed::ParsedDocumentCover;
 use super::super::parsed::{ParsedDocument, ParsedSection};
 use super::super::storage::{
     upload_dir, upload_reference_from_url, upload_source_path, StoredSourceKind,
@@ -27,6 +29,7 @@ pub(crate) struct PdfFinalizeRequest {
     document_url: String,
     title: Option<String>,
     page_count: u32,
+    thumbnail: Option<Vec<u8>>,
 }
 
 /// Validate and store one page at a time so extraction never sends a complete
@@ -82,12 +85,24 @@ pub(crate) fn finalize_pdf_index<R: Runtime>(
         });
     }
 
+    let cover = request.thumbnail.and_then(|bytes| {
+        if let Err(error) = write_pdf_thumbnail(&dir, &bytes) {
+            log::warn!("Skipping unusable imported PDF thumbnail: {error}");
+            return None;
+        }
+        Some(ParsedDocumentCover {
+            media_type: THUMBNAIL_MEDIA_TYPE,
+            file_name: PNG_COVER_FILE_NAME,
+            bytes,
+        })
+    });
+    let cover_media_type = cover.as_ref().map(|cover| cover.media_type.to_string());
     let parsed = ParsedDocument {
         title: title.clone(),
         format: "pdf".into(),
         view_html: String::new(),
         sections,
-        cover: None,
+        cover,
     };
     upsert_document(
         &mut db,
@@ -108,7 +123,7 @@ pub(crate) fn finalize_pdf_index<R: Runtime>(
         imported_at_ms: existing.imported_at_ms,
         bytes: existing.bytes,
         sections: request.page_count as usize,
-        cover_media_type: None,
+        cover_media_type,
     })
 }
 

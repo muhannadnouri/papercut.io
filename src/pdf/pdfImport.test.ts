@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { TextContent } from 'pdfjs-dist/types/src/display/api'
-import { pageTextLayer } from './pdfImport'
+import { pageTextLayer, pdfThumbnailSize } from './pdfImport'
 
 describe('pageTextLayer', () => {
   it('preserves item order, line boundaries, and finite page coordinates', () => {
@@ -43,6 +43,21 @@ describe('pageTextLayer', () => {
     expect(layer.blocks[0]).toMatchObject({
       bounds: [10, 18, 35, 12],
       order: 0,
+    })
+  })
+})
+
+describe('pdfThumbnailSize', () => {
+  it('bounds large pages without upscaling small pages', () => {
+    expect(pdfThumbnailSize(1_200, 1_800)).toEqual({
+      width: 480,
+      height: 720,
+      scale: 0.4,
+    })
+    expect(pdfThumbnailSize(240, 360)).toEqual({
+      width: 240,
+      height: 360,
+      scale: 1,
     })
   })
 })

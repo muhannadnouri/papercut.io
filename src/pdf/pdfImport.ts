@@ -1,4 +1,5 @@
 import type {
+  PDFPageProxy,
   TextContent,
   TextItem,
 } from 'pdfjs-dist/types/src/display/api'
@@ -15,6 +16,8 @@ import {
 import { loadPdfJs, pdfJsAssetRoot } from './pdfJs'
 
 const MAX_PDF_PAGES = 2_000
+const THUMBNAIL_MAX_WIDTH = 480
+const THUMBNAIL_MAX_HEIGHT = 720
 
 interface PdfImportOptions {
   signal?: AbortSignal
@@ -86,12 +89,19 @@ async function extractAndIndexPdf(
     }
     const metadata = await pdf.getMetadata().catch(() => null)
     const title = metadataTitle(metadata?.info)
+    let thumbnail: number[] | undefined
 
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       throwIfAborted(signal)
       const page = await pdf.getPage(pageNumber)
       try {
         const viewport = page.getViewport({ scale: 1 })
+        if (pageNumber === 1) {
+          thumbnail = await renderFirstPageThumbnail(page).catch((error) => {
+            console.warn('Skipping PDF library thumbnail:', error)
+            return undefined
+          })
+        }
         const content = await page.getTextContent({ disableNormalization: true })
         await storeUploadedPdfPageText(document.url, pageTextLayer(
           pdfjs.Util.transform,
@@ -106,7 +116,7 @@ async function extractAndIndexPdf(
       }
     }
 
-    return finalizeUploadedPdf(document.url, title, pdf.numPages)
+    return finalizeUploadedPdf(document.url, title, pdf.numPages, thumbnail)
   } finally {
     await loadingTask.destroy()
   }
@@ -138,6 +148,44 @@ export function pageTextLayer(
     })
 
   return { schemaVersion: 1, pageIndex, width, height, blocks }
+}
+
+/** Fit one PDF page into the gallery's retained-cover bounds without upscaling. */
+export function pdfThumbnailSize(width: number, height: number): {
+  width: number
+  height: number
+  scale: number
+} {
+  if (!(width > 0) || !(height > 0)) {
+    throw new Error('PDF first page has invalid dimensions')
+  }
+  const scale = Math.min(1, THUMBNAIL_MAX_WIDTH / width, THUMBNAIL_MAX_HEIGHT / height)
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+    scale,
+  }
+}
+
+/** Render only page one and immediately release its canvas; cover creation is
+ * best-effort so a WebView image-encoding limitation cannot reject an import. */
+async function renderFirstPageThumbnail(page: PDFPageProxy): Promise<number[]> {
+  const sourceViewport = page.getViewport({ scale: 1 })
+  const size = pdfThumbnailSize(sourceViewport.width, sourceViewport.height)
+  const viewport = page.getViewport({ scale: size.scale })
+  const canvas = document.createElement('canvas')
+  canvas.width = size.width
+  canvas.height = size.height
+
+  try {
+    await page.render({ canvas, viewport, background: '#ffffff' }).promise
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+    if (!blob) throw new Error('WebView could not encode the PDF thumbnail')
+    return Array.from(new Uint8Array(await blob.arrayBuffer()))
+  } finally {
+    canvas.width = 0
+    canvas.height = 0
+  }
 }
 
 function metadataTitle(info: unknown): string | undefined {
