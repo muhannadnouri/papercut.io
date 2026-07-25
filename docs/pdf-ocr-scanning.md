@@ -328,6 +328,13 @@ acceptable for large books or mobile memory limits.
 PDF pages should retain their original colors. Dark mode should theme viewer
 chrome and the surrounding surface, not recolor document pixels by default.
 
+Do not add `react-pdf` for the first implementation. It wraps PDF.js with
+React `Document` and `Page` components but still requires the same worker,
+decoder, font, and PDF.js options. Papercut also needs direct text-coordinate,
+render-cancellation, virtualization, Find, and TTS-highlight control. Revisit
+the wrapper only if those requirements can remain entirely behind its public
+API and it demonstrably supports Papercut's minimum WebViews.
+
 Native PDFKit is strong on Apple platforms, but choosing it as the primary
 viewer would require separate Android and desktop implementations with different
 selection and highlight behavior. That complexity is not justified for the
@@ -840,6 +847,7 @@ Stage status: Deferred
 | 2026-07-24 | Stage 1 | Treat Rust 1.88 as conditional on selecting `pdf_oxide` | Papercut's 1.77.2 value is a declared MSRV while CI uses stable; bumping it before the dependency passes the gate would create compatibility churn without product value |
 | 2026-07-24 | Stage 1 | Lazy-load PDF.js outside normal app startup | The optimized spike adds about 2.02 MB minified to the package, but only about 2.9 KB of eagerly loaded JavaScript and CSS before gzip |
 | 2026-07-24 | Stage 1 | Generate local PDF.js runtime assets from the pinned npm package | PDF.js resolves JPEG 2000 decoders and standard fonts by stable filename; copying only those installed directories avoids CDN access, committed binary duplication, and another build dependency |
+| 2026-07-24 | Stage 1 | Use PDF.js directly instead of adding `react-pdf` | The wrapper still depends on PDF.js and its runtime setup, while Papercut needs direct page-coordinate, cancellation, virtualization, Find, and TTS-highlight control |
 
 ## References
 
