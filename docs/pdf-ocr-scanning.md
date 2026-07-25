@@ -791,7 +791,7 @@ Stage status: In progress
 - [x] Smoke-test controls in RTL.
 - [x] Keep dark mode on viewer chrome without recoloring PDF page content.
 - [x] Add an optional wide-screen two-page spread through PDF.js.
-- [ ] Smoke-test single/spread navigation and narrow-screen fallback.
+- [x] Smoke-test single/spread navigation and narrow-screen fallback.
 
 Implementation evidence: the viewer lazy-loads PDF.js's `PDFViewer`,
 `PDFLinkService`, and `EventBus`; defaults to fit width; disables external and
@@ -812,6 +812,9 @@ theme, and the PDF viewport consumes
 the reader height left by optional Find and Diagnostics UI instead of using a
 fixed viewport percentage. Wide layouts tighten the PDF header spacing while
 narrow layouts retain the divider breathing room used by the borderless reader.
+At wide desktop widths, the existing PDF toolbar is portaled into the reader
+header's centered slot; smaller layouts retain a separate centered row without
+duplicating viewer state or controls.
 The production frontend build, locale check,
 TypeScript check, and 25 focused tests pass. A full local Rust check remains
 blocked in this shell by the missing `javascriptcoregtk-4.1` development
@@ -1036,6 +1039,7 @@ Stage status: Deferred
 | 2026-07-25 | Stage 4 | Let the reader shell size the PDF viewport | Flex layout reclaims space when optional Find or Diagnostics UI is absent; wide controls center primary navigation while preserving 44-pixel touch targets |
 | 2026-07-25 | Stage 4 | Retain the reader divider with responsive spacing | Wide PDF layouts reclaim vertical space around the shared header divider while narrow layouts keep the established borderless-reader separation |
 | 2026-07-25 | Stage 4 | Use PDF.js for optional two-page spreads | Wide layouts pair pages 1-2, 3-4, and so on through `SpreadMode.ODD`; narrow layouts return to the default single-page view without another renderer or persisted preference |
+| 2026-07-25 | Stage 4 | Share the wide reader header with PDF controls | One portaled toolbar occupies the centered header zone on wide screens and falls back to a second row when space is constrained; primary page and zoom actions remain visible |
 
 ## References
 

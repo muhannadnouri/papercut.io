@@ -78,7 +78,7 @@ export function PdfControls({
   return (
     <div
       className="pdf-viewer-toolbar"
-      role="toolbar"
+      role="group"
       aria-label={t('reader.pdf.toolbar')}
     >
       <div className="pdf-control-group pdf-page-controls" role="group" aria-label={t('reader.pdf.pages')}>

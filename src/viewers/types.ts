@@ -18,6 +18,7 @@ export interface ViewerProps {
   format?: string
   content?: string
   contentRef?: React.RefObject<HTMLElement | null>
+  toolbarTarget?: HTMLElement | null
   searchTarget?: SearchOpenTarget | null
   onFindApiChange?: (api: ViewerFindApi | null) => void
   onFindResult?: (result: ViewerFindResult) => void

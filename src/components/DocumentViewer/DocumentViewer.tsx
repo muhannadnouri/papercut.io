@@ -72,6 +72,7 @@ export function DocumentViewer({
   const readerRef = useRef<HTMLElement | null>(null)
   const plugin = resolveViewer(url, format)
   const [viewerFindApi, setViewerFindApi] = useState<ViewerFindApi | null>(null)
+  const [viewerToolbarTarget, setViewerToolbarTarget] = useState<HTMLDivElement | null>(null)
   const [showScrollTop, setShowScrollTop] = useState(false)
   const [pendingExternalUrl, setPendingExternalUrl] = useState<string | null>(null)
   const [externalLinkError, setExternalLinkError] = useState('')
@@ -259,6 +260,12 @@ export function DocumentViewer({
             </button>
           </div>
         </div>
+        {plugin.id === 'pdf' && !loading && !loadError && (
+          <div
+            ref={setViewerToolbarTarget}
+            className="viewer-toolbar-slot"
+          />
+        )}
       </header>
 
       {showFind && (
@@ -293,6 +300,7 @@ export function DocumentViewer({
             format={format}
             content={content}
             contentRef={readerRef}
+            toolbarTarget={viewerToolbarTarget}
             searchTarget={searchTarget}
             onFindApiChange={setViewerFindApi}
             onFindResult={handleViewerFindResult}

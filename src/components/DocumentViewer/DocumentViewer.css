@@ -25,6 +25,9 @@
 }
 
 .app-reader-pdf .doc-header {
+  grid-template-areas:
+    "back controls"
+    "viewer viewer";
   margin-bottom: 0;
   padding-bottom: 0.75rem;
 }
@@ -50,6 +53,21 @@
   flex-wrap: wrap;
   gap: 0.5rem;
   min-width: 0;
+}
+
+.viewer-toolbar-slot {
+  align-items: center;
+  display: flex;
+  grid-area: viewer;
+  justify-content: center;
+  min-width: 0;
+  width: 100%;
+}
+
+.viewer-toolbar-slot .pdf-viewer-toolbar {
+  background: transparent;
+  border-bottom: 0;
+  padding: 0;
 }
 
 .header-controls-slot {
@@ -465,6 +483,13 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   text-align: center;
 }
 
+@media (min-width: 1200px) {
+  .app-reader-pdf .doc-header {
+    grid-template-areas: "back viewer controls";
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 900px) {
   .doc-header {
     grid-template-columns: minmax(0, 1fr) auto;
@@ -531,6 +556,13 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
     grid-template-areas:
       "back reader"
       "audio audio";
+  }
+
+  .app-reader-pdf .doc-header {
+    grid-template-areas:
+      "back reader"
+      "audio audio"
+      "viewer viewer";
   }
 
   .header-right {

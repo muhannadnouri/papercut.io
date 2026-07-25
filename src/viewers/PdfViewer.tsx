@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import type {
   PDFDocumentLoadingTask,
@@ -66,6 +67,7 @@ function OutlineItems({
 
 export function PdfViewer({
   url,
+  toolbarTarget,
   searchTarget,
   onFindApiChange,
   onFindResult,
@@ -283,33 +285,37 @@ export function PdfViewer({
     void linkServiceRef.current?.goToDestination(destination)
   }
 
+  const controls = (
+    <PdfControls
+      currentPage={currentPage}
+      fitMode={fitMode}
+      hasOutline={outline.length > 0}
+      outlineOpen={outlineOpen}
+      pages={pages}
+      ready={ready}
+      spreadMode={spreadMode}
+      zoom={zoom}
+      onFitChange={(mode) => {
+        if (pdfViewerRef.current) pdfViewerRef.current.currentScaleValue = mode
+      }}
+      onOutlineChange={setOutlineOpen}
+      onPageChange={(page) => {
+        if (pdfViewerRef.current) pdfViewerRef.current.currentPageNumber = page
+      }}
+      onPageNext={() => pdfViewerRef.current?.nextPage()}
+      onPagePrevious={() => pdfViewerRef.current?.previousPage()}
+      onSpreadChange={applySpreadMode}
+      onZoomChange={(percentage) => {
+        if (pdfViewerRef.current) {
+          pdfViewerRef.current.currentScaleValue = String(percentage / 100)
+        }
+      }}
+    />
+  )
+
   return (
     <div className="pdf-viewer">
-      <PdfControls
-        currentPage={currentPage}
-        fitMode={fitMode}
-        hasOutline={outline.length > 0}
-        outlineOpen={outlineOpen}
-        pages={pages}
-        ready={ready}
-        spreadMode={spreadMode}
-        zoom={zoom}
-        onFitChange={(mode) => {
-          if (pdfViewerRef.current) pdfViewerRef.current.currentScaleValue = mode
-        }}
-        onOutlineChange={setOutlineOpen}
-        onPageChange={(page) => {
-          if (pdfViewerRef.current) pdfViewerRef.current.currentPageNumber = page
-        }}
-        onPageNext={() => pdfViewerRef.current?.nextPage()}
-        onPagePrevious={() => pdfViewerRef.current?.previousPage()}
-        onSpreadChange={applySpreadMode}
-        onZoomChange={(percentage) => {
-          if (pdfViewerRef.current) {
-            pdfViewerRef.current.currentScaleValue = String(percentage / 100)
-          }
-        }}
-      />
+      {toolbarTarget ? createPortal(controls, toolbarTarget) : controls}
 
       <div className="pdf-viewer-body">
         {outlineOpen && (
