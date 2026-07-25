@@ -370,7 +370,7 @@ are directional rather than release benchmarks.
 
 | Candidate | Version / license | Evidence | Current disposition |
 | --- | --- | --- | --- |
-| PDF.js | `pdfjs-dist` 6.1.200, Apache-2.0 | Rendered the Arabic page to a 595x842 canvas; exposed text items with transforms, dimensions, direction, and line boundaries; distinguished missing-password and invalid/truncated-PDF failures | Preferred renderer, pending Tauri desktop/Android/iOS WebView validation |
+| PDF.js | `pdfjs-dist` 6.1.200, Apache-2.0 | Rendered the Arabic page to a 595x842 command-line canvas; exposed text items with transforms, dimensions, direction, and line boundaries; distinguished missing-password and invalid/truncated-PDF failures; and now has an exposed first-page WebView spike with a selectable text layer | Preferred renderer, pending hands-on Tauri desktop/Android/iOS WebView validation |
 | `pdf_oxide` | 0.3.75, MIT OR Apache-2.0, Rust 1.88 | With default features disabled, extracted ordered text, spans, characters, and bounding boxes; Android arm64 and iOS arm64 `cargo check` passed on stable Rust | Preferred native extractor candidate, pending full corpus, optimized-size, and device validation |
 | `pdf-extract` | 0.12.0, MIT | Extracted Latin text with a small API and release probe, but reversed the Arabic fixture's logical order and exposes no direct coordinate model | Rejected for Papercut's multilingual page-aware requirements |
 
@@ -386,12 +386,14 @@ retaining source-to-glyph mapping for highlights. Normalization must be covered
 by Arabic search and TTS fixtures rather than applied as an untested global
 string rewrite.
 
-The costs are material:
+The costs are material but bounded:
 
-- PDF.js installs as roughly 36 MB unpacked, but the browser assets under
-  evaluation are approximately 1.0 MB for the legacy main module, 2.3 MB for
-  its worker, 308 KB for viewer code, and 160 KB for viewer CSS before
-  minification/compression. Only required CMaps/fonts should ship.
+- PDF.js installs as roughly 41 MB unpacked with the current npm resolution.
+  Papercut's optimized build emits a 487 KB lazy renderer chunk, 225 KB lazy
+  viewer stylesheet, 1.30 MB local worker, and a 5 KB text-selection cursor
+  asset. Together these add about 2.02 MB minified, or 579 KB gzip. Dynamic
+  imports keep the normal startup delta to about 2.4 KB JavaScript and 0.5 KB
+  CSS before gzip.
 - `pdf_oxide` with default features disabled resolved a much larger Rust graph
   than `pdf-extract` and produced several gigabytes of clean build artifacts
   during an optimized spike. Final application-size impact still needs
@@ -407,6 +409,29 @@ passes the remaining gate and is added to production, raise the declared
 minimum to Rust 1.88 and add an explicit minimum-version CI check in the same
 change. Do not change the project-wide minimum merely to keep experimental code
 alive.
+
+The branch-local WebView harness is exposed at `/?pdf-spike`. It uses a native
+file input and renders only page one because its purpose is to validate worker
+loading, canvas output, selectable text, and cleanup:
+
+```sh
+npm run dev
+# Open http://localhost:5173/?pdf-spike
+```
+
+The same route can be supplied to a Tauri development build with a temporary
+configuration override:
+
+```sh
+npx tauri dev --features native-tts-shared --no-watch \
+  --config '{"build":{"devUrl":"http://localhost:5173/?pdf-spike"}}'
+```
+
+The optimized frontend build, TypeScript check, ESLint check, local worker
+emission, and lazy chunk split pass. The desktop Tauri launch on this machine
+is blocked before WebView startup by the missing `javascriptcoregtk-4.1`
+development package, so desktop and mobile hands-on rendering remain open
+instead of being inferred from the browser build.
 
 ### Tauri Data Boundary
 
@@ -565,8 +590,12 @@ Stage status: In progress
       Tauri WebViews.
 - [x] Render a representative RTL page with the selected PDF.js build in the
       command-line canvas probe.
+- [x] Add an exposed first-page PDF.js WebView harness with a local file input,
+      high-DPI canvas, selectable text layer, and effect cleanup.
+- [x] Verify the optimized frontend build emits a local worker and lazy-loads
+      the renderer and text-layer CSS outside normal app startup.
 - [ ] Verify worker loading, local asset access, canvas cleanup, text selection,
-      and accessibility-layer behavior.
+      and accessibility-layer behavior in each target Tauri WebView.
 - [ ] Compare `pdf-extract`, `pdf_oxide`, and PDF.js text extraction against the
       fixture expectations.
 - [x] Compare all three candidates on shared Latin and Arabic smoke fixtures.
@@ -766,6 +795,7 @@ Stage status: Deferred
 | 2026-07-24 | Stage 1 | Reject `pdf-extract` 0.12.0 for production | It reversed the Arabic fixture's logical order and lacks the coordinate model required for search/TTS highlighting |
 | 2026-07-24 | Stage 1 | Keep `pdf_oxide` 0.3.75 as the native extractor candidate | It exposes ordered spans/characters, matches PDF.js page coordinates, and cross-checks for Android/iOS; size and device corpus validation remain |
 | 2026-07-24 | Stage 1 | Treat Rust 1.88 as conditional on selecting `pdf_oxide` | Papercut's 1.77.2 value is a declared MSRV while CI uses stable; bumping it before the dependency passes the gate would create compatibility churn without product value |
+| 2026-07-24 | Stage 1 | Lazy-load PDF.js outside normal app startup | The optimized spike adds about 2.02 MB minified to the package, but only about 2.9 KB of eagerly loaded JavaScript and CSS before gzip |
 
 ## References
 

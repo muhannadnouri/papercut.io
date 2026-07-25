@@ -39,6 +39,7 @@
   "dependencies": {
     "@tauri-apps/plugin-opener": "2.5.3",
     "i18next": "^26.3.6",
+    "pdfjs-dist": "6.1.200",
     "react": "^19.2.0",
     "react-aria-components": "^1.19.0",
     "react-dom": "^19.2.0",

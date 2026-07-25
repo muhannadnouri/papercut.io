@@ -1,0 +1,29 @@
+.pdf-viewer {
+  min-height: 12rem;
+  overflow: auto;
+  padding: 1rem;
+}
+
+.pdf-viewer-status {
+  align-items: center;
+  display: flex;
+  gap: 0.625rem;
+  justify-content: center;
+  min-height: 12rem;
+}
+
+.pdf-viewer-error {
+  color: var(--danger);
+  margin: 1rem;
+}
+
+.pdf-viewer-page {
+  background: #fff;
+  box-shadow: 0 1px 4px var(--shadow-soft);
+  margin-inline: auto;
+  position: relative;
+}
+
+.pdf-viewer-page canvas {
+  display: block;
+}
