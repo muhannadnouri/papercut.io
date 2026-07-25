@@ -1,6 +1,6 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 4 PDF viewer controls implemented; RTL control smoke test pending
+Status: Stage 4 PDF viewer complete; Stage 5 is next
 Last updated: 2026-07-25
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -776,8 +776,7 @@ and Stage 5 work.
 
 ### Stage 4: PDF Viewer
 
-Stage status: In progress; viewer performance and responsive control gates
-passed, RTL control smoke test pending
+Stage status: Complete
 
 - [x] Implement the PDF.js viewer as a focused viewer component.
 - [x] Load source through a scoped local asset boundary rather than JSON/base64.
@@ -789,7 +788,7 @@ passed, RTL control smoke test pending
 - [x] Finish reader controls, localized status text, mobile, and keyboard
       behavior.
 - [x] Smoke-test controls at desktop and narrow widths.
-- [ ] Smoke-test controls in RTL.
+- [x] Smoke-test controls in RTL.
 - [x] Keep dark mode on viewer chrome without recoloring PDF page content.
 
 Implementation evidence: the viewer lazy-loads PDF.js's `PDFViewer`,
@@ -809,11 +808,11 @@ development package, before Papercut compilation begins.
 
 Manual evidence: a large-document desktop smoke test scrolled normally without
 disappearing pages or a noticeable memory spike. Page, zoom, fit, and outline
-controls also worked at desktop and narrow widths.
+controls also worked at desktop and narrow widths, including Arabic RTL.
 
-Decision gate: large PDFs scroll without disappearing pages, unbounded memory
-growth, or blocking the rest of the app; controls remain usable at desktop and
-narrow widths with keyboard and RTL layouts.
+Decision gate passed: large PDFs scroll without disappearing pages, unbounded
+memory growth, or blocking the rest of the app; controls remain usable at
+desktop and narrow widths with keyboard and RTL layouts.
 
 ### Stage 5: Find, Search Navigation, TTS, And Bookmarks
 
@@ -968,6 +967,7 @@ Stage status: Deferred
 | 2026-07-25 | Stage 4 | Keep reader controls as a focused PDF.js adapter | A separate responsive `PdfControls` component directly drives page, zoom, fit, and optional outline APIs without adding `react-pdf`, a toolbar dependency, or speculative controls |
 | 2026-07-25 | Stage 4 | Pass the large-document viewer performance gate | Manual scrolling completed without disappearing pages or a noticeable memory spike; responsive and RTL control behavior remains the final Stage 4 smoke test |
 | 2026-07-25 | Stage 4 | Pass responsive PDF control smoke testing | Page, zoom, fit, and outline controls worked at desktop and narrow widths; RTL remains the final visual gate |
+| 2026-07-25 | Stage 4 | Close the PDF viewer stage | The compact controls remained usable at desktop and narrow widths in both LTR and Arabic RTL layouts |
 
 ## References
 

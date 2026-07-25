@@ -212,7 +212,12 @@ export function DocumentViewer({
 
   const plugin = resolveViewer(url, format)
   const ViewerComponent = plugin.Component
-  const appClassName = ['app', 'app-reader', className].filter(Boolean).join(' ')
+  const appClassName = [
+    'app',
+    'app-reader',
+    plugin.id === 'pdf' ? 'app-reader-pdf' : '',
+    className,
+  ].filter(Boolean).join(' ')
 
   return (
     <div className={appClassName}>

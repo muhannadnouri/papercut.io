@@ -76,10 +76,10 @@ export function PdfControls({
       role="toolbar"
       aria-label={t('reader.pdf.toolbar')}
     >
-      <div className="pdf-control-group" role="group" aria-label={t('reader.pdf.pages')}>
+      <div className="pdf-control-group pdf-page-controls" role="group" aria-label={t('reader.pdf.pages')}>
         <button
           type="button"
-          className="pdf-control-button"
+          className="pdf-control-button pdf-page-previous"
           disabled={!ready || currentPage <= 1}
           aria-label={t('reader.pdf.previousPage')}
           title={t('reader.pdf.previousPage')}
@@ -104,12 +104,18 @@ export function PdfControls({
             if (event.key === 'Enter') event.currentTarget.blur()
           }}
         />
-        <span className="pdf-page-total">
-          {t('reader.pdf.pageTotal', { total: pages })}
+        <span
+          className="pdf-page-total"
+          dir="ltr"
+        >
+          <span aria-hidden="true">/ {pages}</span>
+          <span className="pdf-control-sr-only">
+            {t('reader.pdf.pageTotal', { total: pages })}
+          </span>
         </span>
         <button
           type="button"
-          className="pdf-control-button"
+          className="pdf-control-button pdf-page-next"
           disabled={!ready || currentPage >= pages}
           aria-label={t('reader.pdf.nextPage')}
           title={t('reader.pdf.nextPage')}
@@ -135,7 +141,7 @@ export function PdfControls({
             <path d="m15.5 15.5 5 5M7.5 10.5h6" />
           </svg>
         </button>
-        <label className="pdf-zoom-input">
+        <label className="pdf-zoom-input" dir="ltr">
           <input
             type="number"
             min={MIN_ZOOM}
@@ -150,7 +156,6 @@ export function PdfControls({
               if (event.key === 'Enter') event.currentTarget.blur()
             }}
           />
-          <span aria-hidden="true">%</span>
         </label>
         <button
           type="button"
