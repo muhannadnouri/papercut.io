@@ -1,6 +1,10 @@
 import { useState, useCallback, useRef } from 'react'
 import type { PagefindInstance, SearchResult } from '../types/search'
-import { searchUploadedDocuments, type UploadedDocumentSearchResult } from '../uploads/DocumentUploads'
+import {
+  isUploadedPdfDocumentUrl,
+  searchUploadedDocuments,
+  type UploadedDocumentSearchResult,
+} from '../uploads/DocumentUploads'
 import { normalizeForPhraseMatch, escapeHtml } from '../utils/textUtils'
 import {
   buildPhraseExcerpt,
@@ -83,12 +87,17 @@ export function useSearch(
       const pagefindPromise = pagefindRef.current
         ? pagefindRef.current.search(searchQuery)
         : Promise.resolve({ results: [] })
-      const uploadPromise = searchUploadedDocuments(searchQuery, hasScope ? 100 : 50, scopeList)
+      const uploadPromise = searchUploadedDocuments(
+        searchQuery,
+        hasScope ? 100 : 50,
+        scopeList,
+        phrases.length > 0 ? phrases : undefined,
+      )
       const [pagefindSearch, uploadedSearch] = await Promise.all([pagefindPromise, uploadPromise])
       if (latestSearchKeyRef.current !== searchKey) return
 
       const pagefindData = await pagefindResultsInScope(pagefindSearch.results, scopeUrls)
-      const uploadedData = uploadedSearchToResults(uploadedSearch)
+      const uploadedData = uploadedSearchToResults(uploadedSearch, phrases.length === 0)
       const data = [...pagefindData, ...uploadedData]
         .filter((result) => !scopeUrls?.size || scopeUrls.has(result.url))
         .slice(0, 100)
@@ -97,17 +106,31 @@ export function useSearch(
       let filtered = data
       if (phrases.length > 0) {
         const verdicts = await Promise.all(
-          data.map((d) => docContainsAllPhrases(d.url, phrases, options.loadDocumentSource)),
+          data.map((d) => (
+            isUploadedPdfDocumentUrl(d.url)
+              ? true
+              : docContainsAllPhrases(d.url, phrases, options.loadDocumentSource)
+          )),
         )
         if (latestSearchKeyRef.current !== searchKey) return
         filtered = data.filter((_, i) => verdicts[i])
         const [excerpts, matchCounts] = await Promise.all([
-          Promise.all(filtered.map((d) => buildPhraseExcerpt(d.url, phrases, options.loadDocumentSource))),
-          Promise.all(filtered.map((d) => countPhraseOccurrences(d.url, phrases, options.loadDocumentSource))),
+          Promise.all(filtered.map((d) => (
+            isUploadedPdfDocumentUrl(d.url)
+              ? null
+              : buildPhraseExcerpt(d.url, phrases, options.loadDocumentSource)
+          ))),
+          Promise.all(filtered.map((d) => (
+            isUploadedPdfDocumentUrl(d.url)
+              ? undefined
+              : countPhraseOccurrences(d.url, phrases, options.loadDocumentSource)
+          ))),
         ])
         if (latestSearchKeyRef.current !== searchKey) return
         filtered = filtered.map((d, i) =>
-          excerpts[i]
+          isUploadedPdfDocumentUrl(d.url)
+            ? d
+            : excerpts[i]
             ? { ...d, customExcerpt: excerpts[i] ?? undefined, matchCount: matchCounts[i] }
             : { ...d, matchCount: matchCounts[i] },
         )
@@ -210,7 +233,10 @@ function uploadedSearchToResult(result: UploadedDocumentSearchResult, matchCount
 // SQLite returns section-level hits, while the UI intentionally shows one card
 // per document. Preserve the section count for broad searches, but keep the
 // first ranked hit as the document's representative snippet.
-function uploadedSearchToResults(results: UploadedDocumentSearchResult[]): SearchResult[] {
+function uploadedSearchToResults(
+  results: UploadedDocumentSearchResult[],
+  includeSectionCount = true,
+): SearchResult[] {
   const matchCounts = new Map<string, number>()
   for (const result of results) {
     if (result.matchScope === 'document') {
@@ -227,7 +253,10 @@ function uploadedSearchToResults(results: UploadedDocumentSearchResult[]): Searc
     // document is the snippet we want to show on the single document-level card.
     if (seen.has(result.url)) continue
     seen.add(result.url)
-    deduped.push(uploadedSearchToResult(result, matchCounts.get(result.url)))
+    deduped.push(uploadedSearchToResult(
+      result,
+      includeSectionCount ? matchCounts.get(result.url) : undefined,
+    ))
   }
   return deduped
 }

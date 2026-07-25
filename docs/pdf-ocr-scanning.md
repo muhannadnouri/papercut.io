@@ -740,18 +740,22 @@ Stage status: In progress; import/search slice implemented, decision gate pendin
 - [x] Extract ordered page text and page locators outside the React render path.
 - [x] Index page-level text in SQLite FTS without storing binary data in SQLite.
 - [x] Return page-aware search results and sanitized snippets.
+- [x] Keep quoted PDF search index-backed, then verify normalized literal
+      phrases only in the bounded FTS candidate set.
 - [x] List indexed PDFs in the shared Library and Search document tree.
 - [ ] Generate a bounded first-page thumbnail for the Library gallery.
 - [x] Add bounded import progress, between-page cancellation, clear failures, and
       cleanup of failed or cancelled staged PDFs.
 - [ ] Add parser/index tests for the Stage 0 corpus.
 
-Automated evidence: the production frontend build, PDF.js extraction fixture,
-TypeScript check, focused ESLint pass, all frontend tests, all locale checks,
-and all 70 Rust library tests pass. The focused page-text tests cover inline
-format boundaries, line endings, finite coordinates, sidecar validation, FTS
-indexing, headingless PDF-page snippets, returned page locators, and shared
-Library/Search tree visibility.
+Automated evidence through the preceding checkpoint: the production frontend
+build, PDF.js extraction fixture, TypeScript check, focused ESLint pass, all
+frontend tests, all locale checks, and the Rust library suite passed. This
+quoted-search pass also has focused coverage that rejects
+non-contiguous terms and Porter-stem candidates that do not satisfy Papercut's
+normalized literal phrase semantics. Its TypeScript check passes locally; the
+Rust test binary awaits CI because this workstation lacks
+`javascriptcoregtk-4.1`.
 
 Decision gate: text-native fixtures import, list, search, reopen, transfer, and
 delete correctly without a PDF viewer-specific workaround in the search index.
@@ -917,6 +921,7 @@ Stage status: Deferred
 | 2026-07-24 | Stage 3 | Commit FTS rows only after all page sidecars validate | Failed or cancelled imports remove newly staged PDFs; partial page rows never become searchable |
 | 2026-07-25 | Stage 3 | Reuse the shared uploaded-document tree for PDF visibility | The upload URL parser now accepts both canonical `.html` and `.pdf` URLs, keeping Library and Search document lists on one hierarchy |
 | 2026-07-25 | Stage 3 | Build uploaded-document snippets from indexed body text | PDF pages intentionally have no heading, so FTS snippets target the text column and retain headingless page coverage |
+| 2026-07-25 | Stage 3 | Verify quoted PDF searches behind the FTS candidate filter | SQLite narrows the candidate set without loading PDF sources into React; Rust then preserves the existing normalized literal-phrase contract despite Porter stemming |
 
 ## References
 

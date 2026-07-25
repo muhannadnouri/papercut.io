@@ -120,6 +120,7 @@ pub(crate) struct UploadedDocumentSearchRequest {
     pub(crate) query: String,
     pub(crate) limit: Option<usize>,
     pub(crate) document_urls: Option<Vec<String>>,
+    pub(crate) exact_phrases: Option<Vec<String>>,
 }
 
 /// Request to delete one uploaded document by its URL.

@@ -122,6 +122,10 @@ export function isUploadedHtmlDocumentUrl(url: string): boolean {
   return /^\/uploads\/[a-fA-F0-9]+\.html(?:[#?].*)?$/.test(url)
 }
 
+export function isUploadedPdfDocumentUrl(url: string): boolean {
+  return /^\/uploads\/[a-fA-F0-9]+\.pdf(?:[#?].*)?$/.test(url)
+}
+
 export async function importDocumentBatch(): Promise<UploadedDocumentBatchResult> {
   const invoke = await loadTauriInvoke()
   return invoke<UploadedDocumentBatchResult>('document_uploads_import_batch')
@@ -153,11 +157,16 @@ export async function listUploadedDocuments(): Promise<UploadedDocument[]> {
   return invoke<UploadedDocument[]>('document_uploads_list')
 }
 
-export async function searchUploadedDocuments(query: string, limit = 50, documentUrls?: string[]): Promise<UploadedDocumentSearchResult[]> {
+export async function searchUploadedDocuments(
+  query: string,
+  limit = 50,
+  documentUrls?: string[],
+  exactPhrases?: string[],
+): Promise<UploadedDocumentSearchResult[]> {
   if (!isTauriRuntime() || query.trim().length === 0) return []
   const invoke = await loadTauriInvoke()
   return invoke<UploadedDocumentSearchResult[]>('document_uploads_search', {
-    request: { query, limit, documentUrls },
+    request: { query, limit, documentUrls, exactPhrases },
   })
 }
 

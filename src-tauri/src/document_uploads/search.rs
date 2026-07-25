@@ -3,7 +3,7 @@
 //! Read-only against the schema owned by [`super::store`]. Kept separate so
 //! query/ranking behavior can evolve without touching the write path.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use rusqlite::{params, params_from_iter, types::Value, Connection, Row};
 use tauri::Runtime;
@@ -23,11 +23,15 @@ pub(crate) fn search_uploads<R: Runtime>(
     app: &tauri::AppHandle<R>,
     request: UploadedDocumentSearchRequest,
 ) -> Result<Vec<UploadedDocumentSearchResult>, String> {
-    let terms = fts_fuzzy_terms(&request.query);
-    if terms.is_empty() {
+    let fuzzy_queries = fts_fuzzy_queries(&request.query);
+    if fuzzy_queries.is_empty() {
         return Ok(Vec::new());
     }
-    let query = fts_and_query(&terms);
+    let exact_phrases = request.exact_phrases.unwrap_or_default();
+    let exact_queries = fts_phrase_queries(&exact_phrases);
+    let mut queries = fuzzy_queries;
+    queries.extend(exact_queries.iter().cloned());
+    let query = fts_and_query(&queries);
 
     let db = open_db(app)?;
     let limit = request.limit.unwrap_or(50).clamp(1, 100) as i64;
@@ -39,21 +43,83 @@ pub(crate) fn search_uploads<R: Runtime>(
         .collect::<Vec<_>>();
 
     let mut results = search_section_hits(&db, &query, limit, &document_urls)?;
-    if terms.len() > 1 && results.len() < limit as usize {
+    if queries.len() > 1 && results.len() < limit as usize {
         let existing_document_ids = results
             .iter()
             .map(|result| result.document_id.clone())
             .collect::<HashSet<_>>();
         results.extend(search_cross_section_document_hits(
             &db,
-            &terms,
+            &queries,
             limit - results.len() as i64,
             &document_urls,
             &existing_document_ids,
         )?);
     }
+    if !exact_queries.is_empty() {
+        results = retain_exact_phrase_hits(&db, results, &exact_phrases)?;
+    }
     results.truncate(limit as usize);
     Ok(results)
+}
+
+/// FTS narrows the candidate set efficiently, then this verifies Papercut's
+/// literal, whitespace-normalized phrase semantics without reading every PDF.
+fn retain_exact_phrase_hits(
+    db: &Connection,
+    results: Vec<UploadedDocumentSearchResult>,
+    phrases: &[String],
+) -> Result<Vec<UploadedDocumentSearchResult>, String> {
+    let normalized_phrases = phrases
+        .iter()
+        .map(|phrase| normalize_exact_text(phrase))
+        .filter(|phrase| !phrase.is_empty())
+        .collect::<Vec<_>>();
+    let mut verdicts = HashMap::new();
+    let mut verified = Vec::new();
+
+    for result in results {
+        let matches = match verdicts.get(&result.document_id) {
+            Some(matches) => *matches,
+            None => {
+                let matches =
+                    document_contains_exact_phrases(db, &result.document_id, &normalized_phrases)?;
+                verdicts.insert(result.document_id.clone(), matches);
+                matches
+            }
+        };
+        if matches {
+            verified.push(result);
+        }
+    }
+    Ok(verified)
+}
+
+/// Stream indexed sections in reading order and stop once every phrase has
+/// appeared; memory stays bounded even when a candidate PDF has many pages.
+fn document_contains_exact_phrases(
+    db: &Connection,
+    document_id: &str,
+    phrases: &[String],
+) -> Result<bool, String> {
+    let mut stmt = db
+        .prepare(
+            "SELECT text FROM uploaded_sections \
+             WHERE document_id = ?1 ORDER BY ordinal ASC",
+        )
+        .map_err(db_err)?;
+    let rows = stmt
+        .query_map(params![document_id], |row| row.get::<_, String>(0))
+        .map_err(db_err)?;
+    let mut remaining = phrases.to_vec();
+    for row in rows {
+        let normalized = normalize_exact_text(&row.map_err(db_err)?);
+        remaining.retain(|phrase| !normalized.contains(phrase));
+        if remaining.is_empty() {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn search_section_hits(
@@ -86,12 +152,12 @@ fn search_section_hits(
     rows.collect::<Result<Vec<_>, _>>().map_err(db_err)
 }
 
-/// Find documents where every fuzzy term exists somewhere, even when no single
-/// section contains all terms. This preserves strong same-section ranking first
-/// while making broad EPUB searches behave like "these words are in this book".
+/// Find documents where every term or quoted phrase exists somewhere, even when
+/// no single section contains all of them. This keeps broad book searches useful
+/// without loading complete PDF text into the WebView.
 fn search_cross_section_document_hits(
     db: &Connection,
-    terms: &[String],
+    queries: &[String],
     limit: i64,
     document_urls: &[String],
     excluded_document_ids: &HashSet<String>,
@@ -100,10 +166,10 @@ fn search_cross_section_document_hits(
         return Ok(Vec::new());
     }
 
-    let mut candidate_ids = document_ids_matching_all_terms(db, terms, document_urls)?;
+    let mut candidate_ids = document_ids_matching_all_queries(db, queries, document_urls)?;
     candidate_ids.retain(|id| !excluded_document_ids.contains(id));
 
-    let query = fts_or_query(terms);
+    let query = fts_or_query(queries);
     let mut hits = Vec::new();
     for document_id in candidate_ids {
         if let Some(hit) = best_document_term_hit(db, &query, &document_id)? {
@@ -122,14 +188,14 @@ fn search_cross_section_document_hits(
         .collect())
 }
 
-fn document_ids_matching_all_terms(
+fn document_ids_matching_all_queries(
     db: &Connection,
-    terms: &[String],
+    queries: &[String],
     document_urls: &[String],
 ) -> Result<Vec<String>, String> {
     let mut intersection: Option<HashSet<String>> = None;
 
-    for term in terms {
+    for query in queries {
         let (scope_sql, mut values) = document_url_scope(document_urls);
         let sql = format!(
             "SELECT DISTINCT uploaded_document_fts.document_id \
@@ -137,7 +203,7 @@ fn document_ids_matching_all_terms(
              JOIN uploaded_documents d ON d.id = uploaded_document_fts.document_id \
              WHERE uploaded_document_fts MATCH ? {scope_sql}"
         );
-        values.insert(0, Value::Text(quote_fts_term(term)));
+        values.insert(0, Value::Text(query.clone()));
         let mut stmt = db.prepare(&sql).map_err(db_err)?;
         let rows = stmt
             .query_map(params_from_iter(values.iter()), |row| {
@@ -229,33 +295,57 @@ fn document_url_scope(document_urls: &[String]) -> (String, Vec<Value>) {
     )
 }
 
-/// Turn a broad/fuzzy query into safe FTS5 terms. Exact phrase semantics live
-/// in the frontend phrase verifier; this helper only builds candidate MATCH
-/// terms for uploaded-document FTS lookup.
+/// Turn a broad/fuzzy query into safe FTS5 terms for candidate lookup.
 fn fts_fuzzy_terms(query: &str) -> Vec<String> {
+    fts_terms(query, 12)
+}
+
+fn fts_fuzzy_queries(query: &str) -> Vec<String> {
+    fts_fuzzy_terms(query)
+        .iter()
+        .map(|term| quote_fts_term(term))
+        .collect()
+}
+
+/// Convert each user phrase to one safely quoted FTS5 phrase. The larger bound
+/// preserves normal quotations while keeping pathological pasted input finite.
+fn fts_phrase_queries(phrases: &[String]) -> Vec<String> {
+    phrases
+        .iter()
+        .filter_map(|phrase| {
+            let terms = fts_terms(phrase, 128);
+            (!terms.is_empty()).then(|| quote_fts_term(&terms.join(" ")))
+        })
+        .collect()
+}
+
+fn fts_terms(query: &str, limit: usize) -> Vec<String> {
     query
         .split_whitespace()
         .map(|part| part.trim_matches(|ch: char| !ch.is_alphanumeric() && ch != '_' && ch != '-'))
         .filter(|part| !part.is_empty())
-        .take(12)
+        .take(limit)
         .map(|term| term.replace('"', ""))
         .collect()
 }
 
-fn fts_and_query(terms: &[String]) -> String {
-    terms
-        .iter()
-        .map(|term| quote_fts_term(term))
+fn normalize_exact_text(text: &str) -> String {
+    text.replace('\u{2018}', "'")
+        .replace('\u{2019}', "'")
+        .replace('\u{201c}', "\"")
+        .replace('\u{201d}', "\"")
+        .split_whitespace()
         .collect::<Vec<_>>()
-        .join(" AND ")
+        .join(" ")
+        .to_lowercase()
 }
 
-fn fts_or_query(terms: &[String]) -> String {
-    terms
-        .iter()
-        .map(|term| quote_fts_term(term))
-        .collect::<Vec<_>>()
-        .join(" OR ")
+fn fts_and_query(queries: &[String]) -> String {
+    queries.join(" AND ")
+}
+
+fn fts_or_query(queries: &[String]) -> String {
+    queries.join(" OR ")
 }
 
 fn quote_fts_term(term: &str) -> String {
@@ -269,7 +359,8 @@ mod tests {
     use rusqlite::{params, Connection};
 
     use super::{
-        fts_and_query, fts_fuzzy_terms, search_cross_section_document_hits, search_section_hits,
+        fts_and_query, fts_fuzzy_queries, fts_fuzzy_terms, fts_phrase_queries,
+        retain_exact_phrase_hits, search_cross_section_document_hits, search_section_hits,
     };
 
     #[test]
@@ -286,13 +377,13 @@ mod tests {
             ],
         );
 
-        let terms = fts_fuzzy_terms("compass lantern");
-        let same_section =
-            search_section_hits(&db, &fts_and_query(&terms), 10, &[]).expect("same-section search");
+        let queries = fts_fuzzy_queries("compass lantern");
+        let same_section = search_section_hits(&db, &fts_and_query(&queries), 10, &[])
+            .expect("same-section search");
         assert!(same_section.is_empty());
 
         let excluded = HashSet::new();
-        let fallback = search_cross_section_document_hits(&db, &terms, 10, &[], &excluded)
+        let fallback = search_cross_section_document_hits(&db, &queries, 10, &[], &excluded)
             .expect("cross-section fallback");
 
         assert_eq!(fallback.len(), 1);
@@ -324,14 +415,15 @@ mod tests {
 
         let terms = fts_fuzzy_terms("well-made astrolabe");
         assert_eq!(terms, vec!["well-made", "astrolabe"]);
+        let queries = fts_fuzzy_queries("well-made astrolabe");
 
-        let same_section =
-            search_section_hits(&db, &fts_and_query(&terms), 10, &[]).expect("same-section search");
+        let same_section = search_section_hits(&db, &fts_and_query(&queries), 10, &[])
+            .expect("same-section search");
         let excluded = same_section
             .iter()
             .map(|result| result.document_id.clone())
             .collect::<HashSet<_>>();
-        let fallback = search_cross_section_document_hits(&db, &terms, 10, &[], &excluded)
+        let fallback = search_cross_section_document_hits(&db, &queries, 10, &[], &excluded)
             .expect("cross-section fallback");
 
         assert_eq!(same_section.len(), 1);
@@ -365,9 +457,9 @@ mod tests {
             200,
         );
 
-        let terms = fts_fuzzy_terms("compass lantern");
+        let queries = fts_fuzzy_queries("compass lantern");
         let excluded = HashSet::new();
-        let fallback = search_cross_section_document_hits(&db, &terms, 1, &[], &excluded)
+        let fallback = search_cross_section_document_hits(&db, &queries, 1, &[], &excluded)
             .expect("cross-section fallback");
 
         assert_eq!(fallback.len(), 1);
@@ -393,9 +485,9 @@ mod tests {
             &["The field notes mention a compass and lantern together."],
         );
 
-        let terms = fts_fuzzy_terms("compass lantern");
-        let same_section =
-            search_section_hits(&db, &fts_and_query(&terms), 10, &[]).expect("same-section search");
+        let queries = fts_fuzzy_queries("compass lantern");
+        let same_section = search_section_hits(&db, &fts_and_query(&queries), 10, &[])
+            .expect("same-section search");
 
         assert_eq!(same_section.len(), 1);
         assert_eq!(same_section[0].match_scope, "section");
@@ -427,6 +519,52 @@ mod tests {
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].page_index, Some(6));
         assert!(hits[0].excerpt.contains("<mark>astrolabe</mark>"));
+    }
+
+    #[test]
+    fn phrase_search_rejects_words_with_an_intervening_token() {
+        let db = test_db();
+        insert_document(
+            &db,
+            "exact-phrase",
+            "/uploads/exact-phrase.pdf",
+            "Exact Phrase",
+            &["The silver compass points north."],
+        );
+        insert_document(
+            &db,
+            "separated-phrase",
+            "/uploads/separated-phrase.pdf",
+            "Separated Phrase",
+            &["The silver pocket compass points north."],
+        );
+
+        let queries = fts_phrase_queries(&["silver compass".to_string()]);
+        let hits =
+            search_section_hits(&db, &fts_and_query(&queries), 10, &[]).expect("phrase search");
+
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].document_id, "exact-phrase");
+    }
+
+    #[test]
+    fn phrase_verifier_rejects_porter_stem_false_positives() {
+        let db = test_db();
+        insert_document(
+            &db,
+            "stemmed-candidate",
+            "/uploads/stemmed-candidate.pdf",
+            "Stemmed Candidate",
+            &["The running compass points north."],
+        );
+
+        let queries = fts_phrase_queries(&["run compass".to_string()]);
+        let candidates = search_section_hits(&db, &fts_and_query(&queries), 10, &[])
+            .expect("stemmed FTS candidates");
+        let verified = retain_exact_phrase_hits(&db, candidates, &["run compass".to_string()])
+            .expect("literal phrase verification");
+
+        assert!(verified.is_empty());
     }
 
     fn test_db() -> Connection {
