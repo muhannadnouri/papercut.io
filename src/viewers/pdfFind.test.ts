@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createPdfFindAdapter } from './pdfFind'
+import { createPdfFindAdapter, pdfSearchTargetPage } from './pdfFind'
 
 class TestEventBus {
   readonly dispatched: Array<{ name: string; event: Record<string, unknown> }> = []
@@ -22,6 +22,14 @@ class TestEventBus {
 }
 
 describe('PDF Find adapter', () => {
+  it('maps indexed search results to bounded PDF.js page numbers', () => {
+    expect(pdfSearchTargetPage({ text: 'rabbit', pageIndex: 6 }, 10)).toBe(7)
+    expect(pdfSearchTargetPage({ text: 'rabbit', pageIndex: 12 }, 10)).toBe(10)
+    expect(pdfSearchTargetPage({ text: 'rabbit', pageIndex: 0 })).toBe(1)
+    expect(pdfSearchTargetPage({ text: '', pageIndex: 6 }, 10)).toBeNull()
+    expect(pdfSearchTargetPage({ text: 'rabbit' }, 10)).toBeNull()
+  })
+
   it('maps search, navigation, result counts, and cleanup to PDF.js events', () => {
     const eventBus = new TestEventBus()
     const onResult = vi.fn()

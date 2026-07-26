@@ -319,6 +319,8 @@
       "outline": "Document outline",
       "closeOutline": "Close document outline",
       "loading": "Loading PDF...",
+      "locatingMatch": "Opening page {{page, number}} and locating the match...",
+      "verifyingMatch": "Verifying the match in the document...",
       "document": "PDF document",
       "documentPages": "PDF document, {{count, number}} pages"
     }

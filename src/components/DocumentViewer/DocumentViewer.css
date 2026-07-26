@@ -507,9 +507,13 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
     background: var(--reader-surface);
   }
 
+  .app-reader-pdf {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
   .app-reader-pdf .doc-header {
-    margin-bottom: 0.75rem;
-    padding-bottom: 1.25rem;
+    margin-bottom: 0;
+    padding-bottom: 0.5rem;
   }
 
   .find-btn,
@@ -560,9 +564,21 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 
   .app-reader-pdf .doc-header {
     grid-template-areas:
-      "back reader"
-      "audio audio"
+      "back controls"
       "viewer viewer";
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .app-reader-pdf .header-right {
+    display: flex;
+    grid-area: controls;
+    justify-self: end;
+  }
+
+  .app-reader-pdf .header-control-group-audio,
+  .app-reader-pdf .header-control-group-audio .audio-controls,
+  .app-reader-pdf .header-control-group-audio .audio-compact-row {
+    width: auto;
   }
 
   .header-right {

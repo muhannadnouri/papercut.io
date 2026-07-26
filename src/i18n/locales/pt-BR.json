@@ -324,6 +324,8 @@
       "outline": "Sumário do documento",
       "closeOutline": "Fechar sumário do documento",
       "loading": "Carregando PDF...",
+      "locatingMatch": "Abrindo a página {{page, number}} e localizando a correspondência...",
+      "verifyingMatch": "Verificando a correspondência no documento...",
       "document": "Documento PDF",
       "documentPages": "Documento PDF, {{count, number}} páginas"
     }

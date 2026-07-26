@@ -20,7 +20,11 @@ import {
   applyPdfTtsHighlight,
   clearPdfTtsHighlight,
 } from '../pdf/pdfTtsHighlight'
-import { createPdfFindAdapter } from './pdfFind'
+import {
+  clearSearchTargetHighlight,
+  highlightFirstSearchTarget,
+} from '../components/DocumentViewer/readerTarget'
+import { createPdfFindAdapter, pdfSearchTargetPage } from './pdfFind'
 import {
   PdfControls,
   type PdfFitMode,
@@ -38,6 +42,12 @@ type PdfOutlineItem = Awaited<ReturnType<PDFDocumentProxy['getOutline']>>[number
 type PdfDestination = Parameters<PDFLinkService['goToDestination']>[0]
 const ignoreFindResult: NonNullable<ViewerProps['onFindResult']> = () => {}
 const WIDE_PDF_VIEW = '(min-width: 900px)'
+const PDF_FIND_PENDING = 3
+
+type PdfSearchProgress = {
+  pageNumber: number
+  phase: 'locating' | 'verifying'
+}
 
 function OutlineItems({
   items,
@@ -86,6 +96,8 @@ export function PdfViewer({
   const linkServiceRef = useRef<PDFLinkService | null>(null)
   const findAdapterRef = useRef<ReturnType<typeof createPdfFindAdapter> | null>(null)
   const spreadModesRef = useRef<{ NONE: number; ODD: number } | null>(null)
+  const searchTargetRef = useRef(searchTarget)
+  searchTargetRef.current = searchTarget
   const outlineCloseRef = useRef<HTMLButtonElement>(null)
   const [status, setStatus] = useState<PdfViewerStatus>({ state: 'loading' })
   const [currentPage, setCurrentPage] = useState(1)
@@ -94,6 +106,7 @@ export function PdfViewer({
   const [outline, setOutline] = useState<PdfOutlineItem[]>([])
   const [outlineOpen, setOutlineOpen] = useState(false)
   const [spreadMode, setSpreadMode] = useState<PdfSpreadMode>('single')
+  const [searchProgress, setSearchProgress] = useState<PdfSearchProgress | null>(null)
 
   const applySpreadMode = useCallback((next: PdfSpreadMode) => {
     setSpreadMode(next)
@@ -179,6 +192,11 @@ export function PdfViewer({
           pdfViewer.currentScaleValue = window.matchMedia(WIDE_PDF_VIEW).matches
             ? '1'
             : 'page-width'
+          const targetPage = pdfSearchTargetPage(
+            searchTargetRef.current,
+            pdfViewer.pagesCount,
+          )
+          if (targetPage !== null) pdfViewer.currentPageNumber = targetPage
         }
       }
       const handlePageChange = ({ pageNumber }: { pageNumber: number }) => {
@@ -303,22 +321,76 @@ export function PdfViewer({
   }, [pdfTtsHighlightSpans, status])
 
   useEffect(() => {
+    setSearchProgress(null)
     if (status.state !== 'ready' || !searchTarget) return
     const pdfViewer = pdfViewerRef.current
-    if (!pdfViewer) return
+    const eventBus = eventBusRef.current
+    const viewer = viewerRef.current
+    const findAdapter = findAdapterRef.current
+    const text = searchTarget.text?.trim()
+    if (!pdfViewer || !eventBus || !viewer || !text) return
 
-    if (searchTarget.pageIndex !== undefined) {
-      pdfViewer.currentPageNumber = Math.min(
-        Math.max(searchTarget.pageIndex + 1, 1),
-        status.pages,
-      )
+    clearSearchTargetHighlight(viewer)
+
+    if (searchTarget.pageIndex === undefined) {
+      const frame = requestAnimationFrame(() => findAdapter?.api.search(text))
+      return () => cancelAnimationFrame(frame)
     }
-    if (!searchTarget.text?.trim()) return
 
+    const pageNumber = pdfSearchTargetPage(searchTarget, status.pages)
+    if (pageNumber === null) return
+    let complete = false
+    let fallbackStarted = false
+    setSearchProgress({ pageNumber, phase: 'locating' })
+
+    const finish = () => {
+      if (complete) return
+      complete = true
+      setSearchProgress(null)
+    }
+    const highlightTargetPage = () => {
+      const textLayer = renderedPdfTextLayer(viewer, pageNumber)
+      if (!textLayer) return false
+      const range = highlightFirstSearchTarget(textLayer, text)
+      if (!range) return false
+
+      finish()
+      range.startContainer.parentElement?.scrollIntoView({
+        block: 'center',
+        behavior: 'smooth',
+      })
+      return true
+    }
+    const fallbackToDocumentFind = () => {
+      if (complete || fallbackStarted) return
+      fallbackStarted = true
+      setSearchProgress({ pageNumber, phase: 'verifying' })
+      findAdapter?.api.search(text)
+    }
+    const handleTextLayerRendered = ({ pageNumber: renderedPage }: { pageNumber: number }) => {
+      if (renderedPage !== pageNumber) return
+      if (!highlightTargetPage()) fallbackToDocumentFind()
+    }
+    const handleFindSettled = ({ state }: { state: number }) => {
+      if (fallbackStarted && state !== PDF_FIND_PENDING) finish()
+    }
+
+    eventBus.on('textlayerrendered', handleTextLayerRendered)
+    eventBus.on('updatefindcontrolstate', handleFindSettled)
+    pdfViewer.currentPageNumber = pageNumber
     const frame = requestAnimationFrame(() => {
-      findAdapterRef.current?.api.search(searchTarget.text!)
+      if (highlightTargetPage()) return
+      if (renderedPdfTextLayer(viewer, pageNumber)) fallbackToDocumentFind()
     })
-    return () => cancelAnimationFrame(frame)
+
+    return () => {
+      complete = true
+      cancelAnimationFrame(frame)
+      eventBus.off('textlayerrendered', handleTextLayerRendered)
+      eventBus.off('updatefindcontrolstate', handleFindSettled)
+      clearSearchTargetHighlight(viewer)
+      if (fallbackStarted) findAdapter?.api.clear()
+    }
   }, [searchTarget, status])
 
   useEffect(() => {
@@ -333,6 +405,10 @@ export function PdfViewer({
 
   const pages = status.state === 'ready' ? status.pages : 1
   const ready = status.state === 'ready'
+  const requestedSearchPage = pdfSearchTargetPage(
+    searchTarget,
+    status.state === 'ready' ? status.pages : undefined,
+  )
 
   const selectOutlineItem = (destination: PdfDestination) => {
     setOutlineOpen(false)
@@ -402,16 +478,29 @@ export function PdfViewer({
             {status.state === 'loading' ? (
               <>
                 <span className="spinner" aria-hidden="true" />
-                {t('reader.pdf.loading')}
+                {requestedSearchPage === null
+                  ? t('reader.pdf.loading')
+                  : t('reader.pdf.locatingMatch', { page: requestedSearchPage })}
               </>
             ) : status.message}
           </div>
         )}
         <div className="pdf-viewer-document">
+          {status.state === 'ready' && searchProgress !== null && (
+            <div className="pdf-search-target-status" role="status" aria-live="polite">
+              <span className="spinner" aria-hidden="true" />
+              {t(
+                searchProgress.phase === 'verifying'
+                  ? 'reader.pdf.verifyingMatch'
+                  : 'reader.pdf.locatingMatch',
+                { page: searchProgress.pageNumber },
+              )}
+            </div>
+          )}
           <div
             ref={containerRef}
             className="pdf-viewer-container"
-            aria-busy={status.state === 'loading'}
+            aria-busy={status.state === 'loading' || searchProgress !== null}
             aria-label={status.state === 'ready'
               ? t('reader.pdf.documentPages', { count: status.pages })
               : t('reader.pdf.document')}
@@ -422,6 +511,19 @@ export function PdfViewer({
       </div>
     </div>
   )
+}
+
+/**
+ * PDF.js appends `.endOfContent` only after a page text layer is complete.
+ *
+ * Waiting for that sentinel avoids treating a mounted but still-empty layer as
+ * a failed indexed-page match and unnecessarily starting a whole-PDF search.
+ */
+function renderedPdfTextLayer(viewer: HTMLElement, pageNumber: number): HTMLElement | null {
+  const textLayer = viewer.querySelector<HTMLElement>(
+    `.page[data-page-number="${pageNumber}"] .textLayer`,
+  )
+  return textLayer?.querySelector('.endOfContent') ? textLayer : null
 }
 
 /**

@@ -324,6 +324,8 @@
       "outline": "Indice del documento",
       "closeOutline": "Chiudi indice del documento",
       "loading": "Caricamento PDF...",
+      "locatingMatch": "Apertura della pagina {{page, number}} e ricerca della corrispondenza...",
+      "verifyingMatch": "Verifica della corrispondenza nel documento...",
       "document": "Documento PDF",
       "documentPages": "Documento PDF, {{count, number}} pagine"
     }

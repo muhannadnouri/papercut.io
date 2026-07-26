@@ -319,6 +319,8 @@
       "outline": "दस्तावेज़ रूपरेखा",
       "closeOutline": "दस्तावेज़ रूपरेखा बंद करें",
       "loading": "PDF लोड हो रहा है...",
+      "locatingMatch": "पृष्ठ {{page, number}} खोला जा रहा है और मिलान खोजा जा रहा है...",
+      "verifyingMatch": "दस्तावेज़ में मिलान की पुष्टि की जा रही है...",
       "document": "PDF दस्तावेज़",
       "documentPages": "PDF दस्तावेज़, {{count, number}} पृष्ठ"
     }

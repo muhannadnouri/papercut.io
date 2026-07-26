@@ -1,4 +1,5 @@
 import type { ViewerFindApi, ViewerFindResult } from './types'
+import type { SearchOpenTarget } from '../types/search'
 
 interface PdfFindEventBus {
   on: (name: string, listener: (event: PdfFindResultEvent) => void) => void
@@ -16,6 +17,16 @@ interface PdfFindResultEvent {
 interface PdfFindAdapter {
   api: ViewerFindApi
   dispose: () => void
+}
+
+/** Map the indexed zero-based PDF page to PDF.js's one-based viewer page. */
+export function pdfSearchTargetPage(
+  target: SearchOpenTarget | null | undefined,
+  pageCount?: number,
+): number | null {
+  if (!target?.text?.trim() || target.pageIndex === undefined) return null
+  const page = Math.max(target.pageIndex + 1, 1)
+  return pageCount === undefined ? page : Math.min(page, Math.max(pageCount, 1))
 }
 
 /** Translate Papercut's existing Find controls into PDF.js's public event

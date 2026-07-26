@@ -265,7 +265,9 @@ export function DocumentViewer({
           )}
           <div className="header-control-group header-control-group-reader">
             {appControls}
-            <ReaderSettings disabled={loading || plugin.id === 'pdf'} {...readerSettingsProps} />
+            {plugin.id !== 'pdf' && (
+              <ReaderSettings disabled={loading} {...readerSettingsProps} />
+            )}
             <button
               className="find-btn"
               disabled={loading || Boolean(loadError)}

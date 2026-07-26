@@ -339,6 +339,8 @@
       "outline": "مخطط المستند",
       "closeOutline": "إغلاق مخطط المستند",
       "loading": "جارٍ تحميل ملف PDF...",
+      "locatingMatch": "جارٍ فتح الصفحة {{page, number}} وتحديد موقع المطابقة...",
+      "verifyingMatch": "جارٍ التحقق من المطابقة في المستند...",
       "document": "مستند PDF",
       "documentPages": "مستند PDF، {{count, number}} صفحة"
     }

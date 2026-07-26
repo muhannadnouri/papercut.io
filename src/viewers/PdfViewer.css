@@ -21,6 +21,30 @@
   position: relative;
 }
 
+.pdf-search-target-status {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px var(--shadow-soft);
+  color: var(--text-heading);
+  display: inline-flex;
+  font-size: 0.875rem;
+  font-weight: 600;
+  gap: 0.5rem;
+  inset-block-start: 0.75rem;
+  inset-inline-start: 50%;
+  padding: 0.5rem 0.75rem;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-50%);
+  z-index: 3;
+}
+
+html[dir="rtl"] .pdf-search-target-status {
+  transform: translateX(50%);
+}
+
 .pdf-viewer-container {
   inset: 0;
   overflow: auto;
@@ -35,6 +59,11 @@
 
 .pdf-viewer .pdfViewer .page {
   box-shadow: 0 1px 5px var(--shadow-soft);
+}
+
+.pdf-viewer mark[data-search-target] {
+  background: var(--highlight-current);
+  color: var(--highlight-current-text);
 }
 
 .pdf-tts-highlight-layer {

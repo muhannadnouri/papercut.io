@@ -779,12 +779,13 @@ centered on wide screens while view controls remain in the same compact
 control cluster. Fine-pointer layouts use
 compact controls, narrow and coarse-pointer layouts retain 44-pixel touch
 targets, and all layouts expose labels and pressed state to assistive
-technology. Reading appearance controls are disabled for PDFs because PDF.js
+technology. Reading appearance controls are omitted for PDFs because PDF.js
 renders the document's own page appearance. Viewer chrome follows the app
 theme, and the PDF viewport consumes
 the reader height left by optional Find and Diagnostics UI instead of using a
 fixed viewport percentage. Wide layouts tighten the PDF header spacing while
-narrow layouts retain the divider breathing room used by the borderless reader.
+narrow layouts use one reader-action row plus the PDF toolbar and do not reserve
+the main app navigation's unused bottom padding.
 At desktop widths of 1100 CSS pixels and above, the existing PDF toolbar is
 portaled into the reader header's centered slot; smaller layouts retain a
 separate centered row without duplicating viewer state or controls.
@@ -823,16 +824,22 @@ Decision gate passed: Find, global search, TTS playback/highlighting, location
 restoration, and portable saved audiobooks pass the Stage 0 parity suite.
 
 Implementation evidence: the shared reader Find bar now delegates PDF searches
-to PDF.js's `PDFFindController`, which extracts and searches pages on demand,
-updates Papercut's existing match count, renders highlights through the PDF.js
-text layer, and navigates next/previous matches without rendering the complete
-document. HTML and EPUB retain their existing DOM-range implementation.
+to PDF.js's `PDFFindController`, which schedules text extraction across the
+document, updates Papercut's existing match count, renders highlights through
+the PDF.js text layer, and navigates next/previous matches without rendering
+every page. HTML and EPUB retain their existing DOM-range implementation.
 
 Uploaded-PDF SQLite hits now preserve their indexed zero-based page locator
-through the shared search-result shape. Opening a result selects that page and
-uses PDF.js to locate and highlight the marked term or original quoted phrase;
-the PDF source and complete extracted text are not copied into React state.
-The focused PDF Find adapter test, full 23-test frontend suite, TypeScript
+through the shared search-result shape. Opening a result applies that locator
+during PDF.js `pagesinit`, making the indexed page the viewer's first meaningful
+render instead of rendering page one and then navigating. Once its text layer
+is ready, Papercut's normalized range matcher highlights the marked term or
+original quoted phrase on that page. It falls back to `PDFFindController` only
+when the indexed page cannot reproduce the match. A nonmodal live status
+distinguishes opening the indexed page from the rare whole-document
+verification fallback. The PDF source and complete extracted text are not
+copied into React state.
+The focused PDF Find adapter and reader range tests, full frontend suite, TypeScript
 check, focused ESLint pass, and production Vite build pass. Manual acceptance
 should cover a match on a late unrendered page, next/previous wraparound, a
 quoted global-search result, RTL text, no matches, and closing Find.
@@ -1048,6 +1055,7 @@ Stage status: Deferred
 | 2026-07-25 | Stage 5 | Extend the existing audiobook bundle for canonical PDFs | Version 3 adds a typed PDF source while HTML stays on version 2; imports reuse PDF.js indexing instead of copying derived page text, FTS rows, or thumbnails |
 | 2026-07-25 | Stage 4 | Start wide PDF readers at 100% | Desktop avoids unexpectedly large fit-width scales while narrow layouts retain fit width for usable first-open framing |
 | 2026-07-25 | Stage 5 | Close text-native PDF reader parity | Manual acceptance passed Find, global search, TTS, highlighting, bookmarks, portable audiobooks, responsive/RTL controls, and single-page multi-column reading order |
+| 2026-07-26 | Stage 5 | Render indexed search-result pages first | PDF import already stores page-level text and FTS locators; applying that locator during `pagesinit` removes the redundant page-one render while retaining PDF.js text-layer highlighting and whole-document Find as a correctness fallback |
 | 2026-07-25 | Stage 5 | Remove the temporary PDF WebView harness | The production import and reader paths now cover its worker, canvas, text-layer, and cleanup responsibilities without maintaining a second app entry point |
 
 ## References

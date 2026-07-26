@@ -314,6 +314,8 @@
       "outline": "文档大纲",
       "closeOutline": "关闭文档大纲",
       "loading": "正在加载 PDF...",
+      "locatingMatch": "正在打开第 {{page, number}} 页并定位匹配项...",
+      "verifyingMatch": "正在文档中验证匹配项...",
       "document": "PDF 文档",
       "documentPages": "PDF 文档，共 {{count, number}} 页"
     }
