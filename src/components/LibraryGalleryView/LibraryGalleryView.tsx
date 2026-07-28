@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
 import type { DocumentInfo } from '../../types/search'
 import { getUploadedDocumentCover } from '../../uploads/DocumentUploads'
+import { BundledDocumentTree } from '../BundledDocumentTree/BundledDocumentTree'
+import { splitDocumentGroupsBySource } from '../DocumentBrowser/documentGroups'
 import { DocumentList } from '../DocumentList/DocumentList'
 import { isBookDocument } from './libraryCategories'
 import './LibraryGalleryView.css'
@@ -45,6 +47,7 @@ export function LibraryGalleryView({
   const { t } = useTranslation()
   const bookGroups = filterGroups(groupedDocs, isBookDocument)
   const documentGroups = filterGroups(groupedDocs, (doc) => !isBookDocument(doc))
+  const { bundledDocs, nonBundledGroups } = splitDocumentGroupsBySource(documentGroups)
   const books = bookGroups.flatMap((group) => group.docs)
   const documentCount = documentGroups.reduce((total, group) => total + group.docs.length, 0)
 
@@ -83,18 +86,32 @@ export function LibraryGalleryView({
           <p className="no-results">{groupedDocs.length === 0 ? emptyMessage : t('library.documents.emptyBooks')}</p>
         )
       ) : (
-        <DocumentList
-          groupedDocs={documentGroups}
-          collapsedAuthors={collapsedAuthors}
-          docFilterLower={docFilterLower}
-          emptyMessage={groupedDocs.length === 0 ? emptyMessage : t('library.documents.emptyCategoryDocuments')}
-          onToggleAuthor={onToggleAuthor}
-          onViewDocument={onViewDocument}
-          onDeleteDocument={onDeleteDocument}
-          deleteDisabled={documentOpening || mutationDisabled}
-          openingDocumentUrl={openingDocumentUrl}
-          viewDisabled={documentOpening}
-        />
+        <>
+          {bundledDocs.length > 0 && (
+            <BundledDocumentTree
+              documents={bundledDocs}
+              filterActive={docFilterLower.length > 0}
+              documentOpening={documentOpening}
+              openingDocumentUrl={openingDocumentUrl}
+              onViewDocument={onViewDocument}
+            />
+          )}
+
+          {(nonBundledGroups.length > 0 || bundledDocs.length === 0) && (
+            <DocumentList
+              groupedDocs={nonBundledGroups}
+              collapsedAuthors={collapsedAuthors}
+              docFilterLower={docFilterLower}
+              emptyMessage={groupedDocs.length === 0 ? emptyMessage : t('library.documents.emptyCategoryDocuments')}
+              onToggleAuthor={onToggleAuthor}
+              onViewDocument={onViewDocument}
+              onDeleteDocument={onDeleteDocument}
+              deleteDisabled={documentOpening || mutationDisabled}
+              openingDocumentUrl={openingDocumentUrl}
+              viewDisabled={documentOpening}
+            />
+          )}
+        </>
       )}
     </div>
   )

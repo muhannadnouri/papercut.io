@@ -5,11 +5,12 @@ import { Button, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-compone
 import type { DocumentInfo } from '../../types/search'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
 import type { UploadedDocumentDeleteBatchResult, UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
+import { BundledDocumentTree } from '../BundledDocumentTree/BundledDocumentTree'
 import { Panel } from '../Panel/Panel'
 import { DocumentList } from '../DocumentList/DocumentList'
 import { UploadedLibraryTree } from '../UploadedLibraryTree/UploadedLibraryTree'
 import { LibraryGalleryView, type LibraryGalleryCategory } from '../LibraryGalleryView/LibraryGalleryView'
-import { splitDocumentGroupsByUpload } from '../DocumentBrowser/documentGroups'
+import { splitDocumentGroupsBySource } from '../DocumentBrowser/documentGroups'
 import '../DocumentBrowser/DocumentBrowser.css'
 
 interface DocumentsPanelStatus {
@@ -97,7 +98,12 @@ export function DocumentsPanel({
   const importBusy = importStatuses.some((item) => item.status === 'importing')
   const operationBusy = importStatuses.some((item) => item.status === 'importing' || item.status === 'deleting')
   const importDisabled = hasImportOptions && importOptions.every((option) => option.disabled || option.future || !option.onSelect)
-  const { uploadDocs, nonUploadGroups } = splitDocumentGroupsByUpload(groupedDocs)
+  const {
+    uploadDocs,
+    bundledDocs,
+    nonBundledGroups,
+    otherGroups,
+  } = splitDocumentGroupsBySource(groupedDocs)
   const canShowUploadedTree = Boolean(
     libraryOrganization &&
     onCreateLibraryFolder &&
@@ -106,6 +112,9 @@ export function DocumentsPanel({
     onMoveLibraryDocuments &&
     onRenameLibraryFolder,
   )
+  const documentListGroups = canShowUploadedTree ? otherGroups : nonBundledGroups
+  const hasFolderTree = bundledDocs.length > 0 ||
+    (canShowUploadedTree && uploadDocs.length > 0)
 
   if (documentsLoading) {
     return (
@@ -260,9 +269,19 @@ export function DocumentsPanel({
             />
           )}
 
-          {(!canShowUploadedTree || nonUploadGroups.length > 0 || uploadDocs.length === 0) && (
+          {bundledDocs.length > 0 && (
+            <BundledDocumentTree
+              documents={bundledDocs}
+              filterActive={docFilterLower.length > 0}
+              documentOpening={documentOpening}
+              openingDocumentUrl={openingDocumentUrl}
+              onViewDocument={onViewDocument}
+            />
+          )}
+
+          {(documentListGroups.length > 0 || !hasFolderTree) && (
             <DocumentList
-              groupedDocs={canShowUploadedTree ? nonUploadGroups : groupedDocs}
+              groupedDocs={documentListGroups}
               collapsedAuthors={collapsedAuthors}
               docFilterLower={docFilterLower}
               emptyMessage={emptyMessage(allDocuments.length, audioSavedOnly, documentFilter, t)}
