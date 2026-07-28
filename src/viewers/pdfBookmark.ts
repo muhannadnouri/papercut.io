@@ -8,6 +8,8 @@ type ViewAreaEvent = {
   location: ViewerBookmarkLocation
 }
 
+const BOOKMARK_VISIBILITY_MARGIN_PX = 8
+
 /**
  * Keep bookmark state in PDF page coordinates reported by PDF.js.
  *
@@ -38,11 +40,16 @@ export function createPdfBookmarkApi(
 
   return {
     capture: () => currentLocation,
-    isCurrent: (location) => (
-      currentLocation.pageNumber === location.pageNumber &&
-      Math.abs(currentLocation.left - location.left) <= 72 &&
-      Math.abs(currentLocation.top - location.top) <= 72
-    ),
+    isCurrent: (location) => {
+      const pageView = pdfViewer.getPageView(location.pageNumber - 1)
+      if (!pageView) return false
+      const [, pointY] = pageView.viewport.convertToViewportPoint(location.left, location.top)
+      const pageBounds = pageView.div.getBoundingClientRect()
+      const containerBounds = container.getBoundingClientRect()
+      const bookmarkY = pageBounds.top + pointY
+      return bookmarkY >= containerBounds.top - BOOKMARK_VISIBILITY_MARGIN_PX &&
+        bookmarkY <= containerBounds.bottom + BOOKMARK_VISIBILITY_MARGIN_PX
+    },
     isPastStart: () => pdfViewer.currentPageNumber > 1 || container.scrollTop > 180,
     restore: (location) => {
       pdfViewer.scrollPageIntoView({

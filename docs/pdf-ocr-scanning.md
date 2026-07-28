@@ -823,8 +823,8 @@ Stage status: Complete; PDF coordinate bookmark regression check pending
       page.
 - [x] Verify saved audiobook create, play, reopen, export, and import behavior.
 - [x] Compare all agreed parity cases against HTML/EPUB.
-- [ ] Re-verify PDF bookmark restore after changing zoom, viewport width, and
-      spread mode.
+- [ ] Re-verify PDF bookmark restore and active-state visibility after changing
+      zoom, viewport width, and spread mode.
 
 Decision gate passed: Find, global search, TTS playback/highlighting, location
 restoration, and portable saved audiobooks pass the Stage 0 parity suite.
@@ -888,7 +888,9 @@ PDF bookmarks continue using the shared explicit-bookmark hook and localStorage
 record. PDF.js supplies a small viewer adapter that stores the current page and
 PDF-space coordinates, restores that location through its native destination
 API after the first page renders, and drives the existing bookmark/top controls
-from its internal scroll container.
+from its internal scroll container. The active bookmark indicator follows
+whether the saved vertical PDF point is visible, so zoom-driven page recentering
+does not make a visible bookmark appear inactive.
 HTML and EPUB retain their existing window-scroll bookmark fields and behavior.
 The original PDF save/update/remove and scroll-to-top acceptance checks pass;
 coordinate restoration across changed zoom, viewport width, and spread mode is

@@ -16,10 +16,17 @@ describe('createPdfBookmarkApi', () => {
     const pdfViewer = {
       currentPageNumber: 1,
       pagesCount: 200,
+      getPageView: () => ({
+        div: { getBoundingClientRect: () => ({ top: 100 }) },
+        viewport: { convertToViewportPoint: () => [0, 200] },
+      }),
       update: vi.fn(),
       scrollPageIntoView: vi.fn(),
     } as unknown as PdfJsViewer
-    const container = { scrollTop: 0 } as HTMLElement
+    const container = {
+      scrollTop: 0,
+      getBoundingClientRect: () => ({ top: 0, bottom: 600 }),
+    } as unknown as HTMLElement
     const api = createPdfBookmarkApi(pdfViewer, container, eventBus)
     const first = vi.fn()
     const second = vi.fn()
@@ -35,6 +42,33 @@ describe('createPdfBookmarkApi', () => {
     expect(first).not.toHaveBeenCalled()
     expect(second).toHaveBeenCalledOnce()
     expect(api.isCurrent({ pageNumber: 136, left: 0, top: 720 })).toBe(true)
+  })
+
+  it('keeps a bookmark active across zoom changes while its point remains visible', () => {
+    const eventBus = { on: vi.fn() } as unknown as EventBus
+    let pageTop = 80
+    const pdfViewer = {
+      currentPageNumber: 136,
+      pagesCount: 200,
+      getPageView: () => ({
+        div: { getBoundingClientRect: () => ({ top: pageTop }) },
+        viewport: { convertToViewportPoint: () => [480, 240] },
+      }),
+      update: vi.fn(),
+    } as unknown as PdfJsViewer
+    const api = createPdfBookmarkApi(
+      pdfViewer,
+      {
+        scrollTop: 0,
+        getBoundingClientRect: () => ({ top: 0, bottom: 600 }),
+      } as unknown as HTMLElement,
+      eventBus,
+    )
+    const bookmark = { pageNumber: 136, left: 0, top: 720 }
+
+    expect(api.isCurrent(bookmark)).toBe(true)
+    pageTop = -400
+    expect(api.isCurrent(bookmark)).toBe(false)
   })
 
   it('restores PDF coordinates without changing zoom', () => {
