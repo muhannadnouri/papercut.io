@@ -63,7 +63,6 @@ export function BundledDocumentTree({
   }
 
   const handleAction = (key: Key) => {
-    if (documentOpening) return
     const item = itemByKey.get(String(key))
     if (!item) return
     if (item.kind === 'folder') {
@@ -71,6 +70,7 @@ export function BundledDocumentTree({
       else toggleFolderExpanded(String(key))
       return
     }
+    if (documentOpening) return
     if (filterMode) onToggleFilter?.(item.document.url)
     else onViewDocument?.(item.document.url)
   }
@@ -212,7 +212,11 @@ export function BundledDocumentTree({
       expandedKeys={visibleExpandedKeys}
       onExpandedChange={setExpandedKeys}
       onAction={handleAction}
-      disabledKeys={documentOpening ? Array.from(itemByKey.keys()) : undefined}
+      disabledKeys={documentOpening
+        ? Array.from(itemByKey)
+          .filter(([, item]) => item.kind === 'document')
+          .map(([key]) => key)
+        : undefined}
     >
       {tree.folders.map(renderFolder)}
       {tree.documents.map(renderDocument)}

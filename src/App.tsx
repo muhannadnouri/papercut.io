@@ -150,7 +150,7 @@ function App() {
     ...userUploads.map((upload) => ({ title: upload.title, url: upload.url, format: 'html', source: 'audiobook-upload' as const })),
   ], [allDocuments, uploadedDocuments, userUploads]) 
 
-  const searchFilters = useDocumentFilters(libraryDocuments, { includeDocument: includeDocumentInList })
+  const searchFilters = useDocumentFilters(libraryDocuments)
   const libraryFilters = useDocumentFilters(libraryDocuments, { includeDocument: includeDocumentInList })
 
   const {

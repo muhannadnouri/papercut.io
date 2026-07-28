@@ -235,7 +235,7 @@ export function AudioControls({
     const saveLabel = savedAudiobooks.length > 0
       ? t('tts.controls.saveCurrentSetup')
       : t('tts.controls.save')
-    const buttonLabel = audiobookState.complete ? t('tts.controls.savedForVoice') : saveLabel
+    const buttonLabel = audiobookState.complete ? t('tts.controls.savedForCurrentSetup') : saveLabel
 
     return (
       <button

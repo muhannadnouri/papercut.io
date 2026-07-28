@@ -4,7 +4,9 @@
 //! and row deletion. Search-time reads live in [`super::search`]; this module
 //! keeps everything that defines or mutates the database layout.
 
-use rusqlite::{params, Connection, OptionalExtension, Row};
+use std::time::Duration;
+
+use rusqlite::{params, Connection, OptionalExtension, Row, TransactionBehavior};
 use tauri::Runtime;
 
 use super::parsed::ParsedDocument;
@@ -66,11 +68,18 @@ pub(crate) fn open_db<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Connectio
     let root = uploads_root(app)?;
     std::fs::create_dir_all(&root)
         .map_err(|err| format!("Failed to create upload storage {}: {err}", root.display()))?;
-    let db = Connection::open(root.join("search.sqlite3")).map_err(db_err)?;
+    let mut db = Connection::open(root.join("search.sqlite3")).map_err(db_err)?;
+    db.busy_timeout(Duration::from_secs(5)).map_err(db_err)?;
     db.execute_batch(
         "PRAGMA journal_mode = WAL;
-         PRAGMA foreign_keys = ON;
-         CREATE TABLE IF NOT EXISTS upload_schema_metadata (
+         PRAGMA foreign_keys = ON;",
+    )
+    .map_err(db_err)?;
+    let tx = db
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(db_err)?;
+    tx.execute_batch(
+        "CREATE TABLE IF NOT EXISTS upload_schema_metadata (
            key TEXT PRIMARY KEY,
            value TEXT NOT NULL
          );
@@ -129,12 +138,13 @@ pub(crate) fn open_db<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Connectio
            SELECT id, NULL, -imported_at_ms FROM uploaded_documents;",
     )
     .map_err(db_err)?;
-    ensure_schema_columns(&db)?;
-    db.execute(
+    ensure_schema_columns(&tx)?;
+    tx.execute(
         "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('schema_version', '4')",
         [],
     )
     .map_err(db_err)?;
+    tx.commit().map_err(db_err)?;
     Ok(db)
 }
 

@@ -24,4 +24,15 @@ describe('reader text ranges', () => {
       { partIndex: 2, startOffset: 0, endOffset: 6 },
     ]])
   })
+
+  it('treats an explicit line break as whitespace, not joined text', () => {
+    const parts = ['foo', 'bar']
+    const breaksBefore = [false, true]
+
+    expect(findTextPartMatches(parts, 'foo bar', Infinity, breaksBefore)).toEqual([[
+      { partIndex: 0, startOffset: 0, endOffset: 3 },
+      { partIndex: 1, startOffset: 0, endOffset: 3 },
+    ]])
+    expect(findTextPartMatches(parts, 'foobar', Infinity, breaksBefore)).toEqual([])
+  })
 })
