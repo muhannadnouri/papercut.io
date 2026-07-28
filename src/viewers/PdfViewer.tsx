@@ -25,13 +25,14 @@ import {
   highlightFirstSearchTarget,
 } from '../components/DocumentViewer/readerTarget'
 import { createPdfFindAdapter, pdfSearchTargetPage } from './pdfFind'
+import { createPdfBookmarkApi } from './pdfBookmark'
 import {
   PdfControls,
   type PdfFitMode,
   type PdfSpreadMode,
 } from './PdfControls'
 import './PdfViewer.css'
-import type { ViewerBookmarkApi, ViewerBookmarkLocation, ViewerProps } from './types'
+import type { ViewerProps } from './types'
 
 type PdfViewerStatus =
   | { state: 'loading' }
@@ -524,66 +525,4 @@ function renderedPdfTextLayer(viewer: HTMLElement, pageNumber: number): HTMLElem
     `.page[data-page-number="${pageNumber}"] .textLayer`,
   )
   return textLayer?.querySelector('.endOfContent') ? textLayer : null
-}
-
-/**
- * Adapt PDF.js's stable page coordinates to Papercut's explicit bookmark.
- *
- * `updateviewarea` reports PDF-space coordinates that survive zoom and viewport
- * changes. Restoring through PDF.js also avoids racing its virtualized layout.
- */
-function createPdfBookmarkApi(
-  pdfViewer: PdfJsViewer,
-  container: HTMLElement,
-  eventBus: EventBus,
-): ViewerBookmarkApi {
-  type ViewAreaEvent = {
-    location: {
-      pageNumber: number
-      left: number
-      top: number
-    }
-  }
-  let currentLocation: ViewerBookmarkLocation = {
-    pageNumber: pdfViewer.currentPageNumber,
-    left: 0,
-    top: 0,
-  }
-  const updateLocation = ({ location }: ViewAreaEvent) => {
-    currentLocation = {
-      pageNumber: location.pageNumber,
-      left: location.left,
-      top: location.top,
-    }
-  }
-  eventBus.on('updateviewarea', updateLocation)
-  pdfViewer.update()
-
-  return {
-    capture: () => currentLocation,
-    isCurrent: (location) => (
-      currentLocation.pageNumber === location.pageNumber &&
-      Math.abs(currentLocation.left - location.left) <= 72 &&
-      Math.abs(currentLocation.top - location.top) <= 72
-    ),
-    isPastStart: () => pdfViewer.currentPageNumber > 1 || container.scrollTop > 180,
-    restore: (location) => {
-      pdfViewer.scrollPageIntoView({
-        pageNumber: Math.min(pdfViewer.pagesCount, Math.max(1, location.pageNumber)),
-        destArray: [null, { name: 'XYZ' }, location.left, location.top, null],
-        ignoreDestinationZoom: true,
-      })
-    },
-    scrollToTop: () => {
-      pdfViewer.currentPageNumber = 1
-      container.scrollTo({ top: 0, behavior: 'smooth' })
-    },
-    subscribe: (listener) => {
-      container.addEventListener('scroll', listener, { passive: true })
-      return () => {
-        container.removeEventListener('scroll', listener)
-        eventBus.off('updateviewarea', updateLocation)
-      }
-    },
-  }
 }
