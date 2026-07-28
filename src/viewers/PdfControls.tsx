@@ -1,25 +1,16 @@
-import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import './PdfControls.css'
+import {
+  clampPdfPage,
+  clampPdfZoom,
+  PDF_MAX_ZOOM,
+  PDF_MIN_ZOOM,
+} from './pdfControlValues'
 
 export type PdfFitMode = 'page-width' | 'page-fit' | null
 export type PdfSpreadMode = 'single' | 'spread'
 
-const MIN_ZOOM = 25
-const MAX_ZOOM = 400
 const ZOOM_STEP = 10
-
-export function clampPdfPage(input: string, currentPage: number, pages: number) {
-  const parsed = Number.parseInt(input, 10)
-  const value = Number.isNaN(parsed) ? currentPage : parsed
-  return Math.min(pages, Math.max(1, value))
-}
-
-export function clampPdfZoom(input: string, currentZoom: number) {
-  const parsed = Number.parseInt(input, 10)
-  const value = Number.isNaN(parsed) ? currentZoom : parsed
-  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(value)))
-}
 
 type PdfControlsProps = {
   currentPage: number
@@ -57,22 +48,17 @@ export function PdfControls({
   onZoomChange,
 }: PdfControlsProps) {
   const { t } = useTranslation()
-  const [pageInput, setPageInput] = useState(String(currentPage))
-  const [zoomInput, setZoomInput] = useState(String(zoom))
 
-  useEffect(() => setPageInput(String(currentPage)), [currentPage])
-  useEffect(() => setZoomInput(String(zoom)), [zoom])
-
-  const commitPage = () => {
-    const next = clampPdfPage(pageInput, currentPage, pages)
-    setPageInput(String(next))
+  const commitPage = (input: HTMLInputElement) => {
+    const next = clampPdfPage(input.value, currentPage, pages)
+    input.value = String(next)
     onPageChange(next)
   }
 
-  const setZoom = (value: string) => {
+  const commitZoom = (value: string) => {
     const next = clampPdfZoom(value, zoom)
-    setZoomInput(String(next))
     onZoomChange(next)
+    return next
   }
 
   return (
@@ -95,16 +81,16 @@ export function PdfControls({
           </svg>
         </button>
         <input
+          key={currentPage}
           className="pdf-page-input"
           type="number"
           min="1"
           max={pages}
           inputMode="numeric"
           disabled={!ready}
-          value={pageInput}
+          defaultValue={currentPage}
           aria-label={t('reader.pdf.pageNumber')}
-          onChange={(event) => setPageInput(event.target.value)}
-          onBlur={commitPage}
+          onBlur={(event) => commitPage(event.currentTarget)}
           onKeyDown={(event) => {
             if (event.key === 'Enter') event.currentTarget.blur()
           }}
@@ -136,10 +122,10 @@ export function PdfControls({
         <button
           type="button"
           className="pdf-control-button"
-          disabled={!ready || zoom <= MIN_ZOOM}
+          disabled={!ready || zoom <= PDF_MIN_ZOOM}
           aria-label={t('reader.pdf.zoomOut')}
           title={t('reader.pdf.zoomOut')}
-          onClick={() => setZoom(String(zoom - ZOOM_STEP))}
+          onClick={() => commitZoom(String(zoom - ZOOM_STEP))}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <circle cx="10.5" cy="10.5" r="6.5" />
@@ -148,15 +134,17 @@ export function PdfControls({
         </button>
         <label className="pdf-zoom-input" dir="ltr">
           <input
+            key={zoom}
             type="number"
-            min={MIN_ZOOM}
-            max={MAX_ZOOM}
+            min={PDF_MIN_ZOOM}
+            max={PDF_MAX_ZOOM}
             inputMode="numeric"
             disabled={!ready}
-            value={zoomInput}
+            defaultValue={zoom}
             aria-label={t('reader.pdf.zoomLevel')}
-            onChange={(event) => setZoomInput(event.target.value)}
-            onBlur={() => setZoom(zoomInput)}
+            onBlur={(event) => {
+              event.currentTarget.value = String(commitZoom(event.currentTarget.value))
+            }}
             onKeyDown={(event) => {
               if (event.key === 'Enter') event.currentTarget.blur()
             }}
@@ -165,10 +153,10 @@ export function PdfControls({
         <button
           type="button"
           className="pdf-control-button"
-          disabled={!ready || zoom >= MAX_ZOOM}
+          disabled={!ready || zoom >= PDF_MAX_ZOOM}
           aria-label={t('reader.pdf.zoomIn')}
           title={t('reader.pdf.zoomIn')}
-          onClick={() => setZoom(String(zoom + ZOOM_STEP))}
+          onClick={() => commitZoom(String(zoom + ZOOM_STEP))}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <circle cx="10.5" cy="10.5" r="6.5" />
