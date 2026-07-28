@@ -175,7 +175,7 @@ assumptions must change deliberately:
 - `src/viewers/PdfViewer.tsx` uses PDF.js's rendering queue and bounded page
   cache for a scrollable, selectable document surface. Stored PDFs are exposed
   only through a validated, app-data-scoped Tauri asset URL so PDF.js can issue
-  on-demand range requests instead of copying the full source through IPC.
+  range requests instead of copying the full source through IPC.
 - `src/hooks/useDocumentViewerState.ts` and
   `src/components/DocumentViewer/DocumentViewer.tsx` assume a loaded HTML string
   and one live reader DOM.
@@ -748,7 +748,7 @@ and Stage 5 work.
 
 ### Stage 4: PDF Viewer
 
-Stage status: Complete
+Stage status: Implementation complete; deep-navigation release validation pending
 
 - [x] Implement the PDF.js viewer as a focused viewer component.
 - [x] Load source through a scoped local asset boundary rather than JSON/base64.
@@ -764,11 +764,15 @@ Stage status: Complete
 - [x] Keep dark mode on viewer chrome without recoloring PDF page content.
 - [x] Add an optional wide-screen two-page spread through PDF.js.
 - [x] Smoke-test single/spread navigation and narrow-screen fallback.
+- [ ] Smoke-test a deep page jump followed by immediate upward scrolling with
+      automatic page-metadata fetching enabled.
 
 Implementation evidence: the viewer lazy-loads PDF.js's `PDFViewer`,
 `PDFLinkService`, and `EventBus`; starts wide layouts at 100% and narrow
 layouts at fit width; disables external and auto-detected links; and requests
-source data in on-demand 1 MiB ranges.
+source data in 1 MiB ranges. PDF.js may prefetch page metadata through those
+ranges so deep navigation uses real page dimensions; canvas rendering remains
+bounded to the visible neighborhood.
 Tauri's asset protocol is limited to
 `$APPDATA/document_uploads/*/source.pdf`, while Rust verifies URL, database
 metadata, source kind, existence, and the 250 MB limit before returning a path.
@@ -1039,7 +1043,7 @@ Stage status: Deferred
 | 2026-07-25 | Stage 3 | Reuse the first PDF.js page render for gallery thumbnails | One bounded best-effort PNG feeds the existing uploaded-cover pipeline without adding a renderer or making cover generation part of import correctness |
 | 2026-07-25 | Stage 3 | Close text-native import and search before building the viewer | The committed fixture covers deterministic parser/index contracts; external multilingual, malformed, encrypted, and large files stay in the later release-hardening matrix |
 | 2026-07-25 | Stage 4 | Use PDF.js viewer primitives directly | Its rendering queue, bounded page cache, text layer, and link service cover the performance foundation without adding `react-pdf` or hand-rolling virtualization |
-| 2026-07-25 | Stage 4 | Serve validated PDFs through Tauri's scoped asset protocol | Range-capable URLs avoid full-file IPC copies; PDF.js disables streaming and automatic prefetch so large sources are read on demand in 1 MiB chunks |
+| 2026-07-25 | Stage 4 | Serve validated PDFs through Tauri's scoped asset protocol | Range-capable URLs avoid full-file IPC copies and let PDF.js read source data in 1 MiB chunks |
 | 2026-07-25 | Stage 4 | Keep reader controls as a focused PDF.js adapter | A separate responsive `PdfControls` component directly drives page, zoom, fit, and optional outline APIs without adding `react-pdf`, a toolbar dependency, or speculative controls |
 | 2026-07-25 | Stage 5 | Delegate PDF Find to `PDFFindController` | Reusing PDF.js search, text-layer highlighting, and page navigation preserves bounded rendering and avoids a second PDF text search implementation |
 | 2026-07-25 | Stage 5 | Carry indexed PDF page locators through shared search results | SQLite already knows the matching page; preserving that value lets PDF.js target the correct page and phrase without loading full extracted documents into React |
@@ -1053,6 +1057,7 @@ Stage status: Deferred
 | 2026-07-25 | Stage 4 | Retain the reader divider with responsive spacing | Wide PDF layouts reclaim vertical space around the shared header divider while narrow layouts keep the established borderless-reader separation |
 | 2026-07-25 | Stage 4 | Use PDF.js for optional two-page spreads | Wide layouts pair pages 1-2, 3-4, and so on through `SpreadMode.ODD`; narrow layouts return to the default single-page view without another renderer or persisted preference |
 | 2026-07-25 | Stage 4 | Share the wide reader header with PDF controls | One portaled toolbar occupies the centered header zone on wide screens and falls back to a second row when space is constrained; primary page and zoom actions remain visible |
+| 2026-07-28 | Stage 4 | Allow PDF.js page-metadata prefetch | Real page dimensions keep deep jumps and immediate upward scrolling stable; source transport remains range-based and canvas rendering remains bounded |
 | 2026-07-25 | Stage 5 | Resolve active narration spans through PDF.js text items | Runtime-only page/item offsets rebuild from durable segment spans, same-line range bands paint only rendered active text without PDF.js word seams, and saved-audiobook manifests remain unchanged |
 | 2026-07-28 | Stage 5 | Store PDF bookmarks in PDF page coordinates | The shared bookmark hook keeps one persistence path while PDF.js view-area coordinates and native destinations restore the same content across viewport and zoom changes without relying on rendered DOM heights |
 | 2026-07-25 | Stage 5 | Extend the existing audiobook bundle for canonical PDFs | Version 3 adds a typed PDF source while HTML stays on version 2; imports reuse PDF.js indexing instead of copying derived page text, FTS rows, or thumbnails |

@@ -224,7 +224,6 @@ export function PdfViewer({
       const assetRoot = pdfJsAssetRoot()
       loadingTask = pdfjs.getDocument({
         url: sourceUrl,
-        disableAutoFetch: true,
         disableStream: true,
         rangeChunkSize: 1_048_576,
         standardFontDataUrl: `${assetRoot}standard_fonts/`,
