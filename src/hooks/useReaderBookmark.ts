@@ -217,7 +217,7 @@ function clampRatio(value: number): number {
   return Math.min(1, Math.max(0, value))
 }
 
-/** Parse old window bookmarks and newer viewer-owned locations from storage. */
+/** Parse window bookmarks and PDF.js-owned page coordinates from storage. */
 export function parseReaderBookmark(raw: string): ReaderBookmark | null {
   const parsed = JSON.parse(raw) as Partial<ReaderBookmark>
   if (
@@ -231,12 +231,17 @@ export function parseReaderBookmark(raw: string): ReaderBookmark | null {
   const viewerLocation = location &&
     Number.isInteger(location.pageNumber) &&
     location.pageNumber > 0 &&
-    typeof location.pageOffsetRatio === 'number'
+    typeof location.left === 'number' &&
+    Number.isFinite(location.left) &&
+    typeof location.top === 'number' &&
+    Number.isFinite(location.top)
     ? {
         pageNumber: location.pageNumber,
-        pageOffsetRatio: clampRatio(location.pageOffsetRatio),
+        left: location.left,
+        top: location.top,
       }
     : undefined
+  if (location && !viewerLocation) return null
   return {
     scrollRatio: clampRatio(parsed.scrollRatio),
     scrollY: Math.max(0, parsed.scrollY),

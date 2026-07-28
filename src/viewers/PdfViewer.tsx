@@ -243,7 +243,7 @@ export function PdfViewer({
         })
       await pdfViewer.onePageRendered
       if (!cancelled) {
-        onBookmarkApiChange?.(createPdfBookmarkApi(pdfViewer, container, viewer))
+        onBookmarkApiChange?.(createPdfBookmarkApi(pdfViewer, container, eventBus))
         setStatus({ state: 'ready', pages: pdf.numPages })
       }
 
@@ -527,55 +527,51 @@ function renderedPdfTextLayer(viewer: HTMLElement, pageNumber: number): HTMLElem
 }
 
 /**
- * Adapt PDF.js's internal scroll viewport to Papercut's explicit bookmark.
+ * Adapt PDF.js's stable page coordinates to Papercut's explicit bookmark.
  *
- * Page number survives layout changes; the within-page ratio keeps restoration
- * close to the same paragraph after zoom or viewport changes.
+ * `updateviewarea` reports PDF-space coordinates that survive zoom and viewport
+ * changes. Restoring through PDF.js also avoids racing its virtualized layout.
  */
 function createPdfBookmarkApi(
   pdfViewer: PdfJsViewer,
   container: HTMLElement,
-  viewer: HTMLElement,
+  eventBus: EventBus,
 ): ViewerBookmarkApi {
-  const pageElement = (pageNumber: number) => (
-    viewer.querySelector<HTMLElement>(`.page[data-page-number="${pageNumber}"]`)
-  )
-  const pageNumber = (value: number) => Math.min(pdfViewer.pagesCount, Math.max(1, value))
-  const pageTop = (page: HTMLElement) => (
-    page.getBoundingClientRect().top -
-    container.getBoundingClientRect().top +
-    container.scrollTop
-  )
-  const locationTop = (location: ViewerBookmarkLocation) => {
-    const page = pageElement(pageNumber(location.pageNumber))
-    return page
-      ? pageTop(page) + location.pageOffsetRatio * page.getBoundingClientRect().height
-      : container.scrollTop
+  type ViewAreaEvent = {
+    location: {
+      pageNumber: number
+      left: number
+      top: number
+    }
   }
+  let currentLocation: ViewerBookmarkLocation = {
+    pageNumber: pdfViewer.currentPageNumber,
+    left: 0,
+    top: 0,
+  }
+  const updateLocation = ({ location }: ViewAreaEvent) => {
+    currentLocation = {
+      pageNumber: location.pageNumber,
+      left: location.left,
+      top: location.top,
+    }
+  }
+  eventBus.on('updateviewarea', updateLocation)
+  pdfViewer.update()
 
   return {
-    capture: () => {
-      const pageNumber = pdfViewer.currentPageNumber
-      const page = pageElement(pageNumber)
-      const pageHeight = page?.getBoundingClientRect().height ?? 0
-      const pageOffsetRatio = page && pageHeight
-        ? (container.scrollTop - pageTop(page)) / pageHeight
-        : 0
-      return {
-        pageNumber,
-        pageOffsetRatio: Math.min(1, Math.max(0, pageOffsetRatio)),
-      }
-    },
+    capture: () => currentLocation,
     isCurrent: (location) => (
-      pdfViewer.currentPageNumber === pageNumber(location.pageNumber) &&
-      Math.abs(container.scrollTop - locationTop(location)) <=
-        Math.max(180, container.clientHeight * 0.2)
+      currentLocation.pageNumber === location.pageNumber &&
+      Math.abs(currentLocation.left - location.left) <= 72 &&
+      Math.abs(currentLocation.top - location.top) <= 72
     ),
     isPastStart: () => pdfViewer.currentPageNumber > 1 || container.scrollTop > 180,
     restore: (location) => {
-      pdfViewer.currentPageNumber = pageNumber(location.pageNumber)
-      requestAnimationFrame(() => {
-        if (container.isConnected) container.scrollTop = locationTop(location)
+      pdfViewer.scrollPageIntoView({
+        pageNumber: Math.min(pdfViewer.pagesCount, Math.max(1, location.pageNumber)),
+        destArray: [null, { name: 'XYZ' }, location.left, location.top, null],
+        ignoreDestinationZoom: true,
       })
     },
     scrollToTop: () => {
@@ -584,7 +580,10 @@ function createPdfBookmarkApi(
     },
     subscribe: (listener) => {
       container.addEventListener('scroll', listener, { passive: true })
-      return () => container.removeEventListener('scroll', listener)
+      return () => {
+        container.removeEventListener('scroll', listener)
+        eventBus.off('updateviewarea', updateLocation)
+      }
     },
   }
 }

@@ -16,7 +16,8 @@ export interface ViewerFindApi {
 
 export interface ViewerBookmarkLocation {
   pageNumber: number
-  pageOffsetRatio: number
+  left: number
+  top: number
 }
 
 export interface ViewerBookmarkApi {

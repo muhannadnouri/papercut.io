@@ -804,7 +804,7 @@ desktop and narrow widths with keyboard and RTL layouts.
 
 ### Stage 5: Find, Search Navigation, TTS, And Bookmarks
 
-Stage status: Complete
+Stage status: Complete; PDF coordinate bookmark regression check pending
 
 - [x] Add Find across all extracted pages without rendering all pages.
 - [x] Navigate search results to the correct page and matched coordinates.
@@ -819,6 +819,8 @@ Stage status: Complete
       page.
 - [x] Verify saved audiobook create, play, reopen, export, and import behavior.
 - [x] Compare all agreed parity cases against HTML/EPUB.
+- [ ] Re-verify PDF bookmark restore after changing zoom, viewport width, and
+      spread mode.
 
 Decision gate passed: Find, global search, TTS playback/highlighting, location
 restoration, and portable saved audiobooks pass the Stage 0 parity suite.
@@ -880,12 +882,13 @@ progress remain within the first column before continuing into the next.
 
 PDF bookmarks continue using the shared explicit-bookmark hook and localStorage
 record. PDF.js supplies a small viewer adapter that stores the current page and
-within-page ratio, restores that location after the first page renders, and
-drives the existing bookmark/top controls from its internal scroll container.
+PDF-space coordinates, restores that location through its native destination
+API after the first page renders, and drives the existing bookmark/top controls
+from its internal scroll container.
 HTML and EPUB retain their existing window-scroll bookmark fields and behavior.
-Automated parsing coverage preserves compatibility with those older records.
-Manual PDF save, close, reopen, restore, update, remove, and scroll-to-top
-acceptance passes.
+The original PDF save/update/remove and scroll-to-top acceptance checks pass;
+coordinate restoration across changed zoom, viewport width, and spread mode is
+pending a renewed smoke test.
 
 PDF format adapters use the audiobook-save chunk profile explicitly. This keeps
 reconstructed paragraphs under the same native request ceiling as HTML/EPUB
@@ -1051,7 +1054,7 @@ Stage status: Deferred
 | 2026-07-25 | Stage 4 | Use PDF.js for optional two-page spreads | Wide layouts pair pages 1-2, 3-4, and so on through `SpreadMode.ODD`; narrow layouts return to the default single-page view without another renderer or persisted preference |
 | 2026-07-25 | Stage 4 | Share the wide reader header with PDF controls | One portaled toolbar occupies the centered header zone on wide screens and falls back to a second row when space is constrained; primary page and zoom actions remain visible |
 | 2026-07-25 | Stage 5 | Resolve active narration spans through PDF.js text items | Runtime-only page/item offsets rebuild from durable segment spans, same-line range bands paint only rendered active text without PDF.js word seams, and saved-audiobook manifests remain unchanged |
-| 2026-07-25 | Stage 5 | Store PDF bookmarks as page plus within-page ratio | The shared bookmark hook keeps one persistence path while a PDF.js adapter restores the internal viewer location across viewport and zoom changes |
+| 2026-07-28 | Stage 5 | Store PDF bookmarks in PDF page coordinates | The shared bookmark hook keeps one persistence path while PDF.js view-area coordinates and native destinations restore the same content across viewport and zoom changes without relying on rendered DOM heights |
 | 2026-07-25 | Stage 5 | Extend the existing audiobook bundle for canonical PDFs | Version 3 adds a typed PDF source while HTML stays on version 2; imports reuse PDF.js indexing instead of copying derived page text, FTS rows, or thumbnails |
 | 2026-07-25 | Stage 4 | Start wide PDF readers at 100% | Desktop avoids unexpectedly large fit-width scales while narrow layouts retain fit width for usable first-open framing |
 | 2026-07-25 | Stage 5 | Close text-native PDF reader parity | Manual acceptance passed Find, global search, TTS, highlighting, bookmarks, portable audiobooks, responsive/RTL controls, and single-page multi-column reading order |
