@@ -14,8 +14,8 @@ use serde::{Deserialize, Serialize};
 use super::bundle::stitch_audiobook_wav;
 use super::cache::wav_metadata;
 use super::file_commit::commit_staged_file;
+use super::manifest::{playback_index_matches, read_or_rebuild_manifest_index};
 use super::paths::{audiobook_dir, playback_metadata_path, playback_track_path};
-use super::save::{playback_index_matches, read_or_rebuild_manifest_index};
 use crate::native_tts::types::{NativeAudiobookPlaybackChunk, NativeTtsInputChunk};
 use crate::native_tts::types::{NativeAudiobookPlaybackRequest, NativeAudiobookPlaybackResponse};
 

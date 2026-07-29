@@ -1,7 +1,8 @@
 # EPUB Upload, Reader, Search, And Audiobook Plan
 
-This document records the EPUB implementation path and remaining follow-up work
-while keeping the path open for later PDF support. The first EPUB ship is a
+This document records the EPUB implementation path and remaining follow-up work.
+PDF now uses the same document/search contract through its own adapter and is
+tracked separately in [pdf-ocr-scanning.md](pdf-ocr-scanning.md). The first EPUB ship is a
 normalized import path: parse EPUB natively, store a sanitized generated reading
 HTML copy, index chapter/block sections into SQLite FTS, and let the existing
 reader/TTS surface open that stored reading copy. A richer EPUB-specific viewer
@@ -42,20 +43,20 @@ should not depend on rendering the original archive in React.
 
 The MVP path is implemented with generated reading HTML, SQLite FTS indexing, Library import, existing TTS save/playback support, rewritten and target-validated internal EPUB links, retained safe local raster images, app-owned DOM reader link scrolling, and fixture coverage for TOC links, cross-chapter links, EPUB 2 footnotes/backlinks, image manifest assets, generated section extraction, sanitizer regressions, missing-fragment fallback, and empty-spine rejection.
 
-The EPUB parser is split into focused ZIP/XML parsing, path, asset, DOM rewrite, and render helpers. It uses crate-backed base64/percent decoding plus DOM-based fragment rewriting. Current EPUB image retention covers supported local raster images referenced by retained reader content; manifest covers that are not referenced by the spine are a future reader-polish item.
+The EPUB parser is split into focused ZIP/XML parsing, path, asset, DOM rewrite, and render helpers. It uses crate-backed base64/percent decoding plus DOM-based fragment rewriting. Current EPUB image retention covers supported local raster images referenced by retained reader content. Newly imported EPUBs also resolve EPUB 3 `cover-image` properties and EPUB 2 `meta name="cover"` references, retain a declared raster cover under the existing 5 MB image cap, persist nullable cover media metadata, and generate a bounded gallery thumbnail. Existing imports remain valid without cover metadata; retained covers from earlier versions are thumbnailed lazily when first displayed.
 
 ## Remaining Follow-Ups
 
-1. Add schema versioning before durable metadata changes such as locators, source kind, original archive retention, or view-source layout changes.
+1. Keep durable metadata changes as explicit schema migrations; cover metadata introduced schema version 3 without rebuilding existing search or organization rows.
 2. Add per-section locator metadata so uploaded search results can jump to chapter/page locations.
 3. Add more EPUB parser fixtures for malformed OPF/container cases, spine edge cases, oversized image skipping, and metadata fallback.
-4. Detect EPUB 2/3 cover metadata and render a safe retained raster cover near the top of generated reading HTML, still respecting existing image caps and SVG skipping.
+4. Include retained covers in library-transfer packages now that gallery cover serving is stable.
 5. Add duplicate detection based on source hash so repeated imports can update or skip existing records.
 6. Add a reindex action for uploaded documents if parser or sanitizer behavior changes after import.
 7. Add import progress reporting for very large EPUB/PDF files.
 8. Add richer EPUB reader features such as TOC, location restore, pagination, EPUB-specific appearance controls, or a foliate-js/epub.js-backed viewer if generated reading HTML is not enough. App-wide Light/System/Dark theme already applies to the generated HTML reader.
 9. For very large books, move from one fully-rendered generated HTML document toward chapter/page-level rendering with locator-aware Find and TTS ranges. Current TTS caches are mutation-aware, but the next highlight after a large DOM mutation can still rebuild the active reader text index.
-10. Add a runtime PDF import module later that extracts page text and stores page records in the same SQLite schema.
+10. Keep the implemented PDF adapter on the shared SQLite document/search schema; remaining PDF/OCR work is tracked in [pdf-ocr-scanning.md](pdf-ocr-scanning.md).
 11. Decide whether Pagefind remains the bundled-document engine long term or whether all documents should eventually share SQLite FTS.
 
 ## Historical Task Notes
@@ -156,12 +157,11 @@ Acceptance checks:
 
 ### 5. Wire EPUB Import UI And Commands
 
-- Add a Tauri command such as `document_uploads_import_epub`, or add one generic
-  import command with a format argument.
-- Add frontend API helper `importEpubDocument`.
-- Add Import > EPUB option in `DocumentsPanel`.
-- Use the same import status state shape as HTML.
-- Refresh uploaded document list and open the imported EPUB after success.
+- Route HTML and EPUB selections through the generic `document_uploads_import_batch` command.
+- Keep the frontend API format-neutral through `importDocumentBatch`.
+- Add **Import > Files** in `DocumentsPanel` for one or more HTML/EPUB files.
+- Use the same progress, cancellation, and partial-failure state for both formats.
+- Refresh the uploaded document list and open the document when exactly one selected file imports successfully.
 - Keep audiobook bundle import separate from generic document import.
 
 Acceptance checks:
@@ -251,23 +251,23 @@ Manual smoke tests:
 - Play, pause, skip, and verify highlight.
 - Delete upload and confirm search result disappears.
 
-### 10. Defer Rich EPUB Reader And PDF Work
+### 10. Defer Rich EPUB Reader; Share The PDF Contract
 
 Richer EPUB reader:
 
-- Detect EPUB 2/3 cover metadata and render safe retained raster covers in the generated reading HTML, even when the cover image is present only in the manifest and not referenced by a spine chapter.
+- Retained EPUB 2/3 cover assets are served only to visible developer-gated Library gallery cards through a narrow validated command. The command returns persisted display-sized thumbnails and serializes lazy thumbnail backfills for older imports so original high-resolution covers cannot create a burst of concurrent decodes. Cover rendering stays out of generated reader HTML so opening and audiobook processing do not pay for gallery artwork.
 - Evaluate foliate-js, `epub.js`, or Readium only after normalized import ships.
 - Keep search/TTS source independent from the renderer.
 - Add TOC, pagination, EPUB-specific appearance controls, and location restore as reader-quality work. App-wide Light/System/Dark theme already applies to the generated HTML reader.
 - Keep Arabic typography script-aware. Bundled Arabic-focused fonts should remain explicit reader choices unless a future per-script font setting proves safe across mixed-language books.
-- For very large books, bound reader work by rendering/indexing the active chapter or page instead of one generated DOM for the whole book. TTS chunk highlighting should then map through stored locators rather than scanning every rendered text node after a large mutation. New `.papercut-audiobook` exports preserve optional chunk source spans for the generated reader DOM, and older imports keep a cached live-DOM text-match fallback for legacy compatibility. Future EPUB/PDF work should still add format-aware chapter/page locators so imports and playback do not depend on one fully rendered document.
+- For very large EPUBs, bound reader work by rendering/indexing the active chapter instead of one generated DOM for the whole book. TTS chunk highlighting should then map through stored locators rather than scanning every rendered text node after a large mutation. New `.papercut-audiobook` exports preserve optional chunk source spans for the generated reader DOM, and older imports keep a cached live-DOM text-match fallback for legacy compatibility. PDF already uses page virtualization and page/text-item locators.
 
 PDF:
 
-- Reuse `ParsedDocument` and SQLite FTS sections.
-- Store page-based locators instead of chapter locators.
-- Use PDF-specific viewer and text extraction; do not force PDF visual rendering
-  into generated HTML.
+- PDF reuses the shared SQLite document/FTS store with page records.
+- PDF stores page/text-item locators instead of chapter locators.
+- PDF uses PDF.js for viewer rendering and text extraction rather than forcing
+  page visuals into generated HTML.
 
 ## External References
 

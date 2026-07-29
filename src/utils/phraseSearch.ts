@@ -20,7 +20,7 @@ async function fetchDocText(url: string, loadSource?: DocumentSourceLoader): Pro
   if (cached !== undefined) return cached
   try {
     const html = loadSource ? await loadSource(url) : await fetchSource(url)
-    const raw = normalizeForDisplay(html.replace(/<[^>]+>/g, ' '))
+    const raw = normalizeForDisplay(htmlToSearchText(html))
     const entry: DocText = { raw, lower: raw.toLowerCase() }
     phraseFetchCache.set(url, entry)
     return entry
@@ -30,6 +30,16 @@ async function fetchDocText(url: string, loadSource?: DocumentSourceLoader): Pro
   }
 }
 
+// Exact phrase search needs decoded text, not raw HTML. DOMParser turns
+// entities like &nbsp; into whitespace before normalizeForDisplay collapses it.
+function htmlToSearchText(html: string): string {
+  if (typeof DOMParser === 'undefined') return html.replace(/<[^>]+>/g, ' ')
+
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  doc.querySelectorAll('script, style, noscript').forEach((node) => node.remove())
+  return doc.body.textContent ?? ''
+}
+
 async function fetchSource(url: string): Promise<string> {
   const res = await fetch(url)
   if (!res.ok) throw new Error('Document source unavailable')
@@ -37,15 +47,20 @@ async function fetchSource(url: string): Promise<string> {
 }
 
 export function extractQuotedPhrases(q: string): string[] {
-  const matches = q.match(/"([^"]+)"/g)
+  const query = normalizeQueryQuotes(q)
+  const matches = query.match(/"([^"]+)"/g)
   if (!matches) return []
   return matches
-    .map((m) => m.slice(1, -1).trim().toLowerCase())
+    .map((m) => m.slice(1, -1).trim())
     .filter((p) => p.length > 0)
 }
 
 export function stripQuotes(q: string): string {
-  return q.replace(/"/g, ' ').replace(/\s+/g, ' ').trim()
+  return normalizeQueryQuotes(q).replace(/"/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function normalizeQueryQuotes(q: string): string {
+  return q.replace(/[“”]/g, '"')
 }
 
 export async function docContainsAllPhrases(
@@ -56,6 +71,28 @@ export async function docContainsAllPhrases(
   const { lower } = await fetchDocText(url, loadSource)
   if (lower.length === 0) return false
   return phrases.every((p) => lower.includes(p))
+}
+
+// Counts verified source-text occurrences after HTML/entity normalization, so
+// exact search counts match what the reader can find in rendered documents.
+export async function countPhraseOccurrences(
+  url: string,
+  phrases: string[],
+  loadSource?: DocumentSourceLoader,
+): Promise<number> {
+  const { lower } = await fetchDocText(url, loadSource)
+  if (lower.length === 0) return 0
+
+  let count = 0
+  for (const phrase of phrases) {
+    if (phrase.length === 0) continue
+    let index = lower.indexOf(phrase)
+    while (index !== -1) {
+      count += 1
+      index = lower.indexOf(phrase, index + phrase.length)
+    }
+  }
+  return count
 }
 
 export async function buildPhraseExcerpt(

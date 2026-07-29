@@ -38,6 +38,14 @@ export const AUDIOBOOK_SAVE_CHUNK_PROFILE: SpeechChunkProfile = {
   minChunkLength: 80,
 }
 
+// SILMA/F5 re-chunks internally at about 120 chars after Arabic normalization
+// and tashkeel. Keep app chunks shorter so punctuation and final clauses do not
+// get split a second time inside the Python model.
+export const SILMA_AUDIOBOOK_SAVE_CHUNK_PROFILE: SpeechChunkProfile = {
+  maxChunkLength: 80,
+  minChunkLength: 50,
+}
+
 // Compatibility wrapper for callers that still need one normalized readable string.
 export function extractReadableTextFromHtml(html: string): string {
   return extractReadableTextFromSegments(extractReadableSegmentsFromHtml(html))
@@ -63,11 +71,20 @@ export function chunkAudiobookSaveText(text: string): string[] {
 
 // Builds save-time audiobook chunks from HTML segments so headings, paragraphs,
 // and lists stay aligned with the viewer highlight index.
-export function chunkAudiobookSaveHtmlWithSpans(html: string): SpeechChunk[] {
-  return chunkReadableSegmentsWithSpans(
-    extractReadableSegmentsFromHtml(html),
-    AUDIOBOOK_SAVE_CHUNK_PROFILE,
-  )
+export function chunkAudiobookSaveHtmlWithSpans(
+  html: string,
+  profile: SpeechChunkProfile = AUDIOBOOK_SAVE_CHUNK_PROFILE,
+): SpeechChunk[] {
+  return chunkAudiobookSaveSegmentsWithSpans(extractReadableSegmentsFromHtml(html), profile)
+}
+
+// Keeps format adapters on save-sized requests instead of the larger playback
+// default; long PDF paragraphs otherwise reach native TTS as oversized chunks.
+export function chunkAudiobookSaveSegmentsWithSpans(
+  segments: ReadableSegment[],
+  profile: SpeechChunkProfile = AUDIOBOOK_SAVE_CHUNK_PROFILE,
+): SpeechChunk[] {
+  return chunkReadableSegmentsWithSpans(segments, profile)
 }
 
 // Shared chunking entry point for format adapters. EPUB/PDF should emit
@@ -160,7 +177,7 @@ function appendSegmentChunks(
   }
 
   const sentences = paragraph
-    .match(/[^.!?؟]+[.!?؟]+["')\]]*|[^.!?؟]+$/g)
+    .match(/[^.!?؟。！？।॥]+[.!?؟。！？।॥]+["'”’»)\]）】」』》]*|[^.!?؟。！？।॥]+$/g)
     ?.map((sentence) => sentence.trim())
     .filter(Boolean) ?? [paragraph]
 
@@ -186,9 +203,10 @@ function appendSegmentChunks(
 }
 
 function splitLongSentence(sentence: string, profile: SpeechChunkProfile): string[] {
-  // Fall back to Latin/Arabic clause boundaries, then hard-wrap long clauses.
+  // Fall back to common Latin, Arabic, CJK, and Devanagari clause boundaries,
+  // then hard-wrap long clauses.
   const parts = sentence
-    .split(/([,;:،؛]\s*)/)
+    .split(/([,;:،؛，；：、]\s*)/)
     .reduce<string[]>((acc, part, idx, source) => {
       if (idx % 2 === 0) {
         acc.push(part + (source[idx + 1] ?? ''))

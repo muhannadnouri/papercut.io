@@ -4,13 +4,16 @@
 //! independently. Dependencies only point downward:
 //!
 //! ```text
-//! commands -> pipeline -> { epub, html, parsed, store, search, storage } -> types
+//! commands -> { batch, pipeline, organization, search, store } -> { cover, epub, html, pdf, parsed, storage, types }
 //! ```
 //!
 //! - [`commands`]: the thin `#[tauri::command]` edge exposed to the frontend.
+//! - [`batch`]: sequential import/delete batches, progress, and import cancellation.
+//! - [`cover`]: bounded gallery-thumbnail decoding and persistence.
 //! - [`pipeline`]: orchestrates import / get-source / delete.
 //! - [`html`]: HTML-specific parsing + sanitization.
 //! - [`epub`]: EPUB-specific parsing, sanitization, and generated reading HTML.
+//! - [`pdf`]: canonical PDF and bounded per-page text-layer storage.
 //! - [`organization`]: folder and manual ordering metadata for uploaded docs.
 //! - [`parsed`]: format-neutral parsed document shape.
 //! - [`store`]: SQLite schema, persistence, and listing.
@@ -20,138 +23,40 @@
 
 // `commands` is `pub(crate)` so `generate_handler!` in `lib.rs` can reach both
 // each command and the hidden `__cmd__*` helper the macro generates beside it.
+mod batch;
 pub(crate) mod commands;
+mod cover;
+mod derived;
 mod epub;
 mod html;
 mod organization;
 mod parsed;
+mod pdf;
 mod pipeline;
 mod search;
+mod state;
 mod storage;
 mod store;
 mod types;
 
-pub(crate) struct DerivedDocumentSection {
-    pub(crate) heading: Option<String>,
-    pub(crate) text: String,
-}
+pub(crate) use derived::{
+    delete_derived_document, open_document_uploads_db, persist_derived_document,
+    read_uploaded_document_source, DerivedDocumentSection,
+};
+pub(crate) use state::DocumentUploadState;
 
-/// Shared SQLite connection bootstrap for translated document variants.
-///
-/// Translation needs to list and delete derived documents beside uploads, but
-/// it should not make the upload store public or depend on parser internals.
-/// This small seam exposes only the database bootstrap contract.
-pub(crate) fn open_document_uploads_db<R: tauri::Runtime>(
-    app: &tauri::AppHandle<R>,
-) -> Result<rusqlite::Connection, String> {
-    store::open_db(app)
-}
+// Library transfer consumes this narrow storage API so its removable package
+// module never duplicates document parsing, sanitization, indexing, or folder rules.
+pub(crate) use organization::{create_folder, list_organization, move_documents};
+pub(crate) use pdf::{get_pdf_source_path, restore_audiobook_pdf, restore_transferred_pdf};
+pub(crate) use pipeline::restore_transferred_document;
+pub(crate) use storage::{
+    now_ms, upload_dir, upload_id_from_url, upload_source_path, StoredSourceKind,
+};
+pub(crate) use store::list_uploads;
+pub(crate) use types::{
+    UploadedDocument, UploadedLibraryCreateFolderRequest, UploadedLibraryFolder,
+    UploadedLibraryMoveDocumentsRequest, UploadedLibraryOrganization,
+};
 
-/// Read a stored upload's sanitized reader HTML by virtual document URL.
-///
-/// Translation uses this to clone the reader DOM for structure-preserving
-/// output. Keeping the lookup here avoids exposing upload filesystem internals
-/// to translation.
-pub(crate) fn read_uploaded_document_source<R: tauri::Runtime>(
-    app: &tauri::AppHandle<R>,
-    document_url: &str,
-) -> Result<String, String> {
-    let id = storage::upload_id_from_url(document_url)?;
-    let path = storage::upload_dir(app, &id)?.join("source.html");
-    std::fs::read_to_string(&path)
-        .map_err(|err| format!("Failed to read uploaded document {}: {err}", path.display()))
-}
-
-/// Persist a generated document variant through the same reader/search contract
-/// as imports without exposing parser-private `ParsedDocument` outside this
-/// feature.
-///
-/// The source file is written through a staging directory first. Once the file
-/// is complete, the directory is promoted and only then are reader/search rows
-/// upserted. If the database write fails, the promoted directory is removed so
-/// generated variants do not leave half-visible files behind.
-pub(crate) fn persist_derived_document<R: tauri::Runtime>(
-    app: &tauri::AppHandle<R>,
-    id: &str,
-    url: &str,
-    title: &str,
-    format: &str,
-    view_html: String,
-    sections: Vec<DerivedDocumentSection>,
-    imported_at_ms: u128,
-    bytes: u64,
-) -> Result<(), String> {
-    let dir = storage::upload_dir(app, id)?;
-    let staging_dir = storage::upload_dir(app, &format!("{id}.staging"))?;
-    if staging_dir.exists() {
-        std::fs::remove_dir_all(&staging_dir).map_err(|err| {
-            format!(
-                "Failed to clear stale derived document staging directory {}: {err}",
-                staging_dir.display()
-            )
-        })?;
-    }
-    std::fs::create_dir_all(&staging_dir).map_err(|err| {
-        format!(
-            "Failed to create derived document staging directory {}: {err}",
-            staging_dir.display()
-        )
-    })?;
-    if let Err(err) = std::fs::write(staging_dir.join("source.html"), view_html.as_bytes()) {
-        let _ = std::fs::remove_dir_all(&staging_dir);
-        return Err(format!("Failed to write derived document source: {err}"));
-    }
-    if dir.exists() {
-        let _ = std::fs::remove_dir_all(&staging_dir);
-        return Err(format!(
-            "Derived document directory already exists: {}",
-            dir.display()
-        ));
-    }
-    if let Err(err) = std::fs::rename(&staging_dir, &dir) {
-        let _ = std::fs::remove_dir_all(&staging_dir);
-        return Err(format!(
-            "Failed to promote derived document directory {}: {err}",
-            dir.display()
-        ));
-    }
-
-    let parsed = parsed::ParsedDocument {
-        title: title.into(),
-        format: format.into(),
-        view_html,
-        sections: sections
-            .into_iter()
-            .map(|section| parsed::ParsedSection {
-                heading: section.heading,
-                text: section.text,
-            })
-            .collect(),
-    };
-    let mut db = store::open_db(app)?;
-    if let Err(err) = store::upsert_document(&mut db, id, url, &parsed, imported_at_ms, bytes) {
-        let _ = std::fs::remove_dir_all(&dir);
-        return Err(err);
-    }
-    Ok(())
-}
-
-/// Delete a generated document variant from the upload/search store by id.
-pub(crate) fn delete_derived_document<R: tauri::Runtime>(
-    app: &tauri::AppHandle<R>,
-    id: &str,
-) -> Result<u64, String> {
-    let dir = storage::upload_dir(app, id)?;
-    let bytes_freed = storage::directory_size(&dir)?;
-    let mut db = store::open_db(app)?;
-    if dir.exists() {
-        std::fs::remove_dir_all(&dir).map_err(|err| {
-            format!(
-                "Failed to delete derived document directory {}: {err}",
-                dir.display()
-            )
-        })?;
-    }
-    store::delete_document_rows(&mut db, id)?;
-    Ok(bytes_freed)
-}
+pub(crate) use html::sanitize_html;

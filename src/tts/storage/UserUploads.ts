@@ -1,4 +1,4 @@
-import { DEFAULT_TTS_MODEL_ID, NATIVE_TTS_DTYPE, TEXT_PREPROCESSOR_NONE } from '../types'
+import { DEFAULT_TTS_MODEL_ID, NATIVE_TTS_DTYPE, resolveSilmaNfeStep, SILMA_MODEL_ID, TEXT_PREPROCESSOR_NONE } from '../types'
 
 const STORAGE_KEY = 'papercut.userUploads.v1'
 
@@ -11,6 +11,7 @@ export interface UserUploadDocument {
   voice: string
   speed: number
   dtype: string
+  silmaNfeStep?: number
   chunks: number
   audioDurationSec?: number
   wavBytes?: number
@@ -28,7 +29,12 @@ export function getUserUploads(): UserUploadDocument[] {
     return Array.isArray(parsed)
       ? parsed
         .filter(isUserUploadDocument)
-        .map((record) => ({ ...record, modelId: record.modelId ?? DEFAULT_TTS_MODEL_ID, textPreprocessor: record.textPreprocessor ?? TEXT_PREPROCESSOR_NONE }))
+        .map((record) => ({
+          ...record,
+          modelId: record.modelId ?? DEFAULT_TTS_MODEL_ID,
+          textPreprocessor: record.textPreprocessor ?? TEXT_PREPROCESSOR_NONE,
+          silmaNfeStep: record.modelId === SILMA_MODEL_ID ? resolveSilmaNfeStep(record) : record.silmaNfeStep,
+        }))
         .sort((a, b) => b.importedAt - a.importedAt)
       : []
   } catch {
@@ -42,17 +48,26 @@ export function upsertUserUpload(input: Omit<UserUploadDocument, 'importedAt'>):
     modelId: input.modelId || DEFAULT_TTS_MODEL_ID,
     dtype: input.dtype || NATIVE_TTS_DTYPE,
     textPreprocessor: input.textPreprocessor ?? TEXT_PREPROCESSOR_NONE,
+    silmaNfeStep: input.modelId === SILMA_MODEL_ID ? resolveSilmaNfeStep(input) : input.silmaNfeStep,
     importedAt: Date.now(),
   }
   const records = getUserUploads().filter((record) => record.url !== upload.url)
   records.push(upload)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records))
+  writeUserUploads(records)
   return upload
 }
 
 export function removeUserUpload(url: string): void {
   const records = getUserUploads().filter((record) => record.url !== url)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records))
+  writeUserUploads(records)
+}
+
+function writeUserUploads(records: UserUploadDocument[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records))
+  } catch {
+    // Metadata writes are best effort; native imported files still remain on disk if storage is unavailable.
+  }
 }
 
 function isUserUploadDocument(value: unknown): value is UserUploadDocument {
@@ -67,6 +82,7 @@ function isUserUploadDocument(value: unknown): value is UserUploadDocument {
     typeof record.speed === 'number' &&
     typeof record.dtype === 'string' &&
     typeof record.chunks === 'number' &&
+    (typeof record.silmaNfeStep === 'number' || record.silmaNfeStep === undefined) &&
     (typeof record.audioDurationSec === 'number' || record.audioDurationSec === undefined) &&
     (typeof record.wavBytes === 'number' || record.wavBytes === undefined)
 }

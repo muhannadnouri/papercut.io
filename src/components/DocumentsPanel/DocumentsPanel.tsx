@@ -1,14 +1,22 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
+import { Button, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components'
 import type { DocumentInfo } from '../../types/search'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
-import type { UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
+import type { UploadedDocumentDeleteBatchResult, UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
+import { BundledDocumentTree } from '../BundledDocumentTree/BundledDocumentTree'
 import { Panel } from '../Panel/Panel'
 import { DocumentList } from '../DocumentList/DocumentList'
 import { UploadedLibraryTree } from '../UploadedLibraryTree/UploadedLibraryTree'
+import { LibraryGalleryView, type LibraryGalleryCategory } from '../LibraryGalleryView/LibraryGalleryView'
+import { splitDocumentGroupsBySource } from '../DocumentBrowser/documentGroups'
+import '../DocumentBrowser/DocumentBrowser.css'
 
 interface DocumentsPanelStatus {
   status: string
-  message: string
+  message: ReactNode
+  onDismiss?: () => void
 }
 
 export interface DocumentImportOption {
@@ -25,6 +33,7 @@ interface DocumentsPanelProps {
   allDocuments: DocumentInfo[]
   audioSavedOnly?: boolean
   collapsedAuthors: Set<string>
+  developerMode?: boolean
   docFilterLower: string
   documentFilter: string
   documentsLoading: boolean
@@ -34,10 +43,12 @@ interface DocumentsPanelProps {
   libraryOrganization?: UploadedLibraryOrganization
   documentOpening?: boolean
   openingDocumentUrl?: string
+  savedAudiobookDocumentUrls?: ReadonlySet<string>
   showDocuments: boolean
   onAudioSavedOnlyChange?: (enabled: boolean) => void
   onCreateLibraryFolder?: (parentId: string | null, name: string) => void | Promise<void>
   onDeleteDocument?: (doc: DocumentInfo) => void | Promise<void>
+  onDeleteDocuments?: (docs: DocumentInfo[]) => Promise<UploadedDocumentDeleteBatchResult | null>
   onDeleteLibraryFolder?: (folderId: string) => void | Promise<void>
   onFilterChange: (value: string) => void
   onMoveLibraryDocuments?: (documentIds: string[], folderId: string | null) => void | Promise<void>
@@ -51,6 +62,7 @@ export function DocumentsPanel({
   allDocuments,
   audioSavedOnly = false,
   collapsedAuthors,
+  developerMode = false,
   docFilterLower,
   documentFilter,
   documentsLoading,
@@ -60,10 +72,12 @@ export function DocumentsPanel({
   libraryOrganization,
   documentOpening = false,
   openingDocumentUrl,
+  savedAudiobookDocumentUrls = new Set(),
   showDocuments,
   onAudioSavedOnlyChange,
   onCreateLibraryFolder,
   onDeleteDocument,
+  onDeleteDocuments,
   onDeleteLibraryFolder,
   onFilterChange,
   onMoveLibraryDocuments,
@@ -72,28 +86,42 @@ export function DocumentsPanel({
   onToggleShow,
   onViewDocument,
 }: DocumentsPanelProps) {
+  const { t } = useTranslation()
   const [importMenuOpen, setImportMenuOpen] = useState(false)
+  const [preferredView, setPreferredView] = useState<LibraryView>(loadView)
+  const [galleryCategory, setGalleryCategory] = useState<LibraryGalleryCategory>(
+    loadCategory,
+  )
+  const view = developerMode ? preferredView : 'list'
   const activeImport = importOptions.find((option) => option.statusLabel)
   const hasImportOptions = importOptions.length > 0
-  const deleteDisabled = importStatuses.some((item) => item.status === 'deleting')
-  const uploadDocs = groupedDocs.flatMap((group) => group.docs.filter((doc) => doc.source === 'upload'))
-  const nonUploadGroups = groupedDocs
-    .map((group) => ({ ...group, docs: group.docs.filter((doc) => doc.source !== 'upload') }))
-    .filter((group) => group.docs.length > 0)
+  const importBusy = importStatuses.some((item) => item.status === 'importing')
+  const operationBusy = importStatuses.some((item) => item.status === 'importing' || item.status === 'deleting')
+  const importDisabled = hasImportOptions && importOptions.every((option) => option.disabled || option.future || !option.onSelect)
+  const {
+    uploadDocs,
+    bundledDocs,
+    nonBundledGroups,
+    otherGroups,
+  } = splitDocumentGroupsBySource(groupedDocs)
   const canShowUploadedTree = Boolean(
     libraryOrganization &&
     onCreateLibraryFolder &&
+    onDeleteDocuments &&
     onDeleteLibraryFolder &&
     onMoveLibraryDocuments &&
     onRenameLibraryFolder,
   )
+  const documentListGroups = canShowUploadedTree ? otherGroups : nonBundledGroups
+  const hasFolderTree = bundledDocs.length > 0 ||
+    (canShowUploadedTree && uploadDocs.length > 0)
 
   if (documentsLoading) {
     return (
       <div className="documents-panel documents-panel-loading">
         <div className="documents-loading">
           <span className="spinner" aria-hidden="true" />
-          <span>Loading Documents&#8230;</span>
+          <span>{t('library.documents.loading')}</span>
         </div>
       </div>
     )
@@ -101,54 +129,73 @@ export function DocumentsPanel({
 
   return (
     <Panel
-      className={'documents-panel' + (importMenuOpen ? ' documents-panel-menu-open' : '')}
-      ariaLabel="Documents"
-      title={`Documents (${allDocuments.length})`}
+      className={`document-browser-panel documents-panel${view === 'gallery' ? ' documents-panel-gallery' : ''}`}
+      ariaLabel={t('library.documents.ariaLabel')}
+      title={t('library.documents.title', { count: allDocuments.length })}
       open={showDocuments}
       onToggle={onToggleShow}
     >
       <div className="documents-list-header">
         <input
           type="text"
+          dir="auto"
           className="document-filter-input"
-          placeholder="Filter Documents..."
+          placeholder={t('library.documents.filterPlaceholder')}
           value={documentFilter}
           onChange={(e) => onFilterChange(e.target.value)}
         />
         {hasImportOptions && (
           <div className="document-import-menu">
-            <button
-              className="document-import-btn"
-              aria-expanded={importMenuOpen}
-              onClick={() => setImportMenuOpen((value) => !value)}
-              type="button"
-            >
-              {activeImport?.statusLabel ?? 'Import'}
-              <span className={`toggle-arrow ${importMenuOpen ? 'open' : ''}`}>&#9662;</span>
-            </button>
-            {importMenuOpen && (
-              <div className="document-import-options">
-                {importOptions.map((option) => {
-                  const disabled = option.disabled || option.future || !option.onSelect
-                  return (
-                    <button
-                      key={option.id}
-                      className="document-import-option"
-                      disabled={disabled}
-                      onClick={() => {
-                        setImportMenuOpen(false)
-                        option.onSelect?.()
-                      }}
-                      type="button"
-                    >
-                      <span>{option.label}{option.future ? ' (Future)' : ''}</span>
-                      {option.detail && <small>{option.detail}</small>}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
+            <MenuTrigger isOpen={importMenuOpen} onOpenChange={setImportMenuOpen}>
+              <Button className="document-import-btn" isDisabled={importDisabled}>
+                {activeImport?.statusLabel ?? t('library.documents.import')}
+                <span className={`toggle-arrow ${importMenuOpen ? 'open' : ''}`} aria-hidden="true">&#9662;</span>
+              </Button>
+              <Popover
+                className="document-import-popover"
+                placement="bottom end"
+                offset={6}
+                containerPadding={8}
+                shouldFlip
+              >
+                <Menu className="document-import-options" aria-label={t('library.documents.import')}>
+                  {importOptions.map((option) => {
+                    const disabled = option.disabled || option.future || !option.onSelect
+                    const label = option.label + (option.future ? ` (${t('library.documents.future')})` : '')
+                    return (
+                      <MenuItem
+                        key={option.id}
+                        id={option.id}
+                        className="document-import-option"
+                        isDisabled={disabled}
+                        textValue={label}
+                        aria-label={option.detail ? `${label}. ${option.detail}` : label}
+                        onAction={option.onSelect}
+                      >
+                        <span>{label}</span>
+                        {option.detail && <small>{option.detail}</small>}
+                      </MenuItem>
+                    )
+                  })}
+                </Menu>
+              </Popover>
+            </MenuTrigger>
           </div>
+        )}
+        {developerMode && (
+          <button
+            type="button"
+            className="library-view-toggle"
+            aria-label={view === 'gallery' ? t('library.documents.listView') : t('library.documents.galleryView')}
+            title={view === 'gallery' ? t('library.documents.listView') : t('library.documents.galleryView')}
+            onClick={() => {
+              const nextView = view === 'gallery' ? 'list' : 'gallery'
+              setPreferredView(nextView)
+              savePreference(VIEW_STORAGE_KEY, nextView)
+            }}
+          >
+            <ViewIcon view={view === 'gallery' ? 'list' : 'gallery'} />
+          </button>
         )}
         {onAudioSavedOnlyChange && (
           <label className="audio-filter-toggle">
@@ -157,54 +204,152 @@ export function DocumentsPanel({
               checked={audioSavedOnly}
               onChange={(e) => onAudioSavedOnlyChange(e.target.checked)}
             />
-            <span>Saved Audio</span>
+            <span>{t('library.documents.savedAudio')}</span>
           </label>
         )}
       </div>
 
       {importStatuses.map((item, index) => item.message && item.status !== 'idle' ? (
-        <div key={item.status + index} className={'document-import-status document-import-' + item.status}>
-          {item.message}
+        <div
+          key={item.status + index}
+          className={'document-import-status document-import-' + item.status}
+          role={item.status === 'error' ? 'alert' : 'status'}
+          aria-live={item.status === 'error' ? 'assertive' : 'polite'}
+        >
+          <div className="document-import-status-content">{item.message}</div>
+          {item.onDismiss && (
+            <button
+              type="button"
+              className="document-import-dismiss"
+              aria-label={t('library.status.dismissNotice')}
+              title={t('common.close')}
+              onClick={item.onDismiss}
+            >
+              &times;
+            </button>
+          )}
         </div>
       ) : null)}
 
-      {canShowUploadedTree && libraryOrganization && (
-        <UploadedLibraryTree
-          documents={uploadDocs}
-          organization={libraryOrganization}
-          documentOpening={documentOpening}
-          openingDocumentUrl={openingDocumentUrl}
-          onCreateFolder={onCreateLibraryFolder!}
-          onDeleteDocument={onDeleteDocument}
-          onDeleteFolder={onDeleteLibraryFolder!}
-          onMoveDocuments={onMoveLibraryDocuments!}
-          onRenameFolder={onRenameLibraryFolder!}
-          onViewDocument={onViewDocument}
-        />
-      )}
-
-      {(!canShowUploadedTree || nonUploadGroups.length > 0 || uploadDocs.length === 0) && (
-        <DocumentList
-          groupedDocs={canShowUploadedTree ? nonUploadGroups : groupedDocs}
+      {view === 'gallery' ? (
+        <LibraryGalleryView
+          category={galleryCategory}
           collapsedAuthors={collapsedAuthors}
           docFilterLower={docFilterLower}
-          emptyMessage={getEmptyMessage(allDocuments.length, audioSavedOnly, documentFilter)}
+          groupedDocs={groupedDocs}
+          savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
+          documentOpening={documentOpening}
+          mutationDisabled={operationBusy}
+          openingDocumentUrl={openingDocumentUrl}
+          emptyMessage={emptyMessage(allDocuments.length, audioSavedOnly, documentFilter, t)}
+          onCategoryChange={(category) => {
+            setGalleryCategory(category)
+            savePreference(CATEGORY_STORAGE_KEY, category)
+          }}
+          onDeleteDocument={onDeleteDocument}
           onToggleAuthor={onToggleAuthor}
           onViewDocument={onViewDocument}
-          onDeleteDocument={onDeleteDocument}
-          deleteDisabled={deleteDisabled || documentOpening}
-          openingDocumentUrl={openingDocumentUrl}
-          viewDisabled={documentOpening}
         />
+      ) : (
+        <>
+          {canShowUploadedTree && libraryOrganization && (
+            <UploadedLibraryTree
+              documents={uploadDocs}
+              organization={libraryOrganization}
+              documentOpening={documentOpening}
+              mutationDisabled={operationBusy}
+              resetEditing={importBusy}
+              openingDocumentUrl={openingDocumentUrl}
+              onCreateFolder={onCreateLibraryFolder!}
+              onDeleteDocuments={onDeleteDocuments!}
+              onDeleteFolder={onDeleteLibraryFolder!}
+              onMoveDocuments={onMoveLibraryDocuments!}
+              onRenameFolder={onRenameLibraryFolder!}
+              onViewDocument={onViewDocument}
+            />
+          )}
+
+          {bundledDocs.length > 0 && (
+            <BundledDocumentTree
+              documents={bundledDocs}
+              filterActive={docFilterLower.length > 0}
+              documentOpening={documentOpening}
+              openingDocumentUrl={openingDocumentUrl}
+              onViewDocument={onViewDocument}
+            />
+          )}
+
+          {(documentListGroups.length > 0 || !hasFolderTree) && (
+            <DocumentList
+              groupedDocs={documentListGroups}
+              collapsedAuthors={collapsedAuthors}
+              docFilterLower={docFilterLower}
+              emptyMessage={emptyMessage(allDocuments.length, audioSavedOnly, documentFilter, t)}
+              onToggleAuthor={onToggleAuthor}
+              onViewDocument={onViewDocument}
+              onDeleteDocument={onDeleteDocument}
+              deleteDisabled={operationBusy || documentOpening}
+              openingDocumentUrl={openingDocumentUrl}
+              viewDisabled={documentOpening}
+            />
+          )}
+        </>
       )}
     </Panel>
   )
 }
 
+function ViewIcon({ view }: { view: LibraryView }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      {view === 'list' ? (
+        <>
+          <path d="M3 6h.01M3 12h.01M3 18h.01" />
+          <path d="M8 6h13M8 12h13M8 18h13" />
+        </>
+      ) : (
+        <>
+          <rect x="3" y="3" width="7" height="7" rx="1" />
+          <rect x="14" y="3" width="7" height="7" rx="1" />
+          <rect x="3" y="14" width="7" height="7" rx="1" />
+          <rect x="14" y="14" width="7" height="7" rx="1" />
+        </>
+      )}
+    </svg>
+  )
+}
 
-function getEmptyMessage(documentCount: number, audioSavedOnly: boolean, documentFilter: string): string {
-  if (documentCount === 0) return 'No documents available yet.'
-  if (audioSavedOnly) return 'No saved audio matches.'
-  if (documentFilter.trim()) return 'No documents match the filter.'
-  return 'No documents available yet.'
+type LibraryView = 'gallery' | 'list'
+
+const VIEW_STORAGE_KEY = 'papercut.library-view.v1'
+const CATEGORY_STORAGE_KEY = 'papercut.library-gallery-category.v1'
+
+function emptyMessage(documentCount: number, audioSavedOnly: boolean, filter: string, t: TFunction): string {
+  if (documentCount === 0) return t('library.documents.empty')
+  if (audioSavedOnly) return t('library.documents.emptySavedAudio')
+  return filter.trim() ? t('library.documents.emptyFilter') : t('library.documents.empty')
+}
+
+function loadView(): LibraryView {
+  try {
+    return window.localStorage.getItem(VIEW_STORAGE_KEY) === 'gallery' ? 'gallery' : 'list'
+  } catch {
+    return 'list'
+  }
+}
+
+function loadCategory(): LibraryGalleryCategory {
+  try {
+    return window.localStorage.getItem(CATEGORY_STORAGE_KEY) === 'documents' ? 'documents' : 'books'
+  } catch {
+    return 'books'
+  }
+}
+
+function savePreference(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(key, value)
+  } catch {
+    // The view still changes when preference persistence is unavailable.
+  }
 }

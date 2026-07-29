@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import i18n from '../../i18n'
 import {
   getNativeSavedAudiobookChunk,
   getNativeTtsCapabilities,
@@ -14,27 +15,24 @@ import {
   pauseNativeAudio,
   playNativeAudio,
   seekNativeAudio,
+  setNativeAudioRate,
   setNativeAudioSource,
   stopNativeAudio,
   type NativeAudioState,
 } from '../playback/nativeMobileAudio'
+import { BrowserAudioCache } from '../playback/browserAudioCache'
+import {
+  DEFAULT_PLAYBACK_RATE,
+  findPlaybackChunk,
+  isNativeMobilePlatform,
+  isTransientPlaybackInterruption,
+  normalizePlaybackRate,
+  textPreview,
+} from '../playback/playbackState'
 import type { TtsOptions, TtsChunk } from '../types'
+import { nativeTtsErrorDetail, nativeTtsErrorMessage } from '../utils/errors'
 
 type TtsStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'error'
-
-interface QueuedAudio {
-  index: number
-  chunkId: string
-  text: string
-  url: string
-}
-
-interface LoadedAudio {
-  index: number
-  chunkId: string
-  text: string
-  wav: ArrayBuffer
-}
 
 interface PreloadTarget {
   anchorIndex: number
@@ -67,7 +65,6 @@ export interface TtsPlayerState {
 }
 
 const MOBILE_PROGRESS_UPDATE_MS = 250
-
 const EMPTY_PLAYBACK_STATE = {
   currentText: '',
   currentChunkIndex: null,
@@ -87,7 +84,7 @@ const EMPTY_PLAYBACK_STATE = {
   | 'currentChunkDuration'
 >
 
-export function useTtsPlayer() {
+export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
   const [state, setState] = useState<TtsPlayerState>({
     status: 'idle',
     message: '',
@@ -100,9 +97,7 @@ export function useTtsPlayer() {
   })
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  const audioByIndexRef = useRef(new Map<number, QueuedAudio>())
-  const loadedIndexesRef = useRef(new Set<number>())
-  const loadingByIndexRef = useRef(new Map<number, Promise<LoadedAudio | null>>())
+  const browserAudioCacheRef = useRef(new BrowserAudioCache())
   const chunksRef = useRef<TtsChunk[]>([])
   const optionsRef = useRef<TtsOptions | null>(null)
   const jobIdRef = useRef(0)
@@ -131,6 +126,7 @@ export function useTtsPlayer() {
   const mobileForegroundReadyRef = useRef(false)
   const mobileForegroundSyncRef = useRef<Promise<void> | null>(null)
   const nativeAudioInitializedRef = useRef(false)
+  const playbackRateRef = useRef(playbackRate)
 
   // Increment generation whenever polling stops. Late async responses then fail
   // their generation fence and cannot overwrite newer playback/navigation state.
@@ -148,13 +144,8 @@ export function useTtsPlayer() {
     mobileForegroundSyncRef.current = null
   }, [stopMobilePolling])
 
-  const revokeAudioUrls = useCallback(() => {
-    for (const item of audioByIndexRef.current.values()) {
-      URL.revokeObjectURL(item.url)
-    }
-    audioByIndexRef.current.clear()
-    loadedIndexesRef.current.clear()
-    loadingByIndexRef.current.clear()
+  const clearBrowserAudioCache = useCallback(() => {
+    browserAudioCacheRef.current.clear()
   }, [])
 
   const finishPlayback = useCallback(() => {
@@ -183,7 +174,7 @@ export function useTtsPlayer() {
       mobilePlaybackRef.current = null
       mobileModeRef.current = false
       void stopNativeAudio().catch((err: unknown) => {
-        logTtsDiagnostic('[tts-playback] native reset failed', { error: errorMessage(err) }, 'warn')
+        logTtsDiagnostic('[tts-playback] native reset failed', { error: nativeTtsErrorDetail(err) }, 'warn')
       })
       finishPlayback()
       return
@@ -194,7 +185,7 @@ export function useTtsPlayer() {
       setState((prev) => ({
         ...prev,
         status: 'error',
-        message: nativeState.error || 'Native audio playback failed',
+        message: nativeState.error || i18n.t('tts.status.nativePlaybackFailed'),
       }))
       return
     }
@@ -222,7 +213,7 @@ export function useTtsPlayer() {
       status: nativeState.isPlaying
         ? 'playing'
         : (nativeState.status === 'idle' ? 'paused' : 'loading'),
-      message: nativeState.buffering ? 'Buffering audiobook' : '',
+      message: nativeState.buffering ? i18n.t('tts.status.buffering') : '',
       chunksGenerated: totalChunksRef.current,
       chunksPlayed: timing.index,
       currentText: chunk.text,
@@ -267,7 +258,7 @@ export function useTtsPlayer() {
         if (generation === mobilePollGenerationRef.current) {
           logTtsDiagnostic(
             '[tts-playback] native state poll failed',
-            { error: errorMessage(err) },
+            { error: nativeTtsErrorDetail(err) },
             'warn',
           )
         }
@@ -324,14 +315,17 @@ export function useTtsPlayer() {
       return true
     }
 
-    const item = audioByIndexRef.current.get(index)
+    const item = browserAudioCacheRef.current.get(index)
     if (!item) {
       nextPlayIndexRef.current = index
       playingRef.current = false
       setState((prev) => ({
         ...prev,
         status: 'loading',
-        message: 'Loading chunk ' + (index + 1) + '/' + totalChunksRef.current,
+        message: i18n.t('tts.status.loadingChunk', {
+          current: index + 1,
+          total: totalChunksRef.current,
+        }),
       }))
       return false
     }
@@ -345,6 +339,7 @@ export function useTtsPlayer() {
     playingRef.current = true
     audio.src = item.url
     audio.currentTime = 0
+    audio.playbackRate = playbackRateRef.current
 
     setState((prev) => ({
       ...prev,
@@ -374,7 +369,7 @@ export function useTtsPlayer() {
         setState((prev) => ({
           ...prev,
           status: 'loading',
-          message: 'Switching audiobook chunk',
+          message: i18n.t('tts.status.switchingChunk'),
         }))
         return
       }
@@ -384,36 +379,12 @@ export function useTtsPlayer() {
       setState((prev) => ({
         ...prev,
         status: 'error',
-        message: err instanceof Error ? err.message : String(err),
+        message: nativeTtsErrorMessage(err),
       }))
     })
 
     return true
   }, [finishPlayback])
-
-  const pruneAudioWindow = useCallback((anchorIndex: number) => {
-    const min = Math.max(anchorIndex - 2, 0)
-    const max = Math.min(anchorIndex + 4, Math.max(totalChunksRef.current - 1, 0))
-
-    for (const item of audioByIndexRef.current.values()) {
-      if (item.index >= min && item.index <= max) continue
-      if (item.index === currentPlayingIndexRef.current) continue
-      URL.revokeObjectURL(item.url)
-      audioByIndexRef.current.delete(item.index)
-    }
-  }, [])
-
-  const enqueueAudio = useCallback((item: QueuedAudio) => {
-    const previous = audioByIndexRef.current.get(item.index)
-    if (previous && previous.url !== item.url) URL.revokeObjectURL(previous.url)
-
-    audioByIndexRef.current.set(item.index, item)
-    loadedIndexesRef.current.add(item.index)
-    setState((prev) => ({
-      ...prev,
-      chunksGenerated: loadedIndexesRef.current.size,
-    }))
-  }, [])
 
   const loadChunk = useCallback(async (
     index: number,
@@ -422,13 +393,13 @@ export function useTtsPlayer() {
   ): Promise<boolean> => {
     const chunks = chunksRef.current
     const options = optionsRef.current
-    if (audioByIndexRef.current.has(index)) return true
+    if (browserAudioCacheRef.current.has(index)) return true
     if (!options || index < 0 || index >= chunks.length) return false
 
-    let promise = loadingByIndexRef.current.get(index)
+    let promise = browserAudioCacheRef.current.getLoading(index)
     if (!promise) {
       const chunk = chunks[index]
-      if (!options.documentUrl) throw new Error('Saved audiobook playback requires a document URL')
+      if (!options.documentUrl) throw new Error(i18n.t('tts.status.playbackNeedsDocument'))
 
       promise = getNativeSavedAudiobookChunk(options.documentUrl, chunk, index, options).then((nativeSaved) => {
         if (!nativeSaved) return null
@@ -439,30 +410,23 @@ export function useTtsPlayer() {
           wav: nativeSaved.wav,
         }
       })
-      loadingByIndexRef.current.set(index, promise)
-      const clearLoading = () => {
-        if (loadingByIndexRef.current.get(index) === promise) {
-          loadingByIndexRef.current.delete(index)
-        }
-      }
-      void promise.then(clearLoading, clearLoading)
+      browserAudioCacheRef.current.trackLoading(index, promise)
     }
 
     const loaded = await promise
     if (jobIdRef.current !== jobId || !shouldAccept()) return false
     if (!loaded) {
-      throw new Error('Saved audiobook chunk missing. Save this audiobook before playback.')
+      throw new Error(i18n.t('tts.status.missingSavedChunk'))
     }
-    if (audioByIndexRef.current.has(index)) return true
+    if (browserAudioCacheRef.current.has(index)) return true
 
-    enqueueAudio({
-      index: loaded.index,
-      chunkId: loaded.chunkId,
-      text: loaded.text,
-      url: URL.createObjectURL(new Blob([loaded.wav], { type: 'audio/wav' })),
-    })
+    browserAudioCacheRef.current.enqueue(loaded)
+    setState((prev) => ({
+      ...prev,
+      chunksGenerated: browserAudioCacheRef.current.generatedCount,
+    }))
     return true
-  }, [enqueueAudio])
+  }, [])
 
   // Single speculative desktop worker. New anchor replaces queued target; stale work
   // is rejected by job/navigation ids and never commits obsolete audio.
@@ -527,7 +491,10 @@ export function useTtsPlayer() {
         setState((prev) => ({
           ...prev,
           status: 'loading',
-          message: 'Seeking to chunk ' + (targetIndex + 1) + '/' + totalChunksRef.current,
+          message: i18n.t('tts.status.seekingChunk', {
+            current: targetIndex + 1,
+            total: totalChunksRef.current,
+          }),
           pendingChunkIndex: targetIndex,
         }))
         const nativeState = await seekNativeAudio(timing.startSec)
@@ -562,7 +529,7 @@ export function useTtsPlayer() {
         setState((prev) => ({
           ...prev,
           status: 'error',
-          message: errorMessage(err),
+          message: nativeTtsErrorMessage(err),
           pendingChunkIndex: null,
         }))
       })
@@ -597,7 +564,10 @@ export function useTtsPlayer() {
         setState((prev) => ({
           ...prev,
           status: 'loading',
-          message: 'Loading chunk ' + (targetIndex + 1) + '/' + totalChunksRef.current,
+          message: i18n.t('tts.status.loadingChunk', {
+            current: targetIndex + 1,
+            total: totalChunksRef.current,
+          }),
           pendingChunkIndex: targetIndex,
           currentChunkProgress: 0,
           currentChunkTime: 0,
@@ -612,7 +582,11 @@ export function useTtsPlayer() {
         const loaded = await loadChunk(targetIndex, jobId, isCurrentTarget)
         if (!loaded || !isCurrentTarget()) continue
 
-        pruneAudioWindow(targetIndex)
+        browserAudioCacheRef.current.prune(
+          targetIndex,
+          currentPlayingIndexRef.current,
+          totalChunksRef.current,
+        )
         const didStart = playIndex(targetIndex)
         if (navigationIntentRef.current === navigationIntent) {
           pendingTargetIndexRef.current = didStart ? null : targetIndex
@@ -622,7 +596,7 @@ export function useTtsPlayer() {
     } finally {
       navigationInFlightRef.current = false
     }
-  }, [loadChunk, playIndex, preloadAround, pruneAudioWindow])
+  }, [loadChunk, playIndex, preloadAround])
 
   const startPlaybackAt = useCallback((index: number) => {
     if (totalChunksRef.current === 0) return
@@ -639,15 +613,28 @@ export function useTtsPlayer() {
         setState((prev) => ({
           ...prev,
           status: 'error',
-          message: err instanceof Error ? err.message : String(err),
+          message: nativeTtsErrorMessage(err),
         }))
       })
     })
   }, [clampChunkIndex, runNavigationWorker])
 
   useEffect(() => {
+    playbackRateRef.current = normalizePlaybackRate(playbackRate)
+    if (audioRef.current) {
+      audioRef.current.playbackRate = playbackRateRef.current
+    }
+    if (mobileModeRef.current && nativeAudioInitializedRef.current) {
+      void setNativeAudioRate(playbackRateRef.current).catch((err: unknown) => {
+        logTtsDiagnostic('[tts-playback] native rate update failed', { error: nativeTtsErrorDetail(err) }, 'warn')
+      })
+    }
+  }, [playbackRate])
+
+  useEffect(() => {
     const audio = new Audio()
     audio.preload = 'auto'
+    audio.playbackRate = playbackRateRef.current
     audioRef.current = audio
 
     const updateProgress = () => {
@@ -693,9 +680,9 @@ export function useTtsPlayer() {
         navigationFrameRef.current = null
       }
       audioRef.current = null
-      revokeAudioUrls()
+      clearBrowserAudioCache()
     }
-  }, [finishPlayback, revokeAudioUrls, startPlaybackAt])
+  }, [clearBrowserAudioCache, finishPlayback, startPlaybackAt])
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -704,7 +691,7 @@ export function useTtsPlayer() {
         return
       }
       void syncMobileForegroundState().catch((err: unknown) => {
-        logTtsDiagnostic('[tts-playback] foreground sync failed', { error: errorMessage(err) }, 'warn')
+        logTtsDiagnostic('[tts-playback] foreground sync failed', { error: nativeTtsErrorDetail(err) }, 'warn')
       })
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -718,7 +705,7 @@ export function useTtsPlayer() {
       if (nativeAudioInitializedRef.current) {
         nativeAudioInitializedRef.current = false
         void disposeNativeAudio().catch((err: unknown) => {
-          logTtsDiagnostic('[tts-playback] native dispose failed', { error: errorMessage(err) }, 'warn')
+          logTtsDiagnostic('[tts-playback] native dispose failed', { error: nativeTtsErrorDetail(err) }, 'warn')
         })
       }
     }
@@ -729,7 +716,7 @@ export function useTtsPlayer() {
       ? {
         ...prev,
         status: 'loading',
-        message: 'Checking native TTS',
+        message: i18n.t('tts.status.checkingNative'),
         progress: undefined,
       }
       : prev))
@@ -753,13 +740,13 @@ export function useTtsPlayer() {
     jobId: number,
   ) => {
     if (!options.documentUrl) {
-      throw new Error('Saved audiobook playback requires a document URL')
+      throw new Error(i18n.t('tts.status.playbackNeedsDocument'))
     }
     mobileModeRef.current = true
     setState((prev) => ({
       ...prev,
       status: 'loading',
-      message: 'Preparing background playback',
+      message: i18n.t('tts.status.preparingPlayback'),
     }))
     const prepareStarted = performance.now()
     const playback = await prepareNativeAudiobookPlayback(options.documentUrl, chunks, options)
@@ -786,6 +773,8 @@ export function useTtsPlayer() {
     if (jobIdRef.current !== jobId || !mobileModeRef.current) return
     pausedRef.current = false
     updateNativePlaybackState(sourceState)
+    await setNativeAudioRate(playbackRateRef.current)
+    if (jobIdRef.current !== jobId || !mobileModeRef.current) return
     updateNativePlaybackState(await playNativeAudio())
     await syncMobileForegroundState()
   }, [syncMobileForegroundState, updateNativePlaybackState])
@@ -826,12 +815,12 @@ export function useTtsPlayer() {
       ? stopNativeAudio()
       : Promise.resolve()
     mobileModeRef.current = false
-    revokeAudioUrls()
+    clearBrowserAudioCache()
 
     setState((prev) => ({
       ...prev,
       status: 'loading',
-      message: 'Checking saved audio',
+      message: i18n.t('tts.status.checkingSaved'),
       progress: undefined,
       chunksGenerated: 0,
       chunksPlayed: 0,
@@ -860,10 +849,10 @@ export function useTtsPlayer() {
         setState((prev) => ({
           ...prev,
           status: 'error',
-          message: err instanceof Error ? err.message : String(err),
+          message: nativeTtsErrorMessage(err),
         }))
       })
-  }, [resetMobileForegroundSync, revokeAudioUrls, startNativePlayback, startPlaybackAt])
+  }, [clearBrowserAudioCache, resetMobileForegroundSync, startNativePlayback, startPlaybackAt])
 
   const pause = useCallback(() => {
     pausedRef.current = true
@@ -877,7 +866,7 @@ export function useTtsPlayer() {
           setState((prev) => ({
             ...prev,
             status: 'error',
-            message: err instanceof Error ? err.message : String(err),
+            message: nativeTtsErrorMessage(err),
           }))
         })
       setState((prev) => ({ ...prev, status: 'paused' }))
@@ -897,7 +886,7 @@ export function useTtsPlayer() {
           setState((prev) => ({
             ...prev,
             status: 'error',
-            message: err instanceof Error ? err.message : String(err),
+            message: nativeTtsErrorMessage(err),
           }))
         })
       return
@@ -913,7 +902,7 @@ export function useTtsPlayer() {
           setState((prev) => ({
             ...prev,
             status: 'error',
-            message: err instanceof Error ? err.message : String(err),
+            message: nativeTtsErrorMessage(err),
           }))
         })
       return
@@ -943,7 +932,7 @@ export function useTtsPlayer() {
           setState((prev) => ({
             ...prev,
             status: 'error',
-            message: errorMessage(err),
+            message: nativeTtsErrorMessage(err),
           }))
         })
       return
@@ -969,7 +958,7 @@ export function useTtsPlayer() {
           setState((prev) => ({
             ...prev,
             status: 'error',
-            message: errorMessage(err),
+            message: nativeTtsErrorMessage(err),
           }))
         })
       return
@@ -1011,10 +1000,10 @@ export function useTtsPlayer() {
     audioRef.current?.pause()
     if (shouldStopNativeAudio) {
       void stopNativeAudio().catch((err: unknown) => {
-        logTtsDiagnostic('[tts-playback] native reset failed', { error: errorMessage(err) }, 'warn')
+        logTtsDiagnostic('[tts-playback] native reset failed', { error: nativeTtsErrorDetail(err) }, 'warn')
       })
     }
-    revokeAudioUrls()
+    clearBrowserAudioCache()
     setState((prev) => ({
       ...prev,
       status: 'idle',
@@ -1027,7 +1016,7 @@ export function useTtsPlayer() {
       chunks: [],
       ...EMPTY_PLAYBACK_STATE,
     }))
-  }, [resetMobileForegroundSync, revokeAudioUrls])
+  }, [clearBrowserAudioCache, resetMobileForegroundSync])
 
   return {
     state,
@@ -1041,56 +1030,4 @@ export function useTtsPlayer() {
     stop,
     resetNativeTtsCapabilities,
   }
-}
-
-function isNativeMobilePlatform(platform: string): boolean {
-  return platform === 'android' || platform === 'ios'
-}
-
-function findPlaybackChunk(
-  playback: NativeAudiobookPlayback,
-  currentTime: number,
-): NativeAudiobookPlayback['chunks'][number] | null {
-  const chunks = playback.chunks
-  if (chunks.length === 0) return null
-
-  let low = 0
-  let high = chunks.length - 1
-  while (low <= high) {
-    const middle = Math.floor((low + high) / 2)
-    const chunk = chunks[middle]
-    const nextStart = chunks[middle + 1]?.startSec ?? playback.audioDurationSec
-    if (currentTime < chunk.startSec) {
-      high = middle - 1
-    } else if (currentTime >= nextStart && middle < chunks.length - 1) {
-      low = middle + 1
-    } else {
-      return chunk
-    }
-  }
-
-  return currentTime < chunks[0].startSec ? chunks[0] : chunks[chunks.length - 1]
-}
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err)
-}
-
-function isTransientPlaybackInterruption(err: unknown): boolean {
-  // Mobile browsers reject play() with AbortError/interruption messages when a
-  // user quickly replaces the audio source. Those are navigation noise, not a
-  // real TTS failure, so they should not collapse the floating controls.
-  if (!(err instanceof Error)) return false
-  const name = err.name.toLowerCase()
-  const message = err.message.toLowerCase()
-  return name === 'aborterror' ||
-    message.includes('interrupted') ||
-    message.includes('new load request') ||
-    message.includes('pause')
-}
-
-function textPreview(text: string): string {
-  const normalized = text.replace(/\s+/g, ' ').trim()
-  if (normalized.length <= 96) return normalized
-  return normalized.slice(0, 95).trimEnd() + '...'
 }

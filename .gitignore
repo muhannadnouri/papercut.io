@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+scripts/pdf-extraction-spike/target/
 *.local
 
 # Editor directories and files
@@ -24,8 +25,31 @@ dist-ssr
 *.sw?
 
 public/*
+!public/fonts/
+!public/fonts/reader/
+!public/fonts/reader/**
 .cache/*
 
 # Downloaded local TTS assets are large and platform-specific.
 src-tauri/tts/runtime/*
 
+# Sidecar source is tracked; local Python envs, caches, model files, and probes are not.
+sidecars/**/.venv/
+sidecars/**/__pycache__/
+sidecars/**/.pytest_cache/
+sidecars/**/models/
+sidecars/**/runtime/
+sidecars/**/*.wav
+
+.venv-silma/
+
+private_keys/
+
+# Apple signing/provisioning secrets.
+*.cer
+*.certSigningRequest
+*.key
+*.p12
+*.p8
+*.mobileprovision
+*.provisionprofile

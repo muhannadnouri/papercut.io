@@ -1,0 +1,118 @@
+.find-bar {
+  position: fixed;
+  top: env(safe-area-inset-top);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 1120px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content auto auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 0 0 10px 10px;
+  background: var(--surface);
+  box-shadow: 0 2px 8px var(--shadow-soft);
+  z-index: 80;
+}
+
+.find-input {
+  min-width: 0;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.9rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  outline: none;
+  background: var(--surface-subtle);
+  transition: border-color 0.2s;
+}
+
+.find-input:focus {
+  border-color: var(--accent-text);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+.find-count {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.find-nav-btn {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.25rem;
+  min-height: 2rem;
+  background: none;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 0;
+  font-size: 0.75rem;
+  color: var(--text-body);
+  cursor: pointer;
+  line-height: 1;
+  transition: all 0.15s;
+}
+
+.find-nav-btn:hover:not(:disabled) {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+}
+
+.find-nav-btn:focus-visible {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+.find-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.find-close {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2rem;
+  min-height: 2rem;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 1.55rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.find-close:hover {
+  color: var(--danger-bright);
+}
+
+.find-close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .find-bar {
+    gap: 0.35rem;
+    padding: 0.45rem 0.5rem;
+  }
+
+  .find-input {
+    padding-inline: 0.6rem;
+  }
+
+  .find-count {
+    font-size: 0.76rem;
+  }
+
+  .find-nav-btn {
+    min-width: 2rem;
+  }
+}

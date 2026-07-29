@@ -12,17 +12,19 @@
 //!
 //! Submodules split the two directions plus housekeeping:
 //!
-//! - [`export`]: stitch saved chunk WAVs into one track and pack the bundle.
+//! - [`export`]: write export sidecars and pack the bundle.
 //! - [`import`]: parse/validate a bundle and restore it into app data.
 //! - [`manage`]: read an imported document's source HTML and delete saved audio.
+//! - [`wav`]: stitch saved chunk WAVs into one track.
 
 mod export;
-pub(crate) use export::stitch_audiobook_wav;
 mod import;
 mod manage;
+mod wav;
 
 pub(crate) use export::export_audiobook_native;
 pub(crate) use import::import_audiobook_native;
 pub(crate) use manage::{
     delete_audiobook_native, get_imported_audiobook_metadata, get_imported_audiobook_source,
 };
+pub(crate) use wav::{stitch_audiobook_wav, WavExportSummary};

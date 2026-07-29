@@ -5,11 +5,99 @@
 //! `pub(crate)` so the feature modules can construct/read them, but they stay
 //! internal to the crate.
 
+use std::path::PathBuf;
+
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Stable command error code plus the original diagnostic detail.
+pub(crate) struct NativeTtsCommandError {
+    pub(crate) code: &'static str,
+    pub(crate) message: String,
+}
+
+impl NativeTtsCommandError {
+    pub(crate) fn new(message: String) -> Self {
+        Self {
+            code: native_tts_error_code(&message),
+            message,
+        }
+    }
+}
+
+impl From<String> for NativeTtsCommandError {
+    fn from(message: String) -> Self {
+        Self::new(message)
+    }
+}
+
+/// Classify only expected user-actionable failures; unknown details stay generic.
+fn native_tts_error_code(message: &str) -> &'static str {
+    let message = message.to_ascii_lowercase();
+    if message.contains("cancelled") {
+        return "operation-cancelled";
+    }
+    if message.contains("not compiled")
+        || message.contains("currently supported on linux x64 only")
+        || message.contains("not supported on this platform yet")
+        || message.contains("native tts is not available")
+    {
+        return "native-tts-unavailable";
+    }
+    if message.contains("unsupported native tts model")
+        || message.contains("is not supported by model")
+    {
+        return "unsupported-model";
+    }
+    if message.contains("already in progress") {
+        return "operation-in-progress";
+    }
+    if message.contains("runtime pack is not installed")
+        || message.contains("worker not found")
+        || message.contains("missing worker executable")
+    {
+        return "runtime-not-installed";
+    }
+    if message.contains("offline voice model is not installed")
+        || (message.starts_with("missing ") && message.contains("voice model"))
+        || message.contains("required model files")
+        || message.contains("missing required files")
+    {
+        return "model-not-installed";
+    }
+    if message.contains("no speakable audiobook chunks")
+        || message.contains("audiobook with no chunks")
+    {
+        return "no-speakable-text";
+    }
+    if message.contains("does not match the current document chunks") {
+        return "audiobook-cache-mismatch";
+    }
+    if message.contains("4 gb riff/wav limit") {
+        return "wav-too-large";
+    }
+    if message.contains("audiobook bundle")
+        && (message.contains("not a current")
+            || message.contains("not a supported")
+            || message.contains("did not contain")
+            || message.contains("does not contain")
+            || message.contains("invalid")
+            || message.contains("ended unexpectedly")
+            || message.contains("without a content type"))
+    {
+        return "invalid-audiobook-bundle";
+    }
+    "native-tts-failed"
+}
 
 /// IPC requests from older frontends retain historical identity processing.
 fn default_text_preprocessor() -> String {
     "none".into()
+}
+
+fn default_audiobook_export_format() -> String {
+    "bundle".into()
 }
 
 #[derive(Debug, Serialize)]
@@ -62,13 +150,17 @@ pub(crate) struct NativeTtsModelStatus {
     pub(crate) model_id: String,
     pub(crate) installed: bool,
     pub(crate) installing: bool,
+    pub(crate) install_supported: bool,
+    pub(crate) runtime_installed: bool,
     pub(crate) model_dir: Option<String>,
+    pub(crate) runtime_dir: Option<String>,
     pub(crate) source_url: String,
     pub(crate) source_label: String,
     pub(crate) archive_bytes: u64,
     pub(crate) installed_bytes: u64,
     pub(crate) sha256: String,
     pub(crate) message: String,
+    pub(crate) runtime_message: String,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -91,6 +183,19 @@ pub(crate) struct NativeTtsModelInstallResponse {
     pub(crate) model_id: String,
     pub(crate) model_dir: String,
     pub(crate) bytes: u64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Dev/prototype health check for the desktop SILMA Python worker.
+pub(crate) struct NativeSilmaSidecarProbeResponse {
+    pub(crate) worker_path: String,
+    pub(crate) python_command: String,
+    pub(crate) probe_wav_path: String,
+    pub(crate) health_version: String,
+    pub(crate) sample_rate: i32,
+    pub(crate) audio_duration_sec: f32,
+    pub(crate) wav_bytes: usize,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -135,6 +240,39 @@ pub(crate) struct NativeAudiobookStatusResponse {
     pub(crate) dir: String,
     pub(crate) audio_duration_sec: f32,
     pub(crate) wav_bytes: usize,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// One completed audiobook discovered from its native on-disk manifest.
+pub(crate) struct NativeSavedAudiobookRecord {
+    pub(crate) id: String,
+    pub(crate) document_url: String,
+    pub(crate) title: String,
+    pub(crate) voice: String,
+    pub(crate) speed: f32,
+    pub(crate) model_id: String,
+    pub(crate) text_preprocessor: String,
+    pub(crate) silma_nfe_step: Option<i32>,
+    pub(crate) cache_version: String,
+    pub(crate) dtype: String,
+    pub(crate) saved_at: u64,
+    pub(crate) chunks: usize,
+    pub(crate) audio_duration_sec: f64,
+    pub(crate) wav_bytes: usize,
+}
+
+/// One canonical file owned by a completed audiobook transfer payload.
+pub(crate) struct NativeAudiobookTransferFile {
+    pub(crate) relative_path: String,
+    pub(crate) source_path: PathBuf,
+}
+
+/// Registry-approved files for one complete audiobook.
+pub(crate) struct NativeAudiobookTransferPayload {
+    pub(crate) record: NativeSavedAudiobookRecord,
+    pub(crate) storage_key: String,
+    pub(crate) files: Vec<NativeAudiobookTransferFile>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -192,17 +330,18 @@ pub(crate) struct NativeAudiobookSaveRequest {
     pub(crate) voice: String,
     pub(crate) speed: f32,
     pub(crate) thread_count: Option<i32>,
+    pub(crate) silma_nfe_step: Option<i32>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-/// Inputs for exporting a saved audiobook to a bundle.
+/// Inputs for exporting a saved audiobook to a re-importable bundle or plain WAV.
 #[cfg_attr(not(feature = "native-tts-core"), allow(dead_code))]
 pub(crate) struct NativeAudiobookExportRequest {
     pub(crate) audiobook_id: String,
     pub(crate) document_url: String,
     pub(crate) title: String,
-    pub(crate) source_html: String,
+    pub(crate) source_html: Option<String>,
     pub(crate) chunks: Vec<NativeTtsInputChunk>,
     pub(crate) model_id: String,
     #[serde(default = "default_text_preprocessor")]
@@ -210,11 +349,14 @@ pub(crate) struct NativeAudiobookExportRequest {
     pub(crate) voice: String,
     pub(crate) speed: f32,
     pub(crate) dtype: String,
+    pub(crate) silma_nfe_step: Option<i32>,
+    #[serde(default = "default_audiobook_export_format")]
+    pub(crate) export_format: String,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-/// Paths and totals describing a written export bundle.
+/// Paths and totals describing a written audiobook export.
 pub(crate) struct NativeAudiobookExportResponse {
     pub(crate) path: String,
     pub(crate) audio_path: String,
@@ -244,6 +386,7 @@ pub(crate) struct NativeImportedAudiobookMetadataResponse {
     pub(crate) voice: String,
     pub(crate) speed: f32,
     pub(crate) dtype: String,
+    pub(crate) silma_nfe_step: Option<i32>,
     pub(crate) chunks: Vec<NativeTtsInputChunk>,
     pub(crate) audio_duration_sec: f32,
     pub(crate) wav_bytes: usize,
@@ -254,12 +397,14 @@ pub(crate) struct NativeImportedAudiobookMetadataResponse {
 /// Metadata about an audiobook restored from a bundle.
 pub(crate) struct NativeAudiobookImportResponse {
     pub(crate) document_url: String,
+    pub(crate) source_kind: String,
     pub(crate) title: String,
     pub(crate) model_id: String,
     pub(crate) text_preprocessor: String,
     pub(crate) voice: String,
     pub(crate) speed: f32,
     pub(crate) dtype: String,
+    pub(crate) silma_nfe_step: Option<i32>,
     pub(crate) chunks: usize,
     pub(crate) audio_duration_sec: f32,
     pub(crate) wav_bytes: usize,
@@ -347,4 +492,29 @@ pub(crate) struct NativeTtsChunkResponse {
     pub(crate) wav_bytes: usize,
     pub(crate) generate_ms: u128,
     pub(crate) backend: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::native_tts_error_code;
+
+    #[test]
+    fn expected_native_tts_errors_have_stable_codes() {
+        assert_eq!(
+            native_tts_error_code("Offline voice model is not installed"),
+            "model-not-installed"
+        );
+        assert_eq!(
+            native_tts_error_code("Audiobook export cancelled"),
+            "operation-cancelled"
+        );
+        assert_eq!(
+            native_tts_error_code("Selected file is not a supported Papercut audiobook bundle"),
+            "invalid-audiobook-bundle"
+        );
+        assert_eq!(
+            native_tts_error_code("unexpected library detail"),
+            "native-tts-failed"
+        );
+    }
 }

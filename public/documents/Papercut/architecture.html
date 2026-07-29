@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>How Papercut Works</title>
+  <meta name="category" content="technical">
+</head>
+<body>
+  <h1>How Papercut Works</h1>
+  <p>Papercut is built around a simple local workflow: import documents, search across them, read what matters, and save audio when listening is more useful than reading.</p>
+
+  <h2>Local library</h2>
+  <p>Imported HTML and EPUB files are converted into app-owned reading documents and stored on your device. You can organize imported documents into folders, move them later, or remove them from local storage.</p>
+
+  <h2>Search</h2>
+  <p>Papercut combines local search over bundled documents with local search over your imported documents. Exact quoted phrases are checked against document text so you can find specific passages, not just loose keyword matches.</p>
+
+  <h2>Reader</h2>
+  <p>The reader opens stored HTML content inside the app instead of relying on a browser tab. EPUB imports are turned into a generated reading document so books can share the same reading, search, and audio workflow.</p>
+
+  <h2>Audiobooks</h2>
+  <p>Audio generation runs on-device when the required voice model is installed. Saved audiobooks can be played later, exported as Papercut audiobook bundles, and imported again on another device.</p>
+
+  <h2>Privacy model</h2>
+  <p>Documents, search, reading, and generated audio are local-first. Papercut does not need accounts, subscriptions, API keys, or cloud processing for its core workflow.</p>
+
+  <h2>Technical notes</h2>
+  <ul>
+    <li>The app interface is built with React and TypeScript.</li>
+    <li>Desktop and mobile packaging is handled through Tauri.</li>
+    <li>Bundled starter documents use Pagefind for local indexing.</li>
+    <li>Imported documents are stored and searched locally by the app.</li>
+  </ul>
+</body>
+</html>

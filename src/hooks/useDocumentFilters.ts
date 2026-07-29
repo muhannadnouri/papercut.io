@@ -1,5 +1,7 @@
 import { useState, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { DocumentInfo } from '../types/search'
+import { bundledDocumentFolderNames } from '../components/DocumentBrowser/bundledDocuments'
 import { deriveAuthor, UNCATEGORIZED } from '../utils/documentUtils'
 
 export interface AuthorGroup {
@@ -18,9 +20,10 @@ interface UseDocumentFiltersReturn {
   collapsedAuthors: Set<string>
   groupedDocs: AuthorGroup[]
   docFilterLower: string
-  toggleFilter: (title: string) => void
+  filterTitleByUrl: Map<string, string>
+  toggleFilter: (url: string) => void
   clearFilters: () => void
-  removeFilter: (title: string) => void
+  removeFilter: (url: string) => void
   toggleAuthor: (author: string) => void
   toggleAllInGroup: (docs: DocumentInfo[]) => void
   setShowDocuments: React.Dispatch<React.SetStateAction<boolean>>
@@ -31,24 +34,49 @@ export function useDocumentFilters(
   allDocuments: DocumentInfo[],
   options: UseDocumentFiltersOptions = {},
 ): UseDocumentFiltersReturn {
+  const { t, i18n } = useTranslation()
   const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set())
   const [showDocuments, setShowDocuments] = useState(true)
   const [documentFilter, setDocumentFilter] = useState('')
   const [collapsedAuthors, setCollapsedAuthors] = useState<Set<string>>(new Set())
 
   const { includeDocument } = options
-  const docFilterLower = documentFilter.trim().toLowerCase()
+  const locale = i18n.resolvedLanguage ?? i18n.language
+  const docFilterLower = documentFilter.trim().toLocaleLowerCase(locale)
+  const collator = useMemo(
+    () => new Intl.Collator(locale, { numeric: true, sensitivity: 'base' }),
+    [locale],
+  )
+
+  const filterTitleByUrl = useMemo(() => {
+    const entries = allDocuments
+      .filter((doc) => !includeDocument || includeDocument(doc))
+      .map((doc) => [doc.url, doc.title] as const)
+    return new Map(entries)
+  }, [allDocuments, includeDocument])
 
   const groupedDocs = useMemo<AuthorGroup[]>(() => {
     const groups = new Map<string, DocumentInfo[]>()
     for (const doc of allDocuments) {
       if (includeDocument && !includeDocument(doc)) continue
 
-      const author = doc.source === 'audiobook-upload' ? 'Imported Audiobooks' : deriveAuthor(doc.url)
+      const derivedAuthor = deriveAuthor(doc.url)
+      const author = doc.source === 'audiobook-upload'
+        ? t('library.groups.importedAudiobooks')
+        : doc.source === 'upload'
+          ? t('library.groups.userUploads')
+          : derivedAuthor === UNCATEGORIZED
+            ? t('library.groups.uncategorized')
+            : derivedAuthor
+      const bundledFolderMatches = doc.source === 'bundled' &&
+        bundledDocumentFolderNames(doc.url).some((folder) => (
+          folder.toLocaleLowerCase(locale).includes(docFilterLower)
+        ))
       if (
         docFilterLower.length > 0 &&
-        !doc.title.toLowerCase().includes(docFilterLower) &&
-        !author.toLowerCase().includes(docFilterLower)
+        !doc.title.toLocaleLowerCase(locale).includes(docFilterLower) &&
+        !author.toLocaleLowerCase(locale).includes(docFilterLower) &&
+        !bundledFolderMatches
       ) {
         continue
       }
@@ -59,20 +87,21 @@ export function useDocumentFilters(
     return Array.from(groups.entries())
       .map(([author, docs]) => ({
         author,
-        docs: docs.slice().sort((a, b) => a.title.localeCompare(b.title)),
+        docs: docs.slice().sort((a, b) => collator.compare(a.title, b.title)),
       }))
       .sort((a, b) => {
-        if (a.author === UNCATEGORIZED) return 1
-        if (b.author === UNCATEGORIZED) return -1
-        return a.author.localeCompare(b.author)
+        const uncategorized = t('library.groups.uncategorized')
+        if (a.author === uncategorized) return 1
+        if (b.author === uncategorized) return -1
+        return collator.compare(a.author, b.author)
       })
-  }, [allDocuments, docFilterLower, includeDocument])
+  }, [allDocuments, collator, docFilterLower, includeDocument, locale, t])
 
-  const toggleFilter = useCallback((title: string) => {
+  const toggleFilter = useCallback((url: string) => {
     setSelectedFilters((prev) => {
       const next = new Set(prev)
-      if (next.has(title)) next.delete(title)
-      else next.add(title)
+      if (next.has(url)) next.delete(url)
+      else next.add(url)
       return next
     })
   }, [])
@@ -81,11 +110,11 @@ export function useDocumentFilters(
     setSelectedFilters(new Set())
   }, [])
 
-  const removeFilter = useCallback((title: string) => {
+  const removeFilter = useCallback((url: string) => {
     setSelectedFilters((prev) => {
-      if (!prev.has(title)) return prev
+      if (!prev.has(url)) return prev
       const next = new Set(prev)
-      next.delete(title)
+      next.delete(url)
       return next
     })
   }, [])
@@ -102,9 +131,9 @@ export function useDocumentFilters(
   const toggleAllInGroup = useCallback((docs: DocumentInfo[]) => {
     setSelectedFilters((prev) => {
       const next = new Set(prev)
-      const allSelected = docs.every((d) => next.has(d.title))
-      if (allSelected) docs.forEach((d) => next.delete(d.title))
-      else docs.forEach((d) => next.add(d.title))
+      const allSelected = docs.every((d) => next.has(d.url))
+      if (allSelected) docs.forEach((d) => next.delete(d.url))
+      else docs.forEach((d) => next.add(d.url))
       return next
     })
   }, [])
@@ -116,6 +145,7 @@ export function useDocumentFilters(
     collapsedAuthors,
     groupedDocs,
     docFilterLower,
+    filterTitleByUrl,
     toggleFilter,
     clearFilters,
     removeFilter,

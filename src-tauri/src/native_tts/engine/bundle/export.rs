@@ -1,8 +1,9 @@
-//! Export a saved audiobook to a single `.papercut-audiobook` bundle file.
+//! Export saved audiobook audio as a `.papercut-audiobook` bundle or plain WAV.
 //!
-//! Flow: stitch the per-chunk WAVs into one combined WAV, write a JSON metadata
-//! sidecar and the original source HTML, then pack the metadata + HTML + every
-//! chunk WAV + the combined WAV behind the bundle header.
+//! Bundle export stitches the per-chunk WAVs into one combined WAV, writes JSON
+//! metadata, and packs the canonical HTML or PDF source behind the bundle
+//! header. WAV export reuses the same stitching path and writes only the final
+//! audio file.
 //!
 //! Rust notes for a JS reader: `Result<T, String>` is this codebase's "either a
 //! value or an error message" type — the trailing `?` after a call means "if it
@@ -11,40 +12,49 @@
 //! taking ownership, similar to passing an object you promise not to keep.
 
 use std::fs;
-use std::io::{BufWriter, Read, Seek, SeekFrom, Write};
-use std::path::{Path, PathBuf};
+use std::io::{BufWriter, Read, Write};
+use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::json;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_fs::{FilePath, FsExt, OpenOptions};
 
-use super::super::cache::{wav_metadata, WavMetadata};
 use super::super::config::{BUNDLE_MAGIC, CACHE_VERSION};
-use super::super::file_commit::commit_staged_file;
 use super::super::paths::{
     audiobook_dir, chunk_path, sanitize_export_basename, speakable_chunks, unique_export_work_dir,
 };
+use super::{stitch_audiobook_wav, WavExportSummary};
+use crate::document_uploads::get_pdf_source_path;
 use crate::native_tts::types::{
-    NativeAudiobookExportRequest, NativeAudiobookExportResponse, NativeAudiobookPlaybackChunk,
-    NativeTtsInputChunk,
+    NativeAudiobookExportRequest, NativeAudiobookExportResponse, NativeTtsInputChunk,
 };
 
-/// Totals describing the single stitched WAV, threaded back up to the response.
-pub(crate) struct WavExportSummary {
-    pub(crate) chunks: usize,
-    pub(crate) audio_duration_sec: f32,
-    pub(crate) wav_bytes: usize,
-    #[cfg_attr(target_os = "android", allow(dead_code))]
-    pub(crate) chunk_timings: Vec<NativeAudiobookPlaybackChunk>,
+struct BundleSource {
+    path: std::path::PathBuf,
+    file_name: &'static str,
+    role: &'static str,
+    content_type: &'static str,
+    kind: &'static str,
 }
 
-/// Top-level export entry point.
-///
+/// Top-level export entry point. The frontend chooses between the re-importable
+/// Papercut bundle and a plain stitched WAV for use outside Papercut.
+pub(crate) fn export_audiobook_native(
+    app: tauri::AppHandle,
+    request: NativeAudiobookExportRequest,
+) -> Result<NativeAudiobookExportResponse, String> {
+    match request.export_format.as_str() {
+        "bundle" => export_audiobook_bundle(app, request),
+        "wav" => export_audiobook_wav(app, request),
+        value => Err(format!("Unsupported audiobook export format {value:?}")),
+    }
+}
+
 /// Asks the OS for a save location, builds the combined WAV + sidecars in a
 /// temporary work directory, writes the final bundle to the chosen path, then
 /// cleans up the work directory. Returns metadata about what was written.
-pub(crate) fn export_audiobook_native(
+fn export_audiobook_bundle(
     app: tauri::AppHandle,
     request: NativeAudiobookExportRequest,
 ) -> Result<NativeAudiobookExportResponse, String> {
@@ -53,7 +63,6 @@ pub(crate) fn export_audiobook_native(
     if chunks.is_empty() {
         return Err("No speakable audiobook chunks to export".into());
     }
-
     // Open the native "Save As" dialog. `blocking_save_file` returns None if the
     // user cancels, which `ok_or_else` turns into an error.
     let basename = sanitize_export_basename(&request.title);
@@ -81,15 +90,15 @@ pub(crate) fn export_audiobook_native(
     let audio_filename = format!("{basename}.wav");
     let audio_path = export_dir.join(&audio_filename);
     let metadata_path = export_dir.join("metadata.json");
-    let html_path = export_dir.join("source.html");
+    let source = bundle_source(&app, &request, &export_dir)?;
     let export = stitch_audiobook_wav(&dir, &chunks, &audio_path)?;
     write_export_sidecars(
         &request,
+        &source,
         &chunks,
         &export,
         &audio_path,
         &metadata_path,
-        &html_path,
     )?;
     write_export_bundle(
         &app,
@@ -99,7 +108,7 @@ pub(crate) fn export_audiobook_native(
         &export,
         &audio_path,
         &metadata_path,
-        &html_path,
+        &source,
         &audio_filename,
     )?;
     let _ = fs::remove_dir_all(&export_dir);
@@ -108,196 +117,115 @@ pub(crate) fn export_audiobook_native(
         path: destination_label,
         audio_path: audio_filename,
         metadata_path: "metadata.json".into(),
-        html_path: "source.html".into(),
+        html_path: source.file_name.into(),
         chunks: export.chunks,
         audio_duration_sec: export.audio_duration_sec,
         wav_bytes: export.wav_bytes,
     })
 }
 
-/// Concatenate every saved chunk WAV into one valid WAV file at `output_path`.
+/// Export only the stitched WAV, omitting Papercut metadata/source sidecars.
 ///
-/// WAV files are `RIFF` containers: a header, a `fmt ` chunk describing the
-/// audio format, and a `data` chunk holding raw samples. To merge N files we
-/// reuse the first file's `fmt ` block, then write one big `data` chunk that is
-/// every input's samples back-to-back. We require all inputs to share the same
-/// format and guard the 4 GB RIFF size limit. A completed same-directory staged
-/// file replaces the destination only after every payload has been copied.
-pub(crate) fn stitch_audiobook_wav(
-    dir: &Path,
-    chunks: &[NativeTtsInputChunk],
-    output_path: &Path,
-) -> Result<WavExportSummary, String> {
+/// The WAV is still built in Papercut's temporary export directory first so
+/// failed stitching never leaves a partial file at the user's selected path.
+/// The final copy goes through Tauri's FS plugin so mobile file-provider paths
+/// keep working the same way bundle export already does.
+fn export_audiobook_wav(
+    app: tauri::AppHandle,
+    request: NativeAudiobookExportRequest,
+) -> Result<NativeAudiobookExportResponse, String> {
+    let chunks = speakable_chunks(&request.chunks);
     if chunks.is_empty() {
-        return Err("Cannot stitch an audiobook with no chunks".into());
-    }
-    // First pass: locate each chunk WAV and read just its header metadata
-    // (offset + length of the `data` chunk), summing total bytes/duration.
-    let mut metas: Vec<(PathBuf, WavMetadata)> = Vec::with_capacity(chunks.len());
-    let mut total_data_bytes = 0u64;
-    let mut total_audio_duration_sec = 0f64;
-    let mut chunk_timings = Vec::with_capacity(chunks.len());
-
-    for (index, chunk) in chunks.iter().enumerate() {
-        let path = chunk_path(dir, index, chunk);
-        let metadata = wav_metadata(&path).ok_or_else(|| {
-            format!(
-                "Missing or invalid saved audiobook chunk {}/{}: {}",
-                index + 1,
-                chunks.len(),
-                path.display()
-            )
-        })?;
-
-        // Every chunk must share the first chunk's audio format, otherwise the
-        // concatenated samples would be garbage.
-        if let Some((_, first)) = metas.first() {
-            if metadata.fmt_payload != first.fmt_payload {
-                return Err(format!(
-                    "Saved audiobook chunk {} has a different WAV format",
-                    index + 1
-                ));
-            }
-        }
-
-        let duration_sec = metadata.precise_audio_duration_sec;
-        chunk_timings.push(NativeAudiobookPlaybackChunk {
-            index,
-            chunk_id: chunk.id.clone(),
-            start_sec: total_audio_duration_sec,
-            duration_sec,
-        });
-        total_data_bytes += metadata.data_bytes as u64;
-        total_audio_duration_sec += duration_sec;
-        metas.push((path, metadata));
+        return Err("No speakable audiobook chunks to export".into());
     }
 
-    // RIFF stores sizes as unsigned 32-bit, so the combined audio cannot exceed
-    // ~4 GB. Bail before writing anything if it would.
-    if total_data_bytes > u32::MAX as u64 {
-        return Err("Exported WAV would exceed the 4 GB RIFF/WAV limit".into());
-    }
+    let basename = sanitize_export_basename(&request.title);
+    let destination = app
+        .dialog()
+        .file()
+        .set_title("Export Audiobook WAV")
+        .set_file_name(format!("{basename}.wav"))
+        .add_filter("WAV Audio", &["wav"])
+        .blocking_save_file()
+        .ok_or_else(|| "Audiobook export cancelled".to_string())?;
+    let destination_label = destination.to_string();
 
-    if let Some(parent) = output_path.parent() {
-        fs::create_dir_all(parent).map_err(|err| {
-            format!(
-                "Failed to create export directory {}: {err}",
-                parent.display()
-            )
-        })?;
-    }
-
-    // Write to "<output>.<nanos>.tmp" first. BufWriter batches small writes into
-    // larger OS writes (like buffering output instead of many syscalls).
-    let temp_path = output_path.with_extension(format!(
-        "wav.{}.tmp",
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|err| format!("System clock error: {err}"))?
-            .as_nanos()
-    ));
-    let file = fs::File::create(&temp_path).map_err(|err| {
+    let dir = audiobook_dir(&app, &request.audiobook_id)?;
+    let export_dir = unique_export_work_dir(&app, &request.title)?;
+    fs::create_dir_all(&export_dir).map_err(|err| {
         format!(
-            "Failed to create audiobook export {}: {err}",
-            temp_path.display()
+            "Failed to create audiobook export work directory {}: {err}",
+            export_dir.display()
         )
     })?;
-    let mut writer = BufWriter::new(file);
 
-    // RIFF/WAVE chunks are 2-byte aligned, so odd-length sections get one pad
-    // byte. Compute the overall RIFF size (everything after "RIFF<size>").
-    let fmt_payload = &metas[0].1.fmt_payload;
-    let fmt_padding = fmt_payload.len() % 2;
-    let data_padding = total_data_bytes as usize % 2;
-    let riff_size = 4u64
-        + 8
-        + fmt_payload.len() as u64
-        + fmt_padding as u64
-        + 8
-        + total_data_bytes
-        + data_padding as u64;
-    if riff_size > u32::MAX as u64 {
-        let _ = fs::remove_file(&temp_path);
-        return Err("Exported WAV would exceed the 4 GB RIFF/WAV limit".into());
-    }
+    let audio_filename = format!("{basename}.wav");
+    let audio_path = export_dir.join(&audio_filename);
+    let export = stitch_audiobook_wav(&dir, &chunks, &audio_path)?;
+    write_wav_destination(&app, destination, &audio_path)?;
+    let _ = fs::remove_dir_all(&export_dir);
 
-    // Header: "RIFF" + total size + "WAVE", then the shared "fmt " chunk.
-    // `to_le_bytes` writes the integer in little-endian byte order, as WAV
-    // requires. `map_err(write_export_err)` converts an I/O error into a String.
-    writer.write_all(b"RIFF").map_err(write_export_err)?;
-    writer
-        .write_all(&(riff_size as u32).to_le_bytes())
-        .map_err(write_export_err)?;
-    writer.write_all(b"WAVE").map_err(write_export_err)?;
-    writer.write_all(b"fmt ").map_err(write_export_err)?;
-    writer
-        .write_all(&(fmt_payload.len() as u32).to_le_bytes())
-        .map_err(write_export_err)?;
-    writer.write_all(fmt_payload).map_err(write_export_err)?;
-    if fmt_padding > 0 {
-        writer.write_all(&[0]).map_err(write_export_err)?;
-    }
-
-    // One "data" chunk header for the combined samples...
-    writer.write_all(b"data").map_err(write_export_err)?;
-    writer
-        .write_all(&(total_data_bytes as u32).to_le_bytes())
-        .map_err(write_export_err)?;
-
-    // ...then stream each input's raw sample extent in order. Do not fs::read
-    // whole chunks here: multi-hour books must keep peak memory independent of
-    // total audiobook size and roughly bounded by std::io::copy buffers.
-    for (path, metadata) in &metas {
-        let mut input = fs::File::open(path)
-            .map_err(|err| format!("Failed to open audiobook chunk {}: {err}", path.display()))?;
-        input
-            .seek(SeekFrom::Start(metadata.data_offset as u64))
-            .map_err(|err| format!("Failed to seek audiobook chunk {}: {err}", path.display()))?;
-        let copied = std::io::copy(&mut input.take(metadata.data_bytes as u64), &mut writer)
-            .map_err(write_export_err)?;
-        if copied != metadata.data_bytes as u64 {
-            let _ = fs::remove_file(&temp_path);
-            return Err(format!(
-                "Audiobook chunk {} ended before its WAV data payload",
-                path.display()
-            ));
-        }
-    }
-    if data_padding > 0 {
-        writer.write_all(&[0]).map_err(write_export_err)?;
-    }
-    writer.flush().map_err(write_export_err)?;
-    drop(writer); // Close the file (drop runs its cleanup) before renaming it.
-
-    // Replace the destination only after the staged WAV is complete and closed.
-    commit_staged_file(&temp_path, output_path, "audiobook WAV")?;
-
-    let wav_bytes = fs::metadata(output_path)
-        .map_err(|err| format!("Failed to inspect audiobook export: {err}"))?
-        .len() as usize;
-
-    Ok(WavExportSummary {
-        chunks: chunks.len(),
-        audio_duration_sec: total_audio_duration_sec as f32,
-        wav_bytes,
-        chunk_timings,
+    Ok(NativeAudiobookExportResponse {
+        path: destination_label,
+        audio_path: audio_filename,
+        metadata_path: String::new(),
+        html_path: String::new(),
+        chunks: export.chunks,
+        audio_duration_sec: export.audio_duration_sec,
+        wav_bytes: export.wav_bytes,
     })
 }
 
-/// Write the two human/portable sidecar files next to the combined WAV: the
-/// original `source.html` and a `metadata.json` describing the export (voice,
-/// speed, model id, chunk list, etc.). These are also packed into the bundle.
+/// Resolve the canonical source payload without copying large PDFs through IPC.
+///
+/// HTML remains frontend-provided because bundled/EPUB reader HTML may not live
+/// in the upload store. Uploaded PDFs are read directly from their validated
+/// app-data path and streamed into the final bundle.
+fn bundle_source(
+    app: &tauri::AppHandle,
+    request: &NativeAudiobookExportRequest,
+    export_dir: &Path,
+) -> Result<BundleSource, String> {
+    if request
+        .document_url
+        .split(['?', '#'])
+        .next()
+        .is_some_and(|url| url.ends_with(".pdf"))
+    {
+        return Ok(BundleSource {
+            path: get_pdf_source_path(app, &request.document_url)?,
+            file_name: "source.pdf",
+            role: "sourcePdf",
+            content_type: "application/pdf",
+            kind: "pdf",
+        });
+    }
+
+    let source_html = request
+        .source_html
+        .as_deref()
+        .ok_or_else(|| "Source HTML is required for audiobook bundle export".to_string())?;
+    let path = export_dir.join("source.html");
+    fs::write(&path, source_html.as_bytes())
+        .map_err(|err| format!("Failed to write source HTML {}: {err}", path.display()))?;
+    Ok(BundleSource {
+        path,
+        file_name: "source.html",
+        role: "sourceHtml",
+        content_type: "text/html; charset=utf-8",
+        kind: "html",
+    })
+}
+
+/// Write portable metadata describing the source, voice, chunks, and audio.
 fn write_export_sidecars(
     request: &NativeAudiobookExportRequest,
+    source: &BundleSource,
     chunks: &[NativeTtsInputChunk],
     export: &WavExportSummary,
     audio_path: &Path,
     metadata_path: &Path,
-    html_path: &Path,
 ) -> Result<(), String> {
-    fs::write(html_path, request.source_html.as_bytes())
-        .map_err(|err| format!("Failed to write source HTML {}: {err}", html_path.display()))?;
-
     let exported_at_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|err| format!("System clock error: {err}"))?
@@ -315,14 +243,16 @@ fn write_export_sidecars(
         "voice": request.voice,
         "speed": request.speed,
         "dtype": request.dtype,
+        "silmaNfeStep": request.silma_nfe_step,
         "modelId": request.model_id,
         "textPreprocessor": request.text_preprocessor,
         "cacheVersion": CACHE_VERSION,
         "audiobookId": request.audiobook_id,
         "exportedAtMs": exported_at_ms,
+        "sourceKind": source.kind,
         "files": {
             "audio": audio_file,
-            "sourceHtml": "source.html"
+            "source": source.file_name
         },
         "audio": {
             "format": "wav",
@@ -357,15 +287,15 @@ fn write_export_bundle(
     export: &WavExportSummary,
     audio_path: &Path,
     metadata_path: &Path,
-    html_path: &Path,
+    source: &BundleSource,
     audio_filename: &str,
 ) -> Result<(), String> {
     let dir = audiobook_dir(app, &request.audiobook_id)?;
     let metadata_bytes = fs::metadata(metadata_path)
         .map_err(|err| format!("Failed to inspect export metadata: {err}"))?
         .len();
-    let html_bytes = fs::metadata(html_path)
-        .map_err(|err| format!("Failed to inspect export HTML: {err}"))?
+    let source_bytes = fs::metadata(&source.path)
+        .map_err(|err| format!("Failed to inspect export source: {err}"))?
         .len();
     let exported_at_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -387,10 +317,10 @@ fn write_export_bundle(
     );
     push_bundle_entry(
         &mut manifest_entries,
-        "source.html",
-        "sourceHtml",
-        "text/html; charset=utf-8",
-        html_bytes,
+        source.file_name,
+        source.role,
+        source.content_type,
+        source_bytes,
         &mut payload_offset,
         None,
     );
@@ -430,8 +360,9 @@ fn write_export_bundle(
     );
 
     let manifest = json!({
-        "version": 2,
+        "version": if source.kind == "pdf" { 3 } else { 2 },
         "kind": "papercut-audiobook-bundle",
+        "sourceKind": source.kind,
         "sourceDocumentUrl": request.document_url,
         "title": request.title,
         "voice": request.voice,
@@ -470,13 +401,29 @@ fn write_export_bundle(
     writer.write_all(&manifest_json).map_err(write_export_err)?;
     // Payloads, in the exact order their offsets were assigned above.
     write_file_payload(&mut writer, metadata_path)?;
-    write_file_payload(&mut writer, html_path)?;
+    write_file_payload(&mut writer, &source.path)?;
     for (index, chunk) in chunks.iter().enumerate() {
         if chunk.text.trim().is_empty() {
             continue;
         }
         write_file_payload(&mut writer, &chunk_path(&dir, index, chunk))?;
     }
+    write_file_payload(&mut writer, audio_path)?;
+    writer.flush().map_err(write_export_err)
+}
+
+fn write_wav_destination(
+    app: &tauri::AppHandle,
+    destination: FilePath,
+    audio_path: &Path,
+) -> Result<(), String> {
+    let mut options = OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    let file = app
+        .fs()
+        .open(destination, options)
+        .map_err(|err| format!("Failed to open the selected WAV export file: {err}"))?;
+    let mut writer = BufWriter::new(file);
     write_file_payload(&mut writer, audio_path)?;
     writer.flush().map_err(write_export_err)
 }
@@ -506,14 +453,14 @@ fn push_bundle_entry(
     *payload_offset += bytes;
 }
 
-/// Stream one file's bytes into the bundle writer in 64 KB blocks.
+/// Stream one file's bytes into an export writer in 64 KB blocks.
 ///
 /// Generic over `W: Write` so it works with any writer (here a buffered file).
 /// The loop reads until `read == 0` (end of file), copying each block out.
 fn write_file_payload<W: Write>(writer: &mut W, path: &Path) -> Result<(), String> {
     let file = fs::File::open(path).map_err(|err| {
         format!(
-            "Failed to open audiobook bundle payload {}: {err}",
+            "Failed to open audiobook export payload {}: {err}",
             path.display()
         )
     })?;
@@ -522,7 +469,7 @@ fn write_file_payload<W: Write>(writer: &mut W, path: &Path) -> Result<(), Strin
     loop {
         let read = reader.read(&mut buffer).map_err(|err| {
             format!(
-                "Failed to read audiobook bundle payload {}: {err}",
+                "Failed to read audiobook export payload {}: {err}",
                 path.display()
             )
         })?;

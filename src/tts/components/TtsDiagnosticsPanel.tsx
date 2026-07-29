@@ -64,7 +64,7 @@ function TtsDiagnosticsPanelBody() {
       {events.length === 0 ? (
         <p className="no-results">No events yet.</p>
       ) : (
-        <div className="tts-diagnostics-body">
+        <div className="tts-diagnostics-body" dir="ltr">
           <div className="tts-diagnostics-actions">
             <span>{filteredEvents.length} of {events.length} event{events.length === 1 ? '' : 's'}</span>
             <label>
@@ -162,6 +162,12 @@ function summarizeEvent(event: TtsDiagnosticEvent): string {
   const preferredKeys = [
     'reason',
     'error',
+    'status',
+    'message',
+    'modelId',
+    'runtimeInstalled',
+    'installed',
+    'percent',
     'actualDevice',
     'realTimeFactor',
     'chunkNumber',

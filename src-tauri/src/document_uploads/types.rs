@@ -13,9 +13,42 @@ pub(crate) struct UploadedDocument {
     pub(crate) url: String,
     pub(crate) title: String,
     pub(crate) format: String,
+    pub(crate) source_kind: String,
     pub(crate) imported_at_ms: u128,
     pub(crate) bytes: u64,
     pub(crate) sections: usize,
+    pub(crate) cover_media_type: Option<String>,
+}
+
+/// One file that could not be imported while the rest of its batch continued.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentBatchFailure {
+    pub(crate) file_name: String,
+    pub(crate) error: String,
+}
+
+/// Count-based progress emitted while a sequential document batch runs.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentBatchProgress {
+    pub(crate) phase: String,
+    pub(crate) processed: usize,
+    pub(crate) total: usize,
+    pub(crate) imported: usize,
+    pub(crate) failed: usize,
+    pub(crate) file_name: Option<String>,
+}
+
+/// Final batch outcome, including successes retained alongside per-file failures.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentBatchResult {
+    pub(crate) selected: usize,
+    pub(crate) processed: usize,
+    pub(crate) imported: Vec<UploadedDocument>,
+    pub(crate) failures: Vec<UploadedDocumentBatchFailure>,
+    pub(crate) cancelled: bool,
 }
 
 /// One FTS hit: a matching section with a highlighted snippet.
@@ -29,6 +62,8 @@ pub(crate) struct UploadedDocumentSearchResult {
     pub(crate) excerpt: String,
     pub(crate) section_title: Option<String>,
     pub(crate) section_index: usize,
+    pub(crate) page_index: Option<usize>,
+    pub(crate) match_scope: String,
 }
 
 /// Outcome of a delete, including bytes reclaimed from app data.
@@ -40,7 +75,38 @@ pub(crate) struct UploadedDocumentDeleteResult {
     pub(crate) bytes_freed: u64,
 }
 
-/// Request to read the stored source HTML of an uploaded document.
+/// One document that could not be deleted while the rest of its batch continued.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentDeleteBatchFailure {
+    pub(crate) document_url: String,
+    pub(crate) error: String,
+}
+
+/// Count-based progress emitted while a sequential delete batch runs.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentDeleteBatchProgress {
+    pub(crate) phase: String,
+    pub(crate) processed: usize,
+    pub(crate) total: usize,
+    pub(crate) deleted: usize,
+    pub(crate) failed: usize,
+    pub(crate) document_url: Option<String>,
+}
+
+/// Final delete-batch outcome, retaining successes alongside per-item failures.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentDeleteBatchResult {
+    pub(crate) selected: usize,
+    pub(crate) processed: usize,
+    pub(crate) deleted: Vec<UploadedDocumentDeleteResult>,
+    pub(crate) failures: Vec<UploadedDocumentDeleteBatchFailure>,
+    pub(crate) bytes_freed: u64,
+}
+
+/// Request identifying one stored upload at a validated source boundary.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentSourceRequest {
@@ -53,6 +119,8 @@ pub(crate) struct UploadedDocumentSourceRequest {
 pub(crate) struct UploadedDocumentSearchRequest {
     pub(crate) query: String,
     pub(crate) limit: Option<usize>,
+    pub(crate) document_urls: Option<Vec<String>>,
+    pub(crate) exact_phrases: Option<Vec<String>>,
 }
 
 /// Request to delete one uploaded document by its URL.
@@ -60,6 +128,13 @@ pub(crate) struct UploadedDocumentSearchRequest {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentDeleteRequest {
     pub(crate) document_url: String,
+}
+
+/// Request to delete a bounded set of uploaded documents by URL.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentDeleteBatchRequest {
+    pub(crate) document_urls: Vec<String>,
 }
 
 /// A user-created library folder for organizing uploaded documents.

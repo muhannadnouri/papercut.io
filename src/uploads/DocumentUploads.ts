@@ -3,9 +3,11 @@ export interface UploadedDocument {
   url: string
   title: string
   format: 'html' | string
+  sourceKind: 'html' | 'pdf'
   importedAtMs: number
   bytes: number
   sections: number
+  coverMediaType?: string | null
 }
 
 export interface UploadedDocumentSearchResult {
@@ -16,6 +18,8 @@ export interface UploadedDocumentSearchResult {
   excerpt: string
   sectionTitle?: string | null
   sectionIndex: number
+  pageIndex?: number | null
+  matchScope?: 'section' | 'document'
 }
 
 export interface UploadedDocumentDeleteResult {
@@ -23,6 +27,78 @@ export interface UploadedDocumentDeleteResult {
   url: string
   bytesFreed: number
 }
+
+export interface UploadedDocumentDeleteBatchFailure {
+  documentUrl: string
+  error: string
+}
+
+export interface UploadedDocumentDeleteBatchProgress {
+  phase: 'deleting' | 'completed'
+  processed: number
+  total: number
+  deleted: number
+  failed: number
+  documentUrl?: string | null
+}
+
+export interface UploadedDocumentDeleteBatchResult {
+  selected: number
+  processed: number
+  deleted: UploadedDocumentDeleteResult[]
+  failures: UploadedDocumentDeleteBatchFailure[]
+  bytesFreed: number
+}
+
+export interface UploadedDocumentBatchFailure {
+  fileName: string
+  error: string
+}
+
+export interface UploadedDocumentBatchProgress {
+  phase: 'importing' | 'completed' | 'cancelled'
+  processed: number
+  total: number
+  imported: number
+  failed: number
+  fileName?: string | null
+}
+
+export interface UploadedDocumentBatchResult {
+  selected: number
+  processed: number
+  imported: UploadedDocument[]
+  failures: UploadedDocumentBatchFailure[]
+  cancelled: boolean
+}
+
+export interface PdfPageTextLayer {
+  schemaVersion: 1
+  pageIndex: number
+  width: number
+  height: number
+  blocks: Array<{
+    text: string
+    bounds: [number, number, number, number]
+    order: number
+    confidence: number | null
+  }>
+}
+
+export interface PdfNarrationSegment {
+  text: string
+  sourceRuns: Array<{
+    pageIndex: number
+    blockOrder: number
+    startOffset: number
+    endOffset: number
+    sourceStartOffset: number
+    sourceEndOffset: number
+  }>
+}
+
+const DOCUMENT_IMPORT_PROGRESS_EVENT = 'document-uploads-import-progress'
+const DOCUMENT_DELETE_PROGRESS_EVENT = 'document-uploads-delete-progress'
 
 export interface UploadedLibraryFolder {
   id: string
@@ -51,17 +127,40 @@ export interface UploadedLibraryOrderItem {
 }
 
 export function isUploadedDocumentUrl(url: string): boolean {
+  return /^\/uploads\/[a-fA-F0-9]+\.(?:html|pdf)(?:[#?].*)?$/.test(url)
+}
+
+export function isUploadedHtmlDocumentUrl(url: string): boolean {
   return /^\/uploads\/[a-fA-F0-9]+\.html(?:[#?].*)?$/.test(url)
 }
 
-export async function importHtmlDocument(): Promise<UploadedDocument> {
-  const invoke = await loadTauriInvoke()
-  return invoke<UploadedDocument>('document_uploads_import_html')
+export function isUploadedPdfDocumentUrl(url: string): boolean {
+  return /^\/uploads\/[a-fA-F0-9]+\.pdf(?:[#?].*)?$/.test(url)
 }
 
-export async function importEpubDocument(): Promise<UploadedDocument> {
+export async function importDocumentBatch(): Promise<UploadedDocumentBatchResult> {
   const invoke = await loadTauriInvoke()
-  return invoke<UploadedDocument>('document_uploads_import_epub')
+  return invoke<UploadedDocumentBatchResult>('document_uploads_import_batch')
+}
+
+export async function importDocumentFolder(): Promise<UploadedDocumentBatchResult> {
+  const invoke = await loadTauriInvoke()
+  return invoke<UploadedDocumentBatchResult>('document_uploads_import_folder')
+}
+
+export async function cancelDocumentBatch(): Promise<boolean> {
+  const invoke = await loadTauriInvoke()
+  return invoke<boolean>('document_uploads_cancel_import_batch')
+}
+
+export async function listenDocumentBatchProgress(
+  handler: (progress: UploadedDocumentBatchProgress) => void,
+): Promise<() => void> {
+  if (!isTauriRuntime()) return () => {}
+  const mod = await import('@tauri-apps/api/event')
+  return mod.listen<UploadedDocumentBatchProgress>(DOCUMENT_IMPORT_PROGRESS_EVENT, (event) => {
+    handler(event.payload)
+  })
 }
 
 export async function listUploadedDocuments(): Promise<UploadedDocument[]> {
@@ -70,11 +169,16 @@ export async function listUploadedDocuments(): Promise<UploadedDocument[]> {
   return invoke<UploadedDocument[]>('document_uploads_list')
 }
 
-export async function searchUploadedDocuments(query: string, limit = 50): Promise<UploadedDocumentSearchResult[]> {
+export async function searchUploadedDocuments(
+  query: string,
+  limit = 50,
+  documentUrls?: string[],
+  exactPhrases?: string[],
+): Promise<UploadedDocumentSearchResult[]> {
   if (!isTauriRuntime() || query.trim().length === 0) return []
   const invoke = await loadTauriInvoke()
   return invoke<UploadedDocumentSearchResult[]>('document_uploads_search', {
-    request: { query, limit },
+    request: { query, limit, documentUrls, exactPhrases },
   })
 }
 
@@ -85,10 +189,83 @@ export async function getUploadedDocumentSource(documentUrl: string): Promise<st
   })
 }
 
+export async function getUploadedDocumentCover(documentUrl: string): Promise<string | null> {
+  if (!isTauriRuntime()) return null
+  const invoke = await loadTauriInvoke()
+  return invoke<string | null>('document_uploads_get_cover', {
+    request: { documentUrl },
+  })
+}
+
+export async function getUploadedPdfSource(documentUrl: string): Promise<Uint8Array> {
+  const invoke = await loadTauriInvoke()
+  const source = await invoke<ArrayBuffer | Uint8Array | number[]>('document_uploads_get_pdf_source', {
+    request: { documentUrl },
+  })
+  if (source instanceof Uint8Array) return source
+  return new Uint8Array(source)
+}
+
+export async function getUploadedPdfAssetUrl(documentUrl: string): Promise<string> {
+  const mod = await import('@tauri-apps/api/core')
+  const path = await mod.invoke<string>('document_uploads_get_pdf_asset_path', {
+    request: { documentUrl },
+  })
+  return mod.convertFileSrc(path)
+}
+
+export async function getUploadedPdfNarrationSegments(
+  documentUrl: string,
+): Promise<PdfNarrationSegment[]> {
+  const invoke = await loadTauriInvoke()
+  return invoke<PdfNarrationSegment[]>('document_uploads_get_pdf_narration_segments', {
+    request: { documentUrl },
+  })
+}
+
+export async function storeUploadedPdfPageText(
+  documentUrl: string,
+  layer: PdfPageTextLayer,
+): Promise<void> {
+  const invoke = await loadTauriInvoke()
+  await invoke<void>('document_uploads_store_pdf_page_text', {
+    request: { documentUrl, layer },
+  })
+}
+
+export async function finalizeUploadedPdf(
+  documentUrl: string,
+  title: string | undefined,
+  pageCount: number,
+  thumbnail?: number[],
+): Promise<UploadedDocument> {
+  const invoke = await loadTauriInvoke()
+  return invoke<UploadedDocument>('document_uploads_finalize_pdf', {
+    request: { documentUrl, title, pageCount, thumbnail },
+  })
+}
+
 export async function deleteUploadedDocument(documentUrl: string): Promise<UploadedDocumentDeleteResult> {
   const invoke = await loadTauriInvoke()
   return invoke<UploadedDocumentDeleteResult>('document_uploads_delete', {
     request: { documentUrl },
+  })
+}
+
+export async function deleteUploadedDocuments(documentUrls: string[]): Promise<UploadedDocumentDeleteBatchResult> {
+  const invoke = await loadTauriInvoke()
+  return invoke<UploadedDocumentDeleteBatchResult>('document_uploads_delete_batch', {
+    request: { documentUrls },
+  })
+}
+
+export async function listenDocumentDeleteProgress(
+  handler: (progress: UploadedDocumentDeleteBatchProgress) => void,
+): Promise<() => void> {
+  if (!isTauriRuntime()) return () => {}
+  const mod = await import('@tauri-apps/api/event')
+  return mod.listen<UploadedDocumentDeleteBatchProgress>(DOCUMENT_DELETE_PROGRESS_EVENT, (event) => {
+    handler(event.payload)
   })
 }
 

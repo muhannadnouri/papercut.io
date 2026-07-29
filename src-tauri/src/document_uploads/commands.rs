@@ -7,39 +7,58 @@
 
 use tauri::Runtime;
 
+use super::batch::{delete_batch, import_batch, import_folder};
 use super::organization::{
     create_folder, delete_folder, list_organization, move_documents, move_folder, rename_folder,
     reorder,
 };
-use super::pipeline::{delete_upload, get_source, import_epub, import_html};
+use super::pdf::{
+    finalize_pdf_index, get_pdf_narration_segments, get_pdf_source_bytes, get_pdf_source_path,
+    store_pdf_page_text, PdfFinalizeRequest, PdfNarrationSegment, PdfPageTextRequest,
+};
+use super::pipeline::{delete_upload, get_cover, get_source};
 use super::search::search_uploads;
 use super::store::list_uploads;
 use super::types::{
-    UploadedDocument, UploadedDocumentDeleteRequest, UploadedDocumentDeleteResult,
+    UploadedDocument, UploadedDocumentBatchResult, UploadedDocumentDeleteBatchRequest,
+    UploadedDocumentDeleteBatchResult, UploadedDocumentDeleteRequest, UploadedDocumentDeleteResult,
     UploadedDocumentSearchRequest, UploadedDocumentSearchResult, UploadedDocumentSourceRequest,
     UploadedLibraryCreateFolderRequest, UploadedLibraryDeleteFolderRequest,
     UploadedLibraryMoveDocumentsRequest, UploadedLibraryMoveFolderRequest,
     UploadedLibraryOrganization, UploadedLibraryRenameFolderRequest, UploadedLibraryReorderRequest,
 };
+use super::DocumentUploadState;
 
-/// Open the native picker, import the chosen HTML file, and return its metadata.
+/// Pick multiple HTML, EPUB, or PDF files and import them as one cancellable batch.
 #[tauri::command]
-pub async fn document_uploads_import_html<R: Runtime>(
+pub async fn document_uploads_import_batch<R: Runtime>(
     app: tauri::AppHandle<R>,
-) -> Result<UploadedDocument, String> {
-    tauri::async_runtime::spawn_blocking(move || import_html(app))
+    state: tauri::State<'_, DocumentUploadState>,
+) -> Result<UploadedDocumentBatchResult, String> {
+    let control = state.begin_batch()?;
+    tauri::async_runtime::spawn_blocking(move || import_batch(app, control))
         .await
-        .map_err(|err| format!("Document import task failed: {err}"))?
+        .map_err(|err| format!("Document batch import task failed: {err}"))?
 }
 
-/// Open the native picker, import the chosen EPUB file, and return its metadata.
+/// Pick one desktop folder and import its direct supported children as a batch.
 #[tauri::command]
-pub async fn document_uploads_import_epub<R: Runtime>(
+pub async fn document_uploads_import_folder<R: Runtime>(
     app: tauri::AppHandle<R>,
-) -> Result<UploadedDocument, String> {
-    tauri::async_runtime::spawn_blocking(move || import_epub(app))
+    state: tauri::State<'_, DocumentUploadState>,
+) -> Result<UploadedDocumentBatchResult, String> {
+    let control = state.begin_batch()?;
+    tauri::async_runtime::spawn_blocking(move || import_folder(app, control))
         .await
-        .map_err(|err| format!("Document import task failed: {err}"))?
+        .map_err(|err| format!("Document folder import task failed: {err}"))?
+}
+
+/// Request cancellation after the currently importing file finishes.
+#[tauri::command]
+pub fn document_uploads_cancel_import_batch(
+    state: tauri::State<'_, DocumentUploadState>,
+) -> Result<bool, String> {
+    state.cancel_batch()
 }
 
 /// List all stored uploads, newest first.
@@ -74,6 +93,82 @@ pub async fn document_uploads_get_source<R: Runtime>(
         .map_err(|err| format!("Document upload source task failed: {err}"))?
 }
 
+/// Read one retained EPUB cover through the validated upload boundary.
+#[tauri::command]
+pub async fn document_uploads_get_cover<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedDocumentSourceRequest,
+) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || get_cover(&app, request))
+        .await
+        .map_err(|err| format!("Document upload cover task failed: {err}"))?
+}
+
+/// Stream one canonical PDF source to PDF.js as binary IPC, not JSON/base64.
+#[tauri::command]
+pub async fn document_uploads_get_pdf_source<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedDocumentSourceRequest,
+) -> Result<tauri::ipc::Response, String> {
+    let bytes = tauri::async_runtime::spawn_blocking(move || {
+        get_pdf_source_bytes(&app, &request.document_url)
+    })
+    .await
+    .map_err(|err| format!("PDF source task failed: {err}"))??;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+/// Return a validated app-data path for Tauri's scoped, range-capable asset protocol.
+#[tauri::command]
+pub async fn document_uploads_get_pdf_asset_path<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedDocumentSourceRequest,
+) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = get_pdf_source_path(&app, &request.document_url)?;
+        path.into_os_string()
+            .into_string()
+            .map_err(|_| "PDF source path is not valid UTF-8".to_string())
+    })
+    .await
+    .map_err(|err| format!("PDF asset path task failed: {err}"))?
+}
+
+/// Return reconstructed narration text with compact page/block source runs.
+#[tauri::command]
+pub async fn document_uploads_get_pdf_narration_segments<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedDocumentSourceRequest,
+) -> Result<Vec<PdfNarrationSegment>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        get_pdf_narration_segments(&app, &request.document_url)
+    })
+    .await
+    .map_err(|err| format!("PDF narration text task failed: {err}"))?
+}
+
+/// Persist one bounded page text layer emitted by PDF.js.
+#[tauri::command]
+pub async fn document_uploads_store_pdf_page_text<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: PdfPageTextRequest,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || store_pdf_page_text(&app, request))
+        .await
+        .map_err(|err| format!("PDF page text task failed: {err}"))?
+}
+
+/// Replace a PDF's page and FTS rows after all sidecars are durable.
+#[tauri::command]
+pub async fn document_uploads_finalize_pdf<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: PdfFinalizeRequest,
+) -> Result<UploadedDocument, String> {
+    tauri::async_runtime::spawn_blocking(move || finalize_pdf_index(&app, request))
+        .await
+        .map_err(|err| format!("PDF index task failed: {err}"))?
+}
+
 /// Delete an uploaded document's rows and stored source directory.
 #[tauri::command]
 pub async fn document_uploads_delete<R: Runtime>(
@@ -83,6 +178,17 @@ pub async fn document_uploads_delete<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || delete_upload(&app, request))
         .await
         .map_err(|err| format!("Document upload delete task failed: {err}"))?
+}
+
+/// Delete selected uploads sequentially and retain per-document failures.
+#[tauri::command]
+pub async fn document_uploads_delete_batch<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedDocumentDeleteBatchRequest,
+) -> Result<UploadedDocumentDeleteBatchResult, String> {
+    tauri::async_runtime::spawn_blocking(move || delete_batch(app, request))
+        .await
+        .map_err(|err| format!("Document upload delete batch task failed: {err}"))?
 }
 
 /// Return uploaded-document folder and manual ordering metadata.

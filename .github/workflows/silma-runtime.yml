@@ -1,0 +1,135 @@
+name: SILMA Runtime Pack
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Optional release tag to upload to, for example v1.7.0"
+        required: false
+        type: string
+      artifact_base_url:
+        description: "Optional base URL used in generated manifests instead of the GitHub Release URL"
+        required: false
+        type: string
+      upload_to_release:
+        description: "Upload the runtime pack to the GitHub Release named by tag"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build-runtime:
+    name: ${{ matrix.runtime_id }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runtime_id: linux-x64-cpu
+            runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            archive: papercut-silma-runtime-linux-x64-cpu.tar.bz2
+            torch_index_url: https://download.pytorch.org/whl/cpu
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            sidecars/silma/requirements.txt
+            sidecars/silma/requirements-build.txt
+
+      - name: Install FFmpeg runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Install SILMA sidecar dependencies
+        env:
+          TORCH_INDEX_URL: ${{ matrix.torch_index_url }}
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r sidecars/silma/requirements-build.txt
+          python -m pip install --upgrade --force-reinstall torch torchvision torchaudio torchcodec --index-url "$TORCH_INDEX_URL"
+          # CATT/tashkeel imports ONNX Runtime, but only PyTorch should vary CPU vs CUDA.
+          python -m pip uninstall -y onnxruntime-gpu
+          python -m pip install --upgrade --force-reinstall --no-deps onnxruntime
+
+      - name: Build packaged worker
+        run: |
+          node scripts/prepare-silma-sidecar.js \
+            --target "${{ matrix.target }}" \
+            --clean \
+            --self-test \
+            --import-check \
+            --dependency-check
+
+      - name: Package runtime archive
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_BASE_URL: ${{ inputs.artifact_base_url }}
+          RUNTIME_ARCHIVE: ${{ matrix.archive }}
+          RUNTIME_TARGET: ${{ matrix.target }}
+        run: |
+          runtime_url=""
+          if [ -n "$INPUT_BASE_URL" ]; then
+            runtime_url="${INPUT_BASE_URL%/}/${RUNTIME_ARCHIVE}"
+          fi
+          if [ -z "$runtime_url" ] && [ -n "$INPUT_TAG" ]; then
+            runtime_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${INPUT_TAG}/${RUNTIME_ARCHIVE}"
+          fi
+
+          args=(
+            --target "$RUNTIME_TARGET"
+            --runtime-id "${{ matrix.runtime_id }}"
+            --archive-name "$RUNTIME_ARCHIVE"
+          )
+          if [ -n "$runtime_url" ]; then
+            args+=(--url "$runtime_url")
+          fi
+          node scripts/package-silma-runtime-pack.js "${args[@]}"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: papercut-silma-runtime-${{ matrix.runtime_id }}
+          path: |
+            sidecars/silma/runtime/${{ matrix.target }}/archive/*.tar.bz2*
+            sidecars/silma/runtime/${{ matrix.target }}/archive/*.manifest.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload to GitHub Release
+        if: inputs.upload_to_release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          if [ -z "$INPUT_TAG" ]; then
+            echo "tag is required when upload_to_release is true" >&2
+            exit 1
+          fi
+          gh release upload "$INPUT_TAG" \
+            sidecars/silma/runtime/${{ matrix.target }}/archive/*.tar.bz2* \
+            sidecars/silma/runtime/${{ matrix.target }}/archive/*.manifest.json \
+            --repo "$GITHUB_REPOSITORY"

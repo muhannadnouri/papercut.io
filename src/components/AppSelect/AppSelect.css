@@ -1,0 +1,130 @@
+.app-select {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+}
+
+.app-select-button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.2rem;
+  padding: 0 0.55rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text-heading);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-align: start;
+  cursor: pointer;
+}
+
+.app-select-button:hover:not(:disabled),
+.app-select-button:focus-visible,
+.app-select-open .app-select-button {
+  border-color: var(--accent-text);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+.app-select-button:disabled {
+  border-color: var(--border);
+  background: var(--surface-muted);
+  color: var(--text-soft);
+  cursor: not-allowed;
+}
+
+.app-select-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-select-chevron {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.app-select-popover {
+  z-index: 200;
+  width: var(--trigger-width);
+  max-height: min(18rem, calc(100vh - 8rem));
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-heading);
+  box-shadow: 0 12px 28px var(--shadow-popover);
+  overflow: hidden;
+}
+
+.app-select-menu {
+  display: grid;
+  max-height: inherit;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.app-select-option {
+  display: grid;
+  gap: 0.12rem;
+  width: 100%;
+  min-height: 2.35rem;
+  padding: 0.55rem 0.65rem;
+  border: 0;
+  border-bottom: 1px solid var(--surface-hover);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.app-select-option:last-child {
+  border-bottom: 0;
+}
+
+.app-select-option:hover:not(:disabled),
+.app-select-option-active {
+  background: var(--surface-accent);
+  color: var(--accent-ink);
+}
+
+.app-select-option-selected {
+  color: var(--accent-text);
+  font-weight: 800;
+}
+
+.app-select-option:disabled {
+  color: var(--text-soft);
+  cursor: not-allowed;
+}
+
+.app-select-option-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-select-option-description {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.25;
+}
+
+@media (max-width: 767px) {
+  .app-select-button {
+    min-height: 2.35rem;
+    font-size: 16px;
+  }
+
+  .app-select-menu {
+    max-height: min(20rem, calc(100vh - 10rem));
+  }
+}

@@ -1,9 +1,8 @@
-import { LIBTASHKEEL_TEXT_PREPROCESSOR } from '../types'
-import { FALLBACK_TTS_MODELS, getTtsVoiceName } from '../models'
+import type { TFunction } from 'i18next'
+import { LIBTASHKEEL_TEXT_PREPROCESSOR, TEXT_PREPROCESSOR_NONE } from '../types'
+import { FALLBACK_TTS_MODELS, getTtsModel, getTtsVoiceName } from '../models'
 
 import { formatStorageSize } from '../../utils/formatUtils'
-// Re-export so modules importing from '../utils/format' (AudiobooksPanel,
-// useAudiobookManager) get it here too, alongside this file's own formatters.
 export { formatStorageSize }
 
 export function formatDuration(seconds: number): string {
@@ -23,40 +22,106 @@ export function formatSpeedLabel(speed: number): string {
   return speed.toFixed(speed % 1 === 0 ? 0 : 2).replace(/0$/, '').replace(/\.$/, '') + 'x'
 }
 
-// export function formatStorageSize(bytes: number | undefined): string | null {
-//   if (!bytes || !Number.isFinite(bytes) || bytes <= 0) return null
-//   if (bytes >= 1024 * 1024 * 1024) {
-//     const gb = bytes / 1024 / 1024 / 1024
-//     return gb.toFixed(gb >= 10 ? 1 : 2) + ' GB'
-//   }
-//   return Math.max(1, Math.ceil(bytes / 1024 / 1024)) + ' MB'
-// }
-
 export function formatAudiobookVoiceMeta(
+  t: TFunction,
   modelId: string,
   voice: string,
   speed: number,
   dtype: string,
   textPreprocessor?: string,
+  silmaNfeStep?: number,
 ): string {
+  const model = getTtsModel(FALLBACK_TTS_MODELS, modelId)
   const voiceName = getTtsVoiceName(FALLBACK_TTS_MODELS, modelId, voice)
-  const processingLabel = textPreprocessor === LIBTASHKEEL_TEXT_PREPROCESSOR ? ' • Arabic tashkeel' : ''
-  return 'Voice 🔊 ' + voiceName + ' • ⚡' + formatSpeedLabel(speed) + ' • ' + dtype + processingLabel
-}
-
-export function formatDownloadSavedStatus(seconds: number | undefined, percent: number, bytes?: number): string {
-  const boundedPercent = Math.min(Math.max(percent, 0), 100)
-  const parts = seconds && seconds > 0
-    ? ['Saved duration ' + formatDuration(seconds), boundedPercent + '% saved']
-    : [boundedPercent + '% saved']
-  const storage = formatStorageSize(bytes)
-  if (storage) parts.push(storage + ' stored')
+  const parts = [t('tts.audiobooks.voiceMeta', { voice: voiceName }), '⚡' + formatSpeedLabel(speed), dtype]
+  if (model.family === 'silma-f5' && silmaNfeStep) parts.push('NFE ' + silmaNfeStep)
+  if (textPreprocessor === LIBTASHKEEL_TEXT_PREPROCESSOR) parts.push(t('tts.audiobooks.arabicTashkeel'))
   return parts.join(' • ')
 }
 
-export function formatAudiobookExportMessage(path: string): string {
-  if (path.startsWith('content://')) {
-    return 'Exported bundle to the selected file.'
+export function formatSavedAudiobookMeta(
+  t: TFunction,
+  modelId: string,
+  voice: string,
+  _speed: number,
+  textPreprocessor: string | undefined,
+  seconds: number | undefined,
+  bytes: number | undefined,
+): string {
+  return formatSavedAudiobookMetaParts(
+    t,
+    modelId,
+    voice,
+    _speed,
+    textPreprocessor,
+    seconds,
+    bytes,
+  ).join(' • ')
+}
+
+export function formatSavedAudiobookMetaParts(
+  t: TFunction,
+  modelId: string,
+  voice: string,
+  _speed: number,
+  textPreprocessor: string | undefined,
+  seconds: number | undefined,
+  bytes: number | undefined,
+): string[] {
+  const model = getTtsModel(FALLBACK_TTS_MODELS, modelId)
+  const voiceName = getTtsVoiceName(FALLBACK_TTS_MODELS, modelId, voice)
+  const parts = [
+    '🤖 ' + model.name,
+    '🔊 ' + voiceName,
+    t('tts.audiobooks.aiGenerated'),
+  ]
+  if (textPreprocessor && textPreprocessor !== TEXT_PREPROCESSOR_NONE) {
+    const processingName = model.textPreprocessors.find((item) => item.id === textPreprocessor)?.name
+    parts.push('✨ ' + formatTextPreprocessorLabel(t, textPreprocessor, processingName))
   }
-  return 'Exported bundle to ' + path
+  if (seconds && seconds > 0) parts.push('⏱\u00a0' + formatDuration(seconds))
+  const storage = formatStorageSize(bytes)
+  if (storage) parts.push('💾 ' + storage)
+  return parts
+}
+
+export function formatTextPreprocessorLabel(
+  t: TFunction,
+  id: string,
+  fallback?: string,
+): string {
+  if (id === TEXT_PREPROCESSOR_NONE) return t('tts.setup.preprocessorOriginal')
+  if (id === LIBTASHKEEL_TEXT_PREPROCESSOR) return t('tts.setup.preprocessorTashkeel')
+  if (id === 'silma-default') return t('tts.setup.preprocessorSilma')
+  return fallback ?? id
+}
+
+export function formatDownloadSavedStatus(
+  t: TFunction,
+  seconds: number | undefined,
+  percent: number,
+  bytes?: number,
+): string {
+  const boundedPercent = Math.min(Math.max(percent, 0), 100)
+  const parts = seconds && seconds > 0
+    ? [
+        t('tts.audiobooks.savedDuration', { duration: formatDuration(seconds) }),
+        t('tts.audiobooks.percentSaved', { percent: boundedPercent }),
+      ]
+    : [t('tts.audiobooks.percentSaved', { percent: boundedPercent })]
+  const storage = formatStorageSize(bytes)
+  if (storage) parts.push(t('tts.audiobooks.storageStored', { storage }))
+  return parts.join(' • ')
+}
+
+export function formatAudiobookExportMessage(
+  t: TFunction,
+  path: string,
+  format: 'bundle' | 'wav' = 'bundle',
+): string {
+  const label = format === 'wav' ? 'WAV' : t('tts.audiobooks.exportBundle')
+  if (path.startsWith('content://')) {
+    return t('tts.audiobooks.exportedSelected', { format: label })
+  }
+  return t('tts.audiobooks.exportedPath', { format: label, path })
 }

@@ -1,0 +1,15 @@
+{
+  "build": {
+    "beforeBundleCommand": "node scripts/copy-sherpa-macos-libs.js"
+  },
+  "bundle": {
+    "macOS": {
+      "entitlements": "Entitlements.plist",
+      "hardenedRuntime": true,
+      "minimumSystemVersion": "10.13"
+    },
+    "resources": {
+      "tts/runtime/macos-shared-libs/": ""
+    }
+  }
+}

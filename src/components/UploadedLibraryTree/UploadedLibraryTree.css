@@ -1,14 +1,17 @@
 .uploaded-library {
   border-top: 1px solid var(--border);
-  background: var(--surface);
+  background: var(--surface-subtle);
 }
 
 .uploaded-library-actions {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0.55rem 1.25rem;
+  justify-content: space-between;
+  gap: 0.65rem 1rem;
+  padding: 0.45rem 1.25rem;
+  background: var(--surface-subtle);
+  border-bottom: 1px solid var(--border);
 }
 
 .uploaded-library-toolbar {
@@ -18,8 +21,8 @@
   width: 100%;
   gap: 0.5rem;
   padding: 0;
-  background: var(--surface-muted);
-  border-top: 1px solid var(--surface-hover);
+  background: var(--surface-panel-subtle);
+  border-top: 1px solid var(--border);
 }
 
 .uploaded-library-toolbar:hover {
@@ -36,7 +39,7 @@
   border: 0;
   background: transparent;
   cursor: pointer;
-  text-align: left;
+  text-align: start;
 }
 
 .uploaded-library-title {
@@ -73,47 +76,70 @@
   flex-shrink: 0;
   min-height: 0;
   padding: 0 0.75rem;
-  margin: 0.25rem 0.5rem 0.25rem 0;
+  margin-block: 0.25rem;
+  margin-inline-end: 0.5rem;
   font-size: 0.75rem;
 }
 
+.uploaded-library-toolbar-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: stretch;
+  gap: 0.4rem;
+  margin-inline-end: 0.5rem;
+}
+
+.uploaded-library-toolbar-actions .uploaded-library-edit-btn {
+  margin-inline-end: 0;
+}
+
 .uploaded-library-edit-btn[aria-pressed="true"] {
-  border-color: var(--accent);
-  background: var(--surface);
+  border-color: var(--accent-text);
+  background: var(--surface-accent);
   color: var(--accent-strong);
 }
 
 .uploaded-library-edit-btn:hover:not(:disabled),
 .uploaded-library-actions button:hover:not(:disabled),
 .uploaded-library-move select:hover:not(:disabled) {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
+}
+
+.uploaded-library-edit-btn:focus-visible,
+.uploaded-library-actions button:focus-visible,
+.uploaded-library-move select:focus-visible {
+  border-color: var(--accent-text);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .uploaded-library-edit-btn:disabled,
 .uploaded-library-actions button:disabled,
 .uploaded-library-move select:disabled {
+  border-color: var(--border);
+  background: var(--surface-muted);
   color: var(--text-soft);
   cursor: not-allowed;
 }
 
-.uploaded-library-actions {
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 0.65rem 1rem;
-  padding-top: 0.65rem;
-  padding-bottom: 0.65rem;
-  background: var(--surface);
-  border-bottom: 1px solid var(--surface-hover);
-}
-
-.uploaded-library-action-group {
+.uploaded-library-context-actions {
   display: grid;
-  gap: 0.35rem;
+  flex: 1 1 100%;
+  gap: 0.55rem;
 }
 
-.uploaded-library-action-group-move {
-  flex: 1 1 18rem;
-  min-width: min(18rem, 100%);
+.uploaded-library-selection-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.uploaded-library-task-actions {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 0.45rem;
 }
 
 .uploaded-library-action-label {
@@ -122,10 +148,22 @@
   font-weight: 700;
 }
 
-.uploaded-library-action-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
+.uploaded-library-selection-count {
+  min-width: 5rem;
+  color: var(--text-heading);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.uploaded-library-actions .uploaded-library-batch-delete {
+  border-color: var(--danger-border);
+  color: var(--danger);
+}
+
+.uploaded-library-actions .uploaded-library-batch-delete:hover:not(:disabled),
+.uploaded-library-actions .uploaded-library-batch-delete:focus-visible {
+  border-color: var(--danger-accent);
+  color: var(--danger-accent);
 }
 
 .uploaded-library-action-error {
@@ -208,12 +246,37 @@
 
 .uploaded-library-move {
   display: grid;
-  gap: 0.35rem;
+  grid-template-columns: auto minmax(11rem, 16rem);
+  align-items: center;
+  justify-content: start;
+  gap: 0.45rem;
 }
 
 .uploaded-library-move select {
   width: 100%;
-  padding: 0 0.55rem;
+  padding-block: 0;
+  padding-inline: 0.55rem 1.7rem;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--surface);
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 0.65rem;
+}
+
+@media (min-width: 800px) {
+  .uploaded-library-context-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.55rem 1rem;
+  }
+
+  .uploaded-library-task-actions {
+    align-items: center;
+    margin-inline-start: auto;
+  }
 }
 
 .uploaded-library-tree {
@@ -228,17 +291,36 @@
   outline: none;
 }
 
+.uploaded-library-item-actionable .uploaded-library-content {
+  cursor: pointer;
+}
+
 .uploaded-library-content {
   display: flex;
   align-items: center;
   min-height: 2.3rem;
-  padding: 0.35rem 1.25rem 0.35rem calc(1rem + (var(--tree-item-level) - 1) * 1rem);
-  transition: background 0.1s;
+  padding-block: 0.35rem;
+  padding-inline-end: 1.25rem;
+  padding-inline-start: calc(1rem + (var(--tree-item-level) - 1) * 1rem);
+  border-top: 1px solid var(--surface-hover);
+  transition: background 0.1s, box-shadow 0.1s;
 }
 
 .uploaded-library-item[data-hovered] .uploaded-library-content,
 .uploaded-library-item[data-focus-visible] .uploaded-library-content {
   background: var(--surface-hover);
+  box-shadow: inset 3px 0 0 var(--border-strong);
+}
+
+.uploaded-library-item[data-selected] .uploaded-library-content {
+  background: var(--surface-accent);
+  box-shadow: inset 3px 0 0 var(--accent-text);
+}
+
+.uploaded-library-item-selected .uploaded-library-content,
+.uploaded-library-item-opening .uploaded-library-content {
+  background: var(--surface-accent);
+  box-shadow: inset 3px 0 0 var(--accent-text);
 }
 
 .uploaded-library-row {
@@ -266,7 +348,7 @@
   width: 1.35rem;
   height: 1.35rem;
   place-items: center;
-  border: none;
+  border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
   color: var(--text-muted);
@@ -284,6 +366,7 @@
 .uploaded-library-chevron:focus-visible {
   background: var(--surface-accent);
   outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .uploaded-library-name {
@@ -294,17 +377,32 @@
   white-space: nowrap;
 }
 
+.uploaded-library-selection {
+  display: flex;
+  align-self: stretch;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+}
+
+.uploaded-library-selection-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .uploaded-library-name-button {
   display: block;
   width: 100%;
   padding: 0.1rem 0.15rem;
-  border: none;
+  border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
   color: inherit;
   cursor: pointer;
   font: inherit;
-  text-align: left;
+  text-align: start;
   text-decoration: none;
 }
 
@@ -316,7 +414,9 @@
 .uploaded-library-name-button:hover,
 .uploaded-library-name-button:focus-visible {
   color: var(--accent-strong);
+  background: var(--surface-accent);
   outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
   text-decoration: none;
 }
 
@@ -331,48 +431,15 @@
   width: 1rem;
   height: 1rem;
   margin: 0;
-  accent-color: var(--accent);
+  accent-color: var(--accent-text);
   cursor: pointer;
 }
 
 .uploaded-library-opening {
   flex: 0 0 auto;
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: 0.75rem;
   font-weight: 600;
-}
-
-.uploaded-library-row-action {
-  flex: 0 0 auto;
-  min-height: 1.7rem;
-  padding: 0 0.5rem;
-  border: 1px solid var(--border-strong);
-  border-radius: 5px;
-  background: var(--surface);
-  color: var(--accent-hover);
-  font-size: 0.72rem;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.uploaded-library-row-action:hover:not(:disabled) {
-  border-color: var(--accent);
-  background: var(--surface-accent);
-}
-
-.uploaded-library-row-action:disabled {
-  color: var(--text-soft);
-  cursor: wait;
-}
-
-.uploaded-library-danger {
-  color: var(--danger);
-}
-
-.uploaded-library-danger:hover:not(:disabled) {
-  border-color: var(--danger-border);
-  background: var(--surface-danger);
 }
 
 .uploaded-library-empty {
@@ -384,27 +451,28 @@
 
 @media (max-width: 600px) {
   .uploaded-library-actions {
+    align-items: stretch;
     padding: 0.65rem;
   }
 
-  .uploaded-library-move,
-  .uploaded-library-move select {
-    width: 100%;
+  .uploaded-library-move {
+    grid-template-columns: 1fr;
+    min-width: 0;
   }
 
-  .uploaded-library-action-group,
-  .uploaded-library-action-row {
-    width: 100%;
+  .uploaded-library-move select {
+    min-width: 0;
+  }
+
+  .uploaded-library-task-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
   }
 
   .uploaded-library-info-popover {
-    right: 0;
-    left: auto;
+    inset-inline: auto 0;
     transform: none;
-  }
-
-  .uploaded-library-actions {
-    gap: 0.75rem;
   }
 
   .uploaded-library-row {
@@ -412,11 +480,42 @@
   }
 
   .uploaded-library-content {
-    padding-right: 0.65rem;
-    padding-left: calc(0.65rem + (var(--tree-item-level) - 1) * 0.75rem);
+    padding-inline-end: 0.65rem;
+    padding-inline-start: calc(0.65rem + (var(--tree-item-level) - 1) * 0.75rem);
   }
 
-  .uploaded-library-row-action {
+  .uploaded-library-row .document-row-action {
+    min-height: 2.5rem;
     padding: 0 0.45rem;
   }
+}
+
+@media (pointer: coarse) {
+  .uploaded-library-actions button,
+  .uploaded-library-move select {
+    min-height: 2.75rem;
+  }
+}
+
+html[dir="rtl"] .uploaded-library-move select {
+  background-position: left 0.6rem center;
+}
+
+html[dir="rtl"] .uploaded-library-chevron {
+  transform: rotate(180deg);
+}
+
+html[dir="rtl"] .uploaded-library-item[data-expanded] .uploaded-library-chevron {
+  transform: rotate(90deg);
+}
+
+html[dir="rtl"] .uploaded-library-item[data-hovered] .uploaded-library-content,
+html[dir="rtl"] .uploaded-library-item[data-focus-visible] .uploaded-library-content {
+  box-shadow: inset -3px 0 0 var(--border-strong);
+}
+
+html[dir="rtl"] .uploaded-library-item[data-selected] .uploaded-library-content,
+html[dir="rtl"] .uploaded-library-item-selected .uploaded-library-content,
+html[dir="rtl"] .uploaded-library-item-opening .uploaded-library-content {
+  box-shadow: inset -3px 0 0 var(--accent-text);
 }

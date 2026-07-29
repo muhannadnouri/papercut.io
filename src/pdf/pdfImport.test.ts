@@ -1,0 +1,98 @@
+import { describe, expect, it } from 'vitest'
+import type { TextContent } from 'pdfjs-dist/types/src/display/api'
+import { pageTextLayer, pdfThumbnailSize } from './pdfImport'
+
+describe('pageTextLayer', () => {
+  it('preserves item order, line boundaries, and finite page coordinates', () => {
+    const content = {
+      items: [
+        {
+          str: 'Inline',
+          dir: 'ltr',
+          transform: [1, 0, 0, 12, 10, 30],
+          width: 35,
+          height: 12,
+          fontName: 'f1',
+          hasEOL: false,
+        },
+        {
+          str: ' formatting',
+          dir: 'ltr',
+          transform: [1, 0, 0, 12, 45, 30],
+          width: 60,
+          height: 12,
+          fontName: 'f2',
+          hasEOL: true,
+        },
+      ],
+      styles: {},
+      lang: null,
+    } as unknown as TextContent
+
+    const layer = pageTextLayer(
+      (_viewport, item) => item,
+      content,
+      2,
+      612,
+      792,
+      [1, 0, 0, 1, 0, 0],
+    )
+
+    expect(layer.pageIndex).toBe(2)
+    expect(layer.blocks.map((block) => block.text).join('')).toBe('Inline formatting\n')
+    expect(layer.blocks[0]).toMatchObject({
+      bounds: [10, 18, 35, 12],
+      order: 0,
+    })
+  })
+
+  it('preserves multilingual text without normalization or reordering', () => {
+    const content = {
+      items: [
+        textItem('العَرَبِيَّة', 10),
+        textItem(' हिन्दी', 80),
+        textItem(' 简体中文', 140),
+      ],
+      styles: {},
+      lang: null,
+    } as unknown as TextContent
+
+    const layer = pageTextLayer(
+      (_viewport, item) => item,
+      content,
+      0,
+      612,
+      792,
+      [1, 0, 0, 1, 0, 0],
+    )
+
+    expect(layer.blocks.map((block) => block.text).join('')).toBe('العَرَبِيَّة हिन्दी 简体中文')
+  })
+})
+
+describe('pdfThumbnailSize', () => {
+  it('bounds large pages without upscaling small pages', () => {
+    expect(pdfThumbnailSize(1_200, 1_800)).toEqual({
+      width: 480,
+      height: 720,
+      scale: 0.4,
+    })
+    expect(pdfThumbnailSize(240, 360)).toEqual({
+      width: 240,
+      height: 360,
+      scale: 1,
+    })
+  })
+})
+
+function textItem(str: string, x: number) {
+  return {
+    str,
+    dir: 'ltr',
+    transform: [1, 0, 0, 12, x, 30],
+    width: 60,
+    height: 12,
+    fontName: 'f1',
+    hasEOL: false,
+  }
+}

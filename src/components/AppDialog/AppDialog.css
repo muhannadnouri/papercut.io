@@ -16,11 +16,16 @@
   max-height: calc(100vh - 2rem);
   overflow: auto;
   padding: 1rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 10px;
   background: var(--surface);
   color: var(--text-heading);
+  font-family: var(--ui-font);
   box-shadow: 0 18px 36px var(--shadow-dialog);
+}
+
+.app-dialog:focus {
+  outline: none;
 }
 
 .app-dialog-header {
@@ -45,6 +50,57 @@
 .app-dialog-body {
   display: grid;
   gap: 0.65rem;
+}
+
+.app-dialog-code {
+  display: block;
+  max-width: 100%;
+  padding: 0.65rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--text-body);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.app-dialog-error {
+  margin: 0;
+  color: var(--danger-strong);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.app-dialog-details {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.app-dialog-detail-row {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, max-content) 1fr;
+  gap: 0.65rem;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.app-dialog-detail-row dt {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.app-dialog-detail-row dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--text-body);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
 }
 
 .app-dialog-actions {
@@ -75,18 +131,35 @@
   color: var(--text-inverse);
 }
 
+.app-dialog-submit-danger {
+  border-color: var(--danger-accent);
+  background: var(--surface-danger);
+  color: var(--danger-strong);
+}
+
 .app-dialog-cancel:hover:not(:disabled),
 .app-dialog-cancel:focus-visible {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--accent-text);
+  color: var(--accent-text);
   outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .app-dialog-submit:hover:not(:disabled),
 .app-dialog-submit:focus-visible {
-  border-color: var(--accent-hover);
+  border-color: var(--accent-text);
   background: var(--accent-hover);
   outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+.app-dialog-submit-danger:hover:not(:disabled),
+.app-dialog-submit-danger:focus-visible {
+  border-color: var(--danger-accent);
+  background: var(--surface-danger);
+  color: var(--danger-strong);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .app-dialog-danger {
@@ -102,6 +175,8 @@
 }
 
 .app-dialog-actions button:disabled {
-  opacity: 0.6;
+  border-color: var(--border);
+  background: var(--surface-muted);
+  color: var(--text-soft);
   cursor: not-allowed;
 }

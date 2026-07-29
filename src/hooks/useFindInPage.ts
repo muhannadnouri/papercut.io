@@ -1,4 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import {
+  findReaderTextMatches,
+  type ReaderTextMatch,
+} from '../components/DocumentViewer/readerTextRanges'
+import { clearSearchTargetHighlight } from '../components/DocumentViewer/readerTarget'
+import { isIOSWebKit } from '../utils/platform'
+import type { ViewerFindApi, ViewerFindResult } from '../viewers/types'
+
+const FIND_DEBOUNCE_MS = 180
 
 interface UseFindInPageReturn {
   showFind: boolean
@@ -11,16 +20,25 @@ interface UseFindInPageReturn {
   findPrev: () => void
   closeFind: () => void
   setShowFind: React.Dispatch<React.SetStateAction<boolean>>
+  handleViewerFindResult: (result: ViewerFindResult) => void
 }
 
 export function useFindInPage(
   rootRef: React.RefObject<HTMLElement | null>,
+  viewerFindApi?: ViewerFindApi | null,
 ): UseFindInPageReturn {
   const [showFind, setShowFind] = useState(false)
   const [findQuery, setFindQuery] = useState('')
   const [findMatchCount, setFindMatchCount] = useState(0)
   const [findCurrentIndex, setFindCurrentIndex] = useState(0)
   const findInputRef = useRef<HTMLInputElement | null>(null)
+  const findTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearPendingFind = useCallback(() => {
+    if (findTimerRef.current === null) return
+    clearTimeout(findTimerRef.current)
+    findTimerRef.current = null
+  }, [])
 
   const clearFindHighlights = useCallback(() => {
     const root = rootRef.current
@@ -37,8 +55,9 @@ export function useFindInPage(
   }, [rootRef])
 
   const highlightFindMatches = useCallback((searchQuery: string): number => {
-    clearFindHighlights()
     const root = rootRef.current
+    if (root) clearSearchTargetHighlight(root)
+    clearFindHighlights()
     if (!root || !searchQuery.trim()) return 0
     const doc = root.ownerDocument
 
@@ -51,96 +70,94 @@ export function useFindInPage(
       doc.head.appendChild(style)
     }
 
-    const lowerQuery = searchQuery.toLowerCase()
-    const textNodes: Node[] = []
-    const treeWalker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT)
-    let node: Node | null
-    while ((node = treeWalker.nextNode())) {
-      if (node.parentElement?.closest('script, style, noscript, svg')) continue
-      textNodes.push(node)
-    }
-
-    let count = 0
-    for (const textNode of textNodes) {
-      const text = textNode.textContent ?? ''
-      const lowerText = text.toLowerCase()
-      if (!lowerText.includes(lowerQuery)) continue
-
-      const fragment = doc.createDocumentFragment()
-      let lastIdx = 0
-      let searchIdx = lowerText.indexOf(lowerQuery, lastIdx)
-      while (searchIdx !== -1) {
-        if (searchIdx > lastIdx) {
-          fragment.appendChild(doc.createTextNode(text.slice(lastIdx, searchIdx)))
-        }
-        const mark = doc.createElement('mark')
-        mark.setAttribute('data-find', String(count))
-        mark.textContent = text.slice(searchIdx, searchIdx + searchQuery.length)
-        fragment.appendChild(mark)
-        count++
-        lastIdx = searchIdx + searchQuery.length
-        searchIdx = lowerText.indexOf(lowerQuery, lastIdx)
-      }
-      if (lastIdx < text.length) {
-        fragment.appendChild(doc.createTextNode(text.slice(lastIdx)))
-      }
-      textNode.parentNode?.replaceChild(fragment, textNode)
-    }
-    return count
+    const matches = findReaderTextMatches(root, searchQuery)
+    markFindMatches(doc, matches)
+    return matches.length
   }, [rootRef, clearFindHighlights])
 
   const scrollToMatch = useCallback((index: number) => {
     const root = rootRef.current
     if (!root) return
-    const prev = root.querySelector('mark[data-find].current')
-    prev?.classList.remove('current')
-    const target = root.querySelector(`mark[data-find="${index}"]`)
+    root.querySelectorAll('mark[data-find].current').forEach((mark) => mark.classList.remove('current'))
+    const targets = root.querySelectorAll<HTMLElement>(`mark[data-find="${index}"]`)
+    const target = targets[0]
     if (target) {
-      target.classList.add('current')
+      targets.forEach((mark) => mark.classList.add('current'))
       const absoluteTop = window.scrollY + target.getBoundingClientRect().top
-      window.scrollTo({ top: absoluteTop - window.innerHeight / 2, behavior: 'smooth' })
+      window.scrollTo({ top: absoluteTop - window.innerHeight / 2, behavior: findScrollBehavior() })
     }
   }, [rootRef])
 
   const closeFind = useCallback(() => {
+    clearPendingFind()
     setShowFind(false)
     setFindQuery('')
     setFindMatchCount(0)
     setFindCurrentIndex(0)
+    viewerFindApi?.clear()
     clearFindHighlights()
-  }, [clearFindHighlights])
+  }, [clearFindHighlights, clearPendingFind, viewerFindApi])
 
   const handleFind = useCallback((searchQuery: string) => {
     setFindQuery(searchQuery)
-    if (!searchQuery.trim()) {
+    setFindMatchCount(0)
+    setFindCurrentIndex(0)
+    if (searchQuery.trim()) return
+    clearPendingFind()
+    viewerFindApi?.clear()
+    clearFindHighlights()
+  }, [clearFindHighlights, clearPendingFind, viewerFindApi])
+
+  useEffect(() => {
+    clearPendingFind()
+    const searchQuery = findQuery.trim()
+    if (!searchQuery) {
       clearFindHighlights()
-      setFindMatchCount(0)
-      setFindCurrentIndex(0)
       return
     }
-    const count = highlightFindMatches(searchQuery)
-    setFindMatchCount(count)
-    if (count > 0) {
+
+    findTimerRef.current = setTimeout(() => {
+      if (viewerFindApi) {
+        viewerFindApi.search(searchQuery)
+        findTimerRef.current = null
+        return
+      }
+      const count = highlightFindMatches(searchQuery)
+      setFindMatchCount(count)
       setFindCurrentIndex(0)
-      scrollToMatch(0)
-    } else {
-      setFindCurrentIndex(0)
-    }
-  }, [clearFindHighlights, highlightFindMatches, scrollToMatch])
+      if (count > 0) scrollToMatch(0)
+      findTimerRef.current = null
+    }, FIND_DEBOUNCE_MS)
+
+    return clearPendingFind
+  }, [clearFindHighlights, clearPendingFind, highlightFindMatches, scrollToMatch, findQuery, viewerFindApi])
 
   const findNext = useCallback(() => {
     if (findMatchCount === 0) return
+    if (viewerFindApi) {
+      viewerFindApi.next()
+      return
+    }
     const next = (findCurrentIndex + 1) % findMatchCount
     setFindCurrentIndex(next)
     scrollToMatch(next)
-  }, [findMatchCount, findCurrentIndex, scrollToMatch])
+  }, [findMatchCount, findCurrentIndex, scrollToMatch, viewerFindApi])
 
   const findPrev = useCallback(() => {
     if (findMatchCount === 0) return
+    if (viewerFindApi) {
+      viewerFindApi.previous()
+      return
+    }
     const prev = (findCurrentIndex - 1 + findMatchCount) % findMatchCount
     setFindCurrentIndex(prev)
     scrollToMatch(prev)
-  }, [findMatchCount, findCurrentIndex, scrollToMatch])
+  }, [findMatchCount, findCurrentIndex, scrollToMatch, viewerFindApi])
+
+  const handleViewerFindResult = useCallback((result: ViewerFindResult) => {
+    setFindMatchCount(result.matchCount)
+    setFindCurrentIndex(result.currentIndex)
+  }, [])
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -166,5 +183,45 @@ export function useFindInPage(
     findPrev,
     closeFind,
     setShowFind,
+    handleViewerFindResult,
   }
+}
+
+// Rewrite each affected Text node once. A logical match may produce several
+// marks when inline elements split it, but every piece keeps one match index.
+function markFindMatches(doc: Document, matches: ReaderTextMatch[]): void {
+  const partsByNode = new Map<Text, Array<{ index: number; startOffset: number; endOffset: number }>>()
+  matches.forEach((match, index) => {
+    match.parts.forEach((part) => {
+      const parts = partsByNode.get(part.node) ?? []
+      parts.push({ index, startOffset: part.startOffset, endOffset: part.endOffset })
+      partsByNode.set(part.node, parts)
+    })
+  })
+
+  partsByNode.forEach((parts, textNode) => {
+    const parent = textNode.parentNode
+    if (!parent) return
+    const text = textNode.data
+    const fragment = doc.createDocumentFragment()
+    let offset = 0
+
+    parts.sort((left, right) => left.startOffset - right.startOffset)
+    parts.forEach((part) => {
+      if (part.startOffset > offset) {
+        fragment.appendChild(doc.createTextNode(text.slice(offset, part.startOffset)))
+      }
+      const mark = doc.createElement('mark')
+      mark.dataset.find = String(part.index)
+      mark.textContent = text.slice(part.startOffset, part.endOffset)
+      fragment.appendChild(mark)
+      offset = part.endOffset
+    })
+    if (offset < text.length) fragment.appendChild(doc.createTextNode(text.slice(offset)))
+    parent.replaceChild(fragment, textNode)
+  })
+}
+
+function findScrollBehavior(): ScrollBehavior {
+  return isIOSWebKit() ? 'auto' : 'smooth'
 }

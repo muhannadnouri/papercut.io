@@ -27,7 +27,7 @@ export const SHERPA_ANDROID_URL = "https://github.com/k2-fsa/sherpa-onnx/release
   "/sherpa-onnx-v" +
   SHERPA_VERSION +
   "-android.tar.bz2"
-export const SHERPA_ANDROID_SHA256 = "fc4d17941152941a883b0cfabfc9acac118682324e9f97df6c1ae1360bc7bc8e"
+export const SHERPA_ANDROID_SHA256 = "7983fc3de23f6e64148f2fb05fa94a2efaa8c0516cc1573383dc5c7d4d2a43b0"
 export const SHERPA_ANDROID_ABIS = ["arm64-v8a", "armeabi-v7a", "x86", "x86_64"]
 export const SHERPA_DEFAULT_ANDROID_ABI = "arm64-v8a"
 export const SHERPA_DEFAULT_ANDROID_RUST_TARGET = "aarch64-linux-android"

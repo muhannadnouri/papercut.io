@@ -1,6 +1,6 @@
 //! Shared runtime state managed by Tauri (`.manage(NativeTtsState::default())`).
 //!
-//! The engine handle, in-flight cancellation set, and model-install guard only
+//! The loaded engine slot, in-flight cancellation set, and model-install guard only
 //! exist when the native engine is compiled in; the disabled build keeps a
 //! zero-cost placeholder so the managed type is identical across both feature
 //! configurations.
@@ -14,11 +14,11 @@ use std::sync::Arc;
 use std::collections::HashSet;
 
 #[cfg(feature = "native-tts-core")]
-use super::engine::SherpaTtsEngine;
+use super::engine::LoadedTtsEngine;
 
 pub struct NativeTtsState {
     #[cfg(feature = "native-tts-core")]
-    pub(crate) engine: Arc<Mutex<Option<SherpaTtsEngine>>>,
+    pub(crate) engine: Arc<Mutex<Option<LoadedTtsEngine>>>,
     #[cfg(feature = "native-tts-core")]
     pub(crate) cancelled_jobs: Arc<Mutex<HashSet<String>>>,
     #[cfg(feature = "native-tts-core")]

@@ -1,5 +1,5 @@
 import { prepareLinuxDesktopBuild, linuxDesktopEnv } from "./linux.js"
-import { prepareMacosDesktopBuild, macosDesktopEnv } from "./macos.js"
+import { prepareMacosDesktopBuild, prepareMacosBundleResources, macosDesktopEnv } from "./macos.js"
 import { prepareWindowsDesktopBuild, windowsDesktopEnv } from "./windows.js"
 
 export function currentDesktopPlatform() {
@@ -14,6 +14,10 @@ export function prepareDesktopBuild(platform, options) {
   if (platform === "linux") return prepareLinuxDesktopBuild(options)
   if (platform === "windows") return prepareWindowsDesktopBuild(options)
   if (platform === "macos") return prepareMacosDesktopBuild(options)
+}
+
+export async function prepareDesktopBundleResources(platform, options) {
+  if (platform === "macos") return prepareMacosBundleResources(options)
 }
 
 export function desktopBuildEnv(platform, baseEnv) {

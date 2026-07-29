@@ -17,7 +17,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::Manager;
 
 use super::config::CACHE_VERSION;
-use super::models::ModelDefinition;
+use super::models::{ModelDefinition, TtsModelBackend, SILMA_HF_CACHE_REPO_DIR, SILMA_HF_REVISION};
 use crate::native_tts::types::NativeTtsInputChunk;
 
 /// Where the installed voice model lives permanently: `<app-data>/models/...`.
@@ -30,8 +30,31 @@ pub(super) fn installed_model_dir(
         .app_data_dir()
         .map_err(|err| format!("Failed to resolve app data dir for offline voice model: {err}"))?;
     Ok(app_data
-        .join("models/sherpa-onnx")
+        .join("models")
+        .join(model.model_storage_dir_name())
         .join(model.directory_name))
+}
+
+/// Runtime directory used by an engine. SILMA can point at an official
+/// Hugging Face cache root during development; packaged install will later make
+/// this an app-owned path like sherpa.
+pub(super) fn runtime_model_dir(
+    app: &tauri::AppHandle,
+    model: &ModelDefinition,
+) -> Result<PathBuf, String> {
+    if matches!(model.backend, TtsModelBackend::SilmaSidecar) {
+        if let Ok(path) = std::env::var("PAPERCUT_SILMA_MODEL_DIR") {
+            let path = PathBuf::from(path);
+            if path.is_dir() {
+                return Ok(path);
+            }
+            return Err(format!(
+                "PAPERCUT_SILMA_MODEL_DIR does not point to a directory: {}",
+                path.display()
+            ));
+        }
+    }
+    installed_model_dir(app, model)
 }
 
 /// Scratch directory used only while downloading/extracting the model. Prefers
@@ -57,8 +80,8 @@ pub(super) fn resolve_model_dir(
     app: &tauri::AppHandle,
     model: &ModelDefinition,
 ) -> Result<PathBuf, String> {
-    let model_dir = installed_model_dir(app, model)?;
-    if model.has_required_files(&model_dir) {
+    let model_dir = runtime_model_dir(app, model)?;
+    if has_required_model_files(model, &model_dir) {
         return Ok(model_dir);
     }
 
@@ -69,15 +92,46 @@ pub(super) fn resolve_model_dir(
     ))
 }
 
+/// Return true when a runtime model directory has the files the backend needs.
+pub(super) fn has_required_model_files(model: &ModelDefinition, dir: &Path) -> bool {
+    if matches!(model.backend, TtsModelBackend::SilmaSidecar) {
+        return contains_complete_silma_cache(dir, model.required_files);
+    }
+    model.has_required_files(dir)
+}
+
+/// Require the snapshot and its matching `main` ref in the same HF cache root.
+fn contains_complete_silma_cache(dir: &Path, required_files: &[&str]) -> bool {
+    let files_present = required_files
+        .iter()
+        .all(|file_name| dir.join(file_name).is_file());
+    let ref_path = dir.join(SILMA_HF_CACHE_REPO_DIR).join("refs").join("main");
+    if files_present
+        && fs::read_to_string(ref_path).is_ok_and(|revision| revision.trim() == SILMA_HF_REVISION)
+    {
+        return true;
+    }
+
+    let Ok(entries) = fs::read_dir(dir) else {
+        return false;
+    };
+    entries
+        .flatten()
+        .map(|entry| entry.path())
+        .any(|path| path.is_dir() && contains_complete_silma_cache(&path, required_files))
+}
+
 /// Directory holding one saved audiobook's chunk WAVs. The audiobook id is
 /// hashed so the folder name is short and filesystem-safe regardless of input.
-pub(super) fn audiobook_dir(app: &tauri::AppHandle, audiobook_id: &str) -> Result<PathBuf, String> {
+pub(crate) fn audiobooks_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let app_data = app.path().app_data_dir().map_err(|err| {
         format!("Failed to resolve app data dir for native audiobook cache: {err}")
     })?;
-    Ok(app_data
-        .join("audiobooks")
-        .join(stable_hex_hash(audiobook_id)))
+    Ok(app_data.join("audiobooks"))
+}
+
+pub(super) fn audiobook_dir(app: &tauri::AppHandle, audiobook_id: &str) -> Result<PathBuf, String> {
+    Ok(audiobooks_dir(app)?.join(stable_hex_hash(audiobook_id)))
 }
 
 /// Deterministic file path for a single chunk's WAV inside an audiobook dir.
@@ -193,7 +247,7 @@ pub(super) fn directory_size(path: &Path) -> Result<u64, String> {
 /// Pull the upload id back out of an imported document URL
 /// (`/user-uploads/<id>.html`), validating the shape and that the id is hex.
 /// Returns an error for any URL that isn't an imported upload.
-pub(super) fn imported_upload_id_from_document_url(document_url: &str) -> Result<String, String> {
+pub(crate) fn imported_upload_id_from_document_url(document_url: &str) -> Result<String, String> {
     let prefix = "/user-uploads/";
     let suffix = ".html";
     if !document_url.starts_with(prefix) || !document_url.ends_with(suffix) {
@@ -208,7 +262,7 @@ pub(super) fn imported_upload_id_from_document_url(document_url: &str) -> Result
 
 /// Directory where an imported document's source HTML/metadata is stored:
 /// `<app-data>/user_uploads/<id>`.
-pub(super) fn imported_upload_dir(
+pub(crate) fn imported_upload_dir(
     app: &tauri::AppHandle,
     upload_id: &str,
 ) -> Result<PathBuf, String> {
@@ -244,17 +298,23 @@ pub(super) fn create_native_audiobook_id(
     parts.join("|")
 }
 
-/// Strip the `#fragment` and `?query` from a document URL so the same document
-/// always produces the same cache key regardless of trailing anchors/params.
+/// Match the WebView cache key by reducing absolute URLs to their path and
+/// stripping `#fragment` / `?query` suffixes.
 fn normalize_native_document_url(document_url: &str) -> String {
-    document_url
+    let value = document_url
         .split('#')
         .next()
         .unwrap_or(document_url)
         .split('?')
         .next()
-        .unwrap_or(document_url)
-        .to_string()
+        .unwrap_or(document_url);
+    if let Some((_, after_scheme)) = value.split_once("://") {
+        return after_scheme
+            .find('/')
+            .map(|index| after_scheme[index..].to_string())
+            .unwrap_or_else(|| "/".into());
+    }
+    value.to_string()
 }
 
 /// Convert a sample count + sample rate into seconds of audio (0 if rate is 0).
@@ -367,7 +427,39 @@ pub(super) fn stable_hex_hash(value: &str) -> String {
 }
 #[cfg(test)]
 mod tests {
+    use super::super::models::{model_definition, SILMA_MODEL_ID};
     use super::*;
+
+    #[test]
+    fn silma_required_files_must_use_hugging_face_cache_layout() {
+        let nonce = unique_nonce();
+        let dir = std::env::temp_dir().join(format!("papercut-silma-files-{nonce}"));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("model.pt"), b"model").unwrap();
+        fs::write(dir.join("vocab.txt"), b"vocab").unwrap();
+
+        let model = model_definition(SILMA_MODEL_ID).unwrap();
+        assert!(!has_required_model_files(model, &dir));
+
+        let complete = dir
+            .join("models--silma-ai--silma-tts")
+            .join("snapshots")
+            .join("d2515317033803648ecb8844765db9e583afecf9");
+        fs::create_dir_all(&complete).unwrap();
+        fs::write(complete.join("model.pt"), b"model").unwrap();
+        fs::write(complete.join("vocab.txt"), b"vocab").unwrap();
+        assert!(!has_required_model_files(model, &dir));
+
+        let main_ref = dir.join(SILMA_HF_CACHE_REPO_DIR).join("refs").join("main");
+        fs::create_dir_all(main_ref.parent().unwrap()).unwrap();
+        fs::write(&main_ref, "wrong-revision").unwrap();
+        assert!(!has_required_model_files(model, &dir));
+
+        fs::write(main_ref, SILMA_HF_REVISION).unwrap();
+        assert!(has_required_model_files(model, &dir));
+
+        fs::remove_dir_all(dir).unwrap();
+    }
 
     #[test]
     fn preprocessing_preserves_legacy_ids_and_separates_diacritized_audio() {
@@ -394,5 +486,17 @@ mod tests {
         );
         assert!(diacritized.contains("|libtashkeel-1.5.0|"));
         assert_ne!(diacritized, legacy);
+
+        assert_eq!(
+            normalize_native_document_url("http://localhost:1420/documents/book.html?q=1#two"),
+            "/documents/book.html"
+        );
+    }
+
+    fn unique_nonce() -> u128 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
     }
 }

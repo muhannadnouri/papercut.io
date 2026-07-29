@@ -1,8 +1,9 @@
 import { useState, type ReactNode } from 'react'
+import './Panel.css'
 
 interface PanelProps {
   title: ReactNode
-  /** Right-aligned summary/count shown in the header. */
+  /** Inline-end summary/count shown in the header. */
   meta?: ReactNode
   /** Controlled open state. Omit to let the panel manage its own. */
   open?: boolean
@@ -48,7 +49,7 @@ export function Panel({
         onClick={handleToggle}
       >
         <span className="panel-title">{title}</span>
-        {meta != null && <span className="panel-meta">{meta}</span>}
+        {meta != null && <span className="panel-meta" dir="auto">{meta}</span>}
         <span className={'toggle-arrow ' + (isOpen ? 'open' : '')}>&#9662;</span>
       </button>
       {isOpen && <div className="panel-body">{children}</div>}

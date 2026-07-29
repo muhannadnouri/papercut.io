@@ -1,0 +1,4 @@
+-r requirements.txt
+
+# Source-preserving runtime packs copy the selected Python prefix directly.
+# Keep this file for CI cache keys and future build-only helpers.

@@ -1,6 +1,9 @@
 import { existsSync, mkdirSync } from "node:fs"
 import { NODE_VERSION } from "../constants.js"
-import { SHERPA_LINUX_SHARED_OUT_DIR, SHERPA_LINUX_SHARED_SOURCE_DIR } from "../linux/constants.js"
+import {
+  SHERPA_LINUX_SHARED_OUT_DIR,
+  SHERPA_LINUX_SHARED_SOURCE_DIR,
+} from "../linux/constants.js"
 import { runSync, shQuote, exitFromResult } from "../process.js"
 
 export function prepareLinuxDesktopBuild({ isStatic }) {

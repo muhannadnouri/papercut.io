@@ -10,5 +10,14 @@ fn main() {
         println!("cargo:rustc-link-arg-bin=app=-Wl,-rpath,$ORIGIN/../lib/Papercut");
     }
 
+    if target_os == "macos" && native_tts_shared {
+        // Tauri places bundled resources in Papercut.app/Contents/Resources while
+        // the app binary lives in Contents/MacOS. sherpa-onnx-sys emits @loader_path
+        // for dev runs (dylibs are copied next to the binary during cargo build);
+        // this additional rpath lets the installed .app locate the dylibs bundled
+        // as resources without requiring users to set DYLD_LIBRARY_PATH.
+        println!("cargo:rustc-link-arg-bin=app=-Wl,-rpath,@loader_path/../Resources");
+    }
+
     tauri_build::build()
 }

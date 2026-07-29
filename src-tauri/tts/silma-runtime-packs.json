@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "runtimes": [
+    {
+      "runtimeId": "linux-x64-cpu",
+      "platform": "linux",
+      "arch": "x64",
+      "target": "x86_64-unknown-linux-gnu",
+      "url": "",
+      "archiveBytes": 2768513449,
+      "sha256": "4e2bbc45cf2ca009bcce8f1906e93274fb36c7301293837a980ddaa50c98e911",
+      "parts": [
+        {
+          "url": "https://github.com/muhannadnouri/papercut.io/releases/download/v1.7.4/papercut-silma-runtime-linux-x64-cpu.tar.bz2.part001",
+          "archive": "papercut-silma-runtime-linux-x64-cpu.tar.bz2.part001",
+          "bytes": 1900000000
+        },
+        {
+          "url": "https://github.com/muhannadnouri/papercut.io/releases/download/v1.7.4/papercut-silma-runtime-linux-x64-cpu.tar.bz2.part002",
+          "archive": "papercut-silma-runtime-linux-x64-cpu.tar.bz2.part002",
+          "bytes": 868513449
+        }
+      ],
+      "workerPath": "silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu"
+    },
+    {
+      "runtimeId": "linux-x64-cuda",
+      "platform": "linux",
+      "arch": "x64",
+      "target": "x86_64-unknown-linux-gnu",
+      "url": "",
+      "archiveBytes": 0,
+      "sha256": "",
+      "parts": [],
+      "workerPath": "silma-worker-x86_64-unknown-linux-gnu/silma-worker-x86_64-unknown-linux-gnu"
+    }
+  ],
+  "notes": [
+    "SILMA runtime packs are downloaded on demand and are not packaged into ordinary desktop installers.",
+    "The v1.7.4 Linux CPU runtime is split into GitHub Release assets below GitHub's per-file upload limit, then reassembled and verified before extraction.",
+    "The Linux CUDA runtime slot stays disabled until its source-preserving runtime can pass packaged import checks with a loadable CUDA runtime."
+  ]
+}
