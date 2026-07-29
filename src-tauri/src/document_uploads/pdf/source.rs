@@ -94,13 +94,10 @@ pub(crate) fn restore_transferred_pdf<R: Runtime>(
     imported_at_ms: u128,
     original_bytes: u64,
 ) -> Result<UploadedDocument, String> {
-    if !source.starts_with(b"%PDF-") {
-        return Err("Transferred PDF source has an invalid header".into());
-    }
+    validate_transferred_pdf_source(&id, &source)?;
     if imported_at_ms > i64::MAX as u128 {
         return Err("Transferred document timestamp is invalid".into());
     }
-    validate_transferred_pdf_identity(&id, &source)?;
 
     let source_kind = StoredSourceKind::Pdf;
     let url = upload_url(&id, source_kind);
@@ -148,9 +145,20 @@ pub(crate) fn restore_transferred_pdf<R: Runtime>(
     })
 }
 
-fn validate_transferred_pdf_identity(id: &str, source: &[u8]) -> Result<(), String> {
+fn validate_transferred_pdf_source(id: &str, source: &[u8]) -> Result<(), String> {
+    validate_transferred_pdf_size(source.len() as u64)?;
+    if !source.starts_with(b"%PDF-") {
+        return Err("Transferred PDF source has an invalid header".into());
+    }
     if source_upload_id(source) != id {
         return Err("Transferred PDF source does not match its document id".into());
+    }
+    Ok(())
+}
+
+fn validate_transferred_pdf_size(source_bytes: u64) -> Result<(), String> {
+    if source_bytes > MAX_PDF_UPLOAD_BYTES {
+        return Err("Transferred PDF exceeds the 250 MB import limit".into());
     }
     Ok(())
 }
@@ -251,14 +259,16 @@ fn persist_unindexed_pdf<R: Runtime>(
 
 #[cfg(test)]
 mod tests {
-    use super::{source_upload_id, validate_transferred_pdf_identity};
+    use super::{
+        source_upload_id, validate_transferred_pdf_size, validate_transferred_pdf_source,
+        MAX_PDF_UPLOAD_BYTES,
+    };
 
     #[test]
-    fn transferred_pdf_must_match_its_content_id() {
+    fn transferred_pdf_must_match_its_content_id_and_limits() {
         let source = b"%PDF-1.7\nfixture";
-        assert!(validate_transferred_pdf_identity(&source_upload_id(source), source).is_ok());
-        assert!(
-            validate_transferred_pdf_identity(&source_upload_id(b"different"), source).is_err()
-        );
+        assert!(validate_transferred_pdf_source(&source_upload_id(source), source).is_ok());
+        assert!(validate_transferred_pdf_source(&source_upload_id(b"different"), source).is_err());
+        assert!(validate_transferred_pdf_size(MAX_PDF_UPLOAD_BYTES + 1).is_err());
     }
 }

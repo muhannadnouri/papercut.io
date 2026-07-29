@@ -72,8 +72,8 @@ fn retain_exact_phrase_hits(
 ) -> Result<Vec<UploadedDocumentSearchResult>, String> {
     let normalized_phrases = phrases
         .iter()
+        .filter(|phrase| !fts_terms(phrase, 128).is_empty())
         .map(|phrase| normalize_exact_text(phrase))
-        .filter(|phrase| !phrase.is_empty())
         .collect::<Vec<_>>();
     let mut verdicts = HashMap::new();
     let mut verified = Vec::new();
@@ -602,6 +602,31 @@ mod tests {
             .expect("literal phrase verification");
 
         assert!(verified.is_empty());
+    }
+
+    #[test]
+    fn phrase_verifier_ignores_punctuation_only_phrases() {
+        let db = test_db();
+        insert_document(
+            &db,
+            "exact-phrase",
+            "/uploads/exact-phrase.pdf",
+            "Exact Phrase",
+            &["The archive contains hello world."],
+        );
+
+        let queries = fts_phrase_queries(&["hello world".to_string(), "??".to_string()]);
+        let candidates =
+            search_section_hits(&db, &fts_and_query(&queries), 10, &[]).expect("phrase candidates");
+        let verified = retain_exact_phrase_hits(
+            &db,
+            candidates,
+            &["hello world".to_string(), "??".to_string()],
+        )
+        .expect("literal phrase verification");
+
+        assert_eq!(verified.len(), 1);
+        assert_eq!(verified[0].document_id, "exact-phrase");
     }
 
     fn test_db() -> Connection {
