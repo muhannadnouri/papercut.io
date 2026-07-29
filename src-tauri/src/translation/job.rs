@@ -1,9 +1,8 @@
 //! Translation job planning.
 //!
-//! The eventual engine runner should do three separate things: read source
-//! blocks, plan bounded batches, then translate/write/cache those batches. This
-//! module owns the middle step so performance limits are testable before any
-//! native model runtime is linked.
+//! The runner does three separate things: read source blocks, plan bounded
+//! batches, then translate/write/cache those batches. This module owns the
+//! middle step so performance limits stay testable without loading a model.
 
 use super::hash::StableHasher;
 use super::segment::{segment_text_blocks, TranslationTextSegment};
@@ -31,7 +30,7 @@ pub(crate) struct TranslationBatchPlan {
 ///
 /// The planner validates only structural constraints: non-empty languages,
 /// model id, quality mode, and segment/batch limits. Model availability and
-/// language-pair support belong in the future model-install/runtime layer.
+/// language-pair support stay in the runner's model/runtime preflight.
 pub(crate) fn plan_translation_job<I, S>(
     request: TranslationStartRequest,
     source_blocks: I,

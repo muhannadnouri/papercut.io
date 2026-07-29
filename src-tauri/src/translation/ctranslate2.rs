@@ -3,8 +3,7 @@
 //! The real native binding remains feature-gated so normal builds do not pull
 //! in C++/SentencePiece dependencies. When `native-translation-ctranslate2` is
 //! enabled, this adapter loads `ct2rs::Translator` from a verified on-disk
-//! model directory and can translate bounded batches. That lets us smoke-test
-//! OPUS-MT before committing to full document rewrite/storage semantics.
+//! model directory and translates bounded batches for the document pipeline.
 
 // Several config fields and helpers are only read when the native feature is
 // compiled in; the blanket allow keeps the non-native build warning-free
@@ -69,7 +68,7 @@ impl CTranslate2Engine {
         Self::load(config)
     }
 
-    /// Create the future CTranslate2 engine adapter without loading native code.
+    /// Create a CTranslate2 adapter without loading native code.
     ///
     /// The real implementation should validate converted model files here, then
     /// initialize the chosen binding/wrapper. Keeping construction explicit

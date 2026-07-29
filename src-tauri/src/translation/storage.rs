@@ -97,7 +97,7 @@ pub(crate) struct PersistTranslationInlinePhrase {
 /// Store a completed translation as its own reader/search document.
 ///
 /// The translated text is generated as escaped plain HTML, then inserted through
-/// `document_uploads` so Find, search, viewing, and future TTS see the same
+/// `document_uploads` so Find, search, viewing, and TTS see the same
 /// contract as imported HTML/EPUB. The translation row only records provenance
 /// and delete/list metadata.
 pub(crate) fn persist_translated_document<R: Runtime>(
@@ -124,18 +124,6 @@ pub(crate) fn persist_translated_document<R: Runtime>(
         &request.glossary,
         &request.target_language,
     )?;
-    // Identity is deterministic per document+settings, so re-running the same
-    // translation replaces the previous variant instead of accumulating
-    // near-identical documents. The delete happens only after the new output
-    // passed validation - a failed re-run must never destroy the previous
-    // good variant - and is required because derived document directories
-    // cannot be overwritten in place.
-    let replaced = delete_translated_document(app, &id)?;
-    if replaced.deleted {
-        log::info!(
-            "translation: replacing existing translated variant {id} for identical document and settings"
-        );
-    }
     let bytes = view_html.as_bytes().len() as u64;
     let sections = request
         .translated_sections
@@ -145,19 +133,6 @@ pub(crate) fn persist_translated_document<R: Runtime>(
             text: section.text.clone(),
         })
         .collect();
-
-    persist_derived_document(
-        app,
-        &id,
-        &document_url,
-        &title,
-        "html",
-        view_html,
-        sections,
-        now,
-        bytes,
-    )?;
-
     let settings_json = serde_json::json!({
         "jobId": request.job_id,
         "qualityMode": request.quality_mode,
@@ -167,10 +142,20 @@ pub(crate) fn persist_translated_document<R: Runtime>(
     })
     .to_string();
     let glossary_hash = translation_glossary_hash(&request.glossary);
-    let metadata_result = (|| -> Result<(), String> {
-        let mut db = open_translation_db(app)?;
-        let tx = db.transaction().map_err(db_err)?;
-        tx.execute(
+    let mut db = open_translation_db(app)?;
+    let replaced = persist_derived_document(
+        app,
+        &mut db,
+        &id,
+        &document_url,
+        &title,
+        "html",
+        view_html,
+        sections,
+        now,
+        bytes,
+        |tx| {
+            tx.execute(
             "INSERT INTO translated_documents \
              (id, source_document_id, source_document_url, title, source_language, target_language, \
               model_id, engine_id, quality_mode, settings_json, glossary_hash, status, source_path, \
@@ -206,10 +191,13 @@ pub(crate) fn persist_translated_document<R: Runtime>(
             ],
         )
         .map_err(db_err)?;
-        tx.commit().map_err(db_err)
-    })();
-    if let Err(err) = metadata_result {
-        return Err(cleanup_failed_translated_variant(app, &id, err));
+            Ok(())
+        },
+    )?;
+    if replaced {
+        log::info!(
+            "translation: replaced translated variant {id} for identical document and settings"
+        );
     }
 
     Ok(TranslatedDocumentInfo {
@@ -226,19 +214,6 @@ pub(crate) fn persist_translated_document<R: Runtime>(
     })
 }
 
-fn cleanup_failed_translated_variant<R: Runtime>(
-    app: &tauri::AppHandle<R>,
-    id: &str,
-    err: String,
-) -> String {
-    match delete_derived_document(app, id) {
-        Ok(_) => err,
-        Err(cleanup_err) => {
-            format!("{err}; also failed to clean up generated translated document: {cleanup_err}")
-        }
-    }
-}
-
 /// Delete one translated variant without touching the original source document.
 ///
 /// Translation variants are derived artifacts: deleting one should behave like
@@ -250,14 +225,16 @@ pub(super) fn delete_translated_document<R: Runtime>(
     app: &tauri::AppHandle<R>,
     id: &str,
 ) -> Result<TranslationDeleteResponse, String> {
-    let mut db = open_translation_db(app)?;
-    let tx = db.transaction().map_err(db_err)?;
-    let deleted_rows = tx
-        .execute("DELETE FROM translated_documents WHERE id = ?1", [id])
-        .map_err(db_err)?;
-    tx.commit().map_err(db_err)?;
-
-    let bytes_freed = delete_derived_document(app, id)?;
+    // Bootstrap the translation schema before the shared derived-document
+    // helper opens its own connection and transaction.
+    drop(open_translation_db(app)?);
+    let mut deleted_rows = 0;
+    let bytes_freed = delete_derived_document(app, id, |tx| {
+        deleted_rows = tx
+            .execute("DELETE FROM translated_documents WHERE id = ?1", [id])
+            .map_err(db_err)?;
+        Ok(())
+    })?;
 
     Ok(TranslationDeleteResponse {
         id: id.into(),

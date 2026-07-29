@@ -20,7 +20,9 @@ use super::engine::{
     TranslationBatchInput, TranslationEngine, TranslationSegmentContext, TranslationSegmentInput,
 };
 use super::inline_markup::{inline_phrase_probes_by_block, InlinePhraseProbe};
-use super::job::{plan_translation_job, TranslationBatchPlan, TranslationJobPlan};
+use super::job::{
+    build_translation_cache_key, plan_translation_job, TranslationBatchPlan, TranslationJobPlan,
+};
 use super::model_store::{manifest_for, resolve_translation_model_dir};
 use super::models::{find_planned_model, TranslationModelDefinition};
 use super::quality::lowered_contains_word_bounded;
@@ -64,6 +66,7 @@ pub(super) fn start_translation<R: tauri::Runtime>(
         )
     })?;
 
+    let _active_job = state.claim_job(&build_translation_cache_key(&request))?;
     let source = load_translation_source_document(app, &request.document_url)?;
     let source_blocks = source.blocks.iter().map(|block| block.text.as_str());
     let plan = plan_translation_job(
@@ -763,11 +766,10 @@ fn validate_language_pair(
     model: TranslationModelDefinition,
     request: &TranslationStartRequest,
 ) -> Result<(), String> {
-    let source_ok = request.source_language == "auto"
-        || model
-            .source_languages
-            .iter()
-            .any(|language| *language == request.source_language);
+    let source_ok = model
+        .source_languages
+        .iter()
+        .any(|language| *language == request.source_language);
     if !source_ok {
         return Err(format!(
             "{} does not support source language {:?}. Supported: {}",
@@ -791,4 +793,32 @@ fn validate_language_pair(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_language_pair;
+    use crate::translation::models::PLANNED_TRANSLATION_MODELS;
+    use crate::translation::types::{TranslationRepairMode, TranslationStartRequest};
+
+    fn request(source_language: &str) -> TranslationStartRequest {
+        TranslationStartRequest {
+            job_id: None,
+            document_url: "uploaded://document".into(),
+            source_language: source_language.into(),
+            target_language: "en".into(),
+            model_id: "opus-mt-es-en-ctranslate2".into(),
+            quality_mode: "balanced".into(),
+            repair_mode: TranslationRepairMode::Off,
+            glossary: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn fixed_pair_model_requires_its_actual_source_language() {
+        let model = PLANNED_TRANSLATION_MODELS[0];
+
+        assert!(validate_language_pair(model, &request("es")).is_ok());
+        assert!(validate_language_pair(model, &request("auto")).is_err());
+    }
 }

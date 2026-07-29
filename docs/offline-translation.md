@@ -10,11 +10,13 @@ The goal is high-quality offline translation for long-form HTML and EPUB books, 
 - `npm run desktop:no-translation` keeps the desktop build on native TTS only for packaging/debug isolation.
 - Spanish -> English and French -> English OPUS-MT CTranslate2 model manifests are pinned and installable.
 - Translation jobs run through the native engine boundary, emit progress/cancel events, reuse segment cache entries, run first-pass quality gates, and persist successful output as derived uploaded documents.
+- Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
+- Concurrent starts for the same document and translation settings are rejected before they can write the same cache or variant.
 - Job progress now distinguishes final validation from storage, so a translation can reach 100% segment completion and still fail with a specific quality issue before any derived document is promoted.
 - OPUS-MT jobs use both a conservative 900-character planner cap and an engine-local tokenizer split before CTranslate2 inference, so long Spanish/French prose can be subdivided below Marian's 512-position limit without changing public cache segment ids.
 - Translated variants are separate durable documents that can be opened, searched, deleted, and later used by the normal TTS flow.
 - HTML/EPUB rendering uses the sanitized reader HTML where possible and preserves links, ids, images, tables, and EPUB-rewritten assets conservatively.
-- Stage 5B is functionally wired for desktop, but still needs manual proof with real model downloads and translation jobs before being treated as release-ready.
+- Stage 5B has passed local desktop model-install, translation, open/search/delete, and cache-assisted retry smoke tests. Packaged release artifacts still need CI/release validation.
 - Android translation is not supported yet; CTranslate2/`ct2rs` packaging must be validated separately from desktop.
 - Quality-model work for TranslateGemma/Qwen and chapter-level repair has not started.
 
@@ -23,7 +25,7 @@ The goal is high-quality offline translation for long-form HTML and EPUB books, 
 - Translate imported HTML and EPUB documents offline.
 - Preserve the original document unchanged.
 - Produce a translated document variant that can be opened, searched, and used for TTS.
-- Support long-running translation jobs with progress, cancel/resume, and clear failure states.
+- Support long-running translation jobs with progress, cancellation, cache-assisted retry, and clear failure states.
 - Use model catalogs, verified downloads, and app-data caches like native TTS.
 - Prioritize translation quality for books and textbooks, not just short webpage snippets.
 - Keep desktop and mobile model choices separate when needed.
@@ -125,7 +127,7 @@ Long documents need bounded, resumable work. Recommended flow:
 1. Validate selected source document and target language.
 2. Load source section metadata and stored safe HTML.
 3. Segment by chapter, heading, paragraph, sentence, and protected inline ranges. Current builds now carry translated segment fragments with normalized source offsets into rendering, and each readable block is extracted into a marker-aware inline model: prose text goes to MT, formatting spans stay as side data, and footnote/backlink markers are preserved as non-translatable inline codes. Inline rendering keeps exact carry-over emphasis for unique terms that survive translation unchanged and uses translated emphasized-phrase hints where available; hint matching is tolerant of MT probe noise (sentence casing, accent folding, wrapping quotes/punctuation) but still requires one unambiguous word-bounded target occurrence. Each projected span is treated independently so one unsafe range does not drop all nearby formatting, and distinct source spans that project onto overlapping target ranges are dropped rather than merged into fabricated combined emphasis. Full cross-language phrase alignment remains future work.
-4. Build a document memory packet:
+4. Future context-rich engines may build a document memory packet:
    - title
    - author, if known
    - heading hierarchy
@@ -281,7 +283,7 @@ translation_segments
 
 Translated variants reuse the existing uploaded-document section storage once promoted. The translation metadata table records provenance and the generated document URL; the upload/search tables own reader HTML, section text, and FTS rows.
 
-Variant identity is deterministic from source document id plus translation settings (languages, model, quality mode, repair mode, glossary). Re-running the same document with identical settings replaces the stored variant in place - same id, same document URL - instead of accumulating duplicates. Changing any setting produces a separate variant.
+Variant identity is deterministic from source document id plus translation settings (languages, model, quality mode, repair mode, glossary). Re-running the same document with identical settings replaces the stored variant in place - same id, same document URL - instead of accumulating duplicates. Replacement commits upload/search rows and translation provenance together, retains the previous files until the transaction succeeds, and recovers an interrupted promotion on retry. Deletion likewise removes provenance and shared upload/search rows in one transaction while the existing reversible filesystem flow protects the stored files. Changing any setting produces a separate variant.
 
 ## UI/UX Requirements
 
@@ -293,7 +295,7 @@ First release should be plain and reliable:
 - Let user choose source language, target language, model, quality mode, and glossary if available.
 - Show model install state like TTS.
 - Show progress by chapter/section, not an indeterminate spinner.
-- Support cancel/resume.
+- Support cancellation and cache-assisted retry.
 - Show translated copies in the Library.
 - Show machine-translation caveat.
 - Keep diagnostics under an advanced toggle.
@@ -376,7 +378,7 @@ Each stage should be easy to review and commit independently.
 - Use per-segment content hashes in the future cache manifest before resume/regeneration ships; the current job key only separates incompatible settings.
 - Document the CTranslate2 integration decision: Rust bindings exist, but choosing one affects native library packaging, Android support, tokenizer handling, and model cache layout.
 
-### Stage 5B: CTranslate2 MVP - Mostly Done, Needs Desktop Proof
+### Stage 5B: CTranslate2 MVP - Desktop MVP Done
 
 - Add native engine spike for OPUS-MT/Marian Spanish -> English and French -> English candidates.
 - Keep `ct2rs` as the first desktop proof route, but do not couple storage/job code to it.
@@ -394,7 +396,7 @@ Each stage should be easy to review and commit independently.
   - Verify each file byte count and SHA-256.
   - Stage downloads in the OS cache directory.
   - Promote the complete verified folder into app data only after all files pass validation.
-  - Emit model-install progress events for future UI wiring.
+  - Emit model-install progress events for the Translation tab.
   - Keep the install command separate from `translation_start`, because having model files on disk does not mean the translation engine can run yet.
 - Wire the Translation tab to model install state:
   - Load per-model status lazily with the Translation tab.
@@ -403,7 +405,7 @@ Each stage should be easy to review and commit independently.
 - Wire installed models into translation preflight:
   - Reject unknown models and unsupported language pairs before reading large documents.
   - Require the selected pinned CTranslate2 model to be installed before job planning.
-  - Build the future CTranslate2 engine config from the verified model directory.
+  - Build the CTranslate2 engine config from the verified model directory.
   - In default builds, still stop with a clear message when the native CTranslate2 feature is not compiled.
   - In `native-translation-ctranslate2` builds, load `ct2rs::Translator` from the installed model directory and run every planned batch through the same engine boundary that stored jobs will use.
 - Run the native engine in bounded batches, keep translated text in memory until all batches finish, and emit progress/cancellation events before durable writes begin.
@@ -412,11 +414,11 @@ Each stage should be easy to review and commit independently.
 - Plan text segments with offset-preserving Unicode sentence/word boundaries instead of splitting strings and searching for them again. This keeps URL-heavy reference blocks, citations, abbreviations, and repeated phrases from silently dropping source blocks before the native engine runs.
 - Persist completed runs as separate derived upload documents:
   - Generate escaped safe HTML from translated sections.
-  - Insert derived upload/source/section/FTS rows so the normal reader, Find, search, and future TTS can consume the translated copy through the same contract as imported HTML.
+  - Insert derived upload/source/section/FTS rows so the normal reader, Find, search, and TTS can consume the translated copy through the same contract as imported HTML.
   - Record translation provenance in `translated_documents`.
   - Delete translated variants without mutating the original uploaded document.
   - Refresh Library/Search state after translation create/delete so the generated document list stays in sync outside the Translation tab.
-- Add resume-safe per-segment cache manifests:
+- Add retry-safe per-segment cache manifests:
   - Store completed segment translations under `<app-data>/translation/segment-cache/{cache-key}/segments.json`.
   - Key cache compatibility by model, language pair, quality mode, segment limits, and source text hash.
   - Reuse cached segments before calling the native engine so cancelled or failed large-book runs do not throw away completed batches.
@@ -428,16 +430,18 @@ Each stage should be easy to review and commit independently.
   - Rejoin translated subsegments under the original segment id so existing cache/progress/storage contracts do not change.
 - Add staged writes/cleanup for translated-document persistence:
   - Write generated safe HTML through a staging directory before promoting it into upload storage.
-  - Remove promoted generated files if upload/search indexing fails.
-  - Remove the generated upload if translation provenance metadata fails to commit.
+  - Commit upload/search rows and translation provenance together.
+  - Keep the previous generated variant available until a replacement transaction commits.
+  - Recover interrupted replacements by comparing the promoted generation marker with SQLite.
   - Keep original source documents untouched throughout cleanup.
 - Add visible resumed/cached segment counts to the Translation progress UI.
 
 Status:
 
-- Done: CTranslate2 feature flag, adapter, tokenizer-aware OPUS-MT source splitting, capabilities reporting, installed-model preflight, pinned manifests, model installer, install UI, source loading, bounded batches, cooperative cancellation, progress events, validation-before-storage state, segment cache with empty-output rejection, exact translation memory, staged writes, derived upload persistence, replace-on-rerun variant identity, document-list refresh, and visible cached/reused progress.
+- Done: CTranslate2 feature flag, adapter, tokenizer-aware OPUS-MT source splitting, capabilities reporting, installed-model preflight, pinned manifests, model installer, install UI, fixed-pair source validation, source loading, bounded batches, duplicate-job rejection, cooperative cancellation, progress events, validation-before-storage state, segment cache with empty-output rejection, exact translation memory, staged writes, transactional/recoverable derived upload replacement and deletion, replace-on-rerun variant identity, document-list refresh, and visible cached/reused progress.
 - Done: `npm run desktop` now includes `native-translation-ctranslate2` by default.
-- Needs proof: real desktop model download, model load through `ct2rs`, short HTML translation, stored translated variant open/search/delete, long-document cache/resume, and packaging artifact verification.
+- Verified locally: desktop model download/load, HTML/EPUB translation, translated variant open/search/delete, cancellation, and cache-assisted retry.
+- Needs proof: packaged release artifacts and app-restart recovery under real interrupted jobs.
 - Not done: Android translation packaging.
 
 ### Stage 6: HTML/EPUB Preservation - Mostly Done

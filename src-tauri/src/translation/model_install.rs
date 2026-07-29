@@ -1,11 +1,9 @@
 //! Offline translation model installer.
 //!
-//! This stage installs only model files. It deliberately does not enable
-//! translation inference: CTranslate2 loading, tokenization, batching, and
-//! translated-document writing remain later stages. The install transaction is
-//! still real so large model files are streamed, SHA-256 verified, staged in a
-//! cache work directory, then promoted into app data only after every file is
-//! present and checked.
+//! Model installation stays separate from inference: large files are streamed,
+//! SHA-256 verified, staged in a cache work directory, then promoted into app
+//! data only after every required file is present and checked. Translation jobs
+//! load a successfully installed model through the engine boundary.
 
 use std::fs;
 use std::path::{Path, PathBuf};

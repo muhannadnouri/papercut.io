@@ -1,8 +1,8 @@
-//! Planned offline translation model catalog.
+//! Offline translation model catalog.
 //!
-//! The catalog is intentionally descriptive for now. A future engine commit must
-//! add installer support and platform validation before any entry becomes
-//! downloadable or runnable.
+//! Pinned CTranslate2 entries are installable on supported desktop builds;
+//! candidate-only quality models remain descriptive until their runtime,
+//! licensing, and platform constraints are validated.
 
 use super::config::DEFAULT_TRANSLATION_QUALITY_MODE;
 use super::types::TranslationModelInfo;
@@ -23,11 +23,7 @@ pub(crate) struct TranslationModelDefinition {
 }
 
 impl TranslationModelDefinition {
-    /// Project inert catalog planning data into the frontend capability shape.
-    ///
-    /// These entries are not installable yet. They exist so the frontend and
-    /// docs can discuss stable model ids/tiers while engine work still decides
-    /// final install behavior, licenses, and platform gates.
+    /// Project catalog data into the frontend capability shape.
     pub(crate) fn to_info(self) -> TranslationModelInfo {
         TranslationModelInfo {
             id: self.id.into(),
@@ -58,13 +54,11 @@ impl TranslationModelDefinition {
     }
 }
 
-/// Planned model candidates and manifest states surfaced to the frontend.
+/// Translation models and manifest states surfaced to the frontend.
 ///
-/// The first CTranslate2 rows have pinned file manifests in `model_store`, but
-/// none of these rows are downloadable or runnable until installer and engine
-/// work lands. Until then the capability API must continue reporting
-/// translation unavailable even though the metadata is visible to development
-/// builds.
+/// The first CTranslate2 rows have pinned file manifests in `model_store` and
+/// are runnable when the native desktop feature is compiled. The remaining
+/// rows stay candidate-only.
 pub(crate) const PLANNED_TRANSLATION_MODELS: &[TranslationModelDefinition] = &[
     TranslationModelDefinition {
         id: "opus-mt-es-en-ctranslate2",

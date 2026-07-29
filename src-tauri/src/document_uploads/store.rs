@@ -209,6 +209,18 @@ fn has_column(db: &Connection, table: &str, column: &str) -> Result<bool, String
 /// the index and metadata can never drift out of sync.
 pub(crate) fn delete_document_rows(db: &mut Connection, id: &str) -> Result<(), String> {
     let tx = db.transaction().map_err(db_err)?;
+    delete_document_rows_in_transaction(&tx, id)?;
+    tx.commit().map_err(db_err)
+}
+
+/// Delete one document inside a caller-owned transaction.
+///
+/// Generated-document features use this to commit their provenance deletion
+/// with the shared upload, section, and FTS rows as one database operation.
+pub(super) fn delete_document_rows_in_transaction(
+    tx: &rusqlite::Transaction<'_>,
+    id: &str,
+) -> Result<(), String> {
     tx.execute(
         "DELETE FROM uploaded_document_fts WHERE document_id = ?1",
         [id],
@@ -218,7 +230,7 @@ pub(crate) fn delete_document_rows(db: &mut Connection, id: &str) -> Result<(), 
         .map_err(db_err)?;
     tx.execute("DELETE FROM uploaded_documents WHERE id = ?1", [id])
         .map_err(db_err)?;
-    tx.commit().map_err(db_err)
+    Ok(())
 }
 
 /// Insert or update a parsed document and all of its sections atomically.
@@ -237,6 +249,24 @@ pub(crate) fn upsert_document(
     bytes: u64,
 ) -> Result<(), String> {
     let tx = db.transaction().map_err(db_err)?;
+    upsert_document_in_transaction(&tx, id, url, parsed, source_kind, imported_at_ms, bytes)?;
+    tx.commit().map_err(db_err)
+}
+
+/// Upsert a parsed document inside a caller-owned transaction.
+///
+/// This is the same write path as `upsert_document`; the separate entry point
+/// lets generated features commit their own metadata beside the upload index.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn upsert_document_in_transaction(
+    tx: &rusqlite::Transaction<'_>,
+    id: &str,
+    url: &str,
+    parsed: &ParsedDocument,
+    source_kind: StoredSourceKind,
+    imported_at_ms: u128,
+    bytes: u64,
+) -> Result<(), String> {
     tx.execute(
         "DELETE FROM uploaded_document_fts WHERE document_id = ?1",
         [id],
@@ -299,7 +329,7 @@ pub(crate) fn upsert_document(
         .map_err(db_err)?;
     }
 
-    tx.commit().map_err(db_err)
+    Ok(())
 }
 
 /// Store a canonical source whose derived sections are intentionally absent.

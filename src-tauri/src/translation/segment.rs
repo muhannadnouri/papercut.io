@@ -1,4 +1,4 @@
-//! Text segmentation for future translation jobs.
+//! Text segmentation for translation jobs.
 //!
 //! Document parsers already preserve the safe HTML and sections. Translation
 //! still needs bounded text payloads so native engines can batch work without

@@ -52,7 +52,7 @@ impl TranslationModelManifest {
     }
 }
 
-/// Convert catalog metadata into the future install manifest shape.
+/// Convert catalog metadata into the install manifest shape.
 ///
 /// The first CTranslate2 candidates are pinned to exact Hugging Face revisions
 /// and file checksums, and can be installed independently of inference. Later

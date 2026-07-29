@@ -347,7 +347,11 @@ pub(crate) fn delete_upload<R: Runtime>(
 /// Stage files beside their live directory so a failed SQLite transaction can
 /// restore them. A leftover staging directory is restored first, making a retry
 /// recover from an interruption on either side of the database commit.
-fn delete_stored_document<F>(dir: &Path, id: &str, mut delete_rows: F) -> Result<u64, String>
+pub(super) fn delete_stored_document<F>(
+    dir: &Path,
+    id: &str,
+    mut delete_rows: F,
+) -> Result<u64, String>
 where
     F: FnMut() -> Result<(), String>,
 {

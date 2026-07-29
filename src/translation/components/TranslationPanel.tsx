@@ -84,7 +84,7 @@ export function TranslationPanel({
   // key) reappears without needing hook state changes.
   const [dismissedStatusKeys, setDismissedStatusKeys] = useState<string[]>([])
   const [modelId, setModelId] = useState('')
-  const [sourceLanguage, setSourceLanguage] = useState('auto')
+  const [sourceLanguage, setSourceLanguage] = useState('')
   const [targetLanguage, setTargetLanguage] = useState('en')
   const [qualityMode, setQualityMode] = useState('balanced')
   const activeModelId = modelOptions.some((model) => model.id === modelId) ? modelId : modelOptions[0]?.id ?? ''
@@ -93,7 +93,7 @@ export function TranslationPanel({
     [activeModelId, modelOptions],
   )
   const sourceLanguages = useMemo(
-    () => uniqueOptions(['auto', ...(selectedModel?.sourceLanguages ?? [])]),
+    () => uniqueOptions(selectedModel?.sourceLanguages ?? []),
     [selectedModel],
   )
   const targetLanguages = useMemo(
@@ -109,7 +109,9 @@ export function TranslationPanel({
     ]),
     [capabilities, selectedModel],
   )
-  const activeSourceLanguage = sourceLanguages.includes(sourceLanguage) ? sourceLanguage : 'auto'
+  const activeSourceLanguage = sourceLanguages.includes(sourceLanguage)
+    ? sourceLanguage
+    : sourceLanguages[0] ?? ''
   const activeTargetLanguage = targetLanguages.includes(targetLanguage) ? targetLanguage : targetLanguages[0] ?? 'en'
   const activeQualityMode = qualityModes.includes(qualityMode) ? qualityMode : qualityModes[0] ?? 'balanced'
   const installableModels = useMemo(
@@ -248,7 +250,7 @@ export function TranslationPanel({
                   const nextModelId = event.target.value
                   const nextModel = modelOptions.find((model) => model.id === nextModelId)
                   setModelId(nextModelId)
-                  setSourceLanguage('auto')
+                  setSourceLanguage(nextModel?.sourceLanguages[0] ?? '')
                   setTargetLanguage(nextModel?.targetLanguages[0] ?? 'en')
                   setQualityMode(nextModel?.defaultQualityMode ?? capabilities?.defaultQualityMode ?? 'balanced')
                 }}
@@ -266,7 +268,7 @@ export function TranslationPanel({
               <span>Source</span>
               <select
                 value={activeSourceLanguage}
-                disabled={startState.checking}
+                disabled={startState.checking || sourceLanguages.length <= 1}
                 onChange={(event) => setSourceLanguage(event.target.value)}
               >
                 {sourceLanguages.map((language) => (
