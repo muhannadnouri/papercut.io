@@ -101,14 +101,14 @@
     },
     "import": {
       "files": "Archivos",
-      "filesDetail": "Importa uno o más archivos HTML o EPUB",
+      "filesDetail": "Importa uno o más archivos HTML, EPUB o PDF",
       "folder": "Carpeta",
-      "folderDetail": "Importa archivos HTML y EPUB de una carpeta; se omiten las subcarpetas",
+      "folderDetail": "Importa archivos HTML, EPUB y PDF de una carpeta; se omiten las subcarpetas",
       "importingBatch": "Importando documentos",
       "importingFolder": "Importando carpeta"
     },
     "status": {
-      "preparingBatch": "Elige archivos HTML o EPUB para importar...",
+      "preparingBatch": "Elige archivos HTML, EPUB o PDF para importar...",
       "importingBatchProgress": "Importando {{current, number}} de {{total, number}}",
       "batchProgress": "Procesados {{processed, number}} de {{total, number}}",
       "stoppingBatch": "Deteniendo después del archivo actual...",
@@ -304,6 +304,30 @@
       "previous": "Anterior (Shift+Enter)",
       "next": "Siguiente (Enter)",
       "close": "Cerrar Buscar"
+    },
+    "pdf": {
+      "toolbar": "Controles de PDF",
+      "pages": "Navegación de páginas",
+      "previousPage": "Página anterior",
+      "nextPage": "Página siguiente",
+      "pageNumber": "Número de página",
+      "pageTotal": "de {{total, number}}",
+      "zoom": "Zoom",
+      "zoomOut": "Alejar",
+      "zoomIn": "Acercar",
+      "zoomLevel": "Porcentaje de zoom",
+      "fit": "Ajuste de página",
+      "view": "Vista de página",
+      "fitWidth": "Ajustar al ancho",
+      "fitPage": "Ajustar página",
+      "twoPageSpread": "Vista de dos páginas",
+      "outline": "Índice del documento",
+      "closeOutline": "Cerrar índice del documento",
+      "loading": "Cargando PDF...",
+      "locatingMatch": "Abriendo la página {{page, number}} y localizando la coincidencia...",
+      "verifyingMatch": "Verificando la coincidencia en el documento...",
+      "document": "Documento PDF",
+      "documentPages": "Documento PDF, {{count, number}} páginas"
     }
   },
   "tts": {

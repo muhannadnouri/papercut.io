@@ -1,8 +1,20 @@
-import { memo, useMemo } from 'react'
+import { memo, useEffect, useMemo } from 'react'
+import { createHtmlBookmarkApi } from './htmlBookmark'
 import type { ViewerProps } from './types'
 
-export const HtmlViewer = memo(function HtmlViewer({ content, contentRef }: ViewerProps) {
+export const HtmlViewer = memo(function HtmlViewer({
+  content,
+  contentRef,
+  onBookmarkApiChange,
+}: ViewerProps) {
   const document = useMemo(() => parseHtmlDocument(content ?? ''), [content])
+
+  useEffect(() => {
+    const root = contentRef?.current
+    if (!root) return
+    onBookmarkApiChange?.(createHtmlBookmarkApi(root))
+    return () => onBookmarkApiChange?.(null)
+  }, [content, contentRef, onBookmarkApiChange])
 
   return (
     <article

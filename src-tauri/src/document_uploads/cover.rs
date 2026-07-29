@@ -1,4 +1,4 @@
-//! Display-sized thumbnail generation for retained EPUB covers.
+//! Display-sized thumbnail generation for retained document covers.
 
 use std::fs;
 use std::io::{Cursor, Read};
@@ -9,6 +9,7 @@ use image::{ImageFormat, ImageReader, Limits};
 
 pub(super) const THUMBNAIL_FILE_NAME: &str = "cover-thumbnail.png";
 pub(super) const THUMBNAIL_MEDIA_TYPE: &str = "image/png";
+pub(super) const PNG_COVER_FILE_NAME: &str = "cover.png";
 
 const THUMBNAIL_MAX_WIDTH: u32 = 480;
 const THUMBNAIL_MAX_HEIGHT: u32 = 720;
@@ -22,6 +23,25 @@ static THUMBNAIL_BACKFILL: OnceLock<Mutex<()>> = OnceLock::new();
 /// Persist a display-sized PNG instead of making the gallery decode the original cover.
 pub(super) fn write_thumbnail(dir: &Path, source: &[u8]) -> Result<(), String> {
     let bytes = thumbnail_bytes(source)?;
+    write_thumbnail_bytes(dir, &bytes)
+}
+
+/// Store a PDF.js-rendered first page as both the validated cover source and
+/// the ready-to-serve gallery thumbnail used by the shared cover pipeline.
+pub(super) fn write_pdf_thumbnail(dir: &Path, source: &[u8]) -> Result<(), String> {
+    let bytes = thumbnail_bytes(source)?;
+    write_thumbnail_bytes(dir, &bytes)?;
+    let path = dir.join(PNG_COVER_FILE_NAME);
+    let staging = dir.join(".cover.png.tmp");
+    fs::write(&staging, bytes)
+        .map_err(|error| format!("Failed to write imported PDF cover: {error}"))?;
+    fs::rename(&staging, &path).map_err(|error| {
+        let _ = fs::remove_file(&staging);
+        format!("Failed to store imported PDF cover: {error}")
+    })
+}
+
+fn write_thumbnail_bytes(dir: &Path, bytes: &[u8]) -> Result<(), String> {
     let path = dir.join(THUMBNAIL_FILE_NAME);
     let staging = dir.join(".cover-thumbnail.png.tmp");
     fs::write(&staging, bytes)
@@ -62,6 +82,9 @@ pub(super) fn backfill_thumbnail(dir: &Path, source_path: &Path) -> Result<(), S
 
 /// Validate dimensions before decoding, then encode one bounded static PNG frame.
 fn thumbnail_bytes(source: &[u8]) -> Result<Vec<u8>, String> {
+    if source.len() as u64 > MAX_SOURCE_BYTES {
+        return Err("Imported document cover exceeds the 5 MB limit".into());
+    }
     let reader = ImageReader::new(Cursor::new(source))
         .with_guessed_format()
         .map_err(|error| format!("Failed to identify imported document cover: {error}"))?;

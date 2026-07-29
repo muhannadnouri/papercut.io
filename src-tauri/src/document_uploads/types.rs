@@ -13,6 +13,7 @@ pub(crate) struct UploadedDocument {
     pub(crate) url: String,
     pub(crate) title: String,
     pub(crate) format: String,
+    pub(crate) source_kind: String,
     pub(crate) imported_at_ms: u128,
     pub(crate) bytes: u64,
     pub(crate) sections: usize,
@@ -61,6 +62,7 @@ pub(crate) struct UploadedDocumentSearchResult {
     pub(crate) excerpt: String,
     pub(crate) section_title: Option<String>,
     pub(crate) section_index: usize,
+    pub(crate) page_index: Option<usize>,
     pub(crate) match_scope: String,
 }
 
@@ -104,7 +106,7 @@ pub(crate) struct UploadedDocumentDeleteBatchResult {
     pub(crate) bytes_freed: u64,
 }
 
-/// Request to read the stored source HTML of an uploaded document.
+/// Request identifying one stored upload at a validated source boundary.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentSourceRequest {
@@ -118,6 +120,7 @@ pub(crate) struct UploadedDocumentSearchRequest {
     pub(crate) query: String,
     pub(crate) limit: Option<usize>,
     pub(crate) document_urls: Option<Vec<String>>,
+    pub(crate) exact_phrases: Option<Vec<String>>,
 }
 
 /// Request to delete one uploaded document by its URL.

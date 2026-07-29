@@ -11,7 +11,6 @@ use std::path::Path;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use tauri::Runtime;
 use tauri_plugin_dialog::FilePath;
-use tauri_plugin_fs::FsExt;
 
 use super::cover::{
     backfill_thumbnail, write_thumbnail, THUMBNAIL_FILE_NAME, THUMBNAIL_MEDIA_TYPE,
@@ -21,8 +20,9 @@ use super::html::{decode_html_bytes, parse_html_document, sanitize_html};
 use super::parsed::ParsedDocument;
 use super::storage::directory_size;
 use super::storage::{
-    now_ms, source_upload_id, upload_dir, upload_id_from_url, MAX_EPUB_UPLOAD_BYTES,
-    MAX_UPLOAD_BYTES, UPLOAD_URL_PREFIX,
+    now_ms, read_source_bytes, source_upload_id, upload_dir, upload_id_from_url,
+    upload_reference_from_url, upload_source_path, upload_url, StoredSourceKind,
+    MAX_EPUB_UPLOAD_BYTES, MAX_UPLOAD_BYTES,
 };
 use super::store::{delete_document_rows, find_upload_by_id, open_db, upsert_document};
 use super::types::{
@@ -37,7 +37,7 @@ pub(crate) fn import_html_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
 ) -> Result<UploadedDocument, String> {
-    let bytes = read_file(
+    let bytes = read_source_bytes(
         app,
         source,
         MAX_UPLOAD_BYTES,
@@ -64,7 +64,7 @@ pub(crate) fn import_epub_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
 ) -> Result<UploadedDocument, String> {
-    let bytes = read_file(
+    let bytes = read_source_bytes(
         app,
         source,
         MAX_EPUB_UPLOAD_BYTES,
@@ -84,31 +84,6 @@ pub(crate) fn import_epub_source<R: Runtime>(
     persist_document(app, id, parsed, bytes.len() as u64)
 }
 
-fn read_file<R: Runtime>(
-    app: &tauri::AppHandle<R>,
-    source: FilePath,
-    max_bytes: u64,
-    too_large_message: &str,
-    open_error_prefix: &str,
-    read_error_prefix: &str,
-) -> Result<Vec<u8>, String> {
-    let mut options = tauri_plugin_fs::OpenOptions::new();
-    options.read(true);
-    let mut file = app
-        .fs()
-        .open(source, options)
-        .map_err(|err| format!("{open_error_prefix}: {err}"))?;
-    let mut bytes = Vec::new();
-    file.by_ref()
-        .take(max_bytes + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|err| format!("{read_error_prefix}: {err}"))?;
-    if bytes.len() as u64 > max_bytes {
-        return Err(too_large_message.into());
-    }
-    Ok(bytes)
-}
-
 /// Return an exact previously imported file only when its stored reader source
 /// still exists; a missing file is repaired by continuing through persistence.
 fn existing_upload<R: Runtime>(
@@ -119,7 +94,8 @@ fn existing_upload<R: Runtime>(
     let Some(existing) = find_upload_by_id(&db, id)? else {
         return Ok(None);
     };
-    let source_exists = upload_dir(app, id)?.join("source.html").is_file();
+    let source_kind = StoredSourceKind::from_str(&existing.source_kind)?;
+    let source_exists = upload_source_path(app, id, source_kind)?.is_file();
     Ok(source_exists.then_some(existing))
 }
 
@@ -130,7 +106,8 @@ fn persist_document<R: Runtime>(
     bytes: u64,
 ) -> Result<UploadedDocument, String> {
     let imported_at_ms = now_ms()?;
-    let url = format!("{UPLOAD_URL_PREFIX}{id}.html");
+    let source_kind = StoredSourceKind::Html;
+    let url = upload_url(&id, source_kind);
     let dir = upload_dir(app, &id)?;
     let mut db = open_db(app)?;
     write_and_index_document(&dir, &mut db, &id, &url, &mut parsed, imported_at_ms, bytes)?;
@@ -144,6 +121,7 @@ fn persist_document<R: Runtime>(
         url,
         title: parsed.title,
         format: parsed.format,
+        source_kind: source_kind.as_str().into(),
         imported_at_ms,
         bytes,
         sections: parsed.sections.len(),
@@ -163,7 +141,8 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
     imported_at_ms: u128,
     bytes: u64,
 ) -> Result<UploadedDocument, String> {
-    let url = format!("{UPLOAD_URL_PREFIX}{id}.html");
+    let source_kind = StoredSourceKind::Html;
+    let url = upload_url(&id, source_kind);
     upload_id_from_url(&url)?;
     if imported_at_ms > i64::MAX as u128 {
         return Err("Transferred document timestamp is invalid".into());
@@ -192,6 +171,7 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
         url,
         title: parsed.title,
         format: parsed.format,
+        source_kind: source_kind.as_str().into(),
         imported_at_ms,
         bytes,
         sections: parsed.sections.len(),
@@ -214,8 +194,11 @@ fn write_and_index_document(
     fs::create_dir_all(&dir)
         .map_err(|err| format!("Failed to create upload directory {}: {err}", dir.display()))?;
     let result = (|| {
-        fs::write(dir.join("source.html"), parsed.view_html.as_bytes())
-            .map_err(|err| format!("Failed to write imported document source: {err}"))?;
+        fs::write(
+            dir.join(StoredSourceKind::Html.file_name()),
+            parsed.view_html.as_bytes(),
+        )
+        .map_err(|err| format!("Failed to write imported document source: {err}"))?;
         if let Some(cover) = parsed.cover.take() {
             match write_thumbnail(dir, &cover.bytes) {
                 Ok(()) => {
@@ -228,7 +211,15 @@ fn write_and_index_document(
                 }
             }
         }
-        upsert_document(db, id, url, parsed, imported_at_ms, bytes)
+        upsert_document(
+            db,
+            id,
+            url,
+            parsed,
+            StoredSourceKind::Html,
+            imported_at_ms,
+            bytes,
+        )
     })();
     if let Err(error) = result {
         fs::remove_dir_all(dir).map_err(|cleanup_error| {
@@ -247,8 +238,17 @@ pub(crate) fn get_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     request: UploadedDocumentSourceRequest,
 ) -> Result<String, String> {
-    let id = upload_id_from_url(&request.document_url)?;
-    let path = upload_dir(app, &id)?.join("source.html");
+    let (id, source_kind) = upload_reference_from_url(&request.document_url)?;
+    if source_kind != StoredSourceKind::Html {
+        return Err("PDF sources must be loaded through the PDF viewer".into());
+    }
+    let db = open_db(app)?;
+    let document = find_upload_by_id(&db, &id)?
+        .ok_or_else(|| "Uploaded document metadata is missing".to_string())?;
+    if StoredSourceKind::from_str(&document.source_kind)? != source_kind {
+        return Err("Uploaded document source metadata does not match its URL".into());
+    }
+    let path = upload_source_path(app, &id, source_kind)?;
     let source = fs::read_to_string(&path)
         .map_err(|err| format!("Failed to read uploaded document {}: {err}", path.display()))?;
     // Re-sanitize on read so documents imported by older app versions cannot
@@ -432,6 +432,7 @@ mod tests {
             sections: vec![ParsedSection {
                 heading: None,
                 text: "Test".into(),
+                page_index: None,
             }],
             cover: Some(ParsedDocumentCover {
                 media_type: "image/png",

@@ -397,6 +397,7 @@ pub(crate) struct NativeImportedAudiobookMetadataResponse {
 /// Metadata about an audiobook restored from a bundle.
 pub(crate) struct NativeAudiobookImportResponse {
     pub(crate) document_url: String,
+    pub(crate) source_kind: String,
     pub(crate) title: String,
     pub(crate) model_id: String,
     pub(crate) text_preprocessor: String,

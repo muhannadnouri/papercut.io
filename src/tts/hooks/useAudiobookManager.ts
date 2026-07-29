@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import i18n from '../../i18n'
 import type { DocumentInfo } from '../../types/search'
-import type { UploadedDocument } from '../../uploads/DocumentUploads'
+import {
+  isUploadedPdfDocumentUrl,
+  type UploadedDocument,
+} from '../../uploads/DocumentUploads'
 import {
   getSavedAudiobooksForDocument,
   type SavedAudiobookRecord,
@@ -61,6 +64,7 @@ interface AudiobookManagerOptions {
   userUploads: UserUploadDocument[]
   onClearDocument: () => void
   onUserUploadsChanged: () => void
+  onUploadedDocumentsChanged: () => void | Promise<void>
 }
 
 export function useAudiobookManager({
@@ -72,6 +76,7 @@ export function useAudiobookManager({
   userUploads,
   onClearDocument,
   onUserUploadsChanged,
+  onUploadedDocumentsChanged,
 }: AudiobookManagerOptions) {
   const [initialAudioPreferences] = useState(getAudioPreferences)
   const [ttsVoice, setTtsVoice] = useState<TtsVoice>(initialAudioPreferences.voice)
@@ -177,6 +182,7 @@ export function useAudiobookManager({
   } = useSavedAudiobookActions({
     refreshSavedAudiobooks,
     onUserUploadsChanged,
+    onUploadedDocumentsChanged,
   })
 
   const {
@@ -410,7 +416,7 @@ export function useAudiobookManager({
 
     await exportSavedAudiobook(record, exportFormat, async () => {
       const chunks = await getAudiobookSaveChunksForDocument(record.documentUrl, record.modelId)
-      const sourceHtml = exportFormat === 'bundle'
+      const sourceHtml = exportFormat === 'bundle' && !isUploadedPdfDocumentUrl(record.documentUrl)
         ? await loadHtmlDocument(record.documentUrl)
         : undefined
       return { chunks, sourceHtml }
@@ -551,7 +557,6 @@ export function useAudiobookManager({
       canSaveAudiobook,
       canSkipBackward: ttsCanSkipBackward,
       canSkipForward: ttsCanSkipForward,
-      isPdf: false,
       saveInProgress: downloadIsForSelectedDoc && activeDownloadIsRunning,
       onCancelSave: handleCancelAudiobookSave,
       onPause: pauseTts,

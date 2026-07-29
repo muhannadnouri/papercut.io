@@ -24,8 +24,9 @@ use zip::ZipArchive;
 
 use crate::document_uploads::{
     create_folder, list_organization, list_uploads, move_documents, now_ms,
-    restore_transferred_document, upload_dir, upload_id_from_url, UploadedDocument,
-    UploadedLibraryCreateFolderRequest, UploadedLibraryFolder, UploadedLibraryMoveDocumentsRequest,
+    restore_transferred_document, restore_transferred_pdf, upload_dir, upload_id_from_url,
+    upload_source_path, StoredSourceKind, UploadedDocument, UploadedLibraryCreateFolderRequest,
+    UploadedLibraryFolder, UploadedLibraryMoveDocumentsRequest,
 };
 use package::{
     audiobook_file_path, copy_audiobook_file, document_source_path, read_document_source,
@@ -363,23 +364,26 @@ fn prepare_manifest(
     let mut transfer_documents = Vec::with_capacity(documents.len());
     let mut payloads = HashMap::new();
     for document in documents {
-        let path = upload_dir(app, &document.id)?.join("source.html");
+        let source_kind = StoredSourceKind::from_str(&document.source_kind)?;
+        let path = upload_source_path(app, &document.id, source_kind)?;
         let mut reader = BufReader::new(File::open(&path).map_err(|err| {
             format!("Failed to open uploaded document {}: {err}", path.display())
         })?);
         let (source_sha256, source_bytes) = sha256_reader(&mut reader)?;
+        let source_path = document_source_path(&document.id, source_kind.as_str());
         transfer_documents.push(TransferDocument {
             id: document.id.clone(),
             title: document.title.clone(),
             format: document.format.clone(),
+            source_kind: source_kind.as_str().into(),
             imported_at_ms: u64::try_from(document.imported_at_ms)
                 .map_err(|_| "Uploaded document timestamp is invalid".to_string())?,
             original_bytes: document.bytes,
-            source_path: document_source_path(&document.id),
+            source_path: source_path.clone(),
             source_bytes,
             source_sha256,
         });
-        payloads.insert(document_source_path(&document.id), path);
+        payloads.insert(source_path, path);
     }
 
     let mut transfer_audiobooks = Vec::new();
@@ -412,7 +416,11 @@ fn prepare_manifest(
 
     let manifest = TransferManifest {
         kind: PACKAGE_KIND.into(),
-        schema_version: if transfer_audiobooks.is_empty() {
+        schema_version: if transfer_audiobooks.is_empty()
+            && transfer_documents
+                .iter()
+                .all(|document| document.source_kind == "html")
+        {
             1
         } else {
             PACKAGE_VERSION
@@ -500,15 +508,33 @@ fn restore_manifest<T: Read + std::io::Seek>(
             );
             continue;
         }
-        let result = read_document_source(archive, document).and_then(|source_html| {
-            restore_transferred_document(
-                app,
-                document.id.clone(),
-                source_html,
-                document.format.clone(),
-                document.imported_at_ms as u128,
-                document.original_bytes,
-            )
+        let result = read_document_source(archive, document).and_then(|source| {
+            match StoredSourceKind::from_str(&document.source_kind)? {
+                StoredSourceKind::Html => {
+                    let source_html = String::from_utf8(source).map_err(|_| {
+                        format!(
+                            "Library-transfer document is not UTF-8: {}",
+                            document.source_path
+                        )
+                    })?;
+                    restore_transferred_document(
+                        app,
+                        document.id.clone(),
+                        source_html,
+                        document.format.clone(),
+                        document.imported_at_ms as u128,
+                        document.original_bytes,
+                    )
+                }
+                StoredSourceKind::Pdf => restore_transferred_pdf(
+                    app,
+                    document.id.clone(),
+                    document.title.clone(),
+                    source,
+                    document.imported_at_ms as u128,
+                    document.original_bytes,
+                ),
+            }
         });
         match result {
             Ok(_) => imported_ids.push(document.id.clone()),

@@ -3,6 +3,7 @@ export interface UploadedDocument {
   url: string
   title: string
   format: 'html' | string
+  sourceKind: 'html' | 'pdf'
   importedAtMs: number
   bytes: number
   sections: number
@@ -17,6 +18,7 @@ export interface UploadedDocumentSearchResult {
   excerpt: string
   sectionTitle?: string | null
   sectionIndex: number
+  pageIndex?: number | null
   matchScope?: 'section' | 'document'
 }
 
@@ -70,6 +72,31 @@ export interface UploadedDocumentBatchResult {
   cancelled: boolean
 }
 
+export interface PdfPageTextLayer {
+  schemaVersion: 1
+  pageIndex: number
+  width: number
+  height: number
+  blocks: Array<{
+    text: string
+    bounds: [number, number, number, number]
+    order: number
+    confidence: number | null
+  }>
+}
+
+export interface PdfNarrationSegment {
+  text: string
+  sourceRuns: Array<{
+    pageIndex: number
+    blockOrder: number
+    startOffset: number
+    endOffset: number
+    sourceStartOffset: number
+    sourceEndOffset: number
+  }>
+}
+
 const DOCUMENT_IMPORT_PROGRESS_EVENT = 'document-uploads-import-progress'
 const DOCUMENT_DELETE_PROGRESS_EVENT = 'document-uploads-delete-progress'
 
@@ -100,7 +127,15 @@ export interface UploadedLibraryOrderItem {
 }
 
 export function isUploadedDocumentUrl(url: string): boolean {
+  return /^\/uploads\/[a-fA-F0-9]+\.(?:html|pdf)(?:[#?].*)?$/.test(url)
+}
+
+export function isUploadedHtmlDocumentUrl(url: string): boolean {
   return /^\/uploads\/[a-fA-F0-9]+\.html(?:[#?].*)?$/.test(url)
+}
+
+export function isUploadedPdfDocumentUrl(url: string): boolean {
+  return /^\/uploads\/[a-fA-F0-9]+\.pdf(?:[#?].*)?$/.test(url)
 }
 
 export async function importDocumentBatch(): Promise<UploadedDocumentBatchResult> {
@@ -134,11 +169,16 @@ export async function listUploadedDocuments(): Promise<UploadedDocument[]> {
   return invoke<UploadedDocument[]>('document_uploads_list')
 }
 
-export async function searchUploadedDocuments(query: string, limit = 50, documentUrls?: string[]): Promise<UploadedDocumentSearchResult[]> {
+export async function searchUploadedDocuments(
+  query: string,
+  limit = 50,
+  documentUrls?: string[],
+  exactPhrases?: string[],
+): Promise<UploadedDocumentSearchResult[]> {
   if (!isTauriRuntime() || query.trim().length === 0) return []
   const invoke = await loadTauriInvoke()
   return invoke<UploadedDocumentSearchResult[]>('document_uploads_search', {
-    request: { query, limit, documentUrls },
+    request: { query, limit, documentUrls, exactPhrases },
   })
 }
 
@@ -154,6 +194,54 @@ export async function getUploadedDocumentCover(documentUrl: string): Promise<str
   const invoke = await loadTauriInvoke()
   return invoke<string | null>('document_uploads_get_cover', {
     request: { documentUrl },
+  })
+}
+
+export async function getUploadedPdfSource(documentUrl: string): Promise<Uint8Array> {
+  const invoke = await loadTauriInvoke()
+  const source = await invoke<ArrayBuffer | Uint8Array | number[]>('document_uploads_get_pdf_source', {
+    request: { documentUrl },
+  })
+  if (source instanceof Uint8Array) return source
+  return new Uint8Array(source)
+}
+
+export async function getUploadedPdfAssetUrl(documentUrl: string): Promise<string> {
+  const mod = await import('@tauri-apps/api/core')
+  const path = await mod.invoke<string>('document_uploads_get_pdf_asset_path', {
+    request: { documentUrl },
+  })
+  return mod.convertFileSrc(path)
+}
+
+export async function getUploadedPdfNarrationSegments(
+  documentUrl: string,
+): Promise<PdfNarrationSegment[]> {
+  const invoke = await loadTauriInvoke()
+  return invoke<PdfNarrationSegment[]>('document_uploads_get_pdf_narration_segments', {
+    request: { documentUrl },
+  })
+}
+
+export async function storeUploadedPdfPageText(
+  documentUrl: string,
+  layer: PdfPageTextLayer,
+): Promise<void> {
+  const invoke = await loadTauriInvoke()
+  await invoke<void>('document_uploads_store_pdf_page_text', {
+    request: { documentUrl, layer },
+  })
+}
+
+export async function finalizeUploadedPdf(
+  documentUrl: string,
+  title: string | undefined,
+  pageCount: number,
+  thumbnail?: number[],
+): Promise<UploadedDocument> {
+  const invoke = await loadTauriInvoke()
+  return invoke<UploadedDocument>('document_uploads_finalize_pdf', {
+    request: { documentUrl, title, pageCount, thumbnail },
   })
 }
 

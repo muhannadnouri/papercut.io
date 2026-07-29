@@ -101,14 +101,14 @@
     },
     "import": {
       "files": "Fichiers",
-      "filesDetail": "Importez un ou plusieurs fichiers HTML ou EPUB",
+      "filesDetail": "Importez un ou plusieurs fichiers HTML, EPUB ou PDF",
       "folder": "Dossier",
-      "folderDetail": "Importez les fichiers HTML et EPUB d’un dossier ; les sous-dossiers sont ignorés",
+      "folderDetail": "Importez les fichiers HTML, EPUB et PDF d’un dossier ; les sous-dossiers sont ignorés",
       "importingBatch": "Importation des documents",
       "importingFolder": "Importation du dossier"
     },
     "status": {
-      "preparingBatch": "Choisissez les fichiers HTML ou EPUB à importer...",
+      "preparingBatch": "Choisissez les fichiers HTML, EPUB ou PDF à importer...",
       "importingBatchProgress": "Importation de {{current, number}} sur {{total, number}}",
       "batchProgress": "{{processed, number}} fichiers traités sur {{total, number}}",
       "stoppingBatch": "Arrêt après le fichier en cours...",
@@ -304,6 +304,30 @@
       "previous": "Précédent (Shift+Enter)",
       "next": "Suivant (Enter)",
       "close": "Fermer Rechercher"
+    },
+    "pdf": {
+      "toolbar": "Commandes PDF",
+      "pages": "Navigation dans les pages",
+      "previousPage": "Page précédente",
+      "nextPage": "Page suivante",
+      "pageNumber": "Numéro de page",
+      "pageTotal": "sur {{total, number}}",
+      "zoom": "Zoom",
+      "zoomOut": "Réduire le zoom",
+      "zoomIn": "Augmenter le zoom",
+      "zoomLevel": "Pourcentage de zoom",
+      "fit": "Ajustement de la page",
+      "view": "Affichage des pages",
+      "fitWidth": "Ajuster à la largeur",
+      "fitPage": "Ajuster la page",
+      "twoPageSpread": "Affichage sur deux pages",
+      "outline": "Plan du document",
+      "closeOutline": "Fermer le plan du document",
+      "loading": "Chargement du PDF...",
+      "locatingMatch": "Ouverture de la page {{page, number}} et localisation de la correspondance...",
+      "verifyingMatch": "Vérification de la correspondance dans le document...",
+      "document": "Document PDF",
+      "documentPages": "Document PDF, {{count, number}} pages"
     }
   },
   "tts": {

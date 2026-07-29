@@ -13,7 +13,6 @@ interface AudioControlsProps {
   canSaveAudiobook: boolean
   canSkipBackward: boolean
   canSkipForward: boolean
-  isPdf: boolean
   saveInProgress: boolean
   onManageSave: () => void
   onPause: () => void
@@ -45,7 +44,6 @@ export function AudioControls({
   canSaveAudiobook,
   canSkipBackward,
   canSkipForward,
-  isPdf,
   saveInProgress,
   onManageSave,
   onPause,
@@ -134,7 +132,7 @@ export function AudioControls({
             <AudioIcon name="play" />
           </button>
         )}
-        {!isPdf && renderSaveButton()}
+        {renderSaveButton()}
       </div>
 
       {showPlaybackMenuButton && chunkMenuOpen && (

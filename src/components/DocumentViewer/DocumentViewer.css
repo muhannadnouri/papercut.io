@@ -18,6 +18,27 @@
   width: min(100%, 2000px);
 }
 
+.app-reader-pdf {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.app-reader-pdf .doc-header {
+  grid-template-areas:
+    "back controls"
+    "viewer viewer";
+  margin-bottom: 0;
+  padding-bottom: 0.75rem;
+}
+
+.app-reader-pdf .document-view {
+  display: flex;
+  flex: 1 1 0;
+  margin-top: 0;
+  min-height: 18rem;
+}
+
 .header-left {
   grid-area: back;
   justify-self: start;
@@ -32,6 +53,21 @@
   flex-wrap: wrap;
   gap: 0.5rem;
   min-width: 0;
+}
+
+.viewer-toolbar-slot {
+  align-items: center;
+  display: flex;
+  grid-area: viewer;
+  justify-content: center;
+  min-width: 0;
+  width: 100%;
+}
+
+.viewer-toolbar-slot .pdf-viewer-toolbar {
+  background: transparent;
+  border-bottom: 0;
+  padding: 0;
 }
 
 .header-controls-slot {
@@ -447,6 +483,13 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
   text-align: center;
 }
 
+@media (min-width: 1100px) {
+  .app-reader-pdf .doc-header {
+    grid-template-areas: "back viewer controls";
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 900px) {
   .doc-header {
     grid-template-columns: minmax(0, 1fr) auto;
@@ -464,12 +507,13 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
     background: var(--reader-surface);
   }
 
-  .doc-header {
-    grid-template-areas:
-      "back reader"
-      "audio audio";
-    gap: 0.65rem 0.5rem;
-    align-items: start;
+  .app-reader-pdf {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .app-reader-pdf .doc-header {
+    margin-bottom: 0;
+    padding-bottom: 0.5rem;
   }
 
   .find-btn,
@@ -477,27 +521,6 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
     min-height: 2.5rem;
     padding: 0 0.85rem;
     font-size: 0.95rem;
-  }
-
-  .header-right {
-    display: contents;
-  }
-
-  .header-control-group-reader {
-    grid-area: reader;
-    justify-self: end;
-  }
-
-  .header-control-group-audio {
-    grid-area: audio;
-    justify-self: end;
-    width: 100%;
-  }
-
-  .header-control-group-audio .audio-controls,
-  .header-control-group-audio .audio-compact-row {
-    width: 100%;
-    justify-content: flex-end;
   }
 
   .document-html-surface {
@@ -527,5 +550,55 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 
   .document-html-content :is(ul, ol) {
     padding-inline-start: 1.6em;
+  }
+}
+
+@media (max-width: 440px) {
+  .doc-header {
+    align-items: start;
+    gap: 0.65rem 0.5rem;
+    grid-template-areas:
+      "back reader"
+      "audio audio";
+  }
+
+  .app-reader-pdf .doc-header {
+    grid-template-areas:
+      "back controls"
+      "viewer viewer";
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .app-reader-pdf .header-right {
+    display: flex;
+    grid-area: controls;
+    justify-self: end;
+  }
+
+  .app-reader-pdf .header-control-group-audio,
+  .app-reader-pdf .header-control-group-audio .audio-controls,
+  .app-reader-pdf .header-control-group-audio .audio-compact-row {
+    width: auto;
+  }
+
+  .header-right {
+    display: contents;
+  }
+
+  .header-control-group-reader {
+    grid-area: reader;
+    justify-self: end;
+  }
+
+  .header-control-group-audio {
+    grid-area: audio;
+    justify-self: end;
+    width: 100%;
+  }
+
+  .header-control-group-audio .audio-controls,
+  .header-control-group-audio .audio-compact-row {
+    justify-content: flex-end;
+    width: 100%;
   }
 }

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { resolveViewer } from '../../viewers/registry'
+import type { ViewerBookmarkApi, ViewerFindApi } from '../../viewers/types'
 import { FindBar } from '../FindBar/FindBar'
 import { ScrollTopButton } from '../ScrollTopButton/ScrollTopButton'
 import { ReaderSettings } from '../ReaderSettings/ReaderSettings'
@@ -69,6 +70,10 @@ export function DocumentViewer({
 }: DocumentViewerProps) {
   const { t } = useTranslation()
   const readerRef = useRef<HTMLElement | null>(null)
+  const plugin = resolveViewer(url, format)
+  const [viewerBookmarkApi, setViewerBookmarkApi] = useState<ViewerBookmarkApi | null>(null)
+  const [viewerFindApi, setViewerFindApi] = useState<ViewerFindApi | null>(null)
+  const [viewerToolbarTarget, setViewerToolbarTarget] = useState<HTMLDivElement | null>(null)
   const [showScrollTop, setShowScrollTop] = useState(false)
   const [pendingExternalUrl, setPendingExternalUrl] = useState<string | null>(null)
   const [externalLinkError, setExternalLinkError] = useState('')
@@ -80,8 +85,11 @@ export function DocumentViewer({
     isAtBookmark,
     toggleBookmark,
   } = useReaderBookmark(url, {
-    enabled: !loading && !loadError && Boolean(content),
+    enabled: !loading &&
+      !loadError &&
+      Boolean(viewerBookmarkApi),
     restoreOnOpen: restoreBookmark,
+    viewerApi: viewerBookmarkApi,
   })
 
   const {
@@ -95,13 +103,22 @@ export function DocumentViewer({
     findPrev,
     closeFind,
     setShowFind,
-  } = useFindInPage(readerRef)
+    handleViewerFindResult,
+  } = useFindInPage(readerRef, viewerFindApi)
 
-  useTtsHighlight(readerRef, ttsHighlight ?? {
-    enabled: false,
-    currentChunkIndex: null,
-    chunks: [],
-  })
+  useTtsHighlight(readerRef, ttsHighlight
+    ? { ...ttsHighlight, enabled: ttsHighlight.enabled && plugin.id !== 'pdf' }
+    : {
+      enabled: false,
+      currentChunkIndex: null,
+      chunks: [],
+    })
+
+  const pdfTtsHighlightSpans = plugin.id === 'pdf' &&
+    ttsHighlight?.enabled &&
+    ttsHighlight.currentChunkIndex !== null
+    ? ttsHighlight.chunks[ttsHighlight.currentChunkIndex]?.pdfSourceSpans
+    : undefined
 
   // Uploaded HTML/EPUB is already sanitized by the backend and rendered in the
   // app DOM. Handle internal anchors here so ToC/footnote clicks do not mutate
@@ -122,7 +139,7 @@ export function DocumentViewer({
   }, [])
 
   useEffect(() => {
-    if (loading || loadError || !content || !searchTarget) return
+    if (plugin.id === 'pdf' || loading || loadError || !content || !searchTarget) return
 
     let highlightedRoot: HTMLElement | null = null
     const frame = requestAnimationFrame(() => {
@@ -139,7 +156,7 @@ export function DocumentViewer({
       cancelAnimationFrame(frame)
       if (highlightedRoot) clearSearchTargetHighlight(highlightedRoot)
     }
-  }, [content, loadError, loading, scrollToHash, searchTarget, url])
+  }, [content, loadError, loading, plugin.id, scrollToHash, searchTarget, url])
 
   // Direct rendering makes document links ordinary DOM events again. Internal
   // hash links scroll in-place; everything else asks before leaving the app.
@@ -184,8 +201,12 @@ export function DocumentViewer({
 
   const scrollToTop = useCallback(() => {
     dismissBookmarkNotice()
+    if (plugin.id === 'pdf' && viewerBookmarkApi) {
+      viewerBookmarkApi.scrollToTop()
+      return
+    }
     window.scrollTo({ top: 0, behavior: readerScrollBehavior() })
-  }, [dismissBookmarkNotice])
+  }, [dismissBookmarkNotice, plugin.id, viewerBookmarkApi])
 
   const openPendingExternalUrl = useCallback(async () => {
     if (!pendingExternalUrl) return
@@ -201,6 +222,12 @@ export function DocumentViewer({
   }, [pendingExternalUrl])
 
   useEffect(() => {
+    if (plugin.id === 'pdf' && viewerBookmarkApi) {
+      const update = () => setShowScrollTop(viewerBookmarkApi.isPastStart())
+      update()
+      return viewerBookmarkApi.subscribe(update)
+    }
+
     function handleScroll() {
       setShowScrollTop(window.scrollY > FLOATING_READER_ACTION_SCROLL_Y)
     }
@@ -208,11 +235,15 @@ export function DocumentViewer({
     handleScroll()
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [url])
+  }, [plugin.id, url, viewerBookmarkApi])
 
-  const plugin = resolveViewer(url, format)
   const ViewerComponent = plugin.Component
-  const appClassName = ['app', 'app-reader', className].filter(Boolean).join(' ')
+  const appClassName = [
+    'app',
+    'app-reader',
+    plugin.id === 'pdf' ? 'app-reader-pdf' : '',
+    className,
+  ].filter(Boolean).join(' ')
 
   return (
     <div className={appClassName}>
@@ -234,7 +265,9 @@ export function DocumentViewer({
           )}
           <div className="header-control-group header-control-group-reader">
             {appControls}
-            <ReaderSettings disabled={loading} {...readerSettingsProps} />
+            {plugin.id !== 'pdf' && (
+              <ReaderSettings disabled={loading} {...readerSettingsProps} />
+            )}
             <button
               className="find-btn"
               disabled={loading || Boolean(loadError)}
@@ -251,6 +284,12 @@ export function DocumentViewer({
             </button>
           </div>
         </div>
+        {plugin.id === 'pdf' && !loading && !loadError && (
+          <div
+            ref={setViewerToolbarTarget}
+            className="viewer-toolbar-slot"
+          />
+        )}
       </header>
 
       {showFind && (
@@ -285,6 +324,12 @@ export function DocumentViewer({
             format={format}
             content={content}
             contentRef={readerRef}
+            toolbarTarget={viewerToolbarTarget}
+            searchTarget={searchTarget}
+            pdfTtsHighlightSpans={pdfTtsHighlightSpans}
+            onBookmarkApiChange={setViewerBookmarkApi}
+            onFindApiChange={setViewerFindApi}
+            onFindResult={handleViewerFindResult}
           />
         )}
       </main>

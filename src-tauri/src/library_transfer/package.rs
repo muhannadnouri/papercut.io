@@ -10,8 +10,9 @@ use zip::write::FileOptions;
 use zip::{CompressionMethod, ZipArchive, ZipWriter};
 
 pub(super) const PACKAGE_KIND: &str = "papercut-library";
-pub(super) const PACKAGE_VERSION: u32 = 2;
+pub(super) const PACKAGE_VERSION: u32 = 3;
 const DOCUMENTS_ONLY_PACKAGE_VERSION: u32 = 1;
+const AUDIOBOOK_PACKAGE_VERSION: u32 = 2;
 const MANIFEST_PATH: &str = "manifest.json";
 const MAX_DOCUMENTS: usize = 500;
 const MAX_AUDIOBOOKS: usize = 500;
@@ -44,6 +45,8 @@ pub(super) struct TransferDocument {
     pub(super) id: String,
     pub(super) title: String,
     pub(super) format: String,
+    #[serde(default = "default_source_kind")]
+    pub(super) source_kind: String,
     pub(super) imported_at_ms: u64,
     pub(super) original_bytes: u64,
     pub(super) source_path: String,
@@ -94,8 +97,16 @@ pub(super) struct TransferAudiobookFile {
     pub(super) sha256: String,
 }
 
-pub(super) fn document_source_path(id: &str) -> String {
-    format!("documents/{id}/source.html")
+/// Versions 1 and 2 predate explicit source kinds and always carried generated
+/// reader HTML, so omitted fields must deserialize as HTML for compatibility.
+fn default_source_kind() -> String {
+    "html".into()
+}
+
+/// Keep each source at one manifest-verifiable canonical path; import rejects
+/// mismatched paths before reading any archive payload.
+pub(super) fn document_source_path(id: &str, source_kind: &str) -> String {
+    format!("documents/{id}/source.{source_kind}")
 }
 
 pub(super) fn audiobook_file_path(storage_key: &str, relative_path: &str) -> String {
@@ -238,7 +249,7 @@ pub(super) fn read_manifest<R: Read + Seek>(
 pub(super) fn read_document_source<R: Read + Seek>(
     archive: &mut ZipArchive<R>,
     document: &TransferDocument,
-) -> Result<String, String> {
+) -> Result<Vec<u8>, String> {
     let mut entry = archive.by_name(&document.source_path).map_err(|_| {
         format!(
             "Library-transfer payload is missing: {}",
@@ -262,12 +273,7 @@ pub(super) fn read_document_source<R: Read + Seek>(
             document.source_path
         ));
     }
-    String::from_utf8(bytes).map_err(|_| {
-        format!(
-            "Library-transfer document is not UTF-8: {}",
-            document.source_path
-        )
-    })
+    Ok(bytes)
 }
 
 /// Stream one declared binary payload to a staged path while enforcing its
@@ -317,7 +323,7 @@ fn validate_manifest(manifest: &TransferManifest) -> Result<(), String> {
     if manifest.kind != PACKAGE_KIND
         || !matches!(
             manifest.schema_version,
-            DOCUMENTS_ONLY_PACKAGE_VERSION | PACKAGE_VERSION
+            DOCUMENTS_ONLY_PACKAGE_VERSION | AUDIOBOOK_PACKAGE_VERSION | PACKAGE_VERSION
         )
     {
         return Err(format!(
@@ -352,7 +358,20 @@ fn validate_manifest(manifest: &TransferManifest) -> Result<(), String> {
                 document.id
             ));
         }
-        let expected_path = document_source_path(&document.id);
+        if manifest.schema_version < PACKAGE_VERSION && document.source_kind != "html" {
+            return Err("Library-transfer package versions 1 and 2 cannot contain PDFs".into());
+        }
+        let valid_source = matches!(
+            (document.format.as_str(), document.source_kind.as_str()),
+            ("html" | "epub", "html") | ("pdf", "pdf")
+        );
+        if !valid_source {
+            return Err(format!(
+                "Unsupported transferred document format/source pair: {}/{}",
+                document.format, document.source_kind
+            ));
+        }
+        let expected_path = document_source_path(&document.id, &document.source_kind);
         if document.source_path != expected_path
             || !source_paths.insert(document.source_path.as_str())
         {
@@ -361,14 +380,11 @@ fn validate_manifest(manifest: &TransferManifest) -> Result<(), String> {
                 document.source_path
             ));
         }
-        if !matches!(document.format.as_str(), "html" | "epub") {
-            return Err(format!(
-                "Unsupported transferred document format: {}",
-                document.format
-            ));
-        }
         if document.imported_at_ms > i64::MAX as u64 {
             return Err("Transferred document timestamp is invalid".into());
+        }
+        if document.original_bytes > i64::MAX as u64 {
+            return Err("Transferred document byte count is invalid".into());
         }
         if document.source_bytes == 0 || document.source_bytes > MAX_DOCUMENT_SOURCE_BYTES {
             return Err(format!(
@@ -627,7 +643,7 @@ mod tests {
         let restored = read_document_source(&mut archive, &restored_manifest.documents[0])
             .expect("read source");
 
-        assert_eq!(restored.as_bytes(), source);
+        assert_eq!(restored, source);
     }
 
     #[test]
@@ -677,6 +693,45 @@ mod tests {
         let mut archive = ZipArchive::new(bytes).unwrap();
         let manifest = read_manifest(&mut archive).expect("valid manifest");
         assert!(read_document_source(&mut archive, &manifest.documents[0]).is_err());
+    }
+
+    #[test]
+    fn package_v3_round_trips_a_canonical_pdf_source() {
+        let source = b"%PDF-1.7\nfixture".to_vec();
+        let mut manifest = test_manifest(&source);
+        let document = &mut manifest.documents[0];
+        document.format = "pdf".into();
+        document.source_kind = "pdf".into();
+        document.source_path = document_source_path(&document.id, &document.source_kind);
+        let mut bytes = Cursor::new(Vec::new());
+
+        write_package(&mut bytes, &manifest, |_| {
+            Ok(Box::new(Cursor::new(source.clone())))
+        })
+        .expect("write PDF package");
+        bytes.set_position(0);
+        let mut archive = ZipArchive::new(bytes).expect("open PDF package");
+        let restored_manifest = read_manifest(&mut archive).expect("read PDF manifest");
+        assert_eq!(
+            read_document_source(&mut archive, &restored_manifest.documents[0])
+                .expect("read PDF source"),
+            source
+        );
+    }
+
+    #[test]
+    fn legacy_packages_cannot_smuggle_pdf_sources() {
+        let source = b"%PDF-1.7\nfixture".to_vec();
+        let mut manifest = test_manifest(&source);
+        manifest.schema_version = AUDIOBOOK_PACKAGE_VERSION;
+        let document = &mut manifest.documents[0];
+        document.format = "pdf".into();
+        document.source_kind = "pdf".into();
+        document.source_path = document_source_path(&document.id, &document.source_kind);
+
+        assert!(validate_manifest(&manifest)
+            .expect_err("legacy PDF package")
+            .contains("cannot contain PDFs"));
     }
 
     #[test]
@@ -762,10 +817,11 @@ mod tests {
             schema_version: PACKAGE_VERSION,
             created_at_ms: 1,
             documents: vec![TransferDocument {
-                source_path: document_source_path(&id),
+                source_path: document_source_path(&id, "html"),
                 id,
                 title: "Test".into(),
                 format: "html".into(),
+                source_kind: "html".into(),
                 imported_at_ms: 1,
                 original_bytes: source.len() as u64,
                 source_bytes: source.len() as u64,

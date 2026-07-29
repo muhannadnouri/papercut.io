@@ -101,14 +101,14 @@
     },
     "import": {
       "files": "File",
-      "filesDetail": "Importa uno o più file HTML o EPUB",
+      "filesDetail": "Importa uno o più file HTML, EPUB o PDF",
       "folder": "Cartella",
-      "folderDetail": "Importa i file HTML ed EPUB da una cartella; le sottocartelle vengono ignorate",
+      "folderDetail": "Importa i file HTML, EPUB e PDF da una cartella; le sottocartelle vengono ignorate",
       "importingBatch": "Importazione dei documenti",
       "importingFolder": "Importazione della cartella"
     },
     "status": {
-      "preparingBatch": "Scegli i file HTML o EPUB da importare...",
+      "preparingBatch": "Scegli i file HTML, EPUB o PDF da importare...",
       "importingBatchProgress": "Importazione di {{current, number}} su {{total, number}}",
       "batchProgress": "Elaborati {{processed, number}} di {{total, number}}",
       "stoppingBatch": "Arresto dopo il file corrente...",
@@ -304,6 +304,30 @@
       "previous": "Precedente (Shift+Enter)",
       "next": "Successivo (Enter)",
       "close": "Chiudi Trova"
+    },
+    "pdf": {
+      "toolbar": "Controlli PDF",
+      "pages": "Navigazione pagine",
+      "previousPage": "Pagina precedente",
+      "nextPage": "Pagina successiva",
+      "pageNumber": "Numero di pagina",
+      "pageTotal": "di {{total, number}}",
+      "zoom": "Zoom",
+      "zoomOut": "Riduci zoom",
+      "zoomIn": "Aumenta zoom",
+      "zoomLevel": "Percentuale zoom",
+      "fit": "Adattamento pagina",
+      "view": "Visualizzazione pagina",
+      "fitWidth": "Adatta alla larghezza",
+      "fitPage": "Adatta pagina",
+      "twoPageSpread": "Visualizzazione a due pagine",
+      "outline": "Indice del documento",
+      "closeOutline": "Chiudi indice del documento",
+      "loading": "Caricamento PDF...",
+      "locatingMatch": "Apertura della pagina {{page, number}} e ricerca della corrispondenza...",
+      "verifyingMatch": "Verifica della corrispondenza nel documento...",
+      "document": "Documento PDF",
+      "documentPages": "Documento PDF, {{count, number}} pagine"
     }
   },
   "tts": {

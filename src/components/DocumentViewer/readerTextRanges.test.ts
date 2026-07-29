@@ -17,6 +17,14 @@ describe('reader text ranges', () => {
     ]])
   })
 
+  it('matches a PDF phrase split across positioned text items', () => {
+    expect(findTextPartMatches(['A late', ' page ', 'result'], 'late page result')).toEqual([[
+      { partIndex: 0, startOffset: 2, endOffset: 6 },
+      { partIndex: 1, startOffset: 0, endOffset: 6 },
+      { partIndex: 2, startOffset: 0, endOffset: 6 },
+    ]])
+  })
+
   it('treats an explicit line break as whitespace, not joined text', () => {
     const parts = ['foo', 'bar']
     const breaksBefore = [false, true]

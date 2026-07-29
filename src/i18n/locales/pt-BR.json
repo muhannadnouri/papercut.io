@@ -101,14 +101,14 @@
     },
     "import": {
       "files": "Arquivos",
-      "filesDetail": "Importe um ou mais arquivos HTML ou EPUB",
+      "filesDetail": "Importe um ou mais arquivos HTML, EPUB ou PDF",
       "folder": "Pasta",
-      "folderDetail": "Importe arquivos HTML e EPUB de uma pasta; as subpastas são ignoradas",
+      "folderDetail": "Importe arquivos HTML, EPUB e PDF de uma pasta; as subpastas são ignoradas",
       "importingBatch": "Importando documentos",
       "importingFolder": "Importando pasta"
     },
     "status": {
-      "preparingBatch": "Escolha arquivos HTML ou EPUB para importar...",
+      "preparingBatch": "Escolha arquivos HTML, EPUB ou PDF para importar...",
       "importingBatchProgress": "Importando {{current, number}} de {{total, number}}",
       "batchProgress": "Processados {{processed, number}} de {{total, number}}",
       "stoppingBatch": "Parando após o arquivo atual...",
@@ -304,6 +304,30 @@
       "previous": "Anterior (Shift+Enter)",
       "next": "Próximo (Enter)",
       "close": "Fechar Encontrar"
+    },
+    "pdf": {
+      "toolbar": "Controles do PDF",
+      "pages": "Navegação de páginas",
+      "previousPage": "Página anterior",
+      "nextPage": "Próxima página",
+      "pageNumber": "Número da página",
+      "pageTotal": "de {{total, number}}",
+      "zoom": "Zoom",
+      "zoomOut": "Diminuir zoom",
+      "zoomIn": "Aumentar zoom",
+      "zoomLevel": "Percentual de zoom",
+      "fit": "Ajuste de página",
+      "view": "Visualização de página",
+      "fitWidth": "Ajustar à largura",
+      "fitPage": "Ajustar página",
+      "twoPageSpread": "Visualização em duas páginas",
+      "outline": "Sumário do documento",
+      "closeOutline": "Fechar sumário do documento",
+      "loading": "Carregando PDF...",
+      "locatingMatch": "Abrindo a página {{page, number}} e localizando a correspondência...",
+      "verifyingMatch": "Verificando a correspondência no documento...",
+      "document": "Documento PDF",
+      "documentPages": "Documento PDF, {{count, number}} páginas"
     }
   },
   "tts": {

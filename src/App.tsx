@@ -30,7 +30,8 @@ import { getUserUploads, isUserUploadUrl, type UserUploadDocument } from './tts/
 import { useAudiobookManager } from './tts/hooks/useAudiobookManager'
 import {
   getUploadedDocumentSource,
-  isUploadedDocumentUrl,
+  isUploadedHtmlDocumentUrl,
+  isUploadedPdfDocumentUrl,
 } from './uploads/DocumentUploads'
 
 function isBundledDocumentUrl(url: string): boolean {
@@ -72,7 +73,8 @@ function App() {
   } = useUploadedLibrary()
 
   const loadHtmlDocument = useCallback(async (url: string): Promise<string> => {
-    if (isUploadedDocumentUrl(url)) return getUploadedDocumentSource(url)
+    if (isUploadedHtmlDocumentUrl(url)) return getUploadedDocumentSource(url)
+    if (isUploadedPdfDocumentUrl(url)) return ''
     if (isUserUploadUrl(url)) return getImportedAudiobookSource(url)
     if (!isBundledDocumentUrl(url)) throw new Error('Unsupported document URL')
 
@@ -114,6 +116,7 @@ function App() {
     userUploads,
     onClearDocument: clearSelectedDocument,
     onUserUploadsChanged: handleUserUploadsChanged,
+    onUploadedDocumentsChanged: refreshUploadedLibrary,
   })
   const {
     audioControlsProps,
@@ -225,7 +228,9 @@ function App() {
     const result = await importDocumentBatch()
     if (!result?.imported.length) return
     setShowDocuments(true)
-    if (result.selected === 1 && result.imported.length === 1) {
+    if (result.selected === 1 &&
+        result.imported.length === 1 &&
+        result.imported[0].sourceKind === 'html') {
       await handleViewDocument(result.imported[0].url)
     }
   }, [handleViewDocument, importDocumentBatch, setShowDocuments])

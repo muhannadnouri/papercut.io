@@ -32,11 +32,13 @@ pub(crate) fn parsed_html_document(
             sections.push(ParsedSection {
                 heading: current_heading.clone(),
                 text: block.text,
+                page_index: None,
             });
         } else if !block.text.is_empty() {
             sections.push(ParsedSection {
                 heading: current_heading.clone(),
                 text: block.text,
+                page_index: None,
             });
         }
     }

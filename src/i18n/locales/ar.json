@@ -113,14 +113,14 @@
     },
     "import": {
       "files": "ملفات",
-      "filesDetail": "استيراد ملف واحد أو أكثر بصيغة HTML أو EPUB",
+      "filesDetail": "استيراد ملف واحد أو أكثر بصيغة HTML أو EPUB أو PDF",
       "folder": "مجلد",
-      "folderDetail": "استيراد ملفات HTML وEPUB الموجودة داخل مجلد واحد؛ تُتجاهل المجلدات الفرعية",
+      "folderDetail": "استيراد ملفات HTML وEPUB وPDF الموجودة داخل مجلد واحد؛ تُتجاهل المجلدات الفرعية",
       "importingBatch": "جارٍ استيراد المستندات",
       "importingFolder": "جارٍ استيراد المجلد"
     },
     "status": {
-      "preparingBatch": "اختر ملفات HTML أو EPUB لاستيرادها...",
+      "preparingBatch": "اختر ملفات HTML أو EPUB أو PDF لاستيرادها...",
       "importingBatchProgress": "جارٍ استيراد {{current, number}} من {{total, number}}",
       "batchProgress": "تمت معالجة {{processed, number}} من {{total, number}}",
       "stoppingBatch": "جارٍ الإيقاف بعد الملف الحالي...",
@@ -319,6 +319,30 @@
       "previous": "السابق (Shift+Enter)",
       "next": "التالي (Enter)",
       "close": "إغلاق البحث"
+    },
+    "pdf": {
+      "toolbar": "عناصر تحكم PDF",
+      "pages": "التنقل بين الصفحات",
+      "previousPage": "الصفحة السابقة",
+      "nextPage": "الصفحة التالية",
+      "pageNumber": "رقم الصفحة",
+      "pageTotal": "من {{total, number}}",
+      "zoom": "التكبير",
+      "zoomOut": "تصغير",
+      "zoomIn": "تكبير",
+      "zoomLevel": "نسبة التكبير",
+      "fit": "ملاءمة الصفحة",
+      "view": "عرض الصفحة",
+      "fitWidth": "ملاءمة العرض",
+      "fitPage": "ملاءمة الصفحة",
+      "twoPageSpread": "عرض صفحتين",
+      "outline": "مخطط المستند",
+      "closeOutline": "إغلاق مخطط المستند",
+      "loading": "جارٍ تحميل ملف PDF...",
+      "locatingMatch": "جارٍ فتح الصفحة {{page, number}} وتحديد موقع المطابقة...",
+      "verifyingMatch": "جارٍ التحقق من المطابقة في المستند...",
+      "document": "مستند PDF",
+      "documentPages": "مستند PDF، {{count, number}} صفحة"
     }
   },
   "tts": {
