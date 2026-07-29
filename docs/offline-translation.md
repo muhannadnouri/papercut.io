@@ -535,12 +535,72 @@ Status:
 - Done: OPUS-MT rejects non-default quality, glossary, and repair options instead of creating misleading variants.
 - Not done: automatic multilingual NER, section regeneration loop, actual chapter repair pass.
 
-### Stage 8: Quality Model Spikes - Not Started
+### Stage 8: Quality Model Spikes - In Progress
 
-- Evaluate TranslateGemma 4B/12B locally.
+- TranslateGemma 4B comparison harness:
+  - Done: add a dependency-free development harness that sends aligned Spanish
+    passages to a local OpenAI-compatible `llama-server`.
+  - Done: compare candidate output with both the stored OPUS baseline and a
+    manually reviewed English reference, recording per-segment latency and
+    token-bigram overlap.
+  - Done: keep generated reports under `.cache/translation-quality/`; neither
+    model weights nor local benchmark output belong in Git.
+  - Pending: accept the Gemma terms, provide a locally reviewed GGUF, run the
+    six-passage smoke test, and review every candidate translation for
+    mistranslation, omission, addition, terminology, and fluency.
+  - Token overlap is only a regression diagnostic. It is not a quality score
+    and must not replace human review.
+- Evaluate TranslateGemma 12B only if 4B quality is insufficient and desktop
+  memory remains practical.
 - Evaluate Qwen3 8B/14B for context-rich academic translation.
 - Compare against CTranslate2 output on the same book samples.
 - Decide which models belong in desktop, Android, or experimental catalogs.
+
+#### Running The TranslateGemma 4B Comparison
+
+TranslateGemma files are gated by the Gemma terms. The spike deliberately does
+not download, redistribute, or bless a community quantization. Accept the terms
+for the official model and provide a GGUF whose source revision and checksum
+you have reviewed.
+
+Start a recent `llama-server` with that local model:
+
+```sh
+llama-server \
+  -m /absolute/path/to/translategemma-4b-it-Q4_K_M.gguf \
+  --port 8080 \
+  --jinja \
+  -c 2048
+```
+
+`Q4_K_M` is a useful first benchmark size, not an approved production artifact.
+The official model supports a 2K-token input context and requires a specialized
+chat template carrying source and target language codes. The comparison client
+uses that official message shape.
+
+Validate the fixture and request without inference:
+
+```sh
+npm run translation:compare -- --dry-run
+```
+
+Then run the comparison:
+
+```sh
+npm run translation:compare
+```
+
+Use `--server-url` when the server is not at `http://127.0.0.1:8080`, and
+`--fixture` to test another aligned corpus. The committed fixture is a small
+quality smoke test, not model-training data and not a sufficient release gate
+on its own.
+
+The 4B candidate advances to production integration only if:
+
+- human review prefers it to OPUS across the representative passages;
+- it introduces no omissions, additions, or meaning reversals;
+- terminology and idioms improve without becoming free paraphrases; and
+- measured latency and memory are acceptable on the intended desktop floor.
 
 ### Stage 9: Mobile Hardening - Not Started
 

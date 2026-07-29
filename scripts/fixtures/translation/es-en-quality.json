@@ -1,0 +1,43 @@
+{
+  "name": "Spanish to English long-form quality smoke test",
+  "sourceLanguage": "es",
+  "targetLanguage": "en",
+  "segments": [
+    {
+      "id": "survival-and-class-agency",
+      "source": "Un año más la clase obrera se limita a la lucha por la subsistencia, a resistir aquí y allá contra las mil y una miserias que en distintos ámbitos de la vida social le impone la moderna esclavitud asalariada, pero incapaz de actuar realmente como clase revolucionaria, consciente del conjunto de sus intereses y de las diferencias antagónicas con el resto de las clases sociales.",
+      "reference": "Once again, the working class is confined to the struggle for survival, resisting here and there the myriad miseries imposed upon it by modern wage slavery in various spheres of social life, yet incapable of truly acting as a revolutionary class, aware of its collective interests and its antagonistic differences with the rest of the social classes.",
+      "opus": "One more year the working class is limited to the struggle for subsistence, to resist here and there against the thousand and a miseries imposed on it in different spheres of social life by modern wage slavery, but unable to act truly as a revolutionary class, conscious of the whole of its interests and the antagonistic differences with the rest of the social classes."
+    },
+    {
+      "id": "idioms-and-political-agency",
+      "source": "Y es que perdida toda referencialidad de la emancipación social y, con el cierre del pasado Ciclo de revoluciones, hasta de un horizonte histórico de progreso, el proletariado se mueve entre la resignación apática de aquel que sabe que ni pincha ni corta en los asuntos de las clases dominantes y el ser arrastrado por otras clases, especialmente por los sectores mejor posicionados, que todavía esperan conseguir —o mantener— alguna migaja por parte de la burguesía.",
+      "reference": "Having lost all reference point for social emancipation and, with the end of the past cycle of revolutions, even a historical horizon of progress, the proletariat oscillates between the apathetic resignation of those who know they have no say in the affairs of the ruling classes and being dragged along by other classes, especially the more privileged sectors, who still hope to obtain—or maintain—some crumbs from the bourgeoisie.",
+      "opus": "And it is that it lost all referentiality of social emancipation and, with the closing of the past Cycle of revolutions, even of a historical horizon of progress, the proletariat moves between the apathetic resignation of the one who knows that neither pricks nor short in the affairs of the ruling classes and being dragged by other classes, especially by the better-positioned sectors, who still hope to achieve — or maintain — some crumbja on the part of the bourgeoisie."
+    },
+    {
+      "id": "political-pragmatism",
+      "source": "El conjunto de nociones en las que hoy en día chapotea la mayoría de la vanguardia de la clase, paralizada en viejos dogmas y el posibilismo político, contrasta aún más con la actualidad de la gran lucha de clases.",
+      "reference": "The set of notions in which most of the vanguard of the working class currently flounders, paralyzed by old dogmas and political pragmatism, contrasts even more sharply with the current state of the great class struggle.",
+      "opus": "The set of notions in which today the majority of the vanguard of the class, paralyzed by old dogmas and political posbilism, is all the more in contrast to the present day of the great class struggle."
+    },
+    {
+      "id": "anti-war-slogans",
+      "source": "Para hacer frente a todo esto al proletariado no le vale con fracasadas consignas, tras las que se esconden programas de otras clases, como el No a la guerra o el OTAN no, bases fuera.",
+      "reference": "To confront all of this, the proletariat cannot rely on failed slogans, behind which other class programs are hidden, such as “No to war” or “No to NATO, bases out.”",
+      "opus": "In order to deal with all this, the proletariat does not benefit from failed slogans, behind which programmes of other classes, such as the No to war or NATO, are hidden, no bases outside."
+    },
+    {
+      "id": "civilizational-problems",
+      "source": "Y es que precisamente para poder conjurar las formas de dominación y explotación que son de carácter histórico y se extienden por todo el planeta, ante problemas de hondo calado civilizatorio, el proletariado necesita volver a pensar a dicha escala, necesita precisamente del socialismo científico, que se fundamenta a escala histórica, profunda respecto a los problemas que plantea la sociedad burguesa, y que permite ganar esa distancia, esa independencia, que empieza por el ámbito de la ideología.",
+      "reference": "Indeed, to overcome the forms of domination and exploitation that are historical in nature and extend across the globe, in the face of profound civilizational problems, the proletariat needs to rethink on this scale; it needs scientific socialism, which is grounded in a deep historical understanding of the problems posed by bourgeois society, and which allows it to gain the necessary distance, the necessary independence, beginning in the realm of ideology.",
+      "opus": "It is precisely in order to conjure up the forms of domination and exploitation that are of a historical nature and spread throughout the planet, in the face of problems of a deep civilization, that the proletariat needs to think again on this scale, it needs precisely scientific socialism, which is based on a historical scale, profound with regard to the problems posed by bourgeois society, and which makes it possible to gain that distance, that independence, which begins with the scope of ideology."
+    },
+    {
+      "id": "vanguard-and-obstacles",
+      "source": "Estas entroncan con las principales problemáticas históricas que supone la emancipación humana, y sin el abordaje de las mismas es imposible que el marxismo vuelva a ocupar su puesto como teoría que de verdad marche a la vanguardia del proceso social, que permita acabar con el estado actual de postración que vive la clase obrera y hacer que esta pueda pasar de objeto de explotación y opresión a sujeto revolucionario que libremente marque su propio camino independiente, capaz de barrer con cualquier traba que le salga al paso.",
+      "reference": "These experiences are linked to the main historical problems inherent in human emancipation, and without addressing them, it is impossible for Marxism to regain its place as a truly vanguard theory of the social process, enabling it to end the current state of prostration experienced by the working class and transform it from an object of exploitation and oppression into a revolutionary subject freely charting its own independent course, capable of overcoming any obstacle in its path.",
+      "opus": "These relate to the main historical problems that human emancipation implies, and without the approach of these, it is impossible for Marxism to resume its position as a theory that really leaves the vanguard of the social process, that allows to end the current state of prostration that the working class lives and that it can pass from the object of exploitation and oppression to revolutionary subject that freely marks its own independent path, capable of sweeping with any work that comes to pass."
+    }
+  ]
+}
