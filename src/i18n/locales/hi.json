@@ -74,7 +74,9 @@
       "none": "इस रनटाइम में कोई मॉडल उपलब्ध नहीं है",
       "installedCount": "इंस्टॉल: {{count, number}}",
       "installableCount": "इंस्टॉल योग्य: {{count, number}}",
-      "plannedCount": "नियोजित: {{count, number}}"
+      "plannedCount": "नियोजित: {{count, number}}",
+      "highResourceTitle": "अधिक संसाधन वाला मॉडल।",
+      "hyMt2ResourceNote": "HY-MT2 के लिए 1.9 जीबी डाउनलोड आवश्यक है और केवल CPU वाले सिस्टम पर यह बहुत धीमा हो सकता है। GPU त्वरण सक्षम नहीं है।"
     },
     "documents": {
       "ariaLabel": "अनुवादित दस्तावेज़",
@@ -98,6 +100,7 @@
       "currentBatchReused": "मौजूदा बैच में पुनः उपयोग: {{count, number}}",
       "preview": "पूर्वावलोकन: {{preview}}",
       "status": {
+        "loadingModel": "मॉडल लोड हो रहा है",
         "starting": "शुरू हो रहा है",
         "translating": "अनुवाद हो रहा है",
         "validating": "सत्यापन हो रहा है",

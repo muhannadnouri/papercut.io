@@ -86,6 +86,22 @@ pub(super) fn start_translation<R: tauri::Runtime>(
         .to_string();
     clear_cancelled(&state.cancelled_jobs, &job_id)?;
     let started = Instant::now();
+    emit_translation_progress(
+        app,
+        progress(
+            &job_id,
+            "loading-model",
+            "Loading translation model",
+            &plan,
+            started,
+            None,
+            0,
+            0,
+            0,
+            0,
+            "",
+        ),
+    )?;
     let mut engine = load_translation_engine(model, &model_dir)?;
     match run_translation_batches(
         app,

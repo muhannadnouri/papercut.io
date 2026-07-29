@@ -338,6 +338,12 @@ export function TranslationPanel({
               </select>
             </label>
           </div>
+          {selectedModel?.id === 'hy-mt2-1.8b-q8' && (
+            <p className="translation-resource-note">
+              <strong>{t('translation.models.highResourceTitle')}</strong>{' '}
+              {t('translation.models.hyMt2ResourceNote')}
+            </p>
+          )}
           <div className="translation-action-row">
             <button
               type="button"
@@ -676,6 +682,7 @@ function formatLanguageLabel(language: string, locale: string, t: TFunction): st
 
 function formatStatusLabel(status: string, t: TFunction): string {
   const labels: Record<string, string> = {
+    'loading-model': t('translation.progress.status.loadingModel'),
     starting: t('translation.progress.status.starting'),
     translating: t('translation.progress.status.translating'),
     validating: t('translation.progress.status.validating'),

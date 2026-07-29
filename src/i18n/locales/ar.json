@@ -74,7 +74,9 @@
       "none": "لا تتوفر نماذج في بيئة التشغيل هذه",
       "installedCount": "المثبتة: {{count, number}}",
       "installableCount": "القابلة للتثبيت: {{count, number}}",
-      "plannedCount": "المخطط لها: {{count, number}}"
+      "plannedCount": "المخطط لها: {{count, number}}",
+      "highResourceTitle": "نموذج يتطلب موارد عالية.",
+      "hyMt2ResourceNote": "يتطلب HY-MT2 تنزيل 1.9 غيغابايت، وقد يكون بطيئًا جدًا على الأنظمة التي تستخدم المعالج المركزي فقط. تسريع وحدة معالجة الرسومات غير مفعّل."
     },
     "documents": {
       "ariaLabel": "المستندات المترجمة",
@@ -98,6 +100,7 @@
       "currentBatchReused": "أُعيد استخدامه في الدفعة الحالية: {{count, number}}",
       "preview": "معاينة: {{preview}}",
       "status": {
+        "loadingModel": "جارٍ تحميل النموذج",
         "starting": "جارٍ البدء",
         "translating": "جارٍ الترجمة",
         "validating": "جارٍ التحقق",

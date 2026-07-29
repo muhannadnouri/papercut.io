@@ -74,7 +74,9 @@
       "none": "此运行环境中没有可用模型",
       "installedCount": "已安装：{{count, number}}",
       "installableCount": "可安装：{{count, number}}",
-      "plannedCount": "计划中：{{count, number}}"
+      "plannedCount": "计划中：{{count, number}}",
+      "highResourceTitle": "高资源需求模型。",
+      "hyMt2ResourceNote": "HY-MT2 需要下载 1.9 GB，在仅使用 CPU 的系统上可能非常慢。GPU 加速尚未启用。"
     },
     "documents": {
       "ariaLabel": "翻译文档",
@@ -98,6 +100,7 @@
       "currentBatchReused": "当前批次复用：{{count, number}}",
       "preview": "预览：{{preview}}",
       "status": {
+        "loadingModel": "正在加载模型",
         "starting": "正在启动",
         "translating": "正在翻译",
         "validating": "正在验证",

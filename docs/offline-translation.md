@@ -566,7 +566,9 @@ Status:
 - Done: load the GGUF once per job, reuse a context within each batch, clear KV state between independent segments, and bound prompt/output tokens.
 - Done: use HY-MT2's published translation-only prompt and sampler settings with a fixed seed.
 - Done: retain the existing cache, glossary prompt hints, progress, cancellation-between-batches, validation, rendering, search indexing, and durable variant storage.
-- Pending: install the 1.9 GB model and run desktop CPU smoke tests on representative short/chapter/book samples.
+- Done: expose the model's 1.9 GB footprint and CPU-only performance warning in the workbench, and report model loading separately from translation progress.
+- Partial: the pinned model installed successfully and entered native inference on the current CPU-only development machine; cancellation also worked. Startup was too slow to complete a useful quality or throughput benchmark on that hardware.
+- Pending: run completed desktop quality and performance smoke tests on representative short/chapter/book samples using suitable hardware.
 - Deferred: NVIDIA RTX/CUDA smoke testing is unavailable on the current development machine. Do not claim CUDA support until a separate build feature, packaging pass, and quality/performance benchmark succeed on an RTX-class Linux machine.
 - Deferred: Apple Metal, Windows packaging, Android, and iOS validation.
 - Deferred: compare Qwen only if HY-MT2 quality has a demonstrated gap worth another runtime/model cost.

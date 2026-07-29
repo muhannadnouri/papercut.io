@@ -74,7 +74,9 @@
       "none": "Não há modelos disponíveis neste ambiente",
       "installedCount": "Instalados: {{count, number}}",
       "installableCount": "Instaláveis: {{count, number}}",
-      "plannedCount": "Planejados: {{count, number}}"
+      "plannedCount": "Planejados: {{count, number}}",
+      "highResourceTitle": "Modelo de alto consumo de recursos.",
+      "hyMt2ResourceNote": "O HY-MT2 requer um download de 1,9 GB e pode ser muito lento em sistemas que usam apenas a CPU. A aceleração por GPU não está habilitada."
     },
     "documents": {
       "ariaLabel": "Documentos traduzidos",
@@ -98,6 +100,7 @@
       "currentBatchReused": "Reutilizados no lote atual: {{count, number}}",
       "preview": "Prévia: {{preview}}",
       "status": {
+        "loadingModel": "Carregando Modelo",
         "starting": "Iniciando",
         "translating": "Traduzindo",
         "validating": "Validando",

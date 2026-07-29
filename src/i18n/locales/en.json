@@ -74,7 +74,9 @@
       "none": "No models are available in this runtime",
       "installedCount": "Installed: {{count, number}}",
       "installableCount": "Installable: {{count, number}}",
-      "plannedCount": "Planned: {{count, number}}"
+      "plannedCount": "Planned: {{count, number}}",
+      "highResourceTitle": "High-resource model.",
+      "hyMt2ResourceNote": "HY-MT2 requires a 1.9 GB download and can be very slow on CPU-only systems. GPU acceleration is not enabled."
     },
     "documents": {
       "ariaLabel": "Translated documents",
@@ -98,6 +100,7 @@
       "currentBatchReused": "Current batch reused: {{count, number}}",
       "preview": "Preview: {{preview}}",
       "status": {
+        "loadingModel": "Loading Model",
         "starting": "Starting",
         "translating": "Translating",
         "validating": "Validating",
