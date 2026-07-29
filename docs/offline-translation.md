@@ -13,6 +13,7 @@ The goal is high-quality offline translation for long-form HTML and EPUB books, 
 - Translation jobs run through the native engine boundary, emit progress/cancel events, reuse segment cache entries, run first-pass quality gates, and persist successful output as derived uploaded documents.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
 - OPUS-MT exposes no quality, glossary, or repair controls because that engine cannot honor them; direct requests using those options are rejected.
+- Translation controls, normal progress states, confirmations, counts, and language names use the app's eight locale resources. Unstructured native failures remain diagnostic text until the backend exposes stable error codes.
 - Concurrent starts for the same document and translation settings are rejected before they can write the same cache or variant.
 - Job progress now distinguishes final validation from storage, so a translation can reach 100% segment completion and still fail with a specific quality issue before any derived document is promoted.
 - OPUS-MT jobs use both a conservative 900-character planner cap and an engine-local tokenizer split before CTranslate2 inference, so long Spanish/French prose can be subdivided below Marian's 512-position limit without changing public cache segment ids.
@@ -297,6 +298,7 @@ First release should be plain and reliable:
 - Let the user choose source language, target language, and model.
 - Show quality, glossary, or repair controls only for engines that implement them.
 - Show model install state like TTS.
+- Localize normal workflow copy through the shared app resources; do not attempt to translate arbitrary native error prose in the frontend.
 - Show progress by chapter/section, not an indeterminate spinner.
 - Support cancellation and cache-assisted retry.
 - Show translated copies in the Library.

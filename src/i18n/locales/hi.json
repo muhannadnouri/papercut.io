@@ -9,6 +9,100 @@
     "translation": "अनुवाद",
     "audiobooks": "ऑडियो पुस्तकें"
   },
+  "translation": {
+    "ariaLabel": "ऑफ़लाइन अनुवाद",
+    "title": "ऑफ़लाइन अनुवाद",
+    "retry": "फिर प्रयास करें",
+    "status": {
+      "checking": "जाँच हो रही है",
+      "available": "उपलब्ध",
+      "unavailable": "इस बिल्ड में उपलब्ध नहीं",
+      "unavailableReason": "इस बिल्ड में ऑफ़लाइन अनुवाद उपलब्ध नहीं है।",
+      "translatedCount": "अनुवादित: {{count, number}}",
+      "translationComplete": "अनुवाद पूरा हुआ",
+      "translationInProgress": "अनुवाद जारी है",
+      "translationFailed": "अनुवाद विफल हुआ",
+      "translationCompleteMessage": "अनुवादित दस्तावेज़ तैयार है।",
+      "dismissTranslation": "अनुवाद स्थिति बंद करें",
+      "modelInstalled": "मॉडल इंस्टॉल हुआ",
+      "modelInstall": "मॉडल इंस्टॉलेशन",
+      "modelInstallFailed": "मॉडल इंस्टॉलेशन विफल हुआ",
+      "modelInstalledMessage": "अनुवाद मॉडल इंस्टॉल है।",
+      "dismissModelInstall": "मॉडल इंस्टॉलेशन स्थिति बंद करें",
+      "preparingModel": "अनुवाद मॉडल डाउनलोड तैयार किया जा रहा है...",
+      "downloadingModel": "अनुवाद मॉडल डाउनलोड हो रहा है...",
+      "preparingJob": "अनुवाद कार्य तैयार किया जा रहा है...",
+      "cancellingJob": "अनुवाद कार्य रद्द किया जा रहा है...",
+      "dismissDelete": "हटाने की स्थिति बंद करें",
+      "documentDeleted": "अनुवादित दस्तावेज़ हटा दिया गया।"
+    },
+    "workbench": {
+      "selectedDocument": "चयनित दस्तावेज़",
+      "documentCopy": "{{format}} अनुवाद दस्तावेज़ की एक अलग बनाई गई प्रति के रूप में चलता है।",
+      "readinessOptions": "अनुवाद विकल्प",
+      "model": "मॉडल",
+      "source": "स्रोत",
+      "target": "लक्ष्य",
+      "noSupportedModels": "कोई समर्थित मॉडल नहीं",
+      "runTitle": "चयनित दस्तावेज़ का अनुवाद करें",
+      "run": "अनुवाद शुरू करें",
+      "translating": "अनुवाद हो रहा है...",
+      "cancelling": "रद्द किया जा रहा है...",
+      "noDocument": "कोई दस्तावेज़ चयनित नहीं है। दस्तावेज़ खोलें और उसके क्रिया मेनू से अनुवाद चुनें।",
+      "document": "दस्तावेज़"
+    },
+    "models": {
+      "ariaLabel": "अनुवाद मॉडल",
+      "title": "अनुवाद मॉडल",
+      "planned": "नियोजित",
+      "installed": "इंस्टॉल है",
+      "install": "इंस्टॉल करें",
+      "installing": "{{percent, number}}% इंस्टॉल हो रहा है",
+      "noMetadata": "इस रनटाइम में मॉडल मेटाडेटा उपलब्ध नहीं है।",
+      "none": "इस रनटाइम में कोई मॉडल उपलब्ध नहीं है",
+      "installedCount": "इंस्टॉल: {{count, number}}",
+      "installableCount": "इंस्टॉल योग्य: {{count, number}}",
+      "plannedCount": "नियोजित: {{count, number}}"
+    },
+    "documents": {
+      "ariaLabel": "अनुवादित दस्तावेज़",
+      "title": "अनुवादित दस्तावेज़",
+      "savedCount": "सहेजे गए: {{count, number}}",
+      "viewLabel": "{{title}} देखें",
+      "deleteLabel": "{{title}} हटाएँ",
+      "empty": "अभी कोई अनुवादित दस्तावेज़ नहीं है।"
+    },
+    "confirmDelete": {
+      "title": "अनुवादित दस्तावेज़ हटाएँ?",
+      "description": "“{{title}}” हटा दिया जाएगा। मूल दस्तावेज़ प्रभावित नहीं होगा; अनुवाद फिर चलाने पर यह दोबारा बन जाएगा।",
+      "keep": "रखें"
+    },
+    "progress": {
+      "job": "अनुवाद कार्य {{percent, number}}% पूरा",
+      "modelDownload": "अनुवाद मॉडल डाउनलोड {{percent, number}}% पूरा",
+      "counts": "{{totalSegments, number}} में से {{completedSegments, number}} खंड · {{totalBatches, number}} में से {{completedBatches, number}} बैच",
+      "reusedCached": "कैश से पुनः उपयोग: {{count, number}}",
+      "translatedFresh": "नए अनुवादित: {{count, number}}",
+      "currentBatchReused": "मौजूदा बैच में पुनः उपयोग: {{count, number}}",
+      "preview": "पूर्वावलोकन: {{preview}}",
+      "status": {
+        "starting": "शुरू हो रहा है",
+        "translating": "अनुवाद हो रहा है",
+        "validating": "सत्यापन हो रहा है",
+        "storing": "सहेजा जा रहा है",
+        "completed": "पूरा हुआ",
+        "cancelled": "रद्द हुआ"
+      }
+    },
+    "tiers": {
+      "fast": "तेज़",
+      "highQuality": "उच्च गुणवत्ता",
+      "contextRich": "समृद्ध संदर्भ"
+    },
+    "languages": {
+      "autoDetect": "स्वतः पहचान"
+    }
+  },
   "common": {
     "back": "पीछे",
     "cancel": "रद्द करें",

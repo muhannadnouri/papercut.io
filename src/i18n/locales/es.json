@@ -9,6 +9,100 @@
     "translation": "Traducción",
     "audiobooks": "Audiolibros"
   },
+  "translation": {
+    "ariaLabel": "Traducción sin conexión",
+    "title": "Traducción Sin Conexión",
+    "retry": "Reintentar",
+    "status": {
+      "checking": "Comprobando",
+      "available": "Disponible",
+      "unavailable": "No disponible en esta compilación",
+      "unavailableReason": "La traducción sin conexión no está disponible en esta compilación.",
+      "translatedCount": "Traducidos: {{count, number}}",
+      "translationComplete": "Traducción Completada",
+      "translationInProgress": "Traducción En Curso",
+      "translationFailed": "Error De Traducción",
+      "translationCompleteMessage": "El documento traducido está listo.",
+      "dismissTranslation": "Cerrar estado de traducción",
+      "modelInstalled": "Modelo Instalado",
+      "modelInstall": "Instalación Del Modelo",
+      "modelInstallFailed": "Error Al Instalar El Modelo",
+      "modelInstalledMessage": "El modelo de traducción está instalado.",
+      "dismissModelInstall": "Cerrar estado de instalación del modelo",
+      "preparingModel": "Preparando la descarga del modelo de traducción...",
+      "downloadingModel": "Descargando el modelo de traducción...",
+      "preparingJob": "Preparando la tarea de traducción...",
+      "cancellingJob": "Cancelando la tarea de traducción...",
+      "dismissDelete": "Cerrar estado de eliminación",
+      "documentDeleted": "Documento traducido eliminado."
+    },
+    "workbench": {
+      "selectedDocument": "Documento Seleccionado",
+      "documentCopy": "La traducción de {{format}} se ejecuta como una copia independiente del documento.",
+      "readinessOptions": "Opciones de traducción",
+      "model": "Modelo",
+      "source": "Origen",
+      "target": "Destino",
+      "noSupportedModels": "No hay modelos compatibles",
+      "runTitle": "Traducir el documento seleccionado",
+      "run": "Iniciar Traducción",
+      "translating": "Traduciendo...",
+      "cancelling": "Cancelando...",
+      "noDocument": "No hay ningún documento seleccionado. Abra un documento y elija Traducir en su menú de acciones.",
+      "document": "Documento"
+    },
+    "models": {
+      "ariaLabel": "Modelos de traducción",
+      "title": "Modelos De Traducción",
+      "planned": "Planificados",
+      "installed": "Instalado",
+      "install": "Instalar",
+      "installing": "Instalando {{percent, number}}%",
+      "noMetadata": "No hay metadatos de modelos disponibles en este entorno.",
+      "none": "No hay modelos disponibles en este entorno",
+      "installedCount": "Instalados: {{count, number}}",
+      "installableCount": "Instalables: {{count, number}}",
+      "plannedCount": "Planificados: {{count, number}}"
+    },
+    "documents": {
+      "ariaLabel": "Documentos traducidos",
+      "title": "Documentos Traducidos",
+      "savedCount": "Guardados: {{count, number}}",
+      "viewLabel": "Ver {{title}}",
+      "deleteLabel": "Eliminar {{title}}",
+      "empty": "Todavía no hay documentos traducidos."
+    },
+    "confirmDelete": {
+      "title": "¿Eliminar El Documento Traducido?",
+      "description": "Se eliminará «{{title}}». El documento original no se verá afectado; volver a ejecutar la traducción lo recreará.",
+      "keep": "Conservar"
+    },
+    "progress": {
+      "job": "Tarea de traducción completada al {{percent, number}}%",
+      "modelDownload": "Descarga del modelo de traducción completada al {{percent, number}}%",
+      "counts": "{{completedSegments, number}} de {{totalSegments, number}} segmentos · {{completedBatches, number}} de {{totalBatches, number}} lotes",
+      "reusedCached": "Reutilizados de caché: {{count, number}}",
+      "translatedFresh": "Recién traducidos: {{count, number}}",
+      "currentBatchReused": "Reutilizados en el lote actual: {{count, number}}",
+      "preview": "Vista previa: {{preview}}",
+      "status": {
+        "starting": "Iniciando",
+        "translating": "Traduciendo",
+        "validating": "Validando",
+        "storing": "Guardando",
+        "completed": "Completado",
+        "cancelled": "Cancelado"
+      }
+    },
+    "tiers": {
+      "fast": "Rápido",
+      "highQuality": "Alta Calidad",
+      "contextRich": "Contexto Amplio"
+    },
+    "languages": {
+      "autoDetect": "Detección Automática"
+    }
+  },
   "common": {
     "back": "Atrás",
     "cancel": "Cancelar",

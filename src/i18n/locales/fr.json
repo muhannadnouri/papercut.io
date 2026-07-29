@@ -9,6 +9,100 @@
     "translation": "Traduction",
     "audiobooks": "Livres audio"
   },
+  "translation": {
+    "ariaLabel": "Traduction hors ligne",
+    "title": "Traduction Hors Ligne",
+    "retry": "Réessayer",
+    "status": {
+      "checking": "Vérification",
+      "available": "Disponible",
+      "unavailable": "Indisponible dans cette version",
+      "unavailableReason": "La traduction hors ligne est indisponible dans cette version.",
+      "translatedCount": "Traduits : {{count, number}}",
+      "translationComplete": "Traduction Terminée",
+      "translationInProgress": "Traduction En Cours",
+      "translationFailed": "Échec De La Traduction",
+      "translationCompleteMessage": "Le document traduit est prêt.",
+      "dismissTranslation": "Fermer l’état de la traduction",
+      "modelInstalled": "Modèle Installé",
+      "modelInstall": "Installation Du Modèle",
+      "modelInstallFailed": "Échec De L’installation Du Modèle",
+      "modelInstalledMessage": "Le modèle de traduction est installé.",
+      "dismissModelInstall": "Fermer l’état d’installation du modèle",
+      "preparingModel": "Préparation du téléchargement du modèle de traduction...",
+      "downloadingModel": "Téléchargement du modèle de traduction...",
+      "preparingJob": "Préparation de la tâche de traduction...",
+      "cancellingJob": "Annulation de la tâche de traduction...",
+      "dismissDelete": "Fermer l’état de suppression",
+      "documentDeleted": "Document traduit supprimé."
+    },
+    "workbench": {
+      "selectedDocument": "Document Sélectionné",
+      "documentCopy": "La traduction {{format}} s’exécute comme une copie distincte du document.",
+      "readinessOptions": "Options de traduction",
+      "model": "Modèle",
+      "source": "Source",
+      "target": "Cible",
+      "noSupportedModels": "Aucun modèle pris en charge",
+      "runTitle": "Traduire le document sélectionné",
+      "run": "Lancer La Traduction",
+      "translating": "Traduction...",
+      "cancelling": "Annulation...",
+      "noDocument": "Aucun document sélectionné. Ouvrez un document et choisissez Traduire dans son menu d’actions.",
+      "document": "Document"
+    },
+    "models": {
+      "ariaLabel": "Modèles de traduction",
+      "title": "Modèles De Traduction",
+      "planned": "Planifiés",
+      "installed": "Installé",
+      "install": "Installer",
+      "installing": "Installation {{percent, number}} %",
+      "noMetadata": "Aucune métadonnée de modèle n’est disponible dans cet environnement.",
+      "none": "Aucun modèle n’est disponible dans cet environnement",
+      "installedCount": "Installés : {{count, number}}",
+      "installableCount": "Installables : {{count, number}}",
+      "plannedCount": "Planifiés : {{count, number}}"
+    },
+    "documents": {
+      "ariaLabel": "Documents traduits",
+      "title": "Documents Traduits",
+      "savedCount": "Enregistrés : {{count, number}}",
+      "viewLabel": "Afficher {{title}}",
+      "deleteLabel": "Supprimer {{title}}",
+      "empty": "Aucun document traduit pour le moment."
+    },
+    "confirmDelete": {
+      "title": "Supprimer Le Document Traduit ?",
+      "description": "« {{title}} » sera supprimé. Le document original ne sera pas affecté ; relancer la traduction le recréera.",
+      "keep": "Conserver"
+    },
+    "progress": {
+      "job": "Tâche de traduction terminée à {{percent, number}} %",
+      "modelDownload": "Téléchargement du modèle de traduction terminé à {{percent, number}} %",
+      "counts": "{{completedSegments, number}} segments sur {{totalSegments, number}} · {{completedBatches, number}} lots sur {{totalBatches, number}}",
+      "reusedCached": "Réutilisés depuis le cache : {{count, number}}",
+      "translatedFresh": "Nouvellement traduits : {{count, number}}",
+      "currentBatchReused": "Réutilisés dans le lot actuel : {{count, number}}",
+      "preview": "Aperçu : {{preview}}",
+      "status": {
+        "starting": "Démarrage",
+        "translating": "Traduction",
+        "validating": "Validation",
+        "storing": "Enregistrement",
+        "completed": "Terminé",
+        "cancelled": "Annulé"
+      }
+    },
+    "tiers": {
+      "fast": "Rapide",
+      "highQuality": "Haute Qualité",
+      "contextRich": "Contexte Étendu"
+    },
+    "languages": {
+      "autoDetect": "Détection Automatique"
+    }
+  },
   "common": {
     "back": "Retour",
     "cancel": "Annuler",

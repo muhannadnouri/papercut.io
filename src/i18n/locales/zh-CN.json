@@ -9,6 +9,100 @@
     "translation": "翻译",
     "audiobooks": "有声读物"
   },
+  "translation": {
+    "ariaLabel": "离线翻译",
+    "title": "离线翻译",
+    "retry": "重试",
+    "status": {
+      "checking": "正在检查",
+      "available": "可用",
+      "unavailable": "此版本不可用",
+      "unavailableReason": "此版本不支持离线翻译。",
+      "translatedCount": "已翻译：{{count, number}}",
+      "translationComplete": "翻译完成",
+      "translationInProgress": "正在翻译",
+      "translationFailed": "翻译失败",
+      "translationCompleteMessage": "翻译后的文档已准备就绪。",
+      "dismissTranslation": "关闭翻译状态",
+      "modelInstalled": "模型已安装",
+      "modelInstall": "模型安装",
+      "modelInstallFailed": "模型安装失败",
+      "modelInstalledMessage": "翻译模型已安装。",
+      "dismissModelInstall": "关闭模型安装状态",
+      "preparingModel": "正在准备下载翻译模型...",
+      "downloadingModel": "正在下载翻译模型...",
+      "preparingJob": "正在准备翻译任务...",
+      "cancellingJob": "正在取消翻译任务...",
+      "dismissDelete": "关闭删除状态",
+      "documentDeleted": "已删除翻译文档。"
+    },
+    "workbench": {
+      "selectedDocument": "所选文档",
+      "documentCopy": "{{format}} 翻译会生成一份独立的文档副本。",
+      "readinessOptions": "翻译选项",
+      "model": "模型",
+      "source": "源语言",
+      "target": "目标语言",
+      "noSupportedModels": "没有受支持的模型",
+      "runTitle": "翻译所选文档",
+      "run": "开始翻译",
+      "translating": "正在翻译...",
+      "cancelling": "正在取消...",
+      "noDocument": "尚未选择文档。请打开文档，然后在操作菜单中选择“翻译”。",
+      "document": "文档"
+    },
+    "models": {
+      "ariaLabel": "翻译模型",
+      "title": "翻译模型",
+      "planned": "计划中",
+      "installed": "已安装",
+      "install": "安装",
+      "installing": "正在安装 {{percent, number}}%",
+      "noMetadata": "此运行环境中没有可用的模型元数据。",
+      "none": "此运行环境中没有可用模型",
+      "installedCount": "已安装：{{count, number}}",
+      "installableCount": "可安装：{{count, number}}",
+      "plannedCount": "计划中：{{count, number}}"
+    },
+    "documents": {
+      "ariaLabel": "翻译文档",
+      "title": "翻译文档",
+      "savedCount": "已保存：{{count, number}}",
+      "viewLabel": "查看 {{title}}",
+      "deleteLabel": "删除 {{title}}",
+      "empty": "还没有翻译文档。"
+    },
+    "confirmDelete": {
+      "title": "删除翻译文档？",
+      "description": "“{{title}}”将被移除。原始文档不会受到影响；再次运行翻译即可重新创建。",
+      "keep": "保留"
+    },
+    "progress": {
+      "job": "翻译任务已完成 {{percent, number}}%",
+      "modelDownload": "翻译模型已下载 {{percent, number}}%",
+      "counts": "已完成 {{completedSegments, number}} / {{totalSegments, number}} 个片段 · {{completedBatches, number}} / {{totalBatches, number}} 个批次",
+      "reusedCached": "复用缓存：{{count, number}}",
+      "translatedFresh": "新翻译：{{count, number}}",
+      "currentBatchReused": "当前批次复用：{{count, number}}",
+      "preview": "预览：{{preview}}",
+      "status": {
+        "starting": "正在启动",
+        "translating": "正在翻译",
+        "validating": "正在验证",
+        "storing": "正在保存",
+        "completed": "已完成",
+        "cancelled": "已取消"
+      }
+    },
+    "tiers": {
+      "fast": "快速",
+      "highQuality": "高质量",
+      "contextRich": "丰富上下文"
+    },
+    "languages": {
+      "autoDetect": "自动检测"
+    }
+  },
   "common": {
     "back": "后退",
     "cancel": "取消",

@@ -9,6 +9,100 @@
     "translation": "الترجمة",
     "audiobooks": "الكتب الصوتية"
   },
+  "translation": {
+    "ariaLabel": "الترجمة دون اتصال",
+    "title": "الترجمة دون اتصال",
+    "retry": "إعادة المحاولة",
+    "status": {
+      "checking": "جارٍ التحقق",
+      "available": "متاحة",
+      "unavailable": "غير متاحة في هذا الإصدار",
+      "unavailableReason": "الترجمة دون اتصال غير متاحة في هذا الإصدار.",
+      "translatedCount": "المترجمة: {{count, number}}",
+      "translationComplete": "اكتملت الترجمة",
+      "translationInProgress": "الترجمة قيد التنفيذ",
+      "translationFailed": "فشلت الترجمة",
+      "translationCompleteMessage": "المستند المترجم جاهز.",
+      "dismissTranslation": "إغلاق حالة الترجمة",
+      "modelInstalled": "تم تثبيت النموذج",
+      "modelInstall": "تثبيت النموذج",
+      "modelInstallFailed": "فشل تثبيت النموذج",
+      "modelInstalledMessage": "تم تثبيت نموذج الترجمة.",
+      "dismissModelInstall": "إغلاق حالة تثبيت النموذج",
+      "preparingModel": "جارٍ إعداد تنزيل نموذج الترجمة...",
+      "downloadingModel": "جارٍ تنزيل نموذج الترجمة...",
+      "preparingJob": "جارٍ إعداد مهمة الترجمة...",
+      "cancellingJob": "جارٍ إلغاء مهمة الترجمة...",
+      "dismissDelete": "إغلاق حالة الحذف",
+      "documentDeleted": "تم حذف المستند المترجم."
+    },
+    "workbench": {
+      "selectedDocument": "المستند المحدد",
+      "documentCopy": "تُنشئ ترجمة {{format}} نسخة مستقلة من المستند.",
+      "readinessOptions": "خيارات الترجمة",
+      "model": "النموذج",
+      "source": "المصدر",
+      "target": "الهدف",
+      "noSupportedModels": "لا توجد نماذج مدعومة",
+      "runTitle": "ترجمة المستند المحدد",
+      "run": "بدء الترجمة",
+      "translating": "جارٍ الترجمة...",
+      "cancelling": "جارٍ الإلغاء...",
+      "noDocument": "لم يتم تحديد مستند. افتح مستندًا واختر «ترجمة» من قائمة إجراءاته.",
+      "document": "مستند"
+    },
+    "models": {
+      "ariaLabel": "نماذج الترجمة",
+      "title": "نماذج الترجمة",
+      "planned": "مخطط لها",
+      "installed": "مثبت",
+      "install": "تثبيت",
+      "installing": "جارٍ التثبيت {{percent, number}}٪",
+      "noMetadata": "لا تتوفر بيانات وصفية للنماذج في بيئة التشغيل هذه.",
+      "none": "لا تتوفر نماذج في بيئة التشغيل هذه",
+      "installedCount": "المثبتة: {{count, number}}",
+      "installableCount": "القابلة للتثبيت: {{count, number}}",
+      "plannedCount": "المخطط لها: {{count, number}}"
+    },
+    "documents": {
+      "ariaLabel": "المستندات المترجمة",
+      "title": "المستندات المترجمة",
+      "savedCount": "المحفوظة: {{count, number}}",
+      "viewLabel": "عرض {{title}}",
+      "deleteLabel": "حذف {{title}}",
+      "empty": "لا توجد مستندات مترجمة بعد."
+    },
+    "confirmDelete": {
+      "title": "حذف المستند المترجم؟",
+      "description": "ستتم إزالة «{{title}}». لن يتأثر المستند الأصلي؛ ويمكن إعادة إنشائه بتشغيل الترجمة مرة أخرى.",
+      "keep": "إبقاء"
+    },
+    "progress": {
+      "job": "اكتملت مهمة الترجمة بنسبة {{percent, number}}٪",
+      "modelDownload": "اكتمل تنزيل نموذج الترجمة بنسبة {{percent, number}}٪",
+      "counts": "{{completedSegments, number}} من {{totalSegments, number}} مقطع · {{completedBatches, number}} من {{totalBatches, number}} دفعة",
+      "reusedCached": "أُعيد استخدامه من الذاكرة المؤقتة: {{count, number}}",
+      "translatedFresh": "تُرجم حديثًا: {{count, number}}",
+      "currentBatchReused": "أُعيد استخدامه في الدفعة الحالية: {{count, number}}",
+      "preview": "معاينة: {{preview}}",
+      "status": {
+        "starting": "جارٍ البدء",
+        "translating": "جارٍ الترجمة",
+        "validating": "جارٍ التحقق",
+        "storing": "جارٍ الحفظ",
+        "completed": "مكتملة",
+        "cancelled": "ملغاة"
+      }
+    },
+    "tiers": {
+      "fast": "سريع",
+      "highQuality": "جودة عالية",
+      "contextRich": "غني بالسياق"
+    },
+    "languages": {
+      "autoDetect": "اكتشاف تلقائي"
+    }
+  },
   "common": {
     "back": "رجوع",
     "cancel": "إلغاء",

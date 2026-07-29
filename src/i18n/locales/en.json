@@ -9,6 +9,100 @@
     "translation": "Translation",
     "audiobooks": "Audiobooks"
   },
+  "translation": {
+    "ariaLabel": "Offline translation",
+    "title": "Offline Translation",
+    "retry": "Retry",
+    "status": {
+      "checking": "Checking",
+      "available": "Available",
+      "unavailable": "Unavailable in this build",
+      "unavailableReason": "Offline translation is unavailable in this build.",
+      "translatedCount": "Translated: {{count, number}}",
+      "translationComplete": "Translation Complete",
+      "translationInProgress": "Translation in Progress",
+      "translationFailed": "Translation Failed",
+      "translationCompleteMessage": "The translated document is ready.",
+      "dismissTranslation": "Dismiss translation status",
+      "modelInstalled": "Model Installed",
+      "modelInstall": "Model Installation",
+      "modelInstallFailed": "Model Installation Failed",
+      "modelInstalledMessage": "The translation model is installed.",
+      "dismissModelInstall": "Dismiss model installation status",
+      "preparingModel": "Preparing translation model download...",
+      "downloadingModel": "Downloading translation model...",
+      "preparingJob": "Preparing translation job...",
+      "cancellingJob": "Cancelling translation job...",
+      "dismissDelete": "Dismiss deletion status",
+      "documentDeleted": "Translated document deleted."
+    },
+    "workbench": {
+      "selectedDocument": "Selected Document",
+      "documentCopy": "{{format}} translation runs as a separate generated document copy.",
+      "readinessOptions": "Translation options",
+      "model": "Model",
+      "source": "Source",
+      "target": "Target",
+      "noSupportedModels": "No supported models",
+      "runTitle": "Translate the selected document",
+      "run": "Run Translation",
+      "translating": "Translating...",
+      "cancelling": "Cancelling...",
+      "noDocument": "No document selected. Open a document and choose Translate from its actions menu.",
+      "document": "Document"
+    },
+    "models": {
+      "ariaLabel": "Translation models",
+      "title": "Translation Models",
+      "planned": "Planned",
+      "installed": "Installed",
+      "install": "Install",
+      "installing": "Installing {{percent, number}}%",
+      "noMetadata": "No model metadata is available in this runtime.",
+      "none": "No models are available in this runtime",
+      "installedCount": "Installed: {{count, number}}",
+      "installableCount": "Installable: {{count, number}}",
+      "plannedCount": "Planned: {{count, number}}"
+    },
+    "documents": {
+      "ariaLabel": "Translated documents",
+      "title": "Translated Documents",
+      "savedCount": "Saved: {{count, number}}",
+      "viewLabel": "View {{title}}",
+      "deleteLabel": "Delete {{title}}",
+      "empty": "No translated documents yet."
+    },
+    "confirmDelete": {
+      "title": "Delete Translated Document?",
+      "description": "\"{{title}}\" will be removed. The original document is not affected; running the translation again recreates it.",
+      "keep": "Keep"
+    },
+    "progress": {
+      "job": "Translation job {{percent, number}}% complete",
+      "modelDownload": "Translation model download {{percent, number}}% complete",
+      "counts": "{{completedSegments, number}} of {{totalSegments, number}} segments · {{completedBatches, number}} of {{totalBatches, number}} batches",
+      "reusedCached": "Reused cached: {{count, number}}",
+      "translatedFresh": "Newly translated: {{count, number}}",
+      "currentBatchReused": "Current batch reused: {{count, number}}",
+      "preview": "Preview: {{preview}}",
+      "status": {
+        "starting": "Starting",
+        "translating": "Translating",
+        "validating": "Validating",
+        "storing": "Saving",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
+      }
+    },
+    "tiers": {
+      "fast": "Fast",
+      "highQuality": "High Quality",
+      "contextRich": "Context-Rich"
+    },
+    "languages": {
+      "autoDetect": "Auto Detect"
+    }
+  },
   "common": {
     "back": "Back",
     "cancel": "Cancel",
