@@ -14,14 +14,20 @@ export interface ViewerFindApi {
   clear: () => void
 }
 
-export interface ViewerBookmarkLocation {
+export interface PdfBookmarkLocation {
   pageNumber: number
   left: number
   top: number
 }
 
+export interface HtmlBookmarkLocation {
+  textOffset: number
+}
+
+export type ViewerBookmarkLocation = PdfBookmarkLocation | HtmlBookmarkLocation
+
 export interface ViewerBookmarkApi {
-  capture: () => ViewerBookmarkLocation
+  capture: () => ViewerBookmarkLocation | null
   isCurrent: (location: ViewerBookmarkLocation) => boolean
   isPastStart: () => boolean
   restore: (location: ViewerBookmarkLocation) => void

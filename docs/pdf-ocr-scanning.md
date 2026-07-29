@@ -808,7 +808,7 @@ desktop and narrow widths with keyboard and RTL layouts.
 
 ### Stage 5: Find, Search Navigation, TTS, And Bookmarks
 
-Stage status: Complete; PDF coordinate bookmark regression check pending
+Stage status: Complete; semantic HTML/EPUB bookmark smoke test pending
 
 - [x] Add Find across all extracted pages without rendering all pages.
 - [x] Navigate search results to the correct page and matched coordinates.
@@ -823,8 +823,11 @@ Stage status: Complete; PDF coordinate bookmark regression check pending
       page.
 - [x] Verify saved audiobook create, play, reopen, export, and import behavior.
 - [x] Compare all agreed parity cases against HTML/EPUB.
-- [ ] Re-verify PDF bookmark restore and active-state visibility after changing
+- [x] Re-verify PDF bookmark restore and active-state visibility after changing
       zoom, viewport width, and spread mode.
+- [x] Replace HTML/EPUB window-scroll bookmarks with semantic text offsets.
+- [ ] Verify HTML/EPUB bookmark restoration and active styling after changing
+      typography, reading width, and viewport width.
 
 Decision gate passed: Find, global search, TTS playback/highlighting, location
 restoration, and portable saved audiobooks pass the Stage 0 parity suite.
@@ -891,10 +894,14 @@ API after the first page renders, and drives the existing bookmark/top controls
 from its internal scroll container. The active bookmark indicator follows
 whether the saved vertical PDF point is visible, so zoom-driven page recentering
 does not make a visible bookmark appear inactive.
-HTML and EPUB retain their existing window-scroll bookmark fields and behavior.
-The original PDF save/update/remove and scroll-to-top acceptance checks pass;
-coordinate restoration across changed zoom, viewport width, and spread mode is
-pending a renewed smoke test.
+HTML and generated EPUB reading documents use the same viewer adapter contract
+with document-wide text offsets. Restoring resolves the saved text rather than
+reusing a rendered scroll height, so font, line-height, reading-width, and
+viewport changes do not move the bookmark to unrelated content. The resolved
+range is cached for constant-time visibility checks while scrolling. Legacy
+HTML/EPUB window-scroll records are discarded rather than migrated.
+The PDF save/update/remove, scroll-to-top, changed zoom, viewport width, and
+spread-mode acceptance checks pass.
 
 PDF format adapters use the audiobook-save chunk profile explicitly. This keeps
 reconstructed paragraphs under the same native request ceiling as HTML/EPUB
@@ -1061,6 +1068,7 @@ Stage status: Deferred
 | 2026-07-25 | Stage 4 | Share the wide reader header with PDF controls | One portaled toolbar occupies the centered header zone on wide screens and falls back to a second row when space is constrained; primary page and zoom actions remain visible |
 | 2026-07-28 | Stage 4 | Allow PDF.js page-metadata prefetch | Real page dimensions keep deep jumps and immediate upward scrolling stable; source transport remains range-based and canvas rendering remains bounded |
 | 2026-07-25 | Stage 5 | Resolve active narration spans through PDF.js text items | Runtime-only page/item offsets rebuild from durable segment spans, same-line range bands paint only rendered active text without PDF.js word seams, and saved-audiobook manifests remain unchanged |
+| 2026-07-28 | Stage 5 | Store HTML and generated EPUB bookmarks as text offsets | One shared viewer adapter restores the same passage across typography and viewport changes while deleting the brittle scroll-height fallback and avoiding a second persistence path |
 | 2026-07-28 | Stage 5 | Store PDF bookmarks in PDF page coordinates | The shared bookmark hook keeps one persistence path while PDF.js view-area coordinates and native destinations restore the same content across viewport and zoom changes without relying on rendered DOM heights |
 | 2026-07-25 | Stage 5 | Extend the existing audiobook bundle for canonical PDFs | Version 3 adds a typed PDF source while HTML stays on version 2; imports reuse PDF.js indexing instead of copying derived page text, FTS rows, or thumbnails |
 | 2026-07-25 | Stage 4 | Start wide PDF readers at 100% | Desktop avoids unexpectedly large fit-width scales while narrow layouts retain fit width for usable first-open framing |

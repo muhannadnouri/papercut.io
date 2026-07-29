@@ -2,17 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ViewerBookmarkApi, ViewerBookmarkLocation } from '../viewers/types'
 
 const STORAGE_PREFIX = 'papercut:reader-bookmark:'
-const MIN_BOOKMARK_SCROLL_Y = 180
-const ACTIVE_BOOKMARK_DISTANCE_PX = 180
 const NOTICE_MS = 6000
 
 type BookmarkNotice = 'restored' | 'saved' | 'updated' | 'removed' | null
 
 export interface ReaderBookmark {
-  scrollRatio: number
-  scrollY: number
   updatedAtMs: number
-  viewerLocation?: ViewerBookmarkLocation
+  viewerLocation: ViewerBookmarkLocation
 }
 
 interface UseReaderBookmarkOptions {
@@ -50,7 +46,10 @@ export function useReaderBookmark(
   const loadBookmark = useCallback((): ReaderBookmark | null => {
     try {
       const raw = window.localStorage.getItem(storageKey(url))
-      return raw ? parseReaderBookmark(raw) : null
+      if (!raw) return null
+      const bookmark = parseReaderBookmark(raw)
+      if (!bookmark) window.localStorage.removeItem(storageKey(url))
+      return bookmark
     } catch {
       return null
     }
@@ -64,7 +63,7 @@ export function useReaderBookmark(
   // delete flow. This keeps the reader UI to one bookmark action: save/update
   // when away from the bookmark, remove when the active-state fill is showing.
   const toggleBookmark = useCallback(() => {
-    if (!enabled) return
+    if (!enabled || !viewerApi) return
     try {
       if (bookmarkRef.current && isAtBookmark) {
         window.localStorage.removeItem(storageKey(url))
@@ -75,15 +74,12 @@ export function useReaderBookmark(
         return
       }
 
-      const maxScrollY = viewerApi ? 0 : getMaxScrollY()
-      if (!viewerApi && (maxScrollY <= MIN_BOOKMARK_SCROLL_Y || window.scrollY < MIN_BOOKMARK_SCROLL_Y)) return
-
       const wasBookmarked = Boolean(loadBookmark())
+      const viewerLocation = viewerApi.capture()
+      if (!viewerLocation) return
       const next: ReaderBookmark = {
-        scrollRatio: viewerApi ? 0 : clampRatio(window.scrollY / maxScrollY),
-        scrollY: viewerApi ? 0 : window.scrollY,
         updatedAtMs: Date.now(),
-        viewerLocation: viewerApi?.capture(),
+        viewerLocation,
       }
 
       window.localStorage.setItem(storageKey(url), JSON.stringify(next))
@@ -107,15 +103,17 @@ export function useReaderBookmark(
         restoreOnOpen &&
         restoredKeyRef.current !== storageKey(url) &&
         bookmark &&
-        canRestoreBookmark(bookmark, viewerApi)
+        viewerApi
       ) {
         restoredKeyRef.current = storageKey(url)
-        scrollToBookmark(bookmark, 'auto', viewerApi)
+        viewerApi.restore(bookmark.viewerLocation)
         setIsAtBookmark(true)
         setBookmarkNotice('restored')
         return
       }
-      setIsAtBookmark(bookmark ? isNearBookmark(bookmark, viewerApi) : false)
+      setIsAtBookmark(bookmark && viewerApi
+        ? viewerApi.isCurrent(bookmark.viewerLocation)
+        : false)
       setBookmarkNotice(null)
     })
 
@@ -131,23 +129,16 @@ export function useReaderBookmark(
       frame = requestAnimationFrame(() => {
         frame = 0
         const bookmark = bookmarkRef.current
-        setIsAtBookmark(bookmark ? isNearBookmark(bookmark, viewerApi) : false)
+        setIsAtBookmark(bookmark && viewerApi
+          ? viewerApi.isCurrent(bookmark.viewerLocation)
+          : false)
       })
     }
 
-    if (viewerApi) {
-      const unsubscribe = viewerApi.subscribe(updateActiveState)
-      return () => {
-        unsubscribe()
-        if (frame) cancelAnimationFrame(frame)
-      }
-    }
-
-    window.addEventListener('scroll', updateActiveState, { passive: true })
-    window.addEventListener('resize', updateActiveState)
+    if (!viewerApi) return
+    const unsubscribe = viewerApi.subscribe(updateActiveState)
     return () => {
-      window.removeEventListener('scroll', updateActiveState)
-      window.removeEventListener('resize', updateActiveState)
+      unsubscribe()
       if (frame) cancelAnimationFrame(frame)
     }
   }, [enabled, viewerApi])
@@ -165,70 +156,14 @@ function storageKey(url: string): string {
   return `${STORAGE_PREFIX}${url}`
 }
 
-function getMaxScrollY(): number {
-  const doc = document.documentElement
-  return Math.max(0, doc.scrollHeight - window.innerHeight)
-}
-
-// Store both an absolute scroll offset and a ratio. The absolute offset keeps
-// normal reopens precise, while the ratio gives us a reasonable fallback if the
-// same EPUB/HTML renders taller or shorter after settings or viewport changes.
-function targetScrollY(bookmark: ReaderBookmark): number {
-  const maxScrollY = getMaxScrollY()
-  const ratioTarget = bookmark.scrollRatio * maxScrollY
-  return Math.min(maxScrollY, Math.max(0, Math.max(bookmark.scrollY, ratioTarget)))
-}
-
-function scrollToBookmark(
-  bookmark: ReaderBookmark,
-  behavior: ScrollBehavior,
-  viewerApi?: ViewerBookmarkApi | null,
-): void {
-  if (viewerApi && bookmark.viewerLocation) {
-    viewerApi.restore(bookmark.viewerLocation)
-    return
-  }
-  window.scrollTo({ top: targetScrollY(bookmark), behavior })
-}
-
-function canRestoreBookmark(
-  bookmark: ReaderBookmark,
-  viewerApi?: ViewerBookmarkApi | null,
-): boolean {
-  if (viewerApi) return Boolean(bookmark.viewerLocation)
-  return targetScrollY(bookmark) >= MIN_BOOKMARK_SCROLL_Y
-}
-
-// A bookmark represents "this reading area", not a single exact pixel. The
-// tolerance prevents the active fill from flickering after font, viewport, or
-// line-height changes move the saved offset by a few lines.
-function isNearBookmark(
-  bookmark: ReaderBookmark,
-  viewerApi?: ViewerBookmarkApi | null,
-): boolean {
-  if (viewerApi) {
-    return bookmark.viewerLocation ? viewerApi.isCurrent(bookmark.viewerLocation) : false
-  }
-  return Math.abs(window.scrollY - targetScrollY(bookmark)) <= Math.max(ACTIVE_BOOKMARK_DISTANCE_PX, window.innerHeight * 0.2)
-}
-
-function clampRatio(value: number): number {
-  if (!Number.isFinite(value)) return 0
-  return Math.min(1, Math.max(0, value))
-}
-
-/** Parse window bookmarks and PDF.js-owned page coordinates from storage. */
+/** Accept only current semantic HTML/EPUB or PDF bookmark locations. */
 export function parseReaderBookmark(raw: string): ReaderBookmark | null {
   const parsed = JSON.parse(raw) as Partial<ReaderBookmark>
-  if (
-    typeof parsed.scrollRatio !== 'number' ||
-    typeof parsed.scrollY !== 'number' ||
-    typeof parsed.updatedAtMs !== 'number'
-  ) {
-    return null
-  }
+  if (typeof parsed.updatedAtMs !== 'number') return null
   const location = parsed.viewerLocation
-  const viewerLocation = location &&
+  if (!location || typeof location !== 'object') return null
+  const pdfLocation =
+    'pageNumber' in location &&
     Number.isInteger(location.pageNumber) &&
     location.pageNumber > 0 &&
     typeof location.left === 'number' &&
@@ -241,11 +176,16 @@ export function parseReaderBookmark(raw: string): ReaderBookmark | null {
         top: location.top,
       }
     : undefined
-  if (location && !viewerLocation) return null
+  const htmlLocation =
+    'textOffset' in location &&
+    Number.isInteger(location.textOffset) &&
+    location.textOffset >= 0
+    ? { textOffset: location.textOffset }
+    : undefined
+  const viewerLocation = pdfLocation ?? htmlLocation
+  if (!viewerLocation) return null
   return {
-    scrollRatio: clampRatio(parsed.scrollRatio),
-    scrollY: Math.max(0, parsed.scrollY),
     updatedAtMs: parsed.updatedAtMs,
-    ...(viewerLocation ? { viewerLocation } : {}),
+    viewerLocation,
   }
 }

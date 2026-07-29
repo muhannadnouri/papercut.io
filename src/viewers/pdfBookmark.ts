@@ -2,10 +2,14 @@ import type {
   EventBus,
   PDFViewer as PdfJsViewer,
 } from 'pdfjs-dist/legacy/web/pdf_viewer.mjs'
-import type { ViewerBookmarkApi, ViewerBookmarkLocation } from './types'
+import type {
+  PdfBookmarkLocation,
+  ViewerBookmarkApi,
+  ViewerBookmarkLocation,
+} from './types'
 
 type ViewAreaEvent = {
-  location: ViewerBookmarkLocation
+  location: PdfBookmarkLocation
 }
 
 const BOOKMARK_VISIBILITY_MARGIN_PX = 8
@@ -21,7 +25,7 @@ export function createPdfBookmarkApi(
   container: HTMLElement,
   eventBus: EventBus,
 ): ViewerBookmarkApi {
-  let currentLocation: ViewerBookmarkLocation = {
+  let currentLocation: PdfBookmarkLocation = {
     pageNumber: pdfViewer.currentPageNumber,
     left: 0,
     top: 0,
@@ -41,6 +45,7 @@ export function createPdfBookmarkApi(
   return {
     capture: () => currentLocation,
     isCurrent: (location) => {
+      if (!isPdfLocation(location)) return false
       const pageView = pdfViewer.getPageView(location.pageNumber - 1)
       if (!pageView) return false
       const [, pointY] = pageView.viewport.convertToViewportPoint(location.left, location.top)
@@ -52,6 +57,7 @@ export function createPdfBookmarkApi(
     },
     isPastStart: () => pdfViewer.currentPageNumber > 1 || container.scrollTop > 180,
     restore: (location) => {
+      if (!isPdfLocation(location)) return
       pdfViewer.scrollPageIntoView({
         pageNumber: Math.min(pdfViewer.pagesCount, Math.max(1, location.pageNumber)),
         destArray: [null, { name: 'XYZ' }, location.left, location.top, null],
@@ -69,4 +75,8 @@ export function createPdfBookmarkApi(
       }
     },
   }
+}
+
+function isPdfLocation(location: ViewerBookmarkLocation): location is PdfBookmarkLocation {
+  return 'pageNumber' in location
 }

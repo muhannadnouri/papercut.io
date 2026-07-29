@@ -87,9 +87,9 @@ export function DocumentViewer({
   } = useReaderBookmark(url, {
     enabled: !loading &&
       !loadError &&
-      (plugin.id === 'pdf' ? Boolean(viewerBookmarkApi) : Boolean(content)),
+      Boolean(viewerBookmarkApi),
     restoreOnOpen: restoreBookmark,
-    viewerApi: plugin.id === 'pdf' ? viewerBookmarkApi : null,
+    viewerApi: viewerBookmarkApi,
   })
 
   const {
