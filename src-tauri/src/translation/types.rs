@@ -81,7 +81,15 @@ pub(crate) struct TranslationCapabilities {
     pub(crate) reason: String,
     pub(crate) platform: String,
     pub(crate) default_quality_mode: String,
+    pub(crate) hardware_acceleration: Option<TranslationHardwareAcceleration>,
     pub(crate) models: Vec<TranslationModelInfo>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TranslationHardwareAcceleration {
+    pub(crate) backend: String,
+    pub(crate) device: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -159,6 +167,8 @@ pub(crate) struct TranslationStartRequest {
     pub(crate) target_language: String,
     pub(crate) model_id: String,
     pub(crate) quality_mode: String,
+    #[serde(default)]
+    pub(crate) use_hardware_acceleration: bool,
     #[serde(default)]
     pub(crate) repair_mode: TranslationRepairMode,
     #[serde(default)]

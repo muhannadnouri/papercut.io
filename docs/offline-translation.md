@@ -1,6 +1,6 @@
 # Offline Translation Roadmap And Status
 
-Papercut now has an in-progress offline translation pipeline. The production desktop build includes CTranslate2 and llama.cpp translation features so pinned OPUS-MT and HY-MT2 models use the same model-download, job, cache, validation, and storage pipeline. Android and GPU-accelerated LLM translation remain roadmap work.
+Papercut now has an in-progress offline translation pipeline. The production desktop build includes CTranslate2 and llama.cpp translation features so pinned OPUS-MT and HY-MT2 models use the same model-download, job, cache, validation, and storage pipeline. Linux builds include optional Vulkan acceleration for HY-MT2; Android and other GPU backends remain roadmap work.
 
 The goal is high-quality offline translation for long-form HTML and EPUB books, primarily into English, while keeping the app responsive on desktop and mobile. The feature should feel like audiobook saving: the user starts a long-running job, the backend performs bounded native work, progress is visible, results are cached, and the finished output becomes durable user data.
 
@@ -9,7 +9,7 @@ The goal is high-quality offline translation for long-form HTML and EPUB books, 
 - Desktop production builds now compile with `native-tts-shared,native-translation-ctranslate2,native-translation-llama` through `npm run desktop`.
 - `npm run desktop:no-translation` keeps the desktop build on native TTS only for packaging/debug isolation.
 - Spanish -> English and French -> English OPUS-MT CTranslate2 manifests are pinned and installable.
-- HY-MT2 1.8B Q8 is a pinned, installable quality model for Arabic, German, Spanish, French, Russian, and Chinese translation into English. The first supported path is desktop CPU inference through `llama-cpp-2`; NVIDIA/CUDA has not been smoke-tested yet.
+- HY-MT2 1.8B Q8 is a pinned, installable quality model for Arabic, German, Spanish, French, Russian, and Chinese translation into English. Desktop CPU inference remains the default. On Linux, the workbench offers Vulkan acceleration only when llama.cpp reports a real integrated or discrete Vulkan GPU.
 - Installed models can be removed independently to reclaim storage. Removal is serialized against model installs and active translation jobs, while translated documents and reusable segment caches remain available.
 - The translation workbench lists only pinned, supported models; future quality-model candidates remain informational.
 - Translation jobs run through the native engine boundary, emit progress/cancel events, reuse segment cache entries, run first-pass quality gates, and persist successful output as derived uploaded documents.
@@ -196,7 +196,7 @@ Papercut should support a catalog, not one universal model.
 | Tier | Candidate | Engine | Best Use | Notes |
 | --- | --- | --- | --- | --- |
 | Fast MVP | OPUS-MT / Marian pair models | CTranslate2 | common pair translation, mobile-friendly baseline | small, fast, quality varies by pair |
-| Quality desktop | HY-MT2 1.8B Q8 | llama.cpp via `llama-cpp-2` | multilingual book translation into English | pinned Apache-2.0 GGUF; CPU supported first, GPU validation pending |
+| Quality desktop | HY-MT2 1.8B Q8 | llama.cpp via `llama-cpp-2` | multilingual book translation into English | pinned Apache-2.0 GGUF; CPU default with capability-gated Linux Vulkan |
 | Context-rich fallback | Qwen3 8B or 14B | llama.cpp / GGUF | academic prose, Chinese-heavy work, glossary-aware prompts | strong but more generative and less task-bounded |
 | Multilingual research | MADLAD-400 3B-MT | CTranslate2 or Candle spike | broad language coverage with Apache-2.0 license | heavier than pair models |
 | HTML-aware reference | Bergamot | C++ or Wasm spike | tag alignment and sentence iteration ideas | not quality default for academic books |
@@ -210,16 +210,17 @@ Papercut should support a catalog, not one universal model.
 | Runtime | CTranslate2/Marian | llama.cpp |
 | CPU use | practical default; optimized pair-specific inference | supported but expected to be materially slower |
 | Memory | comparatively modest; benchmark before setting a formal floor | multi-GB model plus context/runtime overhead; benchmark before setting a formal floor |
-| GPU requirement | none | none for the initial CPU path |
+| GPU requirement | none | none; compatible Linux Vulkan hardware is an optional acceleration path |
 | Language coverage | one installed model per pair | one model covers the currently exposed six source languages into English |
 | Mobile status | catalog candidate only; Android/iOS packaging is not yet supported | desktop only; mobile size, memory, thermals, and packaging are unvalidated |
 | Best fit | quick routine translation | quality-focused translation where added time and storage are acceptable |
 
 The table describes architecture and pinned artifact sizes, not a performance
 promise. Record latency, peak memory, and quality on representative hardware
-before defining minimum requirements. In particular, do not advertise CUDA,
-Metal, Android, or iOS support for HY-MT2 based only on llama.cpp's upstream
-capabilities.
+before defining minimum requirements. The Vulkan option is not a performance
+promise and still needs representative integrated-GPU benchmarks. Do not
+advertise CUDA, Metal, Android, or iOS support for HY-MT2 based only on
+llama.cpp's upstream capabilities.
 
 ### Recommended Initial Language Pairs
 
@@ -354,7 +355,7 @@ features   -> ttsFeature + native-translation-ctranslate2
 
 This keeps desktop builds useful for end-to-end translation testing without coupling translation diagnostics to TTS link-mode decisions.
 
-Linux desktop builds need `cmake` because both native engines compile C/C++ code. Building the llama.cpp adapter also requires Clang/libclang for generated bindings. Papercut's declared Rust minimum is 1.85.
+Linux desktop builds need `cmake` because both native engines compile C/C++ code. Building the llama.cpp adapter also requires Clang/libclang, Vulkan development headers and loader, SPIR-V headers, and `glslc` for the Vulkan shaders. Papercut's declared Rust minimum is 1.85.
 
 Android remains native-TTS-only for now. Do not add translation to `npm run android:apk:native-tts` until CTranslate2/`ct2rs` or a direct C++ wrapper has been validated with the Android NDK and package size/performance checks.
 
@@ -569,8 +570,11 @@ Status:
 - Done: retain the existing cache, glossary prompt hints, progress, cancellation-between-batches, validation, rendering, search indexing, and durable variant storage.
 - Done: expose the model's 1.9 GB footprint and CPU-only performance warning in the workbench, and report model loading separately from translation progress.
 - Done: expose confirmed model removal with reclaimed-storage reporting while preserving completed translations and segment caches.
+- Done: compile Vulkan into the normal Linux desktop llama.cpp runtime, detect real Vulkan GPUs, and expose an HY-MT2-only hardware acceleration toggle when supported.
+- Done: keep hardware selection out of cache and translated-document identity so CPU and Vulkan execution reuse the same compatible segment results.
 - Partial: the pinned model installed successfully and entered native inference on the current CPU-only development machine; cancellation also worked. Startup was too slow to complete a useful quality or throughput benchmark on that hardware.
-- Pending: run completed desktop quality and performance smoke tests on representative short/chapter/book samples using suitable hardware.
+- Pending: run completed desktop quality and performance smoke tests on representative short/chapter/book samples using CPU and Intel integrated Vulkan hardware.
+- Pending: confirm a packaged Linux build detects the intended physical GPU, hides the option when only software Vulkan is available, and preserves the explicit CPU path when the toggle is off.
 - Deferred: NVIDIA RTX/CUDA smoke testing is unavailable on the current development machine. Do not claim CUDA support until a separate build feature, packaging pass, and quality/performance benchmark succeed on an RTX-class Linux machine.
 - Deferred: Apple Metal, Windows packaging, Android, and iOS validation.
 - Deferred: compare Qwen only if HY-MT2 quality has a demonstrated gap worth another runtime/model cost.
@@ -599,6 +603,10 @@ For every engine/model candidate:
 - Verify RTL source documents and LTR translated output render correctly.
 - For glossary-capable engines, verify the term is used consistently.
 - Verify repeated terms/names are stable across chapters.
+- On Linux with a physical Vulkan GPU, verify HY-MT2 shows the detected device and completes an accelerated job.
+- Verify OPUS-MT never shows the hardware-acceleration option.
+- Verify HY-MT2 with acceleration off follows the CPU path, and software-only Vulkan does not expose the option.
+- Verify equivalent CPU and Vulkan runs reuse compatible cached segments rather than creating separate translation variants.
 
 Language samples:
 

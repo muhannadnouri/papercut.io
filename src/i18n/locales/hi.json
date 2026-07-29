@@ -67,6 +67,8 @@
       "translating": "अनुवाद हो रहा है...",
       "cancelling": "रद्द किया जा रहा है...",
       "noDocument": "कोई दस्तावेज़ चयनित नहीं है। दस्तावेज़ खोलें और उसके क्रिया मेनू से अनुवाद चुनें।",
+      "hardwareAcceleration": "हार्डवेयर त्वरण का उपयोग करें",
+      "hardwareAccelerationDescription": "इस HY-MT2 कार्य के लिए Vulkan के माध्यम से {{device}} का उपयोग करें।",
       "document": "दस्तावेज़"
     },
     "models": {
@@ -84,7 +86,7 @@
       "installableCount": "इंस्टॉल योग्य: {{count, number}}",
       "plannedCount": "नियोजित: {{count, number}}",
       "highResourceTitle": "अधिक संसाधन वाला मॉडल।",
-      "hyMt2ResourceNote": "HY-MT2 के लिए 1.9 जीबी डाउनलोड आवश्यक है और केवल CPU वाले सिस्टम पर यह बहुत धीमा हो सकता है। GPU त्वरण सक्षम नहीं है।"
+      "hyMt2ResourceNote": "HY-MT2 के लिए 1.9 जीबी डाउनलोड आवश्यक है और केवल CPU वाले सिस्टम पर यह बहुत धीमा हो सकता है। Papercut द्वारा संगत Vulkan GPU का पता लगाने पर हार्डवेयर त्वरण दिखाई देता है।"
     },
     "documents": {
       "ariaLabel": "अनुवादित दस्तावेज़",

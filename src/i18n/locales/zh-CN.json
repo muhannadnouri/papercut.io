@@ -67,6 +67,8 @@
       "translating": "正在翻译...",
       "cancelling": "正在取消...",
       "noDocument": "尚未选择文档。请打开文档，然后在操作菜单中选择“翻译”。",
+      "hardwareAcceleration": "使用硬件加速",
+      "hardwareAccelerationDescription": "通过 Vulkan 使用 {{device}} 运行此 HY-MT2 任务。",
       "document": "文档"
     },
     "models": {
@@ -84,7 +86,7 @@
       "installableCount": "可安装：{{count, number}}",
       "plannedCount": "计划中：{{count, number}}",
       "highResourceTitle": "高资源需求模型。",
-      "hyMt2ResourceNote": "HY-MT2 需要下载 1.9 GB，在仅使用 CPU 的系统上可能非常慢。GPU 加速尚未启用。"
+      "hyMt2ResourceNote": "HY-MT2 需要下载 1.9 GB，在仅使用 CPU 的系统上可能非常慢。当 Papercut 检测到兼容的 Vulkan GPU 时，会显示硬件加速选项。"
     },
     "documents": {
       "ariaLabel": "翻译文档",

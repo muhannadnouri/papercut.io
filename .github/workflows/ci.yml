@@ -227,6 +227,9 @@ jobs:
             clang \
             libclang-dev \
             cmake \
+            libvulkan-dev \
+            glslc \
+            spirv-headers \
             curl \
             wget \
             file \

@@ -173,6 +173,7 @@ mod tests {
             target_language: "en".into(),
             model_id: "opus-ar-en".into(),
             quality_mode: "balanced".into(),
+            use_hardware_acceleration: false,
             repair_mode: Default::default(),
             glossary: Vec::new(),
         }
@@ -246,6 +247,18 @@ mod tests {
         second.repair_mode = crate::translation::types::TranslationRepairMode::Chapter;
 
         assert_ne!(
+            build_translation_cache_key(&first),
+            build_translation_cache_key(&second)
+        );
+    }
+
+    #[test]
+    fn cache_key_ignores_hardware_acceleration() {
+        let first = request();
+        let mut second = request();
+        second.use_hardware_acceleration = true;
+
+        assert_eq!(
             build_translation_cache_key(&first),
             build_translation_cache_key(&second)
         );

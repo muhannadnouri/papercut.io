@@ -8,6 +8,7 @@ use super::config::{
     TRANSLATION_BACKEND_CTRANSLATE2, TRANSLATION_BACKEND_LLAMA_CPP, TRANSLATION_BACKEND_MULTI,
     TRANSLATION_BACKEND_UNAVAILABLE,
 };
+use super::hy_mt2::hy_mt2_hardware_acceleration;
 use super::model_store::{directory_size, manifest_for, resolve_translation_model_dir};
 use super::models::{find_planned_model, planned_models};
 use super::state::TranslationState;
@@ -38,6 +39,7 @@ pub(super) fn translation_capabilities() -> TranslationCapabilities {
         reason: translation_capability_reason(ctranslate2, llama),
         platform: std::env::consts::OS.into(),
         default_quality_mode: DEFAULT_TRANSLATION_QUALITY_MODE.into(),
+        hardware_acceleration: hy_mt2_hardware_acceleration(),
         models: planned_models(),
     }
 }

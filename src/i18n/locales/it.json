@@ -67,6 +67,8 @@
       "translating": "Traduzione...",
       "cancelling": "Annullamento...",
       "noDocument": "Nessun documento selezionato. Apri un documento e scegli Traduci dal menu delle azioni.",
+      "hardwareAcceleration": "Usa Accelerazione Hardware",
+      "hardwareAccelerationDescription": "Usa {{device}} tramite Vulkan per questa attività HY-MT2.",
       "document": "Documento"
     },
     "models": {
@@ -84,7 +86,7 @@
       "installableCount": "Installabili: {{count, number}}",
       "plannedCount": "Pianificati: {{count, number}}",
       "highResourceTitle": "Modello ad alto consumo di risorse.",
-      "hyMt2ResourceNote": "HY-MT2 richiede un download di 1,9 GB e può essere molto lento sui sistemi che usano solo la CPU. L’accelerazione GPU non è abilitata."
+      "hyMt2ResourceNote": "HY-MT2 richiede un download di 1,9 GB e può essere molto lento sui sistemi che usano solo la CPU. L’accelerazione hardware appare quando Papercut rileva una GPU Vulkan compatibile."
     },
     "documents": {
       "ariaLabel": "Documenti tradotti",

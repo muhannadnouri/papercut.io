@@ -200,6 +200,37 @@
   outline: none;
 }
 
+.translation-acceleration-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.translation-acceleration-option input {
+  margin-top: 0.2rem;
+}
+
+.translation-acceleration-option span {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.translation-acceleration-option strong {
+  color: var(--text-heading);
+  font-size: 0.82rem;
+}
+
+.translation-acceleration-option small {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
 .translation-action-row {
   display: flex;
   align-items: center;

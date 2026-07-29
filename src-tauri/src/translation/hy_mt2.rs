@@ -7,7 +7,7 @@
 use std::path::Path;
 
 use super::engine::{TranslationBatchInput, TranslationEngine, TranslationSegmentOutput};
-use super::types::TranslationGlossaryEntry;
+use super::types::{TranslationGlossaryEntry, TranslationHardwareAcceleration};
 
 #[cfg(feature = "native-translation-llama")]
 const HY_MT2_MODEL_FILE: &str = "Hy-MT2-1.8B-Q8_0.gguf";
@@ -31,6 +31,8 @@ use llama_cpp_2::model::{AddBos, LlamaModel};
 #[cfg(feature = "native-translation-llama")]
 use llama_cpp_2::sampling::LlamaSampler;
 #[cfg(feature = "native-translation-llama")]
+use llama_cpp_2::{list_llama_ggml_backend_devices, LlamaBackendDevice, LlamaBackendDeviceType};
+#[cfg(feature = "native-translation-llama")]
 use std::num::NonZeroU32;
 
 pub(crate) struct HyMt2Engine {
@@ -44,7 +46,10 @@ pub(crate) struct HyMt2Engine {
 
 impl HyMt2Engine {
     /// Load the verified Q8 GGUF once for the lifetime of one translation job.
-    pub(crate) fn for_installed_model(model_dir: &Path) -> Result<Self, String> {
+    pub(crate) fn for_installed_model(
+        model_dir: &Path,
+        use_hardware_acceleration: bool,
+    ) -> Result<Self, String> {
         #[cfg(feature = "native-translation-llama")]
         {
             let model_path = model_dir.join(HY_MT2_MODEL_FILE);
@@ -57,23 +62,79 @@ impl HyMt2Engine {
             let mut backend = LlamaBackend::init()
                 .map_err(|err| format!("Failed to initialize llama.cpp: {err}"))?;
             backend.void_logs();
-            let model =
-                LlamaModel::load_from_file(&backend, &model_path, &LlamaModelParams::default())
-                    .map_err(|err| {
-                        format!(
-                            "Failed to load HY-MT2 model {}: {err}",
-                            model_path.display()
-                        )
-                    })?;
+            let model_params = if use_hardware_acceleration {
+                let device = preferred_vulkan_device(&backend).ok_or_else(|| {
+                    "Vulkan acceleration is no longer available. Turn off hardware acceleration and try again."
+                        .to_string()
+                })?;
+                LlamaModelParams::default()
+                    .with_devices(&[device.index])
+                    .map_err(|err| format!("Failed to select Vulkan device: {err}"))?
+            } else {
+                // Vulkan-enabled builds otherwise inherit llama.cpp's default
+                // all-layer offload, even when the user left acceleration off.
+                LlamaModelParams::default().with_n_gpu_layers(0)
+            };
+            let model = LlamaModel::load_from_file(&backend, &model_path, &model_params).map_err(
+                |err| {
+                    format!(
+                        "Failed to load HY-MT2 model {}: {err}",
+                        model_path.display()
+                    )
+                },
+            )?;
             Ok(Self { model, backend })
         }
 
         #[cfg(not(feature = "native-translation-llama"))]
         {
-            let _ = model_dir;
+            let _ = (model_dir, use_hardware_acceleration);
             Err("HY-MT2 translation was not compiled with native-translation-llama.".into())
         }
     }
+}
+
+/// Probe the compiled llama.cpp backends and expose only a real Vulkan GPU.
+///
+/// Software Vulkan devices are reported as CPUs by llama.cpp and are skipped,
+/// so the UI does not offer an acceleration switch that merely moves CPU work
+/// through a graphics API.
+pub(crate) fn hy_mt2_hardware_acceleration() -> Option<TranslationHardwareAcceleration> {
+    #[cfg(feature = "native-translation-llama")]
+    {
+        let mut backend = LlamaBackend::init().ok()?;
+        backend.void_logs();
+        let device = preferred_vulkan_device(&backend)?;
+        let device_name = if device.description.trim().is_empty() {
+            device.name
+        } else {
+            device.description
+        };
+        return Some(TranslationHardwareAcceleration {
+            backend: device.backend,
+            device: device_name,
+        });
+    }
+
+    #[cfg(not(feature = "native-translation-llama"))]
+    None
+}
+
+#[cfg(feature = "native-translation-llama")]
+fn preferred_vulkan_device(backend: &LlamaBackend) -> Option<LlamaBackendDevice> {
+    if !backend.supports_gpu_offload() {
+        return None;
+    }
+    list_llama_ggml_backend_devices()
+        .into_iter()
+        .filter(|device| {
+            device.backend.eq_ignore_ascii_case("vulkan")
+                && matches!(
+                    device.device_type,
+                    LlamaBackendDeviceType::Gpu | LlamaBackendDeviceType::IntegratedGpu
+                )
+        })
+        .max_by_key(|device| device.memory_total)
 }
 
 impl TranslationEngine for HyMt2Engine {

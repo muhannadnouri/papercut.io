@@ -360,6 +360,7 @@ mod tests {
                 target_language: "en".into(),
                 model_id: "opus-mt-es-en-ctranslate2".into(),
                 quality_mode: "balanced".into(),
+                use_hardware_acceleration: false,
                 repair_mode: Default::default(),
                 glossary: Vec::new(),
             },

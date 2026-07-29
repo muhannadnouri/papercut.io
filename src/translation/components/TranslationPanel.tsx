@@ -113,6 +113,7 @@ export function TranslationPanel({
   const [modelId, setModelId] = useState('')
   const [sourceLanguage, setSourceLanguage] = useState('')
   const [targetLanguage, setTargetLanguage] = useState('en')
+  const [useHardwareAcceleration, setUseHardwareAcceleration] = useState(false)
   const activeModelId = installableModels.some((model) => model.id === modelId)
     ? modelId
     : installableModels[0]?.id ?? ''
@@ -135,6 +136,9 @@ export function TranslationPanel({
   const activeQualityMode = selectedModel?.defaultQualityMode
     ?? capabilities?.defaultQualityMode
     ?? 'balanced'
+  const hardwareAcceleration = selectedModel?.id === 'hy-mt2-1.8b-q8'
+    ? capabilities?.hardwareAcceleration ?? null
+    : null
   const modelNameById = useMemo(
     () => new Map(modelOptions.map((model) => [model.id, model.name])),
     [modelOptions],
@@ -399,6 +403,24 @@ export function TranslationPanel({
               {t('translation.models.hyMt2ResourceNote')}
             </p>
           )}
+          {hardwareAcceleration && (
+            <label className="translation-acceleration-option">
+              <input
+                type="checkbox"
+                checked={useHardwareAcceleration}
+                disabled={startState.checking}
+                onChange={(event) => setUseHardwareAcceleration(event.target.checked)}
+              />
+              <span>
+                <strong>{t('translation.workbench.hardwareAcceleration')}</strong>
+                <small>
+                  {t('translation.workbench.hardwareAccelerationDescription', {
+                    device: hardwareAcceleration.device,
+                  })}
+                </small>
+              </span>
+            </label>
+          )}
           <div className="translation-action-row">
             <button
               type="button"
@@ -416,6 +438,7 @@ export function TranslationPanel({
                   targetLanguage: activeTargetLanguage,
                   modelId: activeModelId,
                   qualityMode: activeQualityMode,
+                  useHardwareAcceleration: Boolean(hardwareAcceleration && useHardwareAcceleration),
                 })
               }}
             >

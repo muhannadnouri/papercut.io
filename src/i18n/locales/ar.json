@@ -67,6 +67,8 @@
       "translating": "جارٍ الترجمة...",
       "cancelling": "جارٍ الإلغاء...",
       "noDocument": "لم يتم تحديد مستند. افتح مستندًا واختر «ترجمة» من قائمة إجراءاته.",
+      "hardwareAcceleration": "استخدام تسريع الأجهزة",
+      "hardwareAccelerationDescription": "استخدام {{device}} عبر Vulkan لمهمة HY-MT2 هذه.",
       "document": "مستند"
     },
     "models": {
@@ -84,7 +86,7 @@
       "installableCount": "القابلة للتثبيت: {{count, number}}",
       "plannedCount": "المخطط لها: {{count, number}}",
       "highResourceTitle": "نموذج يتطلب موارد عالية.",
-      "hyMt2ResourceNote": "يتطلب HY-MT2 تنزيل 1.9 غيغابايت، وقد يكون بطيئًا جدًا على الأنظمة التي تستخدم المعالج المركزي فقط. تسريع وحدة معالجة الرسومات غير مفعّل."
+      "hyMt2ResourceNote": "يتطلب HY-MT2 تنزيل 1.9 غيغابايت، وقد يكون بطيئًا جدًا على الأنظمة التي تستخدم المعالج المركزي فقط. يظهر تسريع الأجهزة عندما يكتشف Papercut وحدة معالجة رسومات متوافقة مع Vulkan."
     },
     "documents": {
       "ariaLabel": "المستندات المترجمة",

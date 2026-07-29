@@ -105,7 +105,8 @@ pub(super) fn start_translation<R: tauri::Runtime>(
             "",
         ),
     )?;
-    let mut engine = load_translation_engine(model, &model_dir)?;
+    let mut engine =
+        load_translation_engine(model, &model_dir, plan.request.use_hardware_acceleration)?;
     match run_translation_batches(
         app,
         state,
@@ -829,6 +830,12 @@ fn validate_model_request(
     if request.repair_mode != TranslationRepairMode::Off {
         return Err(format!("{} does not support chapter repair.", model.name));
     }
+    if request.use_hardware_acceleration && model.id != "hy-mt2-1.8b-q8" {
+        return Err(format!(
+            "{} does not support hardware acceleration.",
+            model.name
+        ));
+    }
 
     // OPUS-MT pair models translate plain segment text only. HY-MT2 can add
     // bounded terminology mappings to its prompt, so glossary requests remain
@@ -853,15 +860,16 @@ fn validate_model_request(
 fn load_translation_engine(
     model: TranslationModelDefinition,
     model_dir: &std::path::Path,
+    use_hardware_acceleration: bool,
 ) -> Result<Box<dyn TranslationEngine>, String> {
     match model.engine {
         "ctranslate2" => Ok(Box::new(CTranslate2Engine::for_installed_model(
             model.id.to_string(),
             model_dir.to_path_buf(),
         )?)),
-        "llama.cpp" if model.id == "hy-mt2-1.8b-q8" => {
-            Ok(Box::new(HyMt2Engine::for_installed_model(model_dir)?))
-        }
+        "llama.cpp" if model.id == "hy-mt2-1.8b-q8" => Ok(Box::new(
+            HyMt2Engine::for_installed_model(model_dir, use_hardware_acceleration)?,
+        )),
         engine => Err(format!(
             "{} uses unsupported translation engine {engine:?}",
             model.name
@@ -885,6 +893,7 @@ mod tests {
             target_language: "en".into(),
             model_id: "opus-mt-es-en-ctranslate2".into(),
             quality_mode: "balanced".into(),
+            use_hardware_acceleration: false,
             repair_mode: TranslationRepairMode::Off,
             glossary: Vec::new(),
         }
@@ -917,6 +926,10 @@ mod tests {
             note: None,
         });
         assert!(validate_model_request(model, &glossary).is_err());
+
+        let mut acceleration = request("es");
+        acceleration.use_hardware_acceleration = true;
+        assert!(validate_model_request(model, &acceleration).is_err());
     }
 
     #[test]

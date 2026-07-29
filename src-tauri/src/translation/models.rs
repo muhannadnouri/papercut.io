@@ -95,8 +95,8 @@ pub(crate) const PLANNED_TRANSLATION_MODELS: &[TranslationModelDefinition] = &[
         target_languages: &["en"],
         recommended_platforms: &["desktop"],
         license_notes: "Tencent HY-MT2 is Apache-2.0; preserve model attribution when redistributing or documenting it.",
-        size_notes: "About 1.9 GB for the pinned Q8_0 GGUF; CPU inference is supported, while GPU acceleration remains unverified.",
-        notes: "Quality-focused desktop model using llama.cpp. This first integration is CPU-first; CUDA and mobile packaging require separate validation.",
+        size_notes: "About 1.9 GB for the pinned Q8_0 GGUF; CPU inference is supported, with optional Linux Vulkan acceleration on compatible GPUs.",
+        notes: "Quality-focused desktop model using llama.cpp. Linux Vulkan acceleration is capability-gated; CUDA, Metal, and mobile packaging remain unvalidated.",
     },
     TranslationModelDefinition {
         id: "qwen3-8b",

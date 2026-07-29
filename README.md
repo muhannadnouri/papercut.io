@@ -74,13 +74,13 @@ Tauri requires the following system libraries. Refer to the Tauri [documentation
 **Debian-based (Ubuntu,Mint etc.):**
 
 ```bash
-sudo apt install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev build-essential clang libclang-dev cmake curl wget file libssl-dev libxdo-dev patchelf gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+sudo apt install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev build-essential clang libclang-dev cmake libvulkan-dev glslc spirv-headers curl wget file libssl-dev libxdo-dev patchelf gstreamer1.0-plugins-base gstreamer1.0-plugins-good
 ```
 
 **Arch-based (CachyOS, Manjaro, etc.):**
 
 ```bash
-sudo pacman -S --needed webkit2gtk-4.1 base-devel clang cmake curl wget file openssl appmenu-gtk-module libappindicator-gtk3 librsvg xdotool patchelf gst-plugins-base gst-plugins-good
+sudo pacman -S --needed webkit2gtk-4.1 base-devel clang cmake vulkan-headers vulkan-icd-loader shaderc spirv-headers curl wget file openssl appmenu-gtk-module libappindicator-gtk3 librsvg xdotool patchelf gst-plugins-base gst-plugins-good
 ```
 
 ### System Dependencies (macOS)
@@ -201,7 +201,7 @@ The built binary is output to `src-tauri/target/release/app` (`app.exe` on Windo
 - **Windows:** `.msi` (WiX) under `bundle/msi/` and `.exe` (NSIS) under `bundle/nsis/` when building on Windows
 - **macOS:** `.dmg` (and `.app`) under `bundle/dmg/` and `bundle/macos/` when building on macOS
 
-`npm run desktop` uses shared native TTS and includes the desktop CTranslate2 and llama.cpp translation engines. On Linux, the build copies the sherpa-onnx shared libraries into the Tauri resource directory before bundling, and the app binary includes an rpath to `/usr/lib/Papercut` so installed `.deb`, `.rpm`, and AppImage builds can find those libraries at launch. The AppImage also bundles the GStreamer media framework used by WebKitGTK for audiobook playback; local Linux builders therefore need the GStreamer base and good plugin packages listed above. Native translation builds also require CMake, Clang, and libclang. Use `npm run desktop:no-translation` to isolate translation-related build failures. If you specifically need a fully static native TTS build, use `npm run desktop:static`; that path can require substantially more RAM and may be killed by the OS on memory-constrained machines.
+`npm run desktop` uses shared native TTS and includes the desktop CTranslate2 and llama.cpp translation engines. On Linux, llama.cpp is built with Vulkan support, and Papercut offers HY-MT2 hardware acceleration only when it detects a real compatible GPU. Local Linux builders therefore also need the Vulkan headers, loader, and `glslc` packages listed above. The build copies the sherpa-onnx shared libraries into the Tauri resource directory and adds an rpath to `/usr/lib/Papercut` so installed `.deb`, `.rpm`, and AppImage builds can find those libraries at launch. The AppImage also bundles the GStreamer media framework used by WebKitGTK for audiobook playback. Native translation builds require CMake, Clang, and libclang. Use `npm run desktop:no-translation` to isolate translation-related build failures. If you specifically need a fully static native TTS build, use `npm run desktop:static`; that path can require substantially more RAM and may be killed by the OS on memory-constrained machines.
 
 Install the generated Debian package with a dependency-aware command so WebKitGTK and GTK are installed if needed:
 

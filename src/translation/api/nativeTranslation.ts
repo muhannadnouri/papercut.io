@@ -4,6 +4,10 @@ export interface TranslationCapabilities {
   reason: string
   platform: string
   defaultQualityMode: string
+  hardwareAcceleration: {
+    backend: string
+    device: string
+  } | null
   models: TranslationModelInfo[]
 }
 
@@ -66,6 +70,7 @@ export interface TranslationStartRequest {
   targetLanguage: string
   modelId: string
   qualityMode: string
+  useHardwareAcceleration?: boolean
   repairMode?: 'off' | 'chapter'
   glossary?: TranslationGlossaryEntry[]
 }
@@ -234,6 +239,7 @@ async function loadTranslationCapabilities(): Promise<TranslationCapabilities> {
       reason: 'Offline translation is only available in the desktop or Android app.',
       platform: 'browser',
       defaultQualityMode: 'balanced',
+      hardwareAcceleration: null,
       models: [],
     }
   }
@@ -247,6 +253,7 @@ async function loadTranslationCapabilities(): Promise<TranslationCapabilities> {
       reason: err instanceof Error ? err.message : String(err),
       platform: 'unknown',
       defaultQualityMode: 'balanced',
+      hardwareAcceleration: null,
       models: [],
     }
   }
