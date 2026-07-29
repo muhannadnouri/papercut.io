@@ -13,7 +13,7 @@
 
 use std::fs;
 use std::io::{BufReader, BufWriter, Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Deserialize;
@@ -22,10 +22,10 @@ use tauri_plugin_fs::{FsExt, OpenOptions};
 
 use super::super::config::{BUNDLE_MAGIC, CACHE_VERSION};
 use super::super::file_commit::commit_staged_file;
-use super::super::manifest::write_manifest;
+use super::super::manifest::{validate_transferred_audiobook, write_manifest};
 use super::super::models::model_definition;
 use super::super::paths::{
-    audiobook_dir, chunk_path, create_native_audiobook_id, imported_upload_dir,
+    audiobook_dir, audiobooks_dir, chunk_path, create_native_audiobook_id, imported_upload_dir,
     playback_track_path, speakable_chunks, stable_hex_hash,
 };
 use super::super::silma_sidecar::DEFAULT_SILMA_NFE_STEP;
@@ -91,6 +91,18 @@ struct NativeAudiobookBundleAudio {
     bytes: usize,
 }
 
+/// Own one import-only directory so every early error removes staged payloads
+/// without touching an existing live audiobook or imported document.
+struct ImportWorkDir {
+    path: PathBuf,
+}
+
+impl Drop for ImportWorkDir {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.path);
+    }
+}
+
 /// Top-level import entry point.
 ///
 /// Prompts for a bundle file, reads/validates its manifest, derives a stable
@@ -122,20 +134,14 @@ pub(crate) fn import_audiobook_native(
 
     // HTML bundles retain their audiobook-owned virtual upload. PDF bundles
     // restore their canonical content-addressed URL into the normal library.
-    let upload_dir = if manifest.source_kind == "html" {
+    let html_upload_destination = if manifest.source_kind == "html" {
         let upload_id = imported_upload_id(&manifest);
         let dir = imported_upload_dir(&app, &upload_id)?;
-        fs::create_dir_all(&dir).map_err(|err| {
-            format!(
-                "Failed to create imported audiobook directory {}: {err}",
-                dir.display()
-            )
-        })?;
         Some((upload_id, dir))
     } else {
         None
     };
-    let document_url = upload_dir
+    let document_url = html_upload_destination
         .as_ref()
         .map(|(upload_id, _)| format!("/user-uploads/{upload_id}.html"))
         .unwrap_or_else(|| manifest.source_document_url.clone());
@@ -155,11 +161,30 @@ pub(crate) fn import_audiobook_native(
             audiobook_id = add_silma_nfe_to_audiobook_id(&audiobook_id, step);
         }
     }
-    let audiobook_dir = audiobook_dir(&app, &audiobook_id)?;
-    fs::create_dir_all(audiobook_dir.join("chunks")).map_err(|err| {
+    let destination_audiobook_dir = audiobook_dir(&app, &audiobook_id)?;
+    let storage_key = destination_audiobook_dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| "Imported audiobook cache path is invalid".to_string())?;
+    let audiobook_root = audiobooks_dir(&app)?;
+    fs::create_dir_all(&audiobook_root)
+        .map_err(|err| format!("Failed to create native audiobook directory: {err}"))?;
+    let work_dir = import_staging_path(&destination_audiobook_dir)?;
+    fs::create_dir_all(&work_dir).map_err(|err| {
         format!(
-            "Failed to create imported audiobook cache {}: {err}",
-            audiobook_dir.display()
+            "Failed to create audiobook import work directory {}: {err}",
+            work_dir.display()
+        )
+    })?;
+    let _work_guard = ImportWorkDir {
+        path: work_dir.clone(),
+    };
+    let staged_audiobook_dir = work_dir.join(storage_key);
+    let staged_html_upload_dir = work_dir.join("source");
+    fs::create_dir_all(staged_audiobook_dir.join("chunks")).map_err(|err| {
+        format!(
+            "Failed to stage imported audiobook cache {}: {err}",
+            staged_audiobook_dir.display()
         )
     })?;
 
@@ -176,8 +201,7 @@ pub(crate) fn import_audiobook_native(
     // Keep the imported single track staged until the source document, every
     // canonical chunk, and the new manifest validate. Failed imports cannot
     // replace a working track.
-    let imported_track_staging = audiobook_dir.join("playback.import.wav");
-    let _ = fs::remove_file(&imported_track_staging);
+    let imported_track_staging = staged_audiobook_dir.join("playback.import.wav");
 
     for entry in entries {
         // Offsets must be monotonically increasing; a backward offset means a
@@ -198,12 +222,12 @@ pub(crate) fn import_audiobook_native(
         // `_` arm skips unknown optional file kinds.
         match entry.role.as_str() {
             "sourceHtml" => {
-                let upload_dir = upload_dir.as_ref().ok_or_else(|| {
+                html_upload_destination.as_ref().ok_or_else(|| {
                     "PDF audiobook bundle declared an HTML source payload".to_string()
                 })?;
                 copy_sanitized_html_payload_to_path(
                     &mut reader,
-                    &upload_dir.1.join("source.html"),
+                    &staged_html_upload_dir.join("source.html"),
                     entry.bytes,
                 )?;
                 imported_source = true;
@@ -213,10 +237,10 @@ pub(crate) fn import_audiobook_native(
                 imported_source = true;
             }
             "metadata" => {
-                if let Some((_, upload_dir)) = &upload_dir {
+                if html_upload_destination.is_some() {
                     copy_payload_to_path(
                         &mut reader,
-                        &upload_dir.join("metadata.json"),
+                        &staged_html_upload_dir.join("metadata.json"),
                         entry.bytes,
                     )?;
                 } else {
@@ -237,7 +261,7 @@ pub(crate) fn import_audiobook_native(
                         entry.path
                     )
                 })?;
-                let target = chunk_path(&audiobook_dir, index, chunk);
+                let target = chunk_path(&staged_audiobook_dir, index, chunk);
                 copy_payload_to_path(&mut reader, &target, entry.bytes)?;
                 imported_chunks += 1;
             }
@@ -263,12 +287,12 @@ pub(crate) fn import_audiobook_native(
             speakable.len()
         ));
     }
-    if let Some(source) = imported_pdf_source {
-        restore_audiobook_pdf(&app, &document_url, manifest.title.clone(), source)?;
-    }
     if !imported_metadata {
-        if let Some((_, upload_dir)) = &upload_dir {
-            let _ = fs::write(upload_dir.join("metadata.json"), b"{}" as &[u8]);
+        if html_upload_destination.is_some() {
+            fs::create_dir_all(&staged_html_upload_dir)
+                .map_err(|err| format!("Failed to stage imported audiobook metadata: {err}"))?;
+            fs::write(staged_html_upload_dir.join("metadata.json"), b"{}" as &[u8])
+                .map_err(|err| format!("Failed to stage imported audiobook metadata: {err}"))?;
         }
     }
 
@@ -287,16 +311,38 @@ pub(crate) fn import_audiobook_native(
         thread_count: None,
         silma_nfe_step: manifest.silma_nfe_step,
     };
-    write_manifest(&audiobook_dir, &save_request, &speakable, 0)?;
+    write_manifest(&staged_audiobook_dir, &save_request, &speakable, 0)?;
     // write_manifest invalidates old derived playback files. Commit staged bundle
     // track afterward so first mobile Play can rebuild only its tiny sidecar.
     if imported_track {
-        let track_path = playback_track_path(&audiobook_dir);
+        let track_path = playback_track_path(&staged_audiobook_dir);
         commit_staged_file(
             &imported_track_staging,
             &track_path,
             "imported playback track",
         )?;
+    }
+    validate_transferred_audiobook(&staged_audiobook_dir, &save_request.audiobook_id)?;
+
+    if let Some(source) = imported_pdf_source {
+        restore_audiobook_pdf(&app, &document_url, manifest.title.clone(), source)?;
+    }
+    let installed_html_upload = if let Some((_, destination)) = &html_upload_destination {
+        install_staged_html_upload(&staged_html_upload_dir, destination)?
+    } else {
+        false
+    };
+    if let Err(error) = install_staged_audiobook(
+        &staged_audiobook_dir,
+        &destination_audiobook_dir,
+        &save_request.audiobook_id,
+    ) {
+        if installed_html_upload {
+            if let Some((_, destination)) = &html_upload_destination {
+                let _ = fs::remove_dir_all(destination);
+            }
+        }
+        return Err(error);
     }
 
     Ok(NativeAudiobookImportResponse {
@@ -312,6 +358,63 @@ pub(crate) fn import_audiobook_native(
         chunks: speakable.len(),
         audio_duration_sec: manifest.audio.duration_sec,
         wav_bytes: manifest.audio.bytes,
+    })
+}
+
+/// Promote a validated imported HTML source only when no readable copy exists.
+///
+/// Stable bundle ids make repeated imports target the same source slot. Keeping
+/// an existing readable source prevents a failed retry from replacing data that
+/// an already-valid saved audiobook still uses.
+fn install_staged_html_upload(staged: &Path, destination: &Path) -> Result<bool, String> {
+    if destination.join("source.html").is_file() {
+        return Ok(false);
+    }
+    if destination.exists() {
+        return Err(format!(
+            "Existing imported audiobook source is incomplete: {}",
+            destination.display()
+        ));
+    }
+    let parent = destination
+        .parent()
+        .ok_or_else(|| "Imported audiobook source destination is invalid".to_string())?;
+    fs::create_dir_all(parent)
+        .map_err(|err| format!("Failed to create imported audiobook directory: {err}"))?;
+    fs::rename(staged, destination).map_err(|err| {
+        format!(
+            "Failed to install imported audiobook source {}: {err}",
+            destination.display()
+        )
+    })?;
+    Ok(true)
+}
+
+/// Promote a fully validated audiobook directory without replacing valid data.
+///
+/// Re-importing the same stable identity is idempotent. An incomplete live
+/// directory is left untouched and reported instead of being recursively
+/// deleted, because it may belong to a resumable save running elsewhere.
+fn install_staged_audiobook(
+    staged: &Path,
+    destination: &Path,
+    audiobook_id: &str,
+) -> Result<(), String> {
+    if destination.is_dir() {
+        validate_transferred_audiobook(destination, audiobook_id)?;
+        return Ok(());
+    }
+    if destination.exists() {
+        return Err(format!(
+            "Existing audiobook cache path is not a directory: {}",
+            destination.display()
+        ));
+    }
+    fs::rename(staged, destination).map_err(|err| {
+        format!(
+            "Failed to install imported audiobook {}: {err}",
+            destination.display()
+        )
     })
 }
 
@@ -633,5 +736,36 @@ mod tests {
         assert!(stored.contains(r##"href="#note""##));
         assert!(stored.contains(r#"id="note""#));
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn failed_import_cleanup_preserves_an_existing_source() {
+        let root = std::env::temp_dir().join(format!(
+            "papercut-bundle-staging-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("test clock should be valid")
+                .as_nanos()
+        ));
+        let live = root.join("live");
+        let work = root.join("work");
+        let staged = work.join("source");
+        fs::create_dir_all(&live).expect("create live source");
+        fs::create_dir_all(&staged).expect("create staged source");
+        fs::write(live.join("source.html"), "existing").expect("write live source");
+        fs::write(staged.join("source.html"), "staged").expect("write staged source");
+
+        {
+            let _guard = ImportWorkDir { path: work.clone() };
+            assert!(!install_staged_html_upload(&staged, &live).expect("keep live source"));
+        }
+
+        assert_eq!(
+            fs::read_to_string(live.join("source.html")).expect("read live source"),
+            "existing"
+        );
+        assert!(!work.exists());
+        let _ = fs::remove_dir_all(root);
     }
 }
