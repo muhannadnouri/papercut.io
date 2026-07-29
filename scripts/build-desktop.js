@@ -31,7 +31,7 @@ function runTauriBuild(env, bundles, featureList) {
   exitFromResult(result, "[desktop-build] Failed to start Tauri build: ")
 }
 
-// Keep release builds unchanged; allow packaging spikes to build one Linux bundle.
+// Use Tauri's configured bundles unless a caller requests a narrower bundle set.
 function desktopBundles() {
   const index = process.argv.indexOf("--bundles")
   if (index >= 0) {

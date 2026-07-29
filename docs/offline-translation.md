@@ -21,7 +21,7 @@ The goal is high-quality offline translation for long-form HTML and EPUB books, 
 - OPUS-MT jobs use both a conservative 900-character planner cap and an engine-local tokenizer split before CTranslate2 inference, so long Spanish/French prose can be subdivided below Marian's 512-position limit without changing public cache segment ids.
 - Translated variants are separate durable documents that can be opened, searched, deleted, and later used by the normal TTS flow.
 - HTML/EPUB rendering uses the sanitized reader HTML where possible and preserves links, ids, images, tables, and EPUB-rewritten assets conservatively.
-- Stage 5B has passed local desktop model-install, translation, open/search/delete, and cache-assisted retry smoke tests. Packaged release artifacts still need CI/release validation.
+- Stage 5B has passed local desktop and packaged `.deb` model-install, translation, open/search/delete, cancellation, restart recovery, cache-assisted retry, removal, and reinstall smoke tests. Release CI still needs validation.
 - Android and iOS translation are not supported yet; native runtime packaging, memory, thermals, and model-size behavior must be validated separately from desktop.
 - Chapter-level repair has not started. Qwen remains research-only.
 
@@ -470,8 +470,8 @@ Status:
 
 - Done: CTranslate2 feature flag, adapter, tokenizer-aware OPUS-MT source splitting, capabilities reporting, installed-model preflight, pinned manifests, model installer, install UI, fixed-pair source validation, source loading, bounded batches, duplicate-job rejection, cooperative cancellation, progress events, validation-before-storage state, segment cache with empty-output rejection, exact translation memory, staged writes, transactional/recoverable derived upload replacement and deletion, replace-on-rerun variant identity, document-list refresh, and visible cached/reused progress.
 - Done: `npm run desktop` includes both `native-translation-ctranslate2` and `native-translation-llama` by default.
-- Verified locally: desktop model download/load, HTML/EPUB translation, translated variant open/search/delete, cancellation, and cache-assisted retry.
-- Needs proof: packaged release artifacts and app-restart recovery under real interrupted jobs.
+- Verified locally: desktop and packaged `.deb` model download/load, HTML/EPUB translation, translated variant open/search/delete, cancellation, restart recovery with cached-segment reuse, model removal/reinstall, and cache-assisted retry.
+- Needs proof: release CI artifacts on supported desktop targets.
 - Not done: Android translation packaging.
 
 ### Stage 6: HTML/EPUB Preservation - Mostly Done
