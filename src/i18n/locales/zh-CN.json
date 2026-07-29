@@ -36,6 +36,18 @@
       "dismissDelete": "关闭删除状态",
       "documentDeleted": "已删除翻译文档。"
     },
+    "errors": {
+      "unavailable": "此版本不支持离线翻译。",
+      "modelNotInstalled": "请先安装所选翻译模型，再开始翻译。",
+      "unsupportedOption": "不支持所选翻译模型或选项。",
+      "operationInProgress": "此翻译操作已在进行中。",
+      "operationCancelled": "翻译已取消。",
+      "sourceNotFound": "找不到源文档。",
+      "noTranslatableText": "此文档没有可翻译的文本。",
+      "qualityCheckFailed": "翻译文档未通过质量检查，因此未保存。",
+      "documentNotFound": "找不到翻译文档。",
+      "libraryRefresh": "翻译已更改，但无法刷新文档库：{{detail}}"
+    },
     "workbench": {
       "selectedDocument": "所选文档",
       "documentCopy": "{{format}} 翻译会生成一份独立的文档副本。",

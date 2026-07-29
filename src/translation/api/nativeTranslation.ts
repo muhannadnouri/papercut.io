@@ -116,6 +116,16 @@ export interface TranslationDeleteResult {
 
 let capabilitiesPromise: Promise<TranslationCapabilities> | null = null
 
+export class TranslationError extends Error {
+  readonly code: string
+
+  constructor(code: string, message: string) {
+    super(message)
+    this.name = 'TranslationError'
+    this.code = code
+  }
+}
+
 export function isNativeTranslationRuntime(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 }
@@ -144,16 +154,14 @@ export async function getTranslationModelStatus(modelId: string): Promise<Transl
       message: 'Offline translation is only available in the desktop or Android app.',
     }
   }
-  const invoke = await loadTauriInvoke()
-  return invoke<TranslationModelStatus>('translation_model_status', { request: { modelId } })
+  return invokeTranslation<TranslationModelStatus>('translation_model_status', { request: { modelId } })
 }
 
 export async function installTranslationModel(modelId: string): Promise<TranslationModelInstallResult> {
   if (!isNativeTranslationRuntime()) {
-    throw new Error('Offline translation is only available in the desktop or Android app.')
+    throw unavailableError()
   }
-  const invoke = await loadTauriInvoke()
-  return invoke<TranslationModelInstallResult>('translation_install_model', { modelId })
+  return invokeTranslation<TranslationModelInstallResult>('translation_install_model', { modelId })
 }
 
 export async function listenTranslationModelInstallProgress(
@@ -178,22 +186,19 @@ export async function listenTranslationProgress(
 
 export async function startTranslationJob(request: TranslationStartRequest): Promise<TranslationStartResult> {
   if (!isNativeTranslationRuntime()) {
-    throw new Error('Offline translation is only available in the desktop or Android app.')
+    throw unavailableError()
   }
-  const invoke = await loadTauriInvoke()
-  return invoke<TranslationStartResult>('translation_start', { request })
+  return invokeTranslation<TranslationStartResult>('translation_start', { request })
 }
 
 export async function cancelTranslationJob(jobId: string): Promise<void> {
   if (!isNativeTranslationRuntime()) return
-  const invoke = await loadTauriInvoke()
-  await invoke('translation_cancel', { request: { jobId } })
+  await invokeTranslation('translation_cancel', { request: { jobId } })
 }
 
 export async function listTranslatedDocuments(): Promise<TranslatedDocumentInfo[]> {
   if (!isNativeTranslationRuntime()) return []
-  const invoke = await loadTauriInvoke()
-  return invoke<TranslatedDocumentInfo[]>('translation_list_documents')
+  return invokeTranslation<TranslatedDocumentInfo[]>('translation_list_documents')
 }
 
 export async function deleteTranslatedDocument(id: string): Promise<TranslationDeleteResult> {
@@ -205,8 +210,7 @@ export async function deleteTranslatedDocument(id: string): Promise<TranslationD
       message: 'Offline translation is only available in the desktop or Android app.',
     }
   }
-  const invoke = await loadTauriInvoke()
-  return invoke<TranslationDeleteResult>('translation_delete_document', { request: { id } })
+  return invokeTranslation<TranslationDeleteResult>('translation_delete_document', { request: { id } })
 }
 
 async function loadTranslationCapabilities(): Promise<TranslationCapabilities> {
@@ -222,8 +226,7 @@ async function loadTranslationCapabilities(): Promise<TranslationCapabilities> {
   }
 
   try {
-    const invoke = await loadTauriInvoke()
-    return await invoke<TranslationCapabilities>('translation_capabilities')
+    return await invokeTranslation<TranslationCapabilities>('translation_capabilities')
   } catch (err) {
     return {
       available: false,
@@ -239,4 +242,46 @@ async function loadTranslationCapabilities(): Promise<TranslationCapabilities> {
 async function loadTauriInvoke(): Promise<<T>(cmd: string, args?: Record<string, unknown>) => Promise<T>> {
   const mod = await import('@tauri-apps/api/core')
   return mod.invoke
+}
+
+async function invokeTranslation<T>(
+  command: string,
+  args?: Record<string, unknown>,
+): Promise<T> {
+  try {
+    const invoke = await loadTauriInvoke()
+    return await invoke<T>(command, args)
+  } catch (error) {
+    throw toTranslationError(error)
+  }
+}
+
+function unavailableError(): TranslationError {
+  return new TranslationError(
+    'translation-unavailable',
+    'Offline translation is only available in the desktop or Android app.',
+  )
+}
+
+// Accept object errors from current Rust commands and plain strings from older builds.
+function toTranslationError(error: unknown): TranslationError {
+  if (error instanceof TranslationError) return error
+  if (isTranslationErrorPayload(error)) return new TranslationError(error.code, error.message)
+  if (error instanceof Error) return new TranslationError('translation-failed', error.message)
+  if (typeof error === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(error)
+      if (isTranslationErrorPayload(parsed)) return new TranslationError(parsed.code, parsed.message)
+    } catch {
+      // Older native builds reject with a plain diagnostic string.
+    }
+    return new TranslationError('translation-failed', error)
+  }
+  return new TranslationError('translation-failed', String(error))
+}
+
+function isTranslationErrorPayload(value: unknown): value is { code: string; message: string } {
+  if (!value || typeof value !== 'object') return false
+  const payload = value as Record<string, unknown>
+  return typeof payload.code === 'string' && typeof payload.message === 'string'
 }

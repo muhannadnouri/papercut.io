@@ -8,6 +8,70 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+/// Stable command error code plus the original diagnostic detail.
+pub(crate) struct TranslationCommandError {
+    pub(crate) code: &'static str,
+    pub(crate) message: String,
+}
+
+impl TranslationCommandError {
+    pub(crate) fn new(message: String) -> Self {
+        Self {
+            code: translation_error_code(&message),
+            message,
+        }
+    }
+}
+
+impl From<String> for TranslationCommandError {
+    fn from(message: String) -> Self {
+        Self::new(message)
+    }
+}
+
+/// Classify expected user-actionable failures without changing internal error types.
+fn translation_error_code(message: &str) -> &'static str {
+    let message = message.to_ascii_lowercase();
+    if message.contains("cancelled") {
+        return "operation-cancelled";
+    }
+    if message.contains("not compiled") || message.contains("only available in") {
+        return "translation-unavailable";
+    }
+    if message.contains("must be installed before translation")
+        || message.contains("offline translation model") && message.contains("is not installed")
+    {
+        return "model-not-installed";
+    }
+    if message.contains("not in the planned catalog")
+        || message.contains("planning candidate")
+        || message.contains("does not support")
+    {
+        return "unsupported-translation-option";
+    }
+    if message.contains("already in progress") || message.contains("already being translated") {
+        return "operation-in-progress";
+    }
+    if message.contains("source document was not found") {
+        return "source-not-found";
+    }
+    if message.contains("no translatable text")
+        || message.contains("no translatable sections")
+        || message.contains("produced no sections")
+    {
+        return "no-translatable-text";
+    }
+    if message.contains("translation quality check failed") {
+        return "quality-check-failed";
+    }
+    if message.contains("translated document variant was not found") {
+        return "translated-document-not-found";
+    }
+    "translation-failed"
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct TranslationCapabilities {
     pub(crate) available: bool,
     pub(crate) backend: String,
@@ -185,4 +249,29 @@ pub(crate) struct TranslationDeleteResponse {
     pub(crate) deleted: bool,
     pub(crate) bytes_freed: u64,
     pub(crate) message: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::translation_error_code;
+
+    #[test]
+    fn expected_translation_errors_have_stable_codes() {
+        assert_eq!(
+            translation_error_code("Offline translation model opus is not installed"),
+            "model-not-installed"
+        );
+        assert_eq!(
+            translation_error_code("Source document has no translatable sections"),
+            "no-translatable-text"
+        );
+        assert_eq!(
+            translation_error_code("Translation quality check failed: output was empty"),
+            "quality-check-failed"
+        );
+        assert_eq!(
+            translation_error_code("unexpected database detail"),
+            "translation-failed"
+        );
+    }
 }

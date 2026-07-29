@@ -19,6 +19,7 @@ import {
   type TranslationStartRequest,
   type TranslationStartResult,
 } from '../api/nativeTranslation'
+import { translationErrorMessage, translationLibraryRefreshError } from '../utils/errors'
 
 interface TranslationStartState {
   cancelling: boolean
@@ -97,7 +98,7 @@ export function useTranslationManager({
       setTranslatedDocuments(nextDocuments)
       setModelStatuses(Object.fromEntries(statusEntries))
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(translationErrorMessage(err))
     } finally {
       setLoading(false)
     }
@@ -109,10 +110,7 @@ export function useTranslationManager({
     try {
       await onDocumentLibraryChanged(changedDocumentUrl)
     } catch (err) {
-      setError(
-        'Translation changed, but the document library could not refresh: ' +
-          (err instanceof Error ? err.message : String(err)),
-      )
+      setError(translationLibraryRefreshError(err))
     }
   }, [onDocumentLibraryChanged, refresh])
 
@@ -150,7 +148,7 @@ export function useTranslationManager({
       if (disposed) cleanup()
       else unlisten = cleanup
     }).catch((err) => {
-      if (!disposed) setError(err instanceof Error ? err.message : String(err))
+      if (!disposed) setError(translationErrorMessage(err))
     })
     return () => {
       disposed = true
@@ -176,7 +174,7 @@ export function useTranslationManager({
       if (disposed) cleanup()
       else unlisten = cleanup
     }).catch((err) => {
-      if (!disposed) setError(err instanceof Error ? err.message : String(err))
+      if (!disposed) setError(translationErrorMessage(err))
     })
     return () => {
       disposed = true
@@ -196,7 +194,7 @@ export function useTranslationManager({
         id,
         deleted: false,
         bytesFreed: 0,
-        message: err instanceof Error ? err.message : String(err),
+        message: translationErrorMessage(err),
       })
     }
   }, [refreshGeneratedDocuments, translatedDocuments])
@@ -229,7 +227,7 @@ export function useTranslationManager({
         installingModelId: '',
         progress: null,
         result: null,
-        message: err instanceof Error ? err.message : String(err),
+        message: translationErrorMessage(err),
       })
     }
   }, [refresh])
@@ -262,7 +260,7 @@ export function useTranslationManager({
         jobId,
         progress: current.jobId === jobId ? current.progress : null,
         result: null,
-        message: err instanceof Error ? err.message : String(err),
+        message: translationErrorMessage(err),
       }))
     }
   }, [refreshGeneratedDocuments])
@@ -281,7 +279,7 @@ export function useTranslationManager({
       setStartState((current) => ({
         ...current,
         cancelling: false,
-        message: err instanceof Error ? err.message : String(err),
+        message: translationErrorMessage(err),
       }))
     }
   }, [startState.checking, startState.jobId])

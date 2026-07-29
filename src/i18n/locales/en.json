@@ -36,6 +36,18 @@
       "dismissDelete": "Dismiss deletion status",
       "documentDeleted": "Translated document deleted."
     },
+    "errors": {
+      "unavailable": "Offline translation is unavailable in this build.",
+      "modelNotInstalled": "Install the selected translation model before translating.",
+      "unsupportedOption": "The selected translation model or option is not supported.",
+      "operationInProgress": "This translation operation is already in progress.",
+      "operationCancelled": "Translation was cancelled.",
+      "sourceNotFound": "The source document could not be found.",
+      "noTranslatableText": "This document has no text that can be translated.",
+      "qualityCheckFailed": "The translated document did not pass quality checks and was not saved.",
+      "documentNotFound": "The translated document could not be found.",
+      "libraryRefresh": "Translation changed, but the document library could not refresh: {{detail}}"
+    },
     "workbench": {
       "selectedDocument": "Selected Document",
       "documentCopy": "{{format}} translation runs as a separate generated document copy.",

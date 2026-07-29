@@ -36,6 +36,18 @@
       "dismissDelete": "إغلاق حالة الحذف",
       "documentDeleted": "تم حذف المستند المترجم."
     },
+    "errors": {
+      "unavailable": "الترجمة دون اتصال غير متاحة في هذا الإصدار.",
+      "modelNotInstalled": "ثبّت نموذج الترجمة المحدد قبل بدء الترجمة.",
+      "unsupportedOption": "نموذج الترجمة أو الخيار المحدد غير مدعوم.",
+      "operationInProgress": "عملية الترجمة هذه قيد التنفيذ بالفعل.",
+      "operationCancelled": "تم إلغاء الترجمة.",
+      "sourceNotFound": "تعذر العثور على المستند المصدر.",
+      "noTranslatableText": "لا يحتوي هذا المستند على نص قابل للترجمة.",
+      "qualityCheckFailed": "لم يجتز المستند المترجم فحوص الجودة، ولذلك لم يتم حفظه.",
+      "documentNotFound": "تعذر العثور على المستند المترجم.",
+      "libraryRefresh": "تغيّرت الترجمة، لكن تعذر تحديث مكتبة المستندات: {{detail}}"
+    },
     "workbench": {
       "selectedDocument": "المستند المحدد",
       "documentCopy": "تُنشئ ترجمة {{format}} نسخة مستقلة من المستند.",

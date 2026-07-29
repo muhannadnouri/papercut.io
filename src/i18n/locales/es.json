@@ -36,6 +36,18 @@
       "dismissDelete": "Cerrar estado de eliminación",
       "documentDeleted": "Documento traducido eliminado."
     },
+    "errors": {
+      "unavailable": "La traducción sin conexión no está disponible en esta compilación.",
+      "modelNotInstalled": "Instale el modelo de traducción seleccionado antes de traducir.",
+      "unsupportedOption": "El modelo o la opción de traducción seleccionados no son compatibles.",
+      "operationInProgress": "Esta operación de traducción ya está en curso.",
+      "operationCancelled": "La traducción se canceló.",
+      "sourceNotFound": "No se pudo encontrar el documento de origen.",
+      "noTranslatableText": "Este documento no contiene texto que se pueda traducir.",
+      "qualityCheckFailed": "El documento traducido no superó las comprobaciones de calidad y no se guardó.",
+      "documentNotFound": "No se pudo encontrar el documento traducido.",
+      "libraryRefresh": "La traducción cambió, pero no se pudo actualizar la biblioteca de documentos: {{detail}}"
+    },
     "workbench": {
       "selectedDocument": "Documento Seleccionado",
       "documentCopy": "La traducción de {{format}} se ejecuta como una copia independiente del documento.",

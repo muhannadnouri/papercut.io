@@ -36,6 +36,18 @@
       "dismissDelete": "Fermer l’état de suppression",
       "documentDeleted": "Document traduit supprimé."
     },
+    "errors": {
+      "unavailable": "La traduction hors ligne est indisponible dans cette version.",
+      "modelNotInstalled": "Installez le modèle de traduction sélectionné avant de traduire.",
+      "unsupportedOption": "Le modèle ou l’option de traduction sélectionné n’est pas pris en charge.",
+      "operationInProgress": "Cette opération de traduction est déjà en cours.",
+      "operationCancelled": "La traduction a été annulée.",
+      "sourceNotFound": "Le document source est introuvable.",
+      "noTranslatableText": "Ce document ne contient aucun texte traduisible.",
+      "qualityCheckFailed": "Le document traduit n’a pas réussi les contrôles de qualité et n’a pas été enregistré.",
+      "documentNotFound": "Le document traduit est introuvable.",
+      "libraryRefresh": "La traduction a changé, mais la bibliothèque de documents n’a pas pu être actualisée : {{detail}}"
+    },
     "workbench": {
       "selectedDocument": "Document Sélectionné",
       "documentCopy": "La traduction {{format}} s’exécute comme une copie distincte du document.",

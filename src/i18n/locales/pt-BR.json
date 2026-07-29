@@ -36,6 +36,18 @@
       "dismissDelete": "Fechar status da exclusão",
       "documentDeleted": "Documento traduzido excluído."
     },
+    "errors": {
+      "unavailable": "A tradução off-line não está disponível nesta compilação.",
+      "modelNotInstalled": "Instale o modelo de tradução selecionado antes de traduzir.",
+      "unsupportedOption": "O modelo ou a opção de tradução selecionados não são compatíveis.",
+      "operationInProgress": "Esta operação de tradução já está em andamento.",
+      "operationCancelled": "A tradução foi cancelada.",
+      "sourceNotFound": "Não foi possível encontrar o documento de origem.",
+      "noTranslatableText": "Este documento não contém texto que possa ser traduzido.",
+      "qualityCheckFailed": "O documento traduzido não passou nas verificações de qualidade e não foi salvo.",
+      "documentNotFound": "Não foi possível encontrar o documento traduzido.",
+      "libraryRefresh": "A tradução mudou, mas não foi possível atualizar a biblioteca de documentos: {{detail}}"
+    },
     "workbench": {
       "selectedDocument": "Documento Selecionado",
       "documentCopy": "A tradução de {{format}} é executada como uma cópia separada do documento.",

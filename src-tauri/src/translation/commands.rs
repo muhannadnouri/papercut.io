@@ -20,9 +20,9 @@ use super::storage::{
 };
 use super::types::{
     TranslatedDocumentInfo, TranslationCancelRequest, TranslationCapabilities,
-    TranslationDeleteRequest, TranslationDeleteResponse, TranslationModelInstallResponse,
-    TranslationModelStatus, TranslationModelStatusRequest, TranslationStartRequest,
-    TranslationStartResponse,
+    TranslationCommandError, TranslationDeleteRequest, TranslationDeleteResponse,
+    TranslationModelInstallResponse, TranslationModelStatus, TranslationModelStatusRequest,
+    TranslationStartRequest, TranslationStartResponse,
 };
 
 /// Return planned offline translation capabilities and candidate catalog entries.
@@ -47,8 +47,10 @@ pub async fn translation_install_model<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     state: tauri::State<'_, TranslationState>,
     model_id: String,
-) -> Result<TranslationModelInstallResponse, String> {
-    install_translation_model_backend(app, state, model_id).await
+) -> Result<TranslationModelInstallResponse, TranslationCommandError> {
+    install_translation_model_backend(app, state, model_id)
+        .await
+        .map_err(TranslationCommandError::from)
 }
 
 /// Start a document translation job when the selected backend is available.
@@ -57,11 +59,14 @@ pub async fn translation_start<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     state: tauri::State<'_, TranslationState>,
     request: TranslationStartRequest,
-) -> Result<TranslationStartResponse, String> {
+) -> Result<TranslationStartResponse, TranslationCommandError> {
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || start_translation_backend(&app, &state, request))
         .await
-        .map_err(|err| format!("Translation start task failed: {err}"))?
+        .map_err(|err| {
+            TranslationCommandError::new(format!("Translation start task failed: {err}"))
+        })?
+        .map_err(TranslationCommandError::from)
 }
 
 /// Request cancellation for a translation job.
@@ -69,8 +74,8 @@ pub async fn translation_start<R: tauri::Runtime>(
 pub fn translation_cancel(
     state: tauri::State<'_, TranslationState>,
     request: TranslationCancelRequest,
-) -> Result<(), String> {
-    cancel_translation_backend(state.inner(), request)
+) -> Result<(), TranslationCommandError> {
+    cancel_translation_backend(state.inner(), request).map_err(TranslationCommandError::from)
 }
 
 /// List durable translated document variants.
@@ -81,10 +86,13 @@ pub fn translation_cancel(
 #[tauri::command]
 pub async fn translation_list_documents<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
-) -> Result<Vec<TranslatedDocumentInfo>, String> {
+) -> Result<Vec<TranslatedDocumentInfo>, TranslationCommandError> {
     tauri::async_runtime::spawn_blocking(move || list_translated_documents_storage(&app))
         .await
-        .map_err(|err| format!("Translation list task failed: {err}"))?
+        .map_err(|err| {
+            TranslationCommandError::new(format!("Translation list task failed: {err}"))
+        })?
+        .map_err(TranslationCommandError::from)
 }
 
 /// Delete a translated document variant.
@@ -96,10 +104,11 @@ pub async fn translation_list_documents<R: tauri::Runtime>(
 pub async fn translation_delete_document<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     request: TranslationDeleteRequest,
-) -> Result<TranslationDeleteResponse, String> {
+) -> Result<TranslationDeleteResponse, TranslationCommandError> {
     tauri::async_runtime::spawn_blocking(move || {
         delete_translated_document_storage(&app, &request.id)
     })
     .await
-    .map_err(|err| format!("Translation delete task failed: {err}"))?
+    .map_err(|err| TranslationCommandError::new(format!("Translation delete task failed: {err}")))?
+    .map_err(TranslationCommandError::from)
 }
