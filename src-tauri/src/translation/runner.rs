@@ -117,6 +117,11 @@ pub(super) fn start_translation<R: tauri::Runtime>(
         started,
     ) {
         Ok(summary) => {
+            let TranslationRunSummary {
+                preview,
+                cached_segments,
+                sections,
+            } = summary;
             emit_translation_progress(
                 app,
                 progress(
@@ -127,10 +132,10 @@ pub(super) fn start_translation<R: tauri::Runtime>(
                     started,
                     None,
                     plan.total_segments,
-                    summary.cached_segments,
+                    cached_segments,
                     0,
                     plan.batches.len(),
-                    &summary.preview,
+                    &preview,
                 ),
             )?;
             let stored = persist_translated_document(
@@ -144,7 +149,25 @@ pub(super) fn start_translation<R: tauri::Runtime>(
                     repair_mode: plan.request.repair_mode.clone(),
                     job_id: job_id.clone(),
                     glossary: plan.request.glossary.clone(),
-                    translated_sections: summary.sections,
+                    translated_sections: sections,
+                },
+                || {
+                    emit_translation_progress(
+                        app,
+                        progress(
+                            &job_id,
+                            "storing",
+                            "Saving translated document",
+                            &plan,
+                            started,
+                            None,
+                            plan.total_segments,
+                            cached_segments,
+                            0,
+                            plan.batches.len(),
+                            &preview,
+                        ),
+                    )
                 },
             )?;
             emit_translation_progress(
@@ -157,10 +180,10 @@ pub(super) fn start_translation<R: tauri::Runtime>(
                     started,
                     None,
                     plan.total_segments,
-                    summary.cached_segments,
+                    cached_segments,
                     0,
                     plan.batches.len(),
-                    &summary.preview,
+                    &preview,
                 ),
             )?;
             Ok(TranslationStartResponse {
@@ -171,7 +194,7 @@ pub(super) fn start_translation<R: tauri::Runtime>(
                     stored.title,
                     plan.total_segments,
                     plan.batches.len(),
-                    summary.preview
+                    preview
                 ),
             })
         }
@@ -363,6 +386,11 @@ fn run_translation_batches<R: tauri::Runtime>(
             return Err(run.failure("cancelled", "Translation cancelled"));
         }
 
+        emit_translation_progress(
+            app,
+            run.progress("preparing-batch", "Preparing translation batch", 0),
+        )
+        .map_err(|err| run.failure("failed", err))?;
         let (inline_phrase_hints, stored_probe_translations) =
             translate_inline_phrase_hints(engine, plan, batch, &inline_phrase_probes, &mut cache);
         let mut pending_batch = TranslationBatchPlan {
@@ -415,6 +443,11 @@ fn run_translation_batches<R: tauri::Runtime>(
 
         let reused_only = pending_batch.segments.is_empty();
         if !reused_only {
+            emit_translation_progress(
+                app,
+                run.progress("translating-batch", "Translating current batch", 0),
+            )
+            .map_err(|err| run.failure("failed", err))?;
             let outputs = engine
                 .translate_batch(batch_input(plan, &pending_batch))
                 .map_err(|err| {
@@ -460,7 +493,7 @@ fn run_translation_batches<R: tauri::Runtime>(
         emit_translation_progress(
             app,
             run.progress(
-                "translating",
+                "batch-complete",
                 if reused_only {
                     "Reused cached batch"
                 } else {

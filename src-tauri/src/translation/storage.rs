@@ -99,10 +99,12 @@ pub(crate) struct PersistTranslationInlinePhrase {
 /// The translated text is generated as escaped plain HTML, then inserted through
 /// `document_uploads` so Find, search, viewing, and TTS see the same
 /// contract as imported HTML/EPUB. The translation row only records provenance
-/// and delete/list metadata.
+/// and delete/list metadata. `on_validated` runs after quality checks but before
+/// durable writes so the caller can report the saving phase accurately.
 pub(crate) fn persist_translated_document<R: Runtime>(
     app: &tauri::AppHandle<R>,
     request: PersistTranslationRequest,
+    on_validated: impl FnOnce() -> Result<(), String>,
 ) -> Result<TranslatedDocumentInfo, String> {
     if request.translated_sections.is_empty() {
         return Err("Translation produced no sections to store".into());
@@ -124,6 +126,7 @@ pub(crate) fn persist_translated_document<R: Runtime>(
         &request.glossary,
         &request.target_language,
     )?;
+    on_validated()?;
     let bytes = view_html.as_bytes().len() as u64;
     let sections = request
         .translated_sections

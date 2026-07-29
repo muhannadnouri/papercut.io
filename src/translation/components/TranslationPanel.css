@@ -124,6 +124,27 @@
   transition: width 160ms ease;
 }
 
+.translation-progress-meter.is-indeterminate span {
+  width: 35%;
+  animation: translation-progress-active 1.2s ease-in-out infinite;
+}
+
+@keyframes translation-progress-active {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(286%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .translation-progress-meter.is-indeterminate span {
+    animation: none;
+  }
+}
+
 .translation-selected-document,
 .translation-empty-state {
   display: grid;

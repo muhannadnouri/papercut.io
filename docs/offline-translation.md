@@ -17,7 +17,10 @@ The goal is high-quality offline translation for long-form HTML and EPUB books, 
 - OPUS-MT exposes no quality, glossary, or repair controls because that engine cannot honor them; direct requests using those options are rejected.
 - Translation controls, normal progress states, confirmations, counts, language names, and expected native failures use the app's eight locale resources. Translation commands return stable error codes while retaining the original Rust diagnostic; unexpected failures still fall back to that detail.
 - Concurrent starts for the same document and translation settings are rejected before they can write the same cache or variant.
-- Job progress now distinguishes final validation from storage, so a translation can reach 100% segment completion and still fail with a specific quality issue before any derived document is promoted.
+- Job progress distinguishes model loading, job and batch preparation, active
+  batch inference, completed batches, final validation, and storage. Before
+  the first measurable batch completes, the UI shows indeterminate activity
+  instead of an apparently idle empty progress bar.
 - OPUS-MT jobs use both a conservative 900-character planner cap and an engine-local tokenizer split before CTranslate2 inference, so long Spanish/French prose can be subdivided below Marian's 512-position limit without changing public cache segment ids.
 - Translated variants are separate durable documents that can be opened, searched, deleted, and later used by the normal TTS flow.
 - HTML/EPUB rendering uses the sanitized reader HTML where possible and preserves links, ids, images, tables, and EPUB-rewritten assets conservatively.
@@ -568,13 +571,19 @@ Status:
 - Done: load the GGUF once per job, reuse a context within each batch, clear KV state between independent segments, and bound prompt/output tokens.
 - Done: use HY-MT2's published translation-only prompt and sampler settings with a fixed seed.
 - Done: retain the existing cache, glossary prompt hints, progress, cancellation-between-batches, validation, rendering, search indexing, and durable variant storage.
-- Done: expose the model's 1.9 GB footprint and CPU-only performance warning in the workbench, and report model loading separately from translation progress.
+- Done: expose the model's 1.9 GB footprint and CPU-only performance warning
+  in the workbench, and report model loading, first-batch preparation, active
+  inference, batch completion, validation, and storage as distinct progress
+  phases.
 - Done: expose confirmed model removal with reclaimed-storage reporting while preserving completed translations and segment caches.
 - Done: compile Vulkan into the normal Linux desktop llama.cpp runtime, detect real Vulkan GPUs, and expose an HY-MT2-only hardware acceleration toggle when supported.
 - Done: keep hardware selection out of cache and translated-document identity so CPU and Vulkan execution reuse the same compatible segment results.
 - Partial: the pinned model installed successfully and entered native inference on the current CPU-only development machine; cancellation also worked. Startup was too slow to complete a useful quality or throughput benchmark on that hardware.
+- Verified: a packaged Linux `.deb` detects an Intel integrated Vulkan GPU and
+  an accelerated HY-MT2 job engages it.
 - Pending: run completed desktop quality and performance smoke tests on representative short/chapter/book samples using CPU and Intel integrated Vulkan hardware.
-- Pending: confirm a packaged Linux build detects the intended physical GPU, hides the option when only software Vulkan is available, and preserves the explicit CPU path when the toggle is off.
+- Pending: confirm software-only Vulkan hides the option and the toggle-off
+  path remains CPU-only in a packaged build.
 - Deferred: NVIDIA RTX/CUDA smoke testing is unavailable on the current development machine. Do not claim CUDA support until a separate build feature, packaging pass, and quality/performance benchmark succeed on an RTX-class Linux machine.
 - Deferred: Apple Metal, Windows packaging, Android, and iOS validation.
 - Deferred: compare Qwen only if HY-MT2 quality has a demonstrated gap worth another runtime/model cost.

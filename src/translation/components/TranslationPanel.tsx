@@ -650,17 +650,31 @@ function TranslationProgressMeter({
   progress: TranslationJobProgress
   t: TFunction
 }) {
+  const statusLabel = formatProgressStatusLabel(progress, t)
+  const indeterminate = progress.completedSegments === 0 && ![
+    'completed',
+    'validating',
+    'stored',
+    'cancelled',
+    'failed',
+  ].includes(progress.status)
+
   return (
     <div className="translation-job-progress">
       <div className="translation-job-progress-header">
-        <span>{formatStatusLabel(progress.status, t)}</span>
+        <span>{statusLabel}</span>
         <span>{progress.percent}%</span>
       </div>
       <div
-        className="translation-progress-meter"
+        className={'translation-progress-meter' + (indeterminate ? ' is-indeterminate' : '')}
+        role="progressbar"
         aria-label={t('translation.progress.job', { percent: progress.percent })}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={indeterminate ? undefined : progress.percent}
+        aria-valuetext={statusLabel}
       >
-        <span style={{ width: progress.percent + '%' }} />
+        <span style={indeterminate ? undefined : { width: progress.percent + '%' }} />
       </div>
       <small>
         {t('translation.progress.counts', {
@@ -814,6 +828,42 @@ function formatLanguageLabel(language: string, locale: string, t: TFunction): st
   return language.toUpperCase()
 }
 
+function formatProgressStatusLabel(progress: TranslationJobProgress, t: TFunction): string {
+  const nextBatch = Math.min(progress.completedBatches + 1, progress.totalBatches)
+  switch (progress.status) {
+    case 'loading-model':
+      return t('translation.progress.status.loadingModel')
+    case 'starting':
+      return t('translation.progress.status.starting')
+    case 'preparing-batch':
+      return t('translation.progress.status.preparingBatch', {
+        current: nextBatch,
+        total: progress.totalBatches,
+      })
+    case 'translating-batch':
+      return t('translation.progress.status.translatingBatch', {
+        current: nextBatch,
+        total: progress.totalBatches,
+      })
+    case 'batch-complete':
+      return t('translation.progress.status.batchComplete', {
+        current: progress.completedBatches,
+        total: progress.totalBatches,
+      })
+    case 'validating':
+      return t('translation.progress.status.validating')
+    case 'storing':
+      return t('translation.progress.status.storing')
+    case 'stored':
+    case 'completed':
+      return t('translation.progress.status.completed')
+    case 'cancelled':
+      return t('translation.progress.status.cancelled')
+    default:
+      return progress.status.charAt(0).toUpperCase() + progress.status.slice(1)
+  }
+}
+
 function formatStatusLabel(status: string, t: TFunction): string {
   const labels: Record<string, string> = {
     'loading-model': t('translation.progress.status.loadingModel'),
@@ -821,6 +871,7 @@ function formatStatusLabel(status: string, t: TFunction): string {
     translating: t('translation.progress.status.translating'),
     validating: t('translation.progress.status.validating'),
     storing: t('translation.progress.status.storing'),
+    stored: t('translation.progress.status.completed'),
     completed: t('translation.progress.status.completed'),
     cancelled: t('translation.progress.status.cancelled'),
   }
