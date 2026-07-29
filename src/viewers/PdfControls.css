@@ -50,7 +50,7 @@
 .pdf-control-button svg {
   fill: none;
   height: 1.3rem;
-  stroke: currentColor;
+  stroke: currentcolor;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.8;
@@ -118,7 +118,6 @@
 }
 
 .pdf-control-sr-only {
-  clip: rect(0 0 0 0);
   clip-path: inset(50%);
   height: 1px;
   overflow: hidden;

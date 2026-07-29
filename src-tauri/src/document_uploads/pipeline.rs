@@ -194,8 +194,11 @@ fn write_and_index_document(
     fs::create_dir_all(&dir)
         .map_err(|err| format!("Failed to create upload directory {}: {err}", dir.display()))?;
     let result = (|| {
-        fs::write(dir.join("source.html"), parsed.view_html.as_bytes())
-            .map_err(|err| format!("Failed to write imported document source: {err}"))?;
+        fs::write(
+            dir.join(StoredSourceKind::Html.file_name()),
+            parsed.view_html.as_bytes(),
+        )
+        .map_err(|err| format!("Failed to write imported document source: {err}"))?;
         if let Some(cover) = parsed.cover.take() {
             match write_thumbnail(dir, &cover.bytes) {
                 Ok(()) => {

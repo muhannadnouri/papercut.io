@@ -39,12 +39,9 @@ pub(crate) fn store_pdf_page_text<R: Runtime>(
     app: &tauri::AppHandle<R>,
     request: PdfPageTextRequest,
 ) -> Result<(), String> {
-    let (id, source_kind) = validated_pdf_upload(app, &request.document_url)?;
+    let (id, _) = validated_pdf_upload(app, &request.document_url)?;
     if request.layer.page_index >= MAX_PDF_PAGES {
         return Err(format!("PDF exceeds the {MAX_PDF_PAGES}-page import limit"));
-    }
-    if source_kind != StoredSourceKind::Pdf {
-        return Err("PDF page text can only be stored for a PDF upload".into());
     }
     write_page_text_layer(&upload_dir(app, &id)?, &request.layer)
 }

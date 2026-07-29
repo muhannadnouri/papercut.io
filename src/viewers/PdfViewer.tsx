@@ -98,7 +98,6 @@ export function PdfViewer({
   const findAdapterRef = useRef<ReturnType<typeof createPdfFindAdapter> | null>(null)
   const spreadModesRef = useRef<{ NONE: number; ODD: number } | null>(null)
   const searchTargetRef = useRef(searchTarget)
-  searchTargetRef.current = searchTarget
   const outlineCloseRef = useRef<HTMLButtonElement>(null)
   const [status, setStatus] = useState<PdfViewerStatus>({ state: 'loading' })
   const [currentPage, setCurrentPage] = useState(1)
@@ -108,6 +107,10 @@ export function PdfViewer({
   const [outlineOpen, setOutlineOpen] = useState(false)
   const [spreadMode, setSpreadMode] = useState<PdfSpreadMode>('single')
   const [searchProgress, setSearchProgress] = useState<PdfSearchProgress | null>(null)
+
+  useEffect(() => {
+    searchTargetRef.current = searchTarget
+  }, [searchTarget])
 
   const applySpreadMode = useCallback((next: PdfSpreadMode) => {
     setSpreadMode(next)

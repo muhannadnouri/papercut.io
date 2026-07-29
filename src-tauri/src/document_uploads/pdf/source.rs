@@ -100,6 +100,7 @@ pub(crate) fn restore_transferred_pdf<R: Runtime>(
     if imported_at_ms > i64::MAX as u128 {
         return Err("Transferred document timestamp is invalid".into());
     }
+    validate_transferred_pdf_identity(&id, &source)?;
 
     let source_kind = StoredSourceKind::Pdf;
     let url = upload_url(&id, source_kind);
@@ -145,6 +146,13 @@ pub(crate) fn restore_transferred_pdf<R: Runtime>(
         sections: 0,
         cover_media_type: None,
     })
+}
+
+fn validate_transferred_pdf_identity(id: &str, source: &[u8]) -> Result<(), String> {
+    if source_upload_id(source) != id {
+        return Err("Transferred PDF source does not match its document id".into());
+    }
+    Ok(())
 }
 
 /// Restore a PDF carried by an audiobook bundle into the normal upload store.
@@ -239,4 +247,18 @@ fn persist_unindexed_pdf<R: Runtime>(
         sections: 0,
         cover_media_type: None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{source_upload_id, validate_transferred_pdf_identity};
+
+    #[test]
+    fn transferred_pdf_must_match_its_content_id() {
+        let source = b"%PDF-1.7\nfixture";
+        assert!(validate_transferred_pdf_identity(&source_upload_id(source), source).is_ok());
+        assert!(
+            validate_transferred_pdf_identity(&source_upload_id(b"different"), source).is_err()
+        );
+    }
 }
