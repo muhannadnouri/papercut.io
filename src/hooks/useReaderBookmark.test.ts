@@ -36,4 +36,12 @@ describe('parseReaderBookmark', () => {
       viewerLocation: { pageNumber: 7, pageOffsetRatio: 0.5 },
     }))).toBeNull()
   })
+
+  it.each([
+    ['malformed JSON', '{'],
+    ['JSON null', 'null'],
+    ['a non-finite timestamp', '{"updatedAtMs":1e999,"viewerLocation":{"textOffset":1}}'],
+  ])('rejects %s', (_case, raw) => {
+    expect(parseReaderBookmark(raw)).toBeNull()
+  })
 })

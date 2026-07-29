@@ -100,10 +100,10 @@ export function useFindInPage(
 
   const handleFind = useCallback((searchQuery: string) => {
     setFindQuery(searchQuery)
-    if (searchQuery.trim()) return
-    clearPendingFind()
     setFindMatchCount(0)
     setFindCurrentIndex(0)
+    if (searchQuery.trim()) return
+    clearPendingFind()
     viewerFindApi?.clear()
     clearFindHighlights()
   }, [clearFindHighlights, clearPendingFind, viewerFindApi])

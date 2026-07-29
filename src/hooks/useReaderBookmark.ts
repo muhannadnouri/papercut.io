@@ -158,9 +158,16 @@ function storageKey(url: string): string {
 
 /** Accept only current semantic HTML/EPUB or PDF bookmark locations. */
 export function parseReaderBookmark(raw: string): ReaderBookmark | null {
-  const parsed = JSON.parse(raw) as Partial<ReaderBookmark>
-  if (typeof parsed.updatedAtMs !== 'number') return null
-  const location = parsed.viewerLocation
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return null
+  }
+  if (!parsed || typeof parsed !== 'object') return null
+  const bookmark = parsed as Partial<ReaderBookmark>
+  if (typeof bookmark.updatedAtMs !== 'number' || !Number.isFinite(bookmark.updatedAtMs)) return null
+  const location = bookmark.viewerLocation
   if (!location || typeof location !== 'object') return null
   const pdfLocation =
     'pageNumber' in location &&
@@ -185,7 +192,7 @@ export function parseReaderBookmark(raw: string): ReaderBookmark | null {
   const viewerLocation = pdfLocation ?? htmlLocation
   if (!viewerLocation) return null
   return {
-    updatedAtMs: parsed.updatedAtMs,
+    updatedAtMs: bookmark.updatedAtMs,
     viewerLocation,
   }
 }

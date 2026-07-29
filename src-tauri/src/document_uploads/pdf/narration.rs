@@ -94,6 +94,20 @@ pub(crate) fn reconstruct_narration_segments<E>(
     Ok(segments)
 }
 
+/// Preserve visual line boundaries for page-level FTS text while reusing the
+/// same inline-fragment and whitespace normalization as PDF narration.
+pub(crate) fn reconstruct_search_text(page: PageTextLayer) -> String {
+    page_lines(page)
+        .into_iter()
+        .filter_map(|line| {
+            let mut builder = SegmentBuilder::default();
+            builder.push_line(line);
+            (!builder.text.is_empty()).then_some(builder.text)
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// Group adjacent PDF.js items into visual lines while honoring explicit EOL
 /// markers. This rejoins inline font/ligature fragments without reordering
 /// columns or trusting whitespace-only extraction items as narration.
@@ -386,6 +400,20 @@ mod tests {
             .source_runs
             .windows(2)
             .all(|runs| runs[0].start_offset <= runs[1].start_offset));
+    }
+
+    #[test]
+    fn preserves_visual_lines_in_search_text_without_splitting_inline_fragments() {
+        let text = reconstruct_search_text(layer(
+            0,
+            vec![
+                block(0, "Inline ", 100.0, 12.0),
+                block(1, "formatting", 100.0, 12.0),
+                block(2, "continues below", 117.0, 12.0),
+            ],
+        ));
+
+        assert_eq!(text, "Inline formatting\ncontinues below");
     }
 
     fn layer(page_index: u32, blocks: Vec<PageTextBlock>) -> PageTextLayer {

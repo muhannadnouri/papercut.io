@@ -11,7 +11,9 @@ use super::super::storage::{
 };
 use super::super::store::{find_upload_by_id, open_db, upsert_document};
 use super::super::types::UploadedDocument;
-use super::narration::{reconstruct_narration_segments, PdfNarrationSegment};
+use super::narration::{
+    reconstruct_narration_segments, reconstruct_search_text, PdfNarrationSegment,
+};
 use super::page_text::{read_page_text_layer, write_page_text_layer, PageTextLayer};
 
 pub(crate) const MAX_PDF_PAGES: u32 = 2_000;
@@ -96,15 +98,7 @@ pub(crate) fn finalize_pdf_index<R: Runtime>(
     let mut sections = Vec::with_capacity(request.page_count as usize);
 
     for page_index in 0..request.page_count {
-        let mut layer = read_page_text_layer(&dir, page_index)?;
-        layer.blocks.sort_by_key(|block| block.order);
-        let text = layer
-            .blocks
-            .into_iter()
-            .map(|block| block.text)
-            .collect::<String>()
-            .trim()
-            .to_string();
+        let text = reconstruct_search_text(read_page_text_layer(&dir, page_index)?);
         sections.push(ParsedSection {
             heading: None,
             text,

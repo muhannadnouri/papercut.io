@@ -1,7 +1,7 @@
 # PDF, OCR, And Document Scanning Plan
 
 Status: Stage 5 PDF TTS and reader parity complete; Stage 6 not started
-Last updated: 2026-07-25
+Last updated: 2026-07-28
 
 This document is the source of truth for adding PDF reading, searchable OCR,
 and mobile document scanning to Papercut. It records the research, current
@@ -1074,6 +1074,7 @@ Stage status: Deferred
 | 2026-07-25 | Stage 4 | Start wide PDF readers at 100% | Desktop avoids unexpectedly large fit-width scales while narrow layouts retain fit width for usable first-open framing |
 | 2026-07-25 | Stage 5 | Close text-native PDF reader parity | Manual acceptance passed Find, global search, TTS, highlighting, bookmarks, portable audiobooks, responsive/RTL controls, and single-page multi-column reading order |
 | 2026-07-26 | Stage 5 | Render indexed search-result pages first | PDF import already stores page-level text and FTS locators; applying that locator during `pagesinit` removes the redundant page-one render while retaining PDF.js text-layer highlighting and whole-document Find as a correctness fallback |
+| 2026-07-28 | Stage 3 | Preserve PDF visual lines in indexed text | Reusing the geometry-aware narration grouping prevents unrelated adjacent lines from becoming one word while normalized phrase search continues to treat line breaks as whitespace |
 | 2026-07-25 | Stage 5 | Remove the temporary PDF WebView harness | The production import and reader paths now cover its worker, canvas, text-layer, and cleanup responsibilities without maintaining a second app entry point |
 
 ## References
