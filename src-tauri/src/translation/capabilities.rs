@@ -5,7 +5,8 @@
 
 use super::config::{
     DEFAULT_BATCH_SEGMENT_LIMIT, DEFAULT_MAX_SEGMENT_CHARS, DEFAULT_TRANSLATION_QUALITY_MODE,
-    TRANSLATION_BACKEND_CTRANSLATE2, TRANSLATION_BACKEND_UNAVAILABLE,
+    TRANSLATION_BACKEND_CTRANSLATE2, TRANSLATION_BACKEND_LLAMA_CPP, TRANSLATION_BACKEND_MULTI,
+    TRANSLATION_BACKEND_UNAVAILABLE,
 };
 use super::model_store::{directory_size, manifest_for, resolve_translation_model_dir};
 use super::models::{find_planned_model, planned_models};
@@ -22,16 +23,19 @@ pub(super) const NOT_IMPLEMENTED: &str =
 /// The UI uses this stable payload to render model choices and feature gates
 /// before every platform has native inference support.
 pub(super) fn translation_capabilities() -> TranslationCapabilities {
-    let available = cfg!(feature = "native-translation-ctranslate2");
+    let ctranslate2 = cfg!(feature = "native-translation-ctranslate2");
+    let llama = cfg!(feature = "native-translation-llama");
+    let available = ctranslate2 || llama;
     TranslationCapabilities {
         available,
-        backend: if available {
-            TRANSLATION_BACKEND_CTRANSLATE2
-        } else {
-            TRANSLATION_BACKEND_UNAVAILABLE
+        backend: match (ctranslate2, llama) {
+            (true, true) => TRANSLATION_BACKEND_MULTI,
+            (true, false) => TRANSLATION_BACKEND_CTRANSLATE2,
+            (false, true) => TRANSLATION_BACKEND_LLAMA_CPP,
+            (false, false) => TRANSLATION_BACKEND_UNAVAILABLE,
         }
         .into(),
-        reason: translation_capability_reason(available),
+        reason: translation_capability_reason(ctranslate2, llama),
         platform: std::env::consts::OS.into(),
         default_quality_mode: DEFAULT_TRANSLATION_QUALITY_MODE.into(),
         models: planned_models(),
@@ -95,25 +99,37 @@ pub(super) fn translation_model_status<R: tauri::Runtime>(
                 format!(
                     "{NOT_IMPLEMENTED} This candidate is not downloadable until source URL, checksum, license, required files, and platform gates are reviewed."
                 )
-            } else if cfg!(feature = "native-translation-ctranslate2") {
+            } else if model_engine_available(model) {
                 "Translation model is installable. Install it before starting a translation job."
                     .into()
             } else {
                 format!(
-                    "{NOT_IMPLEMENTED} The file manifest is pinned and installable, but native CTranslate2 inference is not wired yet."
+                    "{NOT_IMPLEMENTED} The file manifest is pinned, but the native {} engine is not compiled in this build.",
+                    model.engine
                 )
             },
         },
     }
 }
 
-fn translation_capability_reason(available: bool) -> String {
+fn translation_capability_reason(ctranslate2: bool, llama: bool) -> String {
     let limits = format!(
         "max {DEFAULT_MAX_SEGMENT_CHARS} chars/segment, {DEFAULT_BATCH_SEGMENT_LIMIT} segments/batch"
     );
-    if available {
-        format!("CTranslate2 offline translation is available for pinned OPUS-MT models; {limits}.")
-    } else {
-        format!("{NOT_IMPLEMENTED} Planned defaults: {limits}.")
+    match (ctranslate2, llama) {
+        (true, true) => {
+            format!("OPUS-MT and HY-MT2 offline translation are available; {limits}.")
+        }
+        (true, false) => format!("OPUS-MT offline translation is available; {limits}."),
+        (false, true) => format!("HY-MT2 offline translation is available; {limits}."),
+        (false, false) => format!("{NOT_IMPLEMENTED} Planned defaults: {limits}."),
+    }
+}
+
+fn model_engine_available(model: super::models::TranslationModelDefinition) -> bool {
+    match model.engine {
+        "ctranslate2" => cfg!(feature = "native-translation-ctranslate2"),
+        "llama.cpp" => cfg!(feature = "native-translation-llama"),
+        _ => false,
     }
 }

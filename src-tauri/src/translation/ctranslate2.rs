@@ -83,6 +83,11 @@ impl CTranslate2Engine {
         }
     }
 
+    #[cfg(test)]
+    fn config(&self) -> &CTranslate2EngineConfig {
+        &self.config
+    }
+
     /// Initialize the native translator only when the feature is compiled in.
     ///
     /// Non-native builds still construct the adapter so shared planning/storage
@@ -118,10 +123,6 @@ impl CTranslate2Engine {
         {
             Ok(Self::new(config))
         }
-    }
-
-    pub(crate) fn config(&self) -> &CTranslate2EngineConfig {
-        &self.config
     }
 }
 

@@ -419,15 +419,15 @@ The costs are material but bounded:
   MiB to the package and are fetched only when a PDF requires them.
 - The rejected `pdf_oxide` spike resolved 172 packages, produced about 3.0 GB
   of build artifacts, and yielded a 9,982,632-byte optimized probe. Removing it
-  avoids raising Papercut's Rust minimum and carrying a second PDF parser.
-- `pdf-extract` and its current transitive dependency resolution do not compile
-  cleanly with Cargo 1.77.2 because dependencies now use Rust 2024 manifests.
-  Pinning old transitives would add maintenance without solving its RTL and
-  coordinate limitations.
+  avoids carrying a second PDF parser.
+- `pdf-extract` did not compile with Papercut's minimum at the time of the PDF
+  evaluation. Pinning old transitives would still add maintenance without
+  solving its RTL and coordinate limitations.
 
-Rust 1.77.2 remains Papercut's declared minimum. The rejected native spike ran
-on stable Rust 1.96.1 because `pdf_oxide` required Rust 1.88, but an abandoned
-candidate is not a reason to raise the product minimum.
+Papercut later raised its declared Rust minimum to 1.85 for the native HY-MT2
+translation runtime. That independent toolchain change does not alter the
+PDF.js decision: the rejected native parsers still failed the text-correctness,
+RTL, coordinate, or duplicate-parser maintenance gates.
 
 The native probe was fast and produced finite bounds, but throughput did not
 pass the correctness gate. A deterministic one-page comparison showed a false
@@ -1033,7 +1033,7 @@ Stage status: Deferred
 | 2026-07-24 | Stage 0 | Approve the scope, fixture matrix, and measurable budgets | Product-owner approval opened the renderer/extractor spike |
 | 2026-07-24 | Stage 1 | Prefer PDF.js 6.1.200 as the renderer candidate | It rendered the RTL fixture and exposes the canvas, text, direction, and coordinate data needed by the viewer; device WebViews remain the gate |
 | 2026-07-24 | Stage 1 | Reject `pdf-extract` 0.12.0 for production | It reversed the Arabic fixture's logical order and lacks the coordinate model required for search/TTS highlighting |
-| 2026-07-24 | Stage 1 | Reject `pdf_oxide` 0.3.75 and keep Rust 1.77.2 | The native candidate inserted a false inline-style space and fused visible Arabic words; fixing this would require custom heuristics while retaining a second parser and raising Papercut's minimum Rust version |
+| 2026-07-24 | Stage 1 | Reject `pdf_oxide` 0.3.75 | The native candidate inserted a false inline-style space and fused visible Arabic words; fixing this would require custom heuristics while retaining a second parser |
 | 2026-07-24 | Stage 1 | Select PDF.js 6.1.200 for rendering and extraction | The installed parser preserved expected word boundaries, reading order, and finite coordinates while avoiding renderer/extractor disagreement |
 | 2026-07-24 | Stage 1 | Lazy-load PDF.js outside normal app startup | The optimized spike adds about 2.02 MB minified to the package, but only about 2.9 KB of eagerly loaded JavaScript and CSS before gzip |
 | 2026-07-24 | Stage 1 | Generate local PDF.js runtime assets from the pinned npm package | PDF.js resolves JPEG 2000 decoders and standard fonts by stable filename; copying only those installed directories avoids CDN access, committed binary duplication, and another build dependency |

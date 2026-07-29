@@ -20,6 +20,7 @@ use super::ctranslate2::CTranslate2Engine;
 use super::engine::{
     TranslationBatchInput, TranslationEngine, TranslationSegmentContext, TranslationSegmentInput,
 };
+use super::hy_mt2::HyMt2Engine;
 use super::inline_markup::{inline_phrase_probes_by_block, InlinePhraseProbe};
 use super::job::{
     build_translation_cache_key, plan_translation_job, TranslationBatchPlan, TranslationJobPlan,
@@ -85,9 +86,16 @@ pub(super) fn start_translation<R: tauri::Runtime>(
         .to_string();
     clear_cancelled(&state.cancelled_jobs, &job_id)?;
     let started = Instant::now();
-    let mut engine =
-        CTranslate2Engine::for_installed_model(plan.request.model_id.clone(), model_dir)?;
-    match run_translation_batches(app, state, &mut engine, &plan, &source, &job_id, started) {
+    let mut engine = load_translation_engine(model, &model_dir)?;
+    match run_translation_batches(
+        app,
+        state,
+        engine.as_mut(),
+        &plan,
+        &source,
+        &job_id,
+        started,
+    ) {
         Ok(summary) => {
             emit_translation_progress(
                 app,
@@ -172,8 +180,8 @@ pub(super) fn start_translation<R: tauri::Runtime>(
                 plan.total_segments,
                 plan.batches.len(),
                 source.title,
-                engine.config().model_id,
-                engine.config().model_dir.display(),
+                plan.request.model_id,
+                model_dir.display(),
                 err.message
             ))
         }
@@ -277,7 +285,7 @@ impl BatchRunState<'_> {
 fn run_translation_batches<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     state: &TranslationState,
-    engine: &mut CTranslate2Engine,
+    engine: &mut dyn TranslationEngine,
     plan: &TranslationJobPlan,
     source: &TranslationSourceDocument,
     job_id: &str,
@@ -498,7 +506,7 @@ fn run_translation_batches<R: tauri::Runtime>(
 /// the hints keyed by owning segment id, plus whether new probe translations
 /// entered the cache and need a save.
 fn translate_inline_phrase_hints(
-    engine: &mut CTranslate2Engine,
+    engine: &mut dyn TranslationEngine,
     plan: &TranslationJobPlan,
     batch: &TranslationBatchPlan,
     probes_by_block: &[Vec<InlinePhraseProbe>],
@@ -793,19 +801,20 @@ fn validate_model_request(
         ));
     }
 
-    // OPUS-MT pair models translate plain segment text only. Reject settings
-    // they cannot honor instead of creating distinct variants with identical
-    // inference behavior.
+    if request.quality_mode != DEFAULT_TRANSLATION_QUALITY_MODE {
+        return Err(format!(
+            "{} supports only the default {:?} quality setting.",
+            model.name, DEFAULT_TRANSLATION_QUALITY_MODE
+        ));
+    }
+    if request.repair_mode != TranslationRepairMode::Off {
+        return Err(format!("{} does not support chapter repair.", model.name));
+    }
+
+    // OPUS-MT pair models translate plain segment text only. HY-MT2 can add
+    // bounded terminology mappings to its prompt, so glossary requests remain
+    // valid for that engine.
     if model.engine == "ctranslate2" {
-        if request.quality_mode != DEFAULT_TRANSLATION_QUALITY_MODE {
-            return Err(format!(
-                "{} supports only the default {:?} quality setting.",
-                model.name, DEFAULT_TRANSLATION_QUALITY_MODE
-            ));
-        }
-        if request.repair_mode != TranslationRepairMode::Off {
-            return Err(format!("{} does not support chapter repair.", model.name));
-        }
         if !request.glossary.is_empty() {
             return Err(format!(
                 "{} does not support glossary instructions.",
@@ -815,6 +824,30 @@ fn validate_model_request(
     }
 
     Ok(())
+}
+
+/// Construct the native adapter selected by catalog metadata.
+///
+/// The planner and persistence pipeline use only `TranslationEngine`; keeping
+/// this match here prevents engine-specific loading details from spreading
+/// into commands, caches, or the frontend.
+fn load_translation_engine(
+    model: TranslationModelDefinition,
+    model_dir: &std::path::Path,
+) -> Result<Box<dyn TranslationEngine>, String> {
+    match model.engine {
+        "ctranslate2" => Ok(Box::new(CTranslate2Engine::for_installed_model(
+            model.id.to_string(),
+            model_dir.to_path_buf(),
+        )?)),
+        "llama.cpp" if model.id == "hy-mt2-1.8b-q8" => {
+            Ok(Box::new(HyMt2Engine::for_installed_model(model_dir)?))
+        }
+        engine => Err(format!(
+            "{} uses unsupported translation engine {engine:?}",
+            model.name
+        )),
+    }
 }
 
 #[cfg(test)]
@@ -865,5 +898,23 @@ mod tests {
             note: None,
         });
         assert!(validate_model_request(model, &glossary).is_err());
+    }
+
+    #[test]
+    fn hy_mt2_accepts_supported_language_and_glossary() {
+        let model = PLANNED_TRANSLATION_MODELS
+            .iter()
+            .copied()
+            .find(|model| model.id == "hy-mt2-1.8b-q8")
+            .expect("HY-MT2 model");
+        let mut request = request("es");
+        request.model_id = model.id.into();
+        request.glossary.push(TranslationGlossaryEntry {
+            source: "Estado".into(),
+            target: "State".into(),
+            note: None,
+        });
+
+        assert!(validate_model_request(model, &request).is_ok());
     }
 }

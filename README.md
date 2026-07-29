@@ -74,13 +74,13 @@ Tauri requires the following system libraries. Refer to the Tauri [documentation
 **Debian-based (Ubuntu,Mint etc.):**
 
 ```bash
-sudo apt install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev build-essential curl wget file libssl-dev libxdo-dev patchelf gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+sudo apt install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev build-essential clang libclang-dev cmake curl wget file libssl-dev libxdo-dev patchelf gstreamer1.0-plugins-base gstreamer1.0-plugins-good
 ```
 
 **Arch-based (CachyOS, Manjaro, etc.):**
 
 ```bash
-sudo pacman -S --needed webkit2gtk-4.1 base-devel curl wget file openssl appmenu-gtk-module libappindicator-gtk3 librsvg xdotool patchelf gst-plugins-base gst-plugins-good
+sudo pacman -S --needed webkit2gtk-4.1 base-devel clang cmake curl wget file openssl appmenu-gtk-module libappindicator-gtk3 librsvg xdotool patchelf gst-plugins-base gst-plugins-good
 ```
 
 ### System Dependencies (macOS)

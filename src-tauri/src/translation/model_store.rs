@@ -1,9 +1,8 @@
 //! Translation model manifest and cache path helpers.
 //!
-//! This layer mirrors the TTS model-store boundary. The first CTranslate2
-//! manifests can be downloaded and verified now, but installation is still
+//! This layer mirrors the TTS model-store boundary. Installation remains
 //! separate from inference so the UI never claims translation is ready before
-//! CTranslate2 loading/tokenization lands.
+//! a native engine can load the verified model.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -54,10 +53,9 @@ impl TranslationModelManifest {
 
 /// Convert catalog metadata into the install manifest shape.
 ///
-/// The first CTranslate2 candidates are pinned to exact Hugging Face revisions
-/// and file checksums, and can be installed independently of inference. Later
-/// quality-model candidates intentionally stay empty so they cannot be mistaken
-/// for supported downloads.
+/// Runnable models are pinned to exact Hugging Face revisions and file
+/// checksums. Candidate-only rows intentionally stay empty so they cannot be
+/// mistaken for supported downloads.
 pub(crate) fn manifest_for(model: TranslationModelDefinition) -> TranslationModelManifest {
     if model.id == "opus-mt-es-en-ctranslate2" {
         return TranslationModelManifest {
@@ -79,6 +77,18 @@ pub(crate) fn manifest_for(model: TranslationModelDefinition) -> TranslationMode
             source_url: "https://huggingface.co/michaelfeil/ct2fast-opus-mt-fr-en/tree/cb3b2d680bf35591a508d8479e2c99c44e281ef3",
             revision: "cb3b2d680bf35591a508d8479e2c99c44e281ef3",
             files: OPUS_MT_FR_EN_CT2_FILES,
+            installable: true,
+        };
+    }
+
+    if model.id == "hy-mt2-1.8b-q8" {
+        return TranslationModelManifest {
+            model_id: model.id,
+            directory_name: model.id,
+            source_label: "tencent/Hy-MT2-1.8B-GGUF",
+            source_url: "https://huggingface.co/tencent/Hy-MT2-1.8B-GGUF/tree/1cd5208700acedef4ef93019b6cfc148b8522d45",
+            revision: "1cd5208700acedef4ef93019b6cfc148b8522d45",
+            files: HY_MT2_1_8B_Q8_FILES,
             installable: true,
         };
     }
@@ -263,6 +273,12 @@ const OPUS_MT_FR_EN_CT2_FILES: &[TranslationModelFile] = &[
     },
 ];
 
+const HY_MT2_1_8B_Q8_FILES: &[TranslationModelFile] = &[TranslationModelFile {
+    path: "Hy-MT2-1.8B-Q8_0.gguf",
+    bytes: 1_908_528_192,
+    sha256: "5c3fe0b1408a5ceb0143184ef247b11b579c525f4b02b060e6c851bb76fef1a4",
+}];
+
 #[cfg(test)]
 mod tests {
     use super::manifest_for;
@@ -284,8 +300,19 @@ mod tests {
     }
 
     #[test]
+    fn pinned_hy_mt2_manifest_is_installable() {
+        let model = find_planned_model("hy-mt2-1.8b-q8").expect("model");
+        let manifest = manifest_for(model);
+
+        assert!(manifest.installable);
+        assert!(manifest.source_url.contains(manifest.revision));
+        assert_eq!(manifest.files.len(), 1);
+        assert_eq!(manifest.total_bytes(), 1_908_528_192);
+    }
+
+    #[test]
     fn later_quality_candidates_remain_empty_manifests() {
-        let model = find_planned_model("translategemma-4b").expect("model");
+        let model = find_planned_model("qwen3-8b").expect("model");
         let manifest = manifest_for(model);
 
         assert!(!manifest.installable);

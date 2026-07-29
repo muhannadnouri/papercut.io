@@ -9,7 +9,7 @@ const linkMode = isStatic ? "static" : "shared"
 const ttsFeature = isStatic ? "native-tts-static" : "native-tts-shared"
 const features = [
   ttsFeature,
-  ...(translationEnabled ? ["native-translation-ctranslate2"] : []),
+  ...(translationEnabled ? ["native-translation-ctranslate2", "native-translation-llama"] : []),
 ]
 const platform = currentDesktopPlatform()
 

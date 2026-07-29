@@ -224,6 +224,9 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             build-essential \
+            clang \
+            libclang-dev \
+            cmake \
             curl \
             wget \
             file \

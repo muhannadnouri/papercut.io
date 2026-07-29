@@ -1,8 +1,8 @@
 //! Offline translation model catalog.
 //!
-//! Pinned CTranslate2 entries are installable on supported desktop builds;
-//! candidate-only quality models remain descriptive until their runtime,
-//! licensing, and platform constraints are validated.
+//! Pinned CTranslate2 and llama.cpp entries are installable on supported
+//! desktop builds; candidate-only models remain descriptive until their
+//! runtime, licensing, and platform constraints are validated.
 
 use super::config::DEFAULT_TRANSLATION_QUALITY_MODE;
 use super::types::TranslationModelInfo;
@@ -56,9 +56,8 @@ impl TranslationModelDefinition {
 
 /// Translation models and manifest states surfaced to the frontend.
 ///
-/// The first CTranslate2 rows have pinned file manifests in `model_store` and
-/// are runnable when the native desktop feature is compiled. The remaining
-/// rows stay candidate-only.
+/// Runnable rows have pinned file manifests in `model_store`; remaining rows
+/// stay candidate-only.
 pub(crate) const PLANNED_TRANSLATION_MODELS: &[TranslationModelDefinition] = &[
     TranslationModelDefinition {
         id: "opus-mt-es-en-ctranslate2",
@@ -70,7 +69,7 @@ pub(crate) const PLANNED_TRANSLATION_MODELS: &[TranslationModelDefinition] = &[
         target_languages: &["en"],
         recommended_platforms: &["desktop", "android"],
         license_notes: "Requires Helsinki-NLP/OPUS-MT model-card and redistribution review before download support.",
-        size_notes: "Expected to be small enough for desktop and Android MVP benchmarking after conversion.",
+        size_notes: "About 159 MB installed; optimized for practical CPU inference.",
         notes: "First CTranslate2 MVP candidate; use this to prove model install, batching, and indexing before wider language support.",
     },
     TranslationModelDefinition {
@@ -83,21 +82,21 @@ pub(crate) const PLANNED_TRANSLATION_MODELS: &[TranslationModelDefinition] = &[
         target_languages: &["en"],
         recommended_platforms: &["desktop", "android"],
         license_notes: "Requires Helsinki-NLP/OPUS-MT model-card and redistribution review before download support.",
-        size_notes: "Expected to be small enough for desktop and Android MVP benchmarking after conversion.",
+        size_notes: "About 153 MB installed; optimized for practical CPU inference.",
         notes: "Second CTranslate2 MVP candidate; useful comparison against Spanish for quality and packaging behavior.",
     },
     TranslationModelDefinition {
-        id: "translategemma-4b",
-        name: "TranslateGemma 4B",
+        id: "hy-mt2-1.8b-q8",
+        name: "HY-MT2 1.8B Q8",
         engine: "llama.cpp",
         tier: "quality",
-        manifest_state: "candidate-only",
+        manifest_state: "pinned-file-manifest",
         source_languages: &["ar", "de", "es", "fr", "ru", "zh"],
         target_languages: &["en"],
         recommended_platforms: &["desktop"],
-        license_notes: "Requires Google model-license review and packaging approval.",
-        size_notes: "Large desktop candidate; mobile feasibility must be benchmarked before listing.",
-        notes: "Quality-focused candidate; license, quantization, RAM, and mobile feasibility need review.",
+        license_notes: "Tencent HY-MT2 is Apache-2.0; preserve model attribution when redistributing or documenting it.",
+        size_notes: "About 1.9 GB for the pinned Q8_0 GGUF; CPU inference is supported, while GPU acceleration remains unverified.",
+        notes: "Quality-focused desktop model using llama.cpp. This first integration is CPU-first; CUDA and mobile packaging require separate validation.",
     },
     TranslationModelDefinition {
         id: "qwen3-8b",

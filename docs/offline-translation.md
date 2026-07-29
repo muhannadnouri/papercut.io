@@ -1,14 +1,15 @@
 # Offline Translation Roadmap And Status
 
-Papercut now has an in-progress offline translation pipeline. The production desktop build includes the CTranslate2 translation feature so model download and translation jobs can be exercised end to end, while Android and higher-quality LLM translation remain roadmap work. This document tracks the architecture, completed stages, partial areas, and next steps without weakening the current document, search, reader, or TTS architecture.
+Papercut now has an in-progress offline translation pipeline. The production desktop build includes CTranslate2 and llama.cpp translation features so pinned OPUS-MT and HY-MT2 models use the same model-download, job, cache, validation, and storage pipeline. Android and GPU-accelerated LLM translation remain roadmap work.
 
 The goal is high-quality offline translation for long-form HTML and EPUB books, primarily into English, while keeping the app responsive on desktop and mobile. The feature should feel like audiobook saving: the user starts a long-running job, the backend performs bounded native work, progress is visible, results are cached, and the finished output becomes durable user data.
 
 ## Current Implementation Status
 
-- Desktop production builds now compile with `native-tts-shared,native-translation-ctranslate2` through `npm run desktop`.
+- Desktop production builds now compile with `native-tts-shared,native-translation-ctranslate2,native-translation-llama` through `npm run desktop`.
 - `npm run desktop:no-translation` keeps the desktop build on native TTS only for packaging/debug isolation.
-- Spanish -> English and French -> English OPUS-MT CTranslate2 model manifests are pinned and installable.
+- Spanish -> English and French -> English OPUS-MT CTranslate2 manifests are pinned and installable.
+- HY-MT2 1.8B Q8 is a pinned, installable quality model for Arabic, German, Spanish, French, Russian, and Chinese translation into English. The first supported path is desktop CPU inference through `llama-cpp-2`; NVIDIA/CUDA has not been smoke-tested yet.
 - The translation workbench lists only pinned, supported models; future quality-model candidates remain informational.
 - Translation jobs run through the native engine boundary, emit progress/cancel events, reuse segment cache entries, run first-pass quality gates, and persist successful output as derived uploaded documents.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -20,8 +21,8 @@ The goal is high-quality offline translation for long-form HTML and EPUB books, 
 - Translated variants are separate durable documents that can be opened, searched, deleted, and later used by the normal TTS flow.
 - HTML/EPUB rendering uses the sanitized reader HTML where possible and preserves links, ids, images, tables, and EPUB-rewritten assets conservatively.
 - Stage 5B has passed local desktop model-install, translation, open/search/delete, and cache-assisted retry smoke tests. Packaged release artifacts still need CI/release validation.
-- Android translation is not supported yet; CTranslate2/`ct2rs` packaging must be validated separately from desktop.
-- Quality-model work for TranslateGemma/Qwen and chapter-level repair has not started.
+- Android and iOS translation are not supported yet; native runtime packaging, memory, thermals, and model-size behavior must be validated separately from desktop.
+- Chapter-level repair has not started. Qwen remains research-only.
 
 ## Product Goals
 
@@ -78,6 +79,7 @@ src-tauri/src/translation/
   engine.rs         # shared engine trait and batch/segment contracts
   hash.rs           # stable non-cryptographic hashing for cache identity
   html.rs           # shared HTML parser boundary for DOM-preserving transforms
+  hy_mt2.rs         # llama.cpp/HY-MT2 engine adapter
   inline_markup.rs  # marker-aware inline models and span projection
   job.rs            # request validation, segmentation batching, cache keys
   model_install.rs  # download, verify, extract, install
@@ -193,12 +195,30 @@ Papercut should support a catalog, not one universal model.
 | Tier | Candidate | Engine | Best Use | Notes |
 | --- | --- | --- | --- | --- |
 | Fast MVP | OPUS-MT / Marian pair models | CTranslate2 | common pair translation, mobile-friendly baseline | small, fast, quality varies by pair |
-| Quality desktop | TranslateGemma 12B | llama.cpp or other local runtime after spike | high-quality book translation into English | heavy, license review required |
-| Quality edge experiment | TranslateGemma 4B | llama.cpp / GGUF after spike | smaller high-quality model | possible high-end mobile candidate, still heavy |
+| Quality desktop | HY-MT2 1.8B Q8 | llama.cpp via `llama-cpp-2` | multilingual book translation into English | pinned Apache-2.0 GGUF; CPU supported first, GPU validation pending |
 | Context-rich fallback | Qwen3 8B or 14B | llama.cpp / GGUF | academic prose, Chinese-heavy work, glossary-aware prompts | strong but more generative and less task-bounded |
 | Multilingual research | MADLAD-400 3B-MT | CTranslate2 or Candle spike | broad language coverage with Apache-2.0 license | heavier than pair models |
 | HTML-aware reference | Bergamot | C++ or Wasm spike | tag alignment and sentence iteration ideas | not quality default for academic books |
 | Avoid default | NLLB | CTranslate2 possible | broad research comparison only | CC-BY-NC and model card says not production/document translation |
+
+### OPUS-MT And HY-MT2 System Requirements
+
+| Concern | OPUS-MT CTranslate2 | HY-MT2 1.8B Q8 |
+| --- | --- | --- |
+| Installed model size | about 153-159 MB per language pair | 1.91 GB |
+| Runtime | CTranslate2/Marian | llama.cpp |
+| CPU use | practical default; optimized pair-specific inference | supported but expected to be materially slower |
+| Memory | comparatively modest; benchmark before setting a formal floor | multi-GB model plus context/runtime overhead; benchmark before setting a formal floor |
+| GPU requirement | none | none for the initial CPU path |
+| Language coverage | one installed model per pair | one model covers the currently exposed six source languages into English |
+| Mobile status | catalog candidate only; Android/iOS packaging is not yet supported | desktop only; mobile size, memory, thermals, and packaging are unvalidated |
+| Best fit | quick routine translation | quality-focused translation where added time and storage are acceptable |
+
+The table describes architecture and pinned artifact sizes, not a performance
+promise. Record latency, peak memory, and quality on representative hardware
+before defining minimum requirements. In particular, do not advertise CUDA,
+Metal, Android, or iOS support for HY-MT2 based only on llama.cpp's upstream
+capabilities.
 
 ### Recommended Initial Language Pairs
 
@@ -225,11 +245,13 @@ Each pair should have at least one short sample, one long chapter sample, and on
    - Before marking Android supported, validate whether `ct2rs` can package CTranslate2 cleanly with the Android NDK. If not, keep the Rust API and replace the internals with a thin direct C++/FFI wrapper.
    - iOS should be treated as a later packaging validation target, not assumed from the desktop spike.
 
-2. **llama.cpp / GGUF spike**
-   - Best path for TranslateGemma and Qwen-style local LLMs.
+2. **llama.cpp / GGUF integration**
+   - HY-MT2 1.8B Q8 is the first supported prompt-driven engine.
    - Good desktop ecosystem and quantization support.
    - Prompting must be tightly constrained to avoid paraphrase drift and hallucination.
-   - This is the next best quality jump after the CTranslate2 MVP. TranslateGemma should be tried first for task-specific translation quality; Qwen should be compared for academic prose/context handling with stricter QA against paraphrase drift.
+   - Papercut uses the model's published translation-only prompt and bounded generation, while retaining the existing per-segment cache and quality gates.
+   - CUDA, Apple Metal, and mobile are explicit follow-up targets rather than assumed support.
+   - Qwen can still be compared for academic prose/context handling with stricter QA against paraphrase drift.
 
 3. **Bergamot spike**
    - Valuable for HTML alignment and sentence iteration.
@@ -317,20 +339,21 @@ Mobile:
 
 Desktop build feature selection deliberately keeps TTS and translation separate:
 
-- `npm run desktop`: shared native TTS plus CTranslate2 offline translation.
-- `npm run desktop:static`: static native TTS plus CTranslate2 offline translation.
+- `npm run desktop`: shared native TTS plus CTranslate2 and llama.cpp offline translation.
+- `npm run desktop:static`: static native TTS plus CTranslate2 and llama.cpp offline translation.
 - `npm run desktop:no-translation`: shared native TTS only, for isolating packaging or translation-runtime failures.
 
 The build script composes the features at its final Tauri boundary:
 
 ```text
 ttsFeature -> native-tts-shared or native-tts-static
-features   -> ttsFeature + native-translation-ctranslate2 unless explicitly disabled
+features   -> ttsFeature + native-translation-ctranslate2
+                         + native-translation-llama unless explicitly disabled
 ```
 
 This keeps desktop builds useful for end-to-end translation testing without coupling translation diagnostics to TTS link-mode decisions.
 
-Linux desktop builds need `cmake` because the CTranslate2 path currently pulls in `ct2rs` with SentencePiece support, and `sentencepiece-sys` builds native code during Cargo compilation.
+Linux desktop builds need `cmake` because both native engines compile C/C++ code. Building the llama.cpp adapter also requires Clang/libclang for generated bindings. Papercut's declared Rust minimum is 1.85.
 
 Android remains native-TTS-only for now. Do not add translation to `npm run android:apk:native-tts` until CTranslate2/`ct2rs` or a direct C++ wrapper has been validated with the Android NDK and package size/performance checks.
 
@@ -410,10 +433,10 @@ Each stage should be easy to review and commit independently.
   - Keep candidate-only models out of the runnable workbench selector until they have a pinned manifest and engine support.
 - Wire installed models into translation preflight:
   - Reject unknown models and unsupported language pairs before reading large documents.
-  - Require the selected pinned CTranslate2 model to be installed before job planning.
-  - Build the CTranslate2 engine config from the verified model directory.
-  - In default builds, still stop with a clear message when the native CTranslate2 feature is not compiled.
-  - In `native-translation-ctranslate2` builds, load `ct2rs::Translator` from the installed model directory and run every planned batch through the same engine boundary that stored jobs will use.
+  - Require the selected pinned model to be installed before job planning.
+  - Construct the matching native engine from the verified model directory.
+  - In default builds, stop with a clear message when that model's native engine feature is not compiled.
+  - Load either `ct2rs::Translator` or the pinned HY-MT2 GGUF behind the same `TranslationEngine` boundary used by stored jobs.
 - Run the native engine in bounded batches, keep translated text in memory until all batches finish, and emit progress/cancellation events before durable writes begin.
 - Preserve one translated section slot for every source section during assembly; blank outputs should fail validation with the source section ordinal instead of being dropped and reported as generic incomplete coverage.
 - Do not cache empty segment translations; a native empty-output failure must be retried or reported, not reused on every later run.
@@ -445,7 +468,7 @@ Each stage should be easy to review and commit independently.
 Status:
 
 - Done: CTranslate2 feature flag, adapter, tokenizer-aware OPUS-MT source splitting, capabilities reporting, installed-model preflight, pinned manifests, model installer, install UI, fixed-pair source validation, source loading, bounded batches, duplicate-job rejection, cooperative cancellation, progress events, validation-before-storage state, segment cache with empty-output rejection, exact translation memory, staged writes, transactional/recoverable derived upload replacement and deletion, replace-on-rerun variant identity, document-list refresh, and visible cached/reused progress.
-- Done: `npm run desktop` now includes `native-translation-ctranslate2` by default.
+- Done: `npm run desktop` includes both `native-translation-ctranslate2` and `native-translation-llama` by default.
 - Verified locally: desktop model download/load, HTML/EPUB translation, translated variant open/search/delete, cancellation, and cache-assisted retry.
 - Needs proof: packaged release artifacts and app-restart recovery under real interrupted jobs.
 - Not done: Android translation packaging.
@@ -535,72 +558,18 @@ Status:
 - Done: OPUS-MT rejects non-default quality, glossary, and repair options instead of creating misleading variants.
 - Not done: automatic multilingual NER, section regeneration loop, actual chapter repair pass.
 
-### Stage 8: Quality Model Spikes - In Progress
+### Stage 8: HY-MT2 Quality Engine - In Progress
 
-- TranslateGemma 4B comparison harness:
-  - Done: add a dependency-free development harness that sends aligned Spanish
-    passages to a local OpenAI-compatible `llama-server`.
-  - Done: compare candidate output with both the stored OPUS baseline and a
-    manually reviewed English reference, recording per-segment latency and
-    token-bigram overlap.
-  - Done: keep generated reports under `.cache/translation-quality/`; neither
-    model weights nor local benchmark output belong in Git.
-  - Pending: accept the Gemma terms, provide a locally reviewed GGUF, run the
-    six-passage smoke test, and review every candidate translation for
-    mistranslation, omission, addition, terminology, and fluency.
-  - Token overlap is only a regression diagnostic. It is not a quality score
-    and must not replace human review.
-- Evaluate TranslateGemma 12B only if 4B quality is insufficient and desktop
-  memory remains practical.
-- Evaluate Qwen3 8B/14B for context-rich academic translation.
-- Compare against CTranslate2 output on the same book samples.
-- Decide which models belong in desktop, Android, or experimental catalogs.
-
-#### Running The TranslateGemma 4B Comparison
-
-TranslateGemma files are gated by the Gemma terms. The spike deliberately does
-not download, redistribute, or bless a community quantization. Accept the terms
-for the official model and provide a GGUF whose source revision and checksum
-you have reviewed.
-
-Start a recent `llama-server` with that local model:
-
-```sh
-llama-server \
-  -m /absolute/path/to/translategemma-4b-it-Q4_K_M.gguf \
-  --port 8080 \
-  --jinja \
-  -c 2048
-```
-
-`Q4_K_M` is a useful first benchmark size, not an approved production artifact.
-The official model supports a 2K-token input context and requires a specialized
-chat template carrying source and target language codes. The comparison client
-uses that official message shape.
-
-Validate the fixture and request without inference:
-
-```sh
-npm run translation:compare -- --dry-run
-```
-
-Then run the comparison:
-
-```sh
-npm run translation:compare
-```
-
-Use `--server-url` when the server is not at `http://127.0.0.1:8080`, and
-`--fixture` to test another aligned corpus. The committed fixture is a small
-quality smoke test, not model-training data and not a sufficient release gate
-on its own.
-
-The 4B candidate advances to production integration only if:
-
-- human review prefers it to OPUS across the representative passages;
-- it introduces no omissions, additions, or meaning reversals;
-- terminology and idioms improve without becoming free paraphrases; and
-- measured latency and memory are acceptable on the intended desktop floor.
+- Done: pin `tencent/Hy-MT2-1.8B-GGUF` at an exact revision, file size, and SHA-256.
+- Done: add HY-MT2 to the existing installer and runnable workbench catalog.
+- Done: add a CPU-first `llama-cpp-2` adapter behind `TranslationEngine`.
+- Done: load the GGUF once per job, reuse a context within each batch, clear KV state between independent segments, and bound prompt/output tokens.
+- Done: use HY-MT2's published translation-only prompt and sampler settings with a fixed seed.
+- Done: retain the existing cache, glossary prompt hints, progress, cancellation-between-batches, validation, rendering, search indexing, and durable variant storage.
+- Pending: install the 1.9 GB model and run desktop CPU smoke tests on representative short/chapter/book samples.
+- Deferred: NVIDIA RTX/CUDA smoke testing is unavailable on the current development machine. Do not claim CUDA support until a separate build feature, packaging pass, and quality/performance benchmark succeed on an RTX-class Linux machine.
+- Deferred: Apple Metal, Windows packaging, Android, and iOS validation.
+- Deferred: compare Qwen only if HY-MT2 quality has a demonstrated gap worth another runtime/model cost.
 
 ### Stage 9: Mobile Hardening - Not Started
 
@@ -640,7 +609,7 @@ Language samples:
 - Should translated variants appear under the original document as children, or as separate documents with a source badge?
 - Should translated variants be exportable/importable as part of future library backup?
 - Should glossary be global, per collection, or per document?
-- Should the first quality model be TranslateGemma 4B or Qwen3 8B?
+- Does HY-MT2 Q8 meet the reviewed quality and latency floor on representative books?
 - Which CTranslate2 model pairs have acceptable licenses and quality for the first supported languages?
 - Should Android support translation in the first release, or only after desktop benchmarks?
 
@@ -649,8 +618,8 @@ Language samples:
 - CTranslate2: https://github.com/OpenNMT/CTranslate2
 - CTranslate2 Transformers support: https://opennmt.net/CTranslate2/guides/transformers.html
 - ct2rs Rust bindings for CTranslate2: https://docs.rs/ct2rs
-- TranslateGemma model card: https://huggingface.co/google/translategemma-4b-it
-- TranslateGemma announcement: https://blog.google/innovation-and-ai/technology/developers-tools/translategemma/
+- HY-MT2 GGUF model card: https://huggingface.co/tencent/Hy-MT2-1.8B-GGUF
+- llama.cpp Rust bindings: https://github.com/utilityai/llama-cpp-rs
 - Qwen3 8B model card: https://huggingface.co/Qwen/Qwen3-8B
 - MADLAD-400 3B MT model card: https://huggingface.co/google/madlad400-3b-mt
 - NLLB model card and limitations: https://huggingface.co/facebook/nllb-200-distilled-600M

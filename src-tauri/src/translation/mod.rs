@@ -13,6 +13,7 @@ mod ctranslate2;
 mod engine;
 mod hash;
 mod html;
+mod hy_mt2;
 mod inline_markup;
 mod job;
 mod model_install;
