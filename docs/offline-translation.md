@@ -34,7 +34,7 @@ The goal is high-quality offline translation for long-form HTML and EPUB books, 
 - Do not rewrite the original uploaded source.
 - Do not require cloud translation.
 - Do not attempt word-perfect bilingual highlighting in the first release.
-- Do not add PDF-specific translation behavior until PDF import/viewing has its own locators.
+- Do not add PDF translation to the first release; its page/text-layer locators need a separate translation design.
 - Do not make one model serve every language pair if pair-specific models produce better results.
 
 ## Recommended Architecture
@@ -107,9 +107,6 @@ src/translation/
   components/TranslationPanel.tsx
   components/TranslationPanel.css
   hooks/useTranslationManager.ts
-  storage/translationPreferences.ts
-  models.ts                     # TypeScript fallback catalog for browser preview
-  types.ts
 ```
 
 The document list should show translated variants as durable documents, not transient UI state. A translated variant should carry visible metadata such as:
@@ -317,11 +314,11 @@ Desktop build feature selection deliberately keeps TTS and translation separate:
 - `npm run desktop:static`: static native TTS plus CTranslate2 offline translation.
 - `npm run desktop:no-translation`: shared native TTS only, for isolating packaging or translation-runtime failures.
 
-The script boundary is:
+The build script composes the features at its final Tauri boundary:
 
 ```text
-nativeTtsFeatures()         -> native-tts-shared or native-tts-static
-nativeTranslationFeatures() -> native-translation-ctranslate2 or disabled
+ttsFeature -> native-tts-shared or native-tts-static
+features   -> ttsFeature + native-translation-ctranslate2 unless explicitly disabled
 ```
 
 This keeps desktop builds useful for end-to-end translation testing without coupling translation diagnostics to TTS link-mode decisions.
@@ -338,8 +335,8 @@ Each stage should be easy to review and commit independently.
 
 - Add this document.
 - Link it from README and document-upload docs.
-- Add a non-functional Translation tab placeholder so the app has a clear future navigation target.
-- Change the reader save affordance into a document action menu with **Save Audiobook** and **Translate Document** choices. The translation choice should route to the placeholder tab until backend translation exists.
+- Add a Translation tab so the app has a dedicated navigation target.
+- Add a distinct **Translate Document** reader action beside audiobook saving; route eligible uploaded HTML/EPUB documents into Translation setup.
 - Decide branch name, feature flag name, and initial model candidates.
 - Do not add translation model downloads, jobs, storage, or fake progress yet.
 

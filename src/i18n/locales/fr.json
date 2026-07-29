@@ -6,6 +6,7 @@
     "label": "Sections de l'application",
     "search": "Recherche",
     "library": "Bibliothèque",
+    "translation": "Traduction",
     "audiobooks": "Livres audio"
   },
   "common": {
@@ -436,6 +437,7 @@
       "saveProgress": "La sauvegarde du livre audio est de {{percent, number}}%. Ouvrez les livres audio pour le gérer.",
       "saveProgressTitle": "Économie de {{percent, number}}% - gérer dans les livres audio",
       "savedForCurrentSetup": "Livre audio enregistré pour la configuration actuelle",
+      "translateDocument": "Traduire le document",
       "save": "Enregistrer le livre audio",
       "saveCurrentSetup": "Enregistrer le livre audio avec la configuration actuelle",
       "savedVersions": "Livres audio enregistrés ({{count, number}})",

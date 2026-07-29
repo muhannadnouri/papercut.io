@@ -6,6 +6,7 @@
     "label": "أقسام التطبيق",
     "search": "البحث",
     "library": "المكتبة",
+    "translation": "الترجمة",
     "audiobooks": "الكتب الصوتية"
   },
   "common": {
@@ -454,6 +455,7 @@
       "saveProgress": "بلغ حفظ الكتاب الصوتي {{percent, number}}٪. افتح قسم الكتب الصوتية لإدارته.",
       "saveProgressTitle": "جارٍ الحفظ بنسبة {{percent, number}}٪ - الإدارة من قسم الكتب الصوتية",
       "savedForCurrentSetup": "تم حفظ الكتاب الصوتي للإعداد الحالي",
+      "translateDocument": "ترجمة المستند",
       "save": "حفظ الكتاب الصوتي",
       "saveCurrentSetup": "حفظ الكتاب الصوتي بالإعداد الحالي",
       "savedVersions": "الكتب الصوتية المحفوظة ({{count, number}})",

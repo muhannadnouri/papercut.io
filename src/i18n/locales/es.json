@@ -6,6 +6,7 @@
     "label": "Secciones de la aplicación",
     "search": "Buscar",
     "library": "Biblioteca",
+    "translation": "Traducción",
     "audiobooks": "Audiolibros"
   },
   "common": {
@@ -436,6 +437,7 @@
       "saveProgress": "El ahorro de audiolibros es {{percent, number}}%. Abra Audiolibros para administrarlo.",
       "saveProgressTitle": "Ahorro de {{percent, number}}% - gestionar en Audiolibros",
       "savedForCurrentSetup": "Audiolibro guardado para la configuración actual",
+      "translateDocument": "Traducir documento",
       "save": "Guardar audiolibro",
       "saveCurrentSetup": "Guardar audiolibro con la configuración actual",
       "savedVersions": "Audiolibros guardados ({{count, number}})",

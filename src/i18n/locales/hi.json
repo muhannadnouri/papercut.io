@@ -6,6 +6,7 @@
     "label": "ऐप अनुभाग",
     "search": "खोज",
     "library": "पुस्तकालय",
+    "translation": "अनुवाद",
     "audiobooks": "ऑडियो पुस्तकें"
   },
   "common": {
@@ -430,6 +431,7 @@
       "saveProgress": "ऑडियोबुक सेव {{percent, number}}% है। इसे प्रबंधित करने के लिए ऑडियोबुक खोलें।",
       "saveProgressTitle": "{{percent, number}}% की बचत - ऑडियोबुक में प्रबंधित करें",
       "savedForCurrentSetup": "मौजूदा सेटअप के लिए ऑडियोबुक सहेजी गई",
+      "translateDocument": "दस्तावेज़ का अनुवाद करें",
       "save": "ऑडियोबुक सहेजें",
       "saveCurrentSetup": "मौजूदा सेटअप के साथ ऑडियोबुक सहेजें",
       "savedVersions": "सहेजी गई ऑडियोबुक ({{count, number}})",

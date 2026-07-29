@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { AppDialog } from '../../components/AppDialog/AppDialog'
 import { Panel } from '../../components/Panel/Panel'
 import './TranslationPanel.css'
@@ -79,11 +79,7 @@ export function TranslationPanel({
     () => translatedDocuments.find((doc) => doc.id === confirmingDeleteId) ?? null,
     [confirmingDeleteId, translatedDocuments],
   )
-  const [docsOpen, setDocsOpen] = useState(false)
-  // Surface newly stored translations even if the list panel was collapsed.
-  useEffect(() => {
-    if (translatedDocuments.length > 0) setDocsOpen(true)
-  }, [translatedDocuments.length])
+  const [docsOpen, setDocsOpen] = useState(true)
   // Local-only dismissal of finished status messages; a new message (different
   // key) reappears without needing hook state changes.
   const [dismissedStatusKeys, setDismissedStatusKeys] = useState<string[]>([])
