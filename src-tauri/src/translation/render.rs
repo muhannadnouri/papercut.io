@@ -787,6 +787,7 @@ fn escape_html(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::render_translated_html;
+    use crate::translation::html::parse_html_document;
     use crate::translation::source::{TranslationSourceBlock, TranslationSourceDocument};
     use crate::translation::storage::{
         PersistTranslationFragment, PersistTranslationRequest, PersistTranslationSection,
@@ -923,6 +924,56 @@ mod tests {
     }
 
     #[test]
+    fn places_reordered_inline_phrase_using_translated_hint() {
+        let mut translated_fragment = fragment(
+            "Para avanzar se necesita el método práctico.",
+            "The practical method is needed to advance.",
+        );
+        translated_fragment.inline_phrases.push(
+            crate::translation::storage::PersistTranslationInlinePhrase {
+                source_text: "método práctico".into(),
+                text: "Practical method.".into(),
+            },
+        );
+        let request = request(
+            "<!doctype html><html><body><article><p>Para avanzar se necesita el <strong>método práctico</strong>.</p></article></body></html>",
+            vec![section_with_fragments(
+                0,
+                false,
+                "The practical method is needed to advance.",
+                vec![translated_fragment],
+            )],
+        );
+
+        let html = render_translated_html("Translated", &request);
+
+        assert!(html.contains("The <strong>practical method</strong> is needed to advance."));
+        assert!(!html.contains("método práctico"));
+    }
+
+    #[test]
+    fn preserves_nested_internal_link_markup_and_target() {
+        let request = request(
+            "<!doctype html><html><body><article><p>Voir les <a class=\"cross-reference\" href=\"#details\"><em>détails importants</em></a>.</p><p id=\"details\">Texte détaillé.</p></article></body></html>",
+            vec![
+                section(0, false, "See the important details."),
+                section(1, false, "Detailed text."),
+            ],
+        );
+
+        let html = render_translated_html("Translated", &request);
+        let document = parse_html_document(html.clone());
+
+        assert_eq!(html.matches("href=\"#details\"").count(), 1);
+        assert!(html.contains("class=\"cross-reference\""));
+        assert!(document
+            .select_first("a.cross-reference[href=\"#details\"] em")
+            .is_ok());
+        assert!(html.contains("id=\"details\""));
+        assert!(html.contains("Detailed text."));
+    }
+
+    #[test]
     fn preserves_ordered_footnote_items_and_backlinks() {
         let request = request(
             "<!doctype html><html><body><article><p>Texto<a href=\"#sdfootnote1sym\" id=\"sdfootnote1anc\" role=\"doc-noteref\"><sup>1</sup></a>.</p><section role=\"doc-endnotes\"><ol><li id=\"sdfootnote1sym\"><p>Nota uno<a href=\"#sdfootnote1anc\" role=\"doc-backlink\">↩︎</a></p></li><li id=\"sdfootnote2sym\"><p>Nota dos<a href=\"#sdfootnote2anc\" role=\"doc-backlink\">↩︎</a></p></li></ol></section></article></body></html>",
@@ -992,6 +1043,25 @@ mod tests {
         assert!(html.contains("Cover image."));
         assert!(html.contains("Name table."));
         assert!(html.contains("papercut-translation-inline"));
+    }
+
+    #[test]
+    fn preserves_links_inside_table_blocks_and_their_targets() {
+        let request = request(
+            "<!doctype html><html><body><article><blockquote><table><tr><td><a href=\"#table-note\">Nom</a></td></tr></table></blockquote><p id=\"table-note\">Note du tableau.</p></article></body></html>",
+            vec![
+                section(0, false, "Name table."),
+                section(1, false, "Table note."),
+            ],
+        );
+
+        let html = render_translated_html("Translated", &request);
+
+        assert_eq!(html.matches("href=\"#table-note\"").count(), 1);
+        assert!(html.contains("<table>"));
+        assert!(html.contains("id=\"table-note\""));
+        assert!(html.contains("Name table."));
+        assert!(html.contains("Table note."));
     }
 
     #[test]

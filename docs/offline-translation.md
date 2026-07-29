@@ -485,7 +485,8 @@ Status:
 
 - Done: DOM-preserving render path uses sanitized `view_html`; parser details are centralized in `translation::html`; inline markup collection/projection is isolated in `translation::inline_markup`; render block collection now matches importer block units; simple block text is replaced in place; real translation jobs carry source/target segment fragments plus normalized source offsets into translated sections; readable blocks are extracted into marker-aware inline models; whole-block inline emphasis is preserved when structurally unambiguous; mixed inline emphasis spans are projected inside segment windows before block-level fallback; exact carry-over emphasized phrases are preserved when one unique target match exists; small emphasized phrases are translated as best-effort repair hints for exact target phrase matching; safe non-overlapping inline spans survive even when nearby spans cannot be placed; footnote anchors and ordered endnote list items survive replacement without entering MT prose; media/table-heavy blocks keep source markup and insert translated fallback text nearby; generated output carries source ordinals and stable translated-section anchors.
 - Done: first-pass broken internal-link and empty-output validation, including source-section-specific errors when one section returns blank after all segments finish.
-- Still needed: true phrase alignment for reordered translations, broader fixtures, table-specific behavior, and richer tag/anchor validation.
+- Done: focused renderer regressions cover reordered emphasis placed through translated phrase hints, nested internal-link markup, and internal links retained inside preserved table blocks.
+- Still needed: general phrase alignment for reordered translations without a reliable hint, real-world complex-document fixtures, and richer tag/anchor validation.
 
 ### Stage 7: Quality Upgrades - Mostly Done
 
