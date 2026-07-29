@@ -13,6 +13,7 @@ import type {
   TranslationModelInstallProgress,
   TranslationModelInstallResult,
   TranslationModelInfo,
+  TranslationModelRemoveResult,
   TranslationModelStatus,
   TranslationStartRequest,
   TranslationStartResult,
@@ -35,6 +36,11 @@ interface TranslationPanelProps {
     result: TranslationModelInstallResult | null
     message: string
   }
+  modelRemoveState: {
+    removingModelId: string
+    result: TranslationModelRemoveResult | null
+    message: string
+  }
   modelStatuses: Record<string, TranslationModelStatus>
   selectedDocument: TranslationSeedDocument | null
   startState: {
@@ -50,6 +56,7 @@ interface TranslationPanelProps {
   onDeleteTranslatedDocument: (id: string) => Promise<void>
   onOpenTranslatedDocument: (url: string) => void | Promise<void>
   onInstallTranslationModel: (modelId: string) => Promise<void>
+  onRemoveTranslationModel: (modelId: string) => Promise<void>
   onStartTranslationPreflight: (request: TranslationStartRequest) => Promise<void>
   refresh: () => Promise<void>
 }
@@ -60,6 +67,7 @@ export function TranslationPanel({
   error,
   loading,
   modelInstallState,
+  modelRemoveState,
   modelStatuses,
   selectedDocument,
   startState,
@@ -68,6 +76,7 @@ export function TranslationPanel({
   onDeleteTranslatedDocument,
   onOpenTranslatedDocument,
   onInstallTranslationModel,
+  onRemoveTranslationModel,
   onStartTranslationPreflight,
   refresh,
 }: TranslationPanelProps) {
@@ -88,9 +97,14 @@ export function TranslationPanel({
     [modelOptions],
   )
   const [confirmingDeleteId, setConfirmingDeleteId] = useState('')
+  const [confirmingModelId, setConfirmingModelId] = useState('')
   const confirmingDocument = useMemo(
     () => translatedDocuments.find((doc) => doc.id === confirmingDeleteId) ?? null,
     [confirmingDeleteId, translatedDocuments],
+  )
+  const confirmingModel = useMemo(
+    () => installableModels.find((model) => model.id === confirmingModelId) ?? null,
+    [confirmingModelId, installableModels],
   )
   const [docsOpen, setDocsOpen] = useState(true)
   // Local-only dismissal of finished status messages; a new message (different
@@ -134,6 +148,7 @@ export function TranslationPanel({
   )
   const jobStatusKey = 'job:' + startState.message
   const installStatusKey = 'install:' + modelInstallState.message
+  const removeStatusKey = 'remove:' + modelRemoveState.message
   const deleteStatusKey = deleteState ? 'delete:' + deleteState.id + ':' + deleteState.message : ''
   const dismissStatus = (key: string) => {
     setDismissedStatusKeys((previous) => (previous.includes(key) ? previous : [...previous, key]))
@@ -143,6 +158,9 @@ export function TranslationPanel({
   const showInstallStatus =
     Boolean(modelInstallState.message) &&
     !(modelInstallState.result && dismissedStatusKeys.includes(installStatusKey))
+  const showRemoveStatus =
+    Boolean(modelRemoveState.message) &&
+    !(modelRemoveState.result && dismissedStatusKeys.includes(removeStatusKey))
   const showDeleteStatus = Boolean(deleteState) && !dismissedStatusKeys.includes(deleteStatusKey)
   const backendUnavailable = Boolean(capabilities && !capabilities.available)
   const jobFailed = !startState.checking && !startState.result && Boolean(startState.message)
@@ -151,6 +169,10 @@ export function TranslationPanel({
     !modelInstallState.result &&
     !modelInstallState.progress &&
     Boolean(modelInstallState.message)
+  const removeFailed =
+    !modelRemoveState.removingModelId &&
+    !modelRemoveState.result &&
+    Boolean(modelRemoveState.message)
   const jobMessage = startState.result
     ? t('translation.status.translationCompleteMessage')
     : startState.cancelling
@@ -165,6 +187,13 @@ export function TranslationPanel({
       : modelInstallState.progress
         ? formatInstallProgressMessage(modelInstallState.progress, t)
         : modelInstallState.message
+  const removeMessage = modelRemoveState.result
+    ? t('translation.status.modelRemovedMessage', {
+        size: formatStorageSize(modelRemoveState.result.bytesFreed) ?? '0 B',
+      })
+    : modelRemoveState.removingModelId
+      ? t('translation.status.removingModel')
+      : modelRemoveState.message
 
   return (
     <Panel
@@ -177,7 +206,7 @@ export function TranslationPanel({
       defaultOpen
     >
       <div className="translation-body">
-      {(error || backendUnavailable || showJobStatus || showInstallStatus) && (
+      {(error || backendUnavailable || showJobStatus || showInstallStatus || showRemoveStatus) && (
         <div className="translation-status-stack">
           {error && (
             <div className="translation-alert translation-alert-error" role="alert">
@@ -269,6 +298,32 @@ export function TranslationPanel({
               )}
             </div>
           )}
+
+          {showRemoveStatus && (
+            <div
+              className={'translation-alert' + (removeFailed ? ' translation-alert-error' : '')}
+              role={removeFailed ? 'alert' : 'status'}
+            >
+              <strong>
+                {modelRemoveState.result
+                  ? t('translation.status.modelRemoved')
+                  : removeFailed
+                    ? t('translation.status.modelRemoveFailed')
+                    : t('translation.status.modelRemove')}
+              </strong>
+              {modelRemoveState.result && (
+                <button
+                  type="button"
+                  className="translation-alert-dismiss"
+                  aria-label={t('translation.status.dismissModelRemove')}
+                  onClick={() => dismissStatus(removeStatusKey)}
+                >
+                  ×
+                </button>
+              )}
+              <span className="translation-alert-message">{removeMessage}</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -347,7 +402,12 @@ export function TranslationPanel({
           <div className="translation-action-row">
             <button
               type="button"
-              disabled={startState.checking || !activeModelId}
+              disabled={
+                startState.checking ||
+                Boolean(modelInstallState.installingModelId) ||
+                Boolean(modelRemoveState.removingModelId) ||
+                !activeModelId
+              }
               title={t('translation.workbench.runTitle')}
               onClick={() => {
                 void onStartTranslationPreflight({
@@ -400,8 +460,13 @@ export function TranslationPanel({
                   model={model}
                   progress={modelInstallState.progress?.modelId === model.id ? modelInstallState.progress : null}
                   status={modelStatuses[model.id]}
-                  disabled={Boolean(modelInstallState.installingModelId)}
+                  disabled={Boolean(
+                    modelInstallState.installingModelId ||
+                    modelRemoveState.removingModelId ||
+                    startState.checking
+                  )}
                   onInstall={onInstallTranslationModel}
+                  onRequestRemove={setConfirmingModelId}
                   t={t}
                 />
               </div>
@@ -520,6 +585,37 @@ export function TranslationPanel({
           }
         />
       )}
+      {confirmingModel && (
+        <AppDialog
+          title={t('translation.confirmModelRemove.title')}
+          description={t('translation.confirmModelRemove.description', {
+            name: confirmingModel.name,
+            size: formatModelSize(modelStatuses[confirmingModel.id]) || confirmingModel.sizeNotes,
+          })}
+          onCancel={() => setConfirmingModelId('')}
+          actions={
+            <>
+              <button
+                type="button"
+                className="app-dialog-cancel"
+                onClick={() => setConfirmingModelId('')}
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                className="app-dialog-danger"
+                onClick={() => {
+                  setConfirmingModelId('')
+                  void onRemoveTranslationModel(confirmingModel.id)
+                }}
+              >
+                {t('translation.models.remove')}
+              </button>
+            </>
+          }
+        />
+      )}
     </Panel>
   )
 }
@@ -575,6 +671,7 @@ interface TranslationModelInstallButtonProps {
   progress: TranslationModelInstallProgress | null
   status?: TranslationModelStatus
   onInstall: (modelId: string) => Promise<void>
+  onRequestRemove: (modelId: string) => void
   t: TFunction
 }
 
@@ -584,12 +681,26 @@ function TranslationModelInstallButton({
   progress,
   status,
   onInstall,
+  onRequestRemove,
   t,
 }: TranslationModelInstallButtonProps) {
   const installable = model.manifestState === 'pinned-file-manifest'
   const installing = progress !== null || status?.installing
   if (status?.installed) {
-    return <span className="translation-model-badge">{t('translation.models.installed')}</span>
+    return (
+      <div className="translation-model-actions">
+        <span className="translation-model-badge">{t('translation.models.installed')}</span>
+        <button
+          type="button"
+          className="translation-model-remove-btn"
+          disabled={disabled}
+          aria-label={t('translation.models.removeLabel', { name: model.name })}
+          onClick={() => onRequestRemove(model.id)}
+        >
+          {t('translation.models.remove')}
+        </button>
+      </div>
+    )
   }
   if (!installable) {
     return (

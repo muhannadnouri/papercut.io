@@ -29,8 +29,14 @@
       "modelInstallFailed": "Error Al Instalar El Modelo",
       "modelInstalledMessage": "El modelo de traducción está instalado.",
       "dismissModelInstall": "Cerrar estado de instalación del modelo",
+      "modelRemoved": "Modelo Eliminado",
+      "modelRemove": "Eliminación Del Modelo",
+      "modelRemoveFailed": "Error Al Eliminar El Modelo",
+      "modelRemovedMessage": "Se eliminaron {{size}} de datos descargados del modelo.",
+      "dismissModelRemove": "Cerrar estado de eliminación del modelo",
       "preparingModel": "Preparando la descarga del modelo de traducción...",
       "downloadingModel": "Descargando el modelo de traducción...",
+      "removingModel": "Eliminando el modelo de traducción...",
       "preparingJob": "Preparando la tarea de traducción...",
       "cancellingJob": "Cancelando la tarea de traducción...",
       "dismissDelete": "Cerrar estado de eliminación",
@@ -69,6 +75,8 @@
       "planned": "Planificados",
       "installed": "Instalado",
       "install": "Instalar",
+      "remove": "Eliminar",
+      "removeLabel": "Eliminar {{name}}",
       "installing": "Instalando {{percent, number}}%",
       "noMetadata": "No hay metadatos de modelos disponibles en este entorno.",
       "none": "No hay modelos disponibles en este entorno",
@@ -90,6 +98,10 @@
       "title": "¿Eliminar El Documento Traducido?",
       "description": "Se eliminará «{{title}}». El documento original no se verá afectado; volver a ejecutar la traducción lo recreará.",
       "keep": "Conservar"
+    },
+    "confirmModelRemove": {
+      "title": "¿Eliminar El Modelo De Traducción?",
+      "description": "Se eliminarán «{{name}}» y {{size}} de datos descargados del modelo. Los documentos traducidos existentes se conservarán."
     },
     "progress": {
       "job": "Tarea de traducción completada al {{percent, number}}%",

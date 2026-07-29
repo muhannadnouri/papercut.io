@@ -29,8 +29,14 @@
       "modelInstallFailed": "Model Installation Failed",
       "modelInstalledMessage": "The translation model is installed.",
       "dismissModelInstall": "Dismiss model installation status",
+      "modelRemoved": "Model Removed",
+      "modelRemove": "Model Removal",
+      "modelRemoveFailed": "Model Removal Failed",
+      "modelRemovedMessage": "Removed {{size}} of downloaded model data.",
+      "dismissModelRemove": "Dismiss model removal status",
       "preparingModel": "Preparing translation model download...",
       "downloadingModel": "Downloading translation model...",
+      "removingModel": "Removing translation model...",
       "preparingJob": "Preparing translation job...",
       "cancellingJob": "Cancelling translation job...",
       "dismissDelete": "Dismiss deletion status",
@@ -69,6 +75,8 @@
       "planned": "Planned",
       "installed": "Installed",
       "install": "Install",
+      "remove": "Remove",
+      "removeLabel": "Remove {{name}}",
       "installing": "Installing {{percent, number}}%",
       "noMetadata": "No model metadata is available in this runtime.",
       "none": "No models are available in this runtime",
@@ -90,6 +98,10 @@
       "title": "Delete Translated Document?",
       "description": "\"{{title}}\" will be removed. The original document is not affected; running the translation again recreates it.",
       "keep": "Keep"
+    },
+    "confirmModelRemove": {
+      "title": "Remove Translation Model?",
+      "description": "\"{{name}}\" and {{size}} of downloaded model data will be removed. Existing translated documents will remain."
     },
     "progress": {
       "job": "Translation job {{percent, number}}% complete",

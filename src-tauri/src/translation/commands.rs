@@ -8,7 +8,10 @@ use super::capabilities::{
     translation_capabilities as translation_capabilities_backend,
     translation_model_status as translation_model_status_backend,
 };
-use super::model_install::install_translation_model as install_translation_model_backend;
+use super::model_install::{
+    install_translation_model as install_translation_model_backend,
+    remove_translation_model as remove_translation_model_backend,
+};
 use super::runner::{
     cancel_translation as cancel_translation_backend,
     start_translation as start_translation_backend,
@@ -21,8 +24,8 @@ use super::storage::{
 use super::types::{
     TranslatedDocumentInfo, TranslationCancelRequest, TranslationCapabilities,
     TranslationCommandError, TranslationDeleteRequest, TranslationDeleteResponse,
-    TranslationModelInstallResponse, TranslationModelStatus, TranslationModelStatusRequest,
-    TranslationStartRequest, TranslationStartResponse,
+    TranslationModelInstallResponse, TranslationModelRemoveResponse, TranslationModelStatus,
+    TranslationModelStatusRequest, TranslationStartRequest, TranslationStartResponse,
 };
 
 /// Return planned offline translation capabilities and candidate catalog entries.
@@ -49,6 +52,18 @@ pub async fn translation_install_model<R: tauri::Runtime>(
     model_id: String,
 ) -> Result<TranslationModelInstallResponse, TranslationCommandError> {
     install_translation_model_backend(app, state, model_id)
+        .await
+        .map_err(TranslationCommandError::from)
+}
+
+/// Remove downloaded model files without deleting translated documents.
+#[tauri::command]
+pub async fn translation_remove_model<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    state: tauri::State<'_, TranslationState>,
+    model_id: String,
+) -> Result<TranslationModelRemoveResponse, TranslationCommandError> {
+    remove_translation_model_backend(app, state, model_id)
         .await
         .map_err(TranslationCommandError::from)
 }

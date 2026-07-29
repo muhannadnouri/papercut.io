@@ -1,4 +1,4 @@
-//! Offline translation model installer.
+//! Offline translation model installation and removal.
 //!
 //! Model installation stays separate from inference: large files are streamed,
 //! SHA-256 verified, staged in a cache work directory, then promoted into app
@@ -17,7 +17,10 @@ use super::model_store::{
 };
 use super::models::find_planned_model;
 use super::state::TranslationState;
-use super::types::{TranslationModelInstallProgress, TranslationModelInstallResponse};
+use super::types::{
+    TranslationModelInstallProgress, TranslationModelInstallResponse,
+    TranslationModelRemoveResponse,
+};
 
 pub(crate) async fn install_translation_model<R: Runtime>(
     app: tauri::AppHandle<R>,
@@ -45,28 +48,75 @@ pub(crate) async fn install_translation_model<R: Runtime>(
         });
     }
 
-    let installing = state.model_installing.clone();
-    {
-        let mut guard = installing
-            .lock()
-            .map_err(|_| "Translation model install lock poisoned".to_string())?;
-        if !guard.insert(manifest.directory_name.to_string()) {
-            return Err(format!("{} download is already in progress", model.name));
-        }
-    }
+    let operation = state.claim_model_install(manifest.directory_name)?;
 
     let app_for_task = app.clone();
-    let result = tauri::async_runtime::spawn_blocking(move || {
+    tauri::async_runtime::spawn_blocking(move || {
+        let _operation = operation;
         install_model_blocking(app_for_task, manifest)
     })
     .await
     .map_err(|err| format!("Translation model install task failed: {err}"))
-    .and_then(|inner| inner);
+    .and_then(|inner| inner)
+}
 
-    if let Ok(mut guard) = installing.lock() {
-        guard.remove(manifest.directory_name);
+/// Remove one catalog model while preserving translations and segment caches.
+pub(crate) async fn remove_translation_model<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    state: tauri::State<'_, TranslationState>,
+    model_id: String,
+) -> Result<TranslationModelRemoveResponse, String> {
+    let model = find_planned_model(&model_id)
+        .ok_or_else(|| format!("Translation model {model_id:?} is not in the planned catalog"))?;
+    let manifest = manifest_for(model);
+    if !manifest.installable {
+        return Err(format!(
+            "{} does not have installed model files.",
+            model.name
+        ));
     }
-    result
+    let operation = state.claim_model_removal(manifest.directory_name)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _operation = operation;
+        remove_model_blocking(&app, manifest)
+    })
+    .await
+    .map_err(|err| format!("Translation model removal task failed: {err}"))
+    .and_then(|inner| inner)
+}
+
+/// Delete only installer-owned roots; translated documents and caches live elsewhere.
+fn remove_model_blocking<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    manifest: TranslationModelManifest,
+) -> Result<TranslationModelRemoveResponse, String> {
+    let model_dir = installed_translation_model_dir(app, manifest)?;
+    let work_dir = translation_model_work_dir(app, manifest)?;
+    let bytes_freed = directory_size(&model_dir)?.saturating_add(directory_size(&work_dir)?);
+    let removed = model_dir.exists() || work_dir.exists();
+
+    if work_dir.exists() {
+        fs::remove_dir_all(&work_dir).map_err(|err| {
+            format!(
+                "Failed to remove translation model work directory {}: {err}",
+                work_dir.display()
+            )
+        })?;
+    }
+    if model_dir.exists() {
+        fs::remove_dir_all(&model_dir).map_err(|err| {
+            format!(
+                "Failed to remove translation model directory {}: {err}",
+                model_dir.display()
+            )
+        })?;
+    }
+
+    Ok(TranslationModelRemoveResponse {
+        model_id: manifest.model_id.into(),
+        removed,
+        bytes_freed,
+    })
 }
 
 fn install_model_blocking<R: Runtime>(

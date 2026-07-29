@@ -49,7 +49,10 @@ fn translation_error_code(message: &str) -> &'static str {
     {
         return "unsupported-translation-option";
     }
-    if message.contains("already in progress") || message.contains("already being translated") {
+    if message.contains("already in progress")
+        || message.contains("already being translated")
+        || message.contains("already being installed or removed")
+    {
         return "operation-in-progress";
     }
     if message.contains("source document was not found") {
@@ -136,6 +139,14 @@ pub(crate) struct TranslationModelInstallResponse {
     pub(crate) model_id: String,
     pub(crate) model_dir: String,
     pub(crate) bytes: u64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TranslationModelRemoveResponse {
+    pub(crate) model_id: String,
+    pub(crate) removed: bool,
+    pub(crate) bytes_freed: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -268,6 +279,12 @@ mod tests {
         assert_eq!(
             translation_error_code("Translation quality check failed: output was empty"),
             "quality-check-failed"
+        );
+        assert_eq!(
+            translation_error_code(
+                "Translation model \"opus\" is already being installed or removed"
+            ),
+            "operation-in-progress"
         );
         assert_eq!(
             translation_error_code("unexpected database detail"),

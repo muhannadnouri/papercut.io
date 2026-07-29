@@ -29,8 +29,14 @@
       "modelInstallFailed": "فشل تثبيت النموذج",
       "modelInstalledMessage": "تم تثبيت نموذج الترجمة.",
       "dismissModelInstall": "إغلاق حالة تثبيت النموذج",
+      "modelRemoved": "تمت إزالة النموذج",
+      "modelRemove": "إزالة النموذج",
+      "modelRemoveFailed": "فشلت إزالة النموذج",
+      "modelRemovedMessage": "تمت إزالة {{size}} من بيانات النموذج المنزلة.",
+      "dismissModelRemove": "إغلاق حالة إزالة النموذج",
       "preparingModel": "جارٍ إعداد تنزيل نموذج الترجمة...",
       "downloadingModel": "جارٍ تنزيل نموذج الترجمة...",
+      "removingModel": "جارٍ إزالة نموذج الترجمة...",
       "preparingJob": "جارٍ إعداد مهمة الترجمة...",
       "cancellingJob": "جارٍ إلغاء مهمة الترجمة...",
       "dismissDelete": "إغلاق حالة الحذف",
@@ -69,6 +75,8 @@
       "planned": "مخطط لها",
       "installed": "مثبت",
       "install": "تثبيت",
+      "remove": "إزالة",
+      "removeLabel": "إزالة {{name}}",
       "installing": "جارٍ التثبيت {{percent, number}}٪",
       "noMetadata": "لا تتوفر بيانات وصفية للنماذج في بيئة التشغيل هذه.",
       "none": "لا تتوفر نماذج في بيئة التشغيل هذه",
@@ -90,6 +98,10 @@
       "title": "حذف المستند المترجم؟",
       "description": "ستتم إزالة «{{title}}». لن يتأثر المستند الأصلي؛ ويمكن إعادة إنشائه بتشغيل الترجمة مرة أخرى.",
       "keep": "إبقاء"
+    },
+    "confirmModelRemove": {
+      "title": "إزالة نموذج الترجمة؟",
+      "description": "ستتم إزالة «{{name}}» و{{size}} من بيانات النموذج المنزلة. ستبقى المستندات المترجمة الحالية محفوظة."
     },
     "progress": {
       "job": "اكتملت مهمة الترجمة بنسبة {{percent, number}}٪",

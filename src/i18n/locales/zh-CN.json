@@ -29,8 +29,14 @@
       "modelInstallFailed": "模型安装失败",
       "modelInstalledMessage": "翻译模型已安装。",
       "dismissModelInstall": "关闭模型安装状态",
+      "modelRemoved": "模型已移除",
+      "modelRemove": "移除模型",
+      "modelRemoveFailed": "模型移除失败",
+      "modelRemovedMessage": "已移除 {{size}} 的已下载模型数据。",
+      "dismissModelRemove": "关闭模型移除状态",
       "preparingModel": "正在准备下载翻译模型...",
       "downloadingModel": "正在下载翻译模型...",
+      "removingModel": "正在移除翻译模型...",
       "preparingJob": "正在准备翻译任务...",
       "cancellingJob": "正在取消翻译任务...",
       "dismissDelete": "关闭删除状态",
@@ -69,6 +75,8 @@
       "planned": "计划中",
       "installed": "已安装",
       "install": "安装",
+      "remove": "移除",
+      "removeLabel": "移除 {{name}}",
       "installing": "正在安装 {{percent, number}}%",
       "noMetadata": "此运行环境中没有可用的模型元数据。",
       "none": "此运行环境中没有可用模型",
@@ -90,6 +98,10 @@
       "title": "删除翻译文档？",
       "description": "“{{title}}”将被移除。原始文档不会受到影响；再次运行翻译即可重新创建。",
       "keep": "保留"
+    },
+    "confirmModelRemove": {
+      "title": "移除翻译模型？",
+      "description": "将移除“{{name}}”及 {{size}} 的已下载模型数据。现有翻译文档将保留。"
     },
     "progress": {
       "job": "翻译任务已完成 {{percent, number}}%",

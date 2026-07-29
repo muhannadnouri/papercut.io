@@ -8,6 +8,7 @@ import {
   listenTranslationProgress,
   getTranslationCapabilities,
   listTranslatedDocuments,
+  removeTranslationModel,
   startTranslationJob,
   type TranslatedDocumentInfo,
   type TranslationCapabilities,
@@ -15,6 +16,7 @@ import {
   type TranslationJobProgress,
   type TranslationModelInstallProgress,
   type TranslationModelInstallResult,
+  type TranslationModelRemoveResult,
   type TranslationModelStatus,
   type TranslationStartRequest,
   type TranslationStartResult,
@@ -37,17 +39,25 @@ interface TranslationModelInstallState {
   message: string
 }
 
+interface TranslationModelRemoveState {
+  removingModelId: string
+  result: TranslationModelRemoveResult | null
+  message: string
+}
+
 interface TranslationManagerState {
   capabilities: TranslationCapabilities | null
   deleteState: TranslationDeleteResult | null
   error: string
   loading: boolean
   modelInstallState: TranslationModelInstallState
+  modelRemoveState: TranslationModelRemoveState
   modelStatuses: Record<string, TranslationModelStatus>
   startState: TranslationStartState
   translatedDocuments: TranslatedDocumentInfo[]
   onDeleteTranslatedDocument: (id: string) => Promise<void>
   onInstallTranslationModel: (modelId: string) => Promise<void>
+  onRemoveTranslationModel: (modelId: string) => Promise<void>
   onCancelTranslation: () => Promise<void>
   onStartTranslationPreflight: (request: TranslationStartRequest) => Promise<void>
   refresh: () => Promise<void>
@@ -71,6 +81,11 @@ export function useTranslationManager({
   const [modelInstallState, setModelInstallState] = useState<TranslationModelInstallState>({
     installingModelId: '',
     progress: null,
+    result: null,
+    message: '',
+  })
+  const [modelRemoveState, setModelRemoveState] = useState<TranslationModelRemoveState>({
+    removingModelId: '',
     result: null,
     message: '',
   })
@@ -232,6 +247,29 @@ export function useTranslationManager({
     }
   }, [refresh])
 
+  const onRemoveTranslationModel = useCallback(async (modelId: string) => {
+    setModelRemoveState({
+      removingModelId: modelId,
+      result: null,
+      message: 'Removing translation model',
+    })
+    try {
+      const result = await removeTranslationModel(modelId)
+      setModelRemoveState({
+        removingModelId: '',
+        result,
+        message: 'Translation model removed',
+      })
+      await refresh()
+    } catch (err) {
+      setModelRemoveState({
+        removingModelId: '',
+        result: null,
+        message: translationErrorMessage(err),
+      })
+    }
+  }, [refresh])
+
   const onStartTranslationPreflight = useCallback(async (request: TranslationStartRequest) => {
     const jobId = createTranslationJobId()
     setStartState({
@@ -290,11 +328,13 @@ export function useTranslationManager({
     error,
     loading,
     modelInstallState,
+    modelRemoveState,
     modelStatuses,
     startState,
     translatedDocuments,
     onDeleteTranslatedDocument,
     onInstallTranslationModel,
+    onRemoveTranslationModel,
     onCancelTranslation,
     onStartTranslationPreflight,
     refresh,

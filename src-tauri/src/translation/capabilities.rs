@@ -67,11 +67,7 @@ pub(super) fn translation_model_status<R: tauri::Runtime>(
     };
 
     let manifest = manifest_for(model);
-    let installing = state
-        .model_installing
-        .lock()
-        .map(|guard| guard.contains(manifest.directory_name))
-        .unwrap_or(false);
+    let installing = state.model_operation_active(manifest.directory_name);
     match resolve_translation_model_dir(app, manifest) {
         Ok(model_dir) => TranslationModelStatus {
             model_id: manifest.model_id.into(),

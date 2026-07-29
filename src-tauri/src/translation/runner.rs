@@ -68,7 +68,10 @@ pub(super) fn start_translation<R: tauri::Runtime>(
         )
     })?;
 
-    let _active_job = state.claim_job(&build_translation_cache_key(&request))?;
+    let _active_job = state.claim_job(
+        &build_translation_cache_key(&request),
+        manifest.directory_name,
+    )?;
     let source = load_translation_source_document(app, &request.document_url)?;
     let source_blocks = source.blocks.iter().map(|block| block.text.as_str());
     let plan = plan_translation_job(

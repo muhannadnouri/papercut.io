@@ -349,7 +349,8 @@
 }
 
 .translation-model-badge,
-.translation-model-install-btn {
+.translation-model-install-btn,
+.translation-model-remove-btn {
   flex: 0 0 auto;
   padding: 0.35rem 0.6rem;
   border: 1px solid var(--border);
@@ -378,6 +379,30 @@
 }
 
 .translation-model-install-btn:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.translation-model-item .translation-model-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.translation-model-remove-btn {
+  border-color: var(--danger-border);
+  color: var(--danger-accent);
+  cursor: pointer;
+}
+
+.translation-model-remove-btn:hover:not(:disabled),
+.translation-model-remove-btn:focus-visible {
+  background: var(--surface-danger);
+  outline: none;
+}
+
+.translation-model-remove-btn:disabled {
   cursor: wait;
   opacity: 0.7;
 }

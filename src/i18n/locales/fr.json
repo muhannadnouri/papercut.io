@@ -29,8 +29,14 @@
       "modelInstallFailed": "Échec De L’installation Du Modèle",
       "modelInstalledMessage": "Le modèle de traduction est installé.",
       "dismissModelInstall": "Fermer l’état d’installation du modèle",
+      "modelRemoved": "Modèle Supprimé",
+      "modelRemove": "Suppression Du Modèle",
+      "modelRemoveFailed": "Échec De La Suppression Du Modèle",
+      "modelRemovedMessage": "{{size}} de données de modèle téléchargées ont été supprimées.",
+      "dismissModelRemove": "Fermer l’état de suppression du modèle",
       "preparingModel": "Préparation du téléchargement du modèle de traduction...",
       "downloadingModel": "Téléchargement du modèle de traduction...",
+      "removingModel": "Suppression du modèle de traduction...",
       "preparingJob": "Préparation de la tâche de traduction...",
       "cancellingJob": "Annulation de la tâche de traduction...",
       "dismissDelete": "Fermer l’état de suppression",
@@ -69,6 +75,8 @@
       "planned": "Planifiés",
       "installed": "Installé",
       "install": "Installer",
+      "remove": "Supprimer",
+      "removeLabel": "Supprimer {{name}}",
       "installing": "Installation {{percent, number}} %",
       "noMetadata": "Aucune métadonnée de modèle n’est disponible dans cet environnement.",
       "none": "Aucun modèle n’est disponible dans cet environnement",
@@ -90,6 +98,10 @@
       "title": "Supprimer Le Document Traduit ?",
       "description": "« {{title}} » sera supprimé. Le document original ne sera pas affecté ; relancer la traduction le recréera.",
       "keep": "Conserver"
+    },
+    "confirmModelRemove": {
+      "title": "Supprimer Le Modèle De Traduction ?",
+      "description": "« {{name}} » et {{size}} de données de modèle téléchargées seront supprimés. Les documents traduits existants seront conservés."
     },
     "progress": {
       "job": "Tâche de traduction terminée à {{percent, number}} %",

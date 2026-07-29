@@ -60,6 +60,7 @@ pub fn run() {
             translation::commands::translation_capabilities,
             translation::commands::translation_model_status,
             translation::commands::translation_install_model,
+            translation::commands::translation_remove_model,
             translation::commands::translation_start,
             translation::commands::translation_cancel,
             translation::commands::translation_list_documents,

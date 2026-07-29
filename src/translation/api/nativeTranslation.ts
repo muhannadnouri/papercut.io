@@ -53,6 +53,12 @@ export interface TranslationModelInstallResult {
   bytes: number
 }
 
+export interface TranslationModelRemoveResult {
+  modelId: string
+  removed: boolean
+  bytesFreed: number
+}
+
 export interface TranslationStartRequest {
   jobId?: string
   documentUrl: string
@@ -162,6 +168,13 @@ export async function installTranslationModel(modelId: string): Promise<Translat
     throw unavailableError()
   }
   return invokeTranslation<TranslationModelInstallResult>('translation_install_model', { modelId })
+}
+
+export async function removeTranslationModel(modelId: string): Promise<TranslationModelRemoveResult> {
+  if (!isNativeTranslationRuntime()) {
+    throw unavailableError()
+  }
+  return invokeTranslation<TranslationModelRemoveResult>('translation_remove_model', { modelId })
 }
 
 export async function listenTranslationModelInstallProgress(

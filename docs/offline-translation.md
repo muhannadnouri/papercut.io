@@ -10,6 +10,7 @@ The goal is high-quality offline translation for long-form HTML and EPUB books, 
 - `npm run desktop:no-translation` keeps the desktop build on native TTS only for packaging/debug isolation.
 - Spanish -> English and French -> English OPUS-MT CTranslate2 manifests are pinned and installable.
 - HY-MT2 1.8B Q8 is a pinned, installable quality model for Arabic, German, Spanish, French, Russian, and Chinese translation into English. The first supported path is desktop CPU inference through `llama-cpp-2`; NVIDIA/CUDA has not been smoke-tested yet.
+- Installed models can be removed independently to reclaim storage. Removal is serialized against model installs and active translation jobs, while translated documents and reusable segment caches remain available.
 - The translation workbench lists only pinned, supported models; future quality-model candidates remain informational.
 - Translation jobs run through the native engine boundary, emit progress/cancel events, reuse segment cache entries, run first-pass quality gates, and persist successful output as derived uploaded documents.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -82,7 +83,7 @@ src-tauri/src/translation/
   hy_mt2.rs         # llama.cpp/HY-MT2 engine adapter
   inline_markup.rs  # marker-aware inline models and span projection
   job.rs            # request validation, segmentation batching, cache keys
-  model_install.rs  # download, verify, extract, install
+  model_install.rs  # download, verify, install, remove
   model_store.rs    # model manifests, install paths, model status helpers
   models.rs         # catalog metadata and language-pair support
   quality.rs        # output checks and repair hooks
@@ -567,6 +568,7 @@ Status:
 - Done: use HY-MT2's published translation-only prompt and sampler settings with a fixed seed.
 - Done: retain the existing cache, glossary prompt hints, progress, cancellation-between-batches, validation, rendering, search indexing, and durable variant storage.
 - Done: expose the model's 1.9 GB footprint and CPU-only performance warning in the workbench, and report model loading separately from translation progress.
+- Done: expose confirmed model removal with reclaimed-storage reporting while preserving completed translations and segment caches.
 - Partial: the pinned model installed successfully and entered native inference on the current CPU-only development machine; cancellation also worked. Startup was too slow to complete a useful quality or throughput benchmark on that hardware.
 - Pending: run completed desktop quality and performance smoke tests on representative short/chapter/book samples using suitable hardware.
 - Deferred: NVIDIA RTX/CUDA smoke testing is unavailable on the current development machine. Do not claim CUDA support until a separate build feature, packaging pass, and quality/performance benchmark succeed on an RTX-class Linux machine.
