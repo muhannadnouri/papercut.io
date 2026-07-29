@@ -13,7 +13,8 @@ use tauri::Emitter;
 
 use super::cache::{load_segment_cache, save_segment_cache, TranslationSegmentCache};
 use super::config::{
-    DEFAULT_BATCH_SEGMENT_LIMIT, DEFAULT_MAX_SEGMENT_CHARS, TRANSLATION_JOB_PROGRESS_EVENT,
+    DEFAULT_BATCH_SEGMENT_LIMIT, DEFAULT_MAX_SEGMENT_CHARS, DEFAULT_TRANSLATION_QUALITY_MODE,
+    TRANSLATION_JOB_PROGRESS_EVENT,
 };
 use super::ctranslate2::CTranslate2Engine;
 use super::engine::{
@@ -34,7 +35,7 @@ use super::storage::{
 };
 use super::types::{
     TranslationCancelRequest, TranslationGlossaryEntry, TranslationJobProgress,
-    TranslationStartRequest, TranslationStartResponse,
+    TranslationRepairMode, TranslationStartRequest, TranslationStartResponse,
 };
 
 const MAX_INLINE_PHRASE_PROBES_PER_SEGMENT: usize = 8;
@@ -51,7 +52,7 @@ pub(super) fn start_translation<R: tauri::Runtime>(
             request.model_id
         )
     })?;
-    validate_language_pair(model, &request)?;
+    validate_model_request(model, &request)?;
     let manifest = manifest_for(model);
     if !manifest.installable {
         return Err(format!(
@@ -758,11 +759,11 @@ fn truncate_preview(text: &str, max_chars: usize) -> String {
     }
 }
 
-/// Validate request languages against the selected model catalog entry.
+/// Validate request languages and settings against the selected model.
 ///
 /// The UI should prevent invalid pairs, but this backend check protects saved
 /// jobs, direct command calls, and future import/export replay paths.
-fn validate_language_pair(
+fn validate_model_request(
     model: TranslationModelDefinition,
     request: &TranslationStartRequest,
 ) -> Result<(), String> {
@@ -792,14 +793,37 @@ fn validate_language_pair(
         ));
     }
 
+    // OPUS-MT pair models translate plain segment text only. Reject settings
+    // they cannot honor instead of creating distinct variants with identical
+    // inference behavior.
+    if model.engine == "ctranslate2" {
+        if request.quality_mode != DEFAULT_TRANSLATION_QUALITY_MODE {
+            return Err(format!(
+                "{} supports only the default {:?} quality setting.",
+                model.name, DEFAULT_TRANSLATION_QUALITY_MODE
+            ));
+        }
+        if request.repair_mode != TranslationRepairMode::Off {
+            return Err(format!("{} does not support chapter repair.", model.name));
+        }
+        if !request.glossary.is_empty() {
+            return Err(format!(
+                "{} does not support glossary instructions.",
+                model.name
+            ));
+        }
+    }
+
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::validate_language_pair;
+    use super::validate_model_request;
     use crate::translation::models::PLANNED_TRANSLATION_MODELS;
-    use crate::translation::types::{TranslationRepairMode, TranslationStartRequest};
+    use crate::translation::types::{
+        TranslationGlossaryEntry, TranslationRepairMode, TranslationStartRequest,
+    };
 
     fn request(source_language: &str) -> TranslationStartRequest {
         TranslationStartRequest {
@@ -818,7 +842,28 @@ mod tests {
     fn fixed_pair_model_requires_its_actual_source_language() {
         let model = PLANNED_TRANSLATION_MODELS[0];
 
-        assert!(validate_language_pair(model, &request("es")).is_ok());
-        assert!(validate_language_pair(model, &request("auto")).is_err());
+        assert!(validate_model_request(model, &request("es")).is_ok());
+        assert!(validate_model_request(model, &request("auto")).is_err());
+    }
+
+    #[test]
+    fn fixed_pair_model_rejects_settings_it_cannot_honor() {
+        let model = PLANNED_TRANSLATION_MODELS[0];
+
+        let mut quality = request("es");
+        quality.quality_mode = "quality".into();
+        assert!(validate_model_request(model, &quality).is_err());
+
+        let mut repair = request("es");
+        repair.repair_mode = TranslationRepairMode::Chapter;
+        assert!(validate_model_request(model, &repair).is_err());
+
+        let mut glossary = request("es");
+        glossary.glossary.push(TranslationGlossaryEntry {
+            source: "Estado".into(),
+            target: "State".into(),
+            note: None,
+        });
+        assert!(validate_model_request(model, &glossary).is_err());
     }
 }

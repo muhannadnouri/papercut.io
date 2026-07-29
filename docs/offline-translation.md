@@ -11,6 +11,7 @@ The goal is high-quality offline translation for long-form HTML and EPUB books, 
 - Spanish -> English and French -> English OPUS-MT CTranslate2 model manifests are pinned and installable.
 - Translation jobs run through the native engine boundary, emit progress/cancel events, reuse segment cache entries, run first-pass quality gates, and persist successful output as derived uploaded documents.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
+- OPUS-MT exposes no quality, glossary, or repair controls because that engine cannot honor them; direct requests using those options are rejected.
 - Concurrent starts for the same document and translation settings are rejected before they can write the same cache or variant.
 - Job progress now distinguishes final validation from storage, so a translation can reach 100% segment completion and still fail with a specific quality issue before any derived document is promoted.
 - OPUS-MT jobs use both a conservative 900-character planner cap and an engine-local tokenizer split before CTranslate2 inference, so long Spanish/French prose can be subdivided below Marian's 512-position limit without changing public cache segment ids.
@@ -181,7 +182,7 @@ High-value quality upgrades:
 - Prefer quantized models for default local use.
 - Keep mobile model catalogs smaller and stricter than desktop catalogs.
 
-Quality should not be sacrificed for speed by silently switching models. If a model is faster but weaker, expose it as a speed/quality choice.
+Quality should not be sacrificed for speed by silently switching models. Expose a speed/quality choice only when the selected engine implements distinct modes; OPUS-MT currently does not.
 
 ## Model And Engine Recommendations
 
@@ -283,7 +284,7 @@ translation_segments
 
 Translated variants reuse the existing uploaded-document section storage once promoted. The translation metadata table records provenance and the generated document URL; the upload/search tables own reader HTML, section text, and FTS rows.
 
-Variant identity is deterministic from source document id plus translation settings (languages, model, quality mode, repair mode, glossary). Re-running the same document with identical settings replaces the stored variant in place - same id, same document URL - instead of accumulating duplicates. Replacement commits upload/search rows and translation provenance together, retains the previous files until the transaction succeeds, and recovers an interrupted promotion on retry. Deletion likewise removes provenance and shared upload/search rows in one transaction while the existing reversible filesystem flow protects the stored files. Changing any setting produces a separate variant.
+Variant identity is deterministic from source document id plus translation settings (languages, model, quality mode, repair mode, glossary). Re-running the same document with identical settings replaces the stored variant in place - same id, same document URL - instead of accumulating duplicates. Replacement commits upload/search rows and translation provenance together, retains the previous files until the transaction succeeds, and recovers an interrupted promotion on retry. Deletion likewise removes provenance and shared upload/search rows in one transaction while the existing reversible filesystem flow protects the stored files. Changing a setting supported by the selected engine produces a separate variant; OPUS-MT accepts only its default quality with repair disabled and no glossary.
 
 ## UI/UX Requirements
 
@@ -292,7 +293,8 @@ First release should be plain and reliable:
 - Add **Translate** action for uploaded HTML/EPUB documents.
 - Keep document-level actions clear in the reader: users should choose whether they are saving an audiobook or starting translation instead of interpreting one overloaded save icon.
 - Add a top-level **Translate** tab so long-running translation jobs, model downloads, translated variants, and diagnostics have a dedicated home like Audiobooks.
-- Let user choose source language, target language, model, quality mode, and glossary if available.
+- Let the user choose source language, target language, and model.
+- Show quality, glossary, or repair controls only for engines that implement them.
 - Show model install state like TTS.
 - Show progress by chapter/section, not an indeterminate spinner.
 - Support cancellation and cache-assisted retry.
@@ -504,6 +506,7 @@ Status:
   - Reject stored output when a section contains a glossary source term but misses the requested target term.
   - Store glossary-entry count and hash in translation provenance metadata.
   - Use standard string matching for now; add fuzzy matching libraries only if glossary miss rates justify the extra dependency.
+  - Reject glossary entries for OPUS-MT because Marian pair models cannot consume them.
 - Add named-entity consistency checks:
   - Current first slice treats glossary entries as explicit protected entities.
   - Future automatic NER should be model/library-backed; do not hand-roll broad multilingual NER with regexes.
@@ -515,6 +518,7 @@ Status:
   - Add `repairMode` to translation requests and cache identity.
   - Default remains `off`; no repair pass runs yet.
   - Carry repair mode through engine and persistence metadata so future quality models can add chapter-level repair without changing command shape.
+  - Reject enabled repair mode for OPUS-MT until an engine implements the pass.
 
 Status:
 
@@ -523,6 +527,7 @@ Status:
 - Done: exact-match segment cache and exact-memory reuse.
 - Done: glossary request/cache/provenance scaffolding and conflicting glossary rejection.
 - Done: structured quality issue internals and `repairMode` plumbing.
+- Done: OPUS-MT rejects non-default quality, glossary, and repair options instead of creating misleading variants.
 - Not done: automatic multilingual NER, section regeneration loop, actual chapter repair pass.
 
 ### Stage 8: Quality Model Spikes - Not Started
@@ -554,7 +559,7 @@ For every engine/model candidate:
 - Open original and translated variants independently.
 - Verify internal links and footnotes still work.
 - Verify RTL source documents and LTR translated output render correctly.
-- Verify glossary term is used consistently.
+- For glossary-capable engines, verify the term is used consistently.
 - Verify repeated terms/names are stable across chapters.
 
 Language samples:

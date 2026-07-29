@@ -86,7 +86,6 @@ export function TranslationPanel({
   const [modelId, setModelId] = useState('')
   const [sourceLanguage, setSourceLanguage] = useState('')
   const [targetLanguage, setTargetLanguage] = useState('en')
-  const [qualityMode, setQualityMode] = useState('balanced')
   const activeModelId = modelOptions.some((model) => model.id === modelId) ? modelId : modelOptions[0]?.id ?? ''
   const selectedModel = useMemo(
     () => modelOptions.find((model) => model.id === activeModelId) ?? null,
@@ -100,20 +99,13 @@ export function TranslationPanel({
     () => uniqueOptions(selectedModel?.targetLanguages.length ? selectedModel.targetLanguages : ['en']),
     [selectedModel],
   )
-  const qualityModes = useMemo(
-    () => uniqueOptions([
-      selectedModel?.defaultQualityMode ?? capabilities?.defaultQualityMode ?? 'balanced',
-      'fast',
-      'balanced',
-      'quality',
-    ]),
-    [capabilities, selectedModel],
-  )
   const activeSourceLanguage = sourceLanguages.includes(sourceLanguage)
     ? sourceLanguage
     : sourceLanguages[0] ?? ''
   const activeTargetLanguage = targetLanguages.includes(targetLanguage) ? targetLanguage : targetLanguages[0] ?? 'en'
-  const activeQualityMode = qualityModes.includes(qualityMode) ? qualityMode : qualityModes[0] ?? 'balanced'
+  const activeQualityMode = selectedModel?.defaultQualityMode
+    ?? capabilities?.defaultQualityMode
+    ?? 'balanced'
   const installableModels = useMemo(
     () => modelOptions.filter((model) => model.manifestState === 'pinned-file-manifest'),
     [modelOptions],
@@ -252,7 +244,6 @@ export function TranslationPanel({
                   setModelId(nextModelId)
                   setSourceLanguage(nextModel?.sourceLanguages[0] ?? '')
                   setTargetLanguage(nextModel?.targetLanguages[0] ?? 'en')
-                  setQualityMode(nextModel?.defaultQualityMode ?? capabilities?.defaultQualityMode ?? 'balanced')
                 }}
               >
                 {modelOptions.length ? modelOptions.map((model) => (
@@ -288,20 +279,6 @@ export function TranslationPanel({
                 {targetLanguages.map((language) => (
                   <option key={language} value={language}>
                     {formatLanguageLabel(language)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>Quality</span>
-              <select
-                value={activeQualityMode}
-                disabled={startState.checking}
-                onChange={(event) => setQualityMode(event.target.value)}
-              >
-                {qualityModes.map((mode) => (
-                  <option key={mode} value={mode}>
-                    {formatQualityLabel(mode)}
                   </option>
                 ))}
               </select>

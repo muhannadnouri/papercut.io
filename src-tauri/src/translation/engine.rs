@@ -10,9 +10,9 @@ use super::types::{TranslationGlossaryEntry, TranslationRepairMode};
 ///
 /// The current CTranslate2/OPUS-MT adapter reads only `segments`: pair models
 /// encode the language direction, and Marian cannot consume glossary, quality,
-/// or repair instructions. The remaining fields are the stable engine contract
-/// that prompt-driven engines (TranslateGemma/Qwen) will read, so they stay on
-/// the boundary instead of being reintroduced with a breaking change later.
+/// or repair instructions. The runner rejects non-default values for that
+/// adapter. The remaining fields are the stable engine contract that
+/// prompt-driven engines (TranslateGemma/Qwen) will read.
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub(crate) struct TranslationBatchInput {
