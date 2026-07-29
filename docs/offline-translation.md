@@ -9,6 +9,7 @@ The goal is high-quality offline translation for long-form HTML and EPUB books, 
 - Desktop production builds now compile with `native-tts-shared,native-translation-ctranslate2` through `npm run desktop`.
 - `npm run desktop:no-translation` keeps the desktop build on native TTS only for packaging/debug isolation.
 - Spanish -> English and French -> English OPUS-MT CTranslate2 model manifests are pinned and installable.
+- The translation workbench lists only pinned, supported models; future quality-model candidates remain informational.
 - Translation jobs run through the native engine boundary, emit progress/cancel events, reuse segment cache entries, run first-pass quality gates, and persist successful output as derived uploaded documents.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
 - OPUS-MT exposes no quality, glossary, or repair controls because that engine cannot honor them; direct requests using those options are rejected.
@@ -404,6 +405,7 @@ Each stage should be easy to review and commit independently.
   - Load per-model status lazily with the Translation tab.
   - Show install buttons only for pinned file manifests.
   - Display download progress and installed badges in the candidate model cards.
+  - Keep candidate-only models out of the runnable workbench selector until they have a pinned manifest and engine support.
 - Wire installed models into translation preflight:
   - Reject unknown models and unsupported language pairs before reading large documents.
   - Require the selected pinned CTranslate2 model to be installed before job planning.

@@ -74,6 +74,14 @@ export function TranslationPanel({
       ? 'Available'
       : 'Unavailable in this build'
   const modelOptions = useMemo(() => capabilities?.models ?? [], [capabilities])
+  const installableModels = useMemo(
+    () => modelOptions.filter((model) => model.manifestState === 'pinned-file-manifest'),
+    [modelOptions],
+  )
+  const plannedModels = useMemo(
+    () => modelOptions.filter((model) => model.manifestState !== 'pinned-file-manifest'),
+    [modelOptions],
+  )
   const [confirmingDeleteId, setConfirmingDeleteId] = useState('')
   const confirmingDocument = useMemo(
     () => translatedDocuments.find((doc) => doc.id === confirmingDeleteId) ?? null,
@@ -86,10 +94,12 @@ export function TranslationPanel({
   const [modelId, setModelId] = useState('')
   const [sourceLanguage, setSourceLanguage] = useState('')
   const [targetLanguage, setTargetLanguage] = useState('en')
-  const activeModelId = modelOptions.some((model) => model.id === modelId) ? modelId : modelOptions[0]?.id ?? ''
+  const activeModelId = installableModels.some((model) => model.id === modelId)
+    ? modelId
+    : installableModels[0]?.id ?? ''
   const selectedModel = useMemo(
-    () => modelOptions.find((model) => model.id === activeModelId) ?? null,
-    [activeModelId, modelOptions],
+    () => installableModels.find((model) => model.id === activeModelId) ?? null,
+    [activeModelId, installableModels],
   )
   const sourceLanguages = useMemo(
     () => uniqueOptions(selectedModel?.sourceLanguages ?? []),
@@ -106,14 +116,6 @@ export function TranslationPanel({
   const activeQualityMode = selectedModel?.defaultQualityMode
     ?? capabilities?.defaultQualityMode
     ?? 'balanced'
-  const installableModels = useMemo(
-    () => modelOptions.filter((model) => model.manifestState === 'pinned-file-manifest'),
-    [modelOptions],
-  )
-  const plannedModels = useMemo(
-    () => modelOptions.filter((model) => model.manifestState !== 'pinned-file-manifest'),
-    [modelOptions],
-  )
   const modelNameById = useMemo(
     () => new Map(modelOptions.map((model) => [model.id, model.name])),
     [modelOptions],
@@ -237,21 +239,21 @@ export function TranslationPanel({
               <span>Model</span>
               <select
                 value={activeModelId}
-                disabled={!modelOptions.length || startState.checking}
+                disabled={!installableModels.length || startState.checking}
                 onChange={(event) => {
                   const nextModelId = event.target.value
-                  const nextModel = modelOptions.find((model) => model.id === nextModelId)
+                  const nextModel = installableModels.find((model) => model.id === nextModelId)
                   setModelId(nextModelId)
                   setSourceLanguage(nextModel?.sourceLanguages[0] ?? '')
                   setTargetLanguage(nextModel?.targetLanguages[0] ?? 'en')
                 }}
               >
-                {modelOptions.length ? modelOptions.map((model) => (
+                {installableModels.length ? installableModels.map((model) => (
                   <option key={model.id} value={model.id}>
                     {model.name}
                   </option>
                 )) : (
-                  <option value="">No planned models</option>
+                  <option value="">No supported models</option>
                 )}
               </select>
             </label>
