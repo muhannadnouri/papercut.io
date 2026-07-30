@@ -17,7 +17,6 @@ interface LibraryTabProps {
   documentFilter: string
   documentImport: DocumentImportStatus
   documentOpening: boolean
-  developerMode: boolean
   documentsLoading: boolean
   groupedDocs: AuthorGroup[]
   libraryOrganization: UploadedLibraryOrganization
@@ -49,7 +48,6 @@ export function LibraryTab({
   documentFilter,
   documentImport,
   documentOpening,
-  developerMode,
   documentsLoading,
   groupedDocs,
   libraryOrganization,
@@ -117,7 +115,6 @@ export function LibraryTab({
         }] : []}
         libraryOrganization={libraryOrganization}
         documentOpening={documentOpening}
-        developerMode={developerMode}
         openingDocumentUrl={openingDocumentUrl}
         savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
         collapsedAuthors={collapsedAuthors}

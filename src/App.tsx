@@ -384,7 +384,6 @@ function App() {
             showDocuments={showDocuments}
             allDocuments={libraryDocuments}
             audioSavedOnly={audioSavedOnly}
-            developerMode={ttsDiagnosticsEnabled}
             savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
             documentFilter={libraryDocumentFilter}
             groupedDocs={libraryGroupedDocs}

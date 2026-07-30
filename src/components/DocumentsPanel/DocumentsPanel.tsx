@@ -33,7 +33,6 @@ interface DocumentsPanelProps {
   allDocuments: DocumentInfo[]
   audioSavedOnly?: boolean
   collapsedAuthors: Set<string>
-  developerMode?: boolean
   docFilterLower: string
   documentFilter: string
   documentsLoading: boolean
@@ -62,7 +61,6 @@ export function DocumentsPanel({
   allDocuments,
   audioSavedOnly = false,
   collapsedAuthors,
-  developerMode = false,
   docFilterLower,
   documentFilter,
   documentsLoading,
@@ -92,7 +90,7 @@ export function DocumentsPanel({
   const [galleryCategory, setGalleryCategory] = useState<LibraryGalleryCategory>(
     loadCategory,
   )
-  const view = developerMode ? preferredView : 'list'
+  const view = preferredView
   const activeImport = importOptions.find((option) => option.statusLabel)
   const hasImportOptions = importOptions.length > 0
   const importBusy = importStatuses.some((item) => item.status === 'importing')
@@ -182,21 +180,19 @@ export function DocumentsPanel({
             </MenuTrigger>
           </div>
         )}
-        {developerMode && (
-          <button
-            type="button"
-            className="library-view-toggle"
-            aria-label={view === 'gallery' ? t('library.documents.listView') : t('library.documents.galleryView')}
-            title={view === 'gallery' ? t('library.documents.listView') : t('library.documents.galleryView')}
-            onClick={() => {
-              const nextView = view === 'gallery' ? 'list' : 'gallery'
-              setPreferredView(nextView)
-              savePreference(VIEW_STORAGE_KEY, nextView)
-            }}
-          >
-            <ViewIcon view={view === 'gallery' ? 'list' : 'gallery'} />
-          </button>
-        )}
+        <button
+          type="button"
+          className="library-view-toggle"
+          aria-label={view === 'gallery' ? t('library.documents.listView') : t('library.documents.galleryView')}
+          title={view === 'gallery' ? t('library.documents.listView') : t('library.documents.galleryView')}
+          onClick={() => {
+            const nextView = view === 'gallery' ? 'list' : 'gallery'
+            setPreferredView(nextView)
+            savePreference(VIEW_STORAGE_KEY, nextView)
+          }}
+        >
+          <ViewIcon view={view === 'gallery' ? 'list' : 'gallery'} />
+        </button>
         {onAudioSavedOnlyChange && (
           <label className="audio-filter-toggle">
             <input
@@ -332,9 +328,9 @@ function emptyMessage(documentCount: number, audioSavedOnly: boolean, filter: st
 
 function loadView(): LibraryView {
   try {
-    return window.localStorage.getItem(VIEW_STORAGE_KEY) === 'gallery' ? 'gallery' : 'list'
+    return window.localStorage.getItem(VIEW_STORAGE_KEY) === 'list' ? 'list' : 'gallery'
   } catch {
-    return 'list'
+    return 'gallery'
   }
 }
 
