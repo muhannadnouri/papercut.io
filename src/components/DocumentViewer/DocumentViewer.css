@@ -8,7 +8,7 @@
   margin-inline: auto;
   margin-bottom: 2.25rem;
   padding-bottom: 1.25rem;
-  border-bottom: 1px solid var(--border);
+  /* border-bottom: 1px solid var(--border); */
   min-width: 0;
   overflow: visible;
   z-index: 35;
