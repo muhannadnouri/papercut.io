@@ -96,7 +96,8 @@
       "savedAudioAvailable": "सहेजा गया ऑडियो उपलब्ध है"
     },
     "documentInfo": {
-      "button": "जानकारी",
+      "button": "विवरण संपादित करें",
+      "editLabel": "{{title}} का विवरण संपादित करें",
       "title": "दस्तावेज़ की जानकारी",
       "description": "फ़ाइल का विवरण देखें और Papercut में दिखने वाला शीर्षक बदलें।",
       "displayTitle": "प्रदर्शित शीर्षक",

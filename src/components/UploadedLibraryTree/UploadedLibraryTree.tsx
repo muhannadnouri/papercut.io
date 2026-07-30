@@ -654,31 +654,35 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
               <bdi className="uploaded-library-name">{node.title}</bdi>
             )}
             {opening && <span className="uploaded-library-opening">{options.t('common.opening')}</span>}
-            {node.kind === 'document' && !options.editMode && !options.filterMode && (
+            {node.kind === 'document' && !options.filterMode && (
               <>
-                {options.onViewDocumentInfo && (
+                {options.editMode && options.onViewDocumentInfo && (
                   <button
-                    className="document-row-action document-row-action-secondary"
+                    className="document-row-action document-row-action-secondary uploaded-library-document-edit"
                     type="button"
+                    aria-label={options.t('library.documentInfo.editLabel', { title: node.title })}
+                    title={options.t('library.documentInfo.button')}
                     onClick={(event) => {
                       event.stopPropagation()
                       options.onViewDocumentInfo?.(node.doc)
                     }}
                   >
-                    {options.t('library.documentInfo.button')}
+                    <EditIcon />
                   </button>
                 )}
-                <button
-                  className="document-row-action document-row-action-view"
-                  type="button"
-                  disabled={options.documentOpening}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    if (!options.documentOpening) options.onViewDocument?.(node.url)
-                  }}
-                >
-                  {opening ? options.t('common.opening') : options.t('common.view')}
-                </button>
+                {!options.editMode && (
+                  <button
+                    className="document-row-action document-row-action-view"
+                    type="button"
+                    disabled={options.documentOpening}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      if (!options.documentOpening) options.onViewDocument?.(node.url)
+                    }}
+                  >
+                    {opening ? options.t('common.opening') : options.t('common.view')}
+                  </button>
+                )}
               </>
             )}
             {options.editMode && !options.filterMode && node.kind === 'folder' && node.depth < 4 && (
@@ -698,5 +702,14 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
       </TreeItemContent>
       {node.children.map((child) => renderNode(child, options))}
     </TreeItem>
+  )
+}
+
+function EditIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
+    </svg>
   )
 }

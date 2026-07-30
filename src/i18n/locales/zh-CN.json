@@ -92,7 +92,8 @@
       "savedAudioAvailable": "有已保存的音频"
     },
     "documentInfo": {
-      "button": "信息",
+      "button": "编辑详情",
+      "editLabel": "编辑 {{title}} 的详情",
       "title": "文档信息",
       "description": "查看文件详情并更改 Papercut 中显示的标题。",
       "displayTitle": "显示标题",

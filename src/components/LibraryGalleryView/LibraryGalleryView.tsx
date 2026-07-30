@@ -24,7 +24,6 @@ interface LibraryGalleryViewProps {
   onCategoryChange: (category: LibraryGalleryCategory) => void
   onDeleteDocument?: (doc: DocumentInfo) => void | Promise<void>
   onToggleAuthor: (author: string) => void
-  onViewDocumentInfo?: (doc: DocumentInfo) => void
   onViewDocument: (url: string) => void
 }
 
@@ -43,7 +42,6 @@ export function LibraryGalleryView({
   onCategoryChange,
   onDeleteDocument,
   onToggleAuthor,
-  onViewDocumentInfo,
   onViewDocument,
 }: LibraryGalleryViewProps) {
   const { t } = useTranslation()
@@ -80,8 +78,6 @@ export function LibraryGalleryView({
                 disabled={documentOpening}
                 openingLabel={t('common.opening')}
                 savedAudioLabel={t('library.documents.savedAudioAvailable')}
-                infoLabel={t('library.documentInfo.button')}
-                onInfo={onViewDocumentInfo}
                 onOpen={onViewDocument}
               />
             ))}
@@ -110,7 +106,6 @@ export function LibraryGalleryView({
               onToggleAuthor={onToggleAuthor}
               onViewDocument={onViewDocument}
               onDeleteDocument={onDeleteDocument}
-              onViewDocumentInfo={onViewDocumentInfo}
               deleteDisabled={documentOpening || mutationDisabled}
               openingDocumentUrl={openingDocumentUrl}
               viewDisabled={documentOpening}
@@ -142,8 +137,6 @@ function BookCard({
   disabled,
   openingLabel,
   savedAudioLabel,
-  infoLabel,
-  onInfo,
   onOpen,
 }: {
   doc: DocumentInfo
@@ -152,8 +145,6 @@ function BookCard({
   disabled: boolean
   openingLabel: string
   savedAudioLabel: string
-  infoLabel: string
-  onInfo?: (doc: DocumentInfo) => void
   onOpen: (url: string) => void
 }) {
   const placeholderClass = `library-book-cover placeholder-${titleColor(doc.title)}`
@@ -217,17 +208,6 @@ function BookCard({
         <span className="library-book-format">
           {opening ? openingLabel : (doc.format ?? 'EPUB').toUpperCase()}
         </span>
-        {doc.source === 'upload' && onInfo && (
-          <button
-            type="button"
-            className="library-book-info"
-            aria-label={infoLabel}
-            title={infoLabel}
-            onClick={() => onInfo(doc)}
-          >
-            &#9432;
-          </button>
-        )}
       </span>
     </div>
   )

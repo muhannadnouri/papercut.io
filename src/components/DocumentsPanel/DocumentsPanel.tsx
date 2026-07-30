@@ -245,7 +245,6 @@ export function DocumentsPanel({
             savePreference(CATEGORY_STORAGE_KEY, category)
           }}
           onDeleteDocument={onDeleteDocument}
-          onViewDocumentInfo={onViewDocumentInfo}
           onToggleAuthor={onToggleAuthor}
           onViewDocument={onViewDocument}
         />
@@ -288,7 +287,6 @@ export function DocumentsPanel({
               onToggleAuthor={onToggleAuthor}
               onViewDocument={onViewDocument}
               onDeleteDocument={onDeleteDocument}
-              onViewDocumentInfo={onViewDocumentInfo}
               deleteDisabled={operationBusy || documentOpening}
               openingDocumentUrl={openingDocumentUrl}
               viewDisabled={documentOpening}

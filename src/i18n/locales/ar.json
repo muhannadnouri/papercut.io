@@ -112,7 +112,8 @@
       "savedAudioAvailable": "يتوفر صوت محفوظ"
     },
     "documentInfo": {
-      "button": "معلومات",
+      "button": "تعديل التفاصيل",
+      "editLabel": "تعديل تفاصيل {{title}}",
       "title": "معلومات المستند",
       "description": "اعرض تفاصيل الملف وغيّر العنوان الظاهر في Papercut.",
       "displayTitle": "عنوان العرض",

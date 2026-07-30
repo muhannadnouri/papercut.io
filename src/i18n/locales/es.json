@@ -100,7 +100,8 @@
       "savedAudioAvailable": "Audio guardado disponible"
     },
     "documentInfo": {
-      "button": "Información",
+      "button": "Editar detalles",
+      "editLabel": "Editar los detalles de {{title}}",
       "title": "Información del documento",
       "description": "Consulta los detalles del archivo y cambia el título que se muestra en Papercut.",
       "displayTitle": "Título mostrado",
