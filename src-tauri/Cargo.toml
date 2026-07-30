@@ -63,6 +63,9 @@ percent-encoding = "2.3"
 kuchikiki = "=0.8.8-speedreader"
 tauri-plugin-opener = "=2.5.3"
 
+[target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
+tauri-plugin-single-instance = "2"
+
 [profile.dev.package.image]
 opt-level = 2
 
