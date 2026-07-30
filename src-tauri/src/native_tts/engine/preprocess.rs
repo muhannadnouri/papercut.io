@@ -108,7 +108,7 @@ impl TextPreprocessor {
 /// result, including failures, so a bad native runtime setup does not keep
 /// retrying for every chunk in a long audiobook save.
 #[cfg(feature = "native-text-preprocessing-core")]
-fn initialize_ort() -> Result<(), String> {
+pub(super) fn initialize_ort() -> Result<(), String> {
     static RESULT: OnceLock<Result<(), String>> = OnceLock::new();
     RESULT
         .get_or_init(|| {

@@ -11,7 +11,7 @@ The frontend owns document parsing, HTML narration chunking, the platform-neutra
 The boundary is intentionally small:
 
 - `src/tts/api/nativeTts.ts` calls Tauri commands and subscribes to native model-install/save progress events.
-- `src-tauri/src/native_tts/` is the Rust backend module. Its `commands` layer exposes the Tauri commands and dispatches, via one `#[cfg]` switch, to either the `engine` submodules (real sherpa-onnx synthesis, compiled with `native-tts-core`) or a `stub` fallback when native TTS is not compiled. Inside `engine`: `models` defines catalog metadata and family-specific loading data, `model` downloads/verifies the selected model, `synth` loads sherpa-onnx and synthesizes individual chunks, `preprocess` owns optional language-aware synthesis-text transforms, `save` runs native batch generation and writes a durable timing index, `cache` scans saved chunks and parses WAV headers, `playback` prepares or reuses one cached mobile playback track, and `bundle` (`export`/`import`/`manage`) handles audiobook export/import and deletion. `paths`/`config` hold shared path/id/constant helpers, and OS-specific tuning (thread counts) lives in `platform`.
+- `src-tauri/src/native_tts/` is the Rust backend module. Its `commands` layer exposes the Tauri commands and dispatches, via one `#[cfg]` switch, to either the `engine` submodules (real sherpa-onnx synthesis, compiled with `native-tts-core`) or a `stub` fallback when native TTS is not compiled. Inside `engine`: `models` defines catalog metadata and family-specific loading data, `model` downloads/verifies the selected model, `synth` loads sherpa-onnx and synthesizes individual chunks, `preprocess` owns optional language-aware synthesis-text transforms, `providers` reports the packaged ONNX Runtime's compiled execution providers, `save` runs native batch generation and writes a durable timing index, `cache` scans saved chunks and parses WAV headers, `playback` prepares or reuses one cached mobile playback track, and `bundle` (`export`/`import`/`manage`) handles audiobook export/import and deletion. `paths`/`config` hold shared path/id/constant helpers, and OS-specific tuning (thread counts) lives in `platform`.
 - `src/tts/hooks/useTtsPlayer.ts` exposes one playback state contract to the UI. Desktop reads a bounded window of saved chunk WAVs; mobile maps one native track timeline back to chunk-local state. It never synthesizes missing chunks live.
 - `src/tts/playback/browserAudioCache.ts` owns the desktop window of WAV Blob URLs, concurrent chunk reads, and deterministic URL revocation. Browser playback itself stays on the standard `HTMLAudioElement` API.
 - `src/tts/playback/nativeMobileAudio.ts` is the narrow adapter around the official, exactly pinned `tauri-plugin-native-audio` 1.0.5 API. Papercut serializes bridge commands and owns its foreground polling cadence instead of forking or modifying the plugin.
@@ -29,6 +29,30 @@ This keeps expensive inference and large WAV writes out of the WebView while pre
 ## Model Catalog And Download
 
 The app does not package voice models into desktop installers or Android APKs. The model selector uses Rust capabilities as the authoritative catalog; a matching TypeScript fallback keeps startup and browser UI deterministic. Adding a model requires catalog metadata, required-file validation, and a sherpa family loader, not a parallel save/playback implementation.
+
+### Execution-provider discovery
+
+Papercut currently selects sherpa's CPU provider for every packaged build. The
+native capability response also reports `compiledExecutionProviders`, obtained
+from the same packaged ONNX Runtime already used by sherpa and Libtashkeel.
+`executionProviderProbeError` preserves setup failures for TTS diagnostics
+while CPU remains the safe fallback.
+
+Provider discovery is intentionally not a provider selector. A provider being
+compiled into ONNX Runtime does not prove that Kokoro, Piper, or Supertonic can
+load and synthesize correctly on that provider or that it improves sustained
+audiobook throughput on a target device. Before exposing a choice:
+
+1. package the provider and its native dependencies for the target platform;
+2. validate model loading and complete synthesis for every affected model
+   family;
+3. benchmark long saves for throughput, memory, power, and thermal behavior;
+4. expose only validated providers, with Automatic/CPU fallback behavior.
+
+CUDA, DirectML, Core ML, and Android NNAPI/XNNPACK are therefore separate
+platform validation and packaging stages. Provider choice remains an execution
+preference rather than audiobook identity: changing hardware must not hide or
+invalidate compatible saved audio.
 
 Pinned models:
 
@@ -251,7 +275,7 @@ high-quality narration.
 
 The in-app TTS diagnostics panel is the primary way to monitor desktop and mobile builds without devtools. Enable it from App Settings -> Developer -> Enable Developer Mode, from Audiobooks -> Audio Setup -> Advanced -> Diagnostics, or with the existing debug flag during development. When enabled, the panel appears below the Audiobooks panel and model source/release details are shown inside Audio Setup; the normal Installed status remains visible even when diagnostics are off.
 
-The panel stores only the latest bounded set of events in localStorage, supports category and severity filters, and can copy the filtered events as JSON for bug reports. Capability events are summarized before logging so the panel shows useful fields such as model count and model ids instead of dumping large nested model objects. Nested diagnostic values are still preserved in bounded form when they are useful for debugging.
+The panel stores only the latest bounded set of events in localStorage, supports category and severity filters, and can copy the filtered events as JSON for bug reports. Capability events are summarized before logging so the panel shows useful fields such as model count, model ids, compiled ONNX Runtime execution providers, and provider-probe failures instead of dumping large nested model objects. Nested diagnostic values are still preserved in bounded form when they are useful for debugging.
 
 The native path emits:
 
@@ -319,7 +343,7 @@ The next valuable work is native execution depth, not more browser fallback tuni
 - Add resumable/range-aware model downloads if interrupted downloads become common on mobile networks.
 - Evaluate compressed export audio if users need a portable single track beyond the standard 4 GB RIFF/WAV limit.
 - Complete cross-device smoke testing for PDF audiobook bundle export/import and page-aware highlight restoration.
-- Explore native GPU/NNAPI/CoreML/DirectML provider support only after the CPU native path is measured on target devices.
+- Benchmark and validate the providers reported by native capabilities before exposing Automatic/CPU/provider selection; provider-specific runtime packaging remains required.
 
 ## Sources
 

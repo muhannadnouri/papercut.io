@@ -31,6 +31,7 @@ mod models;
 mod paths;
 mod playback;
 mod preprocess;
+mod providers;
 mod prune;
 mod save;
 mod sidecar_probe;

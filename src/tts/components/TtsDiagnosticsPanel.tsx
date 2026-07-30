@@ -174,6 +174,8 @@ function summarizeEvent(event: TtsDiagnosticEvent): string {
     'totalChunks',
     'cachedChunks',
     'generatedChunks',
+    'compiledExecutionProviders',
+    'executionProviderProbeError',
     'modelCount',
     'modelIds',
     'threadCount',

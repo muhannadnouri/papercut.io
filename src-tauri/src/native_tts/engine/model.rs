@@ -31,6 +31,7 @@ use super::paths::{
     directory_size, has_required_model_files, installed_model_dir, model_work_dir,
     resolve_model_dir, runtime_model_dir,
 };
+use super::providers::compiled_sherpa_execution_providers;
 use super::silma_sidecar::{install_silma_runtime_pack, silma_runtime_status};
 use crate::native_tts::platform::{default_thread_count, max_thread_count};
 use crate::native_tts::state::NativeTtsState;
@@ -65,12 +66,19 @@ struct SilmaModelFile {
 
 /// Report runtime support and the model catalog. Model installation is queried separately.
 pub(crate) fn native_capabilities(_app: tauri::AppHandle) -> NativeTtsCapabilities {
+    let (compiled_execution_providers, execution_provider_probe_error) =
+        match compiled_sherpa_execution_providers() {
+            Ok(providers) => (providers.into_iter().map(str::to_string).collect(), None),
+            Err(error) => (vec!["cpu".into()], Some(error)),
+        };
     NativeTtsCapabilities {
         available: true,
         backend: "sherpa-onnx".into(),
         reason: "ready".into(),
         model_dir: None,
         platform: std::env::consts::OS.into(),
+        compiled_execution_providers,
+        execution_provider_probe_error,
         default_thread_count: default_thread_count(),
         max_thread_count: max_thread_count(),
         models: visible_models().map(ModelDefinition::to_info).collect(),

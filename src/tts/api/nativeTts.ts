@@ -11,6 +11,8 @@ export interface NativeTtsCapabilities {
   reason: string
   modelDir?: string | null
   platform: string
+  compiledExecutionProviders: string[]
+  executionProviderProbeError?: string | null
   defaultThreadCount: number
   maxThreadCount: number
   models: TtsModelInfo[]
@@ -471,6 +473,7 @@ async function loadNativeTtsCapabilities(): Promise<NativeTtsCapabilities> {
       backend: 'native-unavailable',
       reason: 'Native sherpa-onnx TTS is only available in the desktop or Android app.',
       platform: 'browser',
+      compiledExecutionProviders: [],
       models: FALLBACK_TTS_MODELS,
       defaultThreadCount: 1,
       maxThreadCount: 1,
@@ -485,6 +488,7 @@ async function loadNativeTtsCapabilities(): Promise<NativeTtsCapabilities> {
       backend: 'native-unavailable',
       reason: err instanceof Error ? err.message : String(err),
       platform: 'unknown',
+      compiledExecutionProviders: [],
       models: FALLBACK_TTS_MODELS,
       defaultThreadCount: 1,
       maxThreadCount: 1,

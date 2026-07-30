@@ -60,7 +60,9 @@ export function logTtsDiagnostic(
 export function summarizeTtsCapabilities(capabilities: {
   available: boolean
   backend: string
+  compiledExecutionProviders?: string[]
   defaultThreadCount: number
+  executionProviderProbeError?: string | null
   maxThreadCount: number
   modelDir?: string | null
   models?: Array<{ id: string }>
@@ -73,6 +75,8 @@ export function summarizeTtsCapabilities(capabilities: {
     backend: capabilities.backend,
     reason: capabilities.reason,
     platform: capabilities.platform,
+    compiledExecutionProviders: capabilities.compiledExecutionProviders?.join(', ') ?? '',
+    executionProviderProbeError: capabilities.executionProviderProbeError ?? '',
     defaultThreadCount: capabilities.defaultThreadCount,
     maxThreadCount: capabilities.maxThreadCount,
     modelCount: modelIds.length,
