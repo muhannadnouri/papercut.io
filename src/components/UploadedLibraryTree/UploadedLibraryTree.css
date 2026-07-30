@@ -38,6 +38,10 @@
   text-align: start;
 }
 
+.uploaded-library-heading .toggle-arrow {
+  font-size: 0.9rem;
+}
+
 .uploaded-library-title {
   color: var(--text-heading);
   font-size: 0.85rem;
@@ -350,7 +354,7 @@
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 0.72rem;
+  font-size: 0.9rem;
   line-height: 1;
   transition: transform 0.15s, background 0.15s;
 }
