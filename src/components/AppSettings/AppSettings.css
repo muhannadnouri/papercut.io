@@ -11,7 +11,7 @@
   padding: 0;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
-  background: var(--surface-muted);
+  background: var(--control-surface);
   color: var(--accent-strong);
   cursor: pointer;
   line-height: 1;
