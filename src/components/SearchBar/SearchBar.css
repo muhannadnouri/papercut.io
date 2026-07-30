@@ -41,7 +41,6 @@
   cursor: pointer;
 }
 
-.search-example:hover:not(:disabled),
 .search-example:focus-visible {
   border-color: var(--accent-text);
   outline: none;
@@ -105,12 +104,22 @@
   stroke-linejoin: round;
 }
 
-.search-btn:hover:not(:disabled),
 .search-btn:focus-visible {
   border-color: var(--accent-text);
   background: var(--accent-hover);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus-strong);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .search-example:hover:not(:disabled) {
+    border-color: var(--accent-text);
+  }
+
+  .search-btn:hover:not(:disabled) {
+    border-color: var(--accent-text);
+    background: var(--accent-hover);
+  }
 }
 
 .search-btn:disabled {

@@ -128,7 +128,6 @@ html[dir="rtl"] .pdf-search-target-status {
   width: 2.25rem;
 }
 
-.pdf-outline header button:hover,
 .pdf-outline header button:focus-visible {
   background: var(--surface-accent);
   color: var(--accent-text);
@@ -162,11 +161,18 @@ html[dir="rtl"] .pdf-search-target-status {
   cursor: pointer;
 }
 
-.pdf-outline li > button:hover,
 .pdf-outline li > button:focus-visible {
   background: var(--surface-accent);
   color: var(--accent-text);
   outline: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pdf-outline header button:hover,
+  .pdf-outline li > button:hover {
+    background: var(--surface-accent);
+    color: var(--accent-text);
+  }
 }
 
 @media (max-width: 720px) {

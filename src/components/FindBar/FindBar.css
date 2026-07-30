@@ -56,11 +56,6 @@
   transition: all 0.15s;
 }
 
-.find-nav-btn:hover:not(:disabled) {
-  border-color: var(--accent-text);
-  color: var(--accent-text);
-}
-
 .find-nav-btn:focus-visible {
   border-color: var(--accent-text);
   color: var(--accent-text);
@@ -88,14 +83,21 @@
   line-height: 1;
 }
 
-.find-close:hover {
-  color: var(--danger-bright);
-}
-
 .find-close:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
   outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .find-nav-btn:hover:not(:disabled) {
+    border-color: var(--accent-text);
+    color: var(--accent-text);
+  }
+
+  .find-close:hover {
+    color: var(--danger-bright);
+  }
 }
 
 @media (max-width: 480px) {

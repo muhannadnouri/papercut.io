@@ -107,12 +107,6 @@
   white-space: nowrap;
 }
 
-.back-button:hover {
-  border-color: var(--accent-text);
-  color: var(--accent-text);
-  background: var(--surface-accent);
-}
-
 .back-button:focus-visible {
   border-color: var(--accent-text);
   color: var(--accent-text);
@@ -136,12 +130,6 @@
   color: var(--text-body);
   transition: all 0.15s;
   white-space: nowrap;
-}
-
-.find-btn:hover:not(:disabled) {
-  border-color: var(--accent-text);
-  color: var(--accent-text);
-  background: var(--surface-accent);
 }
 
 .find-btn:focus-visible {
@@ -354,7 +342,6 @@ html[dir="rtl"] .back-icon {
   cursor: pointer;
 }
 
-.reader-bookmark-btn:hover,
 .reader-bookmark-btn:focus-visible {
   border-color: var(--accent-text);
   background: var(--surface-accent);
@@ -368,7 +355,6 @@ html[dir="rtl"] .back-icon {
   color: var(--text-inverse);
 }
 
-.reader-bookmark-btn-active:hover,
 .reader-bookmark-btn-active:focus-visible {
   border-color: var(--accent-hover);
   background: var(--accent-hover);
@@ -421,11 +407,27 @@ html[dir="rtl"] .back-icon {
   padding: 0.28rem 0.55rem;
 }
 
-.reader-bookmark-notice button:hover,
 .reader-bookmark-notice button:focus-visible {
   border-color: var(--accent-text);
   background: var(--surface-accent);
   outline: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .back-button:hover,
+  .find-btn:hover:not(:disabled),
+  .reader-bookmark-btn:hover,
+  .reader-bookmark-notice button:hover {
+    border-color: var(--accent-text);
+    color: var(--accent-text);
+    background: var(--surface-accent);
+  }
+
+  .reader-bookmark-btn-active:hover {
+    border-color: var(--accent-hover);
+    background: var(--accent-hover);
+    color: var(--text-inverse);
+  }
 }
 
 .reader-bookmark-notice .reader-bookmark-dismiss {

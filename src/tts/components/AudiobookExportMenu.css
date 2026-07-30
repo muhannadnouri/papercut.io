@@ -81,11 +81,17 @@
   word-break: keep-all;
 }
 
-.audiobook-export-option:hover,
 .audiobook-export-option:focus-visible {
   background: var(--surface-accent);
   color: var(--accent-strong);
   outline: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .audiobook-export-option:hover {
+    background: var(--surface-accent);
+    color: var(--accent-strong);
+  }
 }
 
 .audiobook-export-note {

@@ -91,11 +91,22 @@
   border-bottom: none;
 }
 
-.audio-saved-option[data-focused]:not([aria-current="true"]),
-.audio-saved-option:hover:not([aria-current="true"]) {
+.audio-saved-option[data-focused]:not([aria-current="true"]) {
   background: var(--surface-accent);
   color: var(--accent-strong);
   box-shadow: inset 3px 0 0 var(--accent-text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .audio-saved-option:hover:not([aria-current="true"]) {
+    background: var(--surface-accent);
+    color: var(--accent-strong);
+    box-shadow: inset 3px 0 0 var(--accent-text);
+  }
+
+  html[dir="rtl"] .audio-saved-option:hover:not([aria-current="true"]) {
+    box-shadow: inset -3px 0 0 var(--accent-text);
+  }
 }
 
 .audio-saved-option-current {
@@ -142,7 +153,6 @@
 }
 
 html[dir="rtl"] .audio-saved-option-current,
-html[dir="rtl"] .audio-saved-option[data-focused]:not([aria-current="true"]),
-html[dir="rtl"] .audio-saved-option:hover:not([aria-current="true"]) {
+html[dir="rtl"] .audio-saved-option[data-focused]:not([aria-current="true"]) {
   box-shadow: inset -3px 0 0 var(--accent-text);
 }

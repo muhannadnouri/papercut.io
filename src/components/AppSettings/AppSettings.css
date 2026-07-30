@@ -29,7 +29,6 @@
   stroke-linejoin: round;
 }
 
-.app-settings-btn:hover,
 .app-settings-btn:focus-visible {
   border-color: var(--accent-text);
   color: var(--accent-text);
@@ -87,7 +86,6 @@
   stroke-linejoin: round;
 }
 
-.app-settings-data-action:hover,
 .app-settings-data-action:focus-visible {
   border-color: var(--accent-text);
   background: var(--surface-accent);
@@ -210,7 +208,6 @@
   border-inline-end: 0;
 }
 
-.app-theme-option:hover,
 .app-theme-option:focus-visible {
   color: var(--accent-text);
   background: var(--surface-accent);
@@ -259,13 +256,45 @@
   font-variant-numeric: tabular-nums;
 }
 
-.app-zoom-control button:hover:not(:disabled),
 .app-zoom-control button:focus-visible,
-.app-zoom-reset:hover,
 .app-zoom-reset:focus-visible {
   border-color: var(--accent-text);
   color: var(--accent-text);
   outline: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .app-settings-btn:hover,
+  .app-settings-data-action:hover {
+    border-color: var(--accent-text);
+    color: var(--accent-text);
+    background: var(--surface-accent);
+  }
+
+  .app-theme-option:hover {
+    color: var(--accent-text);
+    background: var(--surface-accent);
+  }
+
+  .app-zoom-control button:hover:not(:disabled),
+  .app-zoom-reset:hover {
+    border-color: var(--accent-text);
+    color: var(--accent-text);
+  }
+}
+
+@media (pointer: coarse) {
+  .app-settings-btn {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .app-settings-data-action,
+  .app-theme-option,
+  .app-zoom-control button,
+  .app-zoom-reset {
+    min-height: 2.75rem;
+  }
 }
 
 .app-zoom-control button:disabled {

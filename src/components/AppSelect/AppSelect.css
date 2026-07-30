@@ -23,7 +23,6 @@
   cursor: pointer;
 }
 
-.app-select-button:hover:not(:disabled),
 .app-select-button:focus-visible,
 .app-select-open .app-select-button {
   border-color: var(--accent-text);
@@ -89,10 +88,29 @@
   border-bottom: 0;
 }
 
-.app-select-option:hover:not(:disabled),
 .app-select-option-active {
   background: var(--surface-accent);
   color: var(--accent-ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .app-select-button:hover:not(:disabled) {
+    border-color: var(--accent-text);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--shadow-focus);
+  }
+
+  .app-select-option:hover:not(:disabled) {
+    background: var(--surface-accent);
+    color: var(--accent-ink);
+  }
+}
+
+@media (pointer: coarse) {
+  .app-select-button,
+  .app-select-option {
+    min-height: 2.75rem;
+  }
 }
 
 .app-select-option-selected {

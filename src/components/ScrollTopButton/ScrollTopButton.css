@@ -14,14 +14,16 @@
   transition: background 0.15s;
 }
 
-.scroll-top-btn:hover {
-  background: var(--accent-hover);
-}
-
 .scroll-top-btn:focus-visible {
   background: var(--accent-hover);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus-strong);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .scroll-top-btn:hover {
+    background: var(--accent-hover);
+  }
 }
 
 .scroll-top-icon {

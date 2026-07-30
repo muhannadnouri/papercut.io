@@ -25,10 +25,6 @@
   border-top: 1px solid var(--border);
 }
 
-.uploaded-library-toolbar:hover {
-  background: var(--surface-hover);
-}
-
 .uploaded-library-heading {
   display: flex;
   flex: 1;
@@ -99,12 +95,6 @@
   color: var(--accent-strong);
 }
 
-.uploaded-library-edit-btn:hover:not(:disabled),
-.uploaded-library-actions button:hover:not(:disabled),
-.uploaded-library-move select:hover:not(:disabled) {
-  border-color: var(--accent-text);
-}
-
 .uploaded-library-edit-btn:focus-visible,
 .uploaded-library-actions button:focus-visible,
 .uploaded-library-move select:focus-visible {
@@ -160,7 +150,6 @@
   color: var(--danger);
 }
 
-.uploaded-library-actions .uploaded-library-batch-delete:hover:not(:disabled),
 .uploaded-library-actions .uploaded-library-batch-delete:focus-visible {
   border-color: var(--danger-accent);
   color: var(--danger-accent);
@@ -192,7 +181,6 @@
   cursor: help;
 }
 
-.uploaded-library-delete-btn-blocked:hover,
 .uploaded-library-delete-btn-blocked:focus-visible,
 .uploaded-library-delete-btn-blocked[aria-expanded="true"] {
   border-color: var(--border-strong);
@@ -371,7 +359,6 @@
   transform: rotate(90deg);
 }
 
-.uploaded-library-chevron:hover,
 .uploaded-library-chevron:focus-visible {
   background: var(--surface-accent);
   outline: none;
@@ -420,13 +407,45 @@
   font-weight: 600;
 }
 
-.uploaded-library-name-button:hover,
 .uploaded-library-name-button:focus-visible {
   color: var(--accent-strong);
   background: var(--surface-accent);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
   text-decoration: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .uploaded-library-toolbar:hover {
+    background: var(--surface-hover);
+  }
+
+  .uploaded-library-edit-btn:hover:not(:disabled),
+  .uploaded-library-actions button:hover:not(:disabled),
+  .uploaded-library-move select:hover:not(:disabled) {
+    border-color: var(--accent-text);
+  }
+
+  .uploaded-library-actions .uploaded-library-batch-delete:hover:not(:disabled) {
+    border-color: var(--danger-accent);
+    color: var(--danger-accent);
+  }
+
+  .uploaded-library-delete-btn-blocked:hover {
+    border-color: var(--border-strong);
+    background: var(--surface);
+    color: var(--text-muted);
+  }
+
+  .uploaded-library-chevron:hover,
+  .uploaded-library-name-button:hover {
+    background: var(--surface-accent);
+  }
+
+  .uploaded-library-name-button:hover {
+    color: var(--accent-strong);
+    text-decoration: none;
+  }
 }
 
 .uploaded-library-folder-count {
@@ -530,6 +549,16 @@
 }
 
 @media (pointer: coarse) {
+  .uploaded-library-heading .toggle-arrow {
+    font-size: 0.95rem;
+  }
+
+  .uploaded-library-chevron {
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 0.95rem;
+  }
+
   .uploaded-library-actions button,
   .uploaded-library-move select {
     min-height: 2.75rem;

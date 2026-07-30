@@ -156,8 +156,10 @@
   white-space: nowrap;
 }
 
-.tts-diagnostic-json summary:hover {
-  text-decoration: underline;
+@media (hover: hover) and (pointer: fine) {
+  .tts-diagnostic-json summary:hover {
+    text-decoration: underline;
+  }
 }
 
 .tts-diagnostic-json pre {

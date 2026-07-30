@@ -26,7 +26,6 @@
   border-inline-end: 0;
 }
 
-.library-gallery-category:hover,
 .library-gallery-category:focus-visible {
   color: var(--accent-text);
   background: var(--surface-accent);
@@ -52,7 +51,6 @@
   cursor: pointer;
 }
 
-.library-view-toggle:hover,
 .library-view-toggle:focus-visible {
   border-color: var(--accent-text);
   background: var(--surface-accent);
@@ -150,7 +148,6 @@
   object-fit: cover;
 }
 
-.library-book-open:hover .library-book-cover,
 .library-book-open:focus-visible .library-book-cover {
   border-color: var(--accent-text);
   box-shadow: 0 0 0 3px var(--shadow-focus), 0 4px 10px var(--shadow-subtle);
@@ -159,6 +156,26 @@
 
 .library-book-open:focus-visible {
   outline: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .library-gallery-category:hover {
+    color: var(--accent-text);
+    background: var(--surface-accent);
+    outline: none;
+  }
+
+  .library-view-toggle:hover {
+    border-color: var(--accent-text);
+    background: var(--surface-accent);
+    outline: none;
+  }
+
+  .library-book-open:hover .library-book-cover {
+    border-color: var(--accent-text);
+    box-shadow: 0 4px 10px var(--shadow-subtle);
+    translate: 0 -2px;
+  }
 }
 
 .library-book-card.opening .library-book-cover {
