@@ -204,6 +204,13 @@
       "description": "I documenti selezionati verranno eliminati definitivamente dal dispositivo, dai risultati della ricerca locale e dalle cartelle di Papercut.",
       "count": "Documenti",
       "confirm": "Elimina selezionati"
+    },
+    "savedAudioDependency": {
+      "title": "Un audiolibro salvato usa questo documento",
+      "description": "Elimina l'audiolibro salvato prima di rimuovere questo documento.",
+      "batchTitle": "Gli audiolibri salvati usano documenti selezionati",
+      "batchDescription": "Uno o più documenti selezionati hanno audio salvato. Elimina i relativi audiolibri prima di rimuovere i documenti.",
+      "viewAudiobooks": "Visualizza audiolibri"
     }
   },
   "settings": {

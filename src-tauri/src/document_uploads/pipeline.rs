@@ -357,6 +357,13 @@ pub(crate) fn delete_upload<R: Runtime>(
     app: &tauri::AppHandle<R>,
     request: UploadedDocumentDeleteRequest,
 ) -> Result<UploadedDocumentDeleteResult, String> {
+    if crate::native_tts::document_has_audiobook_reference(app, &request.document_url)? {
+        return Err(
+            "Delete the saved audio that uses this document before removing it from the Library"
+                .into(),
+        );
+    }
+
     let id = upload_id_from_url(&request.document_url)?;
     let dir = upload_dir(app, &id)?;
     let mut db = open_db(app)?;

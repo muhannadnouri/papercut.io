@@ -39,6 +39,7 @@ interface LibraryTabProps {
   onToggleAuthor: (author: string) => void
   onToggleShow: () => void
   onUpdateDocumentTitle: (documentUrl: string, title: string) => Promise<void>
+  onViewAudiobooks: () => void
   onViewDocument: (url: string) => void | Promise<void>
 }
 
@@ -71,6 +72,7 @@ export function LibraryTab({
   onToggleAuthor,
   onToggleShow,
   onUpdateDocumentTitle,
+  onViewAudiobooks,
   onViewDocument,
 }: LibraryTabProps) {
   const { t } = useTranslation()
@@ -132,6 +134,7 @@ export function LibraryTab({
         onMoveLibraryDocuments={onMoveLibraryDocuments}
         onRenameLibraryFolder={onRenameLibraryFolder}
         onToggleAuthor={onToggleAuthor}
+        onViewAudiobooks={onViewAudiobooks}
         onViewDocumentInfo={setInfoDocument}
         onViewDocument={onViewDocument}
       />

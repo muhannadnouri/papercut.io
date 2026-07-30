@@ -20,6 +20,7 @@ interface UploadedLibraryTreeProps {
   mutationDisabled?: boolean
   resetEditing?: boolean
   openingDocumentUrl?: string
+  savedAudiobookDocumentUrls?: ReadonlySet<string>
   selectedFilters?: Set<string>
   onCreateFolder?: (parentId: string | null, name: string) => Promise<void> | void
   onDeleteDocuments?: (docs: DocumentInfo[]) => Promise<UploadedDocumentDeleteBatchResult | null>
@@ -28,6 +29,7 @@ interface UploadedLibraryTreeProps {
   onRenameFolder?: (folderId: string, name: string) => Promise<void> | void
   onToggleAllInGroup?: (docs: DocumentInfo[]) => void
   onToggleFilter?: (url: string) => void
+  onViewAudiobooks?: () => void
   onViewDocumentInfo?: (doc: DocumentInfo) => void
   onViewDocument?: (url: string) => void
 }
@@ -44,6 +46,7 @@ export function UploadedLibraryTree({
   mutationDisabled = false,
   resetEditing = false,
   openingDocumentUrl,
+  savedAudiobookDocumentUrls = new Set(),
   selectedFilters,
   onCreateFolder,
   onDeleteFolder,
@@ -52,6 +55,7 @@ export function UploadedLibraryTree({
   onRenameFolder,
   onToggleAllInGroup,
   onToggleFilter,
+  onViewAudiobooks,
   onViewDocumentInfo,
   onViewDocument,
 }: UploadedLibraryTreeProps) {
@@ -163,6 +167,19 @@ export function UploadedLibraryTree({
     const documentsToDelete = selectedDocuments.map((node) => node.doc)
     setActionError('')
     void (async () => {
+      const dependentDocuments = documentsToDelete.filter((document) => (
+        savedAudiobookDocumentUrls.has(document.url)
+      ))
+      if (dependentDocuments.length > 0) {
+        const viewAudiobooks = await confirmLibraryAction({
+          title: t('library.savedAudioDependency.batchTitle'),
+          description: t('library.savedAudioDependency.batchDescription'),
+          confirmLabel: t('library.savedAudioDependency.viewAudiobooks'),
+        })
+        if (viewAudiobooks) onViewAudiobooks?.()
+        return
+      }
+
       const confirmed = await confirmLibraryAction({
         title: t('library.confirmDeleteDocuments.title'),
         description: t('library.confirmDeleteDocuments.description'),

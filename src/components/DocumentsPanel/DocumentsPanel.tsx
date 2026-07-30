@@ -54,6 +54,7 @@ interface DocumentsPanelProps {
   onRenameLibraryFolder?: (folderId: string, name: string) => void | Promise<void>
   onToggleAuthor: (author: string) => void
   onToggleShow: () => void
+  onViewAudiobooks?: () => void
   onViewDocumentInfo?: (doc: DocumentInfo) => void
   onViewDocument: (url: string) => void
 }
@@ -83,6 +84,7 @@ export function DocumentsPanel({
   onRenameLibraryFolder,
   onToggleAuthor,
   onToggleShow,
+  onViewAudiobooks,
   onViewDocumentInfo,
   onViewDocument,
 }: DocumentsPanelProps) {
@@ -258,11 +260,13 @@ export function DocumentsPanel({
               mutationDisabled={operationBusy}
               resetEditing={importBusy}
               openingDocumentUrl={openingDocumentUrl}
+              savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
               onCreateFolder={onCreateLibraryFolder!}
               onDeleteDocuments={onDeleteDocuments!}
               onDeleteFolder={onDeleteLibraryFolder!}
               onMoveDocuments={onMoveLibraryDocuments!}
               onRenameFolder={onRenameLibraryFolder!}
+              onViewAudiobooks={onViewAudiobooks}
               onViewDocumentInfo={onViewDocumentInfo}
               onViewDocument={onViewDocument}
             />

@@ -204,6 +204,13 @@
       "description": "Cette action supprime définitivement les documents sélectionnés de cet appareil, des résultats de recherche locaux et des dossiers Papercut.",
       "count": "Documents",
       "confirm": "Supprimer la sélection"
+    },
+    "savedAudioDependency": {
+      "title": "Un livre audio enregistré utilise ce document",
+      "description": "Supprimez le livre audio enregistré avant de supprimer ce document.",
+      "batchTitle": "Des livres audio enregistrés utilisent des documents sélectionnés",
+      "batchDescription": "Un ou plusieurs documents sélectionnés ont un audio enregistré. Supprimez leurs livres audio avant de supprimer les documents.",
+      "viewAudiobooks": "Voir les livres audio"
     }
   },
   "settings": {

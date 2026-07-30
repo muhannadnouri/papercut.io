@@ -199,6 +199,13 @@
       "description": "This permanently removes the selected documents from this device, local search results, and Papercut folders.",
       "count": "Documents",
       "confirm": "Delete Selected"
+    },
+    "savedAudioDependency": {
+      "title": "Saved Audiobook Uses This Document",
+      "description": "Delete the saved audiobook before removing this document.",
+      "batchTitle": "Saved Audiobooks Use Selected Documents",
+      "batchDescription": "One or more selected documents have saved audio. Delete their saved audiobooks before removing the documents.",
+      "viewAudiobooks": "View Audiobooks"
     }
   },
   "settings": {
