@@ -463,6 +463,8 @@ pub(crate) struct NativeAudiobookSaveProgress {
     pub(crate) total_wav_bytes: usize,
     pub(crate) applied_thread_count: i32,
     pub(crate) backend: String,
+    pub(crate) requested_execution_provider: Option<String>,
+    pub(crate) effective_execution_provider: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -483,6 +485,8 @@ pub(crate) struct NativeAudiobookSaveResponse {
     pub(crate) wav_bytes: usize,
     pub(crate) applied_thread_count: i32,
     pub(crate) backend: String,
+    pub(crate) requested_execution_provider: Option<String>,
+    pub(crate) effective_execution_provider: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

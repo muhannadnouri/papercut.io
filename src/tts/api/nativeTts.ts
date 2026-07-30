@@ -121,6 +121,8 @@ export interface NativeAudiobookSaveProgress {
   totalWavBytes: number
   appliedThreadCount: number
   backend: string
+  requestedExecutionProvider?: string | null
+  effectiveExecutionProvider?: string | null
 }
 
 export interface NativeAudiobookSaveResult {
@@ -135,6 +137,8 @@ export interface NativeAudiobookSaveResult {
   wavBytes: number
   appliedThreadCount: number
   backend: string
+  requestedExecutionProvider?: string | null
+  effectiveExecutionProvider?: string | null
 }
 
 export interface NativeAudiobookExportResult {

@@ -178,6 +178,8 @@ fn save_audiobook_native_blocking(
             total_wav_bytes: scan.wav_bytes,
             applied_thread_count: thread_count,
             backend: backend.clone(),
+            requested_execution_provider: None,
+            effective_execution_provider: None,
         },
     );
 
@@ -186,30 +188,39 @@ fn save_audiobook_native_blocking(
     let mut guard = engine_state
         .lock()
         .map_err(|_| "Native TTS engine lock poisoned".to_string())?;
-    let backend = match model.backend {
+    let (backend, requested_execution_provider, effective_execution_provider) = match model.backend
+    {
         TtsModelBackend::SherpaOnnx => {
             let engine =
                 ensure_sherpa_engine(&app, &mut guard, &request.model_id, Some(thread_count))?;
-            format!(
-                "{}:{}:{}:threads={}",
-                engine.model.backend_name(),
-                engine.model.id,
-                engine.model_dir.display(),
-                engine.num_threads
+            (
+                format!(
+                    "{}:{}:{}:threads={}",
+                    engine.model.backend_name(),
+                    engine.model.id,
+                    engine.model_dir.display(),
+                    engine.num_threads
+                ),
+                Some(engine.requested_execution_provider.to_string()),
+                Some(engine.effective_execution_provider.to_string()),
             )
         }
         TtsModelBackend::SilmaSidecar => {
             let engine =
                 ensure_silma_engine(&app, &mut guard, &request.model_id, request.thread_count)?;
-            format!(
-                "{}:{}:{}:sample_rate={}:device={}:torch_threads={}:torch_interop={}",
-                engine.model.backend_name(),
-                engine.model.id,
-                engine.model_dir.display(),
-                engine.sample_rate,
-                engine.device,
-                engine.torch_threads,
-                engine.torch_interop_threads,
+            (
+                format!(
+                    "{}:{}:{}:sample_rate={}:device={}:torch_threads={}:torch_interop={}",
+                    engine.model.backend_name(),
+                    engine.model.id,
+                    engine.model_dir.display(),
+                    engine.sample_rate,
+                    engine.device,
+                    engine.torch_threads,
+                    engine.torch_interop_threads,
+                ),
+                None,
+                None,
             )
         }
     };
@@ -256,6 +267,8 @@ fn save_audiobook_native_blocking(
                     total_wav_bytes: scan.wav_bytes,
                     applied_thread_count: thread_count,
                     backend: backend.clone(),
+                    requested_execution_provider: requested_execution_provider.clone(),
+                    effective_execution_provider: effective_execution_provider.clone(),
                 },
             );
             return Err("Audiobook save cancelled".into());
@@ -300,6 +313,8 @@ fn save_audiobook_native_blocking(
                 total_wav_bytes: scan.wav_bytes,
                 applied_thread_count: thread_count,
                 backend: backend.clone(),
+                requested_execution_provider: requested_execution_provider.clone(),
+                effective_execution_provider: effective_execution_provider.clone(),
             },
         );
 
@@ -382,6 +397,8 @@ fn save_audiobook_native_blocking(
                 total_wav_bytes: scan.wav_bytes,
                 applied_thread_count: thread_count,
                 backend: backend.clone(),
+                requested_execution_provider: requested_execution_provider.clone(),
+                effective_execution_provider: effective_execution_provider.clone(),
             },
         );
     }
@@ -430,6 +447,8 @@ fn save_audiobook_native_blocking(
             total_wav_bytes,
             applied_thread_count: thread_count,
             backend: backend.clone(),
+            requested_execution_provider: requested_execution_provider.clone(),
+            effective_execution_provider: effective_execution_provider.clone(),
         },
     );
 
@@ -445,6 +464,8 @@ fn save_audiobook_native_blocking(
         wav_bytes: total_wav_bytes,
         applied_thread_count: thread_count,
         backend,
+        requested_execution_provider,
+        effective_execution_provider,
     })
 }
 

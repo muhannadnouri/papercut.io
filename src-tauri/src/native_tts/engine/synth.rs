@@ -36,6 +36,8 @@ pub(crate) struct SherpaTtsEngine {
     pub(super) model: &'static ModelDefinition,
     pub(super) model_dir: std::path::PathBuf,
     pub(super) num_threads: i32,
+    pub(super) requested_execution_provider: &'static str,
+    pub(super) effective_execution_provider: &'static str,
 }
 
 /// Loaded SILMA worker plus the runtime settings that decide whether it can be
@@ -117,11 +119,15 @@ pub(super) fn ensure_sherpa_engine<'a>(
 
     if should_create {
         let model_dir = resolve_model_dir(app, model)?;
+        let (tts, requested_execution_provider, effective_execution_provider) =
+            create_engine(model, &model_dir, requested_threads)?;
         *guard = Some(LoadedTtsEngine::Sherpa(SherpaTtsEngine {
-            tts: create_engine(model, &model_dir, requested_threads)?,
+            tts,
             model,
             model_dir,
             num_threads: requested_threads,
+            requested_execution_provider,
+            effective_execution_provider,
         }));
     }
 
@@ -327,7 +333,7 @@ fn create_engine(
     model: &ModelDefinition,
     model_dir: &Path,
     thread_count: i32,
-) -> Result<OfflineTts, String> {
+) -> Result<(OfflineTts, &'static str, &'static str), String> {
     let provider = super::providers::default_sherpa_execution_provider();
     let mut model_config = OfflineTtsModelConfig {
         num_threads: thread_count,
@@ -406,7 +412,7 @@ fn create_engine(
         ..Default::default()
     };
     if let Some(tts) = OfflineTts::create(&config) {
-        return Ok(tts);
+        return Ok((tts, provider, provider));
     }
     if provider != "cpu" {
         log::warn!(
@@ -415,7 +421,11 @@ fn create_engine(
         );
         config.model.provider = Some("cpu".into());
         if let Some(tts) = OfflineTts::create(&config) {
-            return Ok(tts);
+            log::warn!(
+                "{} requested the {provider} provider but is running on CPU",
+                model.display_name
+            );
+            return Ok((tts, provider, "cpu"));
         }
     }
     Err(format!("Failed to create {} engine", model.display_name))

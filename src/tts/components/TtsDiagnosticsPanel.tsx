@@ -168,6 +168,8 @@ function summarizeEvent(event: TtsDiagnosticEvent): string {
     'runtimeInstalled',
     'installed',
     'percent',
+    'requestedExecutionProvider',
+    'effectiveExecutionProvider',
     'actualDevice',
     'realTimeFactor',
     'chunkNumber',

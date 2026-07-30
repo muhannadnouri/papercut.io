@@ -28,6 +28,7 @@ pub(super) fn default_sherpa_execution_provider() -> &'static str {
 fn normalize_default_provider(provider: Option<&str>) -> &'static str {
     match provider {
         Some("cuda") => "cuda",
+        Some("coreml") => "coreml",
         _ => "cpu",
     }
 }
@@ -97,6 +98,7 @@ mod tests {
     fn provider_defaults_are_bounded_to_supported_artifacts() {
         assert_eq!(normalize_default_provider(None), "cpu");
         assert_eq!(normalize_default_provider(Some("cuda")), "cuda");
+        assert_eq!(normalize_default_provider(Some("coreml")), "coreml");
         assert_eq!(normalize_default_provider(Some("unknown")), "cpu");
     }
 }

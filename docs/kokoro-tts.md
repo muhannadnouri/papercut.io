@@ -39,6 +39,9 @@ initialize. The native capability response reports `defaultExecutionProvider`
 alongside `compiledExecutionProviders`, obtained from the same packaged ONNX
 Runtime already used by sherpa and Libtashkeel.
 `executionProviderProbeError` preserves setup failures for TTS diagnostics.
+Audiobook save diagnostics separately report `requestedExecutionProvider` and
+`effectiveExecutionProvider`, so a CUDA/Core ML initialization failure followed
+by a successful CPU retry is visible instead of looking accelerated.
 
 Provider discovery is intentionally not a provider selector. A provider being
 compiled into ONNX Runtime does not prove that Kokoro, Piper, or Supertonic can
@@ -51,10 +54,11 @@ audiobook throughput on a target device. Before exposing a choice:
 3. benchmark long saves for throughput, memory, power, and thermal behavior;
 4. expose only validated providers, with Automatic/CPU fallback behavior.
 
-DirectML, Core ML, and Android NNAPI/XNNPACK remain separate platform validation
-and packaging stages. Provider choice remains an execution preference rather
-than audiobook identity: changing hardware must not hide or invalidate
-compatible saved audio.
+Papercut's provider scope is deliberately limited to CPU everywhere, CUDA with
+CPU fallback on Linux/Windows, and Core ML with CPU fallback on macOS/iOS.
+Windows CUDA and Apple Core ML remain separate packaging and validation stages.
+Provider choice remains an execution preference rather than audiobook identity:
+changing hardware must not hide or invalidate compatible saved audio.
 
 Pinned models:
 
@@ -293,7 +297,7 @@ high-quality narration.
 
 The in-app TTS diagnostics panel is the primary way to monitor desktop and mobile builds without devtools. Enable it from App Settings -> Developer -> Enable Developer Mode, from Audiobooks -> Audio Setup -> Advanced -> Diagnostics, or with the existing debug flag during development. When enabled, the panel appears below the Audiobooks panel and model source/release details are shown inside Audio Setup; the normal Installed status remains visible even when diagnostics are off.
 
-The panel stores only the latest bounded set of events in localStorage, supports category and severity filters, and can copy the filtered events as JSON for bug reports. Capability events are summarized before logging so the panel shows useful fields such as model count, model ids, compiled ONNX Runtime execution providers, and provider-probe failures instead of dumping large nested model objects. Nested diagnostic values are still preserved in bounded form when they are useful for debugging.
+The panel stores only the latest bounded set of events in localStorage, supports category and severity filters, and can copy the filtered events as JSON for bug reports. Capability events are summarized before logging so the panel shows useful fields such as model count, model ids, compiled ONNX Runtime execution providers, and provider-probe failures instead of dumping large nested model objects. Save events also show the requested and effective execution providers, including CPU fallback. Nested diagnostic values are still preserved in bounded form when they are useful for debugging.
 
 The native path emits:
 
@@ -361,8 +365,9 @@ The next valuable work is native execution depth, not more browser fallback tuni
 - Add resumable/range-aware model downloads if interrupted downloads become common on mobile networks.
 - Evaluate compressed export audio if users need a portable single track beyond the standard 4 GB RIFF/WAV limit.
 - Complete cross-device smoke testing for PDF audiobook bundle export/import and page-aware highlight restoration.
-- Validate the experimental Linux CUDA artifact on supported NVIDIA hardware
-  before considering release automation or a public Automatic/CPU selector.
+- Validate the experimental Linux CUDA artifact on supported NVIDIA hardware,
+  then validate Windows CUDA and Apple Core ML packaging/model behavior before
+  considering release automation or a public Automatic/CPU selector.
 
 ## Sources
 
