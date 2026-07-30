@@ -20,6 +20,18 @@ use ort::{NNAPIExecutionProvider, XNNPACKExecutionProvider};
 #[cfg(feature = "native-text-preprocessing-core")]
 use super::preprocess::initialize_ort;
 
+/// Return the provider selected by this artifact, defaulting unknown builds to CPU.
+pub(super) fn default_sherpa_execution_provider() -> &'static str {
+    normalize_default_provider(option_env!("PAPERCUT_SHERPA_DEFAULT_PROVIDER"))
+}
+
+fn normalize_default_provider(provider: Option<&str>) -> &'static str {
+    match provider {
+        Some("cuda") => "cuda",
+        _ => "cpu",
+    }
+}
+
 /// Ask the packaged ONNX Runtime which sherpa provider families it contains.
 ///
 /// This is a build capability probe, not a model compatibility guarantee:
@@ -75,4 +87,16 @@ fn push_available_provider(
         providers.push(sherpa_id);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_default_provider;
+
+    #[test]
+    fn provider_defaults_are_bounded_to_supported_artifacts() {
+        assert_eq!(normalize_default_provider(None), "cpu");
+        assert_eq!(normalize_default_provider(Some("cuda")), "cuda");
+        assert_eq!(normalize_default_provider(Some("unknown")), "cpu");
+    }
 }

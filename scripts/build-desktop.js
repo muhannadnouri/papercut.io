@@ -3,19 +3,36 @@ import { runSync, exitFromResult } from "./lib/process.js"
 import { tauriCommand } from "./lib/tauri.js"
 
 const isStatic = process.argv.includes("--static")
+const isCuda = process.argv.includes("--cuda")
 const bundles = desktopBundles()
 const linkMode = isStatic ? "static" : "shared"
 const feature = isStatic ? "native-tts-static" : "native-tts-shared"
 const platform = currentDesktopPlatform()
 
-prepareDesktopBuild(platform, { isStatic })
+validateVariant()
+await prepareDesktopBuild(platform, { isStatic, isCuda, bundles })
 const env = desktopBuildEnv(platform, {
   ...process.env,
   PAPERCUT_NATIVE_TTS_LINK: linkMode,
+  PAPERCUT_SHERPA_VARIANT: isCuda ? "cuda" : "cpu",
+  PAPERCUT_SHERPA_DEFAULT_PROVIDER: isCuda ? "cuda" : "cpu",
 })
 
 await prepareDesktopBundleResources(platform, { linkMode, feature, env })
 runTauriBuild(env, bundles)
+
+// CUDA is an explicit Linux x64 artifact so normal installers stay CPU-only.
+function validateVariant() {
+  if (!isCuda) return
+  if (isStatic) {
+    console.error("[desktop-build] --cuda requires the shared native-TTS build; remove --static.")
+    process.exit(1)
+  }
+  if (platform !== "linux" || process.arch !== "x64") {
+    console.error("[desktop-build] --cuda is currently supported only on Linux x64.")
+    process.exit(1)
+  }
+}
 
 // Build with the selected native-TTS link mode using platform-specific env.
 function runTauriBuild(env, bundles) {

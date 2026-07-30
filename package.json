@@ -17,6 +17,7 @@
     "test": "vitest run",
     "lint": "eslint .",
     "desktop": "node scripts/build-desktop.js",
+    "desktop:cuda": "node scripts/build-desktop.js --cuda",
     "desktop:static": "node scripts/build-desktop.js --static",
     "prepare:silma-sidecar": "node scripts/prepare-silma-sidecar.js",
     "test:pdf-extraction": "node scripts/check-pdf-extraction.mjs scripts/fixtures/pdf/extraction-inline-columns.pdf",

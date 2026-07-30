@@ -111,6 +111,7 @@ pub(crate) struct NativeTtsCapabilities {
     pub(crate) platform: String,
     pub(crate) compiled_execution_providers: Vec<String>,
     pub(crate) execution_provider_probe_error: Option<String>,
+    pub(crate) default_execution_provider: String,
     pub(crate) default_thread_count: i32,
     pub(crate) max_thread_count: i32,
     pub(crate) models: Vec<NativeTtsModelInfo>,

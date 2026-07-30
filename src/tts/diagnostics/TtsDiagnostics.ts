@@ -61,6 +61,7 @@ export function summarizeTtsCapabilities(capabilities: {
   available: boolean
   backend: string
   compiledExecutionProviders?: string[]
+  defaultExecutionProvider?: string
   defaultThreadCount: number
   executionProviderProbeError?: string | null
   maxThreadCount: number
@@ -76,6 +77,7 @@ export function summarizeTtsCapabilities(capabilities: {
     reason: capabilities.reason,
     platform: capabilities.platform,
     compiledExecutionProviders: capabilities.compiledExecutionProviders?.join(', ') ?? '',
+    defaultExecutionProvider: capabilities.defaultExecutionProvider ?? 'cpu',
     executionProviderProbeError: capabilities.executionProviderProbeError ?? '',
     defaultThreadCount: capabilities.defaultThreadCount,
     maxThreadCount: capabilities.maxThreadCount,

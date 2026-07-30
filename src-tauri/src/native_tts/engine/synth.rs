@@ -328,9 +328,10 @@ fn create_engine(
     model_dir: &Path,
     thread_count: i32,
 ) -> Result<OfflineTts, String> {
+    let provider = super::providers::default_sherpa_execution_provider();
     let mut model_config = OfflineTtsModelConfig {
         num_threads: thread_count,
-        provider: Some("cpu".into()),
+        provider: Some(provider.into()),
         ..Default::default()
     };
 
@@ -398,14 +399,26 @@ fn create_engine(
             .map(|name| model_dir.join(name).display().to_string())
             .join(",")
     });
-    let config = OfflineTtsConfig {
+    let mut config = OfflineTtsConfig {
         model: model_config,
         rule_fsts,
         max_num_sentences: 1,
         ..Default::default()
     };
-    OfflineTts::create(&config)
-        .ok_or_else(|| format!("Failed to create {} engine", model.display_name))
+    if let Some(tts) = OfflineTts::create(&config) {
+        return Ok(tts);
+    }
+    if provider != "cpu" {
+        log::warn!(
+            "Failed to create {} with the {provider} provider; retrying on CPU",
+            model.display_name
+        );
+        config.model.provider = Some("cpu".into());
+        if let Some(tts) = OfflineTts::create(&config) {
+            return Ok(tts);
+        }
+    }
+    Err(format!("Failed to create {} engine", model.display_name))
 }
 
 #[cfg(test)]

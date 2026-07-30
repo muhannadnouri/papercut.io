@@ -29,6 +29,7 @@ pub(super) fn native_capabilities(_app: tauri::AppHandle) -> NativeTtsCapabiliti
         platform: std::env::consts::OS.into(),
         compiled_execution_providers: Vec::new(),
         execution_provider_probe_error: None,
+        default_execution_provider: "cpu".into(),
         default_thread_count: 1,
         max_thread_count: 1,
         models: Vec::new(),

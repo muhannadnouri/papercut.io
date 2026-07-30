@@ -203,6 +203,12 @@ The built binary is output to `src-tauri/target/release/app` (`app.exe` on Windo
 
 `npm run desktop` uses the shared native TTS build to keep release compilation/linking memory lower. On Linux, the build copies the sherpa-onnx shared libraries into the Tauri resource directory before bundling, and the app binary includes an rpath to `/usr/lib/Papercut` so installed `.deb`, `.rpm`, and AppImage builds can find those libraries at launch. The AppImage also bundles the GStreamer media framework used by WebKitGTK for audiobook playback; local Linux builders therefore need the GStreamer base and good plugin packages listed above. If you specifically need a fully static native TTS build, use `npm run desktop:static`; that path can require substantially more RAM and may be killed by the OS on memory-constrained machines.
 
+Linux x64 developers can build a separate experimental NVIDIA package with
+`npm run desktop:cuda`. This keeps normal installers CPU-only while the CUDA
+artifact bundles sherpa's CUDA provider libraries and expects compatible CUDA
+12/cuDNN 9 libraries on the target system. See
+[`docs/kokoro-tts.md`](docs/kokoro-tts.md) for validation details.
+
 Install the generated Debian package with a dependency-aware command so WebKitGTK and GTK are installed if needed:
 
 ```bash

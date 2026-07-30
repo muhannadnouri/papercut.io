@@ -1,26 +1,33 @@
 import { existsSync, mkdirSync } from "node:fs"
 import { NODE_VERSION } from "../constants.js"
 import {
+  SHERPA_LINUX_CUDA_LIB_DIR,
   SHERPA_LINUX_SHARED_OUT_DIR,
   SHERPA_LINUX_SHARED_SOURCE_DIR,
 } from "../linux/constants.js"
+import { ensureLinuxCudaSherpaLibs } from "../linux/sherpa.js"
 import { runSync, shQuote, exitFromResult } from "../process.js"
 
-export function prepareLinuxDesktopBuild({ isStatic }) {
+export async function prepareLinuxDesktopBuild({ isStatic, isCuda = false, bundles = "" }) {
   if (isFlatpak() && !process.env.PAPERCUT_HOST_BUILD) {
-    delegateToHost(isStatic)
+    delegateToHost({ isStatic, isCuda, bundles })
   }
 
   ensurePatchelf()
   ensureLinuxSharedResourceDir()
+  if (isCuda) await ensureLinuxCudaSherpaLibs()
 }
 
 // Linux AppImage packaging needs NO_STRIP for hosts with newer ELF formats.
 export function linuxDesktopEnv(baseEnv) {
+  const sherpaLibDir = baseEnv.PAPERCUT_SHERPA_VARIANT === "cuda"
+    ? SHERPA_LINUX_CUDA_LIB_DIR
+    : SHERPA_LINUX_SHARED_SOURCE_DIR
   return {
     ...baseEnv,
     NO_STRIP: baseEnv.NO_STRIP ?? "1",
-    ORT_LIB_LOCATION: baseEnv.ORT_LIB_LOCATION ?? SHERPA_LINUX_SHARED_SOURCE_DIR,
+    ORT_LIB_LOCATION: baseEnv.ORT_LIB_LOCATION ?? sherpaLibDir,
+    SHERPA_ONNX_LIB_DIR: baseEnv.SHERPA_ONNX_LIB_DIR ?? sherpaLibDir,
   }
 }
 
@@ -30,8 +37,9 @@ function isFlatpak() {
 }
 
 // Re-run desktop packaging on the host so linuxdeploy can resolve host libs.
-function delegateToHost(isStatic) {
-  const npmScript = isStatic ? "desktop:static" : "desktop"
+function delegateToHost({ isStatic, isCuda, bundles }) {
+  const npmScript = isCuda ? "desktop:cuda" : isStatic ? "desktop:static" : "desktop"
+  const bundleEnv = bundles ? `export PAPERCUT_DESKTOP_BUNDLES=${shQuote(bundles)}` : ""
   const command = `
 set -eu
 cd ${shQuote(process.cwd())}
@@ -43,6 +51,7 @@ unset PKG_CONFIG_SYSROOT_DIR
 unset PKG_CONFIG_LIBDIR
 export PAPERCUT_HOST_BUILD=1
 export NO_STRIP=1
+${bundleEnv}
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 if command -v nvm >/dev/null 2>&1; then

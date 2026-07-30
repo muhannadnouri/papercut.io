@@ -7,6 +7,7 @@ describe('summarizeTtsCapabilities', () => {
       available: true,
       backend: 'sherpa-onnx',
       compiledExecutionProviders: ['cpu', 'coreml'],
+      defaultExecutionProvider: 'coreml',
       defaultThreadCount: 1,
       executionProviderProbeError: null,
       maxThreadCount: 8,
@@ -15,6 +16,7 @@ describe('summarizeTtsCapabilities', () => {
       reason: 'ready',
     })).toMatchObject({
       compiledExecutionProviders: 'cpu, coreml',
+      defaultExecutionProvider: 'coreml',
       executionProviderProbeError: '',
       modelCount: 1,
     })

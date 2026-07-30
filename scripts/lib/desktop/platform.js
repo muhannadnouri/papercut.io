@@ -10,7 +10,7 @@ export function currentDesktopPlatform() {
 }
 
 // Keep OS-specific build quirks in one dispatch point.
-export function prepareDesktopBuild(platform, options) {
+export async function prepareDesktopBuild(platform, options) {
   if (platform === "linux") return prepareLinuxDesktopBuild(options)
   if (platform === "windows") return prepareWindowsDesktopBuild(options)
   if (platform === "macos") return prepareMacosDesktopBuild(options)

@@ -32,11 +32,13 @@ The app does not package voice models into desktop installers or Android APKs. T
 
 ### Execution-provider discovery
 
-Papercut currently selects sherpa's CPU provider for every packaged build. The
-native capability response also reports `compiledExecutionProviders`, obtained
-from the same packaged ONNX Runtime already used by sherpa and Libtashkeel.
-`executionProviderProbeError` preserves setup failures for TTS diagnostics
-while CPU remains the safe fallback.
+Normal Papercut packages select sherpa's CPU provider. An explicit Linux x64
+CUDA build uses the official sherpa CUDA 12/cuDNN 9 shared-library archive,
+selects CUDA by default, and retries engine creation on CPU if CUDA cannot
+initialize. The native capability response reports `defaultExecutionProvider`
+alongside `compiledExecutionProviders`, obtained from the same packaged ONNX
+Runtime already used by sherpa and Libtashkeel.
+`executionProviderProbeError` preserves setup failures for TTS diagnostics.
 
 Provider discovery is intentionally not a provider selector. A provider being
 compiled into ONNX Runtime does not prove that Kokoro, Piper, or Supertonic can
@@ -49,10 +51,10 @@ audiobook throughput on a target device. Before exposing a choice:
 3. benchmark long saves for throughput, memory, power, and thermal behavior;
 4. expose only validated providers, with Automatic/CPU fallback behavior.
 
-CUDA, DirectML, Core ML, and Android NNAPI/XNNPACK are therefore separate
-platform validation and packaging stages. Provider choice remains an execution
-preference rather than audiobook identity: changing hardware must not hide or
-invalidate compatible saved audio.
+DirectML, Core ML, and Android NNAPI/XNNPACK remain separate platform validation
+and packaging stages. Provider choice remains an execution preference rather
+than audiobook identity: changing hardware must not hide or invalidate
+compatible saved audio.
 
 Pinned models:
 
@@ -167,6 +169,22 @@ Desktop builds compile the native TTS feature:
 npm run desktop
 ```
 
+The standard desktop command remains CPU-only. To produce the larger
+experimental Linux x64 NVIDIA artifact:
+
+```bash
+npm run desktop:cuda
+```
+
+The CUDA command downloads and SHA-256 verifies sherpa-onnx's pinned CUDA
+12/cuDNN 9 archive, then bundles its CUDA provider libraries instead of adding
+them to every installer. The target machine must provide a compatible NVIDIA
+driver, CUDA 12 runtime libraries, and cuDNN 9. Intel and AMD GPUs should use
+the standard CPU package. Use TTS diagnostics to confirm
+`defaultExecutionProvider: cuda` and `compiledExecutionProviders` containing
+`cuda`; a successful complete audiobook save is still required before treating
+a model/device combination as validated.
+
 Android debug APK builds without native TTS still use the normal command:
 
 ```bash
@@ -183,7 +201,7 @@ npm run android:apk:native-tts
 
 The explicit prepare commands are useful for setup and troubleshooting, but `npm run android:apk:native-tts` also ensures the sherpa Android libraries are present before building. The native Android wrapper sets `JAVA_HOME`, `SHERPA_ONNX_LIB_DIR`, and `ORT_LIB_LOCATION` automatically for the default arm64 APK path. `npm run prepare:jdk` installs a repo-local Eclipse Temurin JDK 17 into `src-tauri/tts/runtime/jdk/temurin-17` when a system JDK is not available. The fallback JDK archive is pinned to Eclipse Temurin 17.0.19+10, and both the JDK archive and sherpa Android archive are verified with SHA-256 before extraction. Downloads are written through temporary files before being promoted to their cache path. The Android build still requires the normal Android SDK/NDK prerequisites. Native background audio raises the app minimum to Android API 26, matching the plugin's Media3 service requirement.
 
-The Node build scripts are orchestration around npm, Cargo, Tauri, Gradle, and SDK Manager rather than a replacement for those tools. Shared helpers in `scripts/lib/` own project paths, version constants, child-process execution, archive extraction, and checked downloads. Platform-specific helpers live in `scripts/lib/android/` for Android JDK/sherpa setup, `scripts/lib/linux/` for Linux shared-library bundling, `scripts/lib/macos/` for macOS dylib bundling, and `scripts/lib/ios/` for iOS static XCFramework prep. Script entrypoints such as `prepare:sherpa-android-libs`, `prepare:sherpa-ios-libs`, `android:apk:native-tts`, `ios:ipa:native-tts`, and `desktop` call those helpers instead of relying on import side effects or duplicated archive/spawn code. Android APK variants are handled by one top-level `scripts/build-android.js`; the native TTS npm command passes `--native-tts` to that script. iOS uses `scripts/build-ios.js` to select the device or arm64 simulator sherpa static-library slice and build with `native-tts-ios`, which includes static Libtashkeel preprocessing. A local `sherpa-onnx-sys` patch teaches the Rust build script to use the upstream iOS aggregate archives (`libsherpa-onnx.a` and `libonnxruntime.a`) instead of desktop component archives. The generated iOS app target also includes a tiny Swift bridge source so Xcode links Swift runtime libraries needed by Tauri/plugin Swift objects inside `libapp.a`, and PR CI performs both simulator and unsigned generic iPhoneOS device native-TTS builds. The device check prebuilds the Rust static library with Cargo using the configured iOS minimum deployment target, stages Cargo's `libapp_lib.a` output as `libapp.a` in `gen/apple/Externals/arm64/release/`, and then uses direct `xcodebuild build` with the generated Tauri script skipped so it stops before archive/export signing.
+The Node build scripts are orchestration around npm, Cargo, Tauri, Gradle, and SDK Manager rather than a replacement for those tools. Shared helpers in `scripts/lib/` own project paths, version constants, child-process execution, archive extraction, and checked downloads. Platform-specific helpers live in `scripts/lib/android/` for Android JDK/sherpa setup, `scripts/lib/linux/` for Linux CPU/CUDA shared-library preparation and bundling, `scripts/lib/macos/` for macOS dylib bundling, and `scripts/lib/ios/` for iOS static XCFramework prep. Script entrypoints such as `prepare:sherpa-android-libs`, `prepare:sherpa-ios-libs`, `android:apk:native-tts`, `ios:ipa:native-tts`, `desktop`, and `desktop:cuda` call those helpers instead of relying on import side effects or duplicated archive/spawn code. Android APK variants are handled by one top-level `scripts/build-android.js`; the native TTS npm command passes `--native-tts` to that script. iOS uses `scripts/build-ios.js` to select the device or arm64 simulator sherpa static-library slice and build with `native-tts-ios`, which includes static Libtashkeel preprocessing. A local `sherpa-onnx-sys` patch teaches the Rust build script to use the upstream iOS aggregate archives (`libsherpa-onnx.a` and `libonnxruntime.a`) instead of desktop component archives. The generated iOS app target also includes a tiny Swift bridge source so Xcode links Swift runtime libraries needed by Tauri/plugin Swift objects inside `libapp.a`, and PR CI performs both simulator and unsigned generic iPhoneOS device native-TTS builds. The device check prebuilds the Rust static library with Cargo using the configured iOS minimum deployment target, stages Cargo's `libapp_lib.a` output as `libapp.a` in `gen/apple/Externals/arm64/release/`, and then uses direct `xcodebuild build` with the generated Tauri script skipped so it stops before archive/export signing.
 
 On macOS, `sherpa-onnx-sys` downloads per-arch (`osx-x64` / `osx-arm64`) shared-library archives during the Cargo build, copies the `.dylib`s next to the dev binary, and emits an `@loader_path` rpath for `npm run tauri:dev`. The desktop build helper runs a fast macOS `cargo check` first so `sherpa-onnx-sys` downloads the dylibs, stages every `.dylib` from the sherpa macOS archive before Tauri scans `bundle.resources` (including versioned ONNX Runtime siblings such as `libonnxruntime.1.24.4.dylib`), signs staged dylibs with the Developer ID identity and secure timestamp when release signing is active, and the `tauri.macos.conf.json` `beforeBundleCommand` (`scripts/copy-sherpa-macos-libs.js`) refreshes that staging directory before bundling. `src-tauri/build.rs` adds an `@loader_path/../Resources` rpath so the installed `.app` (binary in `Contents/MacOS`, resources in `Contents/Resources`) resolves the dylibs at launch. The same shared ONNX Runtime is reused by Libtashkeel via `ort::init_from`. macOS builds are produced per-architecture on `macos-15-intel` (Intel x86_64) and `macos-15` (Apple Silicon aarch64) runners. Release builds use the protected `apple-release` GitHub Environment to import the Developer ID certificate, sign with hardened runtime entitlements, notarize, staple, and verify the `.dmg` artifacts; ordinary PR/CI or local builds without Apple secrets remain unsigned development artifacts.
 
@@ -343,7 +361,8 @@ The next valuable work is native execution depth, not more browser fallback tuni
 - Add resumable/range-aware model downloads if interrupted downloads become common on mobile networks.
 - Evaluate compressed export audio if users need a portable single track beyond the standard 4 GB RIFF/WAV limit.
 - Complete cross-device smoke testing for PDF audiobook bundle export/import and page-aware highlight restoration.
-- Benchmark and validate the providers reported by native capabilities before exposing Automatic/CPU/provider selection; provider-specific runtime packaging remains required.
+- Validate the experimental Linux CUDA artifact on supported NVIDIA hardware
+  before considering release automation or a public Automatic/CPU selector.
 
 ## Sources
 
