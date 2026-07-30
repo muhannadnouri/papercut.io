@@ -49,8 +49,9 @@ The package does not carry derived or platform-specific data:
 Completed audiobook metadata is discovered from the native manifest stored
 beside each audiobook's canonical chunk WAVs. The saved-audiobook UI no longer
 depends on a duplicate WebView `localStorage` registry, so restored native files
-appear automatically. Audiobook export is optional and off by default because
-these payloads can make a transfer package several gigabytes larger.
+appear automatically. Audiobook export is optional, individually selectable,
+and off by default because these payloads can make a transfer package several
+gigabytes larger.
 
 The receiver parses and sanitizes every transferred HTML document again, then
 rebuilds SQLite metadata, sections, and FTS rows with its installed app version.
@@ -136,12 +137,13 @@ The role control remains visible throughout the dialog. Nearby transfer is the
 default path, while the transfer-file disclosures explain that files can be
 moved through USB, shared storage, or another user-chosen method.
 
-The export action offers a default-off **Include saved audiobooks** checkbox when
-completed audio exists. The dialog reports document and audiobook counts plus
-failures. The same dialog also exposes explicit source and target roles for
-same-network transfer. The source displays a local address and pairing code;
-the target enters both values and receives the same package through the normal
-import boundary.
+When completed audio exists, the send action offers a collapsed, default-empty
+saved-audiobook checklist with select-all and deselect-all controls. The same
+selection applies to nearby transfer and the transfer-file fallback. The dialog
+reports document and audiobook counts plus failures. It also exposes explicit
+source and target roles for same-network transfer. The source displays a local
+address and pairing code; the target enters both values and receives the same
+package through the normal import boundary.
 
 ## Same-Network Transport
 
@@ -206,7 +208,7 @@ required by Android's local-network privacy model.
 - [x] Stage 1: expose file-based transfer from App Settings.
 - [x] Stage 1: cover package validation, duplicate handling, and folder mapping.
 - [x] Stage 2: make native audiobook manifests the authoritative completed-audio registry.
-- [x] Stage 2: add optional completed-audiobook payloads, defaulting to excluded.
+- [x] Stage 2: add individually selectable completed-audiobook payloads, defaulting to excluded.
 - [x] Stage 3: add foreground, authenticated same-network transfer using this package.
 - [x] Stage 3: add one-use expiry and foreground sender cancellation.
 - [x] Stage 3: add byte-level transfer and item-level restore phases.

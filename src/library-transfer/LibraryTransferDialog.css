@@ -112,33 +112,151 @@
 }
 
 .library-transfer-audiobooks {
-  display: flex;
-  align-items: flex-start;
-  justify-self: stretch;
-  max-width: 100%;
-  gap: 0.5rem;
-  text-align: start;
+  min-width: 0;
+}
+
+.library-transfer-audiobooks summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.45rem;
+  align-items: start;
+  color: var(--text-body);
   cursor: pointer;
+  list-style: none;
 }
 
-.library-transfer-audiobooks input {
-  margin-top: 0.15rem;
+.library-transfer-audiobooks summary::-webkit-details-marker {
+  display: none;
 }
 
-.library-transfer-audiobooks span {
+.library-transfer-audiobooks summary::before {
+  content: "▶";
+  font-size: 0.72rem;
+  line-height: 1.4;
+  transition: transform 120ms ease;
+}
+
+.library-transfer-audiobooks[open] summary::before {
+  transform: rotate(90deg);
+}
+
+html[dir="rtl"] .library-transfer-audiobooks summary::before {
+  content: "◀";
+}
+
+html[dir="rtl"] .library-transfer-audiobooks[open] summary::before {
+  transform: rotate(-90deg);
+}
+
+.library-transfer-audiobooks summary > span {
   display: grid;
   min-width: 0;
   gap: 0.1rem;
 }
 
-.library-transfer-audiobooks strong {
+.library-transfer-audiobooks summary strong {
   font-size: 0.8rem;
 }
 
-.library-transfer-audiobooks small {
+.library-transfer-audiobooks summary small {
   color: var(--text-muted);
   font-size: 0.75rem;
   line-height: 1.35;
+}
+
+.library-transfer-audiobook-picker {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.library-transfer-audiobook-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.library-transfer-audiobook-actions button {
+  min-height: 2rem;
+  padding-inline: 0.65rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.library-transfer-audiobook-actions button:disabled {
+  color: var(--text-soft);
+  cursor: not-allowed;
+}
+
+.library-transfer-audiobook-list {
+  display: block;
+  max-height: 13rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow-y: auto;
+}
+
+.library-transfer-audiobook-list label {
+  display: flex;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 3rem;
+  gap: 0.55rem;
+  align-items: flex-start;
+  padding: 0.55rem;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.library-transfer-audiobook-list input {
+  flex: 0 0 auto;
+  margin-top: 0.2rem;
+}
+
+.library-transfer-audiobook-list label:last-child {
+  border-bottom: 0;
+}
+
+.library-transfer-audiobook-list label:has(input:checked) {
+  background: var(--surface-accent);
+}
+
+.library-transfer-audiobook-list label > span {
+  display: grid;
+  min-width: 0;
+  gap: 0.1rem;
+}
+
+.library-transfer-audiobook-list strong {
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.library-transfer-audiobook-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.1rem 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.35;
+  text-align: start;
+}
+
+.library-transfer-audiobook-meta > span {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.library-transfer-audiobook-meta > span + span::before {
+  margin-inline-end: 0.4rem;
+  color: var(--text-muted);
+  content: "•";
 }
 
 .library-transfer-alternate {

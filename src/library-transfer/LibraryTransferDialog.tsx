@@ -17,7 +17,9 @@ import {
   type LibraryTransferSendStatus,
 } from './libraryTransfer'
 import { listNativeSavedAudiobooks } from '../tts/api/nativeTts'
+import type { SavedAudiobookRecord } from '../tts/storage/AudiobookLibrary'
 import { isUserUploadUrl, upsertUserUpload } from '../tts/storage/UserUploads'
+import { formatSavedAudiobookMetaParts } from '../tts/utils/format'
 import './LibraryTransferDialog.css'
 
 interface LibraryTransferDialogProps {
@@ -42,21 +44,22 @@ export function LibraryTransferDialog({ documentCount, onBack, onImported }: Lib
   const [mode, setMode] = useState<TransferMode>('send')
   const [status, setStatus] = useState<TransferStatus>({ state: 'idle' })
   const [progress, setProgress] = useState<LibraryTransferProgress | null>(null)
-  const [savedAudiobookCount, setSavedAudiobookCount] = useState(0)
-  const [includeAudiobooks, setIncludeAudiobooks] = useState(false)
+  const [savedAudiobooks, setSavedAudiobooks] = useState<SavedAudiobookRecord[]>([])
+  const [selectedAudiobookIds, setSelectedAudiobookIds] = useState<string[]>([])
   const [sendStatus, setSendStatus] = useState<LibraryTransferSendStatus | null>(null)
   const [sourceAddress, setSourceAddress] = useState('')
   const [pairingCode, setPairingCode] = useState('')
   const operationBusy = ['exporting', 'importing', 'preparingSend', 'receiving'].includes(status.state)
   const sendActive = sendStatus?.state === 'waiting' || sendStatus?.state === 'sending'
   const busy = operationBusy || sendActive
-  const hasContent = documentCount > 0 || (includeAudiobooks && savedAudiobookCount > 0)
+  const hasContent = documentCount > 0 || selectedAudiobookIds.length > 0
   const locale = i18n.resolvedLanguage ?? i18n.language
+  const technicalT = i18n.getFixedT('en')
 
   useEffect(() => {
     void listNativeSavedAudiobooks()
-      .then((records) => setSavedAudiobookCount(records.length))
-      .catch(() => setSavedAudiobookCount(0))
+      .then(setSavedAudiobooks)
+      .catch(() => setSavedAudiobooks([]))
   }, [])
 
   useEffect(() => {
@@ -117,7 +120,7 @@ export function LibraryTransferDialog({ documentCount, onBack, onImported }: Lib
     setProgress(null)
     setStatus({ state: 'exporting' })
     try {
-      const result = await exportLibrary(includeAudiobooks)
+      const result = await exportLibrary(selectedAudiobookIds)
       setStatus(result ? { state: 'exported', result } : { state: 'idle' })
     } catch (error) {
       setStatus({ state: 'error', message: formatTransferError(error, locale, t) })
@@ -143,7 +146,7 @@ export function LibraryTransferDialog({ documentCount, onBack, onImported }: Lib
     setProgress(null)
     setStatus({ state: 'preparingSend' })
     try {
-      setSendStatus(await startLibrarySend(includeAudiobooks))
+      setSendStatus(await startLibrarySend(selectedAudiobookIds))
       setStatus({ state: 'idle' })
     } catch (error) {
       setStatus({ state: 'error', message: formatTransferError(error, locale, t) })
@@ -204,19 +207,71 @@ export function LibraryTransferDialog({ documentCount, onBack, onImported }: Lib
                 <h3>{t('libraryTransfer.sendTitle')}</h3>
                 <p>{t('libraryTransfer.sendDescription')}</p>
               </header>
-              {savedAudiobookCount > 0 && (
-                <label className="library-transfer-audiobooks">
-                  <input
-                    type="checkbox"
-                    checked={includeAudiobooks}
-                    disabled={busy}
-                    onChange={(event) => setIncludeAudiobooks(event.target.checked)}
-                  />
-                  <span>
-                    <strong>{t('libraryTransfer.includeAudiobooks', { count: savedAudiobookCount })}</strong>
-                    <small>{t('libraryTransfer.includeAudiobooksDescription')}</small>
-                  </span>
-                </label>
+              {savedAudiobooks.length > 0 && (
+                <details className="library-transfer-audiobooks">
+                  <summary>
+                    <span>
+                      <strong>
+                        {t('libraryTransfer.includeAudiobooks', {
+                          selected: selectedAudiobookIds.length,
+                          count: savedAudiobooks.length,
+                        })}
+                      </strong>
+                      <small>{t('libraryTransfer.includeAudiobooksDescription')}</small>
+                    </span>
+                  </summary>
+                  <div className="library-transfer-audiobook-picker">
+                    <div className="library-transfer-audiobook-actions">
+                      <button
+                        type="button"
+                        disabled={busy || selectedAudiobookIds.length === savedAudiobooks.length}
+                        onClick={() => setSelectedAudiobookIds(savedAudiobooks.map((record) => record.id))}
+                      >
+                        {t('common.selectAll')}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy || selectedAudiobookIds.length === 0}
+                        onClick={() => setSelectedAudiobookIds([])}
+                      >
+                        {t('common.deselectAll')}
+                      </button>
+                    </div>
+                    <div className="library-transfer-audiobook-list">
+                      {savedAudiobooks.map((record) => {
+                        const meta = formatSavedAudiobookMetaParts(
+                          technicalT,
+                          record.modelId,
+                          record.voice,
+                          record.speed,
+                          record.textPreprocessor,
+                          record.audioDurationSec,
+                          record.wavBytes,
+                        )
+                        return (
+                          <label key={record.id}>
+                            <input
+                              type="checkbox"
+                              checked={selectedAudiobookIds.includes(record.id)}
+                              disabled={busy}
+                              onChange={(event) => {
+                                setSelectedAudiobookIds((current) => event.target.checked
+                                  ? [...current, record.id]
+                                  : current.filter((id) => id !== record.id))
+                              }}
+                            />
+                            <span>
+                              <strong><bdi>{record.title}</bdi></strong>
+                              <small className="library-transfer-audiobook-meta" dir="ltr">
+                                {meta.map((part) => <span key={part}>{part}</span>)}
+                              </small>
+                            </span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </details>
               )}
               {sendActive ? (
                 <button type="button" className="library-transfer-stop" onClick={() => { void handleCancelSend() }}>

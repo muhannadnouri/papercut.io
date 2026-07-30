@@ -32,7 +32,7 @@ use package::{
     audiobook_file_path, copy_audiobook_file, document_source_path, read_document_source,
     read_manifest, sha256_reader, write_package, TransferAudiobook, TransferAudiobookFile,
     TransferDocument, TransferDocumentLocation, TransferFolder, TransferManifest,
-    TransferOrganization, MAX_PACKAGE_BYTES, PACKAGE_KIND, PACKAGE_VERSION,
+    TransferOrganization, MAX_AUDIOBOOKS, MAX_PACKAGE_BYTES, PACKAGE_KIND, PACKAGE_VERSION,
 };
 
 const PACKAGE_EXTENSION: &str = "papercut-library";
@@ -109,7 +109,8 @@ pub(crate) type LibraryTransferResult<T> = Result<T, LibraryTransferError>;
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LibraryTransferExportRequest {
-    include_audiobooks: bool,
+    #[serde(default)]
+    audiobook_ids: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -214,7 +215,7 @@ pub async fn library_transfer_export(
     request: Option<LibraryTransferExportRequest>,
 ) -> LibraryTransferResult<Option<LibraryTransferExportResult>> {
     tauri::async_runtime::spawn_blocking(move || {
-        export_library(app, request.unwrap_or_default().include_audiobooks)
+        export_library(app, request.unwrap_or_default().audiobook_ids)
     })
     .await
     .map_err(|err| format!("Library export task failed: {err}"))?
@@ -233,7 +234,7 @@ pub async fn library_transfer_import(
 
 fn export_library(
     app: tauri::AppHandle,
-    include_audiobooks: bool,
+    audiobook_ids: Vec<String>,
 ) -> LibraryTransferResult<Option<LibraryTransferExportResult>> {
     let destination = app
         .dialog()
@@ -247,7 +248,7 @@ fn export_library(
     };
     let temp_path = transfer_temp_path(&app, "export")?;
     let build_result: LibraryTransferResult<LibraryTransferExportResult> = (|| {
-        let result = build_library_package(&app, &temp_path, include_audiobooks)?;
+        let result = build_library_package(&app, &temp_path, &audiobook_ids)?;
         copy_temp_to_destination(&app, &temp_path, destination)?;
         Ok(result)
     })();
@@ -285,11 +286,11 @@ fn import_library(
 fn build_library_package(
     app: &tauri::AppHandle,
     path: &Path,
-    include_audiobooks: bool,
+    audiobook_ids: &[String],
 ) -> LibraryTransferResult<LibraryTransferExportResult> {
     let documents = list_uploads(app)?;
     let organization = list_organization(app)?;
-    let prepared = prepare_manifest(app, &documents, organization, include_audiobooks)?;
+    let prepared = prepare_manifest(app, &documents, organization, audiobook_ids)?;
     if prepared.manifest.documents.is_empty() && prepared.manifest.audiobooks.is_empty() {
         return Err("There are no uploaded documents or saved audiobooks to export".into());
     }
@@ -359,7 +360,7 @@ fn prepare_manifest(
     app: &tauri::AppHandle,
     documents: &[UploadedDocument],
     organization: crate::document_uploads::UploadedLibraryOrganization,
-    include_audiobooks: bool,
+    audiobook_ids: &[String],
 ) -> Result<PreparedPackage, String> {
     let mut transfer_documents = Vec::with_capacity(documents.len());
     let mut payloads = HashMap::new();
@@ -387,9 +388,13 @@ fn prepare_manifest(
         payloads.insert(source_path, path);
     }
 
-    let mut transfer_audiobooks = Vec::new();
-    if include_audiobooks {
+    let selected_audiobook_ids = validate_audiobook_selection(audiobook_ids)?;
+    let mut transfer_audiobooks = Vec::with_capacity(selected_audiobook_ids.len());
+    if !selected_audiobook_ids.is_empty() {
         for audiobook in crate::native_tts::list_audiobook_transfer_payloads(app)? {
+            if !selected_audiobook_ids.contains(audiobook.record.id.as_str()) {
+                continue;
+            }
             let mut files = Vec::with_capacity(audiobook.files.len());
             for file in audiobook.files {
                 let mut reader = BufReader::new(
@@ -454,6 +459,19 @@ fn prepare_manifest(
         audiobooks: transfer_audiobooks,
     };
     Ok(PreparedPackage { manifest, payloads })
+}
+
+/// Deduplicate UI selections and apply the package limit before touching large
+/// audiobook payloads; IDs that disappeared since the dialog opened are simply
+/// absent from the authoritative native registry.
+fn validate_audiobook_selection(audiobook_ids: &[String]) -> Result<HashSet<&str>, String> {
+    let selected: HashSet<_> = audiobook_ids.iter().map(String::as_str).collect();
+    if selected.len() > MAX_AUDIOBOOKS {
+        return Err(format!(
+            "No more than {MAX_AUDIOBOOKS} saved audiobooks can be transferred"
+        ));
+    }
+    Ok(selected)
 }
 
 /// Import documents independently so one damaged payload does not discard valid
@@ -1208,6 +1226,18 @@ mod tests {
             "library-transfer-active.tmp",
             stale - Duration::from_secs(1)
         ));
+    }
+
+    #[test]
+    fn audiobook_selection_deduplicates_ids_and_enforces_the_package_limit() {
+        let selected = validate_audiobook_selection(&["one".into(), "one".into(), "two".into()])
+            .expect("valid selection");
+        assert_eq!(selected.len(), 2);
+
+        let too_many = (0..=MAX_AUDIOBOOKS)
+            .map(|index| format!("audiobook-{index}"))
+            .collect::<Vec<_>>();
+        assert!(validate_audiobook_selection(&too_many).is_err());
     }
 
     fn test_folder(id: &str, parent_id: Option<&str>, name: &str) -> UploadedLibraryFolder {
