@@ -9,6 +9,14 @@
   align-items: center;
   gap: 0.35rem;
   min-height: 2.15rem;
+  border-color: var(--border);
+  background: var(--surface);
+}
+
+.audiobook-export[aria-expanded="true"] {
+  border-color: var(--accent-border);
+  background: var(--surface-accent);
+  color: var(--accent-strong);
 }
 
 .audiobook-export-arrow {

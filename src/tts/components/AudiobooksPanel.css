@@ -546,6 +546,8 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 0.55rem 0.75rem;
+  border-color: var(--border-strong);
+  background: var(--surface-subtle);
   overflow: visible;
 }
 
@@ -611,11 +613,10 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
 }
 
 .audiobook-delete {
-  color: var(--danger);
-}
-
-.audiobook-delete {
   min-height: 2.15rem;
+  border-color: var(--danger-border);
+  background: var(--surface);
+  color: var(--danger);
 }
 
 .audiobook-action-toast {
@@ -696,7 +697,10 @@ html[dir="rtl"] .audiobook-action-toast {
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
-.audiobook-delete:hover:not(:disabled) {
+.audiobook-delete:hover:not(:disabled),
+.audiobook-delete:focus-visible {
+  border-color: var(--danger);
+  background: var(--surface-danger);
   color: var(--danger-strong);
 }
 
