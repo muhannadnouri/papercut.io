@@ -31,7 +31,12 @@ export interface PagefindInstance {
 export interface DocumentInfo {
   title: string
   url: string
+  uploadId?: string
+  originalFileName?: string | null
   format?: string
   source?: 'bundled' | 'upload' | 'audiobook-upload'
+  importedAtMs?: number
+  bytes?: number
+  sections?: number
   coverMediaType?: string | null
 }

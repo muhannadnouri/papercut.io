@@ -54,6 +54,7 @@ interface DocumentsPanelProps {
   onRenameLibraryFolder?: (folderId: string, name: string) => void | Promise<void>
   onToggleAuthor: (author: string) => void
   onToggleShow: () => void
+  onViewDocumentInfo?: (doc: DocumentInfo) => void
   onViewDocument: (url: string) => void
 }
 
@@ -82,6 +83,7 @@ export function DocumentsPanel({
   onRenameLibraryFolder,
   onToggleAuthor,
   onToggleShow,
+  onViewDocumentInfo,
   onViewDocument,
 }: DocumentsPanelProps) {
   const { t } = useTranslation()
@@ -243,6 +245,7 @@ export function DocumentsPanel({
             savePreference(CATEGORY_STORAGE_KEY, category)
           }}
           onDeleteDocument={onDeleteDocument}
+          onViewDocumentInfo={onViewDocumentInfo}
           onToggleAuthor={onToggleAuthor}
           onViewDocument={onViewDocument}
         />
@@ -261,6 +264,7 @@ export function DocumentsPanel({
               onDeleteFolder={onDeleteLibraryFolder!}
               onMoveDocuments={onMoveLibraryDocuments!}
               onRenameFolder={onRenameLibraryFolder!}
+              onViewDocumentInfo={onViewDocumentInfo}
               onViewDocument={onViewDocument}
             />
           )}
@@ -284,6 +288,7 @@ export function DocumentsPanel({
               onToggleAuthor={onToggleAuthor}
               onViewDocument={onViewDocument}
               onDeleteDocument={onDeleteDocument}
+              onViewDocumentInfo={onViewDocumentInfo}
               deleteDisabled={operationBusy || documentOpening}
               openingDocumentUrl={openingDocumentUrl}
               viewDisabled={documentOpening}

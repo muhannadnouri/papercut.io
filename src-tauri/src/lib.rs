@@ -17,6 +17,7 @@ pub fn run() {
             document_uploads::commands::document_uploads_import_folder,
             document_uploads::commands::document_uploads_cancel_import_batch,
             document_uploads::commands::document_uploads_list,
+            document_uploads::commands::document_uploads_update_title,
             document_uploads::commands::document_uploads_search,
             document_uploads::commands::document_uploads_get_source,
             document_uploads::commands::document_uploads_get_cover,

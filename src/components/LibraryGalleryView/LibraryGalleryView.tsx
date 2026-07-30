@@ -24,6 +24,7 @@ interface LibraryGalleryViewProps {
   onCategoryChange: (category: LibraryGalleryCategory) => void
   onDeleteDocument?: (doc: DocumentInfo) => void | Promise<void>
   onToggleAuthor: (author: string) => void
+  onViewDocumentInfo?: (doc: DocumentInfo) => void
   onViewDocument: (url: string) => void
 }
 
@@ -42,6 +43,7 @@ export function LibraryGalleryView({
   onCategoryChange,
   onDeleteDocument,
   onToggleAuthor,
+  onViewDocumentInfo,
   onViewDocument,
 }: LibraryGalleryViewProps) {
   const { t } = useTranslation()
@@ -78,6 +80,8 @@ export function LibraryGalleryView({
                 disabled={documentOpening}
                 openingLabel={t('common.opening')}
                 savedAudioLabel={t('library.documents.savedAudioAvailable')}
+                infoLabel={t('library.documentInfo.button')}
+                onInfo={onViewDocumentInfo}
                 onOpen={onViewDocument}
               />
             ))}
@@ -106,6 +110,7 @@ export function LibraryGalleryView({
               onToggleAuthor={onToggleAuthor}
               onViewDocument={onViewDocument}
               onDeleteDocument={onDeleteDocument}
+              onViewDocumentInfo={onViewDocumentInfo}
               deleteDisabled={documentOpening || mutationDisabled}
               openingDocumentUrl={openingDocumentUrl}
               viewDisabled={documentOpening}
@@ -137,6 +142,8 @@ function BookCard({
   disabled,
   openingLabel,
   savedAudioLabel,
+  infoLabel,
+  onInfo,
   onOpen,
 }: {
   doc: DocumentInfo
@@ -145,6 +152,8 @@ function BookCard({
   disabled: boolean
   openingLabel: string
   savedAudioLabel: string
+  infoLabel: string
+  onInfo?: (doc: DocumentInfo) => void
   onOpen: (url: string) => void
 }) {
   const placeholderClass = `library-book-cover placeholder-${titleColor(doc.title)}`
@@ -180,32 +189,47 @@ function BookCard({
   }, [doc.coverMediaType, doc.source, doc.url])
 
   return (
-    <button
-      type="button"
-      className={opening ? 'library-book-card opening' : 'library-book-card'}
-      disabled={disabled}
-      aria-label={opening ? openingLabel : doc.title}
-      onClick={() => onOpen(doc.url)}
-    >
-      <span ref={coverRef} className={placeholderClass}>
-        {cover
-          ? <img className="library-book-cover-image" src={cover} alt="" decoding="async" />
-          : <bdi>{doc.title}</bdi>}
-        {hasSavedAudio && (
-          <span
-            className="library-book-audio"
-            aria-label={savedAudioLabel}
-            title={savedAudioLabel}
+    <div className={opening ? 'library-book-card opening' : 'library-book-card'}>
+      <button
+        type="button"
+        className="library-book-open"
+        disabled={disabled}
+        aria-label={opening ? openingLabel : doc.title}
+        onClick={() => onOpen(doc.url)}
+      >
+        <span ref={coverRef} className={placeholderClass}>
+          {cover
+            ? <img className="library-book-cover-image" src={cover} alt="" decoding="async" />
+            : <bdi>{doc.title}</bdi>}
+          {hasSavedAudio && (
+            <span
+              className="library-book-audio"
+              aria-label={savedAudioLabel}
+              title={savedAudioLabel}
+            >
+              🎧
+            </span>
+          )}
+        </span>
+        <bdi className="library-book-title">{doc.title}</bdi>
+      </button>
+      <span className="library-book-footer">
+        <span className="library-book-format">
+          {opening ? openingLabel : (doc.format ?? 'EPUB').toUpperCase()}
+        </span>
+        {doc.source === 'upload' && onInfo && (
+          <button
+            type="button"
+            className="library-book-info"
+            aria-label={infoLabel}
+            title={infoLabel}
+            onClick={() => onInfo(doc)}
           >
-            🎧
-          </span>
+            &#9432;
+          </button>
         )}
       </span>
-      <bdi className="library-book-title">{doc.title}</bdi>
-      <span className="library-book-format">
-        {opening ? openingLabel : (doc.format ?? 'EPUB').toUpperCase()}
-      </span>
-    </button>
+    </div>
   )
 }
 

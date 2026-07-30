@@ -95,6 +95,19 @@
       "emptyCategoryDocuments": "कोई दस्तावेज़ वर्तमान फ़िल्टर से मेल नहीं खाता।",
       "savedAudioAvailable": "सहेजा गया ऑडियो उपलब्ध है"
     },
+    "documentInfo": {
+      "button": "जानकारी",
+      "title": "दस्तावेज़ की जानकारी",
+      "description": "फ़ाइल का विवरण देखें और Papercut में दिखने वाला शीर्षक बदलें।",
+      "displayTitle": "प्रदर्शित शीर्षक",
+      "originalFileName": "मूल फ़ाइल नाम",
+      "format": "प्रारूप",
+      "fileSize": "फ़ाइल का आकार",
+      "imported": "आयात किया गया",
+      "pages": "पृष्ठ",
+      "sections": "अनुभाग",
+      "unavailable": "उपलब्ध नहीं"
+    },
     "import": {
       "files": "फ़ाइलें",
       "filesDetail": "एक या अधिक HTML, EPUB या PDF फ़ाइलें आयात करें",

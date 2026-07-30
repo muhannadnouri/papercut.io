@@ -34,7 +34,7 @@ existing component modules.
 The package carries canonical user data:
 
 - sanitized, normalized `source.html` for each generic HTML or EPUB upload;
-- stable document ids and import metadata;
+- stable document ids, display titles, optional original filenames, and import metadata;
 - uploaded-library folders and document placement metadata;
 - optional completed-audiobook manifests, canonical chunk WAVs, and imported
   audiobook source documents;
@@ -54,6 +54,8 @@ these payloads can make a transfer package several gigabytes larger.
 
 The receiver parses and sanitizes every transferred HTML document again, then
 rebuilds SQLite metadata, sections, and FTS rows with its installed app version.
+Transferred display-title overrides and available original filenames are
+restored after parsing so metadata corrections survive a device move.
 Document ids come from the manifest rather than a hash of normalized HTML;
 otherwise transferred EPUBs would get new URLs because their original archive
 bytes are not retained by Papercut.
@@ -78,7 +80,11 @@ audiobooks/<storage-key>/source/source.html     # imported bundles only
 audiobooks/<storage-key>/source/metadata.json   # imported bundles only
 ```
 
-Both versions are limited to 500 documents. Version 2 is also limited to 500
+Version 3 adds canonical PDF document payloads while retaining the same
+manifest boundary and rebuilding PDF-derived text, thumbnails, and FTS rows on
+the receiving device.
+
+All versions are limited to 500 documents. Versions 2 and 3 are also limited to 500
 completed audiobooks and 100,000 audiobook files, with an 8 GiB expanded package
 limit. Reading preferences are not represented.
 

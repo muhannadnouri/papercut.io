@@ -70,6 +70,7 @@ function App() {
     renameLibraryFolder,
     uploadedDocuments,
     uploadedLibraryOrganization,
+    updateDocumentTitle,
   } = useUploadedLibrary()
 
   const loadHtmlDocument = useCallback(async (url: string): Promise<string> => {
@@ -143,8 +144,13 @@ function App() {
     ...uploadedDocuments.map((upload) => ({
       title: upload.title,
       url: upload.url,
+      uploadId: upload.id,
+      originalFileName: upload.originalFileName,
       format: upload.format,
       source: 'upload' as const,
+      importedAtMs: upload.importedAtMs,
+      bytes: upload.bytes,
+      sections: upload.sections,
       coverMediaType: upload.coverMediaType,
     })),
     ...userUploads.map((upload) => ({ title: upload.title, url: upload.url, format: 'html', source: 'audiobook-upload' as const })),
@@ -404,6 +410,9 @@ function App() {
             onMoveLibraryDocuments={moveLibraryDocuments}
             onRenameLibraryFolder={renameLibraryFolder}
             onToggleAuthor={toggleLibraryAuthor}
+            onUpdateDocumentTitle={async (documentUrl, title) => {
+              await updateDocumentTitle(documentUrl, title)
+            }}
             onImportDocumentBatch={handleImportDocumentBatch}
             onImportDocumentFolder={handleImportDocumentFolder}
             onCancelDocumentBatch={cancelDocumentBatch}

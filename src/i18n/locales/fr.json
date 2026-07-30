@@ -99,6 +99,19 @@
       "emptyCategoryDocuments": "Aucun document ne correspond aux filtres actuels.",
       "savedAudioAvailable": "Audio enregistré disponible"
     },
+    "documentInfo": {
+      "button": "Infos",
+      "title": "Informations sur le document",
+      "description": "Consultez les détails du fichier et modifiez le titre affiché dans Papercut.",
+      "displayTitle": "Titre affiché",
+      "originalFileName": "Nom du fichier d’origine",
+      "format": "Format",
+      "fileSize": "Taille du fichier",
+      "imported": "Importé",
+      "pages": "Pages",
+      "sections": "Sections",
+      "unavailable": "Indisponible"
+    },
     "import": {
       "files": "Fichiers",
       "filesDetail": "Importez un ou plusieurs fichiers HTML, EPUB ou PDF",

@@ -374,6 +374,7 @@ fn prepare_manifest(
         transfer_documents.push(TransferDocument {
             id: document.id.clone(),
             title: document.title.clone(),
+            original_file_name: document.original_file_name.clone(),
             format: document.format.clone(),
             source_kind: source_kind.as_str().into(),
             imported_at_ms: u64::try_from(document.imported_at_ms)
@@ -521,6 +522,8 @@ fn restore_manifest<T: Read + std::io::Seek>(
                         app,
                         document.id.clone(),
                         source_html,
+                        document.title.clone(),
+                        document.original_file_name.clone(),
                         document.format.clone(),
                         document.imported_at_ms as u128,
                         document.original_bytes,
@@ -530,6 +533,7 @@ fn restore_manifest<T: Read + std::io::Seek>(
                     app,
                     document.id.clone(),
                     document.title.clone(),
+                    document.original_file_name.clone(),
                     source,
                     document.imported_at_ms as u128,
                     document.original_bytes,

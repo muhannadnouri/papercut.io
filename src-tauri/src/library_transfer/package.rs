@@ -44,6 +44,8 @@ pub(super) struct TransferManifest {
 pub(super) struct TransferDocument {
     pub(super) id: String,
     pub(super) title: String,
+    #[serde(default)]
+    pub(super) original_file_name: Option<String>,
     pub(super) format: String,
     #[serde(default = "default_source_kind")]
     pub(super) source_kind: String,
@@ -820,6 +822,7 @@ mod tests {
                 source_path: document_source_path(&id, "html"),
                 id,
                 title: "Test".into(),
+                original_file_name: Some("test.html".into()),
                 format: "html".into(),
                 source_kind: "html".into(),
                 imported_at_ms: 1,

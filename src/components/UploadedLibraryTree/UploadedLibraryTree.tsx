@@ -28,6 +28,7 @@ interface UploadedLibraryTreeProps {
   onRenameFolder?: (folderId: string, name: string) => Promise<void> | void
   onToggleAllInGroup?: (docs: DocumentInfo[]) => void
   onToggleFilter?: (url: string) => void
+  onViewDocumentInfo?: (doc: DocumentInfo) => void
   onViewDocument?: (url: string) => void
 }
 
@@ -51,6 +52,7 @@ export function UploadedLibraryTree({
   onRenameFolder,
   onToggleAllInGroup,
   onToggleFilter,
+  onViewDocumentInfo,
   onViewDocument,
 }: UploadedLibraryTreeProps) {
   const { t, i18n } = useTranslation()
@@ -495,6 +497,7 @@ export function UploadedLibraryTree({
             onToggleAllInGroup,
             onToggleFilter,
             onToggleSelection: toggleSelection,
+            onViewDocumentInfo,
             onViewDocument,
             openingDocumentUrl,
             selectedFilters,
@@ -551,6 +554,7 @@ interface RenderNodeOptions {
   onToggleFilter?: (url: string) => void
   onToggleFolderExpanded: (key: string) => void
   onToggleSelection: (key: string) => void
+  onViewDocumentInfo?: (doc: DocumentInfo) => void
   onViewDocument?: (url: string) => void
   selectedFilters?: Set<string>
   selectedKeys: Set<Key>
@@ -651,17 +655,31 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
             )}
             {opening && <span className="uploaded-library-opening">{options.t('common.opening')}</span>}
             {node.kind === 'document' && !options.editMode && !options.filterMode && (
-              <button
-                className="document-row-action document-row-action-view"
-                type="button"
-                disabled={options.documentOpening}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  if (!options.documentOpening) options.onViewDocument?.(node.url)
-                }}
-              >
-                {opening ? options.t('common.opening') : options.t('common.view')}
-              </button>
+              <>
+                {options.onViewDocumentInfo && (
+                  <button
+                    className="document-row-action document-row-action-secondary"
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      options.onViewDocumentInfo?.(node.doc)
+                    }}
+                  >
+                    {options.t('library.documentInfo.button')}
+                  </button>
+                )}
+                <button
+                  className="document-row-action document-row-action-view"
+                  type="button"
+                  disabled={options.documentOpening}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    if (!options.documentOpening) options.onViewDocument?.(node.url)
+                  }}
+                >
+                  {opening ? options.t('common.opening') : options.t('common.view')}
+                </button>
+              </>
             )}
             {options.editMode && !options.filterMode && node.kind === 'folder' && node.depth < 4 && (
               <button

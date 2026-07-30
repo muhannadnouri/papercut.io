@@ -12,6 +12,7 @@ pub(crate) struct UploadedDocument {
     pub(crate) id: String,
     pub(crate) url: String,
     pub(crate) title: String,
+    pub(crate) original_file_name: Option<String>,
     pub(crate) format: String,
     pub(crate) source_kind: String,
     pub(crate) imported_at_ms: u128,
@@ -128,6 +129,14 @@ pub(crate) struct UploadedDocumentSearchRequest {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentDeleteRequest {
     pub(crate) document_url: String,
+}
+
+/// Request to change only Papercut's display title for one uploaded document.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentTitleUpdateRequest {
+    pub(crate) document_url: String,
+    pub(crate) title: String,
 }
 
 /// Request to delete a bounded set of uploaded documents by URL.

@@ -111,6 +111,19 @@
       "emptyCategoryDocuments": "لا توجد مستندات تطابق عوامل التصفية الحالية.",
       "savedAudioAvailable": "يتوفر صوت محفوظ"
     },
+    "documentInfo": {
+      "button": "معلومات",
+      "title": "معلومات المستند",
+      "description": "اعرض تفاصيل الملف وغيّر العنوان الظاهر في Papercut.",
+      "displayTitle": "عنوان العرض",
+      "originalFileName": "اسم الملف الأصلي",
+      "format": "التنسيق",
+      "fileSize": "حجم الملف",
+      "imported": "تاريخ الاستيراد",
+      "pages": "الصفحات",
+      "sections": "الأقسام",
+      "unavailable": "غير متوفر"
+    },
     "import": {
       "files": "ملفات",
       "filesDetail": "استيراد ملف واحد أو أكثر بصيغة HTML أو EPUB أو PDF",

@@ -36,6 +36,7 @@ const MAX_STORED_COVER_BYTES: u64 = 5 * 1024 * 1024;
 pub(crate) fn import_html_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
+    original_file_name: Option<String>,
 ) -> Result<UploadedDocument, String> {
     let bytes = read_source_bytes(
         app,
@@ -56,13 +57,14 @@ pub(crate) fn import_html_source<R: Runtime>(
         return Err("HTML document did not contain readable text".into());
     }
 
-    persist_document(app, id, parsed, bytes.len() as u64)
+    persist_document(app, id, parsed, bytes.len() as u64, original_file_name)
 }
 
 /// Import one already-selected EPUB source without coupling parsing to a picker.
 pub(crate) fn import_epub_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
+    original_file_name: Option<String>,
 ) -> Result<UploadedDocument, String> {
     let bytes = read_source_bytes(
         app,
@@ -81,7 +83,7 @@ pub(crate) fn import_epub_source<R: Runtime>(
         return Err("EPUB did not contain readable text".into());
     }
 
-    persist_document(app, id, parsed, bytes.len() as u64)
+    persist_document(app, id, parsed, bytes.len() as u64, original_file_name)
 }
 
 /// Return an exact previously imported file only when its stored reader source
@@ -104,13 +106,23 @@ fn persist_document<R: Runtime>(
     id: String,
     mut parsed: ParsedDocument,
     bytes: u64,
+    original_file_name: Option<String>,
 ) -> Result<UploadedDocument, String> {
     let imported_at_ms = now_ms()?;
     let source_kind = StoredSourceKind::Html;
     let url = upload_url(&id, source_kind);
     let dir = upload_dir(app, &id)?;
     let mut db = open_db(app)?;
-    write_and_index_document(&dir, &mut db, &id, &url, &mut parsed, imported_at_ms, bytes)?;
+    write_and_index_document(
+        &dir,
+        &mut db,
+        &id,
+        &url,
+        &mut parsed,
+        original_file_name.as_deref(),
+        imported_at_ms,
+        bytes,
+    )?;
     let cover_media_type = parsed
         .cover
         .as_ref()
@@ -120,6 +132,7 @@ fn persist_document<R: Runtime>(
         id,
         url,
         title: parsed.title,
+        original_file_name,
         format: parsed.format,
         source_kind: source_kind.as_str().into(),
         imported_at_ms,
@@ -137,6 +150,8 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
     app: &tauri::AppHandle<R>,
     id: String,
     source_html: String,
+    title: String,
+    original_file_name: Option<String>,
     format: String,
     imported_at_ms: u128,
     bytes: u64,
@@ -154,13 +169,23 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
     }
 
     let mut parsed = parse_html_document(&source_html);
+    parsed.title = title;
     parsed.format = format;
     if parsed.sections.is_empty() {
         return Err("Transferred document did not contain readable text".into());
     }
     let dir = upload_dir(app, &id)?;
     let mut db = open_db(app)?;
-    write_and_index_document(&dir, &mut db, &id, &url, &mut parsed, imported_at_ms, bytes)?;
+    write_and_index_document(
+        &dir,
+        &mut db,
+        &id,
+        &url,
+        &mut parsed,
+        original_file_name.as_deref(),
+        imported_at_ms,
+        bytes,
+    )?;
     let cover_media_type = parsed
         .cover
         .as_ref()
@@ -170,6 +195,7 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
         id,
         url,
         title: parsed.title,
+        original_file_name,
         format: parsed.format,
         source_kind: source_kind.as_str().into(),
         imported_at_ms,
@@ -188,6 +214,7 @@ fn write_and_index_document(
     id: &str,
     url: &str,
     parsed: &mut ParsedDocument,
+    original_file_name: Option<&str>,
     imported_at_ms: u128,
     bytes: u64,
 ) -> Result<(), String> {
@@ -216,6 +243,7 @@ fn write_and_index_document(
             id,
             url,
             parsed,
+            original_file_name,
             StoredSourceKind::Html,
             imported_at_ms,
             bytes,
@@ -442,9 +470,17 @@ mod tests {
         };
         let mut db = Connection::open_in_memory().expect("open database without upload schema");
 
-        let error =
-            write_and_index_document(&dir, &mut db, "abc", "/uploads/abc.html", &mut parsed, 1, 4)
-                .expect_err("missing schema must fail");
+        let error = write_and_index_document(
+            &dir,
+            &mut db,
+            "abc",
+            "/uploads/abc.html",
+            &mut parsed,
+            Some("example.html"),
+            1,
+            4,
+        )
+        .expect_err("missing schema must fail");
 
         assert!(error.contains("Document upload database error"));
         assert!(parsed.cover.is_none());

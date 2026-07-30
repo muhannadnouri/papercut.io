@@ -17,6 +17,7 @@ interface DocumentListProps {
 
   /** Browse actions: render a View and/or Delete button per row. */
   onViewDocument?: (url: string) => void
+  onViewDocumentInfo?: (doc: DocumentInfo) => void
   onDeleteDocument?: (doc: DocumentInfo) => void | Promise<void>
   deleteDisabled?: boolean
   openingDocumentUrl?: string
@@ -38,6 +39,7 @@ export function DocumentList({
   onToggleFilter,
   onToggleAllInGroup,
   onViewDocument,
+  onViewDocumentInfo,
   onDeleteDocument,
   deleteDisabled = false,
   openingDocumentUrl,
@@ -87,6 +89,7 @@ export function DocumentList({
                 selected={isSelected(doc.url)}
                 onToggleFilter={onToggleFilter}
                 onViewDocument={onViewDocument}
+                onViewDocumentInfo={onViewDocumentInfo}
                 onDeleteDocument={onDeleteDocument}
                 deleteDisabled={deleteDisabled}
                 openingDocumentUrl={openingDocumentUrl}
@@ -106,6 +109,7 @@ interface DocumentRowProps {
   selected: boolean
   onToggleFilter?: (url: string) => void
   onViewDocument?: (url: string) => void
+  onViewDocumentInfo?: (doc: DocumentInfo) => void
   onDeleteDocument?: (doc: DocumentInfo) => void | Promise<void>
   deleteDisabled: boolean
   openingDocumentUrl?: string
@@ -118,6 +122,7 @@ function DocumentRow({
   selected,
   onToggleFilter,
   onViewDocument,
+  onViewDocumentInfo,
   onDeleteDocument,
   deleteDisabled,
   openingDocumentUrl,
@@ -154,6 +159,15 @@ function DocumentRow({
       {t('common.delete')}
     </button>
   )
+  const info = doc.source === 'upload' && onViewDocumentInfo && (
+    <button
+      type="button"
+      className="document-row-action document-row-action-secondary"
+      onClick={(event) => { event.preventDefault(); onViewDocumentInfo(doc) }}
+    >
+      {t('library.documentInfo.button')}
+    </button>
+  )
 
   // Selection rows are labels so the whole row toggles the checkbox.
   if (selectable) {
@@ -176,6 +190,7 @@ function DocumentRow({
     <div className={'document-item document-item-browse' + (opening ? ' document-item-opening' : '')}>
       {sourceIcon}
       <bdi className="document-item-title">{doc.title}</bdi>
+      {info}
       {view}
       {remove}
     </div>

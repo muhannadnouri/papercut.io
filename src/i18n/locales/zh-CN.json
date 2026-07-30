@@ -91,6 +91,19 @@
       "emptyCategoryDocuments": "没有符合当前筛选条件的文件。",
       "savedAudioAvailable": "有已保存的音频"
     },
+    "documentInfo": {
+      "button": "信息",
+      "title": "文档信息",
+      "description": "查看文件详情并更改 Papercut 中显示的标题。",
+      "displayTitle": "显示标题",
+      "originalFileName": "原始文件名",
+      "format": "格式",
+      "fileSize": "文件大小",
+      "imported": "导入时间",
+      "pages": "页数",
+      "sections": "章节数",
+      "unavailable": "不可用"
+    },
     "import": {
       "files": "文件",
       "filesDetail": "导入一个或多个 HTML、EPUB 或 PDF 文件",

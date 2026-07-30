@@ -21,6 +21,7 @@ pub(crate) fn import_pdf_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
     fallback_title: String,
+    original_file_name: Option<String>,
 ) -> Result<UploadedDocument, String> {
     let bytes = read_source_bytes(
         app,
@@ -41,7 +42,15 @@ pub(crate) fn import_pdf_source<R: Runtime>(
     let imported_at_ms = now_ms()?;
     let source_kind = StoredSourceKind::Pdf;
     let url = upload_url(&id, source_kind);
-    persist_unindexed_pdf(app, id, url, fallback_title, bytes, imported_at_ms)
+    persist_unindexed_pdf(
+        app,
+        id,
+        url,
+        fallback_title,
+        original_file_name,
+        bytes,
+        imported_at_ms,
+    )
 }
 
 /// Return raw bytes through Tauri's binary IPC response rather than expanding a
@@ -90,6 +99,7 @@ pub(crate) fn restore_transferred_pdf<R: Runtime>(
     app: &tauri::AppHandle<R>,
     id: String,
     title: String,
+    original_file_name: Option<String>,
     source: Vec<u8>,
     imported_at_ms: u128,
     original_bytes: u64,
@@ -116,6 +126,7 @@ pub(crate) fn restore_transferred_pdf<R: Runtime>(
             &id,
             &url,
             &title,
+            original_file_name.as_deref(),
             "pdf",
             source_kind,
             imported_at_ms,
@@ -136,6 +147,7 @@ pub(crate) fn restore_transferred_pdf<R: Runtime>(
         id,
         url,
         title,
+        original_file_name,
         format: "pdf".into(),
         source_kind: source_kind.as_str().into(),
         imported_at_ms,
@@ -190,7 +202,7 @@ pub(crate) fn restore_audiobook_pdf<R: Runtime>(
 
     let imported_at_ms = now_ms()?;
     let url = upload_url(&id, source_kind);
-    persist_unindexed_pdf(app, id, url, title, source, imported_at_ms)
+    persist_unindexed_pdf(app, id, url, title, None, source, imported_at_ms)
 }
 
 fn existing_pdf<R: Runtime>(
@@ -211,6 +223,7 @@ fn persist_unindexed_pdf<R: Runtime>(
     id: String,
     url: String,
     title: String,
+    original_file_name: Option<String>,
     source: Vec<u8>,
     imported_at_ms: u128,
 ) -> Result<UploadedDocument, String> {
@@ -228,6 +241,7 @@ fn persist_unindexed_pdf<R: Runtime>(
             &id,
             &url,
             &title,
+            original_file_name.as_deref(),
             "pdf",
             source_kind,
             imported_at_ms,
@@ -248,6 +262,7 @@ fn persist_unindexed_pdf<R: Runtime>(
         id,
         url,
         title,
+        original_file_name,
         format: "pdf".into(),
         source_kind: source_kind.as_str().into(),
         imported_at_ms,
