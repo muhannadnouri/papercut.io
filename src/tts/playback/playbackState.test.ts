@@ -9,6 +9,7 @@ import {
 } from './playbackState'
 
 const playback: NativeAudiobookPlayback = {
+  title: 'Test Audiobook',
   audioUrl: 'audio.wav',
   audioDurationSec: 9,
   wavBytes: 100,

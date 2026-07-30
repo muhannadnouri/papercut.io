@@ -67,6 +67,7 @@ pub(crate) fn prepare_native_audiobook_playback(
         started.elapsed().as_millis()
     );
     Ok(NativeAudiobookPlaybackResponse {
+        title: manifest.title,
         audio_url,
         audio_duration_sec: metadata.audio_duration_sec,
         wav_bytes: metadata.wav_bytes,

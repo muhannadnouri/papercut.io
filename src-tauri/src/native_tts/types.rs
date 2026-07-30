@@ -308,6 +308,7 @@ pub(crate) struct NativeAudiobookPlaybackChunk {
 #[serde(rename_all = "camelCase")]
 /// Native playback source plus global chunk boundaries.
 pub(crate) struct NativeAudiobookPlaybackResponse {
+    pub(crate) title: String,
     pub(crate) audio_url: String,
     pub(crate) audio_duration_sec: f64,
     pub(crate) wav_bytes: usize,
