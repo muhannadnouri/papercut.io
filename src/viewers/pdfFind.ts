@@ -19,6 +19,8 @@ interface PdfFindAdapter {
   dispose: () => void
 }
 
+type PdfJsQuery = string | string[]
+
 /** Map the indexed zero-based PDF page to PDF.js's one-based viewer page. */
 export function pdfSearchTargetPage(
   target: SearchOpenTarget | null | undefined,
@@ -36,10 +38,10 @@ export function createPdfFindAdapter(
   eventBus: PdfFindEventBus,
   onResult: (result: ViewerFindResult) => void,
 ): PdfFindAdapter {
-  let query = ''
+  let query: PdfJsQuery = ''
 
   const dispatchFind = (type: '' | 'again', findPrevious = false) => {
-    if (!query) return
+    if (query.length === 0) return
     eventBus.dispatch('find', {
       source: api,
       type,
@@ -54,8 +56,8 @@ export function createPdfFindAdapter(
 
   const api: ViewerFindApi = {
     search(nextQuery) {
-      query = nextQuery.trim()
-      if (!query) {
+      query = pdfFindQuery(nextQuery)
+      if (query.length === 0) {
         api.clear()
         return
       }
@@ -92,4 +94,17 @@ export function createPdfFindAdapter(
       eventBus.off('updatefindcontrolstate', handleResult)
     },
   }
+}
+
+/** Let PDF.js match a typed compound, its spaced extraction form, or the
+ * canonical word without replacing PDF.js's own text/offset normalization. */
+function pdfFindQuery(input: string): PdfJsQuery {
+  const original = input.trim()
+  if (!original) return ''
+
+  const compact = original.replace(/(\p{L})-\s+(?=\p{L})/gu, '$1-')
+  const spaced = compact.replace(/(\p{L})-(?=\p{L})/gu, '$1- ')
+  const joined = compact.replace(/(\p{L})-(?=\p{L})/gu, '$1')
+  const aliases = [...new Set([original, compact, spaced, joined])]
+  return aliases.length === 1 ? original : aliases
 }

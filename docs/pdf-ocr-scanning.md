@@ -826,6 +826,7 @@ Stage status: Complete; semantic HTML/EPUB bookmark smoke test pending
 - [x] Re-verify PDF bookmark restore and active-state visibility after changing
       zoom, viewport width, and spread mode.
 - [x] Replace HTML/EPUB window-scroll bookmarks with semantic text offsets.
+- [x] Normalize visual line-end hyphenation for PDF search and Find.
 - [ ] Verify HTML/EPUB bookmark restoration and active styling after changing
       typography, reading width, and viewport width.
 
@@ -837,6 +838,9 @@ to PDF.js's `PDFFindController`, which schedules text extraction across the
 document, updates Papercut's existing match count, renders highlights through
 the PDF.js text layer, and navigates next/previous matches without rendering
 every page. HTML and EPUB retain their existing DOM-range implementation.
+Papercut supplies at most three aliases when the entered PDF query visibly
+contains an internal hyphen, allowing joined, compact-hyphen, and copied
+hyphen-space forms to share PDF.js's existing offset-aware highlights.
 
 Uploaded-PDF SQLite hits now preserve their indexed zero-based page locator
 through the shared search-result shape. Opening a result applies that locator
@@ -848,6 +852,12 @@ when the indexed page cannot reproduce the match. A nonmodal live status
 distinguishes opening the indexed page from the rare whole-document
 verification fallback. The PDF source and complete extracted text are not
 copied into React state.
+The PDF search projection also removes conservative lowercase or uppercase
+line-end hyphens only across geometry-confirmed paragraph continuations.
+Same-line compounds retain their punctuation, while explicitly hyphenated
+queries use a bounded original-or-joined FTS alias. PDFs indexed before this
+projection change must be reindexed from their retained page sidecars or
+reimported; no source PDF extraction behavior changed.
 The focused PDF Find adapter and reader range tests, full frontend suite, TypeScript
 check, focused ESLint pass, and production Vite build pass. Manual acceptance
 should cover a match on a late unrendered page, next/previous wraparound, a
@@ -908,7 +918,7 @@ reconstructed paragraphs under the same native request ceiling as HTML/EPUB
 instead of inheriting the larger interactive-playback default; SILMA retains its
 smaller model-specific profile.
 
-Automated validation for this slice passes TypeScript, focused ESLint, all 28
+Automated validation for this slice passes TypeScript, focused ESLint, all 42
 frontend tests, i18n validation, and the production build/search-index pipeline.
 Both focused reconstruction tests also pass when the PDF narration module is
 compiled independently. Focused Rust coverage now checks version 2 HTML
@@ -1075,6 +1085,7 @@ Stage status: Deferred
 | 2026-07-25 | Stage 5 | Close text-native PDF reader parity | Manual acceptance passed Find, global search, TTS, highlighting, bookmarks, portable audiobooks, responsive/RTL controls, and single-page multi-column reading order |
 | 2026-07-26 | Stage 5 | Render indexed search-result pages first | PDF import already stores page-level text and FTS locators; applying that locator during `pagesinit` removes the redundant page-one render while retaining PDF.js text-layer highlighting and whole-document Find as a correctness fallback |
 | 2026-07-28 | Stage 3 | Preserve PDF visual lines in indexed text | Reusing the geometry-aware narration grouping prevents unrelated adjacent lines from becoming one word while normalized phrase search continues to treat line breaks as whitespace |
+| 2026-07-29 | Stage 5 | Normalize PDF line-end hyphenation once at indexing | Geometry-confirmed broken words become canonical FTS terms; explicitly hyphenated queries add bounded aliases while PDF.js retains viewer matching and offset-aware highlights |
 | 2026-07-25 | Stage 5 | Remove the temporary PDF WebView harness | The production import and reader paths now cover its worker, canvas, text-layer, and cleanup responsibilities without maintaining a second app entry point |
 
 ## References
