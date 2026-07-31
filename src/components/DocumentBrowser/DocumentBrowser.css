@@ -1,9 +1,13 @@
 .documents-panel {
   margin-bottom: 1.5rem;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: 10px;
-  background: var(--surface);
+  background: var(--control-surface);
   overflow: hidden;
+}
+
+.documents-panel > .panel-toggle {
+  background: var(--control-surface);
 }
 
 .documents-panel-loading {
@@ -21,6 +25,15 @@
 
 .search-scope {
   margin-bottom: 1.5rem;
+}
+
+.search-scope-panel {
+  border-color: transparent;
+  background: var(--control-surface);
+}
+
+.search-scope-panel .panel-toggle {
+  background: var(--control-surface);
 }
 
 .documents-list-header {
@@ -44,9 +57,9 @@
   gap: 0.45rem;
   flex-shrink: 0;
   min-height: 2rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 5px;
-  background: var(--surface);
+  background: var(--control-surface);
   color: var(--accent-text);
   font-size: 0.8rem;
   font-weight: 600;
@@ -55,19 +68,19 @@
 }
 
 .document-import-btn:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   background: var(--surface-accent);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .document-import-btn[aria-expanded="true"] {
-  border-color: var(--accent-text);
+  border-color: transparent;
   background: var(--surface-accent);
 }
 
 .document-import-btn[data-disabled] {
-  border-color: var(--border);
+  border-color: transparent;
   background: var(--surface-muted);
   color: var(--text-soft);
   cursor: not-allowed;
@@ -99,9 +112,9 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 6px;
-  background: var(--surface);
+  background: var(--surface-strong);
   box-shadow: 0 12px 28px var(--shadow-popover);
 }
 
@@ -111,8 +124,8 @@
   width: 100%;
   padding: 0.65rem 0.8rem;
   border: none;
-  border-bottom: 1px solid var(--surface-hover);
-  background: var(--surface);
+  border-bottom: 1px solid var(--row-divider);
+  background: var(--surface-strong);
   color: var(--text-heading);
   cursor: pointer;
   font-size: 0.85rem;
@@ -154,9 +167,9 @@
   gap: 0.65rem;
   margin: 0.55rem 1.25rem;
   padding: 0.55rem 0.65rem 0.55rem 0.8rem;
-  border: 1px solid var(--accent-border);
+  border: 1px solid transparent;
   border-radius: 6px;
-  background: var(--surface-subtle);
+  background: var(--control-surface);
   color: var(--text-body);
   font-size: 0.8rem;
   line-height: 1.35;
@@ -168,8 +181,14 @@
   min-width: 0;
 }
 
+.document-import-imported,
+.document-import-deleted {
+  background: var(--surface-success);
+  color: var(--success);
+}
+
 .document-import-error {
-  border-color: var(--danger);
+  background: var(--surface-danger);
   color: var(--danger);
 }
 
@@ -213,19 +232,20 @@
   flex-shrink: 0;
   min-height: 1.9rem;
   padding: 0 0.65rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 5px;
-  background: var(--surface);
+  background: var(--control-surface);
   color: var(--accent-text);
   font: inherit;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
 }
 
 .document-batch-cancel:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   background: var(--surface-accent);
   outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .document-batch-cancel:disabled {
@@ -261,17 +281,22 @@
   min-width: 0;
   padding: 0.45rem 0.75rem;
   font-size: 0.85rem;
-  border: 1px solid var(--border-strong);
+  border: 2px solid transparent;
   border-radius: 6px;
   outline: none;
-  background: var(--surface-muted);
-  transition: border-color 0.2s;
+  background: var(--control-surface);
+  color: var(--text-body);
+  transition: background 0.2s, box-shadow 0.2s;
 }
 
 .document-filter-input:focus {
-  border-color: var(--accent-text);
-  background: var(--surface);
+  background: var(--control-surface);
   box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+.document-filter-input::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
 }
 
 .documents-scroll {
@@ -281,7 +306,7 @@
 }
 
 .author-group {
-  border-bottom: 1px solid var(--surface-hover);
+  border-bottom: 1px solid var(--row-divider);
 }
 
 .author-group:last-child {
@@ -293,7 +318,7 @@
   align-items: stretch;
   width: 100%;
   background: var(--surface-muted);
-  border-top: 1px solid var(--surface-hover);
+  border-top: 1px solid var(--row-divider);
 }
 
 .author-group-toggle {
@@ -325,21 +350,22 @@
   padding: 0 0.75rem;
   margin-block: 0.25rem;
   margin-inline-end: 0.5rem;
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
+  background: var(--control-surface);
+  border: 1px solid transparent;
   border-radius: 6px;
   font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-body);
+  font-weight: 700;
+  color: var(--accent-text);
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .author-group-action:focus-visible {
-  border-color: var(--accent-text);
-  background: var(--accent);
-  color: var(--text-inverse);
+  border-color: transparent;
+  background: var(--surface-accent);
+  color: var(--accent-text);
   outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .author-group-title {
@@ -360,7 +386,7 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 1.25rem;
-  border-top: 1px solid var(--surface-hover);
+  border-top: 1px solid var(--row-divider);
   cursor: pointer;
   transition: background 0.1s, box-shadow 0.1s, color 0.1s;
   font-size: 0.9rem;
@@ -420,17 +446,20 @@
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
 }
 
-.document-row-action-view {
+.document-row-action-view,
+.document-row-action-secondary {
+  border-color: transparent;
+  background: var(--control-surface);
   color: var(--accent-text);
   font-weight: 700;
 }
 
 .document-row-action-view:focus-visible,
 .document-row-action-secondary:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   background: var(--surface-accent);
   color: var(--accent-text);
   outline: none;
@@ -518,8 +547,16 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .documents-panel > .panel-toggle:hover {
+    background: var(--surface-accent);
+  }
+
+  .search-scope-panel .panel-toggle:hover {
+    background: var(--surface-accent);
+  }
+
   .document-import-btn:hover:not([data-disabled]) {
-    border-color: var(--accent-text);
+    border-color: transparent;
     background: var(--surface-accent);
   }
 
@@ -536,7 +573,7 @@
   }
 
   .document-batch-cancel:hover:not(:disabled) {
-    border-color: var(--accent-text);
+    border-color: transparent;
     background: var(--surface-accent);
   }
 
@@ -546,14 +583,14 @@
   }
 
   .author-group-action:hover {
-    border-color: var(--accent-text);
-    background: var(--accent);
-    color: var(--text-inverse);
+    border-color: transparent;
+    background: var(--surface-accent);
+    color: var(--accent-text);
   }
 
   .document-row-action-view:hover:not(:disabled),
   .document-row-action-secondary:hover:not(:disabled) {
-    border-color: var(--accent-text);
+    border-color: transparent;
     background: var(--surface-accent);
     color: var(--accent-text);
   }

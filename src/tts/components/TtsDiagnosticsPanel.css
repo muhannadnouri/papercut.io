@@ -1,9 +1,17 @@
 .tts-diagnostics-panel {
   margin: 0 0 1rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 8px;
-  background: var(--surface-subtle);
+  background: var(--control-surface);
   overflow: hidden;
+}
+
+.tts-diagnostics-panel > .panel-toggle {
+  background: var(--control-surface);
+}
+
+.tts-diagnostics-panel > .panel-body {
+  border-top-color: transparent;
 }
 
 .tts-diagnostics-summary {
@@ -21,7 +29,6 @@
   display: grid;
   gap: 0.6rem;
   padding: 0.75rem;
-  border-top: 1px solid var(--border);
   background: var(--surface);
 }
 
@@ -45,9 +52,9 @@
   min-height: 1.85rem;
   padding-block: 0;
   padding-inline: 0.5rem 1.55rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 6px;
-  background: var(--surface);
+  background: var(--control-surface);
   color: var(--text-body);
   font-size: 0.78rem;
 }
@@ -55,17 +62,24 @@
 .tts-diagnostics-clear {
   height: 1.85rem;
   padding: 0 0.65rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 6px;
-  background: var(--surface);
+  background: var(--control-surface);
   color: var(--text-body);
   font-size: 0.78rem;
   cursor: pointer;
 }
 
-.tts-diagnostics-filter:focus-visible,
+.tts-diagnostics-filter:focus-visible {
+  border-color: transparent;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
 .tts-diagnostics-clear:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
+  background: var(--surface-accent);
+  color: var(--accent-text);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
@@ -86,10 +100,10 @@
   display: grid;
   gap: 0.45rem;
   padding: 0.6rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-inline-start: 3px solid var(--accent-text);
   border-radius: 6px;
-  background: var(--surface);
+  background: var(--surface-muted);
 }
 
 .tts-diagnostic-error {
@@ -157,6 +171,11 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .tts-diagnostics-clear:hover {
+    background: var(--surface-accent);
+    color: var(--accent-text);
+  }
+
   .tts-diagnostic-json summary:hover {
     text-decoration: underline;
   }
@@ -168,7 +187,7 @@
   margin: 0.35rem 0 0;
   padding: 0.5rem;
   overflow: auto;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 6px;
   background: var(--surface-muted);
   color: var(--text-heading);

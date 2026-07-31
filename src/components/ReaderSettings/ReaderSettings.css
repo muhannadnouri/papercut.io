@@ -9,8 +9,8 @@
   width: 2.25rem;
   height: 2.25rem;
   padding: 0;
-  background: var(--surface-muted);
-  border: 1px solid var(--border-strong);
+  background: var(--control-surface);
+  border: 1px solid transparent;
   border-radius: 8px;
   color: var(--text-body);
   cursor: pointer;
@@ -29,7 +29,7 @@
 
 .reader-settings-btn[aria-expanded="true"],
 .reader-settings-btn:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   color: var(--accent-text);
   background: var(--surface-accent);
   outline: none;
@@ -37,6 +37,7 @@
 }
 
 .reader-settings-btn:disabled {
+  border-color: transparent;
   color: var(--text-soft);
   cursor: not-allowed;
   background: var(--surface-muted);
@@ -48,9 +49,9 @@
   gap: 0.65rem;
   width: min(19rem, calc(100vw - 2rem));
   padding: 0.85rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 10px;
-  background: var(--surface);
+  background: var(--surface-strong);
   box-shadow: 0 12px 28px var(--shadow-popover);
   color: var(--text-heading);
   text-align: start;
@@ -73,6 +74,17 @@
   grid-column: 2 / 6;
 }
 
+.reader-setting-font-select .app-select-button {
+  border-color: transparent;
+  background: var(--control-surface);
+}
+
+.reader-setting-font-select .app-select-button:focus-visible,
+.reader-setting-font-select.app-select-open .app-select-button {
+  border-color: transparent;
+  background: var(--surface-accent);
+}
+
 .reader-setting-slider {
   min-width: 0;
   width: 100%;
@@ -86,9 +98,9 @@
   width: 1.6rem;
   height: 1.6rem;
   padding: 0;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 8px;
-  background: var(--surface);
+  background: var(--control-surface);
   color: var(--text-body);
   font-size: 1rem;
   line-height: 1;
@@ -97,13 +109,15 @@
 }
 
 .reader-setting-step:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   color: var(--accent-text);
+  background: var(--surface-accent);
   outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .reader-setting-step:disabled {
-  border-color: var(--border);
+  border-color: transparent;
   background: var(--surface-muted);
   color: var(--text-soft);
   cursor: not-allowed;
@@ -120,9 +134,9 @@
   justify-self: end;
   min-height: 2rem;
   padding: 0 0.65rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 7px;
-  background: var(--surface-muted);
+  background: var(--control-surface);
   color: var(--text-body);
   font-size: 0.78rem;
   font-weight: 600;
@@ -130,7 +144,7 @@
 }
 
 .reader-settings-reset:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   color: var(--accent-text);
   background: var(--surface-accent);
   outline: none;
@@ -138,16 +152,27 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .reader-settings-btn:hover:not(:disabled),
+  .reader-settings-btn:hover:not(:disabled) {
+    border-color: transparent;
+    color: var(--accent-text);
+    background: var(--surface-accent);
+  }
+
   .reader-settings-reset:hover {
-    border-color: var(--accent-text);
+    border-color: transparent;
     color: var(--accent-text);
     background: var(--surface-accent);
   }
 
   .reader-setting-step:hover:not(:disabled) {
-    border-color: var(--accent-text);
+    border-color: transparent;
     color: var(--accent-text);
+    background: var(--surface-accent);
+  }
+
+  .reader-setting-font-select .app-select-button:hover:not(:disabled) {
+    border-color: transparent;
+    background: var(--surface-accent);
   }
 }
 

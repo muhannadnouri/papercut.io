@@ -9,7 +9,7 @@
   width: 2.35rem;
   height: 2.35rem;
   padding: 0;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 8px;
   background: var(--control-surface);
   color: var(--accent-strong);
@@ -30,7 +30,7 @@
 }
 
 .app-settings-btn:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   color: var(--accent-text);
   background: var(--surface-accent);
   outline: none;
@@ -65,9 +65,9 @@
   gap: 0.5rem;
   min-height: 2.35rem;
   padding-inline: 0.75rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 8px;
-  background: var(--surface);
+  background: var(--control-surface);
   color: var(--accent-text);
   font: inherit;
   font-size: 0.8rem;
@@ -87,7 +87,7 @@
 }
 
 .app-settings-data-action:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   background: var(--surface-accent);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
@@ -176,15 +176,24 @@
 
 .app-setting-select .app-select-button {
   min-height: 2.35rem;
+  border-color: transparent;
   border-radius: 8px;
+  background: var(--control-surface);
+}
+
+.app-setting-select .app-select-button:focus-visible,
+.app-setting-select.app-select-open .app-select-button {
+  border-color: transparent;
+  background: var(--surface-accent);
 }
 
 .app-theme-options {
   grid-column: 2 / 4;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 8px;
+  background: var(--control-surface);
   overflow: hidden;
 }
 
@@ -196,8 +205,8 @@
   min-height: 2.35rem;
   padding: 0 0.5rem;
   border: 0;
-  border-inline-end: 1px solid var(--border);
-  background: var(--surface);
+  border-inline-end: 1px solid var(--row-divider);
+  background: transparent;
   color: var(--text-body);
   font-size: 0.76rem;
   font-weight: 600;
@@ -223,34 +232,29 @@
   display: grid;
   grid-template-columns: 2rem 3.5rem 2rem;
   align-items: center;
+  justify-self: start;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--control-surface);
+  overflow: hidden;
 }
 
 .app-zoom-control button,
 .app-zoom-reset {
   min-height: 2.35rem;
   padding: 0;
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
+  border: 1px solid transparent;
+  background: var(--control-surface);
   color: var(--text-body);
   font-weight: 700;
   cursor: pointer;
-}
-
-.app-zoom-control button:first-child {
-  border-start-start-radius: 8px;
-  border-end-start-radius: 8px;
-}
-
-.app-zoom-control button:last-child {
-  border-start-end-radius: 8px;
-  border-end-end-radius: 8px;
 }
 
 .app-zoom-control output {
   display: grid;
   place-items: center;
   min-height: 2.35rem;
-  border-block: 1px solid var(--border-strong);
+  border-inline: 1px solid var(--row-divider);
   color: var(--text-heading);
   font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
@@ -258,16 +262,31 @@
 
 .app-zoom-control button:focus-visible,
 .app-zoom-reset:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
+  background: var(--surface-accent);
   color: var(--accent-text);
   outline: none;
 }
 
+.app-zoom-control:focus-within {
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
 @media (hover: hover) and (pointer: fine) {
-  .app-settings-btn:hover,
-  .app-settings-data-action:hover {
-    border-color: var(--accent-text);
+  .app-settings-btn:hover {
+    border-color: transparent;
     color: var(--accent-text);
+    background: var(--surface-accent);
+  }
+
+  .app-settings-data-action:hover {
+    border-color: transparent;
+    color: var(--accent-text);
+    background: var(--surface-accent);
+  }
+
+  .app-setting-select .app-select-button:hover:not(:disabled) {
+    border-color: transparent;
     background: var(--surface-accent);
   }
 
@@ -278,7 +297,8 @@
 
   .app-zoom-control button:hover:not(:disabled),
   .app-zoom-reset:hover {
-    border-color: var(--accent-text);
+    border-color: transparent;
+    background: var(--surface-accent);
     color: var(--accent-text);
   }
 }

@@ -16,7 +16,7 @@
   max-height: calc(100vh - 2rem);
   overflow: auto;
   padding: 1rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 10px;
   background: var(--surface);
   color: var(--text-heading);
@@ -120,39 +120,40 @@
 }
 
 .app-dialog-cancel {
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
-  color: var(--text-body);
+  border: 1px solid transparent;
+  background: var(--control-surface);
+  color: var(--accent-text);
 }
 
 .app-dialog-submit {
-  border: 1px solid var(--accent);
+  border: 1px solid transparent;
   background: var(--accent);
   color: var(--text-inverse);
 }
 
 .app-dialog-submit-danger {
-  border-color: var(--danger-accent);
+  border-color: transparent;
   background: var(--surface-danger);
   color: var(--danger-strong);
 }
 
 .app-dialog-cancel:focus-visible {
-  border-color: var(--accent-text);
-  color: var(--accent-text);
+  border-color: transparent;
+  background: var(--surface-accent);
+  color: var(--accent-strong);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .app-dialog-submit:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   background: var(--accent-hover);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .app-dialog-submit-danger:focus-visible {
-  border-color: var(--danger-accent);
+  border-color: transparent;
   background: var(--surface-danger);
   color: var(--danger-strong);
   outline: none;
@@ -161,24 +162,25 @@
 
 @media (hover: hover) and (pointer: fine) {
   .app-dialog-cancel:hover:not(:disabled) {
-    border-color: var(--accent-text);
-    color: var(--accent-text);
+    border-color: transparent;
+    background: var(--surface-accent);
+    color: var(--accent-strong);
   }
 
   .app-dialog-submit:hover:not(:disabled) {
-    border-color: var(--accent-text);
+    border-color: transparent;
     background: var(--accent-hover);
   }
 
   .app-dialog-submit-danger:hover:not(:disabled) {
-    border-color: var(--danger-accent);
+    border-color: transparent;
     background: var(--surface-danger);
     color: var(--danger-strong);
   }
 }
 
 .app-dialog-actions button:disabled {
-  border-color: var(--border);
+  border-color: transparent;
   background: var(--surface-muted);
   color: var(--text-soft);
   cursor: not-allowed;

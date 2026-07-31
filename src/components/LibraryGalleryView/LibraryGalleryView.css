@@ -3,17 +3,17 @@
   grid-auto-flow: column;
   grid-auto-columns: minmax(0, 1fr);
   overflow: hidden;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 6px;
-  background: var(--surface);
+  background: var(--control-surface);
 }
 
 .library-gallery-category {
   min-height: 2rem;
   padding: 0 0.65rem;
   border: 0;
-  border-inline-end: 1px solid var(--border);
-  background: var(--surface);
+  border-inline-end: 1px solid transparent;
+  background: var(--control-surface);
   color: var(--text-body);
   font: inherit;
   font-size: 0.78rem;
@@ -27,9 +27,10 @@
 }
 
 .library-gallery-category:focus-visible {
-  color: var(--accent-text);
-  background: var(--surface-accent);
+  color: var(--accent-strong);
+  background: var(--surface-accent-strong);
   outline: none;
+  box-shadow: inset 0 0 0 2px var(--shadow-focus);
 }
 
 .library-gallery-category.active {
@@ -44,15 +45,15 @@
   width: 2rem;
   height: 2rem;
   padding: 0;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 5px;
-  background: var(--surface);
+  background: var(--control-surface);
   color: var(--accent-text);
   cursor: pointer;
 }
 
 .library-view-toggle:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   background: var(--surface-accent);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
@@ -121,11 +122,16 @@
   aspect-ratio: 2 / 3;
   overflow: hidden;
   padding: 0.8rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border);
   border-radius: 6px;
+  background-clip: padding-box;
   color: #fff;
-  box-shadow: 0 3px 8px var(--shadow-subtle);
+  box-shadow: 0 3px 10px var(--shadow-panel);
   transition: border-color 0.15s, box-shadow 0.15s, translate 0.15s;
+}
+
+html[data-theme="dark"] .library-book-cover {
+  border-color: var(--surface);
 }
 
 .library-book-cover bdi {
@@ -149,8 +155,8 @@
 }
 
 .library-book-open:focus-visible .library-book-cover {
-  border-color: var(--accent-text);
-  box-shadow: 0 0 0 3px var(--shadow-focus), 0 4px 10px var(--shadow-subtle);
+  border-color: transparent;
+  box-shadow: 0 0 0 3px var(--shadow-focus), 0 4px 10px var(--shadow-panel);
   translate: 0 -2px;
 }
 
@@ -166,21 +172,21 @@
   }
 
   .library-view-toggle:hover {
-    border-color: var(--accent-text);
+    border-color: transparent;
     background: var(--surface-accent);
     outline: none;
   }
 
   .library-book-open:hover .library-book-cover {
-    border-color: var(--accent-text);
-    box-shadow: 0 4px 10px var(--shadow-subtle);
+    border-color: transparent;
+    box-shadow: 0 5px 14px var(--shadow-panel);
     translate: 0 -2px;
   }
 }
 
 .library-book-card.opening .library-book-cover {
-  border-color: var(--accent-text);
-  box-shadow: 0 0 0 3px var(--shadow-focus);
+  border-color: transparent;
+  box-shadow: 0 0 0 3px var(--shadow-focus), 0 4px 10px var(--shadow-panel);
 }
 
 .library-book-audio {

@@ -18,8 +18,8 @@
 .search-info {
   margin-bottom: 1rem;
   padding: 0.6rem 0.9rem;
-  background: var(--surface-accent);
-  border: 1px solid var(--accent-border);
+  background: var(--surface-accent-strong);
+  border: 1px solid transparent;
   border-radius: 8px;
   font-size: 0.85rem;
   color: var(--accent-ink);
@@ -31,7 +31,7 @@
   margin: 0 0.2rem;
   padding: 0.05rem 0.4rem;
   background: var(--surface);
-  border: 1px solid var(--accent-border);
+  border: 1px solid transparent;
   border-radius: 4px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.8rem;
@@ -43,24 +43,26 @@
   display: block;
   width: 100%;
   padding: 1.25rem;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: 10px;
   cursor: pointer;
-  transition: all 0.15s;
-  background: var(--surface);
+  transition: background-color 0.15s, box-shadow 0.15s;
+  background: var(--control-surface);
   color: inherit;
   text-align: start;
 }
 
 .result-card:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
+  background: var(--surface-accent);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus), 0 2px 8px var(--shadow-accent-soft);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .result-card:hover:not(:disabled) {
-    border-color: var(--accent-text);
+    border-color: transparent;
+    background: var(--surface-accent);
     box-shadow: 0 2px 8px var(--shadow-accent-soft);
   }
 }
