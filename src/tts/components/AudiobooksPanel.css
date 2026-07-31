@@ -569,7 +569,7 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
 
 .audiobook-item-saved {
   position: relative;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.4rem;
   padding: 0.5rem 0.6rem;
@@ -632,22 +632,6 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   padding: 0 0.6rem;
   cursor: pointer;
   white-space: nowrap;
-}
-
-.audiobook-delete {
-  display: inline-grid;
-  place-items: center;
-  width: 2.35rem;
-  min-height: 2.35rem;
-  padding: 0;
-  border-color: transparent;
-  background: var(--surface-danger);
-  color: var(--danger);
-}
-
-.audiobook-delete-icon {
-  width: 1.15rem;
-  height: 1.15rem;
 }
 
 .audiobook-resume {
@@ -731,12 +715,6 @@ html[dir="rtl"] .audiobook-action-toast {
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
-.audiobook-delete:focus-visible {
-  border-color: transparent;
-  background: var(--surface-danger);
-  color: var(--danger-strong);
-}
-
 @media (hover: hover) and (pointer: fine) {
   .audio-diagnostics-control:hover {
     border-color: transparent;
@@ -781,23 +759,13 @@ html[dir="rtl"] .audiobook-action-toast {
     color: var(--accent-strong);
   }
 
-  .audiobook-delete:hover:not(:disabled) {
-    border-color: transparent;
-    background: var(--surface-danger);
-    color: var(--danger-strong);
-  }
 }
 
 @media (pointer: coarse) {
   .audiobooks-import-btn,
   .audiobooks-setup-disclosure,
-  .audiobook-text-action,
-  .audiobook-delete {
+  .audiobook-text-action {
     min-height: 2.75rem;
-  }
-
-  .audiobook-delete {
-    width: 2.75rem;
   }
 }
 
@@ -930,12 +898,8 @@ html[dir="rtl"] .audiobook-action-toast {
   }
 
   .audiobook-item-saved {
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.4rem;
-  }
-
-  .audiobook-delete {
-    justify-self: end;
   }
 
   .audiobook-saved-main .audiobook-title {

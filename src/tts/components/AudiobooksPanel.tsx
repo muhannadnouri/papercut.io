@@ -12,7 +12,7 @@ import {
   formatSavedAudiobookMeta,
 } from '../utils/format'
 import { Panel } from '../../components/Panel/Panel'
-import { AudiobookExportMenu } from './AudiobookExportMenu'
+import { AudiobookActionsMenu } from './AudiobookActionsMenu'
 import { AudioSetupPanel, type AudioSetupPanelProps } from './AudioSetupPanel'
 import './AudiobooksPanel.css'
 
@@ -96,7 +96,7 @@ export function AudiobooksPanel({
 }: AudiobooksPanelProps) {
   const { t, i18n } = useTranslation()
   const [setupOpen, setSetupOpen] = useState(false)
-  const [exportMenuOpen, setExportMenuOpen] = useState<string | null>(null)
+  const [actionsMenuOpen, setActionsMenuOpen] = useState<string | null>(null)
   const activePercent = getDownloadPercent(downloadState.cachedChunks, downloadState.totalChunks)
   const savedCount = savedAudiobooks.length
   const queueCount = queuedDownloads.length
@@ -220,13 +220,9 @@ export function AudiobooksPanel({
           <section className="audiobooks-section" aria-label={t('tts.audiobooks.savedAria')}>
             <h3 className="audiobooks-section-title">{t('tts.audiobooks.savedSection')}</h3>
             {savedAudiobooks.map((record) => {
-              const recordExportState = exportState?.id === record.id ? exportState : null
               const recordDeleteState = deleteState?.id === record.id ? deleteState : null
-              const exporting = recordExportState?.status === 'exporting'
               const deleting = recordDeleteState?.status === 'deleting'
-              const exportDisabled = panelBusy || deleting
-              const deleteDisabled = panelBusy || deleting
-              const deleteLabel = deleting ? t('tts.audiobooks.deleting') : t('tts.audiobooks.delete')
+              const actionsDisabled = panelBusy || deleting
               const savedMeta = formatSavedAudiobookMeta(
                 t,
                 record.modelId,
@@ -239,7 +235,7 @@ export function AudiobooksPanel({
               return (
                 <div
                   key={record.id}
-                  className={'audiobook-item audiobook-item-saved' + (exportMenuOpen === record.id && !exportDisabled ? ' audiobook-item-menu-open' : '')}
+                  className={'audiobook-item audiobook-item-saved' + (actionsMenuOpen === record.id && !actionsDisabled ? ' audiobook-item-menu-open' : '')}
                 >
                   <button
                     className="audiobook-saved-main"
@@ -251,29 +247,22 @@ export function AudiobooksPanel({
                       {savedMeta}
                     </span>
                   </button>
-                  <AudiobookExportMenu
+                  <AudiobookActionsMenu
                     t={t}
                     record={record}
                     options={exportOptions}
-                    open={exportMenuOpen === record.id && !exportDisabled}
-                    disabled={exportDisabled}
-                    exporting={exporting}
-                    onOpenChange={(open) => setExportMenuOpen(open ? record.id : null)}
+                    open={actionsMenuOpen === record.id && !actionsDisabled}
+                    disabled={actionsDisabled}
+                    onOpenChange={(open) => setActionsMenuOpen(open ? record.id : null)}
                     onExport={(format) => {
-                      setExportMenuOpen(null)
+                      setActionsMenuOpen(null)
                       onExportSaved(record, format)
                     }}
+                    onDelete={() => {
+                      setActionsMenuOpen(null)
+                      onDeleteSaved(record)
+                    }}
                   />
-                  <button
-                    type="button"
-                    className="audiobook-text-action audiobook-delete"
-                    disabled={deleteDisabled}
-                    aria-label={deleteLabel}
-                    title={deleteLabel}
-                    onClick={() => onDeleteSaved(record)}
-                  >
-                    <AudiobookDeleteIcon />
-                  </button>
                   {recordDeleteState && (
                     <div
                       className={'audiobook-status-text audiobook-operation-status audiobook-delete-' + recordDeleteState.status}
@@ -309,14 +298,6 @@ export function AudiobooksPanel({
         </div>
       )}
     </Panel>
-  )
-}
-
-function AudiobookDeleteIcon() {
-  return (
-    <svg className="audiobook-delete-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M4 7h16M9 7V4h6v3m3 0-1 14H7L6 7m4 4v6m4-6v6" fill="none" stroke="currentcolor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   )
 }
 
