@@ -25,8 +25,8 @@
 }
 
 .library-transfer-mode button[aria-pressed="true"] {
-  background: var(--surface-accent-strong);
-  color: var(--accent-strong);
+  background: var(--accent);
+  color: var(--text-inverse);
 }
 
 .library-transfer-mode button:focus-visible {
