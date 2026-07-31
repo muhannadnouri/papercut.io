@@ -1,7 +1,7 @@
 .panel {
   margin-bottom: 1.5rem;
   border: 1px solid var(--border-strong);
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
   background: var(--surface);
   overflow: hidden;
 }

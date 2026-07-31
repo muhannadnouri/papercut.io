@@ -6,7 +6,7 @@
   padding: 0.3rem;
   background: var(--control-surface);
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
 }
 
 .tab-nav-item {
@@ -18,7 +18,7 @@
   gap: 0.45rem;
   padding: 0.6rem 0.9rem;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   background: transparent;
   color: var(--text-muted);
   font-size: 0.95rem;
@@ -100,7 +100,7 @@
     min-height: 3.65rem;
     padding: 0.4rem 0.25rem;
     font-size: 0.75rem;
-    border-radius: 6px;
+    border-radius: var(--radius-compact);
   }
 
   .tab-nav-item-active {
