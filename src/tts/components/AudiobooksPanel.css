@@ -172,7 +172,7 @@
 }
 
 .app-dialog.audiobooks-setup-dialog {
-  width: min(100%, 44rem);
+  width: min(100%, 38.75rem);
 }
 
 .audio-field {
