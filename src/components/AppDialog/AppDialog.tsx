@@ -15,11 +15,12 @@ interface AppDialogProps {
   description?: ReactNode
   children?: ReactNode
   actions: ReactNode
+  className?: string
   onCancel: () => void
   onSubmit?: (event: FormEvent) => void
 }
 
-export function AppDialog({ title, description, children, actions, onCancel, onSubmit }: AppDialogProps) {
+export function AppDialog({ title, description, children, actions, className, onCancel, onSubmit }: AppDialogProps) {
   const titleId = useId()
   const descriptionId = useId()
   const dialogRef = useRef<HTMLDivElement | HTMLFormElement | null>(null)
@@ -95,7 +96,7 @@ export function AppDialog({ title, description, children, actions, onCancel, onS
       {onSubmit ? (
         <form
           ref={setDialogRef}
-          className="app-dialog"
+          className={'app-dialog' + (className ? ` ${className}` : '')}
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
@@ -109,7 +110,7 @@ export function AppDialog({ title, description, children, actions, onCancel, onS
       ) : (
         <div
           ref={setDialogRef}
-          className="app-dialog"
+          className={'app-dialog' + (className ? ` ${className}` : '')}
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}

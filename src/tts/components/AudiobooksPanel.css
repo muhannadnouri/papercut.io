@@ -163,17 +163,8 @@
   opacity: 0.65;
 }
 
-.audiobooks-setup {
-  max-height: min(62vh, 26rem);
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  padding: 0.75rem 1.25rem;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-panel-subtle);
-  margin-top: 5px;
+.app-dialog.audiobooks-setup-dialog {
+  width: min(100%, 44rem);
 }
 
 .audio-field {
@@ -362,9 +353,9 @@
   padding: 0.75rem 1.25rem;
 }
 
-.audiobooks-setup-disclosure {
+.audiobooks-setup-button {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 0.65rem;
   width: 100%;
@@ -380,14 +371,13 @@
   transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 
-.audiobooks-setup-disclosure:focus-visible,
-.audiobooks-setup-disclosure-open {
+.audiobooks-setup-button:focus-visible {
   border-color: transparent;
   background: var(--surface-accent);
   outline: none;
 }
 
-.audiobooks-setup-disclosure:focus-visible {
+.audiobooks-setup-button:focus-visible {
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
@@ -396,7 +386,7 @@
     background: var(--surface-accent);
   }
 
-  .audiobooks-setup-disclosure:hover {
+  .audiobooks-setup-button:hover {
     border-color: transparent;
     background: var(--surface-accent);
     box-shadow: 0 8px 18px var(--shadow-soft);
@@ -404,7 +394,7 @@
   }
 }
 
-.audiobooks-setup-disclosure:disabled {
+.audiobooks-setup-button:disabled {
   border-color: transparent;
   background: var(--surface-muted);
   color: var(--text-soft);
@@ -412,7 +402,7 @@
   box-shadow: none;
 }
 
-.audiobooks-setup-disclosure-icon {
+.audiobooks-setup-button-icon {
   display: inline-grid;
   place-items: center;
   width: 1.6rem;
@@ -430,19 +420,19 @@
   stroke-linejoin: round;
 }
 
-.audiobooks-setup-disclosure-main {
+.audiobooks-setup-button-main {
   display: grid;
   gap: 0.1rem;
   min-width: 0;
 }
 
-.audiobooks-setup-disclosure-title {
+.audiobooks-setup-button-title {
   color: var(--text);
   font-size: 0.86rem;
   font-weight: 800;
 }
 
-.audiobooks-setup-disclosure-summary {
+.audiobooks-setup-button-summary {
   min-width: 0;
   color: var(--text-muted);
   direction: ltr;
@@ -454,13 +444,8 @@
   white-space: nowrap;
 }
 
-html[dir="rtl"] .audiobooks-setup-disclosure-summary {
+html[dir="rtl"] .audiobooks-setup-button-summary {
   text-align: right;
-}
-
-.audiobooks-setup-disclosure-chevron {
-  color: var(--text-muted);
-  font-size: 0.7rem;
 }
 
 .audiobooks-import-btn {
@@ -768,7 +753,7 @@ html[dir="rtl"] .audiobook-action-toast {
 
 @media (pointer: coarse) {
   .audiobooks-import-btn,
-  .audiobooks-setup-disclosure,
+  .audiobooks-setup-button,
   .audiobook-text-action {
     min-height: 2.75rem;
   }
@@ -878,12 +863,7 @@ html[dir="rtl"] .audiobook-action-toast {
     padding: 0.65rem;
   }
 
-  .audiobooks-setup-disclosure {
-    padding: 0.65rem;
-  }
-
-  .audiobooks-setup {
-    max-height: min(56vh, 24rem);
+  .audiobooks-setup-button {
     padding: 0.65rem;
   }
 

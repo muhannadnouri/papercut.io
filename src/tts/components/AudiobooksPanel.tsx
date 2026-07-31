@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import type { SavedAudiobookRecord } from '../storage/AudiobookLibrary'
@@ -12,6 +12,7 @@ import {
   formatSavedAudiobookMeta,
 } from '../utils/format'
 import { Panel } from '../../components/Panel/Panel'
+import { AppDialog } from '../../components/AppDialog/AppDialog'
 import { AudiobookActionsMenu } from './AudiobookActionsMenu'
 import { AudioSetupPanel, type AudioSetupPanelProps } from './AudioSetupPanel'
 import './AudiobooksPanel.css'
@@ -112,6 +113,7 @@ export function AudiobooksPanel({
     { format: 'bundle' as const, label: t('tts.audiobooks.exportBundle'), code: '.papercut-audiobook' },
     { format: 'wav' as const, label: t('tts.audiobooks.exportWav'), code: '.wav' },
   ]
+  const closeSetup = useCallback(() => setSetupOpen(false), [])
 
   return (
     <Panel
@@ -136,27 +138,34 @@ export function AudiobooksPanel({
 
             <button
               type="button"
-              className={'audiobooks-setup-disclosure' + (setupOpen ? ' audiobooks-setup-disclosure-open' : '')}
-              aria-expanded={setupOpen}
-              aria-controls="audiobooks-audio-setup"
+              className="audiobooks-setup-button"
+              aria-haspopup="dialog"
               disabled={panelBusy}
-              onClick={() => setSetupOpen((value) => !value)}
+              onClick={() => setSetupOpen(true)}
             >
-              <span className="audiobooks-setup-disclosure-icon" aria-hidden="true">
+              <span className="audiobooks-setup-button-icon" aria-hidden="true">
                 <AudiobooksPanelIcon name="settings" />
               </span>
-              <span className="audiobooks-setup-disclosure-main">
-                <span className="audiobooks-setup-disclosure-title">{t('tts.audiobooks.audioSetup')}</span>
-                <span className="audiobooks-setup-disclosure-summary" dir="ltr">{setupSummary}</span>
+              <span className="audiobooks-setup-button-main">
+                <span className="audiobooks-setup-button-title">{t('tts.audiobooks.audioSetup')}</span>
+                <span className="audiobooks-setup-button-summary" dir="ltr">{setupSummary}</span>
               </span>
-              <span className="audiobooks-setup-disclosure-chevron" aria-hidden="true">{setupOpen ? '▲' : '▼'}</span>
             </button>
           </div>
 
           {setupOpen && (
-            <section id="audiobooks-audio-setup" className="audiobooks-section audiobooks-setup" aria-label={t('tts.audiobooks.audioSetup')}>
+            <AppDialog
+              className="audiobooks-setup-dialog"
+              title={t('tts.audiobooks.audioSetup')}
+              onCancel={closeSetup}
+              actions={(
+                <button type="button" className="app-dialog-submit" onClick={closeSetup}>
+                  {t('common.done')}
+                </button>
+              )}
+            >
               <AudioSetupPanel {...audioSetup} />
-            </section>
+            </AppDialog>
           )}
 
           {!hasAudiobooks && (
