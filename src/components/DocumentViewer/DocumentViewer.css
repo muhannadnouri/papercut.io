@@ -334,30 +334,31 @@ html[dir="rtl"] .back-icon {
   justify-content: center;
   width: 2.85rem;
   height: 2.85rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 10px;
-  background: var(--surface-hover);
-  color: var(--text-heading);
+  background: var(--control-surface);
+  color: var(--accent-text);
   box-shadow: 0 6px 18px var(--shadow-strong);
   padding: 0;
   cursor: pointer;
 }
 
 .reader-bookmark-btn:focus-visible {
-  border-color: var(--accent-text);
-  background: var(--surface-accent);
-  color: var(--accent-text);
+  border-color: transparent;
+  background: var(--surface-accent-strong);
+  color: var(--accent-strong);
   outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus), 0 6px 18px var(--shadow-strong);
 }
 
 .reader-bookmark-btn-active {
-  border-color: var(--accent);
+  border-color: transparent;
   background: var(--accent);
   color: var(--text-inverse);
 }
 
 .reader-bookmark-btn-active:focus-visible {
-  border-color: var(--accent-hover);
+  border-color: transparent;
   background: var(--accent-hover);
   color: var(--text-inverse);
 }
@@ -382,11 +383,11 @@ html[dir="rtl"] .back-icon {
   align-items: center;
   gap: 0.5rem;
   max-width: min(24rem, calc(100vw - 2rem));
-  border: 1px solid var(--accent-border);
+  border: 1px solid transparent;
   border-radius: 10px;
-  background: var(--surface);
+  background: var(--control-surface);
   color: var(--text-body);
-  box-shadow: 0 8px 24px var(--shadow-strong);
+  box-shadow: 0 8px 24px var(--shadow-dialog);
   padding: 0.55rem 0.65rem 0.55rem 0.8rem;
   font-size: 0.88rem;
   font-weight: 600;
@@ -399,9 +400,9 @@ html[dir="rtl"] .back-icon {
 }
 
 .reader-bookmark-notice button {
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 8px;
-  background: var(--surface-muted);
+  background: var(--surface);
   color: var(--accent-text);
   font: inherit;
   cursor: pointer;
@@ -409,9 +410,10 @@ html[dir="rtl"] .back-icon {
 }
 
 .reader-bookmark-notice button:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   background: var(--surface-accent);
   outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -422,15 +424,20 @@ html[dir="rtl"] .back-icon {
     background: var(--surface-accent);
   }
 
-  .reader-bookmark-btn:hover,
+  .reader-bookmark-btn:hover {
+    border-color: transparent;
+    background: var(--surface-accent-strong);
+    color: var(--accent-strong);
+  }
+
   .reader-bookmark-notice button:hover {
-    border-color: var(--accent-text);
-    color: var(--accent-text);
+    border-color: transparent;
     background: var(--surface-accent);
+    color: var(--accent-text);
   }
 
   .reader-bookmark-btn-active:hover {
-    border-color: var(--accent-hover);
+    border-color: transparent;
     background: var(--accent-hover);
     color: var(--text-inverse);
   }
