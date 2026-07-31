@@ -46,7 +46,7 @@
   border: 1px solid transparent;
   border-radius: 10px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color 0.15s, box-shadow 0.15s;
   background: var(--control-surface);
   color: inherit;
   text-align: start;

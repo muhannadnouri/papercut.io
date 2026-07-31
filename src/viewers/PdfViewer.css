@@ -23,8 +23,8 @@
 
 .pdf-search-target-status {
   align-items: center;
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
+  background: var(--surface-strong);
+  border: 1px solid transparent;
   border-radius: 8px;
   box-shadow: 0 4px 14px var(--shadow-soft);
   color: var(--text-heading);
