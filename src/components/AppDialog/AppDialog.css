@@ -16,7 +16,7 @@
   max-height: calc(100vh - 2rem);
   overflow: auto;
   padding: 1rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 10px;
   background: var(--surface);
   color: var(--text-heading);
