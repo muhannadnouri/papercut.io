@@ -274,17 +274,22 @@
   min-width: 0;
   padding: 0.45rem 0.75rem;
   font-size: 0.85rem;
-  border: 1px solid var(--border-strong);
+  border: 2px solid transparent;
   border-radius: 6px;
   outline: none;
-  background: var(--surface-muted);
-  transition: border-color 0.2s;
+  background: var(--control-surface);
+  color: var(--text-body);
+  transition: background 0.2s, box-shadow 0.2s;
 }
 
 .document-filter-input:focus {
-  border-color: var(--accent-text);
-  background: var(--surface);
+  background: var(--control-surface);
   box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+.document-filter-input::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
 }
 
 .documents-scroll {
