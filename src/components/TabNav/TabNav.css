@@ -4,8 +4,8 @@
   justify-content: center;
   margin-bottom: 1.5rem;
   padding: 0.3rem;
-  background: var(--app-bg-alt);
-  border: 1px solid var(--border);
+  background: var(--control-surface);
+  border: 1px solid transparent;
   border-radius: 10px;
 }
 
@@ -31,15 +31,15 @@
 @media (hover: hover) and (pointer: fine) {
   .tab-nav-item:hover:not(:disabled):not(.tab-nav-item-active) {
     color: var(--text-body);
-    background: var(--border);
+    background: var(--surface-accent);
   }
 }
 
 .tab-nav-item-active {
-  background: var(--surface-accent);
+  background: var(--surface-accent-strong);
   color: var(--accent-strong);
-  outline: 1px solid var(--accent-border);
-  box-shadow: 0 1px 3px var(--shadow-accent-soft);
+  outline: none;
+  box-shadow: none;
 }
 
 .tab-nav-item-active::before {
@@ -104,8 +104,8 @@
   }
 
   .tab-nav-item-active {
-    background: var(--surface-accent);
-    box-shadow: inset 0 0 0 1px var(--accent-border);
+    background: var(--surface-accent-strong);
+    box-shadow: none;
   }
 
   .tab-nav-item-active::before {
