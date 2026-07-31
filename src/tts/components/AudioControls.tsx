@@ -148,7 +148,7 @@ export function AudioControls({
       )}
 
       {showFloatingPlayback && (
-        <div className="audio-floating-playback" aria-label={t('tts.controls.playbackControls')}>
+        <div className="audio-floating-playback" dir="ltr" aria-label={t('tts.controls.playbackControls')}>
           <button className="audio-icon-btn" onClick={onSkipBackward} disabled={!canSkipBackward} aria-label={t('tts.controls.previousChunk')} title={t('tts.controls.previousChunkTitle')}>
             <AudioIcon name="back" />
           </button>
