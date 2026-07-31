@@ -1,9 +1,13 @@
 .documents-panel {
   margin-bottom: 1.5rem;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: 10px;
-  background: var(--surface);
+  background: var(--control-surface);
   overflow: hidden;
+}
+
+.documents-panel > .panel-toggle {
+  background: var(--control-surface);
 }
 
 .documents-panel-loading {
@@ -530,6 +534,10 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .documents-panel > .panel-toggle:hover {
+    background: var(--surface-accent);
+  }
+
   .search-scope-panel .panel-toggle:hover {
     background: var(--surface-accent);
   }
