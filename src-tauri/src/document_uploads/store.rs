@@ -10,8 +10,10 @@ use rusqlite::{params, Connection, OptionalExtension, Row, TransactionBehavior};
 use tauri::Runtime;
 
 use super::parsed::ParsedDocument;
-use super::storage::{uploads_root, StoredSourceKind};
+use super::storage::{upload_id_from_url, uploads_root, StoredSourceKind};
 use super::types::UploadedDocument;
+
+const MAX_TITLE_CHARS: usize = 512;
 
 /// List all stored uploads as DTOs, newest import first.
 pub(crate) fn list_uploads<R: Runtime>(
@@ -20,7 +22,7 @@ pub(crate) fn list_uploads<R: Runtime>(
     let db = open_db(app)?;
     let mut stmt = db
         .prepare(
-            "SELECT id, url, title, format, source_kind, imported_at_ms, bytes, sections, cover_media_type \
+            "SELECT id, url, title, original_file_name, format, source_kind, imported_at_ms, bytes, sections, cover_media_type \
              FROM uploaded_documents ORDER BY imported_at_ms DESC",
         )
         .map_err(db_err)?;
@@ -37,7 +39,7 @@ pub(crate) fn find_upload_by_id(
     id: &str,
 ) -> Result<Option<UploadedDocument>, String> {
     db.query_row(
-        "SELECT id, url, title, format, source_kind, imported_at_ms, bytes, sections, cover_media_type \
+        "SELECT id, url, title, original_file_name, format, source_kind, imported_at_ms, bytes, sections, cover_media_type \
          FROM uploaded_documents WHERE id = ?1",
         [id],
         uploaded_document_from_row,
@@ -51,12 +53,13 @@ fn uploaded_document_from_row(row: &Row<'_>) -> rusqlite::Result<UploadedDocumen
         id: row.get(0)?,
         url: row.get(1)?,
         title: row.get(2)?,
-        format: row.get(3)?,
-        source_kind: row.get(4)?,
-        imported_at_ms: row.get::<_, i64>(5)? as u128,
-        bytes: row.get::<_, i64>(6)? as u64,
-        sections: row.get::<_, i64>(7)? as usize,
-        cover_media_type: row.get(8)?,
+        original_file_name: row.get(3)?,
+        format: row.get(4)?,
+        source_kind: row.get(5)?,
+        imported_at_ms: row.get::<_, i64>(6)? as u128,
+        bytes: row.get::<_, i64>(7)? as u64,
+        sections: row.get::<_, i64>(8)? as usize,
+        cover_media_type: row.get(9)?,
     })
 }
 
@@ -87,6 +90,7 @@ pub(crate) fn open_db<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Connectio
            id TEXT PRIMARY KEY,
            url TEXT NOT NULL UNIQUE,
            title TEXT NOT NULL,
+           original_file_name TEXT,
            format TEXT NOT NULL,
            source_kind TEXT NOT NULL DEFAULT 'html',
            imported_at_ms INTEGER NOT NULL,
@@ -140,7 +144,7 @@ pub(crate) fn open_db<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Connectio
     .map_err(db_err)?;
     ensure_schema_columns(&tx)?;
     tx.execute(
-        "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('schema_version', '4')",
+        "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('schema_version', '5')",
         [],
     )
     .map_err(db_err)?;
@@ -151,6 +155,12 @@ pub(crate) fn open_db<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Connectio
 /// Add nullable metadata columns in place so existing documents and FTS rows
 /// survive schema upgrades without a database rebuild.
 fn ensure_schema_columns(db: &Connection) -> Result<(), String> {
+    ensure_column(
+        db,
+        "uploaded_documents",
+        "original_file_name",
+        "ALTER TABLE uploaded_documents ADD COLUMN original_file_name TEXT",
+    )?;
     ensure_column(
         db,
         "uploaded_documents",
@@ -232,6 +242,7 @@ pub(crate) fn upsert_document(
     id: &str,
     url: &str,
     parsed: &ParsedDocument,
+    original_file_name: Option<&str>,
     source_kind: StoredSourceKind,
     imported_at_ms: u128,
     bytes: u64,
@@ -246,11 +257,12 @@ pub(crate) fn upsert_document(
         .map_err(db_err)?;
     tx.execute(
         "INSERT INTO uploaded_documents \
-         (id, url, title, format, source_kind, imported_at_ms, bytes, sections, cover_media_type) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) \
+         (id, url, title, original_file_name, format, source_kind, imported_at_ms, bytes, sections, cover_media_type) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10) \
          ON CONFLICT(id) DO UPDATE SET \
            url = excluded.url, \
            title = excluded.title, \
+           original_file_name = COALESCE(excluded.original_file_name, uploaded_documents.original_file_name), \
            format = excluded.format, \
            source_kind = excluded.source_kind, \
            imported_at_ms = excluded.imported_at_ms, \
@@ -261,6 +273,7 @@ pub(crate) fn upsert_document(
             id,
             url,
             parsed.title,
+            original_file_name,
             parsed.format,
             source_kind.as_str(),
             imported_at_ms as i64,
@@ -309,6 +322,7 @@ pub(crate) fn upsert_unindexed_document(
     id: &str,
     url: &str,
     title: &str,
+    original_file_name: Option<&str>,
     format: &str,
     source_kind: StoredSourceKind,
     imported_at_ms: u128,
@@ -324,16 +338,19 @@ pub(crate) fn upsert_unindexed_document(
         .map_err(db_err)?;
     tx.execute(
         "INSERT INTO uploaded_documents \
-         (id, url, title, format, source_kind, imported_at_ms, bytes, sections, cover_media_type) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, NULL) \
+         (id, url, title, original_file_name, format, source_kind, imported_at_ms, bytes, sections, cover_media_type) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0, NULL) \
          ON CONFLICT(id) DO UPDATE SET \
-           url = excluded.url, title = excluded.title, format = excluded.format, \
+           url = excluded.url, title = excluded.title, \
+           original_file_name = COALESCE(excluded.original_file_name, uploaded_documents.original_file_name), \
+           format = excluded.format, \
            source_kind = excluded.source_kind, imported_at_ms = excluded.imported_at_ms, \
            bytes = excluded.bytes, sections = 0, cover_media_type = NULL",
         params![
             id,
             url,
             title,
+            original_file_name,
             format,
             source_kind.as_str(),
             imported_at_ms as i64,
@@ -350,6 +367,46 @@ pub(crate) fn upsert_unindexed_document(
     tx.commit().map_err(db_err)
 }
 
+/// Change display metadata and its duplicated FTS title in one transaction.
+///
+/// The stable document URL and source files remain untouched, so folders,
+/// bookmarks, saved-audio ids, and reader links keep their existing identity.
+pub(crate) fn update_document_title(
+    db: &mut Connection,
+    document_url: &str,
+    title: &str,
+) -> Result<UploadedDocument, String> {
+    let id = upload_id_from_url(document_url)?;
+    let title = title.trim();
+    if title.is_empty() {
+        return Err("Document title cannot be empty".into());
+    }
+    if title.chars().count() > MAX_TITLE_CHARS {
+        return Err(format!(
+            "Document title cannot exceed {MAX_TITLE_CHARS} characters"
+        ));
+    }
+
+    let tx = db.transaction().map_err(db_err)?;
+    let updated = tx
+        .execute(
+            "UPDATE uploaded_documents SET title = ?1 WHERE id = ?2 AND url = ?3",
+            params![title, id, document_url],
+        )
+        .map_err(db_err)?;
+    if updated == 0 {
+        return Err("Uploaded document was not found".into());
+    }
+    tx.execute(
+        "UPDATE uploaded_document_fts SET title = ?1 WHERE document_id = ?2",
+        params![title, id],
+    )
+    .map_err(db_err)?;
+    tx.commit().map_err(db_err)?;
+
+    find_upload_by_id(db, &id)?.ok_or_else(|| "Updated document metadata is missing".to_string())
+}
+
 /// Format a rusqlite error into the feature's user-facing error string.
 pub(crate) fn db_err(err: rusqlite::Error) -> String {
     format!("Document upload database error: {err}")
@@ -359,7 +416,7 @@ pub(crate) fn db_err(err: rusqlite::Error) -> String {
 mod tests {
     use rusqlite::Connection;
 
-    use super::{ensure_schema_columns, find_upload_by_id, upsert_document};
+    use super::{ensure_schema_columns, find_upload_by_id, update_document_title, upsert_document};
     use crate::document_uploads::parsed::{ParsedDocument, ParsedSection};
     use crate::document_uploads::StoredSourceKind;
 
@@ -374,6 +431,7 @@ mod tests {
             "abc123",
             "/uploads/abc123.html",
             &first,
+            Some("original.html"),
             StoredSourceKind::Html,
             100,
             10,
@@ -406,6 +464,7 @@ mod tests {
             "abc123",
             "/uploads/abc123.html",
             &second,
+            None,
             StoredSourceKind::Html,
             200,
             20,
@@ -446,6 +505,48 @@ mod tests {
             .expect("fts count");
         assert_eq!(section_count, 2);
         assert_eq!(fts_count, 2);
+        assert_eq!(
+            find_upload_by_id(&db, "abc123")
+                .expect("lookup updated upload")
+                .expect("updated upload")
+                .original_file_name
+                .as_deref(),
+            Some("original.html")
+        );
+    }
+
+    #[test]
+    fn title_update_keeps_document_and_fts_metadata_in_sync() {
+        let mut db = test_db();
+        upsert_document(
+            &mut db,
+            "abc123",
+            "/uploads/abc123.html",
+            &parsed_document("Old Title", &["One", "Two"]),
+            Some("original.html"),
+            StoredSourceKind::Html,
+            100,
+            10,
+        )
+        .expect("insert document");
+
+        let updated = update_document_title(&mut db, "/uploads/abc123.html", "  Better Title  ")
+            .expect("update title");
+
+        assert_eq!(updated.title, "Better Title");
+        assert_eq!(updated.original_file_name.as_deref(), Some("original.html"));
+        let fts_titles: Vec<String> = db
+            .prepare(
+                "SELECT title FROM uploaded_document_fts \
+                 WHERE document_id = 'abc123' ORDER BY section_id",
+            )
+            .expect("prepare FTS title query")
+            .query_map([], |row| row.get(0))
+            .expect("read FTS titles")
+            .collect::<Result<_, _>>()
+            .expect("collect FTS titles");
+        assert_eq!(fts_titles, vec!["Better Title", "Better Title"]);
+        assert!(update_document_title(&mut db, "/uploads/abc123.html", " ").is_err());
     }
 
     #[test]
@@ -461,6 +562,7 @@ mod tests {
             "pdf123",
             "/uploads/pdf123.pdf",
             &parsed,
+            Some("source.pdf"),
             StoredSourceKind::Pdf,
             100,
             20,
@@ -505,6 +607,15 @@ mod tests {
             .iter()
             .any(|column| column == "cover_media_type");
         assert!(has_cover_column);
+        let has_original_file_name: bool = db
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM pragma_table_info('uploaded_documents') \
+                 WHERE name = 'original_file_name')",
+                [],
+                |row| row.get(0),
+            )
+            .expect("original filename column");
+        assert!(has_original_file_name);
 
         let source_kind: String = db
             .query_row(
@@ -535,6 +646,7 @@ mod tests {
                id TEXT PRIMARY KEY,
                url TEXT NOT NULL UNIQUE,
                title TEXT NOT NULL,
+               original_file_name TEXT,
                format TEXT NOT NULL,
                source_kind TEXT NOT NULL DEFAULT 'html',
                imported_at_ms INTEGER NOT NULL,

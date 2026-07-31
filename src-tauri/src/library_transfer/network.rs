@@ -107,7 +107,7 @@ pub async fn library_transfer_send_start(
 ) -> LibraryTransferResult<LibraryTransferSendStatus> {
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        start_send(app, state, request.unwrap_or_default().include_audiobooks)
+        start_send(app, state, request.unwrap_or_default().audiobook_ids)
     })
     .await
     .map_err(|err| format!("Library send task failed: {err}"))?
@@ -158,7 +158,7 @@ pub async fn library_transfer_receive(
 fn start_send(
     app: tauri::AppHandle,
     state: LibraryTransferState,
-    include_audiobooks: bool,
+    audiobook_ids: Vec<String>,
 ) -> LibraryTransferResult<LibraryTransferSendStatus> {
     {
         let send = lock(&state.send)?;
@@ -177,7 +177,7 @@ fn start_send(
     }
 
     let package_path = transfer_temp_path(&app, "lan-send")?;
-    let prepared = build_library_package(&app, &package_path, include_audiobooks);
+    let prepared = build_library_package(&app, &package_path, &audiobook_ids);
     let prepared = match prepared {
         Ok(prepared) => prepared,
         Err(error) => {

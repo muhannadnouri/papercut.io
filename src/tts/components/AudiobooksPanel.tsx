@@ -227,7 +227,10 @@ export function AudiobooksPanel({
               const exportDisabled = panelBusy || deleting
               const deleteDisabled = panelBusy || deleting
               return (
-                <div key={record.id} className="audiobook-item audiobook-item-saved">
+                <div
+                  key={record.id}
+                  className={'audiobook-item audiobook-item-saved' + (exportMenuOpen === record.id && !exportDisabled ? ' audiobook-item-menu-open' : '')}
+                >
                   <button
                     className="audiobook-saved-main"
                     disabled={documentOpening || panelBusy}

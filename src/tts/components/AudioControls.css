@@ -29,7 +29,6 @@
   transition: border-color 0.15s, color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 
-.audio-icon-btn:hover:not(:disabled),
 .audio-icon-btn:focus-visible {
   border-color: var(--accent-text);
   color: var(--accent-text);
@@ -51,7 +50,6 @@
   color: var(--text-inverse);
 }
 
-.audio-primary-btn:hover:not(:disabled),
 .audio-primary-btn:focus-visible {
   background: var(--accent-hover);
   color: var(--text-inverse);
@@ -143,7 +141,6 @@
   color: var(--accent-ink);
 }
 
-.audio-word-highlight-toggle:hover,
 .audio-word-highlight-toggle:focus-visible {
   border-color: var(--accent-text);
   color: var(--accent-text);
@@ -200,7 +197,6 @@
   cursor: pointer;
 }
 
-.audio-chunk-item:hover,
 .audio-chunk-item:focus-visible {
   background: var(--surface-accent);
   color: var(--accent-ink);
@@ -270,13 +266,42 @@
   user-select: none;
 }
 
-.audio-rate-control:hover,
 .audio-rate-control:focus-visible {
   border-color: var(--accent-text);
   color: var(--accent-text);
   background: var(--surface-accent);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .audio-icon-btn:hover:not(:disabled) {
+    border-color: var(--accent-text);
+    color: var(--accent-text);
+    background: var(--surface-accent);
+  }
+
+  .audio-primary-btn:hover:not(:disabled) {
+    background: var(--accent-hover);
+    color: var(--text-inverse);
+  }
+
+  .audio-word-highlight-toggle:hover,
+  .audio-rate-control:hover {
+    border-color: var(--accent-text);
+    color: var(--accent-text);
+    background: var(--surface-accent);
+  }
+
+  .audio-chunk-item:hover {
+    background: var(--surface-accent);
+    color: var(--accent-ink);
+    box-shadow: inset 3px 0 0 var(--accent-text);
+  }
+
+  html[dir="rtl"] .audio-chunk-item:hover {
+    box-shadow: inset -3px 0 0 var(--accent-text);
+  }
 }
 
 .audio-floating-status {
@@ -350,7 +375,6 @@
   }
 }
 
-html[dir="rtl"] .audio-chunk-item:hover,
 html[dir="rtl"] .audio-chunk-item:focus-visible,
 html[dir="rtl"] .audio-chunk-item-current {
   box-shadow: inset -3px 0 0 var(--accent-text);

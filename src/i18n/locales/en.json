@@ -95,6 +95,21 @@
       "emptyCategoryDocuments": "No documents match the current filters.",
       "savedAudioAvailable": "Saved audio available"
     },
+    "documentInfo": {
+      "button": "Edit Details",
+      "editLabel": "Edit details for {{title}}",
+      "title": "Document Info",
+      "description": "View file details and change the title shown in Papercut.",
+      "displayTitle": "Display Title",
+      "originalFileName": "Original Filename",
+      "format": "Format",
+      "fileSize": "File Size",
+      "imported": "Imported",
+      "pages": "Pages",
+      "sections": "Sections",
+      "unavailable": "Unavailable",
+      "operationInProgress": "Another Library operation is already in progress."
+    },
     "import": {
       "files": "Files",
       "filesDetail": "Import one or more HTML, EPUB, or PDF files",
@@ -185,6 +200,13 @@
       "description": "This permanently removes the selected documents from this device, local search results, and Papercut folders.",
       "count": "Documents",
       "confirm": "Delete Selected"
+    },
+    "savedAudioDependency": {
+      "title": "Saved Audiobook Uses This Document",
+      "description": "Delete the saved audiobook before removing this document.",
+      "batchTitle": "Saved Audiobooks Use Selected Documents",
+      "batchDescription": "One or more selected documents have saved audio. Delete their saved audiobooks before removing the documents.",
+      "viewAudiobooks": "View Audiobooks"
     }
   },
   "settings": {
@@ -218,8 +240,8 @@
     "modeReceive": "Receive",
     "exportTitle": "Save Transfer File",
     "exportDescription": "Save {{count, number}} documents to a file for USB, shared storage, or another method.",
-    "includeAudiobooks": "Include Saved Audiobooks ({{count, number}})",
-    "includeAudiobooksDescription": "Adds completed audio and can make the package much larger.",
+    "includeAudiobooks": "Saved Audiobooks ({{selected, number}} of {{count, number}} selected)",
+    "includeAudiobooksDescription": "Choose completed audiobooks to include. Audio can make the transfer much larger.",
     "export": "Save Transfer File",
     "exporting": "Preparing...",
     "importTitle": "Import Transfer File",

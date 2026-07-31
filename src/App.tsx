@@ -70,6 +70,7 @@ function App() {
     renameLibraryFolder,
     uploadedDocuments,
     uploadedLibraryOrganization,
+    updateDocumentTitle,
   } = useUploadedLibrary()
 
   const loadHtmlDocument = useCallback(async (url: string): Promise<string> => {
@@ -143,8 +144,13 @@ function App() {
     ...uploadedDocuments.map((upload) => ({
       title: upload.title,
       url: upload.url,
+      uploadId: upload.id,
+      originalFileName: upload.originalFileName,
       format: upload.format,
       source: 'upload' as const,
+      importedAtMs: upload.importedAtMs,
+      bytes: upload.bytes,
+      sections: upload.sections,
       coverMediaType: upload.coverMediaType,
     })),
     ...userUploads.map((upload) => ({ title: upload.title, url: upload.url, format: 'html', source: 'audiobook-upload' as const })),
@@ -256,6 +262,16 @@ function App() {
 
   const handleDeleteUploadedDocument = useCallback(async (doc: DocumentInfo) => {
     if (doc.source !== 'upload') return
+    if (savedAudiobookDocumentUrls.has(doc.url)) {
+      const viewAudiobooks = await confirmDocumentAction({
+        title: t('library.savedAudioDependency.title'),
+        description: t('library.savedAudioDependency.description'),
+        confirmLabel: t('library.savedAudioDependency.viewAudiobooks'),
+      })
+      if (viewAudiobooks) handleManageAudiobookSave()
+      return
+    }
+
     const confirmed = await confirmDocumentAction({
       title: t('library.confirmDeleteDocument.title'),
       description: t('library.confirmDeleteDocument.description'),
@@ -273,7 +289,7 @@ function App() {
     if (selectedDoc === doc.url) {
       handleCloseDocument()
     }
-  }, [confirmDocumentAction, deleteUploadedLibraryDocument, handleCloseDocument, removeFilter, removeResultsForUrl, selectedDoc, t])
+  }, [confirmDocumentAction, deleteUploadedLibraryDocument, handleCloseDocument, handleManageAudiobookSave, removeFilter, removeResultsForUrl, savedAudiobookDocumentUrls, selectedDoc, t])
 
   const handleDeleteUploadedDocuments = useCallback(async (docs: DocumentInfo[]) => {
     const result = await deleteUploadedLibraryDocuments(docs)
@@ -384,7 +400,6 @@ function App() {
             showDocuments={showDocuments}
             allDocuments={libraryDocuments}
             audioSavedOnly={audioSavedOnly}
-            developerMode={ttsDiagnosticsEnabled}
             savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
             documentFilter={libraryDocumentFilter}
             groupedDocs={libraryGroupedDocs}
@@ -405,6 +420,10 @@ function App() {
             onMoveLibraryDocuments={moveLibraryDocuments}
             onRenameLibraryFolder={renameLibraryFolder}
             onToggleAuthor={toggleLibraryAuthor}
+            onViewAudiobooks={handleManageAudiobookSave}
+            onUpdateDocumentTitle={async (documentUrl, title) => {
+              await updateDocumentTitle(documentUrl, title)
+            }}
             onImportDocumentBatch={handleImportDocumentBatch}
             onImportDocumentFolder={handleImportDocumentFolder}
             onCancelDocumentBatch={cancelDocumentBatch}

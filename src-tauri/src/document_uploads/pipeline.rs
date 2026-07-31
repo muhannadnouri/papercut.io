@@ -19,6 +19,8 @@ use super::epub::parse_epub_document;
 use super::html::{decode_html_bytes, parse_html_document, sanitize_html};
 use super::parsed::ParsedDocument;
 use super::storage::directory_size;
+#[cfg(feature = "native-tts-core")]
+use super::storage::UPLOAD_URL_PREFIX;
 use super::storage::{
     now_ms, read_source_bytes, source_upload_id, upload_dir, upload_id_from_url,
     upload_reference_from_url, upload_source_path, upload_url, StoredSourceKind,
@@ -36,6 +38,7 @@ const MAX_STORED_COVER_BYTES: u64 = 5 * 1024 * 1024;
 pub(crate) fn import_html_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
+    original_file_name: Option<String>,
 ) -> Result<UploadedDocument, String> {
     let bytes = read_source_bytes(
         app,
@@ -56,13 +59,14 @@ pub(crate) fn import_html_source<R: Runtime>(
         return Err("HTML document did not contain readable text".into());
     }
 
-    persist_document(app, id, parsed, bytes.len() as u64)
+    persist_document(app, id, parsed, bytes.len() as u64, original_file_name)
 }
 
 /// Import one already-selected EPUB source without coupling parsing to a picker.
 pub(crate) fn import_epub_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
+    original_file_name: Option<String>,
 ) -> Result<UploadedDocument, String> {
     let bytes = read_source_bytes(
         app,
@@ -81,7 +85,7 @@ pub(crate) fn import_epub_source<R: Runtime>(
         return Err("EPUB did not contain readable text".into());
     }
 
-    persist_document(app, id, parsed, bytes.len() as u64)
+    persist_document(app, id, parsed, bytes.len() as u64, original_file_name)
 }
 
 /// Return an exact previously imported file only when its stored reader source
@@ -104,13 +108,23 @@ fn persist_document<R: Runtime>(
     id: String,
     mut parsed: ParsedDocument,
     bytes: u64,
+    original_file_name: Option<String>,
 ) -> Result<UploadedDocument, String> {
     let imported_at_ms = now_ms()?;
     let source_kind = StoredSourceKind::Html;
     let url = upload_url(&id, source_kind);
     let dir = upload_dir(app, &id)?;
     let mut db = open_db(app)?;
-    write_and_index_document(&dir, &mut db, &id, &url, &mut parsed, imported_at_ms, bytes)?;
+    write_and_index_document(
+        &dir,
+        &mut db,
+        &id,
+        &url,
+        &mut parsed,
+        original_file_name.as_deref(),
+        imported_at_ms,
+        bytes,
+    )?;
     let cover_media_type = parsed
         .cover
         .as_ref()
@@ -120,6 +134,7 @@ fn persist_document<R: Runtime>(
         id,
         url,
         title: parsed.title,
+        original_file_name,
         format: parsed.format,
         source_kind: source_kind.as_str().into(),
         imported_at_ms,
@@ -137,6 +152,8 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
     app: &tauri::AppHandle<R>,
     id: String,
     source_html: String,
+    title: String,
+    original_file_name: Option<String>,
     format: String,
     imported_at_ms: u128,
     bytes: u64,
@@ -154,13 +171,23 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
     }
 
     let mut parsed = parse_html_document(&source_html);
+    parsed.title = title;
     parsed.format = format;
     if parsed.sections.is_empty() {
         return Err("Transferred document did not contain readable text".into());
     }
     let dir = upload_dir(app, &id)?;
     let mut db = open_db(app)?;
-    write_and_index_document(&dir, &mut db, &id, &url, &mut parsed, imported_at_ms, bytes)?;
+    write_and_index_document(
+        &dir,
+        &mut db,
+        &id,
+        &url,
+        &mut parsed,
+        original_file_name.as_deref(),
+        imported_at_ms,
+        bytes,
+    )?;
     let cover_media_type = parsed
         .cover
         .as_ref()
@@ -170,6 +197,7 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
         id,
         url,
         title: parsed.title,
+        original_file_name,
         format: parsed.format,
         source_kind: source_kind.as_str().into(),
         imported_at_ms,
@@ -188,6 +216,7 @@ fn write_and_index_document(
     id: &str,
     url: &str,
     parsed: &mut ParsedDocument,
+    original_file_name: Option<&str>,
     imported_at_ms: u128,
     bytes: u64,
 ) -> Result<(), String> {
@@ -216,6 +245,7 @@ fn write_and_index_document(
             id,
             url,
             parsed,
+            original_file_name,
             StoredSourceKind::Html,
             imported_at_ms,
             bytes,
@@ -254,6 +284,36 @@ pub(crate) fn get_source<R: Runtime>(
     // Re-sanitize on read so documents imported by older app versions cannot
     // bypass a newer security policy merely because their stored file persists.
     Ok(sanitize_html(&source))
+}
+
+/// Reject a save that starts after its uploaded Library source was removed.
+///
+/// Bundled documents and audiobook-owned sources use other storage contracts,
+/// so only generic `/uploads/` URLs are checked here.
+#[cfg(feature = "native-tts-core")]
+pub(crate) fn ensure_uploaded_source_exists<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    document_url: &str,
+) -> Result<(), String> {
+    let path = document_url
+        .split(['?', '#'])
+        .next()
+        .unwrap_or(document_url);
+    if !path.starts_with(UPLOAD_URL_PREFIX) {
+        return Ok(());
+    }
+
+    let (id, source_kind) = upload_reference_from_url(document_url)?;
+    let db = open_db(app)?;
+    let document = find_upload_by_id(&db, &id)?
+        .ok_or_else(|| "Uploaded document metadata is missing".to_string())?;
+    if StoredSourceKind::from_str(&document.source_kind)? != source_kind {
+        return Err("Uploaded document source metadata does not match its URL".into());
+    }
+    if !upload_source_path(app, &id, source_kind)?.is_file() {
+        return Err("Uploaded document source is missing".into());
+    }
+    Ok(())
 }
 
 /// Return only a display-sized cover associated with a validated upload URL.
@@ -329,18 +389,27 @@ pub(crate) fn delete_upload<R: Runtime>(
     app: &tauri::AppHandle<R>,
     request: UploadedDocumentDeleteRequest,
 ) -> Result<UploadedDocumentDeleteResult, String> {
-    let id = upload_id_from_url(&request.document_url)?;
-    let dir = upload_dir(app, &id)?;
-    let mut db = open_db(app)?;
-    let bytes_freed = delete_stored_document(&dir, &id, || {
-        // Store deletion is transactional, keeping metadata, sections, and FTS in sync.
-        delete_document_rows(&mut db, &id)
-    })?;
+    crate::native_tts::with_audiobook_reference_lock(|| {
+        if crate::native_tts::document_has_audiobook_reference(app, &request.document_url)? {
+            return Err(
+                "Delete the saved audio that uses this document before removing it from the Library"
+                    .into(),
+            );
+        }
 
-    Ok(UploadedDocumentDeleteResult {
-        id,
-        url: request.document_url,
-        bytes_freed,
+        let id = upload_id_from_url(&request.document_url)?;
+        let dir = upload_dir(app, &id)?;
+        let mut db = open_db(app)?;
+        let bytes_freed = delete_stored_document(&dir, &id, || {
+            // Store deletion is transactional, keeping metadata, sections, and FTS in sync.
+            delete_document_rows(&mut db, &id)
+        })?;
+
+        Ok(UploadedDocumentDeleteResult {
+            id,
+            url: request.document_url,
+            bytes_freed,
+        })
     })
 }
 
@@ -442,9 +511,17 @@ mod tests {
         };
         let mut db = Connection::open_in_memory().expect("open database without upload schema");
 
-        let error =
-            write_and_index_document(&dir, &mut db, "abc", "/uploads/abc.html", &mut parsed, 1, 4)
-                .expect_err("missing schema must fail");
+        let error = write_and_index_document(
+            &dir,
+            &mut db,
+            "abc",
+            "/uploads/abc.html",
+            &mut parsed,
+            Some("example.html"),
+            1,
+            4,
+        )
+        .expect_err("missing schema must fail");
 
         assert!(error.contains("Document upload database error"));
         assert!(parsed.cover.is_none());

@@ -34,7 +34,7 @@ existing component modules.
 The package carries canonical user data:
 
 - sanitized, normalized `source.html` for each generic HTML or EPUB upload;
-- stable document ids and import metadata;
+- stable document ids, display titles, optional original filenames, and import metadata;
 - uploaded-library folders and document placement metadata;
 - optional completed-audiobook manifests, canonical chunk WAVs, and imported
   audiobook source documents;
@@ -49,11 +49,14 @@ The package does not carry derived or platform-specific data:
 Completed audiobook metadata is discovered from the native manifest stored
 beside each audiobook's canonical chunk WAVs. The saved-audiobook UI no longer
 depends on a duplicate WebView `localStorage` registry, so restored native files
-appear automatically. Audiobook export is optional and off by default because
-these payloads can make a transfer package several gigabytes larger.
+appear automatically. Audiobook export is optional, individually selectable,
+and off by default because these payloads can make a transfer package several
+gigabytes larger.
 
 The receiver parses and sanitizes every transferred HTML document again, then
 rebuilds SQLite metadata, sections, and FTS rows with its installed app version.
+Transferred display-title overrides and available original filenames are
+restored after parsing so metadata corrections survive a device move.
 Document ids come from the manifest rather than a hash of normalized HTML;
 otherwise transferred EPUBs would get new URLs because their original archive
 bytes are not retained by Papercut.
@@ -78,7 +81,11 @@ audiobooks/<storage-key>/source/source.html     # imported bundles only
 audiobooks/<storage-key>/source/metadata.json   # imported bundles only
 ```
 
-Both versions are limited to 500 documents. Version 2 is also limited to 500
+Version 3 adds canonical PDF document payloads while retaining the same
+manifest boundary and rebuilding PDF-derived text, thumbnails, and FTS rows on
+the receiving device.
+
+All versions are limited to 500 documents. Versions 2 and 3 are also limited to 500
 completed audiobooks and 100,000 audiobook files, with an 8 GiB expanded package
 limit. Reading preferences are not represented.
 
@@ -130,12 +137,13 @@ The role control remains visible throughout the dialog. Nearby transfer is the
 default path, while the transfer-file disclosures explain that files can be
 moved through USB, shared storage, or another user-chosen method.
 
-The export action offers a default-off **Include saved audiobooks** checkbox when
-completed audio exists. The dialog reports document and audiobook counts plus
-failures. The same dialog also exposes explicit source and target roles for
-same-network transfer. The source displays a local address and pairing code;
-the target enters both values and receives the same package through the normal
-import boundary.
+When completed audio exists, the send action offers a collapsed, default-empty
+saved-audiobook checklist with select-all and deselect-all controls. The same
+selection applies to nearby transfer and the transfer-file fallback. The dialog
+reports document and audiobook counts plus failures. It also exposes explicit
+source and target roles for same-network transfer. The source displays a local
+address and pairing code; the target enters both values and receives the same
+package through the normal import boundary.
 
 ## Same-Network Transport
 
@@ -200,7 +208,7 @@ required by Android's local-network privacy model.
 - [x] Stage 1: expose file-based transfer from App Settings.
 - [x] Stage 1: cover package validation, duplicate handling, and folder mapping.
 - [x] Stage 2: make native audiobook manifests the authoritative completed-audio registry.
-- [x] Stage 2: add optional completed-audiobook payloads, defaulting to excluded.
+- [x] Stage 2: add individually selectable completed-audiobook payloads, defaulting to excluded.
 - [x] Stage 3: add foreground, authenticated same-network transfer using this package.
 - [x] Stage 3: add one-use expiry and foreground sender cancellation.
 - [x] Stage 3: add byte-level transfer and item-level restore phases.

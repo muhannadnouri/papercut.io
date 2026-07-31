@@ -15,6 +15,7 @@ import {
   listenDocumentDeleteProgress,
   moveUploadedDocuments,
   renameUploadedLibraryFolder,
+  updateUploadedDocumentTitle,
   type UploadedDocument,
   type UploadedDocumentBatchProgress,
   type UploadedDocumentBatchResult,
@@ -29,6 +30,7 @@ type UploadedLibraryState = {
 }
 
 const IMPORT_NOTICE_MS = 6000
+export const LIBRARY_OPERATION_IN_PROGRESS = 'library-operation-in-progress'
 
 // Keep operation state locale-neutral so the owning UI can translate it and
 // isolate user titles without parsing preformatted English messages.
@@ -208,6 +210,25 @@ export function useUploadedLibrary() {
     }
   }, [refreshUploadedLibrary])
 
+  const updateDocumentTitle = useCallback(async (
+    documentUrl: string,
+    title: string,
+  ): Promise<UploadedDocument> => {
+    if (operationInProgressRef.current) {
+      throw new Error(LIBRARY_OPERATION_IN_PROGRESS)
+    }
+    operationInProgressRef.current = true
+    try {
+      const updated = await updateUploadedDocumentTitle(documentUrl, title)
+      setUploadedDocuments((documents) => documents.map((document) => (
+        document.id === updated.id ? updated : document
+      )))
+      return updated
+    } finally {
+      operationInProgressRef.current = false
+    }
+  }, [])
+
   /** Run one bounded native delete batch and refresh shared library state once,
    * retaining partial failures for the selection UI to offer a retry. */
   const deleteDocuments = useCallback(async (
@@ -300,5 +321,6 @@ export function useUploadedLibrary() {
     renameLibraryFolder,
     uploadedDocuments,
     uploadedLibraryOrganization,
+    updateDocumentTitle,
   }
 }

@@ -137,7 +137,6 @@
   color: var(--danger-strong);
 }
 
-.app-dialog-cancel:hover:not(:disabled),
 .app-dialog-cancel:focus-visible {
   border-color: var(--accent-text);
   color: var(--accent-text);
@@ -145,7 +144,6 @@
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
-.app-dialog-submit:hover:not(:disabled),
 .app-dialog-submit:focus-visible {
   border-color: var(--accent-text);
   background: var(--accent-hover);
@@ -153,13 +151,30 @@
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
-.app-dialog-submit-danger:hover:not(:disabled),
 .app-dialog-submit-danger:focus-visible {
   border-color: var(--danger-accent);
   background: var(--surface-danger);
   color: var(--danger-strong);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .app-dialog-cancel:hover:not(:disabled) {
+    border-color: var(--accent-text);
+    color: var(--accent-text);
+  }
+
+  .app-dialog-submit:hover:not(:disabled) {
+    border-color: var(--accent-text);
+    background: var(--accent-hover);
+  }
+
+  .app-dialog-submit-danger:hover:not(:disabled) {
+    border-color: var(--danger-accent);
+    background: var(--surface-danger);
+    color: var(--danger-strong);
+  }
 }
 
 .app-dialog-actions button:disabled {

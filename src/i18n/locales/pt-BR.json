@@ -99,6 +99,21 @@
       "emptyCategoryDocuments": "Nenhum documento corresponde aos filtros atuais.",
       "savedAudioAvailable": "Áudio salvo disponível"
     },
+    "documentInfo": {
+      "button": "Editar detalhes",
+      "editLabel": "Editar os detalhes de {{title}}",
+      "title": "Informações do documento",
+      "description": "Veja os detalhes do arquivo e altere o título exibido no Papercut.",
+      "displayTitle": "Título exibido",
+      "originalFileName": "Nome original do arquivo",
+      "format": "Formato",
+      "fileSize": "Tamanho do arquivo",
+      "imported": "Importado",
+      "pages": "Páginas",
+      "sections": "Seções",
+      "unavailable": "Indisponível",
+      "operationInProgress": "Outra operação da biblioteca já está em andamento."
+    },
     "import": {
       "files": "Arquivos",
       "filesDetail": "Importe um ou mais arquivos HTML, EPUB ou PDF",
@@ -190,6 +205,13 @@
       "description": "Isso excluirá permanentemente os documentos selecionados deste dispositivo, dos resultados da pesquisa local e das pastas do Papercut.",
       "count": "Documentos",
       "confirm": "Excluir selecionados"
+    },
+    "savedAudioDependency": {
+      "title": "Um audiolivro salvo usa este documento",
+      "description": "Exclua o audiolivro salvo antes de remover este documento.",
+      "batchTitle": "Audiolivros salvos usam documentos selecionados",
+      "batchDescription": "Um ou mais documentos selecionados têm áudio salvo. Exclua os audiolivros antes de remover os documentos.",
+      "viewAudiobooks": "Ver audiolivros"
     }
   },
   "settings": {
@@ -223,8 +245,8 @@
     "modeReceive": "Receber",
     "exportTitle": "Salvar arquivo de transferência",
     "exportDescription": "Salve {{count, number}} documentos enviados e suas pastas e mova o arquivo por USB, armazenamento compartilhado ou outro método.",
-    "includeAudiobooks": "Incluir audiolivros salvos ({{count, number}})",
-    "includeAudiobooksDescription": "Adiciona o áudio concluído e pode aumentar muito o tamanho do pacote.",
+    "includeAudiobooks": "Audiolivros salvos ({{selected, number}} de {{count, number}} selecionados)",
+    "includeAudiobooksDescription": "Escolha os audiolivros concluídos que deseja incluir. O áudio pode aumentar muito o tamanho da transferência.",
     "export": "Salvar arquivo",
     "exporting": "Preparando...",
     "importTitle": "Importar arquivo de transferência",

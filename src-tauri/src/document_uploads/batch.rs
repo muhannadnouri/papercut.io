@@ -341,12 +341,13 @@ fn import_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
 ) -> Result<UploadedDocument, String> {
+    let original_file_name = original_source_file_name(&source);
     match document_format(app, &source)? {
-        DocumentFormat::Html => import_html_source(app, source),
-        DocumentFormat::Epub => import_epub_source(app, source),
+        DocumentFormat::Html => import_html_source(app, source, original_file_name),
+        DocumentFormat::Epub => import_epub_source(app, source, original_file_name),
         DocumentFormat::Pdf => {
             let title = source_title(&source);
-            import_pdf_source(app, source, title)
+            import_pdf_source(app, source, title, original_file_name)
         }
     }
 }
@@ -421,18 +422,25 @@ fn document_format_from(extension: &str, prefix: &[u8]) -> Option<DocumentFormat
 /// Return only a readable basename for progress/errors; never expose a user's
 /// full local path to the frontend status surface.
 fn source_file_name(source: &FilePath) -> String {
+    original_source_file_name(source).unwrap_or_else(|| "document".into())
+}
+
+/// Preserve a real basename when the platform picker exposes one.
+///
+/// Some mobile content providers expose only an opaque URL. Returning `None`
+/// keeps the provenance field honest while `source_file_name` still supplies a
+/// harmless fallback for progress and error messages.
+fn original_source_file_name(source: &FilePath) -> Option<String> {
     match source {
         FilePath::Path(path) => path
             .file_name()
             .and_then(|value| value.to_str())
-            .unwrap_or("document")
-            .to_string(),
+            .map(str::to_owned),
         FilePath::Url(url) => url
             .path_segments()
             .and_then(|mut segments| segments.next_back())
             .filter(|value| !value.is_empty())
-            .map(|value| percent_decode_str(value).decode_utf8_lossy().into_owned())
-            .unwrap_or_else(|| "document".into()),
+            .map(|value| percent_decode_str(value).decode_utf8_lossy().into_owned()),
     }
 }
 

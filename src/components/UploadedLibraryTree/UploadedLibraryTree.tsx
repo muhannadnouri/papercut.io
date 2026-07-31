@@ -20,6 +20,7 @@ interface UploadedLibraryTreeProps {
   mutationDisabled?: boolean
   resetEditing?: boolean
   openingDocumentUrl?: string
+  savedAudiobookDocumentUrls?: ReadonlySet<string>
   selectedFilters?: Set<string>
   onCreateFolder?: (parentId: string | null, name: string) => Promise<void> | void
   onDeleteDocuments?: (docs: DocumentInfo[]) => Promise<UploadedDocumentDeleteBatchResult | null>
@@ -28,6 +29,8 @@ interface UploadedLibraryTreeProps {
   onRenameFolder?: (folderId: string, name: string) => Promise<void> | void
   onToggleAllInGroup?: (docs: DocumentInfo[]) => void
   onToggleFilter?: (url: string) => void
+  onViewAudiobooks?: () => void
+  onViewDocumentInfo?: (doc: DocumentInfo) => void
   onViewDocument?: (url: string) => void
 }
 
@@ -43,6 +46,7 @@ export function UploadedLibraryTree({
   mutationDisabled = false,
   resetEditing = false,
   openingDocumentUrl,
+  savedAudiobookDocumentUrls = new Set(),
   selectedFilters,
   onCreateFolder,
   onDeleteFolder,
@@ -51,6 +55,8 @@ export function UploadedLibraryTree({
   onRenameFolder,
   onToggleAllInGroup,
   onToggleFilter,
+  onViewAudiobooks,
+  onViewDocumentInfo,
   onViewDocument,
 }: UploadedLibraryTreeProps) {
   const { t, i18n } = useTranslation()
@@ -161,6 +167,19 @@ export function UploadedLibraryTree({
     const documentsToDelete = selectedDocuments.map((node) => node.doc)
     setActionError('')
     void (async () => {
+      const dependentDocuments = documentsToDelete.filter((document) => (
+        savedAudiobookDocumentUrls.has(document.url)
+      ))
+      if (dependentDocuments.length > 0) {
+        const viewAudiobooks = await confirmLibraryAction({
+          title: t('library.savedAudioDependency.batchTitle'),
+          description: t('library.savedAudioDependency.batchDescription'),
+          confirmLabel: t('library.savedAudioDependency.viewAudiobooks'),
+        })
+        if (viewAudiobooks) onViewAudiobooks?.()
+        return
+      }
+
       const confirmed = await confirmLibraryAction({
         title: t('library.confirmDeleteDocuments.title'),
         description: t('library.confirmDeleteDocuments.description'),
@@ -495,6 +514,7 @@ export function UploadedLibraryTree({
             onToggleAllInGroup,
             onToggleFilter,
             onToggleSelection: toggleSelection,
+            onViewDocumentInfo,
             onViewDocument,
             openingDocumentUrl,
             selectedFilters,
@@ -551,6 +571,7 @@ interface RenderNodeOptions {
   onToggleFilter?: (url: string) => void
   onToggleFolderExpanded: (key: string) => void
   onToggleSelection: (key: string) => void
+  onViewDocumentInfo?: (doc: DocumentInfo) => void
   onViewDocument?: (url: string) => void
   selectedFilters?: Set<string>
   selectedKeys: Set<Key>
@@ -650,18 +671,36 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
               <bdi className="uploaded-library-name">{node.title}</bdi>
             )}
             {opening && <span className="uploaded-library-opening">{options.t('common.opening')}</span>}
-            {node.kind === 'document' && !options.editMode && !options.filterMode && (
-              <button
-                className="document-row-action document-row-action-view"
-                type="button"
-                disabled={options.documentOpening}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  if (!options.documentOpening) options.onViewDocument?.(node.url)
-                }}
-              >
-                {opening ? options.t('common.opening') : options.t('common.view')}
-              </button>
+            {node.kind === 'document' && !options.filterMode && (
+              <>
+                {options.editMode && options.onViewDocumentInfo && (
+                  <button
+                    className="document-row-action document-row-action-secondary uploaded-library-document-edit"
+                    type="button"
+                    aria-label={options.t('library.documentInfo.editLabel', { title: node.title })}
+                    title={options.t('library.documentInfo.button')}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      options.onViewDocumentInfo?.(node.doc)
+                    }}
+                  >
+                    <EditIcon />
+                  </button>
+                )}
+                {!options.editMode && (
+                  <button
+                    className="document-row-action document-row-action-view"
+                    type="button"
+                    disabled={options.documentOpening}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      if (!options.documentOpening) options.onViewDocument?.(node.url)
+                    }}
+                  >
+                    {opening ? options.t('common.opening') : options.t('common.view')}
+                  </button>
+                )}
+              </>
             )}
             {options.editMode && !options.filterMode && node.kind === 'folder' && node.depth < 4 && (
               <button
@@ -680,5 +719,14 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
       </TreeItemContent>
       {node.children.map((child) => renderNode(child, options))}
     </TreeItem>
+  )
+}
+
+function EditIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
+    </svg>
   )
 }

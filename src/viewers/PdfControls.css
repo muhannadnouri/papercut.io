@@ -62,7 +62,6 @@
   width: 1.5rem;
 }
 
-.pdf-control-button:hover:not(:disabled),
 .pdf-control-button:focus-visible,
 .pdf-control-button.active {
   background: var(--surface-accent);
@@ -73,6 +72,14 @@
 
 .pdf-control-button:focus-visible {
   box-shadow: inset 0 0 0 2px var(--accent-text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pdf-control-button:hover:not(:disabled) {
+    background: var(--surface-accent);
+    border-color: var(--accent-text);
+    color: var(--accent-text);
+  }
 }
 
 .pdf-control-button:disabled {

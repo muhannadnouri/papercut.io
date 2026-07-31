@@ -18,14 +18,15 @@ use super::pdf::{
 };
 use super::pipeline::{delete_upload, get_cover, get_source};
 use super::search::search_uploads;
-use super::store::list_uploads;
+use super::store::{list_uploads, open_db, update_document_title};
 use super::types::{
     UploadedDocument, UploadedDocumentBatchResult, UploadedDocumentDeleteBatchRequest,
     UploadedDocumentDeleteBatchResult, UploadedDocumentDeleteRequest, UploadedDocumentDeleteResult,
     UploadedDocumentSearchRequest, UploadedDocumentSearchResult, UploadedDocumentSourceRequest,
-    UploadedLibraryCreateFolderRequest, UploadedLibraryDeleteFolderRequest,
-    UploadedLibraryMoveDocumentsRequest, UploadedLibraryMoveFolderRequest,
-    UploadedLibraryOrganization, UploadedLibraryRenameFolderRequest, UploadedLibraryReorderRequest,
+    UploadedDocumentTitleUpdateRequest, UploadedLibraryCreateFolderRequest,
+    UploadedLibraryDeleteFolderRequest, UploadedLibraryMoveDocumentsRequest,
+    UploadedLibraryMoveFolderRequest, UploadedLibraryOrganization,
+    UploadedLibraryRenameFolderRequest, UploadedLibraryReorderRequest,
 };
 use super::DocumentUploadState;
 
@@ -69,6 +70,20 @@ pub async fn document_uploads_list<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || list_uploads(&app))
         .await
         .map_err(|err| format!("Document upload list task failed: {err}"))?
+}
+
+/// Update an uploaded document's display title and FTS metadata atomically.
+#[tauri::command]
+pub async fn document_uploads_update_title<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedDocumentTitleUpdateRequest,
+) -> Result<UploadedDocument, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut db = open_db(&app)?;
+        update_document_title(&mut db, &request.document_url, &request.title)
+    })
+    .await
+    .map_err(|err| format!("Document title update task failed: {err}"))?
 }
 
 /// Run a full-text search across uploaded documents.

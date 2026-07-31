@@ -9,6 +9,14 @@
   align-items: center;
   gap: 0.35rem;
   min-height: 2.15rem;
+  border-color: var(--border);
+  background: var(--surface);
+}
+
+.audiobook-export[aria-expanded="true"] {
+  border-color: var(--accent-border);
+  background: var(--surface-accent);
+  color: var(--accent-strong);
 }
 
 .audiobook-export-arrow {
@@ -73,11 +81,17 @@
   word-break: keep-all;
 }
 
-.audiobook-export-option:hover,
 .audiobook-export-option:focus-visible {
   background: var(--surface-accent);
   color: var(--accent-strong);
   outline: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .audiobook-export-option:hover {
+    background: var(--surface-accent);
+    color: var(--accent-strong);
+  }
 }
 
 .audiobook-export-note {

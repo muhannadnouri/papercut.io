@@ -76,6 +76,7 @@ export interface NativeAudiobookPlaybackChunk {
 }
 
 export interface NativeAudiobookPlayback {
+  title: string
   audioUrl: string
   audioDurationSec: number
   wavBytes: number

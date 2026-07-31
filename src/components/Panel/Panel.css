@@ -22,8 +22,10 @@
   transition: background 0.15s;
 }
 
-.panel-toggle:hover {
-  background: var(--app-bg-alt);
+@media (hover: hover) and (pointer: fine) {
+  .panel-toggle:hover {
+    background: var(--app-bg-alt);
+  }
 }
 
 .panel-toggle:focus-visible {

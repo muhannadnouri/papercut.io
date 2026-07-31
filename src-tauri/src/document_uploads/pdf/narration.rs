@@ -97,15 +97,27 @@ pub(crate) fn reconstruct_narration_segments<E>(
 /// Preserve visual line boundaries for page-level FTS text while reusing the
 /// same inline-fragment and whitespace normalization as PDF narration.
 pub(crate) fn reconstruct_search_text(page: PageTextLayer) -> String {
-    page_lines(page)
-        .into_iter()
-        .filter_map(|line| {
-            let mut builder = SegmentBuilder::default();
-            builder.push_line(line);
-            (!builder.text.is_empty()).then_some(builder.text)
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
+    let lines = page_lines(page);
+    let mut text = String::new();
+
+    for (index, line) in lines.iter().enumerate() {
+        let mut builder = SegmentBuilder::default();
+        builder.push_line(line.clone());
+        if builder.text.is_empty() {
+            continue;
+        }
+
+        if !text.is_empty() {
+            if index > 0 && is_soft_hyphenated_wrap(&lines[index - 1], line) {
+                text.pop();
+            } else {
+                text.push('\n');
+            }
+        }
+        text.push_str(&builder.text);
+    }
+
+    text
 }
 
 /// Group adjacent PDF.js items into visual lines while honoring explicit EOL
@@ -197,6 +209,29 @@ fn continues_paragraph(previous: &TextLine, next: &TextLine) -> bool {
         && previous.text().split_whitespace().count() >= 4
         && next.text().split_whitespace().count() >= 2
         && !ends_sentence(&previous.text())
+}
+
+/// Match PDF.js's conservative broken-word rule at genuine visual line
+/// boundaries. Same-line compounds retain their hyphen.
+fn is_soft_hyphenated_wrap(previous: &TextLine, next: &TextLine) -> bool {
+    if !continues_paragraph(previous, next) {
+        return false;
+    }
+
+    let previous_text = previous.text();
+    let mut previous_chars = previous_text.trim_end().chars().rev();
+    if previous_chars.next() != Some('-') {
+        return false;
+    }
+    let Some(before) = previous_chars.next() else {
+        return false;
+    };
+    let Some(after) = next.text().trim_start().chars().next() else {
+        return false;
+    };
+
+    (before.is_lowercase() && after.is_lowercase())
+        || (before.is_uppercase() && after.is_alphabetic())
 }
 
 fn ends_sentence(text: &str) -> bool {
@@ -414,6 +449,23 @@ mod tests {
         ));
 
         assert_eq!(text, "Inline formatting\ncontinues below");
+    }
+
+    #[test]
+    fn rejoins_soft_hyphens_but_preserves_same_line_compounds() {
+        let text = reconstruct_search_text(layer(
+            0,
+            vec![
+                block(0, "Visible high-\n", 100.0, 12.0),
+                block(1, "lights remain searchable.\n", 117.0, 12.0),
+                block(2, "A state-owned archive.\n", 150.0, 12.0),
+            ],
+        ));
+
+        assert_eq!(
+            text,
+            "Visible highlights remain searchable.\nA state-owned archive."
+        );
     }
 
     fn layer(page_index: u32, blocks: Vec<PageTextBlock>) -> PageTextLayer {

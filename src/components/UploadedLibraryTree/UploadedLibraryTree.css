@@ -25,10 +25,6 @@
   border-top: 1px solid var(--border);
 }
 
-.uploaded-library-toolbar:hover {
-  background: var(--surface-hover);
-}
-
 .uploaded-library-heading {
   display: flex;
   flex: 1;
@@ -40,6 +36,10 @@
   background: transparent;
   cursor: pointer;
   text-align: start;
+}
+
+.uploaded-library-heading .toggle-arrow {
+  font-size: 0.9rem;
 }
 
 .uploaded-library-title {
@@ -99,12 +99,6 @@
   color: var(--accent-strong);
 }
 
-.uploaded-library-edit-btn:hover:not(:disabled),
-.uploaded-library-actions button:hover:not(:disabled),
-.uploaded-library-move select:hover:not(:disabled) {
-  border-color: var(--accent-text);
-}
-
 .uploaded-library-edit-btn:focus-visible,
 .uploaded-library-actions button:focus-visible,
 .uploaded-library-move select:focus-visible {
@@ -160,7 +154,6 @@
   color: var(--danger);
 }
 
-.uploaded-library-actions .uploaded-library-batch-delete:hover:not(:disabled),
 .uploaded-library-actions .uploaded-library-batch-delete:focus-visible {
   border-color: var(--danger-accent);
   color: var(--danger-accent);
@@ -192,7 +185,6 @@
   cursor: help;
 }
 
-.uploaded-library-delete-btn-blocked:hover,
 .uploaded-library-delete-btn-blocked:focus-visible,
 .uploaded-library-delete-btn-blocked[aria-expanded="true"] {
   border-color: var(--border-strong);
@@ -302,8 +294,17 @@
   padding-block: 0.35rem;
   padding-inline-end: 1.25rem;
   padding-inline-start: calc(1rem + (var(--tree-item-level) - 1) * 1rem);
-  border-top: 1px solid var(--surface-hover);
+  border-top: 1px solid var(--border);
   transition: background 0.1s, box-shadow 0.1s;
+}
+
+.uploaded-library-folder[aria-level="1"] .uploaded-library-content {
+  background: var(--surface-panel-subtle);
+}
+
+.uploaded-library-folder[aria-level="1"] .uploaded-library-name-button {
+  color: var(--text-heading);
+  font-weight: 700;
 }
 
 .uploaded-library-item[data-hovered] .uploaded-library-content,
@@ -353,7 +354,7 @@
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 0.72rem;
+  font-size: 0.9rem;
   line-height: 1;
   transition: transform 0.15s, background 0.15s;
 }
@@ -362,7 +363,6 @@
   transform: rotate(90deg);
 }
 
-.uploaded-library-chevron:hover,
 .uploaded-library-chevron:focus-visible {
   background: var(--surface-accent);
   outline: none;
@@ -411,13 +411,45 @@
   font-weight: 600;
 }
 
-.uploaded-library-name-button:hover,
 .uploaded-library-name-button:focus-visible {
   color: var(--accent-strong);
   background: var(--surface-accent);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
   text-decoration: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .uploaded-library-toolbar:hover {
+    background: var(--surface-hover);
+  }
+
+  .uploaded-library-edit-btn:hover:not(:disabled),
+  .uploaded-library-actions button:hover:not(:disabled),
+  .uploaded-library-move select:hover:not(:disabled) {
+    border-color: var(--accent-text);
+  }
+
+  .uploaded-library-actions .uploaded-library-batch-delete:hover:not(:disabled) {
+    border-color: var(--danger-accent);
+    color: var(--danger-accent);
+  }
+
+  .uploaded-library-delete-btn-blocked:hover {
+    border-color: var(--border-strong);
+    background: var(--surface);
+    color: var(--text-muted);
+  }
+
+  .uploaded-library-chevron:hover,
+  .uploaded-library-name-button:hover {
+    background: var(--surface-accent);
+  }
+
+  .uploaded-library-name-button:hover {
+    color: var(--accent-strong);
+    text-decoration: none;
+  }
 }
 
 .uploaded-library-folder-count {
@@ -440,6 +472,24 @@
   color: var(--accent-text);
   font-size: 0.75rem;
   font-weight: 600;
+}
+
+.uploaded-library-document-edit {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  min-width: 2rem;
+  padding: 0;
+}
+
+.uploaded-library-document-edit svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .uploaded-library-empty {
@@ -488,11 +538,39 @@
     min-height: 2.5rem;
     padding: 0 0.45rem;
   }
+
+  .uploaded-library-row .uploaded-library-document-edit {
+    width: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0;
+  }
+
+  .uploaded-library-document-edit svg {
+    width: 1.15rem;
+    height: 1.15rem;
+  }
 }
 
 @media (pointer: coarse) {
+  .uploaded-library-heading .toggle-arrow {
+    font-size: 0.95rem;
+  }
+
+  .uploaded-library-chevron {
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 0.95rem;
+  }
+
   .uploaded-library-actions button,
   .uploaded-library-move select {
+    min-height: 2.75rem;
+  }
+
+  .uploaded-library-row .uploaded-library-document-edit {
+    width: 2.75rem;
+    min-width: 2.75rem;
     min-height: 2.75rem;
   }
 }

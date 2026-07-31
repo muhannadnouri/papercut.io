@@ -2,9 +2,23 @@ mod document_uploads;
 mod library_transfer;
 mod native_tts;
 
+#[cfg(desktop)]
+use tauri::Manager;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // Tauri requires the single-instance plugin to be registered first.
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _, _| {
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.unminimize();
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    }));
+
+    builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_native_audio::init())
@@ -17,6 +31,7 @@ pub fn run() {
             document_uploads::commands::document_uploads_import_folder,
             document_uploads::commands::document_uploads_cancel_import_batch,
             document_uploads::commands::document_uploads_list,
+            document_uploads::commands::document_uploads_update_title,
             document_uploads::commands::document_uploads_search,
             document_uploads::commands::document_uploads_get_source,
             document_uploads::commands::document_uploads_get_cover,

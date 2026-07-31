@@ -111,6 +111,21 @@
       "emptyCategoryDocuments": "لا توجد مستندات تطابق عوامل التصفية الحالية.",
       "savedAudioAvailable": "يتوفر صوت محفوظ"
     },
+    "documentInfo": {
+      "button": "تعديل التفاصيل",
+      "editLabel": "تعديل تفاصيل {{title}}",
+      "title": "معلومات المستند",
+      "description": "اعرض تفاصيل الملف وغيّر العنوان الظاهر في Papercut.",
+      "displayTitle": "عنوان العرض",
+      "originalFileName": "اسم الملف الأصلي",
+      "format": "التنسيق",
+      "fileSize": "حجم الملف",
+      "imported": "تاريخ الاستيراد",
+      "pages": "الصفحات",
+      "sections": "الأقسام",
+      "unavailable": "غير متوفر",
+      "operationInProgress": "هناك عملية أخرى في المكتبة قيد التنفيذ."
+    },
     "import": {
       "files": "ملفات",
       "filesDetail": "استيراد ملف واحد أو أكثر بصيغة HTML أو EPUB أو PDF",
@@ -205,6 +220,13 @@
       "description": "يؤدي هذا إلى إزالة المستندات المحددة نهائيًا من هذا الجهاز ونتائج البحث المحلية ومجلدات Papercut.",
       "count": "المستندات",
       "confirm": "حذف المحدد"
+    },
+    "savedAudioDependency": {
+      "title": "كتاب صوتي محفوظ يستخدم هذا المستند",
+      "description": "احذف الكتاب الصوتي المحفوظ قبل إزالة هذا المستند.",
+      "batchTitle": "كتب صوتية محفوظة تستخدم مستندات محددة",
+      "batchDescription": "يحتوي مستند محدد واحد أو أكثر على صوت محفوظ. احذف الكتب الصوتية المحفوظة قبل إزالة المستندات.",
+      "viewAudiobooks": "عرض الكتب الصوتية"
     }
   },
   "settings": {
@@ -238,8 +260,8 @@
     "modeReceive": "استلام",
     "exportTitle": "حفظ ملف نقل",
     "exportDescription": "احفظ {{count, number}} من المستندات المرفوعة ومجلداتها، ثم انقل الملف عبر USB أو التخزين المشترك أو وسيلة أخرى.",
-    "includeAudiobooks": "تضمين الكتب الصوتية المحفوظة ({{count, number}})",
-    "includeAudiobooksDescription": "يضيف الصوت المكتمل وقد يزيد حجم الحزمة كثيرًا.",
+    "includeAudiobooks": "الكتب الصوتية المحفوظة (تم تحديد {{selected, number}} من {{count, number}})",
+    "includeAudiobooksDescription": "اختر الكتب الصوتية المكتملة لتضمينها. قد يزيد الصوت حجم النقل كثيرًا.",
     "export": "حفظ ملف النقل",
     "exporting": "جارٍ التحضير...",
     "importTitle": "استيراد ملف نقل",

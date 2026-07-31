@@ -99,6 +99,21 @@
       "emptyCategoryDocuments": "Aucun document ne correspond aux filtres actuels.",
       "savedAudioAvailable": "Audio enregistré disponible"
     },
+    "documentInfo": {
+      "button": "Modifier les détails",
+      "editLabel": "Modifier les détails de {{title}}",
+      "title": "Informations sur le document",
+      "description": "Consultez les détails du fichier et modifiez le titre affiché dans Papercut.",
+      "displayTitle": "Titre affiché",
+      "originalFileName": "Nom du fichier d’origine",
+      "format": "Format",
+      "fileSize": "Taille du fichier",
+      "imported": "Importé",
+      "pages": "Pages",
+      "sections": "Sections",
+      "unavailable": "Indisponible",
+      "operationInProgress": "Une autre opération de la bibliothèque est déjà en cours."
+    },
     "import": {
       "files": "Fichiers",
       "filesDetail": "Importez un ou plusieurs fichiers HTML, EPUB ou PDF",
@@ -190,6 +205,13 @@
       "description": "Cette action supprime définitivement les documents sélectionnés de cet appareil, des résultats de recherche locaux et des dossiers Papercut.",
       "count": "Documents",
       "confirm": "Supprimer la sélection"
+    },
+    "savedAudioDependency": {
+      "title": "Un livre audio enregistré utilise ce document",
+      "description": "Supprimez le livre audio enregistré avant de supprimer ce document.",
+      "batchTitle": "Des livres audio enregistrés utilisent des documents sélectionnés",
+      "batchDescription": "Un ou plusieurs documents sélectionnés ont un audio enregistré. Supprimez leurs livres audio avant de supprimer les documents.",
+      "viewAudiobooks": "Voir les livres audio"
     }
   },
   "settings": {
@@ -223,8 +245,8 @@
     "modeReceive": "Recevoir",
     "exportTitle": "Enregistrer le fichier de transfert",
     "exportDescription": "Enregistrez {{count, number}} documents importés et leurs dossiers, puis déplacez le fichier par USB, stockage partagé ou une autre méthode.",
-    "includeAudiobooks": "Inclure les livres audio enregistrés ({{count, number}})",
-    "includeAudiobooksDescription": "Ajoute l’audio terminé et peut fortement augmenter la taille du paquet.",
+    "includeAudiobooks": "Livres audio enregistrés ({{selected, number}} sur {{count, number}} sélectionnés)",
+    "includeAudiobooksDescription": "Choisissez les livres audio terminés à inclure. L’audio peut fortement augmenter la taille du transfert.",
     "export": "Enregistrer le fichier",
     "exporting": "Préparation...",
     "importTitle": "Importer le fichier de transfert",

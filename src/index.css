@@ -113,6 +113,7 @@
   --surface-panel-subtle: #f8fafc;
   --surface-success-strong: #ecfdf5;
   --surface-accent-strong: #e0e7ff;
+  --control-surface: var(--surface-hover);
   --reader-surface: #ffffff;
   --reader-text: #334155;
   --reader-muted: #475569;
@@ -140,6 +141,7 @@
   --danger-border: #fecaca;
   --success: #166534;
   --success-ink: #065f46;
+  --success-strong: var(--success-ink);
   --success-border: #bbf7d0;
   --warning: #b45309;
   --warning-strong: #92400e;
@@ -161,6 +163,8 @@
   --shadow-popover: rgba(15, 23, 42, 0.16);
   --shadow-dialog: rgba(15, 23, 42, 0.22);
   --shadow-panel: rgba(31, 41, 55, 0.18);
+  --shadow-strong: var(--shadow-panel);
+  --focus-ring: var(--accent-border);
 
   color-scheme: var(--color-scheme);
   background: var(--app-bg);
@@ -184,6 +188,7 @@ html[data-theme="dark"] {
   --surface-panel-subtle: #181c21;
   --surface-success-strong: #123322;
   --surface-accent-strong: #30345f;
+  --control-surface: var(--surface-strong);
   --reader-surface: #121417;
   --reader-text: #c8ccd2;
   --reader-muted: #a7afb9;

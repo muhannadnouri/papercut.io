@@ -180,32 +180,36 @@ function BookCard({
   }, [doc.coverMediaType, doc.source, doc.url])
 
   return (
-    <button
-      type="button"
-      className={opening ? 'library-book-card opening' : 'library-book-card'}
-      disabled={disabled}
-      aria-label={opening ? openingLabel : doc.title}
-      onClick={() => onOpen(doc.url)}
-    >
-      <span ref={coverRef} className={placeholderClass}>
-        {cover
-          ? <img className="library-book-cover-image" src={cover} alt="" decoding="async" />
-          : <bdi>{doc.title}</bdi>}
-        {hasSavedAudio && (
-          <span
-            className="library-book-audio"
-            aria-label={savedAudioLabel}
-            title={savedAudioLabel}
-          >
-            🎧
-          </span>
-        )}
+    <div className={opening ? 'library-book-card opening' : 'library-book-card'}>
+      <button
+        type="button"
+        className="library-book-open"
+        disabled={disabled}
+        aria-label={opening ? openingLabel : doc.title}
+        onClick={() => onOpen(doc.url)}
+      >
+        <span ref={coverRef} className={placeholderClass}>
+          {cover
+            ? <img className="library-book-cover-image" src={cover} alt="" decoding="async" />
+            : <bdi>{doc.title}</bdi>}
+          {hasSavedAudio && (
+            <span
+              className="library-book-audio"
+              aria-label={savedAudioLabel}
+              title={savedAudioLabel}
+            >
+              🎧
+            </span>
+          )}
+        </span>
+        <bdi className="library-book-title">{doc.title}</bdi>
+      </button>
+      <span className="library-book-footer">
+        <span className="library-book-format">
+          {opening ? openingLabel : (doc.format ?? 'EPUB').toUpperCase()}
+        </span>
       </span>
-      <bdi className="library-book-title">{doc.title}</bdi>
-      <span className="library-book-format">
-        {opening ? openingLabel : (doc.format ?? 'EPUB').toUpperCase()}
-      </span>
-    </button>
+    </div>
   )
 }
 

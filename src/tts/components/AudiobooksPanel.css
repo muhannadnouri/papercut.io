@@ -46,15 +46,6 @@
   user-select: none;
 }
 
-.audio-diagnostics-control:hover {
-  border-color: var(--accent-text);
-}
-
-.audio-diagnostics-control:focus-within {
-  border-color: var(--accent-text);
-  box-shadow: 0 0 0 3px var(--shadow-focus);
-}
-
 .audio-diagnostics-value {
   min-width: 0;
 }
@@ -148,7 +139,6 @@
   cursor: pointer;
 }
 
-.audio-probe-button:hover:not(:disabled),
 .audio-probe-button:focus-visible {
   border-color: var(--accent-text);
   outline: none;
@@ -269,17 +259,10 @@
   justify-self: start;
 }
 
-.tts-select:hover,
-.tts-select:focus,
-.tts-btn:hover:not(:disabled) {
-  border-color: var(--accent-text);
-  color: var(--accent-text);
-  outline: none;
-}
-
 .tts-select:focus,
 .tts-btn:focus-visible {
   border-color: var(--accent-text);
+  color: var(--accent-text);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
@@ -469,7 +452,6 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   white-space: nowrap;
 }
 
-.audiobooks-import-btn:hover:not(:disabled),
 .audiobooks-import-btn:focus-visible {
   border-color: var(--accent-text);
   background: var(--surface-accent);
@@ -546,20 +528,13 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 0.55rem 0.75rem;
+  border-color: var(--border-strong);
+  background: var(--surface-subtle);
   overflow: visible;
 }
 
-.audiobook-item-saved:focus-within {
+.audiobook-item-menu-open {
   z-index: 80;
-}
-
-.audiobook-item-saved:hover {
-  border-color: var(--accent-text);
-}
-
-.audiobook-item:focus-within {
-  border-color: var(--accent-text);
-  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .audiobook-saved-main {
@@ -578,13 +553,11 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   cursor: pointer;
 }
 
-.audiobook-saved-main:hover:not(:disabled) {
-  color: var(--accent-strong);
-}
-
 .audiobook-saved-main:focus-visible {
   color: var(--accent-strong);
   outline: none;
+  border-radius: 4px;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .audiobook-saved-main:disabled {
@@ -611,11 +584,10 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
 }
 
 .audiobook-delete {
-  color: var(--danger);
-}
-
-.audiobook-delete {
   min-height: 2.15rem;
+  border-color: var(--danger-border);
+  background: var(--surface);
+  color: var(--danger);
 }
 
 .audiobook-action-toast {
@@ -667,7 +639,6 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   cursor: pointer;
 }
 
-.audiobook-action-toast-dismiss:hover,
 .audiobook-action-toast-dismiss:focus-visible {
   border-color: currentcolor;
   color: var(--text-heading);
@@ -682,12 +653,6 @@ html[dir="rtl"] .audiobook-action-toast {
   inset-inline-end: max(1rem, env(safe-area-inset-left));
 }
 
-.audiobook-text-action:hover:not(:disabled) {
-  border-color: var(--accent-border);
-  background: var(--surface-accent);
-  color: var(--accent-strong);
-}
-
 .audiobook-text-action:focus-visible {
   border-color: var(--accent-border);
   background: var(--surface-accent);
@@ -696,8 +661,63 @@ html[dir="rtl"] .audiobook-action-toast {
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
-.audiobook-delete:hover:not(:disabled) {
+.audiobook-delete:focus-visible {
+  border-color: var(--danger);
+  background: var(--surface-danger);
   color: var(--danger-strong);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .audio-diagnostics-control:hover,
+  .audio-probe-button:hover:not(:disabled),
+  .tts-select:hover,
+  .tts-btn:hover:not(:disabled) {
+    border-color: var(--accent-text);
+  }
+
+  .tts-select:hover,
+  .tts-btn:hover:not(:disabled) {
+    color: var(--accent-text);
+  }
+
+  .audiobooks-import-btn:hover:not(:disabled) {
+    border-color: var(--accent-text);
+    background: var(--surface-accent);
+  }
+
+  .audiobook-item-saved:hover {
+    border-color: var(--accent-text);
+  }
+
+  .audiobook-saved-main:hover:not(:disabled) {
+    color: var(--accent-strong);
+  }
+
+  .audiobook-action-toast-dismiss:hover {
+    border-color: currentcolor;
+    color: var(--text-heading);
+  }
+
+  .audiobook-text-action:hover:not(:disabled) {
+    border-color: var(--accent-border);
+    background: var(--surface-accent);
+    color: var(--accent-strong);
+  }
+
+  .audiobook-delete:hover:not(:disabled) {
+    border-color: var(--danger);
+    background: var(--surface-danger);
+    color: var(--danger-strong);
+  }
+}
+
+@media (pointer: coarse) {
+  .audiobooks-import-btn,
+  .audiobooks-setup-disclosure,
+  .audiobook-text-action,
+  .audiobook-delete {
+    min-height: 2.75rem;
+  }
 }
 
 .audiobook-text-action:disabled {

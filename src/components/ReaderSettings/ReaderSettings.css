@@ -27,7 +27,6 @@
   letter-spacing: 0;
 }
 
-.reader-settings-btn:hover:not(:disabled),
 .reader-settings-btn[aria-expanded="true"],
 .reader-settings-btn:focus-visible {
   border-color: var(--accent-text);
@@ -97,7 +96,6 @@
   transition: border-color 0.15s, color 0.15s;
 }
 
-.reader-setting-step:hover:not(:disabled),
 .reader-setting-step:focus-visible {
   border-color: var(--accent-text);
   color: var(--accent-text);
@@ -131,18 +129,26 @@
   cursor: pointer;
 }
 
-.reader-settings-reset:hover {
-  border-color: var(--accent-text);
-  color: var(--accent-text);
-  background: var(--surface-accent);
-}
-
 .reader-settings-reset:focus-visible {
   border-color: var(--accent-text);
   color: var(--accent-text);
   background: var(--surface-accent);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .reader-settings-btn:hover:not(:disabled),
+  .reader-settings-reset:hover {
+    border-color: var(--accent-text);
+    color: var(--accent-text);
+    background: var(--surface-accent);
+  }
+
+  .reader-setting-step:hover:not(:disabled) {
+    border-color: var(--accent-text);
+    color: var(--accent-text);
+  }
 }
 
 @media (max-width: 767px) {

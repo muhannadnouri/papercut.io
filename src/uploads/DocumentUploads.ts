@@ -2,6 +2,7 @@ export interface UploadedDocument {
   id: string
   url: string
   title: string
+  originalFileName?: string | null
   format: 'html' | string
   sourceKind: 'html' | 'pdf'
   importedAtMs: number
@@ -167,6 +168,16 @@ export async function listUploadedDocuments(): Promise<UploadedDocument[]> {
   if (!isTauriRuntime()) return []
   const invoke = await loadTauriInvoke()
   return invoke<UploadedDocument[]>('document_uploads_list')
+}
+
+export async function updateUploadedDocumentTitle(
+  documentUrl: string,
+  title: string,
+): Promise<UploadedDocument> {
+  const invoke = await loadTauriInvoke()
+  return invoke<UploadedDocument>('document_uploads_update_title', {
+    request: { documentUrl, title },
+  })
 }
 
 export async function searchUploadedDocuments(

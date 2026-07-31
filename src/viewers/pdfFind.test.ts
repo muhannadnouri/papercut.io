@@ -64,4 +64,41 @@ describe('PDF Find adapter', () => {
     })
     expect(onResult).toHaveBeenCalledTimes(2)
   })
+
+  it('treats explicit PDF line-wrap spellings as bounded aliases', () => {
+    const eventBus = new TestEventBus()
+    const adapter = createPdfFindAdapter(eventBus, vi.fn())
+
+    adapter.api.search('high-lights')
+    expect(eventBus.dispatched.at(-1)?.event.query).toEqual([
+      'high-lights',
+      'high- lights',
+      'highlights',
+    ])
+
+    adapter.api.search('high- lights')
+    expect(eventBus.dispatched.at(-1)?.event.query).toEqual([
+      'high- lights',
+      'high-lights',
+      'highlights',
+    ])
+
+    adapter.api.search('highlights')
+    expect(eventBus.dispatched.at(-1)?.event.query).toBe('highlights')
+  })
+
+  it('varies multiple hyphenated compounds independently', () => {
+    const eventBus = new TestEventBus()
+    const adapter = createPdfFindAdapter(eventBus, vi.fn())
+
+    adapter.api.search('high-lights state-owned')
+    const aliases = eventBus.dispatched.at(-1)?.event.query
+    expect(aliases).toEqual(expect.arrayContaining([
+      'high-lights state-owned',
+      'highlights state-owned',
+      'high-lights stateowned',
+      'highlights stateowned',
+    ]))
+    expect(aliases).toHaveLength(9)
+  })
 })

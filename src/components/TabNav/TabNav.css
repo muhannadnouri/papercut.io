@@ -28,9 +28,11 @@
   transition: background 0.15s, color 0.15s, box-shadow 0.15s, outline-color 0.15s;
 }
 
-.tab-nav-item:hover:not(:disabled):not(.tab-nav-item-active) {
-  color: var(--text-body);
-  background: var(--border);
+@media (hover: hover) and (pointer: fine) {
+  .tab-nav-item:hover:not(:disabled):not(.tab-nav-item-active) {
+    color: var(--text-body);
+    background: var(--border);
+  }
 }
 
 .tab-nav-item-active {

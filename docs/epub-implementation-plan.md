@@ -255,7 +255,7 @@ Manual smoke tests:
 
 Richer EPUB reader:
 
-- Retained EPUB 2/3 cover assets are served only to visible developer-gated Library gallery cards through a narrow validated command. The command returns persisted display-sized thumbnails and serializes lazy thumbnail backfills for older imports so original high-resolution covers cannot create a burst of concurrent decodes. Cover rendering stays out of generated reader HTML so opening and audiobook processing do not pay for gallery artwork.
+- Retained EPUB 2/3 cover assets are served only to visible Library gallery cards through a narrow validated command. The command returns persisted display-sized thumbnails and serializes lazy thumbnail backfills for older imports so original high-resolution covers cannot create a burst of concurrent decodes. Cover rendering stays out of generated reader HTML so opening and audiobook processing do not pay for gallery artwork.
 - Evaluate foliate-js, `epub.js`, or Readium only after normalized import ships.
 - Keep search/TTS source independent from the renderer.
 - Add TOC, pagination, EPUB-specific appearance controls, and location restore as reader-quality work. App-wide Light/System/Dark theme already applies to the generated HTML reader.

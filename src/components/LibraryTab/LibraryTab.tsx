@@ -1,6 +1,6 @@
 import { Trans, useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
 import type { DocumentImportStatus } from '../../hooks/useUploadedLibrary'
 import type { DocumentInfo } from '../../types/search'
@@ -8,6 +8,7 @@ import type { UploadedDocumentDeleteBatchResult, UploadedLibraryOrganization } f
 import { formatStorageSize } from '../../utils/formatUtils'
 import { isMobileUserAgent } from '../../utils/platform'
 import { DocumentsPanel } from '../DocumentsPanel/DocumentsPanel'
+import { DocumentInfoDialog } from '../DocumentInfoDialog/DocumentInfoDialog'
 
 interface LibraryTabProps {
   allDocuments: DocumentInfo[]
@@ -17,7 +18,6 @@ interface LibraryTabProps {
   documentFilter: string
   documentImport: DocumentImportStatus
   documentOpening: boolean
-  developerMode: boolean
   documentsLoading: boolean
   groupedDocs: AuthorGroup[]
   libraryOrganization: UploadedLibraryOrganization
@@ -38,6 +38,8 @@ interface LibraryTabProps {
   onRenameLibraryFolder: (folderId: string, name: string) => void | Promise<void>
   onToggleAuthor: (author: string) => void
   onToggleShow: () => void
+  onUpdateDocumentTitle: (documentUrl: string, title: string) => Promise<void>
+  onViewAudiobooks: () => void
   onViewDocument: (url: string) => void | Promise<void>
 }
 
@@ -49,7 +51,6 @@ export function LibraryTab({
   documentFilter,
   documentImport,
   documentOpening,
-  developerMode,
   documentsLoading,
   groupedDocs,
   libraryOrganization,
@@ -70,9 +71,12 @@ export function LibraryTab({
   onRenameLibraryFolder,
   onToggleAuthor,
   onToggleShow,
+  onUpdateDocumentTitle,
+  onViewAudiobooks,
   onViewDocument,
 }: LibraryTabProps) {
   const { t } = useTranslation()
+  const [infoDocument, setInfoDocument] = useState<DocumentInfo | null>(null)
   const operationBusy = documentImport.status === 'importing' || documentImport.status === 'deleting'
   const statusMessage = documentImportStatusMessage(documentImport, t, onCancelDocumentBatch, allDocuments)
   const folderImportSupported = !isMobileUserAgent()
@@ -117,7 +121,6 @@ export function LibraryTab({
         }] : []}
         libraryOrganization={libraryOrganization}
         documentOpening={documentOpening}
-        developerMode={developerMode}
         openingDocumentUrl={openingDocumentUrl}
         savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
         collapsedAuthors={collapsedAuthors}
@@ -131,8 +134,19 @@ export function LibraryTab({
         onMoveLibraryDocuments={onMoveLibraryDocuments}
         onRenameLibraryFolder={onRenameLibraryFolder}
         onToggleAuthor={onToggleAuthor}
+        onViewAudiobooks={onViewAudiobooks}
+        onViewDocumentInfo={setInfoDocument}
         onViewDocument={onViewDocument}
       />
+      {infoDocument && (
+        <DocumentInfoDialog
+          document={infoDocument}
+          onCancel={() => setInfoDocument(null)}
+          onSave={async (document, title) => {
+            await onUpdateDocumentTitle(document.url, title)
+          }}
+        />
+      )}
     </section>
   )
 }

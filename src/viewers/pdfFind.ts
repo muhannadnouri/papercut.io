@@ -19,6 +19,8 @@ interface PdfFindAdapter {
   dispose: () => void
 }
 
+type PdfJsQuery = string | string[]
+
 /** Map the indexed zero-based PDF page to PDF.js's one-based viewer page. */
 export function pdfSearchTargetPage(
   target: SearchOpenTarget | null | undefined,
@@ -36,10 +38,10 @@ export function createPdfFindAdapter(
   eventBus: PdfFindEventBus,
   onResult: (result: ViewerFindResult) => void,
 ): PdfFindAdapter {
-  let query = ''
+  let query: PdfJsQuery = ''
 
   const dispatchFind = (type: '' | 'again', findPrevious = false) => {
-    if (!query) return
+    if (query.length === 0) return
     eventBus.dispatch('find', {
       source: api,
       type,
@@ -54,8 +56,8 @@ export function createPdfFindAdapter(
 
   const api: ViewerFindApi = {
     search(nextQuery) {
-      query = nextQuery.trim()
-      if (!query) {
+      query = pdfFindQuery(nextQuery)
+      if (query.length === 0) {
         api.clear()
         return
       }
@@ -92,4 +94,46 @@ export function createPdfFindAdapter(
       eventBus.off('updatefindcontrolstate', handleResult)
     },
   }
+}
+
+/** Let PDF.js independently match compact, line-wrapped, or joined spellings
+ * for a few compounds without allowing pasted input to expand without bound. */
+function pdfFindQuery(input: string): PdfJsQuery {
+  const original = input.trim()
+  if (!original) return ''
+
+  const compact = original.replace(/(\p{L})-\s+(?=\p{L})/gu, '$1-')
+  const characters = Array.from(compact)
+  const positions = characters
+    .map((character, index) => (
+      character === '-'
+      && index > 0
+      && index + 1 < characters.length
+      && /\p{L}/u.test(characters[index - 1])
+      && /\p{L}/u.test(characters[index + 1])
+        ? index
+        : -1
+    ))
+    .filter((index) => index >= 0)
+    .slice(0, 3)
+  const aliases = new Set([original])
+  const combinations = 3 ** positions.length
+  for (let combination = 0; combination < combinations; combination += 1) {
+    let state = combination
+    const choices = new Map<number, number>()
+    positions.forEach((position) => {
+      choices.set(position, state % 3)
+      state = Math.floor(state / 3)
+    })
+    aliases.add(characters.map((character, index) => {
+      const choice = choices.get(index)
+      if (choice === 1) return '- '
+      if (choice === 2) return ''
+      return character
+    }).join(''))
+  }
+  aliases.add(compact.replace(/(\p{L})-(?=\p{L})/gu, '$1'))
+
+  const values = [...aliases]
+  return values.length === 1 ? original : values
 }

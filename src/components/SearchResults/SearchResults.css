@@ -52,15 +52,17 @@
   text-align: start;
 }
 
-.result-card:hover:not(:disabled) {
-  border-color: var(--accent-text);
-  box-shadow: 0 2px 8px var(--shadow-accent-soft);
-}
-
 .result-card:focus-visible {
   border-color: var(--accent-text);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus), 0 2px 8px var(--shadow-accent-soft);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .result-card:hover:not(:disabled) {
+    border-color: var(--accent-text);
+    box-shadow: 0 2px 8px var(--shadow-accent-soft);
+  }
 }
 
 .result-card-disabled {
