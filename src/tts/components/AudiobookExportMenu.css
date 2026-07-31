@@ -39,9 +39,9 @@
   display: grid;
   max-height: inherit;
   overflow-y: auto;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 6px;
-  background: var(--surface);
+  background: var(--surface-strong);
   box-shadow: 0 12px 28px var(--shadow-popover);
 }
 
@@ -51,8 +51,8 @@
   width: 100%;
   padding: 0.65rem 0.8rem;
   border: none;
-  border-bottom: 1px solid var(--surface-hover);
-  background: var(--surface);
+  border-bottom: 1px solid var(--row-divider);
+  background: var(--surface-strong);
   color: var(--text-heading);
   cursor: pointer;
   font-size: 0.85rem;
