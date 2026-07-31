@@ -29,17 +29,21 @@ export function AudiobookExportMenu({
   onExport,
 }: AudiobookExportMenuProps) {
   const buttonRef = useRef<HTMLButtonElement | null>(null)
+  const actionLabel = exporting ? t('tts.audiobooks.exporting') : t('tts.audiobooks.export')
 
   return (
     <div className="audiobook-export-menu">
       <button
+        type="button"
         ref={buttonRef}
         className="audiobook-text-action audiobook-export"
         disabled={disabled}
         aria-expanded={open}
+        aria-label={actionLabel}
+        title={actionLabel}
         onClick={() => onOpenChange(!open)}
       >
-        {exporting ? t('tts.audiobooks.exporting') : t('tts.audiobooks.export')}
+        <AudiobookExportIcon />
         <span className="audiobook-export-arrow" aria-hidden="true">&#9662;</span>
       </button>
       <Popover
@@ -73,5 +77,13 @@ export function AudiobookExportMenu({
         </div>
       </Popover>
     </div>
+  )
+}
+
+function AudiobookExportIcon() {
+  return (
+    <svg className="audiobook-export-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 3v11m0 0 4-4m-4 4-4-4M5 16v4h14v-4" fill="none" stroke="currentcolor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   )
 }

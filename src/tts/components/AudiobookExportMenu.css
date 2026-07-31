@@ -7,8 +7,11 @@
 .audiobook-export {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.35rem;
-  min-height: 2.15rem;
+  width: 2.65rem;
+  min-height: 2.35rem;
+  padding: 0;
   border-color: transparent;
   background: var(--surface-strong);
 }
@@ -27,6 +30,11 @@
   color: currentcolor;
   font-size: 0.65rem;
   line-height: 1;
+}
+
+.audiobook-export-icon {
+  width: 1.35rem;
+  height: 1.35rem;
 }
 
 .audiobook-export-popover {
@@ -121,5 +129,12 @@
 
   .audiobook-export {
     min-height: 2.25rem;
+  }
+}
+
+@media (pointer: coarse) {
+  .audiobook-export {
+    width: 2.95rem;
+    min-height: 2.75rem;
   }
 }

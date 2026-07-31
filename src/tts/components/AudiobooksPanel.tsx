@@ -226,6 +226,16 @@ export function AudiobooksPanel({
               const deleting = recordDeleteState?.status === 'deleting'
               const exportDisabled = panelBusy || deleting
               const deleteDisabled = panelBusy || deleting
+              const deleteLabel = deleting ? t('tts.audiobooks.deleting') : t('tts.audiobooks.delete')
+              const savedMeta = formatSavedAudiobookMeta(
+                t,
+                record.modelId,
+                record.voice,
+                record.speed,
+                record.textPreprocessor,
+                record.audioDurationSec,
+                record.wavBytes,
+              )
               return (
                 <div
                   key={record.id}
@@ -237,16 +247,8 @@ export function AudiobooksPanel({
                     onClick={() => { if (!documentOpening) onOpenSaved(record) }}
                   >
                     <bdi className="audiobook-title">{record.title}</bdi>
-                    <span className="audiobook-meta" dir="auto">
-                      {formatSavedAudiobookMeta(
-                        t,
-                        record.modelId,
-                        record.voice,
-                        record.speed,
-                        record.textPreprocessor,
-                        record.audioDurationSec,
-                        record.wavBytes,
-                      )}
+                    <span className="audiobook-meta" dir="auto" title={savedMeta}>
+                      {savedMeta}
                     </span>
                   </button>
                   <AudiobookExportMenu
@@ -263,11 +265,14 @@ export function AudiobooksPanel({
                     }}
                   />
                   <button
+                    type="button"
                     className="audiobook-text-action audiobook-delete"
                     disabled={deleteDisabled}
+                    aria-label={deleteLabel}
+                    title={deleteLabel}
                     onClick={() => onDeleteSaved(record)}
                   >
-                    {deleting ? t('tts.audiobooks.deleting') : t('tts.audiobooks.delete')}
+                    <AudiobookDeleteIcon />
                   </button>
                   {recordDeleteState && (
                     <div
@@ -304,6 +309,14 @@ export function AudiobooksPanel({
         </div>
       )}
     </Panel>
+  )
+}
+
+function AudiobookDeleteIcon() {
+  return (
+    <svg className="audiobook-delete-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M4 7h16M9 7V4h6v3m3 0-1 14H7L6 7m4 4v6m4-6v6" fill="none" stroke="currentcolor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   )
 }
 

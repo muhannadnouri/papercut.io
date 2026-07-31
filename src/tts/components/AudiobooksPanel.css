@@ -571,7 +571,8 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   position: relative;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 0.55rem 0.75rem;
+  gap: 0.4rem;
+  padding: 0.5rem 0.6rem;
   border-color: transparent;
   background: var(--control-surface);
   overflow: visible;
@@ -582,13 +583,11 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
 }
 
 .audiobook-saved-main {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
+  display: grid;
+  align-content: center;
   min-width: 0;
   max-width: 100%;
-  gap: 0.35rem 0.75rem;
+  gap: 0.15rem;
   padding: 0;
   border: none;
   background: none;
@@ -611,7 +610,15 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
 }
 
 .audiobook-saved-main .audiobook-meta {
-  flex: 1 1 100%;
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audiobook-saved-main .audiobook-title {
+  -webkit-line-clamp: 1;
 }
 
 .audiobook-text-action {
@@ -628,10 +635,19 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
 }
 
 .audiobook-delete {
-  min-height: 2.15rem;
+  display: inline-grid;
+  place-items: center;
+  width: 2.35rem;
+  min-height: 2.35rem;
+  padding: 0;
   border-color: transparent;
   background: var(--surface-danger);
   color: var(--danger);
+}
+
+.audiobook-delete-icon {
+  width: 1.15rem;
+  height: 1.15rem;
 }
 
 .audiobook-resume {
@@ -779,6 +795,10 @@ html[dir="rtl"] .audiobook-action-toast {
   .audiobook-delete {
     min-height: 2.75rem;
   }
+
+  .audiobook-delete {
+    width: 2.75rem;
+  }
 }
 
 .audiobook-text-action:disabled {
@@ -911,19 +931,15 @@ html[dir="rtl"] .audiobook-action-toast {
 
   .audiobook-item-saved {
     grid-template-columns: minmax(0, 1fr) auto auto;
-    gap: 0.45rem 0.5rem;
-  }
-
-  .audiobook-item-saved .audiobook-saved-main {
-    grid-column: 1 / -1;
+    gap: 0.4rem;
   }
 
   .audiobook-delete {
     justify-self: end;
   }
 
-  .audiobook-delete {
-    min-height: 2.25rem;
+  .audiobook-saved-main .audiobook-title {
+    -webkit-line-clamp: 2;
   }
 
   .audiobook-actions {
