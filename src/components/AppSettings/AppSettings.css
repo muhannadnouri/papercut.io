@@ -224,8 +224,8 @@
 }
 
 .app-theme-option.active {
-  color: var(--accent-strong);
-  background: var(--surface-accent-strong);
+  color: var(--text-inverse);
+  background: var(--accent);
 }
 
 .app-zoom-control {
@@ -290,7 +290,7 @@
     background: var(--surface-accent);
   }
 
-  .app-theme-option:hover {
+  .app-theme-option:hover:not(.active) {
     color: var(--accent-text);
     background: var(--surface-accent);
   }
