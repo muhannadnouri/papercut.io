@@ -906,6 +906,13 @@ html[dir="rtl"] .audiobook-action-toast {
     -webkit-line-clamp: 2;
   }
 
+  .audiobook-saved-main .audiobook-meta {
+    overflow: visible;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
   .audiobook-actions {
     grid-template-columns: 1fr 1fr;
   }
