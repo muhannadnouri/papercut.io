@@ -86,18 +86,57 @@
   cursor: not-allowed;
 }
 
+.document-view-options {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
 .audio-filter-toggle {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  flex-shrink: 0;
+  min-height: 2rem;
+  padding: 0 0.65rem;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: var(--control-surface);
+  color: var(--accent-text);
+  cursor: pointer;
+  font: inherit;
   font-size: 0.8rem;
-  color: var(--text-body);
+  font-weight: 600;
   white-space: nowrap;
 }
 
-.audio-filter-toggle input {
-  accent-color: var(--accent-text);
+.audio-filter-toggle svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.audio-filter-toggle[aria-pressed="true"] {
+  background: var(--surface-accent-strong);
+  color: var(--accent-strong);
+}
+
+html[data-theme="light"] :is(
+  .document-import-btn[aria-expanded="true"],
+  .audio-filter-toggle[aria-pressed="true"]
+) {
+  background: var(--accent);
+  color: var(--text-inverse);
+}
+
+.audio-filter-toggle:focus-visible {
+  background: var(--surface-accent);
+  color: var(--accent-strong);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .document-import-popover {
@@ -560,6 +599,11 @@
     background: var(--surface-accent);
   }
 
+  .audio-filter-toggle:hover {
+    background: var(--surface-accent);
+    color: var(--accent-strong);
+  }
+
   .document-import-option:hover:not([data-disabled]) {
     background: var(--surface-accent);
     color: var(--accent-strong);
@@ -655,18 +699,17 @@
   }
 
   .document-browser-panel .documents-list-header {
-    display: grid;
-    grid-template-columns: auto auto minmax(0, 1fr);
+    display: flex;
     align-items: center;
+    flex-wrap: wrap;
     padding: 0.65rem;
   }
 
   .document-browser-panel .documents-list-header .document-filter-input {
-    grid-column: 1 / -1;
+    flex: 1 0 100%;
   }
 
   .document-browser-panel .document-import-menu {
-    grid-column: 1;
     width: auto;
   }
 
@@ -675,14 +718,12 @@
     min-height: 2.75rem;
   }
 
-  .document-browser-panel .library-view-toggle {
-    grid-column: 2;
+  .document-browser-panel .audio-filter-toggle {
+    min-height: 2.75rem;
   }
 
-  .document-browser-panel .audio-filter-toggle {
-    grid-column: 3;
-    justify-self: end;
-    min-height: 2.75rem;
+  .document-browser-panel .document-view-options {
+    margin-inline-start: auto;
   }
 
   .document-browser-panel .document-import-options {

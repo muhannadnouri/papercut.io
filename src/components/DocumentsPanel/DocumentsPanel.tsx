@@ -184,29 +184,32 @@ export function DocumentsPanel({
             </MenuTrigger>
           </div>
         )}
-        <button
-          type="button"
-          className="library-view-toggle"
-          aria-label={view === 'gallery' ? t('library.documents.listView') : t('library.documents.galleryView')}
-          title={view === 'gallery' ? t('library.documents.listView') : t('library.documents.galleryView')}
-          onClick={() => {
-            const nextView = view === 'gallery' ? 'list' : 'gallery'
-            setPreferredView(nextView)
-            savePreference(VIEW_STORAGE_KEY, nextView)
-          }}
-        >
-          <ViewIcon view={view === 'gallery' ? 'list' : 'gallery'} />
-        </button>
-        {onAudioSavedOnlyChange && (
-          <label className="audio-filter-toggle">
-            <input
-              type="checkbox"
-              checked={audioSavedOnly}
-              onChange={(e) => onAudioSavedOnlyChange(e.target.checked)}
-            />
-            <span>{t('library.documents.savedAudio')}</span>
-          </label>
-        )}
+        <div className="document-view-options">
+          <button
+            type="button"
+            className="library-view-toggle"
+            aria-label={view === 'gallery' ? t('library.documents.listView') : t('library.documents.galleryView')}
+            title={view === 'gallery' ? t('library.documents.listView') : t('library.documents.galleryView')}
+            onClick={() => {
+              const nextView = view === 'gallery' ? 'list' : 'gallery'
+              setPreferredView(nextView)
+              savePreference(VIEW_STORAGE_KEY, nextView)
+            }}
+          >
+            <ViewIcon view={view === 'gallery' ? 'list' : 'gallery'} />
+          </button>
+          {onAudioSavedOnlyChange && (
+            <button
+              type="button"
+              className="audio-filter-toggle"
+              aria-pressed={audioSavedOnly}
+              onClick={() => onAudioSavedOnlyChange(!audioSavedOnly)}
+            >
+              <SavedAudioIcon />
+              <span>{t('library.documents.savedAudio')}</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {importStatuses.map((item, index) => item.message && item.status !== 'idle' ? (
@@ -318,6 +321,14 @@ function ViewIcon({ view }: { view: LibraryView }) {
           <rect x="14" y="14" width="7" height="7" rx="1" />
         </>
       )}
+    </svg>
+  )
+}
+
+function SavedAudioIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M4 14v-2a8 8 0 0 1 16 0v2M4 14h4v7H6a2 2 0 0 1-2-2zm16 0h-4v7h2a2 2 0 0 0 2-2z" />
     </svg>
   )
 }
