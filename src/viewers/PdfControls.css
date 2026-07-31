@@ -160,7 +160,7 @@
 }
 
 .pdf-control-group > * + * {
-  border-inline-start: 1px solid var(--border-strong);
+  border-inline-start: 1px solid var(--row-divider);
 }
 
 .pdf-page-input + .pdf-page-total {

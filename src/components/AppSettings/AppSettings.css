@@ -205,7 +205,7 @@
   min-height: 2.35rem;
   padding: 0 0.5rem;
   border: 0;
-  border-inline-end: 1px solid var(--border);
+  border-inline-end: 1px solid var(--row-divider);
   background: transparent;
   color: var(--text-body);
   font-size: 0.76rem;
@@ -254,7 +254,7 @@
   display: grid;
   place-items: center;
   min-height: 2.35rem;
-  border-inline: 1px solid var(--border);
+  border-inline: 1px solid var(--row-divider);
   color: var(--text-heading);
   font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
