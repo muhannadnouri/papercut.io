@@ -30,6 +30,7 @@ type UploadedLibraryState = {
 }
 
 const IMPORT_NOTICE_MS = 6000
+export const LIBRARY_OPERATION_IN_PROGRESS = 'library-operation-in-progress'
 
 // Keep operation state locale-neutral so the owning UI can translate it and
 // isolate user titles without parsing preformatted English messages.
@@ -214,7 +215,7 @@ export function useUploadedLibrary() {
     title: string,
   ): Promise<UploadedDocument> => {
     if (operationInProgressRef.current) {
-      throw new Error('Another library operation is already in progress')
+      throw new Error(LIBRARY_OPERATION_IN_PROGRESS)
     }
     operationInProgressRef.current = true
     try {

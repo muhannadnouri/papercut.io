@@ -107,7 +107,8 @@
       "imported": "Imported",
       "pages": "Pages",
       "sections": "Sections",
-      "unavailable": "Unavailable"
+      "unavailable": "Unavailable",
+      "operationInProgress": "Another Library operation is already in progress."
     },
     "import": {
       "files": "Files",

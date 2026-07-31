@@ -1230,8 +1230,8 @@ mod tests {
 
     #[test]
     fn audiobook_selection_deduplicates_ids_and_enforces_the_package_limit() {
-        let selected = validate_audiobook_selection(&["one".into(), "one".into(), "two".into()])
-            .expect("valid selection");
+        let ids = ["one".into(), "one".into(), "two".into()];
+        let selected = validate_audiobook_selection(&ids).expect("valid selection");
         assert_eq!(selected.len(), 2);
 
         let too_many = (0..=MAX_AUDIOBOOKS)

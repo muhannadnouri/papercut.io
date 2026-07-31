@@ -374,6 +374,10 @@
   box-shadow: inset 3px 0 0 var(--accent-text);
 }
 
+.document-item:has(:focus-visible) {
+  background: var(--surface-hover);
+}
+
 .document-item input[type="checkbox"] {
   accent-color: var(--accent-text);
   width: 16px;

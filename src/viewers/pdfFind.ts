@@ -96,15 +96,44 @@ export function createPdfFindAdapter(
   }
 }
 
-/** Let PDF.js match a typed compound, its spaced extraction form, or the
- * canonical word without replacing PDF.js's own text/offset normalization. */
+/** Let PDF.js independently match compact, line-wrapped, or joined spellings
+ * for a few compounds without allowing pasted input to expand without bound. */
 function pdfFindQuery(input: string): PdfJsQuery {
   const original = input.trim()
   if (!original) return ''
 
   const compact = original.replace(/(\p{L})-\s+(?=\p{L})/gu, '$1-')
-  const spaced = compact.replace(/(\p{L})-(?=\p{L})/gu, '$1- ')
-  const joined = compact.replace(/(\p{L})-(?=\p{L})/gu, '$1')
-  const aliases = [...new Set([original, compact, spaced, joined])]
-  return aliases.length === 1 ? original : aliases
+  const characters = Array.from(compact)
+  const positions = characters
+    .map((character, index) => (
+      character === '-'
+      && index > 0
+      && index + 1 < characters.length
+      && /\p{L}/u.test(characters[index - 1])
+      && /\p{L}/u.test(characters[index + 1])
+        ? index
+        : -1
+    ))
+    .filter((index) => index >= 0)
+    .slice(0, 3)
+  const aliases = new Set([original])
+  const combinations = 3 ** positions.length
+  for (let combination = 0; combination < combinations; combination += 1) {
+    let state = combination
+    const choices = new Map<number, number>()
+    positions.forEach((position) => {
+      choices.set(position, state % 3)
+      state = Math.floor(state / 3)
+    })
+    aliases.add(characters.map((character, index) => {
+      const choice = choices.get(index)
+      if (choice === 1) return '- '
+      if (choice === 2) return ''
+      return character
+    }).join(''))
+  }
+  aliases.add(compact.replace(/(\p{L})-(?=\p{L})/gu, '$1'))
+
+  const values = [...aliases]
+  return values.length === 1 ? original : values
 }

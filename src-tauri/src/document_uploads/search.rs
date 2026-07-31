@@ -342,14 +342,66 @@ fn normalize_exact_text(text: &str) -> String {
         .to_lowercase()
 }
 
-/// Treat visibly hyphenated input as either a compound or a PDF line-wrapped
-/// word. Plain words stay single-term queries and pay no aliasing cost.
+/// Treat each of the first four internal hyphens independently as punctuation
+/// or a PDF line wrap. The cap prevents pasted input from expanding into an
+/// unbounded FTS expression while covering normal multi-compound phrases.
 fn fts_alias_query(text: &str) -> String {
-    let joined = remove_internal_word_hyphens(text);
-    if joined == text {
+    let aliases = internal_hyphen_aliases(text);
+    if aliases.len() == 1 {
         return quote_fts_term(text);
     }
-    format!("({} OR {})", quote_fts_term(text), quote_fts_term(&joined))
+    format!(
+        "({})",
+        aliases
+            .iter()
+            .map(|alias| quote_fts_term(alias))
+            .collect::<Vec<_>>()
+            .join(" OR ")
+    )
+}
+
+fn internal_hyphen_aliases(text: &str) -> Vec<String> {
+    const MAX_VARIABLE_HYPHENS: usize = 4;
+
+    let characters = text.chars().collect::<Vec<_>>();
+    let positions = characters
+        .iter()
+        .enumerate()
+        .filter_map(|(index, character)| {
+            (*character == '-'
+                && index > 0
+                && index + 1 < characters.len()
+                && characters[index - 1].is_alphabetic()
+                && characters[index + 1].is_alphabetic())
+            .then_some(index)
+        })
+        .take(MAX_VARIABLE_HYPHENS)
+        .collect::<Vec<_>>();
+    if positions.is_empty() {
+        return vec![text.to_string()];
+    }
+
+    let mut aliases = Vec::with_capacity(1 << positions.len());
+    for mask in 0..(1 << positions.len()) {
+        let alias = characters
+            .iter()
+            .enumerate()
+            .filter_map(|(index, character)| {
+                let position = positions.iter().position(|candidate| *candidate == index);
+                let removed = position.is_some_and(|position| mask & (1 << position) != 0);
+                (!removed).then_some(*character)
+            })
+            .collect::<String>();
+        if !aliases.contains(&alias) {
+            aliases.push(alias);
+        }
+    }
+
+    let fully_joined = remove_internal_word_hyphens(text);
+    if !aliases.contains(&fully_joined) {
+        aliases.push(fully_joined);
+    }
+    aliases
 }
 
 /// Collapse only whitespace between a letter-ending hyphen and the next
@@ -589,6 +641,32 @@ mod tests {
                 .expect("hyphen-equivalent phrase candidates");
             let hits = retain_exact_phrase_hits(&db, candidates, &[phrase.to_string()])
                 .expect("hyphen-equivalent exact verification");
+            assert_eq!(hits.len(), 1, "phrase: {phrase}");
+        }
+    }
+
+    #[test]
+    fn exact_search_accepts_independently_hyphenated_compounds() {
+        let db = test_db();
+        insert_document(
+            &db,
+            "mixed-hyphen-exact-pdf",
+            "/uploads/mixed-hyphen-exact-pdf.pdf",
+            "Mixed Hyphen Exact PDF",
+            &["The highlights remain stateowned."],
+        );
+
+        for phrase in [
+            "highlights remain state-owned",
+            "high-lights remain state-owned",
+            "highlights remain stateowned",
+            "high-lights remain stateowned",
+        ] {
+            let queries = fts_phrase_queries(&[phrase.to_string()]);
+            let candidates = search_section_hits(&db, &fts_and_query(&queries), 10, &[])
+                .expect("mixed hyphen phrase candidates");
+            let hits = retain_exact_phrase_hits(&db, candidates, &[phrase.to_string()])
+                .expect("mixed hyphen exact verification");
             assert_eq!(hits.len(), 1, "phrase: {phrase}");
         }
     }

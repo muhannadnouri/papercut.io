@@ -107,7 +107,8 @@
       "imported": "आयात किया गया",
       "pages": "पृष्ठ",
       "sections": "अनुभाग",
-      "unavailable": "उपलब्ध नहीं"
+      "unavailable": "उपलब्ध नहीं",
+      "operationInProgress": "लाइब्रेरी का एक अन्य कार्य पहले से चल रहा है।"
     },
     "import": {
       "files": "फ़ाइलें",

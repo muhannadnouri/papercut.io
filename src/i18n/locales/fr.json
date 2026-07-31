@@ -111,7 +111,8 @@
       "imported": "Importé",
       "pages": "Pages",
       "sections": "Sections",
-      "unavailable": "Indisponible"
+      "unavailable": "Indisponible",
+      "operationInProgress": "Une autre opération de la bibliothèque est déjà en cours."
     },
     "import": {
       "files": "Fichiers",

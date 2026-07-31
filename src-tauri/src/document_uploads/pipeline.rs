@@ -19,6 +19,8 @@ use super::epub::parse_epub_document;
 use super::html::{decode_html_bytes, parse_html_document, sanitize_html};
 use super::parsed::ParsedDocument;
 use super::storage::directory_size;
+#[cfg(feature = "native-tts-core")]
+use super::storage::UPLOAD_URL_PREFIX;
 use super::storage::{
     now_ms, read_source_bytes, source_upload_id, upload_dir, upload_id_from_url,
     upload_reference_from_url, upload_source_path, upload_url, StoredSourceKind,
@@ -284,6 +286,36 @@ pub(crate) fn get_source<R: Runtime>(
     Ok(sanitize_html(&source))
 }
 
+/// Reject a save that starts after its uploaded Library source was removed.
+///
+/// Bundled documents and audiobook-owned sources use other storage contracts,
+/// so only generic `/uploads/` URLs are checked here.
+#[cfg(feature = "native-tts-core")]
+pub(crate) fn ensure_uploaded_source_exists<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    document_url: &str,
+) -> Result<(), String> {
+    let path = document_url
+        .split(['?', '#'])
+        .next()
+        .unwrap_or(document_url);
+    if !path.starts_with(UPLOAD_URL_PREFIX) {
+        return Ok(());
+    }
+
+    let (id, source_kind) = upload_reference_from_url(document_url)?;
+    let db = open_db(app)?;
+    let document = find_upload_by_id(&db, &id)?
+        .ok_or_else(|| "Uploaded document metadata is missing".to_string())?;
+    if StoredSourceKind::from_str(&document.source_kind)? != source_kind {
+        return Err("Uploaded document source metadata does not match its URL".into());
+    }
+    if !upload_source_path(app, &id, source_kind)?.is_file() {
+        return Err("Uploaded document source is missing".into());
+    }
+    Ok(())
+}
+
 /// Return only a display-sized cover associated with a validated upload URL.
 ///
 /// The database MIME value selects a fixed filename, so neither the frontend nor
@@ -357,25 +389,27 @@ pub(crate) fn delete_upload<R: Runtime>(
     app: &tauri::AppHandle<R>,
     request: UploadedDocumentDeleteRequest,
 ) -> Result<UploadedDocumentDeleteResult, String> {
-    if crate::native_tts::document_has_audiobook_reference(app, &request.document_url)? {
-        return Err(
-            "Delete the saved audio that uses this document before removing it from the Library"
-                .into(),
-        );
-    }
+    crate::native_tts::with_audiobook_reference_lock(|| {
+        if crate::native_tts::document_has_audiobook_reference(app, &request.document_url)? {
+            return Err(
+                "Delete the saved audio that uses this document before removing it from the Library"
+                    .into(),
+            );
+        }
 
-    let id = upload_id_from_url(&request.document_url)?;
-    let dir = upload_dir(app, &id)?;
-    let mut db = open_db(app)?;
-    let bytes_freed = delete_stored_document(&dir, &id, || {
-        // Store deletion is transactional, keeping metadata, sections, and FTS in sync.
-        delete_document_rows(&mut db, &id)
-    })?;
+        let id = upload_id_from_url(&request.document_url)?;
+        let dir = upload_dir(app, &id)?;
+        let mut db = open_db(app)?;
+        let bytes_freed = delete_stored_document(&dir, &id, || {
+            // Store deletion is transactional, keeping metadata, sections, and FTS in sync.
+            delete_document_rows(&mut db, &id)
+        })?;
 
-    Ok(UploadedDocumentDeleteResult {
-        id,
-        url: request.document_url,
-        bytes_freed,
+        Ok(UploadedDocumentDeleteResult {
+            id,
+            url: request.document_url,
+            bytes_freed,
+        })
     })
 }
 

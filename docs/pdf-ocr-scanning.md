@@ -849,9 +849,10 @@ to PDF.js's `PDFFindController`, which schedules text extraction across the
 document, updates Papercut's existing match count, renders highlights through
 the PDF.js text layer, and navigates next/previous matches without rendering
 every page. HTML and EPUB retain their existing DOM-range implementation.
-Papercut supplies at most three aliases when the entered PDF query visibly
-contains an internal hyphen, allowing joined, compact-hyphen, and copied
-hyphen-space forms to share PDF.js's existing offset-aware highlights.
+Papercut supplies a bounded set of aliases when a PDF query visibly contains
+internal hyphens, allowing each of the first few compounds to vary independently
+between joined, compact-hyphen, and copied hyphen-space forms while retaining
+PDF.js's existing offset-aware highlights.
 
 Uploaded-PDF SQLite hits now preserve their indexed zero-based page locator
 through the shared search-result shape. Opening a result applies that locator

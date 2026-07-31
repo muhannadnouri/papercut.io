@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
+import { LIBRARY_OPERATION_IN_PROGRESS } from '../../hooks/useUploadedLibrary'
 import type { DocumentInfo } from '../../types/search'
 import { formatStorageSize } from '../../utils/formatUtils'
 import { AppDialog } from '../AppDialog/AppDialog'
@@ -51,7 +52,9 @@ export function DocumentInfoDialog({
       await onSave(document, trimmedTitle)
       onCancel()
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason))
+      setError(reason instanceof Error && reason.message === LIBRARY_OPERATION_IN_PROGRESS
+        ? t('library.documentInfo.operationInProgress')
+        : reason instanceof Error ? reason.message : String(reason))
       setBusy(false)
     }
   }

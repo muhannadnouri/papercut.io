@@ -103,7 +103,8 @@
       "imported": "导入时间",
       "pages": "页数",
       "sections": "章节数",
-      "unavailable": "不可用"
+      "unavailable": "不可用",
+      "operationInProgress": "另一项资料库操作已在进行中。"
     },
     "import": {
       "files": "文件",
