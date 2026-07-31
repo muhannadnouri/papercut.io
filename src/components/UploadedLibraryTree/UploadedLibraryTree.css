@@ -78,6 +78,8 @@
   padding: 0 0.75rem;
   margin-block: 0.25rem;
   margin-inline-end: 0.5rem;
+  border-color: transparent;
+  background: var(--control-surface);
   font-size: 0.75rem;
 }
 
@@ -94,7 +96,7 @@
 }
 
 .uploaded-library-edit-btn[aria-pressed="true"] {
-  border-color: var(--accent-text);
+  border-color: transparent;
   background: var(--surface-accent);
   color: var(--accent-strong);
 }
@@ -107,6 +109,11 @@
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
+.uploaded-library-edit-btn:focus-visible {
+  border-color: transparent;
+  background: var(--surface-accent);
+}
+
 .uploaded-library-edit-btn:disabled,
 .uploaded-library-actions button:disabled,
 .uploaded-library-move select:disabled {
@@ -114,6 +121,10 @@
   background: var(--surface-muted);
   color: var(--text-soft);
   cursor: not-allowed;
+}
+
+.uploaded-library-edit-btn:disabled {
+  border-color: transparent;
 }
 
 .uploaded-library-context-actions {
@@ -424,7 +435,12 @@
     background: var(--surface-hover);
   }
 
-  .uploaded-library-edit-btn:hover:not(:disabled),
+  .uploaded-library-edit-btn:hover:not(:disabled) {
+    border-color: transparent;
+    background: var(--surface-accent);
+    color: var(--accent-strong);
+  }
+
   .uploaded-library-actions button:hover:not(:disabled),
   .uploaded-library-move select:hover:not(:disabled) {
     border-color: var(--accent-text);

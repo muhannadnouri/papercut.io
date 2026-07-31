@@ -9,7 +9,7 @@
   width: 2.35rem;
   height: 2.35rem;
   padding: 0;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 8px;
   background: var(--control-surface);
   color: var(--accent-strong);
@@ -30,7 +30,7 @@
 }
 
 .app-settings-btn:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   color: var(--accent-text);
   background: var(--surface-accent);
   outline: none;
@@ -264,7 +264,12 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .app-settings-btn:hover,
+  .app-settings-btn:hover {
+    border-color: transparent;
+    color: var(--accent-text);
+    background: var(--surface-accent);
+  }
+
   .app-settings-data-action:hover {
     border-color: var(--accent-text);
     color: var(--accent-text);

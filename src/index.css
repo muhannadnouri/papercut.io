@@ -188,7 +188,7 @@ html[data-theme="dark"] {
   --surface-panel-subtle: #181c21;
   --surface-success-strong: #123322;
   --surface-accent-strong: #30345f;
-  --control-surface: var(--surface-strong);
+  --control-surface: var(--surface-hover);
   --reader-surface: #121417;
   --reader-text: #c8ccd2;
   --reader-muted: #a7afb9;
