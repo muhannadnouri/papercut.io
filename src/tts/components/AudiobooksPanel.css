@@ -1,3 +1,12 @@
+.audiobooks-panel {
+  border-color: transparent;
+  background: var(--control-surface);
+}
+
+.audiobooks-panel > .panel-toggle {
+  background: var(--control-surface);
+}
+
 .audio-setup-panel {
   display: grid;
   gap: 0.7rem;
@@ -383,6 +392,10 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .audiobooks-panel > .panel-toggle:hover {
+    background: var(--surface-accent);
+  }
+
   .audiobooks-setup-disclosure:hover {
     border-color: transparent;
     background: var(--surface-accent);
