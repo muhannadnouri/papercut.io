@@ -80,11 +80,8 @@
   margin-inline-end: 0.5rem;
   border-color: transparent;
   background: var(--control-surface);
-  font-size: 0.75rem;
-}
-
-.uploaded-library-edit-btn[aria-pressed] {
   color: var(--accent-text);
+  font-size: 0.75rem;
   font-weight: 600;
 }
 
@@ -145,6 +142,32 @@
   gap: 0.45rem;
 }
 
+.uploaded-library-selection-actions button {
+  border-color: transparent;
+  background: var(--control-surface);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.uploaded-library-selection-actions button:focus-visible {
+  border-color: transparent;
+  background: var(--surface-accent);
+  color: var(--accent-strong);
+}
+
+.uploaded-library-actions .uploaded-library-secondary-action {
+  border-color: transparent;
+  background: var(--control-surface);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.uploaded-library-actions .uploaded-library-secondary-action:focus-visible {
+  border-color: transparent;
+  background: var(--surface-accent);
+  color: var(--accent-strong);
+}
+
 .uploaded-library-task-actions {
   display: flex;
   align-items: end;
@@ -166,12 +189,15 @@
 }
 
 .uploaded-library-actions .uploaded-library-batch-delete {
-  border-color: var(--danger-border);
+  border-color: transparent;
+  background: var(--surface-danger);
   color: var(--danger);
+  font-weight: 600;
 }
 
 .uploaded-library-actions .uploaded-library-batch-delete:focus-visible {
-  border-color: var(--danger-accent);
+  border-color: transparent;
+  background: var(--surface-danger);
   color: var(--danger-accent);
 }
 
@@ -196,16 +222,32 @@
   gap: 0.35rem;
 }
 
+.uploaded-library-delete-btn:not([aria-disabled="true"]) {
+  border-color: transparent;
+  background: var(--surface-danger);
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.uploaded-library-delete-btn:not([aria-disabled="true"]):focus-visible {
+  border-color: transparent;
+  background: var(--surface-danger);
+  color: var(--danger-accent);
+}
+
 .uploaded-library-delete-btn-blocked {
-  color: var(--text-soft);
+  border-color: transparent;
+  background: var(--surface-warning);
+  color: var(--warning);
+  font-weight: 600;
   cursor: help;
 }
 
 .uploaded-library-delete-btn-blocked:focus-visible,
 .uploaded-library-delete-btn-blocked[aria-expanded="true"] {
-  border-color: var(--border-strong);
-  background: var(--surface);
-  color: var(--text-muted);
+  border-color: transparent;
+  background: var(--surface-warning);
+  color: var(--warning-strong);
   outline: none;
 }
 
@@ -264,13 +306,20 @@
   width: 100%;
   padding-block: 0;
   padding-inline: 0.55rem 1.7rem;
+  border-color: transparent;
   appearance: none;
   -webkit-appearance: none;
-  background-color: var(--surface);
+  background-color: var(--control-surface);
   background-image: var(--select-chevron);
   background-repeat: no-repeat;
   background-position: right 0.6rem center;
   background-size: 0.65rem;
+}
+
+.uploaded-library-move select:focus-visible {
+  border-color: transparent;
+  background-color: var(--surface-accent);
+  color: var(--accent-text);
 }
 
 @media (min-width: 800px) {
@@ -446,20 +495,44 @@
     color: var(--accent-strong);
   }
 
-  .uploaded-library-actions button:hover:not(:disabled),
-  .uploaded-library-move select:hover:not(:disabled) {
+  .uploaded-library-actions button:hover:not(:disabled) {
     border-color: var(--accent-text);
   }
 
+  .uploaded-library-move select:hover:not(:disabled) {
+    border-color: transparent;
+    background-color: var(--surface-accent);
+    color: var(--accent-text);
+  }
+
+  .uploaded-library-selection-actions button:hover:not(:disabled) {
+    border-color: transparent;
+    background: var(--surface-accent);
+    color: var(--accent-strong);
+  }
+
+  .uploaded-library-actions .uploaded-library-secondary-action:hover:not(:disabled) {
+    border-color: transparent;
+    background: var(--surface-accent);
+    color: var(--accent-strong);
+  }
+
   .uploaded-library-actions .uploaded-library-batch-delete:hover:not(:disabled) {
-    border-color: var(--danger-accent);
+    border-color: transparent;
+    background: var(--surface-danger);
+    color: var(--danger-accent);
+  }
+
+  .uploaded-library-delete-btn:not([aria-disabled="true"]):hover {
+    border-color: transparent;
+    background: var(--surface-danger);
     color: var(--danger-accent);
   }
 
   .uploaded-library-delete-btn-blocked:hover {
-    border-color: var(--border-strong);
-    background: var(--surface);
-    color: var(--text-muted);
+    border-color: transparent;
+    background: var(--surface-warning);
+    color: var(--warning-strong);
   }
 
   .uploaded-library-chevron:hover,

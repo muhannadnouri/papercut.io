@@ -453,6 +453,7 @@ export function UploadedLibraryTree({
               <div className="uploaded-library-task-actions">
                 <button
                   type="button"
+                  className="uploaded-library-secondary-action"
                   disabled={busy || mutationDisabled || !selectedSingleFolder}
                   onClick={renameSelectedFolder}
                 >
