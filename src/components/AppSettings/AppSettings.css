@@ -187,45 +187,28 @@
   background: var(--surface-accent);
 }
 
-.app-theme-options {
+.app-theme-cycle {
   grid-column: 2 / 4;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: var(--control-surface);
-  overflow: hidden;
-}
-
-.app-theme-option {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.3rem;
   min-height: 2.35rem;
-  padding: 0 0.5rem;
-  border: 0;
-  border-inline-end: 1px solid var(--row-divider);
-  background: transparent;
-  color: var(--text-body);
+  padding: 0 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--text-inverse);
+  font: inherit;
   font-size: 0.76rem;
   font-weight: 600;
   cursor: pointer;
 }
 
-.app-theme-option:last-child {
-  border-inline-end: 0;
-}
-
-.app-theme-option:focus-visible {
-  color: var(--accent-text);
-  background: var(--surface-accent);
+.app-theme-cycle:focus-visible {
+  background: var(--accent-hover);
   outline: none;
-}
-
-.app-theme-option.active {
-  color: var(--text-inverse);
-  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .app-zoom-control {
@@ -248,6 +231,11 @@
   color: var(--text-body);
   font-weight: 700;
   cursor: pointer;
+}
+
+.app-zoom-control button {
+  font-size: 1.05rem;
+  line-height: 1;
 }
 
 .app-zoom-control output {
@@ -290,9 +278,8 @@
     background: var(--surface-accent);
   }
 
-  .app-theme-option:hover:not(.active) {
-    color: var(--accent-text);
-    background: var(--surface-accent);
+  .app-theme-cycle:hover {
+    background: var(--accent-hover);
   }
 
   .app-zoom-control button:hover:not(:disabled),
@@ -310,7 +297,7 @@
   }
 
   .app-settings-data-action,
-  .app-theme-option,
+  .app-theme-cycle,
   .app-zoom-control button,
   .app-zoom-reset {
     min-height: 2.75rem;
@@ -350,7 +337,7 @@
     height: 2.5rem;
   }
 
-  .app-theme-option {
+  .app-theme-cycle {
     min-height: 2.5rem;
   }
 }
@@ -362,7 +349,7 @@
   }
 
   .app-setting-select,
-  .app-theme-options {
+  .app-theme-cycle {
     grid-column: 1;
   }
 

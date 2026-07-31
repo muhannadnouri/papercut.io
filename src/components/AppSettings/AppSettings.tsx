@@ -20,6 +20,11 @@ const DEFAULT_ZOOM = 100
 const MIN_ZOOM = 70
 const MAX_ZOOM = 200
 const ZOOM_STEP = 10
+const NEXT_THEME: Record<ThemeChoice, ThemeChoice> = {
+  system: 'light',
+  light: 'dark',
+  dark: 'system',
+}
 
 interface AppSettingsProps {
   themeChoice: ThemeChoice
@@ -45,11 +50,11 @@ export function AppSettings({
   const [version, setVersion] = useState<string | null>(() => tauriRuntime ? null : '')
   const zoom = useAppZoom()
   const closeSettings = useCallback(() => setOpen(false), [])
-  const themeOptions: Array<{ choice: ThemeChoice; label: string; icon?: string }> = [
-    { choice: 'system', label: t('settings.themeSystem'), icon: '🖥️' },
-    { choice: 'light', label: t('settings.themeLight'), icon: '☀️' },
-    { choice: 'dark', label: t('settings.themeDark'), icon: '🌙' },
-  ]
+  const themeOption = {
+    system: { label: t('settings.themeSystem'), icon: '🖥️' },
+    light: { label: t('settings.themeLight'), icon: '☀️' },
+    dark: { label: t('settings.themeDark'), icon: '🌙' },
+  }[themeChoice]
 
   useEffect(() => {
     if (!tauriRuntime || !open || version !== null) return
@@ -106,20 +111,15 @@ export function AppSettings({
 
             <div className="app-setting">
               <span id="app-setting-theme">{t('settings.theme')}</span>
-              <div className="app-theme-options" role="group" aria-labelledby="app-setting-theme">
-                {themeOptions.map((option) => (
-                  <button
-                    key={option.choice}
-                    type="button"
-                    className={themeChoice === option.choice ? 'app-theme-option active' : 'app-theme-option'}
-                    aria-pressed={themeChoice === option.choice}
-                    onClick={() => onThemeChange(option.choice)}
-                  >
-                    {option.icon && <span aria-hidden="true">{option.icon}</span>}
-                    {option.label}
-                  </button>
-                ))}
-              </div>
+              <button
+                type="button"
+                className="app-theme-cycle"
+                aria-labelledby="app-setting-theme app-setting-theme-value"
+                onClick={() => onThemeChange(NEXT_THEME[themeChoice])}
+              >
+                <span aria-hidden="true">{themeOption.icon}</span>
+                <span id="app-setting-theme-value">{themeOption.label}</span>
+              </button>
             </div>
 
             {zoom.supported && (
