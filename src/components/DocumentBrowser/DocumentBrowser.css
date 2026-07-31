@@ -1,7 +1,7 @@
 .documents-panel {
   margin-bottom: 1.5rem;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
   background: var(--control-surface);
   overflow: hidden;
 }
@@ -143,7 +143,7 @@
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   background: var(--surface-strong);
   box-shadow: 0 12px 28px var(--shadow-popover);
 }
@@ -198,7 +198,7 @@
   margin: 0.55rem 1.25rem;
   padding: 0.55rem 0.65rem 0.55rem 0.8rem;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   background: var(--control-surface);
   color: var(--text-body);
   font-size: 0.8rem;
@@ -312,7 +312,7 @@
   padding: 0.45rem 0.75rem;
   font-size: 0.85rem;
   border: 2px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   outline: none;
   background: var(--control-surface);
   color: var(--text-body);
@@ -382,7 +382,7 @@
   margin-inline-end: 0.5rem;
   background: var(--control-surface);
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   font-size: 0.75rem;
   font-weight: 700;
   color: var(--accent-text);
@@ -449,7 +449,7 @@
   width: 1.35rem;
   height: 1.35rem;
   border: 1px solid var(--accent-border);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--surface-accent);
   color: var(--accent-strong);
   font-size: 0.8rem;
@@ -542,7 +542,7 @@
   border: 1px solid var(--accent-border);
   color: var(--accent-strong);
   padding: 0.25rem 0.6rem;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   font-size: 0.8rem;
 }
 

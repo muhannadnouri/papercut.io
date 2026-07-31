@@ -59,7 +59,7 @@
 .uploaded-library-move select {
   min-height: 2rem;
   border: 1px solid var(--border-strong);
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   background: var(--surface);
   color: var(--text-body);
   font-size: 0.78rem;
@@ -256,7 +256,7 @@
   width: 0.95rem;
   height: 0.95rem;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--warning-border);
   color: var(--warning-strong);
   font-size: 0.68rem;
@@ -272,7 +272,7 @@
   max-width: min(14rem, calc(100vw - 2rem));
   padding: 0.55rem 0.65rem;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--surface-strong);
   color: var(--text-body);
   box-shadow: 0 12px 28px var(--shadow-popover);
@@ -417,7 +417,7 @@
   height: 1.35rem;
   place-items: center;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: var(--radius-inline);
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
@@ -464,7 +464,7 @@
   width: 100%;
   padding: 0.1rem 0.15rem;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: var(--radius-inline);
   background: transparent;
   color: inherit;
   cursor: pointer;

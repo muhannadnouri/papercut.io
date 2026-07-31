@@ -4,7 +4,7 @@
   grid-auto-columns: minmax(0, 1fr);
   overflow: hidden;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   background: var(--control-surface);
 }
 
@@ -123,7 +123,7 @@
   overflow: hidden;
   padding: 0.8rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   background-clip: padding-box;
   color: #fff;
   box-shadow: 0 3px 10px var(--shadow-panel);
