@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { Button, Tree, TreeItem, TreeItemContent, type Key } from 'react-aria-components'
+import { Button, Popover, Tree, TreeItem, TreeItemContent, type Key } from 'react-aria-components'
 import type { DocumentInfo } from '../../types/search'
 import {
   type UploadedDocumentDeleteBatchResult,
@@ -67,6 +67,7 @@ export function UploadedLibraryTree({
   const [folderDialog, setFolderDialog] = useState<FolderDialogState | null>(null)
   const [folderDialogError, setFolderDialogError] = useState('')
   const [deleteInfoOpen, setDeleteInfoOpen] = useState(false)
+  const deleteFolderButtonRef = useRef<HTMLButtonElement>(null)
   const [actionError, setActionError] = useState('')
   const [busy, setBusy] = useState(false)
   const { confirm: confirmLibraryAction, dialog: libraryConfirmationDialog } = useAppConfirmation()
@@ -461,6 +462,7 @@ export function UploadedLibraryTree({
                 </button>
                 <span className="uploaded-library-delete-control" title={deleteFolderHelp}>
                   <button
+                    ref={deleteFolderButtonRef}
                     type="button"
                     className={'uploaded-library-delete-btn' + (deleteFolderBlocked ? ' uploaded-library-delete-btn-blocked' : '')}
                     disabled={busy || mutationDisabled || (!canDeleteSelectedFolder && !deleteFolderBlocked)}
@@ -472,16 +474,22 @@ export function UploadedLibraryTree({
                     {t('library.tree.deleteFolder')}
                     {deleteFolderBlocked && <span className="uploaded-library-warning-icon" aria-hidden="true">!</span>}
                   </button>
-                  {deleteInfoOpen && (
-                    <span
-                      id="uploaded-library-delete-info"
-                      className="uploaded-library-info-popover"
-                      role="tooltip"
-                    >
+                  <Popover
+                    className="uploaded-library-info-popover"
+                    isOpen={deleteInfoOpen}
+                    onOpenChange={setDeleteInfoOpen}
+                    triggerRef={deleteFolderButtonRef}
+                    placement="bottom"
+                    offset={6}
+                    containerPadding={8}
+                    shouldFlip
+                    isNonModal
+                  >
+                    <span id="uploaded-library-delete-info" className="uploaded-library-info-content">
                       <strong>{t('library.tree.folderNotEmpty')}</strong>
                       <span>{t('library.tree.moveContentsFirst')}</span>
                     </span>
-                  )}
+                  </Popover>
                 </span>
               </div>
             )}

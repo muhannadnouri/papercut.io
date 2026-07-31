@@ -49,9 +49,9 @@
   gap: 0.65rem;
   width: min(19rem, calc(100vw - 2rem));
   padding: 0.85rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 10px;
-  background: var(--surface);
+  background: var(--surface-strong);
   box-shadow: 0 12px 28px var(--shadow-popover);
   color: var(--text-heading);
   text-align: start;
@@ -72,6 +72,17 @@
 
 .reader-setting-font-select {
   grid-column: 2 / 6;
+}
+
+.reader-setting-font-select .app-select-button {
+  border-color: transparent;
+  background: var(--control-surface);
+}
+
+.reader-setting-font-select .app-select-button:focus-visible,
+.reader-setting-font-select.app-select-open .app-select-button {
+  border-color: transparent;
+  background: var(--surface-accent);
 }
 
 .reader-setting-slider {
@@ -156,6 +167,11 @@
   .reader-setting-step:hover:not(:disabled) {
     border-color: transparent;
     color: var(--accent-text);
+    background: var(--surface-accent);
+  }
+
+  .reader-setting-font-select .app-select-button:hover:not(:disabled) {
+    border-color: transparent;
     background: var(--surface-accent);
   }
 }
