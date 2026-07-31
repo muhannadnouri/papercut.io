@@ -19,9 +19,9 @@
   width: 2.35rem;
   height: 2.35rem;
   flex: 0 0 auto;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 8px;
-  background: var(--surface-muted);
+  background: var(--control-surface);
   color: var(--text-body);
   cursor: pointer;
   touch-action: manipulation;
@@ -30,7 +30,7 @@
 }
 
 .audio-icon-btn:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   color: var(--accent-text);
   background: var(--surface-accent);
   outline: none;
@@ -38,14 +38,14 @@
 }
 
 .audio-icon-btn:disabled {
-  border-color: var(--border);
+  border-color: transparent;
   background: var(--surface-muted);
   color: var(--text-soft);
   cursor: not-allowed;
 }
 
 .audio-primary-btn {
-  border-color: var(--accent-text);
+  border-color: transparent;
   background: var(--accent);
   color: var(--text-inverse);
 }
@@ -56,8 +56,9 @@
 }
 
 .audio-menu-btn-open {
-  border-color: var(--accent-text);
+  border-color: transparent;
   color: var(--accent-text);
+  background: var(--surface-accent);
 }
 
 .audio-save-spinner {
@@ -254,9 +255,9 @@
   height: 2.35rem;
   flex: 0 0 auto;
   padding: 0 0.65rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 8px;
-  background: var(--surface-muted);
+  background: var(--control-surface);
   color: var(--text-body);
   font: inherit;
   font-size: 0.82rem;
@@ -267,7 +268,7 @@
 }
 
 .audio-rate-control:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   color: var(--accent-text);
   background: var(--surface-accent);
   outline: none;
@@ -276,7 +277,7 @@
 
 @media (hover: hover) and (pointer: fine) {
   .audio-icon-btn:hover:not(:disabled) {
-    border-color: var(--accent-text);
+    border-color: transparent;
     color: var(--accent-text);
     background: var(--surface-accent);
   }
@@ -286,8 +287,13 @@
     color: var(--text-inverse);
   }
 
-  .audio-word-highlight-toggle:hover,
   .audio-rate-control:hover {
+    border-color: transparent;
+    color: var(--accent-text);
+    background: var(--surface-accent);
+  }
+
+  .audio-word-highlight-toggle:hover {
     border-color: var(--accent-text);
     color: var(--accent-text);
     background: var(--surface-accent);

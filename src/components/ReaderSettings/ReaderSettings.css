@@ -9,8 +9,8 @@
   width: 2.25rem;
   height: 2.25rem;
   padding: 0;
-  background: var(--surface-muted);
-  border: 1px solid var(--border-strong);
+  background: var(--control-surface);
+  border: 1px solid transparent;
   border-radius: 8px;
   color: var(--text-body);
   cursor: pointer;
@@ -29,7 +29,7 @@
 
 .reader-settings-btn[aria-expanded="true"],
 .reader-settings-btn:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   color: var(--accent-text);
   background: var(--surface-accent);
   outline: none;
@@ -37,6 +37,7 @@
 }
 
 .reader-settings-btn:disabled {
+  border-color: transparent;
   color: var(--text-soft);
   cursor: not-allowed;
   background: var(--surface-muted);
@@ -138,7 +139,12 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .reader-settings-btn:hover:not(:disabled),
+  .reader-settings-btn:hover:not(:disabled) {
+    border-color: transparent;
+    color: var(--accent-text);
+    background: var(--surface-accent);
+  }
+
   .reader-settings-reset:hover {
     border-color: var(--accent-text);
     color: var(--accent-text);

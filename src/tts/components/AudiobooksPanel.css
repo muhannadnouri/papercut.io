@@ -347,9 +347,9 @@
   min-width: 0;
   margin: 0;
   padding: 0.7rem 0.85rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 8px;
-  background: var(--surface);
+  background: var(--control-surface);
   color: var(--text-body);
   text-align: start;
   cursor: pointer;
@@ -358,7 +358,7 @@
 
 .audiobooks-setup-disclosure:focus-visible,
 .audiobooks-setup-disclosure-open {
-  border-color: var(--accent-text);
+  border-color: transparent;
   background: var(--surface-accent);
   outline: none;
 }
@@ -369,7 +369,7 @@
 
 @media (hover: hover) and (pointer: fine) {
   .audiobooks-setup-disclosure:hover {
-    border-color: var(--accent-text);
+    border-color: transparent;
     background: var(--surface-accent);
     box-shadow: 0 8px 18px var(--shadow-soft);
     outline: none;
@@ -377,7 +377,7 @@
 }
 
 .audiobooks-setup-disclosure:disabled {
-  border-color: var(--border);
+  border-color: transparent;
   background: var(--surface-muted);
   color: var(--text-soft);
   cursor: not-allowed;
@@ -442,9 +442,9 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   gap: 0.45rem;
   min-height: 2.25rem;
   padding: 0 0.8rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 8px;
-  background: var(--surface);
+  background: var(--control-surface);
   color: var(--accent-text);
   font-size: 0.85rem;
   font-weight: 700;
@@ -453,14 +453,14 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
 }
 
 .audiobooks-import-btn:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   background: var(--surface-accent);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .audiobooks-import-btn:disabled {
-  border-color: var(--border);
+  border-color: transparent;
   background: var(--surface-muted);
   color: var(--text-soft);
   cursor: not-allowed;
@@ -681,7 +681,7 @@ html[dir="rtl"] .audiobook-action-toast {
   }
 
   .audiobooks-import-btn:hover:not(:disabled) {
-    border-color: var(--accent-text);
+    border-color: transparent;
     background: var(--surface-accent);
   }
 

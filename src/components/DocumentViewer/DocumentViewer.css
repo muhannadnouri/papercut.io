@@ -96,8 +96,8 @@
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  background: var(--surface-muted);
-  border: 1px solid var(--border-strong);
+  background: var(--control-surface);
+  border: 1px solid transparent;
   border-radius: 8px;
   padding: 0.5rem 1rem;
   font-size: 0.9rem;
@@ -108,7 +108,7 @@
 }
 
 .back-button:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   color: var(--accent-text);
   background: var(--surface-accent);
   outline: none;
@@ -121,8 +121,8 @@
   justify-content: center;
   gap: 0.45rem;
   min-height: 2.35rem;
-  background: var(--surface-muted);
-  border: 1px solid var(--border-strong);
+  background: var(--control-surface);
+  border: 1px solid transparent;
   border-radius: 8px;
   padding: 0.5rem 1rem;
   font-size: 0.9rem;
@@ -133,7 +133,7 @@
 }
 
 .find-btn:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   color: var(--accent-text);
   background: var(--surface-accent);
   outline: none;
@@ -141,6 +141,7 @@
 }
 
 .find-btn:disabled {
+  background: var(--surface-muted);
   color: var(--text-soft);
   cursor: not-allowed;
 }
@@ -415,7 +416,12 @@ html[dir="rtl"] .back-icon {
 
 @media (hover: hover) and (pointer: fine) {
   .back-button:hover,
-  .find-btn:hover:not(:disabled),
+  .find-btn:hover:not(:disabled) {
+    border-color: transparent;
+    color: var(--accent-text);
+    background: var(--surface-accent);
+  }
+
   .reader-bookmark-btn:hover,
   .reader-bookmark-notice button:hover {
     border-color: var(--accent-text);
