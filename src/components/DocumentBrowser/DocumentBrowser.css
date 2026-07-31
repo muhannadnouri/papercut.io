@@ -23,6 +23,15 @@
   margin-bottom: 1.5rem;
 }
 
+.search-scope-panel {
+  border-color: transparent;
+  background: var(--control-surface);
+}
+
+.search-scope-panel .panel-toggle {
+  background: var(--control-surface);
+}
+
 .documents-list-header {
   display: flex;
   align-items: center;
@@ -521,6 +530,10 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .search-scope-panel .panel-toggle:hover {
+    background: var(--surface-accent);
+  }
+
   .document-import-btn:hover:not([data-disabled]) {
     border-color: transparent;
     background: var(--surface-accent);
