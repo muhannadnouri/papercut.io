@@ -130,9 +130,9 @@
 .audio-probe-button {
   min-height: 2rem;
   padding: 0 0.65rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 6px;
-  background: var(--surface);
+  background: var(--control-surface);
   color: var(--text-body);
   font-size: 0.78rem;
   font-weight: 700;
@@ -140,12 +140,16 @@
 }
 
 .audio-probe-button:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
+  background: var(--surface-accent);
+  color: var(--accent-text);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .audio-probe-button:disabled {
+  border-color: transparent;
+  background: var(--surface-muted);
   cursor: not-allowed;
   opacity: 0.65;
 }
@@ -249,6 +253,8 @@
   justify-content: center;
   gap: 0.4rem;
   padding: 0 0.7rem;
+  border-color: transparent;
+  background: var(--control-surface);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -259,16 +265,23 @@
   justify-self: start;
 }
 
-.tts-select:focus,
-.tts-btn:focus-visible {
+.tts-select:focus {
   border-color: var(--accent-text);
   color: var(--accent-text);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
+.tts-btn:focus-visible {
+  border-color: transparent;
+  background: var(--surface-accent);
+  color: var(--accent-text);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
 .tts-btn:disabled {
-  border-color: var(--border);
+  border-color: transparent;
   background: var(--surface-muted);
   color: var(--text-soft);
   cursor: not-allowed;
@@ -669,14 +682,18 @@ html[dir="rtl"] .audiobook-action-toast {
 
 @media (hover: hover) and (pointer: fine) {
   .audio-diagnostics-control:hover,
-  .audio-probe-button:hover:not(:disabled),
-  .tts-select:hover,
-  .tts-btn:hover:not(:disabled) {
+  .tts-select:hover {
     border-color: var(--accent-text);
   }
 
-  .tts-select:hover,
+  .audio-probe-button:hover:not(:disabled),
   .tts-btn:hover:not(:disabled) {
+    border-color: transparent;
+    background: var(--surface-accent);
+    color: var(--accent-text);
+  }
+
+  .tts-select:hover {
     color: var(--accent-text);
   }
 

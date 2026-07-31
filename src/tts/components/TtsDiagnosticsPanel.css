@@ -55,17 +55,24 @@
 .tts-diagnostics-clear {
   height: 1.85rem;
   padding: 0 0.65rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 6px;
-  background: var(--surface);
+  background: var(--control-surface);
   color: var(--text-body);
   font-size: 0.78rem;
   cursor: pointer;
 }
 
-.tts-diagnostics-filter:focus-visible,
-.tts-diagnostics-clear:focus-visible {
+.tts-diagnostics-filter:focus-visible {
   border-color: var(--accent-text);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+.tts-diagnostics-clear:focus-visible {
+  border-color: transparent;
+  background: var(--surface-accent);
+  color: var(--accent-text);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
@@ -157,6 +164,11 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .tts-diagnostics-clear:hover {
+    background: var(--surface-accent);
+    color: var(--accent-text);
+  }
+
   .tts-diagnostic-json summary:hover {
     text-decoration: underline;
   }
