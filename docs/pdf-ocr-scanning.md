@@ -768,8 +768,10 @@ release validation pending
 - [ ] Smoke-test a deep page jump followed by immediate upward scrolling with
       automatic page-metadata fetching enabled.
 - [x] Synchronize PDF.js with React-driven viewport size changes.
-- [ ] Smoke-test complete initial rendering from Library, Search, and
-      Audiobooks at wide and narrow viewport sizes.
+- [x] Smoke-test responsive fit recalculation between wide and narrow
+      viewport sizes.
+- [ ] Smoke-test complete initial rendering of image-heavy pages without
+      changing zoom.
 
 Implementation evidence: the viewer lazy-loads PDF.js's `PDFViewer`,
 `PDFLinkService`, and `EventBus`; starts wide layouts at 100% and narrow
@@ -779,7 +781,9 @@ ranges so deep navigation uses real page dimensions; canvas rendering remains
 bounded to the visible neighborhood. A viewport `ResizeObserver` mirrors the
 full PDF.js viewer's resize contract: responsive fit modes are recalculated
 only when their relevant dimensions change, while the visible-page queue is
-updated without resetting explicit user zoom.
+updated without resetting explicit user zoom. PDF.js also renders directly
+into the displayed canvas because WebKit may not repaint its delayed
+temporary-canvas copy after an image-heavy page finishes.
 Tauri's asset protocol is limited to
 `$APPDATA/document_uploads/*/source.pdf`, while Rust verifies URL, database
 metadata, source kind, existence, and the 250 MB limit before returning a path.
@@ -1084,6 +1088,7 @@ Stage status: Deferred
 | 2026-07-28 | Stage 3 | Preserve PDF visual lines in indexed text | Reusing the geometry-aware narration grouping prevents unrelated adjacent lines from becoming one word while normalized phrase search continues to treat line breaks as whitespace |
 | 2026-07-25 | Stage 5 | Remove the temporary PDF WebView harness | The production import and reader paths now cover its worker, canvas, text-layer, and cleanup responsibilities without maintaining a second app entry point |
 | 2026-07-30 | Stage 4 | Synchronize PDF.js after viewport layout changes | A frame-coalesced `ResizeObserver` updates only PDF.js's visible-page queue and relevant fit mode, preserving lazy rendering and explicit user zoom |
+| 2026-07-30 | Stage 4 | Render PDF.js directly into the visible canvas | Disabling the delayed temporary-canvas update avoids a WebKit repaint failure that could leave image-heavy pages showing only an intermediate frame until zoom changed |
 
 ## References
 

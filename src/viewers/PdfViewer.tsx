@@ -191,6 +191,8 @@ export function PdfViewer({
         findController,
         annotationMode: pdfjs.AnnotationMode.ENABLE,
         enableAutoLinking: false,
+        // WebKit may not repaint PDF.js's delayed temporary-canvas copy.
+        minDurationToUpdateCanvas: 0,
       })
       pdfViewerRef.current = pdfViewer
       linkServiceRef.current = linkService
