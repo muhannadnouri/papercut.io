@@ -217,7 +217,7 @@ export function AudiobooksPanel({
         )}
 
             {savedCount > 0 && (
-          <section className="audiobooks-section" aria-label={t('tts.audiobooks.savedAria')}>
+          <section className="audiobooks-section audiobooks-saved-section" aria-label={t('tts.audiobooks.savedAria')}>
             <h3 className="audiobooks-section-title">{t('tts.audiobooks.savedSection')}</h3>
             {savedAudiobooks.map((record) => {
               const recordDeleteState = deleteState?.id === record.id ? deleteState : null

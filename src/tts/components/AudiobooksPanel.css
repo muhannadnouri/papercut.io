@@ -527,6 +527,14 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   text-transform: uppercase;
 }
 
+.audiobooks-saved-section {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 30rem), 1fr));
+}
+
+.audiobooks-saved-section > .audiobooks-section-title {
+  grid-column: 1 / -1;
+}
+
 .audiobooks-list {
   display: grid;
   gap: 0.5rem;
@@ -609,16 +617,13 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   cursor: not-allowed;
 }
 
-.audiobook-saved-main .audiobook-meta {
+.audiobooks-saved-section .audiobook-meta {
   min-width: 0;
-  overflow: hidden;
-  overflow-wrap: normal;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
-.audiobook-saved-main .audiobook-title {
-  -webkit-line-clamp: 1;
+.audiobooks-saved-section .audiobook-title {
+  -webkit-line-clamp: 2;
 }
 
 .audiobook-text-action {
@@ -900,17 +905,6 @@ html[dir="rtl"] .audiobook-action-toast {
   .audiobook-item-saved {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.4rem;
-  }
-
-  .audiobook-saved-main .audiobook-title {
-    -webkit-line-clamp: 2;
-  }
-
-  .audiobook-saved-main .audiobook-meta {
-    overflow: visible;
-    overflow-wrap: anywhere;
-    text-overflow: clip;
-    white-space: normal;
   }
 
   .audiobook-actions {
