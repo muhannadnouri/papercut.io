@@ -97,7 +97,8 @@
       "documentCategory": "Documentos ({{count, number}})",
       "emptyBooks": "Nenhum livro corresponde aos filtros atuais.",
       "emptyCategoryDocuments": "Nenhum documento corresponde aos filtros atuais.",
-      "savedAudioAvailable": "Áudio salvo disponível"
+      "savedAudioAvailable": "Áudio salvo disponível",
+      "bookmarked": "Com marcador"
     },
     "documentInfo": {
       "button": "Editar detalhes",

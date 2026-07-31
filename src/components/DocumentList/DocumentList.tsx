@@ -1,11 +1,13 @@
 import { useTranslation } from 'react-i18next'
 import type { DocumentInfo } from '../../types/search'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
+import { BookmarkIndicator } from '../BookmarkIndicator/BookmarkIndicator'
 
 interface DocumentListProps {
   groupedDocs: AuthorGroup[]
   collapsedAuthors: Set<string>
   docFilterLower: string
+  bookmarkedDocumentUrls?: ReadonlySet<string>
   onToggleAuthor: (author: string) => void
   emptyMessage?: string
 
@@ -31,6 +33,7 @@ export function DocumentList({
   groupedDocs,
   collapsedAuthors,
   docFilterLower,
+  bookmarkedDocumentUrls = new Set(),
   onToggleAuthor,
   emptyMessage,
   selectable = false,
@@ -83,6 +86,7 @@ export function DocumentList({
               <DocumentRow
                 key={doc.url}
                 doc={doc}
+                bookmarked={bookmarkedDocumentUrls.has(doc.url)}
                 selectable={selectable}
                 selected={isSelected(doc.url)}
                 onToggleFilter={onToggleFilter}
@@ -102,6 +106,7 @@ export function DocumentList({
 
 interface DocumentRowProps {
   doc: DocumentInfo
+  bookmarked: boolean
   selectable: boolean
   selected: boolean
   onToggleFilter?: (url: string) => void
@@ -114,6 +119,7 @@ interface DocumentRowProps {
 
 function DocumentRow({
   doc,
+  bookmarked,
   selectable,
   selected,
   onToggleFilter,
@@ -165,6 +171,7 @@ function DocumentRow({
         />
         {sourceIcon}
         <bdi className="document-item-title">{doc.title}</bdi>
+        {bookmarked && <BookmarkIndicator label={t('library.documents.bookmarked')} />}
         {view}
         {remove}
       </label>
@@ -175,6 +182,7 @@ function DocumentRow({
     <div className={'document-item document-item-browse' + (opening ? ' document-item-opening' : '')}>
       {sourceIcon}
       <bdi className="document-item-title">{doc.title}</bdi>
+      {bookmarked && <BookmarkIndicator label={t('library.documents.bookmarked')} />}
       {view}
       {remove}
     </div>

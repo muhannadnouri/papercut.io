@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ViewerBookmarkApi, ViewerBookmarkLocation } from '../viewers/types'
 
 const STORAGE_PREFIX = 'papercut:reader-bookmark:'
+const BOOKMARKS_CHANGED_EVENT = 'papercut:reader-bookmarks-changed'
 const NOTICE_MS = 6000
 
 type BookmarkNotice = 'restored' | 'saved' | 'updated' | 'removed' | null
@@ -23,6 +24,38 @@ interface UseReaderBookmarkReturn {
   isAtBookmark: boolean
   dismissBookmarkNotice: () => void
   toggleBookmark: () => void
+}
+
+type BookmarkStorage = Pick<Storage, 'getItem' | 'key' | 'length'>
+
+/** Read the valid bookmark URLs once for Library status indicators. */
+export function readBookmarkedDocumentUrls(storage?: BookmarkStorage): Set<string> {
+  const urls = new Set<string>()
+  try {
+    const source = storage ?? window.localStorage
+    for (let index = 0; index < source.length; index += 1) {
+      const key = source.key(index)
+      if (!key?.startsWith(STORAGE_PREFIX)) continue
+      const raw = source.getItem(key)
+      if (raw && parseReaderBookmark(raw)) urls.add(key.slice(STORAGE_PREFIX.length))
+    }
+  } catch {
+    // Storage restrictions should leave the Library usable without indicators.
+  }
+  return urls
+}
+
+/** Keep the Library's bookmark snapshot current without reading storage per row. */
+export function useBookmarkedDocumentUrls(): ReadonlySet<string> {
+  const [urls, setUrls] = useState(readBookmarkedDocumentUrls)
+
+  useEffect(() => {
+    const refresh = () => setUrls(readBookmarkedDocumentUrls())
+    window.addEventListener(BOOKMARKS_CHANGED_EVENT, refresh)
+    return () => window.removeEventListener(BOOKMARKS_CHANGED_EVENT, refresh)
+  }, [])
+
+  return urls
 }
 
 /**
@@ -67,6 +100,7 @@ export function useReaderBookmark(
     try {
       if (bookmarkRef.current && isAtBookmark) {
         window.localStorage.removeItem(storageKey(url))
+        notifyBookmarksChanged()
         bookmarkRef.current = null
         setHasBookmark(false)
         setIsAtBookmark(false)
@@ -83,6 +117,7 @@ export function useReaderBookmark(
       }
 
       window.localStorage.setItem(storageKey(url), JSON.stringify(next))
+      notifyBookmarksChanged()
       bookmarkRef.current = next
       setHasBookmark(true)
       setIsAtBookmark(true)
@@ -154,6 +189,10 @@ export function useReaderBookmark(
 
 function storageKey(url: string): string {
   return `${STORAGE_PREFIX}${url}`
+}
+
+function notifyBookmarksChanged(): void {
+  window.dispatchEvent(new Event(BOOKMARKS_CHANGED_EVENT))
 }
 
 /** Accept only current semantic HTML/EPUB or PDF bookmark locations. */

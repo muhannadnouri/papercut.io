@@ -109,7 +109,8 @@
       "documentCategory": "المستندات ({{count, number}})",
       "emptyBooks": "لا توجد كتب تطابق عوامل التصفية الحالية.",
       "emptyCategoryDocuments": "لا توجد مستندات تطابق عوامل التصفية الحالية.",
-      "savedAudioAvailable": "يتوفر صوت محفوظ"
+      "savedAudioAvailable": "يتوفر صوت محفوظ",
+      "bookmarked": "تم وضع إشارة مرجعية"
     },
     "documentInfo": {
       "button": "تعديل التفاصيل",

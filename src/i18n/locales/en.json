@@ -93,7 +93,8 @@
       "documentCategory": "Documents ({{count, number}})",
       "emptyBooks": "No books match the current filters.",
       "emptyCategoryDocuments": "No documents match the current filters.",
-      "savedAudioAvailable": "Saved audio available"
+      "savedAudioAvailable": "Saved audio available",
+      "bookmarked": "Bookmarked"
     },
     "documentInfo": {
       "button": "Edit Details",

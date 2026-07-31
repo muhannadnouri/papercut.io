@@ -32,6 +32,7 @@ export interface DocumentImportOption {
 interface DocumentsPanelProps {
   allDocuments: DocumentInfo[]
   audioSavedOnly?: boolean
+  bookmarkedDocumentUrls?: ReadonlySet<string>
   collapsedAuthors: Set<string>
   docFilterLower: string
   documentFilter: string
@@ -62,6 +63,7 @@ interface DocumentsPanelProps {
 export function DocumentsPanel({
   allDocuments,
   audioSavedOnly = false,
+  bookmarkedDocumentUrls = new Set(),
   collapsedAuthors,
   docFilterLower,
   documentFilter,
@@ -240,6 +242,7 @@ export function DocumentsPanel({
           collapsedAuthors={collapsedAuthors}
           docFilterLower={docFilterLower}
           groupedDocs={groupedDocs}
+          bookmarkedDocumentUrls={bookmarkedDocumentUrls}
           savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
           documentOpening={documentOpening}
           mutationDisabled={operationBusy}
@@ -263,6 +266,7 @@ export function DocumentsPanel({
               mutationDisabled={operationBusy}
               resetEditing={importBusy}
               openingDocumentUrl={openingDocumentUrl}
+              bookmarkedDocumentUrls={bookmarkedDocumentUrls}
               savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
               onCreateFolder={onCreateLibraryFolder!}
               onDeleteDocuments={onDeleteDocuments!}
@@ -281,6 +285,7 @@ export function DocumentsPanel({
               filterActive={docFilterLower.length > 0}
               documentOpening={documentOpening}
               openingDocumentUrl={openingDocumentUrl}
+              bookmarkedDocumentUrls={bookmarkedDocumentUrls}
               onViewDocument={onViewDocument}
             />
           )}
@@ -296,6 +301,7 @@ export function DocumentsPanel({
               onDeleteDocument={onDeleteDocument}
               deleteDisabled={operationBusy || documentOpening}
               openingDocumentUrl={openingDocumentUrl}
+              bookmarkedDocumentUrls={bookmarkedDocumentUrls}
               viewDisabled={documentOpening}
             />
           )}

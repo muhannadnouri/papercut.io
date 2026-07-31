@@ -9,6 +9,7 @@ import {
 } from '../../uploads/DocumentUploads'
 import { useAppConfirmation } from '../AppDialog/useAppConfirmation'
 import { TextInputDialog } from '../TextInputDialog/TextInputDialog'
+import { BookmarkIndicator } from '../BookmarkIndicator/BookmarkIndicator'
 import { buildLibraryTree, collectDocuments, type LibraryNode } from './libraryTree'
 import './UploadedLibraryTree.css'
 
@@ -21,6 +22,7 @@ interface UploadedLibraryTreeProps {
   resetEditing?: boolean
   openingDocumentUrl?: string
   savedAudiobookDocumentUrls?: ReadonlySet<string>
+  bookmarkedDocumentUrls?: ReadonlySet<string>
   selectedFilters?: Set<string>
   onCreateFolder?: (parentId: string | null, name: string) => Promise<void> | void
   onDeleteDocuments?: (docs: DocumentInfo[]) => Promise<UploadedDocumentDeleteBatchResult | null>
@@ -47,6 +49,7 @@ export function UploadedLibraryTree({
   resetEditing = false,
   openingDocumentUrl,
   savedAudiobookDocumentUrls = new Set(),
+  bookmarkedDocumentUrls = new Set(),
   selectedFilters,
   onCreateFolder,
   onDeleteFolder,
@@ -528,6 +531,7 @@ export function UploadedLibraryTree({
             openingDocumentUrl,
             selectedFilters,
             selectedKeys,
+            bookmarkedDocumentUrls,
             locale,
             t,
             openFolderDialog,
@@ -584,6 +588,7 @@ interface RenderNodeOptions {
   onViewDocument?: (url: string) => void
   selectedFilters?: Set<string>
   selectedKeys: Set<Key>
+  bookmarkedDocumentUrls: ReadonlySet<string>
   t: TFunction
   openFolderDialog: (parentId: string | null, parentName?: string) => void
 }
@@ -678,6 +683,9 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
               </button>
             ) : (
               <bdi className="uploaded-library-name">{node.title}</bdi>
+            )}
+            {node.kind === 'document' && options.bookmarkedDocumentUrls.has(node.url) && (
+              <BookmarkIndicator label={options.t('library.documents.bookmarked')} />
             )}
             {opening && <span className="uploaded-library-opening">{options.t('common.opening')}</span>}
             {node.kind === 'document' && !options.filterMode && (

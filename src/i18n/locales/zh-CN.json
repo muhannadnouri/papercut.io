@@ -89,7 +89,8 @@
       "documentCategory": "文件（{{count, number}}）",
       "emptyBooks": "没有符合当前筛选条件的书籍。",
       "emptyCategoryDocuments": "没有符合当前筛选条件的文件。",
-      "savedAudioAvailable": "有已保存的音频"
+      "savedAudioAvailable": "有已保存的音频",
+      "bookmarked": "已添加书签"
     },
     "documentInfo": {
       "button": "编辑详情",
