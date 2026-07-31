@@ -10,7 +10,7 @@
   height: 2.35rem;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--control-surface);
   color: var(--accent-strong);
   cursor: pointer;
@@ -66,7 +66,7 @@
   min-height: 2.35rem;
   padding-inline: 0.75rem;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--control-surface);
   color: var(--accent-text);
   font: inherit;
@@ -135,7 +135,7 @@
   position: absolute;
   inset: 0;
   border: 1px solid var(--border-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--surface-muted);
   transition: background 0.15s, border-color 0.15s;
 }
@@ -177,7 +177,7 @@
 .app-setting-select .app-select-button {
   min-height: 2.35rem;
   border-color: transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--control-surface);
 }
 
@@ -196,7 +196,7 @@
   min-height: 2.35rem;
   padding: 0 0.75rem;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--accent);
   color: var(--text-inverse);
   font: inherit;
@@ -228,7 +228,7 @@
   align-items: center;
   justify-self: start;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-compact);
   background: var(--control-surface);
   overflow: hidden;
 }
@@ -323,7 +323,7 @@
 
 .app-zoom-reset {
   padding-inline: 0.55rem;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   font-size: 0.74rem;
 }
 

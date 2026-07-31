@@ -13,7 +13,7 @@
   min-height: 2.2rem;
   padding: 0 0.55rem;
   border: 1px solid var(--border-strong);
-  border-radius: 7px;
+  border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--text-heading);
   font: inherit;
@@ -55,7 +55,7 @@
   width: var(--trigger-width);
   max-height: min(18rem, calc(100vh - 8rem));
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--surface-strong);
   color: var(--text-heading);
   box-shadow: 0 12px 28px var(--shadow-popover);

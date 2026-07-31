@@ -166,6 +166,11 @@
   --shadow-panel: rgba(31, 41, 55, 0.18);
   --shadow-strong: var(--shadow-panel);
   --focus-ring: var(--accent-border);
+  --radius-inline: 4px;
+  --radius-compact: 6px;
+  --radius-control: 8px;
+  --radius-surface: 10px;
+  --radius-full: 999px;
 
   color-scheme: var(--color-scheme);
   background: var(--app-bg);
