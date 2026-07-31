@@ -1,8 +1,9 @@
 .library-transfer-mode {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 8px;
+  background: var(--control-surface);
   overflow: hidden;
 }
 
@@ -10,8 +11,8 @@
   min-height: 2.35rem;
   padding-inline: 0.75rem;
   border: 0;
-  border-inline-end: 1px solid var(--border);
-  background: var(--surface);
+  border-inline-end: 1px solid transparent;
+  background: var(--control-surface);
   color: var(--text-body);
   font: inherit;
   font-size: 0.82rem;
@@ -24,8 +25,8 @@
 }
 
 .library-transfer-mode button[aria-pressed="true"] {
-  background: var(--surface-accent);
-  color: var(--accent-text);
+  background: var(--surface-accent-strong);
+  color: var(--accent-strong);
 }
 
 .library-transfer-mode button:focus-visible {
@@ -68,9 +69,9 @@
 .library-transfer-alternate button {
   min-height: 2.35rem;
   padding-inline: 0.8rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 8px;
-  background: var(--surface);
+  background: var(--control-surface);
   color: var(--accent-text);
   font: inherit;
   font-size: 0.82rem;
@@ -79,7 +80,7 @@
 }
 
 .library-transfer-primary-section > .library-transfer-primary {
-  border-color: var(--accent);
+  border-color: transparent;
   background: var(--accent);
   color: var(--text-inverse);
 }
@@ -88,7 +89,9 @@
 .library-transfer-primary-section > button:focus-visible,
 .library-transfer-alternate button:hover:not(:disabled),
 .library-transfer-alternate button:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
+  background: var(--surface-accent);
+  color: var(--accent-strong);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
@@ -96,19 +99,28 @@
 .library-transfer-primary-section > .library-transfer-primary:hover:not(:disabled),
 .library-transfer-primary-section > .library-transfer-primary:focus-visible {
   background: var(--accent-hover);
+  color: var(--text-inverse);
 }
 
 .library-transfer-primary-section > button:disabled,
 .library-transfer-alternate button:disabled {
-  border-color: var(--border);
+  border-color: transparent;
   background: var(--surface-muted);
   color: var(--text-soft);
   cursor: not-allowed;
 }
 
 .library-transfer-primary-section > .library-transfer-stop {
-  border-color: var(--danger-accent);
+  border-color: transparent;
+  background: var(--surface-danger);
   color: var(--danger-strong);
+}
+
+.library-transfer-primary-section > .library-transfer-stop:hover:not(:disabled),
+.library-transfer-primary-section > .library-transfer-stop:focus-visible {
+  border-color: transparent;
+  background: var(--surface-danger);
+  color: var(--danger-accent);
 }
 
 .library-transfer-audiobooks {
@@ -178,9 +190,9 @@ html[dir="rtl"] .library-transfer-audiobooks[open] summary::before {
 .library-transfer-audiobook-actions button {
   min-height: 2rem;
   padding-inline: 0.65rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 6px;
-  background: var(--surface);
+  background: var(--control-surface);
   color: var(--accent-text);
   font: inherit;
   font-size: 0.75rem;
@@ -189,15 +201,25 @@ html[dir="rtl"] .library-transfer-audiobooks[open] summary::before {
 }
 
 .library-transfer-audiobook-actions button:disabled {
+  background: var(--surface-muted);
   color: var(--text-soft);
   cursor: not-allowed;
+}
+
+.library-transfer-audiobook-actions button:focus-visible {
+  border-color: transparent;
+  background: var(--surface-accent);
+  color: var(--accent-strong);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .library-transfer-audiobook-list {
   display: block;
   max-height: 13rem;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: 6px;
+  background: var(--control-surface);
   overflow-y: auto;
 }
 
@@ -308,16 +330,17 @@ html[dir="rtl"] .library-transfer-audiobooks[open] summary::before {
   width: 100%;
   min-height: 2.35rem;
   padding-inline: 0.55rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: 8px;
-  background: var(--surface);
+  background: var(--control-surface);
   color: var(--text-body);
   font: inherit;
   font-weight: 500;
 }
 
 .library-transfer-pairing-fields input:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
+  background: var(--surface-accent);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
@@ -333,9 +356,18 @@ html[dir="rtl"] .library-transfer-audiobooks[open] summary::before {
 
 .library-transfer-session {
   padding: 0.7rem;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: 8px;
-  background: var(--surface-muted);
+  background: var(--control-surface);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .library-transfer-mode button:hover:not(:disabled):not([aria-pressed="true"]),
+  .library-transfer-audiobook-actions button:hover:not(:disabled),
+  .library-transfer-audiobook-list label:hover {
+    background: var(--surface-accent);
+    color: var(--accent-strong);
+  }
 }
 
 .library-transfer-session progress,
