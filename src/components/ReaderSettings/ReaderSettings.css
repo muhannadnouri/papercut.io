@@ -135,7 +135,7 @@
   min-height: 2rem;
   padding: 0 0.65rem;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: var(--radius-compact);
   background: var(--control-surface);
   color: var(--text-body);
   font-size: 0.78rem;

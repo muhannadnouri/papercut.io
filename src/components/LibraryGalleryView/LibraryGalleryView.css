@@ -46,7 +46,7 @@
   height: 2rem;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 5px;
+  border-radius: var(--radius-compact);
   background: var(--control-surface);
   color: var(--accent-text);
   cursor: pointer;
