@@ -238,6 +238,7 @@
   min-width: 0;
   padding-block: 0;
   padding-inline: 0.5rem 1.6rem;
+  border-color: transparent;
   appearance: none;
   -webkit-appearance: none;
   background-color: var(--control-surface);
@@ -599,8 +600,8 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
 
 .audiobook-delete {
   min-height: 2.15rem;
-  border-color: var(--danger-border);
-  background: var(--surface);
+  border-color: transparent;
+  background: var(--surface-danger);
   color: var(--danger);
 }
 
@@ -676,7 +677,7 @@ html[dir="rtl"] .audiobook-action-toast {
 }
 
 .audiobook-delete:focus-visible {
-  border-color: var(--danger);
+  border-color: transparent;
   background: var(--surface-danger);
   color: var(--danger-strong);
 }
@@ -726,7 +727,7 @@ html[dir="rtl"] .audiobook-action-toast {
   }
 
   .audiobook-delete:hover:not(:disabled) {
-    border-color: var(--danger);
+    border-color: transparent;
     background: var(--surface-danger);
     color: var(--danger-strong);
   }
