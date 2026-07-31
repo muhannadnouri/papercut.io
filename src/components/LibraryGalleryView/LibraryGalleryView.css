@@ -34,8 +34,8 @@
 }
 
 .library-gallery-category.active {
-  color: var(--accent-strong);
-  background: var(--surface-accent-strong);
+  color: var(--text-inverse);
+  background: var(--accent);
 }
 
 .library-view-toggle {
@@ -165,7 +165,7 @@ html[data-theme="dark"] .library-book-cover {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .library-gallery-category:hover {
+  .library-gallery-category:hover:not(.active) {
     color: var(--accent-text);
     background: var(--surface-accent);
     outline: none;

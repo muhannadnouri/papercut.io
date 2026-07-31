@@ -76,7 +76,8 @@
 
 .document-import-btn[aria-expanded="true"] {
   border-color: transparent;
-  background: var(--surface-accent);
+  background: var(--accent);
+  color: var(--text-inverse);
 }
 
 .document-import-btn[data-disabled] {
@@ -120,21 +121,11 @@
 }
 
 .audio-filter-toggle[aria-pressed="true"] {
-  background: var(--surface-accent-strong);
-  color: var(--accent-strong);
-}
-
-html[data-theme="light"] :is(
-  .document-import-btn[aria-expanded="true"],
-  .audio-filter-toggle[aria-pressed="true"]
-) {
   background: var(--accent);
   color: var(--text-inverse);
 }
 
 .audio-filter-toggle:focus-visible {
-  background: var(--surface-accent);
-  color: var(--accent-strong);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
@@ -594,12 +585,12 @@ html[data-theme="light"] :is(
     background: var(--surface-accent);
   }
 
-  .document-import-btn:hover:not([data-disabled]) {
+  .document-import-btn:hover:not([data-disabled]):not([aria-expanded="true"]) {
     border-color: transparent;
     background: var(--surface-accent);
   }
 
-  .audio-filter-toggle:hover {
+  .audio-filter-toggle:hover:not([aria-pressed="true"]) {
     background: var(--surface-accent);
     color: var(--accent-strong);
   }
