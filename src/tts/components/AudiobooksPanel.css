@@ -551,6 +551,22 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   overflow: hidden;
 }
 
+.audiobook-item-active {
+  border-color: transparent;
+  background: var(--surface-accent);
+}
+
+.audiobook-item-queued,
+.audiobook-item-paused {
+  border-color: transparent;
+  background: var(--control-surface);
+}
+
+.audiobook-item-error {
+  border-color: transparent;
+  background: var(--surface-danger);
+}
+
 .audiobook-item-saved {
   position: relative;
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -616,6 +632,16 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   border-color: transparent;
   background: var(--surface-danger);
   color: var(--danger);
+}
+
+.audiobook-resume {
+  background: var(--surface-accent-strong);
+  color: var(--accent-strong);
+}
+
+.audiobook-secondary {
+  background: var(--surface-muted);
+  color: var(--text-body);
 }
 
 .audiobook-action-toast {
