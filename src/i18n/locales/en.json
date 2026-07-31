@@ -94,7 +94,9 @@
       "emptyBooks": "No books match the current filters.",
       "emptyCategoryDocuments": "No documents match the current filters.",
       "savedAudioAvailable": "Saved audio available",
-      "bookmarked": "Bookmarked"
+      "bookmarked": "Bookmarked",
+      "bookmarkedOnly": "Show Bookmarked Only",
+      "emptyBookmarked": "No bookmarked documents match the current filters."
     },
     "documentInfo": {
       "button": "Edit Details",

@@ -130,6 +130,12 @@
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
+.bookmark-filter-toggle {
+  width: 2rem;
+  padding: 0;
+  justify-content: center;
+}
+
 .document-import-popover {
   z-index: 100;
   outline: none;
@@ -711,6 +717,10 @@
 
   .document-browser-panel .audio-filter-toggle {
     min-height: 2.75rem;
+  }
+
+  .document-browser-panel .bookmark-filter-toggle {
+    width: 2.75rem;
   }
 
   .document-browser-panel .document-view-options {

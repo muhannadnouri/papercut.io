@@ -90,7 +90,9 @@
       "emptyBooks": "没有符合当前筛选条件的书籍。",
       "emptyCategoryDocuments": "没有符合当前筛选条件的文件。",
       "savedAudioAvailable": "有已保存的音频",
-      "bookmarked": "已添加书签"
+      "bookmarked": "已添加书签",
+      "bookmarkedOnly": "仅显示已添加书签的文件",
+      "emptyBookmarked": "没有符合当前筛选条件的已添加书签文件。"
     },
     "documentInfo": {
       "button": "编辑详情",

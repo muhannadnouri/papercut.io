@@ -5,6 +5,8 @@ import { Button, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-compone
 import type { DocumentInfo } from '../../types/search'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
 import type { UploadedDocumentDeleteBatchResult, UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
+import { BookmarkIcon } from '../BookmarkIndicator/BookmarkIndicator'
+import { filterBookmarkedGroups } from '../BookmarkIndicator/bookmarkFilters'
 import { BundledDocumentTree } from '../BundledDocumentTree/BundledDocumentTree'
 import { Panel } from '../Panel/Panel'
 import { DocumentList } from '../DocumentList/DocumentList'
@@ -92,6 +94,7 @@ export function DocumentsPanel({
 }: DocumentsPanelProps) {
   const { t } = useTranslation()
   const [importMenuOpen, setImportMenuOpen] = useState(false)
+  const [bookmarkedOnly, setBookmarkedOnly] = useState(false)
   const [preferredView, setPreferredView] = useState<LibraryView>(loadView)
   const [galleryCategory, setGalleryCategory] = useState<LibraryGalleryCategory>(
     loadCategory,
@@ -102,12 +105,13 @@ export function DocumentsPanel({
   const importBusy = importStatuses.some((item) => item.status === 'importing')
   const operationBusy = importStatuses.some((item) => item.status === 'importing' || item.status === 'deleting')
   const importDisabled = hasImportOptions && importOptions.every((option) => option.disabled || option.future || !option.onSelect)
+  const visibleGroups = filterBookmarkedGroups(groupedDocs, bookmarkedDocumentUrls, bookmarkedOnly)
   const {
     uploadDocs,
     bundledDocs,
     nonBundledGroups,
     otherGroups,
-  } = splitDocumentGroupsBySource(groupedDocs)
+  } = splitDocumentGroupsBySource(visibleGroups)
   const canShowUploadedTree = Boolean(
     libraryOrganization &&
     onCreateLibraryFolder &&
@@ -200,6 +204,16 @@ export function DocumentsPanel({
           >
             <ViewIcon view={view === 'gallery' ? 'list' : 'gallery'} />
           </button>
+          <button
+            type="button"
+            className="audio-filter-toggle bookmark-filter-toggle"
+            aria-label={t('library.documents.bookmarkedOnly')}
+            title={t('library.documents.bookmarkedOnly')}
+            aria-pressed={bookmarkedOnly}
+            onClick={() => setBookmarkedOnly(!bookmarkedOnly)}
+          >
+            <BookmarkIcon />
+          </button>
           {onAudioSavedOnlyChange && (
             <button
               type="button"
@@ -241,13 +255,13 @@ export function DocumentsPanel({
           category={galleryCategory}
           collapsedAuthors={collapsedAuthors}
           docFilterLower={docFilterLower}
-          groupedDocs={groupedDocs}
+          groupedDocs={visibleGroups}
           bookmarkedDocumentUrls={bookmarkedDocumentUrls}
           savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
           documentOpening={documentOpening}
           mutationDisabled={operationBusy}
           openingDocumentUrl={openingDocumentUrl}
-          emptyMessage={emptyMessage(allDocuments.length, audioSavedOnly, documentFilter, t)}
+          emptyMessage={emptyMessage(allDocuments.length, audioSavedOnly, bookmarkedOnly, documentFilter, t)}
           onCategoryChange={(category) => {
             setGalleryCategory(category)
             savePreference(CATEGORY_STORAGE_KEY, category)
@@ -295,7 +309,7 @@ export function DocumentsPanel({
               groupedDocs={documentListGroups}
               collapsedAuthors={collapsedAuthors}
               docFilterLower={docFilterLower}
-              emptyMessage={emptyMessage(allDocuments.length, audioSavedOnly, documentFilter, t)}
+              emptyMessage={emptyMessage(allDocuments.length, audioSavedOnly, bookmarkedOnly, documentFilter, t)}
               onToggleAuthor={onToggleAuthor}
               onViewDocument={onViewDocument}
               onDeleteDocument={onDeleteDocument}
@@ -344,8 +358,15 @@ type LibraryView = 'gallery' | 'list'
 const VIEW_STORAGE_KEY = 'papercut.library-view.v1'
 const CATEGORY_STORAGE_KEY = 'papercut.library-gallery-category.v1'
 
-function emptyMessage(documentCount: number, audioSavedOnly: boolean, filter: string, t: TFunction): string {
+function emptyMessage(
+  documentCount: number,
+  audioSavedOnly: boolean,
+  bookmarkedOnly: boolean,
+  filter: string,
+  t: TFunction,
+): string {
   if (documentCount === 0) return t('library.documents.empty')
+  if (bookmarkedOnly) return t('library.documents.emptyBookmarked')
   if (audioSavedOnly) return t('library.documents.emptySavedAudio')
   return filter.trim() ? t('library.documents.emptyFilter') : t('library.documents.empty')
 }

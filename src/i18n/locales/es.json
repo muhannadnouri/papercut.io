@@ -98,7 +98,9 @@
       "emptyBooks": "Ningún libro coincide con los filtros actuales.",
       "emptyCategoryDocuments": "Ningún documento coincide con los filtros actuales.",
       "savedAudioAvailable": "Audio guardado disponible",
-      "bookmarked": "Marcado"
+      "bookmarked": "Marcado",
+      "bookmarkedOnly": "Mostrar solo los documentos marcados",
+      "emptyBookmarked": "Ningún documento marcado coincide con los filtros actuales."
     },
     "documentInfo": {
       "button": "Editar detalles",
