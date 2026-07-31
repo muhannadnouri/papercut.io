@@ -46,7 +46,7 @@
   min-height: 2rem;
   padding: 0 0.5rem;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--control-surface);
   color: var(--text-body);
   font-size: 0.78rem;
@@ -73,7 +73,7 @@
   width: 2.1rem;
   height: 1.1rem;
   border: 1px solid var(--border-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--surface-muted);
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
@@ -140,7 +140,7 @@
   min-height: 2rem;
   padding: 0 0.65rem;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   background: var(--control-surface);
   color: var(--text-body);
   font-size: 0.78rem;
@@ -200,7 +200,7 @@
   width: max-content;
   min-width: 0;
   padding: 0.05rem 0.35rem;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   color: var(--text-soft);
   font-size: 0.62rem;
   font-weight: 700;
@@ -234,7 +234,7 @@
 .tts-btn {
   min-height: 2rem;
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--text-body);
   font-size: 0.78rem;
@@ -323,7 +323,7 @@
   gap: 0.45rem;
   padding: 0.55rem 0.8rem;
   border: 1px solid var(--success-border);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--surface-success);
   color: var(--success);
   font-size: 0.8rem;
@@ -372,7 +372,7 @@
   margin: 0;
   padding: 0.7rem 0.85rem;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--control-surface);
   color: var(--text-body);
   text-align: start;
@@ -471,7 +471,7 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   min-height: 2.25rem;
   padding: 0 0.8rem;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--control-surface);
   color: var(--accent-text);
   font-size: 0.85rem;
@@ -552,7 +552,7 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   max-width: 100%;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--text-body);
   text-align: start;
@@ -607,7 +607,7 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
 .audiobook-saved-main:focus-visible {
   color: var(--accent-strong);
   outline: none;
-  border-radius: 4px;
+  border-radius: var(--radius-inline);
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
@@ -628,7 +628,7 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
 
 .audiobook-text-action {
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   background: transparent;
   color: var(--accent-text);
   font-size: 0.78rem;
@@ -661,7 +661,7 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   padding-block: 0.6rem;
   padding-inline: 0.8rem 0.6rem;
   border: 1px solid var(--success-border);
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
   background: var(--surface-success);
   color: var(--success-strong);
   box-shadow: 0 10px 28px var(--shadow-strong);
@@ -689,7 +689,7 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   width: 1.85rem;
   height: 1.85rem;
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--surface-muted);
   color: var(--text-muted);
   font: inherit;
@@ -823,7 +823,7 @@ html[dir="rtl"] .audiobook-action-toast {
   height: 0.35rem;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--surface-accent-strong);
 }
 

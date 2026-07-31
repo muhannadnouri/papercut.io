@@ -2,7 +2,7 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--control-surface);
   overflow: hidden;
 }
@@ -70,7 +70,7 @@
   min-height: 2.35rem;
   padding-inline: 0.8rem;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--control-surface);
   color: var(--accent-text);
   font: inherit;
@@ -191,7 +191,7 @@ html[dir="rtl"] .library-transfer-audiobooks[open] summary::before {
   min-height: 2rem;
   padding-inline: 0.65rem;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   background: var(--control-surface);
   color: var(--accent-text);
   font: inherit;
@@ -218,7 +218,7 @@ html[dir="rtl"] .library-transfer-audiobooks[open] summary::before {
   display: block;
   max-height: 13rem;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   background: var(--control-surface);
   overflow-y: auto;
 }
@@ -331,7 +331,7 @@ html[dir="rtl"] .library-transfer-audiobooks[open] summary::before {
   min-height: 2.35rem;
   padding-inline: 0.55rem;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--control-surface);
   color: var(--text-body);
   font: inherit;
@@ -357,7 +357,7 @@ html[dir="rtl"] .library-transfer-audiobooks[open] summary::before {
 .library-transfer-session {
   padding: 0.7rem;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--control-surface);
 }
 

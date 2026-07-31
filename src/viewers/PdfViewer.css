@@ -25,7 +25,7 @@
   align-items: center;
   background: var(--surface-strong);
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   box-shadow: 0 4px 14px var(--shadow-soft);
   color: var(--text-heading);
   display: inline-flex;
@@ -118,7 +118,7 @@ html[dir="rtl"] .pdf-search-target-status {
   align-items: center;
   background: transparent;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   color: var(--text-body);
   cursor: pointer;
   display: inline-flex;
