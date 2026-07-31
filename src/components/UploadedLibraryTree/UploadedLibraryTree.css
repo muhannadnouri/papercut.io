@@ -83,6 +83,11 @@
   font-size: 0.75rem;
 }
 
+.uploaded-library-edit-btn[aria-pressed] {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
 .uploaded-library-toolbar-actions {
   display: flex;
   flex-shrink: 0;
