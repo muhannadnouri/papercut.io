@@ -748,7 +748,8 @@ and Stage 5 work.
 
 ### Stage 4: PDF Viewer
 
-Stage status: Implementation complete; deep-navigation release validation pending
+Stage status: Implementation complete; initial-layout and deep-navigation
+release validation pending
 
 - [x] Implement the PDF.js viewer as a focused viewer component.
 - [x] Load source through a scoped local asset boundary rather than JSON/base64.
@@ -766,13 +767,19 @@ Stage status: Implementation complete; deep-navigation release validation pendin
 - [x] Smoke-test single/spread navigation and narrow-screen fallback.
 - [ ] Smoke-test a deep page jump followed by immediate upward scrolling with
       automatic page-metadata fetching enabled.
+- [x] Synchronize PDF.js with React-driven viewport size changes.
+- [ ] Smoke-test complete initial rendering from Library, Search, and
+      Audiobooks at wide and narrow viewport sizes.
 
 Implementation evidence: the viewer lazy-loads PDF.js's `PDFViewer`,
 `PDFLinkService`, and `EventBus`; starts wide layouts at 100% and narrow
 layouts at fit width; disables external and auto-detected links; and requests
 source data in 1 MiB ranges. PDF.js may prefetch page metadata through those
 ranges so deep navigation uses real page dimensions; canvas rendering remains
-bounded to the visible neighborhood.
+bounded to the visible neighborhood. A viewport `ResizeObserver` mirrors the
+full PDF.js viewer's resize contract: responsive fit modes are recalculated
+only when their relevant dimensions change, while the visible-page queue is
+updated without resetting explicit user zoom.
 Tauri's asset protocol is limited to
 `$APPDATA/document_uploads/*/source.pdf`, while Rust verifies URL, database
 metadata, source kind, existence, and the 250 MB limit before returning a path.
@@ -1076,6 +1083,7 @@ Stage status: Deferred
 | 2026-07-26 | Stage 5 | Render indexed search-result pages first | PDF import already stores page-level text and FTS locators; applying that locator during `pagesinit` removes the redundant page-one render while retaining PDF.js text-layer highlighting and whole-document Find as a correctness fallback |
 | 2026-07-28 | Stage 3 | Preserve PDF visual lines in indexed text | Reusing the geometry-aware narration grouping prevents unrelated adjacent lines from becoming one word while normalized phrase search continues to treat line breaks as whitespace |
 | 2026-07-25 | Stage 5 | Remove the temporary PDF WebView harness | The production import and reader paths now cover its worker, canvas, text-layer, and cleanup responsibilities without maintaining a second app entry point |
+| 2026-07-30 | Stage 4 | Synchronize PDF.js after viewport layout changes | A frame-coalesced `ResizeObserver` updates only PDF.js's visible-page queue and relevant fit mode, preserving lazy rendering and explicit user zoom |
 
 ## References
 

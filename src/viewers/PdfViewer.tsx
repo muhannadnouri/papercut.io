@@ -31,6 +31,7 @@ import {
   type PdfFitMode,
   type PdfSpreadMode,
 } from './PdfControls'
+import { syncPdfViewerLayout } from './pdfViewerLayout'
 import './PdfViewer.css'
 import type { ViewerProps } from './types'
 
@@ -140,6 +141,10 @@ export function PdfViewer({
     let eventBus: EventBus | undefined
     let findController: PDFFindController | undefined
     let findAdapter: ReturnType<typeof createPdfFindAdapter> | undefined
+    let resizeObserver: ResizeObserver | undefined
+    let resizeFrame = 0
+    let pendingWidthChange = false
+    let previousContainerSize: { width: number; height: number } | undefined
 
     setCurrentPage(1)
     setZoom(100)
@@ -246,6 +251,28 @@ export function PdfViewer({
         })
       await pdfViewer.onePageRendered
       if (!cancelled) {
+        resizeObserver = new ResizeObserver(([entry]) => {
+          if (!entry) return
+          const width = Math.round(entry.contentRect.width)
+          const height = Math.round(entry.contentRect.height)
+          if (width <= 0 || height <= 0) return
+
+          const widthChanged = width !== previousContainerSize?.width
+          const heightChanged = height !== previousContainerSize?.height
+          if (!widthChanged && !heightChanged) return
+          previousContainerSize = { width, height }
+          pendingWidthChange ||= widthChanged
+
+          cancelAnimationFrame(resizeFrame)
+          resizeFrame = requestAnimationFrame(() => {
+            const recomputeWidthFit = pendingWidthChange
+            pendingWidthChange = false
+            if (!cancelled && pdfViewer?.pagesCount) {
+              syncPdfViewerLayout(pdfViewer, recomputeWidthFit)
+            }
+          })
+        })
+        resizeObserver.observe(container)
         onBookmarkApiChange?.(createPdfBookmarkApi(pdfViewer, container, eventBus))
         setStatus({ state: 'ready', pages: pdf.numPages })
       }
@@ -272,6 +299,8 @@ export function PdfViewer({
 
     return () => {
       cancelled = true
+      resizeObserver?.disconnect()
+      cancelAnimationFrame(resizeFrame)
       removeEventListeners?.()
       findAdapter?.dispose()
       if (findAdapterRef.current === findAdapter) findAdapterRef.current = null
