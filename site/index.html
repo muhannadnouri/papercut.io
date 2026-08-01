@@ -4,9 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Papercut</title>
-    <meta name="description" content="Papercut helps you import, search, read, and listen to personal document libraries offline. Generate and export private audiobooks with no accounts or subscriptions.">
+    <meta name="description" content="Papercut helps you import, search, read, transfer, and listen to HTML, EPUB, and PDF libraries offline. Generate and export private audiobooks with no accounts or subscriptions.">
     <meta property="og:title" content="Papercut">
-    <meta property="og:description" content="Search, read, and listen to your own documents offline. Desktop and mobile.">
+    <meta property="og:description" content="Search, read, transfer, and listen to your own documents offline on desktop and mobile.">
     <meta property="og:image" content="https://trypapercut.netlify.app/assets/papercut-icon.png">
     <meta property="og:type" content="website">
     <link rel="icon" href="assets/papercut-icon.png" sizes="128x128">
@@ -76,9 +76,9 @@
           <p class="eyebrow">Offline reader, search engine, and audiobook maker</p>
           <h1 id="intro-title">Search, read, and listen to your documents offline</h1>
           <p class="intro-copy">
-            Papercut is a desktop and mobile app for importing HTML and EPUB files,
-            searching across large personal libraries, reading locally, and generating
-            natural-sounding audiobooks you can export and carry with you.
+            Papercut is a desktop and mobile app for importing HTML, EPUB, and
+            text-native PDF files, searching indexed personal libraries, reading
+            locally, and generating offline audiobooks you can export and carry with you.
           </p>
           <div class="intro-actions" role="group" aria-label="Primary actions">
             <a class="button-primary" href="#downloads-title">Download Papercut</a>
@@ -125,17 +125,17 @@
             <div class="feature-card">
               <span class="feature-label">Search</span>
               <h3>Find text across your whole library</h3>
-              <p>Search across hundreds of imported documents without internet, accounts, or waiting. Exact and fuzzy search help you recover notes, code references, research quotes, and manual sections.</p>
+              <p>Search indexed content across hundreds of imported documents without internet or accounts. Exact and broad search help you recover notes, code references, research quotes, and manual sections.</p>
             </div>
             <div class="feature-card">
               <span class="feature-label">Read</span>
-              <h3>Read HTML and EPUB files offline</h3>
-              <p>Bring your own HTML and EPUB files into a fast local reader. Tune the experience with fonts and dark mode so books, documentation, papers, and long notes stay comfortable.</p>
+              <h3>Read HTML, EPUB, and PDF files offline</h3>
+              <p>Bring your own documents into local HTML, EPUB, and responsive PDF readers. Tune reflowable text with fonts, reading width, and dark mode while PDFs retain their original pages.</p>
             </div>
             <div class="feature-card">
               <span class="feature-label">Organize</span>
               <h3>Keep documents, folders, and audio together</h3>
-              <p>Organize files into folders, save generated audio, and export audiobook bundles for sharing, transfer, or backup. PDF support is coming soon.</p>
+              <p>Import many files at once, browse covers or lists, organize folders, edit titles, save generated audio, and move selected documents and audiobooks between Papercut devices.</p>
             </div>
           </div>
         </section>
@@ -177,12 +177,12 @@
 
             <div class="model-notes">
               <article>
-                <h4>English voices</h4>
-                <p>English audiobook generation uses Kokoro because it currently offers strong quality among fully offline voice models.</p>
+                <h4>Multilingual Kokoro voices</h4>
+                <p>Kokoro provides offline voices for English, Mandarin Chinese, Spanish, French, Hindi, Italian, and Brazilian Portuguese.</p>
               </article>
               <article>
                 <h4>Arabic voices</h4>
-                <p>Arabic is supported with separate offline models, not Kokoro, so language support is explicit instead of hidden in a generic AI claim.</p>
+                <p>Arabic uses separate offline Piper and Supertonic models. SILMA is also available on Linux x64 through an optional runtime download managed by Papercut.</p>
               </article>
               <article>
                 <h4>Offline model scope</h4>
@@ -209,7 +209,7 @@
             <div class="privacy-grid" aria-label="Papercut privacy details">
               <article>
                 <strong>Documents</strong>
-                <span>Imported HTML and EPUB files remain local.</span>
+                <span>Imported HTML, EPUB, and PDF files remain local.</span>
               </article>
               <article>
                 <strong>Search</strong>
@@ -217,7 +217,7 @@
               </article>
               <article>
                 <strong>Audiobooks</strong>
-                <span>Generated audio is saved locally and owned by you.</span>
+                <span>Generated audio stays local, and Papercut does not claim ownership of it.</span>
               </article>
               <article>
                 <strong>Network</strong>
@@ -246,7 +246,7 @@
                 </article>
                 <article>
                   <strong>Students</strong>
-                  <span>Turn reading packets and EPUBs into private study audio.</span>
+                  <span>Turn reading packets, EPUBs, and text-native PDFs into private study audio.</span>
                 </article>
                 <article>
                   <strong>Offline-first readers</strong>
@@ -268,8 +268,8 @@
                   <span>Create audio from your own documents instead of buying from a catalog.</span>
                 </article>
                 <article>
-                  <strong>EPUB readers</strong>
-                  <span>Add cross-document search and offline audiobook generation.</span>
+                  <strong>Document readers</strong>
+                  <span>Add cross-document search, library transfer, and offline audiobook generation.</span>
                 </article>
                 <article>
                   <strong>AI reader apps</strong>
@@ -281,7 +281,7 @@
         </section>
 
         <section class="downloads" aria-labelledby="downloads-title">
-          <div class="section-label"><h2 id="downloads-title">Downloads</h2> <span class="version-badge">v1.7.3</span></div>
+          <div class="section-label"><h2 id="downloads-title">Downloads</h2> <span class="version-badge">v1.8.0</span></div>
           <div class="download-list">
             <p class="download-list-intro">Start with a recommended installer, or open a platform group for every package.</p>
 
@@ -289,25 +289,25 @@
               <article>
                 <strong><span aria-hidden="true">🤖</span> Android</strong>
                 <span>Android 8.0+ on arm64-v8a devices. Includes native audiobook support.</span>
-                <a href="https://github.com/muhannadnouri/papercut.io/releases/latest/download/Papercut_v1.7.3_android-arm64-v8a.apk" aria-label="Download Papercut Android APK">Download APK</a>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_v1.8.0_android-arm64-v8a.apk" aria-label="Download Papercut Android APK">Download APK</a>
               </article>
               <article>
                 <strong><span aria-hidden="true">⊞</span> Windows</strong>
                 <span>Windows 10+ x64 installer. Uses the Microsoft Edge WebView2 runtime.</span>
-                <a href="https://github.com/muhannadnouri/papercut.io/releases/latest/download/Papercut_1.7.3_x64_en-US.msi" aria-label="Download Papercut Windows .msi">Download .msi</a>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_1.8.0_x64_en-US.msi" aria-label="Download Papercut Windows .msi">Download .msi</a>
               </article>
               <article>
                 <strong><span aria-hidden="true">🍎</span> macOS</strong>
                 <span>macOS 10.13+ with signed and notarized builds for Apple Silicon and Intel.</span>
                 <div class="split-actions">
-                  <a href="https://github.com/muhannadnouri/papercut.io/releases/latest/download/Papercut_1.7.3_aarch64.dmg" aria-label="Download Papercut macOS DMG for Apple Silicon">Apple Silicon</a>
-                  <a href="https://github.com/muhannadnouri/papercut.io/releases/latest/download/Papercut_1.7.3_x64.dmg" aria-label="Download Papercut macOS DMG for Intel">Intel</a>
+                  <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_1.8.0_aarch64.dmg" aria-label="Download Papercut macOS DMG for Apple Silicon">Apple Silicon</a>
+                  <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_1.8.0_x64.dmg" aria-label="Download Papercut macOS DMG for Intel">Intel</a>
                 </div>
               </article>
               <article>
                 <strong><span aria-hidden="true">🐧</span> Linux</strong>
                 <span>amd64 Linux with WebKitGTK and GStreamer. DEB recommended for Debian-based distributions.</span>
-                <a href="https://github.com/muhannadnouri/papercut.io/releases/latest/download/Papercut_1.7.3_amd64.deb" aria-label="Download Papercut Linux .deb">Download .deb</a>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_1.8.0_amd64.deb" aria-label="Download Papercut Linux .deb">Download .deb</a>
               </article>
             </div>
 
@@ -321,9 +321,9 @@
                     <span class="download-kind">(.apk)</span>
                   </strong>
                   <span>Android arm64-v8a APK with native audiobook support. Requires Android 8.0+ / API 26+.</span>
-                  <code>Papercut_v1.7.3_android-arm64-v8a.apk</code>
+                  <code>Papercut_v1.8.0_android-arm64-v8a.apk</code>
                 </div>
-                <a href="https://github.com/muhannadnouri/papercut.io/releases/latest/download/Papercut_v1.7.3_android-arm64-v8a.apk" aria-label="Download Papercut Android APK">Download</a>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_v1.8.0_android-arm64-v8a.apk" aria-label="Download Papercut Android APK">Download</a>
               </article>
             </details>
 
@@ -353,9 +353,9 @@
                     <span class="download-kind">(AppImage)</span>
                   </strong>
                   <span>Portable Linux build for amd64 systems. Requires WebKitGTK and GStreamer; release artifacts are built on Ubuntu 24.04.</span>
-                  <code>Papercut_1.7.3_amd64.AppImage</code>
+                  <code>Papercut_1.8.0_amd64.AppImage</code>
                 </div>
-                <a href="https://github.com/muhannadnouri/papercut.io/releases/latest/download/Papercut_1.7.3_amd64.AppImage" aria-label="Download Papercut Linux AppImage">Download</a>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_1.8.0_amd64.AppImage" aria-label="Download Papercut Linux AppImage">Download</a>
               </article>
               <article class="download-row">
                 <div>
@@ -365,9 +365,9 @@
                     <span class="download-kind">(.deb)</span> <span class="recommended-badge">Recommended</span>
                   </strong>
                   <span>Installer for Debian-based amd64 distributions (Ubuntu, Mint, etc.). Requires WebKitGTK and GStreamer.</span>
-                  <code>Papercut_1.7.3_amd64.deb</code>
+                  <code>Papercut_1.8.0_amd64.deb</code>
                 </div>
-                <a href="https://github.com/muhannadnouri/papercut.io/releases/latest/download/Papercut_1.7.3_amd64.deb" aria-label="Download Papercut Linux DEB">Download</a>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_1.8.0_amd64.deb" aria-label="Download Papercut Linux DEB">Download</a>
               </article>
               <article class="download-row">
                 <div>
@@ -377,9 +377,9 @@
                     <span class="download-kind">(.rpm)</span>
                   </strong>
                   <span>Installer for RPM-based x86_64 distributions (Fedora, openSUSE, etc.). Requires WebKitGTK and GStreamer.</span>
-                  <code>Papercut-1.7.3-1.x86_64.rpm</code>
+                  <code>Papercut-1.8.0-1.x86_64.rpm</code>
                 </div>
-                <a href="https://github.com/muhannadnouri/papercut.io/releases/latest/download/Papercut-1.7.3-1.x86_64.rpm" aria-label="Download Papercut Linux RPM">Download</a>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut-1.8.0-1.x86_64.rpm" aria-label="Download Papercut Linux RPM">Download</a>
               </article>
             </details>
 
@@ -393,9 +393,9 @@
                     <span class="download-kind">(.dmg)</span> <span class="recommended-badge">Apple Silicon</span>
                   </strong>
                   <span>Signed and notarized disk image for Apple Silicon (M1/M2/M3 and later). Requires macOS 10.13+.</span>
-                  <code>Papercut_1.7.3_aarch64.dmg</code>
+                  <code>Papercut_1.8.0_aarch64.dmg</code>
                 </div>
-                <a href="https://github.com/muhannadnouri/papercut.io/releases/latest/download/Papercut_1.7.3_aarch64.dmg" aria-label="Download Papercut macOS DMG for Apple Silicon">Download</a>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_1.8.0_aarch64.dmg" aria-label="Download Papercut macOS DMG for Apple Silicon">Download</a>
               </article>
               <article class="download-row">
                 <div>
@@ -405,9 +405,9 @@
                     <span class="download-kind">(.dmg)</span> <span class="recommended-badge">Intel</span>
                   </strong>
                   <span>Signed and notarized disk image for Intel-based Macs. Requires macOS 10.13+.</span>
-                  <code>Papercut_1.7.3_x64.dmg</code>
+                  <code>Papercut_1.8.0_x64.dmg</code>
                 </div>
-                <a href="https://github.com/muhannadnouri/papercut.io/releases/latest/download/Papercut_1.7.3_x64.dmg" aria-label="Download Papercut macOS DMG for Intel">Download</a>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_1.8.0_x64.dmg" aria-label="Download Papercut macOS DMG for Intel">Download</a>
               </article>
             </details>
 
@@ -421,9 +421,9 @@
                     <span class="download-kind">(.msi)</span> <span class="recommended-badge">Recommended</span>
                   </strong>
                   <span>Windows 10+ x64 installer package. Requires the Microsoft Edge WebView2 runtime.</span>
-                  <code>Papercut_1.7.3_x64_en-US.msi</code>
+                  <code>Papercut_1.8.0_x64_en-US.msi</code>
                 </div>
-                <a href="https://github.com/muhannadnouri/papercut.io/releases/latest/download/Papercut_1.7.3_x64_en-US.msi" aria-label="Download Papercut Windows MSI">Download</a>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_1.8.0_x64_en-US.msi" aria-label="Download Papercut Windows MSI">Download</a>
               </article>
               <article class="download-row">
                 <div>
@@ -433,9 +433,9 @@
                     <span class="download-kind">(.exe)</span>
                   </strong>
                   <span>Windows 10+ x64 setup executable. Requires the Microsoft Edge WebView2 runtime.</span>
-                  <code>Papercut_1.7.3_x64-setup.exe</code>
+                  <code>Papercut_1.8.0_x64-setup.exe</code>
                 </div>
-                <a href="https://github.com/muhannadnouri/papercut.io/releases/latest/download/Papercut_1.7.3_x64-setup.exe" aria-label="Download Papercut Windows EXE setup">Download</a>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_1.8.0_x64-setup.exe" aria-label="Download Papercut Windows EXE setup">Download</a>
               </article>
             </details>
 
@@ -451,7 +451,7 @@
                   <span>SHA-256 hashes for release artifacts.</span>
                   <code>SHA256SUMS.txt</code>
                 </div>
-                <a href="https://github.com/muhannadnouri/papercut.io/releases/latest/download/SHA256SUMS.txt" aria-label="Download Papercut SHA-256 checksums">Download</a>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/SHA256SUMS.txt" aria-label="Download Papercut SHA-256 checksums">Download</a>
               </article>
               <article class="download-row">
                 <div>
@@ -460,10 +460,10 @@
                     <span>Source Code</span>
                     <span class="download-kind">(.zip)</span>
                   </strong>
-                  <span>Source archive for the v1.7.3 release tag.</span>
-                  <code>v1.7.3.zip</code>
+                  <span>Source archive for the v1.8.0 release tag.</span>
+                  <code>v1.8.0.zip</code>
                 </div>
-                <a href="https://github.com/muhannadnouri/papercut.io/archive/refs/tags/v1.7.3.zip" aria-label="Download Papercut source code ZIP">Download</a>
+                <a href="https://github.com/muhannadnouri/papercut.io/archive/refs/tags/v1.8.0.zip" aria-label="Download Papercut source code ZIP">Download</a>
               </article>
               <article class="download-row">
                 <div>
@@ -472,10 +472,10 @@
                     <span>Source Code</span>
                     <span class="download-kind">(.tar.gz)</span>
                   </strong>
-                  <span>Compressed source archive for the v1.7.3 release tag.</span>
-                  <code>v1.7.3.tar.gz</code>
+                  <span>Compressed source archive for the v1.8.0 release tag.</span>
+                  <code>v1.8.0.tar.gz</code>
                 </div>
-                <a href="https://github.com/muhannadnouri/papercut.io/archive/refs/tags/v1.7.3.tar.gz" aria-label="Download Papercut source code tarball">Download</a>
+                <a href="https://github.com/muhannadnouri/papercut.io/archive/refs/tags/v1.8.0.tar.gz" aria-label="Download Papercut source code tarball">Download</a>
               </article>
             </details>
           </div>
@@ -514,7 +514,15 @@
           </details>
           <details>
             <summary><strong>Which document formats are supported?</strong></summary>
-            <p>Papercut currently imports HTML and EPUB files. PDF support is planned.</p>
+            <p>Papercut imports HTML, EPUB, and PDF files. PDF search, Find, and audiobook generation require embedded text; image-only PDFs can be viewed when supported but are not searchable because Papercut does not include OCR yet.</p>
+          </details>
+          <details>
+            <summary><strong>Which interface languages are available?</strong></summary>
+            <p>Papercut is available in English, Arabic, Simplified Chinese, Spanish, French, Hindi, Italian, and Brazilian Portuguese.</p>
+          </details>
+          <details>
+            <summary><strong>Which audiobook languages are available?</strong></summary>
+            <p>Kokoro provides voices for English, Mandarin Chinese, Spanish, French, Hindi, Italian, and Brazilian Portuguese. Arabic uses separate offline Piper and Supertonic models, with SILMA available on Linux x64 through an optional runtime.</p>
           </details>
           <details>
             <summary><strong>What are the system requirements?</strong></summary>
@@ -546,7 +554,7 @@
           </details>
           <details>
             <summary><strong>Where can I find docs, releases, and source code?</strong></summary>
-            <p>Start with the <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> for setup help and platform details. See what's new in the <a href="https://github.com/muhannadnouri/papercut.io/blob/main/RELEASE_NOTES/v1.7.3.md">release notes</a>, browse <a href="https://github.com/muhannadnouri/papercut.io/releases/latest">all releases</a>, or contribute on <a href="https://github.com/muhannadnouri/papercut.io">GitHub</a>.</p>
+            <p>Start with the <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> for setup help and platform details. See what's new in the <a href="https://github.com/muhannadnouri/papercut.io/blob/main/RELEASE_NOTES/v1.8.0.md">release notes</a>, browse <a href="https://github.com/muhannadnouri/papercut.io/releases/latest">all releases</a>, or contribute on <a href="https://github.com/muhannadnouri/papercut.io">GitHub</a>.</p>
           </details>
         </section>
 
