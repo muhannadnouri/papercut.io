@@ -724,7 +724,7 @@ Known recovery paths:
 
 - SILMA does not appear in the model list: confirm the app is a Linux x64 build
   from a commit that includes the public runtime metadata. Windows, macOS, and
-  mobile builds intentionally hide SILMA in v1.7.4.
+  mobile builds intentionally hide SILMA.
 - `SILMA runtime pack is not installed`: install the optional runtime pack first.
   If public download is disabled, fill `src-tauri/tts/silma-runtime-packs.json`
   from a release artifact or use the local packaged runtime flow.
@@ -862,7 +862,7 @@ SILMA catalog status:
 - Family: `TtsModelFamily::SilmaF5`
 - Storage prefix: `models/silma-tts`
 Linux x64 desktop builds advertise SILMA by default. Windows, macOS, and mobile
-builds never advertise it in v1.7.4.
+builds never advertise it.
 One install click installs the missing SILMA pieces in order: runtime pack
 first, then pinned model files.
 
