@@ -455,6 +455,16 @@ html[dir="rtl"] .back-icon {
   color: var(--highlight-current-text);
 }
 
+::highlight(find-match) {
+  background-color: var(--highlight-find);
+  color: inherit;
+}
+
+::highlight(find-current) {
+  background-color: var(--highlight-current);
+  color: var(--highlight-current-text);
+}
+
 /* Legacy imported audiobook bundles can restore pre-CSS HTML such as
    <font color> and table bgcolor. In dark mode those fixed colors can create
    white islands with pale text, so keep old presentational colors from

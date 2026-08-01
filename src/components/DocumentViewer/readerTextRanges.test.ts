@@ -35,4 +35,12 @@ describe('reader text ranges', () => {
     ]])
     expect(findTextPartMatches(parts, 'foobar', Infinity, breaksBefore)).toEqual([])
   })
+
+  it('keeps common-query matching bounded when a caller supplies a limit', () => {
+    expect(findTextPartMatches(['a'.repeat(10_000)], 'a', 3)).toEqual([
+      [{ partIndex: 0, startOffset: 0, endOffset: 1 }],
+      [{ partIndex: 0, startOffset: 1, endOffset: 2 }],
+      [{ partIndex: 0, startOffset: 2, endOffset: 3 }],
+    ])
+  })
 })
