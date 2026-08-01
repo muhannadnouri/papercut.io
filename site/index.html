@@ -7,8 +7,15 @@
     <meta name="description" content="Papercut helps you import, search, read, transfer, and listen to HTML, EPUB, and PDF libraries offline. Generate and export private audiobooks with no accounts or subscriptions.">
     <meta property="og:title" content="Papercut">
     <meta property="og:description" content="Search, read, transfer, and listen to your own documents offline on desktop and mobile.">
-    <meta property="og:image" content="https://trypapercut.netlify.app/assets/papercut-icon.png">
+    <meta property="og:image" content="https://trypapercut.app/assets/papercut-icon.png">
     <meta property="og:type" content="website">
+    <meta property="og:url" content="https://trypapercut.app/">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:locale:alternate" content="ar_AR">
+    <link rel="canonical" href="https://trypapercut.app/">
+    <link rel="alternate" hreflang="en" href="https://trypapercut.app/">
+    <link rel="alternate" hreflang="ar" href="https://trypapercut.app/ar/">
+    <link rel="alternate" hreflang="x-default" href="https://trypapercut.app/">
     <link rel="icon" href="assets/papercut-icon.png" sizes="128x128">
     <link rel="stylesheet" href="styles.css">
   </head>
@@ -16,11 +23,23 @@
     <a class="skip-link" href="#main-content">Skip to content</a>
     <div class="page">
       <header class="site-header">
-        <a class="brand" href="/" aria-label="Papercut home">
+        <a class="brand" href="index.html" aria-label="Papercut home">
           <img src="assets/papercut-icon.png" alt="" width="36" height="36">
           <span>Papercut</span>
         </a>
         <div class="header-actions">
+          <details class="language-menu">
+            <summary aria-label="Choose language" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M3 12h18M12 3c2.4 2.5 3.7 5.5 3.7 9S14.4 18.5 12 21M12 3C9.6 5.5 8.3 8.5 8.3 12s1.3 6.5 3.7 9" />
+              </svg>
+            </summary>
+            <nav class="language-options" aria-label="Languages">
+              <a href="index.html" lang="en" hreflang="en" aria-current="page">English</a>
+              <a href="ar/index.html" lang="ar" dir="rtl" hreflang="ar">العربية</a>
+            </nav>
+          </details>
           <details class="nav-menu">
             <summary aria-label="Toggle navigation" aria-expanded="false"><span class="nav-menu-icon" aria-hidden="true">
                 <svg class="nav-menu-icon-open" viewBox="0 0 20 20" focusable="false">
@@ -623,30 +642,30 @@
             <div class="contact-fields contact-extra-fields" data-topic-panel="audiobook" hidden>
               <label>
                 <span>Language <small>optional</small></span>
-                <input type="text" name="language_detail" placeholder="English, Arabic, French..." disabled>
+                <input type="text" name="language_detail" placeholder="English, Arabic, French..." dir="auto" disabled>
               </label>
               <label>
                 <span>Voice/Model <small>optional</small></span>
-                <input type="text" name="model_detail" placeholder="Kokoro, Arabic voice, not sure..." disabled>
+                <input type="text" name="model_detail" placeholder="Kokoro, Arabic voice, not sure..." dir="auto" disabled>
               </label>
             </div>
 
             <div class="contact-fields">
               <label>
                 <span>Name <small>optional</small></span>
-                <input type="text" name="name" autocomplete="name" placeholder="Name / Handle">
+                <input type="text" name="name" autocomplete="name" placeholder="Name / Handle" dir="auto">
               </label>
               <label>
                 <span>Email <small class="required-mark" aria-hidden="true">*</small></span>
-                <input type="email" name="email" autocomplete="email" placeholder="you@example.com" required>
+                <input type="email" name="email" autocomplete="email" placeholder="you@example.com" dir="ltr" required>
               </label>
               <label class="contact-full">
                 <span>Subject <small class="required-mark" aria-hidden="true">*</small></span>
-                <input type="text" name="subject_text" maxlength="120" placeholder="Email Subject" required>
+                <input type="text" name="subject_text" maxlength="120" placeholder="Email Subject" dir="auto" required>
               </label>
               <label class="contact-full">
                 <span>Message <small class="required-mark" aria-hidden="true">*</small></span>
-                <textarea name="message" rows="6" placeholder="What happened, what you expected, or what you would like to see." required></textarea>
+                <textarea name="message" rows="6" placeholder="What happened, what you expected, or what you would like to see." dir="auto" required></textarea>
               </label>
             </div>
 
@@ -676,34 +695,36 @@
 
     <script>
       (() => {
-        const menu = document.querySelector('.nav-menu')
-        if (!menu) return
-
-        const toggle = menu.querySelector('summary')
-        const closeMenu = () => {
-          menu.removeAttribute('open')
-          toggle?.setAttribute('aria-expanded', 'false')
-        }
-
-        menu.addEventListener('toggle', () => {
-          toggle?.setAttribute('aria-expanded', menu.open ? 'true' : 'false')
-        })
-
-        document.addEventListener('pointerdown', (event) => {
-          if (menu.open && !menu.contains(event.target)) {
-            closeMenu()
+        document.querySelectorAll('.nav-menu, .language-menu').forEach((menu) => {
+          const toggle = menu.querySelector('summary')
+          const closeMenu = () => {
+            menu.removeAttribute('open')
+            toggle?.setAttribute('aria-expanded', 'false')
           }
-        })
 
-        document.addEventListener('keydown', (event) => {
-          if (event.key === 'Escape' && menu.open) {
-            closeMenu()
-            toggle?.focus()
-          }
-        })
+          menu.addEventListener('toggle', () => {
+            toggle?.setAttribute('aria-expanded', menu.open ? 'true' : 'false')
+            if (menu.open) {
+              document.querySelectorAll('.nav-menu[open], .language-menu[open]').forEach((other) => {
+                if (other !== menu) other.removeAttribute('open')
+              })
+            }
+          })
 
-        menu.querySelectorAll('a').forEach((link) => {
-          link.addEventListener('click', closeMenu)
+          document.addEventListener('pointerdown', (event) => {
+            if (menu.open && !menu.contains(event.target)) closeMenu()
+          })
+
+          document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && menu.open) {
+              closeMenu()
+              toggle?.focus()
+            }
+          })
+
+          menu.querySelectorAll('a').forEach((link) => {
+            link.addEventListener('click', closeMenu)
+          })
         })
       })()
 

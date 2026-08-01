@@ -47,6 +47,21 @@ The locale foundation lives in `src/i18n/`. `i18next` owns application
 messages and fallback behavior; React Aria's `I18nProvider` receives the same
 locale for direction-aware component behavior.
 
+## Static Website
+
+The zero-build website keeps localized pages explicit: English is served from
+`site/index.html` and Arabic from `site/ar/index.html`. Both pages share
+`site/styles.css` and the same markup structure so their layout, responsive
+behavior, placeholders, downloads, and interactions stay visually aligned.
+Each page declares canonical and reciprocal `hreflang` links, localized social
+metadata, and its semantic document direction. The header language menu links
+directly between locale URLs, so navigation and metadata do not depend on
+client-side translation code.
+
+Website language names do not use the application's experimental labels. Those
+labels describe the app locale review status, not whether a visitor can open a
+localized marketing page.
+
 ## Translation Rules
 
 - Use semantic keys rather than English sentences as keys.
