@@ -130,7 +130,10 @@ export function AudiobooksPanel({
               type="button"
               className="audiobooks-import-btn"
               disabled={panelBusy}
-              onClick={onImportAudiobook}
+              onClick={() => {
+                setActionsMenuOpen(null)
+                onImportAudiobook()
+              }}
             >
               <AudiobooksPanelIcon name={importInProgress ? 'folder-open' : 'folder'} />
               {importInProgress ? t('tts.audiobooks.importingBundle') : t('tts.audiobooks.importBundle')}
