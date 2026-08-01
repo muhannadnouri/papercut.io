@@ -6,7 +6,6 @@ import {
   buildBundledDocumentTree,
   type BundledDocumentFolder,
 } from '../DocumentBrowser/bundledDocuments'
-import { BookmarkIndicator } from '../BookmarkIndicator/BookmarkIndicator'
 import '../UploadedLibraryTree/UploadedLibraryTree.css'
 
 interface BundledDocumentTreeProps {
@@ -15,7 +14,6 @@ interface BundledDocumentTreeProps {
   filterActive?: boolean
   documentOpening?: boolean
   openingDocumentUrl?: string
-  bookmarkedDocumentUrls?: ReadonlySet<string>
   selectedFilters?: Set<string>
   onToggleAllInGroup?: (docs: DocumentInfo[]) => void
   onToggleFilter?: (url: string) => void
@@ -34,7 +32,6 @@ export function BundledDocumentTree({
   filterActive = false,
   documentOpening = false,
   openingDocumentUrl,
-  bookmarkedDocumentUrls = new Set(),
   selectedFilters,
   onToggleAllInGroup,
   onToggleFilter,
@@ -114,9 +111,6 @@ export function BundledDocumentTree({
                 </span>
               ) : (
                 <bdi className="uploaded-library-name">{document.title}</bdi>
-              )}
-              {bookmarkedDocumentUrls.has(document.url) && (
-                <BookmarkIndicator label={t('library.documents.bookmarked')} />
               )}
               {opening && <span className="uploaded-library-opening">{t('common.opening')}</span>}
               {!filterMode && (

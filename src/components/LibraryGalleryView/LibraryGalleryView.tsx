@@ -98,7 +98,6 @@ export function LibraryGalleryView({
               filterActive={docFilterLower.length > 0}
               documentOpening={documentOpening}
               openingDocumentUrl={openingDocumentUrl}
-              bookmarkedDocumentUrls={bookmarkedDocumentUrls}
               onViewDocument={onViewDocument}
             />
           )}
@@ -114,7 +113,6 @@ export function LibraryGalleryView({
               onDeleteDocument={onDeleteDocument}
               deleteDisabled={documentOpening || mutationDisabled}
               openingDocumentUrl={openingDocumentUrl}
-              bookmarkedDocumentUrls={bookmarkedDocumentUrls}
               viewDisabled={documentOpening}
             />
           )}
@@ -209,7 +207,9 @@ function BookCard({
               aria-label={savedAudioLabel}
               title={savedAudioLabel}
             >
-              🎧
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M4 13v-1a8 8 0 0 1 16 0v1M6.5 12.5H5.75A1.75 1.75 0 0 0 4 14.25v3A1.75 1.75 0 0 0 5.75 19h.75zM17.5 12.5h.75A1.75 1.75 0 0 1 20 14.25v3A1.75 1.75 0 0 1 18.25 19h-.75z" />
+              </svg>
             </span>
           )}
           {hasBookmark && (

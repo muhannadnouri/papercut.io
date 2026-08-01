@@ -280,7 +280,6 @@ export function DocumentsPanel({
               mutationDisabled={operationBusy}
               resetEditing={importBusy}
               openingDocumentUrl={openingDocumentUrl}
-              bookmarkedDocumentUrls={bookmarkedDocumentUrls}
               savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
               onCreateFolder={onCreateLibraryFolder!}
               onDeleteDocuments={onDeleteDocuments!}
@@ -299,7 +298,6 @@ export function DocumentsPanel({
               filterActive={docFilterLower.length > 0}
               documentOpening={documentOpening}
               openingDocumentUrl={openingDocumentUrl}
-              bookmarkedDocumentUrls={bookmarkedDocumentUrls}
               onViewDocument={onViewDocument}
             />
           )}
@@ -315,7 +313,6 @@ export function DocumentsPanel({
               onDeleteDocument={onDeleteDocument}
               deleteDisabled={operationBusy || documentOpening}
               openingDocumentUrl={openingDocumentUrl}
-              bookmarkedDocumentUrls={bookmarkedDocumentUrls}
               viewDisabled={documentOpening}
             />
           )}

@@ -197,12 +197,29 @@ html[data-theme="dark"] .library-book-cover {
   place-items: center;
   width: 1.65rem;
   height: 1.65rem;
+  border: 1px solid transparent;
   border-radius: 50%;
-  background: rgb(255 255 255 / 90%);
-  color: #12182a;
-  font-size: 0.85rem;
-  box-shadow: 0 1px 4px rgb(0 0 0 / 20%);
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 40%);
   z-index: 1;
+}
+
+.library-book-audio svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.library-book-cover .bookmark-indicator-cover {
+  border: 1px solid transparent;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 40%);
 }
 
 .library-book-title {
