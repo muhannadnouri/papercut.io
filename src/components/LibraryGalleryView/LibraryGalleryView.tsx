@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
 import type { DocumentInfo } from '../../types/search'
 import { getUploadedDocumentCover } from '../../uploads/DocumentUploads'
+import { BookmarkIndicator } from '../BookmarkIndicator/BookmarkIndicator'
 import { BundledDocumentTree } from '../BundledDocumentTree/BundledDocumentTree'
 import { splitDocumentGroupsBySource } from '../DocumentBrowser/documentGroups'
 import { DocumentList } from '../DocumentList/DocumentList'
@@ -13,6 +14,7 @@ export type LibraryGalleryCategory = 'books' | 'documents'
 
 interface LibraryGalleryViewProps {
   category: LibraryGalleryCategory
+  bookmarkedDocumentUrls: ReadonlySet<string>
   collapsedAuthors: Set<string>
   docFilterLower: string
   groupedDocs: AuthorGroup[]
@@ -31,6 +33,7 @@ interface LibraryGalleryViewProps {
  * document list for formats that do not have useful cover art. */
 export function LibraryGalleryView({
   category,
+  bookmarkedDocumentUrls,
   collapsedAuthors,
   docFilterLower,
   groupedDocs,
@@ -73,9 +76,11 @@ export function LibraryGalleryView({
               <BookCard
                 key={doc.url}
                 doc={doc}
+                hasBookmark={bookmarkedDocumentUrls.has(doc.url)}
                 hasSavedAudio={savedAudiobookDocumentUrls.has(doc.url)}
                 opening={openingDocumentUrl === doc.url}
                 disabled={documentOpening}
+                bookmarkLabel={t('library.documents.bookmarked')}
                 openingLabel={t('common.opening')}
                 savedAudioLabel={t('library.documents.savedAudioAvailable')}
                 onOpen={onViewDocument}
@@ -132,17 +137,21 @@ function CategoryButton({ active, label, onClick }: { active: boolean; label: st
 
 function BookCard({
   doc,
+  hasBookmark,
   hasSavedAudio,
   opening,
   disabled,
+  bookmarkLabel,
   openingLabel,
   savedAudioLabel,
   onOpen,
 }: {
   doc: DocumentInfo
+  hasBookmark: boolean
   hasSavedAudio: boolean
   opening: boolean
   disabled: boolean
+  bookmarkLabel: string
   openingLabel: string
   savedAudioLabel: string
   onOpen: (url: string) => void
@@ -198,8 +207,16 @@ function BookCard({
               aria-label={savedAudioLabel}
               title={savedAudioLabel}
             >
-              🎧
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M4 13v-1a8 8 0 0 1 16 0v1M6.5 12.5H5.75A1.75 1.75 0 0 0 4 14.25v3A1.75 1.75 0 0 0 5.75 19h.75zM17.5 12.5h.75A1.75 1.75 0 0 1 20 14.25v3A1.75 1.75 0 0 1 18.25 19h-.75z" />
+              </svg>
             </span>
+          )}
+          {hasBookmark && (
+            <BookmarkIndicator
+              className="bookmark-indicator-cover"
+              label={bookmarkLabel}
+            />
           )}
         </span>
         <bdi className="library-book-title">{doc.title}</bdi>

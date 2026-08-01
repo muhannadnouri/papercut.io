@@ -32,7 +32,7 @@
   margin: 0 0.08rem;
   padding: 0.04rem 0.35rem;
   border: 1px solid var(--accent-border);
-  border-radius: 4px;
+  border-radius: var(--radius-inline);
   background: var(--surface);
   color: var(--accent-strong);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -59,7 +59,7 @@
   padding: 0.875rem 1.25rem;
   font-size: 1rem;
   border: 2px solid transparent;
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   outline: none;
   transition: background 0.2s, box-shadow 0.2s;
   background: var(--control-surface);
@@ -94,7 +94,7 @@
   color: var(--text-inverse);
   background: var(--accent);
   border: 2px solid transparent;
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }

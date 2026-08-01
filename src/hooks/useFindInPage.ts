@@ -1,13 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  findReaderTextMatches,
-  type ReaderTextMatch,
+  createReaderTextIndex,
+  findReaderTextIndexMatches,
+  rangeForReaderTextIndexMatch,
+  type ReaderTextIndex,
+  type ReaderTextIndexMatch,
 } from '../components/DocumentViewer/readerTextRanges'
 import { clearSearchTargetHighlight } from '../components/DocumentViewer/readerTarget'
 import { isIOSWebKit } from '../utils/platform'
 import type { ViewerFindApi, ViewerFindResult } from '../viewers/types'
 
 const FIND_DEBOUNCE_MS = 180
+const FIND_HIGHLIGHT_NAME = 'find-match'
+const FIND_CURRENT_HIGHLIGHT_NAME = 'find-current'
+const MAX_FIND_HIGHLIGHTS = 500
 
 interface UseFindInPageReturn {
   showFind: boolean
@@ -26,6 +32,7 @@ interface UseFindInPageReturn {
 export function useFindInPage(
   rootRef: React.RefObject<HTMLElement | null>,
   viewerFindApi?: ViewerFindApi | null,
+  searchContextKey?: unknown,
 ): UseFindInPageReturn {
   const [showFind, setShowFind] = useState(false)
   const [findQuery, setFindQuery] = useState('')
@@ -33,6 +40,13 @@ export function useFindInPage(
   const [findCurrentIndex, setFindCurrentIndex] = useState(0)
   const findInputRef = useRef<HTMLInputElement | null>(null)
   const findTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const readerIndexRef = useRef<{
+    root: HTMLElement
+    key: unknown
+    index: ReaderTextIndex
+  } | null>(null)
+  const findMatchesRef = useRef<ReaderTextIndexMatch[]>([])
+  const fallbackSelectionActiveRef = useRef(false)
 
   const clearPendingFind = useCallback(() => {
     if (findTimerRef.current === null) return
@@ -44,6 +58,14 @@ export function useFindInPage(
     const root = rootRef.current
     if (!root) return
     const doc = root.ownerDocument
+    clearFindRegistryHighlights(doc)
+    if (fallbackSelectionActiveRef.current) {
+      doc.getSelection()?.removeAllRanges()
+      fallbackSelectionActiveRef.current = false
+    }
+
+    // Remove marks left by older app versions or a hot reload. New Find
+    // highlights never rewrite the reader DOM.
     const marks = root.querySelectorAll('mark[data-find]')
     marks.forEach((mark) => {
       const parent = mark.parentNode
@@ -54,6 +76,15 @@ export function useFindInPage(
     })
   }, [rootRef])
 
+  const getReaderIndex = useCallback((root: HTMLElement): ReaderTextIndex => {
+    const cached = readerIndexRef.current
+    if (cached?.root === root && cached.key === searchContextKey) return cached.index
+
+    const index = createReaderTextIndex(root)
+    readerIndexRef.current = { root, key: searchContextKey, index }
+    return index
+  }, [searchContextKey])
+
   const highlightFindMatches = useCallback((searchQuery: string): number => {
     const root = rootRef.current
     if (root) clearSearchTargetHighlight(root)
@@ -61,31 +92,44 @@ export function useFindInPage(
     if (!root || !searchQuery.trim()) return 0
     const doc = root.ownerDocument
 
-    if (!doc.getElementById('find-styles')) {
-      const style = doc.createElement('style')
-      style.id = 'find-styles'
-      style.textContent =
-        'mark[data-find] { background: var(--highlight-find, #fef08a); color: inherit; padding: 0; border-radius: 2px; }' +
-        'mark[data-find].current { background: var(--highlight-current, #f97316); color: var(--highlight-current-text, #fff); }'
-      doc.head.appendChild(style)
+    const index = getReaderIndex(root)
+    const matches = findReaderTextIndexMatches(index, searchQuery)
+    findMatchesRef.current = matches
+    if (matches.length <= MAX_FIND_HIGHLIGHTS) {
+      setFindRegistryHighlight(
+        doc,
+        FIND_HIGHLIGHT_NAME,
+        matches.map((match) => rangeForReaderTextIndexMatch(index, match)),
+      )
     }
-
-    const matches = findReaderTextMatches(root, searchQuery)
-    markFindMatches(doc, matches)
     return matches.length
-  }, [rootRef, clearFindHighlights])
+  }, [rootRef, clearFindHighlights, getReaderIndex])
 
   const scrollToMatch = useCallback((index: number) => {
     const root = rootRef.current
     if (!root) return
-    root.querySelectorAll('mark[data-find].current').forEach((mark) => mark.classList.remove('current'))
-    const targets = root.querySelectorAll<HTMLElement>(`mark[data-find="${index}"]`)
-    const target = targets[0]
-    if (target) {
-      targets.forEach((mark) => mark.classList.add('current'))
-      const absoluteTop = window.scrollY + target.getBoundingClientRect().top
-      window.scrollTo({ top: absoluteTop - window.innerHeight / 2, behavior: findScrollBehavior() })
+    const readerIndex = readerIndexRef.current?.index
+    const match = findMatchesRef.current[index]
+    if (!readerIndex || !match) return
+
+    const doc = root.ownerDocument
+    clearCurrentFindHighlight(doc)
+    if (fallbackSelectionActiveRef.current) doc.getSelection()?.removeAllRanges()
+
+    const range = rangeForReaderTextIndexMatch(readerIndex, match)
+    fallbackSelectionActiveRef.current = !setFindRegistryHighlight(
+      doc,
+      FIND_CURRENT_HIGHLIGHT_NAME,
+      [range],
+    )
+    if (fallbackSelectionActiveRef.current) {
+      const selection = doc.getSelection()
+      selection?.removeAllRanges()
+      selection?.addRange(range.cloneRange())
     }
+
+    const absoluteTop = window.scrollY + range.getBoundingClientRect().top
+    window.scrollTo({ top: absoluteTop - window.innerHeight / 2, behavior: findScrollBehavior() })
   }, [rootRef])
 
   const closeFind = useCallback(() => {
@@ -94,6 +138,7 @@ export function useFindInPage(
     setFindQuery('')
     setFindMatchCount(0)
     setFindCurrentIndex(0)
+    findMatchesRef.current = []
     viewerFindApi?.clear()
     clearFindHighlights()
   }, [clearFindHighlights, clearPendingFind, viewerFindApi])
@@ -102,6 +147,7 @@ export function useFindInPage(
     setFindQuery(searchQuery)
     setFindMatchCount(0)
     setFindCurrentIndex(0)
+    findMatchesRef.current = []
     if (searchQuery.trim()) return
     clearPendingFind()
     viewerFindApi?.clear()
@@ -172,6 +218,13 @@ export function useFindInPage(
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [closeFind])
 
+  useEffect(() => () => {
+    clearPendingFind()
+    clearFindHighlights()
+    readerIndexRef.current = null
+    findMatchesRef.current = []
+  }, [clearFindHighlights, clearPendingFind])
+
   return {
     showFind,
     findQuery,
@@ -187,39 +240,27 @@ export function useFindInPage(
   }
 }
 
-// Rewrite each affected Text node once. A logical match may produce several
-// marks when inline elements split it, but every piece keeps one match index.
-function markFindMatches(doc: Document, matches: ReaderTextMatch[]): void {
-  const partsByNode = new Map<Text, Array<{ index: number; startOffset: number; endOffset: number }>>()
-  matches.forEach((match, index) => {
-    match.parts.forEach((part) => {
-      const parts = partsByNode.get(part.node) ?? []
-      parts.push({ index, startOffset: part.startOffset, endOffset: part.endOffset })
-      partsByNode.set(part.node, parts)
-    })
-  })
+function setFindRegistryHighlight(doc: Document, name: string, ranges: Range[]): boolean {
+  const view = doc.defaultView
+  const registry = view?.CSS?.highlights
+  if (!view || !registry) return false
+  registry.set(name, new view.Highlight(...ranges))
+  return true
+}
 
-  partsByNode.forEach((parts, textNode) => {
-    const parent = textNode.parentNode
-    if (!parent) return
-    const text = textNode.data
-    const fragment = doc.createDocumentFragment()
-    let offset = 0
+function clearCurrentFindHighlight(doc: Document): void {
+  const registry = doc.defaultView?.CSS.highlights
+  if (!registry) return
+  registry.get(FIND_CURRENT_HIGHLIGHT_NAME)?.clear()
+  registry.delete(FIND_CURRENT_HIGHLIGHT_NAME)
+}
 
-    parts.sort((left, right) => left.startOffset - right.startOffset)
-    parts.forEach((part) => {
-      if (part.startOffset > offset) {
-        fragment.appendChild(doc.createTextNode(text.slice(offset, part.startOffset)))
-      }
-      const mark = doc.createElement('mark')
-      mark.dataset.find = String(part.index)
-      mark.textContent = text.slice(part.startOffset, part.endOffset)
-      fragment.appendChild(mark)
-      offset = part.endOffset
-    })
-    if (offset < text.length) fragment.appendChild(doc.createTextNode(text.slice(offset)))
-    parent.replaceChild(fragment, textNode)
-  })
+function clearFindRegistryHighlights(doc: Document): void {
+  const registry = doc.defaultView?.CSS.highlights
+  if (!registry) return
+  registry.get(FIND_HIGHLIGHT_NAME)?.clear()
+  registry.delete(FIND_HIGHLIGHT_NAME)
+  clearCurrentFindHighlight(doc)
 }
 
 function findScrollBehavior(): ScrollBehavior {

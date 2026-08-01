@@ -1,7 +1,7 @@
 .documents-panel {
   margin-bottom: 1.5rem;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
   background: var(--control-surface);
   overflow: hidden;
 }
@@ -58,7 +58,7 @@
   flex-shrink: 0;
   min-height: 2rem;
   border: 1px solid transparent;
-  border-radius: 5px;
+  border-radius: var(--radius-compact);
   background: var(--control-surface);
   color: var(--accent-text);
   font-size: 0.8rem;
@@ -76,7 +76,8 @@
 
 .document-import-btn[aria-expanded="true"] {
   border-color: transparent;
-  background: var(--surface-accent);
+  background: var(--accent);
+  color: var(--text-inverse);
 }
 
 .document-import-btn[data-disabled] {
@@ -86,18 +87,53 @@
   cursor: not-allowed;
 }
 
+.document-view-options {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
 .audio-filter-toggle {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  flex-shrink: 0;
+  min-height: 2rem;
+  padding: 0 0.65rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-compact);
+  background: var(--control-surface);
+  color: var(--accent-text);
+  cursor: pointer;
+  font: inherit;
   font-size: 0.8rem;
-  color: var(--text-body);
+  font-weight: 600;
   white-space: nowrap;
 }
 
-.audio-filter-toggle input {
-  accent-color: var(--accent-text);
+.audio-filter-toggle svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.audio-filter-toggle[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--text-inverse);
+}
+
+.audio-filter-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+.bookmark-filter-toggle {
+  width: 2rem;
+  padding: 0;
+  justify-content: center;
 }
 
 .document-import-popover {
@@ -113,7 +149,7 @@
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   background: var(--surface-strong);
   box-shadow: 0 12px 28px var(--shadow-popover);
 }
@@ -168,7 +204,7 @@
   margin: 0.55rem 1.25rem;
   padding: 0.55rem 0.65rem 0.55rem 0.8rem;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   background: var(--control-surface);
   color: var(--text-body);
   font-size: 0.8rem;
@@ -200,7 +236,7 @@
   height: 1.75rem;
   padding: 0;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--radius-compact);
   background: transparent;
   color: var(--text-muted);
   font: inherit;
@@ -233,7 +269,7 @@
   min-height: 1.9rem;
   padding: 0 0.65rem;
   border: 1px solid transparent;
-  border-radius: 5px;
+  border-radius: var(--radius-compact);
   background: var(--control-surface);
   color: var(--accent-text);
   font: inherit;
@@ -282,7 +318,7 @@
   padding: 0.45rem 0.75rem;
   font-size: 0.85rem;
   border: 2px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   outline: none;
   background: var(--control-surface);
   color: var(--text-body);
@@ -352,7 +388,7 @@
   margin-inline-end: 0.5rem;
   background: var(--control-surface);
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   font-size: 0.75rem;
   font-weight: 700;
   color: var(--accent-text);
@@ -419,7 +455,7 @@
   width: 1.35rem;
   height: 1.35rem;
   border: 1px solid var(--accent-border);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--surface-accent);
   color: var(--accent-strong);
   font-size: 0.8rem;
@@ -439,7 +475,7 @@
   min-height: 1.85rem;
   padding: 0.2rem 0.6rem;
   border: 1px solid var(--border-strong);
-  border-radius: 5px;
+  border-radius: var(--radius-compact);
   background: var(--surface);
   color: var(--text-muted);
   font-size: 0.8rem;
@@ -512,7 +548,7 @@
   border: 1px solid var(--accent-border);
   color: var(--accent-strong);
   padding: 0.25rem 0.6rem;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   font-size: 0.8rem;
 }
 
@@ -555,9 +591,14 @@
     background: var(--surface-accent);
   }
 
-  .document-import-btn:hover:not([data-disabled]) {
+  .document-import-btn:hover:not([data-disabled]):not([aria-expanded="true"]) {
     border-color: transparent;
     background: var(--surface-accent);
+  }
+
+  .audio-filter-toggle:hover:not([aria-pressed="true"]) {
+    background: var(--surface-accent);
+    color: var(--accent-strong);
   }
 
   .document-import-option:hover:not([data-disabled]) {
@@ -655,18 +696,17 @@
   }
 
   .document-browser-panel .documents-list-header {
-    display: grid;
-    grid-template-columns: auto auto minmax(0, 1fr);
+    display: flex;
     align-items: center;
+    flex-wrap: wrap;
     padding: 0.65rem;
   }
 
   .document-browser-panel .documents-list-header .document-filter-input {
-    grid-column: 1 / -1;
+    flex: 1 0 100%;
   }
 
   .document-browser-panel .document-import-menu {
-    grid-column: 1;
     width: auto;
   }
 
@@ -675,14 +715,16 @@
     min-height: 2.75rem;
   }
 
-  .document-browser-panel .library-view-toggle {
-    grid-column: 2;
+  .document-browser-panel .audio-filter-toggle {
+    min-height: 2.75rem;
   }
 
-  .document-browser-panel .audio-filter-toggle {
-    grid-column: 3;
-    justify-self: end;
-    min-height: 2.75rem;
+  .document-browser-panel .bookmark-filter-toggle {
+    width: 2.75rem;
+  }
+
+  .document-browser-panel .document-view-options {
+    margin-inline-start: auto;
   }
 
   .document-browser-panel .document-import-options {

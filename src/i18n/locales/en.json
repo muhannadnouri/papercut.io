@@ -93,7 +93,10 @@
       "documentCategory": "Documents ({{count, number}})",
       "emptyBooks": "No books match the current filters.",
       "emptyCategoryDocuments": "No documents match the current filters.",
-      "savedAudioAvailable": "Saved audio available"
+      "savedAudioAvailable": "Saved audio available",
+      "bookmarked": "Bookmarked",
+      "bookmarkedOnly": "Show Bookmarked Only",
+      "emptyBookmarked": "No bookmarked documents match the current filters."
     },
     "documentInfo": {
       "button": "Edit Details",
@@ -509,6 +512,7 @@
       "resume": "Resume",
       "remove": "Remove",
       "export": "Export",
+      "moreActions": "More Actions",
       "exporting": "Exporting",
       "deleting": "Deleting",
       "delete": "Delete",

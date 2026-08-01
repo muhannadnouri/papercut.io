@@ -93,7 +93,10 @@
       "documentCategory": "दस्तावेज़ ({{count, number}})",
       "emptyBooks": "कोई पुस्तक वर्तमान फ़िल्टर से मेल नहीं खाती।",
       "emptyCategoryDocuments": "कोई दस्तावेज़ वर्तमान फ़िल्टर से मेल नहीं खाता।",
-      "savedAudioAvailable": "सहेजा गया ऑडियो उपलब्ध है"
+      "savedAudioAvailable": "सहेजा गया ऑडियो उपलब्ध है",
+      "bookmarked": "बुकमार्क किया गया",
+      "bookmarkedOnly": "केवल बुकमार्क किए गए दस्तावेज़ दिखाएँ",
+      "emptyBookmarked": "कोई बुकमार्क किया गया दस्तावेज़ वर्तमान फ़िल्टर से मेल नहीं खाता।"
     },
     "documentInfo": {
       "button": "विवरण संपादित करें",
@@ -509,6 +512,7 @@
       "resume": "फिर शुरू करना",
       "remove": "निकालना",
       "export": "निर्यात",
+      "moreActions": "अधिक कार्रवाइयाँ",
       "exporting": "निर्यात",
       "deleting": "हटाया जा रहा है",
       "delete": "मिटाना",

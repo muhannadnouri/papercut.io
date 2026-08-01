@@ -104,7 +104,7 @@ export function DocumentViewer({
     closeFind,
     setShowFind,
     handleViewerFindResult,
-  } = useFindInPage(readerRef, viewerFindApi)
+  } = useFindInPage(readerRef, viewerFindApi, content)
 
   useTtsHighlight(readerRef, ttsHighlight
     ? { ...ttsHighlight, enabled: ttsHighlight.enabled && plugin.id !== 'pdf' }

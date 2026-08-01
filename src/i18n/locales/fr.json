@@ -97,7 +97,10 @@
       "documentCategory": "Documents ({{count, number}})",
       "emptyBooks": "Aucun livre ne correspond aux filtres actuels.",
       "emptyCategoryDocuments": "Aucun document ne correspond aux filtres actuels.",
-      "savedAudioAvailable": "Audio enregistré disponible"
+      "savedAudioAvailable": "Audio enregistré disponible",
+      "bookmarked": "Avec signet",
+      "bookmarkedOnly": "Afficher uniquement les documents avec signet",
+      "emptyBookmarked": "Aucun document avec signet ne correspond aux filtres actuels."
     },
     "documentInfo": {
       "button": "Modifier les détails",
@@ -516,6 +519,7 @@
       "resume": "CV",
       "remove": "Retirer",
       "export": "Exporter",
+      "moreActions": "Plus d’actions",
       "exporting": "Exportation",
       "deleting": "Suppression",
       "delete": "Supprimer",

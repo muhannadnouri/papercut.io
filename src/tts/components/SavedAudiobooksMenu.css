@@ -23,7 +23,7 @@
   height: 1.05rem;
   padding-inline: 0.2rem;
   border: 1px solid var(--surface);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--accent);
   color: var(--text-inverse);
   font-size: 0.62rem;
@@ -42,7 +42,7 @@
   max-height: inherit;
   overflow: hidden;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   background: var(--surface-strong);
   box-shadow: 0 12px 28px var(--shadow-popover);
 }

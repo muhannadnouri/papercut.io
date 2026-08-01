@@ -19,6 +19,7 @@ import { useAppConfirmation } from './components/AppDialog/useAppConfirmation'
 import { useDocumentFilters } from './hooks/useDocumentFilters'
 import { useDocumentViewerState } from './hooks/useDocumentViewerState'
 import { useTheme } from './hooks/useTheme'
+import { useBookmarkedDocumentUrls } from './hooks/useReaderBookmark'
 import { useUploadedLibrary } from './hooks/useUploadedLibrary'
 import type { DocumentInfo, SearchOpenTarget } from './types/search'
 import { clearPhraseFetchCache } from './utils/phraseSearch'
@@ -50,6 +51,7 @@ function isBundledDocumentUrl(url: string): boolean {
 function App() {
   const { t } = useTranslation()
   const theme = useTheme()
+  const bookmarkedDocumentUrls = useBookmarkedDocumentUrls()
   const [activeTab, setActiveTab] = useState<AppTab>('library')
   const [userUploads, setUserUploads] = useState<UserUploadDocument[]>(() => getUserUploads())
   const [ttsDiagnosticsEnabled, setTtsDiagnosticsEnabled] = useState(() => isDebugEnabled())
@@ -400,6 +402,7 @@ function App() {
             showDocuments={showDocuments}
             allDocuments={libraryDocuments}
             audioSavedOnly={audioSavedOnly}
+            bookmarkedDocumentUrls={bookmarkedDocumentUrls}
             savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
             documentFilter={libraryDocumentFilter}
             groupedDocs={libraryGroupedDocs}

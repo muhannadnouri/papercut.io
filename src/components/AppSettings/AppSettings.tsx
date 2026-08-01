@@ -20,6 +20,11 @@ const DEFAULT_ZOOM = 100
 const MIN_ZOOM = 70
 const MAX_ZOOM = 200
 const ZOOM_STEP = 10
+const NEXT_THEME: Record<ThemeChoice, ThemeChoice> = {
+  system: 'light',
+  light: 'dark',
+  dark: 'system',
+}
 
 interface AppSettingsProps {
   themeChoice: ThemeChoice
@@ -45,11 +50,11 @@ export function AppSettings({
   const [version, setVersion] = useState<string | null>(() => tauriRuntime ? null : '')
   const zoom = useAppZoom()
   const closeSettings = useCallback(() => setOpen(false), [])
-  const themeOptions: Array<{ choice: ThemeChoice; label: string; icon?: string }> = [
-    { choice: 'system', label: t('settings.themeSystem'), icon: '🖥️' },
-    { choice: 'light', label: t('settings.themeLight'), icon: '☀️' },
-    { choice: 'dark', label: t('settings.themeDark'), icon: '🌙' },
-  ]
+  const themeOption = {
+    system: t('settings.themeSystem'),
+    light: t('settings.themeLight'),
+    dark: t('settings.themeDark'),
+  }[themeChoice]
 
   useEffect(() => {
     if (!tauriRuntime || !open || version !== null) return
@@ -106,20 +111,15 @@ export function AppSettings({
 
             <div className="app-setting">
               <span id="app-setting-theme">{t('settings.theme')}</span>
-              <div className="app-theme-options" role="group" aria-labelledby="app-setting-theme">
-                {themeOptions.map((option) => (
-                  <button
-                    key={option.choice}
-                    type="button"
-                    className={themeChoice === option.choice ? 'app-theme-option active' : 'app-theme-option'}
-                    aria-pressed={themeChoice === option.choice}
-                    onClick={() => onThemeChange(option.choice)}
-                  >
-                    {option.icon && <span aria-hidden="true">{option.icon}</span>}
-                    {option.label}
-                  </button>
-                ))}
-              </div>
+              <button
+                type="button"
+                className="app-theme-cycle"
+                aria-labelledby="app-setting-theme app-setting-theme-value"
+                onClick={() => onThemeChange(NEXT_THEME[themeChoice])}
+              >
+                <ThemeIcon choice={themeChoice} />
+                <span id="app-setting-theme-value">{themeOption}</span>
+              </button>
             </div>
 
             {zoom.supported && (
@@ -213,6 +213,30 @@ function SettingsIcon() {
     <svg className="app-settings-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
       <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.08A1.7 1.7 0 0 0 9 19.36a1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.63 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.08A1.7 1.7 0 0 0 4.64 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.63a1.7 1.7 0 0 0 1-1.56V3a2 2 0 1 1 4 0v.08A1.7 1.7 0 0 0 15 4.64a1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.36 9a1.7 1.7 0 0 0 1.56 1H21a2 2 0 1 1 0 4h-.08A1.7 1.7 0 0 0 19.4 15Z" />
+    </svg>
+  )
+}
+
+function ThemeIcon({ choice }: { choice: ThemeChoice }) {
+  if (choice === 'system') {
+    return (
+      <svg className="app-theme-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <rect x="3" y="4" width="18" height="14" rx="2" />
+        <path d="M8 22h8M12 18v4" />
+      </svg>
+    )
+  }
+  if (choice === 'light') {
+    return (
+      <svg className="app-theme-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41" />
+      </svg>
+    )
+  }
+  return (
+    <svg className="app-theme-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z" />
     </svg>
   )
 }

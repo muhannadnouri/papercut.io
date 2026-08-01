@@ -109,7 +109,10 @@
       "documentCategory": "المستندات ({{count, number}})",
       "emptyBooks": "لا توجد كتب تطابق عوامل التصفية الحالية.",
       "emptyCategoryDocuments": "لا توجد مستندات تطابق عوامل التصفية الحالية.",
-      "savedAudioAvailable": "يتوفر صوت محفوظ"
+      "savedAudioAvailable": "يتوفر صوت محفوظ",
+      "bookmarked": "تم وضع إشارة مرجعية",
+      "bookmarkedOnly": "إظهار المستندات ذات الإشارات المرجعية فقط",
+      "emptyBookmarked": "لا توجد مستندات ذات إشارات مرجعية تطابق عوامل التصفية الحالية."
     },
     "documentInfo": {
       "button": "تعديل التفاصيل",
@@ -537,6 +540,7 @@
       "resume": "استئناف",
       "remove": "إزالة",
       "export": "تصدير",
+      "moreActions": "المزيد من الإجراءات",
       "exporting": "جارٍ التصدير",
       "deleting": "جارٍ الحذف",
       "delete": "حذف",

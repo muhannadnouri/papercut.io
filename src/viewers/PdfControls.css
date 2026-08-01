@@ -15,7 +15,7 @@
   align-items: center;
   background: var(--control-surface);
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   display: inline-flex;
   overflow: hidden;
 }

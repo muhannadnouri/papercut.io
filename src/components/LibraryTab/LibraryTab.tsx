@@ -13,6 +13,7 @@ import { DocumentInfoDialog } from '../DocumentInfoDialog/DocumentInfoDialog'
 interface LibraryTabProps {
   allDocuments: DocumentInfo[]
   audioSavedOnly: boolean
+  bookmarkedDocumentUrls: ReadonlySet<string>
   collapsedAuthors: Set<string>
   docFilterLower: string
   documentFilter: string
@@ -46,6 +47,7 @@ interface LibraryTabProps {
 export function LibraryTab({
   allDocuments,
   audioSavedOnly,
+  bookmarkedDocumentUrls,
   collapsedAuthors,
   docFilterLower,
   documentFilter,
@@ -88,6 +90,7 @@ export function LibraryTab({
         showDocuments={showDocuments}
         allDocuments={allDocuments}
         audioSavedOnly={audioSavedOnly}
+        bookmarkedDocumentUrls={bookmarkedDocumentUrls}
         documentFilter={documentFilter}
         groupedDocs={groupedDocs}
         docFilterLower={docFilterLower}

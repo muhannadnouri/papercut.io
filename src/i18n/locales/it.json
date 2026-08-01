@@ -97,7 +97,10 @@
       "documentCategory": "Documenti ({{count, number}})",
       "emptyBooks": "Nessun libro corrisponde ai filtri attuali.",
       "emptyCategoryDocuments": "Nessun documento corrisponde ai filtri attuali.",
-      "savedAudioAvailable": "Audio salvato disponibile"
+      "savedAudioAvailable": "Audio salvato disponibile",
+      "bookmarked": "Con segnalibro",
+      "bookmarkedOnly": "Mostra solo i documenti con segnalibro",
+      "emptyBookmarked": "Nessun documento con segnalibro corrisponde ai filtri attuali."
     },
     "documentInfo": {
       "button": "Modifica dettagli",
@@ -516,6 +519,7 @@
       "resume": "Riprendere",
       "remove": "Rimuovere",
       "export": "Esportare",
+      "moreActions": "Altre azioni",
       "exporting": "Esportazione",
       "deleting": "Eliminazione",
       "delete": "Eliminare",

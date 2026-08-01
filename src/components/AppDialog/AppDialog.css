@@ -17,7 +17,7 @@
   overflow: auto;
   padding: 1rem;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
   background: var(--surface);
   color: var(--text-heading);
   font-family: var(--ui-font);
@@ -57,7 +57,7 @@
   max-width: 100%;
   padding: 0.65rem;
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--surface-muted);
   color: var(--text-body);
   font-size: 0.78rem;
@@ -76,8 +76,8 @@
   gap: 0.45rem;
   margin: 0;
   padding: 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
   background: var(--surface-muted);
 }
 
@@ -113,7 +113,7 @@
 .app-dialog-actions button {
   min-height: 2.35rem;
   padding: 0 0.85rem;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;

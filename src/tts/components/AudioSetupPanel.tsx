@@ -197,6 +197,11 @@ export function AudioSetupPanel({
 
           {showModelInstallDetails && (
             <div className="audio-model-install">
+              {!isSilmaModel && !modelInstalled && modelSize && (
+                <span className="audio-thread-meta" dir="auto">
+                  {t('tts.setup.downloadSize', { size: modelSize })}
+                </span>
+              )}
               {(!modelInstalled || silmaRuntimeMissing) && modelInstallSupported && (
                 <button
                   type="button"
@@ -229,7 +234,14 @@ export function AudioSetupPanel({
                     <span>{modelPercent}%</span>
                   </div>
                   {!modelInstalled && modelInstallProgress?.status !== 'error' && (
-                    <div className="audio-progress-meter" aria-label={'Voice model download ' + modelPercent + '% complete'}>
+                    <div
+                      className="audio-progress-meter"
+                      role="progressbar"
+                      aria-label={installingButtonLabel}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={modelPercent}
+                    >
                       <span style={{ width: modelPercent + '%' }} />
                     </div>
                   )}
@@ -354,7 +366,7 @@ export function AudioSetupPanel({
         )}
         {isSilmaModel && onProbeSilmaSidecar && (
           <div className="audio-field audio-field-silma-probe">
-            <span>{t('tts.setup.silmaSidecar')}</span>
+            <span><span aria-hidden="true">🚗</span> {t('tts.setup.silmaSidecar')}</span>
             <button
               type="button"
               className="audio-probe-button"
