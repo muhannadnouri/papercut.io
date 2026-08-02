@@ -22,7 +22,7 @@ for (const localeFile of localeFiles) {
   if (unused.length) {
     throw new Error(`${localeFile}: unused values: ${unused.join(', ')}`)
   }
-  if (!/^(?:[a-z-]+\/)?index\.html$/.test(locale.output)) {
+  if (!/^(?:[A-Za-z-]+\/)?index\.html$/.test(locale.output)) {
     throw new Error(`${localeFile}: invalid output path ${locale.output}`)
   }
 
