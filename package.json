@@ -9,6 +9,7 @@
     "tauri:dev": "tauri dev --features native-tts-shared",
     "build": "npm run check:i18n && npm run build:typecheck && npm run build:vite && npm run build:search-index",
     "check:i18n": "node scripts/check-i18n.mjs",
+    "site:build": "node scripts/build-static-site.mjs",
     "build:typecheck": "tsc -b",
     "build:vite": "npm run prepare:pdfjs-assets && vite build",
     "build:search-index": "npx pagefind --site dist --glob \"documents/**/*.html\"",
