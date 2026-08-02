@@ -1,3 +1,4 @@
 [build]
+  command = "node site/build.mjs"
   publish = "site"
   ignore = "test -n \"$CACHED_COMMIT_REF\" && test -n \"$COMMIT_REF\" && git diff --quiet \"$CACHED_COMMIT_REF\" \"$COMMIT_REF\" -- site netlify.toml"
