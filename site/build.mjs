@@ -2,9 +2,8 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const sourceDir = path.join(root, 'site-source')
-const outputDir = path.join(root, 'site')
+const outputDir = path.dirname(fileURLToPath(import.meta.url))
+const sourceDir = path.join(outputDir, 'source')
 const template = await readFile(path.join(sourceDir, 'index.template.html'), 'utf8')
 const localeDir = path.join(sourceDir, 'locales')
 const localeFiles = (await readdir(localeDir)).filter((file) => file.endsWith('.json')).sort()
@@ -30,5 +29,5 @@ for (const localeFile of localeFiles) {
   const destination = path.join(outputDir, locale.output)
   await mkdir(path.dirname(destination), { recursive: true })
   await writeFile(destination, output)
-  console.log(`[site] wrote ${path.relative(root, destination)}`)
+  console.log(`[site] wrote ${path.relative(outputDir, destination)}`)
 }
