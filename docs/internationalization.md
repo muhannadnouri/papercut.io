@@ -49,10 +49,23 @@ locale for direction-aware component behavior.
 
 ## Static Website
 
-The zero-build website keeps localized pages explicit: English is served from
-`site/index.html` and Arabic from `site/ar/index.html`. Both pages share
-`site/styles.css` and the same markup structure so their layout, responsive
-behavior, placeholders, downloads, and interactions stay visually aligned.
+The static website is generated from one shared
+`site/source/index.template.html` file and the locale catalogs under
+`site/source/locales/`. Run `node site/build.mjs` after changing the template or
+a catalog. The generator and its source live with the static website instead of
+the application build. Netlify runs the same generator before publishing
+`site/`, while generated pages remain committed for direct `file://` previews:
+English is served from `site/index.html`, Arabic from `site/ar/index.html`,
+Spanish from `site/es/index.html`, French from `site/fr/index.html`, Italian from
+`site/it/index.html`, Brazilian Portuguese from `site/pt-BR/index.html`, Hindi
+from `site/hi/index.html`, and Simplified Chinese from
+`site/zh-CN/index.html`.
+
+Do not edit the generated HTML pages directly. The renderer rejects missing or
+unused catalog values, keeps all locales on the same markup and scripts, and
+preserves direct `file://` previews without shipping client-side translation
+code. All pages continue to share `site/styles.css`.
+
 Each page declares canonical and reciprocal `hreflang` links, localized social
 metadata, and its semantic document direction. The header language menu links
 directly between locale URLs, so navigation and metadata do not depend on
