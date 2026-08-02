@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="es" data-theme-choice="system">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Papercut - lector, buscador y audiolibros sin conexión</title>
+    <meta name="description" content="Papercut te permite importar, buscar, leer, transferir y escuchar bibliotecas HTML, EPUB y PDF sin conexión. Genera y exporta audiolibros privados sin cuentas ni suscripciones.">
+    <meta property="og:title" content="Papercut - lector, buscador y audiolibros sin conexión">
+    <meta property="og:description" content="Busca, lee, transfiere y escucha tus propios documentos sin conexión en equipos de escritorio y dispositivos móviles.">
+    <meta property="og:image" content="https://trypapercut.app/assets/papercut-icon.png">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://trypapercut.app/es/">
+    <meta property="og:locale" content="es_ES">
+    <meta property="og:locale:alternate" content="en_US">
+    <meta property="og:locale:alternate" content="ar_AR">
+    <link rel="canonical" href="https://trypapercut.app/es/">
+    <link rel="alternate" hreflang="en" href="https://trypapercut.app/">
+    <link rel="alternate" hreflang="ar" href="https://trypapercut.app/ar/">
+    <link rel="alternate" hreflang="es" href="https://trypapercut.app/es/">
+    <link rel="alternate" hreflang="x-default" href="https://trypapercut.app/">
+    <link rel="icon" href="../assets/papercut-icon.png" sizes="128x128">
+    <link rel="stylesheet" href="../styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Saltar al contenido</a>
+    <div class="page">
+      <header class="site-header">
+        <a class="brand" href="index.html" aria-label="Inicio de Papercut">
+          <img src="../assets/papercut-icon.png" alt="" width="36" height="36">
+          <span>Papercut</span>
+        </a>
+        <div class="header-actions">
+          <details class="language-menu">
+            <summary aria-label="Elegir idioma" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M3 12h18M12 3c2.4 2.5 3.7 5.5 3.7 9S14.4 18.5 12 21M12 3C9.6 5.5 8.3 8.5 8.3 12s1.3 6.5 3.7 9" />
+              </svg>
+            </summary>
+            <nav class="language-options" aria-label="Idiomas">
+              <a href="../index.html" lang="en" hreflang="en">English</a>
+              <a href="../ar/index.html" lang="ar" dir="rtl" hreflang="ar">العربية</a>
+              <a href="index.html" lang="es" hreflang="es" aria-current="page">Español</a>
+            </nav>
+          </details>
+          <details class="nav-menu">
+            <summary aria-label="Abrir o cerrar la navegación" aria-expanded="false"><span class="nav-menu-icon" aria-hidden="true">
+                <svg class="nav-menu-icon-open" viewBox="0 0 20 20" focusable="false">
+                  <path d="M4 6h12M4 10h12M4 14h12" />
+                </svg>
+                <svg class="nav-menu-icon-close" viewBox="0 0 20 20" focusable="false">
+                  <path d="M5 12l5-5 5 5" />
+                </svg>
+              </span></summary>
+            <nav class="nav" aria-label="Navegación principal">
+              <a href="#preview-title">Demostración</a>
+              <a href="#features-title">Funciones</a>
+              <a href="#privacy-title">Privacidad</a>
+              <a href="#use-cases-title">Casos de uso</a>
+              <a href="#downloads-title">Descargar</a>
+              <a href="#install-notes-title">Preguntas frecuentes</a>
+              <a href="#contact-title">Contacto</a>
+            </nav>
+          </details>
+
+          <button class="theme-toggle" type="button" aria-label="Tema: usar el tema del sistema. Cambiar al tema claro." title="Tema: usar el tema del sistema. Haz clic para cambiar al tema claro.">
+            <span class="theme-toggle-icon theme-toggle-icon-system" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M4 5.75A2.75 2.75 0 0 1 6.75 3h10.5A2.75 2.75 0 0 1 20 5.75v7.5A2.75 2.75 0 0 1 17.25 16H6.75A2.75 2.75 0 0 1 4 13.25v-7.5Z" />
+                <path d="M9.25 20h5.5" />
+                <path d="M12 16v4" />
+              </svg>
+            </span>
+            <span class="theme-toggle-icon theme-toggle-icon-light" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2.75v2.5" />
+                <path d="M12 18.75v2.5" />
+                <path d="m5.46 5.46 1.77 1.77" />
+                <path d="m16.77 16.77 1.77 1.77" />
+                <path d="M2.75 12h2.5" />
+                <path d="M18.75 12h2.5" />
+                <path d="m5.46 18.54 1.77-1.77" />
+                <path d="m16.77 7.23 1.77-1.77" />
+              </svg>
+            </span>
+            <span class="theme-toggle-icon theme-toggle-icon-dark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M19.15 15.4A7.45 7.45 0 0 1 8.6 4.85 8.3 8.3 0 1 0 19.15 15.4Z" />
+              </svg>
+            </span>
+          </button>
+        </div>
+      </header>
+
+      <main id="main-content">
+        <section class="intro" aria-labelledby="intro-title">
+          <p class="eyebrow">Lector, buscador y creador de audiolibros sin conexión</p>
+          <h1 id="intro-title">Busca, lee y escucha tus documentos sin conexión</h1>
+          <p class="intro-copy">
+            Papercut es una aplicación para escritorio y dispositivos móviles que permite importar archivos HTML, EPUB y PDF con texto, buscar en bibliotecas personales indexadas, leer localmente y generar audiolibros sin conexión que puedes exportar y llevar contigo.
+          </p>
+          <div class="intro-actions" role="group" aria-label="Acciones principales">
+            <a class="button-primary" href="#downloads-title">Descargar Papercut</a>
+            <a class="button-secondary" href="https://github.com/muhannadnouri/papercut.io">Ver en GitHub</a>
+          </div>
+          <ul class="intro-trust" aria-label="Ventajas principales de Papercut">
+            <li>📚 Biblioteca sin conexión</li>
+            <li>🎧 Audiolibros locales con IA</li>
+            <li>🔒 Sin inicio de sesión</li>
+            <li>💻 Escritorio y móvil</li>
+          </ul>
+        </section>
+
+        <section class="preview" aria-labelledby="preview-title">
+          <div class="section-label">
+            <h2 id="preview-title">Demostración</h2>
+          </div>
+          <div class="preview-grid">
+            <figure class="screenshot-preview">
+              <div class="screenshot-placeholder" role="img" aria-label="Espacio para una futura captura de pantalla de Papercut">
+                <span>Espacio para captura de pantalla</span>
+                <small>Sustituir por JPEG o PNG</small>
+              </div>
+            </figure>
+
+            <aside class="audio-proof" aria-labelledby="audio-proof-title">
+              <p class="eyebrow">Muestra de voz</p>
+              <h3 id="audio-proof-title">Muestra de voz sin conexión</h3>
+              <p>Este espacio está reservado para una muestra breve en inglés generada con Kokoro y una muestra en árabe cuando el audio final esté listo.</p>
+              <div class="audio-placeholder" role="img" aria-label="Espacio para futuras muestras de voz de Papercut">
+                <span class="audio-placeholder-icon" aria-hidden="true"></span>
+                <span>Espacio para muestra de audio</span>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="features" aria-labelledby="features-title">
+          <div class="features-header">
+            <h2 id="features-title" class="features-heading">Funciones</h2>
+            <p>Papercut funciona como un ciclo: importa tus documentos, busca en ellos, lee lo importante y crea audio portátil cuando escuchar sea más conveniente.</p>
+          </div>
+          <div class="feature-grid">
+            <div class="feature-card">
+              <span class="feature-label">Buscar</span>
+              <h3>Encuentra texto en toda tu biblioteca</h3>
+              <p>Busca contenido indexado en cientos de documentos importados sin internet ni cuentas. La búsqueda exacta y amplia te ayuda a recuperar notas, referencias de código, citas de investigación y secciones de manuales.</p>
+            </div>
+            <div class="feature-card">
+              <span class="feature-label">Leer</span>
+              <h3>Lee archivos HTML, EPUB y PDF sin conexión</h3>
+              <p>Importa tus documentos en lectores locales de HTML, EPUB y PDF adaptables. Ajusta el texto redistribuible con fuentes, ancho de lectura y modo oscuro, mientras los PDF conservan sus páginas originales.</p>
+            </div>
+            <div class="feature-card">
+              <span class="feature-label">Organizar</span>
+              <h3>Mantén juntos documentos, carpetas y audio</h3>
+              <p>Importa muchos archivos a la vez, explora portadas o listas, organiza carpetas, edita títulos, guarda audio generado y mueve documentos y audiolibros seleccionados entre dispositivos con Papercut.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="audiobooks" aria-labelledby="audiobooks-title">
+          <div class="section-label">
+            <h2 id="audiobooks-title">Audiolibros sin conexión</h2>
+          </div>
+          <div class="audiobook-content">
+            <div class="audiobook-lead">
+              <p class="eyebrow">Escuchar</p>
+              <h3>Genera audiolibros a partir de los documentos de tu biblioteca</h3>
+              <p>
+                Cuando leer no sea lo más conveniente, Papercut puede convertir documentos compatibles en audio guardado en tu dispositivo. Los modelos de voz solo se descargan cuando eliges usar audio; después, la generación y la reproducción funcionan sin internet.
+              </p>
+            </div>
+
+            <div class="audiobook-points" aria-label="Funciones de audiolibros sin conexión">
+              <div>
+                <strong>Generación privada</strong>
+                <span>Sin procesamiento en la nube, carga de documentos ni cuenta.</span>
+              </div>
+              <div>
+                <strong>Sin cobros por uso</strong>
+                <span>Sin suscripción, clave de API, límite de tokens ni cobro por carácter.</span>
+              </div>
+              <div>
+                <strong>Exportar e importar</strong>
+                <span>Guarda paquetes de audiolibros para compartirlos, transferirlos o importarlos de nuevo en Papercut desde otro dispositivo.</span>
+              </div>
+              <div>
+                <strong>Escucha en cualquier lugar</strong>
+                <span>Android admite reproducción en segundo plano y desde la pantalla de bloqueo.</span>
+              </div>
+            </div>
+
+            <div class="model-notes">
+              <article>
+                <h4>Voces multilingües de Kokoro</h4>
+                <p>Kokoro ofrece voces sin conexión para inglés, chino mandarín, español, francés, hindi, italiano y portugués de Brasil.</p>
+              </article>
+              <article>
+                <h4>Voces en árabe</h4>
+                <p>El árabe utiliza modelos independientes de Piper y Supertonic sin conexión. SILMA también está disponible en Linux x64 mediante una descarga opcional del entorno de ejecución gestionada por Papercut.</p>
+              </article>
+              <article>
+                <h4>Alcance de los modelos sin conexión</h4>
+                <p>Actualmente, los modelos sin conexión se usan para generar audiolibros. La búsqueda, la importación y la lectura siguen siendo herramientas locales para documentos.</p>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="privacy" aria-labelledby="privacy-title">
+          <div class="section-label">
+            <h2 id="privacy-title">Modelo de privacidad</h2>
+          </div>
+          <div class="privacy-content">
+            <div class="privacy-copy">
+              <p class="eyebrow">Local por defecto</p>
+              <h3>Tu biblioteca permanece en tu dispositivo</h3>
+              <p>
+                Papercut mantiene de forma predeterminada los documentos importados, la búsqueda, la lectura y el audio generado en tu dispositivo. El acceso a la red se limita a las acciones que elijas, como descargar modelos de voz o archivos de una versión.
+              </p>
+            </div>
+            <div class="privacy-grid" aria-label="Detalles de privacidad de Papercut">
+              <article>
+                <strong>Documentos</strong>
+                <span>Los archivos HTML, EPUB y PDF importados permanecen en el dispositivo.</span>
+              </article>
+              <article>
+                <strong>Buscar</strong>
+                <span>La búsqueda en la biblioteca usa el contenido local de los documentos.</span>
+              </article>
+              <article>
+                <strong>Audiolibros</strong>
+                <span>El audio generado permanece en el dispositivo y Papercut no reclama su propiedad.</span>
+              </article>
+              <article>
+                <strong>Red</strong>
+                <span>Solo se usa cuando descargas modelos de voz, versiones o recursos externos que solicitas.</span>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="positioning" aria-labelledby="use-cases-title">
+          <div class="positioning-header">
+            <h2 id="use-cases-title">Casos de uso</h2>
+            <p>Papercut se adapta a bibliotecas personales formadas por documentos guardados, libros, notas, manuales y material de investigación. Mantiene la búsqueda, la lectura y la escucha cerca de los archivos que ya utilizas.</p>
+          </div>
+          <div class="positioning-content">
+            <section class="positioning-panel" aria-labelledby="best-for-title">
+              <h3 id="best-for-title">¿Quién aprovecha más Papercut?</h3>
+              <div class="use-case-list" aria-label="Casos de uso de Papercut">
+                <article>
+                  <strong>Desarrolladores</strong>
+                  <span>Busca documentación de API, manuales y referencias guardadas sin conexión.</span>
+                </article>
+                <article>
+                  <strong>Investigadores</strong>
+                  <span>Mantén artículos, notas y fuentes extensas disponibles para buscar y escuchar.</span>
+                </article>
+                <article>
+                  <strong>Estudiantes</strong>
+                  <span>Convierte materiales de lectura, archivos EPUB y PDF con texto en audio privado para estudiar.</span>
+                </article>
+                <article>
+                  <strong>Lectores que priorizan el uso sin conexión</strong>
+                  <span>Prefieren herramientas locales, menos cuentas y menor dependencia de la nube.</span>
+                </article>
+              </div>
+            </section>
+
+            <section class="positioning-panel comparison" aria-labelledby="comparison-title">
+              <p class="eyebrow">En comparación con</p>
+              <h3 id="comparison-title">¿Por qué elegir Papercut?</h3>
+              <div class="comparison-list" aria-label="Comparación de Papercut con otras alternativas">
+                <article>
+                  <strong>Servicios TTS en la nube</strong>
+                  <span>Sin cargas, claves de API, suscripciones ni medidores de uso.</span>
+                </article>
+                <article>
+                  <strong>Aplicaciones de audiolibros</strong>
+                  <span>Crea audio a partir de tus propios documentos en lugar de comprarlo en un catálogo.</span>
+                </article>
+                <article>
+                  <strong>Lectores de documentos</strong>
+                  <span>Añade búsqueda entre documentos, transferencia de bibliotecas y generación de audiolibros sin conexión.</span>
+                </article>
+                <article>
+                  <strong>Aplicaciones de lectura con IA</strong>
+                  <span>Mantén localmente la búsqueda, la lectura y la generación de audiolibros en vez de cargar documentos en herramientas de conversación en la nube.</span>
+                </article>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="downloads" aria-labelledby="downloads-title">
+          <div class="section-label"><h2 id="downloads-title">Descargas</h2> <span class="version-badge">v1.8.0</span></div>
+          <div class="download-list">
+            <p class="download-list-intro">Empieza con un instalador recomendado o abre el grupo de una plataforma para ver todos sus paquetes.</p>
+
+            <div class="quick-downloads" aria-label="Descargas recomendadas">
+              <article>
+                <strong><span aria-hidden="true">🤖</span> Android</strong>
+                <span>Android 8.0 o posterior en dispositivos arm64-v8a. Incluye compatibilidad nativa con audiolibros.</span>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_v1.8.0_android-arm64-v8a.apk" aria-label="Descargar el APK de Papercut para Android">Descargar APK</a>
+              </article>
+              <article>
+                <strong><span aria-hidden="true">⊞</span> Windows</strong>
+                <span>Instalador x64 para Windows 10 o posterior. Utiliza el entorno Microsoft Edge WebView2.</span>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_1.8.0_x64_en-US.msi" aria-label="Descargar Papercut .msi para Windows">Descargar .msi</a>
+              </article>
+              <article>
+                <strong><span aria-hidden="true">🍎</span> macOS</strong>
+                <span>macOS 10.13 o posterior, con compilaciones firmadas y notarizadas para Apple Silicon e Intel.</span>
+                <div class="split-actions">
+                  <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_1.8.0_aarch64.dmg" aria-label="Descargar Papercut DMG para macOS con Apple Silicon">Apple Silicon</a>
+                  <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_1.8.0_x64.dmg" aria-label="Descargar Papercut DMG para macOS con Intel">Intel</a>
+                </div>
+              </article>
+              <article>
+                <strong><span aria-hidden="true">🐧</span> Linux</strong>
+                <span>Linux amd64 con WebKitGTK y GStreamer. Se recomienda DEB para distribuciones basadas en Debian.</span>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_1.8.0_amd64.deb" aria-label="Descargar Papercut .deb para Linux">Descargar .deb</a>
+              </article>
+            </div>
+
+            <details class="download-group">
+              <summary class="download-group-header">Android</summary>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">🤖</span>
+                    <span>Android</span>
+                    <span class="download-kind">(.apk)</span>
+                  </strong>
+                  <span>APK de Android para arm64-v8a con compatibilidad nativa con audiolibros. Requiere Android 8.0 o posterior / API 26 o posterior.</span>
+                  <code>Papercut_v1.8.0_android-arm64-v8a.apk</code>
+                </div>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_v1.8.0_android-arm64-v8a.apk" aria-label="Descargar el APK de Papercut para Android">Descargar</a>
+              </article>
+            </details>
+
+            <details class="download-group">
+              <summary class="download-group-header">iOS</summary>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">🍎</span>
+                    <span>iOS</span>
+                    <span class="download-kind">(App Store)</span>
+                  </strong>
+                  <span>Está prevista la compatibilidad con iPhone y iPad. Por ahora, esta entrada es un marcador de posición para App Store.</span>
+                  <code>Próximamente en App Store</code>
+                </div>
+                <a class="download-disabled" role="link" aria-disabled="true" tabindex="-1">App Store</a>
+              </article>
+            </details>
+
+            <details class="download-group">
+              <summary class="download-group-header">Linux</summary>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">🐧</span>
+                    <span>Linux</span>
+                    <span class="download-kind">(AppImage)</span>
+                  </strong>
+                  <span>Versión portátil de Linux para sistemas amd64. Requiere WebKitGTK y GStreamer; los artefactos se compilan en Ubuntu 24.04.</span>
+                  <code>Papercut_1.8.0_amd64.AppImage</code>
+                </div>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_1.8.0_amd64.AppImage" aria-label="Descargar Papercut AppImage para Linux">Descargar</a>
+              </article>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">🐧</span>
+                    <span>Linux</span>
+                    <span class="download-kind">(.deb)</span> <span class="recommended-badge">Recomendado</span>
+                  </strong>
+                  <span>Instalador para distribuciones amd64 basadas en Debian (Ubuntu, Mint, etc.). Requiere WebKitGTK y GStreamer.</span>
+                  <code>Papercut_1.8.0_amd64.deb</code>
+                </div>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_1.8.0_amd64.deb" aria-label="Descargar Papercut DEB para Linux">Descargar</a>
+              </article>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">🐧</span>
+                    <span>Linux</span>
+                    <span class="download-kind">(.rpm)</span>
+                  </strong>
+                  <span>Instalador para distribuciones x86_64 basadas en RPM (Fedora, openSUSE, etc.). Requiere WebKitGTK y GStreamer.</span>
+                  <code>Papercut-1.8.0-1.x86_64.rpm</code>
+                </div>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut-1.8.0-1.x86_64.rpm" aria-label="Descargar Papercut RPM para Linux">Descargar</a>
+              </article>
+            </details>
+
+            <details class="download-group">
+              <summary class="download-group-header">macOS</summary>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">🍎</span>
+                    <span>macOS</span>
+                    <span class="download-kind">(.dmg)</span> <span class="recommended-badge">Apple Silicon</span>
+                  </strong>
+                  <span>Imagen de disco firmada y notarizada para Apple Silicon (M1/M2/M3 y posteriores). Requiere macOS 10.13 o posterior.</span>
+                  <code>Papercut_1.8.0_aarch64.dmg</code>
+                </div>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_1.8.0_aarch64.dmg" aria-label="Descargar Papercut DMG para macOS con Apple Silicon">Descargar</a>
+              </article>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">🍎</span>
+                    <span>macOS</span>
+                    <span class="download-kind">(.dmg)</span> <span class="recommended-badge">Intel</span>
+                  </strong>
+                  <span>Imagen de disco firmada y notarizada para equipos Mac con Intel. Requiere macOS 10.13 o posterior.</span>
+                  <code>Papercut_1.8.0_x64.dmg</code>
+                </div>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_1.8.0_x64.dmg" aria-label="Descargar Papercut DMG para macOS con Intel">Descargar</a>
+              </article>
+            </details>
+
+            <details class="download-group">
+              <summary class="download-group-header">Windows</summary>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">⊞</span>
+                    <span>Windows</span>
+                    <span class="download-kind">(.msi)</span> <span class="recommended-badge">Recomendado</span>
+                  </strong>
+                  <span>Paquete de instalación x64 para Windows 10 o posterior. Requiere el entorno Microsoft Edge WebView2.</span>
+                  <code>Papercut_1.8.0_x64_en-US.msi</code>
+                </div>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_1.8.0_x64_en-US.msi" aria-label="Descargar Papercut MSI para Windows">Descargar</a>
+              </article>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">⊞</span>
+                    <span>Windows</span>
+                    <span class="download-kind">(.exe)</span>
+                  </strong>
+                  <span>Ejecutable de instalación x64 para Windows 10 o posterior. Requiere el entorno Microsoft Edge WebView2.</span>
+                  <code>Papercut_1.8.0_x64-setup.exe</code>
+                </div>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/Papercut_1.8.0_x64-setup.exe" aria-label="Descargar el instalador EXE de Papercut para Windows">Descargar</a>
+              </article>
+            </details>
+
+            <details class="download-group">
+              <summary class="download-group-header">Otras descargas</summary>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">#</span>
+                    <span>Sumas de comprobación</span>
+                    <span class="download-kind">(SHA-256)</span>
+                  </strong>
+                  <span>Hashes SHA-256 de los artefactos de la versión.</span>
+                  <code>SHA256SUMS.txt</code>
+                </div>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.8.0/SHA256SUMS.txt" aria-label="Descargar las sumas SHA-256 de Papercut">Descargar</a>
+              </article>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">{ }</span>
+                    <span>Código fuente</span>
+                    <span class="download-kind">(.zip)</span>
+                  </strong>
+                  <span>Archivo del código fuente para la etiqueta de la versión v1.8.0.</span>
+                  <code>v1.8.0.zip</code>
+                </div>
+                <a href="https://github.com/muhannadnouri/papercut.io/archive/refs/tags/v1.8.0.zip" aria-label="Descargar el código fuente de Papercut en ZIP">Descargar</a>
+              </article>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">{ }</span>
+                    <span>Código fuente</span>
+                    <span class="download-kind">(.tar.gz)</span>
+                  </strong>
+                  <span>Archivo comprimido del código fuente para la etiqueta de la versión v1.8.0.</span>
+                  <code>v1.8.0.tar.gz</code>
+                </div>
+                <a href="https://github.com/muhannadnouri/papercut.io/archive/refs/tags/v1.8.0.tar.gz" aria-label="Descargar el código fuente comprimido de Papercut">Descargar</a>
+              </article>
+            </details>
+          </div>
+        </section>
+
+        <section class="install-notes" aria-labelledby="install-notes-title">
+          <h2 id="install-notes-title" class="install-notes-heading">Preguntas frecuentes</h2>
+          <p>Detalles prácticos sobre el audio sin conexión, la privacidad, los archivos compatibles y la instalación de Papercut en cada plataforma.</p>
+          <details>
+            <summary><strong>¿Papercut utiliza IA para algo además de los audiolibros?</strong></summary>
+            <p>Actualmente, los modelos sin conexión se utilizan para generar audiolibros. La lectura, la importación, la organización y la búsqueda son herramientas locales para documentos.</p>
+          </details>
+          <details>
+            <summary><strong>¿Cuándo necesita Papercut acceso a internet?</strong></summary>
+            <p>La lectura y la búsqueda funcionan sin conexión. La red se utiliza cuando eliges descargar un modelo de voz, una versión o abrir un recurso externo. Si no generas audiolibros, no necesitas descargar modelos de voz.</p>
+          </details>
+          <details>
+            <summary><strong>¿Por qué la generación de audiolibros en inglés utiliza Kokoro?</strong></summary>
+            <p>Las voces en inglés utilizan Kokoro porque actualmente ofrece una gran calidad entre los modelos de voz completamente locales. El objetivo es obtener audio natural sin procesamiento en la nube, suscripciones, claves de API ni cobros por carácter.</p>
+          </details>
+          <details>
+            <summary><strong>¿Cómo funciona la compatibilidad con audiolibros en árabe?</strong></summary>
+            <p>El árabe utiliza modelos independientes sin conexión. Piper es la opción multiplataforma más pequeña, mientras que SILMA está disponible en Linux x64 mediante una descarga opcional del entorno de ejecución.</p>
+          </details>
+          <details>
+            <summary><strong>¿Quién es el propietario del audio generado?</strong></summary>
+            <p>Papercut no reclama la propiedad del audio generado. Eres responsable de los derechos del texto de origen, de cualquier voz de referencia o grabación utilizada y de cómo se comparte el audio exportado. Papercut guarda el audiolibro localmente y no lo carga en ningún servicio.</p>
+          </details>
+          <details>
+            <summary><strong>¿Puedo mover o compartir los audiolibros generados?</strong></summary>
+            <p>Sí. Los audiolibros guardados se pueden exportar como paquetes de Papercut para compartirlos, transferirlos a otro dispositivo, crear copias de seguridad o volver a importarlos más tarde. Si compartes, publicas, vendes o emites audio generado, indícalo como generado por IA y no lo uses para suplantar ni engañar.</p>
+          </details>
+          <details>
+            <summary><strong>¿Puedo clonar o usar como referencia cualquier voz?</strong></summary>
+            <p>No. Las funciones de voz de referencia solo deben utilizarse con voces y grabaciones para las que tengas derechos o permiso.</p>
+          </details>
+          <details>
+            <summary><strong>¿Qué formatos de documento son compatibles?</strong></summary>
+            <p>Papercut importa archivos HTML, EPUB y PDF. La búsqueda, Buscar y la generación de audiolibros en PDF requieren texto incrustado; los PDF que solo contienen imágenes pueden visualizarse cuando son compatibles, pero no se pueden buscar porque Papercut todavía no incluye OCR.</p>
+          </details>
+          <details>
+            <summary><strong>¿Qué idiomas de interfaz están disponibles?</strong></summary>
+            <p>Papercut está disponible en inglés, árabe, chino simplificado, español, francés, hindi, italiano y portugués de Brasil.</p>
+          </details>
+          <details>
+            <summary><strong>¿Qué idiomas están disponibles para los audiolibros?</strong></summary>
+            <p>Kokoro ofrece voces para inglés, chino mandarín, español, francés, hindi, italiano y portugués de Brasil. El árabe utiliza modelos independientes Piper y Supertonic, y SILMA está disponible en Linux x64 mediante un entorno de ejecución opcional.</p>
+          </details>
+          <details>
+            <summary><strong>¿Cuáles son los requisitos del sistema?</strong></summary>
+            <p><strong>Android:</strong> Android 8.0 / API 26 o posterior en dispositivos arm64-v8a.</p>
+            <p><strong>iOS:</strong> previsto; el lanzamiento en App Store llegará próximamente.</p>
+            <p><strong>macOS:</strong> macOS 10.13 o posterior en equipos Mac con Apple Silicon o Intel.</p>
+            <p><strong>Linux:</strong> Linux amd64 con WebKitGTK y GStreamer disponibles; los artefactos de la versión se compilan en Ubuntu 24.04.</p>
+            <p><strong>Windows:</strong> Windows 10 o posterior en hardware x64 con el entorno Microsoft Edge WebView2.</p>
+          </details>
+          <details>
+            <summary><strong>Android</strong></summary>
+            <p>Activa <strong>Instalar aplicaciones desconocidas</strong> en los ajustes de tu navegador o gestor de archivos y, después, abre el APK. La lectura y la búsqueda funcionan sin conexión. La red solo se utiliza si eliges descargar un modelo de voz; si no generas audiolibros, no se necesita acceso a la red.</p>
+          </details>
+          <details>
+            <summary><strong>Linux</strong></summary>
+            <p>Requiere Linux amd64 con WebKitGTK y GStreamer disponibles. Los artefactos de la versión se compilan en Ubuntu 24.04.</p>
+            <p><strong>Basado en Debian (Ubuntu, Mint):</strong> <code>sudo apt install ./Papercut_*.deb</code></p>
+            <p><strong>Basado en RPM (Fedora, openSUSE):</strong> <code>sudo rpm -i Papercut-*.rpm</code></p>
+            <p><strong>AppImage:</strong> hazlo ejecutable (<code>chmod +x</code>) y ejecútalo directamente. En sistemas basados en Arch, AppImage puede necesitar <code>WEBKIT_DISABLE_COMPOSITING_MODE=1</code>; consulta el <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> para obtener más información.</p>
+          </details>
+          <details>
+            <summary><strong>macOS</strong></summary>
+            <p>Requiere macOS 10.13 o posterior en equipos Mac con Apple Silicon o Intel. Abre el archivo <code>.dmg</code> y arrastra <strong>Papercut</strong> a la carpeta Aplicaciones. Las versiones oficiales están firmadas con Developer ID y notarizadas. Si pruebas un artefacto de CI o desarrollo local sin firmar, haz clic derecho (o Control-clic) en el icono de la aplicación y elige <strong>Abrir</strong> la primera vez que la abras.</p>
+            <p>Elige la versión que corresponda a tu Mac: <strong>Apple Silicon</strong> (<code>_aarch64.dmg</code>) para procesadores de la serie M, o <strong>Intel</strong> (<code>_x64.dmg</code>) para equipos Mac con Intel.</p>
+          </details>
+          <details>
+            <summary><strong>Windows</strong></summary>
+            <p>Requiere Windows 10 o posterior en hardware x64 y el entorno Microsoft Edge WebView2. El instalador MSI realiza la configuración automáticamente. Si prefieres el EXE portátil, ejecútalo directamente. No se necesitan permisos de administrador.</p>
+          </details>
+          <details>
+            <summary><strong>¿Dónde encuentro la documentación, las versiones y el código fuente?</strong></summary>
+            <p>Empieza por el <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a> para obtener ayuda de configuración y detalles de cada plataforma. Consulta las novedades en las <a href="https://github.com/muhannadnouri/papercut.io/blob/main/RELEASE_NOTES/v1.8.0.md">notas de la versión</a>, explora <a href="https://github.com/muhannadnouri/papercut.io/releases/latest">todas las versiones</a>, o colabora en <a href="https://github.com/muhannadnouri/papercut.io">GitHub</a>.</p>
+          </details>
+        </section>
+
+        <section class="contact" aria-labelledby="contact-title">
+          <div class="contact-copy">
+            <p class="eyebrow">Contacto</p>
+            <h2 id="contact-title">Ponte en contacto</h2>
+            <p>
+              Informa de errores, pide ayuda, solicita un idioma o modelo de voz, o cuéntanos qué mejoraría Papercut para tu biblioteca.
+            </p>
+            <p class="contact-note">
+              Los formularios se procesan mediante Netlify Forms. No incluyas documentos privados, secretos ni contenido sensible de tu biblioteca.
+            </p>
+          </div>
+
+          <form class="contact-form" name="contact" method="POST" data-netlify="true" netlify-honeypot="bot-field">
+            <input type="hidden" name="form-name" value="contact">
+            <input type="hidden" name="subject" value="">
+            <p class="form-hidden">
+              <label>No rellenes este campo si eres una persona: <input name="bot-field" autocomplete="off"></label>
+            </p>
+
+            <label class="contact-topic">
+              <span>Elige un tema <small class="required-mark" aria-hidden="true">*</small></span>
+              <select name="reason" required>
+                <option value="">Selecciona un tema</option>
+                <option value="Bug or issue">Error</option>
+                <option value="Language request">Idioma</option>
+                <option value="Voice or model request">Voz/Modelo</option>
+                <option value="Help">Ayuda</option>
+                <option value="Feature idea">Función</option>
+                <option value="Other">Otro</option>
+              </select>
+            </label>
+
+            <fieldset class="contact-subtopics" data-topic-panel="bug" hidden>
+              <legend>¿Dónde está el error?</legend>
+              <label>
+                <input type="radio" name="bug_area" value="Search" disabled>
+                <span>Buscar</span>
+              </label>
+              <label>
+                <input type="radio" name="bug_area" value="Reading" disabled>
+                <span>Lectura</span>
+              </label>
+              <label>
+                <input type="radio" name="bug_area" value="Audiobooks" disabled>
+                <span>Audiolibros</span>
+              </label>
+              <label>
+                <input type="radio" name="bug_area" value="Import/export" disabled>
+                <span>Importar/Exportar</span>
+              </label>
+              <label>
+                <input type="radio" name="bug_area" value="Downloads or install" disabled>
+                <span>Descargas</span>
+              </label>
+              <label>
+                <input type="radio" name="bug_area" value="Other" disabled>
+                <span>Otro</span>
+              </label>
+            </fieldset>
+
+            <div class="contact-fields contact-extra-fields" data-topic-panel="audiobook" hidden>
+              <label>
+                <span>Idioma <small>opcional</small></span>
+                <input type="text" name="language_detail" placeholder="Inglés, árabe, francés..." dir="auto" disabled>
+              </label>
+              <label>
+                <span>Voz/Modelo <small>opcional</small></span>
+                <input type="text" name="model_detail" placeholder="Kokoro, voz en árabe, no estoy seguro..." dir="auto" disabled>
+              </label>
+            </div>
+
+            <div class="contact-fields">
+              <label>
+                <span>Nombre <small>opcional</small></span>
+                <input type="text" name="name" autocomplete="name" placeholder="Nombre / alias" dir="auto">
+              </label>
+              <label>
+                <span>Correo electrónico <small class="required-mark" aria-hidden="true">*</small></span>
+                <input type="email" name="email" autocomplete="email" placeholder="tu@ejemplo.com" dir="ltr" required>
+              </label>
+              <label class="contact-full">
+                <span>Asunto <small class="required-mark" aria-hidden="true">*</small></span>
+                <input type="text" name="subject_text" maxlength="120" placeholder="Asunto del correo" dir="auto" required>
+              </label>
+              <label class="contact-full">
+                <span>Mensaje <small class="required-mark" aria-hidden="true">*</small></span>
+                <textarea name="message" rows="6" placeholder="Describe qué ocurrió, qué esperabas o qué te gustaría ver." dir="auto" required></textarea>
+              </label>
+            </div>
+
+            <div class="contact-submit">
+              <button type="submit">Enviar</button>
+              <div class="contact-submit-notes">
+                <p><span aria-hidden="true">*</span> Obligatorio</p>
+                <p>Los detalles del tema se incluyen con el envío.</p>
+              </div>
+            </div>
+          </form>
+        </section>
+
+        <footer class="site-footer">
+          <p class="footer-privacy">Código abierto 🧩 · Sin suscripciones 💳✂️</p>
+          <p class="footer-meta">
+            &copy; 2026 Muhannad Nouri &middot;
+            <a href="https://github.com/muhannadnouri/papercut.io/blob/main/LICENSE.md">Licencia MIT</a>
+            &middot;
+            <a href="https://github.com/muhannadnouri/papercut.io#ai-audio-use-notice">Aviso sobre el uso de audio con IA</a>
+            &middot;
+            <a href="https://github.com/muhannadnouri/papercut.io">GitHub</a>
+          </p>
+        </footer>
+      </main>
+    </div>
+
+    <script>
+      (() => {
+        document.querySelectorAll('.nav-menu, .language-menu').forEach((menu) => {
+          const toggle = menu.querySelector('summary')
+          const closeMenu = () => {
+            menu.removeAttribute('open')
+            toggle?.setAttribute('aria-expanded', 'false')
+          }
+
+          menu.addEventListener('toggle', () => {
+            toggle?.setAttribute('aria-expanded', menu.open ? 'true' : 'false')
+            if (menu.open) {
+              document.querySelectorAll('.nav-menu[open], .language-menu[open]').forEach((other) => {
+                if (other !== menu) other.removeAttribute('open')
+              })
+            }
+          })
+
+          document.addEventListener('pointerdown', (event) => {
+            if (menu.open && !menu.contains(event.target)) closeMenu()
+          })
+
+          document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && menu.open) {
+              closeMenu()
+              toggle?.focus()
+            }
+          })
+
+          menu.querySelectorAll('a').forEach((link) => {
+            link.addEventListener('click', closeMenu)
+          })
+        })
+      })()
+
+      ;(() => {
+        const root = document.documentElement
+        const button = document.querySelector('.theme-toggle')
+        if (!button) return
+
+        const options = [
+          { choice: 'system', label: 'Usar tema del sistema', nextLabel: 'tema claro' },
+          { choice: 'light', label: 'Tema claro', nextLabel: 'tema oscuro' },
+          { choice: 'dark', label: 'Tema oscuro', nextLabel: 'tema del sistema' },
+        ]
+
+        let index = 0
+
+        const applyTheme = () => {
+          const current = options[index]
+          root.dataset.themeChoice = current.choice
+
+          if (current.choice === 'system') {
+            root.removeAttribute('data-theme')
+          } else {
+            root.dataset.theme = current.choice
+          }
+
+          button.setAttribute('aria-label', `Tema: ${current.label}. Cambiar a ${current.nextLabel}.`)
+          button.setAttribute('title', `Tema: ${current.label}. Haz clic para cambiar a ${current.nextLabel}.`)
+        }
+
+        button.addEventListener('click', () => {
+          index = (index + 1) % options.length
+          applyTheme()
+        })
+
+        applyTheme()
+      })()
+
+      ;(() => {
+        const form = document.querySelector('form[name="contact"]')
+        if (!form) return
+
+        const subjectText = form.querySelector('[name="subject_text"]')
+        const composedSubject = form.querySelector('[name="subject"]')
+        if (!subjectText || !composedSubject) return
+
+        const syncSubject = () => {
+          const data = new FormData(form)
+          const parts = [data.get('reason'), data.get('bug_area')].filter(Boolean)
+          const reason = parts.length ? parts.join(' / ') : 'Contacto'
+          const subject = subjectText.value.trim()
+          composedSubject.value = subject ? `[${reason}] ${subject}` : `[${reason}]`
+        }
+
+        const setPanelState = (panel, isVisible) => {
+          panel.hidden = !isVisible
+          panel.querySelectorAll('input, textarea, select').forEach((field) => {
+            field.disabled = !isVisible
+            if (!isVisible && field.type === 'radio') {
+              field.checked = false
+            }
+          })
+        }
+
+        const syncPanels = () => {
+          const data = new FormData(form)
+          const reason = data.get('reason')
+          const bugArea = data.get('bug_area')
+          const bugPanel = form.querySelector('[data-topic-panel="bug"]')
+          const audiobookPanel = form.querySelector('[data-topic-panel="audiobook"]')
+          const isBug = reason === 'Bug or issue'
+          const needsAudiobookDetails = reason === 'Language request'
+            || reason === 'Voice or model request'
+            || (isBug && bugArea === 'Audiobooks')
+
+          if (bugPanel) {
+            setPanelState(bugPanel, isBug)
+            bugPanel.querySelectorAll('[name="bug_area"]').forEach((field) => {
+              field.required = isBug
+            })
+          }
+
+          if (audiobookPanel) {
+            setPanelState(audiobookPanel, needsAudiobookDetails)
+          }
+
+          syncSubject()
+        }
+
+        form.addEventListener('submit', syncSubject)
+        subjectText.addEventListener('input', syncSubject)
+        form.querySelector('[name="reason"]')?.addEventListener('change', syncPanels)
+        form.querySelectorAll('[name="bug_area"]').forEach((input) => {
+          input.addEventListener('change', syncPanels)
+        })
+        syncPanels()
+      })()
+    </script>
+  </body>
+</html>
