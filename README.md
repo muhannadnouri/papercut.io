@@ -4,7 +4,7 @@
 
 # Papercut
 
-[![Latest release](https://img.shields.io/github/v/release/muhannadnouri/papercut.io?logo=github&color=6366f1)](https://github.com/muhannadnouri/papercut.io/releases/latest) [![CI](https://github.com/muhannadnouri/papercut.io/actions/workflows/ci.yml/badge.svg)](https://github.com/muhannadnouri/papercut.io/actions/workflows/ci.yml) [![React](https://img.shields.io/badge/React-19-20232A?logo=react&logoColor=61DAFB)](https://react.dev/) [![Tauri + Rust](https://img.shields.io/badge/Tauri_+_Rust-2.x_|_1.77+-24C8DB?logo=tauri&logoColor=white)](https://v2.tauri.app/) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
+[![Latest release](https://img.shields.io/github/v/release/muhannadnouri/papercut.io?logo=github&color=6366f1)](https://github.com/muhannadnouri/papercut.io/releases/latest) [![CI](https://github.com/muhannadnouri/papercut.io/actions/workflows/ci.yml/badge.svg)](https://github.com/muhannadnouri/papercut.io/actions/workflows/ci.yml) [![React](https://img.shields.io/badge/React-19-20232A?logo=react&logoColor=61DAFB)](https://react.dev/) [![Tauri + Rust](https://img.shields.io/badge/Tauri_+_Rust-2.x_|_1.88+-24C8DB?logo=tauri&logoColor=white)](https://v2.tauri.app/) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
 
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io?ref=badge_shield&issueType=license) [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io.svg?type=shield&issueType=security)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io?ref=badge_shield&issueType=security)
 
@@ -14,9 +14,19 @@
 [![Download for Android](https://img.shields.io/badge/Download-Android-3DDC84?logo=android&logoColor=white)](https://trypapercut.netlify.app/#downloads-title) [![Download for Linux](https://img.shields.io/badge/Download-Linux-FCC624?logo=linux&logoColor=black)](https://trypapercut.netlify.app/#downloads-title) [![Download for Windows](https://img.shields.io/badge/Download-Windows-0078D4?logo=windows11&logoColor=white)](https://trypapercut.netlify.app/#downloads-title) [![Download for macOS](https://img.shields.io/badge/Download-macOS-000000?logo=apple&logoColor=white)](https://trypapercut.netlify.app/#downloads-title)
 
 
-Papercut is an offline reader for searching, reading, and listening to document collections. Built with Tauri, React, Vite, Pagefind, SQLite FTS, and native sherpa-onnx TTS.
+Papercut is an offline reader for searching, reading, and listening to HTML, EPUB, and text-native PDF collections. It is built with Tauri, React, Vite, PDF.js, Pagefind, SQLite FTS, and native sherpa-onnx TTS.
 
-Bundled documents are indexed at build time using Pagefind, which creates a compressed search index. User-imported HTML and EPUB documents are indexed at runtime into a local SQLite FTS database in Tauri app data, so users can add their own documents without rebuilding the app. EPUB uploads are parsed as a sibling runtime format that emits the same normalized document sections before indexing. At runtime, only the relevant search provider is queried and results are merged into one UI. The entire application runs offline with no server or internet connection required.
+Bundled HTML documents are indexed at build time with Pagefind. User-imported HTML, EPUB, and text-native PDF documents are normalized and indexed incrementally into a local SQLite FTS database in Tauri app data, so imports do not require rebuilding the app. The relevant search providers are queried and merged into one UI. Reading, search, library organization, audiobook playback, and local library transfer work without an account or server connection. Optional native TTS models and the Linux SILMA runtime require a one-time download before they can run offline.
+
+## Highlights
+
+- Import up to 500 HTML, EPUB, or text-native PDF files at once; desktop builds can also import the supported files directly inside one folder.
+- Search bundled and uploaded documents together, including scoped document filters and source-verified exact phrases.
+- Browse cover-based Gallery or compact List views, edit document metadata, organize folders, and filter by saved audio or bookmarks.
+- Read with format-appropriate viewers, in-document Find, semantic bookmarks, and responsive HTML/EPUB appearance controls.
+- Generate, resume, play, import, and export saved audiobooks with native offline TTS and background mobile playback.
+- Transfer uploaded documents, folders, and selected saved audiobooks directly between Papercut devices or through a portable transfer file.
+- Use localized app chrome in English, Arabic, Simplified Chinese, French, Hindi, Italian, Brazilian Portuguese, and Spanish, including right-to-left layout support.
 
 ## Prerequisites
 
@@ -24,8 +34,8 @@ Bundled documents are indexed at build time using Pagefind, which creates a comp
 |-------|-----------------|---------------------|
 | Node  | >= 22.12.0      | 22.22.1             |
 | npm   | >= 10.9.0       | 10.9.4              |
-| Rust  | >= 1.77.2       | 1.94.0              |
-| Cargo | >= 1.77.2       | 1.94.0              |
+| Rust  | >= 1.88         | Current stable      |
+| Cargo | >= 1.88         | Current stable      |
 
 <details>
 <summary><strong>Platform setup details</strong></summary>
@@ -206,7 +216,7 @@ The built binary is output to `src-tauri/target/release/app` (`app.exe` on Windo
 Install the generated Debian package with a dependency-aware command so WebKitGTK and GTK are installed if needed:
 
 ```bash
-sudo apt install ./src-tauri/target/release/bundle/deb/Papercut_1.0.0_amd64.deb
+sudo apt install ./src-tauri/target/release/bundle/deb/Papercut_1.8.0_amd64.deb
 ```
 
 If you previously used `sudo dpkg -i ...` and the app did not launch, run `sudo apt -f install` once to finish installing missing dependencies, then reinstall the newly generated `.deb`.
@@ -250,7 +260,7 @@ Create or update `RELEASE_NOTES/vX.Y.Z.md`, and prefer a new patch tag instead o
 On Arch-based systems, the AppImage may show a blank screen due to a WebKit GBM buffer allocation failure with modern Mesa drivers. Set `WEBKIT_DISABLE_COMPOSITING_MODE=1` to disable GPU compositing:
 
 ```bash
-WEBKIT_DISABLE_COMPOSITING_MODE=1 ./Papercut_1.0.0_amd64.AppImage
+WEBKIT_DISABLE_COMPOSITING_MODE=1 ./Papercut_1.8.0_amd64.AppImage
 ```
 
 To avoid setting this every time, export it permanently in your shell:
@@ -261,13 +271,7 @@ set -Ux WEBKIT_DISABLE_COMPOSITING_MODE 1
 
 ### Android APK build
 
-Before building for Android the first time, initialize the Android project (run once, commit the generated files):
-
-```bash
-npm run tauri -- android init
-```
-
-Then build the APK. The wrapper prepares/uses the local JDK and sets `JAVA_HOME` automatically:
+The generated Android project is committed under `src-tauri/gen/android`. Build the APK with the wrapper, which prepares or uses the local JDK and sets `JAVA_HOME` automatically:
 
 ```bash
 npm run android:apk
@@ -325,6 +329,7 @@ Supported catalog models:
 - **Kokoro English v1.0**: existing default, 27 voices, 349,418,188-byte archive.
 - **Kokoro Mandarin v1.0**: 8 voices sharing the installed English Kokoro archive, so selecting Mandarin does not download a second model.
 - **Additional Kokoro languages**: Spanish, French, Hindi, Italian, and Brazilian Portuguese also share the same archive. English and Arabic remain Papercut's quality-validated languages; these additional Kokoro languages need broader native-speaker testing.
+- **Supertonic 3 English and Arabic**: compact experimental voices sharing one 123 MB multilingual archive.
 - **Piper Kareem Medium (`ar-JO`)**: Arabic option using sherpa VITS, one voice, 67,177,830-byte archive. SHA-256: `9ebbcea30e0fbd588f7b2cb45ee897d6aeb1bf5791cbc037a7b5a3f641e3dbce`.
 - **SILMA Arabic TTS**: Linux x64 desktop-only Arabic option using a
   downloadable sidecar runtime pack and separate on-demand model files.
@@ -345,7 +350,7 @@ Compatibility is preserved: `native-save-v4-segmented` is unchanged, Kokoro keep
 
 See [docs/kokoro-tts.md](docs/kokoro-tts.md) for architecture, model metadata, mobile constraints, and maintenance rules.
 
-Narration chunks and generated WAV files remain native app user data. Desktop uses bounded chunk playback; Android prepares a reusable local `playback.wav` for background and lock-screen playback. Build helpers continue to orchestrate npm, Cargo, Tauri, Android SDK tooling, checked downloads, and platform library staging; they do not replace those package managers.
+Narration chunks and generated WAV files remain native app user data. Desktop uses bounded chunk playback; Android and iOS prepare a reusable local `playback.wav` for background and lock-screen playback. Build helpers continue to orchestrate npm, Cargo, Tauri, mobile SDK tooling, checked downloads, and platform library staging; they do not replace those package managers.
 
 The audio UI supports model, voice, and optional text-processing selection, saved-only playback, resumable generation, background controls, chunk navigation with chunk and approximate word highlighting, thread tuning, opt-in diagnostics, audiobook bundle import, bundle or WAV export, delete, and saved-audio filtering.
 
@@ -380,7 +385,7 @@ Papercut now has two document paths:
 - **Bundled documents** live in `public/documents/` and are indexed by Pagefind during the production build. This is still the best path for documents you ship to every user.
 - **User uploads** are imported from the app UI and indexed incrementally into a local SQLite FTS database. This is the scalable path for documents users add themselves, because it does not require a rebuild or a packaged Pagefind index update.
 
-The upload/indexing architecture is documented in [docs/user-document-search.md](docs/user-document-search.md). EPUB implementation notes and remaining follow-up work are tracked in [docs/epub-implementation-plan.md](docs/epub-implementation-plan.md). UI localization architecture and migration status are tracked in [docs/internationalization.md](docs/internationalization.md).
+The upload/indexing architecture is documented in [docs/user-document-search.md](docs/user-document-search.md). EPUB and PDF implementation details are tracked in [docs/epub-implementation-plan.md](docs/epub-implementation-plan.md) and [docs/pdf-ocr-scanning.md](docs/pdf-ocr-scanning.md). Local transfer architecture is documented in [docs/library-transfer.md](docs/library-transfer.md), and UI localization is tracked in [docs/internationalization.md](docs/internationalization.md).
 
 <details>
 <summary><strong>Document formats and search behavior</strong></summary>
@@ -454,6 +459,9 @@ papercut.io/
 │   ├── assets/                    # Bundled UI assets, including the header icon
 │   ├── components/                # Reusable UI and reader/search/library panels
 │   ├── hooks/                     # Shared React state hooks
+│   ├── i18n/                      # App locale provider and translation catalogs
+│   ├── library-transfer/          # Local transfer UI and native API adapter
+│   ├── pdf/                       # PDF import/extraction client helpers
 │   ├── tts/                       # Audiobook API, components, hooks, storage, diagnostics
 │   ├── uploads/                   # User-upload client API and types
 │   ├── utils/                     # Search, formatting, document, and debug helpers
@@ -463,14 +471,16 @@ papercut.io/
 │   ├── index.css                  # Base styles
 │   └── main.tsx                   # Entry point
 ├── src-tauri/                     # Tauri / Rust backend
-│   ├── src/document_uploads/      # Runtime HTML upload + SQLite FTS indexing
+│   ├── src/document_uploads/      # Runtime HTML/EPUB/PDF import + SQLite FTS indexing
+│   ├── src/library_transfer/      # Portable and nearby-device library transfer
 │   ├── src/native_tts/            # Native sherpa-onnx TTS and audiobook bundles
 │   ├── tts/model-manifest.json    # Pinned native TTS model catalog
 │   ├── tauri.conf.json            # Base Tauri config
 │   ├── tauri.ios.conf.json        # iOS Bundle ID / App Store config
 │   └── tauri.linux.conf.json      # Linux shared-library bundle config
-├── scripts/                       # Desktop/Android build orchestration
+├── scripts/                       # Desktop and mobile build orchestration
 │   └── lib/                       # Shared and platform-specific script helpers
+├── site/                          # Generated multilingual static website
 ├── docs/                          # Feature and architecture notes
 ├── index.html                     # HTML shell
 ├── vite.config.ts                 # Vite configuration
