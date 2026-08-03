@@ -19,6 +19,7 @@ pub(crate) struct UploadedDocument {
     pub(crate) bytes: u64,
     pub(crate) sections: usize,
     pub(crate) cover_media_type: Option<String>,
+    pub(crate) text_status: String,
 }
 
 /// One file that could not be imported while the rest of its batch continued.

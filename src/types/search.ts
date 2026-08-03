@@ -39,4 +39,5 @@ export interface DocumentInfo {
   bytes?: number
   sections?: number
   coverMediaType?: string | null
+  textStatus?: 'processing' | 'ready' | 'recognition-required'
 }

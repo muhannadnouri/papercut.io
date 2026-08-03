@@ -96,7 +96,8 @@
       "savedAudioAvailable": "Saved audio available",
       "bookmarked": "Bookmarked",
       "bookmarkedOnly": "Show Bookmarked Only",
-      "emptyBookmarked": "No bookmarked documents match the current filters."
+      "emptyBookmarked": "No bookmarked documents match the current filters.",
+      "textRecognitionRequired": "Text Recognition Required"
     },
     "documentInfo": {
       "button": "Edit Details",

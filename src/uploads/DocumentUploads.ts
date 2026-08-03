@@ -9,6 +9,7 @@ export interface UploadedDocument {
   bytes: number
   sections: number
   coverMediaType?: string | null
+  textStatus: 'processing' | 'ready' | 'recognition-required'
 }
 
 export interface UploadedDocumentSearchResult {

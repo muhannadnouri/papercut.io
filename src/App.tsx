@@ -154,6 +154,7 @@ function App() {
       bytes: upload.bytes,
       sections: upload.sections,
       coverMediaType: upload.coverMediaType,
+      textStatus: upload.textStatus,
     })),
     ...userUploads.map((upload) => ({ title: upload.title, url: upload.url, format: 'html', source: 'audiobook-upload' as const })),
   ], [allDocuments, uploadedDocuments, userUploads]) 

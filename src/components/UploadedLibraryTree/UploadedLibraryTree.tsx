@@ -651,6 +651,11 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
                 />
                 <span className="uploaded-library-selection-text">
                   <bdi>{node.title}</bdi>
+                  {node.kind === 'document' && node.doc.textStatus === 'recognition-required' && (
+                    <span className="uploaded-library-text-status">
+                      {options.t('library.documents.textRecognitionRequired')}
+                    </span>
+                  )}
                   {node.kind === 'folder' && (
                     <>
                       {' '}
@@ -677,7 +682,14 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
                 </span>
               </button>
             ) : (
-              <bdi className="uploaded-library-name">{node.title}</bdi>
+              <span className="uploaded-library-name">
+                <bdi>{node.title}</bdi>
+                {node.doc.textStatus === 'recognition-required' && (
+                  <span className="uploaded-library-text-status">
+                    {options.t('library.documents.textRecognitionRequired')}
+                  </span>
+                )}
+              </span>
             )}
             {opening && <span className="uploaded-library-opening">{options.t('common.opening')}</span>}
             {node.kind === 'document' && !options.filterMode && (

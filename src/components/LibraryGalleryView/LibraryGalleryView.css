@@ -247,6 +247,15 @@ html[data-theme="dark"] .library-book-cover {
   gap: 0.35rem;
 }
 
+.library-book-text-status {
+  overflow: hidden;
+  color: var(--warning);
+  font-size: 0.7rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .library-book-cover.placeholder-0 { background: #355070; }
 .library-book-cover.placeholder-1 { background: #6d597a; }
 .library-book-cover.placeholder-2 { background: #3a6b5d; }

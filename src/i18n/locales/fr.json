@@ -100,7 +100,8 @@
       "savedAudioAvailable": "Audio enregistré disponible",
       "bookmarked": "Avec signet",
       "bookmarkedOnly": "Afficher uniquement les documents avec signet",
-      "emptyBookmarked": "Aucun document avec signet ne correspond aux filtres actuels."
+      "emptyBookmarked": "Aucun document avec signet ne correspond aux filtres actuels.",
+      "textRecognitionRequired": "Reconnaissance de texte requise"
     },
     "documentInfo": {
       "button": "Modifier les détails",

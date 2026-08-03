@@ -100,7 +100,8 @@
       "savedAudioAvailable": "Audio salvato disponibile",
       "bookmarked": "Con segnalibro",
       "bookmarkedOnly": "Mostra solo i documenti con segnalibro",
-      "emptyBookmarked": "Nessun documento con segnalibro corrisponde ai filtri attuali."
+      "emptyBookmarked": "Nessun documento con segnalibro corrisponde ai filtri attuali.",
+      "textRecognitionRequired": "Riconoscimento del testo richiesto"
     },
     "documentInfo": {
       "button": "Modifica dettagli",

@@ -154,6 +154,7 @@ pub(crate) fn restore_transferred_pdf<R: Runtime>(
         bytes: original_bytes,
         sections: 0,
         cover_media_type: None,
+        text_status: "processing".into(),
     })
 }
 
@@ -269,6 +270,7 @@ fn persist_unindexed_pdf<R: Runtime>(
         bytes,
         sections: 0,
         cover_media_type: None,
+        text_status: "processing".into(),
     })
 }
 

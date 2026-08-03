@@ -100,7 +100,8 @@
       "savedAudioAvailable": "Audio guardado disponible",
       "bookmarked": "Marcado",
       "bookmarkedOnly": "Mostrar solo los documentos marcados",
-      "emptyBookmarked": "Ningún documento marcado coincide con los filtros actuales."
+      "emptyBookmarked": "Ningún documento marcado coincide con los filtros actuales.",
+      "textRecognitionRequired": "Requiere reconocimiento de texto"
     },
     "documentInfo": {
       "button": "Editar detalles",

@@ -1,7 +1,7 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 5 PDF TTS and reader parity complete; Stage 6 not started
-Last updated: 2026-07-28
+Status: Stage 5 complete; OCR readiness preflight complete; Stage 6 benchmark next
+Last updated: 2026-08-03
 
 This document is the source of truth for adding PDF reading, searchable OCR,
 and mobile document scanning to Papercut. It records the research, current
@@ -88,6 +88,10 @@ storage, compatibility, and the order of implementation.
 8. **Choose an OCR engine only after a representative benchmark.** Arabic,
    Chinese, Devanagari, Latin text, page coordinates, mobile packaging, and
    runtime cost must be tested.
+9. **Classify conservatively before starting OCR.** A finalized PDF with no
+   extracted text on any page clearly needs recognition. Individual empty
+   pages inside an otherwise text-native PDF do not prove that a page needs
+   OCR because covers, separators, and intentionally blank pages are common.
 
 ## Recommended Architecture
 
@@ -191,6 +195,28 @@ The smallest sound refactor is therefore source-kind storage, page locators,
 and narrow viewer capabilities. A broad document subsystem rewrite is not a
 prerequisite.
 
+### OCR Readiness Preflight
+
+The first OCR preparation pass adds one persisted document-level text status to
+the existing upload metadata rather than introducing an OCR subsystem:
+
+- `processing` while PDF.js is building page sidecars and the shared index.
+- `ready` when a finalized document contains searchable text.
+- `recognition-required` when a finalized PDF contains no non-whitespace page
+  text.
+
+Schema version 6 backfills previously finalized, fully textless PDFs from their
+existing SQLite page rows. The Library gallery and uploaded-document list show
+**Text Recognition Required** so a rendered scan no longer looks searchable.
+The original PDF remains canonical and no OCR runtime, model, duplicate index,
+or compatibility format is added by this pass.
+
+This intentionally does not classify hybrid PDFs page by page. Treating every
+empty extracted page as an image page would mislabel ordinary blank pages and
+covers. Stage 6 must first benchmark a bounded page classifier against the P09
+and P10 corpus, including low-quality native text layers, before the metadata
+model grows page-level OCR provenance or queue state.
+
 ## Stage 0 Baseline
 
 ### Supported Platform Baseline
@@ -256,7 +282,7 @@ fixtures when a short generator can produce the same case.
 | P06 | Two-column page | Reading order completes the first column before the second |
 | P07 | Body text with footnotes | Body and note order is deterministic and page navigation targets the correct region |
 | P08 | Table plus surrounding paragraphs | Table extraction does not reorder or duplicate surrounding prose |
-| P09 | Image-only pages | Text-native import identifies that OCR is required instead of indexing empty text |
+| P09 | Image-only pages | Import persists `recognition-required` and does not present the document as searchable |
 | P10 | Hybrid native-text and image-only pages | Native pages are retained and only missing pages are marked for later OCR |
 | P11 | Encrypted/password-protected PDF | Import rejects early with a specific, non-destructive error |
 | P12 | Truncated or malformed PDF | Import fails within limits and leaves no source or index residue |
@@ -606,6 +632,7 @@ multiple resumable batches.
 | Canvas-only viewer | Poor selection and screen-reader behavior | Maintain an aligned text/accessibility layer |
 | Encrypted PDFs | Confusing failures or unsupported imports | Detect early and provide a specific message; password support is a separate product decision |
 | Partial imports | Orphaned files or index rows | Stage writes and commit source, metadata, FTS, and derived artifacts atomically where possible |
+| False-positive OCR classification | Blank covers or separator pages trigger needless OCR | Label only fully textless PDFs now; require corpus-backed page classification before hybrid OCR |
 
 ## Delivery Checklist
 
@@ -943,8 +970,20 @@ bookmarks, Find, global search, and HTML/EPUB parity.
 
 ### Stage 6: OCR Engine Benchmark
 
-Stage status: Not started
+Stage status: Readiness preflight complete; engine benchmark not started
 
+- [x] Persist aggregate upload text status without changing the canonical PDF
+      or page-sidecar schema.
+- [x] Mark PDFs as processing until final page/index commit.
+- [x] Mark newly finalized and previously indexed fully textless PDFs as
+      requiring recognition.
+- [x] Surface the recognition-required state in Library Gallery and List views.
+- [x] Keep hybrid page detection out of this aggregate heuristic to avoid
+      treating blank covers and separators as OCR failures.
+- [ ] Materialize or source the P09/P10 benchmark fixtures and record expected
+      native-text, image-content, and intentionally blank pages.
+- [ ] Define and benchmark a bounded usable-native-text classifier that can
+      distinguish image pages, blank pages, and low-quality native text layers.
 - [ ] Build one benchmark harness and corpus for Tesseract, PaddleOCR, and Apple
       Vision comparison where available.
 - [ ] Measure Arabic, Chinese, Devanagari, and Latin text accuracy.
@@ -1101,6 +1140,7 @@ Stage status: Deferred
 | 2026-07-25 | Stage 5 | Remove the temporary PDF WebView harness | The production import and reader paths now cover its worker, canvas, text-layer, and cleanup responsibilities without maintaining a second app entry point |
 | 2026-07-30 | Stage 4 | Synchronize PDF.js after viewport layout changes | A frame-coalesced `ResizeObserver` updates only PDF.js's visible-page queue and relevant fit mode, preserving lazy rendering and explicit user zoom |
 | 2026-07-30 | Stage 4 | Render PDF.js directly into the visible canvas | Disabling the delayed temporary-canvas update avoids a WebKit repaint failure that could leave image-heavy pages showing only an intermediate frame until zoom changed |
+| 2026-08-03 | Stage 6 | Persist conservative OCR readiness before selecting an engine | Finalized PDFs with no extracted text are marked `recognition-required` and exposed in the Library; hybrid page classification remains deferred because empty pages alone are not reliable evidence of missing OCR |
 
 ## References
 

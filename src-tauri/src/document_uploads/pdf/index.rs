@@ -117,7 +117,6 @@ pub(crate) fn finalize_pdf_index<R: Runtime>(
             bytes,
         })
     });
-    let cover_media_type = cover.as_ref().map(|cover| cover.media_type.to_string());
     let parsed = ParsedDocument {
         title: title.clone(),
         format: "pdf".into(),
@@ -136,18 +135,7 @@ pub(crate) fn finalize_pdf_index<R: Runtime>(
         existing.bytes,
     )?;
 
-    Ok(UploadedDocument {
-        id,
-        url: request.document_url,
-        title,
-        original_file_name: existing.original_file_name,
-        format: "pdf".into(),
-        source_kind: source_kind.as_str().into(),
-        imported_at_ms: existing.imported_at_ms,
-        bytes: existing.bytes,
-        sections: request.page_count as usize,
-        cover_media_type,
-    })
+    find_upload_by_id(&db, &id)?.ok_or_else(|| "Indexed PDF metadata is missing".to_string())
 }
 
 fn validated_pdf_upload<R: Runtime>(
