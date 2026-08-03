@@ -1,6 +1,6 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 5 complete; Stage 6 synthetic OCR-readiness corpus complete; real-corpus and engine benchmarks next
+Status: Stage 5 complete; Stage 6 Tesseract foundation implemented; WebView OCR smoke test next
 Last updated: 2026-08-03
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -85,9 +85,9 @@ storage, compatibility, and the order of implementation.
    intermediate state.
 7. **Do not release PDF as complete until Find, search-result navigation, and
    TTS highlighting meet the agreed acceptance criteria.**
-8. **Choose an OCR engine only after a representative benchmark.** Arabic,
-   Chinese, Devanagari, Latin text, page coordinates, mobile packaging, and
-   runtime cost must be tested.
+8. **Use Tesseract.js as the first common OCR engine.** Keep it offline, lazy,
+   and behind the shared page-text contract. Adjust or replace it only when
+   real documents demonstrate a quality, language, or device-performance gap.
 9. **Classify conservatively before starting OCR.** A finalized PDF with no
    extracted text on any page clearly needs recognition. Individual empty
    pages inside an otherwise text-native PDF do not prove that a page needs
@@ -208,14 +208,13 @@ the existing upload metadata rather than introducing an OCR subsystem:
 Schema version 6 backfills previously finalized, fully textless PDFs from their
 existing SQLite page rows. The Library gallery and uploaded-document list show
 **Text Recognition Required** so a rendered scan no longer looks searchable.
-The original PDF remains canonical and no OCR runtime, model, duplicate index,
-or compatibility format is added by this pass.
+The original PDF remains canonical and no duplicate index or compatibility
+format is added by this pass.
 
 This intentionally does not classify hybrid PDFs page by page. Treating every
 empty extracted page as an image page would mislabel ordinary blank pages and
-covers. Stage 6 must first benchmark a bounded page classifier against the P09
-and P10 corpus, including low-quality native text layers, before the metadata
-model grows page-level OCR provenance or queue state.
+covers. The OCR job must inspect image content and usable text together before
+the metadata model grows page-level provenance or queue state.
 
 ## Stage 0 Baseline
 
@@ -229,7 +228,7 @@ Android, and iOS. The configured minimums relevant to this work are:
 | Android | API 26; universal release builds currently cover arm64, armv7, x86, and x86_64 |
 | iOS | iOS 14 |
 | macOS | macOS 10.13 |
-| Rust | 1.77.2 declared minimum; CI builds with stable |
+| Rust | 1.88 declared minimum; CI builds with stable |
 | Frontend | React 19, Tauri 2, and the platform WebView |
 
 Passing desktop development tests alone is insufficient. Every Stage 1
@@ -260,17 +259,17 @@ required full Rust and mobile build baseline.
 
 ### Fixture Corpus
 
-Use two fixture tiers:
+Use two validation tiers:
 
 1. **Committed synthetic fixtures** are small, license-safe, deterministic, and
    suitable for automated parser/search tests.
-2. **Manual benchmark fixtures** may be larger or externally sourced. Record
+2. **Manual acceptance fixtures** may be larger or externally sourced. Record
    provenance, license, checksum, page count, and expected behavior, but do not
    commit copyrighted or oversized files.
 
-Materialize the committed PDFs during Stage 1 after the spike identifies the
-smallest deterministic generation method. Do not hand-maintain opaque binary
-fixtures when a short generator can produce the same case.
+Do not hand-maintain opaque binary fixtures when a short generator can produce
+the same case. OCR-specific generated benchmark artifacts were removed after
+engine selection; P09/P10 remain behavioral acceptance cases.
 
 | ID | Fixture | Required assertion |
 | --- | --- | --- |
@@ -336,9 +335,10 @@ supported iPhone/iPad, and one desktop in each platform family used for release
 smoke testing. A candidate that passes only on the development machine fails
 the gate.
 
-### Later OCR Budgets
+### OCR Acceptance Budgets
 
-These guide the Stage 6 benchmark and do not select an engine today:
+These are release targets for the selected engine, not a separate engine
+selection project:
 
 | Measure | Initial OCR target |
 | --- | --- |
@@ -446,14 +446,13 @@ The costs are material but bounded:
 - The rejected `pdf_oxide` spike resolved 172 packages, produced about 3.0 GB
   of build artifacts, and yielded a 9,982,632-byte optimized probe. Removing it
   avoids raising Papercut's Rust minimum and carrying a second PDF parser.
-- `pdf-extract` and its current transitive dependency resolution do not compile
-  cleanly with Cargo 1.77.2 because dependencies now use Rust 2024 manifests.
-  Pinning old transitives would add maintenance without solving its RTL and
+- At the time of the extraction spike, `pdf-extract` and its transitive
+  dependency resolution did not compile with Papercut's then-current Rust
+  1.77.2 minimum. Raising the minimum later did not change its RTL and
   coordinate limitations.
 
-Rust 1.77.2 remains Papercut's declared minimum. The rejected native spike ran
-on stable Rust 1.96.1 because `pdf_oxide` required Rust 1.88, but an abandoned
-candidate is not a reason to raise the product minimum.
+Papercut now declares Rust 1.88 for unrelated production dependencies. The
+rejected native spike still does not justify carrying a second PDF parser.
 
 The native probe was fast and produced finite bounds, but throughput did not
 pass the correctness gate. A deterministic one-page comparison showed a false
@@ -527,48 +526,26 @@ OCR is a second pipeline layered onto the PDF page model:
 
 An OCR failure must not delete or invalidate the original PDF or scan.
 
-### OCR Readiness Benchmark Baseline
+### Tesseract OCR Foundation
 
-Stage 6 now has two deterministic, license-safe fixtures generated with Node's
-standard library:
+Papercut uses Tesseract.js 7 as the first shared OCR engine across its WebViews.
+It runs Tesseract in a Web Worker, is imported only when OCR starts, and writes
+recognized words, confidence, reading order, and scaled page coordinates into
+the existing `PageTextLayer`. Search, Find, TTS, and highlighting therefore do
+not need an OCR-specific data path.
 
-- P09 contains one image-only page with no text layer.
-- P10 contains a native-text page, an image-only page, an intentionally blank
-  page, and an image page with a sparse unusable text overlay.
+Build preparation copies the installed worker, SIMD-capable LSTM cores, and the
+integer English trained data into ignored `public/tesseract` assets. Runtime
+URLs are app-local; no CDN or account is required. One worker should be reused
+for a complete job and terminated when the job finishes or is cancelled.
 
-`npm run test:pdf-ocr-readiness` verifies that the committed PDFs match their
-generator, enforces 5 MB/20-page fixture limits, and uses the already-installed
-PDF.js parser to report native characters, words, image-paint operations, text
-quality ratios, and elapsed time. The expected page outcomes live in
-`scripts/fixtures/pdf/ocr-readiness.json`.
-
-The current thresholds are a synthetic benchmark hypothesis, not production
-policy. They separate `native-text`, `recognition-required`, `blank`, and
-`review-required` pages without adding an OCR dependency or changing import
-behavior. Representative photographed, multilingual, low-quality, and vector
-pages must validate or replace those thresholds before page-level hybrid
-classification is wired into the app.
-
-### OCR Candidates
-
-- [Tesseract](https://github.com/tesseract-ocr/tesseract) supports more than
-  100 languages, including Papercut's Arabic, Hindi, Chinese, and Latin-script
-  targets. It can emit text plus hOCR, TSV, ALTO, or PAGE coordinate data. Its
-  C++ packaging, model footprint, and quality on photographed pages require
-  measurement.
-- [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR/blob/main/docs/version3.x/algorithm/PP-OCRv5/PP-OCRv5_multi_languages.en.md)
-  provides multilingual and mobile-oriented models, including Arabic and
-  Devanagari coverage. It brings a heavier runtime and model-management stack.
-- Apple Vision provides on-device recognition, confidence, and bounding boxes
-  on Apple platforms, but it would create platform-dependent OCR output.
-- Android ML Kit Text Recognition v2 covers Latin, Chinese, Devanagari,
-  Japanese, and Korean scripts, but its documented language table does not
-  cover Arabic. It cannot be Papercut's only OCR engine.
-
-Benchmark Tesseract and PaddleOCR against the same corpus. Include Apple Vision
-as a quality/performance comparison on iOS. Prefer one common OCR engine if it
-meets quality and packaging requirements; use native OCR selectively only if
-the common engine demonstrably fails platform constraints.
+Only English data is included in this foundation. Automatic recognition must
+not silently apply it to every document. The job UI must obtain a supported
+language before OCR begins; additional trained-data packages can then follow
+the same local asset pattern. Tesseract quality, photographed-page cleanup,
+non-Latin language support, mobile speed, and package size remain acceptance
+work. PaddleOCR and native engines are deferred unless real failures justify
+their extra runtimes and platform-specific behavior.
 
 ## Mobile Scanning
 
@@ -990,10 +967,9 @@ acceptance passes for text-native PDF audiobook creation and playback, chunk
 order across page and column boundaries, clean-library bundle export/import,
 bookmarks, Find, global search, and HTML/EPUB parity.
 
-### Stage 6: OCR Engine Benchmark
+### Stage 6: OCR Engine Foundation
 
-Stage status: Synthetic readiness corpus complete; real-corpus classifier and
-engine benchmarks not started
+Stage status: Implementation complete; WebView OCR smoke test pending
 
 - [x] Persist aggregate upload text status without changing the canonical PDF
       or page-sidecar schema.
@@ -1003,25 +979,19 @@ engine benchmarks not started
 - [x] Surface the recognition-required state in Library Gallery and List views.
 - [x] Keep hybrid page detection out of this aggregate heuristic to avoid
       treating blank covers and separators as OCR failures.
-- [x] Materialize the synthetic P09/P10 benchmark fixtures and record expected
-      native-text, image-content, and intentionally blank pages.
-- [x] Define a bounded benchmark-only usable-native-text classifier and verify
-      image, blank, native-text, and sparse-overlay synthetic pages.
-- [ ] Validate and tune the classifier against representative photographed,
-      multilingual, vector, blank-divider, and low-quality native text pages.
-- [ ] Build one benchmark harness and corpus for Tesseract, PaddleOCR, and Apple
-      Vision comparison where available.
-- [ ] Measure Arabic, Chinese, Devanagari, and Latin text accuracy.
-- [ ] Measure reading order, bounding boxes, confidence, skew/noise tolerance,
-      speed, RAM, package/model size, and mobile integration.
-- [ ] Test photographed pages as well as clean image-only PDFs.
-- [ ] Review licenses and model redistribution terms.
-- [ ] Select one common engine or document evidence for a narrowly scoped native
-      exception.
-- [ ] Pin runtime/model versions and record the decision.
+- [x] Select Tesseract.js as the initial common engine.
+- [x] Pin the worker, core, and English trained-data packages.
+- [x] Package only local runtime assets needed by the LSTM worker.
+- [x] Keep Tesseract and its runtime out of normal app startup.
+- [x] Normalize OCR words, confidence, order, and image-pixel bounds into
+      `PageTextLayer`.
+- [x] Remove the temporary synthetic OCR benchmark harness and generated PDFs.
+- [ ] Run one English image-page recognition smoke test in the desktop WebView.
+- [ ] Confirm the generated build has no OCR CDN requests.
+- [ ] Record first-run worker startup, recognition time, and peak memory.
 
-Decision gate: the selected OCR approach meets language, coordinate, offline,
-packaging, and performance requirements on supported devices.
+Decision gate: a local English page produces ordered text and finite bounds in
+the supported WebView without affecting non-OCR startup.
 
 ### Stage 7: Image-Only And Hybrid PDF OCR
 
@@ -1029,7 +999,7 @@ Stage status: Not started
 
 - [ ] Detect usable native text page by page.
 - [ ] OCR only pages without an acceptable text layer.
-- [ ] Normalize OCR output into the same `PageTextLayer` contract.
+- [x] Normalize OCR output into the same `PageTextLayer` contract.
 - [ ] Store OCR engine/model version, language, provenance, and confidence.
 - [ ] Add language selection or detection with a retry path.
 - [ ] Add page-level progress, cancellation, resume, failure, and retry.
@@ -1119,7 +1089,7 @@ Stage status: Deferred
 | 2026-07-24 | Stage 0 | Approve the scope, fixture matrix, and measurable budgets | Product-owner approval opened the renderer/extractor spike |
 | 2026-07-24 | Stage 1 | Prefer PDF.js 6.1.200 as the renderer candidate | It rendered the RTL fixture and exposes the canvas, text, direction, and coordinate data needed by the viewer; device WebViews remain the gate |
 | 2026-07-24 | Stage 1 | Reject `pdf-extract` 0.12.0 for production | It reversed the Arabic fixture's logical order and lacks the coordinate model required for search/TTS highlighting |
-| 2026-07-24 | Stage 1 | Reject `pdf_oxide` 0.3.75 and keep Rust 1.77.2 | The native candidate inserted a false inline-style space and fused visible Arabic words; fixing this would require custom heuristics while retaining a second parser and raising Papercut's minimum Rust version |
+| 2026-07-24 | Stage 1 | Reject `pdf_oxide` 0.3.75 | The native candidate inserted a false inline-style space and fused visible Arabic words; fixing this would require custom heuristics while retaining a second parser |
 | 2026-07-24 | Stage 1 | Select PDF.js 6.1.200 for rendering and extraction | The installed parser preserved expected word boundaries, reading order, and finite coordinates while avoiding renderer/extractor disagreement |
 | 2026-07-24 | Stage 1 | Lazy-load PDF.js outside normal app startup | The optimized spike adds about 2.02 MB minified to the package, but only about 2.9 KB of eagerly loaded JavaScript and CSS before gzip |
 | 2026-07-24 | Stage 1 | Generate local PDF.js runtime assets from the pinned npm package | PDF.js resolves JPEG 2000 decoders and standard fonts by stable filename; copying only those installed directories avoids CDN access, committed binary duplication, and another build dependency |
@@ -1166,7 +1136,8 @@ Stage status: Deferred
 | 2026-07-30 | Stage 4 | Synchronize PDF.js after viewport layout changes | A frame-coalesced `ResizeObserver` updates only PDF.js's visible-page queue and relevant fit mode, preserving lazy rendering and explicit user zoom |
 | 2026-07-30 | Stage 4 | Render PDF.js directly into the visible canvas | Disabling the delayed temporary-canvas update avoids a WebKit repaint failure that could leave image-heavy pages showing only an intermediate frame until zoom changed |
 | 2026-08-03 | Stage 6 | Persist conservative OCR readiness before selecting an engine | Finalized PDFs with no extracted text are marked `recognition-required` and exposed in the Library; hybrid page classification remains deferred because empty pages alone are not reliable evidence of missing OCR |
-| 2026-08-03 | Stage 6 | Keep the first page classifier in the benchmark harness | Deterministic P09/P10 fixtures establish bounded signals and expected outcomes, but synthetic thresholds must not become import policy before representative real-page validation |
+| 2026-08-03 | Stage 6 | Select Tesseract.js as the initial OCR engine | A shared Web Worker avoids native builds across five platforms, stays lazy, and emits text, confidence, and bounds that fit `PageTextLayer`; quality and device performance will be adjusted from real acceptance results rather than a retained comparison harness |
+| 2026-08-03 | Stage 6 | Package English OCR assets locally | Pinned npm packages provide the worker, SIMD-aware LSTM cores, and trained data without runtime CDN access; other languages wait for explicit language selection |
 
 ## References
 
@@ -1183,6 +1154,7 @@ Stage status: Deferred
 - [ML Kit Document Scanner](https://developers.google.com/ml-kit/vision/doc-scanner)
 - [ML Kit Text Recognition languages](https://developers.google.com/ml-kit/vision/text-recognition/v2/languages)
 - [Tesseract OCR](https://github.com/tesseract-ocr/tesseract)
+- [Tesseract.js repository](https://github.com/naptha/tesseract.js)
 - [PaddleOCR multilingual recognition](https://github.com/PaddlePaddle/PaddleOCR/blob/main/docs/version3.x/algorithm/PP-OCRv5/PP-OCRv5_multi_languages.en.md)
 - [Speechify scan workflow overview](https://speechify.com/blog/scan-books-and-printed-text/)
 - [Nielsen Norman Group: Visibility of system status](https://www.nngroup.com/articles/visibility-system-status/)
