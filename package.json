@@ -20,6 +20,7 @@
     "desktop:static": "node scripts/build-desktop.js --static",
     "prepare:silma-sidecar": "node scripts/prepare-silma-sidecar.js",
     "test:pdf-extraction": "node scripts/check-pdf-extraction.mjs scripts/fixtures/pdf/extraction-inline-columns.pdf",
+    "test:pdf-ocr-readiness": "node scripts/generate-pdf-ocr-fixtures.mjs --check && node scripts/check-pdf-ocr-readiness.mjs",
     "package:silma-runtime": "node scripts/package-silma-runtime-pack.js",
     "install:silma-cuda-runtime": "bash scripts/install-silma-cuda-runtime.sh",
     "verify:appimage-media": "node scripts/verify-appimage-media.js",

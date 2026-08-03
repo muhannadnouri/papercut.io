@@ -1,6 +1,6 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 5 complete; OCR readiness preflight complete; Stage 6 benchmark next
+Status: Stage 5 complete; Stage 6 synthetic OCR-readiness corpus complete; real-corpus and engine benchmarks next
 Last updated: 2026-08-03
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -527,6 +527,28 @@ OCR is a second pipeline layered onto the PDF page model:
 
 An OCR failure must not delete or invalidate the original PDF or scan.
 
+### OCR Readiness Benchmark Baseline
+
+Stage 6 now has two deterministic, license-safe fixtures generated with Node's
+standard library:
+
+- P09 contains one image-only page with no text layer.
+- P10 contains a native-text page, an image-only page, an intentionally blank
+  page, and an image page with a sparse unusable text overlay.
+
+`npm run test:pdf-ocr-readiness` verifies that the committed PDFs match their
+generator, enforces 5 MB/20-page fixture limits, and uses the already-installed
+PDF.js parser to report native characters, words, image-paint operations, text
+quality ratios, and elapsed time. The expected page outcomes live in
+`scripts/fixtures/pdf/ocr-readiness.json`.
+
+The current thresholds are a synthetic benchmark hypothesis, not production
+policy. They separate `native-text`, `recognition-required`, `blank`, and
+`review-required` pages without adding an OCR dependency or changing import
+behavior. Representative photographed, multilingual, low-quality, and vector
+pages must validate or replace those thresholds before page-level hybrid
+classification is wired into the app.
+
 ### OCR Candidates
 
 - [Tesseract](https://github.com/tesseract-ocr/tesseract) supports more than
@@ -970,7 +992,8 @@ bookmarks, Find, global search, and HTML/EPUB parity.
 
 ### Stage 6: OCR Engine Benchmark
 
-Stage status: Readiness preflight complete; engine benchmark not started
+Stage status: Synthetic readiness corpus complete; real-corpus classifier and
+engine benchmarks not started
 
 - [x] Persist aggregate upload text status without changing the canonical PDF
       or page-sidecar schema.
@@ -980,10 +1003,12 @@ Stage status: Readiness preflight complete; engine benchmark not started
 - [x] Surface the recognition-required state in Library Gallery and List views.
 - [x] Keep hybrid page detection out of this aggregate heuristic to avoid
       treating blank covers and separators as OCR failures.
-- [ ] Materialize or source the P09/P10 benchmark fixtures and record expected
+- [x] Materialize the synthetic P09/P10 benchmark fixtures and record expected
       native-text, image-content, and intentionally blank pages.
-- [ ] Define and benchmark a bounded usable-native-text classifier that can
-      distinguish image pages, blank pages, and low-quality native text layers.
+- [x] Define a bounded benchmark-only usable-native-text classifier and verify
+      image, blank, native-text, and sparse-overlay synthetic pages.
+- [ ] Validate and tune the classifier against representative photographed,
+      multilingual, vector, blank-divider, and low-quality native text pages.
 - [ ] Build one benchmark harness and corpus for Tesseract, PaddleOCR, and Apple
       Vision comparison where available.
 - [ ] Measure Arabic, Chinese, Devanagari, and Latin text accuracy.
@@ -1141,6 +1166,7 @@ Stage status: Deferred
 | 2026-07-30 | Stage 4 | Synchronize PDF.js after viewport layout changes | A frame-coalesced `ResizeObserver` updates only PDF.js's visible-page queue and relevant fit mode, preserving lazy rendering and explicit user zoom |
 | 2026-07-30 | Stage 4 | Render PDF.js directly into the visible canvas | Disabling the delayed temporary-canvas update avoids a WebKit repaint failure that could leave image-heavy pages showing only an intermediate frame until zoom changed |
 | 2026-08-03 | Stage 6 | Persist conservative OCR readiness before selecting an engine | Finalized PDFs with no extracted text are marked `recognition-required` and exposed in the Library; hybrid page classification remains deferred because empty pages alone are not reliable evidence of missing OCR |
+| 2026-08-03 | Stage 6 | Keep the first page classifier in the benchmark harness | Deterministic P09/P10 fixtures establish bounded signals and expected outcomes, but synthetic thresholds must not become import policy before representative real-page validation |
 
 ## References
 
