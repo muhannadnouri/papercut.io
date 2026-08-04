@@ -1,6 +1,6 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 6 foundation complete; Stage 7 English image-only and hybrid OCR in progress
+Status: Stage 7 English image-only and hybrid OCR complete; Stage 8 not started
 Last updated: 2026-08-04
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -1020,7 +1020,7 @@ the supported WebView without affecting non-OCR startup.
 
 ### Stage 7: Image-Only And Hybrid PDF OCR
 
-Stage status: English image-only and hybrid slice implemented; acceptance remains
+Stage status: Complete; desktop English image-only and hybrid acceptance passed
 
 - [x] Detect usable native text page by page.
 - [x] OCR every page of a fully textless English PDF.
@@ -1037,10 +1037,16 @@ Stage status: English image-only and hybrid slice implemented; acceptance remain
 - [x] Teach viewer Find and indexed-result highlighting to use finalized OCR
       text and page sidecars, including native pages inside hybrid PDFs, while
       retaining PDF.js Find for fully native-text PDFs.
-- [ ] Re-run PDF Find, search, TTS, and highlight acceptance tests.
+- [x] Re-run PDF Find, search, TTS, and highlight acceptance tests.
 
 Decision gate: image-only and hybrid fixtures are searchable and speakable
 without harming native-text PDF behavior or source files.
+
+Manual acceptance passed with native, image-only, blank, and weak-native image
+pages in one hybrid document. Native text remained searchable without
+duplication; recognized pages exposed selectable overlays; Find highlighted and
+navigated matches across native and OCR pages; TTS retained page order; and the
+canonical PDF remained unchanged.
 
 ### Stage 8: Native Mobile Capture
 
@@ -1174,6 +1180,7 @@ Stage status: Deferred
 | 2026-08-03 | Stage 7 | Ship the smallest explicit English image-only OCR slice | Fully textless PDFs get one local action, one reused worker, bounded page processing, shared mutation status, and atomic finalization; hybrid classification, automatic language detection, and durable queues wait for evidence that they are needed |
 | 2026-08-03 | Stage 7 | Route OCR Find through finalized indexed pages | One document-scoped backend query returns compact per-page match counts off the WebView thread; only the current virtualized page loads OCR geometry for highlighting, while native-text PDFs keep PDF.js Find |
 | 2026-08-04 | Stage 7 | Reuse bounded readiness signals for hybrid PDFs | Import records one aggregate recognition flag, while OCR recomputes page readiness from native text and image operators, preserves native and blank sidecars, and replaces only weak-text image pages without adding page-state storage |
+| 2026-08-04 | Stage 7 | Close English image-only and hybrid OCR acceptance | Manual checks passed native/OCR search and Find navigation, selectable OCR overlays, ordered TTS, blank-page handling, source preservation, and no duplicate native text; broader languages, durable resume, and mobile capture remain separate stages |
 
 ## References
 
