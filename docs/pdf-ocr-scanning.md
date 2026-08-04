@@ -1032,10 +1032,11 @@ Stage status: English image-only and hybrid slice implemented; acceptance remain
 - [ ] Add durable job resume across app restarts.
 - [x] Prevent partial OCR sidecars from becoming searchable before final commit.
 - [x] Prevent duplicate native and OCR text in hybrid PDFs.
-- [x] Overlay persisted OCR words on rendered textless pages for selection
-      without modifying or duplicating the canonical PDF.
+- [x] Overlay persisted OCR words on rendered textless and weak-native pages
+      for selection without modifying or duplicating the canonical PDF.
 - [x] Teach viewer Find and indexed-result highlighting to use finalized OCR
-      text and page sidecars while retaining PDF.js Find for native-text PDFs.
+      text and page sidecars, including native pages inside hybrid PDFs, while
+      retaining PDF.js Find for fully native-text PDFs.
 - [ ] Re-run PDF Find, search, TTS, and highlight acceptance tests.
 
 Decision gate: image-only and hybrid fixtures are searchable and speakable

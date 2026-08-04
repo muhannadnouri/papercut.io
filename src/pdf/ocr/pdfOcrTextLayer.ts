@@ -2,6 +2,11 @@ import type { PdfPageTextLayer } from '../../uploads/DocumentUploads'
 
 export const PDF_OCR_TEXT_LAYER_CLASS = 'pdf-ocr-text-layer'
 
+/** Distinguish persisted OCR words from native PDF.js text blocks. */
+export function hasPdfOcrText(layer: PdfPageTextLayer): boolean {
+  return layer.blocks.some((block) => block.confidence !== null)
+}
+
 /** Add selectable transparent OCR words over one textless PDF.js page.
  * Coordinates stay in the stored OCR viewport and one parent transform keeps
  * every word aligned as PDF.js changes the rendered page scale. */

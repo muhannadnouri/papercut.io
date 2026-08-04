@@ -22,6 +22,11 @@ export function hasUsableNativePdfText(content: TextContent): boolean {
     .filter((item): item is TextItem => 'str' in item)
     .map((item) => item.str)
     .join(' ')
+  return hasUsablePdfText(text)
+}
+
+/** Apply the import readiness threshold to already-rendered PDF.js text. */
+export function hasUsablePdfText(text: string): boolean {
   const characters = Array.from(text).filter((character) => !/\s/u.test(character))
   if (characters.length < MINIMUM_CHARACTERS) return false
 

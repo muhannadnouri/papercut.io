@@ -12,6 +12,7 @@ import type {
   PDFViewer as PdfJsViewer,
 } from 'pdfjs-dist/legacy/web/pdf_viewer.mjs'
 import { loadPdfJs, loadPdfViewer, pdfJsAssetRoot } from '../pdf/pdfJs'
+import { hasUsablePdfText } from '../pdf/ocr/pdfOcrReadiness'
 import {
   findUploadedPdfText,
   getUploadedPdfAssetUrl,
@@ -21,6 +22,7 @@ import {
 } from '../uploads/DocumentUploads'
 import {
   clearPdfOcrTextLayers,
+  hasPdfOcrText,
   PDF_OCR_TEXT_LAYER_CLASS,
   renderPdfOcrTextLayer,
 } from '../pdf/ocr/pdfOcrTextLayer'
@@ -257,12 +259,12 @@ export function PdfViewer({
       const highlightPendingOcrFind = () => {
         if (!activeOcrFind) return false
         const pageNumber = activeOcrFind.match.pageIndex + 1
-        const overlay = renderedPdfOcrTextLayer(viewer, pageNumber)
-        if (!overlay) return false
+        const searchLayer = renderedPdfSearchLayer(viewer, pageNumber)
+        if (!searchLayer) return false
 
         clearSearchTargetHighlight(viewer)
         const range = highlightSearchTarget(
-          overlay,
+          searchLayer,
           activeOcrFind.query,
           activeOcrFind.match.occurrenceIndex,
         )
@@ -304,8 +306,11 @@ export function PdfViewer({
         const textLayer = renderedPdfTextLayer(viewer, pageNumber)
         const page = textLayer?.closest<HTMLElement>('.page')
         if (!textLayer || !page) return
-        if (textLayer.textContent?.trim()) {
-          page.querySelector('.pdf-ocr-text-layer')?.remove()
+        if (hasUsablePdfText(textLayer.textContent ?? '')) {
+          page.querySelector(`.${PDF_OCR_TEXT_LAYER_CLASS}`)?.remove()
+          if (activeOcrFind?.match.pageIndex === pageNumber - 1) {
+            highlightPendingOcrFind()
+          }
           return
         }
 
@@ -319,13 +324,17 @@ export function PdfViewer({
           .then((layer) => {
             // Missing or stale derived text must never prevent rendering the source PDF.
             if (!cancelled && page.isConnected && layer) {
-              const overlay = renderPdfOcrTextLayer(page, textLayer, layer)
-              if (overlay) {
-                activateOcrFind()
-                if (activeOcrFind?.match.pageIndex === pageIndex) {
-                  highlightPendingOcrFind()
+              if (textLayer.textContent?.trim() && !hasPdfOcrText(layer)) {
+                page.querySelector(`.${PDF_OCR_TEXT_LAYER_CLASS}`)?.remove()
+              } else {
+                const overlay = renderPdfOcrTextLayer(page, textLayer, layer)
+                if (overlay) {
+                  activateOcrFind()
+                  eventBus?.dispatch('pdfocrtextlayerrendered', { pageNumber })
                 }
-                eventBus?.dispatch('pdfocrtextlayerrendered', { pageNumber })
+              }
+              if (activeOcrFind?.match.pageIndex === pageIndex) {
+                highlightPendingOcrFind()
               }
             }
           })
