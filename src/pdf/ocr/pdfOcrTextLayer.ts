@@ -1,6 +1,6 @@
 import type { PdfPageTextLayer } from '../../uploads/DocumentUploads'
 
-const OCR_LAYER_CLASS = 'pdf-ocr-text-layer'
+export const PDF_OCR_TEXT_LAYER_CLASS = 'pdf-ocr-text-layer'
 
 /** Add selectable transparent OCR words over one textless PDF.js page.
  * Coordinates stay in the stored OCR viewport and one parent transform keeps
@@ -10,7 +10,7 @@ export function renderPdfOcrTextLayer(
   textLayer: HTMLElement,
   layer: PdfPageTextLayer,
 ): HTMLElement | null {
-  page.querySelector(`.${OCR_LAYER_CLASS}`)?.remove()
+  page.querySelector(`.${PDF_OCR_TEXT_LAYER_CLASS}`)?.remove()
   if (layer.blocks.length === 0) return null
 
   const scale = pdfOcrLayerScale(
@@ -20,7 +20,7 @@ export function renderPdfOcrTextLayer(
     textLayer.offsetHeight,
   )
   const overlay = page.ownerDocument.createElement('div')
-  overlay.className = OCR_LAYER_CLASS
+  overlay.className = PDF_OCR_TEXT_LAYER_CLASS
   overlay.style.width = `${layer.width}px`
   overlay.style.height = `${layer.height}px`
   overlay.style.transform = `scale(${scale.x}, ${scale.y})`
@@ -30,7 +30,9 @@ export function renderPdfOcrTextLayer(
     if (!block.text || width <= 0 || height <= 0) continue
     const word = page.ownerDocument.createElement('span')
     word.dir = 'auto'
-    word.textContent = block.text
+    // The words are separate absolutely positioned nodes. A trailing space
+    // preserves natural selection and phrase matching across node boundaries.
+    word.textContent = `${block.text} `
     word.style.left = `${left}px`
     word.style.top = `${top}px`
     word.style.width = `${width}px`
@@ -44,7 +46,7 @@ export function renderPdfOcrTextLayer(
 }
 
 export function clearPdfOcrTextLayers(viewer: HTMLElement): void {
-  viewer.querySelectorAll(`.${OCR_LAYER_CLASS}`).forEach((layer) => layer.remove())
+  viewer.querySelectorAll(`.${PDF_OCR_TEXT_LAYER_CLASS}`).forEach((layer) => layer.remove())
 }
 
 export function pdfOcrLayerScale(

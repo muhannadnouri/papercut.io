@@ -99,6 +99,14 @@ export interface PdfNarrationSegment {
   }>
 }
 
+export interface PdfFindResult {
+  matchCount: number
+  pages: Array<{
+    pageIndex: number
+    matchCount: number
+  }>
+}
+
 const DOCUMENT_IMPORT_PROGRESS_EVENT = 'document-uploads-import-progress'
 const DOCUMENT_DELETE_PROGRESS_EVENT = 'document-uploads-delete-progress'
 
@@ -242,6 +250,16 @@ export async function getUploadedPdfPageText(
   const invoke = await loadTauriInvoke()
   return invoke<PdfPageTextLayer>('document_uploads_get_pdf_page_text', {
     request: { documentUrl, pageIndex },
+  })
+}
+
+export async function findUploadedPdfText(
+  documentUrl: string,
+  query: string,
+): Promise<PdfFindResult> {
+  const invoke = await loadTauriInvoke()
+  return invoke<PdfFindResult>('document_uploads_find_pdf_text', {
+    request: { documentUrl, query },
   })
 }
 

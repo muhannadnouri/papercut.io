@@ -8,8 +8,12 @@ use std::collections::{HashMap, HashSet};
 use rusqlite::{params, params_from_iter, types::Value, Connection, Row};
 use tauri::Runtime;
 
+use super::storage::{upload_reference_from_url, StoredSourceKind};
 use super::store::{db_err, open_db};
-use super::types::{UploadedDocumentSearchRequest, UploadedDocumentSearchResult};
+use super::types::{
+    UploadedDocumentSearchRequest, UploadedDocumentSearchResult, UploadedPdfFindPage,
+    UploadedPdfFindRequest, UploadedPdfFindResult,
+};
 
 struct RankedDocumentHit {
     score: f64,
@@ -61,6 +65,66 @@ pub(crate) fn search_uploads<R: Runtime>(
     }
     results.truncate(limit as usize);
     Ok(results)
+}
+
+/// Find literal text across one PDF's already-indexed page rows.
+///
+/// This stays off the WebView thread and returns only per-page counts, so a
+/// long OCR book does not require reparsing sidecars or transferring all text
+/// and geometry over IPC on each query.
+pub(crate) fn find_pdf_text<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    request: UploadedPdfFindRequest,
+) -> Result<UploadedPdfFindResult, String> {
+    let (document_id, source_kind) = upload_reference_from_url(&request.document_url)?;
+    if source_kind != StoredSourceKind::Pdf {
+        return Err("Document is not an uploaded PDF".into());
+    }
+
+    let query = request.query.chars().take(512).collect::<String>();
+    let needle = normalize_exact_text(&query);
+    if needle.is_empty() {
+        return Ok(UploadedPdfFindResult {
+            match_count: 0,
+            pages: Vec::new(),
+        });
+    }
+
+    let db = open_db(app)?;
+    let mut stmt = db
+        .prepare(
+            "SELECT page_index, text FROM uploaded_sections \
+             WHERE document_id = ?1 AND page_index IS NOT NULL ORDER BY ordinal ASC",
+        )
+        .map_err(db_err)?;
+    let rows = stmt
+        .query_map(params![document_id], |row| {
+            Ok((row.get::<_, usize>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(db_err)?;
+    let mut pages = Vec::new();
+    let mut match_count = 0usize;
+    for row in rows {
+        let (page_index, text) = row.map_err(db_err)?;
+        let page_matches = count_normalized_matches(&text, &needle);
+        if page_matches == 0 {
+            continue;
+        }
+        match_count = match_count.saturating_add(page_matches);
+        pages.push(UploadedPdfFindPage {
+            page_index,
+            match_count: page_matches,
+        });
+    }
+
+    Ok(UploadedPdfFindResult { match_count, pages })
+}
+
+fn count_normalized_matches(text: &str, normalized_query: &str) -> usize {
+    if normalized_query.is_empty() {
+        return 0;
+    }
+    normalize_exact_text(text).matches(normalized_query).count()
 }
 
 /// FTS narrows the candidate set efficiently, then this verifies Papercut's
@@ -473,10 +537,19 @@ mod tests {
     use rusqlite::{params, Connection};
 
     use super::{
-        fts_and_query, fts_fuzzy_queries, fts_fuzzy_terms, fts_phrase_queries,
-        normalize_exact_text, retain_exact_phrase_hits, search_cross_section_document_hits,
-        search_section_hits,
+        count_normalized_matches, fts_and_query, fts_fuzzy_queries, fts_fuzzy_terms,
+        fts_phrase_queries, normalize_exact_text, retain_exact_phrase_hits,
+        search_cross_section_document_hits, search_section_hits,
     };
+
+    #[test]
+    fn pdf_find_counts_literal_matches_after_pdf_hyphen_normalization() {
+        let query = normalize_exact_text("high-lights");
+        assert_eq!(
+            count_normalized_matches("Highlights and high- lights.", &query),
+            2
+        );
+    }
 
     #[test]
     fn fuzzy_search_falls_back_when_terms_live_in_different_sections() {

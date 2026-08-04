@@ -13,6 +13,7 @@ import type {
 } from 'pdfjs-dist/legacy/web/pdf_viewer.mjs'
 import { loadPdfJs, loadPdfViewer, pdfJsAssetRoot } from '../pdf/pdfJs'
 import {
+  findUploadedPdfText,
   getUploadedPdfAssetUrl,
   getUploadedPdfPageText,
   isUploadedPdfDocumentUrl,
@@ -20,8 +21,13 @@ import {
 } from '../uploads/DocumentUploads'
 import {
   clearPdfOcrTextLayers,
+  PDF_OCR_TEXT_LAYER_CLASS,
   renderPdfOcrTextLayer,
 } from '../pdf/ocr/pdfOcrTextLayer'
+import {
+  createPdfOcrFindAdapter,
+  type PdfOcrFindMatch,
+} from '../pdf/ocr/pdfOcrFind'
 import {
   applyPdfTtsHighlight,
   clearPdfTtsHighlight,
@@ -29,6 +35,7 @@ import {
 import {
   clearSearchTargetHighlight,
   highlightFirstSearchTarget,
+  highlightSearchTarget,
 } from '../components/DocumentViewer/readerTarget'
 import { createPdfFindAdapter, pdfSearchTargetPage } from './pdfFind'
 import { createPdfBookmarkApi } from './pdfBookmark'
@@ -39,7 +46,7 @@ import {
 } from './PdfControls'
 import { syncPdfViewerLayout } from './pdfViewerLayout'
 import './PdfViewer.css'
-import type { ViewerProps } from './types'
+import type { ViewerFindApi, ViewerProps } from './types'
 
 type PdfViewerStatus =
   | { state: 'loading' }
@@ -102,7 +109,7 @@ export function PdfViewer({
   const pdfViewerRef = useRef<PdfJsViewer | null>(null)
   const eventBusRef = useRef<EventBus | null>(null)
   const linkServiceRef = useRef<PDFLinkService | null>(null)
-  const findAdapterRef = useRef<ReturnType<typeof createPdfFindAdapter> | null>(null)
+  const findApiRef = useRef<ViewerFindApi | null>(null)
   const spreadModesRef = useRef<{ NONE: number; ODD: number } | null>(null)
   const searchTargetRef = useRef(searchTarget)
   const outlineCloseRef = useRef<HTMLButtonElement>(null)
@@ -147,6 +154,13 @@ export function PdfViewer({
     let eventBus: EventBus | undefined
     let findController: PDFFindController | undefined
     let findAdapter: ReturnType<typeof createPdfFindAdapter> | undefined
+    let ocrFindAdapter: ReturnType<typeof createPdfOcrFindAdapter> | undefined
+    let ocrFindActive = false
+    let activeOcrFind: {
+      match: PdfOcrFindMatch
+      query: string
+      scroll: boolean
+    } | null = null
     let resizeObserver: ResizeObserver | undefined
     let resizeFrame = 0
     let pendingWidthChange = false
@@ -189,7 +203,7 @@ export function PdfViewer({
         delay: 0,
       })
       findAdapter = createPdfFindAdapter(eventBus, onFindResult ?? ignoreFindResult)
-      findAdapterRef.current = findAdapter
+      findApiRef.current = findAdapter.api
       onFindApiChange?.(findAdapter.api)
       linkService.externalLinkEnabled = false
       pdfViewer = new viewerModule.PDFViewer({
@@ -240,6 +254,51 @@ export function PdfViewer({
       eventBus.on('pagechanging', handlePageChange)
       eventBus.on('scalechanging', handleScaleChange)
 
+      const highlightPendingOcrFind = () => {
+        if (!activeOcrFind) return false
+        const pageNumber = activeOcrFind.match.pageIndex + 1
+        const overlay = renderedPdfOcrTextLayer(viewer, pageNumber)
+        if (!overlay) return false
+
+        clearSearchTargetHighlight(viewer)
+        const range = highlightSearchTarget(
+          overlay,
+          activeOcrFind.query,
+          activeOcrFind.match.occurrenceIndex,
+        )
+        if (!range) return false
+        setSearchProgress(null)
+        if (activeOcrFind.scroll) {
+          range.startContainer.parentElement?.scrollIntoView({
+            block: 'center',
+            behavior: 'smooth',
+          })
+          activeOcrFind = { ...activeOcrFind, scroll: false }
+        }
+        return true
+      }
+      const navigateOcrFind = (match: PdfOcrFindMatch, query: string) => {
+        activeOcrFind = { match, query, scroll: true }
+        if (pdfViewer) pdfViewer.currentPageNumber = match.pageIndex + 1
+        requestAnimationFrame(highlightPendingOcrFind)
+      }
+      const activateOcrFind = () => {
+        if (ocrFindActive || !isUploadedPdfDocumentUrl(url)) return
+        ocrFindActive = true
+        findAdapter?.api.clear()
+        ocrFindAdapter = createPdfOcrFindAdapter(
+          (query) => findUploadedPdfText(url, query),
+          navigateOcrFind,
+          () => {
+            activeOcrFind = null
+            clearSearchTargetHighlight(viewer)
+          },
+          onFindResult ?? ignoreFindResult,
+        )
+        findApiRef.current = ocrFindAdapter.api
+        onFindApiChange?.(ocrFindAdapter.api)
+      }
+
       const handleTextLayerRendered = ({ pageNumber }: { pageNumber: number }) => {
         if (!isUploadedPdfDocumentUrl(url)) return
         const textLayer = renderedPdfTextLayer(viewer, pageNumber)
@@ -260,7 +319,14 @@ export function PdfViewer({
           .then((layer) => {
             // Missing or stale derived text must never prevent rendering the source PDF.
             if (!cancelled && page.isConnected && layer) {
-              renderPdfOcrTextLayer(page, textLayer, layer)
+              const overlay = renderPdfOcrTextLayer(page, textLayer, layer)
+              if (overlay) {
+                activateOcrFind()
+                if (activeOcrFind?.match.pageIndex === pageIndex) {
+                  highlightPendingOcrFind()
+                }
+                eventBus?.dispatch('pdfocrtextlayerrendered', { pageNumber })
+              }
             }
           })
       }
@@ -341,7 +407,8 @@ export function PdfViewer({
       cancelAnimationFrame(resizeFrame)
       removeEventListeners?.()
       findAdapter?.dispose()
-      if (findAdapterRef.current === findAdapter) findAdapterRef.current = null
+      ocrFindAdapter?.dispose()
+      findApiRef.current = null
       onFindApiChange?.(null)
       onBookmarkApiChange?.(null)
       if (viewerElement) clearPdfOcrTextLayers(viewerElement)
@@ -397,14 +464,14 @@ export function PdfViewer({
     const pdfViewer = pdfViewerRef.current
     const eventBus = eventBusRef.current
     const viewer = viewerRef.current
-    const findAdapter = findAdapterRef.current
+    const findApi = findApiRef.current
     const text = searchTarget.text?.trim()
     if (!pdfViewer || !eventBus || !viewer || !text) return
 
     clearSearchTargetHighlight(viewer)
 
     if (searchTarget.pageIndex === undefined) {
-      const frame = requestAnimationFrame(() => findAdapter?.api.search(text))
+      const frame = requestAnimationFrame(() => findApi?.search(text))
       return () => cancelAnimationFrame(frame)
     }
 
@@ -420,9 +487,9 @@ export function PdfViewer({
       setSearchProgress(null)
     }
     const highlightTargetPage = () => {
-      const textLayer = renderedPdfTextLayer(viewer, pageNumber)
-      if (!textLayer) return false
-      const range = highlightFirstSearchTarget(textLayer, text)
+      const searchLayer = renderedPdfSearchLayer(viewer, pageNumber)
+      if (!searchLayer) return false
+      const range = highlightFirstSearchTarget(searchLayer, text)
       if (!range) return false
 
       finish()
@@ -436,7 +503,7 @@ export function PdfViewer({
       if (complete || fallbackStarted) return
       fallbackStarted = true
       setSearchProgress({ pageNumber, phase: 'verifying' })
-      findAdapter?.api.search(text)
+      findApiRef.current?.search(text)
     }
     const handleTextLayerRendered = ({ pageNumber: renderedPage }: { pageNumber: number }) => {
       if (renderedPage !== pageNumber) return
@@ -447,20 +514,23 @@ export function PdfViewer({
     }
 
     eventBus.on('textlayerrendered', handleTextLayerRendered)
+    eventBus.on('pdfocrtextlayerrendered', handleTextLayerRendered)
     eventBus.on('updatefindcontrolstate', handleFindSettled)
     pdfViewer.currentPageNumber = pageNumber
     const frame = requestAnimationFrame(() => {
       if (highlightTargetPage()) return
-      if (renderedPdfTextLayer(viewer, pageNumber)) fallbackToDocumentFind()
+      const textLayer = renderedPdfTextLayer(viewer, pageNumber)
+      if (textLayer?.textContent?.trim()) fallbackToDocumentFind()
     })
 
     return () => {
       complete = true
       cancelAnimationFrame(frame)
       eventBus.off('textlayerrendered', handleTextLayerRendered)
+      eventBus.off('pdfocrtextlayerrendered', handleTextLayerRendered)
       eventBus.off('updatefindcontrolstate', handleFindSettled)
       clearSearchTargetHighlight(viewer)
-      if (fallbackStarted) findAdapter?.api.clear()
+      if (fallbackStarted) findApiRef.current?.clear()
     }
   }, [searchTarget, status])
 
@@ -595,4 +665,17 @@ function renderedPdfTextLayer(viewer: HTMLElement, pageNumber: number): HTMLElem
     `.page[data-page-number="${pageNumber}"] .textLayer`,
   )
   return textLayer?.querySelector('.endOfContent') ? textLayer : null
+}
+
+function renderedPdfOcrTextLayer(viewer: HTMLElement, pageNumber: number): HTMLElement | null {
+  return viewer.querySelector<HTMLElement>(
+    `.page[data-page-number="${pageNumber}"] .${PDF_OCR_TEXT_LAYER_CLASS}`,
+  )
+}
+
+function renderedPdfSearchLayer(viewer: HTMLElement, pageNumber: number): HTMLElement | null {
+  const ocrLayer = renderedPdfOcrTextLayer(viewer, pageNumber)
+  if (ocrLayer) return ocrLayer
+  const textLayer = renderedPdfTextLayer(viewer, pageNumber)
+  return textLayer?.textContent?.trim() ? textLayer : null
 }

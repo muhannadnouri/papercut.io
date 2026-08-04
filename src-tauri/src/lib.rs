@@ -33,6 +33,7 @@ pub fn run() {
             document_uploads::commands::document_uploads_list,
             document_uploads::commands::document_uploads_update_title,
             document_uploads::commands::document_uploads_search,
+            document_uploads::commands::document_uploads_find_pdf_text,
             document_uploads::commands::document_uploads_get_source,
             document_uploads::commands::document_uploads_get_cover,
             document_uploads::commands::document_uploads_get_pdf_source,

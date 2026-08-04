@@ -1,6 +1,6 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 6 foundation complete; Stage 7 English image-only OCR and selectable viewer text in progress
+Status: Stage 6 foundation complete; Stage 7 English image-only OCR and viewer integration in progress
 Last updated: 2026-08-03
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -1029,9 +1029,9 @@ Stage status: English image-only slice implemented; acceptance and hybrid work r
 - [ ] Prevent duplicate native and OCR text in hybrid PDFs.
 - [x] Overlay persisted OCR words on rendered textless pages for selection
       without modifying or duplicating the canonical PDF.
+- [x] Teach viewer Find and indexed-result highlighting to use finalized OCR
+      text and page sidecars while retaining PDF.js Find for native-text PDFs.
 - [ ] Re-run PDF Find, search, TTS, and highlight acceptance tests.
-- [ ] Teach viewer Find and indexed-result highlighting to use OCR sidecars;
-      PDF.js Find can only search text embedded in the canonical PDF.
 
 Decision gate: image-only and hybrid fixtures are searchable and speakable
 without harming native-text PDF behavior or source files.
@@ -1166,6 +1166,7 @@ Stage status: Deferred
 | 2026-08-03 | Stage 6 | Select Tesseract.js as the initial OCR engine | A shared Web Worker avoids native builds across five platforms, stays lazy, and emits text, confidence, and bounds that fit `PageTextLayer`; quality and device performance will be adjusted from real acceptance results rather than a retained comparison harness |
 | 2026-08-03 | Stage 6 | Package English OCR assets locally | Pinned npm packages provide the worker, SIMD-aware LSTM cores, and trained data without runtime CDN access; other languages wait for explicit language selection |
 | 2026-08-03 | Stage 7 | Ship the smallest explicit English image-only OCR slice | Fully textless PDFs get one local action, one reused worker, bounded page processing, shared mutation status, and atomic finalization; hybrid classification, automatic language detection, and durable queues wait for evidence that they are needed |
+| 2026-08-03 | Stage 7 | Route OCR Find through finalized indexed pages | One document-scoped backend query returns compact per-page match counts off the WebView thread; only the current virtualized page loads OCR geometry for highlighting, while native-text PDFs keep PDF.js Find |
 
 ## References
 

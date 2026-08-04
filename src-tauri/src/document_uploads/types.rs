@@ -125,6 +125,30 @@ pub(crate) struct UploadedDocumentSearchRequest {
     pub(crate) exact_phrases: Option<Vec<String>>,
 }
 
+/// Request to find literal text within one indexed uploaded PDF.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedPdfFindRequest {
+    pub(crate) document_url: String,
+    pub(crate) query: String,
+}
+
+/// Match count for one indexed PDF page.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedPdfFindPage {
+    pub(crate) page_index: usize,
+    pub(crate) match_count: usize,
+}
+
+/// Compact whole-document Find result; geometry stays in page sidecars.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedPdfFindResult {
+    pub(crate) match_count: usize,
+    pub(crate) pages: Vec<UploadedPdfFindPage>,
+}
+
 /// Request to delete one uploaded document by its URL.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
