@@ -19,6 +19,7 @@ interface LibraryTabProps {
   docFilterLower: string
   documentFilter: string
   documentImport: DocumentImportStatus
+  documentScannerSupported: boolean
   documentOpening: boolean
   documentsLoading: boolean
   groupedDocs: AuthorGroup[]
@@ -36,6 +37,7 @@ interface LibraryTabProps {
   onCancelDocumentBatch: () => void | Promise<void>
   onImportDocumentBatch: () => void | Promise<void>
   onImportDocumentFolder: () => void | Promise<void>
+  onScanDocument: () => void | Promise<void>
   onMoveLibraryDocuments: (documentIds: string[], folderId: string | null) => void | Promise<void>
   onRecognizeDocument: (documentUrl: string) => void | Promise<boolean>
   onRenameLibraryFolder: (folderId: string, name: string) => void | Promise<void>
@@ -54,6 +56,7 @@ export function LibraryTab({
   docFilterLower,
   documentFilter,
   documentImport,
+  documentScannerSupported,
   documentOpening,
   documentsLoading,
   groupedDocs,
@@ -71,6 +74,7 @@ export function LibraryTab({
   onCancelDocumentBatch,
   onImportDocumentBatch,
   onImportDocumentFolder,
+  onScanDocument,
   onMoveLibraryDocuments,
   onRecognizeDocument,
   onRenameLibraryFolder,
@@ -118,6 +122,16 @@ export function LibraryTab({
               : undefined,
             disabled: operationBusy,
             onSelect: onImportDocumentFolder,
+          }] : []),
+          ...(documentScannerSupported ? [{
+            id: 'scan',
+            label: t('library.import.scanPages'),
+            detail: t('library.import.scanPagesDetail'),
+            statusLabel: documentImport.status === 'importing' && documentImport.format === 'scan'
+              ? t('library.import.scanningPages')
+              : undefined,
+            disabled: operationBusy,
+            onSelect: onScanDocument,
           }] : []),
           // { id: 'pdf', label: 'PDF', detail: 'Import PDFs when text extraction support lands', future: true },
         ]}
@@ -173,7 +187,7 @@ function documentImportStatusMessage(
   if (status.format === 'pdf-ocr') {
     return <PdfRecognitionStatus status={status} t={t} onCancel={onCancelBatch} />
   }
-  if (status.format === 'batch' || status.format === 'folder') {
+  if (status.format === 'batch' || status.format === 'folder' || status.format === 'scan') {
     return <DocumentBatchImportStatus status={status} t={t} onCancel={onCancelBatch} />
   }
   if (status.status === 'cancelled') return t('library.status.cancelled')
@@ -346,7 +360,7 @@ function DocumentBatchImportStatus({
       </>
     )
   } else if (importing) {
-    message = t('library.status.preparingBatch')
+    message = t(status.format === 'scan' ? 'library.status.capturingPages' : 'library.status.preparingBatch')
   } else if (result) {
     message = t(result.cancelled ? 'library.status.batchCancelled' : 'library.status.batchComplete', {
       imported: result.imported.length,

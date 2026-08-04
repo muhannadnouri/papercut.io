@@ -1,0 +1,21 @@
+[package]
+name = "tauri-plugin-document-scanner"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+build = "build.rs"
+links = "tauri-plugin-document-scanner"
+
+[lib]
+name = "tauri_plugin_document_scanner"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+tauri = { version = "2.10.3", default-features = false }
+
+[target.'cfg(target_os = "ios")'.dependencies]
+tauri = { version = "2.10.3", default-features = false, features = ["wry"] }
+
+[build-dependencies]
+tauri-plugin = { version = "2.5.3", features = ["build"] }

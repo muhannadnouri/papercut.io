@@ -1,6 +1,6 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 7 English image-only and hybrid OCR complete; Stage 8 not started
+Status: Stage 8 in progress; isolated iOS capture implemented and awaiting device validation, Android capture next
 Last updated: 2026-08-04
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -572,20 +572,38 @@ provided by the recognition job.
 
 Capture and OCR should remain separate:
 
-- Android's [ML Kit Document Scanner](https://developers.google.com/ml-kit/vision/doc-scanner)
-  supplies native capture UI, edge detection, crop, rotation, cleanup, page
-  reordering, and PDF/JPEG output. It runs on-device and does not require the
-  app to request camera permission, though its scanner resources may download
-  on first use and device requirements must be enforced.
-- iOS should use
+- iOS uses
   [`VNDocumentCameraViewController`](https://developer.apple.com/documentation/visionkit/vndocumentcameraviewcontroller)
-  for the native capture experience.
-- A small Tauri mobile plugin should normalize both platforms into the same
-  page-image or PDF result consumed by the import pipeline.
+  for capture, edge guidance, crop, rotation, page review, and multi-page
+  output. The isolated plugin streams those reviewed pages into an app-owned
+  image-only PDF and hands only its path to Rust.
+- Android should use CameraX for capture and a Papercut-owned four-corner crop
+  and review screen. The first implementation can use Android's native
+  perspective transform; OpenCV or an ONNX edge model should be added only if
+  real acceptance documents prove the native path inadequate.
+- Do not use ML Kit Document Scanner as the primary Android path. Its scanner
+  module and UI are delivered through Google Play Services, which Papercut
+  cannot assume exists on every supported offline device.
+- One local Tauri plugin normalizes both platforms into an app-owned PDF path.
+  Native image bytes never cross the JSON bridge, and the existing PDF import,
+  readiness, OCR, indexing, viewer, search, and TTS pipeline remains the only
+  document-processing path.
 
 The review step should let users inspect thumbnails, crop, rotate, delete,
 reorder, rescan, and import existing photos. The source pages should be saved
 before OCR begins so recognition can be retried.
+
+Scanner-specific code is intentionally removable:
+
+```text
+src-tauri/plugins/document-scanner/   native iOS/Android adapters
+src-tauri/src/document_scanner/       app-owned staging and import bridge
+src/document-scanner/                 typed React availability/capture API
+```
+
+Registration and the Library import option are the only integration points.
+Deleting those directories and their registrations removes capture without
+changing PDF import or OCR.
 
 Desktop camera capture is deferred. Importing existing PDFs and images covers
 the desktop use case without introducing webcam permissions and a third capture
@@ -1050,18 +1068,20 @@ canonical PDF remained unchanged.
 
 ### Stage 8: Native Mobile Capture
 
-Stage status: Not started
+Stage status: In progress; iOS capture implemented, physical-device validation and Android capture open
 
-- [ ] Add one small Tauri mobile plugin with Android and iOS scanner adapters.
-- [ ] Integrate ML Kit Document Scanner on supported Android devices.
-- [ ] Integrate VisionKit document camera on supported iOS devices.
+- [x] Add one isolated local Tauri plugin with Android and iOS adapter boundaries.
+- [ ] Integrate CameraX capture and a manual four-corner review flow on Android
+      without requiring Google Play Services.
+- [x] Integrate VisionKit document camera on supported iOS devices.
 - [ ] Support page thumbnails, crop, rotation, delete, reorder, rescan, and
-      importing existing images.
-- [ ] Save source pages before OCR begins.
+      importing existing images across both platforms. VisionKit supplies the
+      first five operations on iOS; Android and photo import remain open.
+- [x] Save the reviewed iOS scan as a canonical PDF before OCR begins.
 - [ ] Process bounded batches and allow users to append/resume large scans.
 - [ ] Handle unavailable scanner services, resource download, permissions,
       interruption, low storage, and unsupported devices.
-- [ ] Keep scanning controls absent from unsupported desktop builds.
+- [x] Keep scanning controls absent from desktop and unsupported mobile builds.
 
 Decision gate: a multi-page scan survives interruption and produces a durable
 source PDF or page set without holding the entire book in memory.
@@ -1181,6 +1201,9 @@ Stage status: Deferred
 | 2026-08-03 | Stage 7 | Route OCR Find through finalized indexed pages | One document-scoped backend query returns compact per-page match counts off the WebView thread; only the current virtualized page loads OCR geometry for highlighting, while native-text PDFs keep PDF.js Find |
 | 2026-08-04 | Stage 7 | Reuse bounded readiness signals for hybrid PDFs | Import records one aggregate recognition flag, while OCR recomputes page readiness from native text and image operators, preserves native and blank sidecars, and replaces only weak-text image pages without adding page-state storage |
 | 2026-08-04 | Stage 7 | Close English image-only and hybrid OCR acceptance | Manual checks passed native/OCR search and Find navigation, selectable OCR overlays, ordered TTS, blank-page handling, source preservation, and no duplicate native text; broader languages, durable resume, and mobile capture remain separate stages |
+| 2026-08-04 | Stage 8 | Isolate mobile capture from PDF processing | A local Tauri plugin owns only native camera UI and app-owned PDF output; the existing importer remains the sole validation, persistence, readiness, indexing, and OCR path |
+| 2026-08-04 | Stage 8 | Start with VisionKit and defer Android capture to its own slice | iOS provides a complete native multi-page review flow now; Android requires a CameraX capture and manual crop/review workflow that deserves separate implementation and device validation |
+| 2026-08-04 | Stage 8 | Reject ML Kit Document Scanner as the primary Android path | Its scanner resources and UI depend on Google Play Services, which is incompatible with Papercut's supported offline and de-Googled Android devices |
 
 ## References
 
@@ -1196,6 +1219,8 @@ Stage status: Deferred
 - [Apple Vision text recognition](https://developer.apple.com/documentation/vision/vnrecognizetextrequest)
 - [ML Kit Document Scanner](https://developers.google.com/ml-kit/vision/doc-scanner)
 - [ML Kit Text Recognition languages](https://developers.google.com/ml-kit/vision/text-recognition/v2/languages)
+- [Android CameraX](https://developer.android.com/media/camera/camerax)
+- [Android `Matrix.setPolyToPoly`](https://developer.android.com/reference/android/graphics/Matrix#setPolyToPoly(float[],%20int,%20float[],%20int,%20int))
 - [Tesseract OCR](https://github.com/tesseract-ocr/tesseract)
 - [Tesseract.js repository](https://github.com/naptha/tesseract.js)
 - [PaddleOCR multilingual recognition](https://github.com/PaddlePaddle/PaddleOCR/blob/main/docs/version3.x/algorithm/PP-OCRv5/PP-OCRv5_multi_languages.en.md)

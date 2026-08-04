@@ -11,6 +11,7 @@ import { useSearch } from './hooks/useSearch'
 import { AppHeader } from './components/AppHeader/AppHeader'
 import { SearchTab } from './components/SearchTab/SearchTab'
 import { LibraryTab } from './components/LibraryTab/LibraryTab'
+import { useDocumentScanner } from './document-scanner/useDocumentScanner'
 import { AudiobooksTab } from './components/AudiobooksTab/AudiobooksTab'
 import { DocumentViewer } from './components/DocumentViewer/DocumentViewer'
 import { TabNav, type AppTab } from './components/TabNav/TabNav'
@@ -52,6 +53,7 @@ function App() {
   const { t } = useTranslation()
   const theme = useTheme()
   const bookmarkedDocumentUrls = useBookmarkedDocumentUrls()
+  const documentScanner = useDocumentScanner()
   const [activeTab, setActiveTab] = useState<AppTab>('library')
   const [userUploads, setUserUploads] = useState<UserUploadDocument[]>(() => getUserUploads())
   const [ttsDiagnosticsEnabled, setTtsDiagnosticsEnabled] = useState(() => isDebugEnabled())
@@ -67,6 +69,7 @@ function App() {
     documentImport,
     importDocumentBatch,
     importDocumentFolder,
+    scanDocument,
     moveLibraryDocuments,
     refreshUploadedLibrary,
     recognizeDocumentText,
@@ -250,6 +253,11 @@ function App() {
     if (result?.imported.length) setShowDocuments(true)
   }, [importDocumentFolder, setShowDocuments])
 
+  const handleScanDocument = useCallback(async () => {
+    const result = await scanDocument()
+    if (result?.imported.length) setShowDocuments(true)
+  }, [scanDocument, setShowDocuments])
+
   const handleImportAudiobook = useCallback(async () => {
     await importAudiobookBundle(handleViewDocument)
   }, [handleViewDocument, importAudiobookBundle])
@@ -410,6 +418,7 @@ function App() {
             groupedDocs={libraryGroupedDocs}
             docFilterLower={libraryDocFilterLower}
             documentImport={documentImport}
+            documentScannerSupported={documentScanner.supported}
             libraryOrganization={uploadedLibraryOrganization}
             documentOpening={documentOpening}
             openingDocumentUrl={documentLoad.status === 'loading' ? documentLoad.url : undefined}
@@ -432,6 +441,7 @@ function App() {
             }}
             onImportDocumentBatch={handleImportDocumentBatch}
             onImportDocumentFolder={handleImportDocumentFolder}
+            onScanDocument={handleScanDocument}
             onCancelDocumentBatch={cancelDocumentBatch}
             onViewDocument={handleViewLibraryDocument}
           />

@@ -1,3 +1,4 @@
+mod document_scanner;
 mod document_uploads;
 mod library_transfer;
 mod native_tts;
@@ -22,6 +23,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_native_audio::init())
+        .plugin(tauri_plugin_document_scanner::init())
         .plugin(tauri_plugin_opener::init())
         .manage(document_uploads::DocumentUploadState::default())
         .manage(library_transfer::LibraryTransferState::default())
@@ -51,6 +53,8 @@ pub fn run() {
             document_uploads::commands::document_uploads_move_documents,
             document_uploads::commands::document_uploads_move_folder,
             document_uploads::commands::document_uploads_reorder_library,
+            document_scanner::commands::document_scanner_availability,
+            document_scanner::commands::document_scanner_scan,
             library_transfer::library_transfer_export,
             library_transfer::library_transfer_import,
             library_transfer::network::library_transfer_send_start,

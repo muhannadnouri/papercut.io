@@ -124,11 +124,15 @@
       "filesDetail": "Importe um ou mais arquivos HTML, EPUB ou PDF",
       "folder": "Pasta",
       "folderDetail": "Importe arquivos HTML, EPUB e PDF de uma pasta; as subpastas são ignoradas",
+      "scanPages": "Digitalizar páginas",
+      "scanPagesDetail": "Use a câmera para digitalizar uma ou mais páginas",
       "importingBatch": "Importando documentos",
-      "importingFolder": "Importando pasta"
+      "importingFolder": "Importando pasta",
+      "scanningPages": "Digitalizando páginas"
     },
     "status": {
       "preparingBatch": "Escolha arquivos HTML, EPUB ou PDF para importar...",
+      "capturingPages": "Digitalize e revise as páginas no dispositivo...",
       "importingBatchProgress": "Importando {{current, number}} de {{total, number}}",
       "batchProgress": "Processados {{processed, number}} de {{total, number}}",
       "stoppingBatch": "Parando após o arquivo atual...",

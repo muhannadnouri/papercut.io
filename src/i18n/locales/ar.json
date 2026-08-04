@@ -136,11 +136,15 @@
       "filesDetail": "استيراد ملف واحد أو أكثر بصيغة HTML أو EPUB أو PDF",
       "folder": "مجلد",
       "folderDetail": "استيراد ملفات HTML وEPUB وPDF الموجودة داخل مجلد واحد؛ تُتجاهل المجلدات الفرعية",
+      "scanPages": "مسح الصفحات",
+      "scanPagesDetail": "استخدم الكاميرا لمسح صفحة واحدة أو أكثر",
       "importingBatch": "جارٍ استيراد المستندات",
-      "importingFolder": "جارٍ استيراد المجلد"
+      "importingFolder": "جارٍ استيراد المجلد",
+      "scanningPages": "جارٍ مسح الصفحات"
     },
     "status": {
       "preparingBatch": "اختر ملفات HTML أو EPUB أو PDF لاستيرادها...",
+      "capturingPages": "امسح الصفحات وراجعها على جهازك...",
       "importingBatchProgress": "جارٍ استيراد {{current, number}} من {{total, number}}",
       "batchProgress": "تمت معالجة {{processed, number}} من {{total, number}}",
       "stoppingBatch": "جارٍ الإيقاف بعد الملف الحالي...",

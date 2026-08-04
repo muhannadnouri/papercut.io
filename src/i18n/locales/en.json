@@ -120,11 +120,15 @@
       "filesDetail": "Import one or more HTML, EPUB, or PDF files",
       "folder": "Folder",
       "folderDetail": "Import HTML, EPUB, and PDF files in one folder; subfolders are skipped",
+      "scanPages": "Scan Pages",
+      "scanPagesDetail": "Use the camera to scan one or more pages",
       "importingBatch": "Importing documents",
-      "importingFolder": "Importing folder"
+      "importingFolder": "Importing folder",
+      "scanningPages": "Scanning pages"
     },
     "status": {
       "preparingBatch": "Choose HTML, EPUB, or PDF files to import...",
+      "capturingPages": "Scan and review pages on your device...",
       "importingBatchProgress": "Importing {{current, number}} of {{total, number}}",
       "batchProgress": "Processed {{processed, number}} of {{total, number}}",
       "stoppingBatch": "Stopping after the current file...",

@@ -54,6 +54,7 @@ targets:
         CFBundleShortVersionString: 1.8.0
         CFBundleVersion: "1.8.0"
         ITSAppUsesNonExemptEncryption: false
+        NSCameraUsageDescription: Papercut uses the camera only when you choose to scan document pages.
         NSLocalNetworkUsageDescription: Papercut uses your local network only when you choose to transfer a library between nearby devices.
         UIBackgroundModes:
           - audio

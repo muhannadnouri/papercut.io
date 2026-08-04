@@ -38,6 +38,7 @@ tauri-plugin-log = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-native-audio = "=1.0.5"
+tauri-plugin-document-scanner = { path = "plugins/document-scanner" }
 base64 = "0.22"
 getrandom = "0.3"
 hmac = "0.12"

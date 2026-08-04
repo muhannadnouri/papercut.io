@@ -105,6 +105,7 @@ jobs:
               src-tauri/Cargo.toml | \
               src-tauri/Cargo.lock | \
               src-tauri/build.rs | \
+              src-tauri/plugins/* | \
               src-tauri/src/* | \
               src-tauri/tts/* | \
               src-tauri/vendor/sherpa-onnx-sys/* | \

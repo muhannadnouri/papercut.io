@@ -124,11 +124,15 @@
       "filesDetail": "Importa uno o más archivos HTML, EPUB o PDF",
       "folder": "Carpeta",
       "folderDetail": "Importa archivos HTML, EPUB y PDF de una carpeta; se omiten las subcarpetas",
+      "scanPages": "Escanear páginas",
+      "scanPagesDetail": "Usa la cámara para escanear una o más páginas",
       "importingBatch": "Importando documentos",
-      "importingFolder": "Importando carpeta"
+      "importingFolder": "Importando carpeta",
+      "scanningPages": "Escaneando páginas"
     },
     "status": {
       "preparingBatch": "Elige archivos HTML, EPUB o PDF para importar...",
+      "capturingPages": "Escanea y revisa las páginas en tu dispositivo...",
       "importingBatchProgress": "Importando {{current, number}} de {{total, number}}",
       "batchProgress": "Procesados {{processed, number}} de {{total, number}}",
       "stoppingBatch": "Deteniendo después del archivo actual...",

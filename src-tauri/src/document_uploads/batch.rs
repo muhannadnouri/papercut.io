@@ -1,10 +1,10 @@
 //! Sequential document import/delete batches with progress and partial results.
 
 use std::collections::HashSet;
-use std::io::Read;
-use std::path::Path;
 #[cfg(desktop)]
-use std::{fs, path::PathBuf};
+use std::fs;
+use std::io::Read;
+use std::path::{Path, PathBuf};
 
 use percent_encoding::percent_decode_str;
 use tauri::{Emitter, Runtime};
@@ -140,6 +140,16 @@ fn import_sources<R: Runtime>(
         failures: run.failures,
         cancelled: run.cancelled,
     })
+}
+
+/// Import one app-owned scanner PDF through the same bounded runner used by
+/// picker imports, preserving validation, progress, and partial-result rules.
+pub(crate) fn import_scanner_source<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    control: DocumentBatchControl,
+    source: PathBuf,
+) -> Result<UploadedDocumentBatchResult, String> {
+    import_sources(app, control, vec![FilePath::Path(source)])
 }
 
 /// Delete a bounded, deduplicated URL list sequentially so one bad document
