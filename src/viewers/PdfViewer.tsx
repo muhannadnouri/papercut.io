@@ -14,8 +14,14 @@ import type {
 import { loadPdfJs, loadPdfViewer, pdfJsAssetRoot } from '../pdf/pdfJs'
 import {
   getUploadedPdfAssetUrl,
+  getUploadedPdfPageText,
   isUploadedPdfDocumentUrl,
+  type PdfPageTextLayer,
 } from '../uploads/DocumentUploads'
+import {
+  clearPdfOcrTextLayers,
+  renderPdfOcrTextLayer,
+} from '../pdf/ocr/pdfOcrTextLayer'
 import {
   applyPdfTtsHighlight,
   clearPdfTtsHighlight,
@@ -145,6 +151,8 @@ export function PdfViewer({
     let resizeFrame = 0
     let pendingWidthChange = false
     let previousContainerSize: { width: number; height: number } | undefined
+    let viewerElement: HTMLDivElement | null = null
+    const ocrPageLayers = new Map<number, Promise<PdfPageTextLayer | null>>()
 
     setCurrentPage(1)
     setZoom(100)
@@ -159,6 +167,7 @@ export function PdfViewer({
       const container = containerRef.current
       const viewer = viewerRef.current
       if (!container || !viewer) return
+      viewerElement = viewer
 
       const sourceUrl = isUploadedPdfDocumentUrl(url)
         ? await getUploadedPdfAssetUrl(url)
@@ -231,6 +240,32 @@ export function PdfViewer({
       eventBus.on('pagechanging', handlePageChange)
       eventBus.on('scalechanging', handleScaleChange)
 
+      const handleTextLayerRendered = ({ pageNumber }: { pageNumber: number }) => {
+        if (!isUploadedPdfDocumentUrl(url)) return
+        const textLayer = renderedPdfTextLayer(viewer, pageNumber)
+        const page = textLayer?.closest<HTMLElement>('.page')
+        if (!textLayer || !page) return
+        if (textLayer.textContent?.trim()) {
+          page.querySelector('.pdf-ocr-text-layer')?.remove()
+          return
+        }
+
+        const pageIndex = pageNumber - 1
+        let request = ocrPageLayers.get(pageIndex)
+        if (!request) {
+          request = getUploadedPdfPageText(url, pageIndex).catch(() => null)
+          ocrPageLayers.set(pageIndex, request)
+        }
+        void request
+          .then((layer) => {
+            // Missing or stale derived text must never prevent rendering the source PDF.
+            if (!cancelled && page.isConnected && layer) {
+              renderPdfOcrTextLayer(page, textLayer, layer)
+            }
+          })
+      }
+      eventBus.on('textlayerrendered', handleTextLayerRendered)
+
       const assetRoot = pdfJsAssetRoot()
       loadingTask = pdfjs.getDocument({
         url: sourceUrl,
@@ -283,6 +318,7 @@ export function PdfViewer({
         eventBus?.off('pagesinit', handlePagesInit)
         eventBus?.off('pagechanging', handlePageChange)
         eventBus?.off('scalechanging', handleScaleChange)
+        eventBus?.off('textlayerrendered', handleTextLayerRendered)
       }
     }
 
@@ -308,6 +344,7 @@ export function PdfViewer({
       if (findAdapterRef.current === findAdapter) findAdapterRef.current = null
       onFindApiChange?.(null)
       onBookmarkApiChange?.(null)
+      if (viewerElement) clearPdfOcrTextLayers(viewerElement)
       linkService?.setDocument(null)
       pdfViewer?.cleanup()
       pdfViewerRef.current = null

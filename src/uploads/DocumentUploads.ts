@@ -235,6 +235,16 @@ export async function getUploadedPdfNarrationSegments(
   })
 }
 
+export async function getUploadedPdfPageText(
+  documentUrl: string,
+  pageIndex: number,
+): Promise<PdfPageTextLayer> {
+  const invoke = await loadTauriInvoke()
+  return invoke<PdfPageTextLayer>('document_uploads_get_pdf_page_text', {
+    request: { documentUrl, pageIndex },
+  })
+}
+
 export async function storeUploadedPdfPageText(
   documentUrl: string,
   layer: PdfPageTextLayer,

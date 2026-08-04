@@ -1,6 +1,6 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 5 complete; first English image-only OCR slice implemented; WebView acceptance next
+Status: Stage 6 foundation complete; Stage 7 English image-only OCR and selectable viewer text in progress
 Last updated: 2026-08-03
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -531,8 +531,15 @@ An OCR failure must not delete or invalidate the original PDF or scan.
 Papercut uses Tesseract.js 7 as the first shared OCR engine across its WebViews.
 It runs Tesseract in a Web Worker, is imported only when OCR starts, and writes
 recognized words, confidence, reading order, and scaled page coordinates into
-the existing `PageTextLayer`. Search, Find, TTS, and highlighting therefore do
-not need an OCR-specific data path.
+the existing `PageTextLayer`. Search and TTS therefore reuse the existing
+derived-data path; the viewer adds a page-local selectable overlay, while Find
+still needs a sidecar-backed adapter because PDF.js only searches embedded text.
+
+English trained data is pinned as an npm dependency and copied with the worker
+and core into the ignored `public/tesseract/` build tree. Generated
+`*.traineddata` files are not committed at the repository root; each future
+language must be an explicitly pinned package selected by the same preparation
+script so offline builds remain reproducible and only ship supported languages.
 
 Build preparation copies the installed worker, SIMD-capable LSTM cores, and the
 integer English trained data into ignored `public/tesseract` assets. Runtime
@@ -978,7 +985,7 @@ bookmarks, Find, global search, and HTML/EPUB parity.
 
 ### Stage 6: OCR Engine Foundation
 
-Stage status: Foundation complete; production English WebView smoke test pending
+Stage status: Foundation complete; desktop English WebView smoke test passed
 
 - [x] Persist aggregate upload text status without changing the canonical PDF
       or page-sidecar schema.
@@ -999,7 +1006,7 @@ Stage status: Foundation complete; production English WebView smoke test pending
 - [x] Report preparing, page recognition, indexing, cancellation, and failure.
 - [x] Commit recognized search data only through the atomic PDF finalizer.
 - [x] Remove the temporary synthetic OCR benchmark harness and generated PDFs.
-- [ ] Run one English image-page recognition smoke test in the desktop WebView.
+- [x] Run one English image-page recognition smoke test in the desktop WebView.
 - [ ] Confirm the generated build has no OCR CDN requests.
 - [ ] Record first-run worker startup, recognition time, and peak memory.
 
@@ -1020,7 +1027,11 @@ Stage status: English image-only slice implemented; acceptance and hybrid work r
 - [ ] Add durable job resume across app restarts.
 - [x] Prevent partial OCR sidecars from becoming searchable before final commit.
 - [ ] Prevent duplicate native and OCR text in hybrid PDFs.
+- [x] Overlay persisted OCR words on rendered textless pages for selection
+      without modifying or duplicating the canonical PDF.
 - [ ] Re-run PDF Find, search, TTS, and highlight acceptance tests.
+- [ ] Teach viewer Find and indexed-result highlighting to use OCR sidecars;
+      PDF.js Find can only search text embedded in the canonical PDF.
 
 Decision gate: image-only and hybrid fixtures are searchable and speakable
 without harming native-text PDF behavior or source files.

@@ -61,6 +61,23 @@ html[dir="rtl"] .pdf-search-target-status {
   box-shadow: 0 1px 5px var(--shadow-soft);
 }
 
+.pdf-ocr-text-layer {
+  color: transparent;
+  inset: 0 auto auto 0;
+  overflow: hidden;
+  position: absolute;
+  transform-origin: 0 0;
+  user-select: text;
+  z-index: 2;
+}
+
+.pdf-ocr-text-layer span {
+  line-height: 1;
+  overflow: hidden;
+  position: absolute;
+  white-space: pre;
+}
+
 .pdf-viewer mark[data-search-target] {
   background: var(--highlight-current);
   color: var(--highlight-current-text);

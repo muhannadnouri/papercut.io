@@ -13,8 +13,9 @@ use super::organization::{
     reorder,
 };
 use super::pdf::{
-    finalize_pdf_index, get_pdf_narration_segments, get_pdf_source_bytes, get_pdf_source_path,
-    store_pdf_page_text, PdfFinalizeRequest, PdfNarrationSegment, PdfPageTextRequest,
+    finalize_pdf_index, get_pdf_narration_segments, get_pdf_page_text_layer, get_pdf_source_bytes,
+    get_pdf_source_path, store_pdf_page_text, PageTextLayer, PdfFinalizeRequest,
+    PdfNarrationSegment, PdfPageTextReadRequest, PdfPageTextRequest,
 };
 use super::pipeline::{delete_upload, get_cover, get_source};
 use super::search::search_uploads;
@@ -160,6 +161,17 @@ pub async fn document_uploads_get_pdf_narration_segments<R: Runtime>(
     })
     .await
     .map_err(|err| format!("PDF narration text task failed: {err}"))?
+}
+
+/// Read one validated derived PDF page layer for the currently rendered page.
+#[tauri::command]
+pub async fn document_uploads_get_pdf_page_text<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: PdfPageTextReadRequest,
+) -> Result<PageTextLayer, String> {
+    tauri::async_runtime::spawn_blocking(move || get_pdf_page_text_layer(&app, request))
+        .await
+        .map_err(|err| format!("PDF page text read task failed: {err}"))?
 }
 
 /// Persist one bounded page text layer emitted by PDF.js.

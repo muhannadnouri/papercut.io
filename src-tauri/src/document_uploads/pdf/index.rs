@@ -28,6 +28,13 @@ pub(crate) struct PdfPageTextRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct PdfPageTextReadRequest {
+    document_url: String,
+    page_index: u32,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct PdfFinalizeRequest {
     document_url: String,
     title: Option<String>,
@@ -46,6 +53,19 @@ pub(crate) fn store_pdf_page_text<R: Runtime>(
         return Err(format!("PDF exceeds the {MAX_PDF_PAGES}-page import limit"));
     }
     write_page_text_layer(&upload_dir(app, &id)?, &request.layer)
+}
+
+/// Return one validated derived page layer for viewer integrations without
+/// reparsing the canonical PDF or loading the rest of the document.
+pub(crate) fn get_pdf_page_text_layer<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    request: PdfPageTextReadRequest,
+) -> Result<PageTextLayer, String> {
+    let (id, _) = validated_pdf_upload(app, &request.document_url)?;
+    if request.page_index >= MAX_PDF_PAGES {
+        return Err(format!("PDF exceeds the {MAX_PDF_PAGES}-page limit"));
+    }
+    read_page_text_layer(&upload_dir(app, &id)?, request.page_index)
 }
 
 /// Load validated sidecars and reconstruct logical prose for narration.
