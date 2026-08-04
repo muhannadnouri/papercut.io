@@ -40,6 +40,8 @@ pub(crate) struct PdfFinalizeRequest {
     title: Option<String>,
     page_count: u32,
     thumbnail: Option<Vec<u8>>,
+    #[serde(default)]
+    recognition_required: bool,
 }
 
 /// Validate and store one page at a time so extraction never sends a complete
@@ -169,6 +171,7 @@ pub(crate) fn finalize_pdf_index<R: Runtime>(
         source_kind,
         existing.imported_at_ms,
         existing.bytes,
+        request.recognition_required,
     )?;
 
     find_upload_by_id(&db, &id)?.ok_or_else(|| "Indexed PDF metadata is missing".to_string())

@@ -278,10 +278,11 @@ export async function finalizeUploadedPdf(
   title: string | undefined,
   pageCount: number,
   thumbnail?: number[],
+  recognitionRequired = false,
 ): Promise<UploadedDocument> {
   const invoke = await loadTauriInvoke()
   return invoke<UploadedDocument>('document_uploads_finalize_pdf', {
-    request: { documentUrl, title, pageCount, thumbnail },
+    request: { documentUrl, title, pageCount, thumbnail, recognitionRequired },
   })
 }
 

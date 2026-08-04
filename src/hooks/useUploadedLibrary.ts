@@ -175,8 +175,8 @@ export function useUploadedLibrary() {
     [importDocumentCollection],
   )
 
-  /** Run the opt-in English recognizer for one fully textless PDF, then replace
-   * its existing page sidecars and FTS rows through the normal finalizer. */
+  /** Run the opt-in English recognizer for one PDF with missing text, then
+   * replace its page index through the normal finalizer. */
   const recognizeDocumentText = useCallback(async (documentUrl: string): Promise<boolean> => {
     const document = uploadedDocuments.find((candidate) => candidate.url === documentUrl)
     if (!document || operationInProgressRef.current) return false

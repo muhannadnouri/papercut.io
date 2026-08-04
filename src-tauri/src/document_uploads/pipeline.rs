@@ -251,6 +251,7 @@ fn write_and_index_document(
             StoredSourceKind::Html,
             imported_at_ms,
             bytes,
+            false,
         )
     })();
     if let Err(error) = result {

@@ -1,7 +1,7 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 6 foundation complete; Stage 7 English image-only OCR and viewer integration in progress
-Last updated: 2026-08-03
+Status: Stage 6 foundation complete; Stage 7 English image-only and hybrid OCR in progress
+Last updated: 2026-08-04
 
 This document is the source of truth for adding PDF reading, searchable OCR,
 and mobile document scanning to Papercut. It records the research, current
@@ -88,10 +88,11 @@ storage, compatibility, and the order of implementation.
 8. **Use Tesseract.js as the first common OCR engine.** Keep it offline, lazy,
    and behind the shared page-text contract. Adjust or replace it only when
    real documents demonstrate a quality, language, or device-performance gap.
-9. **Classify conservatively before starting OCR.** A finalized PDF with no
-   extracted text on any page clearly needs recognition. Individual empty
-   pages inside an otherwise text-native PDF do not prove that a page needs
-   OCR because covers, separators, and intentionally blank pages are common.
+9. **Classify conservatively before starting OCR.** A finalized PDF needs
+   recognition when at least one image-backed page lacks usable native text.
+   Empty pages without image operations remain blank; ordinary native pages
+   avoid image-operator inspection after their extracted text passes the
+   bounded prose heuristic.
 
 ## Recommended Architecture
 
@@ -203,7 +204,7 @@ the existing upload metadata rather than introducing an OCR subsystem:
 - `processing` while PDF.js is building page sidecars and the shared index.
 - `ready` when a finalized document contains searchable text.
 - `recognition-required` when a finalized PDF contains no non-whitespace page
-  text.
+  text or at least one image-backed page lacks usable native text.
 
 Schema version 6 backfills previously finalized, fully textless PDFs from their
 existing SQLite page rows. The Library gallery and uploaded-document list show
@@ -211,10 +212,14 @@ existing SQLite page rows. The Library gallery and uploaded-document list show
 The original PDF remains canonical and no duplicate index or compatibility
 format is added by this pass.
 
-This intentionally does not classify hybrid PDFs page by page. Treating every
-empty extracted page as an image page would mislabel ordinary blank pages and
-covers. The OCR job must inspect image content and usable text together before
-the metadata model grows page-level provenance or queue state.
+Hybrid readiness is computed from PDF.js text and image operators during the
+bounded import pass. The document stores only the aggregate status; recognition
+recomputes the same page decision from the canonical PDF, leaves usable native
+and blank page sidecars untouched, and replaces only image-backed weak-text
+pages. If English OCR still returns no text for one of those pages, the
+document remains recognition-required after the successful partial rebuild.
+Page-level provenance remains deferred until language/model metadata needs a
+durable representation.
 
 ## Stage 0 Baseline
 
@@ -993,15 +998,15 @@ Stage status: Foundation complete; desktop English WebView smoke test passed
 - [x] Mark newly finalized and previously indexed fully textless PDFs as
       requiring recognition.
 - [x] Surface the recognition-required state in Library Gallery and List views.
-- [x] Keep hybrid page detection out of this aggregate heuristic to avoid
-      treating blank covers and separators as OCR failures.
+- [x] Defer hybrid page detection until text and image signals could be
+      evaluated together in Stage 7.
 - [x] Select Tesseract.js as the initial common engine.
 - [x] Pin the worker, core, and English trained-data packages.
 - [x] Package only local runtime assets needed by the LSTM worker.
 - [x] Keep Tesseract and its runtime out of normal app startup.
 - [x] Normalize OCR words, confidence, order, and image-pixel bounds into
       `PageTextLayer`.
-- [x] Add an explicit English recognition action for fully textless PDFs.
+- [x] Add an explicit English recognition action for PDFs with missing text.
 - [x] Reuse one worker and one bounded page render at a time.
 - [x] Report preparing, page recognition, indexing, cancellation, and failure.
 - [x] Commit recognized search data only through the atomic PDF finalizer.
@@ -1015,18 +1020,18 @@ the supported WebView without affecting non-OCR startup.
 
 ### Stage 7: Image-Only And Hybrid PDF OCR
 
-Stage status: English image-only slice implemented; acceptance and hybrid work remain
+Stage status: English image-only and hybrid slice implemented; acceptance remains
 
-- [ ] Detect usable native text page by page.
+- [x] Detect usable native text page by page.
 - [x] OCR every page of a fully textless English PDF.
-- [ ] OCR only missing pages in a hybrid PDF.
+- [x] OCR only missing pages in a hybrid PDF.
 - [x] Normalize OCR output into the same `PageTextLayer` contract.
 - [ ] Store OCR engine/model version, language, provenance, and confidence.
 - [ ] Add language selection or detection with a retry path.
 - [x] Add page-level progress, cancellation, failure, and retry from the Library.
 - [ ] Add durable job resume across app restarts.
 - [x] Prevent partial OCR sidecars from becoming searchable before final commit.
-- [ ] Prevent duplicate native and OCR text in hybrid PDFs.
+- [x] Prevent duplicate native and OCR text in hybrid PDFs.
 - [x] Overlay persisted OCR words on rendered textless pages for selection
       without modifying or duplicating the canonical PDF.
 - [x] Teach viewer Find and indexed-result highlighting to use finalized OCR
@@ -1167,6 +1172,7 @@ Stage status: Deferred
 | 2026-08-03 | Stage 6 | Package English OCR assets locally | Pinned npm packages provide the worker, SIMD-aware LSTM cores, and trained data without runtime CDN access; other languages wait for explicit language selection |
 | 2026-08-03 | Stage 7 | Ship the smallest explicit English image-only OCR slice | Fully textless PDFs get one local action, one reused worker, bounded page processing, shared mutation status, and atomic finalization; hybrid classification, automatic language detection, and durable queues wait for evidence that they are needed |
 | 2026-08-03 | Stage 7 | Route OCR Find through finalized indexed pages | One document-scoped backend query returns compact per-page match counts off the WebView thread; only the current virtualized page loads OCR geometry for highlighting, while native-text PDFs keep PDF.js Find |
+| 2026-08-04 | Stage 7 | Reuse bounded readiness signals for hybrid PDFs | Import records one aggregate recognition flag, while OCR recomputes page readiness from native text and image operators, preserves native and blank sidecars, and replaces only weak-text image pages without adding page-state storage |
 
 ## References
 

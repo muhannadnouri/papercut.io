@@ -272,7 +272,8 @@ pub(crate) fn delete_document_rows(db: &mut Connection, id: &str) -> Result<(), 
 /// This deliberately avoids `INSERT OR REPLACE` because SQLite implements that
 /// as delete-then-insert, which would cascade-delete the document's library
 /// location. The document row updates in place while section and FTS rows are
-/// rebuilt from the latest parsed content.
+/// rebuilt from the latest parsed content. PDF import may additionally retain
+/// a recognition-required state when only some image-backed pages lack text.
 pub(crate) fn upsert_document(
     db: &mut Connection,
     id: &str,
@@ -282,6 +283,7 @@ pub(crate) fn upsert_document(
     source_kind: StoredSourceKind,
     imported_at_ms: u128,
     bytes: u64,
+    pdf_recognition_required: bool,
 ) -> Result<(), String> {
     let tx = db.transaction().map_err(db_err)?;
     tx.execute(
@@ -317,7 +319,7 @@ pub(crate) fn upsert_document(
             bytes as i64,
             parsed.sections.len() as i64,
             parsed.cover.as_ref().map(|cover| cover.media_type),
-            document_text_status(source_kind, parsed),
+            document_text_status(source_kind, parsed, pdf_recognition_required),
         ],
     )
     .map_err(db_err)?;
@@ -406,12 +408,17 @@ pub(crate) fn upsert_unindexed_document(
     tx.commit().map_err(db_err)
 }
 
-fn document_text_status(source_kind: StoredSourceKind, parsed: &ParsedDocument) -> &'static str {
+fn document_text_status(
+    source_kind: StoredSourceKind,
+    parsed: &ParsedDocument,
+    pdf_recognition_required: bool,
+) -> &'static str {
     if source_kind == StoredSourceKind::Pdf
-        && !parsed
-            .sections
-            .iter()
-            .any(|section| !section.text.trim().is_empty())
+        && (pdf_recognition_required
+            || !parsed
+                .sections
+                .iter()
+                .any(|section| !section.text.trim().is_empty()))
     {
         "recognition-required"
     } else {
@@ -487,6 +494,7 @@ mod tests {
             StoredSourceKind::Html,
             100,
             10,
+            false,
         )
         .expect("initial insert");
         let stored = find_upload_by_id(&db, "abc123")
@@ -520,6 +528,7 @@ mod tests {
             StoredSourceKind::Html,
             200,
             20,
+            false,
         )
         .expect("update existing document");
 
@@ -579,6 +588,7 @@ mod tests {
             StoredSourceKind::Html,
             100,
             10,
+            false,
         )
         .expect("insert document");
 
@@ -618,6 +628,7 @@ mod tests {
             StoredSourceKind::Pdf,
             100,
             20,
+            false,
         )
         .expect("insert PDF");
 
@@ -633,6 +644,26 @@ mod tests {
             .expect("stored PDF page");
         assert_eq!(stored, ("pdf".into(), Some(7), "ready".into()));
 
+        upsert_document(
+            &mut db,
+            "pdf123",
+            "/uploads/pdf123.pdf",
+            &parsed,
+            Some("source.pdf"),
+            StoredSourceKind::Pdf,
+            100,
+            20,
+            true,
+        )
+        .expect("mark hybrid PDF for recognition");
+        assert_eq!(
+            find_upload_by_id(&db, "pdf123")
+                .expect("lookup hybrid PDF")
+                .expect("stored hybrid PDF")
+                .text_status,
+            "recognition-required"
+        );
+
         parsed.sections[0].text = "  ".into();
         upsert_document(
             &mut db,
@@ -643,6 +674,7 @@ mod tests {
             StoredSourceKind::Pdf,
             100,
             20,
+            false,
         )
         .expect("replace PDF with image-only page");
         assert_eq!(

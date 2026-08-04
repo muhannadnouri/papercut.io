@@ -14,6 +14,7 @@ import {
   type UploadedDocumentBatchResult,
 } from '../uploads/DocumentUploads'
 import { loadPdfJs, pdfJsAssetRoot } from './pdfJs'
+import { hasPdfPageImages, hasUsableNativePdfText } from './ocr/pdfOcrReadiness'
 
 const MAX_PDF_PAGES = 2_000
 const THUMBNAIL_MAX_WIDTH = 480
@@ -90,6 +91,7 @@ async function extractAndIndexPdf(
     const metadata = await pdf.getMetadata().catch(() => null)
     const title = metadataTitle(metadata?.info)
     let thumbnail: number[] | undefined
+    let recognitionRequired = false
 
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       throwIfAborted(signal)
@@ -103,6 +105,10 @@ async function extractAndIndexPdf(
           })
         }
         const content = await page.getTextContent({ disableNormalization: true })
+        if (!recognitionRequired && !hasUsableNativePdfText(content)) {
+          const operatorList = await page.getOperatorList()
+          recognitionRequired = hasPdfPageImages(operatorList.fnArray, pdfjs.OPS)
+        }
         await storeUploadedPdfPageText(document.url, pageTextLayer(
           pdfjs.Util.transform,
           content,
@@ -116,7 +122,7 @@ async function extractAndIndexPdf(
       }
     }
 
-    return finalizeUploadedPdf(document.url, title, pdf.numPages, thumbnail)
+    return finalizeUploadedPdf(document.url, title, pdf.numPages, thumbnail, recognitionRequired)
   } finally {
     await loadingTask.destroy()
   }
