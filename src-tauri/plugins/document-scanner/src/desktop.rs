@@ -3,7 +3,7 @@ use tauri::{plugin::PluginApi, AppHandle, Runtime};
 
 use crate::{ScanResult, ScannerAvailability};
 
-pub struct DocumentScanner<R: Runtime>(PhantomData<R>);
+pub struct DocumentScanner<R: Runtime>(PhantomData<fn() -> R>);
 
 impl<R: Runtime> DocumentScanner<R> {
     pub(crate) fn new<C: serde::de::DeserializeOwned>(
