@@ -97,7 +97,8 @@
       "bookmarked": "बुकमार्क किया गया",
       "bookmarkedOnly": "केवल बुकमार्क किए गए दस्तावेज़ दिखाएँ",
       "emptyBookmarked": "कोई बुकमार्क किया गया दस्तावेज़ वर्तमान फ़िल्टर से मेल नहीं खाता।",
-      "textRecognitionRequired": "पाठ पहचान आवश्यक"
+      "textRecognitionRequired": "पाठ पहचान आवश्यक",
+      "recognizeEnglishText": "अंग्रेज़ी पाठ पहचानें"
     },
     "documentInfo": {
       "button": "विवरण संपादित करें",
@@ -142,7 +143,15 @@
       "deleteBatchProgress": "{{total, number}} में से {{processed, number}} दस्तावेज़ हटाए जा रहे हैं...",
       "deleteBatchProgressLabel": "दस्तावेज़ हटाने की प्रगति",
       "deleteBatchComplete": "हटाए गए: {{deleted, number}}। विफल: {{failed, number}}।",
-      "failedDeletes": "जो दस्तावेज़ नहीं हटाए जा सके: {{count, number}}"
+      "failedDeletes": "जो दस्तावेज़ नहीं हटाए जा सके: {{count, number}}",
+      "preparingRecognition": "<title>{{title}}</title> के लिए पाठ पहचान तैयार हो रही है...",
+      "recognizingPage": "<title>{{title}}</title> में {{total, number}} में से पृष्ठ {{current, number}} पहचाना जा रहा है...",
+      "indexingRecognition": "<title>{{title}}</title> के पहचाने गए पाठ को अनुक्रमित किया जा रहा है...",
+      "stoppingRecognition": "पाठ पहचान रोकी जा रही है...",
+      "recognitionProgressLabel": "PDF पाठ पहचान प्रगति",
+      "recognitionComplete": "<title>{{title}}</title> के लिए पाठ पहचान पूरी हुई।",
+      "recognitionCancelled": "<title>{{title}}</title> के लिए पाठ पहचान रद्द की गई।",
+      "recognitionNoText": "कोई अंग्रेज़ी पाठ पहचाना नहीं गया। मूल PDF नहीं बदला गया।"
     },
     "groups": {
       "importedAudiobooks": "आयातित ऑडियोबुक",

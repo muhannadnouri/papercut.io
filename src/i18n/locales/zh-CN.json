@@ -93,7 +93,8 @@
       "bookmarked": "已添加书签",
       "bookmarkedOnly": "仅显示已添加书签的文件",
       "emptyBookmarked": "没有符合当前筛选条件的已添加书签文件。",
-      "textRecognitionRequired": "需要文字识别"
+      "textRecognitionRequired": "需要文字识别",
+      "recognizeEnglishText": "识别英文文字"
     },
     "documentInfo": {
       "button": "编辑详情",
@@ -138,7 +139,15 @@
       "deleteBatchProgress": "正在删除第 {{processed, number}} 个文档，共 {{total, number}} 个...",
       "deleteBatchProgressLabel": "文档删除进度",
       "deleteBatchComplete": "已删除：{{deleted, number}}。失败：{{failed, number}}。",
-      "failedDeletes": "无法删除的文档：{{count, number}}"
+      "failedDeletes": "无法删除的文档：{{count, number}}",
+      "preparingRecognition": "正在准备识别 <title>{{title}}</title> 的文字...",
+      "recognizingPage": "正在识别 <title>{{title}}</title> 的第 {{current, number}} 页，共 {{total, number}} 页...",
+      "indexingRecognition": "正在索引 <title>{{title}}</title> 的识别文字...",
+      "stoppingRecognition": "正在停止文字识别...",
+      "recognitionProgressLabel": "PDF 文字识别进度",
+      "recognitionComplete": "已完成 <title>{{title}}</title> 的文字识别。",
+      "recognitionCancelled": "已取消 <title>{{title}}</title> 的文字识别。",
+      "recognitionNoText": "未识别出英文文字。原始 PDF 未被更改。"
     },
     "groups": {
       "importedAudiobooks": "进口有声读物",

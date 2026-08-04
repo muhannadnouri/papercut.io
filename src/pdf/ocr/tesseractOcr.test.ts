@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Block, Page } from 'tesseract.js'
 import { ocrPageTextLayer } from './tesseractOcr'
+import { pdfOcrRenderScale } from './recognizePdf'
 
 describe('ocrPageTextLayer', () => {
   it('preserves reading order and scales word bounds into PDF coordinates', () => {
@@ -33,5 +34,14 @@ describe('ocrPageTextLayer', () => {
     expect(() => ocrPageTextLayer({ blocks: [] }, 0, 612, 792, 0, 0)).toThrow(
       'OCR page dimensions are invalid',
     )
+  })
+})
+
+describe('pdfOcrRenderScale', () => {
+  it('uses the quality target for ordinary pages and caps oversized renders', () => {
+    expect(pdfOcrRenderScale(612, 792)).toBe(2.5)
+    const scale = pdfOcrRenderScale(4_000, 4_000)
+    expect(scale).toBeCloseTo(Math.sqrt(0.5))
+    expect(4_000 * scale * 4_000 * scale).toBeCloseTo(8_000_000)
   })
 })

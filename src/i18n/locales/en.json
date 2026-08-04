@@ -97,7 +97,8 @@
       "bookmarked": "Bookmarked",
       "bookmarkedOnly": "Show Bookmarked Only",
       "emptyBookmarked": "No bookmarked documents match the current filters.",
-      "textRecognitionRequired": "Text Recognition Required"
+      "textRecognitionRequired": "Text Recognition Required",
+      "recognizeEnglishText": "Recognize English Text"
     },
     "documentInfo": {
       "button": "Edit Details",
@@ -142,7 +143,15 @@
       "cancelled": "Import cancelled.",
       "deleting": "Deleting <title>{{title}}</title>...",
       "deleted": "Deleted <title>{{title}}</title>.",
-      "deletedWithStorage": "Deleted <title>{{title}}</title> and freed {{storage}}."
+      "deletedWithStorage": "Deleted <title>{{title}}</title> and freed {{storage}}.",
+      "preparingRecognition": "Preparing text recognition for <title>{{title}}</title>...",
+      "recognizingPage": "Recognizing page {{current, number}} of {{total, number}} in <title>{{title}}</title>...",
+      "indexingRecognition": "Indexing recognized text for <title>{{title}}</title>...",
+      "stoppingRecognition": "Stopping text recognition...",
+      "recognitionProgressLabel": "PDF text recognition progress",
+      "recognitionComplete": "Text recognition complete for <title>{{title}}</title>.",
+      "recognitionCancelled": "Text recognition cancelled for <title>{{title}}</title>.",
+      "recognitionNoText": "No English text was recognized. The original PDF was not changed."
     },
     "groups": {
       "importedAudiobooks": "Imported Audiobooks",

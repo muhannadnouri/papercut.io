@@ -65,6 +65,9 @@ pub(crate) fn get_pdf_narration_segments<R: Runtime>(
     if StoredSourceKind::from_str(&document.source_kind)? != StoredSourceKind::Pdf {
         return Err("Uploaded PDF source metadata does not match its URL".into());
     }
+    if document.text_status != "ready" {
+        return Err("PDF text has not been indexed".into());
+    }
     let page_count =
         u32::try_from(document.sections).map_err(|_| "PDF page count is invalid".to_string())?;
     if page_count == 0 || page_count > MAX_PDF_PAGES {
@@ -106,17 +109,30 @@ pub(crate) fn finalize_pdf_index<R: Runtime>(
         });
     }
 
-    let cover = request.thumbnail.and_then(|bytes| {
-        if let Err(error) = write_pdf_thumbnail(&dir, &bytes) {
-            log::warn!("Skipping unusable imported PDF thumbnail: {error}");
-            return None;
+    let cover = match request.thumbnail {
+        Some(bytes) => {
+            if let Err(error) = write_pdf_thumbnail(&dir, &bytes) {
+                log::warn!("Skipping unusable imported PDF thumbnail: {error}");
+                None
+            } else {
+                Some(ParsedDocumentCover {
+                    media_type: THUMBNAIL_MEDIA_TYPE,
+                    file_name: PNG_COVER_FILE_NAME,
+                    bytes,
+                })
+            }
         }
-        Some(ParsedDocumentCover {
-            media_type: THUMBNAIL_MEDIA_TYPE,
-            file_name: PNG_COVER_FILE_NAME,
-            bytes,
-        })
-    });
+        None if existing.cover_media_type.as_deref() == Some(THUMBNAIL_MEDIA_TYPE)
+            && dir.join(PNG_COVER_FILE_NAME).is_file() =>
+        {
+            Some(ParsedDocumentCover {
+                media_type: THUMBNAIL_MEDIA_TYPE,
+                file_name: PNG_COVER_FILE_NAME,
+                bytes: Vec::new(),
+            })
+        }
+        None => None,
+    };
     let parsed = ParsedDocument {
         title: title.clone(),
         format: "pdf".into(),

@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next'
 import { useState, type ReactNode } from 'react'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
 import type { DocumentImportStatus } from '../../hooks/useUploadedLibrary'
+import { PDF_OCR_NO_TEXT } from '../../pdf/ocr/recognizePdf'
 import type { DocumentInfo } from '../../types/search'
 import type { UploadedDocumentDeleteBatchResult, UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
 import { formatStorageSize } from '../../utils/formatUtils'
@@ -36,6 +37,7 @@ interface LibraryTabProps {
   onImportDocumentBatch: () => void | Promise<void>
   onImportDocumentFolder: () => void | Promise<void>
   onMoveLibraryDocuments: (documentIds: string[], folderId: string | null) => void | Promise<void>
+  onRecognizeDocument: (documentUrl: string) => void | Promise<boolean>
   onRenameLibraryFolder: (folderId: string, name: string) => void | Promise<void>
   onToggleAuthor: (author: string) => void
   onToggleShow: () => void
@@ -70,6 +72,7 @@ export function LibraryTab({
   onImportDocumentBatch,
   onImportDocumentFolder,
   onMoveLibraryDocuments,
+  onRecognizeDocument,
   onRenameLibraryFolder,
   onToggleAuthor,
   onToggleShow,
@@ -79,7 +82,8 @@ export function LibraryTab({
 }: LibraryTabProps) {
   const { t } = useTranslation()
   const [infoDocument, setInfoDocument] = useState<DocumentInfo | null>(null)
-  const operationBusy = documentImport.status === 'importing' || documentImport.status === 'deleting'
+  const operationBusy = documentImport.status === 'importing' ||
+    documentImport.status === 'recognizing' || documentImport.status === 'deleting'
   const statusMessage = documentImportStatusMessage(documentImport, t, onCancelDocumentBatch, allDocuments)
   const folderImportSupported = !isMobileUserAgent()
 
@@ -135,6 +139,7 @@ export function LibraryTab({
         onDeleteDocuments={onDeleteDocuments}
         onDeleteLibraryFolder={onDeleteLibraryFolder}
         onMoveLibraryDocuments={onMoveLibraryDocuments}
+        onRecognizeDocument={onRecognizeDocument}
         onRenameLibraryFolder={onRenameLibraryFolder}
         onToggleAuthor={onToggleAuthor}
         onViewAudiobooks={onViewAudiobooks}
@@ -165,6 +170,9 @@ function documentImportStatusMessage(
   if (status.format === 'delete-batch') {
     return <DocumentBatchDeleteStatus status={status} t={t} documents={documents} />
   }
+  if (status.format === 'pdf-ocr') {
+    return <PdfRecognitionStatus status={status} t={t} onCancel={onCancelBatch} />
+  }
   if (status.format === 'batch' || status.format === 'folder') {
     return <DocumentBatchImportStatus status={status} t={t} onCancel={onCancelBatch} />
   }
@@ -183,6 +191,66 @@ function documentImportStatusMessage(
   return storage
     ? <Trans i18nKey="library.status.deletedWithStorage" values={{ title, storage }} components={{ title: <bdi /> }} />
     : <Trans i18nKey="library.status.deleted" values={{ title }} components={{ title: <bdi /> }} />
+}
+
+/** Keep recognition feedback in the Library's existing operation notice. */
+function PdfRecognitionStatus({
+  status,
+  t,
+  onCancel,
+}: {
+  status: DocumentImportStatus
+  t: TFunction
+  onCancel: () => void | Promise<void>
+}) {
+  const progress = status.recognitionProgress
+  const recognizing = status.status === 'recognizing'
+  const title = status.title ?? ''
+  let message: ReactNode
+
+  if (recognizing && status.cancelRequested) {
+    message = t('library.status.stoppingRecognition')
+  } else if (recognizing && progress?.phase === 'recognizing') {
+    message = <Trans i18nKey="library.status.recognizingPage" values={{ title, current: progress.pageNumber, total: progress.pageCount }} components={{ title: <bdi /> }} />
+  } else if (recognizing && progress?.phase === 'indexing') {
+    message = <Trans i18nKey="library.status.indexingRecognition" values={{ title }} components={{ title: <bdi /> }} />
+  } else if (recognizing) {
+    message = <Trans i18nKey="library.status.preparingRecognition" values={{ title }} components={{ title: <bdi /> }} />
+  } else if (status.status === 'recognized') {
+    message = <Trans i18nKey="library.status.recognitionComplete" values={{ title }} components={{ title: <bdi /> }} />
+  } else if (status.status === 'cancelled') {
+    message = <Trans i18nKey="library.status.recognitionCancelled" values={{ title }} components={{ title: <bdi /> }} />
+  } else {
+    message = status.message === PDF_OCR_NO_TEXT
+      ? t('library.status.recognitionNoText')
+      : status.message
+  }
+
+  return (
+    <div className="document-batch-status">
+      <div className="document-batch-status-row">
+        <span>{message}</span>
+        {recognizing && (
+          <button
+            type="button"
+            className="document-batch-cancel"
+            disabled={status.cancelRequested}
+            onClick={() => void onCancel()}
+          >
+            {status.cancelRequested ? t('library.status.stopping') : t('common.cancel')}
+          </button>
+        )}
+      </div>
+      {recognizing && (
+        <progress
+          className="document-batch-progress"
+          aria-label={t('library.status.recognitionProgressLabel')}
+          max={progress?.pageCount || undefined}
+          value={progress?.phase === 'recognizing' ? progress.pageNumber : undefined}
+        />
+      )}
+    </div>
+  )
 }
 
 /** Present native delete progress and retain readable titles for partial failures. */

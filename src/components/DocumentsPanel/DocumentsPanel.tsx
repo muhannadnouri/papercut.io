@@ -54,6 +54,7 @@ interface DocumentsPanelProps {
   onDeleteLibraryFolder?: (folderId: string) => void | Promise<void>
   onFilterChange: (value: string) => void
   onMoveLibraryDocuments?: (documentIds: string[], folderId: string | null) => void | Promise<void>
+  onRecognizeDocument?: (documentUrl: string) => void | Promise<boolean>
   onRenameLibraryFolder?: (folderId: string, name: string) => void | Promise<void>
   onToggleAuthor: (author: string) => void
   onToggleShow: () => void
@@ -85,6 +86,7 @@ export function DocumentsPanel({
   onDeleteLibraryFolder,
   onFilterChange,
   onMoveLibraryDocuments,
+  onRecognizeDocument,
   onRenameLibraryFolder,
   onToggleAuthor,
   onToggleShow,
@@ -103,7 +105,8 @@ export function DocumentsPanel({
   const activeImport = importOptions.find((option) => option.statusLabel)
   const hasImportOptions = importOptions.length > 0
   const importBusy = importStatuses.some((item) => item.status === 'importing')
-  const operationBusy = importStatuses.some((item) => item.status === 'importing' || item.status === 'deleting')
+  const operationBusy = importStatuses.some((item) =>
+    item.status === 'importing' || item.status === 'recognizing' || item.status === 'deleting')
   const importDisabled = hasImportOptions && importOptions.every((option) => option.disabled || option.future || !option.onSelect)
   const visibleGroups = filterBookmarkedGroups(groupedDocs, bookmarkedDocumentUrls, bookmarkedOnly)
   const {
@@ -267,6 +270,7 @@ export function DocumentsPanel({
             savePreference(CATEGORY_STORAGE_KEY, category)
           }}
           onDeleteDocument={onDeleteDocument}
+          onRecognizeDocument={onRecognizeDocument}
           onToggleAuthor={onToggleAuthor}
           onViewDocument={onViewDocument}
         />
@@ -285,6 +289,7 @@ export function DocumentsPanel({
               onDeleteDocuments={onDeleteDocuments!}
               onDeleteFolder={onDeleteLibraryFolder!}
               onMoveDocuments={onMoveLibraryDocuments!}
+              onRecognizeDocument={onRecognizeDocument}
               onRenameFolder={onRenameLibraryFolder!}
               onViewAudiobooks={onViewAudiobooks}
               onViewDocumentInfo={onViewDocumentInfo}

@@ -69,6 +69,7 @@ function App() {
     importDocumentFolder,
     moveLibraryDocuments,
     refreshUploadedLibrary,
+    recognizeDocumentText,
     renameLibraryFolder,
     uploadedDocuments,
     uploadedLibraryOrganization,
@@ -422,6 +423,7 @@ function App() {
             onDeleteLibraryFolder={deleteLibraryFolder}
             onDismissDocumentImportStatus={dismissDocumentImportStatus}
             onMoveLibraryDocuments={moveLibraryDocuments}
+            onRecognizeDocument={recognizeDocumentText}
             onRenameLibraryFolder={renameLibraryFolder}
             onToggleAuthor={toggleLibraryAuthor}
             onViewAudiobooks={handleManageAudiobookSave}

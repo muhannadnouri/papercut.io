@@ -101,7 +101,8 @@
       "bookmarked": "Avec signet",
       "bookmarkedOnly": "Afficher uniquement les documents avec signet",
       "emptyBookmarked": "Aucun document avec signet ne correspond aux filtres actuels.",
-      "textRecognitionRequired": "Reconnaissance de texte requise"
+      "textRecognitionRequired": "Reconnaissance de texte requise",
+      "recognizeEnglishText": "Reconnaître le texte anglais"
     },
     "documentInfo": {
       "button": "Modifier les détails",
@@ -146,7 +147,15 @@
       "cancelled": "Importation annulée.",
       "deleting": "Suppression de <title>{{title}}</title>...",
       "deleted": "<title>{{title}}</title> supprimé.",
-      "deletedWithStorage": "<title>{{title}}</title> supprimé et {{storage}} libéré."
+      "deletedWithStorage": "<title>{{title}}</title> supprimé et {{storage}} libéré.",
+      "preparingRecognition": "Préparation de la reconnaissance de <title>{{title}}</title>...",
+      "recognizingPage": "Reconnaissance de la page {{current, number}} sur {{total, number}} de <title>{{title}}</title>...",
+      "indexingRecognition": "Indexation du texte reconnu de <title>{{title}}</title>...",
+      "stoppingRecognition": "Arrêt de la reconnaissance de texte...",
+      "recognitionProgressLabel": "Progression de la reconnaissance de texte PDF",
+      "recognitionComplete": "Reconnaissance de texte terminée pour <title>{{title}}</title>.",
+      "recognitionCancelled": "Reconnaissance de texte annulée pour <title>{{title}}</title>.",
+      "recognitionNoText": "Aucun texte anglais n’a été reconnu. Le PDF original n’a pas été modifié."
     },
     "groups": {
       "importedAudiobooks": "Livres audio importés",

@@ -101,7 +101,8 @@
       "bookmarked": "Com marcador",
       "bookmarkedOnly": "Mostrar somente documentos com marcador",
       "emptyBookmarked": "Nenhum documento com marcador corresponde aos filtros atuais.",
-      "textRecognitionRequired": "Reconhecimento de texto necessário"
+      "textRecognitionRequired": "Reconhecimento de texto necessário",
+      "recognizeEnglishText": "Reconhecer texto em inglês"
     },
     "documentInfo": {
       "button": "Editar detalhes",
@@ -146,7 +147,15 @@
       "deleteBatchProgress": "Excluindo {{processed, number}} de {{total, number}} documentos...",
       "deleteBatchProgressLabel": "Progresso da exclusão de documentos",
       "deleteBatchComplete": "Excluídos: {{deleted, number}}. Falhas: {{failed, number}}.",
-      "failedDeletes": "Documentos que não puderam ser excluídos: {{count, number}}"
+      "failedDeletes": "Documentos que não puderam ser excluídos: {{count, number}}",
+      "preparingRecognition": "Preparando o reconhecimento de texto de <title>{{title}}</title>...",
+      "recognizingPage": "Reconhecendo a página {{current, number}} de {{total, number}} em <title>{{title}}</title>...",
+      "indexingRecognition": "Indexando o texto reconhecido de <title>{{title}}</title>...",
+      "stoppingRecognition": "Parando o reconhecimento de texto...",
+      "recognitionProgressLabel": "Progresso do reconhecimento de texto PDF",
+      "recognitionComplete": "Reconhecimento de texto concluído para <title>{{title}}</title>.",
+      "recognitionCancelled": "Reconhecimento de texto cancelado para <title>{{title}}</title>.",
+      "recognitionNoText": "Nenhum texto em inglês foi reconhecido. O PDF original não foi alterado."
     },
     "groups": {
       "importedAudiobooks": "Audiolivros importados",

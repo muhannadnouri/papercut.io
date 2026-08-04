@@ -25,6 +25,7 @@ interface LibraryGalleryViewProps {
   emptyMessage: string
   onCategoryChange: (category: LibraryGalleryCategory) => void
   onDeleteDocument?: (doc: DocumentInfo) => void | Promise<void>
+  onRecognizeDocument?: (documentUrl: string) => void | Promise<boolean>
   onToggleAuthor: (author: string) => void
   onViewDocument: (url: string) => void
 }
@@ -44,6 +45,7 @@ export function LibraryGalleryView({
   emptyMessage,
   onCategoryChange,
   onDeleteDocument,
+  onRecognizeDocument,
   onToggleAuthor,
   onViewDocument,
 }: LibraryGalleryViewProps) {
@@ -79,12 +81,14 @@ export function LibraryGalleryView({
                 hasBookmark={bookmarkedDocumentUrls.has(doc.url)}
                 hasSavedAudio={savedAudiobookDocumentUrls.has(doc.url)}
                 opening={openingDocumentUrl === doc.url}
-                disabled={documentOpening}
+                disabled={documentOpening || mutationDisabled}
                 bookmarkLabel={t('library.documents.bookmarked')}
                 openingLabel={t('common.opening')}
                 savedAudioLabel={t('library.documents.savedAudioAvailable')}
+                recognizeEnglishLabel={t('library.documents.recognizeEnglishText')}
                 textRecognitionRequiredLabel={t('library.documents.textRecognitionRequired')}
                 onOpen={onViewDocument}
+                onRecognize={onRecognizeDocument}
               />
             ))}
           </div>
@@ -145,8 +149,10 @@ function BookCard({
   bookmarkLabel,
   openingLabel,
   savedAudioLabel,
+  recognizeEnglishLabel,
   textRecognitionRequiredLabel,
   onOpen,
+  onRecognize,
 }: {
   doc: DocumentInfo
   hasBookmark: boolean
@@ -156,8 +162,10 @@ function BookCard({
   bookmarkLabel: string
   openingLabel: string
   savedAudioLabel: string
+  recognizeEnglishLabel: string
   textRecognitionRequiredLabel: string
   onOpen: (url: string) => void
+  onRecognize?: (documentUrl: string) => void | Promise<boolean>
 }) {
   const placeholderClass = `library-book-cover placeholder-${titleColor(doc.title)}`
   const coverRef = useRef<HTMLSpanElement>(null)
@@ -229,9 +237,21 @@ function BookCard({
           {opening ? openingLabel : (doc.format ?? 'EPUB').toUpperCase()}
         </span>
         {doc.textStatus === 'recognition-required' && (
-          <span className="library-book-text-status">
-            {textRecognitionRequiredLabel}
-          </span>
+          onRecognize ? (
+            <button
+              type="button"
+              className="library-book-recognize"
+              disabled={disabled}
+              title={textRecognitionRequiredLabel}
+              onClick={() => void onRecognize(doc.url)}
+            >
+              {recognizeEnglishLabel}
+            </button>
+          ) : (
+            <span className="library-book-text-status">
+              {textRecognitionRequiredLabel}
+            </span>
+          )
         )}
       </span>
     </div>

@@ -218,6 +218,7 @@
 }
 
 .document-import-imported,
+.document-import-recognized,
 .document-import-deleted {
   background: var(--surface-success);
   color: var(--success);

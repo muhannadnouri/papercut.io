@@ -26,6 +26,7 @@ interface UploadedLibraryTreeProps {
   onDeleteDocuments?: (docs: DocumentInfo[]) => Promise<UploadedDocumentDeleteBatchResult | null>
   onDeleteFolder?: (folderId: string) => Promise<void> | void
   onMoveDocuments?: (documentIds: string[], folderId: string | null) => Promise<void> | void
+  onRecognizeDocument?: (documentUrl: string) => void | Promise<boolean>
   onRenameFolder?: (folderId: string, name: string) => Promise<void> | void
   onToggleAllInGroup?: (docs: DocumentInfo[]) => void
   onToggleFilter?: (url: string) => void
@@ -52,6 +53,7 @@ export function UploadedLibraryTree({
   onDeleteFolder,
   onDeleteDocuments,
   onMoveDocuments,
+  onRecognizeDocument,
   onRenameFolder,
   onToggleAllInGroup,
   onToggleFilter,
@@ -516,6 +518,7 @@ export function UploadedLibraryTree({
         >
           {nodes.map((node) => renderNode(node, {
             documentOpening,
+            mutationDisabled,
             editMode,
             filterMode,
             expandedKeys,
@@ -523,6 +526,7 @@ export function UploadedLibraryTree({
             onToggleAllInGroup,
             onToggleFilter,
             onToggleSelection: toggleSelection,
+            onRecognizeDocument,
             onViewDocumentInfo,
             onViewDocument,
             openingDocumentUrl,
@@ -571,6 +575,7 @@ export function UploadedLibraryTree({
 
 interface RenderNodeOptions {
   documentOpening: boolean
+  mutationDisabled: boolean
   editMode: boolean
   filterMode: boolean
   expandedKeys: Set<Key>
@@ -580,6 +585,7 @@ interface RenderNodeOptions {
   onToggleFilter?: (url: string) => void
   onToggleFolderExpanded: (key: string) => void
   onToggleSelection: (key: string) => void
+  onRecognizeDocument?: (documentUrl: string) => void | Promise<boolean>
   onViewDocumentInfo?: (doc: DocumentInfo) => void
   onViewDocument?: (url: string) => void
   selectedFilters?: Set<string>
@@ -684,7 +690,7 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
             ) : (
               <span className="uploaded-library-name">
                 <bdi>{node.title}</bdi>
-                {node.doc.textStatus === 'recognition-required' && (
+                {node.doc.textStatus === 'recognition-required' && !options.onRecognizeDocument && (
                   <span className="uploaded-library-text-status">
                     {options.t('library.documents.textRecognitionRequired')}
                   </span>
@@ -709,17 +715,32 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
                   </button>
                 )}
                 {!options.editMode && (
-                  <button
-                    className="document-row-action document-row-action-view"
-                    type="button"
-                    disabled={options.documentOpening}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      if (!options.documentOpening) options.onViewDocument?.(node.url)
-                    }}
-                  >
-                    {opening ? options.t('common.opening') : options.t('common.view')}
-                  </button>
+                  <>
+                    {node.doc.textStatus === 'recognition-required' && options.onRecognizeDocument && (
+                      <button
+                        className="document-row-action document-row-action-secondary"
+                        type="button"
+                        disabled={options.documentOpening || options.mutationDisabled}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          void options.onRecognizeDocument?.(node.url)
+                        }}
+                      >
+                        {options.t('library.documents.recognizeEnglishText')}
+                      </button>
+                    )}
+                    <button
+                      className="document-row-action document-row-action-view"
+                      type="button"
+                      disabled={options.documentOpening}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        if (!options.documentOpening) options.onViewDocument?.(node.url)
+                      }}
+                    >
+                      {opening ? options.t('common.opening') : options.t('common.view')}
+                    </button>
+                  </>
                 )}
               </>
             )}

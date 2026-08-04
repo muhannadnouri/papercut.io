@@ -101,7 +101,8 @@
       "bookmarked": "Marcado",
       "bookmarkedOnly": "Mostrar solo los documentos marcados",
       "emptyBookmarked": "Ningún documento marcado coincide con los filtros actuales.",
-      "textRecognitionRequired": "Requiere reconocimiento de texto"
+      "textRecognitionRequired": "Requiere reconocimiento de texto",
+      "recognizeEnglishText": "Reconocer texto en inglés"
     },
     "documentInfo": {
       "button": "Editar detalles",
@@ -146,7 +147,15 @@
       "cancelled": "Importación cancelada.",
       "deleting": "Eliminando <title>{{title}}</title>...",
       "deleted": "Eliminado <title>{{title}}</title>.",
-      "deletedWithStorage": "Se eliminó <title>{{title}}</title> y se liberó {{storage}}."
+      "deletedWithStorage": "Se eliminó <title>{{title}}</title> y se liberó {{storage}}.",
+      "preparingRecognition": "Preparando el reconocimiento de texto de <title>{{title}}</title>...",
+      "recognizingPage": "Reconociendo la página {{current, number}} de {{total, number}} de <title>{{title}}</title>...",
+      "indexingRecognition": "Indexando el texto reconocido de <title>{{title}}</title>...",
+      "stoppingRecognition": "Deteniendo el reconocimiento de texto...",
+      "recognitionProgressLabel": "Progreso del reconocimiento de texto PDF",
+      "recognitionComplete": "Reconocimiento de texto completado para <title>{{title}}</title>.",
+      "recognitionCancelled": "Reconocimiento de texto cancelado para <title>{{title}}</title>.",
+      "recognitionNoText": "No se reconoció texto en inglés. El PDF original no se modificó."
     },
     "groups": {
       "importedAudiobooks": "Audiolibros importados",

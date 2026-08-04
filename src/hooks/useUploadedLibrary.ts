@@ -2,6 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DocumentInfo } from '../types/search'
 import { indexImportedPdfs } from '../pdf/pdfImport'
 import {
+  PDF_OCR_NO_TEXT,
+  recognizeEnglishPdfDocument,
+  type PdfRecognitionProgress,
+} from '../pdf/ocr/recognizePdf'
+import {
   cancelDocumentBatch as cancelDocumentBatchSource,
   createUploadedLibraryFolder,
   deleteUploadedDocument,
@@ -35,8 +40,8 @@ export const LIBRARY_OPERATION_IN_PROGRESS = 'library-operation-in-progress'
 // Keep operation state locale-neutral so the owning UI can translate it and
 // isolate user titles without parsing preformatted English messages.
 export type DocumentImportStatus = {
-  status: 'idle' | 'importing' | 'imported' | 'deleting' | 'deleted' | 'cancelled' | 'error'
-  format?: 'batch' | 'folder' | 'delete-batch'
+  status: 'idle' | 'importing' | 'imported' | 'recognizing' | 'recognized' | 'deleting' | 'deleted' | 'cancelled' | 'error'
+  format?: 'batch' | 'folder' | 'pdf-ocr' | 'delete-batch'
   title?: string
   bytesFreed?: number
   message?: string
@@ -44,11 +49,13 @@ export type DocumentImportStatus = {
   batchResult?: UploadedDocumentBatchResult
   deleteProgress?: UploadedDocumentDeleteBatchProgress
   deleteResult?: UploadedDocumentDeleteBatchResult
+  recognitionProgress?: PdfRecognitionProgress
   cancelRequested?: boolean
 }
 
 /** Auto-dismiss only outcomes that have no file-level failure details to retain. */
 export function shouldAutoDismissDocumentImport(status: DocumentImportStatus): boolean {
+  if (status.status === 'recognized') return true
   if (status.status !== 'imported' && status.status !== 'cancelled') return false
   return (status.batchResult?.failures.length ?? 0) === 0
 }
@@ -168,16 +175,57 @@ export function useUploadedLibrary() {
     [importDocumentCollection],
   )
 
-  /** Cancellation is cooperative: mark the UI only after Rust confirms that a
-   * batch is active, then let the current file finish safely. */
+  /** Run the opt-in English recognizer for one fully textless PDF, then replace
+   * its existing page sidecars and FTS rows through the normal finalizer. */
+  const recognizeDocumentText = useCallback(async (documentUrl: string): Promise<boolean> => {
+    const document = uploadedDocuments.find((candidate) => candidate.url === documentUrl)
+    if (!document || operationInProgressRef.current) return false
+
+    operationInProgressRef.current = true
+    const abort = new AbortController()
+    importAbortRef.current = abort
+    setDocumentImport({ status: 'recognizing', format: 'pdf-ocr', title: document.title })
+    try {
+      const updated = await recognizeEnglishPdfDocument(document, {
+        signal: abort.signal,
+        onProgress: (recognitionProgress) => {
+          setDocumentImport((current) => current.status === 'recognizing' && current.format === 'pdf-ocr'
+            ? { ...current, recognitionProgress }
+            : current)
+        },
+      })
+      setUploadedDocuments((documents) => documents.map((candidate) => (
+        candidate.id === updated.id ? updated : candidate
+      )))
+      setDocumentImport({ status: 'recognized', format: 'pdf-ocr', title: updated.title })
+      return true
+    } catch (err) {
+      const cancelled = abort.signal.aborted || (err instanceof DOMException && err.name === 'AbortError')
+      const message = err instanceof Error ? err.message : String(err)
+      setDocumentImport({
+        status: cancelled ? 'cancelled' : 'error',
+        format: 'pdf-ocr',
+        title: document.title,
+        message: message === PDF_OCR_NO_TEXT ? PDF_OCR_NO_TEXT : cancelled ? undefined : message,
+      })
+      return false
+    } finally {
+      importAbortRef.current = null
+      operationInProgressRef.current = false
+    }
+  }, [uploadedDocuments])
+
+  /** Cancellation aborts frontend PDF work immediately and asks a native batch,
+   * when present, to stop safely between files. */
   const cancelDocumentBatch = useCallback(async (): Promise<void> => {
     try {
       const abort = importAbortRef.current
       abort?.abort()
       const nativeCancelled = await cancelDocumentBatchSource()
       if (!abort && !nativeCancelled) return
-      setDocumentImport((current) => current.status === 'importing' &&
-        (current.format === 'batch' || current.format === 'folder')
+      setDocumentImport((current) => (current.status === 'importing' &&
+        (current.format === 'batch' || current.format === 'folder')) ||
+        (current.status === 'recognizing' && current.format === 'pdf-ocr')
         ? { ...current, cancelRequested: true }
         : current)
     } catch (err) {
@@ -318,6 +366,7 @@ export function useUploadedLibrary() {
     importDocumentFolder,
     moveLibraryDocuments,
     refreshUploadedLibrary,
+    recognizeDocumentText,
     renameLibraryFolder,
     uploadedDocuments,
     uploadedLibraryOrganization,

@@ -113,7 +113,8 @@
       "bookmarked": "تم وضع إشارة مرجعية",
       "bookmarkedOnly": "إظهار المستندات ذات الإشارات المرجعية فقط",
       "emptyBookmarked": "لا توجد مستندات ذات إشارات مرجعية تطابق عوامل التصفية الحالية.",
-      "textRecognitionRequired": "يتطلب التعرف على النص"
+      "textRecognitionRequired": "يتطلب التعرف على النص",
+      "recognizeEnglishText": "التعرّف على النص الإنجليزي"
     },
     "documentInfo": {
       "button": "تعديل التفاصيل",
@@ -158,7 +159,15 @@
       "cancelled": "أُلغي الاستيراد.",
       "deleting": "جارٍ حذف <title>{{title}}</title>...",
       "deleted": "تم حذف <title>{{title}}</title>.",
-      "deletedWithStorage": "تم حذف <title>{{title}}</title> وتحرير {{storage}}."
+      "deletedWithStorage": "تم حذف <title>{{title}}</title> وتحرير {{storage}}.",
+      "preparingRecognition": "جارٍ تحضير التعرّف على النص في <title>{{title}}</title>...",
+      "recognizingPage": "جارٍ التعرّف على الصفحة {{current, number}} من {{total, number}} في <title>{{title}}</title>...",
+      "indexingRecognition": "جارٍ فهرسة النص المتعرّف عليه في <title>{{title}}</title>...",
+      "stoppingRecognition": "جارٍ إيقاف التعرّف على النص...",
+      "recognitionProgressLabel": "تقدم التعرّف على نص PDF",
+      "recognitionComplete": "اكتمل التعرّف على النص في <title>{{title}}</title>.",
+      "recognitionCancelled": "أُلغي التعرّف على النص في <title>{{title}}</title>.",
+      "recognitionNoText": "لم يتم التعرّف على نص إنجليزي. لم يتغير ملف PDF الأصلي."
     },
     "groups": {
       "importedAudiobooks": "الكتب الصوتية المستوردة",

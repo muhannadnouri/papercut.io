@@ -1,6 +1,6 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 5 complete; Stage 6 Tesseract foundation implemented; WebView OCR smoke test next
+Status: Stage 5 complete; first English image-only OCR slice implemented; WebView acceptance next
 Last updated: 2026-08-03
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -547,6 +547,15 @@ non-Latin language support, mobile speed, and package size remain acceptance
 work. PaddleOCR and native engines are deferred unless real failures justify
 their extra runtimes and platform-specific behavior.
 
+The first production slice exposes **Recognize English Text** only for PDFs
+already classified as fully textless. It reuses one worker across the document,
+renders and persists one bounded page at a time, reports page progress, and
+supports cooperative cancellation. Search rows and ready metadata are replaced
+only through the existing atomic PDF finalizer, so cancellation or failure does
+not expose partial OCR output or alter the canonical PDF. The finalizer also
+preserves an existing gallery thumbnail when no replacement thumbnail is
+provided by the recognition job.
+
 ## Mobile Scanning
 
 Capture and OCR should remain separate:
@@ -969,7 +978,7 @@ bookmarks, Find, global search, and HTML/EPUB parity.
 
 ### Stage 6: OCR Engine Foundation
 
-Stage status: Implementation complete; WebView OCR smoke test pending
+Stage status: Foundation complete; production English WebView smoke test pending
 
 - [x] Persist aggregate upload text status without changing the canonical PDF
       or page-sidecar schema.
@@ -985,6 +994,10 @@ Stage status: Implementation complete; WebView OCR smoke test pending
 - [x] Keep Tesseract and its runtime out of normal app startup.
 - [x] Normalize OCR words, confidence, order, and image-pixel bounds into
       `PageTextLayer`.
+- [x] Add an explicit English recognition action for fully textless PDFs.
+- [x] Reuse one worker and one bounded page render at a time.
+- [x] Report preparing, page recognition, indexing, cancellation, and failure.
+- [x] Commit recognized search data only through the atomic PDF finalizer.
 - [x] Remove the temporary synthetic OCR benchmark harness and generated PDFs.
 - [ ] Run one English image-page recognition smoke test in the desktop WebView.
 - [ ] Confirm the generated build has no OCR CDN requests.
@@ -995,14 +1008,17 @@ the supported WebView without affecting non-OCR startup.
 
 ### Stage 7: Image-Only And Hybrid PDF OCR
 
-Stage status: Not started
+Stage status: English image-only slice implemented; acceptance and hybrid work remain
 
 - [ ] Detect usable native text page by page.
-- [ ] OCR only pages without an acceptable text layer.
+- [x] OCR every page of a fully textless English PDF.
+- [ ] OCR only missing pages in a hybrid PDF.
 - [x] Normalize OCR output into the same `PageTextLayer` contract.
 - [ ] Store OCR engine/model version, language, provenance, and confidence.
 - [ ] Add language selection or detection with a retry path.
-- [ ] Add page-level progress, cancellation, resume, failure, and retry.
+- [x] Add page-level progress, cancellation, failure, and retry from the Library.
+- [ ] Add durable job resume across app restarts.
+- [x] Prevent partial OCR sidecars from becoming searchable before final commit.
 - [ ] Prevent duplicate native and OCR text in hybrid PDFs.
 - [ ] Re-run PDF Find, search, TTS, and highlight acceptance tests.
 
@@ -1138,6 +1154,7 @@ Stage status: Deferred
 | 2026-08-03 | Stage 6 | Persist conservative OCR readiness before selecting an engine | Finalized PDFs with no extracted text are marked `recognition-required` and exposed in the Library; hybrid page classification remains deferred because empty pages alone are not reliable evidence of missing OCR |
 | 2026-08-03 | Stage 6 | Select Tesseract.js as the initial OCR engine | A shared Web Worker avoids native builds across five platforms, stays lazy, and emits text, confidence, and bounds that fit `PageTextLayer`; quality and device performance will be adjusted from real acceptance results rather than a retained comparison harness |
 | 2026-08-03 | Stage 6 | Package English OCR assets locally | Pinned npm packages provide the worker, SIMD-aware LSTM cores, and trained data without runtime CDN access; other languages wait for explicit language selection |
+| 2026-08-03 | Stage 7 | Ship the smallest explicit English image-only OCR slice | Fully textless PDFs get one local action, one reused worker, bounded page processing, shared mutation status, and atomic finalization; hybrid classification, automatic language detection, and durable queues wait for evidence that they are needed |
 
 ## References
 
