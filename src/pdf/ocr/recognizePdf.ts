@@ -2,7 +2,9 @@ import type { PDFDocumentLoadingTask, PDFPageProxy } from 'pdfjs-dist/legacy/bui
 import {
   finalizeUploadedPdf,
   getUploadedPdfAssetUrl,
+  getUploadedPdfPageText,
   storeUploadedPdfPageText,
+  type PdfPageTextLayer,
   type UploadedDocument,
 } from '../../uploads/DocumentUploads'
 import { loadPdfJs, pdfJsAssetRoot } from '../pdfJs'
@@ -11,6 +13,7 @@ import { createEnglishPdfOcrWorker, recognizeEnglishPdfPage } from './tesseractO
 
 const MAX_OCR_RENDER_PIXELS = 8_000_000
 const TARGET_OCR_SCALE = 2.5
+const LOW_OCR_CONFIDENCE = 0.5
 
 export const PDF_OCR_NO_TEXT = 'pdf-ocr-no-text'
 
@@ -18,6 +21,26 @@ export interface PdfRecognitionProgress {
   phase: 'preparing' | 'recognizing' | 'indexing'
   pageNumber: number
   pageCount: number
+}
+
+export interface PdfRecognitionIssues {
+  failedPages: number[]
+  lowConfidencePages: number[]
+}
+
+export interface PdfRecognitionResult {
+  document: UploadedDocument
+  issues: PdfRecognitionIssues
+}
+
+export class PdfRecognitionNoTextError extends Error {
+  readonly issues: PdfRecognitionIssues
+
+  constructor(issues: PdfRecognitionIssues) {
+    super(PDF_OCR_NO_TEXT)
+    this.name = 'PdfRecognitionNoTextError'
+    this.issues = issues
+  }
 }
 
 interface PdfRecognitionOptions {
@@ -31,7 +54,7 @@ interface PdfRecognitionOptions {
 export async function recognizeEnglishPdfDocument(
   document: UploadedDocument,
   options: PdfRecognitionOptions = {},
-): Promise<UploadedDocument> {
+): Promise<PdfRecognitionResult> {
   if (document.sourceKind !== 'pdf' || document.textStatus !== 'recognition-required') {
     throw new Error('Document does not require PDF text recognition')
   }
@@ -62,7 +85,7 @@ export async function recognizeEnglishPdfDocument(
     const pdf = await loadingTask.promise
     throwIfAborted(options.signal)
     let recognizedCharacters = 0
-    let recognitionStillRequired = false
+    const issues: PdfRecognitionIssues = { failedPages: [], lowConfidencePages: [] }
 
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       throwIfAborted(options.signal)
@@ -74,32 +97,58 @@ export async function recognizeEnglishPdfDocument(
         const operatorList = await page.getOperatorList()
         if (!hasPdfPageImages(operatorList.fnArray, pdfjs.OPS)) continue
 
+        const existing = await getUploadedPdfPageText(document.url, pageNumber - 1)
+          .catch(() => null)
+        const existingQuality = existing ? pdfOcrPageQuality(existing) : null
+        if (existingQuality &&
+            existingQuality.confidence !== null &&
+            existingQuality.characters > 0 &&
+            existingQuality.confidence >= LOW_OCR_CONFIDENCE) {
+          recognizedCharacters += existingQuality.characters
+          continue
+        }
+
         options.onProgress?.({ phase: 'recognizing', pageNumber, pageCount: pdf.numPages })
         worker ??= await createEnglishPdfOcrWorker()
         throwIfAborted(options.signal)
-        const pageCharacters = await recognizeAndStorePage(
-          document.url,
-          page,
-          worker,
-          pageNumber - 1,
-          options.signal,
-        )
-        recognizedCharacters += pageCharacters
-        recognitionStillRequired ||= pageCharacters === 0
+        try {
+          const layer = await recognizePage(page, worker, pageNumber - 1, options.signal)
+          const quality = pdfOcrPageQuality(layer)
+          if (quality.characters === 0) {
+            issues.failedPages.push(pageNumber)
+            continue
+          }
+          await storeUploadedPdfPageText(document.url, layer)
+          recognizedCharacters += quality.characters
+          if (quality.confidence !== null && quality.confidence < LOW_OCR_CONFIDENCE) {
+            issues.lowConfidencePages.push(pageNumber)
+          }
+        } catch (error) {
+          throwIfAborted(options.signal)
+          console.warn(`Unable to recognize PDF page ${pageNumber}:`, error)
+          issues.failedPages.push(pageNumber)
+          if (existingQuality &&
+              existingQuality.confidence !== null &&
+              existingQuality.characters > 0) {
+            recognizedCharacters += existingQuality.characters
+          }
+        }
       } finally {
         page.cleanup()
       }
     }
 
-    if (recognizedCharacters === 0) throw new Error(PDF_OCR_NO_TEXT)
+    issues.lowConfidencePages = [...new Set(issues.lowConfidencePages)]
+    if (recognizedCharacters === 0) throw new PdfRecognitionNoTextError(issues)
     options.onProgress?.({ phase: 'indexing', pageNumber: pdf.numPages, pageCount: pdf.numPages })
-    return await finalizeUploadedPdf(
+    const updated = await finalizeUploadedPdf(
       document.url,
       document.title,
       pdf.numPages,
       undefined,
-      recognitionStillRequired,
+      issues.failedPages.length > 0 || issues.lowConfidencePages.length > 0,
     )
+    return { document: updated, issues }
   } finally {
     options.signal?.removeEventListener('abort', cancel)
     if (workerTermination) await workerTermination.catch(() => undefined)
@@ -108,14 +157,13 @@ export async function recognizeEnglishPdfDocument(
   }
 }
 
-/** Render and store one OCR page, releasing its canvas before the next page. */
-async function recognizeAndStorePage(
-  documentUrl: string,
+/** Render one OCR page, releasing its bounded canvas before the next page. */
+async function recognizePage(
   page: PDFPageProxy,
   worker: Awaited<ReturnType<typeof createEnglishPdfOcrWorker>>,
   pageIndex: number,
   signal?: AbortSignal,
-): Promise<number> {
+): Promise<PdfPageTextLayer> {
   const sourceViewport = page.getViewport({ scale: 1 })
   const scale = pdfOcrRenderScale(sourceViewport.width, sourceViewport.height)
   const viewport = page.getViewport({ scale })
@@ -126,21 +174,41 @@ async function recognizeAndStorePage(
   try {
     await page.render({ canvas, viewport, background: '#ffffff' }).promise
     throwIfAborted(signal)
-    const layer = await recognizeEnglishPdfPage(
+    return await recognizeEnglishPdfPage(
       worker,
       canvas,
       pageIndex,
       sourceViewport.width,
       sourceViewport.height,
     )
-    await storeUploadedPdfPageText(documentUrl, layer)
-    return layer.blocks.reduce(
-      (total, block) => total + block.text.replace(/\s/g, '').length,
-      0,
-    )
   } finally {
     canvas.width = 0
     canvas.height = 0
+  }
+}
+
+/** Summarize persisted OCR without treating confidence as proof of correctness.
+ * Character weighting prevents a short punctuation token from dominating the
+ * page score; the conservative threshold only asks for review and retry. */
+export function pdfOcrPageQuality(layer: PdfPageTextLayer): {
+  characters: number
+  confidence: number | null
+} {
+  let characters = 0
+  let confidenceCharacters = 0
+  let weightedConfidence = 0
+
+  for (const block of layer.blocks) {
+    const length = block.text.replace(/\s/gu, '').length
+    characters += length
+    if (block.confidence === null || length === 0) continue
+    confidenceCharacters += length
+    weightedConfidence += block.confidence * length
+  }
+
+  return {
+    characters,
+    confidence: confidenceCharacters > 0 ? weightedConfidence / confidenceCharacters : null,
   }
 }
 

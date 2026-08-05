@@ -92,7 +92,13 @@ export function LibraryTab({
   const [infoDocument, setInfoDocument] = useState<DocumentInfo | null>(null)
   const operationBusy = documentImport.status === 'importing' ||
     documentImport.status === 'recognizing' || documentImport.status === 'deleting'
-  const statusMessage = documentImportStatusMessage(documentImport, t, onCancelDocumentBatch, allDocuments)
+  const statusMessage = documentImportStatusMessage(
+    documentImport,
+    t,
+    onCancelDocumentBatch,
+    onRecognizeDocument,
+    allDocuments,
+  )
   const folderImportSupported = !isMobileUserAgent()
 
   return (
@@ -192,6 +198,7 @@ function documentImportStatusMessage(
   status: DocumentImportStatus,
   t: TFunction,
   onCancelBatch: () => void | Promise<void>,
+  onRecognizeDocument: (documentUrl: string) => void | Promise<boolean>,
   documents: DocumentInfo[],
 ): ReactNode {
   if (status.status === 'idle') return null
@@ -199,7 +206,12 @@ function documentImportStatusMessage(
     return <DocumentBatchDeleteStatus status={status} t={t} documents={documents} />
   }
   if (status.format === 'pdf-ocr') {
-    return <PdfRecognitionStatus status={status} t={t} onCancel={onCancelBatch} />
+    return <PdfRecognitionStatus
+      status={status}
+      t={t}
+      onCancel={onCancelBatch}
+      onRetry={onRecognizeDocument}
+    />
   }
   if (status.format === 'batch' || status.format === 'folder' || status.format === 'scan' ||
       status.format === 'photos') {
@@ -227,14 +239,19 @@ function PdfRecognitionStatus({
   status,
   t,
   onCancel,
+  onRetry,
 }: {
   status: DocumentImportStatus
   t: TFunction
   onCancel: () => void | Promise<void>
+  onRetry: (documentUrl: string) => void | Promise<boolean>
 }) {
   const progress = status.recognitionProgress
   const recognizing = status.status === 'recognizing'
   const title = status.title ?? ''
+  const issues = status.recognitionIssues
+  const retryDocumentUrl = status.documentUrl
+  const issueCount = (issues?.failedPages.length ?? 0) + (issues?.lowConfidencePages.length ?? 0)
   let message: ReactNode
 
   if (recognizing && status.cancelRequested) {
@@ -245,6 +262,8 @@ function PdfRecognitionStatus({
     message = <Trans i18nKey="library.status.indexingRecognition" values={{ title }} components={{ title: <bdi /> }} />
   } else if (recognizing) {
     message = <Trans i18nKey="library.status.preparingRecognition" values={{ title }} components={{ title: <bdi /> }} />
+  } else if (status.status === 'recognized' && issueCount > 0) {
+    message = <Trans i18nKey="library.status.recognitionNeedsReview" values={{ title, count: issueCount }} components={{ title: <bdi /> }} />
   } else if (status.status === 'recognized') {
     message = <Trans i18nKey="library.status.recognitionComplete" values={{ title }} components={{ title: <bdi /> }} />
   } else if (status.status === 'cancelled') {
@@ -277,6 +296,28 @@ function PdfRecognitionStatus({
           max={progress?.pageCount || undefined}
           value={progress?.phase === 'recognizing' ? progress.pageNumber : undefined}
         />
+      )}
+      {!recognizing && issueCount > 0 && issues && (
+        <details className="document-batch-failures">
+          <summary>{t('library.status.recognitionIssues', { count: issueCount })}</summary>
+          <ul>
+            {issues.failedPages.length > 0 && (
+              <li>{t('library.status.recognitionFailedPages', { pages: issues.failedPages.join(', ') })}</li>
+            )}
+            {issues.lowConfidencePages.length > 0 && (
+              <li>{t('library.status.recognitionLowConfidencePages', { pages: issues.lowConfidencePages.join(', ') })}</li>
+            )}
+          </ul>
+          {retryDocumentUrl && (
+            <button
+              type="button"
+              className="document-batch-cancel"
+              onClick={() => void onRetry(retryDocumentUrl)}
+            >
+              {t('library.status.retryRecognitionPages')}
+            </button>
+          )}
+        </details>
       )}
     </div>
   )

@@ -8,7 +8,9 @@ import {
 import { indexImportedPdfs } from '../pdf/pdfImport'
 import {
   PDF_OCR_NO_TEXT,
+  PdfRecognitionNoTextError,
   recognizeEnglishPdfDocument,
+  type PdfRecognitionIssues,
   type PdfRecognitionProgress,
 } from '../pdf/ocr/recognizePdf'
 import {
@@ -55,6 +57,8 @@ export type DocumentImportStatus = {
   deleteProgress?: UploadedDocumentDeleteBatchProgress
   deleteResult?: UploadedDocumentDeleteBatchResult
   recognitionProgress?: PdfRecognitionProgress
+  recognitionIssues?: PdfRecognitionIssues
+  documentUrl?: string
   cancelRequested?: boolean
 }
 
@@ -65,7 +69,10 @@ interface DocumentCollectionImportOptions {
 
 /** Auto-dismiss only outcomes that have no file-level failure details to retain. */
 export function shouldAutoDismissDocumentImport(status: DocumentImportStatus): boolean {
-  if (status.status === 'recognized') return true
+  if (status.status === 'recognized') {
+    return (status.recognitionIssues?.failedPages.length ?? 0) === 0 &&
+      (status.recognitionIssues?.lowConfidencePages.length ?? 0) === 0
+  }
   if (status.status !== 'imported' && status.status !== 'cancelled') return false
   return (status.batchResult?.failures.length ?? 0) === 0
 }
@@ -171,7 +178,7 @@ export function useUploadedLibrary() {
           title: recognitionCandidate.title,
         })
         try {
-          const recognized = await recognizeEnglishPdfDocument(recognitionCandidate, {
+          const recognition = await recognizeEnglishPdfDocument(recognitionCandidate, {
             signal: abort.signal,
             onProgress: (recognitionProgress) => {
               setDocumentImport((current) => current.status === 'recognizing' && current.format === 'pdf-ocr'
@@ -179,6 +186,7 @@ export function useUploadedLibrary() {
                 : current)
             },
           })
+          const recognized = recognition.document
           batchResult = {
             ...batchResult,
             imported: batchResult.imported.map((document) => (
@@ -186,7 +194,13 @@ export function useUploadedLibrary() {
             )),
           }
           await refreshUploadedLibrary()
-          setDocumentImport({ status: 'recognized', format: 'pdf-ocr', title: recognized.title })
+          setDocumentImport({
+            status: 'recognized',
+            format: 'pdf-ocr',
+            title: recognized.title,
+            documentUrl: recognized.url,
+            recognitionIssues: recognition.issues,
+          })
           return batchResult
         } catch (err) {
           await refreshUploadedLibrary()
@@ -197,6 +211,8 @@ export function useUploadedLibrary() {
             format: 'pdf-ocr',
             title: recognitionCandidate.title,
             message: message === PDF_OCR_NO_TEXT ? PDF_OCR_NO_TEXT : cancelled ? undefined : message,
+            documentUrl: recognitionCandidate.url,
+            recognitionIssues: err instanceof PdfRecognitionNoTextError ? err.issues : undefined,
           })
           return batchResult
         }
@@ -265,7 +281,7 @@ export function useUploadedLibrary() {
     importAbortRef.current = abort
     setDocumentImport({ status: 'recognizing', format: 'pdf-ocr', title: document.title })
     try {
-      const updated = await recognizeEnglishPdfDocument(document, {
+      const recognition = await recognizeEnglishPdfDocument(document, {
         signal: abort.signal,
         onProgress: (recognitionProgress) => {
           setDocumentImport((current) => current.status === 'recognizing' && current.format === 'pdf-ocr'
@@ -273,10 +289,17 @@ export function useUploadedLibrary() {
             : current)
         },
       })
+      const updated = recognition.document
       setUploadedDocuments((documents) => documents.map((candidate) => (
         candidate.id === updated.id ? updated : candidate
       )))
-      setDocumentImport({ status: 'recognized', format: 'pdf-ocr', title: updated.title })
+      setDocumentImport({
+        status: 'recognized',
+        format: 'pdf-ocr',
+        title: updated.title,
+        documentUrl: updated.url,
+        recognitionIssues: recognition.issues,
+      })
       return true
     } catch (err) {
       const cancelled = abort.signal.aborted || (err instanceof DOMException && err.name === 'AbortError')
@@ -286,6 +309,8 @@ export function useUploadedLibrary() {
         format: 'pdf-ocr',
         title: document.title,
         message: message === PDF_OCR_NO_TEXT ? PDF_OCR_NO_TEXT : cancelled ? undefined : message,
+        documentUrl: document.url,
+        recognitionIssues: err instanceof PdfRecognitionNoTextError ? err.issues : undefined,
       })
       return false
     } finally {

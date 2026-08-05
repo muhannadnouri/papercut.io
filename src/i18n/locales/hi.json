@@ -172,7 +172,12 @@
       "recognitionProgressLabel": "PDF पाठ पहचान प्रगति",
       "recognitionComplete": "<title>{{title}}</title> के लिए पाठ पहचान पूरी हुई।",
       "recognitionCancelled": "<title>{{title}}</title> के लिए पाठ पहचान रद्द की गई।",
-      "recognitionNoText": "कोई अंग्रेज़ी पाठ पहचाना नहीं गया। मूल PDF नहीं बदला गया।"
+      "recognitionNoText": "कोई अंग्रेज़ी पाठ पहचाना नहीं गया। मूल PDF नहीं बदला गया।",
+      "recognitionNeedsReview": "<title>{{title}}</title> का पाठ पहचान पूरा हुआ। {{count, number}} पृष्ठों की समीक्षा करें या फिर प्रयास करें।",
+      "recognitionIssues": "ध्यान देने योग्य पृष्ठ: {{count, number}}",
+      "recognitionFailedPages": "कोई पाठ नहीं पहचाना गया: {{pages}}",
+      "recognitionLowConfidencePages": "समीक्षा सुझाई गई: {{pages}}",
+      "retryRecognitionPages": "पृष्ठों पर फिर प्रयास करें"
     },
     "groups": {
       "importedAudiobooks": "आयातित ऑडियोबुक",

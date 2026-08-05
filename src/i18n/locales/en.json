@@ -172,7 +172,12 @@
       "recognitionProgressLabel": "PDF text recognition progress",
       "recognitionComplete": "Text recognition complete for <title>{{title}}</title>.",
       "recognitionCancelled": "Text recognition cancelled for <title>{{title}}</title>.",
-      "recognitionNoText": "No English text was recognized. The original PDF was not changed."
+      "recognitionNoText": "No English text was recognized. The original PDF was not changed.",
+      "recognitionNeedsReview": "Text recognition finished for <title>{{title}}</title>. Review or retry {{count, number}} pages.",
+      "recognitionIssues": "Pages needing attention: {{count, number}}",
+      "recognitionFailedPages": "No text recognized: {{pages}}",
+      "recognitionLowConfidencePages": "Review suggested: {{pages}}",
+      "retryRecognitionPages": "Retry Pages"
     },
     "groups": {
       "importedAudiobooks": "Imported Audiobooks",

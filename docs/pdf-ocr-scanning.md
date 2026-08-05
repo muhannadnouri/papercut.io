@@ -1141,8 +1141,8 @@ platform photo-picker paths.
 
 ### Stage 9: Scan-To-Book Integration
 
-Stage status: In progress; pre-capture metadata and English OCR handoff
-implemented, physical mobile acceptance open
+Stage status: In progress; pre-capture metadata, English OCR handoff, and
+targeted page-quality retry implemented; physical mobile acceptance open
 
 - [x] Let users set the display title and choose English recognition or
       import-only handling before native capture/photo selection. Specific
@@ -1150,7 +1150,9 @@ implemented, physical mobile acceptance open
 - [x] Feed English captured pages that need recognition through the existing
       bounded OCR and atomic PDF indexing path. Native-text scans and
       import-only languages keep the normal PDF import/view path.
-- [ ] Show low-confidence and failed pages with targeted retry.
+- [x] Show low-confidence and failed pages with targeted retry. Successful OCR
+      sidecars are reused, while only failed or review-suggested pages are
+      processed again.
 - [ ] Allow pages to be appended to an existing unfinished scan.
 - [ ] Restore interrupted scan state after app restart. Android implementation
       is complete pending physical acceptance; iOS remains open.
@@ -1168,7 +1170,13 @@ readiness reports missing usable text. Choosing another language imports the
 canonical PDF without making an unsupported OCR promise. No second PDF copy,
 native OCR implementation, language detector, or scanner-specific index was
 added. Automated validation is complete, but the new dialog and automatic OCR
-handoff have not yet received physical Android or iOS smoke testing.
+handoff have not yet received physical Android or iOS smoke testing. The next
+slice retains successful OCR pages, lists failed and low-confidence page
+numbers in the Library notice, and retries only those pages through the same
+bounded worker. A character-weighted confidence score below 0.5 is a
+provisional review signal, not proof that OCR is incorrect; it must be
+calibrated against the deferred end-of-cycle device and language matrix. The
+pre-capture and targeted-retry passes have not received physical smoke testing.
 
 ### Stage 10: Hardening And Release
 
@@ -1280,6 +1288,7 @@ Stage status: Deferred
 | 2026-08-04 | Stage 8 | Import existing photos through native system pickers | Android `ACTION_OPEN_DOCUMENT` works without Google Play Services or broad media access, iOS PhotosUI grants only selected files, and both normalize one image at a time into the existing canonical PDF import instead of adding another editor or processing path |
 | 2026-08-04 | Stage 9 | Ask only for actionable recognition language before capture | English runs the packaged local recognizer when readiness requires it; every other language remains importable without a misleading unsupported-language list or automatic language detector |
 | 2026-08-04 | Stage 9 | Carry scan titles through the canonical import transaction | The scanner command validates the chosen title before native UI opens, and PDF finalization honors it instead of relying on a post-import metadata edit |
+| 2026-08-04 | Stage 9 | Retry OCR from existing page sidecars | Native, blank, and successful OCR pages are skipped; failed and conservatively low-confidence pages remain visible and retryable without adding a scanner job database or discarding searchable work |
 
 ## References
 

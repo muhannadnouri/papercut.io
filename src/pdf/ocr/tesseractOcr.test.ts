@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Block, Page } from 'tesseract.js'
 import { ocrPageTextLayer } from './tesseractOcr'
-import { pdfOcrRenderScale } from './recognizePdf'
+import { pdfOcrPageQuality, pdfOcrRenderScale } from './recognizePdf'
 
 describe('ocrPageTextLayer', () => {
   it('preserves reading order and scales word bounds into PDF coordinates', () => {
@@ -43,5 +43,20 @@ describe('pdfOcrRenderScale', () => {
     const scale = pdfOcrRenderScale(4_000, 4_000)
     expect(scale).toBeCloseTo(Math.sqrt(0.5))
     expect(4_000 * scale * 4_000 * scale).toBeCloseTo(8_000_000)
+  })
+})
+
+describe('pdfOcrPageQuality', () => {
+  it('weights OCR confidence by non-whitespace characters', () => {
+    expect(pdfOcrPageQuality({
+      schemaVersion: 1,
+      pageIndex: 0,
+      width: 100,
+      height: 100,
+      blocks: [
+        { text: 'long ', bounds: [0, 0, 10, 10], order: 0, confidence: 0.8 },
+        { text: 'x', bounds: [10, 0, 2, 10], order: 1, confidence: 0.3 },
+      ],
+    })).toEqual({ characters: 5, confidence: 0.7 })
   })
 })

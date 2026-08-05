@@ -176,7 +176,12 @@
       "recognitionProgressLabel": "Avanzamento del riconoscimento testo PDF",
       "recognitionComplete": "Riconoscimento del testo completato per <title>{{title}}</title>.",
       "recognitionCancelled": "Riconoscimento del testo annullato per <title>{{title}}</title>.",
-      "recognitionNoText": "Non è stato riconosciuto testo inglese. Il PDF originale non è stato modificato."
+      "recognitionNoText": "Non è stato riconosciuto testo inglese. Il PDF originale non è stato modificato.",
+      "recognitionNeedsReview": "Riconoscimento terminato per <title>{{title}}</title>. Controlla o riprova {{count, number}} pagine.",
+      "recognitionIssues": "Pagine da controllare: {{count, number}}",
+      "recognitionFailedPages": "Nessun testo riconosciuto: {{pages}}",
+      "recognitionLowConfidencePages": "Controllo consigliato: {{pages}}",
+      "retryRecognitionPages": "Riprova pagine"
     },
     "groups": {
       "importedAudiobooks": "Audiolibri importati",

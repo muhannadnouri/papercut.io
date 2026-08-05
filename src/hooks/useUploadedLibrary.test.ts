@@ -24,6 +24,14 @@ describe('shouldAutoDismissDocumentImport', () => {
     expect(shouldAutoDismissDocumentImport(failed)).toBe(false)
     expect(shouldAutoDismissDocumentImport({ status: 'error' })).toBe(false)
   })
+
+  it('keeps recognition issues visible for review and retry', () => {
+    expect(shouldAutoDismissDocumentImport({ status: 'recognized' })).toBe(true)
+    expect(shouldAutoDismissDocumentImport({
+      status: 'recognized',
+      recognitionIssues: { failedPages: [2], lowConfidencePages: [4] },
+    })).toBe(false)
+  })
 })
 
 describe('shouldRecognizeImportedScan', () => {

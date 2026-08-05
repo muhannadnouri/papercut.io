@@ -176,7 +176,12 @@
       "recognitionProgressLabel": "Progreso del reconocimiento de texto PDF",
       "recognitionComplete": "Reconocimiento de texto completado para <title>{{title}}</title>.",
       "recognitionCancelled": "Reconocimiento de texto cancelado para <title>{{title}}</title>.",
-      "recognitionNoText": "No se reconoció texto en inglés. El PDF original no se modificó."
+      "recognitionNoText": "No se reconoció texto en inglés. El PDF original no se modificó.",
+      "recognitionNeedsReview": "Reconocimiento terminado para <title>{{title}}</title>. Revisa o reintenta {{count, number}} páginas.",
+      "recognitionIssues": "Páginas que necesitan atención: {{count, number}}",
+      "recognitionFailedPages": "No se reconoció texto: {{pages}}",
+      "recognitionLowConfidencePages": "Se recomienda revisar: {{pages}}",
+      "retryRecognitionPages": "Reintentar páginas"
     },
     "groups": {
       "importedAudiobooks": "Audiolibros importados",
