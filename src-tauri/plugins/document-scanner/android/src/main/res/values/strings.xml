@@ -19,6 +19,12 @@
         <item quantity="one">%1$d page captured</item>
         <item quantity="other">%1$d pages captured</item>
     </plurals>
+    <plurals name="scanner_resume_draft">
+        <item quantity="one">Continue your unfinished scan with %1$d page?</item>
+        <item quantity="other">Continue your unfinished scan with %1$d pages?</item>
+    </plurals>
+    <string name="scanner_continue">Continue Scan</string>
+    <string name="scanner_start_new">Start New</string>
     <string name="scanner_camera_permission">Camera access is required to scan documents.</string>
     <string name="scanner_open_settings">Open Settings</string>
     <string name="scanner_processing">Preparing scanned document…</string>

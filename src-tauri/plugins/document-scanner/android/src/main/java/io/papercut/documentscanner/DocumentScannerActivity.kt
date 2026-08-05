@@ -12,6 +12,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.StatFs
 import android.provider.Settings
+import android.system.Os
 import android.view.Gravity
 import android.view.Surface
 import android.view.View
@@ -48,8 +49,8 @@ class DocumentScannerActivity : ComponentActivity() {
         const val EXTRA_ERROR = "documentScannerError"
 
         private const val STATE_SESSION_ID = "documentScannerSessionId"
-        private const val STATE_PAGE_IMAGES = "documentScannerPageImages"
-        private const val STATE_PAGE_THUMBNAILS = "documentScannerPageThumbnails"
+        private const val SESSION_MANIFEST = "pages.tsv"
+        private const val SESSION_MANIFEST_TEMP = "pages.tsv.tmp"
         private const val MIN_FREE_SPACE_BYTES = 64L * 1024L * 1024L
         private const val STALE_SESSION_AGE_MS = 7L * 24L * 60L * 60L * 1000L
     }
@@ -68,12 +69,13 @@ class DocumentScannerActivity : ComponentActivity() {
     private var reviewCapture: File? = null
     private var cropOverlay: CropOverlayView? = null
     private var awaitingPermissionSettings = false
+    private var offerDraftResume = false
     private var processing = false
 
     private val permissionRequest = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
-        if (granted) showCapture() else showPermissionExplanation()
+        if (granted) startCaptureFlow() else showPermissionExplanation()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -104,27 +106,19 @@ class DocumentScannerActivity : ComponentActivity() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
             PackageManager.PERMISSION_GRANTED
         ) {
-            showCapture()
+            startCaptureFlow()
         } else {
             permissionRequest.launch(Manifest.permission.CAMERA)
         }
     }
 
-    /** Saves only durable accepted-page filenames. Android may recreate this
-     * Activity while the host process remains alive; the current camera frame
-     * or unaccepted review is deliberately retaken instead of serialized. */
+    /** Saves the session identity only. The same durable manifest used after
+     * process death owns accepted-page order, while an unaccepted frame is
+     * deliberately retaken instead of serialized. */
     override fun onSaveInstanceState(outState: Bundle) {
         if (::sessionDirectory.isInitialized) {
             touchSession()
             outState.putString(STATE_SESSION_ID, sessionDirectory.name)
-            outState.putStringArrayList(
-                STATE_PAGE_IMAGES,
-                ArrayList(acceptedPages.map { it.image.name }),
-            )
-            outState.putStringArrayList(
-                STATE_PAGE_THUMBNAILS,
-                ArrayList(acceptedPages.map { it.thumbnail.name }),
-            )
         }
         super.onSaveInstanceState(outState)
     }
@@ -138,7 +132,7 @@ class DocumentScannerActivity : ComponentActivity() {
             PackageManager.PERMISSION_GRANTED
         ) {
             awaitingPermissionSettings = false
-            showCapture()
+            startCaptureFlow()
         }
     }
 
@@ -162,48 +156,151 @@ class DocumentScannerActivity : ComponentActivity() {
         super.onDestroy()
     }
 
-    /** Restores accepted page files from Android's saved Activity state and
-     * rejects filenames outside the plugin-owned cache directory. This covers
-     * Activity recreation, not a killed process or app restart (Stage 9). */
+    /** Restores the current session identity from Activity state first, then
+     * finds the newest durable draft after process death. Drafts contain
+     * filenames and order only; page pixels stay in bounded plugin-owned files. */
     private fun prepareSession(savedState: Bundle?): Boolean {
         val root = File(cacheDir, "document-scanner")
         if (!root.mkdirs() && !root.isDirectory) return false
         cleanupStaleSessions(root)
 
         val restoredId = savedState?.getString(STATE_SESSION_ID)
-        val sessionId = if (restoredId != null) {
-            try {
+        if (restoredId != null) {
+            val sessionId = try {
                 UUID.fromString(restoredId).toString()
             } catch (_: IllegalArgumentException) {
                 return false
             }
-        } else {
-            UUID.randomUUID().toString()
+            sessionDirectory = File(root, sessionId)
+            if (!sessionDirectory.isDirectory) return false
+            val manifest = File(sessionDirectory, SESSION_MANIFEST)
+            if (manifest.isFile) {
+                acceptedPages.addAll(readDraft(sessionDirectory) ?: return false)
+            }
+            cleanupUnacceptedSessionFiles()
+            touchSession()
+            return true
         }
-        sessionDirectory = File(root, sessionId)
-        if (!sessionDirectory.mkdirs() && !sessionDirectory.isDirectory) return false
 
-        if (restoredId == null) return true
-        val images = savedState.getStringArrayList(STATE_PAGE_IMAGES) ?: arrayListOf()
-        val thumbnails = savedState.getStringArrayList(STATE_PAGE_THUMBNAILS) ?: arrayListOf()
-        if (images.size != thumbnails.size) return false
-        for (index in images.indices) {
-            val image = restoredSessionFile(images[index], "page-") ?: return false
-            val thumbnail = restoredSessionFile(thumbnails[index], "thumbnail-") ?: return false
-            acceptedPages.add(AcceptedPage(image, thumbnail))
+        val draft = newestDraft(root)
+        if (draft != null) {
+            sessionDirectory = draft.first
+            acceptedPages.addAll(draft.second)
+            offerDraftResume = true
+            cleanupUnacceptedSessionFiles()
+            touchSession()
+            return true
         }
-        cleanupUnacceptedSessionFiles()
-        touchSession()
-        return true
+
+        return createSession(root)
     }
 
-    private fun restoredSessionFile(name: String, prefix: String): File? {
+    /** Creates a new UUID-scoped cache directory. UUID validation on restore
+     * prevents a draft record from escaping the scanner-owned cache root. */
+    private fun createSession(root: File): Boolean {
+        val sessionId = UUID.randomUUID().toString()
+        sessionDirectory = File(root, sessionId)
+        return sessionDirectory.mkdirs() || sessionDirectory.isDirectory
+    }
+
+    /** Returns the newest complete manifest, skipping corrupt drafts so one bad
+     * cache entry cannot block a later valid scan from being recovered. */
+    private fun newestDraft(root: File): Pair<File, List<AcceptedPage>>? {
+        return root.listFiles()
+            .orEmpty()
+            .asSequence()
+            .filter { session ->
+                session.isDirectory && try {
+                    UUID.fromString(session.name)
+                    true
+                } catch (_: IllegalArgumentException) {
+                    false
+                }
+            }
+            .sortedByDescending { it.lastModified() }
+            .mapNotNull { session -> readDraft(session)?.let { session to it } }
+            .firstOrNull()
+    }
+
+    /** Parses the tiny app-private manifest defensively and validates every
+     * referenced file before exposing the draft to scanner UI. */
+    private fun readDraft(session: File): List<AcceptedPage>? {
+        val manifest = File(session, SESSION_MANIFEST)
+        if (!manifest.isFile) return null
+        return runCatching {
+            val pages = manifest.readLines().map { line ->
+                val names = line.split('\t')
+                if (names.size != 2) error("Invalid scan draft")
+                val image = restoredSessionFile(session, names[0], "page-")
+                    ?: error("Missing scan page")
+                val thumbnail = restoredSessionFile(session, names[1], "thumbnail-")
+                    ?: error("Missing scan thumbnail")
+                AcceptedPage(image, thumbnail)
+            }
+            pages.takeIf { it.isNotEmpty() } ?: error("Empty scan draft")
+        }.getOrNull()
+    }
+
+    private fun restoredSessionFile(session: File, name: String, prefix: String): File? {
         if (!name.startsWith(prefix) || name.contains(File.separatorChar)) return null
-        return File(sessionDirectory, name).takeIf { it.isFile }
+        return File(session, name).takeIf { it.isFile }
+    }
+
+    /** Atomically replaces the ordered filename manifest after each accepted
+     * page mutation. Android's native rename avoids a database and never copies
+     * image data; a failed write leaves the previous manifest intact. */
+    private fun persistDraft(): Boolean {
+        val manifest = File(sessionDirectory, SESSION_MANIFEST)
+        val temporary = File(sessionDirectory, SESSION_MANIFEST_TEMP)
+        if (acceptedPages.isEmpty()) {
+            temporary.delete()
+            manifest.delete()
+            touchSession()
+            return true
+        }
+        return try {
+            temporary.writeText(
+                acceptedPages.joinToString("\n") { page ->
+                    "${page.image.name}\t${page.thumbnail.name}"
+                } + "\n",
+            )
+            Os.rename(temporary.path, manifest.path)
+            touchSession()
+            true
+        } catch (_: Throwable) {
+            temporary.delete()
+            false
+        }
+    }
+
+    /** Offers recovery only for a fresh scanner launch. Activity recreation
+     * restores the same live scan directly because the user already entered it. */
+    private fun startCaptureFlow() {
+        if (!offerDraftResume) {
+            showCapture()
+            return
+        }
+        offerDraftResume = false
+        AlertDialog.Builder(this)
+            .setMessage(resources.getQuantityString(
+                R.plurals.scanner_resume_draft,
+                acceptedPages.size,
+                acceptedPages.size,
+            ))
+            .setNegativeButton(R.string.scanner_start_new) { _, _ ->
+                val root = sessionDirectory.parentFile ?: cacheDir
+                sessionDirectory.deleteRecursively()
+                acceptedPages.clear()
+                if (createSession(root)) showCapture()
+                else fail("Unable to prepare temporary scan storage")
+            }
+            .setPositiveButton(R.string.scanner_continue) { _, _ -> showCapture() }
+            .setCancelable(false)
+            .show()
     }
 
     /** Prevents interrupted or abandoned scans from accumulating forever while
-     * leaving recent sessions available to Android's normal Activity restore. */
+     * leaving recent sessions available for Activity and app-restart restore. */
     private fun cleanupStaleSessions(root: File) {
         val cutoff = System.currentTimeMillis() - STALE_SESSION_AGE_MS
         root.listFiles()?.forEach { session ->
@@ -213,10 +310,13 @@ class DocumentScannerActivity : ComponentActivity() {
         }
     }
 
+    /** Drops camera frames and interrupted temp writes while retaining only the
+     * manifest and page files that make up the recoverable draft. */
     private fun cleanupUnacceptedSessionFiles() {
         val retained = acceptedPages.flatMapTo(mutableSetOf()) {
             listOf(it.image.name, it.thumbnail.name)
         }
+        retained.add(SESSION_MANIFEST)
         sessionDirectory.listFiles()?.forEach { file ->
             if (file.name !in retained) file.delete()
         }
@@ -504,7 +604,11 @@ class DocumentScannerActivity : ComponentActivity() {
     private fun moveManagedPage(from: Int, to: Int) {
         if (from !in acceptedPages.indices || to !in acceptedPages.indices) return
         Collections.swap(acceptedPages, from, to)
-        touchSession()
+        if (!persistDraft()) {
+            Collections.swap(acceptedPages, to, from)
+            showRecoverableFailure()
+            return
+        }
         showPageManager(to)
     }
 
@@ -514,9 +618,13 @@ class DocumentScannerActivity : ComponentActivity() {
             .setNegativeButton(R.string.scanner_keep_scanning, null)
             .setPositiveButton(R.string.scanner_delete_page) { _, _ ->
                 val removed = acceptedPages.removeAt(index)
+                if (!persistDraft()) {
+                    acceptedPages.add(index, removed)
+                    showRecoverableFailure()
+                    return@setPositiveButton
+                }
                 removed.image.delete()
                 removed.thumbnail.delete()
-                touchSession()
                 if (acceptedPages.isEmpty()) showCapture()
                 else showPageManager(index.coerceAtMost(acceptedPages.lastIndex))
             }
@@ -551,9 +659,16 @@ class DocumentScannerActivity : ComponentActivity() {
                 captureFile.delete()
                 source.recycle()
                 runOnUiThread {
-                    acceptedPages.add(AcceptedPage(pageFile, thumbnailFile))
-                    touchSession()
+                    val page = AcceptedPage(pageFile, thumbnailFile)
+                    acceptedPages.add(page)
                     reviewCapture = null
+                    if (!persistDraft()) {
+                        acceptedPages.remove(page)
+                        pageFile.delete()
+                        thumbnailFile.delete()
+                        showRecoverableFailure()
+                        return@runOnUiThread
+                    }
                     if (finishAfterPage) finalizeScan() else showCapture()
                 }
             } catch (_: Throwable) {
@@ -655,7 +770,9 @@ class DocumentScannerActivity : ComponentActivity() {
     private fun showPermissionExplanation() {
         AlertDialog.Builder(this)
             .setMessage(R.string.scanner_camera_permission)
-            .setNegativeButton(R.string.scanner_cancel) { _, _ -> cancel("Camera permission denied") }
+            .setNegativeButton(R.string.scanner_cancel) { _, _ ->
+                finishPreservingDraft("Camera permission denied")
+            }
             .setPositiveButton(R.string.scanner_open_settings) { _, _ ->
                 awaitingPermissionSettings = true
                 startActivity(Intent(
@@ -665,6 +782,16 @@ class DocumentScannerActivity : ComponentActivity() {
             }
             .setCancelable(false)
             .show()
+    }
+
+    /** A permission refusal closes capture but deliberately retains accepted
+     * pages; discarding a recovered draft requires the explicit scan action. */
+    private fun finishPreservingDraft(message: String) {
+        if (acceptedPages.isEmpty() && ::sessionDirectory.isInitialized) {
+            sessionDirectory.deleteRecursively()
+        }
+        setResult(Activity.RESULT_CANCELED, Intent().putExtra(EXTRA_ERROR, message))
+        finish()
     }
 
     private fun confirmCancel() {

@@ -1,6 +1,6 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 8 in progress; Android capture and resilience accepted, native photo-picker and iOS physical validation open
+Status: Stage 8 in progress; Android restart recovery, native photo-picker, and iOS physical validation open
 Last updated: 2026-08-04
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -1076,8 +1076,9 @@ canonical PDF remained unchanged.
 
 ### Stage 8: Native Mobile Capture
 
-Stage status: In progress; Android capture and resilience acceptance passed,
-native photo-picker and iOS physical-device acceptance open
+Stage status: In progress; Android capture and same-process resilience accepted;
+Android restart recovery, native photo-picker, and iOS physical-device
+acceptance open
 
 - [x] Add one isolated local Tauri plugin with Android and iOS adapter boundaries.
 - [x] Integrate CameraX capture and a manual four-corner review flow on Android
@@ -1090,6 +1091,9 @@ native photo-picker and iOS physical-device acceptance open
       system pickers without broad media permissions or image bytes over IPC.
 - [x] Save reviewed iOS and Android scans as canonical PDFs before OCR begins.
 - [ ] Process bounded batches and allow users to append/resume large scans.
+      Android now persists only ordered accepted-page filenames and offers to
+      continue or discard the newest unfinished scan after app restart. Physical
+      restart acceptance and equivalent iOS recovery remain open.
 - [ ] Handle unavailable scanner services, resource download, permissions,
       interruption, low storage, and unsupported devices. Android now handles
       camera availability, runtime permission recovery, cancellation, and
@@ -1097,7 +1101,8 @@ native photo-picker and iOS physical-device acceptance open
       recreation, expires abandoned cache sessions after seven days, checks
       free space before capture and final PDF assembly, and keeps accepted pages
       after an assembly failure. Physical interruption and low-storage tests,
-      iOS resource cases, and full app-restart resume remain open.
+      iOS resource cases, Android restart acceptance, and iOS app-restart resume
+      remain open.
 - [x] Keep scanning controls absent from desktop and unsupported mobile builds.
 
 Decision gate: a multi-page scan survives interruption and produces a durable
@@ -1121,7 +1126,12 @@ discard pages that were already accepted.
 Android Activity recreation, low-storage recovery, and retained-page behavior
 also passed physical-device smoke testing. Existing-photo import uses the
 platform picker and normalizes one selected image at a time before the same
-canonical PDF import; Android and iOS picker acceptance remains open.
+canonical PDF import; Android and iOS picker acceptance was deferred and remains
+open. Android also writes a tiny atomic manifest after each accepted-page add,
+move, or delete. A fresh scanner launch can continue the newest complete draft
+or explicitly start over without loading page pixels into memory. This restart
+path compiles and passes Android lint but has not yet received physical-device
+acceptance.
 The finished path enters the existing Rust PDF importer, so readiness, OCR,
 indexing, viewer, search, and TTS behavior are not duplicated in native code.
 Physical-device acceptance remains open for the iOS capture path and both
@@ -1135,7 +1145,8 @@ Stage status: Not started
 - [ ] Feed captured pages through OCR, indexing, PDF viewing, search, and TTS.
 - [ ] Show low-confidence and failed pages with targeted retry.
 - [ ] Allow pages to be appended to an existing unfinished scan.
-- [ ] Restore interrupted scan state after app restart.
+- [ ] Restore interrupted scan state after app restart. Android implementation
+      is complete pending physical acceptance; iOS remains open.
 - [ ] Verify folder organization, gallery thumbnail, saved audio, transfer, and
       deletion.
 
@@ -1247,7 +1258,7 @@ Stage status: Deferred
 | 2026-08-04 | Stage 8 | Reject ML Kit Document Scanner as the primary Android path | Its scanner resources and UI depend on Google Play Services, which is incompatible with Papercut's supported offline and de-Googled Android devices |
 | 2026-08-04 | Stage 8 | Use CameraX plus Android platform graphics for the first Android scanner | CameraX covers broad camera lifecycle compatibility, while a manual four-corner perspective transform and page-at-a-time `PdfDocument` output avoid Google Play Services, OpenCV, another OCR path, and unbounded bitmap retention |
 | 2026-08-04 | Stage 8 | Manage Android pages through files and bounded previews | Small on-disk thumbnails support selection, accepted-page order drives final PDF order without rewriting JPEGs, and only the selected page gets a larger bounded preview |
-| 2026-08-04 | Stage 8 | Recover accepted Android pages without a draft database | Android saved Activity state retains plugin-owned filenames and order across same-process Activity recreation; explicit completion/cancellation cleans immediately, abandoned cache sessions expire after seven days, and process-death/app-restart resume stays in Stage 9 |
+| 2026-08-04 | Stage 8 | Recover accepted Android pages without a draft database | Android saved Activity state handles same-process recreation, while one atomic app-private filename manifest supports a continue-or-start-new prompt after app restart; explicit completion/cancellation cleans immediately, abandoned cache sessions expire after seven days, and image data is never duplicated |
 | 2026-08-04 | Stage 8 | Use native storage preflight before scanner writes | `StatFs` checks a fixed 64 MiB working reserve and accepted JPEG bytes before PDF assembly; this prevents predictable low-space failures without adding a storage dependency or pretending the estimate guarantees a later write |
 | 2026-08-04 | Stage 8 | Import existing photos through native system pickers | Android `ACTION_OPEN_DOCUMENT` works without Google Play Services or broad media access, iOS PhotosUI grants only selected files, and both normalize one image at a time into the existing canonical PDF import instead of adding another editor or processing path |
 
