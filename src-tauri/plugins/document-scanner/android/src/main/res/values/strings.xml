@@ -1,0 +1,21 @@
+<resources>
+    <string name="scanner_title">Scan Document</string>
+    <string name="scanner_capture">Capture Page</string>
+    <string name="scanner_finish">Finish</string>
+    <string name="scanner_cancel">Cancel</string>
+    <string name="scanner_retake">Retake</string>
+    <string name="scanner_rotate">Rotate</string>
+    <string name="scanner_add_page">Add Page</string>
+    <string name="scanner_adjust_corners">Drag the corners to the edges of the page.</string>
+    <plurals name="scanner_pages_captured">
+        <item quantity="one">%1$d page captured</item>
+        <item quantity="other">%1$d pages captured</item>
+    </plurals>
+    <string name="scanner_camera_permission">Camera access is required to scan documents.</string>
+    <string name="scanner_open_settings">Open Settings</string>
+    <string name="scanner_processing">Preparing scanned document…</string>
+    <string name="scanner_camera_unavailable">No usable camera is available.</string>
+    <string name="scanner_discard">Discard this document scan?</string>
+    <string name="scanner_keep_scanning">Keep Scanning</string>
+    <string name="scanner_discard_scan">Discard Scan</string>
+</resources>

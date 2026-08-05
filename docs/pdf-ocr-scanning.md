@@ -1,6 +1,6 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 8 in progress; isolated iOS capture implemented and awaiting device validation, Android capture next
+Status: Stage 8 in progress; isolated iOS and Android capture implemented and awaiting physical-device validation
 Last updated: 2026-08-04
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -577,10 +577,11 @@ Capture and OCR should remain separate:
   for capture, edge guidance, crop, rotation, page review, and multi-page
   output. The isolated plugin streams those reviewed pages into an app-owned
   image-only PDF and hands only its path to Rust.
-- Android should use CameraX for capture and a Papercut-owned four-corner crop
-  and review screen. The first implementation can use Android's native
-  perspective transform; OpenCV or an ONNX edge model should be added only if
-  real acceptance documents prove the native path inadequate.
+- Android uses CameraX 1.5.3 for capture and a Papercut-owned four-corner crop
+  and review screen. Android's native perspective transform corrects reviewed
+  pages without OpenCV, ML Kit, or Google Play Services. Automatic edge
+  detection remains deferred until physical-device acceptance documents show
+  that full-page default corners plus manual correction are inadequate.
 - Do not use ML Kit Document Scanner as the primary Android path. Its scanner
   module and UI are delivered through Google Play Services, which Papercut
   cannot assume exists on every supported offline device.
@@ -1068,23 +1069,36 @@ canonical PDF remained unchanged.
 
 ### Stage 8: Native Mobile Capture
 
-Stage status: In progress; iOS capture implemented, physical-device validation and Android capture open
+Stage status: In progress; iOS and Android capture implemented, physical-device validation open
 
 - [x] Add one isolated local Tauri plugin with Android and iOS adapter boundaries.
-- [ ] Integrate CameraX capture and a manual four-corner review flow on Android
+- [x] Integrate CameraX capture and a manual four-corner review flow on Android
       without requiring Google Play Services.
 - [x] Integrate VisionKit document camera on supported iOS devices.
 - [ ] Support page thumbnails, crop, rotation, delete, reorder, rescan, and
       importing existing images across both platforms. VisionKit supplies the
-      first five operations on iOS; Android and photo import remain open.
-- [x] Save the reviewed iOS scan as a canonical PDF before OCR begins.
+      first five operations on iOS; Android now supplies manual crop, rotation,
+      and retake, while thumbnails, delete/reorder, and photo import remain open.
+- [x] Save reviewed iOS and Android scans as canonical PDFs before OCR begins.
 - [ ] Process bounded batches and allow users to append/resume large scans.
 - [ ] Handle unavailable scanner services, resource download, permissions,
-      interruption, low storage, and unsupported devices.
+      interruption, low storage, and unsupported devices. Android now handles
+      camera availability, runtime permission recovery, cancellation, and
+      temporary-file cleanup; interruption/resume and low storage remain open.
 - [x] Keep scanning controls absent from desktop and unsupported mobile builds.
 
 Decision gate: a multi-page scan survives interruption and produces a durable
 source PDF or page set without holding the entire book in memory.
+
+Implementation evidence: the Android plugin compiles and passes Android lint;
+its manifest merges into the arm debug app. CameraX writes one temporary JPEG,
+the review screen holds one bounded bitmap, accepted pages return to compressed
+session files, and Android's `PdfDocument` decodes one accepted page at a time.
+The finished path enters the existing Rust PDF importer, so readiness, OCR,
+indexing, viewer, search, and TTS behavior are not duplicated in native code.
+Physical-device acceptance is still required for camera framing, touch crop,
+rotation, multi-page capture, permission denial/recovery, cancellation, and
+the final imported document.
 
 ### Stage 9: Scan-To-Book Integration
 
@@ -1204,6 +1218,7 @@ Stage status: Deferred
 | 2026-08-04 | Stage 8 | Isolate mobile capture from PDF processing | A local Tauri plugin owns only native camera UI and app-owned PDF output; the existing importer remains the sole validation, persistence, readiness, indexing, and OCR path |
 | 2026-08-04 | Stage 8 | Start with VisionKit and defer Android capture to its own slice | iOS provides a complete native multi-page review flow now; Android requires a CameraX capture and manual crop/review workflow that deserves separate implementation and device validation |
 | 2026-08-04 | Stage 8 | Reject ML Kit Document Scanner as the primary Android path | Its scanner resources and UI depend on Google Play Services, which is incompatible with Papercut's supported offline and de-Googled Android devices |
+| 2026-08-04 | Stage 8 | Use CameraX plus Android platform graphics for the first Android scanner | CameraX covers broad camera lifecycle compatibility, while a manual four-corner perspective transform and page-at-a-time `PdfDocument` output avoid Google Play Services, OpenCV, another OCR path, and unbounded bitmap retention |
 
 ## References
 
