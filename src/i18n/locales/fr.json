@@ -126,13 +126,17 @@
       "folderDetail": "Importez les fichiers HTML, EPUB et PDF d’un dossier ; les sous-dossiers sont ignorés",
       "scanPages": "Numériser des pages",
       "scanPagesDetail": "Utilisez l’appareil photo pour numériser une ou plusieurs pages",
+      "photos": "Photos",
+      "photosDetail": "Importez une ou plusieurs photos comme document PDF",
       "importingBatch": "Importation des documents",
       "importingFolder": "Importation du dossier",
-      "scanningPages": "Numérisation des pages"
+      "scanningPages": "Numérisation des pages",
+      "importingPhotos": "Importation des photos"
     },
     "status": {
       "preparingBatch": "Choisissez les fichiers HTML, EPUB ou PDF à importer...",
       "capturingPages": "Numérisez et vérifiez les pages sur votre appareil...",
+      "preparingPhotos": "Choisissez des photos et préparez votre document...",
       "importingBatchProgress": "Importation de {{current, number}} sur {{total, number}}",
       "batchProgress": "{{processed, number}} fichiers traités sur {{total, number}}",
       "stoppingBatch": "Arrêt après le fichier en cours...",

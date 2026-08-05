@@ -118,13 +118,17 @@
       "folderDetail": "导入一个文件夹中的 HTML、EPUB 和 PDF 文件；跳过子文件夹",
       "scanPages": "扫描页面",
       "scanPagesDetail": "使用相机扫描一页或多页",
+      "photos": "照片",
+      "photosDetail": "将一张或多张照片导入为 PDF 文档",
       "importingBatch": "正在导入文档",
       "importingFolder": "正在导入文件夹",
-      "scanningPages": "正在扫描页面"
+      "scanningPages": "正在扫描页面",
+      "importingPhotos": "正在导入照片"
     },
     "status": {
       "preparingBatch": "选择要导入的 HTML、EPUB 或 PDF 文件...",
       "capturingPages": "在设备上扫描并检查页面...",
+      "preparingPhotos": "选择照片并准备文档...",
       "importingBatchProgress": "正在导入第 {{current, number}} 个，共 {{total, number}} 个",
       "batchProgress": "已处理 {{processed, number}} 个，共 {{total, number}} 个",
       "stoppingBatch": "将在当前文件完成后停止...",

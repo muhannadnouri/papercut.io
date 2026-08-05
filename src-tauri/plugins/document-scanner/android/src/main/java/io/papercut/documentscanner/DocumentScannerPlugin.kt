@@ -3,6 +3,7 @@ package io.papercut.documentscanner
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.activity.result.ActivityResult
 import app.tauri.annotation.ActivityCallback
 import app.tauri.annotation.Command
@@ -11,6 +12,8 @@ import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
+import java.io.File
+import java.util.concurrent.Executors
 
 @InvokeArg
 class ScanArgs {
@@ -21,11 +24,15 @@ class ScanArgs {
  * remain native while only the completed PDF path crosses the IPC boundary. */
 @TauriPlugin
 class DocumentScannerPlugin(private val activity: Activity) : Plugin(activity) {
+    private val imageImportWorker = Executors.newSingleThreadExecutor()
+
     @Command
     fun availability(invoke: Invoke) {
         val supported = activity.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)
+        val photoImportSupported = imagePickerIntent().resolveActivity(activity.packageManager) != null
         val result = JSObject()
         result.put("supported", supported)
+        result.put("photoImportSupported", photoImportSupported)
         result.put("platform", "android")
         result.put("reason", if (supported) null else "Document scanning requires a camera")
         invoke.resolve(result)
@@ -47,6 +54,68 @@ class DocumentScannerPlugin(private val activity: Activity) : Plugin(activity) {
             startActivityForResult(invoke, intent, "scanResult")
         } catch (error: Exception) {
             invoke.reject(error.message ?: "Unable to start document scanning")
+        }
+    }
+
+    /** Uses Android's system document picker, which works without Google Play
+     * Services or broad media permissions, then builds the PDF off the UI thread. */
+    @Command
+    fun importImages(invoke: Invoke) {
+        try {
+            if (imagePickerIntent().resolveActivity(activity.packageManager) == null) {
+                invoke.reject("No photo picker is available on this device")
+                return
+            }
+            invoke.parseArgs(ScanArgs::class.java)
+            startActivityForResult(invoke, imagePickerIntent(), "importImagesResult")
+        } catch (error: Exception) {
+            invoke.reject(error.message ?: "Unable to open the photo picker")
+        }
+    }
+
+    /** Copies content-provider images into plugin-owned storage before the
+     * picker grant expires; decoding and PDF assembly remain page-bounded. */
+    @ActivityCallback
+    fun importImagesResult(invoke: Invoke, result: ActivityResult) {
+        if (result.resultCode == Activity.RESULT_CANCELED) {
+            invoke.reject("Photo import cancelled")
+            return
+        }
+        if (result.resultCode != Activity.RESULT_OK) {
+            invoke.reject("Photo import failed")
+            return
+        }
+
+        val uris = selectedImageUris(result.data)
+        if (uris.isEmpty()) {
+            invoke.reject("No photos were selected")
+            return
+        }
+        val outputPath = try {
+            invoke.parseArgs(ScanArgs::class.java).outputPath
+        } catch (error: Exception) {
+            invoke.reject(error.message ?: "The photo import destination is invalid")
+            return
+        }
+
+        imageImportWorker.execute {
+            try {
+                val pageCount = ImageImportProcessing.writePdf(
+                    activity.contentResolver,
+                    uris,
+                    File(outputPath),
+                )
+                activity.runOnUiThread {
+                    val response = JSObject()
+                    response.put("outputPath", outputPath)
+                    response.put("pageCount", pageCount)
+                    invoke.resolve(response)
+                }
+            } catch (error: Throwable) {
+                activity.runOnUiThread {
+                    invoke.reject(error.message ?: "Unable to prepare the selected photos")
+                }
+            }
         }
     }
 
@@ -75,5 +144,23 @@ class DocumentScannerPlugin(private val activity: Activity) : Plugin(activity) {
         response.put("outputPath", outputPath)
         response.put("pageCount", pageCount)
         invoke.resolve(response)
+    }
+
+    private fun imagePickerIntent() = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+        addCategory(Intent.CATEGORY_OPENABLE)
+        type = "image/*"
+        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+
+    /** Retains picker order while removing duplicate URIs returned by unusual
+     * document providers that populate both data and ClipData. */
+    private fun selectedImageUris(data: Intent?): List<Uri> {
+        val selected = linkedSetOf<Uri>()
+        data?.clipData?.let { clips ->
+            for (index in 0 until clips.itemCount) selected.add(clips.getItemAt(index).uri)
+        }
+        data?.data?.let(selected::add)
+        return selected.toList()
     }
 }

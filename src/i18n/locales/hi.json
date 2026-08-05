@@ -122,13 +122,17 @@
       "folderDetail": "एक फ़ोल्डर की HTML, EPUB और PDF फ़ाइलें आयात करें; उपफ़ोल्डर छोड़ दिए जाते हैं",
       "scanPages": "पृष्ठ स्कैन करें",
       "scanPagesDetail": "एक या अधिक पृष्ठ स्कैन करने के लिए कैमरे का उपयोग करें",
+      "photos": "फ़ोटो",
+      "photosDetail": "एक या अधिक फ़ोटो को PDF दस्तावेज़ के रूप में आयात करें",
       "importingBatch": "दस्तावेज़ आयात किए जा रहे हैं",
       "importingFolder": "फ़ोल्डर आयात किया जा रहा है",
-      "scanningPages": "पृष्ठ स्कैन किए जा रहे हैं"
+      "scanningPages": "पृष्ठ स्कैन किए जा रहे हैं",
+      "importingPhotos": "फ़ोटो आयात की जा रही हैं"
     },
     "status": {
       "preparingBatch": "आयात करने के लिए HTML, EPUB या PDF फ़ाइलें चुनें...",
       "capturingPages": "अपने डिवाइस पर पृष्ठ स्कैन करें और जाँचें...",
+      "preparingPhotos": "फ़ोटो चुनें और अपना दस्तावेज़ तैयार करें...",
       "importingBatchProgress": "{{total, number}} में से {{current, number}} आयात हो रहा है",
       "batchProgress": "{{total, number}} में से {{processed, number}} संसाधित",
       "stoppingBatch": "वर्तमान फ़ाइल के बाद रोका जा रहा है...",

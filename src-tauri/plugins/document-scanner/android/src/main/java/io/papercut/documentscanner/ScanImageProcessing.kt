@@ -70,6 +70,18 @@ object ScanImageProcessing {
         true,
     )
 
+    /** Normalizes an existing photo to the same white, OCR-sized page boundary
+     * as a full-frame camera crop without introducing a second image pipeline. */
+    fun normalizeImportedPage(source: Bitmap): Bitmap = rectify(
+        source,
+        listOf(
+            ScanPoint(0f, 0f),
+            ScanPoint((source.width - 1).toFloat(), 0f),
+            ScanPoint((source.width - 1).toFloat(), (source.height - 1).toFloat()),
+            ScanPoint(0f, (source.height - 1).toFloat()),
+        ),
+    )
+
     /** Maps the reviewed quadrilateral to a rectangle. Output is capped because
      * larger camera frames materially increase memory without helping the OCR
      * target beyond the roughly 300-DPI source retained here. */

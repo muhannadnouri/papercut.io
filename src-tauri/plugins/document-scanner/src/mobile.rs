@@ -41,6 +41,18 @@ impl<R: Runtime> DocumentScanner<R> {
             .run_mobile_plugin("scan", ScanArgs { output_path })
             .map_err(|error| error.to_string())
     }
+
+    pub(crate) fn platform_import_images_to(
+        &self,
+        output_path: &Path,
+    ) -> Result<ScanResult, String> {
+        let output_path = output_path
+            .to_str()
+            .ok_or_else(|| "The photo import destination is not valid UTF-8".to_string())?;
+        self.0
+            .run_mobile_plugin("importImages", ScanArgs { output_path })
+            .map_err(|error| error.to_string())
+    }
 }
 
 #[derive(Serialize)]

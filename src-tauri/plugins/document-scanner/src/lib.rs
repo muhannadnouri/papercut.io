@@ -21,6 +21,7 @@ use mobile::DocumentScanner;
 #[serde(rename_all = "camelCase")]
 pub struct ScannerAvailability {
     pub supported: bool,
+    pub photo_import_supported: bool,
     pub platform: String,
     pub reason: Option<String>,
 }
@@ -52,6 +53,12 @@ impl<R: Runtime> DocumentScanner<R> {
     /// supplied app-owned path. Image bytes never cross Tauri's JSON bridge.
     pub fn scan_to(&self, output_path: &Path) -> Result<ScanResult, String> {
         self.platform_scan_to(output_path)
+    }
+
+    /// Ask the native photo picker to convert selected images directly into
+    /// one app-owned PDF without moving image bytes through Tauri IPC.
+    pub fn import_images_to(&self, output_path: &Path) -> Result<ScanResult, String> {
+        self.platform_import_images_to(output_path)
     }
 }
 

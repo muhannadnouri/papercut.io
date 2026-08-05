@@ -69,6 +69,7 @@ function App() {
     documentImport,
     importDocumentBatch,
     importDocumentFolder,
+    importDocumentPhotos,
     scanDocument,
     moveLibraryDocuments,
     refreshUploadedLibrary,
@@ -258,6 +259,11 @@ function App() {
     if (result?.imported.length) setShowDocuments(true)
   }, [scanDocument, setShowDocuments])
 
+  const handleImportDocumentPhotos = useCallback(async () => {
+    const result = await importDocumentPhotos()
+    if (result?.imported.length) setShowDocuments(true)
+  }, [importDocumentPhotos, setShowDocuments])
+
   const handleImportAudiobook = useCallback(async () => {
     await importAudiobookBundle(handleViewDocument)
   }, [handleViewDocument, importAudiobookBundle])
@@ -419,6 +425,7 @@ function App() {
             docFilterLower={libraryDocFilterLower}
             documentImport={documentImport}
             documentScannerSupported={documentScanner.supported}
+            documentPhotoImportSupported={documentScanner.photoImportSupported}
             libraryOrganization={uploadedLibraryOrganization}
             documentOpening={documentOpening}
             openingDocumentUrl={documentLoad.status === 'loading' ? documentLoad.url : undefined}
@@ -441,6 +448,7 @@ function App() {
             }}
             onImportDocumentBatch={handleImportDocumentBatch}
             onImportDocumentFolder={handleImportDocumentFolder}
+            onImportDocumentPhotos={handleImportDocumentPhotos}
             onScanDocument={handleScanDocument}
             onCancelDocumentBatch={cancelDocumentBatch}
             onViewDocument={handleViewLibraryDocument}

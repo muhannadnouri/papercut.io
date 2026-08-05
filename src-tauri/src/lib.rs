@@ -55,6 +55,7 @@ pub fn run() {
             document_uploads::commands::document_uploads_reorder_library,
             document_scanner::commands::document_scanner_availability,
             document_scanner::commands::document_scanner_scan,
+            document_scanner::commands::document_scanner_import_images,
             library_transfer::library_transfer_export,
             library_transfer::library_transfer_import,
             library_transfer::network::library_transfer_send_start,

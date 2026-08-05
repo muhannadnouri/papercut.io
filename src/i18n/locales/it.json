@@ -126,13 +126,17 @@
       "folderDetail": "Importa i file HTML, EPUB e PDF da una cartella; le sottocartelle vengono ignorate",
       "scanPages": "Scansiona pagine",
       "scanPagesDetail": "Usa la fotocamera per scansionare una o più pagine",
+      "photos": "Foto",
+      "photosDetail": "Importa una o più foto come documento PDF",
       "importingBatch": "Importazione dei documenti",
       "importingFolder": "Importazione della cartella",
-      "scanningPages": "Scansione delle pagine"
+      "scanningPages": "Scansione delle pagine",
+      "importingPhotos": "Importazione delle foto"
     },
     "status": {
       "preparingBatch": "Scegli i file HTML, EPUB o PDF da importare...",
       "capturingPages": "Scansiona e controlla le pagine sul dispositivo...",
+      "preparingPhotos": "Scegli le foto e prepara il documento...",
       "importingBatchProgress": "Importazione di {{current, number}} su {{total, number}}",
       "batchProgress": "Elaborati {{processed, number}} di {{total, number}}",
       "stoppingBatch": "Arresto dopo il file corrente...",

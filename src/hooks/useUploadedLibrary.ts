@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DocumentInfo } from '../types/search'
-import { scanDocument as scanDocumentSource } from '../document-scanner/documentScanner'
+import {
+  importDocumentPhotos as importDocumentPhotosSource,
+  scanDocument as scanDocumentSource,
+} from '../document-scanner/documentScanner'
 import { indexImportedPdfs } from '../pdf/pdfImport'
 import {
   PDF_OCR_NO_TEXT,
@@ -42,7 +45,7 @@ export const LIBRARY_OPERATION_IN_PROGRESS = 'library-operation-in-progress'
 // isolate user titles without parsing preformatted English messages.
 export type DocumentImportStatus = {
   status: 'idle' | 'importing' | 'imported' | 'recognizing' | 'recognized' | 'deleting' | 'deleted' | 'cancelled' | 'error'
-  format?: 'batch' | 'folder' | 'scan' | 'pdf-ocr' | 'delete-batch'
+  format?: 'batch' | 'folder' | 'scan' | 'photos' | 'pdf-ocr' | 'delete-batch'
   title?: string
   bytesFreed?: number
   message?: string
@@ -115,10 +118,10 @@ export function useUploadedLibrary() {
     setDocumentImport({ status: 'idle' })
   }, [])
 
-  /** Subscribe before opening the picker so even the first native progress event
-   * is retained; both collection pickers share refresh and partial-result flow. */
+  /** Subscribe before opening native selection UI so the shared import paths
+   * retain even their first progress event and use one partial-result flow. */
   const importDocumentCollection = useCallback(async (
-    format: 'batch' | 'folder' | 'scan',
+    format: 'batch' | 'folder' | 'scan' | 'photos',
     importer: () => Promise<UploadedDocumentBatchResult>,
   ): Promise<UploadedDocumentBatchResult | null> => {
     if (operationInProgressRef.current) return null
@@ -181,6 +184,11 @@ export function useUploadedLibrary() {
     [importDocumentCollection],
   )
 
+  const importDocumentPhotos = useCallback(
+    () => importDocumentCollection('photos', importDocumentPhotosSource),
+    [importDocumentCollection],
+  )
+
   /** Run the opt-in English recognizer for one PDF with missing text, then
    * replace its page index through the normal finalizer. */
   const recognizeDocumentText = useCallback(async (documentUrl: string): Promise<boolean> => {
@@ -230,7 +238,8 @@ export function useUploadedLibrary() {
       const nativeCancelled = await cancelDocumentBatchSource()
       if (!abort && !nativeCancelled) return
       setDocumentImport((current) => (current.status === 'importing' &&
-        (current.format === 'batch' || current.format === 'folder' || current.format === 'scan')) ||
+        (current.format === 'batch' || current.format === 'folder' || current.format === 'scan' ||
+          current.format === 'photos')) ||
         (current.status === 'recognizing' && current.format === 'pdf-ocr')
         ? { ...current, cancelRequested: true }
         : current)
@@ -370,6 +379,7 @@ export function useUploadedLibrary() {
     documentImport,
     importDocumentBatch,
     importDocumentFolder,
+    importDocumentPhotos,
     scanDocument,
     moveLibraryDocuments,
     refreshUploadedLibrary,

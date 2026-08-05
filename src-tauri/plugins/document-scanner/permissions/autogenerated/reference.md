@@ -36,6 +36,32 @@ Denies the availability command without any pre-configured scope.
 <tr>
 <td>
 
+`document-scanner:allow-importImages`
+
+</td>
+<td>
+
+Enables the importImages command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`document-scanner:deny-importImages`
+
+</td>
+<td>
+
+Denies the importImages command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `document-scanner:allow-scan`
 
 </td>

@@ -307,6 +307,18 @@
           "markdownDescription": "Denies the availability command without any pre-configured scope."
         },
         {
+          "description": "Enables the importImages command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-importImages",
+          "markdownDescription": "Enables the importImages command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the importImages command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-importImages",
+          "markdownDescription": "Denies the importImages command without any pre-configured scope."
+        },
+        {
           "description": "Enables the scan command without any pre-configured scope.",
           "type": "string",
           "const": "allow-scan",

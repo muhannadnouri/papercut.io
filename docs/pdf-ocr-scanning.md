@@ -1,6 +1,6 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 8 in progress; Android core capture accepted, resilience and iOS physical validation open
+Status: Stage 8 in progress; Android capture and resilience accepted, native photo-picker and iOS physical validation open
 Last updated: 2026-08-04
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -589,10 +589,17 @@ Capture and OCR should remain separate:
   Native image bytes never cross the JSON bridge, and the existing PDF import,
   readiness, OCR, indexing, viewer, search, and TTS pipeline remains the only
   document-processing path.
+- Existing photos use Android's system document picker and iOS PhotosUI. Both
+  copy only the chosen files into plugin-owned temporary storage, normalize one
+  image at a time, and emit the same app-owned PDF contract without broad photo
+  permissions or Google Play Services.
 
-The review step should let users inspect thumbnails, crop, rotate, delete,
-reorder, rescan, and import existing photos. The source pages should be saved
-before OCR begins so recognition can be retried.
+The camera review step lets users inspect thumbnails, crop, rotate, delete,
+reorder, and rescan. Existing-photo import preserves the framing and picker
+order the user already chose instead of maintaining a second native editor;
+photos that need correction should be edited before selection or captured with
+the scanner. Source pages are committed into the canonical PDF before OCR
+begins so recognition can be retried.
 
 Scanner-specific code is intentionally removable:
 
@@ -606,9 +613,9 @@ Registration and the Library import option are the only integration points.
 Deleting those directories and their registrations removes capture without
 changing PDF import or OCR.
 
-Desktop camera capture is deferred. Importing existing PDFs and images covers
-the desktop use case without introducing webcam permissions and a third capture
-experience.
+Desktop camera and direct-image capture are deferred. Importing existing PDFs,
+including PDFs prepared from desktop images, covers the current desktop use case
+without introducing webcam permissions or a third capture workflow.
 
 ## User Experience
 
@@ -1069,7 +1076,8 @@ canonical PDF remained unchanged.
 
 ### Stage 8: Native Mobile Capture
 
-Stage status: In progress; Android core capture acceptance passed, resilience validation and iOS physical-device acceptance open
+Stage status: In progress; Android capture and resilience acceptance passed,
+native photo-picker and iOS physical-device acceptance open
 
 - [x] Add one isolated local Tauri plugin with Android and iOS adapter boundaries.
 - [x] Integrate CameraX capture and a manual four-corner review flow on Android
@@ -1078,7 +1086,8 @@ Stage status: In progress; Android core capture acceptance passed, resilience va
 - [x] Support page thumbnails, crop, rotation, delete, reorder, and retake
       across both platforms. Android keeps only one bounded management preview
       in memory and uses small on-disk thumbnails for the accepted-page strip.
-- [ ] Support importing existing images across both platforms.
+- [x] Support importing existing images across both platforms through native
+      system pickers without broad media permissions or image bytes over IPC.
 - [x] Save reviewed iOS and Android scans as canonical PDFs before OCR begins.
 - [ ] Process bounded batches and allow users to append/resume large scans.
 - [ ] Handle unavailable scanner services, resource download, permissions,
@@ -1109,10 +1118,14 @@ unaccepted camera/review frames are intentionally retaken. A native `StatFs`
 preflight reserves 64 MiB plus the accepted JPEG size before PDF assembly, and
 transient capture, preview, page-write, and final assembly failures no longer
 discard pages that were already accepted.
+Android Activity recreation, low-storage recovery, and retained-page behavior
+also passed physical-device smoke testing. Existing-photo import uses the
+platform picker and normalizes one selected image at a time before the same
+canonical PDF import; Android and iOS picker acceptance remains open.
 The finished path enters the existing Rust PDF importer, so readiness, OCR,
 indexing, viewer, search, and TTS behavior are not duplicated in native code.
-Physical-device acceptance remains open for Activity recreation, low storage,
-and the iOS capture path.
+Physical-device acceptance remains open for the iOS capture path and both
+platform photo-picker paths.
 
 ### Stage 9: Scan-To-Book Integration
 
@@ -1236,6 +1249,7 @@ Stage status: Deferred
 | 2026-08-04 | Stage 8 | Manage Android pages through files and bounded previews | Small on-disk thumbnails support selection, accepted-page order drives final PDF order without rewriting JPEGs, and only the selected page gets a larger bounded preview |
 | 2026-08-04 | Stage 8 | Recover accepted Android pages without a draft database | Android saved Activity state retains plugin-owned filenames and order across same-process Activity recreation; explicit completion/cancellation cleans immediately, abandoned cache sessions expire after seven days, and process-death/app-restart resume stays in Stage 9 |
 | 2026-08-04 | Stage 8 | Use native storage preflight before scanner writes | `StatFs` checks a fixed 64 MiB working reserve and accepted JPEG bytes before PDF assembly; this prevents predictable low-space failures without adding a storage dependency or pretending the estimate guarantees a later write |
+| 2026-08-04 | Stage 8 | Import existing photos through native system pickers | Android `ACTION_OPEN_DOCUMENT` works without Google Play Services or broad media access, iOS PhotosUI grants only selected files, and both normalize one image at a time into the existing canonical PDF import instead of adding another editor or processing path |
 
 ## References
 
