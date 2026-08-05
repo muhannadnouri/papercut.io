@@ -1,6 +1,6 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 8 in progress; isolated iOS and Android capture implemented and awaiting physical-device validation
+Status: Stage 8 in progress; Android core capture accepted, resilience and iOS physical validation open
 Last updated: 2026-08-04
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -1069,7 +1069,7 @@ canonical PDF remained unchanged.
 
 ### Stage 8: Native Mobile Capture
 
-Stage status: In progress; iOS and Android capture implemented, physical-device validation open
+Stage status: In progress; Android core capture acceptance passed, resilience validation and iOS physical-device acceptance open
 
 - [x] Add one isolated local Tauri plugin with Android and iOS adapter boundaries.
 - [x] Integrate CameraX capture and a manual four-corner review flow on Android
@@ -1084,7 +1084,11 @@ Stage status: In progress; iOS and Android capture implemented, physical-device 
 - [ ] Handle unavailable scanner services, resource download, permissions,
       interruption, low storage, and unsupported devices. Android now handles
       camera availability, runtime permission recovery, cancellation, and
-      temporary-file cleanup; interruption/resume and low storage remain open.
+      temporary-file cleanup. It also restores accepted pages after Activity
+      recreation, expires abandoned cache sessions after seven days, checks
+      free space before capture and final PDF assembly, and keeps accepted pages
+      after an assembly failure. Physical interruption and low-storage tests,
+      iOS resource cases, and full app-restart resume remain open.
 - [x] Keep scanning controls absent from desktop and unsupported mobile builds.
 
 Decision gate: a multi-page scan survives interruption and produces a durable
@@ -1097,11 +1101,18 @@ session files, and Android's `PdfDocument` decodes one accepted page at a time.
 Accepted pages now have small session thumbnails; the page manager rewrites
 only the in-memory file order when moving pages and deletes both files when a
 page is removed, without recompressing retained page images.
+Android physical-device acceptance passed camera framing, touch crop, rotation,
+retake, multi-page capture, page reorder/delete, permission denial/recovery,
+cancellation, final PDF import, and OCR handoff. Accepted page filenames and
+order now use Android saved Activity state for same-process Activity recreation;
+unaccepted camera/review frames are intentionally retaken. A native `StatFs`
+preflight reserves 64 MiB plus the accepted JPEG size before PDF assembly, and
+transient capture, preview, page-write, and final assembly failures no longer
+discard pages that were already accepted.
 The finished path enters the existing Rust PDF importer, so readiness, OCR,
 indexing, viewer, search, and TTS behavior are not duplicated in native code.
-Physical-device acceptance is still required for camera framing, touch crop,
-rotation, multi-page capture, permission denial/recovery, cancellation, and
-the final imported document.
+Physical-device acceptance remains open for Activity recreation, low storage,
+and the iOS capture path.
 
 ### Stage 9: Scan-To-Book Integration
 
@@ -1223,6 +1234,8 @@ Stage status: Deferred
 | 2026-08-04 | Stage 8 | Reject ML Kit Document Scanner as the primary Android path | Its scanner resources and UI depend on Google Play Services, which is incompatible with Papercut's supported offline and de-Googled Android devices |
 | 2026-08-04 | Stage 8 | Use CameraX plus Android platform graphics for the first Android scanner | CameraX covers broad camera lifecycle compatibility, while a manual four-corner perspective transform and page-at-a-time `PdfDocument` output avoid Google Play Services, OpenCV, another OCR path, and unbounded bitmap retention |
 | 2026-08-04 | Stage 8 | Manage Android pages through files and bounded previews | Small on-disk thumbnails support selection, accepted-page order drives final PDF order without rewriting JPEGs, and only the selected page gets a larger bounded preview |
+| 2026-08-04 | Stage 8 | Recover accepted Android pages without a draft database | Android saved Activity state retains plugin-owned filenames and order across same-process Activity recreation; explicit completion/cancellation cleans immediately, abandoned cache sessions expire after seven days, and process-death/app-restart resume stays in Stage 9 |
+| 2026-08-04 | Stage 8 | Use native storage preflight before scanner writes | `StatFs` checks a fixed 64 MiB working reserve and accepted JPEG bytes before PDF assembly; this prevents predictable low-space failures without adding a storage dependency or pretending the estimate guarantees a later write |
 
 ## References
 
