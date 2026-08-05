@@ -1076,11 +1076,9 @@ canonical PDF remained unchanged.
 
 ### Stage 8: Native Mobile Capture
 
-Stage status: In progress; Android capture and same-process resilience accepted;
-Android restart recovery, native photo-picker, and iOS physical-device
-acceptance open. The restart-recovery and photo-picker implementation passes
-automated checks, but their latest physical smoke-test passes were explicitly
-deferred.
+Stage status: In progress; Android capture, interruption recovery, native photo
+import, app-restart recovery, and OCR handoff accepted. iOS physical-device
+acceptance remains open.
 
 - [x] Add one isolated local Tauri plugin with Android and iOS adapter boundaries.
 - [x] Integrate CameraX capture and a manual four-corner review flow on Android
@@ -1102,9 +1100,10 @@ deferred.
       temporary-file cleanup. It also restores accepted pages after Activity
       recreation, expires abandoned cache sessions after seven days, checks
       free space before capture and final PDF assembly, and keeps accepted pages
-      after an assembly failure. Physical interruption and low-storage tests,
-      iOS resource cases, Android restart acceptance, and iOS app-restart resume
-      remain open.
+      after an assembly failure. Android interruption, low-storage, and restart
+      recovery passed physical-device acceptance. iOS resource cases remain
+      open; iOS app-restart recovery is deferred to Stage 11 because VisionKit
+      does not expose recoverable in-progress pages.
 - [x] Keep scanning controls absent from desktop and unsupported mobile builds.
 
 Decision gate: a multi-page scan survives interruption and produces a durable
@@ -1128,22 +1127,23 @@ discard pages that were already accepted.
 Android Activity recreation, low-storage recovery, and retained-page behavior
 also passed physical-device smoke testing. Existing-photo import uses the
 platform picker and normalizes one selected image at a time before the same
-canonical PDF import; Android and iOS picker acceptance was deferred and remains
-open. Android also writes a tiny atomic manifest after each accepted-page add,
-move, or delete. A fresh scanner launch can continue the newest complete draft
+canonical PDF import; Android picker acceptance passed and iOS picker acceptance
+remains open. Android also writes a tiny atomic manifest after each accepted-page
+add, move, or delete. A fresh scanner launch can continue the newest complete draft
 or explicitly start over without loading page pixels into memory. This restart
-path compiles and passes Android lint but has not yet received physical-device
-acceptance.
+path passed force-stop, continue, append, ordering, finish, and start-new
+physical-device acceptance.
 The finished path enters the existing Rust PDF importer, so readiness, OCR,
 indexing, viewer, search, and TTS behavior are not duplicated in native code.
-Physical-device acceptance remains open for the iOS capture path and both
-platform photo-picker paths.
+Physical-device acceptance remains open for the iOS capture and photo-picker
+paths.
 
 ### Stage 9: Scan-To-Book Integration
 
 Stage status: In progress; pre-capture metadata, English OCR handoff, targeted
-page-quality retry, active scan append, and Android restart recovery
-implemented; physical mobile acceptance open
+page-quality retry, active scan append, and Android restart recovery implemented
+and accepted on Android. iOS physical-device acceptance and downstream lifecycle
+verification remain open.
 
 - [x] Let users set the display title and choose English recognition or
       import-only handling before native capture/photo selection. Specific
@@ -1160,10 +1160,17 @@ implemented; physical mobile acceptance open
       imported PDF: finishing the native scan remains the canonical import
       boundary.
 - [x] Restore interrupted Android scan state after app restart. The
-      implementation is complete, with physical force-stop acceptance deferred
-      to Stage 10.
-- [ ] Verify folder organization, gallery thumbnail, saved audio, transfer, and
-      deletion.
+      force-stop, continue, append, finish, and start-new paths passed physical
+      device acceptance.
+- [ ] Move a finished scan into a nested folder, restart Papercut, and verify
+      its placement and title persist.
+- [ ] Verify the finished scan's first-page gallery thumbnail and recognition
+      status remain correct after restart.
+- [ ] Create, finish, reopen, and play one saved audiobook from a scanned source.
+- [ ] Transfer a scanned document without audio and with its selected saved
+      audiobook; verify the target can search, read, and play the restored data.
+- [ ] Verify source deletion is blocked while saved audio depends on it, then
+      delete the audio and source and confirm both disappear after restart.
 
 Decision gate: scan-to-book works end to end on one supported Android and one
 supported iOS device with representative multi-language fixtures.
@@ -1175,14 +1182,12 @@ afterward. Choosing English starts the existing local recognizer only when PDF
 readiness reports missing usable text. Choosing another language imports the
 canonical PDF without making an unsupported OCR promise. No second PDF copy,
 native OCR implementation, language detector, or scanner-specific index was
-added. Automated validation is complete, but the new dialog and automatic OCR
-handoff have not yet received physical Android or iOS smoke testing. The next
-slice retains successful OCR pages, lists failed and low-confidence page
-numbers in the Library notice, and retries only those pages through the same
-bounded worker. A character-weighted confidence score below 0.5 is a
-provisional review signal, not proof that OCR is incorrect; it must be
-calibrated against the deferred end-of-cycle device and language matrix. The
-pre-capture and targeted-retry passes have not received physical smoke testing.
+added. Android physical-device acceptance now covers the setup dialog,
+automatic English OCR handoff, import-only handling, low-confidence and
+failed-page review, and targeted retry without reprocessing successful pages.
+Equivalent iOS acceptance remains open. A character-weighted confidence score
+below 0.5 remains a provisional review signal, not proof that OCR is incorrect;
+it must be calibrated against the end-of-cycle device and language matrix.
 No new append API or draft store was added in Stage 9: the isolated native
 plugin already owns this behavior. Android appends page files to its ordered
 manifest without rewriting retained images, while VisionKit owns page addition
@@ -1216,19 +1221,24 @@ Stage status: Not started
 
 Deferred mobile acceptance matrix accumulated during Stages 8 and 9:
 
-- [ ] Android: append, reorder, and delete pages in a live scan; force-stop and
+- [x] Android: append, reorder, and delete pages in a live scan; force-stop and
       reopen Papercut; continue the draft; append another page; and finish with
       the expected order.
-- [ ] Android: choose Start New after recovery, deny and restore camera
+- [x] Android: choose Start New after recovery, deny and restore camera
       permission, exercise low-storage recovery, and confirm accepted pages are
       retained only where documented.
-- [ ] Android and iOS: import multiple existing photos, cancel the picker, and
+- [x] Android: import multiple existing photos, cancel the picker, and verify
+      page order, orientation, cleanup, and bounded-memory behavior.
+- [ ] iOS: import multiple existing photos, cancel the picker, and
       verify page order, orientation, cleanup, and bounded-memory behavior.
 - [ ] iOS: capture, review, append, reorder, and finish a multi-page VisionKit
       scan; cancel it; and verify the canonical PDF and OCR handoff on device.
-- [ ] Scanner OCR handoff: cover successful English recognition, import-only
-      handling, low-confidence review, failed-page review, and targeted retry
-      without reprocessing successful pages.
+- [x] Android scanner OCR handoff: cover successful English recognition,
+      import-only handling, low-confidence review, failed-page review, and
+      targeted retry without reprocessing successful pages.
+- [ ] iOS scanner OCR handoff: cover successful English recognition,
+      import-only handling, low-confidence review, failed-page review, and
+      targeted retry without reprocessing successful pages.
 - [ ] Downstream lifecycle: verify folder organization, gallery thumbnail,
       saved audio, library transfer, and deletion for scanned documents.
 
@@ -1328,6 +1338,7 @@ Stage status: Deferred
 | 2026-08-04 | Stage 9 | Retry OCR from existing page sidecars | Native, blank, and successful OCR pages are skipped; failed and conservatively low-confidence pages remain visible and retryable without adding a scanner job database or discarding searchable work |
 | 2026-08-04 | Stage 9 | Reuse native page-append flows | Android already appends to live and recovered file-backed drafts, while VisionKit owns active multi-page capture on iOS; appending after import would mutate a canonical document and iOS restart recovery remains separate work |
 | 2026-08-04 | Stage 9 | Do not fake iOS VisionKit draft recovery | VisionKit returns pages only after Save and exposes no accepted-page callback or draft token; true app-restart recovery requires a custom iOS scanner and remains evidence-driven follow-up work |
+| 2026-08-04 | Stage 9 | Accept the delayed Android device matrix | Camera and photo capture, interruption and restart recovery, low-storage retention, English OCR handoff, and targeted retry passed; iOS and downstream library lifecycle acceptance remain explicit separate gates |
 
 ## References
 
