@@ -19,31 +19,15 @@ data class ScanPoint(val x: Float, val y: Float)
 
 object ScanImageProcessing {
     private const val MAX_DECODE_DIMENSION = 4096
+    private const val MAX_PREVIEW_DIMENSION = 1600
     private const val MAX_OUTPUT_DIMENSION = 3000
+    private const val MAX_THUMBNAIL_DIMENSION = 160
     private const val PDF_SOURCE_DPI = 300f
 
     /** Decodes a camera JPEG near the maximum useful OCR resolution and applies
      * EXIF orientation up front, keeping crop coordinates stable thereafter. */
     fun decodeUpright(file: File): Bitmap {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeFile(file.path, bounds)
-        if (bounds.outWidth < 1 || bounds.outHeight < 1) {
-            error("Unable to read the captured page")
-        }
-
-        var sampleSize = 1
-        while (bounds.outWidth / sampleSize > MAX_DECODE_DIMENSION ||
-            bounds.outHeight / sampleSize > MAX_DECODE_DIMENSION
-        ) {
-            sampleSize *= 2
-        }
-        val source = BitmapFactory.decodeFile(
-            file.path,
-            BitmapFactory.Options().apply {
-                inSampleSize = sampleSize
-                inPreferredConfig = Bitmap.Config.ARGB_8888
-            },
-        ) ?: error("Unable to decode the captured page")
+        val source = decodeBounded(file, MAX_DECODE_DIMENSION)
 
         val orientation = ExifInterface(file).getAttributeInt(
             ExifInterface.TAG_ORIENTATION,
@@ -71,6 +55,10 @@ object ScanImageProcessing {
             if (it !== source) source.recycle()
         }
     }
+
+    /** Decodes one accepted page for management without returning to the
+     * camera-sized bitmap retained for crop quality. Only this preview is held. */
+    fun decodePreview(file: File): Bitmap = decodeBounded(file, MAX_PREVIEW_DIMENSION)
 
     fun rotateClockwise(source: Bitmap): Bitmap = Bitmap.createBitmap(
         source,
@@ -126,6 +114,32 @@ object ScanImageProcessing {
         }
     }
 
+    /** Persists a deliberately small navigation image. Keeping thumbnails on
+     * disk lets the scanner release every full page between review actions. */
+    fun saveThumbnail(bitmap: Bitmap, output: File) {
+        val scale = minOf(
+            1f,
+            MAX_THUMBNAIL_DIMENSION.toFloat() / max(bitmap.width, bitmap.height),
+        )
+        val width = (bitmap.width * scale).roundToInt().coerceAtLeast(1)
+        val height = (bitmap.height * scale).roundToInt().coerceAtLeast(1)
+        val thumbnail = if (width == bitmap.width && height == bitmap.height) {
+            bitmap
+        } else {
+            Bitmap.createScaledBitmap(bitmap, width, height, true)
+        }
+        try {
+            output.parentFile?.mkdirs()
+            FileOutputStream(output).use { stream ->
+                check(thumbnail.compress(Bitmap.CompressFormat.JPEG, 84, stream)) {
+                    "Unable to save the page thumbnail"
+                }
+            }
+        } finally {
+            if (thumbnail !== bitmap) thumbnail.recycle()
+        }
+    }
+
     /** Builds the canonical image-only PDF one page bitmap at a time. Accepted
      * JPEGs remain the session boundary, so multi-page scans do not retain every
      * decoded page in memory while the PDF is assembled. */
@@ -166,4 +180,28 @@ object ScanImageProcessing {
 
     private fun distance(first: ScanPoint, second: ScanPoint): Float =
         hypot(second.x - first.x, second.y - first.y)
+
+    /** Uses power-of-two sampling so Android never allocates the original
+     * camera bitmap merely to create a bounded review or management preview. */
+    private fun decodeBounded(file: File, maxDimension: Int): Bitmap {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.path, bounds)
+        if (bounds.outWidth < 1 || bounds.outHeight < 1) {
+            error("Unable to read the captured page")
+        }
+
+        var sampleSize = 1
+        while (bounds.outWidth / sampleSize > maxDimension ||
+            bounds.outHeight / sampleSize > maxDimension
+        ) {
+            sampleSize *= 2
+        }
+        return BitmapFactory.decodeFile(
+            file.path,
+            BitmapFactory.Options().apply {
+                inSampleSize = sampleSize
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            },
+        ) ?: error("Unable to decode the captured page")
+    }
 }

@@ -1075,10 +1075,10 @@ Stage status: In progress; iOS and Android capture implemented, physical-device 
 - [x] Integrate CameraX capture and a manual four-corner review flow on Android
       without requiring Google Play Services.
 - [x] Integrate VisionKit document camera on supported iOS devices.
-- [ ] Support page thumbnails, crop, rotation, delete, reorder, rescan, and
-      importing existing images across both platforms. VisionKit supplies the
-      first five operations on iOS; Android now supplies manual crop, rotation,
-      and retake, while thumbnails, delete/reorder, and photo import remain open.
+- [x] Support page thumbnails, crop, rotation, delete, reorder, and retake
+      across both platforms. Android keeps only one bounded management preview
+      in memory and uses small on-disk thumbnails for the accepted-page strip.
+- [ ] Support importing existing images across both platforms.
 - [x] Save reviewed iOS and Android scans as canonical PDFs before OCR begins.
 - [ ] Process bounded batches and allow users to append/resume large scans.
 - [ ] Handle unavailable scanner services, resource download, permissions,
@@ -1094,6 +1094,9 @@ Implementation evidence: the Android plugin compiles and passes Android lint;
 its manifest merges into the arm debug app. CameraX writes one temporary JPEG,
 the review screen holds one bounded bitmap, accepted pages return to compressed
 session files, and Android's `PdfDocument` decodes one accepted page at a time.
+Accepted pages now have small session thumbnails; the page manager rewrites
+only the in-memory file order when moving pages and deletes both files when a
+page is removed, without recompressing retained page images.
 The finished path enters the existing Rust PDF importer, so readiness, OCR,
 indexing, viewer, search, and TTS behavior are not duplicated in native code.
 Physical-device acceptance is still required for camera framing, touch crop,
@@ -1219,6 +1222,7 @@ Stage status: Deferred
 | 2026-08-04 | Stage 8 | Start with VisionKit and defer Android capture to its own slice | iOS provides a complete native multi-page review flow now; Android requires a CameraX capture and manual crop/review workflow that deserves separate implementation and device validation |
 | 2026-08-04 | Stage 8 | Reject ML Kit Document Scanner as the primary Android path | Its scanner resources and UI depend on Google Play Services, which is incompatible with Papercut's supported offline and de-Googled Android devices |
 | 2026-08-04 | Stage 8 | Use CameraX plus Android platform graphics for the first Android scanner | CameraX covers broad camera lifecycle compatibility, while a manual four-corner perspective transform and page-at-a-time `PdfDocument` output avoid Google Play Services, OpenCV, another OCR path, and unbounded bitmap retention |
+| 2026-08-04 | Stage 8 | Manage Android pages through files and bounded previews | Small on-disk thumbnails support selection, accepted-page order drives final PDF order without rewriting JPEGs, and only the selected page gets a larger bounded preview |
 
 ## References
 

@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -15,6 +16,8 @@ import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.HorizontalScrollView
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -30,6 +33,7 @@ import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import java.io.File
 import java.util.UUID
+import java.util.Collections
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -44,13 +48,16 @@ class DocumentScannerActivity : ComponentActivity() {
     }
 
     private val worker: ExecutorService = Executors.newSingleThreadExecutor()
-    private val acceptedPages = mutableListOf<File>()
+    private data class AcceptedPage(val image: File, val thumbnail: File)
+
+    private val acceptedPages = mutableListOf<AcceptedPage>()
     private lateinit var sessionDirectory: File
     private lateinit var outputFile: File
     private var cameraProvider: ProcessCameraProvider? = null
     private var imageCapture: ImageCapture? = null
     private var previewView: PreviewView? = null
     private var reviewBitmap: Bitmap? = null
+    private var managedPageBitmap: Bitmap? = null
     private var reviewCapture: File? = null
     private var cropOverlay: CropOverlayView? = null
     private var resultDelivered = false
@@ -81,7 +88,11 @@ class DocumentScannerActivity : ComponentActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (processing) return
-                if (reviewBitmap != null) discardCurrentCapture() else confirmCancel()
+                when {
+                    managedPageBitmap != null -> showCapture()
+                    reviewBitmap != null -> discardCurrentCapture()
+                    else -> confirmCancel()
+                }
             }
         })
 
@@ -119,6 +130,7 @@ class DocumentScannerActivity : ComponentActivity() {
     override fun onDestroy() {
         cameraProvider?.unbindAll()
         reviewBitmap?.recycle()
+        managedPageBitmap?.recycle()
         worker.shutdown()
         if (!resultDelivered && ::sessionDirectory.isInitialized) sessionDirectory.deleteRecursively()
         super.onDestroy()
@@ -130,6 +142,8 @@ class DocumentScannerActivity : ComponentActivity() {
         processing = false
         reviewBitmap?.recycle()
         reviewBitmap = null
+        managedPageBitmap?.recycle()
+        managedPageBitmap = null
         reviewCapture = null
         cropOverlay = null
 
@@ -138,6 +152,7 @@ class DocumentScannerActivity : ComponentActivity() {
             setBackgroundColor(0xff101114.toInt())
         }
         root.addView(captureHeader())
+        if (acceptedPages.isNotEmpty()) root.addView(acceptedPagesStrip())
         val preview = PreviewView(this).apply {
             implementationMode = PreviewView.ImplementationMode.PERFORMANCE
             scaleType = PreviewView.ScaleType.FILL_CENTER
@@ -156,6 +171,37 @@ class DocumentScannerActivity : ComponentActivity() {
         ).apply { setMargins(dp(16), dp(12), dp(16), dp(16)) })
         setContentView(root)
         preview.post { bindCamera(preview) }
+    }
+
+    /** Shows lightweight on-disk thumbnails rather than keeping accepted page
+     * bitmaps alive. Tapping one opens a single bounded management preview. */
+    private fun acceptedPagesStrip(): View = HorizontalScrollView(this).apply {
+        isHorizontalScrollBarEnabled = false
+        addView(LinearLayout(this@DocumentScannerActivity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+            acceptedPages.forEachIndexed { index, page ->
+                addView(LinearLayout(this@DocumentScannerActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = Gravity.CENTER
+                    isClickable = true
+                    isFocusable = true
+                    contentDescription = getString(R.string.scanner_manage_page, index + 1)
+                    setOnClickListener { showPageManager(index) }
+                    addView(ImageView(this@DocumentScannerActivity).apply {
+                        setImageBitmap(BitmapFactory.decodeFile(page.thumbnail.path))
+                        scaleType = ImageView.ScaleType.CENTER_CROP
+                    }, LinearLayout.LayoutParams(dp(64), dp(72)))
+                    addView(TextView(this@DocumentScannerActivity).apply {
+                        text = getString(R.string.scanner_page_number, index + 1)
+                        gravity = Gravity.CENTER
+                        setTextColor(0xffeeeeee.toInt())
+                    }, LinearLayout.LayoutParams(dp(64), dp(24)))
+                }, LinearLayout.LayoutParams(dp(72), dp(104)).apply {
+                    setMargins(dp(4), 0, dp(4), 0)
+                })
+            }
+        })
     }
 
     private fun captureHeader(): View = LinearLayout(this).apply {
@@ -303,6 +349,84 @@ class DocumentScannerActivity : ComponentActivity() {
         if (rotated !== source) source.recycle()
     }
 
+    /** Loads exactly one accepted page for management. The list itself stores
+     * files only, and its order is the final PDF page order. */
+    private fun showPageManager(index: Int) {
+        val page = acceptedPages.getOrNull(index) ?: return
+        managedPageBitmap?.recycle()
+        managedPageBitmap = null
+        showProgress(getString(R.string.scanner_processing))
+        worker.execute {
+            try {
+                val bitmap = ScanImageProcessing.decodePreview(page.image)
+                runOnUiThread { renderPageManager(index, bitmap) }
+            } catch (error: Throwable) {
+                runOnUiThread { fail(error.message ?: "Unable to preview the scanned page") }
+            }
+        }
+    }
+
+    private fun renderPageManager(index: Int, bitmap: Bitmap) {
+        processing = false
+        managedPageBitmap = bitmap
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(0xff101114.toInt())
+        }
+        root.addView(TextView(this).apply {
+            text = getString(R.string.scanner_page_position, index + 1, acceptedPages.size)
+            setTextColor(0xffeeeeee.toInt())
+            gravity = Gravity.CENTER
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+        })
+        root.addView(ImageView(this).apply {
+            setImageBitmap(bitmap)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            contentDescription = getString(R.string.scanner_manage_page, index + 1)
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        root.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(8), dp(12), dp(12))
+            addView(actionRow(
+                actionButton(getString(R.string.scanner_move_earlier)) {
+                    moveManagedPage(index, index - 1)
+                }.apply { isEnabled = index > 0 },
+                actionButton(getString(R.string.scanner_move_later)) {
+                    moveManagedPage(index, index + 1)
+                }.apply { isEnabled = index < acceptedPages.lastIndex },
+            ))
+            addView(actionRow(
+                actionButton(getString(R.string.scanner_delete_page)) {
+                    confirmDeleteManagedPage(index)
+                },
+                actionButton(getString(R.string.scanner_back_to_camera)) { showCapture() },
+            ))
+        })
+        setContentView(root)
+    }
+
+    /** Reorders the durable page entries directly; no JPEG is rewritten and
+     * PDF assembly later consumes this same list order. */
+    private fun moveManagedPage(from: Int, to: Int) {
+        if (from !in acceptedPages.indices || to !in acceptedPages.indices) return
+        Collections.swap(acceptedPages, from, to)
+        showPageManager(to)
+    }
+
+    private fun confirmDeleteManagedPage(index: Int) {
+        AlertDialog.Builder(this)
+            .setMessage(R.string.scanner_delete_page_confirm)
+            .setNegativeButton(R.string.scanner_keep_scanning, null)
+            .setPositiveButton(R.string.scanner_delete_page) { _, _ ->
+                val removed = acceptedPages.removeAt(index)
+                removed.image.delete()
+                removed.thumbnail.delete()
+                if (acceptedPages.isEmpty()) showCapture()
+                else showPageManager(index.coerceAtMost(acceptedPages.lastIndex))
+            }
+            .show()
+    }
+
     /** Rectifies and compresses the accepted page on the worker. The UI returns
      * to live capture only after the page file is durable for this session. */
     private fun acceptReview(finishAfterPage: Boolean) {
@@ -314,13 +438,17 @@ class DocumentScannerActivity : ComponentActivity() {
         worker.execute {
             try {
                 val corrected = ScanImageProcessing.rectify(source, corners)
-                val pageFile = File(sessionDirectory, "page-${acceptedPages.size + 1}.jpg")
+                // Identity must not depend on list position: deleting a middle
+                // page and capturing another must never overwrite a retained JPEG.
+                val pageFile = File(sessionDirectory, "page-${System.nanoTime()}.jpg")
+                val thumbnailFile = File(sessionDirectory, "thumbnail-${System.nanoTime()}.jpg")
                 try {
                     ScanImageProcessing.savePage(corrected, pageFile)
+                    ScanImageProcessing.saveThumbnail(corrected, thumbnailFile)
                 } finally {
                     corrected.recycle()
                 }
-                acceptedPages.add(pageFile)
+                acceptedPages.add(AcceptedPage(pageFile, thumbnailFile))
                 captureFile.delete()
                 source.recycle()
                 runOnUiThread {
@@ -341,7 +469,7 @@ class DocumentScannerActivity : ComponentActivity() {
         showProgress(getString(R.string.scanner_processing))
         worker.execute {
             try {
-                ScanImageProcessing.writePdf(acceptedPages, outputFile)
+                ScanImageProcessing.writePdf(acceptedPages.map { it.image }, outputFile)
                 sessionDirectory.deleteRecursively()
                 runOnUiThread {
                     resultDelivered = true
