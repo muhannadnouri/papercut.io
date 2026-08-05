@@ -1,7 +1,8 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 9 in progress; Android restart acceptance and deferred mobile validation open
-Last updated: 2026-08-04
+Status: Stage 9 in progress; Android and downstream lifecycle acceptance passed;
+iOS physical-device validation remains open
+Last updated: 2026-08-05
 
 This document is the source of truth for adding PDF reading, searchable OCR,
 and mobile document scanning to Papercut. It records the research, current
@@ -1141,9 +1142,8 @@ paths.
 ### Stage 9: Scan-To-Book Integration
 
 Stage status: In progress; pre-capture metadata, English OCR handoff, targeted
-page-quality retry, active scan append, and Android restart recovery implemented
-and accepted on Android. iOS physical-device acceptance and downstream lifecycle
-verification remain open.
+page-quality retry, active scan append, Android restart recovery, and the shared
+downstream lifecycle are accepted. iOS physical-device acceptance remains open.
 
 - [x] Let users set the display title and choose English recognition or
       import-only handling before native capture/photo selection. Specific
@@ -1162,14 +1162,14 @@ verification remain open.
 - [x] Restore interrupted Android scan state after app restart. The
       force-stop, continue, append, finish, and start-new paths passed physical
       device acceptance.
-- [ ] Move a finished scan into a nested folder, restart Papercut, and verify
+- [x] Move a finished scan into a nested folder, restart Papercut, and verify
       its placement and title persist.
-- [ ] Verify the finished scan's first-page gallery thumbnail and recognition
+- [x] Verify the finished scan's first-page gallery thumbnail and recognition
       status remain correct after restart.
-- [ ] Create, finish, reopen, and play one saved audiobook from a scanned source.
-- [ ] Transfer a scanned document without audio and with its selected saved
+- [x] Create, finish, reopen, and play one saved audiobook from a scanned source.
+- [x] Transfer a scanned document without audio and with its selected saved
       audiobook; verify the target can search, read, and play the restored data.
-- [ ] Verify source deletion is blocked while saved audio depends on it, then
+- [x] Verify source deletion is blocked while saved audio depends on it, then
       delete the audio and source and confirm both disappear after restart.
 
 Decision gate: scan-to-book works end to end on one supported Android and one
@@ -1199,6 +1199,16 @@ would therefore require replacing VisionKit with a Papercut-owned camera,
 perspective-correction, review, and draft flow. That duplication is deferred
 until device acceptance or user evidence makes restart recovery worth the
 additional native implementation and maintenance cost.
+
+For the remaining iOS acceptance, a direct Xcode device install is the shortest
+single-device path. TestFlight does not require a Papercut release or Git tag:
+an App Store Connect archive built from this branch can use the next unreleased
+marketing version and a unique build number, then be assigned to internal
+testers after processing. The existing release workflow already contains the
+required signing, IPA build, and upload steps, but it is intentionally coupled
+to all-platform release publication and must not be run for a branch-only beta.
+A separate manual TestFlight workflow remains unnecessary unless branch beta
+uploads become a repeated need.
 
 ### Stage 10: Hardening And Release
 
@@ -1239,7 +1249,7 @@ Deferred mobile acceptance matrix accumulated during Stages 8 and 9:
 - [ ] iOS scanner OCR handoff: cover successful English recognition,
       import-only handling, low-confidence review, failed-page review, and
       targeted retry without reprocessing successful pages.
-- [ ] Downstream lifecycle: verify folder organization, gallery thumbnail,
+- [x] Downstream lifecycle: verify folder organization, gallery thumbnail,
       saved audio, library transfer, and deletion for scanned documents.
 
 Decision gate: all supported platforms pass automated checks and the complete
@@ -1339,6 +1349,7 @@ Stage status: Deferred
 | 2026-08-04 | Stage 9 | Reuse native page-append flows | Android already appends to live and recovered file-backed drafts, while VisionKit owns active multi-page capture on iOS; appending after import would mutate a canonical document and iOS restart recovery remains separate work |
 | 2026-08-04 | Stage 9 | Do not fake iOS VisionKit draft recovery | VisionKit returns pages only after Save and exposes no accepted-page callback or draft token; true app-restart recovery requires a custom iOS scanner and remains evidence-driven follow-up work |
 | 2026-08-04 | Stage 9 | Accept the delayed Android device matrix | Camera and photo capture, interruption and restart recovery, low-storage retention, English OCR handoff, and targeted retry passed; iOS and downstream library lifecycle acceptance remain explicit separate gates |
+| 2026-08-05 | Stage 9 | Accept the shared downstream scan lifecycle | Folder persistence, gallery state, saved audio, library transfer with and without selected audio, dependency-aware deletion, and restart persistence passed; iOS native capture and photo-picker acceptance remain the final Stage 9 platform gate |
 
 ## References
 
@@ -1353,6 +1364,8 @@ Stage status: Deferred
 - [Apple VisionKit document camera](https://developer.apple.com/documentation/visionkit/vndocumentcameraviewcontroller)
 - [Apple VisionKit document camera delegate](https://developer.apple.com/documentation/visionkit/vndocumentcameraviewcontrollerdelegate)
 - [Apple Vision text recognition](https://developer.apple.com/documentation/vision/vnrecognizetextrequest)
+- [Apple TestFlight overview](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview)
+- [Apple build upload guidance](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds/)
 - [ML Kit Document Scanner](https://developers.google.com/ml-kit/vision/doc-scanner)
 - [ML Kit Text Recognition languages](https://developers.google.com/ml-kit/vision/text-recognition/v2/languages)
 - [Android CameraX](https://developer.android.com/media/camera/camerax)
