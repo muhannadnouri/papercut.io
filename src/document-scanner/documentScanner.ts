@@ -7,6 +7,13 @@ export interface DocumentScannerAvailability {
   reason?: string | null
 }
 
+export type DocumentRecognitionLanguage = 'english' | 'other'
+
+export interface DocumentScanSetup {
+  title: string
+  recognitionLanguage: DocumentRecognitionLanguage
+}
+
 export async function getDocumentScannerAvailability(): Promise<DocumentScannerAvailability> {
   if (!isTauriRuntime()) {
     return {
@@ -22,15 +29,19 @@ export async function getDocumentScannerAvailability(): Promise<DocumentScannerA
 
 /** Capture stays behind one command so native file paths and page bytes never
  * enter React; callers receive the established document-import result only. */
-export async function scanDocument(): Promise<UploadedDocumentBatchResult> {
+export async function scanDocument(setup: DocumentScanSetup): Promise<UploadedDocumentBatchResult> {
   const { invoke } = await import('@tauri-apps/api/core')
-  return invoke<UploadedDocumentBatchResult>('document_scanner_scan')
+  return invoke<UploadedDocumentBatchResult>('document_scanner_scan', {
+    request: { title: setup.title },
+  })
 }
 
 /** Existing photos follow the same staged PDF import boundary as camera scans. */
-export async function importDocumentPhotos(): Promise<UploadedDocumentBatchResult> {
+export async function importDocumentPhotos(setup: DocumentScanSetup): Promise<UploadedDocumentBatchResult> {
   const { invoke } = await import('@tauri-apps/api/core')
-  return invoke<UploadedDocumentBatchResult>('document_scanner_import_images')
+  return invoke<UploadedDocumentBatchResult>('document_scanner_import_images', {
+    request: { title: setup.title },
+  })
 }
 
 function isTauriRuntime(): boolean {

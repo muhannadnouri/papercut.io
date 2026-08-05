@@ -4,6 +4,7 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
+use serde::Deserialize;
 use tauri::{AppHandle, Manager, Runtime, State};
 use tauri_plugin_document_scanner::{DocumentScannerExt, ScanResult, ScannerAvailability};
 
@@ -12,6 +13,13 @@ use crate::document_uploads::{
 };
 
 static NEXT_CAPTURE_ID: AtomicU64 = AtomicU64::new(0);
+const MAX_SCANNER_TITLE_CHARS: usize = 512;
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct DocumentScannerImportRequest {
+    title: String,
+}
 
 #[tauri::command]
 pub(crate) async fn document_scanner_availability<R: Runtime>(
@@ -29,16 +37,18 @@ pub(crate) async fn document_scanner_availability<R: Runtime>(
 pub(crate) async fn document_scanner_scan<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, DocumentUploadState>,
+    request: DocumentScannerImportRequest,
 ) -> Result<UploadedDocumentBatchResult, String> {
-    import_mobile_source(app, state, MobileSource::Camera).await
+    import_mobile_source(app, state, MobileSource::Camera, request).await
 }
 
 #[tauri::command]
 pub(crate) async fn document_scanner_import_images<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, DocumentUploadState>,
+    request: DocumentScannerImportRequest,
 ) -> Result<UploadedDocumentBatchResult, String> {
-    import_mobile_source(app, state, MobileSource::Photos).await
+    import_mobile_source(app, state, MobileSource::Photos, request).await
 }
 
 #[derive(Clone, Copy)]
@@ -53,7 +63,9 @@ async fn import_mobile_source<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, DocumentUploadState>,
     source: MobileSource,
+    request: DocumentScannerImportRequest,
 ) -> Result<UploadedDocumentBatchResult, String> {
+    let title = normalize_scanner_title(request.title)?;
     let control = state.begin_batch()?;
     let scan_dir = create_capture_dir(&app)?;
     let output_path = scan_dir.join(match source {
@@ -83,7 +95,7 @@ async fn import_mobile_source<R: Runtime>(
     let import_app = app.clone();
     let import_path = output_path.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
-        import_scanner_source(import_app, control, import_path)
+        import_scanner_source(import_app, control, import_path, &title)
     })
     .await
     .map_err(|error| format!("Mobile document import task failed: {error}"))??;
@@ -92,6 +104,22 @@ async fn import_mobile_source<R: Runtime>(
         let _ = fs::remove_dir_all(scan_dir);
     }
     Ok(result)
+}
+
+/// Validate display metadata before opening native capture UI. Keeping this at
+/// the command boundary prevents a completed scan from failing only when its
+/// staged PDF enters the upload store.
+fn normalize_scanner_title(title: String) -> Result<String, String> {
+    let title = title.trim();
+    if title.is_empty() {
+        return Err("Document title cannot be empty".into());
+    }
+    if title.chars().count() > MAX_SCANNER_TITLE_CHARS {
+        return Err(format!(
+            "Document title cannot exceed {MAX_SCANNER_TITLE_CHARS} characters"
+        ));
+    }
+    Ok(title.to_owned())
 }
 
 /// Give every native source a human-readable filename inside a unique folder,
@@ -127,4 +155,19 @@ fn validate_mobile_output(result: &ScanResult, path: &Path) -> Result<(), String
         return Err("The mobile document import created an empty PDF".into());
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_scanner_title;
+
+    #[test]
+    fn scanner_title_is_trimmed_and_bounded() {
+        assert_eq!(
+            normalize_scanner_title("  My Scan  ".into()).unwrap(),
+            "My Scan"
+        );
+        assert!(normalize_scanner_title("   ".into()).is_err());
+        assert!(normalize_scanner_title("a".repeat(513)).is_err());
+    }
 }

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { shouldAutoDismissDocumentImport, type DocumentImportStatus } from './useUploadedLibrary'
+import type { UploadedDocument } from '../uploads/DocumentUploads'
+import {
+  shouldAutoDismissDocumentImport,
+  shouldRecognizeImportedScan,
+  type DocumentImportStatus,
+} from './useUploadedLibrary'
 
 describe('shouldAutoDismissDocumentImport', () => {
   it('keeps failures visible while dismissing successful and cancelled imports', () => {
@@ -18,5 +23,18 @@ describe('shouldAutoDismissDocumentImport', () => {
     expect(shouldAutoDismissDocumentImport({ status: 'cancelled' })).toBe(true)
     expect(shouldAutoDismissDocumentImport(failed)).toBe(false)
     expect(shouldAutoDismissDocumentImport({ status: 'error' })).toBe(false)
+  })
+})
+
+describe('shouldRecognizeImportedScan', () => {
+  const document = {
+    sourceKind: 'pdf',
+    textStatus: 'recognition-required',
+  } as UploadedDocument
+
+  it('runs only packaged English recognition for PDFs that need it', () => {
+    expect(shouldRecognizeImportedScan(document, 'english')).toBe(true)
+    expect(shouldRecognizeImportedScan(document, 'other')).toBe(false)
+    expect(shouldRecognizeImportedScan({ ...document, textStatus: 'ready' }, 'english')).toBe(false)
   })
 })

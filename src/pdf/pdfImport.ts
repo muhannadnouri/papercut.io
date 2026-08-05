@@ -23,6 +23,7 @@ const THUMBNAIL_MAX_HEIGHT = 720
 interface PdfImportOptions {
   signal?: AbortSignal
   onProgress?: (progress: UploadedDocumentBatchProgress) => void
+  titleOverride?: string
 }
 
 /**
@@ -53,7 +54,7 @@ export async function indexImportedPdfs(
     })
 
     try {
-      completed.push(await extractAndIndexPdf(document, options.signal))
+      completed.push(await extractAndIndexPdf(document, options.signal, options.titleOverride))
     } catch (error) {
       await deleteUploadedDocument(document.url).catch(() => undefined)
       if (options.signal?.aborted) {
@@ -73,6 +74,7 @@ export async function indexImportedPdfs(
 async function extractAndIndexPdf(
   document: UploadedDocument,
   signal?: AbortSignal,
+  titleOverride?: string,
 ): Promise<UploadedDocument> {
   throwIfAborted(signal)
   const pdfjs = await loadPdfJs()
@@ -89,7 +91,7 @@ async function extractAndIndexPdf(
       throw new Error(`PDF exceeds the ${MAX_PDF_PAGES}-page import limit`)
     }
     const metadata = await pdf.getMetadata().catch(() => null)
-    const title = metadataTitle(metadata?.info)
+    const title = titleOverride ?? metadataTitle(metadata?.info)
     let thumbnail: number[] | undefined
     let recognitionRequired = false
 

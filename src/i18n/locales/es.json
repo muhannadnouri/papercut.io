@@ -133,6 +133,19 @@
       "scanningPages": "Escaneando páginas",
       "importingPhotos": "Importando fotos"
     },
+    "scanSetup": {
+      "title": "Preparar documento",
+      "description": "Define el título y elige cómo debe tratar Papercut el texto después de la captura.",
+      "displayTitle": "Título mostrado",
+      "textLanguage": "Idioma del texto",
+      "english": "Inglés — reconocer texto",
+      "englishDetail": "Se ejecuta localmente después de importar si el PDF no contiene texto utilizable.",
+      "otherLanguage": "Otro idioma — importar sin reconocimiento",
+      "otherLanguageDetail": "El PDF se conserva, pero la búsqueda y la escucha requieren un idioma de reconocimiento compatible.",
+      "continue": "Continuar",
+      "defaultScanTitle": "Documento escaneado",
+      "defaultPhotoTitle": "Fotos importadas"
+    },
     "status": {
       "preparingBatch": "Elige archivos HTML, EPUB o PDF para importar...",
       "capturingPages": "Escanea y revisa las páginas en tu dispositivo...",

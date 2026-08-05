@@ -125,6 +125,19 @@
       "scanningPages": "正在扫描页面",
       "importingPhotos": "正在导入照片"
     },
+    "scanSetup": {
+      "title": "准备文档",
+      "description": "设置标题，并选择 Papercut 在拍摄后如何处理文本。",
+      "displayTitle": "显示标题",
+      "textLanguage": "文本语言",
+      "english": "英语 — 识别文本",
+      "englishDetail": "如果 PDF 没有可用文本，导入后会在本地运行识别。",
+      "otherLanguage": "其他语言 — 不识别直接导入",
+      "otherLanguageDetail": "PDF 会被保留，但搜索和朗读需要受支持的识别语言。",
+      "continue": "继续",
+      "defaultScanTitle": "扫描的文档",
+      "defaultPhotoTitle": "导入的照片"
+    },
     "status": {
       "preparingBatch": "选择要导入的 HTML、EPUB 或 PDF 文件...",
       "capturingPages": "在设备上扫描并检查页面...",

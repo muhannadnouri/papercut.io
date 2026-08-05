@@ -3,6 +3,7 @@ import type { DocumentInfo } from '../types/search'
 import {
   importDocumentPhotos as importDocumentPhotosSource,
   scanDocument as scanDocumentSource,
+  type DocumentScanSetup,
 } from '../document-scanner/documentScanner'
 import { indexImportedPdfs } from '../pdf/pdfImport'
 import {
@@ -57,11 +58,25 @@ export type DocumentImportStatus = {
   cancelRequested?: boolean
 }
 
+interface DocumentCollectionImportOptions {
+  recognitionLanguage?: DocumentScanSetup['recognitionLanguage']
+  titleOverride?: string
+}
+
 /** Auto-dismiss only outcomes that have no file-level failure details to retain. */
 export function shouldAutoDismissDocumentImport(status: DocumentImportStatus): boolean {
   if (status.status === 'recognized') return true
   if (status.status !== 'imported' && status.status !== 'cancelled') return false
   return (status.batchResult?.failures.length ?? 0) === 0
+}
+
+export function shouldRecognizeImportedScan(
+  document: UploadedDocument,
+  language?: DocumentScanSetup['recognitionLanguage'],
+): boolean {
+  return language === 'english' &&
+    document.sourceKind === 'pdf' &&
+    document.textStatus === 'recognition-required'
 }
 
 async function loadUploadedLibrary(): Promise<UploadedLibraryState> {
@@ -123,6 +138,7 @@ export function useUploadedLibrary() {
   const importDocumentCollection = useCallback(async (
     format: 'batch' | 'folder' | 'scan' | 'photos',
     importer: () => Promise<UploadedDocumentBatchResult>,
+    options: DocumentCollectionImportOptions = {},
   ): Promise<UploadedDocumentBatchResult | null> => {
     if (operationInProgressRef.current) return null
     operationInProgressRef.current = true
@@ -136,14 +152,55 @@ export function useUploadedLibrary() {
       })
       const abort = new AbortController()
       importAbortRef.current = abort
-      const batchResult = await indexImportedPdfs(await importer(), {
+      let batchResult = await indexImportedPdfs(await importer(), {
         signal: abort.signal,
+        titleOverride: options.titleOverride,
         onProgress: (batchProgress) => {
           setDocumentImport((current) => current.status === 'importing' && current.format === format
             ? { ...current, batchProgress }
             : current)
         },
       })
+      const recognitionCandidate = batchResult.imported.find((document) => (
+        shouldRecognizeImportedScan(document, options.recognitionLanguage)
+      ))
+      if (recognitionCandidate) {
+        setDocumentImport({
+          status: 'recognizing',
+          format: 'pdf-ocr',
+          title: recognitionCandidate.title,
+        })
+        try {
+          const recognized = await recognizeEnglishPdfDocument(recognitionCandidate, {
+            signal: abort.signal,
+            onProgress: (recognitionProgress) => {
+              setDocumentImport((current) => current.status === 'recognizing' && current.format === 'pdf-ocr'
+                ? { ...current, recognitionProgress }
+                : current)
+            },
+          })
+          batchResult = {
+            ...batchResult,
+            imported: batchResult.imported.map((document) => (
+              document.id === recognized.id ? recognized : document
+            )),
+          }
+          await refreshUploadedLibrary()
+          setDocumentImport({ status: 'recognized', format: 'pdf-ocr', title: recognized.title })
+          return batchResult
+        } catch (err) {
+          await refreshUploadedLibrary()
+          const cancelled = abort.signal.aborted || (err instanceof DOMException && err.name === 'AbortError')
+          const message = err instanceof Error ? err.message : String(err)
+          setDocumentImport({
+            status: cancelled ? 'cancelled' : 'error',
+            format: 'pdf-ocr',
+            title: recognitionCandidate.title,
+            message: message === PDF_OCR_NO_TEXT ? PDF_OCR_NO_TEXT : cancelled ? undefined : message,
+          })
+          return batchResult
+        }
+      }
       if (batchResult.imported.length > 0) await refreshUploadedLibrary()
       setDocumentImport({
         status: batchResult.failures.length > 0
@@ -180,12 +237,20 @@ export function useUploadedLibrary() {
   )
 
   const scanDocument = useCallback(
-    () => importDocumentCollection('scan', scanDocumentSource),
+    (setup: DocumentScanSetup) => importDocumentCollection(
+      'scan',
+      () => scanDocumentSource(setup),
+      { recognitionLanguage: setup.recognitionLanguage, titleOverride: setup.title },
+    ),
     [importDocumentCollection],
   )
 
   const importDocumentPhotos = useCallback(
-    () => importDocumentCollection('photos', importDocumentPhotosSource),
+    (setup: DocumentScanSetup) => importDocumentCollection(
+      'photos',
+      () => importDocumentPhotosSource(setup),
+      { recognitionLanguage: setup.recognitionLanguage, titleOverride: setup.title },
+    ),
     [importDocumentCollection],
   )
 

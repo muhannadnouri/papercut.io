@@ -12,6 +12,8 @@ import { AppHeader } from './components/AppHeader/AppHeader'
 import { SearchTab } from './components/SearchTab/SearchTab'
 import { LibraryTab } from './components/LibraryTab/LibraryTab'
 import { useDocumentScanner } from './document-scanner/useDocumentScanner'
+import { ScanSetupDialog } from './document-scanner/ScanSetupDialog'
+import type { DocumentScanSetup } from './document-scanner/documentScanner'
 import { AudiobooksTab } from './components/AudiobooksTab/AudiobooksTab'
 import { DocumentViewer } from './components/DocumentViewer/DocumentViewer'
 import { TabNav, type AppTab } from './components/TabNav/TabNav'
@@ -57,6 +59,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('library')
   const [userUploads, setUserUploads] = useState<UserUploadDocument[]>(() => getUserUploads())
   const [ttsDiagnosticsEnabled, setTtsDiagnosticsEnabled] = useState(() => isDebugEnabled())
+  const [scanSetupSource, setScanSetupSource] = useState<'camera' | 'photos' | null>(null)
   const { pagefindRef, pagefindReady, allDocuments, documentsLoading } = usePagefind()
   const { confirm: confirmDocumentAction, dialog: documentConfirmationDialog } = useAppConfirmation()
   const {
@@ -254,15 +257,15 @@ function App() {
     if (result?.imported.length) setShowDocuments(true)
   }, [importDocumentFolder, setShowDocuments])
 
-  const handleScanDocument = useCallback(async () => {
-    const result = await scanDocument()
+  const handleScanSetupSubmit = useCallback(async (setup: DocumentScanSetup) => {
+    const source = scanSetupSource
+    if (!source) return
+    setScanSetupSource(null)
+    const result = source === 'camera'
+      ? await scanDocument(setup)
+      : await importDocumentPhotos(setup)
     if (result?.imported.length) setShowDocuments(true)
-  }, [scanDocument, setShowDocuments])
-
-  const handleImportDocumentPhotos = useCallback(async () => {
-    const result = await importDocumentPhotos()
-    if (result?.imported.length) setShowDocuments(true)
-  }, [importDocumentPhotos, setShowDocuments])
+  }, [importDocumentPhotos, scanDocument, scanSetupSource, setShowDocuments])
 
   const handleImportAudiobook = useCallback(async () => {
     await importAudiobookBundle(handleViewDocument)
@@ -448,8 +451,8 @@ function App() {
             }}
             onImportDocumentBatch={handleImportDocumentBatch}
             onImportDocumentFolder={handleImportDocumentFolder}
-            onImportDocumentPhotos={handleImportDocumentPhotos}
-            onScanDocument={handleScanDocument}
+            onImportDocumentPhotos={() => setScanSetupSource('photos')}
+            onScanDocument={() => setScanSetupSource('camera')}
             onCancelDocumentBatch={cancelDocumentBatch}
             onViewDocument={handleViewLibraryDocument}
           />
@@ -471,6 +474,13 @@ function App() {
         )}
       </div>
       {audiobookActionBusy && <AppBusyOverlay message={audiobookActionMessage} />}
+      {scanSetupSource && (
+        <ScanSetupDialog
+          source={scanSetupSource}
+          onCancel={() => setScanSetupSource(null)}
+          onSubmit={(setup) => { void handleScanSetupSubmit(setup) }}
+        />
+      )}
       {documentConfirmationDialog}
       {audiobook.confirmationDialog}
     </div>
