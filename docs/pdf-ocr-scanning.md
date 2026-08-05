@@ -1,6 +1,6 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 9 in progress; iOS restart recovery and deferred mobile acceptance open
+Status: Stage 9 in progress; Android restart acceptance and deferred mobile validation open
 Last updated: 2026-08-04
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -1142,8 +1142,8 @@ platform photo-picker paths.
 ### Stage 9: Scan-To-Book Integration
 
 Stage status: In progress; pre-capture metadata, English OCR handoff, targeted
-page-quality retry, and active scan append implemented; physical mobile
-acceptance open
+page-quality retry, active scan append, and Android restart recovery
+implemented; physical mobile acceptance open
 
 - [x] Let users set the display title and choose English recognition or
       import-only handling before native capture/photo selection. Specific
@@ -1159,8 +1159,9 @@ acceptance open
       equivalent active multi-page flow on iOS. This does not mutate an already
       imported PDF: finishing the native scan remains the canonical import
       boundary.
-- [ ] Restore interrupted scan state after app restart. Android implementation
-      is complete pending physical acceptance; iOS remains open.
+- [x] Restore interrupted Android scan state after app restart. The
+      implementation is complete, with physical force-stop acceptance deferred
+      to Stage 10.
 - [ ] Verify folder organization, gallery thumbnail, saved audio, transfer, and
       deletion.
 
@@ -1187,6 +1188,12 @@ plugin already owns this behavior. Android appends page files to its ordered
 manifest without rewriting retained images, while VisionKit owns page addition
 inside an active iOS scan. Cross-restart iOS recovery remains intentionally open
 instead of introducing a second scanner workflow beside VisionKit.
+Apple's supported delegate contract notifies Papercut only when the user saves,
+cancels, or the scanner fails. Recovering pages accepted before those callbacks
+would therefore require replacing VisionKit with a Papercut-owned camera,
+perspective-correction, review, and draft flow. That duplication is deferred
+until device acceptance or user evidence makes restart recovery worth the
+additional native implementation and maintenance cost.
 
 ### Stage 10: Hardening And Release
 
@@ -1237,6 +1244,8 @@ Stage status: Deferred
       insufficient; keep it derived rather than canonical.
 - [ ] Export searchable PDFs only after import/search is stable.
 - [ ] Add desktop camera capture only if desktop users request it.
+- [ ] Replace VisionKit with a custom iOS scanner only if real interruption
+      failures make active-scan recovery a release requirement.
 - [ ] Add advanced table, equation, or layout analysis only after corpus data
       demonstrates the need.
 
@@ -1318,6 +1327,7 @@ Stage status: Deferred
 | 2026-08-04 | Stage 9 | Carry scan titles through the canonical import transaction | The scanner command validates the chosen title before native UI opens, and PDF finalization honors it instead of relying on a post-import metadata edit |
 | 2026-08-04 | Stage 9 | Retry OCR from existing page sidecars | Native, blank, and successful OCR pages are skipped; failed and conservatively low-confidence pages remain visible and retryable without adding a scanner job database or discarding searchable work |
 | 2026-08-04 | Stage 9 | Reuse native page-append flows | Android already appends to live and recovered file-backed drafts, while VisionKit owns active multi-page capture on iOS; appending after import would mutate a canonical document and iOS restart recovery remains separate work |
+| 2026-08-04 | Stage 9 | Do not fake iOS VisionKit draft recovery | VisionKit returns pages only after Save and exposes no accepted-page callback or draft token; true app-restart recovery requires a custom iOS scanner and remains evidence-driven follow-up work |
 
 ## References
 
@@ -1330,6 +1340,7 @@ Stage status: Deferred
 - [Tauri mobile plugin development](https://v2.tauri.app/develop/plugins/develop-mobile/)
 - [Apple PDFKit](https://developer.apple.com/documentation/pdfkit)
 - [Apple VisionKit document camera](https://developer.apple.com/documentation/visionkit/vndocumentcameraviewcontroller)
+- [Apple VisionKit document camera delegate](https://developer.apple.com/documentation/visionkit/vndocumentcameraviewcontrollerdelegate)
 - [Apple Vision text recognition](https://developer.apple.com/documentation/vision/vnrecognizetextrequest)
 - [ML Kit Document Scanner](https://developers.google.com/ml-kit/vision/doc-scanner)
 - [ML Kit Text Recognition languages](https://developers.google.com/ml-kit/vision/text-recognition/v2/languages)
