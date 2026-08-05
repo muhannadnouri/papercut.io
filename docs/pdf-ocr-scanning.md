@@ -1,6 +1,6 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 8 in progress; Android restart recovery, native photo-picker, and iOS physical validation open
+Status: Stage 9 in progress; iOS restart recovery and deferred mobile acceptance open
 Last updated: 2026-08-04
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -1092,10 +1092,10 @@ deferred.
 - [x] Support importing existing images across both platforms through native
       system pickers without broad media permissions or image bytes over IPC.
 - [x] Save reviewed iOS and Android scans as canonical PDFs before OCR begins.
-- [ ] Process bounded batches and allow users to append/resume large scans.
-      Android now persists only ordered accepted-page filenames and offers to
-      continue or discard the newest unfinished scan after app restart. Physical
-      restart acceptance and equivalent iOS recovery remain open.
+- [x] Process pages with bounded memory and allow users to append pages before
+      finishing. Android appends to the live or recovered file-backed draft;
+      VisionKit provides the active multi-page iOS capture flow. App-restart
+      recovery remains a separate platform requirement below.
 - [ ] Handle unavailable scanner services, resource download, permissions,
       interruption, low storage, and unsupported devices. Android now handles
       camera availability, runtime permission recovery, cancellation, and
@@ -1141,8 +1141,9 @@ platform photo-picker paths.
 
 ### Stage 9: Scan-To-Book Integration
 
-Stage status: In progress; pre-capture metadata, English OCR handoff, and
-targeted page-quality retry implemented; physical mobile acceptance open
+Stage status: In progress; pre-capture metadata, English OCR handoff, targeted
+page-quality retry, and active scan append implemented; physical mobile
+acceptance open
 
 - [x] Let users set the display title and choose English recognition or
       import-only handling before native capture/photo selection. Specific
@@ -1153,7 +1154,11 @@ targeted page-quality retry implemented; physical mobile acceptance open
 - [x] Show low-confidence and failed pages with targeted retry. Successful OCR
       sidecars are reused, while only failed or review-suggested pages are
       processed again.
-- [ ] Allow pages to be appended to an existing unfinished scan.
+- [x] Allow pages to be appended to an existing unfinished scan. Android's Add
+      Page flow works for both live and recovered drafts; VisionKit owns the
+      equivalent active multi-page flow on iOS. This does not mutate an already
+      imported PDF: finishing the native scan remains the canonical import
+      boundary.
 - [ ] Restore interrupted scan state after app restart. Android implementation
       is complete pending physical acceptance; iOS remains open.
 - [ ] Verify folder organization, gallery thumbnail, saved audio, transfer, and
@@ -1177,6 +1182,11 @@ bounded worker. A character-weighted confidence score below 0.5 is a
 provisional review signal, not proof that OCR is incorrect; it must be
 calibrated against the deferred end-of-cycle device and language matrix. The
 pre-capture and targeted-retry passes have not received physical smoke testing.
+No new append API or draft store was added in Stage 9: the isolated native
+plugin already owns this behavior. Android appends page files to its ordered
+manifest without rewriting retained images, while VisionKit owns page addition
+inside an active iOS scan. Cross-restart iOS recovery remains intentionally open
+instead of introducing a second scanner workflow beside VisionKit.
 
 ### Stage 10: Hardening And Release
 
@@ -1196,6 +1206,24 @@ Stage status: Not started
       beta.
 - [ ] Remove diagnostic-only code, unused dependencies, and abandoned feature
       flags.
+
+Deferred mobile acceptance matrix accumulated during Stages 8 and 9:
+
+- [ ] Android: append, reorder, and delete pages in a live scan; force-stop and
+      reopen Papercut; continue the draft; append another page; and finish with
+      the expected order.
+- [ ] Android: choose Start New after recovery, deny and restore camera
+      permission, exercise low-storage recovery, and confirm accepted pages are
+      retained only where documented.
+- [ ] Android and iOS: import multiple existing photos, cancel the picker, and
+      verify page order, orientation, cleanup, and bounded-memory behavior.
+- [ ] iOS: capture, review, append, reorder, and finish a multi-page VisionKit
+      scan; cancel it; and verify the canonical PDF and OCR handoff on device.
+- [ ] Scanner OCR handoff: cover successful English recognition, import-only
+      handling, low-confidence review, failed-page review, and targeted retry
+      without reprocessing successful pages.
+- [ ] Downstream lifecycle: verify folder organization, gallery thumbnail,
+      saved audio, library transfer, and deletion for scanned documents.
 
 Decision gate: all supported platforms pass automated checks and the complete
 manual acceptance matrix before public release.
@@ -1289,6 +1317,7 @@ Stage status: Deferred
 | 2026-08-04 | Stage 9 | Ask only for actionable recognition language before capture | English runs the packaged local recognizer when readiness requires it; every other language remains importable without a misleading unsupported-language list or automatic language detector |
 | 2026-08-04 | Stage 9 | Carry scan titles through the canonical import transaction | The scanner command validates the chosen title before native UI opens, and PDF finalization honors it instead of relying on a post-import metadata edit |
 | 2026-08-04 | Stage 9 | Retry OCR from existing page sidecars | Native, blank, and successful OCR pages are skipped; failed and conservatively low-confidence pages remain visible and retryable without adding a scanner job database or discarding searchable work |
+| 2026-08-04 | Stage 9 | Reuse native page-append flows | Android already appends to live and recovered file-backed drafts, while VisionKit owns active multi-page capture on iOS; appending after import would mutate a canonical document and iOS restart recovery remains separate work |
 
 ## References
 
