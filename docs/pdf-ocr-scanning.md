@@ -1075,8 +1075,9 @@ Stage status: Complete; desktop English image-only and hybrid acceptance passed
       and Android selection handles do not expose overlapping word glyphs.
 - [x] Keep synthetic OCR glyphs transparent during native selection and use a
       translucent cross-platform selection tint over the canonical page image.
-- [x] Keep synthetic OCR glyphs transparent for viewer Find matches so active
-      results mark the source scan without painting approximate text over it.
+- [x] Keep synthetic OCR glyphs transparent for viewer Find matches in both the
+      CSS Highlight API and legacy mark fallback, so active results mark the
+      source scan without painting approximate text over it.
 - [x] Teach viewer Find and indexed-result highlighting to use finalized OCR
       text and page sidecars, including native pages inside hybrid PDFs, while
       retaining PDF.js Find for fully native-text PDFs.
@@ -1385,7 +1386,7 @@ Stage status: Deferred
 | 2026-08-05 | Stage 7 | Separate failed OCR from review-only output | Failed pages remain retryable, while nonempty low-confidence sidecars are accepted explicitly and never rerun unchanged; accepting them reuses the atomic PDF finalizer and refreshes the open viewer without hiding the source PDF |
 | 2026-08-06 | Stage 7 | Keep OCR selection typography invisible | The selectable OCR layer now mirrors PDF.js selection painting with a translucent accent and transparent synthetic glyphs, preserving native handles and copied text without exposing approximate fonts or adding a JavaScript selection overlay |
 | 2026-08-06 | Stage 7 | Add Arabic through the shared Tesseract pipeline | A pinned local `ara` model, explicit capture/reader selection, and language-preserving retries reuse the English worker, page sidecars, FTS, Find, selection, and TTS path without automatic detection or a second OCR engine |
-| 2026-08-06 | Stage 7 | Keep OCR Find typography invisible and action counts literal | Find marks the scanned source through a translucent OCR-layer highlight, while retry and review messages count only pages their action will process; higher-resolution retry remains deferred until fixture-backed quality measurements justify its cost |
+| 2026-08-06 | Stage 7 | Keep OCR Find typography invisible and action counts literal | Both the CSS Highlight API and legacy mark fallback show a translucent OCR-layer highlight without painting synthetic glyphs, while retry and review messages count only pages their action will process; higher-resolution retry remains deferred until fixture-backed quality measurements justify its cost |
 
 ## References
 

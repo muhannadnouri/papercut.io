@@ -99,6 +99,12 @@ html[dir="rtl"] .pdf-search-target-status {
   color: transparent;
 }
 
+.pdf-ocr-text-layer span::highlight(search-target) {
+  background-color: rgb(255 165 0 / 0.55);
+  background-color: color-mix(in srgb, var(--highlight-current) 55%, transparent);
+  color: transparent;
+}
+
 .pdf-tts-highlight-layer {
   inset: 0;
   overflow: hidden;
