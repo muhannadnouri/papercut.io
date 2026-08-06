@@ -17,3 +17,10 @@ export function pdfRecognitionIssueAction(
   if ((issues?.lowConfidencePages.length ?? 0) > 0) return 'accept'
   return null
 }
+
+/** Count only pages handled by the action currently offered to the user. */
+export function pdfRecognitionActionPageCount(issues?: PdfRecognitionIssues): number {
+  return pdfRecognitionIssueAction(issues) === 'retry'
+    ? issues?.failedPages.length ?? 0
+    : issues?.lowConfidencePages.length ?? 0
+}

@@ -4,7 +4,10 @@ import type { ReactNode } from 'react'
 import type { DocumentImportStatus } from '../../hooks/useUploadedLibrary'
 import { PDF_OCR_NO_TEXT } from './recognizePdf'
 import type { PdfOcrLanguage } from './tesseractOcr'
-import { pdfRecognitionIssueAction } from './pdfRecognitionPromptState'
+import {
+  pdfRecognitionActionPageCount,
+  pdfRecognitionIssueAction,
+} from './pdfRecognitionPromptState'
 
 /** Present the shared OCR progress, cancellation, and retry lifecycle. */
 export function PdfRecognitionStatus({
@@ -27,6 +30,7 @@ export function PdfRecognitionStatus({
   const retryDocumentUrl = status.documentUrl
   const issueCount = (issues?.failedPages.length ?? 0) + (issues?.lowConfidencePages.length ?? 0)
   const issueAction = pdfRecognitionIssueAction(issues)
+  const actionPageCount = pdfRecognitionActionPageCount(issues)
   let message: ReactNode
 
   if (recognizing && status.cancelRequested) {
@@ -38,9 +42,9 @@ export function PdfRecognitionStatus({
   } else if (recognizing) {
     message = <Trans i18nKey="library.status.preparingRecognition" values={{ title }} components={{ title: <bdi /> }} />
   } else if (status.status === 'recognized' && issueAction === 'retry') {
-    message = <Trans i18nKey="library.status.recognitionNeedsRetry" values={{ title, count: issueCount }} components={{ title: <bdi /> }} />
+    message = <Trans i18nKey="library.status.recognitionNeedsRetry" values={{ title, count: actionPageCount }} components={{ title: <bdi /> }} />
   } else if (status.status === 'recognized' && issueAction === 'accept') {
-    message = <Trans i18nKey="library.status.recognitionNeedsReview" values={{ title, count: issueCount }} components={{ title: <bdi /> }} />
+    message = <Trans i18nKey="library.status.recognitionNeedsReview" values={{ title, count: actionPageCount }} components={{ title: <bdi /> }} />
   } else if (status.status === 'recognized') {
     message = <Trans i18nKey="library.status.recognitionComplete" values={{ title }} components={{ title: <bdi /> }} />
   } else if (status.status === 'cancelled') {

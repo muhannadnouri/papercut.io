@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   isPdfRecognitionStatusForDocument,
+  pdfRecognitionActionPageCount,
   pdfRecognitionIssueAction,
 } from './pdfRecognitionPromptState'
 
@@ -18,8 +19,13 @@ describe('isPdfRecognitionStatusForDocument', () => {
   })
 
   it('retries failed pages but accepts usable low-confidence text', () => {
-    expect(pdfRecognitionIssueAction({ failedPages: [2], lowConfidencePages: [1] })).toBe('retry')
+    const mixedIssues = { failedPages: [2], lowConfidencePages: [1, 3] }
+
+    expect(pdfRecognitionIssueAction(mixedIssues)).toBe('retry')
+    expect(pdfRecognitionActionPageCount(mixedIssues)).toBe(1)
     expect(pdfRecognitionIssueAction({ failedPages: [], lowConfidencePages: [1] })).toBe('accept')
+    expect(pdfRecognitionActionPageCount({ failedPages: [], lowConfidencePages: [1] })).toBe(1)
     expect(pdfRecognitionIssueAction({ failedPages: [], lowConfidencePages: [] })).toBeNull()
+    expect(pdfRecognitionActionPageCount()).toBe(0)
   })
 })
