@@ -1155,8 +1155,9 @@ paths.
 ### Stage 9: Scan-To-Book Integration
 
 Stage status: In progress; pre-capture metadata, English OCR handoff, targeted
-page-quality retry, active scan append, Android restart recovery, and the shared
-downstream lifecycle are accepted. iOS physical-device acceptance remains open.
+failed-page retry, review-only OCR acceptance, active scan append, Android
+restart recovery, and the shared downstream lifecycle are accepted. iOS
+physical-device acceptance remains open.
 
 - [x] Let users set the display title and choose English recognition or
       import-only handling before native capture/photo selection. Specific
@@ -1164,9 +1165,10 @@ downstream lifecycle are accepted. iOS physical-device acceptance remains open.
 - [x] Feed English captured pages that need recognition through the existing
       bounded OCR and atomic PDF indexing path. Native-text scans and
       import-only languages keep the normal PDF import/view path.
-- [x] Show low-confidence and failed pages with targeted retry. Successful OCR
-      sidecars are reused, while only failed or review-suggested pages are
-      processed again.
+- [x] Show failed pages with targeted retry and low-confidence pages with an
+      explicit Use Recognized Text decision. Existing nonempty OCR sidecars are
+      reused because repeating the same source, engine, and settings cannot
+      improve a deterministic result.
 - [x] Allow pages to be appended to an existing unfinished scan. Android's Add
       Page flow works for both live and recovered drafts; VisionKit owns the
       equivalent active multi-page flow on iOS. This does not mutate an already
@@ -1196,7 +1198,7 @@ readiness reports missing usable text. Choosing another language imports the
 canonical PDF without making an unsupported OCR promise. No second PDF copy,
 native OCR implementation, language detector, or scanner-specific index was
 added. Android physical-device acceptance now covers the setup dialog,
-automatic English OCR handoff, import-only handling, low-confidence and
+automatic English OCR handoff, import-only handling, low-confidence acceptance,
 failed-page review, and targeted retry without reprocessing successful pages.
 Equivalent iOS acceptance remains open. A character-weighted confidence score
 below 0.5 remains a provisional review signal, not proof that OCR is incorrect;
@@ -1257,11 +1259,11 @@ Deferred mobile acceptance matrix accumulated during Stages 8 and 9:
 - [ ] iOS: capture, review, append, reorder, and finish a multi-page VisionKit
       scan; cancel it; and verify the canonical PDF and OCR handoff on device.
 - [x] Android scanner OCR handoff: cover successful English recognition,
-      import-only handling, low-confidence review, failed-page review, and
-      targeted retry without reprocessing successful pages.
+      import-only handling, low-confidence acceptance, failed-page review, and
+      targeted retry without reprocessing successful or review-only pages.
 - [ ] iOS scanner OCR handoff: cover successful English recognition,
-      import-only handling, low-confidence review, failed-page review, and
-      targeted retry without reprocessing successful pages.
+      import-only handling, low-confidence acceptance, failed-page review, and
+      targeted retry without reprocessing successful or review-only pages.
 - [x] Downstream lifecycle: verify folder organization, gallery thumbnail,
       saved audio, library transfer, and deletion for scanned documents.
 
@@ -1358,13 +1360,14 @@ Stage status: Deferred
 | 2026-08-04 | Stage 8 | Import existing photos through native system pickers | Android `ACTION_OPEN_DOCUMENT` works without Google Play Services or broad media access, iOS PhotosUI grants only selected files, and both normalize one image at a time into the existing canonical PDF import instead of adding another editor or processing path |
 | 2026-08-04 | Stage 9 | Ask only for actionable recognition language before capture | English runs the packaged local recognizer when readiness requires it; every other language remains importable without a misleading unsupported-language list or automatic language detector |
 | 2026-08-04 | Stage 9 | Carry scan titles through the canonical import transaction | The scanner command validates the chosen title before native UI opens, and PDF finalization honors it instead of relying on a post-import metadata edit |
-| 2026-08-04 | Stage 9 | Retry OCR from existing page sidecars | Native, blank, and successful OCR pages are skipped; failed and conservatively low-confidence pages remain visible and retryable without adding a scanner job database or discarding searchable work |
+| 2026-08-04 | Stage 9 | Retry OCR from existing page sidecars | Native, blank, and successful OCR pages are skipped; failed and conservatively low-confidence pages remain visible without adding a scanner job database or discarding searchable work |
 | 2026-08-04 | Stage 9 | Reuse native page-append flows | Android already appends to live and recovered file-backed drafts, while VisionKit owns active multi-page capture on iOS; appending after import would mutate a canonical document and iOS restart recovery remains separate work |
 | 2026-08-04 | Stage 9 | Do not fake iOS VisionKit draft recovery | VisionKit returns pages only after Save and exposes no accepted-page callback or draft token; true app-restart recovery requires a custom iOS scanner and remains evidence-driven follow-up work |
 | 2026-08-04 | Stage 9 | Accept the delayed Android device matrix | Camera and photo capture, interruption and restart recovery, low-storage retention, English OCR handoff, and targeted retry passed; iOS and downstream library lifecycle acceptance remain explicit separate gates |
 | 2026-08-05 | Stage 9 | Accept the shared downstream scan lifecycle | Folder persistence, gallery state, saved audio, library transfer with and without selected audio, dependency-aware deletion, and restart persistence passed; iOS native capture and photo-picker acceptance remain the final Stage 9 platform gate |
 | 2026-08-05 | Stage 7 | Fit OCR selection by visual line | Existing word sidecars provide line endings and bounds; the viewer measures one run per line and scales it to the union of those boxes, avoiding overlapping native selection glyphs without a schema migration, dependency, or larger render window |
 | 2026-08-05 | Stage 7 | Start recognition from the open PDF | Library surfaces communicate readiness only; one nonmodal reader prompt explains the benefit and reuses the existing progress, cancellation, retry, and atomic finalization path without adding another job model |
+| 2026-08-05 | Stage 7 | Separate failed OCR from review-only output | Failed pages remain retryable, while nonempty low-confidence sidecars are accepted explicitly and never rerun unchanged; accepting them reuses the atomic PDF finalizer and refreshes the open viewer without hiding the source PDF |
 
 ## References
 

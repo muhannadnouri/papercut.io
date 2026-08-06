@@ -176,11 +176,13 @@
       "recognitionComplete": "Reconhecimento de texto concluído para <title>{{title}}</title>.",
       "recognitionCancelled": "Reconhecimento de texto cancelado para <title>{{title}}</title>.",
       "recognitionNoText": "Nenhum texto em inglês foi reconhecido. O PDF original não foi alterado.",
-      "recognitionNeedsReview": "Reconhecimento concluído para <title>{{title}}</title>. Revise ou tente novamente {{count, number}} páginas.",
+      "recognitionNeedsRetry": "Não foi possível concluir o reconhecimento de <title>{{title}}</title>. Tente novamente {{count, number}} páginas.",
+      "recognitionNeedsReview": "Reconhecimento concluído para <title>{{title}}</title>. Revise {{count, number}} páginas e use o texto reconhecido se ele estiver correto.",
       "recognitionIssues": "Páginas que precisam de atenção: {{count, number}}",
       "recognitionFailedPages": "Nenhum texto reconhecido: {{pages}}",
       "recognitionLowConfidencePages": "Revisão recomendada: {{pages}}",
-      "retryRecognitionPages": "Tentar páginas novamente"
+      "retryRecognitionPages": "Tentar páginas novamente",
+      "useRecognizedText": "Usar texto reconhecido"
     },
     "groups": {
       "importedAudiobooks": "Audiolivros importados",

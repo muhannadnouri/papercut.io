@@ -19,6 +19,7 @@ import {
   deleteUploadedDocument,
   deleteUploadedDocuments,
   deleteUploadedLibraryFolder,
+  finalizeUploadedPdf,
   getUploadedLibraryOrganization,
   importDocumentBatch as importDocumentBatchSource,
   importDocumentFolder as importDocumentFolderSource,
@@ -325,6 +326,45 @@ export function useUploadedLibrary() {
     }
   }, [uploadedDocuments])
 
+  /** Accept persisted review-only OCR and rebuild the normal PDF index without
+   * rerunning the deterministic recognizer or changing the source PDF. */
+  const acceptRecognizedDocumentText = useCallback(async (documentUrl: string): Promise<boolean> => {
+    const document = uploadedDocuments.find((candidate) => candidate.url === documentUrl)
+    if (!document || operationInProgressRef.current) return false
+
+    operationInProgressRef.current = true
+    try {
+      const updated = await finalizeUploadedPdf(
+        document.url,
+        document.title,
+        document.sections,
+        undefined,
+        false,
+      )
+      setUploadedDocuments((documents) => documents.map((candidate) => (
+        candidate.id === updated.id ? updated : candidate
+      )))
+      setDocumentImport({
+        status: 'recognized',
+        format: 'pdf-ocr',
+        title: updated.title,
+        documentUrl: updated.url,
+      })
+      return true
+    } catch (err) {
+      setDocumentImport({
+        status: 'error',
+        format: 'pdf-ocr',
+        title: document.title,
+        documentUrl: document.url,
+        message: err instanceof Error ? err.message : String(err),
+      })
+      return false
+    } finally {
+      operationInProgressRef.current = false
+    }
+  }, [uploadedDocuments])
+
   /** Cancellation aborts frontend PDF work immediately and asks a native batch,
    * when present, to stop safely between files. */
   const cancelDocumentBatch = useCallback(async (): Promise<void> => {
@@ -466,6 +506,7 @@ export function useUploadedLibrary() {
   }, [runOrganizationMutation])
 
   return {
+    acceptRecognizedDocumentText,
     createLibraryFolder,
     cancelDocumentBatch,
     deleteDocument,

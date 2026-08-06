@@ -2,7 +2,10 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { DocumentImportStatus } from '../../hooks/useUploadedLibrary'
 import { PdfRecognitionStatus } from './PdfRecognitionStatus'
-import { isPdfRecognitionStatusForDocument } from './pdfRecognitionPromptState'
+import {
+  isPdfRecognitionStatusForDocument,
+  pdfRecognitionIssueAction,
+} from './pdfRecognitionPromptState'
 import './PdfRecognitionPrompt.css'
 
 /** Offer OCR where its benefit is visible, while reusing the shared job state. */
@@ -12,17 +15,20 @@ export function PdfRecognitionPrompt({
   status,
   onCancel,
   onRecognize,
+  onAccept,
 }: {
   documentUrl: string
   recognitionRequired: boolean
   status: DocumentImportStatus
   onCancel: () => void | Promise<void>
   onRecognize: (documentUrl: string) => void | Promise<boolean>
+  onAccept: (documentUrl: string) => void | Promise<boolean>
 }) {
   const { t } = useTranslation()
   const [dismissedUrl, setDismissedUrl] = useState<string>()
   const ownsStatus = isPdfRecognitionStatusForDocument(status, documentUrl)
   const recognizing = ownsStatus && status.status === 'recognizing'
+  const issueAction = ownsStatus ? pdfRecognitionIssueAction(status.recognitionIssues) : null
   const operationBusy = status.status === 'importing' || status.status === 'recognizing' ||
     status.status === 'deleting'
 
@@ -42,9 +48,10 @@ export function PdfRecognitionPrompt({
           t={t}
           onCancel={onCancel}
           onRetry={onRecognize}
+          onAccept={onAccept}
         />
       )}
-      {recognitionRequired && !recognizing && (
+      {recognitionRequired && !recognizing && !issueAction && (
         <div className="pdf-recognition-prompt-actions">
           <button
             type="button"

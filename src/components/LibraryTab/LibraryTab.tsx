@@ -29,6 +29,7 @@ interface LibraryTabProps {
   savedAudiobookDocumentUrls: ReadonlySet<string>
   showDocuments: boolean
   onAudioSavedOnlyChange: (enabled: boolean) => void
+  onAcceptRecognizedDocument: (documentUrl: string) => void | Promise<boolean>
   onCreateLibraryFolder: (parentId: string | null, name: string) => void | Promise<void>
   onDeleteDocument: (doc: DocumentInfo) => void | Promise<void>
   onDeleteDocuments: (docs: DocumentInfo[]) => Promise<UploadedDocumentDeleteBatchResult | null>
@@ -68,6 +69,7 @@ export function LibraryTab({
   savedAudiobookDocumentUrls,
   showDocuments,
   onAudioSavedOnlyChange,
+  onAcceptRecognizedDocument,
   onCreateLibraryFolder,
   onDeleteDocument,
   onDeleteDocuments,
@@ -97,6 +99,7 @@ export function LibraryTab({
     t,
     onCancelDocumentBatch,
     onRecognizeDocument,
+    onAcceptRecognizedDocument,
     allDocuments,
   )
   const folderImportSupported = !isMobileUserAgent()
@@ -198,6 +201,7 @@ function documentImportStatusMessage(
   t: TFunction,
   onCancelBatch: () => void | Promise<void>,
   onRecognizeDocument: (documentUrl: string) => void | Promise<boolean>,
+  onAcceptRecognizedDocument: (documentUrl: string) => void | Promise<boolean>,
   documents: DocumentInfo[],
 ): ReactNode {
   if (status.status === 'idle') return null
@@ -210,6 +214,7 @@ function documentImportStatusMessage(
       t={t}
       onCancel={onCancelBatch}
       onRetry={onRecognizeDocument}
+      onAccept={onAcceptRecognizedDocument}
     />
   }
   if (status.format === 'batch' || status.format === 'folder' || status.format === 'scan' ||

@@ -172,11 +172,13 @@
       "recognitionComplete": "Text recognition complete for <title>{{title}}</title>.",
       "recognitionCancelled": "Text recognition cancelled for <title>{{title}}</title>.",
       "recognitionNoText": "No English text was recognized. The original PDF was not changed.",
-      "recognitionNeedsReview": "Text recognition finished for <title>{{title}}</title>. Review or retry {{count, number}} pages.",
+      "recognitionNeedsRetry": "Text recognition could not finish for <title>{{title}}</title>. Retry {{count, number}} pages.",
+      "recognitionNeedsReview": "Text recognition finished for <title>{{title}}</title>. Review {{count, number}} pages, then use the recognized text if it looks right.",
       "recognitionIssues": "Pages needing attention: {{count, number}}",
       "recognitionFailedPages": "No text recognized: {{pages}}",
       "recognitionLowConfidencePages": "Review suggested: {{pages}}",
-      "retryRecognitionPages": "Retry Pages"
+      "retryRecognitionPages": "Retry Pages",
+      "useRecognizedText": "Use Recognized Text"
     },
     "groups": {
       "importedAudiobooks": "Imported Audiobooks",

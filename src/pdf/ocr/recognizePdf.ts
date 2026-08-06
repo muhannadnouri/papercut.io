@@ -102,9 +102,11 @@ export async function recognizeEnglishPdfDocument(
         const existingQuality = existing ? pdfOcrPageQuality(existing) : null
         if (existingQuality &&
             existingQuality.confidence !== null &&
-            existingQuality.characters > 0 &&
-            existingQuality.confidence >= LOW_OCR_CONFIDENCE) {
+            existingQuality.characters > 0) {
           recognizedCharacters += existingQuality.characters
+          if (existingQuality.confidence < LOW_OCR_CONFIDENCE) {
+            issues.lowConfidencePages.push(pageNumber)
+          }
           continue
         }
 
@@ -189,7 +191,8 @@ async function recognizePage(
 
 /** Summarize persisted OCR without treating confidence as proof of correctness.
  * Character weighting prevents a short punctuation token from dominating the
- * page score; the conservative threshold only asks for review and retry. */
+ * page score; the conservative threshold asks for review rather than repeating
+ * the same deterministic recognition pass. */
 export function pdfOcrPageQuality(layer: PdfPageTextLayer): {
   characters: number
   confidence: number | null

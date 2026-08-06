@@ -64,6 +64,7 @@ function App() {
   const { pagefindRef, pagefindReady, allDocuments, documentsLoading } = usePagefind()
   const { confirm: confirmDocumentAction, dialog: documentConfirmationDialog } = useAppConfirmation()
   const {
+    acceptRecognizedDocumentText,
     cancelDocumentBatch,
     createLibraryFolder,
     deleteDocument: deleteUploadedLibraryDocument,
@@ -328,11 +329,16 @@ function App() {
   }, [deleteUploadedLibraryDocuments, handleCloseDocument, removeFilter, removeResultsForUrl, selectedDoc])
 
   if (selectedDoc) {
+    const recognitionIssueCount = documentImport.documentUrl === selectedDoc &&
+      documentImport.status === 'recognized'
+      ? (documentImport.recognitionIssues?.failedPages.length ?? 0) +
+        (documentImport.recognitionIssues?.lowConfidencePages.length ?? 0)
+      : 0
     return (
       <>
         <div inert={audiobookActionBusy ? true : undefined}>
           <DocumentViewer
-            key={`${selectedDoc}:${selectedDocument?.textStatus ?? ''}`}
+            key={`${selectedDoc}:${selectedDocument?.textStatus ?? ''}:${recognitionIssueCount > 0 ? 'ocr-review' : ''}`}
             url={selectedDoc}
             format={selectedFormat}
             content={docContent}
@@ -358,6 +364,7 @@ function App() {
                     status={documentImport}
                     onCancel={cancelDocumentBatch}
                     onRecognize={recognizeDocumentText}
+                    onAccept={acceptRecognizedDocumentText}
                   />
                 )}
               </>
@@ -451,6 +458,7 @@ function App() {
             onToggleShow={handleToggleLibraryDocuments}
             onFilterChange={setLibraryDocumentFilter}
             onAudioSavedOnlyChange={setAudioSavedOnly}
+            onAcceptRecognizedDocument={acceptRecognizedDocumentText}
             onCreateLibraryFolder={createLibraryFolder}
             onDeleteDocument={handleDeleteUploadedDocument}
             onDeleteDocuments={handleDeleteUploadedDocuments}

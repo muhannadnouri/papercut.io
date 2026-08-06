@@ -188,11 +188,13 @@
       "recognitionComplete": "اكتمل التعرّف على النص في <title>{{title}}</title>.",
       "recognitionCancelled": "أُلغي التعرّف على النص في <title>{{title}}</title>.",
       "recognitionNoText": "لم يتم التعرّف على نص إنجليزي. لم يتغير ملف PDF الأصلي.",
-      "recognitionNeedsReview": "اكتمل التعرّف على النص في <title>{{title}}</title>. راجع أو أعد محاولة {{count, number}} صفحة.",
+      "recognitionNeedsRetry": "تعذّر إكمال التعرّف على النص في <title>{{title}}</title>. أعد محاولة {{count, number}} صفحة.",
+      "recognitionNeedsReview": "اكتمل التعرّف على النص في <title>{{title}}</title>. راجع {{count, number}} صفحة، ثم استخدم النص المتعرّف عليه إذا بدا صحيحًا.",
       "recognitionIssues": "الصفحات التي تحتاج إلى انتباه: {{count, number}}",
       "recognitionFailedPages": "لم يتم التعرّف على نص: {{pages}}",
       "recognitionLowConfidencePages": "يُنصح بالمراجعة: {{pages}}",
-      "retryRecognitionPages": "إعادة محاولة الصفحات"
+      "retryRecognitionPages": "إعادة محاولة الصفحات",
+      "useRecognizedText": "استخدام النص المتعرّف عليه"
     },
     "groups": {
       "importedAudiobooks": "الكتب الصوتية المستوردة",
