@@ -1040,6 +1040,8 @@ Arabic implementation complete and awaiting acceptance
       `PageTextLayer`.
 - [x] Add an explicit contextual reader action for PDFs with missing text.
 - [x] Reuse one worker and one bounded page render at a time.
+- [x] Render ordinary OCR pages at 300 DPI while capping unusually large pages
+      at one 9-megapixel canvas.
 - [x] Report preparing, page recognition, indexing, cancellation, and failure.
 - [x] Commit recognized search data only through the atomic PDF finalizer.
 - [x] Remove the temporary synthetic OCR benchmark harness and generated PDFs.
@@ -1386,7 +1388,8 @@ Stage status: Deferred
 | 2026-08-05 | Stage 7 | Separate failed OCR from review-only output | Failed pages remain retryable, while nonempty low-confidence sidecars are accepted explicitly and never rerun unchanged; accepting them reuses the atomic PDF finalizer and refreshes the open viewer without hiding the source PDF |
 | 2026-08-06 | Stage 7 | Keep OCR selection typography invisible | The selectable OCR layer now mirrors PDF.js selection painting with a translucent accent and transparent synthetic glyphs, preserving native handles and copied text without exposing approximate fonts or adding a JavaScript selection overlay |
 | 2026-08-06 | Stage 7 | Add Arabic through the shared Tesseract pipeline | A pinned local `ara` model, explicit capture/reader selection, and language-preserving retries reuse the English worker, page sidecars, FTS, Find, selection, and TTS path without automatic detection or a second OCR engine |
-| 2026-08-06 | Stage 7 | Keep OCR Find typography invisible and action counts literal | Both the CSS Highlight API and legacy mark fallback show a translucent OCR-layer highlight without painting synthetic glyphs, while retry and review messages count only pages their action will process; higher-resolution retry remains deferred until fixture-backed quality measurements justify its cost |
+| 2026-08-06 | Stage 7 | Keep OCR Find typography invisible and action counts literal | Both the CSS Highlight API and legacy mark fallback show a translucent OCR-layer highlight without painting synthetic glyphs, while retry and review messages count only pages their action will process |
+| 2026-08-06 | Stage 7 | Prefer 300-DPI recognition on the first pass | Initial recognition and targeted failed-page retries render ordinary pages at Tesseract's recommended resolution; one 9-megapixel canvas bounds memory, while alternate segmentation and image-enhancement profiles remain fixture-driven follow-up work |
 
 ## References
 

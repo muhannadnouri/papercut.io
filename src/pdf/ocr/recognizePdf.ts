@@ -15,8 +15,9 @@ import {
   type PdfOcrLanguage,
 } from './tesseractOcr'
 
-const MAX_OCR_RENDER_PIXELS = 8_000_000
-const TARGET_OCR_SCALE = 2.5
+const PDF_POINTS_PER_INCH = 72
+const TARGET_OCR_DPI = 300
+const MAX_OCR_RENDER_PIXELS = 9_000_000
 const LOW_OCR_CONFIDENCE = 0.5
 
 export const PDF_OCR_NO_TEXT = 'pdf-ocr-no-text'
@@ -220,10 +221,14 @@ export function pdfOcrPageQuality(layer: PdfPageTextLayer): {
   }
 }
 
-/** Prefer enough pixels for OCR accuracy while bounding large-page memory. */
+/** Render ordinary pages at 300 DPI while bounding unusually large pages to
+ * one 9-megapixel canvas, keeping peak OCR memory independent of page count. */
 export function pdfOcrRenderScale(width: number, height: number): number {
   if (!(width > 0) || !(height > 0)) throw new Error('PDF page dimensions are invalid')
-  return Math.min(TARGET_OCR_SCALE, Math.sqrt(MAX_OCR_RENDER_PIXELS / (width * height)))
+  return Math.min(
+    TARGET_OCR_DPI / PDF_POINTS_PER_INCH,
+    Math.sqrt(MAX_OCR_RENDER_PIXELS / (width * height)),
+  )
 }
 
 function throwIfAborted(signal?: AbortSignal): void {

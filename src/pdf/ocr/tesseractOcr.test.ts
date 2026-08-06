@@ -38,11 +38,11 @@ describe('ocrPageTextLayer', () => {
 })
 
 describe('pdfOcrRenderScale', () => {
-  it('uses the quality target for ordinary pages and caps oversized renders', () => {
-    expect(pdfOcrRenderScale(612, 792)).toBe(2.5)
+  it('renders ordinary pages at 300 DPI and caps oversized renders', () => {
+    expect(pdfOcrRenderScale(612, 792)).toBeCloseTo(300 / 72)
     const scale = pdfOcrRenderScale(4_000, 4_000)
-    expect(scale).toBeCloseTo(Math.sqrt(0.5))
-    expect(4_000 * scale * 4_000 * scale).toBeCloseTo(8_000_000)
+    expect(scale).toBe(0.75)
+    expect(4_000 * scale * 4_000 * scale).toBe(9_000_000)
   })
 })
 
