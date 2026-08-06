@@ -1263,8 +1263,17 @@ Stage status: In progress
         sidecars, and failed-write cleanup; cover transferred-source identity
         and header validation directly.
   - [x] Accept Android scanner low-storage recovery and retained-page behavior.
+  - [x] Add a dependency-free preparer for temporary password-protected,
+        malformed, 2,001-page, and sparse 250 MB boundary fixtures. It verifies
+        the pinned upstream password fixture and generated PDF.js contracts
+        without committing large binaries.
   - [ ] Complete the production manual fixture matrix; the existing source-size,
         page-count, page-text, and cleanup guards remain the enforced limits.
+        Run `npm run prepare:pdf-boundary-fixtures`, import the four boundary
+        files it prints, and verify the expected password, invalid-file,
+        page-limit, and size-limit messages. After each rejection, confirm the
+        file is absent from Library and Search. Import `valid.pdf` with the
+        rejected files to confirm one failure does not discard valid imports.
 - [ ] Run memory and performance tests on minimum supported desktop and mobile
       hardware.
 - [ ] Complete keyboard, screen-reader, RTL, localization, zoom, and touch
