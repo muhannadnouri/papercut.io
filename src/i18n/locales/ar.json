@@ -197,6 +197,7 @@
       "recognitionUnrecognizedPages": "لم يتم التعرّف على نص: {{pages}}",
       "recognitionLowConfidencePages": "يُنصح بالمراجعة: {{pages}}",
       "retryRecognitionPages": "إعادة محاولة الصفحات",
+      "improveRecognitionPages": "تحسين الصفحات",
       "useRecognizedText": "استخدام النص المتعرّف عليه"
     },
     "groups": {

@@ -185,6 +185,7 @@
       "recognitionUnrecognizedPages": "Aucun texte reconnu : {{pages}}",
       "recognitionLowConfidencePages": "Vérification conseillée : {{pages}}",
       "retryRecognitionPages": "Réessayer les pages",
+      "improveRecognitionPages": "Améliorer les pages",
       "useRecognizedText": "Utiliser le texte reconnu"
     },
     "groups": {

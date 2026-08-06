@@ -52,6 +52,7 @@ export class PdfRecognitionNoTextError extends Error {
 interface PdfRecognitionOptions {
   signal?: AbortSignal
   onProgress?: (progress: PdfRecognitionProgress) => void
+  improveIssues?: PdfRecognitionIssues
 }
 
 /** Recognize only image-backed pages whose native extraction is not usable.
@@ -97,6 +98,10 @@ export async function recognizePdfDocument(
       unrecognizedPages: [],
       lowConfidencePages: [],
     }
+    const improvePages = new Set([
+      ...(options.improveIssues?.unrecognizedPages ?? []),
+      ...(options.improveIssues?.lowConfidencePages ?? []),
+    ])
 
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       throwIfAborted(options.signal)
@@ -111,7 +116,8 @@ export async function recognizePdfDocument(
         const existing = await getUploadedPdfPageText(document.url, pageNumber - 1)
           .catch(() => null)
         const existingQuality = existing ? pdfOcrPageQuality(existing) : null
-        if (existingQuality &&
+        const improvingPage = improvePages.has(pageNumber)
+        if (!improvingPage && existingQuality &&
             existingQuality.confidence !== null &&
             existingQuality.characters > 0) {
           recognizedCharacters += existingQuality.characters
@@ -122,16 +128,19 @@ export async function recognizePdfDocument(
         }
 
         options.onProgress?.({ phase: 'recognizing', pageNumber, pageCount: pdf.numPages })
-        worker ??= await createPdfOcrWorker(language)
+        worker ??= await createPdfOcrWorker(language, undefined, improvePages.size > 0)
         throwIfAborted(options.signal)
         try {
-          const layer = await recognizePage(page, worker, pageNumber - 1, options.signal)
+          const candidate = await recognizePage(page, worker, pageNumber - 1, options.signal)
+          const layer = improvingPage && existing && !isPdfOcrPageImprovement(existing, candidate)
+            ? existing
+            : candidate
           const quality = pdfOcrPageQuality(layer)
           if (quality.characters === 0) {
             issues.unrecognizedPages.push(pageNumber)
             continue
           }
-          await storeUploadedPdfPageText(document.url, layer)
+          if (layer === candidate) await storeUploadedPdfPageText(document.url, layer)
           recognizedCharacters += quality.characters
           if (quality.confidence !== null && quality.confidence < LOW_OCR_CONFIDENCE) {
             issues.lowConfidencePages.push(pageNumber)
@@ -226,6 +235,21 @@ export function pdfOcrPageQuality(layer: PdfPageTextLayer): {
     characters,
     confidence: confidenceCharacters > 0 ? weightedConfidence / confidenceCharacters : null,
   }
+}
+
+/** Protect accepted OCR from a weaker second pass: a replacement must improve
+ * at least one quality metric without making the other one worse. */
+export function isPdfOcrPageImprovement(
+  existing: PdfPageTextLayer,
+  candidate: PdfPageTextLayer,
+): boolean {
+  const current = pdfOcrPageQuality(existing)
+  const next = pdfOcrPageQuality(candidate)
+  const currentConfidence = current.confidence ?? -1
+  const nextConfidence = next.confidence ?? -1
+  return next.characters >= current.characters &&
+    nextConfidence >= currentConfidence &&
+    (next.characters > current.characters || nextConfidence > currentConfidence)
 }
 
 /** Render ordinary pages at 300 DPI while bounding unusually large pages to

@@ -13,15 +13,20 @@ function tesseractAssetRoot(): string {
 export async function createPdfOcrWorker(
   language: PdfOcrLanguage,
   onProgress?: (progress: PdfOcrProgress) => void,
+  automaticLayout = false,
 ): Promise<Worker> {
-  const { createWorker, OEM } = await import('tesseract.js')
+  const { createWorker, OEM, PSM } = await import('tesseract.js')
   const root = tesseractAssetRoot()
-  return createWorker(language, OEM.LSTM_ONLY, {
+  const worker = await createWorker(language, OEM.LSTM_ONLY, {
     workerPath: `${root}worker.min.js`,
     corePath: `${root}core/`,
     langPath: `${root}lang`,
     logger: ({ progress, status }) => onProgress?.({ progress, status }),
   })
+  if (automaticLayout) {
+    await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO })
+  }
+  return worker
 }
 
 /** Recognize one rendered page and normalize it into Papercut's shared sidecar. */

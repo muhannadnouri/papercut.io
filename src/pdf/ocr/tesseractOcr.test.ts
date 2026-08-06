@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { Block, Page } from 'tesseract.js'
 import { ocrPageTextLayer } from './tesseractOcr'
-import { pdfOcrPageQuality, pdfOcrRenderScale } from './recognizePdf'
+import {
+  isPdfOcrPageImprovement,
+  pdfOcrPageQuality,
+  pdfOcrRenderScale,
+} from './recognizePdf'
 
 describe('ocrPageTextLayer', () => {
   it('preserves reading order and scales word bounds into PDF coordinates', () => {
@@ -58,5 +62,20 @@ describe('pdfOcrPageQuality', () => {
         { text: 'x', bounds: [10, 0, 2, 10], order: 1, confidence: 0.3 },
       ],
     })).toEqual({ characters: 5, confidence: 0.7 })
+  })
+
+  it('replaces stored OCR only when neither quality metric regresses', () => {
+    const layer = (text: string, confidence: number) => ({
+      schemaVersion: 1 as const,
+      pageIndex: 0,
+      width: 100,
+      height: 100,
+      blocks: [{ text, bounds: [0, 0, 10, 10] as [number, number, number, number], order: 0, confidence }],
+    })
+    const existing = layer('four', 0.5)
+
+    expect(isPdfOcrPageImprovement(existing, layer('five!', 0.6))).toBe(true)
+    expect(isPdfOcrPageImprovement(existing, layer('few', 0.9))).toBe(false)
+    expect(isPdfOcrPageImprovement(existing, layer('longer', 0.4))).toBe(false)
   })
 })

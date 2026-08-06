@@ -181,6 +181,7 @@
       "recognitionUnrecognizedPages": "No text recognized: {{pages}}",
       "recognitionLowConfidencePages": "Review suggested: {{pages}}",
       "retryRecognitionPages": "Retry Pages",
+      "improveRecognitionPages": "Improve Pages",
       "useRecognizedText": "Use Recognized Text"
     },
     "groups": {

@@ -43,7 +43,11 @@ interface LibraryTabProps {
   onImportDocumentPhotos: () => void | Promise<void>
   onScanDocument: () => void | Promise<void>
   onMoveLibraryDocuments: (documentIds: string[], folderId: string | null) => void | Promise<void>
-  onRecognizeDocument: (documentUrl: string, language?: PdfOcrLanguage) => void | Promise<boolean>
+  onRecognizeDocument: (
+    documentUrl: string,
+    language?: PdfOcrLanguage,
+    improveIssues?: DocumentImportStatus['recognitionIssues'],
+  ) => void | Promise<boolean>
   onRenameLibraryFolder: (folderId: string, name: string) => void | Promise<void>
   onToggleAuthor: (author: string) => void
   onToggleShow: () => void
@@ -201,7 +205,11 @@ function documentImportStatusMessage(
   status: DocumentImportStatus,
   t: TFunction,
   onCancelBatch: () => void | Promise<void>,
-  onRecognizeDocument: (documentUrl: string, language?: PdfOcrLanguage) => void | Promise<boolean>,
+  onRecognizeDocument: (
+    documentUrl: string,
+    language?: PdfOcrLanguage,
+    improveIssues?: DocumentImportStatus['recognitionIssues'],
+  ) => void | Promise<boolean>,
   onAcceptRecognizedDocument: (documentUrl: string) => void | Promise<boolean>,
   documents: DocumentInfo[],
 ): ReactNode {
@@ -215,6 +223,7 @@ function documentImportStatusMessage(
       t={t}
       onCancel={onCancelBatch}
       onRetry={onRecognizeDocument}
+      onImprove={onRecognizeDocument}
       onAccept={onAcceptRecognizedDocument}
     />
   }

@@ -181,6 +181,7 @@
       "recognitionUnrecognizedPages": "कोई पाठ नहीं पहचाना गया: {{pages}}",
       "recognitionLowConfidencePages": "समीक्षा सुझाई गई: {{pages}}",
       "retryRecognitionPages": "पृष्ठों पर फिर प्रयास करें",
+      "improveRecognitionPages": "पृष्ठ सुधारें",
       "useRecognizedText": "पहचाने गए पाठ का उपयोग करें"
     },
     "groups": {

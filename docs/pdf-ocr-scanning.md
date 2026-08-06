@@ -1181,8 +1181,15 @@ iOS physical-device acceptance also remains open.
 - [x] Distinguish technical page failures from pages where recognition returned
       no text. Offer Retry only after technical failures; let users explicitly
       accept partial OCR containing unrecognized or low-confidence pages.
-      Existing nonempty OCR sidecars are reused because repeating the same
-      source, engine, and settings cannot improve a deterministic result.
+      Existing nonempty OCR sidecars are reused by the normal pass.
+- [x] Offer an optional Improve Pages pass for unrecognized and low-confidence
+      pages. It uses Tesseract's automatic page segmentation and replaces a
+      stored page only when character coverage and confidence do not regress.
+      The action is offered once per result so a deterministic second profile
+      cannot become another indefinite retry loop.
+      Broad image preprocessing remains deferred until a fixture demonstrates
+      that one bounded transform improves recognition without damaging clean
+      scans.
 - [x] Count the pages that triggered the offered retry or review action; the
       expanded issue list may still include the other categories.
 - [x] Allow pages to be appended to an existing unfinished scan. Android's Add

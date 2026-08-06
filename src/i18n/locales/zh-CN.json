@@ -177,6 +177,7 @@
       "recognitionUnrecognizedPages": "未识别出文字：{{pages}}",
       "recognitionLowConfidencePages": "建议检查：{{pages}}",
       "retryRecognitionPages": "重试页面",
+      "improveRecognitionPages": "改善页面",
       "useRecognizedText": "使用识别文本"
     },
     "groups": {

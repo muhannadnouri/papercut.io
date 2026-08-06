@@ -15,12 +15,18 @@ export function PdfRecognitionStatus({
   t,
   onCancel,
   onRetry,
+  onImprove,
   onAccept,
 }: {
   status: DocumentImportStatus
   t: TFunction
   onCancel: () => void | Promise<void>
   onRetry: (documentUrl: string, language: PdfOcrLanguage) => void | Promise<boolean>
+  onImprove: (
+    documentUrl: string,
+    language: PdfOcrLanguage,
+    issues: NonNullable<DocumentImportStatus['recognitionIssues']>,
+  ) => void | Promise<boolean>
   onAccept: (documentUrl: string) => void | Promise<boolean>
 }) {
   const progress = status.recognitionProgress
@@ -104,13 +110,28 @@ export function PdfRecognitionStatus({
             </button>
           )}
           {retryDocumentUrl && status.status === 'recognized' && issueAction === 'accept' && (
-            <button
-              type="button"
-              className="document-batch-cancel"
-              onClick={() => void onAccept(retryDocumentUrl)}
-            >
-              {t('library.status.useRecognizedText')}
-            </button>
+            <>
+              {!status.recognitionImprovementAttempted && (
+                <button
+                  type="button"
+                  className="document-batch-cancel"
+                  onClick={() => void onImprove(
+                    retryDocumentUrl,
+                    status.recognitionLanguage ?? 'eng',
+                    issues,
+                  )}
+                >
+                  {t('library.status.improveRecognitionPages')}
+                </button>
+              )}
+              <button
+                type="button"
+                className="document-batch-cancel"
+                onClick={() => void onAccept(retryDocumentUrl)}
+              >
+                {t('library.status.useRecognizedText')}
+              </button>
+            </>
           )}
         </details>
       )}

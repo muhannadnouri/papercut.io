@@ -23,7 +23,11 @@ export function PdfRecognitionPrompt({
   recognitionRequired: boolean
   status: DocumentImportStatus
   onCancel: () => void | Promise<void>
-  onRecognize: (documentUrl: string, language: PdfOcrLanguage) => void | Promise<boolean>
+  onRecognize: (
+    documentUrl: string,
+    language: PdfOcrLanguage,
+    improveIssues?: DocumentImportStatus['recognitionIssues'],
+  ) => void | Promise<boolean>
   onAccept: (documentUrl: string) => void | Promise<boolean>
 }) {
   const { t } = useTranslation()
@@ -55,6 +59,7 @@ export function PdfRecognitionPrompt({
           t={t}
           onCancel={onCancel}
           onRetry={onRecognize}
+          onImprove={onRecognize}
           onAccept={onAccept}
         />
       )}

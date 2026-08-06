@@ -61,6 +61,7 @@ export type DocumentImportStatus = {
   recognitionProgress?: PdfRecognitionProgress
   recognitionIssues?: PdfRecognitionIssues
   recognitionLanguage?: PdfOcrLanguage
+  recognitionImprovementAttempted?: boolean
   documentUrl?: string
   cancelRequested?: boolean
 }
@@ -296,6 +297,7 @@ export function useUploadedLibrary() {
   const recognizeDocumentText = useCallback(async (
     documentUrl: string,
     recognitionLanguage: PdfOcrLanguage = 'eng',
+    improveIssues?: PdfRecognitionIssues,
   ): Promise<boolean> => {
     const document = uploadedDocuments.find((candidate) => candidate.url === documentUrl)
     if (!document || operationInProgressRef.current) return false
@@ -313,6 +315,7 @@ export function useUploadedLibrary() {
     try {
       const recognition = await recognizePdfDocument(document, recognitionLanguage, {
         signal: abort.signal,
+        improveIssues,
         onProgress: (recognitionProgress) => {
           setDocumentImport((current) => current.status === 'recognizing' && current.format === 'pdf-ocr'
             ? { ...current, recognitionProgress }
@@ -330,6 +333,7 @@ export function useUploadedLibrary() {
         documentUrl: updated.url,
         recognitionIssues: recognition.issues,
         recognitionLanguage,
+        recognitionImprovementAttempted: Boolean(improveIssues),
       })
       return true
     } catch (err) {
