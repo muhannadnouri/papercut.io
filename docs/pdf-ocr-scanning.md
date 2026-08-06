@@ -538,8 +538,9 @@ Papercut uses Tesseract.js 7 as the first shared OCR engine across its WebViews.
 It runs Tesseract in a Web Worker, is imported only when OCR starts, and writes
 recognized words, confidence, reading order, and scaled page coordinates into
 the existing `PageTextLayer`. Search and TTS therefore reuse the existing
-derived-data path; the viewer adds a page-local selectable overlay, while Find
-still needs a sidecar-backed adapter because PDF.js only searches embedded text.
+derived-data path; the viewer groups persisted words into measured, line-fitted
+page-local selection runs, while Find still needs a sidecar-backed adapter
+because PDF.js only searches embedded text.
 
 English trained data is pinned as an npm dependency and copied with the worker
 and core into the ignored `public/tesseract/` build tree. Generated
@@ -1061,6 +1062,8 @@ Stage status: Complete; desktop English image-only and hybrid acceptance passed
 - [x] Prevent duplicate native and OCR text in hybrid PDFs.
 - [x] Overlay persisted OCR words on rendered textless and weak-native pages
       for selection without modifying or duplicating the canonical PDF.
+- [x] Fit selectable OCR line runs to persisted page geometry so native desktop
+      and Android selection handles do not expose overlapping word glyphs.
 - [x] Teach viewer Find and indexed-result highlighting to use finalized OCR
       text and page sidecars, including native pages inside hybrid PDFs, while
       retaining PDF.js Find for fully native-text PDFs.
@@ -1073,7 +1076,9 @@ Manual acceptance passed with native, image-only, blank, and weak-native image
 pages in one hybrid document. Native text remained searchable without
 duplication; recognized pages exposed selectable overlays; Find highlighted and
 navigated matches across native and OCR pages; TTS retained page order; and the
-canonical PDF remained unchanged.
+canonical PDF remained unchanged. A later Android selection review exposed
+overlapping word glyphs, so selection now groups and measures complete OCR lines
+without changing sidecars or eager-rendering additional pages.
 
 ### Stage 8: Native Mobile Capture
 
@@ -1350,6 +1355,7 @@ Stage status: Deferred
 | 2026-08-04 | Stage 9 | Do not fake iOS VisionKit draft recovery | VisionKit returns pages only after Save and exposes no accepted-page callback or draft token; true app-restart recovery requires a custom iOS scanner and remains evidence-driven follow-up work |
 | 2026-08-04 | Stage 9 | Accept the delayed Android device matrix | Camera and photo capture, interruption and restart recovery, low-storage retention, English OCR handoff, and targeted retry passed; iOS and downstream library lifecycle acceptance remain explicit separate gates |
 | 2026-08-05 | Stage 9 | Accept the shared downstream scan lifecycle | Folder persistence, gallery state, saved audio, library transfer with and without selected audio, dependency-aware deletion, and restart persistence passed; iOS native capture and photo-picker acceptance remain the final Stage 9 platform gate |
+| 2026-08-05 | Stage 7 | Fit OCR selection by visual line | Existing word sidecars provide line endings and bounds; the viewer measures one run per line and scales it to the union of those boxes, avoiding overlapping native selection glyphs without a schema migration, dependency, or larger render window |
 
 ## References
 

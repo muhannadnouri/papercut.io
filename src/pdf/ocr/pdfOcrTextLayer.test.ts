@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { PdfPageTextLayer } from '../../uploads/DocumentUploads'
-import { hasPdfOcrText, pdfOcrLayerScale } from './pdfOcrTextLayer'
+import {
+  hasPdfOcrText,
+  pdfOcrLayerScale,
+  pdfOcrTextLines,
+  pdfOcrTextScale,
+} from './pdfOcrTextLayer'
 
 describe('pdfOcrLayerScale', () => {
   it('maps stored OCR coordinates onto the rendered PDF.js text layer', () => {
@@ -27,5 +32,23 @@ describe('pdfOcrLayerScale', () => {
       ...layer,
       blocks: [{ ...layer.blocks[0], confidence: null }],
     })).toBe(false)
+  })
+})
+
+describe('OCR selection geometry', () => {
+  it('joins ordered words into bounded lines and fits measured text', () => {
+    const lines = pdfOcrTextLines([
+      { text: 'Second\n', bounds: [40, 50, 60, 12], order: 3, confidence: 0.9 },
+      { text: 'Readable ', bounds: [10, 20, 55, 10], order: 1, confidence: 0.9 },
+      { text: 'line\n', bounds: [70, 19, 30, 12], order: 2, confidence: 0.9 },
+      { text: 'ignored', bounds: [0, 0, 0, 10], order: 0, confidence: 0.9 },
+    ])
+
+    expect(lines).toEqual([
+      { text: 'Readable line', bounds: [10, 19, 90, 12] },
+      { text: 'Second', bounds: [40, 50, 60, 12] },
+    ])
+    expect(pdfOcrTextScale(90, 120)).toBe(0.75)
+    expect(pdfOcrTextScale(90, 0)).toBe(1)
   })
 })

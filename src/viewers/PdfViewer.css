@@ -73,8 +73,8 @@ html[dir="rtl"] .pdf-search-target-status {
 
 .pdf-ocr-text-layer span {
   line-height: 1;
-  overflow: hidden;
   position: absolute;
+  transform-origin: 0 0;
   white-space: pre;
 }
 
