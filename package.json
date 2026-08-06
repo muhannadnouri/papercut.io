@@ -40,6 +40,7 @@
   },
   "dependencies": {
     "@tauri-apps/plugin-opener": "2.5.3",
+    "@tesseract.js-data/ara": "1.0.0",
     "@tesseract.js-data/eng": "1.0.0",
     "i18next": "^26.3.6",
     "pdfjs-dist": "6.1.200",

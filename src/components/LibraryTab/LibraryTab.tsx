@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
 import type { DocumentImportStatus } from '../../hooks/useUploadedLibrary'
 import { PdfRecognitionStatus } from '../../pdf/ocr/PdfRecognitionStatus'
+import type { PdfOcrLanguage } from '../../pdf/ocr/tesseractOcr'
 import type { DocumentInfo } from '../../types/search'
 import type { UploadedDocumentDeleteBatchResult, UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
 import { formatStorageSize } from '../../utils/formatUtils'
@@ -42,7 +43,7 @@ interface LibraryTabProps {
   onImportDocumentPhotos: () => void | Promise<void>
   onScanDocument: () => void | Promise<void>
   onMoveLibraryDocuments: (documentIds: string[], folderId: string | null) => void | Promise<void>
-  onRecognizeDocument: (documentUrl: string) => void | Promise<boolean>
+  onRecognizeDocument: (documentUrl: string, language?: PdfOcrLanguage) => void | Promise<boolean>
   onRenameLibraryFolder: (folderId: string, name: string) => void | Promise<void>
   onToggleAuthor: (author: string) => void
   onToggleShow: () => void
@@ -200,7 +201,7 @@ function documentImportStatusMessage(
   status: DocumentImportStatus,
   t: TFunction,
   onCancelBatch: () => void | Promise<void>,
-  onRecognizeDocument: (documentUrl: string) => void | Promise<boolean>,
+  onRecognizeDocument: (documentUrl: string, language?: PdfOcrLanguage) => void | Promise<boolean>,
   onAcceptRecognizedDocument: (documentUrl: string) => void | Promise<boolean>,
   documents: DocumentInfo[],
 ): ReactNode {

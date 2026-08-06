@@ -9,7 +9,11 @@ import {
 } from '../../uploads/DocumentUploads'
 import { loadPdfJs, pdfJsAssetRoot } from '../pdfJs'
 import { hasPdfPageImages, hasUsableNativePdfText } from './pdfOcrReadiness'
-import { createEnglishPdfOcrWorker, recognizeEnglishPdfPage } from './tesseractOcr'
+import {
+  createPdfOcrWorker,
+  recognizePdfPage,
+  type PdfOcrLanguage,
+} from './tesseractOcr'
 
 const MAX_OCR_RENDER_PIXELS = 8_000_000
 const TARGET_OCR_SCALE = 2.5
@@ -51,8 +55,9 @@ interface PdfRecognitionOptions {
 /** Recognize only image-backed pages whose native extraction is not usable.
  * Existing native and blank page sidecars stay untouched, and finalization
  * rebuilds the shared page FTS only after the bounded pass succeeds. */
-export async function recognizeEnglishPdfDocument(
+export async function recognizePdfDocument(
   document: UploadedDocument,
+  language: PdfOcrLanguage,
   options: PdfRecognitionOptions = {},
 ): Promise<PdfRecognitionResult> {
   if (document.sourceKind !== 'pdf' || document.textStatus !== 'recognition-required') {
@@ -73,7 +78,7 @@ export async function recognizeEnglishPdfDocument(
     standardFontDataUrl: `${assetRoot}standard_fonts/`,
     wasmUrl: `${assetRoot}wasm/`,
   })
-  let worker: Awaited<ReturnType<typeof createEnglishPdfOcrWorker>> | undefined
+  let worker: Awaited<ReturnType<typeof createPdfOcrWorker>> | undefined
   let workerTermination: Promise<unknown> | undefined
   const cancel = () => {
     void loadingTask.destroy()
@@ -111,7 +116,7 @@ export async function recognizeEnglishPdfDocument(
         }
 
         options.onProgress?.({ phase: 'recognizing', pageNumber, pageCount: pdf.numPages })
-        worker ??= await createEnglishPdfOcrWorker()
+        worker ??= await createPdfOcrWorker(language)
         throwIfAborted(options.signal)
         try {
           const layer = await recognizePage(page, worker, pageNumber - 1, options.signal)
@@ -162,7 +167,7 @@ export async function recognizeEnglishPdfDocument(
 /** Render one OCR page, releasing its bounded canvas before the next page. */
 async function recognizePage(
   page: PDFPageProxy,
-  worker: Awaited<ReturnType<typeof createEnglishPdfOcrWorker>>,
+  worker: Awaited<ReturnType<typeof createPdfOcrWorker>>,
   pageIndex: number,
   signal?: AbortSignal,
 ): Promise<PdfPageTextLayer> {
@@ -176,7 +181,7 @@ async function recognizePage(
   try {
     await page.render({ canvas, viewport, background: '#ffffff' }).promise
     throwIfAborted(signal)
-    return await recognizeEnglishPdfPage(
+    return await recognizePdfPage(
       worker,
       canvas,
       pageIndex,

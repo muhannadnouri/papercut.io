@@ -1,8 +1,8 @@
 # PDF, OCR, And Document Scanning Plan
 
 Status: Stage 9 in progress; Android and downstream lifecycle acceptance passed;
-iOS physical-device validation and the contextual OCR prompt smoke test remain open
-Last updated: 2026-08-05
+iOS physical-device and Arabic OCR validation remain open
+Last updated: 2026-08-06
 
 This document is the source of truth for adding PDF reading, searchable OCR,
 and mobile document scanning to Papercut. It records the research, current
@@ -217,8 +217,9 @@ Hybrid readiness is computed from PDF.js text and image operators during the
 bounded import pass. The document stores only the aggregate status; recognition
 recomputes the same page decision from the canonical PDF, leaves usable native
 and blank page sidecars untouched, and replaces only image-backed weak-text
-pages. If English OCR still returns no text for one of those pages, the
-document remains recognition-required after the successful partial rebuild.
+pages. If OCR in the selected packaged language still returns no text for one
+of those pages, the document remains recognition-required after the successful
+partial rebuild.
 Page-level provenance remains deferred until language/model metadata needs a
 durable representation.
 
@@ -542,24 +543,25 @@ derived-data path; the viewer groups persisted words into measured, line-fitted
 page-local selection runs, while Find still needs a sidecar-backed adapter
 because PDF.js only searches embedded text.
 
-English trained data is pinned as an npm dependency and copied with the worker
-and core into the ignored `public/tesseract/` build tree. Generated
+English and Arabic trained data are pinned as npm dependencies and copied with
+the worker and core into the ignored `public/tesseract/` build tree. Generated
 `*.traineddata` files are not committed at the repository root; each future
 language must be an explicitly pinned package selected by the same preparation
 script so offline builds remain reproducible and only ship supported languages.
 
 Build preparation copies the installed worker, SIMD-capable LSTM cores, and the
-integer English trained data into ignored `public/tesseract` assets. Runtime
+integer English and Arabic trained data into ignored `public/tesseract` assets. Runtime
 URLs are app-local; no CDN or account is required. One worker should be reused
 for a complete job and terminated when the job finishes or is cancelled.
 
-Only English data is included in this foundation. Automatic recognition must
-not silently apply it to every document. The job UI must obtain a supported
-language before OCR begins; additional trained-data packages can then follow
-the same local asset pattern. Tesseract quality, photographed-page cleanup,
-non-Latin language support, mobile speed, and package size remain acceptance
-work. PaddleOCR and native engines are deferred unless real failures justify
-their extra runtimes and platform-specific behavior.
+English and Arabic are the only included languages. Automatic recognition must
+not silently choose between them: capture setup and the reader prompt obtain an
+explicit language before OCR begins, and retries retain that choice. Additional
+trained-data packages can follow the same local asset pattern only when there is
+demonstrated demand. Tesseract quality, photographed-page cleanup, mobile speed,
+and package size remain acceptance work. PaddleOCR and native engines are
+deferred unless real failures justify their extra runtimes and platform-specific
+behavior.
 
 The first production slice exposes one contextual **Make Searchable** prompt in
 the reader for PDFs that require recognition. Library rows and covers retain a
@@ -1006,8 +1008,8 @@ reconstructed paragraphs under the same native request ceiling as HTML/EPUB
 instead of inheriting the larger interactive-playback default; SILMA retains its
 smaller model-specific profile.
 
-Automated validation for this slice passes TypeScript, focused ESLint, all 42
-frontend tests, i18n validation, and the production build/search-index pipeline.
+Automated validation for this slice passes TypeScript, focused ESLint, the full
+frontend test suite, i18n validation, and the production build/search-index pipeline.
 Both focused reconstruction tests also pass when the PDF narration module is
 compiled independently. Focused Rust coverage now checks version 2 HTML
 compatibility, version 3 PDF sources, and source-kind/role mismatches; local
@@ -1019,7 +1021,8 @@ bookmarks, Find, global search, and HTML/EPUB parity.
 
 ### Stage 6: OCR Engine Foundation
 
-Stage status: Foundation complete; desktop English WebView smoke test passed
+Stage status: Foundation complete; desktop English WebView smoke test passed;
+Arabic implementation complete and awaiting acceptance
 
 - [x] Persist aggregate upload text status without changing the canonical PDF
       or page-sidecar schema.
@@ -1030,7 +1033,7 @@ Stage status: Foundation complete; desktop English WebView smoke test passed
 - [x] Defer hybrid page detection until text and image signals could be
       evaluated together in Stage 7.
 - [x] Select Tesseract.js as the initial common engine.
-- [x] Pin the worker, core, and English trained-data packages.
+- [x] Pin the worker, core, and English/Arabic trained-data packages.
 - [x] Package only local runtime assets needed by the LSTM worker.
 - [x] Keep Tesseract and its runtime out of normal app startup.
 - [x] Normalize OCR words, confidence, order, and image-pixel bounds into
@@ -1044,8 +1047,9 @@ Stage status: Foundation complete; desktop English WebView smoke test passed
 - [ ] Confirm the generated build has no OCR CDN requests.
 - [ ] Record first-run worker startup, recognition time, and peak memory.
 
-Decision gate: a local English page produces ordered text and finite bounds in
-the supported WebView without affecting non-OCR startup.
+Decision gate: local English and Arabic pages produce ordered text and finite
+bounds in the supported WebView without affecting non-OCR startup. English has
+passed; Arabic remains open.
 
 ### Stage 7: Image-Only And Hybrid PDF OCR
 
@@ -1055,8 +1059,9 @@ Stage status: Complete; desktop English image-only and hybrid acceptance passed
 - [x] OCR every page of a fully textless English PDF.
 - [x] OCR only missing pages in a hybrid PDF.
 - [x] Normalize OCR output into the same `PageTextLayer` contract.
-- [ ] Store OCR engine/model version, language, provenance, and confidence.
-- [ ] Add language selection or detection with a retry path.
+- [ ] Store OCR engine/model version, provenance, and confidence. The active
+      language is retained in the current job state but is not yet persisted.
+- [x] Add explicit English/Arabic language selection with a retry path.
 - [x] Add page-level progress, cancellation, failure, and retry through the
       reader prompt and shared Library operation notice.
 - [x] Keep Library rows and gallery covers informational instead of repeating
@@ -1158,14 +1163,15 @@ paths.
 
 Stage status: In progress; pre-capture metadata, English OCR handoff, targeted
 failed-page retry, review-only OCR acceptance, active scan append, Android
-restart recovery, and the shared downstream lifecycle are accepted. iOS
-physical-device acceptance remains open.
+restart recovery, and the shared downstream lifecycle are accepted. Arabic OCR
+is implemented through the same pipeline but still needs device acceptance;
+iOS physical-device acceptance also remains open.
 
-- [x] Let users set the display title and choose English recognition or
-      import-only handling before native capture/photo selection. Specific
-      non-English languages stay out of the picker until their OCR assets ship.
-- [x] Feed English captured pages that need recognition through the existing
-      bounded OCR and atomic PDF indexing path. Native-text scans and
+- [x] Let users set the display title and choose English recognition, Arabic
+      recognition, or import-only handling before native capture/photo
+      selection. Languages without packaged OCR data stay out of the picker.
+- [x] Feed English and Arabic captured pages that need recognition through the
+      existing bounded OCR and atomic PDF indexing path. Native-text scans and
       import-only languages keep the normal PDF import/view path.
 - [x] Show failed pages with targeted retry and low-confidence pages with an
       explicit Use Recognized Text decision. Existing nonempty OCR sidecars are
@@ -1195,14 +1201,15 @@ supported iOS device with representative multi-language fixtures.
 Implementation evidence: the setup dialog reuses the app's accessible modal
 and select controls. Its title enters the initial Rust upload transaction and
 is retained through PDF.js finalization; it is not patched onto the document
-afterward. Choosing English starts the existing local recognizer only when PDF
-readiness reports missing usable text. Choosing another language imports the
-canonical PDF without making an unsupported OCR promise. No second PDF copy,
-native OCR implementation, language detector, or scanner-specific index was
-added. Android physical-device acceptance now covers the setup dialog,
+afterward. Choosing English or Arabic starts the existing local recognizer only
+when PDF readiness reports missing usable text. Choosing an unsupported-language
+import path keeps the canonical PDF without making an OCR promise. No second PDF
+copy, native OCR implementation, language detector, or scanner-specific index
+was added. Android physical-device acceptance now covers the setup dialog,
 automatic English OCR handoff, import-only handling, low-confidence acceptance,
 failed-page review, and targeted retry without reprocessing successful pages.
-Equivalent iOS acceptance remains open. A character-weighted confidence score
+Arabic OCR acceptance and equivalent iOS acceptance remain open. A
+character-weighted confidence score
 below 0.5 remains a provisional review signal, not proof that OCR is incorrect;
 it must be calibrated against the end-of-cycle device and language matrix.
 No new append API or draft store was added in Stage 9: the isolated native
@@ -1263,6 +1270,8 @@ Deferred mobile acceptance matrix accumulated during Stages 8 and 9:
 - [x] Android scanner OCR handoff: cover successful English recognition,
       import-only handling, low-confidence acceptance, failed-page review, and
       targeted retry without reprocessing successful or review-only pages.
+- [ ] Desktop and Android Arabic OCR: verify RTL selection/copy, exact search,
+      Find navigation, page order, TTS order, low-confidence review, and retry.
 - [ ] iOS scanner OCR handoff: cover successful English recognition,
       import-only handling, low-confidence acceptance, failed-page review, and
       targeted retry without reprocessing successful or review-only pages.
@@ -1371,6 +1380,7 @@ Stage status: Deferred
 | 2026-08-05 | Stage 7 | Start recognition from the open PDF | Library surfaces communicate readiness only; one nonmodal reader prompt explains the benefit and reuses the existing progress, cancellation, retry, and atomic finalization path without adding another job model |
 | 2026-08-05 | Stage 7 | Separate failed OCR from review-only output | Failed pages remain retryable, while nonempty low-confidence sidecars are accepted explicitly and never rerun unchanged; accepting them reuses the atomic PDF finalizer and refreshes the open viewer without hiding the source PDF |
 | 2026-08-06 | Stage 7 | Keep OCR selection typography invisible | The selectable OCR layer now mirrors PDF.js selection painting with a translucent accent and transparent synthetic glyphs, preserving native handles and copied text without exposing approximate fonts or adding a JavaScript selection overlay |
+| 2026-08-06 | Stage 7 | Add Arabic through the shared Tesseract pipeline | A pinned local `ara` model, explicit capture/reader selection, and language-preserving retries reuse the English worker, page sidecars, FTS, Find, selection, and TTS path without automatic detection or a second OCR engine |
 
 ## References
 

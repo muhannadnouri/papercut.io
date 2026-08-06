@@ -139,6 +139,8 @@
       "textLanguage": "Lingua del testo",
       "english": "Inglese — riconosci testo",
       "englishDetail": "Viene eseguito localmente dopo l’importazione se il PDF non contiene testo utilizzabile.",
+      "arabic": "Arabo — riconosci testo",
+      "arabicDetail": "Viene eseguito localmente dopo l’importazione se il PDF non contiene testo utilizzabile.",
       "otherLanguage": "Altra lingua — importa senza riconoscimento",
       "otherLanguageDetail": "Il PDF viene conservato, ma ricerca e ascolto richiedono una lingua di riconoscimento supportata.",
       "continue": "Continua",
@@ -175,7 +177,7 @@
       "recognitionProgressLabel": "Avanzamento del riconoscimento testo PDF",
       "recognitionComplete": "Riconoscimento del testo completato per <title>{{title}}</title>.",
       "recognitionCancelled": "Riconoscimento del testo annullato per <title>{{title}}</title>.",
-      "recognitionNoText": "Non è stato riconosciuto testo inglese. Il PDF originale non è stato modificato.",
+      "recognitionNoText": "Non è stato riconosciuto alcun testo. Il PDF originale non è stato modificato.",
       "recognitionNeedsRetry": "Impossibile completare il riconoscimento per <title>{{title}}</title>. Riprova {{count, number}} pagine.",
       "recognitionNeedsReview": "Riconoscimento terminato per <title>{{title}}</title>. Controlla {{count, number}} pagine, quindi usa il testo riconosciuto se sembra corretto.",
       "recognitionIssues": "Pagine da controllare: {{count, number}}",
@@ -391,7 +393,7 @@
       "document": "Documento PDF",
       "documentPages": "Documento PDF, {{count, number}} pagine",
       "makeSearchableTitle": "Rendi ricercabile questo documento",
-      "makeSearchableDescription": "Riconosci il testo inglese su questo dispositivo per abilitare Trova, la copia, la ricerca nella libreria e l’ascolto.",
+      "makeSearchableDescription": "Scegli la lingua del documento e riconosci il testo su questo dispositivo per abilitare Trova, la copia, la ricerca nella libreria e l’ascolto.",
       "makeSearchable": "Rendi ricercabile",
       "notNow": "Non ora"
     }

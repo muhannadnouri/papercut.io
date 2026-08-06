@@ -135,6 +135,8 @@
       "textLanguage": "Text Language",
       "english": "English — Recognize Text",
       "englishDetail": "Runs locally after import when the PDF has no usable text.",
+      "arabic": "Arabic — Recognize Text",
+      "arabicDetail": "Runs locally after import when the PDF has no usable text.",
       "otherLanguage": "Another Language — Import Without Recognition",
       "otherLanguageDetail": "The PDF is kept, but search and listening require a supported recognition language.",
       "continue": "Continue",
@@ -171,7 +173,7 @@
       "recognitionProgressLabel": "PDF text recognition progress",
       "recognitionComplete": "Text recognition complete for <title>{{title}}</title>.",
       "recognitionCancelled": "Text recognition cancelled for <title>{{title}}</title>.",
-      "recognitionNoText": "No English text was recognized. The original PDF was not changed.",
+      "recognitionNoText": "No text was recognized. The original PDF was not changed.",
       "recognitionNeedsRetry": "Text recognition could not finish for <title>{{title}}</title>. Retry {{count, number}} pages.",
       "recognitionNeedsReview": "Text recognition finished for <title>{{title}}</title>. Review {{count, number}} pages, then use the recognized text if it looks right.",
       "recognitionIssues": "Pages needing attention: {{count, number}}",
@@ -386,7 +388,7 @@
       "document": "PDF document",
       "documentPages": "PDF document, {{count, number}} pages",
       "makeSearchableTitle": "Make This Document Searchable",
-      "makeSearchableDescription": "Recognize English text on this device to enable Find, copying, Library search, and listening.",
+      "makeSearchableDescription": "Choose the document language and recognize its text on this device to enable Find, copying, Library search, and listening.",
       "makeSearchable": "Make Searchable",
       "notNow": "Not Now"
     }

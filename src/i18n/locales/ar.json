@@ -151,6 +151,8 @@
       "textLanguage": "لغة النص",
       "english": "الإنجليزية — التعرّف على النص",
       "englishDetail": "يعمل محليًا بعد الاستيراد إذا لم يحتوِ ملف PDF على نص قابل للاستخدام.",
+      "arabic": "العربية — التعرّف على النص",
+      "arabicDetail": "يعمل محليًا بعد الاستيراد إذا لم يحتوِ ملف PDF على نص قابل للاستخدام.",
       "otherLanguage": "لغة أخرى — الاستيراد دون تعرّف",
       "otherLanguageDetail": "سيُحتفظ بملف PDF، لكن البحث والاستماع يتطلبان لغة تعرّف مدعومة.",
       "continue": "متابعة",
@@ -187,7 +189,7 @@
       "recognitionProgressLabel": "تقدم التعرّف على نص PDF",
       "recognitionComplete": "اكتمل التعرّف على النص في <title>{{title}}</title>.",
       "recognitionCancelled": "أُلغي التعرّف على النص في <title>{{title}}</title>.",
-      "recognitionNoText": "لم يتم التعرّف على نص إنجليزي. لم يتغير ملف PDF الأصلي.",
+      "recognitionNoText": "لم يتم التعرّف على أي نص. لم يتغير ملف PDF الأصلي.",
       "recognitionNeedsRetry": "تعذّر إكمال التعرّف على النص في <title>{{title}}</title>. أعد محاولة {{count, number}} صفحة.",
       "recognitionNeedsReview": "اكتمل التعرّف على النص في <title>{{title}}</title>. راجع {{count, number}} صفحة، ثم استخدم النص المتعرّف عليه إذا بدا صحيحًا.",
       "recognitionIssues": "الصفحات التي تحتاج إلى انتباه: {{count, number}}",
@@ -406,7 +408,7 @@
       "document": "مستند PDF",
       "documentPages": "مستند PDF، {{count, number}} صفحة",
       "makeSearchableTitle": "اجعل هذا المستند قابلاً للبحث",
-      "makeSearchableDescription": "تعرّف على النص الإنجليزي على هذا الجهاز لتمكين البحث والنسخ والبحث في المكتبة والاستماع.",
+      "makeSearchableDescription": "اختر لغة المستند وتعرّف على نصه على هذا الجهاز لتمكين البحث والنسخ والبحث في المكتبة والاستماع.",
       "makeSearchable": "جعله قابلاً للبحث",
       "notNow": "ليس الآن"
     }

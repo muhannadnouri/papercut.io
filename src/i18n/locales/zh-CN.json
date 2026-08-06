@@ -131,6 +131,8 @@
       "textLanguage": "文本语言",
       "english": "英语 — 识别文本",
       "englishDetail": "如果 PDF 没有可用文本，导入后会在本地运行识别。",
+      "arabic": "阿拉伯语 — 识别文本",
+      "arabicDetail": "如果 PDF 没有可用文本，导入后会在本地运行识别。",
       "otherLanguage": "其他语言 — 不识别直接导入",
       "otherLanguageDetail": "PDF 会被保留，但搜索和朗读需要受支持的识别语言。",
       "continue": "继续",
@@ -167,7 +169,7 @@
       "recognitionProgressLabel": "PDF 文字识别进度",
       "recognitionComplete": "已完成 <title>{{title}}</title> 的文字识别。",
       "recognitionCancelled": "已取消 <title>{{title}}</title> 的文字识别。",
-      "recognitionNoText": "未识别出英文文字。原始 PDF 未被更改。",
+      "recognitionNoText": "未识别出文字。原始 PDF 未被更改。",
       "recognitionNeedsRetry": "未能完成 <title>{{title}}</title> 的文字识别。请重试 {{count, number}} 页。",
       "recognitionNeedsReview": "已完成 <title>{{title}}</title> 的文字识别。请检查 {{count, number}} 页；若结果无误，请使用识别文本。",
       "recognitionIssues": "需要注意的页面：{{count, number}}",
@@ -381,7 +383,7 @@
       "document": "PDF 文档",
       "documentPages": "PDF 文档，共 {{count, number}} 页",
       "makeSearchableTitle": "让此文档可搜索",
-      "makeSearchableDescription": "在此设备上识别英文文字，以启用查找、复制、资料库搜索和朗读。",
+      "makeSearchableDescription": "选择文档语言并在此设备上识别文字，以启用查找、复制、资料库搜索和朗读。",
       "makeSearchable": "设为可搜索",
       "notNow": "暂不"
     }

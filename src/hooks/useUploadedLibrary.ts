@@ -9,10 +9,11 @@ import { indexImportedPdfs } from '../pdf/pdfImport'
 import {
   PDF_OCR_NO_TEXT,
   PdfRecognitionNoTextError,
-  recognizeEnglishPdfDocument,
+  recognizePdfDocument,
   type PdfRecognitionIssues,
   type PdfRecognitionProgress,
 } from '../pdf/ocr/recognizePdf'
+import type { PdfOcrLanguage } from '../pdf/ocr/tesseractOcr'
 import {
   cancelDocumentBatch as cancelDocumentBatchSource,
   createUploadedLibraryFolder,
@@ -59,6 +60,7 @@ export type DocumentImportStatus = {
   deleteResult?: UploadedDocumentDeleteBatchResult
   recognitionProgress?: PdfRecognitionProgress
   recognitionIssues?: PdfRecognitionIssues
+  recognitionLanguage?: PdfOcrLanguage
   documentUrl?: string
   cancelRequested?: boolean
 }
@@ -82,9 +84,18 @@ export function shouldRecognizeImportedScan(
   document: UploadedDocument,
   language?: DocumentScanSetup['recognitionLanguage'],
 ): boolean {
-  return language === 'english' &&
+  return scanOcrLanguage(language) !== null &&
     document.sourceKind === 'pdf' &&
     document.textStatus === 'recognition-required'
+}
+
+/** Map the capture UI choice to the bundled Tesseract language identifiers. */
+function scanOcrLanguage(
+  language?: DocumentScanSetup['recognitionLanguage'],
+): PdfOcrLanguage | null {
+  if (language === 'english') return 'eng'
+  if (language === 'arabic') return 'ara'
+  return null
 }
 
 async function loadUploadedLibrary(): Promise<UploadedLibraryState> {
@@ -169,18 +180,23 @@ export function useUploadedLibrary() {
             : current)
         },
       })
-      const recognitionCandidate = batchResult.imported.find((document) => (
-        shouldRecognizeImportedScan(document, options.recognitionLanguage)
-      ))
-      if (recognitionCandidate) {
+      const recognitionLanguage = scanOcrLanguage(options.recognitionLanguage)
+      const recognitionCandidate = recognitionLanguage
+        ? batchResult.imported.find((document) => shouldRecognizeImportedScan(
+            document,
+            options.recognitionLanguage,
+          ))
+        : undefined
+      if (recognitionCandidate && recognitionLanguage) {
         setDocumentImport({
           status: 'recognizing',
           format: 'pdf-ocr',
           title: recognitionCandidate.title,
           documentUrl: recognitionCandidate.url,
+          recognitionLanguage,
         })
         try {
-          const recognition = await recognizeEnglishPdfDocument(recognitionCandidate, {
+          const recognition = await recognizePdfDocument(recognitionCandidate, recognitionLanguage, {
             signal: abort.signal,
             onProgress: (recognitionProgress) => {
               setDocumentImport((current) => current.status === 'recognizing' && current.format === 'pdf-ocr'
@@ -202,6 +218,7 @@ export function useUploadedLibrary() {
             title: recognized.title,
             documentUrl: recognized.url,
             recognitionIssues: recognition.issues,
+            recognitionLanguage,
           })
           return batchResult
         } catch (err) {
@@ -215,6 +232,7 @@ export function useUploadedLibrary() {
             message: message === PDF_OCR_NO_TEXT ? PDF_OCR_NO_TEXT : cancelled ? undefined : message,
             documentUrl: recognitionCandidate.url,
             recognitionIssues: err instanceof PdfRecognitionNoTextError ? err.issues : undefined,
+            recognitionLanguage,
           })
           return batchResult
         }
@@ -272,9 +290,12 @@ export function useUploadedLibrary() {
     [importDocumentCollection],
   )
 
-  /** Run the opt-in English recognizer for one PDF with missing text, then
+  /** Run the selected packaged recognizer for one PDF with missing text, then
    * replace its page index through the normal finalizer. */
-  const recognizeDocumentText = useCallback(async (documentUrl: string): Promise<boolean> => {
+  const recognizeDocumentText = useCallback(async (
+    documentUrl: string,
+    recognitionLanguage: PdfOcrLanguage = 'eng',
+  ): Promise<boolean> => {
     const document = uploadedDocuments.find((candidate) => candidate.url === documentUrl)
     if (!document || operationInProgressRef.current) return false
 
@@ -286,9 +307,10 @@ export function useUploadedLibrary() {
       format: 'pdf-ocr',
       title: document.title,
       documentUrl: document.url,
+      recognitionLanguage,
     })
     try {
-      const recognition = await recognizeEnglishPdfDocument(document, {
+      const recognition = await recognizePdfDocument(document, recognitionLanguage, {
         signal: abort.signal,
         onProgress: (recognitionProgress) => {
           setDocumentImport((current) => current.status === 'recognizing' && current.format === 'pdf-ocr'
@@ -306,6 +328,7 @@ export function useUploadedLibrary() {
         title: updated.title,
         documentUrl: updated.url,
         recognitionIssues: recognition.issues,
+        recognitionLanguage,
       })
       return true
     } catch (err) {
@@ -318,6 +341,7 @@ export function useUploadedLibrary() {
         message: message === PDF_OCR_NO_TEXT ? PDF_OCR_NO_TEXT : cancelled ? undefined : message,
         documentUrl: document.url,
         recognitionIssues: err instanceof PdfRecognitionNoTextError ? err.issues : undefined,
+        recognitionLanguage,
       })
       return false
     } finally {

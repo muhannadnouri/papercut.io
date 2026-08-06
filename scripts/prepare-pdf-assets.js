@@ -21,18 +21,15 @@ function preparePdfJsAssets() {
   console.log(`[pdfjs] prepared ${directories.join(' and ')} runtime assets`)
 }
 
-/** Copy only the browser worker, LSTM cores, and selected offline language. */
+/** Copy only the browser worker, LSTM cores, and supported offline languages. */
 function prepareTesseractAssets() {
   const workerSource = join(repoRoot, 'node_modules', 'tesseract.js', 'dist', 'worker.min.js')
   const coreRoot = join(repoRoot, 'node_modules', 'tesseract.js-core')
-  const languageSource = join(
-    repoRoot,
-    'node_modules',
-    '@tesseract.js-data',
-    'eng',
-    '4.0.0_best_int',
-    'eng.traineddata.gz',
-  )
+  const languages = ['eng', 'ara']
+  const languageSources = languages.map((language) => join(
+    repoRoot, 'node_modules', '@tesseract.js-data', language,
+    '4.0.0_best_int', `${language}.traineddata.gz`,
+  ))
   const outputRoot = join(publicRoot, 'tesseract')
   const coreFiles = [
     'tesseract-core-lstm.wasm.js',
@@ -45,16 +42,18 @@ function prepareTesseractAssets() {
 
   requirePaths([
     workerSource,
-    languageSource,
+    ...languageSources,
     ...coreFiles.map((file) => join(coreRoot, file)),
   ], 'Tesseract')
   rmSync(outputRoot, { recursive: true, force: true })
   mkdirSync(join(outputRoot, 'core'), { recursive: true })
   mkdirSync(join(outputRoot, 'lang'), { recursive: true })
   cpSync(workerSource, join(outputRoot, 'worker.min.js'))
-  cpSync(languageSource, join(outputRoot, 'lang', 'eng.traineddata.gz'))
+  languages.forEach((language, index) => {
+    cpSync(languageSources[index], join(outputRoot, 'lang', `${language}.traineddata.gz`))
+  })
   for (const file of coreFiles) cpSync(join(coreRoot, file), join(outputRoot, 'core', file))
-  console.log('[tesseract] prepared worker, LSTM cores, and English language data')
+  console.log('[tesseract] prepared worker, LSTM cores, and English/Arabic language data')
 }
 
 function requirePaths(paths, label) {

@@ -2,18 +2,21 @@ import type { LoggerMessage, Page, Worker } from 'tesseract.js'
 import type { PdfPageTextLayer } from '../../uploads/DocumentUploads'
 
 export type PdfOcrProgress = Pick<LoggerMessage, 'progress' | 'status'>
+export type PdfOcrLanguage = 'eng' | 'ara'
 
 function tesseractAssetRoot(): string {
   return new URL('tesseract/', document.baseURI).href
 }
 
-/** Create one reusable offline worker; callers should keep it for the entire job. */
-export async function createEnglishPdfOcrWorker(
+/** Create one reusable offline worker for a packaged language; callers should
+ * keep it for the entire job so model startup is paid only once per document. */
+export async function createPdfOcrWorker(
+  language: PdfOcrLanguage,
   onProgress?: (progress: PdfOcrProgress) => void,
 ): Promise<Worker> {
   const { createWorker, OEM } = await import('tesseract.js')
   const root = tesseractAssetRoot()
-  return createWorker('eng', OEM.LSTM_ONLY, {
+  return createWorker(language, OEM.LSTM_ONLY, {
     workerPath: `${root}worker.min.js`,
     corePath: `${root}core/`,
     langPath: `${root}lang`,
@@ -22,7 +25,7 @@ export async function createEnglishPdfOcrWorker(
 }
 
 /** Recognize one rendered page and normalize it into Papercut's shared sidecar. */
-export async function recognizeEnglishPdfPage(
+export async function recognizePdfPage(
   worker: Worker,
   canvas: HTMLCanvasElement,
   pageIndex: number,

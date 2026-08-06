@@ -7,7 +7,7 @@ export interface DocumentScannerAvailability {
   reason?: string | null
 }
 
-export type DocumentRecognitionLanguage = 'english' | 'other'
+export type DocumentRecognitionLanguage = 'english' | 'arabic' | 'other'
 
 export interface DocumentScanSetup {
   title: string

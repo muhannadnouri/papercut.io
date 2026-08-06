@@ -22,6 +22,14 @@
   margin-top: 0.65rem;
 }
 
+.pdf-recognition-prompt-language {
+  display: grid;
+  max-width: 22rem;
+  gap: 0.3rem;
+  margin-top: 0.75rem;
+  font-weight: 700;
+}
+
 .pdf-recognition-prompt-actions {
   display: flex;
   flex-wrap: wrap;

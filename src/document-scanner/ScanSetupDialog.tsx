@@ -71,6 +71,11 @@ export function ScanSetupDialog({ source, onCancel, onSubmit }: ScanSetupDialogP
               description: t('library.scanSetup.englishDetail'),
             },
             {
+              value: 'arabic',
+              label: t('library.scanSetup.arabic'),
+              description: t('library.scanSetup.arabicDetail'),
+            },
+            {
               value: 'other',
               label: t('library.scanSetup.otherLanguage'),
               description: t('library.scanSetup.otherLanguageDetail'),

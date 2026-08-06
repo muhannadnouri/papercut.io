@@ -135,6 +135,8 @@
       "textLanguage": "टेक्स्ट की भाषा",
       "english": "अंग्रेज़ी — टेक्स्ट पहचानें",
       "englishDetail": "यदि PDF में उपयोगी टेक्स्ट नहीं है, तो आयात के बाद यह डिवाइस पर चलता है।",
+      "arabic": "अरबी — टेक्स्ट पहचानें",
+      "arabicDetail": "यदि PDF में उपयोगी टेक्स्ट नहीं है, तो आयात के बाद यह डिवाइस पर चलता है।",
       "otherLanguage": "अन्य भाषा — पहचान के बिना आयात करें",
       "otherLanguageDetail": "PDF सुरक्षित रहेगा, लेकिन खोज और सुनने के लिए समर्थित पहचान भाषा चाहिए।",
       "continue": "जारी रखें",
@@ -171,7 +173,7 @@
       "recognitionProgressLabel": "PDF पाठ पहचान प्रगति",
       "recognitionComplete": "<title>{{title}}</title> के लिए पाठ पहचान पूरी हुई।",
       "recognitionCancelled": "<title>{{title}}</title> के लिए पाठ पहचान रद्द की गई।",
-      "recognitionNoText": "कोई अंग्रेज़ी पाठ पहचाना नहीं गया। मूल PDF नहीं बदला गया।",
+      "recognitionNoText": "कोई पाठ पहचाना नहीं गया। मूल PDF नहीं बदला गया।",
       "recognitionNeedsRetry": "<title>{{title}}</title> की पाठ पहचान पूरी नहीं हो सकी। {{count, number}} पृष्ठों पर फिर प्रयास करें।",
       "recognitionNeedsReview": "<title>{{title}}</title> की पाठ पहचान पूरी हुई। {{count, number}} पृष्ठों की समीक्षा करें, फिर सही लगने पर पहचाने गए पाठ का उपयोग करें।",
       "recognitionIssues": "ध्यान देने योग्य पृष्ठ: {{count, number}}",
@@ -386,7 +388,7 @@
       "document": "PDF दस्तावेज़",
       "documentPages": "PDF दस्तावेज़, {{count, number}} पृष्ठ",
       "makeSearchableTitle": "इस दस्तावेज़ को खोजने योग्य बनाएँ",
-      "makeSearchableDescription": "ढूँढने, कॉपी करने, लाइब्रेरी में खोजने और सुनने की सुविधा चालू करने के लिए इस डिवाइस पर अंग्रेज़ी पाठ पहचानें।",
+      "makeSearchableDescription": "दस्तावेज़ की भाषा चुनें और ढूँढने, कॉपी करने, लाइब्रेरी में खोजने और सुनने की सुविधा चालू करने के लिए इस डिवाइस पर उसका पाठ पहचानें।",
       "makeSearchable": "खोजने योग्य बनाएँ",
       "notNow": "अभी नहीं"
     }

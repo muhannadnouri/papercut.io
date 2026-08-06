@@ -40,8 +40,9 @@ describe('shouldRecognizeImportedScan', () => {
     textStatus: 'recognition-required',
   } as UploadedDocument
 
-  it('runs only packaged English recognition for PDFs that need it', () => {
+  it('runs only packaged recognition languages for PDFs that need it', () => {
     expect(shouldRecognizeImportedScan(document, 'english')).toBe(true)
+    expect(shouldRecognizeImportedScan(document, 'arabic')).toBe(true)
     expect(shouldRecognizeImportedScan(document, 'other')).toBe(false)
     expect(shouldRecognizeImportedScan({ ...document, textStatus: 'ready' }, 'english')).toBe(false)
   })

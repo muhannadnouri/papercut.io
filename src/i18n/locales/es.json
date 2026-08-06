@@ -139,6 +139,8 @@
       "textLanguage": "Idioma del texto",
       "english": "Inglés — reconocer texto",
       "englishDetail": "Se ejecuta localmente después de importar si el PDF no contiene texto utilizable.",
+      "arabic": "Árabe — reconocer texto",
+      "arabicDetail": "Se ejecuta localmente después de importar si el PDF no contiene texto utilizable.",
       "otherLanguage": "Otro idioma — importar sin reconocimiento",
       "otherLanguageDetail": "El PDF se conserva, pero la búsqueda y la escucha requieren un idioma de reconocimiento compatible.",
       "continue": "Continuar",
@@ -175,7 +177,7 @@
       "recognitionProgressLabel": "Progreso del reconocimiento de texto PDF",
       "recognitionComplete": "Reconocimiento de texto completado para <title>{{title}}</title>.",
       "recognitionCancelled": "Reconocimiento de texto cancelado para <title>{{title}}</title>.",
-      "recognitionNoText": "No se reconoció texto en inglés. El PDF original no se modificó.",
+      "recognitionNoText": "No se reconoció texto. El PDF original no se modificó.",
       "recognitionNeedsRetry": "No se pudo completar el reconocimiento de <title>{{title}}</title>. Reintenta {{count, number}} páginas.",
       "recognitionNeedsReview": "Reconocimiento terminado para <title>{{title}}</title>. Revisa {{count, number}} páginas y usa el texto reconocido si parece correcto.",
       "recognitionIssues": "Páginas que necesitan atención: {{count, number}}",
@@ -391,7 +393,7 @@
       "document": "Documento PDF",
       "documentPages": "Documento PDF, {{count, number}} páginas",
       "makeSearchableTitle": "Hacer que este documento se pueda buscar",
-      "makeSearchableDescription": "Reconoce el texto en inglés en este dispositivo para habilitar Buscar, copiar, buscar en la Biblioteca y escuchar.",
+      "makeSearchableDescription": "Elige el idioma del documento y reconoce su texto en este dispositivo para habilitar Buscar, copiar, buscar en la Biblioteca y escuchar.",
       "makeSearchable": "Hacer que se pueda buscar",
       "notNow": "Ahora no"
     }

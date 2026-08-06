@@ -139,6 +139,8 @@
       "textLanguage": "Langue du texte",
       "english": "Anglais — reconnaître le texte",
       "englishDetail": "S’exécute localement après l’importation si le PDF ne contient aucun texte exploitable.",
+      "arabic": "Arabe — reconnaître le texte",
+      "arabicDetail": "S’exécute localement après l’importation si le PDF ne contient aucun texte exploitable.",
       "otherLanguage": "Autre langue — importer sans reconnaissance",
       "otherLanguageDetail": "Le PDF est conservé, mais la recherche et l’écoute nécessitent une langue de reconnaissance prise en charge.",
       "continue": "Continuer",
@@ -175,7 +177,7 @@
       "recognitionProgressLabel": "Progression de la reconnaissance de texte PDF",
       "recognitionComplete": "Reconnaissance de texte terminée pour <title>{{title}}</title>.",
       "recognitionCancelled": "Reconnaissance de texte annulée pour <title>{{title}}</title>.",
-      "recognitionNoText": "Aucun texte anglais n’a été reconnu. Le PDF original n’a pas été modifié.",
+      "recognitionNoText": "Aucun texte n’a été reconnu. Le PDF original n’a pas été modifié.",
       "recognitionNeedsRetry": "La reconnaissance n’a pas pu se terminer pour <title>{{title}}</title>. Réessayez {{count, number}} pages.",
       "recognitionNeedsReview": "Reconnaissance terminée pour <title>{{title}}</title>. Vérifiez {{count, number}} pages, puis utilisez le texte reconnu s’il paraît correct.",
       "recognitionIssues": "Pages à vérifier : {{count, number}}",
@@ -391,7 +393,7 @@
       "document": "Document PDF",
       "documentPages": "Document PDF, {{count, number}} pages",
       "makeSearchableTitle": "Rendre ce document consultable",
-      "makeSearchableDescription": "Reconnaissez le texte anglais sur cet appareil pour activer la recherche, la copie, la recherche dans la bibliothèque et l’écoute.",
+      "makeSearchableDescription": "Choisissez la langue du document et reconnaissez son texte sur cet appareil pour activer la recherche, la copie, la recherche dans la bibliothèque et l’écoute.",
       "makeSearchable": "Rendre consultable",
       "notNow": "Pas maintenant"
     }

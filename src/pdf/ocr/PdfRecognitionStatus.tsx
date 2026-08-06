@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next'
 import type { ReactNode } from 'react'
 import type { DocumentImportStatus } from '../../hooks/useUploadedLibrary'
 import { PDF_OCR_NO_TEXT } from './recognizePdf'
+import type { PdfOcrLanguage } from './tesseractOcr'
 import { pdfRecognitionIssueAction } from './pdfRecognitionPromptState'
 
 /** Present the shared OCR progress, cancellation, and retry lifecycle. */
@@ -16,7 +17,7 @@ export function PdfRecognitionStatus({
   status: DocumentImportStatus
   t: TFunction
   onCancel: () => void | Promise<void>
-  onRetry: (documentUrl: string) => void | Promise<boolean>
+  onRetry: (documentUrl: string, language: PdfOcrLanguage) => void | Promise<boolean>
   onAccept: (documentUrl: string) => void | Promise<boolean>
 }) {
   const progress = status.recognitionProgress
@@ -88,7 +89,7 @@ export function PdfRecognitionStatus({
             <button
               type="button"
               className="document-batch-cancel"
-              onClick={() => void onRetry(retryDocumentUrl)}
+              onClick={() => void onRetry(retryDocumentUrl, status.recognitionLanguage ?? 'eng')}
             >
               {t('library.status.retryRecognitionPages')}
             </button>
