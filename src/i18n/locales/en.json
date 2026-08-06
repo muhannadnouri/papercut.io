@@ -97,8 +97,7 @@
       "bookmarked": "Bookmarked",
       "bookmarkedOnly": "Show Bookmarked Only",
       "emptyBookmarked": "No bookmarked documents match the current filters.",
-      "textRecognitionRequired": "Text Recognition Required",
-      "recognizeEnglishText": "Recognize English Text"
+      "textRecognitionRequired": "Text Recognition Required"
     },
     "documentInfo": {
       "button": "Edit Details",
@@ -383,7 +382,11 @@
       "locatingMatch": "Opening page {{page, number}} and locating the match...",
       "verifyingMatch": "Verifying the match in the document...",
       "document": "PDF document",
-      "documentPages": "PDF document, {{count, number}} pages"
+      "documentPages": "PDF document, {{count, number}} pages",
+      "makeSearchableTitle": "Make This Document Searchable",
+      "makeSearchableDescription": "Recognize English text on this device to enable Find, copying, Library search, and listening.",
+      "makeSearchable": "Make Searchable",
+      "notNow": "Not Now"
     }
   },
   "tts": {

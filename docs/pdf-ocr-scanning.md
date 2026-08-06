@@ -1,7 +1,7 @@
 # PDF, OCR, And Document Scanning Plan
 
 Status: Stage 9 in progress; Android and downstream lifecycle acceptance passed;
-iOS physical-device validation remains open
+iOS physical-device validation and the contextual OCR prompt smoke test remain open
 Last updated: 2026-08-05
 
 This document is the source of truth for adding PDF reading, searchable OCR,
@@ -561,14 +561,15 @@ non-Latin language support, mobile speed, and package size remain acceptance
 work. PaddleOCR and native engines are deferred unless real failures justify
 their extra runtimes and platform-specific behavior.
 
-The first production slice exposes **Recognize English Text** only for PDFs
-already classified as fully textless. It reuses one worker across the document,
-renders and persists one bounded page at a time, reports page progress, and
-supports cooperative cancellation. Search rows and ready metadata are replaced
-only through the existing atomic PDF finalizer, so cancellation or failure does
-not expose partial OCR output or alter the canonical PDF. The finalizer also
-preserves an existing gallery thumbnail when no replacement thumbnail is
-provided by the recognition job.
+The first production slice exposes one contextual **Make Searchable** prompt in
+the reader for PDFs that require recognition. Library rows and covers retain a
+compact status label without duplicating the action. The job reuses one worker
+across the document, renders and persists one bounded page at a time, reports
+page progress, and supports cooperative cancellation. Search rows and ready
+metadata are replaced only through the existing atomic PDF finalizer, so
+cancellation or failure does not expose partial OCR output or alter the
+canonical PDF. The finalizer also preserves an existing gallery thumbnail when
+no replacement thumbnail is provided by the recognition job.
 
 ## Mobile Scanning
 
@@ -1034,7 +1035,7 @@ Stage status: Foundation complete; desktop English WebView smoke test passed
 - [x] Keep Tesseract and its runtime out of normal app startup.
 - [x] Normalize OCR words, confidence, order, and image-pixel bounds into
       `PageTextLayer`.
-- [x] Add an explicit English recognition action for PDFs with missing text.
+- [x] Add an explicit contextual reader action for PDFs with missing text.
 - [x] Reuse one worker and one bounded page render at a time.
 - [x] Report preparing, page recognition, indexing, cancellation, and failure.
 - [x] Commit recognized search data only through the atomic PDF finalizer.
@@ -1056,7 +1057,10 @@ Stage status: Complete; desktop English image-only and hybrid acceptance passed
 - [x] Normalize OCR output into the same `PageTextLayer` contract.
 - [ ] Store OCR engine/model version, language, provenance, and confidence.
 - [ ] Add language selection or detection with a retry path.
-- [x] Add page-level progress, cancellation, failure, and retry from the Library.
+- [x] Add page-level progress, cancellation, failure, and retry through the
+      reader prompt and shared Library operation notice.
+- [x] Keep Library rows and gallery covers informational instead of repeating
+      the recognition action on every document surface.
 - [ ] Add durable job resume across app restarts.
 - [x] Prevent partial OCR sidecars from becoming searchable before final commit.
 - [x] Prevent duplicate native and OCR text in hybrid PDFs.
@@ -1079,6 +1083,10 @@ navigated matches across native and OCR pages; TTS retained page order; and the
 canonical PDF remained unchanged. A later Android selection review exposed
 overlapping word glyphs, so selection now groups and measures complete OCR lines
 without changing sidecars or eager-rendering additional pages.
+
+The reader-centered recognition entry point is implemented, including an
+immediate viewer refresh after the finalized text status changes. Its manual
+desktop and Android smoke test has not been run yet.
 
 ### Stage 8: Native Mobile Capture
 
@@ -1356,6 +1364,7 @@ Stage status: Deferred
 | 2026-08-04 | Stage 9 | Accept the delayed Android device matrix | Camera and photo capture, interruption and restart recovery, low-storage retention, English OCR handoff, and targeted retry passed; iOS and downstream library lifecycle acceptance remain explicit separate gates |
 | 2026-08-05 | Stage 9 | Accept the shared downstream scan lifecycle | Folder persistence, gallery state, saved audio, library transfer with and without selected audio, dependency-aware deletion, and restart persistence passed; iOS native capture and photo-picker acceptance remain the final Stage 9 platform gate |
 | 2026-08-05 | Stage 7 | Fit OCR selection by visual line | Existing word sidecars provide line endings and bounds; the viewer measures one run per line and scales it to the union of those boxes, avoiding overlapping native selection glyphs without a schema migration, dependency, or larger render window |
+| 2026-08-05 | Stage 7 | Start recognition from the open PDF | Library surfaces communicate readiness only; one nonmodal reader prompt explains the benefit and reuses the existing progress, cancellation, retry, and atomic finalization path without adding another job model |
 
 ## References
 

@@ -176,6 +176,7 @@ export function useUploadedLibrary() {
           status: 'recognizing',
           format: 'pdf-ocr',
           title: recognitionCandidate.title,
+          documentUrl: recognitionCandidate.url,
         })
         try {
           const recognition = await recognizeEnglishPdfDocument(recognitionCandidate, {
@@ -279,7 +280,12 @@ export function useUploadedLibrary() {
     operationInProgressRef.current = true
     const abort = new AbortController()
     importAbortRef.current = abort
-    setDocumentImport({ status: 'recognizing', format: 'pdf-ocr', title: document.title })
+    setDocumentImport({
+      status: 'recognizing',
+      format: 'pdf-ocr',
+      title: document.title,
+      documentUrl: document.url,
+    })
     try {
       const recognition = await recognizeEnglishPdfDocument(document, {
         signal: abort.signal,

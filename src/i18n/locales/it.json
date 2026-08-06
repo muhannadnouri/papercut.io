@@ -101,8 +101,7 @@
       "bookmarked": "Con segnalibro",
       "bookmarkedOnly": "Mostra solo i documenti con segnalibro",
       "emptyBookmarked": "Nessun documento con segnalibro corrisponde ai filtri attuali.",
-      "textRecognitionRequired": "Riconoscimento del testo richiesto",
-      "recognizeEnglishText": "Riconosci testo inglese"
+      "textRecognitionRequired": "Riconoscimento del testo richiesto"
     },
     "documentInfo": {
       "button": "Modifica dettagli",
@@ -388,7 +387,11 @@
       "locatingMatch": "Apertura della pagina {{page, number}} e ricerca della corrispondenza...",
       "verifyingMatch": "Verifica della corrispondenza nel documento...",
       "document": "Documento PDF",
-      "documentPages": "Documento PDF, {{count, number}} pagine"
+      "documentPages": "Documento PDF, {{count, number}} pagine",
+      "makeSearchableTitle": "Rendi ricercabile questo documento",
+      "makeSearchableDescription": "Riconosci il testo inglese su questo dispositivo per abilitare Trova, la copia, la ricerca nella libreria e l’ascolto.",
+      "makeSearchable": "Rendi ricercabile",
+      "notNow": "Non ora"
     }
   },
   "tts": {

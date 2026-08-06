@@ -54,7 +54,6 @@ interface DocumentsPanelProps {
   onDeleteLibraryFolder?: (folderId: string) => void | Promise<void>
   onFilterChange: (value: string) => void
   onMoveLibraryDocuments?: (documentIds: string[], folderId: string | null) => void | Promise<void>
-  onRecognizeDocument?: (documentUrl: string) => void | Promise<boolean>
   onRenameLibraryFolder?: (folderId: string, name: string) => void | Promise<void>
   onToggleAuthor: (author: string) => void
   onToggleShow: () => void
@@ -86,7 +85,6 @@ export function DocumentsPanel({
   onDeleteLibraryFolder,
   onFilterChange,
   onMoveLibraryDocuments,
-  onRecognizeDocument,
   onRenameLibraryFolder,
   onToggleAuthor,
   onToggleShow,
@@ -270,7 +268,6 @@ export function DocumentsPanel({
             savePreference(CATEGORY_STORAGE_KEY, category)
           }}
           onDeleteDocument={onDeleteDocument}
-          onRecognizeDocument={onRecognizeDocument}
           onToggleAuthor={onToggleAuthor}
           onViewDocument={onViewDocument}
         />
@@ -289,7 +286,6 @@ export function DocumentsPanel({
               onDeleteDocuments={onDeleteDocuments!}
               onDeleteFolder={onDeleteLibraryFolder!}
               onMoveDocuments={onMoveLibraryDocuments!}
-              onRecognizeDocument={onRecognizeDocument}
               onRenameFolder={onRenameLibraryFolder!}
               onViewAudiobooks={onViewAudiobooks}
               onViewDocumentInfo={onViewDocumentInfo}

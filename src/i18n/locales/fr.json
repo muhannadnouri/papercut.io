@@ -101,8 +101,7 @@
       "bookmarked": "Avec signet",
       "bookmarkedOnly": "Afficher uniquement les documents avec signet",
       "emptyBookmarked": "Aucun document avec signet ne correspond aux filtres actuels.",
-      "textRecognitionRequired": "Reconnaissance de texte requise",
-      "recognizeEnglishText": "Reconnaître le texte anglais"
+      "textRecognitionRequired": "Reconnaissance de texte requise"
     },
     "documentInfo": {
       "button": "Modifier les détails",
@@ -388,7 +387,11 @@
       "locatingMatch": "Ouverture de la page {{page, number}} et localisation de la correspondance...",
       "verifyingMatch": "Vérification de la correspondance dans le document...",
       "document": "Document PDF",
-      "documentPages": "Document PDF, {{count, number}} pages"
+      "documentPages": "Document PDF, {{count, number}} pages",
+      "makeSearchableTitle": "Rendre ce document consultable",
+      "makeSearchableDescription": "Reconnaissez le texte anglais sur cet appareil pour activer la recherche, la copie, la recherche dans la bibliothèque et l’écoute.",
+      "makeSearchable": "Rendre consultable",
+      "notNow": "Pas maintenant"
     }
   },
   "tts": {

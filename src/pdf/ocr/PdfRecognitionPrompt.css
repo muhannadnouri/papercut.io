@@ -1,0 +1,76 @@
+.pdf-recognition-prompt {
+  width: min(100%, 70rem);
+  margin: 0 auto 0.75rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--surface-accent);
+  color: var(--text);
+}
+
+.pdf-recognition-prompt-copy h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.pdf-recognition-prompt-copy p {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+}
+
+.pdf-recognition-prompt .document-batch-status {
+  margin-top: 0.65rem;
+}
+
+.pdf-recognition-prompt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.pdf-recognition-prompt-actions button {
+  min-height: 2.75rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pdf-recognition-prompt-primary {
+  background: var(--accent);
+  color: var(--text-inverse);
+}
+
+.pdf-recognition-prompt-secondary {
+  background: var(--control-surface);
+  color: var(--text);
+}
+
+.pdf-recognition-prompt-actions button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+.pdf-recognition-prompt-actions button:disabled {
+  color: var(--text-soft);
+  cursor: not-allowed;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pdf-recognition-prompt-primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+  }
+
+  .pdf-recognition-prompt-secondary:hover:not(:disabled) {
+    background: var(--surface-hover);
+  }
+}
+
+@media (max-width: 640px) {
+  .pdf-recognition-prompt {
+    border-radius: 0;
+  }
+}

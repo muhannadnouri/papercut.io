@@ -113,8 +113,7 @@
       "bookmarked": "تم وضع إشارة مرجعية",
       "bookmarkedOnly": "إظهار المستندات ذات الإشارات المرجعية فقط",
       "emptyBookmarked": "لا توجد مستندات ذات إشارات مرجعية تطابق عوامل التصفية الحالية.",
-      "textRecognitionRequired": "يتطلب التعرف على النص",
-      "recognizeEnglishText": "التعرّف على النص الإنجليزي"
+      "textRecognitionRequired": "يتطلب التعرف على النص"
     },
     "documentInfo": {
       "button": "تعديل التفاصيل",
@@ -403,7 +402,11 @@
       "locatingMatch": "جارٍ فتح الصفحة {{page, number}} وتحديد موقع المطابقة...",
       "verifyingMatch": "جارٍ التحقق من المطابقة في المستند...",
       "document": "مستند PDF",
-      "documentPages": "مستند PDF، {{count, number}} صفحة"
+      "documentPages": "مستند PDF، {{count, number}} صفحة",
+      "makeSearchableTitle": "اجعل هذا المستند قابلاً للبحث",
+      "makeSearchableDescription": "تعرّف على النص الإنجليزي على هذا الجهاز لتمكين البحث والنسخ والبحث في المكتبة والاستماع.",
+      "makeSearchable": "جعله قابلاً للبحث",
+      "notNow": "ليس الآن"
     }
   },
   "tts": {

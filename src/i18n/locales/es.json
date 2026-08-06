@@ -101,8 +101,7 @@
       "bookmarked": "Marcado",
       "bookmarkedOnly": "Mostrar solo los documentos marcados",
       "emptyBookmarked": "Ningún documento marcado coincide con los filtros actuales.",
-      "textRecognitionRequired": "Requiere reconocimiento de texto",
-      "recognizeEnglishText": "Reconocer texto en inglés"
+      "textRecognitionRequired": "Requiere reconocimiento de texto"
     },
     "documentInfo": {
       "button": "Editar detalles",
@@ -388,7 +387,11 @@
       "locatingMatch": "Abriendo la página {{page, number}} y localizando la coincidencia...",
       "verifyingMatch": "Verificando la coincidencia en el documento...",
       "document": "Documento PDF",
-      "documentPages": "Documento PDF, {{count, number}} páginas"
+      "documentPages": "Documento PDF, {{count, number}} páginas",
+      "makeSearchableTitle": "Hacer que este documento se pueda buscar",
+      "makeSearchableDescription": "Reconoce el texto en inglés en este dispositivo para habilitar Buscar, copiar, buscar en la Biblioteca y escuchar.",
+      "makeSearchable": "Hacer que se pueda buscar",
+      "notNow": "Ahora no"
     }
   },
   "tts": {

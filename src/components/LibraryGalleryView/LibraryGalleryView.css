@@ -256,37 +256,6 @@ html[data-theme="dark"] .library-book-cover {
   white-space: nowrap;
 }
 
-.library-book-recognize {
-  min-width: 0;
-  overflow: hidden;
-  padding: 0.15rem 0.35rem;
-  border: 1px solid transparent;
-  border-radius: var(--radius-inline);
-  background: var(--control-surface);
-  color: var(--accent-text);
-  cursor: pointer;
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.library-book-recognize:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--shadow-focus);
-}
-
-.library-book-recognize:disabled {
-  color: var(--text-soft);
-  cursor: not-allowed;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .library-book-recognize:hover:not(:disabled) {
-    background: var(--surface-accent);
-  }
-}
-
 .library-book-cover.placeholder-0 { background: #355070; }
 .library-book-cover.placeholder-1 { background: #6d597a; }
 .library-book-cover.placeholder-2 { background: #3a6b5d; }

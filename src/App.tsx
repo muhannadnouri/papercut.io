@@ -14,6 +14,7 @@ import { LibraryTab } from './components/LibraryTab/LibraryTab'
 import { useDocumentScanner } from './document-scanner/useDocumentScanner'
 import { ScanSetupDialog } from './document-scanner/ScanSetupDialog'
 import type { DocumentScanSetup } from './document-scanner/documentScanner'
+import { PdfRecognitionPrompt } from './pdf/ocr/PdfRecognitionPrompt'
 import { AudiobooksTab } from './components/AudiobooksTab/AudiobooksTab'
 import { DocumentViewer } from './components/DocumentViewer/DocumentViewer'
 import { TabNav, type AppTab } from './components/TabNav/TabNav'
@@ -331,6 +332,7 @@ function App() {
       <>
         <div inert={audiobookActionBusy ? true : undefined}>
           <DocumentViewer
+            key={`${selectedDoc}:${selectedDocument?.textStatus ?? ''}`}
             url={selectedDoc}
             format={selectedFormat}
             content={docContent}
@@ -346,7 +348,20 @@ function App() {
               />
             )}
             headerControls={<AudioControls {...audioControlsProps} onManageSave={handleManageAudiobookSave} />}
-            beforeDocument={<TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />}
+            beforeDocument={(
+              <>
+                <TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />
+                {selectedFormat === 'pdf' && selectedDocument && (
+                  <PdfRecognitionPrompt
+                    documentUrl={selectedDocument.url}
+                    recognitionRequired={selectedDocument.textStatus === 'recognition-required'}
+                    status={documentImport}
+                    onCancel={cancelDocumentBatch}
+                    onRecognize={recognizeDocumentText}
+                  />
+                )}
+              </>
+            )}
             ttsHighlight={ttsHighlight}
             searchTarget={searchOpenTarget}
             restoreBookmark={restoreBookmark}

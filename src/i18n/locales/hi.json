@@ -97,8 +97,7 @@
       "bookmarked": "बुकमार्क किया गया",
       "bookmarkedOnly": "केवल बुकमार्क किए गए दस्तावेज़ दिखाएँ",
       "emptyBookmarked": "कोई बुकमार्क किया गया दस्तावेज़ वर्तमान फ़िल्टर से मेल नहीं खाता।",
-      "textRecognitionRequired": "पाठ पहचान आवश्यक",
-      "recognizeEnglishText": "अंग्रेज़ी पाठ पहचानें"
+      "textRecognitionRequired": "पाठ पहचान आवश्यक"
     },
     "documentInfo": {
       "button": "विवरण संपादित करें",
@@ -383,7 +382,11 @@
       "locatingMatch": "पृष्ठ {{page, number}} खोला जा रहा है और मिलान खोजा जा रहा है...",
       "verifyingMatch": "दस्तावेज़ में मिलान की पुष्टि की जा रही है...",
       "document": "PDF दस्तावेज़",
-      "documentPages": "PDF दस्तावेज़, {{count, number}} पृष्ठ"
+      "documentPages": "PDF दस्तावेज़, {{count, number}} पृष्ठ",
+      "makeSearchableTitle": "इस दस्तावेज़ को खोजने योग्य बनाएँ",
+      "makeSearchableDescription": "ढूँढने, कॉपी करने, लाइब्रेरी में खोजने और सुनने की सुविधा चालू करने के लिए इस डिवाइस पर अंग्रेज़ी पाठ पहचानें।",
+      "makeSearchable": "खोजने योग्य बनाएँ",
+      "notNow": "अभी नहीं"
     }
   },
   "tts": {
