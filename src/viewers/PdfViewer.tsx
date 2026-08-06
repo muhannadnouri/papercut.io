@@ -11,7 +11,12 @@ import type {
   PDFLinkService,
   PDFViewer as PdfJsViewer,
 } from 'pdfjs-dist/legacy/web/pdf_viewer.mjs'
-import { loadPdfJs, loadPdfViewer, pdfJsAssetRoot } from '../pdf/pdfJs'
+import {
+  loadPdfJs,
+  loadPdfViewer,
+  pdfJsAssetRoot,
+  pdfLoadErrorMessage,
+} from '../pdf/pdfJs'
 import { hasUsablePdfText } from '../pdf/ocr/pdfOcrReadiness'
 import {
   findUploadedPdfText,
@@ -406,7 +411,7 @@ export function PdfViewer({
         if (cancelled) return
         setStatus({
           state: 'error',
-          message: error instanceof Error ? error.message : String(error),
+          message: pdfLoadErrorMessage(error),
         })
       })
 

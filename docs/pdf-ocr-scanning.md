@@ -1251,9 +1251,14 @@ uploads become a repeated need.
 
 ### Stage 10: Hardening And Release
 
-Stage status: Not started
+Stage status: In progress
 
 - [ ] Run malformed, encrypted, large, high-page-count, and low-storage tests.
+  - [x] Normalize known PDF.js password, invalid-file, missing-file, response,
+        and interrupted-load failures at both import and viewer boundaries.
+        Keep unknown and Papercut limit errors intact for diagnosis.
+  - [ ] Complete the production manual fixture matrix; the existing source-size,
+        page-count, page-text, and cleanup guards remain the enforced limits.
 - [ ] Run memory and performance tests on minimum supported desktop and mobile
       hardware.
 - [ ] Complete keyboard, screen-reader, RTL, localization, zoom, and touch

@@ -13,7 +13,7 @@ import {
   type UploadedDocumentBatchProgress,
   type UploadedDocumentBatchResult,
 } from '../uploads/DocumentUploads'
-import { loadPdfJs, pdfJsAssetRoot } from './pdfJs'
+import { loadPdfJs, pdfJsAssetRoot, pdfLoadErrorMessage } from './pdfJs'
 import { hasPdfPageImages, hasUsableNativePdfText } from './ocr/pdfOcrReadiness'
 
 const MAX_PDF_PAGES = 2_000
@@ -63,7 +63,7 @@ export async function indexImportedPdfs(
       }
       failures.push({
         fileName: document.title,
-        error: error instanceof Error ? error.message : String(error),
+        error: pdfLoadErrorMessage(error),
       })
     }
   }
