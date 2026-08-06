@@ -32,7 +32,9 @@ export function PdfRecognitionPrompt({
   const [language, setLanguage] = useState<PdfOcrLanguage>('eng')
   const ownsStatus = isPdfRecognitionStatusForDocument(status, documentUrl)
   const recognizing = ownsStatus && status.status === 'recognizing'
-  const issueAction = ownsStatus ? pdfRecognitionIssueAction(status.recognitionIssues) : null
+  const issueAction = ownsStatus && status.status === 'recognized'
+    ? pdfRecognitionIssueAction(status.recognitionIssues)
+    : null
   const operationBusy = status.status === 'importing' || status.status === 'recognizing' ||
     status.status === 'deleting'
   const activeLanguage = ownsStatus ? status.recognitionLanguage ?? language : language

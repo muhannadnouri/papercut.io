@@ -173,7 +173,8 @@
       "recognitionNeedsRetry": "未能完成 <title>{{title}}</title> 的文字识别。请重试 {{count, number}} 页。",
       "recognitionNeedsReview": "已完成 <title>{{title}}</title> 的文字识别。请检查 {{count, number}} 页；若结果无误，请使用识别文本。",
       "recognitionIssues": "需要注意的页面：{{count, number}}",
-      "recognitionFailedPages": "未识别出文字：{{pages}}",
+      "recognitionFailedPages": "处理失败：{{pages}}",
+      "recognitionUnrecognizedPages": "未识别出文字：{{pages}}",
       "recognitionLowConfidencePages": "建议检查：{{pages}}",
       "retryRecognitionPages": "重试页面",
       "useRecognizedText": "使用识别文本"

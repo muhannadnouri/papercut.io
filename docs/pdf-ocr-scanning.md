@@ -1167,7 +1167,7 @@ paths.
 ### Stage 9: Scan-To-Book Integration
 
 Stage status: In progress; pre-capture metadata, English OCR handoff, targeted
-failed-page retry, review-only OCR acceptance, active scan append, Android
+technical-failure retry, partial OCR acceptance, active scan append, Android
 restart recovery, and the shared downstream lifecycle are accepted. Arabic OCR
 is implemented through the same pipeline but still needs device acceptance;
 iOS physical-device acceptance also remains open.
@@ -1178,12 +1178,13 @@ iOS physical-device acceptance also remains open.
 - [x] Feed English and Arabic captured pages that need recognition through the
       existing bounded OCR and atomic PDF indexing path. Native-text scans and
       import-only languages keep the normal PDF import/view path.
-- [x] Show failed pages with targeted retry and low-confidence pages with an
-      explicit Use Recognized Text decision. Existing nonempty OCR sidecars are
-      reused because repeating the same source, engine, and settings cannot
-      improve a deterministic result.
-- [x] Count only pages that the offered retry or review action will process;
-      the expanded issue list may still include both categories.
+- [x] Distinguish technical page failures from pages where recognition returned
+      no text. Offer Retry only after technical failures; let users explicitly
+      accept partial OCR containing unrecognized or low-confidence pages.
+      Existing nonempty OCR sidecars are reused because repeating the same
+      source, engine, and settings cannot improve a deterministic result.
+- [x] Count the pages that triggered the offered retry or review action; the
+      expanded issue list may still include the other categories.
 - [x] Allow pages to be appended to an existing unfinished scan. Android's Add
       Page flow works for both live and recovered drafts; VisionKit owns the
       equivalent active multi-page flow on iOS. This does not mutate an already
@@ -1213,8 +1214,8 @@ when PDF readiness reports missing usable text. Choosing an unsupported-language
 import path keeps the canonical PDF without making an OCR promise. No second PDF
 copy, native OCR implementation, language detector, or scanner-specific index
 was added. Android physical-device acceptance now covers the setup dialog,
-automatic English OCR handoff, import-only handling, low-confidence acceptance,
-failed-page review, and targeted retry without reprocessing successful pages.
+automatic English OCR handoff, import-only handling, partial OCR acceptance,
+page review, and technical-failure retry without reprocessing successful pages.
 Arabic OCR acceptance and equivalent iOS acceptance remain open. A
 character-weighted confidence score
 below 0.5 remains a provisional review signal, not proof that OCR is incorrect;
@@ -1275,8 +1276,9 @@ Deferred mobile acceptance matrix accumulated during Stages 8 and 9:
 - [ ] iOS: capture, review, append, reorder, and finish a multi-page VisionKit
       scan; cancel it; and verify the canonical PDF and OCR handoff on device.
 - [x] Android scanner OCR handoff: cover successful English recognition,
-      import-only handling, low-confidence acceptance, failed-page review, and
-      targeted retry without reprocessing successful or review-only pages.
+      import-only handling, partial OCR acceptance, page review, and targeted
+      technical-failure retry without reprocessing successful or nonempty
+      review-only pages.
 - [ ] Desktop and Android Arabic OCR: verify RTL selection/copy, exact search,
       Find navigation, page order, TTS order, low-confidence review, and retry.
 - [ ] iOS scanner OCR handoff: cover successful English recognition,

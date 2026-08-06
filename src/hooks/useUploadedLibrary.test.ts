@@ -29,7 +29,7 @@ describe('shouldAutoDismissDocumentImport', () => {
     expect(shouldAutoDismissDocumentImport({ status: 'recognized' })).toBe(true)
     expect(shouldAutoDismissDocumentImport({
       status: 'recognized',
-      recognitionIssues: { failedPages: [2], lowConfidencePages: [4] },
+      recognitionIssues: { failedPages: [2], unrecognizedPages: [3], lowConfidencePages: [4] },
     })).toBe(false)
   })
 })

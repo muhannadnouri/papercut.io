@@ -181,7 +181,8 @@
       "recognitionNeedsRetry": "Impossibile completare il riconoscimento per <title>{{title}}</title>. Riprova {{count, number}} pagine.",
       "recognitionNeedsReview": "Riconoscimento terminato per <title>{{title}}</title>. Controlla {{count, number}} pagine, quindi usa il testo riconosciuto se sembra corretto.",
       "recognitionIssues": "Pagine da controllare: {{count, number}}",
-      "recognitionFailedPages": "Nessun testo riconosciuto: {{pages}}",
+      "recognitionFailedPages": "Elaborazione non riuscita: {{pages}}",
+      "recognitionUnrecognizedPages": "Nessun testo riconosciuto: {{pages}}",
       "recognitionLowConfidencePages": "Controllo consigliato: {{pages}}",
       "retryRecognitionPages": "Riprova pagine",
       "useRecognizedText": "Usa il testo riconosciuto"

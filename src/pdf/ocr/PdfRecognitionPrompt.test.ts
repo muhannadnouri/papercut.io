@@ -18,14 +18,14 @@ describe('isPdfRecognitionStatusForDocument', () => {
     expect(isPdfRecognitionStatusForDocument({ status: 'idle' }, 'uploaded://pdf/one')).toBe(false)
   })
 
-  it('retries failed pages but accepts usable low-confidence text', () => {
-    const mixedIssues = { failedPages: [2], lowConfidencePages: [1, 3] }
+  it('retries technical failures but accepts usable partial recognition', () => {
+    const mixedIssues = { failedPages: [2], unrecognizedPages: [4], lowConfidencePages: [1, 3] }
 
     expect(pdfRecognitionIssueAction(mixedIssues)).toBe('retry')
     expect(pdfRecognitionActionPageCount(mixedIssues)).toBe(1)
-    expect(pdfRecognitionIssueAction({ failedPages: [], lowConfidencePages: [1] })).toBe('accept')
-    expect(pdfRecognitionActionPageCount({ failedPages: [], lowConfidencePages: [1] })).toBe(1)
-    expect(pdfRecognitionIssueAction({ failedPages: [], lowConfidencePages: [] })).toBeNull()
+    expect(pdfRecognitionIssueAction({ failedPages: [], unrecognizedPages: [2], lowConfidencePages: [1] })).toBe('accept')
+    expect(pdfRecognitionActionPageCount({ failedPages: [], unrecognizedPages: [2], lowConfidencePages: [1] })).toBe(2)
+    expect(pdfRecognitionIssueAction({ failedPages: [], unrecognizedPages: [], lowConfidencePages: [] })).toBeNull()
     expect(pdfRecognitionActionPageCount()).toBe(0)
   })
 })

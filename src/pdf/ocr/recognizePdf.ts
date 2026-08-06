@@ -30,6 +30,7 @@ export interface PdfRecognitionProgress {
 
 export interface PdfRecognitionIssues {
   failedPages: number[]
+  unrecognizedPages: number[]
   lowConfidencePages: number[]
 }
 
@@ -91,7 +92,11 @@ export async function recognizePdfDocument(
     const pdf = await loadingTask.promise
     throwIfAborted(options.signal)
     let recognizedCharacters = 0
-    const issues: PdfRecognitionIssues = { failedPages: [], lowConfidencePages: [] }
+    const issues: PdfRecognitionIssues = {
+      failedPages: [],
+      unrecognizedPages: [],
+      lowConfidencePages: [],
+    }
 
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       throwIfAborted(options.signal)
@@ -123,7 +128,7 @@ export async function recognizePdfDocument(
           const layer = await recognizePage(page, worker, pageNumber - 1, options.signal)
           const quality = pdfOcrPageQuality(layer)
           if (quality.characters === 0) {
-            issues.failedPages.push(pageNumber)
+            issues.unrecognizedPages.push(pageNumber)
             continue
           }
           await storeUploadedPdfPageText(document.url, layer)
@@ -154,7 +159,9 @@ export async function recognizePdfDocument(
       document.title,
       pdf.numPages,
       undefined,
-      issues.failedPages.length > 0 || issues.lowConfidencePages.length > 0,
+      issues.failedPages.length > 0 ||
+        issues.unrecognizedPages.length > 0 ||
+        issues.lowConfidencePages.length > 0,
     )
     return { document: updated, issues }
   } finally {

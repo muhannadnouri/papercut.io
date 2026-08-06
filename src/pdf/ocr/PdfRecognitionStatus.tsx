@@ -28,7 +28,9 @@ export function PdfRecognitionStatus({
   const title = status.title ?? ''
   const issues = status.recognitionIssues
   const retryDocumentUrl = status.documentUrl
-  const issueCount = (issues?.failedPages.length ?? 0) + (issues?.lowConfidencePages.length ?? 0)
+  const issueCount = (issues?.failedPages.length ?? 0) +
+    (issues?.unrecognizedPages.length ?? 0) +
+    (issues?.lowConfidencePages.length ?? 0)
   const issueAction = pdfRecognitionIssueAction(issues)
   const actionPageCount = pdfRecognitionActionPageCount(issues)
   let message: ReactNode
@@ -85,6 +87,9 @@ export function PdfRecognitionStatus({
             {issues.failedPages.length > 0 && (
               <li>{t('library.status.recognitionFailedPages', { pages: issues.failedPages.join(', ') })}</li>
             )}
+            {issues.unrecognizedPages.length > 0 && (
+              <li>{t('library.status.recognitionUnrecognizedPages', { pages: issues.unrecognizedPages.join(', ') })}</li>
+            )}
             {issues.lowConfidencePages.length > 0 && (
               <li>{t('library.status.recognitionLowConfidencePages', { pages: issues.lowConfidencePages.join(', ') })}</li>
             )}
@@ -98,7 +103,7 @@ export function PdfRecognitionStatus({
               {t('library.status.retryRecognitionPages')}
             </button>
           )}
-          {retryDocumentUrl && issueAction === 'accept' && (
+          {retryDocumentUrl && status.status === 'recognized' && issueAction === 'accept' && (
             <button
               type="button"
               className="document-batch-cancel"

@@ -74,6 +74,7 @@ interface DocumentCollectionImportOptions {
 export function shouldAutoDismissDocumentImport(status: DocumentImportStatus): boolean {
   if (status.status === 'recognized') {
     return (status.recognitionIssues?.failedPages.length ?? 0) === 0 &&
+      (status.recognitionIssues?.unrecognizedPages.length ?? 0) === 0 &&
       (status.recognitionIssues?.lowConfidencePages.length ?? 0) === 0
   }
   if (status.status !== 'imported' && status.status !== 'cancelled') return false
@@ -350,7 +351,7 @@ export function useUploadedLibrary() {
     }
   }, [uploadedDocuments])
 
-  /** Accept persisted review-only OCR and rebuild the normal PDF index without
+  /** Accept persisted partial or review-only OCR and rebuild the normal PDF index without
    * rerunning the deterministic recognizer or changing the source PDF. */
   const acceptRecognizedDocumentText = useCallback(async (documentUrl: string): Promise<boolean> => {
     const document = uploadedDocuments.find((candidate) => candidate.url === documentUrl)

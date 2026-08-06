@@ -9,12 +9,13 @@ export function isPdfRecognitionStatusForDocument(
   return status.format === 'pdf-ocr' && status.documentUrl === documentUrl
 }
 
-/** Retry missing output, but let users explicitly accept usable review-only OCR. */
+/** Retry technical failures, but let users accept usable partial or review-only OCR. */
 export function pdfRecognitionIssueAction(
   issues?: PdfRecognitionIssues,
 ): 'retry' | 'accept' | null {
   if ((issues?.failedPages.length ?? 0) > 0) return 'retry'
-  if ((issues?.lowConfidencePages.length ?? 0) > 0) return 'accept'
+  if ((issues?.unrecognizedPages.length ?? 0) > 0 ||
+      (issues?.lowConfidencePages.length ?? 0) > 0) return 'accept'
   return null
 }
 
@@ -22,5 +23,6 @@ export function pdfRecognitionIssueAction(
 export function pdfRecognitionActionPageCount(issues?: PdfRecognitionIssues): number {
   return pdfRecognitionIssueAction(issues) === 'retry'
     ? issues?.failedPages.length ?? 0
-    : issues?.lowConfidencePages.length ?? 0
+    : (issues?.unrecognizedPages.length ?? 0) +
+      (issues?.lowConfidencePages.length ?? 0)
 }

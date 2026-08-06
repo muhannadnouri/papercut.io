@@ -332,6 +332,7 @@ function App() {
     const recognitionIssueCount = documentImport.documentUrl === selectedDoc &&
       documentImport.status === 'recognized'
       ? (documentImport.recognitionIssues?.failedPages.length ?? 0) +
+        (documentImport.recognitionIssues?.unrecognizedPages.length ?? 0) +
         (documentImport.recognitionIssues?.lowConfidencePages.length ?? 0)
       : 0
     return (
