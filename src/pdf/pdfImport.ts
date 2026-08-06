@@ -87,9 +87,7 @@ async function extractAndIndexPdf(
 
   try {
     const pdf = await loadingTask.promise
-    if (pdf.numPages > MAX_PDF_PAGES) {
-      throw new Error(`PDF exceeds the ${MAX_PDF_PAGES}-page import limit`)
-    }
+    assertPdfPageCount(pdf.numPages)
     const metadata = await pdf.getMetadata().catch(() => null)
     const title = titleOverride ?? metadataTitle(metadata?.info)
     let thumbnail: number[] | undefined
@@ -127,6 +125,12 @@ async function extractAndIndexPdf(
     return finalizeUploadedPdf(document.url, title, pdf.numPages, thumbnail, recognitionRequired)
   } finally {
     await loadingTask.destroy()
+  }
+}
+
+export function assertPdfPageCount(pageCount: number): void {
+  if (pageCount > MAX_PDF_PAGES) {
+    throw new Error(`PDF exceeds the ${MAX_PDF_PAGES}-page import limit`)
   }
 }
 

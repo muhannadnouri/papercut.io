@@ -286,6 +286,8 @@ mod tests {
         let source = b"%PDF-1.7\nfixture";
         assert!(validate_transferred_pdf_source(&source_upload_id(source), source).is_ok());
         assert!(validate_transferred_pdf_source(&source_upload_id(b"different"), source).is_err());
+        let invalid = b"not a PDF";
+        assert!(validate_transferred_pdf_source(&source_upload_id(invalid), invalid).is_err());
         assert!(validate_transferred_pdf_size(MAX_PDF_UPLOAD_BYTES + 1).is_err());
     }
 }

@@ -473,9 +473,12 @@ pub(crate) fn db_err(err: rusqlite::Error) -> String {
 
 #[cfg(test)]
 mod tests {
-    use rusqlite::Connection;
+    use rusqlite::{params, Connection};
 
-    use super::{ensure_schema_columns, find_upload_by_id, update_document_title, upsert_document};
+    use super::{
+        backfill_pdf_text_status, ensure_schema_columns, find_upload_by_id, update_document_title,
+        upsert_document,
+    };
     use crate::document_uploads::parsed::{ParsedDocument, ParsedSection};
     use crate::document_uploads::StoredSourceKind;
 

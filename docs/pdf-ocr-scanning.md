@@ -1257,6 +1257,12 @@ Stage status: In progress
   - [x] Normalize known PDF.js password, invalid-file, missing-file, response,
         and interrupted-load failures at both import and viewer boundaries.
         Keep unknown and Papercut limit errors intact for diagnosis.
+  - [x] Exercise the installed PDF.js password and invalid-file exception
+        contracts; cover the 2,000-page frontend boundary.
+  - [x] Retain Rust guards for the 250 MB source boundary, bounded page
+        sidecars, and failed-write cleanup; cover transferred-source identity
+        and header validation directly.
+  - [x] Accept Android scanner low-storage recovery and retained-page behavior.
   - [ ] Complete the production manual fixture matrix; the existing source-size,
         page-count, page-text, and cleanup guards remain the enforced limits.
 - [ ] Run memory and performance tests on minimum supported desktop and mobile

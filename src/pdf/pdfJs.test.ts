@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { pdfLoadErrorMessage } from './pdfJs'
+import { loadPdfJs, pdfLoadErrorMessage } from './pdfJs'
 
 describe('pdfLoadErrorMessage', () => {
   it.each([
@@ -22,6 +22,18 @@ describe('pdfLoadErrorMessage', () => {
   it('preserves useful errors outside the known PDF.js failure contract', () => {
     expect(pdfLoadErrorMessage(new Error('PDF exceeds the 2000-page import limit')))
       .toBe('PDF exceeds the 2000-page import limit')
+  })
+
+  it('classifies the installed parser password and invalid-file exceptions', async () => {
+    const pdfjs = await loadPdfJs()
+    const passwordError = new pdfjs.PasswordException(
+      'Password required',
+      pdfjs.PasswordResponses.NEED_PASSWORD,
+    )
+    expect(pdfLoadErrorMessage(passwordError))
+      .toBe('Password-protected PDFs are not supported.')
+    expect(pdfLoadErrorMessage(new pdfjs.InvalidPDFException('Invalid PDF structure.')))
+      .toBe('This PDF is damaged or invalid.')
   })
 })
 
