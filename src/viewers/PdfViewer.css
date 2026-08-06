@@ -78,6 +78,16 @@ html[dir="rtl"] .pdf-search-target-status {
   white-space: pre;
 }
 
+.pdf-ocr-text-layer ::selection {
+  background-color: rgb(79 70 229 / 0.5);
+  background-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  color: transparent;
+}
+
+.pdf-ocr-text-layer br::selection {
+  background-color: transparent;
+}
+
 .pdf-viewer mark[data-search-target] {
   background: var(--highlight-current);
   color: var(--highlight-current-text);

@@ -1068,6 +1068,8 @@ Stage status: Complete; desktop English image-only and hybrid acceptance passed
       for selection without modifying or duplicating the canonical PDF.
 - [x] Fit selectable OCR line runs to persisted page geometry so native desktop
       and Android selection handles do not expose overlapping word glyphs.
+- [x] Keep synthetic OCR glyphs transparent during native selection and use a
+      translucent cross-platform selection tint over the canonical page image.
 - [x] Teach viewer Find and indexed-result highlighting to use finalized OCR
       text and page sidecars, including native pages inside hybrid PDFs, while
       retaining PDF.js Find for fully native-text PDFs.
@@ -1085,8 +1087,8 @@ overlapping word glyphs, so selection now groups and measures complete OCR lines
 without changing sidecars or eager-rendering additional pages.
 
 The reader-centered recognition entry point is implemented, including an
-immediate viewer refresh after the finalized text status changes. Its manual
-desktop and Android smoke test has not been run yet.
+immediate viewer refresh after the finalized text status changes. Manual
+overlay-refresh and low-confidence acceptance smoke tests passed.
 
 ### Stage 8: Native Mobile Capture
 
@@ -1368,6 +1370,7 @@ Stage status: Deferred
 | 2026-08-05 | Stage 7 | Fit OCR selection by visual line | Existing word sidecars provide line endings and bounds; the viewer measures one run per line and scales it to the union of those boxes, avoiding overlapping native selection glyphs without a schema migration, dependency, or larger render window |
 | 2026-08-05 | Stage 7 | Start recognition from the open PDF | Library surfaces communicate readiness only; one nonmodal reader prompt explains the benefit and reuses the existing progress, cancellation, retry, and atomic finalization path without adding another job model |
 | 2026-08-05 | Stage 7 | Separate failed OCR from review-only output | Failed pages remain retryable, while nonempty low-confidence sidecars are accepted explicitly and never rerun unchanged; accepting them reuses the atomic PDF finalizer and refreshes the open viewer without hiding the source PDF |
+| 2026-08-06 | Stage 7 | Keep OCR selection typography invisible | The selectable OCR layer now mirrors PDF.js selection painting with a translucent accent and transparent synthetic glyphs, preserving native handles and copied text without exposing approximate fonts or adding a JavaScript selection overlay |
 
 ## References
 
