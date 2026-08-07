@@ -51,7 +51,12 @@ export function PdfRecognitionStatus({
   } else if (status.status === 'recognized' && issueAction === 'retry') {
     message = <Trans i18nKey="library.status.recognitionNeedsRetry" values={{ title, count: actionPageCount }} components={{ title: <bdi /> }} />
   } else if (status.status === 'recognized' && issueAction === 'accept') {
-    message = <Trans i18nKey="library.status.recognitionNeedsReview" values={{ title, count: actionPageCount }} components={{ title: <bdi /> }} />
+    message = (
+      <span className="pdf-recognition-outcome">
+        <strong>{t('library.status.recognitionReviewComplete')}</strong>
+        <span>{t('library.status.recognitionPagesToReview', { count: actionPageCount })}</span>
+      </span>
+    )
   } else if (status.status === 'recognized') {
     message = <Trans i18nKey="library.status.recognitionComplete" values={{ title }} components={{ title: <bdi /> }} />
   } else if (status.status === 'cancelled') {
@@ -101,11 +106,9 @@ export function PdfRecognitionStatus({
               )}
             </ul>
           </details>
-          {issueAction === 'accept' && (
+          {issueAction === 'accept' && !status.recognitionImprovementAttempted && (
             <p className="pdf-recognition-review-help">
-              {t(status.recognitionImprovementAttempted
-                ? 'library.status.recognitionAcceptHelp'
-                : 'library.status.recognitionReviewHelp')}
+              {t('library.status.recognitionRetryHelp')}
             </p>
           )}
           {retryDocumentUrl && (
@@ -147,6 +150,11 @@ export function PdfRecognitionStatus({
                 </>
               )}
             </div>
+          )}
+          {issueAction === 'accept' && (
+            <p className="pdf-recognition-accept-help">
+              {t('library.status.recognitionAcceptHelp')}
+            </p>
           )}
         </div>
       )}

@@ -1221,9 +1221,11 @@ iOS physical-device acceptance also remains open.
 - [x] Count the pages that triggered the offered retry or review action; the
       expanded issue list may still include the other categories.
 - [x] Keep review details collapsible while leaving compact Retry and Accept
-      decisions visible. Supporting copy explains that Retry uses automatic
-      page-layout detection once and keeps only non-regressing results, while
-      Accept commits derived searchable text without changing the original PDF.
+      decisions visible. The completed state separates its outcome, page count,
+      optional details, retry guidance, actions, and source-preservation note so
+      users do not have to parse one dense status paragraph. Retry uses automatic
+      page-layout detection once and keeps only improving results, while Accept
+      commits derived searchable text without changing the original PDF.
 - [x] Allow pages to be appended to an existing unfinished scan. Android's Add
       Page flow works for both live and recovered drafts; VisionKit owns the
       equivalent active multi-page flow on iOS. This does not mutate an already
@@ -1477,7 +1479,7 @@ Stage status: Deferred
 | 2026-08-06 | Stage 7 | Select hybrid PDF Find before page rendering | PDF finalization records one derived OCR-presence marker; the viewer reads it once at open so indexed Find covers native and OCR pages immediately, while native-only PDFs retain PDF.js Find and its normalization behavior |
 | 2026-08-07 | Stage 7 | Keep all PDF search-target typography invisible | Native PDF.js and OCR text layers now share the translucent target treatment without painting synthetic glyphs; recognition language choices name only the language because the surrounding action already explains recognition |
 | 2026-08-07 | Stage 7 | Separate required OCR from optional hybrid cleanup | PDFs with usable indexed text remain searchable and speakable even when image-backed pages may benefit from OCR; Library urgency is reserved for textless documents, while one compact reader control reuses the existing recognition job and recomputes candidate pages without persisting another page-state model |
-| 2026-08-07 | Stage 7 | Make OCR review decisions explicit | Review details remain collapsible, while compact Retry and Accept actions stay visible with distinct secondary and primary treatments; supporting copy explains automatic layout detection, non-regressing replacement, and preservation of the original PDF |
+| 2026-08-07 | Stage 7 | Make OCR review decisions explicit | The completed state separates outcome, page count, collapsible details, retry guidance, compact actions, and source preservation; Retry and Accept retain distinct secondary and primary treatments without another workflow or panel |
 
 ## References
 

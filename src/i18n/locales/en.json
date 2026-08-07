@@ -175,7 +175,8 @@
       "recognitionCancelled": "Text recognition cancelled for <title>{{title}}</title>.",
       "recognitionNoText": "No text was recognized. The original PDF was not changed.",
       "recognitionNeedsRetry": "Text recognition could not finish for <title>{{title}}</title>. Retry {{count, number}} pages.",
-      "recognitionNeedsReview": "Text recognition finished for <title>{{title}}</title>. Pages to review: {{count, number}}.",
+      "recognitionReviewComplete": "Recognition Complete",
+      "recognitionPagesToReview": "Pages to review: {{count, number}}",
       "recognitionIssues": "Review Details ({{count, number}})",
       "recognitionFailedPages": "Could not process pages: {{pages}}",
       "recognitionUnrecognizedPages": "No text recognized on pages: {{pages}}",
@@ -183,8 +184,8 @@
       "retryRecognitionPages": "Retry",
       "improveRecognitionPages": "Retry",
       "useRecognizedText": "Accept",
-      "recognitionReviewHelp": "Retry uses automatic page layout detection on these pages and keeps the result only if quality does not get worse. Accept uses the current text; the original PDF remains unchanged.",
-      "recognitionAcceptHelp": "Accepting uses the current text for Find, copying, Library search, and listening. The original PDF remains unchanged."
+      "recognitionRetryHelp": "Retry checks these pages using automatic layout detection and keeps the existing result unless quality improves.",
+      "recognitionAcceptHelp": "Accept uses the current text. The original PDF remains unchanged."
     },
     "groups": {
       "importedAudiobooks": "Imported Audiobooks",

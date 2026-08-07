@@ -69,9 +69,11 @@ export function PdfRecognitionPrompt({
           <Dialog className="pdf-recognition-prompt" aria-labelledby={titleId}>
             <div className="pdf-recognition-prompt-copy">
               <h2 id={titleId}>{t('reader.pdf.textRecognition')}</h2>
-              <p>{t(recognitionAvailable
-                ? 'reader.pdf.improveSearchableDescription'
-                : 'reader.pdf.makeSearchableDescription')}</p>
+              {!ownsStatus && (
+                <p>{t(recognitionAvailable
+                  ? 'reader.pdf.improveSearchableDescription'
+                  : 'reader.pdf.makeSearchableDescription')}</p>
+              )}
             </div>
             {ownsStatus && status.status !== 'idle' && (
               <PdfRecognitionStatus

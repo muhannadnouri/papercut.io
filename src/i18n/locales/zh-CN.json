@@ -171,7 +171,8 @@
       "recognitionCancelled": "已取消 <title>{{title}}</title> 的文字识别。",
       "recognitionNoText": "未识别出文字。原始 PDF 未被更改。",
       "recognitionNeedsRetry": "未能完成 <title>{{title}}</title> 的文字识别。请重试 {{count, number}} 页。",
-      "recognitionNeedsReview": "已完成 <title>{{title}}</title> 的文字识别。待检查页面：{{count, number}}。",
+      "recognitionReviewComplete": "文字识别完成",
+      "recognitionPagesToReview": "待检查页面：{{count, number}}",
       "recognitionIssues": "检查详情（{{count, number}}）",
       "recognitionFailedPages": "无法处理的页面：{{pages}}",
       "recognitionUnrecognizedPages": "未识别出文字的页面：{{pages}}",
@@ -179,8 +180,8 @@
       "retryRecognitionPages": "重试",
       "improveRecognitionPages": "重试",
       "useRecognizedText": "接受",
-      "recognitionReviewHelp": "重试会对这些页面使用自动页面布局检测，并且仅在质量不降低时保留结果。接受后将使用当前文本；原始 PDF 保持不变。",
-      "recognitionAcceptHelp": "接受后将使用当前文本进行查找、复制、资料库搜索和聆听。原始 PDF 保持不变。"
+      "recognitionRetryHelp": "重试会使用自动页面布局检测检查这些页面；除非质量有所提高，否则保留当前结果。",
+      "recognitionAcceptHelp": "接受后将使用当前文本。原始 PDF 保持不变。"
     },
     "groups": {
       "importedAudiobooks": "进口有声读物",

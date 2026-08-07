@@ -175,7 +175,8 @@
       "recognitionCancelled": "<title>{{title}}</title> के लिए पाठ पहचान रद्द की गई।",
       "recognitionNoText": "कोई पाठ पहचाना नहीं गया। मूल PDF नहीं बदला गया।",
       "recognitionNeedsRetry": "<title>{{title}}</title> की पाठ पहचान पूरी नहीं हो सकी। {{count, number}} पृष्ठों पर फिर प्रयास करें।",
-      "recognitionNeedsReview": "<title>{{title}}</title> की पाठ पहचान पूरी हुई। समीक्षा के लिए पृष्ठ: {{count, number}}।",
+      "recognitionReviewComplete": "पाठ पहचान पूरी हुई",
+      "recognitionPagesToReview": "समीक्षा के लिए पृष्ठ: {{count, number}}",
       "recognitionIssues": "समीक्षा विवरण ({{count, number}})",
       "recognitionFailedPages": "इन पृष्ठों को संसाधित नहीं किया जा सका: {{pages}}",
       "recognitionUnrecognizedPages": "इन पृष्ठों पर कोई पाठ नहीं पहचाना गया: {{pages}}",
@@ -183,8 +184,8 @@
       "retryRecognitionPages": "पुनः प्रयास",
       "improveRecognitionPages": "पुनः प्रयास",
       "useRecognizedText": "स्वीकार करें",
-      "recognitionReviewHelp": "पुनः प्रयास इन पृष्ठों पर स्वचालित पृष्ठ लेआउट पहचान का उपयोग करता है और परिणाम को तभी रखता है जब गुणवत्ता कम न हो। स्वीकार करने पर मौजूदा पाठ उपयोग होगा; मूल PDF नहीं बदलेगा।",
-      "recognitionAcceptHelp": "स्वीकार करने पर मौजूदा पाठ का उपयोग खोजने, कॉपी करने, लाइब्रेरी खोज और सुनने के लिए होगा। मूल PDF नहीं बदलेगा।"
+      "recognitionRetryHelp": "पुनः प्रयास स्वचालित पृष्ठ लेआउट पहचान से इन पृष्ठों की जाँच करता है और गुणवत्ता बेहतर न होने पर मौजूदा परिणाम रखता है।",
+      "recognitionAcceptHelp": "स्वीकार करने पर मौजूदा पाठ उपयोग होगा। मूल PDF नहीं बदलेगा।"
     },
     "groups": {
       "importedAudiobooks": "आयातित ऑडियोबुक",

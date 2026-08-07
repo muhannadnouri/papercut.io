@@ -179,7 +179,8 @@
       "recognitionCancelled": "Reconnaissance de texte annulée pour <title>{{title}}</title>.",
       "recognitionNoText": "Aucun texte n’a été reconnu. Le PDF original n’a pas été modifié.",
       "recognitionNeedsRetry": "La reconnaissance n’a pas pu se terminer pour <title>{{title}}</title>. Réessayez {{count, number}} pages.",
-      "recognitionNeedsReview": "Reconnaissance terminée pour <title>{{title}}</title>. Pages à vérifier : {{count, number}}.",
+      "recognitionReviewComplete": "Reconnaissance terminée",
+      "recognitionPagesToReview": "Pages à vérifier : {{count, number}}",
       "recognitionIssues": "Détails de la vérification ({{count, number}})",
       "recognitionFailedPages": "Pages non traitées : {{pages}}",
       "recognitionUnrecognizedPages": "Aucun texte reconnu sur les pages : {{pages}}",
@@ -187,8 +188,8 @@
       "retryRecognitionPages": "Réessayer",
       "improveRecognitionPages": "Réessayer",
       "useRecognizedText": "Accepter",
-      "recognitionReviewHelp": "Réessayer utilise la détection automatique de la mise en page sur ces pages et ne conserve le résultat que si la qualité ne diminue pas. Accepter utilise le texte actuel ; le PDF original reste inchangé.",
-      "recognitionAcceptHelp": "Accepter utilise le texte actuel pour la recherche, la copie, la recherche dans la Bibliothèque et l’écoute. Le PDF original reste inchangé."
+      "recognitionRetryHelp": "Réessayer vérifie ces pages avec la détection automatique de la mise en page et conserve le résultat actuel sauf si la qualité s’améliore.",
+      "recognitionAcceptHelp": "Accepter utilise le texte actuel. Le PDF original reste inchangé."
     },
     "groups": {
       "importedAudiobooks": "Livres audio importés",

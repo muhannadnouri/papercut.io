@@ -179,7 +179,8 @@
       "recognitionCancelled": "Riconoscimento del testo annullato per <title>{{title}}</title>.",
       "recognitionNoText": "Non è stato riconosciuto alcun testo. Il PDF originale non è stato modificato.",
       "recognitionNeedsRetry": "Impossibile completare il riconoscimento per <title>{{title}}</title>. Riprova {{count, number}} pagine.",
-      "recognitionNeedsReview": "Riconoscimento terminato per <title>{{title}}</title>. Pagine da controllare: {{count, number}}.",
+      "recognitionReviewComplete": "Riconoscimento completato",
+      "recognitionPagesToReview": "Pagine da controllare: {{count, number}}",
       "recognitionIssues": "Dettagli del controllo ({{count, number}})",
       "recognitionFailedPages": "Pagine non elaborate: {{pages}}",
       "recognitionUnrecognizedPages": "Nessun testo riconosciuto nelle pagine: {{pages}}",
@@ -187,8 +188,8 @@
       "retryRecognitionPages": "Riprova",
       "improveRecognitionPages": "Riprova",
       "useRecognizedText": "Accetta",
-      "recognitionReviewHelp": "Riprova usa il rilevamento automatico del layout su queste pagine e conserva il risultato solo se la qualità non peggiora. Accettando verrà usato il testo attuale; il PDF originale resta invariato.",
-      "recognitionAcceptHelp": "Accettando verrà usato il testo attuale per ricerca, copia, ricerca nella Libreria e ascolto. Il PDF originale resta invariato."
+      "recognitionRetryHelp": "Riprova controlla queste pagine con il rilevamento automatico del layout e conserva il risultato attuale a meno che la qualità non migliori.",
+      "recognitionAcceptHelp": "Accetta usa il testo attuale. Il PDF originale resta invariato."
     },
     "groups": {
       "importedAudiobooks": "Audiolibri importati",

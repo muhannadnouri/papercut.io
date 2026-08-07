@@ -3,6 +3,16 @@
   gap: 0.55rem;
 }
 
+.pdf-recognition-outcome {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.pdf-recognition-outcome > span {
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
 .pdf-recognition-issues-accept summary {
   color: var(--warning-strong);
 }
@@ -11,7 +21,8 @@
   color: var(--danger);
 }
 
-.pdf-recognition-review-help {
+.pdf-recognition-review-help,
+.pdf-recognition-accept-help {
   margin: 0;
   color: var(--text-muted);
   font-size: 0.9em;
