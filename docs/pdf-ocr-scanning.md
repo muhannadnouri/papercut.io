@@ -1070,6 +1070,8 @@ Stage status: Complete; desktop English image-only and hybrid acceptance passed
       the recognition action on every document surface.
 - [ ] Add durable job resume across app restarts.
 - [x] Prevent partial OCR sidecars from becoming searchable before final commit.
+- [x] Write each derived page-text sidecar through a complete same-directory
+      temporary file before atomically replacing its final JSON path.
 - [x] Prevent duplicate native and OCR text in hybrid PDFs.
 - [x] Overlay persisted OCR words on rendered textless and weak-native pages
       for selection without modifying or duplicating the canonical PDF.
@@ -1448,6 +1450,7 @@ Stage status: Deferred
 | 2026-08-06 | Stage 7 | Keep OCR Find typography invisible and action counts literal | Both the CSS Highlight API and legacy mark fallback show a translucent OCR-layer highlight without painting synthetic glyphs, while retry and review messages count only pages their action will process |
 | 2026-08-06 | Stage 8 | Bound native scanner output before canonical import | Android and iOS cap scanner work at 500 pages and 250 MB, Rust independently rechecks both values at the IPC boundary, and VisionKit PDF assembly leaves the main thread without adding another queue or dependency |
 | 2026-08-06 | Stage 10 | Virtualize the Android accepted-page strip | The previous horizontal layout decoded every thumbnail at once; AndroidX RecyclerView now retains only its visible/recycled bitmap window while preserving access to every page and the existing file-backed draft |
+| 2026-08-06 | Stage 10 | Commit PDF page-text sidecars atomically | Each bounded JSON layer is written to a unique same-directory temporary file before rename, so interruption cannot replace a valid derived layer with truncated JSON and failed attempts clean their own staging file without forcing a disk sync for every rebuildable page |
 | 2026-08-06 | Stage 7 | Prefer 300-DPI recognition on the first pass | Initial recognition and targeted failed-page retries render ordinary pages at Tesseract's recommended resolution; one 9-megapixel canvas bounds memory, while alternate segmentation and image-enhancement profiles remain fixture-driven follow-up work |
 | 2026-08-06 | Stage 7 | Select hybrid PDF Find before page rendering | PDF finalization records one derived OCR-presence marker; the viewer reads it once at open so indexed Find covers native and OCR pages immediately, while native-only PDFs retain PDF.js Find and its normalization behavior |
 
