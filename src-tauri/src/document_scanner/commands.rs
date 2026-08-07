@@ -9,11 +9,12 @@ use tauri::{AppHandle, Manager, Runtime, State};
 use tauri_plugin_document_scanner::{DocumentScannerExt, ScanResult, ScannerAvailability};
 
 use crate::document_uploads::{
-    import_scanner_source, DocumentUploadState, UploadedDocumentBatchResult,
+    import_scanner_source, DocumentUploadState, UploadedDocumentBatchResult, MAX_PDF_UPLOAD_BYTES,
 };
 
 static NEXT_CAPTURE_ID: AtomicU64 = AtomicU64::new(0);
 const MAX_SCANNER_TITLE_CHARS: usize = 512;
+const MAX_SCANNER_PAGES: usize = 500;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -139,10 +140,9 @@ fn create_capture_dir<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String>
     Ok(scan_dir)
 }
 
+/// Confirm that a native adapter returned the exact staged file requested and
+/// that its basic shape can safely enter the canonical PDF importer.
 fn validate_mobile_output(result: &ScanResult, path: &Path) -> Result<(), String> {
-    if result.page_count == 0 {
-        return Err("The mobile document source did not contain any pages".into());
-    }
     if Path::new(&result.output_path) != path {
         return Err("The mobile document import returned an unexpected output path".into());
     }
@@ -151,15 +151,35 @@ fn validate_mobile_output(result: &ScanResult, path: &Path) -> Result<(), String
             format!("The mobile document import did not create a readable PDF: {error}")
         })?
         .len();
+    validate_mobile_output_limits(result.page_count, bytes)?;
+    Ok(())
+}
+
+/// Recheck native output limits in Rust because mobile adapters are an IPC
+/// trust boundary, even though both platform implementations reject the same
+/// limits earlier to avoid wasting device resources.
+fn validate_mobile_output_limits(page_count: usize, bytes: u64) -> Result<(), String> {
+    if page_count == 0 {
+        return Err("The mobile document source did not contain any pages".into());
+    }
+    if page_count > MAX_SCANNER_PAGES {
+        return Err(format!(
+            "The mobile document source exceeds the {MAX_SCANNER_PAGES}-page limit"
+        ));
+    }
     if bytes == 0 {
         return Err("The mobile document import created an empty PDF".into());
+    }
+    if bytes > MAX_PDF_UPLOAD_BYTES {
+        return Err("The mobile document import exceeds the 250 MB PDF limit".into());
     }
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::normalize_scanner_title;
+    use super::{normalize_scanner_title, validate_mobile_output_limits, MAX_SCANNER_PAGES};
+    use crate::document_uploads::MAX_PDF_UPLOAD_BYTES;
 
     #[test]
     fn scanner_title_is_trimmed_and_bounded() {
@@ -169,5 +189,14 @@ mod tests {
         );
         assert!(normalize_scanner_title("   ".into()).is_err());
         assert!(normalize_scanner_title("a".repeat(513)).is_err());
+    }
+
+    #[test]
+    fn scanner_output_limits_reject_empty_or_oversized_results() {
+        assert!(validate_mobile_output_limits(0, 1).is_err());
+        assert!(validate_mobile_output_limits(1, 0).is_err());
+        assert!(validate_mobile_output_limits(MAX_SCANNER_PAGES + 1, 1).is_err());
+        assert!(validate_mobile_output_limits(1, MAX_PDF_UPLOAD_BYTES + 1).is_err());
+        assert!(validate_mobile_output_limits(MAX_SCANNER_PAGES, MAX_PDF_UPLOAD_BYTES).is_ok());
     }
 }

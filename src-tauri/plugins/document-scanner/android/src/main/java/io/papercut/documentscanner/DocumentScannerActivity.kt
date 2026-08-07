@@ -634,6 +634,10 @@ class DocumentScannerActivity : ComponentActivity() {
     /** Rectifies and compresses the accepted page on the worker. The UI returns
      * to live capture only after the page file is durable for this session. */
     private fun acceptReview(finishAfterPage: Boolean) {
+        if (acceptedPages.size >= ScanImageProcessing.MAX_DOCUMENT_PAGES) {
+            showDocumentLimit()
+            return
+        }
         if (!hasWorkingSpace(sessionDirectory)) {
             showLowStorage()
             return
@@ -688,9 +692,17 @@ class DocumentScannerActivity : ComponentActivity() {
      * then reports success; partial output is removed by the processing helper. */
     private fun finalizeScan() {
         if (acceptedPages.isEmpty()) return
+        if (acceptedPages.size > ScanImageProcessing.MAX_DOCUMENT_PAGES) {
+            showDocumentLimit()
+            return
+        }
         val estimatedOutputBytes = acceptedPages.fold(0L) { total, page ->
             val pageBytes = page.image.length()
             if (Long.MAX_VALUE - total < pageBytes) Long.MAX_VALUE else total + pageBytes
+        }
+        if (estimatedOutputBytes > ScanImageProcessing.MAX_PDF_BYTES) {
+            showDocumentLimit()
+            return
         }
         if (!hasWorkingSpace(outputFile, estimatedOutputBytes)) {
             showLowStorage()
@@ -733,6 +745,16 @@ class DocumentScannerActivity : ComponentActivity() {
     private fun showLowStorage() {
         AlertDialog.Builder(this)
             .setMessage(R.string.scanner_low_storage)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
+    }
+
+    /** Stops a draft before expensive PDF assembly when it cannot enter
+     * Papercut's bounded importer. Accepted pages remain available for review
+     * or deletion instead of being discarded after a long scan. */
+    private fun showDocumentLimit() {
+        AlertDialog.Builder(this)
+            .setMessage(R.string.scanner_document_limit)
             .setPositiveButton(android.R.string.ok, null)
             .show()
     }

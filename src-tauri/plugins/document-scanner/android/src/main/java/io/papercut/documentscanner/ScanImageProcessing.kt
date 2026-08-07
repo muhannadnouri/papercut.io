@@ -18,6 +18,13 @@ import kotlin.math.roundToInt
 data class ScanPoint(val x: Float, val y: Float)
 
 object ScanImageProcessing {
+    /** Native capture uses a tighter page ceiling than general PDF import so a
+     * camera session cannot become an unbounded bitmap-encoding job. */
+    const val MAX_DOCUMENT_PAGES = 500
+    /** Matches Rust's canonical PDF byte limit; Rust validates it again after
+     * the native plugin returns because platform output crosses IPC. */
+    const val MAX_PDF_BYTES = 250L * 1024L * 1024L
+
     private const val MAX_DECODE_DIMENSION = 4096
     private const val MAX_PREVIEW_DIMENSION = 1600
     private const val MAX_OUTPUT_DIMENSION = 3000
@@ -154,9 +161,13 @@ object ScanImageProcessing {
 
     /** Builds the canonical image-only PDF one page bitmap at a time. Accepted
      * JPEGs remain the session boundary, so multi-page scans do not retain every
-     * decoded page in memory while the PDF is assembled. */
+     * decoded page in memory while the PDF is assembled. Page and final-byte
+     * checks remain here as the common backstop for camera and photo input. */
     fun writePdf(pages: List<File>, output: File) {
         require(pages.isNotEmpty()) { "The document scan has no pages" }
+        require(pages.size <= MAX_DOCUMENT_PAGES) {
+            "The scanned document exceeds the $MAX_DOCUMENT_PAGES-page limit"
+        }
         output.parentFile?.mkdirs()
         val document = PdfDocument()
         try {
@@ -182,6 +193,9 @@ object ScanImageProcessing {
                 }
             }
             FileOutputStream(output).use(document::writeTo)
+            require(output.length() <= MAX_PDF_BYTES) {
+                "The scanned document exceeds the 250 MB PDF limit"
+            }
         } catch (error: Throwable) {
             output.delete()
             throw error

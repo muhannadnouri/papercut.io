@@ -1116,6 +1116,13 @@ acceptance remains open.
 - [x] Support importing existing images across both platforms through native
       system pickers without broad media permissions or image bytes over IPC.
 - [x] Save reviewed iOS and Android scans as canonical PDFs before OCR begins.
+- [x] Bound native capture and photo-import output to 500 pages and 250 MB,
+      then independently validate those limits again at the Rust IPC boundary.
+      Android keeps accepted pages available when a draft exceeds the limit;
+      iOS removes rejected output.
+- [x] Assemble VisionKit camera output away from the main thread after its
+      review UI closes, while keeping Tauri completion callbacks on the main
+      thread.
 - [x] Process pages with bounded memory and allow users to append pages before
       finishing. Android appends to the live or recovered file-backed draft;
       VisionKit provides the active multi-page iOS capture flow. App-restart
@@ -1161,6 +1168,10 @@ path passed force-stop, continue, append, ordering, finish, and start-new
 physical-device acceptance.
 The finished path enters the existing Rust PDF importer, so readiness, OCR,
 indexing, viewer, search, and TTS behavior are not duplicated in native code.
+Native adapters now reject oversized work before canonical import, and Rust
+rechecks the completed page count and file size rather than trusting plugin
+metadata. VisionKit PDF assembly also runs after dismissal on a background
+queue so a long multi-page conversion cannot block the app UI.
 Physical-device acceptance remains open for the iOS capture and photo-picker
 paths.
 
@@ -1425,6 +1436,7 @@ Stage status: Deferred
 | 2026-08-06 | Stage 7 | Keep OCR selection typography invisible | The selectable OCR layer now mirrors PDF.js selection painting with a translucent accent and transparent synthetic glyphs, preserving native handles and copied text without exposing approximate fonts or adding a JavaScript selection overlay |
 | 2026-08-06 | Stage 7 | Add Arabic through the shared Tesseract pipeline | A pinned local `ara` model, explicit capture/reader selection, and language-preserving retries reuse the English worker, page sidecars, FTS, Find, selection, and TTS path without automatic detection or a second OCR engine |
 | 2026-08-06 | Stage 7 | Keep OCR Find typography invisible and action counts literal | Both the CSS Highlight API and legacy mark fallback show a translucent OCR-layer highlight without painting synthetic glyphs, while retry and review messages count only pages their action will process |
+| 2026-08-06 | Stage 8 | Bound native scanner output before canonical import | Android and iOS cap scanner work at 500 pages and 250 MB, Rust independently rechecks both values at the IPC boundary, and VisionKit PDF assembly leaves the main thread without adding another queue or dependency |
 | 2026-08-06 | Stage 7 | Prefer 300-DPI recognition on the first pass | Initial recognition and targeted failed-page retries render ordinary pages at Tesseract's recommended resolution; one 9-megapixel canvas bounds memory, while alternate segmentation and image-enhancement profiles remain fixture-driven follow-up work |
 
 ## References

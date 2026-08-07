@@ -165,18 +165,35 @@ final class DocumentScannerPlugin: Plugin, VNDocumentCameraViewControllerDelegat
       controller.dismiss(animated: true)
       return
     }
-
-    do {
-      try writePDF(scan, to: outputURL)
-      invoke.resolve([
-        "outputPath": outputURL.path,
-        "pageCount": scan.pageCount
-      ])
-    } catch {
-      try? FileManager.default.removeItem(at: outputURL)
-      invoke.reject(error.localizedDescription)
+    guard scan.pageCount <= DocumentOutputLimits.maximumPages else {
+      invoke.reject(ScannerError.tooManyPages.errorDescription ?? "Document scan is too large")
+      finish(controller)
+      return
     }
-    finish(controller)
+
+    // VisionKit calls its delegate on the main thread. Dismiss immediately,
+    // then assemble the potentially large PDF in the background so the Tauri
+    // WebView can paint its processing state and remain responsive.
+    controller.dismiss(animated: true) {
+      DispatchQueue.global(qos: .userInitiated).async {
+        do {
+          try self.writePDF(scan, to: outputURL)
+          DispatchQueue.main.async {
+            invoke.resolve([
+              "outputPath": outputURL.path,
+              "pageCount": scan.pageCount
+            ])
+            self.clearPendingOperation()
+          }
+        } catch {
+          try? FileManager.default.removeItem(at: outputURL)
+          DispatchQueue.main.async {
+            invoke.reject(error.localizedDescription)
+            self.clearPendingOperation()
+          }
+        }
+      }
+    }
   }
 
   func documentCameraViewControllerDidCancel(_ controller: VNDocumentCameraViewController) {
@@ -197,6 +214,9 @@ final class DocumentScannerPlugin: Plugin, VNDocumentCameraViewControllerDelegat
   private func writePDF(_ scan: VNDocumentCameraScan, to outputURL: URL) throws {
     guard scan.pageCount > 0 else {
       throw ScannerError.emptyScan
+    }
+    guard scan.pageCount <= DocumentOutputLimits.maximumPages else {
+      throw ScannerError.tooManyPages
     }
     guard let consumer = CGDataConsumer(url: outputURL as CFURL),
           let context = CGContext(consumer: consumer, mediaBox: nil, nil) else {
@@ -219,8 +239,10 @@ final class DocumentScannerPlugin: Plugin, VNDocumentCameraViewControllerDelegat
         context.restoreGState()
         context.endPDFPage()
       }
+      try ensureOutputWithinLimit(outputURL)
     }
     context.closePDF()
+    try ensureOutputWithinLimit(outputURL)
   }
 
   /** Loads one picker result at a time and copies it immediately because the
@@ -273,6 +295,9 @@ final class DocumentScannerPlugin: Plugin, VNDocumentCameraViewControllerDelegat
    * orientation during thumbnail creation while capping decode memory. */
   private func writeImagePDF(_ imageURLs: [URL], to outputURL: URL) throws {
     guard !imageURLs.isEmpty else { throw ScannerError.emptyScan }
+    guard imageURLs.count <= DocumentOutputLimits.maximumPages else {
+      throw ScannerError.tooManyPages
+    }
     guard let consumer = CGDataConsumer(url: outputURL as CFURL),
           let context = CGContext(consumer: consumer, mediaBox: nil, nil) else {
       throw ScannerError.cannotCreatePDF
@@ -300,8 +325,23 @@ final class DocumentScannerPlugin: Plugin, VNDocumentCameraViewControllerDelegat
         context.restoreGState()
         context.endPDFPage()
       }
+      try ensureOutputWithinLimit(outputURL)
     }
     context.closePDF()
+    try ensureOutputWithinLimit(outputURL)
+  }
+
+  /** Bounds app-owned output while Core Graphics streams pages. Rust checks the
+   * completed file again because native plugin results still cross IPC. */
+  private func ensureOutputWithinLimit(_ outputURL: URL) throws {
+    // Core Graphics may not materialize its consumer file until the first
+    // flush. The post-close check and Rust boundary still verify the result.
+    guard FileManager.default.fileExists(atPath: outputURL.path) else { return }
+    let attributes = try FileManager.default.attributesOfItem(atPath: outputURL.path)
+    let bytes = (attributes[.size] as? NSNumber)?.int64Value ?? 0
+    if bytes > DocumentOutputLimits.maximumBytes {
+      throw ScannerError.outputTooLarge
+    }
   }
 
   private func finish(_ controller: VNDocumentCameraViewController) {
@@ -316,9 +356,16 @@ final class DocumentScannerPlugin: Plugin, VNDocumentCameraViewControllerDelegat
 }
 
 private enum ImageImportLimits {
-  static let maximumImages = 500
+  static let maximumImages = DocumentOutputLimits.maximumPages
   static let maximumSourceBytes: Int64 = 64 * 1024 * 1024
   static let maximumPixelDimension = 3000
+}
+
+private enum DocumentOutputLimits {
+  // Keep native work bounded before the Rust importer independently enforces
+  // its canonical PDF limit at the IPC boundary.
+  static let maximumPages = 500
+  static let maximumBytes: Int64 = 250 * 1024 * 1024
 }
 
 private enum ScannerError: LocalizedError {
@@ -326,6 +373,8 @@ private enum ScannerError: LocalizedError {
   case cannotCreatePDF
   case cannotReadPage(Int)
   case imageTooLarge(Int)
+  case outputTooLarge
+  case tooManyPages
   case unsupportedImage(Int)
 
   var errorDescription: String? {
@@ -338,6 +387,10 @@ private enum ScannerError: LocalizedError {
       return "Unable to read scanned page \(page)"
     case .imageTooLarge(let page):
       return "Selected photo \(page) exceeds the 64 MB limit"
+    case .outputTooLarge:
+      return "The scanned document exceeds the 250 MB PDF limit"
+    case .tooManyPages:
+      return "The scanned document exceeds the 500-page limit"
     case .unsupportedImage(let page):
       return "Selected item \(page) is not a supported image"
     }

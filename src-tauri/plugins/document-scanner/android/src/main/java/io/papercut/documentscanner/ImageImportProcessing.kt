@@ -10,7 +10,6 @@ import java.util.UUID
 /** Converts system-picker URIs into the same bounded image-only PDF contract
  * as camera capture. The caller owns only the completed PDF, never raw bytes. */
 object ImageImportProcessing {
-    private const val MAX_IMAGES = 500
     private const val MAX_SOURCE_BYTES = 64L * 1024L * 1024L
     private const val MIN_FREE_SPACE_BYTES = 64L * 1024L * 1024L
 
@@ -19,7 +18,9 @@ object ImageImportProcessing {
      * independently of the selected page count. */
     fun writePdf(contentResolver: ContentResolver, uris: List<Uri>, output: File): Int {
         require(uris.isNotEmpty()) { "Select at least one photo" }
-        require(uris.size <= MAX_IMAGES) { "Select no more than $MAX_IMAGES photos at once" }
+        require(uris.size <= ScanImageProcessing.MAX_DOCUMENT_PAGES) {
+            "Select no more than ${ScanImageProcessing.MAX_DOCUMENT_PAGES} photos at once"
+        }
         val session = File(output.parentFile, ".photo-import-${UUID.randomUUID()}")
         val pages = mutableListOf<File>()
         session.mkdirs()
@@ -46,6 +47,9 @@ object ImageImportProcessing {
 
             val pageBytes = pages.fold(0L) { total, page ->
                 if (Long.MAX_VALUE - total < page.length()) Long.MAX_VALUE else total + page.length()
+            }
+            require(pageBytes <= ScanImageProcessing.MAX_PDF_BYTES) {
+                "The selected photos exceed the 250 MB PDF limit"
             }
             requireWorkingSpace(output, pageBytes)
             ScanImageProcessing.writePdf(pages, output)
