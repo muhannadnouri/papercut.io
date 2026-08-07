@@ -85,7 +85,7 @@ export function PdfRecognitionPrompt({
               />
             )}
             {(recognitionRequired || recognitionAvailable) && !recognizing && !issueAction && (
-              <>
+              <div className="pdf-recognition-prompt-form">
                 <div className="pdf-recognition-prompt-language">
                   <span id={languageLabelId}>{t('library.scanSetup.textLanguage')}</span>
                   <AppSelect
@@ -111,7 +111,7 @@ export function PdfRecognitionPrompt({
                       : 'reader.pdf.makeSearchable')}
                   </button>
                 </div>
-              </>
+              </div>
             )}
           </Dialog>
         </Popover>

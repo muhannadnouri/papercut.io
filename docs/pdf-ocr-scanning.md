@@ -1225,7 +1225,10 @@ iOS physical-device acceptance also remains open.
       optional details, retry guidance, actions, and source-preservation note so
       users do not have to parse one dense status paragraph. Retry uses automatic
       page-layout detection once and keeps only improving results, while Accept
-      commits derived searchable text without changing the original PDF.
+      commits derived searchable text without changing the original PDF. The
+      shared status names the document in the Library but omits that redundant
+      context inside its reader; the initial language-and-action form stays
+      compact without reducing mobile touch targets.
 - [x] Allow pages to be appended to an existing unfinished scan. Android's Add
       Page flow works for both live and recovered drafts; VisionKit owns the
       equivalent active multi-page flow on iOS. This does not mutate an already

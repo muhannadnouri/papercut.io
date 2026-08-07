@@ -224,6 +224,7 @@ function documentImportStatusMessage(
       onCancel={onCancelBatch}
       onRecognize={onRecognizeDocument}
       onAccept={onAcceptRecognizedDocument}
+      showDocumentTitle
     />
   }
   if (status.format === 'batch' || status.format === 'folder' || status.format === 'scan' ||

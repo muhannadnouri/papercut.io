@@ -48,7 +48,7 @@
 
 .pdf-recognition-popover {
   z-index: 200;
-  width: min(28rem, calc(100vw - 1rem));
+  width: min(24rem, calc(100vw - 1rem));
   max-height: min(34rem, calc(100vh - 1rem));
 }
 
@@ -72,31 +72,54 @@
 .pdf-recognition-prompt-copy p {
   margin: 0.25rem 0 0;
   color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.35;
 }
 
 .pdf-recognition-prompt .document-batch-status {
   margin-top: 0.65rem;
 }
 
+.pdf-recognition-prompt-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0.55rem;
+  margin-top: 0.65rem;
+}
+
 .pdf-recognition-prompt-language {
   display: grid;
   gap: 0.3rem;
-  margin-top: 0.75rem;
   font-weight: 700;
+}
+
+.pdf-recognition-prompt-language .app-select-button {
+  height: 2.2rem;
+  min-height: 2.2rem;
+  border-color: transparent;
+  background: var(--control-surface);
+}
+
+.pdf-recognition-prompt-language .app-select-button:focus-visible,
+.pdf-recognition-prompt-language .app-select-open .app-select-button {
+  border-color: transparent;
+  background: var(--surface-accent);
 }
 
 .pdf-recognition-prompt-actions {
   display: flex;
-  margin-top: 0.75rem;
 }
 
 .pdf-recognition-prompt-actions button {
-  min-height: 2.75rem;
-  padding: 0.55rem 0.85rem;
+  height: 2.2rem;
+  min-height: 2.2rem;
+  padding: 0 0.85rem;
   border: 1px solid transparent;
   border-radius: var(--radius-control);
   font: inherit;
   font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -130,5 +153,21 @@
   .pdf-recognition-trigger {
     width: 2.75rem;
     min-height: 2.75rem;
+  }
+
+  .pdf-recognition-prompt-actions button {
+    height: 2.75rem;
+    min-height: 2.75rem;
+  }
+
+  .pdf-recognition-prompt-language .app-select-button {
+    height: 2.75rem;
+    min-height: 2.75rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .pdf-recognition-prompt-form {
+    grid-template-columns: 1fr;
   }
 }

@@ -17,6 +17,7 @@ export function PdfRecognitionStatus({
   onCancel,
   onRecognize,
   onAccept,
+  showDocumentTitle = false,
 }: {
   status: DocumentImportStatus
   t: TFunction
@@ -27,6 +28,7 @@ export function PdfRecognitionStatus({
     issues?: NonNullable<DocumentImportStatus['recognitionIssues']>,
   ) => void | Promise<boolean>
   onAccept: (documentUrl: string) => void | Promise<boolean>
+  showDocumentTitle?: boolean
 }) {
   const progress = status.recognitionProgress
   const recognizing = status.status === 'recognizing'
@@ -54,6 +56,7 @@ export function PdfRecognitionStatus({
     message = (
       <span className="pdf-recognition-outcome">
         <strong>{t('library.status.recognitionReviewComplete')}</strong>
+        {showDocumentTitle && <bdi className="pdf-recognition-outcome-title" title={title}>{title}</bdi>}
         <span>{t('library.status.recognitionPagesToReview', { count: actionPageCount })}</span>
       </span>
     )
