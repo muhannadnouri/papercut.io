@@ -1116,7 +1116,8 @@ acceptance remains open.
 - [x] Integrate VisionKit document camera on supported iOS devices.
 - [x] Support page thumbnails, crop, rotation, delete, reorder, and retake
       across both platforms. Android keeps only one bounded management preview
-      in memory and uses small on-disk thumbnails for the accepted-page strip.
+      in memory and uses small on-disk thumbnails for the accepted-page strip;
+      RecyclerView decodes only the visible thumbnail window.
 - [x] Support importing existing images across both platforms through native
       system pickers without broad media permissions or image bytes over IPC.
 - [x] Save reviewed iOS and Android scans as canonical PDFs before OCR begins.
@@ -1150,9 +1151,10 @@ Implementation evidence: the Android plugin compiles and passes Android lint;
 its manifest merges into the arm debug app. CameraX writes one temporary JPEG,
 the review screen holds one bounded bitmap, accepted pages return to compressed
 session files, and Android's `PdfDocument` decodes one accepted page at a time.
-Accepted pages now have small session thumbnails; the page manager rewrites
-only the in-memory file order when moving pages and deletes both files when a
-page is removed, without recompressing retained page images.
+Accepted pages now have small session thumbnails; a horizontal RecyclerView
+retains decoded bitmaps only for its visible/recycled rows. The page manager
+rewrites only the in-memory file order when moving pages and deletes both files
+when a page is removed, without recompressing retained page images.
 Android physical-device acceptance passed camera framing, touch crop, rotation,
 retake, multi-page capture, page reorder/delete, permission denial/recovery,
 cancellation, final PDF import, and OCR handoff. Accepted page filenames and
@@ -1320,6 +1322,10 @@ Deferred mobile acceptance matrix accumulated during Stages 8 and 9:
       retained only where documented.
 - [x] Android: import multiple existing photos, cancel the picker, and verify
       page order, orientation, cleanup, and bounded-memory behavior.
+- [ ] Android: exercise the virtualized accepted-page strip with a long scan;
+      verify scrolling and page selection while watching for sustained bitmap
+      growth. Kotlin compilation and Android lint pass; device acceptance is
+      intentionally deferred to the final matrix.
 - [ ] iOS: import multiple existing photos, cancel the picker, and
       verify page order, orientation, cleanup, and bounded-memory behavior.
 - [ ] iOS: capture, review, append, reorder, and finish a multi-page VisionKit
@@ -1441,6 +1447,7 @@ Stage status: Deferred
 | 2026-08-06 | Stage 7 | Add Arabic through the shared Tesseract pipeline | A pinned local `ara` model, explicit capture/reader selection, and language-preserving retries reuse the English worker, page sidecars, FTS, Find, selection, and TTS path without automatic detection or a second OCR engine |
 | 2026-08-06 | Stage 7 | Keep OCR Find typography invisible and action counts literal | Both the CSS Highlight API and legacy mark fallback show a translucent OCR-layer highlight without painting synthetic glyphs, while retry and review messages count only pages their action will process |
 | 2026-08-06 | Stage 8 | Bound native scanner output before canonical import | Android and iOS cap scanner work at 500 pages and 250 MB, Rust independently rechecks both values at the IPC boundary, and VisionKit PDF assembly leaves the main thread without adding another queue or dependency |
+| 2026-08-06 | Stage 10 | Virtualize the Android accepted-page strip | The previous horizontal layout decoded every thumbnail at once; AndroidX RecyclerView now retains only its visible/recycled bitmap window while preserving access to every page and the existing file-backed draft |
 | 2026-08-06 | Stage 7 | Prefer 300-DPI recognition on the first pass | Initial recognition and targeted failed-page retries render ordinary pages at Tesseract's recommended resolution; one 9-megapixel canvas bounds memory, while alternate segmentation and image-enhancement profiles remain fixture-driven follow-up work |
 | 2026-08-06 | Stage 7 | Select hybrid PDF Find before page rendering | PDF finalization records one derived OCR-presence marker; the viewer reads it once at open so indexed Find covers native and OCR pages immediately, while native-only PDFs retain PDF.js Find and its normalization behavior |
 

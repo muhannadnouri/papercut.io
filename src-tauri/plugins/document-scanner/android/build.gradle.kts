@@ -28,4 +28,5 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.5.3")
     implementation("androidx.camera:camera-view:1.5.3")
     implementation("androidx.exifinterface:exifinterface:1.4.2")
+    implementation("androidx.recyclerview:recyclerview:1.4.0")
 }

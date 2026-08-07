@@ -7,7 +7,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.os.StatFs
@@ -18,7 +17,6 @@ import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -33,6 +31,8 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import java.io.File
 import java.util.UUID
 import java.util.Collections
@@ -363,35 +363,24 @@ class DocumentScannerActivity : ComponentActivity() {
         preview.post { bindCamera(preview) }
     }
 
-    /** Shows lightweight on-disk thumbnails rather than keeping accepted page
-     * bitmaps alive. Tapping one opens a single bounded management preview. */
-    private fun acceptedPagesStrip(): View = HorizontalScrollView(this).apply {
+    /** Uses RecyclerView as the bitmap ownership boundary for the page strip.
+     * Accepted JPEGs and thumbnails remain on disk; only visible thumbnails are
+     * decoded, and tapping one still opens the single bounded page preview. */
+    private fun acceptedPagesStrip(): View = RecyclerView(this).apply {
+        layoutManager = LinearLayoutManager(
+            this@DocumentScannerActivity,
+            LinearLayoutManager.HORIZONTAL,
+            false,
+        )
+        adapter = AcceptedPageThumbnailAdapter(
+            this@DocumentScannerActivity,
+            acceptedPages.map { it.thumbnail },
+            { page -> getString(R.string.scanner_page_number, page) },
+            { page -> getString(R.string.scanner_manage_page, page) },
+            ::showPageManager,
+        )
         isHorizontalScrollBarEnabled = false
-        addView(LinearLayout(this@DocumentScannerActivity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(8), dp(4), dp(8), dp(4))
-            acceptedPages.forEachIndexed { index, page ->
-                addView(LinearLayout(this@DocumentScannerActivity).apply {
-                    orientation = LinearLayout.VERTICAL
-                    gravity = Gravity.CENTER
-                    isClickable = true
-                    isFocusable = true
-                    contentDescription = getString(R.string.scanner_manage_page, index + 1)
-                    setOnClickListener { showPageManager(index) }
-                    addView(ImageView(this@DocumentScannerActivity).apply {
-                        setImageBitmap(BitmapFactory.decodeFile(page.thumbnail.path))
-                        scaleType = ImageView.ScaleType.CENTER_CROP
-                    }, LinearLayout.LayoutParams(dp(64), dp(72)))
-                    addView(TextView(this@DocumentScannerActivity).apply {
-                        text = getString(R.string.scanner_page_number, index + 1)
-                        gravity = Gravity.CENTER
-                        setTextColor(0xffeeeeee.toInt())
-                    }, LinearLayout.LayoutParams(dp(64), dp(24)))
-                }, LinearLayout.LayoutParams(dp(72), dp(104)).apply {
-                    setMargins(dp(4), 0, dp(4), 0)
-                })
-            }
-        })
+        setPadding(dp(8), dp(4), dp(8), dp(4))
     }
 
     private fun captureHeader(): View = LinearLayout(this).apply {
