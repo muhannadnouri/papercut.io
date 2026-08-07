@@ -15,6 +15,17 @@ interface PdfImageOperations {
   paintInlineImageXObjectGroup: number
 }
 
+export type FinalizedPdfTextStatus = 'ready' | 'recognition-available' | 'recognition-required'
+
+/** Keep searchable hybrids usable while retaining an optional OCR entry point. */
+export function finalizedPdfTextStatus(
+  hasUsableText: boolean,
+  hasRecognitionCandidate: boolean,
+): FinalizedPdfTextStatus {
+  if (!hasUsableText) return 'recognition-required'
+  return hasRecognitionCandidate ? 'recognition-available' : 'ready'
+}
+
 /** Treat sparse or damaged extraction as usable only when it resembles prose.
  * Image detection is kept separate so ordinary text pages avoid operator-list work. */
 export function hasUsableNativePdfText(content: TextContent): boolean {

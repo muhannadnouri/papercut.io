@@ -9,7 +9,7 @@ use super::super::parsed::{ParsedDocument, ParsedSection};
 use super::super::storage::{
     upload_dir, upload_reference_from_url, upload_source_path, StoredSourceKind,
 };
-use super::super::store::{find_upload_by_id, open_db, upsert_document};
+use super::super::store::{find_upload_by_id, open_db, upsert_document, PdfTextStatus};
 use super::super::types::UploadedDocument;
 use super::narration::{
     reconstruct_narration_segments, reconstruct_search_text, PdfNarrationSegment,
@@ -44,7 +44,7 @@ pub(crate) struct PdfFinalizeRequest {
     page_count: u32,
     thumbnail: Option<Vec<u8>>,
     #[serde(default)]
-    recognition_required: bool,
+    text_status: PdfTextStatus,
 }
 
 /// Validate and store one page at a time so extraction never sends a complete
@@ -99,7 +99,7 @@ pub(crate) fn get_pdf_narration_segments<R: Runtime>(
     if StoredSourceKind::from_str(&document.source_kind)? != StoredSourceKind::Pdf {
         return Err("Uploaded PDF source metadata does not match its URL".into());
     }
-    if document.text_status != "ready" {
+    if document.text_status == "processing" || document.text_status == "recognition-required" {
         return Err("PDF text has not been indexed".into());
     }
     let page_count =
@@ -187,7 +187,7 @@ pub(crate) fn finalize_pdf_index<R: Runtime>(
         source_kind,
         existing.imported_at_ms,
         existing.bytes,
-        request.recognition_required,
+        request.text_status,
     )?;
 
     find_upload_by_id(&db, &id)?.ok_or_else(|| "Indexed PDF metadata is missing".to_string())

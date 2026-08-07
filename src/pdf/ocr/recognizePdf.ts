@@ -8,7 +8,11 @@ import {
   type UploadedDocument,
 } from '../../uploads/DocumentUploads'
 import { loadPdfJs, pdfJsAssetRoot } from '../pdfJs'
-import { hasPdfPageImages, hasUsableNativePdfText } from './pdfOcrReadiness'
+import {
+  finalizedPdfTextStatus,
+  hasPdfPageImages,
+  hasUsableNativePdfText,
+} from './pdfOcrReadiness'
 import {
   createPdfOcrWorker,
   recognizePdfPage,
@@ -63,8 +67,10 @@ export async function recognizePdfDocument(
   language: PdfOcrLanguage,
   options: PdfRecognitionOptions = {},
 ): Promise<PdfRecognitionResult> {
-  if (document.sourceKind !== 'pdf' || document.textStatus !== 'recognition-required') {
-    throw new Error('Document does not require PDF text recognition')
+  if (document.sourceKind !== 'pdf' ||
+      (document.textStatus !== 'recognition-required' &&
+        document.textStatus !== 'recognition-available')) {
+    throw new Error('Document does not support PDF text recognition')
   }
 
   throwIfAborted(options.signal)
@@ -93,6 +99,7 @@ export async function recognizePdfDocument(
     const pdf = await loadingTask.promise
     throwIfAborted(options.signal)
     let recognizedCharacters = 0
+    let hasUsableText = false
     const issues: PdfRecognitionIssues = {
       failedPages: [],
       unrecognizedPages: [],
@@ -109,7 +116,10 @@ export async function recognizePdfDocument(
 
       try {
         const content = await page.getTextContent({ disableNormalization: true })
-        if (hasUsableNativePdfText(content)) continue
+        if (hasUsableNativePdfText(content)) {
+          hasUsableText = true
+          continue
+        }
         const operatorList = await page.getOperatorList()
         if (!hasPdfPageImages(operatorList.fnArray, pdfjs.OPS)) continue
 
@@ -168,9 +178,12 @@ export async function recognizePdfDocument(
       document.title,
       pdf.numPages,
       undefined,
-      issues.failedPages.length > 0 ||
-        issues.unrecognizedPages.length > 0 ||
-        issues.lowConfidencePages.length > 0,
+      finalizedPdfTextStatus(
+        hasUsableText || recognizedCharacters > 0,
+        issues.failedPages.length > 0 ||
+          issues.unrecognizedPages.length > 0 ||
+          issues.lowConfidencePages.length > 0,
+      ),
     )
     return { document: updated, issues }
   } finally {

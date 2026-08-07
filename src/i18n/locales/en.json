@@ -389,10 +389,11 @@
       "verifyingMatch": "Verifying the match in the document...",
       "document": "PDF document",
       "documentPages": "PDF document, {{count, number}} pages",
-      "makeSearchableTitle": "Make This Document Searchable",
+      "textRecognition": "Text Recognition",
       "makeSearchableDescription": "Choose the document language and recognize its text on this device to enable Find, copying, Library search, and listening.",
-      "makeSearchable": "Make Searchable",
-      "notNow": "Not Now"
+      "improveSearchableDescription": "Recognize missing text on this device to improve Find, copying, Library search, and listening.",
+      "improveSearchable": "Recognize Missing Text",
+      "makeSearchable": "Make Searchable"
     }
   },
   "tts": {

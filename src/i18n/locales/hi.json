@@ -389,10 +389,11 @@
       "verifyingMatch": "दस्तावेज़ में मिलान की पुष्टि की जा रही है...",
       "document": "PDF दस्तावेज़",
       "documentPages": "PDF दस्तावेज़, {{count, number}} पृष्ठ",
-      "makeSearchableTitle": "इस दस्तावेज़ को खोजने योग्य बनाएँ",
+      "textRecognition": "पाठ पहचान",
       "makeSearchableDescription": "दस्तावेज़ की भाषा चुनें और ढूँढने, कॉपी करने, लाइब्रेरी में खोजने और सुनने की सुविधा चालू करने के लिए इस डिवाइस पर उसका पाठ पहचानें।",
-      "makeSearchable": "खोजने योग्य बनाएँ",
-      "notNow": "अभी नहीं"
+      "improveSearchableDescription": "ढूँढने, कॉपी करने, लाइब्रेरी में खोजने और सुनने को बेहतर बनाने के लिए इस डिवाइस पर छूटा हुआ पाठ पहचानें।",
+      "improveSearchable": "छूटा हुआ पाठ पहचानें",
+      "makeSearchable": "खोजने योग्य बनाएँ"
     }
   },
   "tts": {

@@ -384,10 +384,11 @@
       "verifyingMatch": "正在文档中验证匹配项...",
       "document": "PDF 文档",
       "documentPages": "PDF 文档，共 {{count, number}} 页",
-      "makeSearchableTitle": "让此文档可搜索",
+      "textRecognition": "文字识别",
       "makeSearchableDescription": "选择文档语言并在此设备上识别文字，以启用查找、复制、资料库搜索和朗读。",
-      "makeSearchable": "设为可搜索",
-      "notNow": "暂不"
+      "improveSearchableDescription": "在此设备上识别缺失的文字，以改进查找、复制、资料库搜索和朗读。",
+      "improveSearchable": "识别缺失文字",
+      "makeSearchable": "设为可搜索"
     }
   },
   "tts": {

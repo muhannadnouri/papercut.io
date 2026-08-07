@@ -1,3 +1,9 @@
+export type UploadedDocumentTextStatus =
+  | 'processing'
+  | 'ready'
+  | 'recognition-available'
+  | 'recognition-required'
+
 export interface UploadedDocument {
   id: string
   url: string
@@ -9,7 +15,7 @@ export interface UploadedDocument {
   bytes: number
   sections: number
   coverMediaType?: string | null
-  textStatus: 'processing' | 'ready' | 'recognition-required'
+  textStatus: UploadedDocumentTextStatus
 }
 
 export interface UploadedDocumentSearchResult {
@@ -285,11 +291,11 @@ export async function finalizeUploadedPdf(
   title: string | undefined,
   pageCount: number,
   thumbnail?: number[],
-  recognitionRequired = false,
+  textStatus: Exclude<UploadedDocumentTextStatus, 'processing'> = 'ready',
 ): Promise<UploadedDocument> {
   const invoke = await loadTauriInvoke()
   return invoke<UploadedDocument>('document_uploads_finalize_pdf', {
-    request: { documentUrl, title, pageCount, thumbnail, recognitionRequired },
+    request: { documentUrl, title, pageCount, thumbnail, textStatus },
   })
 }
 

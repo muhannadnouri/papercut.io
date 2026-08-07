@@ -267,13 +267,32 @@ pub(crate) fn delete_document_rows(db: &mut Connection, id: &str) -> Result<(), 
     tx.commit().map_err(db_err)
 }
 
+/// PDF readiness persisted after the frontend has inspected every page.
+#[derive(Clone, Copy, Debug, Default, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum PdfTextStatus {
+    #[default]
+    Ready,
+    RecognitionAvailable,
+    RecognitionRequired,
+}
+
+impl PdfTextStatus {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Ready => "ready",
+            Self::RecognitionAvailable => "recognition-available",
+            Self::RecognitionRequired => "recognition-required",
+        }
+    }
+}
+
 /// Insert or update a parsed document and all of its sections atomically.
 ///
 /// This deliberately avoids `INSERT OR REPLACE` because SQLite implements that
 /// as delete-then-insert, which would cascade-delete the document's library
 /// location. The document row updates in place while section and FTS rows are
-/// rebuilt from the latest parsed content. PDF import may additionally retain
-/// a recognition-required state when only some image-backed pages lack text.
+/// rebuilt from the latest parsed content.
 pub(crate) fn upsert_document(
     db: &mut Connection,
     id: &str,
@@ -283,7 +302,7 @@ pub(crate) fn upsert_document(
     source_kind: StoredSourceKind,
     imported_at_ms: u128,
     bytes: u64,
-    pdf_recognition_required: bool,
+    pdf_text_status: PdfTextStatus,
 ) -> Result<(), String> {
     let tx = db.transaction().map_err(db_err)?;
     tx.execute(
@@ -319,7 +338,7 @@ pub(crate) fn upsert_document(
             bytes as i64,
             parsed.sections.len() as i64,
             parsed.cover.as_ref().map(|cover| cover.media_type),
-            document_text_status(source_kind, parsed, pdf_recognition_required),
+            document_text_status(source_kind, parsed, pdf_text_status),
         ],
     )
     .map_err(db_err)?;
@@ -411,19 +430,19 @@ pub(crate) fn upsert_unindexed_document(
 fn document_text_status(
     source_kind: StoredSourceKind,
     parsed: &ParsedDocument,
-    pdf_recognition_required: bool,
+    pdf_text_status: PdfTextStatus,
 ) -> &'static str {
-    if source_kind == StoredSourceKind::Pdf
-        && (pdf_recognition_required
-            || !parsed
-                .sections
-                .iter()
-                .any(|section| !section.text.trim().is_empty()))
-    {
-        "recognition-required"
-    } else {
-        "ready"
+    if source_kind != StoredSourceKind::Pdf {
+        return "ready";
     }
+    if !parsed
+        .sections
+        .iter()
+        .any(|section| !section.text.trim().is_empty())
+    {
+        return "recognition-required";
+    }
+    pdf_text_status.as_str()
 }
 
 /// Change display metadata and its duplicated FTS title in one transaction.
@@ -477,7 +496,7 @@ mod tests {
 
     use super::{
         backfill_pdf_text_status, ensure_schema_columns, find_upload_by_id, update_document_title,
-        upsert_document,
+        upsert_document, PdfTextStatus,
     };
     use crate::document_uploads::parsed::{ParsedDocument, ParsedSection};
     use crate::document_uploads::StoredSourceKind;
@@ -497,7 +516,7 @@ mod tests {
             StoredSourceKind::Html,
             100,
             10,
-            false,
+            PdfTextStatus::Ready,
         )
         .expect("initial insert");
         let stored = find_upload_by_id(&db, "abc123")
@@ -531,7 +550,7 @@ mod tests {
             StoredSourceKind::Html,
             200,
             20,
-            false,
+            PdfTextStatus::Ready,
         )
         .expect("update existing document");
 
@@ -591,7 +610,7 @@ mod tests {
             StoredSourceKind::Html,
             100,
             10,
-            false,
+            PdfTextStatus::Ready,
         )
         .expect("insert document");
 
@@ -631,7 +650,7 @@ mod tests {
             StoredSourceKind::Pdf,
             100,
             20,
-            false,
+            PdfTextStatus::Ready,
         )
         .expect("insert PDF");
 
@@ -656,7 +675,7 @@ mod tests {
             StoredSourceKind::Pdf,
             100,
             20,
-            true,
+            PdfTextStatus::RecognitionAvailable,
         )
         .expect("mark hybrid PDF for recognition");
         assert_eq!(
@@ -664,7 +683,7 @@ mod tests {
                 .expect("lookup hybrid PDF")
                 .expect("stored hybrid PDF")
                 .text_status,
-            "recognition-required"
+            "recognition-available"
         );
 
         parsed.sections[0].text = "  ".into();
@@ -677,7 +696,7 @@ mod tests {
             StoredSourceKind::Pdf,
             100,
             20,
-            false,
+            PdfTextStatus::Ready,
         )
         .expect("replace PDF with image-only page");
         assert_eq!(

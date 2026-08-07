@@ -354,21 +354,23 @@ function App() {
                 onLibraryImported={handleLibraryTransferImported}
               />
             )}
-            headerControls={<AudioControls {...audioControlsProps} onManageSave={handleManageAudiobookSave} />}
-            beforeDocument={(
+            headerControls={(
               <>
-                <TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />
                 {selectedFormat === 'pdf' && selectedDocument && (
                   <PdfRecognitionPrompt
                     documentUrl={selectedDocument.url}
-                    recognitionRequired={selectedDocument.textStatus === 'recognition-required'}
+                    textStatus={selectedDocument.textStatus}
                     status={documentImport}
                     onCancel={cancelDocumentBatch}
                     onRecognize={recognizeDocumentText}
                     onAccept={acceptRecognizedDocumentText}
                   />
                 )}
+                <AudioControls {...audioControlsProps} onManageSave={handleManageAudiobookSave} />
               </>
+            )}
+            beforeDocument={(
+              <TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />
             )}
             ttsHighlight={ttsHighlight}
             searchTarget={searchOpenTarget}

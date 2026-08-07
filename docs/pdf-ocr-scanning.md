@@ -203,23 +203,28 @@ The first OCR preparation pass adds one persisted document-level text status to
 the existing upload metadata rather than introducing an OCR subsystem:
 
 - `processing` while PDF.js is building page sidecars and the shared index.
-- `ready` when a finalized document contains searchable text.
-- `recognition-required` when a finalized PDF contains no non-whitespace page
-  text or at least one image-backed page lacks usable native text.
+- `ready` when a finalized document contains searchable text and no
+  image-backed weak-text page was found.
+- `recognition-available` when a PDF is already searchable but one or more
+  image-backed pages may benefit from optional recognition.
+- `recognition-required` only when a finalized PDF has no usable searchable
+  text.
 
 Schema version 6 backfills previously finalized, fully textless PDFs from their
 existing SQLite page rows. The Library gallery and uploaded-document list show
-**Text Recognition Required** so a rendered scan no longer looks searchable.
-The original PDF remains canonical and no duplicate index or compatibility
-format is added by this pass.
+**Text Recognition Required** only for documents that are not searchable.
+Searchable hybrids remain immediately available for Find, Library search, and
+TTS; the reader exposes their optional cleanup through a compact text-
+recognition control. The original PDF remains canonical and no duplicate index
+or compatibility format is added by this pass.
 
 Hybrid readiness is computed from PDF.js text and image operators during the
 bounded import pass. The document stores only the aggregate status; recognition
 recomputes the same page decision from the canonical PDF, leaves usable native
 and blank page sidecars untouched, and replaces only image-backed weak-text
-pages. If OCR in the selected packaged language still returns no text for one
-of those pages, the document remains recognition-required after the successful
-partial rebuild.
+pages. A partial rebuild with usable native or recognized text remains
+recognition-available when pages still need review; only a document with no
+usable text remains recognition-required.
 Page-level provenance remains deferred until language/model metadata needs a
 durable representation.
 
@@ -289,7 +294,7 @@ engine selection; P09/P10 remain behavioral acceptance cases.
 | P07 | Body text with footnotes | Body and note order is deterministic and page navigation targets the correct region |
 | P08 | Table plus surrounding paragraphs | Table extraction does not reorder or duplicate surrounding prose |
 | P09 | Image-only pages | Import persists `recognition-required` and does not present the document as searchable |
-| P10 | Hybrid native-text and image-only pages | Native pages are retained and only missing pages are marked for later OCR |
+| P10 | Hybrid native-text and image-only pages | Import persists `recognition-available`; native pages remain searchable and only missing pages are candidates for optional OCR |
 | P11 | Encrypted/password-protected PDF | Import rejects early with a specific, non-destructive error |
 | P12 | Truncated or malformed PDF | Import fails within limits and leaves no source or index residue |
 | P13 | 100-page performance document | Measures normal import, first-page render, Find, navigation, memory, and cleanup |
@@ -1021,8 +1026,8 @@ bookmarks, Find, global search, and HTML/EPUB parity.
 
 ### Stage 6: OCR Engine Foundation
 
-Stage status: Foundation complete; desktop English WebView smoke test passed;
-Arabic implementation complete and awaiting acceptance
+Stage status: Foundation complete; desktop English and Arabic WebView
+acceptance passed
 
 - [x] Persist aggregate upload text status without changing the canonical PDF
       or page-sidecar schema.
@@ -1030,6 +1035,8 @@ Arabic implementation complete and awaiting acceptance
 - [x] Mark newly finalized and previously indexed fully textless PDFs as
       requiring recognition.
 - [x] Surface the recognition-required state in Library Gallery and List views.
+- [x] Keep searchable hybrid PDFs usable and distinguish their optional OCR
+      opportunity as recognition-available.
 - [x] Defer hybrid page detection until text and image signals could be
       evaluated together in Stage 7.
 - [x] Select Tesseract.js as the initial common engine.
@@ -1064,6 +1071,8 @@ Stage status: Complete; desktop English image-only and hybrid acceptance passed
 - [ ] Store OCR engine/model version, provenance, and confidence. The active
       language is retained in the current job state but is not yet persisted.
 - [x] Add explicit English/Arabic language selection with a retry path.
+- [x] Replace the persistent reader banner with an accessible compact control;
+      reserve its attention marker for required OCR, review, and errors.
 - [x] Add page-level progress, cancellation, failure, and retry through the
       reader prompt and shared Library operation notice.
 - [x] Keep Library rows and gallery covers informational instead of repeating
@@ -1463,6 +1472,7 @@ Stage status: Deferred
 | 2026-08-06 | Stage 7 | Prefer 300-DPI recognition on the first pass | Initial recognition and targeted failed-page retries render ordinary pages at Tesseract's recommended resolution; one 9-megapixel canvas bounds memory, while alternate segmentation and image-enhancement profiles remain fixture-driven follow-up work |
 | 2026-08-06 | Stage 7 | Select hybrid PDF Find before page rendering | PDF finalization records one derived OCR-presence marker; the viewer reads it once at open so indexed Find covers native and OCR pages immediately, while native-only PDFs retain PDF.js Find and its normalization behavior |
 | 2026-08-07 | Stage 7 | Keep all PDF search-target typography invisible | Native PDF.js and OCR text layers now share the translucent target treatment without painting synthetic glyphs; recognition language choices name only the language because the surrounding action already explains recognition |
+| 2026-08-07 | Stage 7 | Separate required OCR from optional hybrid cleanup | PDFs with usable indexed text remain searchable and speakable even when image-backed pages may benefit from OCR; Library urgency is reserved for textless documents, while one compact reader control reuses the existing recognition job and recomputes candidate pages without persisting another page-state model |
 
 ## References
 

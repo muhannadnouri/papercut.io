@@ -88,7 +88,8 @@ export function shouldRecognizeImportedScan(
 ): boolean {
   return scanOcrLanguage(language) !== null &&
     document.sourceKind === 'pdf' &&
-    document.textStatus === 'recognition-required'
+    (document.textStatus === 'recognition-required' ||
+      document.textStatus === 'recognition-available')
 }
 
 /** Map the capture UI choice to the bundled Tesseract language identifiers. */
@@ -351,7 +352,7 @@ export function useUploadedLibrary() {
         document.title,
         document.sections,
         undefined,
-        false,
+        'ready',
       )
       setUploadedDocuments((documents) => documents.map((candidate) => (
         candidate.id === updated.id ? updated : candidate

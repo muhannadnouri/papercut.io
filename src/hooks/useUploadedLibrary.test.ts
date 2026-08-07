@@ -44,6 +44,7 @@ describe('shouldRecognizeImportedScan', () => {
     expect(shouldRecognizeImportedScan(document, 'english')).toBe(true)
     expect(shouldRecognizeImportedScan(document, 'arabic')).toBe(true)
     expect(shouldRecognizeImportedScan(document, 'other')).toBe(false)
+    expect(shouldRecognizeImportedScan({ ...document, textStatus: 'recognition-available' }, 'english')).toBe(true)
     expect(shouldRecognizeImportedScan({ ...document, textStatus: 'ready' }, 'english')).toBe(false)
   })
 })

@@ -394,10 +394,11 @@
       "verifyingMatch": "Verificando la coincidencia en el documento...",
       "document": "Documento PDF",
       "documentPages": "Documento PDF, {{count, number}} páginas",
-      "makeSearchableTitle": "Hacer que este documento se pueda buscar",
+      "textRecognition": "Reconocimiento de texto",
       "makeSearchableDescription": "Elige el idioma del documento y reconoce su texto en este dispositivo para habilitar Buscar, copiar, buscar en la Biblioteca y escuchar.",
-      "makeSearchable": "Hacer que se pueda buscar",
-      "notNow": "Ahora no"
+      "improveSearchableDescription": "Reconoce el texto que falta en este dispositivo para mejorar Buscar, copiar, buscar en la Biblioteca y escuchar.",
+      "improveSearchable": "Reconocer el texto que falta",
+      "makeSearchable": "Hacer que se pueda buscar"
     }
   },
   "tts": {

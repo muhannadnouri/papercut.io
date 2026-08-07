@@ -409,10 +409,11 @@
       "verifyingMatch": "جارٍ التحقق من المطابقة في المستند...",
       "document": "مستند PDF",
       "documentPages": "مستند PDF، {{count, number}} صفحة",
-      "makeSearchableTitle": "اجعل هذا المستند قابلاً للبحث",
+      "textRecognition": "التعرّف على النص",
       "makeSearchableDescription": "اختر لغة المستند وتعرّف على نصه على هذا الجهاز لتمكين البحث والنسخ والبحث في المكتبة والاستماع.",
-      "makeSearchable": "جعله قابلاً للبحث",
-      "notNow": "ليس الآن"
+      "improveSearchableDescription": "تعرّف على النص المفقود على هذا الجهاز لتحسين البحث والنسخ والبحث في المكتبة والاستماع.",
+      "improveSearchable": "التعرّف على النص المفقود",
+      "makeSearchable": "جعله قابلاً للبحث"
     }
   },
   "tts": {
