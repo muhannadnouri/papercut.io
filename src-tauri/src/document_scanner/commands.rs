@@ -32,8 +32,8 @@ pub(crate) async fn document_scanner_availability<R: Runtime>(
 }
 
 /// Capture to a private staging PDF, then reuse the normal upload transaction.
-/// A failed import retains the capture below the scanner inbox for later
-/// recovery; successful imports remove the redundant staged source.
+/// The completed native output is removed after the import attempt because the
+/// canonical importer owns successful copies and no UI can recover failed ones.
 #[tauri::command]
 pub(crate) async fn document_scanner_scan<R: Runtime>(
     app: AppHandle<R>,
@@ -99,12 +99,10 @@ async fn import_mobile_source<R: Runtime>(
         import_scanner_source(import_app, control, import_path, &title)
     })
     .await
-    .map_err(|error| format!("Mobile document import task failed: {error}"))??;
+    .map_err(|error| format!("Mobile document import task failed: {error}"));
+    let _ = fs::remove_dir_all(scan_dir);
 
-    if result.imported.len() == 1 && result.failures.is_empty() && !result.cancelled {
-        let _ = fs::remove_dir_all(scan_dir);
-    }
-    Ok(result)
+    result?
 }
 
 /// Validate display metadata before opening native capture UI. Keeping this at
