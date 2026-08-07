@@ -191,14 +191,16 @@
       "recognitionCancelled": "أُلغي التعرّف على النص في <title>{{title}}</title>.",
       "recognitionNoText": "لم يتم التعرّف على أي نص. لم يتغير ملف PDF الأصلي.",
       "recognitionNeedsRetry": "تعذّر إكمال التعرّف على النص في <title>{{title}}</title>. أعد محاولة {{count, number}} صفحة.",
-      "recognitionNeedsReview": "اكتمل التعرّف على النص في <title>{{title}}</title>. راجع {{count, number}} صفحة، ثم استخدم النص المتعرّف عليه إذا بدا صحيحًا.",
-      "recognitionIssues": "الصفحات التي تحتاج إلى انتباه: {{count, number}}",
+      "recognitionNeedsReview": "اكتمل التعرّف على النص في <title>{{title}}</title>. الصفحات المطلوب مراجعتها: {{count, number}}.",
+      "recognitionIssues": "تفاصيل المراجعة ({{count, number}})",
       "recognitionFailedPages": "تعذّرت معالجة الصفحات: {{pages}}",
-      "recognitionUnrecognizedPages": "لم يتم التعرّف على نص: {{pages}}",
-      "recognitionLowConfidencePages": "يُنصح بالمراجعة: {{pages}}",
-      "retryRecognitionPages": "إعادة محاولة الصفحات",
-      "improveRecognitionPages": "تحسين الصفحات",
-      "useRecognizedText": "استخدام النص المتعرّف عليه"
+      "recognitionUnrecognizedPages": "لم يتم التعرّف على نص في الصفحات: {{pages}}",
+      "recognitionLowConfidencePages": "ثقة منخفضة في الصفحات: {{pages}}",
+      "retryRecognitionPages": "إعادة محاولة الصفحات المتعذرة",
+      "improveRecognitionPages": "إعادة المحاولة مع التحسينات",
+      "useRecognizedText": "اعتماد النص المتعرّف عليه",
+      "recognitionReviewHelp": "تعيد المحاولة معالجة هذه الصفحات فقط بإعدادات محسّنة. يعتمد القبول النص الحالي؛ ويبقى ملف PDF الأصلي دون تغيير.",
+      "recognitionAcceptHelp": "يعتمد القبول النص الحالي للبحث والنسخ والبحث في المكتبة والاستماع. يبقى ملف PDF الأصلي دون تغيير."
     },
     "groups": {
       "importedAudiobooks": "الكتب الصوتية المستوردة",

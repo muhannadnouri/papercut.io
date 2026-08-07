@@ -1,0 +1,64 @@
+.pdf-recognition-review {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.pdf-recognition-issues-accept summary {
+  color: var(--warning-strong);
+}
+
+.pdf-recognition-issues-retry summary {
+  color: var(--danger);
+}
+
+.pdf-recognition-review-help {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
+.pdf-recognition-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.pdf-recognition-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.5rem;
+}
+
+.pdf-recognition-action svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.pdf-recognition-action-primary {
+  background: var(--accent);
+  color: var(--text-inverse);
+}
+
+.document-batch-cancel.pdf-recognition-action-primary:focus-visible {
+  background: var(--accent);
+  color: var(--text-inverse);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .document-batch-cancel.pdf-recognition-action-secondary:hover:not(:disabled) {
+    background: var(--surface-hover);
+    color: var(--accent-strong);
+  }
+
+  .document-batch-cancel.pdf-recognition-action-primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+    color: var(--text-inverse);
+  }
+}

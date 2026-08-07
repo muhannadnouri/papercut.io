@@ -8,8 +8,9 @@ import {
   pdfRecognitionActionPageCount,
   pdfRecognitionIssueAction,
 } from './pdfRecognitionPromptState'
+import './PdfRecognitionStatus.css'
 
-/** Present the shared OCR progress, cancellation, and retry lifecycle. */
+/** Present the shared OCR progress, cancellation, review, and acceptance lifecycle. */
 export function PdfRecognitionStatus({
   status,
   t,
@@ -64,7 +65,7 @@ export function PdfRecognitionStatus({
   return (
     <div className="document-batch-status">
       <div className="document-batch-status-row">
-        <span>{message}</span>
+        <span role="status">{message}</span>
         {recognizing && (
           <button
             type="button"
@@ -85,54 +86,86 @@ export function PdfRecognitionStatus({
         />
       )}
       {!recognizing && issueCount > 0 && issues && (
-        <details className="document-batch-failures">
-          <summary>{t('library.status.recognitionIssues', { count: issueCount })}</summary>
-          <ul>
-            {issues.failedPages.length > 0 && (
-              <li>{t('library.status.recognitionFailedPages', { pages: issues.failedPages.join(', ') })}</li>
-            )}
-            {issues.unrecognizedPages.length > 0 && (
-              <li>{t('library.status.recognitionUnrecognizedPages', { pages: issues.unrecognizedPages.join(', ') })}</li>
-            )}
-            {issues.lowConfidencePages.length > 0 && (
-              <li>{t('library.status.recognitionLowConfidencePages', { pages: issues.lowConfidencePages.join(', ') })}</li>
-            )}
-          </ul>
-          {retryDocumentUrl && issueAction === 'retry' && (
-            <button
-              type="button"
-              className="document-batch-cancel"
-              onClick={() => void onRecognize(retryDocumentUrl, status.recognitionLanguage ?? 'eng')}
-            >
-              {t('library.status.retryRecognitionPages')}
-            </button>
+        <div className="pdf-recognition-review">
+          <details className={`document-batch-failures pdf-recognition-issues pdf-recognition-issues-${issueAction}`}>
+            <summary>{t('library.status.recognitionIssues', { count: issueCount })}</summary>
+            <ul>
+              {issues.failedPages.length > 0 && (
+                <li>{t('library.status.recognitionFailedPages', { pages: issues.failedPages.join(', ') })}</li>
+              )}
+              {issues.unrecognizedPages.length > 0 && (
+                <li>{t('library.status.recognitionUnrecognizedPages', { pages: issues.unrecognizedPages.join(', ') })}</li>
+              )}
+              {issues.lowConfidencePages.length > 0 && (
+                <li>{t('library.status.recognitionLowConfidencePages', { pages: issues.lowConfidencePages.join(', ') })}</li>
+              )}
+            </ul>
+          </details>
+          {issueAction === 'accept' && (
+            <p className="pdf-recognition-review-help">
+              {t(status.recognitionImprovementAttempted
+                ? 'library.status.recognitionAcceptHelp'
+                : 'library.status.recognitionReviewHelp')}
+            </p>
           )}
-          {retryDocumentUrl && status.status === 'recognized' && issueAction === 'accept' && (
-            <>
-              {!status.recognitionImprovementAttempted && (
+          {retryDocumentUrl && (
+            <div className="pdf-recognition-actions">
+              {issueAction === 'retry' && (
                 <button
                   type="button"
-                  className="document-batch-cancel"
-                  onClick={() => void onRecognize(
-                    retryDocumentUrl,
-                    status.recognitionLanguage ?? 'eng',
-                    issues,
-                  )}
+                  className="document-batch-cancel pdf-recognition-action pdf-recognition-action-secondary"
+                  onClick={() => void onRecognize(retryDocumentUrl, status.recognitionLanguage ?? 'eng')}
                 >
-                  {t('library.status.improveRecognitionPages')}
+                  <RetryIcon />
+                  {t('library.status.retryRecognitionPages')}
                 </button>
               )}
-              <button
-                type="button"
-                className="document-batch-cancel"
-                onClick={() => void onAccept(retryDocumentUrl)}
-              >
-                {t('library.status.useRecognizedText')}
-              </button>
-            </>
+              {status.status === 'recognized' && issueAction === 'accept' && (
+                <>
+                  {!status.recognitionImprovementAttempted && (
+                    <button
+                      type="button"
+                      className="document-batch-cancel pdf-recognition-action pdf-recognition-action-secondary"
+                      onClick={() => void onRecognize(
+                        retryDocumentUrl,
+                        status.recognitionLanguage ?? 'eng',
+                        issues,
+                      )}
+                    >
+                      <RetryIcon />
+                      {t('library.status.improveRecognitionPages')}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="document-batch-cancel pdf-recognition-action pdf-recognition-action-primary"
+                    onClick={() => void onAccept(retryDocumentUrl)}
+                  >
+                    <CheckIcon />
+                    {t('library.status.useRecognizedText')}
+                  </button>
+                </>
+              )}
+            </div>
           )}
-        </details>
+        </div>
       )}
     </div>
+  )
+}
+
+function RetryIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7" />
+    </svg>
+  )
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="m5 12 4 4L19 6" />
+    </svg>
   )
 }
