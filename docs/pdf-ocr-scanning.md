@@ -1314,6 +1314,10 @@ Stage status: In progress
 - [x] Remove completed native scanner staging after every canonical import
       attempt. Android's resumable in-progress draft remains separate and is
       retained until the user finishes or discards it.
+- [x] Isolate indexed PDF search-result navigation from `PdfViewer`. One
+      focused adapter now owns page targeting, native/OCR text-layer waits,
+      Find fallback, progress, and event cleanup without adding a viewer
+      framework or dependency.
 - [ ] Remove diagnostic-only code, unused dependencies, and abandoned feature
       flags.
 
@@ -1455,6 +1459,7 @@ Stage status: Deferred
 | 2026-08-06 | Stage 10 | Virtualize the Android accepted-page strip | The previous horizontal layout decoded every thumbnail at once; AndroidX RecyclerView now retains only its visible/recycled bitmap window while preserving access to every page and the existing file-backed draft |
 | 2026-08-06 | Stage 10 | Commit PDF page-text sidecars atomically | Each bounded JSON layer is written to a unique same-directory temporary file before rename, so interruption cannot replace a valid derived layer with truncated JSON and failed attempts clean their own staging file without forcing a disk sync for every rebuildable page |
 | 2026-08-06 | Stage 10 | Discard completed scanner staging after import attempts | The canonical importer owns successful copies, while failed completed PDFs had no recovery surface and otherwise accumulated indefinitely; Android's resumable pre-completion draft remains unchanged |
+| 2026-08-06 | Stage 10 | Isolate indexed PDF search-target navigation | `PdfViewer` delegates page targeting, native/OCR text-layer waits, Find fallback, progress, and cleanup to one focused adapter while retaining its cohesive loading and rendering lifecycle and adding no dependency |
 | 2026-08-06 | Stage 7 | Prefer 300-DPI recognition on the first pass | Initial recognition and targeted failed-page retries render ordinary pages at Tesseract's recommended resolution; one 9-megapixel canvas bounds memory, while alternate segmentation and image-enhancement profiles remain fixture-driven follow-up work |
 | 2026-08-06 | Stage 7 | Select hybrid PDF Find before page rendering | PDF finalization records one derived OCR-presence marker; the viewer reads it once at open so indexed Find covers native and OCR pages immediately, while native-only PDFs retain PDF.js Find and its normalization behavior |
 

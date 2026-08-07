@@ -70,6 +70,37 @@ export function clearPdfOcrTextLayers(viewer: HTMLElement): void {
   viewer.querySelectorAll(`.${PDF_OCR_TEXT_LAYER_CLASS}`).forEach((layer) => layer.remove())
 }
 
+/** Return a PDF.js text layer only after its asynchronous render is complete. */
+export function renderedPdfTextLayer(
+  viewer: HTMLElement,
+  pageNumber: number,
+): HTMLElement | null {
+  const textLayer = viewer.querySelector<HTMLElement>(
+    `.page[data-page-number="${pageNumber}"] .textLayer`,
+  )
+  return textLayer?.querySelector('.endOfContent') ? textLayer : null
+}
+
+export function renderedPdfOcrTextLayer(
+  viewer: HTMLElement,
+  pageNumber: number,
+): HTMLElement | null {
+  return viewer.querySelector<HTMLElement>(
+    `.page[data-page-number="${pageNumber}"] .${PDF_OCR_TEXT_LAYER_CLASS}`,
+  )
+}
+
+/** Prefer derived OCR text for mixed PDFs, then fall back to usable native text. */
+export function renderedPdfSearchLayer(
+  viewer: HTMLElement,
+  pageNumber: number,
+): HTMLElement | null {
+  const ocrLayer = renderedPdfOcrTextLayer(viewer, pageNumber)
+  if (ocrLayer) return ocrLayer
+  const textLayer = renderedPdfTextLayer(viewer, pageNumber)
+  return textLayer?.textContent?.trim() ? textLayer : null
+}
+
 /** Convert ordered OCR word boxes into selectable line runs without changing persistence. */
 export function pdfOcrTextLines(blocks: readonly PdfOcrTextBlock[]): PdfOcrTextLine[] {
   const lines: PdfOcrTextLine[] = []
