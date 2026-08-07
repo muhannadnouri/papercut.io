@@ -2,7 +2,6 @@ package io.papercut.documentscanner
 
 import android.content.ContentResolver
 import android.net.Uri
-import android.os.StatFs
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
@@ -11,7 +10,6 @@ import java.util.UUID
  * as camera capture. The caller owns only the completed PDF, never raw bytes. */
 object ImageImportProcessing {
     private const val MAX_SOURCE_BYTES = 64L * 1024L * 1024L
-    private const val MIN_FREE_SPACE_BYTES = 64L * 1024L * 1024L
 
     /** Copies, decodes, normalizes, and releases one selected image at a time.
      * Reviewed JPEG pages stay on disk until PDF assembly, bounding bitmap use
@@ -26,7 +24,9 @@ object ImageImportProcessing {
         session.mkdirs()
         try {
             uris.forEachIndexed { index, uri ->
-                requireWorkingSpace(session)
+                require(ScanImageProcessing.hasWorkingSpace(session)) {
+                    "Free some storage before importing these photos"
+                }
                 val source = File(session, "source-$index")
                 copyBounded(contentResolver, uri, source)
                 val decoded = ScanImageProcessing.decodeUpright(source)
@@ -51,7 +51,9 @@ object ImageImportProcessing {
             require(pageBytes <= ScanImageProcessing.MAX_PDF_BYTES) {
                 "The selected photos exceed the 250 MB PDF limit"
             }
-            requireWorkingSpace(output, pageBytes)
+            require(ScanImageProcessing.hasWorkingSpace(output, pageBytes)) {
+                "Free some storage before importing these photos"
+            }
             ScanImageProcessing.writePdf(pages, output)
             return pages.size
         } catch (error: Throwable) {
@@ -83,20 +85,5 @@ object ImageImportProcessing {
             }
         }
         require(total > 0) { "A selected photo is empty" }
-    }
-
-    /** Uses filesystem accounting as a preflight only; actual writes remain
-     * authoritative when a provider or volume changes during the operation. */
-    private fun requireWorkingSpace(target: File, additionalBytes: Long = 0L) {
-        var anchor = if (target.isDirectory) target else target.parentFile
-        while (anchor != null && !anchor.exists()) anchor = anchor.parentFile
-        if (anchor == null) return
-        val required = if (Long.MAX_VALUE - MIN_FREE_SPACE_BYTES < additionalBytes) {
-            Long.MAX_VALUE
-        } else {
-            MIN_FREE_SPACE_BYTES + additionalBytes
-        }
-        val available = runCatching { StatFs(anchor.path).availableBytes }.getOrNull() ?: return
-        require(available >= required) { "Free some storage before importing these photos" }
     }
 }

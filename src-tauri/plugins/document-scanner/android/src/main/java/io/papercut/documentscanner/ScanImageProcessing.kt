@@ -8,6 +8,7 @@ import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.pdf.PdfDocument
+import android.os.StatFs
 import androidx.exifinterface.media.ExifInterface
 import java.io.File
 import java.io.FileOutputStream
@@ -25,11 +26,27 @@ object ScanImageProcessing {
      * the native plugin returns because platform output crosses IPC. */
     const val MAX_PDF_BYTES = 250L * 1024L * 1024L
 
+    private const val MIN_FREE_SPACE_BYTES = 64L * 1024L * 1024L
     private const val MAX_DECODE_DIMENSION = 4096
     private const val MAX_PREVIEW_DIMENSION = 1600
     private const val MAX_OUTPUT_DIMENSION = 3000
     private const val MAX_THUMBNAIL_DIMENSION = 160
     private const val PDF_SOURCE_DPI = 300f
+
+    /** Preflight temporary and final writes with one conservative reserve.
+     * Unknown filesystem state is left to the real write so an unavailable
+     * storage probe never disables scanning or photo import by itself. */
+    fun hasWorkingSpace(target: File, additionalBytes: Long = 0L): Boolean {
+        var anchor = if (target.isDirectory) target else target.parentFile
+        while (anchor != null && !anchor.exists()) anchor = anchor.parentFile
+        if (anchor == null) return true
+        val required = if (Long.MAX_VALUE - MIN_FREE_SPACE_BYTES < additionalBytes) {
+            Long.MAX_VALUE
+        } else {
+            MIN_FREE_SPACE_BYTES + additionalBytes
+        }
+        return runCatching { StatFs(anchor.path).availableBytes >= required }.getOrDefault(true)
+    }
 
     /** Decodes a camera JPEG near the maximum useful OCR resolution and applies
      * EXIF orientation up front, keeping crop coordinates stable thereafter. */

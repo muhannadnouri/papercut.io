@@ -9,7 +9,6 @@ import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
-import android.os.StatFs
 import android.provider.Settings
 import android.system.Os
 import android.view.Gravity
@@ -51,7 +50,6 @@ class DocumentScannerActivity : ComponentActivity() {
         private const val STATE_SESSION_ID = "documentScannerSessionId"
         private const val SESSION_MANIFEST = "pages.tsv"
         private const val SESSION_MANIFEST_TEMP = "pages.tsv.tmp"
-        private const val MIN_FREE_SPACE_BYTES = 64L * 1024L * 1024L
         private const val STALE_SESSION_AGE_MS = 7L * 24L * 60L * 60L * 1000L
     }
 
@@ -439,7 +437,7 @@ class DocumentScannerActivity : ComponentActivity() {
     /** Captures to a file so CameraX encoding and EXIF metadata stay intact until
      * the worker decodes one bounded review bitmap off the UI thread. */
     private fun capturePage() {
-        if (!hasWorkingSpace(sessionDirectory)) {
+        if (!ScanImageProcessing.hasWorkingSpace(sessionDirectory)) {
             showLowStorage()
             return
         }
@@ -627,7 +625,7 @@ class DocumentScannerActivity : ComponentActivity() {
             showDocumentLimit()
             return
         }
-        if (!hasWorkingSpace(sessionDirectory)) {
+        if (!ScanImageProcessing.hasWorkingSpace(sessionDirectory)) {
             showLowStorage()
             return
         }
@@ -693,7 +691,7 @@ class DocumentScannerActivity : ComponentActivity() {
             showDocumentLimit()
             return
         }
-        if (!hasWorkingSpace(outputFile, estimatedOutputBytes)) {
+        if (!ScanImageProcessing.hasWorkingSpace(outputFile, estimatedOutputBytes)) {
             showLowStorage()
             return
         }
@@ -713,22 +711,6 @@ class DocumentScannerActivity : ComponentActivity() {
                 runOnUiThread { showFinishFailure() }
             }
         }
-    }
-
-    /** Uses Android's filesystem accounting before camera and PDF writes. The
-     * fixed reserve covers temporary encoding overhead; finalization also adds
-     * the accepted JPEG bytes as a conservative output estimate. */
-    private fun hasWorkingSpace(target: File, additionalBytes: Long = 0L): Boolean {
-        var anchor = if (target.isDirectory) target else target.parentFile ?: cacheDir
-        while (!anchor.exists()) anchor = anchor.parentFile ?: cacheDir
-        val required = if (Long.MAX_VALUE - MIN_FREE_SPACE_BYTES < additionalBytes) {
-            Long.MAX_VALUE
-        } else {
-            MIN_FREE_SPACE_BYTES + additionalBytes
-        }
-        // If Android cannot inspect the volume, let the actual write report its
-        // error rather than incorrectly declaring scanning unsupported.
-        return runCatching { StatFs(anchor.path).availableBytes >= required }.getOrDefault(true)
     }
 
     private fun showLowStorage() {
