@@ -180,10 +180,10 @@
       "recognitionFailedPages": "इन पृष्ठों को संसाधित नहीं किया जा सका: {{pages}}",
       "recognitionUnrecognizedPages": "इन पृष्ठों पर कोई पाठ नहीं पहचाना गया: {{pages}}",
       "recognitionLowConfidencePages": "इन पृष्ठों पर कम विश्वसनीयता: {{pages}}",
-      "retryRecognitionPages": "विफल पृष्ठों पर फिर प्रयास करें",
-      "improveRecognitionPages": "सुधारों के साथ फिर प्रयास करें",
-      "useRecognizedText": "पहचाना गया पाठ स्वीकार करें",
-      "recognitionReviewHelp": "फिर से प्रयास करने पर केवल इन पृष्ठों को बेहतर सेटिंग के साथ संसाधित किया जाता है। स्वीकार करने पर मौजूदा पाठ उपयोग होगा; मूल PDF नहीं बदलेगा।",
+      "retryRecognitionPages": "पुनः प्रयास",
+      "improveRecognitionPages": "पुनः प्रयास",
+      "useRecognizedText": "स्वीकार करें",
+      "recognitionReviewHelp": "पुनः प्रयास इन पृष्ठों पर स्वचालित पृष्ठ लेआउट पहचान का उपयोग करता है और परिणाम को तभी रखता है जब गुणवत्ता कम न हो। स्वीकार करने पर मौजूदा पाठ उपयोग होगा; मूल PDF नहीं बदलेगा।",
       "recognitionAcceptHelp": "स्वीकार करने पर मौजूदा पाठ का उपयोग खोजने, कॉपी करने, लाइब्रेरी खोज और सुनने के लिए होगा। मूल PDF नहीं बदलेगा।"
     },
     "groups": {

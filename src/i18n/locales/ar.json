@@ -196,10 +196,10 @@
       "recognitionFailedPages": "تعذّرت معالجة الصفحات: {{pages}}",
       "recognitionUnrecognizedPages": "لم يتم التعرّف على نص في الصفحات: {{pages}}",
       "recognitionLowConfidencePages": "ثقة منخفضة في الصفحات: {{pages}}",
-      "retryRecognitionPages": "إعادة محاولة الصفحات المتعذرة",
-      "improveRecognitionPages": "إعادة المحاولة مع التحسينات",
-      "useRecognizedText": "اعتماد النص المتعرّف عليه",
-      "recognitionReviewHelp": "تعيد المحاولة معالجة هذه الصفحات فقط بإعدادات محسّنة. يعتمد القبول النص الحالي؛ ويبقى ملف PDF الأصلي دون تغيير.",
+      "retryRecognitionPages": "إعادة المحاولة",
+      "improveRecognitionPages": "إعادة المحاولة",
+      "useRecognizedText": "قبول",
+      "recognitionReviewHelp": "تستخدم إعادة المحاولة اكتشاف تخطيط الصفحة تلقائيًا لهذه الصفحات، ولا تحتفظ بالنتيجة إلا إذا لم تنخفض الجودة. يستخدم القبول النص الحالي؛ ويبقى ملف PDF الأصلي دون تغيير.",
       "recognitionAcceptHelp": "يعتمد القبول النص الحالي للبحث والنسخ والبحث في المكتبة والاستماع. يبقى ملف PDF الأصلي دون تغيير."
     },
     "groups": {

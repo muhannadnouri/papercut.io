@@ -184,10 +184,10 @@
       "recognitionFailedPages": "Pagine non elaborate: {{pages}}",
       "recognitionUnrecognizedPages": "Nessun testo riconosciuto nelle pagine: {{pages}}",
       "recognitionLowConfidencePages": "Bassa affidabilità nelle pagine: {{pages}}",
-      "retryRecognitionPages": "Riprova pagine non riuscite",
-      "improveRecognitionPages": "Riprova con miglioramenti",
-      "useRecognizedText": "Accetta testo riconosciuto",
-      "recognitionReviewHelp": "Il nuovo tentativo rielabora solo queste pagine con impostazioni migliorate. Accettando verrà usato il testo attuale; il PDF originale resta invariato.",
+      "retryRecognitionPages": "Riprova",
+      "improveRecognitionPages": "Riprova",
+      "useRecognizedText": "Accetta",
+      "recognitionReviewHelp": "Riprova usa il rilevamento automatico del layout su queste pagine e conserva il risultato solo se la qualità non peggiora. Accettando verrà usato il testo attuale; il PDF originale resta invariato.",
       "recognitionAcceptHelp": "Accettando verrà usato il testo attuale per ricerca, copia, ricerca nella Libreria e ascolto. Il PDF originale resta invariato."
     },
     "groups": {

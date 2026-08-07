@@ -184,10 +184,10 @@
       "recognitionFailedPages": "No se pudieron procesar las páginas: {{pages}}",
       "recognitionUnrecognizedPages": "No se reconoció texto en las páginas: {{pages}}",
       "recognitionLowConfidencePages": "Baja confianza en las páginas: {{pages}}",
-      "retryRecognitionPages": "Reintentar páginas fallidas",
-      "improveRecognitionPages": "Reintentar con mejoras",
-      "useRecognizedText": "Aceptar texto reconocido",
-      "recognitionReviewHelp": "El reintento vuelve a procesar solo estas páginas con ajustes mejorados. Al aceptar se usa el texto actual; el PDF original no se modifica.",
+      "retryRecognitionPages": "Reintentar",
+      "improveRecognitionPages": "Reintentar",
+      "useRecognizedText": "Aceptar",
+      "recognitionReviewHelp": "El reintento usa detección automática del diseño en estas páginas y conserva el resultado solo si la calidad no empeora. Al aceptar se usa el texto actual; el PDF original no se modifica.",
       "recognitionAcceptHelp": "Al aceptar se usa el texto actual para buscar, copiar, buscar en la Biblioteca y escuchar. El PDF original no se modifica."
     },
     "groups": {

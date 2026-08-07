@@ -184,10 +184,10 @@
       "recognitionFailedPages": "Pages non traitées : {{pages}}",
       "recognitionUnrecognizedPages": "Aucun texte reconnu sur les pages : {{pages}}",
       "recognitionLowConfidencePages": "Faible confiance sur les pages : {{pages}}",
-      "retryRecognitionPages": "Réessayer les pages échouées",
-      "improveRecognitionPages": "Réessayer avec améliorations",
-      "useRecognizedText": "Accepter le texte reconnu",
-      "recognitionReviewHelp": "La nouvelle tentative retraite uniquement ces pages avec des réglages améliorés. Accepter utilise le texte actuel ; le PDF original reste inchangé.",
+      "retryRecognitionPages": "Réessayer",
+      "improveRecognitionPages": "Réessayer",
+      "useRecognizedText": "Accepter",
+      "recognitionReviewHelp": "Réessayer utilise la détection automatique de la mise en page sur ces pages et ne conserve le résultat que si la qualité ne diminue pas. Accepter utilise le texte actuel ; le PDF original reste inchangé.",
       "recognitionAcceptHelp": "Accepter utilise le texte actuel pour la recherche, la copie, la recherche dans la Bibliothèque et l’écoute. Le PDF original reste inchangé."
     },
     "groups": {
