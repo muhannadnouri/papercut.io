@@ -17,8 +17,6 @@ impl<R: Runtime> DocumentScanner<R> {
         Ok(ScannerAvailability {
             supported: false,
             photo_import_supported: false,
-            platform: std::env::consts::OS.into(),
-            reason: Some("Document capture is available on supported mobile devices".into()),
         })
     }
 

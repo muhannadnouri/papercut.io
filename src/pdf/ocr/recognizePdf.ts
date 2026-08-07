@@ -128,7 +128,7 @@ export async function recognizePdfDocument(
         }
 
         options.onProgress?.({ phase: 'recognizing', pageNumber, pageCount: pdf.numPages })
-        worker ??= await createPdfOcrWorker(language, undefined, improvePages.size > 0)
+        worker ??= await createPdfOcrWorker(language, improvePages.size > 0)
         throwIfAborted(options.signal)
         try {
           const candidate = await recognizePage(page, worker, pageNumber - 1, options.signal)

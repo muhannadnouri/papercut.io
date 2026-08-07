@@ -222,8 +222,7 @@ function documentImportStatusMessage(
       status={status}
       t={t}
       onCancel={onCancelBatch}
-      onRetry={onRecognizeDocument}
-      onImprove={onRecognizeDocument}
+      onRecognize={onRecognizeDocument}
       onAccept={onAcceptRecognizedDocument}
     />
   }

@@ -3,8 +3,6 @@ import type { UploadedDocumentBatchResult } from '../uploads/DocumentUploads'
 export interface DocumentScannerAvailability {
   supported: boolean
   photoImportSupported: boolean
-  platform: string
-  reason?: string | null
 }
 
 export type DocumentRecognitionLanguage = 'english' | 'arabic' | 'other'
@@ -19,8 +17,6 @@ export async function getDocumentScannerAvailability(): Promise<DocumentScannerA
     return {
       supported: false,
       photoImportSupported: false,
-      platform: 'browser',
-      reason: 'Native capture requires the app',
     }
   }
   const { invoke } = await import('@tauri-apps/api/core')

@@ -33,8 +33,6 @@ class DocumentScannerPlugin(private val activity: Activity) : Plugin(activity) {
         val result = JSObject()
         result.put("supported", supported)
         result.put("photoImportSupported", photoImportSupported)
-        result.put("platform", "android")
-        result.put("reason", if (supported) null else "Document scanning requires a camera")
         invoke.resolve(result)
     }
 

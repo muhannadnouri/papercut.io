@@ -22,8 +22,6 @@ use mobile::DocumentScanner;
 pub struct ScannerAvailability {
     pub supported: bool,
     pub photo_import_supported: bool,
-    pub platform: String,
-    pub reason: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]

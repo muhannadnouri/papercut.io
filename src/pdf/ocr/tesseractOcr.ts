@@ -1,7 +1,6 @@
-import type { LoggerMessage, Page, Worker } from 'tesseract.js'
+import type { Page, Worker } from 'tesseract.js'
 import type { PdfPageTextLayer } from '../../uploads/DocumentUploads'
 
-export type PdfOcrProgress = Pick<LoggerMessage, 'progress' | 'status'>
 export type PdfOcrLanguage = 'eng' | 'ara'
 
 function tesseractAssetRoot(): string {
@@ -12,7 +11,6 @@ function tesseractAssetRoot(): string {
  * keep it for the entire job so model startup is paid only once per document. */
 export async function createPdfOcrWorker(
   language: PdfOcrLanguage,
-  onProgress?: (progress: PdfOcrProgress) => void,
   automaticLayout = false,
 ): Promise<Worker> {
   const { createWorker, OEM, PSM } = await import('tesseract.js')
@@ -21,7 +19,6 @@ export async function createPdfOcrWorker(
     workerPath: `${root}worker.min.js`,
     corePath: `${root}core/`,
     langPath: `${root}lang`,
-    logger: ({ progress, status }) => onProgress?.({ progress, status }),
   })
   if (automaticLayout) {
     await worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO })

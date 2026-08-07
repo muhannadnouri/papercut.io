@@ -21,11 +21,7 @@ final class DocumentScannerPlugin: Plugin, VNDocumentCameraViewControllerDelegat
   @objc func availability(_ invoke: Invoke) {
     invoke.resolve([
       "supported": VNDocumentCameraViewController.isSupported,
-      "photoImportSupported": true,
-      "platform": "ios",
-      "reason": VNDocumentCameraViewController.isSupported
-        ? NSNull()
-        : "Document scanning is not supported on this device"
+      "photoImportSupported": true
     ])
   }
 

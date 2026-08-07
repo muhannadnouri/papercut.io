@@ -14,18 +14,16 @@ export function PdfRecognitionStatus({
   status,
   t,
   onCancel,
-  onRetry,
-  onImprove,
+  onRecognize,
   onAccept,
 }: {
   status: DocumentImportStatus
   t: TFunction
   onCancel: () => void | Promise<void>
-  onRetry: (documentUrl: string, language: PdfOcrLanguage) => void | Promise<boolean>
-  onImprove: (
+  onRecognize: (
     documentUrl: string,
     language: PdfOcrLanguage,
-    issues: NonNullable<DocumentImportStatus['recognitionIssues']>,
+    issues?: NonNullable<DocumentImportStatus['recognitionIssues']>,
   ) => void | Promise<boolean>
   onAccept: (documentUrl: string) => void | Promise<boolean>
 }) {
@@ -104,7 +102,7 @@ export function PdfRecognitionStatus({
             <button
               type="button"
               className="document-batch-cancel"
-              onClick={() => void onRetry(retryDocumentUrl, status.recognitionLanguage ?? 'eng')}
+              onClick={() => void onRecognize(retryDocumentUrl, status.recognitionLanguage ?? 'eng')}
             >
               {t('library.status.retryRecognitionPages')}
             </button>
@@ -115,7 +113,7 @@ export function PdfRecognitionStatus({
                 <button
                   type="button"
                   className="document-batch-cancel"
-                  onClick={() => void onImprove(
+                  onClick={() => void onRecognize(
                     retryDocumentUrl,
                     status.recognitionLanguage ?? 'eng',
                     issues,

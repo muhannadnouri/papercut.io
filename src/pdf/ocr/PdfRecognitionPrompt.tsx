@@ -58,8 +58,7 @@ export function PdfRecognitionPrompt({
           status={status}
           t={t}
           onCancel={onCancel}
-          onRetry={onRecognize}
-          onImprove={onRecognize}
+          onRecognize={onRecognize}
           onAccept={onAccept}
         />
       )}
