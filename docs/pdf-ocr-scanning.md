@@ -1462,6 +1462,7 @@ Stage status: Deferred
 | 2026-08-06 | Stage 10 | Isolate indexed PDF search-target navigation | `PdfViewer` delegates page targeting, native/OCR text-layer waits, Find fallback, progress, and cleanup to one focused adapter while retaining its cohesive loading and rendering lifecycle and adding no dependency |
 | 2026-08-06 | Stage 7 | Prefer 300-DPI recognition on the first pass | Initial recognition and targeted failed-page retries render ordinary pages at Tesseract's recommended resolution; one 9-megapixel canvas bounds memory, while alternate segmentation and image-enhancement profiles remain fixture-driven follow-up work |
 | 2026-08-06 | Stage 7 | Select hybrid PDF Find before page rendering | PDF finalization records one derived OCR-presence marker; the viewer reads it once at open so indexed Find covers native and OCR pages immediately, while native-only PDFs retain PDF.js Find and its normalization behavior |
+| 2026-08-07 | Stage 7 | Keep all PDF search-target typography invisible | Native PDF.js and OCR text layers now share the translucent target treatment without painting synthetic glyphs; recognition language choices name only the language because the surrounding action already explains recognition |
 
 ## References
 

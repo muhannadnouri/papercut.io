@@ -93,12 +93,14 @@ html[dir="rtl"] .pdf-search-target-status {
   color: var(--highlight-current-text);
 }
 
+.pdf-viewer .textLayer mark[data-search-target],
 .pdf-viewer .pdf-ocr-text-layer mark[data-search-target] {
   background: rgb(255 165 0 / 0.55);
   background: color-mix(in srgb, var(--highlight-current) 55%, transparent);
   color: transparent;
 }
 
+.pdf-viewer .textLayer span::highlight(search-target),
 .pdf-ocr-text-layer span::highlight(search-target) {
   background-color: rgb(255 165 0 / 0.55);
   background-color: color-mix(in srgb, var(--highlight-current) 55%, transparent);
