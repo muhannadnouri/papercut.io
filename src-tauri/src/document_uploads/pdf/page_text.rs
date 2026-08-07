@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 const SCHEMA_VERSION: u32 = 1;
 const PAGE_TEXT_DIR: &str = "page-text";
+const OCR_TEXT_MARKER_FILE: &str = ".has-ocr-text";
 const MAX_LAYER_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_BLOCKS: usize = 50_000;
 const MAX_TEXT_BYTES: usize = 2 * 1024 * 1024;
@@ -86,6 +87,36 @@ fn layer_path(upload_dir: &Path, page_index: u32) -> PathBuf {
         .join(format!("{page_index:08}.json"))
 }
 
+/// Record whether finalized page sidecars contain OCR-derived text.
+///
+/// The viewer reads this tiny derived marker when choosing its Find adapter,
+/// avoiding an O(page count) sidecar scan every time a PDF is opened.
+pub(crate) fn sync_ocr_text_marker(upload_dir: &Path, present: bool) -> Result<(), String> {
+    let path = upload_dir.join(PAGE_TEXT_DIR).join(OCR_TEXT_MARKER_FILE);
+    if present {
+        let parent = path
+            .parent()
+            .ok_or_else(|| "PDF OCR marker path is invalid".to_string())?;
+        fs::create_dir_all(parent)
+            .map_err(|err| format!("Failed to create PDF page text directory: {err}"))?;
+        fs::write(path, []).map_err(|err| format!("Failed to store PDF OCR marker: {err}"))
+    } else {
+        match fs::remove_file(path) {
+            Ok(()) => Ok(()),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(err) => Err(format!("Failed to remove PDF OCR marker: {err}")),
+        }
+    }
+}
+
+/// Return the finalized OCR-presence decision without opening page sidecars.
+pub(crate) fn has_ocr_text_marker(upload_dir: &Path) -> bool {
+    upload_dir
+        .join(PAGE_TEXT_DIR)
+        .join(OCR_TEXT_MARKER_FILE)
+        .is_file()
+}
+
 /// Enforce the sidecar trust boundary on both writes and reads. Derived files
 /// may be stale or damaged, so a successful write in an older app version is
 /// not treated as proof that the data remains valid.
@@ -158,6 +189,12 @@ mod tests {
 
         write_page_text_layer(&dir, &layer).expect("write layer");
         assert_eq!(read_page_text_layer(&dir, 3).expect("read layer"), layer);
+
+        assert!(!has_ocr_text_marker(&dir));
+        sync_ocr_text_marker(&dir, true).expect("store OCR marker");
+        assert!(has_ocr_text_marker(&dir));
+        sync_ocr_text_marker(&dir, false).expect("remove OCR marker");
+        assert!(!has_ocr_text_marker(&dir));
 
         let mut invalid = layer;
         invalid.width = f32::NAN;

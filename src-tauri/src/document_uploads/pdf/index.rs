@@ -14,7 +14,10 @@ use super::super::types::UploadedDocument;
 use super::narration::{
     reconstruct_narration_segments, reconstruct_search_text, PdfNarrationSegment,
 };
-use super::page_text::{read_page_text_layer, write_page_text_layer, PageTextLayer};
+use super::page_text::{
+    has_ocr_text_marker, read_page_text_layer, sync_ocr_text_marker, write_page_text_layer,
+    PageTextLayer,
+};
 
 pub(crate) const MAX_PDF_PAGES: u32 = 2_000;
 const MAX_TITLE_CHARS: usize = 512;
@@ -70,6 +73,15 @@ pub(crate) fn get_pdf_page_text_layer<R: Runtime>(
     read_page_text_layer(&upload_dir(app, &id)?, request.page_index)
 }
 
+/// Tell the viewer whether finalized sidecars require indexed OCR-aware Find.
+pub(crate) fn pdf_has_ocr_text<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    document_url: &str,
+) -> Result<bool, String> {
+    let (id, _) = validated_pdf_upload(app, document_url)?;
+    Ok(has_ocr_text_marker(&upload_dir(app, &id)?))
+}
+
 /// Load validated sidecars and reconstruct logical prose for narration.
 ///
 /// Papercut currently materializes a complete audiobook chunk list before
@@ -121,15 +133,19 @@ pub(crate) fn finalize_pdf_index<R: Runtime>(
     let title = normalized_title(request.title.as_deref(), &existing.title);
     let dir = upload_dir(app, &id)?;
     let mut sections = Vec::with_capacity(request.page_count as usize);
+    let mut has_ocr_text = false;
 
     for page_index in 0..request.page_count {
-        let text = reconstruct_search_text(read_page_text_layer(&dir, page_index)?);
+        let layer = read_page_text_layer(&dir, page_index)?;
+        has_ocr_text |= layer.blocks.iter().any(|block| block.confidence.is_some());
+        let text = reconstruct_search_text(layer);
         sections.push(ParsedSection {
             heading: None,
             text,
             page_index: Some(page_index),
         });
     }
+    sync_ocr_text_marker(&dir, has_ocr_text)?;
 
     let cover = match request.thumbnail {
         Some(bytes) => {

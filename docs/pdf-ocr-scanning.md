@@ -1082,7 +1082,11 @@ Stage status: Complete; desktop English image-only and hybrid acceptance passed
       source scan without painting approximate text over it.
 - [x] Teach viewer Find and indexed-result highlighting to use finalized OCR
       text and page sidecars, including native pages inside hybrid PDFs, while
-      retaining PDF.js Find for fully native-text PDFs.
+      retaining PDF.js Find for fully native-text PDFs. Finalization records one
+      derived OCR-presence marker so this routing is correct before a virtualized
+      OCR page has rendered.
+- [ ] Verify Find can navigate from an initially rendered native page to an
+      unrendered OCR page in a finalized hybrid PDF.
 - [x] Re-run PDF Find, search, TTS, and highlight acceptance tests.
 
 Decision gate: image-only and hybrid fixtures are searchable and speakable
@@ -1438,6 +1442,7 @@ Stage status: Deferred
 | 2026-08-06 | Stage 7 | Keep OCR Find typography invisible and action counts literal | Both the CSS Highlight API and legacy mark fallback show a translucent OCR-layer highlight without painting synthetic glyphs, while retry and review messages count only pages their action will process |
 | 2026-08-06 | Stage 8 | Bound native scanner output before canonical import | Android and iOS cap scanner work at 500 pages and 250 MB, Rust independently rechecks both values at the IPC boundary, and VisionKit PDF assembly leaves the main thread without adding another queue or dependency |
 | 2026-08-06 | Stage 7 | Prefer 300-DPI recognition on the first pass | Initial recognition and targeted failed-page retries render ordinary pages at Tesseract's recommended resolution; one 9-megapixel canvas bounds memory, while alternate segmentation and image-enhancement profiles remain fixture-driven follow-up work |
+| 2026-08-06 | Stage 7 | Select hybrid PDF Find before page rendering | PDF finalization records one derived OCR-presence marker; the viewer reads it once at open so indexed Find covers native and OCR pages immediately, while native-only PDFs retain PDF.js Find and its normalization behavior |
 
 ## References
 

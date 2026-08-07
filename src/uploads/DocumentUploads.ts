@@ -253,6 +253,13 @@ export async function getUploadedPdfPageText(
   })
 }
 
+export async function uploadedPdfHasOcrText(documentUrl: string): Promise<boolean> {
+  const invoke = await loadTauriInvoke()
+  return invoke<boolean>('document_uploads_pdf_has_ocr_text', {
+    request: { documentUrl },
+  })
+}
+
 export async function findUploadedPdfText(
   documentUrl: string,
   query: string,

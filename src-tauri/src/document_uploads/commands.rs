@@ -14,7 +14,7 @@ use super::organization::{
 };
 use super::pdf::{
     finalize_pdf_index, get_pdf_narration_segments, get_pdf_page_text_layer, get_pdf_source_bytes,
-    get_pdf_source_path, store_pdf_page_text, PageTextLayer, PdfFinalizeRequest,
+    get_pdf_source_path, pdf_has_ocr_text, store_pdf_page_text, PageTextLayer, PdfFinalizeRequest,
     PdfNarrationSegment, PdfPageTextReadRequest, PdfPageTextRequest,
 };
 use super::pipeline::{delete_upload, get_cover, get_source};
@@ -184,6 +184,17 @@ pub async fn document_uploads_get_pdf_page_text<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || get_pdf_page_text_layer(&app, request))
         .await
         .map_err(|err| format!("PDF page text read task failed: {err}"))?
+}
+
+/// Return the finalized document-level OCR signal used to select viewer Find.
+#[tauri::command]
+pub async fn document_uploads_pdf_has_ocr_text<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedDocumentSourceRequest,
+) -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(move || pdf_has_ocr_text(&app, &request.document_url))
+        .await
+        .map_err(|err| format!("PDF OCR marker task failed: {err}"))?
 }
 
 /// Persist one bounded page text layer emitted by PDF.js.

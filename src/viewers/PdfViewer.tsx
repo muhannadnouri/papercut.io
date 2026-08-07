@@ -23,6 +23,7 @@ import {
   getUploadedPdfAssetUrl,
   getUploadedPdfPageText,
   isUploadedPdfDocumentUrl,
+  uploadedPdfHasOcrText,
   type PdfPageTextLayer,
 } from '../uploads/DocumentUploads'
 import {
@@ -190,13 +191,18 @@ export function PdfViewer({
       if (!container || !viewer) return
       viewerElement = viewer
 
-      const sourceUrl = isUploadedPdfDocumentUrl(url)
+      const uploadedPdf = isUploadedPdfDocumentUrl(url)
+      const hasOcrText = uploadedPdf
+        ? uploadedPdfHasOcrText(url).catch(() => false)
+        : Promise.resolve(false)
+      const sourceUrl = uploadedPdf
         ? await getUploadedPdfAssetUrl(url)
         : url
-      const [pdfjs, viewerModule] = await Promise.all([
+      const [pdfjs, viewerModule, , useOcrFind] = await Promise.all([
         loadPdfJs(),
         loadPdfViewer(),
         import('pdfjs-dist/web/pdf_viewer.css'),
+        hasOcrText,
       ])
       if (cancelled) return
 
@@ -209,9 +215,11 @@ export function PdfViewer({
         linkService,
         delay: 0,
       })
-      findAdapter = createPdfFindAdapter(eventBus, onFindResult ?? ignoreFindResult)
-      findApiRef.current = findAdapter.api
-      onFindApiChange?.(findAdapter.api)
+      if (!useOcrFind) {
+        findAdapter = createPdfFindAdapter(eventBus, onFindResult ?? ignoreFindResult)
+        findApiRef.current = findAdapter.api
+        onFindApiChange?.(findAdapter.api)
+      }
       linkService.externalLinkEnabled = false
       pdfViewer = new viewerModule.PDFViewer({
         container,
@@ -305,6 +313,7 @@ export function PdfViewer({
         findApiRef.current = ocrFindAdapter.api
         onFindApiChange?.(ocrFindAdapter.api)
       }
+      if (useOcrFind) activateOcrFind()
 
       const handleTextLayerRendered = ({ pageNumber }: { pageNumber: number }) => {
         if (!isUploadedPdfDocumentUrl(url)) return

@@ -10,8 +10,8 @@ mod page_text;
 mod source;
 
 pub(crate) use index::{
-    finalize_pdf_index, get_pdf_narration_segments, get_pdf_page_text_layer, store_pdf_page_text,
-    PdfFinalizeRequest, PdfPageTextReadRequest, PdfPageTextRequest,
+    finalize_pdf_index, get_pdf_narration_segments, get_pdf_page_text_layer, pdf_has_ocr_text,
+    store_pdf_page_text, PdfFinalizeRequest, PdfPageTextReadRequest, PdfPageTextRequest,
 };
 pub(crate) use narration::PdfNarrationSegment;
 pub(crate) use page_text::PageTextLayer;
