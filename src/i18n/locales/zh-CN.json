@@ -92,7 +92,8 @@
       "savedAudioAvailable": "有已保存的音频",
       "bookmarked": "已添加书签",
       "bookmarkedOnly": "仅显示已添加书签的文件",
-      "emptyBookmarked": "没有符合当前筛选条件的已添加书签文件。"
+      "emptyBookmarked": "没有符合当前筛选条件的已添加书签文件。",
+      "textRecognitionRequired": "需要文字识别"
     },
     "documentInfo": {
       "button": "编辑详情",
@@ -114,11 +115,34 @@
       "filesDetail": "导入一个或多个 HTML、EPUB 或 PDF 文件",
       "folder": "文件夹",
       "folderDetail": "导入一个文件夹中的 HTML、EPUB 和 PDF 文件；跳过子文件夹",
+      "scanPages": "扫描页面",
+      "scanPagesDetail": "使用相机扫描一页或多页",
+      "photos": "照片",
+      "photosDetail": "将一张或多张照片导入为 PDF 文档",
       "importingBatch": "正在导入文档",
-      "importingFolder": "正在导入文件夹"
+      "importingFolder": "正在导入文件夹",
+      "scanningPages": "正在扫描页面",
+      "importingPhotos": "正在导入照片"
+    },
+    "scanSetup": {
+      "title": "准备文档",
+      "description": "设置标题，并选择 Papercut 在拍摄后如何处理文本。",
+      "displayTitle": "显示标题",
+      "textLanguage": "文本语言",
+      "english": "英语",
+      "englishDetail": "如果 PDF 没有可用文本，导入后会在本地运行识别。",
+      "arabic": "阿拉伯语",
+      "arabicDetail": "如果 PDF 没有可用文本，导入后会在本地运行识别。",
+      "otherLanguage": "其他语言 — 不识别直接导入",
+      "otherLanguageDetail": "PDF 会被保留，但搜索和朗读需要受支持的识别语言。",
+      "continue": "继续",
+      "defaultScanTitle": "扫描的文档",
+      "defaultPhotoTitle": "导入的照片"
     },
     "status": {
       "preparingBatch": "选择要导入的 HTML、EPUB 或 PDF 文件...",
+      "capturingPages": "在设备上扫描并检查页面...",
+      "preparingPhotos": "选择照片并准备文档...",
       "importingBatchProgress": "正在导入第 {{current, number}} 个，共 {{total, number}} 个",
       "batchProgress": "已处理 {{processed, number}} 个，共 {{total, number}} 个",
       "stoppingBatch": "将在当前文件完成后停止...",
@@ -137,7 +161,29 @@
       "deleteBatchProgress": "正在删除第 {{processed, number}} 个文档，共 {{total, number}} 个...",
       "deleteBatchProgressLabel": "文档删除进度",
       "deleteBatchComplete": "已删除：{{deleted, number}}。失败：{{failed, number}}。",
-      "failedDeletes": "无法删除的文档：{{count, number}}"
+      "failedDeletes": "无法删除的文档：{{count, number}}",
+      "preparingRecognition": "正在准备识别 <title>{{title}}</title> 的文字...",
+      "recognizingPage": "正在识别 <title>{{title}}</title> 的第 {{current, number}} 页，共 {{total, number}} 页...",
+      "indexingRecognition": "正在索引 <title>{{title}}</title> 的识别文字...",
+      "stoppingRecognition": "正在停止文字识别并清理当前页面...",
+      "recognitionProgressLabel": "PDF 文字识别进度",
+      "recognitionComplete": "已完成 <title>{{title}}</title> 的文字识别。",
+      "recognitionCancelled": "已取消 <title>{{title}}</title> 的文字识别。",
+      "recognitionInterrupted": "<title>{{title}}</title> 的文字识别已中断。继续即可从已保存的页面接着处理。",
+      "resumeRecognition": "继续",
+      "recognitionNoText": "未识别出文字。原始 PDF 未被更改。",
+      "recognitionNeedsRetry": "未能完成 <title>{{title}}</title> 的文字识别。请重试 {{count, number}} 页。",
+      "recognitionReviewComplete": "文字识别完成",
+      "recognitionPagesToReview": "待检查页面：{{count, number}}",
+      "recognitionIssues": "检查详情（{{count, number}}）",
+      "recognitionFailedPages": "无法处理的页面：{{pages}}",
+      "recognitionUnrecognizedPages": "未识别出文字的页面：{{pages}}",
+      "recognitionLowConfidencePages": "识别置信度较低的页面：{{pages}}",
+      "retryRecognitionPages": "重试",
+      "improveRecognitionPages": "重试",
+      "useRecognizedText": "接受",
+      "recognitionRetryHelp": "重试会使用自动页面布局检测检查这些页面；除非质量有所提高，否则保留当前结果。",
+      "recognitionAcceptHelp": "接受后将使用当前文本。原始 PDF 保持不变。"
     },
     "groups": {
       "importedAudiobooks": "进口有声读物",
@@ -342,7 +388,12 @@
       "locatingMatch": "正在打开第 {{page, number}} 页并定位匹配项...",
       "verifyingMatch": "正在文档中验证匹配项...",
       "document": "PDF 文档",
-      "documentPages": "PDF 文档，共 {{count, number}} 页"
+      "documentPages": "PDF 文档，共 {{count, number}} 页",
+      "textRecognition": "文字识别",
+      "makeSearchableDescription": "选择文档语言并在此设备上识别文字，以启用查找、复制、资料库搜索和朗读。",
+      "improveSearchableDescription": "在此设备上识别缺失的文字，以改进查找、复制、资料库搜索和朗读。",
+      "improveSearchable": "识别缺失文字",
+      "makeSearchable": "设为可搜索"
     }
   },
   "tts": {

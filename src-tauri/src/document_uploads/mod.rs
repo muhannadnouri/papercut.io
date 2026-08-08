@@ -38,6 +38,7 @@ mod storage;
 mod store;
 mod types;
 
+pub(crate) use batch::import_scanner_source;
 pub(crate) use state::DocumentUploadState;
 
 // Library transfer consumes this narrow storage API so its removable package
@@ -49,11 +50,12 @@ pub(crate) use pipeline::ensure_uploaded_source_exists;
 pub(crate) use pipeline::restore_transferred_document;
 pub(crate) use storage::{
     now_ms, upload_dir, upload_id_from_url, upload_source_path, StoredSourceKind,
+    MAX_PDF_UPLOAD_BYTES,
 };
 pub(crate) use store::list_uploads;
 pub(crate) use types::{
-    UploadedDocument, UploadedLibraryCreateFolderRequest, UploadedLibraryFolder,
-    UploadedLibraryMoveDocumentsRequest, UploadedLibraryOrganization,
+    UploadedDocument, UploadedDocumentBatchResult, UploadedLibraryCreateFolderRequest,
+    UploadedLibraryFolder, UploadedLibraryMoveDocumentsRequest, UploadedLibraryOrganization,
 };
 
 pub(crate) use html::sanitize_html;

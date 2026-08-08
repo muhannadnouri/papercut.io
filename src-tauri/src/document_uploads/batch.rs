@@ -1,10 +1,10 @@
 //! Sequential document import/delete batches with progress and partial results.
 
 use std::collections::HashSet;
-use std::io::Read;
-use std::path::Path;
 #[cfg(desktop)]
-use std::{fs, path::PathBuf};
+use std::fs;
+use std::io::Read;
+use std::path::{Path, PathBuf};
 
 use percent_encoding::percent_decode_str;
 use tauri::{Emitter, Runtime};
@@ -61,7 +61,7 @@ pub(crate) fn import_batch<R: Runtime>(
         .add_filter("Documents", &["html", "htm", "epub", "pdf"])
         .blocking_pick_files()
         .ok_or_else(|| "Document import cancelled".to_string())?;
-    import_sources(app, control, sources)
+    import_sources(app, control, sources, None)
 }
 
 /// Pick one desktop folder and import only its direct supported file children.
@@ -82,7 +82,7 @@ pub(crate) fn import_folder<R: Runtime>(
     if sources.is_empty() {
         return Err("The selected folder has no HTML, EPUB, or PDF files".into());
     }
-    import_sources(app, control, sources)
+    import_sources(app, control, sources, None)
 }
 
 /// Keep command registration uniform across targets without compiling the
@@ -101,6 +101,7 @@ fn import_sources<R: Runtime>(
     app: tauri::AppHandle<R>,
     control: DocumentBatchControl,
     sources: Vec<FilePath>,
+    pdf_title: Option<&str>,
 ) -> Result<UploadedDocumentBatchResult, String> {
     if sources.len() > MAX_BATCH_DOCUMENTS {
         return Err(format!(
@@ -111,7 +112,7 @@ fn import_sources<R: Runtime>(
     let run = process_sources(
         sources,
         || control.is_cancelled(),
-        |source| import_source(&app, source),
+        |source| import_source(&app, source, pdf_title),
         |progress| {
             let _ = app.emit(DOCUMENT_IMPORT_PROGRESS_EVENT, progress);
         },
@@ -140,6 +141,17 @@ fn import_sources<R: Runtime>(
         failures: run.failures,
         cancelled: run.cancelled,
     })
+}
+
+/// Import one app-owned scanner PDF through the same bounded runner used by
+/// picker imports, preserving validation, progress, and partial-result rules.
+pub(crate) fn import_scanner_source<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    control: DocumentBatchControl,
+    source: PathBuf,
+    title: &str,
+) -> Result<UploadedDocumentBatchResult, String> {
+    import_sources(app, control, vec![FilePath::Path(source)], Some(title))
 }
 
 /// Delete a bounded, deduplicated URL list sequentially so one bad document
@@ -340,13 +352,16 @@ where
 fn import_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
+    pdf_title: Option<&str>,
 ) -> Result<UploadedDocument, String> {
     let original_file_name = original_source_file_name(&source);
     match document_format(app, &source)? {
         DocumentFormat::Html => import_html_source(app, source, original_file_name),
         DocumentFormat::Epub => import_epub_source(app, source, original_file_name),
         DocumentFormat::Pdf => {
-            let title = source_title(&source);
+            let title = pdf_title
+                .map(str::to_owned)
+                .unwrap_or_else(|| source_title(&source));
             import_pdf_source(app, source, title, original_file_name)
         }
     }

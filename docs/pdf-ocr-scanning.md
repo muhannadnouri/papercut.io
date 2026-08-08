@@ -1,7 +1,8 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 5 PDF TTS and reader parity complete; Stage 6 not started
-Last updated: 2026-07-28
+Status: Stage 9 in progress; Android and downstream lifecycle acceptance passed;
+iOS physical-device and Arabic OCR validation remain open
+Last updated: 2026-08-06
 
 This document is the source of truth for adding PDF reading, searchable OCR,
 and mobile document scanning to Papercut. It records the research, current
@@ -85,9 +86,14 @@ storage, compatibility, and the order of implementation.
    intermediate state.
 7. **Do not release PDF as complete until Find, search-result navigation, and
    TTS highlighting meet the agreed acceptance criteria.**
-8. **Choose an OCR engine only after a representative benchmark.** Arabic,
-   Chinese, Devanagari, Latin text, page coordinates, mobile packaging, and
-   runtime cost must be tested.
+8. **Use Tesseract.js as the first common OCR engine.** Keep it offline, lazy,
+   and behind the shared page-text contract. Adjust or replace it only when
+   real documents demonstrate a quality, language, or device-performance gap.
+9. **Classify conservatively before starting OCR.** A finalized PDF needs
+   recognition when at least one image-backed page lacks usable native text.
+   Empty pages without image operations remain blank; ordinary native pages
+   avoid image-operator inspection after their extracted text passes the
+   bounded prose heuristic.
 
 ## Recommended Architecture
 
@@ -191,6 +197,37 @@ The smallest sound refactor is therefore source-kind storage, page locators,
 and narrow viewer capabilities. A broad document subsystem rewrite is not a
 prerequisite.
 
+### OCR Readiness Preflight
+
+The first OCR preparation pass adds one persisted document-level text status to
+the existing upload metadata rather than introducing an OCR subsystem:
+
+- `processing` while PDF.js is building page sidecars and the shared index.
+- `ready` when a finalized document contains searchable text and no
+  image-backed weak-text page was found.
+- `recognition-available` when a PDF is already searchable but one or more
+  image-backed pages may benefit from optional recognition.
+- `recognition-required` only when a finalized PDF has no usable searchable
+  text.
+
+Schema version 6 backfills previously finalized, fully textless PDFs from their
+existing SQLite page rows. The Library gallery and uploaded-document list show
+**Text Recognition Required** only for documents that are not searchable.
+Searchable hybrids remain immediately available for Find, Library search, and
+TTS; the reader exposes their optional cleanup through a compact text-
+recognition control. The original PDF remains canonical and no duplicate index
+or compatibility format is added by this pass.
+
+Hybrid readiness is computed from PDF.js text and image operators during the
+bounded import pass. The document stores only the aggregate status; recognition
+recomputes the same page decision from the canonical PDF, leaves usable native
+and blank page sidecars untouched, and replaces only image-backed weak-text
+pages. A partial rebuild with usable native or recognized text remains
+recognition-available when pages still need review; only a document with no
+usable text remains recognition-required.
+Page-level provenance remains deferred until language/model metadata needs a
+durable representation.
+
 ## Stage 0 Baseline
 
 ### Supported Platform Baseline
@@ -203,7 +240,7 @@ Android, and iOS. The configured minimums relevant to this work are:
 | Android | API 26; universal release builds currently cover arm64, armv7, x86, and x86_64 |
 | iOS | iOS 14 |
 | macOS | macOS 10.13 |
-| Rust | 1.77.2 declared minimum; CI builds with stable |
+| Rust | 1.88 declared minimum; CI builds with stable |
 | Frontend | React 19, Tauri 2, and the platform WebView |
 
 Passing desktop development tests alone is insufficient. Every Stage 1
@@ -234,17 +271,17 @@ required full Rust and mobile build baseline.
 
 ### Fixture Corpus
 
-Use two fixture tiers:
+Use two validation tiers:
 
 1. **Committed synthetic fixtures** are small, license-safe, deterministic, and
    suitable for automated parser/search tests.
-2. **Manual benchmark fixtures** may be larger or externally sourced. Record
+2. **Manual acceptance fixtures** may be larger or externally sourced. Record
    provenance, license, checksum, page count, and expected behavior, but do not
    commit copyrighted or oversized files.
 
-Materialize the committed PDFs during Stage 1 after the spike identifies the
-smallest deterministic generation method. Do not hand-maintain opaque binary
-fixtures when a short generator can produce the same case.
+Do not hand-maintain opaque binary fixtures when a short generator can produce
+the same case. OCR-specific generated benchmark artifacts were removed after
+engine selection; P09/P10 remain behavioral acceptance cases.
 
 | ID | Fixture | Required assertion |
 | --- | --- | --- |
@@ -256,8 +293,8 @@ fixtures when a short generator can produce the same case.
 | P06 | Two-column page | Reading order completes the first column before the second |
 | P07 | Body text with footnotes | Body and note order is deterministic and page navigation targets the correct region |
 | P08 | Table plus surrounding paragraphs | Table extraction does not reorder or duplicate surrounding prose |
-| P09 | Image-only pages | Text-native import identifies that OCR is required instead of indexing empty text |
-| P10 | Hybrid native-text and image-only pages | Native pages are retained and only missing pages are marked for later OCR |
+| P09 | Image-only pages | Import persists `recognition-required` and does not present the document as searchable |
+| P10 | Hybrid native-text and image-only pages | Import persists `recognition-available`; native pages remain searchable and only missing pages are candidates for optional OCR |
 | P11 | Encrypted/password-protected PDF | Import rejects early with a specific, non-destructive error |
 | P12 | Truncated or malformed PDF | Import fails within limits and leaves no source or index residue |
 | P13 | 100-page performance document | Measures normal import, first-page render, Find, navigation, memory, and cleanup |
@@ -305,14 +342,15 @@ measurement.
 | Search/Find result correctness | 100% of golden fixture queries target the expected page and text |
 | TTS text integrity | Zero omitted or duplicated golden-fixture blocks |
 
-Before public release, measure one lower-end supported Android device, one
-supported iPhone/iPad, and one desktop in each platform family used for release
-smoke testing. A candidate that passes only on the development machine fails
-the gate.
+Use these budgets when a real device exposes a slowdown or memory problem. The
+initial release uses observational testing on available desktop and mobile
+hardware rather than a formal minimum-hardware benchmark; add repeatable
+instrumentation only when evidence identifies a failing workflow.
 
-### Later OCR Budgets
+### OCR Acceptance Budgets
 
-These guide the Stage 6 benchmark and do not select an engine today:
+These are release targets for the selected engine, not a separate engine
+selection project:
 
 | Measure | Initial OCR target |
 | --- | --- |
@@ -420,14 +458,13 @@ The costs are material but bounded:
 - The rejected `pdf_oxide` spike resolved 172 packages, produced about 3.0 GB
   of build artifacts, and yielded a 9,982,632-byte optimized probe. Removing it
   avoids raising Papercut's Rust minimum and carrying a second PDF parser.
-- `pdf-extract` and its current transitive dependency resolution do not compile
-  cleanly with Cargo 1.77.2 because dependencies now use Rust 2024 manifests.
-  Pinning old transitives would add maintenance without solving its RTL and
+- At the time of the extraction spike, `pdf-extract` and its transitive
+  dependency resolution did not compile with Papercut's then-current Rust
+  1.77.2 minimum. Raising the minimum later did not change its RTL and
   coordinate limitations.
 
-Rust 1.77.2 remains Papercut's declared minimum. The rejected native spike ran
-on stable Rust 1.96.1 because `pdf_oxide` required Rust 1.88, but an abandoned
-candidate is not a reason to raise the product minimum.
+Papercut now declares Rust 1.88 for unrelated production dependencies. The
+rejected native spike still does not justify carrying a second PDF parser.
 
 The native probe was fast and produced finite bounds, but throughput did not
 pass the correctness gate. A deterministic one-page comparison showed a false
@@ -501,49 +538,94 @@ OCR is a second pipeline layered onto the PDF page model:
 
 An OCR failure must not delete or invalidate the original PDF or scan.
 
-### OCR Candidates
+### Tesseract OCR Foundation
 
-- [Tesseract](https://github.com/tesseract-ocr/tesseract) supports more than
-  100 languages, including Papercut's Arabic, Hindi, Chinese, and Latin-script
-  targets. It can emit text plus hOCR, TSV, ALTO, or PAGE coordinate data. Its
-  C++ packaging, model footprint, and quality on photographed pages require
-  measurement.
-- [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR/blob/main/docs/version3.x/algorithm/PP-OCRv5/PP-OCRv5_multi_languages.en.md)
-  provides multilingual and mobile-oriented models, including Arabic and
-  Devanagari coverage. It brings a heavier runtime and model-management stack.
-- Apple Vision provides on-device recognition, confidence, and bounding boxes
-  on Apple platforms, but it would create platform-dependent OCR output.
-- Android ML Kit Text Recognition v2 covers Latin, Chinese, Devanagari,
-  Japanese, and Korean scripts, but its documented language table does not
-  cover Arabic. It cannot be Papercut's only OCR engine.
+Papercut uses Tesseract.js 7 as the first shared OCR engine across its WebViews.
+It runs Tesseract in a Web Worker, is imported only when OCR starts, and writes
+recognized words, confidence, reading order, and scaled page coordinates into
+the existing `PageTextLayer`. Search and TTS therefore reuse the existing
+derived-data path; the viewer groups persisted words into measured, line-fitted
+page-local selection runs, while Find still needs a sidecar-backed adapter
+because PDF.js only searches embedded text.
 
-Benchmark Tesseract and PaddleOCR against the same corpus. Include Apple Vision
-as a quality/performance comparison on iOS. Prefer one common OCR engine if it
-meets quality and packaging requirements; use native OCR selectively only if
-the common engine demonstrably fails platform constraints.
+English and Arabic trained data are pinned as npm dependencies and copied with
+the worker and core into the ignored `public/tesseract/` build tree. Generated
+`*.traineddata` files are not committed at the repository root; each future
+language must be an explicitly pinned package selected by the same preparation
+script so offline builds remain reproducible and only ship supported languages.
+
+Build preparation copies the installed worker, SIMD-capable LSTM cores, and the
+integer English and Arabic trained data into ignored `public/tesseract` assets. Runtime
+URLs are app-local; no CDN or account is required. One worker should be reused
+for a complete job and terminated when the job finishes or is cancelled.
+
+English and Arabic are the only included languages. Automatic recognition must
+not silently choose between them: capture setup and the reader prompt obtain an
+explicit language before OCR begins, and retries retain that choice. Additional
+trained-data packages can follow the same local asset pattern only when there is
+demonstrated demand. Tesseract quality, photographed-page cleanup, mobile speed,
+and package size remain acceptance work. PaddleOCR and native engines are
+deferred unless real failures justify their extra runtimes and platform-specific
+behavior.
+
+The first production slice exposes one contextual **Make Searchable** prompt in
+the reader for PDFs that require recognition. Library rows and covers retain a
+compact status label without duplicating the action. The job reuses one worker
+across the document, renders and persists one bounded page at a time, reports
+page progress, and supports cooperative cancellation. Search rows and ready
+metadata are replaced only through the existing atomic PDF finalizer, so
+cancellation or failure does not expose partial OCR output or alter the
+canonical PDF. The finalizer also preserves an existing gallery thumbnail when
+no replacement thumbnail is provided by the recognition job.
 
 ## Mobile Scanning
 
 Capture and OCR should remain separate:
 
-- Android's [ML Kit Document Scanner](https://developers.google.com/ml-kit/vision/doc-scanner)
-  supplies native capture UI, edge detection, crop, rotation, cleanup, page
-  reordering, and PDF/JPEG output. It runs on-device and does not require the
-  app to request camera permission, though its scanner resources may download
-  on first use and device requirements must be enforced.
-- iOS should use
+- iOS uses
   [`VNDocumentCameraViewController`](https://developer.apple.com/documentation/visionkit/vndocumentcameraviewcontroller)
-  for the native capture experience.
-- A small Tauri mobile plugin should normalize both platforms into the same
-  page-image or PDF result consumed by the import pipeline.
+  for capture, edge guidance, crop, rotation, page review, and multi-page
+  output. The isolated plugin streams those reviewed pages into an app-owned
+  image-only PDF and hands only its path to Rust.
+- Android uses CameraX 1.5.3 for capture and a Papercut-owned four-corner crop
+  and review screen. Android's native perspective transform corrects reviewed
+  pages without OpenCV, ML Kit, or Google Play Services. Automatic edge
+  detection remains deferred until physical-device acceptance documents show
+  that full-page default corners plus manual correction are inadequate.
+- Do not use ML Kit Document Scanner as the primary Android path. Its scanner
+  module and UI are delivered through Google Play Services, which Papercut
+  cannot assume exists on every supported offline device.
+- One local Tauri plugin normalizes both platforms into an app-owned PDF path.
+  Native image bytes never cross the JSON bridge, and the existing PDF import,
+  readiness, OCR, indexing, viewer, search, and TTS pipeline remains the only
+  document-processing path.
+- Existing photos use Android's system document picker and iOS PhotosUI. Both
+  copy only the chosen files into plugin-owned temporary storage, normalize one
+  image at a time, and emit the same app-owned PDF contract without broad photo
+  permissions or Google Play Services.
 
-The review step should let users inspect thumbnails, crop, rotate, delete,
-reorder, rescan, and import existing photos. The source pages should be saved
-before OCR begins so recognition can be retried.
+The camera review step lets users inspect thumbnails, crop, rotate, delete,
+reorder, and rescan. Existing-photo import preserves the framing and picker
+order the user already chose instead of maintaining a second native editor;
+photos that need correction should be edited before selection or captured with
+the scanner. Source pages are committed into the canonical PDF before OCR
+begins so recognition can be retried.
 
-Desktop camera capture is deferred. Importing existing PDFs and images covers
-the desktop use case without introducing webcam permissions and a third capture
-experience.
+Scanner-specific code is intentionally removable:
+
+```text
+src-tauri/plugins/document-scanner/   native iOS/Android adapters
+src-tauri/src/document_scanner/       app-owned staging and import bridge
+src/document-scanner/                 typed React availability/capture API
+```
+
+Registration and the Library import option are the only integration points.
+Deleting those directories and their registrations removes capture without
+changing PDF import or OCR.
+
+Desktop camera and direct-image capture are deferred. Importing existing PDFs,
+including PDFs prepared from desktop images, covers the current desktop use case
+without introducing webcam permissions or a third capture workflow.
 
 ## User Experience
 
@@ -606,6 +688,7 @@ multiple resumable batches.
 | Canvas-only viewer | Poor selection and screen-reader behavior | Maintain an aligned text/accessibility layer |
 | Encrypted PDFs | Confusing failures or unsupported imports | Detect early and provide a specific message; password support is a separate product decision |
 | Partial imports | Orphaned files or index rows | Stage writes and commit source, metadata, FTS, and derived artifacts atomically where possible |
+| False-positive OCR classification | Blank covers or separator pages trigger needless OCR | Label only fully textless PDFs now; require corpus-backed page classification before hybrid OCR |
 
 ## Delivery Checklist
 
@@ -930,8 +1013,8 @@ reconstructed paragraphs under the same native request ceiling as HTML/EPUB
 instead of inheriting the larger interactive-playback default; SILMA retains its
 smaller model-specific profile.
 
-Automated validation for this slice passes TypeScript, focused ESLint, all 42
-frontend tests, i18n validation, and the production build/search-index pipeline.
+Automated validation for this slice passes TypeScript, focused ESLint, the full
+frontend test suite, i18n validation, and the production build/search-index pipeline.
 Both focused reconstruction tests also pass when the PDF narration module is
 compiled independently. Focused Rust coverage now checks version 2 HTML
 compatibility, version 3 PDF sources, and source-kind/role mismatches; local
@@ -941,91 +1024,393 @@ acceptance passes for text-native PDF audiobook creation and playback, chunk
 order across page and column boundaries, clean-library bundle export/import,
 bookmarks, Find, global search, and HTML/EPUB parity.
 
-### Stage 6: OCR Engine Benchmark
+### Stage 6: OCR Engine Foundation
 
-Stage status: Not started
+Stage status: Foundation complete; desktop English and Arabic WebView
+acceptance passed
 
-- [ ] Build one benchmark harness and corpus for Tesseract, PaddleOCR, and Apple
-      Vision comparison where available.
-- [ ] Measure Arabic, Chinese, Devanagari, and Latin text accuracy.
-- [ ] Measure reading order, bounding boxes, confidence, skew/noise tolerance,
-      speed, RAM, package/model size, and mobile integration.
-- [ ] Test photographed pages as well as clean image-only PDFs.
-- [ ] Review licenses and model redistribution terms.
-- [ ] Select one common engine or document evidence for a narrowly scoped native
-      exception.
-- [ ] Pin runtime/model versions and record the decision.
+- [x] Persist aggregate upload text status without changing the canonical PDF
+      or page-sidecar schema.
+- [x] Mark PDFs as processing until final page/index commit.
+- [x] Mark newly finalized and previously indexed fully textless PDFs as
+      requiring recognition.
+- [x] Surface the recognition-required state in Library Gallery and List views.
+- [x] Keep searchable hybrid PDFs usable and distinguish their optional OCR
+      opportunity as recognition-available.
+- [x] Defer hybrid page detection until text and image signals could be
+      evaluated together in Stage 7.
+- [x] Select Tesseract.js as the initial common engine.
+- [x] Pin the worker, core, and English/Arabic trained-data packages.
+- [x] Package only local runtime assets needed by the LSTM worker.
+- [x] Keep Tesseract and its runtime out of normal app startup.
+- [x] Normalize OCR words, confidence, order, and image-pixel bounds into
+      `PageTextLayer`.
+- [x] Add an explicit contextual reader action for PDFs with missing text.
+- [x] Reuse one worker and one bounded page render at a time.
+- [x] Render ordinary OCR pages at 300 DPI while capping unusually large pages
+      at one 9-megapixel canvas.
+- [x] Report preparing, page recognition, indexing, cancellation, and failure.
+- [x] Commit recognized search data only through the atomic PDF finalizer.
+- [x] Remove the temporary synthetic OCR benchmark harness and generated PDFs.
+- [x] Run one English image-page recognition smoke test in the desktop WebView.
+- [ ] Confirm the generated build has no OCR CDN requests.
+- [ ] Record first-run worker startup, recognition time, and peak memory.
 
-Decision gate: the selected OCR approach meets language, coordinate, offline,
-packaging, and performance requirements on supported devices.
+Decision gate: local English and Arabic pages produce ordered text and finite
+bounds in the supported WebView without affecting non-OCR startup. English has
+passed; Arabic remains open.
 
 ### Stage 7: Image-Only And Hybrid PDF OCR
 
-Stage status: Not started
+Stage status: Complete; desktop English image-only and hybrid acceptance passed
 
-- [ ] Detect usable native text page by page.
-- [ ] OCR only pages without an acceptable text layer.
-- [ ] Normalize OCR output into the same `PageTextLayer` contract.
-- [ ] Store OCR engine/model version, language, provenance, and confidence.
-- [ ] Add language selection or detection with a retry path.
-- [ ] Add page-level progress, cancellation, resume, failure, and retry.
-- [ ] Prevent duplicate native and OCR text in hybrid PDFs.
-- [ ] Re-run PDF Find, search, TTS, and highlight acceptance tests.
+- [x] Detect usable native text page by page.
+- [x] OCR every page of a fully textless English PDF.
+- [x] OCR only missing pages in a hybrid PDF.
+- [x] Normalize OCR output into the same `PageTextLayer` contract.
+- [ ] Store finalized OCR engine/model version, provenance, and confidence.
+      Active-job recovery now persists its language and targeted retry pages,
+      but accepted document metadata does not yet retain this provenance.
+- [x] Add explicit English/Arabic language selection with a retry path.
+- [x] Replace the persistent reader banner with an accessible compact control;
+      reserve its attention marker for required OCR, review, and errors.
+- [x] Add page-level progress, cancellation, failure, and retry through the
+      reader prompt and shared Library operation notice.
+- [x] Keep Library rows and gallery covers informational instead of repeating
+      the recognition action on every document surface.
+- [x] Add durable job resume across app restarts.
+- [x] Prevent partial OCR sidecars from becoming searchable before final commit.
+- [x] Write each derived page-text sidecar through a complete same-directory
+      temporary file before atomically replacing its final JSON path.
+- [x] Prevent duplicate native and OCR text in hybrid PDFs.
+- [x] Overlay persisted OCR words on rendered textless and weak-native pages
+      for selection without modifying or duplicating the canonical PDF.
+- [x] Fit selectable OCR line runs to persisted page geometry so native desktop
+      and Android selection handles do not expose overlapping word glyphs.
+- [x] Keep synthetic OCR glyphs transparent during native selection and use a
+      translucent cross-platform selection tint over the canonical page image.
+- [x] Keep synthetic OCR glyphs transparent for viewer Find matches in both the
+      CSS Highlight API and legacy mark fallback, so active results mark the
+      source scan without painting approximate text over it.
+- [x] Teach viewer Find and indexed-result highlighting to use finalized OCR
+      text and page sidecars, including native pages inside hybrid PDFs, while
+      retaining PDF.js Find for fully native-text PDFs. Finalization records one
+      derived OCR-presence marker so this routing is correct before a virtualized
+      OCR page has rendered.
+- [ ] Verify Find can navigate from an initially rendered native page to an
+      unrendered OCR page in a finalized hybrid PDF.
+- [x] Re-run PDF Find, search, TTS, and highlight acceptance tests.
 
 Decision gate: image-only and hybrid fixtures are searchable and speakable
 without harming native-text PDF behavior or source files.
 
+Manual acceptance passed with native, image-only, blank, and weak-native image
+pages in one hybrid document. Native text remained searchable without
+duplication; recognized pages exposed selectable overlays; Find highlighted and
+navigated matches across native and OCR pages; TTS retained page order; and the
+canonical PDF remained unchanged. A later Android selection review exposed
+overlapping word glyphs, so selection now groups and measures complete OCR lines
+without changing sidecars or eager-rendering additional pages.
+
+The reader-centered recognition entry point is implemented, including an
+immediate viewer refresh after the finalized text status changes. Manual
+overlay-refresh and low-confidence acceptance smoke tests passed.
+
 ### Stage 8: Native Mobile Capture
 
-Stage status: Not started
+Stage status: In progress; Android capture, interruption recovery, native photo
+import, app-restart recovery, and OCR handoff accepted. iOS physical-device
+acceptance remains open.
 
-- [ ] Add one small Tauri mobile plugin with Android and iOS scanner adapters.
-- [ ] Integrate ML Kit Document Scanner on supported Android devices.
-- [ ] Integrate VisionKit document camera on supported iOS devices.
-- [ ] Support page thumbnails, crop, rotation, delete, reorder, rescan, and
-      importing existing images.
-- [ ] Save source pages before OCR begins.
-- [ ] Process bounded batches and allow users to append/resume large scans.
+- [x] Add one isolated local Tauri plugin with Android and iOS adapter boundaries.
+- [x] Integrate CameraX capture and a manual four-corner review flow on Android
+      without requiring Google Play Services.
+- [x] Integrate VisionKit document camera on supported iOS devices.
+- [x] Support page thumbnails, crop, rotation, delete, reorder, and retake
+      across both platforms. Android keeps only one bounded management preview
+      in memory and uses small on-disk thumbnails for the accepted-page strip;
+      RecyclerView decodes only the visible thumbnail window.
+- [x] Support importing existing images across both platforms through native
+      system pickers without broad media permissions or image bytes over IPC.
+- [x] Save reviewed iOS and Android scans as canonical PDFs before OCR begins.
+- [x] Bound native capture and photo-import output to 500 pages and 250 MB,
+      then independently validate those limits again at the Rust IPC boundary.
+      Android keeps accepted pages available when a draft exceeds the limit;
+      iOS removes rejected output.
+- [x] Assemble VisionKit camera output away from the main thread after its
+      review UI closes, while keeping Tauri completion callbacks on the main
+      thread.
+- [x] Process pages with bounded memory and allow users to append pages before
+      finishing. Android appends to the live or recovered file-backed draft;
+      VisionKit provides the active multi-page iOS capture flow. App-restart
+      recovery remains a separate platform requirement below.
 - [ ] Handle unavailable scanner services, resource download, permissions,
-      interruption, low storage, and unsupported devices.
-- [ ] Keep scanning controls absent from unsupported desktop builds.
+      interruption, low storage, and unsupported devices. Android now handles
+      camera availability, runtime permission recovery, cancellation, and
+      temporary-file cleanup. It also restores accepted pages after Activity
+      recreation, expires abandoned cache sessions after seven days, checks
+      free space before capture and final PDF assembly, and keeps accepted pages
+      after an assembly failure. Android interruption, low-storage, and restart
+      recovery passed physical-device acceptance. iOS resource cases remain
+      open; iOS app-restart recovery is deferred to Stage 11 because VisionKit
+      does not expose recoverable in-progress pages.
+- [x] Keep scanning controls absent from desktop and unsupported mobile builds.
 
 Decision gate: a multi-page scan survives interruption and produces a durable
 source PDF or page set without holding the entire book in memory.
 
+Implementation evidence: the Android plugin compiles and passes Android lint;
+its manifest merges into the arm debug app. CameraX writes one temporary JPEG,
+the review screen holds one bounded bitmap, accepted pages return to compressed
+session files, and Android's `PdfDocument` decodes one accepted page at a time.
+Accepted pages now have small session thumbnails; a horizontal RecyclerView
+retains decoded bitmaps only for its visible/recycled rows. The page manager
+rewrites only the in-memory file order when moving pages and deletes both files
+when a page is removed, without recompressing retained page images.
+Android physical-device acceptance passed camera framing, touch crop, rotation,
+retake, multi-page capture, page reorder/delete, permission denial/recovery,
+cancellation, final PDF import, and OCR handoff. Accepted page filenames and
+order now use Android saved Activity state for same-process Activity recreation;
+unaccepted camera/review frames are intentionally retaken. A native `StatFs`
+preflight reserves 64 MiB plus the accepted JPEG size before PDF assembly, and
+transient capture, preview, page-write, and final assembly failures no longer
+discard pages that were already accepted.
+Android Activity recreation, low-storage recovery, and retained-page behavior
+also passed physical-device smoke testing. Existing-photo import uses the
+platform picker and normalizes one selected image at a time before the same
+canonical PDF import; Android picker acceptance passed and iOS picker acceptance
+remains open. Android also writes a tiny atomic manifest after each accepted-page
+add, move, or delete. A fresh scanner launch can continue the newest complete draft
+or explicitly start over without loading page pixels into memory. This restart
+path passed force-stop, continue, append, ordering, finish, and start-new
+physical-device acceptance.
+Crop handles now retain their normalized page positions when Android changes the
+review layout, and completed worker results update UI only while the scanner
+Activity remains live. Results discarded after destruction recycle UI bitmaps
+and remove uncommitted page files instead of leaking native resources.
+The finished path enters the existing Rust PDF importer, so readiness, OCR,
+indexing, viewer, search, and TTS behavior are not duplicated in native code.
+Native adapters now reject oversized work before canonical import, and Rust
+rechecks the completed page count and file size rather than trusting plugin
+metadata. VisionKit PDF assembly also runs after dismissal on a background
+queue so a long multi-page conversion cannot block the app UI.
+Physical-device acceptance remains open for the iOS capture and photo-picker
+paths.
+
 ### Stage 9: Scan-To-Book Integration
 
-Stage status: Not started
+Stage status: In progress; pre-capture metadata, English OCR handoff, targeted
+technical-failure retry, partial OCR acceptance, active scan append, Android
+restart recovery, and the shared downstream lifecycle are accepted. Arabic OCR
+is implemented through the same pipeline but still needs device acceptance;
+iOS physical-device acceptance also remains open.
 
-- [ ] Let users set title and recognition language before processing.
-- [ ] Feed captured pages through OCR, indexing, PDF viewing, search, and TTS.
-- [ ] Show low-confidence and failed pages with targeted retry.
-- [ ] Allow pages to be appended to an existing unfinished scan.
-- [ ] Restore interrupted scan state after app restart.
-- [ ] Verify folder organization, gallery thumbnail, saved audio, transfer, and
-      deletion.
+- [x] Let users set the display title and choose English recognition, Arabic
+      recognition, or import-only handling before native capture/photo
+      selection. Languages without packaged OCR data stay out of the picker.
+- [x] Feed English and Arabic captured pages that need recognition through the
+      existing bounded OCR and atomic PDF indexing path. Native-text scans and
+      import-only languages keep the normal PDF import/view path.
+- [x] Distinguish technical page failures from pages where recognition returned
+      no text. Offer Retry only after technical failures; let users explicitly
+      accept partial OCR containing unrecognized or low-confidence pages.
+      Existing nonempty OCR sidecars are reused by the normal pass.
+- [x] Offer an optional Improve Pages pass for unrecognized and low-confidence
+      pages. It uses Tesseract's automatic page segmentation and replaces a
+      stored page only when character coverage and confidence do not regress.
+      The action is offered once per result so a deterministic second profile
+      cannot become another indefinite retry loop.
+      Broad image preprocessing remains deferred until a fixture demonstrates
+      that one bounded transform improves recognition without damaging clean
+      scans.
+- [x] Count the pages that triggered the offered retry or review action; the
+      expanded issue list may still include the other categories.
+- [x] Keep review details collapsible while leaving compact Retry and Accept
+      decisions visible. The completed state separates its outcome, page count,
+      optional details, retry guidance, actions, and source-preservation note so
+      users do not have to parse one dense status paragraph. Retry uses automatic
+      page-layout detection once and keeps only improving results, while Accept
+      commits derived searchable text without changing the original PDF. The
+      shared status names the document in the Library but omits that redundant
+      context inside its reader; the initial language-and-action form stays
+      compact without reducing mobile touch targets.
+- [x] Allow pages to be appended to an existing unfinished scan. Android's Add
+      Page flow works for both live and recovered drafts; VisionKit owns the
+      equivalent active multi-page flow on iOS. This does not mutate an already
+      imported PDF: finishing the native scan remains the canonical import
+      boundary.
+- [x] Restore interrupted Android scan state after app restart. The
+      force-stop, continue, append, finish, and start-new paths passed physical
+      device acceptance.
+- [x] Move a finished scan into a nested folder, restart Papercut, and verify
+      its placement and title persist.
+- [x] Verify the finished scan's first-page gallery thumbnail and recognition
+      status remain correct after restart.
+- [x] Create, finish, reopen, and play one saved audiobook from a scanned source.
+- [x] Transfer a scanned document without audio and with its selected saved
+      audiobook; verify the target can search, read, and play the restored data.
+- [x] Verify source deletion is blocked while saved audio depends on it, then
+      delete the audio and source and confirm both disappear after restart.
 
 Decision gate: scan-to-book works end to end on one supported Android and one
 supported iOS device with representative multi-language fixtures.
 
+Implementation evidence: the setup dialog reuses the app's accessible modal
+and select controls. Its title enters the initial Rust upload transaction and
+is retained through PDF.js finalization; it is not patched onto the document
+afterward. Choosing English or Arabic starts the existing local recognizer only
+when PDF readiness reports missing usable text. Choosing an unsupported-language
+import path keeps the canonical PDF without making an OCR promise. No second PDF
+copy, native OCR implementation, language detector, or scanner-specific index
+was added. Android physical-device acceptance now covers the setup dialog,
+automatic English OCR handoff, import-only handling, partial OCR acceptance,
+page review, and technical-failure retry without reprocessing successful pages.
+Arabic OCR acceptance and equivalent iOS acceptance remain open. A
+character-weighted confidence score
+below 0.5 remains a provisional review signal, not proof that OCR is incorrect;
+it must be calibrated against the end-of-cycle device and language matrix.
+No new append API or draft store was added in Stage 9: the isolated native
+plugin already owns this behavior. Android appends page files to its ordered
+manifest without rewriting retained images, while VisionKit owns page addition
+inside an active iOS scan. Cross-restart iOS recovery remains intentionally open
+instead of introducing a second scanner workflow beside VisionKit.
+Apple's supported delegate contract notifies Papercut only when the user saves,
+cancels, or the scanner fails. Recovering pages accepted before those callbacks
+would therefore require replacing VisionKit with a Papercut-owned camera,
+perspective-correction, review, and draft flow. That duplication is deferred
+until device acceptance or user evidence makes restart recovery worth the
+additional native implementation and maintenance cost.
+
+For the remaining iOS acceptance, a direct Xcode device install is the shortest
+single-device path. TestFlight does not require a Papercut release or Git tag:
+an App Store Connect archive built from this branch can use the next unreleased
+marketing version and a unique build number, then be assigned to internal
+testers after processing. The existing release workflow already contains the
+required signing, IPA build, and upload steps, but it is intentionally coupled
+to all-platform release publication and must not be run for a branch-only beta.
+A separate manual TestFlight workflow remains unnecessary unless branch beta
+uploads become a repeated need.
+
 ### Stage 10: Hardening And Release
 
-Stage status: Not started
+Stage status: In progress
 
-- [ ] Run malformed, encrypted, large, high-page-count, and low-storage tests.
-- [ ] Run memory and performance tests on minimum supported desktop and mobile
-      hardware.
+- [x] Run malformed, encrypted, large, high-page-count, and low-storage tests.
+  - [x] Normalize known PDF.js password, invalid-file, missing-file, response,
+        and interrupted-load failures at both import and viewer boundaries.
+        Keep unknown and Papercut limit errors intact for diagnosis.
+  - [x] Exercise the installed PDF.js password and invalid-file exception
+        contracts; cover the 2,000-page frontend boundary.
+  - [x] Retain Rust guards for the 250 MB source boundary, bounded page
+        sidecars, and failed-write cleanup; cover transferred-source identity
+        and header validation directly.
+  - [x] Accept Android scanner low-storage recovery and retained-page behavior.
+  - [x] Add a dependency-free preparer for temporary password-protected,
+        malformed, 2,001-page, and sparse 250 MB boundary fixtures. It verifies
+        the pinned upstream password fixture and generated PDF.js contracts
+        without committing large binaries.
+  - [x] Complete the production manual fixture matrix; the existing source-size,
+        page-count, page-text, and cleanup guards remain the enforced limits.
+        Run `npm run prepare:pdf-boundary-fixtures`, import the four boundary
+        files it prints, and verify the expected password, invalid-file,
+        page-limit, and size-limit messages. After each rejection, confirm the
+        file is absent from Library and Search. Import `valid.pdf` with the
+        rejected files to confirm one failure does not discard valid imports.
+        Accepted on the development desktop: the valid fixture imported, all
+        four boundary fixtures produced their specific failures, and rejected
+        files left no Library or Search entries.
+- [x] Accept observational performance testing on the available desktop and
+      Android hardware for the initial release. Existing smoke testing covers
+      large-document rendering and scrolling, deep-page navigation, Find,
+      sequential 300-DPI OCR, cancellation, and resume without an observed
+      blocking regression. Retain the budgets above for diagnosis, and add a
+      formal minimum-hardware benchmark only if device evidence warrants it.
 - [ ] Complete keyboard, screen-reader, RTL, localization, zoom, and touch
       reviews.
-- [ ] Review parser, local asset, IPC, native plugin, and file cleanup security.
+  - [x] Audit and harden the implemented OCR and scanner surfaces. OCR toolbar
+        controls expose their running, review, and error state through one
+        state-aware accessible name; status changes are atomic; long page lists
+        wrap; and coarse-pointer disclosure controls retain a 44 px target.
+        Android exposes its optional crop preview to assistive technology,
+        announces progress politely, and retains native 48 dp controls. Existing
+        PDF controls continue to provide keyboard groups, RTL navigation,
+        responsive zoom, and touch-sized targets. iOS capture continues to use
+        the system VisionKit and PhotosUI interfaces.
+  - [ ] Complete physical-device TalkBack and VoiceOver acceptance for capture,
+        page review, crop fallback, progress, cancellation, and OCR handoff.
+  - [ ] Decide and verify the native Android scanner language-resource policy.
+        The React OCR workflow covers all eight app locales, while the isolated
+        native scanner currently relies on its English fallback resources.
+- [x] Review parser, local asset, IPC, native plugin, and file cleanup security.
+  - [x] Keep PDF.js, Tesseract, trained-data, and worker assets pinned and
+        bundled locally; recognition does not fetch executable code or language
+        data at runtime.
+  - [x] Retain exact app-owned upload URL and source-file validation on hot
+        page-layer operations, with authoritative database metadata checks at
+        PDF finalization and narration boundaries. Avoid reopening the upload
+        database for every page read or write in large OCR jobs.
+  - [x] Bound persisted OCR recovery metadata to app-owned uploaded-PDF URLs
+        and the existing 2,000-page limit before it can resume work.
+  - [x] Recheck native scanner output path, page count, and byte size in Rust;
+        surface failed staging cleanup and remove abandoned Rust-side inbox
+        data before the next capture without touching Android's separate
+        resumable draft cache.
+  - [ ] Define and verify a restrictive CSP for bundled PDF.js and Tesseract
+        workers across desktop and mobile WebViews. Do not guess worker/WASM
+        directives without the full platform acceptance matrix.
 - [ ] Verify upgrades, library transfer, backup/export, and deletion against
       production-like app data.
 - [ ] Add user documentation, privacy wording, known limitations, and release
       notes.
 - [ ] Decide whether PDF/OCR remains behind Developer Mode or enters a public
       beta.
-- [ ] Remove diagnostic-only code, unused dependencies, and abandoned feature
-      flags.
+- [x] Remove completed native scanner staging after every canonical import
+      attempt. Android's resumable in-progress draft remains separate and is
+      retained until the user finishes or discards it.
+- [x] Isolate indexed PDF search-result navigation from `PdfViewer`. One
+      focused adapter now owns page targeting, native/OCR text-layer waits,
+      Find fallback, progress, and event cleanup without adding a viewer
+      framework or dependency.
+- [x] Harden PDF/OCR lifecycle boundaries. Hybrid PDFs retain usable native
+      text when OCR adds nothing, accepted recovery work clears its marker,
+      native Find listeners are disposed when OCR Find takes ownership, and
+      indexed-result progress always reaches a terminal state.
+- [x] Remove diagnostic-only code, unused dependencies, and abandoned feature
+      flags. The final branch audit found no remaining production-only probes,
+      abandoned flags, or unused PDF/OCR/scanner dependencies. Keep the small
+      boundary-fixture preparer as release-validation tooling; it generates
+      temporary files outside the tracked source tree and verifies import
+      limits without committing large or encrypted fixtures.
+
+Deferred mobile acceptance matrix accumulated during Stages 8 and 9:
+
+- [x] Android: append, reorder, and delete pages in a live scan; force-stop and
+      reopen Papercut; continue the draft; append another page; and finish with
+      the expected order.
+- [x] Android: choose Start New after recovery, deny and restore camera
+      permission, exercise low-storage recovery, and confirm accepted pages are
+      retained only where documented.
+- [x] Android: import multiple existing photos, cancel the picker, and verify
+      page order, orientation, cleanup, and bounded-memory behavior.
+- [ ] Android: exercise the virtualized accepted-page strip with a long scan;
+      verify scrolling and page selection while watching for sustained bitmap
+      growth. Kotlin compilation and Android lint pass; device acceptance is
+      intentionally deferred to the final matrix.
+- [ ] iOS: import multiple existing photos, cancel the picker, and
+      verify page order, orientation, cleanup, and bounded-memory behavior.
+- [ ] iOS: capture, review, append, reorder, and finish a multi-page VisionKit
+      scan; cancel it; and verify the canonical PDF and OCR handoff on device.
+- [x] Android scanner OCR handoff: cover successful English recognition,
+      import-only handling, partial OCR acceptance, page review, and targeted
+      technical-failure retry without reprocessing successful or nonempty
+      review-only pages.
+- [ ] Desktop and Android Arabic OCR: verify RTL selection/copy, exact search,
+      Find navigation, page order, TTS order, low-confidence review, and retry.
+- [ ] iOS scanner OCR handoff: cover successful English recognition,
+      import-only handling, low-confidence acceptance, failed-page review, and
+      targeted retry without reprocessing successful or review-only pages.
+- [x] Downstream lifecycle: verify folder organization, gallery thumbnail,
+      saved audio, library transfer, and deletion for scanned documents.
 
 Decision gate: all supported platforms pass automated checks and the complete
 manual acceptance matrix before public release.
@@ -1039,6 +1424,8 @@ Stage status: Deferred
       insufficient; keep it derived rather than canonical.
 - [ ] Export searchable PDFs only after import/search is stable.
 - [ ] Add desktop camera capture only if desktop users request it.
+- [ ] Replace VisionKit with a custom iOS scanner only if real interruption
+      failures make active-scan recovery a release requirement.
 - [ ] Add advanced table, equation, or layout analysis only after corpus data
       demonstrates the need.
 
@@ -1055,7 +1442,7 @@ Stage status: Deferred
 | 2026-07-24 | Stage 0 | Approve the scope, fixture matrix, and measurable budgets | Product-owner approval opened the renderer/extractor spike |
 | 2026-07-24 | Stage 1 | Prefer PDF.js 6.1.200 as the renderer candidate | It rendered the RTL fixture and exposes the canvas, text, direction, and coordinate data needed by the viewer; device WebViews remain the gate |
 | 2026-07-24 | Stage 1 | Reject `pdf-extract` 0.12.0 for production | It reversed the Arabic fixture's logical order and lacks the coordinate model required for search/TTS highlighting |
-| 2026-07-24 | Stage 1 | Reject `pdf_oxide` 0.3.75 and keep Rust 1.77.2 | The native candidate inserted a false inline-style space and fused visible Arabic words; fixing this would require custom heuristics while retaining a second parser and raising Papercut's minimum Rust version |
+| 2026-07-24 | Stage 1 | Reject `pdf_oxide` 0.3.75 | The native candidate inserted a false inline-style space and fused visible Arabic words; fixing this would require custom heuristics while retaining a second parser |
 | 2026-07-24 | Stage 1 | Select PDF.js 6.1.200 for rendering and extraction | The installed parser preserved expected word boundaries, reading order, and finite coordinates while avoiding renderer/extractor disagreement |
 | 2026-07-24 | Stage 1 | Lazy-load PDF.js outside normal app startup | The optimized spike adds about 2.02 MB minified to the package, but only about 2.9 KB of eagerly loaded JavaScript and CSS before gzip |
 | 2026-07-24 | Stage 1 | Generate local PDF.js runtime assets from the pinned npm package | PDF.js resolves JPEG 2000 decoders and standard fonts by stable filename; copying only those installed directories avoids CDN access, committed binary duplication, and another build dependency |
@@ -1101,6 +1488,50 @@ Stage status: Deferred
 | 2026-07-25 | Stage 5 | Remove the temporary PDF WebView harness | The production import and reader paths now cover its worker, canvas, text-layer, and cleanup responsibilities without maintaining a second app entry point |
 | 2026-07-30 | Stage 4 | Synchronize PDF.js after viewport layout changes | A frame-coalesced `ResizeObserver` updates only PDF.js's visible-page queue and relevant fit mode, preserving lazy rendering and explicit user zoom |
 | 2026-07-30 | Stage 4 | Render PDF.js directly into the visible canvas | Disabling the delayed temporary-canvas update avoids a WebKit repaint failure that could leave image-heavy pages showing only an intermediate frame until zoom changed |
+| 2026-08-03 | Stage 6 | Persist conservative OCR readiness before selecting an engine | Finalized PDFs with no extracted text are marked `recognition-required` and exposed in the Library; hybrid page classification remains deferred because empty pages alone are not reliable evidence of missing OCR |
+| 2026-08-03 | Stage 6 | Select Tesseract.js as the initial OCR engine | A shared Web Worker avoids native builds across five platforms, stays lazy, and emits text, confidence, and bounds that fit `PageTextLayer`; quality and device performance will be adjusted from real acceptance results rather than a retained comparison harness |
+| 2026-08-03 | Stage 6 | Package English OCR assets locally | Pinned npm packages provide the worker, SIMD-aware LSTM cores, and trained data without runtime CDN access; other languages wait for explicit language selection |
+| 2026-08-03 | Stage 7 | Ship the smallest explicit English image-only OCR slice | Fully textless PDFs get one local action, one reused worker, bounded page processing, shared mutation status, and atomic finalization; hybrid classification, automatic language detection, and durable queues wait for evidence that they are needed |
+| 2026-08-03 | Stage 7 | Route OCR Find through finalized indexed pages | One document-scoped backend query returns compact per-page match counts off the WebView thread; only the current virtualized page loads OCR geometry for highlighting, while native-text PDFs keep PDF.js Find |
+| 2026-08-04 | Stage 7 | Reuse bounded readiness signals for hybrid PDFs | Import records one aggregate recognition flag, while OCR recomputes page readiness from native text and image operators, preserves native and blank sidecars, and replaces only weak-text image pages without adding page-state storage |
+| 2026-08-04 | Stage 7 | Close English image-only and hybrid OCR acceptance | Manual checks passed native/OCR search and Find navigation, selectable OCR overlays, ordered TTS, blank-page handling, source preservation, and no duplicate native text; broader languages, durable resume, and mobile capture remain separate stages |
+| 2026-08-04 | Stage 8 | Isolate mobile capture from PDF processing | A local Tauri plugin owns only native camera UI and app-owned PDF output; the existing importer remains the sole validation, persistence, readiness, indexing, and OCR path |
+| 2026-08-04 | Stage 8 | Start with VisionKit and defer Android capture to its own slice | iOS provides a complete native multi-page review flow now; Android requires a CameraX capture and manual crop/review workflow that deserves separate implementation and device validation |
+| 2026-08-04 | Stage 8 | Reject ML Kit Document Scanner as the primary Android path | Its scanner resources and UI depend on Google Play Services, which is incompatible with Papercut's supported offline and de-Googled Android devices |
+| 2026-08-04 | Stage 8 | Use CameraX plus Android platform graphics for the first Android scanner | CameraX covers broad camera lifecycle compatibility, while a manual four-corner perspective transform and page-at-a-time `PdfDocument` output avoid Google Play Services, OpenCV, another OCR path, and unbounded bitmap retention |
+| 2026-08-04 | Stage 8 | Manage Android pages through files and bounded previews | Small on-disk thumbnails support selection, accepted-page order drives final PDF order without rewriting JPEGs, and only the selected page gets a larger bounded preview |
+| 2026-08-04 | Stage 8 | Recover accepted Android pages without a draft database | Android saved Activity state handles same-process recreation, while one atomic app-private filename manifest supports a continue-or-start-new prompt after app restart; explicit completion/cancellation cleans immediately, abandoned cache sessions expire after seven days, and image data is never duplicated |
+| 2026-08-04 | Stage 8 | Use native storage preflight before scanner writes | `StatFs` checks a fixed 64 MiB working reserve and accepted JPEG bytes before PDF assembly; this prevents predictable low-space failures without adding a storage dependency or pretending the estimate guarantees a later write |
+| 2026-08-04 | Stage 8 | Import existing photos through native system pickers | Android `ACTION_OPEN_DOCUMENT` works without Google Play Services or broad media access, iOS PhotosUI grants only selected files, and both normalize one image at a time into the existing canonical PDF import instead of adding another editor or processing path |
+| 2026-08-04 | Stage 9 | Ask only for actionable recognition language before capture | English runs the packaged local recognizer when readiness requires it; every other language remains importable without a misleading unsupported-language list or automatic language detector |
+| 2026-08-04 | Stage 9 | Carry scan titles through the canonical import transaction | The scanner command validates the chosen title before native UI opens, and PDF finalization honors it instead of relying on a post-import metadata edit |
+| 2026-08-04 | Stage 9 | Retry OCR from existing page sidecars | Native, blank, and successful OCR pages are skipped; failed and conservatively low-confidence pages remain visible without adding a scanner job database or discarding searchable work |
+| 2026-08-04 | Stage 9 | Reuse native page-append flows | Android already appends to live and recovered file-backed drafts, while VisionKit owns active multi-page capture on iOS; appending after import would mutate a canonical document and iOS restart recovery remains separate work |
+| 2026-08-04 | Stage 9 | Do not fake iOS VisionKit draft recovery | VisionKit returns pages only after Save and exposes no accepted-page callback or draft token; true app-restart recovery requires a custom iOS scanner and remains evidence-driven follow-up work |
+| 2026-08-04 | Stage 9 | Accept the delayed Android device matrix | Camera and photo capture, interruption and restart recovery, low-storage retention, English OCR handoff, and targeted retry passed; iOS and downstream library lifecycle acceptance remain explicit separate gates |
+| 2026-08-05 | Stage 9 | Accept the shared downstream scan lifecycle | Folder persistence, gallery state, saved audio, library transfer with and without selected audio, dependency-aware deletion, and restart persistence passed; iOS native capture and photo-picker acceptance remain the final Stage 9 platform gate |
+| 2026-08-05 | Stage 7 | Fit OCR selection by visual line | Existing word sidecars provide line endings and bounds; the viewer measures one run per line and scales it to the union of those boxes, avoiding overlapping native selection glyphs without a schema migration, dependency, or larger render window |
+| 2026-08-05 | Stage 7 | Start recognition from the open PDF | Library surfaces communicate readiness only; one nonmodal reader prompt explains the benefit and reuses the existing progress, cancellation, retry, and atomic finalization path without adding another job model |
+| 2026-08-05 | Stage 7 | Separate failed OCR from review-only output | Failed pages remain retryable, while nonempty low-confidence sidecars are accepted explicitly and never rerun unchanged; accepting them reuses the atomic PDF finalizer and refreshes the open viewer without hiding the source PDF |
+| 2026-08-06 | Stage 7 | Keep OCR selection typography invisible | The selectable OCR layer now mirrors PDF.js selection painting with a translucent accent and transparent synthetic glyphs, preserving native handles and copied text without exposing approximate fonts or adding a JavaScript selection overlay |
+| 2026-08-06 | Stage 7 | Add Arabic through the shared Tesseract pipeline | A pinned local `ara` model, explicit capture/reader selection, and language-preserving retries reuse the English worker, page sidecars, FTS, Find, selection, and TTS path without automatic detection or a second OCR engine |
+| 2026-08-06 | Stage 7 | Keep OCR Find typography invisible and action counts literal | Both the CSS Highlight API and legacy mark fallback show a translucent OCR-layer highlight without painting synthetic glyphs, while retry and review messages count only pages their action will process |
+| 2026-08-06 | Stage 8 | Bound native scanner output before canonical import | Android and iOS cap scanner work at 500 pages and 250 MB, Rust independently rechecks both values at the IPC boundary, and VisionKit PDF assembly leaves the main thread without adding another queue or dependency |
+| 2026-08-06 | Stage 10 | Virtualize the Android accepted-page strip | The previous horizontal layout decoded every thumbnail at once; AndroidX RecyclerView now retains only its visible/recycled bitmap window while preserving access to every page and the existing file-backed draft |
+| 2026-08-06 | Stage 10 | Commit PDF page-text sidecars atomically | Each bounded JSON layer is written to a unique same-directory temporary file before rename, so interruption cannot replace a valid derived layer with truncated JSON and failed attempts clean their own staging file without forcing a disk sync for every rebuildable page |
+| 2026-08-06 | Stage 10 | Discard completed scanner staging after import attempts | The canonical importer owns successful copies, while failed completed PDFs had no recovery surface and otherwise accumulated indefinitely; Android's resumable pre-completion draft remains unchanged |
+| 2026-08-06 | Stage 10 | Isolate indexed PDF search-target navigation | `PdfViewer` delegates page targeting, native/OCR text-layer waits, Find fallback, progress, and cleanup to one focused adapter while retaining its cohesive loading and rendering lifecycle and adding no dependency |
+| 2026-08-06 | Stage 7 | Prefer 300-DPI recognition on the first pass | Initial recognition and targeted failed-page retries render ordinary pages at Tesseract's recommended resolution; one 9-megapixel canvas bounds memory, while alternate segmentation and image-enhancement profiles remain fixture-driven follow-up work |
+| 2026-08-06 | Stage 7 | Select hybrid PDF Find before page rendering | PDF finalization records one derived OCR-presence marker; the viewer reads it once at open so indexed Find covers native and OCR pages immediately, while native-only PDFs retain PDF.js Find and its normalization behavior |
+| 2026-08-07 | Stage 7 | Keep all PDF search-target typography invisible | Native PDF.js and OCR text layers now share the translucent target treatment without painting synthetic glyphs; recognition language choices name only the language because the surrounding action already explains recognition |
+| 2026-08-07 | Stage 7 | Separate required OCR from optional hybrid cleanup | PDFs with usable indexed text remain searchable and speakable even when image-backed pages may benefit from OCR; Library urgency is reserved for textless documents, while one compact reader control reuses the existing recognition job and recomputes candidate pages without persisting another page-state model |
+| 2026-08-07 | Stage 7 | Make OCR review decisions explicit | The completed state separates outcome, page count, collapsible details, retry guidance, compact actions, and source preservation; Retry and Accept retain distinct secondary and primary treatments without another workflow or panel |
+| 2026-08-07 | Stage 7 | Show OCR activity without notification permissions | The reader OCR icon retains its identity while a spinner communicates active work, and the existing Library tab busy state mirrors that activity; amber is reserved for required review, red for failures, and native background notifications remain deferred until OCR can actually continue outside the WebView |
+| 2026-08-08 | Stage 7 | Resume interrupted OCR from atomic page sidecars | Local storage retains only the active document, language, targeted retry pages, and a session marker; the reader offers an explicit resume instead of restarting expensive work at launch, completed page sidecars remain the source of progress, and cancellation reports cleanup immediately without adding a queue service or database |
+| 2026-08-08 | Stage 10 | Close PDF/OCR lifecycle ownership gaps | Usable native text satisfies hybrid recognition even when OCR adds no characters; successful acceptance removes stale recovery intent, OCR Find disposes native Find listeners at handoff, and search-result progress falls back and settles on a bounded timer when PDF.js emits no terminal text-layer event |
+| 2026-08-08 | Stage 10 | Retain strict scanner output ownership and boundary fixtures | Native scanner implementations return the exact app-supplied output path, so Rust keeps exact-path validation rather than broadening trust through canonical aliases; partial batch imports already preserve successful documents and clean only failed or pending PDFs, while the dependency-free fixture preparer remains useful release tooling rather than diagnostic production code |
+| 2026-08-08 | Stage 10 | Expose OCR and scanner state to assistive technology | OCR controls now announce running, review, and error state without relying on visual dots or spinners; Android identifies crop adjustment as optional and announces progress, while physical TalkBack/VoiceOver and native scanner localization remain explicit release gates |
+| 2026-08-08 | Stage 10 | Bound OCR recovery and scanner staging at trust boundaries | Recovery accepts only app-owned PDF URLs and at most 2,000 page references; Rust scanner staging cleanup is observable and stale completed output is removed before the next capture, while hot page-layer access avoids repeated database work and the native Android draft remains untouched |
 
 ## References
 
@@ -1113,10 +1544,16 @@ Stage status: Deferred
 - [Tauri mobile plugin development](https://v2.tauri.app/develop/plugins/develop-mobile/)
 - [Apple PDFKit](https://developer.apple.com/documentation/pdfkit)
 - [Apple VisionKit document camera](https://developer.apple.com/documentation/visionkit/vndocumentcameraviewcontroller)
+- [Apple VisionKit document camera delegate](https://developer.apple.com/documentation/visionkit/vndocumentcameraviewcontrollerdelegate)
 - [Apple Vision text recognition](https://developer.apple.com/documentation/vision/vnrecognizetextrequest)
+- [Apple TestFlight overview](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview)
+- [Apple build upload guidance](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds/)
 - [ML Kit Document Scanner](https://developers.google.com/ml-kit/vision/doc-scanner)
 - [ML Kit Text Recognition languages](https://developers.google.com/ml-kit/vision/text-recognition/v2/languages)
+- [Android CameraX](https://developer.android.com/media/camera/camerax)
+- [Android `Matrix.setPolyToPoly`](https://developer.android.com/reference/android/graphics/Matrix#setPolyToPoly(float[],%20int,%20float[],%20int,%20int))
 - [Tesseract OCR](https://github.com/tesseract-ocr/tesseract)
+- [Tesseract.js repository](https://github.com/naptha/tesseract.js)
 - [PaddleOCR multilingual recognition](https://github.com/PaddlePaddle/PaddleOCR/blob/main/docs/version3.x/algorithm/PP-OCRv5/PP-OCRv5_multi_languages.en.md)
 - [Speechify scan workflow overview](https://speechify.com/blog/scan-books-and-printed-text/)
 - [Nielsen Norman Group: Visibility of system status](https://www.nngroup.com/articles/visibility-system-status/)

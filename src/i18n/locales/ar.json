@@ -112,7 +112,8 @@
       "savedAudioAvailable": "يتوفر صوت محفوظ",
       "bookmarked": "تم وضع إشارة مرجعية",
       "bookmarkedOnly": "إظهار المستندات ذات الإشارات المرجعية فقط",
-      "emptyBookmarked": "لا توجد مستندات ذات إشارات مرجعية تطابق عوامل التصفية الحالية."
+      "emptyBookmarked": "لا توجد مستندات ذات إشارات مرجعية تطابق عوامل التصفية الحالية.",
+      "textRecognitionRequired": "يتطلب التعرف على النص"
     },
     "documentInfo": {
       "button": "تعديل التفاصيل",
@@ -134,11 +135,34 @@
       "filesDetail": "استيراد ملف واحد أو أكثر بصيغة HTML أو EPUB أو PDF",
       "folder": "مجلد",
       "folderDetail": "استيراد ملفات HTML وEPUB وPDF الموجودة داخل مجلد واحد؛ تُتجاهل المجلدات الفرعية",
+      "scanPages": "مسح الصفحات",
+      "scanPagesDetail": "استخدم الكاميرا لمسح صفحة واحدة أو أكثر",
+      "photos": "صور",
+      "photosDetail": "استورد صورة واحدة أو أكثر كمستند PDF",
       "importingBatch": "جارٍ استيراد المستندات",
-      "importingFolder": "جارٍ استيراد المجلد"
+      "importingFolder": "جارٍ استيراد المجلد",
+      "scanningPages": "جارٍ مسح الصفحات",
+      "importingPhotos": "جارٍ استيراد الصور"
+    },
+    "scanSetup": {
+      "title": "تحضير المستند",
+      "description": "حدّد العنوان واختر كيفية تعامل Papercut مع النص بعد الالتقاط.",
+      "displayTitle": "عنوان العرض",
+      "textLanguage": "لغة النص",
+      "english": "الإنجليزية",
+      "englishDetail": "يعمل محليًا بعد الاستيراد إذا لم يحتوِ ملف PDF على نص قابل للاستخدام.",
+      "arabic": "العربية",
+      "arabicDetail": "يعمل محليًا بعد الاستيراد إذا لم يحتوِ ملف PDF على نص قابل للاستخدام.",
+      "otherLanguage": "لغة أخرى — الاستيراد دون تعرّف",
+      "otherLanguageDetail": "سيُحتفظ بملف PDF، لكن البحث والاستماع يتطلبان لغة تعرّف مدعومة.",
+      "continue": "متابعة",
+      "defaultScanTitle": "مستند ممسوح ضوئيًا",
+      "defaultPhotoTitle": "صور مستوردة"
     },
     "status": {
       "preparingBatch": "اختر ملفات HTML أو EPUB أو PDF لاستيرادها...",
+      "capturingPages": "امسح الصفحات وراجعها على جهازك...",
+      "preparingPhotos": "اختر الصور وجهّز مستندك...",
       "importingBatchProgress": "جارٍ استيراد {{current, number}} من {{total, number}}",
       "batchProgress": "تمت معالجة {{processed, number}} من {{total, number}}",
       "stoppingBatch": "جارٍ الإيقاف بعد الملف الحالي...",
@@ -157,7 +181,29 @@
       "cancelled": "أُلغي الاستيراد.",
       "deleting": "جارٍ حذف <title>{{title}}</title>...",
       "deleted": "تم حذف <title>{{title}}</title>.",
-      "deletedWithStorage": "تم حذف <title>{{title}}</title> وتحرير {{storage}}."
+      "deletedWithStorage": "تم حذف <title>{{title}}</title> وتحرير {{storage}}.",
+      "preparingRecognition": "جارٍ تحضير التعرّف على النص في <title>{{title}}</title>...",
+      "recognizingPage": "جارٍ التعرّف على الصفحة {{current, number}} من {{total, number}} في <title>{{title}}</title>...",
+      "indexingRecognition": "جارٍ فهرسة النص المتعرّف عليه في <title>{{title}}</title>...",
+      "stoppingRecognition": "جارٍ إيقاف التعرّف على النص وتنظيف الصفحة الحالية...",
+      "recognitionProgressLabel": "تقدم التعرّف على نص PDF",
+      "recognitionComplete": "اكتمل التعرّف على النص في <title>{{title}}</title>.",
+      "recognitionCancelled": "أُلغي التعرّف على النص في <title>{{title}}</title>.",
+      "recognitionInterrupted": "توقّف التعرّف على النص في <title>{{title}}</title>. استأنف للمتابعة من الصفحات المحفوظة.",
+      "resumeRecognition": "استئناف",
+      "recognitionNoText": "لم يتم التعرّف على أي نص. لم يتغير ملف PDF الأصلي.",
+      "recognitionNeedsRetry": "تعذّر إكمال التعرّف على النص في <title>{{title}}</title>. أعد محاولة {{count, number}} صفحة.",
+      "recognitionReviewComplete": "اكتمل التعرّف على النص",
+      "recognitionPagesToReview": "الصفحات المطلوب مراجعتها: {{count, number}}",
+      "recognitionIssues": "تفاصيل المراجعة ({{count, number}})",
+      "recognitionFailedPages": "تعذّرت معالجة الصفحات: {{pages}}",
+      "recognitionUnrecognizedPages": "لم يتم التعرّف على نص في الصفحات: {{pages}}",
+      "recognitionLowConfidencePages": "ثقة منخفضة في الصفحات: {{pages}}",
+      "retryRecognitionPages": "إعادة المحاولة",
+      "improveRecognitionPages": "إعادة المحاولة",
+      "useRecognizedText": "قبول",
+      "recognitionRetryHelp": "تفحص إعادة المحاولة هذه الصفحات باستخدام اكتشاف التخطيط التلقائي، وتحتفظ بالنتيجة الحالية ما لم تتحسن الجودة.",
+      "recognitionAcceptHelp": "يستخدم القبول النص الحالي. يبقى ملف PDF الأصلي دون تغيير."
     },
     "groups": {
       "importedAudiobooks": "الكتب الصوتية المستوردة",
@@ -367,7 +413,12 @@
       "locatingMatch": "جارٍ فتح الصفحة {{page, number}} وتحديد موقع المطابقة...",
       "verifyingMatch": "جارٍ التحقق من المطابقة في المستند...",
       "document": "مستند PDF",
-      "documentPages": "مستند PDF، {{count, number}} صفحة"
+      "documentPages": "مستند PDF، {{count, number}} صفحة",
+      "textRecognition": "التعرّف على النص",
+      "makeSearchableDescription": "اختر لغة المستند وتعرّف على نصه على هذا الجهاز لتمكين البحث والنسخ والبحث في المكتبة والاستماع.",
+      "improveSearchableDescription": "تعرّف على النص المفقود على هذا الجهاز لتحسين البحث والنسخ والبحث في المكتبة والاستماع.",
+      "improveSearchable": "التعرّف على النص المفقود",
+      "makeSearchable": "جعله قابلاً للبحث"
     }
   },
   "tts": {

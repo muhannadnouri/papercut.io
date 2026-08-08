@@ -13,11 +13,12 @@ use super::organization::{
     reorder,
 };
 use super::pdf::{
-    finalize_pdf_index, get_pdf_narration_segments, get_pdf_source_bytes, get_pdf_source_path,
-    store_pdf_page_text, PdfFinalizeRequest, PdfNarrationSegment, PdfPageTextRequest,
+    finalize_pdf_index, get_pdf_narration_segments, get_pdf_page_text_layer, get_pdf_source_bytes,
+    get_pdf_source_path, pdf_has_ocr_text, store_pdf_page_text, PageTextLayer, PdfFinalizeRequest,
+    PdfNarrationSegment, PdfPageTextReadRequest, PdfPageTextRequest,
 };
 use super::pipeline::{delete_upload, get_cover, get_source};
-use super::search::search_uploads;
+use super::search::{find_pdf_text, search_uploads};
 use super::store::{list_uploads, open_db, update_document_title};
 use super::types::{
     UploadedDocument, UploadedDocumentBatchResult, UploadedDocumentDeleteBatchRequest,
@@ -26,7 +27,8 @@ use super::types::{
     UploadedDocumentTitleUpdateRequest, UploadedLibraryCreateFolderRequest,
     UploadedLibraryDeleteFolderRequest, UploadedLibraryMoveDocumentsRequest,
     UploadedLibraryMoveFolderRequest, UploadedLibraryOrganization,
-    UploadedLibraryRenameFolderRequest, UploadedLibraryReorderRequest,
+    UploadedLibraryRenameFolderRequest, UploadedLibraryReorderRequest, UploadedPdfFindRequest,
+    UploadedPdfFindResult,
 };
 use super::DocumentUploadState;
 
@@ -97,6 +99,17 @@ pub async fn document_uploads_search<R: Runtime>(
         .map_err(|err| format!("Document upload search task failed: {err}"))?
 }
 
+/// Find literal matches in one PDF without loading its page text into the WebView.
+#[tauri::command]
+pub async fn document_uploads_find_pdf_text<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedPdfFindRequest,
+) -> Result<UploadedPdfFindResult, String> {
+    tauri::async_runtime::spawn_blocking(move || find_pdf_text(&app, request))
+        .await
+        .map_err(|err| format!("PDF Find task failed: {err}"))?
+}
+
 /// Read the stored sanitized source HTML for an uploaded document URL.
 #[tauri::command]
 pub async fn document_uploads_get_source<R: Runtime>(
@@ -160,6 +173,28 @@ pub async fn document_uploads_get_pdf_narration_segments<R: Runtime>(
     })
     .await
     .map_err(|err| format!("PDF narration text task failed: {err}"))?
+}
+
+/// Read one validated derived PDF page layer for the currently rendered page.
+#[tauri::command]
+pub async fn document_uploads_get_pdf_page_text<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: PdfPageTextReadRequest,
+) -> Result<PageTextLayer, String> {
+    tauri::async_runtime::spawn_blocking(move || get_pdf_page_text_layer(&app, request))
+        .await
+        .map_err(|err| format!("PDF page text read task failed: {err}"))?
+}
+
+/// Return the finalized document-level OCR signal used to select viewer Find.
+#[tauri::command]
+pub async fn document_uploads_pdf_has_ocr_text<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedDocumentSourceRequest,
+) -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(move || pdf_has_ocr_text(&app, &request.document_url))
+        .await
+        .map_err(|err| format!("PDF OCR marker task failed: {err}"))?
 }
 
 /// Persist one bounded page text layer emitted by PDF.js.

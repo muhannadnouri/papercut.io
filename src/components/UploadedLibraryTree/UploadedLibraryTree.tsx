@@ -516,6 +516,7 @@ export function UploadedLibraryTree({
         >
           {nodes.map((node) => renderNode(node, {
             documentOpening,
+            mutationDisabled,
             editMode,
             filterMode,
             expandedKeys,
@@ -571,6 +572,7 @@ export function UploadedLibraryTree({
 
 interface RenderNodeOptions {
   documentOpening: boolean
+  mutationDisabled: boolean
   editMode: boolean
   filterMode: boolean
   expandedKeys: Set<Key>
@@ -651,6 +653,11 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
                 />
                 <span className="uploaded-library-selection-text">
                   <bdi>{node.title}</bdi>
+                  {node.kind === 'document' && node.doc.textStatus === 'recognition-required' && (
+                    <span className="uploaded-library-text-status">
+                      {options.t('library.documents.textRecognitionRequired')}
+                    </span>
+                  )}
                   {node.kind === 'folder' && (
                     <>
                       {' '}
@@ -677,7 +684,14 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
                 </span>
               </button>
             ) : (
-              <bdi className="uploaded-library-name">{node.title}</bdi>
+              <span className="uploaded-library-name">
+                <bdi>{node.title}</bdi>
+                {node.doc.textStatus === 'recognition-required' && (
+                  <span className="uploaded-library-text-status">
+                    {options.t('library.documents.textRecognitionRequired')}
+                  </span>
+                )}
+              </span>
             )}
             {opening && <span className="uploaded-library-opening">{options.t('common.opening')}</span>}
             {node.kind === 'document' && !options.filterMode && (
@@ -697,17 +711,19 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
                   </button>
                 )}
                 {!options.editMode && (
-                  <button
-                    className="document-row-action document-row-action-view"
-                    type="button"
-                    disabled={options.documentOpening}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      if (!options.documentOpening) options.onViewDocument?.(node.url)
-                    }}
-                  >
-                    {opening ? options.t('common.opening') : options.t('common.view')}
-                  </button>
+                  <>
+                    <button
+                      className="document-row-action document-row-action-view"
+                      type="button"
+                      disabled={options.documentOpening}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        if (!options.documentOpening) options.onViewDocument?.(node.url)
+                      }}
+                    >
+                      {opening ? options.t('common.opening') : options.t('common.view')}
+                    </button>
+                  </>
                 )}
               </>
             )}

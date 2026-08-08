@@ -35,6 +35,7 @@ export function TabNav({ active, busyTabs = {}, onChange }: TabNavProps) {
             type="button"
             role="tab"
             aria-selected={active === tab.id}
+            aria-busy={busy || undefined}
             aria-disabled={disabled}
             disabled={disabled}
             className={'tab-nav-item' + (active === tab.id ? ' tab-nav-item-active' : '')}

@@ -22,6 +22,8 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Papercut uses the camera only when you choose to scan document pages.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Papercut uses your local network only when you choose to transfer a library between nearby devices.</string>
 	<key>UIBackgroundModes</key>

@@ -459,6 +459,13 @@
   white-space: nowrap;
 }
 
+.uploaded-library-text-status {
+  margin-inline-start: 0.45rem;
+  color: var(--warning);
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
 .uploaded-library-name-button {
   display: block;
   width: 100%;

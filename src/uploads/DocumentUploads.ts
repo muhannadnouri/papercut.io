@@ -1,3 +1,9 @@
+export type UploadedDocumentTextStatus =
+  | 'processing'
+  | 'ready'
+  | 'recognition-available'
+  | 'recognition-required'
+
 export interface UploadedDocument {
   id: string
   url: string
@@ -9,6 +15,7 @@ export interface UploadedDocument {
   bytes: number
   sections: number
   coverMediaType?: string | null
+  textStatus: UploadedDocumentTextStatus
 }
 
 export interface UploadedDocumentSearchResult {
@@ -95,6 +102,14 @@ export interface PdfNarrationSegment {
     endOffset: number
     sourceStartOffset: number
     sourceEndOffset: number
+  }>
+}
+
+export interface PdfFindResult {
+  matchCount: number
+  pages: Array<{
+    pageIndex: number
+    matchCount: number
   }>
 }
 
@@ -234,6 +249,33 @@ export async function getUploadedPdfNarrationSegments(
   })
 }
 
+export async function getUploadedPdfPageText(
+  documentUrl: string,
+  pageIndex: number,
+): Promise<PdfPageTextLayer> {
+  const invoke = await loadTauriInvoke()
+  return invoke<PdfPageTextLayer>('document_uploads_get_pdf_page_text', {
+    request: { documentUrl, pageIndex },
+  })
+}
+
+export async function uploadedPdfHasOcrText(documentUrl: string): Promise<boolean> {
+  const invoke = await loadTauriInvoke()
+  return invoke<boolean>('document_uploads_pdf_has_ocr_text', {
+    request: { documentUrl },
+  })
+}
+
+export async function findUploadedPdfText(
+  documentUrl: string,
+  query: string,
+): Promise<PdfFindResult> {
+  const invoke = await loadTauriInvoke()
+  return invoke<PdfFindResult>('document_uploads_find_pdf_text', {
+    request: { documentUrl, query },
+  })
+}
+
 export async function storeUploadedPdfPageText(
   documentUrl: string,
   layer: PdfPageTextLayer,
@@ -249,10 +291,11 @@ export async function finalizeUploadedPdf(
   title: string | undefined,
   pageCount: number,
   thumbnail?: number[],
+  textStatus: Exclude<UploadedDocumentTextStatus, 'processing'> = 'ready',
 ): Promise<UploadedDocument> {
   const invoke = await loadTauriInvoke()
   return invoke<UploadedDocument>('document_uploads_finalize_pdf', {
-    request: { documentUrl, title, pageCount, thumbnail },
+    request: { documentUrl, title, pageCount, thumbnail, textStatus },
   })
 }
 

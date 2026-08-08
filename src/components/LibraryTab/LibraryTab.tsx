@@ -3,6 +3,8 @@ import type { TFunction } from 'i18next'
 import { useState, type ReactNode } from 'react'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
 import type { DocumentImportStatus } from '../../hooks/useUploadedLibrary'
+import { PdfRecognitionStatus } from '../../pdf/ocr/PdfRecognitionStatus'
+import type { PdfOcrLanguage } from '../../pdf/ocr/tesseractOcr'
 import type { DocumentInfo } from '../../types/search'
 import type { UploadedDocumentDeleteBatchResult, UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
 import { formatStorageSize } from '../../utils/formatUtils'
@@ -18,6 +20,8 @@ interface LibraryTabProps {
   docFilterLower: string
   documentFilter: string
   documentImport: DocumentImportStatus
+  documentScannerSupported: boolean
+  documentPhotoImportSupported: boolean
   documentOpening: boolean
   documentsLoading: boolean
   groupedDocs: AuthorGroup[]
@@ -26,6 +30,7 @@ interface LibraryTabProps {
   savedAudiobookDocumentUrls: ReadonlySet<string>
   showDocuments: boolean
   onAudioSavedOnlyChange: (enabled: boolean) => void
+  onAcceptRecognizedDocument: (documentUrl: string) => void | Promise<boolean>
   onCreateLibraryFolder: (parentId: string | null, name: string) => void | Promise<void>
   onDeleteDocument: (doc: DocumentInfo) => void | Promise<void>
   onDeleteDocuments: (docs: DocumentInfo[]) => Promise<UploadedDocumentDeleteBatchResult | null>
@@ -35,7 +40,14 @@ interface LibraryTabProps {
   onCancelDocumentBatch: () => void | Promise<void>
   onImportDocumentBatch: () => void | Promise<void>
   onImportDocumentFolder: () => void | Promise<void>
+  onImportDocumentPhotos: () => void | Promise<void>
+  onScanDocument: () => void | Promise<void>
   onMoveLibraryDocuments: (documentIds: string[], folderId: string | null) => void | Promise<void>
+  onRecognizeDocument: (
+    documentUrl: string,
+    language?: PdfOcrLanguage,
+    improveIssues?: DocumentImportStatus['recognitionIssues'],
+  ) => void | Promise<boolean>
   onRenameLibraryFolder: (folderId: string, name: string) => void | Promise<void>
   onToggleAuthor: (author: string) => void
   onToggleShow: () => void
@@ -52,6 +64,8 @@ export function LibraryTab({
   docFilterLower,
   documentFilter,
   documentImport,
+  documentScannerSupported,
+  documentPhotoImportSupported,
   documentOpening,
   documentsLoading,
   groupedDocs,
@@ -60,6 +74,7 @@ export function LibraryTab({
   savedAudiobookDocumentUrls,
   showDocuments,
   onAudioSavedOnlyChange,
+  onAcceptRecognizedDocument,
   onCreateLibraryFolder,
   onDeleteDocument,
   onDeleteDocuments,
@@ -69,7 +84,10 @@ export function LibraryTab({
   onCancelDocumentBatch,
   onImportDocumentBatch,
   onImportDocumentFolder,
+  onImportDocumentPhotos,
+  onScanDocument,
   onMoveLibraryDocuments,
+  onRecognizeDocument,
   onRenameLibraryFolder,
   onToggleAuthor,
   onToggleShow,
@@ -79,8 +97,16 @@ export function LibraryTab({
 }: LibraryTabProps) {
   const { t } = useTranslation()
   const [infoDocument, setInfoDocument] = useState<DocumentInfo | null>(null)
-  const operationBusy = documentImport.status === 'importing' || documentImport.status === 'deleting'
-  const statusMessage = documentImportStatusMessage(documentImport, t, onCancelDocumentBatch, allDocuments)
+  const operationBusy = documentImport.status === 'importing' ||
+    documentImport.status === 'recognizing' || documentImport.status === 'deleting'
+  const statusMessage = documentImportStatusMessage(
+    documentImport,
+    t,
+    onCancelDocumentBatch,
+    onRecognizeDocument,
+    onAcceptRecognizedDocument,
+    allDocuments,
+  )
   const folderImportSupported = !isMobileUserAgent()
 
   return (
@@ -114,6 +140,26 @@ export function LibraryTab({
               : undefined,
             disabled: operationBusy,
             onSelect: onImportDocumentFolder,
+          }] : []),
+          ...(documentScannerSupported ? [{
+            id: 'scan',
+            label: t('library.import.scanPages'),
+            detail: t('library.import.scanPagesDetail'),
+            statusLabel: documentImport.status === 'importing' && documentImport.format === 'scan'
+              ? t('library.import.scanningPages')
+              : undefined,
+            disabled: operationBusy,
+            onSelect: onScanDocument,
+          }] : []),
+          ...(documentPhotoImportSupported ? [{
+            id: 'photos',
+            label: t('library.import.photos'),
+            detail: t('library.import.photosDetail'),
+            statusLabel: documentImport.status === 'importing' && documentImport.format === 'photos'
+              ? t('library.import.importingPhotos')
+              : undefined,
+            disabled: operationBusy,
+            onSelect: onImportDocumentPhotos,
           }] : []),
           // { id: 'pdf', label: 'PDF', detail: 'Import PDFs when text extraction support lands', future: true },
         ]}
@@ -159,13 +205,30 @@ function documentImportStatusMessage(
   status: DocumentImportStatus,
   t: TFunction,
   onCancelBatch: () => void | Promise<void>,
+  onRecognizeDocument: (
+    documentUrl: string,
+    language?: PdfOcrLanguage,
+    improveIssues?: DocumentImportStatus['recognitionIssues'],
+  ) => void | Promise<boolean>,
+  onAcceptRecognizedDocument: (documentUrl: string) => void | Promise<boolean>,
   documents: DocumentInfo[],
 ): ReactNode {
   if (status.status === 'idle') return null
   if (status.format === 'delete-batch') {
     return <DocumentBatchDeleteStatus status={status} t={t} documents={documents} />
   }
-  if (status.format === 'batch' || status.format === 'folder') {
+  if (status.format === 'pdf-ocr') {
+    return <PdfRecognitionStatus
+      status={status}
+      t={t}
+      onCancel={onCancelBatch}
+      onRecognize={onRecognizeDocument}
+      onAccept={onAcceptRecognizedDocument}
+      showDocumentTitle
+    />
+  }
+  if (status.format === 'batch' || status.format === 'folder' || status.format === 'scan' ||
+      status.format === 'photos') {
     return <DocumentBatchImportStatus status={status} t={t} onCancel={onCancelBatch} />
   }
   if (status.status === 'cancelled') return t('library.status.cancelled')
@@ -278,7 +341,11 @@ function DocumentBatchImportStatus({
       </>
     )
   } else if (importing) {
-    message = t('library.status.preparingBatch')
+    message = t(status.format === 'scan'
+      ? 'library.status.capturingPages'
+      : status.format === 'photos'
+        ? 'library.status.preparingPhotos'
+        : 'library.status.preparingBatch')
   } else if (result) {
     message = t(result.cancelled ? 'library.status.batchCancelled' : 'library.status.batchComplete', {
       imported: result.imported.length,

@@ -19,6 +19,7 @@ pub(crate) struct UploadedDocument {
     pub(crate) bytes: u64,
     pub(crate) sections: usize,
     pub(crate) cover_media_type: Option<String>,
+    pub(crate) text_status: String,
 }
 
 /// One file that could not be imported while the rest of its batch continued.
@@ -122,6 +123,30 @@ pub(crate) struct UploadedDocumentSearchRequest {
     pub(crate) limit: Option<usize>,
     pub(crate) document_urls: Option<Vec<String>>,
     pub(crate) exact_phrases: Option<Vec<String>>,
+}
+
+/// Request to find literal text within one indexed uploaded PDF.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedPdfFindRequest {
+    pub(crate) document_url: String,
+    pub(crate) query: String,
+}
+
+/// Match count for one indexed PDF page.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedPdfFindPage {
+    pub(crate) page_index: usize,
+    pub(crate) match_count: usize,
+}
+
+/// Compact whole-document Find result; geometry stays in page sidecars.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedPdfFindResult {
+    pub(crate) match_count: usize,
+    pub(crate) pages: Vec<UploadedPdfFindPage>,
 }
 
 /// Request to delete one uploaded document by its URL.

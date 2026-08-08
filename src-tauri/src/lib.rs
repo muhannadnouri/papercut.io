@@ -1,3 +1,4 @@
+mod document_scanner;
 mod document_uploads;
 mod library_transfer;
 mod native_tts;
@@ -22,6 +23,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_native_audio::init())
+        .plugin(tauri_plugin_document_scanner::init())
         .plugin(tauri_plugin_opener::init())
         .manage(document_uploads::DocumentUploadState::default())
         .manage(library_transfer::LibraryTransferState::default())
@@ -33,11 +35,14 @@ pub fn run() {
             document_uploads::commands::document_uploads_list,
             document_uploads::commands::document_uploads_update_title,
             document_uploads::commands::document_uploads_search,
+            document_uploads::commands::document_uploads_find_pdf_text,
             document_uploads::commands::document_uploads_get_source,
             document_uploads::commands::document_uploads_get_cover,
             document_uploads::commands::document_uploads_get_pdf_source,
             document_uploads::commands::document_uploads_get_pdf_asset_path,
             document_uploads::commands::document_uploads_get_pdf_narration_segments,
+            document_uploads::commands::document_uploads_get_pdf_page_text,
+            document_uploads::commands::document_uploads_pdf_has_ocr_text,
             document_uploads::commands::document_uploads_store_pdf_page_text,
             document_uploads::commands::document_uploads_finalize_pdf,
             document_uploads::commands::document_uploads_delete,
@@ -49,6 +54,9 @@ pub fn run() {
             document_uploads::commands::document_uploads_move_documents,
             document_uploads::commands::document_uploads_move_folder,
             document_uploads::commands::document_uploads_reorder_library,
+            document_scanner::commands::document_scanner_availability,
+            document_scanner::commands::document_scanner_scan,
+            document_scanner::commands::document_scanner_import_images,
             library_transfer::library_transfer_export,
             library_transfer::library_transfer_import,
             library_transfer::network::library_transfer_send_start,

@@ -103,7 +103,8 @@ export function DocumentsPanel({
   const activeImport = importOptions.find((option) => option.statusLabel)
   const hasImportOptions = importOptions.length > 0
   const importBusy = importStatuses.some((item) => item.status === 'importing')
-  const operationBusy = importStatuses.some((item) => item.status === 'importing' || item.status === 'deleting')
+  const operationBusy = importStatuses.some((item) =>
+    item.status === 'importing' || item.status === 'recognizing' || item.status === 'deleting')
   const importDisabled = hasImportOptions && importOptions.every((option) => option.disabled || option.future || !option.onSelect)
   const visibleGroups = filterBookmarkedGroups(groupedDocs, bookmarkedDocumentUrls, bookmarkedOnly)
   const {

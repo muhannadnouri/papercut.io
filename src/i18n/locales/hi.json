@@ -96,7 +96,8 @@
       "savedAudioAvailable": "सहेजा गया ऑडियो उपलब्ध है",
       "bookmarked": "बुकमार्क किया गया",
       "bookmarkedOnly": "केवल बुकमार्क किए गए दस्तावेज़ दिखाएँ",
-      "emptyBookmarked": "कोई बुकमार्क किया गया दस्तावेज़ वर्तमान फ़िल्टर से मेल नहीं खाता।"
+      "emptyBookmarked": "कोई बुकमार्क किया गया दस्तावेज़ वर्तमान फ़िल्टर से मेल नहीं खाता।",
+      "textRecognitionRequired": "पाठ पहचान आवश्यक"
     },
     "documentInfo": {
       "button": "विवरण संपादित करें",
@@ -118,11 +119,34 @@
       "filesDetail": "एक या अधिक HTML, EPUB या PDF फ़ाइलें आयात करें",
       "folder": "फ़ोल्डर",
       "folderDetail": "एक फ़ोल्डर की HTML, EPUB और PDF फ़ाइलें आयात करें; उपफ़ोल्डर छोड़ दिए जाते हैं",
+      "scanPages": "पृष्ठ स्कैन करें",
+      "scanPagesDetail": "एक या अधिक पृष्ठ स्कैन करने के लिए कैमरे का उपयोग करें",
+      "photos": "फ़ोटो",
+      "photosDetail": "एक या अधिक फ़ोटो को PDF दस्तावेज़ के रूप में आयात करें",
       "importingBatch": "दस्तावेज़ आयात किए जा रहे हैं",
-      "importingFolder": "फ़ोल्डर आयात किया जा रहा है"
+      "importingFolder": "फ़ोल्डर आयात किया जा रहा है",
+      "scanningPages": "पृष्ठ स्कैन किए जा रहे हैं",
+      "importingPhotos": "फ़ोटो आयात की जा रही हैं"
+    },
+    "scanSetup": {
+      "title": "दस्तावेज़ तैयार करें",
+      "description": "शीर्षक तय करें और चुनें कि कैप्चर के बाद Papercut टेक्स्ट को कैसे संभाले।",
+      "displayTitle": "दिखाया जाने वाला शीर्षक",
+      "textLanguage": "टेक्स्ट की भाषा",
+      "english": "अंग्रेज़ी",
+      "englishDetail": "यदि PDF में उपयोगी टेक्स्ट नहीं है, तो आयात के बाद यह डिवाइस पर चलता है।",
+      "arabic": "अरबी",
+      "arabicDetail": "यदि PDF में उपयोगी टेक्स्ट नहीं है, तो आयात के बाद यह डिवाइस पर चलता है।",
+      "otherLanguage": "अन्य भाषा — पहचान के बिना आयात करें",
+      "otherLanguageDetail": "PDF सुरक्षित रहेगा, लेकिन खोज और सुनने के लिए समर्थित पहचान भाषा चाहिए।",
+      "continue": "जारी रखें",
+      "defaultScanTitle": "स्कैन किया गया दस्तावेज़",
+      "defaultPhotoTitle": "आयात की गई फ़ोटो"
     },
     "status": {
       "preparingBatch": "आयात करने के लिए HTML, EPUB या PDF फ़ाइलें चुनें...",
+      "capturingPages": "अपने डिवाइस पर पृष्ठ स्कैन करें और जाँचें...",
+      "preparingPhotos": "फ़ोटो चुनें और अपना दस्तावेज़ तैयार करें...",
       "importingBatchProgress": "{{total, number}} में से {{current, number}} आयात हो रहा है",
       "batchProgress": "{{total, number}} में से {{processed, number}} संसाधित",
       "stoppingBatch": "वर्तमान फ़ाइल के बाद रोका जा रहा है...",
@@ -141,7 +165,29 @@
       "deleteBatchProgress": "{{total, number}} में से {{processed, number}} दस्तावेज़ हटाए जा रहे हैं...",
       "deleteBatchProgressLabel": "दस्तावेज़ हटाने की प्रगति",
       "deleteBatchComplete": "हटाए गए: {{deleted, number}}। विफल: {{failed, number}}।",
-      "failedDeletes": "जो दस्तावेज़ नहीं हटाए जा सके: {{count, number}}"
+      "failedDeletes": "जो दस्तावेज़ नहीं हटाए जा सके: {{count, number}}",
+      "preparingRecognition": "<title>{{title}}</title> के लिए पाठ पहचान तैयार हो रही है...",
+      "recognizingPage": "<title>{{title}}</title> में {{total, number}} में से पृष्ठ {{current, number}} पहचाना जा रहा है...",
+      "indexingRecognition": "<title>{{title}}</title> के पहचाने गए पाठ को अनुक्रमित किया जा रहा है...",
+      "stoppingRecognition": "पाठ पहचान रोकी जा रही है और मौजूदा पृष्ठ साफ़ किया जा रहा है...",
+      "recognitionProgressLabel": "PDF पाठ पहचान प्रगति",
+      "recognitionComplete": "<title>{{title}}</title> के लिए पाठ पहचान पूरी हुई।",
+      "recognitionCancelled": "<title>{{title}}</title> के लिए पाठ पहचान रद्द की गई।",
+      "recognitionInterrupted": "<title>{{title}}</title> के लिए पाठ पहचान बाधित हुई थी। सहेजे गए पृष्ठों से जारी रखने के लिए फिर शुरू करें।",
+      "resumeRecognition": "फिर शुरू करें",
+      "recognitionNoText": "कोई पाठ पहचाना नहीं गया। मूल PDF नहीं बदला गया।",
+      "recognitionNeedsRetry": "<title>{{title}}</title> की पाठ पहचान पूरी नहीं हो सकी। {{count, number}} पृष्ठों पर फिर प्रयास करें।",
+      "recognitionReviewComplete": "पाठ पहचान पूरी हुई",
+      "recognitionPagesToReview": "समीक्षा के लिए पृष्ठ: {{count, number}}",
+      "recognitionIssues": "समीक्षा विवरण ({{count, number}})",
+      "recognitionFailedPages": "इन पृष्ठों को संसाधित नहीं किया जा सका: {{pages}}",
+      "recognitionUnrecognizedPages": "इन पृष्ठों पर कोई पाठ नहीं पहचाना गया: {{pages}}",
+      "recognitionLowConfidencePages": "इन पृष्ठों पर कम विश्वसनीयता: {{pages}}",
+      "retryRecognitionPages": "पुनः प्रयास",
+      "improveRecognitionPages": "पुनः प्रयास",
+      "useRecognizedText": "स्वीकार करें",
+      "recognitionRetryHelp": "पुनः प्रयास स्वचालित पृष्ठ लेआउट पहचान से इन पृष्ठों की जाँच करता है और गुणवत्ता बेहतर न होने पर मौजूदा परिणाम रखता है।",
+      "recognitionAcceptHelp": "स्वीकार करने पर मौजूदा पाठ उपयोग होगा। मूल PDF नहीं बदलेगा।"
     },
     "groups": {
       "importedAudiobooks": "आयातित ऑडियोबुक",
@@ -347,7 +393,12 @@
       "locatingMatch": "पृष्ठ {{page, number}} खोला जा रहा है और मिलान खोजा जा रहा है...",
       "verifyingMatch": "दस्तावेज़ में मिलान की पुष्टि की जा रही है...",
       "document": "PDF दस्तावेज़",
-      "documentPages": "PDF दस्तावेज़, {{count, number}} पृष्ठ"
+      "documentPages": "PDF दस्तावेज़, {{count, number}} पृष्ठ",
+      "textRecognition": "पाठ पहचान",
+      "makeSearchableDescription": "दस्तावेज़ की भाषा चुनें और ढूँढने, कॉपी करने, लाइब्रेरी में खोजने और सुनने की सुविधा चालू करने के लिए इस डिवाइस पर उसका पाठ पहचानें।",
+      "improveSearchableDescription": "ढूँढने, कॉपी करने, लाइब्रेरी में खोजने और सुनने को बेहतर बनाने के लिए इस डिवाइस पर छूटा हुआ पाठ पहचानें।",
+      "improveSearchable": "छूटा हुआ पाठ पहचानें",
+      "makeSearchable": "खोजने योग्य बनाएँ"
     }
   },
   "tts": {

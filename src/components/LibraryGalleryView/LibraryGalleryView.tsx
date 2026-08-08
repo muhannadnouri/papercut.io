@@ -79,10 +79,11 @@ export function LibraryGalleryView({
                 hasBookmark={bookmarkedDocumentUrls.has(doc.url)}
                 hasSavedAudio={savedAudiobookDocumentUrls.has(doc.url)}
                 opening={openingDocumentUrl === doc.url}
-                disabled={documentOpening}
+                disabled={documentOpening || mutationDisabled}
                 bookmarkLabel={t('library.documents.bookmarked')}
                 openingLabel={t('common.opening')}
                 savedAudioLabel={t('library.documents.savedAudioAvailable')}
+                textRecognitionRequiredLabel={t('library.documents.textRecognitionRequired')}
                 onOpen={onViewDocument}
               />
             ))}
@@ -144,6 +145,7 @@ function BookCard({
   bookmarkLabel,
   openingLabel,
   savedAudioLabel,
+  textRecognitionRequiredLabel,
   onOpen,
 }: {
   doc: DocumentInfo
@@ -154,6 +156,7 @@ function BookCard({
   bookmarkLabel: string
   openingLabel: string
   savedAudioLabel: string
+  textRecognitionRequiredLabel: string
   onOpen: (url: string) => void
 }) {
   const placeholderClass = `library-book-cover placeholder-${titleColor(doc.title)}`
@@ -225,6 +228,11 @@ function BookCard({
         <span className="library-book-format">
           {opening ? openingLabel : (doc.format ?? 'EPUB').toUpperCase()}
         </span>
+        {doc.textStatus === 'recognition-required' && (
+          <span className="library-book-text-status">
+            {textRecognitionRequiredLabel}
+          </span>
+        )}
       </span>
     </div>
   )

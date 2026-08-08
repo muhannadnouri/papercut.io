@@ -141,6 +141,7 @@ fn persist_document<R: Runtime>(
         bytes,
         sections: parsed.sections.len(),
         cover_media_type,
+        text_status: "ready".into(),
     })
 }
 
@@ -204,6 +205,7 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
         bytes,
         sections: parsed.sections.len(),
         cover_media_type,
+        text_status: "ready".into(),
     })
 }
 
@@ -249,6 +251,7 @@ fn write_and_index_document(
             StoredSourceKind::Html,
             imported_at_ms,
             bytes,
+            super::store::PdfTextStatus::Ready,
         )
     })();
     if let Err(error) = result {

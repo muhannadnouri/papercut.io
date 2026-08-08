@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import type { TextContent } from 'pdfjs-dist/types/src/display/api'
-import { pageTextLayer, pdfThumbnailSize } from './pdfImport'
+import { assertPdfPageCount, pageTextLayer, pdfThumbnailSize } from './pdfImport'
+
+describe('assertPdfPageCount', () => {
+  it('accepts the documented limit and rejects larger PDFs', () => {
+    expect(() => assertPdfPageCount(2_000)).not.toThrow()
+    expect(() => assertPdfPageCount(2_001)).toThrow(
+      'PDF exceeds the 2000-page import limit',
+    )
+  })
+})
 
 describe('pageTextLayer', () => {
   it('preserves item order, line boundaries, and finite page coordinates', () => {

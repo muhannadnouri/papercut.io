@@ -11,6 +11,10 @@ import { useSearch } from './hooks/useSearch'
 import { AppHeader } from './components/AppHeader/AppHeader'
 import { SearchTab } from './components/SearchTab/SearchTab'
 import { LibraryTab } from './components/LibraryTab/LibraryTab'
+import { useDocumentScanner } from './document-scanner/useDocumentScanner'
+import { ScanSetupDialog } from './document-scanner/ScanSetupDialog'
+import type { DocumentScanSetup } from './document-scanner/documentScanner'
+import { PdfRecognitionPrompt } from './pdf/ocr/PdfRecognitionPrompt'
 import { AudiobooksTab } from './components/AudiobooksTab/AudiobooksTab'
 import { DocumentViewer } from './components/DocumentViewer/DocumentViewer'
 import { TabNav, type AppTab } from './components/TabNav/TabNav'
@@ -52,12 +56,15 @@ function App() {
   const { t } = useTranslation()
   const theme = useTheme()
   const bookmarkedDocumentUrls = useBookmarkedDocumentUrls()
+  const documentScanner = useDocumentScanner()
   const [activeTab, setActiveTab] = useState<AppTab>('library')
   const [userUploads, setUserUploads] = useState<UserUploadDocument[]>(() => getUserUploads())
   const [ttsDiagnosticsEnabled, setTtsDiagnosticsEnabled] = useState(() => isDebugEnabled())
+  const [scanSetupSource, setScanSetupSource] = useState<'camera' | 'photos' | null>(null)
   const { pagefindRef, pagefindReady, allDocuments, documentsLoading } = usePagefind()
   const { confirm: confirmDocumentAction, dialog: documentConfirmationDialog } = useAppConfirmation()
   const {
+    acceptRecognizedDocumentText,
     cancelDocumentBatch,
     createLibraryFolder,
     deleteDocument: deleteUploadedLibraryDocument,
@@ -67,8 +74,11 @@ function App() {
     documentImport,
     importDocumentBatch,
     importDocumentFolder,
+    importDocumentPhotos,
+    scanDocument,
     moveLibraryDocuments,
     refreshUploadedLibrary,
+    recognizeDocumentText,
     renameLibraryFolder,
     uploadedDocuments,
     uploadedLibraryOrganization,
@@ -154,6 +164,7 @@ function App() {
       bytes: upload.bytes,
       sections: upload.sections,
       coverMediaType: upload.coverMediaType,
+      textStatus: upload.textStatus,
     })),
     ...userUploads.map((upload) => ({ title: upload.title, url: upload.url, format: 'html', source: 'audiobook-upload' as const })),
   ], [allDocuments, uploadedDocuments, userUploads]) 
@@ -248,6 +259,16 @@ function App() {
     if (result?.imported.length) setShowDocuments(true)
   }, [importDocumentFolder, setShowDocuments])
 
+  const handleScanSetupSubmit = useCallback(async (setup: DocumentScanSetup) => {
+    const source = scanSetupSource
+    if (!source) return
+    setScanSetupSource(null)
+    const result = source === 'camera'
+      ? await scanDocument(setup)
+      : await importDocumentPhotos(setup)
+    if (result?.imported.length) setShowDocuments(true)
+  }, [importDocumentPhotos, scanDocument, scanSetupSource, setShowDocuments])
+
   const handleImportAudiobook = useCallback(async () => {
     await importAudiobookBundle(handleViewDocument)
   }, [handleViewDocument, importAudiobookBundle])
@@ -308,10 +329,17 @@ function App() {
   }, [deleteUploadedLibraryDocuments, handleCloseDocument, removeFilter, removeResultsForUrl, selectedDoc])
 
   if (selectedDoc) {
+    const recognitionIssueCount = documentImport.documentUrl === selectedDoc &&
+      documentImport.status === 'recognized'
+      ? (documentImport.recognitionIssues?.failedPages.length ?? 0) +
+        (documentImport.recognitionIssues?.unrecognizedPages.length ?? 0) +
+        (documentImport.recognitionIssues?.lowConfidencePages.length ?? 0)
+      : 0
     return (
       <>
         <div inert={audiobookActionBusy ? true : undefined}>
           <DocumentViewer
+            key={`${selectedDoc}:${selectedDocument?.textStatus ?? ''}:${recognitionIssueCount > 0 ? 'ocr-review' : ''}`}
             url={selectedDoc}
             format={selectedFormat}
             content={docContent}
@@ -326,8 +354,24 @@ function App() {
                 onLibraryImported={handleLibraryTransferImported}
               />
             )}
-            headerControls={<AudioControls {...audioControlsProps} onManageSave={handleManageAudiobookSave} />}
-            beforeDocument={<TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />}
+            headerControls={(
+              <>
+                {selectedFormat === 'pdf' && selectedDocument && (
+                  <PdfRecognitionPrompt
+                    documentUrl={selectedDocument.url}
+                    textStatus={selectedDocument.textStatus}
+                    status={documentImport}
+                    onCancel={cancelDocumentBatch}
+                    onRecognize={recognizeDocumentText}
+                    onAccept={acceptRecognizedDocumentText}
+                  />
+                )}
+                <AudioControls {...audioControlsProps} onManageSave={handleManageAudiobookSave} />
+              </>
+            )}
+            beforeDocument={(
+              <TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />
+            )}
             ttsHighlight={ttsHighlight}
             searchTarget={searchOpenTarget}
             restoreBookmark={restoreBookmark}
@@ -364,7 +408,10 @@ function App() {
       <div inert={audiobookActionBusy ? true : undefined}>
         <TabNav
           active={activeTab}
-          busyTabs={{ audiobooks: audiobooksPanelProps.isSaving }}
+          busyTabs={{
+            library: documentImport.status === 'recognizing' && documentImport.format === 'pdf-ocr',
+            audiobooks: audiobooksPanelProps.isSaving,
+          }}
           onChange={handleTabChange}
         />
 
@@ -408,6 +455,8 @@ function App() {
             groupedDocs={libraryGroupedDocs}
             docFilterLower={libraryDocFilterLower}
             documentImport={documentImport}
+            documentScannerSupported={documentScanner.supported}
+            documentPhotoImportSupported={documentScanner.photoImportSupported}
             libraryOrganization={uploadedLibraryOrganization}
             documentOpening={documentOpening}
             openingDocumentUrl={documentLoad.status === 'loading' ? documentLoad.url : undefined}
@@ -415,12 +464,14 @@ function App() {
             onToggleShow={handleToggleLibraryDocuments}
             onFilterChange={setLibraryDocumentFilter}
             onAudioSavedOnlyChange={setAudioSavedOnly}
+            onAcceptRecognizedDocument={acceptRecognizedDocumentText}
             onCreateLibraryFolder={createLibraryFolder}
             onDeleteDocument={handleDeleteUploadedDocument}
             onDeleteDocuments={handleDeleteUploadedDocuments}
             onDeleteLibraryFolder={deleteLibraryFolder}
             onDismissDocumentImportStatus={dismissDocumentImportStatus}
             onMoveLibraryDocuments={moveLibraryDocuments}
+            onRecognizeDocument={recognizeDocumentText}
             onRenameLibraryFolder={renameLibraryFolder}
             onToggleAuthor={toggleLibraryAuthor}
             onViewAudiobooks={handleManageAudiobookSave}
@@ -429,6 +480,8 @@ function App() {
             }}
             onImportDocumentBatch={handleImportDocumentBatch}
             onImportDocumentFolder={handleImportDocumentFolder}
+            onImportDocumentPhotos={() => setScanSetupSource('photos')}
+            onScanDocument={() => setScanSetupSource('camera')}
             onCancelDocumentBatch={cancelDocumentBatch}
             onViewDocument={handleViewLibraryDocument}
           />
@@ -450,6 +503,13 @@ function App() {
         )}
       </div>
       {audiobookActionBusy && <AppBusyOverlay message={audiobookActionMessage} />}
+      {scanSetupSource && (
+        <ScanSetupDialog
+          source={scanSetupSource}
+          onCancel={() => setScanSetupSource(null)}
+          onSubmit={(setup) => { void handleScanSetupSubmit(setup) }}
+        />
+      )}
       {documentConfirmationDialog}
       {audiobook.confirmationDialog}
     </div>

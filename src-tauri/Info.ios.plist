@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+  <key>NSCameraUsageDescription</key>
+  <string>Papercut uses the camera only when you choose to scan document pages.</string>
   <key>NSLocalNetworkUsageDescription</key>
   <string>Papercut uses your local network only when you choose to transfer a library between nearby devices.</string>
 </dict>

@@ -100,7 +100,8 @@
       "savedAudioAvailable": "Audio salvato disponibile",
       "bookmarked": "Con segnalibro",
       "bookmarkedOnly": "Mostra solo i documenti con segnalibro",
-      "emptyBookmarked": "Nessun documento con segnalibro corrisponde ai filtri attuali."
+      "emptyBookmarked": "Nessun documento con segnalibro corrisponde ai filtri attuali.",
+      "textRecognitionRequired": "Riconoscimento del testo richiesto"
     },
     "documentInfo": {
       "button": "Modifica dettagli",
@@ -122,11 +123,34 @@
       "filesDetail": "Importa uno o più file HTML, EPUB o PDF",
       "folder": "Cartella",
       "folderDetail": "Importa i file HTML, EPUB e PDF da una cartella; le sottocartelle vengono ignorate",
+      "scanPages": "Scansiona pagine",
+      "scanPagesDetail": "Usa la fotocamera per scansionare una o più pagine",
+      "photos": "Foto",
+      "photosDetail": "Importa una o più foto come documento PDF",
       "importingBatch": "Importazione dei documenti",
-      "importingFolder": "Importazione della cartella"
+      "importingFolder": "Importazione della cartella",
+      "scanningPages": "Scansione delle pagine",
+      "importingPhotos": "Importazione delle foto"
+    },
+    "scanSetup": {
+      "title": "Prepara documento",
+      "description": "Imposta il titolo e scegli come Papercut deve gestire il testo dopo l’acquisizione.",
+      "displayTitle": "Titolo visualizzato",
+      "textLanguage": "Lingua del testo",
+      "english": "Inglese",
+      "englishDetail": "Viene eseguito localmente dopo l’importazione se il PDF non contiene testo utilizzabile.",
+      "arabic": "Arabo",
+      "arabicDetail": "Viene eseguito localmente dopo l’importazione se il PDF non contiene testo utilizzabile.",
+      "otherLanguage": "Altra lingua — importa senza riconoscimento",
+      "otherLanguageDetail": "Il PDF viene conservato, ma ricerca e ascolto richiedono una lingua di riconoscimento supportata.",
+      "continue": "Continua",
+      "defaultScanTitle": "Documento scansionato",
+      "defaultPhotoTitle": "Foto importate"
     },
     "status": {
       "preparingBatch": "Scegli i file HTML, EPUB o PDF da importare...",
+      "capturingPages": "Scansiona e controlla le pagine sul dispositivo...",
+      "preparingPhotos": "Scegli le foto e prepara il documento...",
       "importingBatchProgress": "Importazione di {{current, number}} su {{total, number}}",
       "batchProgress": "Elaborati {{processed, number}} di {{total, number}}",
       "stoppingBatch": "Arresto dopo il file corrente...",
@@ -145,7 +169,29 @@
       "deleteBatchProgress": "Eliminazione di {{processed, number}} documenti su {{total, number}}...",
       "deleteBatchProgressLabel": "Avanzamento dell'eliminazione dei documenti",
       "deleteBatchComplete": "Eliminati: {{deleted, number}}. Non riusciti: {{failed, number}}.",
-      "failedDeletes": "Documenti che non è stato possibile eliminare: {{count, number}}"
+      "failedDeletes": "Documenti che non è stato possibile eliminare: {{count, number}}",
+      "preparingRecognition": "Preparazione del riconoscimento di <title>{{title}}</title>...",
+      "recognizingPage": "Riconoscimento della pagina {{current, number}} di {{total, number}} in <title>{{title}}</title>...",
+      "indexingRecognition": "Indicizzazione del testo riconosciuto di <title>{{title}}</title>...",
+      "stoppingRecognition": "Arresto del riconoscimento del testo e pulizia della pagina corrente...",
+      "recognitionProgressLabel": "Avanzamento del riconoscimento testo PDF",
+      "recognitionComplete": "Riconoscimento del testo completato per <title>{{title}}</title>.",
+      "recognitionCancelled": "Riconoscimento del testo annullato per <title>{{title}}</title>.",
+      "recognitionInterrupted": "Il riconoscimento del testo di <title>{{title}}</title> è stato interrotto. Riprendi per continuare dalle pagine salvate.",
+      "resumeRecognition": "Riprendi",
+      "recognitionNoText": "Non è stato riconosciuto alcun testo. Il PDF originale non è stato modificato.",
+      "recognitionNeedsRetry": "Impossibile completare il riconoscimento per <title>{{title}}</title>. Riprova {{count, number}} pagine.",
+      "recognitionReviewComplete": "Riconoscimento completato",
+      "recognitionPagesToReview": "Pagine da controllare: {{count, number}}",
+      "recognitionIssues": "Dettagli del controllo ({{count, number}})",
+      "recognitionFailedPages": "Pagine non elaborate: {{pages}}",
+      "recognitionUnrecognizedPages": "Nessun testo riconosciuto nelle pagine: {{pages}}",
+      "recognitionLowConfidencePages": "Bassa affidabilità nelle pagine: {{pages}}",
+      "retryRecognitionPages": "Riprova",
+      "improveRecognitionPages": "Riprova",
+      "useRecognizedText": "Accetta",
+      "recognitionRetryHelp": "Riprova controlla queste pagine con il rilevamento automatico del layout e conserva il risultato attuale a meno che la qualità non migliori.",
+      "recognitionAcceptHelp": "Accetta usa il testo attuale. Il PDF originale resta invariato."
     },
     "groups": {
       "importedAudiobooks": "Audiolibri importati",
@@ -352,7 +398,12 @@
       "locatingMatch": "Apertura della pagina {{page, number}} e ricerca della corrispondenza...",
       "verifyingMatch": "Verifica della corrispondenza nel documento...",
       "document": "Documento PDF",
-      "documentPages": "Documento PDF, {{count, number}} pagine"
+      "documentPages": "Documento PDF, {{count, number}} pagine",
+      "textRecognition": "Riconoscimento del testo",
+      "makeSearchableDescription": "Scegli la lingua del documento e riconosci il testo su questo dispositivo per abilitare Trova, la copia, la ricerca nella libreria e l’ascolto.",
+      "improveSearchableDescription": "Riconosci il testo mancante su questo dispositivo per migliorare Trova, la copia, la ricerca nella libreria e l’ascolto.",
+      "improveSearchable": "Riconosci il testo mancante",
+      "makeSearchable": "Rendi ricercabile"
     }
   },
   "tts": {
