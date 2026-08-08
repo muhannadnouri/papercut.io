@@ -80,9 +80,9 @@ async fn import_mobile_source<R: Runtime>(
         MobileSource::Photos => scan_app.document_scanner().import_images_to(&scan_output),
     })
     .await;
-    let cleanup_error = |error| {
-        let _ = fs::remove_dir_all(&scan_dir);
-        Err(error)
+    let cleanup_error = |error| match remove_capture_dir(&scan_dir) {
+        Ok(()) => Err(error),
+        Err(cleanup) => Err(format!("{error}; {cleanup}")),
     };
     let scan_result = match scan_result {
         Ok(Ok(result)) => result,
@@ -100,7 +100,9 @@ async fn import_mobile_source<R: Runtime>(
     })
     .await
     .map_err(|error| format!("Mobile document import task failed: {error}"));
-    let _ = fs::remove_dir_all(scan_dir);
+    if let Err(error) = remove_capture_dir(&scan_dir) {
+        log::warn!("{error}; stale scanner staging will be retried on the next capture");
+    }
 
     result?
 }
@@ -126,16 +128,32 @@ fn normalize_scanner_title(title: String) -> Result<String, String> {
 fn create_capture_dir<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
     let sequence = NEXT_CAPTURE_ID.fetch_add(1, Ordering::Relaxed);
     let timestamp = crate::document_uploads::now_ms()?;
-    let scan_dir = app
+    let inbox = app
         .path()
         .app_data_dir()
         .map_err(|error| format!("Failed to resolve app data for document capture: {error}"))?
         .join("document-scanner")
-        .join("inbox")
-        .join(format!("scan-{timestamp}-{sequence}"));
+        .join("inbox");
+    remove_capture_dir(&inbox)
+        .map_err(|error| format!("Failed to clean stale capture data: {error}"))?;
+    let scan_dir = inbox.join(format!("scan-{timestamp}-{sequence}"));
     fs::create_dir_all(&scan_dir)
         .map_err(|error| format!("Failed to prepare document capture storage: {error}"))?;
     Ok(scan_dir)
+}
+
+/// Remove completed Rust-side staging without touching the native Android
+/// recovery cache. A missing path is already clean; other failures are surfaced
+/// or logged so private scan output cannot accumulate silently.
+fn remove_capture_dir(path: &Path) -> Result<(), String> {
+    match fs::remove_dir_all(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(format!(
+            "Failed to remove document capture storage {}: {error}",
+            path.display()
+        )),
+    }
 }
 
 /// Confirm that a native adapter returned the exact staged file requested and
@@ -176,7 +194,12 @@ fn validate_mobile_output_limits(page_count: usize, bytes: u64) -> Result<(), St
 
 #[cfg(test)]
 mod tests {
-    use super::{normalize_scanner_title, validate_mobile_output_limits, MAX_SCANNER_PAGES};
+    use std::{fs, time::SystemTime};
+
+    use super::{
+        normalize_scanner_title, remove_capture_dir, validate_mobile_output_limits,
+        MAX_SCANNER_PAGES,
+    };
     use crate::document_uploads::MAX_PDF_UPLOAD_BYTES;
 
     #[test]
@@ -196,5 +219,20 @@ mod tests {
         assert!(validate_mobile_output_limits(MAX_SCANNER_PAGES + 1, 1).is_err());
         assert!(validate_mobile_output_limits(1, MAX_PDF_UPLOAD_BYTES + 1).is_err());
         assert!(validate_mobile_output_limits(MAX_SCANNER_PAGES, MAX_PDF_UPLOAD_BYTES).is_ok());
+    }
+
+    #[test]
+    fn scanner_capture_cleanup_is_idempotent() {
+        let suffix = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("papercut-scanner-cleanup-{suffix}"));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("capture.pdf"), b"staged scan").unwrap();
+
+        remove_capture_dir(&dir).unwrap();
+        assert!(!dir.exists());
+        remove_capture_dir(&dir).unwrap();
     }
 }

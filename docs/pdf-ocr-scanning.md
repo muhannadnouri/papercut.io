@@ -1341,7 +1341,23 @@ Stage status: In progress
   - [ ] Decide and verify the native Android scanner language-resource policy.
         The React OCR workflow covers all eight app locales, while the isolated
         native scanner currently relies on its English fallback resources.
-- [ ] Review parser, local asset, IPC, native plugin, and file cleanup security.
+- [x] Review parser, local asset, IPC, native plugin, and file cleanup security.
+  - [x] Keep PDF.js, Tesseract, trained-data, and worker assets pinned and
+        bundled locally; recognition does not fetch executable code or language
+        data at runtime.
+  - [x] Retain exact app-owned upload URL and source-file validation on hot
+        page-layer operations, with authoritative database metadata checks at
+        PDF finalization and narration boundaries. Avoid reopening the upload
+        database for every page read or write in large OCR jobs.
+  - [x] Bound persisted OCR recovery metadata to app-owned uploaded-PDF URLs
+        and the existing 2,000-page limit before it can resume work.
+  - [x] Recheck native scanner output path, page count, and byte size in Rust;
+        surface failed staging cleanup and remove abandoned Rust-side inbox
+        data before the next capture without touching Android's separate
+        resumable draft cache.
+  - [ ] Define and verify a restrictive CSP for bundled PDF.js and Tesseract
+        workers across desktop and mobile WebViews. Do not guess worker/WASM
+        directives without the full platform acceptance matrix.
 - [ ] Verify upgrades, library transfer, backup/export, and deletion against
       production-like app data.
 - [ ] Add user documentation, privacy wording, known limitations, and release
@@ -1515,6 +1531,7 @@ Stage status: Deferred
 | 2026-08-08 | Stage 10 | Close PDF/OCR lifecycle ownership gaps | Usable native text satisfies hybrid recognition even when OCR adds no characters; successful acceptance removes stale recovery intent, OCR Find disposes native Find listeners at handoff, and search-result progress falls back and settles on a bounded timer when PDF.js emits no terminal text-layer event |
 | 2026-08-08 | Stage 10 | Retain strict scanner output ownership and boundary fixtures | Native scanner implementations return the exact app-supplied output path, so Rust keeps exact-path validation rather than broadening trust through canonical aliases; partial batch imports already preserve successful documents and clean only failed or pending PDFs, while the dependency-free fixture preparer remains useful release tooling rather than diagnostic production code |
 | 2026-08-08 | Stage 10 | Expose OCR and scanner state to assistive technology | OCR controls now announce running, review, and error state without relying on visual dots or spinners; Android identifies crop adjustment as optional and announces progress, while physical TalkBack/VoiceOver and native scanner localization remain explicit release gates |
+| 2026-08-08 | Stage 10 | Bound OCR recovery and scanner staging at trust boundaries | Recovery accepts only app-owned PDF URLs and at most 2,000 page references; Rust scanner staging cleanup is observable and stale completed output is removed before the next capture, while hot page-layer access avoids repeated database work and the native Android draft remains untouched |
 
 ## References
 

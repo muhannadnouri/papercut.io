@@ -1,8 +1,10 @@
 import type { PdfRecognitionIssues } from './recognizePdf'
 import type { PdfOcrLanguage } from './tesseractOcr'
+import { isUploadedPdfDocumentUrl } from '../../uploads/DocumentUploads'
 
 const STORAGE_KEY = 'papercut.pdfRecognitionJob.v1'
 const SESSION_ID = globalThis.crypto?.randomUUID?.() ?? String(Date.now())
+const MAX_RECOVERY_PAGES = 2_000
 
 export const PDF_OCR_INTERRUPTED = 'pdf-ocr-interrupted'
 
@@ -61,7 +63,7 @@ export function clearPdfRecognitionJob(documentUrl: string): void {
 export function parsePdfRecognitionJob(value: unknown): PdfRecognitionJob | null {
   if (!value || typeof value !== 'object') return null
   const job = value as Partial<PdfRecognitionJob>
-  if (typeof job.documentUrl !== 'string' ||
+  if (typeof job.documentUrl !== 'string' || !isUploadedPdfDocumentUrl(job.documentUrl) ||
       (job.language !== 'eng' && job.language !== 'ara') ||
       typeof job.sessionId !== 'string' ||
       !isRecognitionIssues(job.improveIssues)) return null
@@ -72,11 +74,15 @@ function isRecognitionIssues(value: unknown): value is PdfRecognitionIssues | un
   if (value === undefined) return true
   if (!value || typeof value !== 'object') return false
   const issues = value as Partial<PdfRecognitionIssues>
-  return isPageList(issues.failedPages) &&
-    isPageList(issues.unrecognizedPages) &&
-    isPageList(issues.lowConfidencePages)
+  if (!isPageList(issues.failedPages) ||
+      !isPageList(issues.unrecognizedPages) ||
+      !isPageList(issues.lowConfidencePages)) return false
+  return issues.failedPages.length + issues.unrecognizedPages.length +
+    issues.lowConfidencePages.length <= MAX_RECOVERY_PAGES
 }
 
 function isPageList(value: unknown): value is number[] {
-  return Array.isArray(value) && value.every((page) => Number.isInteger(page) && page > 0)
+  return Array.isArray(value) && value.every((page) => (
+    Number.isInteger(page) && page > 0 && page <= MAX_RECOVERY_PAGES
+  ))
 }
