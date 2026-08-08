@@ -1327,6 +1327,20 @@ Stage status: In progress
       formal minimum-hardware benchmark only if device evidence warrants it.
 - [ ] Complete keyboard, screen-reader, RTL, localization, zoom, and touch
       reviews.
+  - [x] Audit and harden the implemented OCR and scanner surfaces. OCR toolbar
+        controls expose their running, review, and error state through one
+        state-aware accessible name; status changes are atomic; long page lists
+        wrap; and coarse-pointer disclosure controls retain a 44 px target.
+        Android exposes its optional crop preview to assistive technology,
+        announces progress politely, and retains native 48 dp controls. Existing
+        PDF controls continue to provide keyboard groups, RTL navigation,
+        responsive zoom, and touch-sized targets. iOS capture continues to use
+        the system VisionKit and PhotosUI interfaces.
+  - [ ] Complete physical-device TalkBack and VoiceOver acceptance for capture,
+        page review, crop fallback, progress, cancellation, and OCR handoff.
+  - [ ] Decide and verify the native Android scanner language-resource policy.
+        The React OCR workflow covers all eight app locales, while the isolated
+        native scanner currently relies on its English fallback resources.
 - [ ] Review parser, local asset, IPC, native plugin, and file cleanup security.
 - [ ] Verify upgrades, library transfer, backup/export, and deletion against
       production-like app data.
@@ -1500,6 +1514,7 @@ Stage status: Deferred
 | 2026-08-08 | Stage 7 | Resume interrupted OCR from atomic page sidecars | Local storage retains only the active document, language, targeted retry pages, and a session marker; the reader offers an explicit resume instead of restarting expensive work at launch, completed page sidecars remain the source of progress, and cancellation reports cleanup immediately without adding a queue service or database |
 | 2026-08-08 | Stage 10 | Close PDF/OCR lifecycle ownership gaps | Usable native text satisfies hybrid recognition even when OCR adds no characters; successful acceptance removes stale recovery intent, OCR Find disposes native Find listeners at handoff, and search-result progress falls back and settles on a bounded timer when PDF.js emits no terminal text-layer event |
 | 2026-08-08 | Stage 10 | Retain strict scanner output ownership and boundary fixtures | Native scanner implementations return the exact app-supplied output path, so Rust keeps exact-path validation rather than broadening trust through canonical aliases; partial batch imports already preserve successful documents and clean only failed or pending PDFs, while the dependency-free fixture preparer remains useful release tooling rather than diagnostic production code |
+| 2026-08-08 | Stage 10 | Expose OCR and scanner state to assistive technology | OCR controls now announce running, review, and error state without relying on visual dots or spinners; Android identifies crop adjustment as optional and announces progress, while physical TalkBack/VoiceOver and native scanner localization remain explicit release gates |
 
 ## References
 

@@ -15,6 +15,7 @@
     <string name="scanner_delete_page_confirm">Delete this scanned page?</string>
     <string name="scanner_back_to_camera">Back to Camera</string>
     <string name="scanner_adjust_corners">Drag the corners to the edges of the page.</string>
+    <string name="scanner_crop_preview_accessibility">Page crop preview. Corner adjustment is optional; use Add Page or Finish to accept the current crop.</string>
     <plurals name="scanner_pages_captured">
         <item quantity="one">%1$d page captured</item>
         <item quantity="other">%1$d pages captured</item>

@@ -53,9 +53,20 @@ export function PdfRecognitionPrompt({
 
   if (!recognitionRequired && !recognitionAvailable && !ownsStatus) return null
 
-  const label = recognizing
+  const issueCount = (status.recognitionIssues?.failedPages.length ?? 0) +
+    (status.recognitionIssues?.unrecognizedPages.length ?? 0) +
+    (status.recognitionIssues?.lowConfidencePages.length ?? 0)
+  const label = indicator === 'running'
     ? t('library.status.recognitionProgressLabel')
-    : t('reader.pdf.textRecognition')
+    : indicator === 'error'
+      ? `${t('reader.pdf.textRecognition')}: ${status.message}`
+      : indicator === 'attention'
+        ? issueCount > 0
+          ? `${t('reader.pdf.textRecognition')}: ${t('library.status.recognitionIssues', { count: issueCount })}`
+          : `${t('reader.pdf.textRecognition')}: ${t(interrupted
+            ? 'library.status.resumeRecognition'
+            : 'reader.pdf.makeSearchable')}`
+        : t('reader.pdf.textRecognition')
   return (
     <span className="pdf-recognition-control" title={label}>
       <DialogTrigger>

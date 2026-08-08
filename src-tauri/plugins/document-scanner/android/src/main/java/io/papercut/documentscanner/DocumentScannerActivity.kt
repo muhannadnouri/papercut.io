@@ -829,6 +829,7 @@ class DocumentScannerActivity : ComponentActivity() {
                 text = message
                 gravity = Gravity.CENTER
                 setPadding(0, dp(16), 0, 0)
+                accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
             })
         })
     }

@@ -76,7 +76,7 @@ export function PdfRecognitionStatus({
   return (
     <div className="document-batch-status">
       <div className="document-batch-status-row">
-        <span role="status">{message}</span>
+        <span role="status" aria-atomic="true">{message}</span>
         {recognizing && (
           <button
             type="button"

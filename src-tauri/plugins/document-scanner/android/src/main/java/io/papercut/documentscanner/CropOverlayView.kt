@@ -34,12 +34,15 @@ class CropOverlayView @JvmOverloads constructor(
         style = Paint.Style.FILL
     }
     private val imageRect = RectF()
+    private val previousImageRect = RectF()
     private val corners = MutableList(4) { ScanPoint(0f, 0f) }
     private var bitmap: Bitmap? = null
     private var activeCorner = -1
 
     init {
-        contentDescription = context.getString(R.string.scanner_adjust_corners)
+        contentDescription = context.getString(R.string.scanner_crop_preview_accessibility)
+        isFocusable = true
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
     }
 
     fun setPageBitmap(page: Bitmap) {
@@ -70,7 +73,7 @@ class CropOverlayView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val page = bitmap ?: return
-        val previousImageRect = RectF(imageRect)
+        previousImageRect.set(imageRect)
         val scale = min(width.toFloat() / page.width, height.toFloat() / page.height)
         val displayedWidth = page.width * scale
         val displayedHeight = page.height * scale

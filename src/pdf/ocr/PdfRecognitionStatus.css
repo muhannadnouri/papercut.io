@@ -37,6 +37,10 @@
   font-size: 0.9em;
 }
 
+.pdf-recognition-issues li {
+  overflow-wrap: anywhere;
+}
+
 .pdf-recognition-actions {
   display: flex;
   flex-wrap: wrap;
@@ -55,6 +59,12 @@
 
 @media (pointer: coarse) {
   .pdf-recognition-action {
+    min-height: 2.75rem;
+  }
+
+  .pdf-recognition-issues summary {
+    display: flex;
+    align-items: center;
     min-height: 2.75rem;
   }
 }
