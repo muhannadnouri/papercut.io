@@ -11,6 +11,7 @@ import {
   pdfRecognitionIssueAction,
 } from './pdfRecognitionPromptState'
 import type { PdfOcrLanguage } from './tesseractOcr'
+import { PDF_OCR_INTERRUPTED } from './pdfRecognitionJob'
 import './PdfRecognitionPrompt.css'
 
 /** Offer OCR where its benefit is visible, while reusing the shared job state. */
@@ -48,6 +49,7 @@ export function PdfRecognitionPrompt({
     status.status === 'deleting'
   const activeLanguage = ownsStatus ? status.recognitionLanguage ?? language : language
   const indicator = pdfRecognitionIndicatorState(status, documentUrl, textStatus)
+  const interrupted = ownsStatus && status.message === PDF_OCR_INTERRUPTED
 
   if (!recognitionRequired && !recognitionAvailable && !ownsStatus) return null
 
@@ -120,9 +122,11 @@ export function PdfRecognitionPrompt({
                     disabled={operationBusy}
                     onClick={() => void onRecognize(documentUrl, activeLanguage)}
                   >
-                    {t(recognitionAvailable
-                      ? 'reader.pdf.improveSearchable'
-                      : 'reader.pdf.makeSearchable')}
+                    {t(interrupted
+                      ? 'library.status.resumeRecognition'
+                      : recognitionAvailable
+                        ? 'reader.pdf.improveSearchable'
+                        : 'reader.pdf.makeSearchable')}
                   </button>
                 </div>
               </div>

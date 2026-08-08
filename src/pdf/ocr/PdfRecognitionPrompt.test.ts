@@ -5,6 +5,7 @@ import {
   pdfRecognitionIndicatorState,
   pdfRecognitionIssueAction,
 } from './pdfRecognitionPromptState'
+import { PDF_OCR_INTERRUPTED } from './pdfRecognitionJob'
 
 describe('isPdfRecognitionStatusForDocument', () => {
   it('matches OCR feedback only to its owning document', () => {
@@ -49,6 +50,12 @@ describe('isPdfRecognitionStatusForDocument', () => {
       format: 'pdf-ocr',
       documentUrl,
     }, documentUrl)).toBe('error')
+    expect(pdfRecognitionIndicatorState({
+      status: 'error',
+      format: 'pdf-ocr',
+      documentUrl,
+      message: PDF_OCR_INTERRUPTED,
+    }, documentUrl)).toBe('attention')
     expect(pdfRecognitionIndicatorState({ status: 'idle' }, documentUrl, 'recognition-required')).toBe('attention')
     expect(pdfRecognitionIndicatorState({ status: 'idle' }, documentUrl, 'recognition-available')).toBe('none')
   })

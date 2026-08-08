@@ -15,6 +15,13 @@ import {
 } from '../pdf/ocr/recognizePdf'
 import type { PdfOcrLanguage } from '../pdf/ocr/tesseractOcr'
 import {
+  PDF_OCR_INTERRUPTED,
+  clearPdfRecognitionJob,
+  getInterruptedPdfRecognitionJob,
+  getPdfRecognitionJob,
+  savePdfRecognitionJob,
+} from '../pdf/ocr/pdfRecognitionJob'
+import {
   cancelDocumentBatch as cancelDocumentBatchSource,
   createUploadedLibraryFolder,
   deleteUploadedDocument,
@@ -133,7 +140,23 @@ export function useUploadedLibrary() {
   useEffect(() => {
     let cancelled = false
     loadUploadedLibrary().then((library) => {
-      if (!cancelled) applyUploadedLibrary(library)
+      if (cancelled) return
+      applyUploadedLibrary(library)
+      const interrupted = getInterruptedPdfRecognitionJob()
+      if (!interrupted) return
+      const document = library.documents.find((candidate) => candidate.url === interrupted.documentUrl)
+      if (!document || document.sourceKind !== 'pdf') {
+        clearPdfRecognitionJob(interrupted.documentUrl)
+        return
+      }
+      setDocumentImport({
+        status: 'error',
+        format: 'pdf-ocr',
+        title: document.title,
+        documentUrl: document.url,
+        message: PDF_OCR_INTERRUPTED,
+        recognitionLanguage: interrupted.language,
+      })
     }).catch((err) => {
       console.warn('Unable to load uploaded documents:', err)
     })
@@ -152,8 +175,11 @@ export function useUploadedLibrary() {
   }, [documentImport])
 
   const dismissDocumentImportStatus = useCallback(() => {
+    if (documentImport.message === PDF_OCR_INTERRUPTED && documentImport.documentUrl) {
+      clearPdfRecognitionJob(documentImport.documentUrl)
+    }
     setDocumentImport({ status: 'idle' })
-  }, [])
+  }, [documentImport])
 
   /** Keep automatic scan OCR and manual recognition on the same progress and
    * error lifecycle; callers remain responsible for refreshing their own data. */
@@ -163,6 +189,7 @@ export function useUploadedLibrary() {
     signal: AbortSignal,
     improveIssues?: PdfRecognitionIssues,
   ) => {
+    savePdfRecognitionJob(document.url, recognitionLanguage, improveIssues)
     setDocumentImport({
       status: 'recognizing',
       format: 'pdf-ocr',
@@ -203,6 +230,8 @@ export function useUploadedLibrary() {
         recognitionLanguage,
       })
       return null
+    } finally {
+      clearPdfRecognitionJob(document.url)
     }
   }, [])
 
@@ -326,7 +355,11 @@ export function useUploadedLibrary() {
     const abort = new AbortController()
     importAbortRef.current = abort
     try {
-      const recognition = await runPdfRecognition(document, recognitionLanguage, abort.signal, improveIssues)
+      const pending = getPdfRecognitionJob()
+      const resumeIssues = improveIssues ?? (pending?.documentUrl === documentUrl
+        ? pending.improveIssues
+        : undefined)
+      const recognition = await runPdfRecognition(document, recognitionLanguage, abort.signal, resumeIssues)
       if (!recognition) return false
       const updated = recognition.document
       setUploadedDocuments((documents) => documents.map((candidate) => (
@@ -378,18 +411,24 @@ export function useUploadedLibrary() {
     }
   }, [uploadedDocuments])
 
-  /** Cancellation aborts frontend PDF work immediately and asks a native batch,
-   * when present, to stop safely between files. */
+  /** Abort frontend work before awaiting anything so the UI immediately explains cleanup;
+   * native imports still stop safely between files when no frontend controller exists. */
   const cancelDocumentBatch = useCallback(async (): Promise<void> => {
     try {
       const abort = importAbortRef.current
-      abort?.abort()
+      if (abort) {
+        setDocumentImport((current) => (current.status === 'importing' ||
+          (current.status === 'recognizing' && current.format === 'pdf-ocr'))
+          ? { ...current, cancelRequested: true }
+          : current)
+        abort.abort()
+        return
+      }
       const nativeCancelled = await cancelDocumentBatchSource()
-      if (!abort && !nativeCancelled) return
+      if (!nativeCancelled) return
       setDocumentImport((current) => (current.status === 'importing' &&
         (current.format === 'batch' || current.format === 'folder' || current.format === 'scan' ||
-          current.format === 'photos')) ||
-        (current.status === 'recognizing' && current.format === 'pdf-ocr')
+          current.format === 'photos'))
         ? { ...current, cancelRequested: true }
         : current)
     } catch (err) {

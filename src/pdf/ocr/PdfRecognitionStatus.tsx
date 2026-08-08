@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import type { DocumentImportStatus } from '../../hooks/useUploadedLibrary'
 import { PDF_OCR_NO_TEXT } from './recognizePdf'
 import type { PdfOcrLanguage } from './tesseractOcr'
+import { PDF_OCR_INTERRUPTED } from './pdfRecognitionJob'
 import {
   pdfRecognitionActionPageCount,
   pdfRecognitionIssueAction,
@@ -64,6 +65,8 @@ export function PdfRecognitionStatus({
     message = <Trans i18nKey="library.status.recognitionComplete" values={{ title }} components={{ title: <bdi /> }} />
   } else if (status.status === 'cancelled') {
     message = <Trans i18nKey="library.status.recognitionCancelled" values={{ title }} components={{ title: <bdi /> }} />
+  } else if (status.message === PDF_OCR_INTERRUPTED) {
+    message = <Trans i18nKey="library.status.recognitionInterrupted" values={{ title }} components={{ title: <bdi /> }} />
   } else {
     message = status.message === PDF_OCR_NO_TEXT
       ? t('library.status.recognitionNoText')

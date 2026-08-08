@@ -1,6 +1,7 @@
 import type { DocumentImportStatus } from '../../hooks/useUploadedLibrary'
 import type { UploadedDocumentTextStatus } from '../../uploads/DocumentUploads'
 import type { PdfRecognitionIssues } from './recognizePdf'
+import { PDF_OCR_INTERRUPTED } from './pdfRecognitionJob'
 
 export type PdfRecognitionIndicatorState = 'running' | 'attention' | 'error' | 'none'
 
@@ -20,7 +21,9 @@ export function pdfRecognitionIndicatorState(
 ): PdfRecognitionIndicatorState {
   if (isPdfRecognitionStatusForDocument(status, documentUrl)) {
     if (status.status === 'recognizing') return 'running'
-    if (status.status === 'error') return 'error'
+    if (status.status === 'error') {
+      return status.message === PDF_OCR_INTERRUPTED ? 'attention' : 'error'
+    }
     if (status.status === 'recognized') {
       return pdfRecognitionIssueAction(status.recognitionIssues) ? 'attention' : 'none'
     }

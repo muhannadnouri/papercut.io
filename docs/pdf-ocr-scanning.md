@@ -1068,8 +1068,9 @@ Stage status: Complete; desktop English image-only and hybrid acceptance passed
 - [x] OCR every page of a fully textless English PDF.
 - [x] OCR only missing pages in a hybrid PDF.
 - [x] Normalize OCR output into the same `PageTextLayer` contract.
-- [ ] Store OCR engine/model version, provenance, and confidence. The active
-      language is retained in the current job state but is not yet persisted.
+- [ ] Store finalized OCR engine/model version, provenance, and confidence.
+      Active-job recovery now persists its language and targeted retry pages,
+      but accepted document metadata does not yet retain this provenance.
 - [x] Add explicit English/Arabic language selection with a retry path.
 - [x] Replace the persistent reader banner with an accessible compact control;
       reserve its attention marker for required OCR, review, and errors.
@@ -1077,7 +1078,7 @@ Stage status: Complete; desktop English image-only and hybrid acceptance passed
       reader prompt and shared Library operation notice.
 - [x] Keep Library rows and gallery covers informational instead of repeating
       the recognition action on every document surface.
-- [ ] Add durable job resume across app restarts.
+- [x] Add durable job resume across app restarts.
 - [x] Prevent partial OCR sidecars from becoming searchable before final commit.
 - [x] Write each derived page-text sidecar through a complete same-directory
       temporary file before atomically replacing its final JSON path.
@@ -1484,6 +1485,7 @@ Stage status: Deferred
 | 2026-08-07 | Stage 7 | Separate required OCR from optional hybrid cleanup | PDFs with usable indexed text remain searchable and speakable even when image-backed pages may benefit from OCR; Library urgency is reserved for textless documents, while one compact reader control reuses the existing recognition job and recomputes candidate pages without persisting another page-state model |
 | 2026-08-07 | Stage 7 | Make OCR review decisions explicit | The completed state separates outcome, page count, collapsible details, retry guidance, compact actions, and source preservation; Retry and Accept retain distinct secondary and primary treatments without another workflow or panel |
 | 2026-08-07 | Stage 7 | Show OCR activity without notification permissions | The reader OCR icon retains its identity while a spinner communicates active work, and the existing Library tab busy state mirrors that activity; amber is reserved for required review, red for failures, and native background notifications remain deferred until OCR can actually continue outside the WebView |
+| 2026-08-08 | Stage 7 | Resume interrupted OCR from atomic page sidecars | Local storage retains only the active document, language, targeted retry pages, and a session marker; the reader offers an explicit resume instead of restarting expensive work at launch, completed page sidecars remain the source of progress, and cancellation reports cleanup immediately without adding a queue service or database |
 
 ## References
 
