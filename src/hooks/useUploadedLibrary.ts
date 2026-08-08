@@ -286,6 +286,9 @@ export function useUploadedLibrary() {
             )),
           }
         }
+        if (batchResult.failures.length > 0) {
+          setDocumentImport({ status: 'error', format, batchResult })
+        }
         return batchResult
       }
       if (batchResult.imported.length > 0) await refreshUploadedLibrary()

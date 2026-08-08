@@ -159,7 +159,13 @@ fn remove_capture_dir(path: &Path) -> Result<(), String> {
 /// Confirm that a native adapter returned the exact staged file requested and
 /// that its basic shape can safely enter the canonical PDF importer.
 fn validate_mobile_output(result: &ScanResult, path: &Path) -> Result<(), String> {
-    if Path::new(&result.output_path) != path {
+    let returned_path = fs::canonicalize(&result.output_path).map_err(|error| {
+        format!("The mobile document import did not create a readable PDF: {error}")
+    })?;
+    let expected_path = fs::canonicalize(path).map_err(|error| {
+        format!("The mobile document import did not create a readable PDF: {error}")
+    })?;
+    if returned_path != expected_path {
         return Err("The mobile document import returned an unexpected output path".into());
     }
     let bytes = fs::metadata(path)
@@ -197,10 +203,11 @@ mod tests {
     use std::{fs, time::SystemTime};
 
     use super::{
-        normalize_scanner_title, remove_capture_dir, validate_mobile_output_limits,
-        MAX_SCANNER_PAGES,
+        normalize_scanner_title, remove_capture_dir, validate_mobile_output,
+        validate_mobile_output_limits, MAX_SCANNER_PAGES,
     };
     use crate::document_uploads::MAX_PDF_UPLOAD_BYTES;
+    use tauri_plugin_document_scanner::ScanResult;
 
     #[test]
     fn scanner_title_is_trimmed_and_bounded() {
@@ -233,6 +240,31 @@ mod tests {
 
         remove_capture_dir(&dir).unwrap();
         assert!(!dir.exists());
+        remove_capture_dir(&dir).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn scanner_output_accepts_canonical_path_aliases() {
+        use std::os::unix::fs::symlink;
+
+        let suffix = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("papercut-scanner-alias-{suffix}"));
+        fs::create_dir_all(&dir).unwrap();
+        let output = dir.join("capture.pdf");
+        let alias = dir.join("capture-alias.pdf");
+        fs::write(&output, b"%PDF-1.7").unwrap();
+        symlink(&output, &alias).unwrap();
+
+        let result = ScanResult {
+            output_path: alias.to_string_lossy().into_owned(),
+            page_count: 1,
+        };
+        validate_mobile_output(&result, &output).unwrap();
+
         remove_capture_dir(&dir).unwrap();
     }
 }

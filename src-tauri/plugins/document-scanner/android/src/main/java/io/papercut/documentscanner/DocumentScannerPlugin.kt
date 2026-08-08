@@ -29,10 +29,11 @@ class DocumentScannerPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun availability(invoke: Invoke) {
         val supported = activity.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)
-        val photoImportSupported = imagePickerIntent().resolveActivity(activity.packageManager) != null
         val result = JSObject()
         result.put("supported", supported)
-        result.put("photoImportSupported", photoImportSupported)
+        // ACTION_OPEN_DOCUMENT is part of the Android platform. Querying its
+        // handler is unreliable under Android 11 package-visibility rules.
+        result.put("photoImportSupported", true)
         invoke.resolve(result)
     }
 
@@ -60,10 +61,6 @@ class DocumentScannerPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun importImages(invoke: Invoke) {
         try {
-            if (imagePickerIntent().resolveActivity(activity.packageManager) == null) {
-                invoke.reject("No photo picker is available on this device")
-                return
-            }
             invoke.parseArgs(ScanArgs::class.java)
             startActivityForResult(invoke, imagePickerIntent(), "importImagesResult")
         } catch (error: Exception) {
