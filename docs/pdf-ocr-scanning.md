@@ -1184,6 +1184,10 @@ add, move, or delete. A fresh scanner launch can continue the newest complete dr
 or explicitly start over without loading page pixels into memory. This restart
 path passed force-stop, continue, append, ordering, finish, and start-new
 physical-device acceptance.
+Crop handles now retain their normalized page positions when Android changes the
+review layout, and completed worker results update UI only while the scanner
+Activity remains live. Results discarded after destruction recycle UI bitmaps
+and remove uncommitted page files instead of leaking native resources.
 The finished path enters the existing Rust PDF importer, so readiness, OCR,
 indexing, viewer, search, and TTS behavior are not duplicated in native code.
 Native adapters now reject oversized work before canonical import, and Rust

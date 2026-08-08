@@ -70,6 +70,7 @@ class CropOverlayView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val page = bitmap ?: return
+        val previousImageRect = RectF(imageRect)
         val scale = min(width.toFloat() / page.width, height.toFloat() / page.height)
         val displayedWidth = page.width * scale
         val displayedHeight = page.height * scale
@@ -89,6 +90,8 @@ class CropOverlayView @JvmOverloads constructor(
             corners[2] = ScanPoint(imageRect.right - inset, imageRect.bottom - inset)
             corners[3] = ScanPoint(imageRect.left + inset, imageRect.bottom - inset)
             resetCorners = false
+        } else if (!previousImageRect.isEmpty && previousImageRect != imageRect) {
+            remapCorners(previousImageRect)
         }
 
         val cropPath = cropPath()
@@ -98,6 +101,20 @@ class CropOverlayView @JvmOverloads constructor(
         canvas.restore()
         canvas.drawPath(cropPath, edgePaint)
         corners.forEach { canvas.drawCircle(it.x, it.y, 9f * density, handlePaint) }
+    }
+
+    /** Preserves the user's crop after rotation or window resizing by carrying
+     * each handle's normalized image position into the new display rectangle. */
+    private fun remapCorners(previousImageRect: RectF) {
+        corners.indices.forEach { index ->
+            val point = corners[index]
+            val relativeX = (point.x - previousImageRect.left) / previousImageRect.width()
+            val relativeY = (point.y - previousImageRect.top) / previousImageRect.height()
+            corners[index] = ScanPoint(
+                imageRect.left + relativeX.coerceIn(0f, 1f) * imageRect.width(),
+                imageRect.top + relativeY.coerceIn(0f, 1f) * imageRect.height(),
+            )
+        }
     }
 
     /** Keeps the quadrilateral convex while dragging. This prevents crossed

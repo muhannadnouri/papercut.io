@@ -69,6 +69,7 @@ class DocumentScannerActivity : ComponentActivity() {
     private var awaitingPermissionSettings = false
     private var offerDraftResume = false
     private var processing = false
+    private var activityDestroyed = false
 
     private val permissionRequest = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -144,6 +145,7 @@ class DocumentScannerActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        activityDestroyed = true
         cameraProvider?.unbindAll()
         reviewBitmap?.recycle()
         managedPageBitmap?.recycle()
@@ -450,16 +452,21 @@ class DocumentScannerActivity : ComponentActivity() {
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                     try {
                         val bitmap = ScanImageProcessing.decodeUpright(captureFile)
-                        runOnUiThread { showReview(bitmap, captureFile) }
+                        runOnLiveUi(
+                            discarded = {
+                                bitmap.recycle()
+                                captureFile.delete()
+                            },
+                        ) { showReview(bitmap, captureFile) }
                     } catch (_: Throwable) {
                         captureFile.delete()
-                        runOnUiThread { showRecoverableFailure() }
+                        runOnLiveUi { showRecoverableFailure() }
                     }
                 }
 
                 override fun onError(error: ImageCaptureException) {
                     captureFile.delete()
-                    runOnUiThread { showRecoverableFailure() }
+                    runOnLiveUi { showRecoverableFailure() }
                 }
             },
         )
@@ -540,9 +547,11 @@ class DocumentScannerActivity : ComponentActivity() {
         worker.execute {
             try {
                 val bitmap = ScanImageProcessing.decodePreview(page.image)
-                runOnUiThread { renderPageManager(index, bitmap) }
+                runOnLiveUi(discarded = bitmap::recycle) {
+                    renderPageManager(index, bitmap)
+                }
             } catch (_: Throwable) {
-                runOnUiThread { showRecoverableFailure() }
+                runOnLiveUi { showRecoverableFailure() }
             }
         }
     }
@@ -649,7 +658,12 @@ class DocumentScannerActivity : ComponentActivity() {
                 }
                 captureFile.delete()
                 source.recycle()
-                runOnUiThread {
+                runOnLiveUi(
+                    discarded = {
+                        pageFile.delete()
+                        thumbnailFile.delete()
+                    },
+                ) {
                     val page = AcceptedPage(pageFile, thumbnailFile)
                     acceptedPages.add(page)
                     reviewCapture = null
@@ -658,7 +672,7 @@ class DocumentScannerActivity : ComponentActivity() {
                         pageFile.delete()
                         thumbnailFile.delete()
                         showRecoverableFailure()
-                        return@runOnUiThread
+                        return@runOnLiveUi
                     }
                     if (finishAfterPage) finalizeScan() else showCapture()
                 }
@@ -667,7 +681,7 @@ class DocumentScannerActivity : ComponentActivity() {
                 thumbnailFile.delete()
                 captureFile.delete()
                 source.recycle()
-                runOnUiThread {
+                runOnLiveUi {
                     reviewCapture = null
                     showRecoverableFailure()
                 }
@@ -700,7 +714,7 @@ class DocumentScannerActivity : ComponentActivity() {
             try {
                 ScanImageProcessing.writePdf(acceptedPages.map { it.image }, outputFile)
                 sessionDirectory.deleteRecursively()
-                runOnUiThread {
+                runOnLiveUi {
                     setResult(Activity.RESULT_OK, Intent().apply {
                         putExtra(EXTRA_OUTPUT_PATH, outputFile.path)
                         putExtra(EXTRA_PAGE_COUNT, acceptedPages.size)
@@ -708,7 +722,7 @@ class DocumentScannerActivity : ComponentActivity() {
                     finish()
                 }
             } catch (_: Throwable) {
-                runOnUiThread { showFinishFailure() }
+                runOnLiveUi { showFinishFailure() }
             }
         }
     }
@@ -823,6 +837,15 @@ class DocumentScannerActivity : ComponentActivity() {
         text = label
         minHeight = dp(48)
         setOnClickListener { action() }
+    }
+
+    /** Delivers worker results only while this Activity can still own UI state.
+     * The optional discard callback releases results created solely for the UI,
+     * because executor shutdown cannot interrupt work that is already running. */
+    private fun runOnLiveUi(discarded: () -> Unit = {}, action: () -> Unit) {
+        runOnUiThread {
+            if (activityDestroyed || isDestroyed || isFinishing) discarded() else action()
+        }
     }
 
     private fun cancel(message: String) {
