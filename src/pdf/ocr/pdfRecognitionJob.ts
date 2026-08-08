@@ -82,7 +82,7 @@ function isRecognitionIssues(value: unknown): value is PdfRecognitionIssues | un
 }
 
 function isPageList(value: unknown): value is number[] {
-  return Array.isArray(value) && value.every((page) => (
+  return Array.isArray(value) && value.length <= MAX_RECOVERY_PAGES && value.every((page) => (
     Number.isInteger(page) && page > 0 && page <= MAX_RECOVERY_PAGES
   ))
 }

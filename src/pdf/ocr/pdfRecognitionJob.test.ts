@@ -37,6 +37,17 @@ describe('parsePdfRecognitionJob', () => {
     })).toBeNull()
 
     expect(parsePdfRecognitionJob({
+      documentUrl: '/uploads/abc123.pdf',
+      language: 'eng',
+      improveIssues: {
+        failedPages: Array(2_001).fill(1),
+        unrecognizedPages: [],
+        lowConfidencePages: [],
+      },
+      sessionId: 'previous-session',
+    })).toBeNull()
+
+    expect(parsePdfRecognitionJob({
       documentUrl: 'https://example.com/document.pdf',
       language: 'eng',
       sessionId: 'previous-session',
