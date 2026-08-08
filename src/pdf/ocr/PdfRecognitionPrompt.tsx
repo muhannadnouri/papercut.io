@@ -7,6 +7,7 @@ import type { UploadedDocumentTextStatus } from '../../uploads/DocumentUploads'
 import { PdfRecognitionStatus } from './PdfRecognitionStatus'
 import {
   isPdfRecognitionStatusForDocument,
+  pdfRecognitionIndicatorState,
   pdfRecognitionIssueAction,
 } from './pdfRecognitionPromptState'
 import type { PdfOcrLanguage } from './tesseractOcr'
@@ -46,18 +47,31 @@ export function PdfRecognitionPrompt({
   const operationBusy = status.status === 'importing' || status.status === 'recognizing' ||
     status.status === 'deleting'
   const activeLanguage = ownsStatus ? status.recognitionLanguage ?? language : language
-  const needsAttention = recognitionRequired || issueAction !== null ||
-    (ownsStatus && status.status === 'error')
+  const indicator = pdfRecognitionIndicatorState(status, documentUrl, textStatus)
 
   if (!recognitionRequired && !recognitionAvailable && !ownsStatus) return null
 
-  const label = t('reader.pdf.textRecognition')
+  const label = recognizing
+    ? t('library.status.recognitionProgressLabel')
+    : t('reader.pdf.textRecognition')
   return (
     <span className="pdf-recognition-control" title={label}>
       <DialogTrigger>
-        <Button className="pdf-recognition-trigger" aria-label={label}>
+        <Button
+          className="pdf-recognition-trigger"
+          aria-label={label}
+          aria-busy={recognizing || undefined}
+        >
           <TextRecognitionIcon />
-          {needsAttention && <span className="pdf-recognition-attention" aria-hidden="true" />}
+          {indicator === 'running' && (
+            <span className="spinner pdf-recognition-activity" aria-hidden="true" />
+          )}
+          {indicator === 'attention' && (
+            <span className="pdf-recognition-attention" aria-hidden="true" />
+          )}
+          {indicator === 'error' && (
+            <span className="pdf-recognition-attention pdf-recognition-error" aria-hidden="true" />
+          )}
         </Button>
         <Popover
           className="pdf-recognition-popover"

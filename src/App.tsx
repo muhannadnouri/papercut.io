@@ -408,7 +408,10 @@ function App() {
       <div inert={audiobookActionBusy ? true : undefined}>
         <TabNav
           active={activeTab}
-          busyTabs={{ audiobooks: audiobooksPanelProps.isSaving }}
+          busyTabs={{
+            library: documentImport.status === 'recognizing' && documentImport.format === 'pdf-ocr',
+            audiobooks: audiobooksPanelProps.isSaving,
+          }}
           onChange={handleTabChange}
         />
 

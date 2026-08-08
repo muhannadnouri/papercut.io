@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   isPdfRecognitionStatusForDocument,
   pdfRecognitionActionPageCount,
+  pdfRecognitionIndicatorState,
   pdfRecognitionIssueAction,
 } from './pdfRecognitionPromptState'
 
@@ -27,5 +28,28 @@ describe('isPdfRecognitionStatusForDocument', () => {
     expect(pdfRecognitionActionPageCount({ failedPages: [], unrecognizedPages: [2], lowConfidencePages: [1] })).toBe(2)
     expect(pdfRecognitionIssueAction({ failedPages: [], unrecognizedPages: [], lowConfidencePages: [] })).toBeNull()
     expect(pdfRecognitionActionPageCount()).toBe(0)
+  })
+
+  it('distinguishes OCR activity, attention, and failure without flagging optional cleanup', () => {
+    const documentUrl = 'uploaded://pdf/one'
+
+    expect(pdfRecognitionIndicatorState({
+      status: 'recognizing',
+      format: 'pdf-ocr',
+      documentUrl,
+    }, documentUrl, 'recognition-required')).toBe('running')
+    expect(pdfRecognitionIndicatorState({
+      status: 'recognized',
+      format: 'pdf-ocr',
+      documentUrl,
+      recognitionIssues: { failedPages: [], unrecognizedPages: [], lowConfidencePages: [1] },
+    }, documentUrl)).toBe('attention')
+    expect(pdfRecognitionIndicatorState({
+      status: 'error',
+      format: 'pdf-ocr',
+      documentUrl,
+    }, documentUrl)).toBe('error')
+    expect(pdfRecognitionIndicatorState({ status: 'idle' }, documentUrl, 'recognition-required')).toBe('attention')
+    expect(pdfRecognitionIndicatorState({ status: 'idle' }, documentUrl, 'recognition-available')).toBe('none')
   })
 })

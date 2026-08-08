@@ -1483,6 +1483,7 @@ Stage status: Deferred
 | 2026-08-07 | Stage 7 | Keep all PDF search-target typography invisible | Native PDF.js and OCR text layers now share the translucent target treatment without painting synthetic glyphs; recognition language choices name only the language because the surrounding action already explains recognition |
 | 2026-08-07 | Stage 7 | Separate required OCR from optional hybrid cleanup | PDFs with usable indexed text remain searchable and speakable even when image-backed pages may benefit from OCR; Library urgency is reserved for textless documents, while one compact reader control reuses the existing recognition job and recomputes candidate pages without persisting another page-state model |
 | 2026-08-07 | Stage 7 | Make OCR review decisions explicit | The completed state separates outcome, page count, collapsible details, retry guidance, compact actions, and source preservation; Retry and Accept retain distinct secondary and primary treatments without another workflow or panel |
+| 2026-08-07 | Stage 7 | Show OCR activity without notification permissions | The reader OCR icon retains its identity while a spinner communicates active work, and the existing Library tab busy state mirrors that activity; amber is reserved for required review, red for failures, and native background notifications remain deferred until OCR can actually continue outside the WebView |
 
 ## References
 

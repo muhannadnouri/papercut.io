@@ -1,5 +1,8 @@
 import type { DocumentImportStatus } from '../../hooks/useUploadedLibrary'
+import type { UploadedDocumentTextStatus } from '../../uploads/DocumentUploads'
 import type { PdfRecognitionIssues } from './recognizePdf'
+
+export type PdfRecognitionIndicatorState = 'running' | 'attention' | 'error' | 'none'
 
 /** Keep OCR feedback attached to the PDF that started the shared job. */
 export function isPdfRecognitionStatusForDocument(
@@ -7,6 +10,23 @@ export function isPdfRecognitionStatusForDocument(
   documentUrl: string,
 ): boolean {
   return status.format === 'pdf-ocr' && status.documentUrl === documentUrl
+}
+
+/** Map the shared OCR lifecycle to one unambiguous reader-toolbar indicator. */
+export function pdfRecognitionIndicatorState(
+  status: DocumentImportStatus,
+  documentUrl: string,
+  textStatus?: UploadedDocumentTextStatus,
+): PdfRecognitionIndicatorState {
+  if (isPdfRecognitionStatusForDocument(status, documentUrl)) {
+    if (status.status === 'recognizing') return 'running'
+    if (status.status === 'error') return 'error'
+    if (status.status === 'recognized') {
+      return pdfRecognitionIssueAction(status.recognitionIssues) ? 'attention' : 'none'
+    }
+  }
+
+  return textStatus === 'recognition-required' ? 'attention' : 'none'
 }
 
 /** Retry technical failures, but let users accept usable partial or review-only OCR. */
