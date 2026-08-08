@@ -12,6 +12,8 @@ import { pdfSearchTargetPage } from './pdfFind'
 import type { ViewerFindApi } from './types'
 
 const PDF_FIND_PENDING = 3
+const SEARCH_TARGET_FALLBACK_MS = 1_500
+const SEARCH_TARGET_SETTLE_MS = 6_500
 
 export type PdfSearchTargetProgress = {
   pageNumber: number
@@ -81,7 +83,9 @@ export function bindPdfSearchTarget({
     if (complete || fallbackStarted) return
     fallbackStarted = true
     onProgress({ pageNumber, phase: 'verifying' })
-    getFindApi()?.search(text)
+    const findApi = getFindApi()
+    if (findApi) findApi.search(text)
+    else finish()
   }
   const handleTextLayerRendered = ({ pageNumber: renderedPage }: { pageNumber: number }) => {
     if (renderedPage !== pageNumber) return
@@ -100,10 +104,14 @@ export function bindPdfSearchTarget({
     const textLayer = renderedPdfTextLayer(viewer, pageNumber)
     if (textLayer?.textContent?.trim()) fallbackToDocumentFind()
   })
+  const fallbackTimer = globalThis.setTimeout(fallbackToDocumentFind, SEARCH_TARGET_FALLBACK_MS)
+  const settleTimer = globalThis.setTimeout(finish, SEARCH_TARGET_SETTLE_MS)
 
   return () => {
     complete = true
     cancelAnimationFrame(frame)
+    globalThis.clearTimeout(fallbackTimer)
+    globalThis.clearTimeout(settleTimer)
     eventBus.off('textlayerrendered', handleTextLayerRendered)
     eventBus.off('pdfocrtextlayerrendered', handleTextLayerRendered)
     eventBus.off('updatefindcontrolstate', handleFindSettled)

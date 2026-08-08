@@ -171,7 +171,8 @@ export async function recognizePdfDocument(
     }
 
     issues.lowConfidencePages = [...new Set(issues.lowConfidencePages)]
-    if (recognizedCharacters === 0) throw new PdfRecognitionNoTextError(issues)
+    const hasRecognizedText = hasUsableText || recognizedCharacters > 0
+    if (!hasRecognizedText) throw new PdfRecognitionNoTextError(issues)
     options.onProgress?.({ phase: 'indexing', pageNumber: pdf.numPages, pageCount: pdf.numPages })
     const updated = await finalizeUploadedPdf(
       document.url,
@@ -179,7 +180,7 @@ export async function recognizePdfDocument(
       pdf.numPages,
       undefined,
       finalizedPdfTextStatus(
-        hasUsableText || recognizedCharacters > 0,
+        hasRecognizedText,
         issues.failedPages.length > 0 ||
           issues.unrecognizedPages.length > 0 ||
           issues.lowConfidencePages.length > 0,

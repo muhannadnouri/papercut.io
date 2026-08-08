@@ -1341,6 +1341,10 @@ Stage status: In progress
       focused adapter now owns page targeting, native/OCR text-layer waits,
       Find fallback, progress, and event cleanup without adding a viewer
       framework or dependency.
+- [x] Harden PDF/OCR lifecycle boundaries. Hybrid PDFs retain usable native
+      text when OCR adds nothing, accepted recovery work clears its marker,
+      native Find listeners are disposed when OCR Find takes ownership, and
+      indexed-result progress always reaches a terminal state.
 - [ ] Remove diagnostic-only code, unused dependencies, and abandoned feature
       flags.
 
@@ -1490,6 +1494,7 @@ Stage status: Deferred
 | 2026-08-07 | Stage 7 | Make OCR review decisions explicit | The completed state separates outcome, page count, collapsible details, retry guidance, compact actions, and source preservation; Retry and Accept retain distinct secondary and primary treatments without another workflow or panel |
 | 2026-08-07 | Stage 7 | Show OCR activity without notification permissions | The reader OCR icon retains its identity while a spinner communicates active work, and the existing Library tab busy state mirrors that activity; amber is reserved for required review, red for failures, and native background notifications remain deferred until OCR can actually continue outside the WebView |
 | 2026-08-08 | Stage 7 | Resume interrupted OCR from atomic page sidecars | Local storage retains only the active document, language, targeted retry pages, and a session marker; the reader offers an explicit resume instead of restarting expensive work at launch, completed page sidecars remain the source of progress, and cancellation reports cleanup immediately without adding a queue service or database |
+| 2026-08-08 | Stage 10 | Close PDF/OCR lifecycle ownership gaps | Usable native text satisfies hybrid recognition even when OCR adds no characters; successful acceptance removes stale recovery intent, OCR Find disposes native Find listeners at handoff, and search-result progress falls back and settles on a bounded timer when PDF.js emits no terminal text-layer event |
 
 ## References
 

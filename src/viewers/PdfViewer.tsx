@@ -299,6 +299,8 @@ export function PdfViewer({
         if (ocrFindActive || !isUploadedPdfDocumentUrl(url)) return
         ocrFindActive = true
         findAdapter?.api.clear()
+        findAdapter?.dispose()
+        findAdapter = undefined
         ocrFindAdapter = createPdfOcrFindAdapter(
           (query) => findUploadedPdfText(url, query),
           navigateOcrFind,

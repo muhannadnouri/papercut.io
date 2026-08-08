@@ -387,6 +387,7 @@ export function useUploadedLibrary() {
         undefined,
         'ready',
       )
+      clearPdfRecognitionJob(document.url)
       setUploadedDocuments((documents) => documents.map((candidate) => (
         candidate.id === updated.id ? updated : candidate
       )))
