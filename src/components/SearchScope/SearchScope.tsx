@@ -105,6 +105,7 @@ export function SearchScope({
             mode="filter"
             documents={uploadDocs}
             organization={libraryOrganization}
+            filterActive={docFilterLower.length > 0}
             selectedFilters={selectedFilters}
             onToggleFilter={onToggleFilter}
             onToggleAllInGroup={onToggleAllInGroup}

@@ -277,6 +277,7 @@ export function DocumentsPanel({
             <UploadedLibraryTree
               documents={uploadDocs}
               organization={libraryOrganization}
+              filterActive={docFilterLower.length > 0}
               documentOpening={documentOpening}
               mutationDisabled={operationBusy}
               resetEditing={importBusy}

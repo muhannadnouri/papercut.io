@@ -64,6 +64,20 @@ describe('splitDocumentGroupsBySource', () => {
     expect(split.otherGroups[0].docs).toEqual([audiobook])
     expect(split.nonBundledGroups[0].docs).toEqual([uploaded, audiobook])
   })
+
+  it('places uploaded groups before other non-bundled groups', () => {
+    const uploaded = document('Upload', '/uploads/123.html', 'upload')
+    const audiobook = document('Audiobook', '/user-uploads/book.html', 'audiobook-upload')
+    const split = splitDocumentGroupsBySource([
+      { author: 'Imported Audiobooks', docs: [audiobook] },
+      { author: 'User Uploads', docs: [uploaded] },
+    ])
+
+    expect(split.nonBundledGroups.map((group) => group.author)).toEqual([
+      'User Uploads',
+      'Imported Audiobooks',
+    ])
+  })
 })
 
 function document(
