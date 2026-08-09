@@ -12,7 +12,8 @@ interface SearchResultsProps {
   loading: boolean
   submittedQuery: string
   lastSearchInfo: LastSearchInfo | null
-  selectedFilters: Set<string>
+  scopeUrls: Set<string>
+  scopeActive: boolean
   openingDisabled?: boolean
   openingDocumentUrl?: string
   onViewResult: (result: SearchResult, target?: SearchOpenTarget) => void
@@ -23,16 +24,17 @@ export function SearchResults({
   loading,
   submittedQuery,
   lastSearchInfo,
-  selectedFilters,
+  scopeUrls,
+  scopeActive,
   openingDisabled = false,
   openingDocumentUrl,
   onViewResult,
 }: SearchResultsProps) {
   const { t } = useTranslation()
-  const filtered = selectedFilters.size > 0
-    ? results.filter((r) => selectedFilters.has(r.url))
+  const filtered = scopeActive
+    ? results.filter((r) => scopeUrls.has(r.url))
     : results
-  const hasFilters = selectedFilters.size > 0
+  const hasFilters = scopeActive
   const visibleCount = filtered.length
 
   if (loading) {

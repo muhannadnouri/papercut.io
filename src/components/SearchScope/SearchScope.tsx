@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { DocumentInfo } from '../../types/search'
-import type { AuthorGroup } from '../../hooks/useDocumentFilters'
+import type { AuthorGroup, DocumentScopeMode } from '../../hooks/useDocumentFilters'
 import type { UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
 import { BundledDocumentTree } from '../BundledDocumentTree/BundledDocumentTree'
 import { Panel } from '../Panel/Panel'
@@ -18,7 +18,9 @@ interface SearchScopeProps {
   groupedDocs: AuthorGroup[]
   libraryOrganization?: UploadedLibraryOrganization
   selectedFilters: Set<string>
+  scopeMode: DocumentScopeMode
   onClearFilters: () => void
+  onScopeModeChange: (mode: DocumentScopeMode) => void
   onFilterChange: (value: string) => void
   onToggleAllInGroup: (docs: DocumentInfo[]) => void
   onToggleAuthor: (author: string) => void
@@ -27,7 +29,7 @@ interface SearchScopeProps {
 
 /**
  * Search-scope control for the Search tab: active-document chips plus a
- * collapsible selector to narrow which documents the query runs against.
+ * collapsible selector to include or exclude documents from each query.
  */
 export function SearchScope({
   collapsedAuthors,
@@ -37,7 +39,9 @@ export function SearchScope({
   groupedDocs,
   libraryOrganization,
   selectedFilters,
+  scopeMode,
   onClearFilters,
+  onScopeModeChange,
   onFilterChange,
   onToggleAllInGroup,
   onToggleAuthor,
@@ -45,9 +49,11 @@ export function SearchScope({
 }: SearchScopeProps) {
   const { t, i18n } = useTranslation()
   const count = selectedFilters.size
-  const scopeLabel = count === 0
-    ? t('search.scope.allDocuments')
-    : t('search.scope.documentCount', { count })
+  const scopeLabel = count === 0 ? t('search.scope.allDocuments') : (
+    <>
+      {t(`search.scope.${scopeMode}`)} · {t('search.scope.documentCount', { count })}
+    </>
+  )
   const {
     uploadDocs,
     bundledDocs,
@@ -93,6 +99,18 @@ export function SearchScope({
             value={documentFilter}
             onChange={(e) => onFilterChange(e.target.value)}
           />
+          <div className="search-scope-mode" role="group" aria-label={t('search.scope.modeLabel')}>
+            {(['include', 'exclude'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                aria-pressed={scopeMode === mode}
+                onClick={() => onScopeModeChange(mode)}
+              >
+                {t(`search.scope.${mode}`)}
+              </button>
+            ))}
+          </div>
           {count > 0 && (
             <button className="clear-filters" onClick={onClearFilters}>
               {t('search.scope.clear')}

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import type { AuthorGroup } from '../../hooks/useDocumentFilters'
+import type { AuthorGroup, DocumentScopeMode } from '../../hooks/useDocumentFilters'
 import type { DocumentInfo, SearchOpenTarget, SearchResult } from '../../types/search'
 import type { UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
 import { SearchBar } from '../SearchBar/SearchBar'
@@ -25,9 +25,13 @@ interface SearchTabProps {
   query: string
   results: SearchResult[]
   selectedFilters: Set<string>
+  scopeMode: DocumentScopeMode
+  scopeUrls: Set<string>
+  scopeActive: boolean
   submittedQuery: string
   onChangeQuery: (value: string) => void
   onClearFilters: () => void
+  onScopeModeChange: (mode: DocumentScopeMode) => void
   onFilterChange: (value: string) => void
   onSubmitSearch: () => void
   onToggleAllInGroup: (docs: DocumentInfo[]) => void
@@ -51,9 +55,13 @@ export function SearchTab({
   query,
   results,
   selectedFilters,
+  scopeMode,
+  scopeUrls,
+  scopeActive,
   submittedQuery,
   onChangeQuery,
   onClearFilters,
+  onScopeModeChange,
   onFilterChange,
   onSubmitSearch,
   onToggleAllInGroup,
@@ -79,12 +87,14 @@ export function SearchTab({
         documentFilter={documentFilter}
         libraryOrganization={libraryOrganization}
         selectedFilters={selectedFilters}
+        scopeMode={scopeMode}
         filterTitleByUrl={filterTitleByUrl}
         onFilterChange={onFilterChange}
         onToggleFilter={onToggleFilter}
         onToggleAllInGroup={onToggleAllInGroup}
         onToggleAuthor={onToggleAuthor}
         onClearFilters={onClearFilters}
+        onScopeModeChange={onScopeModeChange}
       />
 
       <SearchResults
@@ -92,7 +102,8 @@ export function SearchTab({
         loading={loading}
         submittedQuery={submittedQuery}
         lastSearchInfo={lastSearchInfo}
-        selectedFilters={selectedFilters}
+        scopeUrls={scopeUrls}
+        scopeActive={scopeActive}
         openingDisabled={openingDisabled}
         openingDocumentUrl={openingDocumentUrl}
         onViewResult={onViewResult}

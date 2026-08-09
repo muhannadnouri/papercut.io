@@ -127,9 +127,9 @@ EPUB plugs in at step 3 by validating the ZIP/container, reading OPF metadata an
 When a user submits a search:
 
 1. React lowercases and normalizes the query.
-2. Selected **Filter By Document** URLs are treated as the active search scope.
-3. Pagefind searches bundled build-time documents when the Pagefind index is available, then `useSearch` keeps matching results that are inside the selected scope.
-4. SQLite FTS5 searches uploaded runtime documents when the app is running in Tauri, with selected upload URLs passed into the SQL query when a scope is active.
+2. **Filter By Document** treats checked documents as either the included search scope or the documents excluded from it. With no checked documents, search uses the full library.
+3. Pagefind searches bundled build-time documents when the Pagefind index is available, then `useSearch` consumes matching results from the resolved allowed-URL set before applying its visible-result limit.
+4. SQLite FTS5 searches uploaded runtime documents when the app is running in Tauri, with allowed upload URLs passed into the SQL query when a scope is active.
 5. `useSearch` maps both providers into the existing `SearchResult` shape.
 6. Uploaded section matches are collapsed to one result per uploaded document, keeping the first/best SQLite snippet for the document card.
 7. Quoted exact-phrase searches use Pagefind/SQLite only as a candidate finder, then verify the phrase against the real bundled or uploaded document source before rendering results.

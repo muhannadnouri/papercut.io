@@ -174,6 +174,9 @@ function App() {
 
   const {
     selectedFilters,
+    scopeMode: searchScopeMode,
+    scopeUrls: searchScopeUrls,
+    scopeActive: searchScopeActive,
     documentFilter: searchDocumentFilter,
     collapsedAuthors: searchCollapsedAuthors,
     groupedDocs: searchGroupedDocs,
@@ -185,6 +188,7 @@ function App() {
     toggleAuthor: toggleSearchAuthor,
     toggleAllInGroup,
     setDocumentFilter: setSearchDocumentFilter,
+    setScopeMode: setSearchScopeMode,
   } = searchFilters
 
   const {
@@ -197,7 +201,11 @@ function App() {
     rerunSearch,
     submitSearch,
     removeResultsForUrl,
-  } = useSearch(pagefindRef, { loadDocumentSource: loadHtmlDocument, scopeUrls: selectedFilters })
+  } = useSearch(pagefindRef, {
+    loadDocumentSource: loadHtmlDocument,
+    scopeUrls: searchScopeUrls,
+    scopeActive: searchScopeActive,
+  })
 
   useEffect(() => {
     rerunSearch()
@@ -427,12 +435,16 @@ function App() {
             documentFilter={searchDocumentFilter}
             libraryOrganization={uploadedLibraryOrganization}
             selectedFilters={selectedFilters}
+            scopeMode={searchScopeMode}
+            scopeUrls={searchScopeUrls}
+            scopeActive={searchScopeActive}
             filterTitleByUrl={searchFilterTitleByUrl}
             onFilterChange={setSearchDocumentFilter}
             onToggleFilter={toggleFilter}
             onToggleAllInGroup={toggleAllInGroup}
             onToggleAuthor={toggleSearchAuthor}
             onClearFilters={clearFilters}
+            onScopeModeChange={setSearchScopeMode}
             results={results}
             loading={loading}
             submittedQuery={submittedQuery}
