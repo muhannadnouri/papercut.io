@@ -95,7 +95,7 @@ Viewer rendering is plugin-based:
 - More specific URL formats must be registered before the HTML fallback. PDF resolves to the PDF.js viewer; raw `.epub` remains reserved ahead of the catch-all HTML viewer.
 - `src/viewers/HtmlViewer.tsx` parses the stored full HTML document, extracts body content, and renders it into an app-owned sanitized reader surface instead of a `srcDoc` iframe. Imported head styles are intentionally not injected into the app DOM. Reader settings apply through CSS variables on the viewer shell, so changing font, font size, line height, or width does not rewrite stored source or invalidate audiobook metadata.
 - Uploaded EPUB documents currently resolve to the HTML viewer because their stored source is generated reading HTML. The shared DOM reader handles generated hash links so TOC entries and footnotes scroll within the stored document. TTS highlighting caches the generated reader DOM while it is stable and invalidates those caches when Find or reader updates replace text nodes. A richer EPUB viewer can replace that later if it declares which reader capabilities it supports, because Find, scrolling, TTS highlighting, and locator navigation may differ by format.
-- App theme is separate from reader settings. `src/hooks/useTheme.ts` persists Light, System, and Dark choices and writes the resolved theme to the root element, while CSS tokens theme app chrome, dialogs, HTML/EPUB reader content, Find marks, and TTS highlights without changing stored documents or saved audiobook metadata. The PDF viewer themes its chrome but leaves rendered page contents unchanged.
+- App theme is separate from reader settings. `src/hooks/useTheme.ts` persists Light, System, and Dark choices and writes the resolved theme to the root element. HTML/EPUB readers can independently use Default, Gray, or Black page colors through reader-scoped semantic CSS tokens; changing page color does not rewrite the rendered DOM, stored documents, search data, TTS chunks, or highlight locators. The PDF viewer themes its chrome but leaves rendered page contents unchanged and does not expose reader page colors.
 
 This keeps the runtime upload pipeline independent from the viewer shell. The upload backend produces safe stored source and normalized searchable sections; the viewer shell decides how the document is presented and how reader-level controls attach to it.
 
@@ -104,7 +104,7 @@ Reader typography is intentionally owned by the shared DOM reader, not by each u
 - The reader bundles offline fonts under `public/fonts/reader/` so desktop and Android do not collapse every serif choice into the same platform fallback.
 - Literata is the default long-form reading face, Atkinson Hyperlegible is available for accessibility-focused reading, and system serif/sans remain available for users who prefer platform defaults.
 - Naskh Arabic, Droid Arabic Naskh, Scheherazade New, and Readex Pro are exposed as explicit Arabic-focused options. They are not inserted into every stack because Arabic font metrics can change spacing and line flow in documents that previously rendered better with their platform fallback.
-- These controls are reader presentation only. They do not rewrite stored HTML, EPUB-generated reading HTML, search sections, TTS chunks, saved audiobook metadata, or highlight locators.
+- Font, spacing, width, and page-color controls are reader presentation only. They do not rewrite stored HTML, EPUB-generated reading HTML, search sections, TTS chunks, saved audiobook metadata, or highlight locators.
 
 ## Import Pipeline
 

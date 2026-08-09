@@ -357,6 +357,12 @@
       "size": "Font Size",
       "lineSpacing": "Line Spacing",
       "width": "Reading Width",
+      "pageColor": "Page Color",
+      "pageThemes": {
+        "default": "Default",
+        "gray": "Gray",
+        "black": "Black"
+      },
       "reset": "Reset",
       "decrease": "Decrease {{setting}}",
       "increase": "Increase {{setting}}",

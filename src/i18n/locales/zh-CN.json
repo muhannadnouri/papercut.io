@@ -352,6 +352,12 @@
       "size": "字体大小",
       "lineSpacing": "行距",
       "width": "读取宽度",
+      "pageColor": "页面颜色",
+      "pageThemes": {
+        "default": "默认",
+        "gray": "灰色",
+        "black": "黑色"
+      },
       "reset": "重置",
       "decrease": "减少{{setting}}",
       "increase": "增加{{setting}}",

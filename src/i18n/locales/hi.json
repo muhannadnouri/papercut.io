@@ -357,6 +357,12 @@
       "size": "फ़ॉन्ट आकार",
       "lineSpacing": "पंक्ति रिक्ति",
       "width": "पढ़ने की चौड़ाई",
+      "pageColor": "पृष्ठ का रंग",
+      "pageThemes": {
+        "default": "डिफ़ॉल्ट",
+        "gray": "धूसर",
+        "black": "काला"
+      },
       "reset": "रीसेट करें",
       "decrease": "{{setting}} घटाएँ",
       "increase": "{{setting}} बढ़ाएँ",

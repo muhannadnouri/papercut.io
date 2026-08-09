@@ -362,6 +362,12 @@
       "size": "Dimensione del carattere",
       "lineSpacing": "Interlinea",
       "width": "Larghezza di lettura",
+      "pageColor": "Colore pagina",
+      "pageThemes": {
+        "default": "Predefinito",
+        "gray": "Grigio",
+        "black": "Nero"
+      },
       "reset": "Reset",
       "decrease": "Diminuire {{setting}}",
       "increase": "Aumenta {{setting}}",

@@ -362,6 +362,12 @@
       "size": "Taille de la police",
       "lineSpacing": "Espacement des lignes",
       "width": "Largeur de lecture",
+      "pageColor": "Couleur de page",
+      "pageThemes": {
+        "default": "Par défaut",
+        "gray": "Gris",
+        "black": "Noir"
+      },
       "reset": "Réinitialiser",
       "decrease": "Diminuer {{setting}}",
       "increase": "Augmenter {{setting}}",

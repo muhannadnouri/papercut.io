@@ -225,11 +225,47 @@ html[dir="rtl"] .back-icon {
   margin-top: 1rem;
 }
 
+.app-reader[data-reader-theme="gray"] {
+  --reader-surface: #4a494f;
+  --reader-text: #eceaec;
+  --reader-muted: #cbc7cd;
+  --reader-heading: #faf9fa;
+  --reader-link: #c5c8ff;
+  --reader-link-hover: #e0e2ff;
+  --reader-border: #6c6970;
+  --reader-border-strong: #858189;
+  --reader-subtle: #3e3d42;
+  --reader-accent-border: #b2b6ff;
+  --reader-highlight-find: #8c7724;
+  --reader-highlight-current: #f59e0b;
+  --reader-highlight-current-text: #171717;
+}
+
+.app-reader[data-reader-theme="black"] {
+  --reader-surface: #000;
+  --reader-text: #dedede;
+  --reader-muted: #adb2ba;
+  --reader-heading: #f4f4f5;
+  --reader-link: #aeb4ff;
+  --reader-link-hover: #d5d8ff;
+  --reader-border: #343840;
+  --reader-border-strong: #545a65;
+  --reader-subtle: #17191d;
+  --reader-accent-border: #939bf5;
+  --reader-highlight-find: #715f18;
+  --reader-highlight-current: #f59e0b;
+  --reader-highlight-current-text: #171717;
+}
+
+.app-reader:is([data-reader-theme="gray"], [data-reader-theme="black"]) .document-html-surface {
+  color-scheme: dark;
+}
+
 .document-html-surface {
   width: 100%;
   min-height: 320px;
   display: block;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--reader-border-strong);
   border-radius: var(--radius-surface);
   background: var(--reader-surface);
   color: var(--reader-text);
@@ -288,7 +324,7 @@ html[dir="rtl"] .back-icon {
 
 .document-html-content .epub-chapter + .epub-chapter {
   padding-block-start: 1.25rem;
-  border-top: 1px solid var(--surface-hover);
+  border-top: 1px solid var(--reader-border);
 }
 
 .document-html-content :is(ul, ol) {
@@ -308,7 +344,7 @@ html[dir="rtl"] .back-icon {
   margin-inline: 0;
   padding-block: 0.05em;
   padding-inline-start: 1.1em;
-  border-inline-start: 3px solid var(--accent-border);
+  border-inline-start: 3px solid var(--reader-accent-border);
   color: var(--reader-text);
 }
 
@@ -323,15 +359,15 @@ html[dir="rtl"] .back-icon {
 .document-html-content :is(h1, h2, h3, h4, h5, h6) {
   margin-block-start: 1.45em;
   margin-block-end: 0.55em;
-  color: var(--text-heading);
+  color: var(--reader-heading);
   line-height: 1.25;
 }
 
 .document-html-content :is(code, kbd, samp) {
-  border: 1px solid var(--border);
+  border: 1px solid var(--reader-border);
   border-radius: var(--radius-inline);
-  background: var(--surface-muted);
-  color: var(--text-heading);
+  background: var(--reader-subtle);
+  color: var(--reader-heading);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.9em;
   padding: 0.1em 0.25em;
@@ -340,9 +376,9 @@ html[dir="rtl"] .back-icon {
 .document-html-content pre {
   overflow-x: auto;
   padding: 0.85rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--reader-border);
   border-radius: var(--radius-control);
-  background: var(--surface-muted);
+  background: var(--reader-subtle);
 }
 
 .document-html-content pre code {
@@ -360,17 +396,17 @@ html[dir="rtl"] .back-icon {
 }
 
 .document-html-content a[href] {
-  color: var(--link);
+  color: var(--reader-link);
 }
 
 .document-html-content a[href]:hover {
-  color: var(--link-hover);
+  color: var(--reader-link-hover);
 }
 
 .document-html-content mark[data-search-target] {
   border-radius: 3px;
-  background: var(--highlight-current);
-  color: var(--highlight-current-text);
+  background: var(--reader-highlight-current);
+  color: var(--reader-highlight-current-text);
   padding: 0 0.12em;
 }
 
@@ -581,18 +617,18 @@ html[dir="rtl"] .back-icon {
 }
 
 ::highlight(search-target) {
-  background-color: var(--highlight-current);
-  color: var(--highlight-current-text);
+  background-color: var(--reader-highlight-current);
+  color: var(--reader-highlight-current-text);
 }
 
 ::highlight(find-match) {
-  background-color: var(--highlight-find);
+  background-color: var(--reader-highlight-find);
   color: inherit;
 }
 
 ::highlight(find-current) {
-  background-color: var(--highlight-current);
-  color: var(--highlight-current-text);
+  background-color: var(--reader-highlight-current);
+  color: var(--reader-highlight-current-text);
 }
 
 /* Legacy imported audiobook bundles can restore pre-CSS HTML such as
@@ -603,7 +639,15 @@ html[data-theme="dark"] .document-html-content :where(font[color], [color]) {
   color: inherit;
 }
 
+.app-reader:is([data-reader-theme="gray"], [data-reader-theme="black"]) .document-html-content :where(font[color], [color]) {
+  color: inherit;
+}
+
 html[data-theme="dark"] .document-html-content :where([bgcolor]) {
+  background-color: transparent;
+}
+
+.app-reader:is([data-reader-theme="gray"], [data-reader-theme="black"]) .document-html-content :where([bgcolor]) {
   background-color: transparent;
 }
 
@@ -616,19 +660,19 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 
 .document-html-content :is(th, td) {
   padding: 0.35rem 0.5rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--reader-border);
   vertical-align: top;
 }
 
 .document-html-content th {
-  background: var(--surface-muted);
-  color: var(--text-heading);
+  background: var(--reader-subtle);
+  color: var(--reader-heading);
 }
 
 .document-html-content hr {
   margin-block: 1.5rem;
   border: 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--reader-border);
 }
 
 .document-html-content figcaption {

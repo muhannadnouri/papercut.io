@@ -362,6 +362,12 @@
       "size": "Tamanho da fonte",
       "lineSpacing": "Espaçamento entre linhas",
       "width": "Largura de leitura",
+      "pageColor": "Cor da página",
+      "pageThemes": {
+        "default": "Padrão",
+        "gray": "Cinza",
+        "black": "Preto"
+      },
       "reset": "Reiniciar",
       "decrease": "Diminuir {{setting}}",
       "increase": "Aumentar {{setting}}",

@@ -362,6 +362,12 @@
       "size": "Tamaño de fuente",
       "lineSpacing": "Interlineado",
       "width": "Ancho de lectura",
+      "pageColor": "Color de página",
+      "pageThemes": {
+        "default": "Predeterminado",
+        "gray": "Gris",
+        "black": "Negro"
+      },
       "reset": "Reiniciar",
       "decrease": "Disminuir {{setting}}",
       "increase": "Aumentar {{setting}}",

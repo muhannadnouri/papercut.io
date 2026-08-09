@@ -377,6 +377,12 @@
       "size": "حجم الخط",
       "lineSpacing": "تباعد الأسطر",
       "width": "عرض القراءة",
+      "pageColor": "لون الصفحة",
+      "pageThemes": {
+        "default": "افتراضي",
+        "gray": "رمادي",
+        "black": "أسود"
+      },
       "reset": "إعادة الضبط",
       "decrease": "تقليل {{setting}}",
       "increase": "زيادة {{setting}}",

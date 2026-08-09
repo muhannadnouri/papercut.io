@@ -408,6 +408,7 @@ export function DocumentViewer({
     <div
       ref={readerShellRef}
       className={appClassName}
+      data-reader-theme={plugin.id !== 'pdf' ? readerSettingsProps.settings.pageTheme : undefined}
       onFocusCapture={revealFullscreenToolbar}
       onPointerCancel={() => { fullscreenTouchStartRef.current = null }}
       onPointerDown={handleFullscreenPointerDown}
