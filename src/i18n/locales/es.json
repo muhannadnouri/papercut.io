@@ -125,7 +125,7 @@
       "files": "Archivos",
       "filesDetail": "Importa uno o más archivos HTML, EPUB o PDF",
       "folder": "Carpeta",
-      "folderDetail": "Importa archivos HTML, EPUB y PDF de una carpeta; se omiten las subcarpetas",
+      "folderDetail": "Importa archivos HTML, EPUB y PDF y conserva una estructura de carpetas de hasta 5 niveles",
       "scanPages": "Escanear páginas",
       "scanPagesDetail": "Usa la cámara para escanear una o más páginas",
       "photos": "Fotos",

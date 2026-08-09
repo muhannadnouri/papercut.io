@@ -125,7 +125,7 @@
       "files": "Fichiers",
       "filesDetail": "Importez un ou plusieurs fichiers HTML, EPUB ou PDF",
       "folder": "Dossier",
-      "folderDetail": "Importez les fichiers HTML, EPUB et PDF d’un dossier ; les sous-dossiers sont ignorés",
+      "folderDetail": "Importez les fichiers HTML, EPUB et PDF et conservez une arborescence sur 5 niveaux maximum",
       "scanPages": "Numériser des pages",
       "scanPagesDetail": "Utilisez l’appareil photo pour numériser une ou plusieurs pages",
       "photos": "Photos",

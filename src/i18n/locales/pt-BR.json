@@ -125,7 +125,7 @@
       "files": "Arquivos",
       "filesDetail": "Importe um ou mais arquivos HTML, EPUB ou PDF",
       "folder": "Pasta",
-      "folderDetail": "Importe arquivos HTML, EPUB e PDF de uma pasta; as subpastas são ignoradas",
+      "folderDetail": "Importe arquivos HTML, EPUB e PDF e preserve uma estrutura de pastas com até 5 níveis",
       "scanPages": "Digitalizar páginas",
       "scanPagesDetail": "Use a câmera para digitalizar uma ou mais páginas",
       "photos": "Fotos",

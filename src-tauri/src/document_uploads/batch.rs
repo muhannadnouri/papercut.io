@@ -1,5 +1,6 @@
 //! Sequential document import/delete batches with progress and partial results.
 
+use std::collections::HashMap;
 use std::collections::HashSet;
 #[cfg(desktop)]
 use std::fs;
@@ -11,10 +12,14 @@ use tauri::{Emitter, Runtime};
 use tauri_plugin_dialog::{DialogExt, FilePath};
 use tauri_plugin_fs::FsExt;
 
+#[cfg(desktop)]
+use super::organization::{organize_folder_import, MAX_FOLDER_DEPTH};
 use super::pdf::import_pdf_source;
 use super::pipeline::{delete_upload, import_epub_source, import_html_source};
 use super::state::DocumentBatchControl;
 use super::storage::upload_id_from_url;
+#[cfg(desktop)]
+use super::store::list_uploads;
 use super::types::{
     UploadedDocument, UploadedDocumentBatchFailure, UploadedDocumentBatchProgress,
     UploadedDocumentBatchResult, UploadedDocumentDeleteBatchFailure,
@@ -48,6 +53,27 @@ struct DeleteBatchRun<T> {
     failures: Vec<UploadedDocumentDeleteBatchFailure>,
 }
 
+#[cfg(desktop)]
+struct FolderSource {
+    source: FilePath,
+    relative_folder: Vec<String>,
+}
+
+#[cfg(desktop)]
+struct FolderSelection {
+    root_name: String,
+    sources: Vec<FolderSource>,
+}
+
+#[cfg_attr(not(desktop), allow(dead_code))]
+struct FolderOrganizationPlan {
+    root_name: String,
+    folders_by_source: HashMap<PathBuf, Vec<String>>,
+    existing_document_ids: HashSet<String>,
+    placed_document_ids: HashSet<String>,
+    placements: Vec<(String, Vec<String>)>,
+}
+
 /// Open one multi-file picker and process every selected document in sequence.
 /// A bad file is reported in the result and does not discard successful imports.
 pub(crate) fn import_batch<R: Runtime>(
@@ -61,12 +87,14 @@ pub(crate) fn import_batch<R: Runtime>(
         .add_filter("Documents", &["html", "htm", "epub", "pdf"])
         .blocking_pick_files()
         .ok_or_else(|| "Document import cancelled".to_string())?;
-    import_sources(app, control, sources, None)
+    import_sources(app, control, sources, None, None)
 }
 
-/// Pick one desktop folder and import only its direct supported file children.
-/// Subfolders and symlinks are intentionally skipped; recursion can be added
-/// later without changing the shared import runner if users need it.
+/// Pick one desktop folder and preserve its supported files and subfolders.
+///
+/// The selected folder becomes a new top-level Library folder. Because that
+/// consumes depth zero, filesystem descendants are read through depth four to
+/// match the Library's existing five-visible-level limit. Symlinks are skipped.
 #[cfg(desktop)]
 pub(crate) fn import_folder<R: Runtime>(
     app: tauri::AppHandle<R>,
@@ -78,11 +106,35 @@ pub(crate) fn import_folder<R: Runtime>(
         .set_title("Import Documents from Folder")
         .blocking_pick_folder()
         .ok_or_else(|| "Document import cancelled".to_string())?;
-    let sources = folder_sources(folder)?;
-    if sources.is_empty() {
+    let selection = folder_sources(folder)?;
+    if selection.sources.is_empty() {
         return Err("The selected folder has no HTML, EPUB, or PDF files".into());
     }
-    import_sources(app, control, sources, None)
+    let existing_document_ids = list_uploads(&app)?
+        .into_iter()
+        .map(|document| document.id)
+        .collect();
+    let folders_by_source = selection
+        .sources
+        .iter()
+        .filter_map(|item| match &item.source {
+            FilePath::Path(path) => Some((path.clone(), item.relative_folder.clone())),
+            FilePath::Url(_) => None,
+        })
+        .collect();
+    let sources = selection
+        .sources
+        .into_iter()
+        .map(|item| item.source)
+        .collect();
+    let plan = FolderOrganizationPlan {
+        root_name: selection.root_name,
+        folders_by_source,
+        existing_document_ids,
+        placed_document_ids: HashSet::new(),
+        placements: Vec::new(),
+    };
+    import_sources(app, control, sources, None, Some(plan))
 }
 
 /// Keep command registration uniform across targets without compiling the
@@ -102,6 +154,9 @@ fn import_sources<R: Runtime>(
     control: DocumentBatchControl,
     sources: Vec<FilePath>,
     pdf_title: Option<&str>,
+    #[cfg_attr(not(desktop), allow(unused_variables, unused_mut))] mut folder_plan: Option<
+        FolderOrganizationPlan,
+    >,
 ) -> Result<UploadedDocumentBatchResult, String> {
     if sources.len() > MAX_BATCH_DOCUMENTS {
         return Err(format!(
@@ -109,14 +164,45 @@ fn import_sources<R: Runtime>(
         ));
     }
 
-    let run = process_sources(
+    #[allow(unused_mut)]
+    let mut run = process_sources(
         sources,
         || control.is_cancelled(),
-        |source| import_source(&app, source, pdf_title),
+        |source| {
+            #[cfg(desktop)]
+            let relative_folder = match (&folder_plan, &source) {
+                (Some(plan), FilePath::Path(path)) => plan.folders_by_source.get(path).cloned(),
+                _ => None,
+            };
+            let document = import_source(&app, source, pdf_title)?;
+            #[cfg(desktop)]
+            if let (Some(plan), Some(relative_folder)) = (&mut folder_plan, relative_folder) {
+                if !plan.existing_document_ids.contains(&document.id)
+                    && plan.placed_document_ids.insert(document.id.clone())
+                {
+                    plan.placements.push((document.id.clone(), relative_folder));
+                }
+            }
+            Ok(document)
+        },
         |progress| {
             let _ = app.emit(DOCUMENT_IMPORT_PROGRESS_EVENT, progress);
         },
     )?;
+
+    #[cfg(desktop)]
+    if let Some(plan) = folder_plan {
+        if !plan.placements.is_empty() {
+            if let Err(error) = organize_folder_import(&app, &plan.root_name, &plan.placements) {
+                run.failures.push(UploadedDocumentBatchFailure {
+                    file_name: plan.root_name,
+                    error: format!(
+                        "Documents were imported, but their folder structure could not be saved: {error}"
+                    ),
+                });
+            }
+        }
+    }
     let phase = if run.cancelled {
         "cancelled"
     } else {
@@ -151,7 +237,13 @@ pub(crate) fn import_scanner_source<R: Runtime>(
     source: PathBuf,
     title: &str,
 ) -> Result<UploadedDocumentBatchResult, String> {
-    import_sources(app, control, vec![FilePath::Path(source)], Some(title))
+    import_sources(
+        app,
+        control,
+        vec![FilePath::Path(source)],
+        Some(title),
+        None,
+    )
 }
 
 /// Delete a bounded, deduplicated URL list sequentially so one bad document
@@ -257,22 +349,53 @@ where
     run
 }
 
-/// Convert a desktop folder into a stable list of direct, regular document
-/// files. URL-backed folders are rejected because mobile providers do not
-/// expose a directory that Rust can enumerate safely.
+/// Convert a desktop folder into a stable recursive list of regular documents.
+/// URL-backed folders are rejected because mobile providers do not expose a
+/// directory that Rust can enumerate safely.
 #[cfg(desktop)]
-fn folder_sources(folder: FilePath) -> Result<Vec<FilePath>, String> {
+fn folder_sources(folder: FilePath) -> Result<FolderSelection, String> {
     let FilePath::Path(folder) = folder else {
         return Err("Folder import is available on desktop only".into());
     };
-    let mut paths = Vec::<PathBuf>::new();
-    for entry in
-        fs::read_dir(&folder).map_err(|err| format!("Failed to read selected folder: {err}"))?
-    {
-        let entry = entry.map_err(|err| format!("Failed to read folder entry: {err}"))?;
+    let root_name = folder
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .filter(|name| !name.trim().is_empty())
+        .unwrap_or_else(|| "Imported Folder".into());
+    let mut sources = Vec::new();
+    collect_folder_sources(&folder, &[], &mut sources)?;
+    Ok(FolderSelection { root_name, sources })
+}
+
+/// Walk only as deep as the Library can represent and stop once the batch cap
+/// is exceeded, avoiding an unbounded scan of a mistakenly selected directory.
+#[cfg(desktop)]
+fn collect_folder_sources(
+    folder: &Path,
+    relative_folder: &[String],
+    sources: &mut Vec<FolderSource>,
+) -> Result<(), String> {
+    let mut entries = fs::read_dir(folder)
+        .map_err(|err| format!("Failed to read selected folder: {err}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|err| format!("Failed to read folder entry: {err}"))?;
+    entries.sort_by_key(|entry| entry.path());
+
+    for entry in entries {
         let file_type = entry
             .file_type()
             .map_err(|err| format!("Failed to inspect folder entry: {err}"))?;
+        if file_type.is_symlink() {
+            continue;
+        }
+        if file_type.is_dir() {
+            if relative_folder.len() < MAX_FOLDER_DEPTH {
+                let mut child_folder = relative_folder.to_vec();
+                child_folder.push(entry.file_name().to_string_lossy().into_owned());
+                collect_folder_sources(&entry.path(), &child_folder, sources)?;
+            }
+            continue;
+        }
         if !file_type.is_file() {
             continue;
         }
@@ -283,11 +406,18 @@ fn folder_sources(folder: FilePath) -> Result<Vec<FilePath>, String> {
             .unwrap_or_default()
             .to_ascii_lowercase();
         if document_format_from(&extension, &[]).is_some() {
-            paths.push(entry.path());
+            sources.push(FolderSource {
+                source: FilePath::Path(entry.path()),
+                relative_folder: relative_folder.to_vec(),
+            });
+            if sources.len() > MAX_BATCH_DOCUMENTS {
+                return Err(format!(
+                    "Select at most {MAX_BATCH_DOCUMENTS} documents in one import"
+                ));
+            }
         }
     }
-    paths.sort();
-    Ok(paths.into_iter().map(FilePath::Path).collect())
+    Ok(())
 }
 
 /// Keep cancellation at file boundaries so a parser or persistence transaction
@@ -575,7 +705,7 @@ mod tests {
 
     #[test]
     #[cfg(desktop)]
-    fn folder_sources_include_only_direct_supported_regular_files() {
+    fn folder_sources_preserve_supported_files_through_five_visible_levels() {
         let suffix = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("clock")
@@ -584,15 +714,37 @@ mod tests {
             "papercut-document-folder-test-{}-{suffix}",
             std::process::id()
         ));
-        fs::create_dir_all(root.join("nested")).expect("create test folders");
+        fs::create_dir_all(root.join("nested/two/three/four/five")).expect("create test folders");
         fs::write(root.join("b.epub"), b"test").expect("write epub");
         fs::write(root.join("a.HTML"), b"test").expect("write html");
         fs::write(root.join("notes.txt"), b"test").expect("write text");
-        fs::write(root.join("nested/ignored.html"), b"test").expect("write nested html");
+        fs::write(root.join("nested/kept.html"), b"test").expect("write nested html");
+        fs::write(root.join("nested/two/three/four/kept.pdf"), b"test")
+            .expect("write deepest supported pdf");
+        fs::write(
+            root.join("nested/two/three/four/five/ignored.html"),
+            b"test",
+        )
+        .expect("write too-deep html");
 
-        let sources = folder_sources(FilePath::Path(root.clone())).expect("folder sources");
-        let names: Vec<_> = sources.iter().map(source_file_name).collect();
-        assert_eq!(names, vec!["a.HTML", "b.epub"]);
+        let selection = folder_sources(FilePath::Path(root.clone())).expect("folder sources");
+        let files: Vec<_> = selection
+            .sources
+            .iter()
+            .map(|item| (source_file_name(&item.source), item.relative_folder.clone()))
+            .collect();
+        assert_eq!(
+            files,
+            vec![
+                ("a.HTML".into(), vec![]),
+                ("b.epub".into(), vec![]),
+                ("kept.html".into(), vec!["nested".into()]),
+                (
+                    "kept.pdf".into(),
+                    vec!["nested".into(), "two".into(), "three".into(), "four".into()]
+                ),
+            ]
+        );
 
         fs::remove_dir_all(root).expect("remove test folder");
     }

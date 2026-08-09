@@ -125,7 +125,7 @@
       "files": "File",
       "filesDetail": "Importa uno o più file HTML, EPUB o PDF",
       "folder": "Cartella",
-      "folderDetail": "Importa i file HTML, EPUB e PDF da una cartella; le sottocartelle vengono ignorate",
+      "folderDetail": "Importa file HTML, EPUB e PDF e conserva una struttura di cartelle fino a 5 livelli",
       "scanPages": "Scansiona pagine",
       "scanPagesDetail": "Usa la fotocamera per scansionare una o più pagine",
       "photos": "Foto",

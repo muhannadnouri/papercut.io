@@ -121,7 +121,7 @@
       "files": "Files",
       "filesDetail": "Import one or more HTML, EPUB, or PDF files",
       "folder": "Folder",
-      "folderDetail": "Import HTML, EPUB, and PDF files in one folder; subfolders are skipped",
+      "folderDetail": "Import HTML, EPUB, and PDF files and preserve a folder hierarchy up to 5 levels",
       "scanPages": "Scan Pages",
       "scanPagesDetail": "Use the camera to scan one or more pages",
       "photos": "Photos",

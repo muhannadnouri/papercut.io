@@ -117,7 +117,7 @@
       "files": "文件",
       "filesDetail": "导入一个或多个 HTML、EPUB 或 PDF 文件",
       "folder": "文件夹",
-      "folderDetail": "导入一个文件夹中的 HTML、EPUB 和 PDF 文件；跳过子文件夹",
+      "folderDetail": "导入 HTML、EPUB 和 PDF 文件，并保留最多 5 层文件夹结构",
       "scanPages": "扫描页面",
       "scanPagesDetail": "使用相机扫描一页或多页",
       "photos": "照片",
