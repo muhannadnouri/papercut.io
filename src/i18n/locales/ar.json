@@ -410,6 +410,8 @@
       "fitWidth": "ملاءمة العرض",
       "fitPage": "ملاءمة الصفحة",
       "twoPageSpread": "عرض صفحتين",
+      "enterFullscreen": "عرض بملء الشاشة",
+      "exitFullscreen": "إنهاء ملء الشاشة",
       "outline": "مخطط المستند",
       "closeOutline": "إغلاق مخطط المستند",
       "loading": "جارٍ تحميل ملف PDF...",

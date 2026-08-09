@@ -390,6 +390,8 @@
       "fitWidth": "Fit width",
       "fitPage": "Fit page",
       "twoPageSpread": "Two-page spread",
+      "enterFullscreen": "Enter full screen",
+      "exitFullscreen": "Exit full screen",
       "outline": "Document outline",
       "closeOutline": "Close document outline",
       "loading": "Loading PDF...",

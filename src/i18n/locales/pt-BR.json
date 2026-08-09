@@ -395,6 +395,8 @@
       "fitWidth": "Ajustar à largura",
       "fitPage": "Ajustar página",
       "twoPageSpread": "Visualização em duas páginas",
+      "enterFullscreen": "Tela cheia",
+      "exitFullscreen": "Sair da tela cheia",
       "outline": "Sumário do documento",
       "closeOutline": "Fechar sumário do documento",
       "loading": "Carregando PDF...",

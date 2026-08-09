@@ -1,4 +1,11 @@
-import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react'
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { resolveViewer } from '../../viewers/registry'
@@ -16,6 +23,10 @@ import type { SearchOpenTarget } from '../../types/search'
 import type { TtsChunk } from '../../tts/types'
 import { openExternalUrl } from '../../utils/openExternalUrl'
 import {
+  isFullscreenToolbarTap,
+  type PointerPosition,
+} from './fullscreenToolbar'
+import {
   clearSearchTargetHighlight,
   decodeReaderHash,
   highlightFirstSearchTarget,
@@ -25,6 +36,8 @@ import {
 import './DocumentViewer.css'
 
 const FLOATING_READER_ACTION_SCROLL_Y = 180
+const PDF_FULLSCREEN_TOOLBAR_HIDE_MS = 3000
+const PDF_FULLSCREEN_POINTER_THROTTLE_MS = 400
 
 interface TtsHighlightOptions {
   enabled: boolean
@@ -69,11 +82,17 @@ export function DocumentViewer({
   onClose,
 }: DocumentViewerProps) {
   const { t } = useTranslation()
+  const readerShellRef = useRef<HTMLDivElement | null>(null)
   const readerRef = useRef<HTMLElement | null>(null)
+  const fullscreenToolbarTimerRef = useRef<number | null>(null)
+  const fullscreenPointerActivityRef = useRef(0)
+  const fullscreenTouchStartRef = useRef<(PointerPosition & { id: number }) | null>(null)
   const plugin = resolveViewer(url, format)
   const [viewerBookmarkApi, setViewerBookmarkApi] = useState<ViewerBookmarkApi | null>(null)
   const [viewerFindApi, setViewerFindApi] = useState<ViewerFindApi | null>(null)
   const [viewerToolbarTarget, setViewerToolbarTarget] = useState<HTMLDivElement | null>(null)
+  const [pdfFullscreen, setPdfFullscreen] = useState(false)
+  const [pdfToolbarVisible, setPdfToolbarVisible] = useState(true)
   const [showScrollTop, setShowScrollTop] = useState(false)
   const [pendingExternalUrl, setPendingExternalUrl] = useState<string | null>(null)
   const [externalLinkError, setExternalLinkError] = useState('')
@@ -119,6 +138,138 @@ export function DocumentViewer({
     ttsHighlight.currentChunkIndex !== null
     ? ttsHighlight.chunks[ttsHighlight.currentChunkIndex]?.pdfSourceSpans
     : undefined
+
+  const togglePdfFullscreen = useCallback(() => {
+    const shell = readerShellRef.current
+    if (!shell) return
+    const doc = shell.ownerDocument
+    const next = !pdfFullscreen
+
+    setShowFind(false)
+    if (next) setPdfToolbarVisible(true)
+    setPdfFullscreen(next)
+    if (next && typeof shell.requestFullscreen === 'function') {
+      // Keep the CSS reading mode when a mobile WebView rejects native fullscreen.
+      void shell.requestFullscreen().catch(() => {})
+    } else if (!next && doc.fullscreenElement && typeof doc.exitFullscreen === 'function') {
+      void doc.exitFullscreen().catch(() => {})
+    }
+  }, [pdfFullscreen, setShowFind])
+
+  const clearFullscreenToolbarTimer = useCallback(() => {
+    if (fullscreenToolbarTimerRef.current === null) return
+    window.clearTimeout(fullscreenToolbarTimerRef.current)
+    fullscreenToolbarTimerRef.current = null
+  }, [])
+
+  const scheduleFullscreenToolbarHide = useCallback(() => {
+    clearFullscreenToolbarTimer()
+    if (!pdfFullscreen) return
+
+    const hideWhenIdle = () => {
+      const toolbar = viewerToolbarTarget
+      const finePointerHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches &&
+        toolbar?.matches(':hover')
+      if (finePointerHover || toolbar?.querySelector(':focus-visible')) {
+        fullscreenToolbarTimerRef.current = window.setTimeout(hideWhenIdle, 1000)
+        return
+      }
+      fullscreenToolbarTimerRef.current = null
+      setPdfToolbarVisible(false)
+    }
+
+    fullscreenToolbarTimerRef.current = window.setTimeout(
+      hideWhenIdle,
+      PDF_FULLSCREEN_TOOLBAR_HIDE_MS,
+    )
+  }, [clearFullscreenToolbarTimer, pdfFullscreen, viewerToolbarTarget])
+
+  const revealFullscreenToolbar = useCallback(() => {
+    if (!pdfFullscreen) return
+    setPdfToolbarVisible(true)
+    scheduleFullscreenToolbarHide()
+  }, [pdfFullscreen, scheduleFullscreenToolbarHide])
+
+  useEffect(() => {
+    if (pdfFullscreen) scheduleFullscreenToolbarHide()
+    else clearFullscreenToolbarTimer()
+    return clearFullscreenToolbarTimer
+  }, [clearFullscreenToolbarTimer, pdfFullscreen, scheduleFullscreenToolbarHide])
+
+  const handleFullscreenPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!pdfFullscreen || event.pointerType === 'mouse') return
+    fullscreenTouchStartRef.current = {
+      id: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+    }
+  }, [pdfFullscreen])
+
+  const handleFullscreenPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!pdfFullscreen || event.pointerType !== 'mouse') return
+    const now = performance.now()
+    if (now - fullscreenPointerActivityRef.current < PDF_FULLSCREEN_POINTER_THROTTLE_MS) return
+    fullscreenPointerActivityRef.current = now
+    revealFullscreenToolbar()
+  }, [pdfFullscreen, revealFullscreenToolbar])
+
+  const handleFullscreenPointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const start = fullscreenTouchStartRef.current
+    fullscreenTouchStartRef.current = null
+    if (!pdfFullscreen || event.pointerType === 'mouse' || start?.id !== event.pointerId) return
+    if (!isFullscreenToolbarTap(start, { x: event.clientX, y: event.clientY })) return
+
+    const target = event.target
+    if (target instanceof Element && target.closest('button, a, input, select, [role="button"], [role="menu"]')) return
+    const selection = event.currentTarget.ownerDocument.getSelection()
+    if (selection && !selection.isCollapsed) return
+
+    if (pdfToolbarVisible) {
+      setPdfToolbarVisible(false)
+      clearFullscreenToolbarTimer()
+    } else {
+      setPdfToolbarVisible(true)
+      scheduleFullscreenToolbarHide()
+    }
+  }, [
+    clearFullscreenToolbarTimer,
+    pdfFullscreen,
+    pdfToolbarVisible,
+    scheduleFullscreenToolbarHide,
+  ])
+
+  useEffect(() => {
+    if (plugin.id !== 'pdf') return
+    const shell = readerShellRef.current
+    if (!shell) return
+    const doc = shell.ownerDocument
+    const handleFullscreenChange = () => {
+      if (doc.fullscreenElement !== shell) setPdfFullscreen(false)
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !doc.fullscreenElement) setPdfFullscreen(false)
+      if (event.key === 'Tab' && pdfFullscreen) revealFullscreenToolbar()
+    }
+
+    doc.addEventListener('fullscreenchange', handleFullscreenChange)
+    doc.addEventListener('keydown', handleKeyDown)
+    return () => {
+      doc.removeEventListener('fullscreenchange', handleFullscreenChange)
+      doc.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [pdfFullscreen, plugin.id, revealFullscreenToolbar])
+
+  useEffect(() => {
+    if (plugin.id !== 'pdf') return
+    const shell = readerShellRef.current
+    if (!shell) return
+    const doc = shell.ownerDocument
+    return () => {
+      if (doc.fullscreenElement === shell && typeof doc.exitFullscreen === 'function') {
+        void doc.exitFullscreen().catch(() => {})
+      }
+    }
+  }, [plugin.id])
 
   // Uploaded HTML/EPUB is already sanitized by the backend and rendered in the
   // app DOM. Handle internal anchors here so ToC/footnote clicks do not mutate
@@ -242,11 +393,21 @@ export function DocumentViewer({
     'app',
     'app-reader',
     plugin.id === 'pdf' ? 'app-reader-pdf' : '',
+    pdfFullscreen ? 'app-reader-pdf-fullscreen' : '',
+    pdfFullscreen && !pdfToolbarVisible ? 'app-reader-pdf-toolbar-hidden' : '',
     className,
   ].filter(Boolean).join(' ')
 
   return (
-    <div className={appClassName}>
+    <div
+      ref={readerShellRef}
+      className={appClassName}
+      onFocusCapture={revealFullscreenToolbar}
+      onPointerCancel={() => { fullscreenTouchStartRef.current = null }}
+      onPointerDown={handleFullscreenPointerDown}
+      onPointerMove={handleFullscreenPointerMove}
+      onPointerUp={handleFullscreenPointerUp}
+    >
       <header className="header doc-header">
         <div className="header-left">
           <button className="back-button" onClick={onClose}>
@@ -305,7 +466,7 @@ export function DocumentViewer({
         />
       )}
 
-      {beforeDocument}
+      {!pdfFullscreen && beforeDocument}
 
       <main className="document-view" style={readerSettingsStyle}>
         {loading ? (
@@ -327,9 +488,11 @@ export function DocumentViewer({
             toolbarTarget={viewerToolbarTarget}
             searchTarget={searchTarget}
             pdfTtsHighlightSpans={pdfTtsHighlightSpans}
+            fullscreen={pdfFullscreen}
             onBookmarkApiChange={setViewerBookmarkApi}
             onFindApiChange={setViewerFindApi}
             onFindResult={handleViewerFindResult}
+            onFullscreenChange={togglePdfFullscreen}
           />
         )}
       </main>

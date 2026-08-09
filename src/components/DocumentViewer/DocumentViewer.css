@@ -24,6 +24,59 @@
   min-height: 100dvh;
 }
 
+.app-reader.app-reader-pdf-fullscreen {
+  background: var(--app-bg);
+  height: 100dvh;
+  inset: 0;
+  max-width: none;
+  min-height: 100dvh;
+  padding: 0;
+  position: fixed;
+  width: 100%;
+  z-index: 300;
+}
+
+.app-reader-pdf.app-reader-pdf-fullscreen .doc-header {
+  grid-template-areas: "viewer";
+  grid-template-columns: minmax(0, 1fr);
+  inset: 0 0 auto;
+  margin: 0;
+  padding:
+    max(env(safe-area-inset-top), 0.35rem)
+    max(env(safe-area-inset-right), 0.35rem)
+    0.35rem
+    max(env(safe-area-inset-left), 0.35rem);
+  pointer-events: none;
+  position: absolute;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+  width: 100%;
+  z-index: 45;
+}
+
+.app-reader-pdf.app-reader-pdf-fullscreen .viewer-toolbar-slot {
+  pointer-events: auto;
+}
+
+.app-reader-pdf.app-reader-pdf-fullscreen.app-reader-pdf-toolbar-hidden .doc-header {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-100%);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.app-reader-pdf.app-reader-pdf-fullscreen.app-reader-pdf-toolbar-hidden .viewer-toolbar-slot {
+  pointer-events: none;
+}
+
+.app-reader-pdf.app-reader-pdf-fullscreen .header-left,
+.app-reader-pdf.app-reader-pdf-fullscreen .header-right {
+  display: none;
+}
+
 .app-reader-pdf .doc-header {
   grid-template-areas:
     "back controls"
@@ -68,6 +121,13 @@
   background: transparent;
   border-bottom: 0;
   padding: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-reader-pdf.app-reader-pdf-fullscreen .doc-header,
+  .app-reader-pdf.app-reader-pdf-fullscreen.app-reader-pdf-toolbar-hidden .doc-header {
+    transition: none;
+  }
 }
 
 .header-controls-slot {

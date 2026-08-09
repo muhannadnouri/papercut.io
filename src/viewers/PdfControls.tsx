@@ -15,6 +15,7 @@ const ZOOM_STEP = 10
 type PdfControlsProps = {
   currentPage: number
   fitMode: PdfFitMode
+  fullscreen: boolean
   hasOutline: boolean
   outlineOpen: boolean
   pages: number
@@ -22,6 +23,7 @@ type PdfControlsProps = {
   spreadMode: PdfSpreadMode
   zoom: number
   onFitChange: (mode: Exclude<PdfFitMode, null>) => void
+  onFullscreenChange: () => void
   onOutlineChange: (open: boolean) => void
   onPageChange: (page: number) => void
   onPageNext: () => void
@@ -33,6 +35,7 @@ type PdfControlsProps = {
 export function PdfControls({
   currentPage,
   fitMode,
+  fullscreen,
   hasOutline,
   outlineOpen,
   pages,
@@ -40,6 +43,7 @@ export function PdfControls({
   spreadMode,
   zoom,
   onFitChange,
+  onFullscreenChange,
   onOutlineChange,
   onPageChange,
   onPageNext,
@@ -190,7 +194,8 @@ export function PdfControls({
           onClick={() => onFitChange('page-fit')}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" />
+            <rect x="5" y="3" width="14" height="18" rx="1.5" />
+            <path d="M12 6v12M9.5 8.5 12 6l2.5 2.5M9.5 15.5 12 18l2.5-2.5" />
           </svg>
         </button>
         <button
@@ -225,6 +230,23 @@ export function PdfControls({
             </svg>
           </button>
         )}
+        <button
+          type="button"
+          className={`pdf-control-button${fullscreen ? ' active' : ''}`}
+          disabled={!ready}
+          aria-label={t(fullscreen ? 'reader.pdf.exitFullscreen' : 'reader.pdf.enterFullscreen')}
+          aria-pressed={fullscreen}
+          title={t(fullscreen ? 'reader.pdf.exitFullscreen' : 'reader.pdf.enterFullscreen')}
+          onClick={onFullscreenChange}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            {fullscreen ? (
+              <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
+            ) : (
+              <path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5" />
+            )}
+          </svg>
+        </button>
       </div>
     </div>
   )

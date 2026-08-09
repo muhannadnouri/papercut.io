@@ -65,7 +65,6 @@
 .pdf-control-button:focus-visible,
 .pdf-control-button.active {
   background: var(--surface-accent);
-  border-color: var(--accent-text);
   color: var(--accent-text);
   outline: none;
 }
@@ -77,7 +76,6 @@
 @media (hover: hover) and (pointer: fine) {
   .pdf-control-button:hover:not(:disabled) {
     background: var(--surface-accent);
-    border-color: var(--accent-text);
     color: var(--accent-text);
   }
 }
@@ -157,14 +155,6 @@
 .pdf-zoom-input input:focus {
   box-shadow: none;
   outline: none;
-}
-
-.pdf-control-group > * + * {
-  border-inline-start: 1px solid var(--row-divider);
-}
-
-.pdf-page-input + .pdf-page-total {
-  border-inline-start: 0;
 }
 
 html[dir='rtl'] .pdf-page-previous svg,

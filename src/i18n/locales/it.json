@@ -395,6 +395,8 @@
       "fitWidth": "Adatta alla larghezza",
       "fitPage": "Adatta pagina",
       "twoPageSpread": "Visualizzazione a due pagine",
+      "enterFullscreen": "Schermo intero",
+      "exitFullscreen": "Esci da schermo intero",
       "outline": "Indice del documento",
       "closeOutline": "Chiudi indice del documento",
       "loading": "Caricamento PDF...",

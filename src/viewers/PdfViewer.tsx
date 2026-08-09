@@ -105,9 +105,11 @@ export function PdfViewer({
   toolbarTarget,
   searchTarget,
   pdfTtsHighlightSpans,
+  fullscreen = false,
   onBookmarkApiChange,
   onFindApiChange,
   onFindResult,
+  onFullscreenChange = () => {},
 }: ViewerProps) {
   const { t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -526,6 +528,7 @@ export function PdfViewer({
     <PdfControls
       currentPage={currentPage}
       fitMode={fitMode}
+      fullscreen={fullscreen}
       hasOutline={outline.length > 0}
       outlineOpen={outlineOpen}
       pages={pages}
@@ -535,6 +538,7 @@ export function PdfViewer({
       onFitChange={(mode) => {
         if (pdfViewerRef.current) pdfViewerRef.current.currentScaleValue = mode
       }}
+      onFullscreenChange={onFullscreenChange}
       onOutlineChange={setOutlineOpen}
       onPageChange={(page) => {
         if (pdfViewerRef.current) pdfViewerRef.current.currentPageNumber = page
