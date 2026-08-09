@@ -121,7 +121,6 @@
   --reader-link: var(--link);
   --reader-link-hover: var(--link-hover);
   --reader-border: var(--border);
-  --reader-border-strong: var(--border-strong);
   --reader-subtle: var(--surface-muted);
   --reader-accent-border: var(--accent-border);
   --reader-highlight-find: var(--highlight-find);

@@ -233,7 +233,6 @@ html[dir="rtl"] .back-icon {
   --reader-link: #c5c8ff;
   --reader-link-hover: #e0e2ff;
   --reader-border: #5b5960;
-  --reader-border-strong: var(--reader-surface);
   --reader-subtle: #3e3d42;
   --reader-accent-border: #b2b6ff;
   --reader-highlight-find: #8c7724;
@@ -249,7 +248,6 @@ html[dir="rtl"] .back-icon {
   --reader-link: #aeb4ff;
   --reader-link-hover: #d5d8ff;
   --reader-border: #343840;
-  --reader-border-strong: #545a65;
   --reader-subtle: #17191d;
   --reader-accent-border: #939bf5;
   --reader-highlight-find: #715f18;
@@ -265,7 +263,7 @@ html[dir="rtl"] .back-icon {
   width: 100%;
   min-height: 320px;
   display: block;
-  border: 1px solid var(--reader-border-strong);
+  border: 1px solid transparent;
   border-radius: var(--radius-surface);
   background: var(--reader-surface);
   color: var(--reader-text);

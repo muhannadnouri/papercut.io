@@ -1,7 +1,7 @@
 {
     "window.autoDetectColorScheme": true,
     "workbench.preferredDarkColorTheme": "GitHub Dark High Contrast",
-    "workbench.preferredLightColorTheme": "GitHub Dark High Contrast",
+    "workbench.preferredLightColorTheme": "GitHub Light High Contrast",
     "files.watcherExclude": {
         "**/.cache/**": true,
         "**/.venv-silma/**": true,
