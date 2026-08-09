@@ -504,11 +504,13 @@
 }
 
 .document-row-action-danger {
-  color: var(--danger);
+  border-color: transparent;
+  background: var(--surface-danger);
+  color: var(--danger-strong);
 }
 
 .document-row-action-danger:focus-visible {
-  border-color: var(--danger-accent);
+  border-color: transparent;
   background: var(--surface-danger);
   color: var(--danger-accent);
   outline: none;
@@ -670,7 +672,7 @@
   }
 
   .document-row-action-danger:hover:not(:disabled) {
-    border-color: var(--danger-accent);
+    border-color: transparent;
     background: var(--surface-danger);
     color: var(--danger-accent);
   }
