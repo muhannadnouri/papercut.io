@@ -338,6 +338,11 @@
     "removeBookmark": "删除书签",
     "updateBookmark": "更新书签",
     "saveBookmark": "保存书签",
+    "bookmarkActions": "书签操作",
+    "returnToBookmark": "转到书签",
+    "moveBookmarkHere": "将书签移到此处",
+    "undoBookmarkChange": "撤销",
+    "bookmarkChangeUndone": "已撤销书签更改。",
     "top": "顶部",
     "dismissBookmarkNotice": "关闭书签通知",
     "settings": {

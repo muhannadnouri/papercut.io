@@ -348,6 +348,11 @@
     "removeBookmark": "Rimuovi segnalibro",
     "updateBookmark": "Aggiorna segnalibro",
     "saveBookmark": "Salva segnalibro",
+    "bookmarkActions": "Azioni segnalibro",
+    "returnToBookmark": "Vai al segnalibro",
+    "moveBookmarkHere": "Sposta qui il segnalibro",
+    "undoBookmarkChange": "Annulla",
+    "bookmarkChangeUndone": "Modifica del segnalibro annullata.",
     "top": "Superiore",
     "dismissBookmarkNotice": "Ignora avviso sui segnalibri",
     "settings": {

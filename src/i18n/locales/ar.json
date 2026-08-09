@@ -363,6 +363,11 @@
     "removeBookmark": "إزالة العلامة المرجعية",
     "updateBookmark": "تحديث العلامة المرجعية",
     "saveBookmark": "حفظ علامة مرجعية",
+    "bookmarkActions": "إجراءات العلامة المرجعية",
+    "returnToBookmark": "الانتقال إلى العلامة المرجعية",
+    "moveBookmarkHere": "نقل العلامة المرجعية إلى هنا",
+    "undoBookmarkChange": "تراجع",
+    "bookmarkChangeUndone": "تم التراجع عن تغيير العلامة المرجعية.",
     "top": "الأعلى",
     "dismissBookmarkNotice": "إغلاق إشعار العلامة المرجعية",
     "settings": {

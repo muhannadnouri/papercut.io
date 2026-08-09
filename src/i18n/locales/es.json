@@ -348,6 +348,11 @@
     "removeBookmark": "Quitar marcador",
     "updateBookmark": "Actualizar marcador",
     "saveBookmark": "Guardar marcador",
+    "bookmarkActions": "Acciones del marcador",
+    "returnToBookmark": "Ir al marcador",
+    "moveBookmarkHere": "Mover marcador aquí",
+    "undoBookmarkChange": "Deshacer",
+    "bookmarkChangeUndone": "Se deshizo el cambio del marcador.",
     "top": "Arriba",
     "dismissBookmarkNotice": "Descartar aviso de marcador",
     "settings": {

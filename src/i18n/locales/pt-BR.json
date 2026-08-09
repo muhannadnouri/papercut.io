@@ -348,6 +348,11 @@
     "removeBookmark": "Remover favorito",
     "updateBookmark": "Atualizar favorito",
     "saveBookmark": "Salvar favorito",
+    "bookmarkActions": "Ações do marcador",
+    "returnToBookmark": "Ir para o marcador",
+    "moveBookmarkHere": "Mover marcador para cá",
+    "undoBookmarkChange": "Desfazer",
+    "bookmarkChangeUndone": "Alteração do marcador desfeita.",
     "top": "Principal",
     "dismissBookmarkNotice": "Ignorar aviso de favorito",
     "settings": {

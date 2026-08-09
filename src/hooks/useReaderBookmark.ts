@@ -5,7 +5,7 @@ const STORAGE_PREFIX = 'papercut:reader-bookmark:'
 const BOOKMARKS_CHANGED_EVENT = 'papercut:reader-bookmarks-changed'
 const NOTICE_MS = 6000
 
-type BookmarkNotice = 'restored' | 'saved' | 'updated' | 'removed' | null
+type BookmarkNotice = 'restored' | 'saved' | 'updated' | 'removed' | 'changeUndone' | null
 
 export interface ReaderBookmark {
   updatedAtMs: number
@@ -20,10 +20,15 @@ interface UseReaderBookmarkOptions {
 
 interface UseReaderBookmarkReturn {
   bookmarkNotice: BookmarkNotice
+  canUndoBookmarkChange: boolean
   hasBookmark: boolean
   isAtBookmark: boolean
   dismissBookmarkNotice: () => void
-  toggleBookmark: () => void
+  moveBookmark: () => void
+  removeBookmark: () => void
+  restoreBookmark: () => void
+  saveBookmark: () => void
+  undoBookmarkChange: () => void
 }
 
 type BookmarkStorage = Pick<Storage, 'getItem' | 'key' | 'length'>
@@ -74,6 +79,7 @@ export function useReaderBookmark(
   const [hasBookmark, setHasBookmark] = useState(false)
   const [isAtBookmark, setIsAtBookmark] = useState(false)
   const bookmarkRef = useRef<ReaderBookmark | null>(null)
+  const undoBookmarkRef = useRef<ReaderBookmark | null>(null)
   const restoredKeyRef = useRef('')
 
   const loadBookmark = useCallback((): ReaderBookmark | null => {
@@ -89,26 +95,13 @@ export function useReaderBookmark(
   }, [url])
 
   const dismissBookmarkNotice = useCallback(() => {
+    undoBookmarkRef.current = null
     setBookmarkNotice(null)
   }, [])
 
-  // The floating bookmark button is a toggle at the saved spot, not a separate
-  // delete flow. This keeps the reader UI to one bookmark action: save/update
-  // when away from the bookmark, remove when the active-state fill is showing.
-  const toggleBookmark = useCallback(() => {
+  const storeCurrentBookmark = useCallback((previous: ReaderBookmark | null) => {
     if (!enabled || !viewerApi) return
     try {
-      if (bookmarkRef.current && isAtBookmark) {
-        window.localStorage.removeItem(storageKey(url))
-        notifyBookmarksChanged()
-        bookmarkRef.current = null
-        setHasBookmark(false)
-        setIsAtBookmark(false)
-        setBookmarkNotice('removed')
-        return
-      }
-
-      const wasBookmarked = Boolean(loadBookmark())
       const viewerLocation = viewerApi.capture()
       if (!viewerLocation) return
       const next: ReaderBookmark = {
@@ -118,18 +111,70 @@ export function useReaderBookmark(
 
       window.localStorage.setItem(storageKey(url), JSON.stringify(next))
       notifyBookmarksChanged()
+      undoBookmarkRef.current = previous
       bookmarkRef.current = next
       setHasBookmark(true)
       setIsAtBookmark(true)
-      setBookmarkNotice(wasBookmarked ? 'updated' : 'saved')
+      setBookmarkNotice(previous ? 'updated' : 'saved')
     } catch {
       // Private browsing / storage quota failures should not break reading.
     }
-  }, [enabled, isAtBookmark, loadBookmark, url, viewerApi])
+  }, [enabled, url, viewerApi])
+
+  const saveBookmark = useCallback(() => {
+    storeCurrentBookmark(null)
+  }, [storeCurrentBookmark])
+
+  const moveBookmark = useCallback(() => {
+    if (!bookmarkRef.current) return
+    storeCurrentBookmark(bookmarkRef.current)
+  }, [storeCurrentBookmark])
+
+  const restoreBookmark = useCallback(() => {
+    const bookmark = bookmarkRef.current
+    if (!enabled || !viewerApi || !bookmark) return
+    undoBookmarkRef.current = null
+    viewerApi.restore(bookmark.viewerLocation)
+    setIsAtBookmark(true)
+    setBookmarkNotice('restored')
+  }, [enabled, viewerApi])
+
+  const removeBookmark = useCallback(() => {
+    const bookmark = bookmarkRef.current
+    if (!bookmark) return
+    try {
+      window.localStorage.removeItem(storageKey(url))
+      notifyBookmarksChanged()
+      undoBookmarkRef.current = bookmark
+      bookmarkRef.current = null
+      setHasBookmark(false)
+      setIsAtBookmark(false)
+      setBookmarkNotice('removed')
+    } catch {
+      // Private browsing / storage failures should not break reading.
+    }
+  }, [url])
+
+  const undoBookmarkChange = useCallback(() => {
+    const bookmark = undoBookmarkRef.current
+    if (!bookmark) return
+    try {
+      window.localStorage.setItem(storageKey(url), JSON.stringify(bookmark))
+      notifyBookmarksChanged()
+      undoBookmarkRef.current = null
+      bookmarkRef.current = bookmark
+      setHasBookmark(true)
+      setIsAtBookmark(viewerApi ? viewerApi.isCurrent(bookmark.viewerLocation) : false)
+      setBookmarkNotice('changeUndone')
+    } catch {
+      // Private browsing / storage failures should not break reading.
+    }
+  }, [url, viewerApi])
 
   useEffect(() => {
     if (!enabled) return
     const bookmark = loadBookmark()
+    undoBookmarkRef.current = null
     bookmarkRef.current = bookmark
 
     const frame = requestAnimationFrame(() => {
@@ -180,11 +225,22 @@ export function useReaderBookmark(
 
   useEffect(() => {
     if (!bookmarkNotice) return
-    const timer = setTimeout(() => setBookmarkNotice(null), NOTICE_MS)
+    const timer = setTimeout(dismissBookmarkNotice, NOTICE_MS)
     return () => clearTimeout(timer)
-  }, [bookmarkNotice])
+  }, [bookmarkNotice, dismissBookmarkNotice])
 
-  return { bookmarkNotice, dismissBookmarkNotice, hasBookmark, isAtBookmark, toggleBookmark }
+  return {
+    bookmarkNotice,
+    canUndoBookmarkChange: bookmarkNotice === 'updated' || bookmarkNotice === 'removed',
+    dismissBookmarkNotice,
+    hasBookmark,
+    isAtBookmark,
+    moveBookmark,
+    removeBookmark,
+    restoreBookmark,
+    saveBookmark,
+    undoBookmarkChange,
+  }
 }
 
 function storageKey(url: string): string {

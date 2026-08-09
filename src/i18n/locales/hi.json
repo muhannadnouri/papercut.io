@@ -343,6 +343,11 @@
     "removeBookmark": "बुकमार्क हटाएँ",
     "updateBookmark": "बुकमार्क अपडेट करें",
     "saveBookmark": "बुकमार्क सहेजें",
+    "bookmarkActions": "बुकमार्क कार्रवाइयाँ",
+    "returnToBookmark": "बुकमार्क पर जाएँ",
+    "moveBookmarkHere": "बुकमार्क यहाँ ले जाएँ",
+    "undoBookmarkChange": "पूर्ववत करें",
+    "bookmarkChangeUndone": "बुकमार्क परिवर्तन पूर्ववत किया गया.",
     "top": "शीर्ष",
     "dismissBookmarkNotice": "बुकमार्क नोटिस ख़ारिज करें",
     "settings": {

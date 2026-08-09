@@ -348,6 +348,11 @@
     "removeBookmark": "Supprimer le favori",
     "updateBookmark": "Mettre à jour le favori",
     "saveBookmark": "Enregistrer le favori",
+    "bookmarkActions": "Actions du marque-page",
+    "returnToBookmark": "Aller au marque-page",
+    "moveBookmarkHere": "Déplacer le marque-page ici",
+    "undoBookmarkChange": "Annuler",
+    "bookmarkChangeUndone": "La modification du marque-page a été annulée.",
     "top": "Haut",
     "dismissBookmarkNotice": "Ignorer l'avis de favori",
     "settings": {

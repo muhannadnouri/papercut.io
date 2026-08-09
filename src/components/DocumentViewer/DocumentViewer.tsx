@@ -15,6 +15,7 @@ import { ScrollTopButton } from '../ScrollTopButton/ScrollTopButton'
 import { ReaderSettings } from '../ReaderSettings/ReaderSettings'
 import { useReaderSettings } from '../ReaderSettings/useReaderSettings'
 import { ExternalLinkPrompt } from '../ExternalLinkPrompt/ExternalLinkPrompt'
+import { ReaderBookmarkButton } from './ReaderBookmarkButton'
 import { getExternalLinkUrl, getInternalDocumentHash } from './linkUtils'
 import { useFindInPage } from '../../hooks/useFindInPage'
 import { useReaderBookmark } from '../../hooks/useReaderBookmark'
@@ -99,10 +100,15 @@ export function DocumentViewer({
   const { readerSettingsStyle, readerSettingsProps } = useReaderSettings()
   const {
     bookmarkNotice,
+    canUndoBookmarkChange,
     dismissBookmarkNotice,
     hasBookmark,
     isAtBookmark,
-    toggleBookmark,
+    moveBookmark,
+    removeBookmark,
+    restoreBookmark: returnToBookmark,
+    saveBookmark,
+    undoBookmarkChange,
   } = useReaderBookmark(url, {
     enabled: !loading &&
       !loadError &&
@@ -499,18 +505,14 @@ export function DocumentViewer({
 
       {showScrollTop && (
         <div className="reader-floating-actions">
-          <button
-            type="button"
-            className={'reader-bookmark-btn' + (isAtBookmark ? ' reader-bookmark-btn-active' : '')}
-            aria-label={bookmarkActionLabel(hasBookmark, isAtBookmark, t)}
-            title={bookmarkActionLabel(hasBookmark, isAtBookmark, t)}
-            onClick={toggleBookmark}
-          >
-            <svg className="reader-bookmark-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M6 4.75A2.75 2.75 0 0 1 8.75 2h6.5A2.75 2.75 0 0 1 18 4.75V21l-6-3.5L6 21z" />
-              {hasBookmark && <path d="m9 10.8 2 2 4-4" />}
-            </svg>
-          </button>
+          <ReaderBookmarkButton
+            hasBookmark={hasBookmark}
+            isAtBookmark={isAtBookmark}
+            onMove={moveBookmark}
+            onRemove={removeBookmark}
+            onRestore={returnToBookmark}
+            onSave={saveBookmark}
+          />
 
           <ScrollTopButton
             visible={showScrollTop}
@@ -523,6 +525,9 @@ export function DocumentViewer({
         <div className="reader-bookmark-notice" role="status" aria-live="polite">
           <span>{bookmarkNoticeText(bookmarkNotice, t)}</span>
           {bookmarkNotice === 'restored' && <button type="button" onClick={scrollToTop}>{t('reader.top')}</button>}
+          {canUndoBookmarkChange && (
+            <button type="button" onClick={undoBookmarkChange}>{t('reader.undoBookmarkChange')}</button>
+          )}
           <button
             type="button"
             className="reader-bookmark-dismiss"
@@ -547,19 +552,11 @@ export function DocumentViewer({
 }
 
 function bookmarkNoticeText(
-  notice: 'restored' | 'saved' | 'updated' | 'removed',
+  notice: 'restored' | 'saved' | 'updated' | 'removed' | 'changeUndone',
   t: TFunction,
 ): string {
   if (notice === 'restored') return t('reader.bookmarkRestored')
   if (notice === 'removed') return t('reader.bookmarkRemoved')
+  if (notice === 'changeUndone') return t('reader.bookmarkChangeUndone')
   return notice === 'updated' ? t('reader.bookmarkUpdated') : t('reader.bookmarkSaved')
-}
-
-function bookmarkActionLabel(
-  hasBookmark: boolean,
-  isAtBookmark: boolean,
-  t: TFunction,
-): string {
-  if (isAtBookmark) return t('reader.removeBookmark')
-  return hasBookmark ? t('reader.updateBookmark') : t('reader.saveBookmark')
 }
