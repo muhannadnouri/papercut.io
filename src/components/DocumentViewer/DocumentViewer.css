@@ -227,13 +227,13 @@ html[dir="rtl"] .back-icon {
 
 .app-reader[data-reader-theme="gray"] {
   --reader-surface: #4a494f;
-  --reader-text: #eceaec;
-  --reader-muted: #cbc7cd;
-  --reader-heading: #faf9fa;
+  --reader-text: #dedcdf;
+  --reader-muted: #c3c0c5;
+  --reader-heading: #f0eef1;
   --reader-link: #c5c8ff;
   --reader-link-hover: #e0e2ff;
-  --reader-border: #6c6970;
-  --reader-border-strong: #858189;
+  --reader-border: #5b5960;
+  --reader-border-strong: var(--reader-surface);
   --reader-subtle: #3e3d42;
   --reader-accent-border: #b2b6ff;
   --reader-highlight-find: #8c7724;
