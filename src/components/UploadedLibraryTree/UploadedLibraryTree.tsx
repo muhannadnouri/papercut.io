@@ -77,8 +77,8 @@ export function UploadedLibraryTree({
   const organizing = mode === 'library' && editMode
   const locale = i18n.resolvedLanguage ?? i18n.language
   const { nodes, folders, nodeByKey, folderOptions } = useMemo(
-    () => buildLibraryTree(documents, organization, { hideEmptyFolders: filterMode, locale }),
-    [documents, filterMode, locale, organization],
+    () => buildLibraryTree(documents, organization, { hideEmptyFolders: filterMode || filterActive, locale }),
+    [documents, filterActive, filterMode, locale, organization],
   )
   const rootDocuments = useMemo(() => nodes.flatMap(collectDocuments), [nodes])
   const documentNodes = useMemo(
