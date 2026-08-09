@@ -22,7 +22,7 @@
   background: var(--surface-accent);
   color: var(--accent-strong);
   outline: none;
-  box-shadow: 0 0 0 3px var(--shadow-focus);
+  box-shadow: inset 0 0 0 2px var(--accent-text);
 }
 
 .pdf-recognition-icon {
@@ -165,8 +165,8 @@
 
 @media (pointer: coarse) {
   .pdf-recognition-trigger {
-    width: 2.75rem;
-    min-height: 2.75rem;
+    width: 2.5rem;
+    min-height: 2.5rem;
   }
 
   .pdf-recognition-prompt-actions button {

@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { Button, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components'
 import './PdfControls.css'
 import {
   clampPdfPage,
@@ -247,6 +248,74 @@ export function PdfControls({
             )}
           </svg>
         </button>
+      </div>
+
+      <div className="pdf-control-group pdf-view-options">
+        <MenuTrigger>
+          <Button
+            className="pdf-control-button pdf-view-options-trigger"
+            isDisabled={!ready}
+            aria-label={t('reader.pdf.view')}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <circle cx="12" cy="5" r="1.5" />
+              <circle cx="12" cy="12" r="1.5" />
+              <circle cx="12" cy="19" r="1.5" />
+            </svg>
+          </Button>
+          <Popover
+            className="pdf-view-options-popover"
+            placement="bottom end"
+            offset={6}
+            containerPadding={8}
+            shouldFlip
+          >
+            <Menu className="pdf-view-options-menu" aria-label={t('reader.pdf.view')}>
+              <MenuItem
+                className="pdf-view-option"
+                textValue={t('reader.pdf.fitWidth')}
+                onAction={() => onFitChange('page-width')}
+              >
+                <span className="pdf-view-option-check" aria-hidden="true">
+                  {fitMode === 'page-width' ? '✓' : ''}
+                </span>
+                <span>{t('reader.pdf.fitWidth')}</span>
+              </MenuItem>
+              <MenuItem
+                className="pdf-view-option"
+                textValue={t('reader.pdf.fitPage')}
+                onAction={() => onFitChange('page-fit')}
+              >
+                <span className="pdf-view-option-check" aria-hidden="true">
+                  {fitMode === 'page-fit' ? '✓' : ''}
+                </span>
+                <span>{t('reader.pdf.fitPage')}</span>
+              </MenuItem>
+              {hasOutline && (
+                <MenuItem
+                  className="pdf-view-option"
+                  textValue={t('reader.pdf.outline')}
+                  onAction={() => onOutlineChange(!outlineOpen)}
+                >
+                  <span className="pdf-view-option-check" aria-hidden="true">
+                    {outlineOpen ? '✓' : ''}
+                  </span>
+                  <span>{t('reader.pdf.outline')}</span>
+                </MenuItem>
+              )}
+              <MenuItem
+                className="pdf-view-option"
+                textValue={t(fullscreen ? 'reader.pdf.exitFullscreen' : 'reader.pdf.enterFullscreen')}
+                onAction={onFullscreenChange}
+              >
+                <span className="pdf-view-option-check" aria-hidden="true">
+                  {fullscreen ? '✓' : ''}
+                </span>
+                <span>{t(fullscreen ? 'reader.pdf.exitFullscreen' : 'reader.pdf.enterFullscreen')}</span>
+              </MenuItem>
+            </Menu>
+          </Popover>
+        </MenuTrigger>
       </div>
     </div>
   )
