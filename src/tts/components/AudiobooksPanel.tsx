@@ -12,9 +12,9 @@ import {
   formatSavedAudiobookMeta,
 } from '../utils/format'
 import { Panel } from '../../components/Panel/Panel'
-import { AppDialog } from '../../components/AppDialog/AppDialog'
 import { AudiobookActionsMenu } from './AudiobookActionsMenu'
-import { AudioSetupPanel, type AudioSetupPanelProps } from './AudioSetupPanel'
+import type { AudioSetupPanelProps } from './AudioSetupPanel'
+import { AudioSetupDialog } from './AudioSetupDialog'
 import './AudiobooksPanel.css'
 
 interface ActiveAudiobookSave {
@@ -157,18 +157,12 @@ export function AudiobooksPanel({
           </div>
 
           {setupOpen && (
-            <AppDialog
-              className="audiobooks-setup-dialog"
+            <AudioSetupDialog
+              audioSetup={audioSetup}
               title={t('tts.audiobooks.audioSetup')}
-              onCancel={closeSetup}
-              actions={(
-                <button type="button" className="app-dialog-submit" onClick={closeSetup}>
-                  {t('common.done')}
-                </button>
-              )}
-            >
-              <AudioSetupPanel {...audioSetup} />
-            </AppDialog>
+              doneLabel={t('common.done')}
+              onClose={closeSetup}
+            />
           )}
 
           {!hasAudiobooks && (

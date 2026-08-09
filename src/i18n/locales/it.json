@@ -524,6 +524,7 @@
       "savedForCurrentSetup": "Audiolibro salvato per la configurazione attuale",
       "save": "Salva l'audiolibro",
       "saveCurrentSetup": "Salva l'audiolibro con la configurazione attuale",
+      "modelRequired": "Scarica il modello vocale selezionato in Configurazione dell’audio prima di salvare",
       "savedVersions": "Audiolibri salvati ({{count, number}})",
       "currentSetup": "Configurazione attuale",
       "savedVersionsMismatch": "Nessun audiolibro salvato corrisponde alla configurazione attuale.",

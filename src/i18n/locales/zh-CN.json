@@ -512,6 +512,7 @@
       "savedForCurrentSetup": "已为当前设置保存有声读物",
       "save": "保存有声读物",
       "saveCurrentSetup": "使用当前设置保存有声读物",
+      "modelRequired": "保存前请在音频设置中下载所选语音模型",
       "savedVersions": "已保存的有声读物（{{count, number}}）",
       "currentSetup": "当前设置",
       "savedVersionsMismatch": "没有已保存的有声读物与当前设置匹配。",

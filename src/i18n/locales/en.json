@@ -518,6 +518,7 @@
       "savedForCurrentSetup": "Audiobook saved for the current setup",
       "save": "Save audiobook",
       "saveCurrentSetup": "Save Audiobook with Current Setup",
+      "modelRequired": "Download the selected voice model in Audio Setup before saving",
       "savedVersions": "Saved Audiobooks ({{count, number}})",
       "currentSetup": "Current Setup",
       "savedVersionsMismatch": "No saved audiobook matches the current setup.",

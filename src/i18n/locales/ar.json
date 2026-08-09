@@ -542,6 +542,7 @@
       "savedForCurrentSetup": "تم حفظ الكتاب الصوتي للإعداد الحالي",
       "save": "حفظ الكتاب الصوتي",
       "saveCurrentSetup": "حفظ الكتاب الصوتي بالإعداد الحالي",
+      "modelRequired": "نزّل نموذج الصوت المحدد من إعداد الصوت قبل الحفظ",
       "savedVersions": "الكتب الصوتية المحفوظة ({{count, number}})",
       "currentSetup": "الإعداد الحالي",
       "savedVersionsMismatch": "لا يوجد كتاب صوتي محفوظ يطابق الإعداد الحالي.",

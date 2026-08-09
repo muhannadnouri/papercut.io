@@ -524,6 +524,7 @@
       "savedForCurrentSetup": "Livre audio enregistré pour la configuration actuelle",
       "save": "Enregistrer le livre audio",
       "saveCurrentSetup": "Enregistrer le livre audio avec la configuration actuelle",
+      "modelRequired": "Téléchargez le modèle vocal sélectionné dans Configuration audio avant d’enregistrer",
       "savedVersions": "Livres audio enregistrés ({{count, number}})",
       "currentSetup": "Configuration actuelle",
       "savedVersionsMismatch": "Aucun livre audio enregistré ne correspond à la configuration actuelle.",

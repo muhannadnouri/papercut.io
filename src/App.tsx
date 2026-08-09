@@ -29,6 +29,7 @@ import type { DocumentInfo, SearchOpenTarget } from './types/search'
 import { clearPhraseFetchCache } from './utils/phraseSearch'
 import { isDebugEnabled, setDebugEnabled } from './utils/debugFlags'
 import { AudioControls } from './tts/components/AudioControls'
+import { AudioSetupDialog } from './tts/components/AudioSetupDialog'
 import { TtsDiagnosticsPanel } from './tts/components/TtsDiagnosticsPanel'
 import { getImportedAudiobookSource } from './tts/api/nativeTts'
 import { getUserUploads, isUserUploadUrl, type UserUploadDocument } from './tts/storage/UserUploads'
@@ -61,6 +62,7 @@ function App() {
   const [userUploads, setUserUploads] = useState<UserUploadDocument[]>(() => getUserUploads())
   const [ttsDiagnosticsEnabled, setTtsDiagnosticsEnabled] = useState(() => isDebugEnabled())
   const [scanSetupSource, setScanSetupSource] = useState<'camera' | 'photos' | null>(null)
+  const [readerAudioSetupOpen, setReaderAudioSetupOpen] = useState(false)
   const { pagefindRef, pagefindReady, allDocuments, documentsLoading } = usePagefind()
   const { confirm: confirmDocumentAction, dialog: documentConfirmationDialog } = useAppConfirmation()
   const {
@@ -374,7 +376,11 @@ function App() {
                     onAccept={acceptRecognizedDocumentText}
                   />
                 )}
-                <AudioControls {...audioControlsProps} onManageSave={handleManageAudiobookSave} />
+                <AudioControls
+                  {...audioControlsProps}
+                  onManageSave={handleManageAudiobookSave}
+                  onOpenAudioSetup={() => setReaderAudioSetupOpen(true)}
+                />
               </>
             )}
             beforeDocument={(
@@ -389,6 +395,18 @@ function App() {
           />
         </div>
         {audiobookActionBusy && <AppBusyOverlay message={audiobookActionMessage} />}
+        {readerAudioSetupOpen && (
+          <AudioSetupDialog
+            audioSetup={{
+              ...audioSetupProps,
+              debugEnabled: ttsDiagnosticsEnabled,
+              onDiagnosticsChange: handleTtsDiagnosticsChange,
+            }}
+            title={t('tts.audiobooks.audioSetup')}
+            doneLabel={t('common.done')}
+            onClose={() => setReaderAudioSetupOpen(false)}
+          />
+        )}
         {documentConfirmationDialog}
         {audiobook.confirmationDialog}
       </>
