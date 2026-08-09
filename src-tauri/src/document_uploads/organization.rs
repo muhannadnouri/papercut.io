@@ -6,7 +6,9 @@
 //! their library.
 
 use std::collections::hash_map::DefaultHasher;
-use std::collections::{HashMap, HashSet};
+#[cfg(desktop)]
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
@@ -70,6 +72,7 @@ pub(crate) fn list_organization<R: Runtime>(
 /// A conflicting root name receives a numeric suffix instead of merging with
 /// an existing user tree. The transaction is all-or-nothing, so an error leaves
 /// the successfully imported documents at Library root rather than half moved.
+#[cfg(desktop)]
 pub(crate) fn organize_folder_import<R: Runtime>(
     app: &tauri::AppHandle<R>,
     root_name: &str,
@@ -132,6 +135,7 @@ pub(crate) fn organize_folder_import<R: Runtime>(
 }
 
 /// Insert one already-validated import folder within the caller's transaction.
+#[cfg(desktop)]
 fn insert_import_folder(
     db: &Connection,
     parent_id: Option<&str>,
@@ -161,6 +165,7 @@ fn insert_import_folder(
 
 /// Return a bounded sibling-unique name, preserving the selected folder name
 /// when possible and otherwise appending ` (2)`, ` (3)`, and so on.
+#[cfg(desktop)]
 fn available_import_folder_name(
     db: &Connection,
     parent_id: Option<&str>,
@@ -190,6 +195,7 @@ fn available_import_folder_name(
     }
 }
 
+#[cfg(desktop)]
 fn folder_name_exists(
     db: &Connection,
     parent_id: Option<&str>,
@@ -799,6 +805,7 @@ fn folder_id(parent_id: Option<&str>, name: &str, created_at_ms: u128) -> String
 mod tests {
     use super::*;
 
+    #[cfg(desktop)]
     #[test]
     fn imported_root_folders_receive_a_bounded_numeric_suffix() {
         let db = Connection::open_in_memory().expect("open database");
