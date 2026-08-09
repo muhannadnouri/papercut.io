@@ -14,6 +14,7 @@ describe('shouldAutoDismissDocumentImport', () => {
         selected: 1,
         processed: 1,
         imported: [],
+        alreadyInLibrary: [],
         failures: [{ fileName: 'bad.epub', error: 'Invalid EPUB' }],
         cancelled: false,
       },

@@ -304,7 +304,15 @@
   font-weight: 600;
 }
 
-.document-batch-failures ul {
+.document-batch-existing summary {
+  width: fit-content;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.document-batch-failures ul,
+.document-batch-existing ul {
   display: grid;
   gap: 0.25rem;
   max-height: 10rem;

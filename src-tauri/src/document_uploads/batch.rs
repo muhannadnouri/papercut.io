@@ -18,7 +18,6 @@ use super::pdf::import_pdf_source;
 use super::pipeline::{delete_upload, import_epub_source, import_html_source};
 use super::state::DocumentBatchControl;
 use super::storage::upload_id_from_url;
-#[cfg(desktop)]
 use super::store::list_uploads;
 use super::types::{
     UploadedDocument, UploadedDocumentBatchFailure, UploadedDocumentBatchProgress,
@@ -42,6 +41,7 @@ struct BatchRun<T> {
     selected: usize,
     processed: usize,
     imported: Vec<T>,
+    already_in_library: Vec<String>,
     failures: Vec<UploadedDocumentBatchFailure>,
     cancelled: bool,
 }
@@ -69,7 +69,6 @@ struct FolderSelection {
 struct FolderOrganizationPlan {
     root_name: String,
     folders_by_source: HashMap<PathBuf, Vec<String>>,
-    existing_document_ids: HashSet<String>,
     placed_document_ids: HashSet<String>,
     placements: Vec<(String, Vec<String>)>,
 }
@@ -110,10 +109,6 @@ pub(crate) fn import_folder<R: Runtime>(
     if selection.sources.is_empty() {
         return Err("The selected folder has no HTML, EPUB, or PDF files".into());
     }
-    let existing_document_ids = list_uploads(&app)?
-        .into_iter()
-        .map(|document| document.id)
-        .collect();
     let folders_by_source = selection
         .sources
         .iter()
@@ -130,7 +125,6 @@ pub(crate) fn import_folder<R: Runtime>(
     let plan = FolderOrganizationPlan {
         root_name: selection.root_name,
         folders_by_source,
-        existing_document_ids,
         placed_document_ids: HashSet::new(),
         placements: Vec::new(),
     };
@@ -164,6 +158,11 @@ fn import_sources<R: Runtime>(
         ));
     }
 
+    let mut known_document_ids: HashSet<_> = list_uploads(&app)?
+        .into_iter()
+        .map(|document| document.id)
+        .collect();
+
     #[allow(unused_mut)]
     let mut run = process_sources(
         sources,
@@ -175,15 +174,14 @@ fn import_sources<R: Runtime>(
                 _ => None,
             };
             let document = import_source(&app, source, pdf_title)?;
+            let already_in_library = !known_document_ids.insert(document.id.clone());
             #[cfg(desktop)]
             if let (Some(plan), Some(relative_folder)) = (&mut folder_plan, relative_folder) {
-                if !plan.existing_document_ids.contains(&document.id)
-                    && plan.placed_document_ids.insert(document.id.clone())
-                {
+                if !already_in_library && plan.placed_document_ids.insert(document.id.clone()) {
                     plan.placements.push((document.id.clone(), relative_folder));
                 }
             }
-            Ok(document)
+            Ok((document, already_in_library))
         },
         |progress| {
             let _ = app.emit(DOCUMENT_IMPORT_PROGRESS_EVENT, progress);
@@ -208,13 +206,15 @@ fn import_sources<R: Runtime>(
     } else {
         "completed"
     };
+    let added = run.imported.len() - run.already_in_library.len();
     let _ = app.emit(
         DOCUMENT_IMPORT_PROGRESS_EVENT,
         UploadedDocumentBatchProgress {
             phase: phase.into(),
             processed: run.processed,
             total: run.selected,
-            imported: run.imported.len(),
+            imported: added,
+            already_in_library: run.already_in_library.len(),
             failed: run.failures.len(),
             file_name: None,
         },
@@ -224,6 +224,7 @@ fn import_sources<R: Runtime>(
         selected: run.selected,
         processed: run.processed,
         imported: run.imported,
+        already_in_library: run.already_in_library,
         failures: run.failures,
         cancelled: run.cancelled,
     })
@@ -430,7 +431,7 @@ fn process_sources<T, C, I, P>(
 ) -> Result<BatchRun<T>, String>
 where
     C: FnMut() -> Result<bool, String>,
-    I: FnMut(FilePath) -> Result<T, String>,
+    I: FnMut(FilePath) -> Result<(T, bool), String>,
     P: FnMut(UploadedDocumentBatchProgress),
 {
     let selected = sources.len();
@@ -438,6 +439,7 @@ where
         selected,
         processed: 0,
         imported: Vec::new(),
+        already_in_library: Vec::new(),
         failures: Vec::new(),
         cancelled: false,
     };
@@ -452,13 +454,19 @@ where
             phase: "importing".into(),
             processed: run.processed,
             total: selected,
-            imported: run.imported.len(),
+            imported: run.imported.len() - run.already_in_library.len(),
+            already_in_library: run.already_in_library.len(),
             failed: run.failures.len(),
             file_name: Some(file_name.clone()),
         });
 
         match import(source) {
-            Ok(document) => run.imported.push(document),
+            Ok((document, already_in_library)) => {
+                if already_in_library {
+                    run.already_in_library.push(file_name.clone());
+                }
+                run.imported.push(document);
+            }
             Err(error) => run
                 .failures
                 .push(UploadedDocumentBatchFailure { file_name, error }),
@@ -468,7 +476,8 @@ where
             phase: "importing".into(),
             processed: run.processed,
             total: selected,
-            imported: run.imported.len(),
+            imported: run.imported.len() - run.already_in_library.len(),
+            already_in_library: run.already_in_library.len(),
             failed: run.failures.len(),
             file_name: None,
         });
@@ -627,7 +636,7 @@ mod tests {
                 if name == "bad.epub" {
                     Err("invalid archive".into())
                 } else {
-                    Ok(name)
+                    Ok((name, false))
                 }
             },
             |progress| events.push(progress),
@@ -637,10 +646,34 @@ mod tests {
         assert_eq!(run.selected, 3);
         assert_eq!(run.processed, 2);
         assert_eq!(run.imported, vec!["one.html"]);
+        assert!(run.already_in_library.is_empty());
         assert_eq!(run.failures.len(), 1);
         assert_eq!(run.failures[0].file_name, "bad.epub");
         assert!(run.cancelled);
         assert_eq!(events.len(), 4);
+    }
+
+    #[test]
+    fn batch_reports_reused_documents_separately_from_new_imports() {
+        let sources = vec![source("new.epub"), source("existing.epub")];
+        let mut events = Vec::new();
+        let run = process_sources(
+            sources,
+            || Ok(false),
+            |source| {
+                let name = source_file_name(&source);
+                let existing = name == "existing.epub";
+                Ok((name, existing))
+            },
+            |progress| events.push(progress),
+        )
+        .expect("batch result");
+
+        assert_eq!(run.imported, vec!["new.epub", "existing.epub"]);
+        assert_eq!(run.already_in_library, vec!["existing.epub"]);
+        let completed = events.last().expect("completed progress");
+        assert_eq!(completed.imported, 1);
+        assert_eq!(completed.already_in_library, 1);
     }
 
     #[test]
