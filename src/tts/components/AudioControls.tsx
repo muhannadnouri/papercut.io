@@ -13,7 +13,7 @@ interface AudioControlsProps {
   canSaveAudiobook: boolean
   canSkipBackward: boolean
   canSkipForward: boolean
-  modelSetupRequired: boolean
+  modelSetupLabel: string | null
   saveInProgress: boolean
   onManageSave: () => void
   onPause: () => void
@@ -46,7 +46,7 @@ export function AudioControls({
   canSaveAudiobook,
   canSkipBackward,
   canSkipForward,
-  modelSetupRequired,
+  modelSetupLabel,
   saveInProgress,
   onManageSave,
   onPause,
@@ -240,7 +240,7 @@ export function AudioControls({
       ? t('tts.controls.saveCurrentSetup')
       : t('tts.controls.save')
     const buttonLabel = audiobookState.complete ? t('tts.controls.savedForCurrentSetup') : saveLabel
-    const modelRequiredLabel = t('tts.controls.modelRequired')
+    const modelSetupRequired = modelSetupLabel !== null
 
     return (
       <button
@@ -248,9 +248,9 @@ export function AudioControls({
           (audiobookState.complete ? ' audio-save-complete' : '') +
           (modelSetupRequired ? ' audio-setup-required' : '')}
         onClick={modelSetupRequired ? onOpenAudioSetup : onSave}
-        disabled={(!canSaveAudiobook && !modelSetupRequired) || audiobookState.complete}
-        aria-label={modelSetupRequired ? modelRequiredLabel : buttonLabel}
-        title={modelSetupRequired ? modelRequiredLabel : buttonLabel}
+        disabled={!modelSetupRequired && (!canSaveAudiobook || audiobookState.complete)}
+        aria-label={modelSetupLabel ?? buttonLabel}
+        title={modelSetupLabel ?? buttonLabel}
       >
         <AudioIcon name="save" />
       </button>

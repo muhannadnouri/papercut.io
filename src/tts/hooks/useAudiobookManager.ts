@@ -532,9 +532,13 @@ export function useAudiobookManager({
   const canSaveAudiobook = Boolean(ttsModelStatus?.installed && ttsModelStatus.runtimeInstalled) &&
     audioControlsAudiobookState.status !== 'checking' &&
     !isDifferentAudiobookSaving
-  const modelSetupRequired = Boolean(
-    ttsModelStatus && (!ttsModelStatus.installed || !ttsModelStatus.runtimeInstalled),
-  )
+  const modelSetupLabel = !ttsModelStatus
+    ? null
+    : !ttsModelStatus.installed
+      ? i18n.t('tts.controls.modelRequired')
+      : ttsModelStatus.runtimeInstalled
+        ? null
+        : i18n.t('tts.setup.runtimeMissing')
   const isSavingAudiobook = activeDownloadIsRunning
   const activeDownloadTitle = audiobookDownload?.title ?? i18n.t('tts.audiobooks.defaultTitle')
   const queuedAudiobookDownloads = audiobookDownloads.filter((record) => (
@@ -560,7 +564,7 @@ export function useAudiobookManager({
       canSaveAudiobook,
       canSkipBackward: ttsCanSkipBackward,
       canSkipForward: ttsCanSkipForward,
-      modelSetupRequired,
+      modelSetupLabel,
       saveInProgress: downloadIsForSelectedDoc && activeDownloadIsRunning,
       onCancelSave: handleCancelAudiobookSave,
       onPause: pauseTts,

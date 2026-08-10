@@ -177,7 +177,9 @@ export function DocumentViewer({
       const finePointerHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches &&
         toolbar?.matches(':hover')
       const menuOpen = toolbar?.querySelector('[aria-expanded="true"]')
-      if (finePointerHover || toolbar?.querySelector(':focus-visible') || menuOpen) {
+      const activeElement = toolbar?.ownerDocument.activeElement
+      const toolbarFocused = Boolean(activeElement && toolbar?.contains(activeElement))
+      if (finePointerHover || toolbarFocused || menuOpen) {
         fullscreenToolbarTimerRef.current = window.setTimeout(hideWhenIdle, 1000)
         return
       }
