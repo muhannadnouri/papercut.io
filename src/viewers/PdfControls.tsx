@@ -20,6 +20,7 @@ type PdfControlsProps = {
   hasOutline: boolean
   outlineOpen: boolean
   pages: number
+  popoverContainer?: Element | null
   ready: boolean
   spreadMode: PdfSpreadMode
   zoom: number
@@ -40,6 +41,7 @@ export function PdfControls({
   hasOutline,
   outlineOpen,
   pages,
+  popoverContainer,
   ready,
   spreadMode,
   zoom,
@@ -269,6 +271,7 @@ export function PdfControls({
             offset={6}
             containerPadding={8}
             shouldFlip
+            UNSTABLE_portalContainer={popoverContainer ?? undefined}
           >
             <Menu className="pdf-view-options-menu" aria-label={t('reader.pdf.view')}>
               <MenuSection

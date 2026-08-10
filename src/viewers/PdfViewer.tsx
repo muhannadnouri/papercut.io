@@ -532,6 +532,7 @@ export function PdfViewer({
       hasOutline={outline.length > 0}
       outlineOpen={outlineOpen}
       pages={pages}
+      popoverContainer={toolbarTarget}
       ready={ready}
       spreadMode={spreadMode}
       zoom={zoom}
