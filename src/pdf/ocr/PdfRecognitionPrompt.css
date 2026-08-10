@@ -164,11 +164,6 @@
 }
 
 @media (pointer: coarse) {
-  .pdf-recognition-trigger {
-    width: 2.5rem;
-    min-height: 2.5rem;
-  }
-
   .pdf-recognition-prompt-actions button {
     height: 2.75rem;
     min-height: 2.75rem;

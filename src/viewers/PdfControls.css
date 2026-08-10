@@ -177,9 +177,7 @@ html[dir='rtl'] .pdf-page-next svg {
     box-sizing: border-box;
     width: 100%;
   }
-}
 
-@media (max-width: 540px) {
   .pdf-fit-controls {
     display: none;
   }
