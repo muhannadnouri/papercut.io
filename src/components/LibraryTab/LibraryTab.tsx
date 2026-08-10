@@ -321,6 +321,8 @@ function DocumentBatchImportStatus({
   const progress = status.batchProgress
   const result = status.batchResult
   const failures = result?.failures ?? []
+  const alreadyInLibrary = result?.alreadyInLibrary ?? []
+  const added = Math.max(0, (result?.imported.length ?? 0) - alreadyInLibrary.length)
   const importing = status.status === 'importing'
   const total = progress?.total ?? 0
   const processed = progress?.processed ?? 0
@@ -347,8 +349,14 @@ function DocumentBatchImportStatus({
         ? 'library.status.preparingPhotos'
         : 'library.status.preparingBatch')
   } else if (result) {
-    message = t(result.cancelled ? 'library.status.batchCancelled' : 'library.status.batchComplete', {
-      imported: result.imported.length,
+    const messageKey = result.cancelled
+      ? 'library.status.batchCancelled'
+      : added === 0 && alreadyInLibrary.length > 0 && failures.length === 0
+        ? 'library.status.batchNoChanges'
+        : 'library.status.batchComplete'
+    message = t(messageKey, {
+      imported: added,
+      already: alreadyInLibrary.length,
       failed: failures.length,
     })
   } else {
@@ -386,6 +394,16 @@ function DocumentBatchImportStatus({
               <li key={`${failure.fileName}-${index}`}>
                 <bdi>{failure.fileName}</bdi>: <span dir="auto">{failure.error}</span>
               </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {alreadyInLibrary.length > 0 && (
+        <details className="document-batch-existing">
+          <summary>{t('library.status.alreadyInLibraryFiles', { count: alreadyInLibrary.length })}</summary>
+          <ul>
+            {alreadyInLibrary.map((fileName, index) => (
+              <li key={`${fileName}-${index}`}><bdi>{fileName}</bdi></li>
             ))}
           </ul>
         </details>

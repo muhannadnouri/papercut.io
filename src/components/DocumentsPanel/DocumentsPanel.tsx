@@ -122,8 +122,11 @@ export function DocumentsPanel({
     onRenameLibraryFolder,
   )
   const documentListGroups = canShowUploadedTree ? otherGroups : nonBundledGroups
+  const showUploadedTree = canShowUploadedTree && (
+    docFilterLower.length === 0 || uploadDocs.length > 0
+  )
   const hasFolderTree = bundledDocs.length > 0 ||
-    (canShowUploadedTree && uploadDocs.length > 0)
+    (showUploadedTree && uploadDocs.length > 0)
 
   if (documentsLoading) {
     return (
@@ -273,10 +276,11 @@ export function DocumentsPanel({
         />
       ) : (
         <>
-          {canShowUploadedTree && libraryOrganization && (
+          {showUploadedTree && libraryOrganization && (
             <UploadedLibraryTree
               documents={uploadDocs}
               organization={libraryOrganization}
+              filterActive={docFilterLower.length > 0}
               documentOpening={documentOpening}
               mutationDisabled={operationBusy}
               resetEditing={importBusy}

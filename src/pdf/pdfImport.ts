@@ -52,7 +52,8 @@ export async function indexImportedPdfs(
       phase: 'importing',
       processed: completed.length + failures.length,
       total: result.selected,
-      imported: completed.length,
+      imported: Math.max(0, completed.length - result.alreadyInLibrary.length),
+      alreadyInLibrary: result.alreadyInLibrary.length,
       failed: failures.length,
       fileName: document.title,
     })

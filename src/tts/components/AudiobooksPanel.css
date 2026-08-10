@@ -354,6 +354,10 @@
   color: var(--danger-strong);
 }
 
+.audio-model-install .audiobook-status {
+  border-color: transparent;
+}
+
 .audiobooks-panel-content {
   position: relative;
   min-width: 0;

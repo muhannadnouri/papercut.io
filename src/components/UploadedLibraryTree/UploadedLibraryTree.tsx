@@ -16,6 +16,7 @@ interface UploadedLibraryTreeProps {
   documents: DocumentInfo[]
   organization: UploadedLibraryOrganization
   mode?: 'library' | 'filter'
+  filterActive?: boolean
   documentOpening?: boolean
   mutationDisabled?: boolean
   resetEditing?: boolean
@@ -42,6 +43,7 @@ export function UploadedLibraryTree({
   documents,
   organization,
   mode = 'library',
+  filterActive = false,
   documentOpening = false,
   mutationDisabled = false,
   resetEditing = false,
@@ -75,14 +77,17 @@ export function UploadedLibraryTree({
   const organizing = mode === 'library' && editMode
   const locale = i18n.resolvedLanguage ?? i18n.language
   const { nodes, folders, nodeByKey, folderOptions } = useMemo(
-    () => buildLibraryTree(documents, organization, { hideEmptyFolders: filterMode, locale }),
-    [documents, filterMode, locale, organization],
+    () => buildLibraryTree(documents, organization, { hideEmptyFolders: filterMode || filterActive, locale }),
+    [documents, filterActive, filterMode, locale, organization],
   )
   const rootDocuments = useMemo(() => nodes.flatMap(collectDocuments), [nodes])
   const documentNodes = useMemo(
     () => Array.from(nodeByKey.values()).filter((node): node is Extract<LibraryNode, { kind: 'document' }> => node.kind === 'document'),
     [nodeByKey],
   )
+  const visibleExpandedKeys = filterActive
+    ? new Set(Array.from(nodeByKey.values()).filter((node) => node.kind === 'folder').map((node) => node.key))
+    : expandedKeys
   const allRootSelected = rootDocuments.length > 0 && rootDocuments.every((doc) => selectedFilters?.has(doc.url))
   const selectedNodes = Array.from(selectedKeys)
     .map((key) => nodeByKey.get(String(key)))
@@ -334,63 +339,66 @@ export function UploadedLibraryTree({
       className="uploaded-library"
       aria-label={t(filterMode ? 'library.tree.filterAriaLabel' : 'library.tree.organizationAriaLabel')}
     >
-      <div className="uploaded-library-toolbar">
-        <button
-          className="uploaded-library-heading"
-          type="button"
-          aria-expanded={!rootCollapsed}
-          onClick={() => setRootCollapsed((value) => !value)}
-        >
-          <span className={'toggle-arrow ' + (rootCollapsed ? '' : 'open')}>&#9662;</span>
-          <span className="uploaded-library-title">{t('library.groups.userUploads')}</span>
-          <span className="uploaded-library-count">({documents.length.toLocaleString(locale)})</span>
-        </button>
-        {filterMode ? (
+      <div className={organizing && !rootCollapsed
+        ? 'uploaded-library-manage-header uploaded-library-manage-header-sticky'
+        : 'uploaded-library-manage-header'}>
+        <div className="uploaded-library-toolbar">
           <button
-            className="uploaded-library-edit-btn"
+            className="uploaded-library-heading"
             type="button"
-            disabled={rootDocuments.length === 0}
-            onClick={toggleAllRootDocuments}
+            aria-expanded={!rootCollapsed}
+            onClick={() => setRootCollapsed((value) => !value)}
           >
-            {allRootSelected ? t('common.deselectAll') : t('common.selectAll')}
+            <span className={'toggle-arrow ' + (rootCollapsed ? '' : 'open')}>&#9662;</span>
+            <span className="uploaded-library-title">{t('library.groups.userUploads')}</span>
+            <span className="uploaded-library-count">({documents.length.toLocaleString(locale)})</span>
           </button>
-        ) : (
-          <div className="uploaded-library-toolbar-actions">
-            {organizing && (
+          {filterMode ? (
+            <button
+              className="uploaded-library-edit-btn"
+              type="button"
+              disabled={rootDocuments.length === 0}
+              onClick={toggleAllRootDocuments}
+            >
+              {allRootSelected ? t('common.deselectAll') : t('common.selectAll')}
+            </button>
+          ) : (
+            <div className="uploaded-library-toolbar-actions">
+              {organizing && (
+                <button
+                  className="uploaded-library-edit-btn"
+                  type="button"
+                  disabled={busy || mutationDisabled}
+                  onClick={() => openFolderDialog(null)}
+                >
+                  {t('library.tree.newFolder')}
+                </button>
+              )}
               <button
                 className="uploaded-library-edit-btn"
                 type="button"
                 disabled={busy || mutationDisabled}
-                onClick={() => openFolderDialog(null)}
+                aria-pressed={editMode}
+                onClick={() => {
+                  setEditMode((value) => !value)
+                  setSelectedKeys(new Set())
+                  setFolderDialog(null)
+                  setFolderDialogError('')
+                  setDeleteInfoOpen(false)
+                }}
               >
-                {t('library.tree.newFolder')}
+                {editMode ? t('common.done') : t('library.tree.organize')}
               </button>
-            )}
-            <button
-              className="uploaded-library-edit-btn"
-              type="button"
-              disabled={busy || mutationDisabled}
-              aria-pressed={editMode}
-              onClick={() => {
-                setEditMode((value) => !value)
-                setSelectedKeys(new Set())
-                setFolderDialog(null)
-                setFolderDialogError('')
-                setDeleteInfoOpen(false)
-              }}
-            >
-              {editMode ? t('common.done') : t('library.tree.organize')}
-            </button>
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
 
-      {!rootCollapsed && organizing && (
-        <div
-          className="uploaded-library-actions"
-          role="group"
-          aria-label={t('library.tree.editActionsAriaLabel')}
-        >
+        {!rootCollapsed && organizing && (
+          <div
+            className="uploaded-library-actions"
+            role="group"
+            aria-label={t('library.tree.editActionsAriaLabel')}
+          >
           <div className="uploaded-library-context-actions">
             <div className="uploaded-library-selection-actions">
               <strong className="uploaded-library-selection-count" aria-live="polite">
@@ -499,8 +507,9 @@ export function UploadedLibraryTree({
               {actionError}
             </p>
           )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
       {!rootCollapsed && (
         <Tree
@@ -508,7 +517,7 @@ export function UploadedLibraryTree({
           className="uploaded-library-tree"
           keyboardNavigationBehavior="tab"
           selectionMode="none"
-          expandedKeys={expandedKeys}
+          expandedKeys={visibleExpandedKeys}
           onExpandedChange={setExpandedKeys}
           onAction={handleAction}
           disabledKeys={documentOpening ? Array.from(nodeByKey.keys()) : undefined}
@@ -519,7 +528,7 @@ export function UploadedLibraryTree({
             mutationDisabled,
             editMode,
             filterMode,
-            expandedKeys,
+            expandedKeys: visibleExpandedKeys,
             onToggleFolderExpanded: toggleFolderExpanded,
             onToggleAllInGroup,
             onToggleFilter,
@@ -750,8 +759,8 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
 function EditIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
+      <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4Z" />
+      <path d="m13.5 6.5 4 4" />
     </svg>
   )
 }

@@ -68,6 +68,7 @@ export interface UploadedDocumentBatchProgress {
   processed: number
   total: number
   imported: number
+  alreadyInLibrary: number
   failed: number
   fileName?: string | null
 }
@@ -76,6 +77,7 @@ export interface UploadedDocumentBatchResult {
   selected: number
   processed: number
   imported: UploadedDocument[]
+  alreadyInLibrary: string[]
   failures: UploadedDocumentBatchFailure[]
   cancelled: boolean
 }

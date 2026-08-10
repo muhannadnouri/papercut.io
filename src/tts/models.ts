@@ -240,7 +240,12 @@ export function resolveModelTextPreprocessor(
     : model.defaultTextPreprocessor
 }
 
-export function suggestTtsModel(models: TtsModelInfo[], chunks: TtsChunk[]): TtsModelInfo {
+export function suggestTtsModel(
+  models: TtsModelInfo[],
+  chunks: TtsChunk[],
+  currentModelId: string,
+): TtsModelInfo | null {
+  const currentLanguage = getTtsModel(models, currentModelId).language.toLowerCase()
   let arabic = 0
   let han = 0
   let kana = 0
@@ -257,12 +262,16 @@ export function suggestTtsModel(models: TtsModelInfo[], chunks: TtsChunk[]): Tts
   // Han characters dominate Mandarin prose, while kana prevents Japanese text
   // from being incorrectly suggested as Chinese.
   if (han > latin && han > arabic && han >= 20 && kana < 5) {
+    if (currentLanguage.startsWith('zh')) return null
     return models.find((model) => model.language.toLowerCase().startsWith('zh'))
       ?? getTtsModel(models, DEFAULT_TTS_MODEL_ID)
   }
   if (arabic > latin && arabic >= 20) {
+    if (currentLanguage.startsWith('ar')) return null
     return models.find((model) => model.language.toLowerCase().startsWith('ar'))
       ?? getTtsModel(models, DEFAULT_TTS_MODEL_ID)
   }
-  return getTtsModel(models, DEFAULT_TTS_MODEL_ID)
+  // Latin text does not identify a language reliably enough to replace the
+  // user's selected English, Spanish, French, or other Latin-script model.
+  return null
 }

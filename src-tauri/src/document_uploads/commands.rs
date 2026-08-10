@@ -44,7 +44,7 @@ pub async fn document_uploads_import_batch<R: Runtime>(
         .map_err(|err| format!("Document batch import task failed: {err}"))?
 }
 
-/// Pick one desktop folder and import its direct supported children as a batch.
+/// Pick one desktop folder and preserve supported files through five visible levels.
 #[tauri::command]
 pub async fn document_uploads_import_folder<R: Runtime>(
     app: tauri::AppHandle<R>,

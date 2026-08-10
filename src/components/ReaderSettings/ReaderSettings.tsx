@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Popover } from 'react-aria-components'
 import {
   FONT_FAMILY_OPTIONS,
+  READER_PAGE_THEMES,
   READER_SETTING_LIMITS,
   clampReaderNumber,
   type ReaderRangeConfig,
@@ -83,6 +84,25 @@ function EnabledReaderSettings({
             onChange={(fontFamily) => onChange({ fontFamily })}
           />
         </div>
+
+        <fieldset className="reader-setting-page-theme">
+          <legend>{t('reader.settings.pageColor')}</legend>
+          <div className="reader-page-theme-options">
+            {READER_PAGE_THEMES.map((pageTheme) => (
+              <label key={pageTheme} className="reader-page-theme-option">
+                <input
+                  type="radio"
+                  name="reader-page-theme"
+                  value={pageTheme}
+                  checked={settings.pageTheme === pageTheme}
+                  onChange={() => onChange({ pageTheme })}
+                />
+                <span className={`reader-page-theme-swatch reader-page-theme-swatch-${pageTheme}`} aria-hidden="true" />
+                <span>{t(`reader.settings.pageThemes.${pageTheme}`)}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
 
         <ReaderRange
           id="size"

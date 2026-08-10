@@ -72,6 +72,27 @@
   background: var(--surface-success);
 }
 
+.audio-setup-required {
+  position: relative;
+}
+
+.audio-setup-required::after {
+  position: absolute;
+  top: 0.18rem;
+  right: 0.18rem;
+  width: 0.48rem;
+  height: 0.48rem;
+  border: 1px solid var(--control-surface);
+  border-radius: 50%;
+  background: var(--warning-accent);
+  content: '';
+}
+
+[dir='rtl'] .audio-setup-required::after {
+  right: auto;
+  left: 0.18rem;
+}
+
 .audio-icon {
   width: 1.28rem;
   height: 1.28rem;

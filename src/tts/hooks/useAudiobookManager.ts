@@ -217,8 +217,8 @@ export function useAudiobookManager({
       record.dtype === ttsDtype
     )
     if (alreadySavedWithCurrentSettings) return
-    const suggested = suggestTtsModel(ttsModels, ttsSaveChunks)
-    if (suggested.id !== ttsModelId) {
+    const suggested = suggestTtsModel(ttsModels, ttsSaveChunks, ttsModelId)
+    if (suggested && suggested.id !== ttsModelId) {
       // One-time per-document language suggestion; user changes remain authoritative afterward.
       setTtsModelId(suggested.id)
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -532,6 +532,13 @@ export function useAudiobookManager({
   const canSaveAudiobook = Boolean(ttsModelStatus?.installed && ttsModelStatus.runtimeInstalled) &&
     audioControlsAudiobookState.status !== 'checking' &&
     !isDifferentAudiobookSaving
+  const modelSetupLabel = !ttsModelStatus
+    ? null
+    : !ttsModelStatus.installed
+      ? i18n.t('tts.controls.modelRequired')
+      : ttsModelStatus.runtimeInstalled
+        ? null
+        : i18n.t('tts.setup.runtimeMissing')
   const isSavingAudiobook = activeDownloadIsRunning
   const activeDownloadTitle = audiobookDownload?.title ?? i18n.t('tts.audiobooks.defaultTitle')
   const queuedAudiobookDownloads = audiobookDownloads.filter((record) => (
@@ -557,6 +564,7 @@ export function useAudiobookManager({
       canSaveAudiobook,
       canSkipBackward: ttsCanSkipBackward,
       canSkipForward: ttsCanSkipForward,
+      modelSetupLabel,
       saveInProgress: downloadIsForSelectedDoc && activeDownloadIsRunning,
       onCancelSave: handleCancelAudiobookSave,
       onPause: pauseTts,

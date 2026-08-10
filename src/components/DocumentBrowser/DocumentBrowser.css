@@ -304,7 +304,15 @@
   font-weight: 600;
 }
 
-.document-batch-failures ul {
+.document-batch-existing summary {
+  width: fit-content;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.document-batch-failures ul,
+.document-batch-existing ul {
   display: grid;
   gap: 0.25rem;
   max-height: 10rem;
@@ -504,11 +512,13 @@
 }
 
 .document-row-action-danger {
-  color: var(--danger);
+  border-color: transparent;
+  background: var(--surface-danger);
+  color: var(--danger-strong);
 }
 
 .document-row-action-danger:focus-visible {
-  border-color: var(--danger-accent);
+  border-color: transparent;
   background: var(--surface-danger);
   color: var(--danger-accent);
   outline: none;
@@ -531,6 +541,38 @@
   padding: 0.25rem 0;
   white-space: nowrap;
   flex-shrink: 0;
+}
+
+.search-scope-mode {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: var(--radius-compact);
+  background: var(--control-surface);
+}
+
+.search-scope-mode button {
+  min-height: 2rem;
+  padding: 0.35rem 0.7rem;
+  border: 0;
+  background: transparent;
+  color: var(--text-body);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.search-scope-mode button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--text-inverse);
+}
+
+.search-scope-mode button:focus-visible {
+  position: relative;
+  outline: 2px solid var(--accent-text);
+  outline-offset: -2px;
 }
 
 .active-filters {
@@ -638,13 +680,18 @@
   }
 
   .document-row-action-danger:hover:not(:disabled) {
-    border-color: var(--danger-accent);
+    border-color: transparent;
     background: var(--surface-danger);
     color: var(--danger-accent);
   }
 
   .clear-filters:hover {
     text-decoration: underline;
+  }
+
+  .search-scope-mode button:hover:not([aria-pressed="true"]) {
+    background: var(--surface-accent);
+    color: var(--accent-strong);
   }
 
   .filter-tag-remove:hover {

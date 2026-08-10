@@ -38,17 +38,20 @@ pub(crate) struct UploadedDocumentBatchProgress {
     pub(crate) processed: usize,
     pub(crate) total: usize,
     pub(crate) imported: usize,
+    pub(crate) already_in_library: usize,
     pub(crate) failed: usize,
     pub(crate) file_name: Option<String>,
 }
 
-/// Final batch outcome, including successes retained alongside per-file failures.
+/// Final batch outcome. `imported` retains every successful document for
+/// downstream indexing, while `already_in_library` identifies reused sources.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentBatchResult {
     pub(crate) selected: usize,
     pub(crate) processed: usize,
     pub(crate) imported: Vec<UploadedDocument>,
+    pub(crate) already_in_library: Vec<String>,
     pub(crate) failures: Vec<UploadedDocumentBatchFailure>,
     pub(crate) cancelled: bool,
 }

@@ -182,6 +182,17 @@ assumptions must change deliberately:
   cache for a scrollable, selectable document surface. Stored PDFs are exposed
   only through a validated, app-data-scoped Tauri asset URL so PDF.js can issue
   range requests instead of copying the full source through IPC.
+- The PDF toolbar includes a full-screen reading mode. It uses the native
+  Fullscreen API where the WebView supports it and keeps the same focused
+  reader layout as a fallback where native fullscreen is unavailable. The
+  mounted toolbar overlays the document and hides after inactivity, so showing
+  it again does not resize PDF.js or recalculate page fit. Pointer movement
+  reveals it on desktop; a stationary touch or stylus tap toggles it without
+  treating scroll, pinch, or text-selection gestures as taps. Tab focus also
+  reveals the controls, and reduced-motion preferences remove the transition.
+  This shared Pointer Events path covers Safari and iOS WKWebView while safe
+  area insets protect controls around notches; no `touch-action` override is
+  applied, preserving WebKit's native scrolling and magnification gestures.
 - `src/hooks/useDocumentViewerState.ts` and
   `src/components/DocumentViewer/DocumentViewer.tsx` assume a loaded HTML string
   and one live reader DOM.
@@ -1532,6 +1543,8 @@ Stage status: Deferred
 | 2026-08-08 | Stage 10 | Retain strict scanner output ownership and boundary fixtures | Native scanner implementations return the exact app-supplied output path, so Rust keeps exact-path validation rather than broadening trust through canonical aliases; partial batch imports already preserve successful documents and clean only failed or pending PDFs, while the dependency-free fixture preparer remains useful release tooling rather than diagnostic production code |
 | 2026-08-08 | Stage 10 | Expose OCR and scanner state to assistive technology | OCR controls now announce running, review, and error state without relying on visual dots or spinners; Android identifies crop adjustment as optional and announces progress, while physical TalkBack/VoiceOver and native scanner localization remain explicit release gates |
 | 2026-08-08 | Stage 10 | Bound OCR recovery and scanner staging at trust boundaries | Recovery accepts only app-owned PDF URLs and at most 2,000 page references; Rust scanner staging cleanup is observable and stale completed output is removed before the next capture, while hot page-layer access avoids repeated database work and the native Android draft remains untouched |
+| 2026-08-08 | Stage 4 | Auto-hide full-screen PDF controls without resizing the viewer | The mounted toolbar overlays PDF.js, hides after inactivity, and returns through pointer activity, a stationary touch or stylus tap, or keyboard focus; Pointer Events, safe-area insets, reduced-motion support, and the CSS fullscreen fallback keep the same path usable in Safari and iOS WKWebView without overriding native scroll or pinch gestures |
+| 2026-08-09 | Stage 4 | Keep narrow PDF controls within the viewport | Page and zoom controls remain directly available while secondary fit, outline, and full-screen actions move into an accessible Page View menu at compact reader widths (720 px and below); a two-row fallback preserves full-size touch targets at 320 px without horizontal clipping |
 
 ## References
 
@@ -1543,6 +1556,9 @@ Stage status: Deferred
 - [Tauri command channels](https://v2.tauri.app/develop/calling-rust/)
 - [Tauri mobile plugin development](https://v2.tauri.app/develop/plugins/develop-mobile/)
 - [Apple PDFKit](https://developer.apple.com/documentation/pdfkit)
+- [Apple WKWebView](https://developer.apple.com/documentation/webkit/wkwebview)
+- [Apple full-screen design guidance](https://developer.apple.com/design/human-interface-guidelines/going-full-screen)
+- [WebKit Pointer Events](https://webkit.org/blog/9674/new-webkit-features-in-safari-13/)
 - [Apple VisionKit document camera](https://developer.apple.com/documentation/visionkit/vndocumentcameraviewcontroller)
 - [Apple VisionKit document camera delegate](https://developer.apple.com/documentation/visionkit/vndocumentcameraviewcontrollerdelegate)
 - [Apple Vision text recognition](https://developer.apple.com/documentation/vision/vnrecognizetextrequest)

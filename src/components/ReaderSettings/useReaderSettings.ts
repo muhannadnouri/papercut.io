@@ -2,11 +2,15 @@ import { useCallback, useMemo, useState, type CSSProperties } from 'react'
 
 const READER_SETTINGS_KEY = 'papercut.readerSettings.v1'
 
+export const READER_PAGE_THEMES = ['default', 'gray', 'black'] as const
+export type ReaderPageTheme = typeof READER_PAGE_THEMES[number]
+
 export interface ReaderSettingsState {
   fontFamily: string
   fontSizePx: number
   lineHeight: number
   widthCh: number
+  pageTheme: ReaderPageTheme
 }
 
 export interface ReaderRangeConfig {
@@ -35,6 +39,7 @@ export const DEFAULT_READER_SETTINGS: ReaderSettingsState = {
   fontSizePx: 16,
   lineHeight: 1.5,
   widthCh: 100,
+  pageTheme: 'default',
 }
 
 // Single source of truth for slider UI and persisted-value validation.
@@ -123,7 +128,14 @@ function clampReaderSettings(settings: ReaderSettingsState): ReaderSettingsState
     fontSizePx: clampSettingNumber('fontSizePx', settings.fontSizePx, DEFAULT_READER_SETTINGS.fontSizePx),
     lineHeight: clampSettingNumber('lineHeight', settings.lineHeight, DEFAULT_READER_SETTINGS.lineHeight),
     widthCh: clampSettingNumber('widthCh', settings.widthCh, DEFAULT_READER_SETTINGS.widthCh),
+    pageTheme: normalizeReaderPageTheme(settings.pageTheme),
   }
+}
+
+export function normalizeReaderPageTheme(value: unknown): ReaderPageTheme {
+  return READER_PAGE_THEMES.includes(value as ReaderPageTheme)
+    ? value as ReaderPageTheme
+    : DEFAULT_READER_SETTINGS.pageTheme
 }
 
 // Older saved settings used desktop font names that collapse on Android. Map

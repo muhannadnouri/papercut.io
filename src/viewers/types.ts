@@ -43,9 +43,11 @@ export interface ViewerProps {
   toolbarTarget?: HTMLElement | null
   searchTarget?: SearchOpenTarget | null
   pdfTtsHighlightSpans?: PdfTtsSourceSpan[]
+  fullscreen?: boolean
   onBookmarkApiChange?: (api: ViewerBookmarkApi | null) => void
   onFindApiChange?: (api: ViewerFindApi | null) => void
   onFindResult?: (result: ViewerFindResult) => void
+  onFullscreenChange?: () => void
 }
 
 export interface ViewerPlugin {

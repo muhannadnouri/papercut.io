@@ -26,6 +26,7 @@ interface LastSearchInfo {
 interface UseSearchOptions {
   loadDocumentSource?: DocumentSourceLoader
   scopeUrls?: Set<string>
+  scopeActive?: boolean
 }
 
 interface UseSearchReturn {
@@ -59,9 +60,9 @@ export function useSearch(
     const displayQuery = rawQuery.trim()
     const normalized = displayQuery.toLowerCase()
     const scopeUrls = options.scopeUrls
-    const hasScope = Boolean(scopeUrls?.size)
+    const hasScope = options.scopeActive ?? Boolean(scopeUrls?.size)
     const scopeList = hasScope ? Array.from(scopeUrls ?? []).sort() : undefined
-    const searchKey = normalized + '\0' + (scopeList?.join('\0') ?? '')
+    const searchKey = normalized + '\0' + (hasScope ? `scope\0${scopeList?.join('\0') ?? ''}` : 'all')
     latestSearchKeyRef.current = searchKey
     submittedQueryRef.current = displayQuery
     setSubmittedQuery(displayQuery)
@@ -82,6 +83,13 @@ export function useSearch(
       return
     }
 
+    if (hasScope && scopeList?.length === 0) {
+      setResults([])
+      setLastSearchInfo({ phrases: displayPhrases })
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     try {
       const pagefindPromise = pagefindRef.current
@@ -96,10 +104,10 @@ export function useSearch(
       const [pagefindSearch, uploadedSearch] = await Promise.all([pagefindPromise, uploadPromise])
       if (latestSearchKeyRef.current !== searchKey) return
 
-      const pagefindData = await pagefindResultsInScope(pagefindSearch.results, scopeUrls)
+      const pagefindData = await pagefindResultsInScope(pagefindSearch.results, scopeUrls, hasScope)
       const uploadedData = uploadedSearchToResults(uploadedSearch, phrases.length === 0)
       const data = [...pagefindData, ...uploadedData]
-        .filter((result) => !scopeUrls?.size || scopeUrls.has(result.url))
+        .filter((result) => !hasScope || scopeUrls?.has(result.url))
         .slice(0, 100)
       if (latestSearchKeyRef.current !== searchKey) return
 
@@ -166,7 +174,7 @@ export function useSearch(
     } finally {
       if (latestSearchKeyRef.current === searchKey) setLoading(false)
     }
-  }, [options.loadDocumentSource, options.scopeUrls, pagefindRef])
+  }, [options.loadDocumentSource, options.scopeActive, options.scopeUrls, pagefindRef])
 
   const handleSearch = useCallback((searchQuery: string) => {
     setQuery(searchQuery)
@@ -198,13 +206,15 @@ export function useSearch(
   return { query, results, loading, submittedQuery, lastSearchInfo, handleSearch, rerunSearch, submitSearch, removeResultsForUrl }
 }
 
-async function pagefindResultsInScope(
+export async function pagefindResultsInScope(
   results: { id: string; data: () => Promise<SearchResult> }[],
   scopeUrls?: Set<string>,
+  scopeActive = Boolean(scopeUrls?.size),
 ): Promise<SearchResult[]> {
-  if (!scopeUrls?.size) {
+  if (!scopeActive) {
     return Promise.all(results.slice(0, 50).map((r) => r.data()))
   }
+  if (!scopeUrls?.size) return []
 
   const scoped: SearchResult[] = []
   for (const result of results) {
