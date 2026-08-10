@@ -492,16 +492,14 @@ papercut.io/
 
 ## License
 
-Papercut is available under the [MIT License](LICENSE.md).
+Papercut is available under the [MIT License](LICENSE.md). Licenses and source
+details for bundled third-party software are listed in
+[Third-Party Notices](THIRD_PARTY_NOTICES.md).
 
 ## AI Audio Use Notice
 
-Papercut can generate synthetic speech from text. Papercut does not claim
-ownership of generated audio, but users are responsible for rights in the source
-text, reference voices or recordings, and how exported audio is shared. If you
-share, publish, sell, or broadcast generated audio, label it as AI-generated and
-do not use it to impersonate people, mislead listeners, create fake
-endorsements, or violate rights in text, voices, performances, or recordings.
+Papercut's guidance for generated audio is available in the
+[AI Audio Use Notice](AI_AUDIO_USE_NOTICE.md).
 
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io.svg?type=small)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io?ref=badge_small)
 

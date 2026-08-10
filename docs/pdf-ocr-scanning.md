@@ -382,8 +382,11 @@ does not prove that generated speech is understandable.
 
 Use [PDF.js](https://github.com/mozilla/pdf.js) through `pdfjs-dist` for the
 shared React viewer unless the spike reveals a blocking Tauri WebView issue.
-PDF.js is mature, Apache-2.0 licensed, supports page rendering and text content,
-and avoids owning separate Apple, Android, and desktop viewers.
+PDF.js is mature, supports page rendering and text content, and avoids owning
+separate Apple, Android, and desktop viewers. The package is Apache-2.0
+licensed; an upstream UI asset retained by the package is MPL-2.0 licensed.
+Papercut preserves that notice and source information in
+[`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).
 
 Render only visible pages plus a small adjacent buffer. Recycle canvases and
 text layers as pages leave that window. Loading every page canvas is not

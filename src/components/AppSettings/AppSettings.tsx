@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getVersion } from '@tauri-apps/api/app'
 import { isTauri } from '@tauri-apps/api/core'
@@ -10,9 +10,13 @@ import {
   currentAppLocale,
 } from '../../i18n'
 import { LibraryTransferDialog } from '../../library-transfer/LibraryTransferDialog'
+import { openExternalUrl } from '../../utils/openExternalUrl'
 import { isMobileUserAgent } from '../../utils/platform'
 import { AppDialog } from '../AppDialog/AppDialog'
 import { AppSelect } from '../AppSelect/AppSelect'
+import aiAudioUseNotice from '../../../AI_AUDIO_USE_NOTICE.md?raw'
+import papercutLicense from '../../../LICENSE.md?raw'
+import thirdPartyNotices from '../../../THIRD_PARTY_NOTICES.md?raw'
 import './AppSettings.css'
 
 const ZOOM_STORAGE_KEY = 'papercut.zoom.v1'
@@ -24,6 +28,14 @@ const NEXT_THEME: Record<ThemeChoice, ThemeChoice> = {
   system: 'light',
   light: 'dark',
   dark: 'system',
+}
+
+type LegalNoticeId = 'ai-audio' | 'papercut' | 'third-party'
+
+const LEGAL_NOTICE_CONTENT: Record<LegalNoticeId, string> = {
+  'ai-audio': aiAudioUseNotice,
+  papercut: papercutLicense,
+  'third-party': thirdPartyNotices,
 }
 
 interface AppSettingsProps {
@@ -46,10 +58,16 @@ export function AppSettings({
   const { t } = useTranslation()
   const tauriRuntime = isTauri()
   const [open, setOpen] = useState(false)
+  const [legalNoticesOpen, setLegalNoticesOpen] = useState(false)
+  const [selectedLegalNotice, setSelectedLegalNotice] = useState<LegalNoticeId | null>(null)
   const [transferOpen, setTransferOpen] = useState(false)
   const [version, setVersion] = useState<string | null>(() => tauriRuntime ? null : '')
   const zoom = useAppZoom()
-  const closeSettings = useCallback(() => setOpen(false), [])
+  const closeSettings = useCallback(() => {
+    setOpen(false)
+    setLegalNoticesOpen(false)
+    setSelectedLegalNotice(null)
+  }, [])
   const themeOption = {
     system: t('settings.themeSystem'),
     light: t('settings.themeLight'),
@@ -66,6 +84,12 @@ export function AppSettings({
   const versionLabel = version === null
     ? t('settings.versionLoading')
     : version || (tauriRuntime ? t('settings.versionUnavailable') : t('settings.webBuild'))
+  const legalNotices = [
+    { id: 'ai-audio' as const, title: t('settings.aiAudioUseNotice') },
+    { id: 'papercut' as const, title: t('settings.papercutLicense') },
+    { id: 'third-party' as const, title: t('settings.thirdPartyNotices') },
+  ]
+  const selectedNotice = legalNotices.find(({ id }) => id === selectedLegalNotice)
 
   return (
     <div className="app-settings">
@@ -80,7 +104,46 @@ export function AppSettings({
         <SettingsIcon />
       </button>
 
-      {open && (
+      {open && legalNoticesOpen && (
+        <AppDialog
+          key={selectedLegalNotice ?? 'legal-notices'}
+          className="app-settings-legal-dialog"
+          title={selectedNotice?.title ?? t('settings.legalAndNotices')}
+          onCancel={closeSettings}
+          actions={(
+            <button
+              type="button"
+              className="app-dialog-cancel"
+              onClick={() => {
+                if (selectedLegalNotice) setSelectedLegalNotice(null)
+                else setLegalNoticesOpen(false)
+              }}
+            >
+              {t('common.back')}
+            </button>
+          )}
+        >
+          {selectedLegalNotice ? (
+            <LegalNoticeContent source={LEGAL_NOTICE_CONTENT[selectedLegalNotice]} />
+          ) : (
+            <nav className="app-settings-legal-notices" aria-label={t('settings.legalAndNotices')}>
+              {legalNotices.map((notice) => (
+                <button
+                  key={notice.id}
+                  type="button"
+                  className="app-settings-legal-notice-link"
+                  onClick={() => setSelectedLegalNotice(notice.id)}
+                >
+                  <span>{notice.title}</span>
+                  <span className="app-settings-legal-chevron" aria-hidden="true" />
+                </button>
+              ))}
+            </nav>
+          )}
+        </AppDialog>
+      )}
+
+      {open && !legalNoticesOpen && (
         <AppDialog
           title={t('settings.title')}
           onCancel={closeSettings}
@@ -187,6 +250,17 @@ export function AppSettings({
             </label>
           </section>
 
+          <section className="app-settings-section app-settings-about" aria-labelledby="app-settings-about">
+            <h3 id="app-settings-about">{t('settings.about')}</h3>
+            <button
+              type="button"
+              className="app-settings-data-action"
+              onClick={() => setLegalNoticesOpen(true)}
+            >
+              {t('settings.legalAndNotices')}
+            </button>
+          </section>
+
           <div className="app-settings-version">
             <span>{t('settings.version')}</span>
             <strong>{versionLabel}</strong>
@@ -247,6 +321,51 @@ function TransferIcon() {
       <path d="M7 7h13m0 0-3-3m3 3-3 3M17 17H4m0 0 3 3m-3-3 3-3" />
     </svg>
   )
+}
+
+function LegalNoticeContent({ source }: { source: string }) {
+  const blocks = source.trim().split(/\n\s*\n/).slice(1)
+
+  return (
+    <div className="app-settings-legal-content" dir="ltr">
+      {blocks.map((block, index) => {
+        const heading = block.match(/^##\s+(.+)$/)
+        if (heading) return <h3 key={index}>{renderLegalInline(heading[1])}</h3>
+
+        return <p key={index}>{renderLegalInline(block.replace(/\s*\n\s*/g, ' '))}</p>
+      })}
+    </div>
+  )
+}
+
+function renderLegalInline(text: string): ReactNode[] {
+  return text
+    .split(/(\*\*[^*]+\*\*|`[^`]+`|_[^_]+_|https?:\/\/\S+)/g)
+    .filter(Boolean)
+    .map((part, index) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={index}>{part.slice(2, -2)}</strong>
+      }
+      if (part.startsWith('`') && part.endsWith('`')) {
+        return <code key={index}>{part.slice(1, -1)}</code>
+      }
+      if (part.startsWith('_') && part.endsWith('_')) {
+        return <em key={index}>{part.slice(1, -1)}</em>
+      }
+      if (part.startsWith('http://') || part.startsWith('https://')) {
+        return (
+          <button
+            key={index}
+            type="button"
+            className="app-settings-legal-link"
+            onClick={() => { void openExternalUrl(part) }}
+          >
+            {part}
+          </button>
+        )
+      }
+      return <Fragment key={index}>{part}</Fragment>
+    })
 }
 
 function useAppZoom() {
