@@ -32,7 +32,7 @@ Bundled HTML documents are indexed at build time with Pagefind. User-imported HT
 
 | Tool  | Minimum Version | Recommended Version |
 |-------|-----------------|---------------------|
-| Node  | >= 22.12.0      | 22.22.1             |
+| Node  | >= 22.13.0      | 22.22.1             |
 | npm   | >= 10.9.0       | 10.9.4              |
 | Rust  | >= 1.88         | Current stable      |
 | Cargo | >= 1.88         | Current stable      |
