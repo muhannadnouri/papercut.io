@@ -429,13 +429,15 @@ fn generate_audio(
 fn generation_language(model: &ModelDefinition, voice: &str) -> Option<&'static str> {
     match model.require_sherpa_family().ok()? {
         SherpaModelFamily::Kokoro if voice.starts_with('a') => Some("en-us"),
-        SherpaModelFamily::Kokoro if voice.starts_with('b') => Some("en-gb"),
+        // The bundled eSpeak data accepts `en` for British phonemization, not `en-gb`.
+        SherpaModelFamily::Kokoro if voice.starts_with('b') => Some("en"),
         SherpaModelFamily::Kokoro if voice.starts_with('e') => Some("es"),
         SherpaModelFamily::Kokoro if voice.starts_with('f') => Some("fr"),
         SherpaModelFamily::Kokoro if voice.starts_with('h') => Some("hi"),
         SherpaModelFamily::Kokoro if voice.starts_with('i') => Some("it"),
         SherpaModelFamily::Kokoro if voice.starts_with('p') => Some("pt-br"),
-        SherpaModelFamily::Kokoro if voice.starts_with('z') => Some("zh"),
+        // Mandarin uses the loaded Chinese/English lexicons; `zh` is not an eSpeak voice.
+        SherpaModelFamily::Kokoro if voice.starts_with('z') => None,
         SherpaModelFamily::Supertonic => model.supertonic_lang,
         _ => None,
     }
@@ -545,13 +547,13 @@ mod tests {
     }
 
     #[test]
-    fn kokoro_voice_prefix_selects_its_phonemizer_language() {
+    fn kokoro_voice_prefix_selects_supported_frontend_mode() {
         let model = model_definition(DEFAULT_MODEL_ID).unwrap();
         assert_eq!(generation_language(model, "af_heart"), Some("en-us"));
-        assert_eq!(generation_language(model, "bf_emma"), Some("en-gb"));
+        assert_eq!(generation_language(model, "bf_emma"), Some("en"));
         assert_eq!(
             generation_language(model_definition(KOKORO_ZH_MODEL_ID).unwrap(), "zf_xiaobei"),
-            Some("zh")
+            None
         );
         for (model_id, voice, language) in [
             ("sherpa-onnx/kokoro-multi-lang-v1_0-es", "ef_dora", "es"),

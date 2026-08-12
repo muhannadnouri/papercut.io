@@ -363,6 +363,9 @@ export function AudioSetupPanel({
               aria-pressed={previewStatus === 'playing'}
               title={!modelInstalled || silmaRuntimeMissing ? t('tts.setup.previewModelRequired') : t('tts.setup.previewVoice')}
             >
+              {previewStatus === 'loading'
+                ? <span className="spinner audio-preview-spinner" aria-hidden="true" />
+                : <PreviewIcon playing={previewStatus === 'playing'} />}
               <span aria-live="polite" aria-atomic="true">
                 {previewStatus === 'loading'
                   ? t('tts.setup.generatingPreview')
@@ -582,6 +585,14 @@ function CheckIcon() {
   return (
     <svg className="audio-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d="m4 12 5 5L20 6" fill="none" stroke="currentcolor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function PreviewIcon({ playing }: { playing: boolean }) {
+  return (
+    <svg className="audio-preview-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d={playing ? 'M7 7h10v10H7z' : 'M8 5v14l11-7z'} />
     </svg>
   )
 }

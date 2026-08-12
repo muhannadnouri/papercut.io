@@ -143,6 +143,17 @@
   justify-self: start;
 }
 
+.audio-preview-icon,
+.audio-preview-spinner {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+}
+
+.audio-preview-icon {
+  fill: currentcolor;
+}
+
 .audio-preview-error {
   color: var(--danger-strong);
   font-size: 0.64rem;
