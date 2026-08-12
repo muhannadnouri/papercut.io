@@ -1,7 +1,10 @@
-import type { ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import type { NativeTtsModelInstallProgress, NativeTtsModelStatus } from '../api/nativeTts'
+import { previewNativeTtsVoice } from '../api/nativeTts'
+import { getTtsPreviewText } from '../models'
+import { nativeTtsErrorMessage } from '../utils/errors'
 import {
   LIBTASHKEEL_TEXT_PREPROCESSOR,
   SILMA_NFE_STEP_OPTIONS,
@@ -56,6 +59,7 @@ export interface AudioSetupPanelProps {
   onInstallModel: () => void
   onModelChange: (modelId: string) => void
   onProbeSilmaSidecar?: () => void
+  onPreviewStart: () => void
   onSilmaNfeStepChange: (nfeStep: number) => void
   onTextPreprocessorChange: (textPreprocessor: string) => void
   onThreadCountChange: (threadCount: number) => void
@@ -82,6 +86,7 @@ export function AudioSetupPanel({
   onInstallModel,
   onModelChange,
   onProbeSilmaSidecar,
+  onPreviewStart,
   onSilmaNfeStepChange,
   onTextPreprocessorChange,
   onThreadCountChange,
@@ -95,6 +100,14 @@ export function AudioSetupPanel({
   voices,
 }: AudioSetupPanelProps) {
   const { t } = useTranslation()
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null)
+  const previewRequestRef = useRef(0)
+  const previewUrlRef = useRef<string | null>(null)
+  const [previewState, setPreviewState] = useState<{
+    selection: string
+    status: 'idle' | 'loading' | 'playing'
+  }>({ selection: '', status: 'idle' })
+  const [previewError, setPreviewError] = useState<{ selection: string, message: string } | null>(null)
   const modelInstalling = modelStatus?.installing || (
     modelInstallProgress !== null &&
     modelInstallProgress.status !== 'installed' &&
@@ -146,6 +159,61 @@ export function AudioSetupPanel({
     ? models.filter((model) => getLanguageOption(model).value === selectedLanguage)
     : models
   const showModelInstallDetails = !modelInstalled || silmaRuntimeMissing || modelInstallProgress !== null || modelInstalling
+  const recommendedVoice = voices.find((item) => item.id === selectedModel?.defaultVoice)
+  const previewSelection = [modelId, voice, textPreprocessor, silmaNfeStep].join('\0')
+  const previewStatus = previewState.selection === previewSelection ? previewState.status : 'idle'
+  const previewErrorMessage = previewError?.selection === previewSelection ? previewError.message : null
+  const clearPreviewAudio = useCallback(() => {
+    previewRequestRef.current += 1
+    previewAudioRef.current?.pause()
+    previewAudioRef.current = null
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
+    previewUrlRef.current = null
+  }, [])
+  const stopPreview = useCallback(() => {
+    clearPreviewAudio()
+    setPreviewState({ selection: '', status: 'idle' })
+  }, [clearPreviewAudio])
+
+  useEffect(() => clearPreviewAudio, [clearPreviewAudio, previewSelection])
+
+  const handlePreview = async () => {
+    if (previewStatus === 'playing') {
+      stopPreview()
+      return
+    }
+    onPreviewStart()
+    setPreviewState({ selection: previewSelection, status: 'loading' })
+    setPreviewError(null)
+    const requestId = previewRequestRef.current + 1
+    previewRequestRef.current = requestId
+    try {
+      const wav = await previewNativeTtsVoice({
+        modelId,
+        textPreprocessor,
+        voice,
+        text: getTtsPreviewText(selectedModel?.language ?? 'en'),
+        speed: 1,
+        threadCount,
+        silmaNfeStep,
+      })
+      if (previewRequestRef.current !== requestId) return
+      const url = URL.createObjectURL(new Blob([wav], { type: 'audio/wav' }))
+      const audio = new Audio(url)
+      previewUrlRef.current = url
+      previewAudioRef.current = audio
+      audio.onended = stopPreview
+      await audio.play()
+      if (previewRequestRef.current !== requestId) return
+      setPreviewState({ selection: previewSelection, status: 'playing' })
+    } catch (error) {
+      stopPreview()
+      setPreviewError({
+        selection: previewSelection,
+        message: t('tts.setup.previewError', { message: nativeTtsErrorMessage(error) }),
+      })
+    }
+  }
 
   return (
     <div className="audio-setup-panel">
@@ -262,20 +330,49 @@ export function AudioSetupPanel({
             </div>
           )}
 
-          <SelectField
-            className="audio-field-voice"
-            label={'🔊 ' + t('tts.setup.voice')}
-            title={t('tts.setup.voice')}
-            value={voice}
-            options={voices.map((item) => ({ label: item.name, value: item.id }))}
-            onChange={(value) => onVoiceChange(value as TtsVoice)}
-          >
+          <div className="audio-field audio-field-voice">
+            <span>{'🔊 ' + t('tts.setup.voice')}</span>
+            <select
+              className="tts-select"
+              value={voice}
+              onChange={(event) => onVoiceChange(event.target.value as TtsVoice)}
+              title={t('tts.setup.voice')}
+            >
+              {voices.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}{item.id === selectedModel?.defaultVoice ? ' · ' + t('tts.setup.recommended') : ''}
+                </option>
+              ))}
+            </select>
+            {recommendedVoice && (
+              <span className="audio-thread-meta" dir="auto">
+                {t('tts.setup.recommendedVoice', { voice: recommendedVoice.name })}
+              </span>
+            )}
             {isSilmaModel && (
               <span className="audio-thread-meta">
                 {t('tts.setup.silmaVoiceHelp')}
               </span>
             )}
-          </SelectField>
+            <button
+              type="button"
+              className="tts-btn audio-preview-button"
+              onClick={() => void handlePreview()}
+              disabled={!modelInstalled || silmaRuntimeMissing || modelInstalling || previewStatus === 'loading'}
+              aria-busy={previewStatus === 'loading'}
+              aria-pressed={previewStatus === 'playing'}
+              title={!modelInstalled || silmaRuntimeMissing ? t('tts.setup.previewModelRequired') : t('tts.setup.previewVoice')}
+            >
+              <span aria-live="polite" aria-atomic="true">
+                {previewStatus === 'loading'
+                  ? t('tts.setup.generatingPreview')
+                  : previewStatus === 'playing'
+                    ? t('tts.setup.stopPreview')
+                    : t('tts.setup.previewVoice')}
+              </span>
+            </button>
+            {previewErrorMessage && <span className="audio-preview-error" role="alert" dir="auto">{previewErrorMessage}</span>}
+          </div>
 
         </div>
       </section>

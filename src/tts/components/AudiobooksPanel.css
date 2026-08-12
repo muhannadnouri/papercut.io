@@ -137,6 +137,19 @@
   grid-area: voice;
 }
 
+.audio-preview-button {
+  width: fit-content;
+  min-height: 2.5rem;
+  justify-self: start;
+}
+
+.audio-preview-error {
+  color: var(--danger-strong);
+  font-size: 0.64rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
 .audio-settings-grid-main {
   grid-template-areas:
     "language model"
@@ -874,6 +887,11 @@ html[dir="rtl"] .audiobook-action-toast {
 
   .tts-select {
     padding: 0 0.4rem;
+  }
+
+  .audio-preview-button {
+    width: 100%;
+    min-height: 2.75rem;
   }
 
   .audiobooks-actions-row {

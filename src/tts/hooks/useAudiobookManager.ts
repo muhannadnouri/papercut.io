@@ -597,6 +597,7 @@ export function useAudiobookManager({
       onInstallModel: handleInstallTtsModel,
       onModelChange: handleModelChange,
       onProbeSilmaSidecar: handleProbeSilmaSidecar,
+      onPreviewStart: stopTts,
       onSilmaNfeStepChange: (nfeStep: number) => setSilmaNfeStep(resolveSilmaNfeStep({ silmaNfeStep: nfeStep })),
       onTextPreprocessorChange: setTtsTextPreprocessor,
       onThreadCountChange: handleThreadCountChange,

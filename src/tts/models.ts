@@ -231,6 +231,21 @@ export function getTtsVoiceName(models: TtsModelInfo[], modelId: string, voiceId
   return getTtsModel(models, modelId).voices.find((voice) => voice.id === voiceId)?.name ?? voiceId
 }
 
+const TTS_PREVIEW_TEXT: Record<string, string> = {
+  ar: 'مرحباً بك في بابركت. هذه معاينة للصوت الذي اخترته.',
+  en: 'Welcome to Papercut. This is a preview of your selected voice.',
+  es: 'Te damos la bienvenida a Papercut. Esta es una muestra de la voz seleccionada.',
+  fr: 'Bienvenue dans Papercut. Voici un aperçu de la voix sélectionnée.',
+  hi: 'पेपरकट में आपका स्वागत है। यह आपकी चुनी हुई आवाज़ का नमूना है।',
+  it: 'Ti diamo il benvenuto in Papercut. Questa è un’anteprima della voce selezionata.',
+  pt: 'Boas-vindas ao Papercut. Esta é uma prévia da voz selecionada.',
+  zh: '欢迎使用 Papercut。这是您所选语音的试听。',
+}
+
+export function getTtsPreviewText(language: string): string {
+  return TTS_PREVIEW_TEXT[language.split('-')[0].toLowerCase()] ?? TTS_PREVIEW_TEXT.en
+}
+
 export function resolveModelTextPreprocessor(
   model: TtsModelInfo,
   requested: string | undefined,
