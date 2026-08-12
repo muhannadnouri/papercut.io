@@ -76,9 +76,8 @@ function EnabledReaderSettings({
             className="reader-setting-font-select"
             value={settings.fontFamily}
             options={FONT_FAMILY_OPTIONS.map((option) => ({
-              ...option,
+              value: option.value,
               label: t(option.labelKey),
-              style: { fontFamily: option.value },
             }))}
             ariaLabelledBy="reader-setting-font"
             onChange={(fontFamily) => onChange({ fontFamily })}

@@ -54,7 +54,7 @@ export const FONT_FAMILY_OPTIONS = [
   { labelKey: 'reader.settings.fonts.atkinson', value: READER_FONT_STACKS.atkinson },
   { labelKey: 'reader.settings.fonts.systemSerif', value: READER_FONT_STACKS.systemSerif },
   { labelKey: 'reader.settings.fonts.systemSans', value: READER_FONT_STACKS.systemSans },
-  { labelKey: 'reader.settings.fonts.naskhArabic', value: READER_FONT_STACKS.naskhArabic, style: { fontFamily: 'var(--ui-font)' } },
+  { labelKey: 'reader.settings.fonts.naskhArabic', value: READER_FONT_STACKS.naskhArabic },
   { labelKey: 'reader.settings.fonts.droidArabicNaskh', value: READER_FONT_STACKS.droidArabicNaskh },
   { labelKey: 'reader.settings.fonts.scheherazadeNew', value: READER_FONT_STACKS.scheherazadeNew },
   { labelKey: 'reader.settings.fonts.readexPro', value: READER_FONT_STACKS.readexPro },
