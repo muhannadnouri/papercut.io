@@ -97,7 +97,7 @@ export function DocumentViewer({
   const [showScrollTop, setShowScrollTop] = useState(false)
   const [pendingExternalUrl, setPendingExternalUrl] = useState<string | null>(null)
   const [externalLinkError, setExternalLinkError] = useState('')
-  const { readerSettingsStyle, readerSettingsProps } = useReaderSettings()
+  const { applyingFontFamily, readerSettingsStyle, readerSettingsProps } = useReaderSettings()
   const {
     bookmarkNotice,
     canUndoBookmarkChange,
@@ -478,7 +478,11 @@ export function DocumentViewer({
 
       {!pdfFullscreen && beforeDocument}
 
-      <main className="document-view" style={readerSettingsStyle}>
+      <main
+        className="document-view"
+        style={readerSettingsStyle}
+        aria-busy={Boolean(applyingFontFamily) || undefined}
+      >
         {loading ? (
           <div className="document-html-surface document-loading-surface" role="status" aria-live="polite">
             <span className="spinner" aria-hidden="true" />

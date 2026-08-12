@@ -381,6 +381,7 @@
       "button": "مظهر القراءة",
       "dialogLabel": "إعدادات القارئ",
       "font": "الخط",
+      "applyingFont": "جارٍ تطبيق {{font}}...",
       "size": "حجم الخط",
       "lineSpacing": "تباعد الأسطر",
       "width": "عرض القراءة",

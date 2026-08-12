@@ -366,6 +366,7 @@
       "button": "Aparência de leitura",
       "dialogLabel": "Configurações do leitor",
       "font": "Fonte",
+      "applyingFont": "Aplicando {{font}}...",
       "size": "Tamanho da fonte",
       "lineSpacing": "Espaçamento entre linhas",
       "width": "Largura de leitura",

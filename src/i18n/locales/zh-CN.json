@@ -356,6 +356,7 @@
       "button": "阅读外观",
       "dialogLabel": "读卡器设置",
       "font": "字体",
+      "applyingFont": "正在应用 {{font}}...",
       "size": "字体大小",
       "lineSpacing": "行距",
       "width": "读取宽度",

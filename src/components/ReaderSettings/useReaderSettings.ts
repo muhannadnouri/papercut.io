@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 
 const READER_SETTINGS_KEY = 'papercut.readerSettings.v1'
 
@@ -70,30 +70,83 @@ const LEGACY_FONT_FAMILY_MAP = new Map([
 
 export function useReaderSettings() {
   const [settings, setSettings] = useState<ReaderSettingsState>(() => loadReaderSettings())
+  const settingsRef = useRef(settings)
+  const appliedFontRef = useRef(settings.fontFamily)
+  const fontApplicationRef = useRef(0)
+  const [appliedFontFamily, setAppliedFontFamily] = useState(settings.fontFamily)
+  const [applyingFontFamily, setApplyingFontFamily] = useState<string | null>(null)
   const readerSettingsStyle = useMemo(() => ({
-    '--reader-font-family': settings.fontFamily,
+    '--reader-font-family': appliedFontFamily,
     '--reader-font-size': `${settings.fontSizePx}px`,
     '--reader-line-height': String(settings.lineHeight),
     '--reader-width': `${settings.widthCh}ch`,
-  }) as CSSProperties, [settings])
+  }) as CSSProperties, [appliedFontFamily, settings])
 
-  const onChange = useCallback((next: Partial<ReaderSettingsState>) => {
-    setSettings((current) => {
-      const updated = clampReaderSettings({ ...current, ...next })
-      saveReaderSettings(updated)
-      return updated
+  useEffect(() => () => {
+    fontApplicationRef.current += 1
+  }, [])
+
+  const stageFontApplication = useCallback((fontFamily: string) => {
+    const request = ++fontApplicationRef.current
+    setApplyingFontFamily(fontFamily)
+
+    void prepareReaderFontApplication(fontFamily).then(async () => {
+      if (fontApplicationRef.current !== request) return
+      appliedFontRef.current = fontFamily
+      setAppliedFontFamily(fontFamily)
+      await waitForAnimationFrame()
+      if (fontApplicationRef.current === request) setApplyingFontFamily(null)
     })
   }, [])
 
+  const onChange = useCallback((next: Partial<ReaderSettingsState>) => {
+    const updated = clampReaderSettings({ ...settingsRef.current, ...next })
+    settingsRef.current = updated
+    saveReaderSettings(updated)
+    setSettings(updated)
+
+    if (next.fontFamily === undefined) return
+    if (updated.fontFamily === appliedFontRef.current) {
+      fontApplicationRef.current += 1
+      setApplyingFontFamily(null)
+      return
+    }
+    stageFontApplication(updated.fontFamily)
+  }, [stageFontApplication])
+
   const onReset = useCallback(() => {
-    saveReaderSettings(DEFAULT_READER_SETTINGS)
-    setSettings(DEFAULT_READER_SETTINGS)
-  }, [])
+    onChange(DEFAULT_READER_SETTINGS)
+  }, [onChange])
 
   return {
+    applyingFontFamily,
     readerSettingsStyle,
-    readerSettingsProps: { settings, onChange, onReset },
+    readerSettingsProps: { applyingFontFamily, settings, onChange, onReset },
   }
+}
+
+export async function prepareReaderFontApplication(
+  fontFamily: string,
+  loadFont: (value: string) => Promise<unknown> = loadReaderFont,
+  nextFrame: () => Promise<void> = waitForAnimationFrame,
+): Promise<void> {
+  try {
+    await loadFont(fontFamily)
+  } catch {
+    // CSS falls through to the next font in the selected stack.
+  }
+  await nextFrame()
+  await nextFrame()
+}
+
+function loadReaderFont(fontFamily: string): Promise<unknown> {
+  if (typeof document === 'undefined' || !document.fonts) return Promise.resolve()
+  return document.fonts.load(`16px ${fontFamily}`, 'Aa العربية')
+}
+
+function waitForAnimationFrame(): Promise<void> {
+  if (typeof requestAnimationFrame !== 'function') return Promise.resolve()
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()))
 }
 
 // Load preferences defensively because old app versions, edited localStorage, or
