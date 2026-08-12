@@ -14,13 +14,15 @@
 [![Download for Android](https://img.shields.io/badge/Download-Android-3DDC84?logo=android&logoColor=white)](https://trypapercut.netlify.app/#downloads-title) [![Download for Linux](https://img.shields.io/badge/Download-Linux-FCC624?logo=linux&logoColor=black)](https://trypapercut.netlify.app/#downloads-title) [![Download for Windows](https://img.shields.io/badge/Download-Windows-0078D4?logo=windows11&logoColor=white)](https://trypapercut.netlify.app/#downloads-title) [![Download for macOS](https://img.shields.io/badge/Download-macOS-000000?logo=apple&logoColor=white)](https://trypapercut.netlify.app/#downloads-title)
 
 
-Papercut is an offline reader for searching, reading, and listening to HTML, EPUB, and text-native PDF collections. It is built with Tauri, React, Vite, PDF.js, Pagefind, SQLite FTS, and native sherpa-onnx TTS.
+Papercut is an offline reader for searching, reading, and listening to HTML, EPUB, and PDF collections. It is built with Tauri, React, Vite, PDF.js, Pagefind, SQLite FTS, Tesseract.js OCR, and native sherpa-onnx TTS.
 
-Bundled HTML documents are indexed at build time with Pagefind. User-imported HTML, EPUB, and text-native PDF documents are normalized and indexed incrementally into a local SQLite FTS database in Tauri app data, so imports do not require rebuilding the app. The relevant search providers are queried and merged into one UI. Reading, search, library organization, audiobook playback, and local library transfer work without an account or server connection. Optional native TTS models and the Linux SILMA runtime require a one-time download before they can run offline.
+Bundled HTML documents are indexed at build time with Pagefind. User-imported HTML, EPUB, and PDF documents are normalized and indexed incrementally into a local SQLite FTS database in Tauri app data, so imports do not require rebuilding the app. PDFs with embedded text are indexed immediately; image-only and hybrid pages can be recognized on demand in English or Arabic with bundled, on-device OCR. The relevant search providers are queried and merged into one UI. Reading, search, library organization, OCR, audiobook playback, and local library transfer work without an account or server connection. Optional native TTS models and the Linux SILMA runtime require a one-time download before they can run offline.
 
 ## Highlights
 
-- Import up to 500 HTML, EPUB, or text-native PDF files at once; desktop builds can also import the supported files directly inside one folder.
+- Import up to 500 HTML, EPUB, or PDF files at once; desktop builds can also import the supported files directly inside one folder.
+- Make image-only and hybrid PDF pages searchable and speakable with resumable, offline English or Arabic OCR.
+- Scan multi-page documents or import existing photos on supported Android devices while retaining the original pages in a canonical PDF.
 - Search bundled and uploaded documents together, including scoped document filters and source-verified exact phrases.
 - Browse cover-based Gallery or compact List views, edit document metadata, organize folders, and filter by saved audio or bookmarks.
 - Read with format-appropriate viewers, in-document Find, semantic bookmarks, and responsive HTML/EPUB appearance controls.
@@ -216,7 +218,7 @@ The built binary is output to `src-tauri/target/release/app` (`app.exe` on Windo
 Install the generated Debian package with a dependency-aware command so WebKitGTK and GTK are installed if needed:
 
 ```bash
-sudo apt install ./src-tauri/target/release/bundle/deb/Papercut_1.8.0_amd64.deb
+sudo apt install ./src-tauri/target/release/bundle/deb/Papercut_1.9.0_amd64.deb
 ```
 
 If you previously used `sudo dpkg -i ...` and the app did not launch, run `sudo apt -f install` once to finish installing missing dependencies, then reinstall the newly generated `.deb`.
@@ -260,7 +262,7 @@ Create or update `RELEASE_NOTES/vX.Y.Z.md`, and prefer a new patch tag instead o
 On Arch-based systems, the AppImage may show a blank screen due to a WebKit GBM buffer allocation failure with modern Mesa drivers. Set `WEBKIT_DISABLE_COMPOSITING_MODE=1` to disable GPU compositing:
 
 ```bash
-WEBKIT_DISABLE_COMPOSITING_MODE=1 ./Papercut_1.8.0_amd64.AppImage
+WEBKIT_DISABLE_COMPOSITING_MODE=1 ./Papercut_1.9.0_amd64.AppImage
 ```
 
 To avoid setting this every time, export it permanently in your shell:
@@ -412,9 +414,9 @@ Pagefind will automatically extract and index the text content on the next build
 
 ### User-Uploaded HTML, EPUB, And PDF Documents
 
-From the document list, open **Import** and choose **Files** to select one or more local `.html`, `.htm`, `.epub`, or text-native `.pdf` documents. Desktop builds also offer **Folder**, which imports supported files directly inside one selected folder and skips subfolders. HTML and EPUB produce sanitized reading HTML; PDF retains a canonical source while PDF.js incrementally derives page text, search rows, page locators, and a best-effort gallery thumbnail. Uploaded documents appear under **User Uploads**, open in the format-appropriate reader, participate in the same SQLite FTS5 search UI, and can use the same TTS playback/save flow when native TTS is available. HTML/EPUB reader appearance controls do not alter stored documents or audiobook metadata; PDF pages retain their authored appearance while app chrome follows the selected theme. Uploaded documents can also be deleted from the document list; delete removes the SQLite rows and stored source directory to free local storage.
+From the document list, open **Import** and choose **Files** to select one or more local `.html`, `.htm`, `.epub`, or `.pdf` documents. Desktop builds also offer **Folder**, which recursively imports supported files through five visible folder levels while preserving that hierarchy in the Library. HTML and EPUB produce sanitized reading HTML; PDF retains a canonical source while PDF.js incrementally derives page text, search rows, page locators, and a best-effort gallery thumbnail. Uploaded documents appear under **User Uploads**, open in the format-appropriate reader, participate in the same SQLite FTS5 search UI, and can use the same TTS playback/save flow when native TTS is available. HTML/EPUB reader appearance controls do not alter stored documents or audiobook metadata; PDF pages retain their authored appearance while app chrome follows the selected theme. Uploaded documents can also be deleted from the document list; delete removes the SQLite rows and stored source directory to free local storage.
 
-EPUB import validates the archive container, follows the OPF spine, stores a sanitized generated reading HTML copy, and outputs normalized sections before indexing. PDF uses the same document/search store with page-aware locators and a dedicated virtualized PDF.js viewer. Fully textless English PDFs can be recognized on demand with the local Tesseract worker; hybrid PDFs and additional recognition languages remain on the staged roadmap in [docs/pdf-ocr-scanning.md](docs/pdf-ocr-scanning.md).
+EPUB import validates the archive container, follows the OPF spine, stores a sanitized generated reading HTML copy, and outputs normalized sections before indexing. PDF uses the same document/search store with page-aware locators and a dedicated virtualized PDF.js viewer. Image-only and hybrid PDF pages can be recognized on demand in English or Arabic with a bundled Tesseract worker; recognition is resumable, preserves the canonical PDF, and feeds the same Find, search, selection, and TTS paths as embedded text. Supported Android devices can scan multi-page documents or import existing photos into this PDF pipeline. The iOS VisionKit scanner and photo picker are implemented, but physical-device acceptance remains open; desktop camera capture is not included. Current validation and remaining platform work are tracked in [docs/pdf-ocr-scanning.md](docs/pdf-ocr-scanning.md).
 
 ### Search Behavior
 
