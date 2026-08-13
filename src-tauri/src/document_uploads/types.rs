@@ -31,10 +31,24 @@ pub(crate) struct UploadedDocumentBatchFailure {
 }
 
 /// Count-based progress emitted while a sequential document batch runs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum UploadedDocumentImportStage {
+    DetectingFormat,
+    ReadingFile,
+    PreparingDocument,
+    PreparingBook,
+    StoringDocument,
+}
+
+/// Count-based progress with an optional semantic stage. Stages deliberately
+/// describe work without claiming a percentage the parser cannot measure.
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentBatchProgress {
     pub(crate) phase: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) stage: Option<UploadedDocumentImportStage>,
     pub(crate) processed: usize,
     pub(crate) total: usize,
     pub(crate) imported: usize,

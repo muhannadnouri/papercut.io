@@ -32,7 +32,7 @@ use super::storage::{
 use super::store::{delete_document_rows, find_upload_by_id, open_db, upsert_document};
 use super::types::{
     UploadedDocument, UploadedDocumentDeleteRequest, UploadedDocumentDeleteResult,
-    UploadedDocumentSource, UploadedDocumentSourceRequest,
+    UploadedDocumentImportStage, UploadedDocumentSource, UploadedDocumentSourceRequest,
 };
 
 const MAX_STORED_COVER_BYTES: u64 = 5 * 1024 * 1024;
@@ -45,7 +45,9 @@ pub(crate) fn import_html_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
     original_file_name: Option<String>,
+    progress: &mut dyn FnMut(UploadedDocumentImportStage),
 ) -> Result<UploadedDocument, String> {
+    progress(UploadedDocumentImportStage::ReadingFile);
     let bytes = read_source_bytes(
         app,
         source,
@@ -60,11 +62,13 @@ pub(crate) fn import_html_source<R: Runtime>(
     }
     let html = decode_html_bytes(&bytes)?;
 
+    progress(UploadedDocumentImportStage::PreparingDocument);
     let parsed = parse_html_document(&html);
     if parsed.sections.is_empty() {
         return Err("HTML document did not contain readable text".into());
     }
 
+    progress(UploadedDocumentImportStage::StoringDocument);
     persist_document(app, id, parsed, bytes.len() as u64, original_file_name)
 }
 
@@ -73,7 +77,9 @@ pub(crate) fn import_epub_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
     original_file_name: Option<String>,
+    progress: &mut dyn FnMut(UploadedDocumentImportStage),
 ) -> Result<UploadedDocument, String> {
+    progress(UploadedDocumentImportStage::ReadingFile);
     let bytes = read_source_bytes(
         app,
         source,
@@ -86,11 +92,13 @@ pub(crate) fn import_epub_source<R: Runtime>(
     if let Some(existing) = existing_upload(app, &id)? {
         return Ok(existing);
     }
+    progress(UploadedDocumentImportStage::PreparingBook);
     let parsed = parse_epub_document(&bytes, "Imported EPUB Book")?;
     if parsed.sections.is_empty() {
         return Err("EPUB did not contain readable text".into());
     }
 
+    progress(UploadedDocumentImportStage::StoringDocument);
     persist_document(app, id, parsed, bytes.len() as u64, original_file_name)
 }
 

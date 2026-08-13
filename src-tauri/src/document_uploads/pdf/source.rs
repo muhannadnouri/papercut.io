@@ -10,19 +10,22 @@ use super::super::storage::{
     upload_source_path, upload_url, StoredSourceKind, MAX_PDF_UPLOAD_BYTES,
 };
 use super::super::store::{find_upload_by_id, open_db, upsert_unindexed_document};
-use super::super::types::UploadedDocument;
+use super::super::types::{UploadedDocument, UploadedDocumentImportStage};
 
 pub(crate) const SOURCE_FILE_NAME: &str = "source.pdf";
 
 /// Store one selected PDF before PDF.js derives its rebuildable page text.
 /// The source is not considered searchable until the separate finalization
-/// command atomically replaces its page and FTS rows.
+/// command atomically replaces its page and FTS rows. Progress identifiers are
+/// stable API values; the frontend owns their localized wording.
 pub(crate) fn import_pdf_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
     fallback_title: String,
     original_file_name: Option<String>,
+    progress: &mut dyn FnMut(UploadedDocumentImportStage),
 ) -> Result<UploadedDocument, String> {
+    progress(UploadedDocumentImportStage::ReadingFile);
     let bytes = read_source_bytes(
         app,
         source,
@@ -39,6 +42,7 @@ pub(crate) fn import_pdf_source<R: Runtime>(
         return Ok(existing);
     }
 
+    progress(UploadedDocumentImportStage::StoringDocument);
     let imported_at_ms = now_ms()?;
     let source_kind = StoredSourceKind::Pdf;
     let url = upload_url(&id, source_kind);

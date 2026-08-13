@@ -486,7 +486,15 @@ export function DocumentViewer({
         {loading ? (
           <div className="document-html-surface document-loading-surface" role="status" aria-live="polite">
             <span className="spinner" aria-hidden="true" />
-            <span>{t('reader.openingDocument')}</span>
+            <span className="document-loading-message">
+              <span>{t('reader.openingDocument')}</span>
+              <span className="document-loading-detail">
+                {t(format === 'epub' ? 'reader.preparingBook' : 'reader.preparingDocument')}
+              </span>
+              <span className="document-loading-detail document-loading-detail-slow">
+                {t('reader.largeDocumentDelay')}
+              </span>
+            </span>
           </div>
         ) : loadError ? (
           <div className="document-html-surface document-loading-surface document-load-error" role="alert">

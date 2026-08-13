@@ -50,6 +50,7 @@ export async function indexImportedPdfs(
     }
     options.onProgress?.({
       phase: 'importing',
+      stage: 'extractingPdfText',
       processed: completed.length + failures.length,
       total: result.selected,
       imported: Math.max(0, completed.length - result.alreadyInLibrary.length),

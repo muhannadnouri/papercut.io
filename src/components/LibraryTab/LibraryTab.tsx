@@ -6,11 +6,24 @@ import type { DocumentImportStatus } from '../../hooks/useUploadedLibrary'
 import { PdfRecognitionStatus } from '../../pdf/ocr/PdfRecognitionStatus'
 import type { PdfOcrLanguage } from '../../pdf/ocr/tesseractOcr'
 import type { DocumentInfo } from '../../types/search'
-import type { UploadedDocumentDeleteBatchResult, UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
+import type {
+  UploadedDocumentDeleteBatchResult,
+  UploadedDocumentImportStage,
+  UploadedLibraryOrganization,
+} from '../../uploads/DocumentUploads'
 import { formatStorageSize } from '../../utils/formatUtils'
 import { isMobileUserAgent } from '../../utils/platform'
 import { DocumentsPanel } from '../DocumentsPanel/DocumentsPanel'
 import { DocumentInfoDialog } from '../DocumentInfoDialog/DocumentInfoDialog'
+
+const IMPORT_STAGE_KEYS = {
+  detectingFormat: 'library.status.importStage.detectingFormat',
+  readingFile: 'library.status.importStage.readingFile',
+  preparingDocument: 'library.status.importStage.preparingDocument',
+  preparingBook: 'library.status.importStage.preparingBook',
+  storingDocument: 'library.status.importStage.storingDocument',
+  extractingPdfText: 'library.status.importStage.extractingPdfText',
+} as const satisfies Record<UploadedDocumentImportStage, string>
 
 interface LibraryTabProps {
   allDocuments: DocumentInfo[]
@@ -327,6 +340,7 @@ function DocumentBatchImportStatus({
   const total = progress?.total ?? 0
   const processed = progress?.processed ?? 0
   const current = progress?.fileName ? Math.min(processed + 1, total) : processed
+  const stageMessage = progress?.stage ? t(IMPORT_STAGE_KEYS[progress.stage]) : null
 
   let message: ReactNode
   if (importing && status.cancelRequested) {
@@ -340,6 +354,11 @@ function DocumentBatchImportStatus({
           total,
         })}
         {progress?.fileName ? <> · <bdi>{progress.fileName}</bdi></> : null}
+        {stageMessage ? (
+          <span key={progress?.stage} className="document-batch-stage">
+            {stageMessage}
+          </span>
+        ) : null}
       </>
     )
   } else if (importing) {

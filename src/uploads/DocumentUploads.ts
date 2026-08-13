@@ -68,8 +68,17 @@ export interface UploadedDocumentBatchFailure {
   error: string
 }
 
+export type UploadedDocumentImportStage =
+  | 'detectingFormat'
+  | 'readingFile'
+  | 'preparingDocument'
+  | 'preparingBook'
+  | 'storingDocument'
+  | 'extractingPdfText'
+
 export interface UploadedDocumentBatchProgress {
   phase: 'importing' | 'completed' | 'cancelled'
+  stage?: UploadedDocumentImportStage | null
   processed: number
   total: number
   imported: number

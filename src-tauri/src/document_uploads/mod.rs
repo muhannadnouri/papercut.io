@@ -44,7 +44,7 @@ pub(crate) use state::DocumentUploadState;
 // Library transfer consumes this narrow storage API so its removable package
 // module never duplicates document parsing, sanitization, indexing, or folder rules.
 pub(crate) use organization::{create_folder, list_organization, move_documents};
-pub(crate) use parsed::{is_reader_asset_file_name, ParsedDocumentAsset, READER_ASSET_DIR_NAME};
+pub(crate) use parsed::{is_reader_asset_file_name, ParsedDocumentAsset};
 pub(crate) use pdf::{get_pdf_source_path, restore_audiobook_pdf, restore_transferred_pdf};
 #[cfg(feature = "native-tts-core")]
 pub(crate) use pipeline::ensure_uploaded_source_exists;
