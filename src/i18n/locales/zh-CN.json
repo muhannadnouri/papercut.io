@@ -115,9 +115,9 @@
     },
     "import": {
       "files": "文件",
-      "filesDetail": "导入一个或多个 HTML、EPUB 或 PDF 文件",
+      "filesDetail": "导入一个或多个 HTML、EPUB、PDF、TXT 或 Markdown 文件",
       "folder": "文件夹",
-      "folderDetail": "导入 HTML、EPUB 和 PDF 文件，并保留最多 5 层文件夹结构",
+      "folderDetail": "导入 HTML、EPUB、PDF、TXT 和 Markdown 文件，并保留最多 5 层文件夹结构",
       "scanPages": "扫描页面",
       "scanPagesDetail": "使用相机扫描一页或多页",
       "photos": "照片",
@@ -143,7 +143,7 @@
       "defaultPhotoTitle": "导入的照片"
     },
     "status": {
-      "preparingBatch": "选择要导入的 HTML、EPUB 或 PDF 文件...",
+      "preparingBatch": "选择要导入的 HTML、EPUB、PDF、TXT 或 Markdown 文件...",
       "capturingPages": "在设备上扫描并检查页面...",
       "preparingPhotos": "选择照片并准备文档...",
       "importingBatchProgress": "正在导入第 {{current, number}} 个，共 {{total, number}} 个",

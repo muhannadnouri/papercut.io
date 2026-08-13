@@ -123,9 +123,9 @@
     },
     "import": {
       "files": "Archivos",
-      "filesDetail": "Importa uno o más archivos HTML, EPUB o PDF",
+      "filesDetail": "Importa uno o más archivos HTML, EPUB, PDF, TXT o Markdown",
       "folder": "Carpeta",
-      "folderDetail": "Importa archivos HTML, EPUB y PDF y conserva una estructura de carpetas de hasta 5 niveles",
+      "folderDetail": "Importa archivos HTML, EPUB, PDF, TXT y Markdown y conserva una estructura de carpetas de hasta 5 niveles",
       "scanPages": "Escanear páginas",
       "scanPagesDetail": "Usa la cámara para escanear una o más páginas",
       "photos": "Fotos",
@@ -151,7 +151,7 @@
       "defaultPhotoTitle": "Fotos importadas"
     },
     "status": {
-      "preparingBatch": "Elige archivos HTML, EPUB o PDF para importar...",
+      "preparingBatch": "Elige archivos HTML, EPUB, PDF, TXT o Markdown para importar...",
       "capturingPages": "Escanea y revisa las páginas en tu dispositivo...",
       "preparingPhotos": "Elige fotos y prepara tu documento...",
       "importingBatchProgress": "Importando {{current, number}} de {{total, number}}",

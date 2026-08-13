@@ -119,9 +119,9 @@
     },
     "import": {
       "files": "Files",
-      "filesDetail": "Import one or more HTML, EPUB, or PDF files",
+      "filesDetail": "Import one or more HTML, EPUB, PDF, TXT, or Markdown files",
       "folder": "Folder",
-      "folderDetail": "Import HTML, EPUB, and PDF files and preserve a folder hierarchy up to 5 levels",
+      "folderDetail": "Import HTML, EPUB, PDF, TXT, and Markdown files and preserve a folder hierarchy up to 5 levels",
       "scanPages": "Scan Pages",
       "scanPagesDetail": "Use the camera to scan one or more pages",
       "photos": "Photos",
@@ -147,7 +147,7 @@
       "defaultPhotoTitle": "Imported Photos"
     },
     "status": {
-      "preparingBatch": "Choose HTML, EPUB, or PDF files to import...",
+      "preparingBatch": "Choose HTML, EPUB, PDF, TXT, or Markdown files to import...",
       "capturingPages": "Scan and review pages on your device...",
       "preparingPhotos": "Choose photos and prepare your document...",
       "importingBatchProgress": "Importing {{current, number}} of {{total, number}}",

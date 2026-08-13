@@ -32,7 +32,7 @@ use super::types::{
 };
 use super::DocumentUploadState;
 
-/// Pick multiple HTML, EPUB, or PDF files and import them as one cancellable batch.
+/// Pick multiple HTML, EPUB, PDF, TXT, or Markdown files and import them as one cancellable batch.
 #[tauri::command]
 pub async fn document_uploads_import_batch<R: Runtime>(
     app: tauri::AppHandle<R>,

@@ -119,9 +119,9 @@
     },
     "import": {
       "files": "फ़ाइलें",
-      "filesDetail": "एक या अधिक HTML, EPUB या PDF फ़ाइलें आयात करें",
+      "filesDetail": "एक या अधिक HTML, EPUB, PDF, TXT या Markdown फ़ाइलें आयात करें",
       "folder": "फ़ोल्डर",
-      "folderDetail": "HTML, EPUB और PDF फ़ाइलें आयात करें और 5 स्तर तक की फ़ोल्डर संरचना बनाए रखें",
+      "folderDetail": "HTML, EPUB, PDF, TXT और Markdown फ़ाइलें आयात करें और 5 स्तर तक की फ़ोल्डर संरचना बनाए रखें",
       "scanPages": "पृष्ठ स्कैन करें",
       "scanPagesDetail": "एक या अधिक पृष्ठ स्कैन करने के लिए कैमरे का उपयोग करें",
       "photos": "फ़ोटो",
@@ -147,7 +147,7 @@
       "defaultPhotoTitle": "आयात की गई फ़ोटो"
     },
     "status": {
-      "preparingBatch": "आयात करने के लिए HTML, EPUB या PDF फ़ाइलें चुनें...",
+      "preparingBatch": "आयात करने के लिए HTML, EPUB, PDF, TXT या Markdown फ़ाइलें चुनें...",
       "capturingPages": "अपने डिवाइस पर पृष्ठ स्कैन करें और जाँचें...",
       "preparingPhotos": "फ़ोटो चुनें और अपना दस्तावेज़ तैयार करें...",
       "importingBatchProgress": "{{total, number}} में से {{current, number}} आयात हो रहा है",

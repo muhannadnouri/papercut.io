@@ -4,7 +4,7 @@
 //! independently. Dependencies only point downward:
 //!
 //! ```text
-//! commands -> { batch, pipeline, organization, search, store } -> { cover, epub, html, pdf, parsed, storage, types }
+//! commands -> { batch, pipeline, organization, search, store } -> { cover, epub, html, pdf, text, parsed, storage, types }
 //! ```
 //!
 //! - [`commands`]: the thin `#[tauri::command]` edge exposed to the frontend.
@@ -19,6 +19,7 @@
 //! - [`store`]: SQLite schema, persistence, and listing.
 //! - [`search`]: FTS5 query building and execution.
 //! - [`storage`]: filesystem paths, upload ids, size accounting, clock.
+//! - [`text`]: plain-text and Markdown decoding + safe reader HTML generation.
 //! - [`types`]: serde DTOs shared across the boundary.
 
 // `commands` is `pub(crate)` so `generate_handler!` in `lib.rs` can reach both
@@ -36,6 +37,7 @@ mod search;
 mod state;
 mod storage;
 mod store;
+mod text;
 mod types;
 
 pub(crate) use batch::import_scanner_source;

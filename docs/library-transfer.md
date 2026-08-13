@@ -33,7 +33,7 @@ existing component modules.
 
 The package carries canonical user data:
 
-- sanitized, normalized `source.html` for each generic HTML or EPUB upload;
+- sanitized, normalized `source.html` for each generic HTML, EPUB, TXT, or Markdown upload;
 - content-hashed reader-image assets referenced by transferred EPUB reading HTML;
 - stable document ids, display titles, optional original filenames, and import metadata;
 - uploaded-library folders and document placement metadata;
@@ -54,7 +54,7 @@ appear automatically. Audiobook export is optional, individually selectable,
 and off by default because these payloads can make a transfer package several
 gigabytes larger.
 
-The receiver parses and sanitizes every transferred HTML document again, then
+The receiver parses and sanitizes every transferred reflowable document again, then
 rebuilds SQLite metadata, sections, and FTS rows with its installed app version.
 Transferred display-title overrides and available original filenames are
 restored after parsing so metadata corrections survive a device move.

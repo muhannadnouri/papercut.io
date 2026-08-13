@@ -123,9 +123,9 @@
     },
     "import": {
       "files": "Fichiers",
-      "filesDetail": "Importez un ou plusieurs fichiers HTML, EPUB ou PDF",
+      "filesDetail": "Importez un ou plusieurs fichiers HTML, EPUB, PDF, TXT ou Markdown",
       "folder": "Dossier",
-      "folderDetail": "Importez les fichiers HTML, EPUB et PDF et conservez une arborescence sur 5 niveaux maximum",
+      "folderDetail": "Importez des fichiers HTML, EPUB, PDF, TXT et Markdown et conservez une arborescence sur 5 niveaux maximum",
       "scanPages": "Numériser des pages",
       "scanPagesDetail": "Utilisez l’appareil photo pour numériser une ou plusieurs pages",
       "photos": "Photos",
@@ -151,7 +151,7 @@
       "defaultPhotoTitle": "Photos importées"
     },
     "status": {
-      "preparingBatch": "Choisissez les fichiers HTML, EPUB ou PDF à importer...",
+      "preparingBatch": "Choisissez les fichiers HTML, EPUB, PDF, TXT ou Markdown à importer...",
       "capturingPages": "Numérisez et vérifiez les pages sur votre appareil...",
       "preparingPhotos": "Choisissez des photos et préparez votre document...",
       "importingBatchProgress": "Importation de {{current, number}} sur {{total, number}}",

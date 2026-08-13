@@ -25,11 +25,12 @@ use super::storage::directory_size;
 #[cfg(feature = "native-tts-core")]
 use super::storage::UPLOAD_URL_PREFIX;
 use super::storage::{
-    now_ms, read_source_bytes, source_upload_id, upload_dir, upload_id_from_url,
-    upload_reference_from_url, upload_source_path, upload_url, StoredSourceKind,
-    MAX_EPUB_UPLOAD_BYTES, MAX_UPLOAD_BYTES,
+    formatted_source_upload_id, now_ms, read_source_bytes, source_upload_id, upload_dir,
+    upload_id_from_url, upload_reference_from_url, upload_source_path, upload_url,
+    StoredSourceKind, MAX_EPUB_UPLOAD_BYTES, MAX_UPLOAD_BYTES,
 };
 use super::store::{delete_document_rows, find_upload_by_id, open_db, upsert_document};
+use super::text::{decode_text_bytes, parse_text_document, TextDocumentFormat};
 use super::types::{
     UploadedDocument, UploadedDocumentDeleteRequest, UploadedDocumentDeleteResult,
     UploadedDocumentImportStage, UploadedDocumentSource, UploadedDocumentSourceRequest,
@@ -96,6 +97,42 @@ pub(crate) fn import_epub_source<R: Runtime>(
     let parsed = parse_epub_document(&bytes, "Imported EPUB Book")?;
     if parsed.sections.is_empty() {
         return Err("EPUB did not contain readable text".into());
+    }
+
+    progress(UploadedDocumentImportStage::StoringDocument);
+    persist_document(app, id, parsed, bytes.len() as u64, original_file_name)
+}
+
+/// Import one plain-text or Markdown file through the shared sanitized HTML
+/// store. The format participates in identity because identical bytes render
+/// differently when Markdown syntax is interpreted instead of shown literally.
+pub(crate) fn import_text_source<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    source: FilePath,
+    original_file_name: Option<String>,
+    title: String,
+    format: TextDocumentFormat,
+    progress: &mut dyn FnMut(UploadedDocumentImportStage),
+) -> Result<UploadedDocument, String> {
+    progress(UploadedDocumentImportStage::ReadingFile);
+    let bytes = read_source_bytes(
+        app,
+        source,
+        MAX_UPLOAD_BYTES,
+        "Text document is larger than the 25 MB import limit",
+        "Failed to open selected text document",
+        "Failed to read selected text document",
+    )?;
+    let id = formatted_source_upload_id(format.as_str(), &bytes);
+    if let Some(existing) = existing_upload(app, &id)? {
+        return Ok(existing);
+    }
+    let text = decode_text_bytes(&bytes)?;
+
+    progress(UploadedDocumentImportStage::PreparingDocument);
+    let parsed = parse_text_document(&text, title, format);
+    if parsed.sections.is_empty() {
+        return Err("Text document did not contain readable text".into());
     }
 
     progress(UploadedDocumentImportStage::StoringDocument);
@@ -180,7 +217,7 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
     if imported_at_ms > i64::MAX as u128 {
         return Err("Transferred document timestamp is invalid".into());
     }
-    if !matches!(format.as_str(), "html" | "epub") {
+    if !matches!(format.as_str(), "html" | "epub" | "txt" | "markdown") {
         return Err(format!(
             "Unsupported transferred document format {format:?}"
         ));

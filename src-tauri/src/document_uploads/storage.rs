@@ -99,6 +99,16 @@ pub(crate) fn source_upload_id(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
+/// Include formats when identical text bytes have different reading semantics,
+/// while leaving all existing HTML, EPUB, and PDF identities unchanged.
+pub(crate) fn formatted_source_upload_id(format: &str, bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(format.as_bytes());
+    hasher.update([0]);
+    hasher.update(bytes);
+    format!("{:x}", hasher.finalize())
+}
+
 /// Build the stable app-owned URL for one stored source.
 pub(crate) fn upload_url(id: &str, source_kind: StoredSourceKind) -> String {
     format!("{UPLOAD_URL_PREFIX}{id}.{}", source_kind.extension())
@@ -195,7 +205,10 @@ pub(crate) fn now_ms() -> Result<u128, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{source_upload_id, upload_reference_from_url, upload_url, StoredSourceKind};
+    use super::{
+        formatted_source_upload_id, source_upload_id, upload_reference_from_url, upload_url,
+        StoredSourceKind,
+    };
 
     #[test]
     fn source_upload_id_is_stable_sha256() {
@@ -204,6 +217,14 @@ mod tests {
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
         );
         assert_ne!(source_upload_id(b"abc"), source_upload_id(b"abd"));
+    }
+
+    #[test]
+    fn text_identity_includes_interpretation_format() {
+        assert_ne!(
+            formatted_source_upload_id("txt", b"# Heading"),
+            formatted_source_upload_id("markdown", b"# Heading")
+        );
     }
 
     #[test]
