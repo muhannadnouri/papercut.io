@@ -31,6 +31,7 @@ import {
   getUploadedLibraryOrganization,
   importDocumentBatch as importDocumentBatchSource,
   importDocumentFolder as importDocumentFolderSource,
+  importDocumentPaths as importDocumentPathsSource,
   importPastedText as importPastedTextSource,
   listUploadedDocuments,
   listenDocumentBatchProgress,
@@ -58,7 +59,7 @@ export const LIBRARY_OPERATION_IN_PROGRESS = 'library-operation-in-progress'
 // isolate user titles without parsing preformatted English messages.
 export type DocumentImportStatus = {
   status: 'idle' | 'importing' | 'imported' | 'recognizing' | 'recognized' | 'deleting' | 'deleted' | 'cancelled' | 'error'
-  format?: 'batch' | 'folder' | 'paste' | 'scan' | 'photos' | 'pdf-ocr' | 'delete-batch'
+  format?: 'batch' | 'drop' | 'folder' | 'paste' | 'scan' | 'photos' | 'pdf-ocr' | 'delete-batch'
   title?: string
   bytesFreed?: number
   message?: string
@@ -239,7 +240,7 @@ export function useUploadedLibrary() {
   /** Subscribe before opening native selection UI so the shared import paths
    * retain even their first progress event and use one partial-result flow. */
   const importDocumentCollection = useCallback(async (
-    format: 'batch' | 'folder' | 'scan' | 'photos',
+    format: 'batch' | 'drop' | 'folder' | 'scan' | 'photos',
     importer: () => Promise<UploadedDocumentBatchResult>,
     options: DocumentCollectionImportOptions = {},
   ): Promise<UploadedDocumentBatchResult | null> => {
@@ -324,6 +325,11 @@ export function useUploadedLibrary() {
 
   const importDocumentFolder = useCallback(
     () => importDocumentCollection('folder', importDocumentFolderSource),
+    [importDocumentCollection],
+  )
+
+  const importDocumentPaths = useCallback(
+    (paths: string[]) => importDocumentCollection('drop', () => importDocumentPathsSource(paths)),
     [importDocumentCollection],
   )
 
@@ -593,6 +599,7 @@ export function useUploadedLibrary() {
     documentImport,
     importDocumentBatch,
     importDocumentFolder,
+    importDocumentPaths,
     importDocumentPhotos,
     importPastedText,
     scanDocument,

@@ -95,6 +95,36 @@ pub(crate) fn import_batch<R: Runtime>(
     import_sources(app, control, sources, None, None)
 }
 
+/// Import paths authorized by Tauri's native desktop drop handler. The handler
+/// adds only actually dropped files to the runtime filesystem scope, so this
+/// command reuses that scope instead of granting broader read access.
+#[cfg(desktop)]
+pub(crate) fn import_paths<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    control: DocumentBatchControl,
+    paths: Vec<PathBuf>,
+) -> Result<UploadedDocumentBatchResult, String> {
+    if paths.is_empty() {
+        return Err("Drop at least one document to import".into());
+    }
+    import_sources(
+        app,
+        control,
+        paths.into_iter().map(FilePath::Path).collect(),
+        None,
+        None,
+    )
+}
+
+#[cfg(mobile)]
+pub(crate) fn import_paths<R: Runtime>(
+    _app: tauri::AppHandle<R>,
+    _control: DocumentBatchControl,
+    _paths: Vec<PathBuf>,
+) -> Result<UploadedDocumentBatchResult, String> {
+    Err("Drag-and-drop import is available on desktop only".into())
+}
+
 /// Pick one desktop folder and preserve its supported files and subfolders.
 ///
 /// The selected folder becomes a new top-level Library folder. Because that

@@ -120,6 +120,8 @@
     "import": {
       "files": "Files",
       "filesDetail": "Import one or more HTML, EPUB, PDF, TXT, or Markdown files",
+      "dropTitle": "Drop files to import",
+      "dropUnavailable": "Finish the current Library action before importing files",
       "pasteText": "Paste Text",
       "pasteTextDetail": "Create a searchable document from plain text",
       "folder": "Folder",
@@ -158,6 +160,7 @@
     },
     "status": {
       "preparingBatch": "Choose HTML, EPUB, PDF, TXT, or Markdown files to import...",
+      "preparingDrop": "Preparing dropped files...",
       "capturingPages": "Scan and review pages on your device...",
       "preparingPhotos": "Choose photos and prepare your document...",
       "importingBatchProgress": "Importing {{current, number}} of {{total, number}}",

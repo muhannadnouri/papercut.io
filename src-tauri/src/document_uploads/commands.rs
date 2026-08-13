@@ -7,7 +7,7 @@
 
 use tauri::Runtime;
 
-use super::batch::{delete_batch, import_batch, import_folder};
+use super::batch::{delete_batch, import_batch, import_folder, import_paths};
 use super::organization::{
     create_folder, delete_folder, list_organization, move_documents, move_folder, rename_folder,
     reorder,
@@ -23,8 +23,9 @@ use super::store::{list_uploads, open_db, update_document_title};
 use super::types::{
     UploadedDocument, UploadedDocumentBatchResult, UploadedDocumentDeleteBatchRequest,
     UploadedDocumentDeleteBatchResult, UploadedDocumentDeleteRequest, UploadedDocumentDeleteResult,
-    UploadedDocumentPastedTextRequest, UploadedDocumentSearchRequest, UploadedDocumentSearchResult,
-    UploadedDocumentSource, UploadedDocumentSourceRequest, UploadedDocumentTitleUpdateRequest,
+    UploadedDocumentPastedTextRequest, UploadedDocumentPathImportRequest,
+    UploadedDocumentSearchRequest, UploadedDocumentSearchResult, UploadedDocumentSource,
+    UploadedDocumentSourceRequest, UploadedDocumentTitleUpdateRequest,
     UploadedLibraryCreateFolderRequest, UploadedLibraryDeleteFolderRequest,
     UploadedLibraryMoveDocumentsRequest, UploadedLibraryMoveFolderRequest,
     UploadedLibraryOrganization, UploadedLibraryRenameFolderRequest, UploadedLibraryReorderRequest,
@@ -68,6 +69,19 @@ pub async fn document_uploads_import_pasted_text<R: Runtime>(
     })
     .await
     .map_err(|err| format!("Pasted text import task failed: {err}"))?
+}
+
+/// Import files already authorized by a native desktop drag-and-drop event.
+#[tauri::command]
+pub async fn document_uploads_import_paths<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    state: tauri::State<'_, DocumentUploadState>,
+    request: UploadedDocumentPathImportRequest,
+) -> Result<UploadedDocumentBatchResult, String> {
+    let control = state.begin_batch()?;
+    tauri::async_runtime::spawn_blocking(move || import_paths(app, control, request.paths))
+        .await
+        .map_err(|err| format!("Dropped document import task failed: {err}"))?
 }
 
 /// Request cancellation after the currently importing file finishes.

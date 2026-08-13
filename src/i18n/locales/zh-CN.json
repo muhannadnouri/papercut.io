@@ -116,6 +116,8 @@
     "import": {
       "files": "文件",
       "filesDetail": "导入一个或多个 HTML、EPUB、PDF、TXT 或 Markdown 文件",
+      "dropTitle": "拖放文件以导入",
+      "dropUnavailable": "请先完成当前的资料库操作，再导入文件",
       "pasteText": "粘贴文本",
       "pasteTextDetail": "用纯文本创建可搜索的文档",
       "folder": "文件夹",
@@ -154,6 +156,7 @@
     },
     "status": {
       "preparingBatch": "选择要导入的 HTML、EPUB、PDF、TXT 或 Markdown 文件...",
+      "preparingDrop": "正在准备拖放的文件...",
       "capturingPages": "在设备上扫描并检查页面...",
       "preparingPhotos": "选择照片并准备文档...",
       "importingBatchProgress": "正在导入第 {{current, number}} 个，共 {{total, number}} 个",

@@ -76,6 +76,7 @@ function App() {
     documentImport,
     importDocumentBatch,
     importDocumentFolder,
+    importDocumentPaths,
     importDocumentPhotos,
     importPastedText,
     scanDocument,
@@ -254,8 +255,9 @@ function App() {
   )
   const selectedFormat = selectedDocument?.format
 
-  const handleImportDocumentBatch = useCallback(async () => {
-    const result = await importDocumentBatch()
+  /** Apply the same post-import behavior to picker and drop entry points so a
+   * single reflowable document opens while batches remain visible in Library. */
+  const finishDocumentFileImport = useCallback(async (result: Awaited<ReturnType<typeof importDocumentBatch>>) => {
     if (!result?.imported.length) return
     setShowDocuments(true)
     if (result.selected === 1 &&
@@ -263,7 +265,15 @@ function App() {
         result.imported[0].sourceKind === 'html') {
       await handleViewDocument(result.imported[0].url)
     }
-  }, [handleViewDocument, importDocumentBatch, setShowDocuments])
+  }, [handleViewDocument, setShowDocuments])
+
+  const handleImportDocumentBatch = useCallback(async () => {
+    await finishDocumentFileImport(await importDocumentBatch())
+  }, [finishDocumentFileImport, importDocumentBatch])
+
+  const handleImportDocumentPaths = useCallback(async (paths: string[]) => {
+    await finishDocumentFileImport(await importDocumentPaths(paths))
+  }, [finishDocumentFileImport, importDocumentPaths])
 
   const handleImportDocumentFolder = useCallback(async () => {
     const result = await importDocumentFolder()
@@ -517,6 +527,7 @@ function App() {
             }}
             onImportDocumentBatch={handleImportDocumentBatch}
             onImportDocumentFolder={handleImportDocumentFolder}
+            onImportDocumentPaths={handleImportDocumentPaths}
             onImportPastedText={handleImportPastedText}
             onImportDocumentPhotos={() => setScanSetupSource('photos')}
             onScanDocument={() => setScanSetupSource('camera')}

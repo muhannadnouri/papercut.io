@@ -124,6 +124,8 @@
     "import": {
       "files": "Fichiers",
       "filesDetail": "Importez un ou plusieurs fichiers HTML, EPUB, PDF, TXT ou Markdown",
+      "dropTitle": "Déposez les fichiers à importer",
+      "dropUnavailable": "Terminez l’opération en cours dans la bibliothèque avant d’importer des fichiers",
       "pasteText": "Coller du texte",
       "pasteTextDetail": "Créez un document consultable à partir de texte brut",
       "folder": "Dossier",
@@ -162,6 +164,7 @@
     },
     "status": {
       "preparingBatch": "Choisissez les fichiers HTML, EPUB, PDF, TXT ou Markdown à importer...",
+      "preparingDrop": "Préparation des fichiers déposés...",
       "capturingPages": "Numérisez et vérifiez les pages sur votre appareil...",
       "preparingPhotos": "Choisissez des photos et préparez votre document...",
       "importingBatchProgress": "Importation de {{current, number}} sur {{total, number}}",

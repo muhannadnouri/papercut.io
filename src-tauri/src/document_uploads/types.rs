@@ -197,6 +197,13 @@ pub(crate) struct UploadedDocumentPastedTextRequest {
     pub(crate) text: String,
 }
 
+/// Files selected by the operating system's native desktop drop event.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentPathImportRequest {
+    pub(crate) paths: Vec<std::path::PathBuf>,
+}
+
 /// Request to delete a bounded set of uploaded documents by URL.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

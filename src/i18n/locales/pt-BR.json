@@ -124,6 +124,8 @@
     "import": {
       "files": "Arquivos",
       "filesDetail": "Importe um ou mais arquivos HTML, EPUB, PDF, TXT ou Markdown",
+      "dropTitle": "Solte os arquivos para importar",
+      "dropUnavailable": "Conclua a operação atual da biblioteca antes de importar arquivos",
       "pasteText": "Colar texto",
       "pasteTextDetail": "Crie um documento pesquisável a partir de texto simples",
       "folder": "Pasta",
@@ -162,6 +164,7 @@
     },
     "status": {
       "preparingBatch": "Escolha arquivos HTML, EPUB, PDF, TXT ou Markdown para importar...",
+      "preparingDrop": "Preparando os arquivos soltos...",
       "capturingPages": "Digitalize e revise as páginas no dispositivo...",
       "preparingPhotos": "Escolha as fotos e prepare o documento...",
       "importingBatchProgress": "Importando {{current, number}} de {{total, number}}",

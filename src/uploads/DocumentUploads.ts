@@ -180,6 +180,15 @@ export async function importDocumentFolder(): Promise<UploadedDocumentBatchResul
   return invoke<UploadedDocumentBatchResult>('document_uploads_import_folder')
 }
 
+/** Native drop events scope these paths before this command runs; Rust still
+ * performs the normal format, size, duplicate, and parser validation. */
+export async function importDocumentPaths(paths: string[]): Promise<UploadedDocumentBatchResult> {
+  const invoke = await loadTauriInvoke()
+  return invoke<UploadedDocumentBatchResult>('document_uploads_import_paths', {
+    request: { paths },
+  })
+}
+
 /** Create a local plain-text document without reading from the clipboard or
  * staging a temporary file; Rust applies the same TXT validation and parser. */
 export async function importPastedText(title: string, text: string): Promise<UploadedDocument> {
