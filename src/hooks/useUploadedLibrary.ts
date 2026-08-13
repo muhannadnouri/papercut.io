@@ -59,7 +59,7 @@ export const LIBRARY_OPERATION_IN_PROGRESS = 'library-operation-in-progress'
 // isolate user titles without parsing preformatted English messages.
 export type DocumentImportStatus = {
   status: 'idle' | 'importing' | 'imported' | 'recognizing' | 'recognized' | 'deleting' | 'deleted' | 'cancelled' | 'error'
-  format?: 'batch' | 'drop' | 'folder' | 'paste' | 'scan' | 'photos' | 'pdf-ocr' | 'delete-batch'
+  format?: 'batch' | 'drop' | 'open' | 'folder' | 'paste' | 'scan' | 'photos' | 'pdf-ocr' | 'delete-batch'
   title?: string
   bytesFreed?: number
   message?: string
@@ -240,7 +240,7 @@ export function useUploadedLibrary() {
   /** Subscribe before opening native selection UI so the shared import paths
    * retain even their first progress event and use one partial-result flow. */
   const importDocumentCollection = useCallback(async (
-    format: 'batch' | 'drop' | 'folder' | 'scan' | 'photos',
+    format: 'batch' | 'drop' | 'open' | 'folder' | 'scan' | 'photos',
     importer: () => Promise<UploadedDocumentBatchResult>,
     options: DocumentCollectionImportOptions = {},
   ): Promise<UploadedDocumentBatchResult | null> => {
@@ -329,7 +329,9 @@ export function useUploadedLibrary() {
   )
 
   const importDocumentPaths = useCallback(
-    (paths: string[]) => importDocumentCollection('drop', () => importDocumentPathsSource(paths)),
+    (paths: string[], format: 'drop' | 'open' = 'drop') => (
+      importDocumentCollection(format, () => importDocumentPathsSource(paths))
+    ),
     [importDocumentCollection],
   )
 
@@ -458,8 +460,8 @@ export function useUploadedLibrary() {
       const nativeCancelled = await cancelDocumentBatchSource()
       if (!nativeCancelled) return
       setDocumentImport((current) => (current.status === 'importing' &&
-        (current.format === 'batch' || current.format === 'folder' || current.format === 'scan' ||
-          current.format === 'photos'))
+        (current.format === 'batch' || current.format === 'drop' || current.format === 'open' ||
+          current.format === 'folder' || current.format === 'scan' || current.format === 'photos'))
         ? { ...current, cancelRequested: true }
         : current)
     } catch (err) {

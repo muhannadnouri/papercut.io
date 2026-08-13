@@ -161,6 +161,7 @@
     "status": {
       "preparingBatch": "आयात करने के लिए HTML, EPUB, PDF, TXT या Markdown फ़ाइलें चुनें...",
       "preparingDrop": "छोड़ी गई फ़ाइलें तैयार की जा रही हैं...",
+      "preparingOpen": "Papercut से खोली गई फ़ाइलें तैयार की जा रही हैं...",
       "capturingPages": "अपने डिवाइस पर पृष्ठ स्कैन करें और जाँचें...",
       "preparingPhotos": "फ़ोटो चुनें और अपना दस्तावेज़ तैयार करें...",
       "importingBatchProgress": "{{total, number}} में से {{current, number}} आयात हो रहा है",

@@ -180,13 +180,28 @@ export async function importDocumentFolder(): Promise<UploadedDocumentBatchResul
   return invoke<UploadedDocumentBatchResult>('document_uploads_import_folder')
 }
 
-/** Native drop events scope these paths before this command runs; Rust still
- * performs the normal format, size, duplicate, and parser validation. */
+/** Native drop and Open With entry points share Rust's normal format, size,
+ * duplicate, and parser validation instead of maintaining parallel importers. */
 export async function importDocumentPaths(paths: string[]): Promise<UploadedDocumentBatchResult> {
   const invoke = await loadTauriInvoke()
   return invoke<UploadedDocumentBatchResult>('document_uploads_import_paths', {
     request: { paths },
   })
+}
+
+/** Drain file-association requests queued before React was ready or while a
+ * Library operation was active. The native side validates file paths first. */
+export async function takeDesktopOpenPaths(): Promise<string[]> {
+  const invoke = await loadTauriInvoke()
+  return invoke<string[]>('desktop_open_take_paths')
+}
+
+/** The event is only a wake-up signal; the native queue remains authoritative
+ * so startup races and requests received during an import cannot lose paths. */
+export async function listenDesktopOpenRequests(handler: () => void): Promise<() => void> {
+  if (!isTauriRuntime()) return () => {}
+  const mod = await import('@tauri-apps/api/event')
+  return mod.listen('desktop-open-documents', handler)
 }
 
 /** Create a local plain-text document without reading from the clipboard or

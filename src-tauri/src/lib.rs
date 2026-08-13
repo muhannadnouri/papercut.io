@@ -1,3 +1,4 @@
+mod desktop_open;
 mod document_scanner;
 mod document_uploads;
 mod library_transfer;
@@ -11,7 +12,12 @@ pub fn run() {
     let builder = tauri::Builder::default();
     // Tauri requires the single-instance plugin to be registered first.
     #[cfg(desktop)]
-    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _, _| {
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+        desktop_open::queue_cli_paths(
+            app,
+            args.into_iter().map(Into::into),
+            std::path::Path::new(&cwd),
+        );
         if let Some(window) = app.get_webview_window("main") {
             let _ = window.unminimize();
             let _ = window.show();
@@ -25,10 +31,12 @@ pub fn run() {
         .plugin(tauri_plugin_native_audio::init())
         .plugin(tauri_plugin_document_scanner::init())
         .plugin(tauri_plugin_opener::init())
+        .manage(desktop_open::DesktopOpenState::default())
         .manage(document_uploads::DocumentUploadState::default())
         .manage(library_transfer::LibraryTransferState::default())
         .manage(native_tts::NativeTtsState::default())
         .invoke_handler(tauri::generate_handler![
+            desktop_open::desktop_open_take_paths,
             document_uploads::commands::document_uploads_import_batch,
             document_uploads::commands::document_uploads_import_folder,
             document_uploads::commands::document_uploads_import_pasted_text,
@@ -83,6 +91,12 @@ pub fn run() {
             native_tts::commands::tts_probe_silma_sidecar,
         ])
         .setup(|app| {
+            #[cfg(desktop)]
+            desktop_open::queue_cli_paths(
+                app.handle(),
+                std::env::args_os().skip(1),
+                &std::env::current_dir().unwrap_or_default(),
+            );
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -92,6 +106,17 @@ pub fn run() {
             }
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Opened { urls } = event {
+                desktop_open::queue_paths(
+                    app,
+                    urls.into_iter().filter_map(|url| url.to_file_path().ok()),
+                );
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (app, event);
+        });
 }

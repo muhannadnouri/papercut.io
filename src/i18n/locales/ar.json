@@ -177,6 +177,7 @@
     "status": {
       "preparingBatch": "اختر ملفات HTML أو EPUB أو PDF أو TXT أو Markdown لاستيرادها...",
       "preparingDrop": "جارٍ تجهيز الملفات المُفلَتة...",
+      "preparingOpen": "جارٍ تجهيز الملفات المفتوحة باستخدام Papercut...",
       "capturingPages": "امسح الصفحات وراجعها على جهازك...",
       "preparingPhotos": "اختر الصور وجهّز مستندك...",
       "importingBatchProgress": "جارٍ استيراد {{current, number}} من {{total, number}}",

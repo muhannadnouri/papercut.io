@@ -304,7 +304,7 @@ function documentImportStatusMessage(
       showDocumentTitle
     />
   }
-  if (status.format === 'batch' || status.format === 'drop' || status.format === 'folder' || status.format === 'scan' ||
+  if (status.format === 'batch' || status.format === 'drop' || status.format === 'open' || status.format === 'folder' || status.format === 'scan' ||
       status.format === 'photos') {
     return <DocumentBatchImportStatus status={status} t={t} onCancel={onCancelBatch} />
   }
@@ -435,7 +435,9 @@ function DocumentBatchImportStatus({
         ? 'library.status.preparingPhotos'
         : status.format === 'drop'
           ? 'library.status.preparingDrop'
-          : 'library.status.preparingBatch')
+          : status.format === 'open'
+            ? 'library.status.preparingOpen'
+            : 'library.status.preparingBatch')
   } else if (result) {
     const messageKey = result.cancelled
       ? 'library.status.batchCancelled'

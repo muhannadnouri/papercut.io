@@ -71,7 +71,7 @@ pub async fn document_uploads_import_pasted_text<R: Runtime>(
     .map_err(|err| format!("Pasted text import task failed: {err}"))?
 }
 
-/// Import files already authorized by a native desktop drag-and-drop event.
+/// Import files selected through a native desktop path entry point.
 #[tauri::command]
 pub async fn document_uploads_import_paths<R: Runtime>(
     app: tauri::AppHandle<R>,

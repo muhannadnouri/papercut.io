@@ -95,9 +95,8 @@ pub(crate) fn import_batch<R: Runtime>(
     import_sources(app, control, sources, None, None)
 }
 
-/// Import paths authorized by Tauri's native desktop drop handler. The handler
-/// adds only actually dropped files to the runtime filesystem scope, so this
-/// command reuses that scope instead of granting broader read access.
+/// Import paths received from a native desktop drop or file-association request.
+/// Both entry points reuse the normal bounded validation and persistence flow.
 #[cfg(desktop)]
 pub(crate) fn import_paths<R: Runtime>(
     app: tauri::AppHandle<R>,

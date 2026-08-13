@@ -38,7 +38,10 @@ import {
   getUploadedDocumentSource,
   isUploadedHtmlDocumentUrl,
   isUploadedPdfDocumentUrl,
+  listenDesktopOpenRequests,
+  takeDesktopOpenPaths,
 } from './uploads/DocumentUploads'
+import { isMobileUserAgent } from './utils/platform'
 
 function isBundledDocumentUrl(url: string): boolean {
   try {
@@ -63,6 +66,7 @@ function App() {
   const [ttsDiagnosticsEnabled, setTtsDiagnosticsEnabled] = useState(() => isDebugEnabled())
   const [scanSetupSource, setScanSetupSource] = useState<'camera' | 'photos' | null>(null)
   const [readerAudioSetupOpen, setReaderAudioSetupOpen] = useState(false)
+  const [desktopOpenRequest, setDesktopOpenRequest] = useState(0)
   const { pagefindRef, pagefindReady, allDocuments, documentsLoading } = usePagefind()
   const { confirm: confirmDocumentAction, dialog: documentConfirmationDialog } = useAppConfirmation()
   const {
@@ -255,8 +259,8 @@ function App() {
   )
   const selectedFormat = selectedDocument?.format
 
-  /** Apply the same post-import behavior to picker and drop entry points so a
-   * single reflowable document opens while batches remain visible in Library. */
+  /** Apply the same post-import behavior to picker, drop, and Open With entry
+   * points so one reflowable document opens while batches remain in Library. */
   const finishDocumentFileImport = useCallback(async (result: Awaited<ReturnType<typeof importDocumentBatch>>) => {
     if (!result?.imported.length) return
     setShowDocuments(true)
@@ -274,6 +278,46 @@ function App() {
   const handleImportDocumentPaths = useCallback(async (paths: string[]) => {
     await finishDocumentFileImport(await importDocumentPaths(paths))
   }, [finishDocumentFileImport, importDocumentPaths])
+
+  /** Subscribe before draining the native queue so startup and later Open With
+   * requests share one race-free path into the existing Library importer. */
+  useEffect(() => {
+    if (isMobileUserAgent() || !('__TAURI_INTERNALS__' in window)) return
+    let disposed = false
+    let unlisten: (() => void) | undefined
+    void listenDesktopOpenRequests(() => setDesktopOpenRequest((value) => value + 1))
+      .then((stop) => {
+        if (disposed) stop()
+        else {
+          unlisten = stop
+          setDesktopOpenRequest((value) => value + 1)
+        }
+      })
+      .catch((error) => console.warn('Unable to listen for desktop open requests:', error))
+    return () => {
+      disposed = true
+      unlisten?.()
+    }
+  }, [])
+
+  const libraryOperationBusy = documentImport.status === 'importing' ||
+    documentImport.status === 'recognizing' || documentImport.status === 'deleting'
+
+  useEffect(() => {
+    if (desktopOpenRequest === 0 || libraryOperationBusy) return
+    let disposed = false
+    void takeDesktopOpenPaths().then(async (paths) => {
+      if (disposed || paths.length === 0) return
+      handleCloseDocument()
+      setActiveTab('library')
+      setShowDocuments(true)
+      await finishDocumentFileImport(await importDocumentPaths(paths, 'open'))
+    }).catch((error) => console.warn('Unable to import desktop open request:', error))
+    return () => {
+      disposed = true
+    }
+  }, [desktopOpenRequest, finishDocumentFileImport, handleCloseDocument, importDocumentPaths,
+    libraryOperationBusy, setShowDocuments])
 
   const handleImportDocumentFolder = useCallback(async () => {
     const result = await importDocumentFolder()

@@ -165,6 +165,7 @@
     "status": {
       "preparingBatch": "Elige archivos HTML, EPUB, PDF, TXT o Markdown para importar...",
       "preparingDrop": "Preparando los archivos soltados...",
+      "preparingOpen": "Preparando los archivos abiertos con Papercut...",
       "capturingPages": "Escanea y revisa las páginas en tu dispositivo...",
       "preparingPhotos": "Elige fotos y prepara tu documento...",
       "importingBatchProgress": "Importando {{current, number}} de {{total, number}}",

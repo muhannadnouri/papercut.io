@@ -197,7 +197,7 @@ pub(crate) struct UploadedDocumentPastedTextRequest {
     pub(crate) text: String,
 }
 
-/// Files selected by the operating system's native desktop drop event.
+/// Files selected by a native desktop drop or file-association request.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentPathImportRequest {
