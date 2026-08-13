@@ -15,6 +15,7 @@ import { formatStorageSize } from '../../utils/formatUtils'
 import { isMobileUserAgent } from '../../utils/platform'
 import { DocumentsPanel } from '../DocumentsPanel/DocumentsPanel'
 import { DocumentInfoDialog } from '../DocumentInfoDialog/DocumentInfoDialog'
+import { PasteTextDialog } from '../PasteTextDialog/PasteTextDialog'
 
 const IMPORT_STAGE_KEYS = {
   detectingFormat: 'library.status.importStage.detectingFormat',
@@ -54,6 +55,7 @@ interface LibraryTabProps {
   onImportDocumentBatch: () => void | Promise<void>
   onImportDocumentFolder: () => void | Promise<void>
   onImportDocumentPhotos: () => void | Promise<void>
+  onImportPastedText: (title: string, text: string) => Promise<void>
   onScanDocument: () => void | Promise<void>
   onMoveLibraryDocuments: (documentIds: string[], folderId: string | null) => void | Promise<void>
   onRecognizeDocument: (
@@ -98,6 +100,7 @@ export function LibraryTab({
   onImportDocumentBatch,
   onImportDocumentFolder,
   onImportDocumentPhotos,
+  onImportPastedText,
   onScanDocument,
   onMoveLibraryDocuments,
   onRecognizeDocument,
@@ -110,6 +113,7 @@ export function LibraryTab({
 }: LibraryTabProps) {
   const { t } = useTranslation()
   const [infoDocument, setInfoDocument] = useState<DocumentInfo | null>(null)
+  const [pasteTextOpen, setPasteTextOpen] = useState(false)
   const operationBusy = documentImport.status === 'importing' ||
     documentImport.status === 'recognizing' || documentImport.status === 'deleting'
   const statusMessage = documentImportStatusMessage(
@@ -143,6 +147,16 @@ export function LibraryTab({
               : undefined,
             disabled: operationBusy,
             onSelect: onImportDocumentBatch,
+          },
+          {
+            id: 'paste',
+            label: t('library.import.pasteText'),
+            detail: t('library.import.pasteTextDetail'),
+            statusLabel: documentImport.status === 'importing' && documentImport.format === 'paste'
+              ? t('library.pasteText.saving')
+              : undefined,
+            disabled: operationBusy,
+            onSelect: () => setPasteTextOpen(true),
           },
           ...(folderImportSupported ? [{
             id: 'folder',
@@ -209,6 +223,15 @@ export function LibraryTab({
           }}
         />
       )}
+      {pasteTextOpen && (
+        <PasteTextDialog
+          onCancel={() => setPasteTextOpen(false)}
+          onSubmit={async (title, text) => {
+            await onImportPastedText(title, text)
+            setPasteTextOpen(false)
+          }}
+        />
+      )}
     </section>
   )
 }
@@ -246,6 +269,9 @@ function documentImportStatusMessage(
   }
   if (status.status === 'cancelled') return t('library.status.cancelled')
   if (status.status === 'error') return status.message ?? null
+  if (status.status === 'importing' && status.format === 'paste') {
+    return t('library.pasteText.saving')
+  }
 
   const title = status.title ?? ''
   if (status.status === 'imported') {

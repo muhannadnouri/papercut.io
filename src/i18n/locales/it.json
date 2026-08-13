@@ -124,6 +124,8 @@
     "import": {
       "files": "File",
       "filesDetail": "Importa uno o più file HTML, EPUB, PDF, TXT o Markdown",
+      "pasteText": "Incolla testo",
+      "pasteTextDetail": "Crea un documento ricercabile da testo semplice",
       "folder": "Cartella",
       "folderDetail": "Importa file HTML, EPUB, PDF, TXT e Markdown e conserva una struttura di cartelle fino a 5 livelli",
       "scanPages": "Scansiona pagine",
@@ -134,6 +136,14 @@
       "importingFolder": "Importazione della cartella",
       "scanningPages": "Scansione delle pagine",
       "importingPhotos": "Importazione delle foto"
+    },
+    "pasteText": {
+      "title": "Incolla testo",
+      "description": "Incolla testo semplice per creare un documento ricercabile salvato su questo dispositivo.",
+      "displayTitle": "Titolo visualizzato",
+      "defaultTitle": "Testo incollato",
+      "content": "Testo",
+      "saving": "Salvataggio..."
     },
     "scanSetup": {
       "title": "Prepara documento",

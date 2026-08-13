@@ -124,6 +124,8 @@
     "import": {
       "files": "Archivos",
       "filesDetail": "Importa uno o más archivos HTML, EPUB, PDF, TXT o Markdown",
+      "pasteText": "Pegar texto",
+      "pasteTextDetail": "Crea un documento con búsqueda a partir de texto sin formato",
       "folder": "Carpeta",
       "folderDetail": "Importa archivos HTML, EPUB, PDF, TXT y Markdown y conserva una estructura de carpetas de hasta 5 niveles",
       "scanPages": "Escanear páginas",
@@ -134,6 +136,14 @@
       "importingFolder": "Importando carpeta",
       "scanningPages": "Escaneando páginas",
       "importingPhotos": "Importando fotos"
+    },
+    "pasteText": {
+      "title": "Pegar texto",
+      "description": "Pega texto sin formato para crear un documento con búsqueda guardado en este dispositivo.",
+      "displayTitle": "Título para mostrar",
+      "defaultTitle": "Texto pegado",
+      "content": "Texto",
+      "saving": "Guardando..."
     },
     "scanSetup": {
       "title": "Preparar documento",

@@ -120,6 +120,8 @@
     "import": {
       "files": "फ़ाइलें",
       "filesDetail": "एक या अधिक HTML, EPUB, PDF, TXT या Markdown फ़ाइलें आयात करें",
+      "pasteText": "टेक्स्ट पेस्ट करें",
+      "pasteTextDetail": "सादे टेक्स्ट से खोजने योग्य दस्तावेज़ बनाएँ",
       "folder": "फ़ोल्डर",
       "folderDetail": "HTML, EPUB, PDF, TXT और Markdown फ़ाइलें आयात करें और 5 स्तर तक की फ़ोल्डर संरचना बनाए रखें",
       "scanPages": "पृष्ठ स्कैन करें",
@@ -130,6 +132,14 @@
       "importingFolder": "फ़ोल्डर आयात किया जा रहा है",
       "scanningPages": "पृष्ठ स्कैन किए जा रहे हैं",
       "importingPhotos": "फ़ोटो आयात की जा रही हैं"
+    },
+    "pasteText": {
+      "title": "टेक्स्ट पेस्ट करें",
+      "description": "इस डिवाइस पर सहेजा जाने वाला खोजने योग्य दस्तावेज़ बनाने के लिए सादा टेक्स्ट पेस्ट करें।",
+      "displayTitle": "प्रदर्शन शीर्षक",
+      "defaultTitle": "पेस्ट किया गया टेक्स्ट",
+      "content": "टेक्स्ट",
+      "saving": "सहेजा जा रहा है..."
     },
     "scanSetup": {
       "title": "दस्तावेज़ तैयार करें",

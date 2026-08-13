@@ -31,6 +31,7 @@ import {
   getUploadedLibraryOrganization,
   importDocumentBatch as importDocumentBatchSource,
   importDocumentFolder as importDocumentFolderSource,
+  importPastedText as importPastedTextSource,
   listUploadedDocuments,
   listenDocumentBatchProgress,
   listenDocumentDeleteProgress,
@@ -57,7 +58,7 @@ export const LIBRARY_OPERATION_IN_PROGRESS = 'library-operation-in-progress'
 // isolate user titles without parsing preformatted English messages.
 export type DocumentImportStatus = {
   status: 'idle' | 'importing' | 'imported' | 'recognizing' | 'recognized' | 'deleting' | 'deleted' | 'cancelled' | 'error'
-  format?: 'batch' | 'folder' | 'scan' | 'photos' | 'pdf-ocr' | 'delete-batch'
+  format?: 'batch' | 'folder' | 'paste' | 'scan' | 'photos' | 'pdf-ocr' | 'delete-batch'
   title?: string
   bytesFreed?: number
   message?: string
@@ -326,6 +327,26 @@ export function useUploadedLibrary() {
     [importDocumentCollection],
   )
 
+  /** Keep pasted text in the same exclusive Library-operation lifecycle while
+   * allowing the dialog to retain user input when native validation fails. */
+  const importPastedText = useCallback(async (title: string, text: string) => {
+    if (operationInProgressRef.current) throw new Error(LIBRARY_OPERATION_IN_PROGRESS)
+    operationInProgressRef.current = true
+    setDocumentImport({ status: 'importing', format: 'paste', title })
+    try {
+      const document = await importPastedTextSource(title, text)
+      await refreshUploadedLibrary()
+      setDocumentImport({ status: 'imported', format: 'paste', title: document.title })
+      return document
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      setDocumentImport({ status: 'error', format: 'paste', title, message })
+      throw err
+    } finally {
+      operationInProgressRef.current = false
+    }
+  }, [refreshUploadedLibrary])
+
   const scanDocument = useCallback(
     (setup: DocumentScanSetup) => importDocumentCollection(
       'scan',
@@ -573,6 +594,7 @@ export function useUploadedLibrary() {
     importDocumentBatch,
     importDocumentFolder,
     importDocumentPhotos,
+    importPastedText,
     scanDocument,
     moveLibraryDocuments,
     refreshUploadedLibrary,

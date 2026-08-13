@@ -136,6 +136,8 @@
     "import": {
       "files": "ملفات",
       "filesDetail": "استيراد ملف واحد أو أكثر بصيغة HTML أو EPUB أو PDF أو TXT أو Markdown",
+      "pasteText": "لصق نص",
+      "pasteTextDetail": "أنشئ مستندًا قابلاً للبحث من نص عادي",
       "folder": "مجلد",
       "folderDetail": "استيراد ملفات HTML وEPUB وPDF وTXT وMarkdown مع الحفاظ على بنية المجلدات حتى 5 مستويات",
       "scanPages": "مسح الصفحات",
@@ -146,6 +148,14 @@
       "importingFolder": "جارٍ استيراد المجلد",
       "scanningPages": "جارٍ مسح الصفحات",
       "importingPhotos": "جارٍ استيراد الصور"
+    },
+    "pasteText": {
+      "title": "لصق نص",
+      "description": "ألصق نصًا عاديًا لإنشاء مستند قابل للبحث محفوظ على هذا الجهاز.",
+      "displayTitle": "عنوان العرض",
+      "defaultTitle": "نص ملصق",
+      "content": "النص",
+      "saving": "جارٍ الحفظ..."
     },
     "scanSetup": {
       "title": "تحضير المستند",

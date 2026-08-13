@@ -180,6 +180,15 @@ export async function importDocumentFolder(): Promise<UploadedDocumentBatchResul
   return invoke<UploadedDocumentBatchResult>('document_uploads_import_folder')
 }
 
+/** Create a local plain-text document without reading from the clipboard or
+ * staging a temporary file; Rust applies the same TXT validation and parser. */
+export async function importPastedText(title: string, text: string): Promise<UploadedDocument> {
+  const invoke = await loadTauriInvoke()
+  return invoke<UploadedDocument>('document_uploads_import_pasted_text', {
+    request: { title, text },
+  })
+}
+
 export async function cancelDocumentBatch(): Promise<boolean> {
   const invoke = await loadTauriInvoke()
   return invoke<boolean>('document_uploads_cancel_import_batch')

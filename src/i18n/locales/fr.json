@@ -124,6 +124,8 @@
     "import": {
       "files": "Fichiers",
       "filesDetail": "Importez un ou plusieurs fichiers HTML, EPUB, PDF, TXT ou Markdown",
+      "pasteText": "Coller du texte",
+      "pasteTextDetail": "Créez un document consultable à partir de texte brut",
       "folder": "Dossier",
       "folderDetail": "Importez des fichiers HTML, EPUB, PDF, TXT et Markdown et conservez une arborescence sur 5 niveaux maximum",
       "scanPages": "Numériser des pages",
@@ -134,6 +136,14 @@
       "importingFolder": "Importation du dossier",
       "scanningPages": "Numérisation des pages",
       "importingPhotos": "Importation des photos"
+    },
+    "pasteText": {
+      "title": "Coller du texte",
+      "description": "Collez du texte brut pour créer un document consultable enregistré sur cet appareil.",
+      "displayTitle": "Titre affiché",
+      "defaultTitle": "Texte collé",
+      "content": "Texte",
+      "saving": "Enregistrement..."
     },
     "scanSetup": {
       "title": "Préparer le document",

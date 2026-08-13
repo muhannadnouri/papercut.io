@@ -31,6 +31,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             document_uploads::commands::document_uploads_import_batch,
             document_uploads::commands::document_uploads_import_folder,
+            document_uploads::commands::document_uploads_import_pasted_text,
             document_uploads::commands::document_uploads_cancel_import_batch,
             document_uploads::commands::document_uploads_list,
             document_uploads::commands::document_uploads_update_title,

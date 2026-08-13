@@ -116,6 +116,8 @@
     "import": {
       "files": "文件",
       "filesDetail": "导入一个或多个 HTML、EPUB、PDF、TXT 或 Markdown 文件",
+      "pasteText": "粘贴文本",
+      "pasteTextDetail": "用纯文本创建可搜索的文档",
       "folder": "文件夹",
       "folderDetail": "导入 HTML、EPUB、PDF、TXT 和 Markdown 文件，并保留最多 5 层文件夹结构",
       "scanPages": "扫描页面",
@@ -126,6 +128,14 @@
       "importingFolder": "正在导入文件夹",
       "scanningPages": "正在扫描页面",
       "importingPhotos": "正在导入照片"
+    },
+    "pasteText": {
+      "title": "粘贴文本",
+      "description": "粘贴纯文本以创建保存在此设备上的可搜索文档。",
+      "displayTitle": "显示标题",
+      "defaultTitle": "粘贴的文本",
+      "content": "文本",
+      "saving": "正在保存..."
     },
     "scanSetup": {
       "title": "准备文档",

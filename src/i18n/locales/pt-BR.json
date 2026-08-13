@@ -124,6 +124,8 @@
     "import": {
       "files": "Arquivos",
       "filesDetail": "Importe um ou mais arquivos HTML, EPUB, PDF, TXT ou Markdown",
+      "pasteText": "Colar texto",
+      "pasteTextDetail": "Crie um documento pesquisável a partir de texto simples",
       "folder": "Pasta",
       "folderDetail": "Importe arquivos HTML, EPUB, PDF, TXT e Markdown e preserve uma estrutura de pastas com até 5 níveis",
       "scanPages": "Digitalizar páginas",
@@ -134,6 +136,14 @@
       "importingFolder": "Importando pasta",
       "scanningPages": "Digitalizando páginas",
       "importingPhotos": "Importando fotos"
+    },
+    "pasteText": {
+      "title": "Colar texto",
+      "description": "Cole texto simples para criar um documento pesquisável salvo neste dispositivo.",
+      "displayTitle": "Título de exibição",
+      "defaultTitle": "Texto colado",
+      "content": "Texto",
+      "saving": "Salvando..."
     },
     "scanSetup": {
       "title": "Preparar documento",

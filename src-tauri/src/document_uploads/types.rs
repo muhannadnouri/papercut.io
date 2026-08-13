@@ -189,6 +189,14 @@ pub(crate) struct UploadedDocumentTitleUpdateRequest {
     pub(crate) title: String,
 }
 
+/// User-authored plain text submitted without an intermediary filesystem file.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentPastedTextRequest {
+    pub(crate) title: String,
+    pub(crate) text: String,
+}
+
 /// Request to delete a bounded set of uploaded documents by URL.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

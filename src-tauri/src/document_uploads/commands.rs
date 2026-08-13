@@ -17,14 +17,14 @@ use super::pdf::{
     get_pdf_source_path, pdf_has_ocr_text, store_pdf_page_text, PageTextLayer, PdfFinalizeRequest,
     PdfNarrationSegment, PdfPageTextReadRequest, PdfPageTextRequest,
 };
-use super::pipeline::{delete_upload, get_cover, get_source};
+use super::pipeline::{delete_upload, get_cover, get_source, import_pasted_text};
 use super::search::{find_pdf_text, search_uploads};
 use super::store::{list_uploads, open_db, update_document_title};
 use super::types::{
     UploadedDocument, UploadedDocumentBatchResult, UploadedDocumentDeleteBatchRequest,
     UploadedDocumentDeleteBatchResult, UploadedDocumentDeleteRequest, UploadedDocumentDeleteResult,
-    UploadedDocumentSearchRequest, UploadedDocumentSearchResult, UploadedDocumentSource,
-    UploadedDocumentSourceRequest, UploadedDocumentTitleUpdateRequest,
+    UploadedDocumentPastedTextRequest, UploadedDocumentSearchRequest, UploadedDocumentSearchResult,
+    UploadedDocumentSource, UploadedDocumentSourceRequest, UploadedDocumentTitleUpdateRequest,
     UploadedLibraryCreateFolderRequest, UploadedLibraryDeleteFolderRequest,
     UploadedLibraryMoveDocumentsRequest, UploadedLibraryMoveFolderRequest,
     UploadedLibraryOrganization, UploadedLibraryRenameFolderRequest, UploadedLibraryReorderRequest,
@@ -54,6 +54,20 @@ pub async fn document_uploads_import_folder<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || import_folder(app, control))
         .await
         .map_err(|err| format!("Document folder import task failed: {err}"))?
+}
+
+/// Save user-authored plain text through the same parser and local index used
+/// by imported TXT files; no clipboard or temporary-file access is required.
+#[tauri::command]
+pub async fn document_uploads_import_pasted_text<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedDocumentPastedTextRequest,
+) -> Result<UploadedDocument, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        import_pasted_text(&app, &request.title, &request.text)
+    })
+    .await
+    .map_err(|err| format!("Pasted text import task failed: {err}"))?
 }
 
 /// Request cancellation after the currently importing file finishes.

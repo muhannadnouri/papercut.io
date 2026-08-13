@@ -29,7 +29,9 @@ use super::storage::{
     upload_id_from_url, upload_reference_from_url, upload_source_path, upload_url,
     StoredSourceKind, MAX_EPUB_UPLOAD_BYTES, MAX_UPLOAD_BYTES,
 };
-use super::store::{delete_document_rows, find_upload_by_id, open_db, upsert_document};
+use super::store::{
+    delete_document_rows, find_upload_by_id, normalize_document_title, open_db, upsert_document,
+};
 use super::text::{decode_text_bytes, parse_text_document, TextDocumentFormat};
 use super::types::{
     UploadedDocument, UploadedDocumentDeleteRequest, UploadedDocumentDeleteResult,
@@ -130,13 +132,54 @@ pub(crate) fn import_text_source<R: Runtime>(
     let text = decode_text_bytes(&bytes)?;
 
     progress(UploadedDocumentImportStage::PreparingDocument);
-    let parsed = parse_text_document(&text, title, format);
-    if parsed.sections.is_empty() {
-        return Err("Text document did not contain readable text".into());
-    }
+    let parsed = prepare_text_document(&text, title, format)?;
 
     progress(UploadedDocumentImportStage::StoringDocument);
     persist_document(app, id, parsed, bytes.len() as u64, original_file_name)
+}
+
+/// Store text authored in Papercut without creating a temporary file. The
+/// display title participates in identity because it is part of a pasted
+/// document's authored input, unlike a filename-derived title on file import.
+pub(crate) fn import_pasted_text<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    title: &str,
+    text: &str,
+) -> Result<UploadedDocument, String> {
+    let title = normalize_document_title(title)?;
+    validate_pasted_text(text)?;
+    let namespace = format!("pasted-txt:{title}");
+    let id = formatted_source_upload_id(&namespace, text.as_bytes());
+    if let Some(existing) = existing_upload(app, &id)? {
+        return Ok(existing);
+    }
+    let parsed = prepare_text_document(text, title, TextDocumentFormat::PlainText)?;
+    persist_document(app, id, parsed, text.len() as u64, None)
+}
+
+/// Enforce the same size ceiling as file-based text import while preserving
+/// the original whitespace that the reader uses for paragraphs and line breaks.
+fn validate_pasted_text(text: &str) -> Result<(), String> {
+    if text.trim().is_empty() {
+        return Err("Pasted text cannot be empty".into());
+    }
+    if text.len() as u64 > MAX_UPLOAD_BYTES {
+        return Err("Pasted text is larger than the 25 MB import limit".into());
+    }
+    Ok(())
+}
+
+/// Keep file and paste entry points on exactly the same safe reader conversion.
+fn prepare_text_document(
+    text: &str,
+    title: String,
+    format: TextDocumentFormat,
+) -> Result<ParsedDocument, String> {
+    let parsed = parse_text_document(text, title, format);
+    if parsed.sections.is_empty() {
+        return Err("Text document did not contain readable text".into());
+    }
+    Ok(parsed)
 }
 
 /// Return an exact previously imported file only when its stored reader source
@@ -661,7 +704,10 @@ mod tests {
 
     use rusqlite::Connection;
 
-    use super::{delete_stored_document, stored_cover_file_name, write_and_index_document};
+    use super::{
+        delete_stored_document, stored_cover_file_name, validate_pasted_text,
+        write_and_index_document,
+    };
     use crate::document_uploads::parsed::{ParsedDocument, ParsedDocumentCover, ParsedSection};
 
     #[test]
@@ -670,6 +716,12 @@ mod tests {
         assert_eq!(stored_cover_file_name("image/jpeg"), Some("cover.jpg"));
         assert_eq!(stored_cover_file_name("image/svg+xml"), None);
         assert_eq!(stored_cover_file_name("../../source.html"), None);
+    }
+
+    #[test]
+    fn pasted_text_requires_readable_content() {
+        assert!(validate_pasted_text("A pasted note").is_ok());
+        assert!(validate_pasted_text(" \n\t ").is_err());
     }
 
     #[test]

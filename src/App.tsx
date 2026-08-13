@@ -77,6 +77,7 @@ function App() {
     importDocumentBatch,
     importDocumentFolder,
     importDocumentPhotos,
+    importPastedText,
     scanDocument,
     moveLibraryDocuments,
     refreshUploadedLibrary,
@@ -268,6 +269,12 @@ function App() {
     const result = await importDocumentFolder()
     if (result?.imported.length) setShowDocuments(true)
   }, [importDocumentFolder, setShowDocuments])
+
+  const handleImportPastedText = useCallback(async (title: string, text: string) => {
+    const document = await importPastedText(title, text)
+    setShowDocuments(true)
+    await handleViewDocument(document.url)
+  }, [handleViewDocument, importPastedText, setShowDocuments])
 
   const handleScanSetupSubmit = useCallback(async (setup: DocumentScanSetup) => {
     const source = scanSetupSource
@@ -510,6 +517,7 @@ function App() {
             }}
             onImportDocumentBatch={handleImportDocumentBatch}
             onImportDocumentFolder={handleImportDocumentFolder}
+            onImportPastedText={handleImportPastedText}
             onImportDocumentPhotos={() => setScanSetupSource('photos')}
             onScanDocument={() => setScanSetupSource('camera')}
             onCancelDocumentBatch={cancelDocumentBatch}

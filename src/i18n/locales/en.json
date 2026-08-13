@@ -120,6 +120,8 @@
     "import": {
       "files": "Files",
       "filesDetail": "Import one or more HTML, EPUB, PDF, TXT, or Markdown files",
+      "pasteText": "Paste Text",
+      "pasteTextDetail": "Create a searchable document from plain text",
       "folder": "Folder",
       "folderDetail": "Import HTML, EPUB, PDF, TXT, and Markdown files and preserve a folder hierarchy up to 5 levels",
       "scanPages": "Scan Pages",
@@ -130,6 +132,14 @@
       "importingFolder": "Importing folder",
       "scanningPages": "Scanning pages",
       "importingPhotos": "Importing photos"
+    },
+    "pasteText": {
+      "title": "Paste Text",
+      "description": "Paste plain text to create a searchable document stored on this device.",
+      "displayTitle": "Display Title",
+      "defaultTitle": "Pasted Text",
+      "content": "Text",
+      "saving": "Saving..."
     },
     "scanSetup": {
       "title": "Prepare Document",
