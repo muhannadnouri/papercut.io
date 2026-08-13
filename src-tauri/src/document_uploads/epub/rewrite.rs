@@ -2,7 +2,7 @@
 //!
 //! Ammonia handles the security-oriented sanitizer pass. This module performs the
 //! EPUB-specific adaptation pass on the sanitized DOM: anchor prefixing,
-//! generated-reader hash links, and retained image data URLs.
+//! generated-reader hash links, and retained raster asset markers.
 
 use std::collections::{HashMap, HashSet};
 
@@ -39,6 +39,27 @@ pub(super) fn collect_fragment_anchors(html: &str) -> HashSet<String> {
         }
     }
     anchors
+}
+
+/// Resolve local image references from one sanitized spine fragment.
+pub(super) fn collect_image_paths(html: &str, current_path: &str) -> HashSet<String> {
+    let document = parse_fragment(html);
+    let Some(root) = fragment_root(&document) else {
+        return HashSet::new();
+    };
+    root.select("img[src]")
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(|node| {
+            let attrs = node.attributes.borrow();
+            let src = attrs.get("src")?;
+            if is_unsafe_url(src) || src.starts_with("http://") || src.starts_with("https://") {
+                return None;
+            }
+            resolve_archive_path(&archive_base_dir(current_path), src).ok()
+        })
+        .collect()
 }
 
 /// Rewrite sanitized chapter HTML so all retained links/resources are local.
@@ -171,8 +192,11 @@ fn rewrite_image_attrs(
         return;
     };
     match rewrite_image_src(&src, current_path, image_assets) {
-        Some(value) => {
-            attrs.insert("src", value);
+        Some(file_name) => {
+            attrs.remove("src");
+            attrs.insert("data-papercut-asset", file_name.clone());
+            attrs.insert("loading", "lazy".into());
+            attrs.insert("decoding", "async".into());
         }
         None => {
             attrs.remove("src");
@@ -236,7 +260,7 @@ fn rewrite_internal_href(
     }
 }
 
-/// Rewrite a local image `src` to its preloaded data URL, or drop it.
+/// Rewrite a local image `src` to its generated stored filename, or drop it.
 ///
 /// Remote images are excluded for offline behavior and privacy; unsupported or
 /// oversized local images are simply omitted from the generated reader.

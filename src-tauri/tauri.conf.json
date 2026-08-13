@@ -24,7 +24,8 @@
       "assetProtocol": {
         "enable": true,
         "scope": [
-          "$APPDATA/document_uploads/*/source.pdf"
+          "$APPDATA/document_uploads/*/source.pdf",
+          "$APPDATA/document_uploads/*/assets/*"
         ]
       },
       "headers": {

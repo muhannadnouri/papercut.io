@@ -41,9 +41,9 @@ should not depend on rendering the original archive in React.
 
 ## Implemented MVP
 
-The MVP path is implemented with generated reading HTML, SQLite FTS indexing, Library import, existing TTS save/playback support, rewritten and target-validated internal EPUB links, retained safe local raster images, app-owned DOM reader link scrolling, and fixture coverage for TOC links, cross-chapter links, EPUB 2 footnotes/backlinks, image manifest assets, generated section extraction, sanitizer regressions, missing-fragment fallback, and empty-spine rejection.
+The MVP path is implemented with generated reading HTML, SQLite FTS indexing, Library import, existing TTS save/playback support, rewritten and target-validated internal EPUB links, retained safe local raster images, app-owned DOM reader link scrolling, and fixture coverage for TOC links, cross-chapter links, EPUB 2 footnotes/backlinks, image manifest assets, generated section extraction, sanitizer regressions, missing-fragment fallback, and empty-spine rejection. Reader images are stored as separate content-hashed files, resolved through Tauri's scoped asset protocol, and marked for lazy loading and asynchronous decoding so the continuous reading page does not decode every illustration at startup.
 
-The EPUB parser is split into focused ZIP/XML parsing, path, asset, DOM rewrite, and render helpers. It uses crate-backed base64/percent decoding plus DOM-based fragment rewriting. Current EPUB image retention covers supported local raster images referenced by retained reader content. Newly imported EPUBs also resolve EPUB 3 `cover-image` properties and EPUB 2 `meta name="cover"` references, retain a declared raster cover under the existing 5 MB image cap, persist nullable cover media metadata, and generate a bounded gallery thumbnail. Existing imports remain valid without cover metadata; retained covers from earlier versions are thumbnailed lazily when first displayed.
+The EPUB parser is split into focused ZIP/XML parsing, path, asset, DOM rewrite, and render helpers. It uses crate-backed percent/base64 decoding plus DOM-based fragment rewriting. Current EPUB image retention covers supported local raster images referenced by retained reader content, including image-only spine sections, under 5 MB per-image and 100 MB per-book limits. Older imports with inline raster data are upgraded non-destructively when opened. Newly imported EPUBs also resolve EPUB 3 `cover-image` properties and EPUB 2 `meta name="cover"` references, retain a declared raster cover under the existing 5 MB image cap, persist nullable cover media metadata, and generate a bounded gallery thumbnail. Existing imports remain valid without cover metadata; retained covers from earlier versions are thumbnailed lazily when first displayed.
 
 ## Remaining Follow-Ups
 
@@ -129,9 +129,11 @@ Acceptance checks:
   Validate fragment targets against collected chapter anchors; if a fragment is
   missing but the target chapter exists, fall back to the chapter wrapper anchor.
 - Drop scripts, remote resources, inline event handlers, iframes, objects, and
-  unsafe URLs. Retain local PNG, JPEG, GIF, and WebP manifest images as data
-  URLs only within parser caps; skip SVG and oversized assets.
-- Skip or clearly ignore non-text spine items for the first pass.
+  unsafe URLs. Retain referenced local PNG, JPEG, GIF, and WebP manifest images
+  as content-hashed app-data assets within parser caps; skip SVG, CSS images,
+  `srcset`, remote images, and oversized assets.
+- Retain supported image-only HTML spine sections; ignore unsupported non-HTML
+  spine resources for the first pass.
 
 Library guidance:
 

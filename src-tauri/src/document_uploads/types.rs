@@ -118,6 +118,14 @@ pub(crate) struct UploadedDocumentSourceRequest {
     pub(crate) document_url: String,
 }
 
+/// Sanitized reader HTML plus validated local raster paths for the WebView.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentSource {
+    pub(crate) html: String,
+    pub(crate) asset_paths: std::collections::HashMap<String, String>,
+}
+
 /// Request to run an FTS search over uploaded documents.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

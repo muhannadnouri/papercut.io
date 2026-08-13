@@ -177,6 +177,7 @@ pub(crate) fn finalize_pdf_index<R: Runtime>(
         view_html: String::new(),
         sections,
         cover,
+        assets: Vec::new(),
     };
     upsert_document(
         &mut db,

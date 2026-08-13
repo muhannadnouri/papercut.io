@@ -23,12 +23,12 @@ use super::store::{list_uploads, open_db, update_document_title};
 use super::types::{
     UploadedDocument, UploadedDocumentBatchResult, UploadedDocumentDeleteBatchRequest,
     UploadedDocumentDeleteBatchResult, UploadedDocumentDeleteRequest, UploadedDocumentDeleteResult,
-    UploadedDocumentSearchRequest, UploadedDocumentSearchResult, UploadedDocumentSourceRequest,
-    UploadedDocumentTitleUpdateRequest, UploadedLibraryCreateFolderRequest,
-    UploadedLibraryDeleteFolderRequest, UploadedLibraryMoveDocumentsRequest,
-    UploadedLibraryMoveFolderRequest, UploadedLibraryOrganization,
-    UploadedLibraryRenameFolderRequest, UploadedLibraryReorderRequest, UploadedPdfFindRequest,
-    UploadedPdfFindResult,
+    UploadedDocumentSearchRequest, UploadedDocumentSearchResult, UploadedDocumentSource,
+    UploadedDocumentSourceRequest, UploadedDocumentTitleUpdateRequest,
+    UploadedLibraryCreateFolderRequest, UploadedLibraryDeleteFolderRequest,
+    UploadedLibraryMoveDocumentsRequest, UploadedLibraryMoveFolderRequest,
+    UploadedLibraryOrganization, UploadedLibraryRenameFolderRequest, UploadedLibraryReorderRequest,
+    UploadedPdfFindRequest, UploadedPdfFindResult,
 };
 use super::DocumentUploadState;
 
@@ -115,7 +115,7 @@ pub async fn document_uploads_find_pdf_text<R: Runtime>(
 pub async fn document_uploads_get_source<R: Runtime>(
     app: tauri::AppHandle<R>,
     request: UploadedDocumentSourceRequest,
-) -> Result<String, String> {
+) -> Result<UploadedDocumentSource, String> {
     tauri::async_runtime::spawn_blocking(move || get_source(&app, request))
         .await
         .map_err(|err| format!("Document upload source task failed: {err}"))?

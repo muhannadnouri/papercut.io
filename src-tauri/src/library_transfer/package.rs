@@ -9,10 +9,13 @@ use sha2::{Digest, Sha256};
 use zip::write::FileOptions;
 use zip::{CompressionMethod, ZipArchive, ZipWriter};
 
+use crate::document_uploads::is_reader_asset_file_name;
+
 pub(super) const PACKAGE_KIND: &str = "papercut-library";
-pub(super) const PACKAGE_VERSION: u32 = 3;
+pub(super) const PACKAGE_VERSION: u32 = 4;
 const DOCUMENTS_ONLY_PACKAGE_VERSION: u32 = 1;
 const AUDIOBOOK_PACKAGE_VERSION: u32 = 2;
+const PDF_PACKAGE_VERSION: u32 = 3;
 const MANIFEST_PATH: &str = "manifest.json";
 const MAX_DOCUMENTS: usize = 500;
 pub(super) const MAX_AUDIOBOOKS: usize = 500;
@@ -26,6 +29,9 @@ const MAX_IMPORTED_AUDIOBOOK_SOURCE_BYTES: u64 = 256 * 1024 * 1024;
 const MAX_IMPORTED_AUDIOBOOK_METADATA_BYTES: u64 = 4 * 1024 * 1024;
 pub(super) const MAX_PACKAGE_BYTES: u64 = 8 * 1024 * 1024 * 1024;
 const MAX_DOCUMENT_SOURCE_BYTES: u64 = 128 * 1024 * 1024;
+const MAX_DOCUMENT_ASSET_BYTES: u64 = 5 * 1024 * 1024;
+const MAX_DOCUMENT_ASSETS_BYTES: u64 = 100 * 1024 * 1024;
+const MAX_DOCUMENT_ASSETS: usize = 10_000;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,6 +60,17 @@ pub(super) struct TransferDocument {
     pub(super) source_path: String,
     pub(super) source_bytes: u64,
     pub(super) source_sha256: String,
+    #[serde(default)]
+    pub(super) assets: Vec<TransferDocumentAsset>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct TransferDocumentAsset {
+    pub(super) file_name: String,
+    pub(super) path: String,
+    pub(super) bytes: u64,
+    pub(super) sha256: String,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -109,6 +126,12 @@ fn default_source_kind() -> String {
 /// mismatched paths before reading any archive payload.
 pub(super) fn document_source_path(id: &str, source_kind: &str) -> String {
     format!("documents/{id}/source.{source_kind}")
+}
+
+/// Keep v4 reader assets under a manifest-verifiable canonical path. Import
+/// compares against this exact value and never extracts a ZIP-provided pathname.
+pub(super) fn document_asset_path(id: &str, file_name: &str) -> String {
+    format!("documents/{id}/assets/{file_name}")
 }
 
 pub(super) fn audiobook_file_path(storage_key: &str, relative_path: &str) -> String {
@@ -173,6 +196,16 @@ where
             &document.source_sha256,
             &mut open_payload,
         )?;
+        for asset in &document.assets {
+            write_payload(
+                &mut archive,
+                options,
+                &asset.path,
+                asset.bytes,
+                &asset.sha256,
+                &mut open_payload,
+            )?;
+        }
     }
     for audiobook in &manifest.audiobooks {
         for file in &audiobook.files {
@@ -278,6 +311,34 @@ pub(super) fn read_document_source<R: Read + Seek>(
     Ok(bytes)
 }
 
+/// Read one v4 EPUB image only after manifest validation established its safe
+/// generated name and bounded size; verify the payload again before persistence.
+pub(super) fn read_document_asset<R: Read + Seek>(
+    archive: &mut ZipArchive<R>,
+    asset: &TransferDocumentAsset,
+) -> Result<Vec<u8>, String> {
+    let mut entry = archive
+        .by_name(&asset.path)
+        .map_err(|_| format!("Library-transfer payload is missing: {}", asset.path))?;
+    if entry.is_dir() || entry.size() != asset.bytes {
+        return Err(format!(
+            "Library-transfer payload size does not match: {}",
+            asset.path
+        ));
+    }
+    let mut bytes = Vec::with_capacity(entry.size() as usize);
+    entry
+        .read_to_end(&mut bytes)
+        .map_err(|err| format!("Failed to read {}: {err}", asset.path))?;
+    if format!("{:x}", Sha256::digest(&bytes)) != asset.sha256 {
+        return Err(format!(
+            "Library-transfer payload checksum does not match: {}",
+            asset.path
+        ));
+    }
+    Ok(bytes)
+}
+
 /// Stream one declared binary payload to a staged path while enforcing its
 /// decompressed size and checksum. No archive pathname is ever extracted.
 pub(super) fn copy_audiobook_file<R: Read + Seek, W: Write>(
@@ -325,7 +386,10 @@ fn validate_manifest(manifest: &TransferManifest) -> Result<(), String> {
     if manifest.kind != PACKAGE_KIND
         || !matches!(
             manifest.schema_version,
-            DOCUMENTS_ONLY_PACKAGE_VERSION | AUDIOBOOK_PACKAGE_VERSION | PACKAGE_VERSION
+            DOCUMENTS_ONLY_PACKAGE_VERSION
+                | AUDIOBOOK_PACKAGE_VERSION
+                | PDF_PACKAGE_VERSION
+                | PACKAGE_VERSION
         )
     {
         return Err(format!(
@@ -360,8 +424,14 @@ fn validate_manifest(manifest: &TransferManifest) -> Result<(), String> {
                 document.id
             ));
         }
-        if manifest.schema_version < PACKAGE_VERSION && document.source_kind != "html" {
+        if manifest.schema_version < PDF_PACKAGE_VERSION && document.source_kind != "html" {
             return Err("Library-transfer package versions 1 and 2 cannot contain PDFs".into());
+        }
+        if manifest.schema_version < PACKAGE_VERSION && !document.assets.is_empty() {
+            return Err(
+                "Library-transfer package versions 1 through 3 cannot contain document assets"
+                    .into(),
+            );
         }
         let valid_source = matches!(
             (document.format.as_str(), document.source_kind.as_str()),
@@ -400,6 +470,45 @@ fn validate_manifest(manifest: &TransferManifest) -> Result<(), String> {
             .ok_or_else(|| "Library-transfer package is too large".to_string())?;
         if total_source_bytes > MAX_PACKAGE_BYTES {
             return Err("Library-transfer package expands beyond the supported size".into());
+        }
+        if !document.assets.is_empty() && document.format != "epub" {
+            return Err("Only transferred EPUB documents can contain reader images".into());
+        }
+        if document.assets.len() > MAX_DOCUMENT_ASSETS {
+            return Err(format!(
+                "Transferred document contains too many reader images: {}",
+                document.title
+            ));
+        }
+        let mut document_asset_bytes = 0u64;
+        let mut file_names = HashSet::new();
+        for asset in &document.assets {
+            let expected_path = document_asset_path(&document.id, &asset.file_name);
+            if !is_reader_asset_file_name(&asset.file_name)
+                || asset.path != expected_path
+                || !file_names.insert(asset.file_name.as_str())
+                || !source_paths.insert(asset.path.as_str())
+                || asset.bytes == 0
+                || asset.bytes > MAX_DOCUMENT_ASSET_BYTES
+            {
+                return Err(format!("Invalid transferred reader image: {}", asset.path));
+            }
+            validate_sha256(&asset.sha256)?;
+            document_asset_bytes = document_asset_bytes
+                .checked_add(asset.bytes)
+                .ok_or_else(|| "Transferred document reader images are too large".to_string())?;
+            if document_asset_bytes > MAX_DOCUMENT_ASSETS_BYTES {
+                return Err(format!(
+                    "Transferred document reader images are too large: {}",
+                    document.title
+                ));
+            }
+            total_source_bytes = total_source_bytes
+                .checked_add(asset.bytes)
+                .ok_or_else(|| "Library-transfer package is too large".to_string())?;
+            if total_source_bytes > MAX_PACKAGE_BYTES {
+                return Err("Library-transfer package expands beyond the supported size".into());
+            }
         }
     }
 
@@ -584,6 +693,12 @@ fn validate_archive_entries<R: Read + Seek>(
         .collect();
     expected.extend(
         manifest
+            .documents
+            .iter()
+            .flat_map(|document| document.assets.iter().map(|asset| asset.path.as_str())),
+    );
+    expected.extend(
+        manifest
             .audiobooks
             .iter()
             .flat_map(|audiobook| audiobook.files.iter().map(|file| file.path.as_str())),
@@ -701,6 +816,7 @@ mod tests {
     fn package_v3_round_trips_a_canonical_pdf_source() {
         let source = b"%PDF-1.7\nfixture".to_vec();
         let mut manifest = test_manifest(&source);
+        manifest.schema_version = PDF_PACKAGE_VERSION;
         let document = &mut manifest.documents[0];
         document.format = "pdf".into();
         document.source_kind = "pdf".into();
@@ -718,6 +834,43 @@ mod tests {
             read_document_source(&mut archive, &restored_manifest.documents[0])
                 .expect("read PDF source"),
             source
+        );
+    }
+
+    #[test]
+    fn package_v4_round_trips_epub_reader_images() {
+        let file_name = format!("image-{}.png", "b".repeat(64));
+        let source = format!("<p><img data-papercut-asset=\"{file_name}\"></p>").into_bytes();
+        let image = b"PNG fixture".to_vec();
+        let mut manifest = test_manifest(&source);
+        let document = &mut manifest.documents[0];
+        document.format = "epub".into();
+        document.assets.push(TransferDocumentAsset {
+            path: document_asset_path(&document.id, &file_name),
+            file_name,
+            bytes: image.len() as u64,
+            sha256: format!("{:x}", Sha256::digest(&image)),
+        });
+        let asset_path = document.assets[0].path.clone();
+        let mut bytes = Cursor::new(Vec::new());
+
+        write_package(&mut bytes, &manifest, |path| {
+            let payload = if path == asset_path.as_str() {
+                image.clone()
+            } else {
+                source.clone()
+            };
+            Ok(Box::new(Cursor::new(payload)))
+        })
+        .expect("write EPUB package");
+        bytes.set_position(0);
+        let mut archive = ZipArchive::new(bytes).expect("open EPUB package");
+        let restored = read_manifest(&mut archive).expect("read EPUB manifest");
+
+        assert_eq!(
+            read_document_asset(&mut archive, &restored.documents[0].assets[0])
+                .expect("read image"),
+            image
         );
     }
 
@@ -829,6 +982,7 @@ mod tests {
                 original_bytes: source.len() as u64,
                 source_bytes: source.len() as u64,
                 source_sha256: format!("{:x}", Sha256::digest(source)),
+                assets: Vec::new(),
             }],
             organization: TransferOrganization::default(),
             audiobooks: Vec::new(),

@@ -6,6 +6,8 @@ use std::collections::HashSet;
 use ammonia::Builder;
 use kuchikiki::{parse_html, traits::TendrilSink, NodeRef};
 
+use crate::document_uploads::parsed::is_reader_asset_file_name;
+
 /// Sanitize an untrusted HTML document and retain only reader-safe metadata.
 ///
 /// Ammonia is the security boundary: it parses browser-style HTML, allowlists
@@ -29,6 +31,7 @@ pub(crate) fn sanitize_html(html: &str) -> String {
     builder
         .add_tags(&["main", "section"])
         .add_generic_attributes(&["dir", "id", "name"])
+        .add_tag_attributes("img", &["data-papercut-asset", "loading", "decoding"])
         .add_allowed_classes("section", &["epub-chapter"])
         .url_schemes(HashSet::from(["data", "http", "https", "mailto", "tel"]))
         .attribute_filter(filter_reader_attribute);
@@ -73,6 +76,14 @@ fn filter_reader_attribute<'a>(
         ("a", "href") => None,
         ("img", "src") if is_safe_raster_data_url(value) => Some(Cow::Borrowed(value)),
         ("img", "src") => None,
+        ("img", "data-papercut-asset") if is_reader_asset_file_name(value) => {
+            Some(Cow::Borrowed(value))
+        }
+        ("img", "data-papercut-asset") => None,
+        ("img", "loading") if value == "lazy" => Some(Cow::Borrowed(value)),
+        ("img", "loading") => None,
+        ("img", "decoding") if value == "async" => Some(Cow::Borrowed(value)),
+        ("img", "decoding") => None,
         (_, _) if value.trim_start().to_ascii_lowercase().starts_with("data:") => None,
         _ => Some(Cow::Borrowed(value)),
     }
@@ -284,17 +295,23 @@ mod tests {
 
     #[test]
     fn keeps_only_generated_raster_images() {
-        let sanitized = sanitize_html(
+        let asset_name = format!("image-{}.png", "a".repeat(64));
+        let sanitized = sanitize_html(&format!(
             r#"<body>
                 <img src="https://example.com/track.png" alt="Remote">
                 <img src="data:image/svg+xml;base64,PHN2Zz4=" alt="SVG">
                 <img src="data:image/png;base64,iVBORw0KGgo=" alt="Cover">
-            </body>"#,
-        );
+                <img data-papercut-asset="{asset_name}" loading="lazy" decoding="async" alt="Stored">
+                <img data-papercut-asset="../source.html" alt="Unsafe">
+            </body>"#
+        ));
 
         assert!(!sanitized.contains("https://example.com/track.png"));
         assert!(!sanitized.contains("image/svg+xml"));
         assert!(sanitized.contains("data:image/png;base64,iVBORw0KGgo="));
+        assert!(sanitized.contains(&asset_name));
+        assert!(sanitized.contains("loading=\"lazy\""));
+        assert!(!sanitized.contains("../source.html"));
     }
 
     #[test]

@@ -30,6 +30,11 @@ export interface UploadedDocumentSearchResult {
   matchScope?: 'section' | 'document'
 }
 
+interface UploadedDocumentSource {
+  html: string
+  assetPaths: Record<string, string>
+}
+
 export interface UploadedDocumentDeleteResult {
   id: string
   url: string
@@ -211,10 +216,35 @@ export async function searchUploadedDocuments(
 }
 
 export async function getUploadedDocumentSource(documentUrl: string): Promise<string> {
-  const invoke = await loadTauriInvoke()
-  return invoke<string>('document_uploads_get_source', {
+  const mod = await import('@tauri-apps/api/core')
+  const source = await mod.invoke<UploadedDocumentSource>('document_uploads_get_source', {
     request: { documentUrl },
   })
+  return resolveUploadedDocumentAssets(source, mod.convertFileSrc)
+}
+
+/**
+ * Resolve only generated markers that Rust paired with validated absolute paths.
+ * Do not broaden this into generic HTML URL rewriting: that would bypass the
+ * sanitizer/storage contract and could expose unrelated local files.
+ */
+export function resolveUploadedDocumentAssets(
+  source: UploadedDocumentSource,
+  convertFileSrc: (path: string) => string,
+): string {
+  return source.html.replace(
+    /data-papercut-asset="(image-[a-f0-9]{64}\.(?:png|jpg|gif|webp))"/g,
+    (attribute, fileName: string) => {
+      const path = source.assetPaths[fileName]
+      if (!path) return attribute
+      return `src="${escapeHtmlAttribute(convertFileSrc(path))}" ${attribute}`
+    },
+  )
+}
+
+/** Keep converted asset URLs inert when inserted into already-sanitized HTML. */
+function escapeHtmlAttribute(value: string): string {
+  return value.replaceAll('&', '&amp;').replaceAll('"', '&quot;')
 }
 
 export async function getUploadedDocumentCover(documentUrl: string): Promise<string | null> {

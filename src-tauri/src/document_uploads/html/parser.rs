@@ -49,6 +49,7 @@ pub(crate) fn parsed_html_document(
         view_html: sanitized_html,
         sections,
         cover: None,
+        assets: Vec::new(),
     }
 }
 
