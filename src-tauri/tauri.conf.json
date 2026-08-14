@@ -52,15 +52,18 @@
         "description": "HTML document",
         "mimeType": "text/html",
         "role": "Viewer",
-        "rank": "Alternate"
+        "rank": "Alternate",
+        "androidIntentActionFilters": ["view"]
       },
       {
         "ext": ["epub"],
+        "contentTypes": ["org.idpf.epub-container"],
         "name": "EPUB book",
         "description": "EPUB book",
         "mimeType": "application/epub+zip",
         "role": "Viewer",
-        "rank": "Alternate"
+        "rank": "Alternate",
+        "androidIntentActionFilters": ["view"]
       },
       {
         "ext": ["pdf"],
@@ -68,7 +71,8 @@
         "description": "PDF document",
         "mimeType": "application/pdf",
         "role": "Viewer",
-        "rank": "Alternate"
+        "rank": "Alternate",
+        "androidIntentActionFilters": ["view"]
       },
       {
         "ext": ["txt"],
@@ -76,15 +80,18 @@
         "description": "Plain-text document",
         "mimeType": "text/plain",
         "role": "Viewer",
-        "rank": "Alternate"
+        "rank": "Alternate",
+        "androidIntentActionFilters": ["view"]
       },
       {
         "ext": ["md", "markdown"],
+        "contentTypes": ["net.daringfireball.markdown"],
         "name": "Markdown document",
         "description": "Markdown document",
         "mimeType": "text/markdown",
         "role": "Viewer",
-        "rank": "Alternate"
+        "rank": "Alternate",
+        "androidIntentActionFilters": ["view"]
       }
     ]
   }

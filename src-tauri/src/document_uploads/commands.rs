@@ -71,7 +71,7 @@ pub async fn document_uploads_import_pasted_text<R: Runtime>(
     .map_err(|err| format!("Pasted text import task failed: {err}"))?
 }
 
-/// Import files selected through a native desktop path entry point.
+/// Import files selected through a native drop or platform file-open entry point.
 #[tauri::command]
 pub async fn document_uploads_import_paths<R: Runtime>(
     app: tauri::AppHandle<R>,
@@ -81,7 +81,7 @@ pub async fn document_uploads_import_paths<R: Runtime>(
     let control = state.begin_batch()?;
     tauri::async_runtime::spawn_blocking(move || import_paths(app, control, request.paths))
         .await
-        .map_err(|err| format!("Dropped document import task failed: {err}"))?
+        .map_err(|err| format!("Opened document import task failed: {err}"))?
 }
 
 /// Request cancellation after the currently importing file finishes.

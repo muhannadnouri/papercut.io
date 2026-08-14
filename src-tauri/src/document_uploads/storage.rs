@@ -33,21 +33,49 @@ pub(crate) fn read_source_bytes<R: Runtime>(
     open_error_prefix: &str,
     read_error_prefix: &str,
 ) -> Result<Vec<u8>, String> {
-    let mut options = tauri_plugin_fs::OpenOptions::new();
-    options.read(true);
-    let mut file = app
-        .fs()
-        .open(source, options)
-        .map_err(|err| format!("{open_error_prefix}: {err}"))?;
-    let mut bytes = Vec::new();
-    file.by_ref()
-        .take(max_bytes + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|err| format!("{read_error_prefix}: {err}"))?;
-    if bytes.len() as u64 > max_bytes {
-        return Err(too_large_message.into());
-    }
+    let scoped_source = source.clone();
+    let read_result: Result<Vec<u8>, String> = (|| {
+        let mut options = tauri_plugin_fs::OpenOptions::new();
+        options.read(true);
+        let mut file = app
+            .fs()
+            .open(source, options)
+            .map_err(|err| format!("{open_error_prefix}: {err}"))?;
+        let mut bytes = Vec::new();
+        file.by_ref()
+            .take(max_bytes + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|err| format!("{read_error_prefix}: {err}"))?;
+        if bytes.len() as u64 > max_bytes {
+            return Err(too_large_message.into());
+        }
+        Ok(bytes)
+    })();
+    let release_result = release_source_access(app, scoped_source);
+    let bytes = read_result?;
+    release_result?;
     Ok(bytes)
+}
+
+/// Tauri opens iOS file URLs as security-scoped resources. Release each one
+/// after its bounded read so repeated picker/Open With imports do not exhaust
+/// the process allowance; other platforms need no matching operation.
+#[cfg(target_os = "ios")]
+pub(crate) fn release_source_access<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    source: FilePath,
+) -> Result<(), String> {
+    app.fs()
+        .stop_accessing_security_scoped_resource(source)
+        .map_err(|err| format!("Failed to release imported document access: {err}"))
+}
+
+#[cfg(not(target_os = "ios"))]
+pub(crate) fn release_source_access<R: Runtime>(
+    _app: &tauri::AppHandle<R>,
+    _source: FilePath,
+) -> Result<(), String> {
+    Ok(())
 }
 
 /// Stored source representation, distinct from the user-facing document format:

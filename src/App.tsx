@@ -38,10 +38,9 @@ import {
   getUploadedDocumentSource,
   isUploadedHtmlDocumentUrl,
   isUploadedPdfDocumentUrl,
-  listenDesktopOpenRequests,
-  takeDesktopOpenPaths,
+  listenOpenDocumentRequests,
+  takeOpenDocumentSources,
 } from './uploads/DocumentUploads'
-import { isMobileUserAgent } from './utils/platform'
 
 function isBundledDocumentUrl(url: string): boolean {
   try {
@@ -66,7 +65,7 @@ function App() {
   const [ttsDiagnosticsEnabled, setTtsDiagnosticsEnabled] = useState(() => isDebugEnabled())
   const [scanSetupSource, setScanSetupSource] = useState<'camera' | 'photos' | null>(null)
   const [readerAudioSetupOpen, setReaderAudioSetupOpen] = useState(false)
-  const [desktopOpenRequest, setDesktopOpenRequest] = useState(0)
+  const [openDocumentRequest, setOpenDocumentRequest] = useState(0)
   const { pagefindRef, pagefindReady, allDocuments, documentsLoading } = usePagefind()
   const { confirm: confirmDocumentAction, dialog: documentConfirmationDialog } = useAppConfirmation()
   const {
@@ -279,21 +278,21 @@ function App() {
     await finishDocumentFileImport(await importDocumentPaths(paths))
   }, [finishDocumentFileImport, importDocumentPaths])
 
-  /** Subscribe before draining the native queue so startup and later Open With
-   * requests share one race-free path into the existing Library importer. */
+  /** Subscribe before draining the native queue so desktop and mobile cold or
+   * warm file-open requests share one race-free path into the Library importer. */
   useEffect(() => {
-    if (isMobileUserAgent() || !('__TAURI_INTERNALS__' in window)) return
+    if (!('__TAURI_INTERNALS__' in window)) return
     let disposed = false
     let unlisten: (() => void) | undefined
-    void listenDesktopOpenRequests(() => setDesktopOpenRequest((value) => value + 1))
+    void listenOpenDocumentRequests(() => setOpenDocumentRequest((value) => value + 1))
       .then((stop) => {
         if (disposed) stop()
         else {
           unlisten = stop
-          setDesktopOpenRequest((value) => value + 1)
+          setOpenDocumentRequest((value) => value + 1)
         }
       })
-      .catch((error) => console.warn('Unable to listen for desktop open requests:', error))
+      .catch((error) => console.warn('Unable to listen for document open requests:', error))
     return () => {
       disposed = true
       unlisten?.()
@@ -304,19 +303,19 @@ function App() {
     documentImport.status === 'recognizing' || documentImport.status === 'deleting'
 
   useEffect(() => {
-    if (desktopOpenRequest === 0 || libraryOperationBusy) return
+    if (openDocumentRequest === 0 || libraryOperationBusy) return
     let disposed = false
-    void takeDesktopOpenPaths().then(async (paths) => {
-      if (disposed || paths.length === 0) return
+    void takeOpenDocumentSources().then(async (sources) => {
+      if (disposed || sources.length === 0) return
       handleCloseDocument()
       setActiveTab('library')
       setShowDocuments(true)
-      await finishDocumentFileImport(await importDocumentPaths(paths, 'open'))
-    }).catch((error) => console.warn('Unable to import desktop open request:', error))
+      await finishDocumentFileImport(await importDocumentPaths(sources, 'open'))
+    }).catch((error) => console.warn('Unable to import document open request:', error))
     return () => {
       disposed = true
     }
-  }, [desktopOpenRequest, finishDocumentFileImport, handleCloseDocument, importDocumentPaths,
+  }, [openDocumentRequest, finishDocumentFileImport, handleCloseDocument, importDocumentPaths,
     libraryOperationBusy, setShowDocuments])
 
   const handleImportDocumentFolder = useCallback(async () => {

@@ -1,8 +1,8 @@
-mod desktop_open;
 mod document_scanner;
 mod document_uploads;
 mod library_transfer;
 mod native_tts;
+mod open_documents;
 
 #[cfg(desktop)]
 use tauri::Manager;
@@ -13,7 +13,7 @@ pub fn run() {
     // Tauri requires the single-instance plugin to be registered first.
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
-        desktop_open::queue_cli_paths(
+        open_documents::queue_cli_paths(
             app,
             args.into_iter().map(Into::into),
             std::path::Path::new(&cwd),
@@ -31,12 +31,12 @@ pub fn run() {
         .plugin(tauri_plugin_native_audio::init())
         .plugin(tauri_plugin_document_scanner::init())
         .plugin(tauri_plugin_opener::init())
-        .manage(desktop_open::DesktopOpenState::default())
+        .manage(open_documents::OpenDocumentState::default())
         .manage(document_uploads::DocumentUploadState::default())
         .manage(library_transfer::LibraryTransferState::default())
         .manage(native_tts::NativeTtsState::default())
         .invoke_handler(tauri::generate_handler![
-            desktop_open::desktop_open_take_paths,
+            open_documents::open_documents_take_sources,
             document_uploads::commands::document_uploads_import_batch,
             document_uploads::commands::document_uploads_import_folder,
             document_uploads::commands::document_uploads_import_pasted_text,
@@ -92,7 +92,7 @@ pub fn run() {
         ])
         .setup(|app| {
             #[cfg(desktop)]
-            desktop_open::queue_cli_paths(
+            open_documents::queue_cli_paths(
                 app.handle(),
                 std::env::args_os().skip(1),
                 &std::env::current_dir().unwrap_or_default(),
@@ -109,14 +109,11 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
             if let tauri::RunEvent::Opened { urls } = event {
-                desktop_open::queue_paths(
-                    app,
-                    urls.into_iter().filter_map(|url| url.to_file_path().ok()),
-                );
+                open_documents::queue_opened_urls(app, urls);
             }
-            #[cfg(not(target_os = "macos"))]
+            #[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "android")))]
             let _ = (app, event);
         });
 }

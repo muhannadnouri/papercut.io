@@ -17,7 +17,7 @@ use super::organization::{organize_folder_import, MAX_FOLDER_DEPTH};
 use super::pdf::import_pdf_source;
 use super::pipeline::{delete_upload, import_epub_source, import_html_source, import_text_source};
 use super::state::DocumentBatchControl;
-use super::storage::upload_id_from_url;
+use super::storage::{release_source_access, upload_id_from_url};
 use super::store::list_uploads;
 use super::text::{decode_text_bytes, TextDocumentFormat};
 use super::types::{
@@ -95,33 +95,17 @@ pub(crate) fn import_batch<R: Runtime>(
     import_sources(app, control, sources, None, None)
 }
 
-/// Import paths received from a native desktop drop or file-association request.
-/// Both entry points reuse the normal bounded validation and persistence flow.
-#[cfg(desktop)]
+/// Import filesystem paths or mobile provider URLs received from a native drop
+/// or file-open request through the normal bounded persistence flow.
 pub(crate) fn import_paths<R: Runtime>(
     app: tauri::AppHandle<R>,
     control: DocumentBatchControl,
-    paths: Vec<PathBuf>,
+    paths: Vec<FilePath>,
 ) -> Result<UploadedDocumentBatchResult, String> {
     if paths.is_empty() {
-        return Err("Drop at least one document to import".into());
+        return Err("Open at least one document to import".into());
     }
-    import_sources(
-        app,
-        control,
-        paths.into_iter().map(FilePath::Path).collect(),
-        None,
-        None,
-    )
-}
-
-#[cfg(mobile)]
-pub(crate) fn import_paths<R: Runtime>(
-    _app: tauri::AppHandle<R>,
-    _control: DocumentBatchControl,
-    _paths: Vec<PathBuf>,
-) -> Result<UploadedDocumentBatchResult, String> {
-    Err("Drag-and-drop import is available on desktop only".into())
+    import_sources(app, control, paths, None, None)
 }
 
 /// Pick one desktop folder and preserve its supported files and subfolders.
@@ -585,8 +569,8 @@ fn import_source<R: Runtime>(
 
 /// Native dialogs return filesystem paths on desktop and may return content
 /// URLs on mobile. Some Android providers expose an extensionless `document`
-/// URL, so only that ambiguous case reads a small prefix and lets the normal
-/// EPUB/HTML parser perform the full validation afterward.
+/// URL, so only that ambiguous case reads a small prefix to identify binary,
+/// HTML, or safe text input before the normal format importer fully validates it.
 fn document_format<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: &FilePath,
@@ -610,16 +594,23 @@ fn document_format<R: Runtime>(
         ));
     }
 
-    let mut options = tauri_plugin_fs::OpenOptions::new();
-    options.read(true);
-    let mut file = app
-        .fs()
-        .open(source.clone(), options)
-        .map_err(|err| format!("Failed to inspect selected document: {err}"))?;
-    let mut prefix = [0u8; 512];
-    let read = file
-        .read(&mut prefix)
-        .map_err(|err| format!("Failed to inspect selected document: {err}"))?;
+    let scoped_source = source.clone();
+    let read_result: Result<([u8; 512], usize), String> = (|| {
+        let mut options = tauri_plugin_fs::OpenOptions::new();
+        options.read(true);
+        let mut file = app
+            .fs()
+            .open(source.clone(), options)
+            .map_err(|err| format!("Failed to inspect selected document: {err}"))?;
+        let mut prefix = [0u8; 512];
+        let read = file
+            .read(&mut prefix)
+            .map_err(|err| format!("Failed to inspect selected document: {err}"))?;
+        Ok((prefix, read))
+    })();
+    let release_result = release_source_access(app, scoped_source);
+    let (prefix, read) = read_result?;
+    release_result?;
     document_format_from(&extension, &prefix[..read])
         .ok_or_else(|| format!("Unsupported document type for {}", source_file_name(source)))
 }
