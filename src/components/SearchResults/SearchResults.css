@@ -38,6 +38,27 @@
   color: var(--accent-strong);
 }
 
+.result-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.result-group-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.result-group-heading h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+}
+
 .result-card {
   appearance: none;
   display: block;

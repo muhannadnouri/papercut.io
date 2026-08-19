@@ -28,6 +28,13 @@ export interface UploadedDocumentSearchResult {
   sectionIndex: number
   pageIndex?: number | null
   matchScope?: 'section' | 'document'
+  matchingSections: number
+}
+
+export interface UploadedDocumentSearchResponse {
+  results: UploadedDocumentSearchResult[]
+  totalDocuments: number
+  totalMatchingSections: number
 }
 
 interface UploadedDocumentSource {
@@ -249,10 +256,12 @@ export async function searchUploadedDocuments(
   limit = 50,
   documentUrls?: string[],
   exactPhrases?: string[],
-): Promise<UploadedDocumentSearchResult[]> {
-  if (!isTauriRuntime() || query.trim().length === 0) return []
+): Promise<UploadedDocumentSearchResponse> {
+  if (!isTauriRuntime() || query.trim().length === 0) {
+    return { results: [], totalDocuments: 0, totalMatchingSections: 0 }
+  }
   const invoke = await loadTauriInvoke()
-  return invoke<UploadedDocumentSearchResult[]>('document_uploads_search', {
+  return invoke<UploadedDocumentSearchResponse>('document_uploads_search', {
     request: { query, limit, documentUrls, exactPhrases },
   })
 }

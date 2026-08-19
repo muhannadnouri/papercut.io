@@ -16,14 +16,14 @@
 
 Papercut is an offline reader for searching, reading, and listening to HTML, EPUB, PDF, plain-text, and Markdown collections. It is built with Tauri, React, Vite, PDF.js, Pagefind, SQLite FTS, Tesseract.js OCR, and native sherpa-onnx TTS.
 
-Bundled HTML documents are indexed at build time with Pagefind. User-imported HTML, EPUB, PDF, TXT, and Markdown documents are normalized and indexed incrementally into a local SQLite FTS database in Tauri app data, so imports do not require rebuilding the app. PDFs with embedded text are indexed immediately; image-only and hybrid pages can be recognized on demand in English or Arabic with bundled, on-device OCR. The relevant search providers are queried and merged into one UI. Reading, search, library organization, OCR, audiobook playback, and local library transfer work without an account or server connection. Optional native TTS models and the Linux SILMA runtime require a one-time download before they can run offline.
+Bundled starter HTML documents are indexed at build time with Pagefind. User-imported HTML, EPUB, PDF, TXT, and Markdown documents are normalized and indexed incrementally into a local SQLite FTS database in Tauri app data, so imports do not require rebuilding the app. PDFs with embedded text are indexed immediately; image-only and hybrid pages can be recognized on demand in English or Arabic with bundled, on-device OCR. The relevant search providers are queried together, with user-library and starter-document results labelled separately. Reading, search, library organization, OCR, audiobook playback, and local library transfer work without an account or server connection. Optional native TTS models and the Linux SILMA runtime require a one-time download before they can run offline.
 
 ## Highlights
 
 - Import up to 500 HTML, EPUB, PDF, TXT, or Markdown files at once, paste plain text directly into a searchable local document, drop files onto the desktop Library, or open supported files with an installed desktop, Android, or iOS build; desktop builds can also import one folder.
 - Make image-only and hybrid PDF pages searchable and speakable with resumable, offline English or Arabic OCR.
 - Scan multi-page documents or import existing photos on supported Android devices while retaining the original pages in a canonical PDF.
-- Search bundled and uploaded documents together, including scoped document filters and source-verified exact phrases.
+- Search uploaded and bundled starter documents together, with authoritative uploaded-document counts, scoped filters, and source-verified exact phrases.
 - Browse cover-based Gallery or compact List views, edit document metadata, organize folders, and filter by saved audio or bookmarks.
 - Read with format-appropriate viewers, in-document Find, semantic bookmarks, and responsive reflowable-document appearance controls.
 - Generate, resume, play, import, and export saved audiobooks with native offline TTS and background mobile playback.
@@ -420,7 +420,7 @@ EPUB import validates the archive container, follows the OPF spine, stores a san
 
 ### Search Behavior
 
-Search is **explicit**: the app only searches when the user clicks the **Search** button next to the input or presses **Enter**. Typing does not trigger search. This keeps CPU and memory flat at scale (thousands of documents, large per-result fragment fetches). Bundled-document queries go through Pagefind, uploaded-document queries go through SQLite FTS5, and the React UI merges both result sets.
+Search is **explicit**: the app only searches when the user clicks the **Search** button next to the input or presses **Enter**. Typing does not trigger search. This keeps CPU and memory flat at scale (thousands of documents, large per-result fragment fetches). Bundled starter-document queries go through Pagefind, uploaded-document queries go through SQLite FTS5, and the React UI presents **Your Library** before **Starter Documents**.
 
 - Queries are lowercased before being passed to the search providers, making search case-insensitive regardless of how the user types it (`The quick brown fox jumped over the lazy dog` and `the quick brown fox jumped over the lazy dog` return the same results).
 - **Filter By Document** can include only checked documents or exclude checked documents. The resolved allowed URLs are applied inside both provider flows before result limits, rather than searching everything and hiding unrelated cards afterward.
@@ -428,7 +428,7 @@ Search is **explicit**: the app only searches when the user clicks the **Search*
 - The Pagefind `content` field on `result.data()` and SQLite FTS section counts are not used as exact phrase counts because they come from broad candidate matching. Quoted-search results are reported as document-level phrase matches with source-verified occurrence counts; unquoted searches can show matching section counts when the search provider exposes them. Source reads are cached per URL in memory for the session to avoid re-fetching across queries.
 - Clearing the input clears the results panel immediately, without triggering a search.
 - In-flight stale results are dropped: if the user fires a new search before the previous one resolves, the earlier result set is discarded and never rendered.
-- Uploaded-document snippets are produced by SQLite FTS and sanitized again before rendering in React. Uploaded matches are collapsed to one result card per uploaded document, using the first/best matching snippet. Opening a result jumps to the likely match and highlights it with a named CSS Highlight range when the rendered reader text can be matched; users can still use in-document Find to move through additional matches.
+- Uploaded-document snippets are produced by SQLite FTS and sanitized again before rendering in React. SQLite groups sections before applying the document limit, returns the best matching snippet per uploaded document, and reports complete matching-document/section counts before limiting the visible cards. Opening a result jumps to the likely match and highlights it with a named CSS Highlight range when the rendered reader text can be matched; users can still use in-document Find to move through additional matches.
 - The "No documents found" message only appears after a search has actually been submitted (via Search button or Enter), not while the user is still typing.
 
 </details>

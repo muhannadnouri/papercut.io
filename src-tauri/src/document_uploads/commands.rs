@@ -24,7 +24,7 @@ use super::types::{
     UploadedDocument, UploadedDocumentBatchResult, UploadedDocumentDeleteBatchRequest,
     UploadedDocumentDeleteBatchResult, UploadedDocumentDeleteRequest, UploadedDocumentDeleteResult,
     UploadedDocumentPastedTextRequest, UploadedDocumentPathImportRequest,
-    UploadedDocumentSearchRequest, UploadedDocumentSearchResult, UploadedDocumentSource,
+    UploadedDocumentSearchRequest, UploadedDocumentSearchResponse, UploadedDocumentSource,
     UploadedDocumentSourceRequest, UploadedDocumentTitleUpdateRequest,
     UploadedLibraryCreateFolderRequest, UploadedLibraryDeleteFolderRequest,
     UploadedLibraryMoveDocumentsRequest, UploadedLibraryMoveFolderRequest,
@@ -121,7 +121,7 @@ pub async fn document_uploads_update_title<R: Runtime>(
 pub async fn document_uploads_search<R: Runtime>(
     app: tauri::AppHandle<R>,
     request: UploadedDocumentSearchRequest,
-) -> Result<Vec<UploadedDocumentSearchResult>, String> {
+) -> Result<UploadedDocumentSearchResponse, String> {
     tauri::async_runtime::spawn_blocking(move || search_uploads(&app, request))
         .await
         .map_err(|err| format!("Document upload search task failed: {err}"))?

@@ -71,7 +71,7 @@ pub(crate) struct UploadedDocumentBatchResult {
     pub(crate) cancelled: bool,
 }
 
-/// One FTS hit: a matching section with a highlighted snippet.
+/// One document-level FTS hit with its best matching section.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentSearchResult {
@@ -84,6 +84,16 @@ pub(crate) struct UploadedDocumentSearchResult {
     pub(crate) section_index: usize,
     pub(crate) page_index: Option<usize>,
     pub(crate) match_scope: String,
+    pub(crate) matching_sections: usize,
+}
+
+/// Bounded search results plus counts computed before the result limit.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentSearchResponse {
+    pub(crate) results: Vec<UploadedDocumentSearchResult>,
+    pub(crate) total_documents: usize,
+    pub(crate) total_matching_sections: usize,
 }
 
 /// Outcome of a delete, including bytes reclaimed from app data.

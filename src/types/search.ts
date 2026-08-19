@@ -15,6 +15,8 @@ export interface SearchResult {
   customExcerpt?: string
   matchCount?: number
   matchScope?: 'section' | 'document'
+  matchingSections?: number
+  source?: 'upload' | 'starter'
 }
 
 export interface SearchOpenTarget {

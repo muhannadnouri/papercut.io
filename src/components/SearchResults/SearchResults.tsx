@@ -5,6 +5,9 @@ import './SearchResults.css'
 
 interface LastSearchInfo {
   phrases: string[]
+  uploadedDocuments: number
+  uploadedMatchingSections: number
+  starterDocuments: number
 }
 
 interface SearchResultsProps {
@@ -36,6 +39,24 @@ export function SearchResults({
     : results
   const hasFilters = scopeActive
   const visibleCount = filtered.length
+  const resultGroups = [
+    {
+      key: 'upload',
+      title: t('search.results.yourLibrary'),
+      results: filtered.filter((result) => result.source === 'upload'),
+      total: lastSearchInfo?.uploadedDocuments ?? 0,
+      matchingSections: lastSearchInfo?.phrases.length === 0
+        ? lastSearchInfo.uploadedMatchingSections
+        : 0,
+    },
+    {
+      key: 'starter',
+      title: t('search.results.starterDocuments'),
+      results: filtered.filter((result) => result.source !== 'upload'),
+      total: lastSearchInfo?.starterDocuments ?? 0,
+      matchingSections: 0,
+    },
+  ].filter((group) => group.results.length > 0)
 
   if (loading) {
     return (
@@ -52,7 +73,9 @@ export function SearchResults({
     <div className="results-container" aria-busy="false">
       {lastSearchInfo && submittedQuery.length > 0 && visibleCount > 0 && (
         <div className="search-info">
-          <strong>{t('search.results.resultCount', { count: visibleCount })}</strong>
+          <strong>{t('search.results.resultCount', {
+            count: lastSearchInfo.uploadedDocuments + lastSearchInfo.starterDocuments,
+          })}</strong>
           {hasFilters && <> · {t('search.results.filtered')}</>}
           {' · '}
           {lastSearchInfo.phrases.length > 0
@@ -82,42 +105,57 @@ export function SearchResults({
         </p>
       )}
 
-      {filtered.map((result) => {
-        const opening = openingDocumentUrl === result.url
-        const disabled = openingDisabled || opening
-        const exactPhrase = Boolean(lastSearchInfo?.phrases.length)
-        const meta = resultMeta(result, exactPhrase, t)
-        const excerpt = resultExcerpt(result, exactPhrase)
-        return (
-          <button
-            type="button"
-            key={result.id}
-            className={'result-card' + (disabled ? ' result-card-disabled' : '')}
-            disabled={disabled}
-            onClick={() => {
-              if (!disabled) {
-                onViewResult(result, searchOpenTargetForResult(
-                  result,
-                  exactPhrase ? lastSearchInfo?.phrases[0] : undefined,
-                ))
-              }
-            }}
-          >
-            <span className="result-title">
-              <bdi>{result.meta.title}</bdi>
-              {opening ? ` (${t('common.opening')})` : ''}
+      {resultGroups.map((group) => (
+        <section className="result-group" aria-labelledby={`search-result-group-${group.key}`} key={group.key}>
+          <div className="result-group-heading">
+            <h2 id={`search-result-group-${group.key}`}>{group.title}</h2>
+            <span>
+              {group.results.length < group.total
+                ? t('search.results.showingCount', { shown: group.results.length, total: group.total })
+                : t('search.results.resultCount', { count: group.total })}
+              {group.matchingSections > 0 && (
+                <> · {t('search.results.matchingSections', { count: group.matchingSections })}</>
+              )}
             </span>
-            {meta && <span className="result-meta" dir="auto">{meta}</span>}
-            {excerpt && (
-              <span
-                className="result-excerpt"
-                dir="auto"
-                dangerouslySetInnerHTML={{ __html: excerpt }}
-              />
-            )}
-          </button>
-        )
-      })}
+          </div>
+          {group.results.map((result) => {
+            const opening = openingDocumentUrl === result.url
+            const disabled = openingDisabled || opening
+            const exactPhrase = Boolean(lastSearchInfo?.phrases.length)
+            const meta = resultMeta(result, exactPhrase, t)
+            const excerpt = resultExcerpt(result, exactPhrase)
+            return (
+              <button
+                type="button"
+                key={result.id}
+                className={'result-card' + (disabled ? ' result-card-disabled' : '')}
+                disabled={disabled}
+                onClick={() => {
+                  if (!disabled) {
+                    onViewResult(result, searchOpenTargetForResult(
+                      result,
+                      exactPhrase ? lastSearchInfo?.phrases[0] : undefined,
+                    ))
+                  }
+                }}
+              >
+                <span className="result-title">
+                  <bdi>{result.meta.title}</bdi>
+                  {opening ? ` (${t('common.opening')})` : ''}
+                </span>
+                {meta && <span className="result-meta" dir="auto">{meta}</span>}
+                {excerpt && (
+                  <span
+                    className="result-excerpt"
+                    dir="auto"
+                    dangerouslySetInnerHTML={{ __html: excerpt }}
+                  />
+                )}
+              </button>
+            )
+          })}
+        </section>
+      ))}
 
       {submittedQuery.length === 0 && (
         <div className="welcome">

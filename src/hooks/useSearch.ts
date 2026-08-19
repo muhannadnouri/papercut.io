@@ -21,6 +21,14 @@ const FUZZY_FALLBACK_EXCERPT_LIMIT = 12
 
 interface LastSearchInfo {
   phrases: string[]
+  uploadedDocuments: number
+  uploadedMatchingSections: number
+  starterDocuments: number
+}
+
+interface PagefindResultSet {
+  results: SearchResult[]
+  totalDocuments: number
 }
 
 interface UseSearchOptions {
@@ -85,7 +93,12 @@ export function useSearch(
 
     if (hasScope && scopeList?.length === 0) {
       setResults([])
-      setLastSearchInfo({ phrases: displayPhrases })
+      setLastSearchInfo({
+        phrases: displayPhrases,
+        uploadedDocuments: 0,
+        uploadedMatchingSections: 0,
+        starterDocuments: 0,
+      })
       setLoading(false)
       return
     }
@@ -104,11 +117,11 @@ export function useSearch(
       const [pagefindSearch, uploadedSearch] = await Promise.all([pagefindPromise, uploadPromise])
       if (latestSearchKeyRef.current !== searchKey) return
 
-      const pagefindData = await pagefindResultsInScope(pagefindSearch.results, scopeUrls, hasScope)
-      const uploadedData = uploadedSearchToResults(uploadedSearch, phrases.length === 0)
-      const data = [...pagefindData, ...uploadedData]
+      const pagefind = await pagefindResultsInScope(pagefindSearch.results, scopeUrls, hasScope)
+      const pagefindData = pagefind.results.map((result) => ({ ...result, source: 'starter' as const }))
+      const uploadedData = uploadedSearchToResults(uploadedSearch.results, phrases.length === 0)
+      const data = [...uploadedData, ...pagefindData]
         .filter((result) => !hasScope || scopeUrls?.has(result.url))
-        .slice(0, 100)
       if (latestSearchKeyRef.current !== searchKey) return
 
       let filtered = data
@@ -164,6 +177,11 @@ export function useSearch(
       setResults(filtered)
       setLastSearchInfo({
         phrases: displayPhrases,
+        uploadedDocuments: uploadedSearch.totalDocuments,
+        uploadedMatchingSections: uploadedSearch.totalMatchingSections,
+        starterDocuments: phrases.length > 0
+          ? filtered.filter((result) => result.source === 'starter').length
+          : pagefind.totalDocuments,
       })
     } catch (err) {
       console.error('Search failed:', err)
@@ -210,20 +228,24 @@ export async function pagefindResultsInScope(
   results: { id: string; data: () => Promise<SearchResult> }[],
   scopeUrls?: Set<string>,
   scopeActive = Boolean(scopeUrls?.size),
-): Promise<SearchResult[]> {
+): Promise<PagefindResultSet> {
   if (!scopeActive) {
-    return Promise.all(results.slice(0, 50).map((r) => r.data()))
+    return {
+      results: await Promise.all(results.slice(0, 50).map((r) => r.data())),
+      totalDocuments: results.length,
+    }
   }
-  if (!scopeUrls?.size) return []
+  if (!scopeUrls?.size) return { results: [], totalDocuments: 0 }
 
   const scoped: SearchResult[] = []
+  let totalDocuments = 0
   for (const result of results) {
     const data = await result.data()
     if (!scopeUrls.has(data.url)) continue
-    scoped.push(data)
-    if (scoped.length >= Math.min(scopeUrls.size, 100)) break
+    totalDocuments += 1
+    if (scoped.length < 50) scoped.push(data)
   }
-  return scoped
+  return { results: scoped, totalDocuments }
 }
 
 function uploadedSearchToResult(result: UploadedDocumentSearchResult, matchCount?: number): SearchResult {
@@ -235,41 +257,22 @@ function uploadedSearchToResult(result: UploadedDocumentSearchResult, matchCount
     pageIndex: result.pageIndex,
     matchCount,
     matchScope: result.matchScope,
+    matchingSections: result.matchingSections,
+    source: 'upload',
     sub_results: result.sectionTitle
       ? [{ url: result.url, title: result.sectionTitle }]
       : undefined,
   }
 }
 
-// SQLite returns section-level hits, while the UI intentionally shows one card
-// per document. Preserve the section count for broad searches, but keep the
-// first ranked hit as the document's representative snippet.
 function uploadedSearchToResults(
   results: UploadedDocumentSearchResult[],
   includeSectionCount = true,
 ): SearchResult[] {
-  const matchCounts = new Map<string, number>()
-  for (const result of results) {
-    if (result.matchScope === 'document') {
-      matchCounts.set(result.url, Math.max(matchCounts.get(result.url) ?? 0, 1))
-    } else {
-      matchCounts.set(result.url, (matchCounts.get(result.url) ?? 0) + 1)
-    }
-  }
-
-  const seen = new Set<string>()
-  const deduped: SearchResult[] = []
-  for (const result of results) {
-    // SQLite returns the best matching sections first, so the first result per uploaded
-    // document is the snippet we want to show on the single document-level card.
-    if (seen.has(result.url)) continue
-    seen.add(result.url)
-    deduped.push(uploadedSearchToResult(
-      result,
-      includeSectionCount ? matchCounts.get(result.url) : undefined,
-    ))
-  }
-  return deduped
+  return results.map((result) => uploadedSearchToResult(
+    result,
+    includeSectionCount ? result.matchingSections : undefined,
+  ))
 }
 
 function sanitizeUploadedExcerpt(excerpt: string): string {

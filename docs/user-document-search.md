@@ -2,10 +2,10 @@
 
 Papercut has two search-indexing paths on purpose:
 
-- **Bundled documents** are known at build time and are indexed by Pagefind into the production frontend bundle.
+- **Bundled starter documents** are known at build time and are indexed by Pagefind into the production frontend bundle.
 - **User uploads** are unknown until runtime, so they are imported through Tauri and indexed into a local SQLite FTS5 database in app data.
 
-This avoids the trap of trying to rebuild Pagefind on a user's device every time they add a document. Pagefind remains excellent for the shipped corpus, while SQLite FTS gives us incremental offline search for user-owned content.
+This avoids the trap of trying to rebuild Pagefind on a user's device every time they add a document. Pagefind remains the starter-document engine, while SQLite FTS gives us incremental offline search for user-owned content.
 
 ## Current Scope
 
@@ -22,7 +22,7 @@ are marked for opt-in English text recognition:
 - New imports retain the original filename as read-only provenance. In Library list view, **Manage** exposes a pencil action for each uploaded document; its **Document Info** dialog lets users correct Papercut's display title without renaming the source, changing its stable URL, or invalidating folders, bookmarks, and saved audio.
 - Library gallery and list views mark documents that have an explicit reader bookmark, and the Library toolbar can filter to those documents. The reader saves a first bookmark directly; an existing bookmark exposes explicit actions to return, move, or remove it, with Undo after a move or removal.
 - React lists imported files under **User Uploads** and opens them through the shared document reader. EPUB uses generated reading HTML; PDF uses the dedicated PDF.js viewer.
-- Search queries run through `src/hooks/useSearch.ts`, which queries Pagefind and SQLite FTS in parallel and returns one shared result shape.
+- Search queries run through `src/hooks/useSearch.ts`, which queries Pagefind and SQLite FTS in parallel, presents user-library results first, and labels bundled results separately as **Starter Documents**.
 - Users can open **Manage**, select uploaded documents, and delete them in one confirmed batch. Delete removes SQLite metadata, section rows, FTS rows, folder organization, and stored source directories. Documents referenced by saved audiobooks cannot be deleted until their audio is removed from the Audiobooks tab; the same native guard covers single and batch deletion. Progress is count-based, partial failures are listed, and failed documents remain selected for retry.
 
 Generic document import remains separate from `.papercut-audiobook` import/export. A PDF audiobook bundle restores its canonical PDF through the same PDF import/index path rather than copying derived page text, search rows, or thumbnails. EPUB implementation notes live in [epub-implementation-plan.md](epub-implementation-plan.md); PDF/OCR decisions and remaining work live in [pdf-ocr-scanning.md](pdf-ocr-scanning.md).
@@ -135,14 +135,14 @@ When a user submits a search:
 2. **Filter By Document** treats checked documents as either the included search scope or the documents excluded from it. With no checked documents, search uses the full library.
 3. Pagefind searches bundled build-time documents when the Pagefind index is available, then `useSearch` consumes matching results from the resolved allowed-URL set before applying its visible-result limit.
 4. SQLite FTS5 searches uploaded runtime documents when the app is running in Tauri, with allowed upload URLs passed into the SQL query when a scope is active.
-5. `useSearch` maps both providers into the existing `SearchResult` shape.
-6. Uploaded section matches are collapsed to one result per uploaded document, keeping the first/best SQLite snippet for the document card.
+5. SQLite groups matching sections by uploaded document before applying the result limit. It returns the best section, the complete matching-section count for each visible document, and total matching-document/section counts computed before limiting the response.
+6. `useSearch` maps both providers into the existing `SearchResult` shape; it no longer has to deduplicate uploaded section rows.
 7. Quoted exact-phrase searches use Pagefind/SQLite only as a candidate finder, then verify the phrase against the real bundled or uploaded document source before rendering results.
-8. Results are combined and rendered in the same panel.
+8. Results share one panel but remain visibly separated into **Your Library** first and **Starter Documents** second. Each group states when only its initial 50 results are shown.
 9. Opening a result keeps the canonical document URL, then passes a best-effort target to the reader so Pagefind heading hashes or highlighted snippet text can scroll to the likely match. Search-result navigation and in-document Find share block-aware text matching, so inline formatting does not split a visible phrase into separate matches. Starting an explicit Find retires the transient result highlight, caches the rendered reader's normalized text map, and uses CSS highlights without rewriting the reader DOM; audiobook playback highlights remain independent.
 10. If a result points to an uploaded document URL, source loading calls `document_uploads_get_source` instead of fetching from `dist/`.
 
-SQLite FTS uses a Porter/unicode tokenizer with diacritic removal and BM25 ranking. Uploaded snippets are generated by SQLite and sanitized again in React before rendering, which keeps `<mark>` highlighting but prevents snippet HTML from becoming executable UI. Because the reader has its own in-document Find/highlight workflow, the search panel shows one uploaded-document card with the first relevant snippet instead of one card per matching section.
+SQLite FTS uses a Porter/unicode tokenizer with diacritic removal and BM25 ranking. Uploaded snippets are generated by SQLite and sanitized again in React before rendering, which keeps `<mark>` highlighting but prevents snippet HTML from becoming executable UI. SQLite scans lightweight match metadata to group and count every matching uploaded document, then generates snippets only for the bounded visible document set. Because the reader has its own in-document Find/highlight workflow, the search panel shows one uploaded-document card with the best relevant snippet instead of one card per matching section.
 
 For quoted searches, broad provider counts are not treated as exact phrase counts. The UI reports document-level phrase matches after source verification and shows source-verified occurrence counts on result cards; unquoted searches can still show matching section counts when SQLite or Pagefind exposes them.
 
@@ -158,7 +158,7 @@ For 500+ user documents, the important scaling rules are:
 - Limit initial result counts and fetch/open full source only when the user chooses a document.
 - Keep heavy extraction off the WebView main thread: Rust handles HTML/EPUB/TXT/Markdown parsing and PDF.js uses its worker for PDF parsing.
 
-The current HTML, EPUB, PDF, TXT, and Markdown paths follow those rules. PDF extraction is sequential by page, search uses persisted SQLite page rows, and the viewer relies on PDF.js virtualization rather than mounting every rendered page eagerly.
+The current HTML, EPUB, PDF, TXT, and Markdown paths follow those rules. Uploaded search counts all lightweight matching section rows in Rust so one prolific document cannot consume the result limit, but sends at most 100 document cards and snippets over IPC. Broad terms therefore do more local aggregation work than the former section-limited query while keeping WebView work and payload size bounded. PDF extraction is sequential by page, search uses persisted SQLite page rows, and the viewer relies on PDF.js virtualization rather than mounting every rendered page eagerly.
 
 Reflowable HTML, EPUB, TXT, and Markdown in-document Find builds one compact text-to-DOM index per opened document and reuses it as the query changes. Match counting and next/previous navigation still cover the complete rendered document. Visual highlighting is capped for extremely common queries so a one-character search cannot create tens of thousands of ranges or DOM elements; the current match remains highlighted and navigable. Older WebViews without CSS Custom Highlights fall back to the browser selection for the current match rather than mutating the document.
 
@@ -189,6 +189,7 @@ Keeping this shape stable lets the Library and SQLite indexing remain format-agn
 - Uploaded-document search only runs inside the Tauri app, not plain browser preview.
 - Folder import is desktop-only. It preserves supported files through five visible folder levels, skips deeper descendants and symlinks, and leaves already-imported duplicate documents in their current Library location.
 - There is no user-facing reindex action for generic uploaded documents yet.
+- Search currently shows the first 50 results from each provider and reports the complete provider count; pagination or **Show more** is not implemented yet.
 - Uploaded documents are not exported as part of a library backup yet.
 - Quoted exact-phrase results are document-level matches with source-verified occurrence counts, not provider section counts.
 - Very large HTML/EPUB books currently render as one generated reader DOM. The app treats document opening as one global reader transition, disables competing View/Open actions while source HTML loads, and progressively discloses localized preparation detail after 700 ms plus a large-document reassurance after five seconds. It avoids DOM mutation for search-result target highlights on modern WebViews and does not build the TTS text-node index until playback highlighting needs it. The first audiobook highlight after a large DOM mutation may still rebuild the text segment index. Chapter-level rendering with locator-aware highlighting is the preferred long-term fix for those formats; PDF already uses page virtualization and page-aware locators.
@@ -201,4 +202,6 @@ Keeping this shape stable lets the Library and SQLite indexing remain format-agn
 3. Add a reindex action for uploaded documents if parser or sanitizer behavior changes after import.
 4. Add richer EPUB reader features such as TOC, location restore, pagination, EPUB-specific appearance controls, or a foliate-js/epub.js-backed viewer if generated reading HTML is not enough.
 5. Follow [pdf-ocr-scanning.md](pdf-ocr-scanning.md) for remaining PDF parity, OCR, and mobile scanning work; do not implement those concerns as isolated additions here.
-6. Decide whether Pagefind remains the bundled-document engine long term or whether all documents should eventually share SQLite FTS.
+6. Add stable section locators for HTML, EPUB, TXT, and Markdown so every future search visualization can open its exact evidence; PDFs already have page locators.
+7. Add multilingual search fixtures and choose an indexing strategy for scripts that do not use whitespace word boundaries before exposing corpus vocabulary statistics.
+8. Build the first Search Evidence Explorer slice from existing SQLite metadata: multiple passages and a compact query-occurrence strip per uploaded document, without a chart dependency.

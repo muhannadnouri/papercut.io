@@ -8,6 +8,9 @@ import { SearchScope } from '../SearchScope/SearchScope'
 
 interface LastSearchInfo {
   phrases: string[]
+  uploadedDocuments: number
+  uploadedMatchingSections: number
+  starterDocuments: number
 }
 
 interface SearchTabProps {
