@@ -170,8 +170,11 @@ export function SearchResults({
 function searchOpenTargetForResult(result: SearchResult, exactPhrase?: string): SearchOpenTarget | undefined {
   const hash = hashFromUrl(result.sub_results?.[0]?.url)
   const text = exactPhrase?.trim() || firstMarkedText(resultExcerpt(result, Boolean(exactPhrase)) ?? '')
+  const sectionIndex = result.sectionIndex
   const pageIndex = result.pageIndex ?? undefined
-  return hash || text || pageIndex !== undefined ? { hash, text, pageIndex } : undefined
+  return hash || text || sectionIndex !== undefined || pageIndex !== undefined
+    ? { hash, text, sectionIndex, pageIndex }
+    : undefined
 }
 
 // Use the richest safe snippet available, but avoid rendering a body line that

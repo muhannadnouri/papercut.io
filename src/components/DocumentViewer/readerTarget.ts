@@ -14,6 +14,12 @@ export function decodeReaderHash(value: string): string {
   }
 }
 
+export function readerSectionSelector(sectionIndex: number | undefined): string | null {
+  return Number.isSafeInteger(sectionIndex) && sectionIndex !== undefined && sectionIndex >= 0
+    ? `[data-papercut-section="${sectionIndex}"]`
+    : null
+}
+
 export function clearSearchTargetHighlight(root: HTMLElement): void {
   const doc = root.ownerDocument
   clearSearchTargetRegistry(doc)
@@ -110,6 +116,11 @@ export function scrollToReaderRange(range: Range): void {
   const rect = range.getBoundingClientRect()
   const targetTop = window.scrollY + rect.top
   window.scrollTo({ top: Math.max(targetTop - window.innerHeight / 2, 0), behavior: readerScrollBehavior() })
+}
+
+export function scrollToReaderElement(element: Element): void {
+  const targetTop = window.scrollY + element.getBoundingClientRect().top
+  window.scrollTo({ top: Math.max(targetTop - 120, 0), behavior: readerScrollBehavior() })
 }
 
 export function readerScrollBehavior(): ScrollBehavior {

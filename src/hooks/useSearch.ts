@@ -254,6 +254,7 @@ function uploadedSearchToResult(result: UploadedDocumentSearchResult, matchCount
     url: result.url,
     meta: { title: result.title },
     excerpt: sanitizeUploadedExcerpt(result.excerpt),
+    sectionIndex: result.sectionIndex,
     pageIndex: result.pageIndex,
     matchCount,
     matchScope: result.matchScope,
