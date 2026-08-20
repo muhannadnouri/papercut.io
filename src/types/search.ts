@@ -4,6 +4,20 @@ export interface PagefindSubResult {
   excerpt?: string
 }
 
+export interface SearchPassage {
+  excerpt: string
+  sectionTitle?: string | null
+  sectionIndex: number
+  pageIndex?: number | null
+}
+
+export interface SearchMatchLocation {
+  binIndex: number
+  sectionIndex: number
+  pageIndex?: number | null
+  matchCount: number
+}
+
 export interface SearchResult {
   id: string
   url: string
@@ -17,6 +31,8 @@ export interface SearchResult {
   matchCount?: number
   matchScope?: 'section' | 'document'
   matchingSections?: number
+  passages?: SearchPassage[]
+  matchLocations?: SearchMatchLocation[]
   source?: 'upload' | 'starter'
 }
 

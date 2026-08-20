@@ -29,6 +29,22 @@ export interface UploadedDocumentSearchResult {
   pageIndex?: number | null
   matchScope?: 'section' | 'document'
   matchingSections: number
+  passages: UploadedDocumentSearchPassage[]
+  matchLocations: UploadedDocumentSearchLocation[]
+}
+
+export interface UploadedDocumentSearchPassage {
+  excerpt: string
+  sectionTitle?: string | null
+  sectionIndex: number
+  pageIndex?: number | null
+}
+
+export interface UploadedDocumentSearchLocation {
+  binIndex: number
+  sectionIndex: number
+  pageIndex?: number | null
+  matchCount: number
 }
 
 export interface UploadedDocumentSearchResponse {

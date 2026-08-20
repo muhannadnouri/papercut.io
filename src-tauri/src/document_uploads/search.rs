@@ -11,9 +11,13 @@ use tauri::Runtime;
 use super::storage::{upload_reference_from_url, StoredSourceKind};
 use super::store::{db_err, open_db};
 use super::types::{
-    UploadedDocumentSearchRequest, UploadedDocumentSearchResponse, UploadedDocumentSearchResult,
-    UploadedPdfFindPage, UploadedPdfFindRequest, UploadedPdfFindResult,
+    UploadedDocumentSearchLocation, UploadedDocumentSearchPassage, UploadedDocumentSearchRequest,
+    UploadedDocumentSearchResponse, UploadedDocumentSearchResult, UploadedPdfFindPage,
+    UploadedPdfFindRequest, UploadedPdfFindResult,
 };
+
+const MAX_EVIDENCE_PASSAGES: usize = 3;
+const OCCURRENCE_MAP_BINS: usize = 12;
 
 struct RankedDocumentCandidate {
     document_id: String,
@@ -22,7 +26,13 @@ struct RankedDocumentCandidate {
     score: f64,
     imported_at_ms: i64,
     matching_sections: usize,
+    section_count: usize,
     match_scope: &'static str,
+}
+
+struct SearchEvidence {
+    passages: Vec<(f64, UploadedDocumentSearchPassage)>,
+    locations: Vec<Option<UploadedDocumentSearchLocation>>,
 }
 
 /// Run an FTS5 MATCH query, joining hits back to their section and document and
@@ -278,7 +288,7 @@ fn document_candidates(
     let sql = format!(
         "SELECT uploaded_document_fts.document_id, \
                 CAST(uploaded_document_fts.section_id AS INTEGER), s.ordinal, \
-                bm25(uploaded_document_fts), d.imported_at_ms \
+                bm25(uploaded_document_fts), d.imported_at_ms, d.sections \
          FROM uploaded_document_fts \
          JOIN uploaded_sections s ON s.id = uploaded_document_fts.section_id \
          JOIN uploaded_documents d ON d.id = uploaded_document_fts.document_id \
@@ -296,12 +306,13 @@ fn document_candidates(
                 row.get::<_, i64>(2)? as usize,
                 row.get::<_, f64>(3)?,
                 row.get::<_, i64>(4)?,
+                row.get::<_, i64>(5)? as usize,
             ))
         })
         .map_err(db_err)?;
     let mut candidates = HashMap::<String, RankedDocumentCandidate>::new();
     for row in rows {
-        let (document_id, section_id, section_index, score, imported_at_ms) =
+        let (document_id, section_id, section_index, score, imported_at_ms, section_count) =
             row.map_err(db_err)?;
         if let Some(candidate) = candidates.get_mut(&document_id) {
             if score.total_cmp(&candidate.score).is_lt()
@@ -321,6 +332,7 @@ fn document_candidates(
                     score,
                     imported_at_ms,
                     matching_sections: 0,
+                    section_count,
                     match_scope,
                 },
             );
@@ -489,14 +501,16 @@ fn search_results_for_candidates(
         .map(|result| (result.document_id.clone(), result))
         .collect::<HashMap<_, _>>();
 
-    candidates
+    let mut results = candidates
         .iter()
         .map(|candidate| {
             result_by_document
                 .remove(&candidate.document_id)
                 .ok_or_else(|| "Ranked search result disappeared".to_string())
         })
-        .collect()
+        .collect::<Result<Vec<_>, _>>()?;
+    attach_search_evidence(db, query, candidates, &mut results)?;
+    Ok(results)
 }
 
 fn row_to_search_result(
@@ -506,20 +520,147 @@ fn row_to_search_result(
 ) -> rusqlite::Result<UploadedDocumentSearchResult> {
     let document_id: String = row.get(0)?;
     let section_index: i64 = row.get(3)?;
+    let page_index = row
+        .get::<_, Option<i64>>(4)?
+        .map(|page_index| page_index as usize);
+    let section_title: Option<String> = row.get(5)?;
+    let excerpt: String = row.get(6)?;
     Ok(UploadedDocumentSearchResult {
         id: format!("upload:{match_scope}:{document_id}:{section_index}"),
         document_id,
         url: row.get(1)?,
         title: row.get(2)?,
         section_index: section_index as usize,
-        page_index: row
-            .get::<_, Option<i64>>(4)?
-            .map(|page_index| page_index as usize),
-        section_title: row.get(5)?,
-        excerpt: row.get(6)?,
+        page_index,
+        section_title: section_title.clone(),
+        excerpt: excerpt.clone(),
         match_scope: match_scope.to_string(),
         matching_sections,
+        passages: vec![UploadedDocumentSearchPassage {
+            excerpt,
+            section_title,
+            section_index: section_index as usize,
+            page_index,
+        }],
+        match_locations: Vec::new(),
     })
+}
+
+/// Add bounded, source-linked evidence only for the visible document set.
+/// One body-match scan supplies both the three best snippets and a twelve-bin
+/// distribution, so result payload and DOM size do not grow with a book.
+fn attach_search_evidence(
+    db: &Connection,
+    query: &str,
+    candidates: &[RankedDocumentCandidate],
+    results: &mut [UploadedDocumentSearchResult],
+) -> Result<(), String> {
+    let placeholders = (0..candidates.len())
+        .map(|_| "?")
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
+        "SELECT uploaded_document_fts.document_id, s.ordinal, s.page_index, s.heading, \
+                snippet(uploaded_document_fts, 4, '<mark>', '</mark>', '…', 18), \
+                bm25(uploaded_document_fts) \
+         FROM uploaded_document_fts \
+         JOIN uploaded_sections s ON s.id = uploaded_document_fts.section_id \
+         WHERE uploaded_document_fts MATCH ? \
+           AND uploaded_document_fts.document_id IN ({placeholders}) \
+         ORDER BY uploaded_document_fts.document_id, s.ordinal"
+    );
+    let mut values = vec![Value::Text(format!("{{heading text}} : ({query})"))];
+    values.extend(
+        candidates
+            .iter()
+            .map(|candidate| Value::Text(candidate.document_id.clone())),
+    );
+    let candidate_by_document = candidates
+        .iter()
+        .map(|candidate| (candidate.document_id.as_str(), candidate))
+        .collect::<HashMap<_, _>>();
+    let mut evidence_by_document = candidates
+        .iter()
+        .map(|candidate| {
+            (
+                candidate.document_id.clone(),
+                SearchEvidence {
+                    passages: Vec::new(),
+                    locations: (0..OCCURRENCE_MAP_BINS).map(|_| None).collect(),
+                },
+            )
+        })
+        .collect::<HashMap<_, _>>();
+
+    let mut stmt = db.prepare(&sql).map_err(db_err)?;
+    let rows = stmt
+        .query_map(params_from_iter(values.iter()), |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)? as usize,
+                row.get::<_, Option<i64>>(2)?.map(|value| value as usize),
+                row.get::<_, Option<String>>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, f64>(5)?,
+            ))
+        })
+        .map_err(db_err)?;
+    for row in rows {
+        let (document_id, section_index, page_index, section_title, excerpt, score) =
+            row.map_err(db_err)?;
+        let Some(candidate) = candidate_by_document.get(document_id.as_str()) else {
+            continue;
+        };
+        let Some(evidence) = evidence_by_document.get_mut(&document_id) else {
+            continue;
+        };
+
+        evidence.passages.push((
+            score,
+            UploadedDocumentSearchPassage {
+                excerpt,
+                section_title,
+                section_index,
+                page_index,
+            },
+        ));
+        evidence.passages.sort_by(|left, right| {
+            left.0
+                .total_cmp(&right.0)
+                .then_with(|| left.1.section_index.cmp(&right.1.section_index))
+        });
+        evidence.passages.truncate(MAX_EVIDENCE_PASSAGES);
+
+        let bin = (section_index.saturating_mul(OCCURRENCE_MAP_BINS)
+            / candidate.section_count.max(1))
+        .min(OCCURRENCE_MAP_BINS - 1);
+        match &mut evidence.locations[bin] {
+            Some(location) => location.match_count += 1,
+            slot @ None => {
+                *slot = Some(UploadedDocumentSearchLocation {
+                    bin_index: bin,
+                    section_index,
+                    page_index,
+                    match_count: 1,
+                });
+            }
+        }
+    }
+
+    for result in results {
+        let Some(evidence) = evidence_by_document.remove(&result.document_id) else {
+            continue;
+        };
+        if !evidence.passages.is_empty() {
+            result.passages = evidence
+                .passages
+                .into_iter()
+                .map(|(_, passage)| passage)
+                .collect();
+        }
+        result.match_locations = evidence.locations.into_iter().flatten().collect();
+    }
+    Ok(())
 }
 
 fn document_url_scope(document_urls: &[String]) -> (String, Vec<Value>) {
@@ -981,6 +1122,37 @@ mod tests {
                 .map(|hit| hit.matching_sections),
             Some(3)
         );
+    }
+
+    #[test]
+    fn search_evidence_bounds_passages_and_bins_match_locations() {
+        let db = test_db();
+        let sections = (0..24)
+            .map(|index| format!("Orchard evidence passage {index}."))
+            .collect::<Vec<_>>();
+        let section_refs = sections.iter().map(String::as_str).collect::<Vec<_>>();
+        insert_document(
+            &db,
+            "evidence-map",
+            "/uploads/evidence-map.html",
+            "Evidence Map",
+            &section_refs,
+        );
+
+        let hits = search_section_hits(&db, "\"orchard\"", 1, &[]).expect("evidence search");
+        let hit = &hits[0];
+
+        assert_eq!(hit.passages.len(), 3);
+        assert_eq!(hit.match_locations.len(), 12);
+        assert_eq!(
+            hit.match_locations
+                .iter()
+                .map(|location| location.match_count)
+                .sum::<usize>(),
+            24
+        );
+        assert_eq!(hit.match_locations[0].bin_index, 0);
+        assert_eq!(hit.match_locations[11].bin_index, 11);
     }
 
     #[test]

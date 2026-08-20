@@ -71,7 +71,27 @@ pub(crate) struct UploadedDocumentBatchResult {
     pub(crate) cancelled: bool,
 }
 
-/// One document-level FTS hit with its best matching section.
+/// One source-linked passage retained for an uploaded-document result.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentSearchPassage {
+    pub(crate) excerpt: String,
+    pub(crate) section_title: Option<String>,
+    pub(crate) section_index: usize,
+    pub(crate) page_index: Option<usize>,
+}
+
+/// One bounded occurrence-map bin and the first matching section inside it.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentSearchLocation {
+    pub(crate) bin_index: usize,
+    pub(crate) section_index: usize,
+    pub(crate) page_index: Option<usize>,
+    pub(crate) match_count: usize,
+}
+
+/// One document-level FTS hit with bounded supporting evidence.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentSearchResult {
@@ -85,6 +105,8 @@ pub(crate) struct UploadedDocumentSearchResult {
     pub(crate) page_index: Option<usize>,
     pub(crate) match_scope: String,
     pub(crate) matching_sections: usize,
+    pub(crate) passages: Vec<UploadedDocumentSearchPassage>,
+    pub(crate) match_locations: Vec<UploadedDocumentSearchLocation>,
 }
 
 /// Bounded search results plus counts computed before the result limit.

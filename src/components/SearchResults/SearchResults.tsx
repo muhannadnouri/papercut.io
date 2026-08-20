@@ -1,7 +1,9 @@
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import type { SearchOpenTarget, SearchResult } from '../../types/search'
+import type { SearchOpenTarget, SearchPassage, SearchResult } from '../../types/search'
 import './SearchResults.css'
+
+const OCCURRENCE_MAP_BINS = 12
 
 interface LastSearchInfo {
   phrases: string[]
@@ -124,34 +126,111 @@ export function SearchResults({
             const exactPhrase = Boolean(lastSearchInfo?.phrases.length)
             const meta = resultMeta(result, exactPhrase, t)
             const excerpt = resultExcerpt(result, exactPhrase)
+            const additionalPassages = (result.passages ?? [])
+              .filter((passage) => passage.sectionIndex !== result.sectionIndex)
+              .slice(0, 2)
+            const locations = result.matchLocations ?? []
+            const evidenceCells = Array.from({ length: OCCURRENCE_MAP_BINS }, (_, index) => ({
+              index,
+              location: locations.find((location) => location.binIndex === index),
+            }))
+            const hasEvidence = result.source === 'upload'
+              && result.matchingSections !== undefined
+              && result.matchingSections > 1
+              && (additionalPassages.length > 0 || locations.length > 1)
             return (
-              <button
-                type="button"
+              <article
                 key={result.id}
                 className={'result-card' + (disabled ? ' result-card-disabled' : '')}
-                disabled={disabled}
-                onClick={() => {
-                  if (!disabled) {
-                    onViewResult(result, searchOpenTargetForResult(
-                      result,
-                      exactPhrase ? lastSearchInfo?.phrases[0] : undefined,
-                    ))
-                  }
-                }}
               >
-                <span className="result-title">
-                  <bdi>{result.meta.title}</bdi>
-                  {opening ? ` (${t('common.opening')})` : ''}
-                </span>
-                {meta && <span className="result-meta" dir="auto">{meta}</span>}
-                {excerpt && (
-                  <span
-                    className="result-excerpt"
-                    dir="auto"
-                    dangerouslySetInnerHTML={{ __html: excerpt }}
-                  />
+                <button
+                  type="button"
+                  className="result-card-primary"
+                  disabled={disabled}
+                  onClick={() => onViewResult(result, searchOpenTargetForResult(
+                    result,
+                    exactPhrase ? lastSearchInfo?.phrases[0] : undefined,
+                  ))}
+                >
+                  <span className="result-title">
+                    <bdi>{result.meta.title}</bdi>
+                    {opening ? ` (${t('common.opening')})` : ''}
+                  </span>
+                  {meta && <span className="result-meta" dir="auto">{meta}</span>}
+                  {excerpt && (
+                    <span
+                      className="result-excerpt"
+                      dir="auto"
+                      dangerouslySetInnerHTML={{ __html: excerpt }}
+                    />
+                  )}
+                </button>
+                {hasEvidence && (
+                  <details className="result-evidence">
+                    <summary>
+                      {t('search.results.matchingSections', { count: result.matchingSections })}
+                    </summary>
+                    <div className="result-evidence-content">
+                      <div
+                        className="result-occurrence-map"
+                        role="group"
+                        aria-label={t('search.results.matchingSections', { count: result.matchingSections })}
+                      >
+                        {evidenceCells.map(({ index, location }) => location ? (
+                          <button
+                            type="button"
+                            className="result-occurrence-marker"
+                            key={index}
+                            disabled={disabled}
+                            aria-label={t('search.results.matchingSections', { count: location.matchCount })}
+                            aria-posinset={index + 1}
+                            aria-setsize={OCCURRENCE_MAP_BINS}
+                            title={t('search.results.matchingSections', { count: location.matchCount })}
+                            onClick={() => onViewResult(result, {
+                              sectionIndex: location.sectionIndex,
+                              pageIndex: location.pageIndex ?? undefined,
+                            })}
+                          >
+                            {location.matchCount > 1 ? location.matchCount : ''}
+                          </button>
+                        ) : <span className="result-occurrence-empty" aria-hidden="true" key={index} />)}
+                      </div>
+                      {additionalPassages.length > 0 && (
+                        <div className="result-evidence-passages">
+                          {additionalPassages.map((passage) => {
+                            const passageExcerpt = usefulExcerpt(
+                              passage.excerpt,
+                              passage.sectionTitle ?? undefined,
+                            )
+                            return (
+                              <button
+                                type="button"
+                                className="result-evidence-passage"
+                                key={passage.sectionIndex}
+                                disabled={disabled}
+                                onClick={() => onViewResult(result, searchOpenTargetForPassage(passage))}
+                              >
+                                {passage.sectionTitle && (
+                                  <span className="result-evidence-title" dir="auto">
+                                    <bdi>{passage.sectionTitle}</bdi>
+                                  </span>
+                                )}
+                                {passageExcerpt && (
+                                  <span
+                                    className="result-evidence-excerpt"
+                                    dir="auto"
+                                    dangerouslySetInnerHTML={{ __html: passageExcerpt }}
+                                  />
+                                )}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </details>
                 )}
-              </button>
+              </article>
             )
           })}
         </section>
@@ -165,6 +244,14 @@ export function SearchResults({
       )}
     </div>
   )
+}
+
+function searchOpenTargetForPassage(passage: SearchPassage): SearchOpenTarget {
+  return {
+    text: firstMarkedText(passage.excerpt),
+    sectionIndex: passage.sectionIndex,
+    pageIndex: passage.pageIndex ?? undefined,
+  }
 }
 
 function searchOpenTargetForResult(result: SearchResult, exactPhrase?: string): SearchOpenTarget | undefined {
@@ -214,7 +301,7 @@ function resultMeta(result: SearchResult, exactPhrase: boolean, t: TFunction): s
       : t('search.results.bestPassage'),
   ]
   const count = result.matchCount ?? result.sub_results?.length
-  if (count && count > 1) {
+  if (count && count > 1 && !result.matchLocations?.length) {
     parts.push(t('search.results.matchingSections', { count }))
   }
   return parts.join(' · ')

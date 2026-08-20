@@ -259,6 +259,11 @@ function uploadedSearchToResult(result: UploadedDocumentSearchResult, matchCount
     matchCount,
     matchScope: result.matchScope,
     matchingSections: result.matchingSections,
+    passages: result.passages.map((passage) => ({
+      ...passage,
+      excerpt: sanitizeUploadedExcerpt(passage.excerpt),
+    })),
+    matchLocations: result.matchLocations,
     source: 'upload',
     sub_results: result.sectionTitle
       ? [{ url: result.url, title: result.sectionTitle }]
