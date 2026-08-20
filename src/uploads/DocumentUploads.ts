@@ -31,6 +31,7 @@ export interface UploadedDocumentSearchResult {
   matchingSections: number
   passages: UploadedDocumentSearchPassage[]
   matchLocations: UploadedDocumentSearchLocation[]
+  termMatches: UploadedDocumentSearchTermMatch[]
 }
 
 export interface UploadedDocumentSearchPassage {
@@ -45,6 +46,13 @@ export interface UploadedDocumentSearchLocation {
   sectionIndex: number
   pageIndex?: number | null
   matchCount: number
+}
+
+export interface UploadedDocumentSearchTermMatch {
+  term: string
+  matchingSections: number
+  sectionIndex?: number | null
+  pageIndex?: number | null
 }
 
 export interface UploadedDocumentSearchResponse {

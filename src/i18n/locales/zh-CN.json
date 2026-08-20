@@ -76,6 +76,11 @@
       "termsSeparateSections": "术语出现在单独的部分中",
       "bestSection": "最佳匹配款：{{title}}",
       "bestPassage": "最佳匹配段落",
+      "compare": "比较",
+      "comparisonTitle": "比较文档",
+      "comparisonDocument": "文档",
+      "comparisonHint": "最多选择 {{max, number}} 个文档。每个计数都会打开第一个匹配章节。",
+      "comparisonSelected": "已选择 {{count, number}} / {{max, number}}",
       "resultCount_other": "{{count, number}} 结果",
       "exactMatch_other": "{{count, number}} 完全匹配",
       "matchingSections_other": "{{count, number}} 个匹配章节"

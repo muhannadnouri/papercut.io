@@ -59,6 +59,100 @@
   color: var(--accent-strong);
 }
 
+.result-comparison {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  background: var(--surface-subtle);
+}
+
+.result-comparison-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.result-comparison-heading h2,
+.result-comparison-heading p {
+  margin: 0;
+}
+
+.result-comparison-heading h2 {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.result-comparison-heading p,
+.result-comparison-heading > span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.result-comparison-heading p {
+  margin-top: 0.25rem;
+}
+
+.result-comparison-heading > span {
+  flex: none;
+}
+
+.result-comparison-scroll {
+  overflow-x: auto;
+}
+
+.result-comparison table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.result-comparison th,
+.result-comparison td {
+  min-width: 5rem;
+  padding: 0.4rem;
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+.result-comparison th:first-child {
+  min-width: 10rem;
+  text-align: start;
+}
+
+.result-comparison thead th {
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-weight: 650;
+}
+
+.result-comparison tbody th {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.result-comparison td button {
+  width: 100%;
+  min-height: 2.5rem;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--surface-accent-strong);
+  color: var(--accent-strong);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.result-comparison td button:focus-visible {
+  outline: 3px solid var(--shadow-focus);
+  outline-offset: 1px;
+}
+
+.result-comparison td button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .result-group {
   display: flex;
   flex-direction: column;
@@ -92,6 +186,10 @@
   text-align: start;
 }
 
+.result-card-compared {
+  border-color: var(--accent-border);
+}
+
 .result-card-primary {
   appearance: none;
   display: block;
@@ -113,7 +211,8 @@
 
 @media (hover: hover) and (pointer: fine) {
   .result-card-primary:hover:not(:disabled),
-  .result-evidence-passage:hover:not(:disabled) {
+  .result-evidence-passage:hover:not(:disabled),
+  .result-comparison td button:hover:not(:disabled) {
     background: var(--surface-accent);
   }
 }
@@ -159,6 +258,31 @@
   color: inherit;
   padding: 0.1em 0.15em;
   border-radius: 2px;
+}
+
+.result-compare-control {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.75rem;
+  padding: 0.55rem 1.25rem;
+  border-top: 1px solid var(--border);
+  color: var(--accent-strong);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.result-compare-control input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.result-compare-control:has(input:disabled) {
+  color: var(--text-muted);
+  cursor: not-allowed;
 }
 
 .result-evidence {
@@ -292,6 +416,15 @@
 }
 
 @media (max-width: 600px) {
+  .result-comparison-heading {
+    display: block;
+  }
+
+  .result-comparison-heading > span {
+    display: block;
+    margin-top: 0.4rem;
+  }
+
   .result-meta {
     white-space: normal;
   }

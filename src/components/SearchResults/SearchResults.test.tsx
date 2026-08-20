@@ -65,3 +65,40 @@ describe('search progress', () => {
     expect(html).not.toContain('search.results.noResults')
   })
 })
+
+describe('document comparison', () => {
+  it('offers comparison only when uploaded term evidence is available', () => {
+    const html = renderToStaticMarkup(
+      <SearchResults
+        results={['one', 'two'].map((id) => ({
+          id: `upload:section:${id}:0`,
+          url: `/uploads/${id}.html`,
+          meta: { title: id },
+          excerpt: '',
+          source: 'upload' as const,
+          termMatches: [
+            { term: 'orchard', matchingSections: 2, sectionIndex: 0 },
+            { term: 'lantern', matchingSections: 1, sectionIndex: 1 },
+          ],
+        }))}
+        loading={false}
+        searchFailed={false}
+        searchableDocumentCount={1}
+        searchPhase={null}
+        submittedQuery="orchard lantern"
+        lastSearchInfo={{
+          phrases: [],
+          uploadedDocuments: 2,
+          uploadedMatchingSections: 2,
+          starterDocuments: 0,
+        }}
+        scopeUrls={new Set()}
+        scopeActive={false}
+        onViewResult={() => undefined}
+      />,
+    )
+
+    expect(html).toContain('type="checkbox"')
+    expect(html).toContain('search.results.compare')
+  })
+})

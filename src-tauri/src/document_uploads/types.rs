@@ -91,6 +91,16 @@ pub(crate) struct UploadedDocumentSearchLocation {
     pub(crate) match_count: usize,
 }
 
+/// One query term's bounded document-level count and first source locator.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentSearchTermMatch {
+    pub(crate) term: String,
+    pub(crate) matching_sections: usize,
+    pub(crate) section_index: Option<usize>,
+    pub(crate) page_index: Option<usize>,
+}
+
 /// One document-level FTS hit with bounded supporting evidence.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -107,6 +117,7 @@ pub(crate) struct UploadedDocumentSearchResult {
     pub(crate) matching_sections: usize,
     pub(crate) passages: Vec<UploadedDocumentSearchPassage>,
     pub(crate) match_locations: Vec<UploadedDocumentSearchLocation>,
+    pub(crate) term_matches: Vec<UploadedDocumentSearchTermMatch>,
 }
 
 /// Bounded search results plus counts computed before the result limit.

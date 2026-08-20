@@ -313,6 +313,7 @@ function uploadedSearchToResult(result: UploadedDocumentSearchResult, matchCount
       excerpt: sanitizeUploadedExcerpt(passage.excerpt),
     })),
     matchLocations: result.matchLocations,
+    termMatches: result.termMatches,
     source: 'upload',
     sub_results: result.sectionTitle
       ? [{ url: result.url, title: result.sectionTitle }]

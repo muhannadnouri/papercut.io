@@ -18,6 +18,13 @@ export interface SearchMatchLocation {
   matchCount: number
 }
 
+export interface SearchTermMatch {
+  term: string
+  matchingSections: number
+  sectionIndex?: number | null
+  pageIndex?: number | null
+}
+
 export interface SearchResult {
   id: string
   url: string
@@ -33,6 +40,7 @@ export interface SearchResult {
   matchingSections?: number
   passages?: SearchPassage[]
   matchLocations?: SearchMatchLocation[]
+  termMatches?: SearchTermMatch[]
   source?: 'upload' | 'starter'
 }
 

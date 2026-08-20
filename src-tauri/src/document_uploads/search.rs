@@ -13,11 +13,13 @@ use super::store::{db_err, open_db};
 use super::types::{
     UploadedDocumentSearchLocation, UploadedDocumentSearchPassage, UploadedDocumentSearchRequest,
     UploadedDocumentSearchResponse, UploadedDocumentSearchResult, UploadedDocumentSearchStage,
-    UploadedPdfFindPage, UploadedPdfFindRequest, UploadedPdfFindResult,
+    UploadedDocumentSearchTermMatch, UploadedPdfFindPage, UploadedPdfFindRequest,
+    UploadedPdfFindResult,
 };
 
 const MAX_EVIDENCE_PASSAGES: usize = 3;
 const OCCURRENCE_MAP_BINS: usize = 12;
+const MAX_COMPARISON_TERMS: usize = 6;
 
 struct RankedDocumentCandidate {
     document_id: String,
@@ -42,12 +44,17 @@ pub(crate) fn search_uploads<R: Runtime>(
     request: UploadedDocumentSearchRequest,
     mut progress: impl FnMut(UploadedDocumentSearchStage),
 ) -> Result<UploadedDocumentSearchResponse, String> {
-    let fuzzy_queries = fts_fuzzy_queries(&request.query);
+    let fuzzy_terms = fts_fuzzy_terms(&request.query);
+    let fuzzy_queries = fuzzy_terms
+        .iter()
+        .map(|term| fts_alias_query(term))
+        .collect::<Vec<_>>();
     if fuzzy_queries.is_empty() {
         return Ok(empty_search_response());
     }
     let exact_phrases = request.exact_phrases.unwrap_or_default();
     let exact_queries = fts_phrase_queries(&exact_phrases);
+    let comparison_terms = comparison_terms(&fuzzy_terms, &fuzzy_queries, exact_phrases.is_empty());
     let mut queries = fuzzy_queries;
     queries.extend(exact_queries.iter().cloned());
     let query = fts_and_query(&queries);
@@ -107,6 +114,7 @@ pub(crate) fn search_uploads<R: Runtime>(
         &or_query,
         &document_candidates,
     )?);
+    attach_search_term_matches(&db, &comparison_terms, &mut results)?;
 
     Ok(UploadedDocumentSearchResponse {
         results,
@@ -547,6 +555,7 @@ fn row_to_search_result(
             page_index,
         }],
         match_locations: Vec::new(),
+        term_matches: Vec::new(),
     })
 }
 
@@ -667,6 +676,88 @@ fn attach_search_evidence(
     Ok(())
 }
 
+/// Add comparison counts only for small broad queries and visible results.
+/// SQLite aggregates each term to one row per document, keeping IPC and Rust
+/// memory bounded even when a common term occurs on many pages.
+fn attach_search_term_matches(
+    db: &Connection,
+    terms: &[(String, String)],
+    results: &mut [UploadedDocumentSearchResult],
+) -> Result<(), String> {
+    if terms.is_empty() || results.is_empty() {
+        return Ok(());
+    }
+
+    for result in results.iter_mut() {
+        result.term_matches = terms
+            .iter()
+            .map(|(term, _)| UploadedDocumentSearchTermMatch {
+                term: term.clone(),
+                matching_sections: 0,
+                section_index: None,
+                page_index: None,
+            })
+            .collect();
+    }
+
+    let result_indexes = results
+        .iter()
+        .enumerate()
+        .map(|(index, result)| (result.document_id.clone(), index))
+        .collect::<HashMap<_, _>>();
+    let placeholders = (0..results.len())
+        .map(|_| "?")
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
+        "WITH matches AS (\
+           SELECT uploaded_document_fts.document_id, s.ordinal, s.page_index, \
+                  COUNT(*) OVER (PARTITION BY uploaded_document_fts.document_id) AS match_count, \
+                  ROW_NUMBER() OVER (\
+                    PARTITION BY uploaded_document_fts.document_id ORDER BY s.ordinal\
+                  ) AS match_number \
+           FROM uploaded_document_fts \
+           JOIN uploaded_sections s ON s.id = uploaded_document_fts.section_id \
+           WHERE uploaded_document_fts MATCH ? \
+             AND uploaded_document_fts.document_id IN ({placeholders})\
+         ) \
+         SELECT document_id, ordinal, page_index, match_count \
+         FROM matches WHERE match_number = 1"
+    );
+
+    let mut stmt = db.prepare(&sql).map_err(db_err)?;
+    for (term_index, (_, query)) in terms.iter().enumerate() {
+        let mut values = vec![Value::Text(format!("{{heading text}} : ({query})"))];
+        values.extend(
+            results
+                .iter()
+                .map(|result| Value::Text(result.document_id.clone())),
+        );
+        let rows = stmt
+            .query_map(params_from_iter(values.iter()), |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, i64>(1)? as usize,
+                    row.get::<_, Option<i64>>(2)?.map(|value| value as usize),
+                    row.get::<_, i64>(3)? as usize,
+                ))
+            })
+            .map_err(db_err)?;
+        for row in rows {
+            let (document_id, section_index, page_index, matching_sections) =
+                row.map_err(db_err)?;
+            let Some(result_index) = result_indexes.get(&document_id) else {
+                continue;
+            };
+            let term_match = &mut results[*result_index].term_matches[term_index];
+            term_match.matching_sections = matching_sections;
+            term_match.section_index = Some(section_index);
+            term_match.page_index = page_index;
+        }
+    }
+    Ok(())
+}
+
 fn document_url_scope(document_urls: &[String]) -> (String, Vec<Value>) {
     if document_urls.is_empty() {
         return (String::new(), Vec::new());
@@ -700,11 +791,34 @@ fn fts_fuzzy_terms(query: &str) -> Vec<String> {
     fts_terms(query, 12)
 }
 
+#[cfg(test)]
 fn fts_fuzzy_queries(query: &str) -> Vec<String> {
     fts_fuzzy_terms(query)
         .iter()
         .map(|term| fts_alias_query(term))
         .collect()
+}
+
+fn comparison_terms(
+    terms: &[String],
+    queries: &[String],
+    broad_search: bool,
+) -> Vec<(String, String)> {
+    if !broad_search {
+        return Vec::new();
+    }
+
+    let mut seen = HashSet::new();
+    let unique = terms
+        .iter()
+        .cloned()
+        .zip(queries.iter().cloned())
+        .filter(|(term, _)| seen.insert(term.to_lowercase()))
+        .collect::<Vec<_>>();
+    (2..=MAX_COMPARISON_TERMS)
+        .contains(&unique.len())
+        .then_some(unique)
+        .unwrap_or_default()
 }
 
 /// Convert each user phrase to one safely quoted FTS5 phrase. The larger bound
@@ -873,9 +987,10 @@ mod tests {
     use rusqlite::{params, Connection};
 
     use super::{
-        count_normalized_matches, document_candidates, fts_and_query, fts_fuzzy_queries,
-        fts_fuzzy_terms, fts_phrase_queries, normalize_exact_text, retain_exact_phrase_hits,
-        search_cross_section_document_hits, search_section_hits,
+        attach_search_term_matches, comparison_terms, count_normalized_matches,
+        document_candidates, fts_and_query, fts_fuzzy_queries, fts_fuzzy_terms, fts_phrase_queries,
+        normalize_exact_text, retain_exact_phrase_hits, search_cross_section_document_hits,
+        search_section_hits,
     };
 
     #[test]
@@ -1157,6 +1272,32 @@ mod tests {
         );
         assert_eq!(hit.match_locations[0].bin_index, 0);
         assert_eq!(hit.match_locations[11].bin_index, 11);
+    }
+
+    #[test]
+    fn comparison_counts_each_term_and_keeps_its_first_source_locator() {
+        let db = test_db();
+        insert_document(
+            &db,
+            "comparison-map",
+            "/uploads/comparison-map.html",
+            "Comparison Map",
+            &["Orchard notes.", "Lantern notes.", "Orchard appendix."],
+        );
+
+        let mut hits =
+            search_section_hits(&db, "\"orchard\"", 1, &[]).expect("comparison candidate");
+        let terms = fts_fuzzy_terms("orchard lantern");
+        let queries = fts_fuzzy_queries("orchard lantern");
+        attach_search_term_matches(&db, &comparison_terms(&terms, &queries, true), &mut hits)
+            .expect("term evidence");
+
+        assert_eq!(hits[0].term_matches.len(), 2);
+        assert_eq!(hits[0].term_matches[0].term, "orchard");
+        assert_eq!(hits[0].term_matches[0].matching_sections, 2);
+        assert_eq!(hits[0].term_matches[0].section_index, Some(0));
+        assert_eq!(hits[0].term_matches[1].matching_sections, 1);
+        assert_eq!(hits[0].term_matches[1].section_index, Some(1));
     }
 
     #[test]

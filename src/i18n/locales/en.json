@@ -82,6 +82,11 @@
       "termsSeparateSections": "Terms appear in separate sections",
       "bestSection": "Best matching section: {{title}}",
       "bestPassage": "Best matching passage",
+      "compare": "Compare",
+      "comparisonTitle": "Compare documents",
+      "comparisonDocument": "Document",
+      "comparisonHint": "Select up to {{max, number}} documents. Each count opens its first matching section.",
+      "comparisonSelected": "{{count, number}} of {{max, number}} selected",
       "matchingSections_one": "{{count, number}} matching section",
       "matchingSections_other": "{{count, number}} matching sections"
     }

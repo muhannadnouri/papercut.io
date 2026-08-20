@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import type { SearchPhase } from '../../hooks/useSearch'
@@ -5,6 +6,7 @@ import type { SearchOpenTarget, SearchPassage, SearchResult } from '../../types/
 import './SearchResults.css'
 
 const OCCURRENCE_MAP_BINS = 12
+const MAX_COMPARISON_DOCUMENTS = 5
 const SEARCH_PHASE_KEYS = {
   indexes: 'search.results.searchingDocuments',
   candidates: 'search.results.findingCandidates',
@@ -51,11 +53,34 @@ export function SearchResults({
   onViewResult,
 }: SearchResultsProps) {
   const { t } = useTranslation()
+  const [comparisonSelection, setComparisonSelection] = useState<{
+    query: string
+    urls: string[]
+  }>({ query: '', urls: [] })
   const filtered = scopeActive
     ? results.filter((r) => scopeUrls.has(r.url))
     : results
   const hasFilters = scopeActive
   const visibleCount = filtered.length
+  const comparableResults = filtered.filter((result) => (
+    result.source === 'upload' && (result.termMatches?.length ?? 0) >= 2
+  ))
+  const comparisonAvailable = comparableResults.length >= 2
+  const comparableUrls = new Set(comparableResults.map((result) => result.url))
+  const comparisonUrls = comparisonSelection.query === submittedQuery
+    ? comparisonSelection.urls.filter((url) => comparableUrls.has(url))
+    : []
+  const comparisonUrlSet = new Set(comparisonUrls)
+  const comparisonResults = comparableResults.filter((result) => comparisonUrlSet.has(result.url))
+  const comparisonTerms = comparisonResults[0]?.termMatches?.map((match) => match.term) ?? []
+  const toggleComparison = (url: string, selected: boolean) => {
+    setComparisonSelection({
+      query: submittedQuery,
+      urls: selected
+        ? [...comparisonUrls, url].slice(0, MAX_COMPARISON_DOCUMENTS)
+        : comparisonUrls.filter((candidate) => candidate !== url),
+    })
+  }
   const resultGroups = [
     {
       key: 'upload',
@@ -118,6 +143,63 @@ export function SearchResults({
         </div>
       )}
 
+      {comparisonResults.length > 0 && (
+        <section className="result-comparison" aria-labelledby="search-result-comparison-title">
+          <div className="result-comparison-heading">
+            <div>
+              <h2 id="search-result-comparison-title">{t('search.results.comparisonTitle')}</h2>
+              <p>{t('search.results.comparisonHint', { max: MAX_COMPARISON_DOCUMENTS })}</p>
+            </div>
+            <span>{t('search.results.comparisonSelected', {
+              count: comparisonResults.length,
+              max: MAX_COMPARISON_DOCUMENTS,
+            })}</span>
+          </div>
+          <div className="result-comparison-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">{t('search.results.comparisonDocument')}</th>
+                  {comparisonTerms.map((term) => <th scope="col" key={term}><bdi>{term}</bdi></th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {comparisonResults.map((result) => (
+                  <tr key={result.id}>
+                    <th scope="row"><bdi>{result.meta.title}</bdi></th>
+                    {comparisonTerms.map((term) => {
+                      const match = result.termMatches?.find((candidate) => candidate.term === term)
+                      const count = match?.matchingSections ?? 0
+                      const label = `${result.meta.title} · ${term} · ${t('search.results.matchingSections', { count })}`
+                      return (
+                        <td key={term}>
+                          {count > 0 && match?.sectionIndex !== null && match?.sectionIndex !== undefined
+                            ? (
+                                <button
+                                  type="button"
+                                  disabled={openingDisabled || openingDocumentUrl === result.url}
+                                  aria-label={label}
+                                  title={label}
+                                  onClick={() => onViewResult(result, {
+                                    sectionIndex: match.sectionIndex ?? undefined,
+                                    pageIndex: match.pageIndex ?? undefined,
+                                  })}
+                                >
+                                  {count}
+                                </button>
+                              )
+                            : <span title={label}>0</span>}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       {!searchFailed && submittedQuery.length > 0 && filtered.length === 0 && (
         <p className="no-results">
           <span>{t('search.results.noResults')}</span>
@@ -166,10 +248,15 @@ export function SearchResults({
               && result.matchingSections !== undefined
               && result.matchingSections > 1
               && (additionalPassages.length > 0 || locations.length > 1)
+            const comparable = comparisonAvailable && (result.termMatches?.length ?? 0) >= 2
+            const compared = comparisonUrlSet.has(result.url)
+            const comparisonLimitReached = comparisonResults.length >= MAX_COMPARISON_DOCUMENTS
             return (
               <article
                 key={result.id}
-                className={'result-card' + (disabled ? ' result-card-disabled' : '')}
+                className={'result-card'
+                  + (disabled ? ' result-card-disabled' : '')
+                  + (compared ? ' result-card-compared' : '')}
               >
                 <button
                   type="button"
@@ -193,6 +280,17 @@ export function SearchResults({
                     />
                   )}
                 </button>
+                {comparable && (
+                  <label className="result-compare-control">
+                    <input
+                      type="checkbox"
+                      checked={compared}
+                      disabled={!compared && comparisonLimitReached}
+                      onChange={(event) => toggleComparison(result.url, event.currentTarget.checked)}
+                    />
+                    <span>{t('search.results.compare')}</span>
+                  </label>
+                )}
                 {hasEvidence && (
                   <details className="result-evidence">
                     <summary>
