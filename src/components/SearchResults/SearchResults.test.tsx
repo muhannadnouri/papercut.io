@@ -15,6 +15,8 @@ describe('search progress', () => {
   it('reports each real search phase and the searchable document count', () => {
     const expectedKeys: Record<SearchPhase, string> = {
       indexes: 'search.results.searchingDocuments:321',
+      candidates: 'search.results.findingCandidates:321',
+      evidence: 'search.results.buildingEvidence:321',
       results: 'search.results.loadingRankedResults:321',
       phrases: 'search.results.verifyingExactPhrases:321',
       excerpts: 'search.results.preparingExcerpts:321',

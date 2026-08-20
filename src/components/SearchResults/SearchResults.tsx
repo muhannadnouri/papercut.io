@@ -7,6 +7,8 @@ import './SearchResults.css'
 const OCCURRENCE_MAP_BINS = 12
 const SEARCH_PHASE_KEYS = {
   indexes: 'search.results.searchingDocuments',
+  candidates: 'search.results.findingCandidates',
+  evidence: 'search.results.buildingEvidence',
   results: 'search.results.loadingRankedResults',
   phrases: 'search.results.verifyingExactPhrases',
   excerpts: 'search.results.preparingExcerpts',

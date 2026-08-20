@@ -53,6 +53,11 @@ export interface UploadedDocumentSearchResponse {
   totalMatchingSections: number
 }
 
+export type UploadedDocumentSearchStage =
+  | 'findingCandidates'
+  | 'verifyingPhrases'
+  | 'buildingResults'
+
 interface UploadedDocumentSource {
   html: string
   assetPaths: Record<string, string>
@@ -272,13 +277,16 @@ export async function searchUploadedDocuments(
   limit = 50,
   documentUrls?: string[],
   exactPhrases?: string[],
+  onProgress: (stage: UploadedDocumentSearchStage) => void = () => {},
 ): Promise<UploadedDocumentSearchResponse> {
   if (!isTauriRuntime() || query.trim().length === 0) {
     return { results: [], totalDocuments: 0, totalMatchingSections: 0 }
   }
-  const invoke = await loadTauriInvoke()
-  return invoke<UploadedDocumentSearchResponse>('document_uploads_search', {
+  const mod = await import('@tauri-apps/api/core')
+  const progress = new mod.Channel<UploadedDocumentSearchStage>(onProgress)
+  return mod.invoke<UploadedDocumentSearchResponse>('document_uploads_search', {
     request: { query, limit, documentUrls, exactPhrases },
+    onProgress: progress,
   })
 }
 

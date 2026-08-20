@@ -56,6 +56,8 @@
       "searching": "Searching...",
       "searchingDocuments_one": "Searching {{count, number}} document...",
       "searchingDocuments_other": "Searching {{count, number}} documents...",
+      "findingCandidates": "Finding matching documents...",
+      "buildingEvidence": "Ranking matches and building evidence...",
       "loadingRankedResults": "Loading ranked results...",
       "verifyingExactPhrases": "Verifying exact phrases...",
       "preparingExcerpts": "Preparing result excerpts...",

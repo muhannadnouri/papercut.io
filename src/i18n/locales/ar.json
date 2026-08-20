@@ -64,6 +64,8 @@
       "searchingDocuments_few": "جارٍ البحث في {{count, number}} مستندات...",
       "searchingDocuments_many": "جارٍ البحث في {{count, number}} مستندًا...",
       "searchingDocuments_other": "جارٍ البحث في {{count, number}} مستند...",
+      "findingCandidates": "جارٍ العثور على المستندات المطابقة...",
+      "buildingEvidence": "جارٍ ترتيب التطابقات وإعداد الأدلة...",
       "loadingRankedResults": "جارٍ تحميل النتائج المرتبة...",
       "verifyingExactPhrases": "جارٍ التحقق من العبارات المطابقة...",
       "preparingExcerpts": "جارٍ إعداد مقتطفات النتائج...",

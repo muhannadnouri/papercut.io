@@ -58,6 +58,8 @@
       "searchingDocuments_one": "Buscando en {{count, number}} documento...",
       "searchingDocuments_many": "Buscando en {{count, number}} documentos...",
       "searchingDocuments_other": "Buscando en {{count, number}} documentos...",
+      "findingCandidates": "Buscando documentos coincidentes...",
+      "buildingEvidence": "Clasificando coincidencias y preparando evidencias...",
       "loadingRankedResults": "Cargando resultados clasificados...",
       "verifyingExactPhrases": "Verificando frases exactas...",
       "preparingExcerpts": "Preparando extractos de resultados...",

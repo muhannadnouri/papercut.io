@@ -4,6 +4,7 @@ import {
   isUploadedPdfDocumentUrl,
   searchUploadedDocuments,
   type UploadedDocumentSearchResult,
+  type UploadedDocumentSearchStage,
 } from '../uploads/DocumentUploads'
 import { normalizeForPhraseMatch, escapeHtml } from '../utils/textUtils'
 import {
@@ -19,7 +20,13 @@ import {
 // excerpts are mainly for the first screenful when Pagefind only returns a heading.
 const FUZZY_FALLBACK_EXCERPT_LIMIT = 12
 
-export type SearchPhase = 'indexes' | 'results' | 'phrases' | 'excerpts'
+export type SearchPhase = 'indexes' | 'candidates' | 'phrases' | 'evidence' | 'results' | 'excerpts'
+
+const UPLOADED_SEARCH_PHASES: Record<UploadedDocumentSearchStage, SearchPhase> = {
+  findingCandidates: 'candidates',
+  verifyingPhrases: 'phrases',
+  buildingResults: 'evidence',
+}
 
 interface LastSearchInfo {
   phrases: string[]
@@ -128,6 +135,11 @@ export function useSearch(
         hasScope ? 100 : 50,
         scopeList,
         phrases.length > 0 ? phrases : undefined,
+        (stage) => {
+          if (latestSearchKeyRef.current === searchKey) {
+            setSearchPhase(UPLOADED_SEARCH_PHASES[stage])
+          }
+        },
       )
       const [pagefindSearch, uploadedSearch] = await Promise.all([pagefindPromise, uploadPromise])
       if (latestSearchKeyRef.current !== searchKey) return

@@ -54,6 +54,8 @@
     "results": {
       "searching": "正在搜索...",
       "searchingDocuments_other": "正在搜索 {{count, number}} 个文档...",
+      "findingCandidates": "正在查找匹配文档...",
+      "buildingEvidence": "正在排序匹配项并构建证据...",
       "loadingRankedResults": "正在加载排序后的结果...",
       "verifyingExactPhrases": "正在验证精确短语...",
       "preparingExcerpts": "正在准备结果摘录...",

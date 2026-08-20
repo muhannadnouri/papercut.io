@@ -58,6 +58,8 @@
       "searchingDocuments_one": "Recherche dans {{count, number}} document...",
       "searchingDocuments_many": "Recherche dans {{count, number}} documents...",
       "searchingDocuments_other": "Recherche dans {{count, number}} documents...",
+      "findingCandidates": "Recherche des documents correspondants...",
+      "buildingEvidence": "Classement des correspondances et préparation des éléments probants...",
       "loadingRankedResults": "Chargement des résultats classés...",
       "verifyingExactPhrases": "Vérification des expressions exactes...",
       "preparingExcerpts": "Préparation des extraits de résultats...",

@@ -12,8 +12,8 @@ use super::storage::{upload_reference_from_url, StoredSourceKind};
 use super::store::{db_err, open_db};
 use super::types::{
     UploadedDocumentSearchLocation, UploadedDocumentSearchPassage, UploadedDocumentSearchRequest,
-    UploadedDocumentSearchResponse, UploadedDocumentSearchResult, UploadedPdfFindPage,
-    UploadedPdfFindRequest, UploadedPdfFindResult,
+    UploadedDocumentSearchResponse, UploadedDocumentSearchResult, UploadedDocumentSearchStage,
+    UploadedPdfFindPage, UploadedPdfFindRequest, UploadedPdfFindResult,
 };
 
 const MAX_EVIDENCE_PASSAGES: usize = 3;
@@ -40,6 +40,7 @@ struct SearchEvidence {
 pub(crate) fn search_uploads<R: Runtime>(
     app: &tauri::AppHandle<R>,
     request: UploadedDocumentSearchRequest,
+    mut progress: impl FnMut(UploadedDocumentSearchStage),
 ) -> Result<UploadedDocumentSearchResponse, String> {
     let fuzzy_queries = fts_fuzzy_queries(&request.query);
     if fuzzy_queries.is_empty() {
@@ -60,6 +61,7 @@ pub(crate) fn search_uploads<R: Runtime>(
         .filter(|url| !url.trim().is_empty())
         .collect::<Vec<_>>();
 
+    progress(UploadedDocumentSearchStage::FindingCandidates);
     let mut section_candidates = document_candidates(&db, &query, &document_urls, None, "section")?;
     let section_document_ids = section_candidates
         .iter()
@@ -81,6 +83,7 @@ pub(crate) fn search_uploads<R: Runtime>(
     };
 
     if !exact_queries.is_empty() {
+        progress(UploadedDocumentSearchStage::VerifyingPhrases);
         section_candidates =
             retain_exact_phrase_candidates(&db, section_candidates, &exact_phrases)?;
         document_candidates =
@@ -97,6 +100,7 @@ pub(crate) fn search_uploads<R: Runtime>(
     let remaining = limit.saturating_sub(section_candidates.len());
     document_candidates.truncate(remaining);
     let or_query = fts_or_query(&queries);
+    progress(UploadedDocumentSearchStage::BuildingResults);
     let mut results = search_results_for_candidates(&db, &query, &section_candidates)?;
     results.extend(search_results_for_candidates(
         &db,

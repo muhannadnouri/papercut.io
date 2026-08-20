@@ -5,7 +5,7 @@
 //! filesystem or SQLite I/O, then maps a join error into a `String`. All real
 //! logic lives in the modules these delegate to.
 
-use tauri::Runtime;
+use tauri::{ipc::Channel, Runtime};
 
 use super::batch::{delete_batch, import_batch, import_folder, import_paths};
 use super::organization::{
@@ -24,8 +24,8 @@ use super::types::{
     UploadedDocument, UploadedDocumentBatchResult, UploadedDocumentDeleteBatchRequest,
     UploadedDocumentDeleteBatchResult, UploadedDocumentDeleteRequest, UploadedDocumentDeleteResult,
     UploadedDocumentPastedTextRequest, UploadedDocumentPathImportRequest,
-    UploadedDocumentSearchRequest, UploadedDocumentSearchResponse, UploadedDocumentSource,
-    UploadedDocumentSourceRequest, UploadedDocumentTitleUpdateRequest,
+    UploadedDocumentSearchRequest, UploadedDocumentSearchResponse, UploadedDocumentSearchStage,
+    UploadedDocumentSource, UploadedDocumentSourceRequest, UploadedDocumentTitleUpdateRequest,
     UploadedLibraryCreateFolderRequest, UploadedLibraryDeleteFolderRequest,
     UploadedLibraryMoveDocumentsRequest, UploadedLibraryMoveFolderRequest,
     UploadedLibraryOrganization, UploadedLibraryRenameFolderRequest, UploadedLibraryReorderRequest,
@@ -121,10 +121,15 @@ pub async fn document_uploads_update_title<R: Runtime>(
 pub async fn document_uploads_search<R: Runtime>(
     app: tauri::AppHandle<R>,
     request: UploadedDocumentSearchRequest,
+    on_progress: Channel<UploadedDocumentSearchStage>,
 ) -> Result<UploadedDocumentSearchResponse, String> {
-    tauri::async_runtime::spawn_blocking(move || search_uploads(&app, request))
-        .await
-        .map_err(|err| format!("Document upload search task failed: {err}"))?
+    tauri::async_runtime::spawn_blocking(move || {
+        search_uploads(&app, request, |stage| {
+            let _ = on_progress.send(stage);
+        })
+    })
+    .await
+    .map_err(|err| format!("Document upload search task failed: {err}"))?
 }
 
 /// Find literal matches in one PDF without loading its page text into the WebView.

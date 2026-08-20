@@ -118,6 +118,15 @@ pub(crate) struct UploadedDocumentSearchResponse {
     pub(crate) total_matching_sections: usize,
 }
 
+/// Stable SQLite search stages streamed to the invoking WebView.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum UploadedDocumentSearchStage {
+    FindingCandidates,
+    VerifyingPhrases,
+    BuildingResults,
+}
+
 /// Outcome of a delete, including bytes reclaimed from app data.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -327,4 +336,23 @@ pub(crate) struct UploadedLibraryOrderItem {
 pub(crate) struct UploadedLibraryReorderRequest {
     pub(crate) parent_id: Option<String>,
     pub(crate) items: Vec<UploadedLibraryOrderItem>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::UploadedDocumentSearchStage;
+
+    #[test]
+    fn search_stages_keep_the_frontend_channel_contract() {
+        let stages = [
+            UploadedDocumentSearchStage::FindingCandidates,
+            UploadedDocumentSearchStage::VerifyingPhrases,
+            UploadedDocumentSearchStage::BuildingResults,
+        ];
+
+        assert_eq!(
+            serde_json::to_value(stages).expect("serialize search stages"),
+            serde_json::json!(["findingCandidates", "verifyingPhrases", "buildingResults"]),
+        );
+    }
 }

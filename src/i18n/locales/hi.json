@@ -56,6 +56,8 @@
       "searching": "खोज रहे हैं...",
       "searchingDocuments_one": "{{count, number}} दस्तावेज़ में खोज रहे हैं...",
       "searchingDocuments_other": "{{count, number}} दस्तावेज़ों में खोज रहे हैं...",
+      "findingCandidates": "मेल खाने वाले दस्तावेज़ खोजे जा रहे हैं...",
+      "buildingEvidence": "मिलानों को रैंक करके साक्ष्य तैयार किए जा रहे हैं...",
       "loadingRankedResults": "रैंक किए गए परिणाम लोड हो रहे हैं...",
       "verifyingExactPhrases": "सटीक वाक्यांशों की पुष्टि हो रही है...",
       "preparingExcerpts": "परिणाम अंश तैयार हो रहे हैं...",
