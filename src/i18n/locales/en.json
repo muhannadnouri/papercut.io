@@ -54,6 +54,13 @@
     },
     "results": {
       "searching": "Searching...",
+      "searchingDocuments_one": "Searching {{count, number}} document...",
+      "searchingDocuments_other": "Searching {{count, number}} documents...",
+      "loadingRankedResults": "Loading ranked results...",
+      "verifyingExactPhrases": "Verifying exact phrases...",
+      "preparingExcerpts": "Preparing result excerpts...",
+      "slowSearch": "Large libraries can take longer. Search stays on this device.",
+      "searchFailed": "Search couldn't finish. Try again.",
       "resultCount_one": "{{count, number}} result",
       "resultCount_other": "{{count, number}} results",
       "filtered": "Filtered",

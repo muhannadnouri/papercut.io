@@ -53,6 +53,12 @@
     },
     "results": {
       "searching": "正在搜索...",
+      "searchingDocuments_other": "正在搜索 {{count, number}} 个文档...",
+      "loadingRankedResults": "正在加载排序后的结果...",
+      "verifyingExactPhrases": "正在验证精确短语...",
+      "preparingExcerpts": "正在准备结果摘录...",
+      "slowSearch": "大型资料库可能需要更长时间。搜索始终在此设备上进行。",
+      "searchFailed": "搜索无法完成。请重试。",
       "filtered": "已过滤",
       "exactPhrase": "精确短语：",
       "exactPhrases": "精确短语：",

@@ -54,6 +54,13 @@
     },
     "results": {
       "searching": "खोज रहे हैं...",
+      "searchingDocuments_one": "{{count, number}} दस्तावेज़ में खोज रहे हैं...",
+      "searchingDocuments_other": "{{count, number}} दस्तावेज़ों में खोज रहे हैं...",
+      "loadingRankedResults": "रैंक किए गए परिणाम लोड हो रहे हैं...",
+      "verifyingExactPhrases": "सटीक वाक्यांशों की पुष्टि हो रही है...",
+      "preparingExcerpts": "परिणाम अंश तैयार हो रहे हैं...",
+      "slowSearch": "बड़ी लाइब्रेरी में अधिक समय लग सकता है। खोज इसी डिवाइस पर रहती है।",
+      "searchFailed": "खोज पूरी नहीं हो सकी। फिर से कोशिश करें।",
       "filtered": "छाना हुआ",
       "exactPhrase": "सटीक वाक्यांश:",
       "exactPhrases": "सटीक वाक्यांश:",

@@ -15,6 +15,27 @@
   font-weight: 600;
 }
 
+.search-loading-message {
+  display: grid;
+  gap: 0.2rem;
+}
+
+/* Keep fast searches quiet; this reassurance is only useful when local work
+ * lasts long enough for a large library to feel stalled. */
+.search-loading-detail {
+  visibility: hidden;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+  font-weight: 500;
+  animation: reveal-search-loading-detail 0s 5s forwards;
+}
+
+@keyframes reveal-search-loading-detail {
+  to {
+    visibility: visible;
+  }
+}
+
 .search-info {
   margin-bottom: 1rem;
   padding: 0.6rem 0.9rem;
@@ -247,6 +268,10 @@
   text-align: center;
   color: var(--text-muted);
   padding: 2rem 0;
+}
+
+.search-error {
+  color: var(--danger-strong);
 }
 
 .welcome {

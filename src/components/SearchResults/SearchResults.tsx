@@ -1,9 +1,16 @@
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
+import type { SearchPhase } from '../../hooks/useSearch'
 import type { SearchOpenTarget, SearchPassage, SearchResult } from '../../types/search'
 import './SearchResults.css'
 
 const OCCURRENCE_MAP_BINS = 12
+const SEARCH_PHASE_KEYS = {
+  indexes: 'search.results.searchingDocuments',
+  results: 'search.results.loadingRankedResults',
+  phrases: 'search.results.verifyingExactPhrases',
+  excerpts: 'search.results.preparingExcerpts',
+} as const
 
 interface LastSearchInfo {
   phrases: string[]
@@ -15,6 +22,9 @@ interface LastSearchInfo {
 interface SearchResultsProps {
   results: SearchResult[]
   loading: boolean
+  searchFailed: boolean
+  searchableDocumentCount: number
+  searchPhase: SearchPhase | null
   submittedQuery: string
   lastSearchInfo: LastSearchInfo | null
   scopeUrls: Set<string>
@@ -27,6 +37,9 @@ interface SearchResultsProps {
 export function SearchResults({
   results,
   loading,
+  searchFailed,
+  searchableDocumentCount,
+  searchPhase,
   submittedQuery,
   lastSearchInfo,
   scopeUrls,
@@ -65,7 +78,15 @@ export function SearchResults({
       <div className="results-container" aria-busy="true">
         <div className="search-loading" role="status" aria-live="polite" aria-atomic="true">
           <span className="spinner" aria-hidden="true" />
-          <span>{t('search.results.searching')}</span>
+          <span className="search-loading-message">
+            <span>{t(
+              searchPhase ? SEARCH_PHASE_KEYS[searchPhase] : 'search.results.searching',
+              { count: searchableDocumentCount },
+            )}</span>
+            <span className="search-loading-detail">
+              {t('search.results.slowSearch')}
+            </span>
+          </span>
         </div>
       </div>
     )
@@ -73,6 +94,11 @@ export function SearchResults({
 
   return (
     <div className="results-container" aria-busy="false">
+      {searchFailed && (
+        <p className="no-results search-error" role="alert">
+          {t('search.results.searchFailed')}
+        </p>
+      )}
       {lastSearchInfo && submittedQuery.length > 0 && visibleCount > 0 && (
         <div className="search-info">
           <strong>{t('search.results.resultCount', {
@@ -90,7 +116,7 @@ export function SearchResults({
         </div>
       )}
 
-      {submittedQuery.length > 0 && filtered.length === 0 && (
+      {!searchFailed && submittedQuery.length > 0 && filtered.length === 0 && (
         <p className="no-results">
           <span>{t('search.results.noResults')}</span>
           {hasFilters && <> <span>{t('search.results.filtersApplied')}</span></>}

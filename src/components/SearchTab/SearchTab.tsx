@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { AuthorGroup, DocumentScopeMode } from '../../hooks/useDocumentFilters'
+import type { SearchPhase } from '../../hooks/useSearch'
 import type { DocumentInfo, SearchOpenTarget, SearchResult } from '../../types/search'
 import type { UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
 import { SearchBar } from '../SearchBar/SearchBar'
@@ -23,6 +24,9 @@ interface SearchTabProps {
   lastSearchInfo: LastSearchInfo | null
   libraryOrganization: UploadedLibraryOrganization
   loading: boolean
+  searchFailed: boolean
+  searchableDocumentCount: number
+  searchPhase: SearchPhase | null
   openingDisabled: boolean
   openingDocumentUrl?: string
   query: string
@@ -53,6 +57,9 @@ export function SearchTab({
   lastSearchInfo,
   libraryOrganization,
   loading,
+  searchFailed,
+  searchableDocumentCount,
+  searchPhase,
   openingDisabled,
   openingDocumentUrl,
   query,
@@ -103,6 +110,9 @@ export function SearchTab({
       <SearchResults
         results={results}
         loading={loading}
+        searchFailed={searchFailed}
+        searchableDocumentCount={searchableDocumentCount}
+        searchPhase={searchPhase}
         submittedQuery={submittedQuery}
         lastSearchInfo={lastSearchInfo}
         scopeUrls={scopeUrls}
