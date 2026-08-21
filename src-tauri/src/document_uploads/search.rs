@@ -73,7 +73,9 @@ pub(crate) fn search_uploads<R: Runtime>(
     queries.extend(exact_queries.iter().cloned());
     let query = fts_and_query(&queries);
 
+    let db_started = Instant::now();
     let db = open_db(app)?;
+    let db_ms = db_started.elapsed().as_millis();
     let limit = request.limit.unwrap_or(50).clamp(1, 100);
     let document_urls = request
         .document_urls
@@ -128,23 +130,30 @@ pub(crate) fn search_uploads<R: Runtime>(
     let or_query = fts_or_query(&queries);
     progress(UploadedDocumentSearchStage::BuildingResults);
     let result_started = Instant::now();
+    let exact_evidence_started = Instant::now();
     if !exact_queries.is_empty() {
         attach_exact_phrase_evidence(&db, &mut section_candidates, &exact_phrases)?;
         attach_exact_phrase_evidence(&db, &mut document_candidates, &exact_phrases)?;
     }
+    let exact_evidence_ms = exact_evidence_started.elapsed().as_millis();
+    let result_evidence_started = Instant::now();
     let mut results = search_results_for_candidates(&db, &query, &section_candidates)?;
     results.extend(search_results_for_candidates(
         &db,
         &or_query,
         &document_candidates,
     )?);
+    let result_evidence_ms = result_evidence_started.elapsed().as_millis();
+    let term_matches_started = Instant::now();
     attach_search_term_matches(&db, &comparison_terms, &mut results)?;
+    let term_matches_ms = term_matches_started.elapsed().as_millis();
     let result_ms = result_started.elapsed().as_millis();
     if cfg!(debug_assertions) {
         log::info!(
             "[search] native performance summary terms={} exact_phrases={} scoped_documents={} \
-             candidates={} matches={} matching_sections={} visible_results={} candidate_ms={} \
-             verification_ms={} result_ms={} total_ms={}",
+             candidates={} matches={} matching_sections={} visible_results={} db_ms={} \
+             candidate_ms={} verification_ms={} exact_evidence_ms={} result_evidence_ms={} \
+             term_matches_ms={} result_ms={} total_ms={}",
             fuzzy_terms.len(),
             exact_phrases.len(),
             document_urls.len(),
@@ -152,8 +161,12 @@ pub(crate) fn search_uploads<R: Runtime>(
             total_documents,
             total_matching_sections,
             results.len(),
+            db_ms,
             candidate_ms,
             verification_ms,
+            exact_evidence_ms,
+            result_evidence_ms,
+            term_matches_ms,
             result_ms,
             search_started.elapsed().as_millis(),
         );
