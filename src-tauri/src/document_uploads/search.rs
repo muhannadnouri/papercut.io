@@ -4,6 +4,7 @@
 //! query/ranking behavior can evolve without touching the write path.
 
 use std::collections::{HashMap, HashSet};
+use std::time::Instant;
 
 use rusqlite::{params, params_from_iter, types::Value, Connection, Row};
 use tauri::Runtime;
@@ -53,6 +54,7 @@ pub(crate) fn search_uploads<R: Runtime>(
     request: UploadedDocumentSearchRequest,
     mut progress: impl FnMut(UploadedDocumentSearchStage),
 ) -> Result<UploadedDocumentSearchResponse, String> {
+    let search_started = Instant::now();
     let fuzzy_terms = fts_fuzzy_terms(&request.query);
     let fuzzy_queries = fuzzy_terms
         .iter()
@@ -78,6 +80,7 @@ pub(crate) fn search_uploads<R: Runtime>(
         .collect::<Vec<_>>();
 
     progress(UploadedDocumentSearchStage::FindingCandidates);
+    let candidate_started = Instant::now();
     let mut section_candidates = document_candidates(&db, &query, &document_urls, None, "section")?;
     let section_document_ids = section_candidates
         .iter()
@@ -97,7 +100,10 @@ pub(crate) fn search_uploads<R: Runtime>(
     } else {
         Vec::new()
     };
+    let candidate_documents = section_candidates.len() + document_candidates.len();
+    let candidate_ms = candidate_started.elapsed().as_millis();
 
+    let verification_started = Instant::now();
     if !exact_queries.is_empty() {
         progress(UploadedDocumentSearchStage::VerifyingPhrases);
         section_candidates =
@@ -105,6 +111,7 @@ pub(crate) fn search_uploads<R: Runtime>(
         document_candidates =
             retain_exact_phrase_candidates(&db, document_candidates, &exact_phrases)?;
     }
+    let verification_ms = verification_started.elapsed().as_millis();
 
     let total_documents = section_candidates.len() + document_candidates.len();
     let total_matching_sections = section_candidates
@@ -117,6 +124,7 @@ pub(crate) fn search_uploads<R: Runtime>(
     document_candidates.truncate(remaining);
     let or_query = fts_or_query(&queries);
     progress(UploadedDocumentSearchStage::BuildingResults);
+    let result_started = Instant::now();
     if !exact_queries.is_empty() {
         attach_exact_phrase_evidence(&db, &mut section_candidates, &exact_phrases)?;
         attach_exact_phrase_evidence(&db, &mut document_candidates, &exact_phrases)?;
@@ -128,6 +136,25 @@ pub(crate) fn search_uploads<R: Runtime>(
         &document_candidates,
     )?);
     attach_search_term_matches(&db, &comparison_terms, &mut results)?;
+    let result_ms = result_started.elapsed().as_millis();
+    if cfg!(debug_assertions) {
+        log::info!(
+            "[search] native performance summary terms={} exact_phrases={} scoped_documents={} \
+             candidates={} matches={} matching_sections={} visible_results={} candidate_ms={} \
+             verification_ms={} result_ms={} total_ms={}",
+            fuzzy_terms.len(),
+            exact_phrases.len(),
+            document_urls.len(),
+            candidate_documents,
+            total_documents,
+            total_matching_sections,
+            results.len(),
+            candidate_ms,
+            verification_ms,
+            result_ms,
+            search_started.elapsed().as_millis(),
+        );
+    }
 
     Ok(UploadedDocumentSearchResponse {
         results,
@@ -1710,6 +1737,8 @@ mod tests {
                heading TEXT,
                text TEXT NOT NULL
              );
+             CREATE INDEX uploaded_sections_document_order_idx
+               ON uploaded_sections(document_id, ordinal);
              CREATE VIRTUAL TABLE uploaded_document_fts USING fts5(
                document_id UNINDEXED,
                section_id UNINDEXED,

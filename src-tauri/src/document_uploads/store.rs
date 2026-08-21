@@ -183,8 +183,8 @@ pub(crate) fn open_db<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Connectio
     Ok(db)
 }
 
-/// Add nullable metadata columns in place so existing documents and FTS rows
-/// survive schema upgrades without a database rebuild.
+/// Add metadata columns and the reading-order section index in place so
+/// existing documents and FTS rows survive upgrades without a rebuild.
 fn ensure_schema_columns(db: &Connection) -> Result<(), String> {
     ensure_column(
         db,
@@ -216,6 +216,12 @@ fn ensure_schema_columns(db: &Connection) -> Result<(), String> {
         "page_index",
         "ALTER TABLE uploaded_sections ADD COLUMN page_index INTEGER",
     )?;
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS uploaded_sections_document_order_idx \
+         ON uploaded_sections(document_id, ordinal)",
+        [],
+    )
+    .map_err(db_err)?;
     Ok(())
 }
 
@@ -723,13 +729,17 @@ mod tests {
     }
 
     #[test]
-    fn adds_source_and_locator_metadata_to_existing_upload_schema() {
+    fn adds_upload_metadata_and_section_lookup_index_to_existing_schema() {
         let db = Connection::open_in_memory().expect("open database");
         db.execute("CREATE TABLE uploaded_documents (id TEXT PRIMARY KEY)", [])
             .expect("create old schema");
 
         db.execute(
-            "CREATE TABLE uploaded_sections (id INTEGER PRIMARY KEY)",
+            "CREATE TABLE uploaded_sections (
+               id INTEGER PRIMARY KEY,
+               document_id TEXT NOT NULL,
+               ordinal INTEGER NOT NULL
+             )",
             [],
         )
         .expect("create old section schema");
@@ -756,6 +766,15 @@ mod tests {
             )
             .expect("original filename column");
         assert!(has_original_file_name);
+        let has_section_lookup_index: bool = db
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM pragma_index_list('uploaded_sections') \
+                 WHERE name = 'uploaded_sections_document_order_idx')",
+                [],
+                |row| row.get(0),
+            )
+            .expect("section lookup index");
+        assert!(has_section_lookup_index);
 
         let source_kind: String = db
             .query_row(
