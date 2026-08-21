@@ -123,7 +123,7 @@ fn extract_text_blocks(root: &NodeRef) -> Vec<TextBlock> {
     }
 
     if blocks.is_empty() {
-        let text = normalize_text(&strip_tags(&serialize_node(&root)));
+        let text = normalize_text(&strip_tags(&serialize_node(root)));
         if !text.is_empty() {
             blocks.push(TextBlock {
                 node: root.clone(),

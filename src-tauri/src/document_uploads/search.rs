@@ -1118,10 +1118,11 @@ fn comparison_terms(
         .zip(queries.iter().cloned())
         .filter(|(term, _)| seen.insert(term.to_lowercase()))
         .collect::<Vec<_>>();
-    (2..=MAX_COMPARISON_TERMS)
-        .contains(&unique.len())
-        .then_some(unique)
-        .unwrap_or_default()
+    if (2..=MAX_COMPARISON_TERMS).contains(&unique.len()) {
+        unique
+    } else {
+        Vec::new()
+    }
 }
 
 /// Convert each user phrase to one safely quoted FTS5 phrase. The larger bound
@@ -1152,10 +1153,8 @@ fn normalize_exact_text(text: &str) -> String {
 
 fn normalize_exact_display(text: &str) -> String {
     let punctuation = text
-        .replace('\u{2018}', "'")
-        .replace('\u{2019}', "'")
-        .replace('\u{201c}', "\"")
-        .replace('\u{201d}', "\"");
+        .replace(['\u{2018}', '\u{2019}'], "'")
+        .replace(['\u{201c}', '\u{201d}'], "\"");
     remove_internal_word_hyphens(&collapse_hyphen_spacing(&punctuation))
         .split_whitespace()
         .collect::<Vec<_>>()
