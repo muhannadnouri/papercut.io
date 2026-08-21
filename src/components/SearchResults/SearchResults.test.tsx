@@ -67,8 +67,8 @@ describe('search progress', () => {
   })
 })
 
-describe('document comparison', () => {
-  it('opens comparison terms and distribution evidence with highlight text', () => {
+describe('search evidence', () => {
+  it('opens term coverage and distribution evidence with highlight text', () => {
     expect(indexedSearchOpenTarget(
       { sectionIndex: 4, pageIndex: 3, occurrenceIndex: 2 },
       'orchard',
@@ -80,7 +80,7 @@ describe('document comparison', () => {
     })).toEqual({ text: 'lantern', sectionIndex: 7, pageIndex: undefined })
   })
 
-  it('offers comparison only when uploaded term evidence is available', () => {
+  it('shows compact section coverage without a persistent comparison mode', () => {
     const html = renderToStaticMarkup(
       <SearchResults
         results={['one', 'two'].map((id) => ({
@@ -89,6 +89,12 @@ describe('document comparison', () => {
           meta: { title: id },
           excerpt: '',
           source: 'upload' as const,
+          matchScope: 'document' as const,
+          matchingSections: 3,
+          matchLocations: [
+            { binIndex: 0, sectionIndex: 0, matchCount: 2 },
+            { binIndex: 1, sectionIndex: 1, matchCount: 1 },
+          ],
           termMatches: [
             { term: 'orchard', matchingSections: 2, sectionIndex: 0 },
             { term: 'lantern', matchingSections: 1, sectionIndex: 1 },
@@ -112,8 +118,13 @@ describe('document comparison', () => {
       />,
     )
 
-    expect(html).toContain('type="checkbox"')
-    expect(html).toContain('search.results.compare')
+    expect(html).toContain('search.results.sectionsByTerm')
+    expect(html).toContain('orchard')
+    expect(html).toContain('lantern')
+    expect(html).toContain('search.results.exploreMatches')
+    expect(html).toContain('search.results.sectionsWithAnyTerm:3')
+    expect(html).not.toContain('type="checkbox"')
+    expect(html).not.toContain('search.results.comparisonTitle')
   })
 })
 
@@ -127,7 +138,7 @@ describe('search query summary', () => {
           meta: { title: 'One' },
           excerpt: '<mark>anne</mark>',
           source: 'upload',
-          matchCount: 2,
+          matchCount: 1,
           matchingSections: 2,
           matchLocations: [
             { binIndex: 0, sectionIndex: 0, matchCount: 1, text: 'anne' },
@@ -156,8 +167,8 @@ describe('search query summary', () => {
     expect(html).toContain('anne')
     expect(html).toContain('search.results.exactPhrase')
     expect(html).toContain('green gables')
-    expect(html).toContain('search.results.exactMatch:2')
-    expect(html).toContain('search.results.occurrencesFor')
-    expect(html).not.toContain('result-evidence')
+    expect(html).toContain('search.results.exactMatch:1')
+    expect(html).not.toContain('search.results.exploreMatches')
+    expect(html).not.toContain('search.results.sectionsByTerm')
   })
 })

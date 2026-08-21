@@ -54,14 +54,16 @@ export function SearchBar({ query, queryError, disabled, onChange, onSubmit }: S
           {t(`search.input.${queryError}`)}
         </p>
       )}
-      <div className="search-examples" aria-label={t('search.input.examplesLabel')}>
-        <button type="button" className="search-example" onClick={() => onChange(broadExample)} disabled={disabled}>
-          {broadExample}
-        </button>
-        <button type="button" className="search-example" onClick={() => onChange(exactExample)} disabled={disabled}>
-          {exactExample}
-        </button>
-      </div>
+      {query.trim().length === 0 && (
+        <div className="search-examples" aria-label={t('search.input.examplesLabel')}>
+          <button type="button" className="search-example" onClick={() => onChange(broadExample)} disabled={disabled}>
+            {broadExample}
+          </button>
+          <button type="button" className="search-example" onClick={() => onChange(exactExample)} disabled={disabled}>
+            {exactExample}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
