@@ -203,7 +203,7 @@ For reflowable formats, the persisted ordinal is the locator; for PDF, `page_ind
 - Uploaded-document search only runs inside the Tauri app, not plain browser preview.
 - Folder import is desktop-only. It preserves supported files through five visible folder levels, skips deeper descendants and symlinks, and leaves already-imported duplicate documents in their current Library location.
 - There is no user-facing reindex action for generic uploaded documents yet.
-- Search currently shows the first 50 results from each provider and reports the complete provider count; pagination or **Show more** is not implemented yet.
+- Search currently shows the first 50 results from each provider, or up to 100 uploaded results when a document scope is active, and reports the complete provider count; pagination or **Show more** is not implemented yet.
 - Starting a newer query suppresses stale results from an older in-flight search, and re-submitting the identical active query does not start duplicate provider work. Pagefind and the native SQLite command do not currently expose cooperative cancellation, so the UI does not offer a misleading Cancel action.
 - Multi-passage evidence, supporting-section distribution strips, and concordance currently apply only to uploaded SQLite results. Each card retains at most three ranked passages and twelve position bins; a bin with several matches opens its first supporting section/page, while the same **Explore matches** disclosure lists literal occurrences on demand.
 - Concordance can inspect any quoted phrase or required broad-search term available for that result and loads 50 lines per page. Exact results with one occurrence omit this redundant disclosure.

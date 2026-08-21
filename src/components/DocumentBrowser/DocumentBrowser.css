@@ -81,10 +81,7 @@
 }
 
 .document-import-btn-spinner {
-  width: 1rem;
-  height: 1rem;
-  border-color: currentcolor;
-  border-inline-color: transparent;
+  border-block-color: currentcolor;
   justify-self: center;
 }
 

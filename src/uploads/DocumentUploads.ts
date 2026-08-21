@@ -305,7 +305,8 @@ export async function searchUploadedDocuments(
   exactPhrases?: string[],
   onProgress: (stage: UploadedDocumentSearchStage) => void = () => {},
 ): Promise<UploadedDocumentSearchResponse> {
-  if (!isTauriRuntime() || query.trim().length === 0) {
+  const hasExactPhrases = exactPhrases?.some((phrase) => phrase.trim().length > 0) ?? false
+  if (!isTauriRuntime() || (query.trim().length === 0 && !hasExactPhrases)) {
     return { results: [], totalDocuments: 0, totalMatchingSections: 0 }
   }
   const mod = await import('@tauri-apps/api/core')

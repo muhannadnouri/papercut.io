@@ -63,11 +63,11 @@ pub(crate) fn search_uploads<R: Runtime>(
         .iter()
         .map(|term| fts_alias_query(term))
         .collect::<Vec<_>>();
-    if fuzzy_queries.is_empty() {
-        return Ok(empty_search_response());
-    }
     let exact_phrases = request.exact_phrases.unwrap_or_default();
     let exact_queries = fts_phrase_queries(&exact_phrases);
+    if fuzzy_queries.is_empty() && exact_queries.is_empty() {
+        return Ok(empty_search_response());
+    }
     let comparison_terms = comparison_terms(&fuzzy_terms, &fuzzy_queries, exact_phrases.is_empty());
     let mut queries = fuzzy_queries;
     queries.extend(exact_queries.iter().cloned());
@@ -1293,10 +1293,11 @@ mod tests {
 
     use super::{
         attach_exact_phrase_evidence, attach_search_term_matches, comparison_terms,
-        count_normalized_matches, document_candidates, document_concordance, fts_and_query,
-        fts_fuzzy_queries, fts_fuzzy_terms, fts_or_query, fts_phrase_queries, normalize_exact_text,
-        retain_exact_phrase_candidates, retain_exact_phrase_hits,
-        search_cross_section_document_hits, search_results_for_candidates, search_section_hits,
+        count_normalized_matches, document_candidates, document_concordance,
+        document_ids_matching_all_queries, fts_and_query, fts_fuzzy_queries, fts_fuzzy_terms,
+        fts_or_query, fts_phrase_queries, normalize_exact_text, retain_exact_phrase_candidates,
+        retain_exact_phrase_hits, search_cross_section_document_hits,
+        search_results_for_candidates, search_section_hits,
     };
 
     #[test]
@@ -1515,13 +1516,22 @@ mod tests {
                 "Anne later returns to GREEN GABLES.",
             ],
         );
+        insert_document(
+            &db,
+            "phrase-only",
+            "/uploads/phrase-only.html",
+            "Phrase Only",
+            &["The Green Gables orchard has no required name."],
+        );
 
         let phrases = vec!["green gables".to_string()];
-        let mut queries = fts_fuzzy_queries("anne green gables");
+        let mut queries = fts_fuzzy_queries("anne");
         queries.extend(fts_phrase_queries(&phrases));
+        let document_ids = document_ids_matching_all_queries(&db, &queries, &[])
+            .expect("documents matching every clause");
         let query = fts_or_query(&queries);
-        let candidates =
-            document_candidates(&db, &query, &[], None, "document").expect("mixed candidates");
+        let candidates = document_candidates(&db, &query, &[], Some(&document_ids), "document")
+            .expect("mixed candidates");
         let mut verified = retain_exact_phrase_candidates(&db, candidates, &phrases)
             .expect("literal phrase verification");
         attach_exact_phrase_evidence(&db, &mut verified, &phrases)

@@ -77,7 +77,7 @@ export function useSearch(
   const queryRef = useRef(query)
   queryRef.current = query
   const submittedQueryRef = useRef('')
-  const latestSearchKeyRef = useRef<string>('')
+  const latestSearchRequestRef = useRef(0)
   const activeSearchKeyRef = useRef<string>('')
 
   const performSearch = useCallback(async (rawQuery: string) => {
@@ -87,7 +87,12 @@ export function useSearch(
     const hasScope = options.scopeActive ?? Boolean(scopeUrls?.size)
     const scopeList = hasScope ? Array.from(scopeUrls ?? []).sort() : undefined
     const searchKey = normalized + '\0' + (hasScope ? `scope\0${scopeList?.join('\0') ?? ''}` : 'all')
-    latestSearchKeyRef.current = searchKey
+    if (normalized.length > 0 && activeSearchKeyRef.current === searchKey) return
+
+    // Query text is not a unique identity: A → B → A can leave the first
+    // A running. A monotonic id keeps that stale completion from winning.
+    const requestId = latestSearchRequestRef.current + 1
+    latestSearchRequestRef.current = requestId
     if (normalized.length === 0) {
       activeSearchKeyRef.current = ''
       setResults([])
@@ -117,6 +122,7 @@ export function useSearch(
     const displayPhrases = parsedQuery.exactPhrases
     const phrases = displayPhrases.map(normalizeForPhraseMatch)
     const searchQuery = parsedQuery.providerQuery.toLowerCase()
+    const uploadedQuery = parsedQuery.unquotedText.toLowerCase()
     if (searchQuery.length === 0) {
       activeSearchKeyRef.current = ''
       setResults([])
@@ -140,8 +146,6 @@ export function useSearch(
       setSearchPhase(null)
       return
     }
-    if (activeSearchKeyRef.current === searchKey) return
-
     activeSearchKeyRef.current = searchKey
     setSearchFailed(false)
     setSearchPhase('indexes')
@@ -150,18 +154,18 @@ export function useSearch(
         ? pagefindRef.current.search(searchQuery)
         : Promise.resolve({ results: [] })
       const uploadPromise = searchUploadedDocuments(
-        searchQuery,
+        uploadedQuery,
         hasScope ? 100 : 50,
         scopeList,
         phrases.length > 0 ? phrases : undefined,
         (stage) => {
-          if (latestSearchKeyRef.current === searchKey) {
+          if (latestSearchRequestRef.current === requestId) {
             setSearchPhase(UPLOADED_SEARCH_PHASES[stage])
           }
         },
       )
       const [pagefindSearch, uploadedSearch] = await Promise.all([pagefindPromise, uploadPromise])
-      if (latestSearchKeyRef.current !== searchKey) return
+      if (latestSearchRequestRef.current !== requestId) return
 
       setSearchPhase('results')
       const pagefind = await pagefindResultsInScope(pagefindSearch.results, scopeUrls, hasScope)
@@ -174,7 +178,7 @@ export function useSearch(
             docContainsAllPhrases(result.url, phrases, options.loadDocumentSource)
           )),
         )
-        if (latestSearchKeyRef.current !== searchKey) return
+        if (latestSearchRequestRef.current !== requestId) return
         pagefindData = pagefindData.filter((_, index) => verdicts[index])
         if (pagefindData.length > 0) {
           setSearchPhase('excerpts')
@@ -186,7 +190,7 @@ export function useSearch(
               countPhraseOccurrences(result.url, phrases, options.loadDocumentSource)
             ))),
           ])
-          if (latestSearchKeyRef.current !== searchKey) return
+          if (latestSearchRequestRef.current !== requestId) return
           pagefindData = pagefindData.map((result, index) => (
             excerpts[index]
               ? { ...result, customExcerpt: excerpts[index] ?? undefined, matchCount: matchCounts[index] }
@@ -197,7 +201,7 @@ export function useSearch(
 
       const data = [...uploadedData, ...pagefindData]
         .filter((result) => !hasScope || scopeUrls?.has(result.url))
-      if (latestSearchKeyRef.current !== searchKey) return
+      if (latestSearchRequestRef.current !== requestId) return
 
       let filtered = data
       if (phrases.length === 0 && options.loadDocumentSource) {
@@ -211,7 +215,7 @@ export function useSearch(
           const excerpts = await Promise.all(
             fallbackTargets.map(({ result }) => buildPhraseExcerpt(result.url, terms, options.loadDocumentSource)),
           )
-          if (latestSearchKeyRef.current !== searchKey) return
+          if (latestSearchRequestRef.current !== requestId) return
           filtered = filtered.map((result, index) => {
             const targetIndex = fallbackTargets.findIndex((target) => target.index === index)
             const excerpt = targetIndex === -1 ? null : excerpts[targetIndex]
@@ -232,13 +236,13 @@ export function useSearch(
       })
     } catch (err) {
       console.error('Search failed:', err)
-      if (latestSearchKeyRef.current === searchKey) {
+      if (latestSearchRequestRef.current === requestId) {
         setResults([])
         setSearchFailed(true)
         setLastSearchInfo(null)
       }
     } finally {
-      if (latestSearchKeyRef.current === searchKey) {
+      if (latestSearchRequestRef.current === requestId) {
         activeSearchKeyRef.current = ''
         setSearchPhase(null)
       }
@@ -250,7 +254,7 @@ export function useSearch(
     queryRef.current = searchQuery
     setQueryError(null)
     if (searchQuery.trim().length === 0) {
-      latestSearchKeyRef.current = ''
+      latestSearchRequestRef.current += 1
       activeSearchKeyRef.current = ''
       submittedQueryRef.current = ''
       setResults([])
