@@ -42,6 +42,7 @@ describe('search progress', () => {
       expect(html).toContain('role="status"')
       expect(html).toContain(expected)
       expect(html).toContain('search.results.slowSearch')
+      expect(html).not.toContain('class="spinner"')
     }
   })
 

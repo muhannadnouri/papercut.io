@@ -456,7 +456,10 @@ function DocumentBatchImportStatus({
   return (
     <div className="document-batch-status">
       <div className="document-batch-status-row">
-        <span>{message}</span>
+        <div className="document-batch-status-message">
+          {importing && <span className="spinner document-batch-spinner" aria-hidden="true" />}
+          <span>{message}</span>
+        </div>
         {importing && (
           <button
             type="button"

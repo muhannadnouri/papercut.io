@@ -13,6 +13,8 @@ describe('search query errors', () => {
         query={'anne "green gables'}
         queryError="unmatchedQuote"
         disabled={false}
+        loading={false}
+        submittedQuery=""
         onChange={() => undefined}
         onSubmit={() => undefined}
       />,
@@ -21,5 +23,37 @@ describe('search query errors', () => {
     expect(html).toContain('aria-invalid="true"')
     expect(html).toContain('aria-describedby="search-input-help search-input-error"')
     expect(html).toContain('role="alert"')
+  })
+
+  it('shows a busy button only while the submitted query is still in the input', () => {
+    const busy = renderToStaticMarkup(
+      <SearchBar
+        query="orchard"
+        queryError={null}
+        disabled={false}
+        loading
+        submittedQuery="orchard"
+        onChange={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    )
+    const edited = renderToStaticMarkup(
+      <SearchBar
+        query="orchard lantern"
+        queryError={null}
+        disabled={false}
+        loading
+        submittedQuery="orchard"
+        onChange={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    )
+
+    expect(busy).toContain('aria-busy="true"')
+    expect(busy).toContain('disabled="" aria-busy="true"')
+    expect(busy).toContain('spinner search-btn-spinner')
+    expect(edited).not.toContain('aria-busy="true"')
+    expect(edited).not.toContain('disabled=""')
+    expect(edited).not.toContain('search-btn-spinner')
   })
 })

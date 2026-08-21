@@ -265,6 +265,19 @@
   gap: 0.75rem;
 }
 
+.document-batch-status-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.document-batch-spinner {
+  width: 0.9rem;
+  height: 0.9rem;
+  margin-top: 0.08rem;
+}
+
 /* Short imports keep the stable file/count message; reveal volatile backend
  * detail only when one stage lasts long enough to be useful. */
 .document-batch-stage {
@@ -309,10 +322,29 @@
 }
 
 .document-batch-progress {
+  appearance: none;
   display: block;
   width: 100%;
   height: 0.55rem;
-  accent-color: var(--accent-text);
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--accent);
+}
+
+.document-batch-progress::-webkit-progress-bar {
+  background: var(--surface-muted);
+}
+
+.document-batch-progress::-webkit-progress-value {
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.document-batch-progress::-moz-progress-bar {
+  border-radius: 999px;
+  background: var(--accent);
 }
 
 .document-batch-failures summary {

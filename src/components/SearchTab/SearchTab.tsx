@@ -82,6 +82,8 @@ export function SearchTab({
         query={query}
         queryError={queryError}
         disabled={disabled}
+        loading={loading}
+        submittedQuery={submittedQuery}
         onChange={onChangeQuery}
         onSubmit={onSubmitSearch}
       />

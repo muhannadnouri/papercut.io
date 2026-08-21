@@ -6,15 +6,12 @@
 
 .search-loading {
   display: grid;
-  grid-template-columns: auto auto;
-  align-content: center;
-  align-items: start;
-  justify-content: center;
-  gap: 0.65rem;
+  place-content: center;
   min-height: 8rem;
   color: var(--text-body);
   font-size: 1rem;
   font-weight: 600;
+  text-align: center;
 }
 
 .search-loading-message {

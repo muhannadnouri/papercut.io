@@ -117,6 +117,12 @@
   stroke-linejoin: round;
 }
 
+.search-btn-spinner {
+  width: 1.28rem;
+  height: 1.28rem;
+  border-block-color: currentcolor;
+}
+
 .search-btn:focus-visible {
   border-color: transparent;
   background: var(--accent-hover);
@@ -148,6 +154,12 @@
   background: var(--control-surface);
   color: var(--text-soft);
   cursor: not-allowed;
+}
+
+.search-btn:disabled[aria-busy="true"] {
+  background: var(--accent);
+  color: var(--text-inverse);
+  cursor: wait;
 }
 
 @media (min-width: 1024px) {

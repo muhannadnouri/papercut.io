@@ -6,14 +6,26 @@ interface SearchBarProps {
   query: string
   queryError: SearchQueryError | null
   disabled: boolean
+  loading: boolean
+  submittedQuery: string
   onChange: (value: string) => void
   onSubmit: () => void
 }
 
-export function SearchBar({ query, queryError, disabled, onChange, onSubmit }: SearchBarProps) {
+export function SearchBar({
+  query,
+  queryError,
+  disabled,
+  loading,
+  submittedQuery,
+  onChange,
+  onSubmit,
+}: SearchBarProps) {
   const { t } = useTranslation()
   const broadExample = t('search.input.exampleBroad')
   const exactExample = t('search.input.exampleExact')
+  const searching = loading && query.trim().toLowerCase() === submittedQuery.toLowerCase()
+  const submitDisabled = disabled || searching || query.trim().length === 0
 
   return (
     <div className="search-container">
@@ -29,7 +41,7 @@ export function SearchBar({ query, queryError, disabled, onChange, onSubmit }: S
           value={query}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') { e.preventDefault(); onSubmit() }
+            if (e.key === 'Enter' && !submitDisabled) { e.preventDefault(); onSubmit() }
           }}
           disabled={disabled}
           autoFocus
@@ -37,12 +49,17 @@ export function SearchBar({ query, queryError, disabled, onChange, onSubmit }: S
         <button
           className="search-btn"
           onClick={onSubmit}
-          disabled={disabled || query.trim().length === 0}
+          disabled={submitDisabled}
+          aria-busy={searching || undefined}
         >
-          <svg className="search-btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <circle cx="11" cy="11" r="7" />
-            <path d="m16 16 5 5" />
-          </svg>
+          {searching
+            ? <span className="spinner search-btn-spinner" aria-hidden="true" />
+            : (
+                <svg className="search-btn-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m16 16 5 5" />
+                </svg>
+              )}
           {t('search.input.button')}
         </button>
       </div>
