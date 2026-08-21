@@ -64,6 +64,21 @@ export interface UploadedDocumentSearchResponse {
   totalMatchingSections: number
 }
 
+export interface UploadedDocumentConcordanceEntry {
+  occurrenceIndex: number
+  sectionOccurrenceIndex: number
+  excerpt: string
+  sectionTitle?: string | null
+  sectionIndex: number
+  pageIndex?: number | null
+}
+
+export interface UploadedDocumentConcordanceResponse {
+  totalMatches: number
+  entries: UploadedDocumentConcordanceEntry[]
+  nextOffset?: number | null
+}
+
 export type UploadedDocumentSearchStage =
   | 'findingCandidates'
   | 'verifyingPhrases'
@@ -298,6 +313,18 @@ export async function searchUploadedDocuments(
   return mod.invoke<UploadedDocumentSearchResponse>('document_uploads_search', {
     request: { query, limit, documentUrls, exactPhrases },
     onProgress: progress,
+  })
+}
+
+export async function findUploadedDocumentOccurrences(
+  documentUrl: string,
+  query: string,
+  offset = 0,
+  limit = 50,
+): Promise<UploadedDocumentConcordanceResponse> {
+  const invoke = await loadTauriInvoke()
+  return invoke<UploadedDocumentConcordanceResponse>('document_uploads_concordance', {
+    request: { documentUrl, query, offset, limit },
   })
 }
 

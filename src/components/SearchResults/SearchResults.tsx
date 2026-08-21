@@ -3,7 +3,12 @@ import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import type { LastSearchInfo, SearchPhase } from '../../hooks/useSearch'
 import type { SearchOpenTarget, SearchPassage, SearchResult } from '../../types/search'
+import {
+  findUploadedDocumentOccurrences,
+  type UploadedDocumentConcordanceEntry,
+} from '../../uploads/DocumentUploads'
 import { indexedSearchOpenTarget } from '../../utils/searchOpenTarget'
+import { sanitizeMarkedExcerpt } from '../../utils/textUtils'
 import './SearchResults.css'
 
 const OCCURRENCE_MAP_BINS = 12
@@ -51,6 +56,14 @@ export function SearchResults({
     query: string
     urls: string[]
   }>({ query: '', urls: [] })
+  const [concordance, setConcordance] = useState<{
+    key: string
+    entries: UploadedDocumentConcordanceEntry[]
+    totalMatches: number
+    nextOffset?: number | null
+    loading: boolean
+    failed: boolean
+  } | null>(null)
   const filtered = scopeActive
     ? results.filter((r) => scopeUrls.has(r.url))
     : results
@@ -74,6 +87,38 @@ export function SearchResults({
         ? [...comparisonUrls, url].slice(0, MAX_COMPARISON_DOCUMENTS)
         : comparisonUrls.filter((candidate) => candidate !== url),
     })
+  }
+  const loadConcordance = async (result: SearchResult, term: string, offset = 0) => {
+    const key = `${result.url}\0${term}`
+    setConcordance((current) => ({
+      key,
+      entries: offset > 0 && current?.key === key ? current.entries : [],
+      totalMatches: current?.key === key ? current.totalMatches : 0,
+      nextOffset: current?.key === key ? current.nextOffset : undefined,
+      loading: true,
+      failed: false,
+    }))
+    try {
+      const response = await findUploadedDocumentOccurrences(result.url, term, offset)
+      setConcordance((current) => current?.key === key ? {
+        key,
+        entries: [
+          ...(offset > 0 ? current.entries : []),
+          ...response.entries.map((entry) => ({
+            ...entry,
+            excerpt: sanitizeMarkedExcerpt(entry.excerpt),
+          })),
+        ],
+        totalMatches: response.totalMatches,
+        nextOffset: response.nextOffset,
+        loading: false,
+        failed: false,
+      } : current)
+    } catch {
+      setConcordance((current) => current?.key === key
+        ? { ...current, loading: false, failed: true }
+        : current)
+    }
   }
   const resultGroups = [
     {
@@ -233,6 +278,9 @@ export function SearchResults({
             const comparable = comparisonAvailable && (result.termMatches?.length ?? 0) >= 2
             const compared = comparisonUrlSet.has(result.url)
             const comparisonLimitReached = comparisonResults.length >= MAX_COMPARISON_DOCUMENTS
+            const term = concordanceTerm(result, lastSearchInfo)
+            const concordanceKey = term ? `${result.url}\0${term}` : ''
+            const activeConcordance = concordance?.key === concordanceKey ? concordance : null
             return (
               <article
                 key={result.id}
@@ -335,6 +383,107 @@ export function SearchResults({
                     </div>
                   </details>
                 )}
+                {result.source === 'upload' && term && (
+                  <details
+                    className="result-concordance"
+                    name="search-concordance"
+                    onToggle={(event) => {
+                      if (event.currentTarget.open && !activeConcordance) {
+                        void loadConcordance(result, term)
+                      }
+                    }}
+                  >
+                    <summary dir="auto">
+                      {t('search.results.occurrencesFor', { term })}
+                    </summary>
+                    {activeConcordance && (
+                      <div className="result-evidence-content">
+                        {activeConcordance.loading && activeConcordance.entries.length === 0 && (
+                          <span className="result-evidence-title" role="status">
+                            {t('search.results.loadingOccurrences')}
+                          </span>
+                        )}
+                        {activeConcordance.failed && (
+                          <>
+                            <span className="result-evidence-title" role="alert">
+                              {t('search.results.occurrencesFailed')}
+                            </span>
+                            <button
+                              type="button"
+                              className="result-evidence-passage"
+                              onClick={() => void loadConcordance(
+                                result,
+                                term,
+                                activeConcordance.nextOffset ?? 0,
+                              )}
+                            >
+                              {t('search.results.retryOccurrences')}
+                            </button>
+                          </>
+                        )}
+                        {!activeConcordance.failed && activeConcordance.totalMatches > 0 && (
+                          <span className="result-evidence-title">
+                            {t('search.results.occurrenceCount', {
+                              shown: activeConcordance.entries.length,
+                              total: activeConcordance.totalMatches,
+                            })}
+                          </span>
+                        )}
+                        {!activeConcordance.loading
+                          && !activeConcordance.failed
+                          && activeConcordance.totalMatches === 0 && (
+                          <span className="result-evidence-title">
+                            {t('search.results.noLiteralOccurrences')}
+                          </span>
+                        )}
+                        {activeConcordance.entries.length > 0 && (
+                          <div className="result-evidence-passages">
+                            {activeConcordance.entries.map((entry) => (
+                              <button
+                                type="button"
+                                className="result-evidence-passage"
+                                key={entry.occurrenceIndex}
+                                disabled={disabled}
+                                onClick={() => onViewResult(result, indexedSearchOpenTarget({
+                                  ...entry,
+                                  occurrenceIndex: entry.sectionOccurrenceIndex,
+                                }, firstMarkedText(entry.excerpt) ?? term))}
+                              >
+                                {entry.sectionTitle && (
+                                  <span className="result-evidence-title" dir="auto">
+                                    <bdi>{entry.sectionTitle}</bdi>
+                                  </span>
+                                )}
+                                <span
+                                  className="result-evidence-excerpt"
+                                  dir="auto"
+                                  dangerouslySetInnerHTML={{ __html: entry.excerpt }}
+                                />
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {activeConcordance.nextOffset !== null
+                          && activeConcordance.nextOffset !== undefined && (
+                          <button
+                            type="button"
+                            className="result-evidence-passage"
+                            disabled={activeConcordance.loading}
+                            onClick={() => void loadConcordance(
+                              result,
+                              term,
+                              activeConcordance.nextOffset ?? 0,
+                            )}
+                          >
+                            {activeConcordance.loading
+                              ? t('search.results.loadingOccurrences')
+                              : t('search.results.showMoreOccurrences')}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </details>
+                )}
               </article>
             )
           })}
@@ -380,6 +529,14 @@ function searchOpenTargetForPassage(passage: SearchPassage): SearchOpenTarget {
     sectionIndex: passage.sectionIndex,
     pageIndex: passage.pageIndex ?? undefined,
   }
+}
+
+function concordanceTerm(result: SearchResult, info: LastSearchInfo | null): string | undefined {
+  const phrase = info?.phrases[0]?.trim()
+  if (phrase) return phrase
+  return result.termMatches?.[0]?.text?.trim()
+    || result.termMatches?.[0]?.term.trim()
+    || firstMarkedText(result.excerpt)
 }
 
 function searchOpenTargetForResult(result: SearchResult, exactPhrase?: string): SearchOpenTarget | undefined {

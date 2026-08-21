@@ -19,6 +19,13 @@ export function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;')
 }
 
+/** Escape native snippet text while retaining its only supported markup. */
+export function sanitizeMarkedExcerpt(s: string): string {
+  return escapeHtml(s)
+    .replace(/&lt;mark&gt;/g, '<mark>')
+    .replace(/&lt;\/mark&gt;/g, '</mark>')
+}
+
 export function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }

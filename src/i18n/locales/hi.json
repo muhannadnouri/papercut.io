@@ -89,7 +89,14 @@
       "exactMatch_one": "{{count, number}} सटीक मिलान",
       "exactMatch_other": "{{count, number}} सटीक मिलान",
       "matchingSections_one": "{{count, number}} मिलान अनुभाग",
-      "matchingSections_other": "{{count, number}} मिलान अनुभाग"
+      "matchingSections_other": "{{count, number}} मिलान अनुभाग",
+      "occurrencesFor": "“{{term}}” की आवृत्तियाँ",
+      "occurrenceCount": "{{total, number}} में से {{shown, number}} आवृत्तियाँ दिखाई जा रही हैं",
+      "loadingOccurrences": "आवृत्तियाँ लोड हो रही हैं...",
+      "showMoreOccurrences": "और आवृत्तियाँ दिखाएँ",
+      "occurrencesFailed": "आवृत्तियाँ लोड नहीं हो सकीं।",
+      "noLiteralOccurrences": "मुख्य पाठ में कोई आवृत्ति नहीं मिली।",
+      "retryOccurrences": "फिर से प्रयास करें"
     }
   },
   "library": {

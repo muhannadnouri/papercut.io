@@ -70,9 +70,9 @@ describe('search progress', () => {
 describe('document comparison', () => {
   it('opens comparison terms and distribution evidence with highlight text', () => {
     expect(indexedSearchOpenTarget(
-      { sectionIndex: 4, pageIndex: 3 },
+      { sectionIndex: 4, pageIndex: 3, occurrenceIndex: 2 },
       'orchard',
-    )).toEqual({ text: 'orchard', sectionIndex: 4, pageIndex: 3 })
+    )).toEqual({ text: 'orchard', sectionIndex: 4, pageIndex: 3, occurrenceIndex: 2 })
     expect(indexedSearchOpenTarget({
       sectionIndex: 7,
       pageIndex: null,
@@ -157,6 +157,7 @@ describe('search query summary', () => {
     expect(html).toContain('search.results.exactPhrase')
     expect(html).toContain('green gables')
     expect(html).toContain('search.results.exactMatch:2')
+    expect(html).toContain('search.results.occurrencesFor')
     expect(html).not.toContain('result-evidence')
   })
 })

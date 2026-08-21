@@ -84,7 +84,14 @@
       "comparisonSelected": "已选择 {{count, number}} / {{max, number}}",
       "resultCount_other": "{{count, number}} 结果",
       "exactMatch_other": "{{count, number}} 完全匹配",
-      "matchingSections_other": "{{count, number}} 个匹配章节"
+      "matchingSections_other": "{{count, number}} 个匹配章节",
+      "occurrencesFor": "“{{term}}”的出现位置",
+      "occurrenceCount": "显示 {{total, number}} 处中的 {{shown, number}} 处",
+      "loadingOccurrences": "正在加载出现位置...",
+      "showMoreOccurrences": "显示更多出现位置",
+      "occurrencesFailed": "无法加载出现位置。",
+      "noLiteralOccurrences": "正文中未找到出现位置。",
+      "retryOccurrences": "重试"
     }
   },
   "library": {

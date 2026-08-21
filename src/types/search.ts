@@ -51,6 +51,7 @@ export interface SearchOpenTarget {
   text?: string
   sectionIndex?: number
   pageIndex?: number
+  occurrenceIndex?: number
 }
 
 export interface PagefindInstance {

@@ -5,7 +5,7 @@ import {
   type UploadedDocumentSearchResult,
   type UploadedDocumentSearchStage,
 } from '../uploads/DocumentUploads'
-import { normalizeForPhraseMatch, escapeHtml } from '../utils/textUtils'
+import { normalizeForPhraseMatch, sanitizeMarkedExcerpt } from '../utils/textUtils'
 import {
   buildPhraseExcerpt,
   countPhraseOccurrences,
@@ -350,9 +350,7 @@ function uploadedSearchToResults(
 }
 
 function sanitizeUploadedExcerpt(excerpt: string): string {
-  return escapeHtml(excerpt)
-    .replace(/&lt;mark&gt;/g, '<mark>')
-    .replace(/&lt;\/mark&gt;/g, '</mark>')
+  return sanitizeMarkedExcerpt(excerpt)
 }
 
 // Provider snippets can collapse to the section heading for generated EPUB

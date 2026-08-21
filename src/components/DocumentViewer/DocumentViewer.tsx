@@ -31,6 +31,7 @@ import {
   clearSearchTargetHighlight,
   decodeReaderHash,
   highlightFirstSearchTarget,
+  highlightSearchTarget,
   readerSectionSelector,
   readerScrollBehavior,
   scrollToReaderElement,
@@ -311,7 +312,11 @@ export function DocumentViewer({
       const sectionSelector = readerSectionSelector(searchTarget.sectionIndex)
       const section = sectionSelector ? root.querySelector<HTMLElement>(sectionSelector) : null
       const sectionTarget = searchTarget.text
-        ? highlightFirstSearchTarget(section ?? root, searchTarget.text)
+        ? highlightSearchTarget(
+            section ?? root,
+            searchTarget.text,
+            searchTarget.occurrenceIndex ?? 0,
+          )
         : null
       // Exact-phrase verification can find a phrase in a different section
       // from SQLite's best broad candidate. Keep the whole-reader fallback for

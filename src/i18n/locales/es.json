@@ -94,7 +94,14 @@
       "exactMatch_other": "Coincidencias exactas de {{count, number}}",
       "matchingSections_one": "Sección de coincidencia {{count, number}}",
       "matchingSections_many": "Secciones coincidentes {{count, number}}",
-      "matchingSections_other": "Secciones coincidentes {{count, number}}"
+      "matchingSections_other": "Secciones coincidentes {{count, number}}",
+      "occurrencesFor": "Apariciones de «{{term}}»",
+      "occurrenceCount": "Mostrando {{shown, number}} de {{total, number}} apariciones",
+      "loadingOccurrences": "Cargando apariciones...",
+      "showMoreOccurrences": "Mostrar más apariciones",
+      "occurrencesFailed": "No se pudieron cargar las apariciones.",
+      "noLiteralOccurrences": "No se encontraron apariciones en el cuerpo del texto.",
+      "retryOccurrences": "Intentar de nuevo"
     }
   },
   "library": {

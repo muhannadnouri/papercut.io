@@ -89,7 +89,14 @@
       "comparisonHint": "Select up to {{max, number}} documents. Each count opens its first matching section.",
       "comparisonSelected": "{{count, number}} of {{max, number}} selected",
       "matchingSections_one": "{{count, number}} matching section",
-      "matchingSections_other": "{{count, number}} matching sections"
+      "matchingSections_other": "{{count, number}} matching sections",
+      "occurrencesFor": "Occurrences of “{{term}}”",
+      "occurrenceCount": "Showing {{shown, number}} of {{total, number}} occurrences",
+      "loadingOccurrences": "Loading occurrences...",
+      "showMoreOccurrences": "Show more occurrences",
+      "occurrencesFailed": "Occurrences couldn't be loaded.",
+      "noLiteralOccurrences": "No body-text occurrences found.",
+      "retryOccurrences": "Try again"
     }
   },
   "library": {

@@ -94,7 +94,14 @@
       "exactMatch_other": "Correspondências exatas {{count, number}}",
       "matchingSections_one": "Seção de correspondência {{count, number}}",
       "matchingSections_many": "Seções correspondentes {{count, number}}",
-      "matchingSections_other": "Seções correspondentes {{count, number}}"
+      "matchingSections_other": "Seções correspondentes {{count, number}}",
+      "occurrencesFor": "Ocorrências de “{{term}}”",
+      "occurrenceCount": "Mostrando {{shown, number}} de {{total, number}} ocorrências",
+      "loadingOccurrences": "Carregando ocorrências...",
+      "showMoreOccurrences": "Mostrar mais ocorrências",
+      "occurrencesFailed": "Não foi possível carregar as ocorrências.",
+      "noLiteralOccurrences": "Nenhuma ocorrência encontrada no corpo do texto.",
+      "retryOccurrences": "Tentar novamente"
     }
   },
   "library": {

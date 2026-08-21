@@ -132,6 +132,37 @@ pub(crate) struct UploadedDocumentSearchResponse {
     pub(crate) total_matching_sections: usize,
 }
 
+/// One bounded page request for literal occurrences inside one uploaded document.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentConcordanceRequest {
+    pub(crate) document_url: String,
+    pub(crate) query: String,
+    pub(crate) offset: Option<usize>,
+    pub(crate) limit: Option<usize>,
+}
+
+/// One context line and its exact source occurrence within an indexed section.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentConcordanceEntry {
+    pub(crate) occurrence_index: usize,
+    pub(crate) section_occurrence_index: usize,
+    pub(crate) excerpt: String,
+    pub(crate) section_title: Option<String>,
+    pub(crate) section_index: usize,
+    pub(crate) page_index: Option<usize>,
+}
+
+/// Bounded concordance lines plus the complete literal occurrence count.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentConcordanceResponse {
+    pub(crate) total_matches: usize,
+    pub(crate) entries: Vec<UploadedDocumentConcordanceEntry>,
+    pub(crate) next_offset: Option<usize>,
+}
+
 /// Stable SQLite search stages streamed to the invoking WebView.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]

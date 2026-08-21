@@ -285,11 +285,13 @@
   cursor: not-allowed;
 }
 
-.result-evidence {
+.result-evidence,
+.result-concordance {
   border-top: 1px solid var(--border);
 }
 
-.result-evidence summary {
+.result-evidence summary,
+.result-concordance summary {
   min-height: 2.75rem;
   padding: 0.7rem 1.25rem;
   color: var(--accent-strong);
@@ -298,7 +300,8 @@
   font-weight: 650;
 }
 
-.result-evidence summary:focus-visible {
+.result-evidence summary:focus-visible,
+.result-concordance summary:focus-visible {
   outline: 3px solid var(--shadow-focus);
   outline-offset: -3px;
 }

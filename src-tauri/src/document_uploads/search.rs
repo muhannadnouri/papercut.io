@@ -12,15 +12,18 @@ use tauri::Runtime;
 use super::storage::{upload_reference_from_url, StoredSourceKind};
 use super::store::{db_err, open_db};
 use super::types::{
-    UploadedDocumentSearchLocation, UploadedDocumentSearchPassage, UploadedDocumentSearchRequest,
-    UploadedDocumentSearchResponse, UploadedDocumentSearchResult, UploadedDocumentSearchStage,
-    UploadedDocumentSearchTermMatch, UploadedPdfFindPage, UploadedPdfFindRequest,
-    UploadedPdfFindResult,
+    UploadedDocumentConcordanceEntry, UploadedDocumentConcordanceRequest,
+    UploadedDocumentConcordanceResponse, UploadedDocumentSearchLocation,
+    UploadedDocumentSearchPassage, UploadedDocumentSearchRequest, UploadedDocumentSearchResponse,
+    UploadedDocumentSearchResult, UploadedDocumentSearchStage, UploadedDocumentSearchTermMatch,
+    UploadedPdfFindPage, UploadedPdfFindRequest, UploadedPdfFindResult,
 };
 
 const MAX_EVIDENCE_PASSAGES: usize = 3;
 const OCCURRENCE_MAP_BINS: usize = 12;
 const MAX_COMPARISON_TERMS: usize = 6;
+const DEFAULT_CONCORDANCE_LIMIT: usize = 50;
+const MAX_CONCORDANCE_LIMIT: usize = 100;
 
 struct RankedDocumentCandidate {
     document_id: String,
@@ -160,6 +163,87 @@ pub(crate) fn search_uploads<R: Runtime>(
         results,
         total_documents,
         total_matching_sections,
+    })
+}
+
+/// Return one bounded page of literal context lines from an uploaded document.
+pub(crate) fn concordance_upload<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    request: UploadedDocumentConcordanceRequest,
+) -> Result<UploadedDocumentConcordanceResponse, String> {
+    let (document_id, _) = upload_reference_from_url(&request.document_url)?;
+    let query = request.query.chars().take(512).collect::<String>();
+    let normalized_query = normalize_exact_text(&query);
+    if normalized_query.is_empty() {
+        return Err("Concordance query is empty".to_string());
+    }
+    let db = open_db(app)?;
+    document_concordance(
+        &db,
+        &document_id,
+        &normalized_query,
+        request.offset.unwrap_or(0),
+        request
+            .limit
+            .unwrap_or(DEFAULT_CONCORDANCE_LIMIT)
+            .clamp(1, MAX_CONCORDANCE_LIMIT),
+    )
+}
+
+/// ponytail: each page rescans one indexed document to keep storage/schema
+/// unchanged; persist occurrence offsets only if measured paging latency matters.
+fn document_concordance(
+    db: &Connection,
+    document_id: &str,
+    query: &str,
+    offset: usize,
+    limit: usize,
+) -> Result<UploadedDocumentConcordanceResponse, String> {
+    let mut stmt = db
+        .prepare(
+            "SELECT ordinal, page_index, heading, text FROM uploaded_sections \
+             WHERE document_id = ?1 ORDER BY ordinal ASC",
+        )
+        .map_err(db_err)?;
+    let rows = stmt
+        .query_map(params![document_id], |row| {
+            Ok((
+                row.get::<_, i64>(0)? as usize,
+                row.get::<_, Option<i64>>(1)?.map(|value| value as usize),
+                row.get::<_, Option<String>>(2)?,
+                row.get::<_, String>(3)?,
+            ))
+        })
+        .map_err(db_err)?;
+    let mut total_matches = 0usize;
+    let mut entries = Vec::new();
+    for row in rows {
+        let (section_index, page_index, section_title, text) = row.map_err(db_err)?;
+        let display = normalize_exact_display(&text);
+        let normalized = display.to_lowercase();
+        for (section_occurrence_index, (match_start, _)) in
+            normalized.match_indices(query).enumerate()
+        {
+            let occurrence_index = total_matches;
+            total_matches = total_matches.saturating_add(1);
+            if occurrence_index < offset || entries.len() >= limit {
+                continue;
+            }
+            entries.push(UploadedDocumentConcordanceEntry {
+                occurrence_index,
+                section_occurrence_index,
+                excerpt: highlighted_exact_excerpt(&display, &normalized, query, match_start),
+                section_title: section_title.clone(),
+                section_index,
+                page_index,
+            });
+        }
+    }
+    let shown_end = offset.saturating_add(entries.len());
+    Ok(UploadedDocumentConcordanceResponse {
+        total_matches,
+        entries,
+        next_offset: (shown_end < total_matches).then_some(shown_end),
     })
 }
 
@@ -391,12 +475,23 @@ fn document_exact_phrase_evidence(
 }
 
 fn exact_phrase_excerpt(display: &str, normalized: &str, phrase: &str) -> String {
+    highlighted_exact_excerpt(
+        display,
+        normalized,
+        phrase,
+        normalized.find(phrase).unwrap_or(0),
+    )
+}
+
+fn highlighted_exact_excerpt(
+    display: &str,
+    normalized: &str,
+    phrase: &str,
+    match_byte_index: usize,
+) -> String {
     const CONTEXT: usize = 120;
 
-    let match_start = normalized
-        .find(phrase)
-        .map(|index| normalized[..index].chars().count())
-        .unwrap_or(0);
+    let match_start = normalized[..match_byte_index].chars().count();
     let characters = display.chars().collect::<Vec<_>>();
     let highlight_start = match_start.min(characters.len());
     let highlight_end = (highlight_start + phrase.chars().count()).min(characters.len());
@@ -1186,8 +1281,8 @@ mod tests {
 
     use super::{
         attach_exact_phrase_evidence, attach_search_term_matches, comparison_terms,
-        count_normalized_matches, document_candidates, fts_and_query, fts_fuzzy_queries,
-        fts_fuzzy_terms, fts_or_query, fts_phrase_queries, normalize_exact_text,
+        count_normalized_matches, document_candidates, document_concordance, fts_and_query,
+        fts_fuzzy_queries, fts_fuzzy_terms, fts_or_query, fts_phrase_queries, normalize_exact_text,
         retain_exact_phrase_candidates, retain_exact_phrase_hits,
         search_cross_section_document_hits, search_results_for_candidates, search_section_hits,
     };
@@ -1426,6 +1521,34 @@ mod tests {
         assert_eq!(results[0].section_index, 1);
         assert_eq!(results[0].match_count, Some(2));
         assert!(results[0].excerpt.contains("<mark>Green Gables</mark>"));
+    }
+
+    #[test]
+    fn concordance_pages_literal_occurrences_with_exact_section_positions() {
+        let db = test_db();
+        insert_document(
+            &db,
+            "concordance",
+            "/uploads/concordance.html",
+            "Concordance",
+            &["Orchard and orchard.", "No fruit here.", "Final orchard."],
+        );
+
+        let first = document_concordance(&db, "concordance", "orchard", 1, 1)
+            .expect("second literal occurrence");
+        assert_eq!(first.total_matches, 3);
+        assert_eq!(first.next_offset, Some(2));
+        assert_eq!(first.entries.len(), 1);
+        assert_eq!(first.entries[0].occurrence_index, 1);
+        assert_eq!(first.entries[0].section_index, 0);
+        assert_eq!(first.entries[0].section_occurrence_index, 1);
+        assert!(first.entries[0].excerpt.contains("<mark>orchard</mark>"));
+
+        let remaining = document_concordance(&db, "concordance", "orchard", 2, 50)
+            .expect("remaining literal occurrences");
+        assert_eq!(remaining.entries.len(), 1);
+        assert_eq!(remaining.entries[0].section_index, 2);
+        assert_eq!(remaining.next_offset, None);
     }
 
     #[test]

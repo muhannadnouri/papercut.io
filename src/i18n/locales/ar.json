@@ -109,7 +109,14 @@
       "matchingSections_two": "قسمان مطابقان",
       "matchingSections_few": "{{count, number}} أقسام مطابقة",
       "matchingSections_many": "{{count, number}} قسمًا مطابقًا",
-      "matchingSections_other": "{{count, number}} قسم مطابق"
+      "matchingSections_other": "{{count, number}} قسم مطابق",
+      "occurrencesFor": "مواضع «{{term}}»",
+      "occurrenceCount": "عرض {{shown, number}} من {{total, number}} موضع",
+      "loadingOccurrences": "جارٍ تحميل المواضع...",
+      "showMoreOccurrences": "عرض المزيد من المواضع",
+      "occurrencesFailed": "تعذّر تحميل المواضع.",
+      "noLiteralOccurrences": "لم يُعثر على مواضع في نص المستند.",
+      "retryOccurrences": "إعادة المحاولة"
     }
   },
   "library": {

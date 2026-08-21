@@ -18,10 +18,11 @@ use super::pdf::{
     PdfNarrationSegment, PdfPageTextReadRequest, PdfPageTextRequest,
 };
 use super::pipeline::{delete_upload, get_cover, get_source, import_pasted_text};
-use super::search::{find_pdf_text, search_uploads};
+use super::search::{concordance_upload, find_pdf_text, search_uploads};
 use super::store::{list_uploads, open_db, update_document_title};
 use super::types::{
-    UploadedDocument, UploadedDocumentBatchResult, UploadedDocumentDeleteBatchRequest,
+    UploadedDocument, UploadedDocumentBatchResult, UploadedDocumentConcordanceRequest,
+    UploadedDocumentConcordanceResponse, UploadedDocumentDeleteBatchRequest,
     UploadedDocumentDeleteBatchResult, UploadedDocumentDeleteRequest, UploadedDocumentDeleteResult,
     UploadedDocumentPastedTextRequest, UploadedDocumentPathImportRequest,
     UploadedDocumentSearchRequest, UploadedDocumentSearchResponse, UploadedDocumentSearchStage,
@@ -130,6 +131,17 @@ pub async fn document_uploads_search<R: Runtime>(
     })
     .await
     .map_err(|err| format!("Document upload search task failed: {err}"))?
+}
+
+/// Return bounded source-linked context lines for one uploaded document and term.
+#[tauri::command]
+pub async fn document_uploads_concordance<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedDocumentConcordanceRequest,
+) -> Result<UploadedDocumentConcordanceResponse, String> {
+    tauri::async_runtime::spawn_blocking(move || concordance_upload(&app, request))
+        .await
+        .map_err(|err| format!("Document concordance task failed: {err}"))?
 }
 
 /// Find literal matches in one PDF without loading its page text into the WebView.
