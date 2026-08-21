@@ -51,10 +51,9 @@
 }
 
 .document-import-btn {
-  display: inline-flex;
+  display: inline-grid;
   align-items: center;
   justify-content: center;
-  gap: 0.45rem;
   flex-shrink: 0;
   min-height: 2rem;
   border: 1px solid transparent;
@@ -65,6 +64,28 @@
   font-weight: 600;
   padding: 0 0.7rem;
   cursor: pointer;
+}
+
+.document-import-btn > * {
+  grid-area: 1 / 1;
+}
+
+.document-import-btn-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.document-import-btn-busy .document-import-btn-label {
+  visibility: hidden;
+}
+
+.document-import-btn-spinner {
+  width: 1rem;
+  height: 1rem;
+  border-color: currentcolor;
+  border-inline-color: transparent;
+  justify-self: center;
 }
 
 .document-import-btn:focus-visible {

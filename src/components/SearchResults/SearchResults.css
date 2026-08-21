@@ -5,13 +5,20 @@
 }
 
 .search-loading {
-  display: grid;
-  place-content: center;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.65rem;
   min-height: 8rem;
   color: var(--text-body);
   font-size: 1rem;
   font-weight: 600;
-  text-align: center;
+  text-align: start;
+}
+
+.search-loading > .spinner {
+  flex: 0 0 auto;
+  margin-top: 0.15rem;
 }
 
 .search-loading-message {

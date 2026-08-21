@@ -115,6 +115,7 @@ export function SearchResults({
     return (
       <div className="results-container" aria-busy="true">
         <div className="search-loading" role="status" aria-live="polite" aria-atomic="true">
+          <span className="spinner" aria-hidden="true" />
           <span className="search-loading-message">
             <span>{t(
               searchPhase ? SEARCH_PHASE_KEYS[searchPhase] : 'search.results.searching',
