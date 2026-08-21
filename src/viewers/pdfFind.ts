@@ -1,5 +1,9 @@
 import type { ViewerFindApi, ViewerFindResult } from './types'
 import type { SearchOpenTarget } from '../types/search'
+import {
+  normalizeSearchPunctuation,
+  SEARCH_DASH_CHARACTERS,
+} from '../utils/textUtils'
 
 interface PdfFindEventBus {
   on: (name: string, listener: (event: PdfFindResultEvent) => void) => void
@@ -102,7 +106,8 @@ function pdfFindQuery(input: string): PdfJsQuery {
   const original = input.trim()
   if (!original) return ''
 
-  const compact = original.replace(/(\p{L})-\s+(?=\p{L})/gu, '$1-')
+  const normalized = normalizeSearchPunctuation(original)
+  const compact = normalized.replace(/(\p{L})-\s+(?=\p{L})/gu, '$1-')
   const characters = Array.from(compact)
   const positions = characters
     .map((character, index) => (
@@ -116,7 +121,7 @@ function pdfFindQuery(input: string): PdfJsQuery {
     ))
     .filter((index) => index >= 0)
     .slice(0, 3)
-  const aliases = new Set([original])
+  const aliases = new Set([original, normalized])
   const combinations = 3 ** positions.length
   for (let combination = 0; combination < combinations; combination += 1) {
     let state = combination
@@ -133,6 +138,9 @@ function pdfFindQuery(input: string): PdfJsQuery {
     }).join(''))
   }
   aliases.add(compact.replace(/(\p{L})-(?=\p{L})/gu, '$1'))
+  for (const dash of SEARCH_DASH_CHARACTERS.slice(1)) {
+    aliases.add(compact.replaceAll('-', dash))
+  }
 
   const values = [...aliases]
   return values.length === 1 ? original : values

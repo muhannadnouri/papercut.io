@@ -1,4 +1,8 @@
 import { isReadableHtmlBlock } from '../../tts/alignment/htmlStructure'
+import {
+  normalizeSearchCharacter,
+  normalizeSearchPunctuation,
+} from '../../utils/textUtils'
 
 const READER_TEXT_SKIP_SELECTOR = 'script, style, noscript, svg'
 
@@ -248,7 +252,7 @@ function buildSearchText(
         append(' ', pendingWhitespace)
         pendingWhitespace = null
       }
-      append(character.toLowerCase(), point)
+      append(normalizeSearchCharacter(character).toLowerCase(), point)
     }
   })
 
@@ -261,7 +265,7 @@ function buildSearchText(
 }
 
 function normalizeSearchQuery(query: string): string {
-  return Array.from(query.replace(/\s+/gu, ' ').trim())
+  return Array.from(normalizeSearchPunctuation(query).replace(/\s+/gu, ' ').trim())
     .map((character) => character.toLowerCase())
     .join('')
 }

@@ -1138,7 +1138,7 @@ fn fts_phrase_queries(phrases: &[String]) -> Vec<String> {
 }
 
 fn fts_terms(query: &str, limit: usize) -> Vec<String> {
-    collapse_hyphen_spacing(query)
+    collapse_hyphen_spacing(&normalize_search_punctuation(query))
         .split_whitespace()
         .map(|part| part.trim_matches(|ch: char| !ch.is_alphanumeric() && ch != '_' && ch != '-'))
         .filter(|part| !part.is_empty())
@@ -1152,13 +1152,22 @@ fn normalize_exact_text(text: &str) -> String {
 }
 
 fn normalize_exact_display(text: &str) -> String {
-    let punctuation = text
-        .replace(['\u{2018}', '\u{2019}'], "'")
-        .replace(['\u{201c}', '\u{201d}'], "\"");
+    let punctuation = normalize_search_punctuation(text);
     remove_internal_word_hyphens(&collapse_hyphen_spacing(&punctuation))
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+fn normalize_search_punctuation(text: &str) -> String {
+    text.replace(['\u{2018}', '\u{2019}'], "'")
+        .replace(['\u{201c}', '\u{201d}'], "\"")
+        .replace(
+            [
+                '\u{2010}', '\u{2011}', '\u{2012}', '\u{2013}', '\u{2014}', '\u{2015}',
+            ],
+            "-",
+        )
 }
 
 /// Treat each of the first four internal hyphens independently as punctuation
@@ -1302,10 +1311,10 @@ mod tests {
 
     #[test]
     fn pdf_find_counts_literal_matches_after_pdf_hyphen_normalization() {
-        let query = normalize_exact_text("high-lights");
+        let query = normalize_exact_text("high—lights");
         assert_eq!(
-            count_normalized_matches("Highlights and high- lights.", &query),
-            2
+            count_normalized_matches("Highlights, high- lights, and high–lights.", &query),
+            3
         );
     }
 
@@ -1431,7 +1440,13 @@ mod tests {
             &["The page highlights a result."],
         );
 
-        for query in ["highlights", "high-lights", "high- lights"] {
+        for query in [
+            "highlights",
+            "high-lights",
+            "high- lights",
+            "high–lights",
+            "high—lights",
+        ] {
             let queries = fts_fuzzy_queries(query);
             let hits = search_section_hits(&db, &fts_and_query(&queries), 10, &[])
                 .expect("hyphen-equivalent search");
@@ -1446,6 +1461,8 @@ mod tests {
             "The highlights remain",
             "The high-lights remain",
             "The high- lights remain",
+            "The high–lights remain",
+            "The high—lights remain",
         ] {
             assert_eq!(normalize_exact_text(text), expected);
         }
