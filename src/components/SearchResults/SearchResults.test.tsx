@@ -191,6 +191,7 @@ describe('search query summary', () => {
     expect(html).toContain('search.results.exactPhrase')
     expect(html).toContain('green gables')
     expect(html).toContain('search.results.exactMatch:1')
+    expect(html).toContain('class="search-info" role="status"')
     expect(html).not.toContain('search.results.exploreMatches')
     expect(html).not.toContain('search.results.sectionsByTerm')
   })

@@ -29,10 +29,10 @@
 .spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid var(--accent-border);
-  border-top-color: var(--accent-text);
+  border: 2px solid transparent;
+  border-block-color: var(--accent-text);
   border-radius: 50%;
-  animation: spinner-rotate 0.7s linear infinite;
+  animation: spinner-rotate 1s linear infinite;
   flex-shrink: 0;
 }
 
@@ -104,6 +104,12 @@
 
 @keyframes spinner-rotate {
   to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
 }
 
 .toggle-arrow {

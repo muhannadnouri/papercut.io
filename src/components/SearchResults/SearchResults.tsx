@@ -138,7 +138,7 @@ export function SearchResults({
         </p>
       )}
       {lastSearchInfo && submittedQuery.length > 0 && visibleCount > 0 && (
-        <div className="search-info">
+        <div className="search-info" role="status">
           <strong>{t('search.results.resultCount', {
             count: lastSearchInfo.uploadedDocuments + lastSearchInfo.starterDocuments,
           })}</strong>
