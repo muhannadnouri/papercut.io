@@ -345,7 +345,7 @@ export function SearchResults({
                               </span>
                               <button
                                 type="button"
-                                className="result-evidence-passage"
+                                className="result-evidence-action"
                                 onClick={() => void loadConcordance(
                                   result,
                                   activeTerm,
@@ -402,7 +402,7 @@ export function SearchResults({
                             && activeConcordance.nextOffset !== undefined && (
                             <button
                               type="button"
-                              className="result-evidence-passage"
+                              className="result-evidence-action"
                               disabled={activeConcordance.loading}
                               onClick={() => void loadConcordance(
                                 result,
