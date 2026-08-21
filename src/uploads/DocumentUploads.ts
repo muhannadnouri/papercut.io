@@ -46,6 +46,7 @@ export interface UploadedDocumentSearchLocation {
   sectionIndex: number
   pageIndex?: number | null
   matchCount: number
+  text?: string | null
 }
 
 export interface UploadedDocumentSearchTermMatch {
@@ -53,6 +54,7 @@ export interface UploadedDocumentSearchTermMatch {
   matchingSections: number
   sectionIndex?: number | null
   pageIndex?: number | null
+  text?: string | null
 }
 
 export interface UploadedDocumentSearchResponse {

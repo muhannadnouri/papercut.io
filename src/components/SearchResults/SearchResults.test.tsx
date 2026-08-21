@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import type { SearchPhase } from '../../hooks/useSearch'
+import { indexedSearchOpenTarget } from '../../utils/searchOpenTarget'
 import { SearchResults } from './SearchResults'
 
 vi.mock('react-i18next', () => ({
@@ -67,6 +68,18 @@ describe('search progress', () => {
 })
 
 describe('document comparison', () => {
+  it('opens comparison terms and distribution evidence with highlight text', () => {
+    expect(indexedSearchOpenTarget(
+      { sectionIndex: 4, pageIndex: 3 },
+      'orchard',
+    )).toEqual({ text: 'orchard', sectionIndex: 4, pageIndex: 3 })
+    expect(indexedSearchOpenTarget({
+      sectionIndex: 7,
+      pageIndex: null,
+      text: 'lantern',
+    })).toEqual({ text: 'lantern', sectionIndex: 7, pageIndex: undefined })
+  })
+
   it('offers comparison only when uploaded term evidence is available', () => {
     const html = renderToStaticMarkup(
       <SearchResults
@@ -114,6 +127,11 @@ describe('search query summary', () => {
           meta: { title: 'One' },
           excerpt: '<mark>anne</mark>',
           source: 'upload',
+          matchingSections: 2,
+          matchLocations: [
+            { binIndex: 0, sectionIndex: 0, matchCount: 1, text: 'anne' },
+            { binIndex: 1, sectionIndex: 1, matchCount: 1, text: 'green' },
+          ],
         }]}
         loading={false}
         searchFailed={false}
@@ -137,5 +155,6 @@ describe('search query summary', () => {
     expect(html).toContain('anne')
     expect(html).toContain('search.results.exactPhrase')
     expect(html).toContain('green gables')
+    expect(html).not.toContain('result-evidence')
   })
 })

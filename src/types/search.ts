@@ -16,6 +16,7 @@ export interface SearchMatchLocation {
   sectionIndex: number
   pageIndex?: number | null
   matchCount: number
+  text?: string | null
 }
 
 export interface SearchTermMatch {
@@ -23,6 +24,7 @@ export interface SearchTermMatch {
   matchingSections: number
   sectionIndex?: number | null
   pageIndex?: number | null
+  text?: string | null
 }
 
 export interface SearchResult {

@@ -81,7 +81,7 @@ pub(crate) struct UploadedDocumentSearchPassage {
     pub(crate) page_index: Option<usize>,
 }
 
-/// One bounded occurrence-map bin and the first matching section inside it.
+/// One bounded distribution bin and its first literal matching-section target.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentSearchLocation {
@@ -89,9 +89,10 @@ pub(crate) struct UploadedDocumentSearchLocation {
     pub(crate) section_index: usize,
     pub(crate) page_index: Option<usize>,
     pub(crate) match_count: usize,
+    pub(crate) text: Option<String>,
 }
 
-/// One query term's bounded document-level count and first source locator.
+/// One query term's bounded count and first literal source target.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentSearchTermMatch {
@@ -99,6 +100,7 @@ pub(crate) struct UploadedDocumentSearchTermMatch {
     pub(crate) matching_sections: usize,
     pub(crate) section_index: Option<usize>,
     pub(crate) page_index: Option<usize>,
+    pub(crate) text: Option<String>,
 }
 
 /// One document-level FTS hit with bounded supporting evidence.

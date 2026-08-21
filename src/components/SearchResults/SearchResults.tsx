@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import type { LastSearchInfo, SearchPhase } from '../../hooks/useSearch'
 import type { SearchOpenTarget, SearchPassage, SearchResult } from '../../types/search'
+import { indexedSearchOpenTarget } from '../../utils/searchOpenTarget'
 import './SearchResults.css'
 
 const OCCURRENCE_MAP_BINS = 12
@@ -167,10 +168,10 @@ export function SearchResults({
                                   disabled={openingDisabled || openingDocumentUrl === result.url}
                                   aria-label={label}
                                   title={label}
-                                  onClick={() => onViewResult(result, {
-                                    sectionIndex: match.sectionIndex ?? undefined,
-                                    pageIndex: match.pageIndex ?? undefined,
-                                  })}
+                                  onClick={() => onViewResult(
+                                    result,
+                                    indexedSearchOpenTarget(match, match.text ?? match.term),
+                                  )}
                                 >
                                   {count}
                                 </button>
@@ -224,7 +225,8 @@ export function SearchResults({
               index,
               location: locations.find((location) => location.binIndex === index),
             }))
-            const hasEvidence = result.source === 'upload'
+            const hasEvidence = !exactPhrase
+              && result.source === 'upload'
               && result.matchingSections !== undefined
               && result.matchingSections > 1
               && (additionalPassages.length > 0 || locations.length > 1)
@@ -292,10 +294,7 @@ export function SearchResults({
                             aria-posinset={index + 1}
                             aria-setsize={OCCURRENCE_MAP_BINS}
                             title={t('search.results.matchingSections', { count: location.matchCount })}
-                            onClick={() => onViewResult(result, {
-                              sectionIndex: location.sectionIndex,
-                              pageIndex: location.pageIndex ?? undefined,
-                            })}
+                            onClick={() => onViewResult(result, indexedSearchOpenTarget(location))}
                           >
                             {location.matchCount > 1 ? location.matchCount : ''}
                           </button>

@@ -235,8 +235,14 @@ fn retain_exact_phrase_candidates(
         .map(|phrase| normalize_exact_text(phrase))
         .collect::<Vec<_>>();
     let mut verified = Vec::new();
-    for candidate in candidates {
-        if document_contains_exact_phrases(db, &candidate.document_id, &normalized_phrases)? {
+    for mut candidate in candidates {
+        if let Some((section_id, section_index)) =
+            document_exact_phrase_locator(db, &candidate.document_id, &normalized_phrases)?
+        {
+            if candidate.match_scope == "document" {
+                candidate.section_id = section_id;
+                candidate.section_index = section_index;
+            }
             verified.push(candidate);
         }
     }
@@ -250,24 +256,48 @@ fn document_contains_exact_phrases(
     document_id: &str,
     phrases: &[String],
 ) -> Result<bool, String> {
+    Ok(document_exact_phrase_locator(db, document_id, phrases)?.is_some())
+}
+
+/// Verify every phrase and return the first phrase's earliest source section.
+/// Cross-section mixed searches use this locator instead of their broad term.
+fn document_exact_phrase_locator(
+    db: &Connection,
+    document_id: &str,
+    phrases: &[String],
+) -> Result<Option<(i64, usize)>, String> {
+    let Some(first_phrase) = phrases.first() else {
+        return Ok(None);
+    };
     let mut stmt = db
         .prepare(
-            "SELECT text FROM uploaded_sections \
+            "SELECT id, ordinal, text FROM uploaded_sections \
              WHERE document_id = ?1 ORDER BY ordinal ASC",
         )
         .map_err(db_err)?;
     let rows = stmt
-        .query_map(params![document_id], |row| row.get::<_, String>(0))
+        .query_map(params![document_id], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, i64>(1)? as usize,
+                row.get::<_, String>(2)?,
+            ))
+        })
         .map_err(db_err)?;
     let mut remaining = phrases.to_vec();
+    let mut locator = None;
     for row in rows {
-        let normalized = normalize_exact_text(&row.map_err(db_err)?);
+        let (section_id, section_index, text) = row.map_err(db_err)?;
+        let normalized = normalize_exact_text(&text);
+        if locator.is_none() && normalized.contains(first_phrase) {
+            locator = Some((section_id, section_index));
+        }
         remaining.retain(|phrase| !normalized.contains(phrase));
         if remaining.is_empty() {
-            return Ok(true);
+            return Ok(locator);
         }
     }
-    Ok(false)
+    Ok(None)
 }
 
 #[cfg(test)]
@@ -560,8 +590,8 @@ fn row_to_search_result(
 }
 
 /// Add bounded, source-linked evidence only for the visible document set.
-/// One body-match scan supplies both the three best snippets and a twelve-bin
-/// distribution, so result payload and DOM size do not grow with a book.
+/// One matching-section scan supplies both the three best snippets and a
+/// twelve-bin distribution, so result payload and DOM size do not grow with a book.
 fn attach_search_evidence(
     db: &Connection,
     query: &str,
@@ -627,6 +657,7 @@ fn attach_search_evidence(
         let Some(evidence) = evidence_by_document.get_mut(&document_id) else {
             continue;
         };
+        let text = first_marked_text(&excerpt);
 
         evidence.passages.push((
             score,
@@ -655,6 +686,7 @@ fn attach_search_evidence(
                     section_index,
                     page_index,
                     match_count: 1,
+                    text,
                 });
             }
         }
@@ -674,6 +706,13 @@ fn attach_search_evidence(
         result.match_locations = evidence.locations.into_iter().flatten().collect();
     }
     Ok(())
+}
+
+fn first_marked_text(excerpt: &str) -> Option<String> {
+    let start = excerpt.find("<mark>")? + "<mark>".len();
+    let end = start + excerpt[start..].find("</mark>")?;
+    let text = excerpt[start..end].trim();
+    (!text.is_empty()).then(|| text.to_string())
 }
 
 /// Add comparison counts only for small broad queries and visible results.
@@ -696,6 +735,7 @@ fn attach_search_term_matches(
                 matching_sections: 0,
                 section_index: None,
                 page_index: None,
+                text: None,
             })
             .collect();
     }
@@ -711,7 +751,9 @@ fn attach_search_term_matches(
         .join(", ");
     let sql = format!(
         "WITH matches AS (\
-           SELECT uploaded_document_fts.document_id, s.ordinal, s.page_index, \
+           SELECT uploaded_document_fts.document_id, \
+                  CAST(uploaded_document_fts.section_id AS INTEGER) AS section_id, \
+                  s.ordinal, s.page_index, \
                   COUNT(*) OVER (PARTITION BY uploaded_document_fts.document_id) AS match_count, \
                   ROW_NUMBER() OVER (\
                     PARTITION BY uploaded_document_fts.document_id ORDER BY s.ordinal\
@@ -721,18 +763,24 @@ fn attach_search_term_matches(
            WHERE uploaded_document_fts MATCH ? \
              AND uploaded_document_fts.document_id IN ({placeholders})\
          ) \
-         SELECT document_id, ordinal, page_index, match_count \
-         FROM matches WHERE match_number = 1"
+         SELECT matches.document_id, matches.ordinal, matches.page_index, matches.match_count, \
+                snippet(uploaded_document_fts, -1, '<mark>', '</mark>', '…', 18) \
+         FROM matches \
+         JOIN uploaded_document_fts \
+           ON CAST(uploaded_document_fts.section_id AS INTEGER) = matches.section_id \
+         WHERE matches.match_number = 1 AND uploaded_document_fts MATCH ?"
     );
 
     let mut stmt = db.prepare(&sql).map_err(db_err)?;
     for (term_index, (_, query)) in terms.iter().enumerate() {
-        let mut values = vec![Value::Text(format!("{{heading text}} : ({query})"))];
+        let scoped_query = format!("{{heading text}} : ({query})");
+        let mut values = vec![Value::Text(scoped_query.clone())];
         values.extend(
             results
                 .iter()
                 .map(|result| Value::Text(result.document_id.clone())),
         );
+        values.push(Value::Text(scoped_query));
         let rows = stmt
             .query_map(params_from_iter(values.iter()), |row| {
                 Ok((
@@ -740,11 +788,12 @@ fn attach_search_term_matches(
                     row.get::<_, i64>(1)? as usize,
                     row.get::<_, Option<i64>>(2)?.map(|value| value as usize),
                     row.get::<_, i64>(3)? as usize,
+                    row.get::<_, String>(4)?,
                 ))
             })
             .map_err(db_err)?;
         for row in rows {
-            let (document_id, section_index, page_index, matching_sections) =
+            let (document_id, section_index, page_index, matching_sections, excerpt) =
                 row.map_err(db_err)?;
             let Some(result_index) = result_indexes.get(&document_id) else {
                 continue;
@@ -753,6 +802,7 @@ fn attach_search_term_matches(
             term_match.matching_sections = matching_sections;
             term_match.section_index = Some(section_index);
             term_match.page_index = page_index;
+            term_match.text = first_marked_text(&excerpt);
         }
     }
     Ok(())
@@ -988,9 +1038,9 @@ mod tests {
 
     use super::{
         attach_search_term_matches, comparison_terms, count_normalized_matches,
-        document_candidates, fts_and_query, fts_fuzzy_queries, fts_fuzzy_terms, fts_phrase_queries,
-        normalize_exact_text, retain_exact_phrase_hits, search_cross_section_document_hits,
-        search_section_hits,
+        document_candidates, fts_and_query, fts_fuzzy_queries, fts_fuzzy_terms, fts_or_query,
+        fts_phrase_queries, normalize_exact_text, retain_exact_phrase_candidates,
+        retain_exact_phrase_hits, search_cross_section_document_hits, search_section_hits,
     };
 
     #[test]
@@ -1196,6 +1246,29 @@ mod tests {
     }
 
     #[test]
+    fn mixed_exact_search_targets_the_verified_phrase_section() {
+        let db = test_db();
+        insert_document(
+            &db,
+            "mixed-exact-locator",
+            "/uploads/mixed-exact-locator.html",
+            "Mixed Exact Locator",
+            &["Anne writes a letter.", "The Green Gables orchard."],
+        );
+
+        let phrases = vec!["green gables".to_string()];
+        let mut queries = fts_fuzzy_queries("anne green gables");
+        queries.extend(fts_phrase_queries(&phrases));
+        let candidates = document_candidates(&db, &fts_or_query(&queries), &[], None, "document")
+            .expect("mixed candidates");
+        let verified = retain_exact_phrase_candidates(&db, candidates, &phrases)
+            .expect("literal phrase verification");
+
+        assert_eq!(verified.len(), 1);
+        assert_eq!(verified[0].section_index, 1);
+    }
+
+    #[test]
     fn fuzzy_search_prefers_same_section_hits() {
         let db = test_db();
         insert_document(
@@ -1272,6 +1345,10 @@ mod tests {
         );
         assert_eq!(hit.match_locations[0].bin_index, 0);
         assert_eq!(hit.match_locations[11].bin_index, 11);
+        assert!(hit
+            .match_locations
+            .iter()
+            .all(|location| location.text.as_deref() == Some("Orchard")));
     }
 
     #[test]
@@ -1296,8 +1373,10 @@ mod tests {
         assert_eq!(hits[0].term_matches[0].term, "orchard");
         assert_eq!(hits[0].term_matches[0].matching_sections, 2);
         assert_eq!(hits[0].term_matches[0].section_index, Some(0));
+        assert_eq!(hits[0].term_matches[0].text.as_deref(), Some("Orchard"));
         assert_eq!(hits[0].term_matches[1].matching_sections, 1);
         assert_eq!(hits[0].term_matches[1].section_index, Some(1));
+        assert_eq!(hits[0].term_matches[1].text.as_deref(), Some("Lantern"));
     }
 
     #[test]
