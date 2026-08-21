@@ -325,6 +325,27 @@
   cursor: wait;
 }
 
+.result-evidence-feedback {
+  padding: 0.6rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.result-evidence-feedback-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  background: var(--surface-danger);
+  color: var(--danger-strong);
+}
+
 .result-evidence-title,
 .result-evidence-excerpt {
   display: block;
@@ -351,12 +372,22 @@
 }
 
 .no-results {
-  text-align: center;
-  color: var(--text-muted);
   padding: 2rem 0;
+  color: var(--text-muted);
+  text-align: center;
 }
 
-.search-error {
+.search-feedback {
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+  line-height: 1.5;
+}
+
+.search-feedback-error {
+  background: var(--surface-danger);
   color: var(--danger-strong);
 }
 

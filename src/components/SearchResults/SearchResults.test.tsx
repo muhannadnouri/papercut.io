@@ -62,8 +62,31 @@ describe('search progress', () => {
     )
 
     expect(html).toContain('role="alert"')
+    expect(html).toContain('search-feedback-error')
     expect(html).toContain('search.results.searchFailed')
     expect(html).not.toContain('search.results.noResults')
+  })
+
+  it('announces an empty search as a non-error status', () => {
+    const html = renderToStaticMarkup(
+      <SearchResults
+        results={[]}
+        loading={false}
+        searchFailed={false}
+        searchableDocumentCount={321}
+        searchPhase={null}
+        submittedQuery="orchard"
+        lastSearchInfo={null}
+        scopeUrls={new Set()}
+        scopeActive={false}
+        onViewResult={() => undefined}
+      />,
+    )
+
+    expect(html).toContain('no-results search-feedback')
+    expect(html).toContain('role="status"')
+    expect(html).toContain('search.results.noResults')
+    expect(html).not.toContain('search-feedback-error')
   })
 })
 

@@ -133,7 +133,7 @@ export function SearchResults({
   return (
     <div className="results-container" aria-busy="false">
       {searchFailed && (
-        <p className="no-results search-error" role="alert">
+        <p className="no-results search-feedback search-feedback-error" role="alert">
           {t('search.results.searchFailed')}
         </p>
       )}
@@ -149,7 +149,7 @@ export function SearchResults({
       )}
 
       {!searchFailed && submittedQuery.length > 0 && filtered.length === 0 && (
-        <p className="no-results">
+        <p className="no-results search-feedback" role="status">
           <span>{t('search.results.noResults')}</span>
           {hasFilters && <> <span>{t('search.results.filtersApplied')}</span></>}
           {lastSearchInfo && <> {' '}<QuerySummary info={lastSearchInfo} t={t} /></>}
@@ -334,13 +334,16 @@ export function SearchResults({
                       {activeConcordance && activeTerm && (
                         <>
                           {activeConcordance.loading && activeConcordance.entries.length === 0 && (
-                            <span className="result-evidence-title" role="status">
+                            <span className="result-evidence-feedback" role="status">
                               {t('search.results.loadingOccurrences')}
                             </span>
                           )}
                           {activeConcordance.failed && (
-                            <>
-                              <span className="result-evidence-title" role="alert">
+                            <div
+                              className="result-evidence-feedback result-evidence-feedback-error"
+                              role="alert"
+                            >
+                              <span>
                                 {t('search.results.occurrencesFailed')}
                               </span>
                               <button
@@ -354,7 +357,7 @@ export function SearchResults({
                               >
                                 {t('search.results.retryOccurrences')}
                               </button>
-                            </>
+                            </div>
                           )}
                           {!activeConcordance.failed && activeConcordance.totalMatches > 0 && (
                             <span className="result-evidence-title">
@@ -367,7 +370,7 @@ export function SearchResults({
                           {!activeConcordance.loading
                             && !activeConcordance.failed
                             && activeConcordance.totalMatches === 0 && (
-                            <span className="result-evidence-title">
+                            <span className="result-evidence-feedback" role="status">
                               {t('search.results.noLiteralOccurrences')}
                             </span>
                           )}
