@@ -88,6 +88,7 @@ describe('document comparison', () => {
         submittedQuery="orchard lantern"
         lastSearchInfo={{
           phrases: [],
+          unquotedText: 'orchard lantern',
           uploadedDocuments: 2,
           uploadedMatchingSections: 2,
           starterDocuments: 0,
@@ -100,5 +101,41 @@ describe('document comparison', () => {
 
     expect(html).toContain('type="checkbox"')
     expect(html).toContain('search.results.compare')
+  })
+})
+
+describe('search query summary', () => {
+  it('shows unquoted words and exact phrases as separate required clauses', () => {
+    const html = renderToStaticMarkup(
+      <SearchResults
+        results={[{
+          id: 'one',
+          url: '/uploads/one.html',
+          meta: { title: 'One' },
+          excerpt: '<mark>anne</mark>',
+          source: 'upload',
+        }]}
+        loading={false}
+        searchFailed={false}
+        searchableDocumentCount={1}
+        searchPhase={null}
+        submittedQuery={'anne "green gables"'}
+        lastSearchInfo={{
+          phrases: ['green gables'],
+          unquotedText: 'anne',
+          uploadedDocuments: 1,
+          uploadedMatchingSections: 1,
+          starterDocuments: 0,
+        }}
+        scopeUrls={new Set()}
+        scopeActive={false}
+        onViewResult={() => undefined}
+      />,
+    )
+
+    expect(html).toContain('search.results.allWords')
+    expect(html).toContain('anne')
+    expect(html).toContain('search.results.exactPhrase')
+    expect(html).toContain('green gables')
   })
 })

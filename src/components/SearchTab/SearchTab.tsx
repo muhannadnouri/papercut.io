@@ -1,18 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import type { AuthorGroup, DocumentScopeMode } from '../../hooks/useDocumentFilters'
-import type { SearchPhase } from '../../hooks/useSearch'
+import type { LastSearchInfo, SearchPhase, SearchQueryError } from '../../hooks/useSearch'
 import type { DocumentInfo, SearchOpenTarget, SearchResult } from '../../types/search'
 import type { UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
 import { SearchBar } from '../SearchBar/SearchBar'
 import { SearchResults } from '../SearchResults/SearchResults'
 import { SearchScope } from '../SearchScope/SearchScope'
-
-interface LastSearchInfo {
-  phrases: string[]
-  uploadedDocuments: number
-  uploadedMatchingSections: number
-  starterDocuments: number
-}
 
 interface SearchTabProps {
   collapsedAuthors: Set<string>
@@ -30,6 +23,7 @@ interface SearchTabProps {
   openingDisabled: boolean
   openingDocumentUrl?: string
   query: string
+  queryError: SearchQueryError | null
   results: SearchResult[]
   selectedFilters: Set<string>
   scopeMode: DocumentScopeMode
@@ -63,6 +57,7 @@ export function SearchTab({
   openingDisabled,
   openingDocumentUrl,
   query,
+  queryError,
   results,
   selectedFilters,
   scopeMode,
@@ -85,6 +80,7 @@ export function SearchTab({
     <section className="tab-panel" role="tabpanel" aria-label={t('search.tabLabel')} data-tab="search">
       <SearchBar
         query={query}
+        queryError={queryError}
         disabled={disabled}
         onChange={onChangeQuery}
         onSubmit={onSubmitSearch}

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import type { SearchPhase } from '../../hooks/useSearch'
+import type { LastSearchInfo, SearchPhase } from '../../hooks/useSearch'
 import type { SearchOpenTarget, SearchPassage, SearchResult } from '../../types/search'
 import './SearchResults.css'
 
@@ -15,13 +15,6 @@ const SEARCH_PHASE_KEYS = {
   phrases: 'search.results.verifyingExactPhrases',
   excerpts: 'search.results.preparingExcerpts',
 } as const
-
-interface LastSearchInfo {
-  phrases: string[]
-  uploadedDocuments: number
-  uploadedMatchingSections: number
-  starterDocuments: number
-}
 
 interface SearchResultsProps {
   results: SearchResult[]
@@ -133,13 +126,7 @@ export function SearchResults({
           })}</strong>
           {hasFilters && <> · {t('search.results.filtered')}</>}
           {' · '}
-          {lastSearchInfo.phrases.length > 0
-            ? t(lastSearchInfo.phrases.length === 1 ? 'search.results.exactPhrase' : 'search.results.exactPhrases')
-            : t('search.results.matchedTerms')}
-          {' '}
-          {(lastSearchInfo.phrases.length > 0 ? lastSearchInfo.phrases : [submittedQuery]).map((phrase, index) => (
-            <bdi key={index} className="query-tag">&ldquo;{phrase}&rdquo;</bdi>
-          ))}
+          <QuerySummary info={lastSearchInfo} t={t} />
         </div>
       )}
 
@@ -204,16 +191,9 @@ export function SearchResults({
         <p className="no-results">
           <span>{t('search.results.noResults')}</span>
           {hasFilters && <> <span>{t('search.results.filtersApplied')}</span></>}
+          {lastSearchInfo && <> {' '}<QuerySummary info={lastSearchInfo} t={t} /></>}
           {' '}
-          <span>
-            {lastSearchInfo?.phrases.length
-              ? t(lastSearchInfo.phrases.length === 1 ? 'search.results.exactPhrase' : 'search.results.exactPhrases')
-              : t('search.results.searchTerms')}
-          </span>
-          {' '}
-          {(lastSearchInfo?.phrases.length ? lastSearchInfo.phrases : [submittedQuery]).map((phrase, index) => (
-            <bdi key={index} className="query-tag">&ldquo;{phrase}&rdquo;</bdi>
-          ))}
+          <span>{t('search.results.noResultsHint')}</span>
         </p>
       )}
 
@@ -369,6 +349,29 @@ export function SearchResults({
         </div>
       )}
     </div>
+  )
+}
+
+function QuerySummary({ info, t }: { info: LastSearchInfo; t: TFunction }) {
+  return (
+    <>
+      {info.unquotedText && (
+        <>
+          {t('search.results.allWords')} {' '}
+          <bdi className="query-tag">{info.unquotedText}</bdi>
+        </>
+      )}
+      {info.unquotedText && info.phrases.length > 0 && <> · </>}
+      {info.phrases.length > 0 && (
+        <>
+          {t(info.phrases.length === 1 ? 'search.results.exactPhrase' : 'search.results.exactPhrases')}
+          {' '}
+          {info.phrases.map((phrase, index) => (
+            <bdi key={index} className="query-tag">&ldquo;{phrase}&rdquo;</bdi>
+          ))}
+        </>
+      )}
+    </>
   )
 }
 

@@ -18,6 +18,13 @@
   text-align: center;
 }
 
+.search-input-error {
+  margin: 0.45rem auto 0;
+  color: var(--danger-strong);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
 .search-examples {
   display: flex;
   justify-content: center;

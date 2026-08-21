@@ -213,6 +213,7 @@ function App() {
     query,
     results,
     loading,
+    queryError,
     searchFailed,
     searchPhase,
     submittedQuery,
@@ -517,6 +518,7 @@ function App() {
         {activeTab === 'search' && (
           <SearchTab
             query={query}
+            queryError={queryError}
             disabled={!pagefindReady && uploadedDocuments.length === 0}
             onChangeQuery={handleSearch}
             onSubmitSearch={submitSearch}

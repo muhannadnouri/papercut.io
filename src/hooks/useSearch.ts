@@ -11,8 +11,7 @@ import {
   buildPhraseExcerpt,
   countPhraseOccurrences,
   docContainsAllPhrases,
-  extractQuotedPhrases,
-  stripQuotes,
+  parseSearchQuery,
   type DocumentSourceLoader,
 } from '../utils/phraseSearch'
 
@@ -28,12 +27,15 @@ const UPLOADED_SEARCH_PHASES: Record<UploadedDocumentSearchStage, SearchPhase> =
   buildingResults: 'evidence',
 }
 
-interface LastSearchInfo {
+export interface LastSearchInfo {
   phrases: string[]
+  unquotedText: string
   uploadedDocuments: number
   uploadedMatchingSections: number
   starterDocuments: number
 }
+
+export type SearchQueryError = 'unmatchedQuote'
 
 interface PagefindResultSet {
   results: SearchResult[]
@@ -50,6 +52,7 @@ interface UseSearchReturn {
   query: string
   results: SearchResult[]
   loading: boolean
+  queryError: SearchQueryError | null
   searchFailed: boolean
   searchPhase: SearchPhase | null
   submittedQuery: string
@@ -66,6 +69,7 @@ export function useSearch(
 ): UseSearchReturn {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
+  const [queryError, setQueryError] = useState<SearchQueryError | null>(null)
   const [searchFailed, setSearchFailed] = useState(false)
   const [searchPhase, setSearchPhase] = useState<SearchPhase | null>(null)
   const [submittedQuery, setSubmittedQuery] = useState('')
@@ -85,20 +89,35 @@ export function useSearch(
     const scopeList = hasScope ? Array.from(scopeUrls ?? []).sort() : undefined
     const searchKey = normalized + '\0' + (hasScope ? `scope\0${scopeList?.join('\0') ?? ''}` : 'all')
     latestSearchKeyRef.current = searchKey
-    submittedQueryRef.current = displayQuery
-    setSubmittedQuery(displayQuery)
     if (normalized.length === 0) {
       activeSearchKeyRef.current = ''
       setResults([])
+      setQueryError(null)
       setSearchFailed(false)
       setLastSearchInfo(null)
       setSearchPhase(null)
       return
     }
 
-    const displayPhrases = extractQuotedPhrases(displayQuery)
+    const parsedQuery = parseSearchQuery(displayQuery)
+    if (parsedQuery.unmatchedQuote) {
+      activeSearchKeyRef.current = ''
+      submittedQueryRef.current = ''
+      setSubmittedQuery('')
+      setResults([])
+      setQueryError('unmatchedQuote')
+      setSearchFailed(false)
+      setLastSearchInfo(null)
+      setSearchPhase(null)
+      return
+    }
+
+    submittedQueryRef.current = displayQuery
+    setSubmittedQuery(displayQuery)
+    setQueryError(null)
+    const displayPhrases = parsedQuery.exactPhrases
     const phrases = displayPhrases.map(normalizeForPhraseMatch)
-    const searchQuery = phrases.length > 0 ? stripQuotes(normalized) : normalized
+    const searchQuery = parsedQuery.providerQuery.toLowerCase()
     if (searchQuery.length === 0) {
       activeSearchKeyRef.current = ''
       setResults([])
@@ -114,6 +133,7 @@ export function useSearch(
       setSearchFailed(false)
       setLastSearchInfo({
         phrases: displayPhrases,
+        unquotedText: parsedQuery.unquotedText,
         uploadedDocuments: 0,
         uploadedMatchingSections: 0,
         starterDocuments: 0,
@@ -208,6 +228,7 @@ export function useSearch(
       setResults(filtered)
       setLastSearchInfo({
         phrases: displayPhrases,
+        unquotedText: parsedQuery.unquotedText,
         uploadedDocuments: uploadedSearch.totalDocuments,
         uploadedMatchingSections: uploadedSearch.totalMatchingSections,
         starterDocuments: phrases.length > 0
@@ -232,6 +253,7 @@ export function useSearch(
   const handleSearch = useCallback((searchQuery: string) => {
     setQuery(searchQuery)
     queryRef.current = searchQuery
+    setQueryError(null)
     if (searchQuery.trim().length === 0) {
       latestSearchKeyRef.current = ''
       activeSearchKeyRef.current = ''
@@ -262,6 +284,7 @@ export function useSearch(
     query,
     results,
     loading: searchPhase !== null,
+    queryError,
     searchFailed,
     searchPhase,
     submittedQuery,
