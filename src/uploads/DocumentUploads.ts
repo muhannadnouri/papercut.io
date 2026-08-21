@@ -29,6 +29,7 @@ export interface UploadedDocumentSearchResult {
   pageIndex?: number | null
   matchScope?: 'section' | 'document'
   matchingSections: number
+  matchCount?: number | null
   passages: UploadedDocumentSearchPassage[]
   matchLocations: UploadedDocumentSearchLocation[]
   termMatches: UploadedDocumentSearchTermMatch[]

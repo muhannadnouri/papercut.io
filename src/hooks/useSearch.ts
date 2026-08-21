@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import type { PagefindInstance, SearchResult } from '../types/search'
 import {
-  isUploadedPdfDocumentUrl,
   searchUploadedDocuments,
   type UploadedDocumentSearchResult,
   type UploadedDocumentSearchStage,
@@ -166,46 +165,42 @@ export function useSearch(
 
       setSearchPhase('results')
       const pagefind = await pagefindResultsInScope(pagefindSearch.results, scopeUrls, hasScope)
-      const pagefindData = pagefind.results.map((result) => ({ ...result, source: 'starter' as const }))
+      let pagefindData = pagefind.results.map((result) => ({ ...result, source: 'starter' as const }))
       const uploadedData = uploadedSearchToResults(uploadedSearch.results, phrases.length === 0)
+      if (phrases.length > 0) {
+        setSearchPhase('phrases')
+        const verdicts = await Promise.all(
+          pagefindData.map((result) => (
+            docContainsAllPhrases(result.url, phrases, options.loadDocumentSource)
+          )),
+        )
+        if (latestSearchKeyRef.current !== searchKey) return
+        pagefindData = pagefindData.filter((_, index) => verdicts[index])
+        if (pagefindData.length > 0) {
+          setSearchPhase('excerpts')
+          const [excerpts, matchCounts] = await Promise.all([
+            Promise.all(pagefindData.map((result) => (
+              buildPhraseExcerpt(result.url, phrases, options.loadDocumentSource)
+            ))),
+            Promise.all(pagefindData.map((result) => (
+              countPhraseOccurrences(result.url, phrases, options.loadDocumentSource)
+            ))),
+          ])
+          if (latestSearchKeyRef.current !== searchKey) return
+          pagefindData = pagefindData.map((result, index) => (
+            excerpts[index]
+              ? { ...result, customExcerpt: excerpts[index] ?? undefined, matchCount: matchCounts[index] }
+              : { ...result, matchCount: matchCounts[index] }
+          ))
+        }
+      }
+
       const data = [...uploadedData, ...pagefindData]
         .filter((result) => !hasScope || scopeUrls?.has(result.url))
       if (latestSearchKeyRef.current !== searchKey) return
 
       let filtered = data
-      if (phrases.length > 0) {
-        setSearchPhase('phrases')
-        const verdicts = await Promise.all(
-          data.map((d) => (
-            isUploadedPdfDocumentUrl(d.url)
-              ? true
-              : docContainsAllPhrases(d.url, phrases, options.loadDocumentSource)
-          )),
-        )
-        if (latestSearchKeyRef.current !== searchKey) return
-        filtered = data.filter((_, i) => verdicts[i])
-        setSearchPhase('excerpts')
-        const [excerpts, matchCounts] = await Promise.all([
-          Promise.all(filtered.map((d) => (
-            isUploadedPdfDocumentUrl(d.url)
-              ? null
-              : buildPhraseExcerpt(d.url, phrases, options.loadDocumentSource)
-          ))),
-          Promise.all(filtered.map((d) => (
-            isUploadedPdfDocumentUrl(d.url)
-              ? undefined
-              : countPhraseOccurrences(d.url, phrases, options.loadDocumentSource)
-          ))),
-        ])
-        if (latestSearchKeyRef.current !== searchKey) return
-        filtered = filtered.map((d, i) =>
-          isUploadedPdfDocumentUrl(d.url)
-            ? d
-            : excerpts[i]
-            ? { ...d, customExcerpt: excerpts[i] ?? undefined, matchCount: matchCounts[i] }
-            : { ...d, matchCount: matchCounts[i] },
-        )
-      } else if (options.loadDocumentSource) {
+      if (phrases.length === 0 && options.loadDocumentSource) {
         const terms = searchQuery.split(/\s+/).filter(Boolean)
         const fallbackTargets = filtered
           .slice(0, FUZZY_FALLBACK_EXCERPT_LIMIT)
@@ -320,7 +315,10 @@ export async function pagefindResultsInScope(
   return { results: scoped, totalDocuments }
 }
 
-function uploadedSearchToResult(result: UploadedDocumentSearchResult, matchCount?: number): SearchResult {
+function uploadedSearchToResult(
+  result: UploadedDocumentSearchResult,
+  includeSectionCount = true,
+): SearchResult {
   return {
     id: result.id,
     url: result.url,
@@ -328,7 +326,7 @@ function uploadedSearchToResult(result: UploadedDocumentSearchResult, matchCount
     excerpt: sanitizeUploadedExcerpt(result.excerpt),
     sectionIndex: result.sectionIndex,
     pageIndex: result.pageIndex,
-    matchCount,
+    matchCount: result.matchCount ?? (includeSectionCount ? result.matchingSections : undefined),
     matchScope: result.matchScope,
     matchingSections: result.matchingSections,
     passages: result.passages.map((passage) => ({
@@ -348,10 +346,7 @@ function uploadedSearchToResults(
   results: UploadedDocumentSearchResult[],
   includeSectionCount = true,
 ): SearchResult[] {
-  return results.map((result) => uploadedSearchToResult(
-    result,
-    includeSectionCount ? result.matchingSections : undefined,
-  ))
+  return results.map((result) => uploadedSearchToResult(result, includeSectionCount))
 }
 
 function sanitizeUploadedExcerpt(excerpt: string): string {

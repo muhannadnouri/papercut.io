@@ -127,6 +127,7 @@ describe('search query summary', () => {
           meta: { title: 'One' },
           excerpt: '<mark>anne</mark>',
           source: 'upload',
+          matchCount: 2,
           matchingSections: 2,
           matchLocations: [
             { binIndex: 0, sectionIndex: 0, matchCount: 1, text: 'anne' },
@@ -155,6 +156,7 @@ describe('search query summary', () => {
     expect(html).toContain('anne')
     expect(html).toContain('search.results.exactPhrase')
     expect(html).toContain('green gables')
+    expect(html).toContain('search.results.exactMatch:2')
     expect(html).not.toContain('result-evidence')
   })
 })

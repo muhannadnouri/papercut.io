@@ -30,6 +30,15 @@ struct RankedDocumentCandidate {
     matching_sections: usize,
     section_count: usize,
     match_scope: &'static str,
+    exact_evidence: Option<ExactPhraseEvidence>,
+}
+
+struct ExactPhraseEvidence {
+    section_index: usize,
+    page_index: Option<usize>,
+    section_title: Option<String>,
+    match_count: usize,
+    excerpt: String,
 }
 
 struct SearchEvidence {
@@ -108,6 +117,10 @@ pub(crate) fn search_uploads<R: Runtime>(
     document_candidates.truncate(remaining);
     let or_query = fts_or_query(&queries);
     progress(UploadedDocumentSearchStage::BuildingResults);
+    if !exact_queries.is_empty() {
+        attach_exact_phrase_evidence(&db, &mut section_candidates, &exact_phrases)?;
+        attach_exact_phrase_evidence(&db, &mut document_candidates, &exact_phrases)?;
+    }
     let mut results = search_results_for_candidates(&db, &query, &section_candidates)?;
     results.extend(search_results_for_candidates(
         &db,
@@ -235,14 +248,8 @@ fn retain_exact_phrase_candidates(
         .map(|phrase| normalize_exact_text(phrase))
         .collect::<Vec<_>>();
     let mut verified = Vec::new();
-    for mut candidate in candidates {
-        if let Some((section_id, section_index)) =
-            document_exact_phrase_locator(db, &candidate.document_id, &normalized_phrases)?
-        {
-            if candidate.match_scope == "document" {
-                candidate.section_id = section_id;
-                candidate.section_index = section_index;
-            }
+    for candidate in candidates {
+        if document_contains_exact_phrases(db, &candidate.document_id, &normalized_phrases)? {
             verified.push(candidate);
         }
     }
@@ -256,48 +263,131 @@ fn document_contains_exact_phrases(
     document_id: &str,
     phrases: &[String],
 ) -> Result<bool, String> {
-    Ok(document_exact_phrase_locator(db, document_id, phrases)?.is_some())
+    if phrases.is_empty() {
+        return Ok(false);
+    }
+    let mut stmt = db
+        .prepare(
+            "SELECT text FROM uploaded_sections \
+             WHERE document_id = ?1 ORDER BY ordinal ASC",
+        )
+        .map_err(db_err)?;
+    let rows = stmt
+        .query_map(params![document_id], |row| row.get::<_, String>(0))
+        .map_err(db_err)?;
+    let mut remaining = phrases.to_vec();
+    for row in rows {
+        let normalized = normalize_exact_text(&row.map_err(db_err)?);
+        remaining.retain(|phrase| !normalized.contains(phrase));
+        if remaining.is_empty() {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
-/// Verify every phrase and return the first phrase's earliest source section.
-/// Cross-section mixed searches use this locator instead of their broad term.
-fn document_exact_phrase_locator(
+/// Complete exact counts and display evidence only for the bounded visible set.
+fn attach_exact_phrase_evidence(
+    db: &Connection,
+    candidates: &mut [RankedDocumentCandidate],
+    phrases: &[String],
+) -> Result<(), String> {
+    let normalized_phrases = phrases
+        .iter()
+        .filter(|phrase| !fts_terms(phrase, 128).is_empty())
+        .map(|phrase| normalize_exact_text(phrase))
+        .collect::<Vec<_>>();
+    for candidate in candidates {
+        candidate.exact_evidence =
+            document_exact_phrase_evidence(db, &candidate.document_id, &normalized_phrases)?;
+        if candidate.exact_evidence.is_none() {
+            return Err("Verified exact search candidate disappeared".to_string());
+        }
+    }
+    Ok(())
+}
+
+/// Verify and count every phrase in one streaming section scan, retaining only
+/// the first phrase's earliest source target and one bounded display excerpt.
+fn document_exact_phrase_evidence(
     db: &Connection,
     document_id: &str,
     phrases: &[String],
-) -> Result<Option<(i64, usize)>, String> {
+) -> Result<Option<ExactPhraseEvidence>, String> {
     let Some(first_phrase) = phrases.first() else {
         return Ok(None);
     };
     let mut stmt = db
         .prepare(
-            "SELECT id, ordinal, text FROM uploaded_sections \
+            "SELECT ordinal, page_index, heading, text FROM uploaded_sections \
              WHERE document_id = ?1 ORDER BY ordinal ASC",
         )
         .map_err(db_err)?;
     let rows = stmt
         .query_map(params![document_id], |row| {
             Ok((
-                row.get::<_, i64>(0)?,
-                row.get::<_, i64>(1)? as usize,
-                row.get::<_, String>(2)?,
+                row.get::<_, i64>(0)? as usize,
+                row.get::<_, Option<i64>>(1)?.map(|value| value as usize),
+                row.get::<_, Option<String>>(2)?,
+                row.get::<_, String>(3)?,
             ))
         })
         .map_err(db_err)?;
     let mut remaining = phrases.to_vec();
-    let mut locator = None;
+    let mut evidence = None;
+    let mut match_count = 0usize;
     for row in rows {
-        let (section_id, section_index, text) = row.map_err(db_err)?;
-        let normalized = normalize_exact_text(&text);
-        if locator.is_none() && normalized.contains(first_phrase) {
-            locator = Some((section_id, section_index));
+        let (section_index, page_index, section_title, text) = row.map_err(db_err)?;
+        let display = normalize_exact_display(&text);
+        let normalized = display.to_lowercase();
+        match_count = phrases.iter().fold(match_count, |count, phrase| {
+            count.saturating_add(normalized.matches(phrase).count())
+        });
+        if evidence.is_none() && normalized.contains(first_phrase) {
+            evidence = Some(ExactPhraseEvidence {
+                section_index,
+                page_index,
+                section_title,
+                match_count: 0,
+                excerpt: exact_phrase_excerpt(&display, &normalized, first_phrase),
+            });
         }
         remaining.retain(|phrase| !normalized.contains(phrase));
-        if remaining.is_empty() {
-            return Ok(locator);
-        }
     }
-    Ok(None)
+    if !remaining.is_empty() {
+        return Ok(None);
+    }
+    if let Some(evidence) = &mut evidence {
+        evidence.match_count = match_count;
+    }
+    Ok(evidence)
+}
+
+fn exact_phrase_excerpt(display: &str, normalized: &str, phrase: &str) -> String {
+    const CONTEXT: usize = 120;
+
+    let match_start = normalized
+        .find(phrase)
+        .map(|index| normalized[..index].chars().count())
+        .unwrap_or(0);
+    let characters = display.chars().collect::<Vec<_>>();
+    let highlight_start = match_start.min(characters.len());
+    let highlight_end = (highlight_start + phrase.chars().count()).min(characters.len());
+    let start = highlight_start.saturating_sub(CONTEXT);
+    let end = (highlight_end + CONTEXT).min(characters.len());
+    let mut excerpt = String::new();
+    if start > 0 {
+        excerpt.push_str("… ");
+    }
+    excerpt.extend(characters[start..highlight_start].iter().copied());
+    excerpt.push_str("<mark>");
+    excerpt.extend(characters[highlight_start..highlight_end].iter().copied());
+    excerpt.push_str("</mark>");
+    excerpt.extend(characters[highlight_end..end].iter().copied());
+    if end < characters.len() {
+        excerpt.push_str(" …");
+    }
+    excerpt
 }
 
 #[cfg(test)]
@@ -376,6 +466,7 @@ fn document_candidates(
                     matching_sections: 0,
                     section_count,
                     match_scope,
+                    exact_evidence: None,
                 },
             );
         }
@@ -533,7 +624,7 @@ fn search_results_for_candidates(
             let candidate = candidate_by_section
                 .get(&section_id)
                 .ok_or(rusqlite::Error::InvalidQuery)?;
-            row_to_search_result(row, candidate.match_scope, candidate.matching_sections)
+            row_to_search_result(row, candidate)
         })
         .map_err(db_err)?;
     let mut result_by_document = rows
@@ -551,37 +642,64 @@ fn search_results_for_candidates(
                 .ok_or_else(|| "Ranked search result disappeared".to_string())
         })
         .collect::<Result<Vec<_>, _>>()?;
-    attach_search_evidence(db, query, candidates, &mut results)?;
+    if candidates
+        .iter()
+        .all(|candidate| candidate.exact_evidence.is_none())
+    {
+        attach_search_evidence(db, query, candidates, &mut results)?;
+    }
     Ok(results)
 }
 
 fn row_to_search_result(
     row: &Row<'_>,
-    match_scope: &str,
-    matching_sections: usize,
+    candidate: &RankedDocumentCandidate,
 ) -> rusqlite::Result<UploadedDocumentSearchResult> {
     let document_id: String = row.get(0)?;
-    let section_index: i64 = row.get(3)?;
-    let page_index = row
+    let broad_section_index = row.get::<_, i64>(3)? as usize;
+    let broad_page_index = row
         .get::<_, Option<i64>>(4)?
         .map(|page_index| page_index as usize);
-    let section_title: Option<String> = row.get(5)?;
-    let excerpt: String = row.get(6)?;
+    let broad_section_title = row.get::<_, Option<String>>(5)?;
+    let broad_excerpt = row.get::<_, String>(6)?;
+    let (section_index, page_index, section_title, excerpt, match_count) = candidate
+        .exact_evidence
+        .as_ref()
+        .map(|evidence| {
+            (
+                evidence.section_index,
+                evidence.page_index,
+                evidence.section_title.clone(),
+                evidence.excerpt.clone(),
+                Some(evidence.match_count),
+            )
+        })
+        .unwrap_or((
+            broad_section_index,
+            broad_page_index,
+            broad_section_title,
+            broad_excerpt,
+            None,
+        ));
     Ok(UploadedDocumentSearchResult {
-        id: format!("upload:{match_scope}:{document_id}:{section_index}"),
+        id: format!(
+            "upload:{}:{document_id}:{section_index}",
+            candidate.match_scope
+        ),
         document_id,
         url: row.get(1)?,
         title: row.get(2)?,
-        section_index: section_index as usize,
+        section_index,
         page_index,
         section_title: section_title.clone(),
         excerpt: excerpt.clone(),
-        match_scope: match_scope.to_string(),
-        matching_sections,
+        match_scope: candidate.match_scope.to_string(),
+        matching_sections: candidate.matching_sections,
+        match_count,
         passages: vec![UploadedDocumentSearchPassage {
             excerpt,
             section_title,
-            section_index: section_index as usize,
+            section_index,
             page_index,
         }],
         match_locations: Vec::new(),
@@ -894,6 +1012,10 @@ fn fts_terms(query: &str, limit: usize) -> Vec<String> {
 }
 
 fn normalize_exact_text(text: &str) -> String {
+    normalize_exact_display(text).to_lowercase()
+}
+
+fn normalize_exact_display(text: &str) -> String {
     let punctuation = text
         .replace('\u{2018}', "'")
         .replace('\u{2019}', "'")
@@ -903,7 +1025,6 @@ fn normalize_exact_text(text: &str) -> String {
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
-        .to_lowercase()
 }
 
 /// Treat each of the first four internal hyphens independently as punctuation
@@ -1037,10 +1158,11 @@ mod tests {
     use rusqlite::{params, Connection};
 
     use super::{
-        attach_search_term_matches, comparison_terms, count_normalized_matches,
-        document_candidates, fts_and_query, fts_fuzzy_queries, fts_fuzzy_terms, fts_or_query,
-        fts_phrase_queries, normalize_exact_text, retain_exact_phrase_candidates,
-        retain_exact_phrase_hits, search_cross_section_document_hits, search_section_hits,
+        attach_exact_phrase_evidence, attach_search_term_matches, comparison_terms,
+        count_normalized_matches, document_candidates, fts_and_query, fts_fuzzy_queries,
+        fts_fuzzy_terms, fts_or_query, fts_phrase_queries, normalize_exact_text,
+        retain_exact_phrase_candidates, retain_exact_phrase_hits,
+        search_cross_section_document_hits, search_results_for_candidates, search_section_hits,
     };
 
     #[test]
@@ -1246,26 +1368,37 @@ mod tests {
     }
 
     #[test]
-    fn mixed_exact_search_targets_the_verified_phrase_section() {
+    fn mixed_exact_search_returns_native_count_excerpt_and_phrase_locator() {
         let db = test_db();
         insert_document(
             &db,
             "mixed-exact-locator",
             "/uploads/mixed-exact-locator.html",
             "Mixed Exact Locator",
-            &["Anne writes a letter.", "The Green Gables orchard."],
+            &[
+                "Anne writes a letter.",
+                "The Green Gables orchard.",
+                "Anne later returns to GREEN GABLES.",
+            ],
         );
 
         let phrases = vec!["green gables".to_string()];
         let mut queries = fts_fuzzy_queries("anne green gables");
         queries.extend(fts_phrase_queries(&phrases));
-        let candidates = document_candidates(&db, &fts_or_query(&queries), &[], None, "document")
-            .expect("mixed candidates");
-        let verified = retain_exact_phrase_candidates(&db, candidates, &phrases)
+        let query = fts_or_query(&queries);
+        let candidates =
+            document_candidates(&db, &query, &[], None, "document").expect("mixed candidates");
+        let mut verified = retain_exact_phrase_candidates(&db, candidates, &phrases)
             .expect("literal phrase verification");
+        attach_exact_phrase_evidence(&db, &mut verified, &phrases)
+            .expect("complete exact evidence");
+        let results =
+            search_results_for_candidates(&db, &query, &verified).expect("native exact evidence");
 
-        assert_eq!(verified.len(), 1);
-        assert_eq!(verified[0].section_index, 1);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].section_index, 1);
+        assert_eq!(results[0].match_count, Some(2));
+        assert!(results[0].excerpt.contains("<mark>Green Gables</mark>"));
     }
 
     #[test]

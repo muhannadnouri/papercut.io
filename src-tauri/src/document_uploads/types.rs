@@ -117,6 +117,7 @@ pub(crate) struct UploadedDocumentSearchResult {
     pub(crate) page_index: Option<usize>,
     pub(crate) match_scope: String,
     pub(crate) matching_sections: usize,
+    pub(crate) match_count: Option<usize>,
     pub(crate) passages: Vec<UploadedDocumentSearchPassage>,
     pub(crate) match_locations: Vec<UploadedDocumentSearchLocation>,
     pub(crate) term_matches: Vec<UploadedDocumentSearchTermMatch>,
