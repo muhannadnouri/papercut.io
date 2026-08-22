@@ -4,23 +4,54 @@ export interface PagefindSubResult {
   excerpt?: string
 }
 
+export interface SearchPassage {
+  excerpt: string
+  sectionTitle?: string | null
+  sectionIndex: number
+  pageIndex?: number | null
+}
+
+export interface SearchMatchLocation {
+  binIndex: number
+  sectionIndex: number
+  pageIndex?: number | null
+  matchCount: number
+  text?: string | null
+}
+
+export interface SearchTermMatch {
+  term: string
+  matchingSections: number
+  sectionIndex?: number | null
+  pageIndex?: number | null
+  text?: string | null
+}
+
 export interface SearchResult {
   id: string
   url: string
   meta: { title: string }
   excerpt: string
+  sectionIndex?: number
   pageIndex?: number | null
   content?: string
   sub_results?: PagefindSubResult[]
   customExcerpt?: string
   matchCount?: number
   matchScope?: 'section' | 'document'
+  matchingSections?: number
+  passages?: SearchPassage[]
+  matchLocations?: SearchMatchLocation[]
+  termMatches?: SearchTermMatch[]
+  source?: 'upload' | 'starter'
 }
 
 export interface SearchOpenTarget {
   hash?: string
   text?: string
+  sectionIndex?: number
   pageIndex?: number
+  occurrenceIndex?: number
 }
 
 export interface PagefindInstance {

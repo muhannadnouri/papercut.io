@@ -159,9 +159,18 @@ export function DocumentsPanel({
         {hasImportOptions && (
           <div className="document-import-menu">
             <MenuTrigger isOpen={importMenuOpen} onOpenChange={setImportMenuOpen}>
-              <Button className="document-import-btn" isDisabled={importDisabled}>
-                {activeImport?.statusLabel ?? t('library.documents.import')}
-                <span className={`toggle-arrow ${importMenuOpen ? 'open' : ''}`} aria-hidden="true">&#9662;</span>
+              <Button
+                className={`document-import-btn${importBusy ? ' document-import-btn-busy' : ''}`}
+                isDisabled={importDisabled}
+                aria-label={importBusy
+                  ? activeImport?.statusLabel ?? t('library.import.importingBatch')
+                  : undefined}
+              >
+                <span className="document-import-btn-label" aria-hidden={importBusy ? true : undefined}>
+                  {t('library.documents.import')}
+                  <span className={`toggle-arrow ${importMenuOpen ? 'open' : ''}`} aria-hidden="true">&#9662;</span>
+                </span>
+                {importBusy && <span className="spinner document-import-btn-spinner" aria-hidden="true" />}
               </Button>
               <Popover
                 className="document-import-popover"

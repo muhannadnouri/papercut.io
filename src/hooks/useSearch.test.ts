@@ -27,7 +27,8 @@ describe('document search scope', () => {
 
     const scoped = await pagefindResultsInScope(results, new Set(['/allowed']), true)
 
-    expect(scoped.map((result) => result.url)).toEqual(['/allowed'])
+    expect(scoped.results.map((result) => result.url)).toEqual(['/allowed'])
+    expect(scoped.totalDocuments).toBe(1)
     expect(reads).toBe(56)
   })
 
@@ -41,7 +42,28 @@ describe('document search scope', () => {
       },
     }]
 
-    expect(await pagefindResultsInScope(results, new Set(), true)).toEqual([])
+    expect(await pagefindResultsInScope(results, new Set(), true)).toEqual({
+      results: [],
+      totalDocuments: 0,
+    })
     expect(reads).toBe(0)
+  })
+
+  it('counts scoped Pagefind matches before limiting visible starter documents', async () => {
+    const results = Array.from({ length: 60 }, (_, index) => ({
+      id: String(index),
+      data: async (): Promise<SearchResult> => ({
+        id: String(index),
+        url: `/allowed-${index}`,
+        meta: { title: String(index) },
+        excerpt: '',
+      }),
+    }))
+    const allowed = new Set(results.map((_, index) => `/allowed-${index}`))
+
+    const scoped = await pagefindResultsInScope(results, allowed, true)
+
+    expect(scoped.results).toHaveLength(50)
+    expect(scoped.totalDocuments).toBe(60)
   })
 })

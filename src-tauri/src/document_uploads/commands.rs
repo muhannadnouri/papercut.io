@@ -5,7 +5,7 @@
 //! filesystem or SQLite I/O, then maps a join error into a `String`. All real
 //! logic lives in the modules these delegate to.
 
-use tauri::Runtime;
+use tauri::{ipc::Channel, Runtime};
 
 use super::batch::{delete_batch, import_batch, import_folder, import_paths};
 use super::organization::{
@@ -18,14 +18,15 @@ use super::pdf::{
     PdfNarrationSegment, PdfPageTextReadRequest, PdfPageTextRequest,
 };
 use super::pipeline::{delete_upload, get_cover, get_source, import_pasted_text};
-use super::search::{find_pdf_text, search_uploads};
+use super::search::{concordance_upload, find_pdf_text, search_uploads};
 use super::store::{list_uploads, open_db, update_document_title};
 use super::types::{
-    UploadedDocument, UploadedDocumentBatchResult, UploadedDocumentDeleteBatchRequest,
+    UploadedDocument, UploadedDocumentBatchResult, UploadedDocumentConcordanceRequest,
+    UploadedDocumentConcordanceResponse, UploadedDocumentDeleteBatchRequest,
     UploadedDocumentDeleteBatchResult, UploadedDocumentDeleteRequest, UploadedDocumentDeleteResult,
     UploadedDocumentPastedTextRequest, UploadedDocumentPathImportRequest,
-    UploadedDocumentSearchRequest, UploadedDocumentSearchResult, UploadedDocumentSource,
-    UploadedDocumentSourceRequest, UploadedDocumentTitleUpdateRequest,
+    UploadedDocumentSearchRequest, UploadedDocumentSearchResponse, UploadedDocumentSearchStage,
+    UploadedDocumentSource, UploadedDocumentSourceRequest, UploadedDocumentTitleUpdateRequest,
     UploadedLibraryCreateFolderRequest, UploadedLibraryDeleteFolderRequest,
     UploadedLibraryMoveDocumentsRequest, UploadedLibraryMoveFolderRequest,
     UploadedLibraryOrganization, UploadedLibraryRenameFolderRequest, UploadedLibraryReorderRequest,
@@ -121,10 +122,26 @@ pub async fn document_uploads_update_title<R: Runtime>(
 pub async fn document_uploads_search<R: Runtime>(
     app: tauri::AppHandle<R>,
     request: UploadedDocumentSearchRequest,
-) -> Result<Vec<UploadedDocumentSearchResult>, String> {
-    tauri::async_runtime::spawn_blocking(move || search_uploads(&app, request))
+    on_progress: Channel<UploadedDocumentSearchStage>,
+) -> Result<UploadedDocumentSearchResponse, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        search_uploads(&app, request, |stage| {
+            let _ = on_progress.send(stage);
+        })
+    })
+    .await
+    .map_err(|err| format!("Document upload search task failed: {err}"))?
+}
+
+/// Return bounded source-linked context lines for one uploaded document and term.
+#[tauri::command]
+pub async fn document_uploads_concordance<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedDocumentConcordanceRequest,
+) -> Result<UploadedDocumentConcordanceResponse, String> {
+    tauri::async_runtime::spawn_blocking(move || concordance_upload(&app, request))
         .await
-        .map_err(|err| format!("Document upload search task failed: {err}"))?
+        .map_err(|err| format!("Document concordance task failed: {err}"))?
 }
 
 /// Find literal matches in one PDF without loading its page text into the WebView.

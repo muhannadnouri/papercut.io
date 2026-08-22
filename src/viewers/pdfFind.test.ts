@@ -70,18 +70,33 @@ describe('PDF Find adapter', () => {
     const adapter = createPdfFindAdapter(eventBus, vi.fn())
 
     adapter.api.search('high-lights')
-    expect(eventBus.dispatched.at(-1)?.event.query).toEqual([
+    expect(eventBus.dispatched.at(-1)?.event.query).toEqual(expect.arrayContaining([
       'high-lights',
       'high- lights',
       'highlights',
-    ])
+      'high–lights',
+      'high—lights',
+    ]))
+    expect(eventBus.dispatched.at(-1)?.event.query).toHaveLength(9)
 
     adapter.api.search('high- lights')
-    expect(eventBus.dispatched.at(-1)?.event.query).toEqual([
+    expect(eventBus.dispatched.at(-1)?.event.query).toEqual(expect.arrayContaining([
       'high- lights',
       'high-lights',
       'highlights',
-    ])
+      'high–lights',
+      'high—lights',
+    ]))
+    expect(eventBus.dispatched.at(-1)?.event.query).toHaveLength(9)
+
+    adapter.api.search('high—lights')
+    expect(eventBus.dispatched.at(-1)?.event.query).toEqual(expect.arrayContaining([
+      'high-lights',
+      'high–lights',
+      'high—lights',
+      'highlights',
+    ]))
+    expect(eventBus.dispatched.at(-1)?.event.query).toHaveLength(9)
 
     adapter.api.search('highlights')
     expect(eventBus.dispatched.at(-1)?.event.query).toBe('highlights')
@@ -98,7 +113,11 @@ describe('PDF Find adapter', () => {
       'highlights state-owned',
       'high-lights stateowned',
       'highlights stateowned',
+      'high–lights state–owned',
+      'high—lights state—owned',
+      'high–lights state—owned',
+      'high—lights state–owned',
     ]))
-    expect(aliases).toHaveLength(9)
+    expect(aliases).toHaveLength(57)
   })
 })

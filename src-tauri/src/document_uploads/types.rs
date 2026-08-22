@@ -71,7 +71,39 @@ pub(crate) struct UploadedDocumentBatchResult {
     pub(crate) cancelled: bool,
 }
 
-/// One FTS hit: a matching section with a highlighted snippet.
+/// One source-linked passage retained for an uploaded-document result.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentSearchPassage {
+    pub(crate) excerpt: String,
+    pub(crate) section_title: Option<String>,
+    pub(crate) section_index: usize,
+    pub(crate) page_index: Option<usize>,
+}
+
+/// One bounded distribution bin and its first literal matching-section target.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentSearchLocation {
+    pub(crate) bin_index: usize,
+    pub(crate) section_index: usize,
+    pub(crate) page_index: Option<usize>,
+    pub(crate) match_count: usize,
+    pub(crate) text: Option<String>,
+}
+
+/// One query term's bounded count and first literal source target.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentSearchTermMatch {
+    pub(crate) term: String,
+    pub(crate) matching_sections: usize,
+    pub(crate) section_index: Option<usize>,
+    pub(crate) page_index: Option<usize>,
+    pub(crate) text: Option<String>,
+}
+
+/// One document-level FTS hit with bounded supporting evidence.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentSearchResult {
@@ -84,6 +116,60 @@ pub(crate) struct UploadedDocumentSearchResult {
     pub(crate) section_index: usize,
     pub(crate) page_index: Option<usize>,
     pub(crate) match_scope: String,
+    pub(crate) matching_sections: usize,
+    pub(crate) match_count: Option<usize>,
+    pub(crate) passages: Vec<UploadedDocumentSearchPassage>,
+    pub(crate) match_locations: Vec<UploadedDocumentSearchLocation>,
+    pub(crate) term_matches: Vec<UploadedDocumentSearchTermMatch>,
+}
+
+/// Bounded search results plus counts computed before the result limit.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentSearchResponse {
+    pub(crate) results: Vec<UploadedDocumentSearchResult>,
+    pub(crate) total_documents: usize,
+    pub(crate) total_matching_sections: usize,
+}
+
+/// One bounded page request for literal occurrences inside one uploaded document.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentConcordanceRequest {
+    pub(crate) document_url: String,
+    pub(crate) query: String,
+    pub(crate) offset: Option<usize>,
+    pub(crate) limit: Option<usize>,
+}
+
+/// One context line and its exact source occurrence within an indexed section.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentConcordanceEntry {
+    pub(crate) occurrence_index: usize,
+    pub(crate) section_occurrence_index: usize,
+    pub(crate) excerpt: String,
+    pub(crate) section_title: Option<String>,
+    pub(crate) section_index: usize,
+    pub(crate) page_index: Option<usize>,
+}
+
+/// Bounded concordance lines plus the complete literal occurrence count.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentConcordanceResponse {
+    pub(crate) total_matches: usize,
+    pub(crate) entries: Vec<UploadedDocumentConcordanceEntry>,
+    pub(crate) next_offset: Option<usize>,
+}
+
+/// Stable SQLite search stages streamed to the invoking WebView.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum UploadedDocumentSearchStage {
+    FindingCandidates,
+    VerifyingPhrases,
+    BuildingResults,
 }
 
 /// Outcome of a delete, including bytes reclaimed from app data.
@@ -295,4 +381,23 @@ pub(crate) struct UploadedLibraryOrderItem {
 pub(crate) struct UploadedLibraryReorderRequest {
     pub(crate) parent_id: Option<String>,
     pub(crate) items: Vec<UploadedLibraryOrderItem>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::UploadedDocumentSearchStage;
+
+    #[test]
+    fn search_stages_keep_the_frontend_channel_contract() {
+        let stages = [
+            UploadedDocumentSearchStage::FindingCandidates,
+            UploadedDocumentSearchStage::VerifyingPhrases,
+            UploadedDocumentSearchStage::BuildingResults,
+        ];
+
+        assert_eq!(
+            serde_json::to_value(stages).expect("serialize search stages"),
+            serde_json::json!(["findingCandidates", "verifyingPhrases", "buildingResults"]),
+        );
+    }
 }

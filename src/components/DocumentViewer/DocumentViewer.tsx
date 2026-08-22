@@ -31,7 +31,10 @@ import {
   clearSearchTargetHighlight,
   decodeReaderHash,
   highlightFirstSearchTarget,
+  highlightSearchTarget,
+  readerSectionSelector,
   readerScrollBehavior,
+  scrollToReaderElement,
   scrollToReaderRange,
 } from './readerTarget'
 import './DocumentViewer.css'
@@ -294,8 +297,7 @@ export function DocumentViewer({
     const target = idTarget && root.contains(idTarget) ? idTarget : namedTarget
     if (!target) return
 
-    const targetTop = window.scrollY + target.getBoundingClientRect().top
-    window.scrollTo({ top: Math.max(targetTop - 120, 0), behavior: readerScrollBehavior() })
+    scrollToReaderElement(target)
   }, [])
 
   useEffect(() => {
@@ -307,9 +309,30 @@ export function DocumentViewer({
       if (!root) return
       highlightedRoot = root
       clearSearchTargetHighlight(root)
-      if (searchTarget.hash) scrollToHash(searchTarget.hash)
-      const target = searchTarget.text ? highlightFirstSearchTarget(root, searchTarget.text) : null
-      if (target) scrollToReaderRange(target)
+      const sectionSelector = readerSectionSelector(searchTarget.sectionIndex)
+      const section = sectionSelector ? root.querySelector<HTMLElement>(sectionSelector) : null
+      const sectionTarget = searchTarget.text
+        ? highlightSearchTarget(
+            section ?? root,
+            searchTarget.text,
+            searchTarget.occurrenceIndex ?? 0,
+          )
+        : null
+      // Exact-phrase verification can find a phrase in a different section
+      // from SQLite's best broad candidate. Keep the whole-reader fallback for
+      // that case instead of scrolling confidently to the wrong block.
+      const target = sectionTarget ?? (
+        section && searchTarget.text
+          ? highlightFirstSearchTarget(root, searchTarget.text)
+          : null
+      )
+      if (target) {
+        scrollToReaderRange(target)
+      } else if (section) {
+        scrollToReaderElement(section)
+      } else if (searchTarget.hash) {
+        scrollToHash(searchTarget.hash)
+      }
     })
 
     return () => {

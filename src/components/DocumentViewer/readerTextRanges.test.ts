@@ -36,6 +36,14 @@ describe('reader text ranges', () => {
     expect(findTextPartMatches(parts, 'foobar', Infinity, breaksBefore)).toEqual([])
   })
 
+  it('treats straight, en, and em dashes as the same visible punctuation', () => {
+    for (const query of ['well-being', 'well–being', 'well—being']) {
+      expect(findTextPartMatches(['“Well—being”'], `"${query}"`)).toEqual([[
+        { partIndex: 0, startOffset: 0, endOffset: 12 },
+      ]])
+    }
+  })
+
   it('keeps common-query matching bounded when a caller supplies a limit', () => {
     expect(findTextPartMatches(['a'.repeat(10_000)], 'a', 3)).toEqual([
       [{ partIndex: 0, startOffset: 0, endOffset: 1 }],

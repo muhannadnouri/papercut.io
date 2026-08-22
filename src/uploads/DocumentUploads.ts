@@ -28,7 +28,61 @@ export interface UploadedDocumentSearchResult {
   sectionIndex: number
   pageIndex?: number | null
   matchScope?: 'section' | 'document'
+  matchingSections: number
+  matchCount?: number | null
+  passages: UploadedDocumentSearchPassage[]
+  matchLocations: UploadedDocumentSearchLocation[]
+  termMatches: UploadedDocumentSearchTermMatch[]
 }
+
+export interface UploadedDocumentSearchPassage {
+  excerpt: string
+  sectionTitle?: string | null
+  sectionIndex: number
+  pageIndex?: number | null
+}
+
+export interface UploadedDocumentSearchLocation {
+  binIndex: number
+  sectionIndex: number
+  pageIndex?: number | null
+  matchCount: number
+  text?: string | null
+}
+
+export interface UploadedDocumentSearchTermMatch {
+  term: string
+  matchingSections: number
+  sectionIndex?: number | null
+  pageIndex?: number | null
+  text?: string | null
+}
+
+export interface UploadedDocumentSearchResponse {
+  results: UploadedDocumentSearchResult[]
+  totalDocuments: number
+  totalMatchingSections: number
+}
+
+export interface UploadedDocumentConcordanceEntry {
+  occurrenceIndex: number
+  sectionOccurrenceIndex: number
+  excerpt: string
+  sectionTitle?: string | null
+  sectionIndex: number
+  pageIndex?: number | null
+}
+
+export interface UploadedDocumentConcordanceResponse {
+  totalMatches: number
+  entries: UploadedDocumentConcordanceEntry[]
+  nextOffset?: number | null
+}
+
+export type UploadedDocumentSearchStage =
+  | 'findingCandidates'
+  | 'verifyingPhrases'
+  | 'buildingResults'
 
 interface UploadedDocumentSource {
   html: string
@@ -249,11 +303,29 @@ export async function searchUploadedDocuments(
   limit = 50,
   documentUrls?: string[],
   exactPhrases?: string[],
-): Promise<UploadedDocumentSearchResult[]> {
-  if (!isTauriRuntime() || query.trim().length === 0) return []
-  const invoke = await loadTauriInvoke()
-  return invoke<UploadedDocumentSearchResult[]>('document_uploads_search', {
+  onProgress: (stage: UploadedDocumentSearchStage) => void = () => {},
+): Promise<UploadedDocumentSearchResponse> {
+  const hasExactPhrases = exactPhrases?.some((phrase) => phrase.trim().length > 0) ?? false
+  if (!isTauriRuntime() || (query.trim().length === 0 && !hasExactPhrases)) {
+    return { results: [], totalDocuments: 0, totalMatchingSections: 0 }
+  }
+  const mod = await import('@tauri-apps/api/core')
+  const progress = new mod.Channel<UploadedDocumentSearchStage>(onProgress)
+  return mod.invoke<UploadedDocumentSearchResponse>('document_uploads_search', {
     request: { query, limit, documentUrls, exactPhrases },
+    onProgress: progress,
+  })
+}
+
+export async function findUploadedDocumentOccurrences(
+  documentUrl: string,
+  query: string,
+  offset = 0,
+  limit = 50,
+): Promise<UploadedDocumentConcordanceResponse> {
+  const invoke = await loadTauriInvoke()
+  return invoke<UploadedDocumentConcordanceResponse>('document_uploads_concordance', {
+    request: { documentUrl, query, offset, limit },
   })
 }
 

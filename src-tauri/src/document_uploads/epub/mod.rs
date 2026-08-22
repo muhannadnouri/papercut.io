@@ -86,17 +86,26 @@ pub(crate) fn parse_epub_document(
         if normalize_text(&strip_tags(&sanitized)).is_empty() && image_paths.is_empty() {
             continue;
         }
-        referenced_image_paths.extend(image_paths);
+        referenced_image_paths.extend(image_paths.iter().cloned());
         chapter_drafts.push(ChapterDraft {
             index,
             path: chapter_path.clone(),
             anchors: collect_fragment_anchors(&sanitized),
             sanitized,
+            image_paths,
             language,
             direction,
         });
     }
 
+    let image_assets = load_image_assets(&mut archive, &package.manifest, &referenced_image_paths);
+    chapter_drafts.retain(|chapter| {
+        !normalize_text(&strip_tags(&chapter.sanitized)).is_empty()
+            || chapter
+                .image_paths
+                .iter()
+                .any(|path| image_assets.paths.contains_key(path))
+    });
     let readable_paths: HashSet<String> = chapter_drafts
         .iter()
         .map(|chapter| chapter.path.clone())
@@ -105,7 +114,6 @@ pub(crate) fn parse_epub_document(
         .iter()
         .map(|chapter| (chapter.path.clone(), chapter.anchors.clone()))
         .collect();
-    let image_assets = load_image_assets(&mut archive, &package.manifest, &referenced_image_paths);
 
     let mut chapters = Vec::new();
     for chapter in chapter_drafts {
@@ -160,6 +168,7 @@ struct ChapterDraft {
     path: String,
     sanitized: String,
     anchors: HashSet<String>,
+    image_paths: HashSet<String>,
     language: Option<String>,
     direction: Option<String>,
 }

@@ -46,17 +46,48 @@ async function fetchSource(url: string): Promise<string> {
   return res.text()
 }
 
-export function extractQuotedPhrases(q: string): string[] {
-  const query = normalizeQueryQuotes(q)
-  const matches = query.match(/"([^"]+)"/g)
-  if (!matches) return []
-  return matches
-    .map((m) => m.slice(1, -1).trim())
-    .filter((p) => p.length > 0)
+export interface ParsedSearchQuery {
+  exactPhrases: string[]
+  providerQuery: string
+  unquotedText: string
+  unmatchedQuote: boolean
 }
 
-export function stripQuotes(q: string): string {
-  return normalizeQueryQuotes(q).replace(/"/g, ' ').replace(/\s+/g, ' ').trim()
+/** Keep provider input and the user-visible query clauses derived from the same
+ * quote scan so mixed searches cannot be presented as phrase-only searches. */
+export function parseSearchQuery(q: string): ParsedSearchQuery {
+  const query = normalizeQueryQuotes(q)
+  const exactPhrases: string[] = []
+  let providerQuery = ''
+  let unquotedText = ''
+  let phrase = ''
+  let quoted = false
+
+  for (const character of query) {
+    if (character === '"') {
+      if (quoted) {
+        const value = phrase.trim()
+        if (value) exactPhrases.push(value)
+        phrase = ''
+      }
+      quoted = !quoted
+      providerQuery += ' '
+      unquotedText += ' '
+    } else if (quoted) {
+      phrase += character
+      providerQuery += character
+    } else {
+      providerQuery += character
+      unquotedText += character
+    }
+  }
+
+  return {
+    exactPhrases,
+    providerQuery: providerQuery.replace(/\s+/g, ' ').trim(),
+    unquotedText: unquotedText.replace(/\s+/g, ' ').trim(),
+    unmatchedQuote: quoted,
+  }
 }
 
 function normalizeQueryQuotes(q: string): string {

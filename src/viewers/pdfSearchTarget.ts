@@ -4,7 +4,7 @@ import type {
 } from 'pdfjs-dist/legacy/web/pdf_viewer.mjs'
 import {
   clearSearchTargetHighlight,
-  highlightFirstSearchTarget,
+  highlightSearchTarget,
 } from '../components/DocumentViewer/readerTarget'
 import { renderedPdfSearchLayer, renderedPdfTextLayer } from '../pdf/ocr/pdfOcrTextLayer'
 import type { SearchOpenTarget } from '../types/search'
@@ -69,7 +69,7 @@ export function bindPdfSearchTarget({
   const highlightTargetPage = () => {
     const searchLayer = renderedPdfSearchLayer(viewer, pageNumber)
     if (!searchLayer) return false
-    const range = highlightFirstSearchTarget(searchLayer, text)
+    const range = highlightSearchTarget(searchLayer, text, target.occurrenceIndex ?? 0)
     if (!range) return false
 
     finish()

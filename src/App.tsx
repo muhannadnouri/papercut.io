@@ -198,10 +198,24 @@ function App() {
     setScopeMode: setSearchScopeMode,
   } = searchFilters
 
+  const searchableDocumentCount = useMemo(() => {
+    const urls = new Set([
+      ...allDocuments.map((document) => document.url),
+      ...uploadedDocuments
+        .filter((document) => document.textStatus === 'ready' || document.textStatus === 'recognition-available')
+        .map((document) => document.url),
+    ])
+    if (!searchScopeActive) return urls.size
+    return Array.from(searchScopeUrls).filter((url) => urls.has(url)).length
+  }, [allDocuments, searchScopeActive, searchScopeUrls, uploadedDocuments])
+
   const {
     query,
     results,
     loading,
+    queryError,
+    searchFailed,
+    searchPhase,
     submittedQuery,
     lastSearchInfo,
     handleSearch,
@@ -504,6 +518,7 @@ function App() {
         {activeTab === 'search' && (
           <SearchTab
             query={query}
+            queryError={queryError}
             disabled={!pagefindReady && uploadedDocuments.length === 0}
             onChangeQuery={handleSearch}
             onSubmitSearch={submitSearch}
@@ -525,6 +540,9 @@ function App() {
             onScopeModeChange={setSearchScopeMode}
             results={results}
             loading={loading}
+            searchFailed={searchFailed}
+            searchPhase={searchPhase}
+            searchableDocumentCount={searchableDocumentCount}
             submittedQuery={submittedQuery}
             lastSearchInfo={lastSearchInfo}
             openingDisabled={documentOpening}

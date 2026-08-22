@@ -137,7 +137,9 @@ mod tests {
         );
 
         assert_eq!(parsed.format, "markdown");
-        assert!(parsed.view_html.contains("<h1>Heading</h1>"));
+        assert!(parsed
+            .view_html
+            .contains("<h1 data-papercut-section=\"0\">Heading</h1>"));
         assert!(!parsed.view_html.contains("alert(1)"));
         assert!(parsed
             .sections

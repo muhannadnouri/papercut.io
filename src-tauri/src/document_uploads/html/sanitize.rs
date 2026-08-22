@@ -30,7 +30,7 @@ pub(crate) fn sanitize_html(html: &str) -> String {
     let mut builder = Builder::default();
     builder
         .add_tags(&["main", "section"])
-        .add_generic_attributes(&["dir", "id", "name"])
+        .add_generic_attributes(&["dir", "id", "name", "data-papercut-section"])
         .add_tag_attributes("img", &["data-papercut-asset", "loading", "decoding"])
         .add_allowed_classes("section", &["epub-chapter"])
         .url_schemes(HashSet::from(["data", "http", "https", "mailto", "tel"]))
@@ -72,6 +72,8 @@ fn filter_reader_attribute<'a>(
     value: &'a str,
 ) -> Option<Cow<'a, str>> {
     match (element, attribute) {
+        (_, "data-papercut-section") if is_section_ordinal(value) => Some(Cow::Borrowed(value)),
+        (_, "data-papercut-section") => None,
         ("a", "href") if is_reader_href(value) => Some(Cow::Borrowed(value)),
         ("a", "href") => None,
         ("img", "src") if is_safe_raster_data_url(value) => Some(Cow::Borrowed(value)),
@@ -87,6 +89,12 @@ fn filter_reader_attribute<'a>(
         (_, _) if value.trim_start().to_ascii_lowercase().starts_with("data:") => None,
         _ => Some(Cow::Borrowed(value)),
     }
+}
+
+fn is_section_ordinal(value: &str) -> bool {
+    value
+        .parse::<usize>()
+        .is_ok_and(|ordinal| value == ordinal.to_string())
 }
 
 fn is_reader_href(value: &str) -> bool {
@@ -312,6 +320,20 @@ mod tests {
         assert!(sanitized.contains(&asset_name));
         assert!(sanitized.contains("loading=\"lazy\""));
         assert!(!sanitized.contains("../source.html"));
+    }
+
+    #[test]
+    fn keeps_only_canonical_section_ordinals() {
+        let sanitized = sanitize_html(
+            r#"<body>
+                <p data-papercut-section="7">Safe</p>
+                <p data-papercut-section="07">Noncanonical</p>
+                <p data-papercut-section="-1">Negative</p>
+            </body>"#,
+        );
+
+        assert!(sanitized.contains(r#"data-papercut-section="7""#));
+        assert_eq!(sanitized.matches("data-papercut-section=").count(), 1);
     }
 
     #[test]

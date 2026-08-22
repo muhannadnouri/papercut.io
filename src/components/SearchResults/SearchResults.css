@@ -6,18 +6,45 @@
 
 .search-loading {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   gap: 0.65rem;
   min-height: 8rem;
   color: var(--text-body);
   font-size: 1rem;
   font-weight: 600;
+  text-align: start;
+}
+
+.search-loading > .spinner {
+  flex: 0 0 auto;
+  margin-top: 0.15rem;
+}
+
+.search-loading-message {
+  display: grid;
+  gap: 0.2rem;
+}
+
+/* Keep fast searches quiet; this reassurance is only useful when local work
+ * lasts long enough for a large library to feel stalled. */
+.search-loading-detail {
+  visibility: hidden;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+  font-weight: 500;
+  animation: reveal-search-loading-detail 0s 5s forwards;
+}
+
+@keyframes reveal-search-loading-detail {
+  to {
+    visibility: visible;
+  }
 }
 
 .search-info {
-  margin-bottom: 1rem;
-  padding: 0.6rem 0.9rem;
+  margin-bottom: 0.25rem;
+  padding: 0.5rem 0.75rem;
   background: var(--surface-accent-strong);
   border: 1px solid transparent;
   border-radius: var(--radius-control);
@@ -28,6 +55,8 @@
 
 .query-tag {
   display: inline-block;
+  max-width: min(30rem, 75vw);
+  overflow: hidden;
   margin: 0 0.2rem;
   padding: 0.05rem 0.4rem;
   background: var(--surface);
@@ -36,39 +65,79 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.8rem;
   color: var(--accent-strong);
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  white-space: nowrap;
+}
+
+.result-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.result-group-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.result-group-heading h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
 }
 
 .result-card {
-  appearance: none;
   display: block;
   width: 100%;
-  padding: 1.25rem;
+  overflow: hidden;
   border: 1px solid transparent;
   border-radius: var(--radius-surface);
-  cursor: pointer;
   transition: background-color 0.15s, box-shadow 0.15s;
   background: var(--control-surface);
   color: inherit;
   text-align: start;
 }
 
-.result-card:focus-visible {
+.result-card-primary {
+  appearance: none;
+  display: block;
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: start;
+}
+
+.result-card-primary:focus-visible {
   border-color: transparent;
   background: var(--surface-accent);
   outline: none;
-  box-shadow: 0 0 0 3px var(--shadow-focus), 0 2px 8px var(--shadow-accent-soft);
+  box-shadow: inset 0 0 0 3px var(--shadow-focus);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .result-card:hover:not(:disabled) {
-    border-color: transparent;
+  .result-card-primary:hover:not(:disabled),
+  .result-evidence-passage:hover:not(:disabled),
+  .result-evidence-action:hover:not(:disabled),
+  .result-concordance-term:hover:not([aria-pressed="true"]) {
     background: var(--surface-accent);
-    box-shadow: 0 2px 8px var(--shadow-accent-soft);
   }
 }
 
 .result-card-disabled {
   opacity: 0.65;
+}
+
+.result-card-disabled .result-card-primary,
+.result-card-disabled .result-evidence-passage,
+.result-card-disabled .result-occurrence-marker {
   cursor: wait;
 }
 
@@ -92,10 +161,13 @@
 }
 
 .result-excerpt {
-  display: block;
+  display: -webkit-box;
+  overflow: hidden;
   font-size: 0.9rem;
   color: var(--text-body);
   line-height: 1.6;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
 }
 
 .result-excerpt mark {
@@ -105,10 +177,222 @@
   border-radius: 2px;
 }
 
-.no-results {
-  text-align: center;
+.result-term-coverage {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.55rem;
+  margin-bottom: 0.55rem;
   color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.result-term-count {
+  color: var(--text-body);
+  white-space: nowrap;
+}
+
+.result-explore {
+  border-top: 1px solid var(--border);
+}
+
+.result-explore summary {
+  min-height: 2.75rem;
+  padding: 0.7rem 1rem;
+  color: var(--accent-strong);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.result-explore summary:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 3px var(--shadow-focus);
+}
+
+.result-evidence-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 0 1rem 1rem;
+}
+
+.result-concordance-terms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.result-concordance-term {
+  max-width: 100%;
+  min-height: 2.25rem;
+  overflow: hidden;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid transparent;
+  border-inline-start-width: 3px;
+  border-radius: var(--radius-compact);
+  background: var(--surface-muted);
+  color: var(--accent-strong);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-concordance-term[aria-pressed="true"] {
+  border-inline-start-color: var(--accent-text);
+  background: var(--surface-accent-strong);
+}
+
+.result-concordance-term:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+.result-occurrence-map {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 2px;
+  min-height: 1.5rem;
+}
+
+.result-occurrence-empty,
+.result-occurrence-marker {
+  min-width: 0;
+  min-height: 1.5rem;
+  border: 0;
+  border-radius: 2px;
+}
+
+.result-occurrence-empty {
+  background: var(--surface-muted);
+}
+
+.result-occurrence-marker {
+  background: var(--accent);
+  color: var(--text-inverse);
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.result-occurrence-marker:focus-visible,
+.result-evidence-passage:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+.result-evidence-passages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.result-evidence-passage {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.7rem 0.8rem;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+  color: inherit;
+  cursor: pointer;
+  text-align: start;
+}
+
+.result-evidence-action {
+  align-self: flex-start;
+  min-height: 2.25rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-compact);
+  background: var(--surface-muted);
+  color: var(--accent-strong);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.result-evidence-action:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+.result-evidence-action:disabled {
+  color: var(--text-soft);
+  cursor: wait;
+}
+
+.result-evidence-feedback {
+  padding: 0.6rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.result-evidence-feedback-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  background: var(--surface-danger);
+  color: var(--danger-strong);
+}
+
+.result-evidence-title,
+.result-evidence-excerpt {
+  display: block;
+}
+
+.result-evidence-title {
+  margin-bottom: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.result-evidence-excerpt {
+  color: var(--text-body);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.result-evidence-excerpt mark {
+  padding: 0.05em 0.12em;
+  border-radius: 2px;
+  background: var(--highlight-find);
+  color: inherit;
+}
+
+.no-results {
   padding: 2rem 0;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.search-feedback {
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+  line-height: 1.5;
+}
+
+.search-feedback-error {
+  background: var(--surface-danger);
+  color: var(--danger-strong);
 }
 
 .welcome {
@@ -131,5 +415,21 @@
 @media (max-width: 600px) {
   .result-meta {
     white-space: normal;
+  }
+}
+
+@media (pointer: coarse) {
+  .result-concordance-term,
+  .result-evidence-action {
+    min-height: 2.75rem;
+  }
+
+  .result-occurrence-map {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .result-occurrence-empty,
+  .result-occurrence-marker {
+    min-height: 2.75rem;
   }
 }

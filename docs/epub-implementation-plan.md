@@ -30,34 +30,35 @@ ParsedDocument {
   title,
   format,
   view_html,
-  sections: [{ ordinal, heading?, text, locator? }]
+  sections: [{ ordinal, heading?, text }]
 }
 ```
 
 For the first EPUB release, `view_html` is a sanitized, generated reading copy
 assembled from the EPUB spine. The original EPUB archive is not retained by the
 current MVP; a future richer viewer can add that storage deliberately. Search/TTS
-should not depend on rendering the original archive in React.
+should not depend on rendering the original archive in React. The persisted
+section ordinal now doubles as the reflowable reader locator, so a second locator
+field would duplicate state without improving navigation.
 
 ## Implemented MVP
 
-The MVP path is implemented with generated reading HTML, SQLite FTS indexing, Library import, existing TTS save/playback support, rewritten and target-validated internal EPUB links, retained safe local raster images, app-owned DOM reader link scrolling, structured import-stage feedback, and fixture coverage for TOC links, cross-chapter links, EPUB 2 footnotes/backlinks, image manifest assets, generated section extraction, sanitizer regressions, missing-fragment fallback, and empty-spine rejection. Reader images are stored as separate content-hashed files, resolved through Tauri's scoped asset protocol, and marked for lazy loading and asynchronous decoding so the continuous reading page does not decode every illustration at startup.
+The MVP path is implemented with generated reading HTML, SQLite FTS indexing, Library import, existing TTS save/playback support, rewritten and target-validated internal EPUB links, retained safe local raster images, app-owned DOM reader link scrolling, section-ordinal search targets, structured import-stage feedback, and fixture coverage for TOC links, cross-chapter links, EPUB 2 footnotes/backlinks, image manifest assets, generated section extraction, sanitizer regressions, missing-fragment fallback, and empty-spine rejection. Reader images are stored as separate content-hashed files, resolved through Tauri's scoped asset protocol, and marked for lazy loading and asynchronous decoding so the continuous reading page does not decode every illustration at startup. Search targets reuse the section ordinal already stored in SQLite and a generated safe DOM marker, avoiding a locator column migration while remaining compatible with older imports.
 
 The EPUB parser is split into focused ZIP/XML parsing, path, asset, DOM rewrite, and render helpers. It uses crate-backed percent/base64 decoding plus DOM-based fragment rewriting. Current EPUB image retention covers supported local raster images referenced by retained reader content, including image-only spine sections, under 5 MB per-image and 100 MB per-book limits. Older imports with inline raster data are upgraded non-destructively when opened. Newly imported EPUBs also resolve EPUB 3 `cover-image` properties and EPUB 2 `meta name="cover"` references, retain a declared raster cover under the existing 5 MB image cap, persist nullable cover media metadata, and generate a bounded gallery thumbnail. Existing imports remain valid without cover metadata; retained covers from earlier versions are thumbnailed lazily when first displayed.
 
 ## Remaining Follow-Ups
 
 1. Keep durable metadata changes as explicit schema migrations; cover metadata introduced schema version 3 without rebuilding existing search or organization rows.
-2. Add per-section locator metadata so uploaded search results can jump to chapter/page locations.
-3. Add more EPUB parser fixtures for malformed OPF/container cases, spine edge cases, oversized image skipping, and metadata fallback.
-4. Include retained covers in library-transfer packages now that gallery cover serving is stable.
-5. Add duplicate detection based on source hash so repeated imports can update or skip existing records.
-6. Add a reindex action for uploaded documents if parser or sanitizer behavior changes after import.
-7. Add determinate chapter/page progress only if import work exposes trustworthy units; current semantic stages deliberately avoid fake percentages.
-8. Add richer EPUB reader features such as TOC, location restore, pagination, EPUB-specific appearance controls, or a foliate-js/epub.js-backed viewer if generated reading HTML is not enough. App-wide Light/System/Dark theme already applies to the generated HTML reader.
-9. For very large books, move from one fully-rendered generated HTML document toward chapter/page-level rendering with locator-aware Find and TTS ranges. Current TTS caches are mutation-aware, but the next highlight after a large DOM mutation can still rebuild the active reader text index.
-10. Keep the implemented PDF adapter on the shared SQLite document/search schema; remaining PDF/OCR work is tracked in [pdf-ocr-scanning.md](pdf-ocr-scanning.md).
-11. Decide whether Pagefind remains the bundled-document engine long term or whether all documents should eventually share SQLite FTS.
+2. Add more EPUB parser fixtures for malformed OPF/container cases, spine edge cases, oversized image skipping, and metadata fallback.
+3. Include retained covers in library-transfer packages now that gallery cover serving is stable.
+4. Add duplicate detection based on source hash so repeated imports can update or skip existing records.
+5. Add a reindex action for uploaded documents if parser or sanitizer behavior changes after import.
+6. Add determinate chapter/page progress only if import work exposes trustworthy units; current semantic stages deliberately avoid fake percentages.
+7. Add richer EPUB reader features such as TOC, location restore, pagination, EPUB-specific appearance controls, or a foliate-js/epub.js-backed viewer if generated reading HTML is not enough. App-wide Light/System/Dark theme already applies to the generated HTML reader.
+8. For very large books, move from one fully-rendered generated HTML document toward chapter/page-level rendering with locator-aware Find and TTS ranges. Current TTS caches are mutation-aware, but the next highlight after a large DOM mutation can still rebuild the active reader text index.
+9. Keep the implemented PDF adapter on the shared SQLite document/search schema; remaining PDF/OCR work is tracked in [pdf-ocr-scanning.md](pdf-ocr-scanning.md).
+10. Decide whether Pagefind remains the bundled-document engine long term or whether all documents should eventually share SQLite FTS.
 
 ## Historical Task Notes
 
@@ -71,7 +72,8 @@ The sections below record the implementation shape and acceptance checks used fo
 - Replace `ParsedHtmlDocument` with `ParsedDocument`.
 - Add `format: DocumentFormat` or a constrained string value (`html`, `epub`,
   later `pdf`).
-- Add optional `locator` metadata for future open-to-chapter/page behavior.
+- Keep the ordinal stable so it can serve as the reflowable locator; do not add
+  a second locator field unless a future viewer needs a different durable key.
 - Keep existing HTML import behavior byte-for-byte compatible where possible.
 
 Acceptance checks:
@@ -208,7 +210,8 @@ Acceptance checks:
 ### 8. Improve Uploaded Search Locators
 
 - Keep one search result card per uploaded document for the first pass.
-- Store per-section locator metadata so future results can jump to chapter/page.
+- Reuse the persisted section ordinal as the locator and map it to a generated,
+  sanitizer-validated reader marker without adding a redundant SQLite column.
 - Consider showing chapter title in `sub_results` for EPUB matches.
 - Leave exact phrase unification as a separate search-quality task unless EPUB
   phrase behavior becomes visibly inconsistent.
@@ -218,6 +221,7 @@ Acceptance checks:
 - EPUB results rank through SQLite FTS BM25.
 - Snippets are sanitized before React rendering.
 - Search remains explicit-submit only.
+- Opening a result targets its indexed section before matching snippet text.
 
 ### 9. Add Tests
 
