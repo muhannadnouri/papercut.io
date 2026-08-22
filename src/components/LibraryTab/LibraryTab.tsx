@@ -1,6 +1,6 @@
 import { Trans, useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
 import type { DocumentImportStatus } from '../../hooks/useUploadedLibrary'
 import { PdfRecognitionStatus } from '../../pdf/ocr/PdfRecognitionStatus'
@@ -15,6 +15,8 @@ import { formatStorageSize } from '../../utils/formatUtils'
 import { isMobileUserAgent } from '../../utils/platform'
 import { DocumentsPanel } from '../DocumentsPanel/DocumentsPanel'
 import { DocumentInfoDialog } from '../DocumentInfoDialog/DocumentInfoDialog'
+import { PasteTextDialog } from '../PasteTextDialog/PasteTextDialog'
+import { documentDropAction } from './documentDrop'
 
 const IMPORT_STAGE_KEYS = {
   detectingFormat: 'library.status.importStage.detectingFormat',
@@ -53,7 +55,9 @@ interface LibraryTabProps {
   onCancelDocumentBatch: () => void | Promise<void>
   onImportDocumentBatch: () => void | Promise<void>
   onImportDocumentFolder: () => void | Promise<void>
+  onImportDocumentPaths: (paths: string[]) => void | Promise<void>
   onImportDocumentPhotos: () => void | Promise<void>
+  onImportPastedText: (title: string, text: string) => Promise<void>
   onScanDocument: () => void | Promise<void>
   onMoveLibraryDocuments: (documentIds: string[], folderId: string | null) => void | Promise<void>
   onRecognizeDocument: (
@@ -97,7 +101,9 @@ export function LibraryTab({
   onCancelDocumentBatch,
   onImportDocumentBatch,
   onImportDocumentFolder,
+  onImportDocumentPaths,
   onImportDocumentPhotos,
+  onImportPastedText,
   onScanDocument,
   onMoveLibraryDocuments,
   onRecognizeDocument,
@@ -110,6 +116,8 @@ export function LibraryTab({
 }: LibraryTabProps) {
   const { t } = useTranslation()
   const [infoDocument, setInfoDocument] = useState<DocumentInfo | null>(null)
+  const [pasteTextOpen, setPasteTextOpen] = useState(false)
+  const [dropActive, setDropActive] = useState(false)
   const operationBusy = documentImport.status === 'importing' ||
     documentImport.status === 'recognizing' || documentImport.status === 'deleting'
   const statusMessage = documentImportStatusMessage(
@@ -121,6 +129,32 @@ export function LibraryTab({
     allDocuments,
   )
   const folderImportSupported = !isMobileUserAgent()
+
+  /** Tauri owns filesystem authorization for native drops; React only provides
+   * immediate feedback and forwards the already-scoped paths to the batch API. */
+  useEffect(() => {
+    if (!folderImportSupported || infoDocument || pasteTextOpen || !('__TAURI_INTERNALS__' in window)) {
+      setDropActive(false)
+      return
+    }
+    let disposed = false
+    let unlisten: (() => void) | undefined
+    void import('@tauri-apps/api/webview')
+      .then(({ getCurrentWebview }) => getCurrentWebview().onDragDropEvent(({ payload }) => {
+        const action = documentDropAction(payload, operationBusy)
+        setDropActive(action.active)
+        if (action.paths) void onImportDocumentPaths(action.paths)
+      }))
+      .then((stop) => {
+        if (disposed) stop()
+        else unlisten = stop
+      })
+      .catch((error) => console.warn('Unable to listen for document drops:', error))
+    return () => {
+      disposed = true
+      unlisten?.()
+    }
+  }, [folderImportSupported, infoDocument, onImportDocumentPaths, operationBusy, pasteTextOpen])
 
   return (
     <section className="tab-panel" role="tabpanel" aria-label={t('library.tabLabel')} data-tab="library">
@@ -143,6 +177,16 @@ export function LibraryTab({
               : undefined,
             disabled: operationBusy,
             onSelect: onImportDocumentBatch,
+          },
+          {
+            id: 'paste',
+            label: t('library.import.pasteText'),
+            detail: t('library.import.pasteTextDetail'),
+            statusLabel: documentImport.status === 'importing' && documentImport.format === 'paste'
+              ? t('library.pasteText.saving')
+              : undefined,
+            disabled: operationBusy,
+            onSelect: () => setPasteTextOpen(true),
           },
           ...(folderImportSupported ? [{
             id: 'folder',
@@ -209,6 +253,26 @@ export function LibraryTab({
           }}
         />
       )}
+      {pasteTextOpen && (
+        <PasteTextDialog
+          onCancel={() => setPasteTextOpen(false)}
+          onSubmit={async (title, text) => {
+            await onImportPastedText(title, text)
+            setPasteTextOpen(false)
+          }}
+        />
+      )}
+      {dropActive && (
+        <div className="document-drop-overlay" role="status" aria-live="polite" aria-atomic="true">
+          <div className="document-drop-card">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14" />
+            </svg>
+            <strong>{t(operationBusy ? 'library.import.dropUnavailable' : 'library.import.dropTitle')}</strong>
+            {!operationBusy && <span>{t('library.import.filesDetail')}</span>}
+          </div>
+        </div>
+      )}
     </section>
   )
 }
@@ -240,12 +304,15 @@ function documentImportStatusMessage(
       showDocumentTitle
     />
   }
-  if (status.format === 'batch' || status.format === 'folder' || status.format === 'scan' ||
+  if (status.format === 'batch' || status.format === 'drop' || status.format === 'open' || status.format === 'folder' || status.format === 'scan' ||
       status.format === 'photos') {
     return <DocumentBatchImportStatus status={status} t={t} onCancel={onCancelBatch} />
   }
   if (status.status === 'cancelled') return t('library.status.cancelled')
   if (status.status === 'error') return status.message ?? null
+  if (status.status === 'importing' && status.format === 'paste') {
+    return t('library.pasteText.saving')
+  }
 
   const title = status.title ?? ''
   if (status.status === 'imported') {
@@ -366,7 +433,11 @@ function DocumentBatchImportStatus({
       ? 'library.status.capturingPages'
       : status.format === 'photos'
         ? 'library.status.preparingPhotos'
-        : 'library.status.preparingBatch')
+        : status.format === 'drop'
+          ? 'library.status.preparingDrop'
+          : status.format === 'open'
+            ? 'library.status.preparingOpen'
+            : 'library.status.preparingBatch')
   } else if (result) {
     const messageKey = result.cancelled
       ? 'library.status.batchCancelled'

@@ -135,9 +135,13 @@
     },
     "import": {
       "files": "ملفات",
-      "filesDetail": "استيراد ملف واحد أو أكثر بصيغة HTML أو EPUB أو PDF",
+      "filesDetail": "استيراد ملف واحد أو أكثر بصيغة HTML أو EPUB أو PDF أو TXT أو Markdown",
+      "dropTitle": "أفلِت الملفات لاستيرادها",
+      "dropUnavailable": "أكمل عملية المكتبة الحالية قبل استيراد الملفات",
+      "pasteText": "لصق نص",
+      "pasteTextDetail": "أنشئ مستندًا قابلاً للبحث من نص عادي",
       "folder": "مجلد",
-      "folderDetail": "استيراد ملفات HTML وEPUB وPDF مع الحفاظ على بنية المجلدات حتى 5 مستويات",
+      "folderDetail": "استيراد ملفات HTML وEPUB وPDF وTXT وMarkdown مع الحفاظ على بنية المجلدات حتى 5 مستويات",
       "scanPages": "مسح الصفحات",
       "scanPagesDetail": "استخدم الكاميرا لمسح صفحة واحدة أو أكثر",
       "photos": "صور",
@@ -146,6 +150,14 @@
       "importingFolder": "جارٍ استيراد المجلد",
       "scanningPages": "جارٍ مسح الصفحات",
       "importingPhotos": "جارٍ استيراد الصور"
+    },
+    "pasteText": {
+      "title": "لصق نص",
+      "description": "ألصق نصًا عاديًا لإنشاء مستند قابل للبحث محفوظ على هذا الجهاز.",
+      "displayTitle": "عنوان العرض",
+      "defaultTitle": "نص ملصق",
+      "content": "النص",
+      "saving": "جارٍ الحفظ..."
     },
     "scanSetup": {
       "title": "تحضير المستند",
@@ -163,7 +175,9 @@
       "defaultPhotoTitle": "صور مستوردة"
     },
     "status": {
-      "preparingBatch": "اختر ملفات HTML أو EPUB أو PDF لاستيرادها...",
+      "preparingBatch": "اختر ملفات HTML أو EPUB أو PDF أو TXT أو Markdown لاستيرادها...",
+      "preparingDrop": "جارٍ تجهيز الملفات المُفلَتة...",
+      "preparingOpen": "جارٍ تجهيز الملفات المفتوحة باستخدام Papercut...",
       "capturingPages": "امسح الصفحات وراجعها على جهازك...",
       "preparingPhotos": "اختر الصور وجهّز مستندك...",
       "importingBatchProgress": "جارٍ استيراد {{current, number}} من {{total, number}}",

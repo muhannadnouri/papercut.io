@@ -123,9 +123,13 @@
     },
     "import": {
       "files": "File",
-      "filesDetail": "Importa uno o più file HTML, EPUB o PDF",
+      "filesDetail": "Importa uno o più file HTML, EPUB, PDF, TXT o Markdown",
+      "dropTitle": "Rilascia i file per importarli",
+      "dropUnavailable": "Completa l’operazione corrente della biblioteca prima di importare file",
+      "pasteText": "Incolla testo",
+      "pasteTextDetail": "Crea un documento ricercabile da testo semplice",
       "folder": "Cartella",
-      "folderDetail": "Importa file HTML, EPUB e PDF e conserva una struttura di cartelle fino a 5 livelli",
+      "folderDetail": "Importa file HTML, EPUB, PDF, TXT e Markdown e conserva una struttura di cartelle fino a 5 livelli",
       "scanPages": "Scansiona pagine",
       "scanPagesDetail": "Usa la fotocamera per scansionare una o più pagine",
       "photos": "Foto",
@@ -134,6 +138,14 @@
       "importingFolder": "Importazione della cartella",
       "scanningPages": "Scansione delle pagine",
       "importingPhotos": "Importazione delle foto"
+    },
+    "pasteText": {
+      "title": "Incolla testo",
+      "description": "Incolla testo semplice per creare un documento ricercabile salvato su questo dispositivo.",
+      "displayTitle": "Titolo visualizzato",
+      "defaultTitle": "Testo incollato",
+      "content": "Testo",
+      "saving": "Salvataggio..."
     },
     "scanSetup": {
       "title": "Prepara documento",
@@ -151,7 +163,9 @@
       "defaultPhotoTitle": "Foto importate"
     },
     "status": {
-      "preparingBatch": "Scegli i file HTML, EPUB o PDF da importare...",
+      "preparingBatch": "Scegli i file HTML, EPUB, PDF, TXT o Markdown da importare...",
+      "preparingDrop": "Preparazione dei file rilasciati...",
+      "preparingOpen": "Preparazione dei file aperti con Papercut...",
       "capturingPages": "Scansiona e controlla le pagine sul dispositivo...",
       "preparingPhotos": "Scegli le foto e prepara il documento...",
       "importingBatchProgress": "Importazione di {{current, number}} su {{total, number}}",

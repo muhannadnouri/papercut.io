@@ -4,6 +4,7 @@
 //! build and read them while the structs stay private to the upload feature.
 
 use serde::{Deserialize, Serialize};
+use tauri_plugin_dialog::FilePath;
 
 /// Metadata for one stored upload, returned by import and list.
 #[derive(Debug, Serialize)]
@@ -187,6 +188,21 @@ pub(crate) struct UploadedDocumentDeleteRequest {
 pub(crate) struct UploadedDocumentTitleUpdateRequest {
     pub(crate) document_url: String,
     pub(crate) title: String,
+}
+
+/// User-authored plain text submitted without an intermediary filesystem file.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentPastedTextRequest {
+    pub(crate) title: String,
+    pub(crate) text: String,
+}
+
+/// Files or provider URLs selected by a native drop or file-open request.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentPathImportRequest {
+    pub(crate) paths: Vec<FilePath>,
 }
 
 /// Request to delete a bounded set of uploaded documents by URL.

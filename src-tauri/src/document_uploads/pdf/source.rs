@@ -185,6 +185,7 @@ fn validate_transferred_pdf_size(source_bytes: u64) -> Result<(), String> {
 /// Unlike library transfer, the bundle already names its source URL before its
 /// payload is read. Recomputing the content id here prevents a crafted bundle
 /// from writing PDF bytes under another document's stable identity.
+#[cfg(feature = "native-tts-core")]
 pub(crate) fn restore_audiobook_pdf<R: Runtime>(
     app: &tauri::AppHandle<R>,
     document_url: &str,

@@ -7,7 +7,7 @@
 
 use tauri::Runtime;
 
-use super::batch::{delete_batch, import_batch, import_folder};
+use super::batch::{delete_batch, import_batch, import_folder, import_paths};
 use super::organization::{
     create_folder, delete_folder, list_organization, move_documents, move_folder, rename_folder,
     reorder,
@@ -17,12 +17,13 @@ use super::pdf::{
     get_pdf_source_path, pdf_has_ocr_text, store_pdf_page_text, PageTextLayer, PdfFinalizeRequest,
     PdfNarrationSegment, PdfPageTextReadRequest, PdfPageTextRequest,
 };
-use super::pipeline::{delete_upload, get_cover, get_source};
+use super::pipeline::{delete_upload, get_cover, get_source, import_pasted_text};
 use super::search::{find_pdf_text, search_uploads};
 use super::store::{list_uploads, open_db, update_document_title};
 use super::types::{
     UploadedDocument, UploadedDocumentBatchResult, UploadedDocumentDeleteBatchRequest,
     UploadedDocumentDeleteBatchResult, UploadedDocumentDeleteRequest, UploadedDocumentDeleteResult,
+    UploadedDocumentPastedTextRequest, UploadedDocumentPathImportRequest,
     UploadedDocumentSearchRequest, UploadedDocumentSearchResult, UploadedDocumentSource,
     UploadedDocumentSourceRequest, UploadedDocumentTitleUpdateRequest,
     UploadedLibraryCreateFolderRequest, UploadedLibraryDeleteFolderRequest,
@@ -32,7 +33,7 @@ use super::types::{
 };
 use super::DocumentUploadState;
 
-/// Pick multiple HTML, EPUB, or PDF files and import them as one cancellable batch.
+/// Pick multiple HTML, EPUB, PDF, TXT, or Markdown files and import them as one cancellable batch.
 #[tauri::command]
 pub async fn document_uploads_import_batch<R: Runtime>(
     app: tauri::AppHandle<R>,
@@ -54,6 +55,33 @@ pub async fn document_uploads_import_folder<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || import_folder(app, control))
         .await
         .map_err(|err| format!("Document folder import task failed: {err}"))?
+}
+
+/// Save user-authored plain text through the same parser and local index used
+/// by imported TXT files; no clipboard or temporary-file access is required.
+#[tauri::command]
+pub async fn document_uploads_import_pasted_text<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedDocumentPastedTextRequest,
+) -> Result<UploadedDocument, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        import_pasted_text(&app, &request.title, &request.text)
+    })
+    .await
+    .map_err(|err| format!("Pasted text import task failed: {err}"))?
+}
+
+/// Import files selected through a native drop or platform file-open entry point.
+#[tauri::command]
+pub async fn document_uploads_import_paths<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    state: tauri::State<'_, DocumentUploadState>,
+    request: UploadedDocumentPathImportRequest,
+) -> Result<UploadedDocumentBatchResult, String> {
+    let control = state.begin_batch()?;
+    tauri::async_runtime::spawn_blocking(move || import_paths(app, control, request.paths))
+        .await
+        .map_err(|err| format!("Opened document import task failed: {err}"))?
 }
 
 /// Request cancellation after the currently importing file finishes.

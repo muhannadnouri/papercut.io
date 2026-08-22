@@ -31,6 +31,8 @@ import {
   getUploadedLibraryOrganization,
   importDocumentBatch as importDocumentBatchSource,
   importDocumentFolder as importDocumentFolderSource,
+  importDocumentPaths as importDocumentPathsSource,
+  importPastedText as importPastedTextSource,
   listUploadedDocuments,
   listenDocumentBatchProgress,
   listenDocumentDeleteProgress,
@@ -57,7 +59,7 @@ export const LIBRARY_OPERATION_IN_PROGRESS = 'library-operation-in-progress'
 // isolate user titles without parsing preformatted English messages.
 export type DocumentImportStatus = {
   status: 'idle' | 'importing' | 'imported' | 'recognizing' | 'recognized' | 'deleting' | 'deleted' | 'cancelled' | 'error'
-  format?: 'batch' | 'folder' | 'scan' | 'photos' | 'pdf-ocr' | 'delete-batch'
+  format?: 'batch' | 'drop' | 'open' | 'folder' | 'paste' | 'scan' | 'photos' | 'pdf-ocr' | 'delete-batch'
   title?: string
   bytesFreed?: number
   message?: string
@@ -238,7 +240,7 @@ export function useUploadedLibrary() {
   /** Subscribe before opening native selection UI so the shared import paths
    * retain even their first progress event and use one partial-result flow. */
   const importDocumentCollection = useCallback(async (
-    format: 'batch' | 'folder' | 'scan' | 'photos',
+    format: 'batch' | 'drop' | 'open' | 'folder' | 'scan' | 'photos',
     importer: () => Promise<UploadedDocumentBatchResult>,
     options: DocumentCollectionImportOptions = {},
   ): Promise<UploadedDocumentBatchResult | null> => {
@@ -325,6 +327,33 @@ export function useUploadedLibrary() {
     () => importDocumentCollection('folder', importDocumentFolderSource),
     [importDocumentCollection],
   )
+
+  const importDocumentPaths = useCallback(
+    (paths: string[], format: 'drop' | 'open' = 'drop') => (
+      importDocumentCollection(format, () => importDocumentPathsSource(paths))
+    ),
+    [importDocumentCollection],
+  )
+
+  /** Keep pasted text in the same exclusive Library-operation lifecycle while
+   * allowing the dialog to retain user input when native validation fails. */
+  const importPastedText = useCallback(async (title: string, text: string) => {
+    if (operationInProgressRef.current) throw new Error(LIBRARY_OPERATION_IN_PROGRESS)
+    operationInProgressRef.current = true
+    setDocumentImport({ status: 'importing', format: 'paste', title })
+    try {
+      const document = await importPastedTextSource(title, text)
+      await refreshUploadedLibrary()
+      setDocumentImport({ status: 'imported', format: 'paste', title: document.title })
+      return document
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      setDocumentImport({ status: 'error', format: 'paste', title, message })
+      throw err
+    } finally {
+      operationInProgressRef.current = false
+    }
+  }, [refreshUploadedLibrary])
 
   const scanDocument = useCallback(
     (setup: DocumentScanSetup) => importDocumentCollection(
@@ -431,8 +460,8 @@ export function useUploadedLibrary() {
       const nativeCancelled = await cancelDocumentBatchSource()
       if (!nativeCancelled) return
       setDocumentImport((current) => (current.status === 'importing' &&
-        (current.format === 'batch' || current.format === 'folder' || current.format === 'scan' ||
-          current.format === 'photos'))
+        (current.format === 'batch' || current.format === 'drop' || current.format === 'open' ||
+          current.format === 'folder' || current.format === 'scan' || current.format === 'photos'))
         ? { ...current, cancelRequested: true }
         : current)
     } catch (err) {
@@ -572,7 +601,9 @@ export function useUploadedLibrary() {
     documentImport,
     importDocumentBatch,
     importDocumentFolder,
+    importDocumentPaths,
     importDocumentPhotos,
+    importPastedText,
     scanDocument,
     moveLibraryDocuments,
     refreshUploadedLibrary,

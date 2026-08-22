@@ -33,21 +33,49 @@ pub(crate) fn read_source_bytes<R: Runtime>(
     open_error_prefix: &str,
     read_error_prefix: &str,
 ) -> Result<Vec<u8>, String> {
-    let mut options = tauri_plugin_fs::OpenOptions::new();
-    options.read(true);
-    let mut file = app
-        .fs()
-        .open(source, options)
-        .map_err(|err| format!("{open_error_prefix}: {err}"))?;
-    let mut bytes = Vec::new();
-    file.by_ref()
-        .take(max_bytes + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|err| format!("{read_error_prefix}: {err}"))?;
-    if bytes.len() as u64 > max_bytes {
-        return Err(too_large_message.into());
-    }
+    let scoped_source = source.clone();
+    let read_result: Result<Vec<u8>, String> = (|| {
+        let mut options = tauri_plugin_fs::OpenOptions::new();
+        options.read(true);
+        let mut file = app
+            .fs()
+            .open(source, options)
+            .map_err(|err| format!("{open_error_prefix}: {err}"))?;
+        let mut bytes = Vec::new();
+        file.by_ref()
+            .take(max_bytes + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|err| format!("{read_error_prefix}: {err}"))?;
+        if bytes.len() as u64 > max_bytes {
+            return Err(too_large_message.into());
+        }
+        Ok(bytes)
+    })();
+    let release_result = release_source_access(app, scoped_source);
+    let bytes = read_result?;
+    release_result?;
     Ok(bytes)
+}
+
+/// Tauri opens iOS file URLs as security-scoped resources. Release each one
+/// after its bounded read so repeated picker/Open With imports do not exhaust
+/// the process allowance; other platforms need no matching operation.
+#[cfg(target_os = "ios")]
+pub(crate) fn release_source_access<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    source: FilePath,
+) -> Result<(), String> {
+    app.fs()
+        .stop_accessing_security_scoped_resource(source)
+        .map_err(|err| format!("Failed to release imported document access: {err}"))
+}
+
+#[cfg(not(target_os = "ios"))]
+pub(crate) fn release_source_access<R: Runtime>(
+    _app: &tauri::AppHandle<R>,
+    _source: FilePath,
+) -> Result<(), String> {
+    Ok(())
 }
 
 /// Stored source representation, distinct from the user-facing document format:
@@ -97,6 +125,16 @@ impl StoredSourceKind {
 /// change reuse one stored document instead of creating duplicates.
 pub(crate) fn source_upload_id(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
+}
+
+/// Include formats when identical text bytes have different reading semantics,
+/// while leaving all existing HTML, EPUB, and PDF identities unchanged.
+pub(crate) fn formatted_source_upload_id(format: &str, bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(format.as_bytes());
+    hasher.update([0]);
+    hasher.update(bytes);
+    format!("{:x}", hasher.finalize())
 }
 
 /// Build the stable app-owned URL for one stored source.
@@ -195,7 +233,10 @@ pub(crate) fn now_ms() -> Result<u128, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{source_upload_id, upload_reference_from_url, upload_url, StoredSourceKind};
+    use super::{
+        formatted_source_upload_id, source_upload_id, upload_reference_from_url, upload_url,
+        StoredSourceKind,
+    };
 
     #[test]
     fn source_upload_id_is_stable_sha256() {
@@ -204,6 +245,14 @@ mod tests {
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
         );
         assert_ne!(source_upload_id(b"abc"), source_upload_id(b"abd"));
+    }
+
+    #[test]
+    fn text_identity_includes_interpretation_format() {
+        assert_ne!(
+            formatted_source_upload_id("txt", b"# Heading"),
+            formatted_source_upload_id("markdown", b"# Heading")
+        );
     }
 
     #[test]

@@ -119,9 +119,13 @@
     },
     "import": {
       "files": "फ़ाइलें",
-      "filesDetail": "एक या अधिक HTML, EPUB या PDF फ़ाइलें आयात करें",
+      "filesDetail": "एक या अधिक HTML, EPUB, PDF, TXT या Markdown फ़ाइलें आयात करें",
+      "dropTitle": "आयात करने के लिए फ़ाइलें यहाँ छोड़ें",
+      "dropUnavailable": "फ़ाइलें आयात करने से पहले मौजूदा लाइब्रेरी कार्य पूरा करें",
+      "pasteText": "टेक्स्ट पेस्ट करें",
+      "pasteTextDetail": "सादे टेक्स्ट से खोजने योग्य दस्तावेज़ बनाएँ",
       "folder": "फ़ोल्डर",
-      "folderDetail": "HTML, EPUB और PDF फ़ाइलें आयात करें और 5 स्तर तक की फ़ोल्डर संरचना बनाए रखें",
+      "folderDetail": "HTML, EPUB, PDF, TXT और Markdown फ़ाइलें आयात करें और 5 स्तर तक की फ़ोल्डर संरचना बनाए रखें",
       "scanPages": "पृष्ठ स्कैन करें",
       "scanPagesDetail": "एक या अधिक पृष्ठ स्कैन करने के लिए कैमरे का उपयोग करें",
       "photos": "फ़ोटो",
@@ -130,6 +134,14 @@
       "importingFolder": "फ़ोल्डर आयात किया जा रहा है",
       "scanningPages": "पृष्ठ स्कैन किए जा रहे हैं",
       "importingPhotos": "फ़ोटो आयात की जा रही हैं"
+    },
+    "pasteText": {
+      "title": "टेक्स्ट पेस्ट करें",
+      "description": "इस डिवाइस पर सहेजा जाने वाला खोजने योग्य दस्तावेज़ बनाने के लिए सादा टेक्स्ट पेस्ट करें।",
+      "displayTitle": "प्रदर्शन शीर्षक",
+      "defaultTitle": "पेस्ट किया गया टेक्स्ट",
+      "content": "टेक्स्ट",
+      "saving": "सहेजा जा रहा है..."
     },
     "scanSetup": {
       "title": "दस्तावेज़ तैयार करें",
@@ -147,7 +159,9 @@
       "defaultPhotoTitle": "आयात की गई फ़ोटो"
     },
     "status": {
-      "preparingBatch": "आयात करने के लिए HTML, EPUB या PDF फ़ाइलें चुनें...",
+      "preparingBatch": "आयात करने के लिए HTML, EPUB, PDF, TXT या Markdown फ़ाइलें चुनें...",
+      "preparingDrop": "छोड़ी गई फ़ाइलें तैयार की जा रही हैं...",
+      "preparingOpen": "Papercut से खोली गई फ़ाइलें तैयार की जा रही हैं...",
       "capturingPages": "अपने डिवाइस पर पृष्ठ स्कैन करें और जाँचें...",
       "preparingPhotos": "फ़ोटो चुनें और अपना दस्तावेज़ तैयार करें...",
       "importingBatchProgress": "{{total, number}} में से {{current, number}} आयात हो रहा है",

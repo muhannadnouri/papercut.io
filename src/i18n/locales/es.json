@@ -123,9 +123,13 @@
     },
     "import": {
       "files": "Archivos",
-      "filesDetail": "Importa uno o más archivos HTML, EPUB o PDF",
+      "filesDetail": "Importa uno o más archivos HTML, EPUB, PDF, TXT o Markdown",
+      "dropTitle": "Suelta los archivos para importarlos",
+      "dropUnavailable": "Finaliza la operación actual de la biblioteca antes de importar archivos",
+      "pasteText": "Pegar texto",
+      "pasteTextDetail": "Crea un documento con búsqueda a partir de texto sin formato",
       "folder": "Carpeta",
-      "folderDetail": "Importa archivos HTML, EPUB y PDF y conserva una estructura de carpetas de hasta 5 niveles",
+      "folderDetail": "Importa archivos HTML, EPUB, PDF, TXT y Markdown y conserva una estructura de carpetas de hasta 5 niveles",
       "scanPages": "Escanear páginas",
       "scanPagesDetail": "Usa la cámara para escanear una o más páginas",
       "photos": "Fotos",
@@ -134,6 +138,14 @@
       "importingFolder": "Importando carpeta",
       "scanningPages": "Escaneando páginas",
       "importingPhotos": "Importando fotos"
+    },
+    "pasteText": {
+      "title": "Pegar texto",
+      "description": "Pega texto sin formato para crear un documento con búsqueda guardado en este dispositivo.",
+      "displayTitle": "Título para mostrar",
+      "defaultTitle": "Texto pegado",
+      "content": "Texto",
+      "saving": "Guardando..."
     },
     "scanSetup": {
       "title": "Preparar documento",
@@ -151,7 +163,9 @@
       "defaultPhotoTitle": "Fotos importadas"
     },
     "status": {
-      "preparingBatch": "Elige archivos HTML, EPUB o PDF para importar...",
+      "preparingBatch": "Elige archivos HTML, EPUB, PDF, TXT o Markdown para importar...",
+      "preparingDrop": "Preparando los archivos soltados...",
+      "preparingOpen": "Preparando los archivos abiertos con Papercut...",
       "capturingPages": "Escanea y revisa las páginas en tu dispositivo...",
       "preparingPhotos": "Elige fotos y prepara tu documento...",
       "importingBatchProgress": "Importando {{current, number}} de {{total, number}}",

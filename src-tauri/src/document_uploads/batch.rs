@@ -15,10 +15,11 @@ use tauri_plugin_fs::FsExt;
 #[cfg(desktop)]
 use super::organization::{organize_folder_import, MAX_FOLDER_DEPTH};
 use super::pdf::import_pdf_source;
-use super::pipeline::{delete_upload, import_epub_source, import_html_source};
+use super::pipeline::{delete_upload, import_epub_source, import_html_source, import_text_source};
 use super::state::DocumentBatchControl;
-use super::storage::upload_id_from_url;
+use super::storage::{release_source_access, upload_id_from_url};
 use super::store::list_uploads;
+use super::text::{decode_text_bytes, TextDocumentFormat};
 use super::types::{
     UploadedDocument, UploadedDocumentBatchFailure, UploadedDocumentBatchProgress,
     UploadedDocumentBatchResult, UploadedDocumentDeleteBatchFailure,
@@ -35,6 +36,8 @@ enum DocumentFormat {
     Html,
     Epub,
     Pdf,
+    PlainText,
+    Markdown,
 }
 
 struct BatchRun<T> {
@@ -83,10 +86,26 @@ pub(crate) fn import_batch<R: Runtime>(
         .dialog()
         .file()
         .set_title("Import Documents")
-        .add_filter("Documents", &["html", "htm", "epub", "pdf"])
+        .add_filter(
+            "Documents",
+            &["html", "htm", "epub", "pdf", "txt", "md", "markdown"],
+        )
         .blocking_pick_files()
         .ok_or_else(|| "Document import cancelled".to_string())?;
     import_sources(app, control, sources, None, None)
+}
+
+/// Import filesystem paths or mobile provider URLs received from a native drop
+/// or file-open request through the normal bounded persistence flow.
+pub(crate) fn import_paths<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    control: DocumentBatchControl,
+    paths: Vec<FilePath>,
+) -> Result<UploadedDocumentBatchResult, String> {
+    if paths.is_empty() {
+        return Err("Open at least one document to import".into());
+    }
+    import_sources(app, control, paths, None, None)
 }
 
 /// Pick one desktop folder and preserve its supported files and subfolders.
@@ -107,7 +126,7 @@ pub(crate) fn import_folder<R: Runtime>(
         .ok_or_else(|| "Document import cancelled".to_string())?;
     let selection = folder_sources(folder)?;
     if selection.sources.is_empty() {
-        return Err("The selected folder has no HTML, EPUB, or PDF files".into());
+        return Err("The selected folder has no HTML, EPUB, PDF, TXT, or Markdown files".into());
     }
     let folders_by_source = selection
         .sources
@@ -520,16 +539,38 @@ fn import_source<R: Runtime>(
         DocumentFormat::Pdf => {
             let title = pdf_title
                 .map(str::to_owned)
-                .unwrap_or_else(|| source_title(&source));
+                .unwrap_or_else(|| source_title(&source, "Imported PDF"));
             import_pdf_source(app, source, title, original_file_name, progress)
+        }
+        DocumentFormat::PlainText => {
+            let title = source_title(&source, "Imported Text Document");
+            import_text_source(
+                app,
+                source,
+                original_file_name,
+                title,
+                TextDocumentFormat::PlainText,
+                progress,
+            )
+        }
+        DocumentFormat::Markdown => {
+            let title = source_title(&source, "Imported Markdown Document");
+            import_text_source(
+                app,
+                source,
+                original_file_name,
+                title,
+                TextDocumentFormat::Markdown,
+                progress,
+            )
         }
     }
 }
 
 /// Native dialogs return filesystem paths on desktop and may return content
 /// URLs on mobile. Some Android providers expose an extensionless `document`
-/// URL, so only that ambiguous case reads a small prefix and lets the normal
-/// EPUB/HTML parser perform the full validation afterward.
+/// URL, so only that ambiguous case reads a small prefix to identify binary,
+/// HTML, or safe text input before the normal format importer fully validates it.
 fn document_format<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: &FilePath,
@@ -553,16 +594,23 @@ fn document_format<R: Runtime>(
         ));
     }
 
-    let mut options = tauri_plugin_fs::OpenOptions::new();
-    options.read(true);
-    let mut file = app
-        .fs()
-        .open(source.clone(), options)
-        .map_err(|err| format!("Failed to inspect selected document: {err}"))?;
-    let mut prefix = [0u8; 512];
-    let read = file
-        .read(&mut prefix)
-        .map_err(|err| format!("Failed to inspect selected document: {err}"))?;
+    let scoped_source = source.clone();
+    let read_result: Result<([u8; 512], usize), String> = (|| {
+        let mut options = tauri_plugin_fs::OpenOptions::new();
+        options.read(true);
+        let mut file = app
+            .fs()
+            .open(source.clone(), options)
+            .map_err(|err| format!("Failed to inspect selected document: {err}"))?;
+        let mut prefix = [0u8; 512];
+        let read = file
+            .read(&mut prefix)
+            .map_err(|err| format!("Failed to inspect selected document: {err}"))?;
+        Ok((prefix, read))
+    })();
+    let release_result = release_source_access(app, scoped_source);
+    let (prefix, read) = read_result?;
+    release_result?;
     document_format_from(&extension, &prefix[..read])
         .ok_or_else(|| format!("Unsupported document type for {}", source_file_name(source)))
 }
@@ -572,6 +620,8 @@ fn document_format_from(extension: &str, prefix: &[u8]) -> Option<DocumentFormat
         "html" | "htm" => return Some(DocumentFormat::Html),
         "epub" => return Some(DocumentFormat::Epub),
         "pdf" => return Some(DocumentFormat::Pdf),
+        "txt" => return Some(DocumentFormat::PlainText),
+        "md" | "markdown" => return Some(DocumentFormat::Markdown),
         "" => {}
         _ => return None,
     }
@@ -585,12 +635,36 @@ fn document_format_from(extension: &str, prefix: &[u8]) -> Option<DocumentFormat
     if prefix.starts_with(b"%PDF-") {
         return Some(DocumentFormat::Pdf);
     }
-    if prefix.starts_with(&[0xff, 0xfe]) || prefix.starts_with(&[0xfe, 0xff]) {
+    // ponytail: a bounded prefix is enough for opaque mobile provider URLs;
+    // use provider MIME metadata only if a real-world source defeats this sniff.
+    let text = text_prefix(prefix)?;
+    let text = text.trim_start_matches('\u{feff}').trim_start();
+    if text.starts_with('<') {
         return Some(DocumentFormat::Html);
     }
-    let text = String::from_utf8_lossy(prefix);
-    let text = text.trim_start_matches('\u{feff}').trim_start();
-    text.starts_with('<').then_some(DocumentFormat::Html)
+    (!text.is_empty()
+        && text
+            .chars()
+            .all(|ch| !ch.is_control() || ch.is_whitespace()))
+    .then_some(DocumentFormat::PlainText)
+}
+
+/// Decode only enough of an extensionless mobile source to distinguish HTML
+/// from ordinary text. A partial trailing UTF-8 character is ignored because
+/// the full bounded decoder still validates the selected file during import.
+fn text_prefix(prefix: &[u8]) -> Option<String> {
+    if prefix.starts_with(&[0xff, 0xfe]) || prefix.starts_with(&[0xfe, 0xff]) {
+        return decode_text_bytes(prefix).ok();
+    }
+    match std::str::from_utf8(prefix) {
+        Ok(text) => Some(text.to_owned()),
+        Err(error) if error.valid_up_to() > 0 => {
+            std::str::from_utf8(&prefix[..error.valid_up_to()])
+                .ok()
+                .map(str::to_owned)
+        }
+        Err(_) => None,
+    }
 }
 
 /// Return only a readable basename for progress/errors; never expose a user's
@@ -618,13 +692,13 @@ fn original_source_file_name(source: &FilePath) -> Option<String> {
     }
 }
 
-fn source_title(source: &FilePath) -> String {
+fn source_title(source: &FilePath, fallback: &str) -> String {
     let file_name = source_file_name(source);
     Path::new(&file_name)
         .file_stem()
         .and_then(|value| value.to_str())
         .filter(|value| !value.is_empty())
-        .unwrap_or("Imported PDF")
+        .unwrap_or(fallback)
         .to_string()
 }
 
@@ -726,7 +800,15 @@ mod tests {
             document_format_from("", &[0xff, 0xfe, b'<' as u8, 0]),
             Some(DocumentFormat::Html)
         );
-        assert_eq!(document_format_from("", b"plain text"), None);
+        assert_eq!(
+            document_format_from("", b"plain text"),
+            Some(DocumentFormat::PlainText)
+        );
+        assert_eq!(
+            document_format_from("", &[0xff, 0xfe, b'H', 0, b'i', 0]),
+            Some(DocumentFormat::PlainText)
+        );
+        assert_eq!(document_format_from("", &[0, 1, 2, 3]), None);
     }
 
     #[test]
@@ -764,8 +846,14 @@ mod tests {
         );
         assert_eq!(document_format_from("htm", &[]), Some(DocumentFormat::Html));
         assert_eq!(document_format_from("pdf", &[]), Some(DocumentFormat::Pdf));
-        assert_eq!(document_format_from("txt", &[]), None);
-        assert_eq!(document_format_from("txt", b"<html></html>"), None);
+        assert_eq!(
+            document_format_from("txt", &[]),
+            Some(DocumentFormat::PlainText)
+        );
+        assert_eq!(
+            document_format_from("md", &[]),
+            Some(DocumentFormat::Markdown)
+        );
     }
 
     #[test]
@@ -808,6 +896,7 @@ mod tests {
                     "kept.pdf".into(),
                     vec!["nested".into(), "two".into(), "three".into(), "four".into()]
                 ),
+                ("notes.txt".into(), vec![]),
             ]
         );
 

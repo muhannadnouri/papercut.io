@@ -123,9 +123,13 @@
     },
     "import": {
       "files": "Arquivos",
-      "filesDetail": "Importe um ou mais arquivos HTML, EPUB ou PDF",
+      "filesDetail": "Importe um ou mais arquivos HTML, EPUB, PDF, TXT ou Markdown",
+      "dropTitle": "Solte os arquivos para importar",
+      "dropUnavailable": "Conclua a operação atual da biblioteca antes de importar arquivos",
+      "pasteText": "Colar texto",
+      "pasteTextDetail": "Crie um documento pesquisável a partir de texto simples",
       "folder": "Pasta",
-      "folderDetail": "Importe arquivos HTML, EPUB e PDF e preserve uma estrutura de pastas com até 5 níveis",
+      "folderDetail": "Importe arquivos HTML, EPUB, PDF, TXT e Markdown e preserve uma estrutura de pastas com até 5 níveis",
       "scanPages": "Digitalizar páginas",
       "scanPagesDetail": "Use a câmera para digitalizar uma ou mais páginas",
       "photos": "Fotos",
@@ -134,6 +138,14 @@
       "importingFolder": "Importando pasta",
       "scanningPages": "Digitalizando páginas",
       "importingPhotos": "Importando fotos"
+    },
+    "pasteText": {
+      "title": "Colar texto",
+      "description": "Cole texto simples para criar um documento pesquisável salvo neste dispositivo.",
+      "displayTitle": "Título de exibição",
+      "defaultTitle": "Texto colado",
+      "content": "Texto",
+      "saving": "Salvando..."
     },
     "scanSetup": {
       "title": "Preparar documento",
@@ -151,7 +163,9 @@
       "defaultPhotoTitle": "Fotos importadas"
     },
     "status": {
-      "preparingBatch": "Escolha arquivos HTML, EPUB ou PDF para importar...",
+      "preparingBatch": "Escolha arquivos HTML, EPUB, PDF, TXT ou Markdown para importar...",
+      "preparingDrop": "Preparando os arquivos soltos...",
+      "preparingOpen": "Preparando os arquivos abertos com o Papercut...",
       "capturingPages": "Digitalize e revise as páginas no dispositivo...",
       "preparingPhotos": "Escolha as fotos e prepare o documento...",
       "importingBatchProgress": "Importando {{current, number}} de {{total, number}}",

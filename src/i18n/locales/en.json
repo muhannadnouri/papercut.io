@@ -119,9 +119,13 @@
     },
     "import": {
       "files": "Files",
-      "filesDetail": "Import one or more HTML, EPUB, or PDF files",
+      "filesDetail": "Import one or more HTML, EPUB, PDF, TXT, or Markdown files",
+      "dropTitle": "Drop files to import",
+      "dropUnavailable": "Finish the current Library action before importing files",
+      "pasteText": "Paste Text",
+      "pasteTextDetail": "Create a searchable document from plain text",
       "folder": "Folder",
-      "folderDetail": "Import HTML, EPUB, and PDF files and preserve a folder hierarchy up to 5 levels",
+      "folderDetail": "Import HTML, EPUB, PDF, TXT, and Markdown files and preserve a folder hierarchy up to 5 levels",
       "scanPages": "Scan Pages",
       "scanPagesDetail": "Use the camera to scan one or more pages",
       "photos": "Photos",
@@ -130,6 +134,14 @@
       "importingFolder": "Importing folder",
       "scanningPages": "Scanning pages",
       "importingPhotos": "Importing photos"
+    },
+    "pasteText": {
+      "title": "Paste Text",
+      "description": "Paste plain text to create a searchable document stored on this device.",
+      "displayTitle": "Display Title",
+      "defaultTitle": "Pasted Text",
+      "content": "Text",
+      "saving": "Saving..."
     },
     "scanSetup": {
       "title": "Prepare Document",
@@ -147,7 +159,9 @@
       "defaultPhotoTitle": "Imported Photos"
     },
     "status": {
-      "preparingBatch": "Choose HTML, EPUB, or PDF files to import...",
+      "preparingBatch": "Choose HTML, EPUB, PDF, TXT, or Markdown files to import...",
+      "preparingDrop": "Preparing dropped files...",
+      "preparingOpen": "Preparing files opened with Papercut...",
       "capturingPages": "Scan and review pages on your device...",
       "preparingPhotos": "Choose photos and prepare your document...",
       "importingBatchProgress": "Importing {{current, number}} of {{total, number}}",

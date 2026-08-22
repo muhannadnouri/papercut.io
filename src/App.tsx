@@ -38,6 +38,8 @@ import {
   getUploadedDocumentSource,
   isUploadedHtmlDocumentUrl,
   isUploadedPdfDocumentUrl,
+  listenOpenDocumentRequests,
+  takeOpenDocumentSources,
 } from './uploads/DocumentUploads'
 
 function isBundledDocumentUrl(url: string): boolean {
@@ -63,6 +65,7 @@ function App() {
   const [ttsDiagnosticsEnabled, setTtsDiagnosticsEnabled] = useState(() => isDebugEnabled())
   const [scanSetupSource, setScanSetupSource] = useState<'camera' | 'photos' | null>(null)
   const [readerAudioSetupOpen, setReaderAudioSetupOpen] = useState(false)
+  const [openDocumentRequest, setOpenDocumentRequest] = useState(0)
   const { pagefindRef, pagefindReady, allDocuments, documentsLoading } = usePagefind()
   const { confirm: confirmDocumentAction, dialog: documentConfirmationDialog } = useAppConfirmation()
   const {
@@ -76,7 +79,9 @@ function App() {
     documentImport,
     importDocumentBatch,
     importDocumentFolder,
+    importDocumentPaths,
     importDocumentPhotos,
+    importPastedText,
     scanDocument,
     moveLibraryDocuments,
     refreshUploadedLibrary,
@@ -253,8 +258,9 @@ function App() {
   )
   const selectedFormat = selectedDocument?.format
 
-  const handleImportDocumentBatch = useCallback(async () => {
-    const result = await importDocumentBatch()
+  /** Apply the same post-import behavior to picker, drop, and Open With entry
+   * points so one reflowable document opens while batches remain in Library. */
+  const finishDocumentFileImport = useCallback(async (result: Awaited<ReturnType<typeof importDocumentBatch>>) => {
     if (!result?.imported.length) return
     setShowDocuments(true)
     if (result.selected === 1 &&
@@ -262,12 +268,66 @@ function App() {
         result.imported[0].sourceKind === 'html') {
       await handleViewDocument(result.imported[0].url)
     }
-  }, [handleViewDocument, importDocumentBatch, setShowDocuments])
+  }, [handleViewDocument, setShowDocuments])
+
+  const handleImportDocumentBatch = useCallback(async () => {
+    await finishDocumentFileImport(await importDocumentBatch())
+  }, [finishDocumentFileImport, importDocumentBatch])
+
+  const handleImportDocumentPaths = useCallback(async (paths: string[]) => {
+    await finishDocumentFileImport(await importDocumentPaths(paths))
+  }, [finishDocumentFileImport, importDocumentPaths])
+
+  /** Subscribe before draining the native queue so desktop and mobile cold or
+   * warm file-open requests share one race-free path into the Library importer. */
+  useEffect(() => {
+    if (!('__TAURI_INTERNALS__' in window)) return
+    let disposed = false
+    let unlisten: (() => void) | undefined
+    void listenOpenDocumentRequests(() => setOpenDocumentRequest((value) => value + 1))
+      .then((stop) => {
+        if (disposed) stop()
+        else {
+          unlisten = stop
+          setOpenDocumentRequest((value) => value + 1)
+        }
+      })
+      .catch((error) => console.warn('Unable to listen for document open requests:', error))
+    return () => {
+      disposed = true
+      unlisten?.()
+    }
+  }, [])
+
+  const libraryOperationBusy = documentImport.status === 'importing' ||
+    documentImport.status === 'recognizing' || documentImport.status === 'deleting'
+
+  useEffect(() => {
+    if (openDocumentRequest === 0 || libraryOperationBusy) return
+    let disposed = false
+    void takeOpenDocumentSources().then(async (sources) => {
+      if (disposed || sources.length === 0) return
+      handleCloseDocument()
+      setActiveTab('library')
+      setShowDocuments(true)
+      await finishDocumentFileImport(await importDocumentPaths(sources, 'open'))
+    }).catch((error) => console.warn('Unable to import document open request:', error))
+    return () => {
+      disposed = true
+    }
+  }, [openDocumentRequest, finishDocumentFileImport, handleCloseDocument, importDocumentPaths,
+    libraryOperationBusy, setShowDocuments])
 
   const handleImportDocumentFolder = useCallback(async () => {
     const result = await importDocumentFolder()
     if (result?.imported.length) setShowDocuments(true)
   }, [importDocumentFolder, setShowDocuments])
+
+  const handleImportPastedText = useCallback(async (title: string, text: string) => {
+    const document = await importPastedText(title, text)
+    setShowDocuments(true)
+    await handleViewDocument(document.url)
+  }, [handleViewDocument, importPastedText, setShowDocuments])
 
   const handleScanSetupSubmit = useCallback(async (setup: DocumentScanSetup) => {
     const source = scanSetupSource
@@ -510,6 +570,8 @@ function App() {
             }}
             onImportDocumentBatch={handleImportDocumentBatch}
             onImportDocumentFolder={handleImportDocumentFolder}
+            onImportDocumentPaths={handleImportDocumentPaths}
+            onImportPastedText={handleImportPastedText}
             onImportDocumentPhotos={() => setScanSetupSource('photos')}
             onScanDocument={() => setScanSetupSource('camera')}
             onCancelDocumentBatch={cancelDocumentBatch}

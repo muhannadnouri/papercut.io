@@ -435,7 +435,7 @@ fn validate_manifest(manifest: &TransferManifest) -> Result<(), String> {
         }
         let valid_source = matches!(
             (document.format.as_str(), document.source_kind.as_str()),
-            ("html" | "epub", "html") | ("pdf", "pdf")
+            ("html" | "epub" | "txt" | "markdown", "html") | ("pdf", "pdf")
         );
         if !valid_source {
             return Err(format!(
@@ -761,6 +761,16 @@ mod tests {
             .expect("read source");
 
         assert_eq!(restored, source);
+    }
+
+    #[test]
+    fn package_accepts_normalized_text_reader_sources() {
+        let source = b"<html><body><p>Plain text</p></body></html>".to_vec();
+        for format in ["txt", "markdown"] {
+            let mut manifest = test_manifest(&source);
+            manifest.documents[0].format = format.into();
+            validate_manifest(&manifest).expect("text document manifest");
+        }
     }
 
     #[test]

@@ -44,6 +44,55 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": ["html", "htm"],
+        "name": "HTML document",
+        "description": "HTML document",
+        "mimeType": "text/html",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "androidIntentActionFilters": ["view"]
+      },
+      {
+        "ext": ["epub"],
+        "contentTypes": ["org.idpf.epub-container"],
+        "name": "EPUB book",
+        "description": "EPUB book",
+        "mimeType": "application/epub+zip",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "androidIntentActionFilters": ["view"]
+      },
+      {
+        "ext": ["pdf"],
+        "name": "PDF document",
+        "description": "PDF document",
+        "mimeType": "application/pdf",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "androidIntentActionFilters": ["view"]
+      },
+      {
+        "ext": ["txt"],
+        "name": "Plain-text document",
+        "description": "Plain-text document",
+        "mimeType": "text/plain",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "androidIntentActionFilters": ["view"]
+      },
+      {
+        "ext": ["md", "markdown"],
+        "contentTypes": ["net.daringfireball.markdown"],
+        "name": "Markdown document",
+        "description": "Markdown document",
+        "mimeType": "text/markdown",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "androidIntentActionFilters": ["view"]
+      }
     ]
   }
 }

@@ -180,6 +180,39 @@ export async function importDocumentFolder(): Promise<UploadedDocumentBatchResul
   return invoke<UploadedDocumentBatchResult>('document_uploads_import_folder')
 }
 
+/** Native drop and platform file-open entry points share Rust's normal format,
+ * size, duplicate, and parser validation instead of parallel importers. */
+export async function importDocumentPaths(paths: string[]): Promise<UploadedDocumentBatchResult> {
+  const invoke = await loadTauriInvoke()
+  return invoke<UploadedDocumentBatchResult>('document_uploads_import_paths', {
+    request: { paths },
+  })
+}
+
+/** Drain file-association requests queued before React was ready or while a
+ * Library operation was active. Values can be paths or mobile provider URLs. */
+export async function takeOpenDocumentSources(): Promise<string[]> {
+  const invoke = await loadTauriInvoke()
+  return invoke<string[]>('open_documents_take_sources')
+}
+
+/** The event is only a wake-up signal; the native queue remains authoritative
+ * so startup races and requests received during an import cannot lose paths. */
+export async function listenOpenDocumentRequests(handler: () => void): Promise<() => void> {
+  if (!isTauriRuntime()) return () => {}
+  const mod = await import('@tauri-apps/api/event')
+  return mod.listen('open-documents', handler)
+}
+
+/** Create a local plain-text document without reading from the clipboard or
+ * staging a temporary file; Rust applies the same TXT validation and parser. */
+export async function importPastedText(title: string, text: string): Promise<UploadedDocument> {
+  const invoke = await loadTauriInvoke()
+  return invoke<UploadedDocument>('document_uploads_import_pasted_text', {
+    request: { title, text },
+  })
+}
+
 export async function cancelDocumentBatch(): Promise<boolean> {
   const invoke = await loadTauriInvoke()
   return invoke<boolean>('document_uploads_cancel_import_batch')

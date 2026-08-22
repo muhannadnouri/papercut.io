@@ -15,6 +15,22 @@ use super::types::UploadedDocument;
 
 const MAX_TITLE_CHARS: usize = 512;
 
+/// Apply the one title boundary shared by document creation and later edits.
+/// Returning an owned trimmed value prevents callers from persisting whitespace
+/// that the title editor would remove on its first save.
+pub(crate) fn normalize_document_title(title: &str) -> Result<String, String> {
+    let title = title.trim();
+    if title.is_empty() {
+        return Err("Document title cannot be empty".into());
+    }
+    if title.chars().count() > MAX_TITLE_CHARS {
+        return Err(format!(
+            "Document title cannot exceed {MAX_TITLE_CHARS} characters"
+        ));
+    }
+    Ok(title.to_owned())
+}
+
 /// List all stored uploads as DTOs, newest import first.
 pub(crate) fn list_uploads<R: Runtime>(
     app: &tauri::AppHandle<R>,
@@ -455,15 +471,7 @@ pub(crate) fn update_document_title(
     title: &str,
 ) -> Result<UploadedDocument, String> {
     let id = upload_id_from_url(document_url)?;
-    let title = title.trim();
-    if title.is_empty() {
-        return Err("Document title cannot be empty".into());
-    }
-    if title.chars().count() > MAX_TITLE_CHARS {
-        return Err(format!(
-            "Document title cannot exceed {MAX_TITLE_CHARS} characters"
-        ));
-    }
+    let title = normalize_document_title(title)?;
 
     let tx = db.transaction().map_err(db_err)?;
     let updated = tx
@@ -496,7 +504,7 @@ mod tests {
 
     use super::{
         backfill_pdf_text_status, ensure_schema_columns, find_upload_by_id, update_document_title,
-        upsert_document, PdfTextStatus,
+        upsert_document, PdfTextStatus, MAX_TITLE_CHARS,
     };
     use crate::document_uploads::parsed::{ParsedDocument, ParsedSection};
     use crate::document_uploads::StoredSourceKind;
@@ -631,6 +639,12 @@ mod tests {
             .expect("collect FTS titles");
         assert_eq!(fts_titles, vec!["Better Title", "Better Title"]);
         assert!(update_document_title(&mut db, "/uploads/abc123.html", " ").is_err());
+        assert!(update_document_title(
+            &mut db,
+            "/uploads/abc123.html",
+            &"a".repeat(MAX_TITLE_CHARS + 1),
+        )
+        .is_err());
     }
 
     #[test]
