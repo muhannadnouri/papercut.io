@@ -57,7 +57,7 @@ Rust:
   - `text.rs` — strict Unicode decoding plus plain-text escaping and CommonMark-to-sanitized-HTML adaptation.
   - `store.rs` — SQLite schema, the index write path, listing, and deletes.
   - `organization.rs` — uploaded-document folder and manual ordering metadata. It never rewrites document URLs or stored source files, so folder moves do not invalidate search rows, saved audiobook ids, or TTS highlight mapping.
-  - `search.rs` — FTS5 query building and execution (read-only).
+  - `search.rs` — read-only SQLite orchestration, ranking, evidence, and concordance; `search/query.rs` owns query normalization and FTS5 expression construction, while `search/tests.rs` keeps the focused behavior suite beside that implementation.
   - `storage.rs` — app-data paths, upload ids, size accounting, clock, and the URL-prefix/size-limit constants.
   - `types.rs` — serde DTOs shared across the boundary.
 - `src-tauri/src/lib.rs` registers the Tauri commands, referenced through the `document_uploads::commands` path so the macro-generated command helpers resolve.
