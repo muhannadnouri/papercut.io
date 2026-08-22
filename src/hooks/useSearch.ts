@@ -75,7 +75,6 @@ export function useSearch(
   const [lastSearchInfo, setLastSearchInfo] = useState<LastSearchInfo | null>(null)
 
   const queryRef = useRef(query)
-  queryRef.current = query
   const submittedQueryRef = useRef('')
   const latestSearchRequestRef = useRef(0)
   const activeSearchKeyRef = useRef<string>('')

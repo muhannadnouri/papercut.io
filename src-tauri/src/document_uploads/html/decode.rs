@@ -154,7 +154,7 @@ mod encoding_tests {
         bytes.extend_from_slice(&[0x93, 72, 101, 103, 101, 108, 0x94, 32, 99, 97, 102, 0xe9]);
         bytes.extend_from_slice(br##"</p></body></html>"##);
         let decoded = decode_html_bytes(&bytes).expect("decode windows-1252 html");
-        assert!(decoded.contains("\u{201c}Hegel\u{201d} caf\u{e9}"));
+        assert!(decoded.contains("\u{201c}Anne\u{201d} caf\u{e9}"));
     }
     #[test]
     fn decodes_short_meta_charset_form_case_insensitively() {

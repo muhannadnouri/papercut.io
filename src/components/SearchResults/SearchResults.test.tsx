@@ -150,6 +150,41 @@ describe('search evidence', () => {
     expect(html).not.toContain('type="checkbox"')
     expect(html).not.toContain('search.results.comparisonTitle')
   })
+
+  it('keeps the matching-section count when no evidence map is shown', () => {
+    const html = renderToStaticMarkup(
+      <SearchResults
+        results={[{
+          id: 'upload:section:one:0',
+          url: '/uploads/one.html',
+          meta: { title: 'One' },
+          excerpt: '<mark>orchard</mark>',
+          source: 'upload',
+          matchCount: 3,
+          matchingSections: 3,
+          matchLocations: [{ binIndex: 0, sectionIndex: 0, matchCount: 3 }],
+        }]}
+        loading={false}
+        searchFailed={false}
+        searchableDocumentCount={1}
+        searchPhase={null}
+        submittedQuery="orchard"
+        lastSearchInfo={{
+          phrases: [],
+          unquotedText: 'orchard',
+          uploadedDocuments: 1,
+          uploadedMatchingSections: 3,
+          starterDocuments: 0,
+        }}
+        scopeUrls={new Set()}
+        scopeActive={false}
+        onViewResult={() => undefined}
+      />,
+    )
+
+    expect(html).toContain('search.results.matchingSections:3')
+    expect(html).not.toContain('result-occurrence-map')
+  })
 })
 
 describe('search query summary', () => {

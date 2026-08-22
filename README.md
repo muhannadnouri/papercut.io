@@ -23,7 +23,7 @@ Bundled starter HTML documents are indexed at build time with Pagefind. User-imp
 - Import up to 500 HTML, EPUB, PDF, TXT, or Markdown files at once, paste plain text directly into a searchable local document, drop files onto the desktop Library, or open supported files with an installed desktop, Android, or iOS build; desktop builds can also import one folder.
 - Make image-only and hybrid PDF pages searchable and speakable with resumable, offline English or Arabic OCR.
 - Scan multi-page documents or import existing photos on supported Android devices while retaining the original pages in a canonical PDF.
-- Search uploaded and bundled starter documents together, with authoritative uploaded-document counts, scoped filters, and source-verified exact phrases.
+- Search uploaded and bundled starter documents together, with authoritative uploaded-document counts, scoped filters, and source-linked exact-phrase evidence.
 - Browse cover-based Gallery or compact List views, edit document metadata, organize folders, and filter by saved audio or bookmarks.
 - Read with format-appropriate viewers, in-document Find, semantic bookmarks, and responsive reflowable-document appearance controls.
 - Generate, resume, play, import, and export saved audiobooks with native offline TTS and background mobile playback.

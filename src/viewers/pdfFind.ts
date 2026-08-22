@@ -138,6 +138,20 @@ function pdfFindQuery(input: string): PdfJsQuery {
     }).join(''))
   }
   aliases.add(compact.replace(/(\p{L})-(?=\p{L})/gu, '$1'))
+
+  // ponytail: independently vary two compounds (at most 49 dash aliases);
+  // expand only if real PDFs justify the extra PDF.js search work.
+  const mixedDashPositions = positions.slice(0, 2)
+  const dashCombinations = SEARCH_DASH_CHARACTERS.length ** mixedDashPositions.length
+  for (let combination = 0; combination < dashCombinations; combination += 1) {
+    let state = combination
+    const choices = new Map<number, string>()
+    mixedDashPositions.forEach((position) => {
+      choices.set(position, SEARCH_DASH_CHARACTERS[state % SEARCH_DASH_CHARACTERS.length])
+      state = Math.floor(state / SEARCH_DASH_CHARACTERS.length)
+    })
+    aliases.add(characters.map((character, index) => choices.get(index) ?? character).join(''))
+  }
   for (const dash of SEARCH_DASH_CHARACTERS.slice(1)) {
     aliases.add(compact.replaceAll('-', dash))
   }

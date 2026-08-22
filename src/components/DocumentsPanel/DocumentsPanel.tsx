@@ -160,15 +160,17 @@ export function DocumentsPanel({
           <div className="document-import-menu">
             <MenuTrigger isOpen={importMenuOpen} onOpenChange={setImportMenuOpen}>
               <Button
-                className={`document-import-btn${activeImport ? ' document-import-btn-busy' : ''}`}
+                className={`document-import-btn${importBusy ? ' document-import-btn-busy' : ''}`}
                 isDisabled={importDisabled}
-                aria-label={activeImport?.statusLabel}
+                aria-label={importBusy
+                  ? activeImport?.statusLabel ?? t('library.import.importingBatch')
+                  : undefined}
               >
-                <span className="document-import-btn-label" aria-hidden={activeImport ? true : undefined}>
+                <span className="document-import-btn-label" aria-hidden={importBusy ? true : undefined}>
                   {t('library.documents.import')}
                   <span className={`toggle-arrow ${importMenuOpen ? 'open' : ''}`} aria-hidden="true">&#9662;</span>
                 </span>
-                {activeImport && <span className="spinner document-import-btn-spinner" aria-hidden="true" />}
+                {importBusy && <span className="spinner document-import-btn-spinner" aria-hidden="true" />}
               </Button>
               <Popover
                 className="document-import-popover"

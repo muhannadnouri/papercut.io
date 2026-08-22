@@ -115,7 +115,9 @@ describe('PDF Find adapter', () => {
       'highlights stateowned',
       'high–lights state–owned',
       'high—lights state—owned',
+      'high–lights state—owned',
+      'high—lights state–owned',
     ]))
-    expect(aliases).toHaveLength(15)
+    expect(aliases).toHaveLength(57)
   })
 })

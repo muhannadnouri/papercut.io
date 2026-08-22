@@ -74,8 +74,11 @@ pub(crate) fn search_uploads<R: Runtime>(
     let query = fts_and_query(&queries);
 
     let db_started = Instant::now();
-    let db = open_db(app)?;
+    let mut db = open_db(app)?;
     let db_ms = db_started.elapsed().as_millis();
+    // Keep candidate ranking, exact verification, and evidence on one SQLite
+    // snapshot if an import, OCR update, or deletion commits concurrently.
+    let tx = db.transaction().map_err(db_err)?;
     let limit = request.limit.unwrap_or(50).clamp(1, 100);
     let document_urls = request
         .document_urls
@@ -86,17 +89,17 @@ pub(crate) fn search_uploads<R: Runtime>(
 
     progress(UploadedDocumentSearchStage::FindingCandidates);
     let candidate_started = Instant::now();
-    let mut section_candidates = document_candidates(&db, &query, &document_urls, None, "section")?;
+    let mut section_candidates = document_candidates(&tx, &query, &document_urls, None, "section")?;
     let section_document_ids = section_candidates
         .iter()
         .map(|candidate| candidate.document_id.clone())
         .collect::<HashSet<_>>();
     let mut document_candidates = if queries.len() > 1 {
-        let mut document_ids = document_ids_matching_all_queries(&db, &queries, &document_urls)?;
+        let mut document_ids = document_ids_matching_all_queries(&tx, &queries, &document_urls)?;
         document_ids.retain(|id| !section_document_ids.contains(id));
         let or_query = fts_or_query(&queries);
         document_candidates(
-            &db,
+            &tx,
             &or_query,
             &document_urls,
             Some(&document_ids),
@@ -112,9 +115,9 @@ pub(crate) fn search_uploads<R: Runtime>(
     if !exact_queries.is_empty() {
         progress(UploadedDocumentSearchStage::VerifyingPhrases);
         section_candidates =
-            retain_exact_phrase_candidates(&db, section_candidates, &exact_phrases)?;
+            retain_exact_phrase_candidates(&tx, section_candidates, &exact_phrases)?;
         document_candidates =
-            retain_exact_phrase_candidates(&db, document_candidates, &exact_phrases)?;
+            retain_exact_phrase_candidates(&tx, document_candidates, &exact_phrases)?;
     }
     let verification_ms = verification_started.elapsed().as_millis();
 
@@ -132,22 +135,23 @@ pub(crate) fn search_uploads<R: Runtime>(
     let result_started = Instant::now();
     let exact_evidence_started = Instant::now();
     if !exact_queries.is_empty() {
-        attach_exact_phrase_evidence(&db, &mut section_candidates, &exact_phrases)?;
-        attach_exact_phrase_evidence(&db, &mut document_candidates, &exact_phrases)?;
+        attach_exact_phrase_evidence(&tx, &mut section_candidates, &exact_phrases)?;
+        attach_exact_phrase_evidence(&tx, &mut document_candidates, &exact_phrases)?;
     }
     let exact_evidence_ms = exact_evidence_started.elapsed().as_millis();
     let result_evidence_started = Instant::now();
-    let mut results = search_results_for_candidates(&db, &query, &section_candidates)?;
+    let mut results = search_results_for_candidates(&tx, &query, &section_candidates)?;
     results.extend(search_results_for_candidates(
-        &db,
+        &tx,
         &or_query,
         &document_candidates,
     )?);
     let result_evidence_ms = result_evidence_started.elapsed().as_millis();
     let term_matches_started = Instant::now();
-    attach_search_term_matches(&db, &comparison_terms, &mut results)?;
+    attach_search_term_matches(&tx, &comparison_terms, &mut results)?;
     let term_matches_ms = term_matches_started.elapsed().as_millis();
     let result_ms = result_started.elapsed().as_millis();
+    tx.commit().map_err(db_err)?;
     if cfg!(debug_assertions) {
         log::info!(
             "[search] native performance summary terms={} exact_phrases={} scoped_documents={} \
@@ -506,6 +510,7 @@ fn highlighted_exact_excerpt(
 
     let match_start = normalized[..match_byte_index].chars().count();
     let characters = display.chars().collect::<Vec<_>>();
+    let offsets_align = characters.len() == normalized.chars().count();
     let highlight_start = match_start.min(characters.len());
     let highlight_end = (highlight_start + phrase.chars().count()).min(characters.len());
     let start = highlight_start.saturating_sub(CONTEXT);
@@ -514,11 +519,15 @@ fn highlighted_exact_excerpt(
     if start > 0 {
         excerpt.push_str("… ");
     }
-    excerpt.extend(characters[start..highlight_start].iter().copied());
-    excerpt.push_str("<mark>");
-    excerpt.extend(characters[highlight_start..highlight_end].iter().copied());
-    excerpt.push_str("</mark>");
-    excerpt.extend(characters[highlight_end..end].iter().copied());
+    if offsets_align {
+        excerpt.extend(characters[start..highlight_start].iter().copied());
+        excerpt.push_str("<mark>");
+        excerpt.extend(characters[highlight_start..highlight_end].iter().copied());
+        excerpt.push_str("</mark>");
+        excerpt.extend(characters[highlight_end..end].iter().copied());
+    } else {
+        excerpt.extend(characters[start..end].iter().copied());
+    }
     if end < characters.len() {
         excerpt.push_str(" …");
     }
@@ -1304,9 +1313,9 @@ mod tests {
         attach_exact_phrase_evidence, attach_search_term_matches, comparison_terms,
         count_normalized_matches, document_candidates, document_concordance,
         document_ids_matching_all_queries, fts_and_query, fts_fuzzy_queries, fts_fuzzy_terms,
-        fts_or_query, fts_phrase_queries, normalize_exact_text, retain_exact_phrase_candidates,
-        retain_exact_phrase_hits, search_cross_section_document_hits,
-        search_results_for_candidates, search_section_hits,
+        fts_or_query, fts_phrase_queries, highlighted_exact_excerpt, normalize_exact_text,
+        retain_exact_phrase_candidates, retain_exact_phrase_hits,
+        search_cross_section_document_hits, search_results_for_candidates, search_section_hits,
     };
 
     #[test]
@@ -1466,6 +1475,17 @@ mod tests {
         ] {
             assert_eq!(normalize_exact_text(text), expected);
         }
+    }
+
+    #[test]
+    fn exact_excerpt_avoids_wrong_marks_when_lowercasing_expands_unicode() {
+        let display = "İstanbul archive";
+        let normalized = display.to_lowercase();
+        let match_start = normalized.find("archive").expect("normalized match");
+        let excerpt = highlighted_exact_excerpt(display, &normalized, "archive", match_start);
+
+        assert!(excerpt.contains("archive"));
+        assert!(!excerpt.contains("<mark>"));
     }
 
     #[test]

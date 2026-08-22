@@ -50,7 +50,7 @@ describe('search query errors', () => {
     )
 
     expect(busy).toContain('aria-busy="true"')
-    expect(busy).toContain('disabled="" aria-busy="true"')
+    expect(busy).toMatch(/<button[^>]*class="search-btn"[^>]*disabled=""/)
     expect(busy).toContain('spinner search-btn-spinner')
     expect(edited).not.toContain('aria-busy="true"')
     expect(edited).not.toContain('disabled=""')

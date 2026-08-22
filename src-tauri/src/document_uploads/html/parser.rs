@@ -61,6 +61,26 @@ pub(crate) fn add_section_locators(html: &str) -> String {
     indexed_reader_html(html).0
 }
 
+/// Recognize the deterministic locator sequence emitted by `indexed_reader_html`.
+///
+/// ponytail: this avoids reparsing every large reader document on open. Fall
+/// back to a DOM check only if authored lookalike marker sequences occur in practice.
+pub(crate) fn has_complete_section_locators(html: &str, section_count: usize) -> bool {
+    if html.matches("data-papercut-section=").count() != section_count {
+        return false;
+    }
+
+    let mut remaining = html;
+    for ordinal in 0..section_count {
+        let marker = format!(r#"data-papercut-section="{ordinal}""#);
+        let Some(index) = remaining.find(&marker) else {
+            return false;
+        };
+        remaining = &remaining[index + marker.len()..];
+    }
+    true
+}
+
 /// One extracted block of body text plus whether it came from a heading tag.
 struct TextBlock {
     node: NodeRef,
@@ -325,5 +345,21 @@ mod tests {
             parsed.view_html.matches("data-papercut-section=").count(),
             2
         );
+    }
+
+    #[test]
+    fn recognizes_only_complete_ordered_section_locators() {
+        assert!(has_complete_section_locators(
+            r#"<p data-papercut-section="0">First.</p><p data-papercut-section="1">Second.</p>"#,
+            2,
+        ));
+        assert!(!has_complete_section_locators(
+            r#"<p>data-papercut-section=</p><p>Second.</p>"#,
+            2,
+        ));
+        assert!(!has_complete_section_locators(
+            r#"<p data-papercut-section="0">First.</p><p data-papercut-section="2">Third.</p>"#,
+            2,
+        ));
     }
 }

@@ -172,7 +172,6 @@ export function SearchResults({
             const opening = openingDocumentUrl === result.url
             const disabled = openingDisabled || opening
             const exactPhrase = Boolean(lastSearchInfo?.phrases.length)
-            const meta = resultMeta(result, exactPhrase, t)
             const excerpt = resultExcerpt(result, exactPhrase)
             const additionalPassages = (result.passages ?? [])
               .filter((passage) => passage.sectionIndex !== result.sectionIndex)
@@ -187,6 +186,7 @@ export function SearchResults({
               && result.matchingSections !== undefined
               && result.matchingSections > 1
               && (additionalPassages.length > 0 || locations.length > 1)
+            const meta = resultMeta(result, exactPhrase, hasEvidence, t)
             const terms = concordanceTerms(result, lastSearchInfo)
             const activeTerm = terms.find((term) => concordance?.key === `${result.url}\0${term}`)
             const activeConcordance = activeTerm ? concordance : null
@@ -520,7 +520,12 @@ function usefulExcerpt(excerpt: string | undefined, sectionTitle: string | undef
   return excerpt
 }
 
-function resultMeta(result: SearchResult, exactPhrase: boolean, t: TFunction): string | null {
+function resultMeta(
+  result: SearchResult,
+  exactPhrase: boolean,
+  hasEvidence: boolean,
+  t: TFunction,
+): string | null {
   if (exactPhrase) {
     const count = result.matchCount
     return count ? t('search.results.exactMatch', { count }) : null
@@ -536,7 +541,7 @@ function resultMeta(result: SearchResult, exactPhrase: boolean, t: TFunction): s
       : t('search.results.bestPassage'),
   ]
   const count = result.matchCount ?? result.sub_results?.length
-  if (count && count > 1 && !result.matchLocations?.length) {
+  if (count && count > 1 && !hasEvidence) {
     parts.push(t('search.results.matchingSections', { count }))
   }
   return parts.join(' · ')

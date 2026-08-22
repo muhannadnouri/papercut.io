@@ -17,7 +17,10 @@ use super::cover::{
     backfill_thumbnail, write_thumbnail, THUMBNAIL_FILE_NAME, THUMBNAIL_MEDIA_TYPE,
 };
 use super::epub::{externalize_inline_image_assets, parse_epub_document};
-use super::html::{add_section_locators, decode_html_bytes, parse_html_document, sanitize_html};
+use super::html::{
+    add_section_locators, decode_html_bytes, has_complete_section_locators, parse_html_document,
+    sanitize_html,
+};
 use super::parsed::{
     is_reader_asset_file_name, ParsedDocument, ParsedDocumentAsset, READER_ASSET_DIR_NAME,
 };
@@ -421,7 +424,7 @@ pub(crate) fn get_source<R: Runtime>(
     // New reflowable imports persist these markers. Add them lazily for older
     // sources so their existing SQLite section ordinals become exact targets
     // without rewriting canonical source files or migrating the database.
-    if !html.contains("data-papercut-section=") {
+    if !has_complete_section_locators(&html, document.sections) {
         html = add_section_locators(&html);
     }
     let asset_paths = stored_reader_asset_paths(&dir)?;

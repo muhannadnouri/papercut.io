@@ -75,7 +75,7 @@
       "starterDocuments": "入门文档",
       "showingCount": "显示 {{total, number}} 个中的 {{shown, number}} 个",
       "termsSeparateSections": "已找到所有词，但它们不在同一章节中",
-      "bestSection": "最佳匹配款：{{title}}",
+      "bestSection": "最佳匹配章节：{{title}}",
       "bestPassage": "最佳匹配段落",
       "sectionsByTerm": "按词统计章节：",
       "exploreMatches": "浏览匹配项",

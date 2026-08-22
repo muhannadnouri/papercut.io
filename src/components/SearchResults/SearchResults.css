@@ -423,4 +423,13 @@
   .result-evidence-action {
     min-height: 2.75rem;
   }
+
+  .result-occurrence-map {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .result-occurrence-empty,
+  .result-occurrence-marker {
+    min-height: 2.75rem;
+  }
 }
