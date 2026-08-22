@@ -50,9 +50,9 @@ These archives come from `https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts
 SupertonicTTS 3 is exposed as two experimental catalog entries, English and Arabic, backed by one shared multilingual int8 archive. sherpa selects language through `GenerationConfig.extra["lang"]`, so Papercut keeps separate model IDs for cache identity while installing the same model directory. Treat Supertonic speed and quality as measured device behavior, not a guaranteed win over Piper or Kokoro; use TTS diagnostics to compare `realTimeFactor`, `synthesisMs`, and `preprocessMs` before changing defaults.
 
 Kokoro keeps one English model entry and its existing stable voice IDs, but selects
-`en-us` for American `a*` voices and `en-gb` for British `b*` voices per synthesis
-request. Voice labels show the upstream locale and overall training-data grade;
-the [upstream voice catalog](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md)
+eSpeak's `en-us` voice for American `a*` voices and `en` voice for British `b*`
+voices per synthesis request. Voice labels show the upstream locale and overall
+training-data grade. The [upstream voice catalog](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md)
 describes those grades as estimates rather than guarantees of subjective voice
 quality. These display and phonemization changes do not alter audiobook identity
 or invalidate existing saved WAV files.
@@ -60,10 +60,11 @@ or invalidate existing saved WAV files.
 Mandarin is a separate catalog entry with its own stable model ID and the eight
 official `zf_*`/`zm_*` speakers, but it reuses the same `kokoro-multi-lang-v1_0`
 directory and verified archive as English. sherpa receives the archive's Chinese
-lexicon plus `phone-zh.fst`, `date-zh.fst`, and `number-zh.fst`; the per-request
-language is `zh`. Existing English preferences and saved-audiobook identities are
-unchanged, while Mandarin generations remain distinct because they use the new
-model ID.
+and English lexicons plus `phone-zh.fst`, `date-zh.fst`, and `number-zh.fst`.
+Papercut leaves the eSpeak language override empty so sherpa uses those lexicons
+for mixed Chinese and Latin text. Existing English preferences and
+saved-audiobook identities are unchanged, while Mandarin generations remain
+distinct because they use the new model ID.
 
 Spanish, French, Hindi, Italian, and Brazilian Portuguese are exposed through
 [sherpa-onnx's multilingual Kokoro frontend](https://github.com/k2-fsa/sherpa-onnx/pull/2303)
@@ -230,6 +231,7 @@ The document header exposes one consolidated audio control surface:
 - Save generates and persists the full audiobook for the current supported document. HTML and EPUB save from sanitized reader HTML; PDF saves from persisted page-text layers and page-aware locators.
 - Saved appears when the full audiobook exists locally for the current Audio Setup.
 - Model selects the engine/language. Download voice model installs the selected pinned model into app data. Papercut may suggest an Arabic or Mandarin model when the document script is unambiguous, but Latin-script documents preserve the user's selected engine because script alone cannot distinguish English, Spanish, French, and other supported languages.
+- Voice marks each model's catalog default as the recommended starting point. Once the selected model is installed, Preview Voice synthesizes and plays a short language-matched sample through the normal native engine and preprocessing path. The temporary WAV is removed immediately and never creates an audiobook record.
 - Text processing selects a model-supported synthesis preprocessor. Piper offers automatic Arabic diacritization or original text; Kokoro exposes original text only.
 - New saves generate audio at `1x`. Use the player speed control for ordinary listening-speed changes.
 - Threads controls the native ONNX Runtime thread count for benchmarking save throughput on the current device. Options extend to the logical CPU parallelism detected by Rust, each app session starts with the conservative native platform default (1 on Android, up to 4 on desktop), and the UI reports the backend-confirmed count applied to the active or most recent save. Selecting more than 4 threads shows a warning because extra parallelism can increase memory use, heat, battery drain, and thermal throttling without guaranteeing faster synthesis.

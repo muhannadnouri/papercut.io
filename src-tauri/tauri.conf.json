@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Papercut",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "identifier": "io.papercut.desktop",
   "build": {
     "frontendDist": "../dist",
@@ -24,7 +24,8 @@
       "assetProtocol": {
         "enable": true,
         "scope": [
-          "$APPDATA/document_uploads/*/source.pdf"
+          "$APPDATA/document_uploads/*/source.pdf",
+          "$APPDATA/document_uploads/*/assets/*"
         ]
       },
       "headers": {

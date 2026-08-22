@@ -23,7 +23,7 @@ use super::types::{
     UploadedDocument, UploadedDocumentBatchFailure, UploadedDocumentBatchProgress,
     UploadedDocumentBatchResult, UploadedDocumentDeleteBatchFailure,
     UploadedDocumentDeleteBatchProgress, UploadedDocumentDeleteBatchRequest,
-    UploadedDocumentDeleteBatchResult, UploadedDocumentDeleteRequest,
+    UploadedDocumentDeleteBatchResult, UploadedDocumentDeleteRequest, UploadedDocumentImportStage,
 };
 
 pub(crate) const DOCUMENT_IMPORT_PROGRESS_EVENT: &str = "document-uploads-import-progress";
@@ -167,13 +167,13 @@ fn import_sources<R: Runtime>(
     let mut run = process_sources(
         sources,
         || control.is_cancelled(),
-        |source| {
+        |source, progress| {
             #[cfg(desktop)]
             let relative_folder = match (&folder_plan, &source) {
                 (Some(plan), FilePath::Path(path)) => plan.folders_by_source.get(path).cloned(),
                 _ => None,
             };
-            let document = import_source(&app, source, pdf_title)?;
+            let document = import_source(&app, source, pdf_title, progress)?;
             let already_in_library = !known_document_ids.insert(document.id.clone());
             #[cfg(desktop)]
             if let (Some(plan), Some(relative_folder)) = (&mut folder_plan, relative_folder) {
@@ -211,6 +211,7 @@ fn import_sources<R: Runtime>(
         DOCUMENT_IMPORT_PROGRESS_EVENT,
         UploadedDocumentBatchProgress {
             phase: phase.into(),
+            stage: None,
             processed: run.processed,
             total: run.selected,
             imported: added,
@@ -422,7 +423,8 @@ fn collect_folder_sources(
 }
 
 /// Keep cancellation at file boundaries so a parser or persistence transaction
-/// is never interrupted halfway through one document.
+/// is never interrupted halfway through one document. Stage callbacks are
+/// intentionally sparse semantic transitions, not per-page/chapter telemetry.
 fn process_sources<T, C, I, P>(
     sources: Vec<FilePath>,
     mut is_cancelled: C,
@@ -431,7 +433,7 @@ fn process_sources<T, C, I, P>(
 ) -> Result<BatchRun<T>, String>
 where
     C: FnMut() -> Result<bool, String>,
-    I: FnMut(FilePath) -> Result<(T, bool), String>,
+    I: FnMut(FilePath, &mut dyn FnMut(UploadedDocumentImportStage)) -> Result<(T, bool), String>,
     P: FnMut(UploadedDocumentBatchProgress),
 {
     let selected = sources.len();
@@ -452,6 +454,7 @@ where
         let file_name = source_file_name(&source);
         progress(UploadedDocumentBatchProgress {
             phase: "importing".into(),
+            stage: None,
             processed: run.processed,
             total: selected,
             imported: run.imported.len() - run.already_in_library.len(),
@@ -460,7 +463,21 @@ where
             file_name: Some(file_name.clone()),
         });
 
-        match import(source) {
+        // Stage events reuse the same count snapshot and readable basename. The
+        // identifiers are API values; localization belongs to the frontend.
+        let mut report_stage = |stage: UploadedDocumentImportStage| {
+            progress(UploadedDocumentBatchProgress {
+                phase: "importing".into(),
+                stage: Some(stage),
+                processed: run.processed,
+                total: selected,
+                imported: run.imported.len() - run.already_in_library.len(),
+                already_in_library: run.already_in_library.len(),
+                failed: run.failures.len(),
+                file_name: Some(file_name.clone()),
+            });
+        };
+        match import(source, &mut report_stage) {
             Ok((document, already_in_library)) => {
                 if already_in_library {
                     run.already_in_library.push(file_name.clone());
@@ -474,6 +491,7 @@ where
         run.processed += 1;
         progress(UploadedDocumentBatchProgress {
             phase: "importing".into(),
+            stage: None,
             processed: run.processed,
             total: selected,
             imported: run.imported.len() - run.already_in_library.len(),
@@ -492,16 +510,18 @@ fn import_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
     pdf_title: Option<&str>,
+    progress: &mut dyn FnMut(UploadedDocumentImportStage),
 ) -> Result<UploadedDocument, String> {
     let original_file_name = original_source_file_name(&source);
+    progress(UploadedDocumentImportStage::DetectingFormat);
     match document_format(app, &source)? {
-        DocumentFormat::Html => import_html_source(app, source, original_file_name),
-        DocumentFormat::Epub => import_epub_source(app, source, original_file_name),
+        DocumentFormat::Html => import_html_source(app, source, original_file_name, progress),
+        DocumentFormat::Epub => import_epub_source(app, source, original_file_name, progress),
         DocumentFormat::Pdf => {
             let title = pdf_title
                 .map(str::to_owned)
                 .unwrap_or_else(|| source_title(&source));
-            import_pdf_source(app, source, title, original_file_name)
+            import_pdf_source(app, source, title, original_file_name, progress)
         }
     }
 }
@@ -631,7 +651,8 @@ mod tests {
                 cancellation_checks += 1;
                 Ok(cancellation_checks > 2)
             },
-            |source| {
+            |source, progress| {
+                progress(UploadedDocumentImportStage::ReadingFile);
                 let name = source_file_name(&source);
                 if name == "bad.epub" {
                     Err("invalid archive".into())
@@ -650,7 +671,7 @@ mod tests {
         assert_eq!(run.failures.len(), 1);
         assert_eq!(run.failures[0].file_name, "bad.epub");
         assert!(run.cancelled);
-        assert_eq!(events.len(), 4);
+        assert_eq!(events.len(), 6);
     }
 
     #[test]
@@ -660,7 +681,8 @@ mod tests {
         let run = process_sources(
             sources,
             || Ok(false),
-            |source| {
+            |source, progress| {
+                progress(UploadedDocumentImportStage::ReadingFile);
                 let name = source_file_name(&source);
                 let existing = name == "existing.epub";
                 Ok((name, existing))
@@ -674,6 +696,16 @@ mod tests {
         let completed = events.last().expect("completed progress");
         assert_eq!(completed.imported, 1);
         assert_eq!(completed.already_in_library, 1);
+        assert_eq!(
+            events
+                .iter()
+                .filter_map(|event| event.stage)
+                .collect::<Vec<_>>(),
+            vec![
+                UploadedDocumentImportStage::ReadingFile,
+                UploadedDocumentImportStage::ReadingFile,
+            ]
+        );
     }
 
     #[test]

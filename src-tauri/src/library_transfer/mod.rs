@@ -24,15 +24,17 @@ use zip::ZipArchive;
 
 use crate::document_uploads::{
     create_folder, list_organization, list_uploads, move_documents, now_ms,
-    restore_transferred_document, restore_transferred_pdf, upload_dir, upload_id_from_url,
-    upload_source_path, StoredSourceKind, UploadedDocument, UploadedLibraryCreateFolderRequest,
-    UploadedLibraryFolder, UploadedLibraryMoveDocumentsRequest,
+    restore_transferred_document, restore_transferred_pdf, stored_reader_asset_paths, upload_dir,
+    upload_id_from_url, upload_source_path, ParsedDocumentAsset, StoredSourceKind,
+    UploadedDocument, UploadedLibraryCreateFolderRequest, UploadedLibraryFolder,
+    UploadedLibraryMoveDocumentsRequest,
 };
 use package::{
-    audiobook_file_path, copy_audiobook_file, document_source_path, read_document_source,
-    read_manifest, sha256_reader, write_package, TransferAudiobook, TransferAudiobookFile,
-    TransferDocument, TransferDocumentLocation, TransferFolder, TransferManifest,
-    TransferOrganization, MAX_AUDIOBOOKS, MAX_PACKAGE_BYTES, PACKAGE_KIND, PACKAGE_VERSION,
+    audiobook_file_path, copy_audiobook_file, document_asset_path, document_source_path,
+    read_document_asset, read_document_source, read_manifest, sha256_reader, write_package,
+    TransferAudiobook, TransferAudiobookFile, TransferDocument, TransferDocumentAsset,
+    TransferDocumentLocation, TransferFolder, TransferManifest, TransferOrganization,
+    MAX_AUDIOBOOKS, MAX_PACKAGE_BYTES, PACKAGE_KIND, PACKAGE_VERSION,
 };
 
 const PACKAGE_EXTENSION: &str = "papercut-library";
@@ -372,6 +374,32 @@ fn prepare_manifest(
         })?);
         let (source_sha256, source_bytes) = sha256_reader(&mut reader)?;
         let source_path = document_source_path(&document.id, source_kind.as_str());
+        let mut assets = Vec::new();
+        if document.format == "epub" {
+            let mut stored_assets: Vec<_> =
+                stored_reader_asset_paths(&upload_dir(app, &document.id)?)?
+                    .into_iter()
+                    .collect();
+            stored_assets.sort_unstable_by(|left, right| left.0.cmp(&right.0));
+            for (file_name, stored_path) in stored_assets {
+                let stored_path = PathBuf::from(stored_path);
+                let mut reader = BufReader::new(File::open(&stored_path).map_err(|err| {
+                    format!(
+                        "Failed to open uploaded document reader image {}: {err}",
+                        stored_path.display()
+                    )
+                })?);
+                let (sha256, bytes) = sha256_reader(&mut reader)?;
+                let path = document_asset_path(&document.id, &file_name);
+                payloads.insert(path.clone(), stored_path);
+                assets.push(TransferDocumentAsset {
+                    file_name,
+                    path,
+                    bytes,
+                    sha256,
+                });
+            }
+        }
         transfer_documents.push(TransferDocument {
             id: document.id.clone(),
             title: document.title.clone(),
@@ -384,6 +412,7 @@ fn prepare_manifest(
             source_path: source_path.clone(),
             source_bytes,
             source_sha256,
+            assets,
         });
         payloads.insert(source_path, path);
     }
@@ -425,7 +454,7 @@ fn prepare_manifest(
         schema_version: if transfer_audiobooks.is_empty()
             && transfer_documents
                 .iter()
-                .all(|document| document.source_kind == "html")
+                .all(|document| document.source_kind == "html" && document.assets.is_empty())
         {
             1
         } else {
@@ -527,7 +556,18 @@ fn restore_manifest<T: Read + std::io::Seek>(
             );
             continue;
         }
-        let result = read_document_source(archive, document).and_then(|source| {
+        let result = (|| {
+            let source = read_document_source(archive, document)?;
+            let assets = document
+                .assets
+                .iter()
+                .map(|asset| {
+                    Ok(ParsedDocumentAsset {
+                        file_name: asset.file_name.clone(),
+                        bytes: read_document_asset(archive, asset)?,
+                    })
+                })
+                .collect::<Result<Vec<_>, String>>()?;
             match StoredSourceKind::from_str(&document.source_kind)? {
                 StoredSourceKind::Html => {
                     let source_html = String::from_utf8(source).map_err(|_| {
@@ -545,6 +585,7 @@ fn restore_manifest<T: Read + std::io::Seek>(
                         document.format.clone(),
                         document.imported_at_ms as u128,
                         document.original_bytes,
+                        assets,
                     )
                 }
                 StoredSourceKind::Pdf => restore_transferred_pdf(
@@ -557,7 +598,7 @@ fn restore_manifest<T: Read + std::io::Seek>(
                     document.original_bytes,
                 ),
             }
-        });
+        })();
         match result {
             Ok(_) => imported_ids.push(document.id.clone()),
             Err(error) => failures.push(LibraryTransferFailure {

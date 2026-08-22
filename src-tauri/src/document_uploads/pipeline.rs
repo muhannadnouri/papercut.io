@@ -4,6 +4,7 @@
 //! contain no parsing, SQL, or path logic themselves. They run on the blocking
 //! thread pool (see [`super::commands`]).
 
+use std::collections::HashMap;
 use std::fs;
 use std::io::Read;
 use std::path::Path;
@@ -15,9 +16,11 @@ use tauri_plugin_dialog::FilePath;
 use super::cover::{
     backfill_thumbnail, write_thumbnail, THUMBNAIL_FILE_NAME, THUMBNAIL_MEDIA_TYPE,
 };
-use super::epub::parse_epub_document;
+use super::epub::{externalize_inline_image_assets, parse_epub_document};
 use super::html::{decode_html_bytes, parse_html_document, sanitize_html};
-use super::parsed::ParsedDocument;
+use super::parsed::{
+    is_reader_asset_file_name, ParsedDocument, ParsedDocumentAsset, READER_ASSET_DIR_NAME,
+};
 use super::storage::directory_size;
 #[cfg(feature = "native-tts-core")]
 use super::storage::UPLOAD_URL_PREFIX;
@@ -29,17 +32,22 @@ use super::storage::{
 use super::store::{delete_document_rows, find_upload_by_id, open_db, upsert_document};
 use super::types::{
     UploadedDocument, UploadedDocumentDeleteRequest, UploadedDocumentDeleteResult,
-    UploadedDocumentSourceRequest,
+    UploadedDocumentImportStage, UploadedDocumentSource, UploadedDocumentSourceRequest,
 };
 
 const MAX_STORED_COVER_BYTES: u64 = 5 * 1024 * 1024;
+const MAX_STORED_READER_ASSET_BYTES: u64 = 5 * 1024 * 1024;
+const MAX_TOTAL_READER_ASSET_BYTES: u64 = 100 * 1024 * 1024;
+const READER_SOURCE_FILE_NAME: &str = "reader.html";
 
 /// Import one already-selected HTML source without coupling parsing to a picker.
 pub(crate) fn import_html_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
     original_file_name: Option<String>,
+    progress: &mut dyn FnMut(UploadedDocumentImportStage),
 ) -> Result<UploadedDocument, String> {
+    progress(UploadedDocumentImportStage::ReadingFile);
     let bytes = read_source_bytes(
         app,
         source,
@@ -54,11 +62,13 @@ pub(crate) fn import_html_source<R: Runtime>(
     }
     let html = decode_html_bytes(&bytes)?;
 
+    progress(UploadedDocumentImportStage::PreparingDocument);
     let parsed = parse_html_document(&html);
     if parsed.sections.is_empty() {
         return Err("HTML document did not contain readable text".into());
     }
 
+    progress(UploadedDocumentImportStage::StoringDocument);
     persist_document(app, id, parsed, bytes.len() as u64, original_file_name)
 }
 
@@ -67,7 +77,9 @@ pub(crate) fn import_epub_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
     original_file_name: Option<String>,
+    progress: &mut dyn FnMut(UploadedDocumentImportStage),
 ) -> Result<UploadedDocument, String> {
+    progress(UploadedDocumentImportStage::ReadingFile);
     let bytes = read_source_bytes(
         app,
         source,
@@ -80,11 +92,13 @@ pub(crate) fn import_epub_source<R: Runtime>(
     if let Some(existing) = existing_upload(app, &id)? {
         return Ok(existing);
     }
+    progress(UploadedDocumentImportStage::PreparingBook);
     let parsed = parse_epub_document(&bytes, "Imported EPUB Book")?;
     if parsed.sections.is_empty() {
         return Err("EPUB did not contain readable text".into());
     }
 
+    progress(UploadedDocumentImportStage::StoringDocument);
     persist_document(app, id, parsed, bytes.len() as u64, original_file_name)
 }
 
@@ -158,6 +172,7 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
     format: String,
     imported_at_ms: u128,
     bytes: u64,
+    transferred_assets: Vec<ParsedDocumentAsset>,
 ) -> Result<UploadedDocument, String> {
     let source_kind = StoredSourceKind::Html;
     let url = upload_url(&id, source_kind);
@@ -171,9 +186,24 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
         ));
     }
 
+    let (source_html, legacy_assets) = if format == "epub" {
+        externalize_inline_image_assets(&source_html)
+    } else {
+        (source_html, Vec::new())
+    };
     let mut parsed = parse_html_document(&source_html);
     parsed.title = title;
     parsed.format = format;
+    parsed.assets = transferred_assets;
+    for asset in legacy_assets {
+        if !parsed
+            .assets
+            .iter()
+            .any(|existing| existing.file_name == asset.file_name)
+        {
+            parsed.assets.push(asset);
+        }
+    }
     if parsed.sections.is_empty() {
         return Err("Transferred document did not contain readable text".into());
     }
@@ -230,6 +260,7 @@ fn write_and_index_document(
             parsed.view_html.as_bytes(),
         )
         .map_err(|err| format!("Failed to write imported document source: {err}"))?;
+        write_reader_assets(dir, &parsed.assets)?;
         if let Some(cover) = parsed.cover.take() {
             match write_thumbnail(dir, &cover.bytes) {
                 Ok(()) => {
@@ -270,7 +301,7 @@ fn write_and_index_document(
 pub(crate) fn get_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     request: UploadedDocumentSourceRequest,
-) -> Result<String, String> {
+) -> Result<UploadedDocumentSource, String> {
     let (id, source_kind) = upload_reference_from_url(&request.document_url)?;
     if source_kind != StoredSourceKind::Html {
         return Err("PDF sources must be loaded through the PDF viewer".into());
@@ -281,12 +312,129 @@ pub(crate) fn get_source<R: Runtime>(
     if StoredSourceKind::from_str(&document.source_kind)? != source_kind {
         return Err("Uploaded document source metadata does not match its URL".into());
     }
-    let path = upload_source_path(app, &id, source_kind)?;
-    let source = fs::read_to_string(&path)
+    let dir = upload_dir(app, &id)?;
+    let source_path = upload_source_path(app, &id, source_kind)?;
+    let reader_path = dir.join(READER_SOURCE_FILE_NAME);
+    let path = if reader_path.is_file() {
+        &reader_path
+    } else {
+        &source_path
+    };
+    let source = fs::read_to_string(path)
         .map_err(|err| format!("Failed to read uploaded document {}: {err}", path.display()))?;
     // Re-sanitize on read so documents imported by older app versions cannot
     // bypass a newer security policy merely because their stored file persists.
-    Ok(sanitize_html(&source))
+    let mut html = sanitize_html(&source);
+    if path == &source_path && document.format == "epub" {
+        let (rewritten, assets) = externalize_inline_image_assets(&html);
+        if !assets.is_empty() {
+            match write_reader_assets(&dir, &assets)
+                .and_then(|()| write_reader_source(&reader_path, &rewritten))
+            {
+                Ok(()) => html = rewritten,
+                Err(error) => {
+                    log::warn!("Could not upgrade legacy EPUB reader images: {error}");
+                }
+            }
+        }
+    }
+    let asset_paths = stored_reader_asset_paths(&dir)?;
+    Ok(UploadedDocumentSource { html, asset_paths })
+}
+
+/// Store a derived legacy-upgrade source without overwriting canonical
+/// `source.html`. If staging or rename fails, the old inline source still opens.
+fn write_reader_source(path: &Path, html: &str) -> Result<(), String> {
+    let temporary = path.with_extension("html.tmp");
+    fs::write(&temporary, html.as_bytes())
+        .map_err(|err| format!("Failed to stage upgraded EPUB reader source: {err}"))?;
+    if let Err(error) = fs::rename(&temporary, path) {
+        let _ = fs::remove_file(&temporary);
+        return Err(format!(
+            "Failed to store upgraded EPUB reader source: {error}"
+        ));
+    }
+    Ok(())
+}
+
+/// Persist parser-owned reader images only after rechecking the shared filename
+/// and size contract. Parser checks alone are insufficient for transfer restores.
+fn write_reader_assets(dir: &Path, assets: &[ParsedDocumentAsset]) -> Result<(), String> {
+    if assets.is_empty() {
+        return Ok(());
+    }
+    let asset_dir = dir.join(READER_ASSET_DIR_NAME);
+    fs::create_dir_all(&asset_dir).map_err(|err| {
+        format!(
+            "Failed to create reader asset directory {}: {err}",
+            asset_dir.display()
+        )
+    })?;
+    let mut total = 0u64;
+    for asset in assets {
+        if !is_reader_asset_file_name(&asset.file_name)
+            || asset.bytes.is_empty()
+            || asset.bytes.len() as u64 > MAX_STORED_READER_ASSET_BYTES
+        {
+            return Err("Imported reader image is invalid or too large".into());
+        }
+        total = total
+            .checked_add(asset.bytes.len() as u64)
+            .ok_or_else(|| "Imported reader images are too large".to_string())?;
+        if total > MAX_TOTAL_READER_ASSET_BYTES {
+            return Err("Imported reader images exceed the 100 MB limit".into());
+        }
+        fs::write(asset_dir.join(&asset.file_name), &asset.bytes)
+            .map_err(|err| format!("Failed to write imported reader image: {err}"))?;
+    }
+    Ok(())
+}
+
+/// Return only validated regular files for asset-protocol resolution or package
+/// export. Unknown files in an upload directory never become WebView-readable.
+pub(crate) fn stored_reader_asset_paths(dir: &Path) -> Result<HashMap<String, String>, String> {
+    let asset_dir = dir.join(READER_ASSET_DIR_NAME);
+    if !asset_dir.is_dir() {
+        return Ok(HashMap::new());
+    }
+    let mut paths = HashMap::new();
+    let mut total = 0u64;
+    for entry in fs::read_dir(&asset_dir)
+        .map_err(|err| format!("Failed to read imported reader images: {err}"))?
+    {
+        let entry =
+            entry.map_err(|err| format!("Failed to inspect imported reader image: {err}"))?;
+        let file_name = entry
+            .file_name()
+            .into_string()
+            .map_err(|_| "Imported reader image filename is not valid UTF-8".to_string())?;
+        let file_type = entry
+            .file_type()
+            .map_err(|err| format!("Failed to inspect imported reader image type: {err}"))?;
+        if !is_reader_asset_file_name(&file_name) || !file_type.is_file() {
+            continue;
+        }
+        let bytes = entry
+            .metadata()
+            .map_err(|err| format!("Failed to inspect imported reader image size: {err}"))?
+            .len();
+        if bytes == 0 || bytes > MAX_STORED_READER_ASSET_BYTES {
+            continue;
+        }
+        total = total
+            .checked_add(bytes)
+            .ok_or_else(|| "Stored reader images are too large".to_string())?;
+        if total > MAX_TOTAL_READER_ASSET_BYTES {
+            return Err("Stored reader images exceed the 100 MB limit".into());
+        }
+        let path = entry
+            .path()
+            .into_os_string()
+            .into_string()
+            .map_err(|_| "Imported reader image path is not valid UTF-8".to_string())?;
+        paths.insert(file_name, path);
+    }
+    Ok(paths)
 }
 
 /// Reject a save that starts after its uploaded Library source was removed.
@@ -511,6 +659,7 @@ mod tests {
                 file_name: "cover.png",
                 bytes: b"not an image".to_vec(),
             }),
+            assets: Vec::new(),
         };
         let mut db = Connection::open_in_memory().expect("open database without upload schema");
 

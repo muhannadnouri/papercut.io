@@ -888,6 +888,7 @@ mod tests {
                 })
                 .collect(),
             cover: None,
+            assets: Vec::new(),
         }
     }
 }

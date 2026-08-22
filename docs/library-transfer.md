@@ -34,6 +34,7 @@ existing component modules.
 The package carries canonical user data:
 
 - sanitized, normalized `source.html` for each generic HTML or EPUB upload;
+- content-hashed reader-image assets referenced by transferred EPUB reading HTML;
 - stable document ids, display titles, optional original filenames, and import metadata;
 - uploaded-library folders and document placement metadata;
 - optional completed-audiobook manifests, canonical chunk WAVs, and imported
@@ -85,9 +86,19 @@ Version 3 adds canonical PDF document payloads while retaining the same
 manifest boundary and rebuilding PDF-derived text, thumbnails, and FTS rows on
 the receiving device.
 
-All versions are limited to 500 documents. Versions 2 and 3 are also limited to 500
+Version 4 adds checksummed EPUB reader-image payloads:
+
+```text
+documents/<document-id>/assets/<generated-image-name>
+```
+
+The receiver validates each generated filename, canonical path, size, and
+checksum before restoring it. Versions 1 through 3 remain import-compatible.
+
+All versions are limited to 500 documents. Versions 2 through 4 are also limited to 500
 completed audiobooks and 100,000 audiobook files, with an 8 GiB expanded package
-limit. Reading preferences are not represented.
+limit. EPUB reader images retain the import limits of 5 MB per image and 100 MB
+per document. Reading preferences are not represented.
 
 Import rules:
 

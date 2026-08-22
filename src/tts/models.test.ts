@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FALLBACK_TTS_MODELS, suggestTtsModel } from './models'
+import { FALLBACK_TTS_MODELS, getTtsPreviewText, suggestTtsModel } from './models'
 import { SUPERTONIC_AR_MODEL_ID, SUPERTONIC_EN_MODEL_ID } from './types'
 
 const LATIN_CHUNKS = [{
@@ -34,5 +34,12 @@ describe('suggestTtsModel', () => {
       ARABIC_CHUNKS,
       SUPERTONIC_EN_MODEL_ID,
     )?.language).toMatch(/^ar/i)
+  })
+})
+
+describe('getTtsPreviewText', () => {
+  it('uses the selected model language and falls back to English', () => {
+    expect(getTtsPreviewText('ar-JO')).toMatch(/[\u0600-\u06ff]/u)
+    expect(getTtsPreviewText('unknown')).toBe(getTtsPreviewText('en-US'))
   })
 })

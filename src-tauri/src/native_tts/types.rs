@@ -222,6 +222,21 @@ pub(crate) struct NativeTtsInputChunk {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+/// One short, disposable voice preview using the selected Audio Setup.
+#[cfg_attr(not(feature = "native-tts-core"), allow(dead_code))]
+pub(crate) struct NativeTtsPreviewRequest {
+    pub(crate) model_id: String,
+    #[serde(default = "default_text_preprocessor")]
+    pub(crate) text_preprocessor: String,
+    pub(crate) voice: String,
+    pub(crate) text: String,
+    pub(crate) speed: f32,
+    pub(crate) thread_count: Option<i32>,
+    pub(crate) silma_nfe_step: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 /// Lightweight status identity; full chunk data lives in the persisted manifest.
 #[cfg_attr(not(feature = "native-tts-core"), allow(dead_code))]
 pub(crate) struct NativeAudiobookStatusRequest {

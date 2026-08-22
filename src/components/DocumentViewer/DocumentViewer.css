@@ -289,6 +289,31 @@ html[dir="rtl"] .back-icon {
   font-weight: 600;
 }
 
+.document-loading-message {
+  display: grid;
+  gap: 0.2rem;
+}
+
+/* Keep quick opens visually quiet. These details become accessible when their
+ * visibility changes, without adding timer state to the reader. */
+.document-loading-detail {
+  visibility: hidden;
+  color: var(--text-soft);
+  font-size: 0.85em;
+  font-weight: 500;
+  animation: reveal-document-loading-detail 0s 700ms forwards;
+}
+
+.document-loading-detail-slow {
+  animation-delay: 5s;
+}
+
+@keyframes reveal-document-loading-detail {
+  to {
+    visibility: visible;
+  }
+}
+
 .document-load-error {
   flex-direction: column;
   color: var(--danger-strong);

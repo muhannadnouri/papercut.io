@@ -265,6 +265,24 @@
   gap: 0.75rem;
 }
 
+/* Short imports keep the stable file/count message; reveal volatile backend
+ * detail only when one stage lasts long enough to be useful. */
+.document-batch-stage {
+  display: block;
+  visibility: hidden;
+  margin-top: 0.2rem;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+  font-weight: 500;
+  animation: reveal-import-stage 0s 700ms forwards;
+}
+
+@keyframes reveal-import-stage {
+  to {
+    visibility: visible;
+  }
+}
+
 .document-batch-cancel {
   flex-shrink: 0;
   min-height: 1.9rem;

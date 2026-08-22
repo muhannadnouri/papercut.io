@@ -13,6 +13,7 @@ import { AppSelect } from '../AppSelect/AppSelect'
 import './ReaderSettings.css'
 
 interface ReaderSettingsProps {
+  applyingFontFamily: string | null
   disabled?: boolean
   settings: ReaderSettingsState
   onChange: (next: Partial<ReaderSettingsState>) => void
@@ -21,6 +22,7 @@ interface ReaderSettingsProps {
 
 
 export function ReaderSettings({
+  applyingFontFamily,
   disabled = false,
   settings,
   onChange,
@@ -29,13 +31,14 @@ export function ReaderSettings({
   if (disabled) {
     return (
       <div className="reader-settings">
-        <ReaderSettingsButton disabled open={false} onClick={() => {}} />
+        <ReaderSettingsButton busy={false} disabled open={false} onClick={() => {}} />
       </div>
     )
   }
 
   return (
     <EnabledReaderSettings
+      applyingFontFamily={applyingFontFamily}
       settings={settings}
       onChange={onChange}
       onReset={onReset}
@@ -44,6 +47,7 @@ export function ReaderSettings({
 }
 
 function EnabledReaderSettings({
+  applyingFontFamily,
   settings,
   onChange,
   onReset,
@@ -51,11 +55,14 @@ function EnabledReaderSettings({
   const { t } = useTranslation()
   const buttonRef = useRef<HTMLButtonElement | null>(null)
   const [open, setOpen] = useState(false)
+  const applyingFontOption = FONT_FAMILY_OPTIONS.find((option) => option.value === applyingFontFamily)
+  const applyingFontLabel = applyingFontOption ? t(applyingFontOption.labelKey) : applyingFontFamily
 
   return (
     <div className="reader-settings">
       <ReaderSettingsButton
         buttonRef={buttonRef}
+        busy={Boolean(applyingFontFamily)}
         open={open}
         onClick={() => setOpen((value) => !value)}
       />
@@ -76,14 +83,23 @@ function EnabledReaderSettings({
             className="reader-setting-font-select"
             value={settings.fontFamily}
             options={FONT_FAMILY_OPTIONS.map((option) => ({
-              ...option,
+              value: option.value,
               label: t(option.labelKey),
-              style: { fontFamily: option.value },
             }))}
             ariaLabelledBy="reader-setting-font"
+            disabled={Boolean(applyingFontFamily)}
             onChange={(fontFamily) => onChange({ fontFamily })}
           />
         </div>
+
+        {applyingFontFamily && (
+          <div className="reader-setting-font-status" role="status" aria-live="polite" aria-atomic="true">
+            <span className="spinner" aria-hidden="true" />
+            <span>{t('reader.settings.applyingFont', {
+              font: `\u2068${applyingFontLabel}\u2069`,
+            })}</span>
+          </div>
+        )}
 
         <fieldset className="reader-setting-page-theme">
           <legend>{t('reader.settings.pageColor')}</legend>
@@ -134,11 +150,13 @@ function EnabledReaderSettings({
 
 function ReaderSettingsButton({
   buttonRef,
+  busy,
   disabled = false,
   open,
   onClick,
 }: {
   buttonRef?: Ref<HTMLButtonElement>
+  busy: boolean
   disabled?: boolean
   open: boolean
   onClick: () => void
@@ -150,12 +168,15 @@ function ReaderSettingsButton({
       className="reader-settings-btn"
       aria-label={t('reader.settings.button')}
       aria-expanded={!disabled && open}
+      aria-busy={busy || undefined}
       title={t('reader.settings.button')}
       disabled={disabled}
       onClick={onClick}
       type="button"
     >
-      <span className="reader-settings-type-icon" aria-hidden="true">Aa</span>
+      {busy
+        ? <span className="spinner reader-settings-spinner" aria-hidden="true" />
+        : <span className="reader-settings-type-icon" aria-hidden="true">Aa</span>}
     </button>
   )
 }
