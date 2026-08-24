@@ -5,9 +5,9 @@
 //!    file export, binds an IPv4 listener, and displays its address plus a
 //!    random one-use code.
 //! 2. The target enters those values. Both peers establish ephemeral TLS, then
-//!    prove knowledge of the code with HMACs bound to that exact TLS session.
-//!    This authenticates the self-signed connection without a permanent key or
-//!    certificate warning.
+//!    use SPAKE2 to derive a shared key from the code and mutually confirm it
+//!    against that exact TLS session. This authenticates the self-signed
+//!    connection without a permanent key or certificate warning.
 //! 3. The target reports how many bytes of the authenticated session it already
 //!    has, then retains that partial package if the connection drops. Retrying
 //!    with the same address and code continues from that byte offset.
@@ -16,9 +16,10 @@
 //!    reports completion only after the target confirms that import finished.
 //!
 //! Sessions stay foreground-only and expire after ten minutes. Malformed traffic
-//! before a pairing proof leaves the sender waiting, while an incorrect proof
-//! consumes the code to prevent online guessing. An authenticated interruption
-//! may reconnect with the same code. Background transfer remains outside this module.
+//! before key confirmation leaves the sender waiting, while an incorrect
+//! confirmation consumes the code to prevent online guessing. An authenticated
+//! interruption may reconnect with the same code. Background transfer remains
+//! outside this module.
 
 use std::fs;
 use std::io;

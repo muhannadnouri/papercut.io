@@ -232,9 +232,13 @@ The first LAN implementation is intentionally foreground and manual:
    address shown to the user. A twelve-character base-32 pairing code provides
    60 bits of entropy and is grouped as `XXXX-XXXX-XXXX` for transcription. The
    session expires after ten minutes.
-3. The target connects over ephemeral TLS. Both devices prove knowledge of the
-   code with HMAC-SHA256 values bound to the TLS exporter, so the self-signed
-   channel is authenticated without a permanent app key or certificate prompt.
+3. The target connects over ephemeral TLS. The target and source use the
+   one-use code as the password for a role-separated SPAKE2 exchange, then send
+   mutual HMAC-SHA256 key confirmations bound to the TLS exporter. This prevents
+   a captured exchange from becoming an offline code-guessing oracle and
+   authenticates the self-signed channel without a permanent app key or
+   certificate prompt. The `PCLAN003` marker versions these wire semantics so
+   incompatible builds fail closed instead of interpreting another protocol.
 4. The target reports the size of any partial package retained for this source
    address and pairing code. The source seeks to that offset and sends only the
    remaining bytes. An authenticated interruption returns the source to its
@@ -246,14 +250,14 @@ The first LAN implementation is intentionally foreground and manual:
    connection. The source mirrors those phases and reports success only after
    the target confirms that import has completed.
 
-Connections that do not complete TLS and the Papercut protocol proof within five
-seconds return the source to its waiting state without showing unrelated network
-traffic as a transfer failure. A complete but incorrect pairing proof still
-consumes the source session to prevent online code guessing. Partial files survive
-network interruption and insufficient-space errors, but are removed after a
-successful import or a non-recoverable package error. A resumed package is always
-checksum-verified in full before restore, so the byte offset is an optimization
-rather than a trust boundary.
+Connections that do not complete TLS and the versioned Papercut PAKE exchange
+within five seconds return the source to its waiting state without showing
+unrelated network traffic as a transfer failure. A complete but incorrect key
+confirmation still consumes the source session to prevent repeated online code
+guessing. Partial files survive network interruption and insufficient-space
+errors, but are removed after a successful import or a non-recoverable package
+error. A resumed package is always checksum-verified in full before restore, so
+the byte offset is an optimization rather than a trust boundary.
 
 Source address discovery uses the same private, link-local, or loopback IPv4
 policy enforced by the receiver. The listener binds only that displayed address,
@@ -280,8 +284,8 @@ localized storage guidance never depend on parsing human-readable text.
 
 The command and session lifecycle lives in
 `src-tauri/src/library_transfer/network.rs`, resumable package streaming and
-progress framing live in `network/transport.rs`, and TLS plus one-use pairing
-live in `network/security.rs`. Storage remains owned by `package.rs` and
+progress framing live in `network/transport.rs`, and TLS plus one-use SPAKE2
+pairing live in `network/security.rs`. Storage remains owned by `package.rs` and
 `mod.rs`. The React UI polls source session state and listens
 for locale-neutral receiver progress events. Rust reports transferred bytes,
 package verification, document counts, and optional audiobook counts; it never
@@ -323,8 +327,8 @@ required by Android's local-network privacy model.
 - [x] Security hardening: bound standard and ZIP64 central-directory allocation
       before archive parsing.
 - [x] Security hardening: ignore malformed pre-authentication connections while
-      keeping complete incorrect pairing proofs one-use.
-- [ ] Security hardening: replace the pairing proof with a reviewed PAKE and key
+      keeping complete incorrect pairing attempts one-use.
+- [x] Security hardening: replace the pairing proof with a standard PAKE and key
       confirmation for transfers on public networks.
 - [x] Stage 3: keep nearby transfer primary and progressively disclose file fallback actions.
 - [x] Keep active send instructions, progress, cancellation, and results above the fold.

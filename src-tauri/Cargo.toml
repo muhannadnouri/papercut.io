@@ -46,6 +46,7 @@ num2words = { version = "1.2", optional = true }
 rcgen = "0.13"
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 sha2 = "0.10"
+spake2 = "0.4"
 tar = { version = "0.4", optional = true }
 bzip2 = { version = "0.4", optional = true }
 reqwest = { version = "0.12", optional = true, default-features = false, features = ["blocking", "rustls-tls"] }

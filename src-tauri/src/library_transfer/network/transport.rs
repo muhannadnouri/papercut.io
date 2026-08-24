@@ -14,8 +14,9 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use super::security::{
-    client_tls_config, pairing_proof, read_and_verify_proof, tls_exporter, PairingProofError,
-    PROTOCOL_MAGIC, RECEIVER_ROLE, SENDER_ROLE,
+    client_tls_config, finish_pairing, pairing_confirmation, read_and_verify_confirmation,
+    read_pairing_message, start_receiver_pairing, start_sender_pairing, tls_exporter,
+    write_pairing_message, PairingError, RECEIVER_ROLE, SENDER_ROLE,
 };
 use super::{set_send_active, LibraryTransferSendStatus};
 use crate::library_transfer::package::MAX_PACKAGE_BYTES;
@@ -68,25 +69,19 @@ pub(super) fn send_package(
         .map_err(|_| SendAttemptError::Unauthenticated)?;
     let exporter = tls_exporter(&connection).map_err(SendAttemptError::Fatal)?;
     let mut stream = StreamOwned::new(connection, socket);
-    match read_and_verify_proof(&mut stream, code, &exporter, RECEIVER_ROLE) {
-        Ok(()) => {}
-        Err(PairingProofError::Unauthenticated(_)) => {
-            return Err(SendAttemptError::Unauthenticated)
-        }
-        Err(PairingProofError::IncorrectCode) => {
-            return Err(SendAttemptError::Fatal(
-                "Pairing code did not match the source device".into(),
-            ))
-        }
-    }
+    let receiver_message = read_pairing_message(&mut stream).map_err(classify_pairing_error)?;
+    let (pairing, sender_message) = start_sender_pairing(code);
+    let shared_key = finish_pairing(pairing, &receiver_message).map_err(classify_pairing_error)?;
+    let confirmation = pairing_confirmation(&shared_key, &exporter, SENDER_ROLE)
+        .map_err(|_| SendAttemptError::Unauthenticated)?;
+    write_pairing_message(&mut stream, &sender_message)
+        .and_then(|_| stream.write_all(&confirmation))
+        .and_then(|_| stream.flush())
+        .map_err(|_| SendAttemptError::Unauthenticated)?;
+    read_and_verify_confirmation(&mut stream, &shared_key, &exporter, RECEIVER_ROLE)
+        .map_err(classify_pairing_error)?;
     configure_socket(&stream.sock, SOCKET_TIMEOUT).map_err(SendAttemptError::Fatal)?;
     set_send_active(status);
-    stream
-        .write_all(PROTOCOL_MAGIC)
-        .and_then(|_| stream.write_all(&pairing_proof(code, &exporter, SENDER_ROLE)?))
-        .map_err(|err| {
-            SendAttemptError::Retryable(format!("Failed to authenticate library sender: {err}"))
-        })?;
 
     let mut package = File::open(package_path).map_err(|err| {
         SendAttemptError::Fatal(format!("Failed to open prepared library package: {err}"))
@@ -194,12 +189,19 @@ pub(super) fn receive_package<P: FnMut(u64, u64)>(
         .map_err(|err| format!("Secure library transfer handshake failed: {err}"))?;
     let exporter = tls_exporter(&connection)?;
     let mut stream = StreamOwned::new(connection, socket);
-    stream
-        .write_all(PROTOCOL_MAGIC)
-        .and_then(|_| stream.write_all(&pairing_proof(code, &exporter, RECEIVER_ROLE)?))
+    let (pairing, receiver_message) = start_receiver_pairing(code);
+    write_pairing_message(&mut stream, &receiver_message)
         .and_then(|_| stream.flush())
         .map_err(|err| format!("Failed to authenticate library receiver: {err}"))?;
-    read_and_verify_proof(&mut stream, code, &exporter, SENDER_ROLE)
+    let sender_message = read_pairing_message(&mut stream).map_err(|error| error.to_string())?;
+    let shared_key = finish_pairing(pairing, &sender_message).map_err(|error| error.to_string())?;
+    let confirmation = pairing_confirmation(&shared_key, &exporter, RECEIVER_ROLE)
+        .map_err(|err| format!("Failed to confirm library receiver: {err}"))?;
+    stream
+        .write_all(&confirmation)
+        .and_then(|_| stream.flush())
+        .map_err(|err| format!("Failed to confirm library receiver: {err}"))?;
+    read_and_verify_confirmation(&mut stream, &shared_key, &exporter, SENDER_ROLE)
         .map_err(|error| error.to_string())?;
 
     let mut size = [0u8; 8];
@@ -256,6 +258,15 @@ pub(super) fn receive_package<P: FnMut(u64, u64)>(
         .flush()
         .map_err(|err| format!("Failed to finish partial library package: {err}"))?;
     Ok(stream)
+}
+
+/// Preserve the one-use policy: malformed traffic is ignored, while a peer
+/// that reaches key confirmation with the wrong code consumes the session.
+fn classify_pairing_error(error: PairingError) -> SendAttemptError {
+    match error {
+        PairingError::Unauthenticated(_) => SendAttemptError::Unauthenticated,
+        PairingError::IncorrectCode => SendAttemptError::Fatal(error.to_string()),
+    }
 }
 
 /// Open a resumable partial with owner-only Unix permissions. Existing files
@@ -498,6 +509,61 @@ mod tests {
         }
         assert_eq!(status.bytes_transferred, package.len() as u64);
         assert_eq!(status.receiver_progress.unwrap().phase, progress.phase);
+        let _ = fs::remove_file(package_path);
+        let _ = fs::remove_file(received_path);
+    }
+
+    #[test]
+    fn completed_wrong_code_attempt_consumes_the_sender_session() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let address = match listener.local_addr().unwrap() {
+            SocketAddr::V4(address) => address,
+            _ => unreachable!(),
+        };
+        let test_key = format!(
+            "papercut-lan-wrong-code-test-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        let package_path = std::env::temp_dir().join(format!("{test_key}-source"));
+        let received_path = std::env::temp_dir().join(format!("{test_key}-received.part"));
+        fs::write(&package_path, b"test papercut library package").unwrap();
+        let sender_path = package_path.clone();
+        let sender = thread::spawn(move || {
+            let status = Arc::new(Mutex::new(LibraryTransferSendStatus {
+                state: LibraryTransferSendState::Waiting,
+                address: address.to_string(),
+                code: "2345-ABCD-GHJK".into(),
+                documents: 1,
+                audiobooks: 0,
+                package_bytes: 29,
+                bytes_transferred: 0,
+                receiver_progress: None,
+                error: None,
+            }));
+            let (stream, _) = listener.accept().unwrap();
+            send_package(
+                stream,
+                server_tls_config().unwrap(),
+                "2345ABCDGHJK",
+                &sender_path,
+                &status,
+                &AtomicBool::new(false),
+            )
+        });
+
+        let receiver_error = receive_package(address, "3456BCDEHJKM", &received_path, |_, _| {})
+            .err()
+            .unwrap();
+        assert!(receiver_error.message.contains("Pairing code"));
+        assert!(matches!(
+            sender.join().unwrap(),
+            Err(SendAttemptError::Fatal(message)) if message.contains("Pairing code")
+        ));
+
         let _ = fs::remove_file(package_path);
         let _ = fs::remove_file(received_path);
     }
