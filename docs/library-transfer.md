@@ -275,6 +275,12 @@ for locale-neutral receiver progress events. Rust reports transferred bytes,
 package verification, document counts, and optional audiobook counts; it never
 moves library bytes or networking into the WebView.
 
+Native reservations are acquired before send preparation enters the blocking
+pool and before either file import or LAN receive can mutate the library. The
+reservations release automatically on every exit path. This makes Rust—not the
+dialog's disabled controls—the authority preventing duplicate send preparation
+and overlapping transfer restores.
+
 iOS and macOS bundles include `NSLocalNetworkUsageDescription`, and the transfer
 starts only from a user action while Papercut is foregrounded. Android currently
 targets SDK 36 and uses its existing normal `INTERNET` permission. Before raising
@@ -298,6 +304,8 @@ required by Android's local-network privacy model.
 - [x] Stage 3: separate session orchestration, transport framing, and pairing security.
 - [x] Security hardening: use 60-bit pairing codes and bind only the displayed
       IPv4 interface.
+- [x] Security hardening: atomically reserve send preparation and serialize
+      file/LAN restore operations at the native boundary.
 - [x] Stage 3: keep nearby transfer primary and progressively disclose file fallback actions.
 - [x] Keep active send instructions, progress, cancellation, and results above the fold.
 - [x] Add selective uploaded-document transfer with audiobook dependency inclusion and folder pruning.

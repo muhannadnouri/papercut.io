@@ -56,6 +56,41 @@ const SESSION_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 #[derive(Clone, Default)]
 pub struct LibraryTransferState {
     send: Arc<Mutex<Option<SendSession>>>,
+    send_preparing: Arc<AtomicBool>,
+    restoring: Arc<AtomicBool>,
+}
+
+impl LibraryTransferState {
+    /// Reserve package preparation before entering the blocking pool so two
+    /// native callers cannot both pass the active-session check.
+    fn begin_send_preparation(&self) -> LibraryTransferResult<TransferOperationReservation> {
+        reserve_operation(
+            &self.send_preparing,
+            "A library send is already being prepared",
+        )
+    }
+
+    /// Serialize file import and LAN receive at the Rust boundary; the UI busy
+    /// state remains feedback rather than the authority protecting library writes.
+    /// ponytail: one slot covers staging and restore; split those phases only if
+    /// concurrent transfer intake becomes a real product requirement.
+    pub(super) fn begin_restore(&self) -> LibraryTransferResult<TransferOperationReservation> {
+        reserve_operation(
+            &self.restoring,
+            "Another library transfer import is already running",
+        )
+    }
+}
+
+/// Releases a native operation slot on success, error, cancellation, or panic.
+pub(super) struct TransferOperationReservation {
+    active: Arc<AtomicBool>,
+}
+
+impl Drop for TransferOperationReservation {
+    fn drop(&mut self) {
+        self.active.store(false, Ordering::Release);
+    }
 }
 
 #[derive(Clone)]
@@ -106,8 +141,10 @@ pub async fn library_transfer_send_start(
     request: Option<LibraryTransferExportRequest>,
 ) -> LibraryTransferResult<LibraryTransferSendStatus> {
     let state = state.inner().clone();
+    let reservation = state.begin_send_preparation()?;
     let request = request.unwrap_or_default();
     tauri::async_runtime::spawn_blocking(move || {
+        let _reservation = reservation;
         start_send(app, state, request.document_ids, request.audiobook_ids)
     })
     .await
@@ -147,11 +184,28 @@ pub fn library_transfer_send_cancel(
 #[tauri::command]
 pub async fn library_transfer_receive(
     app: tauri::AppHandle,
+    state: State<'_, LibraryTransferState>,
     request: LibraryTransferReceiveRequest,
 ) -> LibraryTransferResult<LibraryTransferImportResult> {
-    tauri::async_runtime::spawn_blocking(move || receive_library(app, request))
-        .await
-        .map_err(|err| format!("Library receive task failed: {err}"))?
+    let reservation = state.begin_restore()?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _reservation = reservation;
+        receive_library(app, request)
+    })
+    .await
+    .map_err(|err| format!("Library receive task failed: {err}"))?
+}
+
+fn reserve_operation(
+    active: &Arc<AtomicBool>,
+    conflict: &str,
+) -> LibraryTransferResult<TransferOperationReservation> {
+    if active.swap(true, Ordering::AcqRel) {
+        return Err(conflict.into());
+    }
+    Ok(TransferOperationReservation {
+        active: Arc::clone(active),
+    })
 }
 
 /// Build the reusable package before exposing session credentials, then hand
@@ -423,4 +477,25 @@ fn lock<T>(mutex: &Mutex<T>) -> Result<std::sync::MutexGuard<'_, T>, String> {
     mutex
         .lock()
         .map_err(|_| "Library transfer state is unavailable".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn native_operation_reservations_release_after_every_owner() {
+        let state = LibraryTransferState::default();
+        let send = state
+            .begin_send_preparation()
+            .expect("first send preparation");
+        assert!(state.begin_send_preparation().is_err());
+        drop(send);
+        assert!(state.begin_send_preparation().is_ok());
+
+        let restore = state.begin_restore().expect("first restore");
+        assert!(state.begin_restore().is_err());
+        drop(restore);
+        assert!(state.begin_restore().is_ok());
+    }
 }

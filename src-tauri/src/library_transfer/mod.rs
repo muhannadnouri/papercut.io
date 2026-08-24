@@ -257,10 +257,15 @@ pub async fn library_transfer_export(
 #[tauri::command]
 pub async fn library_transfer_import(
     app: tauri::AppHandle,
+    state: tauri::State<'_, LibraryTransferState>,
 ) -> LibraryTransferResult<Option<LibraryTransferImportResult>> {
-    tauri::async_runtime::spawn_blocking(move || import_library(app))
-        .await
-        .map_err(|err| format!("Library import task failed: {err}"))?
+    let reservation = state.begin_restore()?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _reservation = reservation;
+        import_library(app)
+    })
+    .await
+    .map_err(|err| format!("Library import task failed: {err}"))?
 }
 
 fn export_library(
