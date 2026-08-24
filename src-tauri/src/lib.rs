@@ -92,6 +92,7 @@ pub fn run() {
             native_tts::commands::tts_probe_silma_sidecar,
         ])
         .setup(|app| {
+            library_transfer::initialize_storage(app.handle()).map_err(std::io::Error::other)?;
             #[cfg(desktop)]
             open_documents::queue_cli_paths(
                 app.handle(),

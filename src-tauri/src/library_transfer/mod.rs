@@ -10,8 +10,8 @@ mod package;
 pub use network::LibraryTransferState;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::fs::{self, File};
-use std::io::{BufReader, BufWriter, Read, Write};
+use std::fs::{self, File, OpenOptions as StdOpenOptions};
+use std::io::{BufReader, BufWriter, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -205,6 +205,31 @@ struct PreparedPackage {
     payloads: HashMap<String, PathBuf>,
 }
 
+/// Owns a transfer staging file and removes it after every normal success or
+/// error path. The file handle is closed first for platforms that cannot unlink
+/// an open file; startup cleanup covers process crashes.
+pub(crate) struct TransferTempFile {
+    path: PathBuf,
+    file: Option<File>,
+}
+
+impl TransferTempFile {
+    pub(crate) fn path(&self) -> &Path {
+        &self.path
+    }
+
+    fn file_mut(&mut self) -> &mut File {
+        self.file.as_mut().expect("transfer temporary file is open")
+    }
+}
+
+impl Drop for TransferTempFile {
+    fn drop(&mut self) {
+        self.file.take();
+        let _ = fs::remove_file(&self.path);
+    }
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct LibraryTransferFailure {
@@ -253,15 +278,17 @@ fn export_library(
     let Some(destination) = destination else {
         return Ok(None);
     };
-    let temp_path = transfer_temp_path(&app, "export")?;
-    let build_result: LibraryTransferResult<LibraryTransferExportResult> = (|| {
-        let result =
-            build_library_package(&app, &temp_path, document_ids.as_deref(), &audiobook_ids)?;
-        copy_temp_to_destination(&app, &temp_path, destination)?;
-        Ok(result)
-    })();
-    let _ = fs::remove_file(&temp_path);
-    build_result.map(Some)
+    let mut temp = create_transfer_temp(&app, "export")?;
+    let temp_path = temp.path().to_path_buf();
+    let result = build_library_package(
+        &app,
+        temp.file_mut(),
+        &temp_path,
+        document_ids.as_deref(),
+        &audiobook_ids,
+    )?;
+    copy_temp_to_destination(&app, &temp_path, destination)?;
+    Ok(Some(result))
 }
 
 /// Stage picker input into a seekable local file, validate the complete archive,
@@ -280,19 +307,17 @@ fn import_library(
         return Ok(None);
     };
 
-    let temp_path = transfer_temp_path(&app, "import")?;
-    let import_result = (|| {
-        copy_source_to_temp(&app, source, &temp_path)?;
-        import_library_package(&app, &temp_path, "import", None)
-    })();
-    let _ = fs::remove_file(&temp_path);
-    import_result.map(Some)
+    let mut temp = create_transfer_temp(&app, "import")?;
+    let temp_path = temp.path().to_path_buf();
+    copy_source_to_temp(&app, source, temp.file_mut(), &temp_path)?;
+    import_library_package(&app, &temp_path, "import", None).map(Some)
 }
 
 /// Build the canonical package at an app-owned path so file export and LAN
 /// transfer cannot drift into separate serialization or validation paths.
 fn build_library_package(
     app: &tauri::AppHandle,
+    file: &mut File,
     path: &Path,
     document_ids: Option<&[String]>,
     audiobook_ids: &[String],
@@ -312,12 +337,19 @@ fn build_library_package(
             .ok_or_else(|| "Temporary library package path has no parent".to_string())?,
         manifest_payload_bytes(&prepared.manifest)?,
     )?;
-    let writer = BufWriter::new(File::create(path).map_err(|err| {
+    file.set_len(0).map_err(|err| {
         format!(
-            "Failed to create temporary library package {}: {err}",
+            "Failed to reset temporary library package {}: {err}",
             path.display()
         )
-    })?);
+    })?;
+    file.rewind().map_err(|err| {
+        format!(
+            "Failed to seek temporary library package {}: {err}",
+            path.display()
+        )
+    })?;
+    let writer = BufWriter::new(file);
     write_package(writer, &prepared.manifest, |archive_path| {
         let payload_path = prepared
             .payloads
@@ -1030,16 +1062,72 @@ fn matching_target_folder<'a>(
     })
 }
 
-fn transfer_temp_path<R: Runtime>(
+/// Prepare the two roots that can contain imported library data. Unix modes are
+/// enforced on every startup so older installations are repaired in place;
+/// prior-process transfer files are unusable because session secrets are not
+/// persisted, so they can be removed immediately.
+pub(crate) fn initialize_storage<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<(), String> {
+    let data = app
+        .path()
+        .app_data_dir()
+        .map_err(|err| format!("Failed to resolve app data directory: {err}"))?;
+    create_private_directory(&data)?;
+    let cache = app
+        .path()
+        .app_cache_dir()
+        .map_err(|err| format!("Failed to resolve app cache directory: {err}"))?;
+    create_private_directory(&cache)?;
+    cleanup_orphaned_transfer_files(&cache);
+    Ok(())
+}
+
+/// Create a random, owner-only staging file with an atomic exclusive open.
+/// Random names avoid disclosure and `create_new` prevents races with an
+/// attacker-controlled path even when a platform cache parent is shared.
+pub(crate) fn create_transfer_temp<R: Runtime>(
     app: &tauri::AppHandle<R>,
     operation: &str,
-) -> Result<PathBuf, String> {
-    let cache = transfer_cache_dir(app)?;
-    Ok(cache.join(format!(
-        "library-transfer-{operation}-{}-{}.tmp",
-        std::process::id(),
-        now_ms()?
-    )))
+) -> Result<TransferTempFile, String> {
+    create_transfer_temp_in(&transfer_cache_dir(app)?, operation)
+}
+
+/// Retry the practically impossible random-name collision without weakening the
+/// exclusive-create guarantee or falling back to a predictable file name.
+fn create_transfer_temp_in(cache: &Path, operation: &str) -> Result<TransferTempFile, String> {
+    for _ in 0..16 {
+        let mut random = [0u8; 16];
+        getrandom::fill(&mut random)
+            .map_err(|err| format!("Failed to create a secure transfer file name: {err}"))?;
+        let mut id = String::with_capacity(random.len() * 2);
+        for byte in random {
+            use std::fmt::Write as _;
+            write!(id, "{byte:02x}").expect("writing to String cannot fail");
+        }
+        let path = cache.join(format!("library-transfer-{operation}-{id}.tmp"));
+        let mut options = StdOpenOptions::new();
+        options.read(true).write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        match options.open(&path) {
+            Ok(file) => {
+                return Ok(TransferTempFile {
+                    path,
+                    file: Some(file),
+                });
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => {
+                return Err(format!(
+                    "Failed to create temporary library package {}: {error}",
+                    path.display()
+                ));
+            }
+        }
+    }
+    Err("Failed to allocate a unique temporary library package".into())
 }
 
 pub(crate) fn transfer_cache_dir<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
@@ -1047,14 +1135,50 @@ pub(crate) fn transfer_cache_dir<R: Runtime>(app: &tauri::AppHandle<R>) -> Resul
         .path()
         .app_cache_dir()
         .map_err(|err| format!("Failed to resolve app cache directory: {err}"))?;
-    fs::create_dir_all(&cache).map_err(|err| {
-        format!(
-            "Failed to create app cache directory {}: {err}",
-            cache.display()
-        )
-    })?;
+    create_private_directory(&cache)?;
     cleanup_stale_transfer_files(&cache);
     Ok(cache)
+}
+
+/// App-owned roots are the local-user confidentiality boundary for document,
+/// audiobook, and transfer data. Mobile sandboxes and Windows ACLs remain
+/// platform-owned; Unix needs an explicit owner-only mode.
+fn create_private_directory(path: &Path) -> Result<(), String> {
+    fs::create_dir_all(path).map_err(|err| {
+        format!(
+            "Failed to create private app directory {}: {err}",
+            path.display()
+        )
+    })?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o700)).map_err(|err| {
+            format!(
+                "Failed to protect private app directory {}: {err}",
+                path.display()
+            )
+        })?;
+    }
+    Ok(())
+}
+
+/// Remove transfer packages left by a previous process without touching other
+/// cached app data. No active session exists during startup.
+fn cleanup_orphaned_transfer_files(cache: &Path) {
+    let Ok(entries) = fs::read_dir(cache) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(is_transfer_file)
+        {
+            let _ = fs::remove_file(path);
+        }
+    }
 }
 
 /// Best-effort cleanup bounds disk use after crashes without delaying or
@@ -1083,9 +1207,11 @@ fn cleanup_stale_transfer_files(cache: &Path) {
 }
 
 fn is_stale_transfer_file(name: &str, age: Duration) -> bool {
-    name.starts_with("library-transfer-")
-        && (name.ends_with(".tmp") || name.ends_with(".part"))
-        && age >= STALE_TRANSFER_FILE_AGE
+    is_transfer_file(name) && age >= STALE_TRANSFER_FILE_AGE
+}
+
+fn is_transfer_file(name: &str) -> bool {
+    name.starts_with("library-transfer-") && (name.ends_with(".tmp") || name.ends_with(".part"))
 }
 
 /// Reject a transfer before it starts writing when the target filesystem cannot
@@ -1172,12 +1298,7 @@ fn ensure_restore_space(
         .path()
         .app_data_dir()
         .map_err(|err| format!("Failed to resolve app data directory: {err}"))?;
-    fs::create_dir_all(&app_data).map_err(|err| {
-        format!(
-            "Failed to create app data directory {}: {err}",
-            app_data.display()
-        )
-    })?;
+    create_private_directory(&app_data)?;
     ensure_available_space(&app_data, required)
 }
 
@@ -1217,6 +1338,7 @@ fn copy_temp_to_destination<R: Runtime>(
 fn copy_source_to_temp<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
+    temp_file: &mut File,
     temp_path: &Path,
 ) -> LibraryTransferResult<()> {
     let scoped_path = source.clone();
@@ -1241,12 +1363,19 @@ fn copy_source_to_temp<R: Runtime>(
             }
         }
         let mut input = BufReader::new(input).take(MAX_PACKAGE_BYTES + 1);
-        let mut output = BufWriter::new(File::create(temp_path).map_err(|err| {
+        temp_file.set_len(0).map_err(|err| {
             format!(
-                "Failed to create temporary library package {}: {err}",
+                "Failed to reset temporary library package {}: {err}",
                 temp_path.display()
             )
-        })?);
+        })?;
+        temp_file.rewind().map_err(|err| {
+            format!(
+                "Failed to seek temporary library package {}: {err}",
+                temp_path.display()
+            )
+        })?;
+        let mut output = BufWriter::new(temp_file);
         let copied = std::io::copy(&mut input, &mut output)
             .map_err(|err| format!("Failed to read selected library package: {err}"))?;
         output
@@ -1352,6 +1481,52 @@ mod tests {
             "library-transfer-active.tmp",
             stale - Duration::from_secs(1)
         ));
+    }
+
+    #[test]
+    fn transfer_storage_is_private_and_cleans_only_transfer_files() {
+        let root = std::env::temp_dir().join(format!(
+            "papercut-transfer-security-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        create_private_directory(&root).unwrap();
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(&root).unwrap().permissions().mode() & 0o777,
+                0o700
+            );
+        }
+
+        let temp_path = {
+            let temp = create_transfer_temp_in(&root, "test").unwrap();
+            let path = temp.path().to_path_buf();
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                assert_eq!(
+                    fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+                    0o600
+                );
+            }
+            path
+        };
+        assert!(!temp_path.exists());
+
+        let orphan = root.join("library-transfer-orphan.part");
+        let unrelated = root.join("thumbnail.tmp");
+        fs::write(&orphan, b"partial").unwrap();
+        fs::write(&unrelated, b"keep").unwrap();
+        cleanup_orphaned_transfer_files(&root);
+        assert!(!orphan.exists());
+        assert!(unrelated.exists());
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

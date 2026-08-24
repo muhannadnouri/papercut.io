@@ -197,12 +197,7 @@ pub(super) fn receive_package<P: FnMut(u64, u64)>(
         return Err("Source device reported an unsupported library package size".into());
     }
     remove_other_receive_parts(output_path);
-    let mut output = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .open(output_path)
-        .map_err(|err| format!("Failed to open partial library package: {err}"))?;
+    let mut output = open_receive_part(output_path)?;
     let mut offset = output
         .metadata()
         .map_err(|err| format!("Failed to inspect partial library package: {err}"))?
@@ -247,6 +242,29 @@ pub(super) fn receive_package<P: FnMut(u64, u64)>(
         .flush()
         .map_err(|err| format!("Failed to finish partial library package: {err}"))?;
     Ok(stream)
+}
+
+/// Open a resumable partial with owner-only Unix permissions. Existing files
+/// are repaired because upgrades may encounter partials created by older builds;
+/// the private cache root prevents another local user from replacing the path.
+fn open_receive_part(path: &Path) -> Result<File, String> {
+    let mut options = OpenOptions::new();
+    options.read(true).write(true).create(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let file = options
+        .open(path)
+        .map_err(|err| format!("Failed to open partial library package: {err}"))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+            .map_err(|err| format!("Failed to protect partial library package: {err}"))?;
+    }
+    Ok(file)
 }
 
 /// Keep one opaque partial file per source session. The address and random code
@@ -434,6 +452,14 @@ mod tests {
         result.unwrap();
 
         assert_eq!(fs::read(&received_path).unwrap(), package);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(&received_path).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+        }
         assert_eq!(status.bytes_transferred, package.len() as u64);
         assert_eq!(status.receiver_progress.unwrap().phase, progress.phase);
         let _ = fs::remove_file(package_path);

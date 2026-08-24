@@ -225,9 +225,17 @@ error. A resumed package is always checksum-verified in full before restore, so
 the byte offset is an optimization rather than a trust boundary.
 
 Source address discovery uses the same private, link-local, or loopback IPv4
-policy enforced by the receiver. Transfer temporaries and resumable partials
-left untouched for seven days are removed on the next transfer operation, which
-bounds cache growth after crashes while preserving ordinary retries.
+policy enforced by the receiver. App startup creates or repairs the data and
+cache roots as owner-only directories on Unix (`0700`). Transfer packages use
+cryptographically random names, atomic exclusive creation, and owner-only Unix
+permissions (`0600`); their scope guard removes them after normal completion or
+failure. Resumable receive partials use the same file permissions.
+
+Startup removes transfer packages and partials left by an earlier process. They
+cannot be resumed because pairing credentials are intentionally not persisted.
+Within one running app session, authenticated retries keep their partial file;
+transfer files left untouched for seven days are also removed on the next
+transfer operation. Other cache entries are never matched by this cleanup.
 
 The receiver marks only explicit insufficient-storage failures as retryable.
 Invalid schemas, checksums, payloads, or restore data fail the sender session

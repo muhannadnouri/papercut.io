@@ -34,7 +34,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use super::{
-    build_library_package, emit_transfer_progress, import_library_package, transfer_temp_path,
+    build_library_package, create_transfer_temp, emit_transfer_progress, import_library_package,
     LibraryTransferError, LibraryTransferExportRequest, LibraryTransferImportResult,
     LibraryTransferProgress, LibraryTransferResult,
 };
@@ -178,16 +178,15 @@ fn start_send(
         }
     }
 
-    let package_path = transfer_temp_path(&app, "lan-send")?;
-    let prepared =
-        build_library_package(&app, &package_path, document_ids.as_deref(), &audiobook_ids);
-    let prepared = match prepared {
-        Ok(prepared) => prepared,
-        Err(error) => {
-            let _ = fs::remove_file(&package_path);
-            return Err(error);
-        }
-    };
+    let mut package = create_transfer_temp(&app, "lan-send")?;
+    let package_path = package.path().to_path_buf();
+    let prepared = build_library_package(
+        &app,
+        package.file_mut(),
+        &package_path,
+        document_ids.as_deref(),
+        &audiobook_ids,
+    )?;
     let setup = (|| {
         let package_bytes = fs::metadata(&package_path)
             .map_err(|err| format!("Failed to inspect prepared library package: {err}"))?
@@ -224,13 +223,7 @@ fn start_send(
         });
         Ok::<_, LibraryTransferError>((listener, tls_config, code, status, cancel, active_socket))
     })();
-    let (listener, tls_config, code, status, cancel, active_socket) = match setup {
-        Ok(setup) => setup,
-        Err(error) => {
-            let _ = fs::remove_file(&package_path);
-            return Err(error);
-        }
-    };
+    let (listener, tls_config, code, status, cancel, active_socket) = setup?;
 
     let thread_status = Arc::clone(&status);
     thread::spawn(move || {
@@ -238,12 +231,11 @@ fn start_send(
             listener,
             tls_config,
             &code,
-            &package_path,
+            package.path(),
             &thread_status,
             &cancel,
             &active_socket,
         );
-        let _ = fs::remove_file(package_path);
     });
     Ok(lock(&status).map(|status| status.clone())?)
 }
