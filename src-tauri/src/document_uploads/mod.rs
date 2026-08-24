@@ -59,8 +59,9 @@ pub(crate) use storage::{
 };
 pub(crate) use store::list_uploads;
 pub(crate) use types::{
-    UploadedDocument, UploadedDocumentBatchResult, UploadedLibraryCreateFolderRequest,
-    UploadedLibraryFolder, UploadedLibraryMoveDocumentsRequest, UploadedLibraryOrganization,
+    UploadedDocument, UploadedDocumentBatchResult, UploadedDocumentLocation,
+    UploadedLibraryCreateFolderRequest, UploadedLibraryFolder, UploadedLibraryMoveDocumentsRequest,
+    UploadedLibraryOrganization,
 };
 
 pub(crate) use html::sanitize_html;

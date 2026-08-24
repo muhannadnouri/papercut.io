@@ -31,7 +31,7 @@ existing component modules.
 
 ## Canonical And Derived Data
 
-The package carries canonical user data:
+The package carries selected canonical user data:
 
 - sanitized, normalized `source.html` for each generic HTML, EPUB, TXT, or Markdown upload;
 - content-hashed reader-image assets referenced by transferred EPUB reading HTML;
@@ -148,13 +148,28 @@ The role control remains visible throughout the dialog. Nearby transfer is the
 default path, while the transfer-file disclosures explain that files can be
 moved through USB, shared storage, or another user-chosen method.
 
-When completed audio exists, the send action offers a collapsed, default-empty
-saved-audiobook checklist with select-all and deselect-all controls. The same
-selection applies to nearby transfer and the transfer-file fallback. The dialog
-reports document and audiobook counts plus failures. It also exposes explicit
-source and target roles for same-network transfer. The source displays a local
-address and pairing code; the target enters both values and receives the same
-package through the normal import boundary.
+The send action offers separate collapsed checklists for uploaded books and
+documents and for completed audiobooks. Documents default to selected to
+preserve the original whole-library behavior; audiobooks default to excluded
+because their audio can add gigabytes. Both lists support select-all and
+deselect-all, while document filtering appears only for larger libraries.
+
+Selecting an audiobook automatically includes its uploaded source document.
+The UI marks that source as required, and Rust enforces the dependency again
+before reading or hashing payloads. Bundled documents need no transferred
+source, while standalone imported audiobook bundles retain their existing
+embedded source. Subset packages include only selected document placements and
+their ancestor folders. The same selection applies to nearby transfer and the
+transfer-file fallback.
+
+An omitted document selection retains compatibility with older callers by
+including every uploaded document. An explicit empty selection includes no
+ordinary documents unless selected audiobooks require one. This changes only
+package construction; the version 4 manifest already supports document subsets.
+The dialog reports document and audiobook counts plus failures. It also exposes
+explicit source and target roles for same-network transfer. The source displays
+a local address and pairing code; the target enters both values and receives the
+same package through the normal import boundary.
 
 ## Same-Network Transport
 
@@ -227,6 +242,7 @@ required by Android's local-network privacy model.
 - [x] Stage 3: resume interrupted transfers, especially large audio.
 - [x] Stage 3: separate session orchestration, transport framing, and pairing security.
 - [x] Stage 3: keep nearby transfer primary and progressively disclose file fallback actions.
+- [x] Add selective uploaded-document transfer with audiobook dependency inclusion and folder pruning.
 - [x] Review hardening: constrain audiobook document URLs and cross-platform archive paths.
 - [x] Review hardening: verify transferred WAV contents against measured playback metadata.
 - [x] Review hardening: classify terminal receiver failures and interrupt active sends on cancel.

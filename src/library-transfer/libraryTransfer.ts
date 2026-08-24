@@ -81,10 +81,13 @@ export interface LibraryTransferProgress {
 
 const LIBRARY_TRANSFER_PROGRESS_EVENT = 'library-transfer-progress'
 
-export async function exportLibrary(audiobookIds: string[] = []): Promise<LibraryTransferExportResult | null> {
+export async function exportLibrary(
+  documentIds: string[],
+  audiobookIds: string[] = [],
+): Promise<LibraryTransferExportResult | null> {
   if (!isTauri()) return null
   return invoke<LibraryTransferExportResult | null>('library_transfer_export', {
-    request: { audiobookIds },
+    request: { documentIds, audiobookIds },
   })
 }
 
@@ -93,9 +96,12 @@ export async function importLibrary(): Promise<LibraryTransferImportResult | nul
   return invoke<LibraryTransferImportResult | null>('library_transfer_import')
 }
 
-export async function startLibrarySend(audiobookIds: string[] = []): Promise<LibraryTransferSendStatus> {
+export async function startLibrarySend(
+  documentIds: string[],
+  audiobookIds: string[] = [],
+): Promise<LibraryTransferSendStatus> {
   return invoke<LibraryTransferSendStatus>('library_transfer_send_start', {
-    request: { audiobookIds },
+    request: { documentIds, audiobookIds },
   })
 }
 

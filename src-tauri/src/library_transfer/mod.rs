@@ -34,7 +34,7 @@ use package::{
     read_document_asset, read_document_source, read_manifest, sha256_reader, write_package,
     TransferAudiobook, TransferAudiobookFile, TransferDocument, TransferDocumentAsset,
     TransferDocumentLocation, TransferFolder, TransferManifest, TransferOrganization,
-    MAX_AUDIOBOOKS, MAX_PACKAGE_BYTES, PACKAGE_KIND, PACKAGE_VERSION,
+    MAX_AUDIOBOOKS, MAX_DOCUMENTS, MAX_PACKAGE_BYTES, PACKAGE_KIND, PACKAGE_VERSION,
 };
 
 const PACKAGE_EXTENSION: &str = "papercut-library";
@@ -111,6 +111,9 @@ pub(crate) type LibraryTransferResult<T> = Result<T, LibraryTransferError>;
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LibraryTransferExportRequest {
+    /// `None` preserves the original whole-library behavior for older callers;
+    /// an explicit empty list intentionally excludes ordinary documents.
+    document_ids: Option<Vec<String>>,
     #[serde(default)]
     audiobook_ids: Vec<String>,
 }
@@ -216,8 +219,9 @@ pub async fn library_transfer_export(
     app: tauri::AppHandle,
     request: Option<LibraryTransferExportRequest>,
 ) -> LibraryTransferResult<Option<LibraryTransferExportResult>> {
+    let request = request.unwrap_or_default();
     tauri::async_runtime::spawn_blocking(move || {
-        export_library(app, request.unwrap_or_default().audiobook_ids)
+        export_library(app, request.document_ids, request.audiobook_ids)
     })
     .await
     .map_err(|err| format!("Library export task failed: {err}"))?
@@ -236,6 +240,7 @@ pub async fn library_transfer_import(
 
 fn export_library(
     app: tauri::AppHandle,
+    document_ids: Option<Vec<String>>,
     audiobook_ids: Vec<String>,
 ) -> LibraryTransferResult<Option<LibraryTransferExportResult>> {
     let destination = app
@@ -250,7 +255,8 @@ fn export_library(
     };
     let temp_path = transfer_temp_path(&app, "export")?;
     let build_result: LibraryTransferResult<LibraryTransferExportResult> = (|| {
-        let result = build_library_package(&app, &temp_path, &audiobook_ids)?;
+        let result =
+            build_library_package(&app, &temp_path, document_ids.as_deref(), &audiobook_ids)?;
         copy_temp_to_destination(&app, &temp_path, destination)?;
         Ok(result)
     })();
@@ -288,11 +294,12 @@ fn import_library(
 fn build_library_package(
     app: &tauri::AppHandle,
     path: &Path,
+    document_ids: Option<&[String]>,
     audiobook_ids: &[String],
 ) -> LibraryTransferResult<LibraryTransferExportResult> {
     let documents = list_uploads(app)?;
     let organization = list_organization(app)?;
-    let prepared = prepare_manifest(app, &documents, organization, audiobook_ids)?;
+    let prepared = prepare_manifest(app, &documents, organization, document_ids, audiobook_ids)?;
     if prepared.manifest.documents.is_empty() && prepared.manifest.audiobooks.is_empty() {
         return Err("There are no uploaded documents or saved audiobooks to export".into());
     }
@@ -362,11 +369,27 @@ fn prepare_manifest(
     app: &tauri::AppHandle,
     documents: &[UploadedDocument],
     organization: crate::document_uploads::UploadedLibraryOrganization,
+    document_ids: Option<&[String]>,
     audiobook_ids: &[String],
 ) -> Result<PreparedPackage, String> {
-    let mut transfer_documents = Vec::with_capacity(documents.len());
+    let selected_audiobook_ids = validate_audiobook_selection(audiobook_ids)?;
+    let selected_audiobooks = crate::native_tts::list_audiobook_transfer_payloads(app)?
+        .into_iter()
+        .filter(|audiobook| selected_audiobook_ids.contains(audiobook.record.id.as_str()))
+        .collect::<Vec<_>>();
+    let required_document_ids = selected_audiobooks
+        .iter()
+        .filter_map(|audiobook| upload_id_from_url(&audiobook.record.document_url).ok())
+        .collect::<HashSet<_>>();
+    let selected_document_ids =
+        resolve_document_selection(documents, document_ids, &required_document_ids)?;
+
+    let mut transfer_documents = Vec::with_capacity(selected_document_ids.len());
     let mut payloads = HashMap::new();
-    for document in documents {
+    for document in documents
+        .iter()
+        .filter(|document| selected_document_ids.contains(&document.id))
+    {
         let source_kind = StoredSourceKind::from_str(&document.source_kind)?;
         let path = upload_source_path(app, &document.id, source_kind)?;
         let mut reader = BufReader::new(File::open(&path).map_err(|err| {
@@ -417,13 +440,9 @@ fn prepare_manifest(
         payloads.insert(source_path, path);
     }
 
-    let selected_audiobook_ids = validate_audiobook_selection(audiobook_ids)?;
-    let mut transfer_audiobooks = Vec::with_capacity(selected_audiobook_ids.len());
-    if !selected_audiobook_ids.is_empty() {
-        for audiobook in crate::native_tts::list_audiobook_transfer_payloads(app)? {
-            if !selected_audiobook_ids.contains(audiobook.record.id.as_str()) {
-                continue;
-            }
+    let mut transfer_audiobooks = Vec::with_capacity(selected_audiobooks.len());
+    if !selected_audiobooks.is_empty() {
+        for audiobook in selected_audiobooks {
             let mut files = Vec::with_capacity(audiobook.files.len());
             for file in audiobook.files {
                 let mut reader = BufReader::new(
@@ -463,31 +482,97 @@ fn prepare_manifest(
         created_at_ms: u64::try_from(now_ms()?)
             .map_err(|_| "System timestamp is invalid".to_string())?,
         documents: transfer_documents,
-        organization: TransferOrganization {
-            folders: organization
-                .folders
-                .into_iter()
-                .map(|folder| TransferFolder {
-                    id: folder.id,
-                    parent_id: folder.parent_id,
-                    name: folder.name,
-                    depth: folder.depth,
-                    sort_order: folder.sort_order,
-                })
-                .collect(),
-            document_locations: organization
-                .document_locations
-                .into_iter()
-                .map(|location| TransferDocumentLocation {
-                    document_id: location.document_id,
-                    folder_id: location.folder_id,
-                    sort_order: location.sort_order,
-                })
-                .collect(),
-        },
+        organization: select_organization(organization, &selected_document_ids),
         audiobooks: transfer_audiobooks,
     };
     Ok(PreparedPackage { manifest, payloads })
+}
+
+/// Resolve the explicit document set before any source is opened or hashed.
+/// Audiobook dependencies are added at this authority boundary so a stale or
+/// manipulated WebView request cannot create an unusable transfer package.
+fn resolve_document_selection(
+    documents: &[UploadedDocument],
+    document_ids: Option<&[String]>,
+    required_document_ids: &HashSet<String>,
+) -> Result<HashSet<String>, String> {
+    let available: HashSet<_> = documents
+        .iter()
+        .map(|document| document.id.clone())
+        .collect();
+    let mut selected = match document_ids {
+        None => available.clone(),
+        Some(ids) => {
+            let selected: HashSet<_> = ids.iter().cloned().collect();
+            if selected.len() > MAX_DOCUMENTS {
+                return Err(format!(
+                    "No more than {MAX_DOCUMENTS} documents can be transferred"
+                ));
+            }
+            if selected.iter().any(|id| !available.contains(id)) {
+                return Err("One or more selected documents are no longer available".into());
+            }
+            selected
+        }
+    };
+    for id in required_document_ids {
+        if !available.contains(id) {
+            return Err("A selected audiobook references a missing uploaded document".into());
+        }
+        selected.insert(id.clone());
+    }
+    Ok(selected)
+}
+
+/// Retain only selected document placements and the folder ancestors needed to
+/// reproduce them. Unrelated empty folder names must not leak into a subset.
+fn select_organization(
+    organization: crate::document_uploads::UploadedLibraryOrganization,
+    selected_document_ids: &HashSet<String>,
+) -> TransferOrganization {
+    let parent_by_id: HashMap<_, _> = organization
+        .folders
+        .iter()
+        .map(|folder| (folder.id.as_str(), folder.parent_id.as_deref()))
+        .collect();
+    let selected_locations = organization
+        .document_locations
+        .into_iter()
+        .filter(|location| selected_document_ids.contains(&location.document_id))
+        .collect::<Vec<_>>();
+    let mut selected_folder_ids = HashSet::new();
+    for location in &selected_locations {
+        let mut next = location.folder_id.as_deref();
+        while let Some(folder_id) = next {
+            if !selected_folder_ids.insert(folder_id.to_string()) {
+                break;
+            }
+            next = parent_by_id.get(folder_id).copied().flatten();
+        }
+    }
+
+    TransferOrganization {
+        folders: organization
+            .folders
+            .into_iter()
+            .filter(|folder| selected_folder_ids.contains(&folder.id))
+            .map(|folder| TransferFolder {
+                id: folder.id,
+                parent_id: folder.parent_id,
+                name: folder.name,
+                depth: folder.depth,
+                sort_order: folder.sort_order,
+            })
+            .collect(),
+        document_locations: selected_locations
+            .into_iter()
+            .map(|location| TransferDocumentLocation {
+                document_id: location.document_id,
+                folder_id: location.folder_id,
+                sort_order: location.sort_order,
+            })
+            .collect(),
+    }
 }
 
 /// Deduplicate UI selections and apply the package limit before touching large
@@ -1279,6 +1364,86 @@ mod tests {
             .map(|index| format!("audiobook-{index}"))
             .collect::<Vec<_>>();
         assert!(validate_audiobook_selection(&too_many).is_err());
+    }
+
+    #[test]
+    fn document_selection_distinguishes_default_all_from_explicit_empty() {
+        let documents = vec![test_document("a"), test_document("b")];
+        let none_required = HashSet::new();
+
+        assert_eq!(
+            resolve_document_selection(&documents, None, &none_required)
+                .expect("default selection")
+                .len(),
+            2
+        );
+        assert!(
+            resolve_document_selection(&documents, Some(&[]), &none_required)
+                .expect("explicit empty selection")
+                .is_empty()
+        );
+
+        let requested = ["b".into()];
+        let required = HashSet::from(["a".into()]);
+        let selected = resolve_document_selection(&documents, Some(&requested), &required)
+            .expect("dependency-expanded selection");
+        assert_eq!(selected, HashSet::from(["a".into(), "b".into()]));
+
+        assert!(
+            resolve_document_selection(&documents, Some(&["missing".into()]), &none_required,)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn subset_organization_keeps_only_selected_locations_and_ancestors() {
+        let organization = crate::document_uploads::UploadedLibraryOrganization {
+            folders: vec![
+                test_folder("root", None, "Books"),
+                test_folder("selected", Some("root"), "Selected"),
+                test_folder("other", None, "Other"),
+            ],
+            document_locations: vec![
+                crate::document_uploads::UploadedDocumentLocation {
+                    document_id: "a".into(),
+                    folder_id: Some("selected".into()),
+                    sort_order: 0,
+                },
+                crate::document_uploads::UploadedDocumentLocation {
+                    document_id: "b".into(),
+                    folder_id: Some("other".into()),
+                    sort_order: 0,
+                },
+            ],
+        };
+
+        let selected = select_organization(organization, &HashSet::from(["a".into()]));
+        assert_eq!(
+            selected
+                .folders
+                .iter()
+                .map(|folder| folder.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["root", "selected"]
+        );
+        assert_eq!(selected.document_locations.len(), 1);
+        assert_eq!(selected.document_locations[0].document_id, "a");
+    }
+
+    fn test_document(id: &str) -> UploadedDocument {
+        UploadedDocument {
+            id: id.into(),
+            url: format!("/uploads/{id}.html"),
+            title: id.into(),
+            original_file_name: None,
+            format: "html".into(),
+            source_kind: "html".into(),
+            imported_at_ms: 1,
+            bytes: 1,
+            sections: 1,
+            cover_media_type: None,
+            text_status: "ready".into(),
+        }
     }
 
     fn test_folder(id: &str, parent_id: Option<&str>, name: &str) -> UploadedLibraryFolder {
