@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { AppDialog } from '../components/AppDialog/AppDialog'
@@ -57,6 +57,7 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
   const [sendStatus, setSendStatus] = useState<LibraryTransferSendStatus | null>(null)
   const [sourceAddress, setSourceAddress] = useState('')
   const [pairingCode, setPairingCode] = useState('')
+  const selectionHelpId = useId()
   const operationBusy = ['exporting', 'importing', 'preparingSend', 'receiving'].includes(status.state)
   const sendActive = sendStatus?.state === 'waiting' || sendStatus?.state === 'sending'
   const busy = operationBusy || sendActive
@@ -89,6 +90,7 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
     .some((id) => selectedDocumentIds.includes(id))
   const hasContent = effectiveDocumentIds.length > 0 || selectedAudiobookIds.length > 0
   const sendSelectionReady = documentsLoaded && !documentsLoadFailed
+  const selectionEmpty = sendSelectionReady && !hasContent
 
   useEffect(() => {
     void listUploadedDocuments()
@@ -412,6 +414,9 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
                   </div>
                 </details>
               )}
+              {selectionEmpty && (
+                <p id={selectionHelpId} role="status">{t('libraryTransfer.selectAtLeastOne')}</p>
+              )}
               {sendActive ? (
                 <button type="button" className="library-transfer-stop" onClick={() => { void handleCancelSend() }}>
                   {t('libraryTransfer.stopSending')}
@@ -423,6 +428,7 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
                     className="library-transfer-primary"
                     disabled={operationBusy || !sendSelectionReady || !hasContent}
                     aria-busy={status.state === 'preparingSend' || undefined}
+                    aria-describedby={selectionEmpty ? selectionHelpId : undefined}
                     onClick={() => { void handleStartSend() }}
                   >
                     {status.state === 'preparingSend'
@@ -438,11 +444,15 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
             <details className="library-transfer-alternate">
               <summary>{t('libraryTransfer.exportTitle')}</summary>
               <div className="library-transfer-alternate-content">
-                <p>{t('libraryTransfer.exportDescription', { count: effectiveDocumentIds.length })}</p>
+                <p>{t('libraryTransfer.exportDescription', {
+                  documents: effectiveDocumentIds.length,
+                  audiobooks: selectedAudiobookIds.length,
+                })}</p>
                 <button
                   type="button"
                   disabled={busy || !sendSelectionReady || !hasContent}
                   aria-busy={status.state === 'exporting' || undefined}
+                  aria-describedby={selectionEmpty ? selectionHelpId : undefined}
                   onClick={() => { void handleExport() }}
                 >
                   {status.state === 'exporting' ? t('libraryTransfer.exporting') : t('libraryTransfer.export')}

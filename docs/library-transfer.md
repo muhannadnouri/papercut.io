@@ -138,15 +138,17 @@ App Settings owns the entry point because transfer is device-level data
 management rather than another document format. A **Data** section opens a
 dedicated **Transfer Library** dialog organized by the user's role:
 
-- **Send** presents **Send to a nearby device** as the primary action and keeps
+- **Send** presents **Send over a local network** as the primary action and keeps
   **Save Transfer File** under an expandable manual fallback;
-- **Receive** presents **Receive from a nearby device**, accepts the sending
+- **Receive** presents **Receive over a local network**, accepts the sending
   device's address and one-use code, and keeps **Import Transfer File** under
   the same secondary fallback.
 
-The role control remains visible throughout the dialog. Nearby transfer is the
-default path, while the transfer-file disclosures explain that files can be
-moved through USB, shared storage, or another user-chosen method.
+The role control remains visible throughout the dialog. Local-network transfer
+is the default path, while the transfer-file disclosures explain that files can
+be copied through USB, shared storage, or another user-chosen method. The dialog
+consistently describes transfer as copying selected content; it does not imply
+that the source device loses its library.
 
 The send action offers separate collapsed checklists for uploaded books and
 documents and for completed audiobooks. Documents default to selected to
@@ -161,20 +163,22 @@ The UI marks that source as required, and Rust enforces the dependency again
 before reading or hashing payloads. Bundled documents need no transferred
 source, while standalone imported audiobook bundles retain their existing
 embedded source. Subset packages include only selected document placements and
-their ancestor folders. The same selection applies to nearby transfer and the
-transfer-file fallback.
+their ancestor folders. The same selection applies to local-network transfer
+and the transfer-file fallback.
 
 An omitted document selection retains compatibility with older callers by
 including every uploaded document. An explicit empty selection includes no
 ordinary documents unless selected audiobooks require one. This changes only
 package construction; the version 4 manifest already supports document subsets.
-The dialog reports document and audiobook counts plus failures. It also exposes
-explicit source and target roles for same-network transfer. The source displays
-a local address and pairing code; the target enters both values and receives the
-same package through the normal import boundary.
+The dialog reports document and audiobook counts plus failures. The transfer-file
+summary repeats both selected counts, and an empty selection gets one visible,
+shared explanation for the disabled local-network and file actions. The dialog
+also exposes explicit source and target roles for same-network transfer. The
+source displays a local address and pairing code; the target enters both values
+and receives the same package through the normal import boundary.
 
 While Papercut checks and packages the selected content, the initiating action
-stays disabled and a nearby live status explains that large items can take
+stays disabled and an adjacent live status explains that large items can take
 longer. Preparation remains indeterminate because hashing and ZIP construction
 do not expose a trustworthy total; pairing details appear only after the package
 is ready.
