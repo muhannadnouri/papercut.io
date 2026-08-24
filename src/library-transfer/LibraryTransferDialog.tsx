@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { AppDialog } from '../components/AppDialog/AppDialog'
@@ -95,18 +95,24 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
   const sendSelectionReady = documentsLoaded && !documentsLoadFailed
   const selectionEmpty = sendSelectionReady && !hasContent
 
-  useEffect(() => {
-    void listUploadedDocuments()
-      .then((nextDocuments) => {
-        setDocuments(nextDocuments)
-        setSelectedDocumentIds(nextDocuments.map((document) => document.id))
-        setDocumentsLoaded(true)
-      })
-      .catch(() => {
-        setDocumentsLoadFailed(true)
-        setDocumentsLoaded(true)
-      })
+  /** Reload the sendable documents while exposing the existing loading and failure states. */
+  const loadDocuments = useCallback(async () => {
+    setDocumentsLoaded(false)
+    setDocumentsLoadFailed(false)
+    try {
+      const nextDocuments = await listUploadedDocuments()
+      setDocuments(nextDocuments)
+      setSelectedDocumentIds(nextDocuments.map((document) => document.id))
+    } catch {
+      setDocumentsLoadFailed(true)
+    } finally {
+      setDocumentsLoaded(true)
+    }
   }, [])
+
+  useEffect(() => {
+    void loadDocuments()
+  }, [loadDocuments])
 
   useEffect(() => {
     void listNativeSavedAudiobooks()
@@ -275,9 +281,14 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
                 </div>
               )}
               {documentsLoadFailed && (
-                <p className="app-dialog-error" role="alert">
-                  {t('libraryTransfer.documentsLoadFailed')}
-                </p>
+                <>
+                  <p className="app-dialog-error" role="alert">
+                    {t('libraryTransfer.documentsLoadFailed')}
+                  </p>
+                  <button type="button" onClick={() => { void loadDocuments() }}>
+                    {t('common.retry')}
+                  </button>
+                </>
               )}
               {documents.length > 0 && (
                 <details className="library-transfer-content">
