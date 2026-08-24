@@ -60,6 +60,8 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
   const selectionHelpId = useId()
   const operationBusy = ['exporting', 'importing', 'preparingSend', 'receiving'].includes(status.state)
   const sendActive = sendStatus?.state === 'waiting' || sendStatus?.state === 'sending'
+  const sendFlowVisible = status.state === 'preparingSend'
+    || Boolean(sendStatus && sendStatus.state !== 'cancelled')
   const busy = operationBusy || sendActive
   const locale = i18n.resolvedLanguage ?? i18n.language
   const technicalT = i18n.getFixedT('en')
@@ -204,8 +206,9 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
 
   const handleCancelSend = async () => {
     try {
-      await cancelLibrarySend()
-      setSendStatus((current) => current ? { ...current, state: 'cancelled' } : current)
+      if (sendActive) await cancelLibrarySend()
+      setSendStatus(null)
+      setStatus({ state: 'idle' })
     } catch (error) {
       setStatus({ state: 'error', message: formatTransferError(error, locale, t) })
     }
@@ -250,7 +253,15 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
 
       <div className="library-transfer-actions">
         {mode === 'send' ? (
-          <>
+          sendFlowVisible ? (
+            <LibrarySendFlow
+              preparing={status.state === 'preparingSend'}
+              status={sendStatus}
+              locale={locale}
+              onExit={() => { void handleCancelSend() }}
+            />
+          ) : (
+            <>
             <section className="library-transfer-primary-section">
               <header>
                 <h3>{t('libraryTransfer.sendTitle')}</h3>
@@ -417,28 +428,15 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
               {selectionEmpty && (
                 <p id={selectionHelpId} role="status">{t('libraryTransfer.selectAtLeastOne')}</p>
               )}
-              {sendActive ? (
-                <button type="button" className="library-transfer-stop" onClick={() => { void handleCancelSend() }}>
-                  {t('libraryTransfer.stopSending')}
-                </button>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    className="library-transfer-primary"
-                    disabled={operationBusy || !sendSelectionReady || !hasContent}
-                    aria-busy={status.state === 'preparingSend' || undefined}
-                    aria-describedby={selectionEmpty ? selectionHelpId : undefined}
-                    onClick={() => { void handleStartSend() }}
-                  >
-                    {status.state === 'preparingSend'
-                      ? t('libraryTransfer.preparingSend')
-                      : t('libraryTransfer.startSending')}
-                  </button>
-                  {status.state === 'preparingSend' && <TransferPreparationMessage />}
-                </>
-              )}
-              <LibrarySendStatusMessage status={sendStatus} locale={locale} />
+              <button
+                type="button"
+                className="library-transfer-primary"
+                disabled={operationBusy || !sendSelectionReady || !hasContent}
+                aria-describedby={selectionEmpty ? selectionHelpId : undefined}
+                onClick={() => { void handleStartSend() }}
+              >
+                {t('libraryTransfer.startSending')}
+              </button>
             </section>
 
             <details className="library-transfer-alternate">
@@ -460,7 +458,8 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
                 {status.state === 'exporting' && <TransferPreparationMessage />}
               </div>
             </details>
-          </>
+            </>
+          )
         ) : (
           <>
             <section className="library-transfer-primary-section">
@@ -524,7 +523,7 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
         )}
       </div>
 
-      <TransferStatusMessage status={status} />
+      {sendStatus?.state !== 'failed' && <TransferStatusMessage status={status} />}
     </AppDialog>
   )
 }
@@ -562,6 +561,44 @@ function TransferProgressMessage({ progress, locale }: { progress: LibraryTransf
       <progress value={value} max={max} />
       {progress.item && <small dir="auto"><bdi>{progress.item}</bdi></small>}
     </div>
+  )
+}
+
+// Selection state stays in the parent while this compact view keeps active session details above the fold.
+export function LibrarySendFlow({
+  preparing,
+  status,
+  locale,
+  onExit,
+}: {
+  preparing: boolean
+  status: LibraryTransferSendStatus | null
+  locale: string
+  onExit: () => void
+}) {
+  const { t } = useTranslation()
+  const waiting = status?.state === 'waiting'
+  const sending = status?.state === 'sending'
+  return (
+    <section className="library-transfer-primary-section library-transfer-guided">
+      <header>
+        <h3>{t(waiting ? 'libraryTransfer.connectDevice' : 'libraryTransfer.sendTitle')}</h3>
+      </header>
+      {waiting && (
+        <ol>
+          <li>{t('libraryTransfer.connectStepOpen')}</li>
+          <li>{t('libraryTransfer.connectStepEnter')}</li>
+        </ol>
+      )}
+      {preparing
+        ? <TransferPreparationMessage />
+        : <LibrarySendStatusMessage status={status} locale={locale} />}
+      {status && (
+        <button type="button" className={sending ? 'library-transfer-stop' : undefined} onClick={onExit}>
+          {t(sending ? 'libraryTransfer.stopSending' : 'libraryTransfer.changeSelection')}
+        </button>
+      )}
+    </section>
   )
 }
 

@@ -183,6 +183,14 @@ longer. Preparation remains indeterminate because hashing and ZIP construction
 do not expose a trustworthy total; pairing details appear only after the package
 is ready.
 
+After sending starts, the selection lists and transfer-file fallback are
+replaced in place by a compact guided state so current work remains above the
+fold. Preparation leads to two numbered pairing instructions, the address and
+one-use code, existing byte and receiver-import progress, and the final result.
+**Change Selection** cancels a waiting session and restores the retained choices;
+an in-flight transfer instead exposes **Stop Sending**. This uses the existing
+dialog and session state rather than introducing routes or a multi-page wizard.
+
 ## Same-Network Transport
 
 The first LAN implementation is intentionally foreground and manual:
@@ -254,6 +262,7 @@ required by Android's local-network privacy model.
 - [x] Stage 3: resume interrupted transfers, especially large audio.
 - [x] Stage 3: separate session orchestration, transport framing, and pairing security.
 - [x] Stage 3: keep nearby transfer primary and progressively disclose file fallback actions.
+- [x] Keep active send instructions, progress, cancellation, and results above the fold.
 - [x] Add selective uploaded-document transfer with audiobook dependency inclusion and folder pruning.
 - [x] Review hardening: constrain audiobook document URLs and cross-platform archive paths.
 - [x] Review hardening: verify transferred WAV contents against measured playback metadata.
