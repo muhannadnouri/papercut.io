@@ -156,7 +156,11 @@ preserve the original whole-library behavior; audiobooks default to excluded
 because their audio can add gigabytes. Both lists support select-all and
 deselect-all, while document filtering appears only for larger libraries.
 When a document filter is active, its bulk actions apply only to matching
-results and preserve selections hidden by the filter.
+results and preserve selections hidden by the filter. Larger libraries also
+show the visible and total document counts plus a **Show selected only** control.
+That view intersects with the text filter, and **Deselect Shown** changes only
+the documents currently visible so users can verify a large selection without
+silently changing hidden items.
 
 Selecting an audiobook automatically includes its uploaded source document.
 The UI marks that source as required, and Rust enforces the dependency again

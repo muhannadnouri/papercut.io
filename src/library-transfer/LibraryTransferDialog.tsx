@@ -21,7 +21,7 @@ import type { SavedAudiobookRecord } from '../tts/storage/AudiobookLibrary'
 import { isUserUploadUrl, upsertUserUpload } from '../tts/storage/UserUploads'
 import { formatSavedAudiobookMetaParts } from '../tts/utils/format'
 import { listUploadedDocuments, type UploadedDocument } from '../uploads/DocumentUploads'
-import { updateScopedSelection } from './documentSelection'
+import { filterTransferDocuments, updateScopedSelection } from './documentSelection'
 import './LibraryTransferDialog.css'
 
 interface LibraryTransferDialogProps {
@@ -52,6 +52,7 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
   const [documentsLoadFailed, setDocumentsLoadFailed] = useState(false)
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([])
   const [documentFilter, setDocumentFilter] = useState('')
+  const [showSelectedDocuments, setShowSelectedDocuments] = useState(false)
   const [savedAudiobooks, setSavedAudiobooks] = useState<SavedAudiobookRecord[]>([])
   const [selectedAudiobookIds, setSelectedAudiobookIds] = useState<string[]>([])
   const [sendStatus, setSendStatus] = useState<LibraryTransferSendStatus | null>(null)
@@ -77,15 +78,15 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
     requiredDocumentIds.forEach((id) => selected.add(id))
     return documents.filter((document) => selected.has(document.id)).map((document) => document.id)
   }, [documents, requiredDocumentIds, selectedDocumentIds])
-  const filteredDocuments = useMemo(() => {
-    const query = documentFilter.trim().toLocaleLowerCase(locale)
-    if (!query) return documents
-    return documents.filter((document) => [document.title, document.originalFileName]
-      .some((value) => value?.toLocaleLowerCase(locale).includes(query)))
-  }, [documentFilter, documents, locale])
+  const filteredDocuments = useMemo(() => filterTransferDocuments(
+    documents,
+    documentFilter,
+    locale,
+    effectiveDocumentIds,
+    showSelectedDocuments,
+  ), [documentFilter, documents, effectiveDocumentIds, locale, showSelectedDocuments])
   const documentFilterActive = documentFilter.trim().length > 0
-  const scopedDocumentIds = (documentFilterActive ? filteredDocuments : documents)
-    .map((document) => document.id)
+  const scopedDocumentIds = filteredDocuments.map((document) => document.id)
   const allScopedDocumentsSelected = scopedDocumentIds.length > 0
     && scopedDocumentIds.every((id) => selectedDocumentIds.includes(id))
   const anyScopedDocumentsSelected = scopedDocumentIds
@@ -293,28 +294,49 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
                   </summary>
                   <div className="library-transfer-picker">
                     {documents.length >= DOCUMENT_FILTER_THRESHOLD && (
-                      <label className="library-transfer-filter">
-                        <span>{t('libraryTransfer.filterDocuments')}</span>
-                        <input
-                          type="search"
-                          value={documentFilter}
-                          disabled={busy}
-                          onChange={(event) => setDocumentFilter(event.target.value)}
-                        />
-                      </label>
+                      <>
+                        <label className="library-transfer-filter">
+                          <span>{t('libraryTransfer.filterDocuments')}</span>
+                          <input
+                            type="search"
+                            value={documentFilter}
+                            disabled={busy}
+                            onChange={(event) => setDocumentFilter(event.target.value)}
+                          />
+                        </label>
+                        <div className="library-transfer-filter-state">
+                          <span role="status" aria-live="polite">
+                            {t('libraryTransfer.showingDocuments', {
+                              shown: filteredDocuments.length,
+                              count: documents.length,
+                            })}
+                          </span>
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={showSelectedDocuments}
+                              disabled={busy}
+                              onChange={(event) => setShowSelectedDocuments(event.target.checked)}
+                            />
+                            <span>{t('libraryTransfer.showSelectedDocuments')}</span>
+                          </label>
+                        </div>
+                      </>
                     )}
                     <div className="library-transfer-picker-actions">
-                      <button
-                        type="button"
-                        disabled={busy || allScopedDocumentsSelected || scopedDocumentIds.length === 0}
-                        onClick={() => setSelectedDocumentIds((current) => (
-                          updateScopedSelection(current, scopedDocumentIds, true)
-                        ))}
-                      >
-                        {t(documentFilterActive
-                          ? 'libraryTransfer.selectMatchingDocuments'
-                          : 'common.selectAll')}
-                      </button>
+                      {!showSelectedDocuments && (
+                        <button
+                          type="button"
+                          disabled={busy || allScopedDocumentsSelected || scopedDocumentIds.length === 0}
+                          onClick={() => setSelectedDocumentIds((current) => (
+                            updateScopedSelection(current, scopedDocumentIds, true)
+                          ))}
+                        >
+                          {t(documentFilterActive
+                            ? 'libraryTransfer.selectMatchingDocuments'
+                            : 'common.selectAll')}
+                        </button>
+                      )}
                       <button
                         type="button"
                         disabled={busy || !anyScopedDocumentsSelected}
@@ -322,9 +344,11 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
                           updateScopedSelection(current, scopedDocumentIds, false)
                         ))}
                       >
-                        {t(documentFilterActive
-                          ? 'libraryTransfer.deselectMatchingDocuments'
-                          : 'common.deselectAll')}
+                        {t(showSelectedDocuments
+                          ? 'libraryTransfer.deselectShownDocuments'
+                          : documentFilterActive
+                            ? 'libraryTransfer.deselectMatchingDocuments'
+                            : 'common.deselectAll')}
                       </button>
                     </div>
                     <div className="library-transfer-picker-list">
@@ -353,7 +377,11 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
                         )
                       })}
                       {filteredDocuments.length === 0 && (
-                        <p className="library-transfer-empty">{t('libraryTransfer.noMatchingDocuments')}</p>
+                        <p className="library-transfer-empty">
+                          {t(showSelectedDocuments
+                            ? 'libraryTransfer.noSelectedDocuments'
+                            : 'libraryTransfer.noMatchingDocuments')}
+                        </p>
                       )}
                     </div>
                   </div>

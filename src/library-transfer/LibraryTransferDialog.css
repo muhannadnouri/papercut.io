@@ -321,6 +321,29 @@ html[dir="rtl"] .library-transfer-content[open] summary::before {
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
+.library-transfer-filter-state {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.library-transfer-filter-state label {
+  display: flex;
+  min-height: 2.75rem;
+  gap: 0.35rem;
+  align-items: center;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.library-transfer-filter-state input {
+  margin: 0;
+}
+
 .library-transfer-empty {
   padding: 0.65rem;
 }
