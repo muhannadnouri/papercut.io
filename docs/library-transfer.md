@@ -219,8 +219,10 @@ dialog and session state rather than introducing routes or a multi-page wizard.
 The first LAN implementation is intentionally foreground and manual:
 
 1. The source builds an app-owned temporary `.papercut-library` package.
-2. It binds an ephemeral IPv4 port and shows `address:port` plus an eight-character
-   pairing code. The session expires after ten minutes.
+2. It binds an ephemeral port only on the private, link-local, or loopback IPv4
+   address shown to the user. A twelve-character base-32 pairing code provides
+   60 bits of entropy and is grouped as `XXXX-XXXX-XXXX` for transcription. The
+   session expires after ten minutes.
 3. The target connects over ephemeral TLS. Both devices prove knowledge of the
    code with HMAC-SHA256 values bound to the TLS exporter, so the self-signed
    channel is authenticated without a permanent app key or certificate prompt.
@@ -242,11 +244,13 @@ error. A resumed package is always checksum-verified in full before restore, so
 the byte offset is an optimization rather than a trust boundary.
 
 Source address discovery uses the same private, link-local, or loopback IPv4
-policy enforced by the receiver. App startup creates or repairs the data and
-cache roots as owner-only directories on Unix (`0700`). Transfer packages use
-cryptographically random names, atomic exclusive creation, and owner-only Unix
-permissions (`0600`); their scope guard removes them after normal completion or
-failure. Resumable receive partials use the same file permissions.
+policy enforced by the receiver. The listener binds only that displayed address,
+so VPN or secondary interfaces are not exposed implicitly. App startup creates
+or repairs the data and cache roots as owner-only directories on Unix (`0700`).
+Transfer packages use cryptographically random names, atomic exclusive creation,
+and owner-only Unix permissions (`0600`); their scope guard removes them after
+normal completion or failure. Resumable receive partials use the same file
+permissions.
 
 Startup removes transfer packages and partials left by an earlier process. They
 cannot be resumed because pairing credentials are intentionally not persisted.
@@ -292,6 +296,8 @@ required by Android's local-network privacy model.
 - [x] Stage 3: reject package staging and restoration when storage is insufficient.
 - [x] Stage 3: resume interrupted transfers, especially large audio.
 - [x] Stage 3: separate session orchestration, transport framing, and pairing security.
+- [x] Security hardening: use 60-bit pairing codes and bind only the displayed
+      IPv4 interface.
 - [x] Stage 3: keep nearby transfer primary and progressively disclose file fallback actions.
 - [x] Keep active send instructions, progress, cancellation, and results above the fold.
 - [x] Add selective uploaded-document transfer with audiobook dependency inclusion and folder pruning.

@@ -416,7 +416,7 @@ mod tests {
             let status = Arc::new(Mutex::new(LibraryTransferSendStatus {
                 state: LibraryTransferSendState::Sending,
                 address: address.to_string(),
-                code: "2345-ABCD".into(),
+                code: "2345-ABCD-GHJK".into(),
                 documents: 1,
                 audiobooks: 0,
                 package_bytes: package.len() as u64,
@@ -427,7 +427,7 @@ mod tests {
             let result = send_package(
                 stream,
                 server_tls_config().unwrap(),
-                "2345ABCD",
+                "2345ABCDGHJK",
                 &sender_path,
                 &status,
                 &AtomicBool::new(false),
@@ -436,7 +436,8 @@ mod tests {
             (result, final_status)
         });
 
-        let mut stream = receive_package(address, "2345ABCD", &received_path, |_, _| {}).unwrap();
+        let mut stream =
+            receive_package(address, "2345ABCDGHJK", &received_path, |_, _| {}).unwrap();
         let progress = LibraryTransferProgress {
             operation: "receive".into(),
             phase: "verifying".into(),

@@ -21,7 +21,7 @@ pub(super) const SENDER_ROLE: &[u8] = b"sender";
 const TLS_EXPORTER_LABEL: &[u8] = b"papercut-library-transfer-v1";
 const PROOF_BYTES: usize = 32;
 const CODE_ALPHABET: &[u8; 32] = b"23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
-const CODE_CHARS: usize = 8;
+const CODE_CHARS: usize = 12;
 
 type HmacSha256 = Hmac<sha2::Sha256>;
 
@@ -204,6 +204,8 @@ pub(super) fn parse_local_address(value: &str) -> Result<SocketAddrV4, String> {
     Ok(address)
 }
 
+/// Generate 12 independent base-32 symbols for 60 bits of pairing entropy.
+/// Masking is unbiased because a byte's 256 values divide evenly across 32 symbols.
 pub(super) fn new_pairing_code() -> Result<String, String> {
     let mut random = [0u8; CODE_CHARS];
     getrandom::fill(&mut random)
@@ -214,6 +216,8 @@ pub(super) fn new_pairing_code() -> Result<String, String> {
         .collect())
 }
 
+/// Accept pasted grouped or ungrouped codes while requiring the complete
+/// 12-symbol alphabet before any network connection is attempted.
 pub(super) fn normalize_code(value: &str) -> Result<String, String> {
     let code: String = value
         .chars()
@@ -225,13 +229,13 @@ pub(super) fn normalize_code(value: &str) -> Result<String, String> {
             .bytes()
             .all(|character| CODE_ALPHABET.contains(&character))
     {
-        return Err("Enter the 8-character pairing code shown on the source device".into());
+        return Err("Enter the 12-character pairing code shown on the source device".into());
     }
     Ok(code)
 }
 
 pub(super) fn display_code(code: &str) -> String {
-    format!("{}-{}", &code[..4], &code[4..])
+    format!("{}-{}-{}", &code[..4], &code[4..8], &code[8..])
 }
 
 #[cfg(test)]
@@ -240,7 +244,7 @@ mod tests {
 
     #[test]
     fn pairing_proof_is_bound_to_channel_and_role() {
-        let code = "2345ABCD";
+        let code = "2345ABCDGHJK";
         let first = pairing_proof(code, b"first channel", SENDER_ROLE).unwrap();
 
         assert_eq!(
@@ -255,7 +259,12 @@ mod tests {
             first,
             pairing_proof(code, b"first channel", RECEIVER_ROLE).unwrap()
         );
-        assert_eq!(normalize_code("2345-abcd").unwrap(), code);
+        assert_eq!(normalize_code("2345-abcd-ghjk").unwrap(), code);
+        assert_eq!(display_code(code), "2345-ABCD-GHJK");
+        let generated = new_pairing_code().unwrap();
+        assert_eq!(generated.len(), CODE_CHARS);
+        assert!(generated.bytes().all(|byte| CODE_ALPHABET.contains(&byte)));
+        assert!(normalize_code("2345-abcd").is_err());
     }
 
     #[test]

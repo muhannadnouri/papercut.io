@@ -31,7 +31,7 @@ describe('library transfer send flow', () => {
         status={{
           state: 'waiting',
           address: '192.168.1.20:49152',
-          code: 'ABCD-EFGH',
+          code: 'ABCD-EFGH-JKLM',
           documents: 2,
           audiobooks: 1,
           packageBytes: 4096,
@@ -44,7 +44,7 @@ describe('library transfer send flow', () => {
     expect(html).toContain('libraryTransfer.connectStepOpen')
     expect(html).toContain('libraryTransfer.connectStepEnter')
     expect(html).toContain('192.168.1.20:49152')
-    expect(html).toContain('ABCD-EFGH')
+    expect(html).toContain('ABCD-EFGH-JKLM')
     expect(html).toContain('libraryTransfer.changeSelection')
   })
 })

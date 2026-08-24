@@ -22,7 +22,7 @@
 
 use std::fs;
 use std::io;
-use std::net::{Ipv4Addr, Shutdown, SocketAddrV4, TcpListener, TcpStream};
+use std::net::{Shutdown, TcpListener, TcpStream};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -191,16 +191,15 @@ fn start_send(
         let package_bytes = fs::metadata(&package_path)
             .map_err(|err| format!("Failed to inspect prepared library package: {err}"))?
             .len();
-        let listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0))
+        let listener = TcpListener::bind((local_ipv4()?, 0))
             .map_err(|err| format!("Failed to start local library transfer: {err}"))?;
         listener
             .set_nonblocking(true)
             .map_err(|err| format!("Failed to configure local library transfer: {err}"))?;
-        let port = listener
+        let address = listener
             .local_addr()
             .map_err(|err| format!("Failed to read local library transfer address: {err}"))?
-            .port();
-        let address = SocketAddrV4::new(local_ipv4()?, port).to_string();
+            .to_string();
         let code = new_pairing_code()?;
         let tls_config = server_tls_config()?;
         let status = Arc::new(Mutex::new(LibraryTransferSendStatus {

@@ -528,7 +528,7 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
                     autoCapitalize="characters"
                     autoCorrect="off"
                     spellCheck={false}
-                    placeholder="ABCD-EFGH"
+                    placeholder="ABCD-EFGH-JKLM"
                     onChange={(event) => setPairingCode(event.target.value)}
                   />
                 </label>
