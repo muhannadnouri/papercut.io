@@ -61,6 +61,13 @@ SVG/MathML mutation-XSS structures. CI audits both committed Rust and npm
 dependency lockfiles on pull requests and weekly so newly published vulnerability
 advisories fail closed even when application code has not changed.
 
+The Tauri WebView uses a default-deny Content Security Policy. It permits
+only bundled application resources, Tauri IPC, the narrowly scoped local asset
+protocol, raster image data, blob-backed audio and workers, and the WebAssembly
+execution required by the bundled PDF/OCR engines. Remote scripts, frames,
+objects, forms, and network connections remain blocked. Tauri continues to
+inject hashes and nonces for bundled scripts rather than allowing inline script.
+
 The sole RustSec waiver is `RUSTSEC-2026-0235`: `rkyv` 0.7 appears only as an
 inactive optional Chrono dependency and is absent from Papercut's complete
 feature/target dependency graph. Remove the waiver when that upstream optional

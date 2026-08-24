@@ -1369,9 +1369,11 @@ Stage status: In progress
         surface failed staging cleanup and remove abandoned Rust-side inbox
         data before the next capture without touching Android's separate
         resumable draft cache.
-  - [ ] Define and verify a restrictive CSP for bundled PDF.js and Tesseract
-        workers across desktop and mobile WebViews. Do not guess worker/WASM
-        directives without the full platform acceptance matrix.
+  - [x] Define a restrictive CSP for bundled PDF.js and Tesseract workers. The
+        policy permits same-origin worker/WASM assets and the blob worker wrapper
+        used by Tesseract while blocking remote code and connections. The shared
+        Tauri configuration now triggers desktop, Android, and iOS packaging in
+        CI; retain physical-device PDF/OCR smoke coverage below.
 - [ ] Verify upgrades, library transfer, backup/export, and deletion against
       production-like app data.
 - [ ] Add user documentation, privacy wording, known limitations, and release

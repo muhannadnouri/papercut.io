@@ -130,6 +130,7 @@ jobs:
               src-tauri/Cargo.toml | \
               src-tauri/Cargo.lock | \
               src-tauri/build.rs | \
+              src-tauri/tauri.conf.json | \
               src-tauri/plugins/* | \
               src-tauri/src/* | \
               src-tauri/tts/* | \
@@ -141,7 +142,6 @@ jobs:
                 ;;
             esac
             case "$path" in
-              src-tauri/tauri.conf.json | \
               src-tauri/tauri.linux.conf.json | \
               src-tauri/tauri.macos.conf.json | \
               src-tauri/Entitlements.plist | \
