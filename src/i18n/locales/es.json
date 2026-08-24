@@ -377,6 +377,7 @@
     "sendDescription": "Mantén ambos dispositivos en la misma red y esta pantalla abierta.",
     "startSending": "Iniciar envío",
     "preparingSend": "Preparando el envío...",
+    "preparingSelection": "Preparando el contenido seleccionado. Los libros grandes y los audiolibros pueden tardar más.",
     "stopSending": "Detener envío",
     "receiveTitle": "Recibir de un dispositivo cercano",
     "receiveDescription": "Introduce la dirección y el código de emparejamiento mostrados en el dispositivo que envía. Si se interrumpe, vuelve a elegir Recibir biblioteca para continuar.",

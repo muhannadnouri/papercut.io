@@ -173,6 +173,12 @@ explicit source and target roles for same-network transfer. The source displays
 a local address and pairing code; the target enters both values and receives the
 same package through the normal import boundary.
 
+While Papercut checks and packages the selected content, the initiating action
+stays disabled and a nearby live status explains that large items can take
+longer. Preparation remains indeterminate because hashing and ZIP construction
+do not expose a trustworthy total; pairing details appear only after the package
+is ready.
+
 ## Same-Network Transport
 
 The first LAN implementation is intentionally foreground and manual:

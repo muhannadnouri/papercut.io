@@ -417,16 +417,20 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
                   {t('libraryTransfer.stopSending')}
                 </button>
               ) : (
-                <button
-                  type="button"
-                  className="library-transfer-primary"
-                  disabled={operationBusy || !sendSelectionReady || !hasContent}
-                  onClick={() => { void handleStartSend() }}
-                >
-                  {status.state === 'preparingSend'
-                    ? t('libraryTransfer.preparingSend')
-                    : t('libraryTransfer.startSending')}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="library-transfer-primary"
+                    disabled={operationBusy || !sendSelectionReady || !hasContent}
+                    aria-busy={status.state === 'preparingSend' || undefined}
+                    onClick={() => { void handleStartSend() }}
+                  >
+                    {status.state === 'preparingSend'
+                      ? t('libraryTransfer.preparingSend')
+                      : t('libraryTransfer.startSending')}
+                  </button>
+                  {status.state === 'preparingSend' && <TransferPreparationMessage />}
+                </>
               )}
               <LibrarySendStatusMessage status={sendStatus} locale={locale} />
             </section>
@@ -438,10 +442,12 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
                 <button
                   type="button"
                   disabled={busy || !sendSelectionReady || !hasContent}
+                  aria-busy={status.state === 'exporting' || undefined}
                   onClick={() => { void handleExport() }}
                 >
                   {status.state === 'exporting' ? t('libraryTransfer.exporting') : t('libraryTransfer.export')}
                 </button>
+                {status.state === 'exporting' && <TransferPreparationMessage />}
               </div>
             </details>
           </>
@@ -549,18 +555,26 @@ function TransferProgressMessage({ progress, locale }: { progress: LibraryTransf
   )
 }
 
+export function TransferPreparationMessage() {
+  const { t } = useTranslation()
+  return (
+    <div className="library-transfer-status library-transfer-status-busy" role="status" aria-live="polite">
+      <span className="spinner" aria-hidden="true" />
+      <span>{t('libraryTransfer.preparingSelection')}</span>
+    </div>
+  )
+}
+
 function TransferStatusMessage({ status }: { status: TransferStatus }) {
   const { t } = useTranslation()
-  if (status.state === 'idle' || status.state === 'preparingSend' || status.state === 'receiving' || status.state === 'importing') {
+  if (
+    status.state === 'idle'
+    || status.state === 'exporting'
+    || status.state === 'preparingSend'
+    || status.state === 'receiving'
+    || status.state === 'importing'
+  ) {
     return null
-  }
-  if (status.state === 'exporting') {
-    return (
-      <div className="library-transfer-status library-transfer-status-busy" role="status" aria-live="polite">
-        <span className="spinner" aria-hidden="true" />
-        <span>{t('libraryTransfer.exporting')}</span>
-      </div>
-    )
   }
   if (status.state === 'error') {
     return <p className="app-dialog-error" role="alert" dir="auto">{status.message}</p>

@@ -377,6 +377,7 @@
     "sendDescription": "Mantieni entrambi i dispositivi sulla stessa rete e questa schermata aperta.",
     "startSending": "Avvia invio",
     "preparingSend": "Preparazione dell’invio...",
+    "preparingSelection": "Preparazione del contenuto selezionato. I libri e gli audiolibri di grandi dimensioni possono richiedere più tempo.",
     "stopSending": "Interrompi invio",
     "receiveTitle": "Ricevi da un dispositivo nelle vicinanze",
     "receiveDescription": "Inserisci l’indirizzo e il codice di associazione mostrati sul dispositivo che invia. Se il trasferimento si interrompe, scegli di nuovo Ricevi libreria per continuare.",

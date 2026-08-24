@@ -377,6 +377,7 @@
     "sendDescription": "Mantenha os dois dispositivos na mesma rede e esta tela aberta.",
     "startSending": "Iniciar envio",
     "preparingSend": "Preparando para enviar...",
+    "preparingSelection": "Preparando o conteúdo selecionado. Livros e audiolivros grandes podem levar mais tempo.",
     "stopSending": "Parar envio",
     "receiveTitle": "Receber de um dispositivo próximo",
     "receiveDescription": "Digite o endereço e o código de pareamento exibidos no dispositivo que está enviando. Se houver interrupção, escolha Receber biblioteca novamente para continuar.",

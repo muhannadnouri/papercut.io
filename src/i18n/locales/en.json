@@ -371,6 +371,7 @@
     "sendDescription": "Keep both devices on the same network and this screen open.",
     "startSending": "Start Sending",
     "preparingSend": "Preparing to send...",
+    "preparingSelection": "Preparing your selected content. Large books and audiobooks can take longer.",
     "stopSending": "Stop Sending",
     "receiveTitle": "Receive from a nearby device",
     "receiveDescription": "Enter the address and pairing code shown on the sending device. Interrupted transfers can resume.",

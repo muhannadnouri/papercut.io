@@ -377,6 +377,7 @@
     "sendDescription": "Gardez les deux appareils sur le même réseau et cet écran ouvert.",
     "startSending": "Démarrer l’envoi",
     "preparingSend": "Préparation de l’envoi...",
+    "preparingSelection": "Préparation du contenu sélectionné. Les livres et livres audio volumineux peuvent prendre plus de temps.",
     "stopSending": "Arrêter l’envoi",
     "receiveTitle": "Recevoir depuis un appareil à proximité",
     "receiveDescription": "Saisissez l’adresse et le code d’association affichés sur l’appareil émetteur. En cas d’interruption, choisissez de nouveau Recevoir la bibliothèque pour continuer.",
