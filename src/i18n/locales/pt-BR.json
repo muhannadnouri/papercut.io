@@ -356,6 +356,8 @@
     "includeDocuments": "Livros e documentos ({{selected, number}} de {{count, number}} selecionados)",
     "includeDocumentsDescription": "Escolha os documentos enviados que deseja incluir. Todos são selecionados por padrão.",
     "filterDocuments": "Filtrar livros e documentos",
+    "selectMatchingDocuments": "Selecionar resultados",
+    "deselectMatchingDocuments": "Desmarcar resultados",
     "noMatchingDocuments": "Nenhum documento correspondente.",
     "requiredByAudiobook": "Necessário para um audiolivro selecionado",
     "includeAudiobooks": "Audiolivros salvos ({{selected, number}} de {{count, number}} selecionados)",

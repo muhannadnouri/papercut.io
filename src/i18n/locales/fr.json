@@ -356,6 +356,8 @@
     "includeDocuments": "Livres et documents ({{selected, number}} sur {{count, number}} sélectionnés)",
     "includeDocumentsDescription": "Choisissez les documents importés à inclure. Ils sont tous sélectionnés par défaut.",
     "filterDocuments": "Filtrer les livres et documents",
+    "selectMatchingDocuments": "Sélectionner les résultats",
+    "deselectMatchingDocuments": "Désélectionner les résultats",
     "noMatchingDocuments": "Aucun document correspondant.",
     "requiredByAudiobook": "Requis par un livre audio sélectionné",
     "includeAudiobooks": "Livres audio enregistrés ({{selected, number}} sur {{count, number}} sélectionnés)",

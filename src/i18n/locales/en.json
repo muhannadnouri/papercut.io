@@ -350,6 +350,8 @@
     "includeDocuments": "Books & Documents ({{selected, number}} of {{count, number}} selected)",
     "includeDocumentsDescription": "Choose which uploaded documents to include. All are selected by default.",
     "filterDocuments": "Filter books and documents",
+    "selectMatchingDocuments": "Select Matches",
+    "deselectMatchingDocuments": "Deselect Matches",
     "noMatchingDocuments": "No matching documents.",
     "requiredByAudiobook": "Required by a selected audiobook",
     "includeAudiobooks": "Saved Audiobooks ({{selected, number}} of {{count, number}} selected)",

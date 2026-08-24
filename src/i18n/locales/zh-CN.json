@@ -344,6 +344,8 @@
     "includeDocuments": "书籍和文档（已选择 {{selected, number}}/{{count, number}}）",
     "includeDocumentsDescription": "选择要包含的已上传文档。默认全部选中。",
     "filterDocuments": "筛选书籍和文档",
+    "selectMatchingDocuments": "选择匹配项",
+    "deselectMatchingDocuments": "取消选择匹配项",
     "noMatchingDocuments": "没有匹配的文档。",
     "requiredByAudiobook": "所选有声书需要此文档",
     "includeAudiobooks": "已保存的有声书（已选择 {{selected, number}}/{{count, number}}）",

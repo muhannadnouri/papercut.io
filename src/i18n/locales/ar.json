@@ -374,6 +374,8 @@
     "includeDocuments": "الكتب والمستندات (تم تحديد {{selected, number}} من {{count, number}})",
     "includeDocumentsDescription": "اختر المستندات المرفوعة التي تريد تضمينها. يتم تحديدها كلها افتراضيًا.",
     "filterDocuments": "تصفية الكتب والمستندات",
+    "selectMatchingDocuments": "تحديد النتائج المطابقة",
+    "deselectMatchingDocuments": "إلغاء تحديد النتائج المطابقة",
     "noMatchingDocuments": "لا توجد مستندات مطابقة.",
     "requiredByAudiobook": "مطلوب لكتاب صوتي محدد",
     "includeAudiobooks": "الكتب الصوتية المحفوظة (تم تحديد {{selected, number}} من {{count, number}})",

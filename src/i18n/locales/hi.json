@@ -350,6 +350,8 @@
     "includeDocuments": "किताबें और दस्तावेज़ ({{count, number}} में से {{selected, number}} चुने गए)",
     "includeDocumentsDescription": "शामिल करने के लिए अपलोड किए गए दस्तावेज़ चुनें। डिफ़ॉल्ट रूप से सभी चुने जाते हैं।",
     "filterDocuments": "किताबें और दस्तावेज़ फ़िल्टर करें",
+    "selectMatchingDocuments": "मिलान वाले चुनें",
+    "deselectMatchingDocuments": "मिलान वालों का चयन हटाएँ",
     "noMatchingDocuments": "कोई मिलता-जुलता दस्तावेज़ नहीं।",
     "requiredByAudiobook": "चुनी गई ऑडियोबुक के लिए आवश्यक",
     "includeAudiobooks": "सहेजी गई ऑडियोबुक ({{count, number}} में से {{selected, number}} चुनी गईं)",

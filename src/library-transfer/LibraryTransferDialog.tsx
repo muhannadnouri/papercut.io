@@ -21,6 +21,7 @@ import type { SavedAudiobookRecord } from '../tts/storage/AudiobookLibrary'
 import { isUserUploadUrl, upsertUserUpload } from '../tts/storage/UserUploads'
 import { formatSavedAudiobookMetaParts } from '../tts/utils/format'
 import { listUploadedDocuments, type UploadedDocument } from '../uploads/DocumentUploads'
+import { updateScopedSelection } from './documentSelection'
 import './LibraryTransferDialog.css'
 
 interface LibraryTransferDialogProps {
@@ -79,6 +80,13 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
     return documents.filter((document) => [document.title, document.originalFileName]
       .some((value) => value?.toLocaleLowerCase(locale).includes(query)))
   }, [documentFilter, documents, locale])
+  const documentFilterActive = documentFilter.trim().length > 0
+  const scopedDocumentIds = (documentFilterActive ? filteredDocuments : documents)
+    .map((document) => document.id)
+  const allScopedDocumentsSelected = scopedDocumentIds.length > 0
+    && scopedDocumentIds.every((id) => selectedDocumentIds.includes(id))
+  const anyScopedDocumentsSelected = scopedDocumentIds
+    .some((id) => selectedDocumentIds.includes(id))
   const hasContent = effectiveDocumentIds.length > 0 || selectedAudiobookIds.length > 0
   const sendSelectionReady = documentsLoaded && !documentsLoadFailed
 
@@ -271,22 +279,6 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
                     </span>
                   </summary>
                   <div className="library-transfer-picker">
-                    <div className="library-transfer-picker-actions">
-                      <button
-                        type="button"
-                        disabled={busy || selectedDocumentIds.length === documents.length}
-                        onClick={() => setSelectedDocumentIds(documents.map((document) => document.id))}
-                      >
-                        {t('common.selectAll')}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busy || selectedDocumentIds.length === 0}
-                        onClick={() => setSelectedDocumentIds([])}
-                      >
-                        {t('common.deselectAll')}
-                      </button>
-                    </div>
                     {documents.length >= DOCUMENT_FILTER_THRESHOLD && (
                       <label className="library-transfer-filter">
                         <span>{t('libraryTransfer.filterDocuments')}</span>
@@ -298,6 +290,30 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
                         />
                       </label>
                     )}
+                    <div className="library-transfer-picker-actions">
+                      <button
+                        type="button"
+                        disabled={busy || allScopedDocumentsSelected || scopedDocumentIds.length === 0}
+                        onClick={() => setSelectedDocumentIds((current) => (
+                          updateScopedSelection(current, scopedDocumentIds, true)
+                        ))}
+                      >
+                        {t(documentFilterActive
+                          ? 'libraryTransfer.selectMatchingDocuments'
+                          : 'common.selectAll')}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy || !anyScopedDocumentsSelected}
+                        onClick={() => setSelectedDocumentIds((current) => (
+                          updateScopedSelection(current, scopedDocumentIds, false)
+                        ))}
+                      >
+                        {t(documentFilterActive
+                          ? 'libraryTransfer.deselectMatchingDocuments'
+                          : 'common.deselectAll')}
+                      </button>
+                    </div>
                     <div className="library-transfer-picker-list">
                       {filteredDocuments.map((document) => {
                         const required = requiredDocumentIds.has(document.id)

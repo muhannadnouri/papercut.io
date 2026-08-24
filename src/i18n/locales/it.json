@@ -356,6 +356,8 @@
     "includeDocuments": "Libri e documenti ({{selected, number}} di {{count, number}} selezionati)",
     "includeDocumentsDescription": "Scegli i documenti caricati da includere. Sono tutti selezionati per impostazione predefinita.",
     "filterDocuments": "Filtra libri e documenti",
+    "selectMatchingDocuments": "Seleziona corrispondenze",
+    "deselectMatchingDocuments": "Deseleziona corrispondenze",
     "noMatchingDocuments": "Nessun documento corrispondente.",
     "requiredByAudiobook": "Richiesto da un audiolibro selezionato",
     "includeAudiobooks": "Audiolibri salvati ({{selected, number}} di {{count, number}} selezionati)",
