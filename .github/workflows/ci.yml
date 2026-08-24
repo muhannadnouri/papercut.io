@@ -3,6 +3,8 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  schedule:
+    - cron: "17 9 * * 3"
   workflow_dispatch:
     inputs:
       validation_scope:
@@ -96,6 +98,12 @@ jobs:
             exit 0
           fi
 
+          if [ "$EVENT_NAME" = "schedule" ]; then
+            code_checks=true
+            emit_outputs
+            exit 0
+          fi
+
           base="$PR_BASE_SHA"
           git fetch --no-tags --depth=1 origin "$base"
           changed="$(git diff --name-only "$base" HEAD)"
@@ -181,6 +189,9 @@ jobs:
     if: needs.changes.outputs.code_checks == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    permissions:
+      contents: read
+      checks: write
 
     steps:
       - uses: actions/checkout@v6
@@ -195,6 +206,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Audit npm dependencies
+        run: npm audit --audit-level=high
 
       - name: Lint
         run: npm run lint
@@ -219,6 +233,15 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Audit Rust dependencies
+        uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          working-directory: src-tauri
+          # Chrono declares rkyv 0.7 optionally, but no Papercut feature or target
+          # activates it; remove this waiver when Chrono moves that optional edge.
+          ignore: RUSTSEC-2026-0235
 
       - name: Rust tests
         run: cargo test --manifest-path src-tauri/Cargo.toml --locked --lib

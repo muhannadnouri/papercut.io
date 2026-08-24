@@ -56,6 +56,16 @@ gigabytes larger.
 
 The receiver parses and sanitizes every transferred reflowable document again, then
 rebuilds SQLite metadata, sections, and FTS rows with its installed app version.
+Sanitizer regressions cover active content, encoded script URLs, and known
+SVG/MathML mutation-XSS structures. CI audits both committed Rust and npm
+dependency lockfiles on pull requests and weekly so newly published vulnerability
+advisories fail closed even when application code has not changed.
+
+The sole RustSec waiver is `RUSTSEC-2026-0235`: `rkyv` 0.7 appears only as an
+inactive optional Chrono dependency and is absent from Papercut's complete
+feature/target dependency graph. Remove the waiver when that upstream optional
+edge moves to `rkyv` 0.8 or if a Papercut feature ever activates it.
+
 Transferred display-title overrides and available original filenames are
 restored after parsing so metadata corrections survive a device move.
 Document ids come from the manifest rather than a hash of normalized HTML;
