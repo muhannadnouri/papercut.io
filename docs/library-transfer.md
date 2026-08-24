@@ -115,7 +115,11 @@ checksum before restoring it. Versions 1 through 3 remain import-compatible.
 All versions are limited to 500 documents. Versions 2 through 4 are also limited to 500
 completed audiobooks and 100,000 audiobook files, with an 8 GiB expanded package
 limit. EPUB reader images retain the import limits of 5 MB per image and 100 MB
-per document. Reading preferences are not represented.
+per document. Before the ZIP reader allocates metadata for every entry, Papercut
+reads only the fixed standard/ZIP64 end records and rejects more than 125,000
+entries or a central directory larger than 64 MiB. The ZIP crate still owns all
+archive parsing; the preflight only bounds work that otherwise occurs before the
+manifest limits can run. Reading preferences are not represented.
 
 Import rules:
 
@@ -126,6 +130,8 @@ Import rules:
 - place only newly imported documents into the mapped source folders;
 - reject unsupported schemas, malformed ids, duplicate archive paths, checksum
   mismatches, unexpected entries, oversized manifests, and oversized payloads;
+- reject oversized central-directory metadata before constructing the ZIP entry
+  index;
 - never extract archive paths directly onto the filesystem.
 - stage and checksum every audiobook file, then require the native registry to
   validate its manifest, chunk set, cache identity, WAV headers, and measured
@@ -311,6 +317,8 @@ required by Android's local-network privacy model.
       file/LAN restore operations at the native boundary.
 - [x] Security hardening: disclose that saved transfer files are readable,
       unencrypted copies that should be protected and deleted after use.
+- [x] Security hardening: bound standard and ZIP64 central-directory allocation
+      before archive parsing.
 - [x] Stage 3: keep nearby transfer primary and progressively disclose file fallback actions.
 - [x] Keep active send instructions, progress, cancellation, and results above the fold.
 - [x] Add selective uploaded-document transfer with audiobook dependency inclusion and folder pruning.
@@ -322,6 +330,15 @@ required by Android's local-network privacy model.
 
 ## Deferred Decisions
 
+- The current TLS-exporter/HMAC pairing is intended for ordinary private local
+  networks. Supporting hostile or public LANs requires a reviewed PAKE with key
+  confirmation; Papercut must not implement those cryptographic primitives itself.
+- A malformed first TLS connection can still end a waiting sender session.
+  Separating pre-authentication transport noise from an actual wrong pairing
+  proof is future denial-of-service hardening; wrong proofs must remain one-use.
+- Saved transfer files intentionally remain unencrypted. Passphrase-based
+  authenticated encryption needs an explicit user requirement because it adds
+  password, recovery, compatibility, and package-version UX.
 - Android 17 local-network permission handling is required when Papercut raises
   its Android target from SDK 36 to SDK 37.
 - Original EPUB archives are not transferable because the current upload
