@@ -246,11 +246,14 @@ The first LAN implementation is intentionally foreground and manual:
    connection. The source mirrors those phases and reports success only after
    the target confirms that import has completed.
 
-Failed authentication still consumes the source session to prevent online code
-guessing. Partial files survive network interruption and insufficient-space
-errors, but are removed after a successful import or a non-recoverable package
-error. A resumed package is always checksum-verified in full before restore, so
-the byte offset is an optimization rather than a trust boundary.
+Connections that do not complete TLS and the Papercut protocol proof within five
+seconds return the source to its waiting state without showing unrelated network
+traffic as a transfer failure. A complete but incorrect pairing proof still
+consumes the source session to prevent online code guessing. Partial files survive
+network interruption and insufficient-space errors, but are removed after a
+successful import or a non-recoverable package error. A resumed package is always
+checksum-verified in full before restore, so the byte offset is an optimization
+rather than a trust boundary.
 
 Source address discovery uses the same private, link-local, or loopback IPv4
 policy enforced by the receiver. The listener binds only that displayed address,
@@ -319,6 +322,10 @@ required by Android's local-network privacy model.
       unencrypted copies that should be protected and deleted after use.
 - [x] Security hardening: bound standard and ZIP64 central-directory allocation
       before archive parsing.
+- [x] Security hardening: ignore malformed pre-authentication connections while
+      keeping complete incorrect pairing proofs one-use.
+- [ ] Security hardening: replace the pairing proof with a reviewed PAKE and key
+      confirmation for transfers on public networks.
 - [x] Stage 3: keep nearby transfer primary and progressively disclose file fallback actions.
 - [x] Keep active send instructions, progress, cancellation, and results above the fold.
 - [x] Add selective uploaded-document transfer with audiobook dependency inclusion and folder pruning.
@@ -330,12 +337,6 @@ required by Android's local-network privacy model.
 
 ## Deferred Decisions
 
-- The current TLS-exporter/HMAC pairing is intended for ordinary private local
-  networks. Supporting hostile or public LANs requires a reviewed PAKE with key
-  confirmation; Papercut must not implement those cryptographic primitives itself.
-- A malformed first TLS connection can still end a waiting sender session.
-  Separating pre-authentication transport noise from an actual wrong pairing
-  proof is future denial-of-service hardening; wrong proofs must remain one-use.
 - Saved transfer files intentionally remain unencrypted. Passphrase-based
   authenticated encryption needs an explicit user requirement because it adds
   password, recovery, compatibility, and package-version UX.

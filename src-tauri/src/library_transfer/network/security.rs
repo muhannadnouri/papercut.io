@@ -25,6 +25,25 @@ const CODE_CHARS: usize = 12;
 
 type HmacSha256 = Hmac<sha2::Sha256>;
 
+/// Separate unrelated/incomplete traffic from a complete wrong-code proof so
+/// only the latter consumes the source's one-use pairing session.
+#[derive(Debug)]
+pub(super) enum PairingProofError {
+    Unauthenticated(String),
+    IncorrectCode,
+}
+
+impl std::fmt::Display for PairingProofError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unauthenticated(message) => formatter.write_str(message),
+            Self::IncorrectCode => {
+                formatter.write_str("Pairing code did not match the source device")
+            }
+        }
+    }
+}
+
 /// Bind knowledge of the displayed code to this exact TLS channel and peer
 /// role, preventing a proof captured from one connection from being replayed.
 pub(super) fn pairing_proof(
@@ -47,23 +66,29 @@ pub(super) fn read_and_verify_proof<R: Read>(
     code: &str,
     exporter: &[u8],
     role: &[u8],
-) -> Result<(), String> {
+) -> Result<(), PairingProofError> {
     let mut magic = [0u8; PROTOCOL_MAGIC.len()];
     let mut proof = [0u8; PROOF_BYTES];
     reader
         .read_exact(&mut magic)
         .and_then(|_| reader.read_exact(&mut proof))
-        .map_err(|err| format!("Failed to read library pairing proof: {err}"))?;
+        .map_err(|err| {
+            PairingProofError::Unauthenticated(format!(
+                "Failed to read library pairing proof: {err}"
+            ))
+        })?;
     if &magic != PROTOCOL_MAGIC {
-        return Err("The other device is not using a compatible Papercut transfer".into());
+        return Err(PairingProofError::Unauthenticated(
+            "The other device is not using a compatible Papercut transfer".into(),
+        ));
     }
     let mut mac = HmacSha256::new_from_slice(code.as_bytes())
-        .map_err(|_| "Invalid library transfer code".to_string())?;
+        .map_err(|_| PairingProofError::Unauthenticated("Invalid library transfer code".into()))?;
     mac.update(PROTOCOL_MAGIC);
     mac.update(exporter);
     mac.update(role);
     mac.verify_slice(&proof)
-        .map_err(|_| "Pairing code did not match the source device".to_string())
+        .map_err(|_| PairingProofError::IncorrectCode)
 }
 
 /// Derive shared channel-specific bytes from the completed TLS handshake for
@@ -259,6 +284,24 @@ mod tests {
             first,
             pairing_proof(code, b"first channel", RECEIVER_ROLE).unwrap()
         );
+        let mut incompatible = [0u8; PROTOCOL_MAGIC.len() + PROOF_BYTES].as_slice();
+        assert!(matches!(
+            read_and_verify_proof(&mut incompatible, code, b"first channel", RECEIVER_ROLE),
+            Err(PairingProofError::Unauthenticated(_))
+        ));
+        let mut incorrect = Vec::from(PROTOCOL_MAGIC.as_slice());
+        incorrect.extend_from_slice(
+            &pairing_proof("other-code", b"first channel", RECEIVER_ROLE).unwrap(),
+        );
+        assert!(matches!(
+            read_and_verify_proof(
+                &mut incorrect.as_slice(),
+                code,
+                b"first channel",
+                RECEIVER_ROLE,
+            ),
+            Err(PairingProofError::IncorrectCode)
+        ));
         assert_eq!(normalize_code("2345-abcd-ghjk").unwrap(), code);
         assert_eq!(display_code(code), "2345-ABCD-GHJK");
         let generated = new_pairing_code().unwrap();

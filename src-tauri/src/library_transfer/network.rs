@@ -15,10 +15,10 @@
 //!    forwards its verification and restore progress to the source. The source
 //!    reports completion only after the target confirms that import finished.
 //!
-//! Sessions stay foreground-only and expire after ten minutes. Failed
-//! authentication consumes the code to prevent online guessing; an authenticated
-//! interruption may reconnect with the same code. Background transfer remains
-//! outside this module.
+//! Sessions stay foreground-only and expire after ten minutes. Malformed traffic
+//! before a pairing proof leaves the sender waiting, while an incorrect proof
+//! consumes the code to prevent online guessing. An authenticated interruption
+//! may reconnect with the same code. Background transfer remains outside this module.
 
 use std::fs;
 use std::io;
@@ -294,8 +294,8 @@ fn start_send(
 }
 
 /// Keep one package/code alive for authenticated resume attempts until import
-/// completes, cancellation, or expiry. An unauthenticated failure still consumes
-/// the session so reconnect support cannot become an online guessing oracle.
+/// completes, cancellation, or expiry. Pre-authentication transport noise is
+/// ignored, but a complete incorrect proof consumes the one-use session.
 fn run_sender(
     listener: TcpListener,
     tls_config: Arc<ServerConfig>,
@@ -332,7 +332,6 @@ fn run_sender(
                     set_send_status(status, LibraryTransferSendState::Cancelled, None);
                     return;
                 }
-                set_send_active(status);
                 let result = send_package(
                     stream,
                     Arc::clone(&tls_config),
@@ -351,12 +350,15 @@ fn run_sender(
                         set_send_status(status, LibraryTransferSendState::Complete, None);
                         return;
                     }
+                    Err(SendAttemptError::Unauthenticated) => {
+                        set_send_waiting(status, None);
+                    }
                     Err(SendAttemptError::Fatal(error)) => {
                         set_send_status(status, LibraryTransferSendState::Failed, Some(error));
                         return;
                     }
                     Err(SendAttemptError::Retryable(error)) => {
-                        set_send_retry_waiting(status, error);
+                        set_send_waiting(status, Some(error));
                     }
                 }
             }
@@ -444,13 +446,13 @@ fn set_send_active(status: &Mutex<LibraryTransferSendStatus>) {
     }
 }
 
-/// Return an authenticated interrupted session to its pairing screen while
-/// retaining the source package and target partial for an explicit retry.
-fn set_send_retry_waiting(status: &Mutex<LibraryTransferSendStatus>, error: String) {
+/// Return a failed attempt to the pairing screen. Only authenticated transfer
+/// interruptions surface an error; unrelated pre-authentication traffic does not.
+fn set_send_waiting(status: &Mutex<LibraryTransferSendStatus>, error: Option<String>) {
     if let Ok(mut status) = status.lock() {
         status.state = LibraryTransferSendState::Waiting;
         status.receiver_progress = None;
-        status.error = Some(error);
+        status.error = error;
     }
 }
 
