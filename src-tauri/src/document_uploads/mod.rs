@@ -58,10 +58,11 @@ pub(crate) use storage::{
     MAX_PDF_UPLOAD_BYTES,
 };
 pub(crate) use store::list_uploads;
+#[cfg(test)]
+pub(crate) use types::UploadedDocumentLocation;
 pub(crate) use types::{
-    UploadedDocument, UploadedDocumentBatchResult, UploadedDocumentLocation,
-    UploadedLibraryCreateFolderRequest, UploadedLibraryFolder, UploadedLibraryMoveDocumentsRequest,
-    UploadedLibraryOrganization,
+    UploadedDocument, UploadedDocumentBatchResult, UploadedLibraryCreateFolderRequest,
+    UploadedLibraryFolder, UploadedLibraryMoveDocumentsRequest, UploadedLibraryOrganization,
 };
 
 pub(crate) use html::sanitize_html;
