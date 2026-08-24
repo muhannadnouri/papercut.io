@@ -352,6 +352,7 @@
     "modeReceive": "Ricevi",
     "exportTitle": "Salva file di trasferimento",
     "exportDescription": "Selezionati per questo file: Documenti: {{documents, number}} · Audiolibri: {{audiobooks, number}}. Copialo tramite USB, archiviazione condivisa o un altro metodo.",
+    "exportPrivacy": "Questo file non è crittografato e contiene copie leggibili dei contenuti selezionati. Mantienilo privato ed eliminalo quando non ti serve più.",
     "loadingDocuments": "Caricamento dei documenti...",
     "documentsLoadFailed": "Papercut non ha potuto caricare i documenti disponibili per l’invio.",
     "includeDocuments": "Libri e documenti ({{selected, number}} di {{count, number}} selezionati)",

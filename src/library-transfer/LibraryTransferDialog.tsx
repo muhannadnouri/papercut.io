@@ -59,6 +59,7 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
   const [sourceAddress, setSourceAddress] = useState('')
   const [pairingCode, setPairingCode] = useState('')
   const selectionHelpId = useId()
+  const exportPrivacyId = useId()
   const operationBusy = ['exporting', 'importing', 'preparingSend', 'receiving'].includes(status.state)
   const sendActive = sendStatus?.state === 'waiting' || sendStatus?.state === 'sending'
   const sendFlowVisible = status.state === 'preparingSend'
@@ -485,11 +486,16 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
                   documents: effectiveDocumentIds.length,
                   audiobooks: selectedAudiobookIds.length,
                 })}</p>
+                <p id={exportPrivacyId} className="library-transfer-privacy-note">
+                  {t('libraryTransfer.exportPrivacy')}
+                </p>
                 <button
                   type="button"
                   disabled={busy || !sendSelectionReady || !hasContent}
                   aria-busy={status.state === 'exporting' || undefined}
-                  aria-describedby={selectionEmpty ? selectionHelpId : undefined}
+                  aria-describedby={selectionEmpty
+                    ? `${selectionHelpId} ${exportPrivacyId}`
+                    : exportPrivacyId}
                   onClick={() => { void handleExport() }}
                 >
                   {status.state === 'exporting' ? t('libraryTransfer.exporting') : t('libraryTransfer.export')}

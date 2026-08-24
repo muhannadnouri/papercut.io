@@ -346,6 +346,7 @@
     "modeReceive": "Receive",
     "exportTitle": "Save Transfer File",
     "exportDescription": "Selected for this file: Documents: {{documents, number}} · Audiobooks: {{audiobooks, number}}. Copy it using USB, shared storage, or another method.",
+    "exportPrivacy": "This file is not encrypted and contains readable copies of the selected content. Keep it private and delete it when you no longer need it.",
     "loadingDocuments": "Loading documents...",
     "documentsLoadFailed": "Papercut couldn't load the documents available to send.",
     "includeDocuments": "Books & Documents ({{selected, number}} of {{count, number}} selected)",

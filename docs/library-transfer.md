@@ -163,9 +163,12 @@ dedicated **Transfer Library** dialog organized by the user's role:
 
 The role control remains visible throughout the dialog. Local-network transfer
 is the default path, while the transfer-file disclosures explain that files can
-be copied through USB, shared storage, or another user-chosen method. The dialog
-consistently describes transfer as copying selected content; it does not imply
-that the source device loses its library.
+be copied through USB, shared storage, or another user-chosen method. The save
+action also states that the ZIP-based package is not encrypted, contains readable
+copies of the selection, and should be kept private and deleted when no longer
+needed. This notice remains visible beside the action without adding a blocking
+confirmation. The dialog consistently describes transfer as copying selected
+content; it does not imply that the source device loses its library.
 
 The send action offers separate collapsed checklists for uploaded books and
 documents and for completed audiobooks. Documents default to selected to
@@ -306,6 +309,8 @@ required by Android's local-network privacy model.
       IPv4 interface.
 - [x] Security hardening: atomically reserve send preparation and serialize
       file/LAN restore operations at the native boundary.
+- [x] Security hardening: disclose that saved transfer files are readable,
+      unencrypted copies that should be protected and deleted after use.
 - [x] Stage 3: keep nearby transfer primary and progressively disclose file fallback actions.
 - [x] Keep active send instructions, progress, cancellation, and results above the fold.
 - [x] Add selective uploaded-document transfer with audiobook dependency inclusion and folder pruning.

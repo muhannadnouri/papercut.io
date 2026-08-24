@@ -370,6 +370,7 @@
     "modeReceive": "استلام",
     "exportTitle": "حفظ ملف نقل",
     "exportDescription": "المحدد لهذا الملف: المستندات: {{documents, number}} · الكتب الصوتية: {{audiobooks, number}}. انسخه عبر USB أو التخزين المشترك أو وسيلة أخرى.",
+    "exportPrivacy": "هذا الملف غير مشفّر ويحتوي على نسخ قابلة للقراءة من المحتوى المحدد. حافظ على خصوصيته واحذفه عندما لا تعود بحاجة إليه.",
     "loadingDocuments": "جارٍ تحميل المستندات...",
     "documentsLoadFailed": "تعذّر على Papercut تحميل المستندات المتاحة للإرسال.",
     "includeDocuments": "الكتب والمستندات (تم تحديد {{selected, number}} من {{count, number}})",

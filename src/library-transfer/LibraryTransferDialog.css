@@ -377,6 +377,14 @@ html[dir="rtl"] .library-transfer-content[open] summary::before {
   justify-self: start;
 }
 
+.library-transfer-alternate p.library-transfer-privacy-note {
+  padding: 0.65rem;
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+  color: var(--text-body);
+  font-weight: 600;
+}
+
 .library-transfer-pairing-fields {
   display: grid;
   grid-template-columns: 1fr;

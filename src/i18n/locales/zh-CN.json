@@ -340,6 +340,7 @@
     "modeReceive": "接收",
     "exportTitle": "保存传输文件",
     "exportDescription": "此文件已选择：文档：{{documents, number}} · 有声书：{{audiobooks, number}}。可通过 USB、共享存储或其他方式复制该文件。",
+    "exportPrivacy": "此文件未加密，包含所选内容的可读取副本。请妥善保管，并在不再需要时将其删除。",
     "loadingDocuments": "正在加载文档...",
     "documentsLoadFailed": "Papercut 无法加载可发送的文档。",
     "includeDocuments": "书籍和文档（已选择 {{selected, number}}/{{count, number}}）",

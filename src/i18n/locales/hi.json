@@ -346,6 +346,7 @@
     "modeReceive": "प्राप्त करें",
     "exportTitle": "स्थानांतरण फ़ाइल सहेजें",
     "exportDescription": "इस फ़ाइल के लिए चयनित: दस्तावेज़: {{documents, number}} · ऑडियोबुक: {{audiobooks, number}}। इसे USB, साझा स्टोरेज या किसी अन्य तरीके से कॉपी करें।",
+    "exportPrivacy": "यह फ़ाइल एन्क्रिप्टेड नहीं है और इसमें चुनी गई सामग्री की पढ़ी जा सकने वाली प्रतियां हैं। इसे निजी रखें और आवश्यकता न रहने पर मिटा दें।",
     "loadingDocuments": "दस्तावेज़ लोड हो रहे हैं...",
     "documentsLoadFailed": "Papercut भेजने के लिए उपलब्ध दस्तावेज़ लोड नहीं कर सका।",
     "includeDocuments": "किताबें और दस्तावेज़ ({{count, number}} में से {{selected, number}} चुने गए)",
