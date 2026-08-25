@@ -1,0 +1,844 @@
+<!doctype html>
+<html lang="zh-CN" data-theme-choice="system">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Papercut - 离线阅读、搜索和有声读物</title>
+    <meta name="description" content="Papercut 帮助您离线导入、搜索、阅读、传输和收听 HTML、EPUB、PDF、TXT 和 Markdown 资料库。无需账户或订阅即可生成并导出私密有声读物。">
+    <meta property="og:title" content="Papercut - 离线阅读、搜索和有声读物">
+    <meta property="og:description" content="在桌面和移动设备上离线搜索、阅读、传输和收听您自己的文档。">
+    <meta property="og:image" content="https://trypapercut.app/assets/papercut-icon.png">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://trypapercut.app/zh-CN/">
+    <meta property="og:locale" content="zh_CN">
+    <meta property="og:locale:alternate" content="en_US">
+    <meta property="og:locale:alternate" content="ar_AR">
+    <meta property="og:locale:alternate" content="es_ES">
+    <meta property="og:locale:alternate" content="fr_FR">
+    <meta property="og:locale:alternate" content="it_IT">
+    <meta property="og:locale:alternate" content="pt_BR">
+    <meta property="og:locale:alternate" content="hi_IN">
+    <link rel="canonical" href="https://trypapercut.app/zh-CN/">
+    <link rel="alternate" hreflang="en" href="https://trypapercut.app/">
+    <link rel="alternate" hreflang="ar" href="https://trypapercut.app/ar/">
+    <link rel="alternate" hreflang="es" href="https://trypapercut.app/es/">
+    <link rel="alternate" hreflang="fr" href="https://trypapercut.app/fr/">
+    <link rel="alternate" hreflang="it" href="https://trypapercut.app/it/">
+    <link rel="alternate" hreflang="pt-BR" href="https://trypapercut.app/pt-BR/">
+    <link rel="alternate" hreflang="hi" href="https://trypapercut.app/hi/">
+    <link rel="alternate" hreflang="zh-CN" href="https://trypapercut.app/zh-CN/">
+    <link rel="alternate" hreflang="x-default" href="https://trypapercut.app/">
+    <link rel="icon" href="../assets/papercut-icon.png" sizes="128x128">
+    <link rel="stylesheet" href="../styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">跳到主要内容</a>
+    <div class="page">
+      <header class="site-header">
+        <a class="brand" href="index.html" aria-label="Papercut 首页">
+          <img src="../assets/papercut-icon.png" alt="" width="36" height="36">
+          <span>Papercut</span>
+        </a>
+        <div class="header-actions">
+          <details class="language-menu">
+            <summary aria-label="选择语言" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M3 12h18M12 3c2.4 2.5 3.7 5.5 3.7 9S14.4 18.5 12 21M12 3C9.6 5.5 8.3 8.5 8.3 12s1.3 6.5 3.7 9" />
+              </svg>
+            </summary>
+            <nav class="language-options" aria-label="语言">
+              <a href="../index.html" lang="en" hreflang="en">English</a>
+              <a href="../ar/index.html" lang="ar" dir="rtl" hreflang="ar">العربية</a>
+              <a href="../es/index.html" lang="es" hreflang="es">Español</a>
+              <a href="../fr/index.html" lang="fr" hreflang="fr">Français</a>
+              <a href="../it/index.html" lang="it" hreflang="it">Italiano</a>
+              <a href="../pt-BR/index.html" lang="pt-BR" hreflang="pt-BR">Português (Brasil)</a>
+              <a href="../hi/index.html" lang="hi" hreflang="hi">हिन्दी</a>
+              <a href="index.html" lang="zh-CN" hreflang="zh-CN" aria-current="page">中文（简体）</a>
+            </nav>
+          </details>
+          <details class="nav-menu">
+            <summary aria-label="展开或收起导航" aria-expanded="false"><span class="nav-menu-icon" aria-hidden="true">
+                <svg class="nav-menu-icon-open" viewBox="0 0 20 20" focusable="false">
+                  <path d="M4 6h12M4 10h12M4 14h12" />
+                </svg>
+                <svg class="nav-menu-icon-close" viewBox="0 0 20 20" focusable="false">
+                  <path d="M5 12l5-5 5 5" />
+                </svg>
+              </span></summary>
+            <nav class="nav" aria-label="主导航">
+              <a href="#preview-title">演示</a>
+              <a href="#features-title">功能</a>
+              <a href="#privacy-title">隐私</a>
+              <a href="#use-cases-title">使用场景</a>
+              <a href="#downloads-title">下载</a>
+              <a href="#install-notes-title">常见问题</a>
+              <a href="#contact-title">联系</a>
+            </nav>
+          </details>
+
+          <button class="theme-toggle" type="button" aria-label="主题：使用系统主题。切换到浅色主题。" title="主题：使用系统主题。点击切换到浅色主题。">
+            <span class="theme-toggle-icon theme-toggle-icon-system" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M4 5.75A2.75 2.75 0 0 1 6.75 3h10.5A2.75 2.75 0 0 1 20 5.75v7.5A2.75 2.75 0 0 1 17.25 16H6.75A2.75 2.75 0 0 1 4 13.25v-7.5Z" />
+                <path d="M9.25 20h5.5" />
+                <path d="M12 16v4" />
+              </svg>
+            </span>
+            <span class="theme-toggle-icon theme-toggle-icon-light" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2.75v2.5" />
+                <path d="M12 18.75v2.5" />
+                <path d="m5.46 5.46 1.77 1.77" />
+                <path d="m16.77 16.77 1.77 1.77" />
+                <path d="M2.75 12h2.5" />
+                <path d="M18.75 12h2.5" />
+                <path d="m5.46 18.54 1.77-1.77" />
+                <path d="m16.77 7.23 1.77-1.77" />
+              </svg>
+            </span>
+            <span class="theme-toggle-icon theme-toggle-icon-dark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M19.15 15.4A7.45 7.45 0 0 1 8.6 4.85 8.3 8.3 0 1 0 19.15 15.4Z" />
+              </svg>
+            </span>
+          </button>
+        </div>
+      </header>
+
+      <main id="main-content">
+        <section class="intro" aria-labelledby="intro-title">
+          <p class="eyebrow">离线阅读器、搜索引擎和有声读物制作工具</p>
+          <h1 id="intro-title">离线搜索、阅读和收听您的文档</h1>
+          <p class="intro-copy">
+            Papercut 是一款桌面和移动应用，可导入 HTML、EPUB、PDF、TXT 和 Markdown 文件，
+            搜索已建立索引的个人资料库，在本地阅读，识别扫描页面中的英语或
+            阿拉伯语文本，并生成可导出的离线有声读物。
+          </p>
+          <div class="intro-actions" role="group" aria-label="主要操作">
+            <a class="button-primary" href="#downloads-title">下载 Papercut</a>
+            <a class="button-secondary" href="https://github.com/muhannadnouri/papercut.io">在 GitHub 上查看</a>
+          </div>
+          <ul class="intro-trust" aria-label="Papercut 主要特点">
+            <li>📚 离线优先的资料库</li>
+            <li>🎧 本地 AI 有声读物</li>
+            <li>🔒 无需登录</li>
+            <li>💻 桌面与移动设备</li>
+          </ul>
+        </section>
+
+        <section class="preview" aria-labelledby="preview-title">
+          <div class="section-label">
+            <h2 id="preview-title">演示</h2>
+          </div>
+          <div class="preview-grid">
+            <figure class="screenshot-preview">
+              <div class="screenshot-placeholder" role="img" aria-label="未来 Papercut 截图的占位区域">
+                <span>截图占位区域</span>
+                <small>替换为 JPEG 或 PNG</small>
+              </div>
+            </figure>
+
+            <aside class="audio-proof" aria-labelledby="audio-proof-title">
+              <p class="eyebrow">语音示例</p>
+              <h3 id="audio-proof-title">离线语音示例</h3>
+              <p>最终演示音频准备好后，在此放置一段由 Kokoro 生成的英语示例和一段阿拉伯语示例。</p>
+              <div class="audio-placeholder" role="img" aria-label="未来 Papercut 语音示例的占位区域">
+                <span class="audio-placeholder-icon" aria-hidden="true"></span>
+                <span>示例音频占位区域</span>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="features" aria-labelledby="features-title">
+          <div class="features-header">
+            <h2 id="features-title" class="features-heading">功能</h2>
+            <p>Papercut 形成一个完整流程：导入文档、跨文档搜索、阅读重要内容，并在更适合收听时制作便携音频。</p>
+          </div>
+          <div class="feature-grid">
+            <div class="feature-card">
+              <span class="feature-label">搜索</span>
+              <h3>在整个资料库中查找文本</h3>
+              <p>无需互联网或账户，即可搜索数百份已导入文档的索引内容。精确搜索和广泛搜索可帮助您找回笔记、代码参考、研究引文和手册章节。</p>
+            </div>
+            <div class="feature-card">
+              <span class="feature-label">阅读</span>
+              <h3>离线阅读 HTML、EPUB、PDF、TXT 和 Markdown 文件</h3>
+              <p>在本地 HTML、EPUB、PDF、TXT 和 Markdown 阅读器中打开您的文档。PDF 保留原始页面，离线 OCR 则可让英语或阿拉伯语扫描页面支持搜索和朗读。</p>
+            </div>
+            <div class="feature-card">
+              <span class="feature-label">整理</span>
+              <h3>将文档、文件夹和音频集中管理</h3>
+              <p>一次导入多个文件，通过封面或列表浏览，整理文件夹，编辑标题，保存生成的音频，并在 Papercut 设备之间传输所选文档和有声读物。</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="audiobooks" aria-labelledby="audiobooks-title">
+          <div class="section-label">
+            <h2 id="audiobooks-title">离线有声读物</h2>
+          </div>
+          <div class="audiobook-content">
+            <div class="audiobook-lead">
+              <p class="eyebrow">收听</p>
+              <h3>从资料库中的文档生成有声读物</h3>
+              <p>
+                当阅读并非最佳方式时，Papercut 可将支持的文档转换为设备上
+                保存的音频。只有当您选择使用音频时才会下载语音模型；此后，
+                生成和播放都无需互联网。
+              </p>
+            </div>
+
+            <div class="audiobook-points" aria-label="离线有声读物功能">
+              <div>
+                <strong>私密生成</strong>
+                <span>无需云端处理、上传文档或创建账户。</span>
+              </div>
+              <div>
+                <strong>没有用量计费</strong>
+                <span>无需订阅、API 密钥，没有令牌上限或按字符收费。</span>
+              </div>
+              <div>
+                <strong>导出和导入</strong>
+                <span>保存有声读物包，以便分享、传输或在另一台设备上重新导入 Papercut。</span>
+              </div>
+              <div>
+                <strong>随处收听</strong>
+                <span>Android 支持后台和锁屏播放。</span>
+              </div>
+            </div>
+
+            <div class="model-notes">
+              <article>
+                <h4>多语言 Kokoro 语音</h4>
+                <p>Kokoro 为英语、普通话、西班牙语、法语、印地语、意大利语和巴西葡萄牙语提供离线语音。</p>
+              </article>
+              <article>
+                <h4>阿拉伯语语音</h4>
+                <p>阿拉伯语使用独立的离线 Piper 和 Supertonic 模型。Linux x64 还可通过 Papercut 管理的可选运行时下载使用 SILMA。</p>
+              </article>
+              <article>
+                <h4>离线模型的范围</h4>
+                <p>目前，离线模型用于生成有声读物。搜索、导入和阅读仍然是本地文档工具。</p>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="privacy" aria-labelledby="privacy-title">
+          <div class="section-label">
+            <h2 id="privacy-title">隐私模式</h2>
+          </div>
+          <div class="privacy-content">
+            <div class="privacy-copy">
+              <p class="eyebrow">默认本地优先</p>
+              <h3>您的资料库保留在设备上</h3>
+              <p>
+                Papercut 默认将导入的文档、搜索、阅读和生成的音频保留在
+                本地。网络访问仅限于您选择的操作，例如下载语音模型或
+                获取发布文件。
+              </p>
+            </div>
+            <div class="privacy-grid" aria-label="Papercut 隐私详情">
+              <article>
+                <strong>文档</strong>
+                <span>导入的 HTML、EPUB、PDF、TXT 和 Markdown 文件保留在本地。</span>
+              </article>
+              <article>
+                <strong>搜索</strong>
+                <span>资料库搜索针对本地文档内容运行。</span>
+              </article>
+              <article>
+                <strong>有声读物</strong>
+                <span>生成的音频保留在本地，Papercut 不主张其所有权。</span>
+              </article>
+              <article>
+                <strong>网络</strong>
+                <span>仅在您请求下载语音模型、版本或外部资源时使用。</span>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="positioning" aria-labelledby="use-cases-title">
+          <div class="positioning-header">
+            <h2 id="use-cases-title">使用场景</h2>
+            <p>Papercut 适合由已保存文档、书籍、笔记、手册和研究资料构成的个人资料库。它让搜索、阅读和收听紧贴您已经使用的文件。</p>
+          </div>
+          <div class="positioning-content">
+            <section class="positioning-panel" aria-labelledby="best-for-title">
+              <h3 id="best-for-title">谁最适合使用 Papercut？</h3>
+              <div class="use-case-list" aria-label="Papercut 使用场景">
+                <article>
+                  <strong>开发者</strong>
+                  <span>离线搜索 API 文档、手册和已保存的参考资料。</span>
+                </article>
+                <article>
+                  <strong>研究人员</strong>
+                  <span>让论文、笔记和长篇资料保持可搜索、可收听。</span>
+                </article>
+                <article>
+                  <strong>学生</strong>
+                  <span>将阅读资料包、EPUB 和 PDF（包括已识别的扫描件）转换为私密学习音频。</span>
+                </article>
+                <article>
+                  <strong>离线优先的读者</strong>
+                  <span>偏好本地工具、更少账户和更低的云端依赖。</span>
+                </article>
+              </div>
+            </section>
+
+            <section class="positioning-panel comparison" aria-labelledby="comparison-title">
+              <p class="eyebrow">对比</p>
+              <h3 id="comparison-title">为什么选择 Papercut？</h3>
+              <div class="comparison-list" aria-label="Papercut 与其他选择的比较">
+                <article>
+                  <strong>云端 TTS 服务</strong>
+                  <span>无需上传、API 密钥、订阅或用量计费。</span>
+                </article>
+                <article>
+                  <strong>有声读物应用</strong>
+                  <span>从您自己的文档制作音频，而不是从目录购买。</span>
+                </article>
+                <article>
+                  <strong>文档阅读器</strong>
+                  <span>增加跨文档搜索、资料库传输和离线有声读物生成。</span>
+                </article>
+                <article>
+                  <strong>AI 阅读应用</strong>
+                  <span>将资料库搜索、阅读和有声读物生成保留在本地，而不是把文档上传到以聊天为中心的云端工具。</span>
+                </article>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="downloads" aria-labelledby="downloads-title">
+          <div class="section-label"><h2 id="downloads-title">下载</h2> <span class="version-badge">v1.9.0</span></div>
+          <div class="download-list">
+            <p class="download-list-intro">从推荐的安装程序开始，或展开平台分组查看所有软件包。</p>
+
+            <div class="quick-downloads" aria-label="推荐下载">
+              <article>
+                <strong><span aria-hidden="true">🤖</span> Android</strong>
+                <span>适用于 Android 8.0 及以上的 arm64-v8a 设备，包含原生有声读物支持。</span>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.9.0/Papercut_v1.9.0_android-arm64-v8a.apk" aria-label="下载 Papercut Android APK">下载 APK</a>
+              </article>
+              <article>
+                <strong><span aria-hidden="true">⊞</span> Windows</strong>
+                <span>适用于 Windows 10 及以上的 x64 安装程序，使用 Microsoft Edge WebView2 运行时。</span>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.9.0/Papercut_1.9.0_x64_en-US.msi" aria-label="下载 Papercut Windows .msi">下载 .msi</a>
+              </article>
+              <article>
+                <strong><span aria-hidden="true">🍎</span> macOS</strong>
+                <span>适用于 macOS 10.13 及以上，提供经过签名和公证的 Apple Silicon 与 Intel 版本。</span>
+                <div class="split-actions">
+                  <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.9.0/Papercut_1.9.0_aarch64.dmg" aria-label="下载适用于 Apple Silicon 的 Papercut macOS DMG">Apple Silicon</a>
+                  <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.9.0/Papercut_1.9.0_x64.dmg" aria-label="下载适用于 Intel 的 Papercut macOS DMG">Intel</a>
+                </div>
+              </article>
+              <article>
+                <strong><span aria-hidden="true">🐧</span> Linux</strong>
+                <span>适用于装有 WebKitGTK 和 GStreamer 的 amd64 Linux。Debian 系发行版推荐使用 DEB。</span>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.9.0/Papercut_1.9.0_amd64.deb" aria-label="下载 Papercut Linux .deb">下载 .deb</a>
+              </article>
+            </div>
+
+            <details class="download-group">
+              <summary class="download-group-header">Android</summary>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">🤖</span>
+                    <span>Android</span>
+                    <span class="download-kind">(.apk)</span>
+                  </strong>
+                  <span>包含原生有声读物支持的 Android arm64-v8a APK。需要 Android 8.0 及以上 / API 26 及以上。</span>
+                  <code>Papercut_v1.9.0_android-arm64-v8a.apk</code>
+                </div>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.9.0/Papercut_v1.9.0_android-arm64-v8a.apk" aria-label="下载 Papercut Android APK">下载</a>
+              </article>
+            </details>
+
+            <details class="download-group">
+              <summary class="download-group-header">iOS</summary>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">🍎</span>
+                    <span>iOS</span>
+                    <span class="download-kind">(App Store)</span>
+                  </strong>
+                  <span>已计划支持 iPhone 和 iPad。目前这是 App Store 条目的占位内容。</span>
+                  <code>即将登陆 App Store</code>
+                </div>
+                <a class="download-disabled" role="link" aria-disabled="true" tabindex="-1">App Store</a>
+              </article>
+            </details>
+
+            <details class="download-group">
+              <summary class="download-group-header">Linux</summary>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">🐧</span>
+                    <span>Linux</span>
+                    <span class="download-kind">(AppImage)</span>
+                  </strong>
+                  <span>适用于 amd64 系统的便携 Linux 版本。需要 WebKitGTK 和 GStreamer；发布文件在 Ubuntu 24.04 上构建。</span>
+                  <code>Papercut_1.9.0_amd64.AppImage</code>
+                </div>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.9.0/Papercut_1.9.0_amd64.AppImage" aria-label="下载 Papercut Linux AppImage">下载</a>
+              </article>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">🐧</span>
+                    <span>Linux</span>
+                    <span class="download-kind">(.deb)</span> <span class="recommended-badge">推荐</span>
+                  </strong>
+                  <span>适用于 Debian 系 amd64 发行版（Ubuntu、Mint 等）的安装程序。需要 WebKitGTK 和 GStreamer。</span>
+                  <code>Papercut_1.9.0_amd64.deb</code>
+                </div>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.9.0/Papercut_1.9.0_amd64.deb" aria-label="下载 Papercut Linux DEB">下载</a>
+              </article>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">🐧</span>
+                    <span>Linux</span>
+                    <span class="download-kind">(.rpm)</span>
+                  </strong>
+                  <span>适用于 RPM 系 x86_64 发行版（Fedora、openSUSE 等）的安装程序。需要 WebKitGTK 和 GStreamer。</span>
+                  <code>Papercut-1.9.0-1.x86_64.rpm</code>
+                </div>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.9.0/Papercut-1.9.0-1.x86_64.rpm" aria-label="下载 Papercut Linux RPM">下载</a>
+              </article>
+            </details>
+
+            <details class="download-group">
+              <summary class="download-group-header">macOS</summary>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">🍎</span>
+                    <span>macOS</span>
+                    <span class="download-kind">(.dmg)</span> <span class="recommended-badge">Apple Silicon</span>
+                  </strong>
+                  <span>适用于 Apple Silicon（M1/M2/M3 及后续芯片）的已签名和公证磁盘映像。需要 macOS 10.13 及以上。</span>
+                  <code>Papercut_1.9.0_aarch64.dmg</code>
+                </div>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.9.0/Papercut_1.9.0_aarch64.dmg" aria-label="下载适用于 Apple Silicon 的 Papercut macOS DMG">下载</a>
+              </article>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">🍎</span>
+                    <span>macOS</span>
+                    <span class="download-kind">(.dmg)</span> <span class="recommended-badge">Intel</span>
+                  </strong>
+                  <span>适用于 Intel Mac 的已签名和公证磁盘映像。需要 macOS 10.13 及以上。</span>
+                  <code>Papercut_1.9.0_x64.dmg</code>
+                </div>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.9.0/Papercut_1.9.0_x64.dmg" aria-label="下载适用于 Intel 的 Papercut macOS DMG">下载</a>
+              </article>
+            </details>
+
+            <details class="download-group">
+              <summary class="download-group-header">Windows</summary>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">⊞</span>
+                    <span>Windows</span>
+                    <span class="download-kind">(.msi)</span> <span class="recommended-badge">推荐</span>
+                  </strong>
+                  <span>适用于 Windows 10 及以上的 x64 安装包。需要 Microsoft Edge WebView2 运行时。</span>
+                  <code>Papercut_1.9.0_x64_en-US.msi</code>
+                </div>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.9.0/Papercut_1.9.0_x64_en-US.msi" aria-label="下载 Papercut Windows MSI">下载</a>
+              </article>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">⊞</span>
+                    <span>Windows</span>
+                    <span class="download-kind">(.exe)</span>
+                  </strong>
+                  <span>适用于 Windows 10 及以上的 x64 安装程序。需要 Microsoft Edge WebView2 运行时。</span>
+                  <code>Papercut_1.9.0_x64-setup.exe</code>
+                </div>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.9.0/Papercut_1.9.0_x64-setup.exe" aria-label="下载 Papercut Windows EXE 安装程序">下载</a>
+              </article>
+            </details>
+
+            <details class="download-group">
+              <summary class="download-group-header">其他下载</summary>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">#</span>
+                    <span>校验和</span>
+                    <span class="download-kind">(SHA-256)</span>
+                  </strong>
+                  <span>发布文件的 SHA-256 哈希值。</span>
+                  <code>SHA256SUMS.txt</code>
+                </div>
+                <a href="https://github.com/muhannadnouri/papercut.io/releases/download/v1.9.0/SHA256SUMS.txt" aria-label="下载 Papercut SHA-256 校验和">下载</a>
+              </article>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">{ }</span>
+                    <span>源代码</span>
+                    <span class="download-kind">(.zip)</span>
+                  </strong>
+                  <span>v1.9.0 发布标签的源代码归档。</span>
+                  <code>v1.9.0.zip</code>
+                </div>
+                <a href="https://github.com/muhannadnouri/papercut.io/archive/refs/tags/v1.9.0.zip" aria-label="下载 Papercut 源代码 ZIP">下载</a>
+              </article>
+              <article class="download-row">
+                <div>
+                  <strong class="download-title">
+                    <span class="download-icon" aria-hidden="true">{ }</span>
+                    <span>源代码</span>
+                    <span class="download-kind">(.tar.gz)</span>
+                  </strong>
+                  <span>v1.9.0 发布标签的压缩源代码归档。</span>
+                  <code>v1.9.0.tar.gz</code>
+                </div>
+                <a href="https://github.com/muhannadnouri/papercut.io/archive/refs/tags/v1.9.0.tar.gz" aria-label="下载 Papercut 源代码 tarball">下载</a>
+              </article>
+            </details>
+          </div>
+        </section>
+
+        <section class="install-notes" aria-labelledby="install-notes-title">
+          <h2 id="install-notes-title" class="install-notes-heading">常见问题</h2>
+          <p>了解离线音频、隐私、支持的文件格式，以及在各个平台上安装 Papercut 的实用信息。</p>
+          <details>
+            <summary><strong>Papercut 除了制作有声读物，还会将 AI 用于其他功能吗？</strong></summary>
+            <p>会。Papercut 还使用设备内置 OCR 来识别纯图像或混合 PDF 页面中的英语或阿拉伯语文本。OCR 和有声读物生成都不会把您的文档上传到云服务。</p>
+          </details>
+          <details>
+            <summary><strong>Papercut 何时需要访问互联网？</strong></summary>
+            <p>阅读和搜索可离线使用。只有当您选择下载语音模型、下载发布版本或打开外部资源时才会访问网络。如果不使用有声读物生成功能，则无需下载语音模型。</p>
+          </details>
+          <details>
+            <summary><strong>为什么英语有声读物使用 Kokoro？</strong></summary>
+            <p>英语语音使用 Kokoro，是因为它目前在完全离线的语音模型中具有较好的质量。目标是在无需云端处理、订阅、API 密钥或按字符计费的情况下生成自然的音频。</p>
+          </details>
+          <details>
+            <summary><strong>阿拉伯语有声读物如何实现？</strong></summary>
+            <p>阿拉伯语使用独立的离线模型。Piper 是体积较小的跨平台选择；在 Linux x64 桌面端，还可通过可选运行时下载使用 SILMA。</p>
+          </details>
+          <details>
+            <summary><strong>生成音频的所有权归谁？</strong></summary>
+            <p>Papercut 不主张生成音频的所有权。您需要自行确保拥有源文本、所用参考语音或录音的相关权利，并对导出音频的分享方式负责。Papercut 会将有声读物保存在本地，不会上传到任何服务。</p>
+          </details>
+          <details>
+            <summary><strong>可以移动或分享生成的有声读物吗？</strong></summary>
+            <p>可以。保存的有声读物可导出为 Papercut 有声读物包，用于分享、传输到其他设备、备份，或日后重新导入 Papercut。如果您分享、发布、出售或广播生成的音频，请明确标注其由 AI 生成，且不得用于冒充或误导他人。</p>
+          </details>
+          <details>
+            <summary><strong>可以克隆或引用任何人的声音吗？</strong></summary>
+            <p>不可以。参考语音功能仅应用于您有权或已获许可使用的声音和录音。</p>
+          </details>
+          <details>
+            <summary><strong>支持哪些文档格式？</strong></summary>
+            <p>Papercut 可导入 HTML、EPUB、PDF、TXT 和 Markdown 文件。含嵌入文本的 PDF 可立即搜索；纯图像和混合页面可按需通过离线 OCR 识别英语或阿拉伯语。受支持的 Android 设备还可扫描页面或将照片导入 PDF。</p>
+          </details>
+          <details>
+            <summary><strong>界面支持哪些语言？</strong></summary>
+            <p>Papercut 提供英语、阿拉伯语、简体中文、西班牙语、法语、印地语、意大利语和巴西葡萄牙语界面。</p>
+          </details>
+          <details>
+            <summary><strong>有声读物支持哪些语言？</strong></summary>
+            <p>Kokoro 为英语、普通话、西班牙语、法语、印地语、意大利语和巴西葡萄牙语提供语音。阿拉伯语使用独立的离线 Piper 和 Supertonic 模型；Linux x64 还可通过可选运行时使用 SILMA。</p>
+          </details>
+          <details>
+            <summary><strong>系统要求是什么？</strong></summary>
+            <p><strong>Android:</strong> arm64-v8a 设备上的 Android 8.0 / API 26 及以上版本。</p>
+            <p><strong>iOS:</strong> 已在计划中，即将登陆 App Store。</p>
+            <p><strong>macOS:</strong> Apple Silicon 或 Intel Mac 上的 macOS 10.13 及以上版本。</p>
+            <p><strong>Linux:</strong> 已安装 WebKitGTK 和 GStreamer 的 amd64 Linux；发布文件在 Ubuntu 24.04 上构建。</p>
+            <p><strong>Windows:</strong> 安装 Microsoft Edge WebView2 运行时的 Windows 10 及以上 x64 系统。</p>
+          </details>
+          <details>
+            <summary><strong>Android</strong></summary>
+            <p>请在浏览器或文件管理器的设置中启用<strong>安装未知应用</strong>，然后打开 APK。阅读和搜索可离线使用。只有当您选择下载语音模型时才会访问网络；如果不使用有声读物生成功能，则无需网络连接。</p>
+          </details>
+          <details>
+            <summary><strong>Linux</strong></summary>
+            <p>需要已安装 WebKitGTK 和 GStreamer 的 amd64 Linux。发布文件在 Ubuntu 24.04 上构建。</p>
+            <p><strong>基于 Debian 的发行版（Ubuntu、Mint）：</strong> <code>sudo apt install ./Papercut_*.deb</code></p>
+            <p><strong>基于 RPM 的发行版（Fedora、openSUSE）：</strong> <code>sudo rpm -i Papercut-*.rpm</code></p>
+            <p><strong>AppImage：</strong> 添加可执行权限（<code>chmod +x</code>）后直接运行。在基于 Arch 的系统上，AppImage 可能需要设置 <code>WEBKIT_DISABLE_COMPOSITING_MODE=1</code>；详情请参阅 <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a>。</p>
+          </details>
+          <details>
+            <summary><strong>macOS</strong></summary>
+            <p>需要运行 macOS 10.13 及以上版本的 Apple Silicon 或 Intel Mac。打开 <code>.dmg</code>，然后将 <strong>Papercut</strong> 拖入“应用程序”文件夹。正式发布版本已使用 Developer ID 签名并经过公证。如果您正在测试未签名的 CI 或本地开发版本，请在首次启动时右键单击（或按住 Control 单击）应用图标，然后选择<strong>打开</strong>。</p>
+            <p>请选择与 Mac 匹配的版本：<strong>Apple Silicon</strong>（<code>_aarch64.dmg</code>）适用于 M 系列芯片；<strong>Intel</strong>（<code>_x64.dmg</code>）适用于 Intel Mac。</p>
+          </details>
+          <details>
+            <summary><strong>Windows</strong></summary>
+            <p>需要 x64 硬件上的 Windows 10 及以上版本和 Microsoft Edge WebView2 运行时。MSI 安装包会自动完成设置。如果您更喜欢便携式 EXE，可直接运行，无需管理员权限。</p>
+          </details>
+          <details>
+            <summary><strong>在哪里可以找到文档、发布版本和源代码？</strong></summary>
+            <p>有关设置帮助和平台详情，请先查看 <a href="https://github.com/muhannadnouri/papercut.io#readme">README</a>。您还可以在<a href="https://github.com/muhannadnouri/papercut.io/blob/main/RELEASE_NOTES/v1.9.0.md">发布说明</a>中了解新功能，浏览<a href="https://github.com/muhannadnouri/papercut.io/releases/latest">所有发布版本</a>，或在 <a href="https://github.com/muhannadnouri/papercut.io">GitHub</a> 上参与贡献。</p>
+          </details>
+        </section>
+
+        <section class="contact" aria-labelledby="contact-title">
+          <div class="contact-copy">
+            <p class="eyebrow">联系</p>
+            <h2 id="contact-title">联系我们</h2>
+            <p>
+              报告错误、寻求帮助、申请支持某种语言或语音模型，
+              或告诉我们如何让 Papercut 更适合您的资料库。
+            </p>
+            <p class="contact-note">
+              表单通过 Netlify Forms 提交。请勿包含私人文档、密钥或
+              资料库中的敏感内容。
+            </p>
+          </div>
+
+          <form class="contact-form" name="contact" method="POST" data-netlify="true" netlify-honeypot="bot-field">
+            <input type="hidden" name="form-name" value="contact">
+            <input type="hidden" name="subject" value="">
+            <p class="form-hidden">
+              <label>如果您是真人，请不要填写此项：<input name="bot-field" autocomplete="off"></label>
+            </p>
+
+            <label class="contact-topic">
+              <span>选择主题 <small class="required-mark" aria-hidden="true">*</small></span>
+              <select name="reason" required>
+                <option value="">请选择主题</option>
+                <option value="Bug or issue">错误</option>
+                <option value="Language request">语言</option>
+                <option value="Voice or model request">语音/模型</option>
+                <option value="Help">帮助</option>
+                <option value="Feature idea">功能建议</option>
+                <option value="Other">其他</option>
+              </select>
+            </label>
+
+            <fieldset class="contact-subtopics" data-topic-panel="bug" hidden>
+              <legend>错误出现在哪里？</legend>
+              <label>
+                <input type="radio" name="bug_area" value="Search" disabled>
+                <span>搜索</span>
+              </label>
+              <label>
+                <input type="radio" name="bug_area" value="Reading" disabled>
+                <span>阅读</span>
+              </label>
+              <label>
+                <input type="radio" name="bug_area" value="Audiobooks" disabled>
+                <span>有声读物</span>
+              </label>
+              <label>
+                <input type="radio" name="bug_area" value="Import/export" disabled>
+                <span>导入/导出</span>
+              </label>
+              <label>
+                <input type="radio" name="bug_area" value="Downloads or install" disabled>
+                <span>下载</span>
+              </label>
+              <label>
+                <input type="radio" name="bug_area" value="Other" disabled>
+                <span>其他</span>
+              </label>
+            </fieldset>
+
+            <div class="contact-fields contact-extra-fields" data-topic-panel="audiobook" hidden>
+              <label>
+                <span>语言 <small>可选</small></span>
+                <input type="text" name="language_detail" placeholder="英语、阿拉伯语、法语……" dir="auto" disabled>
+              </label>
+              <label>
+                <span>语音/模型 <small>可选</small></span>
+                <input type="text" name="model_detail" placeholder="Kokoro、阿拉伯语语音、不确定……" dir="auto" disabled>
+              </label>
+            </div>
+
+            <div class="contact-fields">
+              <label>
+                <span>姓名 <small>可选</small></span>
+                <input type="text" name="name" autocomplete="name" placeholder="姓名 / 用户名" dir="auto">
+              </label>
+              <label>
+                <span>电子邮箱 <small class="required-mark" aria-hidden="true">*</small></span>
+                <input type="email" name="email" autocomplete="email" placeholder="you@example.com" dir="ltr" required>
+              </label>
+              <label class="contact-full">
+                <span>主题 <small class="required-mark" aria-hidden="true">*</small></span>
+                <input type="text" name="subject_text" maxlength="120" placeholder="邮件主题" dir="auto" required>
+              </label>
+              <label class="contact-full">
+                <span>留言 <small class="required-mark" aria-hidden="true">*</small></span>
+                <textarea name="message" rows="6" placeholder="请描述发生了什么、您的预期，或您希望看到的改进。" dir="auto" required></textarea>
+              </label>
+            </div>
+
+            <div class="contact-submit">
+              <button type="submit">发送</button>
+              <div class="contact-submit-notes">
+                <p><span aria-hidden="true">*</span> 必填</p>
+                <p>所选主题的详细信息将随表单一并提交。</p>
+              </div>
+            </div>
+          </form>
+        </section>
+
+        <footer class="site-footer">
+          <p class="footer-privacy">开源 🧩 · 无需订阅 💳✂️</p>
+          <p class="footer-meta">
+            &copy; 2026 Muhannad Nouri &middot;
+            <a href="https://github.com/muhannadnouri/papercut.io/blob/main/LICENSE.md">MIT 许可证</a>
+            &middot;
+            <a href="https://github.com/muhannadnouri/papercut.io#ai-audio-use-notice">AI 音频使用须知</a>
+            &middot;
+            <a href="https://github.com/muhannadnouri/papercut.io">GitHub</a>
+          </p>
+        </footer>
+      </main>
+    </div>
+
+    <script>
+      (() => {
+        document.querySelectorAll('.nav-menu, .language-menu').forEach((menu) => {
+          const toggle = menu.querySelector('summary')
+          const closeMenu = () => {
+            menu.removeAttribute('open')
+            toggle?.setAttribute('aria-expanded', 'false')
+          }
+
+          menu.addEventListener('toggle', () => {
+            toggle?.setAttribute('aria-expanded', menu.open ? 'true' : 'false')
+            if (menu.open) {
+              document.querySelectorAll('.nav-menu[open], .language-menu[open]').forEach((other) => {
+                if (other !== menu) other.removeAttribute('open')
+              })
+            }
+          })
+
+          document.addEventListener('pointerdown', (event) => {
+            if (menu.open && !menu.contains(event.target)) closeMenu()
+          })
+
+          document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && menu.open) {
+              closeMenu()
+              toggle?.focus()
+            }
+          })
+
+          menu.querySelectorAll('a').forEach((link) => {
+            link.addEventListener('click', closeMenu)
+          })
+        })
+      })()
+
+      ;(() => {
+        const root = document.documentElement
+        const button = document.querySelector('.theme-toggle')
+        if (!button) return
+
+        const options = [
+          { choice: 'system', label: '使用系统主题', nextLabel: '浅色主题' },
+          { choice: 'light', label: '浅色主题', nextLabel: '深色主题' },
+          { choice: 'dark', label: '深色主题', nextLabel: '系统主题' },
+        ]
+
+        let index = 0
+
+        const applyTheme = () => {
+          const current = options[index]
+          root.dataset.themeChoice = current.choice
+
+          if (current.choice === 'system') {
+            root.removeAttribute('data-theme')
+          } else {
+            root.dataset.theme = current.choice
+          }
+
+          button.setAttribute('aria-label', `主题：${current.label}。切换到${current.nextLabel}。`)
+          button.setAttribute('title', `主题：${current.label}。点击切换到${current.nextLabel}。`)
+        }
+
+        button.addEventListener('click', () => {
+          index = (index + 1) % options.length
+          applyTheme()
+        })
+
+        applyTheme()
+      })()
+
+      ;(() => {
+        const form = document.querySelector('form[name="contact"]')
+        if (!form) return
+
+        const subjectText = form.querySelector('[name="subject_text"]')
+        const composedSubject = form.querySelector('[name="subject"]')
+        if (!subjectText || !composedSubject) return
+
+        const syncSubject = () => {
+          const data = new FormData(form)
+          const parts = [data.get('reason'), data.get('bug_area')].filter(Boolean)
+          const reason = parts.length ? parts.join(' / ') : '联系'
+          const subject = subjectText.value.trim()
+          composedSubject.value = subject ? `[${reason}] ${subject}` : `[${reason}]`
+        }
+
+        const setPanelState = (panel, isVisible) => {
+          panel.hidden = !isVisible
+          panel.querySelectorAll('input, textarea, select').forEach((field) => {
+            field.disabled = !isVisible
+            if (!isVisible && field.type === 'radio') {
+              field.checked = false
+            }
+          })
+        }
+
+        const syncPanels = () => {
+          const data = new FormData(form)
+          const reason = data.get('reason')
+          const bugArea = data.get('bug_area')
+          const bugPanel = form.querySelector('[data-topic-panel="bug"]')
+          const audiobookPanel = form.querySelector('[data-topic-panel="audiobook"]')
+          const isBug = reason === 'Bug or issue'
+          const needsAudiobookDetails = reason === 'Language request'
+            || reason === 'Voice or model request'
+            || (isBug && bugArea === 'Audiobooks')
+
+          if (bugPanel) {
+            setPanelState(bugPanel, isBug)
+            bugPanel.querySelectorAll('[name="bug_area"]').forEach((field) => {
+              field.required = isBug
+            })
+          }
+
+          if (audiobookPanel) {
+            setPanelState(audiobookPanel, needsAudiobookDetails)
+          }
+
+          syncSubject()
+        }
+
+        form.addEventListener('submit', syncSubject)
+        subjectText.addEventListener('input', syncSubject)
+        form.querySelector('[name="reason"]')?.addEventListener('change', syncPanels)
+        form.querySelectorAll('[name="bug_area"]').forEach((input) => {
+          input.addEventListener('change', syncPanels)
+        })
+        syncPanels()
+      })()
+    </script>
+  </body>
+</html>

@@ -21,7 +21,9 @@ mod rewrite;
 use assets::{load_cover_asset, load_image_assets, ManifestItem};
 use paths::{opf_base_dir, resolve_archive_path};
 use render::{render_chapter, render_reading_html};
-use rewrite::{collect_fragment_anchors, rewrite_epub_fragment};
+use rewrite::{collect_fragment_anchors, collect_image_paths, rewrite_epub_fragment};
+
+pub(crate) use assets::externalize_inline_image_assets;
 
 const CONTAINER_PATH: &str = "META-INF/container.xml";
 const MAX_MIMETYPE_BYTES: u64 = 128;
@@ -59,7 +61,6 @@ pub(crate) fn parse_epub_document(
             file_name: cover.file_name,
             bytes: cover.bytes,
         });
-    let image_assets = load_image_assets(&mut archive, &package.manifest);
     let chapter_indexes: HashMap<String, usize> = package
         .spine_paths
         .iter()
@@ -68,6 +69,7 @@ pub(crate) fn parse_epub_document(
         .collect();
 
     let mut chapter_drafts = Vec::new();
+    let mut referenced_image_paths = HashSet::new();
     let mut total_chapter_text_bytes = 0u64;
     for (index, chapter_path) in package.spine_paths.iter().enumerate() {
         let raw = read_zip_text_limited(&mut archive, chapter_path, MAX_CHAPTER_TEXT_BYTES)?;
@@ -80,19 +82,30 @@ pub(crate) fn parse_epub_document(
         let (language, direction) = extract_xhtml_metadata(&raw);
         let body = extract_body_inner(&raw).unwrap_or(raw.as_str());
         let sanitized = sanitize_epub_fragment(body);
-        if normalize_text(&strip_tags(&sanitized)).is_empty() {
+        let image_paths = collect_image_paths(&sanitized, chapter_path);
+        if normalize_text(&strip_tags(&sanitized)).is_empty() && image_paths.is_empty() {
             continue;
         }
+        referenced_image_paths.extend(image_paths.iter().cloned());
         chapter_drafts.push(ChapterDraft {
             index,
             path: chapter_path.clone(),
             anchors: collect_fragment_anchors(&sanitized),
             sanitized,
+            image_paths,
             language,
             direction,
         });
     }
 
+    let image_assets = load_image_assets(&mut archive, &package.manifest, &referenced_image_paths);
+    chapter_drafts.retain(|chapter| {
+        !normalize_text(&strip_tags(&chapter.sanitized)).is_empty()
+            || chapter
+                .image_paths
+                .iter()
+                .any(|path| image_assets.paths.contains_key(path))
+    });
     let readable_paths: HashSet<String> = chapter_drafts
         .iter()
         .map(|chapter| chapter.path.clone())
@@ -111,7 +124,7 @@ pub(crate) fn parse_epub_document(
             &chapter_indexes,
             &readable_paths,
             &anchor_indexes,
-            &image_assets,
+            &image_assets.paths,
         );
         chapters.push(render_chapter(
             chapter.index,
@@ -137,6 +150,7 @@ pub(crate) fn parse_epub_document(
         return Err("EPUB did not contain readable sections".into());
     }
     parsed.cover = cover;
+    parsed.assets = image_assets.files;
     Ok(parsed)
 }
 
@@ -154,6 +168,7 @@ struct ChapterDraft {
     path: String,
     sanitized: String,
     anchors: HashSet<String>,
+    image_paths: HashSet<String>,
     language: Option<String>,
     direction: Option<String>,
 }
@@ -592,10 +607,22 @@ mod tests {
         assert!(parsed.view_html.contains("href=\"#ch1-start\""));
         assert!(parsed.view_html.contains("href=\"#chapter-2\""));
         assert!(parsed.view_html.contains("id=\"ch1-start\""));
-        assert!(parsed.view_html.contains("src=\"data:image/png;base64,"));
+        assert!(parsed.view_html.contains("data-papercut-asset=\"image-"));
+        assert!(parsed.view_html.contains("loading=\"lazy\""));
+        assert!(parsed.view_html.contains("decoding=\"async\""));
         assert!(parsed.view_html.contains("alt=\"Cover\""));
+        assert!(parsed.view_html.contains("alt=\"Photo-only section\""));
         assert!(!parsed.view_html.contains("OPS/text/chapter1.xhtml#start"));
         assert!(!parsed.view_html.contains("../images/cover.png"));
+        assert_eq!(parsed.assets.len(), 2);
+        assert!(parsed
+            .assets
+            .iter()
+            .any(|asset| asset.bytes == b"\x89PNG\r\n\x1a\nimage"));
+        assert!(parsed
+            .assets
+            .iter()
+            .any(|asset| asset.bytes == b"\x89PNG\r\n\x1a\nphoto"));
         let cover = parsed.cover.expect("EPUB 3 cover-image asset");
         assert_eq!(cover.media_type, "image/png");
         assert_eq!(cover.file_name, "cover.png");
@@ -664,7 +691,7 @@ mod tests {
             zip.start_file(CONTAINER_PATH, deflated).unwrap();
             zip.write_all(container_xml().as_bytes()).unwrap();
             zip.start_file("OPS/package.opf", deflated).unwrap();
-            zip.write_all(opf_xml().as_bytes()).unwrap();
+            zip.write_all(empty_spine_opf_xml().as_bytes()).unwrap();
             zip.start_file("OPS/nav.xhtml", deflated).unwrap();
             zip.write_all(b"<html><body></body></html>").unwrap();
             zip.start_file("OPS/text/chapter1.xhtml", deflated).unwrap();
@@ -767,8 +794,15 @@ mod tests {
             zip.start_file("OPS/text/chapter2.xhtml", deflated).unwrap();
             zip.write_all(b"<html><body><p>Second chapter.</p></body></html>")
                 .unwrap();
+            zip.start_file("OPS/text/photos.xhtml", deflated).unwrap();
+            zip.write_all(
+                b"<html><body><img src='../images/photo.png' alt='Photo-only section'/></body></html>",
+            )
+            .unwrap();
             zip.start_file("OPS/images/cover.png", deflated).unwrap();
             zip.write_all(b"\x89PNG\r\n\x1a\nimage").unwrap();
+            zip.start_file("OPS/images/photo.png", deflated).unwrap();
+            zip.write_all(b"\x89PNG\r\n\x1a\nphoto").unwrap();
             zip.finish().unwrap();
         }
         archive
@@ -790,7 +824,11 @@ mod tests {
         r#"<?xml version="1.0"?><package><metadata><title>Hostile Fixture</title></metadata><manifest><item id="c1" href="text/chapter1.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c1"/></spine></package>"#
     }
 
+    fn empty_spine_opf_xml() -> &'static str {
+        r#"<?xml version="1.0"?><package><metadata><title>Empty Fixture</title></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml"/><item id="c1" href="text/chapter1.xhtml" media-type="application/xhtml+xml"/><item id="c2" href="text/chapter2.xhtml" media-type="application/xhtml+xml"/><item id="img" href="images/cover.png" media-type="image/png"/></manifest><spine><itemref idref="nav"/><itemref idref="c1"/><itemref idref="c2"/></spine></package>"#
+    }
+
     fn opf_xml() -> &'static str {
-        r#"<?xml version="1.0"?><package><metadata><title>Fixture</title></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml"/><item id="c1" href="text/chapter1.xhtml" media-type="application/xhtml+xml"/><item id="c2" href="text/chapter2.xhtml" media-type="application/xhtml+xml"/><item id="img" href="images/cover.png" media-type="image/png" properties="cover-image"/></manifest><spine><itemref idref="nav"/><itemref idref="c1"/><itemref idref="c2"/></spine></package>"#
+        r#"<?xml version="1.0"?><package><metadata><title>Fixture</title></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml"/><item id="c1" href="text/chapter1.xhtml" media-type="application/xhtml+xml"/><item id="c2" href="text/chapter2.xhtml" media-type="application/xhtml+xml"/><item id="photos" href="text/photos.xhtml" media-type="application/xhtml+xml"/><item id="img" href="images/cover.png" media-type="image/png" properties="cover-image"/><item id="photo" href="images/photo.png" media-type="image/png"/></manifest><spine><itemref idref="nav"/><itemref idref="c1"/><itemref idref="c2"/><itemref idref="photos"/></spine></package>"#
     }
 }

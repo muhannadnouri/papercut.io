@@ -2,6 +2,7 @@
 
 use std::fs;
 use std::path::Path;
+use std::sync::{Mutex, OnceLock};
 
 use serde::Deserialize;
 use tauri::{Manager, Runtime};
@@ -10,6 +11,24 @@ use tauri::{Manager, Runtime};
 #[serde(rename_all = "camelCase")]
 struct AudiobookDocumentReference {
     document_url: String,
+}
+
+// ponytail: One process-wide lock is enough while these transactions stay brief;
+// split by document only if concurrent save/delete startup becomes measurable.
+static AUDIOBOOK_REFERENCE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+/// Serialize the short source-reference publication and deletion transactions.
+///
+/// Generation intentionally runs outside this lock: only the pending manifest
+/// needs to become visible atomically with source validation.
+pub(crate) fn with_audiobook_reference_lock<T>(
+    operation: impl FnOnce() -> Result<T, String>,
+) -> Result<T, String> {
+    let _guard = AUDIOBOOK_REFERENCE_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .map_err(|_| "Audiobook source-reference lock poisoned".to_string())?;
+    operation()
 }
 
 /// Detect whether any manifest still depends on a document before deletion.

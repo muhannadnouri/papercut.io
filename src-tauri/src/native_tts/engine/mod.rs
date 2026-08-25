@@ -40,7 +40,7 @@ mod synth;
 mod text_normalization;
 mod wav_sink;
 
-pub(crate) use synth::LoadedTtsEngine;
+pub(crate) use synth::{preview_voice, LoadedTtsEngine};
 
 pub(crate) use bundle::{
     delete_audiobook_native, export_audiobook_native, get_imported_audiobook_metadata,

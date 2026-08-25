@@ -1,5 +1,9 @@
 import type { ViewerFindApi, ViewerFindResult } from './types'
 import type { SearchOpenTarget } from '../types/search'
+import {
+  normalizeSearchPunctuation,
+  SEARCH_DASH_CHARACTERS,
+} from '../utils/textUtils'
 
 interface PdfFindEventBus {
   on: (name: string, listener: (event: PdfFindResultEvent) => void) => void
@@ -96,15 +100,62 @@ export function createPdfFindAdapter(
   }
 }
 
-/** Let PDF.js match a typed compound, its spaced extraction form, or the
- * canonical word without replacing PDF.js's own text/offset normalization. */
+/** Let PDF.js independently match compact, line-wrapped, or joined spellings
+ * for a few compounds without allowing pasted input to expand without bound. */
 function pdfFindQuery(input: string): PdfJsQuery {
   const original = input.trim()
   if (!original) return ''
 
-  const compact = original.replace(/(\p{L})-\s+(?=\p{L})/gu, '$1-')
-  const spaced = compact.replace(/(\p{L})-(?=\p{L})/gu, '$1- ')
-  const joined = compact.replace(/(\p{L})-(?=\p{L})/gu, '$1')
-  const aliases = [...new Set([original, compact, spaced, joined])]
-  return aliases.length === 1 ? original : aliases
+  const normalized = normalizeSearchPunctuation(original)
+  const compact = normalized.replace(/(\p{L})-\s+(?=\p{L})/gu, '$1-')
+  const characters = Array.from(compact)
+  const positions = characters
+    .map((character, index) => (
+      character === '-'
+      && index > 0
+      && index + 1 < characters.length
+      && /\p{L}/u.test(characters[index - 1])
+      && /\p{L}/u.test(characters[index + 1])
+        ? index
+        : -1
+    ))
+    .filter((index) => index >= 0)
+    .slice(0, 3)
+  const aliases = new Set([original, normalized])
+  const combinations = 3 ** positions.length
+  for (let combination = 0; combination < combinations; combination += 1) {
+    let state = combination
+    const choices = new Map<number, number>()
+    positions.forEach((position) => {
+      choices.set(position, state % 3)
+      state = Math.floor(state / 3)
+    })
+    aliases.add(characters.map((character, index) => {
+      const choice = choices.get(index)
+      if (choice === 1) return '- '
+      if (choice === 2) return ''
+      return character
+    }).join(''))
+  }
+  aliases.add(compact.replace(/(\p{L})-(?=\p{L})/gu, '$1'))
+
+  // ponytail: independently vary two compounds (at most 49 dash aliases);
+  // expand only if real PDFs justify the extra PDF.js search work.
+  const mixedDashPositions = positions.slice(0, 2)
+  const dashCombinations = SEARCH_DASH_CHARACTERS.length ** mixedDashPositions.length
+  for (let combination = 0; combination < dashCombinations; combination += 1) {
+    let state = combination
+    const choices = new Map<number, string>()
+    mixedDashPositions.forEach((position) => {
+      choices.set(position, SEARCH_DASH_CHARACTERS[state % SEARCH_DASH_CHARACTERS.length])
+      state = Math.floor(state / SEARCH_DASH_CHARACTERS.length)
+    })
+    aliases.add(characters.map((character, index) => choices.get(index) ?? character).join(''))
+  }
+  for (const dash of SEARCH_DASH_CHARACTERS.slice(1)) {
+    aliases.add(compact.replaceAll('-', dash))
+  }
+
+  const values = [...aliases]
+  return values.length === 1 ? original : values
 }

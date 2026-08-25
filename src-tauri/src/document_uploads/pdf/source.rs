@@ -10,19 +10,22 @@ use super::super::storage::{
     upload_source_path, upload_url, StoredSourceKind, MAX_PDF_UPLOAD_BYTES,
 };
 use super::super::store::{find_upload_by_id, open_db, upsert_unindexed_document};
-use super::super::types::UploadedDocument;
+use super::super::types::{UploadedDocument, UploadedDocumentImportStage};
 
 pub(crate) const SOURCE_FILE_NAME: &str = "source.pdf";
 
 /// Store one selected PDF before PDF.js derives its rebuildable page text.
 /// The source is not considered searchable until the separate finalization
-/// command atomically replaces its page and FTS rows.
+/// command atomically replaces its page and FTS rows. Progress identifiers are
+/// stable API values; the frontend owns their localized wording.
 pub(crate) fn import_pdf_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
     fallback_title: String,
     original_file_name: Option<String>,
+    progress: &mut dyn FnMut(UploadedDocumentImportStage),
 ) -> Result<UploadedDocument, String> {
+    progress(UploadedDocumentImportStage::ReadingFile);
     let bytes = read_source_bytes(
         app,
         source,
@@ -39,6 +42,7 @@ pub(crate) fn import_pdf_source<R: Runtime>(
         return Ok(existing);
     }
 
+    progress(UploadedDocumentImportStage::StoringDocument);
     let imported_at_ms = now_ms()?;
     let source_kind = StoredSourceKind::Pdf;
     let url = upload_url(&id, source_kind);
@@ -154,6 +158,7 @@ pub(crate) fn restore_transferred_pdf<R: Runtime>(
         bytes: original_bytes,
         sections: 0,
         cover_media_type: None,
+        text_status: "processing".into(),
     })
 }
 
@@ -180,6 +185,7 @@ fn validate_transferred_pdf_size(source_bytes: u64) -> Result<(), String> {
 /// Unlike library transfer, the bundle already names its source URL before its
 /// payload is read. Recomputing the content id here prevents a crafted bundle
 /// from writing PDF bytes under another document's stable identity.
+#[cfg(feature = "native-tts-core")]
 pub(crate) fn restore_audiobook_pdf<R: Runtime>(
     app: &tauri::AppHandle<R>,
     document_url: &str,
@@ -269,6 +275,7 @@ fn persist_unindexed_pdf<R: Runtime>(
         bytes,
         sections: 0,
         cover_media_type: None,
+        text_status: "processing".into(),
     })
 }
 
@@ -284,6 +291,8 @@ mod tests {
         let source = b"%PDF-1.7\nfixture";
         assert!(validate_transferred_pdf_source(&source_upload_id(source), source).is_ok());
         assert!(validate_transferred_pdf_source(&source_upload_id(b"different"), source).is_err());
+        let invalid = b"not a PDF";
+        assert!(validate_transferred_pdf_source(&source_upload_id(invalid), invalid).is_err());
         assert!(validate_transferred_pdf_size(MAX_PDF_UPLOAD_BYTES + 1).is_err());
     }
 }

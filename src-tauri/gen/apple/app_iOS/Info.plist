@@ -15,13 +15,15 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.4</string>
+	<string>1.9.0</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.4</string>
+	<string>1.9.0</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Papercut uses the camera only when you choose to scan document pages.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Papercut uses your local network only when you choose to transfer a library between nearby devices.</string>
 	<key>UIBackgroundModes</key>

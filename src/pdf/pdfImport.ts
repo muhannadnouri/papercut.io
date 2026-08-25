@@ -13,7 +13,12 @@ import {
   type UploadedDocumentBatchProgress,
   type UploadedDocumentBatchResult,
 } from '../uploads/DocumentUploads'
-import { loadPdfJs, pdfJsAssetRoot } from './pdfJs'
+import { loadPdfJs, pdfJsAssetRoot, pdfLoadErrorMessage } from './pdfJs'
+import {
+  finalizedPdfTextStatus,
+  hasPdfPageImages,
+  hasUsableNativePdfText,
+} from './ocr/pdfOcrReadiness'
 
 const MAX_PDF_PAGES = 2_000
 const THUMBNAIL_MAX_WIDTH = 480
@@ -22,6 +27,7 @@ const THUMBNAIL_MAX_HEIGHT = 720
 interface PdfImportOptions {
   signal?: AbortSignal
   onProgress?: (progress: UploadedDocumentBatchProgress) => void
+  titleOverride?: string
 }
 
 /**
@@ -44,15 +50,17 @@ export async function indexImportedPdfs(
     }
     options.onProgress?.({
       phase: 'importing',
+      stage: 'extractingPdfText',
       processed: completed.length + failures.length,
       total: result.selected,
-      imported: completed.length,
+      imported: Math.max(0, completed.length - result.alreadyInLibrary.length),
+      alreadyInLibrary: result.alreadyInLibrary.length,
       failed: failures.length,
       fileName: document.title,
     })
 
     try {
-      completed.push(await extractAndIndexPdf(document, options.signal))
+      completed.push(await extractAndIndexPdf(document, options.signal, options.titleOverride))
     } catch (error) {
       await deleteUploadedDocument(document.url).catch(() => undefined)
       if (options.signal?.aborted) {
@@ -61,7 +69,7 @@ export async function indexImportedPdfs(
       }
       failures.push({
         fileName: document.title,
-        error: error instanceof Error ? error.message : String(error),
+        error: pdfLoadErrorMessage(error),
       })
     }
   }
@@ -72,6 +80,7 @@ export async function indexImportedPdfs(
 async function extractAndIndexPdf(
   document: UploadedDocument,
   signal?: AbortSignal,
+  titleOverride?: string,
 ): Promise<UploadedDocument> {
   throwIfAborted(signal)
   const pdfjs = await loadPdfJs()
@@ -84,12 +93,12 @@ async function extractAndIndexPdf(
 
   try {
     const pdf = await loadingTask.promise
-    if (pdf.numPages > MAX_PDF_PAGES) {
-      throw new Error(`PDF exceeds the ${MAX_PDF_PAGES}-page import limit`)
-    }
+    assertPdfPageCount(pdf.numPages)
     const metadata = await pdf.getMetadata().catch(() => null)
-    const title = metadataTitle(metadata?.info)
+    const title = titleOverride ?? metadataTitle(metadata?.info)
     let thumbnail: number[] | undefined
+    let hasUsableText = false
+    let hasRecognitionCandidate = false
 
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       throwIfAborted(signal)
@@ -103,6 +112,12 @@ async function extractAndIndexPdf(
           })
         }
         const content = await page.getTextContent({ disableNormalization: true })
+        const usableText = hasUsableNativePdfText(content)
+        hasUsableText ||= usableText
+        if (!usableText) {
+          const operatorList = await page.getOperatorList()
+          hasRecognitionCandidate ||= hasPdfPageImages(operatorList.fnArray, pdfjs.OPS)
+        }
         await storeUploadedPdfPageText(document.url, pageTextLayer(
           pdfjs.Util.transform,
           content,
@@ -116,9 +131,21 @@ async function extractAndIndexPdf(
       }
     }
 
-    return finalizeUploadedPdf(document.url, title, pdf.numPages, thumbnail)
+    return finalizeUploadedPdf(
+      document.url,
+      title,
+      pdf.numPages,
+      thumbnail,
+      finalizedPdfTextStatus(hasUsableText, hasRecognitionCandidate),
+    )
   } finally {
     await loadingTask.destroy()
+  }
+}
+
+export function assertPdfPageCount(pageCount: number): void {
+  if (pageCount > MAX_PDF_PAGES) {
+    throw new Error(`PDF exceeds the ${MAX_PDF_PAGES}-page import limit`)
   }
 }
 

@@ -14,6 +14,12 @@ export function decodeReaderHash(value: string): string {
   }
 }
 
+export function readerSectionSelector(sectionIndex: number | undefined): string | null {
+  return Number.isSafeInteger(sectionIndex) && sectionIndex !== undefined && sectionIndex >= 0
+    ? `[data-papercut-section="${sectionIndex}"]`
+    : null
+}
+
 export function clearSearchTargetHighlight(root: HTMLElement): void {
   const doc = root.ownerDocument
   clearSearchTargetRegistry(doc)
@@ -31,7 +37,17 @@ export function clearSearchTargetHighlight(root: HTMLElement): void {
 // then scroll to the Range rect. The DOM fallback is only for non-iOS WebViews
 // that do not expose CSS.highlights.
 export function highlightFirstSearchTarget(root: HTMLElement, text: string): Range | null {
-  const match = findReaderTextMatches(root, text, 1)[0]
+  return highlightSearchTarget(root, text, 0)
+}
+
+/** Highlight one occurrence without rebuilding or mutating the surrounding
+ * reader DOM. OCR Find uses the occurrence index returned by its page counts. */
+export function highlightSearchTarget(
+  root: HTMLElement,
+  text: string,
+  occurrenceIndex: number,
+): Range | null {
+  const match = findReaderTextMatches(root, text, occurrenceIndex + 1)[occurrenceIndex]
   if (!match) return null
   const { range } = match
   if (setSearchTargetRegistryHighlight(root.ownerDocument, range)) return range
@@ -100,6 +116,11 @@ export function scrollToReaderRange(range: Range): void {
   const rect = range.getBoundingClientRect()
   const targetTop = window.scrollY + rect.top
   window.scrollTo({ top: Math.max(targetTop - window.innerHeight / 2, 0), behavior: readerScrollBehavior() })
+}
+
+export function scrollToReaderElement(element: Element): void {
+  const targetTop = window.scrollY + element.getBoundingClientRect().top
+  window.scrollTo({ top: Math.max(targetTop - 120, 0), behavior: readerScrollBehavior() })
 }
 
 export function readerScrollBehavior(): ScrollBehavior {

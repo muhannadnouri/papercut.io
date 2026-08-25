@@ -24,6 +24,59 @@
   min-height: 100dvh;
 }
 
+.app-reader.app-reader-pdf-fullscreen {
+  background: var(--app-bg);
+  height: 100dvh;
+  inset: 0;
+  max-width: none;
+  min-height: 100dvh;
+  padding: 0;
+  position: fixed;
+  width: 100%;
+  z-index: 300;
+}
+
+.app-reader-pdf.app-reader-pdf-fullscreen .doc-header {
+  grid-template-areas: "viewer";
+  grid-template-columns: minmax(0, 1fr);
+  inset: 0 0 auto;
+  margin: 0;
+  padding:
+    max(env(safe-area-inset-top), 0.35rem)
+    max(env(safe-area-inset-right), 0.35rem)
+    0.35rem
+    max(env(safe-area-inset-left), 0.35rem);
+  pointer-events: none;
+  position: absolute;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+  width: 100%;
+  z-index: 45;
+}
+
+.app-reader-pdf.app-reader-pdf-fullscreen .viewer-toolbar-slot {
+  pointer-events: auto;
+}
+
+.app-reader-pdf.app-reader-pdf-fullscreen.app-reader-pdf-toolbar-hidden .doc-header {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-100%);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.app-reader-pdf.app-reader-pdf-fullscreen.app-reader-pdf-toolbar-hidden .viewer-toolbar-slot {
+  pointer-events: none;
+}
+
+.app-reader-pdf.app-reader-pdf-fullscreen .header-left,
+.app-reader-pdf.app-reader-pdf-fullscreen .header-right {
+  display: none;
+}
+
 .app-reader-pdf .doc-header {
   grid-template-areas:
     "back controls"
@@ -70,6 +123,13 @@
   padding: 0;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .app-reader-pdf.app-reader-pdf-fullscreen .doc-header,
+  .app-reader-pdf.app-reader-pdf-fullscreen.app-reader-pdf-toolbar-hidden .doc-header {
+    transition: none;
+  }
+}
+
 .header-controls-slot {
   display: inline-flex;
   align-items: center;
@@ -96,19 +156,19 @@
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  background: var(--surface-muted);
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  background: var(--control-surface);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
   padding: 0.5rem 1rem;
   font-size: 0.9rem;
   cursor: pointer;
   color: var(--text-body);
-  transition: all 0.15s;
+  transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
   white-space: nowrap;
 }
 
 .back-button:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   color: var(--accent-text);
   background: var(--surface-accent);
   outline: none;
@@ -121,19 +181,19 @@
   justify-content: center;
   gap: 0.45rem;
   min-height: 2.35rem;
-  background: var(--surface-muted);
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  background: var(--control-surface);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
   padding: 0.5rem 1rem;
   font-size: 0.9rem;
   cursor: pointer;
   color: var(--text-body);
-  transition: all 0.15s;
+  transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
   white-space: nowrap;
 }
 
 .find-btn:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   color: var(--accent-text);
   background: var(--surface-accent);
   outline: none;
@@ -141,6 +201,7 @@
 }
 
 .find-btn:disabled {
+  background: var(--surface-muted);
   color: var(--text-soft);
   cursor: not-allowed;
 }
@@ -164,12 +225,46 @@ html[dir="rtl"] .back-icon {
   margin-top: 1rem;
 }
 
+.app-reader[data-reader-theme="gray"] {
+  --reader-surface: #4a494f;
+  --reader-text: #dedcdf;
+  --reader-muted: #c3c0c5;
+  --reader-heading: #f0eef1;
+  --reader-link: #c5c8ff;
+  --reader-link-hover: #e0e2ff;
+  --reader-border: #5b5960;
+  --reader-subtle: #3e3d42;
+  --reader-accent-border: #b2b6ff;
+  --reader-highlight-find: #8c7724;
+  --reader-highlight-current: #f59e0b;
+  --reader-highlight-current-text: #171717;
+}
+
+.app-reader[data-reader-theme="black"] {
+  --reader-surface: #000;
+  --reader-text: #dedede;
+  --reader-muted: #adb2ba;
+  --reader-heading: #f4f4f5;
+  --reader-link: #aeb4ff;
+  --reader-link-hover: #d5d8ff;
+  --reader-border: #343840;
+  --reader-subtle: #17191d;
+  --reader-accent-border: #939bf5;
+  --reader-highlight-find: #715f18;
+  --reader-highlight-current: #f59e0b;
+  --reader-highlight-current-text: #171717;
+}
+
+.app-reader:is([data-reader-theme="gray"], [data-reader-theme="black"]) .document-html-surface {
+  color-scheme: dark;
+}
+
 .document-html-surface {
   width: 100%;
   min-height: 320px;
   display: block;
-  border: 1px solid var(--border-strong);
-  border-radius: 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-surface);
   background: var(--reader-surface);
   color: var(--reader-text);
   padding: 2rem 1.25rem;
@@ -192,6 +287,31 @@ html[dir="rtl"] .back-icon {
   min-height: 320px;
   color: var(--text-body);
   font-weight: 600;
+}
+
+.document-loading-message {
+  display: grid;
+  gap: 0.2rem;
+}
+
+/* Keep quick opens visually quiet. These details become accessible when their
+ * visibility changes, without adding timer state to the reader. */
+.document-loading-detail {
+  visibility: hidden;
+  color: var(--text-soft);
+  font-size: 0.85em;
+  font-weight: 500;
+  animation: reveal-document-loading-detail 0s 700ms forwards;
+}
+
+.document-loading-detail-slow {
+  animation-delay: 5s;
+}
+
+@keyframes reveal-document-loading-detail {
+  to {
+    visibility: visible;
+  }
 }
 
 .document-load-error {
@@ -227,7 +347,7 @@ html[dir="rtl"] .back-icon {
 
 .document-html-content .epub-chapter + .epub-chapter {
   padding-block-start: 1.25rem;
-  border-top: 1px solid var(--surface-hover);
+  border-top: 1px solid var(--reader-border);
 }
 
 .document-html-content :is(ul, ol) {
@@ -247,7 +367,7 @@ html[dir="rtl"] .back-icon {
   margin-inline: 0;
   padding-block: 0.05em;
   padding-inline-start: 1.1em;
-  border-inline-start: 3px solid var(--accent-border);
+  border-inline-start: 3px solid var(--reader-accent-border);
   color: var(--reader-text);
 }
 
@@ -262,15 +382,15 @@ html[dir="rtl"] .back-icon {
 .document-html-content :is(h1, h2, h3, h4, h5, h6) {
   margin-block-start: 1.45em;
   margin-block-end: 0.55em;
-  color: var(--text-heading);
+  color: var(--reader-heading);
   line-height: 1.25;
 }
 
 .document-html-content :is(code, kbd, samp) {
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--surface-muted);
-  color: var(--text-heading);
+  border: 1px solid var(--reader-border);
+  border-radius: var(--radius-inline);
+  background: var(--reader-subtle);
+  color: var(--reader-heading);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.9em;
   padding: 0.1em 0.25em;
@@ -279,9 +399,9 @@ html[dir="rtl"] .back-icon {
 .document-html-content pre {
   overflow-x: auto;
   padding: 0.85rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface-muted);
+  border: 1px solid var(--reader-border);
+  border-radius: var(--radius-control);
+  background: var(--reader-subtle);
 }
 
 .document-html-content pre code {
@@ -295,21 +415,21 @@ html[dir="rtl"] .back-icon {
   max-width: 100%;
   height: auto;
   margin: 1rem auto;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
 }
 
 .document-html-content a[href] {
-  color: var(--link);
+  color: var(--reader-link);
 }
 
 .document-html-content a[href]:hover {
-  color: var(--link-hover);
+  color: var(--reader-link-hover);
 }
 
 .document-html-content mark[data-search-target] {
   border-radius: 3px;
-  background: var(--highlight-current);
-  color: var(--highlight-current-text);
+  background: var(--reader-highlight-current);
+  color: var(--reader-highlight-current-text);
   padding: 0 0.12em;
 }
 
@@ -333,30 +453,38 @@ html[dir="rtl"] .back-icon {
   justify-content: center;
   width: 2.85rem;
   height: 2.85rem;
-  border: 1px solid var(--border-strong);
-  border-radius: 10px;
-  background: var(--surface-hover);
-  color: var(--text-heading);
+  border: 1px solid transparent;
+  border-radius: var(--radius-surface);
+  background: var(--control-surface);
+  color: var(--accent-text);
   box-shadow: 0 6px 18px var(--shadow-strong);
   padding: 0;
   cursor: pointer;
 }
 
 .reader-bookmark-btn:focus-visible {
-  border-color: var(--accent-text);
-  background: var(--surface-accent);
-  color: var(--accent-text);
+  border-color: transparent;
+  background: var(--surface-accent-strong);
+  color: var(--accent-strong);
   outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus), 0 6px 18px var(--shadow-strong);
+}
+
+.reader-bookmark-btn[data-pressed],
+.reader-bookmark-btn[aria-expanded="true"] {
+  border-color: transparent;
+  background: var(--surface-accent-strong);
+  color: var(--accent-strong);
 }
 
 .reader-bookmark-btn-active {
-  border-color: var(--accent);
+  border-color: transparent;
   background: var(--accent);
   color: var(--text-inverse);
 }
 
 .reader-bookmark-btn-active:focus-visible {
-  border-color: var(--accent-hover);
+  border-color: transparent;
   background: var(--accent-hover);
   color: var(--text-inverse);
 }
@@ -375,17 +503,71 @@ html[dir="rtl"] .back-icon {
   fill: currentcolor;
 }
 
+.reader-bookmark-popover {
+  z-index: 200;
+  min-width: min(13rem, calc(100vw - 2rem));
+}
+
+.reader-bookmark-menu {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: var(--radius-compact);
+  background: var(--surface-strong);
+  box-shadow: 0 12px 28px var(--shadow-popover);
+}
+
+.reader-bookmark-menu-item {
+  min-height: 2.6rem;
+  padding: 0.65rem 0.8rem;
+  border-bottom: 1px solid var(--row-divider);
+  background: var(--surface-strong);
+  color: var(--text-heading);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: start;
+}
+
+.reader-bookmark-menu-item:last-child {
+  border-bottom: 0;
+}
+
+.reader-bookmark-menu-item[data-focused] {
+  background: var(--surface-accent);
+  color: var(--accent-strong);
+  outline: none;
+}
+
+.reader-bookmark-menu-item-danger {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--danger);
+}
+
+.reader-bookmark-menu-item-icon {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .reader-bookmark-notice {
   bottom: calc(9.1rem + env(safe-area-inset-bottom));
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   max-width: min(24rem, calc(100vw - 2rem));
-  border: 1px solid var(--accent-border);
-  border-radius: 10px;
-  background: var(--surface);
+  border: 1px solid transparent;
+  border-radius: var(--radius-surface);
+  background: var(--control-surface);
   color: var(--text-body);
-  box-shadow: 0 8px 24px var(--shadow-strong);
+  box-shadow: 0 8px 24px var(--shadow-dialog);
   padding: 0.55rem 0.65rem 0.55rem 0.8rem;
   font-size: 0.88rem;
   font-weight: 600;
@@ -398,9 +580,9 @@ html[dir="rtl"] .back-icon {
 }
 
 .reader-bookmark-notice button {
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  background: var(--surface-muted);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--surface);
   color: var(--accent-text);
   font: inherit;
   cursor: pointer;
@@ -408,23 +590,43 @@ html[dir="rtl"] .back-icon {
 }
 
 .reader-bookmark-notice button:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   background: var(--surface-accent);
   outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .back-button:hover,
-  .find-btn:hover:not(:disabled),
-  .reader-bookmark-btn:hover,
-  .reader-bookmark-notice button:hover {
-    border-color: var(--accent-text);
+  .find-btn:hover:not(:disabled) {
+    border-color: transparent;
     color: var(--accent-text);
     background: var(--surface-accent);
   }
 
+  .reader-bookmark-btn:hover {
+    border-color: transparent;
+    background: var(--surface-accent-strong);
+    color: var(--accent-strong);
+  }
+
+  .reader-bookmark-menu-item:hover {
+    background: var(--surface-accent);
+    color: var(--accent-strong);
+  }
+
+  .reader-bookmark-menu-item-danger:hover {
+    color: var(--danger);
+  }
+
+  .reader-bookmark-notice button:hover {
+    border-color: transparent;
+    background: var(--surface-accent);
+    color: var(--accent-text);
+  }
+
   .reader-bookmark-btn-active:hover {
-    border-color: var(--accent-hover);
+    border-color: transparent;
     background: var(--accent-hover);
     color: var(--text-inverse);
   }
@@ -438,8 +640,18 @@ html[dir="rtl"] .back-icon {
 }
 
 ::highlight(search-target) {
-  background-color: var(--highlight-current);
-  color: var(--highlight-current-text);
+  background-color: var(--reader-highlight-current);
+  color: var(--reader-highlight-current-text);
+}
+
+::highlight(find-match) {
+  background-color: var(--reader-highlight-find);
+  color: inherit;
+}
+
+::highlight(find-current) {
+  background-color: var(--reader-highlight-current);
+  color: var(--reader-highlight-current-text);
 }
 
 /* Legacy imported audiobook bundles can restore pre-CSS HTML such as
@@ -450,7 +662,15 @@ html[data-theme="dark"] .document-html-content :where(font[color], [color]) {
   color: inherit;
 }
 
+.app-reader:is([data-reader-theme="gray"], [data-reader-theme="black"]) .document-html-content :where(font[color], [color]) {
+  color: inherit;
+}
+
 html[data-theme="dark"] .document-html-content :where([bgcolor]) {
+  background-color: transparent;
+}
+
+.app-reader:is([data-reader-theme="gray"], [data-reader-theme="black"]) .document-html-content :where([bgcolor]) {
   background-color: transparent;
 }
 
@@ -463,19 +683,19 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
 
 .document-html-content :is(th, td) {
   padding: 0.35rem 0.5rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--reader-border);
   vertical-align: top;
 }
 
 .document-html-content th {
-  background: var(--surface-muted);
-  color: var(--text-heading);
+  background: var(--reader-subtle);
+  color: var(--reader-heading);
 }
 
 .document-html-content hr {
   margin-block: 1.5rem;
   border: 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--reader-border);
 }
 
 .document-html-content figcaption {

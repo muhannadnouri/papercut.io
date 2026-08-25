@@ -15,6 +15,22 @@ use super::types::UploadedDocument;
 
 const MAX_TITLE_CHARS: usize = 512;
 
+/// Apply the one title boundary shared by document creation and later edits.
+/// Returning an owned trimmed value prevents callers from persisting whitespace
+/// that the title editor would remove on its first save.
+pub(crate) fn normalize_document_title(title: &str) -> Result<String, String> {
+    let title = title.trim();
+    if title.is_empty() {
+        return Err("Document title cannot be empty".into());
+    }
+    if title.chars().count() > MAX_TITLE_CHARS {
+        return Err(format!(
+            "Document title cannot exceed {MAX_TITLE_CHARS} characters"
+        ));
+    }
+    Ok(title.to_owned())
+}
+
 /// List all stored uploads as DTOs, newest import first.
 pub(crate) fn list_uploads<R: Runtime>(
     app: &tauri::AppHandle<R>,
@@ -22,7 +38,7 @@ pub(crate) fn list_uploads<R: Runtime>(
     let db = open_db(app)?;
     let mut stmt = db
         .prepare(
-            "SELECT id, url, title, original_file_name, format, source_kind, imported_at_ms, bytes, sections, cover_media_type \
+            "SELECT id, url, title, original_file_name, format, source_kind, imported_at_ms, bytes, sections, cover_media_type, text_status \
              FROM uploaded_documents ORDER BY imported_at_ms DESC",
         )
         .map_err(db_err)?;
@@ -39,7 +55,7 @@ pub(crate) fn find_upload_by_id(
     id: &str,
 ) -> Result<Option<UploadedDocument>, String> {
     db.query_row(
-        "SELECT id, url, title, original_file_name, format, source_kind, imported_at_ms, bytes, sections, cover_media_type \
+        "SELECT id, url, title, original_file_name, format, source_kind, imported_at_ms, bytes, sections, cover_media_type, text_status \
          FROM uploaded_documents WHERE id = ?1",
         [id],
         uploaded_document_from_row,
@@ -60,6 +76,7 @@ fn uploaded_document_from_row(row: &Row<'_>) -> rusqlite::Result<UploadedDocumen
         bytes: row.get::<_, i64>(7)? as u64,
         sections: row.get::<_, i64>(8)? as usize,
         cover_media_type: row.get(9)?,
+        text_status: row.get(10)?,
     })
 }
 
@@ -96,7 +113,8 @@ pub(crate) fn open_db<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Connectio
            imported_at_ms INTEGER NOT NULL,
            bytes INTEGER NOT NULL,
            sections INTEGER NOT NULL,
-           cover_media_type TEXT
+           cover_media_type TEXT,
+           text_status TEXT NOT NULL DEFAULT 'ready'
          );
          CREATE TABLE IF NOT EXISTS uploaded_sections (
            id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -142,9 +160,22 @@ pub(crate) fn open_db<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Connectio
            SELECT id, NULL, -imported_at_ms FROM uploaded_documents;",
     )
     .map_err(db_err)?;
+    let previous_schema_version = tx
+        .query_row(
+            "SELECT value FROM upload_schema_metadata WHERE key = 'schema_version'",
+            [],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+        .map_err(db_err)?
+        .and_then(|value| value.parse::<u32>().ok())
+        .unwrap_or(0);
     ensure_schema_columns(&tx)?;
+    if previous_schema_version < 6 {
+        backfill_pdf_text_status(&tx)?;
+    }
     tx.execute(
-        "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('schema_version', '5')",
+        "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('schema_version', '6')",
         [],
     )
     .map_err(db_err)?;
@@ -152,8 +183,8 @@ pub(crate) fn open_db<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Connectio
     Ok(db)
 }
 
-/// Add nullable metadata columns in place so existing documents and FTS rows
-/// survive schema upgrades without a database rebuild.
+/// Add metadata columns and the reading-order section index in place so
+/// existing documents and FTS rows survive upgrades without a rebuild.
 fn ensure_schema_columns(db: &Connection) -> Result<(), String> {
     ensure_column(
         db,
@@ -175,10 +206,37 @@ fn ensure_schema_columns(db: &Connection) -> Result<(), String> {
     )?;
     ensure_column(
         db,
+        "uploaded_documents",
+        "text_status",
+        "ALTER TABLE uploaded_documents ADD COLUMN text_status TEXT NOT NULL DEFAULT 'ready'",
+    )?;
+    ensure_column(
+        db,
         "uploaded_sections",
         "page_index",
         "ALTER TABLE uploaded_sections ADD COLUMN page_index INTEGER",
     )?;
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS uploaded_sections_document_order_idx \
+         ON uploaded_sections(document_id, ordinal)",
+        [],
+    )
+    .map_err(db_err)?;
+    Ok(())
+}
+
+/// Mark previously indexed PDFs with no extracted text so an upgrade does not
+/// leave image-only documents looking searchable. Empty staged PDFs keep their
+/// processing state because they have no committed page rows yet.
+fn backfill_pdf_text_status(db: &Connection) -> Result<(), String> {
+    db.execute(
+        "UPDATE uploaded_documents SET text_status = 'recognition-required' \
+         WHERE source_kind = 'pdf' AND sections > 0 \
+           AND NOT EXISTS (SELECT 1 FROM uploaded_sections \
+             WHERE document_id = uploaded_documents.id AND length(trim(text)) > 0)",
+        [],
+    )
+    .map_err(db_err)?;
     Ok(())
 }
 
@@ -231,6 +289,26 @@ pub(crate) fn delete_document_rows(db: &mut Connection, id: &str) -> Result<(), 
     tx.commit().map_err(db_err)
 }
 
+/// PDF readiness persisted after the frontend has inspected every page.
+#[derive(Clone, Copy, Debug, Default, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum PdfTextStatus {
+    #[default]
+    Ready,
+    RecognitionAvailable,
+    RecognitionRequired,
+}
+
+impl PdfTextStatus {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Ready => "ready",
+            Self::RecognitionAvailable => "recognition-available",
+            Self::RecognitionRequired => "recognition-required",
+        }
+    }
+}
+
 /// Insert or update a parsed document and all of its sections atomically.
 ///
 /// This deliberately avoids `INSERT OR REPLACE` because SQLite implements that
@@ -246,6 +324,7 @@ pub(crate) fn upsert_document(
     source_kind: StoredSourceKind,
     imported_at_ms: u128,
     bytes: u64,
+    pdf_text_status: PdfTextStatus,
 ) -> Result<(), String> {
     let tx = db.transaction().map_err(db_err)?;
     tx.execute(
@@ -257,8 +336,8 @@ pub(crate) fn upsert_document(
         .map_err(db_err)?;
     tx.execute(
         "INSERT INTO uploaded_documents \
-         (id, url, title, original_file_name, format, source_kind, imported_at_ms, bytes, sections, cover_media_type) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10) \
+         (id, url, title, original_file_name, format, source_kind, imported_at_ms, bytes, sections, cover_media_type, text_status) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11) \
          ON CONFLICT(id) DO UPDATE SET \
            url = excluded.url, \
            title = excluded.title, \
@@ -268,7 +347,8 @@ pub(crate) fn upsert_document(
            imported_at_ms = excluded.imported_at_ms, \
            bytes = excluded.bytes, \
            sections = excluded.sections, \
-           cover_media_type = excluded.cover_media_type",
+           cover_media_type = excluded.cover_media_type, \
+           text_status = excluded.text_status",
         params![
             id,
             url,
@@ -280,6 +360,7 @@ pub(crate) fn upsert_document(
             bytes as i64,
             parsed.sections.len() as i64,
             parsed.cover.as_ref().map(|cover| cover.media_type),
+            document_text_status(source_kind, parsed, pdf_text_status),
         ],
     )
     .map_err(db_err)?;
@@ -338,14 +419,15 @@ pub(crate) fn upsert_unindexed_document(
         .map_err(db_err)?;
     tx.execute(
         "INSERT INTO uploaded_documents \
-         (id, url, title, original_file_name, format, source_kind, imported_at_ms, bytes, sections, cover_media_type) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0, NULL) \
+         (id, url, title, original_file_name, format, source_kind, imported_at_ms, bytes, sections, cover_media_type, text_status) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0, NULL, 'processing') \
          ON CONFLICT(id) DO UPDATE SET \
            url = excluded.url, title = excluded.title, \
            original_file_name = COALESCE(excluded.original_file_name, uploaded_documents.original_file_name), \
            format = excluded.format, \
            source_kind = excluded.source_kind, imported_at_ms = excluded.imported_at_ms, \
-           bytes = excluded.bytes, sections = 0, cover_media_type = NULL",
+           bytes = excluded.bytes, sections = 0, cover_media_type = NULL, \
+           text_status = 'processing'",
         params![
             id,
             url,
@@ -367,6 +449,24 @@ pub(crate) fn upsert_unindexed_document(
     tx.commit().map_err(db_err)
 }
 
+fn document_text_status(
+    source_kind: StoredSourceKind,
+    parsed: &ParsedDocument,
+    pdf_text_status: PdfTextStatus,
+) -> &'static str {
+    if source_kind != StoredSourceKind::Pdf {
+        return "ready";
+    }
+    if !parsed
+        .sections
+        .iter()
+        .any(|section| !section.text.trim().is_empty())
+    {
+        return "recognition-required";
+    }
+    pdf_text_status.as_str()
+}
+
 /// Change display metadata and its duplicated FTS title in one transaction.
 ///
 /// The stable document URL and source files remain untouched, so folders,
@@ -377,15 +477,7 @@ pub(crate) fn update_document_title(
     title: &str,
 ) -> Result<UploadedDocument, String> {
     let id = upload_id_from_url(document_url)?;
-    let title = title.trim();
-    if title.is_empty() {
-        return Err("Document title cannot be empty".into());
-    }
-    if title.chars().count() > MAX_TITLE_CHARS {
-        return Err(format!(
-            "Document title cannot exceed {MAX_TITLE_CHARS} characters"
-        ));
-    }
+    let title = normalize_document_title(title)?;
 
     let tx = db.transaction().map_err(db_err)?;
     let updated = tx
@@ -414,9 +506,12 @@ pub(crate) fn db_err(err: rusqlite::Error) -> String {
 
 #[cfg(test)]
 mod tests {
-    use rusqlite::Connection;
+    use rusqlite::{params, Connection};
 
-    use super::{ensure_schema_columns, find_upload_by_id, update_document_title, upsert_document};
+    use super::{
+        backfill_pdf_text_status, ensure_schema_columns, find_upload_by_id, update_document_title,
+        upsert_document, PdfTextStatus, MAX_TITLE_CHARS,
+    };
     use crate::document_uploads::parsed::{ParsedDocument, ParsedSection};
     use crate::document_uploads::StoredSourceKind;
 
@@ -435,6 +530,7 @@ mod tests {
             StoredSourceKind::Html,
             100,
             10,
+            PdfTextStatus::Ready,
         )
         .expect("initial insert");
         let stored = find_upload_by_id(&db, "abc123")
@@ -468,6 +564,7 @@ mod tests {
             StoredSourceKind::Html,
             200,
             20,
+            PdfTextStatus::Ready,
         )
         .expect("update existing document");
 
@@ -527,6 +624,7 @@ mod tests {
             StoredSourceKind::Html,
             100,
             10,
+            PdfTextStatus::Ready,
         )
         .expect("insert document");
 
@@ -547,6 +645,12 @@ mod tests {
             .expect("collect FTS titles");
         assert_eq!(fts_titles, vec!["Better Title", "Better Title"]);
         assert!(update_document_title(&mut db, "/uploads/abc123.html", " ").is_err());
+        assert!(update_document_title(
+            &mut db,
+            "/uploads/abc123.html",
+            &"a".repeat(MAX_TITLE_CHARS + 1),
+        )
+        .is_err());
     }
 
     #[test]
@@ -566,30 +670,76 @@ mod tests {
             StoredSourceKind::Pdf,
             100,
             20,
+            PdfTextStatus::Ready,
         )
         .expect("insert PDF");
 
-        let stored: (String, Option<i64>) = db
+        let stored: (String, Option<i64>, String) = db
             .query_row(
-                "SELECT d.source_kind, s.page_index \
+                "SELECT d.source_kind, s.page_index, d.text_status \
                  FROM uploaded_documents d \
                  JOIN uploaded_sections s ON s.document_id = d.id \
                  WHERE d.id = 'pdf123'",
                 [],
-                |row| Ok((row.get(0)?, row.get(1)?)),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .expect("stored PDF page");
-        assert_eq!(stored, ("pdf".into(), Some(7)));
+        assert_eq!(stored, ("pdf".into(), Some(7), "ready".into()));
+
+        upsert_document(
+            &mut db,
+            "pdf123",
+            "/uploads/pdf123.pdf",
+            &parsed,
+            Some("source.pdf"),
+            StoredSourceKind::Pdf,
+            100,
+            20,
+            PdfTextStatus::RecognitionAvailable,
+        )
+        .expect("mark hybrid PDF for recognition");
+        assert_eq!(
+            find_upload_by_id(&db, "pdf123")
+                .expect("lookup hybrid PDF")
+                .expect("stored hybrid PDF")
+                .text_status,
+            "recognition-available"
+        );
+
+        parsed.sections[0].text = "  ".into();
+        upsert_document(
+            &mut db,
+            "pdf123",
+            "/uploads/pdf123.pdf",
+            &parsed,
+            Some("source.pdf"),
+            StoredSourceKind::Pdf,
+            100,
+            20,
+            PdfTextStatus::Ready,
+        )
+        .expect("replace PDF with image-only page");
+        assert_eq!(
+            find_upload_by_id(&db, "pdf123")
+                .expect("lookup image-only PDF")
+                .expect("stored image-only PDF")
+                .text_status,
+            "recognition-required"
+        );
     }
 
     #[test]
-    fn adds_source_and_locator_metadata_to_existing_upload_schema() {
+    fn adds_upload_metadata_and_section_lookup_index_to_existing_schema() {
         let db = Connection::open_in_memory().expect("open database");
         db.execute("CREATE TABLE uploaded_documents (id TEXT PRIMARY KEY)", [])
             .expect("create old schema");
 
         db.execute(
-            "CREATE TABLE uploaded_sections (id INTEGER PRIMARY KEY)",
+            "CREATE TABLE uploaded_sections (
+               id INTEGER PRIMARY KEY,
+               document_id TEXT NOT NULL,
+               ordinal INTEGER NOT NULL
+             )",
             [],
         )
         .expect("create old section schema");
@@ -616,6 +766,15 @@ mod tests {
             )
             .expect("original filename column");
         assert!(has_original_file_name);
+        let has_section_lookup_index: bool = db
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM pragma_index_list('uploaded_sections') \
+                 WHERE name = 'uploaded_sections_document_order_idx')",
+                [],
+                |row| row.get(0),
+            )
+            .expect("section lookup index");
+        assert!(has_section_lookup_index);
 
         let source_kind: String = db
             .query_row(
@@ -626,6 +785,15 @@ mod tests {
             )
             .expect("source kind default");
         assert_eq!(source_kind, "'html'");
+        let text_status: String = db
+            .query_row(
+                "SELECT dflt_value FROM pragma_table_info('uploaded_documents') \
+                 WHERE name = 'text_status'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("text status default");
+        assert_eq!(text_status, "'ready'");
         let has_page_index: bool = db
             .query_row(
                 "SELECT EXISTS(SELECT 1 FROM pragma_table_info('uploaded_sections') \
@@ -635,6 +803,50 @@ mod tests {
             )
             .expect("page locator column");
         assert!(has_page_index);
+    }
+
+    #[test]
+    fn backfill_marks_only_finalized_textless_pdfs() {
+        let db = test_db();
+        for (id, sections, status) in [
+            ("text-pdf", 1, "ready"),
+            ("image-pdf", 1, "ready"),
+            ("staged-pdf", 0, "processing"),
+        ] {
+            db.execute(
+                "INSERT INTO uploaded_documents \
+                 (id, url, title, format, source_kind, imported_at_ms, bytes, sections, text_status) \
+                 VALUES (?1, ?2, ?1, 'pdf', 'pdf', 1, 1, ?3, ?4)",
+                params![id, format!("/uploads/{id}.pdf"), sections, status],
+            )
+            .expect("insert legacy PDF");
+        }
+        db.execute(
+            "INSERT INTO uploaded_sections (document_id, ordinal, page_index, text) \
+             VALUES ('text-pdf', 0, 0, 'Readable text'), ('image-pdf', 0, 0, '  ')",
+            [],
+        )
+        .expect("insert legacy PDF pages");
+
+        backfill_pdf_text_status(&db).expect("backfill PDF text status");
+
+        let statuses = db
+            .prepare("SELECT id, text_status FROM uploaded_documents ORDER BY id")
+            .expect("prepare status query")
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .expect("read statuses")
+            .collect::<Result<Vec<_>, _>>()
+            .expect("collect statuses");
+        assert_eq!(
+            statuses,
+            vec![
+                ("image-pdf".into(), "recognition-required".into()),
+                ("staged-pdf".into(), "processing".into()),
+                ("text-pdf".into(), "ready".into()),
+            ]
+        );
     }
 
     /// Minimal in-memory schema for `upsert_document` without booting a Tauri app.
@@ -652,7 +864,8 @@ mod tests {
                imported_at_ms INTEGER NOT NULL,
                bytes INTEGER NOT NULL,
                sections INTEGER NOT NULL,
-               cover_media_type TEXT
+               cover_media_type TEXT,
+               text_status TEXT NOT NULL DEFAULT 'ready'
              );
              CREATE TABLE uploaded_sections (
                id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -708,6 +921,7 @@ mod tests {
                 })
                 .collect(),
             cover: None,
+            assets: Vec::new(),
         }
     }
 }

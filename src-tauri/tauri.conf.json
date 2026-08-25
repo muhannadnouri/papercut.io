@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Papercut",
-  "version": "1.7.4",
+  "version": "1.9.0",
   "identifier": "io.papercut.desktop",
   "build": {
     "frontendDist": "../dist",
@@ -20,11 +20,27 @@
       }
     ],
     "security": {
-      "csp": null,
+      "csp": {
+        "default-src": "'self'",
+        "base-uri": "'none'",
+        "connect-src": "'self' ipc: http://ipc.localhost asset: http://asset.localhost",
+        "font-src": "'self'",
+        "form-action": "'none'",
+        "frame-ancestors": "'none'",
+        "frame-src": "'none'",
+        "img-src": "'self' asset: http://asset.localhost data: blob:",
+        "media-src": "'self' asset: http://asset.localhost blob:",
+        "object-src": "'none'",
+        "script-src": "'self' 'wasm-unsafe-eval'",
+        "style-src": "'self' 'unsafe-inline'",
+        "worker-src": "'self' blob:",
+        "child-src": "'self' blob:"
+      },
       "assetProtocol": {
         "enable": true,
         "scope": [
-          "$APPDATA/document_uploads/*/source.pdf"
+          "$APPDATA/document_uploads/*/source.pdf",
+          "$APPDATA/document_uploads/*/assets/*"
         ]
       },
       "headers": {
@@ -43,6 +59,55 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": ["html", "htm"],
+        "name": "HTML document",
+        "description": "HTML document",
+        "mimeType": "text/html",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "androidIntentActionFilters": ["view"]
+      },
+      {
+        "ext": ["epub"],
+        "contentTypes": ["org.idpf.epub-container"],
+        "name": "EPUB book",
+        "description": "EPUB book",
+        "mimeType": "application/epub+zip",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "androidIntentActionFilters": ["view"]
+      },
+      {
+        "ext": ["pdf"],
+        "name": "PDF document",
+        "description": "PDF document",
+        "mimeType": "application/pdf",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "androidIntentActionFilters": ["view"]
+      },
+      {
+        "ext": ["txt"],
+        "name": "Plain-text document",
+        "description": "Plain-text document",
+        "mimeType": "text/plain",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "androidIntentActionFilters": ["view"]
+      },
+      {
+        "ext": ["md", "markdown"],
+        "contentTypes": ["net.daringfireball.markdown"],
+        "name": "Markdown document",
+        "description": "Markdown document",
+        "mimeType": "text/markdown",
+        "role": "Viewer",
+        "rank": "Alternate",
+        "androidIntentActionFilters": ["view"]
+      }
     ]
   }
 }

@@ -7,7 +7,7 @@
   background: var(--accent);
   color: var(--text-inverse);
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
   padding: 0;
   cursor: pointer;
   box-shadow: 0 2px 8px var(--shadow-accent-strong);

@@ -15,6 +15,7 @@ use super::types::{
     NativeImportedAudiobookMetadataResponse, NativeImportedAudiobookSourceRequest,
     NativeSavedAudiobookRecord, NativeSilmaSidecarProbeResponse, NativeTtsCapabilities,
     NativeTtsChunkResponse, NativeTtsModelInstallResponse, NativeTtsModelStatus,
+    NativeTtsPreviewRequest,
 };
 
 const NOT_COMPILED: &str =
@@ -83,6 +84,14 @@ pub(super) fn list_saved_audiobooks(
 pub(super) fn get_native_audiobook_chunk(
     _app: tauri::AppHandle,
     _request: NativeAudiobookChunkRequest,
+) -> Result<NativeTtsChunkResponse, String> {
+    Err(NOT_COMPILED.into())
+}
+
+pub(super) async fn preview_voice(
+    _app: tauri::AppHandle,
+    _state: tauri::State<'_, NativeTtsState>,
+    _request: NativeTtsPreviewRequest,
 ) -> Result<NativeTtsChunkResponse, String> {
     Err(NOT_COMPILED.into())
 }

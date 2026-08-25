@@ -70,20 +70,54 @@ describe('PDF Find adapter', () => {
     const adapter = createPdfFindAdapter(eventBus, vi.fn())
 
     adapter.api.search('high-lights')
-    expect(eventBus.dispatched.at(-1)?.event.query).toEqual([
+    expect(eventBus.dispatched.at(-1)?.event.query).toEqual(expect.arrayContaining([
       'high-lights',
       'high- lights',
       'highlights',
-    ])
+      'high–lights',
+      'high—lights',
+    ]))
+    expect(eventBus.dispatched.at(-1)?.event.query).toHaveLength(9)
 
     adapter.api.search('high- lights')
-    expect(eventBus.dispatched.at(-1)?.event.query).toEqual([
+    expect(eventBus.dispatched.at(-1)?.event.query).toEqual(expect.arrayContaining([
       'high- lights',
       'high-lights',
       'highlights',
-    ])
+      'high–lights',
+      'high—lights',
+    ]))
+    expect(eventBus.dispatched.at(-1)?.event.query).toHaveLength(9)
+
+    adapter.api.search('high—lights')
+    expect(eventBus.dispatched.at(-1)?.event.query).toEqual(expect.arrayContaining([
+      'high-lights',
+      'high–lights',
+      'high—lights',
+      'highlights',
+    ]))
+    expect(eventBus.dispatched.at(-1)?.event.query).toHaveLength(9)
 
     adapter.api.search('highlights')
     expect(eventBus.dispatched.at(-1)?.event.query).toBe('highlights')
+  })
+
+  it('varies multiple hyphenated compounds independently', () => {
+    const eventBus = new TestEventBus()
+    const adapter = createPdfFindAdapter(eventBus, vi.fn())
+
+    adapter.api.search('high-lights state-owned')
+    const aliases = eventBus.dispatched.at(-1)?.event.query
+    expect(aliases).toEqual(expect.arrayContaining([
+      'high-lights state-owned',
+      'highlights state-owned',
+      'high-lights stateowned',
+      'highlights stateowned',
+      'high–lights state–owned',
+      'high—lights state—owned',
+      'high–lights state—owned',
+      'high—lights state–owned',
+    ]))
+    expect(aliases).toHaveLength(57)
   })
 })

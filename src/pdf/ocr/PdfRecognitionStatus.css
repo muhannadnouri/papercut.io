@@ -1,0 +1,102 @@
+.pdf-recognition-review {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.pdf-recognition-outcome {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.pdf-recognition-outcome > span {
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
+.pdf-recognition-outcome-title {
+  overflow: hidden;
+  color: var(--text-heading);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdf-recognition-issues-accept summary {
+  color: var(--warning-strong);
+}
+
+.pdf-recognition-issues-retry summary {
+  color: var(--danger);
+}
+
+.pdf-recognition-review-help,
+.pdf-recognition-accept-help {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
+.pdf-recognition-issues li {
+  overflow-wrap: anywhere;
+}
+
+.pdf-recognition-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.pdf-recognition-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: auto;
+  min-height: 2.25rem;
+  padding-inline: 0.7rem;
+}
+
+@media (pointer: coarse) {
+  .pdf-recognition-action {
+    min-height: 2.75rem;
+  }
+
+  .pdf-recognition-issues summary {
+    display: flex;
+    align-items: center;
+    min-height: 2.75rem;
+  }
+}
+
+.pdf-recognition-action svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.15;
+}
+
+.pdf-recognition-action-primary {
+  background: var(--accent);
+  color: var(--text-inverse);
+}
+
+.document-batch-cancel.pdf-recognition-action-primary:focus-visible {
+  background: var(--accent);
+  color: var(--text-inverse);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .document-batch-cancel.pdf-recognition-action-secondary:hover:not(:disabled) {
+    background: var(--surface-hover);
+    color: var(--accent-strong);
+  }
+
+  .document-batch-cancel.pdf-recognition-action-primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+    color: var(--text-inverse);
+  }
+}

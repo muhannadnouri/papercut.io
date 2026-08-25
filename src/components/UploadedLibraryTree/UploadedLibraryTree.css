@@ -3,6 +3,14 @@
   background: var(--surface-subtle);
 }
 
+.uploaded-library-manage-header-sticky {
+  position: sticky;
+  z-index: 4;
+  top: 0;
+  background: var(--surface-subtle);
+  box-shadow: 0 1px 0 var(--border);
+}
+
 .uploaded-library-actions {
   display: flex;
   align-items: center;
@@ -59,7 +67,7 @@
 .uploaded-library-move select {
   min-height: 2rem;
   border: 1px solid var(--border-strong);
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   background: var(--surface);
   color: var(--text-body);
   font-size: 0.78rem;
@@ -78,7 +86,11 @@
   padding: 0 0.75rem;
   margin-block: 0.25rem;
   margin-inline-end: 0.5rem;
+  border-color: transparent;
+  background: var(--control-surface);
+  color: var(--accent-text);
   font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .uploaded-library-toolbar-actions {
@@ -94,7 +106,7 @@
 }
 
 .uploaded-library-edit-btn[aria-pressed="true"] {
-  border-color: var(--accent-text);
+  border-color: transparent;
   background: var(--surface-accent);
   color: var(--accent-strong);
 }
@@ -107,6 +119,11 @@
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
+.uploaded-library-edit-btn:focus-visible {
+  border-color: transparent;
+  background: var(--surface-accent);
+}
+
 .uploaded-library-edit-btn:disabled,
 .uploaded-library-actions button:disabled,
 .uploaded-library-move select:disabled {
@@ -114,6 +131,10 @@
   background: var(--surface-muted);
   color: var(--text-soft);
   cursor: not-allowed;
+}
+
+.uploaded-library-edit-btn:disabled {
+  border-color: transparent;
 }
 
 .uploaded-library-context-actions {
@@ -127,6 +148,32 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 0.45rem;
+}
+
+.uploaded-library-selection-actions button {
+  border-color: transparent;
+  background: var(--control-surface);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.uploaded-library-selection-actions button:focus-visible {
+  border-color: transparent;
+  background: var(--surface-accent);
+  color: var(--accent-strong);
+}
+
+.uploaded-library-actions .uploaded-library-secondary-action {
+  border-color: transparent;
+  background: var(--control-surface);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.uploaded-library-actions .uploaded-library-secondary-action:focus-visible {
+  border-color: transparent;
+  background: var(--surface-accent);
+  color: var(--accent-strong);
 }
 
 .uploaded-library-task-actions {
@@ -150,12 +197,15 @@
 }
 
 .uploaded-library-actions .uploaded-library-batch-delete {
-  border-color: var(--danger-border);
+  border-color: transparent;
+  background: var(--surface-danger);
   color: var(--danger);
+  font-weight: 600;
 }
 
 .uploaded-library-actions .uploaded-library-batch-delete:focus-visible {
-  border-color: var(--danger-accent);
+  border-color: transparent;
+  background: var(--surface-danger);
   color: var(--danger-accent);
 }
 
@@ -180,16 +230,32 @@
   gap: 0.35rem;
 }
 
-.uploaded-library-delete-btn-blocked {
-  color: var(--text-soft);
+.uploaded-library-delete-btn:not([aria-disabled="true"]) {
+  border-color: transparent;
+  background: var(--surface-danger);
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.uploaded-library-delete-btn:not([aria-disabled="true"]):focus-visible {
+  border-color: transparent;
+  background: var(--surface-danger);
+  color: var(--danger-accent);
+}
+
+.uploaded-library-actions button.uploaded-library-delete-btn-blocked {
+  border-color: transparent;
+  background: var(--surface-warning);
+  color: var(--warning);
+  font-weight: 600;
   cursor: help;
 }
 
-.uploaded-library-delete-btn-blocked:focus-visible,
-.uploaded-library-delete-btn-blocked[aria-expanded="true"] {
-  border-color: var(--border-strong);
-  background: var(--surface);
-  color: var(--text-muted);
+.uploaded-library-actions button.uploaded-library-delete-btn-blocked:focus-visible,
+.uploaded-library-actions button.uploaded-library-delete-btn-blocked[aria-expanded="true"] {
+  border-color: transparent;
+  background: var(--surface-warning);
+  color: var(--warning-strong);
   outline: none;
 }
 
@@ -198,7 +264,7 @@
   width: 0.95rem;
   height: 0.95rem;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--warning-border);
   color: var(--warning-strong);
   font-size: 0.68rem;
@@ -207,21 +273,23 @@
 }
 
 .uploaded-library-info-popover {
-  position: absolute;
-  top: calc(100% + 0.35rem);
-  left: 50%;
   z-index: 80;
   display: grid;
   gap: 0.15rem;
   width: max-content;
   max-width: min(14rem, calc(100vw - 2rem));
   padding: 0.55rem 0.65rem;
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  background: var(--surface);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--surface-strong);
   color: var(--text-body);
   box-shadow: 0 12px 28px var(--shadow-popover);
-  transform: translateX(-50%);
+  outline: none;
+}
+
+.uploaded-library-info-content {
+  display: grid;
+  gap: 0.15rem;
 }
 
 .uploaded-library-info-popover strong {
@@ -248,13 +316,20 @@
   width: 100%;
   padding-block: 0;
   padding-inline: 0.55rem 1.7rem;
+  border-color: transparent;
   appearance: none;
   -webkit-appearance: none;
-  background-color: var(--surface);
+  background-color: var(--control-surface);
   background-image: var(--select-chevron);
   background-repeat: no-repeat;
   background-position: right 0.6rem center;
   background-size: 0.65rem;
+}
+
+.uploaded-library-move select:focus-visible {
+  border-color: transparent;
+  background-color: var(--surface-accent);
+  color: var(--accent-text);
 }
 
 @media (min-width: 800px) {
@@ -294,7 +369,7 @@
   padding-block: 0.35rem;
   padding-inline-end: 1.25rem;
   padding-inline-start: calc(1rem + (var(--tree-item-level) - 1) * 1rem);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--row-divider);
   transition: background 0.1s, box-shadow 0.1s;
 }
 
@@ -350,7 +425,7 @@
   height: 1.35rem;
   place-items: center;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: var(--radius-inline);
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
@@ -392,12 +467,19 @@
   white-space: nowrap;
 }
 
+.uploaded-library-text-status {
+  margin-inline-start: 0.45rem;
+  color: var(--warning);
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
 .uploaded-library-name-button {
   display: block;
   width: 100%;
   padding: 0.1rem 0.15rem;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: var(--radius-inline);
   background: transparent;
   color: inherit;
   cursor: pointer;
@@ -424,21 +506,50 @@
     background: var(--surface-hover);
   }
 
-  .uploaded-library-edit-btn:hover:not(:disabled),
-  .uploaded-library-actions button:hover:not(:disabled),
-  .uploaded-library-move select:hover:not(:disabled) {
+  .uploaded-library-edit-btn:hover:not(:disabled) {
+    border-color: transparent;
+    background: var(--surface-accent);
+    color: var(--accent-strong);
+  }
+
+  .uploaded-library-actions button:hover:not(:disabled) {
     border-color: var(--accent-text);
   }
 
+  .uploaded-library-move select:hover:not(:disabled) {
+    border-color: transparent;
+    background-color: var(--surface-accent);
+    color: var(--accent-text);
+  }
+
+  .uploaded-library-selection-actions button:hover:not(:disabled) {
+    border-color: transparent;
+    background: var(--surface-accent);
+    color: var(--accent-strong);
+  }
+
+  .uploaded-library-actions .uploaded-library-secondary-action:hover:not(:disabled) {
+    border-color: transparent;
+    background: var(--surface-accent);
+    color: var(--accent-strong);
+  }
+
   .uploaded-library-actions .uploaded-library-batch-delete:hover:not(:disabled) {
-    border-color: var(--danger-accent);
+    border-color: transparent;
+    background: var(--surface-danger);
     color: var(--danger-accent);
   }
 
-  .uploaded-library-delete-btn-blocked:hover {
-    border-color: var(--border-strong);
-    background: var(--surface);
-    color: var(--text-muted);
+  .uploaded-library-delete-btn:not([aria-disabled="true"]):hover {
+    border-color: transparent;
+    background: var(--surface-danger);
+    color: var(--danger-accent);
+  }
+
+  .uploaded-library-actions button.uploaded-library-delete-btn-blocked:hover {
+    border-color: transparent;
+    background: var(--surface-warning);
+    color: var(--warning-strong);
   }
 
   .uploaded-library-chevron:hover,
@@ -483,6 +594,7 @@
 }
 
 .uploaded-library-document-edit svg {
+  display: block;
   width: 1rem;
   height: 1rem;
   fill: none;
@@ -518,11 +630,6 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
-  }
-
-  .uploaded-library-info-popover {
-    inset-inline: auto 0;
-    transform: none;
   }
 
   .uploaded-library-row {

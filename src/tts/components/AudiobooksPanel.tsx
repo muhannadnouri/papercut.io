@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import type { SavedAudiobookRecord } from '../storage/AudiobookLibrary'
@@ -12,8 +12,9 @@ import {
   formatSavedAudiobookMeta,
 } from '../utils/format'
 import { Panel } from '../../components/Panel/Panel'
-import { AudiobookExportMenu } from './AudiobookExportMenu'
-import { AudioSetupPanel, type AudioSetupPanelProps } from './AudioSetupPanel'
+import { AudiobookActionsMenu } from './AudiobookActionsMenu'
+import type { AudioSetupPanelProps } from './AudioSetupPanel'
+import { AudioSetupDialog } from './AudioSetupDialog'
 import './AudiobooksPanel.css'
 
 interface ActiveAudiobookSave {
@@ -96,7 +97,7 @@ export function AudiobooksPanel({
 }: AudiobooksPanelProps) {
   const { t, i18n } = useTranslation()
   const [setupOpen, setSetupOpen] = useState(false)
-  const [exportMenuOpen, setExportMenuOpen] = useState<string | null>(null)
+  const [actionsMenuOpen, setActionsMenuOpen] = useState<string | null>(null)
   const activePercent = getDownloadPercent(downloadState.cachedChunks, downloadState.totalChunks)
   const savedCount = savedAudiobooks.length
   const queueCount = queuedDownloads.length
@@ -112,6 +113,7 @@ export function AudiobooksPanel({
     { format: 'bundle' as const, label: t('tts.audiobooks.exportBundle'), code: '.papercut-audiobook' },
     { format: 'wav' as const, label: t('tts.audiobooks.exportWav'), code: '.wav' },
   ]
+  const closeSetup = useCallback(() => setSetupOpen(false), [])
 
   return (
     <Panel
@@ -128,7 +130,10 @@ export function AudiobooksPanel({
               type="button"
               className="audiobooks-import-btn"
               disabled={panelBusy}
-              onClick={onImportAudiobook}
+              onClick={() => {
+                setActionsMenuOpen(null)
+                onImportAudiobook()
+              }}
             >
               <AudiobooksPanelIcon name={importInProgress ? 'folder-open' : 'folder'} />
               {importInProgress ? t('tts.audiobooks.importingBundle') : t('tts.audiobooks.importBundle')}
@@ -136,27 +141,28 @@ export function AudiobooksPanel({
 
             <button
               type="button"
-              className={'audiobooks-setup-disclosure' + (setupOpen ? ' audiobooks-setup-disclosure-open' : '')}
-              aria-expanded={setupOpen}
-              aria-controls="audiobooks-audio-setup"
+              className="audiobooks-setup-button"
+              aria-haspopup="dialog"
               disabled={panelBusy}
-              onClick={() => setSetupOpen((value) => !value)}
+              onClick={() => setSetupOpen(true)}
             >
-              <span className="audiobooks-setup-disclosure-icon" aria-hidden="true">
+              <span className="audiobooks-setup-button-icon" aria-hidden="true">
                 <AudiobooksPanelIcon name="settings" />
               </span>
-              <span className="audiobooks-setup-disclosure-main">
-                <span className="audiobooks-setup-disclosure-title">{t('tts.audiobooks.audioSetup')}</span>
-                <span className="audiobooks-setup-disclosure-summary" dir="ltr">{setupSummary}</span>
+              <span className="audiobooks-setup-button-main">
+                <span className="audiobooks-setup-button-title">{t('tts.audiobooks.audioSetup')}</span>
+                <span className="audiobooks-setup-button-summary" dir="ltr">{setupSummary}</span>
               </span>
-              <span className="audiobooks-setup-disclosure-chevron" aria-hidden="true">{setupOpen ? '▲' : '▼'}</span>
             </button>
           </div>
 
           {setupOpen && (
-            <section id="audiobooks-audio-setup" className="audiobooks-section audiobooks-setup" aria-label={t('tts.audiobooks.audioSetup')}>
-              <AudioSetupPanel {...audioSetup} />
-            </section>
+            <AudioSetupDialog
+              audioSetup={audioSetup}
+              title={t('tts.audiobooks.audioSetup')}
+              doneLabel={t('common.done')}
+              onClose={closeSetup}
+            />
           )}
 
           {!hasAudiobooks && (
@@ -217,19 +223,25 @@ export function AudiobooksPanel({
         )}
 
             {savedCount > 0 && (
-          <section className="audiobooks-section" aria-label={t('tts.audiobooks.savedAria')}>
+          <section className="audiobooks-section audiobooks-saved-section" aria-label={t('tts.audiobooks.savedAria')}>
             <h3 className="audiobooks-section-title">{t('tts.audiobooks.savedSection')}</h3>
             {savedAudiobooks.map((record) => {
-              const recordExportState = exportState?.id === record.id ? exportState : null
               const recordDeleteState = deleteState?.id === record.id ? deleteState : null
-              const exporting = recordExportState?.status === 'exporting'
               const deleting = recordDeleteState?.status === 'deleting'
-              const exportDisabled = panelBusy || deleting
-              const deleteDisabled = panelBusy || deleting
+              const actionsDisabled = panelBusy || deleting
+              const savedMeta = formatSavedAudiobookMeta(
+                t,
+                record.modelId,
+                record.voice,
+                record.speed,
+                record.textPreprocessor,
+                record.audioDurationSec,
+                record.wavBytes,
+              )
               return (
                 <div
                   key={record.id}
-                  className={'audiobook-item audiobook-item-saved' + (exportMenuOpen === record.id && !exportDisabled ? ' audiobook-item-menu-open' : '')}
+                  className={'audiobook-item audiobook-item-saved' + (actionsMenuOpen === record.id && !actionsDisabled ? ' audiobook-item-menu-open' : '')}
                 >
                   <button
                     className="audiobook-saved-main"
@@ -237,38 +249,26 @@ export function AudiobooksPanel({
                     onClick={() => { if (!documentOpening) onOpenSaved(record) }}
                   >
                     <bdi className="audiobook-title">{record.title}</bdi>
-                    <span className="audiobook-meta" dir="auto">
-                      {formatSavedAudiobookMeta(
-                        t,
-                        record.modelId,
-                        record.voice,
-                        record.speed,
-                        record.textPreprocessor,
-                        record.audioDurationSec,
-                        record.wavBytes,
-                      )}
+                    <span className="audiobook-meta" dir="auto" title={savedMeta}>
+                      {savedMeta}
                     </span>
                   </button>
-                  <AudiobookExportMenu
+                  <AudiobookActionsMenu
                     t={t}
                     record={record}
                     options={exportOptions}
-                    open={exportMenuOpen === record.id && !exportDisabled}
-                    disabled={exportDisabled}
-                    exporting={exporting}
-                    onOpenChange={(open) => setExportMenuOpen(open ? record.id : null)}
+                    open={actionsMenuOpen === record.id && !actionsDisabled}
+                    disabled={actionsDisabled}
+                    onOpenChange={(open) => setActionsMenuOpen(open ? record.id : null)}
                     onExport={(format) => {
-                      setExportMenuOpen(null)
+                      setActionsMenuOpen(null)
                       onExportSaved(record, format)
                     }}
+                    onDelete={() => {
+                      setActionsMenuOpen(null)
+                      onDeleteSaved(record)
+                    }}
                   />
-                  <button
-                    className="audiobook-text-action audiobook-delete"
-                    disabled={deleteDisabled}
-                    onClick={() => onDeleteSaved(record)}
-                  >
-                    {deleting ? t('tts.audiobooks.deleting') : t('tts.audiobooks.delete')}
-                  </button>
                   {recordDeleteState && (
                     <div
                       className={'audiobook-status-text audiobook-operation-status audiobook-delete-' + recordDeleteState.status}

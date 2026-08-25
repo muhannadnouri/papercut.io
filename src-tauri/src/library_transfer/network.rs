@@ -5,9 +5,9 @@
 //!    file export, binds an IPv4 listener, and displays its address plus a
 //!    random one-use code.
 //! 2. The target enters those values. Both peers establish ephemeral TLS, then
-//!    prove knowledge of the code with HMACs bound to that exact TLS session.
-//!    This authenticates the self-signed connection without a permanent key or
-//!    certificate warning.
+//!    use SPAKE2 to derive a shared key from the code and mutually confirm it
+//!    against that exact TLS session. This authenticates the self-signed
+//!    connection without a permanent key or certificate warning.
 //! 3. The target reports how many bytes of the authenticated session it already
 //!    has, then retains that partial package if the connection drops. Retrying
 //!    with the same address and code continues from that byte offset.
@@ -15,14 +15,15 @@
 //!    forwards its verification and restore progress to the source. The source
 //!    reports completion only after the target confirms that import finished.
 //!
-//! Sessions stay foreground-only and expire after ten minutes. Failed
-//! authentication consumes the code to prevent online guessing; an authenticated
+//! Sessions stay foreground-only and expire after ten minutes. Malformed traffic
+//! before key confirmation leaves the sender waiting, while an incorrect
+//! confirmation consumes the code to prevent online guessing. An authenticated
 //! interruption may reconnect with the same code. Background transfer remains
 //! outside this module.
 
 use std::fs;
 use std::io;
-use std::net::{Ipv4Addr, Shutdown, SocketAddrV4, TcpListener, TcpStream};
+use std::net::{Shutdown, TcpListener, TcpStream};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -34,7 +35,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use super::{
-    build_library_package, emit_transfer_progress, import_library_package, transfer_temp_path,
+    build_library_package, create_transfer_temp, emit_transfer_progress, import_library_package,
     LibraryTransferError, LibraryTransferExportRequest, LibraryTransferImportResult,
     LibraryTransferProgress, LibraryTransferResult,
 };
@@ -56,6 +57,41 @@ const SESSION_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 #[derive(Clone, Default)]
 pub struct LibraryTransferState {
     send: Arc<Mutex<Option<SendSession>>>,
+    send_preparing: Arc<AtomicBool>,
+    restoring: Arc<AtomicBool>,
+}
+
+impl LibraryTransferState {
+    /// Reserve package preparation before entering the blocking pool so two
+    /// native callers cannot both pass the active-session check.
+    fn begin_send_preparation(&self) -> LibraryTransferResult<TransferOperationReservation> {
+        reserve_operation(
+            &self.send_preparing,
+            "A library send is already being prepared",
+        )
+    }
+
+    /// Serialize file import and LAN receive at the Rust boundary; the UI busy
+    /// state remains feedback rather than the authority protecting library writes.
+    /// ponytail: one slot covers staging and restore; split those phases only if
+    /// concurrent transfer intake becomes a real product requirement.
+    pub(super) fn begin_restore(&self) -> LibraryTransferResult<TransferOperationReservation> {
+        reserve_operation(
+            &self.restoring,
+            "Another library transfer import is already running",
+        )
+    }
+}
+
+/// Releases a native operation slot on success, error, cancellation, or panic.
+pub(super) struct TransferOperationReservation {
+    active: Arc<AtomicBool>,
+}
+
+impl Drop for TransferOperationReservation {
+    fn drop(&mut self) {
+        self.active.store(false, Ordering::Release);
+    }
 }
 
 #[derive(Clone)]
@@ -106,8 +142,11 @@ pub async fn library_transfer_send_start(
     request: Option<LibraryTransferExportRequest>,
 ) -> LibraryTransferResult<LibraryTransferSendStatus> {
     let state = state.inner().clone();
+    let reservation = state.begin_send_preparation()?;
+    let request = request.unwrap_or_default();
     tauri::async_runtime::spawn_blocking(move || {
-        start_send(app, state, request.unwrap_or_default().audiobook_ids)
+        let _reservation = reservation;
+        start_send(app, state, request.document_ids, request.audiobook_ids)
     })
     .await
     .map_err(|err| format!("Library send task failed: {err}"))?
@@ -146,11 +185,28 @@ pub fn library_transfer_send_cancel(
 #[tauri::command]
 pub async fn library_transfer_receive(
     app: tauri::AppHandle,
+    state: State<'_, LibraryTransferState>,
     request: LibraryTransferReceiveRequest,
 ) -> LibraryTransferResult<LibraryTransferImportResult> {
-    tauri::async_runtime::spawn_blocking(move || receive_library(app, request))
-        .await
-        .map_err(|err| format!("Library receive task failed: {err}"))?
+    let reservation = state.begin_restore()?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _reservation = reservation;
+        receive_library(app, request)
+    })
+    .await
+    .map_err(|err| format!("Library receive task failed: {err}"))?
+}
+
+fn reserve_operation(
+    active: &Arc<AtomicBool>,
+    conflict: &str,
+) -> LibraryTransferResult<TransferOperationReservation> {
+    if active.swap(true, Ordering::AcqRel) {
+        return Err(conflict.into());
+    }
+    Ok(TransferOperationReservation {
+        active: Arc::clone(active),
+    })
 }
 
 /// Build the reusable package before exposing session credentials, then hand
@@ -158,6 +214,7 @@ pub async fn library_transfer_receive(
 fn start_send(
     app: tauri::AppHandle,
     state: LibraryTransferState,
+    document_ids: Option<Vec<String>>,
     audiobook_ids: Vec<String>,
 ) -> LibraryTransferResult<LibraryTransferSendStatus> {
     {
@@ -176,29 +233,28 @@ fn start_send(
         }
     }
 
-    let package_path = transfer_temp_path(&app, "lan-send")?;
-    let prepared = build_library_package(&app, &package_path, &audiobook_ids);
-    let prepared = match prepared {
-        Ok(prepared) => prepared,
-        Err(error) => {
-            let _ = fs::remove_file(&package_path);
-            return Err(error);
-        }
-    };
+    let mut package = create_transfer_temp(&app, "lan-send")?;
+    let package_path = package.path().to_path_buf();
+    let prepared = build_library_package(
+        &app,
+        package.file_mut(),
+        &package_path,
+        document_ids.as_deref(),
+        &audiobook_ids,
+    )?;
     let setup = (|| {
         let package_bytes = fs::metadata(&package_path)
             .map_err(|err| format!("Failed to inspect prepared library package: {err}"))?
             .len();
-        let listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0))
+        let listener = TcpListener::bind((local_ipv4()?, 0))
             .map_err(|err| format!("Failed to start local library transfer: {err}"))?;
         listener
             .set_nonblocking(true)
             .map_err(|err| format!("Failed to configure local library transfer: {err}"))?;
-        let port = listener
+        let address = listener
             .local_addr()
             .map_err(|err| format!("Failed to read local library transfer address: {err}"))?
-            .port();
-        let address = SocketAddrV4::new(local_ipv4()?, port).to_string();
+            .to_string();
         let code = new_pairing_code()?;
         let tls_config = server_tls_config()?;
         let status = Arc::new(Mutex::new(LibraryTransferSendStatus {
@@ -221,13 +277,7 @@ fn start_send(
         });
         Ok::<_, LibraryTransferError>((listener, tls_config, code, status, cancel, active_socket))
     })();
-    let (listener, tls_config, code, status, cancel, active_socket) = match setup {
-        Ok(setup) => setup,
-        Err(error) => {
-            let _ = fs::remove_file(&package_path);
-            return Err(error);
-        }
-    };
+    let (listener, tls_config, code, status, cancel, active_socket) = setup?;
 
     let thread_status = Arc::clone(&status);
     thread::spawn(move || {
@@ -235,19 +285,18 @@ fn start_send(
             listener,
             tls_config,
             &code,
-            &package_path,
+            package.path(),
             &thread_status,
             &cancel,
             &active_socket,
         );
-        let _ = fs::remove_file(package_path);
     });
     Ok(lock(&status).map(|status| status.clone())?)
 }
 
 /// Keep one package/code alive for authenticated resume attempts until import
-/// completes, cancellation, or expiry. An unauthenticated failure still consumes
-/// the session so reconnect support cannot become an online guessing oracle.
+/// completes, cancellation, or expiry. Pre-authentication transport noise is
+/// ignored, but a complete incorrect proof consumes the one-use session.
 fn run_sender(
     listener: TcpListener,
     tls_config: Arc<ServerConfig>,
@@ -284,7 +333,6 @@ fn run_sender(
                     set_send_status(status, LibraryTransferSendState::Cancelled, None);
                     return;
                 }
-                set_send_active(status);
                 let result = send_package(
                     stream,
                     Arc::clone(&tls_config),
@@ -303,12 +351,15 @@ fn run_sender(
                         set_send_status(status, LibraryTransferSendState::Complete, None);
                         return;
                     }
+                    Err(SendAttemptError::Unauthenticated) => {
+                        set_send_waiting(status, None);
+                    }
                     Err(SendAttemptError::Fatal(error)) => {
                         set_send_status(status, LibraryTransferSendState::Failed, Some(error));
                         return;
                     }
                     Err(SendAttemptError::Retryable(error)) => {
-                        set_send_retry_waiting(status, error);
+                        set_send_waiting(status, Some(error));
                     }
                 }
             }
@@ -396,13 +447,13 @@ fn set_send_active(status: &Mutex<LibraryTransferSendStatus>) {
     }
 }
 
-/// Return an authenticated interrupted session to its pairing screen while
-/// retaining the source package and target partial for an explicit retry.
-fn set_send_retry_waiting(status: &Mutex<LibraryTransferSendStatus>, error: String) {
+/// Return a failed attempt to the pairing screen. Only authenticated transfer
+/// interruptions surface an error; unrelated pre-authentication traffic does not.
+fn set_send_waiting(status: &Mutex<LibraryTransferSendStatus>, error: Option<String>) {
     if let Ok(mut status) = status.lock() {
         status.state = LibraryTransferSendState::Waiting;
         status.receiver_progress = None;
-        status.error = Some(error);
+        status.error = error;
     }
 }
 
@@ -429,4 +480,25 @@ fn lock<T>(mutex: &Mutex<T>) -> Result<std::sync::MutexGuard<'_, T>, String> {
     mutex
         .lock()
         .map_err(|_| "Library transfer state is unavailable".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn native_operation_reservations_release_after_every_owner() {
+        let state = LibraryTransferState::default();
+        let send = state
+            .begin_send_preparation()
+            .expect("first send preparation");
+        assert!(state.begin_send_preparation().is_err());
+        drop(send);
+        assert!(state.begin_send_preparation().is_ok());
+
+        let restore = state.begin_restore().expect("first restore");
+        assert!(state.begin_restore().is_err());
+        drop(restore);
+        assert!(state.begin_restore().is_ok());
+    }
 }

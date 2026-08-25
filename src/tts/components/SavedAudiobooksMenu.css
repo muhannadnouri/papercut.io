@@ -23,7 +23,7 @@
   height: 1.05rem;
   padding-inline: 0.2rem;
   border: 1px solid var(--surface);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--accent);
   color: var(--text-inverse);
   font-size: 0.62rem;
@@ -41,9 +41,9 @@
   display: grid;
   max-height: inherit;
   overflow: hidden;
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  background: var(--surface);
+  border: 1px solid transparent;
+  border-radius: var(--radius-compact);
+  background: var(--surface-strong);
   box-shadow: 0 12px 28px var(--shadow-popover);
 }
 
@@ -51,7 +51,7 @@
   display: grid;
   gap: 0.2rem;
   padding: 0.65rem 0.8rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--row-divider);
   background: var(--surface-muted);
   color: var(--text-heading);
   font-size: 0.85rem;
@@ -76,8 +76,8 @@
   gap: 0.2rem;
   padding: 0.7rem 0.8rem;
   border: none;
-  border-bottom: 1px solid var(--surface-hover);
-  background: var(--surface);
+  border-bottom: 1px solid var(--row-divider);
+  background: transparent;
   color: var(--text-heading);
   cursor: pointer;
   font-size: 0.85rem;

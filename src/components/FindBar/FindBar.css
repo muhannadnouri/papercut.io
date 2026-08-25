@@ -10,9 +10,9 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-strong);
-  border-radius: 0 0 10px 10px;
-  background: var(--surface);
+  border: 1px solid transparent;
+  border-radius: 0 0 var(--radius-surface) var(--radius-surface);
+  background: var(--surface-strong);
   box-shadow: 0 2px 8px var(--shadow-soft);
   z-index: 80;
 }
@@ -21,17 +21,22 @@
   min-width: 0;
   padding: 0.45rem 0.75rem;
   font-size: 0.9rem;
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
+  border: 2px solid transparent;
+  border-radius: var(--radius-compact);
   outline: none;
-  background: var(--surface-subtle);
-  transition: border-color 0.2s;
+  background: var(--control-surface);
+  color: var(--text-body);
+  transition: background 0.2s, box-shadow 0.2s;
 }
 
 .find-input:focus {
-  border-color: var(--accent-text);
-  background: var(--surface);
+  background: var(--control-surface);
   box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
+.find-input::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
 }
 
 .find-count {
@@ -45,26 +50,28 @@
   place-items: center;
   min-width: 2.25rem;
   min-height: 2rem;
-  background: none;
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
+  background: var(--control-surface);
+  border: 1px solid transparent;
+  border-radius: var(--radius-compact);
   padding: 0;
   font-size: 0.75rem;
   color: var(--text-body);
   cursor: pointer;
   line-height: 1;
-  transition: all 0.15s;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
 }
 
 .find-nav-btn:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
+  background: var(--surface-accent);
   color: var(--accent-text);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .find-nav-btn:disabled {
-  opacity: 0.4;
+  background: var(--surface-muted);
+  color: var(--text-soft);
   cursor: not-allowed;
 }
 
@@ -73,9 +80,9 @@
   place-items: center;
   min-width: 2rem;
   min-height: 2rem;
-  background: none;
+  background: var(--control-surface);
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   font-size: 1.55rem;
   color: var(--text-muted);
   cursor: pointer;
@@ -84,6 +91,8 @@
 }
 
 .find-close:focus-visible {
+  background: var(--surface-accent);
+  color: var(--accent-text);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
   outline-offset: 2px;
@@ -91,11 +100,13 @@
 
 @media (hover: hover) and (pointer: fine) {
   .find-nav-btn:hover:not(:disabled) {
-    border-color: var(--accent-text);
+    border-color: transparent;
+    background: var(--surface-accent);
     color: var(--accent-text);
   }
 
   .find-close:hover {
+    background: var(--surface-danger);
     color: var(--danger-bright);
   }
 }

@@ -1,16 +1,16 @@
 {
   "name": "papercut.io",
   "private": true,
-  "version": "1.7.4",
+  "version": "1.9.0",
   "type": "module",
   "scripts": {
-    "dev": "npm run prepare:pdfjs-assets && vite",
+    "dev": "npm run prepare:pdf-assets && vite",
     "tauri": "tauri",
     "tauri:dev": "tauri dev --features native-tts-shared",
     "build": "npm run check:i18n && npm run build:typecheck && npm run build:vite && npm run build:search-index",
     "check:i18n": "node scripts/check-i18n.mjs",
     "build:typecheck": "tsc -b",
-    "build:vite": "npm run prepare:pdfjs-assets && vite build",
+    "build:vite": "npm run prepare:pdf-assets && vite build",
     "build:search-index": "npx pagefind --site dist --glob \"documents/**/*.html\"",
     "browser": "npm run build && vite preview",
     "preview": "vite preview",
@@ -21,6 +21,7 @@
     "desktop:static": "node scripts/build-desktop.js --static",
     "prepare:silma-sidecar": "node scripts/prepare-silma-sidecar.js",
     "test:pdf-extraction": "node scripts/check-pdf-extraction.mjs scripts/fixtures/pdf/extraction-inline-columns.pdf",
+    "prepare:pdf-boundary-fixtures": "node scripts/prepare-pdf-boundary-fixtures.mjs",
     "package:silma-runtime": "node scripts/package-silma-runtime-pack.js",
     "install:silma-cuda-runtime": "bash scripts/install-silma-cuda-runtime.sh",
     "verify:appimage-media": "node scripts/verify-appimage-media.js",
@@ -28,7 +29,7 @@
     "android:apk:native-tts": "node scripts/build-android.js --native-tts",
     "prepare:jdk": "node scripts/prepare-local-jdk.js",
     "prepare:jdk:force": "node scripts/prepare-local-jdk.js --force",
-    "prepare:pdfjs-assets": "node scripts/prepare-pdfjs-assets.js",
+    "prepare:pdf-assets": "node scripts/prepare-pdf-assets.js",
     "prepare:sherpa-android-libs": "node scripts/prepare-sherpa-android-libs.js",
     "prepare:sherpa-android-libs:force": "node scripts/prepare-sherpa-android-libs.js --force",
     "ios:init": "node scripts/build-ios.js --init",
@@ -41,18 +42,21 @@
   },
   "dependencies": {
     "@tauri-apps/plugin-opener": "2.5.3",
+    "@tesseract.js-data/ara": "1.0.0",
+    "@tesseract.js-data/eng": "1.0.0",
     "i18next": "^26.3.6",
-    "pdfjs-dist": "6.1.200",
+    "pdfjs-dist": "6.2.108",
     "react": "^19.2.0",
     "react-aria-components": "^1.19.0",
     "react-dom": "^19.2.0",
     "react-i18next": "^17.0.10",
-    "tauri-plugin-native-audio-api": "1.0.5"
+    "tauri-plugin-native-audio-api": "1.0.5",
+    "tesseract.js": "7.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
-    "@tauri-apps/api": "2.10.1",
-    "@tauri-apps/cli": "^2.10.1",
+    "@tauri-apps/api": "2.11.1",
+    "@tauri-apps/cli": "^2.11.2",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
@@ -64,7 +68,7 @@
     "pagefind": "^1.4.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.48.0",
-    "vite": "^7.3.1",
+    "vite": "^7.3.5",
     "vitest": "^4.1.10"
   }
 }

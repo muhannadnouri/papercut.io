@@ -10,16 +10,17 @@
   width: 100%;
   min-height: 2.45rem;
   padding: 0.45rem 0.65rem;
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  background: var(--surface);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--control-surface);
   color: var(--text-heading);
   font-size: 0.9rem;
   outline: none;
 }
 
 .text-input-dialog-field input:focus {
-  border-color: var(--accent-text);
+  border-color: transparent;
+  background: var(--surface-accent);
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 

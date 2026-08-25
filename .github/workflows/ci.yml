@@ -3,6 +3,8 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  schedule:
+    - cron: "17 9 * * 3"
   workflow_dispatch:
     inputs:
       validation_scope:
@@ -32,6 +34,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       android_packaging: ${{ steps.detect.outputs.android_packaging }}
+      code_checks: ${{ steps.detect.outputs.code_checks }}
       desktop_packaging: ${{ steps.detect.outputs.desktop_packaging }}
       ios_packaging: ${{ steps.detect.outputs.ios_packaging }}
       silma_runtime: ${{ steps.detect.outputs.silma_runtime }}
@@ -52,18 +55,21 @@ jobs:
         run: |
           set -euo pipefail
           android_packaging=false
+          code_checks=false
           desktop_packaging=false
           ios_packaging=false
           silma_runtime=false
 
           emit_outputs() {
             echo "android_packaging=$android_packaging" >> "$GITHUB_OUTPUT"
+            echo "code_checks=$code_checks" >> "$GITHUB_OUTPUT"
             echo "desktop_packaging=$desktop_packaging" >> "$GITHUB_OUTPUT"
             echo "ios_packaging=$ios_packaging" >> "$GITHUB_OUTPUT"
             echo "silma_runtime=$silma_runtime" >> "$GITHUB_OUTPUT"
           }
 
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            code_checks=true
             case "$VALIDATION_SCOPE" in
               full)
                 android_packaging=true
@@ -92,12 +98,31 @@ jobs:
             exit 0
           fi
 
+          if [ "$EVENT_NAME" = "schedule" ]; then
+            code_checks=true
+            emit_outputs
+            exit 0
+          fi
+
           base="$PR_BASE_SHA"
           git fetch --no-tags --depth=1 origin "$base"
           changed="$(git diff --name-only "$base" HEAD)"
           printf '%s\n' "$changed"
 
           while IFS= read -r path; do
+            # Keep the required workflow present, but skip its runner-heavy job
+            # only for known content/metadata surfaces that cannot affect the app.
+            case "$path" in
+              *.md | \
+              .github/FUNDING.yml | \
+              RELEASE_NOTES/* | \
+              docs/* | \
+              site/*)
+                ;;
+              *)
+                code_checks=true
+                ;;
+            esac
             case "$path" in
               .github/workflows/ci.yml | \
               package.json | \
@@ -105,6 +130,8 @@ jobs:
               src-tauri/Cargo.toml | \
               src-tauri/Cargo.lock | \
               src-tauri/build.rs | \
+              src-tauri/tauri.conf.json | \
+              src-tauri/plugins/* | \
               src-tauri/src/* | \
               src-tauri/tts/* | \
               src-tauri/vendor/sherpa-onnx-sys/* | \
@@ -115,7 +142,6 @@ jobs:
                 ;;
             esac
             case "$path" in
-              src-tauri/tauri.conf.json | \
               src-tauri/tauri.linux.conf.json | \
               src-tauri/tauri.macos.conf.json | \
               src-tauri/Entitlements.plist | \
@@ -159,7 +185,13 @@ jobs:
           emit_outputs
 
   checks:
+    needs: changes
+    if: needs.changes.outputs.code_checks == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      checks: write
 
     steps:
       - uses: actions/checkout@v6
@@ -175,14 +207,65 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Audit npm dependencies
+        run: npm audit --audit-level=high
+
       - name: Lint
         run: npm run lint
+
+      - name: Frontend tests
+        run: npm test
 
       - name: Build frontend + Pagefind index
         run: npm run build
 
       - name: SILMA worker self-test
         run: python3 sidecars/silma/silma_worker.py --self-test
+
+      - name: Install Rust test system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Verify waived Rust dependency is inactive
+        run: |
+          # rkyv 0.7 remains in Cargo.lock through rust_decimal's optional feature.
+          # Fail if any Papercut feature or target activates that vulnerable edge.
+          dependency_tree="$(
+            cargo tree \
+              --manifest-path src-tauri/Cargo.toml \
+              --locked \
+              --all-features \
+              --target all \
+              --edges normal,build \
+              --prefix none
+          )"
+          if grep -qE '^rkyv v0\.7\.' <<<"$dependency_tree"; then
+            echo "::error::RUSTSEC-2026-0235 is waived, but rkyv 0.7 is active"
+            exit 1
+          fi
+
+      - name: Audit Rust dependencies
+        uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          working-directory: src-tauri
+          # rust_decimal declares rkyv 0.7 optionally; the preceding dependency
+          # graph check prevents this waiver from hiding an activated edge.
+          ignore: RUSTSEC-2026-0235
+
+      - name: Rust tests
+        run: |
+          # Tauri validates this generated Linux bundle resource before tests run.
+          mkdir -p src-tauri/tts/runtime/linux-x64-shared-libs
+          cargo test --manifest-path src-tauri/Cargo.toml --locked --lib
 
   build:
     needs: [changes, checks]

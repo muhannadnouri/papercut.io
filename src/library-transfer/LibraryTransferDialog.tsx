@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { AppDialog } from '../components/AppDialog/AppDialog'
@@ -20,10 +20,11 @@ import { listNativeSavedAudiobooks } from '../tts/api/nativeTts'
 import type { SavedAudiobookRecord } from '../tts/storage/AudiobookLibrary'
 import { isUserUploadUrl, upsertUserUpload } from '../tts/storage/UserUploads'
 import { formatSavedAudiobookMetaParts } from '../tts/utils/format'
+import { listUploadedDocuments, type UploadedDocument } from '../uploads/DocumentUploads'
+import { filterTransferDocuments, updateScopedSelection } from './documentSelection'
 import './LibraryTransferDialog.css'
 
 interface LibraryTransferDialogProps {
-  documentCount: number
   onBack: () => void
   onImported: () => void | Promise<void>
 }
@@ -39,22 +40,80 @@ type TransferStatus =
   | { state: 'imported'; result: LibraryTransferImportResult }
   | { state: 'error'; message: string }
 
-export function LibraryTransferDialog({ documentCount, onBack, onImported }: LibraryTransferDialogProps) {
+const DOCUMENT_FILTER_THRESHOLD = 20
+
+export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDialogProps) {
   const { t, i18n } = useTranslation()
   const [mode, setMode] = useState<TransferMode>('send')
   const [status, setStatus] = useState<TransferStatus>({ state: 'idle' })
   const [progress, setProgress] = useState<LibraryTransferProgress | null>(null)
+  const [documents, setDocuments] = useState<UploadedDocument[]>([])
+  const [documentsLoaded, setDocumentsLoaded] = useState(false)
+  const [documentsLoadFailed, setDocumentsLoadFailed] = useState(false)
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([])
+  const [documentFilter, setDocumentFilter] = useState('')
+  const [showSelectedDocuments, setShowSelectedDocuments] = useState(false)
   const [savedAudiobooks, setSavedAudiobooks] = useState<SavedAudiobookRecord[]>([])
   const [selectedAudiobookIds, setSelectedAudiobookIds] = useState<string[]>([])
   const [sendStatus, setSendStatus] = useState<LibraryTransferSendStatus | null>(null)
   const [sourceAddress, setSourceAddress] = useState('')
   const [pairingCode, setPairingCode] = useState('')
+  const selectionHelpId = useId()
+  const exportPrivacyId = useId()
   const operationBusy = ['exporting', 'importing', 'preparingSend', 'receiving'].includes(status.state)
   const sendActive = sendStatus?.state === 'waiting' || sendStatus?.state === 'sending'
+  const sendFlowVisible = status.state === 'preparingSend'
+    || Boolean(sendStatus && sendStatus.state !== 'cancelled')
   const busy = operationBusy || sendActive
-  const hasContent = documentCount > 0 || selectedAudiobookIds.length > 0
   const locale = i18n.resolvedLanguage ?? i18n.language
   const technicalT = i18n.getFixedT('en')
+  const requiredDocumentIds = useMemo(() => {
+    const documentIdByUrl = new Map(documents.map((document) => [document.url, document.id]))
+    return new Set(savedAudiobooks
+      .filter((record) => selectedAudiobookIds.includes(record.id))
+      .map((record) => documentIdByUrl.get(record.documentUrl))
+      .filter((id): id is string => Boolean(id)))
+  }, [documents, savedAudiobooks, selectedAudiobookIds])
+  const effectiveDocumentIds = useMemo(() => {
+    const selected = new Set(selectedDocumentIds)
+    requiredDocumentIds.forEach((id) => selected.add(id))
+    return documents.filter((document) => selected.has(document.id)).map((document) => document.id)
+  }, [documents, requiredDocumentIds, selectedDocumentIds])
+  const filteredDocuments = useMemo(() => filterTransferDocuments(
+    documents,
+    documentFilter,
+    locale,
+    effectiveDocumentIds,
+    showSelectedDocuments,
+  ), [documentFilter, documents, effectiveDocumentIds, locale, showSelectedDocuments])
+  const documentFilterActive = documentFilter.trim().length > 0
+  const scopedDocumentIds = filteredDocuments.map((document) => document.id)
+  const allScopedDocumentsSelected = scopedDocumentIds.length > 0
+    && scopedDocumentIds.every((id) => selectedDocumentIds.includes(id))
+  const anyScopedDocumentsSelected = scopedDocumentIds
+    .some((id) => selectedDocumentIds.includes(id))
+  const hasContent = effectiveDocumentIds.length > 0 || selectedAudiobookIds.length > 0
+  const sendSelectionReady = documentsLoaded && !documentsLoadFailed
+  const selectionEmpty = sendSelectionReady && !hasContent
+
+  /** Reload the sendable documents while exposing the existing loading and failure states. */
+  const loadDocuments = useCallback(async () => {
+    setDocumentsLoaded(false)
+    setDocumentsLoadFailed(false)
+    try {
+      const nextDocuments = await listUploadedDocuments()
+      setDocuments(nextDocuments)
+      setSelectedDocumentIds(nextDocuments.map((document) => document.id))
+    } catch {
+      setDocumentsLoadFailed(true)
+    } finally {
+      setDocumentsLoaded(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadDocuments()
+  }, [loadDocuments])
 
   useEffect(() => {
     void listNativeSavedAudiobooks()
@@ -120,7 +179,7 @@ export function LibraryTransferDialog({ documentCount, onBack, onImported }: Lib
     setProgress(null)
     setStatus({ state: 'exporting' })
     try {
-      const result = await exportLibrary(selectedAudiobookIds)
+      const result = await exportLibrary(effectiveDocumentIds, selectedAudiobookIds)
       setStatus(result ? { state: 'exported', result } : { state: 'idle' })
     } catch (error) {
       setStatus({ state: 'error', message: formatTransferError(error, locale, t) })
@@ -146,7 +205,7 @@ export function LibraryTransferDialog({ documentCount, onBack, onImported }: Lib
     setProgress(null)
     setStatus({ state: 'preparingSend' })
     try {
-      setSendStatus(await startLibrarySend(selectedAudiobookIds))
+      setSendStatus(await startLibrarySend(effectiveDocumentIds, selectedAudiobookIds))
       setStatus({ state: 'idle' })
     } catch (error) {
       setStatus({ state: 'error', message: formatTransferError(error, locale, t) })
@@ -155,8 +214,9 @@ export function LibraryTransferDialog({ documentCount, onBack, onImported }: Lib
 
   const handleCancelSend = async () => {
     try {
-      await cancelLibrarySend()
-      setSendStatus((current) => current ? { ...current, state: 'cancelled' } : current)
+      if (sendActive) await cancelLibrarySend()
+      setSendStatus(null)
+      setStatus({ state: 'idle' })
     } catch (error) {
       setStatus({ state: 'error', message: formatTransferError(error, locale, t) })
     }
@@ -201,17 +261,149 @@ export function LibraryTransferDialog({ documentCount, onBack, onImported }: Lib
 
       <div className="library-transfer-actions">
         {mode === 'send' ? (
-          <>
+          sendFlowVisible ? (
+            <LibrarySendFlow
+              preparing={status.state === 'preparingSend'}
+              status={sendStatus}
+              locale={locale}
+              onExit={() => { void handleCancelSend() }}
+            />
+          ) : (
+            <>
             <section className="library-transfer-primary-section">
               <header>
                 <h3>{t('libraryTransfer.sendTitle')}</h3>
                 <p>{t('libraryTransfer.sendDescription')}</p>
               </header>
-              {savedAudiobooks.length > 0 && (
-                <details className="library-transfer-audiobooks">
+              {!documentsLoaded && (
+                <div className="library-transfer-status library-transfer-status-busy" role="status" aria-live="polite">
+                  <span className="spinner" aria-hidden="true" />
+                  <span>{t('libraryTransfer.loadingDocuments')}</span>
+                </div>
+              )}
+              {documentsLoadFailed && (
+                <>
+                  <p className="app-dialog-error" role="alert">
+                    {t('libraryTransfer.documentsLoadFailed')}
+                  </p>
+                  <button type="button" onClick={() => { void loadDocuments() }}>
+                    {t('common.retry')}
+                  </button>
+                </>
+              )}
+              {documents.length > 0 && (
+                <details className="library-transfer-content">
                   <summary>
                     <span>
-                      <strong>
+                      <strong aria-live="polite">
+                        {t('libraryTransfer.includeDocuments', {
+                          selected: effectiveDocumentIds.length,
+                          count: documents.length,
+                        })}
+                      </strong>
+                      <small>{t('libraryTransfer.includeDocumentsDescription')}</small>
+                    </span>
+                  </summary>
+                  <div className="library-transfer-picker">
+                    {documents.length >= DOCUMENT_FILTER_THRESHOLD && (
+                      <>
+                        <label className="library-transfer-filter">
+                          <span>{t('libraryTransfer.filterDocuments')}</span>
+                          <input
+                            type="search"
+                            value={documentFilter}
+                            disabled={busy}
+                            onChange={(event) => setDocumentFilter(event.target.value)}
+                          />
+                        </label>
+                        <div className="library-transfer-filter-state">
+                          <span role="status" aria-live="polite">
+                            {t('libraryTransfer.showingDocuments', {
+                              shown: filteredDocuments.length,
+                              count: documents.length,
+                            })}
+                          </span>
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={showSelectedDocuments}
+                              disabled={busy}
+                              onChange={(event) => setShowSelectedDocuments(event.target.checked)}
+                            />
+                            <span>{t('libraryTransfer.showSelectedDocuments')}</span>
+                          </label>
+                        </div>
+                      </>
+                    )}
+                    <div className="library-transfer-picker-actions">
+                      {!showSelectedDocuments && (
+                        <button
+                          type="button"
+                          disabled={busy || allScopedDocumentsSelected || scopedDocumentIds.length === 0}
+                          onClick={() => setSelectedDocumentIds((current) => (
+                            updateScopedSelection(current, scopedDocumentIds, true)
+                          ))}
+                        >
+                          {t(documentFilterActive
+                            ? 'libraryTransfer.selectMatchingDocuments'
+                            : 'common.selectAll')}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={busy || !anyScopedDocumentsSelected}
+                        onClick={() => setSelectedDocumentIds((current) => (
+                          updateScopedSelection(current, scopedDocumentIds, false)
+                        ))}
+                      >
+                        {t(showSelectedDocuments
+                          ? 'libraryTransfer.deselectShownDocuments'
+                          : documentFilterActive
+                            ? 'libraryTransfer.deselectMatchingDocuments'
+                            : 'common.deselectAll')}
+                      </button>
+                    </div>
+                    <div className="library-transfer-picker-list">
+                      {filteredDocuments.map((document) => {
+                        const required = requiredDocumentIds.has(document.id)
+                        return (
+                          <label key={document.id}>
+                            <input
+                              type="checkbox"
+                              checked={required || selectedDocumentIds.includes(document.id)}
+                              disabled={busy || required}
+                              onChange={(event) => {
+                                setSelectedDocumentIds((current) => event.target.checked
+                                  ? [...current, document.id]
+                                  : current.filter((id) => id !== document.id))
+                              }}
+                            />
+                            <span>
+                              <strong><bdi>{document.title}</bdi></strong>
+                              <small className="library-transfer-item-meta">
+                                <span dir="ltr">{document.format.toUpperCase()}</span>
+                                {required && <span>{t('libraryTransfer.requiredByAudiobook')}</span>}
+                              </small>
+                            </span>
+                          </label>
+                        )
+                      })}
+                      {filteredDocuments.length === 0 && (
+                        <p className="library-transfer-empty">
+                          {t(showSelectedDocuments
+                            ? 'libraryTransfer.noSelectedDocuments'
+                            : 'libraryTransfer.noMatchingDocuments')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </details>
+              )}
+              {savedAudiobooks.length > 0 && (
+                <details className="library-transfer-content">
+                  <summary>
+                    <span>
+                      <strong aria-live="polite">
                         {t('libraryTransfer.includeAudiobooks', {
                           selected: selectedAudiobookIds.length,
                           count: savedAudiobooks.length,
@@ -220,8 +412,8 @@ export function LibraryTransferDialog({ documentCount, onBack, onImported }: Lib
                       <small>{t('libraryTransfer.includeAudiobooksDescription')}</small>
                     </span>
                   </summary>
-                  <div className="library-transfer-audiobook-picker">
-                    <div className="library-transfer-audiobook-actions">
+                  <div className="library-transfer-picker">
+                    <div className="library-transfer-picker-actions">
                       <button
                         type="button"
                         disabled={busy || selectedAudiobookIds.length === savedAudiobooks.length}
@@ -237,7 +429,7 @@ export function LibraryTransferDialog({ documentCount, onBack, onImported }: Lib
                         {t('common.deselectAll')}
                       </button>
                     </div>
-                    <div className="library-transfer-audiobook-list">
+                    <div className="library-transfer-picker-list">
                       {savedAudiobooks.map((record) => {
                         const meta = formatSavedAudiobookMetaParts(
                           technicalT,
@@ -262,7 +454,7 @@ export function LibraryTransferDialog({ documentCount, onBack, onImported }: Lib
                             />
                             <span>
                               <strong><bdi>{record.title}</bdi></strong>
-                              <small className="library-transfer-audiobook-meta" dir="ltr">
+                              <small className="library-transfer-item-meta" dir="ltr">
                                 {meta.map((part) => <span key={part}>{part}</span>)}
                               </small>
                             </span>
@@ -273,35 +465,46 @@ export function LibraryTransferDialog({ documentCount, onBack, onImported }: Lib
                   </div>
                 </details>
               )}
-              {sendActive ? (
-                <button type="button" className="library-transfer-stop" onClick={() => { void handleCancelSend() }}>
-                  {t('libraryTransfer.stopSending')}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="library-transfer-primary"
-                  disabled={operationBusy || !hasContent}
-                  onClick={() => { void handleStartSend() }}
-                >
-                  {status.state === 'preparingSend'
-                    ? t('libraryTransfer.preparingSend')
-                    : t('libraryTransfer.startSending')}
-                </button>
+              {selectionEmpty && (
+                <p id={selectionHelpId} role="status">{t('libraryTransfer.selectAtLeastOne')}</p>
               )}
-              <LibrarySendStatusMessage status={sendStatus} locale={locale} />
+              <button
+                type="button"
+                className="library-transfer-primary"
+                disabled={operationBusy || !sendSelectionReady || !hasContent}
+                aria-describedby={selectionEmpty ? selectionHelpId : undefined}
+                onClick={() => { void handleStartSend() }}
+              >
+                {t('libraryTransfer.startSending')}
+              </button>
             </section>
 
             <details className="library-transfer-alternate">
               <summary>{t('libraryTransfer.exportTitle')}</summary>
               <div className="library-transfer-alternate-content">
-                <p>{t('libraryTransfer.exportDescription', { count: documentCount })}</p>
-                <button type="button" disabled={busy || !hasContent} onClick={() => { void handleExport() }}>
+                <p>{t('libraryTransfer.exportDescription', {
+                  documents: effectiveDocumentIds.length,
+                  audiobooks: selectedAudiobookIds.length,
+                })}</p>
+                <p id={exportPrivacyId} className="library-transfer-privacy-note">
+                  {t('libraryTransfer.exportPrivacy')}
+                </p>
+                <button
+                  type="button"
+                  disabled={busy || !sendSelectionReady || !hasContent}
+                  aria-busy={status.state === 'exporting' || undefined}
+                  aria-describedby={selectionEmpty
+                    ? `${selectionHelpId} ${exportPrivacyId}`
+                    : exportPrivacyId}
+                  onClick={() => { void handleExport() }}
+                >
                   {status.state === 'exporting' ? t('libraryTransfer.exporting') : t('libraryTransfer.export')}
                 </button>
+                {status.state === 'exporting' && <TransferPreparationMessage />}
               </div>
             </details>
-          </>
+            </>
+          )
         ) : (
           <>
             <section className="library-transfer-primary-section">
@@ -331,7 +534,7 @@ export function LibraryTransferDialog({ documentCount, onBack, onImported }: Lib
                     autoCapitalize="characters"
                     autoCorrect="off"
                     spellCheck={false}
-                    placeholder="ABCD-EFGH"
+                    placeholder="ABCD-EFGH-JKLM"
                     onChange={(event) => setPairingCode(event.target.value)}
                   />
                 </label>
@@ -365,7 +568,7 @@ export function LibraryTransferDialog({ documentCount, onBack, onImported }: Lib
         )}
       </div>
 
-      <TransferStatusMessage status={status} />
+      {sendStatus?.state !== 'failed' && <TransferStatusMessage status={status} />}
     </AppDialog>
   )
 }
@@ -406,18 +609,64 @@ function TransferProgressMessage({ progress, locale }: { progress: LibraryTransf
   )
 }
 
+// Selection state stays in the parent while this compact view keeps active session details above the fold.
+export function LibrarySendFlow({
+  preparing,
+  status,
+  locale,
+  onExit,
+}: {
+  preparing: boolean
+  status: LibraryTransferSendStatus | null
+  locale: string
+  onExit: () => void
+}) {
+  const { t } = useTranslation()
+  const waiting = status?.state === 'waiting'
+  const sending = status?.state === 'sending'
+  return (
+    <section className="library-transfer-primary-section library-transfer-guided">
+      <header>
+        <h3>{t(waiting ? 'libraryTransfer.connectDevice' : 'libraryTransfer.sendTitle')}</h3>
+      </header>
+      {waiting && (
+        <ol>
+          <li>{t('libraryTransfer.connectStepOpen')}</li>
+          <li>{t('libraryTransfer.connectStepEnter')}</li>
+        </ol>
+      )}
+      {preparing
+        ? <TransferPreparationMessage />
+        : <LibrarySendStatusMessage status={status} locale={locale} />}
+      {status && (
+        <button type="button" className={sending ? 'library-transfer-stop' : undefined} onClick={onExit}>
+          {t(sending ? 'libraryTransfer.stopSending' : 'libraryTransfer.changeSelection')}
+        </button>
+      )}
+    </section>
+  )
+}
+
+export function TransferPreparationMessage() {
+  const { t } = useTranslation()
+  return (
+    <div className="library-transfer-status library-transfer-status-busy" role="status" aria-live="polite">
+      <span className="spinner" aria-hidden="true" />
+      <span>{t('libraryTransfer.preparingSelection')}</span>
+    </div>
+  )
+}
+
 function TransferStatusMessage({ status }: { status: TransferStatus }) {
   const { t } = useTranslation()
-  if (status.state === 'idle' || status.state === 'preparingSend' || status.state === 'receiving' || status.state === 'importing') {
+  if (
+    status.state === 'idle'
+    || status.state === 'exporting'
+    || status.state === 'preparingSend'
+    || status.state === 'receiving'
+    || status.state === 'importing'
+  ) {
     return null
-  }
-  if (status.state === 'exporting') {
-    return (
-      <div className="library-transfer-status library-transfer-status-busy" role="status" aria-live="polite">
-        <span className="spinner" aria-hidden="true" />
-        <span>{t('libraryTransfer.exporting')}</span>
-      </div>
-    )
   }
   if (status.state === 'error') {
     return <p className="app-dialog-error" role="alert" dir="auto">{status.message}</p>

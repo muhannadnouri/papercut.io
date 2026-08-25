@@ -9,12 +9,19 @@ export interface AuthorGroup {
   docs: DocumentInfo[]
 }
 
+export type DocumentScopeMode = 'include' | 'exclude'
+
+const EMPTY_DOCUMENT_SCOPE = new Set<string>()
+
 interface UseDocumentFiltersOptions {
   includeDocument?: (doc: DocumentInfo) => boolean
 }
 
 interface UseDocumentFiltersReturn {
   selectedFilters: Set<string>
+  scopeMode: DocumentScopeMode
+  scopeUrls: Set<string>
+  scopeActive: boolean
   showDocuments: boolean
   documentFilter: string
   collapsedAuthors: Set<string>
@@ -28,6 +35,7 @@ interface UseDocumentFiltersReturn {
   toggleAllInGroup: (docs: DocumentInfo[]) => void
   setShowDocuments: React.Dispatch<React.SetStateAction<boolean>>
   setDocumentFilter: React.Dispatch<React.SetStateAction<string>>
+  setScopeMode: React.Dispatch<React.SetStateAction<DocumentScopeMode>>
 }
 
 export function useDocumentFilters(
@@ -36,6 +44,7 @@ export function useDocumentFilters(
 ): UseDocumentFiltersReturn {
   const { t, i18n } = useTranslation()
   const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set())
+  const [scopeMode, setScopeMode] = useState<DocumentScopeMode>('include')
   const [showDocuments, setShowDocuments] = useState(true)
   const [documentFilter, setDocumentFilter] = useState('')
   const [collapsedAuthors, setCollapsedAuthors] = useState<Set<string>>(new Set())
@@ -54,6 +63,14 @@ export function useDocumentFilters(
       .map((doc) => [doc.url, doc.title] as const)
     return new Map(entries)
   }, [allDocuments, includeDocument])
+
+  const scopeActive = selectedFilters.size > 0
+  const scopeUrls = useMemo(
+    () => scopeActive
+      ? resolveDocumentScopeUrls(filterTitleByUrl.keys(), selectedFilters, scopeMode)
+      : EMPTY_DOCUMENT_SCOPE,
+    [filterTitleByUrl, scopeActive, scopeMode, selectedFilters],
+  )
 
   const groupedDocs = useMemo<AuthorGroup[]>(() => {
     const groups = new Map<string, DocumentInfo[]>()
@@ -140,6 +157,9 @@ export function useDocumentFilters(
 
   return {
     selectedFilters,
+    scopeMode,
+    scopeUrls,
+    scopeActive,
     showDocuments,
     documentFilter,
     collapsedAuthors,
@@ -153,5 +173,16 @@ export function useDocumentFilters(
     toggleAllInGroup,
     setShowDocuments,
     setDocumentFilter,
+    setScopeMode,
   }
+}
+
+export function resolveDocumentScopeUrls(
+  allUrls: Iterable<string>,
+  selectedUrls: ReadonlySet<string>,
+  mode: DocumentScopeMode,
+): Set<string> {
+  return new Set(Array.from(allUrls).filter((url) => (
+    mode === 'include' ? selectedUrls.has(url) : !selectedUrls.has(url)
+  )))
 }

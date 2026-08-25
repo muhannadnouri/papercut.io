@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useEffectEvent, useId, useRef, type FormEvent, type ReactNode } from 'react'
 import './AppDialog.css'
 
 const FOCUSABLE_SELECTOR = [
@@ -15,14 +15,17 @@ interface AppDialogProps {
   description?: ReactNode
   children?: ReactNode
   actions: ReactNode
+  className?: string
   onCancel: () => void
   onSubmit?: (event: FormEvent) => void
 }
 
-export function AppDialog({ title, description, children, actions, onCancel, onSubmit }: AppDialogProps) {
+export function AppDialog({ title, description, children, actions, className, onCancel, onSubmit }: AppDialogProps) {
   const titleId = useId()
   const descriptionId = useId()
   const dialogRef = useRef<HTMLDivElement | HTMLFormElement | null>(null)
+  // Keep Escape current without reinstalling the focus trap when a parent callback changes identity.
+  const cancelDialog = useEffectEvent(onCancel)
   const setDialogRef = (node: HTMLDivElement | HTMLFormElement | null) => {
     dialogRef.current = node
   }
@@ -43,7 +46,7 @@ export function AppDialog({ title, description, children, actions, onCancel, onS
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         event.preventDefault()
-        onCancel()
+        cancelDialog()
         return
       }
 
@@ -77,7 +80,7 @@ export function AppDialog({ title, description, children, actions, onCancel, onS
       document.removeEventListener('keydown', handleKeyDown)
       if (previousFocus?.isConnected) previousFocus.focus()
     }
-  }, [onCancel])
+  }, [])
 
   const content = (
     <>
@@ -95,7 +98,7 @@ export function AppDialog({ title, description, children, actions, onCancel, onS
       {onSubmit ? (
         <form
           ref={setDialogRef}
-          className="app-dialog"
+          className={'app-dialog' + (className ? ` ${className}` : '')}
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
@@ -109,7 +112,7 @@ export function AppDialog({ title, description, children, actions, onCancel, onS
       ) : (
         <div
           ref={setDialogRef}
-          className="app-dialog"
+          className={'app-dialog' + (className ? ` ${className}` : '')}
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}

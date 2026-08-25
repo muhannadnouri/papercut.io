@@ -31,7 +31,7 @@ mod platform;
 #[cfg(not(feature = "native-tts-core"))]
 mod stub;
 
-pub(crate) use references::document_has_audiobook_reference;
+pub(crate) use references::{document_has_audiobook_reference, with_audiobook_reference_lock};
 pub use state::NativeTtsState;
 
 #[cfg(feature = "native-tts-core")]

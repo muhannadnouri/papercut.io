@@ -22,7 +22,7 @@ pub(crate) fn parsed_html_document(
     format: impl Into<String>,
     sanitized_html: String,
 ) -> ParsedDocument {
-    let blocks = extract_text_blocks(&sanitized_html);
+    let (view_html, blocks) = indexed_reader_html(&sanitized_html);
     let mut sections = Vec::new();
     let mut current_heading: Option<String> = None;
 
@@ -46,14 +46,44 @@ pub(crate) fn parsed_html_document(
     ParsedDocument {
         title,
         format: format.into(),
-        view_html: sanitized_html,
+        view_html,
         sections,
         cover: None,
+        assets: Vec::new(),
     }
+}
+
+/// Add deterministic DOM targets to a sanitized reader document.
+///
+/// Section ordinals are already persisted in SQLite. Reusing them here gives
+/// older uploads the same navigation contract without a schema migration.
+pub(crate) fn add_section_locators(html: &str) -> String {
+    indexed_reader_html(html).0
+}
+
+/// Recognize the deterministic locator sequence emitted by `indexed_reader_html`.
+///
+/// ponytail: this avoids reparsing every large reader document on open. Fall
+/// back to a DOM check only if authored lookalike marker sequences occur in practice.
+pub(crate) fn has_complete_section_locators(html: &str, section_count: usize) -> bool {
+    if html.matches("data-papercut-section=").count() != section_count {
+        return false;
+    }
+
+    let mut remaining = html;
+    for ordinal in 0..section_count {
+        let marker = format!(r#"data-papercut-section="{ordinal}""#);
+        let Some(index) = remaining.find(&marker) else {
+            return false;
+        };
+        remaining = &remaining[index + marker.len()..];
+    }
+    true
 }
 
 /// One extracted block of body text plus whether it came from a heading tag.
 struct TextBlock {
+    node: NodeRef,
     is_heading: bool,
     text: String,
 }
@@ -63,9 +93,32 @@ struct TextBlock {
 /// EPUBs commonly use paragraph-like `<div>` nodes instead of `<p>`. A DOM walk
 /// lets us index those leaf blocks while skipping wrapper containers that would
 /// otherwise duplicate an entire chapter or body.
-fn extract_text_blocks(html: &str) -> Vec<TextBlock> {
+fn indexed_reader_html(html: &str) -> (String, Vec<TextBlock>) {
     let document = parse_html().one(html).document_node;
     let root = document_body(&document);
+    let blocks = extract_text_blocks(&root);
+
+    // The sanitizer permits only numeric locator values, but imported content
+    // may still contain one. Reset every marker before assigning index-owned
+    // ordinals so source markup cannot redirect a result click.
+    if let Ok(marked) = document.select("[data-papercut-section]") {
+        for node in marked {
+            node.attributes.borrow_mut().remove("data-papercut-section");
+        }
+    }
+    for (ordinal, block) in blocks.iter().enumerate() {
+        if let Some(element) = block.node.as_element() {
+            element
+                .attributes
+                .borrow_mut()
+                .insert("data-papercut-section", ordinal.to_string());
+        }
+    }
+
+    (serialize_node(&document), blocks)
+}
+
+fn extract_text_blocks(root: &NodeRef) -> Vec<TextBlock> {
     let mut blocks = Vec::new();
 
     for node in root.inclusive_descendants() {
@@ -82,6 +135,7 @@ fn extract_text_blocks(html: &str) -> Vec<TextBlock> {
         let text = normalize_text(&strip_tags(&serialize_node(&node)));
         if !text.is_empty() {
             blocks.push(TextBlock {
+                node,
                 is_heading: is_heading(&tag_name),
                 text,
             });
@@ -89,9 +143,10 @@ fn extract_text_blocks(html: &str) -> Vec<TextBlock> {
     }
 
     if blocks.is_empty() {
-        let text = normalize_text(&strip_tags(&serialize_node(&root)));
+        let text = normalize_text(&strip_tags(&serialize_node(root)));
         if !text.is_empty() {
             blocks.push(TextBlock {
+                node: root.clone(),
                 is_heading: false,
                 text,
             });
@@ -257,5 +312,54 @@ mod tests {
             .sections
             .iter()
             .any(|section| section.text == "CORNELIA had always loved Saturnalia."));
+    }
+
+    #[test]
+    fn assigns_section_ordinals_to_the_indexed_reader_blocks() {
+        let parsed = parse_html_document(
+            "<body><h2>First</h2><div><p>Nested paragraph.</p></div><p>Last.</p></body>",
+        );
+
+        assert_eq!(parsed.sections.len(), 3);
+        assert!(parsed
+            .view_html
+            .contains("<h2 data-papercut-section=\"0\">First</h2>"));
+        assert!(parsed
+            .view_html
+            .contains("<p data-papercut-section=\"1\">Nested paragraph.</p>"));
+        assert!(parsed
+            .view_html
+            .contains("<p data-papercut-section=\"2\">Last.</p>"));
+    }
+
+    #[test]
+    fn replaces_imported_locator_values_with_index_owned_ordinals() {
+        let parsed = parsed_html_document(
+            "Test".into(),
+            "html",
+            "<body><p data-papercut-section=\"42\">First.</p><p>Second.</p></body>".into(),
+        );
+
+        assert!(!parsed.view_html.contains("data-papercut-section=\"42\""));
+        assert_eq!(
+            parsed.view_html.matches("data-papercut-section=").count(),
+            2
+        );
+    }
+
+    #[test]
+    fn recognizes_only_complete_ordered_section_locators() {
+        assert!(has_complete_section_locators(
+            r#"<p data-papercut-section="0">First.</p><p data-papercut-section="1">Second.</p>"#,
+            2,
+        ));
+        assert!(!has_complete_section_locators(
+            r#"<p>data-papercut-section=</p><p>Second.</p>"#,
+            2,
+        ));
+        assert!(!has_complete_section_locators(
+            r#"<p data-papercut-section="0">First.</p><p data-papercut-section="2">Third.</p>"#,
+            2,
+        ));
     }
 }

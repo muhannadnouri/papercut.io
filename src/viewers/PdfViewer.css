@@ -23,9 +23,9 @@
 
 .pdf-search-target-status {
   align-items: center;
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  background: var(--surface-strong);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
   box-shadow: 0 4px 14px var(--shadow-soft);
   color: var(--text-heading);
   display: inline-flex;
@@ -61,9 +61,50 @@ html[dir="rtl"] .pdf-search-target-status {
   box-shadow: 0 1px 5px var(--shadow-soft);
 }
 
+.pdf-ocr-text-layer {
+  color: transparent;
+  inset: 0 auto auto 0;
+  overflow: hidden;
+  position: absolute;
+  transform-origin: 0 0;
+  user-select: text;
+  z-index: 2;
+}
+
+.pdf-ocr-text-layer span {
+  line-height: 1;
+  position: absolute;
+  transform-origin: 0 0;
+  white-space: pre;
+}
+
+.pdf-ocr-text-layer ::selection {
+  background-color: rgb(79 70 229 / 0.5);
+  background-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  color: transparent;
+}
+
+.pdf-ocr-text-layer br::selection {
+  background-color: transparent;
+}
+
 .pdf-viewer mark[data-search-target] {
   background: var(--highlight-current);
   color: var(--highlight-current-text);
+}
+
+.pdf-viewer .textLayer mark[data-search-target],
+.pdf-viewer .pdf-ocr-text-layer mark[data-search-target] {
+  background: rgb(255 165 0 / 0.55);
+  background: color-mix(in srgb, var(--highlight-current) 55%, transparent);
+  color: transparent;
+}
+
+.pdf-viewer .textLayer span::highlight(search-target),
+.pdf-ocr-text-layer span::highlight(search-target) {
+  background-color: rgb(255 165 0 / 0.55);
+  background-color: color-mix(in srgb, var(--highlight-current) 55%, transparent);
+  color: transparent;
 }
 
 .pdf-tts-highlight-layer {
@@ -118,7 +159,7 @@ html[dir="rtl"] .pdf-search-target-status {
   align-items: center;
   background: transparent;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   color: var(--text-body);
   cursor: pointer;
   display: inline-flex;

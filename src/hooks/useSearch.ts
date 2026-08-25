@@ -1,17 +1,16 @@
 import { useState, useCallback, useRef } from 'react'
 import type { PagefindInstance, SearchResult } from '../types/search'
 import {
-  isUploadedPdfDocumentUrl,
   searchUploadedDocuments,
   type UploadedDocumentSearchResult,
+  type UploadedDocumentSearchStage,
 } from '../uploads/DocumentUploads'
-import { normalizeForPhraseMatch, escapeHtml } from '../utils/textUtils'
+import { normalizeForPhraseMatch, sanitizeMarkedExcerpt } from '../utils/textUtils'
 import {
   buildPhraseExcerpt,
   countPhraseOccurrences,
   docContainsAllPhrases,
-  extractQuotedPhrases,
-  stripQuotes,
+  parseSearchQuery,
   type DocumentSourceLoader,
 } from '../utils/phraseSearch'
 
@@ -19,19 +18,42 @@ import {
 // excerpts are mainly for the first screenful when Pagefind only returns a heading.
 const FUZZY_FALLBACK_EXCERPT_LIMIT = 12
 
-interface LastSearchInfo {
+export type SearchPhase = 'indexes' | 'candidates' | 'phrases' | 'evidence' | 'results' | 'excerpts'
+
+const UPLOADED_SEARCH_PHASES: Record<UploadedDocumentSearchStage, SearchPhase> = {
+  findingCandidates: 'candidates',
+  verifyingPhrases: 'phrases',
+  buildingResults: 'evidence',
+}
+
+export interface LastSearchInfo {
   phrases: string[]
+  unquotedText: string
+  uploadedDocuments: number
+  uploadedMatchingSections: number
+  starterDocuments: number
+}
+
+export type SearchQueryError = 'unmatchedQuote'
+
+interface PagefindResultSet {
+  results: SearchResult[]
+  totalDocuments: number
 }
 
 interface UseSearchOptions {
   loadDocumentSource?: DocumentSourceLoader
   scopeUrls?: Set<string>
+  scopeActive?: boolean
 }
 
 interface UseSearchReturn {
   query: string
   results: SearchResult[]
   loading: boolean
+  queryError: SearchQueryError | null
+  searchFailed: boolean
+  searchPhase: SearchPhase | null
   submittedQuery: string
   lastSearchInfo: LastSearchInfo | null
   handleSearch: (searchQuery: string) => void
@@ -46,105 +68,153 @@ export function useSearch(
 ): UseSearchReturn {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
-  const [loading, setLoading] = useState(false)
+  const [queryError, setQueryError] = useState<SearchQueryError | null>(null)
+  const [searchFailed, setSearchFailed] = useState(false)
+  const [searchPhase, setSearchPhase] = useState<SearchPhase | null>(null)
   const [submittedQuery, setSubmittedQuery] = useState('')
   const [lastSearchInfo, setLastSearchInfo] = useState<LastSearchInfo | null>(null)
 
   const queryRef = useRef(query)
-  queryRef.current = query
   const submittedQueryRef = useRef('')
-  const latestSearchKeyRef = useRef<string>('')
+  const latestSearchRequestRef = useRef(0)
+  const activeSearchKeyRef = useRef<string>('')
 
   const performSearch = useCallback(async (rawQuery: string) => {
     const displayQuery = rawQuery.trim()
     const normalized = displayQuery.toLowerCase()
     const scopeUrls = options.scopeUrls
-    const hasScope = Boolean(scopeUrls?.size)
+    const hasScope = options.scopeActive ?? Boolean(scopeUrls?.size)
     const scopeList = hasScope ? Array.from(scopeUrls ?? []).sort() : undefined
-    const searchKey = normalized + '\0' + (scopeList?.join('\0') ?? '')
-    latestSearchKeyRef.current = searchKey
+    const searchKey = normalized + '\0' + (hasScope ? `scope\0${scopeList?.join('\0') ?? ''}` : 'all')
+    if (normalized.length > 0 && activeSearchKeyRef.current === searchKey) return
+
+    // Query text is not a unique identity: A → B → A can leave the first
+    // A running. A monotonic id keeps that stale completion from winning.
+    const requestId = latestSearchRequestRef.current + 1
+    latestSearchRequestRef.current = requestId
+    if (normalized.length === 0) {
+      activeSearchKeyRef.current = ''
+      setResults([])
+      setQueryError(null)
+      setSearchFailed(false)
+      setLastSearchInfo(null)
+      setSearchPhase(null)
+      return
+    }
+
+    const parsedQuery = parseSearchQuery(displayQuery)
+    if (parsedQuery.unmatchedQuote) {
+      activeSearchKeyRef.current = ''
+      submittedQueryRef.current = ''
+      setSubmittedQuery('')
+      setResults([])
+      setQueryError('unmatchedQuote')
+      setSearchFailed(false)
+      setLastSearchInfo(null)
+      setSearchPhase(null)
+      return
+    }
+
     submittedQueryRef.current = displayQuery
     setSubmittedQuery(displayQuery)
-    if (normalized.length === 0) {
-      setResults([])
-      setLastSearchInfo(null)
-      setLoading(false)
-      return
-    }
-
-    const displayPhrases = extractQuotedPhrases(displayQuery)
+    setQueryError(null)
+    const displayPhrases = parsedQuery.exactPhrases
     const phrases = displayPhrases.map(normalizeForPhraseMatch)
-    const searchQuery = phrases.length > 0 ? stripQuotes(normalized) : normalized
+    const searchQuery = parsedQuery.providerQuery.toLowerCase()
+    const uploadedQuery = parsedQuery.unquotedText.toLowerCase()
     if (searchQuery.length === 0) {
+      activeSearchKeyRef.current = ''
       setResults([])
+      setSearchFailed(false)
       setLastSearchInfo(null)
-      setLoading(false)
+      setSearchPhase(null)
       return
     }
 
-    setLoading(true)
+    if (hasScope && scopeList?.length === 0) {
+      activeSearchKeyRef.current = ''
+      setResults([])
+      setSearchFailed(false)
+      setLastSearchInfo({
+        phrases: displayPhrases,
+        unquotedText: parsedQuery.unquotedText,
+        uploadedDocuments: 0,
+        uploadedMatchingSections: 0,
+        starterDocuments: 0,
+      })
+      setSearchPhase(null)
+      return
+    }
+    activeSearchKeyRef.current = searchKey
+    setSearchFailed(false)
+    setSearchPhase('indexes')
     try {
       const pagefindPromise = pagefindRef.current
         ? pagefindRef.current.search(searchQuery)
         : Promise.resolve({ results: [] })
       const uploadPromise = searchUploadedDocuments(
-        searchQuery,
+        uploadedQuery,
         hasScope ? 100 : 50,
         scopeList,
         phrases.length > 0 ? phrases : undefined,
+        (stage) => {
+          if (latestSearchRequestRef.current === requestId) {
+            setSearchPhase(UPLOADED_SEARCH_PHASES[stage])
+          }
+        },
       )
       const [pagefindSearch, uploadedSearch] = await Promise.all([pagefindPromise, uploadPromise])
-      if (latestSearchKeyRef.current !== searchKey) return
+      if (latestSearchRequestRef.current !== requestId) return
 
-      const pagefindData = await pagefindResultsInScope(pagefindSearch.results, scopeUrls)
-      const uploadedData = uploadedSearchToResults(uploadedSearch, phrases.length === 0)
-      const data = [...pagefindData, ...uploadedData]
-        .filter((result) => !scopeUrls?.size || scopeUrls.has(result.url))
-        .slice(0, 100)
-      if (latestSearchKeyRef.current !== searchKey) return
-
-      let filtered = data
+      setSearchPhase('results')
+      const pagefind = await pagefindResultsInScope(pagefindSearch.results, scopeUrls, hasScope)
+      let pagefindData = pagefind.results.map((result) => ({ ...result, source: 'starter' as const }))
+      const uploadedData = uploadedSearchToResults(uploadedSearch.results, phrases.length === 0)
       if (phrases.length > 0) {
+        setSearchPhase('phrases')
         const verdicts = await Promise.all(
-          data.map((d) => (
-            isUploadedPdfDocumentUrl(d.url)
-              ? true
-              : docContainsAllPhrases(d.url, phrases, options.loadDocumentSource)
+          pagefindData.map((result) => (
+            docContainsAllPhrases(result.url, phrases, options.loadDocumentSource)
           )),
         )
-        if (latestSearchKeyRef.current !== searchKey) return
-        filtered = data.filter((_, i) => verdicts[i])
-        const [excerpts, matchCounts] = await Promise.all([
-          Promise.all(filtered.map((d) => (
-            isUploadedPdfDocumentUrl(d.url)
-              ? null
-              : buildPhraseExcerpt(d.url, phrases, options.loadDocumentSource)
-          ))),
-          Promise.all(filtered.map((d) => (
-            isUploadedPdfDocumentUrl(d.url)
-              ? undefined
-              : countPhraseOccurrences(d.url, phrases, options.loadDocumentSource)
-          ))),
-        ])
-        if (latestSearchKeyRef.current !== searchKey) return
-        filtered = filtered.map((d, i) =>
-          isUploadedPdfDocumentUrl(d.url)
-            ? d
-            : excerpts[i]
-            ? { ...d, customExcerpt: excerpts[i] ?? undefined, matchCount: matchCounts[i] }
-            : { ...d, matchCount: matchCounts[i] },
-        )
-      } else if (options.loadDocumentSource) {
+        if (latestSearchRequestRef.current !== requestId) return
+        pagefindData = pagefindData.filter((_, index) => verdicts[index])
+        if (pagefindData.length > 0) {
+          setSearchPhase('excerpts')
+          const [excerpts, matchCounts] = await Promise.all([
+            Promise.all(pagefindData.map((result) => (
+              buildPhraseExcerpt(result.url, phrases, options.loadDocumentSource)
+            ))),
+            Promise.all(pagefindData.map((result) => (
+              countPhraseOccurrences(result.url, phrases, options.loadDocumentSource)
+            ))),
+          ])
+          if (latestSearchRequestRef.current !== requestId) return
+          pagefindData = pagefindData.map((result, index) => (
+            excerpts[index]
+              ? { ...result, customExcerpt: excerpts[index] ?? undefined, matchCount: matchCounts[index] }
+              : { ...result, matchCount: matchCounts[index] }
+          ))
+        }
+      }
+
+      const data = [...uploadedData, ...pagefindData]
+        .filter((result) => !hasScope || scopeUrls?.has(result.url))
+      if (latestSearchRequestRef.current !== requestId) return
+
+      let filtered = data
+      if (phrases.length === 0 && options.loadDocumentSource) {
         const terms = searchQuery.split(/\s+/).filter(Boolean)
         const fallbackTargets = filtered
           .slice(0, FUZZY_FALLBACK_EXCERPT_LIMIT)
           .map((result, index) => ({ result, index }))
           .filter(({ result }) => !hasUsefulProviderExcerpt(result))
         if (fallbackTargets.length > 0) {
+          setSearchPhase('excerpts')
           const excerpts = await Promise.all(
             fallbackTargets.map(({ result }) => buildPhraseExcerpt(result.url, terms, options.loadDocumentSource)),
           )
-          if (latestSearchKeyRef.current !== searchKey) return
+          if (latestSearchRequestRef.current !== requestId) return
           filtered = filtered.map((result, index) => {
             const targetIndex = fallbackTargets.findIndex((target) => target.index === index)
             const excerpt = targetIndex === -1 ? null : excerpts[targetIndex]
@@ -156,28 +226,41 @@ export function useSearch(
       setResults(filtered)
       setLastSearchInfo({
         phrases: displayPhrases,
+        unquotedText: parsedQuery.unquotedText,
+        uploadedDocuments: uploadedSearch.totalDocuments,
+        uploadedMatchingSections: uploadedSearch.totalMatchingSections,
+        starterDocuments: phrases.length > 0
+          ? filtered.filter((result) => result.source === 'starter').length
+          : pagefind.totalDocuments,
       })
     } catch (err) {
       console.error('Search failed:', err)
-      if (latestSearchKeyRef.current === searchKey) {
+      if (latestSearchRequestRef.current === requestId) {
         setResults([])
+        setSearchFailed(true)
         setLastSearchInfo(null)
       }
     } finally {
-      if (latestSearchKeyRef.current === searchKey) setLoading(false)
+      if (latestSearchRequestRef.current === requestId) {
+        activeSearchKeyRef.current = ''
+        setSearchPhase(null)
+      }
     }
-  }, [options.loadDocumentSource, options.scopeUrls, pagefindRef])
+  }, [options.loadDocumentSource, options.scopeActive, options.scopeUrls, pagefindRef])
 
   const handleSearch = useCallback((searchQuery: string) => {
     setQuery(searchQuery)
     queryRef.current = searchQuery
+    setQueryError(null)
     if (searchQuery.trim().length === 0) {
-      latestSearchKeyRef.current = ''
+      latestSearchRequestRef.current += 1
+      activeSearchKeyRef.current = ''
       submittedQueryRef.current = ''
       setResults([])
       setSubmittedQuery('')
+      setSearchFailed(false)
       setLastSearchInfo(null)
-      setLoading(false)
+      setSearchPhase(null)
     }
   }, [])
 
@@ -195,77 +278,82 @@ export function useSearch(
     setResults((current) => current.filter((item) => item.url !== url))
   }, [])
 
-  return { query, results, loading, submittedQuery, lastSearchInfo, handleSearch, rerunSearch, submitSearch, removeResultsForUrl }
+  return {
+    query,
+    results,
+    loading: searchPhase !== null,
+    queryError,
+    searchFailed,
+    searchPhase,
+    submittedQuery,
+    lastSearchInfo,
+    handleSearch,
+    rerunSearch,
+    submitSearch,
+    removeResultsForUrl,
+  }
 }
 
-async function pagefindResultsInScope(
+export async function pagefindResultsInScope(
   results: { id: string; data: () => Promise<SearchResult> }[],
   scopeUrls?: Set<string>,
-): Promise<SearchResult[]> {
-  if (!scopeUrls?.size) {
-    return Promise.all(results.slice(0, 50).map((r) => r.data()))
+  scopeActive = Boolean(scopeUrls?.size),
+): Promise<PagefindResultSet> {
+  if (!scopeActive) {
+    return {
+      results: await Promise.all(results.slice(0, 50).map((r) => r.data())),
+      totalDocuments: results.length,
+    }
   }
+  if (!scopeUrls?.size) return { results: [], totalDocuments: 0 }
 
   const scoped: SearchResult[] = []
+  let totalDocuments = 0
   for (const result of results) {
     const data = await result.data()
     if (!scopeUrls.has(data.url)) continue
-    scoped.push(data)
-    if (scoped.length >= Math.min(scopeUrls.size, 100)) break
+    totalDocuments += 1
+    if (scoped.length < 50) scoped.push(data)
   }
-  return scoped
+  return { results: scoped, totalDocuments }
 }
 
-function uploadedSearchToResult(result: UploadedDocumentSearchResult, matchCount?: number): SearchResult {
+function uploadedSearchToResult(
+  result: UploadedDocumentSearchResult,
+  includeSectionCount = true,
+): SearchResult {
   return {
     id: result.id,
     url: result.url,
     meta: { title: result.title },
     excerpt: sanitizeUploadedExcerpt(result.excerpt),
+    sectionIndex: result.sectionIndex,
     pageIndex: result.pageIndex,
-    matchCount,
+    matchCount: result.matchCount ?? (includeSectionCount ? result.matchingSections : undefined),
     matchScope: result.matchScope,
+    matchingSections: result.matchingSections,
+    passages: result.passages.map((passage) => ({
+      ...passage,
+      excerpt: sanitizeUploadedExcerpt(passage.excerpt),
+    })),
+    matchLocations: result.matchLocations,
+    termMatches: result.termMatches,
+    source: 'upload',
     sub_results: result.sectionTitle
       ? [{ url: result.url, title: result.sectionTitle }]
       : undefined,
   }
 }
 
-// SQLite returns section-level hits, while the UI intentionally shows one card
-// per document. Preserve the section count for broad searches, but keep the
-// first ranked hit as the document's representative snippet.
 function uploadedSearchToResults(
   results: UploadedDocumentSearchResult[],
   includeSectionCount = true,
 ): SearchResult[] {
-  const matchCounts = new Map<string, number>()
-  for (const result of results) {
-    if (result.matchScope === 'document') {
-      matchCounts.set(result.url, Math.max(matchCounts.get(result.url) ?? 0, 1))
-    } else {
-      matchCounts.set(result.url, (matchCounts.get(result.url) ?? 0) + 1)
-    }
-  }
-
-  const seen = new Set<string>()
-  const deduped: SearchResult[] = []
-  for (const result of results) {
-    // SQLite returns the best matching sections first, so the first result per uploaded
-    // document is the snippet we want to show on the single document-level card.
-    if (seen.has(result.url)) continue
-    seen.add(result.url)
-    deduped.push(uploadedSearchToResult(
-      result,
-      includeSectionCount ? matchCounts.get(result.url) : undefined,
-    ))
-  }
-  return deduped
+  return results.map((result) => uploadedSearchToResult(result, includeSectionCount))
 }
 
 function sanitizeUploadedExcerpt(excerpt: string): string {
-  return escapeHtml(excerpt)
-    .replace(/&lt;mark&gt;/g, '<mark>')
-    .replace(/&lt;\/mark&gt;/g, '</mark>')
+  return sanitizeMarkedExcerpt(excerpt)
 }
 
 // Provider snippets can collapse to the section heading for generated EPUB

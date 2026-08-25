@@ -117,6 +117,15 @@
   --reader-surface: #ffffff;
   --reader-text: #334155;
   --reader-muted: #475569;
+  --reader-heading: var(--text-heading);
+  --reader-link: var(--link);
+  --reader-link-hover: var(--link-hover);
+  --reader-border: var(--border);
+  --reader-subtle: var(--surface-muted);
+  --reader-accent-border: var(--accent-border);
+  --reader-highlight-find: var(--highlight-find);
+  --reader-highlight-current: var(--highlight-current);
+  --reader-highlight-current-text: var(--highlight-current-text);
   --text: #0f172a;
   --text-strong: #0f172a;
   --text-heading: #0f172a;
@@ -126,6 +135,7 @@
   --text-inverse: #ffffff;
   --border: #cbd5e1;
   --border-strong: #7c8798;
+  --row-divider: #b8c4d4;
   --accent: #4f46e5;
   --accent-text: #4f46e5;
   --accent-hover: #4338ca;
@@ -165,6 +175,11 @@
   --shadow-panel: rgba(31, 41, 55, 0.18);
   --shadow-strong: var(--shadow-panel);
   --focus-ring: var(--accent-border);
+  --radius-inline: 4px;
+  --radius-compact: 6px;
+  --radius-control: 8px;
+  --radius-surface: 10px;
+  --radius-full: 999px;
 
   color-scheme: var(--color-scheme);
   background: var(--app-bg);
@@ -188,7 +203,7 @@ html[data-theme="dark"] {
   --surface-panel-subtle: #181c21;
   --surface-success-strong: #123322;
   --surface-accent-strong: #30345f;
-  --control-surface: var(--surface-strong);
+  --control-surface: var(--surface-hover);
   --reader-surface: #121417;
   --reader-text: #c8ccd2;
   --reader-muted: #a7afb9;
@@ -201,6 +216,7 @@ html[data-theme="dark"] {
   --text-inverse: #ffffff;
   --border: #3c4550;
   --border-strong: #626d7b;
+  --row-divider: var(--border);
   --accent: #4f46e5;
   --accent-text: #8f98fa;
   --accent-hover: #4338ca;

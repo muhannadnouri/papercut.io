@@ -1,0 +1,39 @@
+.paste-text-dialog {
+  width: min(100%, 36rem);
+}
+
+.paste-text-field {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--text-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.paste-text-field input,
+.paste-text-field textarea {
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--control-surface);
+  color: var(--text-heading);
+  outline: none;
+}
+
+.paste-text-field input {
+  min-height: 2.45rem;
+}
+
+.paste-text-field textarea {
+  min-height: 12rem;
+  max-height: 45vh;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.paste-text-field input:focus,
+.paste-text-field textarea:focus {
+  background: var(--surface-accent);
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}

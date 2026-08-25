@@ -11,6 +11,10 @@ import { useSearch } from './hooks/useSearch'
 import { AppHeader } from './components/AppHeader/AppHeader'
 import { SearchTab } from './components/SearchTab/SearchTab'
 import { LibraryTab } from './components/LibraryTab/LibraryTab'
+import { useDocumentScanner } from './document-scanner/useDocumentScanner'
+import { ScanSetupDialog } from './document-scanner/ScanSetupDialog'
+import type { DocumentScanSetup } from './document-scanner/documentScanner'
+import { PdfRecognitionPrompt } from './pdf/ocr/PdfRecognitionPrompt'
 import { AudiobooksTab } from './components/AudiobooksTab/AudiobooksTab'
 import { DocumentViewer } from './components/DocumentViewer/DocumentViewer'
 import { TabNav, type AppTab } from './components/TabNav/TabNav'
@@ -19,11 +23,13 @@ import { useAppConfirmation } from './components/AppDialog/useAppConfirmation'
 import { useDocumentFilters } from './hooks/useDocumentFilters'
 import { useDocumentViewerState } from './hooks/useDocumentViewerState'
 import { useTheme } from './hooks/useTheme'
+import { useBookmarkedDocumentUrls } from './hooks/useReaderBookmark'
 import { useUploadedLibrary } from './hooks/useUploadedLibrary'
 import type { DocumentInfo, SearchOpenTarget } from './types/search'
 import { clearPhraseFetchCache } from './utils/phraseSearch'
 import { isDebugEnabled, setDebugEnabled } from './utils/debugFlags'
 import { AudioControls } from './tts/components/AudioControls'
+import { AudioSetupDialog } from './tts/components/AudioSetupDialog'
 import { TtsDiagnosticsPanel } from './tts/components/TtsDiagnosticsPanel'
 import { getImportedAudiobookSource } from './tts/api/nativeTts'
 import { getUserUploads, isUserUploadUrl, type UserUploadDocument } from './tts/storage/UserUploads'
@@ -32,6 +38,8 @@ import {
   getUploadedDocumentSource,
   isUploadedHtmlDocumentUrl,
   isUploadedPdfDocumentUrl,
+  listenOpenDocumentRequests,
+  takeOpenDocumentSources,
 } from './uploads/DocumentUploads'
 
 function isBundledDocumentUrl(url: string): boolean {
@@ -50,12 +58,18 @@ function isBundledDocumentUrl(url: string): boolean {
 function App() {
   const { t } = useTranslation()
   const theme = useTheme()
+  const bookmarkedDocumentUrls = useBookmarkedDocumentUrls()
+  const documentScanner = useDocumentScanner()
   const [activeTab, setActiveTab] = useState<AppTab>('library')
   const [userUploads, setUserUploads] = useState<UserUploadDocument[]>(() => getUserUploads())
   const [ttsDiagnosticsEnabled, setTtsDiagnosticsEnabled] = useState(() => isDebugEnabled())
+  const [scanSetupSource, setScanSetupSource] = useState<'camera' | 'photos' | null>(null)
+  const [readerAudioSetupOpen, setReaderAudioSetupOpen] = useState(false)
+  const [openDocumentRequest, setOpenDocumentRequest] = useState(0)
   const { pagefindRef, pagefindReady, allDocuments, documentsLoading } = usePagefind()
   const { confirm: confirmDocumentAction, dialog: documentConfirmationDialog } = useAppConfirmation()
   const {
+    acceptRecognizedDocumentText,
     cancelDocumentBatch,
     createLibraryFolder,
     deleteDocument: deleteUploadedLibraryDocument,
@@ -65,8 +79,13 @@ function App() {
     documentImport,
     importDocumentBatch,
     importDocumentFolder,
+    importDocumentPaths,
+    importDocumentPhotos,
+    importPastedText,
+    scanDocument,
     moveLibraryDocuments,
     refreshUploadedLibrary,
+    recognizeDocumentText,
     renameLibraryFolder,
     uploadedDocuments,
     uploadedLibraryOrganization,
@@ -152,6 +171,7 @@ function App() {
       bytes: upload.bytes,
       sections: upload.sections,
       coverMediaType: upload.coverMediaType,
+      textStatus: upload.textStatus,
     })),
     ...userUploads.map((upload) => ({ title: upload.title, url: upload.url, format: 'html', source: 'audiobook-upload' as const })),
   ], [allDocuments, uploadedDocuments, userUploads]) 
@@ -161,6 +181,9 @@ function App() {
 
   const {
     selectedFilters,
+    scopeMode: searchScopeMode,
+    scopeUrls: searchScopeUrls,
+    scopeActive: searchScopeActive,
     documentFilter: searchDocumentFilter,
     collapsedAuthors: searchCollapsedAuthors,
     groupedDocs: searchGroupedDocs,
@@ -172,19 +195,38 @@ function App() {
     toggleAuthor: toggleSearchAuthor,
     toggleAllInGroup,
     setDocumentFilter: setSearchDocumentFilter,
+    setScopeMode: setSearchScopeMode,
   } = searchFilters
+
+  const searchableDocumentCount = useMemo(() => {
+    const urls = new Set([
+      ...allDocuments.map((document) => document.url),
+      ...uploadedDocuments
+        .filter((document) => document.textStatus === 'ready' || document.textStatus === 'recognition-available')
+        .map((document) => document.url),
+    ])
+    if (!searchScopeActive) return urls.size
+    return Array.from(searchScopeUrls).filter((url) => urls.has(url)).length
+  }, [allDocuments, searchScopeActive, searchScopeUrls, uploadedDocuments])
 
   const {
     query,
     results,
     loading,
+    queryError,
+    searchFailed,
+    searchPhase,
     submittedQuery,
     lastSearchInfo,
     handleSearch,
     rerunSearch,
     submitSearch,
     removeResultsForUrl,
-  } = useSearch(pagefindRef, { loadDocumentSource: loadHtmlDocument, scopeUrls: selectedFilters })
+  } = useSearch(pagefindRef, {
+    loadDocumentSource: loadHtmlDocument,
+    scopeUrls: searchScopeUrls,
+    scopeActive: searchScopeActive,
+  })
 
   useEffect(() => {
     rerunSearch()
@@ -230,8 +272,9 @@ function App() {
   )
   const selectedFormat = selectedDocument?.format
 
-  const handleImportDocumentBatch = useCallback(async () => {
-    const result = await importDocumentBatch()
+  /** Apply the same post-import behavior to picker, drop, and Open With entry
+   * points so one reflowable document opens while batches remain in Library. */
+  const finishDocumentFileImport = useCallback(async (result: Awaited<ReturnType<typeof importDocumentBatch>>) => {
     if (!result?.imported.length) return
     setShowDocuments(true)
     if (result.selected === 1 &&
@@ -239,12 +282,76 @@ function App() {
         result.imported[0].sourceKind === 'html') {
       await handleViewDocument(result.imported[0].url)
     }
-  }, [handleViewDocument, importDocumentBatch, setShowDocuments])
+  }, [handleViewDocument, setShowDocuments])
+
+  const handleImportDocumentBatch = useCallback(async () => {
+    await finishDocumentFileImport(await importDocumentBatch())
+  }, [finishDocumentFileImport, importDocumentBatch])
+
+  const handleImportDocumentPaths = useCallback(async (paths: string[]) => {
+    await finishDocumentFileImport(await importDocumentPaths(paths))
+  }, [finishDocumentFileImport, importDocumentPaths])
+
+  /** Subscribe before draining the native queue so desktop and mobile cold or
+   * warm file-open requests share one race-free path into the Library importer. */
+  useEffect(() => {
+    if (!('__TAURI_INTERNALS__' in window)) return
+    let disposed = false
+    let unlisten: (() => void) | undefined
+    void listenOpenDocumentRequests(() => setOpenDocumentRequest((value) => value + 1))
+      .then((stop) => {
+        if (disposed) stop()
+        else {
+          unlisten = stop
+          setOpenDocumentRequest((value) => value + 1)
+        }
+      })
+      .catch((error) => console.warn('Unable to listen for document open requests:', error))
+    return () => {
+      disposed = true
+      unlisten?.()
+    }
+  }, [])
+
+  const libraryOperationBusy = documentImport.status === 'importing' ||
+    documentImport.status === 'recognizing' || documentImport.status === 'deleting'
+
+  useEffect(() => {
+    if (openDocumentRequest === 0 || libraryOperationBusy) return
+    let disposed = false
+    void takeOpenDocumentSources().then(async (sources) => {
+      if (disposed || sources.length === 0) return
+      handleCloseDocument()
+      setActiveTab('library')
+      setShowDocuments(true)
+      await finishDocumentFileImport(await importDocumentPaths(sources, 'open'))
+    }).catch((error) => console.warn('Unable to import document open request:', error))
+    return () => {
+      disposed = true
+    }
+  }, [openDocumentRequest, finishDocumentFileImport, handleCloseDocument, importDocumentPaths,
+    libraryOperationBusy, setShowDocuments])
 
   const handleImportDocumentFolder = useCallback(async () => {
     const result = await importDocumentFolder()
     if (result?.imported.length) setShowDocuments(true)
   }, [importDocumentFolder, setShowDocuments])
+
+  const handleImportPastedText = useCallback(async (title: string, text: string) => {
+    const document = await importPastedText(title, text)
+    setShowDocuments(true)
+    await handleViewDocument(document.url)
+  }, [handleViewDocument, importPastedText, setShowDocuments])
+
+  const handleScanSetupSubmit = useCallback(async (setup: DocumentScanSetup) => {
+    const source = scanSetupSource
+    if (!source) return
+    setScanSetupSource(null)
+    const result = source === 'camera'
+      ? await scanDocument(setup)
+      : await importDocumentPhotos(setup)
+    if (result?.imported.length) setShowDocuments(true)
+  }, [importDocumentPhotos, scanDocument, scanSetupSource, setShowDocuments])
 
   const handleImportAudiobook = useCallback(async () => {
     await importAudiobookBundle(handleViewDocument)
@@ -306,10 +413,17 @@ function App() {
   }, [deleteUploadedLibraryDocuments, handleCloseDocument, removeFilter, removeResultsForUrl, selectedDoc])
 
   if (selectedDoc) {
+    const recognitionIssueCount = documentImport.documentUrl === selectedDoc &&
+      documentImport.status === 'recognized'
+      ? (documentImport.recognitionIssues?.failedPages.length ?? 0) +
+        (documentImport.recognitionIssues?.unrecognizedPages.length ?? 0) +
+        (documentImport.recognitionIssues?.lowConfidencePages.length ?? 0)
+      : 0
     return (
       <>
         <div inert={audiobookActionBusy ? true : undefined}>
           <DocumentViewer
+            key={`${selectedDoc}:${selectedDocument?.textStatus ?? ''}:${recognitionIssueCount > 0 ? 'ocr-review' : ''}`}
             url={selectedDoc}
             format={selectedFormat}
             content={docContent}
@@ -320,12 +434,31 @@ function App() {
                 onThemeChange={theme.setChoice}
                 developerMode={ttsDiagnosticsEnabled}
                 onDeveloperModeChange={handleTtsDiagnosticsChange}
-                libraryDocumentCount={uploadedDocuments.length}
                 onLibraryImported={handleLibraryTransferImported}
               />
             )}
-            headerControls={<AudioControls {...audioControlsProps} onManageSave={handleManageAudiobookSave} />}
-            beforeDocument={<TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />}
+            headerControls={(
+              <>
+                {selectedFormat === 'pdf' && selectedDocument && (
+                  <PdfRecognitionPrompt
+                    documentUrl={selectedDocument.url}
+                    textStatus={selectedDocument.textStatus}
+                    status={documentImport}
+                    onCancel={cancelDocumentBatch}
+                    onRecognize={recognizeDocumentText}
+                    onAccept={acceptRecognizedDocumentText}
+                  />
+                )}
+                <AudioControls
+                  {...audioControlsProps}
+                  onManageSave={handleManageAudiobookSave}
+                  onOpenAudioSetup={() => setReaderAudioSetupOpen(true)}
+                />
+              </>
+            )}
+            beforeDocument={(
+              <TtsDiagnosticsPanel enabled={ttsDiagnosticsEnabled} />
+            )}
             ttsHighlight={ttsHighlight}
             searchTarget={searchOpenTarget}
             restoreBookmark={restoreBookmark}
@@ -335,6 +468,18 @@ function App() {
           />
         </div>
         {audiobookActionBusy && <AppBusyOverlay message={audiobookActionMessage} />}
+        {readerAudioSetupOpen && (
+          <AudioSetupDialog
+            audioSetup={{
+              ...audioSetupProps,
+              debugEnabled: ttsDiagnosticsEnabled,
+              onDiagnosticsChange: handleTtsDiagnosticsChange,
+            }}
+            title={t('tts.audiobooks.audioSetup')}
+            doneLabel={t('common.done')}
+            onClose={() => setReaderAudioSetupOpen(false)}
+          />
+        )}
         {documentConfirmationDialog}
         {audiobook.confirmationDialog}
       </>
@@ -353,7 +498,6 @@ function App() {
             onThemeChange={theme.setChoice}
             developerMode={ttsDiagnosticsEnabled}
             onDeveloperModeChange={handleTtsDiagnosticsChange}
-            libraryDocumentCount={uploadedDocuments.length}
             onLibraryImported={handleLibraryTransferImported}
           />
         )} />
@@ -362,13 +506,17 @@ function App() {
       <div inert={audiobookActionBusy ? true : undefined}>
         <TabNav
           active={activeTab}
-          busyTabs={{ audiobooks: audiobooksPanelProps.isSaving }}
+          busyTabs={{
+            library: documentImport.status === 'recognizing' && documentImport.format === 'pdf-ocr',
+            audiobooks: audiobooksPanelProps.isSaving,
+          }}
           onChange={handleTabChange}
         />
 
         {activeTab === 'search' && (
           <SearchTab
             query={query}
+            queryError={queryError}
             disabled={!pagefindReady && uploadedDocuments.length === 0}
             onChangeQuery={handleSearch}
             onSubmitSearch={submitSearch}
@@ -378,14 +526,21 @@ function App() {
             documentFilter={searchDocumentFilter}
             libraryOrganization={uploadedLibraryOrganization}
             selectedFilters={selectedFilters}
+            scopeMode={searchScopeMode}
+            scopeUrls={searchScopeUrls}
+            scopeActive={searchScopeActive}
             filterTitleByUrl={searchFilterTitleByUrl}
             onFilterChange={setSearchDocumentFilter}
             onToggleFilter={toggleFilter}
             onToggleAllInGroup={toggleAllInGroup}
             onToggleAuthor={toggleSearchAuthor}
             onClearFilters={clearFilters}
+            onScopeModeChange={setSearchScopeMode}
             results={results}
             loading={loading}
+            searchFailed={searchFailed}
+            searchPhase={searchPhase}
+            searchableDocumentCount={searchableDocumentCount}
             submittedQuery={submittedQuery}
             lastSearchInfo={lastSearchInfo}
             openingDisabled={documentOpening}
@@ -400,11 +555,14 @@ function App() {
             showDocuments={showDocuments}
             allDocuments={libraryDocuments}
             audioSavedOnly={audioSavedOnly}
+            bookmarkedDocumentUrls={bookmarkedDocumentUrls}
             savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
             documentFilter={libraryDocumentFilter}
             groupedDocs={libraryGroupedDocs}
             docFilterLower={libraryDocFilterLower}
             documentImport={documentImport}
+            documentScannerSupported={documentScanner.supported}
+            documentPhotoImportSupported={documentScanner.photoImportSupported}
             libraryOrganization={uploadedLibraryOrganization}
             documentOpening={documentOpening}
             openingDocumentUrl={documentLoad.status === 'loading' ? documentLoad.url : undefined}
@@ -412,12 +570,14 @@ function App() {
             onToggleShow={handleToggleLibraryDocuments}
             onFilterChange={setLibraryDocumentFilter}
             onAudioSavedOnlyChange={setAudioSavedOnly}
+            onAcceptRecognizedDocument={acceptRecognizedDocumentText}
             onCreateLibraryFolder={createLibraryFolder}
             onDeleteDocument={handleDeleteUploadedDocument}
             onDeleteDocuments={handleDeleteUploadedDocuments}
             onDeleteLibraryFolder={deleteLibraryFolder}
             onDismissDocumentImportStatus={dismissDocumentImportStatus}
             onMoveLibraryDocuments={moveLibraryDocuments}
+            onRecognizeDocument={recognizeDocumentText}
             onRenameLibraryFolder={renameLibraryFolder}
             onToggleAuthor={toggleLibraryAuthor}
             onViewAudiobooks={handleManageAudiobookSave}
@@ -426,6 +586,10 @@ function App() {
             }}
             onImportDocumentBatch={handleImportDocumentBatch}
             onImportDocumentFolder={handleImportDocumentFolder}
+            onImportDocumentPaths={handleImportDocumentPaths}
+            onImportPastedText={handleImportPastedText}
+            onImportDocumentPhotos={() => setScanSetupSource('photos')}
+            onScanDocument={() => setScanSetupSource('camera')}
             onCancelDocumentBatch={cancelDocumentBatch}
             onViewDocument={handleViewLibraryDocument}
           />
@@ -447,6 +611,13 @@ function App() {
         )}
       </div>
       {audiobookActionBusy && <AppBusyOverlay message={audiobookActionMessage} />}
+      {scanSetupSource && (
+        <ScanSetupDialog
+          source={scanSetupSource}
+          onCancel={() => setScanSetupSource(null)}
+          onSubmit={(setup) => { void handleScanSetupSubmit(setup) }}
+        />
+      )}
       {documentConfirmationDialog}
       {audiobook.confirmationDialog}
     </div>

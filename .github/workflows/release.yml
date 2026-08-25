@@ -512,6 +512,11 @@ jobs:
       contents: write
 
     steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          ref: ${{ env.RELEASE_TAG }}
+
       - name: Download release artifacts
         uses: actions/download-artifact@v7
         with:
@@ -528,9 +533,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mapfile -t assets < <(find release-artifacts -type f -print | sort)
+          release_notes="RELEASE_NOTES/${RELEASE_TAG}.md"
+          if [ ! -f "$release_notes" ]; then
+            echo "Missing release notes: $release_notes" >&2
+            exit 1
+          fi
 
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$release_notes"
           else
-            gh release create "$RELEASE_TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --title "$RELEASE_TAG" --notes "Papercut $RELEASE_TAG release artifacts." --latest
+            gh release create "$RELEASE_TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --title "$RELEASE_TAG" --notes-file "$release_notes" --latest
           fi

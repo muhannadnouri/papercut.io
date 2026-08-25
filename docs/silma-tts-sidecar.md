@@ -1,6 +1,6 @@
 # SILMA TTS Python Sidecar Development Guide
 
-Last updated: 2026-07-15
+Last updated: 2026-08-01
 
 This is the working guide for bringing SILMA TTS into Papercut as a desktop-only
 Python sidecar while keeping the existing sherpa-onnx audiobook path.
@@ -596,8 +596,8 @@ src-tauri/tts/silma-runtime-packs.json
 ```
 
 Copy the release artifact URL(s), `sha256`, and `archiveBytes` into that
-manifest. The v1.7.4 checked-in entry points at the split Linux x64 runtime
-pack attached to the v1.7.4 GitHub Release and pins its original archive byte
+manifest. The v1.8.0 checked-in entry points at the split Linux x64 runtime
+pack attached to the v1.8.0 GitHub Release and pins its original archive byte
 size and SHA-256.
 
 After generating release assets, update the checked app manifest from the
@@ -671,8 +671,8 @@ CUDA runtime policy:
 
 Practical CI model:
 
-- always run cheap PR checks for lint, types, frontend build, and basic native
-  worker protocol coverage;
+- run cheap PR checks for lint, frontend and Rust tests, types, frontend build,
+  and basic native worker protocol coverage when app or build inputs change;
 - gate expensive runtime-pack and platform packaging jobs from actual changed
   files, not branch names;
 - run desktop/mobile packaging only after cheap checks pass and only when native
@@ -685,7 +685,7 @@ Practical CI model:
 
 Manual CI validation scopes:
 
-- `cheap`: lint, frontend build, and worker self-tests only;
+- `cheap`: lint, frontend and Rust tests, frontend build, and worker self-tests;
 - `desktop`: cheap checks plus Linux, Windows, and macOS desktop packaging;
 - `mobile`: cheap checks plus Android and iOS packaging checks;
 - `silma-runtime`: cheap checks plus the Linux x64 SILMA runtime-pack artifact;
@@ -724,7 +724,7 @@ Known recovery paths:
 
 - SILMA does not appear in the model list: confirm the app is a Linux x64 build
   from a commit that includes the public runtime metadata. Windows, macOS, and
-  mobile builds intentionally hide SILMA in v1.7.4.
+  mobile builds currently hide SILMA.
 - `SILMA runtime pack is not installed`: install the optional runtime pack first.
   If public download is disabled, fill `src-tauri/tts/silma-runtime-packs.json`
   from a release artifact or use the local packaged runtime flow.
@@ -862,7 +862,7 @@ SILMA catalog status:
 - Family: `TtsModelFamily::SilmaF5`
 - Storage prefix: `models/silma-tts`
 Linux x64 desktop builds advertise SILMA by default. Windows, macOS, and mobile
-builds never advertise it in v1.7.4.
+builds currently do not advertise it.
 One install click installs the missing SILMA pieces in order: runtime pack
 first, then pinned model files.
 

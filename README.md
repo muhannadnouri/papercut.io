@@ -4,7 +4,7 @@
 
 # Papercut
 
-[![Latest release](https://img.shields.io/github/v/release/muhannadnouri/papercut.io?logo=github&color=6366f1)](https://github.com/muhannadnouri/papercut.io/releases/latest) [![CI](https://github.com/muhannadnouri/papercut.io/actions/workflows/ci.yml/badge.svg)](https://github.com/muhannadnouri/papercut.io/actions/workflows/ci.yml) [![React](https://img.shields.io/badge/React-19-20232A?logo=react&logoColor=61DAFB)](https://react.dev/) [![Tauri + Rust](https://img.shields.io/badge/Tauri_+_Rust-2.x_|_1.77+-24C8DB?logo=tauri&logoColor=white)](https://v2.tauri.app/) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
+[![Latest release](https://img.shields.io/github/v/release/muhannadnouri/papercut.io?logo=github&color=6366f1)](https://github.com/muhannadnouri/papercut.io/releases/latest) [![CI](https://github.com/muhannadnouri/papercut.io/actions/workflows/ci.yml/badge.svg)](https://github.com/muhannadnouri/papercut.io/actions/workflows/ci.yml) [![React](https://img.shields.io/badge/React-19-20232A?logo=react&logoColor=61DAFB)](https://react.dev/) [![Tauri + Rust](https://img.shields.io/badge/Tauri_+_Rust-2.x_|_1.88+-24C8DB?logo=tauri&logoColor=white)](https://v2.tauri.app/) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.md)
 
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io?ref=badge_shield&issueType=license) [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io.svg?type=shield&issueType=security)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io?ref=badge_shield&issueType=security)
 
@@ -14,18 +14,30 @@
 [![Download for Android](https://img.shields.io/badge/Download-Android-3DDC84?logo=android&logoColor=white)](https://trypapercut.netlify.app/#downloads-title) [![Download for Linux](https://img.shields.io/badge/Download-Linux-FCC624?logo=linux&logoColor=black)](https://trypapercut.netlify.app/#downloads-title) [![Download for Windows](https://img.shields.io/badge/Download-Windows-0078D4?logo=windows11&logoColor=white)](https://trypapercut.netlify.app/#downloads-title) [![Download for macOS](https://img.shields.io/badge/Download-macOS-000000?logo=apple&logoColor=white)](https://trypapercut.netlify.app/#downloads-title)
 
 
-Papercut is an offline reader for searching, reading, and listening to document collections. Built with Tauri, React, Vite, Pagefind, SQLite FTS, and native sherpa-onnx TTS.
+Papercut is an offline reader for searching, reading, and listening to HTML, EPUB, PDF, plain-text, and Markdown collections. It is built with Tauri, React, Vite, PDF.js, Pagefind, SQLite FTS, Tesseract.js OCR, and native sherpa-onnx TTS.
 
-Bundled documents are indexed at build time using Pagefind, which creates a compressed search index. User-imported HTML and EPUB documents are indexed at runtime into a local SQLite FTS database in Tauri app data, so users can add their own documents without rebuilding the app. EPUB uploads are parsed as a sibling runtime format that emits the same normalized document sections before indexing. At runtime, only the relevant search provider is queried and results are merged into one UI. The entire application runs offline with no server or internet connection required.
+Bundled starter HTML documents are indexed at build time with Pagefind. User-imported HTML, EPUB, PDF, TXT, and Markdown documents are normalized and indexed incrementally into a local SQLite FTS database in Tauri app data, so imports do not require rebuilding the app. PDFs with embedded text are indexed immediately; image-only and hybrid pages can be recognized on demand in English or Arabic with bundled, on-device OCR. The relevant search providers are queried together, with user-library and starter-document results labelled separately. Reading, search, library organization, OCR, audiobook playback, and local library transfer work without an account or server connection. Optional native TTS models and the Linux SILMA runtime require a one-time download before they can run offline.
+
+## Highlights
+
+- Import up to 500 HTML, EPUB, PDF, TXT, or Markdown files at once, paste plain text directly into a searchable local document, drop files onto the desktop Library, or open supported files with an installed desktop, Android, or iOS build; desktop builds can also import one folder.
+- Make image-only and hybrid PDF pages searchable and speakable with resumable, offline English or Arabic OCR.
+- Scan multi-page documents or import existing photos on supported Android devices while retaining the original pages in a canonical PDF.
+- Search uploaded and bundled starter documents together, with authoritative uploaded-document counts, scoped filters, and source-linked exact-phrase evidence.
+- Browse cover-based Gallery or compact List views, edit document metadata, organize folders, and filter by saved audio or bookmarks.
+- Read with format-appropriate viewers, in-document Find, semantic bookmarks, and responsive reflowable-document appearance controls.
+- Generate, resume, play, import, and export saved audiobooks with native offline TTS and background mobile playback.
+- Select which uploaded documents and saved audiobooks to transfer directly between Papercut devices or through a portable transfer file.
+- Use localized app chrome in English, Arabic, Simplified Chinese, French, Hindi, Italian, Brazilian Portuguese, and Spanish, including right-to-left layout support.
 
 ## Prerequisites
 
 | Tool  | Minimum Version | Recommended Version |
 |-------|-----------------|---------------------|
-| Node  | >= 22.12.0      | 22.22.1             |
+| Node  | >= 22.13.0      | 22.22.1             |
 | npm   | >= 10.9.0       | 10.9.4              |
-| Rust  | >= 1.77.2       | 1.94.0              |
-| Cargo | >= 1.77.2       | 1.94.0              |
+| Rust  | >= 1.88         | Current stable      |
+| Cargo | >= 1.88         | Current stable      |
 
 <details>
 <summary><strong>Platform setup details</strong></summary>
@@ -177,6 +189,18 @@ Run the focused frontend unit tests with:
 npm test
 ```
 
+Run the Rust library tests with the committed dependency lockfile:
+
+```bash
+cargo test --manifest-path src-tauri/Cargo.toml --locked --lib
+```
+
+Pull-request CI runs linting, the frontend tests and production build, the
+model-free SILMA worker self-test, and the Rust library tests. Content-only
+changes under `docs/` or `site/`, Markdown-only changes, release notes, and
+funding metadata skip that runner-heavy job; the lightweight change detector
+still reports so required checks do not remain pending.
+
 <details>
 <summary><strong>Production, release, Android, TTS, and browser builds</strong></summary>
 
@@ -212,7 +236,7 @@ artifact bundles sherpa's CUDA provider libraries and expects compatible CUDA
 Install the generated Debian package with a dependency-aware command so WebKitGTK and GTK are installed if needed:
 
 ```bash
-sudo apt install ./src-tauri/target/release/bundle/deb/Papercut_1.0.0_amd64.deb
+sudo apt install ./src-tauri/target/release/bundle/deb/Papercut_1.9.0_amd64.deb
 ```
 
 If you previously used `sudo dpkg -i ...` and the app did not launch, run `sudo apt -f install` once to finish installing missing dependencies, then reinstall the newly generated `.deb`.
@@ -256,7 +280,7 @@ Create or update `RELEASE_NOTES/vX.Y.Z.md`, and prefer a new patch tag instead o
 On Arch-based systems, the AppImage may show a blank screen due to a WebKit GBM buffer allocation failure with modern Mesa drivers. Set `WEBKIT_DISABLE_COMPOSITING_MODE=1` to disable GPU compositing:
 
 ```bash
-WEBKIT_DISABLE_COMPOSITING_MODE=1 ./Papercut_1.0.0_amd64.AppImage
+WEBKIT_DISABLE_COMPOSITING_MODE=1 ./Papercut_1.9.0_amd64.AppImage
 ```
 
 To avoid setting this every time, export it permanently in your shell:
@@ -267,13 +291,7 @@ set -Ux WEBKIT_DISABLE_COMPOSITING_MODE 1
 
 ### Android APK build
 
-Before building for Android the first time, initialize the Android project (run once, commit the generated files):
-
-```bash
-npm run tauri -- android init
-```
-
-Then build the APK. The wrapper prepares/uses the local JDK and sets `JAVA_HOME` automatically:
+The generated Android project is committed under `src-tauri/gen/android`. Build the APK with the wrapper, which prepares or uses the local JDK and sets `JAVA_HOME` automatically:
 
 ```bash
 npm run android:apk
@@ -331,6 +349,7 @@ Supported catalog models:
 - **Kokoro English v1.0**: existing default, 27 voices, 349,418,188-byte archive.
 - **Kokoro Mandarin v1.0**: 8 voices sharing the installed English Kokoro archive, so selecting Mandarin does not download a second model.
 - **Additional Kokoro languages**: Spanish, French, Hindi, Italian, and Brazilian Portuguese also share the same archive. English and Arabic remain Papercut's quality-validated languages; these additional Kokoro languages need broader native-speaker testing.
+- **Supertonic 3 English and Arabic**: compact experimental voices sharing one 123 MB multilingual archive.
 - **Piper Kareem Medium (`ar-JO`)**: Arabic option using sherpa VITS, one voice, 67,177,830-byte archive. SHA-256: `9ebbcea30e0fbd588f7b2cb45ee897d6aeb1bf5791cbc037a7b5a3f641e3dbce`.
 - **SILMA Arabic TTS**: Linux x64 desktop-only Arabic option using a
   downloadable sidecar runtime pack and separate on-demand model files.
@@ -351,7 +370,7 @@ Compatibility is preserved: `native-save-v4-segmented` is unchanged, Kokoro keep
 
 See [docs/kokoro-tts.md](docs/kokoro-tts.md) for architecture, model metadata, mobile constraints, and maintenance rules.
 
-Narration chunks and generated WAV files remain native app user data. Desktop uses bounded chunk playback; Android prepares a reusable local `playback.wav` for background and lock-screen playback. Build helpers continue to orchestrate npm, Cargo, Tauri, Android SDK tooling, checked downloads, and platform library staging; they do not replace those package managers.
+Narration chunks and generated WAV files remain native app user data. Desktop uses bounded chunk playback; Android and iOS prepare a reusable local `playback.wav` for background and lock-screen playback. Build helpers continue to orchestrate npm, Cargo, Tauri, mobile SDK tooling, checked downloads, and platform library staging; they do not replace those package managers.
 
 The audio UI supports model, voice, and optional text-processing selection, saved-only playback, resumable generation, background controls, chunk navigation with chunk and approximate word highlighting, thread tuning, opt-in diagnostics, audiobook bundle import, bundle or WAV export, delete, and saved-audio filtering.
 
@@ -386,7 +405,7 @@ Papercut now has two document paths:
 - **Bundled documents** live in `public/documents/` and are indexed by Pagefind during the production build. This is still the best path for documents you ship to every user.
 - **User uploads** are imported from the app UI and indexed incrementally into a local SQLite FTS database. This is the scalable path for documents users add themselves, because it does not require a rebuild or a packaged Pagefind index update.
 
-The upload/indexing architecture is documented in [docs/user-document-search.md](docs/user-document-search.md). EPUB implementation notes and remaining follow-up work are tracked in [docs/epub-implementation-plan.md](docs/epub-implementation-plan.md). UI localization architecture and migration status are tracked in [docs/internationalization.md](docs/internationalization.md).
+The upload/indexing architecture is documented in [docs/user-document-search.md](docs/user-document-search.md). EPUB and PDF implementation details are tracked in [docs/epub-implementation-plan.md](docs/epub-implementation-plan.md) and [docs/pdf-ocr-scanning.md](docs/pdf-ocr-scanning.md). Local transfer architecture is documented in [docs/library-transfer.md](docs/library-transfer.md), and UI localization is tracked in [docs/internationalization.md](docs/internationalization.md).
 
 <details>
 <summary><strong>Document formats and search behavior</strong></summary>
@@ -411,23 +430,28 @@ Place your HTML files in `public/documents/`. Each document should have a standa
 
 Pagefind will automatically extract and index the text content on the next build. The `<title>` tag is used as the document title in search results.
 
-### User-Uploaded HTML, EPUB, And PDF Documents
+### User-Uploaded Documents
 
-From the document list, open **Import** and choose **Files** to select one or more local `.html`, `.htm`, `.epub`, or text-native `.pdf` documents. Desktop builds also offer **Folder**, which imports supported files directly inside one selected folder and skips subfolders. HTML and EPUB produce sanitized reading HTML; PDF retains a canonical source while PDF.js incrementally derives page text, search rows, page locators, and a best-effort gallery thumbnail. Uploaded documents appear under **User Uploads**, open in the format-appropriate reader, participate in the same SQLite FTS5 search UI, and can use the same TTS playback/save flow when native TTS is available. HTML/EPUB reader appearance controls do not alter stored documents or audiobook metadata; PDF pages retain their authored appearance while app chrome follows the selected theme. Uploaded documents can also be deleted from the document list; delete removes the SQLite rows and stored source directory to free local storage.
+From the document list, open **Import** and choose **Files** to select one or more local `.html`, `.htm`, `.epub`, `.pdf`, `.txt`, `.md`, or `.markdown` documents. On desktop, the same supported files can be dropped onto the open Library. Installed desktop, Android, and iOS builds register as viewers for those formats, so opening a supported file with Papercut launches or focuses the app and imports it. Android registers only the file-opening action, not Share-sheet actions. Every entry point uses the same validation, progress, duplicate handling, and partial-failure results as the picker. Choose **Paste Text** to create a searchable local plain-text document without clipboard permissions or an intermediary file. Desktop builds also offer **Folder**, which recursively imports supported files through five visible folder levels while preserving that hierarchy in the Library. HTML and EPUB produce sanitized reading HTML; plain text is escaped and reflowed into paragraphs; CommonMark Markdown is rendered and then sanitized. PDF retains a canonical source while PDF.js incrementally derives page text, search rows, page locators, and a best-effort gallery thumbnail. TXT files must be UTF-8 or explicitly BOM-marked UTF-16; Papercut does not guess ambiguous legacy text encodings. Markdown keeps readable structure but intentionally omits remote or sibling-file images, raw active content, syntax highlighting, and format-specific extensions. Uploaded documents appear under **User Uploads**, open in the format-appropriate reader, participate in the same SQLite FTS5 search UI, and can use the same TTS playback/save flow when native TTS is available. Reflowable reader appearance controls do not alter stored documents or audiobook metadata; PDF pages retain their authored appearance while app chrome follows the selected theme. Uploaded documents can also be deleted from the document list; delete removes the SQLite rows and stored source directory to free local storage.
 
-EPUB import validates the archive container, follows the OPF spine, stores a sanitized generated reading HTML copy, and outputs normalized sections before indexing. PDF uses the same document/search store with page-aware locators and a dedicated virtualized PDF.js viewer. Image-only PDFs remain outside the text-native path until the OCR stage described in [docs/pdf-ocr-scanning.md](docs/pdf-ocr-scanning.md).
+EPUB import validates the archive container, follows the OPF spine, stores a sanitized generated reading HTML copy, and outputs normalized sections before indexing. PDF uses the same document/search store with page-aware locators and a dedicated virtualized PDF.js viewer. Image-only and hybrid PDF pages can be recognized on demand in English or Arabic with a bundled Tesseract worker; recognition is resumable, preserves the canonical PDF, and feeds the same Find, search, selection, and TTS paths as embedded text. Supported Android devices can scan multi-page documents or import existing photos into this PDF pipeline. The iOS VisionKit scanner and photo picker are implemented, but physical-device acceptance remains open; desktop camera capture is not included. Current validation and remaining platform work are tracked in [docs/pdf-ocr-scanning.md](docs/pdf-ocr-scanning.md).
 
 ### Search Behavior
 
-Search is **explicit**: the app only searches when the user clicks the **Search** button next to the input or presses **Enter**. Typing does not trigger search. This keeps CPU and memory flat at scale (thousands of documents, large per-result fragment fetches). Bundled-document queries go through Pagefind, uploaded-document queries go through SQLite FTS5, and the React UI merges both result sets.
+Search is **explicit**: the app only searches when the user clicks the **Search** button next to the input or presses **Enter**. Typing does not trigger search. This keeps CPU and memory flat at scale (thousands of documents, large per-result fragment fetches). Bundled starter-document queries go through Pagefind, uploaded-document queries go through SQLite FTS5, and the React UI presents **Your Library** before **Starter Documents**.
 
 - Queries are lowercased before being passed to the search providers, making search case-insensitive regardless of how the user types it (`The quick brown fox jumped over the lazy dog` and `the quick brown fox jumped over the lazy dog` return the same results).
-- Selected **Filter By Document** entries are passed into the search scope, so provider limits are spent on the chosen documents instead of searching everything and hiding unrelated results afterward.
-- Wrapping a phrase in double quotes (`"the quick brown fox jumped over the lazy dog"`) runs an **exact phrase** match. Pagefind and SQLite FTS are still used first to find likely candidate documents, then the app reads the actual bundled or uploaded document source, normalizes whitespace and curly quotes, lowercases, and checks for the quoted phrase as a substring. Candidates that do not contain every quoted phrase are dropped.
-- The Pagefind `content` field on `result.data()` and SQLite FTS section counts are not used as exact phrase counts because they come from broad candidate matching. Quoted-search results are reported as document-level phrase matches with source-verified occurrence counts; unquoted searches can show matching section counts when the search provider exposes them. Source reads are cached per URL in memory for the session to avoid re-fetching across queries.
+- **Filter By Document** can include only checked documents or exclude checked documents. The resolved allowed URLs are applied inside both provider flows before result limits, rather than searching everything and hiding unrelated cards afterward.
+- Every unquoted word is required. Same-section matches rank first; an uploaded document can still match when all words occur in different indexed sections, and the result card labels that broader document-level match. If any required word is absent, the document is not returned.
+- Wrapping a phrase in double quotes (`"the quick brown fox jumped over the lazy dog"`) adds an **exact phrase** requirement. Mixed input remains a hybrid query: `anne "green gables"` requires both the word `anne` and the exact phrase `green gables`, and the result summary displays those clauses separately. An unmatched quotation mark is rejected beside the search field instead of silently broadening the query.
+- Literal phrase checks, in-document Find, and result-target highlighting treat straight/curly quotes and the hyphen, en-dash, and em-dash family as equivalent punctuation while preserving the document's authored text and highlight offsets.
+- Pagefind and SQLite FTS are still used first to find likely phrase candidates. For uploaded documents, Rust verifies phrases against indexed SQLite sections, then returns the complete occurrence count, first literal-phrase locator, and a bounded highlighted excerpt for each visible result. The WebView does not reopen uploaded HTML, EPUB, text, Markdown, or PDF sources for exact-search verification. Bundled starter documents are still verified against their source in React, with those source reads cached per URL for the session. Pagefind `content` and SQLite broad matching-section counts are not treated as exact phrase counts.
 - Clearing the input clears the results panel immediately, without triggering a search.
-- In-flight stale results are dropped: if the user fires a new search before the previous one resolves, the earlier result set is discarded and never rendered.
-- Uploaded-document snippets are produced by SQLite FTS and sanitized again before rendering in React. Uploaded matches are collapsed to one result card per uploaded document, using the first/best matching snippet. Opening a result jumps to the likely match and highlights it with a named CSS Highlight range when the rendered reader text can be matched; users can still use in-document Find to move through additional matches.
+- In-flight stale results are dropped: if the user fires a new search before the previous one resolves, the earlier result set is discarded and never rendered. Re-submitting the identical active query is a no-op instead of starting duplicate provider work.
+- Search status reports the number of indexed documents in the active scope and follows real pipeline phases. Uploaded SQLite searches stream candidate discovery, literal-phrase verification, and result/evidence construction through a channel scoped to that invocation; the frontend then reports ranked-result loading and excerpt preparation when those steps occur. Fast phases may finish before the browser paints them, while a local-processing reassurance appears after five seconds. Provider failures remain separate from an empty result set, and the UI does not invent completion percentages for work the providers cannot measure.
+- SQLite indexes uploaded sections by document and reading order, so exact verification and source-linked navigation do not rescan and resort the complete section table for each result. Debug builds emit one privacy-safe `[search] native performance summary` with database-open, candidate, verification, exact-evidence, result/evidence, per-term aggregation, and total timings; query text and document titles are not logged.
+- Uploaded-document snippets are produced by SQLite FTS and sanitized again before rendering in React. SQLite groups sections before applying the document limit, returns the best matching snippet per uploaded document, and computes complete matching-document/section counts before limiting the visible cards. Broad two-to-six-term results show compact per-term section coverage directly on each card instead of requiring a separate comparison mode. A single **Explore matches** disclosure contains up to two additional ranked passages, a twelve-bin supporting-section distribution, and term-specific occurrence controls. Counts for cross-section results are explicitly described as sections containing at least one query word; same-section results retain matching-section wording. Every passage/bin opens its supporting section or PDF page and highlights the first literal marked token when one is available. Cross-section mixed queries target the first verified exact-phrase section instead of the best unrelated broad-term section; exact results do not present broad candidate bins as phrase evidence. HTML, EPUB, TXT, and Markdown use persisted section ordinals and safe reader markers, while PDFs keep page-aware targets.
+- From **Explore matches**, users can request an on-demand concordance for any available required phrase or term. Native SQLite work returns the complete literal occurrence count and 50 highlighted context lines at a time without loading document source into the WebView. Each line opens its indexed section or PDF page and highlights that specific occurrence, including repeated matches inside the same section. Exact results with only one occurrence omit the redundant explorer because the primary result already opens that match.
 - The "No documents found" message only appears after a search has actually been submitted (via Search button or Enter), not while the user is still typing.
 
 </details>
@@ -460,6 +484,9 @@ papercut.io/
 │   ├── assets/                    # Bundled UI assets, including the header icon
 │   ├── components/                # Reusable UI and reader/search/library panels
 │   ├── hooks/                     # Shared React state hooks
+│   ├── i18n/                      # App locale provider and translation catalogs
+│   ├── library-transfer/          # Local transfer UI and native API adapter
+│   ├── pdf/                       # PDF import/extraction client helpers
 │   ├── tts/                       # Audiobook API, components, hooks, storage, diagnostics
 │   ├── uploads/                   # User-upload client API and types
 │   ├── utils/                     # Search, formatting, document, and debug helpers
@@ -469,14 +496,16 @@ papercut.io/
 │   ├── index.css                  # Base styles
 │   └── main.tsx                   # Entry point
 ├── src-tauri/                     # Tauri / Rust backend
-│   ├── src/document_uploads/      # Runtime HTML upload + SQLite FTS indexing
+│   ├── src/document_uploads/      # Runtime document import + SQLite FTS indexing
+│   ├── src/library_transfer/      # Portable and nearby-device library transfer
 │   ├── src/native_tts/            # Native sherpa-onnx TTS and audiobook bundles
 │   ├── tts/model-manifest.json    # Pinned native TTS model catalog
 │   ├── tauri.conf.json            # Base Tauri config
 │   ├── tauri.ios.conf.json        # iOS Bundle ID / App Store config
 │   └── tauri.linux.conf.json      # Linux shared-library bundle config
-├── scripts/                       # Desktop/Android build orchestration
+├── scripts/                       # Desktop and mobile build orchestration
 │   └── lib/                       # Shared and platform-specific script helpers
+├── site/                          # Generated multilingual static website
 ├── docs/                          # Feature and architecture notes
 ├── index.html                     # HTML shell
 ├── vite.config.ts                 # Vite configuration
@@ -488,16 +517,14 @@ papercut.io/
 
 ## License
 
-Papercut is available under the [MIT License](LICENSE.md).
+Papercut is available under the [MIT License](LICENSE.md). Licenses and source
+details for bundled third-party software are listed in
+[Third-Party Notices](THIRD_PARTY_NOTICES.md).
 
 ## AI Audio Use Notice
 
-Papercut can generate synthetic speech from text. Papercut does not claim
-ownership of generated audio, but users are responsible for rights in the source
-text, reference voices or recordings, and how exported audio is shared. If you
-share, publish, sell, or broadcast generated audio, label it as AI-generated and
-do not use it to impersonate people, mislead listeners, create fake
-endorsements, or violate rights in text, voices, performances, or recordings.
+Papercut's guidance for generated audio is available in the
+[AI Audio Use Notice](AI_AUDIO_USE_NOTICE.md).
 
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io.svg?type=small)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmuhannadnouri%2Fpapercut.io?ref=badge_small)
 

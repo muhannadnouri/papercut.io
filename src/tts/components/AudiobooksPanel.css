@@ -1,3 +1,12 @@
+.audiobooks-panel {
+  border-color: transparent;
+  background: var(--control-surface);
+}
+
+.audiobooks-panel > .panel-toggle {
+  background: var(--control-surface);
+}
+
 .audio-setup-panel {
   display: grid;
   gap: 0.7rem;
@@ -36,9 +45,9 @@
   gap: 0.75rem;
   min-height: 2rem;
   padding: 0 0.5rem;
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  background: var(--surface);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--control-surface);
   color: var(--text-body);
   font-size: 0.78rem;
   font-weight: 700;
@@ -64,7 +73,7 @@
   width: 2.1rem;
   height: 1.1rem;
   border: 1px solid var(--border-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--surface-muted);
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
@@ -103,36 +112,68 @@
 
 .audio-settings-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.45rem;
+  grid-template-columns: repeat(2, minmax(0, 18rem));
+  gap: 0.6rem 0.75rem;
   align-items: start;
+  justify-content: start;
 }
 
 .audio-field-language {
-  grid-column: 1;
+  grid-area: language;
 }
 
 .audio-field-model {
-  grid-column: 2;
+  grid-area: model;
 }
 
 .audio-model-install {
   display: grid;
   gap: 0.45rem;
-  grid-column: 1 / -1;
+  grid-area: install;
   min-width: 0;
 }
 
 .audio-field-voice {
-  grid-column: 1;
+  grid-area: voice;
+}
+
+.audio-preview-button {
+  width: fit-content;
+  min-height: 2.5rem;
+  justify-self: start;
+}
+
+.audio-preview-icon,
+.audio-preview-spinner {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+}
+
+.audio-preview-icon {
+  fill: currentcolor;
+}
+
+.audio-preview-error {
+  color: var(--danger-strong);
+  font-size: 0.64rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.audio-settings-grid-main {
+  grid-template-areas:
+    "language model"
+    "voice install";
 }
 
 .audio-probe-button {
+  width: 100%;
   min-height: 2rem;
   padding: 0 0.65rem;
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  background: var(--surface);
+  border: 1px solid transparent;
+  border-radius: var(--radius-compact);
+  background: var(--control-surface);
   color: var(--text-body);
   font-size: 0.78rem;
   font-weight: 700;
@@ -140,27 +181,22 @@
 }
 
 .audio-probe-button:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
+  background: var(--surface-accent);
+  color: var(--accent-text);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .audio-probe-button:disabled {
+  border-color: transparent;
+  background: var(--surface-muted);
   cursor: not-allowed;
   opacity: 0.65;
 }
 
-.audiobooks-setup {
-  max-height: min(62vh, 26rem);
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  padding: 0.75rem 1.25rem;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-panel-subtle);
-  margin-top: 5px;
+.app-dialog.audiobooks-setup-dialog {
+  width: min(100%, 38.75rem);
 }
 
 .audio-field {
@@ -170,6 +206,10 @@
   color: var(--text-muted);
   font-size: 0.68rem;
   font-weight: 700;
+}
+
+.audio-field > span:first-child {
+  line-height: 1rem;
 }
 
 .audio-field-heading {
@@ -187,7 +227,7 @@
   width: max-content;
   min-width: 0;
   padding: 0.05rem 0.35rem;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   color: var(--text-soft);
   font-size: 0.62rem;
   font-weight: 700;
@@ -221,7 +261,7 @@
 .tts-btn {
   min-height: 2rem;
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--text-body);
   font-size: 0.78rem;
@@ -234,9 +274,10 @@
   min-width: 0;
   padding-block: 0;
   padding-inline: 0.5rem 1.6rem;
+  border-color: transparent;
   appearance: none;
   -webkit-appearance: none;
-  background-color: var(--surface);
+  background-color: var(--control-surface);
   background-image: var(--select-chevron);
   background-repeat: no-repeat;
   background-position: right 0.55rem center;
@@ -249,33 +290,45 @@
   justify-content: center;
   gap: 0.4rem;
   padding: 0 0.7rem;
+  border-color: transparent;
+  background: var(--control-surface);
   font-weight: 600;
   white-space: nowrap;
 }
 
 .tts-save-btn {
-  width: auto;
-  min-width: min(100%, 16rem);
+  width: fit-content;
+  min-width: 0;
+  max-width: 100%;
   justify-self: start;
+  white-space: normal;
 }
 
-.tts-select:focus,
+.tts-select:focus {
+  border-color: transparent;
+  background-color: var(--surface-accent);
+  color: var(--accent-text);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}
+
 .tts-btn:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
+  background: var(--surface-accent);
   color: var(--accent-text);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .tts-btn:disabled {
-  border-color: var(--border);
+  border-color: transparent;
   background: var(--surface-muted);
   color: var(--text-soft);
   cursor: not-allowed;
 }
 
 .audio-setup-advanced {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 18rem));
   align-items: start;
 }
 
@@ -299,7 +352,7 @@
   gap: 0.45rem;
   padding: 0.55rem 0.8rem;
   border: 1px solid var(--success-border);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--surface-success);
   color: var(--success);
   font-size: 0.8rem;
@@ -325,6 +378,10 @@
   color: var(--danger-strong);
 }
 
+.audio-model-install .audiobook-status {
+  border-color: transparent;
+}
+
 .audiobooks-panel-content {
   position: relative;
   min-width: 0;
@@ -338,53 +395,56 @@
   padding: 0.75rem 1.25rem;
 }
 
-.audiobooks-setup-disclosure {
+.audiobooks-setup-button {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 0.65rem;
   width: 100%;
   min-width: 0;
   margin: 0;
   padding: 0.7rem 0.85rem;
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  background: var(--surface);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--control-surface);
   color: var(--text-body);
   text-align: start;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 
-.audiobooks-setup-disclosure:focus-visible,
-.audiobooks-setup-disclosure-open {
-  border-color: var(--accent-text);
+.audiobooks-setup-button:focus-visible {
+  border-color: transparent;
   background: var(--surface-accent);
   outline: none;
 }
 
-.audiobooks-setup-disclosure:focus-visible {
+.audiobooks-setup-button:focus-visible {
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .audiobooks-setup-disclosure:hover {
-    border-color: var(--accent-text);
+  .audiobooks-panel > .panel-toggle:hover {
+    background: var(--surface-accent);
+  }
+
+  .audiobooks-setup-button:hover {
+    border-color: transparent;
     background: var(--surface-accent);
     box-shadow: 0 8px 18px var(--shadow-soft);
     outline: none;
   }
 }
 
-.audiobooks-setup-disclosure:disabled {
-  border-color: var(--border);
+.audiobooks-setup-button:disabled {
+  border-color: transparent;
   background: var(--surface-muted);
   color: var(--text-soft);
   cursor: not-allowed;
   box-shadow: none;
 }
 
-.audiobooks-setup-disclosure-icon {
+.audiobooks-setup-button-icon {
   display: inline-grid;
   place-items: center;
   width: 1.6rem;
@@ -402,19 +462,19 @@
   stroke-linejoin: round;
 }
 
-.audiobooks-setup-disclosure-main {
+.audiobooks-setup-button-main {
   display: grid;
   gap: 0.1rem;
   min-width: 0;
 }
 
-.audiobooks-setup-disclosure-title {
+.audiobooks-setup-button-title {
   color: var(--text);
   font-size: 0.86rem;
   font-weight: 800;
 }
 
-.audiobooks-setup-disclosure-summary {
+.audiobooks-setup-button-summary {
   min-width: 0;
   color: var(--text-muted);
   direction: ltr;
@@ -426,13 +486,8 @@
   white-space: nowrap;
 }
 
-html[dir="rtl"] .audiobooks-setup-disclosure-summary {
+html[dir="rtl"] .audiobooks-setup-button-summary {
   text-align: right;
-}
-
-.audiobooks-setup-disclosure-chevron {
-  color: var(--text-muted);
-  font-size: 0.7rem;
 }
 
 .audiobooks-import-btn {
@@ -442,9 +497,9 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   gap: 0.45rem;
   min-height: 2.25rem;
   padding: 0 0.8rem;
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  background: var(--surface);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--control-surface);
   color: var(--accent-text);
   font-size: 0.85rem;
   font-weight: 700;
@@ -453,14 +508,14 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
 }
 
 .audiobooks-import-btn:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   background: var(--surface-accent);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
 .audiobooks-import-btn:disabled {
-  border-color: var(--border);
+  border-color: transparent;
   background: var(--surface-muted);
   color: var(--text-soft);
   cursor: not-allowed;
@@ -499,6 +554,14 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   text-transform: uppercase;
 }
 
+.audiobooks-saved-section {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 30rem), 1fr));
+}
+
+.audiobooks-saved-section > .audiobooks-section-title {
+  grid-column: 1 / -1;
+}
+
 .audiobooks-list {
   display: grid;
   gap: 0.5rem;
@@ -516,20 +579,37 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   max-width: 100%;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--text-body);
   text-align: start;
   overflow: hidden;
 }
 
+.audiobook-item-active {
+  border-color: transparent;
+  background: var(--surface-accent);
+}
+
+.audiobook-item-queued,
+.audiobook-item-paused {
+  border-color: transparent;
+  background: var(--control-surface);
+}
+
+.audiobook-item-error {
+  border-color: transparent;
+  background: var(--surface-danger);
+}
+
 .audiobook-item-saved {
   position: relative;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.55rem 0.75rem;
-  border-color: var(--border-strong);
-  background: var(--surface-subtle);
+  gap: 0.4rem;
+  padding: 0.5rem 0.6rem;
+  border-color: transparent;
+  background: var(--control-surface);
   overflow: visible;
 }
 
@@ -538,13 +618,11 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
 }
 
 .audiobook-saved-main {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
+  display: grid;
+  align-content: center;
   min-width: 0;
   max-width: 100%;
-  gap: 0.35rem 0.75rem;
+  gap: 0.15rem;
   padding: 0;
   border: none;
   background: none;
@@ -556,7 +634,7 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
 .audiobook-saved-main:focus-visible {
   color: var(--accent-strong);
   outline: none;
-  border-radius: 4px;
+  border-radius: var(--radius-inline);
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
@@ -566,13 +644,18 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   cursor: not-allowed;
 }
 
-.audiobook-saved-main .audiobook-meta {
-  flex: 1 1 100%;
+.audiobooks-saved-section .audiobook-meta {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.audiobooks-saved-section .audiobook-title {
+  -webkit-line-clamp: 2;
 }
 
 .audiobook-text-action {
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-compact);
   background: transparent;
   color: var(--accent-text);
   font-size: 0.78rem;
@@ -583,11 +666,14 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   white-space: nowrap;
 }
 
-.audiobook-delete {
-  min-height: 2.15rem;
-  border-color: var(--danger-border);
-  background: var(--surface);
-  color: var(--danger);
+.audiobook-resume {
+  background: var(--surface-accent-strong);
+  color: var(--accent-strong);
+}
+
+.audiobook-secondary {
+  background: var(--surface-muted);
+  color: var(--text-body);
 }
 
 .audiobook-action-toast {
@@ -602,7 +688,7 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   padding-block: 0.6rem;
   padding-inline: 0.8rem 0.6rem;
   border: 1px solid var(--success-border);
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
   background: var(--surface-success);
   color: var(--success-strong);
   box-shadow: 0 10px 28px var(--shadow-strong);
@@ -630,7 +716,7 @@ html[dir="rtl"] .audiobooks-setup-disclosure-summary {
   width: 1.85rem;
   height: 1.85rem;
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--surface-muted);
   color: var(--text-muted);
   font: inherit;
@@ -661,32 +747,33 @@ html[dir="rtl"] .audiobook-action-toast {
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
-.audiobook-delete:focus-visible {
-  border-color: var(--danger);
-  background: var(--surface-danger);
-  color: var(--danger-strong);
-}
-
 @media (hover: hover) and (pointer: fine) {
-  .audio-diagnostics-control:hover,
-  .audio-probe-button:hover:not(:disabled),
-  .tts-select:hover,
-  .tts-btn:hover:not(:disabled) {
-    border-color: var(--accent-text);
+  .audio-diagnostics-control:hover {
+    border-color: transparent;
+    background: var(--surface-accent);
   }
 
-  .tts-select:hover,
+  .audio-probe-button:hover:not(:disabled),
   .tts-btn:hover:not(:disabled) {
+    border-color: transparent;
+    background: var(--surface-accent);
+    color: var(--accent-text);
+  }
+
+  .tts-select:hover {
+    border-color: transparent;
+    background-color: var(--surface-accent);
     color: var(--accent-text);
   }
 
   .audiobooks-import-btn:hover:not(:disabled) {
-    border-color: var(--accent-text);
+    border-color: transparent;
     background: var(--surface-accent);
   }
 
   .audiobook-item-saved:hover {
-    border-color: var(--accent-text);
+    border-color: transparent;
+    background: var(--surface-accent);
   }
 
   .audiobook-saved-main:hover:not(:disabled) {
@@ -704,18 +791,12 @@ html[dir="rtl"] .audiobook-action-toast {
     color: var(--accent-strong);
   }
 
-  .audiobook-delete:hover:not(:disabled) {
-    border-color: var(--danger);
-    background: var(--surface-danger);
-    color: var(--danger-strong);
-  }
 }
 
 @media (pointer: coarse) {
   .audiobooks-import-btn,
-  .audiobooks-setup-disclosure,
-  .audiobook-text-action,
-  .audiobook-delete {
+  .audiobooks-setup-button,
+  .audiobook-text-action {
     min-height: 2.75rem;
   }
 }
@@ -769,7 +850,7 @@ html[dir="rtl"] .audiobook-action-toast {
   height: 0.35rem;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--surface-accent-strong);
 }
 
@@ -808,15 +889,20 @@ html[dir="rtl"] .audiobook-action-toast {
     font-size: 0.66rem;
   }
 
-  .tts-select {
-    min-height: 2rem;
-    padding: 0 0.4rem;
-    font-size: 0.78rem;
+  .tts-select,
+  .tts-btn,
+  .audio-probe-button {
+    min-height: 2.25rem;
+    font-size: 0.82rem;
   }
 
-  .tts-btn {
-    min-height: 2.5rem;
-    font-size: 0.95rem;
+  .tts-select {
+    padding: 0 0.4rem;
+  }
+
+  .audio-preview-button {
+    width: 100%;
+    min-height: 2.75rem;
   }
 
   .audiobooks-actions-row {
@@ -824,12 +910,7 @@ html[dir="rtl"] .audiobook-action-toast {
     padding: 0.65rem;
   }
 
-  .audiobooks-setup-disclosure {
-    padding: 0.65rem;
-  }
-
-  .audiobooks-setup {
-    max-height: min(56vh, 24rem);
+  .audiobooks-setup-button {
     padding: 0.65rem;
   }
 
@@ -837,32 +918,37 @@ html[dir="rtl"] .audiobook-action-toast {
     max-width: none;
   }
 
-  .tts-save-btn {
-    width: 100%;
-    justify-self: stretch;
-  }
 }
 
 @media (max-width: 600px) {
+  .audio-settings-grid,
+  .audio-setup-advanced {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .audio-settings-grid-main {
+    grid-template-areas:
+      "language"
+      "model"
+      "install"
+      "voice";
+  }
+
+  .audio-field-text-processing,
+  .audio-field-threads,
+  .audio-field-silma-quality,
+  .audio-field-diagnostics,
+  .audio-field-silma-probe {
+    grid-column: 1;
+  }
+
   .audiobooks-list {
     padding: 0.65rem;
   }
 
   .audiobook-item-saved {
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    gap: 0.45rem 0.5rem;
-  }
-
-  .audiobook-item-saved .audiobook-saved-main {
-    grid-column: 1 / -1;
-  }
-
-  .audiobook-delete {
-    justify-self: end;
-  }
-
-  .audiobook-delete {
-    min-height: 2.25rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.4rem;
   }
 
   .audiobook-actions {
@@ -882,24 +968,5 @@ html[dir="rtl"] .audiobook-action-toast {
 @media (max-width: 420px) {
   .audio-thread-meta {
     font-size: 0.58rem;
-  }
-}
-
-@media (max-width: 360px) {
-  .audio-settings-grid,
-  .audio-setup-advanced {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .audio-field-language,
-  .audio-field-model,
-  .audio-field-voice,
-  .audio-model-install,
-  .audio-field-text-processing,
-  .audio-field-threads,
-  .audio-field-silma-quality,
-  .audio-field-diagnostics,
-  .audio-field-silma-probe {
-    grid-column: 1 / -1;
   }
 }

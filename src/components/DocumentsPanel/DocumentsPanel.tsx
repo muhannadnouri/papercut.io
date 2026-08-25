@@ -5,6 +5,8 @@ import { Button, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-compone
 import type { DocumentInfo } from '../../types/search'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
 import type { UploadedDocumentDeleteBatchResult, UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
+import { BookmarkIcon } from '../BookmarkIndicator/BookmarkIndicator'
+import { filterBookmarkedGroups } from '../BookmarkIndicator/bookmarkFilters'
 import { BundledDocumentTree } from '../BundledDocumentTree/BundledDocumentTree'
 import { Panel } from '../Panel/Panel'
 import { DocumentList } from '../DocumentList/DocumentList'
@@ -32,6 +34,7 @@ export interface DocumentImportOption {
 interface DocumentsPanelProps {
   allDocuments: DocumentInfo[]
   audioSavedOnly?: boolean
+  bookmarkedDocumentUrls?: ReadonlySet<string>
   collapsedAuthors: Set<string>
   docFilterLower: string
   documentFilter: string
@@ -62,6 +65,7 @@ interface DocumentsPanelProps {
 export function DocumentsPanel({
   allDocuments,
   audioSavedOnly = false,
+  bookmarkedDocumentUrls = new Set(),
   collapsedAuthors,
   docFilterLower,
   documentFilter,
@@ -90,6 +94,7 @@ export function DocumentsPanel({
 }: DocumentsPanelProps) {
   const { t } = useTranslation()
   const [importMenuOpen, setImportMenuOpen] = useState(false)
+  const [bookmarkedOnly, setBookmarkedOnly] = useState(false)
   const [preferredView, setPreferredView] = useState<LibraryView>(loadView)
   const [galleryCategory, setGalleryCategory] = useState<LibraryGalleryCategory>(
     loadCategory,
@@ -98,14 +103,16 @@ export function DocumentsPanel({
   const activeImport = importOptions.find((option) => option.statusLabel)
   const hasImportOptions = importOptions.length > 0
   const importBusy = importStatuses.some((item) => item.status === 'importing')
-  const operationBusy = importStatuses.some((item) => item.status === 'importing' || item.status === 'deleting')
+  const operationBusy = importStatuses.some((item) =>
+    item.status === 'importing' || item.status === 'recognizing' || item.status === 'deleting')
   const importDisabled = hasImportOptions && importOptions.every((option) => option.disabled || option.future || !option.onSelect)
+  const visibleGroups = filterBookmarkedGroups(groupedDocs, bookmarkedDocumentUrls, bookmarkedOnly)
   const {
     uploadDocs,
     bundledDocs,
     nonBundledGroups,
     otherGroups,
-  } = splitDocumentGroupsBySource(groupedDocs)
+  } = splitDocumentGroupsBySource(visibleGroups)
   const canShowUploadedTree = Boolean(
     libraryOrganization &&
     onCreateLibraryFolder &&
@@ -115,8 +122,11 @@ export function DocumentsPanel({
     onRenameLibraryFolder,
   )
   const documentListGroups = canShowUploadedTree ? otherGroups : nonBundledGroups
+  const showUploadedTree = canShowUploadedTree && (
+    docFilterLower.length === 0 || uploadDocs.length > 0
+  )
   const hasFolderTree = bundledDocs.length > 0 ||
-    (canShowUploadedTree && uploadDocs.length > 0)
+    (showUploadedTree && uploadDocs.length > 0)
 
   if (documentsLoading) {
     return (
@@ -149,9 +159,18 @@ export function DocumentsPanel({
         {hasImportOptions && (
           <div className="document-import-menu">
             <MenuTrigger isOpen={importMenuOpen} onOpenChange={setImportMenuOpen}>
-              <Button className="document-import-btn" isDisabled={importDisabled}>
-                {activeImport?.statusLabel ?? t('library.documents.import')}
-                <span className={`toggle-arrow ${importMenuOpen ? 'open' : ''}`} aria-hidden="true">&#9662;</span>
+              <Button
+                className={`document-import-btn${importBusy ? ' document-import-btn-busy' : ''}`}
+                isDisabled={importDisabled}
+                aria-label={importBusy
+                  ? activeImport?.statusLabel ?? t('library.import.importingBatch')
+                  : undefined}
+              >
+                <span className="document-import-btn-label" aria-hidden={importBusy ? true : undefined}>
+                  {t('library.documents.import')}
+                  <span className={`toggle-arrow ${importMenuOpen ? 'open' : ''}`} aria-hidden="true">&#9662;</span>
+                </span>
+                {importBusy && <span className="spinner document-import-btn-spinner" aria-hidden="true" />}
               </Button>
               <Popover
                 className="document-import-popover"
@@ -184,29 +203,42 @@ export function DocumentsPanel({
             </MenuTrigger>
           </div>
         )}
-        <button
-          type="button"
-          className="library-view-toggle"
-          aria-label={view === 'gallery' ? t('library.documents.listView') : t('library.documents.galleryView')}
-          title={view === 'gallery' ? t('library.documents.listView') : t('library.documents.galleryView')}
-          onClick={() => {
-            const nextView = view === 'gallery' ? 'list' : 'gallery'
-            setPreferredView(nextView)
-            savePreference(VIEW_STORAGE_KEY, nextView)
-          }}
-        >
-          <ViewIcon view={view === 'gallery' ? 'list' : 'gallery'} />
-        </button>
-        {onAudioSavedOnlyChange && (
-          <label className="audio-filter-toggle">
-            <input
-              type="checkbox"
-              checked={audioSavedOnly}
-              onChange={(e) => onAudioSavedOnlyChange(e.target.checked)}
-            />
-            <span>{t('library.documents.savedAudio')}</span>
-          </label>
-        )}
+        <div className="document-view-options">
+          <button
+            type="button"
+            className="library-view-toggle"
+            aria-label={view === 'gallery' ? t('library.documents.listView') : t('library.documents.galleryView')}
+            title={view === 'gallery' ? t('library.documents.listView') : t('library.documents.galleryView')}
+            onClick={() => {
+              const nextView = view === 'gallery' ? 'list' : 'gallery'
+              setPreferredView(nextView)
+              savePreference(VIEW_STORAGE_KEY, nextView)
+            }}
+          >
+            <ViewIcon view={view === 'gallery' ? 'list' : 'gallery'} />
+          </button>
+          <button
+            type="button"
+            className="audio-filter-toggle bookmark-filter-toggle"
+            aria-label={t('library.documents.bookmarkedOnly')}
+            title={t('library.documents.bookmarkedOnly')}
+            aria-pressed={bookmarkedOnly}
+            onClick={() => setBookmarkedOnly(!bookmarkedOnly)}
+          >
+            <BookmarkIcon />
+          </button>
+          {onAudioSavedOnlyChange && (
+            <button
+              type="button"
+              className="audio-filter-toggle"
+              aria-pressed={audioSavedOnly}
+              onClick={() => onAudioSavedOnlyChange(!audioSavedOnly)}
+            >
+              <SavedAudioIcon />
+              <span>{t('library.documents.savedAudio')}</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {importStatuses.map((item, index) => item.message && item.status !== 'idle' ? (
@@ -236,12 +268,13 @@ export function DocumentsPanel({
           category={galleryCategory}
           collapsedAuthors={collapsedAuthors}
           docFilterLower={docFilterLower}
-          groupedDocs={groupedDocs}
+          groupedDocs={visibleGroups}
+          bookmarkedDocumentUrls={bookmarkedDocumentUrls}
           savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
           documentOpening={documentOpening}
           mutationDisabled={operationBusy}
           openingDocumentUrl={openingDocumentUrl}
-          emptyMessage={emptyMessage(allDocuments.length, audioSavedOnly, documentFilter, t)}
+          emptyMessage={emptyMessage(allDocuments.length, audioSavedOnly, bookmarkedOnly, documentFilter, t)}
           onCategoryChange={(category) => {
             setGalleryCategory(category)
             savePreference(CATEGORY_STORAGE_KEY, category)
@@ -252,10 +285,11 @@ export function DocumentsPanel({
         />
       ) : (
         <>
-          {canShowUploadedTree && libraryOrganization && (
+          {showUploadedTree && libraryOrganization && (
             <UploadedLibraryTree
               documents={uploadDocs}
               organization={libraryOrganization}
+              filterActive={docFilterLower.length > 0}
               documentOpening={documentOpening}
               mutationDisabled={operationBusy}
               resetEditing={importBusy}
@@ -287,7 +321,7 @@ export function DocumentsPanel({
               groupedDocs={documentListGroups}
               collapsedAuthors={collapsedAuthors}
               docFilterLower={docFilterLower}
-              emptyMessage={emptyMessage(allDocuments.length, audioSavedOnly, documentFilter, t)}
+              emptyMessage={emptyMessage(allDocuments.length, audioSavedOnly, bookmarkedOnly, documentFilter, t)}
               onToggleAuthor={onToggleAuthor}
               onViewDocument={onViewDocument}
               onDeleteDocument={onDeleteDocument}
@@ -322,13 +356,28 @@ function ViewIcon({ view }: { view: LibraryView }) {
   )
 }
 
+function SavedAudioIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M4 14v-2a8 8 0 0 1 16 0v2M4 14h4v7H6a2 2 0 0 1-2-2zm16 0h-4v7h2a2 2 0 0 0 2-2z" />
+    </svg>
+  )
+}
+
 type LibraryView = 'gallery' | 'list'
 
 const VIEW_STORAGE_KEY = 'papercut.library-view.v1'
 const CATEGORY_STORAGE_KEY = 'papercut.library-gallery-category.v1'
 
-function emptyMessage(documentCount: number, audioSavedOnly: boolean, filter: string, t: TFunction): string {
+function emptyMessage(
+  documentCount: number,
+  audioSavedOnly: boolean,
+  bookmarkedOnly: boolean,
+  filter: string,
+  t: TFunction,
+): string {
   if (documentCount === 0) return t('library.documents.empty')
+  if (bookmarkedOnly) return t('library.documents.emptyBookmarked')
   if (audioSavedOnly) return t('library.documents.emptySavedAudio')
   return filter.trim() ? t('library.documents.emptyFilter') : t('library.documents.empty')
 }

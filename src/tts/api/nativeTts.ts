@@ -71,6 +71,16 @@ export interface NativeTtsChunkResult {
   backend: string
 }
 
+export interface NativeTtsPreviewInput {
+  modelId: string
+  textPreprocessor: string
+  voice: string
+  text: string
+  speed: number
+  threadCount: number
+  silmaNfeStep: number
+}
+
 export interface NativeAudiobookPlaybackChunk {
   index: number
   chunkId: string
@@ -364,6 +374,14 @@ export async function getNativeSavedAudiobookChunk(
   } catch {
     return null
   }
+}
+
+export async function previewNativeTtsVoice(input: NativeTtsPreviewInput): Promise<ArrayBuffer> {
+  await requireNativeTtsCapabilities()
+  const response = await invokeNative<NativeTtsChunkResponse>('tts_preview_voice', {
+    request: input,
+  })
+  return base64ToArrayBuffer(response.wavBase64)
 }
 
 export async function saveNativeAudiobook(
