@@ -244,7 +244,10 @@ jobs:
           ignore: RUSTSEC-2026-0235
 
       - name: Rust tests
-        run: cargo test --manifest-path src-tauri/Cargo.toml --locked --lib
+        run: |
+          # Tauri validates this generated Linux bundle resource before tests run.
+          mkdir -p src-tauri/tts/runtime/linux-x64-shared-libs
+          cargo test --manifest-path src-tauri/Cargo.toml --locked --lib
 
   build:
     needs: [changes, checks]
