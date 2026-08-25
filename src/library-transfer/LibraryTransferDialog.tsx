@@ -95,6 +95,9 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
   const hasContent = effectiveDocumentIds.length > 0 || selectedAudiobookIds.length > 0
   const sendSelectionReady = documentsLoaded && !documentsLoadFailed
   const selectionEmpty = sendSelectionReady && !hasContent
+  const transferComplete = mode === 'send'
+    ? sendStatus?.state === 'complete'
+    : status.state === 'imported'
 
   /** Reload the sendable documents while exposing the existing loading and failure states. */
   const loadDocuments = useCallback(async () => {
@@ -245,8 +248,13 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
       description={t('libraryTransfer.description')}
       onCancel={busy ? () => {} : onBack}
       actions={(
-        <button type="button" className="app-dialog-cancel" disabled={busy} onClick={onBack}>
-          {t('common.back')}
+        <button
+          type="button"
+          className={transferComplete ? 'app-dialog-submit' : 'app-dialog-cancel'}
+          disabled={busy}
+          onClick={onBack}
+        >
+          {t(transferComplete ? 'common.done' : 'common.back')}
         </button>
       )}
     >
@@ -261,7 +269,9 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
 
       <div className="library-transfer-actions">
         {mode === 'send' ? (
-          sendFlowVisible ? (
+          sendStatus?.state === 'complete' ? (
+            <LibraryTransferCompletion kind="send" status={sendStatus} />
+          ) : sendFlowVisible ? (
             <LibrarySendFlow
               preparing={status.state === 'preparingSend'}
               status={sendStatus}
@@ -505,6 +515,8 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
             </details>
             </>
           )
+        ) : status.state === 'imported' ? (
+          <LibraryTransferCompletion kind="receive" result={status.result} />
         ) : (
           <>
             <section className="library-transfer-primary-section">
@@ -665,6 +677,7 @@ function TransferStatusMessage({ status }: { status: TransferStatus }) {
     || status.state === 'preparingSend'
     || status.state === 'receiving'
     || status.state === 'importing'
+    || status.state === 'imported'
   ) {
     return null
   }
@@ -682,33 +695,70 @@ function TransferStatusMessage({ status }: { status: TransferStatus }) {
     )
   }
 
+  return null
+}
+
+type LibraryTransferCompletionProps =
+  | { kind: 'send'; status: LibraryTransferSendStatus }
+  | { kind: 'receive'; result: LibraryTransferImportResult }
+
+export function LibraryTransferCompletion(props: LibraryTransferCompletionProps) {
+  const { t } = useTranslation()
+  const result = props.kind === 'receive' ? props.result : null
+  const hasFailures = Boolean(result && (result.failed > 0 || result.audiobooksFailed > 0))
+
   return (
-    <div className="library-transfer-result" role="status" aria-live="polite">
-      <span>{t('libraryTransfer.importComplete', {
-        imported: status.result.imported,
-        skipped: status.result.skipped,
-        failed: status.result.failed,
-      })}</span>
-      {status.result.audiobooksSelected > 0 && (
-        <span>{t('libraryTransfer.audiobooksImportComplete', {
-          imported: status.result.audiobooksImported,
-          skipped: status.result.audiobooksSkipped,
-          failed: status.result.audiobooksFailed,
-        })}</span>
+    <section
+      className={`library-transfer-completion${hasFailures ? ' library-transfer-completion-issues' : ''}`}
+      role="status"
+      aria-live="polite"
+    >
+      <span className="library-transfer-completion-icon" aria-hidden="true">
+        {hasFailures ? '!' : '✓'}
+      </span>
+      <h3>{t(hasFailures
+        ? 'libraryTransfer.completionPartialTitle'
+        : 'libraryTransfer.completionTitle')}</h3>
+      {props.kind === 'send' ? (
+        <>
+          {/* The sender receives package counts, not the target's per-item import result. */}
+          <p>{t('libraryTransfer.sendComplete')}</p>
+          <div className="library-transfer-result">
+            <span>{t('libraryTransfer.documentsSent', { count: props.status.documents })}</span>
+            {props.status.audiobooks > 0 && (
+              <span>{t('libraryTransfer.audiobooksSent', { count: props.status.audiobooks })}</span>
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="library-transfer-result">
+          <span>{t('libraryTransfer.importComplete', {
+            imported: props.result.imported,
+            skipped: props.result.skipped,
+            failed: props.result.failed,
+          })}</span>
+          {props.result.audiobooksSelected > 0 && (
+            <span>{t('libraryTransfer.audiobooksImportComplete', {
+              imported: props.result.audiobooksImported,
+              skipped: props.result.audiobooksSkipped,
+              failed: props.result.audiobooksFailed,
+            })}</span>
+          )}
+          {props.result.failures.length > 0 && (
+            <details>
+              <summary>{t('libraryTransfer.failureDetails')}</summary>
+              <ul>
+                {props.result.failures.map((failure, index) => (
+                  <li key={`${failure.item}-${index}`}>
+                    <bdi>{failure.item}</bdi>: <span dir="auto">{failure.error}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
       )}
-      {status.result.failures.length > 0 && (
-        <details>
-          <summary>{t('libraryTransfer.failureDetails')}</summary>
-          <ul>
-            {status.result.failures.map((failure, index) => (
-              <li key={`${failure.item}-${index}`}>
-                <bdi>{failure.item}</bdi>: <span dir="auto">{failure.error}</span>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
-    </div>
+    </section>
   )
 }
 

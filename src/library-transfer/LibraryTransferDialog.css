@@ -497,6 +497,55 @@ html[dir="rtl"] .library-transfer-content[open] summary::before {
   line-height: 1.4;
 }
 
+.library-transfer-completion {
+  display: grid;
+  gap: 0.65rem;
+  justify-items: center;
+  padding-block: 0.35rem;
+  text-align: center;
+}
+
+.library-transfer-completion-icon {
+  display: grid;
+  width: 2.5rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface-success);
+  color: var(--success-strong);
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.library-transfer-completion-issues .library-transfer-completion-icon {
+  background: var(--surface-warning);
+  color: var(--warning-strong);
+}
+
+.library-transfer-completion h3,
+.library-transfer-completion p {
+  margin: 0;
+}
+
+.library-transfer-completion h3 {
+  font-size: 1rem;
+}
+
+.library-transfer-completion p {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.library-transfer-completion .library-transfer-result {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.7rem;
+  border-radius: var(--radius-control);
+  background: var(--control-surface);
+  text-align: start;
+}
+
 .library-transfer-status-busy {
   grid-template-columns: auto 1fr;
   align-items: center;

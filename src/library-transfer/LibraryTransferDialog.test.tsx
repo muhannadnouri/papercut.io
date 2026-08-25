@@ -1,6 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
-import { LibrarySendFlow, TransferPreparationMessage } from './LibraryTransferDialog'
+import {
+  LibrarySendFlow,
+  LibraryTransferCompletion,
+  TransferPreparationMessage,
+} from './LibraryTransferDialog'
 
 vi.mock('react-i18next', async (importOriginal) => ({
   ...await importOriginal<typeof import('react-i18next')>(),
@@ -46,5 +50,55 @@ describe('library transfer send flow', () => {
     expect(html).toContain('192.168.1.20:49152')
     expect(html).toContain('ABCD-EFGH-JKLM')
     expect(html).toContain('libraryTransfer.changeSelection')
+  })
+
+  it('summarizes completed sends without claiming receiver-side import counts', () => {
+    const html = renderToStaticMarkup(
+      <LibraryTransferCompletion
+        kind="send"
+        status={{
+          state: 'complete',
+          address: '192.168.1.20:49152',
+          code: 'ABCD-EFGH-JKLM',
+          documents: 2,
+          audiobooks: 1,
+          packageBytes: 4096,
+          bytesTransferred: 4096,
+        }}
+      />,
+    )
+
+    expect(html).toContain('libraryTransfer.completionTitle')
+    expect(html).toContain('libraryTransfer.sendComplete')
+    expect(html).toContain('libraryTransfer.documentsSent')
+    expect(html).toContain('libraryTransfer.audiobooksSent')
+    expect(html).not.toContain('libraryTransfer.importComplete')
+  })
+
+  it('makes partial receiver results and failure details explicit', () => {
+    const html = renderToStaticMarkup(
+      <LibraryTransferCompletion
+        kind="receive"
+        result={{
+          selected: 2,
+          imported: 1,
+          skipped: 0,
+          failed: 1,
+          foldersCreated: 0,
+          audiobooksSelected: 0,
+          audiobooksImported: 0,
+          audiobooksSkipped: 0,
+          audiobooksFailed: 0,
+          importedAudiobooks: [],
+          failures: [{ item: 'Damaged book', error: 'Checksum failed' }],
+        }}
+      />,
+    )
+
+    expect(html).toContain('libraryTransfer.completionPartialTitle')
+    expect(html).toContain('libraryTransfer.importComplete')
+    expect(html).toContain('libraryTransfer.failureDetails')
+    expect(html).toContain('Damaged book')
+    expect(html).toContain('Checksum failed')
   })
 })
