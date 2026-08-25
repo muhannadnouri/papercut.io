@@ -14,10 +14,11 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use super::security::{
-    client_tls_config, pairing_proof, read_and_verify_proof, tls_exporter, PROTOCOL_MAGIC,
-    RECEIVER_ROLE, SENDER_ROLE,
+    client_tls_config, finish_pairing, pairing_confirmation, read_and_verify_confirmation,
+    read_pairing_message, start_receiver_pairing, start_sender_pairing, tls_exporter,
+    write_pairing_message, PairingError, RECEIVER_ROLE, SENDER_ROLE,
 };
-use super::LibraryTransferSendStatus;
+use super::{set_send_active, LibraryTransferSendStatus};
 use crate::library_transfer::package::MAX_PACKAGE_BYTES;
 use crate::library_transfer::{
     ensure_available_space, transfer_cache_dir, LibraryTransferError, LibraryTransferProgress,
@@ -25,6 +26,7 @@ use crate::library_transfer::{
 };
 
 const SOCKET_TIMEOUT: Duration = Duration::from_secs(30);
+const AUTH_TIMEOUT: Duration = Duration::from_secs(5);
 const SESSION_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const COPY_BUFFER_BYTES: usize = 64 * 1024;
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
@@ -41,6 +43,7 @@ pub(super) enum ReceiverMessage {
 
 #[derive(Debug)]
 pub(super) enum SendAttemptError {
+    Unauthenticated,
     Fatal(String),
     Retryable(String),
 }
@@ -55,25 +58,30 @@ pub(super) fn send_package(
     status: &Arc<Mutex<LibraryTransferSendStatus>>,
     cancel: &AtomicBool,
 ) -> Result<(), SendAttemptError> {
-    configure_socket(&socket).map_err(SendAttemptError::Fatal)?;
+    configure_socket(&socket, AUTH_TIMEOUT).map_err(SendAttemptError::Fatal)?;
     let mut connection = ServerConnection::new(tls_config).map_err(|err| {
         SendAttemptError::Fatal(format!(
             "Failed to initialize secure library transfer: {err}"
         ))
     })?;
-    connection.complete_io(&mut socket).map_err(|err| {
-        SendAttemptError::Fatal(format!("Secure library transfer handshake failed: {err}"))
-    })?;
+    connection
+        .complete_io(&mut socket)
+        .map_err(|_| SendAttemptError::Unauthenticated)?;
     let exporter = tls_exporter(&connection).map_err(SendAttemptError::Fatal)?;
     let mut stream = StreamOwned::new(connection, socket);
-    read_and_verify_proof(&mut stream, code, &exporter, RECEIVER_ROLE)
-        .map_err(SendAttemptError::Fatal)?;
-    stream
-        .write_all(PROTOCOL_MAGIC)
-        .and_then(|_| stream.write_all(&pairing_proof(code, &exporter, SENDER_ROLE)?))
-        .map_err(|err| {
-            SendAttemptError::Retryable(format!("Failed to authenticate library sender: {err}"))
-        })?;
+    let receiver_message = read_pairing_message(&mut stream).map_err(classify_pairing_error)?;
+    let (pairing, sender_message) = start_sender_pairing(code);
+    let shared_key = finish_pairing(pairing, &receiver_message).map_err(classify_pairing_error)?;
+    let confirmation = pairing_confirmation(&shared_key, &exporter, SENDER_ROLE)
+        .map_err(|_| SendAttemptError::Unauthenticated)?;
+    write_pairing_message(&mut stream, &sender_message)
+        .and_then(|_| stream.write_all(&confirmation))
+        .and_then(|_| stream.flush())
+        .map_err(|_| SendAttemptError::Unauthenticated)?;
+    read_and_verify_confirmation(&mut stream, &shared_key, &exporter, RECEIVER_ROLE)
+        .map_err(classify_pairing_error)?;
+    configure_socket(&stream.sock, SOCKET_TIMEOUT).map_err(SendAttemptError::Fatal)?;
+    set_send_active(status);
 
     let mut package = File::open(package_path).map_err(|err| {
         SendAttemptError::Fatal(format!("Failed to open prepared library package: {err}"))
@@ -171,7 +179,7 @@ pub(super) fn receive_package<P: FnMut(u64, u64)>(
 ) -> LibraryTransferResult<StreamOwned<ClientConnection, TcpStream>> {
     let mut socket = TcpStream::connect_timeout(&SocketAddr::V4(address), SOCKET_TIMEOUT)
         .map_err(|err| format!("Could not connect to the source device: {err}"))?;
-    configure_socket(&socket)?;
+    configure_socket(&socket, SOCKET_TIMEOUT)?;
     let config = client_tls_config()?;
     let server_name = ServerName::IpAddress((*address.ip()).into());
     let mut connection = ClientConnection::new(config, server_name)
@@ -181,12 +189,20 @@ pub(super) fn receive_package<P: FnMut(u64, u64)>(
         .map_err(|err| format!("Secure library transfer handshake failed: {err}"))?;
     let exporter = tls_exporter(&connection)?;
     let mut stream = StreamOwned::new(connection, socket);
-    stream
-        .write_all(PROTOCOL_MAGIC)
-        .and_then(|_| stream.write_all(&pairing_proof(code, &exporter, RECEIVER_ROLE)?))
+    let (pairing, receiver_message) = start_receiver_pairing(code);
+    write_pairing_message(&mut stream, &receiver_message)
         .and_then(|_| stream.flush())
         .map_err(|err| format!("Failed to authenticate library receiver: {err}"))?;
-    read_and_verify_proof(&mut stream, code, &exporter, SENDER_ROLE)?;
+    let sender_message = read_pairing_message(&mut stream).map_err(|error| error.to_string())?;
+    let shared_key = finish_pairing(pairing, &sender_message).map_err(|error| error.to_string())?;
+    let confirmation = pairing_confirmation(&shared_key, &exporter, RECEIVER_ROLE)
+        .map_err(|err| format!("Failed to confirm library receiver: {err}"))?;
+    stream
+        .write_all(&confirmation)
+        .and_then(|_| stream.flush())
+        .map_err(|err| format!("Failed to confirm library receiver: {err}"))?;
+    read_and_verify_confirmation(&mut stream, &shared_key, &exporter, SENDER_ROLE)
+        .map_err(|error| error.to_string())?;
 
     let mut size = [0u8; 8];
     stream
@@ -197,12 +213,7 @@ pub(super) fn receive_package<P: FnMut(u64, u64)>(
         return Err("Source device reported an unsupported library package size".into());
     }
     remove_other_receive_parts(output_path);
-    let mut output = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .open(output_path)
-        .map_err(|err| format!("Failed to open partial library package: {err}"))?;
+    let mut output = open_receive_part(output_path)?;
     let mut offset = output
         .metadata()
         .map_err(|err| format!("Failed to inspect partial library package: {err}"))?
@@ -247,6 +258,38 @@ pub(super) fn receive_package<P: FnMut(u64, u64)>(
         .flush()
         .map_err(|err| format!("Failed to finish partial library package: {err}"))?;
     Ok(stream)
+}
+
+/// Preserve the one-use policy: malformed traffic is ignored, while a peer
+/// that reaches key confirmation with the wrong code consumes the session.
+fn classify_pairing_error(error: PairingError) -> SendAttemptError {
+    match error {
+        PairingError::Unauthenticated(_) => SendAttemptError::Unauthenticated,
+        PairingError::IncorrectCode => SendAttemptError::Fatal(error.to_string()),
+    }
+}
+
+/// Open a resumable partial with owner-only Unix permissions. Existing files
+/// are repaired because upgrades may encounter partials created by older builds;
+/// the private cache root prevents another local user from replacing the path.
+fn open_receive_part(path: &Path) -> Result<File, String> {
+    let mut options = OpenOptions::new();
+    options.read(true).write(true).create(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let file = options
+        .open(path)
+        .map_err(|err| format!("Failed to open partial library package: {err}"))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+            .map_err(|err| format!("Failed to protect partial library package: {err}"))?;
+    }
+    Ok(file)
 }
 
 /// Keep one opaque partial file per source session. The address and random code
@@ -357,10 +400,10 @@ where
     Ok(copied)
 }
 
-fn configure_socket(socket: &TcpStream) -> Result<(), String> {
+fn configure_socket(socket: &TcpStream, timeout: Duration) -> Result<(), String> {
     socket
-        .set_read_timeout(Some(SOCKET_TIMEOUT))
-        .and_then(|_| socket.set_write_timeout(Some(SOCKET_TIMEOUT)))
+        .set_read_timeout(Some(timeout))
+        .and_then(|_| socket.set_write_timeout(Some(timeout)))
         .map_err(|err| format!("Failed to configure local library connection: {err}"))
 }
 
@@ -373,7 +416,7 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
-    fn tls_round_trip_resumes_and_waits_for_receiver_completion() {
+    fn tls_sender_ignores_malformed_connection_then_resumes_transfer() {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         let address = match listener.local_addr().unwrap() {
             SocketAddr::V4(address) => address,
@@ -394,11 +437,10 @@ mod tests {
         fs::write(&received_path, &package[..8]).unwrap();
         let sender_path = package_path.clone();
         let sender = thread::spawn(move || {
-            let (stream, _) = listener.accept().unwrap();
             let status = Arc::new(Mutex::new(LibraryTransferSendStatus {
-                state: LibraryTransferSendState::Sending,
+                state: LibraryTransferSendState::Waiting,
                 address: address.to_string(),
-                code: "2345-ABCD".into(),
+                code: "2345-ABCD-GHJK".into(),
                 documents: 1,
                 audiobooks: 0,
                 package_bytes: package.len() as u64,
@@ -406,10 +448,28 @@ mod tests {
                 receiver_progress: None,
                 error: None,
             }));
+            let tls_config = server_tls_config().unwrap();
+            let (unrelated, _) = listener.accept().unwrap();
+            assert!(matches!(
+                send_package(
+                    unrelated,
+                    Arc::clone(&tls_config),
+                    "2345ABCDGHJK",
+                    &sender_path,
+                    &status,
+                    &AtomicBool::new(false),
+                ),
+                Err(SendAttemptError::Unauthenticated)
+            ));
+            assert_eq!(
+                status.lock().unwrap().state,
+                LibraryTransferSendState::Waiting
+            );
+            let (stream, _) = listener.accept().unwrap();
             let result = send_package(
                 stream,
-                server_tls_config().unwrap(),
-                "2345ABCD",
+                tls_config,
+                "2345ABCDGHJK",
                 &sender_path,
                 &status,
                 &AtomicBool::new(false),
@@ -418,7 +478,12 @@ mod tests {
             (result, final_status)
         });
 
-        let mut stream = receive_package(address, "2345ABCD", &received_path, |_, _| {}).unwrap();
+        TcpStream::connect(address)
+            .unwrap()
+            .write_all(b"not a TLS client")
+            .unwrap();
+        let mut stream =
+            receive_package(address, "2345ABCDGHJK", &received_path, |_, _| {}).unwrap();
         let progress = LibraryTransferProgress {
             operation: "receive".into(),
             phase: "verifying".into(),
@@ -434,8 +499,71 @@ mod tests {
         result.unwrap();
 
         assert_eq!(fs::read(&received_path).unwrap(), package);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(&received_path).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+        }
         assert_eq!(status.bytes_transferred, package.len() as u64);
         assert_eq!(status.receiver_progress.unwrap().phase, progress.phase);
+        let _ = fs::remove_file(package_path);
+        let _ = fs::remove_file(received_path);
+    }
+
+    #[test]
+    fn completed_wrong_code_attempt_consumes_the_sender_session() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let address = match listener.local_addr().unwrap() {
+            SocketAddr::V4(address) => address,
+            _ => unreachable!(),
+        };
+        let test_key = format!(
+            "papercut-lan-wrong-code-test-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        let package_path = std::env::temp_dir().join(format!("{test_key}-source"));
+        let received_path = std::env::temp_dir().join(format!("{test_key}-received.part"));
+        fs::write(&package_path, b"test papercut library package").unwrap();
+        let sender_path = package_path.clone();
+        let sender = thread::spawn(move || {
+            let status = Arc::new(Mutex::new(LibraryTransferSendStatus {
+                state: LibraryTransferSendState::Waiting,
+                address: address.to_string(),
+                code: "2345-ABCD-GHJK".into(),
+                documents: 1,
+                audiobooks: 0,
+                package_bytes: 29,
+                bytes_transferred: 0,
+                receiver_progress: None,
+                error: None,
+            }));
+            let (stream, _) = listener.accept().unwrap();
+            send_package(
+                stream,
+                server_tls_config().unwrap(),
+                "2345ABCDGHJK",
+                &sender_path,
+                &status,
+                &AtomicBool::new(false),
+            )
+        });
+
+        let receiver_error = receive_package(address, "3456BCDEHJKM", &received_path, |_, _| {})
+            .err()
+            .unwrap();
+        assert!(receiver_error.message.contains("Pairing code"));
+        assert!(matches!(
+            sender.join().unwrap(),
+            Err(SendAttemptError::Fatal(message)) if message.contains("Pairing code")
+        ));
+
         let _ = fs::remove_file(package_path);
         let _ = fs::remove_file(received_path);
     }

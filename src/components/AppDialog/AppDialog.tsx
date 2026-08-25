@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useEffectEvent, useId, useRef, type FormEvent, type ReactNode } from 'react'
 import './AppDialog.css'
 
 const FOCUSABLE_SELECTOR = [
@@ -24,6 +24,8 @@ export function AppDialog({ title, description, children, actions, className, on
   const titleId = useId()
   const descriptionId = useId()
   const dialogRef = useRef<HTMLDivElement | HTMLFormElement | null>(null)
+  // Keep Escape current without reinstalling the focus trap when a parent callback changes identity.
+  const cancelDialog = useEffectEvent(onCancel)
   const setDialogRef = (node: HTMLDivElement | HTMLFormElement | null) => {
     dialogRef.current = node
   }
@@ -44,7 +46,7 @@ export function AppDialog({ title, description, children, actions, className, on
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         event.preventDefault()
-        onCancel()
+        cancelDialog()
         return
       }
 
@@ -78,7 +80,7 @@ export function AppDialog({ title, description, children, actions, className, on
       document.removeEventListener('keydown', handleKeyDown)
       if (previousFocus?.isConnected) previousFocus.focus()
     }
-  }, [onCancel])
+  }, [])
 
   const content = (
     <>

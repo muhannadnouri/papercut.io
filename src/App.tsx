@@ -434,7 +434,6 @@ function App() {
                 onThemeChange={theme.setChoice}
                 developerMode={ttsDiagnosticsEnabled}
                 onDeveloperModeChange={handleTtsDiagnosticsChange}
-                libraryDocumentCount={uploadedDocuments.length}
                 onLibraryImported={handleLibraryTransferImported}
               />
             )}
@@ -499,7 +498,6 @@ function App() {
             onThemeChange={theme.setChoice}
             developerMode={ttsDiagnosticsEnabled}
             onDeveloperModeChange={handleTtsDiagnosticsChange}
-            libraryDocumentCount={uploadedDocuments.length}
             onLibraryImported={handleLibraryTransferImported}
           />
         )} />

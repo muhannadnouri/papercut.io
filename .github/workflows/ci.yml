@@ -3,6 +3,8 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  schedule:
+    - cron: "17 9 * * 3"
   workflow_dispatch:
     inputs:
       validation_scope:
@@ -96,6 +98,12 @@ jobs:
             exit 0
           fi
 
+          if [ "$EVENT_NAME" = "schedule" ]; then
+            code_checks=true
+            emit_outputs
+            exit 0
+          fi
+
           base="$PR_BASE_SHA"
           git fetch --no-tags --depth=1 origin "$base"
           changed="$(git diff --name-only "$base" HEAD)"
@@ -122,6 +130,7 @@ jobs:
               src-tauri/Cargo.toml | \
               src-tauri/Cargo.lock | \
               src-tauri/build.rs | \
+              src-tauri/tauri.conf.json | \
               src-tauri/plugins/* | \
               src-tauri/src/* | \
               src-tauri/tts/* | \
@@ -133,7 +142,6 @@ jobs:
                 ;;
             esac
             case "$path" in
-              src-tauri/tauri.conf.json | \
               src-tauri/tauri.linux.conf.json | \
               src-tauri/tauri.macos.conf.json | \
               src-tauri/Entitlements.plist | \
@@ -181,6 +189,9 @@ jobs:
     if: needs.changes.outputs.code_checks == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    permissions:
+      contents: read
+      checks: write
 
     steps:
       - uses: actions/checkout@v6
@@ -195,6 +206,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Audit npm dependencies
+        run: npm audit --audit-level=high
 
       - name: Lint
         run: npm run lint
@@ -219,6 +233,33 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Verify waived Rust dependency is inactive
+        run: |
+          # rkyv 0.7 remains in Cargo.lock through rust_decimal's optional feature.
+          # Fail if any Papercut feature or target activates that vulnerable edge.
+          dependency_tree="$(
+            cargo tree \
+              --manifest-path src-tauri/Cargo.toml \
+              --locked \
+              --all-features \
+              --target all \
+              --edges normal,build \
+              --prefix none
+          )"
+          if grep -qE '^rkyv v0\.7\.' <<<"$dependency_tree"; then
+            echo "::error::RUSTSEC-2026-0235 is waived, but rkyv 0.7 is active"
+            exit 1
+          fi
+
+      - name: Audit Rust dependencies
+        uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          working-directory: src-tauri
+          # rust_decimal declares rkyv 0.7 optionally; the preceding dependency
+          # graph check prevents this waiver from hiding an activated edge.
+          ignore: RUSTSEC-2026-0235
 
       - name: Rust tests
         run: |

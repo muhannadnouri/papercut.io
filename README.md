@@ -27,7 +27,7 @@ Bundled starter HTML documents are indexed at build time with Pagefind. User-imp
 - Browse cover-based Gallery or compact List views, edit document metadata, organize folders, and filter by saved audio or bookmarks.
 - Read with format-appropriate viewers, in-document Find, semantic bookmarks, and responsive reflowable-document appearance controls.
 - Generate, resume, play, import, and export saved audiobooks with native offline TTS and background mobile playback.
-- Transfer uploaded documents, folders, and selected saved audiobooks directly between Papercut devices or through a portable transfer file.
+- Select which uploaded documents and saved audiobooks to transfer directly between Papercut devices or through a portable transfer file.
 - Use localized app chrome in English, Arabic, Simplified Chinese, French, Hindi, Italian, Brazilian Portuguese, and Spanish, including right-to-left layout support.
 
 ## Prerequisites

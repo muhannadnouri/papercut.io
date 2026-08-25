@@ -10,8 +10,8 @@ mod package;
 pub use network::LibraryTransferState;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::fs::{self, File};
-use std::io::{BufReader, BufWriter, Read, Write};
+use std::fs::{self, File, OpenOptions as StdOpenOptions};
+use std::io::{BufReader, BufWriter, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -31,10 +31,11 @@ use crate::document_uploads::{
 };
 use package::{
     audiobook_file_path, copy_audiobook_file, document_asset_path, document_source_path,
-    read_document_asset, read_document_source, read_manifest, sha256_reader, write_package,
-    TransferAudiobook, TransferAudiobookFile, TransferDocument, TransferDocumentAsset,
-    TransferDocumentLocation, TransferFolder, TransferManifest, TransferOrganization,
-    MAX_AUDIOBOOKS, MAX_PACKAGE_BYTES, PACKAGE_KIND, PACKAGE_VERSION,
+    preflight_archive, read_document_asset, read_document_source, read_manifest, sha256_reader,
+    write_package, TransferAudiobook, TransferAudiobookFile, TransferDocument,
+    TransferDocumentAsset, TransferDocumentLocation, TransferFolder, TransferManifest,
+    TransferOrganization, MAX_AUDIOBOOKS, MAX_DOCUMENTS, MAX_PACKAGE_BYTES, PACKAGE_KIND,
+    PACKAGE_VERSION,
 };
 
 const PACKAGE_EXTENSION: &str = "papercut-library";
@@ -111,6 +112,9 @@ pub(crate) type LibraryTransferResult<T> = Result<T, LibraryTransferError>;
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LibraryTransferExportRequest {
+    /// `None` preserves the original whole-library behavior for older callers;
+    /// an explicit empty list intentionally excludes ordinary documents.
+    document_ids: Option<Vec<String>>,
     #[serde(default)]
     audiobook_ids: Vec<String>,
 }
@@ -202,6 +206,31 @@ struct PreparedPackage {
     payloads: HashMap<String, PathBuf>,
 }
 
+/// Owns a transfer staging file and removes it after every normal success or
+/// error path. The file handle is closed first for platforms that cannot unlink
+/// an open file; startup cleanup covers process crashes.
+pub(crate) struct TransferTempFile {
+    path: PathBuf,
+    file: Option<File>,
+}
+
+impl TransferTempFile {
+    pub(crate) fn path(&self) -> &Path {
+        &self.path
+    }
+
+    fn file_mut(&mut self) -> &mut File {
+        self.file.as_mut().expect("transfer temporary file is open")
+    }
+}
+
+impl Drop for TransferTempFile {
+    fn drop(&mut self) {
+        self.file.take();
+        let _ = fs::remove_file(&self.path);
+    }
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct LibraryTransferFailure {
@@ -216,8 +245,9 @@ pub async fn library_transfer_export(
     app: tauri::AppHandle,
     request: Option<LibraryTransferExportRequest>,
 ) -> LibraryTransferResult<Option<LibraryTransferExportResult>> {
+    let request = request.unwrap_or_default();
     tauri::async_runtime::spawn_blocking(move || {
-        export_library(app, request.unwrap_or_default().audiobook_ids)
+        export_library(app, request.document_ids, request.audiobook_ids)
     })
     .await
     .map_err(|err| format!("Library export task failed: {err}"))?
@@ -228,14 +258,20 @@ pub async fn library_transfer_export(
 #[tauri::command]
 pub async fn library_transfer_import(
     app: tauri::AppHandle,
+    state: tauri::State<'_, LibraryTransferState>,
 ) -> LibraryTransferResult<Option<LibraryTransferImportResult>> {
-    tauri::async_runtime::spawn_blocking(move || import_library(app))
-        .await
-        .map_err(|err| format!("Library import task failed: {err}"))?
+    let reservation = state.begin_restore()?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _reservation = reservation;
+        import_library(app)
+    })
+    .await
+    .map_err(|err| format!("Library import task failed: {err}"))?
 }
 
 fn export_library(
     app: tauri::AppHandle,
+    document_ids: Option<Vec<String>>,
     audiobook_ids: Vec<String>,
 ) -> LibraryTransferResult<Option<LibraryTransferExportResult>> {
     let destination = app
@@ -248,14 +284,17 @@ fn export_library(
     let Some(destination) = destination else {
         return Ok(None);
     };
-    let temp_path = transfer_temp_path(&app, "export")?;
-    let build_result: LibraryTransferResult<LibraryTransferExportResult> = (|| {
-        let result = build_library_package(&app, &temp_path, &audiobook_ids)?;
-        copy_temp_to_destination(&app, &temp_path, destination)?;
-        Ok(result)
-    })();
-    let _ = fs::remove_file(&temp_path);
-    build_result.map(Some)
+    let mut temp = create_transfer_temp(&app, "export")?;
+    let temp_path = temp.path().to_path_buf();
+    let result = build_library_package(
+        &app,
+        temp.file_mut(),
+        &temp_path,
+        document_ids.as_deref(),
+        &audiobook_ids,
+    )?;
+    copy_temp_to_destination(&app, &temp_path, destination)?;
+    Ok(Some(result))
 }
 
 /// Stage picker input into a seekable local file, validate the complete archive,
@@ -274,25 +313,24 @@ fn import_library(
         return Ok(None);
     };
 
-    let temp_path = transfer_temp_path(&app, "import")?;
-    let import_result = (|| {
-        copy_source_to_temp(&app, source, &temp_path)?;
-        import_library_package(&app, &temp_path, "import", None)
-    })();
-    let _ = fs::remove_file(&temp_path);
-    import_result.map(Some)
+    let mut temp = create_transfer_temp(&app, "import")?;
+    let temp_path = temp.path().to_path_buf();
+    copy_source_to_temp(&app, source, temp.file_mut(), &temp_path)?;
+    import_library_package(&app, &temp_path, "import", None).map(Some)
 }
 
 /// Build the canonical package at an app-owned path so file export and LAN
 /// transfer cannot drift into separate serialization or validation paths.
 fn build_library_package(
     app: &tauri::AppHandle,
+    file: &mut File,
     path: &Path,
+    document_ids: Option<&[String]>,
     audiobook_ids: &[String],
 ) -> LibraryTransferResult<LibraryTransferExportResult> {
     let documents = list_uploads(app)?;
     let organization = list_organization(app)?;
-    let prepared = prepare_manifest(app, &documents, organization, audiobook_ids)?;
+    let prepared = prepare_manifest(app, &documents, organization, document_ids, audiobook_ids)?;
     if prepared.manifest.documents.is_empty() && prepared.manifest.audiobooks.is_empty() {
         return Err("There are no uploaded documents or saved audiobooks to export".into());
     }
@@ -305,12 +343,19 @@ fn build_library_package(
             .ok_or_else(|| "Temporary library package path has no parent".to_string())?,
         manifest_payload_bytes(&prepared.manifest)?,
     )?;
-    let writer = BufWriter::new(File::create(path).map_err(|err| {
+    file.set_len(0).map_err(|err| {
         format!(
-            "Failed to create temporary library package {}: {err}",
+            "Failed to reset temporary library package {}: {err}",
             path.display()
         )
-    })?);
+    })?;
+    file.rewind().map_err(|err| {
+        format!(
+            "Failed to seek temporary library package {}: {err}",
+            path.display()
+        )
+    })?;
+    let writer = BufWriter::new(file);
     write_package(writer, &prepared.manifest, |archive_path| {
         let payload_path = prepared
             .payloads
@@ -344,12 +389,13 @@ fn import_library_package(
         None,
         &mut forwarder,
     );
-    let file = File::open(path).map_err(|err| {
+    let mut file = File::open(path).map_err(|err| {
         format!(
             "Failed to open temporary library package {}: {err}",
             path.display()
         )
     })?;
+    preflight_archive(&mut file)?;
     let mut archive = ZipArchive::new(BufReader::new(file))
         .map_err(|err| format!("Selected file is not a valid Papercut library: {err}"))?;
     let manifest = read_manifest(&mut archive)?;
@@ -362,11 +408,27 @@ fn prepare_manifest(
     app: &tauri::AppHandle,
     documents: &[UploadedDocument],
     organization: crate::document_uploads::UploadedLibraryOrganization,
+    document_ids: Option<&[String]>,
     audiobook_ids: &[String],
 ) -> Result<PreparedPackage, String> {
-    let mut transfer_documents = Vec::with_capacity(documents.len());
+    let selected_audiobook_ids = validate_audiobook_selection(audiobook_ids)?;
+    let selected_audiobooks = crate::native_tts::list_audiobook_transfer_payloads(app)?
+        .into_iter()
+        .filter(|audiobook| selected_audiobook_ids.contains(audiobook.record.id.as_str()))
+        .collect::<Vec<_>>();
+    let required_document_ids = selected_audiobooks
+        .iter()
+        .filter_map(|audiobook| upload_id_from_url(&audiobook.record.document_url).ok())
+        .collect::<HashSet<_>>();
+    let selected_document_ids =
+        resolve_document_selection(documents, document_ids, &required_document_ids)?;
+
+    let mut transfer_documents = Vec::with_capacity(selected_document_ids.len());
     let mut payloads = HashMap::new();
-    for document in documents {
+    for document in documents
+        .iter()
+        .filter(|document| selected_document_ids.contains(&document.id))
+    {
         let source_kind = StoredSourceKind::from_str(&document.source_kind)?;
         let path = upload_source_path(app, &document.id, source_kind)?;
         let mut reader = BufReader::new(File::open(&path).map_err(|err| {
@@ -417,13 +479,9 @@ fn prepare_manifest(
         payloads.insert(source_path, path);
     }
 
-    let selected_audiobook_ids = validate_audiobook_selection(audiobook_ids)?;
-    let mut transfer_audiobooks = Vec::with_capacity(selected_audiobook_ids.len());
-    if !selected_audiobook_ids.is_empty() {
-        for audiobook in crate::native_tts::list_audiobook_transfer_payloads(app)? {
-            if !selected_audiobook_ids.contains(audiobook.record.id.as_str()) {
-                continue;
-            }
+    let mut transfer_audiobooks = Vec::with_capacity(selected_audiobooks.len());
+    if !selected_audiobooks.is_empty() {
+        for audiobook in selected_audiobooks {
             let mut files = Vec::with_capacity(audiobook.files.len());
             for file in audiobook.files {
                 let mut reader = BufReader::new(
@@ -463,31 +521,97 @@ fn prepare_manifest(
         created_at_ms: u64::try_from(now_ms()?)
             .map_err(|_| "System timestamp is invalid".to_string())?,
         documents: transfer_documents,
-        organization: TransferOrganization {
-            folders: organization
-                .folders
-                .into_iter()
-                .map(|folder| TransferFolder {
-                    id: folder.id,
-                    parent_id: folder.parent_id,
-                    name: folder.name,
-                    depth: folder.depth,
-                    sort_order: folder.sort_order,
-                })
-                .collect(),
-            document_locations: organization
-                .document_locations
-                .into_iter()
-                .map(|location| TransferDocumentLocation {
-                    document_id: location.document_id,
-                    folder_id: location.folder_id,
-                    sort_order: location.sort_order,
-                })
-                .collect(),
-        },
+        organization: select_organization(organization, &selected_document_ids),
         audiobooks: transfer_audiobooks,
     };
     Ok(PreparedPackage { manifest, payloads })
+}
+
+/// Resolve the explicit document set before any source is opened or hashed.
+/// Audiobook dependencies are added at this authority boundary so a stale or
+/// manipulated WebView request cannot create an unusable transfer package.
+fn resolve_document_selection(
+    documents: &[UploadedDocument],
+    document_ids: Option<&[String]>,
+    required_document_ids: &HashSet<String>,
+) -> Result<HashSet<String>, String> {
+    let available: HashSet<_> = documents
+        .iter()
+        .map(|document| document.id.clone())
+        .collect();
+    let mut selected = match document_ids {
+        None => available.clone(),
+        Some(ids) => {
+            let selected: HashSet<_> = ids.iter().cloned().collect();
+            if selected.len() > MAX_DOCUMENTS {
+                return Err(format!(
+                    "No more than {MAX_DOCUMENTS} documents can be transferred"
+                ));
+            }
+            if selected.iter().any(|id| !available.contains(id)) {
+                return Err("One or more selected documents are no longer available".into());
+            }
+            selected
+        }
+    };
+    for id in required_document_ids {
+        if !available.contains(id) {
+            return Err("A selected audiobook references a missing uploaded document".into());
+        }
+        selected.insert(id.clone());
+    }
+    Ok(selected)
+}
+
+/// Retain only selected document placements and the folder ancestors needed to
+/// reproduce them. Unrelated empty folder names must not leak into a subset.
+fn select_organization(
+    organization: crate::document_uploads::UploadedLibraryOrganization,
+    selected_document_ids: &HashSet<String>,
+) -> TransferOrganization {
+    let parent_by_id: HashMap<_, _> = organization
+        .folders
+        .iter()
+        .map(|folder| (folder.id.as_str(), folder.parent_id.as_deref()))
+        .collect();
+    let selected_locations = organization
+        .document_locations
+        .into_iter()
+        .filter(|location| selected_document_ids.contains(&location.document_id))
+        .collect::<Vec<_>>();
+    let mut selected_folder_ids = HashSet::new();
+    for location in &selected_locations {
+        let mut next = location.folder_id.as_deref();
+        while let Some(folder_id) = next {
+            if !selected_folder_ids.insert(folder_id.to_string()) {
+                break;
+            }
+            next = parent_by_id.get(folder_id).copied().flatten();
+        }
+    }
+
+    TransferOrganization {
+        folders: organization
+            .folders
+            .into_iter()
+            .filter(|folder| selected_folder_ids.contains(&folder.id))
+            .map(|folder| TransferFolder {
+                id: folder.id,
+                parent_id: folder.parent_id,
+                name: folder.name,
+                depth: folder.depth,
+                sort_order: folder.sort_order,
+            })
+            .collect(),
+        document_locations: selected_locations
+            .into_iter()
+            .map(|location| TransferDocumentLocation {
+                document_id: location.document_id,
+                folder_id: location.folder_id,
+                sort_order: location.sort_order,
+            })
+            .collect(),
+    }
 }
 
 /// Deduplicate UI selections and apply the package limit before touching large
@@ -945,16 +1069,72 @@ fn matching_target_folder<'a>(
     })
 }
 
-fn transfer_temp_path<R: Runtime>(
+/// Prepare the two roots that can contain imported library data. Unix modes are
+/// enforced on every startup so older installations are repaired in place;
+/// prior-process transfer files are unusable because session secrets are not
+/// persisted, so they can be removed immediately.
+pub(crate) fn initialize_storage<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<(), String> {
+    let data = app
+        .path()
+        .app_data_dir()
+        .map_err(|err| format!("Failed to resolve app data directory: {err}"))?;
+    create_private_directory(&data)?;
+    let cache = app
+        .path()
+        .app_cache_dir()
+        .map_err(|err| format!("Failed to resolve app cache directory: {err}"))?;
+    create_private_directory(&cache)?;
+    cleanup_orphaned_transfer_files(&cache);
+    Ok(())
+}
+
+/// Create a random, owner-only staging file with an atomic exclusive open.
+/// Random names avoid disclosure and `create_new` prevents races with an
+/// attacker-controlled path even when a platform cache parent is shared.
+pub(crate) fn create_transfer_temp<R: Runtime>(
     app: &tauri::AppHandle<R>,
     operation: &str,
-) -> Result<PathBuf, String> {
-    let cache = transfer_cache_dir(app)?;
-    Ok(cache.join(format!(
-        "library-transfer-{operation}-{}-{}.tmp",
-        std::process::id(),
-        now_ms()?
-    )))
+) -> Result<TransferTempFile, String> {
+    create_transfer_temp_in(&transfer_cache_dir(app)?, operation)
+}
+
+/// Retry the practically impossible random-name collision without weakening the
+/// exclusive-create guarantee or falling back to a predictable file name.
+fn create_transfer_temp_in(cache: &Path, operation: &str) -> Result<TransferTempFile, String> {
+    for _ in 0..16 {
+        let mut random = [0u8; 16];
+        getrandom::fill(&mut random)
+            .map_err(|err| format!("Failed to create a secure transfer file name: {err}"))?;
+        let mut id = String::with_capacity(random.len() * 2);
+        for byte in random {
+            use std::fmt::Write as _;
+            write!(id, "{byte:02x}").expect("writing to String cannot fail");
+        }
+        let path = cache.join(format!("library-transfer-{operation}-{id}.tmp"));
+        let mut options = StdOpenOptions::new();
+        options.read(true).write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        match options.open(&path) {
+            Ok(file) => {
+                return Ok(TransferTempFile {
+                    path,
+                    file: Some(file),
+                });
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => {
+                return Err(format!(
+                    "Failed to create temporary library package {}: {error}",
+                    path.display()
+                ));
+            }
+        }
+    }
+    Err("Failed to allocate a unique temporary library package".into())
 }
 
 pub(crate) fn transfer_cache_dir<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
@@ -962,14 +1142,50 @@ pub(crate) fn transfer_cache_dir<R: Runtime>(app: &tauri::AppHandle<R>) -> Resul
         .path()
         .app_cache_dir()
         .map_err(|err| format!("Failed to resolve app cache directory: {err}"))?;
-    fs::create_dir_all(&cache).map_err(|err| {
-        format!(
-            "Failed to create app cache directory {}: {err}",
-            cache.display()
-        )
-    })?;
+    create_private_directory(&cache)?;
     cleanup_stale_transfer_files(&cache);
     Ok(cache)
+}
+
+/// App-owned roots are the local-user confidentiality boundary for document,
+/// audiobook, and transfer data. Mobile sandboxes and Windows ACLs remain
+/// platform-owned; Unix needs an explicit owner-only mode.
+fn create_private_directory(path: &Path) -> Result<(), String> {
+    fs::create_dir_all(path).map_err(|err| {
+        format!(
+            "Failed to create private app directory {}: {err}",
+            path.display()
+        )
+    })?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o700)).map_err(|err| {
+            format!(
+                "Failed to protect private app directory {}: {err}",
+                path.display()
+            )
+        })?;
+    }
+    Ok(())
+}
+
+/// Remove transfer packages left by a previous process without touching other
+/// cached app data. No active session exists during startup.
+fn cleanup_orphaned_transfer_files(cache: &Path) {
+    let Ok(entries) = fs::read_dir(cache) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(is_transfer_file)
+        {
+            let _ = fs::remove_file(path);
+        }
+    }
 }
 
 /// Best-effort cleanup bounds disk use after crashes without delaying or
@@ -998,9 +1214,11 @@ fn cleanup_stale_transfer_files(cache: &Path) {
 }
 
 fn is_stale_transfer_file(name: &str, age: Duration) -> bool {
-    name.starts_with("library-transfer-")
-        && (name.ends_with(".tmp") || name.ends_with(".part"))
-        && age >= STALE_TRANSFER_FILE_AGE
+    is_transfer_file(name) && age >= STALE_TRANSFER_FILE_AGE
+}
+
+fn is_transfer_file(name: &str) -> bool {
+    name.starts_with("library-transfer-") && (name.ends_with(".tmp") || name.ends_with(".part"))
 }
 
 /// Reject a transfer before it starts writing when the target filesystem cannot
@@ -1087,12 +1305,7 @@ fn ensure_restore_space(
         .path()
         .app_data_dir()
         .map_err(|err| format!("Failed to resolve app data directory: {err}"))?;
-    fs::create_dir_all(&app_data).map_err(|err| {
-        format!(
-            "Failed to create app data directory {}: {err}",
-            app_data.display()
-        )
-    })?;
+    create_private_directory(&app_data)?;
     ensure_available_space(&app_data, required)
 }
 
@@ -1132,6 +1345,7 @@ fn copy_temp_to_destination<R: Runtime>(
 fn copy_source_to_temp<R: Runtime>(
     app: &tauri::AppHandle<R>,
     source: FilePath,
+    temp_file: &mut File,
     temp_path: &Path,
 ) -> LibraryTransferResult<()> {
     let scoped_path = source.clone();
@@ -1156,12 +1370,19 @@ fn copy_source_to_temp<R: Runtime>(
             }
         }
         let mut input = BufReader::new(input).take(MAX_PACKAGE_BYTES + 1);
-        let mut output = BufWriter::new(File::create(temp_path).map_err(|err| {
+        temp_file.set_len(0).map_err(|err| {
             format!(
-                "Failed to create temporary library package {}: {err}",
+                "Failed to reset temporary library package {}: {err}",
                 temp_path.display()
             )
-        })?);
+        })?;
+        temp_file.rewind().map_err(|err| {
+            format!(
+                "Failed to seek temporary library package {}: {err}",
+                temp_path.display()
+            )
+        })?;
+        let mut output = BufWriter::new(temp_file);
         let copied = std::io::copy(&mut input, &mut output)
             .map_err(|err| format!("Failed to read selected library package: {err}"))?;
         output
@@ -1270,6 +1491,52 @@ mod tests {
     }
 
     #[test]
+    fn transfer_storage_is_private_and_cleans_only_transfer_files() {
+        let root = std::env::temp_dir().join(format!(
+            "papercut-transfer-security-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        create_private_directory(&root).unwrap();
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(&root).unwrap().permissions().mode() & 0o777,
+                0o700
+            );
+        }
+
+        let temp_path = {
+            let temp = create_transfer_temp_in(&root, "test").unwrap();
+            let path = temp.path().to_path_buf();
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                assert_eq!(
+                    fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+                    0o600
+                );
+            }
+            path
+        };
+        assert!(!temp_path.exists());
+
+        let orphan = root.join("library-transfer-orphan.part");
+        let unrelated = root.join("thumbnail.tmp");
+        fs::write(&orphan, b"partial").unwrap();
+        fs::write(&unrelated, b"keep").unwrap();
+        cleanup_orphaned_transfer_files(&root);
+        assert!(!orphan.exists());
+        assert!(unrelated.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn audiobook_selection_deduplicates_ids_and_enforces_the_package_limit() {
         let ids = ["one".into(), "one".into(), "two".into()];
         let selected = validate_audiobook_selection(&ids).expect("valid selection");
@@ -1279,6 +1546,86 @@ mod tests {
             .map(|index| format!("audiobook-{index}"))
             .collect::<Vec<_>>();
         assert!(validate_audiobook_selection(&too_many).is_err());
+    }
+
+    #[test]
+    fn document_selection_distinguishes_default_all_from_explicit_empty() {
+        let documents = vec![test_document("a"), test_document("b")];
+        let none_required = HashSet::new();
+
+        assert_eq!(
+            resolve_document_selection(&documents, None, &none_required)
+                .expect("default selection")
+                .len(),
+            2
+        );
+        assert!(
+            resolve_document_selection(&documents, Some(&[]), &none_required)
+                .expect("explicit empty selection")
+                .is_empty()
+        );
+
+        let requested = ["b".into()];
+        let required = HashSet::from(["a".into()]);
+        let selected = resolve_document_selection(&documents, Some(&requested), &required)
+            .expect("dependency-expanded selection");
+        assert_eq!(selected, HashSet::from(["a".into(), "b".into()]));
+
+        assert!(
+            resolve_document_selection(&documents, Some(&["missing".into()]), &none_required,)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn subset_organization_keeps_only_selected_locations_and_ancestors() {
+        let organization = crate::document_uploads::UploadedLibraryOrganization {
+            folders: vec![
+                test_folder("root", None, "Books"),
+                test_folder("selected", Some("root"), "Selected"),
+                test_folder("other", None, "Other"),
+            ],
+            document_locations: vec![
+                crate::document_uploads::UploadedDocumentLocation {
+                    document_id: "a".into(),
+                    folder_id: Some("selected".into()),
+                    sort_order: 0,
+                },
+                crate::document_uploads::UploadedDocumentLocation {
+                    document_id: "b".into(),
+                    folder_id: Some("other".into()),
+                    sort_order: 0,
+                },
+            ],
+        };
+
+        let selected = select_organization(organization, &HashSet::from(["a".into()]));
+        assert_eq!(
+            selected
+                .folders
+                .iter()
+                .map(|folder| folder.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["root", "selected"]
+        );
+        assert_eq!(selected.document_locations.len(), 1);
+        assert_eq!(selected.document_locations[0].document_id, "a");
+    }
+
+    fn test_document(id: &str) -> UploadedDocument {
+        UploadedDocument {
+            id: id.into(),
+            url: format!("/uploads/{id}.html"),
+            title: id.into(),
+            original_file_name: None,
+            format: "html".into(),
+            source_kind: "html".into(),
+            imported_at_ms: 1,
+            bytes: 1,
+            sections: 1,
+            cover_media_type: None,
+            text_status: "ready".into(),
+        }
     }
 
     fn test_folder(id: &str, parent_id: Option<&str>, name: &str) -> UploadedLibraryFolder {

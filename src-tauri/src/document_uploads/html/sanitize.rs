@@ -289,6 +289,8 @@ mod tests {
             <html><body onload="alert(1)">
               <script>alert(1)</script><style>body{display:none}</style>
               <a href="java&#x73;cript:alert(2)" onclick="alert(3)">Unsafe</a>
+              <svg><a><set attributeName="href" to="javascript:alert(4)"></set>SVG</a></svg>
+              <math><annotation-xml encoding="text/html"><style><img src=x onerror=alert(5)></style></annotation-xml></math>
               <a href="#note-1">Footnote</a><p id="note-1" style="color:red">Safe</p>
             </body></html>
         "##;
@@ -297,6 +299,8 @@ mod tests {
         assert!(!sanitized.contains("alert("));
         assert!(!sanitized.contains("style="));
         assert!(!sanitized.contains("javascript:"));
+        assert!(!sanitized.contains("<svg"));
+        assert!(!sanitized.contains("<math"));
         assert!(sanitized.contains(r##"href="#note-1""##));
         assert!(sanitized.contains(r#"id="note-1""#));
     }

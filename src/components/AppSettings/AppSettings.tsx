@@ -43,7 +43,6 @@ interface AppSettingsProps {
   onThemeChange: (choice: ThemeChoice) => void
   developerMode: boolean
   onDeveloperModeChange: (enabled: boolean) => void
-  libraryDocumentCount: number
   onLibraryImported: () => void | Promise<void>
 }
 
@@ -52,7 +51,6 @@ export function AppSettings({
   onThemeChange,
   developerMode,
   onDeveloperModeChange,
-  libraryDocumentCount,
   onLibraryImported,
 }: AppSettingsProps) {
   const { t } = useTranslation()
@@ -270,7 +268,6 @@ export function AppSettings({
 
       {transferOpen && (
         <LibraryTransferDialog
-          documentCount={libraryDocumentCount}
           onBack={() => {
             setTransferOpen(false)
             setOpen(true)
