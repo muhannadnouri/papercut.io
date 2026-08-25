@@ -189,6 +189,18 @@ Run the focused frontend unit tests with:
 npm test
 ```
 
+Run the Rust library tests with the committed dependency lockfile:
+
+```bash
+cargo test --manifest-path src-tauri/Cargo.toml --locked --lib
+```
+
+Pull-request CI runs linting, the frontend tests and production build, the
+model-free SILMA worker self-test, and the Rust library tests. Content-only
+changes under `docs/` or `site/`, Markdown-only changes, release notes, and
+funding metadata skip that runner-heavy job; the lightweight change detector
+still reports so required checks do not remain pending.
+
 <details>
 <summary><strong>Production, release, Android, TTS, and browser builds</strong></summary>
 

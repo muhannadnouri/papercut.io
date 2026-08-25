@@ -671,8 +671,8 @@ CUDA runtime policy:
 
 Practical CI model:
 
-- always run cheap PR checks for lint, types, frontend build, and basic native
-  worker protocol coverage;
+- run cheap PR checks for lint, frontend and Rust tests, types, frontend build,
+  and basic native worker protocol coverage when app or build inputs change;
 - gate expensive runtime-pack and platform packaging jobs from actual changed
   files, not branch names;
 - run desktop/mobile packaging only after cheap checks pass and only when native
@@ -685,7 +685,7 @@ Practical CI model:
 
 Manual CI validation scopes:
 
-- `cheap`: lint, frontend build, and worker self-tests only;
+- `cheap`: lint, frontend and Rust tests, frontend build, and worker self-tests;
 - `desktop`: cheap checks plus Linux, Windows, and macOS desktop packaging;
 - `mobile`: cheap checks plus Android and iOS packaging checks;
 - `silma-runtime`: cheap checks plus the Linux x64 SILMA runtime-pack artifact;
