@@ -339,6 +339,25 @@ required by Android's local-network privacy model.
 - [x] Review hardening: align local-address policy and prune stale transfer cache files.
 - [ ] Later: evaluate an optional reading-data category for bookmarks and preferences.
 
+## Release Acceptance Gate
+
+The automated library-transfer suite covers package validation, private staging,
+SPAKE2 agreement, TLS-channel and role binding, wrong-code rejection, malformed
+traffic, and resumable streaming. Before release, run the following manual cases
+with packaged builds and record the platform, network type, and result:
+
+| Case | Action | Pass criteria |
+| --- | --- | --- |
+| Normal transfer | Send selected documents with and without a saved audiobook between two current builds. | Only selected content arrives; required source documents, folders, EPUB images, PDF sources, and playable audio remain intact. |
+| Incorrect code | Enter a complete valid-format code that differs from the source code. | Both devices report pairing failure, no package bytes move, and the source requires a new session and code. |
+| Unrelated traffic | While the source waits, connect to its displayed port with a browser or raw TCP client where available. | The source stays waiting without showing an unrelated transfer failure. |
+| Resume | Interrupt a large authenticated transfer, restore the same connection path, and receive again with the same address and code. | Transfer resumes from retained bytes and the completed package passes full checksum and import validation. |
+| Cancel and recovery | Cancel while waiting and during transfer; retry after an insufficient-storage failure. | Sockets close promptly, controls recover, partial files do not accumulate, and retry succeeds after storage is available. |
+| Public network | Try a guest or public Wi-Fi network with client isolation, then one that permits device-to-device traffic. | Isolation produces a clear connection failure; when peer traffic is permitted, only the correct code authenticates and content remains encrypted in transit. |
+| Interface selection | Exercise representative Wi-Fi, Ethernet, hotspot, and VPN routes supported by the test devices. | The displayed address matches the interface Papercut listens on; other interfaces are not exposed implicitly. |
+| Protocol mismatch | Connect a `PCLAN003` build to the last pre-`PCLAN003` development build. | Pairing fails closed and neither build imports partial or unauthenticated data. |
+| Transfer-file fallback | Save, move, and import a `.papercut-library` file after reviewing its privacy notice. | The file route preserves the same selection and validation behavior and never implies that the saved package is encrypted. |
+
 ## Deferred Decisions
 
 - Saved transfer files intentionally remain unencrypted. Passphrase-based
