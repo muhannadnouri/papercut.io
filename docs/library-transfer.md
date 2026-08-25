@@ -68,10 +68,11 @@ execution required by the bundled PDF/OCR engines. Remote scripts, frames,
 objects, forms, and network connections remain blocked. Tauri continues to
 inject hashes and nonces for bundled scripts rather than allowing inline script.
 
-The sole RustSec waiver is `RUSTSEC-2026-0235`: `rkyv` 0.7 appears only as an
-inactive optional Chrono dependency and is absent from Papercut's complete
-feature/target dependency graph. Remove the waiver when that upstream optional
-edge moves to `rkyv` 0.8 or if a Papercut feature ever activates it.
+The sole RustSec waiver is `RUSTSEC-2026-0235`: `rkyv` 0.7 remains in the
+lockfile through `tauri-plugin-log` -> `byte-unit` -> `rust_decimal`, but
+`rust_decimal`'s optional `rkyv` feature is inactive. CI checks Papercut's
+complete feature/target dependency graph and fails if that edge becomes active.
+Remove the waiver once the lockfile no longer contains `rkyv` 0.7.
 
 Transferred display-title overrides and available original filenames are
 restored after parsing so metadata corrections survive a device move.

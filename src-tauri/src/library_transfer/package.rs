@@ -225,7 +225,10 @@ where
         }
     }
 
-    archive.finish().map_err(zip_write_err)?;
+    let mut writer = archive.finish().map_err(zip_write_err)?;
+    writer
+        .flush()
+        .map_err(|err| format!("Failed to flush library-transfer package: {err}"))?;
     Ok(())
 }
 
@@ -866,9 +869,29 @@ fn zip_write_err(err: zip::result::ZipError) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
+    use std::io::{self, Cursor, Seek, SeekFrom, Write};
 
     use super::*;
+
+    /// Accepts every ZIP write but exposes an error only at the final flush,
+    /// matching the storage failure that `BufWriter::drop` would otherwise hide.
+    struct FlushFailWriter(Cursor<Vec<u8>>);
+
+    impl Write for FlushFailWriter {
+        fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+            self.0.write(buffer)
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Err(io::Error::other("simulated flush failure"))
+        }
+    }
+
+    impl Seek for FlushFailWriter {
+        fn seek(&mut self, position: SeekFrom) -> io::Result<u64> {
+            self.0.seek(position)
+        }
+    }
 
     #[test]
     fn package_round_trip_validates_manifest_entries_and_checksum() {
@@ -888,6 +911,19 @@ mod tests {
             .expect("read source");
 
         assert_eq!(restored, source);
+    }
+
+    #[test]
+    fn package_reports_final_flush_failure() {
+        let source = b"<p>Hello</p>".to_vec();
+        let manifest = test_manifest(&source);
+
+        let error = write_package(FlushFailWriter(Cursor::new(Vec::new())), &manifest, |_| {
+            Ok(Box::new(Cursor::new(source.clone())))
+        })
+        .expect_err("final flush failure");
+
+        assert!(error.contains("Failed to flush library-transfer package"));
     }
 
     #[test]
