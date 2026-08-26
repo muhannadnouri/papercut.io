@@ -30,7 +30,9 @@ from the language of an open document.
   the original message and unknown failures remain visible for troubleshooting.
 - Document and folder tie-break sorting uses the active UI locale. Search
   relevance and explicit library `sortOrder` values remain authoritative.
-- Arabic sets the app shell to `dir="rtl"` and uses the bundled Readex Pro font.
+- Arabic sets the app shell to `dir="rtl"`, uses the bundled Readex Pro font for
+  the interface, and defaults reflowable reader content to Readex Pro. An
+  explicit reader font choice remains unchanged when the interface language changes.
 - Imported HTML keeps valid root/body `lang` and `dir` metadata on the reader
   surface. EPUB imports preserve package language/direction and chapter
   overrides in the generated reading document.

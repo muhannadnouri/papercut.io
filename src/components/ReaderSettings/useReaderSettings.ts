@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useTranslation } from 'react-i18next'
 
 const READER_SETTINGS_KEY = 'papercut.readerSettings.v1'
 
@@ -42,6 +43,10 @@ export const DEFAULT_READER_SETTINGS: ReaderSettingsState = {
   pageTheme: 'default',
 }
 
+interface StoredReaderSettings extends Partial<ReaderSettingsState> {
+  fontFamilyExplicit?: boolean
+}
+
 // Single source of truth for slider UI and persisted-value validation.
 export const READER_SETTING_LIMITS = {
   fontSizePx: { min: 8, max: 24, step: 1, suffix: 'px' },
@@ -69,7 +74,12 @@ const LEGACY_FONT_FAMILY_MAP = new Map([
 ])
 
 export function useReaderSettings() {
-  const [settings, setSettings] = useState<ReaderSettingsState>(() => loadReaderSettings())
+  const { i18n } = useTranslation()
+  const defaultFontFamily = defaultReaderFontFamily(i18n.resolvedLanguage ?? i18n.language)
+  const initialSettingsRef = useRef<ReturnType<typeof loadReaderSettings> | null>(null)
+  initialSettingsRef.current ??= loadReaderSettings(defaultFontFamily)
+  const [settings, setSettings] = useState<ReaderSettingsState>(initialSettingsRef.current.settings)
+  const fontFamilyExplicitRef = useRef(initialSettingsRef.current.fontFamilyExplicit)
   const settingsRef = useRef(settings)
   const appliedFontRef = useRef(settings.fontFamily)
   const fontApplicationRef = useRef(0)
@@ -99,13 +109,17 @@ export function useReaderSettings() {
     })
   }, [])
 
-  const onChange = useCallback((next: Partial<ReaderSettingsState>) => {
-    const updated = clampReaderSettings({ ...settingsRef.current, ...next })
+  const applySettings = useCallback((
+    updated: ReaderSettingsState,
+    fontFamilyExplicit: boolean,
+    applyFont: boolean,
+  ) => {
     settingsRef.current = updated
-    saveReaderSettings(updated)
+    fontFamilyExplicitRef.current = fontFamilyExplicit
+    saveReaderSettings(updated, fontFamilyExplicit)
     setSettings(updated)
 
-    if (next.fontFamily === undefined) return
+    if (!applyFont) return
     if (updated.fontFamily === appliedFontRef.current) {
       fontApplicationRef.current += 1
       setApplyingFontFamily(null)
@@ -114,9 +128,25 @@ export function useReaderSettings() {
     stageFontApplication(updated.fontFamily)
   }, [stageFontApplication])
 
+  const onChange = useCallback((next: Partial<ReaderSettingsState>) => {
+    const updated = clampReaderSettings({ ...settingsRef.current, ...next })
+    const fontFamilyExplicit = next.fontFamily === undefined
+      ? fontFamilyExplicitRef.current
+      : true
+    applySettings(updated, fontFamilyExplicit, next.fontFamily !== undefined)
+  }, [applySettings])
+
   const onReset = useCallback(() => {
-    onChange(DEFAULT_READER_SETTINGS)
-  }, [onChange])
+    applySettings({ ...DEFAULT_READER_SETTINGS, fontFamily: defaultFontFamily }, false, true)
+  }, [applySettings, defaultFontFamily])
+
+  const previousDefaultFontRef = useRef(defaultFontFamily)
+  useEffect(() => {
+    if (previousDefaultFontRef.current === defaultFontFamily) return
+    previousDefaultFontRef.current = defaultFontFamily
+    if (fontFamilyExplicitRef.current) return
+    applySettings({ ...settingsRef.current, fontFamily: defaultFontFamily }, false, true)
+  }, [applySettings, defaultFontFamily])
 
   return {
     applyingFontFamily,
@@ -151,25 +181,66 @@ function waitForAnimationFrame(): Promise<void> {
 
 // Load preferences defensively because old app versions, edited localStorage, or
 // future bound changes can leave persisted values outside the current UI contract.
-function loadReaderSettings(): ReaderSettingsState {
-  if (typeof window === 'undefined') return DEFAULT_READER_SETTINGS
+function loadReaderSettings(defaultFontFamily: string): {
+  settings: ReaderSettingsState
+  fontFamilyExplicit: boolean
+} {
+  const defaults = { ...DEFAULT_READER_SETTINGS, fontFamily: defaultFontFamily }
+  if (typeof window === 'undefined') return { settings: defaults, fontFamilyExplicit: false }
   try {
     const raw = window.localStorage.getItem(READER_SETTINGS_KEY)
-    if (!raw) return DEFAULT_READER_SETTINGS
-    return clampReaderSettings({ ...DEFAULT_READER_SETTINGS, ...JSON.parse(raw) })
+    if (!raw) return { settings: defaults, fontFamilyExplicit: false }
+    const stored = JSON.parse(raw) as StoredReaderSettings
+    const fontPreference = resolveReaderFontPreference(
+      stored.fontFamily,
+      stored.fontFamilyExplicit,
+      defaultFontFamily,
+    )
+    return {
+      settings: clampReaderSettings({ ...defaults, ...stored, fontFamily: fontPreference.fontFamily }),
+      fontFamilyExplicit: fontPreference.explicit,
+    }
   } catch {
-    return DEFAULT_READER_SETTINGS
+    return { settings: defaults, fontFamilyExplicit: false }
   }
 }
 
 // Preference persistence is best effort. Reader styling should still work in
 // browser previews or restricted WebViews where localStorage writes fail.
-function saveReaderSettings(settings: ReaderSettingsState): void {
+function saveReaderSettings(settings: ReaderSettingsState, fontFamilyExplicit: boolean): void {
   if (typeof window === 'undefined') return
   try {
-    window.localStorage.setItem(READER_SETTINGS_KEY, JSON.stringify(settings))
+    window.localStorage.setItem(READER_SETTINGS_KEY, JSON.stringify({
+      ...settings,
+      fontFamilyExplicit,
+    }))
   } catch {
     // Non-critical preference persistence can fail in restricted previews.
+  }
+}
+
+export function defaultReaderFontFamily(language: string | undefined): string {
+  return language?.toLowerCase().split(/[-_]/)[0] === 'ar'
+    ? READER_FONT_STACKS.readexPro
+    : READER_FONT_STACKS.literata
+}
+
+// Legacy settings did not record whether the font was chosen. Preserve every
+// non-default legacy font, while treating old Literata values as the prior default.
+export function resolveReaderFontPreference(
+  storedFontFamily: unknown,
+  storedExplicit: unknown,
+  defaultFontFamily: string,
+): { fontFamily: string; explicit: boolean } {
+  const normalized = typeof storedFontFamily === 'string'
+    ? normalizeReaderFontFamily(storedFontFamily)
+    : DEFAULT_READER_SETTINGS.fontFamily
+  const explicit = typeof storedExplicit === 'boolean'
+    ? storedExplicit
+    : typeof storedFontFamily === 'string' && normalized !== DEFAULT_READER_SETTINGS.fontFamily
+  return {
+    fontFamily: explicit ? normalized : defaultFontFamily,
+    explicit,
   }
 }
 

@@ -107,7 +107,7 @@ This keeps the runtime upload pipeline independent from the viewer shell. The up
 Reader typography is intentionally owned by the shared DOM reader, not by each upload parser:
 
 - The reader bundles offline fonts under `public/fonts/reader/` so desktop and Android do not collapse every serif choice into the same platform fallback.
-- Literata is the default long-form reading face, Atkinson Hyperlegible is available for accessibility-focused reading, and system serif/sans remain available for users who prefer platform defaults.
+- Literata is the default long-form reading face for non-Arabic interface locales; Arabic defaults the reader to Readex Pro. Explicit reader font choices remain independent of later interface-language changes. Atkinson Hyperlegible is available for accessibility-focused reading, and system serif/sans remain available for users who prefer platform defaults.
 - Naskh Arabic, Droid Arabic Naskh, Scheherazade New, and Readex Pro are exposed as explicit Arabic-focused options. They are not inserted into every stack because Arabic font metrics can change spacing and line flow in documents that previously rendered better with their platform fallback.
 - Font, spacing, width, and page-color controls are reader presentation only. They do not rewrite stored reflowable reading HTML, search sections, TTS chunks, saved audiobook metadata, or highlight locators.
 
