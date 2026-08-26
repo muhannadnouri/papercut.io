@@ -23,6 +23,8 @@ interface UploadedLibraryTreeProps {
   resetEditing?: boolean
   openingDocumentUrl?: string
   savedAudiobookDocumentUrls?: ReadonlySet<string>
+  /** Existing Manage operation status, placed here so sticky controls keep it visible. */
+  managementStatus?: ReactNode
   selectedFilters?: Set<string>
   onCreateFolder?: (parentId: string | null, name: string) => Promise<void> | void
   onDeleteDocuments?: (docs: DocumentInfo[]) => Promise<UploadedDocumentDeleteBatchResult | null>
@@ -51,6 +53,7 @@ export function UploadedLibraryTree({
   resetEditing = false,
   openingDocumentUrl,
   savedAudiobookDocumentUrls = new Set(),
+  managementStatus,
   selectedFilters,
   onCreateFolder,
   onDeleteFolder,
@@ -369,14 +372,14 @@ export function UploadedLibraryTree({
     onToggleAllInGroup?.(rootDocuments)
   }
 
-  if (nodes.length === 0 && folders.length === 0) return null
+  if (nodes.length === 0 && folders.length === 0 && !managementStatus) return null
 
   return (
     <section
       className="uploaded-library"
       aria-label={t(filterMode ? 'library.tree.filterAriaLabel' : 'library.tree.organizationAriaLabel')}
     >
-      <div className={organizing && !rootCollapsed
+      <div className={(organizing && !rootCollapsed) || managementStatus
         ? 'uploaded-library-manage-header uploaded-library-manage-header-sticky'
         : 'uploaded-library-manage-header'}>
         <div className="uploaded-library-toolbar">
@@ -428,6 +431,8 @@ export function UploadedLibraryTree({
             </div>
           )}
         </div>
+
+        {managementStatus}
 
         {!rootCollapsed && organizing && (
           <div

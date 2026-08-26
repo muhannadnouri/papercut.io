@@ -110,4 +110,50 @@ describe('document list filters', () => {
     expect(html).toContain('uploaded-library-folder-icon')
     expect(html).toContain('uploaded-library-chevron')
   })
+
+  it('keeps a Manage operation status once inside the uploaded-library header after the final delete', () => {
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (key: string) => key === 'papercut.library-view.v1' ? 'list' : null,
+        setItem: () => undefined,
+      },
+    })
+    const html = renderToStaticMarkup(
+      <DocumentsPanel
+        allDocuments={[]}
+        collapsedAuthors={new Set()}
+        docFilterLower=""
+        documentFilter=""
+        documentsLoading={false}
+        groupedDocs={[]}
+        importStatuses={[{
+          status: 'deleting',
+          message: 'Deleting 1 of 2 documents',
+          manageContext: true,
+        }]}
+        libraryOrganization={{
+          folders: [],
+          documentLocations: [],
+        }}
+        showDocuments
+        onCreateLibraryFolder={() => undefined}
+        onDeleteDocuments={async () => null}
+        onDeleteLibraryFolder={async () => null}
+        onFilterChange={() => undefined}
+        onMoveLibraryDocuments={() => undefined}
+        onRenameLibraryFolder={() => undefined}
+        onToggleAuthor={() => undefined}
+        onToggleShow={() => undefined}
+        onViewDocument={() => undefined}
+      />,
+    )
+
+    expect(html.match(/role="status"/g)).toHaveLength(1)
+    expect(html.indexOf('document-import-status')).toBeGreaterThan(
+      html.indexOf('uploaded-library-manage-header'),
+    )
+    expect(html.indexOf('document-import-status')).toBeLessThan(
+      html.indexOf('uploaded-library-tree'),
+    )
+  })
 })

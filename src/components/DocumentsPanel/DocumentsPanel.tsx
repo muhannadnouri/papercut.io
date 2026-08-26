@@ -18,6 +18,8 @@ import '../DocumentBrowser/DocumentBrowser.css'
 interface DocumentsPanelStatus {
   status: string
   message: ReactNode
+  /** Keep Manage-owned operations with the controls that started them. */
+  manageContext?: boolean
   onDismiss?: () => void
 }
 
@@ -128,8 +130,35 @@ export function DocumentsPanel({
   const showUploadedTree = canShowUploadedTree && (
     !contentFilterActive || uploadDocs.length > 0
   )
+  const manageStatusIndex = view === 'list' && showUploadedTree
+    ? importStatuses.findIndex((item) => item.manageContext)
+    : -1
   const hasFolderTree = bundledDocs.length > 0 ||
     (showUploadedTree && uploadDocs.length > 0)
+
+  const renderStatus = (item: DocumentsPanelStatus, index: number) => (
+    item.message && item.status !== 'idle' ? (
+      <div
+        key={item.status + index}
+        className={'document-import-status document-import-' + item.status}
+        role={item.status === 'error' ? 'alert' : 'status'}
+        aria-live={item.status === 'error' ? 'assertive' : 'polite'}
+      >
+        <div className="document-import-status-content">{item.message}</div>
+        {item.onDismiss && (
+          <button
+            type="button"
+            className="document-import-dismiss"
+            aria-label={t('library.status.dismissNotice')}
+            title={t('common.close')}
+            onClick={item.onDismiss}
+          >
+            &times;
+          </button>
+        )}
+      </div>
+    ) : null
+  )
 
   if (documentsLoading) {
     return (
@@ -244,27 +273,9 @@ export function DocumentsPanel({
         </div>
       </div>
 
-      {importStatuses.map((item, index) => item.message && item.status !== 'idle' ? (
-        <div
-          key={item.status + index}
-          className={'document-import-status document-import-' + item.status}
-          role={item.status === 'error' ? 'alert' : 'status'}
-          aria-live={item.status === 'error' ? 'assertive' : 'polite'}
-        >
-          <div className="document-import-status-content">{item.message}</div>
-          {item.onDismiss && (
-            <button
-              type="button"
-              className="document-import-dismiss"
-              aria-label={t('library.status.dismissNotice')}
-              title={t('common.close')}
-              onClick={item.onDismiss}
-            >
-              &times;
-            </button>
-          )}
-        </div>
-      ) : null)}
+      {importStatuses.map((item, index) => index === manageStatusIndex
+        ? null
+        : renderStatus(item, index))}
 
       {view === 'gallery' ? (
         <LibraryGalleryView
@@ -299,6 +310,9 @@ export function DocumentsPanel({
               resetEditing={importBusy}
               openingDocumentUrl={openingDocumentUrl}
               savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
+              managementStatus={manageStatusIndex >= 0
+                ? renderStatus(importStatuses[manageStatusIndex], manageStatusIndex)
+                : undefined}
               onCreateFolder={onCreateLibraryFolder!}
               onDeleteDocuments={onDeleteDocuments!}
               onDeleteFolder={onDeleteLibraryFolder!}

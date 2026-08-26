@@ -223,6 +223,7 @@ export function LibraryTab({
         importStatuses={statusMessage ? [{
           status: documentImport.status,
           message: statusMessage,
+          manageContext: documentImport.format === 'delete-batch',
           onDismiss: operationBusy ? undefined : onDismissDocumentImportStatus,
         }] : []}
         libraryOrganization={libraryOrganization}

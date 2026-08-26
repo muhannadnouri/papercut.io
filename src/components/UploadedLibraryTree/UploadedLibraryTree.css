@@ -4,9 +4,11 @@
 }
 
 .uploaded-library-manage-header-sticky {
+  display: flow-root;
   position: sticky;
   z-index: 4;
-  top: 0;
+  /* Overlap the scrollport border so fractional zoom cannot expose moving rows. */
+  top: -1px;
   background: var(--surface-subtle);
   box-shadow: 0 1px 0 var(--border);
 }
