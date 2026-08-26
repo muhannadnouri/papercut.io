@@ -281,17 +281,20 @@ html[dir="rtl"] .back-icon {
 
 .document-loading-surface {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
   min-height: 320px;
   color: var(--text-body);
   font-weight: 600;
+  text-align: center;
 }
 
 .document-loading-message {
   display: grid;
   gap: 0.2rem;
+  justify-items: center;
 }
 
 /* Keep quick opens visually quiet. These details become accessible when their
@@ -518,6 +521,10 @@ html[dir="rtl"] .back-icon {
 }
 
 .reader-bookmark-menu-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
   min-height: 2.6rem;
   padding: 0.65rem 0.8rem;
   border-bottom: 1px solid var(--row-divider);
@@ -540,10 +547,6 @@ html[dir="rtl"] .back-icon {
 }
 
 .reader-bookmark-menu-item-danger {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 0.5rem;
   color: var(--danger);
 }
 
@@ -637,6 +640,19 @@ html[dir="rtl"] .back-icon {
   height: 1.9rem;
   padding: 0;
   color: var(--text-muted);
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+@media (pointer: coarse) {
+  .reader-bookmark-menu-item {
+    min-height: 2.75rem;
+  }
+
+  .reader-bookmark-notice .reader-bookmark-dismiss {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
 }
 
 ::highlight(search-target) {

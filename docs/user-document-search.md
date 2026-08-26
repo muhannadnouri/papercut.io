@@ -92,7 +92,7 @@ The frontend keeps upload, search, and viewing responsibilities separated:
 - `src/uploads/DocumentUploads.ts` is the upload API boundary. React code calls these helpers instead of invoking Tauri commands directly throughout the UI.
 - `src/hooks/useSearch.ts` merges bundled Pagefind results with uploaded-document SQLite results and returns the shared `SearchResult` shape.
 - `src/components/DocumentsPanel/DocumentsPanel.tsx` owns the library-facing import/delete/filter controls. Import options stay option-driven so generic document import and audiobook bundle import can appear together without sharing backend code.
-- `src/components/DocumentViewer/DocumentViewer.tsx` owns the reader chrome: Back, Find, reader settings, header slots, same-document link scrolling, scroll-to-top behavior, loading/error display for document opens, and TTS highlight integration.
+- `src/components/DocumentViewer/DocumentViewer.tsx` owns the reader chrome: Back, Find, reader settings, header slots, same-document link scrolling, scroll-to-top behavior, loading/error display for document opens, and TTS highlight integration. Document opening keeps its staged status text in one centered loading group. Bookmark actions remain labelled menu rows with supporting icons and touch-sized targets rather than nested buttons.
 
 Viewer rendering is plugin-based:
 

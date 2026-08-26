@@ -49,12 +49,14 @@ export function ReaderBookmarkButton({
         <Menu className="reader-bookmark-menu" aria-label={label}>
           {!isAtBookmark && (
             <MenuItem className="reader-bookmark-menu-item" onAction={onRestore}>
-              {t('reader.returnToBookmark')}
+              <GoToBookmarkIcon />
+              <span>{t('reader.returnToBookmark')}</span>
             </MenuItem>
           )}
           {!isAtBookmark && (
             <MenuItem className="reader-bookmark-menu-item" onAction={onMove}>
-              {t('reader.moveBookmarkHere')}
+              <MoveBookmarkIcon />
+              <span>{t('reader.moveBookmarkHere')}</span>
             </MenuItem>
           )}
           <MenuItem
@@ -75,6 +77,25 @@ function BookmarkIcon({ saved }: { saved: boolean }) {
     <svg className="reader-bookmark-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d="M6 4.75A2.75 2.75 0 0 1 8.75 2h6.5A2.75 2.75 0 0 1 18 4.75V21l-6-3.5L6 21z" />
       {saved && <path d="m9 10.8 2 2 4-4" />}
+    </svg>
+  )
+}
+
+function GoToBookmarkIcon() {
+  return (
+    <svg className="reader-bookmark-menu-item-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="7" />
+      <circle cx="12" cy="12" r="2" />
+      <path d="M12 2v3m0 14v3M2 12h3m14 0h3" />
+    </svg>
+  )
+}
+
+function MoveBookmarkIcon() {
+  return (
+    <svg className="reader-bookmark-menu-item-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M6 4.75A2.75 2.75 0 0 1 8.75 2h6.5A2.75 2.75 0 0 1 18 4.75V21l-6-3.5L6 21z" />
+      <path d="M12 6v7m-3-3 3 3 3-3" />
     </svg>
   )
 }
