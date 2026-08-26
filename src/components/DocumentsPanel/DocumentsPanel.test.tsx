@@ -1,10 +1,15 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DocumentsPanel, type DocumentImportOption } from './DocumentsPanel'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: { language: 'en', resolvedLanguage: 'en' },
+  }),
 }))
+
+afterEach(() => vi.unstubAllGlobals())
 
 function renderImportButton(
   importOptions: DocumentImportOption[],
@@ -53,5 +58,56 @@ describe('document import progress', () => {
     expect(html).toContain('aria-label="library.import.importingBatch"')
     expect(html).toContain('document-import-btn-busy')
     expect(html).toContain('document-import-btn-spinner')
+  })
+})
+
+describe('document list filters', () => {
+  it('prunes unrelated upload folders for Saved Audio and renders folder affordances', () => {
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (key: string) => key === 'papercut.library-view.v1' ? 'list' : null,
+        setItem: () => undefined,
+      },
+    })
+    const document = {
+      title: 'Saved document',
+      url: '/uploads/a1.html',
+      format: 'html',
+      source: 'upload' as const,
+    }
+    const html = renderToStaticMarkup(
+      <DocumentsPanel
+        allDocuments={[document]}
+        audioSavedOnly
+        collapsedAuthors={new Set()}
+        docFilterLower=""
+        documentFilter=""
+        documentsLoading={false}
+        groupedDocs={[{ author: 'library.groups.userUploads', docs: [document] }]}
+        libraryOrganization={{
+          folders: [
+            { id: 'saved', name: 'Saved folder', depth: 0, sortOrder: 0, createdAtMs: 0, updatedAtMs: 0 },
+            { id: 'empty', name: 'Unrelated folder', depth: 0, sortOrder: 1, createdAtMs: 0, updatedAtMs: 0 },
+          ],
+          documentLocations: [{ documentId: 'a1', folderId: 'saved', sortOrder: 0 }],
+        }}
+        showDocuments
+        onAudioSavedOnlyChange={() => undefined}
+        onCreateLibraryFolder={() => undefined}
+        onDeleteDocuments={async () => null}
+        onDeleteLibraryFolder={() => undefined}
+        onFilterChange={() => undefined}
+        onMoveLibraryDocuments={() => undefined}
+        onRenameLibraryFolder={() => undefined}
+        onToggleAuthor={() => undefined}
+        onToggleShow={() => undefined}
+        onViewDocument={() => undefined}
+      />,
+    )
+
+    expect(html).toContain('Saved folder')
+    expect(html).not.toContain('Unrelated folder')
+    expect(html).toContain('uploaded-library-folder-icon')
+    expect(html).toContain('uploaded-library-chevron')
   })
 })

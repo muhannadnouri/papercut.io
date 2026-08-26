@@ -421,8 +421,8 @@
 .uploaded-library-chevron {
   display: inline-grid;
   flex: 0 0 auto;
-  width: 1.35rem;
-  height: 1.35rem;
+  width: 1.5rem;
+  height: 1.5rem;
   place-items: center;
   border: 1px solid transparent;
   border-radius: var(--radius-inline);
@@ -432,6 +432,17 @@
   font-size: 0.9rem;
   line-height: 1;
   transition: transform 0.15s, background 0.15s;
+}
+
+.uploaded-library-chevron svg {
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .uploaded-library-item[data-expanded] .uploaded-library-chevron {
@@ -465,6 +476,22 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.uploaded-library-folder .uploaded-library-selection-text {
+  font-weight: 600;
+}
+
+.uploaded-library-folder-icon {
+  display: block;
+  flex: 0 0 auto;
+  width: 1.1rem;
+  height: 1.1rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .uploaded-library-text-status {
@@ -665,9 +692,14 @@
   }
 
   .uploaded-library-chevron {
-    width: 2.25rem;
-    height: 2.25rem;
+    width: 2.75rem;
+    height: 2.75rem;
     font-size: 0.95rem;
+  }
+
+  .uploaded-library-chevron svg {
+    width: 1.25rem;
+    height: 1.25rem;
   }
 
   .uploaded-library-actions button,

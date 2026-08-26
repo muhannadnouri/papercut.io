@@ -113,6 +113,9 @@ export function DocumentsPanel({
     nonBundledGroups,
     otherGroups,
   } = splitDocumentGroupsBySource(visibleGroups)
+  // Every content filter must prune the organization tree, not just typed text;
+  // otherwise Saved Audio and Bookmarks leave unrelated empty folders visible.
+  const contentFilterActive = docFilterLower.length > 0 || audioSavedOnly || bookmarkedOnly
   const canShowUploadedTree = Boolean(
     libraryOrganization &&
     onCreateLibraryFolder &&
@@ -123,7 +126,7 @@ export function DocumentsPanel({
   )
   const documentListGroups = canShowUploadedTree ? otherGroups : nonBundledGroups
   const showUploadedTree = canShowUploadedTree && (
-    docFilterLower.length === 0 || uploadDocs.length > 0
+    !contentFilterActive || uploadDocs.length > 0
   )
   const hasFolderTree = bundledDocs.length > 0 ||
     (showUploadedTree && uploadDocs.length > 0)
@@ -289,7 +292,7 @@ export function DocumentsPanel({
             <UploadedLibraryTree
               documents={uploadDocs}
               organization={libraryOrganization}
-              filterActive={docFilterLower.length > 0}
+              filterActive={contentFilterActive}
               documentOpening={documentOpening}
               mutationDisabled={operationBusy}
               resetEditing={importBusy}
@@ -309,7 +312,7 @@ export function DocumentsPanel({
           {bundledDocs.length > 0 && (
             <BundledDocumentTree
               documents={bundledDocs}
-              filterActive={docFilterLower.length > 0}
+              filterActive={contentFilterActive}
               documentOpening={documentOpening}
               openingDocumentUrl={openingDocumentUrl}
               onViewDocument={onViewDocument}

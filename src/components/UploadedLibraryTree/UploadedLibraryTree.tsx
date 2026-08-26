@@ -642,7 +642,7 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
         <div className="uploaded-library-content">
           {node.kind === 'folder' && (
             <Button slot="chevron" className="uploaded-library-chevron">
-              &#9656;
+              <ChevronIcon />
             </Button>
           )}
           <div className="uploaded-library-row">
@@ -660,6 +660,7 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
                     toggleNodeSelection()
                   }}
                 />
+                {node.kind === 'folder' && <FolderIcon />}
                 <span className="uploaded-library-selection-text">
                   <bdi>{node.title}</bdi>
                   {node.kind === 'document' && node.doc.textStatus === 'recognition-required' && (
@@ -678,20 +679,23 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
                 </span>
               </span>
             ) : node.kind === 'folder' ? (
-              <button
-                className="uploaded-library-name uploaded-library-name-button"
-                type="button"
-                aria-expanded={expanded}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  options.onToggleFolderExpanded(node.key)
-                }}
-              >
-                <bdi>{node.title}</bdi>{' '}
-                <span className="uploaded-library-folder-count">
-                  ({node.documentCount.toLocaleString(options.locale)})
-                </span>
-              </button>
+              <>
+                <FolderIcon />
+                <button
+                  className="uploaded-library-name uploaded-library-name-button"
+                  type="button"
+                  aria-expanded={expanded}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    options.onToggleFolderExpanded(node.key)
+                  }}
+                >
+                  <bdi>{node.title}</bdi>{' '}
+                  <span className="uploaded-library-folder-count">
+                    ({node.documentCount.toLocaleString(options.locale)})
+                  </span>
+                </button>
+              </>
             ) : (
               <span className="uploaded-library-name">
                 <bdi>{node.title}</bdi>
@@ -753,6 +757,22 @@ function renderNode(node: LibraryNode, options: RenderNodeOptions): ReactNode {
       </TreeItemContent>
       {node.children.map((child) => renderNode(child, options))}
     </TreeItem>
+  )
+}
+
+function ChevronIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d="m6 3 5 5-5 5" />
+    </svg>
+  )
+}
+
+function FolderIcon() {
+  return (
+    <svg className="uploaded-library-folder-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M3 6.5h6l2 2h10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+    </svg>
   )
 }
 
