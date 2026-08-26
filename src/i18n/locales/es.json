@@ -264,8 +264,7 @@
       "newSubfolder": "Nueva subcarpeta",
       "rename": "Rebautizar",
       "deleteFolder": "Eliminar carpeta",
-      "folderNotEmpty": "La carpeta no está vacía",
-      "moveContentsFirst": "Saque el contenido primero.",
+      "deleteFolderContents": "Eliminar carpeta y contenido",
       "moveDocuments": "Mover documentos",
       "chooseDestination": "Elegir destino...",
       "folderSelected": "1 carpeta seleccionada",
@@ -276,8 +275,6 @@
       "select": "Seleccione {{title}}",
       "selectAllIn": "Seleccionar todo en {{title}}",
       "filterBy": "Filtrar por {{title}}",
-      "selectOneFolder": "Seleccione una carpeta para eliminar.",
-      "moveOrRemoveContents": "Mueva o elimine contenidos antes de eliminarlos.",
       "deleteSelectedFolder": "Eliminar la carpeta seleccionada.",
       "selectedCount_one": "{{count, number}} seleccionado",
       "selectedCount_many": "{{count, number}} seleccionados",
@@ -296,6 +293,12 @@
       "description": "Esta acción nunca elimina los documentos dentro de las carpetas.",
       "folder": "Carpeta"
     },
+    "confirmDeleteFolderContents": {
+      "title": "¿Eliminar la carpeta y su contenido?",
+      "description": "Esto elimina permanentemente de este dispositivo todos los documentos y carpetas anidadas que se muestran a continuación. Esta acción no se puede deshacer.",
+      "nestedFolders": "Carpetas anidadas",
+      "documents": "Documentos"
+    },
     "confirmDeleteDocument": {
       "title": "¿Eliminar el documento subido?",
       "description": "Esto elimina el documento de este dispositivo, de los resultados de la búsqueda local y de cualquier organización de carpetas en Papercut.",
@@ -313,6 +316,8 @@
       "description": "Elimina el audiolibro guardado antes de eliminar este documento.",
       "batchTitle": "Hay audiolibros guardados que usan documentos seleccionados",
       "batchDescription": "Uno o más documentos seleccionados tienen audio guardado. Elimina sus audiolibros antes de eliminar los documentos.",
+      "folderTitle": "Hay audiolibros guardados que usan documentos de esta carpeta",
+      "folderDescription": "Uno o más documentos de esta carpeta tienen audio guardado. Elimina sus audiolibros antes de eliminar la carpeta.",
       "viewAudiobooks": "Ver audiolibros"
     }
   },

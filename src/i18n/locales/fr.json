@@ -264,8 +264,7 @@
       "newSubfolder": "Nouveau sous-dossier",
       "rename": "Rebaptiser",
       "deleteFolder": "Supprimer le dossier",
-      "folderNotEmpty": "Le dossier n'est pas vide",
-      "moveContentsFirst": "Déplacez d'abord le contenu.",
+      "deleteFolderContents": "Supprimer le dossier et son contenu",
       "moveDocuments": "Déplacer des documents",
       "chooseDestination": "Choisir une destination...",
       "folderSelected": "1 dossier sélectionné",
@@ -276,8 +275,6 @@
       "select": "Sélectionnez {{title}}",
       "selectAllIn": "Tout sélectionner dans {{title}}",
       "filterBy": "Filtrer par {{title}}",
-      "selectOneFolder": "Sélectionnez un dossier à supprimer.",
-      "moveOrRemoveContents": "Déplacez ou supprimez le contenu avant de le supprimer.",
       "deleteSelectedFolder": "Supprimer le dossier sélectionné.",
       "selectedCount_one": "{{count, number}} sélectionné",
       "selectedCount_many": "{{count, number}} sélectionnés",
@@ -296,6 +293,12 @@
       "description": "Les documents contenus dans les dossiers ne sont jamais supprimés par cette action.",
       "folder": "Dossier"
     },
+    "confirmDeleteFolderContents": {
+      "title": "Supprimer le dossier et son contenu ?",
+      "description": "Cette action supprime définitivement de cet appareil tous les documents et dossiers imbriqués indiqués ci-dessous. Elle est irréversible.",
+      "nestedFolders": "Dossiers imbriqués",
+      "documents": "Documents"
+    },
     "confirmDeleteDocument": {
       "title": "Supprimer le document téléchargé ?",
       "description": "Cela supprime le document de cet appareil, les résultats de la recherche locale et toute organisation de dossiers dans Papercut.",
@@ -313,6 +316,8 @@
       "description": "Supprimez le livre audio enregistré avant de supprimer ce document.",
       "batchTitle": "Des livres audio enregistrés utilisent des documents sélectionnés",
       "batchDescription": "Un ou plusieurs documents sélectionnés ont un audio enregistré. Supprimez leurs livres audio avant de supprimer les documents.",
+      "folderTitle": "Des livres audio enregistrés utilisent des documents de ce dossier",
+      "folderDescription": "Un ou plusieurs documents de ce dossier ont un audio enregistré. Supprimez leurs livres audio avant de supprimer le dossier.",
       "viewAudiobooks": "Voir les livres audio"
     }
   },

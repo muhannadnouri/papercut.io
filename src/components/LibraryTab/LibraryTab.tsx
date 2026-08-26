@@ -49,7 +49,7 @@ interface LibraryTabProps {
   onCreateLibraryFolder: (parentId: string | null, name: string) => void | Promise<void>
   onDeleteDocument: (doc: DocumentInfo) => void | Promise<void>
   onDeleteDocuments: (docs: DocumentInfo[]) => Promise<UploadedDocumentDeleteBatchResult | null>
-  onDeleteLibraryFolder: (folderId: string) => void | Promise<void>
+  onDeleteLibraryFolder: (folderId: string) => Promise<UploadedDocumentDeleteBatchResult | null>
   onDismissDocumentImportStatus: () => void
   onFilterChange: (value: string) => void
   onCancelDocumentBatch: () => void | Promise<void>

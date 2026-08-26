@@ -264,8 +264,7 @@
       "newSubfolder": "Nuova sottocartella",
       "rename": "Rinominare",
       "deleteFolder": "Elimina cartella",
-      "folderNotEmpty": "La cartella non è vuota",
-      "moveContentsFirst": "Prima sposta i contenuti.",
+      "deleteFolderContents": "Elimina cartella e contenuti",
       "moveDocuments": "Sposta documenti",
       "chooseDestination": "Scegli destinazione...",
       "folderSelected": "1 cartella selezionata",
@@ -276,8 +275,6 @@
       "select": "Selezionare {{title}}",
       "selectAllIn": "Seleziona tutto in {{title}}",
       "filterBy": "Filtra per {{title}}",
-      "selectOneFolder": "Seleziona una cartella da eliminare.",
-      "moveOrRemoveContents": "Sposta o rimuovi i contenuti prima di eliminarli.",
       "deleteSelectedFolder": "Elimina la cartella selezionata.",
       "selectedCount_one": "{{count, number}} selezionato",
       "selectedCount_many": "{{count, number}} selezionati",
@@ -296,6 +293,12 @@
       "description": "I documenti all'interno delle cartelle non vengono mai eliminati da questa azione.",
       "folder": "Cartella"
     },
+    "confirmDeleteFolderContents": {
+      "title": "Eliminare la cartella e il suo contenuto?",
+      "description": "Questa azione elimina definitivamente dal dispositivo tutti i documenti e le cartelle nidificate indicati di seguito. Non può essere annullata.",
+      "nestedFolders": "Cartelle nidificate",
+      "documents": "Documenti"
+    },
     "confirmDeleteDocument": {
       "title": "Eliminare il documento caricato?",
       "description": "Ciò rimuove il documento da questo dispositivo, dai risultati della ricerca locale e da qualsiasi organizzazione di cartelle in Papercut.",
@@ -313,6 +316,8 @@
       "description": "Elimina l'audiolibro salvato prima di rimuovere questo documento.",
       "batchTitle": "Gli audiolibri salvati usano documenti selezionati",
       "batchDescription": "Uno o più documenti selezionati hanno audio salvato. Elimina i relativi audiolibri prima di rimuovere i documenti.",
+      "folderTitle": "Gli audiolibri salvati usano documenti in questa cartella",
+      "folderDescription": "Uno o più documenti in questa cartella hanno audio salvato. Elimina i relativi audiolibri prima di eliminare la cartella.",
       "viewAudiobooks": "Visualizza audiolibri"
     }
   },

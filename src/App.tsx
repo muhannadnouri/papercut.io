@@ -40,6 +40,7 @@ import {
   isUploadedPdfDocumentUrl,
   listenOpenDocumentRequests,
   takeOpenDocumentSources,
+  type UploadedDocumentDeleteBatchResult,
 } from './uploads/DocumentUploads'
 
 function isBundledDocumentUrl(url: string): boolean {
@@ -398,10 +399,9 @@ function App() {
     }
   }, [confirmDocumentAction, deleteUploadedLibraryDocument, handleCloseDocument, handleManageAudiobookSave, removeFilter, removeResultsForUrl, savedAudiobookDocumentUrls, selectedDoc, t])
 
-  const handleDeleteUploadedDocuments = useCallback(async (docs: DocumentInfo[]) => {
-    const result = await deleteUploadedLibraryDocuments(docs)
-    if (!result) return null
-
+  /** Remove every successfully deleted URL from transient search and scope
+   * state whether deletion began from document selection or a folder subtree. */
+  const applyDeletedDocumentResults = useCallback((result: UploadedDocumentDeleteBatchResult) => {
     const deletedUrls = new Set(result.deleted.map((document) => document.url))
     for (const url of deletedUrls) {
       removeResultsForUrl(url)
@@ -409,8 +409,21 @@ function App() {
       removeFilter(url)
     }
     if (selectedDoc && deletedUrls.has(selectedDoc)) handleCloseDocument()
+  }, [handleCloseDocument, removeFilter, removeResultsForUrl, selectedDoc])
+
+  const handleDeleteUploadedDocuments = useCallback(async (docs: DocumentInfo[]) => {
+    const result = await deleteUploadedLibraryDocuments(docs)
+    if (!result) return null
+    applyDeletedDocumentResults(result)
     return result
-  }, [deleteUploadedLibraryDocuments, handleCloseDocument, removeFilter, removeResultsForUrl, selectedDoc])
+  }, [applyDeletedDocumentResults, deleteUploadedLibraryDocuments])
+
+  const handleDeleteUploadedLibraryFolder = useCallback(async (folderId: string) => {
+    const result = await deleteLibraryFolder(folderId)
+    if (!result) return null
+    applyDeletedDocumentResults(result)
+    return result
+  }, [applyDeletedDocumentResults, deleteLibraryFolder])
 
   if (selectedDoc) {
     const recognitionIssueCount = documentImport.documentUrl === selectedDoc &&
@@ -574,7 +587,7 @@ function App() {
             onCreateLibraryFolder={createLibraryFolder}
             onDeleteDocument={handleDeleteUploadedDocument}
             onDeleteDocuments={handleDeleteUploadedDocuments}
-            onDeleteLibraryFolder={deleteLibraryFolder}
+            onDeleteLibraryFolder={handleDeleteUploadedLibraryFolder}
             onDismissDocumentImportStatus={dismissDocumentImportStatus}
             onMoveLibraryDocuments={moveLibraryDocuments}
             onRecognizeDocument={recognizeDocumentText}

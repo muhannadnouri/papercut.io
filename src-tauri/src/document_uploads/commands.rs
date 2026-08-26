@@ -7,10 +7,9 @@
 
 use tauri::{ipc::Channel, Runtime};
 
-use super::batch::{delete_batch, import_batch, import_folder, import_paths};
+use super::batch::{delete_batch, delete_folder, import_batch, import_folder, import_paths};
 use super::organization::{
-    create_folder, delete_folder, list_organization, move_documents, move_folder, rename_folder,
-    reorder,
+    create_folder, list_organization, move_documents, move_folder, rename_folder, reorder,
 };
 use super::pdf::{
     finalize_pdf_index, get_pdf_narration_segments, get_pdf_page_text_layer, get_pdf_source_bytes,
@@ -318,13 +317,13 @@ pub async fn document_uploads_rename_folder<R: Runtime>(
         .map_err(|err| format!("Document folder rename task failed: {err}"))?
 }
 
-/// Delete an empty user folder.
+/// Permanently delete a folder, its descendants, and every contained document.
 #[tauri::command]
 pub async fn document_uploads_delete_folder<R: Runtime>(
     app: tauri::AppHandle<R>,
     request: UploadedLibraryDeleteFolderRequest,
-) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || delete_folder(&app, request))
+) -> Result<UploadedDocumentDeleteBatchResult, String> {
+    tauri::async_runtime::spawn_blocking(move || delete_folder(app, request))
         .await
         .map_err(|err| format!("Document folder delete task failed: {err}"))?
 }

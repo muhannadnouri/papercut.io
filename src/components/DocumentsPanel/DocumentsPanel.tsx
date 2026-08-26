@@ -51,7 +51,7 @@ interface DocumentsPanelProps {
   onCreateLibraryFolder?: (parentId: string | null, name: string) => void | Promise<void>
   onDeleteDocument?: (doc: DocumentInfo) => void | Promise<void>
   onDeleteDocuments?: (docs: DocumentInfo[]) => Promise<UploadedDocumentDeleteBatchResult | null>
-  onDeleteLibraryFolder?: (folderId: string) => void | Promise<void>
+  onDeleteLibraryFolder?: (folderId: string) => Promise<UploadedDocumentDeleteBatchResult | null>
   onFilterChange: (value: string) => void
   onMoveLibraryDocuments?: (documentIds: string[], folderId: string | null) => void | Promise<void>
   onRenameLibraryFolder?: (folderId: string, name: string) => void | Promise<void>
@@ -291,6 +291,7 @@ export function DocumentsPanel({
           {showUploadedTree && libraryOrganization && (
             <UploadedLibraryTree
               documents={uploadDocs}
+              unfilteredDocuments={allDocuments}
               organization={libraryOrganization}
               filterActive={contentFilterActive}
               documentOpening={documentOpening}

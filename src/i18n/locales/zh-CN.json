@@ -254,8 +254,7 @@
       "newSubfolder": "新建子文件夹",
       "rename": "重命名",
       "deleteFolder": "删除文件夹",
-      "folderNotEmpty": "文件夹不为空",
-      "moveContentsFirst": "先将内容移出。",
+      "deleteFolderContents": "删除文件夹及其内容",
       "moveDocuments": "移动文档",
       "chooseDestination": "选择目标文件夹...",
       "folderSelected": "已选择 1 个文件夹",
@@ -266,8 +265,6 @@
       "select": "选择{{title}}",
       "selectAllIn": "选择{{title}}中的全部",
       "filterBy": "按 {{title}} 筛选",
-      "selectOneFolder": "选择一个要删除的文件夹。",
-      "moveOrRemoveContents": "删除前移动或删除内容。",
       "deleteSelectedFolder": "删除选定的文件夹。",
       "selectedCount_other": "已选择 {{count, number}} 个"
     },
@@ -283,6 +280,12 @@
       "title": "删除空文件夹？",
       "description": "此操作永远不会删除文件夹内的文档。",
       "folder": "文件夹"
+    },
+    "confirmDeleteFolderContents": {
+      "title": "删除文件夹及其内容？",
+      "description": "此操作会从此设备永久删除下方显示的所有文档和嵌套文件夹，且无法撤销。",
+      "nestedFolders": "嵌套文件夹",
+      "documents": "文档"
     },
     "confirmDeleteDocument": {
       "title": "删除上传的文档？",
@@ -301,6 +304,8 @@
       "description": "请先删除已保存的有声书，再移除此文档。",
       "batchTitle": "已保存的有声书正在使用所选文档",
       "batchDescription": "一个或多个所选文档包含已保存的音频。请先删除相关有声书，再移除这些文档。",
+      "folderTitle": "已保存的有声书正在使用此文件夹中的文档",
+      "folderDescription": "此文件夹中的一个或多个文档包含已保存的音频。请先删除相关有声书，再删除该文件夹。",
       "viewAudiobooks": "查看有声书"
     }
   },

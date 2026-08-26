@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { DocumentInfo } from '../../types/search'
-import { buildLibraryTree } from './libraryTree'
+import { buildLibraryTree, countDescendantFolders } from './libraryTree'
 
 describe('buildLibraryTree', () => {
   it('includes uploaded HTML and PDF documents', () => {
@@ -62,5 +62,6 @@ describe('buildLibraryTree', () => {
       }],
     })
     expect(tree.nodeByKey.has('folder:empty')).toBe(false)
+    expect(countDescendantFolders(tree.nodes[0])).toBe(1)
   })
 })

@@ -12,19 +12,21 @@ use tauri::{Emitter, Runtime};
 use tauri_plugin_dialog::{DialogExt, FilePath};
 use tauri_plugin_fs::FsExt;
 
+use super::organization::{delete_folder_tree, folder_tree_document_urls};
 #[cfg(desktop)]
 use super::organization::{organize_folder_import, MAX_FOLDER_DEPTH};
 use super::pdf::import_pdf_source;
 use super::pipeline::{delete_upload, import_epub_source, import_html_source, import_text_source};
 use super::state::DocumentBatchControl;
 use super::storage::{release_source_access, upload_id_from_url};
-use super::store::list_uploads;
+use super::store::{list_uploads, open_db};
 use super::text::{decode_text_bytes, TextDocumentFormat};
 use super::types::{
     UploadedDocument, UploadedDocumentBatchFailure, UploadedDocumentBatchProgress,
     UploadedDocumentBatchResult, UploadedDocumentDeleteBatchFailure,
     UploadedDocumentDeleteBatchProgress, UploadedDocumentDeleteBatchRequest,
-    UploadedDocumentDeleteBatchResult, UploadedDocumentDeleteRequest, UploadedDocumentImportStage,
+    UploadedDocumentDeleteBatchResult, UploadedDocumentDeleteRequest, UploadedDocumentDeleteResult,
+    UploadedDocumentImportStage, UploadedLibraryDeleteFolderRequest,
 };
 
 pub(crate) const DOCUMENT_IMPORT_PROGRESS_EVENT: &str = "document-uploads-import-progress";
@@ -292,13 +294,51 @@ pub(crate) fn delete_batch<R: Runtime>(
         upload_id_from_url(document_url)?;
     }
 
-    let run = process_deletions(
+    let run = run_deletions(&app, document_urls);
+    Ok(finish_deletions(&app, run))
+}
+
+/// Permanently delete every document below a folder, then remove its metadata
+/// tree only when no document failed or appeared during the operation.
+pub(crate) fn delete_folder<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedLibraryDeleteFolderRequest,
+) -> Result<UploadedDocumentDeleteBatchResult, String> {
+    let db = open_db(&app)?;
+    let document_urls = folder_tree_document_urls(&db, &request.folder_id)?;
+    drop(db);
+    for document_url in &document_urls {
+        upload_id_from_url(document_url)?;
+    }
+
+    let run = run_deletions(&app, document_urls);
+    if run.failures.is_empty() {
+        let mut db = open_db(&app)?;
+        delete_folder_tree(&mut db, &request.folder_id)?;
+    }
+    Ok(finish_deletions(&app, run))
+}
+
+/// Reuse guarded single-document deletion while emitting the shared count
+/// progress consumed by selected-document and folder-tree deletion.
+fn run_deletions<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    document_urls: Vec<String>,
+) -> DeleteBatchRun<UploadedDocumentDeleteResult> {
+    process_deletions(
         document_urls,
-        |document_url| delete_upload(&app, UploadedDocumentDeleteRequest { document_url }),
+        |document_url| delete_upload(app, UploadedDocumentDeleteRequest { document_url }),
         |progress| {
             let _ = app.emit(DOCUMENT_DELETE_PROGRESS_EVENT, progress);
         },
-    );
+    )
+}
+
+/// Convert internal accounting into the IPC result and one terminal progress event.
+fn finish_deletions<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    run: DeleteBatchRun<UploadedDocumentDeleteResult>,
+) -> UploadedDocumentDeleteBatchResult {
     let bytes_freed = run.deleted.iter().map(|result| result.bytes_freed).sum();
     let _ = app.emit(
         DOCUMENT_DELETE_PROGRESS_EVENT,
@@ -312,13 +352,13 @@ pub(crate) fn delete_batch<R: Runtime>(
         },
     );
 
-    Ok(UploadedDocumentDeleteBatchResult {
+    UploadedDocumentDeleteBatchResult {
         selected: run.selected,
         processed: run.processed,
         deleted: run.deleted,
         failures: run.failures,
         bytes_freed,
-    })
+    }
 }
 
 /// Keep partial-result accounting independent from Tauri so one focused unit

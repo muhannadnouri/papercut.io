@@ -489,9 +489,9 @@ export async function renameUploadedLibraryFolder(folderId: string, name: string
   })
 }
 
-export async function deleteUploadedLibraryFolder(folderId: string): Promise<void> {
+export async function deleteUploadedLibraryFolder(folderId: string): Promise<UploadedDocumentDeleteBatchResult> {
   const invoke = await loadTauriInvoke()
-  await invoke<void>('document_uploads_delete_folder', {
+  return invoke<UploadedDocumentDeleteBatchResult>('document_uploads_delete_folder', {
     request: { folderId },
   })
 }

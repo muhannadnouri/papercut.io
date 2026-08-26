@@ -513,16 +513,12 @@ export function useUploadedLibrary() {
     }
   }, [])
 
-  /** Run one bounded native delete batch and refresh shared library state once,
-   * retaining partial failures for the selection UI to offer a retry. */
-  const deleteDocuments = useCallback(async (
-    documents: DocumentInfo[],
+  /** Keep document and recursive-folder deletion on one native progress and
+   * refresh lifecycle, including refresh after a command-level partial error. */
+  const runDeleteOperation = useCallback(async (
+    operation: () => Promise<UploadedDocumentDeleteBatchResult>,
   ): Promise<UploadedDocumentDeleteBatchResult | null> => {
-    const documentUrls = documents
-      .filter((doc) => doc.source === 'upload')
-      .map((doc) => doc.url)
-    if (documentUrls.length === 0 || operationInProgressRef.current) return null
-
+    if (operationInProgressRef.current) return null
     operationInProgressRef.current = true
     setDocumentImport({ status: 'deleting', format: 'delete-batch' })
     let unlisten: (() => void) | undefined
@@ -532,15 +528,22 @@ export function useUploadedLibrary() {
           ? { ...current, deleteProgress }
           : current)
       })
-      const deleteResult = await deleteUploadedDocuments(documentUrls)
-      if (deleteResult.deleted.length > 0) await refreshUploadedLibrary()
-      setDocumentImport({
-        status: deleteResult.failures.length > 0 ? 'error' : 'deleted',
-        format: 'delete-batch',
-        deleteResult,
-      })
+      const deleteResult = await operation()
+      await refreshUploadedLibrary()
+      setDocumentImport(deleteResult.selected === 0
+        ? { status: 'idle' }
+        : {
+            status: deleteResult.failures.length > 0 ? 'error' : 'deleted',
+            format: 'delete-batch',
+            deleteResult,
+          })
       return deleteResult
     } catch (err) {
+      try {
+        await refreshUploadedLibrary()
+      } catch {
+        // Preserve the original destructive-operation error for the user.
+      }
       setDocumentImport({
         status: 'error',
         format: 'delete-batch',
@@ -552,6 +555,18 @@ export function useUploadedLibrary() {
       operationInProgressRef.current = false
     }
   }, [refreshUploadedLibrary])
+
+  /** Run one bounded native delete batch and retain partial failures so the
+   * selection UI can offer a retry. */
+  const deleteDocuments = useCallback(async (
+    documents: DocumentInfo[],
+  ): Promise<UploadedDocumentDeleteBatchResult | null> => {
+    const documentUrls = documents
+      .filter((doc) => doc.source === 'upload')
+      .map((doc) => doc.url)
+    if (documentUrls.length === 0) return null
+    return runDeleteOperation(() => deleteUploadedDocuments(documentUrls))
+  }, [runDeleteOperation])
 
   /** Serialize folder/order writes with imports and deletion because all of them
    * refresh or mutate the same uploaded-library state. */
@@ -577,12 +592,9 @@ export function useUploadedLibrary() {
     })
   }, [runOrganizationMutation])
 
-  const deleteLibraryFolder = useCallback(async (folderId: string) => {
-    await runOrganizationMutation(async () => {
-      await deleteUploadedLibraryFolder(folderId)
-      setUploadedLibraryOrganization(await getUploadedLibraryOrganization())
-    })
-  }, [runOrganizationMutation])
+  const deleteLibraryFolder = useCallback((folderId: string) => (
+    runDeleteOperation(() => deleteUploadedLibraryFolder(folderId))
+  ), [runDeleteOperation])
 
   const moveLibraryDocuments = useCallback(async (documentIds: string[], folderId: string | null) => {
     await runOrganizationMutation(async () => {

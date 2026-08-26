@@ -344,7 +344,7 @@ pub(crate) struct UploadedLibraryRenameFolderRequest {
     pub(crate) name: String,
 }
 
-/// Request to delete an empty user-created library folder.
+/// Request to permanently delete one user-created library folder subtree.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedLibraryDeleteFolderRequest {

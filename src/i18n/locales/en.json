@@ -259,8 +259,7 @@
       "newSubfolder": "New Subfolder",
       "rename": "Rename",
       "deleteFolder": "Delete Folder",
-      "folderNotEmpty": "Folder Is Not Empty",
-      "moveContentsFirst": "Move contents out first.",
+      "deleteFolderContents": "Delete Folder and Contents",
       "moveDocuments": "Move Documents",
       "chooseDestination": "Choose Destination...",
       "folderSelected": "1 Folder Selected",
@@ -273,8 +272,6 @@
       "select": "Select {{title}}",
       "selectAllIn": "Select all in {{title}}",
       "filterBy": "Filter by {{title}}",
-      "selectOneFolder": "Select one folder to delete.",
-      "moveOrRemoveContents": "Move or remove contents before deleting.",
       "deleteSelectedFolder": "Delete selected folder."
     },
     "folderDialog": {
@@ -289,6 +286,12 @@
       "title": "Delete empty folder?",
       "description": "Documents inside folders are never deleted by this action.",
       "folder": "Folder"
+    },
+    "confirmDeleteFolderContents": {
+      "title": "Delete folder and contents?",
+      "description": "This permanently deletes every document and nested folder shown below from this device. This cannot be undone.",
+      "nestedFolders": "Nested folders",
+      "documents": "Documents"
     },
     "confirmDeleteDocument": {
       "title": "Delete uploaded document?",
@@ -307,6 +310,8 @@
       "description": "Delete the saved audiobook before removing this document.",
       "batchTitle": "Saved Audiobooks Use Selected Documents",
       "batchDescription": "One or more selected documents have saved audio. Delete their saved audiobooks before removing the documents.",
+      "folderTitle": "Saved Audiobooks Use Documents in This Folder",
+      "folderDescription": "One or more documents in this folder have saved audio. Delete their saved audiobooks before deleting the folder.",
       "viewAudiobooks": "View Audiobooks"
     }
   },

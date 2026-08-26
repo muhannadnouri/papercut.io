@@ -264,8 +264,7 @@
       "newSubfolder": "Nova subpasta",
       "rename": "Renomear",
       "deleteFolder": "Excluir pasta",
-      "folderNotEmpty": "A pasta não está vazia",
-      "moveContentsFirst": "Remova o conteúdo primeiro.",
+      "deleteFolderContents": "Excluir pasta e conteúdo",
       "moveDocuments": "Mover documentos",
       "chooseDestination": "Escolher destino...",
       "folderSelected": "1 pasta selecionada",
@@ -276,8 +275,6 @@
       "select": "Selecione {{title}}",
       "selectAllIn": "Selecione tudo em {{title}}",
       "filterBy": "Filtrar por {{title}}",
-      "selectOneFolder": "Selecione uma pasta para excluir.",
-      "moveOrRemoveContents": "Mova ou remova conteúdo antes de excluir.",
       "deleteSelectedFolder": "Exclua a pasta selecionada.",
       "selectedCount_one": "{{count, number}} selecionado",
       "selectedCount_many": "{{count, number}} selecionados",
@@ -296,6 +293,12 @@
       "description": "Os documentos dentro das pastas nunca são excluídos por esta ação.",
       "folder": "Pasta"
     },
+    "confirmDeleteFolderContents": {
+      "title": "Excluir a pasta e seu conteúdo?",
+      "description": "Isso exclui permanentemente deste dispositivo todos os documentos e pastas aninhadas mostrados abaixo. Esta ação não pode ser desfeita.",
+      "nestedFolders": "Pastas aninhadas",
+      "documents": "Documentos"
+    },
     "confirmDeleteDocument": {
       "title": "Excluir documento enviado?",
       "description": "Isso remove o documento deste dispositivo, dos resultados da pesquisa local e de qualquer organização de pastas em Papercut.",
@@ -313,6 +316,8 @@
       "description": "Exclua o audiolivro salvo antes de remover este documento.",
       "batchTitle": "Audiolivros salvos usam documentos selecionados",
       "batchDescription": "Um ou mais documentos selecionados têm áudio salvo. Exclua os audiolivros antes de remover os documentos.",
+      "folderTitle": "Audiolivros salvos usam documentos desta pasta",
+      "folderDescription": "Um ou mais documentos desta pasta têm áudio salvo. Exclua os audiolivros antes de excluir a pasta.",
       "viewAudiobooks": "Ver audiolivros"
     }
   },

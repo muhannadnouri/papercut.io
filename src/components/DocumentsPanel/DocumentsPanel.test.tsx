@@ -95,7 +95,7 @@ describe('document list filters', () => {
         onAudioSavedOnlyChange={() => undefined}
         onCreateLibraryFolder={() => undefined}
         onDeleteDocuments={async () => null}
-        onDeleteLibraryFolder={() => undefined}
+        onDeleteLibraryFolder={async () => null}
         onFilterChange={() => undefined}
         onMoveLibraryDocuments={() => undefined}
         onRenameLibraryFolder={() => undefined}
