@@ -6,6 +6,7 @@ import { previewNativeTtsVoice } from '../api/nativeTts'
 import { getTtsPreviewText } from '../models'
 import { nativeTtsErrorMessage } from '../utils/errors'
 import {
+  DEFAULT_SILMA_NFE_STEP,
   LIBTASHKEEL_TEXT_PREPROCESSOR,
   SILMA_NFE_STEP_OPTIONS,
   TEXT_PREPROCESSOR_NONE,
@@ -100,6 +101,7 @@ export function AudioSetupPanel({
   voices,
 }: AudioSetupPanelProps) {
   const { t } = useTranslation()
+  const advancedDetailsRef = useRef<HTMLDetailsElement | null>(null)
   const previewAudioRef = useRef<HTMLAudioElement | null>(null)
   const previewRequestRef = useRef(0)
   const previewUrlRef = useRef<string | null>(null)
@@ -163,6 +165,29 @@ export function AudioSetupPanel({
   const previewSelection = [modelId, voice, textPreprocessor, silmaNfeStep].join('\0')
   const previewStatus = previewState.selection === previewSelection ? previewState.status : 'idle'
   const previewErrorMessage = previewError?.selection === previewSelection ? previewError.message : null
+  // Keep active non-default behavior visible while Advanced is collapsed.
+  const advancedSummary = [
+    hasTextProcessing && textPreprocessor !== selectedModel?.defaultTextPreprocessor
+      ? localizeTextPreprocessor(
+          textPreprocessors.find((item) => item.id === textPreprocessor),
+          t,
+        ).name
+      : '',
+    threadCount !== defaultThreadCount
+      ? `${showHighThreadWarning ? '⚠ ' : ''}${t('tts.setup.threadCount', { count: threadCount })}`
+      : '',
+    debugEnabled ? `${t('tts.setup.diagnostics')}: ${t('tts.setup.on')}` : '',
+    isSilmaModel && silmaNfeStep !== DEFAULT_SILMA_NFE_STEP
+      ? silmaNfeStepLabel(silmaNfeStep, t)
+      : '',
+  ].filter(Boolean).join(' · ')
+
+  useEffect(() => {
+    if (showHighThreadWarning && advancedDetailsRef.current) {
+      advancedDetailsRef.current.open = true
+    }
+  }, [showHighThreadWarning])
+
   const clearPreviewAudio = useCallback(() => {
     previewRequestRef.current += 1
     previewAudioRef.current?.pause()
@@ -380,105 +405,110 @@ export function AudioSetupPanel({
         </div>
       </section>
 
-      <section className="audio-setup-group audio-setup-advanced" aria-label={t('tts.setup.advancedSettings')}>
-        <div className="audio-setup-group-heading">
-          <h4 className="audio-setup-group-title">{t('tts.setup.advanced')}</h4>
-        </div>
-        {hasTextProcessing && (
-          <SelectField
-            className="audio-field-text-processing"
-            label={'✨ ' + t('tts.setup.textProcessing')}
-            title={t('tts.setup.textProcessingTitle')}
-            value={textPreprocessor}
-            options={textPreprocessors.map((item) => ({
-              label: localizeTextPreprocessor(item, t).name,
-              value: item.id,
-            }))}
-            onChange={onTextPreprocessorChange}
-          >
-            <span className="audio-thread-meta">
-              {localizeTextPreprocessor(
-                textPreprocessors.find((item) => item.id === textPreprocessor),
-                t,
-              ).description}
-            </span>
-          </SelectField>
-        )}
-        <SelectField
-          className="audio-field-threads"
-          label={'🧵 ' + t('tts.setup.threads')}
-          selectClassName="tts-threads"
-          title={t('tts.setup.threadsTitle')}
-          value={threadCount}
-          options={threadOptions.map((count) => ({
-            label: t('tts.setup.threadCount', { count }),
-            value: count,
-          }))}
-          onChange={(value) => onThreadCountChange(Number(value))}
-        >
-          <span className="audio-thread-meta">
-            {appliedThreadCount !== null
-              ? t('tts.setup.threadSummaryApplied', {
-                  default: defaultThreadCount,
-                  max: maxThreadCount,
-                  applied: appliedThreadCount,
-                })
-              : t('tts.setup.threadSummary', {
-                  default: defaultThreadCount,
-                  max: maxThreadCount,
-                })}
-          </span>
-          {showHighThreadWarning && (
-            <span className="audio-thread-warning" role="alert">
-              {t('tts.setup.threadWarning')}
-            </span>
+      <details ref={advancedDetailsRef} className="audio-setup-group audio-setup-advanced">
+        <summary className="audio-setup-advanced-summary">
+          <span className="audio-setup-group-title">{t('tts.setup.advanced')}</span>
+          {advancedSummary && (
+            <span className="audio-setup-advanced-state" dir="auto">{advancedSummary}</span>
           )}
-        </SelectField>
-        <label className="audio-field audio-field-diagnostics" title={t('tts.setup.diagnosticsTitle')}>
-          <span>{'🧪 ' + t('tts.setup.diagnostics')}</span>
-          <span className="audio-diagnostics-control">
-            <span className="audio-diagnostics-value">{debugEnabled ? t('tts.setup.on') : t('tts.setup.off')}</span>
-            <input
-              type="checkbox"
-              checked={debugEnabled}
-              onChange={(event) => onDiagnosticsChange?.(event.target.checked)}
-              disabled={!onDiagnosticsChange}
-            />
-            <span className="audio-diagnostics-switch" aria-hidden="true" />
-          </span>
-        </label>
-        {isSilmaModel && (
+        </summary>
+        <div className="audio-setup-advanced-grid">
+          {hasTextProcessing && (
+            <SelectField
+              className="audio-field-text-processing"
+              label={'✨ ' + t('tts.setup.textProcessing')}
+              title={t('tts.setup.textProcessingTitle')}
+              value={textPreprocessor}
+              options={textPreprocessors.map((item) => ({
+                label: localizeTextPreprocessor(item, t).name,
+                value: item.id,
+              }))}
+              onChange={onTextPreprocessorChange}
+            >
+              <span className="audio-thread-meta">
+                {localizeTextPreprocessor(
+                  textPreprocessors.find((item) => item.id === textPreprocessor),
+                  t,
+                ).description}
+              </span>
+            </SelectField>
+          )}
           <SelectField
-            className="audio-field-silma-quality"
-            label={'🎚️ ' + t('tts.setup.silmaQuality')}
-            title={t('tts.setup.silmaQualityTitle')}
-            value={silmaNfeStep}
-            options={SILMA_NFE_STEP_OPTIONS.map((step) => ({
-              label: silmaNfeStepLabel(step, t),
-              value: step,
+            className="audio-field-threads"
+            label={'🧵 ' + t('tts.setup.threads')}
+            selectClassName="tts-threads"
+            title={t('tts.setup.threadsTitle')}
+            value={threadCount}
+            options={threadOptions.map((count) => ({
+              label: t('tts.setup.threadCount', { count }),
+              value: count,
             }))}
-            onChange={(value) => onSilmaNfeStepChange(Number(value))}
+            onChange={(value) => onThreadCountChange(Number(value))}
           >
             <span className="audio-thread-meta">
-              {t('tts.setup.qualityHelp')}
+              {appliedThreadCount !== null
+                ? t('tts.setup.threadSummaryApplied', {
+                    default: defaultThreadCount,
+                    max: maxThreadCount,
+                    applied: appliedThreadCount,
+                  })
+                : t('tts.setup.threadSummary', {
+                    default: defaultThreadCount,
+                    max: maxThreadCount,
+                  })}
             </span>
+            {showHighThreadWarning && (
+              <span className="audio-thread-warning" role="alert">
+                {t('tts.setup.threadWarning')}
+              </span>
+            )}
           </SelectField>
-        )}
-        {isSilmaModel && onProbeSilmaSidecar && (
-          <div className="audio-field audio-field-silma-probe">
-            <span><span aria-hidden="true">🚗</span> {t('tts.setup.silmaSidecar')}</span>
-            <button
-              type="button"
-              className="audio-probe-button"
-              onClick={onProbeSilmaSidecar}
-              disabled={silmaProbeRunning}
-              title={t('tts.setup.probeTitle')}
+          <label className="audio-field audio-field-diagnostics" title={t('tts.setup.diagnosticsTitle')}>
+            <span>{'🧪 ' + t('tts.setup.diagnostics')}</span>
+            <span className="audio-diagnostics-control">
+              <span className="audio-diagnostics-value">{debugEnabled ? t('tts.setup.on') : t('tts.setup.off')}</span>
+              <input
+                type="checkbox"
+                checked={debugEnabled}
+                onChange={(event) => onDiagnosticsChange?.(event.target.checked)}
+                disabled={!onDiagnosticsChange}
+              />
+              <span className="audio-diagnostics-switch" aria-hidden="true" />
+            </span>
+          </label>
+          {isSilmaModel && (
+            <SelectField
+              className="audio-field-silma-quality"
+              label={'🎚️ ' + t('tts.setup.silmaQuality')}
+              title={t('tts.setup.silmaQualityTitle')}
+              value={silmaNfeStep}
+              options={SILMA_NFE_STEP_OPTIONS.map((step) => ({
+                label: silmaNfeStepLabel(step, t),
+                value: step,
+              }))}
+              onChange={(value) => onSilmaNfeStepChange(Number(value))}
             >
-              {silmaProbeRunning ? t('tts.setup.probing') : t('tts.setup.probeSidecar')}
-            </button>
-          </div>
-        )}
-      </section>
+              <span className="audio-thread-meta">
+                {t('tts.setup.qualityHelp')}
+              </span>
+            </SelectField>
+          )}
+          {isSilmaModel && onProbeSilmaSidecar && (
+            <div className="audio-field audio-field-silma-probe">
+              <span><span aria-hidden="true">🚗</span> {t('tts.setup.silmaSidecar')}</span>
+              <button
+                type="button"
+                className="audio-probe-button"
+                onClick={onProbeSilmaSidecar}
+                disabled={silmaProbeRunning}
+                title={t('tts.setup.probeTitle')}
+              >
+                {silmaProbeRunning ? t('tts.setup.probing') : t('tts.setup.probeSidecar')}
+              </button>
+            </div>
+          )}
+        </div>
+      </details>
     </div>
   )
 }
