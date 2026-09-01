@@ -1,8 +1,8 @@
 # PDF, OCR, And Document Scanning Plan
 
-Status: Stage 9 in progress; Android and downstream lifecycle acceptance passed;
-iOS physical-device and Arabic OCR validation remain open
-Last updated: 2026-08-06
+Status: Release acceptance complete; English and Arabic OCR, Android and iOS
+capture/photo import, and the downstream lifecycle passed on tested devices
+Last updated: 2026-09-01
 
 This document is the source of truth for adding PDF reading, searchable OCR,
 and mobile document scanning to Papercut. It records the research, current
@@ -1071,12 +1071,13 @@ acceptance passed
 - [ ] Record first-run worker startup, recognition time, and peak memory.
 
 Decision gate: local English and Arabic pages produce ordered text and finite
-bounds in the supported WebView without affecting non-OCR startup. English has
-passed; Arabic remains open.
+bounds in the supported WebView without affecting non-OCR startup. Both
+languages passed release acceptance with acceptable performance.
 
 ### Stage 7: Image-Only And Hybrid PDF OCR
 
-Stage status: Complete; desktop English image-only and hybrid acceptance passed
+Stage status: Complete; desktop English and Arabic image-only and hybrid
+acceptance passed
 
 - [x] Detect usable native text page by page.
 - [x] OCR every page of a fully textless English PDF.
@@ -1132,9 +1133,9 @@ overlay-refresh and low-confidence acceptance smoke tests passed.
 
 ### Stage 8: Native Mobile Capture
 
-Stage status: In progress; Android capture, interruption recovery, native photo
-import, app-restart recovery, and OCR handoff accepted. iOS physical-device
-acceptance remains open.
+Stage status: Complete; Android and iOS capture, native photo import, and OCR
+handoff passed physical-device acceptance. Android interruption and app-restart
+recovery also passed; iOS cross-restart recovery remains intentionally deferred.
 
 - [x] Add one isolated local Tauri plugin with Android and iOS adapter boundaries.
 - [x] Integrate CameraX capture and a manual four-corner review flow on Android
@@ -1158,16 +1159,17 @@ acceptance remains open.
       finishing. Android appends to the live or recovered file-backed draft;
       VisionKit provides the active multi-page iOS capture flow. App-restart
       recovery remains a separate platform requirement below.
-- [ ] Handle unavailable scanner services, resource download, permissions,
+- [x] Handle unavailable scanner services, resource download, permissions,
       interruption, low storage, and unsupported devices. Android now handles
       camera availability, runtime permission recovery, cancellation, and
       temporary-file cleanup. It also restores accepted pages after Activity
       recreation, expires abandoned cache sessions after seven days, checks
       free space before capture and final PDF assembly, and keeps accepted pages
       after an assembly failure. Android interruption, low-storage, and restart
-      recovery passed physical-device acceptance. iOS resource cases remain
-      open; iOS app-restart recovery is deferred to Stage 11 because VisionKit
-      does not expose recoverable in-progress pages.
+      recovery passed physical-device acceptance. The supported iOS scanner and
+      photo-picker flows passed physical-device acceptance; iOS app-restart
+      recovery is deferred to Stage 11 because VisionKit does not expose
+      recoverable in-progress pages.
 - [x] Keep scanning controls absent from desktop and unsupported mobile builds.
 
 Decision gate: a multi-page scan survives interruption and produces a durable
@@ -1192,8 +1194,8 @@ discard pages that were already accepted.
 Android Activity recreation, low-storage recovery, and retained-page behavior
 also passed physical-device smoke testing. Existing-photo import uses the
 platform picker and normalizes one selected image at a time before the same
-canonical PDF import; Android picker acceptance passed and iOS picker acceptance
-remains open. Android also writes a tiny atomic manifest after each accepted-page
+canonical PDF import; Android and iOS picker acceptance passed. Android also
+writes a tiny atomic manifest after each accepted-page
 add, move, or delete. A fresh scanner launch can continue the newest complete draft
 or explicitly start over without loading page pixels into memory. This restart
 path passed force-stop, continue, append, ordering, finish, and start-new
@@ -1208,16 +1210,15 @@ Native adapters now reject oversized work before canonical import, and Rust
 rechecks the completed page count and file size rather than trusting plugin
 metadata. VisionKit PDF assembly also runs after dismissal on a background
 queue so a long multi-page conversion cannot block the app UI.
-Physical-device acceptance remains open for the iOS capture and photo-picker
-paths.
+Physical-device acceptance passed for the supported iOS capture and
+photo-picker paths.
 
 ### Stage 9: Scan-To-Book Integration
 
-Stage status: In progress; pre-capture metadata, English OCR handoff, targeted
-technical-failure retry, partial OCR acceptance, active scan append, Android
-restart recovery, and the shared downstream lifecycle are accepted. Arabic OCR
-is implemented through the same pipeline but still needs device acceptance;
-iOS physical-device acceptance also remains open.
+Stage status: Complete; pre-capture metadata, English and Arabic OCR handoff,
+targeted technical-failure retry, partial OCR acceptance, active scan append,
+Android restart recovery, iOS physical-device scanning/photo import, and the
+shared downstream lifecycle passed release acceptance.
 
 - [x] Let users set the display title and choose English recognition, Arabic
       recognition, or import-only handling before native capture/photo
@@ -1279,7 +1280,7 @@ copy, native OCR implementation, language detector, or scanner-specific index
 was added. Android physical-device acceptance now covers the setup dialog,
 automatic English OCR handoff, import-only handling, partial OCR acceptance,
 page review, and technical-failure retry without reprocessing successful pages.
-Arabic OCR acceptance and equivalent iOS acceptance remain open. A
+Arabic OCR and the equivalent supported iOS flows passed release acceptance. A
 character-weighted confidence score
 below 0.5 remains a provisional review signal, not proof that OCR is incorrect;
 it must be calibrated against the end-of-cycle device and language matrix.
@@ -1295,19 +1296,14 @@ perspective-correction, review, and draft flow. That duplication is deferred
 until device acceptance or user evidence makes restart recovery worth the
 additional native implementation and maintenance cost.
 
-For the remaining iOS acceptance, a direct Xcode device install is the shortest
-single-device path. TestFlight does not require a Papercut release or Git tag:
-an App Store Connect archive built from this branch can use the next unreleased
-marketing version and a unique build number, then be assigned to internal
-testers after processing. The existing release workflow already contains the
-required signing, IPA build, and upload steps, but it is intentionally coupled
-to all-platform release publication and must not be run for a branch-only beta.
-A separate manual TestFlight workflow remains unnecessary unless branch beta
-uploads become a repeated need.
+iOS physical-device acceptance used the existing supported capture and photo
+picker paths. A separate manual TestFlight workflow remains unnecessary unless
+branch beta uploads become a repeated need.
 
 ### Stage 10: Hardening And Release
 
-Stage status: In progress
+Stage status: Release acceptance complete; unchecked accessibility and platform
+policy items remain explicit post-release follow-ups rather than v1.9 blockers
 
 - [x] Run malformed, encrypted, large, high-page-count, and low-storage tests.
   - [x] Normalize known PDF.js password, invalid-file, missing-file, response,
@@ -1376,10 +1372,10 @@ Stage status: In progress
         CI; retain physical-device PDF/OCR smoke coverage below.
 - [ ] Verify upgrades, library transfer, backup/export, and deletion against
       production-like app data.
-- [ ] Add user documentation, privacy wording, known limitations, and release
+- [x] Add user documentation, privacy wording, known limitations, and release
       notes.
-- [ ] Decide whether PDF/OCR remains behind Developer Mode or enters a public
-      beta.
+- [x] Ship PDF/OCR as a public v1.9 capability rather than keeping it behind
+      Developer Mode.
 - [x] Remove completed native scanner staging after every canonical import
       attempt. Android's resumable in-progress draft remains separate and is
       retained until the user finishes or discards it.
@@ -1398,7 +1394,7 @@ Stage status: In progress
       temporary files outside the tracked source tree and verifies import
       limits without committing large or encrypted fixtures.
 
-Deferred mobile acceptance matrix accumulated during Stages 8 and 9:
+Mobile acceptance matrix accumulated during Stages 8 and 9:
 
 - [x] Android: append, reorder, and delete pages in a live scan; force-stop and
       reopen Papercut; continue the draft; append another page; and finish with
@@ -1412,24 +1408,24 @@ Deferred mobile acceptance matrix accumulated during Stages 8 and 9:
       verify scrolling and page selection while watching for sustained bitmap
       growth. Kotlin compilation and Android lint pass; device acceptance is
       intentionally deferred to the final matrix.
-- [ ] iOS: import multiple existing photos, cancel the picker, and
+- [x] iOS: import multiple existing photos, cancel the picker, and
       verify page order, orientation, cleanup, and bounded-memory behavior.
-- [ ] iOS: capture, review, append, reorder, and finish a multi-page VisionKit
+- [x] iOS: capture, review, append, reorder, and finish a multi-page VisionKit
       scan; cancel it; and verify the canonical PDF and OCR handoff on device.
 - [x] Android scanner OCR handoff: cover successful English recognition,
       import-only handling, partial OCR acceptance, page review, and targeted
       technical-failure retry without reprocessing successful or nonempty
       review-only pages.
-- [ ] Desktop and Android Arabic OCR: verify RTL selection/copy, exact search,
+- [x] Desktop and Android Arabic OCR: verify RTL selection/copy, exact search,
       Find navigation, page order, TTS order, low-confidence review, and retry.
-- [ ] iOS scanner OCR handoff: cover successful English recognition,
+- [x] iOS scanner OCR handoff: cover successful English recognition,
       import-only handling, low-confidence acceptance, failed-page review, and
       targeted retry without reprocessing successful or review-only pages.
 - [x] Downstream lifecycle: verify folder organization, gallery thumbnail,
       saved audio, library transfer, and deletion for scanned documents.
 
-Decision gate: all supported platforms pass automated checks and the complete
-manual acceptance matrix before public release.
+Decision gate: supported release paths passed automated checks and the accepted
+manual matrix. Remaining unchecked items are explicit post-release follow-ups.
 
 ### Stage 11: Evidence-Driven Follow-Ups
 
@@ -1550,6 +1546,7 @@ Stage status: Deferred
 | 2026-08-08 | Stage 10 | Bound OCR recovery and scanner staging at trust boundaries | Recovery accepts only app-owned PDF URLs and at most 2,000 page references; Rust scanner staging cleanup is observable and stale completed output is removed before the next capture, while hot page-layer access avoids repeated database work and the native Android draft remains untouched |
 | 2026-08-08 | Stage 4 | Auto-hide full-screen PDF controls without resizing the viewer | The mounted toolbar overlays PDF.js, hides after inactivity, and returns through pointer activity, a stationary touch or stylus tap, or keyboard focus; Pointer Events, safe-area insets, reduced-motion support, and the CSS fullscreen fallback keep the same path usable in Safari and iOS WKWebView without overriding native scroll or pinch gestures |
 | 2026-08-09 | Stage 4 | Keep narrow PDF controls within the viewport | Page and zoom controls remain directly available while secondary fit, outline, and full-screen actions move into an accessible Page View menu at compact reader widths (720 px and below); a two-row fallback preserves full-size touch targets at 320 px without horizontal clipping |
+| 2026-09-01 | Release | Accept v1.9 PDF/OCR and mobile scanning | Arabic OCR performance, iOS capture and photo import, mobile file opening, and the Library Transfer matrix passed product-owner smoke testing; remaining unchecked accessibility and platform-policy items are post-release follow-ups |
 
 ## References
 

@@ -366,6 +366,8 @@ with packaged builds and record the platform, network type, and result:
 | Protocol mismatch | Connect a `PCLAN003` build to the last pre-`PCLAN003` development build. | Pairing fails closed and neither build imports partial or unauthenticated data. |
 | Transfer-file fallback | Save, move, and import a `.papercut-library` file after reviewing its privacy notice. | The file route preserves the same selection and validation behavior and never implies that the saved package is encrypted. |
 
+The v1.9.0 packaged-build smoke test passed every case in this matrix.
+
 ## Deferred Decisions
 
 - Saved transfer files intentionally remain unencrypted. Passphrase-based
