@@ -67,7 +67,7 @@ function ensurePatchelf() {
 }
 
 // Linux config always declares the shared-lib resource dir, even for static builds.
-function ensureLinuxSharedResourceDir() {
+export function ensureLinuxSharedResourceDir() {
   // Tauri validates configured resource paths before bundle hooks run, so the
   // gitignored directory must exist even when the selected link mode is static.
   mkdirSync(SHERPA_LINUX_SHARED_OUT_DIR, { recursive: true })
