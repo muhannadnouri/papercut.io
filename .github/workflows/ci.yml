@@ -349,6 +349,15 @@ jobs:
         if: matrix.platform == 'macos'
         run: node scripts/verify-macos-bundle-libs.js
 
+      - name: Upload AppImage artifact (Linux)
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v7
+        with:
+          name: papercut-linux-appimage
+          path: src-tauri/target/release/bundle/appimage/*.AppImage
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Upload .deb artifact (Linux)
         if: matrix.platform == 'linux'
         uses: actions/upload-artifact@v7

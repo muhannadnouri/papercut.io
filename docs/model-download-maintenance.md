@@ -32,9 +32,10 @@ Local validation on CachyOS passed all 173 native unit tests and the explicit
 archive smoke test for ten Sherpa entries (seven Kokoro languages, Supertonic
 English/Arabic, and Piper Kareem). All three unique upstream archives were
 freshly downloaded and verified. The monitor's regression check, workflow YAML,
-and shell syntax checks passed. The unpublished mirror returned the expected
-404; hosted workflow execution, notification delivery, and packaged-app checks
-remain activation steps below.
+and shell syntax checks passed. Hosted mirror preparation and the production
+full check subsequently passed on September 29, 2026. Notification delivery
+still needs maintainer confirmation, and packaged-app validation remains part
+of the application rollout below.
 
 ## Activate after committing
 
@@ -113,11 +114,49 @@ test requires real archives, leaves no installed models in the app profile,
 and removes its extracted working directory on success. On failure it retains
 that directory beside the archives for inspection.
 
+## Prepare and validate the application release
+
+The Kokoro mirror was published on September 29, 2026, and the hosted production
+`full` check passed. The application repair is prepared as **v1.9.1**; publishing
+the model artifact alone does not repair older installed applications.
+
+1. Commit the synchronized app versions, release notes, and CI artifact upload.
+   Open a PR and let its checks finish. For an explicit candidate run, use
+   **Actions → CI → Run workflow**, select the release-preparation branch, and
+   choose **validation_scope: full**. Record the tested commit SHA.
+2. Download the candidate artifacts from that CI run. Linux includes
+   `papercut-linux-appimage`; Windows includes MSI and NSIS installers; macOS
+   includes architecture-specific DMGs; Android includes the native-TTS APK.
+   CI's iOS job checks unsigned simulator/device builds, not a distributable IPA.
+3. On CachyOS, run the candidate AppImage using a separate OS account or test
+   profile with no installed voice models. Install Kokoro and generate audible
+   speech. Repeat for Supertonic and Piper on supported platforms. Interrupt one
+   download, retry it, and confirm installation and playback succeed. Preserve
+   your normal library and models rather than deleting them for this test.
+4. Test upgrading an existing installation: its library and installed voices
+   should remain usable without another model download. On Windows, test both
+   installers on a machine without development runtime libraries. Check launch,
+   model installation, and speech on the other supported platforms too. Unsigned
+   macOS CI artifacts do not validate release signing/notarization.
+5. After candidate checks pass and the PR is merged, tag the intended release
+   commit **v1.9.1** and push that tag. This triggers **Release**, which builds
+   signed Apple artifacts, uploads iOS to App Store Connect, and **automatically
+   publishes** the GitHub release after all platform jobs succeed. Approve the
+   protected Apple environment when requested. Do not use this workflow as a
+   draft-only rehearsal. Manual dispatch accepts an existing release tag.
+6. Verify the published installers and signed Apple builds, then direct affected
+   users to update Papercut and retry their model download. Confirm model-monitor
+   failure notifications reach the maintainer. If a published immutable app
+   release needs a repair, ship another patch version rather than replacing it.
+
+Local compilation and model synthesis checks do not replace these packaged-app
+tests. Record platform, artifact/commit, and results before declaring rollout
+complete.
+
 ## Next stage
 
-The next step is rollout: publish the mirror, verify notifications, run the full
-hosted check, and release and test the repair as described above. Create the PR
-for this stage before adding more download infrastructure.
+Finish the v1.9.1 candidate validation and rollout above before adding more
+download infrastructure.
 
 A later signed remote catalog would allow compatible download repairs without
 an app update. Defer that implementation until rollout is complete. It needs
