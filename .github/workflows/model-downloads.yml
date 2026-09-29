@@ -98,7 +98,8 @@ jobs:
 
   mirror-draft:
     needs: smoke
-    if: inputs.mode == 'prepare-mirror'
+    # metadata is intentionally skipped in prepare-mirror; bypass inherited skip status.
+    if: ${{ !cancelled() && needs.smoke.result == 'success' && inputs.mode == 'prepare-mirror' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
