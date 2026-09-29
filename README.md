@@ -240,6 +240,11 @@ Windows machine. A successful compile alone does not verify installer contents.
 
 `npm run desktop` uses the shared native TTS build to keep release compilation/linking memory lower. On Linux, the build copies the sherpa-onnx shared libraries into the Tauri resource directory before bundling, and the app binary includes an rpath to `/usr/lib/Papercut` so installed `.deb`, `.rpm`, and AppImage builds can find those libraries at launch. The AppImage also bundles the GStreamer media framework used by WebKitGTK for audiobook playback; local Linux builders therefore need the GStreamer base and good plugin packages listed above. If you specifically need a fully static native TTS build, use `npm run desktop:static`; that path can require substantially more RAM and may be killed by the OS on memory-constrained machines.
 
+Keep `icons/icon.png` (512px) first in `bundle.icon` in `src-tauri/tauri.conf.json`:
+Tauri selects the first PNG as the default Linux window icon. Smaller sizes
+remain listed for packaging. After changing icons, rebuild and relaunch the
+AppImage, then check KDE's Alt+Tab switcher at the intended display scaling.
+
 Install the generated Debian package with a dependency-aware command so WebKitGTK and GTK are installed if needed:
 
 ```bash
