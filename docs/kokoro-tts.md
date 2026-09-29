@@ -30,22 +30,17 @@ This keeps expensive inference and large WAV writes out of the WebView while pre
 
 The app does not package voice models into desktop installers or Android APKs. The model selector uses Rust capabilities as the authoritative catalog; a matching TypeScript fallback keeps startup and browser UI deterministic. Adding a model requires catalog metadata, required-file validation, and a sherpa family loader, not a parallel save/playback implementation.
 
-Pinned models:
+Pinned archives (exact sizes and SHA-256 values are in the [download manifest](../src-tauri/tts/model-manifest.json)):
 
-| Model | Family | Language | Archive bytes | SHA-256 |
-| --- | --- | --- | ---: | --- |
-| Kokoro English v1.0 | Kokoro | `en-US` | 349,418,188 | `c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046` |
-| Kokoro Mandarin v1.0 | Kokoro | `zh-CN` | 349,418,188 (shared) | `c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046` |
-| Kokoro Spanish v1.0 | Kokoro | `es-ES` | 349,418,188 (shared) | `c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046` |
-| Kokoro French v1.0 | Kokoro | `fr-FR` | 349,418,188 (shared) | `c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046` |
-| Kokoro Hindi v1.0 | Kokoro | `hi-IN` | 349,418,188 (shared) | `c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046` |
-| Kokoro Italian v1.0 | Kokoro | `it-IT` | 349,418,188 (shared) | `c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046` |
-| Kokoro Brazilian Portuguese v1.0 | Kokoro | `pt-BR` | 349,418,188 (shared) | `c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046` |
-| Piper Kareem Medium | VITS/Piper | `ar-JO` | 67,177,830 | `9ebbcea30e0fbd588f7b2cb45ee897d6aeb1bf5791cbc037a7b5a3f641e3dbce` |
-| Supertonic 3 English | SupertonicTTS | `en-US` | ~123,000,000 | `82fa96f91c4ef8abaae3a14a3f4153facf88bed821d1f7331cec2700f432c427` |
-| Supertonic 3 Arabic | SupertonicTTS | `ar` | ~123,000,000 | `82fa96f91c4ef8abaae3a14a3f4153facf88bed821d1f7331cec2700f432c427` |
+| Archive | Family | Supported app languages |
+| --- | --- | --- |
+| Kokoro multi-lang v1.0 | Kokoro | `en-US`, `zh-CN`, `es-ES`, `fr-FR`, `hi-IN`, `it-IT`, `pt-BR` |
+| Piper Kareem Medium | VITS/Piper | `ar-JO` |
+| Supertonic 3 int8 | SupertonicTTS | `en-US`, `ar` |
 
-These archives come from `https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models` and are listed in `src-tauri/tts/model-manifest.json`. Rust downloads into a temporary cache directory, verifies SHA-256, extracts, validates required files, and atomically promotes the selected model into `models/sherpa-onnx/<model-directory>/`. Incomplete installs are not used.
+Download metadata comes from `src-tauri/tts/model-manifest.json`, which `build.rs` compiles into the Rust catalog. Kokoro targets Papercut's immutable `tts-kokoro-v1.0-2026-09-08` model release, with the exact same upstream bytes as a fallback when the primary HTTP request fails. Piper and Supertonic still use the upstream `tts-models` release. Rust downloads into a temporary cache directory, verifies exact size and SHA-256, extracts, validates required files, and promotes the selected model into `models/sherpa-onnx/<model-directory>/`. Incomplete installs are not used. Existing complete models are reused.
+
+The replacement Kokoro archive has 54 voices; upstream appended `em_santa` at ID 53 while retaining IDs 0–52. Papercut's existing voice catalog is unchanged. See [model download maintenance](model-download-maintenance.md) for mirror publication, hourly metadata checks, daily native synthesis checks, alert activation, and the deferred signed-catalog work.
 
 SupertonicTTS 3 is exposed as two experimental catalog entries, English and Arabic, backed by one shared multilingual int8 archive. sherpa selects language through `GenerationConfig.extra["lang"]`, so Papercut keeps separate model IDs for cache identity while installing the same model directory. Treat Supertonic speed and quality as measured device behavior, not a guaranteed win over Piper or Kokoro; use TTS diagnostics to compare `realTimeFactor`, `synthesisMs`, and `preprocessMs` before changing defaults.
 
