@@ -143,6 +143,10 @@ Install [Android Studio](https://developer.android.com/studio) (recommended) or 
 sdkmanager "ndk;29.0.13846066"
 ```
 
+CI and release workflows explicitly pass `packages: platform-tools` to
+`android-actions/setup-android`. Its default also requests the obsolete `tools`
+package, which can fail SDK setup even after all licenses are accepted.
+
 **Install Rust Android targets** (one-time):
 
 ```bash
@@ -224,6 +228,15 @@ The built binary is output to `src-tauri/target/release/app` (`app.exe` on Windo
 - **Linux:** `.deb`, `.rpm`, and `.AppImage`
 - **Windows:** `.msi` (WiX) under `bundle/msi/` and `.exe` (NSIS) under `bundle/nsis/` when building on Windows
 - **macOS:** `.dmg` (and `.app`) under `bundle/dmg/` and `bundle/macos/` when building on macOS
+
+On Windows x64, the desktop build and dev helpers set `ORT_LIB_LOCATION` to
+Sherpa's shared runtime directory under `src-tauri/target/sherpa-onnx-prebuilt/`,
+preserving an explicit environment override. This prevents `ort-sys` from
+fetching a second ONNX Runtime from its old `parcel.pyke.io` URL. Sherpa's build
+script stages its DLLs beside `app.exe`; verify each installed MSI/NSIS build
+contains `onnxruntime.dll` and `sherpa-onnx-c-api.dll` beside the executable and
+can play a voice preview, including Arabic text preprocessing, on a clean
+Windows machine. A successful compile alone does not verify installer contents.
 
 `npm run desktop` uses the shared native TTS build to keep release compilation/linking memory lower. On Linux, the build copies the sherpa-onnx shared libraries into the Tauri resource directory before bundling, and the app binary includes an rpath to `/usr/lib/Papercut` so installed `.deb`, `.rpm`, and AppImage builds can find those libraries at launch. The AppImage also bundles the GStreamer media framework used by WebKitGTK for audiobook playback; local Linux builders therefore need the GStreamer base and good plugin packages listed above. If you specifically need a fully static native TTS build, use `npm run desktop:static`; that path can require substantially more RAM and may be killed by the OS on memory-constrained machines.
 
