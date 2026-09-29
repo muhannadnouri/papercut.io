@@ -1,0 +1,123 @@
+name: Model Downloads
+
+on:
+  schedule:
+    - cron: "23 * * * *"
+    - cron: "41 8 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Check metadata, run a fresh install, or prepare the Kokoro mirror draft"
+        required: true
+        default: full
+        type: choice
+        options: [metadata, full, prepare-mirror]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: model-downloads-${{ github.event.schedule || inputs.mode }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  # ponytail: monitor the current manifest; add supported-client versions with the remote catalog.
+  metadata:
+    if: inputs.mode != 'prepare-mirror'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - run: node --test scripts/check-model-downloads-selftest.js
+      - name: Check production asset identities and immutability
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/check-model-downloads.js
+
+  smoke:
+    needs: metadata
+    if: >-
+      always() && !cancelled() &&
+      (inputs.mode == 'prepare-mirror' ||
+       (needs.metadata.result == 'success' &&
+        (inputs.mode == 'full' || github.event.schedule == '41 8 * * *')))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v5
+        with:
+          path: src-tauri/target
+          key: model-smoke-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+      - name: Install native test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+          mkdir -p src-tauri/tts/runtime/linux-x64-shared-libs
+      - name: Download and verify fresh archives
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          args=(--download-dir "$RUNNER_TEMP/model-archives")
+          if [ "$MODE" = prepare-mirror ]; then
+            args+=(--upstream --family kokoro)
+          fi
+          node scripts/check-model-downloads.js "${args[@]}"
+      - name: Test the production verifier, extractor, voice mappings, and synthesis
+        env:
+          PAPERCUT_MODEL_ARCHIVE_DIR: ${{ runner.temp }}/model-archives
+          MODE: ${{ inputs.mode }}
+          ORT_LIB_LOCATION: ${{ github.workspace }}/src-tauri/target/sherpa-onnx-prebuilt/sherpa-onnx-v1.13.4-linux-x64-shared-lib/lib
+        run: |
+          if [ "$MODE" = prepare-mirror ]; then export PAPERCUT_SMOKE_KOKORO_ONLY=1; fi
+          cargo test --manifest-path src-tauri/Cargo.toml --locked --features native-tts-shared --lib
+          cargo test --manifest-path src-tauri/Cargo.toml --locked --features native-tts-shared --lib model_archive_smoke -- --ignored --nocapture
+      - name: Preserve validated Kokoro bytes for the draft release
+        if: inputs.mode == 'prepare-mirror'
+        uses: actions/upload-artifact@v7
+        with:
+          name: validated-kokoro
+          path: ${{ runner.temp }}/model-archives/kokoro-multi-lang-v1_0.tar.bz2
+          if-no-files-found: error
+          retention-days: 7
+
+  mirror-draft:
+    needs: smoke
+    if: inputs.mode == 'prepare-mirror'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v7
+        with:
+          name: validated-kokoro
+          path: model-assets
+      - name: Create a draft without replacing existing assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp src-tauri/tts/model-manifest.json model-assets/
+          (cd model-assets && sha256sum kokoro-multi-lang-v1_0.tar.bz2 > SHA256SUMS.txt)
+          url="$(jq -r '.archives[] | select(.family == "kokoro") | .url' src-tauri/tts/model-manifest.json)"
+          tag="$(basename "$(dirname "$url")")"
+          gh release create "$tag" model-assets/* --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --draft --latest=false --title "Kokoro v1.0 model artifact (2026-09-08)" \
+            --notes-file docs/kokoro-model-release.md

@@ -534,6 +534,94 @@ mod tests {
     use super::super::models::{model_definition, DEFAULT_MODEL_ID, KOKORO_ZH_MODEL_ID};
     use super::*;
 
+    /// Run explicitly after downloading archives with scripts/check-model-downloads.js.
+    #[test]
+    #[ignore = "requires real model archives; run by the model-download workflow"]
+    fn model_archive_smoke() {
+        use super::super::{
+            model::{extract_model_archive, verify_model_archive},
+            models::MODELS,
+        };
+        let archive_dir = std::path::PathBuf::from(
+            std::env::var_os("PAPERCUT_MODEL_ARCHIVE_DIR")
+                .expect("PAPERCUT_MODEL_ARCHIVE_DIR is required"),
+        );
+        let only_kokoro = std::env::var_os("PAPERCUT_SMOKE_KOKORO_ONLY").is_some();
+        let work = archive_dir.join(format!("smoke-{}", std::process::id()));
+        assert!(
+            !work.exists(),
+            "Smoke directory already exists: {}",
+            work.display()
+        );
+        fs::create_dir_all(&work).unwrap();
+        let mut extracted = std::collections::HashSet::new();
+        for model in MODELS
+            .iter()
+            .filter(|model| matches!(model.backend, TtsModelBackend::SherpaOnnx))
+        {
+            if only_kokoro && model.require_sherpa_family().unwrap() != SherpaModelFamily::Kokoro {
+                continue;
+            }
+            if extracted.insert(model.directory_name) {
+                let archive = archive_dir.join(format!("{}.tar.bz2", model.directory_name));
+                verify_model_archive(&archive, model).unwrap();
+                extract_model_archive(&archive, &work).unwrap();
+            }
+            let model_dir = work.join(model.directory_name);
+            assert!(
+                model.has_required_files(&model_dir),
+                "Missing files: {}",
+                model.id
+            );
+            let engine = SherpaTtsEngine {
+                tts: create_engine(model, &model_dir, 2).unwrap(),
+                model,
+                model_dir,
+                num_threads: 2,
+            };
+            for voice in model.voices {
+                assert!(
+                    voice.speaker_id >= 0 && voice.speaker_id < engine.tts.num_speakers(),
+                    "Invalid speaker: {}",
+                    voice.id
+                );
+            }
+            let text = match model.language {
+                "en-US" => "This is a short voice download test.",
+                "zh-CN" => "你好，这是语音测试。",
+                "es-ES" => "Hola, esta es una prueba de voz.",
+                "fr-FR" => "Bonjour, ceci est un test de voix.",
+                "hi-IN" => "नमस्ते, यह आवाज़ का परीक्षण है।",
+                "it-IT" => "Ciao, questa è una prova della voce.",
+                "pt-BR" => "Olá, este é um teste de voz.",
+                "ar" | "ar-JO" => "مرحبا هذا اختبار للصوت",
+                language => panic!("Add a smoke sample for {language}"),
+            };
+            let audio = generate_audio(&engine, text, model.default_voice, 1.0)
+                .unwrap()
+                .unwrap();
+            assert!(
+                audio.sample_rate() > 0 && audio.samples().len() > audio.sample_rate() as usize / 4
+            );
+            assert!(audio.samples().iter().all(|sample| sample.is_finite()));
+            assert!(
+                audio.samples().iter().any(|sample| sample.abs() > 0.001),
+                "Silent audio: {}",
+                model.id
+            );
+            let wav = work.join(format!("{}.wav", model.id.replace('/', "-")));
+            assert!(audio.save(wav.to_str().unwrap()));
+            assert!(super::super::cache::wav_info(&wav).is_some());
+            println!(
+                "PASS {}: {} speakers, {} samples",
+                model.id,
+                engine.tts.num_speakers(),
+                audio.samples().len()
+            );
+        }
+        fs::remove_dir_all(work).unwrap();
+    }
+
     #[test]
     fn only_english_models_normalize_text() {
         assert!(model_definition(DEFAULT_MODEL_ID)

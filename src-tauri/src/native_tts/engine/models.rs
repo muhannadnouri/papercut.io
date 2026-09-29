@@ -53,6 +53,17 @@ pub(super) struct VoiceDefinition {
 }
 
 #[derive(Clone, Copy, Debug)]
+/// Exact archive identity, with an optional mirror of the same bytes.
+pub(super) struct ModelDownload {
+    pub(super) url: &'static str,
+    pub(super) sha256: &'static str,
+    pub(super) bytes: u64,
+    pub(super) fallback_url: Option<&'static str>,
+}
+
+include!(concat!(env!("OUT_DIR"), "/model_downloads.rs"));
+
+#[derive(Clone, Copy, Debug)]
 /// Complete source, validation, loading, voice, and preprocessing contract for a model.
 pub(super) struct ModelDefinition {
     pub(super) id: &'static str,
@@ -65,9 +76,7 @@ pub(super) struct ModelDefinition {
     pub(super) language_label: &'static str,
     pub(super) supertonic_lang: Option<&'static str>,
     pub(super) source_label: &'static str,
-    pub(super) source_url: &'static str,
-    pub(super) sha256: &'static str,
-    pub(super) archive_bytes: u64,
+    pub(super) download: ModelDownload,
     pub(super) model_file: &'static str,
     pub(super) required_files: &'static [&'static str],
     pub(super) default_voice: &'static str,
@@ -581,9 +590,7 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         language_label: "English",
         supertonic_lang: None,
         source_label: "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
-        source_url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
-        sha256: "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
-        archive_bytes: 349_418_188,
+        download: KOKORO_MULTI_LANG_V1_0,
         model_file: "model.onnx",
         required_files: KOKORO_REQUIRED_FILES,
         default_voice: "af_heart",
@@ -602,9 +609,7 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         language_label: "Chinese (Mandarin)",
         supertonic_lang: None,
         source_label: "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
-        source_url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
-        sha256: "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
-        archive_bytes: 349_418_188,
+        download: KOKORO_MULTI_LANG_V1_0,
         model_file: "model.onnx",
         required_files: KOKORO_ZH_REQUIRED_FILES,
         default_voice: "zf_xiaobei",
@@ -623,9 +628,7 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         language_label: "Spanish",
         supertonic_lang: None,
         source_label: "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
-        source_url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
-        sha256: "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
-        archive_bytes: 349_418_188,
+        download: KOKORO_MULTI_LANG_V1_0,
         model_file: "model.onnx",
         required_files: KOKORO_ESPEAK_REQUIRED_FILES,
         default_voice: "ef_dora",
@@ -644,9 +647,7 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         language_label: "French",
         supertonic_lang: None,
         source_label: "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
-        source_url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
-        sha256: "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
-        archive_bytes: 349_418_188,
+        download: KOKORO_MULTI_LANG_V1_0,
         model_file: "model.onnx",
         required_files: KOKORO_ESPEAK_REQUIRED_FILES,
         default_voice: "ff_siwis",
@@ -665,9 +666,7 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         language_label: "Hindi",
         supertonic_lang: None,
         source_label: "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
-        source_url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
-        sha256: "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
-        archive_bytes: 349_418_188,
+        download: KOKORO_MULTI_LANG_V1_0,
         model_file: "model.onnx",
         required_files: KOKORO_ESPEAK_REQUIRED_FILES,
         default_voice: "hf_alpha",
@@ -686,9 +685,7 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         language_label: "Italian",
         supertonic_lang: None,
         source_label: "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
-        source_url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
-        sha256: "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
-        archive_bytes: 349_418_188,
+        download: KOKORO_MULTI_LANG_V1_0,
         model_file: "model.onnx",
         required_files: KOKORO_ESPEAK_REQUIRED_FILES,
         default_voice: "if_sara",
@@ -707,9 +704,7 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         language_label: "Portuguese (Brazil)",
         supertonic_lang: None,
         source_label: "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
-        source_url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
-        sha256: "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
-        archive_bytes: 349_418_188,
+        download: KOKORO_MULTI_LANG_V1_0,
         model_file: "model.onnx",
         required_files: KOKORO_ESPEAK_REQUIRED_FILES,
         default_voice: "pf_dora",
@@ -728,9 +723,7 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         language_label: "English",
         supertonic_lang: Some("en"),
         source_label: "k2-fsa/sherpa-onnx SupertonicTTS 3 int8",
-        source_url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/sherpa-onnx-supertonic-3-tts-int8-2026-05-11.tar.bz2",
-        sha256: "82fa96f91c4ef8abaae3a14a3f4153facf88bed821d1f7331cec2700f432c427",
-        archive_bytes: 123_000_000,
+        download: SHERPA_ONNX_SUPERTONIC_3_TTS_INT8_2026_05_11,
         model_file: "vocoder.int8.onnx",
         required_files: SUPERTONIC_REQUIRED_FILES,
         default_voice: "speaker_6",
@@ -749,9 +742,7 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         language_label: "Arabic",
         supertonic_lang: Some("ar"),
         source_label: "k2-fsa/sherpa-onnx SupertonicTTS 3 int8",
-        source_url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/sherpa-onnx-supertonic-3-tts-int8-2026-05-11.tar.bz2",
-        sha256: "82fa96f91c4ef8abaae3a14a3f4153facf88bed821d1f7331cec2700f432c427",
-        archive_bytes: 123_000_000,
+        download: SHERPA_ONNX_SUPERTONIC_3_TTS_INT8_2026_05_11,
         model_file: "vocoder.int8.onnx",
         required_files: SUPERTONIC_REQUIRED_FILES,
         default_voice: "speaker_6",
@@ -770,9 +761,7 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         language_label: "Arabic (Jordan)",
         supertonic_lang: None,
         source_label: "k2-fsa/sherpa-onnx Piper ar_JO Kareem medium",
-        source_url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-ar_JO-kareem-medium.tar.bz2",
-        sha256: "9ebbcea30e0fbd588f7b2cb45ee897d6aeb1bf5791cbc037a7b5a3f641e3dbce",
-        archive_bytes: 67_177_830,
+        download: VITS_PIPER_AR_JO_KAREEM_MEDIUM,
         model_file: "ar_JO-kareem-medium.onnx",
         required_files: PIPER_REQUIRED_FILES,
         default_voice: "kareem",
@@ -791,9 +780,12 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         language_label: "Arabic",
         supertonic_lang: None,
         source_label: "silma-ai/silma-tts",
-        source_url: "https://huggingface.co/silma-ai/silma-tts",
-        sha256: "",
-        archive_bytes: 2_603_245_629,
+        download: ModelDownload {
+            url: "https://huggingface.co/silma-ai/silma-tts",
+            sha256: "",
+            bytes: 2_603_245_629,
+            fallback_url: None,
+        },
         model_file: "model.pt",
         required_files: SILMA_REQUIRED_FILES,
         default_voice: "silma-ar-default",
@@ -861,8 +853,8 @@ mod tests {
         let english = model_definition(DEFAULT_MODEL_ID).unwrap();
         let mandarin = model_definition(KOKORO_ZH_MODEL_ID).unwrap();
         assert_eq!(mandarin.directory_name, english.directory_name);
-        assert_eq!(mandarin.source_url, english.source_url);
-        assert_eq!(mandarin.sha256, english.sha256);
+        assert_eq!(mandarin.download.url, english.download.url);
+        assert_eq!(mandarin.download.sha256, english.download.sha256);
         assert_eq!(mandarin.speaker_id("zf_xiaobei").unwrap(), 45);
         assert_eq!(mandarin.speaker_id("zm_yunyang").unwrap(), 52);
         assert_eq!(mandarin.voices.len(), 8);
@@ -882,8 +874,8 @@ mod tests {
         for (model_id, voice_id, speaker_id) in cases {
             let model = model_definition(model_id).unwrap();
             assert_eq!(model.directory_name, english.directory_name);
-            assert_eq!(model.source_url, english.source_url);
-            assert_eq!(model.sha256, english.sha256);
+            assert_eq!(model.download.url, english.download.url);
+            assert_eq!(model.download.sha256, english.download.sha256);
             assert_eq!(model.speaker_id(voice_id).unwrap(), speaker_id);
             assert!(!model.english_text_normalization());
         }
@@ -932,9 +924,12 @@ mod tests {
             language_label: "Arabic",
             supertonic_lang: None,
             source_label: "SILMA smoke",
-            source_url: "",
-            sha256: "",
-            archive_bytes: 0,
+            download: ModelDownload {
+                url: "",
+                sha256: "",
+                bytes: 0,
+                fallback_url: None,
+            },
             model_file: "model.pt",
             required_files: &["model.pt"],
             default_voice: "silma-ar-default",

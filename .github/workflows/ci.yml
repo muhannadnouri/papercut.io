@@ -216,6 +216,9 @@ jobs:
       - name: Frontend tests
         run: npm test
 
+      - name: Model download monitor regression check
+        run: node --test scripts/check-model-downloads-selftest.js
+
       - name: Build frontend + Pagefind index
         run: npm run build
 
@@ -397,6 +400,8 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Install Android NDK
         run: sdkmanager "ndk;29.0.13846066"

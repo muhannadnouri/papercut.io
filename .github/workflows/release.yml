@@ -23,7 +23,24 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  model-assets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Require published, checksum-matching model assets
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/check-model-downloads.js
+
   build-desktop:
+    needs: model-assets
     strategy:
       fail-fast: false
       matrix:
@@ -113,6 +130,7 @@ jobs:
           retention-days: 14
 
   build-macos:
+    needs: model-assets
     environment: apple-release
     strategy:
       fail-fast: false
@@ -239,6 +257,7 @@ jobs:
           retention-days: 14
 
   build-android:
+    needs: model-assets
     runs-on: ubuntu-24.04
 
     steps:
@@ -255,6 +274,8 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Install Android NDK
         run: sdkmanager "ndk;29.0.13846066"
@@ -299,6 +320,7 @@ jobs:
           retention-days: 14
 
   build-ios:
+    needs: model-assets
     environment: apple-release
     runs-on: macos-26
 
@@ -540,6 +562,10 @@ jobs:
           fi
 
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            if [ "$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '.immutable')" = true ]; then
+              echo "Cannot replace an immutable release. Publish a new app version instead." >&2
+              exit 1
+            fi
             gh release upload "$RELEASE_TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
             gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$release_notes"
           else
