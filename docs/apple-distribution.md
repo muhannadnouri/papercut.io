@@ -411,6 +411,37 @@ Regular PR CI now includes a `build-ios` job on `macos-26`, with an explicit iOS
 
 This catches broken iOS project files, Rust/Tauri iOS simulator compile failures, iPhoneOS device link failures, missing frontend assets, Swift toolchain/Xcode integration issues, and stale SDK runners before release. It does not replace the protected signed release job, because App Store provisioning and upload require secrets from the `apple-release` environment.
 
+### App Store Connect upload warnings (v1.9.2)
+
+The v1.9.1 upload succeeded with ITMS-90068 (iOS 14 deployment target) and
+ITMS-90737 (missing document configuration). These settings are embedded in the
+binary; editing the App Store Connect listing cannot fix them.
+
+Starting with v1.9.2, the minimum iOS version is 15.0 in `tauri.ios.conf.json`,
+the committed Xcode project, `project.yml`, and the Podfile. Keep them in sync.
+This drops installation support for iOS 14. The SDK used to build is a separate
+requirement from the deployment target.
+
+`Info.ios.plist` and the committed Apple project explicitly set
+`LSSupportsOpeningDocumentsInPlace` to false: Papercut imports documents into
+its own library rather than maintaining the original provider document in
+place. Do not enable `UISupportsDocumentBrowser` just to silence the warning.
+The release workflow checks the final signed IPA's configuration before upload.
+
+Before tagging v1.9.2, run **CI → validation_scope: mobile** on the candidate
+branch (or use the equivalent PR checks). Test Files/iCloud imports on iOS,
+including a cold launch through Open With, and confirm imported documents remain
+readable after relaunch and the originals are unchanged. The signed release
+workflow requires macOS; Linux configuration checks cannot validate the IPA.
+
+After merging and tagging the new patch, approve the Apple release environment.
+In **App Store Connect → Papercut Offline**, confirm that the new build finishes
+processing, check for upload warnings, test it through TestFlight, and select it
+for the intended App Store submission. Resolve any portal-required submission
+fields there. An upload is not App Store publication. Do not rerun or replace
+the published immutable v1.9.1 release. Keep website downloads on the published
+version until v1.9.2 is actually available.
+
 ### 5. Add release CI job
 
 The release workflow now has a `build-ios` job on `macos-26`, with an explicit iOS SDK 26+ guard before App Store upload:

@@ -485,7 +485,7 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
 
-      - name: Verify iOS IPA signature
+      - name: Verify iOS IPA signature and configuration
         run: |
           ipa_path="$(find src-tauri/gen/apple/build/arm64 -name '*.ipa' -print -quit)"
           if [ -z "$ipa_path" ]; then
@@ -502,6 +502,15 @@ jobs:
             exit 1
           fi
           codesign --verify --deep --strict --verbose=2 "$app_path"
+          python3 - "$app_path/Info.plist" <<'PY'
+          import json, plistlib, sys
+          with open(sys.argv[1], 'rb') as f:
+              info = plistlib.load(f)
+          with open('src-tauri/tauri.ios.conf.json') as f:
+              target = json.load(f)['bundle']['iOS']['minimumSystemVersion']
+          assert info.get('MinimumOSVersion') == target, 'IPA minimum iOS version differs from Tauri config'
+          assert info.get('LSSupportsOpeningDocumentsInPlace') is False, 'IPA must explicitly declare copy-based document imports'
+          PY
 
       - name: Upload iOS IPA artifact
         uses: actions/upload-artifact@v7

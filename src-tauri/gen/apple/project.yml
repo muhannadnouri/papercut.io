@@ -2,7 +2,7 @@ name: app
 options:
   bundleIdPrefix: io.papercut.app
   deploymentTarget:
-    iOS: 14.0
+    iOS: 15.0
 fileGroups: [../../src]
 configs:
   debug: debug
@@ -39,6 +39,7 @@ targets:
     info:
       path: app_iOS/Info.plist
       properties:
+        LSSupportsOpeningDocumentsInPlace: false
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
         UIRequiredDeviceCapabilities: [arm64, metal]
@@ -51,8 +52,8 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        CFBundleShortVersionString: 1.9.1
-        CFBundleVersion: "1.9.1"
+        CFBundleShortVersionString: 1.9.2
+        CFBundleVersion: "1.9.2"
         ITSAppUsesNonExemptEncryption: false
         NSCameraUsageDescription: Papercut uses the camera only when you choose to scan document pages.
         NSLocalNetworkUsageDescription: Papercut uses your local network only when you choose to transfer a library between nearby devices.

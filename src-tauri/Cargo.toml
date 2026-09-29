@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "1.9.1"
+version = "1.9.2"
 description = "Search, Read, & Listen Offline"
 authors = ["Muhannad"]
 license = "MIT"
