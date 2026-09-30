@@ -29,23 +29,7 @@ pub(super) struct ManifestItem {
     pub(super) media_type: String,
 }
 
-pub(super) fn is_supported_image_item(media_type: &str, href: &str) -> bool {
-    let href = href.to_ascii_lowercase();
-    matches!(
-        media_type,
-        "image/png" | "image/jpeg" | "image/jpg" | "image/gif" | "image/webp"
-    ) || href.ends_with(".png")
-        || href.ends_with(".jpg")
-        || href.ends_with(".jpeg")
-        || href.ends_with(".gif")
-        || href.ends_with(".webp")
-}
-
-/// Return the safe media type and fixed stored-cover name for an allowed image.
-///
-/// SVG is intentionally excluded: it can carry active content and is harder to
-/// sanitize correctly than the raster formats we need for current EPUB covers and
-/// illustrations.
+/// Return the media type and fixed cover name for a supported image format.
 fn image_format(media_type: &str, href: &str) -> Option<(&'static str, &'static str)> {
     let lower_href = href.to_ascii_lowercase();
     match media_type {
@@ -53,24 +37,28 @@ fn image_format(media_type: &str, href: &str) -> Option<(&'static str, &'static 
         "image/jpeg" | "image/jpg" => Some(("image/jpeg", "cover.jpg")),
         "image/gif" => Some(("image/gif", "cover.gif")),
         "image/webp" => Some(("image/webp", "cover.webp")),
+        "image/svg+xml" => Some(("image/svg+xml", "cover.svg")),
         _ if lower_href.ends_with(".png") => Some(("image/png", "cover.png")),
         _ if lower_href.ends_with(".jpg") || lower_href.ends_with(".jpeg") => {
             Some(("image/jpeg", "cover.jpg"))
         }
         _ if lower_href.ends_with(".gif") => Some(("image/gif", "cover.gif")),
         _ if lower_href.ends_with(".webp") => Some(("image/webp", "cover.webp")),
+        _ if lower_href.ends_with(".svg") => Some(("image/svg+xml", "cover.svg")),
         _ => None,
     }
 }
 
-/// Read a declared EPUB cover through the same raster allowlist and size cap used
-/// for reader images. Invalid, active, or oversized cover assets are simply absent.
+/// Read a declared raster cover; thumbnail generation does not decode SVG.
 pub(super) fn load_cover_asset<R: Read + std::io::Seek>(
     archive: &mut ZipArchive<R>,
     item: Option<&ManifestItem>,
 ) -> Option<LoadedCover> {
     let item = item?;
     let (media_type, file_name) = image_format(&item.media_type, &item.href)?;
+    if media_type == "image/svg+xml" {
+        return None;
+    }
     let bytes = read_zip_bytes_limited(archive, &item.href, MAX_IMAGE_BYTES)?;
     Some(LoadedCover {
         media_type,
@@ -100,7 +88,11 @@ fn read_zip_bytes_limited<R: Read + std::io::Seek>(
     (bytes.len() as u64 <= max_bytes).then_some(bytes)
 }
 
-/// Retain referenced local raster images under generated content-hash names.
+/// Retain referenced local images under generated content-hash names.
+///
+/// SVG stays external and is loaded only through an HTML img, whose image
+/// processing mode disables scripts and external resources. Never inline these
+/// bytes into the reader DOM or embed them as an object/frame.
 ///
 /// Reading HTML stores only those generated names. Per-file and aggregate caps
 /// bound hostile archives without letting unused manifest items crowd out images
@@ -115,9 +107,7 @@ pub(super) fn load_image_assets<R: Read + std::io::Seek>(
     let mut stored_names = HashSet::new();
     let mut total = 0u64;
     for item in manifest {
-        if !referenced_paths.contains(&item.href)
-            || !is_supported_image_item(&item.media_type, &item.href)
-        {
+        if !referenced_paths.contains(&item.href) {
             continue;
         }
         let Some((media_type, _)) = image_format(&item.media_type, &item.href) else {

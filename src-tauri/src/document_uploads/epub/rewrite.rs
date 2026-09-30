@@ -2,7 +2,7 @@
 //!
 //! Ammonia handles the security-oriented sanitizer pass. This module performs the
 //! EPUB-specific adaptation pass on the sanitized DOM: anchor prefixing,
-//! generated-reader hash links, and retained raster asset markers.
+//! generated-reader hash links, and retained image asset markers.
 
 use std::collections::{HashMap, HashSet};
 

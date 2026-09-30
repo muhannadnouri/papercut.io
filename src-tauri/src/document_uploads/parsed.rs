@@ -22,7 +22,7 @@ pub(crate) struct ParsedDocumentCover {
     pub(crate) bytes: Vec<u8>,
 }
 
-/// One generated-name raster resource owned by a sanitized reader document.
+/// One generated-name image resource owned by a sanitized reader document.
 pub(crate) struct ParsedDocumentAsset {
     pub(crate) file_name: String,
     pub(crate) bytes: Vec<u8>,
@@ -41,6 +41,7 @@ impl ParsedDocumentAsset {
             "image/jpeg" => "jpg",
             "image/gif" => "gif",
             "image/webp" => "webp",
+            "image/svg+xml" => "svg",
             _ => return None,
         };
         let digest = format!("{:x}", Sha256::digest(&bytes));
@@ -64,7 +65,7 @@ pub(crate) fn is_reader_asset_file_name(value: &str) -> bool {
         && digest
             .bytes()
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-        && matches!(extension, "png" | "jpg" | "gif" | "webp")
+        && matches!(extension, "png" | "jpg" | "gif" | "webp" | "svg")
 }
 
 /// One ordered readable section, optionally carrying the heading it falls under.
@@ -91,7 +92,12 @@ mod tests {
             "../image-{}.png",
             "a".repeat(64)
         )));
-        assert!(ParsedDocumentAsset::new("image/svg+xml", b"svg".to_vec()).is_none());
+        let svg = ParsedDocumentAsset::new("image/svg+xml", b"<svg/>".to_vec()).unwrap();
+        assert!(is_reader_asset_file_name(&svg.file_name));
+        assert!(svg.file_name.ends_with(".svg"));
+        assert!(!is_reader_asset_file_name(
+            &svg.file_name.replace(".svg", ".html")
+        ));
         assert!(ParsedDocumentAsset::new("image/png", Vec::new()).is_none());
     }
 }

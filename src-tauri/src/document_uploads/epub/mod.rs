@@ -614,7 +614,27 @@ mod tests {
         assert!(parsed.view_html.contains("alt=\"Photo-only section\""));
         assert!(!parsed.view_html.contains("OPS/text/chapter1.xhtml#start"));
         assert!(!parsed.view_html.contains("../images/cover.png"));
-        assert_eq!(parsed.assets.len(), 2);
+        assert_eq!(parsed.assets.len(), 3);
+        let svg = parsed
+            .assets
+            .iter()
+            .find(|asset| asset.file_name.ends_with(".svg"))
+            .unwrap();
+        assert_eq!(svg.bytes, SVG_FIXTURE);
+        assert_eq!(parsed.view_html.matches(&svg.file_name).count(), 2);
+        assert!(!parsed.view_html.contains("<svg"));
+        assert!(!parsed.view_html.contains("svg-script-sentinel"));
+        let sanitized = super::super::html::sanitize_html(&parsed.view_html);
+        assert_eq!(sanitized.matches(&svg.file_name).count(), 2);
+        let mut archive = ZipArchive::new(Cursor::new(&bytes)).unwrap();
+        assert!(load_cover_asset(
+            &mut archive,
+            Some(&ManifestItem {
+                href: "OPS/images/diagram.svg".into(),
+                media_type: "image/svg+xml".into(),
+            }),
+        )
+        .is_none());
         assert!(parsed
             .assets
             .iter()
@@ -767,7 +787,36 @@ mod tests {
         archive
     }
 
-    /// Build a minimal nested-path EPUB fixture with a local manifest image.
+    #[test]
+    #[ignore = "requires the AI Agents in Depth sample EPUB at the repository root"]
+    fn ai_agents_sample_retains_all_external_illustrations() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../AI Agents in Depth - Design Principles and Engineering Practice.epub");
+        let parsed = parse_epub_document(&std::fs::read(path).unwrap(), "Sample").unwrap();
+        assert_eq!(parsed.assets.len(), 114);
+        assert_eq!(
+            parsed
+                .assets
+                .iter()
+                .filter(|asset| asset.file_name.ends_with(".svg"))
+                .count(),
+            112
+        );
+        assert_eq!(
+            parsed.view_html.matches("data-papercut-asset=").count(),
+            114
+        );
+        assert_eq!(parsed.view_html.matches("<img ").count(), 114);
+        assert!(!parsed.view_html.contains("<svg"));
+        let sanitized = super::super::html::sanitize_html(&parsed.view_html);
+        for asset in &parsed.assets {
+            assert!(sanitized.contains(&asset.file_name));
+        }
+    }
+
+    const SVG_FIXTURE: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50"><style>text{fill:red}</style><text x="5" y="25">Diagram</text><script>/*svg-script-sentinel*/</script></svg>"#;
+
+    /// Build a minimal nested-path EPUB fixture with local raster and SVG images.
     fn fixture_epub() -> Vec<u8> {
         let mut archive = Vec::new();
         {
@@ -788,7 +837,7 @@ mod tests {
             .unwrap();
             zip.start_file("OPS/text/chapter1.xhtml", deflated).unwrap();
             zip.write_all(
-                b"<html><body><h1 id='start'>Start</h1><p>First chapter.</p><img src='../images/cover.png' alt='Cover'/></body></html>",
+                b"<html><body><h1 id='start'>Start</h1><p>First chapter.</p><img src='../images/cover.png' alt='Cover'/><img src='../images/diagram.svg' alt='Diagram'/></body></html>",
             )
             .unwrap();
             zip.start_file("OPS/text/chapter2.xhtml", deflated).unwrap();
@@ -796,13 +845,15 @@ mod tests {
                 .unwrap();
             zip.start_file("OPS/text/photos.xhtml", deflated).unwrap();
             zip.write_all(
-                b"<html><body><img src='../images/photo.png' alt='Photo-only section'/></body></html>",
+                b"<html><body><img src='../images/photo.png' alt='Photo-only section'/><img src='../images/diagram.svg' alt='Diagram again'/></body></html>",
             )
             .unwrap();
             zip.start_file("OPS/images/cover.png", deflated).unwrap();
             zip.write_all(b"\x89PNG\r\n\x1a\nimage").unwrap();
             zip.start_file("OPS/images/photo.png", deflated).unwrap();
             zip.write_all(b"\x89PNG\r\n\x1a\nphoto").unwrap();
+            zip.start_file("OPS/images/diagram.svg", deflated).unwrap();
+            zip.write_all(SVG_FIXTURE).unwrap();
             zip.finish().unwrap();
         }
         archive
@@ -829,6 +880,6 @@ mod tests {
     }
 
     fn opf_xml() -> &'static str {
-        r#"<?xml version="1.0"?><package><metadata><title>Fixture</title></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml"/><item id="c1" href="text/chapter1.xhtml" media-type="application/xhtml+xml"/><item id="c2" href="text/chapter2.xhtml" media-type="application/xhtml+xml"/><item id="photos" href="text/photos.xhtml" media-type="application/xhtml+xml"/><item id="img" href="images/cover.png" media-type="image/png" properties="cover-image"/><item id="photo" href="images/photo.png" media-type="image/png"/></manifest><spine><itemref idref="nav"/><itemref idref="c1"/><itemref idref="c2"/><itemref idref="photos"/></spine></package>"#
+        r#"<?xml version="1.0"?><package><metadata><title>Fixture</title></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml"/><item id="c1" href="text/chapter1.xhtml" media-type="application/xhtml+xml"/><item id="c2" href="text/chapter2.xhtml" media-type="application/xhtml+xml"/><item id="photos" href="text/photos.xhtml" media-type="application/xhtml+xml"/><item id="img" href="images/cover.png" media-type="image/png" properties="cover-image"/><item id="photo" href="images/photo.png" media-type="image/png"/><item id="diagram" href="images/diagram.svg" media-type="image/svg+xml"/></manifest><spine><itemref idref="nav"/><itemref idref="c1"/><itemref idref="c2"/><itemref idref="photos"/></spine></package>"#
     }
 }

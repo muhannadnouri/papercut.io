@@ -347,7 +347,7 @@ export function resolveUploadedDocumentAssets(
   convertFileSrc: (path: string) => string,
 ): string {
   return source.html.replace(
-    /data-papercut-asset="(image-[a-f0-9]{64}\.(?:png|jpg|gif|webp))"/g,
+    /data-papercut-asset="(image-[a-f0-9]{64}\.(?:png|jpg|gif|webp|svg))"/g,
     (attribute, fileName: string) => {
       const path = source.assetPaths[fileName]
       if (!path) return attribute

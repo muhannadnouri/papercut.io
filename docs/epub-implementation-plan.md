@@ -43,9 +43,50 @@ field would duplicate state without improving navigation.
 
 ## Implemented MVP
 
-The MVP path is implemented with generated reading HTML, SQLite FTS indexing, Library import, existing TTS save/playback support, rewritten and target-validated internal EPUB links, retained safe local raster images, app-owned DOM reader link scrolling, section-ordinal search targets, structured import-stage feedback, and fixture coverage for TOC links, cross-chapter links, EPUB 2 footnotes/backlinks, image manifest assets, generated section extraction, sanitizer regressions, missing-fragment fallback, and empty-spine rejection. Reader images are stored as separate content-hashed files, resolved through Tauri's scoped asset protocol, and marked for lazy loading and asynchronous decoding so the continuous reading page does not decode every illustration at startup. Search targets reuse the section ordinal already stored in SQLite and a generated safe DOM marker, avoiding a locator column migration while remaining compatible with older imports.
+The MVP path is implemented with generated reading HTML, SQLite FTS indexing, Library import, existing TTS save/playback support, rewritten and target-validated internal EPUB links, retained local raster and external SVG images, app-owned DOM reader link scrolling, section-ordinal search targets, structured import-stage feedback, and fixture coverage for TOC links, cross-chapter links, EPUB 2 footnotes/backlinks, image manifest assets, generated section extraction, sanitizer regressions, missing-fragment fallback, and empty-spine rejection. Reader images are stored as separate content-hashed files, resolved through Tauri's scoped asset protocol, and marked for lazy loading and asynchronous decoding so the continuous reading page does not decode every illustration at startup. Search targets reuse the section ordinal already stored in SQLite and a generated safe DOM marker, avoiding a locator column migration while remaining compatible with older imports.
 
-The EPUB parser is split into focused ZIP/XML parsing, path, asset, DOM rewrite, and render helpers. It uses crate-backed percent/base64 decoding plus DOM-based fragment rewriting. Current EPUB image retention covers supported local raster images referenced by retained reader content, including image-only spine sections, under 5 MB per-image and 100 MB per-book limits. Older imports with inline raster data are upgraded non-destructively when opened. Newly imported EPUBs also resolve EPUB 3 `cover-image` properties and EPUB 2 `meta name="cover"` references, retain a declared raster cover under the existing 5 MB image cap, persist nullable cover media metadata, and generate a bounded gallery thumbnail. Existing imports remain valid without cover metadata; retained covers from earlier versions are thumbnailed lazily when first displayed.
+The EPUB parser is split into focused ZIP/XML parsing, path, asset, DOM rewrite, and render helpers. It uses crate-backed percent/base64 decoding plus DOM-based fragment rewriting. Current EPUB image retention covers supported local raster and external SVG images referenced by `img[src]` in retained reader content, including image-only spine sections, under 5 MB per-image and 100 MB per-book limits. Older imports with inline raster data are upgraded non-destructively when opened. Newly imported EPUBs also resolve EPUB 3 `cover-image` properties and EPUB 2 `meta name="cover"` references, retain a declared raster cover under the existing 5 MB image cap, persist nullable cover media metadata, and generate a bounded gallery thumbnail. Existing imports remain valid without cover metadata; retained covers from earlier versions are thumbnailed lazily when first displayed.
+
+## Image fidelity: staged repair
+
+Stage 1 retains external SVG illustrations through the existing content-hashed
+asset pipeline, including sanitization, scoped image URLs, and library transfer.
+SVG bytes are rendered only as external HTML `img` resources, never inserted into
+the reader DOM or embedded as an object/frame. This relies on the WebView's SVG
+image processing mode to disable scripts and external resource loading; it does
+not sanitize or flatten the SVG itself. Internal styles, text, and vector detail
+are preserved; SVGs requiring external fonts, styles, or nested files still need
+resource resolution in a later stage. Existing path validation, lazy loading, and 5 MB per-image / 100 MB
+per-book limits still apply. Gallery thumbnails remain raster-only. Transfer
+packages containing SVG assets require an updated recipient; older versions
+reject their unsupported asset names.
+
+The AI Agents in Depth sample contains 112 external SVG illustrations, two PNG
+illustrations, and a JPEG cover wrapped in inline SVG. Stage 1 retains all 114
+external illustrations on a fresh parse. The inline SVG cover page remains a
+separate follow-up. The sample is not committed; its optional regression check is:
+
+```sh
+cd src-tauri
+cargo test --lib ai_agents_sample_retains_all_external_illustrations -- --ignored
+```
+
+Local Linux WebKitGTK verification decoded all 114 sample illustrations as
+external images. A separate SVG probe decoded while its script, event handler,
+external stylesheet, and nested external image made no requests. This was an
+isolated rendering check, not an end-to-end Papercut import or a Windows/mobile
+WebView check; those platforms still need release validation.
+
+Next stages, in order:
+
+1. Preserve inline SVG image content before HTML sanitization, including the
+   sample's JPEG cover wrapper and its sizing semantics.
+2. Report omitted images and their reasons during import and in the reader;
+   distinguish readable text from complete visual content and show load failures.
+3. Reprocess an existing document from the selected original EPUB without deleting
+   its library identity or user state. Consider retaining original EPUBs for
+   future repairs. Currently identical uploads return the existing entry before
+   parsing, so upgrading or re-uploading alone does not restore missing images.
 
 ## Remaining Follow-Ups
 
@@ -131,8 +172,8 @@ Acceptance checks:
   Validate fragment targets against collected chapter anchors; if a fragment is
   missing but the target chapter exists, fall back to the chapter wrapper anchor.
 - Drop scripts, remote resources, inline event handlers, iframes, objects, and
-  unsafe URLs. Retain referenced local PNG, JPEG, GIF, and WebP manifest images
-  as content-hashed app-data assets within parser caps; skip SVG, CSS images,
+  unsafe URLs. Retain referenced local PNG, JPEG, GIF, WebP, and SVG manifest images
+  as content-hashed app-data assets within parser caps; skip inline SVG, CSS images,
   `srcset`, remote images, and oversized assets.
 - Retain supported image-only HTML spine sections; ignore unsupported non-HTML
   spine resources for the first pass.

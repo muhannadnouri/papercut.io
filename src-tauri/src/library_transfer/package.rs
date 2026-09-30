@@ -1030,39 +1030,47 @@ mod tests {
 
     #[test]
     fn package_v4_round_trips_epub_reader_images() {
-        let file_name = format!("image-{}.png", "b".repeat(64));
-        let source = format!("<p><img data-papercut-asset=\"{file_name}\"></p>").into_bytes();
-        let image = b"PNG fixture".to_vec();
-        let mut manifest = test_manifest(&source);
-        let document = &mut manifest.documents[0];
-        document.format = "epub".into();
-        document.assets.push(TransferDocumentAsset {
-            path: document_asset_path(&document.id, &file_name),
-            file_name,
-            bytes: image.len() as u64,
-            sha256: format!("{:x}", Sha256::digest(&image)),
-        });
-        let asset_path = document.assets[0].path.clone();
-        let mut bytes = Cursor::new(Vec::new());
+        for (extension, image) in [
+            ("png", b"PNG fixture".as_slice()),
+            (
+                "svg",
+                br#"<svg xmlns="http://www.w3.org/2000/svg"/>"#.as_slice(),
+            ),
+        ] {
+            let file_name = format!("image-{}.{extension}", "b".repeat(64));
+            let source = format!("<p><img data-papercut-asset=\"{file_name}\"></p>").into_bytes();
+            let image = image.to_vec();
+            let mut manifest = test_manifest(&source);
+            let document = &mut manifest.documents[0];
+            document.format = "epub".into();
+            document.assets.push(TransferDocumentAsset {
+                path: document_asset_path(&document.id, &file_name),
+                file_name,
+                bytes: image.len() as u64,
+                sha256: format!("{:x}", Sha256::digest(&image)),
+            });
+            let asset_path = document.assets[0].path.clone();
+            let mut bytes = Cursor::new(Vec::new());
 
-        write_package(&mut bytes, &manifest, |path| {
-            let payload = if path == asset_path.as_str() {
-                image.clone()
-            } else {
-                source.clone()
-            };
-            Ok(Box::new(Cursor::new(payload)))
-        })
-        .expect("write EPUB package");
-        bytes.set_position(0);
-        let mut archive = ZipArchive::new(bytes).expect("open EPUB package");
-        let restored = read_manifest(&mut archive).expect("read EPUB manifest");
+            write_package(&mut bytes, &manifest, |path| {
+                let payload = if path == asset_path.as_str() {
+                    image.clone()
+                } else {
+                    source.clone()
+                };
+                Ok(Box::new(Cursor::new(payload)))
+            })
+            .expect("write EPUB package");
+            bytes.set_position(0);
+            let mut archive = ZipArchive::new(bytes).expect("open EPUB package");
+            let restored = read_manifest(&mut archive).expect("read EPUB manifest");
 
-        assert_eq!(
-            read_document_asset(&mut archive, &restored.documents[0].assets[0])
-                .expect("read image"),
-            image
-        );
+            assert_eq!(
+                read_document_asset(&mut archive, &restored.documents[0].assets[0])
+                    .expect("read image"),
+                image
+            );
+        }
     }
 
     #[test]
