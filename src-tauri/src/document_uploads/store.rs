@@ -86,8 +86,12 @@ fn uploaded_document_from_row(row: &Row<'_>) -> rusqlite::Result<UploadedDocumen
 /// Idempotent: creates the storage dir, the metadata and section tables, and the
 /// FTS5 virtual table on every call so callers never depend on prior setup.
 pub(crate) fn open_db<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Connection, String> {
-    let root = uploads_root(app)?;
-    std::fs::create_dir_all(&root)
+    open_db_in(&uploads_root(app)?)
+}
+
+/// Use the same schema/migrations for app storage and isolated evaluation data.
+pub(super) fn open_db_in(root: &std::path::Path) -> Result<Connection, String> {
+    std::fs::create_dir_all(root)
         .map_err(|err| format!("Failed to create upload storage {}: {err}", root.display()))?;
     let mut db = Connection::open(root.join("search.sqlite3")).map_err(db_err)?;
     db.busy_timeout(Duration::from_secs(5)).map_err(db_err)?;

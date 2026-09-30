@@ -1,0 +1,138 @@
+{
+  "version": 1,
+  "documents": [
+    { "id": "a001", "title": "Environmental History", "sections": [
+      { "heading": "Automobile dependency", "text": "Private automobile dependency increases gasoline consumption and suburban pollution." },
+      { "heading": "Households", "text": "Households depend on gasoline for daily journeys." }
+    ] },
+    { "id": "a002", "title": "Kitchen notebook", "sections": [
+      { "heading": "Recipes", "text": "A passing mention of automobile alongside recipe observations." }
+    ] },
+    { "id": "a003", "title": "Environmental History Catalogue", "sections": [
+      { "heading": "Copied label", "text": "This entry is about apples and pears; its title was copied from an unrelated catalogue." }
+    ] },
+    { "id": "a004", "title": "Silver Compass", "sections": [
+      { "heading": "Bearings", "text": "The silver compass points north. The silver compass points north." },
+      { "heading": "Archive", "text": "A copper lantern illuminates the archive." }
+    ] },
+    { "id": "a005", "title": "Pocket instruments", "sections": [
+      { "heading": "Separated words", "text": "The silver pocket compass points north beside a lantern." }
+    ] },
+    { "id": "a006", "title": "Runner's compass", "sections": [
+      { "heading": "Running", "text": "The running compass points north." }
+    ] },
+    { "id": "a007", "title": "Distant route", "sections": [
+      { "heading": "The room", "text": "The copper lantern lights a room." },
+      { "heading": "The road", "text": "The compass marks the route." }
+    ] },
+    { "id": "a008", "title": "Typography", "sections": [
+      { "heading": "Copied format", "text": "The high- lights remain state-owned. The author’s well—being improved." }
+    ] },
+    { "id": "a009", "title": "Climate dossier", "sections": [
+      { "heading": "Environment", "text": "Environmental pollution damages air quality. Pollution affects air quality." }
+    ] },
+    { "id": "a00a", "title": "Transport analysis", "sections": [
+      { "heading": "Land use", "text": "Suburban development locked households into increasingly high levels of gasoline consumption." }
+    ] },
+    { "id": "a00b", "title": "الاقتصاد", "sections": [
+      { "heading": "الطاقة", "text": "يساهم إنتاج الطاقة في التنمية الاقتصادية. إنتاج الطاقة مهم." }
+    ] },
+    { "id": "a00c", "title": "نص مشكول", "sections": [
+      { "heading": "دراسة", "text": "يساهم إِنْتَاجُ الطَّاقَةِ في التنمية." }
+    ] },
+    { "id": "a00d", "title": "نص مطول", "sections": [
+      { "heading": "دراسة", "text": "تساهم الطـاقة في تحسين البيئة." }
+    ] },
+    { "id": "a00e", "title": "تهجئة الألف", "sections": [
+      { "heading": "الغذاء", "text": "انتاج الغذاء يدعم الزراعة." }
+    ] },
+    { "id": "a00f", "title": "Mixed-script field log", "sections": [
+      { "heading": "Codes", "text": "NASA سجل 2026 عن CO2 والطاقة. 😀 Archive marker astral." }
+    ] },
+    { "id": "a010", "title": "Orchard Almanac", "sections": [
+      { "heading": "Fruit", "text": "Orchard evidence passage. Orchard evidence returns." },
+      { "heading": "Appendix", "text": "Another orchard evidence passage." },
+      { "heading": "Chapter 03", "text": "Orchard evidence passage." },
+      { "heading": "Chapter 04", "text": "Orchard evidence passage." },
+      { "heading": "Chapter 05", "text": "Orchard evidence passage." },
+      { "heading": "Chapter 06", "text": "Orchard evidence passage." },
+      { "heading": "Chapter 07", "text": "Orchard evidence passage." },
+      { "heading": "Chapter 08", "text": "Orchard evidence passage." },
+      { "heading": "Chapter 09", "text": "Orchard evidence passage." },
+      { "heading": "Chapter 10", "text": "Orchard evidence passage." },
+      { "heading": "Chapter 11", "text": "Orchard evidence passage." },
+      { "heading": "Chapter 12", "text": "Orchard evidence passage." },
+      { "heading": "Chapter 13", "text": "Orchard evidence passage." },
+      { "heading": "Chapter 14", "text": "Orchard evidence passage." },
+      { "heading": "Chapter 15", "text": "Orchard evidence passage." },
+      { "heading": "Chapter 16", "text": "Orchard evidence passage." },
+      { "heading": "Chapter 17", "text": "Orchard evidence passage." },
+      { "heading": "Chapter 18", "text": "Orchard evidence passage." },
+      { "heading": "Chapter 19", "text": "Orchard evidence passage." },
+      { "heading": "Chapter 20", "text": "Orchard evidence passage." },
+      { "heading": "Chapter 21", "text": "Orchard evidence passage." },
+      { "heading": "Chapter 22", "text": "Orchard evidence passage." },
+      { "heading": "Chapter 23", "text": "Orchard evidence passage." },
+      { "heading": "Index", "text": "Last orchard evidence passage." }
+    ] },
+    { "id": "a011", "title": "Orchard Title Only", "sections": [
+      { "heading": "Fruit", "text": "Apples and pears grow here." },
+      { "heading": "Plums", "text": "This section contains no target term." }
+    ] },
+    { "id": "a012", "title": "Rare Names", "sections": [
+      { "heading": "Field notes", "text": "Zaynab examined the astrolabe in 1847. AB-123 remains an identifier." }
+    ] },
+    { "id": "a013", "title": "Navigation PDF", "format": "pdf", "sections": [
+      { "text": "First page introduction.", "pageIndex": 0 },
+      { "text": "The astrolabe reveals a silver compass.", "pageIndex": 6 }
+    ] },
+    { "id": "a014", "title": "Equal beacon", "importedAtMs": 100, "sections": [
+      { "heading": "Signal", "text": "Equal beacon evidence." }
+    ] },
+    { "id": "a015", "title": "Equal beacon", "importedAtMs": 200, "sections": [
+      { "heading": "Signal", "text": "Equal beacon evidence." }
+    ] },
+    { "id": "a016", "title": "Equal beacon", "importedAtMs": 200, "sections": [
+      { "heading": "Signal", "text": "Equal beacon evidence." }
+    ] },
+    { "id": "a017", "title": "Astrolabe Catalogue", "sections": [
+      { "heading": "Celestial instruments", "text": "Detailed instrument bearings and celestial measurements." }
+    ] },
+    { "id": "a018", "title": "دراسة عربية", "sections": [
+      { "heading": "الفصل الأول", "text": "البيئة تتغير." },
+      { "heading": "الفصل الثاني", "text": "التلوث يزداد." }
+    ] }
+  ],
+  "queries": [
+    { "id": "en-title", "mode": "all", "split": "dev", "language": "en", "category": "ranking", "query": "environmental history", "nativeQuery": "environmental history", "relevant": [{ "id": "a001", "grade": 2 }], "rationale": "Substantive history should beat a copied catalogue title." },
+    { "id": "en-heading", "mode": "all", "split": "dev", "language": "en", "category": "ranking", "query": "automobile dependency", "nativeQuery": "automobile dependency", "relevant": [{ "id": "a001", "grade": 2 }], "rationale": "Heading and body agree on the topic." },
+    { "id": "en-body", "mode": "all", "split": "dev", "language": "en", "category": "literal", "query": "gasoline consumption", "nativeQuery": "gasoline consumption", "relevant": [{ "id": "a001", "grade": 2 }, { "id": "a00a", "grade": 1 }], "rationale": "Both passages discuss gasoline use." },
+    { "id": "en-phrase", "mode": "all", "split": "dev", "language": "en", "category": "quote", "query": "\"silver compass\"", "nativeQuery": "", "phrases": ["silver compass"], "relevant": [{ "id": "a004", "grade": 2, "section": 0 }, { "id": "a013", "grade": 1, "section": 1 }], "exclude": ["a005"], "rationale": "An intervening word invalidates the quoted phrase." },
+    { "id": "en-mixed", "mode": "all", "split": "dev", "language": "en", "category": "cross-section", "query": "compass \"copper lantern\"", "nativeQuery": "compass", "phrases": ["copper lantern"], "relevant": [{ "id": "a004", "grade": 2 }, { "id": "a007", "grade": 2 }], "rationale": "Required word and phrase may live in separate sections." },
+    { "id": "en-two-quotes", "mode": "all", "split": "dev", "language": "en", "category": "quote", "query": "\"silver compass\" \"copper lantern\"", "nativeQuery": "", "phrases": ["silver compass", "copper lantern"], "relevant": [{ "id": "a004", "grade": 2 }], "exclude": ["a005", "a007"], "rationale": "Both source-verified phrases are mandatory." },
+    { "id": "en-stem", "mode": "all", "split": "dev", "language": "en", "category": "normalization", "query": "environment", "nativeQuery": "environment", "relevant": [{ "id": "a001", "grade": 1 }, { "id": "a009", "grade": 2 }], "rationale": "Porter can find environmental alongside environment." },
+    { "id": "en-stem-quote", "mode": "all", "split": "dev", "language": "en", "category": "quote", "query": "\"run compass\"", "nativeQuery": "", "phrases": ["run compass"], "relevant": [], "exclude": ["a006"], "rationale": "A Porter candidate is not a literal source phrase." },
+    { "id": "en-cross", "mode": "all", "split": "dev", "language": "en", "category": "cross-section", "query": "compass lantern", "nativeQuery": "compass lantern", "scope": ["a007"], "relevant": [{ "id": "a007", "grade": 2 }], "contract": { "matchScope": "document", "matchingSections": 2, "sectionIndex": 0 }, "rationale": "All words are required at document scope." },
+    { "id": "en-typo", "mode": "all", "split": "dev", "language": "en", "category": "typo-gap", "query": "enviroment", "nativeQuery": "enviroment", "scope": ["a009"], "relevant": [{ "id": "a009", "grade": 2 }], "rationale": "Misspelling currently has no correction." },
+    { "id": "en-concept", "mode": "all", "split": "dev", "language": "en", "category": "concept-gap", "query": "private automobile consequences", "nativeQuery": "private automobile consequences", "scope": ["a00a"], "relevant": [{ "id": "a00a", "grade": 2 }], "rationale": "Relevant passage has no complete lexical overlap." },
+    { "id": "en-hyphen", "mode": "all", "split": "dev", "language": "en", "category": "normalization", "query": "high—lights", "nativeQuery": "high—lights", "scope": ["a008"], "relevant": [{ "id": "a008", "grade": 2 }], "rationale": "PDF line-break hyphen and dash aliases." },
+    { "id": "en-curly-phrase", "mode": "all", "split": "dev", "language": "en", "category": "quote", "query": "“author’s well—being”", "nativeQuery": "", "phrases": ["author's well-being"], "scope": ["a008"], "relevant": [{ "id": "a008", "grade": 2 }], "rationale": "Typographic punctuation canonicalization must retain a source phrase." },
+    { "id": "en-repeat", "mode": "all", "split": "dev", "language": "en", "category": "evidence", "query": "orchard evidence", "nativeQuery": "orchard evidence", "scope": ["a010"], "relevant": [{ "id": "a010", "grade": 2 }], "contract": { "matchingSections": 24, "passageCount": 3, "locationCount": 12 }, "rationale": "Twenty-four supporting sections, twenty-five literal occurrences, three passages, twelve distribution bins." },
+    { "id": "en-title-only", "mode": "all", "split": "dev", "language": "en", "category": "evidence", "query": "orchard", "nativeQuery": "orchard", "scope": ["a011"], "relevant": [{ "id": "a011", "grade": 1 }], "contract": { "matchingSections": 0 }, "rationale": "Repeated indexed title is not a body-section occurrence." },
+    { "id": "en-filter", "mode": "all", "split": "dev", "language": "en", "category": "filter", "query": "astrolabe", "nativeQuery": "astrolabe", "scope": ["a012"], "relevant": [{ "id": "a012", "grade": 2 }], "exclude": ["a013", "a017"], "rationale": "Scope must exclude other relevant records." },
+    { "id": "en-name", "mode": "all", "split": "dev", "language": "en", "category": "literal", "query": "Zaynab 1847", "nativeQuery": "zaynab 1847", "relevant": [{ "id": "a012", "grade": 2 }], "rationale": "Rare name and year remain required." },
+    { "id": "en-pdf", "mode": "all", "split": "dev", "language": "en", "category": "navigation", "query": "astrolabe", "nativeQuery": "astrolabe", "scope": ["a013"], "relevant": [{ "id": "a013", "grade": 2, "section": 1, "page": 6 }], "rationale": "PDF result must retain the indexed page locator." },
+    { "id": "en-tie", "mode": "all", "split": "dev", "language": "en", "category": "ranking", "query": "beacon", "nativeQuery": "beacon", "scope": ["a014", "a015", "a016"], "relevant": [{ "id": "a014", "grade": 1 }, { "id": "a015", "grade": 1 }, { "id": "a016", "grade": 1 }], "ordered": ["a015", "a016", "a014"], "rationale": "Same score: newest import, then stable document ID." },
+    { "id": "ar-plain", "mode": "all", "split": "dev", "language": "ar", "category": "literal", "query": "إنتاج الطاقة", "nativeQuery": "إنتاج الطاقة", "scope": ["a00b"], "relevant": [{ "id": "a00b", "grade": 2 }], "rationale": "Arabic tokens in authored unmarked text." },
+    { "id": "ar-mark-gap", "mode": "all", "split": "dev", "language": "ar", "category": "normalization-gap", "query": "إنتاج الطاقة", "nativeQuery": "إنتاج الطاقة", "scope": ["a00c"], "relevant": [{ "id": "a00c", "grade": 2 }], "rationale": "Arabic combining marks can change query matching." },
+    { "id": "ar-tatweel-gap", "mode": "all", "split": "dev", "language": "ar", "category": "normalization-gap", "query": "الطاقة", "nativeQuery": "الطاقة", "scope": ["a00d"], "relevant": [{ "id": "a00d", "grade": 2 }], "rationale": "Tatweel orthography merits a measured normalization choice." },
+    { "id": "ar-alef-gap", "mode": "all", "split": "dev", "language": "ar", "category": "normalization-gap", "query": "إنتاج", "nativeQuery": "إنتاج", "scope": ["a00e"], "relevant": [{ "id": "a00e", "grade": 2 }], "rationale": "Alef variant is relevant but currently distinct." },
+    { "id": "ar-quoted", "mode": "all", "split": "holdout", "language": "ar", "category": "quote", "query": "\"إنتاج الطاقة\"", "nativeQuery": "", "phrases": ["إنتاج الطاقة"], "scope": ["a00b"], "relevant": [{ "id": "a00b", "grade": 2 }], "rationale": "Arabic phrase must be verified in source text." },
+    { "id": "ar-cross", "mode": "all", "split": "holdout", "language": "ar", "category": "cross-section", "query": "البيئة التلوث", "nativeQuery": "البيئة التلوث", "scope": ["a018"], "relevant": [{ "id": "a018", "grade": 2 }], "contract": { "matchScope": "document", "matchingSections": 2 }, "rationale": "Arabic terms can appear in different chapters." },
+    { "id": "mixed-codes", "mode": "all", "split": "holdout", "language": "mixed", "category": "literal", "query": "NASA CO2", "nativeQuery": "nasa co2", "scope": ["a00f"], "relevant": [{ "id": "a00f", "grade": 2 }], "rationale": "Mixed script and technical token retained." },
+    { "id": "mixed-emoji", "mode": "all", "split": "holdout", "language": "mixed", "category": "quote", "query": "\"😀 Archive\"", "nativeQuery": "", "phrases": ["😀 archive"], "scope": ["a00f"], "relevant": [{ "id": "a00f", "grade": 2 }], "rationale": "Non-BMP character and source phrase share a locator." },
+    { "id": "en-identifier", "mode": "all", "split": "holdout", "language": "en", "category": "literal", "query": "AB-123", "nativeQuery": "ab-123", "scope": ["a012"], "relevant": [{ "id": "a012", "grade": 2 }], "rationale": "Technical ID is protected from future typo substitutions." },
+    { "id": "en-phrase-count", "mode": "all", "split": "holdout", "language": "en", "category": "evidence", "query": "\"orchard evidence\"", "nativeQuery": "", "phrases": ["orchard evidence"], "scope": ["a010"], "relevant": [{ "id": "a010", "grade": 2, "section": 0 }], "contract": { "matchCount": 25 }, "rationale": "Literal phrase occurrence count differs from matching-section count." },
+    { "id": "en-title-rank", "mode": "all", "split": "holdout", "language": "en", "category": "ranking", "query": "astrolabe", "nativeQuery": "astrolabe", "relevant": [{ "id": "a017", "grade": 2 }, { "id": "a012", "grade": 1 }, { "id": "a013", "grade": 1 }], "rationale": "Specific title should compete with body mentions." }
+  ]
+}

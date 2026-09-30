@@ -55,13 +55,37 @@ struct SearchEvidence {
     locations: Vec<Option<UploadedDocumentSearchLocation>>,
 }
 
+/// Internal diagnostics; never add private queries or source text to logs/IPC.
+#[derive(Default, serde::Serialize)]
+struct SearchMeasurements {
+    candidate_documents: usize,
+    db_ms: f64,
+    candidate_ms: f64,
+    verification_ms: f64,
+    exact_evidence_ms: f64,
+    result_evidence_ms: f64,
+    term_matches_ms: f64,
+    result_ms: f64,
+    total_ms: f64,
+}
+
 /// Run an FTS5 MATCH query, joining hits back to their section and document and
 /// returning BM25-ranked results with `<mark>`-highlighted snippets.
 pub(crate) fn search_uploads<R: Runtime>(
     app: &tauri::AppHandle<R>,
     request: UploadedDocumentSearchRequest,
-    mut progress: impl FnMut(UploadedDocumentSearchStage),
+    progress: impl FnMut(UploadedDocumentSearchStage),
 ) -> Result<UploadedDocumentSearchResponse, String> {
+    search_uploads_with_db(request, || open_db(app), progress).map(|(response, _)| response)
+}
+
+/// Keep evaluation on the complete production path, including lazy database
+/// opening, snapshot, phrase verification, result limits, and evidence.
+fn search_uploads_with_db(
+    request: UploadedDocumentSearchRequest,
+    open: impl FnOnce() -> Result<Connection, String>,
+    mut progress: impl FnMut(UploadedDocumentSearchStage),
+) -> Result<(UploadedDocumentSearchResponse, SearchMeasurements), String> {
     let search_started = Instant::now();
     let fuzzy_terms = fts_fuzzy_terms(&request.query);
     let fuzzy_queries = fuzzy_terms
@@ -71,7 +95,7 @@ pub(crate) fn search_uploads<R: Runtime>(
     let exact_phrases = request.exact_phrases.unwrap_or_default();
     let exact_queries = fts_phrase_queries(&exact_phrases);
     if fuzzy_queries.is_empty() && exact_queries.is_empty() {
-        return Ok(empty_search_response());
+        return Ok((empty_search_response(), SearchMeasurements::default()));
     }
     let comparison_terms = comparison_terms(&fuzzy_terms, &fuzzy_queries, exact_phrases.is_empty());
     let mut queries = fuzzy_queries;
@@ -79,8 +103,8 @@ pub(crate) fn search_uploads<R: Runtime>(
     let query = fts_and_query(&queries);
 
     let db_started = Instant::now();
-    let mut db = open_db(app)?;
-    let db_ms = db_started.elapsed().as_millis();
+    let mut db = open()?;
+    let db_ms = db_started.elapsed().as_secs_f64() * 1000.0;
     // Keep candidate ranking, exact verification, and evidence on one SQLite
     // snapshot if an import, OCR update, or deletion commits concurrently.
     let tx = db.transaction().map_err(db_err)?;
@@ -114,7 +138,7 @@ pub(crate) fn search_uploads<R: Runtime>(
         Vec::new()
     };
     let candidate_documents = section_candidates.len() + document_candidates.len();
-    let candidate_ms = candidate_started.elapsed().as_millis();
+    let candidate_ms = candidate_started.elapsed().as_secs_f64() * 1000.0;
 
     let verification_started = Instant::now();
     if !exact_queries.is_empty() {
@@ -124,7 +148,7 @@ pub(crate) fn search_uploads<R: Runtime>(
         document_candidates =
             retain_exact_phrase_candidates(&tx, document_candidates, &exact_phrases)?;
     }
-    let verification_ms = verification_started.elapsed().as_millis();
+    let verification_ms = verification_started.elapsed().as_secs_f64() * 1000.0;
 
     let total_documents = section_candidates.len() + document_candidates.len();
     let total_matching_sections = section_candidates
@@ -143,7 +167,7 @@ pub(crate) fn search_uploads<R: Runtime>(
         attach_exact_phrase_evidence(&tx, &mut section_candidates, &exact_phrases)?;
         attach_exact_phrase_evidence(&tx, &mut document_candidates, &exact_phrases)?;
     }
-    let exact_evidence_ms = exact_evidence_started.elapsed().as_millis();
+    let exact_evidence_ms = exact_evidence_started.elapsed().as_secs_f64() * 1000.0;
     let result_evidence_started = Instant::now();
     let mut results = search_results_for_candidates(&tx, &query, &section_candidates)?;
     results.extend(search_results_for_candidates(
@@ -151,12 +175,13 @@ pub(crate) fn search_uploads<R: Runtime>(
         &or_query,
         &document_candidates,
     )?);
-    let result_evidence_ms = result_evidence_started.elapsed().as_millis();
+    let result_evidence_ms = result_evidence_started.elapsed().as_secs_f64() * 1000.0;
     let term_matches_started = Instant::now();
     attach_search_term_matches(&tx, &comparison_terms, &mut results)?;
-    let term_matches_ms = term_matches_started.elapsed().as_millis();
-    let result_ms = result_started.elapsed().as_millis();
+    let term_matches_ms = term_matches_started.elapsed().as_secs_f64() * 1000.0;
+    let result_ms = result_started.elapsed().as_secs_f64() * 1000.0;
     tx.commit().map_err(db_err)?;
+    let total_ms = search_started.elapsed().as_secs_f64() * 1000.0;
     if cfg!(debug_assertions) {
         log::info!(
             "[search] native performance summary terms={} exact_phrases={} scoped_documents={} \
@@ -177,15 +202,28 @@ pub(crate) fn search_uploads<R: Runtime>(
             result_evidence_ms,
             term_matches_ms,
             result_ms,
-            search_started.elapsed().as_millis(),
+            total_ms,
         );
     }
 
-    Ok(UploadedDocumentSearchResponse {
-        results,
-        total_documents,
-        total_matching_sections,
-    })
+    Ok((
+        UploadedDocumentSearchResponse {
+            results,
+            total_documents,
+            total_matching_sections,
+        },
+        SearchMeasurements {
+            candidate_documents,
+            db_ms,
+            candidate_ms,
+            verification_ms,
+            exact_evidence_ms,
+            result_evidence_ms,
+            term_matches_ms,
+            result_ms,
+            total_ms,
+        },
+    ))
 }
 
 /// Return one bounded page of literal context lines from an uploaded document.
@@ -1119,3 +1157,7 @@ fn document_id_scope(document_ids: Option<&[String]>) -> (String, Vec<Value>) {
 #[cfg(test)]
 #[path = "search/tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "search/evaluation.rs"]
+mod evaluation;

@@ -129,6 +129,8 @@ EPUB plugs in at step 3 by validating the ZIP/container, reading OPF metadata an
 
 ## Search Flow
 
+The current search pipeline and the measured Search v2 baseline are recorded in [search-v2-progress.md](search-v2-progress.md).
+
 When a user submits a search:
 
 1. React parses straight or curly quotation marks once for both execution and presentation. Every unquoted word is required, while each quoted span adds a literal phrase requirement. Mixed input such as `anne "green gables"` therefore requires both clauses and displays both in the result summary; an unmatched quote is rejected beside the search field. Literal comparison also canonicalizes curly quote glyphs and Unicode hyphen/en/em-dash punctuation to their straight equivalents without rewriting stored source.
