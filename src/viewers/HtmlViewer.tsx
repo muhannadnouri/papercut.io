@@ -1,4 +1,6 @@
 import { memo, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
+import { observeImageIssues } from './imageIssues'
 import { createHtmlBookmarkApi } from './htmlBookmark'
 import type { ViewerProps } from './types'
 
@@ -7,6 +9,12 @@ export const HtmlViewer = memo(function HtmlViewer({
   contentRef,
   onBookmarkApiChange,
 }: ViewerProps) {
+  const { t } = useTranslation()
+  useEffect(() => {
+    const root = contentRef?.current
+    if (root) return observeImageIssues(root, t)
+  }, [content, contentRef, t])
+
   const document = useMemo(() => parseHtmlDocument(content ?? ''), [content])
 
   useEffect(() => {

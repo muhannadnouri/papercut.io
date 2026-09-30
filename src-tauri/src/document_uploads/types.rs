@@ -10,6 +10,9 @@ use tauri_plugin_dialog::FilePath;
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocument {
+    /// Diagnostics for this import attempt; list metadata does not re-read source HTML.
+    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub(crate) import_image_warnings: std::collections::BTreeMap<String, usize>,
     pub(crate) id: String,
     pub(crate) url: String,
     pub(crate) title: String,
@@ -219,7 +222,7 @@ pub(crate) struct UploadedDocumentSourceRequest {
     pub(crate) document_url: String,
 }
 
-/// Sanitized reader HTML plus validated local raster paths for the WebView.
+/// Sanitized reader HTML plus validated local image paths for the WebView.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentSource {

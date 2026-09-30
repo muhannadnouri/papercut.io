@@ -66,6 +66,7 @@ pub(crate) fn find_upload_by_id(
 
 fn uploaded_document_from_row(row: &Row<'_>) -> rusqlite::Result<UploadedDocument> {
     Ok(UploadedDocument {
+        import_image_warnings: Default::default(),
         id: row.get(0)?,
         url: row.get(1)?,
         title: row.get(2)?,

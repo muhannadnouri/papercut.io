@@ -1,3 +1,4 @@
+import { imageIssueReason } from '../../viewers/imageIssues'
 import { Trans, useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { useEffect, useState, type ReactNode } from 'react'
@@ -403,6 +404,12 @@ function DocumentBatchImportStatus({
   const result = status.batchResult
   const failures = result?.failures ?? []
   const alreadyInLibrary = result?.alreadyInLibrary ?? []
+  const imageWarnings = (result?.imported ?? []).filter((document) =>
+    Object.values(document.importImageWarnings ?? {}).some((count) => count > 0),
+  )
+  const imageWarningCount = imageWarnings
+    .flatMap((document) => Object.values(document.importImageWarnings ?? {}))
+    .reduce((total, count) => total + count, 0)
   const added = Math.max(0, (result?.imported.length ?? 0) - alreadyInLibrary.length)
   const importing = status.status === 'importing'
   const total = progress?.total ?? 0
@@ -487,6 +494,19 @@ function DocumentBatchImportStatus({
             {failures.map((failure, index) => (
               <li key={`${failure.fileName}-${index}`}>
                 <bdi>{failure.fileName}</bdi>: <span dir="auto">{failure.error}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {imageWarnings.length > 0 && (
+        <details className="document-batch-failures" open>
+          <summary>{t('imageIssues.summary', { count: imageWarningCount })}</summary>
+          <ul>
+            {imageWarnings.map((document) => (
+              <li key={document.id}>
+                <bdi>{document.originalFileName ?? document.title}</bdi>: {' '}
+                {Object.entries(document.importImageWarnings ?? {}).map(([reason, count]) => `${imageIssueReason(reason, t)} (${count})`).join('; ')}
               </li>
             ))}
           </ul>

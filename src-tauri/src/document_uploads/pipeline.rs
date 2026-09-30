@@ -192,11 +192,16 @@ fn existing_upload<R: Runtime>(
     id: &str,
 ) -> Result<Option<UploadedDocument>, String> {
     let db = open_db(app)?;
-    let Some(existing) = find_upload_by_id(&db, id)? else {
+    let Some(mut existing) = find_upload_by_id(&db, id)? else {
         return Ok(None);
     };
     let source_kind = StoredSourceKind::from_str(&existing.source_kind)?;
     let source_exists = upload_source_path(app, id, source_kind)?.is_file();
+    if source_exists && existing.format == "epub" {
+        let html = fs::read_to_string(upload_source_path(app, id, source_kind)?)
+            .map_err(|error| format!("Failed to read existing EPUB: {error}"))?;
+        existing.import_image_warnings = super::parsed::image_import_warnings(&html);
+    }
     Ok(source_exists.then_some(existing))
 }
 
@@ -228,6 +233,7 @@ fn persist_document<R: Runtime>(
         .map(|cover| cover.media_type.to_string());
 
     Ok(UploadedDocument {
+        import_image_warnings: super::parsed::image_import_warnings(&parsed.view_html),
         id,
         url,
         title: parsed.title,
@@ -308,6 +314,7 @@ pub(crate) fn restore_transferred_document<R: Runtime>(
         .map(|cover| cover.media_type.to_string());
 
     Ok(UploadedDocument {
+        import_image_warnings: super::parsed::image_import_warnings(&parsed.view_html),
         id,
         url,
         title: parsed.title,

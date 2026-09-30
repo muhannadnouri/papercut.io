@@ -43,17 +43,127 @@ field would duplicate state without improving navigation.
 
 ## Implemented MVP
 
-The MVP path is implemented with generated reading HTML, SQLite FTS indexing, Library import, existing TTS save/playback support, rewritten and target-validated internal EPUB links, retained safe local raster images, app-owned DOM reader link scrolling, section-ordinal search targets, structured import-stage feedback, and fixture coverage for TOC links, cross-chapter links, EPUB 2 footnotes/backlinks, image manifest assets, generated section extraction, sanitizer regressions, missing-fragment fallback, and empty-spine rejection. Reader images are stored as separate content-hashed files, resolved through Tauri's scoped asset protocol, and marked for lazy loading and asynchronous decoding so the continuous reading page does not decode every illustration at startup. Search targets reuse the section ordinal already stored in SQLite and a generated safe DOM marker, avoiding a locator column migration while remaining compatible with older imports.
+The MVP path is implemented with generated reading HTML, SQLite FTS indexing, Library import, existing TTS save/playback support, rewritten and target-validated internal EPUB links, retained local raster and external SVG images, app-owned DOM reader link scrolling, section-ordinal search targets, structured import-stage feedback, and fixture coverage for TOC links, cross-chapter links, EPUB 2 footnotes/backlinks, image manifest assets, generated section extraction, sanitizer regressions, missing-fragment fallback, and empty-spine rejection. Reader images are stored as separate content-hashed files, resolved through Tauri's scoped asset protocol, and marked for lazy loading and asynchronous decoding so the continuous reading page does not decode every illustration at startup. Search targets reuse the section ordinal already stored in SQLite and a generated safe DOM marker, avoiding a locator column migration while remaining compatible with older imports.
 
-The EPUB parser is split into focused ZIP/XML parsing, path, asset, DOM rewrite, and render helpers. It uses crate-backed percent/base64 decoding plus DOM-based fragment rewriting. Current EPUB image retention covers supported local raster images referenced by retained reader content, including image-only spine sections, under 5 MB per-image and 100 MB per-book limits. Older imports with inline raster data are upgraded non-destructively when opened. Newly imported EPUBs also resolve EPUB 3 `cover-image` properties and EPUB 2 `meta name="cover"` references, retain a declared raster cover under the existing 5 MB image cap, persist nullable cover media metadata, and generate a bounded gallery thumbnail. Existing imports remain valid without cover metadata; retained covers from earlier versions are thumbnailed lazily when first displayed.
+The EPUB parser is split into focused ZIP/XML parsing, path, asset, DOM rewrite, and render helpers. It uses crate-backed percent/base64 decoding plus DOM-based fragment rewriting. Current EPUB image retention covers supported local raster and external SVG images referenced by `img[src]` in retained reader content, plus supported inline SVG compositions converted to external images before sanitization, including image-only spine sections, under 5 MB per-image and 100 MB per-book limits. Older imports with inline raster data are upgraded non-destructively when opened. Newly imported EPUBs also resolve EPUB 3 `cover-image` properties and EPUB 2 `meta name="cover"` references, retain a declared raster cover under the existing 5 MB image cap, persist nullable cover media metadata, and generate a bounded gallery thumbnail. Existing imports remain valid without cover metadata; retained covers from earlier versions are thumbnailed lazily when first displayed.
+
+## Image fidelity: staged repair
+
+Stage 1 retains external SVG illustrations through the existing content-hashed
+asset pipeline, including sanitization, scoped image URLs, and library transfer.
+SVG bytes are rendered only as external HTML `img` resources, never inserted into
+the reader DOM or embedded as an object/frame. This relies on the WebView's SVG
+image processing mode to disable scripts and external resource loading; it does
+not sanitize or flatten the SVG itself. Internal styles, text, and vector detail
+are preserved; SVGs requiring external fonts, styles, or nested files still need
+resource resolution in a later stage. Existing path validation, lazy loading, and 5 MB per-image / 100 MB
+per-book limits still apply. Gallery thumbnails remain raster-only. Transfer
+packages containing SVG assets require an updated recipient; older versions
+reject their unsupported asset names.
+
+Stage 2 converts inline SVG in well-formed XHTML into external SVG assets before
+HTML sanitization. It preserves the viewport, aspect-ratio rules, composition,
+internal CSS, inherited namespaces, root anchors, and available title/aria labels.
+Local manifest-declared raster images referenced by `href` or `xlink:href` are
+embedded as bounded data URLs inside the SVG; existing base64 raster data URLs
+also work. Nested inline SVG stays within its parent composition. Nothing is
+inserted as active SVG markup in the reader DOM, and no new dependency is needed.
+An SVG `image` element with neither `href` nor `xlink:href` is skipped during
+resource embedding, preserving the rest of the composition. A regression test
+checks that vector content survives and later local raster references are still
+embedded. Present but unresolved image references still reject conversion.
+
+Inline and manifest assets share deduplication and the existing per-image and
+per-book limits. The generated SVG must fit the per-image cap **after** base64
+expansion. XHTML doctypes are accepted without fetching external DTDs; entity
+declarations and malformed XML keep the old sanitized HTML fallback. Unresolved
+image references, nested external SVG image files, and `xml:base` are not converted.
+External CSS/font dependencies and publisher styles inherited from outside the
+SVG remain unsupported.
+
+Stage 3 reports unavailable images during import and in the reader. The stored
+reading HTML keeps a locale-neutral reason on each omitted `img`, including an
+unconverted inline SVG. Reasons distinguish missing or undeclared files,
+unsupported formats, remote resources, invalid paths, per-image and aggregate
+limits, failed SVG conversion, and otherwise unreadable images. Counts represent
+image occurrences, not unique files. Image-only chapters with failures remain in
+reading order when the book contains readable text or a retained image elsewhere.
+A book containing only unavailable images still fails import.
+
+The import result includes counts by reason. Library import shows document names
+and explanations and leaves that result visible until dismissed. These counts
+are derived from generated HTML without a schema migration; normal library
+listings do not scan source files. Duplicate EPUB imports read the existing
+source's diagnostics without reparsing the original archive. Markers also survive
+source sanitization and library transfer.
+
+Chapter sanitization owns the sequence: normalize XHTML empty elements once,
+annotate image omissions, then sanitize HTML. Callers pass the chapter body
+directly so diagnostics cannot be erased before annotation. Import dismissal and
+the Library summary use named warning checks and totals for readability.
+
+The reader replaces omitted or failed images with localized, accessible
+placeholders that preserve alternative text and anchors. CSS-generated labels
+avoid adding text nodes to search, bookmark, or narration offsets. Both already
+failed images and later load/decode failures are handled, while pending lazy
+images remain untouched. Explanations are translated in all eight app languages.
+
+This reports the supported image pipeline, not full EPUB visual equivalence.
+CSS backgrounds, object-based images, and missing dependencies inside an external
+SVG are not audited. A successfully decoded SVG can still lack external fonts or
+resources. Old imports can show generic placeholders for surviving source-less
+images, but markup erased by an older parser cannot be diagnosed retroactively.
+Runtime decode failures appear in the reader, not the earlier import summary.
+
+The AI Agents in Depth sample now retains all 15 reading-order documents and all
+115 images on a fresh parse: 112 external SVG illustrations, two PNG illustrations,
+and one generated SVG containing the original JPEG cover. The cover's bytes,
+viewport, and aspect-ratio rule are checked. The sample is not committed; its
+optional regression check is:
+
+```sh
+cd src-tauri
+cargo test --lib ai_agents_sample_retains_all_images_and_chapters -- --ignored
+```
+
+Local Linux WebKitGTK verification decoded all 115 images from the actual parser's
+generated reading HTML, and the cover was visually checked. A separate SVG probe
+decoded while its script, event handler, external stylesheet, and nested external
+image made no requests. This was an isolated rendering check, not an end-to-end
+Papercut import or a Windows/mobile WebView check; those platforms still need
+release validation. Existing app data was left unchanged.
+
+Stage 3 verification covers parser omission reasons and size budgets, sanitizer
+round trips, warning-result dismissal behavior, and the sample's 115 retained
+images with no import warnings. The runnable reader check at
+`scripts/fixtures/reader/image-issues.html` uses the actual image observer and
+translations. Run `npm run dev` and open that path on the Vite server; it reports
+pass/fail for omitted, unresolved, cached, and live image failures, accessible
+labels, locale changes, unchanged text offsets, and listener cleanup. It also
+passed in Linux WebKitGTK. This is not a full Papercut import UI test.
+
+Next: manually verify the import summary and reader together using an EPUB with
+deliberately missing images, then perform platform smoke tests before release.
+The [image diagnostics test book and acceptance steps](../scripts/fixtures/epub/README.md)
+cover nine import omissions, one runtime decode failure, repeated references,
+and an image-only chapter alongside two working SVGs.
+Extend format coverage when another real book demonstrates a gap.
+
+Reprocessing and retaining original archives are explicitly deferred for the
+current single-user setup. Identical uploads return the existing entry, so
+upgrading or re-uploading alone does not restore images from an older import.
+Delete/reimport remains the manual option when losing that document's user state
+is acceptable. Revisit in-place repair when preserving bookmarks or other user
+state becomes necessary, or when supporting additional users makes manual repair
+impractical.
 
 ## Remaining Follow-Ups
 
 1. Keep durable metadata changes as explicit schema migrations; cover metadata introduced schema version 3 without rebuilding existing search or organization rows.
 2. Add more EPUB parser fixtures for malformed OPF/container cases, spine edge cases, oversized image skipping, and metadata fallback.
 3. Include retained covers in library-transfer packages now that gallery cover serving is stable.
-4. Add duplicate detection based on source hash so repeated imports can update or skip existing records.
-5. Add a reindex action for uploaded documents if parser or sanitizer behavior changes after import.
+4. Source-hash duplicate detection already returns existing records; in-place replacement remains deferred as described above.
+5. Revisit reindex/reprocessing when preserving existing document state makes manual reimport insufficient.
 6. Add determinate chapter/page progress only if import work exposes trustworthy units; current semantic stages deliberately avoid fake percentages.
 7. Add richer EPUB reader features such as TOC, location restore, pagination, EPUB-specific appearance controls, or a foliate-js/epub.js-backed viewer if generated reading HTML is not enough. App-wide Light/System/Dark theme already applies to the generated HTML reader.
 8. For very large books, move from one fully-rendered generated HTML document toward chapter/page-level rendering with locator-aware Find and TTS ranges. Current TTS caches are mutation-aware, but the next highlight after a large DOM mutation can still rebuild the active reader text index.
@@ -131,9 +241,10 @@ Acceptance checks:
   Validate fragment targets against collected chapter anchors; if a fragment is
   missing but the target chapter exists, fall back to the chapter wrapper anchor.
 - Drop scripts, remote resources, inline event handlers, iframes, objects, and
-  unsafe URLs. Retain referenced local PNG, JPEG, GIF, and WebP manifest images
-  as content-hashed app-data assets within parser caps; skip SVG, CSS images,
-  `srcset`, remote images, and oversized assets.
+  unsafe URLs. Retain referenced local PNG, JPEG, GIF, WebP, and SVG manifest images
+  as content-hashed app-data assets within parser caps. Convert supported inline
+  SVG compositions to external image assets with embedded local rasters before
+  sanitization; skip CSS images, `srcset`, remote images, and oversized assets.
 - Retain supported image-only HTML spine sections; ignore unsupported non-HTML
   spine resources for the first pass.
 
@@ -261,7 +372,7 @@ Manual smoke tests:
 
 Richer EPUB reader:
 
-- Retained EPUB 2/3 cover assets are served only to visible Library gallery cards through a narrow validated command. The command returns persisted display-sized thumbnails and serializes lazy thumbnail backfills for older imports so original high-resolution covers cannot create a burst of concurrent decodes. Cover rendering stays out of generated reader HTML so opening and audiobook processing do not pay for gallery artwork.
+- Retained EPUB 2/3 cover assets are served only to visible Library gallery cards through a narrow validated command. The command returns persisted display-sized thumbnails and serializes lazy thumbnail backfills for older imports so original high-resolution covers cannot create a burst of concurrent decodes. Gallery thumbnails are served separately from generated reader HTML. A cover page present in the EPUB spine is retained in reading order, including supported inline SVG wrappers.
 - Evaluate foliate-js, `epub.js`, or Readium only after normalized import ships.
 - Keep search/TTS source independent from the renderer.
 - Add TOC, pagination, EPUB-specific appearance controls, and location restore as reader-quality work. App-wide Light/System/Dark theme already applies to the generated HTML reader.

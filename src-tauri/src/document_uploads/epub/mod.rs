@@ -14,11 +14,12 @@ use super::html::{extract_body_inner, normalize_text, parsed_html_document, stri
 use super::parsed::{ParsedDocument, ParsedDocumentCover};
 
 mod assets;
+mod inline_svg;
 mod paths;
 mod render;
 mod rewrite;
 
-use assets::{load_cover_asset, load_image_assets, ManifestItem};
+use assets::{load_cover_asset, load_image_assets, LoadedImageAssets, ManifestItem};
 use paths::{opf_base_dir, resolve_archive_path};
 use render::{render_chapter, render_reading_html};
 use rewrite::{collect_fragment_anchors, collect_image_paths, rewrite_epub_fragment};
@@ -68,6 +69,7 @@ pub(crate) fn parse_epub_document(
         .map(|(index, path)| (path.clone(), index))
         .collect();
 
+    let mut image_assets = LoadedImageAssets::default();
     let mut chapter_drafts = Vec::new();
     let mut referenced_image_paths = HashSet::new();
     let mut total_chapter_text_bytes = 0u64;
@@ -79,11 +81,21 @@ pub(crate) fn parse_epub_document(
         if total_chapter_text_bytes > MAX_TOTAL_CHAPTER_TEXT_BYTES {
             return Err("EPUB chapter text is too large to import".into());
         }
+        let raw = inline_svg::externalize_inline_svgs(
+            &raw,
+            chapter_path,
+            &mut archive,
+            &package.manifest,
+            &mut image_assets,
+        );
         let (language, direction) = extract_xhtml_metadata(&raw);
         let body = extract_body_inner(&raw).unwrap_or(raw.as_str());
         let sanitized = sanitize_epub_fragment(body);
         let image_paths = collect_image_paths(&sanitized, chapter_path);
-        if normalize_text(&strip_tags(&sanitized)).is_empty() && image_paths.is_empty() {
+        if normalize_text(&strip_tags(&sanitized)).is_empty()
+            && image_paths.is_empty()
+            && !sanitized.contains("data-papercut-image-error=")
+        {
             continue;
         }
         referenced_image_paths.extend(image_paths.iter().cloned());
@@ -98,14 +110,21 @@ pub(crate) fn parse_epub_document(
         });
     }
 
-    let image_assets = load_image_assets(&mut archive, &package.manifest, &referenced_image_paths);
-    chapter_drafts.retain(|chapter| {
+    load_image_assets(
+        &mut archive,
+        &package.manifest,
+        &referenced_image_paths,
+        &mut image_assets,
+    );
+    if !chapter_drafts.iter().any(|chapter| {
         !normalize_text(&strip_tags(&chapter.sanitized)).is_empty()
             || chapter
                 .image_paths
                 .iter()
                 .any(|path| image_assets.paths.contains_key(path))
-    });
+    }) {
+        return Err("EPUB did not contain readable text or supported images".into());
+    }
     let readable_paths: HashSet<String> = chapter_drafts
         .iter()
         .map(|chapter| chapter.path.clone())
@@ -124,7 +143,7 @@ pub(crate) fn parse_epub_document(
             &chapter_indexes,
             &readable_paths,
             &anchor_indexes,
-            &image_assets.paths,
+            &image_assets,
         );
         chapters.push(render_chapter(
             chapter.index,
@@ -398,11 +417,12 @@ fn read_zip_text_limited<R: Read + std::io::Seek>(
 /// IDs are needed for TOC links, footnotes, and backlinks. We preserve them here
 /// and prefix them later so duplicate ids across chapters cannot collide.
 fn sanitize_epub_fragment(fragment: &str) -> String {
+    let normalized = normalize_empty_xhtml_elements(fragment);
+    let annotated = rewrite::annotate_image_issues(&normalized);
     let mut builder = ammonia::Builder::default();
     builder.add_generic_attributes(&["id", "name"]);
-    builder
-        .clean(&normalize_empty_xhtml_elements(fragment))
-        .to_string()
+    builder.add_tag_attributes("img", &["data-papercut-image-error"]);
+    builder.clean(&annotated).to_string()
 }
 
 /// Preserve XHTML empty-element semantics before parsing fragments as HTML.
@@ -614,7 +634,36 @@ mod tests {
         assert!(parsed.view_html.contains("alt=\"Photo-only section\""));
         assert!(!parsed.view_html.contains("OPS/text/chapter1.xhtml#start"));
         assert!(!parsed.view_html.contains("../images/cover.png"));
-        assert_eq!(parsed.assets.len(), 2);
+        assert_eq!(parsed.assets.len(), 4);
+        assert!(parsed
+            .view_html
+            .contains("data-source=\"OPS/text/inline-cover.xhtml\""));
+        let svg = parsed
+            .assets
+            .iter()
+            .find(|asset| asset.bytes == SVG_FIXTURE)
+            .unwrap();
+        assert_eq!(parsed.view_html.matches(&svg.file_name).count(), 2);
+        assert_eq!(
+            super::super::parsed::image_import_warnings(&parsed.view_html).get("missing"),
+            Some(&1)
+        );
+        assert!(parsed
+            .view_html
+            .contains("data-source=\"OPS/text/missing-image.xhtml\""));
+        assert!(!parsed.view_html.contains("<svg"));
+        assert!(!parsed.view_html.contains("svg-script-sentinel"));
+        let sanitized = super::super::html::sanitize_html(&parsed.view_html);
+        assert_eq!(sanitized.matches(&svg.file_name).count(), 2);
+        let mut archive = ZipArchive::new(Cursor::new(&bytes)).unwrap();
+        assert!(load_cover_asset(
+            &mut archive,
+            Some(&ManifestItem {
+                href: "OPS/images/diagram.svg".into(),
+                media_type: "image/svg+xml".into(),
+            }),
+        )
+        .is_none());
         assert!(parsed
             .assets
             .iter()
@@ -767,7 +816,79 @@ mod tests {
         archive
     }
 
-    /// Build a minimal nested-path EPUB fixture with a local manifest image.
+    #[test]
+    fn manual_image_diagnostics_fixture_matches_acceptance_counts() {
+        let bytes = include_bytes!("../../../../scripts/fixtures/epub/image-diagnostics.epub");
+        let parsed = parse_epub_document(bytes, "Diagnostics").unwrap();
+        let warnings = super::super::parsed::image_import_warnings(&parsed.view_html);
+        assert_eq!(
+            warnings,
+            std::collections::BTreeMap::from([
+                ("missing".into(), 3),
+                ("unsupported".into(), 1),
+                ("remote".into(), 1),
+                ("size-limit".into(), 1),
+                ("svg".into(), 1),
+                ("unavailable".into(), 1),
+                ("invalid-path".into(), 1),
+            ])
+        );
+        assert_eq!(parsed.assets.len(), 3); // Two SVGs and the deliberately corrupt PNG.
+        assert_eq!(
+            parsed.view_html.matches("class=\"epub-chapter\"").count(),
+            2
+        );
+        assert_eq!(parsed.view_html.matches("data-papercut-asset=").count(), 3);
+        assert_eq!(
+            super::super::parsed::image_import_warnings(&super::super::html::sanitize_html(
+                &parsed.view_html
+            )),
+            warnings
+        );
+    }
+
+    #[test]
+    #[ignore = "requires the AI Agents in Depth sample EPUB at the repository root"]
+    fn ai_agents_sample_retains_all_images_and_chapters() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../AI Agents in Depth - Design Principles and Engineering Practice.epub");
+        let parsed = parse_epub_document(&std::fs::read(path).unwrap(), "Sample").unwrap();
+        assert_eq!(parsed.assets.len(), 115);
+        assert!(super::super::parsed::image_import_warnings(&parsed.view_html).is_empty());
+        assert_eq!(
+            parsed
+                .assets
+                .iter()
+                .filter(|asset| asset.file_name.ends_with(".svg"))
+                .count(),
+            113
+        );
+        assert_eq!(
+            parsed.view_html.matches("data-papercut-asset=").count(),
+            115
+        );
+        assert_eq!(parsed.view_html.matches("<img ").count(), 115);
+        assert!(!parsed.view_html.contains("<svg"));
+        assert_eq!(
+            parsed.view_html.matches("class=\"epub-chapter\"").count(),
+            15
+        );
+        let cover_svg = String::from_utf8(parsed.assets[0].bytes.clone()).unwrap();
+        assert!(cover_svg.contains("viewBox=\"0 0 1323 1871\""));
+        assert!(cover_svg.contains("preserveAspectRatio=\"xMidYMid\""));
+        use base64::Engine as _;
+        let cover =
+            base64::engine::general_purpose::STANDARD.encode(&parsed.cover.as_ref().unwrap().bytes);
+        assert!(cover_svg.contains(&format!("data:image/jpeg;base64,{cover}")));
+        let sanitized = super::super::html::sanitize_html(&parsed.view_html);
+        for asset in &parsed.assets {
+            assert!(sanitized.contains(&asset.file_name));
+        }
+    }
+
+    const SVG_FIXTURE: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50"><style>text{fill:red}</style><text x="5" y="25">Diagram</text><script>/*svg-script-sentinel*/</script></svg>"#;
+
+    /// Build a minimal nested-path EPUB fixture with local raster and SVG images.
     fn fixture_epub() -> Vec<u8> {
         let mut archive = Vec::new();
         {
@@ -788,7 +909,7 @@ mod tests {
             .unwrap();
             zip.start_file("OPS/text/chapter1.xhtml", deflated).unwrap();
             zip.write_all(
-                b"<html><body><h1 id='start'>Start</h1><p>First chapter.</p><img src='../images/cover.png' alt='Cover'/></body></html>",
+                b"<html><body><h1 id='start'>Start</h1><p>First chapter.</p><img src='../images/cover.png' alt='Cover'/><img src='../images/diagram.svg' alt='Diagram'/></body></html>",
             )
             .unwrap();
             zip.start_file("OPS/text/chapter2.xhtml", deflated).unwrap();
@@ -796,13 +917,21 @@ mod tests {
                 .unwrap();
             zip.start_file("OPS/text/photos.xhtml", deflated).unwrap();
             zip.write_all(
-                b"<html><body><img src='../images/photo.png' alt='Photo-only section'/></body></html>",
+                b"<html><body><img src='../images/photo.png' alt='Photo-only section'/><img src='../images/diagram.svg' alt='Diagram again'/></body></html>",
             )
             .unwrap();
+            zip.start_file("OPS/text/missing-image.xhtml", deflated)
+                .unwrap();
+            zip.write_all(b"<html><body><img src='../missing.png' alt='Missing chapter image'/></body></html>").unwrap();
+            zip.start_file("OPS/text/inline-cover.xhtml", deflated)
+                .unwrap();
+            zip.write_all(br#"<!DOCTYPE html><html><body><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 200"><image href="../images/cover.png" width="100" height="200"/></svg></body></html>"#).unwrap();
             zip.start_file("OPS/images/cover.png", deflated).unwrap();
             zip.write_all(b"\x89PNG\r\n\x1a\nimage").unwrap();
             zip.start_file("OPS/images/photo.png", deflated).unwrap();
             zip.write_all(b"\x89PNG\r\n\x1a\nphoto").unwrap();
+            zip.start_file("OPS/images/diagram.svg", deflated).unwrap();
+            zip.write_all(SVG_FIXTURE).unwrap();
             zip.finish().unwrap();
         }
         archive
@@ -829,6 +958,6 @@ mod tests {
     }
 
     fn opf_xml() -> &'static str {
-        r#"<?xml version="1.0"?><package><metadata><title>Fixture</title></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml"/><item id="c1" href="text/chapter1.xhtml" media-type="application/xhtml+xml"/><item id="c2" href="text/chapter2.xhtml" media-type="application/xhtml+xml"/><item id="photos" href="text/photos.xhtml" media-type="application/xhtml+xml"/><item id="img" href="images/cover.png" media-type="image/png" properties="cover-image"/><item id="photo" href="images/photo.png" media-type="image/png"/></manifest><spine><itemref idref="nav"/><itemref idref="c1"/><itemref idref="c2"/><itemref idref="photos"/></spine></package>"#
+        r#"<?xml version="1.0"?><package><metadata><title>Fixture</title></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml"/><item id="c1" href="text/chapter1.xhtml" media-type="application/xhtml+xml"/><item id="c2" href="text/chapter2.xhtml" media-type="application/xhtml+xml"/><item id="photos" href="text/photos.xhtml" media-type="application/xhtml+xml"/><item id="img" href="images/cover.png" media-type="image/png" properties="cover-image"/><item id="photo" href="images/photo.png" media-type="image/png"/><item id="diagram" href="images/diagram.svg" media-type="image/svg+xml"/><item id="inline-cover" href="text/inline-cover.xhtml" media-type="application/xhtml+xml"/><item id="missing-image" href="text/missing-image.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="nav"/><itemref idref="c1"/><itemref idref="c2"/><itemref idref="photos"/><itemref idref="inline-cover"/><itemref idref="missing-image"/></spine></package>"#
     }
 }
