@@ -31,7 +31,15 @@ pub(crate) fn sanitize_html(html: &str) -> String {
     builder
         .add_tags(&["main", "section"])
         .add_generic_attributes(&["dir", "id", "name", "data-papercut-section"])
-        .add_tag_attributes("img", &["data-papercut-asset", "loading", "decoding"])
+        .add_tag_attributes(
+            "img",
+            &[
+                "data-papercut-asset",
+                "data-papercut-image-error",
+                "loading",
+                "decoding",
+            ],
+        )
         .add_allowed_classes("section", &["epub-chapter"])
         .url_schemes(HashSet::from(["data", "http", "https", "mailto", "tel"]))
         .attribute_filter(filter_reader_attribute);
@@ -72,6 +80,12 @@ fn filter_reader_attribute<'a>(
     value: &'a str,
 ) -> Option<Cow<'a, str>> {
     match (element, attribute) {
+        ("img", "data-papercut-image-error")
+            if crate::document_uploads::parsed::IMAGE_ERROR_REASONS.contains(&value) =>
+        {
+            Some(Cow::Borrowed(value))
+        }
+        ("img", "data-papercut-image-error") => None,
         (_, "data-papercut-section") if is_section_ordinal(value) => Some(Cow::Borrowed(value)),
         (_, "data-papercut-section") => None,
         ("a", "href") if is_reader_href(value) => Some(Cow::Borrowed(value)),

@@ -751,5 +751,20 @@
       "deleteImportDescription": "This removes the generated audio and imported audiobook document from this device.",
       "deleteAudiobook": "Delete Audiobook"
     }
+  },
+  "imageIssues": {
+    "summary": "Images unavailable: {{count}}",
+    "placeholder": "Image unavailable: {{reason}}",
+    "reasons": {
+      "unavailable": "The image could not be retained.",
+      "missing": "The image file is missing or not declared in the book.",
+      "unsupported": "This image format or source is not supported.",
+      "remote": "Remote images are not loaded.",
+      "invalid-path": "The image path is invalid.",
+      "size-limit": "The image exceeds the size limit.",
+      "total-limit": "The book exceeds the total image size limit.",
+      "svg": "The SVG could not be preserved because its markup or resources are unsupported, invalid, or too large.",
+      "load-failed": "The image could not be loaded or decoded."
+    }
   }
 }

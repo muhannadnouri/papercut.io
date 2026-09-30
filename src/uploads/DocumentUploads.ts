@@ -5,6 +5,7 @@ export type UploadedDocumentTextStatus =
   | 'recognition-required'
 
 export interface UploadedDocument {
+  importImageWarnings?: Record<string, number>
   id: string
   url: string
   title: string

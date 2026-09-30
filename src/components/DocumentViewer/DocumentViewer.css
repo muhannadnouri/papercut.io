@@ -840,3 +840,17 @@ html[data-theme="dark"] .document-html-content :where([bgcolor]) {
     width: 100%;
   }
 }
+
+/* Generated text stays outside reader text nodes used by Find, bookmarks, and TTS. */
+.document-html-content .reader-image-error {
+  display: block;
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border: 1px dashed currentColor;
+  border-radius: var(--radius-compact);
+  font: 0.9em/1.5 system-ui, sans-serif;
+}
+
+.document-html-content .reader-image-error::before {
+  content: attr(data-message);
+}

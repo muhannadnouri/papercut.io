@@ -15,6 +15,7 @@ const MAX_TOTAL_IMAGE_BYTES: u64 = 100 * 1024 * 1024;
 #[derive(Default)]
 pub(super) struct LoadedImageAssets {
     pub(super) paths: HashMap<String, String>,
+    pub(super) errors: HashMap<String, &'static str>,
     pub(super) files: Vec<ParsedDocumentAsset>,
     stored_names: HashSet<String>,
     total_bytes: u64,
@@ -128,20 +129,31 @@ pub(super) fn load_image_assets<R: Read + std::io::Seek>(
             continue;
         }
         let Some((media_type, _)) = image_format(&item.media_type, &item.href) else {
+            assets.errors.insert(item.href.clone(), "unsupported");
             continue;
         };
-        if assets.total_bytes >= MAX_TOTAL_IMAGE_BYTES {
-            break;
+        let size = archive.by_name(&item.href).map(|file| file.size());
+        let reason = match size {
+            Err(_) => Some("missing"),
+            Ok(size) if size > MAX_IMAGE_BYTES => Some("size-limit"),
+            Ok(size) if size > MAX_TOTAL_IMAGE_BYTES - assets.total_bytes => Some("total-limit"),
+            _ => None,
+        };
+        if let Some(reason) = reason {
+            assets.errors.insert(item.href.clone(), reason);
+            continue;
         }
-        let remaining = MAX_TOTAL_IMAGE_BYTES - assets.total_bytes;
-        let cap = MAX_IMAGE_BYTES.min(remaining);
-        let Some(bytes) = read_zip_bytes_limited(archive, &item.href, cap) else {
+        let Some(bytes) = read_zip_bytes_limited(archive, &item.href, MAX_IMAGE_BYTES) else {
+            assets.errors.insert(item.href.clone(), "unavailable");
             continue;
         };
         let Some(asset) = ParsedDocumentAsset::new(media_type, bytes) else {
+            assets.errors.insert(item.href.clone(), "unavailable");
             continue;
         };
-        assets.insert(item.href.clone(), asset);
+        if !assets.insert(item.href.clone(), asset) {
+            assets.errors.insert(item.href.clone(), "total-limit");
+        }
     }
 }
 
@@ -217,6 +229,49 @@ pub(super) fn inline_raster_parts(value: &str) -> Option<(&'static str, &str)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn manifest_omissions_record_reasons() {
+        use std::io::{Cursor, Write};
+        let mut zip = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        for (name, size) in [
+            ("huge.png", MAX_IMAGE_BYTES as usize + 1),
+            ("budget.png", 1),
+            ("empty.png", 0),
+        ] {
+            zip.start_file(name, zip::write::FileOptions::default())
+                .unwrap();
+            zip.write_all(&vec![0; size]).unwrap();
+        }
+        let mut archive = ZipArchive::new(zip.finish().unwrap()).unwrap();
+        let manifest: Vec<_> = [
+            "missing.png",
+            "huge.png",
+            "budget.png",
+            "empty.png",
+            "photo.bmp",
+        ]
+        .into_iter()
+        .map(|href| ManifestItem {
+            href: href.into(),
+            media_type: String::new(),
+        })
+        .collect();
+        let referenced = manifest.iter().map(|item| item.href.clone()).collect();
+        let mut assets = LoadedImageAssets::default();
+        assets.total_bytes = MAX_TOTAL_IMAGE_BYTES;
+        load_image_assets(&mut archive, &manifest, &referenced, &mut assets);
+        assert!(assets.files.is_empty());
+        for (path, reason) in [
+            ("missing.png", "missing"),
+            ("huge.png", "size-limit"),
+            ("budget.png", "total-limit"),
+            ("empty.png", "unavailable"),
+            ("photo.bmp", "unsupported"),
+        ] {
+            assert_eq!(assets.errors.get(path), Some(&reason));
+        }
+    }
 
     #[test]
     fn inline_and_manifest_assets_share_limits_and_deduplication() {

@@ -101,3 +101,38 @@ mod tests {
         assert!(ParsedDocumentAsset::new("image/png", Vec::new()).is_none());
     }
 }
+
+/// Stable, locale-neutral reasons persisted on unavailable reader images.
+pub(crate) const IMAGE_ERROR_REASONS: &[&str] = &[
+    "unavailable",
+    "missing",
+    "unsupported",
+    "remote",
+    "invalid-path",
+    "size-limit",
+    "total-limit",
+    "svg",
+];
+
+/// Import diagnostics come from the stored HTML, so no extra database state can drift.
+pub(crate) fn image_import_warnings(html: &str) -> std::collections::BTreeMap<String, usize> {
+    use kuchikiki::{parse_html, traits::TendrilSink};
+    let document = parse_html().one(html).document_node;
+    let mut warnings = std::collections::BTreeMap::new();
+    if let Ok(images) = document.select("img") {
+        for image in images {
+            let attrs = image.attributes.borrow();
+            let reason = attrs
+                .get("data-papercut-image-error")
+                .filter(|reason| IMAGE_ERROR_REASONS.contains(reason))
+                .or_else(|| {
+                    (attrs.get("src").is_none() && attrs.get("data-papercut-asset").is_none())
+                        .then_some("unavailable")
+                });
+            if let Some(reason) = reason {
+                *warnings.entry(reason.to_string()).or_default() += 1;
+            }
+        }
+    }
+    warnings
+}

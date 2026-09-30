@@ -23,6 +23,10 @@ describe('shouldAutoDismissDocumentImport', () => {
     expect(shouldAutoDismissDocumentImport({ status: 'imported' })).toBe(true)
     expect(shouldAutoDismissDocumentImport({ status: 'cancelled' })).toBe(true)
     expect(shouldAutoDismissDocumentImport(failed)).toBe(false)
+    expect(shouldAutoDismissDocumentImport({
+      ...failed,
+      batchResult: { ...failed.batchResult!, failures: [], imported: [{ importImageWarnings: { missing: 2 } } as unknown as UploadedDocument] },
+    })).toBe(false)
     expect(shouldAutoDismissDocumentImport({ status: 'error' })).toBe(false)
   })
 

@@ -741,5 +741,20 @@
       "deleteImportDescription": "这将从该设备中删除生成的音频和导入的有声读物文档。",
       "deleteAudiobook": "删除有声读物"
     }
+  },
+  "imageIssues": {
+    "summary": "不可用图片：{{count}}",
+    "placeholder": "图片不可用：{{reason}}",
+    "reasons": {
+      "unavailable": "无法保留此图片。",
+      "missing": "图片文件缺失或未在书籍中声明。",
+      "unsupported": "不支持此图片格式或来源。",
+      "remote": "不加载远程图片。",
+      "invalid-path": "图片路径无效。",
+      "size-limit": "图片超出大小限制。",
+      "total-limit": "书籍超出图片总大小限制。",
+      "svg": "SVG 的标记或资源不受支持、无效或过大，因此无法保留。",
+      "load-failed": "无法加载或解码此图片。"
+    }
   }
 }

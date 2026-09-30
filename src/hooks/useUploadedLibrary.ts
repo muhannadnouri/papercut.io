@@ -80,7 +80,7 @@ interface DocumentCollectionImportOptions {
   titleOverride?: string
 }
 
-/** Auto-dismiss only outcomes that have no file-level failure details to retain. */
+/** Auto-dismiss only outcomes that have no failures or image warnings to retain. */
 export function shouldAutoDismissDocumentImport(status: DocumentImportStatus): boolean {
   if (status.status === 'recognized') {
     return (status.recognitionIssues?.failedPages.length ?? 0) === 0 &&
@@ -88,7 +88,10 @@ export function shouldAutoDismissDocumentImport(status: DocumentImportStatus): b
       (status.recognitionIssues?.lowConfidencePages.length ?? 0) === 0
   }
   if (status.status !== 'imported' && status.status !== 'cancelled') return false
-  return (status.batchResult?.failures.length ?? 0) === 0
+  const hasImageWarnings = status.batchResult?.imported.some((document) =>
+    Object.values(document.importImageWarnings ?? {}).some((count) => count > 0),
+  )
+  return !status.batchResult?.failures.length && !hasImageWarnings
 }
 
 export function shouldRecognizeImportedScan(
