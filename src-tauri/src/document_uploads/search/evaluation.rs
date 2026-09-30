@@ -43,6 +43,7 @@ struct Section {
 #[serde(rename_all = "camelCase")]
 struct Query {
     id: String,
+    split: String,
     mode: String,
     native_query: String,
     #[serde(default)]
@@ -133,7 +134,14 @@ fn search_v2_evaluation() {
     );
     let mut seen_queries = HashSet::new();
     let mut rows = Vec::new();
+    let selected_split = std::env::var("PAPERCUT_SEARCH_EVAL_SPLIT").ok();
     for query in &corpus.queries {
+        if selected_split
+            .as_deref()
+            .is_some_and(|split| split != query.split)
+        {
+            continue;
+        }
         assert_eq!(
             query.mode, "all",
             "{}: unsupported evaluation mode",
@@ -211,6 +219,12 @@ fn search_v2_evaluation() {
                     "{}: unstable ranking",
                     query.id
                 );
+            }
+            if query.id == "en-title-rank" {
+                assert_eq!(ids.first(), Some(&"a017"), "title ranking regressed");
+            }
+            if query.id == "en-title" {
+                assert_eq!(ids.first(), Some(&"a001"), "body ranking regressed");
             }
             if let Some(expected) = &query.contract {
                 let result = response

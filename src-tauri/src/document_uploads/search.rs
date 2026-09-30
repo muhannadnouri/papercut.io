@@ -30,6 +30,10 @@ const OCCURRENCE_MAP_BINS: usize = 12;
 const DEFAULT_CONCORDANCE_LIMIT: usize = 50;
 const MAX_CONCORDANCE_LIMIT: usize = 100;
 
+// FTS columns are document_id, section_id (both UNINDEXED), title, heading,
+// text. Keep candidate and evidence passage ranking on the same score policy.
+const BM25_SCORE_SQL: &str = "bm25(uploaded_document_fts, 0, 0, 5, 3, 1)";
+
 struct RankedDocumentCandidate {
     document_id: String,
     section_id: i64,
@@ -613,7 +617,7 @@ fn document_candidates(
     let sql = format!(
         "SELECT uploaded_document_fts.document_id, \
                 CAST(uploaded_document_fts.section_id AS INTEGER), s.ordinal, \
-                bm25(uploaded_document_fts), d.imported_at_ms, d.sections \
+                {BM25_SCORE_SQL}, d.imported_at_ms, d.sections \
          FROM uploaded_document_fts \
          JOIN uploaded_sections s ON s.id = uploaded_document_fts.section_id \
          JOIN uploaded_documents d ON d.id = uploaded_document_fts.document_id \
@@ -923,7 +927,7 @@ fn attach_search_evidence(
     let sql = format!(
         "SELECT uploaded_document_fts.document_id, s.ordinal, s.page_index, s.heading, \
                 snippet(uploaded_document_fts, 4, '<mark>', '</mark>', '…', 18), \
-                bm25(uploaded_document_fts) \
+                {BM25_SCORE_SQL} \
          FROM uploaded_document_fts \
          JOIN uploaded_sections s ON s.id = uploaded_document_fts.section_id \
          WHERE uploaded_document_fts MATCH ? \
