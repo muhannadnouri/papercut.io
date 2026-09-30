@@ -159,9 +159,12 @@ fn embed_raster_images<R: Read + Seek>(
         .descendants()
         .filter(|node| node.has_tag_name((SVG_NS, "image")))
     {
-        let href = node
+        let Some(href) = node
             .attribute("href")
-            .or_else(|| node.attribute((XLINK_NS, "href")))?;
+            .or_else(|| node.attribute((XLINK_NS, "href")))
+        else {
+            continue;
+        };
         let (media_type, bytes) = if let Some((media_type, encoded)) = inline_raster_parts(href) {
             (media_type, BASE64_STANDARD.decode(encoded).ok()?)
         } else {
@@ -254,6 +257,37 @@ mod tests {
         let sanitized = super::super::sanitize_epub_fragment(&converted);
         let paths =
             super::super::rewrite::collect_image_paths(&sanitized, "OPS/text/chapter.xhtml");
+        assert!(assets.paths.keys().all(|path| paths.contains(path)));
+    }
+
+    #[test]
+    fn preserves_composition_and_embeds_later_images_when_an_image_has_no_source() {
+        let raw = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+            <rect width="100" height="100"/>
+            <image width="20" height="20"/>
+            <image href="cover.jpg"/>
+        </svg>"#;
+        let manifest = vec![ManifestItem {
+            href: "OPS/cover.jpg".into(),
+            media_type: "image/jpeg".into(),
+        }];
+        let mut assets = LoadedImageAssets::default();
+        let converted = externalize_inline_svgs(
+            raw,
+            "OPS/chapter.xhtml",
+            &mut archive(),
+            &manifest,
+            &mut assets,
+        );
+
+        assert_eq!(assets.files.len(), 1);
+        let svg = std::str::from_utf8(&assets.files[0].bytes).unwrap();
+        assert!(svg.contains(r#"<rect width="100" height="100"/>"#));
+        assert!(svg.contains("data:image/jpeg;base64,"));
+        assert!(!svg.contains("cover.jpg"));
+        let sanitized = super::super::sanitize_epub_fragment(&converted);
+        let paths = super::super::rewrite::collect_image_paths(&sanitized, "OPS/chapter.xhtml");
+        assert_eq!(paths.len(), 1);
         assert!(assets.paths.keys().all(|path| paths.contains(path)));
     }
 

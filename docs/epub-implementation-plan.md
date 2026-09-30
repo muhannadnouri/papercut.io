@@ -68,6 +68,10 @@ Local manifest-declared raster images referenced by `href` or `xlink:href` are
 embedded as bounded data URLs inside the SVG; existing base64 raster data URLs
 also work. Nested inline SVG stays within its parent composition. Nothing is
 inserted as active SVG markup in the reader DOM, and no new dependency is needed.
+An SVG `image` element with neither `href` nor `xlink:href` is skipped during
+resource embedding, preserving the rest of the composition. A regression test
+checks that vector content survives and later local raster references are still
+embedded. Present but unresolved image references still reject conversion.
 
 Inline and manifest assets share deduplication and the existing per-image and
 per-book limits. The generated SVG must fit the per-image cap **after** base64
