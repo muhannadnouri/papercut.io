@@ -9,12 +9,32 @@ use zip::ZipArchive;
 
 use crate::document_uploads::parsed::ParsedDocumentAsset;
 
-const MAX_IMAGE_BYTES: u64 = 5 * 1024 * 1024;
+pub(super) const MAX_IMAGE_BYTES: u64 = 5 * 1024 * 1024;
 const MAX_TOTAL_IMAGE_BYTES: u64 = 100 * 1024 * 1024;
 
+#[derive(Default)]
 pub(super) struct LoadedImageAssets {
     pub(super) paths: HashMap<String, String>,
     pub(super) files: Vec<ParsedDocumentAsset>,
+    stored_names: HashSet<String>,
+    total_bytes: u64,
+}
+
+impl LoadedImageAssets {
+    pub(super) fn insert(&mut self, path: String, asset: ParsedDocumentAsset) -> bool {
+        let size = asset.bytes.len() as u64;
+        let is_new = !self.stored_names.contains(&asset.file_name);
+        if size > MAX_IMAGE_BYTES || (is_new && size > MAX_TOTAL_IMAGE_BYTES - self.total_bytes) {
+            return false;
+        }
+        self.paths.insert(path, asset.file_name.clone());
+        if is_new {
+            self.total_bytes += size;
+            self.stored_names.insert(asset.file_name.clone());
+            self.files.push(asset);
+        }
+        true
+    }
 }
 
 pub(super) struct LoadedCover {
@@ -30,7 +50,7 @@ pub(super) struct ManifestItem {
 }
 
 /// Return the media type and fixed cover name for a supported image format.
-fn image_format(media_type: &str, href: &str) -> Option<(&'static str, &'static str)> {
+pub(super) fn image_format(media_type: &str, href: &str) -> Option<(&'static str, &'static str)> {
     let lower_href = href.to_ascii_lowercase();
     match media_type {
         "image/png" => Some(("image/png", "cover.png")),
@@ -71,7 +91,7 @@ pub(super) fn load_cover_asset<R: Read + std::io::Seek>(
 ///
 /// The extra-byte read protects against entries whose metadata understates size.
 /// Returning `None` makes oversized or unreadable optional assets skippable.
-fn read_zip_bytes_limited<R: Read + std::io::Seek>(
+pub(super) fn read_zip_bytes_limited<R: Read + std::io::Seek>(
     archive: &mut ZipArchive<R>,
     path: &str,
     max_bytes: u64,
@@ -101,11 +121,8 @@ pub(super) fn load_image_assets<R: Read + std::io::Seek>(
     archive: &mut ZipArchive<R>,
     manifest: &[ManifestItem],
     referenced_paths: &HashSet<String>,
-) -> LoadedImageAssets {
-    let mut paths = HashMap::new();
-    let mut files = Vec::new();
-    let mut stored_names = HashSet::new();
-    let mut total = 0u64;
+    assets: &mut LoadedImageAssets,
+) {
     for item in manifest {
         if !referenced_paths.contains(&item.href) {
             continue;
@@ -113,10 +130,10 @@ pub(super) fn load_image_assets<R: Read + std::io::Seek>(
         let Some((media_type, _)) = image_format(&item.media_type, &item.href) else {
             continue;
         };
-        if total >= MAX_TOTAL_IMAGE_BYTES {
+        if assets.total_bytes >= MAX_TOTAL_IMAGE_BYTES {
             break;
         }
-        let remaining = MAX_TOTAL_IMAGE_BYTES - total;
+        let remaining = MAX_TOTAL_IMAGE_BYTES - assets.total_bytes;
         let cap = MAX_IMAGE_BYTES.min(remaining);
         let Some(bytes) = read_zip_bytes_limited(archive, &item.href, cap) else {
             continue;
@@ -124,13 +141,8 @@ pub(super) fn load_image_assets<R: Read + std::io::Seek>(
         let Some(asset) = ParsedDocumentAsset::new(media_type, bytes) else {
             continue;
         };
-        paths.insert(item.href.clone(), asset.file_name.clone());
-        if stored_names.insert(asset.file_name.clone()) {
-            total += asset.bytes.len() as u64;
-            files.push(asset);
-        }
+        assets.insert(item.href.clone(), asset);
     }
-    LoadedImageAssets { paths, files }
 }
 
 /// Convert bounded legacy inline raster data into the current stored-asset form.
@@ -188,9 +200,9 @@ pub(crate) fn externalize_inline_image_assets(html: &str) -> (String, Vec<Parsed
     )
 }
 
-/// Recognize only the legacy data-URL forms the previous importer generated;
-/// this is migration compatibility, not a general data-URL parser.
-fn inline_raster_parts(value: &str) -> Option<(&'static str, &str)> {
+/// Recognize base64 raster data URLs shared by legacy imports and SVG images;
+/// callers enforce decoding and size limits. This is not a general URL parser.
+pub(super) fn inline_raster_parts(value: &str) -> Option<(&'static str, &str)> {
     let (header, encoded) = value.trim().split_once(',')?;
     let media_type = match header.to_ascii_lowercase().as_str() {
         "data:image/png;base64" => "image/png",
@@ -205,6 +217,30 @@ fn inline_raster_parts(value: &str) -> Option<(&'static str, &str)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn inline_and_manifest_assets_share_limits_and_deduplication() {
+        let mut assets = LoadedImageAssets::default();
+        let image = || ParsedDocumentAsset::new("image/svg+xml", b"<svg/>".to_vec()).unwrap();
+        assert!(assets.insert("inline.svg".into(), image()));
+        assert!(assets.insert("manifest.svg".into(), image()));
+        assert_eq!(assets.files.len(), 1);
+        assert_eq!(assets.total_bytes, 6);
+        // Exercise the aggregate boundary without allocating a 100 MB fixture.
+        assets.total_bytes = MAX_TOTAL_IMAGE_BYTES;
+        assert!(assets.insert("duplicate.svg".into(), image()));
+        assert!(!assets.insert(
+            "new.svg".into(),
+            ParsedDocumentAsset::new("image/svg+xml", b"<svg />".to_vec()).unwrap()
+        ));
+        let mut assets = LoadedImageAssets::default();
+        assert!(!assets.insert(
+            "large.svg".into(),
+            ParsedDocumentAsset::new("image/svg+xml", vec![b' '; MAX_IMAGE_BYTES as usize + 1])
+                .unwrap()
+        ));
+        assert!(assets.paths.is_empty());
+    }
 
     #[test]
     fn externalizes_and_deduplicates_legacy_inline_images() {
