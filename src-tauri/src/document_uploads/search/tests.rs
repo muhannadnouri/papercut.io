@@ -11,6 +11,7 @@ use super::{
     document_candidates, document_concordance, document_ids_matching_all_queries,
     highlighted_exact_excerpt, retain_exact_phrase_candidates, retain_exact_phrase_hits,
     search_cross_section_document_hits, search_results_for_candidates, search_section_hits,
+    SearchIndex,
 };
 
 #[test]
@@ -259,16 +260,23 @@ fn mixed_exact_search_returns_native_count_excerpt_and_phrase_locator() {
     let phrases = vec!["green gables".to_string()];
     let mut queries = fts_fuzzy_queries("anne");
     queries.extend(fts_phrase_queries(&phrases));
-    let document_ids = document_ids_matching_all_queries(&db, &queries, &[])
+    let document_ids = document_ids_matching_all_queries(&db, &queries, &[], SearchIndex::Original)
         .expect("documents matching every clause");
     let query = fts_or_query(&queries);
-    let candidates = document_candidates(&db, &query, &[], Some(&document_ids), "document")
-        .expect("mixed candidates");
+    let candidates = document_candidates(
+        &db,
+        &query,
+        &[],
+        Some(&document_ids),
+        "document",
+        SearchIndex::Original,
+    )
+    .expect("mixed candidates");
     let mut verified = retain_exact_phrase_candidates(&db, candidates, &phrases)
         .expect("literal phrase verification");
     attach_exact_phrase_evidence(&db, &mut verified, &phrases).expect("complete exact evidence");
-    let results =
-        search_results_for_candidates(&db, &query, &verified).expect("native exact evidence");
+    let results = search_results_for_candidates(&db, &query, &verified, SearchIndex::Original, &[])
+        .expect("native exact evidence");
 
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].section_index, 1);
@@ -405,6 +413,7 @@ fn comparison_counts_each_term_and_keeps_its_first_source_locator() {
         &db,
         &comparison_terms(&terms, &queries, true, false),
         &mut hits,
+        SearchIndex::Original,
     )
     .expect("term evidence");
 
@@ -431,8 +440,15 @@ fn candidate_counts_include_documents_beyond_the_visible_limit() {
         );
     }
 
-    let candidates =
-        document_candidates(&db, "\"lantern\"", &[], None, "section").expect("document candidates");
+    let candidates = document_candidates(
+        &db,
+        "\"lantern\"",
+        &[],
+        None,
+        "section",
+        SearchIndex::Original,
+    )
+    .expect("document candidates");
 
     assert_eq!(candidates.len(), 3);
     assert_eq!(

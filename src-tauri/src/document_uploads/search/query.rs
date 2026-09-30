@@ -37,7 +37,7 @@ pub(super) fn comparison_terms(
         .iter()
         .cloned()
         .zip(queries.iter().cloned())
-        .filter(|(term, _)| seen.insert(term.to_lowercase()))
+        .filter(|(_, query)| seen.insert(query.to_lowercase()))
         .collect::<Vec<_>>();
     let max_terms = if broader_mode {
         12

@@ -227,6 +227,42 @@ fn search_v2_evaluation() {
             if query.id == "en-title" {
                 assert_eq!(ids.first(), Some(&"a001"), "body ranking regressed");
             }
+            if matches!(
+                query.id.as_str(),
+                "ar-mark-gap" | "ar-tatweel-gap" | "ar-alef-gap"
+            ) {
+                assert_eq!(
+                    ids.first(),
+                    Some(&query.relevant[0].id.as_str()),
+                    "{}: Arabic normalization miss",
+                    query.id
+                );
+                let excerpt = &response.results[0].excerpt;
+                assert!(
+                    excerpt.contains("<mark>"),
+                    "{}: missing source highlight",
+                    query.id
+                );
+                let source = &corpus
+                    .documents
+                    .iter()
+                    .find(|doc| doc.id == query.relevant[0].id)
+                    .unwrap()
+                    .sections[0]
+                    .text;
+                let marked = excerpt
+                    .split("<mark>")
+                    .nth(1)
+                    .unwrap()
+                    .split("</mark>")
+                    .next()
+                    .unwrap();
+                assert!(
+                    source.contains(marked),
+                    "{}: highlight is not authored text",
+                    query.id
+                );
+            }
             if let Some(expected) = &query.contract {
                 let result = response
                     .results
@@ -292,6 +328,22 @@ fn search_v2_evaluation() {
         rows.push(json!({ "id": query.id, "first": attempts[0], "warm": &attempts[1..] }));
     }
 
+    // The forgiving index may nominate a marked Arabic section, but an
+    // unmarked quotation must still be rejected by source verification.
+    let (quoted_variant, _) = search_uploads_with_db(
+        UploadedDocumentSearchRequest {
+            query: String::new(),
+            mode: UploadedDocumentSearchMode::All,
+            limit: Some(10),
+            document_urls: Some(vec![url("a00c", "html")]),
+            exact_phrases: Some(vec!["إنتاج الطاقة".into()]),
+        },
+        || open_db_in(&temp),
+        |_| {},
+    )
+    .expect("verify Arabic quotation against authored text");
+    assert!(quoted_variant.results.is_empty());
+
     if let Ok(path) = std::env::var("PAPERCUT_SEARCH_EVAL_OUTPUT") {
         let bytes = std::fs::metadata(temp.join("search.sqlite3"))
             .unwrap()
@@ -324,4 +376,106 @@ fn peak_rss_kib() -> Option<u64> {
             .and_then(|value| value.split_whitespace().next())
             .and_then(|value| value.parse().ok())
     })
+}
+
+#[test]
+fn normalized_pdf_search_keeps_page_locator_after_ocr_replacement() {
+    let root = std::env::temp_dir().join(format!(
+        "papercut-arabic-pdf-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let mut db = open_db_in(&root).unwrap();
+    let mut parsed = ParsedDocument {
+        title: "بحث عربي".into(),
+        format: "pdf".into(),
+        view_html: String::new(),
+        sections: vec![ParsedSection {
+            heading: None,
+            text: "🙂 إِنْتَاجُ الطـاقةِ".into(),
+            page_index: Some(7),
+        }],
+        cover: None,
+        assets: Vec::new(),
+    };
+    upsert_document(
+        &mut db,
+        "abc123",
+        "/uploads/abc123.pdf",
+        &parsed,
+        None,
+        StoredSourceKind::Pdf,
+        1,
+        1,
+        PdfTextStatus::Ready,
+    )
+    .unwrap();
+    db.execute(
+        "UPDATE upload_schema_metadata SET value = '0' WHERE key = 'search_form_ready'",
+        [],
+    )
+    .unwrap();
+    drop(db);
+    let request = |query: &str| UploadedDocumentSearchRequest {
+        query: query.into(),
+        mode: UploadedDocumentSearchMode::All,
+        limit: Some(10),
+        document_urls: None,
+        exact_phrases: None,
+    };
+    assert!(
+        search_uploads_with_db(request("إنتاج الطاقة"), || open_db_in(&root), |_| {})
+            .unwrap()
+            .0
+            .results
+            .is_empty()
+    );
+    let db = open_db_in(&root).unwrap();
+    db.execute(
+        "UPDATE upload_schema_metadata SET value = '1' WHERE key = 'search_form_ready'",
+        [],
+    )
+    .unwrap();
+    drop(db);
+    let (response, _) =
+        search_uploads_with_db(request("إنتاج الطاقة"), || open_db_in(&root), |_| {}).unwrap();
+    assert_eq!(response.results.len(), 1);
+    assert_eq!(response.results[0].page_index, Some(7));
+    assert_eq!(response.results[0].section_index, 0);
+    assert!(response.results[0].excerpt.contains("<mark>إِنْتَاجُ</mark>"));
+
+    let mut db = open_db_in(&root).unwrap();
+    parsed.sections[0].text = "البيئة النظيفة".into();
+    upsert_document(
+        &mut db,
+        "abc123",
+        "/uploads/abc123.pdf",
+        &parsed,
+        None,
+        StoredSourceKind::Pdf,
+        1,
+        1,
+        PdfTextStatus::Ready,
+    )
+    .unwrap();
+    drop(db);
+    assert!(
+        search_uploads_with_db(request("إنتاج"), || open_db_in(&root), |_| {})
+            .unwrap()
+            .0
+            .results
+            .is_empty()
+    );
+    assert_eq!(
+        search_uploads_with_db(request("البيئة"), || open_db_in(&root), |_| {})
+            .unwrap()
+            .0
+            .results[0]
+            .page_index,
+        Some(7)
+    );
+    std::fs::remove_dir_all(root).unwrap();
 }

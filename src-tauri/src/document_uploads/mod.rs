@@ -34,6 +34,7 @@ mod parsed;
 mod pdf;
 mod pipeline;
 mod search;
+mod search_form;
 mod state;
 mod storage;
 mod store;
@@ -42,6 +43,7 @@ mod types;
 
 pub(crate) use batch::import_scanner_source;
 pub(crate) use state::DocumentUploadState;
+pub(crate) use store::schedule_search_form_rebuild;
 
 // Library transfer consumes this narrow storage API so its removable package
 // module never duplicates document parsing, sanitization, indexing, or folder rules.

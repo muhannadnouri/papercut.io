@@ -11,6 +11,7 @@ use tauri::Runtime;
 
 mod query;
 
+use super::search_form;
 use super::storage::{upload_reference_from_url, StoredSourceKind};
 use super::store::{db_err, open_db};
 use super::types::{
@@ -34,6 +35,27 @@ const MAX_CONCORDANCE_LIMIT: usize = 100;
 // FTS columns are document_id, section_id (both UNINDEXED), title, heading,
 // text. Keep candidate and evidence passage ranking on the same score policy.
 const BM25_SCORE_SQL: &str = "bm25(uploaded_document_fts, 0, 0, 5, 3, 1)";
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum SearchIndex {
+    Original,
+    SearchForm,
+}
+
+impl SearchIndex {
+    fn table(self) -> &'static str {
+        match self {
+            Self::Original => "uploaded_document_fts",
+            Self::SearchForm => "uploaded_document_search_fts",
+        }
+    }
+    fn score(self) -> &'static str {
+        match self {
+            Self::Original => BM25_SCORE_SQL,
+            Self::SearchForm => "bm25(uploaded_document_search_fts, 0, 0, 5, 3, 1)",
+        }
+    }
+}
 
 struct RankedDocumentCandidate {
     document_id: String,
@@ -92,16 +114,47 @@ fn search_uploads_with_db(
     mut progress: impl FnMut(UploadedDocumentSearchStage),
 ) -> Result<(UploadedDocumentSearchResponse, SearchMeasurements), String> {
     let search_started = Instant::now();
-    let fuzzy_terms = fts_fuzzy_terms(&request.query);
-    let fuzzy_queries = fuzzy_terms
-        .iter()
-        .map(|term| fts_alias_query(term))
+    let fuzzy_terms = fts_fuzzy_terms(&request.query)
+        .into_iter()
+        .filter(|term| !search_form::normalize(term).is_empty())
         .collect::<Vec<_>>();
     let exact_phrases = request.exact_phrases.unwrap_or_default();
-    let exact_queries = fts_phrase_queries(&exact_phrases);
-    if fuzzy_queries.is_empty() && exact_queries.is_empty() {
+    let original_exact_queries = fts_phrase_queries(&exact_phrases);
+    if fuzzy_terms.is_empty() && original_exact_queries.is_empty() {
         return Ok((empty_search_response(), SearchMeasurements::default()));
     }
+    let db_started = Instant::now();
+    let mut db = open()?;
+    let db_ms = db_started.elapsed().as_secs_f64() * 1000.0;
+    let wants_search_form = fuzzy_terms
+        .iter()
+        .chain(exact_phrases.iter())
+        .any(|term| search_form::has_arabic(term));
+    let index = if wants_search_form && search_form_ready(&db)? {
+        SearchIndex::SearchForm
+    } else {
+        SearchIndex::Original
+    };
+    let fuzzy_queries = fuzzy_terms
+        .iter()
+        .map(|term| {
+            fts_alias_query(&if index == SearchIndex::SearchForm {
+                search_form::normalize(term)
+            } else {
+                term.clone()
+            })
+        })
+        .collect::<Vec<_>>();
+    let exact_queries = if index == SearchIndex::SearchForm {
+        fts_phrase_queries(
+            &exact_phrases
+                .iter()
+                .map(|phrase| search_form::normalize(phrase))
+                .collect::<Vec<_>>(),
+        )
+    } else {
+        original_exact_queries
+    };
     let requested_broader = request.mode == UploadedDocumentSearchMode::Broader;
     let comparison_terms = comparison_terms(
         &fuzzy_terms,
@@ -118,9 +171,6 @@ fn search_uploads_with_db(
     let or_query = fts_or_query(&queries);
     let section_query = if broader { &or_query } else { &query };
 
-    let db_started = Instant::now();
-    let mut db = open()?;
-    let db_ms = db_started.elapsed().as_secs_f64() * 1000.0;
     // Keep candidate ranking, exact verification, and evidence on one SQLite
     // snapshot if an import, OCR update, or deletion commits concurrently.
     let tx = db.transaction().map_err(db_err)?;
@@ -135,10 +185,10 @@ fn search_uploads_with_db(
     progress(UploadedDocumentSearchStage::FindingCandidates);
     let candidate_started = Instant::now();
     let (mut section_candidates, mut document_candidates, term_presence) = if broader {
-        let presence = document_term_presence(&tx, &comparison_terms, &document_urls)?;
+        let presence = document_term_presence(&tx, &comparison_terms, &document_urls, index)?;
         let minimum = ((comparison_terms.len() + 1) / 2).max(2);
         let phrase_ids = (!exact_queries.is_empty())
-            .then(|| document_ids_matching_all_queries(&tx, &exact_queries, &document_urls))
+            .then(|| document_ids_matching_all_queries(&tx, &exact_queries, &document_urls, index))
             .transpose()?
             .map(|ids| ids.into_iter().collect::<HashSet<_>>());
         let mut ids = presence
@@ -153,7 +203,7 @@ fn search_uploads_with_db(
             .collect::<Vec<_>>();
         ids.sort();
         let mut candidates =
-            document_candidates(&tx, &or_query, &document_urls, Some(&ids), "section")?;
+            document_candidates(&tx, &or_query, &document_urls, Some(&ids), "section", index)?;
         // Stable sorting preserves BM25 and the existing import/ID tie breaks
         // within each document-level coverage tier.
         candidates.sort_by_key(|candidate| {
@@ -166,14 +216,14 @@ fn search_uploads_with_db(
         });
         (candidates, Vec::new(), Some(presence))
     } else {
-        let section = document_candidates(&tx, &query, &document_urls, None, "section")?;
+        let section = document_candidates(&tx, &query, &document_urls, None, "section", index)?;
         let section_document_ids = section
             .iter()
             .map(|candidate| candidate.document_id.clone())
             .collect::<HashSet<_>>();
         let document = if queries.len() > 1 {
             let mut document_ids =
-                document_ids_matching_all_queries(&tx, &queries, &document_urls)?;
+                document_ids_matching_all_queries(&tx, &queries, &document_urls, index)?;
             document_ids.retain(|id| !section_document_ids.contains(id));
             document_candidates(
                 &tx,
@@ -181,6 +231,7 @@ fn search_uploads_with_db(
                 &document_urls,
                 Some(&document_ids),
                 "document",
+                index,
             )?
         } else {
             Vec::new()
@@ -218,15 +269,23 @@ fn search_uploads_with_db(
     }
     let exact_evidence_ms = exact_evidence_started.elapsed().as_secs_f64() * 1000.0;
     let result_evidence_started = Instant::now();
-    let mut results = search_results_for_candidates(&tx, section_query, &section_candidates)?;
+    let mut results = search_results_for_candidates(
+        &tx,
+        section_query,
+        &section_candidates,
+        index,
+        &fuzzy_terms,
+    )?;
     results.extend(search_results_for_candidates(
         &tx,
         &or_query,
         &document_candidates,
+        index,
+        &fuzzy_terms,
     )?);
     let result_evidence_ms = result_evidence_started.elapsed().as_secs_f64() * 1000.0;
     let term_matches_started = Instant::now();
-    attach_search_term_matches(&tx, &comparison_terms, &mut results)?;
+    attach_search_term_matches(&tx, &comparison_terms, &mut results, index)?;
     if let Some(presence) = term_presence {
         for result in &mut results {
             if let Some(matched) = presence.get(&result.document_id) {
@@ -371,6 +430,15 @@ fn empty_search_response() -> UploadedDocumentSearchResponse {
         total_documents: 0,
         total_matching_sections: 0,
     }
+}
+
+fn search_form_ready(db: &Connection) -> Result<bool, String> {
+    db.query_row(
+        "SELECT value = '1' FROM upload_schema_metadata WHERE key = 'search_form_ready'",
+        [],
+        |row| row.get(0),
+    )
+    .map_err(db_err)
 }
 
 /// Find literal text across one PDF's already-indexed page rows.
@@ -646,11 +714,18 @@ fn search_section_hits(
     limit: i64,
     document_urls: &[String],
 ) -> Result<Vec<UploadedDocumentSearchResult>, String> {
-    let candidates = document_candidates(db, query, document_urls, None, "section")?
-        .into_iter()
-        .take(limit.max(0) as usize)
-        .collect::<Vec<_>>();
-    search_results_for_candidates(db, query, &candidates)
+    let candidates = document_candidates(
+        db,
+        query,
+        document_urls,
+        None,
+        "section",
+        SearchIndex::Original,
+    )?
+    .into_iter()
+    .take(limit.max(0) as usize)
+    .collect::<Vec<_>>();
+    search_results_for_candidates(db, query, &candidates, SearchIndex::Original, &[])
 }
 
 /// Collapse section hits to one ranked candidate per document, retaining the
@@ -661,21 +736,24 @@ fn document_candidates(
     document_urls: &[String],
     document_ids: Option<&[String]>,
     match_scope: &'static str,
+    index: SearchIndex,
 ) -> Result<Vec<RankedDocumentCandidate>, String> {
     if document_ids.is_some_and(|ids| ids.is_empty()) {
         return Ok(Vec::new());
     }
 
     let (url_scope_sql, mut values) = document_url_scope(document_urls);
-    let (id_scope_sql, id_values) = document_id_scope(document_ids);
+    let (id_scope_sql, id_values) = document_id_scope(document_ids, index);
+    let table = index.table();
+    let score = index.score();
     let sql = format!(
-        "SELECT uploaded_document_fts.document_id, \
-                CAST(uploaded_document_fts.section_id AS INTEGER), s.ordinal, \
-                {BM25_SCORE_SQL}, d.imported_at_ms, d.sections \
-         FROM uploaded_document_fts \
-         JOIN uploaded_sections s ON s.id = uploaded_document_fts.section_id \
-         JOIN uploaded_documents d ON d.id = uploaded_document_fts.document_id \
-         WHERE uploaded_document_fts MATCH ? {url_scope_sql} {id_scope_sql}"
+        "SELECT {table}.document_id, \
+                CAST({table}.section_id AS INTEGER), s.ordinal, \
+                {score}, d.imported_at_ms, d.sections \
+         FROM {table} \
+         JOIN uploaded_sections s ON s.id = {table}.section_id \
+         JOIN uploaded_documents d ON d.id = {table}.document_id \
+         WHERE {table} MATCH ? {url_scope_sql} {id_scope_sql}"
     );
     values.insert(0, Value::Text(query.to_string()));
     values.extend(id_values);
@@ -724,7 +802,9 @@ fn document_candidates(
     }
     drop(stmt);
 
-    for (document_id, count) in matching_section_counts(db, query, document_urls, document_ids)? {
+    for (document_id, count) in
+        matching_section_counts(db, query, document_urls, document_ids, index)?
+    {
         if let Some(candidate) = candidates.get_mut(&document_id) {
             candidate.matching_sections = count;
         }
@@ -747,15 +827,17 @@ fn matching_section_counts(
     query: &str,
     document_urls: &[String],
     document_ids: Option<&[String]>,
+    index: SearchIndex,
 ) -> Result<HashMap<String, usize>, String> {
     let (url_scope_sql, mut values) = document_url_scope(document_urls);
-    let (id_scope_sql, id_values) = document_id_scope(document_ids);
+    let (id_scope_sql, id_values) = document_id_scope(document_ids, index);
+    let table = index.table();
     let sql = format!(
-        "SELECT uploaded_document_fts.document_id, COUNT(*) \
-         FROM uploaded_document_fts \
-         JOIN uploaded_documents d ON d.id = uploaded_document_fts.document_id \
-         WHERE uploaded_document_fts MATCH ? {url_scope_sql} {id_scope_sql} \
-         GROUP BY uploaded_document_fts.document_id"
+        "SELECT {table}.document_id, COUNT(*) \
+         FROM {table} \
+         JOIN uploaded_documents d ON d.id = {table}.document_id \
+         WHERE {table} MATCH ? {url_scope_sql} {id_scope_sql} \
+         GROUP BY {table}.document_id"
     );
     values.insert(0, Value::Text(format!("{{heading text}} : ({query})")));
     values.extend(id_values);
@@ -784,16 +866,23 @@ fn search_cross_section_document_hits(
         return Ok(Vec::new());
     }
 
-    let mut candidate_ids = document_ids_matching_all_queries(db, queries, document_urls)?;
+    let mut candidate_ids =
+        document_ids_matching_all_queries(db, queries, document_urls, SearchIndex::Original)?;
     candidate_ids.retain(|id| !excluded_document_ids.contains(id));
 
     let query = fts_or_query(queries);
-    let candidates =
-        document_candidates(db, &query, document_urls, Some(&candidate_ids), "document")?
-            .into_iter()
-            .take(limit as usize)
-            .collect::<Vec<_>>();
-    search_results_for_candidates(db, &query, &candidates)
+    let candidates = document_candidates(
+        db,
+        &query,
+        document_urls,
+        Some(&candidate_ids),
+        "document",
+        SearchIndex::Original,
+    )?
+    .into_iter()
+    .take(limit as usize)
+    .collect::<Vec<_>>();
+    search_results_for_candidates(db, &query, &candidates, SearchIndex::Original, &[])
 }
 
 /// Intersect per-clause document sets so required terms may live in different
@@ -802,16 +891,18 @@ fn document_ids_matching_all_queries(
     db: &Connection,
     queries: &[String],
     document_urls: &[String],
+    index: SearchIndex,
 ) -> Result<Vec<String>, String> {
     let mut intersection: Option<HashSet<String>> = None;
 
     for query in queries {
         let (scope_sql, mut values) = document_url_scope(document_urls);
+        let table = index.table();
         let sql = format!(
-            "SELECT DISTINCT uploaded_document_fts.document_id \
-             FROM uploaded_document_fts \
-             JOIN uploaded_documents d ON d.id = uploaded_document_fts.document_id \
-             WHERE uploaded_document_fts MATCH ? {scope_sql}"
+            "SELECT DISTINCT {table}.document_id \
+             FROM {table} \
+             JOIN uploaded_documents d ON d.id = {table}.document_id \
+             WHERE {table} MATCH ? {scope_sql}"
         );
         values.insert(0, Value::Text(query.clone()));
         let mut stmt = db.prepare(&sql).map_err(db_err)?;
@@ -845,11 +936,16 @@ fn document_term_presence(
     db: &Connection,
     terms: &[(String, String)],
     document_urls: &[String],
+    search_index: SearchIndex,
 ) -> Result<HashMap<String, Vec<bool>>, String> {
     let mut presence = HashMap::<String, Vec<bool>>::new();
     for (index, (_, query)) in terms.iter().enumerate() {
-        for id in document_ids_matching_all_queries(db, std::slice::from_ref(query), document_urls)?
-        {
+        for id in document_ids_matching_all_queries(
+            db,
+            std::slice::from_ref(query),
+            document_urls,
+            search_index,
+        )? {
             presence
                 .entry(id)
                 .or_insert_with(|| vec![false; terms.len()])[index] = true;
@@ -865,6 +961,8 @@ fn search_results_for_candidates(
     db: &Connection,
     query: &str,
     candidates: &[RankedDocumentCandidate],
+    index: SearchIndex,
+    terms: &[String],
 ) -> Result<Vec<UploadedDocumentSearchResult>, String> {
     if candidates.is_empty() {
         return Ok(Vec::new());
@@ -874,15 +972,21 @@ fn search_results_for_candidates(
         .map(|_| "?")
         .collect::<Vec<_>>()
         .join(", ");
+    let table = index.table();
+    let source_column = if index == SearchIndex::SearchForm {
+        "s.text"
+    } else {
+        "NULL"
+    };
     let sql = format!(
         "SELECT d.id, d.url, d.title, s.ordinal, s.page_index, s.heading, \
-                snippet(uploaded_document_fts, 4, '<mark>', '</mark>', '…', 18) AS excerpt, \
-                CAST(uploaded_document_fts.section_id AS INTEGER) \
-         FROM uploaded_document_fts \
-         JOIN uploaded_sections s ON s.id = uploaded_document_fts.section_id \
-         JOIN uploaded_documents d ON d.id = uploaded_document_fts.document_id \
-         WHERE uploaded_document_fts MATCH ? \
-           AND uploaded_document_fts.section_id IN ({placeholders})"
+                snippet({table}, 4, '<mark>', '</mark>', '…', 18) AS excerpt, \
+                CAST({table}.section_id AS INTEGER), {source_column} \
+         FROM {table} \
+         JOIN uploaded_sections s ON s.id = {table}.section_id \
+         JOIN uploaded_documents d ON d.id = {table}.document_id \
+         WHERE {table} MATCH ? \
+           AND {table}.section_id IN ({placeholders})"
     );
     let mut values = vec![Value::Text(query.to_string())];
     values.extend(
@@ -901,7 +1005,7 @@ fn search_results_for_candidates(
             let candidate = candidate_by_section
                 .get(&section_id)
                 .ok_or(rusqlite::Error::InvalidQuery)?;
-            row_to_search_result(row, candidate)
+            row_to_search_result(row, candidate, index, terms)
         })
         .map_err(db_err)?;
     let mut result_by_document = rows
@@ -923,7 +1027,7 @@ fn search_results_for_candidates(
         .iter()
         .all(|candidate| candidate.exact_evidence.is_none())
     {
-        attach_search_evidence(db, query, candidates, &mut results)?;
+        attach_search_evidence(db, query, candidates, &mut results, index, terms)?;
     }
     Ok(results)
 }
@@ -931,6 +1035,8 @@ fn search_results_for_candidates(
 fn row_to_search_result(
     row: &Row<'_>,
     candidate: &RankedDocumentCandidate,
+    index: SearchIndex,
+    terms: &[String],
 ) -> rusqlite::Result<UploadedDocumentSearchResult> {
     let document_id: String = row.get(0)?;
     let broad_section_index = row.get::<_, i64>(3)? as usize;
@@ -938,7 +1044,11 @@ fn row_to_search_result(
         .get::<_, Option<i64>>(4)?
         .map(|page_index| page_index as usize);
     let broad_section_title = row.get::<_, Option<String>>(5)?;
-    let broad_excerpt = row.get::<_, String>(6)?;
+    let broad_excerpt = if index == SearchIndex::SearchForm {
+        source_excerpt(&row.get::<_, String>(8)?, terms, &row.get::<_, String>(6)?)
+    } else {
+        row.get::<_, String>(6)?
+    };
     let (section_index, page_index, section_title, excerpt, match_count) = candidate
         .exact_evidence
         .as_ref()
@@ -992,20 +1102,29 @@ fn attach_search_evidence(
     query: &str,
     candidates: &[RankedDocumentCandidate],
     results: &mut [UploadedDocumentSearchResult],
+    index: SearchIndex,
+    terms: &[String],
 ) -> Result<(), String> {
     let placeholders = (0..candidates.len())
         .map(|_| "?")
         .collect::<Vec<_>>()
         .join(", ");
+    let table = index.table();
+    let score = index.score();
+    let source_column = if index == SearchIndex::SearchForm {
+        "s.text"
+    } else {
+        "NULL"
+    };
     let sql = format!(
-        "SELECT uploaded_document_fts.document_id, s.ordinal, s.page_index, s.heading, \
-                snippet(uploaded_document_fts, 4, '<mark>', '</mark>', '…', 18), \
-                {BM25_SCORE_SQL} \
-         FROM uploaded_document_fts \
-         JOIN uploaded_sections s ON s.id = uploaded_document_fts.section_id \
-         WHERE uploaded_document_fts MATCH ? \
-           AND uploaded_document_fts.document_id IN ({placeholders}) \
-         ORDER BY uploaded_document_fts.document_id, s.ordinal"
+        "SELECT {table}.document_id, s.ordinal, s.page_index, s.heading, \
+                snippet({table}, 4, '<mark>', '</mark>', '…', 18), \
+                {score}, {source_column} \
+         FROM {table} \
+         JOIN uploaded_sections s ON s.id = {table}.section_id \
+         WHERE {table} MATCH ? \
+           AND {table}.document_id IN ({placeholders}) \
+         ORDER BY {table}.document_id, s.ordinal"
     );
     let mut values = vec![Value::Text(format!("{{heading text}} : ({query})"))];
     values.extend(
@@ -1040,12 +1159,18 @@ fn attach_search_evidence(
                 row.get::<_, Option<String>>(3)?,
                 row.get::<_, String>(4)?,
                 row.get::<_, f64>(5)?,
+                row.get::<_, Option<String>>(6)?,
             ))
         })
         .map_err(db_err)?;
     for row in rows {
-        let (document_id, section_index, page_index, section_title, excerpt, score) =
+        let (document_id, section_index, page_index, section_title, excerpt, score, source) =
             row.map_err(db_err)?;
+        let excerpt = if let Some(source) = source {
+            source_excerpt(&source, terms, &excerpt)
+        } else {
+            excerpt
+        };
         let Some(candidate) = candidate_by_document.get(document_id.as_str()) else {
             continue;
         };
@@ -1110,6 +1235,37 @@ fn first_marked_text(excerpt: &str) -> Option<String> {
     (!text.is_empty()).then(|| text.to_string())
 }
 
+// ponytail: scan a matched source section to recover authored characters;
+// persist offsets only if the large-library evidence latency gate fails.
+fn source_excerpt(source: &str, terms: &[String], indexed_snippet: &str) -> String {
+    let chars = source.chars().collect::<Vec<_>>();
+    let span = terms
+        .iter()
+        .find_map(|term| search_form::source_span(source, &search_form::normalize(term)))
+        .or_else(|| {
+            first_marked_text(indexed_snippet)
+                .and_then(|term| search_form::source_span(source, &term))
+        });
+    let Some((match_start, match_end)) = span else {
+        return chars.iter().take(240).collect();
+    };
+    let start = match_start.saturating_sub(120);
+    let end = (match_end + 120).min(chars.len());
+    let mut excerpt = String::new();
+    if start > 0 {
+        excerpt.push_str("… ");
+    }
+    excerpt.extend(chars[start..match_start].iter());
+    excerpt.push_str("<mark>");
+    excerpt.extend(chars[match_start..match_end].iter());
+    excerpt.push_str("</mark>");
+    excerpt.extend(chars[match_end..end].iter());
+    if end < chars.len() {
+        excerpt.push_str(" …");
+    }
+    excerpt
+}
+
 /// Add comparison counts only for small broad queries and visible results.
 /// SQLite aggregates each term to one row per document, keeping IPC and Rust
 /// memory bounded even when a common term occurs on many pages.
@@ -1117,6 +1273,7 @@ fn attach_search_term_matches(
     db: &Connection,
     terms: &[(String, String)],
     results: &mut [UploadedDocumentSearchResult],
+    index: SearchIndex,
 ) -> Result<(), String> {
     if terms.is_empty() || results.is_empty() {
         return Ok(());
@@ -1145,26 +1302,36 @@ fn attach_search_term_matches(
         .map(|_| "?")
         .collect::<Vec<_>>()
         .join(", ");
+    let table = index.table();
+    let (source_columns, source_join) = if index == SearchIndex::SearchForm {
+        (
+            "s.text, s.heading",
+            "JOIN uploaded_sections s ON s.id = matches.section_id",
+        )
+    } else {
+        ("'', NULL", "")
+    };
     let sql = format!(
         "WITH matches AS (\
-           SELECT uploaded_document_fts.document_id, \
-                  CAST(uploaded_document_fts.section_id AS INTEGER) AS section_id, \
+           SELECT {table}.document_id, \
+                  CAST({table}.section_id AS INTEGER) AS section_id, \
                   s.ordinal, s.page_index, \
-                  COUNT(*) OVER (PARTITION BY uploaded_document_fts.document_id) AS match_count, \
+                  COUNT(*) OVER (PARTITION BY {table}.document_id) AS match_count, \
                   ROW_NUMBER() OVER (\
-                    PARTITION BY uploaded_document_fts.document_id ORDER BY s.ordinal\
+                    PARTITION BY {table}.document_id ORDER BY s.ordinal\
                   ) AS match_number \
-           FROM uploaded_document_fts \
-           JOIN uploaded_sections s ON s.id = uploaded_document_fts.section_id \
-           WHERE uploaded_document_fts MATCH ? \
-             AND uploaded_document_fts.document_id IN ({placeholders})\
+           FROM {table} \
+           JOIN uploaded_sections s ON s.id = {table}.section_id \
+           WHERE {table} MATCH ? \
+             AND {table}.document_id IN ({placeholders})\
          ) \
          SELECT matches.document_id, matches.ordinal, matches.page_index, matches.match_count, \
-                snippet(uploaded_document_fts, -1, '<mark>', '</mark>', '…', 18) \
+                snippet({table}, -1, '<mark>', '</mark>', '…', 18), {source_columns} \
          FROM matches \
-         JOIN uploaded_document_fts \
-           ON CAST(uploaded_document_fts.section_id AS INTEGER) = matches.section_id \
-         WHERE matches.match_number = 1 AND uploaded_document_fts MATCH ?"
+         JOIN {table} \
+           ON CAST({table}.section_id AS INTEGER) = matches.section_id \
+         {source_join} \
+         WHERE matches.match_number = 1 AND {table} MATCH ?"
     );
 
     let mut stmt = db.prepare(&sql).map_err(db_err)?;
@@ -1185,12 +1352,21 @@ fn attach_search_term_matches(
                     row.get::<_, Option<i64>>(2)?.map(|value| value as usize),
                     row.get::<_, i64>(3)? as usize,
                     row.get::<_, String>(4)?,
+                    row.get::<_, String>(5)?,
+                    row.get::<_, Option<String>>(6)?,
                 ))
             })
             .map_err(db_err)?;
         for row in rows {
-            let (document_id, section_index, page_index, matching_sections, excerpt) =
-                row.map_err(db_err)?;
+            let (
+                document_id,
+                section_index,
+                page_index,
+                matching_sections,
+                excerpt,
+                source,
+                heading,
+            ) = row.map_err(db_err)?;
             let Some(result_index) = result_indexes.get(&document_id) else {
                 continue;
             };
@@ -1198,7 +1374,28 @@ fn attach_search_term_matches(
             term_match.matching_sections = matching_sections;
             term_match.section_index = Some(section_index);
             term_match.page_index = page_index;
-            term_match.text = first_marked_text(&excerpt);
+            term_match.text = if index == SearchIndex::SearchForm {
+                let term = &terms[term_index].0;
+                let normalized = search_form::normalize(term);
+                search_form::source_span(&source, &normalized)
+                    .map(|(start, end)| source.chars().skip(start).take(end - start).collect())
+                    .or_else(|| {
+                        heading.as_deref().and_then(|heading| {
+                            search_form::source_span(heading, &normalized).map(|(start, end)| {
+                                heading.chars().skip(start).take(end - start).collect()
+                            })
+                        })
+                    })
+                    .or_else(|| {
+                        first_marked_text(&excerpt).and_then(|text| {
+                            search_form::source_span(&source, &text).map(|(start, end)| {
+                                source.chars().skip(start).take(end - start).collect()
+                            })
+                        })
+                    })
+            } else {
+                first_marked_text(&excerpt)
+            };
         }
     }
     Ok(())
@@ -1218,7 +1415,7 @@ fn document_url_scope(document_urls: &[String]) -> (String, Vec<Value>) {
     )
 }
 
-fn document_id_scope(document_ids: Option<&[String]>) -> (String, Vec<Value>) {
+fn document_id_scope(document_ids: Option<&[String]>, index: SearchIndex) -> (String, Vec<Value>) {
     let Some(document_ids) = document_ids else {
         return (String::new(), Vec::new());
     };
@@ -1227,7 +1424,7 @@ fn document_id_scope(document_ids: Option<&[String]>) -> (String, Vec<Value>) {
         .collect::<Vec<_>>()
         .join(", ");
     (
-        format!("AND uploaded_document_fts.document_id IN ({placeholders})"),
+        format!("AND {}.document_id IN ({placeholders})", index.table()),
         document_ids.iter().cloned().map(Value::Text).collect(),
     )
 }

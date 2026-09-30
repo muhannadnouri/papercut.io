@@ -10,6 +10,7 @@ use rusqlite::{params, Connection, OptionalExtension, Row, TransactionBehavior};
 use tauri::Runtime;
 
 use super::parsed::ParsedDocument;
+use super::search_form;
 use super::storage::{upload_id_from_url, uploads_root, StoredSourceKind};
 use super::types::UploadedDocument;
 
@@ -138,6 +139,14 @@ pub(super) fn open_db_in(root: &std::path::Path) -> Result<Connection, String> {
            text,
            tokenize = 'porter unicode61 remove_diacritics 1'
          );
+         CREATE VIRTUAL TABLE IF NOT EXISTS uploaded_document_search_fts USING fts5(
+           document_id UNINDEXED,
+           section_id UNINDEXED,
+           title,
+           heading,
+           text,
+           tokenize = 'porter unicode61 remove_diacritics 1'
+         );
          CREATE TABLE IF NOT EXISTS uploaded_folders (
            id TEXT PRIMARY KEY,
            parent_id TEXT,
@@ -175,17 +184,119 @@ pub(super) fn open_db_in(root: &std::path::Path) -> Result<Connection, String> {
         .map_err(db_err)?
         .and_then(|value| value.parse::<u32>().ok())
         .unwrap_or(0);
+    if previous_schema_version >= 7 {
+        let version: String = tx
+            .query_row(
+                "SELECT value FROM upload_schema_metadata WHERE key = 'search_form_version'",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(db_err)?;
+        if version != search_form::VERSION {
+            return Err(format!(
+                "Unsupported uploaded search-form version: {version}"
+            ));
+        }
+    }
     ensure_schema_columns(&tx)?;
     if previous_schema_version < 6 {
         backfill_pdf_text_status(&tx)?;
     }
+    if previous_schema_version < 7 {
+        let has_sections: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM uploaded_sections)",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(db_err)?;
+        tx.execute(
+            "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('search_form_ready', ?1)",
+            [if has_sections { "0" } else { "1" }],
+        ).map_err(db_err)?;
+    }
     tx.execute(
-        "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('schema_version', '6')",
+        "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('search_form_version', ?1)",
+        [search_form::VERSION],
+    ).map_err(db_err)?;
+    tx.execute(
+        "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('schema_version', '7')",
         [],
     )
     .map_err(db_err)?;
     tx.commit().map_err(db_err)?;
     Ok(db)
+}
+
+/// Incremental and restartable: each batch commits its own rows, and search
+/// retains the original index until every legacy section has a projection.
+pub(crate) fn rebuild_search_form_batch(db: &mut Connection) -> Result<bool, String> {
+    let ready: String = db
+        .query_row(
+            "SELECT value FROM upload_schema_metadata WHERE key = 'search_form_ready'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(db_err)?;
+    if ready == "1" {
+        return Ok(false);
+    }
+
+    let tx = db
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(db_err)?;
+    let sections = {
+        let mut stmt = tx
+            .prepare(
+                "SELECT s.id, s.document_id, d.title, s.heading, s.text \
+             FROM uploaded_sections s JOIN uploaded_documents d ON d.id = s.document_id \
+             WHERE NOT EXISTS (SELECT 1 FROM uploaded_document_search_fts f WHERE f.rowid = s.id) \
+             ORDER BY s.id LIMIT 64",
+            )
+            .map_err(db_err)?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, String>(4)?,
+                ))
+            })
+            .map_err(db_err)?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(db_err)?
+    };
+    for (section_id, document_id, title, heading, text) in &sections {
+        tx.execute(
+            "INSERT INTO uploaded_document_search_fts (rowid, document_id, section_id, title, heading, text) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![section_id, document_id, section_id, search_form::normalize(title),
+                heading.as_deref().map(search_form::normalize), search_form::normalize(text)],
+        ).map_err(db_err)?;
+    }
+    if sections.is_empty() {
+        tx.execute(
+            "UPDATE upload_schema_metadata SET value = '1' WHERE key = 'search_form_ready'",
+            [],
+        )
+        .map_err(db_err)?;
+    }
+    tx.commit().map_err(db_err)?;
+    Ok(!sections.is_empty())
+}
+
+pub(crate) fn schedule_search_form_rebuild<R: Runtime>(app: tauri::AppHandle<R>) {
+    tauri::async_runtime::spawn_blocking(move || {
+        let result = (|| -> Result<(), String> {
+            let mut db = open_db(&app)?;
+            while rebuild_search_form_batch(&mut db)? {}
+            Ok(())
+        })();
+        if let Err(error) = result {
+            log::warn!("Uploaded search-form rebuild will retry on restart: {error}");
+        }
+    });
 }
 
 /// Add metadata columns and the reading-order section index in place so
@@ -283,6 +394,11 @@ fn has_column(db: &Connection, table: &str, column: &str) -> Result<bool, String
 pub(crate) fn delete_document_rows(db: &mut Connection, id: &str) -> Result<(), String> {
     let tx = db.transaction().map_err(db_err)?;
     tx.execute(
+        "DELETE FROM uploaded_document_search_fts WHERE document_id = ?1",
+        [id],
+    )
+    .map_err(db_err)?;
+    tx.execute(
         "DELETE FROM uploaded_document_fts WHERE document_id = ?1",
         [id],
     )
@@ -332,6 +448,11 @@ pub(crate) fn upsert_document(
     pdf_text_status: PdfTextStatus,
 ) -> Result<(), String> {
     let tx = db.transaction().map_err(db_err)?;
+    tx.execute(
+        "DELETE FROM uploaded_document_search_fts WHERE document_id = ?1",
+        [id],
+    )
+    .map_err(db_err)?;
     tx.execute(
         "DELETE FROM uploaded_document_fts WHERE document_id = ?1",
         [id],
@@ -396,6 +517,13 @@ pub(crate) fn upsert_document(
             params![id, section_id, parsed.title, section.heading, section.text],
         )
         .map_err(db_err)?;
+        tx.execute(
+            "INSERT INTO uploaded_document_search_fts (rowid, document_id, section_id, title, heading, text) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![section_id, id, section_id, search_form::normalize(&parsed.title),
+                section.heading.as_deref().map(search_form::normalize),
+                search_form::normalize(&section.text)],
+        ).map_err(db_err)?;
     }
 
     tx.commit().map_err(db_err)
@@ -415,6 +543,11 @@ pub(crate) fn upsert_unindexed_document(
     bytes: u64,
 ) -> Result<(), String> {
     let tx = db.transaction().map_err(db_err)?;
+    tx.execute(
+        "DELETE FROM uploaded_document_search_fts WHERE document_id = ?1",
+        [id],
+    )
+    .map_err(db_err)?;
     tx.execute(
         "DELETE FROM uploaded_document_fts WHERE document_id = ?1",
         [id],
@@ -499,6 +632,11 @@ pub(crate) fn update_document_title(
         params![title, id],
     )
     .map_err(db_err)?;
+    tx.execute(
+        "UPDATE uploaded_document_search_fts SET title = ?1 WHERE document_id = ?2",
+        params![search_form::normalize(&title), id],
+    )
+    .map_err(db_err)?;
     tx.commit().map_err(db_err)?;
 
     find_upload_by_id(db, &id)?.ok_or_else(|| "Updated document metadata is missing".to_string())
@@ -514,8 +652,9 @@ mod tests {
     use rusqlite::{params, Connection};
 
     use super::{
-        backfill_pdf_text_status, ensure_schema_columns, find_upload_by_id, update_document_title,
-        upsert_document, PdfTextStatus, MAX_TITLE_CHARS,
+        backfill_pdf_text_status, delete_document_rows, ensure_schema_columns, find_upload_by_id,
+        open_db_in, rebuild_search_form_batch, update_document_title, upsert_document,
+        PdfTextStatus, MAX_TITLE_CHARS,
     };
     use crate::document_uploads::parsed::{ParsedDocument, ParsedSection};
     use crate::document_uploads::StoredSourceKind;
@@ -734,6 +873,113 @@ mod tests {
     }
 
     #[test]
+    fn search_form_rebuild_resumes_and_tracks_replacement_and_deletion() {
+        let root = std::env::temp_dir().join(format!(
+            "papercut-search-form-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let mut db = open_db_in(&root).expect("new isolated database");
+        let texts = vec!["إِنْتَاجُ الطـاقةِ"; 70];
+        let mut parsed = parsed_document("إنتاج", &texts);
+        upsert_document(
+            &mut db,
+            "abc123",
+            "/uploads/abc123.html",
+            &parsed,
+            None,
+            StoredSourceKind::Html,
+            1,
+            1,
+            PdfTextStatus::Ready,
+        )
+        .expect("seed original index");
+        db.execute("DELETE FROM uploaded_document_search_fts", [])
+            .unwrap();
+        db.execute(
+            "UPDATE upload_schema_metadata SET value = '6' WHERE key = 'schema_version'",
+            [],
+        )
+        .unwrap();
+        drop(db);
+
+        let mut db = open_db_in(&root).expect("upgrade old schema");
+        assert_eq!(
+            db.query_row(
+                "SELECT value FROM upload_schema_metadata WHERE key = 'search_form_ready'",
+                [],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+            "0"
+        );
+        assert!(rebuild_search_form_batch(&mut db).unwrap());
+        assert_eq!(
+            db.query_row(
+                "SELECT COUNT(*) FROM uploaded_document_search_fts",
+                [],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+            64
+        );
+        drop(db); // Interrupted between committed batches.
+        let mut db = open_db_in(&root).expect("restart upgrade");
+        while rebuild_search_form_batch(&mut db).unwrap() {}
+        assert_eq!(
+            db.query_row(
+                "SELECT value FROM upload_schema_metadata WHERE key = 'search_form_ready'",
+                [],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+            "1"
+        );
+        assert_eq!(db.query_row("SELECT COUNT(*) FROM uploaded_document_search_fts WHERE uploaded_document_search_fts MATCH 'الطاقة'", [], |r| r.get::<_, i64>(0)).unwrap(), 70);
+        assert_eq!(
+            db.query_row(
+                "SELECT text FROM uploaded_sections WHERE document_id = 'abc123' LIMIT 1",
+                [],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+            "إِنْتَاجُ الطـاقةِ"
+        );
+
+        parsed.sections.truncate(1); // Same store path is used by OCR replacement.
+        parsed.sections[0].text = "انتاج الغذاء".into();
+        upsert_document(
+            &mut db,
+            "abc123",
+            "/uploads/abc123.html",
+            &parsed,
+            None,
+            StoredSourceKind::Html,
+            1,
+            1,
+            PdfTextStatus::Ready,
+        )
+        .expect("replace indexed content");
+        update_document_title(&mut db, "/uploads/abc123.html", "إِنْتَاجُ الغذاء").unwrap();
+        assert_eq!(db.query_row("SELECT COUNT(*) FROM uploaded_document_search_fts WHERE uploaded_document_search_fts MATCH 'الغذاء'", [], |r| r.get::<_, i64>(0)).unwrap(), 1);
+        delete_document_rows(&mut db, "abc123").unwrap();
+        assert_eq!(
+            db.query_row(
+                "SELECT COUNT(*) FROM uploaded_document_search_fts",
+                [],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+            0
+        );
+        drop(db);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn adds_upload_metadata_and_section_lookup_index_to_existing_schema() {
         let db = Connection::open_in_memory().expect("open database");
         db.execute("CREATE TABLE uploaded_documents (id TEXT PRIMARY KEY)", [])
@@ -882,6 +1128,13 @@ mod tests {
                FOREIGN KEY(document_id) REFERENCES uploaded_documents(id) ON DELETE CASCADE
              );
              CREATE VIRTUAL TABLE uploaded_document_fts USING fts5(
+               document_id UNINDEXED,
+               section_id UNINDEXED,
+               title,
+               heading,
+               text
+             );
+             CREATE VIRTUAL TABLE uploaded_document_search_fts USING fts5(
                document_id UNINDEXED,
                section_id UNINDEXED,
                title,
