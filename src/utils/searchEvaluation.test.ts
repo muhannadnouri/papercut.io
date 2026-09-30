@@ -5,7 +5,7 @@ import { normalizeForPhraseMatch } from './textUtils'
 
 test('every evaluation query reaches native search with its intended clauses', () => {
   for (const query of corpus.queries) {
-    expect(query.mode, query.id).toBe('all')
+    expect(['all', 'broader'], query.id).toContain(query.mode)
     const parsed = parseSearchQuery(query.query)
     expect(parsed.unmatchedQuote, query.id).toBe(false)
     expect(parsed.unquotedText.toLowerCase(), query.id).toBe(query.nativeQuery)

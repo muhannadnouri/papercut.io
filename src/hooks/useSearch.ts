@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react'
-import type { PagefindInstance, SearchResult } from '../types/search'
+import type { PagefindInstance, SearchMode, SearchResult } from '../types/search'
 import {
   searchUploadedDocuments,
   type UploadedDocumentSearchResult,
@@ -27,6 +27,7 @@ const UPLOADED_SEARCH_PHASES: Record<UploadedDocumentSearchStage, SearchPhase> =
 }
 
 export interface LastSearchInfo {
+  mode: SearchMode
   phrases: string[]
   unquotedText: string
   uploadedDocuments: number
@@ -42,6 +43,7 @@ interface PagefindResultSet {
 }
 
 interface UseSearchOptions {
+  mode?: SearchMode
   loadDocumentSource?: DocumentSourceLoader
   scopeUrls?: Set<string>
   scopeActive?: boolean
@@ -85,7 +87,8 @@ export function useSearch(
     const scopeUrls = options.scopeUrls
     const hasScope = options.scopeActive ?? Boolean(scopeUrls?.size)
     const scopeList = hasScope ? Array.from(scopeUrls ?? []).sort() : undefined
-    const searchKey = normalized + '\0' + (hasScope ? `scope\0${scopeList?.join('\0') ?? ''}` : 'all')
+    const mode = options.mode ?? 'all'
+    const searchKey = mode + '\0' + normalized + '\0' + (hasScope ? `scope\0${scopeList?.join('\0') ?? ''}` : 'all')
     if (normalized.length > 0 && activeSearchKeyRef.current === searchKey) return
 
     // Query text is not a unique identity: A → B → A can leave the first
@@ -136,6 +139,7 @@ export function useSearch(
       setResults([])
       setSearchFailed(false)
       setLastSearchInfo({
+        mode,
         phrases: displayPhrases,
         unquotedText: parsedQuery.unquotedText,
         uploadedDocuments: 0,
@@ -149,7 +153,7 @@ export function useSearch(
     setSearchFailed(false)
     setSearchPhase('indexes')
     try {
-      const pagefindPromise = pagefindRef.current
+      const pagefindPromise = mode === 'all' && pagefindRef.current
         ? pagefindRef.current.search(searchQuery)
         : Promise.resolve({ results: [] })
       const uploadPromise = searchUploadedDocuments(
@@ -162,6 +166,7 @@ export function useSearch(
             setSearchPhase(UPLOADED_SEARCH_PHASES[stage])
           }
         },
+        mode,
       )
       const [pagefindSearch, uploadedSearch] = await Promise.all([pagefindPromise, uploadPromise])
       if (latestSearchRequestRef.current !== requestId) return
@@ -225,6 +230,7 @@ export function useSearch(
 
       setResults(filtered)
       setLastSearchInfo({
+        mode,
         phrases: displayPhrases,
         unquotedText: parsedQuery.unquotedText,
         uploadedDocuments: uploadedSearch.totalDocuments,
@@ -246,7 +252,7 @@ export function useSearch(
         setSearchPhase(null)
       }
     }
-  }, [options.loadDocumentSource, options.scopeActive, options.scopeUrls, pagefindRef])
+  }, [options.loadDocumentSource, options.mode, options.scopeActive, options.scopeUrls, pagefindRef])
 
   const handleSearch = useCallback((searchQuery: string) => {
     setQuery(searchQuery)

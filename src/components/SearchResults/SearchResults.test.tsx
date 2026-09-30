@@ -92,6 +92,39 @@ describe('search progress', () => {
 })
 
 describe('search evidence', () => {
+  it('labels missing words in broader results without inventing occurrences', () => {
+    const html = renderToStaticMarkup(
+      <SearchResults
+        results={[{
+          id: 'upload:section:one:0',
+          url: '/uploads/one.html',
+          meta: { title: 'One' },
+          excerpt: '<mark>compass</mark>',
+          source: 'upload',
+          termMatches: [
+            { term: 'silver', matched: false, matchingSections: 0 },
+            { term: 'compass', matched: true, matchingSections: 1 },
+            { term: 'lantern', matched: true, matchingSections: 1 },
+          ],
+        }]}
+        loading={false}
+        searchFailed={false}
+        searchableDocumentCount={1}
+        searchPhase={null}
+        submittedQuery="silver compass lantern"
+        lastSearchInfo={{ mode: 'broader', phrases: [], unquotedText: 'silver compass lantern', uploadedDocuments: 1, uploadedMatchingSections: 1, starterDocuments: 0 }}
+        scopeUrls={new Set()}
+        scopeActive={false}
+        onViewResult={() => undefined}
+      />,
+    )
+
+    expect(html).toContain('search.results.wordCoverage')
+    expect(html).toContain('search.results.missingWords silver')
+    expect(html).toContain('<bdi>silver</bdi> 0')
+    expect(html).toContain('search.results.broaderWords')
+  })
+
   it('opens term coverage and distribution evidence with highlight text', () => {
     expect(indexedSearchOpenTarget(
       { sectionIndex: 4, pageIndex: 3, occurrenceIndex: 2 },
@@ -130,6 +163,7 @@ describe('search evidence', () => {
         searchPhase={null}
         submittedQuery="orchard lantern"
         lastSearchInfo={{
+          mode: 'all',
           phrases: [],
           unquotedText: 'orchard lantern',
           uploadedDocuments: 2,
@@ -170,6 +204,7 @@ describe('search evidence', () => {
         searchPhase={null}
         submittedQuery="orchard"
         lastSearchInfo={{
+          mode: 'all',
           phrases: [],
           unquotedText: 'orchard',
           uploadedDocuments: 1,
@@ -210,6 +245,7 @@ describe('search query summary', () => {
         searchPhase={null}
         submittedQuery={'anne "green gables"'}
         lastSearchInfo={{
+          mode: 'all',
           phrases: ['green gables'],
           unquotedText: 'anne',
           uploadedDocuments: 1,

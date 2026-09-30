@@ -25,7 +25,7 @@ import { useDocumentViewerState } from './hooks/useDocumentViewerState'
 import { useTheme } from './hooks/useTheme'
 import { useBookmarkedDocumentUrls } from './hooks/useReaderBookmark'
 import { useUploadedLibrary } from './hooks/useUploadedLibrary'
-import type { DocumentInfo, SearchOpenTarget } from './types/search'
+import type { DocumentInfo, SearchMode, SearchOpenTarget } from './types/search'
 import { clearPhraseFetchCache } from './utils/phraseSearch'
 import { isDebugEnabled, setDebugEnabled } from './utils/debugFlags'
 import { AudioControls } from './tts/components/AudioControls'
@@ -62,6 +62,7 @@ function App() {
   const bookmarkedDocumentUrls = useBookmarkedDocumentUrls()
   const documentScanner = useDocumentScanner()
   const [activeTab, setActiveTab] = useState<AppTab>('library')
+  const [searchMode, setSearchMode] = useState<SearchMode>('all')
   const [userUploads, setUserUploads] = useState<UserUploadDocument[]>(() => getUserUploads())
   const [ttsDiagnosticsEnabled, setTtsDiagnosticsEnabled] = useState(() => isDebugEnabled())
   const [scanSetupSource, setScanSetupSource] = useState<'camera' | 'photos' | null>(null)
@@ -201,14 +202,14 @@ function App() {
 
   const searchableDocumentCount = useMemo(() => {
     const urls = new Set([
-      ...allDocuments.map((document) => document.url),
+      ...(searchMode === 'all' ? allDocuments.map((document) => document.url) : []),
       ...uploadedDocuments
         .filter((document) => document.textStatus === 'ready' || document.textStatus === 'recognition-available')
         .map((document) => document.url),
     ])
     if (!searchScopeActive) return urls.size
     return Array.from(searchScopeUrls).filter((url) => urls.has(url)).length
-  }, [allDocuments, searchScopeActive, searchScopeUrls, uploadedDocuments])
+  }, [allDocuments, searchMode, searchScopeActive, searchScopeUrls, uploadedDocuments])
 
   const {
     query,
@@ -224,6 +225,7 @@ function App() {
     submitSearch,
     removeResultsForUrl,
   } = useSearch(pagefindRef, {
+    mode: searchMode,
     loadDocumentSource: loadHtmlDocument,
     scopeUrls: searchScopeUrls,
     scopeActive: searchScopeActive,
@@ -528,6 +530,8 @@ function App() {
 
         {activeTab === 'search' && (
           <SearchTab
+            mode={searchMode}
+            onModeChange={setSearchMode}
             query={query}
             queryError={queryError}
             disabled={!pagefindReady && uploadedDocuments.length === 0}

@@ -1,24 +1,29 @@
 import { useTranslation } from 'react-i18next'
 import type { SearchQueryError } from '../../hooks/useSearch'
+import type { SearchMode } from '../../types/search'
 import './SearchBar.css'
 
 interface SearchBarProps {
+  mode: SearchMode
   query: string
   queryError: SearchQueryError | null
   disabled: boolean
   loading: boolean
   submittedQuery: string
   onChange: (value: string) => void
+  onModeChange: (mode: SearchMode) => void
   onSubmit: () => void
 }
 
 export function SearchBar({
+  mode,
   query,
   queryError,
   disabled,
   loading,
   submittedQuery,
   onChange,
+  onModeChange,
   onSubmit,
 }: SearchBarProps) {
   const { t } = useTranslation()
@@ -63,8 +68,19 @@ export function SearchBar({
           {t('search.input.button')}
         </button>
       </div>
+      <fieldset className="search-mode">
+        <legend>{t('search.input.modeLabel')}</legend>
+        <label>
+          <input type="radio" name="search-mode" checked={mode === 'all'} onChange={() => onModeChange('all')} />
+          {t('search.input.allWordsMode')}
+        </label>
+        <label>
+          <input type="radio" name="search-mode" checked={mode === 'broader'} onChange={() => onModeChange('broader')} />
+          {t('search.input.broaderMode')}
+        </label>
+      </fieldset>
       <p className="search-help" id="search-input-help">
-        {t('search.input.help')}
+        {t(mode === 'broader' ? 'search.input.helpBroader' : 'search.input.help')}
       </p>
       {queryError && (
         <p className="search-input-error" id="search-input-error" role="alert">

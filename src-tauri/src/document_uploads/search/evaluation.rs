@@ -9,6 +9,7 @@ use serde_json::json;
 use super::super::parsed::{ParsedDocument, ParsedSection};
 use super::super::storage::StoredSourceKind;
 use super::super::store::{open_db_in, upsert_document, PdfTextStatus};
+use super::super::types::UploadedDocumentSearchMode;
 use super::super::types::UploadedDocumentSearchRequest;
 use super::search_uploads_with_db;
 
@@ -142,11 +143,6 @@ fn search_v2_evaluation() {
         {
             continue;
         }
-        assert_eq!(
-            query.mode, "all",
-            "{}: unsupported evaluation mode",
-            query.id
-        );
         assert!(
             seen_queries.insert(&query.id),
             "duplicate query ID: {}",
@@ -168,6 +164,11 @@ fn search_v2_evaluation() {
         for run in 0..6 {
             let request = UploadedDocumentSearchRequest {
                 query: query.native_query.clone(),
+                mode: match query.mode.as_str() {
+                    "all" => UploadedDocumentSearchMode::All,
+                    "broader" => UploadedDocumentSearchMode::Broader,
+                    _ => panic!("{}: unsupported evaluation mode", query.id),
+                },
                 limit: Some(50),
                 document_urls: (!query.scope.is_empty()).then(|| {
                     query
@@ -234,6 +235,12 @@ fn search_v2_evaluation() {
                 let mut actual = serde_json::to_value(result).unwrap();
                 actual["passageCount"] = json!(result.passages.len());
                 actual["locationCount"] = json!(result.match_locations.len());
+                actual["missingTerms"] = json!(result
+                    .term_matches
+                    .iter()
+                    .filter(|term| term.matched == Some(false))
+                    .map(|term| term.term.as_str())
+                    .collect::<Vec<_>>());
                 for (key, value) in expected.as_object().expect("contract object") {
                     assert_eq!(&actual[key], value, "{}: {key}", query.id);
                 }

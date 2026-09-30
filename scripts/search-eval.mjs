@@ -151,7 +151,7 @@ try {
     corpus: { documents: native.documents, sections: native.sections, sqliteBytes: native.sqlite_bytes, queries: rows.length },
     timingMethod: 'First run after fixture creation and five repeats, each reopening SQLite; OS page cache is not cleared. Milliseconds are native search pipeline timings.',
     metricsNote: 'Grades are 0 irrelevant, 1 useful, 2 direct. Labels are incomplete; unlabeled returns are scored as 0 for nDCG. Empty-relevance cases are contract checks and excluded from ranking averages.',
-    metrics: { all: quality(rows), bySplit: grouped('split'), byLanguage: grouped('language'), byCategory: grouped('category') },
+    metrics: { all: quality(rows), byMode: grouped('mode'), bySplit: grouped('split'), byLanguage: grouped('language'), byCategory: grouped('category') },
     performance: { firstMs: { p50: percentile(rows.map((row) => row.firstMs), 0.5), p95: percentile(rows.map((row) => row.firstMs), 0.95) }, warmPhases },
     queries: rows,
   }

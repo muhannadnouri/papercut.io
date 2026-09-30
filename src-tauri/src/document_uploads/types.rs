@@ -104,6 +104,8 @@ pub(crate) struct UploadedDocumentSearchTermMatch {
     pub(crate) section_index: Option<usize>,
     pub(crate) page_index: Option<usize>,
     pub(crate) text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) matched: Option<bool>,
 }
 
 /// One document-level FTS hit with bounded supporting evidence.
@@ -231,10 +233,20 @@ pub(crate) struct UploadedDocumentSource {
 }
 
 /// Request to run an FTS search over uploaded documents.
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum UploadedDocumentSearchMode {
+    #[default]
+    All,
+    Broader,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentSearchRequest {
     pub(crate) query: String,
+    #[serde(default)]
+    pub(crate) mode: UploadedDocumentSearchMode,
     pub(crate) limit: Option<usize>,
     pub(crate) document_urls: Option<Vec<String>>,
     pub(crate) exact_phrases: Option<Vec<String>>,

@@ -87,6 +87,21 @@ describe('search request freshness', () => {
       undefined,
       ['green gables'],
       expect.any(Function),
+      'all',
+    )
+  })
+
+  it('routes broader search only to uploaded documents', () => {
+    mocked.searchUploadedDocuments.mockResolvedValue(response(0))
+    const pagefind = { search: vi.fn().mockResolvedValue({ results: [] }) }
+    const search = useSearch({ current: pagefind }, { mode: 'broader' })
+
+    search.handleSearch('silver compass lantern')
+    search.submitSearch()
+
+    expect(pagefind.search).not.toHaveBeenCalled()
+    expect(mocked.searchUploadedDocuments).toHaveBeenCalledWith(
+      'silver compass lantern', 50, undefined, undefined, expect.any(Function), 'broader',
     )
   })
 })

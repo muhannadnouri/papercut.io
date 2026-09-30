@@ -26,6 +26,7 @@ pub(super) fn comparison_terms(
     terms: &[String],
     queries: &[String],
     broad_search: bool,
+    broader_mode: bool,
 ) -> Vec<(String, String)> {
     if !broad_search {
         return Vec::new();
@@ -38,7 +39,12 @@ pub(super) fn comparison_terms(
         .zip(queries.iter().cloned())
         .filter(|(term, _)| seen.insert(term.to_lowercase()))
         .collect::<Vec<_>>();
-    if (2..=MAX_COMPARISON_TERMS).contains(&unique.len()) {
+    let max_terms = if broader_mode {
+        12
+    } else {
+        MAX_COMPARISON_TERMS
+    };
+    if (2..=max_terms).contains(&unique.len()) {
         unique
     } else {
         Vec::new()

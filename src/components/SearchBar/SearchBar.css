@@ -18,6 +18,30 @@
   text-align: center;
 }
 
+.search-mode {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  border: 0;
+  margin: 0.65rem 0 0;
+  padding: 0;
+  font-size: 0.85rem;
+}
+
+.search-mode legend {
+  color: var(--text-muted);
+  text-align: center;
+  margin: 0 auto 0.25rem;
+}
+
+.search-mode label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+}
+
 .search-input-error {
   margin: 0.45rem auto 0;
   color: var(--danger-strong);

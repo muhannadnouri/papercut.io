@@ -7,9 +7,31 @@ vi.mock('react-i18next', () => ({
 }))
 
 describe('search query errors', () => {
+  it('shows the uploaded-library scope of broader mode', () => {
+    const html = renderToStaticMarkup(
+      <SearchBar
+        mode="broader"
+        onModeChange={() => undefined}
+        query="silver compass lantern"
+        queryError={null}
+        disabled={false}
+        loading={false}
+        submittedQuery=""
+        onChange={() => undefined}
+        onSubmit={() => undefined}
+      />,
+    )
+
+    expect(html).toContain('search.input.broaderMode')
+    expect(html).toContain('search.input.helpBroader')
+    expect(html).toContain('checked=""')
+  })
+
   it('associates an unmatched-quote error with the search input', () => {
     const html = renderToStaticMarkup(
       <SearchBar
+        mode="all"
+        onModeChange={() => undefined}
         query={'anne "green gables'}
         queryError="unmatchedQuote"
         disabled={false}
@@ -28,6 +50,8 @@ describe('search query errors', () => {
   it('shows a busy button only while the submitted query is still in the input', () => {
     const busy = renderToStaticMarkup(
       <SearchBar
+        mode="all"
+        onModeChange={() => undefined}
         query="orchard"
         queryError={null}
         disabled={false}
@@ -39,6 +63,8 @@ describe('search query errors', () => {
     )
     const edited = renderToStaticMarkup(
       <SearchBar
+        mode="all"
+        onModeChange={() => undefined}
         query="orchard lantern"
         queryError={null}
         disabled={false}

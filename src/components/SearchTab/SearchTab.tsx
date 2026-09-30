@@ -1,13 +1,14 @@
 import { useTranslation } from 'react-i18next'
 import type { AuthorGroup, DocumentScopeMode } from '../../hooks/useDocumentFilters'
 import type { LastSearchInfo, SearchPhase, SearchQueryError } from '../../hooks/useSearch'
-import type { DocumentInfo, SearchOpenTarget, SearchResult } from '../../types/search'
+import type { DocumentInfo, SearchMode, SearchOpenTarget, SearchResult } from '../../types/search'
 import type { UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
 import { SearchBar } from '../SearchBar/SearchBar'
 import { SearchResults } from '../SearchResults/SearchResults'
 import { SearchScope } from '../SearchScope/SearchScope'
 
 interface SearchTabProps {
+  mode: SearchMode
   collapsedAuthors: Set<string>
   disabled: boolean
   docFilterLower: string
@@ -31,6 +32,7 @@ interface SearchTabProps {
   scopeActive: boolean
   submittedQuery: string
   onChangeQuery: (value: string) => void
+  onModeChange: (mode: SearchMode) => void
   onClearFilters: () => void
   onScopeModeChange: (mode: DocumentScopeMode) => void
   onFilterChange: (value: string) => void
@@ -42,6 +44,7 @@ interface SearchTabProps {
 }
 
 export function SearchTab({
+  mode,
   collapsedAuthors,
   disabled,
   docFilterLower,
@@ -65,6 +68,7 @@ export function SearchTab({
   scopeActive,
   submittedQuery,
   onChangeQuery,
+  onModeChange,
   onClearFilters,
   onScopeModeChange,
   onFilterChange,
@@ -79,6 +83,8 @@ export function SearchTab({
   return (
     <section className="tab-panel" role="tabpanel" aria-label={t('search.tabLabel')} data-tab="search">
       <SearchBar
+        mode={mode}
+        onModeChange={onModeChange}
         query={query}
         queryError={queryError}
         disabled={disabled}

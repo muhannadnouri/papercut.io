@@ -16,9 +16,10 @@ use super::store::{db_err, open_db};
 use super::types::{
     UploadedDocumentConcordanceEntry, UploadedDocumentConcordanceRequest,
     UploadedDocumentConcordanceResponse, UploadedDocumentSearchLocation,
-    UploadedDocumentSearchPassage, UploadedDocumentSearchRequest, UploadedDocumentSearchResponse,
-    UploadedDocumentSearchResult, UploadedDocumentSearchStage, UploadedDocumentSearchTermMatch,
-    UploadedPdfFindPage, UploadedPdfFindRequest, UploadedPdfFindResult,
+    UploadedDocumentSearchMode, UploadedDocumentSearchPassage, UploadedDocumentSearchRequest,
+    UploadedDocumentSearchResponse, UploadedDocumentSearchResult, UploadedDocumentSearchStage,
+    UploadedDocumentSearchTermMatch, UploadedPdfFindPage, UploadedPdfFindRequest,
+    UploadedPdfFindResult,
 };
 use query::{
     comparison_terms, fts_alias_query, fts_and_query, fts_fuzzy_terms, fts_or_query,
@@ -101,10 +102,21 @@ fn search_uploads_with_db(
     if fuzzy_queries.is_empty() && exact_queries.is_empty() {
         return Ok((empty_search_response(), SearchMeasurements::default()));
     }
-    let comparison_terms = comparison_terms(&fuzzy_terms, &fuzzy_queries, exact_phrases.is_empty());
+    let requested_broader = request.mode == UploadedDocumentSearchMode::Broader;
+    let comparison_terms = comparison_terms(
+        &fuzzy_terms,
+        &fuzzy_queries,
+        exact_phrases.is_empty() || requested_broader,
+        requested_broader,
+    );
+    // One- and two-word queries retain the all-required policy. A single
+    // common word is too weak a broader-search candidate.
+    let broader = requested_broader && comparison_terms.len() >= 3;
     let mut queries = fuzzy_queries;
     queries.extend(exact_queries.iter().cloned());
     let query = fts_and_query(&queries);
+    let or_query = fts_or_query(&queries);
+    let section_query = if broader { &or_query } else { &query };
 
     let db_started = Instant::now();
     let mut db = open()?;
@@ -122,24 +134,58 @@ fn search_uploads_with_db(
 
     progress(UploadedDocumentSearchStage::FindingCandidates);
     let candidate_started = Instant::now();
-    let mut section_candidates = document_candidates(&tx, &query, &document_urls, None, "section")?;
-    let section_document_ids = section_candidates
-        .iter()
-        .map(|candidate| candidate.document_id.clone())
-        .collect::<HashSet<_>>();
-    let mut document_candidates = if queries.len() > 1 {
-        let mut document_ids = document_ids_matching_all_queries(&tx, &queries, &document_urls)?;
-        document_ids.retain(|id| !section_document_ids.contains(id));
-        let or_query = fts_or_query(&queries);
-        document_candidates(
-            &tx,
-            &or_query,
-            &document_urls,
-            Some(&document_ids),
-            "document",
-        )?
+    let (mut section_candidates, mut document_candidates, term_presence) = if broader {
+        let presence = document_term_presence(&tx, &comparison_terms, &document_urls)?;
+        let minimum = ((comparison_terms.len() + 1) / 2).max(2);
+        let phrase_ids = (!exact_queries.is_empty())
+            .then(|| document_ids_matching_all_queries(&tx, &exact_queries, &document_urls))
+            .transpose()?
+            .map(|ids| ids.into_iter().collect::<HashSet<_>>());
+        let mut ids = presence
+            .iter()
+            .filter(|(id, terms)| {
+                terms.iter().filter(|matched| **matched).count() >= minimum
+                    && phrase_ids
+                        .as_ref()
+                        .is_none_or(|allowed| allowed.contains(*id))
+            })
+            .map(|(id, _)| id.clone())
+            .collect::<Vec<_>>();
+        ids.sort();
+        let mut candidates =
+            document_candidates(&tx, &or_query, &document_urls, Some(&ids), "section")?;
+        // Stable sorting preserves BM25 and the existing import/ID tie breaks
+        // within each document-level coverage tier.
+        candidates.sort_by_key(|candidate| {
+            std::cmp::Reverse(
+                presence[&candidate.document_id]
+                    .iter()
+                    .filter(|matched| **matched)
+                    .count(),
+            )
+        });
+        (candidates, Vec::new(), Some(presence))
     } else {
-        Vec::new()
+        let section = document_candidates(&tx, &query, &document_urls, None, "section")?;
+        let section_document_ids = section
+            .iter()
+            .map(|candidate| candidate.document_id.clone())
+            .collect::<HashSet<_>>();
+        let document = if queries.len() > 1 {
+            let mut document_ids =
+                document_ids_matching_all_queries(&tx, &queries, &document_urls)?;
+            document_ids.retain(|id| !section_document_ids.contains(id));
+            document_candidates(
+                &tx,
+                &or_query,
+                &document_urls,
+                Some(&document_ids),
+                "document",
+            )?
+        } else {
+            Vec::new()
+        };
+        (section, document, None)
     };
     let candidate_documents = section_candidates.len() + document_candidates.len();
     let candidate_ms = candidate_started.elapsed().as_secs_f64() * 1000.0;
@@ -163,7 +209,6 @@ fn search_uploads_with_db(
     section_candidates.truncate(limit);
     let remaining = limit.saturating_sub(section_candidates.len());
     document_candidates.truncate(remaining);
-    let or_query = fts_or_query(&queries);
     progress(UploadedDocumentSearchStage::BuildingResults);
     let result_started = Instant::now();
     let exact_evidence_started = Instant::now();
@@ -173,7 +218,7 @@ fn search_uploads_with_db(
     }
     let exact_evidence_ms = exact_evidence_started.elapsed().as_secs_f64() * 1000.0;
     let result_evidence_started = Instant::now();
-    let mut results = search_results_for_candidates(&tx, &query, &section_candidates)?;
+    let mut results = search_results_for_candidates(&tx, section_query, &section_candidates)?;
     results.extend(search_results_for_candidates(
         &tx,
         &or_query,
@@ -182,6 +227,15 @@ fn search_uploads_with_db(
     let result_evidence_ms = result_evidence_started.elapsed().as_secs_f64() * 1000.0;
     let term_matches_started = Instant::now();
     attach_search_term_matches(&tx, &comparison_terms, &mut results)?;
+    if let Some(presence) = term_presence {
+        for result in &mut results {
+            if let Some(matched) = presence.get(&result.document_id) {
+                for (term, matched) in result.term_matches.iter_mut().zip(matched) {
+                    term.matched = Some(*matched);
+                }
+            }
+        }
+    }
     let term_matches_ms = term_matches_started.elapsed().as_secs_f64() * 1000.0;
     let result_ms = result_started.elapsed().as_secs_f64() * 1000.0;
     tx.commit().map_err(db_err)?;
@@ -785,6 +839,25 @@ fn document_ids_matching_all_queries(
     Ok(ids)
 }
 
+/// Record distinct query-term presence at document scope; section rows can
+/// satisfy different words without pretending a single passage contains all.
+fn document_term_presence(
+    db: &Connection,
+    terms: &[(String, String)],
+    document_urls: &[String],
+) -> Result<HashMap<String, Vec<bool>>, String> {
+    let mut presence = HashMap::<String, Vec<bool>>::new();
+    for (index, (_, query)) in terms.iter().enumerate() {
+        for id in document_ids_matching_all_queries(db, std::slice::from_ref(query), document_urls)?
+        {
+            presence
+                .entry(id)
+                .or_insert_with(|| vec![false; terms.len()])[index] = true;
+        }
+    }
+    Ok(presence)
+}
+
 /// Rehydrate the already-ranked opening section for each visible document.
 /// Exact evidence replaces the broad snippet/locator; broad results receive
 /// their bounded passage and occurrence-map evidence here.
@@ -1058,6 +1131,7 @@ fn attach_search_term_matches(
                 section_index: None,
                 page_index: None,
                 text: None,
+                matched: None,
             })
             .collect();
     }

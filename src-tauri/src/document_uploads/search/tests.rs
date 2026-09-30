@@ -401,8 +401,12 @@ fn comparison_counts_each_term_and_keeps_its_first_source_locator() {
     let mut hits = search_section_hits(&db, "\"orchard\"", 1, &[]).expect("comparison candidate");
     let terms = fts_fuzzy_terms("orchard lantern");
     let queries = fts_fuzzy_queries("orchard lantern");
-    attach_search_term_matches(&db, &comparison_terms(&terms, &queries, true), &mut hits)
-        .expect("term evidence");
+    attach_search_term_matches(
+        &db,
+        &comparison_terms(&terms, &queries, true, false),
+        &mut hits,
+    )
+    .expect("term evidence");
 
     assert_eq!(hits[0].term_matches.len(), 2);
     assert_eq!(hits[0].term_matches[0].term, "orchard");

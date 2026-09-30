@@ -187,6 +187,10 @@ export function SearchResults({
               && result.matchingSections > 1
               && (additionalPassages.length > 0 || locations.length > 1)
             const meta = resultMeta(result, exactPhrase, hasEvidence, t)
+            const coverage = lastSearchInfo?.mode === 'broader' && result.source === 'upload'
+              ? result.termMatches?.filter((match) => match.matched !== undefined)
+              : undefined
+            const missing = coverage?.filter((match) => !match.matched) ?? []
             const terms = concordanceTerms(result, lastSearchInfo)
             const activeTerm = terms.find((term) => concordance?.key === `${result.url}\0${term}`)
             const activeConcordance = activeTerm ? concordance : null
@@ -214,6 +218,15 @@ export function SearchResults({
                     {opening ? ` (${t('common.opening')})` : ''}
                   </span>
                   {meta && <span className="result-meta" dir="auto">{meta}</span>}
+                  {coverage && coverage.length > 0 && (
+                    <span className="result-term-coverage" dir="auto">
+                      {t('search.results.wordCoverage', {
+                        matched: coverage.length - missing.length,
+                        total: coverage.length,
+                      })}
+                      {missing.length > 0 && <> · {t('search.results.missingWords')} {missing.map((match) => match.term).join(', ')}</>}
+                    </span>
+                  )}
                   {(result.termMatches?.length ?? 0) > 1 && (
                     <span className="result-term-coverage" dir="auto">
                       <span>{t('search.results.sectionsByTerm')}</span>
@@ -444,7 +457,7 @@ function QuerySummary({ info, t }: { info: LastSearchInfo; t: TFunction }) {
     <>
       {info.unquotedText && (
         <>
-          {t('search.results.allWords')} {' '}
+          {t(info.mode === 'broader' ? 'search.results.broaderWords' : 'search.results.allWords')} {' '}
           <bdi className="query-tag">{info.unquotedText}</bdi>
         </>
       )}
@@ -474,6 +487,7 @@ function concordanceTerms(result: SearchResult, info: LastSearchInfo | null): st
   const phrases = info?.phrases.map((phrase) => phrase.trim()).filter(Boolean) ?? []
   if (phrases.length > 0) return [...new Set(phrases)]
   const terms = result.termMatches
+    ?.filter((match) => match.matched !== false)
     ?.map((match) => match.text?.trim() || match.term.trim())
     .filter(Boolean) ?? []
   const fallback = firstMarkedText(result.excerpt)
