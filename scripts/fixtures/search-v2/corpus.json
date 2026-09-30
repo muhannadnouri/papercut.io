@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "documents": [
     { "id": "a001", "title": "Environmental History", "sections": [
       { "heading": "Automobile dependency", "text": "Private automobile dependency increases gasoline consumption and suburban pollution." },
@@ -113,7 +113,7 @@
     { "id": "en-stem", "mode": "all", "split": "dev", "language": "en", "category": "normalization", "query": "environment", "nativeQuery": "environment", "relevant": [{ "id": "a001", "grade": 1 }, { "id": "a009", "grade": 2 }], "rationale": "Porter can find environmental alongside environment." },
     { "id": "en-stem-quote", "mode": "all", "split": "dev", "language": "en", "category": "quote", "query": "\"run compass\"", "nativeQuery": "", "phrases": ["run compass"], "relevant": [], "exclude": ["a006"], "rationale": "A Porter candidate is not a literal source phrase." },
     { "id": "en-cross", "mode": "all", "split": "dev", "language": "en", "category": "cross-section", "query": "compass lantern", "nativeQuery": "compass lantern", "scope": ["a007"], "relevant": [{ "id": "a007", "grade": 2 }], "contract": { "matchScope": "document", "matchingSections": 2, "sectionIndex": 0 }, "rationale": "All words are required at document scope." },
-    { "id": "en-typo", "mode": "all", "split": "dev", "language": "en", "category": "typo-gap", "query": "enviroment", "nativeQuery": "enviroment", "scope": ["a009"], "relevant": [{ "id": "a009", "grade": 2 }], "rationale": "Misspelling currently has no correction." },
+    { "id": "en-typo", "mode": "all", "split": "dev", "language": "en", "category": "typo-gap", "query": "enviroment", "nativeQuery": "enviroment", "scope": ["a009"], "suggestion": "environment", "relevant": [{ "id": "a009", "grade": 2 }], "rationale": "Misspelling has no literal hit; the authored heading supports an explicit corrected retry." },
     { "id": "en-concept", "mode": "all", "split": "dev", "language": "en", "category": "concept-gap", "query": "private automobile consequences", "nativeQuery": "private automobile consequences", "scope": ["a00a"], "relevant": [{ "id": "a00a", "grade": 2 }], "rationale": "Relevant passage has no complete lexical overlap." },
     { "id": "en-hyphen", "mode": "all", "split": "dev", "language": "en", "category": "normalization", "query": "high—lights", "nativeQuery": "high—lights", "scope": ["a008"], "relevant": [{ "id": "a008", "grade": 2 }], "rationale": "PDF line-break hyphen and dash aliases." },
     { "id": "en-curly-phrase", "mode": "all", "split": "dev", "language": "en", "category": "quote", "query": "“author’s well—being”", "nativeQuery": "", "phrases": ["author's well-being"], "scope": ["a008"], "relevant": [{ "id": "a008", "grade": 2 }], "rationale": "Typographic punctuation canonicalization must retain a source phrase." },

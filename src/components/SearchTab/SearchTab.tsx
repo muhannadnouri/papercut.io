@@ -124,6 +124,10 @@ export function SearchTab({
         openingDisabled={openingDisabled}
         openingDocumentUrl={openingDocumentUrl}
         onViewResult={onViewResult}
+        onRetrySearch={(suggestion) => {
+          onChangeQuery(suggestion)
+          onSubmitSearch()
+        }}
       />
     </section>
   )

@@ -104,4 +104,41 @@ describe('search request freshness', () => {
       'silver compass lantern', 50, undefined, undefined, expect.any(Function), 'broader',
     )
   })
+
+  it('offers an uploaded typo retry only after the combined result is empty', async () => {
+    mocked.searchUploadedDocuments.mockResolvedValue({
+      ...response(0), suggestedQuery: 'environment',
+    })
+    const search = useSearch({ current: null })
+    const setLastSearchInfo = mocked.setters.at(-1)
+    search.handleSearch('enviroment')
+    search.submitSearch()
+    await vi.waitFor(() => expect(setLastSearchInfo).toHaveBeenCalledWith(
+      expect.objectContaining({ suggestedQuery: 'environment' }),
+    ))
+  })
+
+  it('hides an uploaded suggestion when starter documents already answer the query', async () => {
+    mocked.searchUploadedDocuments.mockResolvedValue({ ...response(0), suggestedQuery: 'environment' })
+    const pagefind = { search: vi.fn().mockResolvedValue({ results: [{
+      id: 'starter', data: async () => ({ id: 'starter', url: '/starter', meta: { title: 'Starter' }, excerpt: 'answer' }),
+    }] }) }
+    const search = useSearch({ current: pagefind })
+    const setLastSearchInfo = mocked.setters.at(-1)
+    search.handleSearch('enviroment')
+    search.submitSearch()
+    await vi.waitFor(() => expect(setLastSearchInfo).toHaveBeenCalledWith(
+      expect.objectContaining({ suggestedQuery: undefined }),
+    ))
+  })
+
+  it('preserves capitalized uploaded terms so names are not silently corrected', () => {
+    mocked.searchUploadedDocuments.mockResolvedValue(response(0))
+    const search = useSearch({ current: null })
+    search.handleSearch('Collonialism')
+    search.submitSearch()
+    expect(mocked.searchUploadedDocuments).toHaveBeenCalledWith(
+      'Collonialism', 50, undefined, undefined, expect.any(Function), 'all',
+    )
+  })
 })

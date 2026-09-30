@@ -33,6 +33,7 @@ export interface LastSearchInfo {
   uploadedDocuments: number
   uploadedMatchingSections: number
   starterDocuments: number
+  suggestedQuery?: string
 }
 
 export type SearchQueryError = 'unmatchedQuote'
@@ -124,7 +125,7 @@ export function useSearch(
     const displayPhrases = parsedQuery.exactPhrases
     const phrases = displayPhrases.map(normalizeForPhraseMatch)
     const searchQuery = parsedQuery.providerQuery.toLowerCase()
-    const uploadedQuery = parsedQuery.unquotedText.toLowerCase()
+    const uploadedQuery = parsedQuery.unquotedText
     if (searchQuery.length === 0) {
       activeSearchKeyRef.current = ''
       setResults([])
@@ -238,6 +239,7 @@ export function useSearch(
         starterDocuments: phrases.length > 0
           ? filtered.filter((result) => result.source === 'starter').length
           : pagefind.totalDocuments,
+        suggestedQuery: filtered.length === 0 ? uploadedSearch.suggestedQuery : undefined,
       })
     } catch (err) {
       console.error('Search failed:', err)

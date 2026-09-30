@@ -12,6 +12,7 @@ use tauri::Runtime;
 mod query;
 
 use super::search_form;
+use super::spelling;
 use super::storage::{upload_reference_from_url, StoredSourceKind};
 use super::store::{db_err, open_db};
 use super::types::{
@@ -296,6 +297,15 @@ fn search_uploads_with_db(
         }
     }
     let term_matches_ms = term_matches_started.elapsed().as_secs_f64() * 1000.0;
+    let suggested_query = if total_documents == 0
+        && exact_phrases.is_empty()
+        && request.mode == UploadedDocumentSearchMode::All
+        && spelling_ready(&tx)?
+    {
+        suggest_spelling(&tx, &fuzzy_terms, &document_urls)?
+    } else {
+        None
+    };
     let result_ms = result_started.elapsed().as_secs_f64() * 1000.0;
     tx.commit().map_err(db_err)?;
     let total_ms = search_started.elapsed().as_secs_f64() * 1000.0;
@@ -328,6 +338,7 @@ fn search_uploads_with_db(
             results,
             total_documents,
             total_matching_sections,
+            suggested_query,
         },
         SearchMeasurements {
             candidate_documents,
@@ -429,6 +440,7 @@ fn empty_search_response() -> UploadedDocumentSearchResponse {
         results: Vec::new(),
         total_documents: 0,
         total_matching_sections: 0,
+        suggested_query: None,
     }
 }
 
@@ -439,6 +451,100 @@ fn search_form_ready(db: &Connection) -> Result<bool, String> {
         |row| row.get(0),
     )
     .map_err(db_err)
+}
+
+fn spelling_ready(db: &Connection) -> Result<bool, String> {
+    db.query_row(
+        "SELECT value = '1' FROM upload_schema_metadata WHERE key = 'spelling_ready'",
+        [],
+        |row| row.get(0),
+    )
+    .map_err(db_err)
+}
+
+/// Suggest one explicit retry only after a miss. Indexed authored words avoid
+/// Porter stems; the prefix/length index bounds work on large libraries.
+fn suggest_spelling(
+    db: &Connection,
+    terms: &[String],
+    document_urls: &[String],
+) -> Result<Option<String>, String> {
+    if terms.is_empty()
+        || terms.len() > 4
+        || terms
+            .iter()
+            .any(|term| !term.bytes().all(|ch| ch.is_ascii_lowercase()))
+    {
+        return Ok(None);
+    }
+    let (scope_sql, scope_values) = document_url_scope(document_urls);
+    for (index, term) in terms.iter().enumerate() {
+        if !spelling::eligible_query_word(term) {
+            continue;
+        }
+        let exact_sql = format!(
+            "SELECT EXISTS(SELECT 1 FROM uploaded_spelling_terms t \
+             JOIN uploaded_documents d ON d.id = t.document_id \
+             WHERE t.term = ? {scope_sql})"
+        );
+        let mut exact_values = vec![Value::Text(term.clone())];
+        exact_values.extend(scope_values.iter().cloned());
+        let known: bool = db
+            .query_row(&exact_sql, params_from_iter(exact_values.iter()), |row| {
+                row.get(0)
+            })
+            .map_err(db_err)?;
+        if known {
+            continue;
+        }
+
+        let sql = format!(
+            "SELECT t.term FROM uploaded_spelling_terms t \
+             JOIN uploaded_documents d ON d.id = t.document_id \
+             WHERE substr(t.term, 1, 2) = ? \
+               AND length(t.term) BETWEEN ? AND ? {scope_sql} \
+             GROUP BY t.term ORDER BY COUNT(DISTINCT t.document_id) DESC, t.term LIMIT 256"
+        );
+        let mut values = vec![
+            Value::Text(term[..2].to_string()),
+            Value::Integer((term.len() - 1) as i64),
+            Value::Integer((term.len() + 1) as i64),
+        ];
+        values.extend(scope_values.iter().cloned());
+        let mut stmt = db.prepare(&sql).map_err(db_err)?;
+        let candidates = stmt
+            .query_map(params_from_iter(values.iter()), |row| {
+                row.get::<_, String>(0)
+            })
+            .map_err(db_err)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(db_err)?;
+        // ponytail: verify only the eight strongest one-edit candidates; use
+        // a deletion index if measured recall requires more than this cap.
+        for candidate in candidates
+            .into_iter()
+            .filter(|word| spelling::one_edit_apart(term, word))
+            .take(8)
+        {
+            let mut retry = terms.to_vec();
+            retry[index] = candidate;
+            let queries = retry
+                .iter()
+                .map(|word| fts_alias_query(word))
+                .collect::<Vec<_>>();
+            if !document_ids_matching_all_queries(
+                db,
+                &queries,
+                document_urls,
+                SearchIndex::Original,
+            )?
+            .is_empty()
+            {
+                return Ok(Some(retry.join(" ")));
+            }
+        }
+    }
+    Ok(None)
 }
 
 /// Find literal text across one PDF's already-indexed page rows.

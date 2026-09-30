@@ -57,6 +57,8 @@ struct Query {
     ordered: Vec<String>,
     #[serde(default)]
     contract: Option<serde_json::Value>,
+    #[serde(default)]
+    suggestion: Option<String>,
     relevant: Vec<Judgment>,
 }
 
@@ -195,6 +197,12 @@ fn search_v2_evaluation() {
                 .map(|result| result.document_id.as_str())
                 .collect::<Vec<_>>();
             assert_eq!(
+                response.suggested_query.as_deref(),
+                query.suggestion.as_deref(),
+                "{}: suggestion contract",
+                query.id
+            );
+            assert_eq!(
                 ids.len(),
                 ids.iter().copied().collect::<HashSet<_>>().len(),
                 "{}: duplicate results",
@@ -322,6 +330,7 @@ fn search_v2_evaluation() {
                 }))).collect::<Vec<_>>(),
                 "total_documents": response.total_documents,
                 "total_matching_sections": response.total_matching_sections,
+                "suggested_query": response.suggested_query,
                 "measurements": measurements
             }));
         }
@@ -343,6 +352,21 @@ fn search_v2_evaluation() {
     )
     .expect("verify Arabic quotation against authored text");
     assert!(quoted_variant.results.is_empty());
+
+    let (accepted_retry, _) = search_uploads_with_db(
+        UploadedDocumentSearchRequest {
+            query: "environment".into(),
+            mode: UploadedDocumentSearchMode::All,
+            limit: Some(10),
+            document_urls: Some(vec![url("a009", "html")]),
+            exact_phrases: None,
+        },
+        || open_db_in(&temp),
+        |_| {},
+    )
+    .expect("explicit typo retry");
+    assert_eq!(accepted_retry.results[0].document_id, "a009");
+    assert_eq!(accepted_retry.suggested_query, None);
 
     if let Ok(path) = std::env::var("PAPERCUT_SEARCH_EVAL_OUTPUT") {
         let bytes = std::fs::metadata(temp.join("search.sqlite3"))
@@ -477,5 +501,98 @@ fn normalized_pdf_search_keeps_page_locator_after_ocr_replacement() {
             .page_index,
         Some(7)
     );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn typo_retry_protects_quotes_scripts_identifiers_and_literal_results() {
+    let root = std::env::temp_dir().join(format!(
+        "papercut-typo-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let mut db = open_db_in(&root).unwrap();
+    let parsed = ParsedDocument {
+        title: "Colonialism".into(),
+        format: "html".into(),
+        view_html: String::new(),
+        sections: vec![ParsedSection {
+            heading: None,
+            text: "Colonialism shaped the coast.".into(),
+            page_index: None,
+        }],
+        cover: None,
+        assets: Vec::new(),
+    };
+    upsert_document(
+        &mut db,
+        "abc123",
+        "/uploads/abc123.html",
+        &parsed,
+        None,
+        StoredSourceKind::Html,
+        1,
+        1,
+        PdfTextStatus::Ready,
+    )
+    .unwrap();
+    drop(db);
+    let run = |query: &str, phrases: Vec<String>| {
+        search_uploads_with_db(
+            UploadedDocumentSearchRequest {
+                query: query.into(),
+                mode: UploadedDocumentSearchMode::All,
+                limit: Some(10),
+                document_urls: None,
+                exact_phrases: Some(phrases),
+            },
+            || open_db_in(&root),
+            |_| {},
+        )
+        .unwrap()
+        .0
+    };
+    let miss = run("collonialism", vec![]);
+    assert!(miss.results.is_empty());
+    assert_eq!(miss.suggested_query.as_deref(), Some("colonialism"));
+    let accepted = run("colonialism", vec![]);
+    assert_eq!(accepted.results[0].document_id, "abc123");
+    assert!(accepted.results[0]
+        .excerpt
+        .contains("<mark>Colonialism</mark>"));
+    for query in [
+        "Collonialism",
+        "collonialism-7",
+        "collonialism العربية",
+        "cat",
+    ] {
+        assert!(
+            run(query, vec![]).suggested_query.is_none(),
+            "{query}: protected query"
+        );
+    }
+    assert!(run("", vec!["collonialism".into()])
+        .suggested_query
+        .is_none());
+    let mut db = open_db_in(&root).unwrap();
+    let tx = db.transaction().unwrap();
+    {
+        let mut insert = tx.prepare(
+            "INSERT INTO uploaded_spelling_terms (document_id, term, source) VALUES ('abc123', ?1, 1)"
+        ).unwrap();
+        for n in 0..1024 {
+            let suffix = [n / 676, n / 26 % 26, n % 26]
+                .map(|digit| (b'a' + digit as u8) as char)
+                .iter()
+                .collect::<String>();
+            insert.execute([format!("coaaaaaaa{suffix}")]).unwrap();
+        }
+    }
+    tx.commit().unwrap();
+    drop(db);
+    assert!(run("cozzzzzzzzzz", vec![]).suggested_query.is_none());
     std::fs::remove_dir_all(root).unwrap();
 }

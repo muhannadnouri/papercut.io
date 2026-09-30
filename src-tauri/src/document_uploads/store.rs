@@ -11,6 +11,7 @@ use tauri::Runtime;
 
 use super::parsed::ParsedDocument;
 use super::search_form;
+use super::spelling;
 use super::storage::{upload_id_from_url, uploads_root, StoredSourceKind};
 use super::types::UploadedDocument;
 
@@ -147,6 +148,21 @@ pub(super) fn open_db_in(root: &std::path::Path) -> Result<Connection, String> {
            text,
            tokenize = 'porter unicode61 remove_diacritics 1'
          );
+         CREATE TABLE IF NOT EXISTS uploaded_spelling_terms (
+           document_id TEXT NOT NULL,
+           term TEXT NOT NULL,
+           source INTEGER NOT NULL,
+           PRIMARY KEY(document_id, term, source),
+           FOREIGN KEY(document_id) REFERENCES uploaded_documents(id) ON DELETE CASCADE
+         );
+         CREATE INDEX IF NOT EXISTS uploaded_spelling_candidates_idx
+           ON uploaded_spelling_terms(substr(term, 1, 2), length(term), term);
+         CREATE INDEX IF NOT EXISTS uploaded_spelling_exact_idx
+           ON uploaded_spelling_terms(term, document_id);
+         CREATE TABLE IF NOT EXISTS uploaded_spelling_indexed (
+           document_id TEXT PRIMARY KEY,
+           FOREIGN KEY(document_id) REFERENCES uploaded_documents(id) ON DELETE CASCADE
+         );
          CREATE TABLE IF NOT EXISTS uploaded_folders (
            id TEXT PRIMARY KEY,
            parent_id TEXT,
@@ -215,12 +231,25 @@ pub(super) fn open_db_in(root: &std::path::Path) -> Result<Connection, String> {
             [if has_sections { "0" } else { "1" }],
         ).map_err(db_err)?;
     }
+    if previous_schema_version < 8 {
+        let has_sections: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM uploaded_sections)",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(db_err)?;
+        tx.execute(
+            "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('spelling_ready', ?1)",
+            [if has_sections { "0" } else { "1" }],
+        ).map_err(db_err)?;
+    }
     tx.execute(
         "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('search_form_version', ?1)",
         [search_form::VERSION],
     ).map_err(db_err)?;
     tx.execute(
-        "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('schema_version', '7')",
+        "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('schema_version', '8')",
         [],
     )
     .map_err(db_err)?;
@@ -286,17 +315,101 @@ pub(crate) fn rebuild_search_form_batch(db: &mut Connection) -> Result<bool, Str
     Ok(!sections.is_empty())
 }
 
-pub(crate) fn schedule_search_form_rebuild<R: Runtime>(app: tauri::AppHandle<R>) {
+pub(crate) fn schedule_search_index_rebuild<R: Runtime>(app: tauri::AppHandle<R>) {
     tauri::async_runtime::spawn_blocking(move || {
         let result = (|| -> Result<(), String> {
             let mut db = open_db(&app)?;
             while rebuild_search_form_batch(&mut db)? {}
+            while rebuild_spelling_batch(&mut db)? {}
             Ok(())
         })();
         if let Err(error) = result {
-            log::warn!("Uploaded search-form rebuild will retry on restart: {error}");
+            log::warn!("Uploaded search index rebuild will retry on restart: {error}");
         }
     });
+}
+
+/// One document per transaction keeps a stopped migration restartable without
+/// exposing a partially built spelling dictionary to search.
+pub(crate) fn rebuild_spelling_batch(db: &mut Connection) -> Result<bool, String> {
+    let ready: String = db
+        .query_row(
+            "SELECT value FROM upload_schema_metadata WHERE key = 'spelling_ready'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(db_err)?;
+    if ready == "1" {
+        return Ok(false);
+    }
+    let tx = db
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(db_err)?;
+    let next = tx
+        .query_row(
+            "SELECT d.id, d.title FROM uploaded_documents d \
+         WHERE d.sections > 0 AND NOT EXISTS \
+           (SELECT 1 FROM uploaded_spelling_indexed i WHERE i.document_id = d.id) \
+         ORDER BY d.id LIMIT 1",
+            [],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+        )
+        .optional()
+        .map_err(db_err)?;
+    if let Some((id, title)) = next {
+        let mut body = std::collections::HashSet::new();
+        {
+            let mut stmt = tx.prepare(
+                "SELECT heading, text FROM uploaded_sections WHERE document_id = ?1 ORDER BY ordinal"
+            ).map_err(db_err)?;
+            let rows = stmt
+                .query_map([&id], |row| {
+                    Ok((row.get::<_, Option<String>>(0)?, row.get::<_, String>(1)?))
+                })
+                .map_err(db_err)?;
+            for row in rows {
+                let (heading, text) = row.map_err(db_err)?;
+                if let Some(heading) = heading {
+                    body.extend(spelling::words(&heading));
+                }
+                body.extend(spelling::words(&text));
+            }
+        }
+        write_spelling_terms(&tx, &id, &title, body)?;
+        tx.commit().map_err(db_err)?;
+        Ok(true)
+    } else {
+        tx.execute(
+            "UPDATE upload_schema_metadata SET value = '1' WHERE key = 'spelling_ready'",
+            [],
+        )
+        .map_err(db_err)?;
+        tx.commit().map_err(db_err)?;
+        Ok(false)
+    }
+}
+
+fn write_spelling_terms(
+    db: &Connection,
+    id: &str,
+    title: &str,
+    body: std::collections::HashSet<String>,
+) -> Result<(), String> {
+    let mut insert = db.prepare_cached(
+        "INSERT OR IGNORE INTO uploaded_spelling_terms (document_id, term, source) VALUES (?1, ?2, ?3)"
+    ).map_err(db_err)?;
+    for term in spelling::words(title) {
+        insert.execute(params![id, term, 0]).map_err(db_err)?;
+    }
+    for term in body {
+        insert.execute(params![id, term, 1]).map_err(db_err)?;
+    }
+    db.execute(
+        "INSERT OR IGNORE INTO uploaded_spelling_indexed (document_id) VALUES (?1)",
+        [id],
+    )
+    .map_err(db_err)?;
+    Ok(())
 }
 
 /// Add metadata columns and the reading-order section index in place so
@@ -449,6 +562,16 @@ pub(crate) fn upsert_document(
 ) -> Result<(), String> {
     let tx = db.transaction().map_err(db_err)?;
     tx.execute(
+        "DELETE FROM uploaded_spelling_terms WHERE document_id = ?1",
+        [id],
+    )
+    .map_err(db_err)?;
+    tx.execute(
+        "DELETE FROM uploaded_spelling_indexed WHERE document_id = ?1",
+        [id],
+    )
+    .map_err(db_err)?;
+    tx.execute(
         "DELETE FROM uploaded_document_search_fts WHERE document_id = ?1",
         [id],
     )
@@ -526,6 +649,17 @@ pub(crate) fn upsert_document(
         ).map_err(db_err)?;
     }
 
+    let mut body = std::collections::HashSet::new();
+    for section in &parsed.sections {
+        if let Some(heading) = &section.heading {
+            body.extend(spelling::words(heading));
+        }
+        body.extend(spelling::words(&section.text));
+    }
+    if !parsed.sections.is_empty() {
+        write_spelling_terms(&tx, id, &parsed.title, body)?;
+    }
+
     tx.commit().map_err(db_err)
 }
 
@@ -543,6 +677,16 @@ pub(crate) fn upsert_unindexed_document(
     bytes: u64,
 ) -> Result<(), String> {
     let tx = db.transaction().map_err(db_err)?;
+    tx.execute(
+        "DELETE FROM uploaded_spelling_terms WHERE document_id = ?1",
+        [id],
+    )
+    .map_err(db_err)?;
+    tx.execute(
+        "DELETE FROM uploaded_spelling_indexed WHERE document_id = ?1",
+        [id],
+    )
+    .map_err(db_err)?;
     tx.execute(
         "DELETE FROM uploaded_document_search_fts WHERE document_id = ?1",
         [id],
@@ -637,6 +781,26 @@ pub(crate) fn update_document_title(
         params![search_form::normalize(&title), id],
     )
     .map_err(db_err)?;
+    tx.execute(
+        "DELETE FROM uploaded_spelling_terms WHERE document_id = ?1 AND source = 0",
+        [&id],
+    )
+    .map_err(db_err)?;
+    let has_sections: bool = tx
+        .query_row(
+            "SELECT sections > 0 FROM uploaded_documents WHERE id = ?1",
+            [&id],
+            |row| row.get(0),
+        )
+        .map_err(db_err)?;
+    if has_sections {
+        for term in spelling::words(&title) {
+            tx.execute(
+                "INSERT OR IGNORE INTO uploaded_spelling_terms (document_id, term, source) VALUES (?1, ?2, 0)",
+                params![id, term],
+            ).map_err(db_err)?;
+        }
+    }
     tx.commit().map_err(db_err)?;
 
     find_upload_by_id(db, &id)?.ok_or_else(|| "Updated document metadata is missing".to_string())
@@ -653,8 +817,8 @@ mod tests {
 
     use super::{
         backfill_pdf_text_status, delete_document_rows, ensure_schema_columns, find_upload_by_id,
-        open_db_in, rebuild_search_form_batch, update_document_title, upsert_document,
-        PdfTextStatus, MAX_TITLE_CHARS,
+        open_db_in, rebuild_search_form_batch, rebuild_spelling_batch, update_document_title,
+        upsert_document, PdfTextStatus, MAX_TITLE_CHARS,
     };
     use crate::document_uploads::parsed::{ParsedDocument, ParsedSection};
     use crate::document_uploads::StoredSourceKind;
@@ -884,7 +1048,7 @@ mod tests {
         ));
         let mut db = open_db_in(&root).expect("new isolated database");
         let texts = vec!["إِنْتَاجُ الطـاقةِ"; 70];
-        let mut parsed = parsed_document("إنتاج", &texts);
+        let mut parsed = parsed_document("إنتاج Environment", &texts);
         upsert_document(
             &mut db,
             "abc123",
@@ -898,6 +1062,10 @@ mod tests {
         )
         .expect("seed original index");
         db.execute("DELETE FROM uploaded_document_search_fts", [])
+            .unwrap();
+        db.execute("DELETE FROM uploaded_spelling_terms", [])
+            .unwrap();
+        db.execute("DELETE FROM uploaded_spelling_indexed", [])
             .unwrap();
         db.execute(
             "UPDATE upload_schema_metadata SET value = '6' WHERE key = 'schema_version'",
@@ -939,6 +1107,28 @@ mod tests {
             "1"
         );
         assert_eq!(db.query_row("SELECT COUNT(*) FROM uploaded_document_search_fts WHERE uploaded_document_search_fts MATCH 'الطاقة'", [], |r| r.get::<_, i64>(0)).unwrap(), 70);
+        assert!(rebuild_spelling_batch(&mut db).unwrap());
+        drop(db); // Interrupted after a whole-document vocabulary batch.
+        let mut db = open_db_in(&root).expect("restart spelling rebuild");
+        assert!(!rebuild_spelling_batch(&mut db).unwrap());
+        assert_eq!(
+            db.query_row(
+                "SELECT value FROM upload_schema_metadata WHERE key = 'spelling_ready'",
+                [],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+            "1"
+        );
+        assert_eq!(
+            db.query_row(
+                "SELECT COUNT(*) FROM uploaded_spelling_terms WHERE term = 'environment'",
+                [],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+            1
+        );
         assert_eq!(
             db.query_row(
                 "SELECT text FROM uploaded_sections WHERE document_id = 'abc123' LIMIT 1",
@@ -963,9 +1153,33 @@ mod tests {
             PdfTextStatus::Ready,
         )
         .expect("replace indexed content");
-        update_document_title(&mut db, "/uploads/abc123.html", "إِنْتَاجُ الغذاء").unwrap();
+        update_document_title(&mut db, "/uploads/abc123.html", "إِنْتَاجُ الغذاء Colonialism").unwrap();
+        assert_eq!(
+            db.query_row(
+                "SELECT COUNT(*) FROM uploaded_spelling_terms WHERE term = 'environment'",
+                [],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+            0
+        );
+        assert_eq!(
+            db.query_row(
+                "SELECT COUNT(*) FROM uploaded_spelling_terms WHERE term = 'colonialism'",
+                [],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+            1
+        );
         assert_eq!(db.query_row("SELECT COUNT(*) FROM uploaded_document_search_fts WHERE uploaded_document_search_fts MATCH 'الغذاء'", [], |r| r.get::<_, i64>(0)).unwrap(), 1);
         delete_document_rows(&mut db, "abc123").unwrap();
+        assert_eq!(
+            db.query_row("SELECT COUNT(*) FROM uploaded_spelling_terms", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
         assert_eq!(
             db.query_row(
                 "SELECT COUNT(*) FROM uploaded_document_search_fts",
@@ -1140,6 +1354,17 @@ mod tests {
                title,
                heading,
                text
+             );
+             CREATE TABLE uploaded_spelling_terms (
+               document_id TEXT NOT NULL,
+               term TEXT NOT NULL,
+               source INTEGER NOT NULL,
+               PRIMARY KEY(document_id, term, source),
+               FOREIGN KEY(document_id) REFERENCES uploaded_documents(id) ON DELETE CASCADE
+             );
+             CREATE TABLE uploaded_spelling_indexed (
+               document_id TEXT PRIMARY KEY,
+               FOREIGN KEY(document_id) REFERENCES uploaded_documents(id) ON DELETE CASCADE
              );
              CREATE TABLE uploaded_folders (
                id TEXT PRIMARY KEY,

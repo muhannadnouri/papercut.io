@@ -91,6 +91,30 @@ describe('search progress', () => {
   })
 })
 
+describe('explicit typo retry', () => {
+  it('shows a retry for an empty search without inventing a result', () => {
+    const html = renderToStaticMarkup(
+      <SearchResults
+        results={[]}
+        loading={false}
+        searchFailed={false}
+        searchableDocumentCount={1}
+        searchPhase={null}
+        submittedQuery="enviroment"
+        lastSearchInfo={{ mode: 'all', phrases: [], unquotedText: 'enviroment', uploadedDocuments: 0, uploadedMatchingSections: 0, starterDocuments: 0, suggestedQuery: 'environment' }}
+        scopeUrls={new Set()}
+        scopeActive={false}
+        onViewResult={() => undefined}
+        onRetrySearch={() => undefined}
+      />,
+    )
+    expect(html).toContain('search.results.noResults')
+    expect(html).toContain('search.input.button')
+    expect(html).toContain('environment')
+    expect(html).not.toContain('result-card')
+  })
+})
+
 describe('search evidence', () => {
   it('labels missing words in broader results without inventing occurrences', () => {
     const html = renderToStaticMarkup(

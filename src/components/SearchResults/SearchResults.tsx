@@ -34,6 +34,7 @@ interface SearchResultsProps {
   openingDisabled?: boolean
   openingDocumentUrl?: string
   onViewResult: (result: SearchResult, target?: SearchOpenTarget) => void
+  onRetrySearch?: (query: string) => void
 }
 
 export function SearchResults({
@@ -49,6 +50,7 @@ export function SearchResults({
   openingDisabled = false,
   openingDocumentUrl,
   onViewResult,
+  onRetrySearch,
 }: SearchResultsProps) {
   const { t } = useTranslation()
   const [concordance, setConcordance] = useState<{
@@ -64,6 +66,7 @@ export function SearchResults({
     : results
   const hasFilters = scopeActive
   const visibleCount = filtered.length
+  const suggestedQuery = lastSearchInfo?.suggestedQuery
   const loadConcordance = async (result: SearchResult, term: string, offset = 0) => {
     const key = `${result.url}\0${term}`
     setConcordance((current) => ({
@@ -156,6 +159,11 @@ export function SearchResults({
           {' '}
           <span>{t('search.results.noResultsHint')}</span>
         </p>
+      )}
+      {!searchFailed && filtered.length === 0 && suggestedQuery && onRetrySearch && (
+        <button type="button" className="search-example" onClick={() => onRetrySearch(suggestedQuery)}>
+          {t('search.input.button')} <bdi>“{suggestedQuery}”</bdi>
+        </button>
       )}
 
       {resultGroups.map((group) => (

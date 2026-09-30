@@ -66,6 +66,7 @@ export interface UploadedDocumentSearchResponse {
   results: UploadedDocumentSearchResult[]
   totalDocuments: number
   totalMatchingSections: number
+  suggestedQuery?: string
 }
 
 export interface UploadedDocumentConcordanceEntry {
