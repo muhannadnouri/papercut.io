@@ -34,6 +34,7 @@ export interface LastSearchInfo {
   uploadedMatchingSections: number
   starterDocuments: number
   suggestedQuery?: string
+  relatedQuery?: string
 }
 
 export type SearchQueryError = 'unmatchedQuote'
@@ -240,6 +241,7 @@ export function useSearch(
           ? filtered.filter((result) => result.source === 'starter').length
           : pagefind.totalDocuments,
         suggestedQuery: filtered.length === 0 ? uploadedSearch.suggestedQuery : undefined,
+        relatedQuery: uploadedSearch.relatedQuery,
       })
     } catch (err) {
       console.error('Search failed:', err)

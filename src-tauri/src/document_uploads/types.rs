@@ -137,6 +137,8 @@ pub(crate) struct UploadedDocumentSearchResponse {
     pub(crate) total_matching_sections: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) suggested_query: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) related_query: Option<String>,
 }
 
 /// One bounded page request for literal occurrences inside one uploaded document.

@@ -115,6 +115,28 @@ describe('explicit typo retry', () => {
   })
 })
 
+describe('explicit related-form retry', () => {
+  it('offers the authored alternative without relabeling the literal result', () => {
+    const html = renderToStaticMarkup(
+      <SearchResults
+        results={[{ id: 'upload:one', url: '/uploads/one.html', meta: { title: 'Environment' }, excerpt: '<mark>environment</mark>', source: 'upload' }]}
+        loading={false}
+        searchFailed={false}
+        searchableDocumentCount={2}
+        searchPhase={null}
+        submittedQuery="environment"
+        lastSearchInfo={{ mode: 'all', phrases: [], unquotedText: 'environment', uploadedDocuments: 1, uploadedMatchingSections: 1, starterDocuments: 0, relatedQuery: 'environmental' }}
+        scopeUrls={new Set()}
+        scopeActive={false}
+        onViewResult={() => undefined}
+        onRetrySearch={() => undefined}
+      />,
+    )
+    expect(html).toContain('search.input.button <bdi>“environmental”</bdi>')
+    expect(html).toContain('<mark>environment</mark>')
+  })
+})
+
 describe('search evidence', () => {
   it('labels missing words in broader results without inventing occurrences', () => {
     const html = renderToStaticMarkup(

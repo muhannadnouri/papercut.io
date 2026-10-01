@@ -118,6 +118,19 @@ describe('search request freshness', () => {
     ))
   })
 
+  it('passes through a verified related-form retry alongside literal results', async () => {
+    mocked.searchUploadedDocuments.mockResolvedValue({
+      ...response(1), relatedQuery: 'environmental',
+    })
+    const search = useSearch({ current: null })
+    const setLastSearchInfo = mocked.setters.at(-1)
+    search.handleSearch('environment')
+    search.submitSearch()
+    await vi.waitFor(() => expect(setLastSearchInfo).toHaveBeenCalledWith(
+      expect.objectContaining({ relatedQuery: 'environmental', uploadedDocuments: 1 }),
+    ))
+  })
+
   it('hides an uploaded suggestion when starter documents already answer the query', async () => {
     mocked.searchUploadedDocuments.mockResolvedValue({ ...response(0), suggestedQuery: 'environment' })
     const pagefind = { search: vi.fn().mockResolvedValue({ results: [{

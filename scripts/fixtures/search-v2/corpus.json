@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "documents": [
     { "id": "a001", "title": "Environmental History", "sections": [
       { "heading": "Automobile dependency", "text": "Private automobile dependency increases gasoline consumption and suburban pollution." },
@@ -110,7 +110,7 @@
     { "id": "en-phrase", "mode": "all", "split": "dev", "language": "en", "category": "quote", "query": "\"silver compass\"", "nativeQuery": "", "phrases": ["silver compass"], "relevant": [{ "id": "a004", "grade": 2, "section": 0 }, { "id": "a013", "grade": 1, "section": 1 }], "exclude": ["a005"], "rationale": "An intervening word invalidates the quoted phrase." },
     { "id": "en-mixed", "mode": "all", "split": "dev", "language": "en", "category": "cross-section", "query": "compass \"copper lantern\"", "nativeQuery": "compass", "phrases": ["copper lantern"], "relevant": [{ "id": "a004", "grade": 2 }, { "id": "a007", "grade": 2 }], "rationale": "Required word and phrase may live in separate sections." },
     { "id": "en-two-quotes", "mode": "all", "split": "dev", "language": "en", "category": "quote", "query": "\"silver compass\" \"copper lantern\"", "nativeQuery": "", "phrases": ["silver compass", "copper lantern"], "relevant": [{ "id": "a004", "grade": 2 }], "exclude": ["a005", "a007"], "rationale": "Both source-verified phrases are mandatory." },
-    { "id": "en-stem", "mode": "all", "split": "dev", "language": "en", "category": "normalization", "query": "environment", "nativeQuery": "environment", "relevant": [{ "id": "a001", "grade": 1 }, { "id": "a009", "grade": 2 }], "rationale": "Porter can find environmental alongside environment." },
+    { "id": "en-stem", "mode": "all", "split": "dev", "language": "en", "category": "normalization", "query": "environment", "nativeQuery": "environment", "related": "environmental", "relevant": [{ "id": "a001", "grade": 1 }, { "id": "a009", "grade": 2 }], "rationale": "The literal search finds the exact-heading document; an explicit related-form retry can find the environmental-history document." },
     { "id": "en-stem-quote", "mode": "all", "split": "dev", "language": "en", "category": "quote", "query": "\"run compass\"", "nativeQuery": "", "phrases": ["run compass"], "relevant": [], "exclude": ["a006"], "rationale": "A Porter candidate is not a literal source phrase." },
     { "id": "en-cross", "mode": "all", "split": "dev", "language": "en", "category": "cross-section", "query": "compass lantern", "nativeQuery": "compass lantern", "scope": ["a007"], "relevant": [{ "id": "a007", "grade": 2 }], "contract": { "matchScope": "document", "matchingSections": 2, "sectionIndex": 0 }, "rationale": "All words are required at document scope." },
     { "id": "en-typo", "mode": "all", "split": "dev", "language": "en", "category": "typo-gap", "query": "enviroment", "nativeQuery": "enviroment", "scope": ["a009"], "suggestion": "environment", "relevant": [{ "id": "a009", "grade": 2 }], "rationale": "Misspelling has no literal hit; the authored heading supports an explicit corrected retry." },
