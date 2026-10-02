@@ -67,7 +67,6 @@ export interface UploadedDocumentSearchResponse {
   totalDocuments: number
   totalMatchingSections: number
   suggestedQuery?: string
-  relatedQuery?: string
 }
 
 export interface UploadedDocumentConcordanceEntry {

@@ -117,7 +117,6 @@ try {
       labels: query.relevant,
       ids: row.first.ids,
       suggestedQuery: row.first.suggested_query ?? undefined,
-      relatedQuery: row.first.related_query ?? undefined,
       passages: row.first.passages,
       candidateDocuments: row.first.measurements.candidate_documents,
       totalDocuments: row.first.total_documents,

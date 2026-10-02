@@ -105,7 +105,7 @@ describe('search request freshness', () => {
     )
   })
 
-  it('offers an uploaded typo retry only after the combined result is empty', async () => {
+  it('passes through a verified uploaded typo retry', async () => {
     mocked.searchUploadedDocuments.mockResolvedValue({
       ...response(0), suggestedQuery: 'environment',
     })
@@ -118,30 +118,17 @@ describe('search request freshness', () => {
     ))
   })
 
-  it('passes through a verified related-form retry alongside literal results', async () => {
-    mocked.searchUploadedDocuments.mockResolvedValue({
-      ...response(1), relatedQuery: 'environmental',
-    })
-    const search = useSearch({ current: null })
-    const setLastSearchInfo = mocked.setters.at(-1)
-    search.handleSearch('environment')
-    search.submitSearch()
-    await vi.waitFor(() => expect(setLastSearchInfo).toHaveBeenCalledWith(
-      expect.objectContaining({ relatedQuery: 'environmental', uploadedDocuments: 1 }),
-    ))
-  })
-
-  it('hides an uploaded suggestion when starter documents already answer the query', async () => {
-    mocked.searchUploadedDocuments.mockResolvedValue({ ...response(0), suggestedQuery: 'environment' })
+  it('keeps an uploaded spelling retry when starter documents have partial hits', async () => {
+    mocked.searchUploadedDocuments.mockResolvedValue({ ...response(0), suggestedQuery: 'calendar meeting agenda' })
     const pagefind = { search: vi.fn().mockResolvedValue({ results: [{
       id: 'starter', data: async () => ({ id: 'starter', url: '/starter', meta: { title: 'Starter' }, excerpt: 'answer' }),
     }] }) }
     const search = useSearch({ current: pagefind })
     const setLastSearchInfo = mocked.setters.at(-1)
-    search.handleSearch('enviroment')
+    search.handleSearch('calender meeting agenda')
     search.submitSearch()
     await vi.waitFor(() => expect(setLastSearchInfo).toHaveBeenCalledWith(
-      expect.objectContaining({ suggestedQuery: undefined }),
+      expect.objectContaining({ suggestedQuery: 'calendar meeting agenda', starterDocuments: 1 }),
     ))
   })
 

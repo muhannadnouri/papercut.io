@@ -59,8 +59,6 @@ struct Query {
     contract: Option<serde_json::Value>,
     #[serde(default)]
     suggestion: Option<String>,
-    #[serde(default)]
-    related: Option<String>,
     relevant: Vec<Judgment>,
 }
 
@@ -205,12 +203,6 @@ fn search_v2_evaluation() {
                 query.id
             );
             assert_eq!(
-                response.related_query.as_deref(),
-                query.related.as_deref(),
-                "{}: related-form contract",
-                query.id
-            );
-            assert_eq!(
                 ids.len(),
                 ids.iter().copied().collect::<HashSet<_>>().len(),
                 "{}: duplicate results",
@@ -339,7 +331,6 @@ fn search_v2_evaluation() {
                 "total_documents": response.total_documents,
                 "total_matching_sections": response.total_matching_sections,
                 "suggested_query": response.suggested_query,
-                "related_query": response.related_query,
                 "measurements": measurements
             }));
         }
@@ -376,49 +367,6 @@ fn search_v2_evaluation() {
     .expect("explicit typo retry");
     assert_eq!(accepted_retry.results[0].document_id, "a009");
     assert_eq!(accepted_retry.suggested_query, None);
-
-    let search = |query: &str, scope: Vec<&str>, phrases: Vec<&str>| {
-        search_uploads_with_db(
-            UploadedDocumentSearchRequest {
-                query: query.into(),
-                mode: UploadedDocumentSearchMode::All,
-                limit: Some(10),
-                document_urls: Some(scope.into_iter().map(|id| url(id, "html")).collect()),
-                exact_phrases: Some(phrases.into_iter().map(str::to_owned).collect()),
-            },
-            || open_db_in(&temp),
-            |_| {},
-        )
-        .unwrap()
-        .0
-    };
-    let related_retry = search("environmental", vec![], vec![]);
-    let recovered = related_retry
-        .results
-        .iter()
-        .find(|result| result.document_id == "a001")
-        .unwrap();
-    assert_eq!(recovered.title, "Environmental History");
-    assert_eq!(recovered.matching_sections, 0);
-    assert!(related_retry
-        .results
-        .iter()
-        .any(|result| result.document_id == "a009"));
-    assert_eq!(
-        search("environment", vec!["a009"], vec![]).related_query,
-        None
-    );
-    assert_eq!(search("", vec![], vec!["environment"]).related_query, None);
-    assert_eq!(
-        search("environment الطاقة", vec![], vec![]).related_query,
-        None
-    );
-    assert_eq!(
-        search("environment history", vec!["a001"], vec![])
-            .related_query
-            .as_deref(),
-        Some("environmental history")
-    );
 
     if let Ok(path) = std::env::var("PAPERCUT_SEARCH_EVAL_OUTPUT") {
         let bytes = std::fs::metadata(temp.join("search.sqlite3"))

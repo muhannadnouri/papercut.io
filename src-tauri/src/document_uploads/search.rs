@@ -306,17 +306,6 @@ fn search_uploads_with_db(
     } else {
         None
     };
-    let related_query =
-        if exact_phrases.is_empty() && request.mode == UploadedDocumentSearchMode::All {
-            let existing_ids = section_candidates
-                .iter()
-                .chain(&document_candidates)
-                .map(|candidate| candidate.document_id.as_str())
-                .collect::<HashSet<_>>();
-            suggest_related_query(&tx, &fuzzy_terms, &document_urls, index, &existing_ids)?
-        } else {
-            None
-        };
     let result_ms = result_started.elapsed().as_secs_f64() * 1000.0;
     tx.commit().map_err(db_err)?;
     let total_ms = search_started.elapsed().as_secs_f64() * 1000.0;
@@ -350,7 +339,6 @@ fn search_uploads_with_db(
             total_documents,
             total_matching_sections,
             suggested_query,
-            related_query,
         },
         SearchMeasurements {
             candidate_documents,
@@ -453,7 +441,6 @@ fn empty_search_response() -> UploadedDocumentSearchResponse {
         total_documents: 0,
         total_matching_sections: 0,
         suggested_query: None,
-        related_query: None,
     }
 }
 
@@ -473,46 +460,6 @@ fn spelling_ready(db: &Connection) -> Result<bool, String> {
         |row| row.get(0),
     )
     .map_err(db_err)
-}
-
-/// A single measured related-form gap, offered as an explicit retry so all
-/// evidence on the next search describes words actually present in the source.
-fn suggest_related_query(
-    db: &Connection,
-    terms: &[String],
-    document_urls: &[String],
-    index: SearchIndex,
-    existing_ids: &HashSet<&str>,
-) -> Result<Option<String>, String> {
-    if terms.is_empty() || terms.len() > 4 {
-        return Ok(None);
-    }
-    for (position, term) in terms.iter().enumerate() {
-        if term != "environment" {
-            continue;
-        }
-        let mut retry = terms.to_vec();
-        retry[position] = "environmental".into();
-        let queries = retry
-            .iter()
-            .map(|word| {
-                fts_alias_query(&if index == SearchIndex::SearchForm {
-                    search_form::normalize(word)
-                } else {
-                    word.clone()
-                })
-            })
-            .collect::<Vec<_>>();
-        // ponytail: one measured mapping and one verification scan; add a
-        // curated list only when further real vocabulary misses justify it.
-        if document_ids_matching_all_queries(db, &queries, document_urls, index)?
-            .iter()
-            .any(|id| !existing_ids.contains(id.as_str()))
-        {
-            return Ok(Some(retry.join(" ")));
-        }
-    }
-    Ok(None)
 }
 
 /// Suggest one explicit retry only after a miss. Indexed authored words avoid

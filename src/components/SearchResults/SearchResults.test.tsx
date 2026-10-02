@@ -113,27 +113,25 @@ describe('explicit typo retry', () => {
     expect(html).toContain('environment')
     expect(html).not.toContain('result-card')
   })
-})
 
-describe('explicit related-form retry', () => {
-  it('offers the authored alternative without relabeling the literal result', () => {
+  it('shows an uploaded retry beside starter results', () => {
     const html = renderToStaticMarkup(
       <SearchResults
-        results={[{ id: 'upload:one', url: '/uploads/one.html', meta: { title: 'Environment' }, excerpt: '<mark>environment</mark>', source: 'upload' }]}
+        results={[{ id: 'starter', url: '/starter', meta: { title: 'Starter' }, excerpt: '<mark>be</mark>', source: 'starter' }]}
         loading={false}
         searchFailed={false}
         searchableDocumentCount={2}
         searchPhase={null}
-        submittedQuery="environment"
-        lastSearchInfo={{ mode: 'all', phrases: [], unquotedText: 'environment', uploadedDocuments: 1, uploadedMatchingSections: 1, starterDocuments: 0, relatedQuery: 'environmental' }}
+        submittedQuery="calender meeting agenda"
+        lastSearchInfo={{ mode: 'all', phrases: [], unquotedText: 'calender meeting agenda', uploadedDocuments: 0, uploadedMatchingSections: 0, starterDocuments: 1, suggestedQuery: 'calendar meeting agenda' }}
         scopeUrls={new Set()}
         scopeActive={false}
         onViewResult={() => undefined}
         onRetrySearch={() => undefined}
       />,
     )
-    expect(html).toContain('search.input.button <bdi>“environmental”</bdi>')
-    expect(html).toContain('<mark>environment</mark>')
+    expect(html).toContain('search.input.button <bdi>“calendar meeting agenda”</bdi>')
+    expect(html).toContain('search-result-group-starter')
   })
 })
 
