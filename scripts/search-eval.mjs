@@ -125,6 +125,16 @@ try {
       firstPhasesMs: row.first.measurements,
     }
   })
+  const currentById = new Map(rows.map((row) => [row.id, row]))
+  const baseline = JSON.parse(readFileSync(join(ROOT, 'docs/search-v2-baseline.json')))
+  for (const previous of baseline.queries) {
+    assert.ok(byId.has(previous.id), `missing baseline query ${previous.id}`)
+    const current = currentById.get(previous.id)
+    if (!current) continue // A selected evaluation split may omit this query.
+    for (const label of previous.labels.filter((item) => item.grade > 0 && previous.ids.slice(0, 10).includes(item.id))) {
+      assert.ok(current.ids.slice(0, 10).includes(label.id), `${previous.id}: lost baseline relevant document ${label.id}`)
+    }
+  }
   const grouped = (field) => Object.fromEntries(
     [...new Set(rows.map((row) => row[field]))].sort()
       .map((value) => [value, quality(rows.filter((row) => row[field] === value))]),
