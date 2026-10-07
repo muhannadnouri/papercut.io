@@ -520,6 +520,7 @@ mod provider {
                 eprintln!("inference controls complete: {format:?}");
                 assert!(state.disable().unwrap().active_format.is_none());
                 assert!(state.0.lock().unwrap().active.is_none());
+                eprintln!("provider disabled: {format:?}");
                 assert!(state.activate(Path::new("missing"), other).is_err());
                 assert!(state.status().unwrap().active_format.is_none());
                 if format == ModelFormat::DynamicInt8 {

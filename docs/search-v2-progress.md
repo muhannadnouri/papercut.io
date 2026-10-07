@@ -12,10 +12,10 @@ Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Code
 | Embedding baseline | Cached FP32/INT8 providers, anchored passages, incremental SQLite indexing, read-only queries and document-level fusion remain experimental. Native primary evidence and separate conceptual context are preserved. |
 | Representative quality | Assistant development grades show useful English and controlled same-language Arabic retrieval, with cross-language/entity/date and missing-answer-span failures. Additional privately authored Arabic EPUB fixtures exercise the retained baseline; they do not replace actual books or independent grading. The existing independent packet remains unjudged; no held-out acceptance gain is established. |
 | Cached reranker/context augmentation | Rejected: a cross-language gain introduces a same-language date regression; combined-context and explicit-exclusion controls do not justify a repair. Its live CLI/module are removed. |
-| Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the shared-runtime check reuses the actual app adapter with FastEmbed/sherpa. The linked initializer is tested on Linux, not an iOS archive/device. Other platforms, weak reference hardware, responsiveness and optional-model lifecycle/fallback validation remain open. |
+| Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the shared-runtime check reuses the actual app adapter with FastEmbed/sherpa. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. The linked initializer is tested on Linux, not an iOS archive/device. Other platforms, weak reference hardware, responsiveness and optional-model lifecycle/fallback validation remain open. |
 | Production optional hybrid | No ranking integration or default change; the explicitly compiled, session-only provider prototype does not participate in search. Proceed only after independent quality, reference-device and lifecycle/platform gates justify Stage 7; the original plan permits stopping with a documented no-go. |
 
-**Current work is a shared, default-off cached-model provider prototype**, following the no-fork app integration below. Desktop-first validation is sequencing, not a permanent restriction on Android/iOS. The next bounded pass investigates retained native stability/resource costs before adding verified staging/download controls and settings UX; semantic ranking remains gated. The runtime prerequisite is verified on Linux; this is not a search-quality acceptance decision or a commitment to the smallest encoder. Keep normal search available and optional models unloaded when disabled, reuse existing verified download/job controls, and validate compatible indexing before enabling hybrid results. Authored Arabic fixtures pass the production EPUB parser, persistence and sanitized reader-source checks; interactive app import/navigation remains pending. The user permits interactive smoke to remain deferred through later stages and requests one consolidated final pass; carry that reminder forward without treating the deferral as acceptance. Representative quality, reference hardware and supported-platform evidence remain open. Production Stage 7 search needs its own quality and lifecycle gates.
+**Current work is a shared, default-off cached-model provider prototype**, following the no-fork app integration below. Desktop-first validation is sequencing, not a permanent restriction on Android/iOS. The bounded native stability/resource follow-up is recorded below; verified staging/download and cache-removal controls are next, followed by settings UX. Native release stability and semantic ranking remain gated. The runtime prerequisite is verified on Linux; this is not a search-quality acceptance decision or a commitment to the smallest encoder. Keep normal search available and optional models unloaded when disabled, reuse existing verified download/job controls, and validate compatible indexing before enabling hybrid results. Authored Arabic fixtures pass the production EPUB parser, persistence and sanitized reader-source checks; interactive app import/navigation remains pending. The user permits interactive smoke to remain deferred through later stages and requests one consolidated final pass; carry that reminder forward without treating the deferral as acceptance. Representative quality, reference hardware and supported-platform evidence remain open. Production Stage 7 search needs its own quality and lifecycle gates.
 
 ## Stage 0 — Baseline
 
@@ -1186,3 +1186,51 @@ staging/download and opt-in settings path. Keep semantic ranking/index integrati
 behind the original quality, compatibility, resource and platform gates. No
 interactive smoke is required now; remind the user when the consolidated final
 search/EPUB/audio/model-controls pass is ready.
+
+## Native stability follow-up — atomic build copies and measured retention
+
+The bounded stability/resource investigation found a concrete Unix build hazard:
+the sherpa build script overwrote shared-library files in Cargo profile output
+directories while a running development app could still map those files. It now
+reuses atomic staged-copy/rename, with process-specific staging names and failed
+copy cleanup. Local archive copies share this helper; Windows DLL copying remains
+unchanged. A stdlib-only runnable regression preserves the old open inode, checks
+new destination bytes and failed-copy preservation. Its old direct-copy negative
+control fails. A separate Linux mapped-file truncation control receives `SIGBUS`,
+while atomic replacement preserves the mapping.
+
+**This does not establish the earlier `SIGSEGV` cause.** That test appears to have
+loaded the original runtime directory, outside the overwritten Cargo profile
+copies. No original crash backtrace exists. Five retained FP32/INT8 lifecycle
+runs with actual Arabic preprocessing/speech together pass without recurrence,
+with one ORT image, cancelled native setup and unload checks. These remain bounded
+development-host checks, not release stability or mobile acceptance.
+
+New measurements distinguish load peaks, active-provider RSS and post-disable
+RSS. FP32 reaches about 1.42 GiB, stays near 997 MiB after warm-up and near 613 MiB
+after disable; INT8 stays near 663 MiB after warm-up and 551 MiB after disable,
+with a whole-check high water of 846 MiB including a second cancelled load.
+Combined embedding/TTS processes peak near 1.52 GiB. A separate debugger-only
+glibc trim control reduces post-disable FP32 RSS from 614 MiB to 50 MiB. This
+demonstrates substantial allocator retention in that run. No allocator hook,
+dependency fork, lower-quality model default or new runtime is introduced.
+Device memory pressure, repeated-load behavior and responsiveness remain gates.
+Measurement methods, limits and the regression command are in
+[the provider notes](search-embedding-provider.md#native-stability-and-memory-follow-up).
+
+Validation: the copy regression passes with warnings denied; **195 normal
+shared-TTS tests** and **197 provider-enabled shared-TTS tests** pass. Cached
+normal-build Arabic preprocessing/speech also passes. Formatting and diff checks
+pass. The normal offline desktop build/package passes, including its existing
+locale/TypeScript/Vite steps. The package contains one unchanged preprocessing
+model, its exact MIT notice, one matching ORT image and matching sherpa libraries;
+no embedding weights are included. No application launch, installation, model
+download, installed-library mutation or push occurs.
+
+**Next:** prepare verified cancellable model staging/download and cache-removal
+as an experimental provider follow-up, then opt-in settings. The earlier crash,
+device resources, representative independent relevance and advertised-platform
+validation still gate release controls and production hybrid integration. All
+interactive search/EPUB/navigation/audio/model-control checks remain deferred to
+the user's consolidated final smoke pass; remind the user when that packet is
+ready.
