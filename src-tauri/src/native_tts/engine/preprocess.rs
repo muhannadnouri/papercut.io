@@ -11,7 +11,9 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::OnceLock;
 
 #[cfg(feature = "native-text-preprocessing-core")]
-use libtashkeel_base::{create_inference_engine, do_tashkeel, DynamicInferenceEngine};
+use super::tashkeel::TashkeelEngine;
+#[cfg(feature = "native-text-preprocessing-core")]
+use libtashkeel_base::do_tashkeel;
 
 /// Loaded synthesis-text transformer selected from model capabilities.
 ///
@@ -25,7 +27,7 @@ pub(super) struct TextPreprocessor {
 enum TextPreprocessorBackend {
     Identity,
     #[cfg(feature = "native-text-preprocessing-core")]
-    Libtashkeel(DynamicInferenceEngine),
+    Libtashkeel(TashkeelEngine),
 }
 
 impl TextPreprocessor {
@@ -133,13 +135,16 @@ fn initialize_ort() -> Result<(), String> {
     feature = "native-text-preprocessing-core",
     feature = "native-text-preprocessing-dynamic"
 ))]
-fn commit_ort_environment() -> Result<(), ort::Error> {
+fn commit_ort_environment() -> Result<(), String> {
     let library = format!(
         "{}onnxruntime{}",
         std::env::consts::DLL_PREFIX,
         std::env::consts::DLL_SUFFIX
     );
-    ort::init_from(library).commit()
+    ort::init_from(library)
+        .map_err(|error| error.to_string())?
+        .commit();
+    Ok(())
 }
 
 /// Use the statically linked ONNX Runtime archive prepared for iOS.
@@ -151,14 +156,15 @@ fn commit_ort_environment() -> Result<(), ort::Error> {
     feature = "native-text-preprocessing-core",
     not(feature = "native-text-preprocessing-dynamic")
 ))]
-fn commit_ort_environment() -> Result<(), ort::Error> {
-    ort::init().commit()
+fn commit_ort_environment() -> Result<(), String> {
+    ort::init().commit();
+    Ok(())
 }
 
 #[cfg(feature = "native-text-preprocessing-core")]
 /// Load the bundled Libtashkeel ONNX model behind its ORT engine interface.
-fn create_inference_engine_default() -> Result<DynamicInferenceEngine, String> {
-    create_inference_engine(None)
+fn create_inference_engine_default() -> Result<TashkeelEngine, String> {
+    TashkeelEngine::from_bytes(include_bytes!("../../../tts/libtashkeel-1.5.0/model.onnx"))
         .map_err(|err| format!("Failed to load bundled Libtashkeel model: {err}"))
 }
 
@@ -208,5 +214,24 @@ mod tests {
         let non_arabic = "Text  with punctuation - and 123.";
         assert_eq!(preprocessor.process(non_arabic).unwrap(), non_arabic);
         assert_eq!(preprocessor.process("كتب الطالب الدرس").unwrap(), output);
+    }
+
+    #[cfg(feature = "native-text-preprocessing-core")]
+    #[test]
+    fn libtashkeel_adapter_rejects_bad_inputs_and_supports_shared_calls() {
+        use libtashkeel_base::InferenceEngine;
+
+        initialize_ort().unwrap();
+        let engine = create_inference_engine_default().unwrap();
+        assert!(engine.infer(vec![1], vec![1], 2).is_err());
+        assert!(TashkeelEngine::from_bytes(b"invalid ONNX").is_err());
+        std::thread::scope(|scope| {
+            let workers = (0..4)
+                .map(|_| scope.spawn(|| do_tashkeel(&engine, "كتب الطالب الدرس", None, true)))
+                .collect::<Vec<_>>();
+            for worker in workers {
+                assert_eq!(worker.join().unwrap().unwrap(), "كَتَبَ الطَّالِبُ الدَّرْس");
+            }
+        });
     }
 }

@@ -52,6 +52,9 @@
   },
   "bundle": {
     "active": true,
+    "resources": {
+      "tts/libtashkeel-1.5.0/LICENSE": "licenses/libtashkeel-1.5.0.txt"
+    },
     "targets": "all",
     "icon": [
       "icons/icon.png",

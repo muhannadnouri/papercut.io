@@ -36,6 +36,8 @@ mod save;
 mod sidecar_probe;
 mod silma_sidecar;
 mod synth;
+#[cfg(feature = "native-text-preprocessing-core")]
+mod tashkeel;
 mod text_normalization;
 mod wav_sink;
 

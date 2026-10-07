@@ -1,4 +1,5 @@
 fn main() {
+    verify_bundled_preprocessor();
     generate_model_downloads();
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     let native_tts_shared = std::env::var_os("CARGO_FEATURE_NATIVE_TTS_SHARED").is_some();
@@ -21,6 +22,27 @@ fn main() {
     }
 
     tauri_build::build()
+}
+
+/// Pin the unchanged upstream asset before it is compiled into native builds.
+fn verify_bundled_preprocessor() {
+    use sha2::{Digest, Sha256};
+    let path = "tts/libtashkeel-1.5.0/model.onnx";
+    println!("cargo:rerun-if-changed={path}");
+    if std::env::var_os("CARGO_FEATURE_NATIVE_TEXT_PREPROCESSING_CORE").is_none() {
+        return;
+    }
+    let bytes = std::fs::read(path).expect("Missing bundled Libtashkeel 1.5.0 model");
+    assert_eq!(
+        bytes.len(),
+        4_788_213,
+        "Incorrect bundled Libtashkeel model size"
+    );
+    assert_eq!(
+        format!("{:x}", Sha256::digest(bytes)),
+        "52c40d42ca094ff9ff07a091d0a1eafd7baa5cf2388e60a9cc89bacd8e5e955f",
+        "Incorrect bundled Libtashkeel model checksum"
+    );
 }
 
 /// Compile the same pinned artifact metadata used by the download monitor.

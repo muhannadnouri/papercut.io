@@ -1,20 +1,22 @@
 # Libtashkeel / ORT compatibility
 
-Papercut still uses published `libtashkeel_base` 1.5.0 and ORT `2.0.0-rc.1`.
-The app has no FastEmbed dependency or local Libtashkeel override. Its previous
-vendored adaptation was removed; archived results are historical evidence.
+Papercut uses published `libtashkeel_base` 1.5.0 with its built-in ORT feature
+disabled and a caller-supplied ORT `2.0.0-rc.13` engine. The app has no FastEmbed
+dependency or local Libtashkeel override. Its previous vendored adaptation was
+removed; archived results are historical evidence.
 
 ## Official interface route
 
-The check in [`same_process.rs`](same_process.rs) implements the **published
-package's public `InferenceEngine` interface**, with its `ort` and default
+The check in [`same_process.rs`](same_process.rs) reuses the app's small
+[`InferenceEngine` adapter](../../../src-tauri/src/native_tts/engine/tashkeel.rs),
+with the **published package's** `ort` and default
 features disabled. Libtashkeel's normalization, maps, segmentation and
 diacritization stay upstream. Papercut owns the small session/tensor adapter;
 this avoids maintaining a package fork, not all integration code.
 
 The nested manifest pins official Libtashkeel 1.5.0, FastEmbed 7.1.0 and ORT
-`rc.13`, with the existing sherpa 1.13.4 build patch. It does not modify either
-the Tauri app or the retrieval experiment's dependency graph. The separately
+`rc.13`, with the existing sherpa 1.13.4 build patch. It does not modify the
+retrieval experiment's dependency graph. The separately
 built **check** runs all three engines in one process; it does not propose a
 separate production worker. Native binaries and models must already exist.
 
@@ -58,18 +60,21 @@ The unchanged upstream model is **4,788,213 bytes**, SHA-256
 `52c40d42ca094ff9ff07a091d0a1eafd7baa5cf2388e60a9cc89bacd8e5e955f`.
 Its bytes and the upstream Rust files were compared with the cached published
 crate archive, whose checksum matches this lockfile. The built-in backend's
-model bytes are private; production use of this adapter needs explicit,
-verified model provisioning and attribution. Do not locate a user's Cargo
-cache at runtime or silently fetch mutable upstream model files. No model blob
-or upstream source is copied into this checkout.
+model bytes are private; the app now [provisions that unchanged asset explicitly](../../../src-tauri/tts/libtashkeel-1.5.0/README.md),
+with a build-time checksum, compile-time embedding and packaged license. Set
+`TASHKEEL_ONNX` to `src-tauri/tts/libtashkeel-1.5.0/model.onnx` for this check.
+No upstream Rust source is copied. Do not locate a user's Cargo cache at runtime
+or silently fetch mutable upstream model files.
 
 A private copy of the full app manifest also resolves the combined Linux
 feature graph with one ORT/ort-sys `rc.13` pair and official Libtashkeel with no
 features. It requires removing the old direct `ort-sys/load-dynamic` feature
 and using `ort/load-dynamic`; resolution is **not a full app build**.
 
-Next: model provisioning and app-level dynamic/static feature/build validation
-before adopting the adapter. Other desktop targets and mobile remain unverified.
+The app now adopts the same adapter; Linux native and package validation are
+recorded in [the progress report](../../../docs/search-v2-progress.md).
+Other desktop targets and mobile remain unverified. A Linux check of the linked
+initializer does not establish an iOS static-archive/device build.
 Stage 7 opt-in indexing/model controls still need quality and resource evidence;
 runtime compatibility alone is not a retrieval win. Interactive smoke is
 deferred by the user to one consolidated final pass.
