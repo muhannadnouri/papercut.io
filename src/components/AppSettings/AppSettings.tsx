@@ -14,6 +14,7 @@ import { openExternalUrl } from '../../utils/openExternalUrl'
 import { isMobileUserAgent } from '../../utils/platform'
 import { AppDialog } from '../AppDialog/AppDialog'
 import { AppSelect } from '../AppSelect/AppSelect'
+import { SearchModelSetup } from './SearchModelSetup'
 import aiAudioUseNotice from '../../../AI_AUDIO_USE_NOTICE.md?raw'
 import papercutLicense from '../../../LICENSE.md?raw'
 import thirdPartyNotices from '../../../THIRD_PARTY_NOTICES.md?raw'
@@ -247,6 +248,8 @@ export function AppSettings({
               </span>
             </label>
           </section>
+
+          {tauriRuntime && developerMode && <SearchModelSetup />}
 
           <section className="app-settings-section app-settings-about" aria-labelledby="app-settings-about">
             <h3 id="app-settings-about">{t('settings.about')}</h3>

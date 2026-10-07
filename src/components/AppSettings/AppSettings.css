@@ -49,6 +49,61 @@
   text-align: start;
 }
 
+.search-model-setup {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.search-model-setup p {
+  margin: 0;
+  color: var(--text-body);
+  overflow-wrap: anywhere;
+}
+
+.search-model-setup .app-dialog-error {
+  color: var(--danger-strong);
+}
+
+.search-model-field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.search-model-field select {
+  width: 100%;
+  min-height: 2.35rem;
+  padding: 0.4rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--control-surface);
+  color: var(--text-body);
+  font: inherit;
+}
+
+.search-model-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.search-model-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.search-model-setup button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.search-model-setup progress {
+  width: 100%;
+  accent-color: var(--accent-text);
+}
+
 .app-settings-data {
   padding-top: 0.75rem;
   border-top: 1px solid var(--border);

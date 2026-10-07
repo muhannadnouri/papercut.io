@@ -1,9 +1,10 @@
 # Experimental search embedding provider
 
 This is an app-level, default-off **provider prototype**, not production hybrid
-search. Ordinary search never invokes it. There is no settings UI, automatic
-model download, semantic index or ranking integration in this pass. Activation
-is explicit and session-only; restarting returns to disabled.
+search. Ordinary search never invokes it. Developer-mode settings offer explicit
+model-cache preparation; there is no automatic model download, semantic index or
+ranking integration. Activation is explicit and session-only; restarting returns
+to disabled.
 
 Desktop-first validation is sequencing, not a desktop-only product restriction.
 The commands and state are shared Rust code with no desktop-only availability
@@ -96,8 +97,8 @@ compatibility contract.
 
 ## Explicit downloads and cache removal
 
-The feature-gated native commands now provide the backend for later opt-in
-settings. No UI or automatic download is added. Downloading never activates the
+The feature-gated native commands provide the backend for opt-in prototype
+settings. There is no automatic download. Downloading never activates the
 provider, persists an opt-in preference or changes ordinary search.
 
 | Command | Contract |
@@ -142,8 +143,52 @@ errors leave lexical search available.
 `downloadedBytes` and `totalBytes`. Phases are `starting`, `downloading`,
 `installed`, `cancelled` and `failed`; byte updates are throttled to roughly
 two-percentage-point steps. Installed completion reports the full payload size,
-including when an existing cache was verified. UI consumption and app IPC/live
-upstream-download smoke remain follow-up checks.
+including when an existing cache was verified. The settings panel consumes these
+events; app IPC/live upstream-download smoke remains deferred.
+
+## Developer-mode model setup
+
+Open **Settings → Developer mode** in a Tauri build. The model-setup section
+reports unavailability in normal builds, which still omit FastEmbed. Explicit
+provider builds offer the two existing formats; there is no desktop-only UI
+check or assertion of Android/iOS acceptance. The panel defaults to FP32, shows
+installed-file size plus the 64 MiB disk reserve, measured native-test memory
+costs and the INT8 export's unverified CPU/mobile compatibility.
+
+An unchecked consent box names Hugging Face and this device as the destination.
+Each format change and completed attempt clears consent. Only an explicit
+**Download model files** or **Verify cache** click invokes the native installer.
+The latter verifies a valid existing cache without fetching; metadata-only
+presence is not labeled as verified. **Remove model files** is available even
+for an incomplete/missing cache, so it can clear interrupted staging. Active
+selected caches cannot be removed, and pending native activation/download blocks
+cache mutation. No activation, preference persistence or search action is
+introduced by this UI.
+
+The panel subscribes before reading status, polls only during pending work and
+recovers native busy/cache state when reopened. Closing settings, changing tabs
+or hiding Developer mode detaches listeners and timers; it does not cancel the
+native download. Cancellation remains busy until the worker finishes, and is
+separate from unloading an active provider. Errors are shown with retry and
+explicit damaged-cache removal guidance. An observed failure/cancellation event
+also supplies a terminal message when the panel did not start the job. There is
+no persistent job/error history: reopening after a finished job shows current
+cache presence, and verification remains an explicit action.
+
+Five frontend regressions use the repository's hook-mocking pattern and
+server-rendered controls to exercise default-build availability, explicit
+consent/format resets, duplicate-click rejection, pending cancellation,
+native-state recovery after reopening, unrelated progress, active-cache removal
+refusal, successful verification, failure/retry and delayed listener cleanup:
+
+```sh
+npm test -- src/components/AppSettings/SearchModelSetup.test.tsx
+```
+
+These checks do not replace WebView/app IPC, actual downloads, keyboard/RTL or
+reference-device tests. All eight locales have matching translated setup keys.
+Interactive setup checks join the user's deferred consolidated search/EPUB/audio
+smoke pass. Setup remains preparation for a prototype, not conceptual search.
 
 ## Runnable checks
 

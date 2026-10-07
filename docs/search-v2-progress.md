@@ -15,7 +15,7 @@ Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Code
 | Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the shared-runtime check reuses the actual app adapter with FastEmbed/sherpa. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. The linked initializer is tested on Linux, not an iOS archive/device. Other platforms, weak reference hardware, responsiveness and optional-model lifecycle/fallback validation remain open. |
 | Production optional hybrid | No ranking integration or default change; the explicitly compiled, session-only provider prototype does not participate in search. Proceed only after independent quality, reference-device and lifecycle/platform gates justify Stage 7; the original plan permits stopping with a documented no-go. |
 
-**Current work is a shared, default-off provider and explicit model-cache prototype**, following the no-fork app integration below. Desktop-first validation is sequencing, not a permanent restriction on Android/iOS. The native stability/resource follow-up and verified cancellable downloads/removal are recorded below; opt-in model-setup settings are next. Setup must not promise conceptual results while search does not use the provider. Native release stability and semantic ranking remain gated. The runtime prerequisite is verified on Linux; this is not a search-quality acceptance decision or a commitment to the smallest encoder. Keep normal search available and optional models unloaded when disabled, reuse existing verified download/job controls, and validate compatible indexing before enabling hybrid results. Authored Arabic fixtures pass the production EPUB parser, persistence and sanitized reader-source checks; interactive app import/navigation remains pending. The user permits interactive smoke to remain deferred through later stages and requests one consolidated final pass; carry that reminder forward without treating the deferral as acceptance. Representative quality, reference hardware and supported-platform evidence remain open. Production Stage 7 search needs its own quality and lifecycle gates.
+**Current work is a shared, default-off provider and explicit model-cache prototype**, following the no-fork app integration below. Desktop-first validation is sequencing, not a permanent restriction on Android/iOS. The native stability/resource follow-up, verified cancellable downloads/removal and opt-in Developer-mode model-setup settings are recorded below. Next validate the setup/native command boundary and pending-operation recovery; setup does not promise conceptual results while search does not use the provider. Native release stability and semantic ranking remain gated. The runtime prerequisite is verified on Linux; this is not a search-quality acceptance decision or a commitment to the smallest encoder. Keep normal search available and optional models unloaded when disabled, reuse existing verified download/job controls, and validate compatible indexing before enabling hybrid results. Authored Arabic fixtures pass the production EPUB parser, persistence and sanitized reader-source checks; interactive app import/navigation remains pending. The user permits interactive smoke to remain deferred through later stages and requests one consolidated final pass; carry that reminder forward without treating the deferral as acceptance. Representative quality, reference hardware and supported-platform evidence remain open. Production Stage 7 search needs its own quality and lifecycle gates.
 
 ## Stage 0 — Baseline
 
@@ -1296,3 +1296,53 @@ or resolved cause. Stability, device resources, independent representative quali
 and advertised-platform validation remain release gates. Interactive search,
 EPUB/navigation, audio and future model controls remain in the user's consolidated
 final smoke pass; carry the reminder forward.
+
+## Opt-in prototype model-setup settings
+
+The shared native cache controls are now available in **Settings → Developer
+mode** in Tauri builds. Normal builds report model setup unavailable and still
+omit FastEmbed. Explicit provider builds offer FP32 and the existing smaller INT8
+export, with model-file size, disk reserve, measured native-test memory costs and
+unverified INT8 CPU/mobile compatibility. This is preparation for controlled
+prototype testing, not a conceptual-search switch or platform release claim.
+
+Opening settings only subscribes and reads capability/cache status. Downloads or
+cache verification require an unchecked consent box naming Hugging Face plus an
+explicit action. Format changes and finished attempts clear consent. Presence by
+size is labeled separately from verified integrity. Removal can clear an
+incomplete cache or stale staging; active selected models and pending native work
+block mutation. No new dependencies, model catalogue, native command, build/dev
+script, activation preference, semantic index or search integration is added.
+All eight locales have translated setup text.
+
+The panel subscribes before its first status read, refreshes on download lifecycle
+events and polls only while work is pending. Duplicate clicks cannot enqueue
+another local job. Cancellation remains pending until native cleanup returns.
+Closing settings or hiding Developer mode releases listeners/timers without
+cancelling the native job; reopening restores native status. Failed subscriptions
+can be retried, native errors remain visible and explicit removal/redownload
+provides damaged-cache recovery. Observed terminal failure/cancellation events
+also inform a reopened panel. There is no persistent job/error history, so
+reopening after completion shows current cache presence rather than a claim about
+an earlier attempt.
+
+Validation: **147 frontend tests**, including five setup regressions, pass.
+The new checks exercise unavailable normal builds, consent/format resets,
+duplicate-click rejection, cancellation through cleanup, downloads starting while
+settings are open, pending-work recovery after reopening, unrelated progress,
+active-cache removal refusal, explicit verification, failure/retry and delayed
+listener cleanup. TypeScript, ESLint and eight-locale parity pass. The offline
+provider-enabled desktop release build and normal Debian package also pass.
+Package inspection verifies the unchanged bundled preprocessing model, exact MIT
+notice, one matching ORT and matching sherpa libraries, with no embedding assets.
+These mocked hook/control checks and compilation do not establish actual WebView/app IPC, keyboard/RTL,
+upstream downloads, native release stability or mobile/device acceptance. The
+unchanged backend's previous native results are documented in the prior pass;
+they are not presented as newly rerun tests here.
+
+**Next:** validate the native command/cache lifecycle in disposable app data and
+prepare the consolidated setup/search/EPUB/navigation/audio smoke packet. Actual
+WebView and live-download smoke remain deferred at the user's request, alongside
+independent representative quality, reference-device resources and supported-
+platform release checks. Stage 7 ranking integration stays on hold until those
+gates justify it; do not treat prototype setup availability as acceptance.
