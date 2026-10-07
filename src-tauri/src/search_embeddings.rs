@@ -75,7 +75,10 @@ impl SearchEmbeddingState {
 }
 
 #[cfg(feature = "experimental-search-embeddings-core")]
-fn cache_dir(app: &tauri::AppHandle, format: ModelFormat) -> Result<std::path::PathBuf, String> {
+fn cache_dir<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    format: ModelFormat,
+) -> Result<std::path::PathBuf, String> {
     use tauri::Manager;
     Ok(app
         .path()
@@ -95,8 +98,8 @@ pub(crate) struct CacheStatus {
 
 /// Presence/size information only. Activation always rechecks actual checksums.
 #[tauri::command]
-pub(crate) async fn search_embedding_cache_status(
-    app: tauri::AppHandle,
+pub(crate) async fn search_embedding_cache_status<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
 ) -> Result<Vec<CacheStatus>, String> {
     #[cfg(feature = "experimental-search-embeddings-core")]
     {
@@ -125,8 +128,8 @@ pub(crate) async fn search_embedding_cache_status(
 }
 
 #[tauri::command]
-pub(crate) async fn search_embedding_download(
-    app: tauri::AppHandle,
+pub(crate) async fn search_embedding_download<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     state: tauri::State<'_, SearchEmbeddingState>,
     format: ModelFormat,
 ) -> Result<ProviderStatus, String> {
@@ -146,8 +149,8 @@ pub(crate) async fn search_embedding_download(
 }
 
 #[tauri::command]
-pub(crate) async fn search_embedding_remove(
-    app: tauri::AppHandle,
+pub(crate) async fn search_embedding_remove<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     state: tauri::State<'_, SearchEmbeddingState>,
     format: ModelFormat,
 ) -> Result<ProviderStatus, String> {
@@ -191,8 +194,8 @@ pub(crate) fn search_embedding_status(
 /// `null` disables/unloads. A format explicitly activates that verified cache.
 /// Availability comes from build features, not a desktop-only platform check.
 #[tauri::command]
-pub(crate) async fn search_embedding_configure(
-    app: tauri::AppHandle,
+pub(crate) async fn search_embedding_configure<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     state: tauri::State<'_, SearchEmbeddingState>,
     format: Option<ModelFormat>,
 ) -> Result<ProviderStatus, String> {
@@ -621,3 +624,6 @@ mod tests {
         assert!(serde_json::from_str::<ModelFormat>("\"unknown-model\"").is_err());
     }
 }
+
+#[cfg(all(test, target_os = "linux"))]
+mod ipc_tests;

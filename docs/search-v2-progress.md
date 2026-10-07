@@ -15,7 +15,7 @@ Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Code
 | Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the shared-runtime check reuses the actual app adapter with FastEmbed/sherpa. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. The linked initializer is tested on Linux, not an iOS archive/device. Other platforms, weak reference hardware, responsiveness and optional-model lifecycle/fallback validation remain open. |
 | Production optional hybrid | No ranking integration or default change; the explicitly compiled, session-only provider prototype does not participate in search. Proceed only after independent quality, reference-device and lifecycle/platform gates justify Stage 7; the original plan permits stopping with a documented no-go. |
 
-**Current work is a shared, default-off provider and explicit model-cache prototype**, following the no-fork app integration below. Desktop-first validation is sequencing, not a permanent restriction on Android/iOS. The native stability/resource follow-up, verified cancellable downloads/removal and opt-in Developer-mode model-setup settings are recorded below. Next validate the setup/native command boundary and pending-operation recovery; setup does not promise conceptual results while search does not use the provider. Native release stability and semantic ranking remain gated. The runtime prerequisite is verified on Linux; this is not a search-quality acceptance decision or a commitment to the smallest encoder. Keep normal search available and optional models unloaded when disabled, reuse existing verified download/job controls, and validate compatible indexing before enabling hybrid results. Authored Arabic fixtures pass the production EPUB parser, persistence and sanitized reader-source checks; interactive app import/navigation remains pending. The user permits interactive smoke to remain deferred through later stages and requests one consolidated final pass; carry that reminder forward without treating the deferral as acceptance. Representative quality, reference hardware and supported-platform evidence remain open. Production Stage 7 search needs its own quality and lifecycle gates.
+**Current work is a shared, default-off provider and explicit model-cache prototype**, following the no-fork app integration below. Desktop-first validation is sequencing, not a permanent restriction on Android/iOS. The native stability/resource follow-up, verified cancellable downloads/removal and opt-in Developer-mode model-setup settings are recorded below. The native command/cache boundary now passes isolated mock-runtime checks and the consolidated smoke packet is prepared. Next collect actual acceptance evidence; setup does not promise conceptual results while search does not use the provider. Native release stability and semantic ranking remain gated. The runtime prerequisite is verified on Linux; this is not a search-quality acceptance decision or a commitment to the smallest encoder. Keep normal search available and optional models unloaded when disabled, reuse existing verified download/job controls, and validate compatible indexing before enabling hybrid results. Authored Arabic fixtures pass the production EPUB parser, persistence and sanitized reader-source checks; interactive app import/navigation remains pending. The user permits interactive smoke to remain deferred through later stages and requests one consolidated final pass; carry that reminder forward without treating the deferral as acceptance. Representative quality, reference hardware and supported-platform evidence remain open. Production Stage 7 search needs its own quality and lifecycle gates.
 
 ## Stage 0 — Baseline
 
@@ -1346,3 +1346,61 @@ WebView and live-download smoke remain deferred at the user's request, alongside
 independent representative quality, reference-device resources and supported-
 platform release checks. Stage 7 ranking integration stays on hold until those
 gates justify it; do not treat prototype setup availability as acceptance.
+
+
+## Native command/cache validation and consolidated smoke packet
+
+The six existing embedding commands now have Linux mock-runtime IPC checks using
+Tauri's actual command macros and JSON serialization. The path/cache handlers
+accept the standard Tauri runtime generic rather than being fixed to Wry; normal
+app behavior is unchanged. The existing Tauri dependency's `test` feature is
+enabled only for development tests. Production dependency trees omit it, and
+there are no package-version, runtime, model-policy or search changes.
+
+An ordinary check verifies build capability, camelCase status, rejected format
+arguments, explicit disable/cancel and recoverable feature-off errors. An ignored
+real-cache check requires a canonical disposable data root below the temporary
+directory, matching `XDG_DATA_HOME`, a fresh test app identifier and explicitly
+cached INT8 assets. MockRuntime creates no browser profile: its profile path
+points at the existing temporary directory. The test copies source assets rather
+than linking/mutating them and removes its own app-data tree.
+
+Through the actual handlers it checks metadata without directory creation,
+missing/corrupt activation, complete-by-size files versus integrity, failed-cache
+preservation, progress field/phase serialization, verified cache reuse without
+fetching, activation, active-cache removal refusal, removal of another format,
+disable, fresh-state cache reuse without automatic activation, idempotent removal
+and interrupted-staging cleanup. A held test reservation verifies both cancel
+commands retain busy state; the previous real-worker regression separately
+covers cleanup completion. This is not a live interrupted transfer or process
+restart test, and the scoped handler registry does not exercise full application
+startup/plugins or WebView delivery.
+
+Validation: **148 default**, **196 normal shared-TTS** and **201 provider-enabled
+shared-TTS** native tests pass, plus **147 frontend tests**. The explicit command
+cache lifecycle and actual Arabic preprocessing/speech checks pass together in
+one process; no native crash recurs. Production Clippy and standalone-provider
+test Clippy complete with existing warnings and no findings in the changed
+modules. Formatting and diff checks pass. No live download, GUI launch,
+installation, library mutation or push occurs. The earlier unexplained native
+crash, allocator retention, quality/device/platform gates remain open.
+
+The offline provider-enabled Wry release build and normal desktop Debian build
+also pass. Inspection of the normal package verifies the unchanged bundled
+preprocessing model, exact MIT notice, one matching ORT and matching sherpa
+libraries, with no embedding assets. Neither built application was launched;
+build/package validation does not establish interactive or platform acceptance.
+
+The [consolidated smoke packet](search-v2-smoke.md) is prepared, **not run**. It
+covers isolated launch (including the single-instance redirect hazard), complete
+lexical queries/quotes/filters/evidence/navigation, imports/replacement/deletion,
+model setup/download/cancel/offline/restart/removal, RTL/keyboard, audio and
+foreground responsiveness. It references generic examples rather than private
+source/question details. All interactive checks remain deferred to the user's
+one final pass; preparation does not count as acceptance.
+
+**Next:** collect actual smoke and release-gate evidence rather than add another
+speculative feature. The user may keep smoke deferred; the checklist is ready
+when they resume. Stage 7 remains on hold until representative independent
+quality, compatible indexing/fallback, reference-device resources and supported-
+platform/native lifecycle evidence justify it; a documented no-go remains valid.

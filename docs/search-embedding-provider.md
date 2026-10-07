@@ -192,6 +192,51 @@ smoke pass. Setup remains preparation for a prototype, not conceptual search.
 
 ## Runnable checks
 
+The command boundary now also runs through Tauri's existing test-only mock
+runtime, using the actual command macros, JSON arguments and serialized responses.
+The cache/path commands accept Tauri's standard runtime generic so the same
+handlers compile for Wry and MockRuntime; their behavior is unchanged. Tauri's
+`test` feature is a dev dependency only, absent from production feature trees.
+No new crate version or test framework is introduced.
+
+An ordinary Linux command check covers build capability, camelCase status,
+invalid format arguments, disabled/cancel behavior and feature-off errors:
+
+```sh
+cargo test --offline --locked --manifest-path src-tauri/Cargo.toml \
+  --lib search_embeddings::ipc_tests::command_capability
+```
+
+The ignored real-cache command check requires an explicitly disposable Linux
+data root and a read-only source of the already verified INT8 assets:
+
+```sh
+task_ipc_data=$(mktemp -d /tmp/papercut-cache-ipc.XXXXXX)
+XDG_DATA_HOME="$task_ipc_data" PAPERCUT_EMBEDDING_IPC_TEST_DATA="$task_ipc_data" \
+  PAPERCUT_EMBEDDING_TEST_MODELS="$CACHED_MODELS" \
+  SHERPA_ONNX_LIB_DIR="$SHARED_LIB_DIR" LD_LIBRARY_PATH="$SHARED_LIB_DIR" \
+  cargo test --offline --locked --manifest-path src-tauri/Cargo.toml \
+  --features native-tts-shared,experimental-search-embeddings \
+  --lib search_embeddings::ipc_tests::command_cache_lifecycle \
+  -- --ignored --nocapture
+```
+
+This test refuses a normal data root, uses a separate test app identifier, and
+copies rather than links/mutates the source assets. It checks read-only metadata,
+missing/corrupt activation, size-presence versus integrity, cache reuse without
+fetching, emitted progress, active-model removal protection, removal of other
+formats, disable, fresh-state reuse without automatic activation and partial
+staging cleanup. A held test reservation checks command cancellation/busy
+semantics; the existing real-worker test separately verifies cleanup completion.
+The test removes its own app-data tree. It never invokes a fresh-cache download.
+MockRuntime does not start a browser; its profile path points to the existing
+temporary directory so Tauri cannot create a real user profile.
+
+This establishes command-handler integration on Linux, **not** actual WebView
+IPC, upstream transfers, process-interruption recovery or mobile acceptance. Use
+the [consolidated smoke checklist](search-v2-smoke.md) when interactive testing
+resumes.
+
 With the existing shared runtime available, ordinary provider regressions run:
 
 ```sh
@@ -276,11 +321,11 @@ acceptance checks.
 
 ## Remaining gates
 
-Native stability and device resource costs remain release gates. The next bounded
-prototype pass can add opt-in model-setup settings around these backend commands,
-with explicit consent, progress, recovery, cancellation and removal. Setup must
-not promise conceptual results while search still does not use the provider.
-Reuse existing settings/job patterns where they fit; do not repurpose the voice catalogue.
+Native stability and device resource costs remain release gates. Model-setup
+settings and mock-runtime command validation are implemented; the consolidated
+smoke packet is prepared, not accepted. Setup must not promise conceptual results
+while search still does not use the provider. The next work is actual acceptance
+evidence rather than another speculative feature or a voice-catalogue repurpose.
 Before enabling hybrid results, representative independent quality, compatible
 incremental indexes, lexical fallback, device responsiveness/resource limits and
 all advertised platforms must pass. Model choices can expand after measured

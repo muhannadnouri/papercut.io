@@ -311,9 +311,9 @@ impl SearchEmbeddingState {
         self.status()
     }
 
-    pub(super) fn download(
+    pub(super) fn download<R: tauri::Runtime>(
         &self,
-        app: &tauri::AppHandle,
+        app: &tauri::AppHandle<R>,
         dir: &Path,
         format: ModelFormat,
     ) -> Result<ProviderStatus, String> {

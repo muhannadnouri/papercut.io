@@ -72,6 +72,10 @@ kuchikiki = "=0.8.8-speedreader"
 pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
 tauri-plugin-opener = "=2.5.3"
 
+[dev-dependencies]
+# Existing Tauri mock runtime; no WebView or installed app data in command checks.
+tauri = { version = "2.11.2", features = ["test"] }
+
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = "2"
 
