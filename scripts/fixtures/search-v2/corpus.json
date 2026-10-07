@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "documents": [
     { "id": "a001", "title": "Environmental History", "sections": [
       { "heading": "Automobile dependency", "text": "Private automobile dependency increases gasoline consumption and suburban pollution." },
@@ -101,6 +101,9 @@
     { "id": "a018", "title": "دراسة عربية", "sections": [
       { "heading": "الفصل الأول", "text": "البيئة تتغير." },
       { "heading": "الفصل الثاني", "text": "التلوث يزداد." }
+    ] },
+    { "id": "a019", "title": "Team calendar", "sections": [
+      { "heading": "Meeting agenda", "text": "The calendar lists each meeting agenda." }
     ] }
   ],
   "queries": [
@@ -110,10 +113,12 @@
     { "id": "en-phrase", "mode": "all", "split": "dev", "language": "en", "category": "quote", "query": "\"silver compass\"", "nativeQuery": "", "phrases": ["silver compass"], "relevant": [{ "id": "a004", "grade": 2, "section": 0 }, { "id": "a013", "grade": 1, "section": 1 }], "exclude": ["a005"], "rationale": "An intervening word invalidates the quoted phrase." },
     { "id": "en-mixed", "mode": "all", "split": "dev", "language": "en", "category": "cross-section", "query": "compass \"copper lantern\"", "nativeQuery": "compass", "phrases": ["copper lantern"], "relevant": [{ "id": "a004", "grade": 2 }, { "id": "a007", "grade": 2 }], "rationale": "Required word and phrase may live in separate sections." },
     { "id": "en-two-quotes", "mode": "all", "split": "dev", "language": "en", "category": "quote", "query": "\"silver compass\" \"copper lantern\"", "nativeQuery": "", "phrases": ["silver compass", "copper lantern"], "relevant": [{ "id": "a004", "grade": 2 }], "exclude": ["a005", "a007"], "rationale": "Both source-verified phrases are mandatory." },
-    { "id": "en-stem", "mode": "all", "split": "dev", "language": "en", "category": "normalization", "query": "environment", "nativeQuery": "environment", "related": "environmental", "relevant": [{ "id": "a001", "grade": 1 }, { "id": "a009", "grade": 2 }], "rationale": "The literal search finds the exact-heading document; an explicit related-form retry can find the environmental-history document." },
+    { "id": "en-stem", "mode": "all", "split": "dev", "language": "en", "category": "normalization", "query": "environment", "nativeQuery": "environment", "relevant": [{ "id": "a001", "grade": 1 }, { "id": "a009", "grade": 2 }], "rationale": "The literal search finds the exact-heading document but misses a related title form." },
     { "id": "en-stem-quote", "mode": "all", "split": "dev", "language": "en", "category": "quote", "query": "\"run compass\"", "nativeQuery": "", "phrases": ["run compass"], "relevant": [], "exclude": ["a006"], "rationale": "A Porter candidate is not a literal source phrase." },
     { "id": "en-cross", "mode": "all", "split": "dev", "language": "en", "category": "cross-section", "query": "compass lantern", "nativeQuery": "compass lantern", "scope": ["a007"], "relevant": [{ "id": "a007", "grade": 2 }], "contract": { "matchScope": "document", "matchingSections": 2, "sectionIndex": 0 }, "rationale": "All words are required at document scope." },
     { "id": "en-typo", "mode": "all", "split": "dev", "language": "en", "category": "typo-gap", "query": "enviroment", "nativeQuery": "enviroment", "scope": ["a009"], "suggestion": "environment", "relevant": [{ "id": "a009", "grade": 2 }], "rationale": "Misspelling has no literal hit; the authored heading supports an explicit corrected retry." },
+    { "id": "en-calendar-typo", "mode": "all", "split": "dev", "language": "en", "category": "typo-gap", "query": "calender meeting agenda", "nativeQuery": "calender meeting agenda", "suggestion": "calendar meeting agenda", "relevant": [{ "id": "a019", "grade": 2 }], "rationale": "A misspelled first word offers a verified full-query retry; All words remains literal." },
+    { "id": "en-calendar-correct", "mode": "all", "split": "dev", "language": "en", "category": "literal", "query": "calendar meeting agenda", "nativeQuery": "calendar meeting agenda", "relevant": [{ "id": "a019", "grade": 2 }], "rationale": "Correct spelling finds the intended uploaded document with all three words." },
     { "id": "en-concept", "mode": "all", "split": "dev", "language": "en", "category": "concept-gap", "query": "private automobile consequences", "nativeQuery": "private automobile consequences", "scope": ["a00a"], "relevant": [{ "id": "a00a", "grade": 2 }], "rationale": "Relevant passage has no complete lexical overlap." },
     { "id": "en-hyphen", "mode": "all", "split": "dev", "language": "en", "category": "normalization", "query": "high—lights", "nativeQuery": "high—lights", "scope": ["a008"], "relevant": [{ "id": "a008", "grade": 2 }], "rationale": "PDF line-break hyphen and dash aliases." },
     { "id": "en-curly-phrase", "mode": "all", "split": "dev", "language": "en", "category": "quote", "query": "“author’s well—being”", "nativeQuery": "", "phrases": ["author's well-being"], "scope": ["a008"], "relevant": [{ "id": "a008", "grade": 2 }], "rationale": "Typographic punctuation canonicalization must retain a source phrase." },

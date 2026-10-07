@@ -38,8 +38,9 @@
       "modeLabel": "Modo de búsqueda",
       "allWordsMode": "Todas las palabras",
       "broaderMode": "Búsqueda amplia · Tu biblioteca",
-      "helpBroader": "Con tres o más palabras, pueden faltar algunas. Las frases entre comillas siguen siendo obligatorias. Solo busca en Tu biblioteca.",
+      "helpBroader": "Con 3–12 palabras distintas, algunas pueden faltar. Las búsquedas más largas requieren todas las palabras. Las frases entre comillas siguen siendo obligatorias. Solo busca en Tu biblioteca.",
       "unmatchedQuote": "Añada una comilla de cierre o elimine la comilla sin pareja.",
+      "tooLong": "Acorta la búsqueda a un máximo de 128 palabras y 4096 caracteres, incluidas las frases entre comillas.",
       "examplesLabel": "Ejemplos de búsqueda",
       "exampleBroad": "palabras de búsqueda",
       "exampleExact": "\"frase exacta\""

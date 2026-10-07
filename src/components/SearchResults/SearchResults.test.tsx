@@ -192,6 +192,12 @@ describe('search evidence', () => {
           source: 'upload' as const,
           matchScope: 'document' as const,
           matchingSections: 3,
+          sectionIndex: 0,
+          passages: [
+            { sectionIndex: 0, pageIndex: 2, excerpt: 'The <mark>orchard</mark> survey explains the route.' },
+            { sectionIndex: 1, excerpt: 'The <mark>lantern</mark> illuminates the map.' },
+            { sectionIndex: 2, excerpt: 'A <mark>compass</mark> guides the return.' },
+          ],
           matchLocations: [
             { binIndex: 0, sectionIndex: 0, matchCount: 2 },
             { binIndex: 1, sectionIndex: 1, matchCount: 1 },
@@ -225,6 +231,11 @@ describe('search evidence', () => {
     expect(html).toContain('lantern')
     expect(html).toContain('search.results.exploreMatches')
     expect(html).toContain('search.results.sectionsWithAnyTerm:3')
+    // The card hides its cross-section excerpt, so Explore must retain it.
+    expect(html).toContain('survey explains the route')
+    expect(html).toContain('illuminates the map')
+    expect(html).toContain('guides the return')
+    expect(html.match(/class="result-evidence-passage"/g)).toHaveLength(6)
     expect(html).not.toContain('type="checkbox"')
     expect(html).not.toContain('search.results.comparisonTitle')
   })

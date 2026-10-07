@@ -56,24 +56,35 @@ export interface ParsedSearchQuery {
 /** Keep provider input and the user-visible query clauses derived from the same
  * quote scan so mixed searches cannot be presented as phrase-only searches. */
 export function parseSearchQuery(q: string): ParsedSearchQuery {
-  const query = normalizeQueryQuotes(q)
   const exactPhrases: string[] = []
   let providerQuery = ''
   let unquotedText = ''
   let phrase = ''
-  let quoted = false
+  const closingQuotes: string[] = []
+  let mismatchedQuote = false
 
-  for (const character of query) {
-    if (character === '"') {
-      if (quoted) {
-        const value = phrase.trim()
-        if (value) exactPhrases.push(value)
-        phrase = ''
+  for (const character of q) {
+    if (character === '"' || character === '“' || character === '”') {
+      // Keep inner quotation marks in source verification. Their delimiter
+      // type must not close an outer phrase of a different type.
+      if (character === closingQuotes.at(-1)) {
+        closingQuotes.pop()
+        if (closingQuotes.length > 0) {
+          phrase += '"'
+        } else {
+          const value = phrase.trim()
+          if (value) exactPhrases.push(value)
+          phrase = ''
+        }
+      } else if (character === '”') {
+        mismatchedQuote = true
+      } else {
+        if (closingQuotes.length > 0) phrase += '"'
+        closingQuotes.push(character === '“' ? '”' : '"')
       }
-      quoted = !quoted
       providerQuery += ' '
       unquotedText += ' '
-    } else if (quoted) {
+    } else if (closingQuotes.length > 0) {
       phrase += character
       providerQuery += character
     } else {
@@ -86,12 +97,8 @@ export function parseSearchQuery(q: string): ParsedSearchQuery {
     exactPhrases,
     providerQuery: providerQuery.replace(/\s+/g, ' ').trim(),
     unquotedText: unquotedText.replace(/\s+/g, ' ').trim(),
-    unmatchedQuote: quoted,
+    unmatchedQuote: mismatchedQuote || closingQuotes.length > 0,
   }
-}
-
-function normalizeQueryQuotes(q: string): string {
-  return q.replace(/[“”]/g, '"')
 }
 
 export async function docContainsAllPhrases(

@@ -182,8 +182,8 @@ export function SearchResults({
             const exactPhrase = Boolean(lastSearchInfo?.phrases.length)
             const excerpt = resultExcerpt(result, exactPhrase)
             const additionalPassages = (result.passages ?? [])
-              .filter((passage) => passage.sectionIndex !== result.sectionIndex)
-              .slice(0, 2)
+              .filter((passage) => result.matchScope === 'document' || passage.sectionIndex !== result.sectionIndex)
+              .slice(0, result.matchScope === 'document' ? 3 : 2)
             const locations = result.matchLocations ?? []
             const evidenceCells = Array.from({ length: OCCURRENCE_MAP_BINS }, (_, index) => ({
               index,

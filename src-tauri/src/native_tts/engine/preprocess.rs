@@ -204,8 +204,9 @@ mod tests {
                 .unwrap();
         let output = preprocessor.process("كتب الطالب الدرس").unwrap();
 
-        assert!(output
-            .chars()
-            .any(|character| matches!(character as u32, 0x064b..=0x0652)));
+        assert_eq!(output, "كَتَبَ الطَّالِبُ الدَّرْس");
+        let non_arabic = "Text  with punctuation - and 123.";
+        assert_eq!(preprocessor.process(non_arabic).unwrap(), non_arabic);
+        assert_eq!(preprocessor.process("كتب الطالب الدرس").unwrap(), output);
     }
 }

@@ -27,13 +27,13 @@ describe('search query errors', () => {
     expect(html).toContain('checked=""')
   })
 
-  it('associates an unmatched-quote error with the search input', () => {
+  it.each(['unmatchedQuote', 'tooLong'] as const)('associates %s with the search input', (error) => {
     const html = renderToStaticMarkup(
       <SearchBar
         mode="all"
         onModeChange={() => undefined}
         query={'anne "green gables'}
-        queryError="unmatchedQuote"
+        queryError={error}
         disabled={false}
         loading={false}
         submittedQuery=""
@@ -45,6 +45,7 @@ describe('search query errors', () => {
     expect(html).toContain('aria-invalid="true"')
     expect(html).toContain('aria-describedby="search-input-help search-input-error"')
     expect(html).toContain('role="alert"')
+    expect(html).toContain(`search.input.${error}`)
   })
 
   it('shows a busy button only while the submitted query is still in the input', () => {

@@ -6,10 +6,35 @@
 use std::collections::HashSet;
 
 const MAX_COMPARISON_TERMS: usize = 6;
+const MAX_SEARCH_TERMS: usize = 128;
+const MAX_SEARCH_CHARACTERS: usize = 4096;
+
+/// Reject oversized requests before constructing FTS or opening the database;
+/// searching a silently shortened request would violate required-word/quote semantics.
+pub(super) fn validate_search_query(query: &str, phrases: &[String]) -> Result<(), String> {
+    let parts = std::iter::once(query).chain(phrases.iter().map(String::as_str));
+    if parts
+        .clone()
+        .flat_map(str::chars)
+        .take(MAX_SEARCH_CHARACTERS + 1)
+        .count()
+        > MAX_SEARCH_CHARACTERS
+    {
+        return Err("searchQueryTooLong".into());
+    }
+    if parts
+        .map(|part| fts_terms(part, MAX_SEARCH_TERMS + 1).len())
+        .sum::<usize>()
+        > MAX_SEARCH_TERMS
+    {
+        return Err("searchQueryTooLong".into());
+    }
+    Ok(())
+}
 
 /// Turn a broad/fuzzy query into safe FTS5 terms for candidate lookup.
 pub(super) fn fts_fuzzy_terms(query: &str) -> Vec<String> {
-    fts_terms(query, 12)
+    fts_terms(query, MAX_SEARCH_TERMS)
 }
 
 #[cfg(test)]
@@ -51,13 +76,12 @@ pub(super) fn comparison_terms(
     }
 }
 
-/// Convert each user phrase to one safely quoted FTS5 phrase. The larger bound
-/// preserves normal quotations while keeping pathological pasted input finite.
+/// Convert each validated user phrase to one safely quoted FTS5 phrase.
 pub(super) fn fts_phrase_queries(phrases: &[String]) -> Vec<String> {
     phrases
         .iter()
         .filter_map(|phrase| {
-            let terms = fts_terms(phrase, 128);
+            let terms = fts_terms(phrase, MAX_SEARCH_TERMS);
             (!terms.is_empty()).then(|| fts_alias_query(&terms.join(" ")))
         })
         .collect()

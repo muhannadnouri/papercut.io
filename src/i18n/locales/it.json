@@ -38,8 +38,9 @@
       "modeLabel": "Modalità di ricerca",
       "allWordsMode": "Tutte le parole",
       "broaderMode": "Ricerca ampia · La tua libreria",
-      "helpBroader": "Con tre o più parole, alcune possono mancare. Le frasi tra virgolette restano obbligatorie. Cerca solo nella tua libreria.",
+      "helpBroader": "Con 3–12 parole diverse, alcune possono mancare. Le ricerche più lunghe richiedono tutte le parole. Le frasi tra virgolette restano obbligatorie. Cerca solo nella Tua biblioteca.",
       "unmatchedQuote": "Aggiungi una virgoletta di chiusura o rimuovi quella senza coppia.",
+      "tooLong": "Riduci la ricerca a un massimo di 128 parole e 4096 caratteri, incluse le frasi tra virgolette.",
       "examplesLabel": "Esempi di ricerca",
       "exampleBroad": "parole da cercare",
       "exampleExact": "\"frase esatta\""

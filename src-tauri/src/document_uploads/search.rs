@@ -26,6 +26,7 @@ use super::types::{
 use query::{
     comparison_terms, fts_alias_query, fts_and_query, fts_fuzzy_terms, fts_or_query,
     fts_phrase_queries, fts_terms, normalize_exact_display, normalize_exact_text,
+    validate_search_query,
 };
 
 const MAX_EVIDENCE_PASSAGES: usize = 3;
@@ -34,7 +35,7 @@ const DEFAULT_CONCORDANCE_LIMIT: usize = 50;
 const MAX_CONCORDANCE_LIMIT: usize = 100;
 
 // FTS columns are document_id, section_id (both UNINDEXED), title, heading,
-// text. Keep candidate and evidence passage ranking on the same score policy.
+// text. Candidate ranking prefers titles/headings; evidence ranks body text.
 const BM25_SCORE_SQL: &str = "bm25(uploaded_document_fts, 0, 0, 5, 3, 1)";
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -79,7 +80,7 @@ struct ExactPhraseEvidence {
 }
 
 struct SearchEvidence {
-    passages: Vec<(f64, UploadedDocumentSearchPassage)>,
+    passages: Vec<(f64, i64, UploadedDocumentSearchPassage)>,
     locations: Vec<Option<UploadedDocumentSearchLocation>>,
 }
 
@@ -115,11 +116,12 @@ fn search_uploads_with_db(
     mut progress: impl FnMut(UploadedDocumentSearchStage),
 ) -> Result<(UploadedDocumentSearchResponse, SearchMeasurements), String> {
     let search_started = Instant::now();
+    let exact_phrases = request.exact_phrases.unwrap_or_default();
+    validate_search_query(&request.query, &exact_phrases)?;
     let fuzzy_terms = fts_fuzzy_terms(&request.query)
         .into_iter()
         .filter(|term| !search_form::normalize(term).is_empty())
         .collect::<Vec<_>>();
-    let exact_phrases = request.exact_phrases.unwrap_or_default();
     let original_exact_queries = fts_phrase_queries(&exact_phrases);
     if fuzzy_terms.is_empty() && original_exact_queries.is_empty() {
         return Ok((empty_search_response(), SearchMeasurements::default()));
@@ -239,6 +241,40 @@ fn search_uploads_with_db(
         };
         (section, document, None)
     };
+    // ponytail: short-query adjacency only; add distance scoring after a
+    // broader independently judged win. Required quotes keep their ranking.
+    if exact_phrases.is_empty()
+        && (2..=6).contains(&fuzzy_terms.len())
+        && section_candidates.len() > 1
+    {
+        let phrase = fuzzy_terms.join(" ");
+        let phrase = if index == SearchIndex::SearchForm {
+            search_form::normalize(&phrase)
+        } else {
+            phrase
+        };
+        let phrase_queries = fts_phrase_queries(&[phrase])
+            .into_iter()
+            .map(|query| format!("text : ({query})"))
+            .collect::<Vec<_>>();
+        let phrase_ids =
+            document_ids_matching_all_queries(&tx, &phrase_queries, &document_urls, index)?
+                .into_iter()
+                .collect::<HashSet<_>>();
+        // Stable sorting keeps BM25/import/ID ties within each tier, with
+        // broader-mode document coverage ahead of the optional phrase signal.
+        section_candidates.sort_by_key(|candidate| {
+            (
+                std::cmp::Reverse(term_presence.as_ref().map_or(0, |presence| {
+                    presence[&candidate.document_id]
+                        .iter()
+                        .filter(|matched| **matched)
+                        .count()
+                })),
+                !phrase_ids.contains(&candidate.document_id),
+            )
+        });
+    }
     let candidate_documents = section_candidates.len() + document_candidates.len();
     let candidate_ms = candidate_started.elapsed().as_secs_f64() * 1000.0;
 
@@ -1086,7 +1122,7 @@ fn search_results_for_candidates(
     };
     let sql = format!(
         "SELECT d.id, d.url, d.title, s.ordinal, s.page_index, s.heading, \
-                snippet({table}, 4, '<mark>', '</mark>', '…', 18) AS excerpt, \
+                snippet({table}, 4, '<mark>', '</mark>', '…', 64) AS excerpt, \
                 CAST({table}.section_id AS INTEGER), {source_column} \
          FROM {table} \
          JOIN uploaded_sections s ON s.id = {table}.section_id \
@@ -1201,8 +1237,8 @@ fn row_to_search_result(
 }
 
 /// Add bounded, source-linked evidence only for the visible document set.
-/// One matching-section scan supplies both the three best snippets and a
-/// twelve-bin distribution, so result payload and DOM size do not grow with a book.
+/// Body-only BM25 selects evidence independently. The distribution keeps its
+/// original counts and targets; result payload stays bounded to three passages.
 fn attach_search_evidence(
     db: &Connection,
     query: &str,
@@ -1216,7 +1252,6 @@ fn attach_search_evidence(
         .collect::<Vec<_>>()
         .join(", ");
     let table = index.table();
-    let score = index.score();
     let source_column = if index == SearchIndex::SearchForm {
         "s.text"
     } else {
@@ -1225,7 +1260,7 @@ fn attach_search_evidence(
     let sql = format!(
         "SELECT {table}.document_id, s.ordinal, s.page_index, s.heading, \
                 snippet({table}, 4, '<mark>', '</mark>', '…', 18), \
-                {score}, {source_column} \
+                bm25({table}, 0, 0, 0, 0, 1), {source_column}, {table}.rowid \
          FROM {table} \
          JOIN uploaded_sections s ON s.id = {table}.section_id \
          WHERE {table} MATCH ? \
@@ -1266,11 +1301,12 @@ fn attach_search_evidence(
                 row.get::<_, String>(4)?,
                 row.get::<_, f64>(5)?,
                 row.get::<_, Option<String>>(6)?,
+                row.get::<_, i64>(7)?,
             ))
         })
         .map_err(db_err)?;
     for row in rows {
-        let (document_id, section_index, page_index, section_title, excerpt, score, source) =
+        let (document_id, section_index, page_index, section_title, excerpt, score, source, row_id) =
             row.map_err(db_err)?;
         let excerpt = if let Some(source) = source {
             source_excerpt(&source, terms, &excerpt)
@@ -1287,6 +1323,7 @@ fn attach_search_evidence(
 
         evidence.passages.push((
             score,
+            row_id,
             UploadedDocumentSearchPassage {
                 excerpt,
                 section_title,
@@ -1297,7 +1334,7 @@ fn attach_search_evidence(
         evidence.passages.sort_by(|left, right| {
             left.0
                 .total_cmp(&right.0)
-                .then_with(|| left.1.section_index.cmp(&right.1.section_index))
+                .then_with(|| left.2.section_index.cmp(&right.2.section_index))
         });
         evidence.passages.truncate(MAX_EVIDENCE_PASSAGES);
 
@@ -1318,6 +1355,34 @@ fn attach_search_evidence(
         }
     }
 
+    // Expand only retained passages, in one batch so FTS query work is shared.
+    let row_ids = evidence_by_document
+        .values()
+        .flat_map(|evidence| evidence.passages.iter().map(|(_, row_id, _)| *row_id))
+        .collect::<Vec<_>>();
+    let placeholders = row_ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+    let mut passage_values = vec![values[0].clone()];
+    passage_values.extend(row_ids.into_iter().map(Value::Integer));
+    let mut passage_stmt = db
+        .prepare(&format!(
+        "SELECT {table}.rowid, snippet({table}, 4, '<mark>', '</mark>', '…', 64), {source_column} \
+         FROM {table} JOIN uploaded_sections s ON s.id = {table}.section_id \
+         WHERE {table} MATCH ? AND {table}.rowid IN ({placeholders})"
+    ))
+        .map_err(db_err)?;
+    let mut excerpts = passage_stmt
+        .query_map(params_from_iter(passage_values.iter()), |row| {
+            let excerpt = row.get::<_, String>(1)?;
+            let excerpt = if let Some(source) = row.get::<_, Option<String>>(2)? {
+                source_excerpt(&source, terms, &excerpt)
+            } else {
+                excerpt
+            };
+            Ok((row.get::<_, i64>(0)?, excerpt))
+        })
+        .map_err(db_err)?
+        .collect::<Result<HashMap<_, _>, _>>()
+        .map_err(db_err)?;
     for result in results {
         let Some(evidence) = evidence_by_document.remove(&result.document_id) else {
             continue;
@@ -1326,8 +1391,24 @@ fn attach_search_evidence(
             result.passages = evidence
                 .passages
                 .into_iter()
-                .map(|(_, passage)| passage)
-                .collect();
+                .map(|(_, row_id, mut passage)| {
+                    passage.excerpt = excerpts
+                        .remove(&row_id)
+                        .ok_or_else(|| "Selected search evidence disappeared".to_string())?;
+                    Ok(passage)
+                })
+                .collect::<Result<Vec<_>, String>>()?;
+            if result.match_scope == "section" {
+                let passage = &result.passages[0];
+                result.excerpt = passage.excerpt.clone();
+                result.section_title = passage.section_title.clone();
+                result.section_index = passage.section_index;
+                result.page_index = passage.page_index;
+                result.id = format!(
+                    "upload:section:{}:{}",
+                    result.document_id, result.section_index
+                );
+            }
         }
         result.match_locations = evidence.locations.into_iter().flatten().collect();
     }

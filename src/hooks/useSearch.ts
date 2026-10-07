@@ -36,7 +36,7 @@ export interface LastSearchInfo {
   suggestedQuery?: string
 }
 
-export type SearchQueryError = 'unmatchedQuote'
+export type SearchQueryError = 'unmatchedQuote' | 'tooLong'
 
 interface PagefindResultSet {
   results: SearchResult[]
@@ -245,7 +245,9 @@ export function useSearch(
       console.error('Search failed:', err)
       if (latestSearchRequestRef.current === requestId) {
         setResults([])
-        setSearchFailed(true)
+        const tooLong = err === 'searchQueryTooLong'
+        setQueryError(tooLong ? 'tooLong' : null)
+        setSearchFailed(!tooLong)
         setLastSearchInfo(null)
       }
     } finally {

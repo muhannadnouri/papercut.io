@@ -91,6 +91,29 @@ describe('search request freshness', () => {
     )
   })
 
+  it('shows the query-limit error and clears it on a successful retry', async () => {
+    mocked.searchUploadedDocuments.mockRejectedValueOnce('searchQueryTooLong')
+      .mockResolvedValueOnce(response(1))
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const search = useSearch({ current: null })
+      const setQueryError = mocked.setters[2]
+      const setSearchFailed = mocked.setters[3]
+      search.handleSearch('compass '.repeat(129))
+      search.submitSearch()
+      await vi.waitFor(() => expect(setQueryError).toHaveBeenLastCalledWith('tooLong'))
+      expect(setSearchFailed).toHaveBeenLastCalledWith(false)
+      search.handleSearch('compass')
+      search.submitSearch()
+      await vi.waitFor(() => expect(mocked.setters.at(-1)).toHaveBeenCalledWith(
+        expect.objectContaining({ uploadedDocuments: 1 }),
+      ))
+      expect(setQueryError).toHaveBeenLastCalledWith(null)
+    } finally {
+      errorLog.mockRestore()
+    }
+  })
+
   it('routes broader search only to uploaded documents', () => {
     mocked.searchUploadedDocuments.mockResolvedValue(response(0))
     const pagefind = { search: vi.fn().mockResolvedValue({ results: [] }) }

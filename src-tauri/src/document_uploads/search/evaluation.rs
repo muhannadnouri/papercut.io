@@ -3,6 +3,7 @@
 use std::collections::HashSet;
 use std::path::Path;
 
+use rusqlite::{Connection, OpenFlags};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -12,6 +13,250 @@ use super::super::store::{open_db_in, upsert_document, PdfTextStatus};
 use super::super::types::UploadedDocumentSearchMode;
 use super::super::types::UploadedDocumentSearchRequest;
 use super::search_uploads_with_db;
+
+#[derive(Deserialize)]
+struct LibraryQuery {
+    id: String,
+    request: UploadedDocumentSearchRequest,
+}
+
+fn open_read_only(path: &Path) -> Result<Connection, String> {
+    Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(|error| error.to_string())
+}
+
+fn snapshot_library(source: &Path, destination: &Path) {
+    open_read_only(source)
+        .expect("open library read-only")
+        .execute(
+            "VACUUM INTO ?1",
+            [destination.to_str().expect("snapshot path")],
+        )
+        .expect("copy consistent library snapshot without migrations");
+}
+
+fn library_query_results(path: &Path, queries: Vec<LibraryQuery>) -> Vec<serde_json::Value> {
+    let mut seen = HashSet::new();
+    queries
+        .into_iter()
+        .map(|case| {
+            assert!(
+                !case.id.is_empty() && seen.insert(case.id.clone()),
+                "unique query IDs required"
+            );
+            let mode = case.request.mode;
+            let limit = case.request.limit;
+            let scope = case.request.document_urls.clone();
+            let (response, measurements) =
+                search_uploads_with_db(case.request, || open_read_only(path), |_| {})
+                    .expect("production search on read-only snapshot");
+            let retry = response.suggested_query.as_ref().map(|suggestion| {
+                let (response, measurements) = search_uploads_with_db(
+                    UploadedDocumentSearchRequest {
+                        query: suggestion.clone(),
+                        mode,
+                        limit,
+                        document_urls: scope,
+                        exact_phrases: None,
+                    },
+                    || open_read_only(path),
+                    |_| {},
+                )
+                .expect("production spelling retry with the original scope");
+                json!({"ids": response.results.iter().map(|hit| &hit.document_id).collect::<Vec<_>>(),
+                    "response": response, "measurements": measurements})
+            });
+            json!({"id": case.id,
+            "ids": response.results.iter().map(|hit| &hit.document_id).collect::<Vec<_>>(),
+            "response": response, "measurements": measurements, "retry": retry})
+        })
+        .collect()
+}
+
+fn embedding_documents(db: &Connection, queries: &[LibraryQuery]) -> Vec<serde_json::Value> {
+    let scoped = queries
+        .iter()
+        .all(|case| case.request.document_urls.is_some());
+    let urls = queries
+        .iter()
+        .flat_map(|case| case.request.document_urls.iter().flatten())
+        .collect::<HashSet<_>>();
+    let mut stmt = db
+        .prepare("SELECT id, title, url FROM uploaded_documents ORDER BY id")
+        .unwrap();
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })
+        .unwrap();
+    let mut exported = Vec::new();
+    for row in rows {
+        let (id, title, url) = row.unwrap();
+        if scoped && !urls.contains(&url) {
+            continue;
+        }
+        let mut sections = db.prepare("SELECT ordinal, page_index, heading, text FROM uploaded_sections WHERE document_id = ?1 ORDER BY ordinal").unwrap();
+        let parts = sections
+            .query_map([&id], |row| {
+                Ok((
+                    row.get::<_, usize>(0)?,
+                    row.get::<_, Option<usize>>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, String>(3)?,
+                ))
+            })
+            .unwrap();
+        let parts = parts
+            .enumerate()
+            .map(|(index, row)| {
+                let (ordinal, page, heading, text) = row.unwrap();
+                assert_eq!(
+                    ordinal, index,
+                    "source section indices must match exported anchors"
+                );
+                json!({"page_index": page, "heading": heading, "text": text})
+            })
+            .collect::<Vec<_>>();
+        exported.push(json!({"id": id, "title": title, "url": url, "sections": parts}));
+    }
+    exported
+}
+
+#[test]
+#[ignore = "requires private library, parsed requests, snapshot and output paths"]
+fn search_v2_library_evaluation() {
+    let source = std::env::var("PAPERCUT_SEARCH_EVAL_DB").expect("library path");
+    let snapshot = std::env::var("PAPERCUT_SEARCH_EVAL_SNAPSHOT").expect("snapshot path");
+    let requests = std::env::var("PAPERCUT_SEARCH_EVAL_REQUESTS").expect("parsed requests path");
+    let output = std::env::var("PAPERCUT_SEARCH_EVAL_OUTPUT").expect("private output path");
+    let queries: Vec<LibraryQuery> =
+        serde_json::from_slice(&std::fs::read(requests).unwrap()).unwrap();
+    assert!(!queries.is_empty(), "query list must not be empty");
+    snapshot_library(Path::new(&source), Path::new(&snapshot));
+    let db = open_read_only(Path::new(&snapshot)).unwrap();
+    let documents: usize = db
+        .query_row("SELECT COUNT(*) FROM uploaded_documents", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    let sections: usize = db
+        .query_row("SELECT COUNT(*) FROM uploaded_sections", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    if let Ok(path) = std::env::var("PAPERCUT_SEARCH_EVAL_CORPUS") {
+        let exported = embedding_documents(&db, &queries);
+        serde_json::to_writer(
+            std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(path)
+                .unwrap(),
+            &exported,
+        )
+        .unwrap();
+    }
+    drop(db);
+    let report = json!({"documents": documents, "sections": sections,
+        "build": if cfg!(debug_assertions) { "debug" } else { "release" },
+        "method": "Production parser and uploaded-search pipeline on one read-only SQLite snapshot; no schema migration. Direct results and explicit spelling retries are separate. No relevance grades inferred.",
+        "queries": library_query_results(Path::new(&snapshot), queries)});
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output)
+        .unwrap();
+    serde_json::to_writer_pretty(file, &report).unwrap();
+}
+
+#[test]
+fn library_evaluation_preserves_source_quotes_scope_and_spelling_retry_read_only() {
+    let root = std::env::temp_dir().join(format!(
+        "papercut-library-check-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let mut db = open_db_in(&root).unwrap();
+    for (id, text) in [
+        (
+            "e100",
+            "The guide calls it “silver compass” for navigation.",
+        ),
+        ("e101", "The guide calls it silver compass for navigation."),
+    ] {
+        let parsed = ParsedDocument {
+            title: "Navigation guide".into(),
+            format: "html".into(),
+            view_html: String::new(),
+            sections: vec![ParsedSection {
+                heading: Some("Instruments".into()),
+                text: text.into(),
+                page_index: None,
+            }],
+            cover: None,
+            assets: Vec::new(),
+        };
+        upsert_document(
+            &mut db,
+            id,
+            &url(id, "html"),
+            &parsed,
+            None,
+            StoredSourceKind::Html,
+            1,
+            0,
+            PdfTextStatus::Ready,
+        )
+        .unwrap();
+    }
+    drop(db);
+    let source = root.join("search.sqlite3");
+    let snapshot = root.join("snapshot.sqlite3");
+    let original = std::fs::read(&source).unwrap();
+    snapshot_library(&source, &snapshot);
+    let before_search = std::fs::read(&snapshot).unwrap();
+    let exported = embedding_documents(&open_read_only(&snapshot).unwrap(), &serde_json::from_value::<Vec<LibraryQuery>>(json!([
+        {"id": "scoped-export", "request": {"query": "navigation", "documentUrls": [url("e100", "html")]}}
+    ])).unwrap());
+    assert_eq!(exported.len(), 1);
+    assert_eq!(exported[0]["id"], "e100");
+    assert_eq!(exported[0]["url"], url("e100", "html"));
+    assert_eq!(exported[0]["sections"][0]["heading"], "Instruments");
+    assert_eq!(
+        exported[0]["sections"][0]["text"],
+        "The guide calls it “silver compass” for navigation."
+    );
+    assert!(exported[0]["sections"][0]["page_index"].is_null());
+
+    let requests = serde_json::from_value(json!([
+        {"id": "quote", "request": {"query": "", "exactPhrases": ["the guide calls it \"silver compass\" for navigation"], "mode": "all"}},
+        {"id": "typo", "request": {"query": "compas navigation", "mode": "all", "documentUrls": [url("e100", "html")]}}
+    ])).unwrap();
+    let rows = library_query_results(&snapshot, requests);
+    assert_eq!(rows[0]["ids"], json!(["e100"]));
+    assert_eq!(rows[0]["response"]["results"][0]["sectionIndex"], 0);
+    assert!(rows[0]["response"]["results"][0]["excerpt"]
+        .as_str()
+        .unwrap()
+        .contains("<mark>"));
+    assert_eq!(rows[1]["ids"], json!([]));
+    assert_eq!(rows[1]["response"]["suggestedQuery"], "compass navigation");
+    assert_eq!(rows[1]["retry"]["ids"], json!(["e100"]));
+    assert!(open_read_only(&snapshot)
+        .unwrap()
+        .execute("DELETE FROM uploaded_documents", [])
+        .is_err());
+    assert_eq!(std::fs::read(&source).unwrap(), original);
+    assert_eq!(std::fs::read(&snapshot).unwrap(), before_search);
+    std::fs::remove_dir_all(root).unwrap();
+}
 
 #[derive(Deserialize)]
 struct Corpus {
@@ -37,6 +282,7 @@ struct Document {
 struct Section {
     heading: Option<String>,
     text: String,
+    #[serde(alias = "page_index")]
     page_index: Option<u32>,
 }
 
@@ -70,23 +316,24 @@ struct Judgment {
     page: Option<usize>,
 }
 
-#[test]
-fn search_v2_evaluation() {
-    let corpus: Corpus = serde_json::from_str(include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../scripts/fixtures/search-v2/corpus.json"
-    )))
-    .expect("valid search corpus");
-    let temp = std::env::temp_dir().join(format!(
-        "papercut-search-v2-{}-{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
-    let mut db = open_db_in(&temp).expect("isolated production schema");
-    for doc in &corpus.documents {
+fn index_documents(root: &Path, documents: &[Document]) {
+    assert!(
+        !documents.is_empty(),
+        "nonempty evaluation library required"
+    );
+    let mut seen = HashSet::new();
+    for doc in documents {
+        assert!(
+            !doc.id.trim().is_empty() && seen.insert(&doc.id),
+            "invalid or duplicate document identity"
+        );
+        assert!(
+            matches!(doc.format.as_deref().unwrap_or("html"), "html" | "pdf"),
+            "unsupported fixture format"
+        );
+    }
+    let mut db = open_db_in(root).expect("isolated production schema");
+    for doc in documents {
         let format = doc.format.as_deref().unwrap_or("html");
         let kind = if format == "pdf" {
             StoredSourceKind::Pdf
@@ -123,7 +370,76 @@ fn search_v2_evaluation() {
         )
         .expect("index fixture through production store");
     }
-    drop(db);
+}
+
+#[test]
+#[ignore = "requires external source JSON and a reserved empty output directory"]
+fn search_v2_prepare_library() {
+    let input = std::env::var("PAPERCUT_SEARCH_EVAL_INPUT").expect("external source JSON");
+    let root =
+        std::env::var("PAPERCUT_SEARCH_EVAL_PREPARED_LIBRARY").expect("reserved output directory");
+    let root = Path::new(&root);
+    assert!(
+        std::fs::read_dir(root)
+            .expect("reserved directory")
+            .next()
+            .is_none(),
+        "prepared library directory must be empty"
+    );
+    let source: serde_json::Value = serde_json::from_slice(&std::fs::read(input).unwrap()).unwrap();
+    let documents: Vec<Document> =
+        serde_json::from_value(source["documents"].clone()).expect("source documents");
+    index_documents(root, &documents);
+}
+
+#[test]
+fn prepared_library_keeps_pdf_source_locators() {
+    let root = std::env::temp_dir().join(format!(
+        "papercut-prepared-check-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let documents: Vec<Document> = serde_json::from_value(json!([
+        {"id":"c001","title":"Navigation","format":"pdf","sections":[
+            {"text":"The compass points north. 😀","page_index":3}
+        ]}
+    ]))
+    .unwrap();
+    index_documents(&root, &documents);
+    let requests = serde_json::from_value(json!([
+        {"id":"source","request":{"query":"compass","documentUrls":[url("c001","pdf")]}}
+    ]))
+    .unwrap();
+    let rows = library_query_results(&root.join("search.sqlite3"), requests);
+    assert_eq!(rows[0]["ids"], json!(["c001"]));
+    assert_eq!(rows[0]["response"]["results"][0]["pageIndex"], 3);
+    assert_eq!(rows[0]["response"]["results"][0]["sectionIndex"], 0);
+    assert!(rows[0]["response"]["results"][0]["excerpt"]
+        .as_str()
+        .unwrap()
+        .contains("<mark>compass</mark>"));
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn search_v2_evaluation() {
+    let corpus: Corpus = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../scripts/fixtures/search-v2/corpus.json"
+    )))
+    .expect("valid search corpus");
+    let temp = std::env::temp_dir().join(format!(
+        "papercut-search-v2-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    index_documents(&temp, &corpus.documents);
 
     let unique_ids = corpus
         .documents

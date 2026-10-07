@@ -2,17 +2,137 @@ use std::collections::HashSet;
 
 use rusqlite::{params, Connection};
 
+use super::super::types::{UploadedDocumentSearchMode, UploadedDocumentSearchRequest};
+
 use super::query::{
     comparison_terms, fts_and_query, fts_fuzzy_queries, fts_fuzzy_terms, fts_or_query,
-    fts_phrase_queries, normalize_exact_text,
+    fts_phrase_queries, normalize_exact_text, validate_search_query,
 };
 use super::{
     attach_exact_phrase_evidence, attach_search_term_matches, count_normalized_matches,
     document_candidates, document_concordance, document_ids_matching_all_queries,
     highlighted_exact_excerpt, retain_exact_phrase_candidates, retain_exact_phrase_hits,
     search_cross_section_document_hits, search_results_for_candidates, search_section_hits,
-    SearchIndex,
+    search_uploads_with_db, SearchIndex,
 };
+
+#[test]
+fn long_search_keeps_tail_terms_quotes_and_scope() {
+    let prefix = "archive compass lantern orchard survey ledger atlas workshop harbor bridge meadow calendar";
+    let query = format!("{prefix} sapphire");
+    let run = |request_query: &str, mode, scope, phrases| {
+        search_uploads_with_db(
+            UploadedDocumentSearchRequest {
+                query: request_query.into(),
+                mode,
+                limit: Some(100),
+                document_urls: scope,
+                exact_phrases: phrases,
+            },
+            || {
+                let db = test_db();
+                for (id, sections) in [
+                    ("prefix-only", vec![prefix.to_string()]),
+                    ("complete", vec![format!("{query} silver compass")]),
+                    (
+                        "cross-section",
+                        vec![prefix.into(), "sapphire silver compass".into()],
+                    ),
+                ] {
+                    let parts = sections.iter().map(String::as_str).collect::<Vec<_>>();
+                    insert_document(&db, id, &format!("/uploads/{id}.html"), "Sample", &parts);
+                }
+                Ok(db)
+            },
+            |_| {},
+        )
+        .unwrap()
+        .0
+    };
+    for mode in [
+        UploadedDocumentSearchMode::All,
+        UploadedDocumentSearchMode::Broader,
+    ] {
+        let response = run(&query, mode, None, None);
+        assert_eq!(response.total_documents, 2);
+        assert!(response
+            .results
+            .iter()
+            .all(|hit| hit.document_id != "prefix-only"));
+        assert_eq!(
+            response
+                .results
+                .iter()
+                .find(|hit| hit.document_id == "cross-section")
+                .unwrap()
+                .match_scope,
+            "document"
+        );
+    }
+    let scoped = run(
+        &query,
+        UploadedDocumentSearchMode::All,
+        Some(vec!["/uploads/cross-section.html".into()]),
+        Some(vec!["silver compass".into()]),
+    );
+    assert_eq!(scoped.total_documents, 1);
+    assert_eq!(scoped.results[0].document_id, "cross-section");
+    assert_eq!(scoped.results[0].section_index, 1);
+    assert!(run(
+        &query,
+        UploadedDocumentSearchMode::All,
+        None,
+        Some(vec!["absent phrase".into()])
+    )
+    .results
+    .is_empty());
+    let quoted = run(
+        "",
+        UploadedDocumentSearchMode::All,
+        None,
+        Some(vec![query.clone()]),
+    );
+    assert_eq!(quoted.total_documents, 1);
+    assert_eq!(quoted.results[0].document_id, "complete");
+    let repeated = format!("{} sapphire", vec!["compass"; 127].join(" "));
+    assert_eq!(
+        run(&repeated, UploadedDocumentSearchMode::All, None, None).total_documents,
+        2
+    );
+}
+
+#[test]
+fn oversized_search_is_rejected_before_database_or_progress() {
+    assert!(validate_search_query(&vec!["compass"; 128].join(" "), &[]).is_ok());
+    assert!(validate_search_query(&"é".repeat(4096), &[]).is_ok());
+    assert!(validate_search_query("", &[vec!["compass"; 128].join(" ")]).is_ok());
+    for (query, phrases) in [
+        (vec!["compass"; 129].join(" "), vec![]),
+        ("compass".into(), vec![vec!["lantern"; 128].join(" ")]),
+        (String::new(), vec![vec!["compass"; 129].join(" ")]),
+        ("é".repeat(4097), vec![]),
+        (String::new(), vec!["🧭".repeat(4097)]),
+        ("é".repeat(2048), vec!["é".repeat(2049)]),
+    ] {
+        for mode in [
+            UploadedDocumentSearchMode::All,
+            UploadedDocumentSearchMode::Broader,
+        ] {
+            let result = search_uploads_with_db(
+                UploadedDocumentSearchRequest {
+                    query: query.clone(),
+                    mode,
+                    limit: None,
+                    document_urls: None,
+                    exact_phrases: Some(phrases.clone()),
+                },
+                || panic!("oversized request must not open the database"),
+                |_| panic!("oversized request must not start search work"),
+            );
+            assert!(matches!(result, Err(ref error) if error == "searchQueryTooLong"));
+        }
+    }
+}
 
 #[test]
 fn pdf_find_counts_literal_matches_after_pdf_hyphen_normalization() {
@@ -357,6 +477,273 @@ fn section_hits_are_grouped_before_the_document_limit() {
             .find(|hit| hit.document_id == "repeated-hit")
             .map(|hit| hit.matching_sections),
         Some(3)
+    );
+}
+
+#[test]
+fn optional_body_phrase_ranks_before_metadata_without_changing_evidence_or_constraints() {
+    fn fixture() -> Connection {
+        let db = test_db();
+        insert_document(
+            &db,
+            "metadata",
+            "/uploads/metadata.html",
+            "Well-made Compass Orchard",
+            &[
+                "Survey notes describe well-made equipment. The map shows a long northern path \
+             beyond the stone bridge, where the compass was inspected before continuing \
+             through the hills toward the orchards beside the old river crossing.",
+            ],
+        );
+        insert_document(
+            &db,
+            "body-phrase",
+            "/uploads/body-phrase.pdf",
+            "Survey",
+            &[
+                "Survey notes use wellmade compasses orchards as labels in the field guide. \
+             The following pages explain the route, equipment, records, inspection schedule, \
+             and the steps taken by the team during the evening survey.",
+            ],
+        );
+        insert_document(
+            &db,
+            "cross",
+            "/uploads/cross.html",
+            "Cross Notes",
+            &["Wellmade repairs.", "Compass bearings.", "Orchard records."],
+        );
+        insert_document(
+            &db,
+            "partial",
+            "/uploads/partial.html",
+            "Partial Notes",
+            &["Wellmade compasses."],
+        );
+        insert_document(
+            &db,
+            "outside",
+            "/uploads/outside.html",
+            "Outside",
+            &["Wellmade compass orchard."],
+        );
+        db.execute(
+            "UPDATE uploaded_sections SET page_index = 4 WHERE document_id = 'body-phrase'",
+            [],
+        )
+        .unwrap();
+        db
+    }
+    let scope = ["metadata", "body-phrase", "cross", "partial"]
+        .map(|id| {
+            format!(
+                "/uploads/{id}.{}",
+                if id == "body-phrase" { "pdf" } else { "html" }
+            )
+        })
+        .to_vec();
+    let terms = fts_fuzzy_terms("well-made compass orchard");
+    let queries = fts_fuzzy_queries("well-made compass orchard");
+    let db = fixture();
+    let candidates = document_candidates(
+        &db,
+        &fts_and_query(&queries),
+        &scope,
+        None,
+        "section",
+        SearchIndex::Original,
+    )
+    .unwrap();
+    assert_eq!(
+        candidates[0].document_id, "metadata",
+        "fixture must exercise misleading metadata ranking"
+    );
+    let mut baseline = search_results_for_candidates(
+        &db,
+        &fts_and_query(&queries),
+        &candidates,
+        SearchIndex::Original,
+        &terms,
+    )
+    .unwrap();
+    attach_search_term_matches(
+        &db,
+        &comparison_terms(&terms, &queries, true, false),
+        &mut baseline,
+        SearchIndex::Original,
+    )
+    .unwrap();
+    let run = |mode, exact_phrases| {
+        search_uploads_with_db(
+            UploadedDocumentSearchRequest {
+                query: "well-made compass orchard".into(),
+                mode,
+                limit: Some(100),
+                document_urls: Some(scope.clone()),
+                exact_phrases,
+            },
+            || Ok(fixture()),
+            |_| {},
+        )
+        .unwrap()
+        .0
+    };
+    let all = run(UploadedDocumentSearchMode::All, None);
+    assert_eq!(all.total_documents, 3);
+    assert_eq!(all.results[0].document_id, "body-phrase");
+    assert_eq!(all.results.last().unwrap().document_id, "cross");
+    assert_eq!(all.results[0].page_index, Some(4));
+    for before in &baseline {
+        let after = all
+            .results
+            .iter()
+            .find(|hit| hit.document_id == before.document_id)
+            .unwrap();
+        assert_eq!(
+            serde_json::to_value(after).unwrap(),
+            serde_json::to_value(before).unwrap(),
+            "ranking must not rewrite counts, excerpts or source targets"
+        );
+    }
+    let broader = run(UploadedDocumentSearchMode::Broader, None);
+    assert_eq!(broader.total_documents, 4);
+    let ids = broader
+        .results
+        .iter()
+        .map(|hit| hit.document_id.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(ids[0], "body-phrase");
+    assert!(
+        ids.iter().position(|id| *id == "cross").unwrap()
+            < ids.iter().position(|id| *id == "partial").unwrap(),
+        "coverage stays ahead of the phrase preference"
+    );
+    assert!(!ids.contains(&"outside"));
+
+    let mut required = queries;
+    required.extend(fts_phrase_queries(&["survey notes".into()]));
+    let quoted_order = document_candidates(
+        &db,
+        &fts_and_query(&required),
+        &scope,
+        None,
+        "section",
+        SearchIndex::Original,
+    )
+    .unwrap()
+    .into_iter()
+    .map(|candidate| candidate.document_id)
+    .collect::<Vec<_>>();
+    let quoted = run(
+        UploadedDocumentSearchMode::All,
+        Some(vec!["survey notes".into()]),
+    );
+    assert_eq!(
+        quoted
+            .results
+            .iter()
+            .map(|hit| &hit.document_id)
+            .collect::<Vec<_>>(),
+        quoted_order.iter().collect::<Vec<_>>(),
+        "required quotes retain their previous order"
+    );
+    assert!(quoted.results.iter().all(|hit| hit.match_count == Some(1)));
+}
+
+#[test]
+fn body_evidence_keeps_context_and_its_source_target_without_reranking_documents() {
+    let db = test_db();
+    insert_document(
+        &db,
+        "field-guide",
+        "/uploads/field-guide.pdf",
+        "Compass Lantern Orchard",
+        &[
+            "Contents.",
+            "Compass handbook, page 7.",
+            "An orchard note.",
+            "The compass and lantern were carried through the orchards by the survey team. \
+             They recorded the paths, checked the trees, and compared the old maps with \
+             their observations before explaining how the tools supported the survey \
+             during the final evening inspection.",
+        ],
+    );
+    db.execute_batch(
+        "UPDATE uploaded_sections SET heading = 'Compass Lantern Orchard' WHERE ordinal = 0;
+         UPDATE uploaded_document_fts SET heading = 'Compass Lantern Orchard' WHERE section_id = 1;
+         UPDATE uploaded_sections SET page_index = 7 WHERE ordinal = 3;",
+    )
+    .unwrap();
+    insert_document(
+        &db,
+        "excluded",
+        "/uploads/excluded.html",
+        "Compass Lantern Orchard",
+        &[
+            "Orchard notes describe the northern paths and the southern trees, \
+           followed by the survey schedule and the equipment checklist, \
+           with further details in the closing survey instructions.",
+        ],
+    );
+    // FTS row IDs need not equal source section IDs after document updates.
+    db.execute("UPDATE uploaded_document_fts SET rowid = rowid + 100", [])
+        .unwrap();
+
+    let terms = fts_fuzzy_terms("compass lantern orchard");
+    let query = fts_or_query(&fts_fuzzy_queries("compass lantern orchard"));
+    let scope = vec!["/uploads/field-guide.pdf".to_string()];
+    let candidates =
+        document_candidates(&db, &query, &scope, None, "section", SearchIndex::Original).unwrap();
+    assert_ne!(
+        candidates[0].section_index, 3,
+        "fixture must exercise a distracting candidate target"
+    );
+    let hits =
+        search_results_for_candidates(&db, &query, &candidates, SearchIndex::Original, &terms)
+            .unwrap();
+    assert_eq!(
+        hits.iter().map(|hit| &hit.document_id).collect::<Vec<_>>(),
+        candidates
+            .iter()
+            .map(|candidate| &candidate.document_id)
+            .collect::<Vec<_>>()
+    );
+    let hit = &hits[0];
+    assert_eq!(hit.matching_sections, 4);
+    assert_eq!(hit.passages.len(), 3);
+    assert_eq!(hit.section_index, 3);
+    assert_eq!(hit.page_index, Some(7));
+    assert_eq!(hit.id, "upload:section:field-guide:3");
+    assert_eq!(hit.excerpt, hit.passages[0].excerpt);
+    assert!(
+        hit.excerpt.contains("<mark>orchards</mark>"),
+        "retain the existing stemmed highlights"
+    );
+    assert!(
+        hit.excerpt.contains("final evening inspection"),
+        "keep the explanation beyond an 18-token clip"
+    );
+    assert_eq!(
+        hit.match_locations
+            .iter()
+            .map(|location| location.match_count)
+            .sum::<usize>(),
+        4
+    );
+    assert_eq!(hit.match_locations[0].section_index, 0);
+
+    let fallback = search_section_hits(
+        &db,
+        &fts_and_query(&fts_fuzzy_queries("compass lantern orchard")),
+        1,
+        &["/uploads/excluded.html".into()],
+    )
+    .unwrap();
+    assert!(
+        fallback[0].passages[0]
+            .excerpt
+            .contains("closing survey instructions"),
+        "retain context when metadata satisfies the query but no body section matches every clause"
     );
 }
 

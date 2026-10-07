@@ -38,8 +38,9 @@
       "modeLabel": "搜索模式",
       "allWordsMode": "所有词",
       "broaderMode": "宽泛搜索 · 我的书库",
-      "helpBroader": "搜索三个或更多词时，允许缺少部分词。引号中的短语仍须匹配。仅搜索我的书库。",
+      "helpBroader": "包含3–12个不同词时，部分词可以缺失。更长的搜索要求包含所有词。引号内的短语始终必须匹配。仅搜索你的书库。",
       "unmatchedQuote": "请添加结束引号，或删除未配对的引号。",
+      "tooLong": "请将搜索缩短至最多128个词和4096个字符，包括引号内的短语。",
       "examplesLabel": "搜索示例",
       "exampleBroad": "搜索词",
       "exampleExact": "\"精确短语\""
