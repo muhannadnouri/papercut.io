@@ -2,7 +2,13 @@ mod document_scanner;
 mod document_uploads;
 mod library_transfer;
 mod native_tts;
+#[cfg(any(
+    feature = "native-text-preprocessing-core",
+    feature = "experimental-search-embeddings-core"
+))]
+mod onnx_runtime;
 mod open_documents;
+mod search_embeddings;
 
 #[cfg(desktop)]
 use tauri::Manager;
@@ -35,7 +41,10 @@ pub fn run() {
         .manage(document_uploads::DocumentUploadState::default())
         .manage(library_transfer::LibraryTransferState::default())
         .manage(native_tts::NativeTtsState::default())
+        .manage(search_embeddings::SearchEmbeddingState::default())
         .invoke_handler(tauri::generate_handler![
+            search_embeddings::search_embedding_status,
+            search_embeddings::search_embedding_configure,
             open_documents::open_documents_take_sources,
             document_uploads::commands::document_uploads_import_batch,
             document_uploads::commands::document_uploads_import_folder,

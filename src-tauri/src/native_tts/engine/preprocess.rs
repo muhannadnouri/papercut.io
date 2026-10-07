@@ -7,8 +7,6 @@ use super::models::{ModelDefinition, TtsModelBackend, TEXT_PREPROCESSOR_NONE};
 
 #[cfg(feature = "native-text-preprocessing-core")]
 use std::panic::{catch_unwind, AssertUnwindSafe};
-#[cfg(feature = "native-text-preprocessing-core")]
-use std::sync::OnceLock;
 
 #[cfg(feature = "native-text-preprocessing-core")]
 use super::tashkeel::TashkeelEngine;
@@ -52,7 +50,7 @@ impl TextPreprocessor {
             TEXT_PREPROCESSOR_NONE => TextPreprocessorBackend::Identity,
             #[cfg(feature = "native-text-preprocessing-core")]
             super::models::TEXT_PREPROCESSOR_LIBTASHKEEL => {
-                initialize_ort()?;
+                crate::onnx_runtime::initialize()?;
                 let engine = catch_unwind(create_inference_engine_default).map_err(|panic| {
                     format!(
                         "Libtashkeel initialization panicked: {}",
@@ -101,64 +99,6 @@ impl TextPreprocessor {
             }
         }
     }
-}
-
-/// Initialize `ort` once and load sherpa-onnx packaged ONNX Runtime.
-///
-/// `native-text-preprocessing-core` means Libtashkeel is compiled in; the
-/// dynamic/static subfeatures only decide how ORT is made available. Cache the
-/// result, including failures, so a bad native runtime setup does not keep
-/// retrying for every chunk in a long audiobook save.
-#[cfg(feature = "native-text-preprocessing-core")]
-fn initialize_ort() -> Result<(), String> {
-    static RESULT: OnceLock<Result<(), String>> = OnceLock::new();
-    RESULT
-        .get_or_init(|| {
-            catch_unwind(commit_ort_environment)
-                .map_err(|panic| {
-                    format!(
-                        "ONNX Runtime initialization panicked: {}",
-                        panic_message(panic)
-                    )
-                })?
-                .map_err(|err| format!("Failed to initialize ONNX Runtime for Libtashkeel: {err}"))
-        })
-        .clone()
-}
-
-/// Load the packaged shared ONNX Runtime used by desktop and Android.
-///
-/// Shared builds ship one `libonnxruntime` beside the sherpa libraries and ask
-/// `ort` to load it by platform name, so sherpa and Libtashkeel do not pull in
-/// separate runtime copies.
-#[cfg(all(
-    feature = "native-text-preprocessing-core",
-    feature = "native-text-preprocessing-dynamic"
-))]
-fn commit_ort_environment() -> Result<(), String> {
-    let library = format!(
-        "{}onnxruntime{}",
-        std::env::consts::DLL_PREFIX,
-        std::env::consts::DLL_SUFFIX
-    );
-    ort::init_from(library)
-        .map_err(|error| error.to_string())?
-        .commit();
-    Ok(())
-}
-
-/// Use the statically linked ONNX Runtime archive prepared for iOS.
-///
-/// iOS does not use runtime-loaded ONNX dylibs here; the Xcode/Cargo build
-/// phase points `ort-sys` at the same static archive directory as sherpa, and
-/// `ort::init()` binds to those linked symbols.
-#[cfg(all(
-    feature = "native-text-preprocessing-core",
-    not(feature = "native-text-preprocessing-dynamic")
-))]
-fn commit_ort_environment() -> Result<(), String> {
-    ort::init().commit();
-    Ok(())
 }
 
 #[cfg(feature = "native-text-preprocessing-core")]
@@ -221,7 +161,7 @@ mod tests {
     fn libtashkeel_adapter_rejects_bad_inputs_and_supports_shared_calls() {
         use libtashkeel_base::InferenceEngine;
 
-        initialize_ort().unwrap();
+        crate::onnx_runtime::initialize().unwrap();
         let engine = create_inference_engine_default().unwrap();
         assert!(engine.infer(vec![1], vec![1], 2).is_err());
         assert!(TashkeelEngine::from_bytes(b"invalid ONNX").is_err());

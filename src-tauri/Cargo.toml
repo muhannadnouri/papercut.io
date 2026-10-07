@@ -30,6 +30,10 @@ native-text-preprocessing-static = ["native-text-preprocessing-core"]
 native-tts-ios = ["native-tts-core", "native-text-preprocessing-static", "sherpa-onnx/static"]
 native-tts-static = ["native-tts-core", "sherpa-onnx/static"]
 native-tts-shared = ["native-tts-core", "native-text-preprocessing", "sherpa-onnx/shared"]
+# Experimental provider only; ordinary search never enables or loads it.
+experimental-search-embeddings = ["experimental-search-embeddings-core", "ort/load-dynamic"]
+experimental-search-embeddings-linked = ["experimental-search-embeddings-core"]
+experimental-search-embeddings-core = ["dep:fastembed", "dep:ort"]
 
 [dependencies]
 serde_json = "1.0"
@@ -55,6 +59,7 @@ reqwest = { version = "0.12", optional = true, default-features = false, feature
 sherpa-onnx = { version = "1.13.4", optional = true, default-features = false }
 libtashkeel_base = { version = "=1.5.0", optional = true, default-features = false }
 ort = { version = "=2.0.0-rc.13", optional = true, default-features = false, features = ["std", "api-17"] }
+fastembed = { version = "=7.1.0", optional = true, default-features = false }
 rusqlite = { version = "0.32", features = ["bundled"] }
 ammonia = "3.3.3"
 encoding_rs = "0.8"

@@ -1,8 +1,9 @@
 # Libtashkeel / ORT compatibility
 
 Papercut uses published `libtashkeel_base` 1.5.0 with its built-in ORT feature
-disabled and a caller-supplied ORT `2.0.0-rc.13` engine. The app has no FastEmbed
-dependency or local Libtashkeel override. Its previous vendored adaptation was
+disabled and a caller-supplied ORT `2.0.0-rc.13` engine. Normal app builds omit FastEmbed; an explicitly enabled
+[provider prototype](../../../docs/search-embedding-provider.md) now has an optional
+FastEmbed dependency. There is no local Libtashkeel override. Its previous vendored adaptation was
 removed; archived results are historical evidence.
 
 ## Official interface route

@@ -13,9 +13,9 @@ Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Code
 | Representative quality | Assistant development grades show useful English and controlled same-language Arabic retrieval, with cross-language/entity/date and missing-answer-span failures. Additional privately authored Arabic EPUB fixtures exercise the retained baseline; they do not replace actual books or independent grading. The existing independent packet remains unjudged; no held-out acceptance gain is established. |
 | Cached reranker/context augmentation | Rejected: a cross-language gain introduces a same-language date regression; combined-context and explicit-exclusion controls do not justify a repair. Its live CLI/module are removed. |
 | Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the shared-runtime check reuses the actual app adapter with FastEmbed/sherpa. The linked initializer is tested on Linux, not an iOS archive/device. Other platforms, weak reference hardware, responsiveness and optional-model lifecycle/fallback validation remain open. |
-| Production optional hybrid | No integration or default change. Proceed only after independent quality, reference-device and lifecycle/platform gates justify Stage 7; the original plan permits stopping with a documented no-go. |
+| Production optional hybrid | No ranking integration or default change; the explicitly compiled, session-only provider prototype does not participate in search. Proceed only after independent quality, reference-device and lifecycle/platform gates justify Stage 7; the original plan permits stopping with a documented no-go. |
 
-**Next work is a bounded desktop opt-in model/provider lifecycle prototype**, following the no-fork app integration below. The runtime prerequisite is verified on Linux; this is not a search-quality acceptance decision or a commitment to the smallest encoder. Keep normal search available and optional models unloaded when disabled, reuse existing verified download/job controls, and validate compatible indexing before enabling hybrid results. Authored Arabic fixtures pass the production EPUB parser, persistence and sanitized reader-source checks; interactive app import/navigation remains pending. The user permits interactive smoke to remain deferred through later stages and requests one consolidated final pass; carry that reminder forward without treating the deferral as acceptance. Representative quality, reference hardware and supported-platform evidence remain open. Production Stage 7 search needs its own quality and lifecycle gates.
+**Current work is a shared, default-off cached-model provider prototype**, following the no-fork app integration below. Desktop-first validation is sequencing, not a permanent restriction on Android/iOS. The next bounded pass investigates retained native stability/resource costs before adding verified staging/download controls and settings UX; semantic ranking remains gated. The runtime prerequisite is verified on Linux; this is not a search-quality acceptance decision or a commitment to the smallest encoder. Keep normal search available and optional models unloaded when disabled, reuse existing verified download/job controls, and validate compatible indexing before enabling hybrid results. Authored Arabic fixtures pass the production EPUB parser, persistence and sanitized reader-source checks; interactive app import/navigation remains pending. The user permits interactive smoke to remain deferred through later stages and requests one consolidated final pass; carry that reminder forward without treating the deferral as acceptance. Representative quality, reference hardware and supported-platform evidence remain open. Production Stage 7 search needs its own quality and lifecycle gates.
 
 ## Stage 0 — Baseline
 
@@ -1095,3 +1095,94 @@ Validation completed offline using cached assets:
 The locked shared-TTS graph contains one ORT/ort-sys `rc.13` pair and official Libtashkeel with no enabled features. Only ORT-related package versions change; no broad dependency refresh is retained. Existing build helpers/package scripts and search ranking/index/UI behavior are unchanged. Other desktop targets, Android and iOS still need their own native build/runtime evidence. Automated synthesis is not listening-quality acceptance. This pass establishes the Linux app prerequisite, not a held-out semantic retrieval win.
 
 **Next:** prepare the smallest desktop opt-in provider/model lifecycle prototype, reusing verified downloads and job controls, with lexical search available throughout and explicit compatible-index rules. Keep it an experimental path until quality/resource gates justify enabling hybrid results; do not build a model catalogue or choose the smallest encoder globally. Carry all deferred search/EPUB/navigation and audio listening/save/play checks into the user's consolidated final smoke pass, including later stages, and remind then. The release gates for representative relevance, reference hardware and other supported platforms remain open.
+
+## Shared default-off provider lifecycle prototype — 2026-10-07
+
+**Decision: retain an explicitly compiled provider prototype; production hybrid
+search remains on hold.** Desktop-first is validation sequencing, not a permanent
+product exclusion of Android/iOS. The original Stage 7 plan explicitly calls for
+validating desktop first and supported mobile targets separately. Opt-in remains
+appropriate for model downloads, indexing and device resource costs; it does not
+require imposing the smallest model on all users.
+
+The app now has shared native capability/configuration commands and session-only
+state. No startup model read/load, automatic download, UI preference, semantic
+index or search ranking is added. Normal builds omit FastEmbed and report the
+provider uncompiled. Explicit experimental dynamic/linked features use FastEmbed
+7.1.0 without download, hub, image or Candle features, enabling ORT API 24 only
+when selected. Ordinary TTS retains API 17. Both paths reuse one initializer;
+official Libtashkeel has no features/override and no fork. The lockfile adds only
+the optional provider graph; no existing package version is upgraded.
+
+Activation accepts only the two pinned baseline formats in an app-owned cache.
+Every model/tokenizer byte size and checksum is verified before native loading;
+there is no arbitrary caller path or mutable model URL. A valid normalized
+384-dimensional warm-up is required before publishing a provider. Only one load
+can run. Same-format activation is idempotent, while a different format requires
+explicit disable first and leaves the working provider intact when rejected.
+Disable cancels pending activation and releases an active model/session; a native
+setup already in progress must finish before its cancelled session is discarded.
+The shared ORT environment remains available to TTS. Inputs cannot silently
+truncate beyond 512 actual tokens, and encoder identity includes the exact ONNX
+checksum. This is not yet a complete semantic-index compatibility key.
+
+**Resource/stability limits:** an early concurrent feature-build/test attempt
+exited with native `SIGSEGV` during the initial hot-switch check. Its cause was
+not established. The hot-switch path is removed as unnecessary; five isolated
+runs of that earlier path and one debugger run passed, and five runs of the
+retained disable-first lifecycle passed, including cancellation after native
+setup. These results do **not** establish the crash's root cause or release
+stability. Keep native stability investigation open before exposing model controls
+for release. Per-format direct native-test peaks are about **1.42 GiB FP32** and
+**846 MiB INT8** on this host; the full retained cached check peaks near 1.42 GiB.
+The tests read/hash/load assets and exercise inference/unload, and the INT8-only
+check also constructs a second, cancelled session sequentially. These are
+whole-test process peaks excluding compilation, not full-app budgets, cold-disk
+measurements, per-query latency or mobile acceptance. The tested INT8 export is
+specifically AVX512/VNNI-named; portability is unverified. Removing overlap does
+not make FP32 loading cheap or demonstrate a substantial peak-memory reduction.
+
+Detailed cache layout, commands, artifact provenance, bounds and reproducible
+checks are in [the provider notes](search-embedding-provider.md). Downloads and
+settings UX remain a bounded follow-up; do not expose hybrid ranking on the
+strength of these loader checks. Independent representative relevance,
+reference-device resources and all advertised-platform builds remain release
+gates. Interactive search/EPUB/navigation/audio and later model controls remain
+deferred to the user's consolidated final smoke pass; carry the reminder forward.
+
+Validation on the final implementation:
+
+- **147 default-feature tests pass**, four ignored; **195 normal shared-TTS tests
+  pass**, six ignored; **197 provider-enabled shared-TTS tests pass**, seven
+  ignored. Existing local-socket tests run with socket access.
+- Three ordinary provider checks cover default-off capability/unknown format,
+  missing/wrong-size/changed assets and cancellation, duplicate activation and
+  error/panic cleanup. The ignored cached check is explicitly exercised for FP32
+  and INT8: normalized English/Arabic vectors, repeat stability, no silent token
+  truncation, rejected format switching, unload/restart and cancelled publication.
+- Actual app cached embeddings, official Arabic preprocessing and finite
+  non-silent speech pass together in one native process for both runtime
+  initializer configurations. Each Linux provider check sees one ORT image.
+  The linked configuration uses the cached Linux shared library through linked
+  symbols, not an iOS static archive/device. Provider-only builds/checks also pass
+  without enabling TTS. Deliberately removing runtime discovery returns a loader
+  error, and restarting with the existing runtime succeeds.
+- Rust formatting and diff checks pass. Clippy completes with existing warnings
+  in untouched modules; none point to the new provider/initializer or modified
+  preprocessing module. No unrelated lint cleanup is added.
+- The normal desktop locale/TypeScript/Vite/build pipeline and Debian package pass;
+  release compilation takes **41.17 seconds**. The **41,698,614-byte** package
+  contains the unchanged preprocessor once, its exact MIT license and one matching
+  ORT library alongside the sherpa libraries. Its SHA-256 is
+  `1ae64bec6c32298b04cba9555fce364fde01bea74e03f6e39a2ef9b60b4702c9`.
+  Normal-build dependency metadata excludes FastEmbed and retains the API 17
+  wrapper; the experimental graph has one ORT/ort-sys pair with API 24. No
+  application launch, package installation, model download or installed-library
+  mutation occurs. User editor settings, root fixtures and memory remain excluded.
+
+**Next:** investigate the remaining native stability/resource concern before
+release-facing model controls, then add the smallest verified cancellable
+staging/download and opt-in settings path. Keep semantic ranking/index integration
+behind the original quality, compatibility, resource and platform gates. No
+interactive smoke is required now; remind the user when the consolidated final
+search/EPUB/audio/model-controls pass is ready.
