@@ -1,0 +1,20 @@
+[package]
+name = "search-v2-runtime-compat"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+
+[dependencies]
+libtashkeel_base = { version = "=1.5.0", default-features = false }
+fastembed = { version = "=7.1.0", default-features = false, features = ["ort-load-dynamic"] }
+ort = { version = "=2.0.0-rc.13", default-features = false, features = ["load-dynamic", "std", "api-24"] }
+sherpa-onnx = { version = "=1.13.4", default-features = false, features = ["shared"] }
+serde_json = "1"
+sha2 = "0.10.9"
+
+[[bin]]
+name = "search-v2-runtime-compat"
+path = "same_process.rs"
+
+[patch.crates-io]
+sherpa-onnx-sys = { path = "../../../src-tauri/vendor/sherpa-onnx-sys" }
