@@ -15,7 +15,7 @@ Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Code
 | Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the shared-runtime check reuses the actual app adapter with FastEmbed/sherpa. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. The linked initializer is tested on Linux, not an iOS archive/device. Other platforms, weak reference hardware, responsiveness and optional-model lifecycle/fallback validation remain open. |
 | Production optional hybrid | No ranking integration or default change; the explicitly compiled, session-only provider prototype does not participate in search. Proceed only after independent quality, reference-device and lifecycle/platform gates justify Stage 7; the original plan permits stopping with a documented no-go. |
 
-**Current work is a shared, default-off cached-model provider prototype**, following the no-fork app integration below. Desktop-first validation is sequencing, not a permanent restriction on Android/iOS. The bounded native stability/resource follow-up is recorded below; verified staging/download and cache-removal controls are next, followed by settings UX. Native release stability and semantic ranking remain gated. The runtime prerequisite is verified on Linux; this is not a search-quality acceptance decision or a commitment to the smallest encoder. Keep normal search available and optional models unloaded when disabled, reuse existing verified download/job controls, and validate compatible indexing before enabling hybrid results. Authored Arabic fixtures pass the production EPUB parser, persistence and sanitized reader-source checks; interactive app import/navigation remains pending. The user permits interactive smoke to remain deferred through later stages and requests one consolidated final pass; carry that reminder forward without treating the deferral as acceptance. Representative quality, reference hardware and supported-platform evidence remain open. Production Stage 7 search needs its own quality and lifecycle gates.
+**Current work is a shared, default-off provider and explicit model-cache prototype**, following the no-fork app integration below. Desktop-first validation is sequencing, not a permanent restriction on Android/iOS. The native stability/resource follow-up and verified cancellable downloads/removal are recorded below; opt-in model-setup settings are next. Setup must not promise conceptual results while search does not use the provider. Native release stability and semantic ranking remain gated. The runtime prerequisite is verified on Linux; this is not a search-quality acceptance decision or a commitment to the smallest encoder. Keep normal search available and optional models unloaded when disabled, reuse existing verified download/job controls, and validate compatible indexing before enabling hybrid results. Authored Arabic fixtures pass the production EPUB parser, persistence and sanitized reader-source checks; interactive app import/navigation remains pending. The user permits interactive smoke to remain deferred through later stages and requests one consolidated final pass; carry that reminder forward without treating the deferral as acceptance. Representative quality, reference hardware and supported-platform evidence remain open. Production Stage 7 search needs its own quality and lifecycle gates.
 
 ## Stage 0 — Baseline
 
@@ -1234,3 +1234,65 @@ validation still gate release controls and production hybrid integration. All
 interactive search/EPUB/navigation/audio/model-control checks remain deferred to
 the user's consolidated final smoke pass; remind the user when that packet is
 ready.
+
+## Explicit embedding-cache download and removal prototype
+
+The next bounded provider pass adds backend commands for cache presence, explicit
+pinned downloads, cancellation and removal. The installer and native loader now
+share one five-asset manifest and a bounded streaming size/SHA-256 checker; the
+existing encoder identities, model snapshot and inference policy are retained.
+Downloads never activate the provider or change search ranking, indexing or
+preferences. Normal builds still omit FastEmbed. The existing optional reqwest
+client is reused; no package versions, new dependencies or voice-catalogue entries
+are introduced.
+
+Before writing, the installer reuses the existing free-space check for the full
+payload plus 64 MiB reserve. It writes and verifies a sibling staging tree, syncs
+files and publishes the complete directory under the same state lock that
+arbitrates cancellation. Failed/cancelled work removes staging; interrupted work
+is restarted on the next explicit request. A valid existing cache is verified
+without fetching again. A corrupt/incomplete final cache is preserved and needs
+explicit removal before redownload. No resumable protocol or automatic retry is
+added. Removal is idempotent and refuses pending operations or an active selected
+model. Cache presence is size information, not a claim of fresh integrity,
+relevance quality or platform readiness.
+
+The download busy slot blocks activation and removal until cleanup returns.
+Disabling also cancels a pending download; dedicated download cancellation leaves
+an already active provider alone. HTTP errors, bad lengths/checksums, truncated
+bodies and offline failure recover without publishing incomplete files. Network
+cancellation is cooperative between reads, with connection/idle-read deadlines;
+it is not instantaneous. Backend progress events are ready for later settings
+consumption. See [the command contracts](search-embedding-provider.md#explicit-downloads-and-cache-removal).
+
+Validation: **147 default tests**, **195 normal shared-TTS tests**, and **200
+provider-enabled shared-TTS tests** pass. The six ordinary provider/cache checks
+also pass without TTS. Three new cache regressions cover staged integrity,
+stream/promotion cancellation, reuse/corrupt-cache preservation, interrupted work,
+storage preflight, duplicate work, activation/removal exclusion, panic cleanup,
+local HTTP status/length/checksum/truncation/idle timeout, HTTPS-only policy and
+offline errors. The cached FP32/INT8 lifecycle and actual Arabic preprocessing/
+speech checks pass together; active-model removal is refused before touching the
+cache. The local HTTP check caught a missing timer context in the initial blocking
+idle-timeout implementation; the shared fetch boundary now supplies it.
+Production Clippy and standalone-provider test Clippy complete with existing
+warnings and no findings in the changed modules. The combined test-lint command
+still stops at the existing voice-installer fixture's unchecked read in
+`native_tts/engine/model.rs`; that unrelated fixture is unchanged. Formatting and
+diff checks pass. No live upstream weight download, application launch,
+installation, installed-library mutation or push occurs.
+
+The normal offline desktop locale/TypeScript/Vite/build and Debian package also
+pass. Package inspection confirms the unchanged preprocessing model and MIT
+notice, one matching ORT library and matching sherpa libraries, with no embedding
+assets bundled. This does not exercise the new commands through app IPC or a
+live Hugging Face/CDN download; those checks remain in the final smoke packet.
+
+**Next:** opt-in model-setup settings for controlled prototype testing: consent,
+size/capability information, progress, cancel/remove and recovery. Do not label
+setup as working conceptual search while the provider has no ranking integration.
+The earlier native crash is still an unexplained observation, not a proven fluke
+or resolved cause. Stability, device resources, independent representative quality
+and advertised-platform validation remain release gates. Interactive search,
+EPUB/navigation, audio and future model controls remain in the user's consolidated
+final smoke pass; carry the reminder forward.

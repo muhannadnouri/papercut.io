@@ -45,6 +45,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             search_embeddings::search_embedding_status,
             search_embeddings::search_embedding_configure,
+            search_embeddings::search_embedding_cache_status,
+            search_embeddings::search_embedding_download,
+            search_embeddings::search_embedding_cancel_download,
+            search_embeddings::search_embedding_remove,
             open_documents::open_documents_take_sources,
             document_uploads::commands::document_uploads_import_batch,
             document_uploads::commands::document_uploads_import_folder,

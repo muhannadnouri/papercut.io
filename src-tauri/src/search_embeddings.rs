@@ -1,7 +1,10 @@
 //! Default-off, session-only provider prototype. It does not participate in search.
-//! Models must already be staged in the app-owned cache; no implicit downloads.
+//! Model downloads are explicit and never activate the provider.
 
 use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "experimental-search-embeddings-core")]
+mod cache;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
@@ -17,6 +20,7 @@ pub(crate) struct ProviderStatus {
     platform: &'static str,
     active_format: Option<ModelFormat>,
     loading_format: Option<ModelFormat>,
+    downloading_format: Option<ModelFormat>,
     encoder_key: Option<String>,
 }
 
@@ -29,20 +33,22 @@ pub(crate) struct SearchEmbeddingState {}
 impl SearchEmbeddingState {
     fn status(&self) -> Result<ProviderStatus, String> {
         #[cfg(feature = "experimental-search-embeddings-core")]
-        let (active_format, loading_format) = {
+        let (active_format, loading_format, downloading_format) = {
             let state = self.0.lock().map_err(|_| "Embedding state lock failed")?;
             (
                 state.active.as_ref().map(|loaded| loaded.format),
                 state.loading.as_ref().map(|(format, _)| *format),
+                state.downloading.as_ref().map(|(format, _)| *format),
             )
         };
         #[cfg(not(feature = "experimental-search-embeddings-core"))]
-        let (active_format, loading_format) = (None, None);
+        let (active_format, loading_format, downloading_format) = (None, None, None);
         Ok(ProviderStatus {
             compiled: cfg!(feature = "experimental-search-embeddings-core"),
             platform: std::env::consts::OS,
             active_format,
             loading_format,
+            downloading_format,
             #[cfg(feature = "experimental-search-embeddings-core")]
             encoder_key: active_format.map(ModelFormat::encoder_key),
             #[cfg(not(feature = "experimental-search-embeddings-core"))]
@@ -57,12 +63,122 @@ impl SearchEmbeddingState {
             if let Some((_, cancel)) = &state.loading {
                 cancel.store(true, std::sync::atomic::Ordering::Relaxed);
             }
+            if let Some((_, cancel)) = &state.downloading {
+                cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
             // Keep the slot locked through native cleanup to prevent overlapping loads.
             // This command runs on the blocking pool, not the async/UI thread.
             state.active = None;
         }
         self.status()
     }
+}
+
+#[cfg(feature = "experimental-search-embeddings-core")]
+fn cache_dir(app: &tauri::AppHandle, format: ModelFormat) -> Result<std::path::PathBuf, String> {
+    use tauri::Manager;
+    Ok(app
+        .path()
+        .app_data_dir()
+        .map_err(|err| err.to_string())?
+        .join("models/search")
+        .join(format.cache_key()))
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CacheStatus {
+    format: ModelFormat,
+    files_present: bool,
+    expected_bytes: u64,
+}
+
+/// Presence/size information only. Activation always rechecks actual checksums.
+#[tauri::command]
+pub(crate) async fn search_embedding_cache_status(
+    app: tauri::AppHandle,
+) -> Result<Vec<CacheStatus>, String> {
+    #[cfg(feature = "experimental-search-embeddings-core")]
+    {
+        let dirs = [ModelFormat::Float32, ModelFormat::DynamicInt8]
+            .map(|format| cache_dir(&app, format).map(|dir| (format, dir)));
+        tauri::async_runtime::spawn_blocking(move || {
+            dirs.into_iter()
+                .map(|entry| {
+                    let (format, dir) = entry?;
+                    Ok(CacheStatus {
+                        format,
+                        files_present: cache::files_present(&dir, &format.assets()),
+                        expected_bytes: format.installed_bytes(),
+                    })
+                })
+                .collect()
+        })
+        .await
+        .map_err(|err| err.to_string())?
+    }
+    #[cfg(not(feature = "experimental-search-embeddings-core"))]
+    {
+        let _ = app;
+        Err("The experimental embedding provider is not compiled in this build".into())
+    }
+}
+
+#[tauri::command]
+pub(crate) async fn search_embedding_download(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, SearchEmbeddingState>,
+    format: ModelFormat,
+) -> Result<ProviderStatus, String> {
+    #[cfg(feature = "experimental-search-embeddings-core")]
+    {
+        let dir = cache_dir(&app, format)?;
+        let state = state.inner().clone();
+        tauri::async_runtime::spawn_blocking(move || state.download(&app, &dir, format))
+            .await
+            .map_err(|err| err.to_string())?
+    }
+    #[cfg(not(feature = "experimental-search-embeddings-core"))]
+    {
+        let _ = (app, state, format);
+        Err("The experimental embedding provider is not compiled in this build".into())
+    }
+}
+
+#[tauri::command]
+pub(crate) async fn search_embedding_remove(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, SearchEmbeddingState>,
+    format: ModelFormat,
+) -> Result<ProviderStatus, String> {
+    #[cfg(feature = "experimental-search-embeddings-core")]
+    {
+        let dir = cache_dir(&app, format)?;
+        let state = state.inner().clone();
+        tauri::async_runtime::spawn_blocking(move || state.remove(&dir, format))
+            .await
+            .map_err(|err| err.to_string())?
+    }
+    #[cfg(not(feature = "experimental-search-embeddings-core"))]
+    {
+        let _ = (app, state, format);
+        Err("The experimental embedding provider is not compiled in this build".into())
+    }
+}
+
+/// Cancel download without unloading another active model. Cleanup finishes asynchronously.
+#[tauri::command]
+pub(crate) fn search_embedding_cancel_download(
+    state: tauri::State<'_, SearchEmbeddingState>,
+) -> Result<ProviderStatus, String> {
+    #[cfg(feature = "experimental-search-embeddings-core")]
+    {
+        let inner = state.0.lock().map_err(|_| "Embedding state lock failed")?;
+        if let Some((_, cancel)) = &inner.downloading {
+            cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+    state.status()
 }
 
 #[tauri::command]
@@ -88,13 +204,7 @@ pub(crate) async fn search_embedding_configure(
     };
     #[cfg(feature = "experimental-search-embeddings-core")]
     {
-        use tauri::Manager;
-        let dir = app
-            .path()
-            .app_data_dir()
-            .map_err(|err| err.to_string())?
-            .join("models/search")
-            .join(format.cache_key());
+        let dir = cache_dir(&app, format)?;
         let state = state.inner().clone();
         tauri::async_runtime::spawn_blocking(move || state.activate(&dir, format))
             .await
@@ -114,10 +224,10 @@ mod provider {
         InitOptionsUserDefined, Pooling, QuantizationMode, TextEmbedding, TokenizerFiles,
         UserDefinedEmbeddingModel,
     };
+    #[cfg(test)]
     use sha2::{Digest, Sha256};
     use std::{
         fs::File,
-        io::Read,
         panic::{catch_unwind, AssertUnwindSafe},
         path::Path,
         sync::{
@@ -126,41 +236,8 @@ mod provider {
         },
     };
 
-    const REVISION: &str = "614241f622f53c4eeff9890bdc4f31cfecc418b3";
     const DIMENSIONS: usize = 384;
     const MAX_TOKENS: usize = 512;
-
-    impl ModelFormat {
-        pub(super) fn cache_key(self) -> String {
-            let format = match self {
-                Self::Float32 => "float32",
-                Self::DynamicInt8 => "dynamic-int8",
-            };
-            format!("multilingual-e5-small/{REVISION}/{format}")
-        }
-
-        pub(super) fn encoder_key(self) -> String {
-            // Index identity must ALSO include source/extraction/chunking versions.
-            format!(
-                "{}/{}/mean-e5-prefix-v1/384/512/single-text",
-                self.cache_key(),
-                self.model_file().1
-            )
-        }
-
-        fn model_file(self) -> (u64, &'static str) {
-            match self {
-                Self::Float32 => (
-                    470_268_510,
-                    "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665",
-                ),
-                Self::DynamicInt8 => (
-                    118_346_824,
-                    "dd476dd0c2514e9b9be83aeb3853fac0763e0bdf4a71645407587d77c48a2d88",
-                ),
-            }
-        }
-    }
 
     #[derive(Clone, Default)]
     pub(crate) struct SearchEmbeddingState(pub(super) Arc<Mutex<ProviderState>>);
@@ -169,6 +246,7 @@ mod provider {
     pub(super) struct ProviderState {
         pub(super) active: Option<LoadedProvider>,
         pub(super) loading: Option<(ModelFormat, Arc<AtomicBool>)>,
+        pub(super) downloading: Option<(ModelFormat, Arc<AtomicBool>)>,
     }
 
     pub(super) struct LoadedProvider {
@@ -193,8 +271,8 @@ mod provider {
             let cancel = Arc::new(AtomicBool::new(false));
             {
                 let mut state = self.0.lock().map_err(|_| "Embedding state lock failed")?;
-                if state.loading.is_some() {
-                    return Err("An embedding activation is already running".into());
+                if state.loading.is_some() || state.downloading.is_some() {
+                    return Err("An embedding activation or download is already running".into());
                 }
                 if let Some(loaded) = &state.active {
                     if loaded.format == format {
@@ -257,62 +335,35 @@ mod provider {
                     .map_err(|_| "Embedding asset exceeds addressable memory")?,
             )
             .map_err(|err| format!("Insufficient memory for embedding asset: {err}"))?;
-        let mut hash = Sha256::new();
-        let mut buffer = [0; 64 * 1024];
-        loop {
-            check_cancel(cancel)?;
-            let count = file.read(&mut buffer).map_err(|err| err.to_string())?;
-            if count == 0 {
-                break;
-            }
-            if bytes.len() as u64 + count as u64 > expected_bytes {
-                return Err("Embedding asset changed while reading".into());
-            }
-            hash.update(&buffer[..count]);
-            bytes.extend_from_slice(&buffer[..count]);
-        }
-        if bytes.len() as u64 != expected_bytes
-            || format!("{:x}", hash.finalize()) != expected_sha256
-        {
-            return Err(format!(
-                "Incorrect embedding asset checksum: {}",
-                path.display()
-            ));
-        }
+        super::cache::copy_verified(
+            &mut file,
+            &mut bytes,
+            expected_bytes,
+            expected_sha256,
+            cancel,
+            |_| {},
+        )
+        .map_err(|err| format!("{}: {err}", path.display()))?;
         Ok(bytes)
     }
 
     impl LoadedProvider {
         fn load(dir: &Path, format: ModelFormat, cancel: &AtomicBool) -> Result<Self, String> {
-            let read = |name, size, hash| read_verified(&dir.join(name), size, hash, cancel);
-            let files = TokenizerFiles {
-                config_file: read(
-                    "config.json",
-                    655,
-                    "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959",
-                )?,
-                tokenizer_file: read(
-                    "tokenizer.json",
-                    17_082_730,
-                    "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39",
-                )?,
-                special_tokens_map_file: read(
-                    "special_tokens_map.json",
-                    167,
-                    "d05497f1da52c5e09554c0cd874037a083e1dc1b9cfd48034d1c717f1afc07a7",
-                )?,
-                tokenizer_config_file: read(
-                    "tokenizer_config.json",
-                    443,
-                    "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b",
-                )?,
+            let assets = format.assets();
+            let read = |asset: &super::cache::Asset| {
+                read_verified(&dir.join(asset.path), asset.bytes, asset.sha256, cancel)
             };
-            let (size, hash) = format.model_file();
+            let files = TokenizerFiles {
+                config_file: read(&assets[0])?,
+                tokenizer_file: read(&assets[1])?,
+                special_tokens_map_file: read(&assets[2])?,
+                tokenizer_config_file: read(&assets[3])?,
+            };
             let quantization = match format {
                 ModelFormat::Float32 => QuantizationMode::None,
                 ModelFormat::DynamicInt8 => QuantizationMode::Dynamic,
             };
-            let bytes = read("onnx/model.onnx", size, hash)?;
+            let bytes = read(&assets[4])?;
             check_cancel(cancel)?;
             crate::onnx_runtime::initialize()?;
             let threads = if cfg!(any(target_os = "android", target_os = "ios")) {
@@ -468,6 +519,10 @@ mod provider {
                 eprintln!("activation start: {format:?}");
                 let status = state.activate(&dir, format).unwrap();
                 eprintln!("activation ready: {format:?}");
+                assert!(state
+                    .remove(Path::new("missing"), format)
+                    .unwrap_err()
+                    .contains("Disable embeddings"));
                 assert_eq!(status.active_format, Some(format));
                 assert_eq!(status.encoder_key, Some(format.encoder_key()));
                 // An already loaded, unchanged selection does not read disk again.
@@ -561,6 +616,7 @@ mod tests {
         assert!(status.active_format.is_none());
         assert!(status.encoder_key.is_none());
         assert!(status.loading_format.is_none());
+        assert!(status.downloading_format.is_none());
         state.disable().unwrap();
         assert!(serde_json::from_str::<ModelFormat>("\"unknown-model\"").is_err());
     }

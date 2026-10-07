@@ -28,7 +28,7 @@ resource tests before availability can be advertised.
 
 `compiled` means that the provider is present in the build, not that a platform
 has passed release validation. Status also returns `platform`, `activeFormat`,
-`loadingFormat` and `encoderKey`. A non-null active format means integrity checks,
+`loadingFormat`, `downloadingFormat` and `encoderKey`. A non-null active format means integrity checks,
 model construction and a finite normalized 384-dimensional warm-up vector passed.
 It does not establish relevance quality or resource suitability.
 
@@ -37,7 +37,9 @@ It does not establish relevance quality or resource suitability.
 The native `search_embedding_configure` command accepts `format: null` to
 cancel/unload, or `"float32"` / `"dynamic-int8"` to activate an already staged
 snapshot. It accepts no arbitrary path, model URL or unverified model identifier.
-All asset reading and native loading/cleanup run on the blocking pool.
+All asset reading and native loading/cleanup run on the blocking pool. Disabling
+also cancels a pending model download; its busy slot remains occupied until the
+worker stops and staging cleanup finishes.
 
 The fixed cache layout beneath Tauri's application data directory is:
 
@@ -92,6 +94,57 @@ and per-text policy. A future index must additionally include source content,
 extraction, normalization and chunking versions; this key alone is not an index
 compatibility contract.
 
+## Explicit downloads and cache removal
+
+The feature-gated native commands now provide the backend for later opt-in
+settings. No UI or automatic download is added. Downloading never activates the
+provider, persists an opt-in preference or changes ordinary search.
+
+| Command | Contract |
+| --- | --- |
+| `search_embedding_cache_status` | Returns the two fixed formats, `expectedBytes` and `filesPresent`. Presence checks exact file sizes and regular files, not fresh checksums. Activation always verifies actual bytes again. |
+| `search_embedding_download` | Accepts only the existing `format` enum. Downloads the five checksum-pinned assets from the fixed upstream revision, verifies staging and promotes the complete directory. A verified existing cache is reused without an HTTP request. |
+| `search_embedding_cancel_download` | Requests cancellation without unloading another active provider. Status remains busy until the worker returns. |
+| `search_embedding_remove` | Removes only the selected model-cache directory and its interrupted staging directory. Removal is idempotent; pending activation/download must finish first, and an active selected model must be disabled first. There is no app semantic index to remove yet. |
+
+No command accepts a URL, filesystem path or arbitrary model identifier. The
+download and loader share one asset manifest and the same bounded streaming
+size/SHA-256 checker. The two existing encoder identities are unchanged. Production
+requests are HTTPS-only, including redirects. The upstream INT8 path remains the
+AVX512/VNNI-named export; downloading it does not establish portability.
+
+Before writing, the installer reuses library transfer's free-space preflight:
+the full payload plus **64 MiB** of reserve on the same filesystem. Files are
+written beneath a sibling `float32.installing` or `dynamic-int8.installing`
+directory, synced, rechecked, then renamed into place. Failed/cancelled work
+cleans staging on normal return or Rust unwinding. After a process interruption,
+the next explicit download discards stale staging and restarts; removal can also
+clear it. There are no resumable transfers or automatic retries. A corrupt or
+incomplete final cache is preserved and must be explicitly removed before
+redownloading; a failed attempt never replaces an existing final cache.
+
+One download or activation can run at a time in the app process. Downloading may
+coexist with a previously active provider, but another activation or cache removal
+is refused until download cleanup finishes. Cancellation and final promotion are
+serialized with the same state lock: cancellation before promotion prevents
+publication; cancellation after a committed install does not undo a verified
+cache. This is app-owned cache coordination, not a multi-process cache service.
+
+The blocking HTTP client uses the existing reqwest dependency, with 10-second
+connection/idle-read deadlines and a 30-minute request deadline. Cancellation is
+checked between streamed reads and during verification; an in-flight network
+operation can take time to stop under those deadlines. No instant-cancellation
+guarantee is made. The shared fetch boundary supplies the timer context needed
+by reqwest's idle timeout. Recoverable HTTP/offline, size, checksum and filesystem
+errors leave lexical search available.
+
+`search-embedding-download-progress` emits camelCase `format`, `phase`,
+`downloadedBytes` and `totalBytes`. Phases are `starting`, `downloading`,
+`installed`, `cancelled` and `failed`; byte updates are throttled to roughly
+two-percentage-point steps. Installed completion reports the full payload size,
+including when an existing cache was verified. UI consumption and app IPC/live
+upstream-download smoke remain follow-up checks.
+
 ## Runnable checks
 
 With the existing shared runtime available, ordinary provider regressions run:
@@ -110,6 +163,13 @@ with the same Cargo options. Set optional test-only
 `PAPERCUT_EMBEDDING_TEST_FORMAT` to `float32` or `dynamic-int8` to isolate one
 format for measurement; invalid values fail. This test reads only that cache and uses in-memory
 state, not the installed library or app model directory.
+
+Three ordinary cache regressions cover integrity/staging/reuse/removal, blocked
+concurrent operations and cancelled/panicked worker cleanup, and local HTTP status,
+declared length, checksum, truncated body, idle timeout, HTTPS-only policy and
+offline errors. They use tiny authored assets and a loopback server; they do not
+download model weights or mutate the installed library. The real-model check also
+verifies that removing an active model is refused before touching its cache.
 
 ## Native stability and memory follow-up
 
@@ -172,10 +232,10 @@ acceptance checks.
 ## Remaining gates
 
 Native stability and device resource costs remain release gates. The next bounded
-prototype pass can add verified cancellable staging/download and cache-removal
-controls, followed by opt-in settings UX around this provider. It must include disk-space checks, partial-file
-cleanup, offline errors, explicit opt-in and removal semantics. Reuse existing
-job/download patterns where they fit; do not repurpose the voice catalogue.
+prototype pass can add opt-in model-setup settings around these backend commands,
+with explicit consent, progress, recovery, cancellation and removal. Setup must
+not promise conceptual results while search still does not use the provider.
+Reuse existing settings/job patterns where they fit; do not repurpose the voice catalogue.
 Before enabling hybrid results, representative independent quality, compatible
 incremental indexes, lexical fallback, device responsiveness/resource limits and
 all advertised platforms must pass. Model choices can expand after measured

@@ -33,7 +33,7 @@ native-tts-shared = ["native-tts-core", "native-text-preprocessing", "sherpa-onn
 # Experimental provider only; ordinary search never enables or loads it.
 experimental-search-embeddings = ["experimental-search-embeddings-core", "ort/load-dynamic"]
 experimental-search-embeddings-linked = ["experimental-search-embeddings-core"]
-experimental-search-embeddings-core = ["dep:fastembed", "dep:ort"]
+experimental-search-embeddings-core = ["dep:fastembed", "dep:ort", "dep:reqwest"]
 
 [dependencies]
 serde_json = "1.0"
