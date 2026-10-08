@@ -446,6 +446,50 @@ profile stability or mobile behavior. The original native crash and retained
 memory caveats remain open. Smoke is still explicitly deferred. Next validate
 the existing native checks under the optimized release profile.
 
+## Optimized native validation — 2026-10-08
+
+The same app tests now pass under Cargo's optimized release profile with
+`native-tts-shared,experimental-search-embeddings`, compiled locked and offline.
+The existing provider-test command works with `--release`; no separate test
+implementation, production hook or dependency change is needed. Eight ordinary
+provider/cache/IPC regressions pass, two cached checks ignored by that invocation.
+The existing loopback HTTP regression requires socket access; no upstream model
+download is performed.
+
+| Explicit cached check | Release result |
+| --- | --- |
+| Default provider cycle | FP32/INT8 inference, selection, failure cleanup and cancellation pass; 2.57 s complete, 1.424 GiB whole-process high water. |
+| Ten provider cycles per format | Reload vector equality and EN/AR controls pass; 22.57 s complete, 1.791 GiB high water; about 653 MiB retained after the final cycle. |
+| Combined provider and Arabic speech | Both tests pass in one process; 2.52 s complete, 1.524 GiB high water; expected diacritization and finite non-silent audio. |
+| Three isolated real-cache command runs | Three native kill/restart recoveries pass; 2.66–3.18 s per complete check, including local cache copying and children. |
+
+In the repeated run, median activation is 0.83 s FP32 / 0.58 s INT8, including
+verification, construction and warm-up. Across the command runs, 279 status calls
+complete with a maximum observed 0.154 ms response; early cancellation commands
+take 0.043–0.293 ms. Cancellation is requested before native construction, not
+proven interruptible inside ORT. The separate provider check discards a completed
+native load when cancellation prevents publication.
+
+The parent samples provider `/proc` status every 50 ms (10 ms for the combined
+check) and on received phase messages. Measurements are approximate, with warm
+filesystem caches and host background memory pressure; provider samples report
+no child swap. These are not matched debug/release benchmarks, query timings,
+foreground responsiveness or promises about weak hardware. Disable still does
+not guarantee immediate RSS recovery. The combined check uses the threaded test
+harness, not app-level reader/audio scheduling or sustained concurrent workloads.
+
+Model-cache copies are disposable and removed; pinned source assets, native
+runtime, executable and test-source bindings are verified. Exact build/test logs,
+sources, resource samples and executable are retained in private local evidence.
+No installed library is mutated. This establishes bounded optimized Linux test
+coverage, not WebView/mobile acceptance, interrupted upstream transfers,
+power-loss durability or the cause of the earlier native crash. Interactive
+smoke remains deferred and representative quality still holds Stage 7 closed.
+
+Next review release acceptance for the model-free tranche separately from the
+embedding experiment. Further benchmark matrices or model/fusion sweeps are not
+justified by these passing checks; remaining gates need different evidence.
+
 ## Remaining gates
 
 Native stability and device resource costs remain release gates. Model-setup

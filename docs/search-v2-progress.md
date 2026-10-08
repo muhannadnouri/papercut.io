@@ -21,7 +21,10 @@ The [cache interruption check](#cache-process-interruption-check--2026-10-08)
 covers abrupt termination and fresh-process retry at the installer boundary
 using tiny assets. The [real-cache command restart](#real-cache-command-restart--2026-10-08)
 adds fresh-process command recovery with pinned weights; upstream transfer,
-release-profile, WebView and mobile acceptance remain open.
+WebView and mobile acceptance remain open. The
+[optimized native check](#optimized-native-validation--2026-10-08) passes the
+existing provider, Arabic audio and command-recovery checks in release tests;
+it leaves the original crash and resource/device caveats unresolved.
 Next is the consolidated rebuilt-app smoke and model-free acceptance review when
 the user is ready. Smoke remains explicitly deferred, and passing it alone will
 not open production semantic integration.
@@ -2249,3 +2252,40 @@ product indexing/fallback, remaining lifecycle/native stability and device/
 platform acceptance. Consolidated rebuilt-app search/EPUB/RTL/audio/model-control
 smoke remains explicitly user-deferred; carry the reminder to final acceptance
 and do not record it as passed.
+
+## Optimized native validation — 2026-10-08
+
+The existing checks pass after locked, offline release compilation with
+`native-tts-shared,experimental-search-embeddings`. No code, dependency, runtime,
+model, ranking or UI change is needed. Eight ordinary provider/cache/IPC tests
+pass, two cached-asset tests ignored there and explicitly exercised separately.
+
+The default provider cycle and one ten-cycle FP32/INT8 process pass inference,
+input limits, vector equality across reloads, disable-first selection, failed-load
+cleanup and cancellation after native setup. The repeated run completes in
+22.57 seconds, peaks at **1.791 GiB** whole-process high water and retains about
+**653 MiB** after its final cycle. Release optimization does not remove the
+memory/headroom concern. A separate combined provider/Arabic-audio process passes
+both checks, including actual finite non-silent speech through the official
+preprocessor adapter and shared runtime.
+
+Three isolated public-command runs pass real cached INT8 activation,
+`SIGKILL` and fresh-process recovery, default-off status, cache reuse, disable
+and removal. Complete checks take **2.66–3.18 seconds**, including copied-cache
+preparation and all child processes; these are not query or restart-only timings.
+Disposable data is cleaned and source/runtime/executable bindings verified.
+Rust formatting and diff checks pass. Methods and limits are in
+[the provider notes](search-embedding-provider.md#optimized-native-validation--2026-10-08).
+
+These optimized Linux development-host tests use cached assets and MockRuntime,
+not a real WebView or reference/mobile hardware. They do not explain the earlier
+crash, prove unrestricted lifecycle stability or establish foreground performance,
+upstream-transfer recovery or power-loss durability. Quality acceptance remains
+open and production search still does not use the provider.
+
+**Next:** review the model-free tranche against the original plan and its release
+acceptance checks, identifying what can ship separately from the retained
+experiment. No further model/fusion sweep or production semantic integration is
+justified by this result. Stage 7 remains held. Consolidated rebuilt-app
+search/EPUB/RTL/audio/model-control smoke stays explicitly user-deferred; remind
+at final acceptance and do not record it as passed.
