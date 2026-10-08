@@ -52,12 +52,18 @@ move or damage the installed app's files.
       appear because a query was accidentally shortened.
 - [ ] Switch the same query to **Broader · Your Library**. Partial matches must
       report coverage/missing terms honestly, and starter documents stay excluded.
-      One/two-word searches still require all words. Switching modes reruns the
+      One/two-word and over-twelve-expression searches still require all words;
+      relaxation applies only to 3–12 distinct term expressions. Switching modes reruns the
       submitted query and preserves the intended document filters.
 - [ ] Check an authored quoted phrase, a missing phrase and a long pasted quote.
       Quotes remain mandatory in both modes. Straight/curly punctuation and
       supported PDF line-wrap/hyphen handling must retain the complete query and
       real source evidence. An over-limit query should show a useful error.
+- [ ] Check a request with thirteen distinct words whose final word distinguishes two sources.
+      The final word must remain required in both modes. Inputs above 128 terms
+      or 4,096 Unicode characters across unquoted text and phrases must show the
+      inline limit error, never results for a silently shortened request. Shorten
+      the input and retry; verify the error clears and filters remain selected.
 - [ ] Try a generic typo such as `calender meeting agenda` against a document
       containing the correct wording. Any suggestion is an explicit whole-query
       retry that preserves the other unquoted words, search mode and filters.

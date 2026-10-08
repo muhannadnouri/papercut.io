@@ -4,7 +4,7 @@ Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Code
 
 ## Current decision — Stage 6 retained as an experiment
 
-**Stage 7 is on hold.** Keep the model-free branch improvements and the isolated embedding/hybrid baseline. Remove the rejected cached reranker from the maintained executable; preserve its evidence and reproducible source in private archives. The chronological sections below describe earlier experiments, including entry points that are no longer supported.
+**Stage 7 is on hold; the current production-hybrid decision is no-go pending acceptance evidence.** Keep the model-free branch improvements and the isolated embedding/hybrid baseline. The rejected cached reranker is removed from the maintained executable and preserved in private archives. The [acceptance checkpoint](#acceptance-checkpoint--2026-10-07) separates completed regression work from remaining product gates. The chronological sections below describe earlier experiments, including entry points that are no longer supported.
 
 | Gate | Current evidence and decision |
 | --- | --- |
@@ -1404,3 +1404,50 @@ speculative feature. The user may keep smoke deferred; the checklist is ready
 when they resume. Stage 7 remains on hold until representative independent
 quality, compatible indexing/fallback, reference-device resources and supported-
 platform/native lifecycle evidence justify it; a documented no-go remains valid.
+
+## Acceptance checkpoint — 2026-10-07
+
+**Decision: retain the model-free release candidate and experimental baseline;
+do not begin production hybrid ranking.** Rechecked the original handoff's
+Stage 6 go/no-go and Stage 7 acceptance requirements against the retained code,
+reports and build paths. This is a documentation/validation pass, not a new
+retrieval policy, model comparison or release approval. The user again chose to
+keep interactive smoke deferred.
+
+Fresh validation on `47c2067` uses the unchanged version-5 generic fixture and
+actual native search path: **41 requests**, **25 documents / 54 sections**,
+document Recall@10 **41/45**, MRR@10 **0.917** and nDCG@10 **0.912**. All previously
+retrieved baseline labels remain in the top ten. The six Arabic and two mixed
+fixture requests retain their labeled documents; four passage-labeled requests
+retain all five passages. These familiar, small, incompletely judged fixtures
+are regression evidence, not representative or independently held-out quality.
+Debug native warm p95 is **2.29 ms**; fixture preparation warms the filesystem,
+and IPC/rendering are excluded. Do not compare that figure to the earlier
+release-mode 100,000-section probe or claim a new performance improvement.
+
+The two evaluation-parser checks, pooled-review self-check and **six retained
+experimental checks** pass. The latter cover document fusion/deduplication,
+scope/vector compatibility, evidence fallback, quantization policy, SQLite
+restart/update/rollback and UTF-8 source loading; two cached-model checks remain
+ignored in this run. For a strict-offline rebuild of the standalone experiment,
+set `ORT_LIB_PATH` to its already-cached static ORT library directory as well as
+`CARGO_NET_OFFLINE=true`: Cargo's offline flag alone does not configure native
+linking. The app's shared-runtime path is separate and unchanged. No model is
+loaded/downloaded or index rebuilt here. Previous native suites and package
+checks remain previous-pass evidence; no app rebuild is needed for these docs.
+
+| Acceptance item | Status and next evidence needed |
+| --- | --- |
+| Model-free behavior | Automated regressions and development-host scale checks pass. Complete the [consolidated smoke packet](search-v2-smoke.md), including quotes/long queries, source navigation, EPUB/RTL and listening/save/play, before product acceptance. It remains deferred, not passed. |
+| Representative semantic quality | **Open.** The retained independent sheet has 22 requests and 195 document candidates; all document/evidence grade fields are still null. Assistant grades remain provisional development diagnostics. Judge a representative frozen set independently, then compare the same queries/pool/filters at document and displayed-passage scope; do not treat null grades as irrelevant. |
+| Relevance failures | **Unresolved.** Prior controlled cross-language/entity/date and missing-answer-span failures remain. Do not tune another policy against these familiar examples; use independent results to justify a bounded change or one alternative model. |
+| Product index/fallback | **Not implemented.** Incremental SQLite/source-span behavior passes in the isolated experiment; the app has no semantic index or semantic query path. Setup downloads do not close compatibility, deletion/reimport, partial coverage, quote/filter/evidence or fallback acceptance for future hybrid results. |
+| Native/resource lifecycle | **Partial Linux evidence.** Cached command, speech and build checks pass. Actual WebView/download/interruption/restart and long-lived responsiveness remain untested. The original native crash is unexplained; allocator retention and reference-device memory/CPU/battery checks remain open. |
+| Advertised platforms | **Open.** This host has only the Linux Rust target. Existing desktop/Android/iOS build scripts and CI use normal TTS features; their presence is not a completed build, device result or provider-feature test. Validate each shipped target and explicitly compiled provider configuration before claiming availability. |
+
+**Next:** collect acceptance evidence rather than schedule another feature pass.
+When the user resumes, start with the consolidated app smoke; obtain normal-build
+platform results and representative responsiveness for the model-free candidate.
+Reopen Stage 7 only when independent relevance and compatible product-lifecycle,
+resource/platform evidence justify it. Continuing with model-free search and
+leaving the provider experimental is a valid outcome of the original plan.
