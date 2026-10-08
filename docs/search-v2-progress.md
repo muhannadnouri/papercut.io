@@ -25,9 +25,13 @@ WebView and mobile acceptance remain open. The
 [optimized native check](#optimized-native-validation--2026-10-08) passes the
 existing provider, Arabic audio and command-recovery checks in release tests;
 it leaves the original crash and resource/device caveats unresolved.
-Next is the consolidated rebuilt-app smoke and model-free acceptance review when
-the user is ready. Smoke remains explicitly deferred, and passing it alone will
-not open production semantic integration.
+Consolidated rebuilt-app smoke remains explicitly deferred, and passing it
+alone will not open production semantic integration.
+
+The [model-free acceptance review](#model-free-acceptance-review--2026-10-08)
+confirms the candidate passes fresh default-feature and frontend regressions
+without FastEmbed. The automated review is complete; normal-build platform
+readiness and actual device/app acceptance remain next, with smoke deferred.
 
 | Gate | Current evidence and decision |
 | --- | --- |
@@ -39,6 +43,63 @@ not open production semantic integration.
 | Production optional hybrid | No ranking integration or default change; the explicitly compiled, session-only provider prototype does not participate in search. Proceed only after independent quality, reference-device and lifecycle/platform gates justify Stage 7; the original plan permits stopping with a documented no-go. |
 
 **Current work is a shared, default-off provider and explicit model-cache prototype**, following the no-fork app integration below. Desktop-first validation is sequencing, not a permanent restriction on Android/iOS. The native stability/resource follow-up, verified cancellable downloads/removal and opt-in Developer-mode model-setup settings are recorded below. The native command/cache boundary now passes isolated mock-runtime checks and the consolidated smoke packet is prepared. Next collect actual acceptance evidence; setup does not promise conceptual results while search does not use the provider. Native release stability and semantic ranking remain gated. The runtime prerequisite is verified on Linux; this is not a search-quality acceptance decision or a commitment to the smallest encoder. Keep normal search available and optional models unloaded when disabled, reuse existing verified download/job controls, and validate compatible indexing before enabling hybrid results. Authored Arabic fixtures pass the production EPUB parser, persistence and sanitized reader-source checks; interactive app import/navigation remains pending. The user permits interactive smoke to remain deferred through later stages and requests one consolidated final pass; carry that reminder forward without treating the deferral as acceptance. Representative quality, reference hardware and supported-platform evidence remain open. Production Stage 7 search needs its own quality and lifecycle gates.
+
+## Model-free acceptance review — 2026-10-08
+
+**Decision: retain the model-free release candidate; do not claim release
+acceptance or begin Stage 7.** Reviewed the original handoff's stages, hard
+contracts and regression matrix against current query construction, retrieval,
+source evidence, rendering, migration and tests on `d3c999c`. No search code or
+new test is needed. The original plan permits this outcome independently of
+whether embeddings ever ship.
+
+| Candidate behavior | Existing checks and remaining boundary |
+| --- | --- |
+| Stage 1 field weighting and short-query adjacency | Stable ordering, metadata/body distinctions and mandatory-phrase controls pass. These reorder lexical candidates; they do not recover no-overlap concepts. |
+| Stage 2 Broader | Coverage tiers, missing terms, quotes, scope and deduplication pass. Relaxation is explicit, Your Library only, for 3–12 distinct expressions; other query lengths keep all terms required. |
+| Stage 3 spelling assistance | Authored-vocabulary, protected-input and complete scoped-retry checks pass; starter hits do not hide the retry. No silent replacement, general dictionary or spelling-variant guarantee. |
+| Stage 4 Arabic search forms | Source offsets, mark/tatweel/alef policy, literal quotes and restart/replacement/delete migration checks pass. Authored text stays intact; Arabic morphology and all orthographic variants are unclaimed. |
+| Query/evidence corrections | Long-query tail clauses, oversize rejection, nested quotes, cross-section passages, count/locator bounds and stale-request UI checks pass. Visual reader/navigation acceptance remains deferred. |
+| Stage 5 / later semantic work | Hard-coded related-word pairs are removed. General aliases are intentionally deferred; the provider and isolated index/ranking experiment do not participate in app search. |
+
+Fresh default-feature native tests pass **148**, with four opt-in tests ignored.
+The complete frontend suite passes **147 tests in 43 files**. The existing
+evaluation/parser checks pass on the unchanged version-5 authored fixture:
+25 documents, 54 sections and 41 requests; document Recall@10 **41/45**, MRR@10
+**0.917**, nDCG@10 **0.912**. All five labeled passages remain retrieved.
+
+On the same **30 original requests and original labels**, Recall@10 is
+**34/37**, versus **31/37** at baseline; no previously found relevant label is
+lost. Only the three intended Arabic recoveries and title-ranking case change
+result ID lists/order. This is retained regression evidence, not a new gain or
+representative quality claim. The four fixture misses are related wording,
+conceptual no-overlap and two literal typos with explicit verified retries.
+Assisted retries are not counted as direct recall. Warm debug native p95 is
+**3.47 ms** on this tiny fixture, excluding IPC/rendering and genuine cold disk.
+
+The tracked upload/search implementation and relevant frontend sources are
+byte-identical to `6f9fa7a`, the source of the existing 500-document /
+100,000-section release probe. Reuse that bounded development-host scale
+evidence rather than rerunning an unchanged workload. Real-book vocabulary
+pressure, reference hardware and actual app responsiveness remain unmeasured.
+
+Locked offline Linux dependency graphs for default and normal shared-TTS builds
+exclude FastEmbed and experimental embedding features. Normal TTS keeps the
+official preprocessor/runtime dependencies; this review does not remove those
+branch changes or prove their non-Linux packaging. TypeScript, full ESLint,
+eight-locale parity, production Vite and diff checks pass; the existing bundle
+size advisory remains. Pagefind implementation/index generation, installed app
+data, model downloads and production ranking are untouched. Source bindings,
+reports and logs are retained privately, with no private-library details tracked.
+
+**Next:** review normal-build packaging and supported-platform build readiness,
+using the existing scripts and available toolchains. Missing toolchains/devices
+must remain explicit gaps, not passing results. Do not add another search/model
+tuning pass to fill the deferred interval. Consolidated rebuilt-app
+search/EPUB/RTL/audio/model-control smoke remains user-deferred; remind at final
+acceptance. That smoke plus representative device/platform evidence precedes
+model-free release acceptance. Stage 7 additionally needs a quality win and
+compatible product indexing/fallback/lifecycle evidence.
 
 ## Stage 0 — Baseline
 

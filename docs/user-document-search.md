@@ -9,6 +9,14 @@ This avoids the trap of trying to rebuild Pagefind on a user's device every time
 
 ## Current Scope
 
+The model-free Search v2 changes are a **release candidate**, with fresh native,
+frontend and original-baseline regressions passing. Normal builds do not include
+FastEmbed; model-cache setup and semantic retrieval remain experimental and do
+not change app search. The [current acceptance review](search-v2-progress.md#model-free-acceptance-review--2026-10-08)
+records the retained behavior, fixture misses and limits. Consolidated app smoke,
+representative-device responsiveness and advertised-platform acceptance remain
+open; automated success alone does not approve release.
+
 The current app supports local HTML, EPUB, PDF, TXT, and Markdown files. PDF search and TTS
 require a usable extracted text layer; fully textless PDFs remain readable and
 are marked for opt-in English text recognition:
@@ -152,7 +160,7 @@ An empty uploaded **All words** search can offer one explicit English spelling r
 
 There are no hard-coded related-word pairs or general synonym expansion. Porter stemming covers some inflections, and the bounded spelling retry handles some typos; neither establishes semantic equivalence. Embedding and hybrid retrieval remain isolated experiments under the gates in [search-v2-progress.md](search-v2-progress.md).
 
-The default **All words** mode retains the current required-term search across uploaded and starter documents. The optional **Broader · Your Library** mode searches uploaded documents only; Pagefind starter search is unchanged. With three to twelve distinct unquoted words it requires at least half, with a minimum of two, anywhere in the document, then ranks fuller coverage first. With one or two words, or more than twelve distinct words, it retains all-terms matching without dropping words. Exact quoted phrases always remain required and source-verified. Cards show which unquoted words are missing; a title match is not reported as a body-text occurrence. This mode has been checked on a small synthetic corpus and still needs the documented large-library performance gate before release.
+The default **All words** mode requires every unquoted term at document scope in uploaded documents, including matches across sections. Starter search retains its existing Pagefind behavior; the uploaded required-term and coverage guarantees must not be inferred for starter results merely from the shared mode label. The optional **Broader · Your Library** mode searches uploaded documents only. With three to twelve distinct unquoted words it requires at least half, with a minimum of two, anywhere in the document, then ranks fuller coverage first. With one or two words, or more than twelve distinct words, it retains all-terms matching without dropping words. Exact quoted phrases always remain required and source-verified. Cards show which unquoted words are missing; a title match is not reported as a body-text occurrence. The small regression fixture and existing 100,000-section development-host probe pass; representative-device and interactive acceptance remain open.
 
 For quoted searches, broad provider counts are not treated as exact phrase counts. Uploaded results use exact occurrence counts from the native indexed-section verification scan, while starter results use source-verified counts in React. Unquoted searches can still show matching-section counts when SQLite or Pagefind exposes them. The twelve-bin distribution also represents matching sections, not the number of individual word occurrences inside those sections.
 
