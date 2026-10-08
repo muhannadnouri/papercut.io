@@ -6,6 +6,15 @@ Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Code
 
 **Stage 7 is on hold; the current production-hybrid decision is no-go pending acceptance evidence.** Keep the model-free branch improvements and the isolated embedding/hybrid baseline. The rejected cached reranker is removed from the maintained executable and preserved in private archives. The [acceptance checkpoint](#acceptance-checkpoint--2026-10-07) separates completed regression work from remaining product gates. The chronological sections below describe earlier experiments, including entry points that are no longer supported.
 
+The [conceptual contract review](#stage-6--conceptual-contract-review-2026-10-08)
+retains semantic-first ordering with native Broader evidence as the experimental
+candidate. It recovers missing displayed answer clauses in familiar controls,
+but leaves mixed-language ranking and unavailable-answer failures unresolved.
+The bounded model/fusion comparisons are complete; do not schedule another sweep.
+Next is the consolidated rebuilt-app smoke and model-free acceptance review when
+the user is ready. Smoke remains explicitly deferred, and passing it alone will
+not open production semantic integration.
+
 | Gate | Current evidence and decision |
 | --- | --- |
 | Model-free search | Ranking, Broader mode, source evidence, authored-word spelling help, Arabic normalization and query corrections are implemented on this branch. A 500-document / 100,000-section saturated-match native probe passes common-query timing thresholds on this development host; it does not establish weak-device or interactive app acceptance. General synonym expansion is unclaimed; hard-coded word pairs were removed. The latest complete-query correction's app smoke check is deferred. |
@@ -2008,3 +2017,75 @@ weight or model sweep. Product index/fallback and optional-model lifecycle,
 reference hardware/platform, original native crash and allocator retention remain
 open. The consolidated rebuilt-app smoke is still explicitly deferred to the final
 pass; remind the user then, and do not count it as passed.
+
+## Stage 6 — Conceptual contract review (2026-10-08)
+
+**Decision: retain the experimental candidate; no-go for production integration.**
+Review the original Stage 6/7 plan, current literal app contracts, public passage
+labels, and known entity/date, cross-language and answer-evidence failures.
+Replay the existing semantic-first assembler on both frozen 46-request Small
+FP32 fact-control reports, using the exact previously tested executable and
+read-only index. No new policy, model, data selection, dependency or app code.
+
+Document retrieval and displayed answer support remain separate measurements:
+
+| Output / native evidence input | Correct first / 32 | Correct top ten / 32 | Full answer in first displayed evidence / 32 | Full answer in top-ten evidence / 32 |
+| --- | ---: | ---: | ---: | ---: |
+| Semantic-only, either native mode | 24 | 31 | 18 | 25 |
+| Semantic-first assembly, All words | 24 | 31 | 18 | 25 |
+| Semantic-first assembly, Broader | 24 | 31 | 24 | 31 |
+
+Native Broader evidence recovers **six first-result and six top-ten full-answer
+clauses** without changing semantic order. This retains the conceptual ranking
+control's public passage-label advantage while providing the evidence benefit
+seen in the fact controls. Those are separate datasets and metrics, not one
+combined score or a new independent quality win. The original answer clauses
+are frozen development diagnostics over four facts translated/scoped into 32
+correlated positive requests; partial support is not automatically irrelevant.
+
+The change does not repair every failure. Both native evidence inputs still
+put **zero of eight mixed-language cross-language targets first**, retaining
+seven in the top ten. All sixteen same-language targets remain first, and
+Broader evidence contains their full answers. Both unavailable-answer controls
+still receive conceptual neighbors with no answer. The earlier different-year
+scope controls likewise show that semantic similarity does not enforce literal
+unquoted names/dates. Source-span integrity and native field preservation do
+not by themselves establish relevance or answerability.
+
+The proposed contract for any later conceptual-search prototype is:
+
+| Boundary | Contract and present status |
+| --- | --- |
+| Intent and scope | Explicit, optional conceptual **source retrieval in Your Library**. Model-free All words and Broader keep their current behavior. There is no app Conceptual mode or ranking integration today. |
+| Ranking and evidence | Candidate: semantic document order with unchanged native Broader evidence when available; otherwise verified conceptual source spans. Keep literal primary fields and separately attached conceptual context honest. This is implemented only in the standalone report. |
+| Names and dates | Conceptual similarity is not exact identity/date satisfaction. Preserve the existing strict literal path and source text; do not infer hard constraints through an automatic name detector, word list or exception pair. |
+| Quotes and filters | Mandatory source-verified quotes and explicit document filters remain hard constraints. The current experiment excludes quoted requests from semantic retrieval and retains the original native response; do not advertise conceptual handling of quoted combinations. |
+| Result claims | Show authored source passages and their locations. No generated answer, full-answer guarantee, calibrated answer confidence or guaranteed empty result for an unavailable fact. A related passage is not proof that the requested fact exists. |
+| Availability and coverage | A future UI must distinguish model setup, compatible index readiness and partial coverage. Missing/disabled/corrupt/incompatible/pending model or index must leave model-free search available, with the actual search path reported. App index/query/fallback integration remains unimplemented. |
+| Platforms and resources | Shared intent for desktop, Android and iOS, with availability gated by each target's actual validation. Model/resource choice stays optional; no weak-model mandate or permanent desktop restriction. Current native evidence is development-host Linux evidence. |
+
+This is a candidate contract, **not a waiver of the Stage 7 gates**. Explicit
+conceptual labeling cannot excuse misleading source evidence, broad relevance
+regressions, incompatible indexes or unstable native lifecycle. The remaining
+full-book/displayed-evidence, compatible indexing/fallback and supported-device
+checks still determine whether to integrate. The original independent private
+sheet stays unfilled; public passage labels do not populate its document or
+answer-evidence grades.
+
+Validation: both 46-request read-only replays pass; all **92 prior native,
+semantic and RRF rows** are unchanged. Exact source clauses and scopes, **2,520
+UTF-8 spans, 118 native primary objects and eight quote exclusions** are verified.
+Source/vector inputs and cached model/executable hashes remain unchanged; no new
+embeddings, installed-library access or model download. Grader self-checks cover
+complete/partial clauses, wrong-document support and separately attached context;
+replay produces identical grade hashes. This pass does not rerun or claim new
+unit-suite, app, platform or resource acceptance.
+
+**Next: stop automatic model/fusion iteration and collect acceptance evidence.**
+The [consolidated rebuilt-app smoke](search-v2-smoke.md) is prepared and remains
+user-deferred; run it when the user is ready, then record model-free acceptance
+separately from optional-model preparation and semantic feasibility. It does not
+require subject-matter relevance grading or a new semantic UI. Leave Stage 7 on
+hold until the remaining quality, product index/fallback, lifecycle and device/
+platform gates are met. The original native crash and allocator-retention caveats
+remain open; do not claim they were resolved by this review.
