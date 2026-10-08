@@ -10,7 +10,7 @@ Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Code
 | --- | --- |
 | Model-free search | Ranking, Broader mode, source evidence, authored-word spelling help, Arabic normalization and query corrections are implemented on this branch. A 500-document / 100,000-section saturated-match native probe passes common-query timing thresholds on this development host; it does not establish weak-device or interactive app acceptance. General synonym expansion is unclaimed; hard-coded word pairs were removed. The latest complete-query correction's app smoke check is deferred. |
 | Embedding baseline | Cached FP32/INT8 providers, anchored passages, incremental SQLite indexing, read-only queries and document-level fusion remain experimental. The standalone comparison now accepts verified Small/Base metadata and dimension-safe 384/768-vector indexes; the app provider/model setup still supports only the retained Small formats. Native primary evidence and separate conceptual context are preserved. |
-| Representative quality | Assistant development grades show useful English and controlled same-language Arabic retrieval, with cross-language/entity/date and missing-answer-span failures. The [one-alternative FP32 comparison](#stage-6--one-alternative-encoder-comparison-2026-10-08) recovers one known cross-language answer at rank two, but worsens first-result and answer-evidence controls at higher resource cost. Neither encoder establishes an overall acceptance win. Private authored controls do not replace actual books or independent grading. The existing independent packet remains unjudged; no held-out acceptance gain is established. |
+| Representative quality | The [public human-label comparison](#stage-6--public-human-label-comparison-2026-10-08) supports same-language conceptual passage ranking within restricted judged pools, but current Broader fusion loses first-result relevance relative to semantic-only ranking. Base improves Arabic and regresses English at higher cost; it does not establish an overall acceptance win. Prior cross-language/entity/date and missing-answer-span failures remain. Public passage labels do not establish private-book, displayed-answer or full-library quality. The original independent packet remains unjudged; product acceptance remains open. |
 | Cached reranker/context augmentation | Rejected: a cross-language gain introduces a same-language date regression; combined-context and explicit-exclusion controls do not justify a repair. Its live CLI/module are removed. |
 | Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the shared-runtime check reuses the actual app adapter with FastEmbed/sherpa. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. The linked initializer is tested on Linux, not an iOS archive/device. Other platforms, weak reference hardware, responsiveness and optional-model lifecycle/fallback validation remain open. |
 | Production optional hybrid | No ranking integration or default change; the explicitly compiled, session-only provider prototype does not participate in search. Proceed only after independent quality, reference-device and lifecycle/platform gates justify Stage 7; the original plan permits stopping with a documented no-go. |
@@ -1642,3 +1642,110 @@ matter; they do not replace representative private-book, displayed-evidence,
 reference-device, index/fallback or supported-platform acceptance. The
 [consolidated app smoke checklist](search-v2-smoke.md) remains deferred to the
 user's final pass and must be reminded then.
+
+## Stage 6 — public human-label comparison (2026-10-08)
+
+**Decision: retain Small as the practical experimental baseline and Base as
+the already-tested alternative; Stage 7 remains on hold.** No app, encoder,
+runtime, dependency, index policy or fusion change is included. This pass reuses
+the existing native parser/store/evaluator and unchanged experiment; its tracked
+change is this evidence record. No third model or word/threshold tuning.
+
+The [official public development set](https://huggingface.co/datasets/miracl/miracl)
+provides native-speaker binary passage judgments, including judged negatives.
+Select **32 English and 32 Arabic queries** by fixed SHA-256 seed/query-ID order,
+requiring positive and negative candidates. Selection, labels and source inputs
+were frozen before retrieval; no subject or model-result selection. All official
+judged passages for each selected query form its explicit candidate scope.
+There are **648 distinct source passages and 653 query/passage judgments**.
+Each benchmark passage is one experimental document with one body section;
+these are passage rankings, not article/book judgments. Actual source/query
+examples and benchmark files remain outside tracked files.
+
+Topics/labels are pinned to revision
+`5be20db9509754dadad47689368639fcec739c00`; corpus sources to
+`d921ec7e349ce0d28daf30b2da9da5ee698bef0d`. The official English converted cache
+was unavailable, so stdlib helpers verified required raw source files against
+upstream SHA-256/byte counts, retaining only selected text and provenance receipts.
+Temporary bulk downloads were removed. This dataset-access preparation scanned
+5.11 GB of compressed sources; it is separate from measured embedding indexing,
+not a production model-download cost. No parser dependency was installed.
+
+One Arabic query contains an exact phrase and remains lexical-only. Comparisons
+below cover the same **63 unquoted requests: 32 English and 31 Arabic**. Original
+quoted native rows are retained separately, not counted as encoder misses.
+Metrics use unchanged human labels: 1 relevant, 0 judged negative; per-query
+macro nDCG uses binary gains. All candidates in each scope are judged for that
+query; there is no unjudged-as-zero imputation or assistant replacement grading.
+
+| Language / path | Small relevant first | Base relevant first | Small nDCG@10 | Base nDCG@10 |
+| --- | ---: | ---: | ---: | ---: |
+| English semantic-only (32) | 21 | 20 | 0.8206 | 0.7962 |
+| Arabic semantic-only (31) | 21 | 24 | 0.8413 | 0.8724 |
+| Combined semantic-only (63) | 42 | 44 | 0.8308 | 0.8337 |
+| Combined hybrid All words (63) | 39 | 42 | 0.8132 | 0.8206 |
+| Combined hybrid Broader (63) | 30 | 30 | 0.7202 | 0.7164 |
+
+Combined semantic MRR@10 is **0.7946 / 0.8119** for Small/Base. Base's nDCG
+changes are paired: **18 improvements, 15 regressions, 30 ties**, averaging
+only **+0.0029**. Native Broader puts 27/63 relevant passages first, with MRR
+0.5501 and nDCG 0.5667; native All words puts five first. Natural questions can
+contain absent required words, so those All words misses do not justify relaxing
+its lexical contract. Semantic ranking is useful within these controlled pools;
+Base's mixed gain does not justify promotion or establish a universal model win.
+
+**Fusion is the more actionable concern.** Broader hybrid changes Small's
+positive semantic first results to judged negatives on 15 queries and makes
+three reverse improvements; Base loses 19 and gains five. Every deterioration
+promotes a judged negative appearing in both native and semantic lists. In
+six/nine cases, the displaced Small/Base semantic winner is absent from native
+retrieval. This is the current equal-weight RRF (`k=60`) policy behaving as
+implemented, not an arithmetic bug. It needs retrieval-scale evidence before
+changing the policy: median scope is ten, and fusion admits up to 50 candidates,
+so nearly every scoped passage enters the semantic list. Agreement can then
+reward literal neighbors even when human labels reject them.
+
+Candidate pools range **10–11 English and 10–13 Arabic**, with **53/64 at most
+ten**. Combined semantic Recall@10 is 0.9921 for both encoders, largely a ceiling
+of these restricted pools, not full-corpus retrieval success. Whole-passage
+human relevance also does not establish that a selected chunk/excerpt contains
+the full answer. These public labels are independent of assistant judgments,
+but the [E5 model card](https://huggingface.co/intfloat/multilingual-e5-base)
+lists this dataset's training split in fine-tuning. The development comparison
+is not a completely unseen-data, cross-language or private-book acceptance test.
+The original private independent sheet remains unchanged and unfilled.
+
+| Fresh initial index measurement | Small FP32 | Base FP32 |
+| --- | ---: | ---: |
+| Model-token chunks | 784 | 781 |
+| Model load | 0.92 s | 1.82 s |
+| Initial indexing | 60.92 s | 195.20 s |
+| Query p50 / runner p95 | 6.04 / 7.43 ms | 18.94 / 25.26 ms |
+| Peak native-process RSS | 1,446.34 MiB | 2,898.95 MiB |
+| SQLite index bytes | 2,895,872 | 4,489,216 |
+
+Both Broader runs reuse every vector with zero new embeddings. These are
+sequential, single-run Linux native-child measurements with two inference
+threads; inputs/indexes are in `/tmp`, and OS caches were not cleared. Base
+costs about 3.2× indexing and 2× peak RSS here. This is not cold-disk, steady-state
+memory, app/WebView, weak-reference-device or mobile acceptance.
+
+Validation: production parser checks, disposable library preparation and both
+64-query native evaluations pass. The scorer's ideal/reordered/empty/unjudged
+self-checks pass, and its grades match official qrels and exact exported source
+text. Verification covers **5,040 semantic UTF-8 spans, 504 fully judged result
+lists, 988 unchanged native primary hybrid evidence objects and four quoted
+encoder exclusions** across repeated runs. Input/export/model/binary identities
+and cache reuse match. No installed library changed; existing experimental
+unit/cached-model suites remain previous-pass evidence, not newly rerun claims.
+
+**Next:** widen retrieval over this same frozen passage union using the same
+queries, encoders and indexes, before changing fusion. Compare language-scoped
+and mixed-language pools so the 50-candidate boundary has meaningful competition.
+Report known-positive recall/ranks and judgment coverage; passages outside a
+query's original judged pool are unjudged, not presumed irrelevant or scored
+zero in nDCG. Use that result to decide whether one minimal fusion correction
+needs a fresh labelled verification subset. No new model or tuning against this
+familiar packet. The [consolidated app smoke](search-v2-smoke.md) remains deferred
+to the user's final pass. Reference hardware/platform, original native crash,
+allocator retention and product index/fallback gates remain open.
