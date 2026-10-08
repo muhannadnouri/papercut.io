@@ -17,6 +17,9 @@ not close native stability or device responsiveness.
 The [command loading check](#native-command-loading-check--2026-10-08) verifies
 status, early cancellation and reactivation through actual handlers on the mock
 runtime; actual WebView and interruption/restart acceptance remain open.
+The [cache interruption check](#cache-process-interruption-check--2026-10-08)
+covers abrupt termination and fresh-process retry at the installer boundary
+using tiny assets; full-model and public-command recovery remain unvalidated.
 Next is the consolidated rebuilt-app smoke and model-free acceptance review when
 the user is ready. Smoke remains explicitly deferred, and passing it alone will
 not open production semantic integration.
@@ -2171,3 +2174,38 @@ remains held on quality, product index/fallback, lifecycle, stability and device
 platform gates. The user continues to defer the consolidated rebuilt-app
 search/EPUB/RTL/audio/model-control smoke; carry its reminder to final acceptance
 and do not record it as passed.
+
+
+## Cache process-interruption check — 2026-10-08
+
+The new ordinary Linux check reuses the existing installer, publication and
+removal boundaries plus the tiny authored cache fixture. It starts its own test
+children, waits for atomic checkpoint markers and confirms `SIGKILL` termination
+without destructor cleanup. Separate recovery processes retry the same cache.
+Partial-file and verified-before-publication interruptions leave no final cache;
+retry discards staging and fetches both assets again. Interruption immediately
+after the publish rename preserves a verified cache, reused with zero fetches.
+Recovered state remains inactive and has no download reservation, staging is
+absent, and removal works. Owned child processes are reaped even on assertion
+failure, and checkpoint/restart waits have ten-second guards.
+
+Three targeted parent runs pass **nine abrupt kills and nine fresh-process
+recoveries**. The ordinary provider/cache/IPC suite also passes **eight tests**,
+with two asset-dependent checks ignored. Offline locked compilation, Rust
+formatting, diff checks and frozen source/runtime/executable bindings pass.
+The check uses temporary test-owned data, no model weights, network download,
+installed library or production hooks. The existing HTTP regression alone uses
+loopback socket access. No installer algorithm, runtime, dependency, model choice,
+index, ranking or UI change is required.
+
+**Limit:** this is Linux process-recovery evidence using tiny assets. It is not
+power-loss durability, full-sized transfer, real WebView startup or mobile
+acceptance. Explicit retry restarts abandoned staging, not a resumable transfer.
+See [the provider notes](search-embedding-provider.md#process-interruption-recovery--2026-10-08).
+
+**Next:** verify recovery through the public cache/configuration command handlers
+with real cached model assets and disposable app data. Keep Stage 7 held on
+representative quality, product index/fallback, lifecycle, native stability,
+resource/reference-device and advertised-platform gates. The user continues to
+defer consolidated rebuilt-app search/EPUB/RTL/audio/model-control smoke; remind
+at final acceptance and do not record it as passed.

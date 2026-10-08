@@ -385,6 +385,36 @@ There is no TTS synthesis, real WebView, release build, foreground responsivenes
 device-pressure or mobile acceptance in this probe. Model files and installed
 app data are not modified. Interactive smoke remains deferred.
 
+## Process-interruption recovery — 2026-10-08
+
+An ordinary Linux regression now runs the shared installer in disposable child
+processes with two tiny authored assets. The parent waits for an atomic checkpoint
+marker, sends `SIGKILL` to its own child and confirms signal 9, then starts a
+fresh recovery process. Children are reaped on assertion failures and waits have
+ten-second guards. No production recovery hook or installer change is added.
+
+| Interrupted checkpoint | Explicit retry in a fresh process |
+| --- | --- |
+| Partial second asset | No final cache; abandoned staging discarded and both assets fetched again. |
+| Verified staging before rename | No final cache; staging discarded and both assets fetched again. |
+| Immediately after publish rename | Published cache verified and reused with zero fetches. |
+
+The recovered state is inactive with no download reservation, verified bytes
+remain intact, staging is absent and ordinary removal succeeds. Three targeted
+parent runs cover nine abrupt kills and nine fresh recovery processes; the full
+ordinary provider suite also passes **eight tests**, with two asset-dependent
+checks ignored. Run this regression using the existing provider test command
+with the filter
+`search_embeddings::cache::tests::process_interruption_recovers_staging_and_reuses_published_cache`.
+It requires neither model weights nor network access.
+
+This covers process termination at the installer/publish boundary on Linux,
+not power loss, filesystem durability after reboot, full-sized model transfers,
+actual WebView startup or mobile recovery. Explicit retry restarts abandoned
+transfers; it does not resume their byte offsets. Command-level recovery with
+real cached assets remains a follow-up. Smoke remains deferred and the original
+crash, resource and platform acceptance gates remain open.
+
 ## Remaining gates
 
 Native stability and device resource costs remain release gates. Model-setup

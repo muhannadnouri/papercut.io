@@ -610,6 +610,147 @@ mod tests {
         assert!(state.status().unwrap().downloading_format.is_none());
     }
 
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn process_interruption_recovers_staging_and_reuses_published_cache() {
+        use std::{os::unix::process::ExitStatusExt, process::Command, time::Instant};
+
+        let assets = [
+            Asset {
+                path: "config.json",
+                ..SMALL
+            },
+            SMALL,
+        ];
+        let state = SearchEmbeddingState::default();
+        if let Some(root) = std::env::var_os("PAPERCUT_EMBEDDING_INTERRUPTION_ROOT") {
+            let root = fs::canonicalize(root).unwrap();
+            assert!(root.starts_with(fs::canonicalize(std::env::temp_dir()).unwrap()));
+            assert!(root
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .starts_with("papercut-embedding-interruption-"));
+            let phase = std::env::var("PAPERCUT_EMBEDDING_INTERRUPTION_PHASE").unwrap();
+            assert!(matches!(
+                phase.as_str(),
+                "partial" | "verified" | "published" | "recover"
+            ));
+            let dir = root.join("float32");
+            let reuse = dir.exists();
+            let mut fetched = 0;
+            let pause = || {
+                let ready = root.join("ready");
+                fs::write(ready.with_extension("tmp"), phase.as_bytes()).unwrap();
+                fs::rename(ready.with_extension("tmp"), ready).unwrap();
+                loop {
+                    std::thread::park();
+                }
+            };
+            let status = state
+                .download_with(ModelFormat::Float32, |cancel| {
+                    install(
+                        &dir,
+                        &assets,
+                        cancel,
+                        |asset, file, _| {
+                            fetched += 1;
+                            let partial = phase == "partial" && asset.path == SMALL.path;
+                            file.write_all(if partial { b"a" } else { b"abc" }).unwrap();
+                            file.sync_all().unwrap();
+                            if partial {
+                                pause();
+                            }
+                            Ok(())
+                        },
+                        |stage| {
+                            if phase == "verified" {
+                                pause();
+                            }
+                            state.publish(stage, &dir, cancel)?;
+                            if phase == "published" {
+                                pause();
+                            }
+                            Ok(())
+                        },
+                    )
+                })
+                .unwrap();
+            assert_eq!(phase, "recover");
+            assert_eq!(fetched, if reuse { 0 } else { assets.len() });
+            assert!(status.active_format.is_none() && status.downloading_format.is_none());
+            verify_cache(&dir, &assets, &AtomicBool::new(false)).unwrap();
+            assert!(!staging_dir(&dir).exists());
+            return;
+        }
+
+        // Kill only this test's child. Always reap it, including assertion failures.
+        struct Child(std::process::Child);
+        impl Drop for Child {
+            fn drop(&mut self) {
+                let _ = self.0.kill();
+                let _ = self.0.wait();
+            }
+        }
+        let root = work("interruption");
+        let dir = root.0.join("float32");
+        let spawn = |phase: &str| {
+            let log = File::create(root.0.join(format!("{phase}.log"))).unwrap();
+            Child(Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "search_embeddings::cache::tests::process_interruption_recovers_staging_and_reuses_published_cache", "--nocapture"])
+                .env("PAPERCUT_EMBEDDING_INTERRUPTION_ROOT", &root.0)
+                .env("PAPERCUT_EMBEDDING_INTERRUPTION_PHASE", phase)
+                .stdout(log.try_clone().unwrap()).stderr(log).spawn().unwrap())
+        };
+        for phase in ["partial", "verified", "published"] {
+            let mut child = spawn(phase);
+            let started = Instant::now();
+            while !root.0.join("ready").exists() {
+                assert!(
+                    child.0.try_wait().unwrap().is_none(),
+                    "{}",
+                    fs::read_to_string(root.0.join(format!("{phase}.log"))).unwrap()
+                );
+                assert!(started.elapsed() < Duration::from_secs(10));
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            assert_eq!(fs::read(root.0.join("ready")).unwrap(), phase.as_bytes());
+            child.0.kill().unwrap();
+            assert_eq!(child.0.wait().unwrap().signal(), Some(9));
+            assert_eq!(dir.exists(), phase == "published");
+            if phase == "partial" {
+                assert_eq!(fs::read(staging_dir(&dir).join(SMALL.path)).unwrap(), b"a");
+            } else {
+                let cache = if dir.exists() {
+                    dir.clone()
+                } else {
+                    staging_dir(&dir)
+                };
+                verify_cache(&cache, &assets, &AtomicBool::new(false)).unwrap();
+            }
+            fs::remove_file(root.0.join("ready")).unwrap();
+            let mut restarted = spawn("recover");
+            let started = Instant::now();
+            let status = loop {
+                if let Some(status) = restarted.0.try_wait().unwrap() {
+                    break status;
+                }
+                assert!(started.elapsed() < Duration::from_secs(10));
+                std::thread::sleep(Duration::from_millis(10));
+            };
+            assert!(
+                status.success(),
+                "{}",
+                fs::read_to_string(root.0.join("recover.log")).unwrap()
+            );
+            verify_cache(&dir, &assets, &AtomicBool::new(false)).unwrap();
+            assert!(!staging_dir(&dir).exists());
+            eprintln!("SIGKILL at {phase}: fresh-process recovery passed");
+            state.remove(&dir, ModelFormat::Float32).unwrap();
+        }
+    }
+
     #[test]
     fn http_status_length_checksum_truncation_and_idle_timeout_are_checked() {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
