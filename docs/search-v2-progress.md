@@ -10,7 +10,7 @@ Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Code
 | --- | --- |
 | Model-free search | Ranking, Broader mode, source evidence, authored-word spelling help, Arabic normalization and query corrections are implemented on this branch. A 500-document / 100,000-section saturated-match native probe passes common-query timing thresholds on this development host; it does not establish weak-device or interactive app acceptance. General synonym expansion is unclaimed; hard-coded word pairs were removed. The latest complete-query correction's app smoke check is deferred. |
 | Embedding baseline | Cached FP32/INT8 providers, anchored passages, incremental SQLite indexing, read-only queries and document-level fusion remain experimental. Native primary evidence and separate conceptual context are preserved. |
-| Representative quality | Assistant development grades show useful English and controlled same-language Arabic retrieval, with cross-language/entity/date and missing-answer-span failures. Additional privately authored Arabic EPUB fixtures exercise the retained baseline; they do not replace actual books or independent grading. The existing independent packet remains unjudged; no held-out acceptance gain is established. |
+| Representative quality | Assistant development grades show useful English and controlled same-language Arabic retrieval, with cross-language/entity/date and missing-answer-span failures. The [frozen fact controls](#stage-6--frozen-multilingual-fact-controls-2026-10-08) reproduce mixed-language competition and separate document ranking from answer evidence. Private authored controls do not replace actual books or independent grading. The existing independent packet remains unjudged; no held-out acceptance gain is established. |
 | Cached reranker/context augmentation | Rejected: a cross-language gain introduces a same-language date regression; combined-context and explicit-exclusion controls do not justify a repair. Its live CLI/module are removed. |
 | Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the shared-runtime check reuses the actual app adapter with FastEmbed/sherpa. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. The linked initializer is tested on Linux, not an iOS archive/device. Other platforms, weak reference hardware, responsiveness and optional-model lifecycle/fallback validation remain open. |
 | Production optional hybrid | No ranking integration or default change; the explicitly compiled, session-only provider prototype does not participate in search. Proceed only after independent quality, reference-device and lifecycle/platform gates justify Stage 7; the original plan permits stopping with a documented no-go. |
@@ -1451,3 +1451,92 @@ platform results and representative responsiveness for the model-free candidate.
 Reopen Stage 7 only when independent relevance and compatible product-lifecycle,
 resource/platform evidence justify it. Continuing with model-free search and
 leaving the provider experimental is a valid outcome of the original plan.
+
+## Stage 6 — frozen multilingual fact controls (2026-10-08)
+
+**Decision: retain the baseline as an experiment; Stage 7 remains on hold.**
+At the user's request, the assistant completed provisional grading of the prior
+small review batch: four questions, eight document cards and nine evidence
+variants. English conceptual, Arabic causal and exact Arabic quotation controls
+had direct first results; the cross-language question returned unrelated
+entity/purpose results. That assistant-authored and familiar subset is neither
+independent grading nor an untouched held-out evaluation. Its separate grades
+do not fill the original independent sheet's null fields.
+
+This pass freezes fresh private inputs and exact source-answer clauses before
+retrieval: **24 short documents / 48 sections and 46 requests per mode**. The
+requests comprise 32 positive fact controls, eight keyword controls, four
+present/absent quotation controls and two unavailable-fact controls. Four facts
+cover entity/date and causal distinctions in English and Arabic, with related
+wrong-purpose and background neighbors. Each positive is paired across query
+language and fixed source scopes. Single-language scopes contain 12 documents;
+mixed-language scopes contain 23, excluding the target's correct translation
+counterpart so that it cannot rescue a cross-language result. These authored,
+translated and scoped pairs are correlated controls, not 32 independent facts.
+No private source text, query examples or identities enter tracked files.
+
+The existing production parser/native evaluator prepares a disposable library
+and exports the same anchored corpus for All words and Broader. The unchanged
+release experiment loads the retained cached FP32 and dynamic INT8 assets,
+sequentially, with separate fresh SQLite vector indexes. Each initially embeds
+48 passages; each Broader run reuses all 48 with zero new embeddings. No model,
+token/prefix policy, passage selection, fusion rule or product behavior changes.
+
+| Main positive controls (32 per row) | Correct document first | Correct document in top 10 | Full answer clause in first result's displayed evidence | Full answer clause in top 10 evidence |
+| --- | ---: | ---: | ---: | ---: |
+| Native All words | 0 | 0 | 0 | 0 |
+| Native Broader | 16 | 16 | 16 | 16 |
+| FP32 semantic, either mode | 24 | 31 | 18 | 25 |
+| INT8 semantic, either mode | 22 | 32 | 18 | 28 |
+| FP32 hybrid with All words | 24 | 31 | 18 | 25 |
+| INT8 hybrid with All words | 22 | 32 | 18 | 28 |
+| FP32 hybrid with Broader | 24 | 31 | 24 | 31 |
+| INT8 hybrid with Broader | 22 | 32 | 22 | 32 |
+
+Displayed support requires the target document and its full frozen answer clause
+in a lead or expanded source span, including separately attached semantic
+context. This strict clause-coverage diagnostic does not grade every partially
+useful or related result as irrelevant. Inspection of the missing spans finds
+introductory material rather than the decision/answer section; adding the
+currently retained expanded semantic evidence does not recover those clauses.
+Broader hybrid preserves native excerpts and recovers every returned target's
+answer in these controls. It does not repair the cross-language ordering.
+
+In target-language-only scopes, FP32 puts all eight cross-language targets first;
+INT8 puts six first, with all eight in the top ten. With mixed-language
+competition, **both formats put zero of eight cross-language targets first**:
+nearby documents in the query's language displace the correct foreign-language
+source, including explicit wrong-purpose/exclusion material. FP32 retains seven
+of eight targets in the top ten; INT8 retains eight. Both put all 16 same-language
+targets first. This controlled scope comparison supports a competition weakness;
+it does not establish a universal language bias or an INT8 quality win.
+
+Native keyword controls retain all eight targets in both modes, six first;
+hybrid places all eight first with full answer evidence. Present quotations
+return the correct source; absent quotations return nothing in both modes, and
+all quoted requests remain excluded from semantic/hybrid retrieval. Both
+unavailable-fact controls still receive semantic neighbors without an answer:
+the baseline ranks sources and has no answerability/abstention contract. Native
+All words returns none; Broader returns literal neighbors for one. These are not
+generated answers or evidence of a broken lexical clause contract. Natural
+questions containing absent required words also explain the empty All words
+positive results; this diagnostic does not justify silently relaxing that mode.
+
+Validation matches all **184 embedded native responses** to the native reports,
+checks **3,360 semantic source spans** against their UTF-8 bytes, verifies scope
+and document deduplication, and preserves **236 native hybrid evidence objects**
+unchanged. Input, answer-key, corpus-export and source-library hashes remain
+frozen. The standalone strict-offline release rebuild and both native evaluator
+runs pass. This path does not exercise file extraction, app import, WebView,
+mobile/shared runtime, weak hardware or independent product-quality acceptance.
+
+**Next:** the original Stage 6 plan permits stopping or comparing one justified
+alternative encoder when gains are weak. If continuing semantic work, compare
+one compatible multilingual alternative against these unchanged controls and
+the retained broader packet, with resource costs and separate document/evidence
+results; do not tune word exceptions, language boosts or thresholds to these
+answers. Treat these controls as development evidence, then obtain representative
+independent quality before any Stage 7 go decision. Interactive app smoke remains
+deferred to the user's consolidated final pass; the [checklist](search-v2-smoke.md)
+is ready. Reference-device, supported-platform and native lifecycle gates remain
+open alongside the original unexplained crash and allocator-retention concern.
