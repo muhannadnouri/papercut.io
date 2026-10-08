@@ -11,6 +11,9 @@ retains semantic-first ordering with native Broader evidence as the experimental
 candidate. It recovers missing displayed answer clauses in familiar controls,
 but leaves mixed-language ranking and unavailable-answer failures unresolved.
 The bounded model/fusion comparisons are complete; do not schedule another sweep.
+The [native reload check](#native-provider-reload-check--2026-10-08) adds bounded
+same-process lifecycle evidence, including higher reload memory peaks; it does
+not close native stability or device responsiveness.
 Next is the consolidated rebuilt-app smoke and model-free acceptance review when
 the user is ready. Smoke remains explicitly deferred, and passing it alone will
 not open production semantic integration.
@@ -2089,3 +2092,43 @@ require subject-matter relevance grading or a new semantic UI. Leave Stage 7 on
 hold until the remaining quality, product index/fallback, lifecycle and device/
 platform gates are met. The original native crash and allocator-retention caveats
 remain open; do not claim they were resolved by this review.
+
+
+## Native provider reload check — 2026-10-08
+
+While interactive smoke remains explicitly deferred, this pass reuses the
+existing ignored app-provider test to cover repeated native loads in one process.
+Test-only `PAPERCUT_EMBEDDING_TEST_CYCLES` accepts 1–20 cycles, defaults to one,
+and respects the existing single-format selector. Each format's English vector
+must equal its first-load baseline. The existing inference/input, disable-first,
+failed-loading, cancelled-publication and one-ORT checks repeat; phase logs
+identify cycles for external resource sampling. Production behavior, dependencies,
+model choices, UI and experimental ranking are unchanged.
+
+Two fresh ten-cycle processes pass **40 successful activations and 20 cancelled
+native loads** collectively. The unchanged default-cycle control also passes.
+Seven ordinary provider/cache/IPC tests pass; the two asset-dependent tests are
+ignored in that ordinary run, with the cached-provider test run explicitly.
+Invalid zero/21/non-integer counts fail before requesting assets. Offline locked
+compilation, Rust formatting and diff checks pass. No native crash recurs.
+
+Both repeated processes peak near **1.80 GiB**, versus **1.43 GiB** for the
+single-cycle control. Post-disable completion RSS rises from about 626 MiB to
+665 MiB by cycle two and then roughly plateaus, ending at 655–657 MiB. This
+updates resource sizing: first-load checks understate reload headroom. Full
+method, timings and limitations are in the
+[provider notes](search-embedding-provider.md#same-process-reload-check--2026-10-08).
+It is a bounded debug Linux check with warm filesystem caches, without TTS
+synthesis, real WebView or reference-device acceptance. It cannot explain the
+original crash or guarantee long-term leak-free behavior. No allocator workaround
+or weaker-model default is introduced.
+
+**Decision:** retain the experimental provider; Stage 7 remains on hold. This
+adds lifecycle regression evidence, not permission to enable semantic results.
+**Next:** check actual command status/disable responsiveness during native
+activation and cancellation, using the existing isolated command harness rather
+than another model/fusion sweep. Actual WebView/download/restart, representative
+quality, compatible product indexes/fallback, native stability, reference hardware
+and advertised-platform gates remain. Keep the consolidated rebuilt-app
+search/EPUB/RTL/audio/model-control smoke reminder for the final acceptance pass;
+the user has explicitly deferred it and it is not recorded as passed.

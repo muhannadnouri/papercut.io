@@ -504,6 +504,10 @@ mod provider {
         #[test]
         #[ignore = "requires explicit cached FP32/INT8 assets and packaged ONNX Runtime"]
         fn cached_provider_activation_switch_failure_and_unload() {
+            let cycles = std::env::var("PAPERCUT_EMBEDDING_TEST_CYCLES")
+                .map(|value| value.parse::<usize>().expect("cycles must be an integer"))
+                .unwrap_or(1);
+            assert!((1..=20).contains(&cycles), "cycles must be in 1..=20");
             let root = std::env::var_os("PAPERCUT_EMBEDDING_TEST_MODELS")
                 .expect("set test-only cached models directory");
             let only = std::env::var("PAPERCUT_EMBEDDING_TEST_FORMAT").ok();
@@ -511,14 +515,19 @@ mod provider {
                 .as_deref()
                 .is_none_or(|format| matches!(format, "float32" | "dynamic-int8")));
             let state = SearchEmbeddingState::default();
-            for (format, folder) in [
-                (ModelFormat::Float32, "float32"),
-                (ModelFormat::DynamicInt8, "dynamic-int8"),
-            ] {
+            let mut baselines = Vec::new();
+            for (cycle, (format, folder)) in (1..=cycles).flat_map(|cycle| {
+                [
+                    (ModelFormat::Float32, "float32"),
+                    (ModelFormat::DynamicInt8, "dynamic-int8"),
+                ]
+                .map(|selection| (cycle, selection))
+            }) {
                 if only.as_deref().is_some_and(|requested| requested != folder) {
                     continue;
                 }
                 let dir = Path::new(&root).join(folder);
+                eprintln!("lifecycle cycle: {cycle}/{cycles} {format:?}");
                 eprintln!("activation start: {format:?}");
                 let status = state.activate(&dir, format).unwrap();
                 eprintln!("activation ready: {format:?}");
@@ -559,6 +568,11 @@ mod provider {
                     eprintln!("inference controls: {format:?}");
                     let first = loaded.encode("query: public transport").unwrap();
                     assert_eq!(first, loaded.encode("query: public transport").unwrap());
+                    if let Some((_, expected)) = baselines.iter().find(|(key, _)| *key == format) {
+                        assert_eq!(&first, expected, "vector changed across provider reloads");
+                    } else {
+                        baselines.push((format, first));
+                    }
                     loaded
                         .encode("passage: Residents travel by electric bus.")
                         .unwrap();
@@ -581,6 +595,7 @@ mod provider {
                 eprintln!("provider disabled: {format:?}");
                 assert!(state.activate(Path::new("missing"), other).is_err());
                 assert!(state.status().unwrap().active_format.is_none());
+                assert!(state.status().unwrap().loading_format.is_none());
                 if format == ModelFormat::DynamicInt8 {
                     // Disable during non-interruptible native setup: discard the
                     // completed session instead of publishing it after opting out.
@@ -599,6 +614,7 @@ mod provider {
                     .unwrap()
                     .active_format
                     .is_none());
+                eprintln!("lifecycle cycle complete: {cycle}/{cycles} {format:?}");
             }
         }
     }

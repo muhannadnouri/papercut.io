@@ -254,6 +254,15 @@ with the same Cargo options. Set optional test-only
 format for measurement; invalid values fail. This test reads only that cache and uses in-memory
 state, not the installed library or app model directory.
 
+For repeated native loads in one process, set test-only
+`PAPERCUT_EMBEDDING_TEST_CYCLES=10` with the same command. The default remains one
+cycle; accepted values are integers from 1 through 20. Each cycle activates and
+disables both formats (or the requested single format), compares the English
+query vector with the first load of that format, and repeats the existing
+inference, failure cleanup and INT8 cancelled-publication checks. Phase logs
+identify each cycle for external resource sampling. This exercises the actual
+provider, not WebView responsiveness, persistent settings or a production index.
+
 Three ordinary cache regressions cover integrity/staging/reuse/removal, blocked
 concurrent operations and cancelled/panicked worker cleanup, and local HTTP status,
 declared length, checksum, truncated body, idle timeout, HTTPS-only policy and
@@ -318,6 +327,42 @@ the same way. No allocator override, trimming call, dependency fork or weaker
 model default is added. Disabling removes the session, not a guaranteed quantity
 of process RSS. Keep memory-pressure and repeated-load responsiveness as device
 acceptance checks.
+
+### Same-process reload check — 2026-10-08
+
+The extended cached-provider check passes two independent processes with ten
+cycles per format each: **40 successful activations and 20 cancelled native
+loads**, in addition to the unchanged one-cycle control. Each process keeps one
+provider state through its repeated loads; each format's English vector equals
+its first-cycle vector. Existing Arabic/input validation, disable-first
+switching, failed-load cleanup, cancellation and single-ORT assertions repeat.
+Zero, over-limit and non-integer cycle counts fail before requesting any assets.
+Seven ordinary provider/cache/command tests pass; two asset-dependent tests stay
+ignored in that ordinary run. The cached provider test is explicitly exercised
+separately. No crash recurs.
+
+| Measurement | Ten-cycle process A | Ten-cycle process B |
+| --- | --- | --- |
+| Complete check | 151.49 s | 148.93 s |
+| Whole-process high water | 1.803 GiB | 1.803 GiB |
+| Median FP32 activation | 8.41 s | 8.29 s |
+| Median INT8 activation | 3.20 s | 3.16 s |
+
+The default one-cycle control peaks at 1.434 GiB. After its first FP32/INT8
+cycle, each repeated process retains about 626 MiB. From cycle two, completion
+RSS stays near 665 MiB, ending near 655–657 MiB after the final cancelled load.
+The higher reload peak matters for headroom even when post-disable RSS plateaus.
+This bounded observation does not establish a leak-free process or justify an
+allocator hook. The earlier crash remains unexplained.
+
+These are debug Linux development-host checks with warm filesystem caches.
+The parent samples `/proc/<pid>/status` every 50 ms and at received phase logs;
+phase RSS is approximate, not synchronized. Neither child reports swapped pages
+in the samples, but the host already has substantial swap use/background memory
+pressure. Activation includes asset verification, construction and warm-up.
+There is no TTS synthesis, real WebView, release build, foreground responsiveness,
+device-pressure or mobile acceptance in this probe. Model files and installed
+app data are not modified. Interactive smoke remains deferred.
 
 ## Remaining gates
 
