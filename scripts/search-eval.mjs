@@ -45,7 +45,7 @@ function reviewPacket(report) {
     '# Private search relevance review', '',
     'Grade the document and the displayed evidence separately: **0 irrelevant, 1 useful, 2 directly relevant**. Leave a grade **null** when unsure; an unjudged candidate is not irrelevant. Add a short reason in `grades.json`, or reply with the candidate code and your grades.', '',
     'Judge the intended information need, not just word presence. For a misspelling, judge the intended topic. If excerpts are insufficient, inspect the full source using its title and section/page; installed documents can be read in Papercut. Do not infer document relevance from a title alone.', '',
-    'Each question pools up to ten results per available channel: direct, Broader, explicit spelling retry, semantic, hybrid, and reranked semantic, including both embedding variants when supplied. Candidate order is shuffled deterministically and ranks/channels are hidden. A separate `key.json` records their original ranks. Avoid opening that key until grading is complete.', '',
+    'Each question pools up to ten results per available channel: direct, Broader, explicit spelling retry, semantic, hybrid, semantic-first hybrid, and reranked semantic, including both embedding variants when supplied. Candidate order is shuffled deterministically and ranks/channels are hidden. A separate `key.json` records their original ranks. Avoid opening that key until grading is complete.', '',
     'These bounded excerpts are not whole documents. Evidence grade covers the expanded excerpts together; the separately shown lead has its own grade. This pool cannot establish library-wide recall or a held-out semantic gain.', '',
     'Grade the result-card lead excerpt separately from its expanded evidence. The lead may differ from the first expanded passage. Lead and expanded-evidence grades must not be inferred from each other.', '',
   ]
@@ -73,8 +73,8 @@ function reviewPacket(report) {
     }
     seen.add(row.id)
     const candidates = new Map()
-    for (const [channel, response] of [['direct', row.response], ['broader', row.broaderResponse], ['retry', row.retry?.response], ['semantic', row.semanticResponse], ['hybrid', row.hybridResponse],
-      ['semantic-int8', row.semanticInt8Response], ['hybrid-int8', row.hybridInt8Response],
+    for (const [channel, response] of [['direct', row.response], ['broader', row.broaderResponse], ['retry', row.retry?.response], ['semantic', row.semanticResponse], ['hybrid', row.hybridResponse], ['semantic-first-hybrid', row.semanticFirstResponse],
+      ['semantic-int8', row.semanticInt8Response], ['hybrid-int8', row.hybridInt8Response], ['semantic-first-hybrid-int8', row.semanticFirstInt8Response],
       ['reranked-semantic', row.rerankedSemanticResponse], ['reranked-semantic-int8', row.rerankedSemanticInt8Response]]) {
       if (row.request?.exactPhrases?.length && (channel.includes('semantic') || channel.includes('hybrid')) && response != null) {
         throw new Error('mandatory quotation cannot receive semantic candidates')
@@ -199,12 +199,12 @@ function comparisonReport(float32, int8) {
     if (!other || ['query', 'request', 'response', 'broaderResponse', 'retry', 'excluded'].some((field) => !isDeepStrictEqual(row[field], other[field]))) {
       throw new Error('comparison question, constraints or native controls differ')
     }
-    if (row.request?.exactPhrases?.length && [row.semanticResponse, row.hybridResponse, row.rerankedSemanticResponse,
-      other.semanticResponse, other.hybridResponse, other.rerankedSemanticResponse].some((value) => value != null)) {
+    if (row.request?.exactPhrases?.length && [row.semanticResponse, row.hybridResponse, row.semanticFirstResponse, row.rerankedSemanticResponse,
+      other.semanticResponse, other.hybridResponse, other.semanticFirstResponse, other.rerankedSemanticResponse].some((value) => value != null)) {
       throw new Error('mandatory quotation cannot receive semantic candidates')
     }
     return { ...row, semanticInt8Response: other.semanticResponse, hybridInt8Response: other.hybridResponse,
-      rerankedSemanticInt8Response: other.rerankedSemanticResponse }
+      semanticFirstInt8Response: other.semanticFirstResponse, rerankedSemanticInt8Response: other.rerankedSemanticResponse }
   }) }
 }
 
@@ -261,6 +261,10 @@ function checkReviewPreparation() {
   assert.equal(supportSet.locators.length, 2, 'retain lexical evidence and conceptual context separately')
   assert.equal(supportSet.locators[1].evidenceKind, 'semantic')
   assert.ok(supported.review.includes('Conceptual source context; literal counts and highlights do not apply.'))
+  const ordered = reviewPacket({ queries: [{ ...report.queries[0], semanticFirstResponse: { results: [supportedHit] } }] })
+  assert.deepEqual(ordered.key.queries[0].candidates, supported.key.queries[0].candidates.map((candidate) => ({ ...candidate, channels: candidate.channels.map((item) => item.channel === 'hybrid' ? { ...item, channel: 'semantic-first-hybrid' } : item) })))
+  assert.throws(() => reviewPacket({ queries: [{ ...report.queries[0], request: { exactPhrases: ['silver compass'] }, semanticFirstResponse: { results: [supportedHit] } }] }), /quotation/)
+  assert.throws(() => reviewPacket({ queries: [{ ...report.queries[0], semanticFirstResponse: { results: [{ ...supportedHit, semanticEvidence: { ...semantic, documentId: 'other' } }] } }] }), /hybrid semantic/)
   const nativePassages = [0, 1, 2].map((sectionIndex) => ({ ...hit('a'), sectionIndex }))
   const complete = reviewPacket({ queries: [{ ...report.queries[0], hybridResponse: { results: [{
     ...supportedHit, passages: nativePassages,
@@ -285,6 +289,9 @@ function checkReviewPreparation() {
   const shared = combined.key.queries[0].candidates.find((row) => row.documentId === 'a')
   assert.equal(shared.evidenceSets.length, 3, 'keep distinct variant excerpts independently judgeable')
   assert.ok(shared.channels.some((row) => row.channel === 'semantic-int8'))
+  const semanticFirstComparison = comparisonReport({ ...left, queries: [{ ...left.queries[0], semanticFirstResponse: { results: [supportedHit] } }] }, { ...right, queries: [{ ...right.queries[0], semanticFirstResponse: { results: [supportedHit] } }] })
+  assert.deepEqual(semanticFirstComparison.queries[0].semanticFirstInt8Response, { results: [supportedHit] })
+  assert.ok(reviewPacket(semanticFirstComparison).key.queries[0].candidates.find((row) => row.documentId === 'a').channels.some((row) => row.channel === 'semantic-first-hybrid-int8'))
   assert.ok(combined.grades.queries[0].candidates.every((row) => row.documentGrade === null && row.evidenceSets.every((set) => set.evidenceGrade === null)))
   const reranking = { modelSha256: 'reranker', documents: 10, passagesPerDocument: 2, pairTokens: 512 }
   const rerankedLeft = { ...left, reranking, queries: [{ ...left.queries[0], rerankedSemanticResponse: left.queries[0].semanticResponse }] }

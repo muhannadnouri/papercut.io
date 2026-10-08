@@ -392,6 +392,20 @@ fn fuse(lexical: &[String], semantic: &[String]) -> Vec<String> {
     hits.into_iter().map(|(id, _)| id.to_owned()).collect()
 }
 
+fn hybrid_results(
+    ids: &[String],
+    lexical: Option<&serde_json::Value>,
+    semantic: &[serde_json::Value],
+) -> Result<Vec<serde_json::Value>, Box<dyn Error + Send + Sync>> {
+    ids.iter()
+        .take(10)
+        .map(|id| {
+            hybrid_evidence(id, lexical, semantic)
+                .ok_or("hybrid result lacks source evidence".into())
+        })
+        .collect()
+}
+
 fn relevant_at_ten(ids: &[String], relevant: &[Judgment]) -> (usize, usize) {
     let labeled = relevant
         .iter()
@@ -810,6 +824,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                 .ok_or("missing quoted lexical query")?;
             candidates.push(serde_json::json!({"id": case.id, "query": case.query,
                 "request": row.request, "response": row.response, "retry": row.retry, "semantic": null, "hybrid": null,
+                "semanticFirstResponse": null,
                 "excluded": "mandatory quotes: lexical control only"}));
             continue;
         }
@@ -872,20 +887,15 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                 })
             })
             .collect::<Result<Vec<_>, Box<dyn Error + Send + Sync>>>()?;
-        let hybrid_hits = hybrid
-            .iter()
-            .take(10)
-            .map(|id| {
-                hybrid_evidence(id, row.response.as_ref(), &source_hits)
-                    .ok_or("hybrid result lacks source evidence")
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let hybrid_hits = hybrid_results(&hybrid, row.response.as_ref(), &source_hits)?;
+        let semantic_first_hits = hybrid_results(&semantic, row.response.as_ref(), &source_hits)?;
         candidates.push(serde_json::json!({
             "id": case.id, "query": case.query,
             "semanticMeasurements": {"queryEmbeddingMs": embedding_ms, "scanMs": scan_ms, "fusionEvidenceMs": evidence_started.elapsed().as_secs_f64() * 1000.0},
             "request": row.request, "response": row.response, "retry": row.retry,
             "semanticResponse": {"results": source_hits.iter().take(10).collect::<Vec<_>>()},
             "hybridResponse": {"results": hybrid_hits},
+            "semanticFirstResponse": {"results": semantic_first_hits},
             "lexical": literal.iter().take(10).collect::<Vec<_>>(),
             "semantic": semantic.iter().take(10).collect::<Vec<_>>(),
             "hybrid": hybrid.iter().take(10).collect::<Vec<_>>(),
@@ -964,6 +974,48 @@ mod tests {
         let lexical = vec!["a".into(), "b".into()];
         let semantic = vec!["b".into(), "c".into()];
         assert_eq!(fuse(&lexical, &semantic), ["b", "a", "c"]);
+    }
+
+    #[test]
+    fn semantic_first_assembly_preserves_native_evidence_and_bounds() {
+        let native = serde_json::json!({"results": [{
+            "documentId": "record", "title": "Mira 1924", "excerpt": "Mira arrived in <mark>1924</mark>.",
+            "sectionIndex": 2, "pageIndex": 7, "matchCount": null, "matchingSections": 1, "matchScope": "section",
+            "termMatches": [{"term": "1924", "matchingSections": 1, "sectionIndex": 2, "pageIndex": 7, "text": "1924"}],
+            "matchLocations": [{"binIndex": 0, "matchCount": 1, "sectionIndex": 2, "pageIndex": 7, "text": "1924"}],
+            "passages": [{"sectionIndex": 2, "pageIndex": 7, "excerpt": "Mira arrived in 1924."}]
+        }]});
+        let context = serde_json::json!({"documentId": "record", "sectionIndex": 0, "byteStart": 0, "byteEnd": 8, "excerpt": "Context."});
+        let other = serde_json::json!({"documentId": "other", "sectionIndex": 1, "byteStart": 0, "byteEnd": 7, "excerpt": "Source."});
+        let order = vec!["other".into(), "record".into()];
+        let mut hits =
+            hybrid_results(&order, Some(&native), &[context.clone(), other.clone()]).unwrap();
+        assert_eq!(
+            hits[0], other,
+            "semantic-only hits retain their source evidence"
+        );
+        assert_eq!(
+            hits[1].as_object_mut().unwrap().remove("semanticEvidence"),
+            Some(context)
+        );
+        assert_eq!(
+            hits[1], native["results"][0],
+            "names, dates, counts and native navigation are unchanged"
+        );
+        assert_eq!(
+            hybrid_results(&["record".into()], Some(&native), &[]).unwrap(),
+            [native["results"][0].clone()]
+        );
+        assert!(hybrid_results(&["missing".into()], Some(&native), &[]).is_err());
+        assert!(hybrid_results(&[], Some(&native), &[]).unwrap().is_empty());
+        let bounded = (0..10).map(|i| format!("record-{i}")).collect::<Vec<_>>();
+        let evidence = bounded
+            .iter()
+            .map(|id| serde_json::json!({"documentId": id}))
+            .collect::<Vec<_>>();
+        let mut order = bounded;
+        order.push("missing".into());
+        assert_eq!(hybrid_results(&order, None, &evidence).unwrap().len(), 10);
     }
     #[test]
     fn cached_ranking_keeps_source_scope_and_rejects_incompatible_vectors() {

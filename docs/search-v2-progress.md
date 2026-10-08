@@ -9,7 +9,7 @@ Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Code
 | Gate | Current evidence and decision |
 | --- | --- |
 | Model-free search | Ranking, Broader mode, source evidence, authored-word spelling help, Arabic normalization and query corrections are implemented on this branch. A 500-document / 100,000-section saturated-match native probe passes common-query timing thresholds on this development host; it does not establish weak-device or interactive app acceptance. General synonym expansion is unclaimed; hard-coded word pairs were removed. The latest complete-query correction's app smoke check is deferred. |
-| Embedding baseline | Cached FP32/INT8 providers, anchored passages, incremental SQLite indexing, read-only queries and document-level fusion remain experimental. The standalone comparison now accepts verified Small/Base metadata and dimension-safe 384/768-vector indexes; the app provider/model setup still supports only the retained Small formats. Native primary evidence and separate conceptual context are preserved. |
+| Embedding baseline | Cached FP32/INT8 providers, anchored passages, incremental SQLite indexing, read-only queries and document-level fusion remain experimental. The standalone report now includes an evidence-preserving semantic-first response alongside the unchanged semantic/RRF controls. The comparison accepts verified Small/Base metadata and dimension-safe 384/768-vector indexes; the app provider/model setup still supports only the retained Small formats. Native primary evidence and separate conceptual context are preserved. Semantic ordering does not enforce unquoted names/dates and must not redefine All words. |
 | Representative quality | The [public human-label comparison](#stage-6--public-human-label-comparison-2026-10-08) supports same-language conceptual passage ranking. The [wider-pool check](#stage-6--frozen-wider-pool-check-2026-10-08) and [fresh-query verification](#stage-6--fresh-query-fusion-verification-2026-10-08) confirm Broader fusion can replace positive first results with judged negatives and reduce known-positive recall. Keep semantic-only ordering as the conceptual control; the fresh English All words result cautions against a universal semantic-first policy. Base's mixed gain and higher cost do not establish an overall acceptance win. Prior cross-language/entity/date and missing-answer-span failures remain. Public passage labels do not establish private-book, displayed-answer or full-library quality. The original independent packet remains unjudged; product acceptance remains open. |
 | Cached reranker/context augmentation | Rejected: a cross-language gain introduces a same-language date regression; combined-context and explicit-exclusion controls do not justify a repair. Its live CLI/module are removed. |
 | Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the shared-runtime check reuses the actual app adapter with FastEmbed/sherpa. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. The linked initializer is tested on Linux, not an iOS archive/device. Other platforms, weak reference hardware, responsiveness and optional-model lifecycle/fallback validation remain open. |
@@ -1932,3 +1932,79 @@ application integration decision. The consolidated rebuilt-app smoke remains
 explicitly deferred to the final pass; remind the user then. Product index/fallback,
 model lifecycle, weak reference hardware/platform, original native crash and
 allocator-retention gates remain open.
+
+## Stage 6 — Evidence-preserving semantic-first assembly (2026-10-08)
+
+Status: implemented and contract-checked **inside the standalone experiment**;
+Stage 7 remains on hold. Candidate reports now include `semanticFirstResponse`:
+up to ten results in the existing semantic document order, assembled through the
+same evidence builder as `hybridResponse`. The semantic and equal-weight RRF
+controls remain unchanged. No new ranking heuristic, model, dependency, app
+setting, native schema or production search path is introduced.
+
+For a document present in native retrieval, its result object remains exact:
+lead excerpt, marks, match fields, passages, section/page and navigation metadata
+are preserved. Conceptual source context is attached separately as
+`semanticEvidence`. Otherwise the result is the verified semantic source object,
+with no invented literal counts. The shared bounded assembler rejects missing
+source evidence. Quoted requests remain lexical-only and emit a null
+`semanticFirstResponse`; existing scope validation and scoped vector ranking apply
+before assembly. This changes experimental response order, not literal eligibility.
+
+The existing external review helper pools this response as `semantic-first-hybrid`,
+keeping ranks hidden and identical evidence deduplicated. Its comparison helper
+also retains the optional INT8 response. Existing quote and source-context guards
+apply to both new channels. Review grades remain null; packet creation is not
+relevance grading. Use the existing command:
+
+```sh
+node scripts/search-eval.mjs --review /external/candidates.json /external/new-review
+```
+
+Validation replays both frozen 32-query Small reports against their existing
+read-only index and adds twelve generic English/Arabic native contract cases:
+names and differing years, mandatory quotes, single-document filters and rejected
+quoted/name scopes. All **64 prior native/semantic/RRF query rows** retain exact
+requests, retry objects, ranking and source evidence. Across those runs and the
+contract cases, the new response passes **70 assembled queries, 648 UTF-8 source
+spans, 260 native primary objects, 388 semantic-only objects and six quote
+exclusions**. Source/library/vector SQLite hashes remain unchanged during the
+final read-only replay. Review packets for all three reports generate successfully.
+Seven ordinary Rust checks pass, including one new assembler check for ordering,
+real native match-field shapes, navigation, the ten-result bound, empty lists and
+missing-source failure. The two cached-model indexing/tail suites remain ignored;
+actual cached-model query replay supplies this pass's inference check. Review
+self-checks cover new-channel evidence parity, quote rejection, mismatched context
+and INT8 comparison transport; no new INT8 inference result is claimed. Offline
+release build, Rust formatting and diff checks pass.
+
+Reused human passage labels give the new response **27/31 positive first results,
+known-positive Recall@10 1.0000 and MRR@10 0.9274** in either native mode, matching
+the existing semantic control. This is response/evidence preservation on the same
+batch, not fresh held-out quality evidence or an answer-span relevance grade.
+
+**Names/dates remain a product-contract boundary.** In two scoped controls, the
+only allowed source discusses another year: native All words correctly returns
+nothing, while semantic ordering returns that source as conceptual evidence.
+The name/year fields and source text are not rewritten, and no literal match
+metadata is fabricated. Passing assembly checks therefore does not establish
+exact unquoted-name/date satisfaction. Keep All words strict; do not silently
+substitute this response for it. No automatic name detector or word exceptions
+were added. Quotes and document filters remain hard constraints.
+
+A missing-model probe fails without publishing a semantic report; the independent
+native evaluation still returns identical result objects afterwards. This checks
+experimental failure isolation, **not an integrated application fallback**.
+No installed library was opened, no model downloaded and no index format changed.
+Private replay inputs, generic documents, source/index hashes, exact compiled
+executable and reports remain outside tracked files.
+
+**Next:** review the proposed conceptual-search contract against the existing
+name/date and answer-evidence failures, and record a bounded go/no-go decision
+before application integration. Treat semantic-first assembly as a candidate for
+explicit conceptual retrieval, preserving model-free All words and Broader as
+controls; successful serialization alone does not earn a Stage 7 gate. No further
+weight or model sweep. Product index/fallback and optional-model lifecycle,
+reference hardware/platform, original native crash and allocator retention remain
+open. The consolidated rebuilt-app smoke is still explicitly deferred to the final
+pass; remind the user then, and do not count it as passed.
