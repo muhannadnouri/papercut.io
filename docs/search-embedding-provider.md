@@ -215,7 +215,7 @@ task_ipc_data=$(mktemp -d /tmp/papercut-cache-ipc.XXXXXX)
 XDG_DATA_HOME="$task_ipc_data" PAPERCUT_EMBEDDING_IPC_TEST_DATA="$task_ipc_data" \
   PAPERCUT_EMBEDDING_TEST_MODELS="$CACHED_MODELS" \
   SHERPA_ONNX_LIB_DIR="$SHARED_LIB_DIR" LD_LIBRARY_PATH="$SHARED_LIB_DIR" \
-  cargo test --offline --locked --manifest-path src-tauri/Cargo.toml \
+  timeout 120s cargo test --offline --locked --manifest-path src-tauri/Cargo.toml \
   --features native-tts-shared,experimental-search-embeddings \
   --lib search_embeddings::ipc_tests::command_cache_lifecycle \
   -- --ignored --nocapture
@@ -231,6 +231,27 @@ semantics; the existing real-worker test separately verifies cleanup completion.
 The test removes its own app-data tree. It never invokes a fresh-cache download.
 MockRuntime does not start a browser; its profile path points to the existing
 temporary directory so Tauri cannot create a real user profile.
+
+The same ignored test also submits cached INT8 activation on a worker while
+polling the real status command. It observes the loader reservation, rejects a
+duplicate activation, disables one pending load, waits for its cancellation
+result and verifies that a subsequent complete load succeeds. Status is polled
+through that complete load, including native construction and warm-up. The
+test uses two-second response assertions and a 30-second polling-loop guard;
+the outer process timeout bounds a command that never returns. These are
+generous regression guards, not product latency targets.
+
+Three isolated runs on 2026-10-08 pass **1,018 status calls** collectively. The
+maximum observed status response is **0.674 ms**; disable during the pending
+load takes **0.094–0.187 ms**. Complete activations take **3.425–3.466 s**,
+including verification and warm-up. Cancellation is intentionally early after
+the reservation becomes visible, and finishes in about 21 ms; this does not
+prove interruption inside an ONNX call. The separate cached-provider regression
+covers discarded publication after completed native setup. All temporary app
+data is removed and source model/runtime/executable hashes remain unchanged.
+No production hook, lock change, dependency or model choice is added. Measurements
+use a debug Linux build, cached assets and MockRuntime; they are not actual
+WebView, release, weak-device or mobile responsiveness evidence.
 
 This establishes command-handler integration on Linux, **not** actual WebView
 IPC, upstream transfers, process-interruption recovery or mobile acceptance. Use

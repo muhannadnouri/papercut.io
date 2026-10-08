@@ -112,6 +112,7 @@ fn command_cache_lifecycle_in_isolated_app_data() {
             atomic::{AtomicBool, Ordering},
             Arc, Mutex,
         },
+        time::{Duration, Instant},
     };
     use tauri::Listener;
 
@@ -248,7 +249,77 @@ fn command_cache_lifecycle_in_isolated_app_data() {
     }
     let verified = invoke(&window, "search_embedding_download", request.clone()).unwrap();
     assert!(verified["activeFormat"].is_null());
-    let active = invoke(&window, "search_embedding_configure", request.clone()).unwrap();
+    let mut active = Value::Null;
+    for cancel_load in [true, false] {
+        let response = std::thread::scope(|scope| {
+            let worker_window = window.clone();
+            let worker_request = request.clone();
+            let worker = scope.spawn(move || {
+                invoke(&worker_window, "search_embedding_configure", worker_request)
+            });
+            let started = Instant::now();
+            let mut saw_loading = false;
+            let mut status_calls = 0;
+            let mut max_status = Duration::ZERO;
+            let mut disable_ms = None;
+            while !worker.is_finished() {
+                let call = Instant::now();
+                let status = invoke(&window, "search_embedding_status", json!({})).unwrap();
+                let elapsed = call.elapsed();
+                max_status = max_status.max(elapsed);
+                status_calls += 1;
+                // Generous deadlock guard, not a product responsiveness target.
+                assert!(elapsed < Duration::from_secs(2));
+                if status["loadingFormat"] == "dynamic-int8" {
+                    assert!(status["activeFormat"].is_null() && status["encoderKey"].is_null());
+                    if !saw_loading {
+                        assert!(
+                            invoke(&window, "search_embedding_configure", request.clone())
+                                .unwrap_err()
+                                .as_str()
+                                .unwrap()
+                                .contains("already running")
+                        );
+                        saw_loading = true;
+                        if cancel_load {
+                            let call = Instant::now();
+                            let disabled = invoke(
+                                &window,
+                                "search_embedding_configure",
+                                json!({"format":null}),
+                            )
+                            .unwrap();
+                            let elapsed = call.elapsed();
+                            assert!(elapsed < Duration::from_secs(2));
+                            disable_ms = Some(elapsed.as_secs_f64() * 1000.0);
+                            assert!(
+                                disabled["activeFormat"].is_null()
+                                    && disabled["encoderKey"].is_null()
+                            );
+                        }
+                    }
+                }
+                assert!(started.elapsed() < Duration::from_secs(30));
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            let response = worker.join().unwrap();
+            assert!(saw_loading, "must observe the actual loader reservation");
+            eprintln!(
+                "{}",
+                json!({"cancelLoad":cancel_load, "statusCalls":status_calls,
+                    "maxStatusMillis":max_status.as_secs_f64()*1000.0,
+                    "disableMillis":disable_ms, "activationSeconds":started.elapsed().as_secs_f64()})
+            );
+            response
+        });
+        if cancel_load {
+            assert_eq!(response.unwrap_err(), "Embedding activation cancelled");
+            let status = invoke(&window, "search_embedding_status", json!({})).unwrap();
+            assert!(status["activeFormat"].is_null() && status["loadingFormat"].is_null());
+        } else {
+            active = response.unwrap();
+        }
+    }
     assert_eq!(active["activeFormat"], "dynamic-int8");
     assert_eq!(active["encoderKey"], ModelFormat::DynamicInt8.encoder_key());
     assert!(invoke(&window, "search_embedding_remove", request.clone())

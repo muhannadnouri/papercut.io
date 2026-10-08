@@ -14,6 +14,9 @@ The bounded model/fusion comparisons are complete; do not schedule another sweep
 The [native reload check](#native-provider-reload-check--2026-10-08) adds bounded
 same-process lifecycle evidence, including higher reload memory peaks; it does
 not close native stability or device responsiveness.
+The [command loading check](#native-command-loading-check--2026-10-08) verifies
+status, early cancellation and reactivation through actual handlers on the mock
+runtime; actual WebView and interruption/restart acceptance remain open.
 Next is the consolidated rebuilt-app smoke and model-free acceptance review when
 the user is ready. Smoke remains explicitly deferred, and passing it alone will
 not open production semantic integration.
@@ -2132,3 +2135,39 @@ quality, compatible product indexes/fallback, native stability, reference hardwa
 and advertised-platform gates remain. Keep the consolidated rebuilt-app
 search/EPUB/RTL/audio/model-control smoke reminder for the final acceptance pass;
 the user has explicitly deferred it and it is not recorded as passed.
+
+
+## Native command loading check — 2026-10-08
+
+This pass extends the existing ignored, disposable-cache command check without
+adding production hooks or changing locks. Cached INT8 activation runs on a
+worker while actual status handlers are polled. The check observes loading,
+rejects a duplicate activation, disables a pending load, waits for its cancelled
+result and verifies cleared state plus successful reactivation. A full native
+load is monitored to completion, followed by the existing active-cache removal
+protection, unload, fresh-state cache reuse and removal checks.
+
+Three fresh isolated processes pass **1,018 status calls** collectively, with
+maximum observed status response **0.674 ms** and pending-load disable responses
+**0.094–0.187 ms**. Full activation takes **3.425–3.466 s** including verification
+and warm-up. Early cancellation finishes near 21 ms. This does not prove an ONNX
+call can be interrupted: the separate cached-provider test retains its
+cancel-after-native-setup publication check. There is no new production behavior,
+model/fusion comparison, dependency, index or UI change.
+
+Seven ordinary provider/cache/IPC regressions pass, with two asset-dependent
+checks ignored in that run. The extended command check is explicitly run in each
+of the three fresh processes under a 120-second outer timeout; copied cache data
+is cleaned up, and source-model/runtime/executable hashes remain unchanged.
+Offline locked compilation, Rust formatting and diff checks pass. Socket access
+is required only for the existing ordinary loopback HTTP regression. Timing is
+debug Linux/MockRuntime/cached-assets evidence, not real WebView, release,
+foreground reader, reference-device or mobile acceptance. The original crash and
+allocator-retention caveats remain open.
+
+**Next:** verify process-interruption and restart recovery at the existing model
+staging/cache boundary, keeping it isolated from installed app data. Stage 7
+remains held on quality, product index/fallback, lifecycle, stability and device/
+platform gates. The user continues to defer the consolidated rebuilt-app
+search/EPUB/RTL/audio/model-control smoke; carry its reminder to final acceptance
+and do not record it as passed.
