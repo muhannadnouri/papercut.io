@@ -31,7 +31,8 @@ alone will not open production semantic integration.
 The [model-free acceptance review](#model-free-acceptance-review--2026-10-08)
 confirms the candidate passes fresh default-feature and frontend regressions
 without FastEmbed. The automated review is complete; normal-build platform
-readiness and actual device/app acceptance remain next, with smoke deferred.
+readiness is recorded in the [normal packaging review](#normal-packaging-and-platform-readiness--2026-10-08).
+Actual device/app acceptance and non-Linux builds remain open, with smoke deferred.
 
 | Gate | Current evidence and decision |
 | --- | --- |
@@ -100,6 +101,63 @@ search/EPUB/RTL/audio/model-control smoke remains user-deferred; remind at final
 acceptance. That smoke plus representative device/platform evidence precedes
 model-free release acceptance. Stage 7 additionally needs a quality win and
 compatible product indexing/fallback/lifecycle evidence.
+
+## Normal packaging and platform readiness — 2026-10-08
+
+**Decision: normal Linux Debian packaging passes on this host; retain the
+model-free candidate and leave platform/app acceptance open.** Reused the
+existing desktop entry point on `35eb0ae`:
+
+```sh
+CARGO_NET_OFFLINE=true npm_config_offline=true npm run desktop -- --bundles deb
+```
+
+The normal frontend, starter-index and native bundle steps complete using cached
+dependencies/runtime files. No script, configuration, dependency or product-code
+change is needed. Pagefind generation here is the existing packaging step, not a
+search change. Optimized native compilation takes 44.94 seconds; this is not
+whole-build, import or search latency.
+
+The resulting `Papercut_1.9.2_amd64.deb` is **41,725,840 bytes**. Its app matches
+the current compiled binary apart from Tauri's expected `UNK` → `DEB` bundle
+marker. Packaged sherpa/ORT and Libtashkeel license bytes match the cached source
+files. The app's relative resource runpath and sherpa's sibling-library rpath
+resolve both native libraries from an extracted package without
+`LD_LIBRARY_PATH`. The ELF loader's list mode verifies resolution without running
+application main; nothing is installed or launched. The compiler fingerprint
+contains normal shared-TTS/preprocessing features and no experimental embedding
+feature. No embedding model-cache files are packaged.
+
+The app references GLIBC versions through **2.39**; packaged ORT and sherpa
+reference through **2.16 / 2.17** respectively. These symbol references and
+successful resolution on this development host do not establish distribution
+compatibility, installer/startup success or device responsiveness. Retain exact
+package, build logs, fingerprint, hashes and inspection results privately.
+
+| Target / configuration | Evidence from this pass and remaining work |
+| --- | --- |
+| Linux x86-64 normal shared-TTS Debian | Build/content/relocated-loader checks pass. Install, WebView, reader/audio and actual app smoke remain deferred. |
+| Linux AppImage | Existing CI build/media verifier reviewed; no AppImage produced or verified in this pass. |
+| Windows x86-64; macOS x86-64/arm64 | Existing desktop CI matrix uses normal shared-TTS builds and runtime preparation. No corresponding host/toolchain or fresh build result here. |
+| Android arm64 native TTS | Generated Gradle project and cached Java/native files exist; this host has no Android Rust target or NDK. Build not attempted; do not treat cached libraries as APK validation. |
+| iOS arm64 simulator/device native TTS | Generated Xcode project exists. Linux cannot build it; the existing wrapper's macOS/Xcode guard rejects this host as expected. No archive/device result. |
+| Experimental provider configurations | Normal packaging jobs do not enable them. Prior Linux provider tests do not prove other-platform build or lifecycle acceptance. |
+
+The four build/check entry scripts pass Node syntax checks. Reviewed desktop,
+Android and iOS preparation through feature selection, runtime paths and the
+existing CI jobs. CI's unsigned iOS simulator/device checks are distinct from
+the signed release/upload workflow. Missing toolchains are recorded rather than
+downloaded merely to manufacture a local matrix. Build/config/workflow source
+bindings remain unchanged; no installed library, optional model download,
+publication or push occurs.
+
+**Next:** after the user's push, obtain normal-build results through the existing
+CI workflow on this branch: `validation_scope=full`, or separate `desktop` and
+`mobile` runs. No workflow is dispatched in this pass. Review failed jobs before
+making platform fixes; passing artifact builds still need actual device/app
+acceptance. Consolidated search/EPUB/RTL/audio/model-control smoke remains
+explicitly deferred; remind when the user resumes final acceptance. Do not start
+Stage 7 or another model/search tuning pass while waiting for this evidence.
 
 ## Stage 0 — Baseline
 

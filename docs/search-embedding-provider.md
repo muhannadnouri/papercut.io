@@ -33,6 +33,12 @@ has passed release validation. Status also returns `platform`, `activeFormat`,
 model construction and a finite normalized 384-dimensional warm-up vector passed.
 It does not establish relevance quality or resource suitability.
 
+The [normal packaging review](search-v2-progress.md#normal-packaging-and-platform-readiness--2026-10-08)
+verifies a Linux Debian build without embedding features, including packaged
+runtime bytes and relocated library resolution. Existing desktop/Android/iOS CI
+jobs build normal TTS configurations; they do not validate an explicitly enabled
+provider. Other-platform artifact/device checks and app smoke remain open.
+
 ## Explicit cached-model activation
 
 The native `search_embedding_configure` command accepts `format: null` to
