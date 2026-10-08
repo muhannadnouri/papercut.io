@@ -254,7 +254,7 @@ use a debug Linux build, cached assets and MockRuntime; they are not actual
 WebView, release, weak-device or mobile responsiveness evidence.
 
 This establishes command-handler integration on Linux, **not** actual WebView
-IPC, upstream transfers, process-interruption recovery or mobile acceptance. Use
+IPC, upstream transfers, full-app startup recovery or mobile acceptance. Use
 the [consolidated smoke checklist](search-v2-smoke.md) when interactive testing
 resumes.
 
@@ -411,9 +411,40 @@ It requires neither model weights nor network access.
 This covers process termination at the installer/publish boundary on Linux,
 not power loss, filesystem durability after reboot, full-sized model transfers,
 actual WebView startup or mobile recovery. Explicit retry restarts abandoned
-transfers; it does not resume their byte offsets. Command-level recovery with
-real cached assets remains a follow-up. Smoke remains deferred and the original
+transfers; it does not resume their byte offsets. The next section adds
+command-level recovery with real cached assets. Smoke remains deferred and the original
 crash, resource and platform acceptance gates remain open.
+
+## Real-cache command restart — 2026-10-08
+
+The existing ignored command check now starts a child with the same disposable
+app identifier and real pinned INT8 cache. The child verifies the cache through
+`search_embedding_download`, explicitly activates it through
+`search_embedding_configure` and publishes an atomic readiness marker only
+after successful native warm-up. The parent confirms `SIGKILL` termination,
+then starts a second child against the surviving cache. Fresh status has null
+active/loading/downloading/encoder fields; cached weights never auto-activate.
+
+That recovery child uses the public handlers to verify/reuse cached assets,
+activate with the expected encoder identity, reject removal while active,
+disable and remove. The parent then confirms cache absence. Owned children are
+reaped on failures; readiness/recovery waits have 30-second guards and the
+existing outer process timeout remains required. No production hooks or new
+recovery algorithm are added.
+
+Three isolated parent runs pass **three native SIGKILL/restart cases** along
+with the existing integrity, cancellation, status and removal checks. Complete
+checks take 16.58–17.69 seconds, including local cache preparation and all three
+processes; these are not restart-only or query timings. Eight ordinary provider
+regressions pass with two asset-dependent checks ignored. Copied app data is
+cleaned up; source assets, runtime, test source and executable hashes remain
+unchanged. No upstream model transfer or installed-library mutation occurs.
+
+This is debug Linux/MockRuntime/cached-INT8 evidence. It does not prove real
+WebView startup, interrupted upstream transfers, power-loss durability, release
+profile stability or mobile behavior. The original native crash and retained
+memory caveats remain open. Smoke is still explicitly deferred. Next validate
+the existing native checks under the optimized release profile.
 
 ## Remaining gates
 

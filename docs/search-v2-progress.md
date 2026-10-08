@@ -16,10 +16,12 @@ same-process lifecycle evidence, including higher reload memory peaks; it does
 not close native stability or device responsiveness.
 The [command loading check](#native-command-loading-check--2026-10-08) verifies
 status, early cancellation and reactivation through actual handlers on the mock
-runtime; actual WebView and interruption/restart acceptance remain open.
+runtime; actual WebView startup/recovery acceptance remains open.
 The [cache interruption check](#cache-process-interruption-check--2026-10-08)
 covers abrupt termination and fresh-process retry at the installer boundary
-using tiny assets; full-model and public-command recovery remain unvalidated.
+using tiny assets. The [real-cache command restart](#real-cache-command-restart--2026-10-08)
+adds fresh-process command recovery with pinned weights; upstream transfer,
+release-profile, WebView and mobile acceptance remain open.
 Next is the consolidated rebuilt-app smoke and model-free acceptance review when
 the user is ready. Smoke remains explicitly deferred, and passing it alone will
 not open production semantic integration.
@@ -2209,3 +2211,41 @@ representative quality, product index/fallback, lifecycle, native stability,
 resource/reference-device and advertised-platform gates. The user continues to
 defer consolidated rebuilt-app search/EPUB/RTL/audio/model-control smoke; remind
 at final acceptance and do not record it as passed.
+
+
+## Real-cache command restart — 2026-10-08
+
+The existing ignored, isolated command test now launches a child using the same
+disposable app identifier and copied real INT8 cache. Public handlers verify the
+cache and explicitly activate it; an atomic marker appears only after successful
+native warm-up. The parent confirms `SIGKILL`, then starts a separate recovery
+child. Fresh status is inactive with no loading/download reservation or encoder
+identity. Cached files survive but do not enable embeddings automatically.
+Public commands then verify/reuse the cache, activate with the expected encoder
+key, protect an active model from removal, disable and remove. The parent confirms
+cache absence. Only test-owned children are killed/reaped; 30-second waits and
+the existing 120-second outer timeout bound failures.
+
+Three isolated parent runs pass **three native kill/restart cases** and the
+existing missing/corrupt cache, early cancellation, status, progress and removal
+checks. Complete runs take **16.58–17.69 seconds**, including setup and all
+processes, not restart-only or query latency. Eight ordinary provider/cache/IPC
+regressions pass, two asset-dependent checks ignored there and the extended
+command test explicitly exercised separately. Copied app-data trees are cleaned;
+source-model/runtime/executable/test hashes, offline locked compilation, Rust
+formatting and diff checks pass. No model download, installed-library mutation,
+production hook/algorithm, runtime/dependency, model, index, ranking or UI change.
+
+This is debug Linux/MockRuntime/cached-INT8 evidence, not real WebView startup,
+interrupted upstream transfers, power-loss durability, release-profile or mobile
+acceptance. It does not explain the original native crash or remove allocator
+retention. Methods and limits are in
+[the provider notes](search-embedding-provider.md#real-cache-command-restart--2026-10-08).
+
+**Next:** run the existing native provider/command recovery checks under the
+optimized release profile. Do not add another model/fusion sweep or production
+semantic integration. Stage 7 remains held on representative quality, compatible
+product indexing/fallback, remaining lifecycle/native stability and device/
+platform acceptance. Consolidated rebuilt-app search/EPUB/RTL/audio/model-control
+smoke remains explicitly user-deferred; carry the reminder to final acceptance
+and do not record it as passed.

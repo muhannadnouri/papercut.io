@@ -134,8 +134,70 @@ fn command_cache_lifecycle_in_isolated_app_data() {
     assert!(root.starts_with(&temp) && root != temp);
     let source = std::env::var_os("PAPERCUT_EMBEDDING_TEST_MODELS")
         .expect("set read-only cached models source");
-    let identifier = format!("io.papercut.cache-test-{}", std::process::id());
+    let restart_id = std::env::var("PAPERCUT_EMBEDDING_IPC_RESTART_ID").ok();
+    if let Some(identifier) = &restart_id {
+        assert!(
+            identifier
+                .strip_prefix("io.papercut.cache-test-")
+                .is_some_and(
+                    |suffix| !suffix.is_empty() && suffix.bytes().all(|b| b.is_ascii_digit())
+                )
+        );
+    }
+    let identifier = restart_id
+        .clone()
+        .unwrap_or_else(|| format!("io.papercut.cache-test-{}", std::process::id()));
     let data = root.join(&identifier);
+    if restart_id.is_some() {
+        let phase = std::env::var("PAPERCUT_EMBEDDING_IPC_RESTART_PHASE").unwrap();
+        assert!(matches!(phase.as_str(), "active" | "recover"));
+        assert!(data.exists());
+        let app = app(&identifier);
+        let window = window(&app);
+        let initial = invoke(&window, "search_embedding_status", json!({})).unwrap();
+        for key in [
+            "activeFormat",
+            "loadingFormat",
+            "downloadingFormat",
+            "encoderKey",
+        ] {
+            assert!(initial[key].is_null());
+        }
+        assert_eq!(
+            invoke(&window, "search_embedding_cache_status", json!({})).unwrap()[1]["filesPresent"],
+            true
+        );
+        let request = json!({"format":"dynamic-int8"});
+        assert!(
+            invoke(&window, "search_embedding_download", request.clone()).unwrap()["activeFormat"]
+                .is_null()
+        );
+        let active = invoke(&window, "search_embedding_configure", request.clone()).unwrap();
+        assert_eq!(active["activeFormat"], "dynamic-int8");
+        assert_eq!(active["encoderKey"], ModelFormat::DynamicInt8.encoder_key());
+        assert!(invoke(&window, "search_embedding_remove", request.clone()).is_err());
+        if phase == "active" {
+            let ready = data.join("restart-ready");
+            fs::write(ready.with_extension("tmp"), b"active").unwrap();
+            fs::rename(ready.with_extension("tmp"), ready).unwrap();
+            loop {
+                std::thread::park();
+            }
+        }
+        let disabled = invoke(
+            &window,
+            "search_embedding_configure",
+            json!({"format":null}),
+        )
+        .unwrap();
+        assert!(disabled["activeFormat"].is_null() && disabled["encoderKey"].is_null());
+        invoke(&window, "search_embedding_remove", request).unwrap();
+        assert_eq!(
+            invoke(&window, "search_embedding_cache_status", json!({})).unwrap()[1]["filesPresent"],
+            false
+        );
+        return;
+    }
     assert!(!data.exists(), "test app data must be fresh");
     struct Cleanup(std::path::PathBuf);
     impl Drop for Cleanup {
@@ -357,6 +419,64 @@ fn command_cache_lifecycle_in_isolated_app_data() {
             ["filesPresent"],
         true
     );
+    // A new process must not inherit opt-in state after abrupt native termination.
+    {
+        use std::{os::unix::process::ExitStatusExt, process::Command};
+        struct Child(std::process::Child);
+        impl Drop for Child {
+            fn drop(&mut self) {
+                let _ = self.0.kill();
+                let _ = self.0.wait();
+            }
+        }
+        let spawn = |phase: &str| {
+            let log = fs::File::create(data.join(format!("restart-{phase}.log"))).unwrap();
+            Child(Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "search_embeddings::ipc_tests::command_cache_lifecycle_in_isolated_app_data", "--ignored", "--nocapture"])
+                .env("PAPERCUT_EMBEDDING_IPC_RESTART_ID", &identifier)
+                .env("PAPERCUT_EMBEDDING_IPC_RESTART_PHASE", phase)
+                .stdout(log.try_clone().unwrap()).stderr(log).spawn().unwrap())
+        };
+        let mut child = spawn("active");
+        let started = Instant::now();
+        let ready = data.join("restart-ready");
+        while !ready.exists() {
+            assert!(
+                child.0.try_wait().unwrap().is_none(),
+                "{}",
+                fs::read_to_string(data.join("restart-active.log")).unwrap()
+            );
+            assert!(started.elapsed() < Duration::from_secs(30));
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert_eq!(fs::read(&ready).unwrap(), b"active");
+        child.0.kill().unwrap();
+        assert_eq!(child.0.wait().unwrap().signal(), Some(9));
+        fs::remove_file(ready).unwrap();
+        assert_eq!(
+            invoke(&window, "search_embedding_cache_status", json!({})).unwrap()[1]["filesPresent"],
+            true
+        );
+        let mut recovered = spawn("recover");
+        let started = Instant::now();
+        let status = loop {
+            if let Some(status) = recovered.0.try_wait().unwrap() {
+                break status;
+            }
+            assert!(started.elapsed() < Duration::from_secs(30));
+            std::thread::sleep(Duration::from_millis(10));
+        };
+        assert!(
+            status.success(),
+            "{}",
+            fs::read_to_string(data.join("restart-recover.log")).unwrap()
+        );
+        assert_eq!(
+            invoke(&window, "search_embedding_cache_status", json!({})).unwrap()[1]["filesPresent"],
+            false
+        );
+        eprintln!("SIGKILL after cached native command activation: fresh-process default-off, cache reuse, activation, disable and removal passed");
+    }
     invoke(&window, "search_embedding_remove", request).unwrap();
     assert!(!dir.exists());
     app.unlisten(listener);
