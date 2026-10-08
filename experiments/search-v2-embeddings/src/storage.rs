@@ -1,8 +1,8 @@
 //! Opt-in experimental index; never opens the installed app database.
 
 use super::{
-    check_vectors, new_private_file, rank_vectors, source_evidence, Corpus, Document, Passage,
-    RankedHit,
+    check_dimension, check_vectors, new_private_file, rank_vectors, source_evidence, Corpus,
+    Document, Passage, RankedHit,
 };
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 use serde::Serialize;
@@ -12,7 +12,7 @@ use std::{error::Error, path::Path};
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 const APPLICATION_ID: i64 = 0x50535632;
 
-pub struct Store(Connection);
+pub struct Store(Connection, usize);
 
 pub struct Snapshot {
     pub corpus: Corpus,
@@ -28,8 +28,8 @@ pub struct Changes {
     pub deleted: usize,
 }
 
-fn decode(bytes: &[u8]) -> Result<Vec<f32>> {
-    if bytes.len() != 384 * 4 {
+fn decode(bytes: &[u8], dimension: usize) -> Result<Vec<f32>> {
+    if bytes.len() != dimension * 4 {
         return Err("invalid stored vector length".into());
     }
     let vector = bytes
@@ -39,12 +39,13 @@ fn decode(bytes: &[u8]) -> Result<Vec<f32>> {
         .copied()
         .map(f32::from_le_bytes)
         .collect::<Vec<_>>();
-    check_vectors(std::slice::from_ref(&vector))?;
+    check_vectors(std::slice::from_ref(&vector), dimension)?;
     Ok(vector)
 }
 
 impl Store {
-    pub fn open(path: &Path, model: &str) -> Result<Self> {
+    pub fn open(path: &Path, model: &str, dimension: usize) -> Result<Self> {
+        check_dimension(dimension)?;
         let new = !path.try_exists()?;
         if new {
             drop(new_private_file(path)?);
@@ -54,24 +55,27 @@ impl Store {
         conn.execute_batch("PRAGMA cache_size=-2048;")?;
         if new {
             let tx = conn.transaction()?;
-            tx.execute_batch(
-                "CREATE TABLE model (identity TEXT NOT NULL, dimension INTEGER NOT NULL CHECK(dimension=384));
+            tx.execute_batch(&format!(
+                "CREATE TABLE model (identity TEXT NOT NULL, dimension INTEGER NOT NULL CHECK(dimension={dimension}));
                  CREATE TABLE passages (
                     id TEXT PRIMARY KEY, ordinal INTEGER NOT NULL,
                     document_id TEXT NOT NULL, section_index INTEGER NOT NULL,
                     page_index INTEGER, byte_start INTEGER NOT NULL, byte_end INTEGER NOT NULL,
                     body_tokens INTEGER NOT NULL, content_hash TEXT NOT NULL,
-                    vector BLOB NOT NULL CHECK(length(vector)=1536));
+                    vector BLOB NOT NULL CHECK(length(vector)={}));
                  CREATE INDEX passage_order ON passages(ordinal);
-                 PRAGMA user_version=1;"
-            )?;
+                 PRAGMA user_version=1;", dimension * 4
+            ))?;
             tx.pragma_update(None, "application_id", APPLICATION_ID)?;
-            tx.execute("INSERT INTO model VALUES (?1,384)", [model])?;
+            tx.execute(
+                "INSERT INTO model VALUES (?1,?2)",
+                params![model, dimension],
+            )?;
             tx.commit()?;
         }
         Self::check_schema(&conn, false)?;
-        let store = Self(conn);
-        store.check_model(model)?;
+        let store = Self(conn, dimension);
+        store.check_model(model, dimension)?;
         Ok(store)
     }
 
@@ -90,16 +94,18 @@ impl Store {
         // Pin metadata, vectors and source spans to one committed snapshot during concurrent updates.
         conn.execute_batch("PRAGMA cache_size=-2048; PRAGMA query_only=ON; BEGIN;")?;
         Self::check_schema(&conn, true)?;
-        Ok(Self(conn))
+        let dimension = conn.query_row("SELECT dimension FROM model", [], |row| row.get(0))?;
+        check_dimension(dimension)?;
+        Ok(Self(conn, dimension))
     }
 
-    pub fn check_model(&self, model: &str) -> Result<()> {
+    pub fn check_model(&self, model: &str, dimension: usize) -> Result<()> {
         let identities: Vec<(String, usize)> = self
             .0
             .prepare("SELECT identity,dimension FROM model")?
             .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
             .collect::<std::result::Result<_, _>>()?;
-        if identities != [(model.to_owned(), 384)] {
+        if self.1 != dimension || identities != [(model.to_owned(), dimension)] {
             return Err("incompatible SQLite model; choose a new external index path".into());
         }
         Ok(())
@@ -239,7 +245,7 @@ impl Store {
                 let ordinal = batch_index * batch_size + offset;
                 let vector = match stored {
                     Some((old_hash, bytes)) if old_hash == hash => {
-                        decode(&bytes)?;
+                        decode(&bytes, self.1)?;
                         changes.reused += 1;
                         Some(bytes)
                     }
@@ -258,7 +264,7 @@ impl Store {
                 if vectors.len() != missing.len() {
                     return Err("wrong SQLite indexing vector count".into());
                 }
-                check_vectors(&vectors)?;
+                check_vectors(&vectors, self.1)?;
                 for ((chunk, (ordinal, id, hash)), vector) in
                     missing.iter().zip(pending).zip(vectors)
                 {
@@ -365,7 +371,7 @@ impl Store {
             {
                 return Err("invalid SQLite passage metadata".into());
             }
-            Ok((ordinal, decode(&bytes)?))
+            Ok((ordinal, decode(&bytes, self.1)?))
         });
         rank_vectors(corpus, chunks, vectors, query, scope, cancel)
     }
@@ -445,7 +451,7 @@ mod tests {
                 vector
             })
             .collect::<Vec<_>>();
-        let mut store = Store::open(&path, "model").unwrap();
+        let mut store = Store::open(&path, "model", 384).unwrap();
         assert!(
             Store::read_only(&path).is_err(),
             "unsynchronized v1 index cannot serve sources"
@@ -502,8 +508,9 @@ mod tests {
         // Deliberately broken nonwinning source is neither loaded nor used to construct winning evidence.
         writer.execute("UPDATE sources SET text='broken unrelated text' WHERE id=(SELECT id FROM passages WHERE ordinal=2)",[]).unwrap();
         let reader = Store::read_only(&path).unwrap();
-        reader.check_model("model").unwrap();
-        assert!(reader.check_model("other").is_err());
+        reader.check_model("model", 384).unwrap();
+        assert!(reader.check_model("other", 384).is_err());
+        assert!(reader.check_model("model", 768).is_err());
         let snapshot = reader.snapshot().unwrap();
         assert!(snapshot
             .corpus
@@ -588,8 +595,13 @@ mod tests {
 
     #[test]
     fn sqlite_restart_changes_rollback_and_streamed_ranking() {
-        assert!(decode(&[0; 4]).is_err());
-        assert!(decode(&[0; 1536]).is_err());
+        sqlite_lifecycle(384);
+        sqlite_lifecycle(768);
+    }
+
+    fn sqlite_lifecycle(dimension: usize) {
+        assert!(decode(&[0; 4], dimension).is_err());
+        assert!(decode(&vec![0; dimension * 4], dimension).is_err());
         let path = std::env::temp_dir().join(format!(
             "papercut-sqlite-check-{}.sqlite3",
             std::process::id()
@@ -620,16 +632,16 @@ mod tests {
             Ok(batch
                 .iter()
                 .map(|p| {
-                    let mut v = vec![0.0; 384];
+                    let mut v = vec![0.0; dimension];
                     v[usize::from(p.text.starts_with("Archive"))] = 1.0;
                     v
                 })
                 .collect::<Vec<_>>())
         };
-        let mut store = Store::open(&path, "test-model-and-policy").unwrap();
+        let mut store = Store::open(&path, "test-model-and-policy", dimension).unwrap();
         let stats = store.sync(&corpus, &chunks, 16, embed, || Ok(())).unwrap();
         assert_eq!((stats.embedded, stats.reused, stats.deleted), (2, 0, 0));
-        let mut q = vec![0.0; 384];
+        let mut q = vec![0.0; dimension];
         q[0] = 1.0;
         let baseline = store.rank(&corpus, &chunks, &q, &[], || Ok(())).unwrap();
         let expected = super::super::rank(&corpus, &chunks, &embed(&chunks).unwrap(), &q, &[]);
@@ -651,8 +663,14 @@ mod tests {
             1
         );
         drop(store);
-        assert!(Store::open(&path, "different-model-or-policy").is_err());
-        let mut store = Store::open(&path, "test-model-and-policy").unwrap();
+        assert!(Store::open(
+            &path,
+            "test-model-and-policy",
+            if dimension == 384 { 768 } else { 384 }
+        )
+        .is_err());
+        assert!(Store::open(&path, "different-model-or-policy", dimension).is_err());
+        let mut store = Store::open(&path, "test-model-and-policy", dimension).unwrap();
         let stats = store
             .sync(
                 &corpus,
@@ -743,7 +761,7 @@ mod tests {
                 }
             })
             .is_err());
-        let mut corrupt = vec![0u8; 1536];
+        let mut corrupt = vec![0u8; dimension * 4];
         corrupt[..4].copy_from_slice(&f32::NAN.to_le_bytes());
         store
             .0
@@ -771,7 +789,7 @@ mod tests {
         std::fs::remove_file(&path).unwrap();
         std::fs::write(&path, b"unrelated file").unwrap();
         let bytes = std::fs::read(&path).unwrap();
-        assert!(Store::open(&path, "test").is_err());
+        assert!(Store::open(&path, "test", dimension).is_err());
         assert_eq!(std::fs::read(&path).unwrap(), bytes);
         std::fs::remove_file(path).unwrap();
     }

@@ -314,6 +314,7 @@ fn cached_vectors(
     path: &Path,
     key: &str,
     count: usize,
+    dimension: usize,
 ) -> Result<Option<Vec<Vec<f32>>>, Box<dyn Error + Send + Sync>> {
     if !path.exists() {
         return Ok(None);
@@ -324,7 +325,7 @@ fn cached_vectors(
             "incompatible vector cache; choose a new external path or remove it explicitly".into(),
         );
     }
-    check_vectors(&cache.vectors)?;
+    check_vectors(&cache.vectors, dimension)?;
     Ok(Some(cache.vectors))
 }
 
@@ -405,9 +406,31 @@ fn relevant_at_ten(ids: &[String], relevant: &[Judgment]) -> (usize, usize) {
     )
 }
 
-fn check_vectors(vectors: &[Vec<f32>]) -> Result<(), Box<dyn Error + Send + Sync>> {
+fn check_dimension(dimension: usize) -> Result<(), Box<dyn Error + Send + Sync>> {
+    if !matches!(dimension, 384 | 768) {
+        return Err("only E5 Small (384) and Base (768) dimensions are supported".into());
+    }
+    Ok(())
+}
+
+fn model_dimension(config: &[u8]) -> Result<usize, Box<dyn Error + Send + Sync>> {
+    let value: serde_json::Value = serde_json::from_slice(config)?;
+    let dimension = usize::try_from(
+        value["hidden_size"]
+            .as_u64()
+            .ok_or("missing model dimension")?,
+    )?;
+    check_dimension(dimension)?;
+    Ok(dimension)
+}
+
+fn check_vectors(
+    vectors: &[Vec<f32>],
+    dimension: usize,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    check_dimension(dimension)?;
     for vector in vectors {
-        if vector.len() != 384 || vector.iter().any(|value| !value.is_finite()) {
+        if vector.len() != dimension || vector.iter().any(|value| !value.is_finite()) {
             return Err("invalid embedding dimension or value".into());
         }
         let norm = vector.iter().map(|value| value * value).sum::<f32>().sqrt();
@@ -430,6 +453,7 @@ fn embed_passages(
     model: &mut TextEmbedding,
     chunks: &[Passage],
     quantization: QuantizationMode,
+    dimension: usize,
 ) -> Result<Vec<Vec<f32>>, Box<dyn Error + Send + Sync>> {
     // Dynamic activation ranges depend on batch peers. One passage per call keeps indexing repeatable.
     let batch_size = if matches!(quantization, QuantizationMode::Dynamic) {
@@ -450,7 +474,7 @@ fn embed_passages(
         if output.len() != batch.len() {
             return Err("wrong passage vector count".into());
         }
-        check_vectors(&output)?;
+        check_vectors(&output, dimension)?;
         vectors.extend(output);
     }
     Ok(vectors)
@@ -459,7 +483,7 @@ fn embed_passages(
 fn load_model(
     model_dir: &Path,
     quantization: QuantizationMode,
-) -> Result<(TextEmbedding, String), Box<dyn Error + Send + Sync>> {
+) -> Result<(TextEmbedding, String, usize), Box<dyn Error + Send + Sync>> {
     let onnx_file = fs::read(model_dir.join("onnx/model.onnx"))?;
     let files = TokenizerFiles {
         tokenizer_file: fs::read(model_dir.join("tokenizer.json"))?,
@@ -467,10 +491,12 @@ fn load_model(
         special_tokens_map_file: fs::read(model_dir.join("special_tokens_map.json"))?,
         tokenizer_config_file: fs::read(model_dir.join("tokenizer_config.json"))?,
     };
+    let dimension = model_dimension(&files.config_file)?;
+    let size = if dimension == 384 { "small" } else { "base" };
     let mut identity = Sha256::new();
-    identity.update(
-        b"e5-small/fastembed-7.1.0/mean/l2/dim384/chunks-v2-untruncated/prefixes-v1/320/40",
-    );
+    identity.update(format!(
+        "e5-{size}/fastembed-7.1.0/mean/l2/dim{dimension}/chunks-v2-untruncated/prefixes-v1/320/40"
+    ));
     if matches!(quantization, QuantizationMode::Dynamic) {
         identity.update(b"/dynamic-int8/per-text-v1");
     }
@@ -492,7 +518,7 @@ fn load_model(
             .with_max_length(512)
             .with_intra_threads(2),
     )?;
-    Ok((model, model_sha256))
+    Ok((model, model_sha256, dimension))
 }
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -696,7 +722,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .transpose()?;
     let quantization = quantization_mode(quantization_value.as_deref())?;
     let load_started = Instant::now();
-    let (mut model, model_sha256) = load_model(&model_dir, quantization)?;
+    let (mut model, model_sha256, dimension) = load_model(&model_dir, quantization)?;
     let load_secs = load_started.elapsed().as_secs_f64();
     let chunk_started = Instant::now();
     let chunks = if let Some(chunks) = stored_chunks {
@@ -717,11 +743,11 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     );
     let index_started = Instant::now();
     if let Some(store) = &store {
-        store.check_model(&model_sha256)?;
+        store.check_model(&model_sha256, dimension)?;
     } else {
         store = sqlite_path
             .as_ref()
-            .map(|path| storage::Store::open(path, &model_sha256))
+            .map(|path| storage::Store::open(path, &model_sha256, dimension))
             .transpose()?;
     }
     let index_stats = store
@@ -736,14 +762,14 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                 } else {
                     16
                 },
-                |batch| embed_passages(&mut model, batch, quantization),
+                |batch| embed_passages(&mut model, batch, quantization, dimension),
                 || check_cancelled(cancel_path.as_deref()),
             )
         })
         .transpose()?;
     let cached = vector_path
         .as_ref()
-        .map(|path| cached_vectors(path, &key, chunks.len()))
+        .map(|path| cached_vectors(path, &key, chunks.len(), dimension))
         .transpose()?
         .flatten();
     let reused = query_only
@@ -755,7 +781,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     } else if let Some(vectors) = cached {
         vectors
     } else {
-        let vectors = embed_passages(&mut model, &chunks, quantization)?;
+        let vectors = embed_passages(&mut model, &chunks, quantization, dimension)?;
         if let Some(path) = &vector_path {
             // ponytail: immutable whole-probe cache; incremental SQLite indexing remains a separate gate.
             let mut file = new_private_file(path)?;
@@ -793,7 +819,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         let literal = &row.ids;
         let started = Instant::now();
         let query = model.embed([format!("query: {}", case.query)], None)?;
-        check_vectors(&query)?;
+        check_vectors(&query, dimension)?;
         let embedding_ms = started.elapsed().as_secs_f64() * 1000.0;
         let scan_started = Instant::now();
         let query_vector = query.first().ok_or("model returned no query vector")?;
@@ -894,7 +920,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         let report = serde_json::json!({"corpusSha256": corpus_sha256,
             "snapshotSha256": corpus.snapshot_sha256,
             "lexicalSha256": format!("{:x}", Sha256::digest(&lexical_bytes)),
-            "modelSha256": model_sha256, "modelQuantization": quantization_value.as_deref().unwrap_or("none"), "vectorCacheKey": key, "reusedVectors": reused,
+            "modelSha256": model_sha256, "dimension": dimension, "modelQuantization": quantization_value.as_deref().unwrap_or("none"), "vectorCacheKey": key, "reusedVectors": reused,
             "vectorStorage": if store.is_some() { "sqlite" } else { "json-or-memory" }, "indexChanges": index_stats,
             "documents": corpus.documents.len(), "passages": chunks.len(), "queries": candidates,
             "semanticEvidencePolicy": {"minimumContextBodyTokens": EVIDENCE_BODY_TOKENS, "retainScoreWinner": true, "maximumPassages": 2, "shortSourceFallback": true},
@@ -908,7 +934,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .get((query_ms.len() * 95 / 100).min(query_ms.len().saturating_sub(1)))
         .map(|value| format!("{value:.2}"))
         .unwrap_or_else(|| "n/a".into());
-    println!("documents={} passages={} model_load_s={load_secs:.2} index_or_cache_s={index_secs:.2} reused={reused} query_p95_ms={p95} raw_vector_bytes={}", corpus.documents.len(), chunks.len(), chunks.len() * 384 * 4);
+    println!("documents={} passages={} model_load_s={load_secs:.2} index_or_cache_s={index_secs:.2} reused={reused} query_p95_ms={p95} raw_vector_bytes={}", corpus.documents.len(), chunks.len(), chunks.len() * dimension * 4);
     println!("judged_unquoted_queries={compared} (quotes excluded; incomplete labels)");
     if compared > 0 {
         for (index, name) in ["lexical", "semantic", "hybrid"].iter().enumerate() {
@@ -1009,7 +1035,7 @@ mod tests {
 
         let path =
             std::env::temp_dir().join(format!("papercut-vector-check-{}.json", std::process::id()));
-        assert!(cached_vectors(&path, "missing", 2).unwrap().is_none());
+        assert!(cached_vectors(&path, "missing", 2, 384).unwrap().is_none());
         fs::write(
             &path,
             serde_json::to_vec(&VectorCache {
@@ -1020,13 +1046,13 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            cached_vectors(&path, "model-and-content", 2)
+            cached_vectors(&path, "model-and-content", 2, 384)
                 .unwrap()
                 .unwrap(),
             vectors
         );
-        assert!(cached_vectors(&path, "changed-model-or-content", 2).is_err());
-        assert!(cached_vectors(&path, "model-and-content", 1).is_err());
+        assert!(cached_vectors(&path, "changed-model-or-content", 2, 384).is_err());
+        assert!(cached_vectors(&path, "model-and-content", 1, 384).is_err());
         let mut invalid = vectors;
         invalid[0][0] = 0.0;
         fs::write(
@@ -1038,10 +1064,18 @@ mod tests {
             .unwrap(),
         )
         .unwrap();
-        assert!(cached_vectors(&path, "model-and-content", 2).is_err());
+        assert!(cached_vectors(&path, "model-and-content", 2, 384).is_err());
         fs::remove_file(path).unwrap();
-        assert!(check_vectors(&[vec![f32::NAN; 384]]).is_err());
-        assert!(check_vectors(&[vec![1.0; 383]]).is_err());
+        assert!(check_vectors(&[vec![f32::NAN; 384]], 384).is_err());
+        assert!(check_vectors(&[vec![1.0; 383]], 384).is_err());
+        let mut base = vec![0.0; 768];
+        base[0] = 1.0;
+        check_vectors(&[base.clone()], 768).unwrap();
+        assert!(check_vectors(&[base], 384).is_err());
+        assert_eq!(model_dimension(br#"{"hidden_size":384}"#).unwrap(), 384);
+        assert_eq!(model_dimension(br#"{"hidden_size":768}"#).unwrap(), 768);
+        assert!(model_dimension(br#"{"hidden_size":1024}"#).is_err());
+        assert!(model_dimension(b"{}").is_err());
     }
 
     #[test]
@@ -1171,7 +1205,7 @@ mod tests {
                 .as_deref(),
         )
         .unwrap();
-        let (mut model, identity) = load_model(Path::new(&directory), mode).unwrap();
+        let (mut model, identity, dimension) = load_model(Path::new(&directory), mode).unwrap();
         let corpus: Corpus = serde_json::from_value(serde_json::json!({
             "documents": [
                 {"id": "guide", "title": "Navigation", "sections": [
@@ -1183,18 +1217,18 @@ mod tests {
         }))
         .unwrap();
         let mut chunks = passages(&model, &corpus).unwrap();
-        let first = embed_passages(&mut model, &chunks, mode).unwrap();
+        let first = embed_passages(&mut model, &chunks, mode, dimension).unwrap();
         for question in ["How can a walker find north?", "كيف أحدد اتجاه الشمال؟"]
         {
             let query = model.embed([format!("query: {question}")], None).unwrap();
-            check_vectors(&query).unwrap();
+            check_vectors(&query, dimension).unwrap();
             let ranked = rank(&corpus, &chunks, &first, &query[0], &[]);
             assert_eq!(
                 corpus.documents[chunks[ranked[0].passage].document].id,
                 "guide"
             );
         }
-        let resumed = embed_passages(&mut model, &chunks[1..], mode).unwrap();
+        let resumed = embed_passages(&mut model, &chunks[1..], mode, dimension).unwrap();
         if matches!(mode, QuantizationMode::Dynamic) {
             assert_eq!(
                 first[1..],
@@ -1214,7 +1248,7 @@ mod tests {
             );
         }
         chunks.reverse();
-        let reversed = embed_passages(&mut model, &chunks, mode).unwrap();
+        let reversed = embed_passages(&mut model, &chunks, mode, dimension).unwrap();
         if matches!(mode, QuantizationMode::Dynamic) {
             assert_eq!(first.iter().rev().cloned().collect::<Vec<_>>(), reversed);
         }
@@ -1222,7 +1256,7 @@ mod tests {
             "papercut-model-sqlite-{}.sqlite3",
             std::process::id()
         ));
-        let mut store = storage::Store::open(&path, &identity).unwrap();
+        let mut store = storage::Store::open(&path, &identity, dimension).unwrap();
         let stats = store
             .sync(
                 &corpus,
@@ -1232,7 +1266,7 @@ mod tests {
                 } else {
                     16
                 },
-                |batch| embed_passages(&mut model, batch, mode),
+                |batch| embed_passages(&mut model, batch, mode, dimension),
                 || Ok(()),
             )
             .unwrap();
@@ -1254,7 +1288,7 @@ mod tests {
                 .collect::<Vec<_>>()
         );
         drop(store);
-        let mut store = storage::Store::open(&path, &identity).unwrap();
+        let mut store = storage::Store::open(&path, &identity, dimension).unwrap();
         let stats = store
             .sync(
                 &corpus,
@@ -1273,7 +1307,7 @@ mod tests {
     #[ignore = "requires an explicit cached model snapshot; no downloads"]
     fn long_sections_keep_their_tail_and_utf8_source_spans() {
         let directory = std::env::var_os("FASTEMBED_MODEL_DIR").expect("cached model snapshot");
-        let (model, _) = load_model(
+        let (model, _, _) = load_model(
             Path::new(&directory),
             quantization_mode(
                 std::env::var("SEARCH_V2_MODEL_QUANTIZATION")

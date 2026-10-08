@@ -9,8 +9,8 @@ Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Code
 | Gate | Current evidence and decision |
 | --- | --- |
 | Model-free search | Ranking, Broader mode, source evidence, authored-word spelling help, Arabic normalization and query corrections are implemented on this branch. A 500-document / 100,000-section saturated-match native probe passes common-query timing thresholds on this development host; it does not establish weak-device or interactive app acceptance. General synonym expansion is unclaimed; hard-coded word pairs were removed. The latest complete-query correction's app smoke check is deferred. |
-| Embedding baseline | Cached FP32/INT8 providers, anchored passages, incremental SQLite indexing, read-only queries and document-level fusion remain experimental. Native primary evidence and separate conceptual context are preserved. |
-| Representative quality | Assistant development grades show useful English and controlled same-language Arabic retrieval, with cross-language/entity/date and missing-answer-span failures. The [frozen fact controls](#stage-6--frozen-multilingual-fact-controls-2026-10-08) reproduce mixed-language competition and separate document ranking from answer evidence. Private authored controls do not replace actual books or independent grading. The existing independent packet remains unjudged; no held-out acceptance gain is established. |
+| Embedding baseline | Cached FP32/INT8 providers, anchored passages, incremental SQLite indexing, read-only queries and document-level fusion remain experimental. The standalone comparison now accepts verified Small/Base metadata and dimension-safe 384/768-vector indexes; the app provider/model setup still supports only the retained Small formats. Native primary evidence and separate conceptual context are preserved. |
+| Representative quality | Assistant development grades show useful English and controlled same-language Arabic retrieval, with cross-language/entity/date and missing-answer-span failures. The [one-alternative FP32 comparison](#stage-6--one-alternative-encoder-comparison-2026-10-08) recovers one known cross-language answer at rank two, but worsens first-result and answer-evidence controls at higher resource cost. Neither encoder establishes an overall acceptance win. Private authored controls do not replace actual books or independent grading. The existing independent packet remains unjudged; no held-out acceptance gain is established. |
 | Cached reranker/context augmentation | Rejected: a cross-language gain introduces a same-language date regression; combined-context and explicit-exclusion controls do not justify a repair. Its live CLI/module are removed. |
 | Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the shared-runtime check reuses the actual app adapter with FastEmbed/sherpa. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. The linked initializer is tested on Linux, not an iOS archive/device. Other platforms, weak reference hardware, responsiveness and optional-model lifecycle/fallback validation remain open. |
 | Production optional hybrid | No ranking integration or default change; the explicitly compiled, session-only provider prototype does not participate in search. Proceed only after independent quality, reference-device and lifecycle/platform gates justify Stage 7; the original plan permits stopping with a documented no-go. |
@@ -1540,3 +1540,105 @@ independent quality before any Stage 7 go decision. Interactive app smoke remain
 deferred to the user's consolidated final pass; the [checklist](search-v2-smoke.md)
 is ready. Reference-device, supported-platform and native lifecycle gates remain
 open alongside the original unexplained crash and allocator-retention concern.
+
+## Stage 6 — one alternative encoder comparison (2026-10-08)
+
+**Decision: keep both candidates in the isolated experiment; no production
+promotion, and Stage 7 remains on hold.** Compare one alternative rather than
+start a model leaderboard: retained E5 Small FP32 against E5 Base FP32. Base
+recovers a known cross-language answer in the broader packet, but does not
+establish a net quality gain against the frozen controls or justify its higher
+resource cost. No app search, model manifest, download UI, dependency, ORT or
+Libtashkeel change is included.
+
+The alternative is the official MIT-licensed `intfloat/multilingual-e5-base`,
+pinned to revision `d128750597153bb5987e10b1c3493a34e5a4502a`. Its [official
+ONNX assets](https://huggingface.co/intfloat/multilingual-e5-base/tree/d128750597153bb5987e10b1c3493a34e5a4502a/onnx)
+were verified against upstream object hashes and sizes. This is a 768-dimensional
+FP32 encoder using the [model card's](https://huggingface.co/intfloat/multilingual-e5-base)
+query/passage prefixes, mean pooling and L2 normalization. Comparing FP32 with
+FP32 avoids combining an encoder change with a quantization change. The Base
+ONNX file is 1,110,059,084 bytes, versus Small's 470,268,510 bytes. Assets and
+private source/query records stay outside Git.
+
+The minimum comparison adapter reads `hidden_size`, accepts only 384 or 768,
+and validates finite unit vectors, JSON caches and SQLite model/dimension
+compatibility. Existing Small identities and stored indexes remain compatible;
+changing model requires a separate index. The app has no Base provider or
+semantic index. The standalone experiment retains its existing two-thread,
+320-token passage / 40-token overlap, source evidence and fusion policies.
+No language boosts, score thresholds or word exceptions were tuned.
+
+The same frozen **46 requests per native mode** and 24-document / 48-section
+fact corpus are reused. Each encoder embeds 48 passages once, then reuses all 48
+for Broader with zero new embeddings. The 32 positive controls remain four
+paired facts across languages and scopes, not 32 independent questions.
+
+| Main positive controls (32 per row) | Correct document first | Correct document in top 10 | Full answer in first result's displayed evidence | Full answer in top 10 evidence |
+| --- | ---: | ---: | ---: | ---: |
+| Small semantic, either mode / hybrid All words | 24 | 31 | 18 | 25 |
+| Base semantic, either mode / hybrid All words | 22 | 32 | 14 | 22 |
+| Small hybrid Broader | 24 | 31 | 24 | 31 |
+| Base hybrid Broader | 22 | 32 | 20 | 28 |
+
+Both put all 16 same-language targets first. In target-language-only scopes,
+Small puts all eight cross-language targets first; Base puts six first. With
+mixed-language competition, both still put **zero of eight** first; Base retains
+eight in the top ten versus Small's seven. Base can select an introduction
+instead of the answer section even when it retrieves the correct document.
+The full frozen answer-clause diagnostic separates that evidence failure from
+document recall; it does not classify every partial passage as irrelevant.
+Quoted requests remain lexical-only; native responses, explicit scopes and
+primary hybrid evidence remain unchanged. Unsupported questions still retrieve
+neighbors without an answerability/abstention guarantee.
+
+The retained broader packet has **37 documents / 3,442 source sections / 22
+requests**. Small makes 4,389 passages and Base 4,379: each uses its own tokenizer
+under the same token limits. Small reproduces its prior model identity and all
+22 native/semantic/hybrid result and evidence records exactly. Of 20 unquoted
+requests, 19 retain the same first document in each semantic/hybrid channel;
+rank movement alone is not a relevance metric. The latest source-bound review
+of four known cases retains the two direct first answers and the lexical-only
+quotation. Both models still put an explicit wrong-purpose neighbor first for
+the remaining cross-language question. **Base recovers its correct source and
+explanatory passage at rank two; Small misses that source in the top ten.**
+This is a useful bounded gain, alongside the fact-control regressions. These
+assistant grades are familiar development diagnostics; the original independent
+sheet remains unfilled, and the other requests are not silently graded zero.
+
+| Larger-packet measurement | Small FP32 | Base FP32 |
+| --- | ---: | ---: |
+| Model load | 0.95 s | 2.42 s |
+| Initial indexing | 323.85 s (5.4 min) | 1,060.49 s (17.7 min) |
+| Query p50 / runner p95 | 13.80 / 17.26 ms | 35.51 / 40.90 ms |
+| Peak native-process RSS | 1,448.11 MiB | 2,900.47 MiB |
+| SQLite index bytes | 14,028,800 | 22,994,944 |
+| Raw vector bytes | 6,741,504 | 13,452,288 |
+
+These are sequential, single-run Linux native-child measurements on this
+development host; OS caches were not cleared. They exclude WebView, app
+responsiveness and shared-runtime/device acceptance. Base costs roughly 3.3×
+initial indexing and 2× peak RSS/raw vector storage here. Unchanged passages
+reuse vectors, but imports, edits, model changes and indexing-policy changes
+still incur work; indexing is not a permanent one-time cost.
+
+Validation: **six ordinary experimental checks and two actual cached Base
+checks pass**, including both-dimension restart/update/delete/rollback, wrong
+model/dimension rejection, bounded embedding order/resume, long sections and
+UTF-8 source spans. Strict-offline release build, formatting and Clippy with
+warnings denied pass. Comparison verification checks 4,064 semantic source
+spans, 456 scoped/deduplicated result lists, 262 unchanged native primary hybrid
+evidence objects and 20 quoted-request exclusions. Frozen input/key and official
+model hashes match. No installed library was changed. This does not close the
+original unexplained native crash or allocator-retention concern.
+
+**Next:** while interactive smoke remains deferred, compare these same two
+retained FP32 candidates on a small, fixed public human-labelled English/Arabic
+retrieval subset. Freeze selection and labels before retrieval; keep public
+benchmark sources and queries outside tracked files too. Do not add another
+model or tune against the familiar controls. Public labels can supply an
+independent relevance reference without requiring the user to know the subject
+matter; they do not replace representative private-book, displayed-evidence,
+reference-device, index/fallback or supported-platform acceptance. The
+[consolidated app smoke checklist](search-v2-smoke.md) remains deferred to the
+user's final pass and must be reminded then.
