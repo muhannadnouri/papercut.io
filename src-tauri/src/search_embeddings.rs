@@ -302,6 +302,10 @@ mod provider {
     }
 
     impl SearchEmbeddingState {
+        /// A disable/reload invalidates a pending query even when asset identity is unchanged.
+        pub(crate) fn index_generation(&self) -> u64 {
+            self.1.load(Ordering::SeqCst)
+        }
         /// Include tokenizer/config checksums as well as the provider's model identity.
         pub(crate) fn index_encoder_key(&self) -> Result<String, String> {
             let state = self.0.lock().map_err(|_| "Embedding state lock failed")?;

@@ -1,3 +1,4 @@
+use super::super::query::{retrieve, QueryRequest};
 use super::*;
 use crate::document_uploads::{
     parsed::{ParsedDocument, ParsedSection},
@@ -6,7 +7,288 @@ use crate::document_uploads::{
         delete_document_rows, open_db_in, update_document_title, upsert_document, PdfTextStatus,
     },
 };
+use serde_json::{json, Value};
 use std::{cell::Cell, path::PathBuf};
+
+fn request(value: Value) -> QueryRequest {
+    serde_json::from_value(value).unwrap()
+}
+
+fn conceptual(db: &mut Connection, input: Value) -> Value {
+    serde_json::to_value(
+        retrieve(
+            db,
+            &identity(),
+            &request(input),
+            |_| Ok(vec![1.0, 0.0]),
+            || Ok(()),
+        )
+        .unwrap(),
+    )
+    .unwrap()
+}
+
+#[test]
+fn conceptual_scope_quotes_constrain_ranking_before_limit_without_chunk_votes() {
+    let library = Library::new();
+    let mut db = library.db();
+    let key = identity();
+    for index in 0..70 {
+        let id = format!("neighbor{index:03}");
+        put(
+            &mut db,
+            &id,
+            "City lights",
+            &["A daytime transit timetable."],
+        );
+    }
+    put(
+        &mut db,
+        "substring",
+        "City lights",
+        &["Subcity lightspeed. Ticket offices remain open."],
+    );
+    put(
+        &mut db,
+        "target",
+        "Night transport",
+        &[
+            "City\n lights guide. Night-time service.",
+            "Ticket offices remain open.",
+        ],
+    );
+    initialize(&mut db, &key).unwrap();
+    for id in document_ids(&db).unwrap() {
+        sync(&mut db, &key, &id);
+    }
+    let bytes = [0.0f32, 1.0]
+        .into_iter()
+        .flat_map(f32::to_le_bytes)
+        .collect::<Vec<_>>();
+    db.execute(
+        "UPDATE upload_semantic_passages SET vector=?1,vector_hash=?2 WHERE document_id='target'",
+        params![bytes, format!("{:x}", Sha256::digest(&bytes))],
+    )
+    .unwrap();
+    let hit = conceptual(
+        &mut db,
+        json!({"query":"evening travel", "exactPhrases":["city lights","offices remain"],"limit":1}),
+    );
+    assert_eq!(hit["results"][0]["documentId"], "target");
+    assert_eq!(hit["results"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        hit["scannedPassages"], 2,
+        "title-only quote neighbors never enter scoring"
+    );
+    assert_eq!(
+        hit["results"][0]["score"], 0.0,
+        "phrase constraints precede higher-scoring neighbors"
+    );
+    assert_eq!(
+        hit["results"][0]["sectionIndex"], 0,
+        "equal passage scores use source order"
+    );
+    assert_eq!(hit["results"][0]["provenance"], "conceptual");
+    assert!(hit["results"][0].get("matchCount").is_none());
+    let hyphen = conceptual(
+        &mut db,
+        json!({"query":"evening travel","exactPhrases":["night-time service"],"limit":1}),
+    );
+    assert_eq!(hyphen["results"][0]["documentId"], "target");
+    let scope = conceptual(
+        &mut db,
+        json!({"query":"evening travel","documentUrls":["/uploads/target.html"],"limit":1}),
+    );
+    assert_eq!(scope["results"][0]["documentId"], "target");
+    assert_eq!(scope["eligibleDocuments"], 1);
+    let empty = conceptual(&mut db, json!({"query":"travel","documentUrls":[]}));
+    assert_eq!(empty["eligibleDocuments"], 0);
+    assert_eq!(empty["scannedPassages"], 0);
+    assert!(empty["results"].as_array().unwrap().is_empty());
+    let all = conceptual(&mut db, json!({"query":"travel","limit":50}));
+    assert_eq!(all["results"].as_array().unwrap().len(), 50);
+    assert_eq!(
+        all["results"][0]["documentId"], "neighbor000",
+        "document ties are deterministic"
+    );
+}
+
+#[test]
+fn conceptual_missing_incompatible_and_partial_indexes_do_not_invent_coverage_or_encode() {
+    let library = Library::new();
+    let mut db = library.db();
+    put(&mut db, "ready", "Guide", &["🙂 المواصلات 城市交通"]);
+    let input = request(json!({"query":"travel"}));
+    let missing = retrieve(
+        &mut db,
+        &identity(),
+        &input,
+        |_| panic!("missing index must not infer"),
+        || Ok(()),
+    )
+    .unwrap();
+    assert_eq!(
+        serde_json::to_value(missing).unwrap()["availability"],
+        "missing-index"
+    );
+    assert!(!exists(&db).unwrap());
+    initialize(&mut db, &identity()).unwrap();
+    sync(&mut db, &identity(), "ready");
+    put(&mut db, "pending", "New guide", &["Bicycle connections"]);
+    let partial = conceptual(&mut db, json!({"query":"travel"}));
+    assert_eq!(partial["availability"], "partial");
+    assert_eq!(partial["eligibleDocuments"], 2);
+    assert_eq!(partial["indexedDocuments"], 1);
+    assert_eq!(partial["results"][0]["text"], "🙂 المواصلات 城市交通");
+    assert_eq!(partial["results"][0]["byteStart"], 0);
+    assert_eq!(
+        partial["results"][0]["byteEnd"],
+        "🙂 المواصلات 城市交通".len()
+    );
+    assert_eq!(partial["results"][0]["pageIndex"], 0);
+    let other = Identity::new("different-encoder", 2).unwrap();
+    let response = retrieve(
+        &mut db,
+        &other,
+        &input,
+        |_| panic!("wrong identity must not infer"),
+        || Ok(()),
+    )
+    .unwrap();
+    assert_eq!(
+        serde_json::to_value(response).unwrap()["availability"],
+        "incompatible-index"
+    );
+    db.execute("UPDATE upload_semantic_metadata SET schema_version=99", [])
+        .unwrap();
+    let response = retrieve(
+        &mut db,
+        &identity(),
+        &input,
+        |_| panic!("unknown schema must not infer"),
+        || Ok(()),
+    )
+    .unwrap();
+    assert_eq!(
+        serde_json::to_value(response).unwrap()["availability"],
+        "incompatible-index"
+    );
+}
+
+#[test]
+fn conceptual_query_rejects_corrupt_vectors_spans_hashes_and_bad_requests() {
+    let library = Library::new();
+    let mut db = library.db();
+    put(&mut db, "ready", "Guide", &["🙂 Transit"]);
+    initialize(&mut db, &identity()).unwrap();
+    sync(&mut db, &identity(), "ready");
+    let input = request(json!({"query":"travel"}));
+    assert!(retrieve(
+        &mut db,
+        &identity(),
+        &input,
+        |_| Ok(vec![f32::NAN, 0.0]),
+        || Ok(())
+    )
+    .is_err());
+    for value in [
+        json!({"query":""}),
+        json!({"query":"word ".repeat(129)}),
+        json!({"query":"x".repeat(4097)}),
+        json!({"query":"travel","limit":51}),
+        json!({"query":"travel","documentUrls":[""]}),
+    ] {
+        assert!(retrieve(
+            &mut db,
+            &identity(),
+            &request(value),
+            |_| panic!("invalid request must not infer"),
+            || Ok(())
+        )
+        .is_err());
+    }
+    for sql in [
+        "UPDATE upload_semantic_passages SET vector_hash='bad'",
+        "UPDATE upload_semantic_passages SET byte_start=1",
+        "UPDATE upload_semantic_passages SET content_hash='bad'",
+    ] {
+        db.execute(sql, []).unwrap();
+        assert!(retrieve(
+            &mut db,
+            &identity(),
+            &input,
+            |_| Ok(vec![1.0, 0.0]),
+            || Ok(())
+        )
+        .is_err());
+        remove(&mut db).unwrap();
+        initialize(&mut db, &identity()).unwrap();
+        sync(&mut db, &identity(), "ready");
+    }
+}
+
+#[test]
+fn conceptual_snapshot_rejects_edits_or_removal_during_scoring_and_obeys_cancellation() {
+    let library = Library::new();
+    let mut db = library.db();
+    put(&mut db, "abc123", "Guide", &["Transit"]);
+    initialize(&mut db, &identity()).unwrap();
+    sync(&mut db, &identity(), "abc123");
+    let input = request(json!({"query":"travel"}));
+    let mut writer = library.db();
+    let result = retrieve(
+        &mut db,
+        &identity(),
+        &input,
+        |_| {
+            update_document_title(&mut writer, "/uploads/abc123.html", "Changed").unwrap();
+            Ok(vec![1.0, 0.0])
+        },
+        || Ok(()),
+    );
+    assert!(result.err().unwrap().contains("library changed"));
+    sync(&mut db, &identity(), "abc123");
+    let result = retrieve(
+        &mut db,
+        &identity(),
+        &input,
+        |_| {
+            remove(&mut writer).unwrap();
+            Ok(vec![1.0, 0.0])
+        },
+        || Ok(()),
+    );
+    assert!(result.err().unwrap().contains("library changed"));
+    initialize(&mut db, &identity()).unwrap();
+    sync(&mut db, &identity(), "abc123");
+    let mut checks = 0;
+    assert!(retrieve(
+        &mut db,
+        &identity(),
+        &input,
+        |_| Ok(vec![1.0, 0.0]),
+        || {
+            checks += 1;
+            if checks > 2 {
+                Err("cancelled".into())
+            } else {
+                Ok(())
+            }
+        }
+    )
+    .is_err());
+    let result = retrieve(
+        &mut db,
+        &identity(),
+        &input,
+        |_| {
+            delete_document_rows(&mut writer, "abc123").unwrap();
+            Ok(vec![1.0, 0.0])
+        },
+        || Ok(()),
+    );
+    assert!(result.err().unwrap().contains("library changed"));
+}
 
 struct Library(PathBuf);
 
@@ -221,7 +503,7 @@ fn cancellation_hides_partial_documents_and_reuses_checkpoints_after_restart() {
         },
         |_| cancelled.set(true),
     );
-    assert_eq!(result.unwrap_err(), "cancelled");
+    assert_eq!(result.err().unwrap(), "cancelled");
     assert_eq!(
         coverage(&mut db, Some(&identity))
             .unwrap()
@@ -267,7 +549,7 @@ fn concurrent_edits_deletion_and_identity_roundtrips_reject_stale_writers() {
         || Ok(()),
         |_| {},
     );
-    assert!(result.unwrap_err().contains("source or model changed"));
+    assert!(result.err().unwrap().contains("source or model changed"));
     assert_eq!(coverage(&mut db, Some(&identity)).unwrap().passages, 0);
 
     let snapshot = source(&mut db, "abc123").unwrap().unwrap();

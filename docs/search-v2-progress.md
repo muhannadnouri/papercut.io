@@ -45,9 +45,61 @@ machine. Other device/provider acceptance and semantic quality remain open.
 | Representative quality | The [public human-label comparison](#stage-6--public-human-label-comparison-2026-10-08) supports same-language conceptual passage ranking. The [wider-pool check](#stage-6--frozen-wider-pool-check-2026-10-08) and [fresh-query verification](#stage-6--fresh-query-fusion-verification-2026-10-08) confirm Broader fusion can replace positive first results with judged negatives and reduce known-positive recall. Keep semantic-only ordering as the conceptual control; the fresh English All words result cautions against a universal semantic-first policy. Base's mixed gain and higher cost do not establish an overall acceptance win. Prior cross-language/entity/date and missing-answer-span failures remain. Public passage labels do not establish private-book, displayed-answer or full-library quality. The original independent packet remains unjudged; product acceptance remains open. |
 | Cached reranker/context augmentation | Rejected: a cross-language gain introduces a same-language date regression; combined-context and explicit-exclusion controls do not justify a repair. Its live CLI/module are removed. |
 | Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the shared-runtime check reuses the actual app adapter with FastEmbed/sherpa. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. The linked initializer is tested on Linux, not an iOS archive/device. Other platforms, weak reference hardware, responsiveness and optional-model lifecycle/fallback validation remain open. |
-| Production optional hybrid | Stage 7 development is explicitly authorized with a default-off toggle and lexical fallback only within the enabled semantic path. App indexing and developer-only saved opt-in/lifecycle controls are implemented below; conceptual retrieval, provenance and result fallback UI remain next. Quality, resource and platform limits remain release gates. |
+| Production optional hybrid | Stage 7 development is explicitly authorized with a default-off toggle and lexical fallback only within the enabled semantic path. App indexing, developer-only saved opt-in/lifecycle controls and native conceptual retrieval with source provenance are implemented below; the separate React results and enabled-path fallback remain next. Quality, resource and platform limits remain release gates. |
 
-**Current work is the saved opt-in/index lifecycle**, following the feature-gated app index foundation and no-fork provider integration. Desktop-first validation is sequencing, not a permanent Android/iOS restriction. Developer-mode controls prepare caches, activate a selected model and explicitly synchronize the uploaded index. Their wording makes clear that search remains lexical in this preparatory build; conceptual retrieval is not wired yet. Source navigation, ordinary search, audio and cache controls are user-reported smoke-passed. New index/query/toggle behavior needs its own checks. The earlier native crash, memory retention, reference hardware, mobile runtime and representative same-language quality remain open; current tokenizer checks do not establish Mandarin retrieval quality.
+**Current work is native conceptual retrieval**, following the saved opt-in/index lifecycle, feature-gated app index foundation and no-fork provider integration. Desktop-first validation is sequencing, not a permanent Android/iOS restriction. Developer-mode controls prepare caches, activate a selected model and explicitly synchronize the uploaded index. Their wording makes clear that search remains lexical in this preparatory build; React does not call the new native query yet. Source navigation, ordinary search, audio and cache controls are user-reported smoke-passed. The user explicitly deferred the new interactive index/query/toggle smoke; remind them when the functional results UI is ready. Native checks below do not replace that acceptance. The earlier native crash, memory retention, reference hardware, mobile runtime and representative same-language quality remain open; current tokenizer checks do not establish Mandarin retrieval quality.
+
+## Stage 7 — native conceptual retrieval — 2026-10-09
+
+`document_uploads/semantic/query.rs` adds one independent read-only command;
+React still returns lexical results. Ordinary builds and inactive providers fail
+recoverably, without activating/downloading a model or initializing storage.
+No dependency, runtime, config or script changes are needed. The existing lexical
+query limits, safe FTS phrase construction and authored-source verifier are reused.
+
+Scope and every required quoted clause constrain documents before scoring or the
+result limit. Empty scope means no documents; absent scope means all uploads.
+Body-token candidates exclude title-only/substrings, and authored verification
+rejects stemming-only phrases while preserving punctuation/line-wrap aliases.
+Quotes retain document scope, so clauses can occur in different sections and the
+chosen conceptual passage need not be the literal phrase location. Unquoted
+names/dates/words remain conceptual input, not new mandatory terms.
+
+One best passage ranks each document by cosine descending, with deterministic
+source-order/document-ID ties and at most 50 retained documents. Repeated chunks
+do not create extra votes. Results carry plain actual source text, conceptual
+provenance, section/page locators and validated section-local UTF-8 byte spans;
+there are no fabricated marks/counts. The later UI must use the existing reader
+section/page/text target boundary rather than treating bytes as DOM offsets.
+
+Only compatible completed documents are visible. Missing/incompatible/partial/
+ready states and scoped readiness counts support the later enabled-path fallback;
+unavailable-index counts do not establish coverage. Corrupt vectors/source hashes
+fail closed. Snapshot plus fresh-generation checks reject edits, deletion, index
+removal or model changes during scoring. One independent query slot and a
+cooperative ten-second budget constrain concurrency/waiting, but cannot interrupt
+a native call or a document's phrase verification. Result memory is bounded;
+exact scoring still scans compatible scoped vectors linearly. This is not a
+large-library latency, relevance-threshold or weak-device acceptance claim.
+
+Validation: default Rust **161 pass / 4 ignored** and shared-TTS/provider **216
+pass / 9 ignored**. Five added native tests cover scope/quote starvation, body
+word boundaries and hyphen aliases, partial/unknown compatibility, Unicode spans,
+corruption/limits, source edit/deletion/removal races and query-slot cleanup.
+Default-off command checks preserve no-storage behavior. The existing cached
+FP32 and INT8 command-index checks now also query through the actual handler,
+verify returned spans against stored text and check empty scope, in disposable
+app data with no downloads. Default/provider non-test Cargo checks, formatting
+and diff checks pass. These are structural/handler checks, not a new relevance
+comparison, query-latency benchmark or WebView navigation test. React is unchanged;
+its suite was not rerun in this native-only pass.
+
+**Next:** wire the native query through the isolated React semantic boundary into
+a separate labeled conceptual-results section, with stale-result protection,
+existing filters/required phrases, actual reader targets and visible fallback
+only when opted in. Move preparation controls out of Developer mode when that
+path is functional. Remind the user of the deferred lifecycle plus new query/UI
+smoke then; keep quality, platform, native stability and memory gates open.
 
 ## Stage 7 — saved opt-in and index lifecycle — 2026-10-09
 
@@ -88,7 +140,7 @@ Default and provider non-test Cargo checks pass. New interactive checks are in
 the [focused smoke follow-up](search-v2-smoke.md#stage-7-preparation-controls--new-follow-up);
 the user's earlier smoke pass predates these controls.
 
-**Next:** bounded native conceptual retrieval for compatible completed documents,
+**Next at completion of this earlier pass:** bounded native conceptual retrieval for compatible completed documents,
 existing scope and required-phrase verification, real source spans/reader targets,
 then a separate labeled conceptual-results section and visible enabled-path
 lexical fallback. Move functional opt-in controls out of Developer mode when

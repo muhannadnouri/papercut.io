@@ -44,6 +44,7 @@ pub fn run() {
         .manage(search_embeddings::SearchEmbeddingState::default())
         .manage(document_uploads::semantic::SemanticIndexState::default())
         .invoke_handler(tauri::generate_handler![
+            document_uploads::semantic::query::search_semantic_query,
             document_uploads::semantic::search_semantic_index_status,
             document_uploads::semantic::search_semantic_index_build,
             document_uploads::semantic::search_semantic_index_cancel,

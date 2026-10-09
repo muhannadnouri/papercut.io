@@ -140,6 +140,14 @@ native crash is not explained by this successful cache-only UI check.
 
 ## Stage 7 preparation controls — new follow-up
 
+**Deferred by the user on 2026-10-09.** The new native retrieval command has
+handler/source checks but is not yet called by React, so it adds no user-facing
+query case in this pass. Remind the user when the separate conceptual-results UI
+is functional. At that point combine the lifecycle cases below with opted-in
+conceptual provenance/navigation, filters/required quotes, stale-result cleanup
+and visible unavailable/partial/error fallback. Do not count earlier five-group
+acceptance as passing these new cases.
+
 These controls were added after the five smoke groups reported passed on
 2026-10-09. Rebuild with the existing experimental feature flags above, then use
 **Settings → Developer mode → Experimental search model setup** in the same

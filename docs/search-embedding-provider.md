@@ -1,14 +1,14 @@
 # Experimental search embedding provider
 
-This is an app-level, default-off **provider and index foundation**, with no
-ranking integration yet. Ordinary search never invokes it. Developer-mode
+This is an app-level, default-off **provider, index and native query foundation**,
+with no search UI integration yet. Ordinary search never invokes it. Developer-mode
 settings now offer explicit model-cache preparation, a saved default-off opt-in,
 cached activation and uploaded-library index build/resume, cancel and removal.
 There is no automatic download or indexing. A saved opt-in reloads the selected
 cached model on restart; without it, no activation is attempted. Controls clearly
-say that this preparatory build still returns lexical results. Stage 7 retrieval
-in a separate labeled conceptual-results section with enabled-path lexical
-fallback is the next work, not current behavior.
+say that this preparatory build still returns lexical results. An explicit native
+command can now retrieve conceptual passages; connecting it to a separate labeled
+results section with enabled-path lexical fallback is the next work.
 
 On 2026-10-09 the user reports normal search/reader/audio and experimental-cache
 smoke passed, plus CI `validation_scope=full`. Earlier validation sections below
@@ -139,7 +139,7 @@ publication. Explicit incompatible builds replace derived vectors; unknown
 schemas fail closed. Stored vectors have independent checksums plus dimension,
 finite-value and unit-norm checks. No write lock spans inference.
 
-There is no automatic indexing resume or semantic query yet. The React opt-in
+There is no automatic indexing resume or semantic query from React yet. The React opt-in
 is persisted as described below; index retry is explicit and reuses durable
 checkpoints. Native encoding and section
 tokenization temporarily hold the provider lock; cancellation is checked between
@@ -299,6 +299,65 @@ failure/retry, late completion, explicit jobs, coverage, cancellation and slow
 polling. A native mock-IPC regression proves provider disable signals the index
 job without releasing its slot before cleanup. These are lifecycle checks, not
 WebView/device, semantic ranking or memory acceptance.
+
+## Native conceptual query
+
+`document_uploads/semantic/query.rs` owns `search_semantic_query`. It is registered
+in ordinary and explicit-provider builds. Ordinary builds fail recoverably;
+provider builds require an already active verified cache. It never downloads,
+activates, builds an index or changes All words/Broader. React does not call it yet.
+Source/query text is never written to logs.
+
+The camelCase `request` has `query`, optional `exactPhrases`, `documentUrls` and
+`limit`. Absent/null scope means all uploads; an empty array means no uploads.
+Scope accepts at most 10,000 URLs, each at most 2,048 bytes, without blank entries;
+oversized requests fail rather than silently shortening selection. Result limit
+is 1–50, default 50. Existing lexical query limits apply, and the active provider
+also enforces its actual-token/character limit without truncation.
+
+`availability` is `missing-index`, `incompatible-index`, `partial` or `ready`.
+Disabled/not-compiled, corrupt data, busy query slot, changed sources/provider,
+timeouts and native failures return errors for the later enabled-path fallback.
+Missing/incompatible indexes do not infer or initialize storage. Coverage counts
+are for the scoped eligible/ready documents of a compatible index, before phrase
+filtering; unavailable index responses do not establish scoped coverage. Partial
+responses contain only completed compatible documents. Readiness is independent
+of whether a query returns hits.
+
+Scope and mandatory quoted phrases are verified before scoring or top-k selection.
+Phrase verification reuses body-scoped FTS token/alias candidates followed by
+lexical authored-source normalization at **document scope**; phrases may occur in different sections. A title-only occurrence does
+not qualify. The displayed conceptual passage may be in another section; it is
+not labeled as literal phrase evidence. Unquoted names/dates/words are conceptual
+input, not required terms. The independent All words/Broader path keeps its own
+semantics. There is no new synonym override list or rank fusion.
+
+Rank documents by the cosine score of their best passage, descending. Source
+order breaks passage ties and document ID breaks document ties. One document gets
+one result regardless of overlapping/repeated chunks. Retain at most 50 candidates
+and read one vector at a time. Returned results contain plain authored `text`,
+`provenance: conceptual`, document identity/title/format, section ordinal/heading,
+PDF page when present and section-local UTF-8 byte start/end. The displayed span
+and exact embedded title/heading/body hash are verified against current source.
+There are no invented highlights, term counts or occurrence maps. UTF-8 offsets
+must not be used directly as JavaScript DOM offsets; the later UI should use the
+existing section/page/text reader-target boundary. Scores are similarity, not
+confidence or proof that the passage answers the question.
+
+The command opens the existing upload DB read-only. One read snapshot pins source,
+index identity and vectors; a fresh metadata generation check rejects concurrent
+source edit/deletion, removal or incompatible rebuild before returning. Provider
+disable generations invalidate queued/scanning queries even after the same cache
+is reloaded. One query slot bounds concurrent scans separately from indexing and
+is released on errors/unwind. A cooperative ten-second budget includes queue time;
+checks cannot interrupt a native call, a SQLite wait or one document's phrase
+verification. Those waits may exceed the budget before the next check.
+
+**Limit:** result memory is bounded, scan cost is linear in compatible scoped
+passages, and phrase verification adds source reads. No ANN index, universal
+latency or relevance threshold is claimed. Calibrate real library/device costs
+before release; a timeout must leave lexical results available. Current tests
+establish contracts and real cached inference, not a new overall quality win.
 
 ## Runnable checks
 

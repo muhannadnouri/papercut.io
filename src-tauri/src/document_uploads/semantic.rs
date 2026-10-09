@@ -5,11 +5,25 @@ use std::sync::{
     Arc, Mutex,
 };
 
+pub(crate) mod query;
 #[cfg(any(test, feature = "experimental-search-embeddings-core"))]
 pub(crate) mod store;
 
 #[derive(Clone, Default)]
-pub(crate) struct SemanticIndexState(Arc<Mutex<Job>>);
+pub(crate) struct SemanticIndexState(
+    Arc<Mutex<Job>>,
+    #[cfg(any(test, feature = "experimental-search-embeddings-core"))] Arc<AtomicBool>,
+);
+
+#[cfg(any(test, feature = "experimental-search-embeddings-core"))]
+pub(super) struct QueryGuard(SemanticIndexState);
+
+#[cfg(any(test, feature = "experimental-search-embeddings-core"))]
+impl Drop for QueryGuard {
+    fn drop(&mut self) {
+        self.0 .1.store(false, Ordering::Release);
+    }
+}
 
 #[derive(Default)]
 struct Job {
@@ -40,6 +54,16 @@ struct Control {
 }
 
 impl SemanticIndexState {
+    /// Bound concurrent scans independently of the resumable writer's slot.
+    #[cfg(any(test, feature = "experimental-search-embeddings-core"))]
+    pub(super) fn begin_query(&self) -> Result<QueryGuard, String> {
+        self.1
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+            .map_err(|_| {
+                "A conceptual query is already running; lexical search remains available"
+            })?;
+        Ok(QueryGuard(self.clone()))
+    }
     /// Signal immediately, without waiting for the provider's current native call.
     pub(crate) fn cancel(&self) -> Result<(), String> {
         let job = self
@@ -290,6 +314,22 @@ pub(crate) async fn search_semantic_index_remove<R: tauri::Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn one_query_slot_is_independent_of_writer_and_releases_on_unwind() {
+        let state = SemanticIndexState::default();
+        let _writer = state.begin().unwrap();
+        let query = state.begin_query().unwrap();
+        assert!(state.begin_query().is_err());
+        drop(query);
+        let panic = std::panic::catch_unwind(|| {
+            let _query = state.begin_query().unwrap();
+            panic!("query worker");
+        });
+        assert!(panic.is_err());
+        assert!(state.begin_query().is_ok());
+        assert!(state.snapshot().unwrap().running);
+    }
 
     #[test]
     fn disabling_provider_signals_index_cancellation_through_ipc() {

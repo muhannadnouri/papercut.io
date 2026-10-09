@@ -10,6 +10,7 @@ fn app(identifier: &str) -> tauri::App<MockRuntime> {
         .manage(SearchEmbeddingState::default())
         .manage(crate::document_uploads::semantic::SemanticIndexState::default())
         .invoke_handler(tauri::generate_handler![
+            crate::document_uploads::semantic::query::search_semantic_query,
             search_embedding_status,
             search_embedding_configure,
             search_embedding_cache_status,
@@ -129,6 +130,30 @@ fn semantic_index_commands_are_default_off_and_do_not_initialize_storage() {
         Value::Null
     );
     assert!(invoke(&window, "search_semantic_index_build", json!({})).is_err());
+    assert!(invoke(
+        &window,
+        "search_semantic_query",
+        json!({"request":{"query":"travel"}})
+    )
+    .is_err());
+    assert!(invoke(
+        &window,
+        "search_semantic_query",
+        json!({"request":{"query":"travel","limit":51}})
+    )
+    .unwrap_err()
+    .as_str()
+    .unwrap()
+    .contains("limit"));
+    assert_eq!(
+        invoke(
+            &window,
+            "search_semantic_query",
+            json!({"request":{"query":"word ".repeat(129)}})
+        )
+        .unwrap_err(),
+        "searchQueryTooLong"
+    );
     assert!(!app.path().app_data_dir().unwrap().exists());
 }
 
@@ -223,6 +248,52 @@ fn cached_semantic_index_commands_checkpoint_and_preserve_sources() {
     assert_eq!(status["indexedDocuments"], 1);
     assert_eq!(status["eligibleDocuments"], 1);
     assert!(status["embeddedPassages"].as_u64().unwrap() > 1);
+    let response = invoke(
+        &window,
+        "search_semantic_query",
+        json!({"request":{
+        "query":"How do residents get around the city?", "documentUrls":[url], "limit":1,
+        "exactPhrases":["electric bus"]}}),
+    )
+    .unwrap();
+    assert_eq!(response["availability"], "ready");
+    assert_eq!(response["results"][0]["url"], url);
+    assert_eq!(response["results"][0]["provenance"], "conceptual");
+    let hit = &response["results"][0];
+    let db = rusqlite::Connection::open_with_flags(
+        app.path()
+            .app_data_dir()
+            .unwrap()
+            .join("document_uploads/search.sqlite3"),
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .unwrap();
+    let text: String = db
+        .query_row(
+            "SELECT text FROM uploaded_sections WHERE document_id=?1 AND ordinal=?2",
+            rusqlite::params![
+                hit["documentId"].as_str().unwrap(),
+                hit["sectionIndex"].as_u64().unwrap()
+            ],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        &text[hit["byteStart"].as_u64().unwrap() as usize
+            ..hit["byteEnd"].as_u64().unwrap() as usize],
+        hit["text"].as_str().unwrap()
+    );
+    assert!(hit.get("matchCount").is_none());
+    assert!(invoke(
+        &window,
+        "search_semantic_query",
+        json!({"request":{"query":"travel", "documentUrls":[]}})
+    )
+    .unwrap()["results"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+    drop(db);
     invoke(&window, "search_semantic_index_build", json!({})).unwrap();
     assert_eq!(
         invoke(&window, "search_semantic_index_status", json!({})).unwrap()["embeddedPassages"],

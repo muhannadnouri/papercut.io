@@ -9,7 +9,7 @@ use std::time::Instant;
 use rusqlite::{params, params_from_iter, types::Value, Connection, Row};
 use tauri::Runtime;
 
-mod query;
+pub(super) mod query;
 
 use super::search_form;
 use super::spelling;
@@ -699,7 +699,7 @@ fn retain_exact_phrase_candidates(
 
 /// Stream indexed sections in reading order and stop once every phrase has
 /// appeared; memory stays bounded even when a candidate PDF has many pages.
-fn document_contains_exact_phrases(
+pub(super) fn document_contains_exact_phrases(
     db: &Connection,
     document_id: &str,
     phrases: &[String],

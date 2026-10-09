@@ -5,7 +5,7 @@ use std::ops::Range;
 use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
 use sha2::{Digest, Sha256};
 
-const SCHEMA_VERSION: i64 = 1;
+pub(super) const SCHEMA_VERSION: i64 = 1;
 // Change this whenever extraction, source normalization or passage construction changes.
 const POLICY: &str = "uploaded-sections-v1/authored-v1/e5-prefix-v1/chunks-v1";
 pub(crate) const CHUNK_TOKENS: usize = 320;
@@ -61,7 +61,7 @@ fn err(error: impl std::fmt::Display) -> String {
     format!("Semantic index: {error}")
 }
 
-fn exists(db: &Connection) -> Result<bool, String> {
+pub(super) fn exists(db: &Connection) -> Result<bool, String> {
     db.query_row(
         "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='upload_semantic_metadata' AND type='table')",
         [], |row| row.get(0),
@@ -212,7 +212,7 @@ fn check_current(db: &Connection, source: &Source, identity: &Identity) -> Resul
     Ok(())
 }
 
-fn decode(bytes: &[u8], dimensions: usize, checksum: &str) -> Result<Vec<f32>, String> {
+pub(super) fn decode(bytes: &[u8], dimensions: usize, checksum: &str) -> Result<Vec<f32>, String> {
     if bytes.len() != dimensions * 4 || format!("{:x}", Sha256::digest(bytes)) != checksum {
         return Err("Invalid semantic vector length/checksum".into());
     }
@@ -224,7 +224,7 @@ fn decode(bytes: &[u8], dimensions: usize, checksum: &str) -> Result<Vec<f32>, S
     Ok(vector)
 }
 
-fn validate(vector: &[f32], dimensions: usize) -> Result<(), String> {
+pub(super) fn validate(vector: &[f32], dimensions: usize) -> Result<(), String> {
     let norm = vector.iter().map(|value| value * value).sum::<f32>().sqrt();
     if vector.len() != dimensions
         || vector.iter().any(|value| !value.is_finite())

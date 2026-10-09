@@ -11,7 +11,10 @@ const MAX_SEARCH_CHARACTERS: usize = 4096;
 
 /// Reject oversized requests before constructing FTS or opening the database;
 /// searching a silently shortened request would violate required-word/quote semantics.
-pub(super) fn validate_search_query(query: &str, phrases: &[String]) -> Result<(), String> {
+pub(in crate::document_uploads) fn validate_search_query(
+    query: &str,
+    phrases: &[String],
+) -> Result<(), String> {
     let parts = std::iter::once(query).chain(phrases.iter().map(String::as_str));
     if parts
         .clone()
@@ -77,7 +80,7 @@ pub(super) fn comparison_terms(
 }
 
 /// Convert each validated user phrase to one safely quoted FTS5 phrase.
-pub(super) fn fts_phrase_queries(phrases: &[String]) -> Vec<String> {
+pub(in crate::document_uploads) fn fts_phrase_queries(phrases: &[String]) -> Vec<String> {
     phrases
         .iter()
         .filter_map(|phrase| {
@@ -89,7 +92,7 @@ pub(super) fn fts_phrase_queries(phrases: &[String]) -> Vec<String> {
 
 /// Extract bounded FTS-safe tokens while retaining internal hyphens so the
 /// alias builder can distinguish punctuation from copied PDF line wrapping.
-pub(super) fn fts_terms(query: &str, limit: usize) -> Vec<String> {
+pub(in crate::document_uploads) fn fts_terms(query: &str, limit: usize) -> Vec<String> {
     collapse_hyphen_spacing(&normalize_search_punctuation(query))
         .split_whitespace()
         .map(|part| part.trim_matches(|ch: char| !ch.is_alphanumeric() && ch != '_' && ch != '-'))
@@ -101,7 +104,7 @@ pub(super) fn fts_terms(query: &str, limit: usize) -> Vec<String> {
 
 /// Case-fold the canonical display copy for literal comparison only; callers
 /// that map matches back to an excerpt keep the display copy for offset checks.
-pub(super) fn normalize_exact_text(text: &str) -> String {
+pub(in crate::document_uploads) fn normalize_exact_text(text: &str) -> String {
     normalize_exact_display(text).to_lowercase()
 }
 
