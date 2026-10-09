@@ -2,7 +2,7 @@
 
 Status: **user-reported passed on 2026-10-09** for all five groups in the
 consolidated normal/experimental-cache checklist. The user also reports full CI
-passed. Exact build SHA, CI run URL and per-case logs were not inspected. The
+passed. Exact smoke-build SHA and per-case logs were not inspected. The
 checklist remains below for future regressions; new index/toggle/query behavior
 added after this pass needs its own acceptance. Automated native, command and frontend checks are recorded in
 [progress](search-v2-progress.md); this checklist does not mark them as manual
@@ -15,11 +15,12 @@ They do not mark any interactive case as passed. The new lifecycle and
 conceptual-results groups below remain explicitly **deferred** by the user;
 run them together against the rebuilt provider-feature app when ready.
 
-The [acceptance review](search-v2-progress.md#stage-7--acceptance-review-and-ci-binding--2026-10-09)
-verifies green platform CI on an earlier SHA; it does not cover the outstanding
-Stage 7 commits or provider-enabled runtimes. Resolve the branch/run SHA separately
-from this deferred interactive checklist. A current full CI pass will still not
-replace the lifecycle/conceptual reader, RTL and responsiveness cases below.
+The [acceptance review](search-v2-progress.md#stage-7--verified-full-ci-acceptance--2026-10-09)
+verifies full CI run 38002904236 on pushed source `022ea95`, including the new
+Stage 7 commits. The earlier branch/run SHA gap is resolved. Normal platform
+builds and automated checks pass; they omit the semantic provider and do not
+replace the explicitly deferred lifecycle/conceptual reader, RTL, recovery and
+responsiveness cases below. No new interactive checkbox is marked complete.
 
 ## Isolate the library first
 

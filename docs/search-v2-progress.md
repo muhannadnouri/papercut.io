@@ -25,11 +25,12 @@ WebView and mobile acceptance remain open. The
 [optimized native check](#optimized-native-validation--2026-10-08) passes the
 existing provider, Arabic audio and command-recovery checks in release tests;
 it leaves the original crash and resource/device caveats unresolved.
-The user now reports that all five consolidated smoke groups passed, including
-the explicitly compiled model-cache UI, and that CI `validation_scope=full`
-passed. Run URL/SHA, device details and individual case logs were not inspected.
-Those checks preceded the new indexing commands and do not validate semantic
-ranking or mobile provider runtimes.
+Earlier, the user reported all five consolidated smoke groups passed, including
+the explicitly compiled model-cache UI, and an earlier full CI pass. Device
+details and individual smoke logs were not inspected. Current-revision full CI
+is now verified in the acceptance review below.
+The earlier smoke/cache checks preceded the new indexing commands and do not
+validate semantic ranking or mobile provider runtimes.
 
 The [model-free acceptance review](#model-free-acceptance-review--2026-10-08)
 confirms the candidate passes fresh default-feature and frontend regressions
@@ -56,10 +57,70 @@ remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
 
+## Stage 7 — verified full CI acceptance — 2026-10-09
+
+**Decision: the CI revision gap is closed; normal-platform automated validation
+passes for the integrated candidate. Stage 7 release acceptance remains open.**
+The user supplied [CI run 38002904236](https://github.com/muhannadnouri/papercut.io/actions/runs/38002904236).
+GitHub reports completed/success, attempt 1, on
+**`022ea959e5c05f84e71f0b19ae68dd6df45bb87c`**, matching local HEAD at review
+and GitHub's current `feature/search-v2` ref. This revision includes all five
+Stage 7 implementation commits and the earlier acceptance review. The run
+started 2026-10-09 23:08:29 UTC and completed by 23:30:36 UTC. Unlike the older
+run below, it validates the integrated source revision.
+
+Inspected the run/ref responses, all ten GitHub-reported jobs and their step
+summaries, full change-detection/checks logs, and artifact metadata. The dispatch
+log explicitly records **`VALIDATION_SCOPE: full`**. All ten jobs succeed,
+including the audit action's separate security check. Platform-specific steps
+skipped on other operating systems are expected; no required platform job was
+skipped.
+
+| Current-revision CI area | Verified evidence |
+| --- | --- |
+| Frontend and normal native checks | Lint, locale/type/Vite build, **168 frontend tests / 47 files**, model-download monitor self-test, SILMA self-test and **161 default Rust tests (5 ignored)** pass. npm audit reports zero vulnerabilities; Rust audit and inactive-waiver graph check succeed. |
+| Normal desktop packaging | Linux, Windows, macOS x64 and arm64 builds succeed. Linux AppImage media verification and both macOS bundled-runtime verifications succeed. |
+| Normal mobile builds | Android native-TTS APK and unsigned iOS simulator/device native-TTS builds succeed. These are build checks, not device launches or listening tests. |
+| Published artifacts | Metadata lists eight unexpired run/SHA-bound artifacts: Linux AppImage/deb, Windows MSI/NSIS, macOS x64/arm64 DMG, Android APK and SILMA CPU runtime. No artifact was downloaded, installed or launched in this review; iOS evidence is the unsigned build steps. |
+
+**Scope of the pass:** the existing workflow still tests Rust without embedding
+features and builds normal TTS configurations. It compiles the integrated React
+UI for normal packaging and tests provider-unavailable/default lexical contracts
+in the checks job. It does **not** run the real embedding provider on those platform
+runtimes. The dependency audit's `--all-features` graph inspection does not
+change that boundary. Prior local Linux provider-enabled 216-test, cached
+FP32/INT8 handler, Wry release-build and synthetic scan checks remain separate
+prior evidence, not newly executed remote checks.
+
+Rechecked the original Stage 7/8 acceptance requirements: default-off semantic
+search, independent conceptual results and lexical fallback remain the approved
+candidate. Current-SHA normal CI is now satisfied. The remaining gates are the
+user-deferred lifecycle/conceptual reader/RTL/keyboard/recovery/responsiveness
+smoke, representative product-scope relevance, provider-enabled platform/device
+validation and reference-hardware resource safety. The earlier crash, allocator
+retention and INT8 portability caveats remain unresolved. No new source change
+or Stage 8 model/ANN work follows from this green run.
+
+**Next:** keep smoke deferred as explicitly requested and retain the existing
+[focused checklist](search-v2-smoke.md) for the consolidated rebuilt-app pass.
+The next useful automated pass is targeted provider-enabled CI coverage using
+existing build prerequisites, without enabling the provider in ordinary packages.
+Platform/device runtime and product-scope evidence remain separate; normal CI
+alone does not justify widening
+availability or marking Stage 7 shipped. This follow-up changes documentation
+only, so it does not require another full build matrix solely to refresh the
+review commit SHA. Rerun relevant CI when executable/configuration changes occur.
+No tests were rerun locally, push or CI dispatch performed, or unrelated files
+included.
+
 ## Stage 7 — acceptance review and CI binding — 2026-10-09
 
-**Decision: retain the integrated opt-in candidate; Stage 7 release acceptance
-remains open.** Reviewed local source `f0cae5b`, the original Stage 7/8 plan,
+This section records the earlier review before the user supplied the
+[current-revision full run](#stage-7--verified-full-ci-acceptance--2026-10-09).
+Its revision-gap finding is historical and resolved above.
+
+**Decision at completion: retain the integrated opt-in candidate; Stage 7 release
+acceptance remains open.** Reviewed local source `f0cae5b`, the original Stage 7/8 plan,
 current workflow/build entry points, opt-in/query boundaries and existing
 regression/quality/resource evidence. No new model, runtime, ranking policy or
 optimization is justified. Two obsolete native module comments now describe the
@@ -102,7 +163,7 @@ not provider-enabled cross-platform linking, lifecycle or resource use.
 | Platform/build scope | Normal earlier-revision platform CI is verified. Current Linux provider compilation and cached handlers are locally tested; provider-enabled installers, Windows/macOS/Android/iOS runtime/device acceptance remain unverified. `compiled` reports capability, not certification. The retained INT8 export's portability is unverified. |
 | Interactive acceptance | Earlier five smoke groups passed by user report before Stage 7. New lifecycle/conceptual navigation, RTL, keyboard, responsiveness and recovery groups remain explicitly deferred; no checkbox is marked complete. |
 
-**Next:** push the outstanding local commits to the intended branch and bind a
+**Next at completion:** push the outstanding local commits to the intended branch and bind a
 successful full run to their SHA. Keep interactive smoke deferred as requested;
 when ready use [the existing focused groups](search-v2-smoke.md), then review
 product-scope relevance and provider/device evidence before wider availability.
