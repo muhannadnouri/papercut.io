@@ -45,9 +45,55 @@ machine. Other device/provider acceptance and semantic quality remain open.
 | Representative quality | The [public human-label comparison](#stage-6--public-human-label-comparison-2026-10-08) supports same-language conceptual passage ranking. The [wider-pool check](#stage-6--frozen-wider-pool-check-2026-10-08) and [fresh-query verification](#stage-6--fresh-query-fusion-verification-2026-10-08) confirm Broader fusion can replace positive first results with judged negatives and reduce known-positive recall. Keep semantic-only ordering as the conceptual control; the fresh English All words result cautions against a universal semantic-first policy. Base's mixed gain and higher cost do not establish an overall acceptance win. Prior cross-language/entity/date and missing-answer-span failures remain. Public passage labels do not establish private-book, displayed-answer or full-library quality. The original independent packet remains unjudged; product acceptance remains open. |
 | Cached reranker/context augmentation | Rejected: a cross-language gain introduces a same-language date regression; combined-context and explicit-exclusion controls do not justify a repair. Its live CLI/module are removed. |
 | Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the shared-runtime check reuses the actual app adapter with FastEmbed/sherpa. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. The linked initializer is tested on Linux, not an iOS archive/device. Other platforms, weak reference hardware, responsiveness and optional-model lifecycle/fallback validation remain open. |
-| Production optional hybrid | Stage 7 development is explicitly authorized with a default-off toggle and lexical fallback only within the enabled semantic path. The first app-index foundation is implemented below; preference/toggle, retrieval, provenance and fallback UI are not implemented yet. Quality, resource and platform limits remain release gates. |
+| Production optional hybrid | Stage 7 development is explicitly authorized with a default-off toggle and lexical fallback only within the enabled semantic path. App indexing and developer-only saved opt-in/lifecycle controls are implemented below; conceptual retrieval, provenance and result fallback UI remain next. Quality, resource and platform limits remain release gates. |
 
-**Current work is the feature-gated app index foundation**, following the no-fork provider integration. Desktop-first validation is sequencing, not a permanent Android/iOS restriction. The existing Developer-mode UI still only prepares model caches. Normal search does not invoke indexing or inference, and no user-facing semantic toggle is wired yet. Source navigation, ordinary search, audio and cache controls are now user-reported smoke-passed. New index/query/toggle behavior will need its own checks as it is integrated. The earlier native crash, memory retention, reference hardware, mobile runtime and representative same-language quality remain open; current tokenizer checks do not establish Mandarin retrieval quality.
+**Current work is the saved opt-in/index lifecycle**, following the feature-gated app index foundation and no-fork provider integration. Desktop-first validation is sequencing, not a permanent Android/iOS restriction. Developer-mode controls prepare caches, activate a selected model and explicitly synchronize the uploaded index. Their wording makes clear that search remains lexical in this preparatory build; conceptual retrieval is not wired yet. Source navigation, ordinary search, audio and cache controls are user-reported smoke-passed. New index/query/toggle behavior needs its own checks. The earlier native crash, memory retention, reference hardware, mobile runtime and representative same-language quality remain open; current tokenizer checks do not establish Mandarin retrieval quality.
+
+## Stage 7 — saved opt-in and index lifecycle — 2026-10-09
+
+The isolated `src/search-semantic/` hook/component has one owner in `App`, shared
+by Settings in both library and reader layouts. The existing model-cache panel
+shares its format selection and installer; no new dependency, runtime, build
+script or configuration is introduced. Controls stay under Developer mode until
+the separate conceptual-results path is implemented.
+
+The device-local preference defaults off. Enable activates a verified cached
+format, with no automatic download. A saved opt-in reloads that cache on restart;
+index synchronization remains explicit. Invalid preferences fail closed; failed
+persistence refuses enabling, while disabling still stops native work and warns
+about persistence failure. Build/resume, cancel, remove and coverage refresh are
+explicit actions. Completed-document/passages and encoded/reused counts are
+shown honestly. No ranking or literal-query semantics change in this pass.
+
+Native disable signals the index writer before waiting on model cleanup. Job
+slots stay busy through cleanup and checkpoints remain reusable. Status and
+download-cancel lock waits use the blocking pool; job progress is sampled after
+coverage work. UI generation guards reject stale completion after disable,
+native disable generations also prevent a queued loader from starting/publishing
+after an early disable; duplicate/conflicting actions are refused, and polling does not pile up status
+requests while a native call is slow. Closing Settings or entering the reader
+does not detach the App-owned lifecycle. Allocator retention and native-call
+delay remain limits, not fixed by the toggle.
+
+Validation: frontend **160 tests pass** across 45 files, including saved opt-in,
+StrictMode/restart, failure/retry, cancellation races, persistence failure,
+coverage and controls; typecheck, locale parity, scoped ESLint and Vite production
+build pass (existing large-chunk warning retained). Default Rust **156 pass / 4
+ignored** and shared-TTS/provider **211 pass / 9 ignored**, with local loopback
+access for fixture servers. The new native regression proves provider disable
+cancels an in-flight index slot without prematurely releasing it; a queued-load
+regression proves a superseded activation never reaches its loader. Explicit cached
+FP32 and INT8 command-index checks pass in disposable app data, with no downloads.
+Default and provider non-test Cargo checks pass. New interactive checks are in
+the [focused smoke follow-up](search-v2-smoke.md#stage-7-preparation-controls--new-follow-up);
+the user's earlier smoke pass predates these controls.
+
+**Next:** bounded native conceptual retrieval for compatible completed documents,
+existing scope and required-phrase verification, real source spans/reader targets,
+then a separate labeled conceptual-results section and visible enabled-path
+lexical fallback. Move functional opt-in controls out of Developer mode when
+that path is usable. Keep All words/Broader literal results independent; do not
+add another model/fusion sweep or advertise untested platforms.
 
 ## Stage 7 — App index foundation, 2026-10-09
 
@@ -103,7 +149,7 @@ tokenization/overlap, native encoding, indexing, unchanged-build skip, title
 invalidation, removal/rebuild and document deletion. This is structural/runtime
 evidence, not relevance grading or an app/device responsiveness measurement.
 
-**Next:** add the separate React semantic setting/hook and native preference/job
+**At this pass's completion, next was:** add the separate React semantic setting/hook and native preference/job
 lifecycle: default off, explicit model choice/activation, indexing progress and
 coverage, cancellation on disable and restart recovery. Then integrate bounded
 semantic retrieval in the user-selected separate conceptual-results section,

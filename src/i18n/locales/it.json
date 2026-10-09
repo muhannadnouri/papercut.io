@@ -385,6 +385,23 @@
       "closeHelp": "Chiudere le impostazioni non annulla il download. Riaprile per controllare lo stato o annullare.",
       "cancelled": "Download annullato. Controlla lo stato della cache prima di riprovare.",
       "failed": "Download non riuscito. Controlla la connessione e lo spazio libero; rimuovi i file della cache danneggiati prima di riprovare."
+    },
+    "semantic": {
+      "title": "Preparazione dell’indice semantico",
+      "description": "Prepara l’indice facoltativo per la ricerca concettuale. Il recupero non è ancora collegato: Tutte le parole e Più ampia usano ancora risultati lessicali.",
+      "toggle": "Abilita preparazione del modello e dell’indice (facoltativo)",
+      "off": "Disattivato. La ricerca lessicale normale è disponibile; non viene avviato lavoro semantico.",
+      "active": "Modello attivo. La ricerca usa ancora risultati lessicali in questa versione preparatoria.",
+      "fallback": "Il modello selezionato non è disponibile. La ricerca continua con risultati lessicali.",
+      "working": "In corso. La ricerca continua con risultati lessicali.",
+      "coverage": "Documenti indicizzati: {{ready}} / {{total}} · passaggi pronti: {{passages}}",
+      "progress": "Questo lavoro: {{embedded}} passaggi codificati · {{reused}} riutilizzati",
+      "build": "Crea / riprendi indice",
+      "remove": "Rimuovi indice",
+      "retry": "Riprova attivazione",
+      "refresh": "Aggiorna stato",
+      "cancelling": "Annullamento richiesto. In attesa della chiamata nativa corrente e della pulizia.",
+      "recovery": "Disattiva per cambiare formato o rimuovere i file del modello. La disattivazione ferma l’indicizzazione e scarica il modello dalla memoria; file e punti di ripresa restano. La scelta salvata ricarica il modello locale al riavvio, senza download. Crea / riprendi dopo il riavvio o modifiche alla libreria. Chiudere le impostazioni non annulla il lavoro."
     }
   },
   "libraryTransfer": {

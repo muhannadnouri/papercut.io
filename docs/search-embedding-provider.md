@@ -2,13 +2,13 @@
 
 This is an app-level, default-off **provider and index foundation**, with no
 ranking integration yet. Ordinary search never invokes it. Developer-mode
-settings offer explicit model-cache preparation. New native commands can index
-the uploaded library after explicit activation; the UI does not call them yet.
-There is no automatic download or indexing. Activation remains session-only;
-restarting returns to disabled. Stage 7 integration is user-authorized with a
-default-off semantic toggle, a separate labeled conceptual-results section and
-visible lexical fallback within the enabled path; that toggle/query integration
-is the next work, not current behavior.
+settings now offer explicit model-cache preparation, a saved default-off opt-in,
+cached activation and uploaded-library index build/resume, cancel and removal.
+There is no automatic download or indexing. A saved opt-in reloads the selected
+cached model on restart; without it, no activation is attempted. Controls clearly
+say that this preparatory build still returns lexical results. Stage 7 retrieval
+in a separate labeled conceptual-results section with enabled-path lexical
+fallback is the next work, not current behavior.
 
 On 2026-10-09 the user reports normal search/reader/audio and experimental-cache
 smoke passed, plus CI `validation_scope=full`. Earlier validation sections below
@@ -54,8 +54,13 @@ The native `search_embedding_configure` command accepts `format: null` to
 cancel/unload, or `"float32"` / `"dynamic-int8"` to activate an already staged
 snapshot. It accepts no arbitrary path, model URL or unverified model identifier.
 All asset reading and native loading/cleanup run on the blocking pool. Disabling
-also cancels a pending model download; its busy slot remains occupied until the
-worker stops and staging cleanup finishes.
+also signals index cancellation before waiting on provider cleanup and cancels
+a pending model download; busy slots remain occupied until workers finish.
+Status and download cancellation also wait for provider locks on the blocking
+pool. Cooperative cancellation cannot interrupt a native inference call.
+Native disable generations invalidate queued activations before dispatch and
+are checked before loading and publication, so an early disable cannot be
+undone by an older queued loader.
 
 The fixed cache layout beneath Tauri's application data directory is:
 
@@ -134,8 +139,9 @@ publication. Explicit incompatible builds replace derived vectors; unknown
 schemas fail closed. Stored vectors have independent checksums plus dimension,
 finite-value and unit-norm checks. No write lock spans inference.
 
-There is no automatic startup resume, persistent opt-in or semantic query yet.
-Retry is explicit and reuses durable checkpoints. Native encoding and section
+There is no automatic indexing resume or semantic query yet. The React opt-in
+is persisted as described below; index retry is explicit and reuses durable
+checkpoints. Native encoding and section
 tokenization temporarily hold the provider lock; cancellation is checked between
 calls, and status/disable may wait for a call to finish. Source retention is one
 document at a time, not the whole library. These bounds still need device
@@ -205,7 +211,8 @@ errors leave lexical search available.
 `installed`, `cancelled` and `failed`; byte updates are throttled to roughly
 two-percentage-point steps. Installed completion reports the full payload size,
 including when an existing cache was verified. The settings panel consumes these
-events; app IPC/live upstream-download smoke remains deferred.
+events. The earlier cache-only UI smoke is user-reported passed; the new lifecycle
+controls require the focused follow-up below.
 
 ## Developer-mode model setup
 
@@ -223,8 +230,9 @@ The latter verifies a valid existing cache without fetching; metadata-only
 presence is not labeled as verified. **Remove model files** is available even
 for an incomplete/missing cache, so it can clear interrupted staging. Active
 selected caches cannot be removed, and pending native activation/download blocks
-cache mutation. No activation, preference persistence or search action is
-introduced by this UI.
+cache mutation. Download/verification never activate. The separate preparation
+toggle below owns activation; turn it off before changing format or removing
+model files. Ordinary search results remain unchanged.
 
 The panel subscribes before reading status, polls only during pending work and
 recovers native busy/cache state when reopened. Closing settings, changing tabs
@@ -248,8 +256,49 @@ npm test -- src/components/AppSettings/SearchModelSetup.test.tsx
 
 These checks do not replace WebView/app IPC, actual downloads, keyboard/RTL or
 reference-device tests. All eight locales have matching translated setup keys.
-Interactive setup checks join the user's deferred consolidated search/EPUB/audio
-smoke pass. Setup remains preparation for a prototype, not conceptual search.
+The user reports the earlier cache-only setup smoke passed on 2026-10-09.
+The new lifecycle controls need the focused follow-up checklist in
+[search-v2-smoke.md](search-v2-smoke.md#stage-7-preparation-controls--new-follow-up).
+Setup remains preparation for a prototype, not conceptual search.
+
+## Saved opt-in and index controls
+
+`src/search-semantic/useSemanticSearch.ts` has one owner in `App`, independent of
+Settings and reader navigation. `SemanticSearchSetup.tsx` renders the controls
+under Developer mode for now. They share the existing cache format selector and
+installer rather than adding another download path. The local WebView preference
+`papercut.semantic-search.v1` stores only `enabled` and the fixed format enum;
+invalid/unreadable values start off. It is device-local, not library metadata.
+Failure to save refuses enabling; disabling still stops work and reports that a
+previous preference may return after restart if persistence failed.
+
+Enable loads only already cached, checksum-verified assets. Failure retains the
+opt-in and presents an error/retry with lexical availability. Restart restores
+cached activation only after saved consent, never a download or an index build.
+Normal builds retain the preference without attempting unsupported activation.
+**Build / resume index** explicitly synchronizes uploaded text; use it after a
+restart or library edits. Native invalidation already hides stale documents.
+Coverage reports compatible completed documents and ready passages, while job
+counts report encoded/reused passages rather than an invented percent complete.
+Refresh explicitly rereads coverage after edits. Disabled coverage is zero for
+ready passages/documents because no active model identity can be verified; this
+does not imply deletion of checkpoint data.
+
+Cancel or turn off to stop indexing cooperatively. Turn off unloads the provider
+but retains model files and validated checkpoints; explicit index removal deletes
+only derived data, while cache removal is separate. Closing Settings, opening a
+reader or hiding Developer mode does not cancel work or discard the controller.
+UI actions reject conflicting/duplicate jobs, and generations ignore late
+activation/index completions after disable. Status polling has one outstanding
+poll per owner, only during pending work. Native cleanup can take time and does
+not promise immediate RSS reclamation.
+
+Frontend checks cover default-off/browser/capability boundaries, saved choice,
+restart restoration, StrictMode effect replay, persistence failure, activation
+failure/retry, late completion, explicit jobs, coverage, cancellation and slow
+polling. A native mock-IPC regression proves provider disable signals the index
+job without releasing its slot before cleanup. These are lifecycle checks, not
+WebView/device, semantic ranking or memory acceptance.
 
 ## Runnable checks
 

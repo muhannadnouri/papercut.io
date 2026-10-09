@@ -31,6 +31,11 @@ pub(crate) use provider::{SearchEmbeddingState, DIMENSIONS};
 pub(crate) struct SearchEmbeddingState {}
 
 impl SearchEmbeddingState {
+    #[cfg(feature = "experimental-search-embeddings-core")]
+    fn invalidate_activation(&self) -> u64 {
+        self.1.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1
+    }
+
     fn status(&self) -> Result<ProviderStatus, String> {
         #[cfg(feature = "experimental-search-embeddings-core")]
         let (active_format, loading_format, downloading_format) = {
@@ -56,10 +61,21 @@ impl SearchEmbeddingState {
         })
     }
 
+    #[cfg(any(test, not(feature = "experimental-search-embeddings-core")))]
     fn disable(&self) -> Result<ProviderStatus, String> {
         #[cfg(feature = "experimental-search-embeddings-core")]
+        return self.disable_at(self.invalidate_activation());
+        #[cfg(not(feature = "experimental-search-embeddings-core"))]
+        self.status()
+    }
+
+    #[cfg(feature = "experimental-search-embeddings-core")]
+    fn disable_at(&self, version: u64) -> Result<ProviderStatus, String> {
         {
             let mut state = self.0.lock().map_err(|_| "Embedding state lock failed")?;
+            if self.1.load(std::sync::atomic::Ordering::SeqCst) != version {
+                return Err("Embedding configuration superseded".into());
+            }
             if let Some((_, cancel)) = &state.loading {
                 cancel.store(true, std::sync::atomic::Ordering::Relaxed);
             }
@@ -171,24 +187,33 @@ pub(crate) async fn search_embedding_remove<R: tauri::Runtime>(
 
 /// Cancel download without unloading another active model. Cleanup finishes asynchronously.
 #[tauri::command]
-pub(crate) fn search_embedding_cancel_download(
+pub(crate) async fn search_embedding_cancel_download(
     state: tauri::State<'_, SearchEmbeddingState>,
 ) -> Result<ProviderStatus, String> {
-    #[cfg(feature = "experimental-search-embeddings-core")]
-    {
-        let inner = state.0.lock().map_err(|_| "Embedding state lock failed")?;
-        if let Some((_, cancel)) = &inner.downloading {
-            cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        #[cfg(feature = "experimental-search-embeddings-core")]
+        {
+            let inner = state.0.lock().map_err(|_| "Embedding state lock failed")?;
+            if let Some((_, cancel)) = &inner.downloading {
+                cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
         }
-    }
-    state.status()
+        state.status()
+    })
+    .await
+    .map_err(|err| format!("Embedding cancellation task failed: {err}"))?
 }
 
 #[tauri::command]
-pub(crate) fn search_embedding_status(
+pub(crate) async fn search_embedding_status(
     state: tauri::State<'_, SearchEmbeddingState>,
 ) -> Result<ProviderStatus, String> {
-    state.status()
+    // Indexing holds this lock during one native call; never wait on the UI thread.
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || state.status())
+        .await
+        .map_err(|err| format!("Embedding status task failed: {err}"))?
 }
 
 /// `null` disables/unloads. A format explicitly activates that verified cache.
@@ -197,19 +222,34 @@ pub(crate) fn search_embedding_status(
 pub(crate) async fn search_embedding_configure<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     state: tauri::State<'_, SearchEmbeddingState>,
+    index: tauri::State<'_, crate::document_uploads::semantic::SemanticIndexState>,
     format: Option<ModelFormat>,
 ) -> Result<ProviderStatus, String> {
+    // Invalidate queued workers before dispatch; a late load must not undo a newer disable.
+    #[cfg(feature = "experimental-search-embeddings-core")]
+    let version = if format.is_none() {
+        state.invalidate_activation()
+    } else {
+        state.1.load(std::sync::atomic::Ordering::SeqCst)
+    };
     let Some(format) = format else {
+        // Stop the writer before unloading; completed checkpoints remain reusable.
+        index.cancel()?;
         let state = state.inner().clone();
-        return tauri::async_runtime::spawn_blocking(move || state.disable())
-            .await
-            .map_err(|err| format!("Embedding disable task failed: {err}"))?;
+        return tauri::async_runtime::spawn_blocking(move || {
+            #[cfg(feature = "experimental-search-embeddings-core")]
+            return state.disable_at(version);
+            #[cfg(not(feature = "experimental-search-embeddings-core"))]
+            state.disable()
+        })
+        .await
+        .map_err(|err| format!("Embedding disable task failed: {err}"))?;
     };
     #[cfg(feature = "experimental-search-embeddings-core")]
     {
         let dir = cache_dir(&app, format)?;
         let state = state.inner().clone();
-        tauri::async_runtime::spawn_blocking(move || state.activate(&dir, format))
+        tauri::async_runtime::spawn_blocking(move || state.activate_at(&dir, format, version))
             .await
             .map_err(|err| format!("Embedding activation task failed: {err}"))?
     }
@@ -234,7 +274,7 @@ mod provider {
         panic::{catch_unwind, AssertUnwindSafe},
         path::Path,
         sync::{
-            atomic::{AtomicBool, Ordering},
+            atomic::{AtomicBool, AtomicU64, Ordering},
             Arc, Mutex,
         },
     };
@@ -243,7 +283,11 @@ mod provider {
     const MAX_TOKENS: usize = 512;
 
     #[derive(Clone, Default)]
-    pub(crate) struct SearchEmbeddingState(pub(super) Arc<Mutex<ProviderState>>);
+    pub(crate) struct SearchEmbeddingState(
+        pub(super) Arc<Mutex<ProviderState>>,
+        // Disable invalidates queued loads without waiting for the native lock.
+        pub(super) Arc<AtomicU64>,
+    );
 
     #[derive(Default)]
     pub(super) struct ProviderState {
@@ -300,22 +344,47 @@ mod provider {
             loaded.passage_ranges(title, heading, text)
         }
 
+        pub(super) fn activate_at(
+            &self,
+            dir: &Path,
+            format: ModelFormat,
+            version: u64,
+        ) -> Result<ProviderStatus, String> {
+            self.activate_with_version(format, version, |cancel| {
+                LoadedProvider::load(dir, format, cancel)
+            })
+        }
+
+        #[cfg(test)]
         pub(super) fn activate(
             &self,
             dir: &Path,
             format: ModelFormat,
         ) -> Result<ProviderStatus, String> {
-            self.activate_with(format, |cancel| LoadedProvider::load(dir, format, cancel))
+            self.activate_at(dir, format, self.1.load(Ordering::SeqCst))
         }
 
+        #[cfg(test)]
         fn activate_with(
             &self,
             format: ModelFormat,
             load: impl FnOnce(&AtomicBool) -> Result<LoadedProvider, String>,
         ) -> Result<ProviderStatus, String> {
+            self.activate_with_version(format, self.1.load(Ordering::SeqCst), load)
+        }
+
+        fn activate_with_version(
+            &self,
+            format: ModelFormat,
+            version: u64,
+            load: impl FnOnce(&AtomicBool) -> Result<LoadedProvider, String>,
+        ) -> Result<ProviderStatus, String> {
             let cancel = Arc::new(AtomicBool::new(false));
             {
                 let mut state = self.0.lock().map_err(|_| "Embedding state lock failed")?;
+                if self.1.load(Ordering::SeqCst) != version {
+                    return Err("Embedding configuration superseded".into());
+                }
                 if state.loading.is_some() || state.downloading.is_some() {
                     return Err("An embedding activation or download is already running".into());
                 }
@@ -335,7 +404,14 @@ mod provider {
             let result = catch_unwind(AssertUnwindSafe(|| load(&cancel)))
                 .unwrap_or_else(|_| Err("Embedding model activation panicked".into()));
             let mut state = self.0.lock().map_err(|_| "Embedding state lock failed")?;
-            if let Err(err) = check_cancel(&cancel) {
+            let current = check_cancel(&cancel).and_then(|_| {
+                if self.1.load(Ordering::SeqCst) != version {
+                    Err("Embedding configuration superseded".into())
+                } else {
+                    Ok(())
+                }
+            });
+            if let Err(err) = current {
                 drop(result);
                 state.loading = None;
                 return Err(err);
@@ -607,6 +683,30 @@ mod provider {
                 .is_err());
             assert!(state.status().unwrap().loading_format.is_none());
             assert!(state.disable().unwrap().active_format.is_none());
+        }
+
+        #[test]
+        fn disable_invalidates_activation_queued_before_native_reservation() {
+            let state = SearchEmbeddingState::default();
+            let queued = state.1.load(Ordering::SeqCst);
+            state.disable_at(state.invalidate_activation()).unwrap();
+            assert_eq!(
+                state
+                    .activate_with_version(ModelFormat::Float32, queued, |_| panic!(
+                        "a superseded queued request must never load native assets"
+                    ))
+                    .unwrap_err(),
+                "Embedding configuration superseded"
+            );
+            assert!(state.status().unwrap().active_format.is_none());
+            assert!(state.status().unwrap().loading_format.is_none());
+            let current = state.1.load(Ordering::SeqCst);
+            assert!(state
+                .activate_with_version(ModelFormat::Float32, current, |_| Err(
+                    "fresh request reached loader".into()
+                ))
+                .unwrap_err()
+                .contains("fresh request"));
         }
 
         #[test]

@@ -15,6 +15,7 @@ import { isMobileUserAgent } from '../../utils/platform'
 import { AppDialog } from '../AppDialog/AppDialog'
 import { AppSelect } from '../AppSelect/AppSelect'
 import { SearchModelSetup } from './SearchModelSetup'
+import type { SemanticSearchController } from '../../search-semantic/useSemanticSearch'
 import aiAudioUseNotice from '../../../AI_AUDIO_USE_NOTICE.md?raw'
 import papercutLicense from '../../../LICENSE.md?raw'
 import thirdPartyNotices from '../../../THIRD_PARTY_NOTICES.md?raw'
@@ -45,6 +46,7 @@ interface AppSettingsProps {
   developerMode: boolean
   onDeveloperModeChange: (enabled: boolean) => void
   onLibraryImported: () => void | Promise<void>
+  semanticSearch: SemanticSearchController
 }
 
 export function AppSettings({
@@ -53,6 +55,7 @@ export function AppSettings({
   developerMode,
   onDeveloperModeChange,
   onLibraryImported,
+  semanticSearch,
 }: AppSettingsProps) {
   const { t } = useTranslation()
   const tauriRuntime = isTauri()
@@ -249,7 +252,7 @@ export function AppSettings({
             </label>
           </section>
 
-          {tauriRuntime && developerMode && <SearchModelSetup />}
+          {tauriRuntime && developerMode && <SearchModelSetup semantic={semanticSearch} />}
 
           <section className="app-settings-section app-settings-about" aria-labelledby="app-settings-about">
             <h3 id="app-settings-about">{t('settings.about')}</h3>

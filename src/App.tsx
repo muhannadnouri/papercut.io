@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next'
 import './App.css'
 import { usePagefind } from './hooks/usePagefind'
 import { useSearch } from './hooks/useSearch'
+import { useSemanticSearch } from './search-semantic/useSemanticSearch'
 import { AppHeader } from './components/AppHeader/AppHeader'
 import { SearchTab } from './components/SearchTab/SearchTab'
 import { LibraryTab } from './components/LibraryTab/LibraryTab'
@@ -59,6 +60,7 @@ function isBundledDocumentUrl(url: string): boolean {
 function App() {
   const { t } = useTranslation()
   const theme = useTheme()
+  const semanticSearch = useSemanticSearch()
   const bookmarkedDocumentUrls = useBookmarkedDocumentUrls()
   const documentScanner = useDocumentScanner()
   const [activeTab, setActiveTab] = useState<AppTab>('library')
@@ -450,6 +452,7 @@ function App() {
                 developerMode={ttsDiagnosticsEnabled}
                 onDeveloperModeChange={handleTtsDiagnosticsChange}
                 onLibraryImported={handleLibraryTransferImported}
+                semanticSearch={semanticSearch}
               />
             )}
             headerControls={(
@@ -514,6 +517,7 @@ function App() {
             developerMode={ttsDiagnosticsEnabled}
             onDeveloperModeChange={handleTtsDiagnosticsChange}
             onLibraryImported={handleLibraryTransferImported}
+            semanticSearch={semanticSearch}
           />
         )} />
       </div>

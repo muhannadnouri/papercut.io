@@ -3,15 +3,9 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { useTranslation } from 'react-i18next'
 import { formatStorageSize } from '../../utils/formatUtils'
+import { SemanticSearchSetup } from '../../search-semantic/SemanticSearchSetup'
+import type { ModelFormat, ProviderStatus, SemanticSearchController } from '../../search-semantic/useSemanticSearch'
 
-type ModelFormat = 'float32' | 'dynamic-int8'
-interface ProviderStatus {
-  compiled: boolean
-  platform: string
-  activeFormat: ModelFormat | null
-  loadingFormat: ModelFormat | null
-  downloadingFormat: ModelFormat | null
-}
 interface CacheStatus {
   format: ModelFormat
   filesPresent: boolean
@@ -24,13 +18,14 @@ interface DownloadProgress {
   totalBytes: number
 }
 
-/** Developer-only cache preparation. This never activates or changes search. */
-export function SearchModelSetup() {
+/** Cache preparation never activates a model; the separate opt-in controls own activation. */
+export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchController } = {}) {
   const { t } = useTranslation()
   const id = useId()
   const [snapshot, setSnapshot] = useState<{ status: ProviderStatus; caches: CacheStatus[] } | null>(null)
   const [ready, setReady] = useState(false)
-  const [format, setFormat] = useState<ModelFormat>('float32')
+  const [localFormat, setLocalFormat] = useState<ModelFormat>('float32')
+  const format = semantic?.format ?? localFormat
   const [consent, setConsent] = useState(false)
   const [operation, setOperation] = useState<'download' | 'remove' | null>(null)
   const [progress, setProgress] = useState<DownloadProgress | null>(null)
@@ -41,13 +36,19 @@ export function SearchModelSetup() {
   const request = useRef(0)
   const action = useRef(false)
   const [cancelling, setCancelling] = useState(false)
+  const refreshPending = useRef<Promise<void> | null>(null)
 
   const refresh = useCallback(async () => {
-    const current = ++request.current
-    const status = await invoke<ProviderStatus>('search_embedding_status')
-    const caches = status.compiled
-      ? await invoke<CacheStatus[]>('search_embedding_cache_status') : []
-    if (mounted.current && current === request.current) setSnapshot({ status, caches })
+    if (refreshPending.current) return refreshPending.current
+    const pending = (async () => {
+      const current = ++request.current
+      const status = await invoke<ProviderStatus>('search_embedding_status')
+      const caches = status.compiled
+        ? await invoke<CacheStatus[]>('search_embedding_cache_status') : []
+      if (mounted.current && current === request.current) setSnapshot({ status, caches })
+    })()
+    refreshPending.current = pending
+    try { await pending } finally { refreshPending.current = null }
   }, [])
 
   useEffect(() => {
@@ -77,8 +78,16 @@ export function SearchModelSetup() {
   }, [connecting, refresh])
 
   const status = snapshot?.status
-  const busy = operation !== null || !!status?.downloadingFormat || !!status?.loadingFormat
+  const busy = operation !== null || !!status?.downloadingFormat || !!status?.loadingFormat || !!semantic?.busy
   const cache = snapshot?.caches.find((item) => item.format === format)
+  const semanticActiveFormat = semantic?.provider?.activeFormat
+  const semanticBusy = semantic?.busy
+
+  useEffect(() => {
+    if (!ready || semanticBusy === undefined || semanticBusy) return
+    // Fast native operations can finish before the poll fires; refresh cache controls too.
+    void refresh().catch((err: unknown) => { if (mounted.current) setError(String(err)) })
+  }, [ready, semanticBusy, semanticActiveFormat, refresh])
 
   useEffect(() => {
     if (!busy || !ready) return
@@ -93,7 +102,7 @@ export function SearchModelSetup() {
   }, [busy, ready, refresh])
 
   async function run(kind: 'download' | 'remove') {
-    if (action.current || !ready || !status?.compiled || busy || !cache) return
+    if (action.current || !ready || !status?.compiled || busy || !cache || semantic?.enabled) return
     if (kind === 'download' && !consent) return
     if (kind === 'remove' && status.activeFormat === format) return
     action.current = true
@@ -136,7 +145,7 @@ export function SearchModelSetup() {
     ? Math.min(100, Math.max(0, Math.floor(progress.downloadedBytes / progress.totalBytes * 100))) : null
   const downloading = status?.downloadingFormat
   const matchingProgress = progress?.format === downloading ? progress : null
-  const canChange = ready && status?.compiled && !busy
+  const canChange = ready && status?.compiled && !busy && !semantic?.enabled
 
   return (
     <section className="app-settings-section search-model-setup" aria-labelledby={`${id}-title`}>
@@ -148,7 +157,9 @@ export function SearchModelSetup() {
         <label className="search-model-field">
           <span>{t('settings.searchModel.format')}</span>
           <select value={format} disabled={!canChange} onChange={(event) => {
-            setFormat(event.target.value as ModelFormat)
+            const choice = event.target.value as ModelFormat
+            if (semantic) semantic.setFormat(choice)
+            else setLocalFormat(choice)
             setConsent(false)
             setMessage('')
             setProgress(null)
@@ -189,6 +200,7 @@ export function SearchModelSetup() {
         </div>}
         {downloading && <button type="button" className="app-settings-data-action" disabled={cancelling}
           onClick={() => { void cancel() }}>{t('common.cancel')}</button>}
+        {semantic && <SemanticSearchSetup semantic={semantic} cachePresent={!!cache?.filesPresent} cacheBusy={busy} />}
       </>}
       {message && <p role="status">{t(`settings.searchModel.${message}`)}</p>}
       {cancelling && busy && <p role="status">{t('settings.searchModel.cancelling')}</p>}

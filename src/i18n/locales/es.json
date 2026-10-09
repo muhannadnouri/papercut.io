@@ -385,6 +385,23 @@
       "closeHelp": "Cerrar la configuración no cancela la descarga. Vuelve a abrirla para ver el estado o cancelar.",
       "cancelled": "Descarga cancelada. Comprueba el estado de la caché antes de reintentar.",
       "failed": "La descarga falló. Comprueba la conexión y el espacio libre; elimina los archivos dañados antes de reintentar."
+    },
+    "semantic": {
+      "title": "Preparación del índice semántico",
+      "description": "Prepara el índice opcional de búsqueda conceptual. La recuperación aún no está conectada: Todas las palabras y Más amplio siguen usando resultados léxicos.",
+      "toggle": "Activar preparación del modelo y del índice (opcional)",
+      "off": "Desactivado. La búsqueda léxica habitual está disponible; no se inicia trabajo semántico.",
+      "active": "Modelo activo. La búsqueda sigue usando resultados léxicos en esta versión preparatoria.",
+      "fallback": "El modelo seleccionado no está disponible. La búsqueda continúa con resultados léxicos.",
+      "working": "Trabajando. La búsqueda continúa con resultados léxicos.",
+      "coverage": "Documentos indexados: {{ready}} / {{total}} · pasajes listos: {{passages}}",
+      "progress": "Esta tarea: {{embedded}} pasajes codificados · {{reused}} reutilizados",
+      "build": "Crear / reanudar índice",
+      "remove": "Eliminar índice",
+      "retry": "Reintentar activación",
+      "refresh": "Actualizar estado",
+      "cancelling": "Cancelación solicitada. Esperando la llamada nativa actual y la limpieza.",
+      "recovery": "Desactiva para cambiar el formato o eliminar archivos del modelo. Desactivar detiene la indexación y descarga el modelo de la memoria; se conservan archivos y puntos de control. La opción guardada recarga el modelo local al reiniciar, sin descargarlo. Crea / reanuda tras reiniciar o editar la biblioteca. Cerrar los ajustes no cancela el trabajo."
     }
   },
   "libraryTransfer": {

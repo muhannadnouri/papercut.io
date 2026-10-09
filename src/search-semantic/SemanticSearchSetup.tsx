@@ -1,0 +1,46 @@
+import { useId } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { SemanticSearchController } from './useSemanticSearch'
+
+/** Preparatory controls stay developer-only until conceptual retrieval is wired. */
+export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy }: {
+  semantic: SemanticSearchController; cachePresent: boolean; cacheBusy: boolean
+}) {
+  const { t } = useTranslation()
+  const id = useId()
+  const { enabled, provider, index, operation, error } = semantic
+  const busy = semantic.busy || cacheBusy
+  const active = enabled && provider?.activeFormat === semantic.format
+  return <section aria-labelledby={`${id}-semantic-title`}>
+    <h4 id={`${id}-semantic-title`}>{t('settings.semantic.title')}</h4>
+    <p>{t('settings.semantic.description')}</p>
+    <label className="app-setting app-setting-toggle">
+      <span>{t('settings.semantic.toggle')}</span>
+      <span className="app-settings-switch"><input type="checkbox" role="switch" checked={enabled}
+        disabled={operation === 'disable' || (!enabled && (busy || !cachePresent || !provider?.compiled))}
+        onChange={(event) => { void semantic.setEnabled(event.target.checked) }} /><span aria-hidden="true" /></span>
+    </label>
+    <p role="status" aria-live="polite">{t(busy ? 'settings.semantic.working'
+      : active ? 'settings.semantic.active' : enabled ? 'settings.semantic.fallback' : 'settings.semantic.off')}</p>
+    {index && <p>{t('settings.semantic.coverage', { ready: index.indexedDocuments,
+      total: index.eligibleDocuments, passages: index.passages })}</p>}
+    {busy && index && <p role="status">{t('settings.semantic.progress', {
+      embedded: index.embeddedPassages, reused: index.reusedPassages })}</p>}
+    <div className="search-model-actions">
+      <button type="button" className="app-settings-data-action" disabled={busy || !active}
+        onClick={() => { void semantic.build() }}>{t('settings.semantic.build')}</button>
+      <button type="button" className="app-settings-data-action" disabled={busy || !provider?.compiled}
+        onClick={() => { void semantic.remove() }}>{t('settings.semantic.remove')}</button>
+      {enabled && !active && <button type="button" className="app-settings-data-action" disabled={busy || !cachePresent || !provider?.compiled}
+        onClick={() => { void semantic.setEnabled(true) }}>{t('settings.semantic.retry')}</button>}
+      {(index?.running || operation === 'build') && <button type="button" className="app-settings-data-action"
+        disabled={!index?.running || semantic.cancelling || index.cancelRequested}
+        onClick={() => { void semantic.cancel() }}>{t('common.cancel')}</button>}
+      <button type="button" className="app-settings-data-action" disabled={busy}
+        onClick={() => { void semantic.refresh() }}>{t('settings.semantic.refresh')}</button>
+    </div>
+    {(semantic.cancelling || index?.cancelRequested) && busy && <p role="status">{t('settings.semantic.cancelling')}</p>}
+    {(error || (enabled && index?.error)) && <p className="app-dialog-error" role="alert" dir="auto">{error || index?.error}</p>}
+    <p>{t('settings.semantic.recovery')}</p>
+  </section>
+}

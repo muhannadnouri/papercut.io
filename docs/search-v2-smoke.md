@@ -137,3 +137,47 @@ fall back visibly when unavailable/incomplete. Representative same-language
 quality, index/query/toggle lifecycle, reference-device resource limits and each
 advertised provider platform still need their own release evidence. The earlier
 native crash is not explained by this successful cache-only UI check.
+
+## Stage 7 preparation controls — new follow-up
+
+These controls were added after the five smoke groups reported passed on
+2026-10-09. Rebuild with the existing experimental feature flags above, then use
+**Settings → Developer mode → Experimental search model setup** in the same
+disposable profile for restart checks. Do not use the ordinary packaged build
+for activation/indexing: it intentionally omits the provider. The prep controls
+explicitly say retrieval is not connected; search still returns lexical results.
+
+- [ ] Fresh profile: toggle starts off. Opening Settings or searching never
+      downloads a model, activates one or starts indexing. Ordinary All words,
+      Broader, quoted phrases and filters still work. Normal builds report
+      unavailability even if that profile previously saved an opt-in.
+- [ ] Choose a cached format and enable **model and index preparation**. No
+      download occurs; activation failure shows an error and lexical availability.
+      Retry after repairing the cache. Format/cache mutation requires turning
+      off first. Turning off during activation stays off after cleanup.
+- [ ] With uploaded searchable text, click **Build / resume index**. Encoded/reused
+      counts update and completed-document coverage grows. Close/reopen Settings
+      or enter a reader during work: the job continues. Ordinary search and
+      audio remain usable; record stalls, native errors and resource peaks.
+- [ ] Cancel during indexing, then resume. Cleanup can wait for the current
+      native call. Completed/checkpointed work is reused; partial documents are
+      not reported ready. Turn off during indexing: work stops, the model unloads,
+      lexical search remains available, and late completion cannot enable it.
+- [ ] Restart with the same profile while opt-in is on: cached activation returns
+      without downloading or automatically indexing. Explicitly build/resume.
+      Turn off, restart again: no activation or indexing. Cached files/checkpoints
+      remain; do not expect the RSS to instantly return to its initial value.
+- [ ] Edit a title, import/delete a document, or update extracted text; **Refresh
+      status** reflects invalidation, and build/resume synchronizes it. **Remove
+      index** clears derived coverage but preserves documents and lexical search.
+      Build again; turn off and separately remove cache files. With a saved
+      opt-in and missing cache on restart, activation fails visibly without a
+      download; ordinary lexical search remains available.
+- [ ] Check keyboard/assistive labels, status announcements, Arabic RTL and
+      narrow-window layout for the new toggle/progress/actions. Repeat only the
+      changed lifecycle cases; the prior passed smoke groups need not all be
+      rerun without a new concern.
+
+This follow-up does not establish conceptual relevance or Android/iOS/weak-device
+readiness. Record pass/fail, build/device and any errors outside tracked files;
+the unexplained earlier native crash remains a release concern.

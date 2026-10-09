@@ -40,6 +40,18 @@ struct Control {
 }
 
 impl SemanticIndexState {
+    /// Signal immediately, without waiting for the provider's current native call.
+    pub(crate) fn cancel(&self) -> Result<(), String> {
+        let job = self
+            .0
+            .lock()
+            .map_err(|_| "Semantic index job lock failed")?;
+        if let Some(cancel) = &job.cancel {
+            cancel.store(true, Ordering::Relaxed)
+        }
+        Ok(())
+    }
+
     // Reserve before dispatch so two IPC calls cannot queue competing writers.
     #[cfg(any(test, feature = "experimental-search-embeddings-core"))]
     fn begin(&self) -> Result<Control, String> {
@@ -124,17 +136,17 @@ pub(crate) async fn search_semantic_index_status<R: tauri::Runtime>(
     state: tauri::State<'_, SemanticIndexState>,
     provider: tauri::State<'_, crate::search_embeddings::SearchEmbeddingState>,
 ) -> Result<IndexStatus, String> {
-    let status = state.snapshot()?;
     #[cfg(not(feature = "experimental-search-embeddings-core"))]
     {
         let _ = (app, provider);
-        Ok(status)
+        state.snapshot()
     }
     #[cfg(feature = "experimental-search-embeddings-core")]
     {
         let provider = provider.inner().clone();
+        let state = state.inner().clone();
         tauri::async_runtime::spawn_blocking(move || {
-            let mut status = status;
+            let mut status = IndexStatus::default();
             if super::storage::uploads_root(&app)?
                 .join("search.sqlite3")
                 .exists()
@@ -150,7 +162,14 @@ pub(crate) async fn search_semantic_index_status<R: tauri::Runtime>(
                 status.eligible_documents = coverage.eligible_documents;
                 status.passages = coverage.passages;
             }
-            Ok(status)
+            // Coverage may wait for native work; sample job progress afterwards.
+            let job = state.snapshot()?;
+            Ok(IndexStatus {
+                indexed_documents: status.indexed_documents,
+                eligible_documents: status.eligible_documents,
+                passages: status.passages,
+                ..job
+            })
         })
         .await
         .map_err(|err| format!("Semantic index status task failed: {err}"))?
@@ -232,14 +251,7 @@ pub(crate) async fn search_semantic_index_build<R: tauri::Runtime>(
 pub(crate) fn search_semantic_index_cancel(
     state: tauri::State<'_, SemanticIndexState>,
 ) -> Result<(), String> {
-    let job = state
-        .0
-        .lock()
-        .map_err(|_| "Semantic index job lock failed")?;
-    if let Some(cancel) = &job.cancel {
-        cancel.store(true, Ordering::Relaxed)
-    }
-    Ok(())
+    state.cancel()
 }
 
 /// Removal shares the job slot so it cannot race an indexing job in this app process.
@@ -280,12 +292,58 @@ mod tests {
     use super::*;
 
     #[test]
+    fn disabling_provider_signals_index_cancellation_through_ipc() {
+        use tauri::Manager;
+        let app = tauri::test::mock_builder()
+            .manage(SemanticIndexState::default())
+            .manage(crate::search_embeddings::SearchEmbeddingState::default())
+            .invoke_handler(tauri::generate_handler![
+                crate::search_embeddings::search_embedding_configure
+            ])
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .unwrap();
+        let control = app.state::<SemanticIndexState>().begin().unwrap();
+        let window = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .data_directory(std::env::temp_dir())
+            .build()
+            .unwrap();
+        tauri::test::get_ipc_response(
+            &window,
+            tauri::webview::InvokeRequest {
+                cmd: "search_embedding_configure".into(),
+                callback: tauri::ipc::CallbackFn(0),
+                error: tauri::ipc::CallbackFn(1),
+                url: "tauri://localhost".parse().unwrap(),
+                body: tauri::ipc::InvokeBody::Json(serde_json::json!({"format":null})),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.into(),
+            },
+        )
+        .unwrap();
+        assert!(control.check().is_err());
+        assert!(
+            app.state::<SemanticIndexState>()
+                .snapshot()
+                .unwrap()
+                .running,
+            "disable must not release the writer before its cleanup"
+        );
+        drop(control);
+        assert!(
+            !app.state::<SemanticIndexState>()
+                .snapshot()
+                .unwrap()
+                .running
+        );
+    }
+
+    #[test]
     fn one_job_cancels_and_releases_after_error_or_unwind() {
         let state = SemanticIndexState::default();
         let control = state.begin().unwrap();
         control.progress(false);
         assert!(state.begin().is_err());
-        control.cancel.store(true, Ordering::Relaxed);
+        state.cancel().unwrap();
         assert!(control.check().is_err());
         assert!(state.snapshot().unwrap().cancel_requested);
         control.finish(&Err("cancelled".into()));

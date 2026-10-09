@@ -379,6 +379,23 @@
       "closeHelp": "Closing settings does not cancel a download. Reopen to check status or cancel.",
       "cancelled": "Download cancelled. Check cache status before retrying.",
       "failed": "Download failed. Check your connection and free space; remove damaged cache files before retrying."
+    },
+    "semantic": {
+      "title": "Semantic index preparation",
+      "description": "Prepare the optional conceptual-search index. Retrieval is not connected yet: All words and Broader still use lexical results.",
+      "toggle": "Enable model and index preparation (optional)",
+      "off": "Off. Ordinary lexical search is available; no semantic work is started.",
+      "active": "Model active. Search still uses lexical results in this preparatory build.",
+      "fallback": "The selected model is unavailable. Search continues with lexical results.",
+      "working": "Working. Search continues with lexical results.",
+      "coverage": "Indexed documents: {{ready}} / {{total}} · ready passages: {{passages}}",
+      "progress": "This job: {{embedded}} passages encoded · {{reused}} reused",
+      "build": "Build / resume index",
+      "remove": "Remove index",
+      "retry": "Retry activation",
+      "refresh": "Refresh status",
+      "cancelling": "Cancellation requested. Waiting for the current native call and cleanup.",
+      "recovery": "Turn off to change model format or remove model files. Turning off stops indexing and unloads the model; cached files and checkpoints remain. The saved opt-in reloads the cached model on restart, without downloading. Build / resume after restart or library edits. Closing settings does not cancel work."
     }
   },
   "libraryTransfer": {

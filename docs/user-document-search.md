@@ -11,11 +11,13 @@ This avoids the trap of trying to rebuild Pagefind on a user's device every time
 
 The model-free Search v2 changes are a **release candidate**, with fresh native,
 frontend and original-baseline regressions passing. Normal builds do not include
-FastEmbed; model-cache setup and semantic retrieval remain experimental and do
-not change app search. The [current acceptance review](search-v2-progress.md#model-free-acceptance-review--2026-10-08)
-records the retained behavior, fixture misses and limits. Consolidated app smoke,
-representative-device responsiveness and advertised-platform acceptance remain
-open; automated success alone does not approve release.
+FastEmbed. Developer-only model-cache and saved opt-in/index controls remain
+experimental and do not change app search; conceptual retrieval is not wired yet.
+The [current progress](search-v2-progress.md) records behavior and limits. The
+user reports the earlier consolidated app smoke passed; the new lifecycle needs
+its own focused checks. Representative-device responsiveness and advertised
+provider-platform acceptance remain open; automated success alone does not
+approve release.
 
 The current app supports local HTML, EPUB, PDF, TXT, and Markdown files. PDF search and TTS
 require a usable extracted text layer; fully textless PDFs remain readable and
@@ -50,6 +52,7 @@ Frontend:
 - Search-result clicks can pass a lightweight reader target into `DocumentViewer`: a Pagefind heading hash, an uploaded reflowable-document section ordinal, and/or highlighted snippet text. HTML, EPUB, TXT, and Markdown readers map SQLite's persisted section ordinal to a generated `data-papercut-section` marker, then search that block before highlighting. Broad uploaded searches containing two to six terms show their existing per-term section counts directly in each result card. One native **Explore matches** disclosure then groups two additional ranked passages, the bounded twelve-bin supporting-section distribution, and on-demand concordance controls for every available required phrase or term. Each bin reports how many supporting sections fall in that part of the document, opens the first supporting section/page in the bin, and identifies its approximate position to assistive technology. Concordance loads 50 context lines at a time, and its occurrence-within-section locator lets the reader highlight repeated matches precisely. Exact results with one occurrence omit the explorer because their primary action already opens the only match. Cross-section mixed queries target the first verified exact-phrase section rather than the best unrelated broad-term section. Reader text matching spans inline markup such as emphasis, links, and bold text, treats explicit line breaks as normalized whitespace, and does not cross readable block boundaries. The preferred visual marker is a named CSS Highlight range so large iOS/WebKit reader DOMs are not rewritten just to mark a search result.
 - `src/hooks/useDocumentFilters.ts` owns document filter text, selected filters, author grouping, collapsed groups, and the optional inclusion predicate used by the Saved audio filter.
 - `src/hooks/useSearch.ts` owns the combined Pagefind + SQLite query flow, maps uploaded matches into the shared `SearchResult` shape, and exposes the real index/results/phrase/excerpt phase currently running. Provider failures remain distinct from a valid empty result set.
+- `src/search-semantic/` owns the separate saved opt-in/model and index lifecycle hook plus preparatory controls. One App-level owner survives Settings/reader navigation; Developer-mode controls reuse the cache installer. Explicit cached activation and build/resume/cancel/removal never change the lexical query flow. Conceptual retrieval and result rendering remain next.
 
 Rust:
 
@@ -58,7 +61,7 @@ Rust:
   - `commands.rs` — the `#[tauri::command]` edge; each command just moves the blocking work onto the thread pool and delegates.
   - `batch.rs` / `state.rs` — sequential multi-file/folder import and document deletion, progress events, partial-success results, and cooperative import cancellation between files.
   - `pipeline.rs` — import / get-source / delete orchestration (no SQL or parsing of its own).
-  - `semantic.rs` / `semantic/store.rs` — optional semantic-index commands/jobs and lazy derived SQLite storage. This separate boundary owns compatibility, passage checkpoints and source invalidation; ordinary search/import code does not invoke it. The upcoming React opt-in controls and conceptual-results section remain separate from the lexical pipeline.
+  - `semantic.rs` / `semantic/store.rs` — optional semantic-index commands/jobs and lazy derived SQLite storage. This separate boundary owns compatibility, passage checkpoints and source invalidation; ordinary search/import code does not invoke it. Separate React opt-in controls invoke explicit jobs; conceptual retrieval/results remain next. Provider disable signals cooperative index cancellation before model cleanup.
   - `html/` — HTML-specific parsing (`parser.rs`), sanitization (`sanitize.rs`), and small shared HTML helpers (`util.rs`).
   - `epub/` — EPUB ZIP/container/OPF/spine parsing, with path resolution (`paths.rs`), bounded reader-image storage (`assets.rs`), DOM-based link/resource rewriting (`rewrite.rs`), and generated reading HTML assembly (`render.rs`) split into focused helpers.
   - `pdf/` — canonical PDF source storage, bounded per-page PDF.js text sidecars, index finalization, and page-aware narration reconstruction.
