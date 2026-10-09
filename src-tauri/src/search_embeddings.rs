@@ -25,7 +25,7 @@ pub(crate) struct ProviderStatus {
 }
 
 #[cfg(feature = "experimental-search-embeddings-core")]
-pub(crate) use provider::SearchEmbeddingState;
+pub(crate) use provider::{SearchEmbeddingState, DIMENSIONS};
 #[cfg(not(feature = "experimental-search-embeddings-core"))]
 #[derive(Clone, Default)]
 pub(crate) struct SearchEmbeddingState {}
@@ -239,7 +239,7 @@ mod provider {
         },
     };
 
-    const DIMENSIONS: usize = 384;
+    pub(crate) const DIMENSIONS: usize = 384;
     const MAX_TOKENS: usize = 512;
 
     #[derive(Clone, Default)]
@@ -258,6 +258,48 @@ mod provider {
     }
 
     impl SearchEmbeddingState {
+        /// Include tokenizer/config checksums as well as the provider's model identity.
+        pub(crate) fn index_encoder_key(&self) -> Result<String, String> {
+            let state = self.0.lock().map_err(|_| "Embedding state lock failed")?;
+            state
+                .active
+                .as_ref()
+                .map(LoadedProvider::index_key)
+                .ok_or_else(|| "Enable a verified embedding model before indexing".into())
+        }
+
+        /// Hold the provider lock per inference; status/disable may wait for that native call.
+        pub(crate) fn index_encode(&self, expected: &str, text: &str) -> Result<Vec<f32>, String> {
+            let mut state = self.0.lock().map_err(|_| "Embedding state lock failed")?;
+            let loaded = state
+                .active
+                .as_mut()
+                .ok_or("Embedding provider is disabled")?;
+            if loaded.index_key() != expected {
+                return Err("Semantic model changed; retry indexing".into());
+            }
+            loaded.encode(text)
+        }
+
+        /// Return authored UTF-8 spans using the active model tokenizer, with no silent truncation.
+        pub(crate) fn index_passage_ranges(
+            &self,
+            expected: &str,
+            title: &str,
+            heading: Option<&str>,
+            text: &str,
+        ) -> Result<Vec<std::ops::Range<usize>>, String> {
+            let state = self.0.lock().map_err(|_| "Embedding state lock failed")?;
+            let loaded = state
+                .active
+                .as_ref()
+                .ok_or("Embedding provider is disabled")?;
+            if loaded.index_key() != expected {
+                return Err("Semantic model changed; retry indexing".into());
+            }
+            loaded.passage_ranges(title, heading, text)
+        }
+
         pub(super) fn activate(
             &self,
             dir: &Path,
@@ -351,6 +393,72 @@ mod provider {
     }
 
     impl LoadedProvider {
+        fn index_key(&self) -> String {
+            format!(
+                "{}/assets:{}",
+                self.format.encoder_key(),
+                self.format
+                    .assets()
+                    .iter()
+                    .map(|asset| asset.sha256)
+                    .collect::<Vec<_>>()
+                    .join("/")
+            )
+        }
+
+        /// Keep the experiment's 320-token/40-overlap policy, including metadata and E5 prefix.
+        /// Source spans remain section-local; headers too large to leave body room fail explicitly.
+        fn passage_ranges(
+            &self,
+            title: &str,
+            heading: Option<&str>,
+            text: &str,
+        ) -> Result<Vec<std::ops::Range<usize>>, String> {
+            use crate::document_uploads::semantic::store::{
+                passage_input, CHUNK_TOKENS, OVERLAP_TOKENS,
+            };
+            let tokenizer = &self.model.tokenizer;
+            let header = passage_input(title, heading, "");
+            let header_tokens = tokenizer
+                .encode(header.as_str(), false)
+                .map_err(|err| err.to_string())?
+                .len();
+            let budget = CHUNK_TOKENS
+                .checked_sub(header_tokens + 4)
+                .filter(|budget| *budget > OVERLAP_TOKENS)
+                .ok_or("Title/heading leaves too little room for semantic passage text")?;
+            let encoding = tokenizer
+                .encode(text, false)
+                .map_err(|err| err.to_string())?;
+            let offsets = encoding.get_offsets();
+            let mut result = Vec::new();
+            let mut first = 0;
+            while first < offsets.len() {
+                let last = (first + budget).min(offsets.len());
+                let span = offsets[first].0..offsets[last - 1].1;
+                let body = text
+                    .get(span.clone())
+                    .filter(|body| !body.is_empty())
+                    .ok_or("Invalid semantic tokenizer offsets")?;
+                let input = passage_input(title, heading, body);
+                if input.chars().count() > 4096
+                    || tokenizer
+                        .encode(input.as_str(), true)
+                        .map_err(|err| err.to_string())?
+                        .len()
+                        > CHUNK_TOKENS
+                {
+                    return Err("Semantic passage exceeds token/character budget".into());
+                }
+                result.push(span);
+                if last == offsets.len() {
+                    break;
+                }
+                first = last - OVERLAP_TOKENS;
+            }
+            Ok(result)
+        }
+
         fn load(dir: &Path, format: ModelFormat, cancel: &AtomicBool) -> Result<Self, String> {
             let assets = format.assets();
             let read = |asset: &super::cache::Asset| {

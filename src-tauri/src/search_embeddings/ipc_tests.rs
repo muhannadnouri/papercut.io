@@ -8,6 +8,7 @@ fn app(identifier: &str) -> tauri::App<MockRuntime> {
     context.config_mut().identifier = identifier.into();
     tauri::test::mock_builder()
         .manage(SearchEmbeddingState::default())
+        .manage(crate::document_uploads::semantic::SemanticIndexState::default())
         .invoke_handler(tauri::generate_handler![
             search_embedding_status,
             search_embedding_configure,
@@ -15,6 +16,13 @@ fn app(identifier: &str) -> tauri::App<MockRuntime> {
             search_embedding_download,
             search_embedding_cancel_download,
             search_embedding_remove,
+            crate::document_uploads::semantic::search_semantic_index_status,
+            crate::document_uploads::semantic::search_semantic_index_build,
+            crate::document_uploads::semantic::search_semantic_index_cancel,
+            crate::document_uploads::semantic::search_semantic_index_remove,
+            crate::document_uploads::commands::document_uploads_import_pasted_text,
+            crate::document_uploads::commands::document_uploads_update_title,
+            crate::document_uploads::commands::document_uploads_delete,
         ])
         .build(context)
         .unwrap()
@@ -99,6 +107,169 @@ fn command_capability_and_argument_contract() {
             .contains("not compiled"));
     }
     assert!(!app.path().app_data_dir().unwrap().exists());
+}
+
+#[test]
+fn semantic_index_commands_are_default_off_and_do_not_initialize_storage() {
+    let app = app(&format!(
+        "io.papercut.index-contract-test-{}",
+        std::process::id()
+    ));
+    let window = window(&app);
+    let status = invoke(&window, "search_semantic_index_status", json!({})).unwrap();
+    assert_eq!(
+        status["compiled"],
+        cfg!(feature = "experimental-search-embeddings-core")
+    );
+    assert_eq!(status["running"], false);
+    assert_eq!(status["indexedDocuments"], 0);
+    assert_eq!(status["eligibleDocuments"], 0);
+    assert_eq!(
+        invoke(&window, "search_semantic_index_cancel", json!({})).unwrap(),
+        Value::Null
+    );
+    assert!(invoke(&window, "search_semantic_index_build", json!({})).is_err());
+    assert!(!app.path().app_data_dir().unwrap().exists());
+}
+
+#[cfg(feature = "experimental-search-embeddings-core")]
+#[test]
+#[ignore = "requires disposable XDG_DATA_HOME, cached model assets and packaged ONNX Runtime"]
+fn cached_semantic_index_commands_checkpoint_and_preserve_sources() {
+    use std::{fs, path::Path};
+    let root = fs::canonicalize(
+        std::env::var_os("PAPERCUT_EMBEDDING_IPC_TEST_DATA").expect("set disposable test root"),
+    )
+    .unwrap();
+    assert_eq!(
+        root,
+        fs::canonicalize(std::env::var_os("XDG_DATA_HOME").expect("set same disposable XDG root"))
+            .unwrap()
+    );
+    let temp = fs::canonicalize(std::env::temp_dir()).unwrap();
+    assert!(root.starts_with(&temp) && root != temp);
+    let app = app(&format!("io.papercut.index-test-{}", std::process::id()));
+    let window = window(&app);
+    assert!(!app.path().app_data_dir().unwrap().exists());
+    let format = match std::env::var("PAPERCUT_EMBEDDING_TEST_FORMAT")
+        .as_deref()
+        .unwrap_or("float32")
+    {
+        "float32" => ModelFormat::Float32,
+        "dynamic-int8" => ModelFormat::DynamicInt8,
+        other => panic!("unsupported test format {other}"),
+    };
+    let source =
+        std::env::var_os("PAPERCUT_EMBEDDING_TEST_MODELS").expect("set cached models source");
+    let folder = if format == ModelFormat::Float32 {
+        "float32"
+    } else {
+        "dynamic-int8"
+    };
+    let dir = cache_dir(app.handle(), format).unwrap();
+    for asset in format.assets() {
+        let path = dir.join(asset.path);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::copy(Path::new(&source).join(folder).join(asset.path), path).unwrap();
+    }
+    invoke(
+        &window,
+        "search_embedding_configure",
+        json!({"format":format}),
+    )
+    .unwrap();
+    let provider = app.state::<SearchEmbeddingState>();
+    let key = provider.index_encoder_key().unwrap();
+    assert!(provider
+        .index_encode("wrong-model", "passage: guide")
+        .is_err());
+    for text in [
+        "A city transport guide. ".repeat(250),
+        "😀 المواصلات في المدينة بالحافلات. ".repeat(200),
+        "城市公共交通指南。".repeat(200),
+    ] {
+        let spans = provider
+            .index_passage_ranges(&key, "Travel", None, &text)
+            .unwrap();
+        assert!(spans.len() > 1);
+        assert_eq!(spans.first().unwrap().start, 0);
+        assert!(spans.last().unwrap().end <= text.len());
+        for pair in spans.windows(2) {
+            assert!(
+                pair[0].start < pair[1].start && pair[0].end >= pair[1].start,
+                "passages must overlap without skipping source"
+            );
+        }
+        for span in spans {
+            assert!(text.get(span).is_some());
+        }
+    }
+    assert!(provider
+        .index_passage_ranges(&key, &"long title ".repeat(400), None, "Body")
+        .is_err());
+    let body = format!(
+        "{}\n\n😀 دليل النقل في المدينة. 城市公共交通指南。",
+        "Residents travel by electric bus. ".repeat(200)
+    );
+    let document = invoke(
+        &window,
+        "document_uploads_import_pasted_text",
+        json!({"request":{"title":"Travel guide","text":body}}),
+    )
+    .unwrap();
+    let url = document["url"].as_str().unwrap();
+    invoke(&window, "search_semantic_index_build", json!({})).unwrap();
+    let status = invoke(&window, "search_semantic_index_status", json!({})).unwrap();
+    assert_eq!(status["indexedDocuments"], 1);
+    assert_eq!(status["eligibleDocuments"], 1);
+    assert!(status["embeddedPassages"].as_u64().unwrap() > 1);
+    invoke(&window, "search_semantic_index_build", json!({})).unwrap();
+    assert_eq!(
+        invoke(&window, "search_semantic_index_status", json!({})).unwrap()["embeddedPassages"],
+        0
+    );
+    invoke(
+        &window,
+        "document_uploads_update_title",
+        json!({"request":{"documentUrl":url,"title":"Updated travel guide"}}),
+    )
+    .unwrap();
+    assert_eq!(
+        invoke(&window, "search_semantic_index_status", json!({})).unwrap()["indexedDocuments"],
+        0
+    );
+    invoke(&window, "search_semantic_index_build", json!({})).unwrap();
+    assert_eq!(
+        invoke(&window, "search_semantic_index_status", json!({})).unwrap()["indexedDocuments"],
+        1
+    );
+    invoke(&window, "search_semantic_index_remove", json!({})).unwrap();
+    let status = invoke(&window, "search_semantic_index_status", json!({})).unwrap();
+    assert_eq!(status["indexedDocuments"], 0);
+    assert_eq!(
+        status["eligibleDocuments"], 1,
+        "removal must retain the document"
+    );
+    invoke(&window, "search_semantic_index_build", json!({})).unwrap();
+    invoke(
+        &window,
+        "document_uploads_delete",
+        json!({"request":{"documentUrl":url}}),
+    )
+    .unwrap();
+    let status = invoke(&window, "search_semantic_index_status", json!({})).unwrap();
+    assert_eq!(status["indexedDocuments"], 0);
+    assert_eq!(status["passages"], 0);
+    invoke(
+        &window,
+        "search_embedding_configure",
+        json!({"format":null}),
+    )
+    .unwrap();
+    let data = app.path().app_data_dir().unwrap();
+    drop(window);
+    drop(app);
+    fs::remove_dir_all(data).unwrap();
 }
 
 #[cfg(feature = "experimental-search-embeddings-core")]

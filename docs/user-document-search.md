@@ -58,6 +58,7 @@ Rust:
   - `commands.rs` — the `#[tauri::command]` edge; each command just moves the blocking work onto the thread pool and delegates.
   - `batch.rs` / `state.rs` — sequential multi-file/folder import and document deletion, progress events, partial-success results, and cooperative import cancellation between files.
   - `pipeline.rs` — import / get-source / delete orchestration (no SQL or parsing of its own).
+  - `semantic.rs` / `semantic/store.rs` — optional semantic-index commands/jobs and lazy derived SQLite storage. This separate boundary owns compatibility, passage checkpoints and source invalidation; ordinary search/import code does not invoke it. The upcoming React opt-in controls and conceptual-results section remain separate from the lexical pipeline.
   - `html/` — HTML-specific parsing (`parser.rs`), sanitization (`sanitize.rs`), and small shared HTML helpers (`util.rs`).
   - `epub/` — EPUB ZIP/container/OPF/spine parsing, with path resolution (`paths.rs`), bounded reader-image storage (`assets.rs`), DOM-based link/resource rewriting (`rewrite.rs`), and generated reading HTML assembly (`render.rs`) split into focused helpers.
   - `pdf/` — canonical PDF source storage, bounded per-page PDF.js text sidecars, index finalization, and page-aware narration reconstruction.

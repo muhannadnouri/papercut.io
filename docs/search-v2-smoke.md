@@ -1,7 +1,10 @@
 # Search v2 consolidated smoke pass
 
-Status: **prepared, not run**. The user has deferred interactive checks to one
-consolidated pass. Automated native, command and frontend checks are recorded in
+Status: **user-reported passed on 2026-10-09** for all five groups in the
+consolidated normal/experimental-cache checklist. The user also reports full CI
+passed. Exact build SHA, CI run URL and per-case logs were not inspected. The
+checklist remains below for future regressions; new index/toggle/query behavior
+added after this pass needs its own acceptance. Automated native, command and frontend checks are recorded in
 [progress](search-v2-progress.md); this checklist does not mark them as manual
 acceptance. Use documents you can inspect and keep private sources, questions,
 screenshots and judgments out of tracked files.
@@ -17,20 +20,22 @@ directory when checking persistence/restart behavior.
 For the provider prototype, build explicitly using the existing shared runtime;
 no separate Tauri configuration or development script is required:
 
-```sh
-# Set this to the existing verified shared-runtime directory.
-SHARED_LIB_DIR="/absolute/path/to/existing/shared/libraries"
-CARGO_NET_OFFLINE=true SHERPA_ONNX_LIB_DIR="$SHARED_LIB_DIR" \
-  ORT_LIB_LOCATION="$SHARED_LIB_DIR" \
+The following recipe uses **Fish**, from the repository root:
+
+```fish
+set task_shared_dir "$PWD/src-tauri/tts/runtime/linux-x64-shared-libs"
+env SHERPA_ONNX_LIB_DIR="$task_shared_dir" \
+  ORT_LIB_LOCATION="$task_shared_dir" \
   npm run tauri -- build \
   --features native-tts-shared,experimental-search-embeddings --no-bundle
 
-task_smoke_dir=$(mktemp -d /tmp/papercut-smoke.XXXXXX)
+set task_smoke_dir (mktemp -d /tmp/papercut-smoke.XXXXXX)
 mkdir -p "$task_smoke_dir"/data "$task_smoke_dir"/config \
   "$task_smoke_dir"/cache "$task_smoke_dir"/state
-XDG_DATA_HOME="$task_smoke_dir/data" XDG_CONFIG_HOME="$task_smoke_dir/config" \
+set task_library_path (string join : -- "$task_shared_dir" $LD_LIBRARY_PATH)
+env XDG_DATA_HOME="$task_smoke_dir/data" XDG_CONFIG_HOME="$task_smoke_dir/config" \
   XDG_CACHE_HOME="$task_smoke_dir/cache" XDG_STATE_HOME="$task_smoke_dir/state" \
-  LD_LIBRARY_PATH="$SHARED_LIB_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+  LD_LIBRARY_PATH="$task_library_path" \
   ./src-tauri/target/release/app
 ```
 
@@ -82,7 +87,7 @@ move or damage the installed app's files.
 ## Model-cache setup
 
 The current UI only prepares model files; it does **not** activate the provider,
-create a semantic index or enable conceptual results.
+call the new native indexing commands or enable conceptual results.
 
 - [ ] In a normal Tauri build, Developer-mode settings report setup unavailable.
       Browser settings do not offer native model controls. Ordinary search works.
@@ -103,7 +108,7 @@ create a semantic index or enable conceptual results.
       same isolated directory and retry; stale staging must not become a complete
       cache. A damaged/incomplete final cache needs explicit removal/redownload.
 - [ ] Remove model files, then reopen/restart. The library/search remains intact;
-      there is no semantic index or activation preference to claim removed here.
+      this cache-only UI does not remove a separately created native index.
 - [ ] Check keyboard focus, labels, progress/error announcements, Arabic RTL,
       narrow-window layout and recovery after opening/closing settings repeatedly.
 
@@ -126,8 +131,9 @@ these groups, reproduction steps and logs outside tracked files. Any crash needs
 its own backtrace/core where available; the earlier native crash remains
 unexplained despite successful bounded repetitions.
 
-The next decision is acceptance evidence, not another speculative search feature.
-Passing smoke alone does not authorize Stage 7: independently judged
-representative relevance, compatible index/lifecycle/fallback behavior,
-reference-device resource limits and every advertised platform still need their
-own evidence. Keep hybrid ranking on hold or record a no-go if those gates fail.
+The user has separately authorized Stage 7 opt-in integration after reporting
+this smoke pass. Lexical search stays the default; an enabled semantic path must
+fall back visibly when unavailable/incomplete. Representative same-language
+quality, index/query/toggle lifecycle, reference-device resource limits and each
+advertised provider platform still need their own release evidence. The earlier
+native crash is not explained by this successful cache-only UI check.

@@ -42,7 +42,12 @@ pub fn run() {
         .manage(library_transfer::LibraryTransferState::default())
         .manage(native_tts::NativeTtsState::default())
         .manage(search_embeddings::SearchEmbeddingState::default())
+        .manage(document_uploads::semantic::SemanticIndexState::default())
         .invoke_handler(tauri::generate_handler![
+            document_uploads::semantic::search_semantic_index_status,
+            document_uploads::semantic::search_semantic_index_build,
+            document_uploads::semantic::search_semantic_index_cancel,
+            document_uploads::semantic::search_semantic_index_remove,
             search_embeddings::search_embedding_status,
             search_embeddings::search_embedding_configure,
             search_embeddings::search_embedding_cache_status,

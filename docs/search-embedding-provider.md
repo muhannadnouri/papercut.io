@@ -1,10 +1,19 @@
 # Experimental search embedding provider
 
-This is an app-level, default-off **provider prototype**, not production hybrid
-search. Ordinary search never invokes it. Developer-mode settings offer explicit
-model-cache preparation; there is no automatic model download, semantic index or
-ranking integration. Activation is explicit and session-only; restarting returns
-to disabled.
+This is an app-level, default-off **provider and index foundation**, with no
+ranking integration yet. Ordinary search never invokes it. Developer-mode
+settings offer explicit model-cache preparation. New native commands can index
+the uploaded library after explicit activation; the UI does not call them yet.
+There is no automatic download or indexing. Activation remains session-only;
+restarting returns to disabled. Stage 7 integration is user-authorized with a
+default-off semantic toggle, a separate labeled conceptual-results section and
+visible lexical fallback within the enabled path; that toggle/query integration
+is the next work, not current behavior.
+
+On 2026-10-09 the user reports normal search/reader/audio and experimental-cache
+smoke passed, plus CI `validation_scope=full`. Earlier validation sections below
+retain their historical deferrals. These reports do not validate the new index
+commands, semantic relevance or other-platform provider runtimes.
 
 Desktop-first validation is sequencing, not a desktop-only product restriction.
 The commands and state are shared Rust code with no desktop-only availability
@@ -96,10 +105,56 @@ policy, and at most two ORT intra-op threads on desktop / one on mobile. Inputs
 require an E5 prefix and nonempty content; inputs exceeding 4,096 characters
 including the prefix or 512 actual tokens including special tokens fail rather
 than truncate. This is a provider bound, not a change to ordinary query parsing.
-`encoderKey` includes snapshot, exact ONNX checksum, format, pooling, prefix, dimensions, token limit
-and per-text policy. A future index must additionally include source content,
-extraction, normalization and chunking versions; this key alone is not an index
-compatibility contract.
+`encoderKey` includes snapshot, exact ONNX checksum, format, pooling, prefix,
+dimensions, token limit and per-text policy. The new app index additionally
+includes every tokenizer/config/model checksum and versioned extraction,
+authored-source normalization and 320-token/40-overlap passage policy. Passage
+content hashes include embedded metadata/body; database generations invalidate
+source edits. The provider status key alone is not the index compatibility key.
+
+## Explicit app indexing
+
+`document_uploads/semantic.rs` owns jobs/commands; its `store.rs` owns only derived
+SQLite tables and invalidation triggers. The lexical import/search code is not
+modified. Four registered commands accept no source path, URL or arbitrary model:
+
+| Command | Contract |
+| --- | --- |
+| `search_semantic_index_status` | Reports job state, compatible completed-document coverage and passage/checkpoint counts. No model activation or semantic-table creation. Without an active compatible provider, available semantic coverage is zero. |
+| `search_semantic_index_build` | Requires a verified active provider; initializes compatible storage only on explicit request, indexes one document at a time and reuses unchanged validated passage vectors. It returns when the job finishes or fails. |
+| `search_semantic_index_cancel` | Requests cooperative cancellation; the job remains reserved until the worker exits. Completed checkpoints survive for retry. |
+| `search_semantic_index_remove` | Shares the indexing job slot, removes derived vectors and invalidates old writers, preserving source/lexical data and future invalidation tracking. Does not delete model files. |
+
+The optional tables are created lazily in the upload database. Source mutations
+and readiness invalidation are transactional even when a later normal build
+edits the library. Partial documents stay unavailable until all current source
+spans are synchronized; completed other documents remain available. Delete,
+reimport/title/page/source edits, removal and identity changes prevent stale
+publication. Explicit incompatible builds replace derived vectors; unknown
+schemas fail closed. Stored vectors have independent checksums plus dimension,
+finite-value and unit-norm checks. No write lock spans inference.
+
+There is no automatic startup resume, persistent opt-in or semantic query yet.
+Retry is explicit and reuses durable checkpoints. Native encoding and section
+tokenization temporarily hold the provider lock; cancellation is checked between
+calls, and status/disable may wait for a call to finish. Source retention is one
+document at a time, not the whole library. These bounds still need device
+measurement before release.
+
+The new ignored cached-command test is explicitly run with FP32 and INT8 in
+disposable data. It uses generic authored English/Arabic/Mandarin controls for
+UTF-8 token spans/overlap, real encoding, completed-build skip, title invalidation,
+removal/rebuild and deletion. The test uses the existing
+`PAPERCUT_EMBEDDING_IPC_TEST_DATA`, `PAPERCUT_EMBEDDING_TEST_MODELS` and optional
+`PAPERCUT_EMBEDDING_TEST_FORMAT` variables. It refuses an ordinary data root and
+never downloads models. Structural language checks do not establish retrieval
+quality.
+
+For eventual feature removal, remove this module's handler/state registration,
+the narrow provider indexing methods and the later React setting/search hook.
+Existing installations also need a migration that drops the five
+`upload_semantic_*` triggers before the three derived tables. Do not drop upload,
+source or lexical tables. No generic plugin framework is introduced.
 
 ## Explicit downloads and cache removal
 
@@ -112,7 +167,7 @@ provider, persists an opt-in preference or changes ordinary search.
 | `search_embedding_cache_status` | Returns the two fixed formats, `expectedBytes` and `filesPresent`. Presence checks exact file sizes and regular files, not fresh checksums. Activation always verifies actual bytes again. |
 | `search_embedding_download` | Accepts only the existing `format` enum. Downloads the five checksum-pinned assets from the fixed upstream revision, verifies staging and promotes the complete directory. A verified existing cache is reused without an HTTP request. |
 | `search_embedding_cancel_download` | Requests cancellation without unloading another active provider. Status remains busy until the worker returns. |
-| `search_embedding_remove` | Removes only the selected model-cache directory and its interrupted staging directory. Removal is idempotent; pending activation/download must finish first, and an active selected model must be disabled first. There is no app semantic index to remove yet. |
+| `search_embedding_remove` | Removes only the selected model-cache directory and its interrupted staging directory. Removal is idempotent; pending activation/download must finish first, and an active selected model must be disabled first. Derived index removal is a separate explicit command; the later opt-in UI must coordinate both. |
 
 No command accepts a URL, filesystem path or arbitrary model identifier. The
 download and loader share one asset manifest and the same bounded streaming

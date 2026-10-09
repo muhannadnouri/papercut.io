@@ -2,9 +2,9 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
-## Current decision — Stage 6 retained as an experiment
+## Current decision — Stage 7 opt-in integration approved
 
-**Stage 7 is on hold; the current production-hybrid decision is no-go pending acceptance evidence.** Keep the model-free branch improvements and the isolated embedding/hybrid baseline. The rejected cached reranker is removed from the maintained executable and preserved in private archives. The [acceptance checkpoint](#acceptance-checkpoint--2026-10-07) separates completed regression work from remaining product gates. The chronological sections below describe earlier experiments, including entry points that are no longer supported.
+**On 2026-10-09 the user authorized Stage 7 development with a default-off semantic toggle.** Lexical search remains the default. The user chose a separate labeled conceptual-results section alongside existing All words/Broader results, preserving their semantics. Only a user who enables semantic search should receive conceptual results or a visible lexical fallback when the provider/index is unavailable, incomplete or fails. This is authorization to integrate, not a claim of release acceptance or an independently demonstrated overall ranking win. Cross-language ranking is a lower product priority; same-language relevance, required quotes, filters, source evidence and resource safety remain requirements. Retain the model-free improvements and isolated experimental controls. The rejected reranker remains removed. Earlier sections below record historical decisions and deferrals, not the current authorization.
 
 The [conceptual contract review](#stage-6--conceptual-contract-review-2026-10-08)
 retains semantic-first ordering with native Broader evidence as the experimental
@@ -25,25 +25,92 @@ WebView and mobile acceptance remain open. The
 [optimized native check](#optimized-native-validation--2026-10-08) passes the
 existing provider, Arabic audio and command-recovery checks in release tests;
 it leaves the original crash and resource/device caveats unresolved.
-Consolidated rebuilt-app smoke remains explicitly deferred, and passing it
-alone will not open production semantic integration.
+The user now reports that all five consolidated smoke groups passed, including
+the explicitly compiled model-cache UI, and that CI `validation_scope=full`
+passed. Run URL/SHA, device details and individual case logs were not inspected.
+Those checks preceded the new indexing commands and do not validate semantic
+ranking or mobile provider runtimes.
 
 The [model-free acceptance review](#model-free-acceptance-review--2026-10-08)
 confirms the candidate passes fresh default-feature and frontend regressions
 without FastEmbed. The automated review is complete; normal-build platform
 readiness is recorded in the [normal packaging review](#normal-packaging-and-platform-readiness--2026-10-08).
-Actual device/app acceptance and non-Linux builds remain open, with smoke deferred.
+Normal and experimental-cache app smoke is user-reported passed on the tested
+machine. Other device/provider acceptance and semantic quality remain open.
 
 | Gate | Current evidence and decision |
 | --- | --- |
-| Model-free search | Ranking, Broader mode, source evidence, authored-word spelling help, Arabic normalization and query corrections are implemented on this branch. A 500-document / 100,000-section saturated-match native probe passes common-query timing thresholds on this development host; it does not establish weak-device or interactive app acceptance. General synonym expansion is unclaimed; hard-coded word pairs were removed. The latest complete-query correction's app smoke check is deferred. |
+| Model-free search | Ranking, Broader mode, source evidence, authored-word spelling help, Arabic normalization and query corrections are implemented on this branch. A 500-document / 100,000-section saturated-match native probe passes common-query timing thresholds on this development host; it does not establish weak-device suitability. The user reports ordinary-search/reader/audio smoke passed. General synonym expansion is unclaimed; hard-coded word pairs were removed. |
 | Embedding baseline | Cached FP32/INT8 providers, anchored passages, incremental SQLite indexing, read-only queries and document-level fusion remain experimental. The standalone report now includes an evidence-preserving semantic-first response alongside the unchanged semantic/RRF controls. The comparison accepts verified Small/Base metadata and dimension-safe 384/768-vector indexes; the app provider/model setup still supports only the retained Small formats. Native primary evidence and separate conceptual context are preserved. Semantic ordering does not enforce unquoted names/dates and must not redefine All words. |
 | Representative quality | The [public human-label comparison](#stage-6--public-human-label-comparison-2026-10-08) supports same-language conceptual passage ranking. The [wider-pool check](#stage-6--frozen-wider-pool-check-2026-10-08) and [fresh-query verification](#stage-6--fresh-query-fusion-verification-2026-10-08) confirm Broader fusion can replace positive first results with judged negatives and reduce known-positive recall. Keep semantic-only ordering as the conceptual control; the fresh English All words result cautions against a universal semantic-first policy. Base's mixed gain and higher cost do not establish an overall acceptance win. Prior cross-language/entity/date and missing-answer-span failures remain. Public passage labels do not establish private-book, displayed-answer or full-library quality. The original independent packet remains unjudged; product acceptance remains open. |
 | Cached reranker/context augmentation | Rejected: a cross-language gain introduces a same-language date regression; combined-context and explicit-exclusion controls do not justify a repair. Its live CLI/module are removed. |
 | Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the shared-runtime check reuses the actual app adapter with FastEmbed/sherpa. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. The linked initializer is tested on Linux, not an iOS archive/device. Other platforms, weak reference hardware, responsiveness and optional-model lifecycle/fallback validation remain open. |
-| Production optional hybrid | No ranking integration or default change; the explicitly compiled, session-only provider prototype does not participate in search. Proceed only after independent quality, reference-device and lifecycle/platform gates justify Stage 7; the original plan permits stopping with a documented no-go. |
+| Production optional hybrid | Stage 7 development is explicitly authorized with a default-off toggle and lexical fallback only within the enabled semantic path. The first app-index foundation is implemented below; preference/toggle, retrieval, provenance and fallback UI are not implemented yet. Quality, resource and platform limits remain release gates. |
 
-**Current work is a shared, default-off provider and explicit model-cache prototype**, following the no-fork app integration below. Desktop-first validation is sequencing, not a permanent restriction on Android/iOS. The native stability/resource follow-up, verified cancellable downloads/removal and opt-in Developer-mode model-setup settings are recorded below. The native command/cache boundary now passes isolated mock-runtime checks and the consolidated smoke packet is prepared. Next collect actual acceptance evidence; setup does not promise conceptual results while search does not use the provider. Native release stability and semantic ranking remain gated. The runtime prerequisite is verified on Linux; this is not a search-quality acceptance decision or a commitment to the smallest encoder. Keep normal search available and optional models unloaded when disabled, reuse existing verified download/job controls, and validate compatible indexing before enabling hybrid results. Authored Arabic fixtures pass the production EPUB parser, persistence and sanitized reader-source checks; interactive app import/navigation remains pending. The user permits interactive smoke to remain deferred through later stages and requests one consolidated final pass; carry that reminder forward without treating the deferral as acceptance. Representative quality, reference hardware and supported-platform evidence remain open. Production Stage 7 search needs its own quality and lifecycle gates.
+**Current work is the feature-gated app index foundation**, following the no-fork provider integration. Desktop-first validation is sequencing, not a permanent Android/iOS restriction. The existing Developer-mode UI still only prepares model caches. Normal search does not invoke indexing or inference, and no user-facing semantic toggle is wired yet. Source navigation, ordinary search, audio and cache controls are now user-reported smoke-passed. New index/query/toggle behavior will need its own checks as it is integrated. The earlier native crash, memory retention, reference hardware, mobile runtime and representative same-language quality remain open; current tokenizer checks do not establish Mandarin retrieval quality.
+
+## Stage 7 — App index foundation, 2026-10-09
+
+The optional Rust boundary lives in `document_uploads/semantic.rs` and
+`document_uploads/semantic/store.rs`, with narrow provider methods in
+`search_embeddings.rs` and explicit handler/state registration in `lib.rs`.
+Lexical query, import, title-edit and deletion implementations are unchanged.
+No new dependency, build script, configuration or React setting is added.
+
+Four commands expose explicit build, status, cancel and removal. Builds require
+an already verified, active provider; they never download or activate one.
+Normal builds reject builds/removal recoverably, and status does not initialize
+semantic storage. Even an enabled provider build only creates semantic tables
+on an explicit indexing request. The existing UI does not call these commands.
+
+The index shares the upload SQLite database so source mutations and invalidation
+are transactional. Triggers remain effective if a later normal build edits the
+library. They mark modified documents unavailable until synchronization; deletion
+cascades derived rows. Document generations prevent stale publication after
+edits, deletion/recreation, removal/rebuild or switching compatible identities
+away and back. Incompatible explicit builds discard only derived vectors;
+unknown schemas fail closed rather than being overwritten.
+
+Identity includes the verified encoder and every model/tokenizer/config asset
+checksum, vector dimension, extraction/source-normalization policy, E5 prefix
+and versioned 320-token/40-token-overlap chunk policy. Source content hashes
+include the exact embedded title, heading and body. Section-local UTF-8 spans
+use the actual tokenizer; oversized metadata/passages fail explicitly instead
+of silently truncating. Current source sections retain reader/page locators.
+
+One writer runs on the blocking pool. It reads one document at a time, performs
+native inference outside SQLite write transactions, checkpoints individual
+passages and publishes only a completed document. Retry/restart reuses validated
+unchanged vectors, including identical reimports with new section row IDs.
+Partial checkpoints do not count as available documents. Obsolete spans are
+pruned when a document finishes. Dimensions, finite unit-normalized values and
+stored vector checksums are validated before reuse/publication. The existing
+storage preflight supplies reserve/headroom; SQLite storage errors still fail
+recoverably if the estimate is exceeded. Cancellation is cooperative, not native
+call interruption. Provider status/disable can wait for a section's tokenization
+or one inference. Per-document source retention and foreground resource limits
+still require realistic device measurements.
+
+Validation: six storage/job tests and a default-off IPC test cover checkpoint
+recovery, unchanged reuse, source mutation races, format/removal roundtrips,
+cascade deletion, UTF-8/vector corruption, unknown schemas and job cleanup.
+The default library suite has **155 passing tests** and four ignored tests
+(the two loopback checks pass separately outside the socket-restricted sandbox).
+The shared-TTS/provider suite passes **209**, with nine opt-in tests ignored.
+The new ignored cached-model command check is then run explicitly for both
+FP32 and INT8 in disposable app data. It exercises real English/Arabic/Mandarin
+tokenization/overlap, native encoding, indexing, unchanged-build skip, title
+invalidation, removal/rebuild and document deletion. This is structural/runtime
+evidence, not relevance grading or an app/device responsiveness measurement.
+
+**Next:** add the separate React semantic setting/hook and native preference/job
+lifecycle: default off, explicit model choice/activation, indexing progress and
+coverage, cancellation on disable and restart recovery. Then integrate bounded
+semantic retrieval in the user-selected separate conceptual-results section,
+with explicit provenance and visible lexical fallback for the enabled path.
+Keep All words/quotes/filter behavior explicit and unchanged in the
+default lexical path. Do not infer supported-platform or quality acceptance from
+the authorization to proceed. Do not schedule another broad model/fusion sweep.
 
 ## Model-free acceptance review — 2026-10-08
 
