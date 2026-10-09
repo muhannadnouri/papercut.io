@@ -225,10 +225,22 @@ pub(super) fn retrieve(
     let mut candidates: Vec<Candidate> = Vec::new();
     {
         // Coverage is scoped library readiness, not the number of query/phrase matches.
-        let mut documents = tx.prepare("SELECT d.id,d.url,d.title,d.format,i.ready FROM uploaded_documents d
+        // Uncorrelated IN subqueries reuse common-phrase postings instead of rescanning them per document.
+        let phrase_predicate = if phrase_queries.is_empty() {
+            "1".to_owned()
+        } else {
+            vec!["d.id IN(SELECT document_id FROM uploaded_document_fts WHERE uploaded_document_fts MATCH ?)"; phrase_queries.len()].join(" AND ")
+        };
+        let mut documents = tx.prepare(&format!("SELECT d.id,d.url,d.title,d.format,i.ready,({phrase_predicate}) FROM uploaded_documents d
             LEFT JOIN upload_semantic_documents i ON i.document_id=d.id WHERE d.text_status<>'processing'
-            AND EXISTS(SELECT 1 FROM uploaded_sections s WHERE s.document_id=d.id AND length(trim(s.text))>0) ORDER BY d.id").map_err(db_err)?;
-        let mut rows = documents.query([]).map_err(db_err)?;
+            AND EXISTS(SELECT 1 FROM uploaded_sections s WHERE s.document_id=d.id AND length(trim(s.text))>0) ORDER BY d.id")).map_err(db_err)?;
+        let mut rows = documents
+            .query(rusqlite::params_from_iter(
+                phrase_queries
+                    .iter()
+                    .map(|phrase| format!("{{text}} : ({phrase})")),
+            ))
+            .map_err(db_err)?;
         while let Some(row) = rows.next().map_err(db_err)? {
             check()?;
             let id: String = row.get(0).map_err(db_err)?;
@@ -246,22 +258,7 @@ pub(super) fn retrieve(
             }
             response.indexed_documents += 1;
             // FTS body-token boundaries reject substrings/title-only hits; authored verification rejects stems.
-            let mut phrase_candidate = true;
-            for phrase in &phrase_queries {
-                check()?;
-                let present: bool = tx
-                    .query_row(
-                        "SELECT EXISTS(SELECT 1 FROM uploaded_document_fts
-                    WHERE uploaded_document_fts MATCH ?1 AND document_id=?2)",
-                        params![format!("{{text}} : ({phrase})"), id],
-                        |row| row.get(0),
-                    )
-                    .map_err(db_err)?;
-                if !present {
-                    phrase_candidate = false;
-                    break;
-                }
-            }
+            let phrase_candidate: bool = row.get(5).map_err(db_err)?;
             if !phrase_candidate
                 || (!phrases.is_empty()
                     && !crate::document_uploads::search::document_contains_exact_phrases(

@@ -717,3 +717,165 @@ fn incompatible_identity_rebuilds_only_derived_data_and_unknown_schema_fails_clo
         "unknown schema must not be destructively reset"
     );
 }
+
+/// Saturated synthetic vectors isolate production scan cost, not model inference or relevance.
+#[test]
+#[ignore = "development-host scale probe: creates 100,000 synthetic 384-dimensional passages"]
+fn conceptual_query_scale() {
+    use std::time::{Duration, Instant};
+    let library = Library::new();
+    let mut db = library.db();
+    let documents = 200;
+    let sections = 500;
+    let title = "Transit guide";
+    let text = "Electric buses connect the station and harbor.";
+    for index in 0..documents {
+        put(
+            &mut db,
+            &format!("doc{index:03}"),
+            title,
+            &vec![text; sections],
+        );
+    }
+    let key = Identity::new("synthetic-scale/tokenizer-v1", 384).unwrap();
+    initialize(&mut db, &key).unwrap();
+    let mut vector = vec![0.0f32; 384];
+    vector[0] = 1.0;
+    let bytes = vector
+        .iter()
+        .flat_map(|value| value.to_le_bytes())
+        .collect::<Vec<_>>();
+    let checksum = format!("{:x}", Sha256::digest(&bytes));
+    let hashes = (0..sections)
+        .map(|section| {
+            format!(
+                "{:x}",
+                Sha256::digest(
+                    passage_input(title, Some(&format!("Section {section}")), text).as_bytes()
+                )
+            )
+        })
+        .collect::<Vec<_>>();
+    let tx = db.transaction().unwrap();
+    {
+        let mut insert = tx
+            .prepare(
+                "INSERT INTO upload_semantic_passages
+            (document_id,section_ordinal,byte_start,byte_end,content_hash,vector,vector_hash)
+            VALUES (?1,?2,0,?3,?4,?5,?6)",
+            )
+            .unwrap();
+        for document in 0..documents {
+            for (section, hash) in hashes.iter().enumerate() {
+                insert
+                    .execute(params![
+                        format!("doc{document:03}"),
+                        section,
+                        text.len(),
+                        hash,
+                        bytes,
+                        checksum
+                    ])
+                    .unwrap();
+            }
+        }
+    }
+    tx.execute("UPDATE upload_semantic_documents SET ready=1", [])
+        .unwrap();
+    tx.commit().unwrap();
+    db.execute_batch("PRAGMA wal_checkpoint(TRUNCATE)").unwrap();
+    drop(db);
+    let path = library.0.join("search.sqlite3");
+    let sqlite_bytes = std::fs::metadata(&path).unwrap().len();
+    let mut db =
+        Connection::open_with_flags(&path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+    let mut measurements = Vec::new();
+    for (name, input, expected_scans, expected_results) in [
+        (
+            "first",
+            json!({"query":"city travel"}),
+            documents * sections,
+            50,
+        ),
+        (
+            "warm",
+            json!({"query":"city travel"}),
+            documents * sections,
+            50,
+        ),
+        (
+            "scoped",
+            json!({"query":"city travel","documentUrls":["/uploads/doc199.html"]}),
+            sections,
+            1,
+        ),
+        (
+            "common-phrase",
+            json!({"query":"city travel","exactPhrases":["electric buses"]}),
+            documents * sections,
+            50,
+        ),
+        (
+            "missing-phrase",
+            json!({"query":"city travel","exactPhrases":["missing service"]}),
+            0,
+            0,
+        ),
+    ] {
+        let start = Instant::now();
+        let encoded = Cell::new(0);
+        let response = retrieve(
+            &mut db,
+            &key,
+            &request(input),
+            |_| {
+                encoded.set(encoded.get() + 1);
+                Ok(vector.clone())
+            },
+            || {
+                if start.elapsed() > Duration::from_secs(10) {
+                    Err("Scale probe exceeded the native query budget".into())
+                } else {
+                    Ok(())
+                }
+            },
+        )
+        .unwrap();
+        let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
+        let response = serde_json::to_value(response).unwrap();
+        assert_eq!(response["availability"], "ready");
+        assert_eq!(response["scannedPassages"], expected_scans);
+        assert_eq!(
+            response["results"].as_array().unwrap().len(),
+            expected_results
+        );
+        assert_eq!(encoded.get(), usize::from(expected_scans > 0));
+        if expected_results == 50 {
+            assert_eq!(response["results"][0]["documentId"], "doc000");
+        }
+        measurements.push(
+            json!({"case":name,"ms":elapsed_ms,"scanned":expected_scans,"shown":expected_results}),
+        );
+    }
+    assert!(db
+        .execute("UPDATE upload_semantic_documents SET ready=0", [])
+        .is_err());
+    // Includes fixture construction and all scans; this is not query-only or model memory.
+    let process_peak_rss_kib =
+        std::fs::read_to_string("/proc/self/status")
+            .ok()
+            .and_then(|status| {
+                status.lines().find_map(|line| {
+                    line.strip_prefix("VmHWM:")
+                        .and_then(|value| value.split_whitespace().next()?.parse::<u64>().ok())
+                })
+            });
+    println!(
+        "conceptual_scale {}",
+        json!({"documents":documents,"passages":documents * sections,
+        "dimensions":384,"sqliteBytes":sqlite_bytes,"optimized":!cfg!(debug_assertions),
+        "processPeakRssKiB":process_peak_rss_kib,
+        "method":"Synthetic unit vectors; production read-only retrieve; no inference/quality grading; first connection has OS-warm fixture pages",
+        "measurements":measurements})
+    );
+}

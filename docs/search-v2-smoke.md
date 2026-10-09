@@ -9,6 +9,12 @@ added after this pass needs its own acceptance. Automated native, command and fr
 acceptance. Use documents you can inspect and keep private sources, questions,
 screenshots and judgments out of tracked files.
 
+Stage 7 native scale and cached-handler acceptance checks now exercise the
+integrated query contract, including title invalidation, removal and disable.
+They do not mark any interactive case as passed. The new lifecycle and
+conceptual-results groups below remain explicitly **deferred** by the user;
+run them together against the rebuilt provider-feature app when ready.
+
 ## Isolate the library first
 
 A Git branch does not isolate application data. On Linux, close **all Papercut

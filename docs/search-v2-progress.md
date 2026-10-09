@@ -47,16 +47,80 @@ machine. Other device/provider acceptance and semantic quality remain open.
 | Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the shared-runtime check reuses the actual app adapter with FastEmbed/sherpa. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. The linked initializer is tested on Linux, not an iOS archive/device. Other platforms, weak reference hardware, responsiveness and optional-model lifecycle/fallback validation remain open. |
 | Production optional hybrid | Stage 7 development is explicitly authorized with a default-off toggle and lexical fallback only within the enabled semantic path. App indexing, saved opt-in/lifecycle controls, native retrieval and the separate React conceptual-results/fallback path are implemented below. Functional settings no longer require Developer mode. Quality, resource and platform limits remain release gates. |
 
-**Current work is the opt-in conceptual-results UI**, following native retrieval
-and the index/model lifecycle. Lexical search stays default and independent;
-Settings now exposes the functional optional model/toggle/index controls without
-Developer mode. Normal builds still omit the provider and report unavailability;
-the explicit feature build is still required for semantic testing. The earlier
-five-group smoke/CI pass predates this UI. New lifecycle/results acceptance remains
-deferred by the user; the focused checklist is ready below. Native stability,
-allocator retention, reference hardware, platform runtimes and representative
-same-language quality remain release gates; tokenizer checks alone do not
-establish Mandarin retrieval quality.
+**Current work is acceptance of the integrated opt-in path.** Native retrieval,
+functional Settings and the separate conceptual-results UI are implemented.
+Lexical remains default; ordinary builds still omit the provider. The first
+integrated scale probe found and fixed repeated common-phrase FTS scans without
+changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
+remains explicitly deferred by the user; the earlier five-group pass predates
+this UI. Native stability, allocator retention, reference hardware, platform
+runtimes and representative same-language quality remain release gates.
+
+## Stage 7 — native scan and acceptance checks — 2026-10-09
+
+The ignored `conceptual_query_scale` check creates **200 generic documents /
+100,000 passages / 384 dimensions** in disposable SQLite storage. It runs the
+production read-only retrieval with synthetic unit vectors, checks scope,
+required phrases, scanned/result counts, deterministic ties, one query encoding
+and read-only access. No private documents, model downloads or user library
+writes are involved. The fixture's source and derived index occupy **259,915,776
+bytes**; this is not a vectors-only size estimate.
+
+A saturated common-phrase query initially took **3,416.7 ms**, versus **154.4 ms**
+for a warm unrestricted scan. Each document repeated the same FTS lookup. The
+native query now uses bound, uncorrelated SQLite `IN` subqueries, reusing each
+phrase's candidate set before authored-source verification. Scoped readiness
+counts remain independent of phrase matches; body-token boundaries, hyphen
+aliases, exact-source verification, best-passage ordering and lexical behavior
+are retained. SQLite manages candidate sets; Rust does not retain an unbounded
+posting list. Common phrases still incur a library-wide FTS candidate lookup,
+even with a narrow vector scope.
+
+The focused optimized store run passes **10 checks**, including the scale probe.
+After the fix the same common-phrase case takes **189.9 ms**; unrestricted scans
+remain about **155 ms**, a 500-passage scope takes **1.3 ms**, and a missing phrase
+returns without encoding/scoring in **0.55 ms**. These are development-host,
+OS-warm synthetic-vector measurements, excluding model inference and indexing.
+They justify this one fix, not an ANN index, universal latency claim, quality
+claim or weak-device acceptance. The ten-second cooperative budget remains.
+
+The existing real-cache command check also covers the response states consumed
+by React: missing index before build, partial/empty after title invalidation,
+updated source after rebuild, incompatible/empty after explicit index removal,
+ready/empty after deleting the only source, and a recoverable error after
+provider disable. Explicit cached FP32/INT8 runs use disposable app data and
+actual handlers; these checks do not start a WebView.
+
+Both optimized cached runs pass: **2.11 s FP32 / 1.40 s INT8** for the complete
+handler/index lifecycle test, including local cache copying and activation;
+these are not query-only timings. Full native suites pass **161 default tests
+(5 ignored) / 216 provider-enabled tests (10 ignored)**. The final scale-only
+rerun reports 160.8/156.2 ms first/warm, 1.39 ms scoped, 193.8 ms common phrase
+and 0.59 ms missing phrase, with **26,616 KiB process RSS high water**. That RSS
+includes fixture construction and all scans **without a model**, not the real
+provider's much larger activation/reload footprint or foreground app memory.
+
+The final normal Linux shared-TTS **Debian package builds successfully** using
+the existing offline desktop command. Its 41,763,686-byte archive contains the
+matching three prepared runtime libraries and original Libtashkeel license,
+with no optional embedding cache assets. The extracted binary resolves sherpa
+and ORT through its relative resource path without installation or app launch.
+The normal dependency tree still excludes FastEmbed; no new runtime, package
+fork, configuration or npm script is added. Locale/TypeScript/Vite checks run as
+part of the builds, retaining the existing large-chunk warning. React is
+unchanged; its prior 168 tests remain evidence, not a fresh test-run claim.
+
+The explicit provider-feature Wry release app also builds with
+`native-tts-shared,experimental-search-embeddings --no-bundle`, using the existing
+shared runtime and npm Tauri entry point. This validates compilation/linking;
+no provider-enabled installer, WebView launch or new interactive smoke is claimed.
+
+**Next:** keep the provider behind its explicit build feature and opt-in toggle.
+The remaining acceptance work is rebuilt-app lifecycle/conceptual-result smoke,
+existing full/platform CI after pushing, and reference-device/platform resource
+checks. Smoke remains user-deferred: use [the consolidated checklist](search-v2-smoke.md)
+when ready; automated handlers and packaging do not replace reader/RTL/UI checks.
+No new model/fusion sweep or further speculative optimization is scheduled.
 
 ## Stage 7 — opt-in conceptual-results UI — 2026-10-09
 

@@ -359,6 +359,34 @@ latency or relevance threshold is claimed. Calibrate real library/device costs
 before release; a timeout must leave lexical results available. Current tests
 establish contracts and real cached inference, not a new overall quality win.
 
+## Native scan scale check — 2026-10-09
+
+Run the explicit synthetic scale probe without downloading models:
+
+```sh
+cargo test --offline --locked --manifest-path src-tauri/Cargo.toml --release \
+  --lib document_uploads::semantic::store::tests::conceptual_query_scale \
+  -- --ignored --exact --nocapture
+```
+
+It creates/removes its own database with 200 generic documents, 100,000 passages
+and 384-dimensional unit vectors. Production retrieval checks result/scanned
+counts, source scope, required/missing phrases, deterministic ties, encoding
+count and read-only access. The printed first/warm/scoped/phrase timings exclude
+inference and indexing; fixture creation leaves OS pages warm. Linux process RSS
+high water includes fixture construction and all scans, not query-only or model
+memory; it is absent on platforms without `/proc`. Keep this heavier probe
+explicit rather than adding it to every ordinary test run.
+
+The common-phrase probe exposed repeated FTS scans per document. Bound SQLite
+`IN` subqueries now reuse each phrase's candidates; authored-source verification
+and scoped readiness counting stay independent. A common phrase fell from
+3,416.7 ms to 189.9 ms in the matched development-host probe; unrestricted
+100,000-vector scans stayed about 155 ms. Narrow scope limits vector work, while
+phrase candidate lookup still consults the library-wide FTS index. This does
+not establish weak-device, cold-cache, model-inference or UI responsiveness.
+See [current acceptance evidence](search-v2-progress.md) for packaging and gates.
+
 ## React conceptual results and fallback
 
 `src/search-semantic/useConceptualSearch.ts` owns invocation/state and
@@ -692,13 +720,14 @@ justified by these passing checks; remaining gates need different evidence.
 
 ## Remaining gates
 
-Native stability and device resource costs remain release gates. Model-setup
-settings and mock-runtime command validation are implemented; the consolidated
-smoke packet is prepared, not accepted. Setup must not promise conceptual results
-while search still does not use the provider. The next work is actual acceptance
-evidence rather than another speculative feature or a voice-catalogue repurpose.
-Before enabling hybrid results, representative independent quality, compatible
-incremental indexes, lexical fallback, device responsiveness/resource limits and
-all advertised platforms must pass. Model choices can expand after measured
-quality/cost evidence. Interactive search/EPUB/audio and later model controls stay
-in the user's consolidated final smoke pass; this deferral is not acceptance.
+Native stability and device resource costs remain release gates. Functional
+Settings, compatible incremental indexing and separate conceptual results are
+implemented with a default-off toggle; enabled unavailable/incomplete/failed
+search visibly falls back to lexical. The explicit provider build is still
+required. Automated cached-handler/scale checks and normal packaging do not
+establish WebView reader targets, RTL, responsiveness or mobile acceptance.
+The earlier crash remains unexplained and disable does not promise immediate
+RSS recovery. Representative independent quality and all advertised platforms
+remain open. Interactive lifecycle/search/EPUB/audio checks remain in the user's
+deferred consolidated smoke pass; this deferral is not acceptance. Expand model
+choices only after measured quality/cost evidence.

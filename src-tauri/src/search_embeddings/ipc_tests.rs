@@ -243,6 +243,18 @@ fn cached_semantic_index_commands_checkpoint_and_preserve_sources() {
     )
     .unwrap();
     let url = document["url"].as_str().unwrap();
+    let query = || {
+        invoke(
+            &window,
+            "search_semantic_query",
+            json!({"request":{
+                "query":"How do residents get around the city?", "documentUrls":[url],
+                "exactPhrases":["electric bus"], "limit":1
+            }}),
+        )
+        .unwrap()
+    };
+    assert_eq!(query()["availability"], "missing-index");
     invoke(&window, "search_semantic_index_build", json!({})).unwrap();
     let status = invoke(&window, "search_semantic_index_status", json!({})).unwrap();
     assert_eq!(status["indexedDocuments"], 1);
@@ -309,11 +321,16 @@ fn cached_semantic_index_commands_checkpoint_and_preserve_sources() {
         invoke(&window, "search_semantic_index_status", json!({})).unwrap()["indexedDocuments"],
         0
     );
+    let invalidated = query();
+    assert_eq!(invalidated["availability"], "partial");
+    assert_eq!(invalidated["indexedDocuments"], 0);
+    assert!(invalidated["results"].as_array().unwrap().is_empty());
     invoke(&window, "search_semantic_index_build", json!({})).unwrap();
     assert_eq!(
         invoke(&window, "search_semantic_index_status", json!({})).unwrap()["indexedDocuments"],
         1
     );
+    assert_eq!(query()["results"][0]["title"], "Updated travel guide");
     invoke(&window, "search_semantic_index_remove", json!({})).unwrap();
     let status = invoke(&window, "search_semantic_index_status", json!({})).unwrap();
     assert_eq!(status["indexedDocuments"], 0);
@@ -321,6 +338,9 @@ fn cached_semantic_index_commands_checkpoint_and_preserve_sources() {
         status["eligibleDocuments"], 1,
         "removal must retain the document"
     );
+    let removed = query();
+    assert_eq!(removed["availability"], "incompatible-index");
+    assert!(removed["results"].as_array().unwrap().is_empty());
     invoke(&window, "search_semantic_index_build", json!({})).unwrap();
     invoke(
         &window,
@@ -331,12 +351,22 @@ fn cached_semantic_index_commands_checkpoint_and_preserve_sources() {
     let status = invoke(&window, "search_semantic_index_status", json!({})).unwrap();
     assert_eq!(status["indexedDocuments"], 0);
     assert_eq!(status["passages"], 0);
+    let deleted = query();
+    assert_eq!(deleted["availability"], "ready");
+    assert_eq!(deleted["eligibleDocuments"], 0);
+    assert!(deleted["results"].as_array().unwrap().is_empty());
     invoke(
         &window,
         "search_embedding_configure",
         json!({"format":null}),
     )
     .unwrap();
+    assert!(invoke(
+        &window,
+        "search_semantic_query",
+        json!({"request":{"query":"city travel"}})
+    )
+    .is_err());
     let data = app.path().app_data_dir().unwrap();
     drop(window);
     drop(app);
