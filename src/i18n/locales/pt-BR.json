@@ -110,6 +110,21 @@
       "occurrencesFailed": "Não foi possível carregar as ocorrências.",
       "noLiteralOccurrences": "Nenhuma ocorrência encontrada no corpo do texto.",
       "retryOccurrences": "Tentar novamente"
+    },
+    "conceptual": {
+      "title": "Resultados conceituais · Sua biblioteca",
+      "lexicalTitle": "Resultados lexicais",
+      "description": "Os trechos conceituais podem usar outras palavras. As frases entre aspas são obrigatórias no documento; o trecho exibido pode estar em outro lugar.",
+      "shown": "Documentos exibidos: {{count}}",
+      "loading": "Buscando trechos conceituais…",
+      "coverage": "Indexados neste escopo: {{ready}} / {{total}}",
+      "empty": "Nenhum trecho conceitual neste escopo.",
+      "unavailable": "A busca conceitual está indisponível. Os resultados lexicais continuam disponíveis. Verifique o modelo nas configurações.",
+      "preparing": "Preparando o modelo ou o índice. Os resultados lexicais são usados enquanto o trabalho termina.",
+      "missing-index": "Nenhum índice semântico disponível. Os resultados lexicais são usados. Crie ou retome o índice nas configurações.",
+      "incompatible-index": "O índice não corresponde ao modelo selecionado. Os resultados lexicais são usados. Crie ou retome o índice nas configurações.",
+      "partial": "Este escopo não está totalmente indexado. Os resultados lexicais são usados. Crie ou retome o índice nas configurações.",
+      "failed": "A busca conceitual não pôde terminar. Os resultados lexicais continuam disponíveis. Verifique o estado do modelo e do índice nas configurações e tente novamente; uma consulta mais curta pode ajudar."
     }
   },
   "library": {
@@ -357,8 +372,8 @@
     "versionUnavailable": "Indisponível",
     "webBuild": "Construção da web",
     "searchModel": {
-      "title": "Configuração experimental do modelo de busca",
-      "description": "Prepare os arquivos do multilingual-e5-small para testar o protótipo. Isso não ativa a busca conceitual nem altera os resultados.",
+      "title": "Modelo de busca opcional",
+      "description": "Baixe e verifique multilingual-e5-small para a busca conceitual opcional. Apenas baixar não a ativa.",
       "loading": "Verificando a configuração…",
       "unavailable": "A configuração do modelo não está disponível nesta versão. A busca normal continua disponível.",
       "format": "Formato do modelo",
@@ -374,9 +389,9 @@
       "verify": "Verificar cache",
       "download": "Baixar arquivos do modelo",
       "remove": "Remover arquivos do modelo",
-      "inUse": "Este formato está ativo em uma sessão do protótipo. Desative a sessão antes de remover seus arquivos.",
+      "inUse": "Este formato está ativo. Desative a busca semântica antes de remover os arquivos.",
       "recovery": "Para um cache incompleto ou danificado, remova os arquivos e baixe novamente. Downloads interrompidos recomeçam do início.",
-      "activationBusy": "A ativação do protótipo ainda está em andamento. As alterações do cache devem esperar.",
+      "activationBusy": "O modelo está sendo ativado. As alterações no cache devem esperar.",
       "working": "Em andamento; a verificação e a limpeza podem levar tempo…",
       "progress": "Progresso do download do modelo",
       "verified": "Cache verificado. A busca não mudou.",
@@ -387,11 +402,11 @@
       "failed": "O download falhou. Verifique a conexão e o espaço livre; remova arquivos de cache danificados antes de tentar novamente."
     },
     "semantic": {
-      "title": "Preparação do índice semântico",
-      "description": "Prepare o índice opcional de busca conceitual. A recuperação ainda não está conectada: Todas as palavras e Mais ampla continuam usando resultados lexicais.",
-      "toggle": "Ativar preparação do modelo e do índice (opcional)",
+      "title": "Busca semântica (experimental)",
+      "description": "Adicione trechos conceituais ao lado dos resultados lexicais. Baixe um modelo, ative esta opção e crie o índice. A busca lexical continua sendo o padrão.",
+      "toggle": "Ativar busca semântica (opcional)",
       "off": "Desativado. A busca lexical normal está disponível; nenhum trabalho semântico é iniciado.",
-      "active": "Modelo ativo. A busca ainda usa resultados lexicais nesta versão preparatória.",
+      "active": "Modelo ativo. Um índice completo adiciona uma seção separada de resultados conceituais.",
       "fallback": "O modelo selecionado não está disponível. A busca continua com resultados lexicais.",
       "working": "Em andamento. A busca continua com resultados lexicais.",
       "coverage": "Documentos indexados: {{ready}} / {{total}} · trechos prontos: {{passages}}",

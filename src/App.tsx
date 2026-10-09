@@ -9,6 +9,8 @@ import './App.css'
 import { usePagefind } from './hooks/usePagefind'
 import { useSearch } from './hooks/useSearch'
 import { useSemanticSearch } from './search-semantic/useSemanticSearch'
+import { useConceptualSearch } from './search-semantic/useConceptualSearch'
+import { ConceptualResults } from './search-semantic/ConceptualResults'
 import { AppHeader } from './components/AppHeader/AppHeader'
 import { SearchTab } from './components/SearchTab/SearchTab'
 import { LibraryTab } from './components/LibraryTab/LibraryTab'
@@ -221,6 +223,7 @@ function App() {
     searchFailed,
     searchPhase,
     submittedQuery,
+    searchRequest,
     lastSearchInfo,
     handleSearch,
     rerunSearch,
@@ -232,6 +235,10 @@ function App() {
     scopeUrls: searchScopeUrls,
     scopeActive: searchScopeActive,
   })
+
+  const conceptualResults = useConceptualSearch({ semantic: semanticSearch,
+    submittedQuery, searchRequest, queryError, scopeUrls: searchScopeUrls,
+    scopeActive: searchScopeActive, library: uploadedDocuments })
 
   useEffect(() => {
     rerunSearch()
@@ -534,6 +541,11 @@ function App() {
 
         {activeTab === 'search' && (
           <SearchTab
+            lexicalResultsLabel={conceptualResults ? t('search.conceptual.lexicalTitle') : undefined}
+            additionalResults={<ConceptualResults state={conceptualResults}
+              openingDisabled={documentOpening}
+              openingDocumentUrl={documentLoad.status === 'loading' ? documentLoad.url : undefined}
+              onViewDocument={handleViewDocument} />}
             mode={searchMode}
             onModeChange={setSearchMode}
             query={query}

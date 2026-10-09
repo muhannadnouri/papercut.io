@@ -48,13 +48,15 @@ vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => k
 vi.mock('../../i18n', () => ({ currentAppLocale: () => 'en' }))
 
 import { SearchModelSetup } from './SearchModelSetup'
+import type { SemanticSearchController } from '../../search-semantic/useSemanticSearch'
 
 let status: { compiled: boolean; platform: string; activeFormat: string | null; loadingFormat: string | null; downloadingFormat: string | null }
 let present: boolean
 let tree: ReactElement
+let semantic: SemanticSearchController | undefined
 function render() {
   mocked.cursor = 0
-  tree = SearchModelSetup()
+  tree = SearchModelSetup({ semantic })
   for (const effect of mocked.effects.splice(0)) effect()
   return renderToStaticMarkup(tree)
 }
@@ -92,6 +94,7 @@ function deferred<T>() {
 }
 
 beforeEach(() => {
+  semantic = undefined
   vi.useFakeTimers()
   vi.stubGlobal('window', { setInterval, clearInterval })
   mocked.cursor = 0
@@ -125,6 +128,20 @@ it('keeps normal builds unavailable and never starts downloads or activates on o
   expect(html).not.toContain('<select')
   expect(mocked.invoke.mock.calls.map(([command]) => command)).toEqual(['search_embedding_status'])
   expect(mocked.stop).not.toHaveBeenCalled()
+})
+
+it('offers turning off a saved opt-in even when the current build has no provider', async () => {
+  status.compiled = false
+  semantic = { enabled: true, format: 'float32', busy: false, operation: null, error: '', cancelling: false,
+    provider: { compiled: false, activeFormat: null, loadingFormat: null, downloadingFormat: null },
+    index: undefined, setEnabled: vi.fn(), setFormat: vi.fn(), build: vi.fn(), remove: vi.fn(),
+    cancel: vi.fn(), refresh: vi.fn() }
+  render()
+  const html = await settle()
+  expect(html).toContain('settings.semantic.toggle')
+  expect(html).toContain('role="switch" checked=""')
+  expect(html).not.toContain('role="switch" disabled=""')
+  expect(new Set(mocked.invoke.mock.calls.map(([command]) => command))).toEqual(new Set(['search_embedding_status']))
 })
 
 it('requires fresh consent after changing format and keeps cancellation busy through cleanup', async () => {

@@ -19,7 +19,7 @@ function html(semantic: SemanticSearchController, cachePresent = true, cacheBusy
   return renderToStaticMarkup(<SemanticSearchSetup semantic={semantic} cachePresent={cachePresent} cacheBusy={cacheBusy} />)
 }
 
-it('shows off and preparation wording, coverage, and blocks enabling without a cache or during transfer', () => {
+it('shows off and opt-in wording, coverage, and blocks enabling without a cache or during transfer', () => {
   const ready = html(controller())
   expect(ready).toContain('settings.semantic.off')
   expect(ready).toContain('settings.semantic.description')

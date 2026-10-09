@@ -237,6 +237,8 @@ export function AppSettings({
             </section>
           )}
 
+          {tauriRuntime && <SearchModelSetup semantic={semanticSearch} />}
+
           <section className="app-settings-section app-settings-developer" aria-labelledby="app-settings-developer">
             <h3 id="app-settings-developer">{t('settings.developer')}</h3>
             <label className="app-setting app-setting-toggle">
@@ -251,8 +253,6 @@ export function AppSettings({
               </span>
             </label>
           </section>
-
-          {tauriRuntime && developerMode && <SearchModelSetup semantic={semanticSearch} />}
 
           <section className="app-settings-section app-settings-about" aria-labelledby="app-settings-about">
             <h3 id="app-settings-about">{t('settings.about')}</h3>

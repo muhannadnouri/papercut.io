@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AuthorGroup, DocumentScopeMode } from '../../hooks/useDocumentFilters'
 import type { LastSearchInfo, SearchPhase, SearchQueryError } from '../../hooks/useSearch'
@@ -8,6 +9,8 @@ import { SearchResults } from '../SearchResults/SearchResults'
 import { SearchScope } from '../SearchScope/SearchScope'
 
 interface SearchTabProps {
+  additionalResults?: ReactNode
+  lexicalResultsLabel?: string
   mode: SearchMode
   collapsedAuthors: Set<string>
   disabled: boolean
@@ -44,6 +47,8 @@ interface SearchTabProps {
 }
 
 export function SearchTab({
+  additionalResults,
+  lexicalResultsLabel,
   mode,
   collapsedAuthors,
   disabled,
@@ -111,6 +116,7 @@ export function SearchTab({
         onScopeModeChange={onScopeModeChange}
       />
 
+      {lexicalResultsLabel && <h2>{lexicalResultsLabel}</h2>}
       <SearchResults
         results={results}
         loading={loading}
@@ -129,6 +135,7 @@ export function SearchTab({
           onSubmitSearch()
         }}
       />
+      {additionalResults}
     </section>
   )
 }

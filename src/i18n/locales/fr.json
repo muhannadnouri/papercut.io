@@ -110,6 +110,21 @@
       "occurrencesFailed": "Impossible de charger les occurrences.",
       "noLiteralOccurrences": "Aucune occurrence trouvée dans le corps du texte.",
       "retryOccurrences": "Réessayer"
+    },
+    "conceptual": {
+      "title": "Résultats conceptuels · Votre bibliothèque",
+      "lexicalTitle": "Résultats lexicaux",
+      "description": "Les passages conceptuels peuvent employer d’autres mots. Les expressions entre guillemets sont obligatoires dans le document ; le passage affiché peut se trouver ailleurs.",
+      "shown": "Documents affichés : {{count}}",
+      "loading": "Recherche de passages conceptuels…",
+      "coverage": "Indexés dans ce périmètre : {{ready}} / {{total}}",
+      "empty": "Aucun passage conceptuel dans ce périmètre.",
+      "unavailable": "La recherche conceptuelle est indisponible. Les résultats lexicaux restent disponibles. Vérifiez le modèle dans les paramètres.",
+      "preparing": "Préparation du modèle ou de l’index. Les résultats lexicaux sont utilisés en attendant.",
+      "missing-index": "Aucun index sémantique disponible. Les résultats lexicaux sont utilisés. Créez ou reprenez l’index dans les paramètres.",
+      "incompatible-index": "L’index ne correspond pas au modèle sélectionné. Les résultats lexicaux sont utilisés. Créez ou reprenez l’index dans les paramètres.",
+      "partial": "Ce périmètre n’est pas entièrement indexé. Les résultats lexicaux sont utilisés. Créez ou reprenez l’index dans les paramètres.",
+      "failed": "La recherche conceptuelle n’a pas pu aboutir. Les résultats lexicaux restent disponibles. Vérifiez l’état du modèle et de l’index dans les paramètres, puis réessayez ; une requête plus courte peut aider."
     }
   },
   "library": {
@@ -357,8 +372,8 @@
     "versionUnavailable": "Indisponible",
     "webBuild": "Création Web",
     "searchModel": {
-      "title": "Configuration expérimentale du modèle de recherche",
-      "description": "Préparez les fichiers de multilingual-e5-small pour tester le prototype. Cela n’active pas la recherche conceptuelle et ne modifie pas les résultats.",
+      "title": "Modèle de recherche facultatif",
+      "description": "Téléchargez et vérifiez multilingual-e5-small pour la recherche conceptuelle facultative. Le téléchargement seul ne l’active pas.",
       "loading": "Vérification de la configuration…",
       "unavailable": "La configuration du modèle est indisponible dans cette version. La recherche habituelle reste disponible.",
       "format": "Format du modèle",
@@ -374,9 +389,9 @@
       "verify": "Vérifier le cache",
       "download": "Télécharger les fichiers du modèle",
       "remove": "Supprimer les fichiers du modèle",
-      "inUse": "Ce format est actif dans une session du prototype. Désactivez-la avant de supprimer ses fichiers.",
+      "inUse": "Ce format est actif. Désactivez la recherche sémantique avant de supprimer ses fichiers.",
       "recovery": "Pour un cache incomplet ou endommagé, supprimez ses fichiers puis téléchargez-les à nouveau. Les téléchargements interrompus repartent de zéro.",
-      "activationBusy": "L’activation du prototype est toujours en cours. Les modifications du cache doivent attendre.",
+      "activationBusy": "Le modèle est en cours d’activation. Les modifications du cache doivent attendre.",
       "working": "En cours ; la vérification et le nettoyage peuvent prendre du temps…",
       "progress": "Progression du téléchargement du modèle",
       "verified": "Cache vérifié. La recherche est inchangée.",
@@ -387,11 +402,11 @@
       "failed": "Échec du téléchargement. Vérifiez la connexion et l’espace libre ; supprimez les fichiers du cache endommagés avant de réessayer."
     },
     "semantic": {
-      "title": "Préparation de l’index sémantique",
-      "description": "Préparez l’index facultatif de recherche conceptuelle. La recherche conceptuelle n’est pas encore connectée : Tous les mots et Plus large utilisent toujours les résultats lexicaux.",
-      "toggle": "Activer la préparation du modèle et de l’index (facultatif)",
+      "title": "Recherche sémantique (expérimentale)",
+      "description": "Ajoutez des passages conceptuels aux résultats lexicaux. Téléchargez un modèle, activez cette option et créez l’index. La recherche lexicale reste le défaut.",
+      "toggle": "Activer la recherche sémantique (facultatif)",
       "off": "Désactivé. La recherche lexicale habituelle reste disponible ; aucun travail sémantique ne démarre.",
-      "active": "Modèle actif. La recherche utilise toujours des résultats lexicaux dans cette version préparatoire.",
+      "active": "Modèle actif. Un index complet ajoute une section distincte de résultats conceptuels.",
       "fallback": "Le modèle choisi est indisponible. La recherche continue avec des résultats lexicaux.",
       "working": "En cours. La recherche continue avec des résultats lexicaux.",
       "coverage": "Documents indexés : {{ready}} / {{total}} · passages prêts : {{passages}}",

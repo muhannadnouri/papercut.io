@@ -200,8 +200,8 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
         </div>}
         {downloading && <button type="button" className="app-settings-data-action" disabled={cancelling}
           onClick={() => { void cancel() }}>{t('common.cancel')}</button>}
-        {semantic && <SemanticSearchSetup semantic={semantic} cachePresent={!!cache?.filesPresent} cacheBusy={busy} />}
       </>}
+      {ready && semantic && <SemanticSearchSetup semantic={semantic} cachePresent={!!cache?.filesPresent} cacheBusy={busy} />}
       {message && <p role="status">{t(`settings.searchModel.${message}`)}</p>}
       {cancelling && busy && <p role="status">{t('settings.searchModel.cancelling')}</p>}
       {!busy && progress?.phase === 'cancelled' && !error && <p role="status">{t('settings.searchModel.cancelled')}</p>}

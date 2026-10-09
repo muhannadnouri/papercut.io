@@ -110,6 +110,21 @@
       "occurrencesFailed": "Impossibile caricare le occorrenze.",
       "noLiteralOccurrences": "Nessuna occorrenza trovata nel corpo del testo.",
       "retryOccurrences": "Riprova"
+    },
+    "conceptual": {
+      "title": "Risultati concettuali · La tua libreria",
+      "lexicalTitle": "Risultati lessicali",
+      "description": "I passaggi concettuali possono usare parole diverse. Le frasi tra virgolette sono obbligatorie nel documento; il passaggio mostrato può trovarsi altrove.",
+      "shown": "Documenti mostrati: {{count}}",
+      "loading": "Ricerca di passaggi concettuali…",
+      "coverage": "Indicizzati in questo ambito: {{ready}} / {{total}}",
+      "empty": "Nessun passaggio concettuale in questo ambito.",
+      "unavailable": "La ricerca concettuale non è disponibile. I risultati lessicali restano disponibili. Controlla il modello nelle impostazioni.",
+      "preparing": "Preparazione del modello o dell’indice. Si usano i risultati lessicali fino al termine del lavoro.",
+      "missing-index": "Nessun indice semantico disponibile. Si usano i risultati lessicali. Crea o riprendi l’indice nelle impostazioni.",
+      "incompatible-index": "L’indice non corrisponde al modello selezionato. Si usano i risultati lessicali. Crea o riprendi l’indice nelle impostazioni.",
+      "partial": "Questo ambito non è interamente indicizzato. Si usano i risultati lessicali. Crea o riprendi l’indice nelle impostazioni.",
+      "failed": "La ricerca concettuale non è terminata. I risultati lessicali restano disponibili. Controlla lo stato del modello e dell’indice nelle impostazioni e riprova; una query più breve può aiutare."
     }
   },
   "library": {
@@ -357,8 +372,8 @@
     "versionUnavailable": "Non disponibile",
     "webBuild": "Costruzione web",
     "searchModel": {
-      "title": "Configurazione sperimentale del modello di ricerca",
-      "description": "Prepara i file di multilingual-e5-small per provare il prototipo. Non attiva la ricerca concettuale né cambia i risultati.",
+      "title": "Modello di ricerca facoltativo",
+      "description": "Scarica e verifica multilingual-e5-small per la ricerca concettuale facoltativa. Il solo download non la attiva.",
       "loading": "Verifica della configurazione…",
       "unavailable": "La configurazione del modello non è disponibile in questa build. La ricerca normale resta disponibile.",
       "format": "Formato del modello",
@@ -374,9 +389,9 @@
       "verify": "Verifica cache",
       "download": "Scarica i file del modello",
       "remove": "Rimuovi i file del modello",
-      "inUse": "Questo formato è attivo in una sessione del prototipo. Disattivala prima di rimuovere i file.",
+      "inUse": "Questo formato è attivo. Disattiva la ricerca semantica prima di rimuovere i file.",
       "recovery": "Se la cache è incompleta o danneggiata, rimuovi i file e scaricali di nuovo. I download interrotti ripartono da zero.",
-      "activationBusy": "L’attivazione del prototipo è ancora in corso. Le modifiche alla cache devono attendere.",
+      "activationBusy": "Il modello è in fase di attivazione. Le modifiche alla cache devono attendere.",
       "working": "In corso; la verifica e la pulizia possono richiedere tempo…",
       "progress": "Avanzamento del download del modello",
       "verified": "Cache verificata. La ricerca è invariata.",
@@ -387,11 +402,11 @@
       "failed": "Download non riuscito. Controlla la connessione e lo spazio libero; rimuovi i file della cache danneggiati prima di riprovare."
     },
     "semantic": {
-      "title": "Preparazione dell’indice semantico",
-      "description": "Prepara l’indice facoltativo per la ricerca concettuale. Il recupero non è ancora collegato: Tutte le parole e Più ampia usano ancora risultati lessicali.",
-      "toggle": "Abilita preparazione del modello e dell’indice (facoltativo)",
+      "title": "Ricerca semantica (sperimentale)",
+      "description": "Aggiungi passaggi concettuali ai risultati lessicali. Scarica un modello, attiva questa opzione e crea l’indice. La ricerca lessicale resta predefinita.",
+      "toggle": "Attiva la ricerca semantica (facoltativa)",
       "off": "Disattivato. La ricerca lessicale normale è disponibile; non viene avviato lavoro semantico.",
-      "active": "Modello attivo. La ricerca usa ancora risultati lessicali in questa versione preparatoria.",
+      "active": "Modello attivo. Un indice completo aggiunge una sezione distinta di risultati concettuali.",
       "fallback": "Il modello selezionato non è disponibile. La ricerca continua con risultati lessicali.",
       "working": "In corso. La ricerca continua con risultati lessicali.",
       "coverage": "Documenti indicizzati: {{ready}} / {{total}} · passaggi pronti: {{passages}}",

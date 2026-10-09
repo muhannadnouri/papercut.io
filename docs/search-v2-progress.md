@@ -45,14 +45,83 @@ machine. Other device/provider acceptance and semantic quality remain open.
 | Representative quality | The [public human-label comparison](#stage-6--public-human-label-comparison-2026-10-08) supports same-language conceptual passage ranking. The [wider-pool check](#stage-6--frozen-wider-pool-check-2026-10-08) and [fresh-query verification](#stage-6--fresh-query-fusion-verification-2026-10-08) confirm Broader fusion can replace positive first results with judged negatives and reduce known-positive recall. Keep semantic-only ordering as the conceptual control; the fresh English All words result cautions against a universal semantic-first policy. Base's mixed gain and higher cost do not establish an overall acceptance win. Prior cross-language/entity/date and missing-answer-span failures remain. Public passage labels do not establish private-book, displayed-answer or full-library quality. The original independent packet remains unjudged; product acceptance remains open. |
 | Cached reranker/context augmentation | Rejected: a cross-language gain introduces a same-language date regression; combined-context and explicit-exclusion controls do not justify a repair. Its live CLI/module are removed. |
 | Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the shared-runtime check reuses the actual app adapter with FastEmbed/sherpa. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. The linked initializer is tested on Linux, not an iOS archive/device. Other platforms, weak reference hardware, responsiveness and optional-model lifecycle/fallback validation remain open. |
-| Production optional hybrid | Stage 7 development is explicitly authorized with a default-off toggle and lexical fallback only within the enabled semantic path. App indexing, developer-only saved opt-in/lifecycle controls and native conceptual retrieval with source provenance are implemented below; the separate React results and enabled-path fallback remain next. Quality, resource and platform limits remain release gates. |
+| Production optional hybrid | Stage 7 development is explicitly authorized with a default-off toggle and lexical fallback only within the enabled semantic path. App indexing, saved opt-in/lifecycle controls, native retrieval and the separate React conceptual-results/fallback path are implemented below. Functional settings no longer require Developer mode. Quality, resource and platform limits remain release gates. |
 
-**Current work is native conceptual retrieval**, following the saved opt-in/index lifecycle, feature-gated app index foundation and no-fork provider integration. Desktop-first validation is sequencing, not a permanent Android/iOS restriction. Developer-mode controls prepare caches, activate a selected model and explicitly synchronize the uploaded index. Their wording makes clear that search remains lexical in this preparatory build; React does not call the new native query yet. Source navigation, ordinary search, audio and cache controls are user-reported smoke-passed. The user explicitly deferred the new interactive index/query/toggle smoke; remind them when the functional results UI is ready. Native checks below do not replace that acceptance. The earlier native crash, memory retention, reference hardware, mobile runtime and representative same-language quality remain open; current tokenizer checks do not establish Mandarin retrieval quality.
+**Current work is the opt-in conceptual-results UI**, following native retrieval
+and the index/model lifecycle. Lexical search stays default and independent;
+Settings now exposes the functional optional model/toggle/index controls without
+Developer mode. Normal builds still omit the provider and report unavailability;
+the explicit feature build is still required for semantic testing. The earlier
+five-group smoke/CI pass predates this UI. New lifecycle/results acceptance remains
+deferred by the user; the focused checklist is ready below. Native stability,
+allocator retention, reference hardware, platform runtimes and representative
+same-language quality remain release gates; tokenizer checks alone do not
+establish Mandarin retrieval quality.
+
+## Stage 7 — opt-in conceptual-results UI — 2026-10-09
+
+`src/search-semantic/useConceptualSearch.ts` independently queries the native
+command; `ConceptualResults.tsx` renders a separate **Conceptual results · Your
+Library** section. The lexical hook only exports submission identity/scope;
+`App` composes the optional boundary through a SearchTab results slot. Removing
+the semantic feature does not require rewriting lexical ranking/cards. The
+existing All words/Broader results and counts stay separate, and semantic work
+does not delay their completion. No dependency, runtime, build-script or native
+retrieval changes are made in this pass.
+
+No semantic queries or fallback notice while off or with empty/invalid input.
+When enabled, queries preserve parsed unquoted text, every authored quoted clause
+and include/exclude/empty document scope. Filter changes wait for the matching
+lexical submission, avoiding duplicate native reservations. Repeated submissions
+have unique identity; old query, scope, source, model or index state is hidden
+immediately, and late completion after disable/unmount is ignored. A microtask
+skips the retired StrictMode effect before invoking native work. These are UI
+freshness guards, not interruption of an already running native call.
+
+Ready results show plain authored passages and section metadata, without HTML
+injection, query marks, similarity-as-confidence, literal counts or concordance.
+The existing section/page/text target opens the displayed source, rather than
+substituting the query or a required quote found elsewhere. UTF-8 byte offsets
+are not passed as DOM offsets. Existing legacy/block/normalization navigation
+limits still need rebuilt-app checks; a best-effort section/page jump is not
+proof of exact passage highlighting on every viewer.
+
+Missing/incompatible/partial indexes and unavailable/preparing/failed providers
+show enabled-path lexical fallback with recovery guidance. Partial results are
+not displayed: continue lexical search across the scope until indexing is
+complete. The query's scoped coverage is shown when known; result count means
+shown documents, not all possible conceptual matches. Ready empty results are
+separate from failure. Unquoted names/dates are conceptual input, and quoted
+clauses remain required at document scope even if the displayed passage differs.
+
+Settings exposes the existing installer plus **Enable semantic search (optional)**,
+which still defaults off, requires an explicit verified cached activation and
+explicit index build/resume. Download consent remains separate. Normal builds
+cannot enable a missing provider but can turn off a saved opt-in; browsers offer
+no native setup. Eight locales describe the functional path. Linux-first evidence
+does not imply Android/iOS or weak-device acceptance.
+
+Validation: frontend **168 tests pass / 47 files**, typecheck, eight-locale parity,
+scoped ESLint and Vite production build pass (existing large-chunk warning retained).
+Eight added regressions cover opt-in/capability boundaries, required phrases and
+scope forwarding, filter/submission races, stale A→B→A and source/disable/unmount,
+StrictMode, fallback vs empty, plain-text provenance/reader targets, and disabling
+a saved preference without a provider. Existing lexical and lifecycle tests pass.
+Rust is unchanged; the prior native **161/216** suites and real cached FP32/INT8
+handler checks remain the native evidence, not rerun claims in this UI-only pass.
+No new model/fusion sweep or WebView/mobile/performance acceptance is claimed.
+
+**Next:** rebuilt-app lifecycle and conceptual-result smoke, then acceptance and
+packaging/resource checks against the now-functional opt-in path. The user has
+kept smoke deferred; remind them and use the focused checklist rather than claiming
+that the earlier cache-only acceptance covers this UI. Push the local commit and
+rerun the existing platform/full CI when ready. Keep the feature/default-build
+boundary until release gates are met.
 
 ## Stage 7 — native conceptual retrieval — 2026-10-09
 
-`document_uploads/semantic/query.rs` adds one independent read-only command;
-React still returns lexical results. Ordinary builds and inactive providers fail
+At completion of this earlier pass, `document_uploads/semantic/query.rs` added
+one independent read-only command; React still returned lexical results. Ordinary builds and inactive providers fail
 recoverably, without activating/downloading a model or initializing storage.
 No dependency, runtime, config or script changes are needed. The existing lexical
 query limits, safe FTS phrase construction and authored-source verifier are reused.
@@ -94,7 +163,7 @@ and diff checks pass. These are structural/handler checks, not a new relevance
 comparison, query-latency benchmark or WebView navigation test. React is unchanged;
 its suite was not rerun in this native-only pass.
 
-**Next:** wire the native query through the isolated React semantic boundary into
+**Next at completion of this earlier pass:** wire the native query through the isolated React semantic boundary into
 a separate labeled conceptual-results section, with stale-result protection,
 existing filters/required phrases, actual reader targets and visible fallback
 only when opted in. Move preparation controls out of Developer mode when that

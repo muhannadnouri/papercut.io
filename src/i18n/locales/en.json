@@ -105,6 +105,21 @@
       "occurrencesFailed": "Occurrences couldn't be loaded.",
       "noLiteralOccurrences": "No body-text occurrences found.",
       "retryOccurrences": "Try again"
+    },
+    "conceptual": {
+      "title": "Conceptual results · Your Library",
+      "lexicalTitle": "Lexical results",
+      "description": "Conceptual passages may use different words. Quoted clauses are required somewhere in the document; the displayed passage may be elsewhere.",
+      "shown": "Documents shown: {{count}}",
+      "loading": "Finding conceptual passages…",
+      "coverage": "Indexed in this scope: {{ready}} / {{total}}",
+      "empty": "No conceptual passages in this scope.",
+      "unavailable": "Conceptual search is unavailable. Lexical results remain available. Check the model in Settings.",
+      "preparing": "Preparing the model or index. Using lexical results while work finishes.",
+      "missing-index": "No semantic index is available. Using lexical results. Build / resume the index in Settings.",
+      "incompatible-index": "The index does not match the selected model. Using lexical results. Build / resume the index in Settings.",
+      "partial": "This scope is not fully indexed. Using lexical results. Build / resume the index in Settings.",
+      "failed": "Conceptual search could not finish. Lexical results remain available. Check model/index status in Settings, then retry the search; a shorter query may help."
     }
   },
   "library": {
@@ -351,8 +366,8 @@
     "versionUnavailable": "Unavailable",
     "webBuild": "Web build",
     "searchModel": {
-      "title": "Experimental search model setup",
-      "description": "Prepare multilingual-e5-small model files for prototype testing. This does not enable conceptual search or change results.",
+      "title": "Optional search model",
+      "description": "Download and verify multilingual-e5-small for optional conceptual search. Downloading alone does not enable it.",
       "loading": "Checking model setup…",
       "unavailable": "Model setup is unavailable in this build. Ordinary search remains available.",
       "format": "Model format",
@@ -368,9 +383,9 @@
       "verify": "Verify cache",
       "download": "Download model files",
       "remove": "Remove model files",
-      "inUse": "This format is active in a prototype session. Disable that session before removing its files.",
+      "inUse": "This format is active. Turn off semantic search before removing its files.",
       "recovery": "For an incomplete or damaged cache, remove its files, then download again. Interrupted downloads restart from the beginning.",
-      "activationBusy": "A prototype activation is still running. Cache changes must wait.",
+      "activationBusy": "Model activation is running. Cache changes must wait.",
       "working": "Working; verification and cleanup can take time…",
       "progress": "Model download progress",
       "verified": "Cache verified. Search is unchanged.",
@@ -381,11 +396,11 @@
       "failed": "Download failed. Check your connection and free space; remove damaged cache files before retrying."
     },
     "semantic": {
-      "title": "Semantic index preparation",
-      "description": "Prepare the optional conceptual-search index. Retrieval is not connected yet: All words and Broader still use lexical results.",
-      "toggle": "Enable model and index preparation (optional)",
+      "title": "Semantic search (experimental)",
+      "description": "Add conceptual passages beside lexical results. Download a model, enable this option and build the index. Lexical search stays the default.",
+      "toggle": "Enable semantic search (optional)",
       "off": "Off. Ordinary lexical search is available; no semantic work is started.",
-      "active": "Model active. Search still uses lexical results in this preparatory build.",
+      "active": "Model active. A complete index adds a separate conceptual-results section.",
       "fallback": "The selected model is unavailable. Search continues with lexical results.",
       "working": "Working. Search continues with lexical results.",
       "coverage": "Indexed documents: {{ready}} / {{total}} · ready passages: {{passages}}",

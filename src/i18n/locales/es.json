@@ -110,6 +110,21 @@
       "occurrencesFailed": "No se pudieron cargar las apariciones.",
       "noLiteralOccurrences": "No se encontraron apariciones en el cuerpo del texto.",
       "retryOccurrences": "Intentar de nuevo"
+    },
+    "conceptual": {
+      "title": "Resultados conceptuales · Tu biblioteca",
+      "lexicalTitle": "Resultados léxicos",
+      "description": "Los pasajes conceptuales pueden usar otras palabras. Las frases entre comillas son obligatorias en el documento; el pasaje mostrado puede estar en otro lugar.",
+      "shown": "Documentos mostrados: {{count}}",
+      "loading": "Buscando pasajes conceptuales…",
+      "coverage": "Indexados en este ámbito: {{ready}} / {{total}}",
+      "empty": "No hay pasajes conceptuales en este ámbito.",
+      "unavailable": "La búsqueda conceptual no está disponible. Los resultados léxicos siguen disponibles. Comprueba el modelo en Ajustes.",
+      "preparing": "Preparando el modelo o el índice. Se usan resultados léxicos mientras termina el trabajo.",
+      "missing-index": "No hay un índice semántico disponible. Se usan resultados léxicos. Crea o reanuda el índice en Ajustes.",
+      "incompatible-index": "El índice no coincide con el modelo seleccionado. Se usan resultados léxicos. Crea o reanuda el índice en Ajustes.",
+      "partial": "Este ámbito no está totalmente indexado. Se usan resultados léxicos. Crea o reanuda el índice en Ajustes.",
+      "failed": "La búsqueda conceptual no pudo terminar. Los resultados léxicos siguen disponibles. Comprueba el estado del modelo y del índice en Ajustes y repite la búsqueda; una consulta más corta puede ayudar."
     }
   },
   "library": {
@@ -357,8 +372,8 @@
     "versionUnavailable": "Indisponible",
     "webBuild": "construcción web",
     "searchModel": {
-      "title": "Configuración experimental del modelo de búsqueda",
-      "description": "Prepara archivos de multilingual-e5-small para probar el prototipo. No activa la búsqueda conceptual ni cambia los resultados.",
+      "title": "Modelo de búsqueda opcional",
+      "description": "Descarga y verifica multilingual-e5-small para la búsqueda conceptual opcional. Descargarlo no la activa.",
       "loading": "Comprobando la configuración…",
       "unavailable": "La configuración del modelo no está disponible en esta compilación. La búsqueda habitual sigue disponible.",
       "format": "Formato del modelo",
@@ -374,9 +389,9 @@
       "verify": "Verificar caché",
       "download": "Descargar archivos del modelo",
       "remove": "Eliminar archivos del modelo",
-      "inUse": "Este formato está activo en una sesión del prototipo. Desactívala antes de eliminar sus archivos.",
+      "inUse": "Este formato está activo. Desactiva la búsqueda semántica antes de eliminar sus archivos.",
       "recovery": "Si la caché está incompleta o dañada, elimina sus archivos y vuelve a descargarlos. Las descargas interrumpidas empiezan desde cero.",
-      "activationBusy": "La activación del prototipo sigue en curso. Los cambios de caché deben esperar.",
+      "activationBusy": "El modelo se está activando. Los cambios de caché deben esperar.",
       "working": "En curso; la verificación y la limpieza pueden tardar…",
       "progress": "Progreso de descarga del modelo",
       "verified": "Caché verificada. La búsqueda no cambia.",
@@ -387,11 +402,11 @@
       "failed": "La descarga falló. Comprueba la conexión y el espacio libre; elimina los archivos dañados antes de reintentar."
     },
     "semantic": {
-      "title": "Preparación del índice semántico",
-      "description": "Prepara el índice opcional de búsqueda conceptual. La recuperación aún no está conectada: Todas las palabras y Más amplio siguen usando resultados léxicos.",
-      "toggle": "Activar preparación del modelo y del índice (opcional)",
+      "title": "Búsqueda semántica (experimental)",
+      "description": "Añade pasajes conceptuales junto a los resultados léxicos. Descarga un modelo, activa esta opción y crea el índice. La búsqueda léxica sigue siendo la predeterminada.",
+      "toggle": "Activar búsqueda semántica (opcional)",
       "off": "Desactivado. La búsqueda léxica habitual está disponible; no se inicia trabajo semántico.",
-      "active": "Modelo activo. La búsqueda sigue usando resultados léxicos en esta versión preparatoria.",
+      "active": "Modelo activo. Un índice completo añade una sección separada de resultados conceptuales.",
       "fallback": "El modelo seleccionado no está disponible. La búsqueda continúa con resultados léxicos.",
       "working": "Trabajando. La búsqueda continúa con resultados léxicos.",
       "coverage": "Documentos indexados: {{ready}} / {{total}} · pasajes listos: {{passages}}",

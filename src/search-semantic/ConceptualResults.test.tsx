@@ -1,0 +1,55 @@
+import { isValidElement, type ReactNode } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { expect, it, vi } from 'vitest'
+import { ConceptualResults } from './ConceptualResults'
+import type { ConceptualResponse, ConceptualState } from './useConceptualSearch'
+
+vi.mock('react', async (original) => ({ ...await original<typeof import('react')>(), useId: () => 'conceptual-title' }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({
+  t: (key: string, values?: Record<string, unknown>) => `${key}${values ? JSON.stringify(values) : ''}`,
+}) }))
+const response: ConceptualResponse = {
+  availability: 'ready', indexedDocuments: 1, eligibleDocuments: 1, scannedPassages: 2,
+  results: [{ documentId: 'guide', url: '/uploads/guide.pdf', format: 'pdf', title: 'Guide <b>title</b>',
+    provenance: 'conceptual', score: 0.8, sectionIndex: 3, pageIndex: 3, sectionTitle: 'Connections',
+    byteStart: 120, byteEnd: 180, text: '🙂 Electric buses <mark>run</mark> & connect.' }],
+}
+function html(state: ConceptualState, openingDisabled = false) {
+  return renderToStaticMarkup(<ConceptualResults state={state} openingDisabled={openingDisabled} onViewDocument={vi.fn()} />)
+}
+function click(node: ReactNode): boolean {
+  if (Array.isArray(node)) return node.some(click)
+  if (!isValidElement<{ children?: ReactNode; onClick?: () => void }>(node)) return false
+  if (node.type === 'button') { node.props.onClick!(); return true }
+  return click(node.props.children)
+}
+
+it('keeps the default-off path silent and distinguishes loading, empty and all fallback reasons', () => {
+  expect(html(null)).toBe('')
+  expect(html({ phase: 'loading' })).toContain('aria-busy="true"')
+  for (const reason of ['unavailable', 'preparing', 'missing-index', 'incompatible-index', 'partial', 'failed'] as const) {
+    const value = html({ phase: 'fallback', reason, response: { ...response, availability: 'partial', eligibleDocuments: 2 } })
+    expect(value).toContain(`search.conceptual.${reason}`)
+    expect(value).not.toContain('result-card-primary')
+    if (reason === 'partial') expect(value).toContain('&quot;total&quot;:2')
+  }
+  expect(html({ phase: 'ready', response: { ...response, results: [] } })).toContain('search.conceptual.empty')
+})
+
+it('escapes authored text, labels the channel separately and avoids scores, literal marks/counts and query phrase targets', () => {
+  const state = { phase: 'ready', response } as const
+  const value = html(state)
+  expect(value).toContain('search.conceptual.title')
+  expect(value).toContain('search.conceptual.description')
+  expect(value).toContain('&lt;mark&gt;run&lt;/mark&gt; &amp; connect.')
+  expect(value).not.toContain('<mark>')
+  expect(value).not.toContain('exactMatch')
+  expect(value).not.toContain('0.8')
+  expect(html(state, true)).toContain('disabled=""')
+  const onViewDocument = vi.fn()
+  expect(click(ConceptualResults({ state, onViewDocument }))).toBe(true)
+  expect(onViewDocument).toHaveBeenCalledWith('/uploads/guide.pdf', {
+    text: response.results[0].text, sectionIndex: 3, pageIndex: 3,
+  })
+  expect(onViewDocument.mock.calls[0][1]).not.toHaveProperty('byteStart')
+})

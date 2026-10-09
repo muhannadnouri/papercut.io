@@ -1,19 +1,18 @@
 # Experimental search embedding provider
 
-This is an app-level, default-off **provider, index and native query foundation**,
-with no search UI integration yet. Ordinary search never invokes it. Developer-mode
-settings now offer explicit model-cache preparation, a saved default-off opt-in,
-cached activation and uploaded-library index build/resume, cancel and removal.
-There is no automatic download or indexing. A saved opt-in reloads the selected
-cached model on restart; without it, no activation is attempted. Controls clearly
-say that this preparatory build still returns lexical results. An explicit native
-command can now retrieve conceptual passages; connecting it to a separate labeled
-results section with enabled-path lexical fallback is the next work.
+This is an app-level, default-off **optional conceptual-search path**, with a
+separate labeled results section beside lexical All words/Broader results.
+Functional Settings controls do not require Developer mode. Normal builds still
+omit the provider; semantic testing requires the explicit feature build below.
+There is no automatic download or indexing. Saved opt-in reloads a verified cached
+model on restart; without it, no activation or semantic querying occurs. Queries
+never initiate installation/indexing, and lexical results finish independently.
+Missing/incomplete/failed semantic work shows fallback guidance only while opted in.
 
 On 2026-10-09 the user reports normal search/reader/audio and experimental-cache
 smoke passed, plus CI `validation_scope=full`. Earlier validation sections below
-retain their historical deferrals. These reports do not validate the new index
-commands, semantic relevance or other-platform provider runtimes.
+retain their historical deferrals. These reports predate the new opt-in/index/query UI. Its focused smoke remains
+explicitly deferred; semantic relevance and other-platform runtimes remain open.
 
 Desktop-first validation is sequencing, not a desktop-only product restriction.
 The commands and state are shared Rust code with no desktop-only availability
@@ -139,9 +138,9 @@ publication. Explicit incompatible builds replace derived vectors; unknown
 schemas fail closed. Stored vectors have independent checksums plus dimension,
 finite-value and unit-norm checks. No write lock spans inference.
 
-There is no automatic indexing resume or semantic query from React yet. The React opt-in
-is persisted as described below; index retry is explicit and reuses durable
-checkpoints. Native encoding and section
+There is no automatic indexing resume. The React opt-in is persisted as described
+below; enabled queries use completed compatible sources, while index retry is
+explicit and reuses durable checkpoints. Native encoding and section
 tokenization temporarily hold the provider lock; cancellation is checked between
 calls, and status/disable may wait for a call to finish. Source retention is one
 document at a time, not the whole library. These bounds still need device
@@ -214,9 +213,9 @@ including when an existing cache was verified. The settings panel consumes these
 events. The earlier cache-only UI smoke is user-reported passed; the new lifecycle
 controls require the focused follow-up below.
 
-## Developer-mode model setup
+## Optional model setup
 
-Open **Settings → Developer mode** in a Tauri build. The model-setup section
+Open **Settings → Optional search model** in a Tauri build; Developer mode is not required. The model-setup section
 reports unavailability in normal builds, which still omit FastEmbed. Explicit
 provider builds offer the two existing formats; there is no desktop-only UI
 check or assertion of Android/iOS acceptance. The panel defaults to FP32, shows
@@ -230,13 +229,13 @@ The latter verifies a valid existing cache without fetching; metadata-only
 presence is not labeled as verified. **Remove model files** is available even
 for an incomplete/missing cache, so it can clear interrupted staging. Active
 selected caches cannot be removed, and pending native activation/download blocks
-cache mutation. Download/verification never activate. The separate preparation
+cache mutation. Download/verification never activate. The separate semantic-search
 toggle below owns activation; turn it off before changing format or removing
 model files. Ordinary search results remain unchanged.
 
 The panel subscribes before reading status, polls only during pending work and
 recovers native busy/cache state when reopened. Closing settings, changing tabs
-or hiding Developer mode detaches listeners and timers; it does not cancel the
+detaches listeners and timers; it does not cancel the
 native download. Cancellation remains busy until the worker finishes, and is
 separate from unloading an active provider. Errors are shown with retry and
 explicit damaged-cache removal guidance. An observed failure/cancellation event
@@ -244,7 +243,7 @@ also supplies a terminal message when the panel did not start the job. There is
 no persistent job/error history: reopening after a finished job shows current
 cache presence, and verification remains an explicit action.
 
-Five frontend regressions use the repository's hook-mocking pattern and
+Frontend regressions use the repository's hook-mocking pattern and
 server-rendered controls to exercise default-build availability, explicit
 consent/format resets, duplicate-click rejection, pending cancellation,
 native-state recovery after reopening, unrelated progress, active-cache removal
@@ -259,13 +258,13 @@ reference-device tests. All eight locales have matching translated setup keys.
 The user reports the earlier cache-only setup smoke passed on 2026-10-09.
 The new lifecycle controls need the focused follow-up checklist in
 [search-v2-smoke.md](search-v2-smoke.md#stage-7-preparation-controls--new-follow-up).
-Setup remains preparation for a prototype, not conceptual search.
+Downloading alone does not opt in or build the index; the separate controls below do that.
 
 ## Saved opt-in and index controls
 
 `src/search-semantic/useSemanticSearch.ts` has one owner in `App`, independent of
-Settings and reader navigation. `SemanticSearchSetup.tsx` renders the controls
-under Developer mode for now. They share the existing cache format selector and
+Settings and reader navigation. `SemanticSearchSetup.tsx` renders functional
+opt-in controls outside Developer mode. They share the existing cache format selector and
 installer rather than adding another download path. The local WebView preference
 `papercut.semantic-search.v1` stores only `enabled` and the fixed format enum;
 invalid/unreadable values start off. It is device-local, not library metadata.
@@ -287,7 +286,7 @@ does not imply deletion of checkpoint data.
 Cancel or turn off to stop indexing cooperatively. Turn off unloads the provider
 but retains model files and validated checkpoints; explicit index removal deletes
 only derived data, while cache removal is separate. Closing Settings, opening a
-reader or hiding Developer mode does not cancel work or discard the controller.
+reader does not cancel work or discard the controller.
 UI actions reject conflicting/duplicate jobs, and generations ignore late
 activation/index completions after disable. Status polling has one outstanding
 poll per owner, only during pending work. Native cleanup can take time and does
@@ -305,7 +304,8 @@ WebView/device, semantic ranking or memory acceptance.
 `document_uploads/semantic/query.rs` owns `search_semantic_query`. It is registered
 in ordinary and explicit-provider builds. Ordinary builds fail recoverably;
 provider builds require an already active verified cache. It never downloads,
-activates, builds an index or changes All words/Broader. React does not call it yet.
+activates, builds an index or changes All words/Broader. The isolated React hook
+below calls it only while opted in.
 Source/query text is never written to logs.
 
 The camelCase `request` has `query`, optional `exactPhrases`, `documentUrls` and
@@ -317,7 +317,7 @@ also enforces its actual-token/character limit without truncation.
 
 `availability` is `missing-index`, `incompatible-index`, `partial` or `ready`.
 Disabled/not-compiled, corrupt data, busy query slot, changed sources/provider,
-timeouts and native failures return errors for the later enabled-path fallback.
+timeouts and native failures return errors for the enabled-path fallback.
 Missing/incompatible indexes do not infer or initialize storage. Coverage counts
 are for the scoped eligible/ready documents of a compatible index, before phrase
 filtering; unavailable index responses do not establish scoped coverage. Partial
@@ -340,8 +340,8 @@ and read one vector at a time. Returned results contain plain authored `text`,
 PDF page when present and section-local UTF-8 byte start/end. The displayed span
 and exact embedded title/heading/body hash are verified against current source.
 There are no invented highlights, term counts or occurrence maps. UTF-8 offsets
-must not be used directly as JavaScript DOM offsets; the later UI should use the
-existing section/page/text reader-target boundary. Scores are similarity, not
+must not be used directly as JavaScript DOM offsets; React uses the existing
+section/page/text reader-target boundary. Scores are similarity, not
 confidence or proof that the passage answers the question.
 
 The command opens the existing upload DB read-only. One read snapshot pins source,
@@ -358,6 +358,37 @@ passages, and phrase verification adds source reads. No ANN index, universal
 latency or relevance threshold is claimed. Calibrate real library/device costs
 before release; a timeout must leave lexical results available. Current tests
 establish contracts and real cached inference, not a new overall quality win.
+
+## React conceptual results and fallback
+
+`src/search-semantic/useConceptualSearch.ts` owns invocation/state and
+`ConceptualResults.tsx` owns rendering. `App` supplies submission identity, current
+scope and uploaded-library snapshots; SearchTab has a results slot rather than
+changing lexical cards or their counts. The existing shared quote parser keeps
+unquoted text and authored clauses complete. All/empty/include/exclude scope is
+forwarded without widening a selection. Scope changes wait for their matching
+submission rather than starting a duplicate native scan.
+
+Off, empty or invalid input has no query or fallback notice. Enabled unavailable/
+preparing states keep lexical results usable; missing/incompatible/partial or
+failed queries explain lexical fallback and Settings/retry recovery. Partial
+responses are deliberately withheld until the scope is complete. Known scoped
+coverage is distinct from displayed-document count; a ready empty response is not
+failure. The lexical channel can finish before the conceptual channel.
+
+Query/submission, scope, source, model and index changes retire the old UI state.
+Cleanup ignores late IPC completion after disable or unmount; it does not abort
+an already running native scan. A queued microtask avoids double native dispatch
+from StrictMode effect replay. Native busy/timeout errors require a later explicit
+search retry rather than building an unbounded queue.
+
+Conceptual passages render as plain React text, never marked HTML or invented
+literal evidence. Similarity scores stay out of the UI. Buttons use the existing
+section/page/text reader-target boundary and the actual passage, not a query term
+or a quote in a different section. Bytes are not DOM offsets. Existing legacy/
+block/navigation limitations remain; real viewer targeting, keyboard/RTL, native
+responsiveness and resource recovery need the focused rebuilt-app smoke. This
+integration does not establish a new overall quality win or platform acceptance.
 
 ## Runnable checks
 

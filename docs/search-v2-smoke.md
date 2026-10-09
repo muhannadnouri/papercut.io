@@ -86,12 +86,13 @@ move or damage the installed app's files.
 
 ## Model-cache setup
 
-The current UI only prepares model files; it does **not** activate the provider,
-call the new native indexing commands or enable conceptual results.
+The earlier five-group smoke acceptance covered cache-only controls. The current
+UI adds opt-in/indexing and conceptual results; those new cases below remain
+unaccepted until tested. Downloading alone still does not enable semantic search.
 
-- [ ] In a normal Tauri build, Developer-mode settings report setup unavailable.
+- [ ] In a normal Tauri build, Settings reports optional model setup unavailable.
       Browser settings do not offer native model controls. Ordinary search works.
-- [ ] In an explicit provider build, open **Settings → Developer mode**. Opening
+- [ ] In an explicit provider build, open **Settings → Optional search model**. Opening
       settings must not download or load a model. Check the FP32/INT8 labels,
       file-size/RAM distinction, disk reserve and INT8 compatibility caveat.
 - [ ] Download requires unchecked, per-format Hugging Face consent. Changing
@@ -140,27 +141,21 @@ native crash is not explained by this successful cache-only UI check.
 
 ## Stage 7 preparation controls — new follow-up
 
-**Deferred by the user on 2026-10-09.** The new native retrieval command has
-handler/source checks but is not yet called by React, so it adds no user-facing
-query case in this pass. Remind the user when the separate conceptual-results UI
-is functional. At that point combine the lifecycle cases below with opted-in
-conceptual provenance/navigation, filters/required quotes, stale-result cleanup
-and visible unavailable/partial/error fallback. Do not count earlier five-group
-acceptance as passing these new cases.
+**Deferred by the user on 2026-10-09.** The separate conceptual-results UI is now
+functional. This is the requested reminder: the lifecycle cases below and the new
+query cases that follow still need a rebuilt-app pass when the user is ready.
+Earlier five-group acceptance does not cover these cases.
 
-These controls were added after the five smoke groups reported passed on
-2026-10-09. Rebuild with the existing experimental feature flags above, then use
-**Settings → Developer mode → Experimental search model setup** in the same
-disposable profile for restart checks. Do not use the ordinary packaged build
-for activation/indexing: it intentionally omits the provider. The prep controls
-explicitly say retrieval is not connected; search still returns lexical results.
+Rebuild with the existing experimental flags above and use **Settings → Optional
+search model** in a disposable profile; Developer mode is not required. Normal
+builds deliberately omit the provider. Keep the same profile for restart checks.
 
 - [ ] Fresh profile: toggle starts off. Opening Settings or searching never
       downloads a model, activates one or starts indexing. Ordinary All words,
       Broader, quoted phrases and filters still work. Normal builds report
       unavailability even if that profile previously saved an opt-in.
-- [ ] Choose a cached format and enable **model and index preparation**. No
-      download occurs; activation failure shows an error and lexical availability.
+- [ ] Choose a cached format and **Enable semantic search (optional)**. No
+      download occurs; activation failure shows an error and lexical availability; submitted searches show fallback guidance.
       Retry after repairing the cache. Format/cache mutation requires turning
       off first. Turning off during activation stays off after cleanup.
 - [ ] With uploaded searchable text, click **Build / resume index**. Encoded/reused
@@ -189,3 +184,52 @@ explicitly say retrieval is not connected; search still returns lexical results.
 This follow-up does not establish conceptual relevance or Android/iOS/weak-device
 readiness. Record pass/fail, build/device and any errors outside tracked files;
 the unexplained earlier native crash remains a release concern.
+
+## Stage 7 conceptual results — new focused cases
+
+These remain deferred along with the new lifecycle cases, despite the passing
+frontend/handler checks. Use sources you can inspect, not private queries in
+tracked fixtures.
+
+- [ ] Start off: search and switch All words/Broader. Only lexical results appear;
+      no conceptual loading/fallback section, model activation or index job starts.
+      Download/verify alone must not enable semantic search.
+- [ ] Enable a verified cached model and finish Build / resume. Submit a question
+      about an actual passage in the library, with different wording from that
+      passage. **Conceptual results · Your Library** appears separately from
+      **Lexical results**. All words/Broader counts, marks and Explore matches
+      retain literal meaning. A document may occur in both independent channels.
+- [ ] Conceptual cards show actual source text without query-word marks, literal
+      occurrence counts or confidence percentages. Open an English and Arabic
+      HTML/EPUB passage and a text PDF result. Check section/page/text targeting
+      against the displayed passage, including a long block and an older import.
+      Report wrong jumps or missing passage highlights; section/page fallback is
+      not exact-span acceptance. Reader Find and audio highlighting still work.
+- [ ] Apply include, exclude and empty scopes, including a scope containing only
+      starter documents. Conceptual results never escape the uploaded scope.
+      Counts mean shown documents; coverage describes the current eligible scope.
+      Switch filters/modes and rapidly resubmit A→B→A; no old card may reappear.
+- [ ] Try quoted-only and mixed queries, then a missing quoted clause. A title-only
+      occurrence must not qualify; all quoted clauses remain required somewhere
+      in the document before semantic selection. If clauses are in different
+      sections, the displayed semantic passage may differ and must not pretend
+      to be literal quote evidence. Check supported punctuation/hyphen aliases.
+- [ ] In a disposable library, add unindexed text or remove the derived index.
+      Enabled search must show missing/partial fallback and recovery guidance,
+      with lexical results available; partial conceptual cards stay hidden.
+      Build/resume restores conceptual querying. A fully scoped ready empty
+      response is separate from failure, not a model/index error.
+- [ ] Turn off during activation/indexing/querying and immediately return to search.
+      No conceptual card or fallback notice survives; late work cannot re-enable
+      it. Edit a title/text, delete a document, remove/rebuild the index, then
+      retry: no stale passage/title appears. Native calls can take time to stop.
+- [ ] With a saved opt-in, open a normal build or remove its cache before restart.
+      Lexical search remains available; unavailable semantic search is explicit,
+      and Settings lets you turn the saved preference off without a provider.
+      Recovery never downloads automatically. Check a failed/over-token-limit
+      query and explicit shorter retry without losing scope or phrases.
+- [ ] Check keyboard/focus, polite loading/fallback announcements, Arabic RTL,
+      narrow layout and reader opening busy states. Keep reader/audio interaction
+      running during conceptual search/indexing and record stalls/crashes/resource
+      peaks. This development-host smoke does not establish mobile/weak-device,
+      thermal/battery or representative relevance acceptance.

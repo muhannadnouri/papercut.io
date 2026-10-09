@@ -32,7 +32,7 @@ function readPreference(): Preference {
 }
 
 /** One App-level owner survives settings/reader navigation. Only saved consent reloads
- * a cached model; indexing is explicit, and this preparatory hook never changes search. */
+ * a cached model; indexing is explicit, and querying has its own independent hook. */
 export function useSemanticSearch() {
   const [preference, setPreference] = useState(readPreference)
   const [snapshot, setSnapshot] = useState<{ provider: ProviderStatus; index: IndexStatus } | null>(null)

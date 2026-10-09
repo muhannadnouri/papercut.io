@@ -2,7 +2,7 @@ import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SemanticSearchController } from './useSemanticSearch'
 
-/** Preparatory controls stay developer-only until conceptual retrieval is wired. */
+/** Explicit opt-in shares the cache installer; no download or indexing starts from a search. */
 export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy }: {
   semantic: SemanticSearchController; cachePresent: boolean; cacheBusy: boolean
 }) {

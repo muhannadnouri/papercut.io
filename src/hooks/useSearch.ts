@@ -58,6 +58,7 @@ interface UseSearchReturn {
   searchFailed: boolean
   searchPhase: SearchPhase | null
   submittedQuery: string
+  searchRequest: { revision: number; scope: string }
   lastSearchInfo: LastSearchInfo | null
   handleSearch: (searchQuery: string) => void
   rerunSearch: () => void
@@ -75,6 +76,7 @@ export function useSearch(
   const [searchFailed, setSearchFailed] = useState(false)
   const [searchPhase, setSearchPhase] = useState<SearchPhase | null>(null)
   const [submittedQuery, setSubmittedQuery] = useState('')
+  const [searchRequest, setSearchRequest] = useState({ revision: 0, scope: '' })
   const [lastSearchInfo, setLastSearchInfo] = useState<LastSearchInfo | null>(null)
 
   const queryRef = useRef(query)
@@ -96,6 +98,7 @@ export function useSearch(
     // A running. A monotonic id keeps that stale completion from winning.
     const requestId = latestSearchRequestRef.current + 1
     latestSearchRequestRef.current = requestId
+    setSearchRequest({ revision: requestId, scope: scopeList ? JSON.stringify(scopeList) : '' })
     if (normalized.length === 0) {
       activeSearchKeyRef.current = ''
       setResults([])
@@ -296,6 +299,7 @@ export function useSearch(
     searchFailed,
     searchPhase,
     submittedQuery,
+    searchRequest,
     lastSearchInfo,
     handleSearch,
     rerunSearch,
