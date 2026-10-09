@@ -57,6 +57,48 @@ remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
 
+## Stage 7 — opt-in provider CI checks — 2026-10-09
+
+**Decision: enforce the Linux provider-enabled code path in the existing checks
+job; normal package builds and the default-off product setting stay unchanged.**
+The prior green full run validated normal configurations but omitted this path.
+Two steps now follow the retained default Rust tests in `.github/workflows/ci.yml`:
+
+- Build the non-test native library with
+  `native-tts-shared,experimental-search-embeddings` and the locked dependencies.
+- Reuse the existing Linux runtime-copy helper after Cargo prepares sherpa/ORT,
+  then run the complete library suite with those features and the shared runtime
+  on `LD_LIBRARY_PATH`.
+
+The steps inherit the existing `code_checks` gate: they run whenever that job
+runs, including full/manual checks and code-changing PRs. No new workflow,
+dispatch option, npm script, Tauri configuration, crate/runtime version or model
+download is added. Normal desktop/mobile build commands still omit embedding
+features. The existing checks timeout remains; runner duration is not yet
+measured for this modified workflow.
+
+Local execution passes the non-test provider library build and **216 tests /
+10 ignored**, with the same commands using cached dependencies offline. Existing
+regressions cover provider capability/default-off behavior, request validation,
+activation generations, installer integrity/interruption, index invalidation,
+source/quote/scope contracts and stale query handling. This is automated fixture
+coverage, not real-model inference. Asset-dependent inference/IPC/audio, external
+library and scale probes remain explicitly ignored; no private corpus or model
+weights are required by ordinary CI. Previously recorded real-cache checks
+remain prior evidence rather than new runs.
+
+Workflow YAML and added Bash syntax checks pass using installed tools; assertions
+confirm ordering after the default suite, the existing checks gate, and unchanged
+normal package feature boundaries. **The modified workflow has not run on
+GitHub yet.** No push, dispatch, app launch or interactive smoke is performed.
+
+**Next:** push this commit and run full CI, then bind its result to this workflow
+revision. Inspect both new steps and their duration before recording remote
+provider-enabled Linux compile/regression acceptance. Cross-platform provider
+linking/device/runtime, representative quality, resource safety and the earlier
+crash/retention caveats remain separate gates. Keep the consolidated smoke
+explicitly deferred; no speculative Stage 8 optimization is justified.
+
 ## Stage 7 — verified full CI acceptance — 2026-10-09
 
 **Decision: the CI revision gap is closed; normal-platform automated validation

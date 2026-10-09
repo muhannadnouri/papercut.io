@@ -270,6 +270,20 @@ jobs:
           mkdir -p src-tauri/tts/runtime/linux-x64-shared-libs
           cargo test --manifest-path src-tauri/Cargo.toml --locked --lib
 
+      - name: Compile opt-in search provider with native TTS
+        run: |
+          cargo build --manifest-path src-tauri/Cargo.toml --locked --lib \
+            --features native-tts-shared,experimental-search-embeddings
+
+      - name: Opt-in search provider regressions
+        run: |
+          # Reuse Cargo's prepared runtime; cached-model inference checks remain explicit.
+          node scripts/copy-sherpa-linux-libs.js
+          task_shared_dir="$PWD/src-tauri/tts/runtime/linux-x64-shared-libs"
+          LD_LIBRARY_PATH="$task_shared_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+            cargo test --manifest-path src-tauri/Cargo.toml --locked --lib \
+            --features native-tts-shared,experimental-search-embeddings
+
   build:
     needs: [changes, checks]
     if: needs.changes.outputs.desktop_packaging == 'true'

@@ -30,6 +30,16 @@ runtime coverage. Prior local Linux provider checks remain separate evidence;
 provider-enabled platform/device validation, resource/quality gates and the
 explicitly deferred interactive smoke remain open.
 
+The [provider CI follow-up](search-v2-progress.md#stage-7--opt-in-provider-ci-checks--2026-10-09)
+now adds a locked Linux non-test library build and regression suite with
+`native-tts-shared,experimental-search-embeddings` to the existing checks job.
+It reuses Cargo's prepared sherpa/ORT libraries through the existing runtime-copy
+helper. The steps run after default Rust tests whenever `code_checks` runs;
+normal package jobs retain their original features. Local build and 216 tests
+pass (10 ignored); the modified workflow's first remote run is pending.
+Cached-model inference and asset/scale checks remain explicit: ordinary CI does
+not download embedding weights or establish provider device/inference acceptance.
+
 - Normal builds omit FastEmbed entirely. `search_embedding_status` reports
   `compiled: false`; activation fails recoverably and disabling remains valid.
 - `experimental-search-embeddings` adds the provider and dynamic ORT loading,
