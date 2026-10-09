@@ -56,6 +56,65 @@ remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
 
+## Stage 7 — acceptance review and CI binding — 2026-10-09
+
+**Decision: retain the integrated opt-in candidate; Stage 7 release acceptance
+remains open.** Reviewed local source `f0cae5b`, the original Stage 7/8 plan,
+current workflow/build entry points, opt-in/query boundaries and existing
+regression/quality/resource evidence. No new model, runtime, ranking policy or
+optimization is justified. Two obsolete native module comments now describe the
+integrated path; executable behavior is unchanged.
+
+The user reports pushing and a successful full CI run. The latest successful
+branch run returned by GitHub is
+[CI run 37991207464](https://github.com/muhannadnouri/papercut.io/actions/runs/37991207464),
+created 2026-10-09 21:04:50 UTC, on **`bd8162b223265da576eedb58a99e22f9aa346962`**.
+Inspected all nine jobs and their step summaries: checks, Linux/Windows/macOS
+x64/arm64 builds, Android native-TTS APK, iOS unsigned simulator/device builds,
+SILMA runtime and change detection all succeed. Linux media and macOS runtime
+verification steps succeed. No artifacts were downloaded or installed, and full
+job logs and the exact dispatch input were not inspected.
+
+Both GitHub's branch-ref response and a fresh read-only `git ls-remote` still
+return **`bd8162b`** for `origin`'s `feature/search-v2`. Local `f0cae5b` is five
+commits ahead: semantic storage, lifecycle controls, native query, React results
+and the measured phrase fix. No run was returned for that local SHA. Therefore
+this verified green run supports the earlier normal-build candidate, **not the
+new integrated Stage 7 commits**. Reconcile the push/run SHA before recording
+current-commit remote acceptance; the user's report is retained without silently
+binding it to a different revision. The workflow/build scripts are unchanged
+between these revisions.
+
+Full CI's regular Rust test command has no embedding features. Desktop scripts
+select normal TTS features, Android selects `native-tts-shared`, and iOS selects
+`native-tts-ios`; none enables the embedding provider. The all-features dependency
+graph audit is not an all-features runtime/build test. Even a green run on the
+current SHA would validate normal platform configurations and frontend behavior,
+not provider-enabled cross-platform linking, lifecycle or resource use.
+
+| Acceptance area | Review finding and remaining evidence |
+| --- | --- |
+| Product choice and plan | Default-off toggle, lexical default and independent conceptual section match the approved product decision. Separate channels intentionally replace the original trial fusion step; rejected RRF/reranker sweeps are not unfinished implementation. |
+| Source/filter/quote contracts | Existing native tests and real cached handlers cover constrained selection, source spans/hashes, readiness, invalidation/removal/deletion, disable and deterministic best-document ranking. Actual reader targeting and UI races remain in deferred smoke. |
+| Optional lifecycle and fallback | Explicit download/cache verification, saved consent, explicit resumable index jobs and enabled-path fallback are implemented. No automatic download/indexing from search. Hook tests and mock handlers do not establish WebView restart/recovery acceptance. |
+| Quality at product scope | Earlier human-labeled public passage evidence supports same-language concepts; familiar/provisional grades do not independently establish displayed-answer/full-library quality. The independent product-scope gate remains open. Unquoted entity/date constraints are not promised; lexical research modes remain available. |
+| Resource safety | The 100,000-passage synthetic scan justifies the completed phrase fix, not ANN. It excludes inference. Previous native activation/reload peaks and retention still apply; weak-device responsiveness, sustained CPU contention, battery/thermal cost and the original crash remain unresolved. |
+| Platform/build scope | Normal earlier-revision platform CI is verified. Current Linux provider compilation and cached handlers are locally tested; provider-enabled installers, Windows/macOS/Android/iOS runtime/device acceptance remain unverified. `compiled` reports capability, not certification. The retained INT8 export's portability is unverified. |
+| Interactive acceptance | Earlier five smoke groups passed by user report before Stage 7. New lifecycle/conceptual navigation, RTL, keyboard, responsiveness and recovery groups remain explicitly deferred; no checkbox is marked complete. |
+
+**Next:** push the outstanding local commits to the intended branch and bind a
+successful full run to their SHA. Keep interactive smoke deferred as requested;
+when ready use [the existing focused groups](search-v2-smoke.md), then review
+product-scope relevance and provider/device evidence before wider availability.
+Normal builds continue omitting the provider. Do not mark Stage 7 shipped or
+start speculative Stage 8/model work merely to fill the deferred interval.
+
+Validation in this review: source/workflow/plan inspection, GitHub job-step
+summaries, remote-ref comparison, formatting and diff checks. No executable
+behavior changed, so the passing native/frontend checks recorded in the prior
+passes are not repeated or relabeled as fresh runs. No push or CI dispatch is
+performed by this review.
+
 ## Stage 7 — native scan and acceptance checks — 2026-10-09
 
 The ignored `conceptual_query_scale` check creates **200 generic documents /

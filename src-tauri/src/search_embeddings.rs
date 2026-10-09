@@ -1,4 +1,4 @@
-//! Default-off, session-only provider prototype. It does not participate in search.
+//! Default-off provider for opt-in indexing and conceptual queries; lexical search is independent.
 //! Model downloads are explicit and never activate the provider.
 
 use serde::{Deserialize, Serialize};

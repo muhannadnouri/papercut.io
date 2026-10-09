@@ -21,6 +21,14 @@ resource tests before availability can be advertised.
 
 ## Build and capability boundary
 
+The [current acceptance review](search-v2-progress.md#stage-7--acceptance-review-and-ci-binding--2026-10-09)
+verifies the earlier normal-build CI run and records its SHA mismatch with the
+five local Stage 7 commits. Full CI tests/builds normal configurations without
+embedding features; its all-features dependency audit is not provider runtime
+coverage. A green current-SHA run is still required for the integrated candidate,
+and explicit provider/platform/device checks remain separate gates.
+
+
 - Normal builds omit FastEmbed entirely. `search_embedding_status` reports
   `compiled: false`; activation fails recoverably and disabling remains valid.
 - `experimental-search-embeddings` adds the provider and dynamic ORT loading,

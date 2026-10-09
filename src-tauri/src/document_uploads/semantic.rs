@@ -1,4 +1,4 @@
-//! Explicit app-index jobs. Search remains lexical until the later query integration.
+//! Explicit optional index jobs; conceptual queries stay separate from lexical search.
 
 use std::sync::{
     atomic::{AtomicBool, Ordering},

@@ -15,6 +15,12 @@ They do not mark any interactive case as passed. The new lifecycle and
 conceptual-results groups below remain explicitly **deferred** by the user;
 run them together against the rebuilt provider-feature app when ready.
 
+The [acceptance review](search-v2-progress.md#stage-7--acceptance-review-and-ci-binding--2026-10-09)
+verifies green platform CI on an earlier SHA; it does not cover the outstanding
+Stage 7 commits or provider-enabled runtimes. Resolve the branch/run SHA separately
+from this deferred interactive checklist. A current full CI pass will still not
+replace the lifecycle/conceptual reader, RTL and responsiveness cases below.
+
 ## Isolate the library first
 
 A Git branch does not isolate application data. On Linux, close **all Papercut
