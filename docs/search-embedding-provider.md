@@ -35,8 +35,11 @@ now adds a locked Linux non-test library build and regression suite with
 `native-tts-shared,experimental-search-embeddings` to the existing checks job.
 It reuses Cargo's prepared sherpa/ORT libraries through the existing runtime-copy
 helper. The steps run after default Rust tests whenever `code_checks` runs;
-normal package jobs retain their original features. Local build and 216 tests
-pass (10 ignored); the modified workflow's first remote run is pending.
+normal package jobs retain their original features. Local checks and
+[full run 38005733746](https://github.com/muhannadnouri/papercut.io/actions/runs/38005733746)
+on pushed `9bfe030` pass: remote non-test provider compilation and **216 tests
+(10 ignored)**. The added CI steps take about 94/24 seconds respectively,
+including compilation; these are not app search/inference timings.
 Cached-model inference and asset/scale checks remain explicit: ordinary CI does
 not download embedding weights or establish provider device/inference acceptance.
 

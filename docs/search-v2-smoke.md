@@ -23,9 +23,10 @@ replace the explicitly deferred lifecycle/conceptual reader, RTL, recovery and
 responsiveness cases below. No new interactive checkbox is marked complete.
 
 The [provider CI follow-up](search-v2-progress.md#stage-7--opt-in-provider-ci-checks--2026-10-09)
-adds Linux provider-enabled compile/fixture regression steps, locally passing
-and awaiting their first GitHub run. It does not run model-dependent inference
-checks or change this interactive deferral. Use the explicit provider build below
+verifies Linux provider-enabled compilation and 216 fixture regressions in
+full CI run 38005733746 on pushed `9bfe030` (10 tests explicitly ignored). It
+does not run model-dependent inference checks or change this interactive
+deferral. Use the explicit provider build below
 when resuming smoke; normal CI package artifacts still omit the provider.
 
 ## Isolate the library first

@@ -74,8 +74,8 @@ The steps inherit the existing `code_checks` gate: they run whenever that job
 runs, including full/manual checks and code-changing PRs. No new workflow,
 dispatch option, npm script, Tauri configuration, crate/runtime version or model
 download is added. Normal desktop/mobile build commands still omit embedding
-features. The existing checks timeout remains; runner duration is not yet
-measured for this modified workflow.
+features. The existing checks timeout remains; the first remote run completes
+within it, as recorded below.
 
 Local execution passes the non-test provider library build and **216 tests /
 10 ignored**, with the same commands using cached dependencies offline. Existing
@@ -89,15 +89,42 @@ remain prior evidence rather than new runs.
 
 Workflow YAML and added Bash syntax checks pass using installed tools; assertions
 confirm ordering after the default suite, the existing checks gate, and unchanged
-normal package feature boundaries. **The modified workflow has not run on
-GitHub yet.** No push, dispatch, app launch or interactive smoke is performed.
+normal package feature boundaries. These remain local checks from the preceding
+pass; no local test reruns are claimed in the remote review below.
 
-**Next:** push this commit and run full CI, then bind its result to this workflow
-revision. Inspect both new steps and their duration before recording remote
-provider-enabled Linux compile/regression acceptance. Cross-platform provider
-linking/device/runtime, representative quality, resource safety and the earlier
-crash/retention caveats remain separate gates. Keep the consolidated smoke
-explicitly deferred; no speculative Stage 8 optimization is justified.
+### First remote provider run — verified
+
+[Full CI run 38005733746](https://github.com/muhannadnouri/papercut.io/actions/runs/38005733746)
+passes on **`9bfe0307e767ad523f80201d5afc024305ed9b9a`**, matching the local
+review source and GitHub's pushed `feature/search-v2` ref. Attempt 1 starts
+2026-10-09 23:42:30 UTC and is complete by 2026-10-10 00:07:02 UTC. Inspected
+all ten successful job summaries and the complete checks/change-detection logs;
+the latter confirms `VALIDATION_SCOPE: full`.
+
+The new provider library build passes in **94 seconds**. The runtime-copy/helper
+and regression step pass in **24 seconds**, including test compilation; the
+suite reports **216 passed / 10 ignored**, with 1.43 seconds of test execution.
+The complete checks job takes **8 minutes 34 seconds**, within its unchanged
+30-minute timeout. These are CI step/test durations, not app load, indexing or
+search latency. The retained default suite reports **161 passed / 5 ignored** and frontend
+**168 passed / 47 files**. Dependency audits/lint/build checks and normal Linux,
+Windows, macOS x64/arm64, Android and unsigned iOS simulator/device builds pass;
+Linux media and both macOS runtime verification steps succeed.
+
+**Decision: Linux provider-enabled non-test compilation and fixture regressions
+are now verified remotely.** The ignored model/asset/external-library/scale
+checks remain unexecuted by this run; it establishes neither real-model inference
+nor provider-enabled packages/mobile/other-desktop runtime acceptance. Normal
+package features and the default-off product behavior remain unchanged. No
+artifact download/installation, app launch, push or dispatch is performed by
+this review, and no interactive smoke checkbox is marked passed.
+
+**Next:** provider-enabled platform linking/device/runtime and representative
+product-scope quality/resource checks remain the useful acceptance work. Keep
+the consolidated rebuilt-app smoke explicitly deferred as requested. The
+earlier crash/allocator-retention caveats remain; no Stage 8 model/ANN work is
+justified. This evidence-only documentation follow-up does not require repeating
+the CI matrix merely to change the review commit SHA.
 
 ## Stage 7 — verified full CI acceptance — 2026-10-09
 
