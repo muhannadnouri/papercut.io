@@ -84,8 +84,8 @@ supplied cache. No download is added to PR, push or scheduled CI.
 | Host/runtime | Initialization and inference evidence |
 | --- | --- |
 | Linux x64, existing shared ORT | Local exact ignored test passes for both FP32/INT8: release with explicit installer reuse, then debug with cache-only input. Test execution takes 2.55 / 14.93 seconds respectively, excluding compilation; these are whole regression times, not app latency. |
-| Windows x64, release runtime DLLs | First execution fails before the test harness; test-directory DLL staging corrected below, rerun pending. |
-| macOS Intel / Apple Silicon, prepared shared libraries | Apple Silicon FP32/INT8 inference passes in run `38066316034`; Intel inference is still running at review time. |
+| Windows x64, release runtime DLLs | Startup failure persists after test-directory DLL staging in run `38070213129`; import/export diagnostics added below, root cause unresolved. |
+| macOS Intel / Apple Silicon, prepared shared libraries | Both hosts pass FP32/INT8 inference in run `38066316034`. |
 | Android arm64 / iOS simulator and device | Build/link evidence only. No mobile execution harness is added; emulator/simulator/device initialization and inference remain open. |
 
 The reused regression validates activation/warm-up, finite normalized
@@ -154,6 +154,51 @@ Windows startup and both format results, and the final Intel outcome. If the
 loader failure persists, capture the missing export and selected DLL before
 considering a runtime/version change. Mobile inference, native stability/resource
 limits and consolidated Stage 7 UI smoke remain open; smoke stays deferred.
+
+### Windows staging rerun — diagnostics required
+
+[Run 38070213129](https://github.com/muhannadnouri/papercut.io/actions/runs/38070213129)
+uses pushed **`4feb99530d20d52becdde34985ec4e4bbb37d0f3`**. Its
+[Windows log](https://github.com/muhannadnouri/papercut.io/actions/runs/38070213129/job/114267436470)
+confirms DLL staging into `release/deps`, successful compilation, and the same
+pre-harness `STATUS_ENTRYPOINT_NOT_FOUND` failure. **The staging correction does
+not resolve the failure; its earlier shadowing explanation remains unproven.**
+No Windows model inference passes. Linux and Apple Silicon steps succeed;
+Intel is still running in this rerun at review time. The completed first run's
+Intel log now also confirms both formats pass, with 20.55 seconds for the whole
+test including installation/verification, not query latency.
+
+Local inspection downloads the official 1.13.4 Windows shared release library
+archive into temporary storage and matches its release asset SHA-256
+`f923e5eacb6bca83914d89cb31afa579e11eeaff9af39f8ead82ad19f44b2c9f`.
+LLVM PE inspection confirms all declared Sherpa Rust binding functions exist
+in the C API DLL, the C++ DLL's named C API imports exist, and the C API's ORT
+ordinal 1 corresponds to exported `OrtGetApiBase`. These are checks on the
+official archive, not proof of the failed runner's imported functions, selected
+DLLs or Windows system exports. The failing test executable is not available
+locally, so the missing export cannot yet be identified.
+
+**Next bounded change: failure-only diagnostics in the existing Windows CI
+job.** The inference step has an ID, and a following step runs only if that
+specific step fails. It uses installed Visual Studio `vswhere`/`dumpbin` to log
+SHA-256 hashes and PE import tables for the test executables and adjacent DLLs,
+plus DLL export tables. It does not rerun tests, alter DLLs, waive failure,
+download new tools or change package/model/runtime configuration. Cached test
+executables may also be listed; bind the current one to Cargo's failed-command
+path in the same log. Missing binaries/tooling or inspection errors fail the
+diagnostic step explicitly.
+
+Workflow YAML and assertions verify the specific failure guard, preserved test
+failure, output selection and retained default-off/normal-package boundaries;
+diff checks pass. Windows PowerShell/dumpbin execution remains a CI check, not
+a locally exercised capability. No further provider tuning or dependency bump
+is justified without the missing-export evidence.
+
+**Next:** push and dispatch fresh desktop CI with `provider_inference=true`.
+If Windows fails, inspect `Diagnose Windows provider loader failure` for the
+actual imports, hashes and exports before selecting a corrective change. Keep
+smoke deferred; Windows acceptance remains open and this is a diagnostics
+commit, not a claimed fix for the loader failure.
 
 ## Stage 7 — cross-platform provider build checks — 2026-10-09
 

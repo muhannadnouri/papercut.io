@@ -454,6 +454,7 @@ jobs:
             -- --ignored --exact --nocapture
 
       - name: Provider initialization and model inference (Windows)
+        id: windows_provider_inference
         if: matrix.platform == 'windows' && github.event_name == 'workflow_dispatch' && inputs.provider_inference
         env:
           PAPERCUT_EMBEDDING_TEST_MODELS: ${{ runner.temp }}/search-provider-models
@@ -464,6 +465,27 @@ jobs:
             --features "native-tts-shared,experimental-search-embeddings" `
             search_embeddings::provider::tests::cached_provider_activation_switch_failure_and_unload `
             -- --ignored --exact --nocapture
+
+      - name: Diagnose Windows provider loader failure
+        if: failure() && steps.windows_provider_inference.conclusion == 'failure'
+        run: |
+          # A pre-harness loader error hides the missing export; retain the actual PE tables.
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $dumpbin = & $vswhere -latest -products '*' -find 'VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe' | Select-Object -First 1
+          if (-not $dumpbin) { throw "Visual Studio dumpbin not found" }
+          $deps = "$pwd/src-tauri/target/release/deps"
+          $tests = @(Get-ChildItem "$deps/app_lib-*.exe")
+          $dlls = @(Get-ChildItem "$deps/*.dll")
+          if (-not $tests -or -not $dlls) { throw "Provider test executables or runtime DLLs missing" }
+          foreach ($file in $tests + $dlls) {
+            Get-FileHash $file.FullName -Algorithm SHA256 | Format-List Path, Hash
+            & $dumpbin /IMPORTS $file.FullName
+            if ($LASTEXITCODE -ne 0) { throw "Cannot inspect imports: $($file.Name)" }
+            if ($file.Extension -eq '.dll') {
+              & $dumpbin /EXPORTS $file.FullName
+              if ($LASTEXITCODE -ne 0) { throw "Cannot inspect exports: $($file.Name)" }
+            }
+          }
 
   build-android:
     needs: [changes, checks]

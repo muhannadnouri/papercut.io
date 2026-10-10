@@ -49,9 +49,11 @@ cache. These checks do not launch the WebView, establish mobile inference or
 replace the deferred lifecycle/results/reader/RTL/responsiveness cases below.
 No interactive case is marked passed by this pass. Run `38066316034` passes
 Linux and Apple Silicon model inference; Windows fails before test startup.
-The [Windows staging correction](search-v2-progress.md#first-runtime-run--windows-loader-correction)
-needs a fresh pushed-source CI run. Neither its filesystem regression nor the
-other hosts' native checks complete any deferred interactive case.
+The [Windows staging rerun](search-v2-progress.md#windows-staging-rerun--diagnostics-required)
+still fails before the harness starts; failure-only import/export diagnostics
+now need a fresh pushed-source CI run. Windows inference remains unaccepted.
+Neither its filesystem regression nor the other hosts' native checks complete
+any deferred interactive case.
 
 ## Isolate the library first
 
