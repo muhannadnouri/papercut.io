@@ -94,9 +94,20 @@ Retain the guard until a compatible upstream teardown fix is adopted and
 validated. The runner captures the crash buffer on failure and continues to
 reject nonzero exit after passing assertions. See the
 [acceptance review and limits](search-v2-progress.md#mobile-provider-inference-acceptance-review--2026-10-10).
-Next extend mobile native checks to indexing/query behavior; the passing provider
-regression does not execute the integrated search/index or Linux-only cached IPC
-checks. No additional runtime patch or model sweep is required by this result.
+The [index/query extension](search-v2-progress.md#stage-7--native-indexingquery-checks-without-new-ci-jobs--2026-10-10)
+now adds disposable English/Arabic SQLite fixtures to the first cycle of the same
+native regression for each model format. Actual passage tokenization/encoding,
+checkpoint cancellation/resume, unchanged-source reuse, scoped/quoted read-only
+retrieval, source evidence, query cancellation and disable are checked alongside
+unchanged production lexical results when the semantic path is unavailable.
+Both formats pass locally on Linux; execution of these new assertions on mobile
+targets is pending a fresh explicit run. Run `38090360569` predates this coverage.
+The mobile runner additionally requires `index/query checks complete: Float32`
+and `index/query checks complete: DynamicInt8`; temporary fixtures live beneath
+its owned cleanup directory. No CI job, input, build variant or script is added.
+These shared backend checks do not exercise mobile IPC or the React fallback
+banner. The Linux-only cached IPC checks remain separate. No additional runtime
+patch or model sweep is required by this result.
 Android arm64 execution, minimum-OS coverage, physical-device
 resource/lifecycle and quality acceptance remain open. Normal packages still
 omit the provider, and interactive smoke stays deferred. No new npm command is
@@ -619,7 +630,8 @@ verified assets in each of `float32/` and `dynamic-int8/`, then explicitly run
 with the same Cargo options. Set optional test-only
 `PAPERCUT_EMBEDDING_TEST_FORMAT` to `float32` or `dynamic-int8` to isolate one
 format for measurement; invalid values fail. This invocation reads only that
-cache and uses in-memory state, not the installed library or app model directory.
+cache and uses test state plus disposable SQLite fixtures, without accessing the
+installed library or app model directory.
 
 For explicit runtime CI, set test-only `PAPERCUT_EMBEDDING_TEST_DOWNLOAD=1` as
 well. The existing installer then provisions missing FP32/INT8 snapshots beneath
@@ -652,7 +664,9 @@ disables both formats (or the requested single format), compares the English
 query vector with the first load of that format, and repeats the existing
 inference, failure cleanup and INT8 cancelled-publication checks. Phase logs
 identify each cycle for external resource sampling. This exercises the actual
-provider, not WebView responsiveness, persistent settings or a production index.
+provider. Its first cycle per format also checks production indexing/retrieval on
+disposable fixtures; later cycles do not repeat those fixtures. It does not test
+WebView responsiveness or persistent app settings.
 
 Three ordinary cache regressions cover integrity/staging/reuse/removal, blocked
 concurrent operations and cancelled/panicked worker cleanup, and local HTTP status,

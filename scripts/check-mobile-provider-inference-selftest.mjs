@@ -9,6 +9,8 @@ import { assertInferenceCompleted, checkAndroid, checkIos, command, simulatorDev
 const completed = [
   "lifecycle cycle complete: 1/1 Float32",
   "lifecycle cycle complete: 1/1 DynamicInt8",
+  "index/query checks complete: Float32",
+  "index/query checks complete: DynamicInt8",
   "test result: ok. 1 passed; 0 failed; 0 ignored;",
 ].join("\n")
 
@@ -55,7 +57,7 @@ test("Cargo artifact selection and completion checks reject ambiguous builds and
     assert.throws(() => testExecutable(invalid))
   }
   assertInferenceCompleted(completed)
-  for (const invalid of ["", completed.replace("DynamicInt8", "Float32"), completed.replace("1 passed", "0 passed"), completed.replace("0 failed", "1 failed")]) {
+  for (const invalid of ["", completed.replace("DynamicInt8", "Float32"), completed.replace("index/query checks complete: DynamicInt8", ""), completed.replace("1 passed", "0 passed"), completed.replace("0 failed", "1 failed")]) {
     assert.throws(() => assertInferenceCompleted(invalid))
   }
 })
@@ -93,6 +95,7 @@ test("Android preserves native failures, captures crash logs and removes only ow
     if (!failure) {
       const inference = calls.find(({ options }) => options?.timeout === 660_000)
       assert.ok(inference.args[3].includes("PAPERCUT_EMBEDDING_TEST_DOWNLOAD=0"))
+      assert.ok(inference.args[3].includes(`TMPDIR='${remote}'`))
       assert.ok(inference.args[3].includes("unset PAPERCUT_EMBEDDING_TEST_FORMAT"))
       assert.ok(inference.args[3].includes("--ignored"))
       assert.ok(inference.args[3].includes("--exact"))
@@ -136,6 +139,7 @@ test("iOS isolates forwarded settings and cleans its simulator/test copy after s
           assert.equal(options.env.SIMCTL_CHILD_PAPERCUT_EMBEDDING_TEST_DOWNLOAD, "0")
           assert.equal(options.env.SIMCTL_CHILD_PAPERCUT_EMBEDDING_TEST_MODELS, "/tmp/models with space")
           assert.equal(options.env.SIMCTL_CHILD_PAPERCUT_EMBEDDING_TEST_CYCLES, "1")
+          assert.equal(join(options.env.SIMCTL_CHILD_TMPDIR, "provider-test"), signedTest)
           assert.equal(options.timeout, 660_000)
           assert.ok(args.includes("--exact"))
           if (failure === "inference") throw new Error("ETIMEDOUT")

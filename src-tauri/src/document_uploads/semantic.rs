@@ -8,6 +8,8 @@ use std::sync::{
 pub(crate) mod query;
 #[cfg(any(test, feature = "experimental-search-embeddings-core"))]
 pub(crate) mod store;
+#[cfg(all(test, feature = "experimental-search-embeddings-core"))]
+pub(crate) use store::tests::verify_native_index_queries;
 
 #[derive(Clone, Default)]
 pub(crate) struct SemanticIndexState(

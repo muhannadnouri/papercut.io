@@ -817,6 +817,12 @@ mod provider {
                         .contains("512-token"));
                 }
                 eprintln!("inference controls complete: {format:?}");
+                if cycle == 1 {
+                    crate::document_uploads::semantic::verify_native_index_queries(&state, || {
+                        state.disable().map(|_| ())
+                    });
+                    eprintln!("index/query checks complete: {format:?}");
+                }
                 assert!(state.disable().unwrap().active_format.is_none());
                 assert!(state.0.lock().unwrap().active.is_none());
                 eprintln!("provider disabled: {format:?}");

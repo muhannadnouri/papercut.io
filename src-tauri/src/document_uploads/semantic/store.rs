@@ -411,4 +411,4 @@ pub(super) fn remove(db: &mut Connection) -> Result<(), String> {
 }
 
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;

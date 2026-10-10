@@ -86,7 +86,7 @@ struct SearchEvidence {
 
 /// Internal diagnostics; never add private queries or source text to logs/IPC.
 #[derive(Default, serde::Serialize)]
-struct SearchMeasurements {
+pub(super) struct SearchMeasurements {
     candidate_documents: usize,
     db_ms: f64,
     candidate_ms: f64,
@@ -110,7 +110,7 @@ pub(crate) fn search_uploads<R: Runtime>(
 
 /// Keep evaluation on the complete production path, including lazy database
 /// opening, snapshot, phrase verification, result limits, and evidence.
-fn search_uploads_with_db(
+pub(super) fn search_uploads_with_db(
     request: UploadedDocumentSearchRequest,
     open: impl FnOnce() -> Result<Connection, String>,
     mut progress: impl FnMut(UploadedDocumentSearchStage),

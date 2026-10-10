@@ -14,6 +14,287 @@ fn request(value: Value) -> QueryRequest {
     serde_json::from_value(value).unwrap()
 }
 
+/// Use real token boundaries/vectors with the production SQLite/lexical paths, without app data or a WebView.
+#[cfg(feature = "experimental-search-embeddings-core")]
+pub(crate) fn verify_native_index_queries(
+    provider: &crate::search_embeddings::SearchEmbeddingState,
+    disable: impl FnOnce() -> Result<(), String>,
+) {
+    use super::super::SemanticIndexState;
+    use crate::document_uploads::{
+        search::search_uploads_with_db, types::UploadedDocumentSearchRequest,
+    };
+
+    let library = Library::new();
+    let mut db = library.db();
+    put(
+        &mut db,
+        "harbor",
+        "Harbor routes",
+        &[
+            "Electric buses connect the harbor to Central station. 🙂",
+            "الحافلات الكهربائية تربط الميناء بالمحطة.",
+        ],
+    );
+    put(
+        &mut db,
+        "airport",
+        "Airport express",
+        &["Electric buses serve the airport terminal."],
+    );
+    put(
+        &mut db,
+        "museum",
+        "Electric buses",
+        &["An unrelated museum exhibition."],
+    );
+    let lexical = || {
+        let input: UploadedDocumentSearchRequest = serde_json::from_value(json!({
+            "query":"electric buses", "mode":"all", "limit":10
+        }))
+        .unwrap();
+        serde_json::to_value(
+            search_uploads_with_db(input, || Ok(library.db()), |_| {})
+                .unwrap()
+                .0,
+        )
+        .unwrap()
+    };
+    let baseline = lexical();
+    assert!(!baseline["results"].as_array().unwrap().is_empty());
+    let encoder = provider.index_encoder_key().unwrap();
+    let key = Identity::new(&encoder, crate::search_embeddings::DIMENSIONS).unwrap();
+    let query = |db: &mut Connection, input: Value| {
+        serde_json::to_value(
+            retrieve(
+                db,
+                &key,
+                &request(input),
+                |text| provider.index_encode(&encoder, text),
+                || Ok(()),
+            )
+            .unwrap(),
+        )
+        .unwrap()
+    };
+    assert_eq!(
+        query(&mut db, json!({"query":"city travel"}))["availability"],
+        "missing-index"
+    );
+    assert_eq!(lexical(), baseline);
+    initialize(&mut db, &key).unwrap();
+
+    // Cancel at a committed checkpoint, avoiding scheduler timing or interrupting an ORT call.
+    let state = SemanticIndexState::default();
+    let control = state.begin().unwrap();
+    let snapshot = source(&mut db, "harbor").unwrap().unwrap();
+    let cancelled = synchronize(
+        &mut db,
+        &key,
+        &snapshot,
+        |title, heading, text| provider.index_passage_ranges(&encoder, title, heading, text),
+        |text| provider.index_encode(&encoder, text),
+        || control.check(),
+        |reused| {
+            control.progress(reused);
+            state.cancel().unwrap();
+        },
+    );
+    assert_eq!(
+        cancelled.as_ref().unwrap_err(),
+        "Semantic indexing cancelled"
+    );
+    control.finish(&cancelled);
+    assert!(state.snapshot().unwrap().running);
+    assert!(
+        state.begin().is_err(),
+        "cancelled writer retains its slot until cleanup"
+    );
+    drop(control);
+    assert!(!state.snapshot().unwrap().running);
+    assert_eq!(coverage(&mut db, Some(&key)).unwrap().indexed_documents, 0);
+    let partial = query(&mut db, json!({"query":"city travel"}));
+    assert_eq!(partial["availability"], "partial");
+    assert!(partial["results"].as_array().unwrap().is_empty());
+    assert_eq!(lexical(), baseline);
+
+    let reused = Cell::new(0);
+    let embedded = Cell::new(0);
+    for id in document_ids(&db).unwrap() {
+        let control = state.begin().unwrap();
+        let snapshot = source(&mut db, &id).unwrap().unwrap();
+        let result = synchronize(
+            &mut db,
+            &key,
+            &snapshot,
+            |title, heading, text| provider.index_passage_ranges(&encoder, title, heading, text),
+            |text| provider.index_encode(&encoder, text),
+            || control.check(),
+            |was_reused| {
+                control.progress(was_reused);
+                if was_reused {
+                    reused.set(reused.get() + 1)
+                } else {
+                    embedded.set(embedded.get() + 1)
+                }
+            },
+        );
+        control.finish(&result);
+        result.unwrap();
+    }
+    assert_eq!(
+        reused.get(),
+        1,
+        "resume must reuse the committed checkpoint"
+    );
+    assert_eq!(embedded.get(), 3);
+    assert_eq!(coverage(&mut db, Some(&key)).unwrap().indexed_documents, 3);
+    let snapshot = source(&mut db, "harbor").unwrap().unwrap();
+    synchronize(
+        &mut db,
+        &key,
+        &snapshot,
+        |_, _, _| panic!("unchanged source must skip tokenizing"),
+        |_| panic!("unchanged source must skip inference"),
+        || Ok(()),
+        |_| {},
+    )
+    .unwrap();
+
+    let changes = db.total_changes();
+    let scoped = query(
+        &mut db,
+        json!({"query":"How do travelers get to the station?",
+        "documentUrls":["/uploads/harbor.html"], "exactPhrases":["electric buses"], "limit":1}),
+    );
+    assert_eq!(scoped["availability"], "ready");
+    assert_eq!(scoped["results"].as_array().unwrap().len(), 1);
+    let hit = &scoped["results"][0];
+    assert_eq!(hit["documentId"], "harbor");
+    assert_eq!(hit["provenance"], "conceptual");
+    assert!(hit.get("matchCount").is_none());
+    let text: String = db
+        .query_row(
+            "SELECT text FROM uploaded_sections WHERE document_id=?1 AND ordinal=?2",
+            params![
+                hit["documentId"].as_str().unwrap(),
+                hit["sectionIndex"].as_u64().unwrap()
+            ],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        text.get(
+            hit["byteStart"].as_u64().unwrap() as usize..hit["byteEnd"].as_u64().unwrap() as usize
+        )
+        .unwrap(),
+        hit["text"]
+    );
+    let excluded = query(
+        &mut db,
+        json!({"query":"city travel", "documentUrls":["/uploads/airport.html"], "limit":1}),
+    );
+    assert_eq!(excluded["results"][0]["documentId"], "airport");
+    let empty = query(&mut db, json!({"query":"city travel", "documentUrls":[]}));
+    assert_eq!(empty["scannedPassages"], 0);
+    assert!(empty["results"].as_array().unwrap().is_empty());
+    for input in [
+        json!({"query":"city travel", "exactPhrases":["missing authored clause"]}),
+        json!({"query":"city travel", "exactPhrases":["electric buses"], "documentUrls":["/uploads/museum.html"]}),
+    ] {
+        assert!(
+            query(&mut db, input)["results"]
+                .as_array()
+                .unwrap()
+                .is_empty(),
+            "quotes require authored body evidence"
+        );
+    }
+    let arabic = query(
+        &mut db,
+        json!({"query":"النقل في المدينة", "exactPhrases":["الحافلات الكهربائية"], "documentUrls":["/uploads/harbor.html"]}),
+    );
+    assert_eq!(arabic["results"][0]["documentId"], "harbor");
+    assert_eq!(
+        db.total_changes(),
+        changes,
+        "conceptual queries must not write the index"
+    );
+
+    let mut checks = 0;
+    let cancelled_query = retrieve(
+        &mut db,
+        &key,
+        &request(json!({"query":"city travel"})),
+        |text| provider.index_encode(&encoder, text),
+        || {
+            checks += 1;
+            if checks > 2 {
+                Err("query cancelled".into())
+            } else {
+                Ok(())
+            }
+        },
+    );
+    assert_eq!(cancelled_query.err().unwrap(), "query cancelled");
+    assert_eq!(lexical(), baseline);
+    let incompatible =
+        Identity::new("another-encoder", crate::search_embeddings::DIMENSIONS).unwrap();
+    assert_eq!(
+        serde_json::to_value(
+            retrieve(
+                &mut db,
+                &incompatible,
+                &request(json!({"query":"city travel"})),
+                |_| panic!("incompatible index must not infer"),
+                || Ok(())
+            )
+            .unwrap()
+        )
+        .unwrap()["availability"],
+        "incompatible-index"
+    );
+    assert_eq!(lexical(), baseline);
+
+    // Disable from the query's native boundary: completed inference must not publish after opt-out.
+    let guard = state.begin_query().unwrap();
+    let version = provider.index_generation();
+    let mut disable = Some(disable);
+    let disabled = retrieve(
+        &mut db,
+        &key,
+        &request(json!({"query":"city travel"})),
+        |text| {
+            let vector = provider.index_encode(&encoder, text)?;
+            disable.take().unwrap()()?;
+            Ok(vector)
+        },
+        || {
+            if provider.index_generation() != version {
+                Err("Semantic model disabled; retry query".into())
+            } else {
+                Ok(())
+            }
+        },
+    );
+    assert!(disabled.err().unwrap().contains("disabled"));
+    drop(guard);
+    assert!(
+        state.begin_query().is_ok(),
+        "failed query must release its slot"
+    );
+    assert!(provider
+        .index_encode(&encoder, "query: city travel")
+        .is_err());
+    assert_eq!(lexical(), baseline);
+    remove(&mut db).unwrap();
+    assert_eq!(
+        lexical(),
+        baseline,
+        "derived-index removal must preserve exact search"
+    );
+}
+
 fn conceptual(db: &mut Connection, input: Value) -> Value {
     serde_json::to_value(
         retrieve(

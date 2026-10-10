@@ -69,9 +69,13 @@ on Android API 35/x86_64 and the iOS arm64 simulator. The previous Android
 post-test abort does not recur with the environment-lifetime guard. This closes
 the bounded provider check; the exact old teardown call chain is unconfirmed.
 See the [acceptance review](search-v2-progress.md#mobile-provider-inference-acceptance-review--2026-10-10).
-Next automated coverage should exercise mobile indexing/query/filter/disable
-behavior. Native provider checks do not launch the WebView or replace Android
-arm64/physical-device resource and app acceptance.
+The [native index/query extension](search-v2-progress.md#stage-7--native-indexingquery-checks-without-new-ci-jobs--2026-10-10)
+now covers scoped/quoted retrieval, checkpoint cancellation/resume, query
+cancellation/disable and unchanged lexical availability in the same existing
+provider test. Both model formats pass locally on Linux; new Android/iOS target
+execution remains pending. These backend checks do not verify the React fallback
+banner, launch the WebView or replace Android arm64/physical-device resource and
+app acceptance.
 All interactive cases below remain deferred; no new checkbox is marked passed.
 
 ## Isolate the library first

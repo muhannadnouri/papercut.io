@@ -57,6 +57,66 @@ remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
 
+## Stage 7 — native indexing/query checks without new CI jobs — 2026-10-10
+
+**Decision: extend the existing ignored provider regression, keeping CI orchestration
+unchanged.** Its first lifecycle cycle now exercises the production semantic store,
+retrieval and lexical search paths against disposable generic English/Arabic
+documents, once for each FP32/INT8 format. Later reload cycles retain the existing
+provider checks. No new job, workflow input, build variant, npm script, dependency
+or model asset is added. The existing mobile runner requires an index/query
+completion marker for each format as well as the passing test and normal exit.
+Its owned temporary directory also contains the SQLite fixtures, so cleanup covers
+native aborts and timeouts.
+
+The added assertions cover:
+
+- Cancellation after a committed indexing checkpoint, writer-slot cleanup,
+  partial-index availability, checkpoint reuse on resume and skipping unchanged
+  documents without tokenization/inference.
+- Document scopes, empty scopes, result limits and mandatory English/Arabic
+  quotes; a title-only phrase cannot satisfy a required body quote.
+- Conceptual provenance and source-byte evidence, with no lexical match count
+  invented for conceptual results; retrieval performs no database writes.
+- Cooperative query cancellation, incompatible-index rejection before inference
+  and provider disable at the encoding boundary preventing result publication.
+- Unchanged production lexical results with a missing/partial/incompatible index,
+  after cancellation or opt-out, and after derived-index removal.
+
+These are shared backend checks using actual tokenization, model vectors and
+SQLite. They do not execute mobile Tauri IPC, the WebView, the React fallback
+banner or interactive reader/audio flows. The authored Arabic control checks the
+query contract, not representative book relevance. Cooperative cancellation still
+cannot interrupt an ORT call already in progress.
+
+Local Linux release validation passes the extended exact native test with both
+formats (**one passed, 2.56 seconds**, excluding compilation), **12 semantic tests
+with one scale test ignored** in each default/provider configuration, and **six
+mobile-runner self-checks**. Workflow parsing, existing shell syntax/change
+detection and diff checks pass. The workflow itself is unchanged. This host has
+no Android emulator/NDK or Xcode; **target execution of the new assertions is
+pending**. Run `38090360569` validates the earlier provider lifecycle only.
+
+### CI maintenance policy
+
+Keep deterministic model-free contract and runner tests in ordinary CI. Keep
+real-model initialization/index/query checks together in the existing explicit
+`provider_inference` path, sharing assets and one native test process per target.
+Rerun relevant platform scopes after provider/runtime changes and before accepting
+a provider release. Manual testing covers physical-device resources, foreground
+responsiveness, reader/RTL/audio behavior and full-app lifecycle. It does not
+replace deterministic filter, quote, cancellation or fallback regressions. Before
+merge, review the workflow for redundant build/setup steps; historical scale/model
+experiments should remain explicit developer checks rather than more mandatory
+jobs. Additional coverage should extend existing tests before adding orchestration.
+
+**Next:** push this commit and run the existing manual workflow with
+`validation_scope=mobile` and `provider_inference=true`. Review both target logs
+for `index/query checks complete: Float32` and `index/query checks complete:
+DynamicInt8`, the exact passing test, normal exit and cleanup. Keep interactive
+smoke deferred for the consolidated final pass. Android arm64/physical-device,
+minimum-OS, resource/stability and representative-quality gates remain open.
+
 ## Stage 7 — mobile provider inference harness — 2026-10-10
 
 **Decision: execute the existing desktop provider regression on disposable mobile

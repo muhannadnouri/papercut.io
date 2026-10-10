@@ -24,6 +24,9 @@ export function assertInferenceCompleted(output) {
     if (!output.includes(`lifecycle cycle complete: 1/1 ${format}`)) {
       throw new Error(`Missing completed ${format} lifecycle`)
     }
+    if (!output.includes(`index/query checks complete: ${format}`)) {
+      throw new Error(`Missing completed ${format} index/query checks`)
+    }
   }
   if (!output.includes("test result: ok. 1 passed; 0 failed; 0 ignored;")) {
     throw new Error("The exact ignored provider test did not pass")
@@ -58,6 +61,7 @@ export function checkAndroid({ executable, models, runtimeLibs }, run = command)
     // Remote timeout also bounds the native child if the host's adb process times out.
     const output = adb(["shell", [
       "unset PAPERCUT_EMBEDDING_TEST_FORMAT;",
+      `TMPDIR=${shQuote(remote)}`,
       `LD_LIBRARY_PATH=${shQuote(`${remote}/libs`)}`,
       `PAPERCUT_EMBEDDING_TEST_MODELS=${shQuote(`${remote}/models`)}`,
       "PAPERCUT_EMBEDDING_TEST_DOWNLOAD=0 PAPERCUT_EMBEDDING_TEST_CYCLES=1",
@@ -115,6 +119,8 @@ export function checkIos({ executable, models }, run = command) {
     env.SIMCTL_CHILD_PAPERCUT_EMBEDDING_TEST_MODELS = models
     env.SIMCTL_CHILD_PAPERCUT_EMBEDDING_TEST_DOWNLOAD = "0"
     env.SIMCTL_CHILD_PAPERCUT_EMBEDDING_TEST_CYCLES = "1"
+    // Keep authored SQLite fixtures inside owned cleanup, including after native abort/timeout.
+    env.SIMCTL_CHILD_TMPDIR = dir
     const output = run("xcrun", ["simctl", "spawn", uuid, signedTest, ...TEST_ARGS], { timeout: 660_000, env, combined: true })
     assertInferenceCompleted(output)
   } finally {
