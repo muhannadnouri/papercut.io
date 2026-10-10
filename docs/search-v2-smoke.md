@@ -59,6 +59,14 @@ for the manifest correction. Next automated acceptance work is mobile provider
 execution; emulator/simulator checks also cannot replace physical-device resource
 or interactive acceptance. Remind the user at the consolidated final smoke pass.
 
+The [mobile inference harness](search-v2-progress.md#stage-7--mobile-provider-inference-harness--2026-10-10)
+is now ready for explicit CI: push, then dispatch `validation_scope=mobile` and
+`provider_inference=true`. It runs the native FP32/INT8 provider regression on an
+Android x86_64/API 35 emulator and an iOS arm64 simulator with disposable test
+state. Target execution has not yet been verified. These checks do not launch
+the WebView or replace Android arm64/physical-device resource and app acceptance.
+All interactive cases below remain deferred; no new checkbox is marked passed.
+
 ## Isolate the library first
 
 A Git branch does not isolate application data. On Linux, close **all Papercut

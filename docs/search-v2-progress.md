@@ -57,6 +57,65 @@ remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
 
+## Stage 7 — mobile provider inference harness — 2026-10-10
+
+**Decision: execute the existing desktop provider regression on disposable mobile
+emulator/simulator runtimes, only through explicit manual CI opt-in.** After
+pushing this commit, dispatch CI on `feature/search-v2` with
+`validation_scope=mobile` and `provider_inference=true`. Full scope with that
+flag also runs the checks. The flag still defaults to false; ordinary PR and
+scheduled CI downloads no embedding weights and boots no emulator for this test.
+
+The Linux checks job reuses the production installer and manifest to verify both
+FP32/INT8 caches, then uploads a **test-only** `search-provider-validation-models`
+artifact with one-day retention. The mobile jobs download this same roughly
+594 MiB asset set into runner temporary directories. Each target provider
+verifies the asset sizes/hashes again before loading. No new model, downloader,
+production command, upstream library modification or npm script is introduced.
+Normal APK uploads still precede the provider checks and omit embedding support.
+
+| Target | Added execution check | Acceptance status |
+| --- | --- | --- |
+| Android API 35, x86_64 emulator | Release library test with `native-tts-shared,experimental-search-embeddings`, prepared x86_64 sherpa/ORT shared libraries, KVM and 4 GiB emulator RAM | Harness/self-checks ready; target compilation/execution awaits CI. Existing arm64 APK builds remain separate evidence. |
+| iOS arm64 simulator on the macOS runner | Release library test with `native-tts-ios,experimental-search-embeddings-linked`, prepared simulator static archives, simulator SDK and an ad-hoc signed executable copy | Harness/self-checks ready; target compilation/execution awaits CI. Existing unsigned device links remain separate evidence. |
+
+The earlier next-step wording proposed an Android **arm64** emulator. The current
+Linux runner instead supports a practical accelerated **x86_64** check. This does
+not close Android arm64 inference acceptance; an arm64 runner/device is still
+needed. iOS selects an installed iPhone/runtime pair rather than hard-coding a
+runner device name. Its test deployment target matches the native simulator
+archive's 15.1 minimum; this does not validate minimum supported app OS versions.
+The execution methods follow the [Android emulator action](https://github.com/ReactiveCircus/android-emulator-runner)
+and [Rust simulator testing guidance](https://rustc-dev-guide.rust-lang.org/tests/running.html#testing-on-emulators).
+
+`scripts/check-mobile-provider-inference.mjs` selects exactly one Cargo JSON
+library-test artifact and runs only the ignored provider regression. A passing
+exit must also include one completed lifecycle for **each** format and exactly
+one passed test. Input-prefix/size/token limits, finite normalized 384-vectors,
+English query/passage and Arabic query inference, repeat/distinct-input controls,
+disable, failed activation and cancelled publication reuse the existing test.
+Downloads are disabled on the target; inherited format overrides are removed.
+Android addresses only the action's emulator serial and owns a UUID directory
+under `/data/local/tmp`; iOS creates, boots, shuts down and deletes only its own
+simulator. Staging, inference and cleanup commands have host timeouts; Android
+also bounds the remote native child to ten minutes. Native loader/test output
+remains in the job log. Cleanup runs after staging, signing and inference failures.
+
+Local validation passes **five runner self-checks**, including real subprocess
+failure/timeout propagation, malformed/ambiguous build logs, missing format/test
+completion, wrong Android ABI, simulator selection, isolated settings and cleanup
+after failures. Workflow parsing, actual Bash syntax/change-detection checks and
+diff checks pass. The same runner self-checks run in ordinary shared CI without
+assets or emulators. This Linux host has no installed emulator/NDK or Xcode;
+**no Android/iOS target inference pass is claimed yet**.
+
+**Next:** push and dispatch the manual mobile inference run above, then review
+both target logs against this commit. Compilation/link success alone is not
+inference acceptance. Afterwards retain Android arm64/physical-device execution,
+resource/lifecycle, native stability, representative quality and app acceptance
+gates. Interactive search/index/fallback/reader/RTL/audio smoke stays explicitly
+deferred; remind the user at the consolidated final smoke pass.
+
 ## Stage 7 — explicit provider runtime checks — 2026-10-10
 
 **Decision: reuse the ignored real-model provider regression for explicit desktop
@@ -86,7 +145,7 @@ supplied cache. No download is added to PR, push or scheduled CI.
 | Linux x64, existing shared ORT | Both FP32/INT8 formats pass in run `38075038695`, debug test, 45.37 seconds. Earlier local release/debug checks also pass. |
 | Windows x64, release runtime DLLs | Both FP32/INT8 formats pass in run `38075038695`, release test, 11.93 seconds. The Common Controls manifest fix clears the pre-harness loader failure. |
 | macOS Intel / Apple Silicon, prepared shared libraries | Both FP32/INT8 formats pass on both hosts in run `38075038695`, release tests, 11.20 / 12.08 seconds respectively. |
-| Android arm64 / iOS simulator and device | Build/link evidence only. No mobile execution harness is added; emulator/simulator/device initialization and inference remain open. |
+| Android arm64 / iOS simulator and device | Build/link evidence only. The mobile harness above is now added; target inference awaits its explicit CI run, and physical-device acceptance remains open. |
 
 Times above cover the complete regression, including model installation/cache
 verification, activation and lifecycle checks; they exclude compilation and are
@@ -300,10 +359,10 @@ packaging, Linux media verification, both macOS runtime-bundle checks and normal
 artifact uploads pass. Uploaded packages still omit the embedding feature.
 No artifacts were downloaded, installed or launched during this review.
 
-**Next:** prepare explicit provider initialization/inference execution on an
-Android arm64 emulator and iOS arm64 simulator with the prepared platform
-runtimes and verified assets. Keep model downloads confined to opt-in validation
-and use disposable data. Simulator/emulator results must be followed by physical
+**Next:** execute the mobile provider harness added above on an
+Android x86_64 emulator and iOS arm64 simulator with the prepared platform
+runtimes and verified assets; Android arm64 execution remains open. Keep model
+downloads confined to opt-in validation and use disposable data. Simulator/emulator results must be followed by physical
 mobile/reference-device memory, foreground responsiveness and lifecycle checks;
 they cannot establish those costs. Preserve the Stage 7 quality and source/
 filter/quote/navigation gates. No Stage 8 optimization or extra model sweep is

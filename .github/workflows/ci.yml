@@ -162,6 +162,7 @@ jobs:
             esac
             case "$path" in
               scripts/build-android.js | \
+              scripts/check-mobile-provider-inference*.mjs | \
               scripts/lib/android/*)
                 android_packaging=true
                 ;;
@@ -172,6 +173,7 @@ jobs:
               src-tauri/icons/ios/* | \
               scripts/build-ios.js | \
               scripts/check-ios-device-build.js | \
+              scripts/check-mobile-provider-inference*.mjs | \
               scripts/lib/ios/*)
                 ios_packaging=true
                 ;;
@@ -223,6 +225,9 @@ jobs:
 
       - name: Model download monitor regression check
         run: node --test scripts/check-model-downloads-selftest.js
+
+      - name: Mobile provider runner regression check
+        run: node --test scripts/check-mobile-provider-inference-selftest.mjs
 
       - name: Build frontend + Pagefind index
         run: npm run build
@@ -308,6 +313,17 @@ jobs:
             --features native-tts-shared,experimental-search-embeddings \
             search_embeddings::provider::tests::cached_provider_activation_switch_failure_and_unload \
             -- --ignored --exact --nocapture
+
+      # Share only verified test assets; mobile targets never run the downloader/mock app.
+      - name: Share verified mobile inference assets
+        if: github.event_name == 'workflow_dispatch' && inputs.provider_inference && (inputs.validation_scope == 'mobile' || inputs.validation_scope == 'full')
+        uses: actions/upload-artifact@v7
+        with:
+          name: search-provider-validation-models
+          path: ${{ runner.temp }}/search-provider-models/
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 1
 
   build:
     needs: [changes, checks]
@@ -554,6 +570,51 @@ jobs:
         env:
           NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/29.0.13846066
 
+      - name: Download verified mobile inference assets
+        if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        uses: actions/download-artifact@v8
+        with:
+          name: search-provider-validation-models
+          path: ${{ runner.temp }}/search-provider-models
+
+      - name: Compile Android emulator provider regression
+        if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        env:
+          NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/29.0.13846066
+        run: |
+          task_toolchain="$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          export CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER="$task_toolchain/x86_64-linux-android26-clang"
+          export CC_x86_64_linux_android="$CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER"
+          export CXX_x86_64_linux_android="$task_toolchain/x86_64-linux-android26-clang++"
+          export SHERPA_ONNX_LIB_DIR="$PWD/src-tauri/tts/runtime/sherpa-onnx-android/jniLibs/x86_64"
+          export ORT_LIB_LOCATION="$SHERPA_ONNX_LIB_DIR"
+          cargo test --manifest-path src-tauri/Cargo.toml --locked --release --lib \
+            --target x86_64-linux-android --features native-tts-shared,experimental-search-embeddings \
+            --no-run --message-format=json > "$RUNNER_TEMP/android-provider-tests.json"
+
+      - name: Enable emulator acceleration
+        if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # shortcut: x86_64 validates Android runtime behavior; arm64 execution needs an arm64 runner/device.
+      - name: Provider initialization and model inference (Android emulator)
+        if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          ram-size: 4096M
+          disable-animations: true
+          script: >-
+            node scripts/check-mobile-provider-inference.mjs --platform android
+            --build-log "$RUNNER_TEMP/android-provider-tests.json"
+            --models "$RUNNER_TEMP/search-provider-models"
+            --runtime-libs "$PWD/src-tauri/tts/runtime/sherpa-onnx-android/jniLibs/x86_64"
+
   build-ios:
     needs: [changes, checks]
     if: needs.changes.outputs.ios_packaging == 'true'
@@ -640,6 +701,33 @@ jobs:
 
       - name: Build unsigned iOS device app with opt-in search provider and native TTS
         run: npm run ios:ci:device -- --features experimental-search-embeddings-linked
+
+      - name: Download verified mobile inference assets
+        if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        uses: actions/download-artifact@v8
+        with:
+          name: search-provider-validation-models
+          path: ${{ runner.temp }}/search-provider-models
+
+      - name: Compile iOS simulator provider regression
+        if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        run: |
+          test "$(uname -m)" = arm64
+          export SDKROOT="$(xcrun --sdk iphonesimulator --show-sdk-path)"
+          # Match the native simulator archive's minimum; this is not minimum-OS acceptance.
+          export IPHONEOS_DEPLOYMENT_TARGET=15.1
+          export SHERPA_ONNX_LIB_DIR="$PWD/src-tauri/tts/runtime/sherpa-onnx-ios/cargo-libs/ios-arm64-simulator"
+          export ORT_LIB_LOCATION="$SHERPA_ONNX_LIB_DIR"
+          cargo test --manifest-path src-tauri/Cargo.toml --locked --release --lib \
+            --target aarch64-apple-ios-sim --features native-tts-ios,experimental-search-embeddings-linked \
+            --no-run --message-format=json > "$RUNNER_TEMP/ios-provider-tests.json"
+
+      - name: Provider initialization and model inference (iOS simulator)
+        if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        run: >-
+          node scripts/check-mobile-provider-inference.mjs --platform ios
+          --build-log "$RUNNER_TEMP/ios-provider-tests.json"
+          --models "$RUNNER_TEMP/search-provider-models"
 
   build-silma-runtime:
     needs: [changes, checks]

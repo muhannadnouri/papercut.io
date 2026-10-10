@@ -69,10 +69,21 @@ semantic relevance, integrated app search/indexing or audio behavior. Whole-test
 times are 45.37 seconds Linux/debug, 11.93 Windows/release, 11.20 Intel/release
 and 12.08 Apple Silicon/release, including asset installation/verification and
 lifecycle, excluding compilation. These are not app latency benchmarks.
-Mobile remains build/link evidence without execution. The next pass should add
-explicit Android emulator/iOS simulator initialization and inference checks,
-then retain physical-device resource/lifecycle and quality acceptance. Normal
-packages still omit the provider, and interactive smoke stays deferred.
+Mobile remains build/link evidence without a verified target execution yet. The
+[mobile inference harness](search-v2-progress.md#stage-7--mobile-provider-inference-harness--2026-10-10)
+now adds manual Android **x86_64/API 35 emulator** and iOS **arm64 simulator**
+checks. After pushing, dispatch `validation_scope=mobile` with
+`provider_inference=true`. Linux installs/verifies the two pinned test caches
+once and shares a one-day test-only artifact. Targets read temporary assets,
+verify them again and execute the same exact ignored library regression; target
+downloads are disabled. The Android test uses the prepared x86_64 shared runtime;
+iOS uses the prepared simulator static archives and linked provider feature.
+The runner rejects partial-format or zero-test success and cleans only its owned
+emulator directory/simulator. Both-format target compilation and inference still
+await this CI run. Android arm64 execution, minimum-OS coverage, physical-device
+resource/lifecycle and quality acceptance remain open. Normal packages still
+omit the provider, and interactive smoke stays deferred. No new npm command is
+required; the workflow compiles and invokes the test runner directly.
 
 The [cross-platform follow-up](search-v2-progress.md#stage-7--cross-platform-provider-build-checks--2026-10-09)
 adds provider app-build checks to the existing Windows, macOS Intel/Apple Silicon,
