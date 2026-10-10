@@ -43,6 +43,31 @@ including compilation; these are not app search/inference timings.
 Cached-model inference and asset/scale checks remain explicit: ordinary CI does
 not download embedding weights or establish provider device/inference acceptance.
 
+The [cross-platform follow-up](search-v2-progress.md#stage-7--cross-platform-provider-build-checks--2026-10-09)
+adds provider app-build checks to the existing Windows, macOS Intel/Apple Silicon,
+Android arm64 and iOS arm64 simulator/device jobs. Their first remote run is
+**pending**. Desktop checks use `--no-bundle`; Android builds a debug APK after
+the normal APK upload. Normal artifact uploads precede these checks, and no
+provider artifact is uploaded. Both iOS checks use linked ORT and unsigned
+Xcode builds. No embedding weights are downloaded by these build checks.
+
+The existing npm commands for reproducing the added checks are:
+
+| Host/target | Command |
+| --- | --- |
+| Windows/macOS, after the normal desktop build prepares runtime resources | `npm run tauri -- build --features "native-tts-shared,experimental-search-embeddings" --no-bundle` |
+| Android arm64, with the existing SDK/NDK setup | `npm run android:apk:native-tts -- android build --apk --debug --target aarch64 --features native-tts-shared,experimental-search-embeddings` |
+| iOS simulator, on macOS with Xcode | `npm run ios:ci -- --native-tts --features experimental-search-embeddings-linked` |
+| Unsigned iOS device link, on macOS with Xcode | `npm run ios:ci:device -- --features experimental-search-embeddings-linked` |
+
+The device helper preserves its required native TTS/frontend features when
+additional features are supplied. The simulator helper already passes both
+feature arguments; the pinned [Tauri 2.11.4 CLI](https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.11.4/crates/tauri-cli/src/mobile/ios/build.rs#L57-L59)
+appends repeated `--features`. Running a provider build reuses local output paths;
+normal packages must be built/uploaded first when retaining both configurations.
+Build/link success is separate from provider runtime initialization, installed
+model inference and real-device resource acceptance.
+
 - Normal builds omit FastEmbed entirely. `search_embedding_status` reports
   `compiled: false`; activation fails recoverably and disabling remains valid.
 - `experimental-search-embeddings` adds the provider and dynamic ORT loading,
@@ -66,8 +91,9 @@ It does not establish relevance quality or resource suitability.
 The [normal packaging review](search-v2-progress.md#normal-packaging-and-platform-readiness--2026-10-08)
 verifies a Linux Debian build without embedding features, including packaged
 runtime bytes and relocated library resolution. Existing desktop/Android/iOS CI
-jobs build normal TTS configurations; they do not validate an explicitly enabled
-provider. Other-platform artifact/device checks and app smoke remain open.
+jobs retain normal TTS package builds and now also include the separate provider
+build checks above. Other-platform provider build results are pending; packaged
+provider runtime/device checks and app smoke remain open.
 
 ## Explicit cached-model activation
 

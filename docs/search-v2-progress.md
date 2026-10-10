@@ -57,6 +57,50 @@ remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
 
+## Stage 7 — cross-platform provider build checks — 2026-10-09
+
+**Decision: extend the existing platform jobs with explicit provider-enabled app
+builds; keep normal package artifacts and the default-off setting unchanged.**
+Linux provider compilation/regressions already pass remotely. This pass adds:
+
+| Target | Added check | Status |
+| --- | --- | --- |
+| Windows x64 | Tauri app build with shared native TTS and the dynamic provider, without bundling | Awaiting CI |
+| macOS Intel / Apple Silicon | Same app build on both existing matrix runners | Awaiting CI |
+| Android arm64 | Debug APK build with shared native TTS and the dynamic provider | Awaiting CI |
+| iOS arm64 simulator | Unsigned app build with native TTS and the linked provider | Awaiting CI |
+| iOS arm64 device | Release static library followed by unsigned generic-device Xcode linking with native TTS and the linked provider | Awaiting CI |
+
+The checks reuse the existing build helpers, runtime preparation, caches and
+platform gates. Desktop and Android checks run after normal artifact uploads,
+since provider builds reuse executable/APK output paths. No provider artifact
+is published. The ordinary build commands and release workflow keep their
+original features. No new npm script, model download, runtime version, package
+fork or generated Apple project change is needed.
+
+The existing `ios:ci:device` helper now accepts optional `--features` through
+Node's strict argument parser. It always retains `native-tts-ios` and
+`tauri/custom-protocol`, prepares the device static archives, stages `libapp.a`
+and suppresses a second Tauri Rust build during unsigned Xcode linking. The
+simulator helper already forwards extra features to Tauri, so it is unchanged.
+
+Local validation passes an assert-based command self-check with native build
+tools mocked: normal/provider feature forwarding, device/static-library staging,
+simulator versus device runtime paths, unsigned-link flags, invalid arguments,
+unsupported-host rejection and stopping on Cargo failure. Workflow YAML parsing,
+added shell syntax, platform selection and upload-before-provider assertions
+also pass. These checks exercise command construction, **not foreign-target
+compilation or model inference**. Only the Linux host is available locally;
+Windows/macOS/Android/iOS builds must run on their existing CI runners.
+
+**Next: push this commit and run CI with `validation_scope=full`, then inspect
+the added build steps and bind their outcomes to the pushed SHA.** A successful
+build would close a compile/link gap, not validate runtime initialization,
+model activation, mobile performance or same-language relevance. Provider
+runtime/device acceptance, the original crash/retention caveats and the explicitly
+deferred Stage 7 lifecycle/results/RTL/navigation/responsiveness smoke remain
+open. Stage 8 optimization is still not justified.
+
 ## Stage 7 — opt-in provider CI checks — 2026-10-09
 
 **Decision: enforce the Linux provider-enabled code path in the existing checks

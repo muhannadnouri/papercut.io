@@ -29,6 +29,13 @@ does not run model-dependent inference checks or change this interactive
 deferral. Use the explicit provider build below
 when resuming smoke; normal CI package artifacts still omit the provider.
 
+The [cross-platform provider build checks](search-v2-progress.md#stage-7--cross-platform-provider-build-checks--2026-10-09)
+now cover Windows, both macOS architectures, Android arm64 and unsigned iOS
+simulator/device linking in the workflow; their first CI execution is pending.
+They do not launch the apps or download embedding weights, and normal uploaded
+artifacts still omit the provider. Interactive smoke remains deferred; no case
+below is newly marked passed.
+
 ## Isolate the library first
 
 A Git branch does not isolate application data. On Linux, close **all Papercut

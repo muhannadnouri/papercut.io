@@ -404,6 +404,11 @@ jobs:
           path: src-tauri/target/release/bundle/dmg/*.dmg
           retention-days: 7
 
+      # Keep uploaded packages on the normal feature set; this only checks app linking.
+      - name: Build opt-in search provider with native TTS (Windows/macOS)
+        if: matrix.platform != 'linux'
+        run: npm run tauri -- build --features "native-tts-shared,experimental-search-embeddings" --no-bundle
+
   build-android:
     needs: [changes, checks]
     if: needs.changes.outputs.android_packaging == 'true'
@@ -461,6 +466,14 @@ jobs:
           name: papercut-android-native-tts-apk
           path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/*.apk
           retention-days: 7
+
+      # Run after upload because Gradle reuses the normal APK output path.
+      - name: Build Android APK with opt-in search provider and native TTS
+        run: >-
+          npm run android:apk:native-tts -- android build --apk --debug
+          --target aarch64 --features native-tts-shared,experimental-search-embeddings
+        env:
+          NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/29.0.13846066
 
   build-ios:
     needs: [changes, checks]
@@ -541,6 +554,13 @@ jobs:
 
       - name: Build unsigned iOS device app with native TTS
         run: npm run ios:ci:device
+
+      # iOS uses the existing static runtime, so the provider must use linked ORT.
+      - name: Build unsigned iOS simulator app with opt-in search provider and native TTS
+        run: npm run ios:ci -- --native-tts --features experimental-search-embeddings-linked
+
+      - name: Build unsigned iOS device app with opt-in search provider and native TTS
+        run: npm run ios:ci:device -- --features experimental-search-embeddings-linked
 
   build-silma-runtime:
     needs: [changes, checks]
