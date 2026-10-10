@@ -84,8 +84,8 @@ supplied cache. No download is added to PR, push or scheduled CI.
 | Host/runtime | Initialization and inference evidence |
 | --- | --- |
 | Linux x64, existing shared ORT | Local exact ignored test passes for both FP32/INT8: release with explicit installer reuse, then debug with cache-only input. Test execution takes 2.55 / 14.93 seconds respectively, excluding compilation; these are whole regression times, not app latency. |
-| Windows x64, release runtime DLLs | Manual CI test added; execution pending. |
-| macOS Intel / Apple Silicon, prepared shared libraries | Manual CI test added on both existing runners; execution pending. |
+| Windows x64, release runtime DLLs | First execution fails before the test harness; test-directory DLL staging corrected below, rerun pending. |
+| macOS Intel / Apple Silicon, prepared shared libraries | Apple Silicon FP32/INT8 inference passes in run `38066316034`; Intel inference is still running at review time. |
 | Android arm64 / iOS simulator and device | Build/link evidence only. No mobile execution harness is added; emulator/simulator/device initialization and inference remain open. |
 
 The reused regression validates activation/warm-up, finite normalized
@@ -108,6 +108,52 @@ especially INT8 portability on Intel/Apple Silicon. Then prepare actual mobile
 runtime/device checks and retain resource/quality acceptance gates. Consolidated
 Stage 7 UI smoke remains explicitly deferred. Build or vector checks alone do
 not justify Stage 8 optimization or provider release acceptance.
+
+### First runtime run — Windows loader correction
+
+[Run 38066316034](https://github.com/muhannadnouri/papercut.io/actions/runs/38066316034)
+checks pushed **`ff124375abe15c02e6916982698e288e6a278c51`**. Inspected Linux
+and Apple Silicon logs show both FP32 and INT8 activation, inference controls,
+disable/failure/cancellation checks and the exact ignored test passing. Their
+whole test times are 72.07 and 25.04 seconds, including test-time installation
+and verification; these are not query latency measurements. Intel inference is
+still running at review time and is not counted as passed. Mobile jobs are
+skipped by this desktop run.
+
+The [Windows log](https://github.com/muhannadnouri/papercut.io/actions/runs/38066316034/job/114256554769)
+shows normal packaging/uploads and the provider app build succeed. The provider
+library test compiles, then its executable exits with **`0xc0000139`
+(`STATUS_ENTRYPOINT_NOT_FOUND`) before the harness prints `running 1 test`**.
+The unused scanner imports are warnings; no model activation or inference occurs
+on Windows in this run. The log does not identify the offending DLL/export.
+
+The existing Sherpa build helper copies its DLL set into the profile root and
+`examples`, but omits `deps`, where Cargo puts this test executable.
+[Windows DLL search order](https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-search-order#standard-search-order-for-unpackaged-apps)
+checks the executable directory and system folders before `PATH`. Thus the CI
+PATH prefix alone does not guarantee that this executable uses the prepared
+runtime rather than a stale adjacent or system copy. This is a verified staging
+gap and a plausible explanation for the loader failure, not proof of the exact
+DLL selected by that failed process.
+
+**Correction: the same helper now copies the matching runtime DLL set into
+`deps` as well, overwriting stale copies, and reports all three destinations.**
+No new runtime, package dependency, Libtashkeel patch, app initializer change or
+cache purge is introduced. A local assertion invoking the actual copy/helper
+functions fails before the correction and passes afterwards. It covers debug
+and release target-qualified layouts, app/example/test destinations, stale-file
+replacement and exclusion of import libraries. The rebuilt focused provider
+suite also passes **10 tests, 3 ignored**, along with app Rust formatting, the
+changed helper formatting and diff checks. Standalone vendor formatting retains
+an unrelated pre-existing match-arm difference. This checks filesystem staging
+on Linux, not Windows loader execution.
+
+**Next:** push the correction and dispatch a fresh desktop CI run with
+`provider_inference=true`; rerunning the old SHA will not include it. Inspect
+Windows startup and both format results, and the final Intel outcome. If the
+loader failure persists, capture the missing export and selected DLL before
+considering a runtime/version change. Mobile inference, native stability/resource
+limits and consolidated Stage 7 UI smoke remain open; smoke stays deferred.
 
 ## Stage 7 — cross-platform provider build checks — 2026-10-09
 

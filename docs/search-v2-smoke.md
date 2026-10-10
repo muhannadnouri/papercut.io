@@ -47,7 +47,11 @@ Windows/macOS native checks. After pushing, CI can run them with
 to false and explicitly permits pinned test-model downloads into a temporary
 cache. These checks do not launch the WebView, establish mobile inference or
 replace the deferred lifecycle/results/reader/RTL/responsiveness cases below.
-No interactive case is marked passed by this pass.
+No interactive case is marked passed by this pass. Run `38066316034` passes
+Linux and Apple Silicon model inference; Windows fails before test startup.
+The [Windows staging correction](search-v2-progress.md#first-runtime-run--windows-loader-correction)
+needs a fresh pushed-source CI run. Neither its filesystem regression nor the
+other hosts' native checks complete any deferred interactive case.
 
 ## Isolate the library first
 

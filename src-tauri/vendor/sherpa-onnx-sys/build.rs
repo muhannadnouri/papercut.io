@@ -428,7 +428,8 @@ fn copy_windows_runtime_dlls(lib_dir: &Path) -> Result<(), DynError> {
     }
 
     let [profile_dir, examples_dir] = profile_output_dirs()?;
-    for dest_dir in [profile_dir.clone(), examples_dir] {
+    // Tests live in deps; app-local DLLs must take precedence over system/PATH copies.
+    for dest_dir in [profile_dir.clone(), examples_dir, profile_dir.join("deps")] {
         fs::create_dir_all(&dest_dir)?;
         for dll in &dlls {
             let dest = dest_dir.join(
@@ -440,7 +441,8 @@ fn copy_windows_runtime_dlls(lib_dir: &Path) -> Result<(), DynError> {
     }
 
     println!(
-        "cargo:warning=Copied Windows runtime DLLs to {} and {}/examples",
+        "cargo:warning=Copied Windows runtime DLLs to {}, {}/examples and {}/deps",
+        profile_dir.display(),
         profile_dir.display(),
         profile_dir.display()
     );

@@ -51,7 +51,13 @@ Silicon. The test uses each host's prepared runtime libraries, isolated temporar
 assets and the production verified installer. Both formats require about 594 MiB
 on a cold cache; an intact cache is verified without fetching. Ordinary CI still
 skips this test and downloads no embedding weights. Local Linux FP32/INT8 debug
-and release runs pass; Windows/macOS execution is pending. Mobile builds remain
+and release runs pass. Run `38066316034` also passes Linux and Apple Silicon
+FP32/INT8 inference; Intel inference is still running at review time. Windows
+fails before the harness starts with `STATUS_ENTRYPOINT_NOT_FOUND`. The existing
+Sherpa helper now stages matching DLLs beside Cargo tests in `deps`, in addition
+to app/example directories; Windows startup/inference must pass a fresh CI run
+before this loader correction is accepted. The failed log does not identify the
+offending DLL/export. Mobile builds remain
 compile/link evidence without a device inference harness. No provider artifact
 or app launch is added by this pass.
 
@@ -590,6 +596,9 @@ Linux CI uses its already compiled debug library test with `LD_LIBRARY_PATH`
 pointing at `tts/runtime/linux-x64-shared-libs`. macOS uses release tests and
 `DYLD_LIBRARY_PATH` pointing at `tts/runtime/macos-shared-libs`; Windows uses
 release tests with `src-tauri/target/release` prepended to `PATH` for native DLLs.
+The Sherpa helper also stages the same DLL set into `release/deps`, next to the
+test executable: Windows searches executable/system directories before `PATH`,
+so the prefix alone cannot prevent an incompatible DLL from being selected.
 These are prepared packaging runtime inputs, not relocated installer execution.
 The regression also rejects identical vectors for distinct query/passage inputs;
 successful vectors establish inference, not retrieval relevance or INT8
