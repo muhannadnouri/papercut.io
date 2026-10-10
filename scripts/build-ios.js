@@ -51,8 +51,9 @@ if (initProject) {
     console.log("[ios-build] native TTS enabled with SHERPA_ONNX_LIB_DIR=" + env.SHERPA_ONNX_LIB_DIR)
   }
 
+  // CI needs compilation/linking, not an export that collides on repeated simulator builds.
   const args = ciCheck
-    ? ["ios", "build", "--target", "aarch64-sim", ...featureArgs, ...forwardedExtraArgs]
+    ? ["ios", "build", "--target", "aarch64-sim", "--archive-only", ...featureArgs, ...forwardedExtraArgs]
     : extraArgs.length > 0
       ? ["ios", "build", ...featureArgs, ...forwardedExtraArgs]
       : ["ios", "build", "--export-method", "app-store-connect", ...featureArgs]

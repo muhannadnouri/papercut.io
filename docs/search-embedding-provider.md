@@ -45,8 +45,11 @@ not download embedding weights or establish provider device/inference acceptance
 
 The [cross-platform follow-up](search-v2-progress.md#stage-7--cross-platform-provider-build-checks--2026-10-09)
 adds provider app-build checks to the existing Windows, macOS Intel/Apple Silicon,
-Android arm64 and iOS arm64 simulator/device jobs. Their first remote run is
-**pending**. Desktop checks use `--no-bundle`; Android builds a debug APK after
+Android arm64 and iOS arm64 simulator/device jobs. [Full run 38009770905](https://github.com/muhannadnouri/papercut.io/actions/runs/38009770905)
+on `0796645` passes the Windows, both macOS and Android provider steps. Only iOS
+fails: the provider simulator compiles/links, then its export collides with the
+normal simulator output; the provider device step is skipped. Desktop checks use
+`--no-bundle`; Android builds a debug APK after
 the normal APK upload. Normal artifact uploads precede these checks, and no
 provider artifact is uploaded. Both iOS checks use linked ORT and unsigned
 Xcode builds. No embedding weights are downloaded by these build checks.
@@ -63,7 +66,10 @@ The existing npm commands for reproducing the added checks are:
 The device helper preserves its required native TTS/frontend features when
 additional features are supplied. The simulator helper already passes both
 feature arguments; the pinned [Tauri 2.11.4 CLI](https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.11.4/crates/tauri-cli/src/mobile/ios/build.rs#L57-L59)
-appends repeated `--features`. Running a provider build reuses local output paths;
+appends repeated `--features`. `ios:ci` now uses `--archive-only`, retaining
+archive compilation/linking while avoiding the simulator export/rename collision.
+The corrected iOS archive and provider device build await CI; release IPA
+commands still export normally. Running a provider build reuses local output paths;
 normal packages must be built/uploaded first when retaining both configurations.
 Build/link success is separate from provider runtime initialization, installed
 model inference and real-device resource acceptance.
@@ -92,8 +98,9 @@ The [normal packaging review](search-v2-progress.md#normal-packaging-and-platfor
 verifies a Linux Debian build without embedding features, including packaged
 runtime bytes and relocated library resolution. Existing desktop/Android/iOS CI
 jobs retain normal TTS package builds and now also include the separate provider
-build checks above. Other-platform provider build results are pending; packaged
-provider runtime/device checks and app smoke remain open.
+build checks above. Windows/macOS/Android provider build results pass; the iOS
+correction remains pending. Packaged provider runtime/device checks and app
+smoke remain open.
 
 ## Explicit cached-model activation
 

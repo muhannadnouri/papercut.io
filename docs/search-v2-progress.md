@@ -65,11 +65,11 @@ Linux provider compilation/regressions already pass remotely. This pass adds:
 
 | Target | Added check | Status |
 | --- | --- | --- |
-| Windows x64 | Tauri app build with shared native TTS and the dynamic provider, without bundling | Awaiting CI |
-| macOS Intel / Apple Silicon | Same app build on both existing matrix runners | Awaiting CI |
-| Android arm64 | Debug APK build with shared native TTS and the dynamic provider | Awaiting CI |
-| iOS arm64 simulator | Unsigned app build with native TTS and the linked provider | Awaiting CI |
-| iOS arm64 device | Release static library followed by unsigned generic-device Xcode linking with native TTS and the linked provider | Awaiting CI |
+| Windows x64 | Tauri app build with shared native TTS and the dynamic provider, without bundling | Passed on `0796645` |
+| macOS Intel / Apple Silicon | Same app build on both existing matrix runners | Passed on `0796645` |
+| Android arm64 | Debug APK build with shared native TTS and the dynamic provider | Passed on `0796645` |
+| iOS arm64 simulator | App archive with native TTS and the linked provider | Compilation/linking passed; export collision failed the step; archive-only fix awaiting CI |
+| iOS arm64 device | Release static library followed by unsigned generic-device Xcode linking with native TTS and the linked provider | Skipped after the simulator failure; awaiting CI |
 
 The checks reuse the existing build helpers, runtime preparation, caches and
 platform gates. Desktop and Android checks run after normal artifact uploads,
@@ -93,13 +93,54 @@ also pass. These checks exercise command construction, **not foreign-target
 compilation or model inference**. Only the Linux host is available locally;
 Windows/macOS/Android/iOS builds must run on their existing CI runners.
 
-**Next: push this commit and run CI with `validation_scope=full`, then inspect
-the added build steps and bind their outcomes to the pushed SHA.** A successful
+The initial next action was a full CI run; its outcomes and the corrective pass
+are recorded below. A successful
 build would close a compile/link gap, not validate runtime initialization,
 model activation, mobile performance or same-language relevance. Provider
 runtime/device acceptance, the original crash/retention caveats and the explicitly
 deferred Stage 7 lifecycle/results/RTL/navigation/responsiveness smoke remain
 open. Stage 8 optimization is still not justified.
+
+### First cross-platform run and iOS export correction
+
+[Full run 38009770905](https://github.com/muhannadnouri/papercut.io/actions/runs/38009770905)
+tests **`07966456a72ba2af035c4ef61ef242a4a0c1bbe2`**, matching the committed
+provider-build changes. Attempt 1 is a `workflow_dispatch`; the change-detection
+log confirms `VALIDATION_SCOPE: full`. All nine other reported jobs succeed;
+**only `build-ios` fails**. The Windows, both macOS and Android provider steps
+pass, as do normal builds/artifact uploads and Linux provider checks.
+
+The iOS job passes its normal simulator and unsigned device builds. During the
+provider simulator step, Rust finishes its release compilation and Xcode reports
+`BUILD SUCCEEDED`. The fatal error follows archiving: Tauri tries to rename the
+archived `Papercut.app` into the simulator export directory occupied by the
+first build, then fails with `Directory not empty (os error 66)`. Its error
+message names the source archive path. The provider device step is skipped.
+Missing Metal-toolchain Swift search paths and the 15.1-versus-15.0 simulator
+deployment warning are nonfatal in this log; they are not evidence of a provider
+runtime failure or a reason to change ORT/Libtashkeel here.
+
+**Fix: `ios:ci` now passes `--archive-only` in the existing shared iOS helper.**
+CI needs compilation and final app linking, not a simulator app export. The
+pinned [Tauri CLI path](https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.11.4/crates/tauri-cli/src/mobile/ios/build.rs#L428-L461)
+still archives the app, then returns before the export/rename. Both normal and
+provider simulator checks use that path. Release IPA/init commands keep their
+behavior. No output deletion, cache reset, dependency update or generated Xcode
+project change is needed.
+
+The command assertion fails against the pre-fix helper and passes after the
+change. Mocked checks also confirm the simulator target/runtime and native/provider
+features are retained, release/init commands do not acquire archive-only, and
+device/Android commands and workflow boundaries still pass. JavaScript syntax
+and diff checks pass. These are local command regressions; the corrected Xcode
+archive and previously skipped provider device build **still need CI**.
+
+**Next: push the corrective commit and run `validation_scope=mobile`** to cover
+both iOS checks and Android, along with the existing shared checks job. A full
+run is also valid, but the passing desktop jobs do not need repeating for this
+iOS-only helper change. Bind the iOS results to the new SHA before claiming the
+build gap closed. Provider inference/device/resource acceptance remains
+separate, and the interactive Stage 7 smoke stays explicitly deferred.
 
 ## Stage 7 — opt-in provider CI checks — 2026-10-09
 

@@ -409,6 +409,11 @@ Native TTS on iOS must be validated through TestFlight on a real iPhone or iPad.
 
 Regular PR CI now includes a `build-ios` job on `macos-26`, with an explicit iOS SDK 26+ guard before building. This job does not use Apple secrets and does not upload to App Store Connect. It verifies the generated Apple project files, builds the frontend, installs iOS Rust targets, runs `npm run ios:ci -- --native-tts` for the arm64 simulator, and runs `npm run ios:ci:device`, which prepares iOS native TTS libs, builds the `aarch64-apple-ios` Rust static library directly with Cargo using the configured iOS minimum deployment target, stages Cargo's `libapp_lib.a` output as `libapp.a` where Xcode expects it, and runs an unsigned `xcodebuild build` for a release-class generic iPhoneOS device link check without archive/export or App Store signing.
 
+The simulator CI helper uses `--archive-only`: it compiles/links an app archive
+without exporting a simulator `.app`. This avoids Tauri's nonempty export
+destination error when normal and provider checks run sequentially. Release
+`ios:ipa` commands still perform their usual export.
+
 This catches broken iOS project files, Rust/Tauri iOS simulator compile failures, iPhoneOS device link failures, missing frontend assets, Swift toolchain/Xcode integration issues, and stale SDK runners before release. It does not replace the protected signed release job, because App Store provisioning and upload require secrets from the `apple-release` environment.
 
 ### App Store Connect upload warnings (v1.9.2)

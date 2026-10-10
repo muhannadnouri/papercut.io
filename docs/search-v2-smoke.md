@@ -31,7 +31,10 @@ when resuming smoke; normal CI package artifacts still omit the provider.
 
 The [cross-platform provider build checks](search-v2-progress.md#stage-7--cross-platform-provider-build-checks--2026-10-09)
 now cover Windows, both macOS architectures, Android arm64 and unsigned iOS
-simulator/device linking in the workflow; their first CI execution is pending.
+simulator/device linking in the workflow. Full run 38009770905 on `0796645`
+passes the Windows/macOS/Android provider steps; only iOS fails on the second
+simulator export. The archive-only correction and skipped provider device
+build await CI.
 They do not launch the apps or download embedding weights, and normal uploaded
 artifacts still omit the provider. Interactive smoke remains deferred; no case
 below is newly marked passed.
