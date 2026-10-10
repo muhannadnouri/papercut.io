@@ -45,7 +45,7 @@ machine. Other device/provider acceptance and semantic quality remain open.
 | Embedding baseline | Cached FP32/INT8 providers, anchored passages, incremental SQLite indexing, read-only queries and document-level fusion remain experimental. The standalone report now includes an evidence-preserving semantic-first response alongside the unchanged semantic/RRF controls. The comparison accepts verified Small/Base metadata and dimension-safe 384/768-vector indexes; the app provider/model setup still supports only the retained Small formats. Native primary evidence and separate conceptual context are preserved. Semantic ordering does not enforce unquoted names/dates and must not redefine All words. |
 | Representative quality | The [public human-label comparison](#stage-6--public-human-label-comparison-2026-10-08) supports same-language conceptual passage ranking. The [wider-pool check](#stage-6--frozen-wider-pool-check-2026-10-08) and [fresh-query verification](#stage-6--fresh-query-fusion-verification-2026-10-08) confirm Broader fusion can replace positive first results with judged negatives and reduce known-positive recall. Keep semantic-only ordering as the conceptual control; the fresh English All words result cautions against a universal semantic-first policy. Base's mixed gain and higher cost do not establish an overall acceptance win. Prior cross-language/entity/date and missing-answer-span failures remain. Public passage labels do not establish private-book, displayed-answer or full-library quality. The original independent packet remains unjudged; product acceptance remains open. |
 | Cached reranker/context augmentation | Rejected: a cross-language gain introduces a same-language date regression; combined-context and explicit-exclusion controls do not justify a repair. Its live CLI/module are removed. |
-| Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the shared-runtime check reuses the actual app adapter with FastEmbed/sherpa. Provider-enabled Windows/macOS/Android builds and iOS simulator archive/device linking now pass CI, as recorded below. Linked initialization is runtime-tested on Linux; mobile linking is not initialization/inference evidence. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. Other-platform runtime/device checks, weak reference hardware, responsiveness and optional-model lifecycle/fallback validation remain open. |
+| Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the shared-runtime check reuses the actual app adapter with FastEmbed/sherpa. Provider-enabled Windows/macOS/Android builds and iOS simulator archive/device linking now pass CI, as recorded below. Linked initialization is runtime-tested on Linux; mobile linking is not initialization/inference evidence. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. Desktop FP32/INT8 initialization and the bounded provider lifecycle now pass on Linux, Windows and both macOS architectures in the verified run below. Mobile runtime/device checks, weak reference hardware, responsiveness and app-level lifecycle/fallback validation remain open. |
 | Production optional hybrid | Stage 7 development is explicitly authorized with a default-off toggle and lexical fallback only within the enabled semantic path. App indexing, saved opt-in/lifecycle controls, native retrieval and the separate React conceptual-results/fallback path are implemented below. Functional settings no longer require Developer mode. Quality, resource and platform limits remain release gates. |
 
 **Current work is acceptance of the integrated opt-in path.** Native retrieval,
@@ -83,10 +83,14 @@ supplied cache. No download is added to PR, push or scheduled CI.
 
 | Host/runtime | Initialization and inference evidence |
 | --- | --- |
-| Linux x64, existing shared ORT | Local exact ignored test passes for both FP32/INT8: release with explicit installer reuse, then debug with cache-only input. Test execution takes 2.55 / 14.93 seconds respectively, excluding compilation; these are whole regression times, not app latency. |
-| Windows x64, release runtime DLLs | Run `38072112454` still fails before the harness. PE diagnostics expose a Common Controls v6 import without the normal app manifest in the library test; explicit embedding correction below awaits fresh Windows CI. |
-| macOS Intel / Apple Silicon, prepared shared libraries | Both hosts pass FP32/INT8 inference in run `38066316034`. |
+| Linux x64, existing shared ORT | Both FP32/INT8 formats pass in run `38075038695`, debug test, 45.37 seconds. Earlier local release/debug checks also pass. |
+| Windows x64, release runtime DLLs | Both FP32/INT8 formats pass in run `38075038695`, release test, 11.93 seconds. The Common Controls manifest fix clears the pre-harness loader failure. |
+| macOS Intel / Apple Silicon, prepared shared libraries | Both FP32/INT8 formats pass on both hosts in run `38075038695`, release tests, 11.20 / 12.08 seconds respectively. |
 | Android arm64 / iOS simulator and device | Build/link evidence only. No mobile execution harness is added; emulator/simulator/device initialization and inference remain open. |
+
+Times above cover the complete regression, including model installation/cache
+verification, activation and lifecycle checks; they exclude compilation and are
+not query latency, app responsiveness or comparable cross-platform benchmarks.
 
 The reused regression validates activation/warm-up, finite normalized
 384-dimensional English query/passage and Arabic query vectors, repeated-input
@@ -100,13 +104,12 @@ cold-download result.
 
 The focused provider regressions also pass: **10 tests, 3 ignored**. Workflow
 YAML/guard/cache/path assertions, Bash syntax, previous platform-helper command
-assertions, Rust formatting and diff checks pass. Windows PowerShell
-execution and foreign-host runtime checks require the manual CI run above.
+assertions, Rust formatting and diff checks passed before the manual run.
+Desktop execution results are verified in the acceptance review below.
 
-**Next:** inspect that run's exact per-format initialization/inference output,
-especially INT8 portability on Intel/Apple Silicon. Then prepare actual mobile
-runtime/device checks and retain resource/quality acceptance gates. Consolidated
-Stage 7 UI smoke remains explicitly deferred. Build or vector checks alone do
+**Next:** desktop inference is now verified in the acceptance review below.
+Prepare actual mobile runtime/device checks and retain resource/quality
+acceptance gates. Consolidated Stage 7 UI smoke remains explicitly deferred. Build or vector checks alone do
 not justify Stage 8 optimization or provider release acceptance.
 
 ### First runtime run — Windows loader correction
@@ -253,6 +256,60 @@ retained without claiming a fresh pass. Mobile jobs are skipped in desktop scope
 both FP32/INT8 initialization/inference/lifecycle checks. A rerun of the old SHA
 cannot test this fix. Keep interactive smoke deferred and the mobile runtime,
 resource/reference-device, quality and original native-stability gates open.
+
+### Desktop provider runtime acceptance verified — 2026-10-10
+
+**The Windows pre-harness loader failure is closed on the tested CI runner.**
+[Run 38075038695](https://github.com/muhannadnouri/papercut.io/actions/runs/38075038695)
+is a successful first-attempt manual desktop run on
+**`982e3f91b102190751a3dd67c579d6069e9deb7a`**, matching both local HEAD and the
+pushed `feature/search-v2` ref at review time. The change-detection log confirms
+`validation_scope=desktop`; all four native inference logs confirm the explicit
+model-installation flag and exact ignored test execution.
+
+| Runtime check | Verified result, whole test duration |
+| --- | --- |
+| [Windows x64](https://github.com/muhannadnouri/papercut.io/actions/runs/38075038695/job/114281810262), release | Harness starts; FP32 and INT8 activation, inference and lifecycle complete; one test passes, 11.93 seconds. |
+| [Linux x64](https://github.com/muhannadnouri/papercut.io/actions/runs/38075038695/job/114280156701), debug | Both formats complete; one explicit test passes, 45.37 seconds. |
+| [macOS Intel](https://github.com/muhannadnouri/papercut.io/actions/runs/38075038695/job/114281810369), release | Both formats complete; one test passes, 11.20 seconds. |
+| [macOS Apple Silicon](https://github.com/muhannadnouri/papercut.io/actions/runs/38075038695/job/114281810245), release | Both formats complete; one test passes, 12.08 seconds. |
+
+Each log records one cycle per format, activation readiness, completed inference
+controls, disable and lifecycle completion. The bound test source checks finite
+normalized 384-dimensional outputs, English query/passage and Arabic query input,
+repeat-input equality, distinct-input vectors, input limits, active-model removal/
+switch protection, failed activation cleanup and cancelled INT8 publication.
+Linux additionally asserts a single mapped ORT image. This is a bounded provider
+regression using MockRuntime, not a full app search/index or audio test.
+
+The manifest correction is now validated by actual Windows build and test
+execution. Ordinary Windows MSI/NSIS packaging and the subsequent provider app
+build also pass; failure-only diagnostics are correctly skipped. No ORT upgrade,
+libtashkeel fork or additional loader change is required for this incident.
+The earlier native crash and measured allocator retention remain separate open
+issues.
+
+All seven executed jobs succeed; Android, iOS and SILMA packaging are correctly
+skipped for desktop scope. Shared checks pass **168 frontend tests in 47 files**,
+**161 default Rust tests (5 ignored)** and **216 provider-feature Rust tests
+(10 ignored)**; the asset-dependent provider test is then explicitly exercised
+as above. Lint, dependency-audit steps, frontend build, download-monitor and SILMA
+self-test steps succeed. Passing audits retain existing informational warnings;
+this review does not claim a warning-free dependency tree. Normal desktop
+packaging, Linux media verification, both macOS runtime-bundle checks and normal
+artifact uploads pass. Uploaded packages still omit the embedding feature.
+No artifacts were downloaded, installed or launched during this review.
+
+**Next:** prepare explicit provider initialization/inference execution on an
+Android arm64 emulator and iOS arm64 simulator with the prepared platform
+runtimes and verified assets. Keep model downloads confined to opt-in validation
+and use disposable data. Simulator/emulator results must be followed by physical
+mobile/reference-device memory, foreground responsiveness and lifecycle checks;
+they cannot establish those costs. Preserve the Stage 7 quality and source/
+filter/quote/navigation gates. No Stage 8 optimization or extra model sweep is
+justified by this pass. Consolidated interactive search/index/fallback/EPUB/RTL/
+audio smoke remains user-deferred; remind at final acceptance. A documentation-
+only commit does not require another desktop inference run.
 
 ## Stage 7 — cross-platform provider build checks — 2026-10-09
 

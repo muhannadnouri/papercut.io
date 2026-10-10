@@ -26,9 +26,10 @@ binds successful full CI run 38002904236 to pushed source `022ea95`, which inclu
 the integrated Stage 7 candidate. The earlier SHA gap is resolved. Normal
 frontend/native checks and desktop/Android/iOS builds pass; these configurations
 omit embedding features. The all-features dependency audit is not provider
-runtime coverage. Prior local Linux provider checks remain separate evidence;
-provider-enabled runtime/device validation, resource/quality gates and the
-explicitly deferred interactive smoke remain open.
+runtime coverage. Prior local Linux provider checks remain separate evidence.
+Desktop provider initialization/inference is now verified in the follow-up
+below; mobile execution, resource/quality gates and explicitly deferred
+interactive smoke remain open.
 
 The [provider CI follow-up](search-v2-progress.md#stage-7--opt-in-provider-ci-checks--2026-10-09)
 now adds a locked Linux non-test library build and regression suite with
@@ -51,22 +52,27 @@ Silicon. The test uses each host's prepared runtime libraries, isolated temporar
 assets and the production verified installer. Both formats require about 594 MiB
 on a cold cache; an intact cache is verified without fetching. Ordinary CI still
 skips this test and downloads no embedding weights. Local Linux FP32/INT8 debug
-and release runs pass. Run `38066316034` passes Linux and both macOS architectures.
-Windows still fails before the harness starts with `STATUS_ENTRYPOINT_NOT_FOUND`
-in diagnostic run `38072112454`. Its actual test imports the dialog function
-`TaskDialogIndirect` (Common Controls v6), while Tauri's default resource manifest
-reaches app binaries only. ORT/Sherpa DLL hashes match the official archive and
-required native exports exist; staging alone did not fix the failure.
-The [manifest correction](search-v2-progress.md#windows-pe-diagnosis--common-controls-manifest-correction)
-uses Tauri's public build API and explicit Windows/MSVC linker embedding so
-library tests also select v6. The manifest matches Tauri's default; other targets,
-runtime versions and provider opt-in behavior stay unchanged. Local Cargo/PE
-link assertions and 10 focused regressions pass, but Windows startup/inference
-remains unaccepted until a fresh pushed-source desktop run with
-`provider_inference=true` executes both formats.
-Mobile builds remain
-compile/link evidence without a device inference harness. No provider artifact
-or app launch is added by this pass.
+and release runs pass. The
+[desktop runtime acceptance review](search-v2-progress.md#desktop-provider-runtime-acceptance-verified--2026-10-10)
+verifies successful run `38075038695` on pushed `982e3f9`: Linux, Windows x64,
+macOS Intel and Apple Silicon each complete FP32/INT8 activation, inference,
+disable and failure/cancellation checks. Windows now reaches the harness after
+explicit Common Controls v6 manifest embedding; the repeated
+`STATUS_ENTRYPOINT_NOT_FOUND` incident is closed on the tested runner.
+The correction uses Tauri's default manifest and public build API, with no
+runtime/dependency upgrade or upstream fork. Normal Windows packaging also passes.
+The earlier native crash and allocator-retention concern remain separate gates.
+
+The test executes one cycle per format and validates normalized finite vectors,
+English/Arabic inputs and input limits using MockRuntime; it does not establish
+semantic relevance, integrated app search/indexing or audio behavior. Whole-test
+times are 45.37 seconds Linux/debug, 11.93 Windows/release, 11.20 Intel/release
+and 12.08 Apple Silicon/release, including asset installation/verification and
+lifecycle, excluding compilation. These are not app latency benchmarks.
+Mobile remains build/link evidence without execution. The next pass should add
+explicit Android emulator/iOS simulator initialization and inference checks,
+then retain physical-device resource/lifecycle and quality acceptance. Normal
+packages still omit the provider, and interactive smoke stays deferred.
 
 The [cross-platform follow-up](search-v2-progress.md#stage-7--cross-platform-provider-build-checks--2026-10-09)
 adds provider app-build checks to the existing Windows, macOS Intel/Apple Silicon,

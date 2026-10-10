@@ -47,16 +47,17 @@ Windows/macOS native checks. After pushing, CI can run them with
 to false and explicitly permits pinned test-model downloads into a temporary
 cache. These checks do not launch the WebView, establish mobile inference or
 replace the deferred lifecycle/results/reader/RTL/responsiveness cases below.
-No interactive case is marked passed by this pass. Run `38066316034` passes
-Linux and Apple Silicon model inference; Windows fails before test startup.
-The latest Windows diagnostic run `38072112454` still fails before the harness,
-but identifies a missing Common Controls v6 manifest in the library-test build.
-The [explicit embedding correction](search-v2-progress.md#windows-pe-diagnosis--common-controls-manifest-correction)
-needs a fresh pushed-source desktop CI run with `provider_inference=true`.
-Windows inference remains unaccepted; this correction requires no new manual
-smoke case. Keep the existing Stage 7 interactive checks deferred.
-Neither its filesystem regression nor the other hosts' native checks complete
-any deferred interactive case.
+No interactive case is marked passed by this pass. The
+[verified desktop inference run](search-v2-progress.md#desktop-provider-runtime-acceptance-verified--2026-10-10)
+`38075038695` on `982e3f9` passes FP32/INT8 provider activation, inference and
+bounded lifecycle checks on Linux, Windows and both macOS architectures.
+Explicit manifest embedding resolves Windows test startup; normal packaging also
+passes. These MockRuntime checks do not exercise the WebView or the integrated
+search/index/reader/audio flows below. All existing Stage 7 interactive cases
+remain deferred at the user's request. No additional manual smoke case is needed
+for the manifest correction. Next automated acceptance work is mobile provider
+execution; emulator/simulator checks also cannot replace physical-device resource
+or interactive acceptance. Remind the user at the consolidated final smoke pass.
 
 ## Isolate the library first
 
