@@ -100,8 +100,14 @@ native regression for each model format. Actual passage tokenization/encoding,
 checkpoint cancellation/resume, unchanged-source reuse, scoped/quoted read-only
 retrieval, source evidence, query cancellation and disable are checked alongside
 unchanged production lexical results when the semantic path is unavailable.
-Both formats pass locally on Linux; execution of these new assertions on mobile
-targets is pending a fresh explicit run. Run `38090360569` predates this coverage.
+Both formats now pass in [run 38094061234](https://github.com/muhannadnouri/papercut.io/actions/runs/38094061234)
+on `f42af57`: Android API 35/x86_64 release/shared (**18.42 seconds**), iOS arm64
+simulator release/linked (**28.39 seconds**) and Linux debug/shared (**46.67
+seconds**). Both index/query and lifecycle markers are present, the exact native
+test passes, and mobile runners exit normally with successful owned cleanup.
+These are whole-test durations, not query latency or platform comparisons.
+Run `38090360569` predates this index/query coverage. See the
+[bounded acceptance review](search-v2-progress.md#mobile-indexingquery-acceptance-verified--2026-10-10).
 The mobile runner additionally requires `index/query checks complete: Float32`
 and `index/query checks complete: DynamicInt8`; temporary fixtures live beneath
 its owned cleanup directory. No CI job, input, build variant or script is added.

@@ -94,8 +94,45 @@ formats (**one passed, 2.56 seconds**, excluding compilation), **12 semantic tes
 with one scale test ignored** in each default/provider configuration, and **six
 mobile-runner self-checks**. Workflow parsing, existing shell syntax/change
 detection and diff checks pass. The workflow itself is unchanged. This host has
-no Android emulator/NDK or Xcode; **target execution of the new assertions is
-pending**. Run `38090360569` validates the earlier provider lifecycle only.
+no Android emulator/NDK or Xcode; target execution was pending at implementation
+time and is now verified below. Run `38090360569` validates the earlier provider
+lifecycle only.
+
+### Mobile indexing/query acceptance verified — 2026-10-10
+
+[Run 38094061234](https://github.com/muhannadnouri/papercut.io/actions/runs/38094061234)
+is a successful first-attempt manual **mobile** run on
+**`f42af57c76fc7bbf82ae183b33cfd55bc776d247`**. Both mobile checkout logs bind
+that exact source. All five executed jobs pass: change detection, shared checks,
+security audit, Android and iOS. Desktop and SILMA packaging are skipped; this is
+not a new full-platform run.
+
+| Runtime and job | Verified result of the extended native test |
+| --- | --- |
+| [Android API 35 / x86_64 emulator](https://github.com/muhannadnouri/papercut.io/actions/runs/38094061234/job/114337900314) | Release shared runtime: both FP32/INT8 index/query and lifecycle markers; **one passed, 18.42 seconds**, normal exit and successful runner cleanup/emulator termination. No destroyed-mutex/exit-134 abort. |
+| [iOS arm64 simulator](https://github.com/muhannadnouri/papercut.io/actions/runs/38094061234/job/114337900263) | Release linked runtime: both formats complete index/query and lifecycle checks; **one passed, 28.39 seconds**, normal exit and successful owned simulator/fixture cleanup. |
+| [Linux x64 shared checks](https://github.com/muhannadnouri/papercut.io/actions/runs/38094061234/job/114336224669) | Debug shared runtime: the same extended test passes both formats, **one passed, 46.67 seconds**. |
+
+These completion markers follow the indexing/query assertions listed above;
+they are not merely activation markers. Runner success also requires a zero
+native exit and completed cleanup. Whole-test times include verification,
+inference, indexing/query and lifecycle work; they are not per-query benchmarks
+or comparative platform performance measurements.
+
+Shared checks also pass **168 frontend tests in 47 files**, **six runner checks**,
+**161 default Rust tests (5 ignored)** and **216 provider Rust tests (10 ignored)**,
+plus lint, dependency audits and frontend build. Normal/provider Android arm64
+APK builds and iOS simulator archives/unsigned device links pass. The separate
+cached IPC and scale tests remain ignored; they were not exercised on mobile.
+
+**Decision:** close the bounded backend indexing/query gate on these emulator/
+simulator runtimes, including unchanged lexical availability after semantic
+failure or opt-out. No code fix, additional CI job or model tuning is justified
+by this result. This does not validate mobile IPC/React fallback, UI navigation,
+representative relevance, Android arm64/physical devices, minimum supported OS,
+device resource costs or long-running native stability. Interactive smoke stays
+explicitly deferred, and the earlier unexplained native-crash/allocator limits
+remain open.
 
 ### CI maintenance policy
 
@@ -110,12 +147,14 @@ merge, review the workflow for redundant build/setup steps; historical scale/mod
 experiments should remain explicit developer checks rather than more mandatory
 jobs. Additional coverage should extend existing tests before adding orchestration.
 
-**Next:** push this commit and run the existing manual workflow with
-`validation_scope=mobile` and `provider_inference=true`. Review both target logs
-for `index/query checks complete: Float32` and `index/query checks complete:
-DynamicInt8`, the exact passing test, normal exit and cleanup. Keep interactive
-smoke deferred for the consolidated final pass. Android arm64/physical-device,
-minimum-OS, resource/stability and representative-quality gates remain open.
+**Next:** review the branch's implementation/removal boundaries, CI redundancy and
+release packaging against the original plan and the approved default-off,
+separate-conceptual-results design. Normal packages still omit the provider;
+passing feature builds does not itself make the user toggle available in shipped
+packages. Preserve the existing explicit runtime checks rather than adding more
+CI layers. Keep interactive smoke deferred for the consolidated final pass.
+Physical-device/resource and representative-quality evidence still precede
+release acceptance; this run is not a merge or release approval.
 
 ## Stage 7 — mobile provider inference harness — 2026-10-10
 

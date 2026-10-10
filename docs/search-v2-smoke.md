@@ -72,8 +72,11 @@ See the [acceptance review](search-v2-progress.md#mobile-provider-inference-acce
 The [native index/query extension](search-v2-progress.md#stage-7--native-indexingquery-checks-without-new-ci-jobs--2026-10-10)
 now covers scoped/quoted retrieval, checkpoint cancellation/resume, query
 cancellation/disable and unchanged lexical availability in the same existing
-provider test. Both model formats pass locally on Linux; new Android/iOS target
-execution remains pending. These backend checks do not verify the React fallback
+provider test. [Run 38094061234](https://github.com/muhannadnouri/papercut.io/actions/runs/38094061234)
+on `f42af57` now passes the extended test for both formats on Android API 35/x86_64,
+the iOS arm64 simulator and Linux, with normal mobile process exit and cleanup.
+The [acceptance review](search-v2-progress.md#mobile-indexingquery-acceptance-verified--2026-10-10)
+records the exact source and limits. These backend checks do not verify the React fallback
 banner, launch the WebView or replace Android arm64/physical-device resource and
 app acceptance.
 All interactive cases below remain deferred; no new checkbox is marked passed.
