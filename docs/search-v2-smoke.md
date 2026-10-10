@@ -63,13 +63,15 @@ The [mobile inference harness](search-v2-progress.md#stage-7--mobile-provider-in
 is now ready for explicit CI: push, then dispatch `validation_scope=mobile` and
 `provider_inference=true`. It runs the native FP32/INT8 provider regression on an
 Android x86_64/API 35 emulator and an iOS arm64 simulator with disposable test
-state. [Run 38082869212](https://github.com/muhannadnouri/papercut.io/actions/runs/38082869212)
-on `0070679` repeats the iOS simulator pass. Android compilation and both model
-checks pass, then native shutdown aborts with exit 134; this is not acceptance.
-The Android environment-lifetime guard and crash diagnostics now need fresh CI.
-See the [result and limits](search-v2-progress.md#android-inference-completes-but-native-exit-aborts--2026-10-10).
-These checks do not launch the WebView or replace Android arm64/physical-device
-resource and app acceptance.
+state. [Run 38090360569](https://github.com/muhannadnouri/papercut.io/actions/runs/38090360569)
+on `955fe5b` verifies both model formats, normal process exit and owned cleanup
+on Android API 35/x86_64 and the iOS arm64 simulator. The previous Android
+post-test abort does not recur with the environment-lifetime guard. This closes
+the bounded provider check; the exact old teardown call chain is unconfirmed.
+See the [acceptance review](search-v2-progress.md#mobile-provider-inference-acceptance-review--2026-10-10).
+Next automated coverage should exercise mobile indexing/query/filter/disable
+behavior. Native provider checks do not launch the WebView or replace Android
+arm64/physical-device resource and app acceptance.
 All interactive cases below remain deferred; no new checkbox is marked passed.
 
 ## Isolate the library first

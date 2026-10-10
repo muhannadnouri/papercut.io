@@ -69,7 +69,7 @@ semantic relevance, integrated app search/indexing or audio behavior. Whole-test
 times are 45.37 seconds Linux/debug, 11.93 Windows/release, 11.20 Intel/release
 and 12.08 Apple Silicon/release, including asset installation/verification and
 lifecycle, excluding compilation. These are not app latency benchmarks.
-Android clean-exit acceptance remains pending; iOS simulator execution is verified. The
+Bounded Android emulator and iOS simulator provider inference now pass. The
 [mobile inference harness](search-v2-progress.md#stage-7--mobile-provider-inference-harness--2026-10-10)
 now adds manual Android **x86_64/API 35 emulator** and iOS **arm64 simulator**
 checks. After pushing, dispatch `validation_scope=mobile` with
@@ -79,21 +79,24 @@ verify them again and execute the same exact ignored library regression; target
 downloads are disabled. The Android test uses the prepared x86_64 shared runtime;
 iOS uses the prepared simulator static archives and linked provider feature.
 The runner rejects partial-format or zero-test success and cleans only its owned
-emulator directory/simulator. [Run 38082869212](https://github.com/muhannadnouri/papercut.io/actions/runs/38082869212)
-on `0070679` verifies Android target compilation and both model-format assertions
-(23.45 seconds), but its process then aborts on a destroyed mutex at exit with
-status 134. iOS repeats both formats and exits normally (26.86 seconds). These
+emulator directory/simulator. [Run 38090360569](https://github.com/muhannadnouri/papercut.io/actions/runs/38090360569)
+on `955fe5b` passes both formats on Android API 35/x86_64 (21.06 seconds) and
+iOS arm64 simulator (16.26 seconds), with normal process exit and owned cleanup.
+The Linux shared-check job also repeats both formats (44.64 seconds). These
 whole-test times exclude compilation/boot and are not query benchmarks.
 
-The Android-only initializer now holds one shared ORT environment reference for
-the process lifetime, avoiding rc.13's late global-environment destruction without
-retaining model sessions. It also applies to Arabic preprocessing at first native
-use. Dependencies and upstream source remain unchanged. Environment teardown is
-a source-supported hypothesis; no Android backtrace yet confirms the call chain.
-The runner now captures the crash buffer on failure and still rejects nonzero
-exit after passing assertions. Push and start fresh mobile inference CI to
-validate the guard. See the
-[result and limits](search-v2-progress.md#android-inference-completes-but-native-exit-aborts--2026-10-10).
+The Android-only initializer holds one shared ORT environment reference for the
+process lifetime without retaining model sessions. It also applies to Arabic
+preprocessing at first native use. Dependencies and upstream source remain
+unchanged. The prior post-test destroyed-mutex abort does not recur with the
+guard; its exact call chain remains unconfirmed without a native backtrace.
+Retain the guard until a compatible upstream teardown fix is adopted and
+validated. The runner captures the crash buffer on failure and continues to
+reject nonzero exit after passing assertions. See the
+[acceptance review and limits](search-v2-progress.md#mobile-provider-inference-acceptance-review--2026-10-10).
+Next extend mobile native checks to indexing/query behavior; the passing provider
+regression does not execute the integrated search/index or Linux-only cached IPC
+checks. No additional runtime patch or model sweep is required by this result.
 Android arm64 execution, minimum-OS coverage, physical-device
 resource/lifecycle and quality acceptance remain open. Normal packages still
 omit the provider, and interactive smoke stays deferred. No new npm command is

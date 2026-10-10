@@ -45,7 +45,7 @@ machine. Other device/provider acceptance and semantic quality remain open.
 | Embedding baseline | Cached FP32/INT8 providers, anchored passages, incremental SQLite indexing, read-only queries and document-level fusion remain experimental. The standalone report now includes an evidence-preserving semantic-first response alongside the unchanged semantic/RRF controls. The comparison accepts verified Small/Base metadata and dimension-safe 384/768-vector indexes; the app provider/model setup still supports only the retained Small formats. Native primary evidence and separate conceptual context are preserved. Semantic ordering does not enforce unquoted names/dates and must not redefine All words. |
 | Representative quality | The [public human-label comparison](#stage-6--public-human-label-comparison-2026-10-08) supports same-language conceptual passage ranking. The [wider-pool check](#stage-6--frozen-wider-pool-check-2026-10-08) and [fresh-query verification](#stage-6--fresh-query-fusion-verification-2026-10-08) confirm Broader fusion can replace positive first results with judged negatives and reduce known-positive recall. Keep semantic-only ordering as the conceptual control; the fresh English All words result cautions against a universal semantic-first policy. Base's mixed gain and higher cost do not establish an overall acceptance win. Prior cross-language/entity/date and missing-answer-span failures remain. Public passage labels do not establish private-book, displayed-answer or full-library quality. The original independent packet remains unjudged; product acceptance remains open. |
 | Cached reranker/context augmentation | Rejected: a cross-language gain introduces a same-language date regression; combined-context and explicit-exclusion controls do not justify a repair. Its live CLI/module are removed. |
-| Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the shared-runtime check reuses the actual app adapter with FastEmbed/sherpa. Provider-enabled Windows/macOS/Android builds and iOS simulator archive/device linking now pass CI, as recorded below. Linked initialization is runtime-tested on Linux; mobile linking is not initialization/inference evidence. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. Desktop FP32/INT8 initialization and the bounded provider lifecycle now pass on Linux, Windows and both macOS architectures in the verified run below. Mobile runtime/device checks, weak reference hardware, responsiveness and app-level lifecycle/fallback validation remain open. |
+| Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the shared-runtime check reuses the actual app adapter with FastEmbed/sherpa. Provider-enabled Windows/macOS/Android builds and iOS simulator archive/device linking now pass CI, as recorded below. Linked initialization is runtime-tested on Linux and the iOS arm64 simulator; Android x86_64 shared-runtime FP32/INT8 inference and clean exit now pass the bounded mobile review below. Mobile app linking remains separate from inference evidence. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. Desktop FP32/INT8 initialization and the bounded provider lifecycle now pass on Linux, Windows and both macOS architectures in the verified run below. Android arm64/physical-device execution, weak reference hardware, responsiveness and app-level lifecycle/fallback validation remain open. |
 | Production optional hybrid | Stage 7 development is explicitly authorized with a default-off toggle and lexical fallback only within the enabled semantic path. App indexing, saved opt-in/lifecycle controls, native retrieval and the separate React conceptual-results/fallback path are implemented below. Functional settings no longer require Developer mode. Quality, resource and platform limits remain release gates. |
 
 **Current work is acceptance of the integrated opt-in path.** Native retrieval,
@@ -76,8 +76,8 @@ Normal APK uploads still precede the provider checks and omit embedding support.
 
 | Target | Added execution check | Acceptance status |
 | --- | --- | --- |
-| Android API 35, x86_64 emulator | Release library test with `native-tts-shared,experimental-search-embeddings`, prepared x86_64 sherpa/ORT shared libraries, KVM and 4 GiB emulator RAM | Run `38079859346` stops in `ring` compilation because the NDK archiver was not configured. Corrected below; inference remains pending. Existing arm64 APK builds remain separate evidence. |
-| iOS arm64 simulator on the macOS runner | Release library test with `native-tts-ios,experimental-search-embeddings-linked`, prepared simulator static archives, simulator SDK and an ad-hoc signed executable copy | Both FP32/INT8 formats pass in run `38079859346` on `55d4fe0`, whole native test 11.01 seconds. Physical-device acceptance remains open. |
+| Android API 35, x86_64 emulator | Release library test with `native-tts-shared,experimental-search-embeddings`, prepared x86_64 sherpa/ORT shared libraries, KVM and 4 GiB emulator RAM | Both FP32/INT8 formats pass and exit normally in run `38090360569` on `955fe5b`, whole native test 21.06 seconds. Existing arm64 APK builds remain separate evidence. |
+| iOS arm64 simulator on the macOS runner | Release library test with `native-tts-ios,experimental-search-embeddings-linked`, prepared simulator static archives, simulator SDK and an ad-hoc signed executable copy | Both FP32/INT8 formats pass again in run `38090360569` on `955fe5b`, whole native test 16.26 seconds. Physical-device acceptance remains open. |
 
 The earlier next-step wording proposed an Android **arm64** emulator. The current
 Linux runner instead supports a practical accelerated **x86_64** check. This does
@@ -101,13 +101,13 @@ simulator. Staging, inference and cleanup commands have host timeouts; Android
 also bounds the remote native child to ten minutes. Native loader/test output
 remains in the job log. Cleanup runs after staging, signing and inference failures.
 
-Local validation passes **five runner self-checks**, including real subprocess
+Initial local validation passed **five runner self-checks**, including real subprocess
 failure/timeout propagation, malformed/ambiguous build logs, missing format/test
 completion, wrong Android ABI, simulator selection, isolated settings and cleanup
 after failures. Workflow parsing, actual Bash syntax/change-detection checks and
 diff checks pass. The same runner self-checks run in ordinary shared CI without
 assets or emulators. This Linux host has no installed emulator/NDK or Xcode;
-**no Android/iOS target inference pass is claimed yet**.
+No target inference pass was claimed before the CI reviews below.
 
 **Next:** push and dispatch the manual mobile inference run above, then review
 both target logs against this commit. Compilation/link success alone is not
@@ -160,6 +160,56 @@ exercise this fix. Review Android compilation, both-format inference and cleanup
 retain the verified iOS result while checking for regressions. Android arm64 and
 physical-device memory/responsiveness/lifecycle, representative quality and
 native-stability gates remain open. Interactive smoke stays explicitly deferred.
+
+### Mobile provider inference acceptance review — 2026-10-10
+
+[Run 38090360569](https://github.com/muhannadnouri/papercut.io/actions/runs/38090360569)
+is a successful first-attempt manual **mobile** run on
+**`955fe5b2d08a945f99279c6ac4f9fa69bbd489e5`**. Both mobile checkout logs bind the
+result to the Android environment-lifetime correction. All five executed jobs
+succeed: change detection, shared checks, security audit, Android and iOS.
+Desktop packaging and SILMA runtime packaging are skipped for this scope; their
+previous results are separate evidence, not rerun here.
+
+| Target and job | Verified native result |
+| --- | --- |
+| [Android API 35 / x86_64 emulator](https://github.com/muhannadnouri/papercut.io/actions/runs/38090360569/job/114326912562) | Release shared-runtime test: both FP32/INT8 formats complete; **one passed, 21.06 seconds**, normal process exit and runner cleanup. The previous destroyed-mutex/exit-134 abort does not recur. |
+| [iOS arm64 simulator](https://github.com/muhannadnouri/papercut.io/actions/runs/38090360569/job/114326912526) | Release linked-runtime test: both formats complete; **one passed, 16.26 seconds**, normal process exit and owned simulator cleanup. |
+| Linux x64, shared checks | Explicit cached provider test repeats both formats and exits normally: **one passed, 44.64 seconds**. |
+
+Both mobile logs identify the exact ignored provider regression and record
+activation readiness, completed inference controls, disable and lifecycle
+completion for each format. The bound source checks finite normalized vectors,
+English/Arabic inputs, repeatability, distinct inputs, input limits, failed-load
+cleanup and cancelled INT8 publication. Targets use verified temporary assets
+with downloads disabled. Whole-test durations include verification and lifecycle;
+they are neither query benchmarks nor comparisons of platform performance.
+
+Normal/provider Android arm64 APK builds, iOS simulator archives and unsigned
+device links also succeed. These builds do not execute an Android arm64 or iOS
+physical-device provider. Shared checks pass **168 frontend tests in 47 files**,
+**six runner regressions**, **161 default Rust tests (5 ignored)** and
+**216 provider-feature Rust tests (10 ignored)**; the cached provider check is
+then explicitly exercised. Lint, dependency audits and frontend build succeed.
+The model-dependent index/IPC checks remain ignored in this CI invocation.
+
+**Decision:** close the bounded mobile provider initialization/inference/clean-exit
+gate for these tested runtimes. The Android guard is validated by this run, not
+by a captured teardown stack; the original call chain remains unconfirmed.
+Retain the guard until a compatible upstream fix is adopted and target-validated.
+This does not resolve the earlier unexplained Linux crash, prove long-running
+stability, or accept integrated app search, model quality or device resource costs.
+No additional runtime change or model comparison is justified by this pass.
+
+**Next recommended automated pass:** extend mobile native coverage to the
+semantic indexing/query path using disposable generic documents and existing
+index/retrieval modules. Check compatible incremental indexing, quote and document
+scope enforcement, cancellation/disable and fallback availability. The existing
+Linux-only cached IPC tests cannot be described as mobile acceptance. Keep
+Android arm64/physical-device execution, minimum-OS coverage, memory/CPU/thermal
+costs and foreground reader responsiveness open. Interactive search/index/reader/
+RTL/audio smoke remains explicitly deferred; remind the user for the consolidated
+final pass. No release or merge acceptance is declared.
 
 ### Android inference completes but native exit aborts — 2026-10-10
 
@@ -238,7 +288,7 @@ supplied cache. No download is added to PR, push or scheduled CI.
 | Linux x64, existing shared ORT | Both FP32/INT8 formats pass in run `38075038695`, debug test, 45.37 seconds. Earlier local release/debug checks also pass. |
 | Windows x64, release runtime DLLs | Both FP32/INT8 formats pass in run `38075038695`, release test, 11.93 seconds. The Common Controls manifest fix clears the pre-harness loader failure. |
 | macOS Intel / Apple Silicon, prepared shared libraries | Both FP32/INT8 formats pass on both hosts in run `38075038695`, release tests, 11.20 / 12.08 seconds respectively. |
-| Android / iOS | iOS arm64 simulator FP32/INT8 inference passes again in `38082869212`. Android x86_64 compilation and both-format assertions pass, then the native process aborts at exit; the environment-lifetime correction above awaits fresh CI. Android arm64 and physical-device acceptance remain open. |
+| Android / iOS | Android API 35/x86_64 and iOS arm64 simulator FP32/INT8 provider inference, clean process exit and cleanup pass in `38090360569` on `955fe5b`. Integrated indexing/query, Android arm64 and physical-device acceptance remain open. |
 
 Times above cover the complete regression, including model installation/cache
 verification, activation and lifecycle checks; they exclude compilation and are
