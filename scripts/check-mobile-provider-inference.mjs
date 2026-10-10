@@ -64,6 +64,14 @@ export function checkAndroid({ executable, models, runtimeLibs }, run = command)
       "timeout 600", shQuote(`${remote}/provider-test`), ...TEST_ARGS.map(shQuote),
     ].join(" ")], { timeout: 660_000, combined: true })
     assertInferenceCompleted(output)
+  } catch (error) {
+    // Capture native teardown stacks before cleanup/emulator shutdown; preserve the original failure.
+    try {
+      adb(["logcat", "-b", "crash", "-d", "-v", "threadtime"], { timeout: 10_000 })
+    } catch (diagnosticError) {
+      console.error(`Could not capture Android crash log: ${diagnosticError.message}`)
+    }
+    throw error
   } finally {
     adb(["shell", "rm", "-rf", remote])
   }

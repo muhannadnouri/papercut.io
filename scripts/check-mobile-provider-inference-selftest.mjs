@@ -43,6 +43,7 @@ test("native command wrapper preserves stderr markers and fails on exit errors a
   assert.equal(command(process.execPath, ["-e", "process.stderr.write('marker')"], { combined: true }), "marker")
   assert.equal(command(process.execPath, ["-e", "process.stderr.write('diagnostic')"]), "")
   assert.throws(() => command(process.execPath, ["-e", "process.exit(3)"]), /exited with 3/)
+  assert.throws(() => command(process.execPath, ["-e", `process.stdout.write(${JSON.stringify(completed)}); process.exit(134)`]), /exited with 134/)
   assert.throws(() => command(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { timeout: 100 }), { code: "ETIMEDOUT" })
 })
 
@@ -59,8 +60,8 @@ test("Cargo artifact selection and completion checks reject ambiguous builds and
   }
 })
 
-test("Android never targets a physical device and removes only owned data on success, staging failure or timeout", () => {
-  for (const failure of [null, "push", "inference"]) {
+test("Android preserves native failures, captures crash logs and removes only owned emulator data", () => {
+  for (const failure of [null, "push", "inference", "abort", "abort-diagnostics"]) {
     const calls = []
     const run = (program, args, options) => {
       assert.equal(program, "adb")
@@ -69,18 +70,26 @@ test("Android never targets a physical device and removes only owned data on suc
       calls.push({ args, options })
       if (args.includes("getprop")) return "x86_64\n"
       if (failure === "push" && args.includes("push")) throw new Error("staging failed")
+      if (args.includes("logcat") && failure === "abort-diagnostics") throw new Error("logcat failed")
       if (args[3]?.includes("timeout 600")) {
         if (failure === "inference") throw new Error("ETIMEDOUT")
+        if (failure?.startsWith("abort")) throw new Error("adb exited with 134")
         return completed
       }
       return ""
     }
     const check = () => checkAndroid({ executable: "/tmp/test' file", models: "/tmp/models", runtimeLibs: "/tmp/libs" }, run)
-    if (failure) assert.throws(check, /staging failed|ETIMEDOUT/)
+    if (failure) assert.throws(check, /staging failed|ETIMEDOUT|adb exited with 134/)
     else check()
     const remote = calls.find(({ args }) => args.includes("mkdir")).args.at(-1)
     assert.match(remote, /^\/data\/local\/tmp\/papercut-provider-[0-9a-f-]{36}$/)
     assert.deepEqual(calls.at(-1).args.slice(2), ["shell", "rm", "-rf", remote])
+    const diagnostics = calls.filter(({ args }) => args.includes("logcat"))
+    assert.equal(diagnostics.length, failure ? 1 : 0)
+    if (failure) {
+      assert.deepEqual(calls.at(-2).args.slice(2), ["logcat", "-b", "crash", "-d", "-v", "threadtime"])
+      assert.equal(diagnostics[0].options.timeout, 10_000)
+    }
     if (!failure) {
       const inference = calls.find(({ options }) => options?.timeout === 660_000)
       assert.ok(inference.args[3].includes("PAPERCUT_EMBEDDING_TEST_DOWNLOAD=0"))

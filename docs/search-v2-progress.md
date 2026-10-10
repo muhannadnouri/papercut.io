@@ -161,6 +161,54 @@ retain the verified iOS result while checking for regressions. Android arm64 and
 physical-device memory/responsiveness/lifecycle, representative quality and
 native-stability gates remain open. Interactive smoke stays explicitly deferred.
 
+### Android inference completes but native exit aborts — 2026-10-10
+
+[Run 38082869212](https://github.com/muhannadnouri/papercut.io/actions/runs/38082869212)
+checks out **`00706794964fd3366931348e74d3f361fd69152a`**. The Android archiver
+correction works: target compilation and emulator boot succeed. Both FP32/INT8
+activation, inference controls, disable and lifecycle markers complete; the
+exact test reports **one passed in 23.45 seconds**. The process then aborts with
+`FORTIFY: pthread_mutex_lock called on a destroyed mutex`, and `adb` returns 134.
+The runner correctly fails the job despite the passing assertions. Android
+provider acceptance remains open. The iOS simulator repeats both formats and
+exits successfully (**one passed, 26.86 seconds**); shared checks and security
+also pass. Whole-test durations include verification/lifecycle, not app latency.
+
+ORT rc.13's global environment exit hook is the leading suspect, not a proven
+stack diagnosis: the job has no native backtrace. Upstream documents a
+[CPU teardown failure](https://github.com/pykeio/ort/issues/614) and
+[environment-release ordering failures](https://github.com/pykeio/ort/issues/609),
+addressed by its newer manual-environment API. Those reports support the
+hypothesis; they do not establish this Android crash's exact call chain.
+
+The shared initializer now retains **one Android-only `Arc<Environment>`** for
+the process lifetime through the existing public API. This keeps rc.13's exit
+hook from releasing the last environment reference after native globals have
+been destroyed. Model sessions still unload on disable; the guard holds no model
+and is created only on first native use, including Arabic preprocessing. Other
+platforms retain their existing initialization. No dependency version, vendor
+source, runtime library or search default changes. This bounded workaround
+should be removed after an upstream teardown fix is adopted and target-validated.
+Android failure handling also captures the emulator's crash-buffer log before
+cleanup; diagnostic failure cannot turn the failed test into success.
+
+All **six runner self-checks** pass, including a successful-looking test summary
+followed by exit 134, bounded crash capture, failed diagnostics and owned cleanup.
+Workflow guards/Bash syntax/change detection and Rust formatting pass. The locked,
+offline Linux release provider suite passes **three tests**, with the asset-dependent
+native test ignored; this is not a target inference run. A temporary Linux probe
+compiles the actual Android-conditional initializer against pinned ORT and verifies exactly one additional environment owner, with repeated init
+adding none; the pre-change source fails that ownership assertion. This checks
+the public API/lifetime guard, **not Android execution or the crash's cause**.
+Fresh target CI is required to validate normal native exit with the guard.
+
+**Next:** push this correction and start a **new** manual CI run with
+`validation_scope=mobile` and `provider_inference=true`. Require both model
+formats, zero process exit and cleanup; inspect the captured native stack if it
+still aborts. Android arm64/physical-device costs, native stability, representative
+quality and app acceptance remain open. The earlier unexplained Linux crash is
+not resolved by this Android workaround. Interactive smoke stays deferred.
+
 ## Stage 7 — explicit provider runtime checks — 2026-10-10
 
 **Decision: reuse the ignored real-model provider regression for explicit desktop
@@ -190,7 +238,7 @@ supplied cache. No download is added to PR, push or scheduled CI.
 | Linux x64, existing shared ORT | Both FP32/INT8 formats pass in run `38075038695`, debug test, 45.37 seconds. Earlier local release/debug checks also pass. |
 | Windows x64, release runtime DLLs | Both FP32/INT8 formats pass in run `38075038695`, release test, 11.93 seconds. The Common Controls manifest fix clears the pre-harness loader failure. |
 | macOS Intel / Apple Silicon, prepared shared libraries | Both FP32/INT8 formats pass on both hosts in run `38075038695`, release tests, 11.20 / 12.08 seconds respectively. |
-| Android / iOS | iOS arm64 simulator FP32/INT8 inference now passes in `38079859346`; Android x86_64 test compilation needs the archiver correction above. Android arm64 and physical-device acceptance remain open. |
+| Android / iOS | iOS arm64 simulator FP32/INT8 inference passes again in `38082869212`. Android x86_64 compilation and both-format assertions pass, then the native process aborts at exit; the environment-lifetime correction above awaits fresh CI. Android arm64 and physical-device acceptance remain open. |
 
 Times above cover the complete regression, including model installation/cache
 verification, activation and lifecycle checks; they exclude compilation and are

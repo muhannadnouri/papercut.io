@@ -2,6 +2,7 @@
 
 use std::{panic::catch_unwind, sync::OnceLock};
 
+/// Initialize on first native use; all Rust consumers must share the same environment.
 pub(crate) fn initialize() -> Result<(), String> {
     static RESULT: OnceLock<Result<(), String>> = OnceLock::new();
     RESULT
@@ -26,6 +27,17 @@ pub(crate) fn initialize() -> Result<(), String> {
                     feature = "experimental-search-embeddings"
                 )))]
                 ort::init().commit();
+                #[cfg(target_os = "android")]
+                {
+                    // shortcut: rc.13's exit hook can release the environment after native globals;
+                    // remove this guard when an upstream teardown fix is adopted and validated.
+                    // Only the global environment survives; disabled model sessions still drop.
+                    static ENVIRONMENT: OnceLock<std::sync::Arc<ort::environment::Environment>> =
+                        OnceLock::new();
+                    let environment = ort::environment::Environment::current()
+                        .map_err(|error| format!("Failed to initialize ONNX Runtime: {error}"))?;
+                    ENVIRONMENT.get_or_init(|| environment);
+                }
                 Ok(())
             })
             .map_err(|_| {

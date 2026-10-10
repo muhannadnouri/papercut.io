@@ -69,7 +69,7 @@ semantic relevance, integrated app search/indexing or audio behavior. Whole-test
 times are 45.37 seconds Linux/debug, 11.93 Windows/release, 11.20 Intel/release
 and 12.08 Apple Silicon/release, including asset installation/verification and
 lifecycle, excluding compilation. These are not app latency benchmarks.
-Android inference remains pending; iOS simulator execution is now verified. The
+Android clean-exit acceptance remains pending; iOS simulator execution is verified. The
 [mobile inference harness](search-v2-progress.md#stage-7--mobile-provider-inference-harness--2026-10-10)
 now adds manual Android **x86_64/API 35 emulator** and iOS **arm64 simulator**
 checks. After pushing, dispatch `validation_scope=mobile` with
@@ -79,14 +79,21 @@ verify them again and execute the same exact ignored library regression; target
 downloads are disabled. The Android test uses the prepared x86_64 shared runtime;
 iOS uses the prepared simulator static archives and linked provider feature.
 The runner rejects partial-format or zero-test success and cleans only its owned
-emulator directory/simulator. [Run 38079859346](https://github.com/muhannadnouri/papercut.io/actions/runs/38079859346)
-on `55d4fe0` passes both iOS simulator formats and the native lifecycle regression
-(11.01 seconds for the test, excluding compilation/boot). Android APK builds pass,
-but its emulator-test compile fails in `ring` because `cc-rs` cannot find the
-legacy target-prefixed archiver. The compile step now explicitly selects NDK
-`llvm-ar`/`llvm-ranlib` with target-specific variables; a fresh mobile inference
-run is needed after pushing the fix. See the
-[result and correction](search-v2-progress.md#mobile-inference-first-ci-result-and-android-archiver-correction--2026-10-10).
+emulator directory/simulator. [Run 38082869212](https://github.com/muhannadnouri/papercut.io/actions/runs/38082869212)
+on `0070679` verifies Android target compilation and both model-format assertions
+(23.45 seconds), but its process then aborts on a destroyed mutex at exit with
+status 134. iOS repeats both formats and exits normally (26.86 seconds). These
+whole-test times exclude compilation/boot and are not query benchmarks.
+
+The Android-only initializer now holds one shared ORT environment reference for
+the process lifetime, avoiding rc.13's late global-environment destruction without
+retaining model sessions. It also applies to Arabic preprocessing at first native
+use. Dependencies and upstream source remain unchanged. Environment teardown is
+a source-supported hypothesis; no Android backtrace yet confirms the call chain.
+The runner now captures the crash buffer on failure and still rejects nonzero
+exit after passing assertions. Push and start fresh mobile inference CI to
+validate the guard. See the
+[result and limits](search-v2-progress.md#android-inference-completes-but-native-exit-aborts--2026-10-10).
 Android arm64 execution, minimum-OS coverage, physical-device
 resource/lifecycle and quality acceptance remain open. Normal packages still
 omit the provider, and interactive smoke stays deferred. No new npm command is
