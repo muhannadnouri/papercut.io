@@ -18,6 +18,10 @@ on:
           - mobile
           - silma-runtime
           - cheap
+      provider_inference:
+        description: "Run provider inference checks (downloads pinned test models)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -284,6 +288,26 @@ jobs:
             cargo test --manifest-path src-tauri/Cargo.toml --locked --lib \
             --features native-tts-shared,experimental-search-embeddings
 
+      - name: Cache explicit provider inference models
+        if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        uses: actions/cache@v5
+        with:
+          path: ${{ runner.temp }}/search-provider-models
+          key: ${{ runner.os }}-search-provider-models-${{ hashFiles('src-tauri/src/search_embeddings/cache.rs') }}
+
+      - name: Provider initialization and model inference (Linux)
+        if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        env:
+          PAPERCUT_EMBEDDING_TEST_MODELS: ${{ runner.temp }}/search-provider-models
+          PAPERCUT_EMBEDDING_TEST_DOWNLOAD: "1"
+        run: |
+          task_shared_dir="$PWD/src-tauri/tts/runtime/linux-x64-shared-libs"
+          LD_LIBRARY_PATH="$task_shared_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+            cargo test --manifest-path src-tauri/Cargo.toml --locked --lib \
+            --features native-tts-shared,experimental-search-embeddings \
+            search_embeddings::provider::tests::cached_provider_activation_switch_failure_and_unload \
+            -- --ignored --exact --nocapture
+
   build:
     needs: [changes, checks]
     if: needs.changes.outputs.desktop_packaging == 'true'
@@ -408,6 +432,38 @@ jobs:
       - name: Build opt-in search provider with native TTS (Windows/macOS)
         if: matrix.platform != 'linux'
         run: npm run tauri -- build --features "native-tts-shared,experimental-search-embeddings" --no-bundle
+
+      - name: Cache explicit provider inference models
+        if: matrix.platform != 'linux' && github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        uses: actions/cache@v5
+        with:
+          path: ${{ runner.temp }}/search-provider-models
+          key: ${{ runner.os }}-search-provider-models-${{ hashFiles('src-tauri/src/search_embeddings/cache.rs') }}
+
+      - name: Provider initialization and model inference (macOS)
+        if: matrix.platform == 'macos' && github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        env:
+          PAPERCUT_EMBEDDING_TEST_MODELS: ${{ runner.temp }}/search-provider-models
+          PAPERCUT_EMBEDDING_TEST_DOWNLOAD: "1"
+        run: |
+          task_shared_dir="$PWD/src-tauri/tts/runtime/macos-shared-libs"
+          DYLD_LIBRARY_PATH="$task_shared_dir${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" \
+            cargo test --manifest-path src-tauri/Cargo.toml --locked --release --lib \
+            --features native-tts-shared,experimental-search-embeddings \
+            search_embeddings::provider::tests::cached_provider_activation_switch_failure_and_unload \
+            -- --ignored --exact --nocapture
+
+      - name: Provider initialization and model inference (Windows)
+        if: matrix.platform == 'windows' && github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        env:
+          PAPERCUT_EMBEDDING_TEST_MODELS: ${{ runner.temp }}/search-provider-models
+          PAPERCUT_EMBEDDING_TEST_DOWNLOAD: "1"
+        run: |
+          $env:PATH = "$pwd/src-tauri/target/release;$env:PATH"
+          cargo test --manifest-path src-tauri/Cargo.toml --locked --release --lib `
+            --features "native-tts-shared,experimental-search-embeddings" `
+            search_embeddings::provider::tests::cached_provider_activation_switch_failure_and_unload `
+            -- --ignored --exact --nocapture
 
   build-android:
     needs: [changes, checks]

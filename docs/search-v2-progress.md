@@ -57,6 +57,58 @@ remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
 
+## Stage 7 — explicit provider runtime checks — 2026-10-10
+
+**Decision: reuse the ignored real-model provider regression for explicit desktop
+runtime validation, with model installation available only by manual opt-in.**
+This extends initialization/inference evidence beyond the successful build/link
+checks below; it does not change the model, runtime, search behavior or release
+package features.
+
+The existing workflow now accepts `provider_inference` (boolean, default `false`).
+After pushing, dispatch CI on `feature/search-v2` with
+`validation_scope=desktop` and `provider_inference=true`. This runs the native
+test on Linux, Windows x64 and both macOS architectures using the libraries
+already prepared by each platform build. Linux reuses the debug test build;
+Windows/macOS use release tests. Normal artifact uploads precede those latter
+checks, and still omit the provider. No new npm command is required.
+
+The test remains ignored in ordinary CI. Explicit inference jobs set
+`PAPERCUT_EMBEDDING_TEST_DOWNLOAD=1` and reuse the production pinned, size/SHA-256
+verified installer through a mock app handle. Assets live under the runner's
+temporary directory, cached by OS and asset-manifest hash, outside app data.
+Both retained formats total about **594 MiB** on a cold cache; intact caches are
+verified without fetching. Without the explicit flag, the test only reads a
+supplied cache. No download is added to PR, push or scheduled CI.
+
+| Host/runtime | Initialization and inference evidence |
+| --- | --- |
+| Linux x64, existing shared ORT | Local exact ignored test passes for both FP32/INT8: release with explicit installer reuse, then debug with cache-only input. Test execution takes 2.55 / 14.93 seconds respectively, excluding compilation; these are whole regression times, not app latency. |
+| Windows x64, release runtime DLLs | Manual CI test added; execution pending. |
+| macOS Intel / Apple Silicon, prepared shared libraries | Manual CI test added on both existing runners; execution pending. |
+| Android arm64 / iOS simulator and device | Build/link evidence only. No mobile execution harness is added; emulator/simulator/device initialization and inference remain open. |
+
+The reused regression validates activation/warm-up, finite normalized
+384-dimensional English query/passage and Arabic query vectors, repeated-input
+stability, disable/unload, failed activation cleanup and cancelled publication.
+A new assertion rejects reuse of one vector for different inputs. Linux also
+checks that exactly one ORT shared image is mapped. This does not measure
+same-language relevance, cross-language accuracy or immediate RSS recovery.
+The local installer-enabled run uses disposable copies of verified assets and
+makes no upstream transfer; it verifies warm-cache installer reuse, not a new
+cold-download result.
+
+The focused provider regressions also pass: **10 tests, 3 ignored**. Workflow
+YAML/guard/cache/path assertions, Bash syntax, previous platform-helper command
+assertions, Rust formatting and diff checks pass. Windows PowerShell
+execution and foreign-host runtime checks require the manual CI run above.
+
+**Next:** inspect that run's exact per-format initialization/inference output,
+especially INT8 portability on Intel/Apple Silicon. Then prepare actual mobile
+runtime/device checks and retain resource/quality acceptance gates. Consolidated
+Stage 7 UI smoke remains explicitly deferred. Build or vector checks alone do
+not justify Stage 8 optimization or provider release acceptance.
+
 ## Stage 7 — cross-platform provider build checks — 2026-10-09
 
 **Decision: extend the existing platform jobs with explicit provider-enabled app

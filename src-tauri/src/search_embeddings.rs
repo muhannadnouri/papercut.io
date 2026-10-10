@@ -727,6 +727,14 @@ mod provider {
                 .as_deref()
                 .is_none_or(|format| matches!(format, "float32" | "dynamic-int8")));
             let state = SearchEmbeddingState::default();
+            // Manual runtime CI may install pinned test assets; ordinary/cached runs never fetch.
+            let installer = (std::env::var("PAPERCUT_EMBEDDING_TEST_DOWNLOAD").as_deref()
+                == Ok("1"))
+            .then(|| {
+                tauri::test::mock_builder()
+                    .build(tauri::test::mock_context(tauri::test::noop_assets()))
+                    .unwrap()
+            });
             let mut baselines = Vec::new();
             for (cycle, (format, folder)) in (1..=cycles).flat_map(|cycle| {
                 [
@@ -739,6 +747,9 @@ mod provider {
                     continue;
                 }
                 let dir = Path::new(&root).join(folder);
+                if let Some(app) = &installer {
+                    state.download(app.handle(), &dir, format).unwrap();
+                }
                 eprintln!("lifecycle cycle: {cycle}/{cycles} {format:?}");
                 eprintln!("activation start: {format:?}");
                 let status = state.activate(&dir, format).unwrap();
@@ -783,11 +794,15 @@ mod provider {
                     if let Some((_, expected)) = baselines.iter().find(|(key, _)| *key == format) {
                         assert_eq!(&first, expected, "vector changed across provider reloads");
                     } else {
-                        baselines.push((format, first));
+                        baselines.push((format, first.clone()));
                     }
-                    loaded
-                        .encode("passage: Residents travel by electric bus.")
-                        .unwrap();
+                    assert_ne!(
+                        first,
+                        loaded
+                            .encode("passage: Residents travel by electric bus.")
+                            .unwrap(),
+                        "different inputs must not reuse one vector"
+                    );
                     loaded.encode("query: النقل العام في المدينة").unwrap();
                     assert!(loaded.encode("").is_err());
                     assert!(loaded.encode("public transport").is_err());

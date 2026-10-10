@@ -43,6 +43,18 @@ including compilation; these are not app search/inference timings.
 Cached-model inference and asset/scale checks remain explicit: ordinary CI does
 not download embedding weights or establish provider device/inference acceptance.
 
+The [explicit runtime follow-up](search-v2-progress.md#stage-7--explicit-provider-runtime-checks--2026-10-10)
+adds a default-off manual CI input, `provider_inference`. Dispatch
+`validation_scope=desktop` with `provider_inference=true` after pushing to run
+the existing real-model regression on Linux, Windows x64 and macOS Intel/Apple
+Silicon. The test uses each host's prepared runtime libraries, isolated temporary
+assets and the production verified installer. Both formats require about 594 MiB
+on a cold cache; an intact cache is verified without fetching. Ordinary CI still
+skips this test and downloads no embedding weights. Local Linux FP32/INT8 debug
+and release runs pass; Windows/macOS execution is pending. Mobile builds remain
+compile/link evidence without a device inference harness. No provider artifact
+or app launch is added by this pass.
+
 The [cross-platform follow-up](search-v2-progress.md#stage-7--cross-platform-provider-build-checks--2026-10-09)
 adds provider app-build checks to the existing Windows, macOS Intel/Apple Silicon,
 Android arm64 and iOS arm64 simulator/device jobs. [Full run 38009770905](https://github.com/muhannadnouri/papercut.io/actions/runs/38009770905)
@@ -552,14 +564,36 @@ SHERPA_ONNX_LIB_DIR="$SHARED_LIB_DIR" LD_LIBRARY_PATH="$SHARED_LIB_DIR" \
   --features native-tts-shared,experimental-search-embeddings --lib search_embeddings
 ```
 
-The real-model check is ignored by default and never downloads. Set
+The real-model check is ignored by default and its default invocation never
+downloads. Set
 `PAPERCUT_EMBEDDING_TEST_MODELS` to a test-only directory containing the five
 verified assets in each of `float32/` and `dynamic-int8/`, then explicitly run
 `cached_provider_activation_switch_failure_and_unload -- --ignored --nocapture`
 with the same Cargo options. Set optional test-only
 `PAPERCUT_EMBEDDING_TEST_FORMAT` to `float32` or `dynamic-int8` to isolate one
-format for measurement; invalid values fail. This test reads only that cache and uses in-memory
-state, not the installed library or app model directory.
+format for measurement; invalid values fail. This invocation reads only that
+cache and uses in-memory state, not the installed library or app model directory.
+
+For explicit runtime CI, set test-only `PAPERCUT_EMBEDDING_TEST_DOWNLOAD=1` as
+well. The existing installer then provisions missing FP32/INT8 snapshots beneath
+the supplied test root before activation, using pinned URLs, byte counts and
+SHA-256 checks. A mock app handle receives progress; no installed application
+data is accessed. Existing caches must pass verification and are never silently
+repaired. CI uses `${{ runner.temp }}/search-provider-models`, with an OS/manifest
+cache key. The exact test selector is:
+
+```text
+search_embeddings::provider::tests::cached_provider_activation_switch_failure_and_unload -- --ignored --exact --nocapture
+```
+
+Linux CI uses its already compiled debug library test with `LD_LIBRARY_PATH`
+pointing at `tts/runtime/linux-x64-shared-libs`. macOS uses release tests and
+`DYLD_LIBRARY_PATH` pointing at `tts/runtime/macos-shared-libs`; Windows uses
+release tests with `src-tauri/target/release` prepended to `PATH` for native DLLs.
+These are prepared packaging runtime inputs, not relocated installer execution.
+The regression also rejects identical vectors for distinct query/passage inputs;
+successful vectors establish inference, not retrieval relevance or INT8
+portability on platforms whose checks have not run yet.
 
 For repeated native loads in one process, set test-only
 `PAPERCUT_EMBEDDING_TEST_CYCLES=10` with the same command. The default remains one

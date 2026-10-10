@@ -40,6 +40,15 @@ They do not launch the apps or download embedding weights, and normal uploaded
 artifacts still omit the provider. Interactive smoke remains deferred; no case
 below is newly marked passed.
 
+The [explicit runtime follow-up](search-v2-progress.md#stage-7--explicit-provider-runtime-checks--2026-10-10)
+passes local Linux FP32/INT8 initialization/inference checks and adds manual
+Windows/macOS native checks. After pushing, CI can run them with
+`validation_scope=desktop` and `provider_inference=true`; the latter defaults
+to false and explicitly permits pinned test-model downloads into a temporary
+cache. These checks do not launch the WebView, establish mobile inference or
+replace the deferred lifecycle/results/reader/RTL/responsiveness cases below.
+No interactive case is marked passed by this pass.
+
 ## Isolate the library first
 
 A Git branch does not isolate application data. On Linux, close **all Papercut
