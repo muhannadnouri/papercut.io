@@ -51,15 +51,19 @@ Silicon. The test uses each host's prepared runtime libraries, isolated temporar
 assets and the production verified installer. Both formats require about 594 MiB
 on a cold cache; an intact cache is verified without fetching. Ordinary CI still
 skips this test and downloads no embedding weights. Local Linux FP32/INT8 debug
-and release runs pass. Run `38066316034` also passes Linux and Apple Silicon
-FP32/INT8 inference on both macOS architectures. Windows
-fails before the harness starts with `STATUS_ENTRYPOINT_NOT_FOUND`. The existing
-Sherpa helper now stages matching DLLs beside Cargo tests in `deps`, in addition
-to app/example directories, but rerun `38070213129` still fails with the same
-loader status. Staging is not sufficient to resolve it. A failure-only CI step
-now records the test executable/DLL imports, exports and hashes using installed
-Visual Studio tools; the offending export remains unidentified. Windows
-startup/inference is unaccepted until the underlying error is resolved.
+and release runs pass. Run `38066316034` passes Linux and both macOS architectures.
+Windows still fails before the harness starts with `STATUS_ENTRYPOINT_NOT_FOUND`
+in diagnostic run `38072112454`. Its actual test imports the dialog function
+`TaskDialogIndirect` (Common Controls v6), while Tauri's default resource manifest
+reaches app binaries only. ORT/Sherpa DLL hashes match the official archive and
+required native exports exist; staging alone did not fix the failure.
+The [manifest correction](search-v2-progress.md#windows-pe-diagnosis--common-controls-manifest-correction)
+uses Tauri's public build API and explicit Windows/MSVC linker embedding so
+library tests also select v6. The manifest matches Tauri's default; other targets,
+runtime versions and provider opt-in behavior stay unchanged. Local Cargo/PE
+link assertions and 10 focused regressions pass, but Windows startup/inference
+remains unaccepted until a fresh pushed-source desktop run with
+`provider_inference=true` executes both formats.
 Mobile builds remain
 compile/link evidence without a device inference harness. No provider artifact
 or app launch is added by this pass.

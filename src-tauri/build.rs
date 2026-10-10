@@ -21,7 +21,23 @@ fn main() {
         println!("cargo:rustc-link-arg-bin=app=-Wl,-rpath,@loader_path/../Resources");
     }
 
-    tauri_build::build()
+    let windows_msvc =
+        target_os == "windows" && std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc");
+    let mut attributes = tauri_build::Attributes::new();
+    if windows_msvc {
+        attributes = attributes
+            .windows_attributes(tauri_build::WindowsAttributes::new_without_app_manifest());
+    }
+    tauri_build::try_build(attributes).expect("Failed to build Tauri resources");
+
+    if windows_msvc {
+        // Tauri's resource manifest reaches app binaries only; library tests also import Common Controls v6.
+        let manifest = std::path::PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap())
+            .join("windows-app-manifest.xml");
+        println!("cargo:rerun-if-changed={}", manifest.display());
+        println!("cargo:rustc-link-arg=/MANIFEST:EMBED");
+        println!("cargo:rustc-link-arg=/MANIFESTINPUT:{}", manifest.display());
+    }
 }
 
 /// Pin the unchanged upstream asset before it is compiled into native builds.

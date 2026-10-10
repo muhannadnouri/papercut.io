@@ -49,9 +49,12 @@ cache. These checks do not launch the WebView, establish mobile inference or
 replace the deferred lifecycle/results/reader/RTL/responsiveness cases below.
 No interactive case is marked passed by this pass. Run `38066316034` passes
 Linux and Apple Silicon model inference; Windows fails before test startup.
-The [Windows staging rerun](search-v2-progress.md#windows-staging-rerun--diagnostics-required)
-still fails before the harness starts; failure-only import/export diagnostics
-now need a fresh pushed-source CI run. Windows inference remains unaccepted.
+The latest Windows diagnostic run `38072112454` still fails before the harness,
+but identifies a missing Common Controls v6 manifest in the library-test build.
+The [explicit embedding correction](search-v2-progress.md#windows-pe-diagnosis--common-controls-manifest-correction)
+needs a fresh pushed-source desktop CI run with `provider_inference=true`.
+Windows inference remains unaccepted; this correction requires no new manual
+smoke case. Keep the existing Stage 7 interactive checks deferred.
 Neither its filesystem regression nor the other hosts' native checks complete
 any deferred interactive case.
 

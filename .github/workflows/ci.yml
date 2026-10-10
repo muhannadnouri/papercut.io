@@ -134,6 +134,7 @@ jobs:
               src-tauri/Cargo.toml | \
               src-tauri/Cargo.lock | \
               src-tauri/build.rs | \
+              src-tauri/windows-app-manifest.xml | \
               src-tauri/tauri.conf.json | \
               src-tauri/plugins/* | \
               src-tauri/src/* | \

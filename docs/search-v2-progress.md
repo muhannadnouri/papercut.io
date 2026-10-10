@@ -84,7 +84,7 @@ supplied cache. No download is added to PR, push or scheduled CI.
 | Host/runtime | Initialization and inference evidence |
 | --- | --- |
 | Linux x64, existing shared ORT | Local exact ignored test passes for both FP32/INT8: release with explicit installer reuse, then debug with cache-only input. Test execution takes 2.55 / 14.93 seconds respectively, excluding compilation; these are whole regression times, not app latency. |
-| Windows x64, release runtime DLLs | Startup failure persists after test-directory DLL staging in run `38070213129`; import/export diagnostics added below, root cause unresolved. |
+| Windows x64, release runtime DLLs | Run `38072112454` still fails before the harness. PE diagnostics expose a Common Controls v6 import without the normal app manifest in the library test; explicit embedding correction below awaits fresh Windows CI. |
 | macOS Intel / Apple Silicon, prepared shared libraries | Both hosts pass FP32/INT8 inference in run `38066316034`. |
 | Android arm64 / iOS simulator and device | Build/link evidence only. No mobile execution harness is added; emulator/simulator/device initialization and inference remain open. |
 
@@ -199,6 +199,60 @@ If Windows fails, inspect `Diagnose Windows provider loader failure` for the
 actual imports, hashes and exports before selecting a corrective change. Keep
 smoke deferred; Windows acceptance remains open and this is a diagnostics
 commit, not a claimed fix for the loader failure.
+
+### Windows PE diagnosis — Common Controls manifest correction
+
+[Run 38072112454](https://github.com/muhannadnouri/papercut.io/actions/runs/38072112454)
+is bound to **`3e9d0eef5ab5a749c35d4b52ad820b23869de2fa`**. The
+[Windows diagnostic step](https://github.com/muhannadnouri/papercut.io/actions/runs/38072112454/job/114273094762)
+succeeds after the same pre-harness failure. The actual failed
+`app_lib-c3632dcbcb43fde0.exe` imports `TaskDialogIndirect` from `comctl32.dll`,
+and its PE section summary has no resource section. Adjacent ORT and Sherpa
+C API DLL hashes match the official archive inspected above, and their required
+native exports are present. The scanner import warnings are nonfatal.
+
+**Identified build defect:** Tauri's generated resource is linked to app binaries,
+not this library unit-test executable. The test retains the dialog dependency,
+whose `TaskDialogIndirect` requires
+[Common Controls v6](https://learn.microsoft.com/en-us/windows/win32/api/commctrl/nf-commctrl-taskdialogindirect).
+Tauri's own source documents the same `STATUS_ENTRYPOINT_NOT_FOUND` test failure
+and [explicitly embeds a manifest](https://github.com/tauri-apps/tauri/blob/dev/examples/api/src-tauri/build.rs).
+This explains why ordinary Windows packaging can succeed while the native
+library test never reaches its harness. It is a specific manifest-selection
+defect; Windows execution must still confirm that correcting it clears this run's
+loader error and exposes no further failures.
+
+The app build script now uses Tauri's public `WindowsAttributes` API to omit
+its resource-embedded manifest **only for Windows/MSVC**, then supplies
+`/MANIFEST:EMBED` and `/MANIFESTINPUT` through Cargo's general linker arguments.
+This reaches the library test as well as the app, rather than duplicating a
+manifest resource in the app. `windows-app-manifest.xml` matches the installed
+Tauri default byte-for-byte: the same Common Controls v6 dependency. Icons,
+version resources and other-platform behavior remain intact. CI change detection
+includes this build input. No dependency/runtime version, upstream library fork,
+model, retrieval or opt-in policy change is needed.
+
+Local assertion checks execute the actual build-script control flow against a
+Tauri stub for Windows/MSVC, Windows/GNU, Linux, macOS, Android and iOS. A real
+Cargo probe confirms the general linker arguments reach a library unit test.
+A Windows PE link using LLVM tools verifies manifest resource ID 24, the v6
+identity and retention of an existing resource; the control without embedding
+has no manifest. This is cross-link evidence, **not execution with Microsoft's
+linker or the Windows loader**. The existing focused embedding suite passes
+**10 tests, 3 ignored**; workflow guards, actual Bash change detection, Rust
+formatting and diff checks pass. No redundant frontend/ranking or model-inference
+rerun is needed for a Windows-only link correction.
+
+Linux inference and Apple Silicon inference succeed in this run; the Intel job
+is cancelled before its inference step, so its earlier successful evidence is
+retained without claiming a fresh pass. Mobile jobs are skipped in desktop scope.
+
+**Next:** push this correction and dispatch a **new** CI run on the updated
+`feature/search-v2` revision with `validation_scope=desktop` and
+`provider_inference=true`. Confirm Windows reaches the test harness and passes
+both FP32/INT8 initialization/inference/lifecycle checks. A rerun of the old SHA
+cannot test this fix. Keep interactive smoke deferred and the mobile runtime,
+resource/reference-device, quality and original native-stability gates open.
 
 ## Stage 7 — cross-platform provider build checks — 2026-10-09
 
