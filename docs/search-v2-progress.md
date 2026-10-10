@@ -57,6 +57,37 @@ remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
 
+## Stage 7 — branch boundaries, CI and release review — 2026-10-10
+
+The [full Ponytail branch review](search-v2-branch-review.md) compares committed
+`878fbbf` with current `main`/merge-base `8be9952`; unrelated working files are
+excluded. It finds two corrective blockers: a replacement conceptual request
+gets stuck after native single-slot rejection, and returning from the older app
+can incorrectly reuse stale normalized FTS/vocabulary after a title edit.
+Fresh focused frontend checks pass **33 tests in six files**, while an isolated
+single-slot hook reproduction fails latest-query recovery. A disposable SQL
+replay reproduces the migration issue; it is not a real-app downgrade test.
+
+Keep the lexical evaluator/generic fixture, test-only production evaluator and
+mobile inference runner. Retire the separate `compat/` crate in the corrective
+pass; retain the other standalone retrieval controls as frozen developer
+benchmarks outside mandatory CI and product packaging. No source is deleted in
+this review. Official Libtashkeel and the shared Arabic-TTS adapter/model remain.
+
+Normal release scripts still omit the provider. Address that deliberate boundary
+before a semantic-feature release, keeping runtime user consent default-off.
+Once shipping feature packages are validated, fold duplicate packaging variants
+into one shipping pass per target; keep deterministic default/provider tests and
+the existing explicit model-runtime path. No new CI layer, workflow dispatch,
+model sweep, runtime change or production fix is part of this documentation pass.
+
+**Next:** fix review findings 1 and 2 with targeted regressions, retire the
+compatibility experiment/guidance (finding 4), then review the corrective diff.
+Finding 3 is the later shipping-package gate, not an instruction to enable or
+publish unaccepted packages now. Smoke stays user-deferred for the consolidated
+final pass; quality, physical/reference-device resources and real-app acceptance
+remain open. Stage 8 has no new measured justification.
+
 ## Stage 7 — native indexing/query checks without new CI jobs — 2026-10-10
 
 **Decision: extend the existing ignored provider regression, keeping CI orchestration
@@ -147,14 +178,11 @@ merge, review the workflow for redundant build/setup steps; historical scale/mod
 experiments should remain explicit developer checks rather than more mandatory
 jobs. Additional coverage should extend existing tests before adding orchestration.
 
-**Next:** review the branch's implementation/removal boundaries, CI redundancy and
-release packaging against the original plan and the approved default-off,
-separate-conceptual-results design. Normal packages still omit the provider;
-passing feature builds does not itself make the user toggle available in shipped
-packages. Preserve the existing explicit runtime checks rather than adding more
-CI layers. Keep interactive smoke deferred for the consolidated final pass.
-Physical-device/resource and representative-quality evidence still precede
-release acceptance; this run is not a merge or release approval.
+**Follow-up:** the [branch review](search-v2-branch-review.md) above completes the
+implementation/removal, CI duplication and release-packaging review. Its
+corrective findings precede further acceptance; normal packages still omit the
+provider. Preserve the explicit runtime checks and deferred smoke boundary.
+This run remains bounded native evidence, not merge or release approval.
 
 ## Stage 7 — mobile provider inference harness — 2026-10-10
 

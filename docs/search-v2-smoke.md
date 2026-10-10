@@ -81,6 +81,13 @@ banner, launch the WebView or replace Android arm64/physical-device resource and
 app acceptance.
 All interactive cases below remain deferred; no new checkbox is marked passed.
 
+The [branch review](search-v2-branch-review.md) records two pending corrective
+fixes before acceptance: latest-query recovery under native single-slot load,
+and stale lexical projections after an older-app round trip. Keep app data
+isolated; a Git branch or semantic opt-out does not isolate lexical migrations.
+The expanded rapid-submission check below remains deferred with the other Stage 7
+cases. Ordinary release/CI artifacts still omit the provider.
+
 ## Isolate the library first
 
 A Git branch does not isolate application data. On Linux, close **all Papercut
@@ -281,6 +288,9 @@ tracked fixtures.
       starter documents. Conceptual results never escape the uploaded scope.
       Counts mean shown documents; coverage describes the current eligible scope.
       Switch filters/modes and rapidly resubmit A→B→A; no old card may reappear.
+      While a conceptual query is still running, submit a different query/scope.
+      Once it finishes, the latest request must complete without another submit;
+      it must not stay in failure fallback merely because the old slot was busy.
 - [ ] Try quoted-only and mixed queries, then a missing quoted clause. A title-only
       occurrence must not qualify; all quoted clauses remain required somewhere
       in the document before semantic selection. If clauses are in different

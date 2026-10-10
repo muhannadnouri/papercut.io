@@ -14,6 +14,14 @@ smoke passed, plus CI `validation_scope=full`. Earlier validation sections below
 retain their historical deferrals. These reports predate the new opt-in/index/query UI. Its focused smoke remains
 explicitly deferred; semantic relevance and other-platform runtimes remain open.
 
+The [branch review on 2026-10-10](search-v2-branch-review.md) identifies pending
+latest-request recovery and older-app projection invalidation fixes. Native
+desktop and bounded emulator/simulator checks below do not cover those gaps.
+Release still uses lexical-only packages; actual provider shipping packages are
+a later gate, with user opt-in off by default. Keep the production adapter and
+shared initializer; retire the separate historical compatibility crate in the
+corrective cleanup, retaining other retrieval experiments as frozen controls.
+
 Desktop-first validation is sequencing, not a desktop-only product restriction.
 The commands and state are shared Rust code with no desktop-only availability
 check. Android and iOS provider build/link checks now pass CI; runtime, lifecycle
@@ -27,9 +35,10 @@ the integrated Stage 7 candidate. The earlier SHA gap is resolved. Normal
 frontend/native checks and desktop/Android/iOS builds pass; these configurations
 omit embedding features. The all-features dependency audit is not provider
 runtime coverage. Prior local Linux provider checks remain separate evidence.
-Desktop provider initialization/inference is now verified in the follow-up
-below; mobile execution, resource/quality gates and explicitly deferred
-interactive smoke remain open.
+Desktop provider initialization/inference and bounded Android x86_64/iOS
+simulator indexing/query checks are now verified below. Android arm64 execution,
+physical/reference-device resources, representative quality, actual provider
+shipping packages and explicitly deferred interactive smoke remain open.
 
 The [provider CI follow-up](search-v2-progress.md#stage-7--opt-in-provider-ci-checks--2026-10-09)
 now adds a locked Linux non-test library build and regression suite with
