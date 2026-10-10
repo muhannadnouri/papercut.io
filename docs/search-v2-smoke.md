@@ -33,8 +33,9 @@ The [cross-platform provider build checks](search-v2-progress.md#stage-7--cross-
 now cover Windows, both macOS architectures, Android arm64 and unsigned iOS
 simulator/device linking in the workflow. Full run 38009770905 on `0796645`
 passes the Windows/macOS/Android provider steps; only iOS fails on the second
-simulator export. The archive-only correction and skipped provider device
-build await CI.
+simulator export. [Mobile run 38023521669](https://github.com/muhannadnouri/papercut.io/actions/runs/38023521669)
+on `771b034` then verifies the archive-only correction, normal/provider iOS
+simulator archives and unsigned device links, plus Android builds.
 They do not launch the apps or download embedding weights, and normal uploaded
 artifacts still omit the provider. Interactive smoke remains deferred; no case
 below is newly marked passed.

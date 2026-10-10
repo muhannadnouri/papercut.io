@@ -16,8 +16,8 @@ explicitly deferred; semantic relevance and other-platform runtimes remain open.
 
 Desktop-first validation is sequencing, not a desktop-only product restriction.
 The commands and state are shared Rust code with no desktop-only availability
-check. Android and iOS still require their own build, linking, lifecycle and
-resource tests before availability can be advertised.
+check. Android and iOS provider build/link checks now pass CI; runtime, lifecycle
+and resource tests remain required before availability can be advertised.
 
 ## Build and capability boundary
 
@@ -27,7 +27,7 @@ the integrated Stage 7 candidate. The earlier SHA gap is resolved. Normal
 frontend/native checks and desktop/Android/iOS builds pass; these configurations
 omit embedding features. The all-features dependency audit is not provider
 runtime coverage. Prior local Linux provider checks remain separate evidence;
-provider-enabled platform/device validation, resource/quality gates and the
+provider-enabled runtime/device validation, resource/quality gates and the
 explicitly deferred interactive smoke remain open.
 
 The [provider CI follow-up](search-v2-progress.md#stage-7--opt-in-provider-ci-checks--2026-10-09)
@@ -48,7 +48,10 @@ adds provider app-build checks to the existing Windows, macOS Intel/Apple Silico
 Android arm64 and iOS arm64 simulator/device jobs. [Full run 38009770905](https://github.com/muhannadnouri/papercut.io/actions/runs/38009770905)
 on `0796645` passes the Windows, both macOS and Android provider steps. Only iOS
 fails: the provider simulator compiles/links, then its export collides with the
-normal simulator output; the provider device step is skipped. Desktop checks use
+normal simulator output; the provider device step is skipped. The subsequent
+[mobile run 38023521669](https://github.com/muhannadnouri/papercut.io/actions/runs/38023521669)
+on `771b034` passes normal/provider simulator archives, both unsigned device
+links and Android builds. The export failure is resolved. Desktop checks use
 `--no-bundle`; Android builds a debug APK after
 the normal APK upload. Normal artifact uploads precede these checks, and no
 provider artifact is uploaded. Both iOS checks use linked ORT and unsigned
@@ -68,8 +71,8 @@ additional features are supplied. The simulator helper already passes both
 feature arguments; the pinned [Tauri 2.11.4 CLI](https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.11.4/crates/tauri-cli/src/mobile/ios/build.rs#L57-L59)
 appends repeated `--features`. `ios:ci` now uses `--archive-only`, retaining
 archive compilation/linking while avoiding the simulator export/rename collision.
-The corrected iOS archive and provider device build await CI; release IPA
-commands still export normally. Running a provider build reuses local output paths;
+The corrected iOS archive and provider device build are verified in the mobile
+run above; release IPA commands still export normally. Running a provider build reuses local output paths;
 normal packages must be built/uploaded first when retaining both configurations.
 Build/link success is separate from provider runtime initialization, installed
 model inference and real-device resource acceptance.
@@ -98,9 +101,9 @@ The [normal packaging review](search-v2-progress.md#normal-packaging-and-platfor
 verifies a Linux Debian build without embedding features, including packaged
 runtime bytes and relocated library resolution. Existing desktop/Android/iOS CI
 jobs retain normal TTS package builds and now also include the separate provider
-build checks above. Windows/macOS/Android provider build results pass; the iOS
-correction remains pending. Packaged provider runtime/device checks and app
-smoke remain open.
+build checks above. Windows/macOS/Android provider builds and the corrected iOS
+simulator archive/device links pass. Packaged provider runtime/device checks
+and app smoke remain open.
 
 ## Explicit cached-model activation
 

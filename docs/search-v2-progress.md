@@ -45,7 +45,7 @@ machine. Other device/provider acceptance and semantic quality remain open.
 | Embedding baseline | Cached FP32/INT8 providers, anchored passages, incremental SQLite indexing, read-only queries and document-level fusion remain experimental. The standalone report now includes an evidence-preserving semantic-first response alongside the unchanged semantic/RRF controls. The comparison accepts verified Small/Base metadata and dimension-safe 384/768-vector indexes; the app provider/model setup still supports only the retained Small formats. Native primary evidence and separate conceptual context are preserved. Semantic ordering does not enforce unquoted names/dates and must not redefine All words. |
 | Representative quality | The [public human-label comparison](#stage-6--public-human-label-comparison-2026-10-08) supports same-language conceptual passage ranking. The [wider-pool check](#stage-6--frozen-wider-pool-check-2026-10-08) and [fresh-query verification](#stage-6--fresh-query-fusion-verification-2026-10-08) confirm Broader fusion can replace positive first results with judged negatives and reduce known-positive recall. Keep semantic-only ordering as the conceptual control; the fresh English All words result cautions against a universal semantic-first policy. Base's mixed gain and higher cost do not establish an overall acceptance win. Prior cross-language/entity/date and missing-answer-span failures remain. Public passage labels do not establish private-book, displayed-answer or full-library quality. The original independent packet remains unjudged; product acceptance remains open. |
 | Cached reranker/context augmentation | Rejected: a cross-language gain introduces a same-language date regression; combined-context and explicit-exclusion controls do not justify a repair. Its live CLI/module are removed. |
-| Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the shared-runtime check reuses the actual app adapter with FastEmbed/sherpa. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. The linked initializer is tested on Linux, not an iOS archive/device. Other platforms, weak reference hardware, responsiveness and optional-model lifecycle/fallback validation remain open. |
+| Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the shared-runtime check reuses the actual app adapter with FastEmbed/sherpa. Provider-enabled Windows/macOS/Android builds and iOS simulator archive/device linking now pass CI, as recorded below. Linked initialization is runtime-tested on Linux; mobile linking is not initialization/inference evidence. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. Other-platform runtime/device checks, weak reference hardware, responsiveness and optional-model lifecycle/fallback validation remain open. |
 | Production optional hybrid | Stage 7 development is explicitly authorized with a default-off toggle and lexical fallback only within the enabled semantic path. App indexing, saved opt-in/lifecycle controls, native retrieval and the separate React conceptual-results/fallback path are implemented below. Functional settings no longer require Developer mode. Quality, resource and platform limits remain release gates. |
 
 **Current work is acceptance of the integrated opt-in path.** Native retrieval,
@@ -67,9 +67,9 @@ Linux provider compilation/regressions already pass remotely. This pass adds:
 | --- | --- | --- |
 | Windows x64 | Tauri app build with shared native TTS and the dynamic provider, without bundling | Passed on `0796645` |
 | macOS Intel / Apple Silicon | Same app build on both existing matrix runners | Passed on `0796645` |
-| Android arm64 | Debug APK build with shared native TTS and the dynamic provider | Passed on `0796645` |
-| iOS arm64 simulator | App archive with native TTS and the linked provider | Compilation/linking passed; export collision failed the step; archive-only fix awaiting CI |
-| iOS arm64 device | Release static library followed by unsigned generic-device Xcode linking with native TTS and the linked provider | Skipped after the simulator failure; awaiting CI |
+| Android arm64 | Debug APK build with shared native TTS and the dynamic provider | Passed on `0796645` and `771b034` |
+| iOS arm64 simulator | App archive with native TTS and the linked provider | Passed on `771b034`; export collision resolved |
+| iOS arm64 device | Release static library followed by unsigned generic-device Xcode linking with native TTS and the linked provider | Passed on `771b034` |
 
 The checks reuse the existing build helpers, runtime preparation, caches and
 platform gates. Desktop and Android checks run after normal artifact uploads,
@@ -132,15 +132,50 @@ The command assertion fails against the pre-fix helper and passes after the
 change. Mocked checks also confirm the simulator target/runtime and native/provider
 features are retained, release/init commands do not acquire archive-only, and
 device/Android commands and workflow boundaries still pass. JavaScript syntax
-and diff checks pass. These are local command regressions; the corrected Xcode
-archive and previously skipped provider device build **still need CI**.
+and diff checks pass. These were local command regressions; the corrected Xcode
+archive and previously skipped provider device build needed the remote rerun
+recorded below.
 
-**Next: push the corrective commit and run `validation_scope=mobile`** to cover
-both iOS checks and Android, along with the existing shared checks job. A full
-run is also valid, but the passing desktop jobs do not need repeating for this
-iOS-only helper change. Bind the iOS results to the new SHA before claiming the
-build gap closed. Provider inference/device/resource acceptance remains
-separate, and the interactive Stage 7 smoke stays explicitly deferred.
+The corrective pass requested `validation_scope=mobile` to cover both iOS
+checks and Android, along with the shared checks job. Passing desktop jobs did
+not need repeating for this iOS-only helper change. The resulting verification
+follows; provider inference/device/resource acceptance remains separate, and
+the interactive Stage 7 smoke stays explicitly deferred.
+
+### Mobile correction — verified 2026-10-10
+
+[Mobile CI run 38023521669](https://github.com/muhannadnouri/papercut.io/actions/runs/38023521669)
+passes on **`771b034dabb414d07d61e830d76eb801943b18a6`**, matching the local
+review source and GitHub's pushed `feature/search-v2` ref. Attempt 1 is a
+`workflow_dispatch`; the change-detection log confirms `VALIDATION_SCOPE: mobile`.
+All five executed job summaries succeed. Desktop and SILMA packaging are
+intentionally skipped by this scope, not failed or newly retested.
+
+The inspected iOS log confirms that both normal and provider simulator commands
+finish with `build/app_iOS.xcarchive`. Both unsigned generic-device builds report
+`BUILD SUCCEEDED`, including the previously skipped provider-enabled device
+step. The normal/provider Android steps and normal APK upload also pass.
+The shared checks report **168 frontend tests / 47 files**, **161 default Rust
+tests / 5 ignored**, and **216 provider Rust tests / 10 ignored**; dependency
+audits, lint and frontend/model-monitor/SILMA checks pass. The earlier Swift
+search-path and 15.1-versus-15.0 deployment warnings persist without failing
+the archive/device checks; this does not establish support on the minimum OS.
+
+**Decision: the sequential simulator export failure is resolved, and the added
+other-platform provider compile/link checks are verified across the two runs.**
+Windows/macOS evidence remains the successful `0796645` full run; this mobile
+rerun validates the scoped iOS helper correction on `771b034`. Normal package
+artifacts still omit the provider and the semantic toggle stays default-off.
+No embedding weights, artifact installation, app launch or inference/device
+runtime checks are added by this review. Asset-dependent and scale tests remain
+explicitly ignored in ordinary CI.
+
+**Next:** provider initialization/cached-model inference against each platform's
+packaged runtime, real-device resources/lifecycle and representative product
+quality remain acceptance work. Keep the consolidated Stage 7 UI smoke deferred
+as requested; native crash/retention and weak-reference-device caveats remain.
+No further build-matrix rerun is needed merely for this evidence-only docs
+commit, and no Stage 8 optimization is justified by these build results.
 
 ## Stage 7 — opt-in provider CI checks — 2026-10-09
 
