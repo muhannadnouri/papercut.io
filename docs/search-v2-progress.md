@@ -76,8 +76,8 @@ Normal APK uploads still precede the provider checks and omit embedding support.
 
 | Target | Added execution check | Acceptance status |
 | --- | --- | --- |
-| Android API 35, x86_64 emulator | Release library test with `native-tts-shared,experimental-search-embeddings`, prepared x86_64 sherpa/ORT shared libraries, KVM and 4 GiB emulator RAM | Harness/self-checks ready; target compilation/execution awaits CI. Existing arm64 APK builds remain separate evidence. |
-| iOS arm64 simulator on the macOS runner | Release library test with `native-tts-ios,experimental-search-embeddings-linked`, prepared simulator static archives, simulator SDK and an ad-hoc signed executable copy | Harness/self-checks ready; target compilation/execution awaits CI. Existing unsigned device links remain separate evidence. |
+| Android API 35, x86_64 emulator | Release library test with `native-tts-shared,experimental-search-embeddings`, prepared x86_64 sherpa/ORT shared libraries, KVM and 4 GiB emulator RAM | Run `38079859346` stops in `ring` compilation because the NDK archiver was not configured. Corrected below; inference remains pending. Existing arm64 APK builds remain separate evidence. |
+| iOS arm64 simulator on the macOS runner | Release library test with `native-tts-ios,experimental-search-embeddings-linked`, prepared simulator static archives, simulator SDK and an ad-hoc signed executable copy | Both FP32/INT8 formats pass in run `38079859346` on `55d4fe0`, whole native test 11.01 seconds. Physical-device acceptance remains open. |
 
 The earlier next-step wording proposed an Android **arm64** emulator. The current
 Linux runner instead supports a practical accelerated **x86_64** check. This does
@@ -116,6 +116,51 @@ resource/lifecycle, native stability, representative quality and app acceptance
 gates. Interactive search/index/fallback/reader/RTL/audio smoke stays explicitly
 deferred; remind the user at the consolidated final smoke pass.
 
+### Mobile inference first CI result and Android archiver correction — 2026-10-10
+
+[Run 38079859346](https://github.com/muhannadnouri/papercut.io/actions/runs/38079859346)
+checks out **`55d4fe05e91b24562079dbe82b7ad7faa9f5b897`** in both mobile jobs.
+Shared checks, Linux inference and the verified-model artifact upload succeed.
+Both normal/provider Android arm64 APK builds and the model-artifact download
+succeed. The [Android regression compile step](https://github.com/muhannadnouri/papercut.io/actions/runs/38079859346/job/114296361112)
+then fails in `ring v0.17.14`: `cc-rs` cannot find
+`x86_64-linux-android-ar`. Emulator setup/inference are skipped. This is a missing
+archive-tool configuration in the new direct Cargo step, not evidence of an ORT
+initialization or model-inference failure.
+
+The direct compile step now exports target-specific
+`AR_x86_64_linux_android` and `RANLIB_x86_64_linux_android` pointing to the existing
+NDK's `llvm-ar` and `llvm-ranlib`. Compiler/linker selections, runtime libraries,
+models and app builds are unchanged. Target-specific variables avoid changing
+host build tools. This follows the [NDK build-system guidance](https://developer.android.com/ndk/guides/other_build_systems).
+No alias, extra tool installation, runtime upgrade or dependency edit is needed.
+
+The [iOS job](https://github.com/muhannadnouri/papercut.io/actions/runs/38079859346/job/114296361062)
+passes its normal/provider simulator archives and unsigned device links, then
+compiles and executes the exact provider test with the simulator's linked
+runtime. Both format logs record activation readiness, completed inference
+controls, disable and lifecycle completion; **one test passes, 11.01 seconds**.
+That duration covers asset verification and the bounded native lifecycle, not
+compilation, simulator boot or app query latency. The runner completes cleanup
+and the job succeeds. This closes bounded iOS simulator provider inference for
+this revision, not physical-device costs, integrated search/audio or UI smoke.
+
+The new regression executes the actual Android compile-step Bash with a Cargo
+environment-capture stub, including an NDK path containing spaces. It fails on
+the original missing archiver and passes after the fix; all **six** runner
+self-checks pass locally. A temporary Rust probe using locked `cc 1.2.56`
+confirms both target-specific overrides select the supplied LLVM tools.
+Workflow parsing/guards, Bash syntax/change detection and diff checks pass.
+There is still no local Android NDK/emulator run; Android target compilation and
+inference require fresh CI on this correction.
+
+**Next:** push and start a **new** manual CI run with `validation_scope=mobile`
+and `provider_inference=true`. Rerunning the failed job at the old SHA cannot
+exercise this fix. Review Android compilation, both-format inference and cleanup;
+retain the verified iOS result while checking for regressions. Android arm64 and
+physical-device memory/responsiveness/lifecycle, representative quality and
+native-stability gates remain open. Interactive smoke stays explicitly deferred.
+
 ## Stage 7 — explicit provider runtime checks — 2026-10-10
 
 **Decision: reuse the ignored real-model provider regression for explicit desktop
@@ -145,7 +190,7 @@ supplied cache. No download is added to PR, push or scheduled CI.
 | Linux x64, existing shared ORT | Both FP32/INT8 formats pass in run `38075038695`, debug test, 45.37 seconds. Earlier local release/debug checks also pass. |
 | Windows x64, release runtime DLLs | Both FP32/INT8 formats pass in run `38075038695`, release test, 11.93 seconds. The Common Controls manifest fix clears the pre-harness loader failure. |
 | macOS Intel / Apple Silicon, prepared shared libraries | Both FP32/INT8 formats pass on both hosts in run `38075038695`, release tests, 11.20 / 12.08 seconds respectively. |
-| Android arm64 / iOS simulator and device | Build/link evidence only. The mobile harness above is now added; target inference awaits its explicit CI run, and physical-device acceptance remains open. |
+| Android / iOS | iOS arm64 simulator FP32/INT8 inference now passes in `38079859346`; Android x86_64 test compilation needs the archiver correction above. Android arm64 and physical-device acceptance remain open. |
 
 Times above cover the complete regression, including model installation/cache
 verification, activation and lifecycle checks; they exclude compilation and are

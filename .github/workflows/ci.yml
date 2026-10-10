@@ -586,6 +586,9 @@ jobs:
           export CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER="$task_toolchain/x86_64-linux-android26-clang"
           export CC_x86_64_linux_android="$CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER"
           export CXX_x86_64_linux_android="$task_toolchain/x86_64-linux-android26-clang++"
+          # Direct Cargo builds need LLVM archive tools; the NDK has no target-prefixed ar.
+          export AR_x86_64_linux_android="$task_toolchain/llvm-ar"
+          export RANLIB_x86_64_linux_android="$task_toolchain/llvm-ranlib"
           export SHERPA_ONNX_LIB_DIR="$PWD/src-tauri/tts/runtime/sherpa-onnx-android/jniLibs/x86_64"
           export ORT_LIB_LOCATION="$SHERPA_ONNX_LIB_DIR"
           cargo test --manifest-path src-tauri/Cargo.toml --locked --release --lib \

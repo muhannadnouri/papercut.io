@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { spawnSync } from "node:child_process"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { assertInferenceCompleted, checkAndroid, checkIos, command, simulatorDevice, testExecutable } from "./check-mobile-provider-inference.mjs"
@@ -10,6 +11,33 @@ const completed = [
   "lifecycle cycle complete: 1/1 DynamicInt8",
   "test result: ok. 1 passed; 0 failed; 0 ignored;",
 ].join("\n")
+
+test("Android compile step supplies NDK archive tools to native dependency builds", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8")
+  const script = workflow.match(/name: Compile Android emulator provider regression[\s\S]*?run: \|\n([\s\S]*?)(?=\n      - name:)/)?.[1]
+  assert.ok(script, "Find the actual Android compile step")
+  const dir = mkdtempSync(join(tmpdir(), "papercut-android-toolchain-"))
+  const ndk = join(dir, "NDK with spaces")
+  try {
+    // Capture the environment at the real Cargo boundary without needing a local NDK.
+    const keys = ["CC_x86_64_linux_android", "CXX_x86_64_linux_android", "CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER", "AR_x86_64_linux_android", "RANLIB_x86_64_linux_android"]
+    const stub = `cargo() { "$TASK_NODE" -e 'console.log(JSON.stringify(Object.fromEntries(${JSON.stringify(keys)}.map(key => [key, process.env[key]]))))'; }\n`
+    const env = { ...process.env, TASK_NODE: process.execPath, NDK_HOME: ndk, RUNNER_TEMP: dir }
+    delete env.AR_x86_64_linux_android
+    delete env.RANLIB_x86_64_linux_android
+    const result = spawnSync("bash", ["-eu", "-c", stub + script], { env, encoding: "utf8", timeout: 5000 })
+    assert.equal(result.status, 0, result.stderr)
+    const configured = JSON.parse(readFileSync(join(dir, "android-provider-tests.json"), "utf8"))
+    const bin = join(ndk, "toolchains/llvm/prebuilt/linux-x86_64/bin")
+    assert.equal(configured.CC_x86_64_linux_android, join(bin, "x86_64-linux-android26-clang"))
+    assert.equal(configured.CXX_x86_64_linux_android, join(bin, "x86_64-linux-android26-clang++"))
+    assert.equal(configured.CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER, configured.CC_x86_64_linux_android)
+    assert.equal(configured.AR_x86_64_linux_android, join(bin, "llvm-ar"))
+    assert.equal(configured.RANLIB_x86_64_linux_android, join(bin, "llvm-ranlib"))
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
 
 test("native command wrapper preserves stderr markers and fails on exit errors and hangs", () => {
   assert.equal(command(process.execPath, ["-e", "process.stderr.write('marker')"], { combined: true }), "marker")

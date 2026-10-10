@@ -69,7 +69,7 @@ semantic relevance, integrated app search/indexing or audio behavior. Whole-test
 times are 45.37 seconds Linux/debug, 11.93 Windows/release, 11.20 Intel/release
 and 12.08 Apple Silicon/release, including asset installation/verification and
 lifecycle, excluding compilation. These are not app latency benchmarks.
-Mobile remains build/link evidence without a verified target execution yet. The
+Android inference remains pending; iOS simulator execution is now verified. The
 [mobile inference harness](search-v2-progress.md#stage-7--mobile-provider-inference-harness--2026-10-10)
 now adds manual Android **x86_64/API 35 emulator** and iOS **arm64 simulator**
 checks. After pushing, dispatch `validation_scope=mobile` with
@@ -79,8 +79,15 @@ verify them again and execute the same exact ignored library regression; target
 downloads are disabled. The Android test uses the prepared x86_64 shared runtime;
 iOS uses the prepared simulator static archives and linked provider feature.
 The runner rejects partial-format or zero-test success and cleans only its owned
-emulator directory/simulator. Both-format target compilation and inference still
-await this CI run. Android arm64 execution, minimum-OS coverage, physical-device
+emulator directory/simulator. [Run 38079859346](https://github.com/muhannadnouri/papercut.io/actions/runs/38079859346)
+on `55d4fe0` passes both iOS simulator formats and the native lifecycle regression
+(11.01 seconds for the test, excluding compilation/boot). Android APK builds pass,
+but its emulator-test compile fails in `ring` because `cc-rs` cannot find the
+legacy target-prefixed archiver. The compile step now explicitly selects NDK
+`llvm-ar`/`llvm-ranlib` with target-specific variables; a fresh mobile inference
+run is needed after pushing the fix. See the
+[result and correction](search-v2-progress.md#mobile-inference-first-ci-result-and-android-archiver-correction--2026-10-10).
+Android arm64 execution, minimum-OS coverage, physical-device
 resource/lifecycle and quality acceptance remain open. Normal packages still
 omit the provider, and interactive smoke stays deferred. No new npm command is
 required; the workflow compiles and invokes the test runner directly.

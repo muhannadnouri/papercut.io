@@ -63,7 +63,10 @@ The [mobile inference harness](search-v2-progress.md#stage-7--mobile-provider-in
 is now ready for explicit CI: push, then dispatch `validation_scope=mobile` and
 `provider_inference=true`. It runs the native FP32/INT8 provider regression on an
 Android x86_64/API 35 emulator and an iOS arm64 simulator with disposable test
-state. Target execution has not yet been verified. These checks do not launch
+state. [Run 38079859346](https://github.com/muhannadnouri/papercut.io/actions/runs/38079859346)
+on `55d4fe0` verifies both iOS simulator model formats. Android inference is
+skipped after a compile-time missing-archiver failure; its NDK tool selection
+is now corrected and needs fresh CI. These checks do not launch
 the WebView or replace Android arm64/physical-device resource and app acceptance.
 All interactive cases below remain deferred; no new checkbox is marked passed.
 
