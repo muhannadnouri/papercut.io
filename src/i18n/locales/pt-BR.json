@@ -84,8 +84,6 @@
       "filtersApplied": "Filtros de documentos são aplicados.",
       "welcome": "Digite uma consulta e pressione Pesquisar (ou Enter) para pesquisar todos os documentos indexados.",
       "welcomeHint": "Coloque uma frase entre aspas duplas para pesquisa de correspondência exata.",
-      "yourLibrary": "Sua biblioteca",
-      "starterDocuments": "Documentos iniciais",
       "showingCount": "Exibindo {{shown, number}} de {{total, number}}",
       "termsSeparateSections": "Todas as palavras foram encontradas, mas não na mesma seção",
       "bestSection": "Melhor seção correspondente: {{title}}",
@@ -109,11 +107,12 @@
       "showMoreOccurrences": "Mostrar mais ocorrências",
       "occurrencesFailed": "Não foi possível carregar as ocorrências.",
       "noLiteralOccurrences": "Nenhuma ocorrência encontrada no corpo do texto.",
-      "retryOccurrences": "Tentar novamente"
+      "retryOccurrences": "Tentar novamente",
+      "starterDocument": "Documento inicial"
     },
     "conceptual": {
       "title": "Resultados conceituais · Sua biblioteca",
-      "lexicalTitle": "Resultados lexicais",
+      "lexicalTitle": "Resultados por palavras-chave",
       "description": "Os trechos conceituais podem usar outras palavras. As frases entre aspas são obrigatórias no documento; o trecho exibido pode estar em outro lugar.",
       "shown": "Documentos exibidos: {{count}}",
       "loading": "Buscando trechos conceituais…",

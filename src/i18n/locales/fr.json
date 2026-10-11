@@ -84,8 +84,6 @@
       "filtersApplied": "Des filtres de documents sont appliqués.",
       "welcome": "Tapez une requête et appuyez sur Rechercher (ou Enter) pour effectuer une recherche dans tous les documents indexés.",
       "welcomeHint": "Enveloppez une phrase entre guillemets doubles pour une recherche de correspondance exacte.",
-      "yourLibrary": "Votre bibliothèque",
-      "starterDocuments": "Documents de départ",
       "showingCount": "Affichage de {{shown, number}} sur {{total, number}}",
       "termsSeparateSections": "Tous les mots ont été trouvés, mais pas dans la même section",
       "bestSection": "Section la mieux adaptée : {{title}}",
@@ -109,11 +107,12 @@
       "showMoreOccurrences": "Afficher plus d’occurrences",
       "occurrencesFailed": "Impossible de charger les occurrences.",
       "noLiteralOccurrences": "Aucune occurrence trouvée dans le corps du texte.",
-      "retryOccurrences": "Réessayer"
+      "retryOccurrences": "Réessayer",
+      "starterDocument": "Document de démarrage"
     },
     "conceptual": {
       "title": "Résultats conceptuels · Votre bibliothèque",
-      "lexicalTitle": "Résultats lexicaux",
+      "lexicalTitle": "Résultats par mots-clés",
       "description": "Les passages conceptuels peuvent employer d’autres mots. Les expressions entre guillemets sont obligatoires dans le document ; le passage affiché peut se trouver ailleurs.",
       "shown": "Documents affichés : {{count}}",
       "loading": "Recherche de passages conceptuels…",

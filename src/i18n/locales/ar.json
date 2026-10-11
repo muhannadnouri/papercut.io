@@ -102,8 +102,6 @@
       "exactMatch_few": "{{count, number}} تطابقات تامة",
       "exactMatch_many": "{{count, number}} تطابقًا تامًا",
       "exactMatch_other": "{{count, number}} تطابق تام",
-      "yourLibrary": "مكتبتك",
-      "starterDocuments": "المستندات التمهيدية",
       "showingCount": "عرض {{shown, number}} من {{total, number}}",
       "termsSeparateSections": "عُثر على كل الكلمات، ولكن ليس في القسم نفسه",
       "bestSection": "أفضل قسم مطابق: {{title}}",
@@ -124,11 +122,12 @@
       "showMoreOccurrences": "عرض المزيد من المواضع",
       "occurrencesFailed": "تعذّر تحميل المواضع.",
       "noLiteralOccurrences": "لم يُعثر على مواضع في نص المستند.",
-      "retryOccurrences": "إعادة المحاولة"
+      "retryOccurrences": "إعادة المحاولة",
+      "starterDocument": "مستند تمهيدي"
     },
     "conceptual": {
       "title": "نتائج مفاهيمية · مكتبتك",
-      "lexicalTitle": "نتائج لفظية",
+      "lexicalTitle": "نتائج الكلمات المفتاحية",
       "description": "قد تستخدم المقاطع المفاهيمية كلمات مختلفة. يجب أن توجد العبارات المقتبسة في مكان ما من المستند؛ وقد يكون المقطع المعروض في مكان آخر.",
       "shown": "المستندات المعروضة: {{count}}",
       "loading": "جارٍ البحث عن مقاطع مفاهيمية…",

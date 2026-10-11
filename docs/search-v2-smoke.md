@@ -149,8 +149,16 @@ move or damage the installed app's files.
 - [ ] In **All words**, use a generic query such as `harbor electric timetable`
       after checking the actual source. Every included document must contain all
       required terms at document scope. Cross-section matches must say the terms
-      were found in different sections; unrelated starter documents must not
-      appear because a query was accidentally shortened.
+      were found in different sections. Unrelated starter documents must not
+      appear from loose partial matching: `orchard lantern survey` must not count
+      a document containing only `or`. Check a positive starter query such as
+      `offline audiobook` and a stemming form such as `searches` as well.
+- [ ] Keyword results form one list with one count, without Your Library/Starter
+      Documents section headings. Bundled cards have a **Starter Document** badge;
+      uploaded cards retain their existing evidence. When results are capped,
+      **Showing N of M** distinguishes displayed cards from eligible matches.
+      Include/exclude starter and uploaded documents through the existing filter;
+      cards and counts must reflect the submitted scope.
 - [ ] Switch the same query to **Broader · Your Library**. Partial matches must
       report coverage/missing terms honestly, and starter documents stay excluded.
       One/two-word and over-twelve-expression searches still require all words;
@@ -321,8 +329,8 @@ tracked fixtures.
       Download/verify alone must not enable semantic search.
 - [ ] Enable a verified cached model and finish **Build Index** or **Update Index**.
       Submit a question about an actual passage in the library, with different wording from that
-      passage. **Conceptual results · Your Library** appears separately from
-      **Lexical results**. All words/Broader counts, marks and Explore matches
+      passage. **Conceptual Results · Your Library** appears separately from
+      **Keyword Results**. All words/Broader counts, marks and Explore Matches
       retain literal meaning. A document may occur in both independent channels.
 - [ ] Conceptual cards show actual source text without query-word marks, literal
       occurrence counts or confidence percentages. Open an English and Arabic

@@ -141,17 +141,17 @@ describe('search request freshness', () => {
     ))
   })
 
-  it('keeps an uploaded spelling retry when starter documents have partial hits', async () => {
+  it('keeps an uploaded spelling retry while rejecting loose starter hits', async () => {
     mocked.searchUploadedDocuments.mockResolvedValue({ ...response(0), suggestedQuery: 'calendar meeting agenda' })
-    const pagefind = { search: vi.fn().mockResolvedValue({ results: [{
-      id: 'starter', data: async () => ({ id: 'starter', url: '/starter', meta: { title: 'Starter' }, excerpt: 'answer' }),
-    }] }) }
+    const pagefind = { search: vi.fn().mockResolvedValueOnce({ results: [{
+      id: 'starter', data: async () => ({ id: 'starter', url: '/starter', meta: { title: 'Starter' }, excerpt: '<mark>a</mark> guide' }),
+    }] }).mockResolvedValue({ results: [] }) }
     const search = useSearch({ current: pagefind })
     const setLastSearchInfo = mocked.setters.at(-1)
     search.handleSearch('calender meeting agenda')
     search.submitSearch()
     await vi.waitFor(() => expect(setLastSearchInfo).toHaveBeenCalledWith(
-      expect.objectContaining({ suggestedQuery: 'calendar meeting agenda', starterDocuments: 1 }),
+      expect.objectContaining({ suggestedQuery: 'calendar meeting agenda', starterDocuments: 0 }),
     ))
   })
 

@@ -84,8 +84,6 @@
       "filtersApplied": "Se aplican filtros de documentos.",
       "welcome": "Escriba una consulta y presione Buscar (o Enter) para buscar en todos los documentos indexados.",
       "welcomeHint": "Envuelva una frase entre comillas dobles para una búsqueda de coincidencia exacta.",
-      "yourLibrary": "Tu biblioteca",
-      "starterDocuments": "Documentos iniciales",
       "showingCount": "Mostrando {{shown, number}} de {{total, number}}",
       "termsSeparateSections": "Se encontraron todas las palabras, pero no en la misma sección.",
       "bestSection": "Mejor sección coincidente: {{title}}",
@@ -109,11 +107,12 @@
       "showMoreOccurrences": "Mostrar más apariciones",
       "occurrencesFailed": "No se pudieron cargar las apariciones.",
       "noLiteralOccurrences": "No se encontraron apariciones en el cuerpo del texto.",
-      "retryOccurrences": "Intentar de nuevo"
+      "retryOccurrences": "Intentar de nuevo",
+      "starterDocument": "Documento inicial"
     },
     "conceptual": {
       "title": "Resultados conceptuales · Tu biblioteca",
-      "lexicalTitle": "Resultados léxicos",
+      "lexicalTitle": "Resultados por palabras clave",
       "description": "Los pasajes conceptuales pueden usar otras palabras. Las frases entre comillas son obligatorias en el documento; el pasaje mostrado puede estar en otro lugar.",
       "shown": "Documentos mostrados: {{count}}",
       "loading": "Buscando pasajes conceptuales…",

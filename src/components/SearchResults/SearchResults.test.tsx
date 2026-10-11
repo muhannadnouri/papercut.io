@@ -6,8 +6,9 @@ import { SearchResults } from './SearchResults'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, options?: { count?: number }) => (
-      options?.count === undefined ? key : `${key}:${options.count}`
+    t: (key: string, options?: { count?: number; shown?: number; total?: number }) => (
+      options?.shown !== undefined ? `${key}:${options.shown}/${options.total}`
+        : options?.count === undefined ? key : `${key}:${options.count}`
     ),
   }),
 }))
@@ -117,13 +118,13 @@ describe('explicit typo retry', () => {
   it('shows an uploaded retry beside starter results', () => {
     const html = renderToStaticMarkup(
       <SearchResults
-        results={[{ id: 'starter', url: '/starter', meta: { title: 'Starter' }, excerpt: '<mark>be</mark>', source: 'starter' }]}
+        results={[{ id: 'starter', url: '/starter', meta: { title: 'Starter' }, excerpt: '<mark>calendar</mark>', source: 'starter' }]}
         loading={false}
         searchFailed={false}
         searchableDocumentCount={2}
         searchPhase={null}
-        submittedQuery="calender meeting agenda"
-        lastSearchInfo={{ mode: 'all', phrases: [], unquotedText: 'calender meeting agenda', uploadedDocuments: 0, uploadedMatchingSections: 0, starterDocuments: 1, suggestedQuery: 'calendar meeting agenda' }}
+        submittedQuery="calendar meeting agenda"
+        lastSearchInfo={{ mode: 'all', phrases: [], unquotedText: 'calendar meeting agenda', uploadedDocuments: 0, uploadedMatchingSections: 0, starterDocuments: 1, suggestedQuery: 'calendar meeting agenda' }}
         scopeUrls={new Set()}
         scopeActive={false}
         onViewResult={() => undefined}
@@ -131,7 +132,8 @@ describe('explicit typo retry', () => {
       />,
     )
     expect(html).toContain('search.input.button <bdi>“calendar meeting agenda”</bdi>')
-    expect(html).toContain('search-result-group-starter')
+    expect(html).toContain('search.results.starterDocument')
+    expect(html).not.toContain('search-result-group-starter')
   })
 })
 
@@ -321,5 +323,37 @@ describe('search query summary', () => {
     expect(html).toContain('class="search-info" role="status"')
     expect(html).not.toContain('search.results.exploreMatches')
     expect(html).not.toContain('search.results.sectionsByTerm')
+  })
+})
+
+
+describe('combined keyword results', () => {
+  const rows = [
+    { id: 'upload-one', url: '/uploads/one.html', meta: { title: 'Orchard Guide' }, excerpt: '<mark>orchard</mark>', source: 'upload' as const },
+    { id: 'starter', url: '/starter.html', meta: { title: 'Search Guide' }, excerpt: '<mark>orchard</mark>', source: 'starter' as const },
+    { id: 'upload-two', url: '/uploads/two.html', meta: { title: 'Survey Notes' }, excerpt: '<mark>orchard</mark>', source: 'upload' as const },
+  ]
+  const render = (scopeUrls = new Set<string>(), scopeActive = false, total = 3) => renderToStaticMarkup(
+    <SearchResults results={rows} loading={false} searchFailed={false}
+      searchableDocumentCount={3} searchPhase={null} submittedQuery="orchard"
+      lastSearchInfo={{ mode: 'all', phrases: [], unquotedText: 'orchard', uploadedDocuments: total - 1, uploadedMatchingSections: 2, starterDocuments: 1 }}
+      scopeUrls={scopeUrls} scopeActive={scopeActive} onViewResult={() => undefined} />,
+  )
+  it('preserves incoming order, labels starter cards and shows one count without source groups', () => {
+    const html = render()
+    expect(html.indexOf('Orchard Guide')).toBeLessThan(html.indexOf('Search Guide'))
+    expect(html.indexOf('Search Guide')).toBeLessThan(html.indexOf('Survey Notes'))
+    expect(html.match(/search.results.starterDocument/g)).toHaveLength(1)
+    expect(html.match(/search.results.resultCount:3/g)).toHaveLength(1)
+    expect(html).not.toContain('search-result-group')
+    expect(html).not.toContain('search.results.yourLibrary')
+  })
+  it('retains scoped cards and makes capped totals explicit in the single summary', () => {
+    const filtered = render(new Set(['/uploads/one.html']), true)
+    expect(filtered).toContain('Orchard Guide')
+    expect(filtered).not.toContain('Search Guide')
+    expect(filtered).not.toContain('Survey Notes')
+    expect(filtered).toContain('search.results.filtered')
+    expect(render(new Set(), false, 70)).toContain('search.results.showingCount:3/70')
   })
 })

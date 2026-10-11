@@ -80,8 +80,6 @@
       "filtersApplied": "应用文档过滤器。",
       "welcome": "输入查询并按“搜索”（或 Enter）以搜索所有索引文档。",
       "welcomeHint": "将短语括在双引号中以进行精确匹配搜索。",
-      "yourLibrary": "您的资料库",
-      "starterDocuments": "入门文档",
       "showingCount": "显示 {{total, number}} 个中的 {{shown, number}} 个",
       "termsSeparateSections": "已找到所有词，但它们不在同一章节中",
       "bestSection": "最佳匹配章节：{{title}}",
@@ -99,11 +97,12 @@
       "showMoreOccurrences": "显示更多出现位置",
       "occurrencesFailed": "无法加载出现位置。",
       "noLiteralOccurrences": "正文中未找到出现位置。",
-      "retryOccurrences": "重试"
+      "retryOccurrences": "重试",
+      "starterDocument": "入门文档"
     },
     "conceptual": {
       "title": "概念结果 · 你的资料库",
-      "lexicalTitle": "词汇匹配结果",
+      "lexicalTitle": "关键词结果",
       "description": "概念段落可能使用不同的词语。文档中必须包含所有引号内的短语，但显示的段落可能在别处。",
       "shown": "显示的文档：{{count}}",
       "loading": "正在查找概念段落…",

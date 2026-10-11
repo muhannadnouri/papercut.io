@@ -53,13 +53,63 @@ in the [final review below](#stage-7--final-automated-branch-acceptance-review--
 functional Settings and the separate conceptual-results UI are implemented.
 Lexical remains default; native shipping scripts now include provider capability
 without enabling saved user consent. The subsequent
-[Search settings readiness pass](#stage-7--search-settings-readiness--2026-10-11) has local
+[keyword-results cleanup](#stage-7--keyword-results-and-starter-eligibility--2026-10-11) has local
 frontend validation; the recorded full CI predates these UI changes. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 7 — Keyword results and starter eligibility — 2026-10-11
+
+The source-group review is implemented: keyword cards now form one list with one
+summary count and a small **Starter Document** badge on bundled cards. Counts
+show **Showing N of M** when display limits leave matches undisplayed. Existing
+document include/exclude controls retain source selection; the search scope and
+default remain unchanged. The opt-in conceptual channel stays separate, with
+**Keyword Results** replacing the visible jargon label. English result headings
+and action labels use Title Case; all eight locales have matching keys, and the
+unused source-group headings are removed.
+
+The screenshot mismatch was reproduced against the actual built starter index.
+A fresh Pagefind instance, without the startup discovery search, still returns
+unrelated candidates for a generic query such as `orchard lantern survey` and
+highlights short fragments rather than the requested words. The problem is loose
+candidate eligibility, not demonstrated startup cache contamination. The shared
+search hook now intersects those candidates with Pagefind's quoted-term matches
+for each distinct unquoted term before scope/count/display limits. Missing terms
+reject the candidate; empty intersections stop further checks. Original candidate
+order and Pagefind's language/stemming behavior remain in use. Authored quoted
+phrases still receive the existing separate source-text verification. Broader
+continues to exclude starter documents, and uploaded/native/conceptual retrieval
+is unchanged. No Pagefind package, index configuration, word-pair overrides or
+new search engine is introduced.
+
+This is presentation consolidation plus an All Words eligibility correction,
+not globally comparable relevance scores: uploaded results still precede starter
+results, and each provider retains its ordering. Required-term lookups add indexed
+Pagefind calls for nonempty candidates; they do not fetch every source document
+or encode text. No latency guarantee for a larger starter corpus is claimed.
+
+Validation: **199 frontend/tooling tests in 50 files**, lint, locale parity,
+TypeScript and the frontend build pass. New regressions cover required-term
+intersection, deduplication, early rejection, retained candidate order, phrase-only
+separation, a spelling retry after rejecting loose starter hits, unified counts,
+source badges, scope and capped totals. Existing quote, concurrency, Broader,
+evidence/navigation and conceptual-channel checks remain passing.
+A browser harness invoking the actual helper and built Pagefind index rejects
+three loose candidates, retains two positive controls and three stemming controls,
+and returns zero for an empty scope. Rendered English/Arabic cards and badges
+fit 320-pixel views without horizontal overflow; filtered/keyword-only and separate
+conceptual presentation were checked. Uploaded/conceptual cards in that preview
+are synthetic; no real model/native inference or installed-app smoke is claimed.
+
+**Next:** rebuild with `npm run desktop` and review the combined presentation,
+then resume the updated [smoke checklist](search-v2-smoke.md) when ready. Verify
+All Words rejects unrelated starter cards and still admits intended terms/phrases
+under include/exclude filters. Smoke remains user-deferred and all checklist
+boxes remain open. No new CI matrix or automatic model tuning is needed.
 
 ## Stage 7 — Search settings readiness — 2026-10-11
 

@@ -149,6 +149,17 @@
   margin-bottom: 0.35rem;
 }
 
+.result-source {
+  display: inline-block;
+  margin-bottom: 0.55rem;
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-inline);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
 .result-meta {
   display: block;
   margin-bottom: 0.55rem;

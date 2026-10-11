@@ -158,7 +158,7 @@ export function useSearch(
     setSearchPhase('indexes')
     try {
       const pagefindPromise = mode === 'all' && pagefindRef.current
-        ? pagefindRef.current.search(searchQuery)
+        ? searchStarterDocuments(pagefindRef.current, searchQuery, uploadedQuery)
         : Promise.resolve({ results: [] })
       const uploadPromise = searchUploadedDocuments(
         uploadedQuery,
@@ -306,6 +306,20 @@ export function useSearch(
     submitSearch,
     removeResultsForUrl,
   }
+}
+
+/** Pagefind's loose candidates can match only a short fragment; require each
+ * unquoted term via its exact-token search, retaining stemming and candidate order. */
+export async function searchStarterDocuments(pagefind: PagefindInstance, query: string, unquotedText: string) {
+  const found = await pagefind.search(query)
+  let results = found.results
+  for (const term of new Set(unquotedText.split(/\s+/).filter(Boolean))) {
+    if (results.length === 0) break
+    const required = await pagefind.search(`"${term}"`)
+    const ids = new Set(required.results.map((result) => result.id))
+    results = results.filter((result) => ids.has(result.id))
+  }
+  return { results }
 }
 
 export async function pagefindResultsInScope(

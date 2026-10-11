@@ -609,6 +609,15 @@ See [current acceptance evidence](search-v2-progress.md) for packaging and gates
 
 ## React conceptual results and fallback
 
+The visible lexical channel is labeled **Keyword Results** when conceptual search
+is present. Keyword cards use one list/count, with a **Starter Document** badge
+rather than source-group sections. Existing uploaded-first and per-provider order
+is retained; this is not cross-engine score fusion. Starter All Words candidates
+are filtered through each distinct unquoted term's Pagefind quoted search before
+scope/count/display limits; authored phrase verification remains separate. There
+is no change to uploaded/native retrieval or the separate conceptual contract.
+
+
 `src/search-semantic/useConceptualSearch.ts` owns invocation/state and
 `ConceptualResults.tsx` owns rendering. `App` supplies submission identity, current
 scope and uploaded-library snapshots; SearchTab has a results slot rather than

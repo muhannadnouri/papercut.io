@@ -84,8 +84,6 @@
       "filtersApplied": "Vengono applicati i filtri del documento.",
       "welcome": "Digita una query e premi Cerca (o Enter) per eseguire la ricerca in tutti i documenti indicizzati.",
       "welcomeHint": "Racchiudi una frase tra virgolette doppie per la ricerca con corrispondenza esatta.",
-      "yourLibrary": "La tua biblioteca",
-      "starterDocuments": "Documenti iniziali",
       "showingCount": "Visualizzazione di {{shown, number}} su {{total, number}}",
       "termsSeparateSections": "Tutte le parole sono state trovate, ma non nella stessa sezione",
       "bestSection": "Sezione con la migliore corrispondenza: {{title}}",
@@ -109,11 +107,12 @@
       "showMoreOccurrences": "Mostra altre occorrenze",
       "occurrencesFailed": "Impossibile caricare le occorrenze.",
       "noLiteralOccurrences": "Nessuna occorrenza trovata nel corpo del testo.",
-      "retryOccurrences": "Riprova"
+      "retryOccurrences": "Riprova",
+      "starterDocument": "Documento iniziale"
     },
     "conceptual": {
       "title": "Risultati concettuali · La tua libreria",
-      "lexicalTitle": "Risultati lessicali",
+      "lexicalTitle": "Risultati per parole chiave",
       "description": "I passaggi concettuali possono usare parole diverse. Le frasi tra virgolette sono obbligatorie nel documento; il passaggio mostrato può trovarsi altrove.",
       "shown": "Documenti mostrati: {{count}}",
       "loading": "Ricerca di passaggi concettuali…",
