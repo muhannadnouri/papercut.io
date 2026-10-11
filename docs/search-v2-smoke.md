@@ -89,8 +89,13 @@ isolated; a Git branch or semantic opt-out does not isolate lexical migrations.
 The expanded rapid-submission check below remains deferred with the other Stage 7
 cases. The [shipping integration](search-v2-progress.md#stage-7--provider-in-shipping-builds--2026-10-10)
 now includes provider capability in ordinary native shipping scripts; earlier CI
-artifact reports above retain their historical feature sets. Other-platform
-package acceptance and all interactive cases remain open.
+artifact reports above retain their historical feature sets.
+[Full run 38107442282](https://github.com/muhannadnouri/papercut.io/actions/runs/38107442282)
+on `e686960` passes platform shipping builds/uploads and optional FP32/INT8 native
+index/query/lifecycle checks. Redundant provider build variants are removed in
+the follow-up; confirming CI is next. These checks do not install/launch uploaded
+packages, validate signed Apple distribution or mark any interactive case passed.
+All interactive cases remain deferred for the consolidated smoke pass.
 
 ## Isolate the library first
 

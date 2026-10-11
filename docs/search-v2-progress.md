@@ -58,6 +58,51 @@ remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
 
+## Stage 7 — shipping CI acceptance and consolidation — 2026-10-10
+
+[Full run 38107442282](https://github.com/muhannadnouri/papercut.io/actions/runs/38107442282)
+completed successfully on shipping-integration source
+`e6869601e4c9eae0c5cd22884b8914df0fb7c4f5`. All ten jobs pass. Ordinary native
+shipping scripts produce Linux AppImage/Debian, Windows MSI/NSIS, macOS Intel/ARM
+DMG and Android arm64 APK artifacts; unsigned iOS simulator/archive and device
+linking pass. AppImage media and both macOS bundle-runtime checks pass. Artifact
+metadata was reviewed; this follow-up does not download, install or launch them,
+and unsigned iOS checks are not signed IPA acceptance.
+
+The optional inference steps actually ran on Linux, Windows, both macOS
+architectures, Android x86_64 emulator and iOS arm64 simulator. Each log completes
+FP32 and INT8 index/query and lifecycle controls, and exits successfully. Default
+Rust coverage passes **162 tests (five ignored)**; provider-enabled coverage
+passes **217 tests (ten ignored)**, followed by the explicit real-model test on
+each runtime. These are bounded native checks, not WebView or physical-device
+acceptance. The Android exit/Windows loader corrections remain in place.
+
+With shipping builds accepted, remove **four redundant workflow step definitions**:
+the Windows/macOS unbundled provider build, second Android APK and second iOS
+simulator/device builds. This removes **six build executions per full run** because
+the desktop step ran on three matrix targets. Existing shipping steps prepare the
+same required runtimes, including Android's x86_64 libraries and iOS's simulator
+slice. No new job, matrix, npm command, Tauri config or cache framework is added.
+Default/provider Rust compilation/regressions, package uploads/runtime checks,
+manual `provider_inference` gates, model sharing and failure diagnostics remain.
+No application, runtime, model, signing or user-consent behavior changes.
+
+Fresh local validation passes the existing **nine shipping-command regressions**
+and **six mobile-runner self-tests**. A parsed workflow comparison confirms exactly
+those four steps are removed and every other job, condition, matrix, upload and
+inference command is unchanged; YAML and all **38 Bash-compatible run blocks**
+parse. Documentation links, unchanged smoke checkboxes and diff checks pass.
+Native inference and platform builds are not rerun locally in this deletion-only
+pass; the confirming remote run remains necessary.
+
+**Next:** push this consolidation and run `validation_scope=full` with
+`provider_inference=true` once to verify the remaining shipping steps alone supply
+all inference prerequisites. Keep inference optional for routine CI. Then complete
+the final branch acceptance review and the consolidated interactive smoke when
+the user resumes it. Smoke remains explicitly deferred; physical/reference-device
+resources, representative same-language relevance and signed Apple distribution
+remain open. No push, dispatch, release or merge is performed here.
+
 ## Stage 7 — provider in shipping builds — 2026-10-10
 
 **Finding 3's build integration is implemented; platform package acceptance remains

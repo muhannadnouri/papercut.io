@@ -22,9 +22,12 @@ documents, including long books, rather than a multi-user search service.
 
 **Findings 1 and 2 are fixed; finding 4 is retired.** The findings below describe
 the reviewed source above; the [corrective pass](search-v2-progress.md#stage-7--branch-review-corrections--2026-10-10)
-records the implementation and regressions. Finding 3 now has [shipping build integration](search-v2-progress.md#stage-7--provider-in-shipping-builds--2026-10-10);
-Other-platform package/signing acceptance remains the gate. Smoke is still
-deferred; this is not merge or release approval.
+records the implementation and regressions. Finding 3 now has [shipping build integration](search-v2-progress.md#stage-7--provider-in-shipping-builds--2026-10-10).
+The [shipping CI acceptance and consolidation](search-v2-progress.md#stage-7--shipping-ci-acceptance-and-consolidation--2026-10-10)
+verifies full run `38107442282` on `e686960`: shipping builds and optional native
+inference pass across supported platform runners. Redundant build steps are now
+removed; the simplified workflow still needs its own confirming run. Signed
+distribution and smoke acceptance remain open; this is not merge or release approval.
 
 ## Must fix at review time
 
@@ -135,8 +138,9 @@ search implementations.
 
 ## CI duplication and packaging policy
 
-The workflow adds 204 lines to the existing jobs, rather than another workflow or
-model/job family. PR checks still use changed-surface detection. Ordinary checks
+At the original review, the workflow added 204 lines to the existing jobs, rather
+than another workflow or model/job family. This consolidation removes 20 lines.
+PR checks still use changed-surface detection. Ordinary checks
 run deterministic frontend/default/provider regressions and runner self-tests;
 model downloads, inference and emulator execution require manual
 `provider_inference=true`. Keep that opt-in boundary.
@@ -145,16 +149,17 @@ model downloads, inference and emulator execution require manual
   they are not interchangeable. The Linux provider build also prepares native
   runtime files before copying and running tests. Do not delete it without
   replacing that preparation and preserving non-test compilation coverage.
-- Normal and provider app builds intentionally check different configurations.
-  Normal desktop/Android artifacts are uploaded before the provider build; no
-  provider installer is uploaded. iOS normal/provider simulator archives and
-  unsigned device links are build evidence, not signed distribution evidence.
-- There is avoidable work **once the shipping provider configuration changes**:
-  select one actual shipping package per target instead of retaining both full
-  packaging passes for the same feature set. Preserve default-feature Rust
-  checks and the explicit runtime path. The extra Windows/macOS unbundled build,
-  Android provider APK and second iOS simulator/device build can then be folded
-  into that shipping pass; do not expand the matrix further.
+- Ordinary native shipping builds now contain the provider, with user consent
+  still default-off and weights unbundled. Run `38107442282` passes their builds,
+  uploads, runtime checks and optional inference. Artifact uploads do not establish
+  installed-app acceptance; iOS simulator archives and unsigned device links do
+  not establish signed distribution acceptance.
+- Keep one shipping build per target. The redundant Windows/macOS unbundled
+  build, Android provider APK and second iOS simulator/device builds are removed:
+  four workflow definitions, six executions per full run. Their shipping scripts
+  prepare the same runtime prerequisites; preserve default-feature Rust checks
+  and the explicit inference path. Confirm the simplified workflow in full CI
+  before relying on this prerequisite review; do not expand the matrix further.
 - Tauri repeats its frontend build hook for app variants. Collapse obsolete
   variants first, rather than introducing a build-cache/config framework merely
   to suppress those repeated hooks. Existing platform staging/link/bundle checks
@@ -201,12 +206,12 @@ Fresh checks pass: **175 frontend tests in 47 files**, **162 default Rust tests
 TypeScript and Rust formatting. No installed app data is used. Ignored asset/runtime
 checks and platform CI are not rerun by this corrective pass.
 
-**Next:** validate the remaining platform packages from the integrated shipping
-builds (finding 3), then fold obsolete duplicate packaging passes into those jobs.
-The [shipping pass](search-v2-progress.md#stage-7--provider-in-shipping-builds--2026-10-10)
-records local package evidence; the policy above describes the original review
-configuration, before ordinary native shipping scripts gained the provider. Keep
-default-feature regressions and explicit native inference checks. No new build-script family, model sweep or Stage 8 is justified.
+**Next:** confirm the consolidated workflow with `validation_scope=full` and
+`provider_inference=true`, then finish the branch acceptance review. The
+[shipping pass](search-v2-progress.md#stage-7--provider-in-shipping-builds--2026-10-10)
+records local package evidence; the subsequent full run passes platform shipping
+builds and native inference. Keep default-feature regressions and explicit native
+inference checks. No new build-script family, model sweep or Stage 8 is justified.
 Smoke stays deferred until the consolidated interactive pass; representative
 same-language quality and physical/reference-device resources remain acceptance
 gates. No release, push or additional CI dispatch is performed.

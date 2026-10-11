@@ -445,11 +445,6 @@ jobs:
           path: src-tauri/target/release/bundle/dmg/*.dmg
           retention-days: 7
 
-      # Shipping packages now include the provider; retain this recheck until package CI is accepted.
-      - name: Build opt-in search provider with native TTS (Windows/macOS)
-        if: matrix.platform != 'linux'
-        run: npm run tauri -- build --features "native-tts-shared,experimental-search-embeddings" --no-bundle
-
       - name: Cache explicit provider inference models
         if: matrix.platform != 'linux' && github.event_name == 'workflow_dispatch' && inputs.provider_inference
         uses: actions/cache@v5
@@ -561,14 +556,6 @@ jobs:
           name: papercut-android-native-tts-apk
           path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/*.apk
           retention-days: 7
-
-      # Temporary recheck until shipping-package CI is accepted; Gradle reuses the uploaded APK path.
-      - name: Build Android APK with opt-in search provider and native TTS
-        run: >-
-          npm run android:apk:native-tts -- android build --apk --debug
-          --target aarch64 --features native-tts-shared,experimental-search-embeddings
-        env:
-          NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/29.0.13846066
 
       - name: Download verified mobile inference assets
         if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
@@ -697,13 +684,6 @@ jobs:
 
       - name: Build unsigned iOS device app with native TTS
         run: npm run ios:ci:device
-
-      # Shipping iOS checks now include linked ORT; retain these rechecks until package CI is accepted.
-      - name: Build unsigned iOS simulator app with opt-in search provider and native TTS
-        run: npm run ios:ci -- --native-tts --features experimental-search-embeddings-linked
-
-      - name: Build unsigned iOS device app with opt-in search provider and native TTS
-        run: npm run ios:ci:device -- --features experimental-search-embeddings-linked
 
       - name: Download verified mobile inference assets
         if: github.event_name == 'workflow_dispatch' && inputs.provider_inference

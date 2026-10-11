@@ -19,8 +19,9 @@ The [branch review on 2026-10-10](search-v2-branch-review.md) is followed by
 for latest-request recovery and older-app lexical projection invalidation, with
 regressions for both. Native platform checks do not replace these hook/migration
 checks or deferred interactive acceptance. The [shipping integration](search-v2-progress.md#stage-7--provider-in-shipping-builds--2026-10-10)
-now includes provider capability in existing native package scripts; other-platform
-package CI/signing acceptance remains open, with user opt-in off by default. The separate historical compatibility crate is removed: use the
+now includes provider capability in existing native package scripts. Shipping
+platform CI passes in the acceptance below; signing/installed-app acceptance
+remains open, with user opt-in off by default. The separate historical compatibility crate is removed: use the
 app-native checks under [Runnable checks](#runnable-checks), with the production adapter and
 shared initializer. Its four-order results remain historical Git evidence; other
 retrieval experiments stay frozen outside the product/CI graph.
@@ -56,11 +57,16 @@ Linux Debian/RPM/AppImage package build/content checks are recorded in progress.
 The AppImage media check passes. Relocated payloads resolve packaged sherpa/ORT
 without development library-path overrides, include provider code/license, and
 omit embedding weights. These checks do not install or launch the app. Windows,
-macOS, Android and iOS actual package/signing acceptance must still use their
-existing CI/release checks; this Linux host cannot provide those results.
-Temporary duplicate provider builds remain until the new shipping-package CI is
-accepted, then fold them into the existing shipping pass. Default-feature Rust
-regressions and explicit native inference checks remain separate.
+macOS and Android packages build/upload successfully in
+[full run 38107442282](https://github.com/muhannadnouri/papercut.io/actions/runs/38107442282)
+on `e686960`; unsigned iOS simulator/device builds also pass. Optional FP32/INT8
+index/query and lifecycle checks pass on all six tested runtime targets, including
+Android x86_64 emulator and iOS arm64 simulator. This does not establish installed
+package, signed IPA/notarization, physical-device or minimum-OS acceptance.
+The [CI consolidation](search-v2-progress.md#stage-7--shipping-ci-acceptance-and-consolidation--2026-10-10)
+removes the now-redundant provider app builds while retaining shipping builds,
+default/provider Rust checks and explicit inference. A full confirming run with
+`provider_inference=true` is next; ordinary CI still downloads no embedding weights.
 
 The sections below retain historical build/run evidence. Earlier “normal build”
 claims refer to the lexical-only configurations used at those recorded sources.
@@ -197,7 +203,8 @@ archive compilation/linking while avoiding the simulator export/rename collision
 The corrected iOS archive and provider device build are verified in the mobile
 run above; release IPA commands still export normally. Running a provider build reuses local output paths;
 that earlier pass built/uploaded lexical-only packages first. Current native shipping
-scripts include the provider, so these extra builds are temporary duplicate checks.
+scripts include the provider; the duplicate checks are removed after the successful
+shipping/inference run recorded above.
 Build/link success is separate from provider runtime initialization, installed
 model inference and real-device resource acceptance.
 
