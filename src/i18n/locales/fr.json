@@ -383,13 +383,13 @@
       "resources": "La taille sur disque n’est pas la consommation de RAM. Les tests natifs sur cet ordinateur ont atteint environ 1.42 GiB pour FP32 et 846 MiB pour INT8 ; les autres appareils peuvent différer.",
       "platform": "Les vérifications automatiques réussissent sur les cibles CI testées. Les performances sur appareils physiques et l’utilisabilité restent à valider.",
       "int8Warning": "L’export INT8 porte le nom AVX512/VNNI. L’inférence réussit sur les environnements CI testés ; cela ne garantit pas les performances ni la compatibilité sur tous les appareils.",
-      "present": "Fichiers téléchargés ; vérifiez leur intégrité avant utilisation.",
+      "present": "Fichiers présents ; leur intégrité est vérifiée au chargement du modèle.",
       "absent": "Modèle non téléchargé ou téléchargement incomplet.",
       "consent": "Autoriser le téléchargement de ce format depuis Hugging Face.",
       "verify": "Vérifier le cache",
       "download": "Télécharger les fichiers du modèle",
       "remove": "Supprimer les fichiers du modèle",
-      "inUse": "Ce format est actif. Désactivez la recherche sémantique avant de supprimer ses fichiers.",
+      "inUse": "Désactivez la recherche sémantique pour changer le format, vérifier les fichiers ou les supprimer.",
       "recovery": "Pour un cache incomplet ou endommagé, supprimez ses fichiers puis téléchargez-les à nouveau. Les téléchargements interrompus repartent de zéro.",
       "activationBusy": "Le modèle est en cours d’activation. Les modifications du cache doivent attendre.",
       "working": "En cours ; la vérification et le nettoyage peuvent prendre du temps…",
@@ -403,7 +403,12 @@
       "details": "Détails techniques",
       "storage": "Gérer le stockage",
       "resourceSummary": "Utilise davantage de mémoire et de calcul lorsqu’il est activé.",
-      "confirmRemove": "Supprimer les fichiers de ce modèle, y compris les téléchargements incomplets ? Les documents et l’index sont conservés. Vous devrez télécharger le modèle à nouveau."
+      "confirmRemove": "Supprimer les fichiers de ce modèle, y compris les téléchargements incomplets ? Les documents et l’index sont conservés. Vous devrez télécharger le modèle à nouveau.",
+      "manage": "Gérer le modèle",
+      "model": "Modèle",
+      "downloadSize": "Taille du téléchargement",
+      "loaded": "Modèle chargé",
+      "reserve": "Les téléchargements nécessitent 64 Mio supplémentaires d’espace libre."
     },
     "semantic": {
       "title": "Recherche sémantique (expérimentale)",
@@ -415,7 +420,7 @@
       "working": "En cours. La recherche continue avec des résultats lexicaux.",
       "coverage": "Documents indexés : {{ready}} / {{total}} · passages prêts : {{passages}}",
       "progress": "Cette tâche : {{embedded}} passages encodés · {{reused}} réutilisés",
-      "build": "Créer / reprendre l’index",
+      "build": "Créer l’index",
       "remove": "Supprimer l’index",
       "retry": "Réessayer l’activation",
       "refresh": "Actualiser l’état",
@@ -436,7 +441,16 @@
       "indexing": "Indexation de la bibliothèque…",
       "downloading": "Téléchargement du modèle de recherche…",
       "disabling": "Désactivation de la recherche sémantique…",
-      "confirmRemove": "Supprimer l’index ? Les documents importés sont conservés. Vous devrez recréer l’index."
+      "confirmRemove": "Supprimer l’index ? Les documents importés sont conservés. Vous devrez recréer l’index.",
+      "controlsTitle": "Recherche sémantique",
+      "enabled": "Activée",
+      "libraryTitle": "Index de la bibliothèque",
+      "ready": "Prêt pour la recherche conceptuelle.",
+      "documentsReady": "{{ready}} documents indexés sur {{total}}.",
+      "update": "Mettre à jour l’index",
+      "details": "Détails de l’index",
+      "passages": "Passages indexés : {{count}}",
+      "indexHint": "Le travail terminé est réutilisé lors de la création ou de la mise à jour de l’index."
     }
   },
   "libraryTransfer": {

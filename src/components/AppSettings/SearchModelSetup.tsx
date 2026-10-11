@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { formatStorageSize } from '../../utils/formatUtils'
 import { SemanticSearchSetup } from '../../search-semantic/SemanticSearchSetup'
 import type { ModelFormat, ProviderStatus, SemanticSearchController } from '../../search-semantic/useSemanticSearch'
+import './SearchModelSetup.css'
 
 interface CacheStatus {
   format: ModelFormat
@@ -146,16 +147,24 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
     ? Math.min(100, Math.max(0, Math.floor(progress.downloadedBytes / progress.totalBytes * 100))) : null
   const downloading = status?.downloadingFormat
   const matchingProgress = progress?.format === downloading ? progress : null
-  const canChange = ready && status?.compiled && !busy && !semantic?.enabled
+  // Active provider identity is verified during native loading; file presence alone is not.
+  const loaded = (semantic?.provider ?? status)?.activeFormat === format
+  const canChange = ready && status?.compiled && !busy && !semantic?.enabled && !loaded
+  const formatLabel = t(format === 'float32' ? 'settings.searchModel.float32' : 'settings.searchModel.int8')
 
   return (
     <section className="app-settings-section search-model-setup" aria-labelledby={`${id}-title`}>
       <p id={`${id}-title`}>{t('settings.semantic.description')}</p>
       {!ready && <p role="status">{t('settings.searchModel.loading')}</p>}
       {ready && !status?.compiled && <p>{t('settings.searchModel.unavailable')}</p>}
-      {ready && status?.compiled && <section className="search-model-panel" aria-labelledby={`${id}-model-title`}>
-        <h3 id={`${id}-model-title`}>{t('settings.searchModel.title')}</h3>
-        <p>{t('settings.searchModel.description')}</p>
+      {ready && status?.compiled && <details className="search-model-panel search-model-management" open={!loaded}>
+        <summary>{t(loaded ? 'settings.searchModel.manage' : 'settings.searchModel.title')}
+          {loaded && <span className="search-model-summary-status" role="status">{formatLabel} · {t('settings.searchModel.loaded')}</span>}
+        </summary>
+        <dl className="search-model-metadata">
+          <dt>{t('settings.searchModel.model')}</dt><dd>multilingual-e5-small</dd>
+          <dt>{t('settings.searchModel.downloadSize')}</dt><dd>{formatStorageSize(cache?.expectedBytes) ?? '—'}</dd>
+        </dl>
         <label className="search-model-field">
           <span>{t('settings.searchModel.format')}</span>
           <select value={format} disabled={!canChange} onChange={(event) => {
@@ -172,20 +181,23 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
             <option value="dynamic-int8">{t('settings.searchModel.int8')}</option>
           </select>
         </label>
-        <p>{t('settings.searchModel.size', { size: formatStorageSize(cache?.expectedBytes) ?? '—' })}</p>
-        <p>{t('settings.searchModel.resourceSummary')}</p>
-        <p>{t(cache?.filesPresent ? 'settings.searchModel.present' : 'settings.searchModel.absent')}</p>
-        <label className="search-model-consent">
-          <input type="checkbox" checked={consent} disabled={!canChange} onChange={(event) => setConsent(event.target.checked)} />
-          <span>{t('settings.searchModel.consent')}</span>
-        </label>
-        <div className="search-model-actions">
-          <button type="button" className="app-settings-data-action" disabled={!canChange || !cache || !consent}
-            onClick={() => { void run('download') }}>
-            {t(cache?.filesPresent ? 'settings.searchModel.verify' : 'settings.searchModel.download')}
-          </button>
-        </div>
-        {status.activeFormat === format && <p>{t('settings.searchModel.inUse')}</p>}
+        {!loaded && <p role="status">{t(cache?.filesPresent
+          ? message === 'verified' ? 'settings.searchModel.verified' : 'settings.searchModel.present'
+          : 'settings.searchModel.absent')}</p>}
+        {(!semantic?.enabled && !loaded) && <>
+          <p>{t('settings.searchModel.reserve')}</p>
+          <label className="search-model-consent">
+            <input type="checkbox" checked={consent} disabled={!canChange} onChange={(event) => setConsent(event.target.checked)} />
+            <span>{t('settings.searchModel.consent')}</span>
+          </label>
+          <div className="search-model-actions">
+            <button type="button" className="app-settings-data-action search-action-primary" disabled={!canChange || !cache || !consent}
+              onClick={() => { void run('download') }}>
+              {t(cache?.filesPresent ? 'settings.searchModel.verify' : 'settings.searchModel.download')}
+            </button>
+          </div>
+        </>}
+        {(semantic?.enabled || loaded) && <p>{t('settings.searchModel.inUse')}</p>}
 
         {(operation !== null || downloading) && <div role="status" aria-live="polite">
           <p>{t('settings.searchModel.working')}</p>
@@ -198,11 +210,11 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
         </div>}
         {downloading && <button type="button" className="app-settings-data-action" disabled={cancelling}
           onClick={() => { void cancel() }}>{t('common.cancel')}</button>}
-        {message && <p role="status">{t(`settings.searchModel.${message}`)}</p>}
+        {message === 'removed' && <p role="status">{t('settings.searchModel.removed')}</p>}
         {cancelling && busy && <p role="status">{t('settings.searchModel.cancelling')}</p>}
         {!busy && progress?.phase === 'cancelled' && !error && <p role="status">{t('settings.searchModel.cancelled')}</p>}
         {!busy && progress?.phase === 'failed' && !error && <p role="alert">{t('settings.searchModel.failed')}</p>}
-      </section>}
+      </details>}
       {error && <p className="app-dialog-error" role="alert" dir="auto">{error}</p>}
       {error && <button type="button" className="app-settings-data-action" onClick={() => {
         setError('')

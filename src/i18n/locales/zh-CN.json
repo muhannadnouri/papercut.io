@@ -371,13 +371,13 @@
       "resources": "磁盘大小不等于内存用量。在此开发计算机上，原生测试峰值约为 FP32 的 1.42 GiB 和 INT8 的 846 MiB；其他设备可能不同。",
       "platform": "已测试的 CI 目标通过自动运行时检查。实体设备性能和应用可用性仍需验证。",
       "int8Warning": "INT8 导出使用 AVX512/VNNI 名称。已测试的 CI 运行时通过推理检查；这不代表所有设备的性能或兼容性。",
-      "present": "文件已下载；使用前请验证完整性。",
+      "present": "文件已存在；加载模型时会检查完整性。",
       "absent": "模型尚未下载或下载未完成。",
       "consent": "允许从 Hugging Face 下载此格式。",
       "verify": "验证缓存",
       "download": "下载模型文件",
       "remove": "删除模型文件",
-      "inUse": "此格式已激活。移除文件前请关闭语义搜索。",
+      "inUse": "请关闭语义搜索后再更改格式、验证文件或删除文件。",
       "recovery": "如果缓存不完整或已损坏，请删除文件后重新下载。中断的下载将从头开始。",
       "activationBusy": "模型正在激活。更改缓存前请等待完成。",
       "working": "正在处理；验证和清理可能需要时间…",
@@ -391,7 +391,12 @@
       "details": "技术详情",
       "storage": "管理存储",
       "resourceSummary": "启用时会使用额外的内存和计算资源。",
-      "confirmRemove": "移除此模型的文件，包括未完成的下载？文档和搜索索引将保留。要使用该模型，必须重新下载。"
+      "confirmRemove": "移除此模型的文件，包括未完成的下载？文档和搜索索引将保留。要使用该模型，必须重新下载。",
+      "manage": "管理模型",
+      "model": "模型",
+      "downloadSize": "下载大小",
+      "loaded": "模型已加载",
+      "reserve": "下载还需要额外的 64 MiB 可用空间。"
     },
     "semantic": {
       "title": "语义搜索（实验性）",
@@ -403,7 +408,7 @@
       "working": "正在处理。搜索继续使用词汇匹配结果。",
       "coverage": "已索引文档：{{ready}} / {{total}} · 就绪片段：{{passages}}",
       "progress": "本次任务：已编码 {{embedded}} 个片段 · 已复用 {{reused}} 个",
-      "build": "构建 / 继续索引",
+      "build": "创建索引",
       "remove": "删除索引",
       "retry": "重试激活",
       "refresh": "刷新状态",
@@ -424,7 +429,16 @@
       "indexing": "正在为文档库建立索引…",
       "downloading": "正在下载搜索模型…",
       "disabling": "正在关闭语义搜索…",
-      "confirmRemove": "移除搜索索引？导入的文档将保留。之后需要重新建立索引。"
+      "confirmRemove": "移除搜索索引？导入的文档将保留。之后需要重新建立索引。",
+      "controlsTitle": "语义搜索",
+      "enabled": "已启用",
+      "libraryTitle": "资料库索引",
+      "ready": "已准备好进行概念搜索。",
+      "documentsReady": "已索引 {{ready}} / {{total}} 个文档。",
+      "update": "更新索引",
+      "details": "索引详情",
+      "passages": "已索引段落数：{{count}}",
+      "indexHint": "创建或更新索引时会复用已完成的工作。"
     }
   },
   "libraryTransfer": {

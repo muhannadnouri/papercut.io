@@ -383,13 +383,13 @@
       "resources": "La dimensione su disco non è il consumo di RAM. I test nativi su questo computer hanno raggiunto circa 1.42 GiB per FP32 e 846 MiB per INT8; altri dispositivi possono differire.",
       "platform": "I controlli automatici passano sui target CI testati. Prestazioni sui dispositivi fisici e usabilità richiedono ancora verifica.",
       "int8Warning": "L’esportazione INT8 usa il nome AVX512/VNNI. L’inferenza passa sui runtime CI testati; ciò non garantisce prestazioni o compatibilità su ogni dispositivo.",
-      "present": "File scaricati; verificane l’integrità prima dell’uso.",
+      "present": "File presenti; l’integrità viene verificata al caricamento del modello.",
       "absent": "Modello non scaricato o download incompleto.",
       "consent": "Consenti il download di questo formato da Hugging Face.",
       "verify": "Verifica cache",
       "download": "Scarica i file del modello",
       "remove": "Rimuovi i file del modello",
-      "inUse": "Questo formato è attivo. Disattiva la ricerca semantica prima di rimuovere i file.",
+      "inUse": "Disattiva la ricerca semantica per cambiare formato, verificare i file o rimuoverli.",
       "recovery": "Se la cache è incompleta o danneggiata, rimuovi i file e scaricali di nuovo. I download interrotti ripartono da zero.",
       "activationBusy": "Il modello è in fase di attivazione. Le modifiche alla cache devono attendere.",
       "working": "In corso; la verifica e la pulizia possono richiedere tempo…",
@@ -403,7 +403,12 @@
       "details": "Dettagli tecnici",
       "storage": "Gestisci spazio",
       "resourceSummary": "Usa memoria ed elaborazione aggiuntive quando è attivata.",
-      "confirmRemove": "Rimuovere i file del modello, inclusi i download incompleti? Documenti e indice restano intatti. Dovrai scaricare nuovamente il modello."
+      "confirmRemove": "Rimuovere i file del modello, inclusi i download incompleti? Documenti e indice restano intatti. Dovrai scaricare nuovamente il modello.",
+      "manage": "Gestisci modello",
+      "model": "Modello",
+      "downloadSize": "Dimensione del download",
+      "loaded": "Modello caricato",
+      "reserve": "I download richiedono altri 64 MiB di spazio libero."
     },
     "semantic": {
       "title": "Ricerca semantica (sperimentale)",
@@ -415,7 +420,7 @@
       "working": "In corso. La ricerca continua con risultati lessicali.",
       "coverage": "Documenti indicizzati: {{ready}} / {{total}} · passaggi pronti: {{passages}}",
       "progress": "Questo lavoro: {{embedded}} passaggi codificati · {{reused}} riutilizzati",
-      "build": "Crea / riprendi indice",
+      "build": "Crea indice",
       "remove": "Rimuovi indice",
       "retry": "Riprova attivazione",
       "refresh": "Aggiorna stato",
@@ -436,7 +441,16 @@
       "indexing": "Indicizzazione della libreria…",
       "downloading": "Download del modello di ricerca…",
       "disabling": "Disattivazione della ricerca semantica…",
-      "confirmRemove": "Rimuovere l’indice? I documenti importati restano intatti. Dovrai ricreare l’indice."
+      "confirmRemove": "Rimuovere l’indice? I documenti importati restano intatti. Dovrai ricreare l’indice.",
+      "controlsTitle": "Ricerca semantica",
+      "enabled": "Attiva",
+      "libraryTitle": "Indice della libreria",
+      "ready": "Pronto per la ricerca concettuale.",
+      "documentsReady": "{{ready}} documenti indicizzati su {{total}}.",
+      "update": "Aggiorna indice",
+      "details": "Dettagli dell’indice",
+      "passages": "Passaggi indicizzati: {{count}}",
+      "indexHint": "Il lavoro completato viene riutilizzato quando crei o aggiorni l’indice."
     }
   },
   "libraryTransfer": {

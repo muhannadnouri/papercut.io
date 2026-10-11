@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { SemanticSearchController } from './useSemanticSearch'
+import './SearchActivity.css'
 
 /** Link to live controls from both search and reader headers, without owning a job. */
 export function SearchActivity({ semantic, onManage }: {

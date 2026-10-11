@@ -25,9 +25,9 @@ it('shows off and opt-in wording, coverage, and blocks enabling without a cache 
   expect(ready).toContain('settings.semantic.enableTitle')
   expect(ready).toContain('&quot;ready&quot;:1')
   expect(ready).toContain('role="switch"')
-  expect(ready).not.toContain('role="switch" disabled=""')
-  expect(html(controller(), false)).toContain('role="switch" disabled=""')
-  expect(html(controller(), true, true)).toContain('role="switch" disabled=""')
+  expect(ready).not.toMatch(/role="switch"[^>]*disabled=""/)
+  expect(html(controller(), false)).toMatch(/role="switch"[^>]*disabled=""/)
+  expect(html(controller(), true, true)).toMatch(/role="switch"[^>]*disabled=""/)
 })
 
 it('labels unavailable opted-in state as lexical fallback with an actionable error and retry', () => {
@@ -48,7 +48,7 @@ it('keeps the off switch usable during indexing, shows progress/cancellation and
   const value = html(semantic)
   expect(value).toContain('settings.semantic.progress')
   expect(value).toContain('settings.semantic.cancelling')
-  expect(value).not.toContain('role="switch" disabled=""')
+  expect(value).not.toMatch(/role="switch"[^>]*disabled=""/)
   const old = controller()
   old.index!.error = 'Cancelled earlier'
   expect(html(old)).not.toContain('Cancelled earlier')
@@ -74,4 +74,38 @@ it('shows loading and indexing at the affected step and provides download prereq
   semantic.operation = 'build'; semantic.index!.running = true
   expect(html(semantic)).toContain('settings.semantic.indexing')
   expect(html(controller(), false)).toContain('settings.semantic.downloadFirst')
+})
+
+it('shows ready status without a build action, then offers an update when coverage changes', () => {
+  const semantic = controller({ enabled: true,
+    provider: { compiled: true, activeFormat: 'float32', loadingFormat: null, downloadingFormat: null } })
+  semantic.index!.indexedDocuments = 2
+  const ready = html(semantic)
+  expect(ready).toContain('settings.semantic.ready')
+  expect(ready).toContain('settings.semantic.documentsReady')
+  expect(ready).not.toContain('settings.semantic.build')
+  expect(ready).not.toContain('settings.semantic.update')
+  expect(ready).not.toContain('search-action-primary')
+  expect(ready).not.toContain('settings.semantic.enableTitle')
+  expect(ready).toContain('<details class="search-index-details">')
+  semantic.index!.eligibleDocuments = 3
+  expect(html(semantic)).toContain('settings.semantic.update')
+  expect(html(semantic)).not.toContain('settings.semantic.ready')
+  semantic.index!.indexedDocuments = 0; semantic.index!.passages = 0
+  expect(html(semantic)).toContain('settings.semantic.build')
+})
+
+it('does not claim readiness for an inactive encoder or a failed job even with full coverage', () => {
+  const semantic = controller({ enabled: true,
+    provider: { compiled: true, activeFormat: 'float32', loadingFormat: null, downloadingFormat: null } })
+  semantic.index!.indexedDocuments = 2
+  semantic.index!.error = 'Incomplete job'
+  expect(html(semantic)).not.toContain('settings.semantic.ready')
+  expect(html(semantic)).toContain('Incomplete job')
+  semantic.index!.error = null; semantic.provider!.activeFormat = 'dynamic-int8'
+  expect(html(semantic)).toContain('settings.semantic.fallback')
+  expect(html(semantic)).not.toContain('settings.semantic.indexReady')
+  semantic.provider!.activeFormat = 'float32'; semantic.operation = 'build'; semantic.busy = true
+  expect(html(semantic)).toContain('settings.semantic.indexing')
+  expect(html(semantic)).not.toContain('settings.semantic.ready')
 })

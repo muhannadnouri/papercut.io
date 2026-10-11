@@ -1,0 +1,31 @@
+.search-activity {
+  display: inline-grid;
+  gap: 0.15rem;
+  max-width: 12rem;
+  vertical-align: middle;
+  margin-inline-end: 0.5rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--control-surface);
+  color: var(--text-body);
+  font: inherit;
+  font-size: 0.75rem;
+  text-align: start;
+  cursor: pointer;
+}
+
+.search-activity > span:last-child {
+  color: var(--accent-text);
+}
+
+.search-activity:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+
+@media (max-width: 600px) {
+  .search-activity {
+    max-width: 8rem;
+  }
+}

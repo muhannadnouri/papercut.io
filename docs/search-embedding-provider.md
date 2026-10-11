@@ -409,13 +409,15 @@ controls require the focused follow-up below.
 
 ## Optional model setup
 
-Open **Settings → Semantic search → Manage** in a Tauri build; Developer mode is
+Open **Settings → Semantic Search → Manage** in a Tauri build; Developer mode is
 not required. General Settings contains a summary rather than model/index actions.
 The dedicated task view separates download, opt-in and library preparation;
-**Technical details** holds memory/compatibility and lifecycle explanations,
-while **Manage storage** holds model/index removal with consequence text and an
+**Technical Details** holds memory/compatibility and lifecycle explanations,
+while **Manage Storage** holds model/index removal with consequence text and an
 explicit confirmation. It reuses the existing dialog/focus handling, widens on
 desktop and scrolls its body without hiding Back/Done on narrow screens.
+Search view rules live in `SearchModelSetup.css`; header activity rules live in
+`SearchActivity.css`, rather than general `AppSettings.css`.
 
 Native shipping scripts compile the provider; providerless diagnostic builds
 report unavailability. There is no desktop-only UI check. FP32 remains the
@@ -425,10 +427,14 @@ CI emulator/simulator inference does not establish physical-device acceptance.
 
 An unchecked consent box names Hugging Face and this device as the destination.
 Each format change and completed attempt clears consent. Only an explicit
-**Download model files** or **Verify cache** click invokes the native installer.
-The latter verifies a valid existing cache without fetching; metadata-only
-presence is not labeled as verified. **Remove model files** is available even
-for an incomplete/missing cache, so it can clear interrupted staging. Active
+**Download Model Files** or **Verify Cache** click invokes the native installer.
+The latter verifies a valid existing cache without fetching, but can fetch
+missing files, so it still requires explicit per-format consent. Metadata-only
+presence is not labeled as verified. A loaded selected provider has verified its
+assets during activation; the view shows **Model Loaded** in a collapsed **Manage
+Model** summary and hides consent/installer controls. Turn off to restore them;
+this UI status does not add a persistent verification record. **Remove Model Files**
+is available even for an incomplete/missing cache, so it can clear interrupted staging. Active
 selected caches cannot be removed, and pending native activation/download blocks
 cache mutation. Download/verification never activate. The separate semantic-search
 opt-in panel owns activation; turn it off before changing format or removing
@@ -439,7 +445,7 @@ native download, model loading/disable or indexing, including reader navigation.
 The App-owned semantic controller listens to existing download start/terminal
 events, skips byte-progress events and polls only while busy. It starts no work
 from this notification. Empty libraries request imports rather than reporting
-zero coverage as readiness, and disable Build / resume until documents exist.
+zero coverage as readiness, and disable **Build Index** until documents exist.
 
 The panel subscribes before reading status, polls only during pending work and
 recovers native busy/cache state when reopened. Closing settings, changing tabs
@@ -483,11 +489,17 @@ Enable loads only already cached, checksum-verified assets. Failure retains the
 opt-in and presents an error/retry with lexical availability. Restart restores
 cached activation only after saved consent, never a download or an index build.
 Normal builds retain the preference without attempting unsupported activation.
-**Build / resume index** explicitly synchronizes uploaded text; use it after a
-restart or library edits. Native invalidation already hides stale documents.
+**Build Index** explicitly synchronizes uploaded text; **Update Index** labels
+the same command when incomplete coverage has indexed work. Compatible
+checkpoints are reused. Use it after restart or library edits when coverage is
+incomplete; already current coverage hides the action. Native invalidation already
+hides stale documents.
 Coverage reports compatible completed documents and ready passages, while job
 counts report encoded/reused passages rather than an invented percent complete.
-Refresh explicitly rereads coverage after edits. Disabled coverage is zero for
+The visible document count is separate from passage/job details. **Index Details**
+holds passage counts and **Refresh Status**, which explicitly rereads coverage
+after edits. Ready status requires the selected active provider, nonempty complete
+coverage, no running build and no current error. Disabled coverage is zero for
 ready passages/documents because no active model identity can be verified; this
 does not imply deletion of checkpoint data.
 

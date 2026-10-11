@@ -188,9 +188,9 @@ unaccepted until tested. Downloading alone still does not enable semantic search
 
 - [ ] In a build without embedding features, Settings reports optional model setup unavailable.
       Browser settings do not offer native model controls. Ordinary search works.
-- [ ] In the native shipping build, open **Settings → Semantic search → Manage**. Opening
+- [ ] In the native shipping build, open **Settings → Semantic Search → Manage**. Opening
       settings must not download or load a model. Check the FP32/INT8 labels,
-      disk reserve and short resource warning. Open **Technical details** to check
+      disk reserve and short resource warning. Open **Technical Details** to check
       the file-size/RAM distinction and INT8 physical-device compatibility caveat.
       General Settings should show only a summary and **Manage**; **Back** returns
       there and **Done** closes the dedicated view without changing consent.
@@ -202,19 +202,25 @@ unaccepted until tested. Downloading alone still does not enable semantic search
       from ordinary search and the reader. Cancel while pending; do not expect
       instant interruption. Controls remain busy until cleanup returns. Repeated clicks must not start extra jobs.
 - [ ] Complete a download. Presence by size and successful verification are
-      distinct messages. **Verify cache** should reuse valid files offline rather
-      than fetching again. Neither action changes ordinary search results.
+      distinct messages. **Verify Cache** should reuse valid files offline rather
+      than fetching again. It still requires explicit per-format consent because
+      missing files may need downloading. Neither action changes ordinary search
+      results. With semantic search off, file presence must not claim Model Loaded;
+      successful verification must be distinguished from presence.
 - [ ] In the disposable instance only, test offline failure, removal and retry.
       Where practical, interrupt the app during a download, then restart with the
       same isolated directory and retry; stale staging must not become a complete
       cache. A damaged/incomplete final cache needs explicit removal/redownload.
-- [ ] Open **Manage storage**, select **Remove model files**, then cancel its
+- [ ] Open **Manage Storage**, select **Remove Model Files**, then cancel its
       confirmation: files remain. Confirm removal, then reopen/restart. The
       library/search remains intact; cache removal does not remove a separately created native index.
 - [ ] Check keyboard focus, labels, progress/error announcements, Arabic RTL,
       narrow-window layout and recovery after opening/closing settings repeatedly.
       Header/Back/Done stay accessible while the task body scrolls; keyboard Tab
-      includes both collapsed disclosures, and Escape restores focus to the opener.
+      reaches every native disclosure, including **Manage Model** and **Index
+      Details** when present, and Escape restores focus to the opener. Repeat at
+      enlarged text/WebView zoom: the footer must remain reachable without
+      horizontal scrolling; browser preview alone does not close this check.
 
 ## Audio and responsiveness
 
@@ -250,7 +256,7 @@ query cases that follow still need a rebuilt-app pass when the user is ready.
 Earlier five-group acceptance does not cover these cases.
 
 Rebuild with the existing native shipping command above and use
-**Settings → Semantic search → Manage** in a disposable profile; Developer mode is
+**Settings → Semantic Search → Manage** in a disposable profile; Developer mode is
 not required. Shipping builds include the provider but start semantic use off. Keep the same profile for
 restart checks; the explicit unbundled recipe is only a diagnostic alternative.
 
@@ -258,13 +264,23 @@ restart checks; the explicit unbundled recipe is only a diagnostic alternative.
       downloads a model, activates one or starts indexing. Ordinary All words,
       Broader, quoted phrases and filters still work. Builds without embedding
       features report unavailability even if that profile previously saved an opt-in.
-- [ ] Choose a cached format and **Enable semantic search (optional)**. No
+- [ ] Choose a cached format and turn on **Enabled** in the semantic-search panel. No
       download occurs; activation failure shows an error and lexical availability; submitted searches show fallback guidance.
       Retry after repairing the cache. Format/cache mutation requires turning
       off first. Turning off during activation stays off after cleanup.
+- [ ] Once loaded, **Manage Model** collapses to the selected format and **Model
+      Loaded** summary. Expanding it must not show a verify-before-use warning,
+      download permission or installer action. Turn off: preparation controls
+      return, and explicit consent is still needed before invoking the installer.
+- [ ] With current nonempty coverage, **Semantic Search** and **Library Index**
+      replace numbered setup headings. Ready/up-to-date status and document counts
+      are visible; there is no Build/Update action. **Index Details** exposes passage
+      counts and **Refresh Status**. Partial coverage offers **Update Index**;
+      inactive, failed or running states must not claim readiness.
 - [ ] With no searchable uploads, the library-preparation panel requests imports,
-      never reports `0 / 0` as ready and disables **Build / resume index**. With
-      uploaded searchable text, click **Build / resume index**. Encoded/reused
+      never reports `0 / 0` as ready and disables **Build Index**. With
+      uploaded searchable text, click **Build Index** (or **Update Index** when
+      compatible indexed work exists). Encoded/reused
       counts update and completed-document coverage grows. Close/reopen Settings
       or enter a reader during work: the job continues. Ordinary search and
       audio remain usable; record stalls, native errors and resource peaks.
@@ -277,8 +293,9 @@ restart checks; the explicit unbundled recipe is only a diagnostic alternative.
       Turn off, restart again: no activation or indexing. Cached files/checkpoints
       remain; do not expect the RSS to instantly return to its initial value.
 - [ ] Edit a title, import/delete a document, or update extracted text; **Refresh
-      status** reflects invalidation, and build/resume synchronizes it. **Remove
-      index** under **Manage storage** first asks for confirmation. Cancel leaves
+      Status** under **Index Details** reflects invalidation, and build/update
+      synchronizes it. **Remove Index** under **Manage Storage** first asks for
+      confirmation. Cancel leaves
       coverage intact; confirming clears derived coverage but preserves documents
       and lexical search.
       Build again; turn off and separately remove cache files. With a saved
@@ -302,8 +319,8 @@ tracked fixtures.
 - [ ] Start off: search and switch All words/Broader. Only lexical results appear;
       no conceptual loading/fallback section, model activation or index job starts.
       Download/verify alone must not enable semantic search.
-- [ ] Enable a verified cached model and finish Build / resume. Submit a question
-      about an actual passage in the library, with different wording from that
+- [ ] Enable a verified cached model and finish **Build Index** or **Update Index**.
+      Submit a question about an actual passage in the library, with different wording from that
       passage. **Conceptual results · Your Library** appears separately from
       **Lexical results**. All words/Broader counts, marks and Explore matches
       retain literal meaning. A document may occur in both independent channels.

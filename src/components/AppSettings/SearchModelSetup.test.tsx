@@ -138,9 +138,9 @@ it('offers turning off a saved opt-in even when the current build has no provide
     cancel: vi.fn(), refresh: vi.fn() }
   render()
   const html = await settle()
-  expect(html).toContain('settings.semantic.toggle')
-  expect(html).toContain('role="switch" checked=""')
-  expect(html).not.toContain('role="switch" disabled=""')
+  expect(html).toContain('settings.semantic.enabled')
+  expect(html).toMatch(/role="switch"[^>]*checked=""/)
+  expect(html).not.toMatch(/role="switch"[^>]*disabled=""/)
   expect(new Set(mocked.invoke.mock.calls.map(([command]) => command))).toEqual(new Set(['search_embedding_status']))
 })
 
@@ -203,10 +203,13 @@ it('reconnects to pending work, ignores unrelated progress and protects an activ
   status.activeFormat = 'float32'
   await vi.advanceTimersByTimeAsync(1000)
   const html = await settle()
-  expect(html).toContain('settings.searchModel.present')
+  expect(html).toContain('settings.searchModel.loaded')
+  expect(html).not.toContain('settings.searchModel.present')
   expect(html).toContain('settings.searchModel.inUse')
   expect(control('button', 'settings.searchModel.remove').props.disabled).toBe(true)
-  expect(control('button', 'settings.searchModel.verify').props.disabled).toBe(true)
+  expect(html).not.toContain('settings.searchModel.verify')
+  expect(html).not.toContain('settings.searchModel.consent')
+  expect(control('select').props.disabled).toBe(true)
   status.activeFormat = null
   status.downloadingFormat = 'dynamic-int8'
   // Closing and reopening recovers native state, not a local persisted opt-in.
@@ -300,4 +303,27 @@ it('keeps index removal behind confirmation and disables it for an empty index',
   expect(semantic.remove).toHaveBeenCalledTimes(1)
   semantic.index!.passages = 0; render()
   expect(control('button', 'settings.semantic.remove').props.disabled).toBe(true)
+})
+
+it('collapses a loaded model, keeps file presence distinct from verification and restores preparation after disable', async () => {
+  present = true
+  render(); await settle()
+  expect(render()).toContain('settings.searchModel.present')
+  expect(render()).not.toContain('settings.searchModel.loaded')
+  const downloadCalls = () => mocked.invoke.mock.calls.filter(([cmd]) => cmd === 'search_embedding_download')
+  expect(downloadCalls()).toHaveLength(0)
+  consent(); render(); click('settings.searchModel.verify')
+  expect(await settle()).toContain('settings.searchModel.verified')
+  expect(render()).not.toContain('settings.searchModel.present')
+  status.activeFormat = 'float32'
+  mocked.listen.mock.calls[0][1]({ payload: { phase: 'installed', format: 'float32' } })
+  const loaded = await settle()
+  expect(controls().find(node => node.type === 'details' && node.props.className === 'search-model-panel search-model-management')!.props.open).toBe(false)
+  expect(loaded).toContain('settings.searchModel.loaded')
+  expect(loaded).not.toContain('settings.searchModel.consent')
+  status.activeFormat = null
+  mocked.listen.mock.calls[0][1]({ payload: { phase: 'installed', format: 'float32' } })
+  expect(await settle()).toContain('settings.searchModel.consent')
+  expect(control('button', 'settings.searchModel.verify').props.disabled).toBe(true)
+  expect(downloadCalls()).toHaveLength(1)
 })

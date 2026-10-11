@@ -53,13 +53,60 @@ in the [final review below](#stage-7--final-automated-branch-acceptance-review--
 functional Settings and the separate conceptual-results UI are implemented.
 Lexical remains default; native shipping scripts now include provider capability
 without enabling saved user consent. The subsequent
-[Search settings cleanup](#stage-7--search-settings-ux-cleanup--2026-10-11) has local
-frontend validation; the recorded full CI predates that UI delta. The first
+[Search settings readiness pass](#stage-7--search-settings-readiness--2026-10-11) has local
+frontend validation; the recorded full CI predates these UI changes. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 7 — Search settings readiness — 2026-10-11
+
+The follow-up screenshot review found contradictory verification guidance while
+the model was already loaded and prominent setup actions after indexing was
+complete. The task view now uses the active provider identity for **Model Loaded**;
+file presence alone never claims verification. A loaded model collapses into
+**Manage Model** with its format/status summary. Download permission and the
+installer action remain visible only while semantic search is off and that
+format is not loaded. Explicit per-format consent remains required because the
+installer can fetch missing files even when the button says **Verify Cache**.
+Turn off before format/verification/removal maintenance; reopening an inactive
+cache still distinguishes presence from an observed successful verification.
+
+Active use replaces the numbered setup headings with **Semantic Search** and
+**Library Index**. **Ready for conceptual search** requires a selected active
+provider, nonempty complete document coverage, no indexing and no current error.
+Current coverage has no Build action. Incomplete coverage offers **Build Index**
+or **Update Index**, reusing compatible checkpoints through the existing native
+command. Document coverage stays visible; passage totals and **Refresh Status**
+move under **Index Details**. Failed, running, empty or inactive states never
+claim readiness. Downloads, activation and indexing remain explicit; no Rust,
+controller, dependency, runtime, shipping or CI behavior changes.
+
+English Search settings buttons/headings use Title Case; all eight locales have
+matching translated state/action keys. The Search task view owns
+`SearchModelSetup.css`, and the header activity component owns
+`SearchActivity.css`; `AppSettings.css` retains only shared Settings styles.
+Native disclosures, existing dialog focus handling, cleanup confirmations and
+cancellation/error paths remain in use.
+
+Validation: **195 frontend/tooling tests in 50 files**, lint, locale parity,
+TypeScript and the frontend build pass. Added regressions distinguish file
+presence/verification/loading, restore explicit consent after disable, and cover
+current/partial/empty/failed/inactive/running index actions and readiness. Existing
+consent, cancellation, fallback and stale-response checks remain passing.
+Browser previews using mocked native state cover ready/partial/setup views,
+English/Arabic, 320-pixel widths and a 1024-pixel ready view. Layout checks find
+no horizontal overflow and keep Back/Done inside the viewport. Keyboard access
+to native disclosures was checked. These previews do not establish installed-app,
+actual WebView zoom, screen-reader or physical-device acceptance.
+
+**Next:** review the rebuilt layout with `npm run desktop`, then resume the
+updated [smoke checklist](search-v2-smoke.md) when ready. Smoke remains explicitly
+user-deferred; no checkbox is marked passed. The earlier full CI acceptance
+predates this UI-only delta. No additional native/model matrix or automatic
+ranking pass is justified by these presentation changes.
 
 ## Stage 7 — Search settings UX cleanup — 2026-10-11
 
