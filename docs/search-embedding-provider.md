@@ -65,8 +65,13 @@ Android x86_64 emulator and iOS arm64 simulator. This does not establish install
 package, signed IPA/notarization, physical-device or minimum-OS acceptance.
 The [CI consolidation](search-v2-progress.md#stage-7--shipping-ci-acceptance-and-consolidation--2026-10-10)
 removes the now-redundant provider app builds while retaining shipping builds,
-default/provider Rust checks and explicit inference. A full confirming run with
-`provider_inference=true` is next; ordinary CI still downloads no embedding weights.
+default/provider Rust checks and explicit inference.
+[Full run 38110242011](https://github.com/muhannadnouri/papercut.io/actions/runs/38110242011)
+on `1f020d3` confirms the simplified workflow, including both formats' native
+index/query/lifecycle controls on all six runtime targets. Ordinary CI still
+downloads no embedding weights. The [final branch review](search-v2-branch-review.md#final-acceptance-review--2026-10-10)
+accepts automated checks while retaining deferred installed-app, quality/resource
+and signed-distribution acceptance. No additional tuning or Stage 8 work is queued.
 
 The sections below retain historical build/run evidence. Earlier “normal build”
 claims refer to the lexical-only configurations used at those recorded sources.

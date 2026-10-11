@@ -48,7 +48,8 @@ machine. Other device/provider acceptance and semantic quality remain open.
 | Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the historical shared-runtime experiment reused the app adapter with FastEmbed/sherpa and is now retired in favor of app-native checks. Provider-enabled Windows/macOS/Android builds and iOS simulator archive/device linking now pass CI, as recorded below. Linked initialization is runtime-tested on Linux and the iOS arm64 simulator; Android x86_64 shared-runtime FP32/INT8 inference and clean exit now pass the bounded mobile review below. Mobile app linking remains separate from inference evidence. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. Desktop FP32/INT8 initialization and the bounded provider lifecycle now pass on Linux, Windows and both macOS architectures in the verified run below. Android arm64/physical-device execution, weak reference hardware, responsiveness and app-level lifecycle/fallback validation remain open. |
 | Production optional hybrid | Stage 7 development is explicitly authorized with a default-off toggle and lexical fallback only within the enabled semantic path. App indexing, saved opt-in/lifecycle controls, native retrieval and the separate React conceptual-results/fallback path are implemented below. Functional settings no longer require Developer mode. Quality, resource and platform limits remain release gates. |
 
-**Current work is acceptance of the integrated opt-in path.** Native retrieval,
+**Automated branch acceptance is complete; interactive/product release gates remain open**
+in the [final review below](#stage-7--final-automated-branch-acceptance-review--2026-10-10). Native retrieval,
 functional Settings and the separate conceptual-results UI are implemented.
 Lexical remains default; native shipping scripts now include provider capability
 without enabling saved user consent. The first
@@ -57,6 +58,54 @@ changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 7 — final automated branch acceptance review — 2026-10-10
+
+**Automated acceptance is complete; final merge/release acceptance remains open.**
+[Full run 38110242011](https://github.com/muhannadnouri/papercut.io/actions/runs/38110242011)
+passes on `1f020d31a34f3a7943772f9fa806391f060d49b6`. All ten jobs succeed with
+the four redundant build definitions absent. Shipping package uploads, AppImage
+media and both macOS runtime checks pass. Default/provider Rust builds and tests
+remain separate; all six runtime targets complete both formats' index/query and
+lifecycle controls with successful native exit. The remaining shipping steps
+therefore supply the required inference prerequisites without the second builds.
+Inference/model downloads remain manual and default-off in routine CI.
+
+Verified run evidence: **184 frontend/tooling tests in 48 files**, **162 default
+Rust tests (five ignored)**, **217 provider Rust tests (ten ignored)**, plus the
+explicit real-model test on Linux, Windows, macOS Intel/ARM, Android x86_64 emulator
+and iOS arm64 simulator. Lint, frontend build, security audits and packaging jobs
+also pass. Run metadata, job steps/logs and artifact metadata bind this evidence
+to the reviewed source; packages are not downloaded or installed in this review.
+Prior Linux extracted-package contents/relocation evidence remains separate.
+
+The [final review](search-v2-branch-review.md#final-acceptance-review--2026-10-10)
+builds on the original branch review and rechecks its corrective delta and connected
+App/hooks, native retrieval/storage, runtime and shipping boundaries. Remote and
+local `main` still match merge base `8be9952fe02a10921ea4955df204b115268bc686`.
+The branch comparison is **95 files, 23,079 added / 323 removed text lines**, plus
+the unchanged upstream model asset. No new reproducible corrective defect is
+identified in these re-reviewed flows; this is not an independent second audit of
+every line or a claim that passing tests prove all product behavior.
+
+The original plan's phrase/filter/evidence, opt-in/lifecycle and platform contracts
+remain the acceptance basis. The user's later separate conceptual-results choice
+supersedes trial rank fusion; lexical modes are not redefined. Keep the frozen
+retrieval experiment outside the shipping/CI graph, the lexical evaluator and
+mobile runner, and the official Libtashkeel adapter/model/license. No further
+model comparison, optimization framework or Stage 8 work is justified now.
+
+**Next:** resume the consolidated [smoke checklist](search-v2-smoke.md) when the
+user is ready, focusing on the Stage 7 lifecycle/results and installed-package
+checks added since the earlier reported pass. It remains explicitly deferred;
+no checkbox is marked passed. Correct obsolete instructions that called ordinary
+shipping builds provider-free: current native shipping commands include capability,
+with semantic use still default-off. Representative same-language relevance,
+physical/reference-device resources, minimum-OS behavior and signed Apple
+distribution remain unaccepted. The earlier unexplained Linux crash and native
+allocator retention remain recorded limits; this green run does not explain them.
+Do not start another automatic tuning/CI pass merely to continue the roadmap.
+This review changes docs only; no push, dispatch, merge or release is performed.
 
 ## Stage 7 — shipping CI acceptance and consolidation — 2026-10-10
 

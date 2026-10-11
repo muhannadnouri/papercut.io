@@ -93,7 +93,9 @@ artifact reports above retain their historical feature sets.
 [Full run 38107442282](https://github.com/muhannadnouri/papercut.io/actions/runs/38107442282)
 on `e686960` passes platform shipping builds/uploads and optional FP32/INT8 native
 index/query/lifecycle checks. Redundant provider build variants are removed in
-the follow-up; confirming CI is next. These checks do not install/launch uploaded
+the follow-up; [full run 38110242011](https://github.com/muhannadnouri/papercut.io/actions/runs/38110242011)
+on `1f020d3` confirms the simplified workflow and its inference prerequisites.
+These checks do not install/launch uploaded
 packages, validate signed Apple distribution or mark any interactive case passed.
 All interactive cases remain deferred for the consolidated smoke pass.
 
@@ -184,9 +186,9 @@ The earlier five-group smoke acceptance covered cache-only controls. The current
 UI adds opt-in/indexing and conceptual results; those new cases below remain
 unaccepted until tested. Downloading alone still does not enable semantic search.
 
-- [ ] In a normal Tauri build, Settings reports optional model setup unavailable.
+- [ ] In a build without embedding features, Settings reports optional model setup unavailable.
       Browser settings do not offer native model controls. Ordinary search works.
-- [ ] In an explicit provider build, open **Settings → Optional search model**. Opening
+- [ ] In the native shipping build, open **Settings → Optional search model**. Opening
       settings must not download or load a model. Check the FP32/INT8 labels,
       file-size/RAM distinction, disk reserve and INT8 compatibility caveat.
 - [ ] Download requires unchecked, per-format Hugging Face consent. Changing
@@ -203,7 +205,7 @@ unaccepted until tested. Downloading alone still does not enable semantic search
       same isolated directory and retry; stale staging must not become a complete
       cache. A damaged/incomplete final cache needs explicit removal/redownload.
 - [ ] Remove model files, then reopen/restart. The library/search remains intact;
-      this cache-only UI does not remove a separately created native index.
+      cache removal does not remove a separately created native index.
 - [ ] Check keyboard focus, labels, progress/error announcements, Arabic RTL,
       narrow-window layout and recovery after opening/closing settings repeatedly.
 
@@ -240,14 +242,15 @@ functional. This is the requested reminder: the lifecycle cases below and the ne
 query cases that follow still need a rebuilt-app pass when the user is ready.
 Earlier five-group acceptance does not cover these cases.
 
-Rebuild with the existing experimental flags above and use **Settings → Optional
-search model** in a disposable profile; Developer mode is not required. Normal
-builds deliberately omit the provider. Keep the same profile for restart checks.
+Rebuild with the existing native shipping command above and use **Settings → Optional
+search model** in a disposable profile; Developer mode is not required. Shipping
+builds include the provider but start semantic use off. Keep the same profile for
+restart checks; the explicit unbundled recipe is only a diagnostic alternative.
 
 - [ ] Fresh profile: toggle starts off. Opening Settings or searching never
       downloads a model, activates one or starts indexing. Ordinary All words,
-      Broader, quoted phrases and filters still work. Normal builds report
-      unavailability even if that profile previously saved an opt-in.
+      Broader, quoted phrases and filters still work. Builds without embedding
+      features report unavailability even if that profile previously saved an opt-in.
 - [ ] Choose a cached format and **Enable semantic search (optional)**. No
       download occurs; activation failure shows an error and lexical availability; submitted searches show fallback guidance.
       Retry after repairing the cache. Format/cache mutation requires turning
@@ -320,7 +323,7 @@ tracked fixtures.
       No conceptual card or fallback notice survives; late work cannot re-enable
       it. Edit a title/text, delete a document, remove/rebuild the index, then
       retry: no stale passage/title appears. Native calls can take time to stop.
-- [ ] With a saved opt-in, open a normal build or remove its cache before restart.
+- [ ] With a saved opt-in, open a build without embedding features or remove its cache before restart.
       Lexical search remains available; unavailable semantic search is explicit,
       and Settings lets you turn the saved preference off without a provider.
       Recovery never downloads automatically. Check a failed/over-token-limit

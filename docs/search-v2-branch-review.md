@@ -26,8 +26,50 @@ records the implementation and regressions. Finding 3 now has [shipping build in
 The [shipping CI acceptance and consolidation](search-v2-progress.md#stage-7--shipping-ci-acceptance-and-consolidation--2026-10-10)
 verifies full run `38107442282` on `e686960`: shipping builds and optional native
 inference pass across supported platform runners. Redundant build steps are now
-removed; the simplified workflow still needs its own confirming run. Signed
-distribution and smoke acceptance remain open; this is not merge or release approval.
+removed; [final acceptance below](#final-acceptance-review--2026-10-10) verifies the
+simplified workflow in full run `38110242011` on `1f020d3`. Signed distribution
+and smoke acceptance remain open; this is not merge or release approval.
+
+## Final acceptance review — 2026-10-10
+
+What this change does: The corrected branch keeps lexical search as the default
+and adds an explicit optional conceptual section. Existing shipping builds now
+contain the provider, so the duplicate build variants are removed.
+
+Reviewed source **`1f020d31a34f3a7943772f9fa806391f060d49b6`** against unchanged
+local/remote `main` and merge base **`8be9952fe02a10921ea4955df204b115268bc686`**.
+Current branch totals: **95 files, 23,079 added / 323 removed text lines**, plus
+the upstream model binary. This follow-up builds on the initial review below,
+reading the corrective delta and its connected flows/tests; it is not an
+independent re-audit of all 95 files. Expected load remains one offline user with
+hundreds of documents, including long books.
+
+**No additional reproducible corrective finding in the re-reviewed flows.**
+Findings 1 and 2 have regressions that reproduced their failures; finding 3's
+shipping integration and simplified CI now pass, and finding 4's separate
+compatibility crate is removed. The original findings remain below as history.
+
+| Acceptance boundary | Evidence and remaining limit |
+| --- | --- |
+| Lexical and opt-in separation | App owns semantic state separately; fresh/invalid preferences start off. Cache download/verification does not enable use. Conceptual results/fallback are hidden while off; All words/Broader remain independent. Saved valid opt-in reloads cache, not indexing/downloads. Hook/card/settings regressions pass. |
+| Replacement requests and rollback | One running conceptual IPC drains only the latest eligible replacement; stale results and invalidated pending work cannot publish. Pre-7/pre-8 migrations invalidate unsupported derived projections transactionally, preserving authored/original data. Twelve hook cases and schema-6/7 round-trip coverage pass in the verified suites. |
+| Source/query/storage contract | Native retrieval constrains scope and authored quotes before top-k selection, keeps one result per document and validates source hashes/UTF-8 spans. Querying is read-only; missing/partial/incompatible indexes fall back. Incremental checkpoints and generation checks reject stale writers/results. These controls pass native tests; exact reader landing still needs app smoke. |
+| Shipping and CI | [Run 38110242011](https://github.com/muhannadnouri/papercut.io/actions/runs/38110242011) has ten successful jobs without redundant builds. It passes 184 frontend tests, 162 default Rust tests (five ignored), 217 provider Rust tests (ten ignored), audits, package uploads and runtime/media checks. Both formats' explicit index/query/lifecycle controls pass on all six runtime targets. No artifact download/install is done in this review; iOS builds are unsigned. |
+| Native dependency ownership | Official registry Libtashkeel, its unchanged attributed model and the shared initializer remain. Android's process-lifetime environment guard and atomic Unix runtime-copy/Windows loader fixes remain scoped compatibility code. Successful bounded inference does not explain the original Linux crash or promise immediate RSS recovery on disable. |
+| Quality and resources | Existing judged comparisons support bounded same-language conceptual retrieval, not a universal synonym, answer or ranking guarantee. Private-book/displayed-evidence relevance, physical Android arm64/minimum-OS behavior, weak hardware, foreground responsiveness and battery/thermal effects remain unaccepted. Opt-in limits exposure but does not replace this evidence. |
+| Retained experiments | The frozen retrieval crate is outside app builds, npm and CI. Keep the actual-path lexical evaluator and mobile runner/self-tests; do not reintroduce a separate compatibility graph or an obligatory model benchmark job. |
+
+**Verdict: automated branch acceptance complete; hold merge/release acceptance.**
+The remaining work is evidence, not another speculative code pass. When the user
+resumes testing, run the consolidated installed-app Stage 7 smoke and record any
+actual failure; resolve resource/relevance and signed-distribution limits before
+advertising them as accepted. Smoke is explicitly deferred, so this review neither
+requires it now nor marks it passed. Stage 8 remains skipped without a measured
+bottleneck. No production edits, push, dispatch, merge or release are performed.
+
+Not checked: deferred installed-app/reader/audio/RTL smoke, physical/minimum-OS and
+weak-device resources, signed/notarized Apple distribution, independent product
+quality and the root cause of the original Linux native crash.
 
 ## Must fix at review time
 
@@ -158,8 +200,8 @@ model downloads, inference and emulator execution require manual
   build, Android provider APK and second iOS simulator/device builds are removed:
   four workflow definitions, six executions per full run. Their shipping scripts
   prepare the same runtime prerequisites; preserve default-feature Rust checks
-  and the explicit inference path. Confirm the simplified workflow in full CI
-  before relying on this prerequisite review; do not expand the matrix further.
+  and the explicit inference path. Full run `38110242011` confirms the remaining
+  shipping steps provide the prerequisites; do not expand the matrix further.
 - Tauri repeats its frontend build hook for app variants. Collapse obsolete
   variants first, rather than introducing a build-cache/config framework merely
   to suppress those repeated hooks. Existing platform staging/link/bundle checks
@@ -206,8 +248,8 @@ Fresh checks pass: **175 frontend tests in 47 files**, **162 default Rust tests
 TypeScript and Rust formatting. No installed app data is used. Ignored asset/runtime
 checks and platform CI are not rerun by this corrective pass.
 
-**Next:** confirm the consolidated workflow with `validation_scope=full` and
-`provider_inference=true`, then finish the branch acceptance review. The
+**Next:** consolidated smoke and remaining release evidence, when the user resumes
+testing. The final review above accepts the simplified workflow in full CI. The
 [shipping pass](search-v2-progress.md#stage-7--provider-in-shipping-builds--2026-10-10)
 records local package evidence; the subsequent full run passes platform shipping
 builds and native inference. Keep default-feature regressions and explicit native
