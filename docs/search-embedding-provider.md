@@ -2,8 +2,8 @@
 
 This is an app-level, default-off **optional conceptual-search path**, with a
 separate labeled results section beside lexical All words/Broader results.
-Functional Settings controls do not require Developer mode. Normal builds still
-omit the provider; semantic testing requires the explicit feature build below.
+Functional Settings controls do not require Developer mode. The native shipping
+scripts now compile the provider; model loading/querying still require user opt-in.
 There is no automatic download or indexing. Saved opt-in reloads a verified cached
 model on restart; without it, no activation or semantic querying occurs. Queries
 never initiate installation/indexing, and lexical results finish independently.
@@ -18,9 +18,9 @@ The [branch review on 2026-10-10](search-v2-branch-review.md) is followed by
 [corrections](search-v2-progress.md#stage-7--branch-review-corrections--2026-10-10)
 for latest-request recovery and older-app lexical projection invalidation, with
 regressions for both. Native platform checks do not replace these hook/migration
-checks or deferred interactive acceptance. Release still uses lexical-only
-packages; actual provider shipping packages remain the next gate, with user opt-in
-off by default. The separate historical compatibility crate is removed: use the
+checks or deferred interactive acceptance. The [shipping integration](search-v2-progress.md#stage-7--provider-in-shipping-builds--2026-10-10)
+now includes provider capability in existing native package scripts; other-platform
+package CI/signing acceptance remains open, with user opt-in off by default. The separate historical compatibility crate is removed: use the
 app-native checks under [Runnable checks](#runnable-checks), with the production adapter and
 shared initializer. Its four-order results remain historical Git evidence; other
 retrieval experiments stay frozen outside the product/CI graph.
@@ -29,6 +29,41 @@ Desktop-first validation is sequencing, not a desktop-only product restriction.
 The commands and state are shared Rust code with no desktop-only availability
 check. Android and iOS provider build/link checks now pass CI; runtime, lifecycle
 and resource tests remain required before availability can be advertised.
+
+## Shipping commands — 2026-10-10
+
+| Target | Existing command | Provider/runtime |
+| --- | --- | --- |
+| Linux, Windows, macOS | `npm run desktop` | `native-tts-shared,experimental-search-embeddings`; existing bundled shared runtime |
+| Android arm64 | `npm run android:apk:native-tts` | Same dynamic provider; existing staged JNI/ORT libraries |
+| iOS signed export, on macOS | `npm run ios:ipa:native-tts` | `native-tts-ios,experimental-search-embeddings-linked`; existing static archives/signing |
+| iOS unsigned simulator/device validation, on macOS | `npm run ios:ci -- --native-tts` / `npm run ios:ci:device` | Same linked provider; simulator remains archive-only |
+
+These are the existing release/CI entry points, with no new npm command, config or
+Cargo default. No embedding weights are bundled or downloaded by the build;
+Settings download, opt-in and indexing remain explicit. Fresh or invalid saved
+preferences start disabled, cache presence is not consent, and lexical search
+remains the default. Preserving an earlier valid opt-in retains restart behavior.
+
+`desktop:static` and Android/iOS builds without their native-TTS flag remain
+explicit alternatives without the provider. Android's fully custom argument list
+still owns its feature selection; include both shared features for a custom native
+shipping build. iOS extra features retain the required linked shipping features.
+The name of the existing Cargo feature is retained to avoid another migration;
+compilation does not imply model activation or release acceptance.
+
+Linux Debian/RPM/AppImage package build/content checks are recorded in progress.
+The AppImage media check passes. Relocated payloads resolve packaged sherpa/ORT
+without development library-path overrides, include provider code/license, and
+omit embedding weights. These checks do not install or launch the app. Windows,
+macOS, Android and iOS actual package/signing acceptance must still use their
+existing CI/release checks; this Linux host cannot provide those results.
+Temporary duplicate provider builds remain until the new shipping-package CI is
+accepted, then fold them into the existing shipping pass. Default-feature Rust
+regressions and explicit native inference checks remain separate.
+
+The sections below retain historical build/run evidence. Earlier “normal build”
+claims refer to the lexical-only configurations used at those recorded sources.
 
 ## Build and capability boundary
 
@@ -145,7 +180,7 @@ the normal APK upload. Normal artifact uploads precede these checks, and no
 provider artifact is uploaded. Both iOS checks use linked ORT and unsigned
 Xcode builds. No embedding weights are downloaded by these build checks.
 
-The existing npm commands for reproducing the added checks are:
+The historical explicit commands for reproducing those added checks are:
 
 | Host/target | Command |
 | --- | --- |
@@ -161,20 +196,21 @@ appends repeated `--features`. `ios:ci` now uses `--archive-only`, retaining
 archive compilation/linking while avoiding the simulator export/rename collision.
 The corrected iOS archive and provider device build are verified in the mobile
 run above; release IPA commands still export normally. Running a provider build reuses local output paths;
-normal packages must be built/uploaded first when retaining both configurations.
+that earlier pass built/uploaded lexical-only packages first. Current native shipping
+scripts include the provider, so these extra builds are temporary duplicate checks.
 Build/link success is separate from provider runtime initialization, installed
 model inference and real-device resource acceptance.
 
-- Normal builds omit FastEmbed entirely. `search_embedding_status` reports
+- Builds without the provider feature omit FastEmbed entirely. `search_embedding_status` reports
   `compiled: false`; activation fails recoverably and disabling remains valid.
 - `experimental-search-embeddings` adds the provider and dynamic ORT loading,
-  suitable for checking existing shared-runtime desktop/Android configurations.
+  selected by the shared-runtime desktop/Android shipping scripts.
 - `experimental-search-embeddings-linked` adds the provider without dynamic
   loading, for the linked runtime configuration used by iOS. Choose this rather
   than the dynamic feature for an iOS build. A linked initializer test on Linux
   is not an iOS static-archive or device test.
 - FastEmbed 7.1.0 enables ORT API 24 only in provider builds. Ordinary TTS retains
-  API 17. Both consumers use one shared initializer and ORT `rc.13`; official
+  API 17 when built without the provider. Both consumers use one shared initializer and ORT `rc.13`; official
   Libtashkeel remains unchanged. The existing packaged runtime must support the
   requested API. No runtime download or replacement occurs during activation.
   Initialization failures are cached; repairing a packaged runtime requires a restart.

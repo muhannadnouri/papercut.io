@@ -22,8 +22,9 @@ documents, including long books, rather than a multi-user search service.
 
 **Findings 1 and 2 are fixed; finding 4 is retired.** The findings below describe
 the reviewed source above; the [corrective pass](search-v2-progress.md#stage-7--branch-review-corrections--2026-10-10)
-records the implementation and regressions. Finding 3 remains the shipping-package
-gate. Smoke is still deferred; this is not merge or release approval.
+records the implementation and regressions. Finding 3 now has [shipping build integration](search-v2-progress.md#stage-7--provider-in-shipping-builds--2026-10-10);
+Other-platform package/signing acceptance remains the gate. Smoke is still
+deferred; this is not merge or release approval.
 
 ## Must fix at review time
 
@@ -200,10 +201,12 @@ Fresh checks pass: **175 frontend tests in 47 files**, **162 default Rust tests
 TypeScript and Rust formatting. No installed app data is used. Ignored asset/runtime
 checks and platform CI are not rerun by this corrective pass.
 
-**Next:** integrate the provider into the existing shipping build paths (finding
-3), validate actual feature packages, then fold obsolete duplicate packaging
-passes into those jobs. Keep default-feature regressions and explicit native
-inference checks. No new build-script family, model sweep or Stage 8 is justified.
+**Next:** validate the remaining platform packages from the integrated shipping
+builds (finding 3), then fold obsolete duplicate packaging passes into those jobs.
+The [shipping pass](search-v2-progress.md#stage-7--provider-in-shipping-builds--2026-10-10)
+records local package evidence; the policy above describes the original review
+configuration, before ordinary native shipping scripts gained the provider. Keep
+default-feature regressions and explicit native inference checks. No new build-script family, model sweep or Stage 8 is justified.
 Smoke stays deferred until the consolidated interactive pass; representative
 same-language quality and physical/reference-device resources remain acceptance
 gates. No release, push or additional CI dispatch is performed.

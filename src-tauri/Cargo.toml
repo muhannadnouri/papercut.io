@@ -30,7 +30,7 @@ native-text-preprocessing-static = ["native-text-preprocessing-core"]
 native-tts-ios = ["native-tts-core", "native-text-preprocessing-static", "sherpa-onnx/static"]
 native-tts-static = ["native-tts-core", "sherpa-onnx/static"]
 native-tts-shared = ["native-tts-core", "native-text-preprocessing", "sherpa-onnx/shared"]
-# Experimental provider only; ordinary search never enables or loads it.
+# Shipping scripts compile this optional capability; ordinary search never enables or loads it.
 experimental-search-embeddings = ["experimental-search-embeddings-core", "ort/load-dynamic"]
 experimental-search-embeddings-linked = ["experimental-search-embeddings-core"]
 experimental-search-embeddings-core = ["dep:fastembed", "dep:ort", "dep:reqwest"]

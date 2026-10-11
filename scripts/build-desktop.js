@@ -5,7 +5,8 @@ import { tauriCommand } from "./lib/tauri.js"
 const isStatic = process.argv.includes("--static")
 const bundles = desktopBundles()
 const linkMode = isStatic ? "static" : "shared"
-const feature = isStatic ? "native-tts-static" : "native-tts-shared"
+// Shipping builds include capability; user consent still controls model loading.
+const feature = isStatic ? "native-tts-static" : "native-tts-shared,experimental-search-embeddings"
 const platform = currentDesktopPlatform()
 
 prepareDesktopBuild(platform, { isStatic })
@@ -17,7 +18,7 @@ const env = desktopBuildEnv(platform, {
 await prepareDesktopBundleResources(platform, { linkMode, feature, env })
 runTauriBuild(env, bundles)
 
-// Build with the selected native-TTS link mode using platform-specific env.
+// Shared shipping packages reuse TTS's ORT runtime; the explicit static alternative stays lexical-only.
 function runTauriBuild(env, bundles) {
   const tauriArgs = ["build", "--features", feature]
   if (bundles) tauriArgs.push("--bundles", bundles)

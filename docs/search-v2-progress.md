@@ -50,12 +50,62 @@ machine. Other device/provider acceptance and semantic quality remain open.
 
 **Current work is acceptance of the integrated opt-in path.** Native retrieval,
 functional Settings and the separate conceptual-results UI are implemented.
-Lexical remains default; ordinary builds still omit the provider. The first
+Lexical remains default; native shipping scripts now include provider capability
+without enabling saved user consent. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 7 — provider in shipping builds — 2026-10-10
+
+**Finding 3's build integration is implemented; platform package acceptance remains
+open.** On top of source `d5df49e`, existing desktop/native Android scripts now
+select `native-tts-shared,experimental-search-embeddings`; native iOS export and
+unsigned device/simulator checks select the linked provider alongside native TTS.
+Release already invokes these scripts, so no release workflow, npm script, Tauri
+config, global Cargo default, runtime/model dependency or signing setting changes.
+The shared runtime staging and iOS archive-only correction stay intact.
+
+Semantic search still requires saved user opt-in; fresh/invalid preferences are
+disabled. Building capability does not activate/download/index models. No embedding
+weights ship. Explicit static desktop and no-native mobile alternatives remain;
+Android fully custom arguments retain explicit feature selection. The small
+shipping-command regression captures real script invocations without toolchains,
+downloads or signing, covering three desktop platforms, Android native/custom/no-native
+paths, iOS export/archive and the device helper's packaged frontend protocol.
+
+Fresh checks: **184 tests in 48 files**, including **nine shipping-command cases**,
+lint, locale/TypeScript/Vite/frontend build and Rust formatting. **Ten provider
+regressions pass (three asset/IPC tests ignored)** with runtime loading pointed
+at the extracted Debian payload, including default-off/no-startup-I/O, truthful
+capability, command validation, cancellation and cache boundaries. No installed
+app data or private corpus is used; ignored inference checks are not newly run.
+
+Local Linux `npm run desktop -- --bundles deb`, `--bundles rpm` and
+`--bundles appimage` all build successfully using the shipping script. Archive inspection confirms compiled
+provider/FastEmbed code, unchanged shared runtime bytes and upstream license,
+with no embedding weights. Relocated payloads resolve their packaged sherpa/ORT
+with development library-path overrides unset. AppImage extraction does not launch
+the app; its existing GStreamer media check passes. Its two runtime file locations
+come from the existing resource/dependency bundling layout and contain matching
+bytes; file copies do not establish multiple loaded ORT instances.
+
+Only CI comments change: uploaded native packages now include provider capability.
+No job/step/matrix expansion or dispatch is added. Retain the temporary duplicate
+provider builds until the new shipping-package run is accepted, then remove the
+obsolete unbundled desktop/second APK/second simulator/device checks while keeping
+default/provider Rust coverage and explicit inference. Prior passing platform
+inference runs do not certify these newly integrated distribution packages.
+
+**Next:** push and run `validation_scope=full` to validate Windows/macOS installers,
+Android APK and unsigned iOS simulator/device linking through existing shipping
+entry points. Review the resulting artifacts/runtime checks before consolidating
+CI variants. Signed/notarized Apple distribution, physical/reference-device
+resources, representative same-language quality and the user-deferred consolidated
+interactive smoke remain release gates. No publish, push or release dispatch is
+performed by this pass.
 
 ## Stage 7 — branch review corrections — 2026-10-10
 
@@ -90,9 +140,9 @@ matches and vocabulary, source/placement preservation and a subsequent schema-8
 restart; existing interrupted-batch tests remain. No installed app data, private
 corpus, model download, new CI step or packaging change is part of this pass.
 
-**Next:** finding 3, provider integration into existing shipping build paths and
-validation of actual packages. Then collapse redundant packaging variants while
-retaining default/provider regression boundaries and explicit inference checks.
+**Follow-up:** finding 3 is implemented in the [shipping pass above](#stage-7--provider-in-shipping-builds--2026-10-10);
+validate its remaining platform packages before collapsing redundant packaging
+variants. Retain default/provider regression boundaries and explicit inference checks.
 Smoke remains user-deferred for the consolidated final pass; real-device resource,
 representative same-language quality and interactive acceptance remain open. No
 push, workflow dispatch, release or merge is performed.

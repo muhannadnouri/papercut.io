@@ -8,8 +8,8 @@ import { runSync } from "./lib/process.js"
 import { ROOT, SRC_TAURI_DIR } from "./lib/paths.js"
 
 const { values } = parseArgs({ options: { features: { type: "string" } } })
-// Extra CI features must retain native TTS and the packaged frontend protocol.
-const cargoFeatures = ["native-tts-ios", "tauri/custom-protocol", values.features].filter(Boolean).join(",")
+// Validate the shipping linked provider, retaining the packaged frontend protocol and extra CI features.
+const cargoFeatures = ["native-tts-ios", "experimental-search-embeddings-linked", "tauri/custom-protocol", values.features].filter(Boolean).join(",")
 
 const iosConfigPath = join(SRC_TAURI_DIR, "tauri.ios.conf.json")
 const iosDeploymentTarget = readIosDeploymentTarget()

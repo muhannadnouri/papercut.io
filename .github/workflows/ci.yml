@@ -445,7 +445,7 @@ jobs:
           path: src-tauri/target/release/bundle/dmg/*.dmg
           retention-days: 7
 
-      # Keep uploaded packages on the normal feature set; this only checks app linking.
+      # Shipping packages now include the provider; retain this recheck until package CI is accepted.
       - name: Build opt-in search provider with native TTS (Windows/macOS)
         if: matrix.platform != 'linux'
         run: npm run tauri -- build --features "native-tts-shared,experimental-search-embeddings" --no-bundle
@@ -562,7 +562,7 @@ jobs:
           path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/*.apk
           retention-days: 7
 
-      # Run after upload because Gradle reuses the normal APK output path.
+      # Temporary recheck until shipping-package CI is accepted; Gradle reuses the uploaded APK path.
       - name: Build Android APK with opt-in search provider and native TTS
         run: >-
           npm run android:apk:native-tts -- android build --apk --debug
@@ -698,7 +698,7 @@ jobs:
       - name: Build unsigned iOS device app with native TTS
         run: npm run ios:ci:device
 
-      # iOS uses the existing static runtime, so the provider must use linked ORT.
+      # Shipping iOS checks now include linked ORT; retain these rechecks until package CI is accepted.
       - name: Build unsigned iOS simulator app with opt-in search provider and native TTS
         run: npm run ios:ci -- --native-tts --features experimental-search-embeddings-linked
 

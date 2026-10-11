@@ -87,7 +87,10 @@ projections after an older-app round trip, with automated regressions. These
 checks do not mark the corresponding interactive behavior accepted. Keep app data
 isolated; a Git branch or semantic opt-out does not isolate lexical migrations.
 The expanded rapid-submission check below remains deferred with the other Stage 7
-cases. Ordinary release/CI artifacts still omit the provider.
+cases. The [shipping integration](search-v2-progress.md#stage-7--provider-in-shipping-builds--2026-10-10)
+now includes provider capability in ordinary native shipping scripts; earlier CI
+artifact reports above retain their historical feature sets. Other-platform
+package acceptance and all interactive cases remain open.
 
 ## Isolate the library first
 
@@ -97,8 +100,14 @@ plugin can otherwise route a second launch to the already running application.
 Keep the disposable directory until results are recorded. Relaunch with the same
 directory when checking persistence/restart behavior.
 
-For the provider prototype, build explicitly using the existing shared runtime;
-no separate Tauri configuration or development script is required:
+The native shipping build now includes the provider: use `npm run desktop` on
+desktop, `npm run android:apk:native-tts` on Android, or `npm run ios:ipa:native-tts`
+on macOS for iOS. No separate semantic build command is needed. Semantic search
+still starts off until opted in. When resuming package smoke, exercise the built
+installer/AppImage/APK/IPA as well as the library cases below.
+
+The explicit unbundled source-build recipe remains available for diagnostics,
+using the existing shared runtime and isolated app data:
 
 The following recipe uses **Fish**, from the repository root:
 

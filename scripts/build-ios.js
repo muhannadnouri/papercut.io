@@ -47,7 +47,8 @@ if (initProject) {
     const libDir = iosSherpaLibDir(slice)
     env.SHERPA_ONNX_LIB_DIR = libDir
     env.ORT_LIB_LOCATION = libDir
-    featureArgs.push("--features", "native-tts-ios")
+    // iOS uses linked ORT; compiling the provider does not enable saved user consent.
+    featureArgs.push("--features", "native-tts-ios,experimental-search-embeddings-linked")
     console.log("[ios-build] native TTS enabled with SHERPA_ONNX_LIB_DIR=" + env.SHERPA_ONNX_LIB_DIR)
   }
 
