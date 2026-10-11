@@ -18,7 +18,14 @@ conceptual section supersede its trial fusion suggestion; a combined ranking is
 not required. Expected load is one offline desktop/mobile user with hundreds of
 documents, including long books, rather than a multi-user search service.
 
-## Must fix
+## Corrective status — 2026-10-10
+
+**Findings 1 and 2 are fixed; finding 4 is retired.** The findings below describe
+the reviewed source above; the [corrective pass](search-v2-progress.md#stage-7--branch-review-corrections--2026-10-10)
+records the implementation and regressions. Finding 3 remains the shipping-package
+gate. Smoke is still deferred; this is not merge or release approval.
+
+## Must fix at review time
 
 1. **A replacement conceptual search gets stuck in fallback.**
    Sources: [`useConceptualSearch.ts:69`](../src/search-semantic/useConceptualSearch.ts#L69),
@@ -58,7 +65,7 @@ documents, including long books, rather than a multi-user search service.
      returning after a rollback, can silently give incorrect search results.
      Separate test profiles avoid exposure but do not repair the migration.
 
-## Should fix
+## Should fix at review time
 
 3. **Release packages do not yet contain the user-opt-in feature.**
    Sources: [`Cargo.toml:23`](../src-tauri/Cargo.toml#L23),
@@ -81,8 +88,8 @@ documents, including long books, rather than a multi-user search service.
      existing lexical-only packages are broken or that publishing is authorized.
 
 4. **Retire the separate compatibility experiment before merge.**
-   Sources: [`compat/Cargo.toml:10`](../experiments/search-v2-embeddings/compat/Cargo.toml#L10),
-   [`same_process.rs:98`](../experiments/search-v2-embeddings/compat/same_process.rs#L98),
+   Sources: [`compat/Cargo.toml:10`](https://github.com/muhannadnouri/papercut.io/blob/cf161ca0f293718414a02aefda88913b2fa2acff/experiments/search-v2-embeddings/compat/Cargo.toml#L10),
+   [`same_process.rs:98`](https://github.com/muhannadnouri/papercut.io/blob/cf161ca0f293718414a02aefda88913b2fa2acff/experiments/search-v2-embeddings/compat/same_process.rs#L98),
    [`onnx_runtime.rs:6`](../src-tauri/src/onnx_runtime.rs#L6).
    - **What this is:** A second Cargo project tested the earlier official
      Libtashkeel adapter/embedding/speech compatibility decision.
@@ -114,14 +121,16 @@ documents, including long books, rather than a multi-user search service.
 | --- | --- |
 | `scripts/search-eval.mjs`, generic `scripts/fixtures/search-v2/corpus.json`, `search/evaluation.rs`, parser evaluation tests and `docs/search-v2-baseline.json` | **Keep.** They exercise the actual lexical parser/store/search and preserve the initial comparison. The Rust evaluator is test-only; private snapshot/review modes are explicit developer actions. Do not replace these with manual checks. |
 | `scripts/check-mobile-provider-inference.mjs` and its self-tests | **Keep.** One runner selects the Cargo-built executable, requires both formats' index/query/lifecycle completion and successful native exit, and cleans owned emulator/simulator fixtures. It is CI/developer tooling, not app code or a new search implementation. |
-| `experiments/search-v2-embeddings/compat/` | **Remove in the corrective cleanup**, as finding 4 specifies. Four files total **2,028 lines**, including 1,753 lockfile lines and 174 Rust lines. Do not delete the app's official Libtashkeel adapter or its model. |
+| `experiments/search-v2-embeddings/compat/` | **Removed in the corrective pass**, as finding 4 specifies. The four archived files total **2,028 lines**, including 1,753 lockfile lines and 174 Rust lines. Do not delete the app's official Libtashkeel adapter or its model. |
 | Remaining `experiments/search-v2-embeddings/` manifest/lockfile and `src/main.rs`/`storage.rs` | **Keep frozen for reproducible historical quality comparisons.** Its Small/Base, FP32/INT8, semantic/fusion and standalone-index controls differ from the app. It is outside the app Cargo graph, npm build and release packaging; do not synchronize it with product migrations, add models/options or make it mandatory CI. Product acceptance must use the app path; prune the frozen experiment in a later dedicated archival pass if historical replay is no longer needed. |
 | Root smoke HTML, root handoff, `.memsearch/`, editor/session files | **Exclude from this commit.** They are not shipping tooling or reviewed branch implementation. |
 
-No script is deleted by this review-only pass. Source deletion and its reference
-cleanup belong in the next corrective commit, with a small regression for each
-actual behavior fix. Keeping frozen research code is not a commitment to maintain
-two product search implementations.
+The original review changed documentation only. The corrective pass removes the
+four compatibility-project files and updates their references; the historical
+four initialization-order controls remain in Git. Current run guidance uses the
+app's provider and Arabic-TTS checks, whose coverage is recorded separately.
+Keeping frozen retrieval research is not a commitment to maintain two product
+search implementations.
 
 ## CI duplication and packaging policy
 
@@ -160,7 +169,7 @@ means disable does not promise immediate process-memory recovery. These are
 documented limits; this review does not turn them into new speculative findings
 or claim simulator success proves weak/physical-device safety.
 
-## Verification, verdict and next pass
+## Original review evidence
 
 Fresh focused frontend validation passes **33 tests in six files** covering the
 semantic hooks/cards/settings, cache setup and lexical request concurrency.
@@ -177,19 +186,30 @@ as interactive acceptance here. The default/provider migration test starts by
 deleting derived tables, and the frontend concurrency mock permits simultaneous
 calls, explaining why that passing run does not cover these two findings.
 
-**Next:** fix findings 1 and 2 with targeted regressions, retire the compatibility
-crate/reference guidance from finding 4, then review that corrective diff. Keep
-smoke deferred as requested. Address actual provider shipping packages (finding
-3), representative same-language quality and physical/reference-device resources
-before feature release; remind the user for the consolidated interactive pass.
-Stage 8 ANN/reranking still has no newly demonstrated need. No release, push or
-additional CI dispatch is authorized or performed by this review.
+## Corrective verification and next pass
 
-Verdict: fix 1 and 2 first. Resolve 3 before a semantic-feature release and retire
-4 before merge; this is not merge or release approval.
+The new hook regression reproduced native single-slot rejection before the fix;
+now its twelve cases pass, including coalescing, scoped clauses, stale completion,
+failed-call recovery, queued-request invalidation and StrictMode replay. The Rust
+round-trip regression failed with a stale row before the fix and now passes for
+schema 6 and 7 returns. Existing interrupted-batch coverage also passes; authored
+text, original FTS and library placement remain intact.
 
-Lean: -2,028 lines possible by retiring the compatibility crate, mostly lockfile
-data. No production deletion is justified by line count alone.
+Fresh checks pass: **175 frontend tests in 47 files**, **162 default Rust tests
+(5 ignored)** and **217 provider-enabled Rust tests (10 ignored)**, lint,
+TypeScript and Rust formatting. No installed app data is used. Ignored asset/runtime
+checks and platform CI are not rerun by this corrective pass.
+
+**Next:** integrate the provider into the existing shipping build paths (finding
+3), validate actual feature packages, then fold obsolete duplicate packaging
+passes into those jobs. Keep default-feature regressions and explicit native
+inference checks. No new build-script family, model sweep or Stage 8 is justified.
+Smoke stays deferred until the consolidated interactive pass; representative
+same-language quality and physical/reference-device resources remain acceptance
+gates. No release, push or additional CI dispatch is performed.
+
+Lean: the compatibility crate's **2,028 lines** are removed, mostly lockfile data;
+production Arabic-TTS integration and its unchanged upstream model/license remain.
 
 Not checked: deferred rebuilt-app smoke, physical/mobile minimum-OS and weak-device
 resources, signed provider installers, independent product-quality acceptance and

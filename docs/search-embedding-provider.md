@@ -14,13 +14,16 @@ smoke passed, plus CI `validation_scope=full`. Earlier validation sections below
 retain their historical deferrals. These reports predate the new opt-in/index/query UI. Its focused smoke remains
 explicitly deferred; semantic relevance and other-platform runtimes remain open.
 
-The [branch review on 2026-10-10](search-v2-branch-review.md) identifies pending
-latest-request recovery and older-app projection invalidation fixes. Native
-desktop and bounded emulator/simulator checks below do not cover those gaps.
-Release still uses lexical-only packages; actual provider shipping packages are
-a later gate, with user opt-in off by default. Keep the production adapter and
-shared initializer; retire the separate historical compatibility crate in the
-corrective cleanup, retaining other retrieval experiments as frozen controls.
+The [branch review on 2026-10-10](search-v2-branch-review.md) is followed by
+[corrections](search-v2-progress.md#stage-7--branch-review-corrections--2026-10-10)
+for latest-request recovery and older-app lexical projection invalidation, with
+regressions for both. Native platform checks do not replace these hook/migration
+checks or deferred interactive acceptance. Release still uses lexical-only
+packages; actual provider shipping packages remain the next gate, with user opt-in
+off by default. The separate historical compatibility crate is removed: use the
+app-native checks under [Runnable checks](#runnable-checks), with the production adapter and
+shared initializer. Its four-order results remain historical Git evidence; other
+retrieval experiments stay frozen outside the product/CI graph.
 
 Desktop-first validation is sequencing, not a desktop-only product restriction.
 The commands and state are shared Rust code with no desktop-only availability
@@ -636,6 +639,15 @@ SHERPA_ONNX_LIB_DIR="$SHARED_LIB_DIR" LD_LIBRARY_PATH="$SHARED_LIB_DIR" \
   cargo test --offline --locked --manifest-path src-tauri/Cargo.toml \
   --features native-tts-shared,experimental-search-embeddings --lib search_embeddings
 ```
+
+For the production Arabic adapter, run the same shared-runtime command with
+`--lib native_tts::engine::preprocess::tests`. It checks actual diacritization,
+invalid tensors/models and concurrent calls against the app's initializer. The
+optional `native_tts::engine::synth::tests::cached_arabic_preprocessing_smoke`
+requires `PAPERCUT_ARABIC_TTS_MODEL_DIR` and `-- --ignored --exact --nocapture`;
+it checks cached speech output without downloading. These app checks replace
+current compatibility-crate guidance, not the historical four-order experiment
+as evidence of a newly executed initialization-order matrix.
 
 The real-model check is ignored by default and its default invocation never
 downloads. Set

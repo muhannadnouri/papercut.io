@@ -15,6 +15,11 @@ vi.mock('react', () => {
   }
   return {
     useMemo: (make: () => unknown, deps: unknown[]) => stable(make(), deps),
+    useRef: (initial: unknown) => {
+      const i = mocked.cursor++
+      if (i >= mocked.slots.length) mocked.slots[i] = { current: initial }
+      return mocked.slots[i]
+    },
     useState: (initial: unknown) => {
       const i = mocked.cursor++
       if (i >= mocked.slots.length) mocked.slots[i] = initial
@@ -55,8 +60,9 @@ function unmount() {
 }
 function pending() {
   let resolve!: (value: ConceptualResponse) => void
-  const promise = new Promise<ConceptualResponse>((done) => { resolve = done })
-  return { promise, resolve }
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<ConceptualResponse>((done, fail) => { resolve = done; reject = fail })
+  return { promise, resolve, reject }
 }
 beforeEach(() => {
   mocked.cursor = 0; mocked.slots = []; mocked.effects = []
@@ -106,13 +112,14 @@ it('forwards complete authored clauses and all/empty/filtered scope, and reissue
 })
 
 it('ignores stale A → B → A, disable, library mutation and unmount completions', async () => {
-  const a = pending(), b = pending(), latest = pending(), edited = pending()
-  mocked.invoke.mockReturnValueOnce(a.promise).mockReturnValueOnce(b.promise)
+  const a = pending(), latest = pending(), edited = pending()
+  mocked.invoke.mockReturnValueOnce(a.promise)
     .mockReturnValueOnce(latest.promise).mockReturnValueOnce(edited.promise)
   render({ submittedQuery: 'alpha' }); await settle()
   render({ submittedQuery: 'beta', searchRequest: { revision: 2, scope: '' } }); await settle()
   render({ submittedQuery: 'alpha', searchRequest: { revision: 3, scope: '' } }); await settle()
-  a.resolve(response()); b.resolve(response())
+  expect(mocked.invoke).toHaveBeenCalledTimes(1)
+  a.resolve(response())
   expect((await settle())?.phase).toBe('loading')
   latest.resolve(response()); expect((await settle())?.phase).toBe('ready')
   expect(render({ library: [{ title: 'Edited', url: '/uploads/guide.html' }] })?.phase).toBe('loading')
@@ -124,6 +131,47 @@ it('ignores stale A → B → A, disable, library mutation and unmount completio
   const before = [...mocked.slots]
   abandoned.resolve(response()); for (let i = 0; i < 12; i++) await Promise.resolve()
   expect(mocked.slots).toEqual(before)
+})
+
+it('coalesces replacements behind the native single slot and drains the latest scoped clauses after failure', async () => {
+  const first = pending(), latest = pending()
+  const requests = [first, latest]
+  let running = false
+  mocked.invoke.mockImplementation(() => {
+    if (running) return Promise.reject('A conceptual query is already running')
+    running = true
+    return requests.shift()!.promise.finally(() => { running = false })
+  })
+  render(); await settle()
+  render({ submittedQuery: 'obsolete', searchRequest: { revision: 2, scope: '' } }); await settle()
+  const scope = '["/uploads/guide.html"]'
+  render({ submittedQuery: 'morning travel "electric bus"', scopeActive: true,
+    scopeUrls: new Set(['/uploads/guide.html']), searchRequest: { revision: 3, scope } })
+  expect((await settle())?.phase).toBe('loading')
+  expect(mocked.invoke).toHaveBeenCalledTimes(1)
+  first.reject('old native query failed'); await settle()
+  expect(mocked.invoke).toHaveBeenCalledTimes(2)
+  expect(mocked.invoke).toHaveBeenLastCalledWith('search_semantic_query', { request: {
+    query: 'morning travel', exactPhrases: ['electric bus'], documentUrls: ['/uploads/guide.html'], limit: 50,
+  } })
+  expect((await settle())?.phase).toBe('loading')
+  latest.resolve(response()); expect((await settle())?.phase).toBe('ready')
+})
+
+it.each(['disabled', 'invalid', 'scope-pending', 'preparing', 'unavailable', 'unmount'])('drops a queued replacement when %s before the running call settles', async (reason) => {
+  const first = pending()
+  mocked.invoke.mockReturnValue(first.promise)
+  render(); await settle()
+  render({ submittedQuery: 'queued travel', searchRequest: { revision: 2, scope: '' } }); await settle()
+  if (reason === 'disabled') render({ semantic: { ...options.semantic, enabled: false } })
+  if (reason === 'invalid') render({ submittedQuery: '"unfinished' })
+  if (reason === 'scope-pending') render({ scopeActive: true, scopeUrls: new Set() })
+  if (reason === 'preparing') render({ semantic: { ...options.semantic, busy: true } })
+  if (reason === 'unavailable') render({ semantic: { ...options.semantic, provider: undefined } })
+  if (reason === 'unmount') unmount()
+  first.resolve(response())
+  for (let i = 0; i < 12; i++) await Promise.resolve()
+  expect(mocked.invoke).toHaveBeenCalledTimes(1)
 })
 
 it('distinguishes empty ready results from missing/incompatible/partial/error lexical fallback', async () => {

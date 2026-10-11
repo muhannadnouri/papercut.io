@@ -219,6 +219,9 @@ pub(super) fn open_db_in(root: &std::path::Path) -> Result<Connection, String> {
         backfill_pdf_text_status(&tx)?;
     }
     if previous_schema_version < 7 {
+        // Older apps may edit sources without updating these rows; restart from authored data.
+        tx.execute("DELETE FROM uploaded_document_search_fts", [])
+            .map_err(db_err)?;
         let has_sections: bool = tx
             .query_row(
                 "SELECT EXISTS(SELECT 1 FROM uploaded_sections)",
@@ -232,6 +235,12 @@ pub(super) fn open_db_in(root: &std::path::Path) -> Result<Connection, String> {
         ).map_err(db_err)?;
     }
     if previous_schema_version < 8 {
+        // Existing vocabulary/checkpoints cannot prove freshness after an older-app round trip.
+        tx.execute_batch(
+            "DELETE FROM uploaded_spelling_terms;
+             DELETE FROM uploaded_spelling_indexed;",
+        )
+        .map_err(db_err)?;
         let has_sections: bool = tx
             .query_row(
                 "SELECT EXISTS(SELECT 1 FROM uploaded_sections)",
@@ -1034,6 +1043,143 @@ mod tests {
                 .text_status,
             "recognition-required"
         );
+    }
+
+    #[test]
+    fn older_app_title_edits_invalidate_only_unsupported_derived_indexes() {
+        for version in [6, 7] {
+            let root = std::env::temp_dir().join(format!(
+                "papercut-search-roundtrip-{version}-{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            let mut db = open_db_in(&root).unwrap();
+            let parsed = parsed_document("القوارب Calendar", &["Transport notes"]);
+            upsert_document(
+                &mut db,
+                "abc123",
+                "/uploads/abc123.html",
+                &parsed,
+                Some("guide.html"),
+                StoredSourceKind::Html,
+                1,
+                1,
+                PdfTextStatus::Ready,
+            )
+            .unwrap();
+            let section_id: i64 = db
+                .query_row("SELECT id FROM uploaded_sections", [], |r| r.get(0))
+                .unwrap();
+            // Older apps update only indexes they know; leave all newer rows/checkpoints intact.
+            let tx = db.transaction().unwrap();
+            tx.execute("UPDATE uploaded_documents SET title = 'الحافلات Agenda'", [])
+                .unwrap();
+            tx.execute(
+                "UPDATE uploaded_document_fts SET title = 'الحافلات Agenda'",
+                [],
+            )
+            .unwrap();
+            if version == 7 {
+                tx.execute(
+                    "UPDATE uploaded_document_search_fts SET title = 'الحافلات Agenda'",
+                    [],
+                )
+                .unwrap();
+            }
+            tx.execute(
+                "UPDATE upload_schema_metadata SET value = ?1 WHERE key = 'schema_version'",
+                [version.to_string()],
+            )
+            .unwrap();
+            tx.commit().unwrap();
+            drop(db);
+
+            let mut db = open_db_in(&root).unwrap();
+            assert_eq!(
+                db.query_row(
+                    "SELECT COUNT(*) FROM uploaded_document_search_fts",
+                    [],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap(),
+                if version == 6 { 0 } else { 1 }
+            );
+            assert_eq!(
+                db.query_row("SELECT COUNT(*) FROM uploaded_spelling_terms", [], |r| r
+                    .get::<_, i64>(0))
+                    .unwrap(),
+                0
+            );
+            assert_eq!(
+                db.query_row("SELECT COUNT(*) FROM uploaded_spelling_indexed", [], |r| {
+                    r.get::<_, i64>(0)
+                })
+                .unwrap(),
+                0
+            );
+            while rebuild_search_form_batch(&mut db).unwrap() {}
+            while rebuild_spelling_batch(&mut db).unwrap() {}
+            for (term, count) in [("الحافلات", 1), ("القوارب", 0)] {
+                assert_eq!(db.query_row("SELECT COUNT(*) FROM uploaded_document_search_fts WHERE uploaded_document_search_fts MATCH ?1", [term], |r| r.get::<_, i64>(0)).unwrap(), count);
+            }
+            for (term, count) in [("agenda", 1), ("calendar", 0)] {
+                assert_eq!(
+                    db.query_row(
+                        "SELECT COUNT(*) FROM uploaded_spelling_terms WHERE term = ?1",
+                        [term],
+                        |r| r.get::<_, i64>(0)
+                    )
+                    .unwrap(),
+                    count
+                );
+            }
+            assert_eq!(db.query_row("SELECT COUNT(*) FROM uploaded_document_fts WHERE uploaded_document_fts MATCH 'الحافلات'", [], |r| r.get::<_, i64>(0)).unwrap(), 1);
+            assert_eq!(
+                db.query_row("SELECT id, text FROM uploaded_sections", [], |r| Ok((
+                    r.get::<_, i64>(0)?,
+                    r.get::<_, String>(1)?
+                )))
+                .unwrap(),
+                (section_id, "Transport notes".into())
+            );
+            let document = find_upload_by_id(&db, "abc123").unwrap().unwrap();
+            assert_eq!(document.original_file_name.as_deref(), Some("guide.html"));
+            assert_eq!(document.title, "الحافلات Agenda");
+            assert_eq!(
+                db.query_row(
+                    "SELECT document_id FROM uploaded_document_locations",
+                    [],
+                    |r| r.get::<_, String>(0)
+                )
+                .unwrap(),
+                "abc123"
+            );
+            drop(db);
+            let mut db = open_db_in(&root).unwrap();
+            assert!(!rebuild_search_form_batch(&mut db).unwrap());
+            assert!(!rebuild_spelling_batch(&mut db).unwrap());
+            assert_eq!(
+                db.query_row(
+                    "SELECT COUNT(*) FROM uploaded_document_search_fts",
+                    [],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap(),
+                1
+            );
+            assert_eq!(
+                db.query_row("SELECT COUNT(*) FROM uploaded_spelling_indexed", [], |r| {
+                    r.get::<_, i64>(0)
+                })
+                .unwrap(),
+                1
+            );
+            drop(db);
+            std::fs::remove_dir_all(root).unwrap();
+        }
     }
 
     #[test]

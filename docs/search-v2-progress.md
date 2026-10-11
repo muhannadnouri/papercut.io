@@ -45,7 +45,7 @@ machine. Other device/provider acceptance and semantic quality remain open.
 | Embedding baseline | Cached FP32/INT8 providers, anchored passages, incremental SQLite indexing, read-only queries and document-level fusion remain experimental. The standalone report now includes an evidence-preserving semantic-first response alongside the unchanged semantic/RRF controls. The comparison accepts verified Small/Base metadata and dimension-safe 384/768-vector indexes; the app provider/model setup still supports only the retained Small formats. Native primary evidence and separate conceptual context are preserved. Semantic ordering does not enforce unquoted names/dates and must not redefine All words. |
 | Representative quality | The [public human-label comparison](#stage-6--public-human-label-comparison-2026-10-08) supports same-language conceptual passage ranking. The [wider-pool check](#stage-6--frozen-wider-pool-check-2026-10-08) and [fresh-query verification](#stage-6--fresh-query-fusion-verification-2026-10-08) confirm Broader fusion can replace positive first results with judged negatives and reduce known-positive recall. Keep semantic-only ordering as the conceptual control; the fresh English All words result cautions against a universal semantic-first policy. Base's mixed gain and higher cost do not establish an overall acceptance win. Prior cross-language/entity/date and missing-answer-span failures remain. Public passage labels do not establish private-book, displayed-answer or full-library quality. The original independent packet remains unjudged; product acceptance remains open. |
 | Cached reranker/context augmentation | Rejected: a cross-language gain introduces a same-language date regression; combined-context and explicit-exclusion controls do not justify a repair. Its live CLI/module are removed. |
-| Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the shared-runtime check reuses the actual app adapter with FastEmbed/sherpa. Provider-enabled Windows/macOS/Android builds and iOS simulator archive/device linking now pass CI, as recorded below. Linked initialization is runtime-tested on Linux and the iOS arm64 simulator; Android x86_64 shared-runtime FP32/INT8 inference and clean exit now pass the bounded mobile review below. Mobile app linking remains separate from inference evidence. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. Desktop FP32/INT8 initialization and the bounded provider lifecycle now pass on Linux, Windows and both macOS architectures in the verified run below. Android arm64/physical-device execution, weak reference hardware, responsiveness and app-level lifecycle/fallback validation remain open. |
+| Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the historical shared-runtime experiment reused the app adapter with FastEmbed/sherpa and is now retired in favor of app-native checks. Provider-enabled Windows/macOS/Android builds and iOS simulator archive/device linking now pass CI, as recorded below. Linked initialization is runtime-tested on Linux and the iOS arm64 simulator; Android x86_64 shared-runtime FP32/INT8 inference and clean exit now pass the bounded mobile review below. Mobile app linking remains separate from inference evidence. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. Desktop FP32/INT8 initialization and the bounded provider lifecycle now pass on Linux, Windows and both macOS architectures in the verified run below. Android arm64/physical-device execution, weak reference hardware, responsiveness and app-level lifecycle/fallback validation remain open. |
 | Production optional hybrid | Stage 7 development is explicitly authorized with a default-off toggle and lexical fallback only within the enabled semantic path. App indexing, saved opt-in/lifecycle controls, native retrieval and the separate React conceptual-results/fallback path are implemented below. Functional settings no longer require Developer mode. Quality, resource and platform limits remain release gates. |
 
 **Current work is acceptance of the integrated opt-in path.** Native retrieval,
@@ -56,6 +56,46 @@ changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 7 — branch review corrections — 2026-10-10
+
+**Findings 1 and 2 are fixed; finding 4's compatibility crate is removed.** The
+[branch review](search-v2-branch-review.md) retains its original source comparison
+and evidence, with corrective status and the remaining shipping gate.
+
+- Conceptual submissions retain one running IPC and one latest eligible pending
+  request. Once the old call settles, success or failure, only the latest request
+  starts; obsolete completion cannot publish results. Disable, invalid input,
+  pending lexical scope, provider preparation/unavailability and unmount discard
+  queued work. Exact phrases/scopes and independent lexical results remain intact.
+  No polling, unbounded queue or new native cancellation command is added.
+- Pre-7 migration clears only normalized FTS; pre-8 migration clears only spelling
+  vocabulary/checkpoints in the schema transaction. Older-app edits cannot leave
+  stale derived rows marked ready. Backfill reads authored sources; normal schema-8
+  restart still resumes committed batches. No source, original FTS, library
+  placement or semantic data is deleted.
+- Removed all four `experiments/search-v2-embeddings/compat/` files (**2,028 lines**).
+  Historical four-order compatibility evidence stays in Git; use app-native checks
+  in the [provider guide](search-embedding-provider.md#runnable-checks), rather than a
+  second Cargo/runtime graph. The published Libtashkeel dependency, production
+  adapter/shared initializer and model/license remain. Other retrieval experiments
+  stay frozen outside the app/CI graph; evaluator/mobile tooling remains.
+
+The single-slot frontend and stale-projection Rust regressions fail before their
+fixes and pass afterward. Fresh validation: **175 frontend tests in 47 files**,
+**162 default Rust tests (5 ignored)**, **217 provider-enabled Rust tests
+(10 ignored)**, lint, TypeScript and Rust formatting. The new Rust test covers
+schema 6 and 7 title edits with populated derived tables, new/old Arabic title
+matches and vocabulary, source/placement preservation and a subsequent schema-8
+restart; existing interrupted-batch tests remain. No installed app data, private
+corpus, model download, new CI step or packaging change is part of this pass.
+
+**Next:** finding 3, provider integration into existing shipping build paths and
+validation of actual packages. Then collapse redundant packaging variants while
+retaining default/provider regression boundaries and explicit inference checks.
+Smoke remains user-deferred for the consolidated final pass; real-device resource,
+representative same-language quality and interactive acceptance remain open. No
+push, workflow dispatch, release or merge is performed.
 
 ## Stage 7 — branch boundaries, CI and release review — 2026-10-10
 
@@ -81,8 +121,8 @@ into one shipping pass per target; keep deterministic default/provider tests and
 the existing explicit model-runtime path. No new CI layer, workflow dispatch,
 model sweep, runtime change or production fix is part of this documentation pass.
 
-**Next:** fix review findings 1 and 2 with targeted regressions, retire the
-compatibility experiment/guidance (finding 4), then review the corrective diff.
+**Follow-up:** findings 1 and 2 are fixed and finding 4 is retired in the
+[corrective pass above](#stage-7--branch-review-corrections--2026-10-10).
 Finding 3 is the later shipping-package gate, not an instruction to enable or
 publish unaccepted packages now. Smoke stays user-deferred for the consolidated
 final pass; quality, physical/reference-device resources and real-app acceptance
@@ -1836,7 +1876,7 @@ The new regression is included in the patch, so a later adopter can reproduce th
 
 ## Stage 6 — app ORT adoption and desktop validation
 
-This historical pass adopted the tested Libtashkeel migration through the app's Arabic preprocessing path. It selected **ORT `2.0.0-rc.13`** and a local Libtashkeel 1.5.0 adaptation through Cargo's patch mechanism. Its manifest and ONNX engine contained the compatibility changes; remaining original source, character maps and the **4,788,213-byte model** were verified byte-identical. That model was already embedded by the previous dependency. The later official-dependency restoration below supersedes this adoption; adaptation sources and probe evidence remain archived privately. See the current [compatibility status](../experiments/search-v2-embeddings/compat/README.md).
+This historical pass adopted the tested Libtashkeel migration through the app's Arabic preprocessing path. It selected **ORT `2.0.0-rc.13`** and a local Libtashkeel 1.5.0 adaptation through Cargo's patch mechanism. Its manifest and ONNX engine contained the compatibility changes; remaining original source, character maps and the **4,788,213-byte model** were verified byte-identical. That model was already embedded by the previous dependency. The later official-dependency restoration below supersedes this adoption; adaptation sources and probe evidence remain archived privately. See the current [compatibility status](search-embedding-provider.md).
 
 The app initializer handles the new `init_from`/`commit` APIs. Dynamic-library load failures stay ordinary string errors: constructing an `ort::Error` before loading its native API could itself panic. Existing static/dynamic feature names, build/development scripts and Tauri configuration are unchanged. The Linux native runtime remains **1.27.0**. No semantic retrieval is wired into the app, no model selection or ranking policy changes, and no unrelated locked package upgrades are retained.
 
@@ -2397,7 +2437,7 @@ The native child process peaks at **50.88 MiB RSS**, including snapshot creation
 
 ## Official Libtashkeel interface / shared-runtime check — 2026-10-07
 
-**Decision: the published interface provides a viable no-fork Linux route.** Added a small, separately built [same-process compatibility check](../experiments/search-v2-embeddings/compat/README.md), using official `libtashkeel_base` 1.5.0 with default/ORT features off and a caller-supplied `InferenceEngine`. The adapter handles tensors and a serialized ORT session; upstream retains its language processing and maps. FastEmbed 7.1.0 and sherpa 1.13.4 share ORT `rc.13` in the check. There is no Libtashkeel patch, copied upstream implementation, new model download or production dependency change. The separate executable is a validation boundary, not the proposed production architecture.
+**Decision: the published interface provides a viable no-fork Linux route.** Added a small, separately built [same-process compatibility check (historical; now retired)](https://github.com/muhannadnouri/papercut.io/blob/cf161ca0f293718414a02aefda88913b2fa2acff/experiments/search-v2-embeddings/compat/README.md), using official `libtashkeel_base` 1.5.0 with default/ORT features off and a caller-supplied `InferenceEngine`. The adapter handles tensors and a serialized ORT session; upstream retains its language processing and maps. FastEmbed 7.1.0 and sherpa 1.13.4 share ORT `rc.13` in the check. There is no Libtashkeel patch, copied upstream implementation, new model download or production dependency change. The separate executable is a validation boundary, not the proposed production architecture.
 
 Four offline combinations pass: FP32 and dynamic INT8, each with preprocessing/speech-first and embedding-first initialization. Six generic Arabic outputs match a fresh run through the official older ORT backend exactly and remain stable after embedding/speech calls. Four concurrent calls through one preprocessing engine return the expected result. Three 384-dimensional vectors per run are finite and normalized, exactly unchanged after synthesis and across initialization order within each format. Synthesized Arabic is finite, non-silent and 22,050 Hz; waveform equality and listening quality are unclaimed. `/proc/self/maps` confirms one native ORT image, at the explicit cached runtime path, in every combined run.
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import type { DocumentInfo } from '../types/search'
 import type { SearchQueryError } from '../hooks/useSearch'
@@ -55,6 +55,8 @@ export function useConceptualSearch({ semantic, submittedQuery, searchRequest, q
   }), [submittedQuery, searchRequest, queryError, scopeKey, library, enabled, format,
     provider?.compiled, provider?.activeFormat, busy, index])
   const [state, setState] = useState<{ key: typeof key; value: ConceptualState } | null>(null)
+  const running = useRef(false)
+  const latest = useRef<(() => void) | null>(null)
   // Filter changes hide old results immediately, then wait for the matching lexical submission.
   const eligible = key.enabled && searchRequest.scope === scopeKey && !key.queryError &&
     !key.parsed.unmatchedQuote && !!key.parsed.providerQuery
@@ -63,25 +65,38 @@ export function useConceptualSearch({ semantic, submittedQuery, searchRequest, q
     if (!eligible) return
     if (!isTauri() || !key.active || key.busy) return
     let closed = false
-    // A microtask lets StrictMode retire its first effect before reserving a native query slot.
-    void Promise.resolve().then(() => {
-      if (closed) return
-      return invoke<ConceptualResponse>('search_semantic_query', { request: {
-        query: key.parsed.unquotedText,
-        exactPhrases: key.parsed.exactPhrases,
-        documentUrls: key.urls,
-        limit: 50,
-      } })
-    }).then((response) => {
-      if (closed || !response) return
-      // Partial coverage uses lexical fallback rather than hiding unindexed library sources.
-      setState({ key, value: response.availability === 'ready'
-        ? { phase: 'ready', response }
-        : { phase: 'fallback', reason: response.availability, response } })
-    }).catch(() => {
-      if (!closed) setState({ key, value: { phase: 'fallback', reason: 'failed' } })
-    })
-    return () => { closed = true }
+    // Native queries share one slot; coalesce replacements until the running IPC settles.
+    const run = () => {
+      latest.current = null
+      running.current = true
+      // A microtask lets StrictMode retire its first effect before reserving a native query slot.
+      void Promise.resolve().then(() => {
+        if (closed) return
+        return invoke<ConceptualResponse>('search_semantic_query', { request: {
+          query: key.parsed.unquotedText,
+          exactPhrases: key.parsed.exactPhrases,
+          documentUrls: key.urls,
+          limit: 50,
+        } })
+      }).then((response) => {
+        if (closed || !response) return
+        // Partial coverage uses lexical fallback rather than hiding unindexed library sources.
+        setState({ key, value: response.availability === 'ready'
+          ? { phase: 'ready', response }
+          : { phase: 'fallback', reason: response.availability, response } })
+      }).catch(() => {
+        if (!closed) setState({ key, value: { phase: 'fallback', reason: 'failed' } })
+      }).finally(() => {
+        running.current = false
+        latest.current?.()
+      })
+    }
+    latest.current = run
+    if (!running.current) run()
+    return () => {
+      closed = true
+      if (latest.current === run) latest.current = null
+    }
   }, [key, eligible])
 
   if (!eligible) return null

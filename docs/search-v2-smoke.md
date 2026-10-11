@@ -81,9 +81,10 @@ banner, launch the WebView or replace Android arm64/physical-device resource and
 app acceptance.
 All interactive cases below remain deferred; no new checkbox is marked passed.
 
-The [branch review](search-v2-branch-review.md) records two pending corrective
-fixes before acceptance: latest-query recovery under native single-slot load,
-and stale lexical projections after an older-app round trip. Keep app data
+The [branch review corrections](search-v2-progress.md#stage-7--branch-review-corrections--2026-10-10)
+fix latest-query recovery under native single-slot load and stale lexical
+projections after an older-app round trip, with automated regressions. These
+checks do not mark the corresponding interactive behavior accepted. Keep app data
 isolated; a Git branch or semantic opt-out does not isolate lexical migrations.
 The expanded rapid-submission check below remains deferred with the other Stage 7
 cases. Ordinary release/CI artifacts still omit the provider.
