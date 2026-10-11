@@ -124,7 +124,7 @@ it('keeps normal builds unavailable and never starts downloads or activates on o
   render()
   const html = await settle()
   expect(html).toContain('settings.searchModel.unavailable')
-  expect(html).toContain('settings.searchModel.description')
+  expect(html).toContain('settings.semantic.description')
   expect(html).not.toContain('<select')
   expect(mocked.invoke.mock.calls.map(([command]) => command)).toEqual(['search_embedding_status'])
   expect(mocked.stop).not.toHaveBeenCalled()
@@ -182,6 +182,8 @@ it('requires fresh consent after changing format and keeps cancellation busy thr
   expect(control('input').props.checked).toBe(false)
   expect(mocked.invoke.mock.calls.some(([command]) => command === 'search_embedding_configure')).toBe(false)
   click('settings.searchModel.remove')
+  render()
+  click('common.confirm')
   expect(await settle()).toContain('settings.searchModel.removed')
 })
 
@@ -263,4 +265,39 @@ it('recovers failed subscriptions and releases listeners even if they arrive aft
   registration.resolve(mocked.stop)
   await settle()
   expect(mocked.stop).toHaveBeenCalledTimes(2)
+})
+
+
+it('requires confirmation for cleanup, cancellation preserves files, and format changes retire confirmation', async () => {
+  render(); await settle()
+  click('settings.searchModel.remove'); render()
+  expect(mocked.invoke.mock.calls.some(([cmd]) => cmd === 'search_embedding_remove')).toBe(false)
+  expect(render()).toContain('settings.searchModel.confirmRemove')
+  click('common.cancel'); render()
+  expect(render()).not.toContain('settings.searchModel.confirmRemove')
+  click('settings.searchModel.remove'); render()
+  ;(control('select').props.onChange as (event: unknown) => void)({ target: { value: 'dynamic-int8' } })
+  expect(render()).not.toContain('settings.searchModel.confirmRemove')
+  click('settings.searchModel.remove'); render()
+  click('common.confirm'); await settle()
+  expect(mocked.invoke.mock.calls.filter(([cmd]) => cmd === 'search_embedding_remove')).toEqual([
+    ['search_embedding_remove', { format: 'dynamic-int8' }],
+  ])
+})
+
+it('keeps index removal behind confirmation and disables it for an empty index', async () => {
+  semantic = { enabled: false, format: 'float32', busy: false, operation: null, error: '', cancelling: false,
+    provider: { compiled: true, activeFormat: null, loadingFormat: null, downloadingFormat: null },
+    index: { running: false, cancelRequested: false, indexedDocuments: 1, eligibleDocuments: 2,
+      passages: 4, embeddedPassages: 0, reusedPassages: 0, error: null },
+    setEnabled: vi.fn(), setFormat: vi.fn(), build: vi.fn(), remove: vi.fn(), cancel: vi.fn(), refresh: vi.fn() }
+  render(); await settle()
+  click('settings.semantic.remove'); render()
+  expect(semantic.remove).not.toHaveBeenCalled()
+  click('common.cancel'); render()
+  expect(semantic.remove).not.toHaveBeenCalled()
+  click('settings.semantic.remove'); render(); click('common.confirm')
+  expect(semantic.remove).toHaveBeenCalledTimes(1)
+  semantic.index!.passages = 0; render()
+  expect(control('button', 'settings.semantic.remove').props.disabled).toBe(true)
 })

@@ -409,12 +409,19 @@ controls require the focused follow-up below.
 
 ## Optional model setup
 
-Open **Settings → Optional search model** in a Tauri build; Developer mode is not required. The model-setup section
-reports unavailability in normal builds, which still omit FastEmbed. Explicit
-provider builds offer the two existing formats; there is no desktop-only UI
-check or assertion of Android/iOS acceptance. The panel defaults to FP32, shows
-installed-file size plus the 64 MiB disk reserve, measured native-test memory
-costs and the INT8 export's unverified CPU/mobile compatibility.
+Open **Settings → Semantic search → Manage** in a Tauri build; Developer mode is
+not required. General Settings contains a summary rather than model/index actions.
+The dedicated task view separates download, opt-in and library preparation;
+**Technical details** holds memory/compatibility and lifecycle explanations,
+while **Manage storage** holds model/index removal with consequence text and an
+explicit confirmation. It reuses the existing dialog/focus handling, widens on
+desktop and scrolls its body without hiding Back/Done on narrow screens.
+
+Native shipping scripts compile the provider; providerless diagnostic builds
+report unavailability. There is no desktop-only UI check. FP32 remains the
+initial format, with installed-file size and the 64 MiB disk reserve visible;
+measured native-test RAM and INT8 physical-device limits stay in Technical details.
+CI emulator/simulator inference does not establish physical-device acceptance.
 
 An unchecked consent box names Hugging Face and this device as the destination.
 Each format change and completed attempt clears consent. Only an explicit
@@ -424,8 +431,15 @@ presence is not labeled as verified. **Remove model files** is available even
 for an incomplete/missing cache, so it can clear interrupted staging. Active
 selected caches cannot be removed, and pending native activation/download blocks
 cache mutation. Download/verification never activate. The separate semantic-search
-toggle below owns activation; turn it off before changing format or removing
+opt-in panel owns activation; turn it off before changing format or removing
 model files. Ordinary search results remain unchanged.
+
+A background activity **Manage** entry beside Settings remains visible during
+native download, model loading/disable or indexing, including reader navigation.
+The App-owned semantic controller listens to existing download start/terminal
+events, skips byte-progress events and polls only while busy. It starts no work
+from this notification. Empty libraries request imports rather than reporting
+zero coverage as readiness, and disable Build / resume until documents exist.
 
 The panel subscribes before reading status, polls only during pending work and
 recovers native busy/cache state when reopened. Closing settings, changing tabs

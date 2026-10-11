@@ -188,15 +188,19 @@ unaccepted until tested. Downloading alone still does not enable semantic search
 
 - [ ] In a build without embedding features, Settings reports optional model setup unavailable.
       Browser settings do not offer native model controls. Ordinary search works.
-- [ ] In the native shipping build, open **Settings → Optional search model**. Opening
+- [ ] In the native shipping build, open **Settings → Semantic search → Manage**. Opening
       settings must not download or load a model. Check the FP32/INT8 labels,
-      file-size/RAM distinction, disk reserve and INT8 compatibility caveat.
+      disk reserve and short resource warning. Open **Technical details** to check
+      the file-size/RAM distinction and INT8 physical-device compatibility caveat.
+      General Settings should show only a summary and **Manage**; **Back** returns
+      there and **Done** closes the dedicated view without changing consent.
 - [ ] Download requires unchecked, per-format Hugging Face consent. Changing
       format clears it. Only proceed with a supported test format and sufficient
       disk space. INT8 on this development host is not mobile/other-CPU acceptance.
 - [ ] Start a real download, close/reopen settings and confirm progress/busy state
-      recovers. Cancel while pending; do not expect instant interruption. Controls
-      remain busy until cleanup returns. Repeated clicks must not start extra jobs.
+      recovers. The header activity **Manage** link should reopen the Search view
+      from ordinary search and the reader. Cancel while pending; do not expect
+      instant interruption. Controls remain busy until cleanup returns. Repeated clicks must not start extra jobs.
 - [ ] Complete a download. Presence by size and successful verification are
       distinct messages. **Verify cache** should reuse valid files offline rather
       than fetching again. Neither action changes ordinary search results.
@@ -204,10 +208,13 @@ unaccepted until tested. Downloading alone still does not enable semantic search
       Where practical, interrupt the app during a download, then restart with the
       same isolated directory and retry; stale staging must not become a complete
       cache. A damaged/incomplete final cache needs explicit removal/redownload.
-- [ ] Remove model files, then reopen/restart. The library/search remains intact;
-      cache removal does not remove a separately created native index.
+- [ ] Open **Manage storage**, select **Remove model files**, then cancel its
+      confirmation: files remain. Confirm removal, then reopen/restart. The
+      library/search remains intact; cache removal does not remove a separately created native index.
 - [ ] Check keyboard focus, labels, progress/error announcements, Arabic RTL,
       narrow-window layout and recovery after opening/closing settings repeatedly.
+      Header/Back/Done stay accessible while the task body scrolls; keyboard Tab
+      includes both collapsed disclosures, and Escape restores focus to the opener.
 
 ## Audio and responsiveness
 
@@ -242,9 +249,9 @@ functional. This is the requested reminder: the lifecycle cases below and the ne
 query cases that follow still need a rebuilt-app pass when the user is ready.
 Earlier five-group acceptance does not cover these cases.
 
-Rebuild with the existing native shipping command above and use **Settings → Optional
-search model** in a disposable profile; Developer mode is not required. Shipping
-builds include the provider but start semantic use off. Keep the same profile for
+Rebuild with the existing native shipping command above and use
+**Settings → Semantic search → Manage** in a disposable profile; Developer mode is
+not required. Shipping builds include the provider but start semantic use off. Keep the same profile for
 restart checks; the explicit unbundled recipe is only a diagnostic alternative.
 
 - [ ] Fresh profile: toggle starts off. Opening Settings or searching never
@@ -255,7 +262,9 @@ restart checks; the explicit unbundled recipe is only a diagnostic alternative.
       download occurs; activation failure shows an error and lexical availability; submitted searches show fallback guidance.
       Retry after repairing the cache. Format/cache mutation requires turning
       off first. Turning off during activation stays off after cleanup.
-- [ ] With uploaded searchable text, click **Build / resume index**. Encoded/reused
+- [ ] With no searchable uploads, the library-preparation panel requests imports,
+      never reports `0 / 0` as ready and disables **Build / resume index**. With
+      uploaded searchable text, click **Build / resume index**. Encoded/reused
       counts update and completed-document coverage grows. Close/reopen Settings
       or enter a reader during work: the job continues. Ordinary search and
       audio remain usable; record stalls, native errors and resource peaks.
@@ -269,7 +278,9 @@ restart checks; the explicit unbundled recipe is only a diagnostic alternative.
       remain; do not expect the RSS to instantly return to its initial value.
 - [ ] Edit a title, import/delete a document, or update extracted text; **Refresh
       status** reflects invalidation, and build/resume synchronizes it. **Remove
-      index** clears derived coverage but preserves documents and lexical search.
+      index** under **Manage storage** first asks for confirmation. Cancel leaves
+      coverage intact; confirming clears derived coverage but preserves documents
+      and lexical search.
       Build again; turn off and separately remove cache files. With a saved
       opt-in and missing cache on restart, activation fails visibly without a
       download; ordinary lexical search remains available.

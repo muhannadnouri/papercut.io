@@ -535,3 +535,137 @@
     gap: 0.75rem;
   }
 }
+
+/* Search setup is a task view; general Settings and confirmation dialogs stay compact. */
+.app-settings-search-dialog {
+  width: min(100%, 52rem);
+  max-height: calc(100dvh - 2rem);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  text-align: start;
+}
+
+.app-settings-search-dialog .app-dialog-body {
+  overflow: auto;
+  padding-inline-end: 0.4rem;
+}
+
+.app-settings-search-dialog .search-model-setup {
+  border-top: 0;
+  padding-top: 0;
+  font-size: 0.9rem;
+  gap: 1rem;
+}
+
+.search-model-panel {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+
+.search-model-panel h3,
+.search-model-panel summary {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.search-model-panel summary {
+  cursor: pointer;
+  min-height: 2rem;
+}
+
+.search-model-panel summary:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 3px;
+}
+
+.search-model-panel > p {
+  max-width: 70ch;
+}
+
+.search-model-panel:not(details) > .search-model-actions > button:first-child:not(:disabled) {
+  background: var(--accent);
+  color: var(--text-inverse);
+}
+
+.search-model-panel > * {
+  min-width: 0;
+}
+
+details.search-model-panel {
+  display: block;
+}
+
+details.search-model-panel[open] > * + * {
+  margin-top: 0.75rem;
+}
+
+.search-removal-confirmation {
+  padding: 0.75rem;
+  background: var(--surface-muted);
+  border-radius: var(--radius-control);
+}
+
+.search-removal-confirmation p {
+  margin-bottom: 0.75rem;
+}
+
+.search-remove-confirm {
+  color: var(--danger-strong);
+}
+
+.app-settings-search-summary {
+  margin: 0;
+  text-align: start;
+  color: var(--text-body);
+  font-size: 0.8rem;
+}
+
+.search-activity {
+  display: inline-grid;
+  gap: 0.15rem;
+  max-width: 12rem;
+  vertical-align: middle;
+  margin-inline-end: 0.5rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--control-surface);
+  color: var(--text-body);
+  font: inherit;
+  font-size: 0.75rem;
+  text-align: start;
+  cursor: pointer;
+}
+
+.search-activity > span:last-child {
+  color: var(--accent-text);
+}
+
+.search-activity:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+
+@media (max-width: 600px) {
+  .app-settings-search-dialog {
+    width: 100%;
+    padding: 0.75rem;
+  }
+
+  .search-model-panel {
+    padding: 0.75rem;
+  }
+
+  .search-model-actions > button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .search-activity {
+    max-width: 8rem;
+  }
+}

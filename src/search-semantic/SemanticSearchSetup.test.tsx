@@ -22,7 +22,7 @@ function html(semantic: SemanticSearchController, cachePresent = true, cacheBusy
 it('shows off and opt-in wording, coverage, and blocks enabling without a cache or during transfer', () => {
   const ready = html(controller())
   expect(ready).toContain('settings.semantic.off')
-  expect(ready).toContain('settings.semantic.description')
+  expect(ready).toContain('settings.semantic.enableTitle')
   expect(ready).toContain('&quot;ready&quot;:1')
   expect(ready).toContain('role="switch"')
   expect(ready).not.toContain('role="switch" disabled=""')
@@ -36,6 +36,11 @@ it('labels unavailable opted-in state as lexical fallback with an actionable err
   expect(value).toContain('role="alert"')
   expect(value).toContain('Model cache is damaged')
   expect(value).toContain('settings.semantic.retry')
+  const duplicate = controller({ enabled: true, error: 'Index job failed' })
+  duplicate.index!.error = 'Index job failed'
+  expect(html(duplicate).match(/Index job failed/g)).toHaveLength(1)
+  duplicate.index!.error = 'Different index failure'
+  expect(html(duplicate)).toContain('Different index failure')
 })
 
 it('keeps the off switch usable during indexing, shows progress/cancellation and hides old errors after disable', () => {
@@ -47,4 +52,26 @@ it('keeps the off switch usable during indexing, shows progress/cancellation and
   const old = controller()
   old.index!.error = 'Cancelled earlier'
   expect(html(old)).not.toContain('Cancelled earlier')
+})
+
+
+it('distinguishes an empty library, incomplete and complete indexes without claiming 0/0 readiness', () => {
+  const semantic = controller({ enabled: true, provider: { compiled: true, activeFormat: 'float32', loadingFormat: null, downloadingFormat: null } })
+  expect(html(semantic)).toContain('settings.semantic.needsIndex')
+  semantic.index!.indexedDocuments = 2
+  expect(html(semantic)).toContain('settings.semantic.indexReady')
+  semantic.index!.eligibleDocuments = 0; semantic.index!.indexedDocuments = 0
+  const empty = html(semantic)
+  expect(empty).toContain('settings.semantic.emptyLibrary')
+  expect(empty).not.toContain('settings.semantic.indexReady')
+  expect(empty).not.toContain('settings.semantic.coverage')
+  expect(empty).toMatch(/disabled="">settings.semantic.build/)
+})
+
+it('shows loading and indexing at the affected step and provides download prerequisites', () => {
+  const semantic = controller({ enabled: true, busy: true, operation: 'activate' })
+  expect(html(semantic)).toContain('settings.semantic.loading')
+  semantic.operation = 'build'; semantic.index!.running = true
+  expect(html(semantic)).toContain('settings.semantic.indexing')
+  expect(html(controller(), false)).toContain('settings.semantic.downloadFirst')
 })

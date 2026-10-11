@@ -52,12 +52,55 @@ machine. Other device/provider acceptance and semantic quality remain open.
 in the [final review below](#stage-7--final-automated-branch-acceptance-review--2026-10-10). Native retrieval,
 functional Settings and the separate conceptual-results UI are implemented.
 Lexical remains default; native shipping scripts now include provider capability
-without enabling saved user consent. The first
+without enabling saved user consent. The subsequent
+[Search settings cleanup](#stage-7--search-settings-ux-cleanup--2026-10-11) has local
+frontend validation; the recorded full CI predates that UI delta. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 7 — Search settings UX cleanup — 2026-10-11
+
+Following the user-approved UX review, general Settings now shows a compact
+semantic-search summary and **Manage** entry. A dedicated, wider task view reuses
+the existing dialog with a scrolling body and persistent header/Back/Done controls.
+Three panels separate model download, opt-in and library preparation. Detailed
+resource/compatibility and recovery explanations are collapsed under **Technical
+details**; destructive model/index cleanup lives under **Manage storage**, with
+consequence text and explicit confirmation. Source documents are never removed.
+Cleanup remains possible for incomplete model caches and staging files.
+
+Empty libraries now request imports rather than showing `0 / 0` as readiness;
+index preparation is disabled until searchable documents exist. Labels distinguish
+missing files, unverified file presence, verified completion, model loading,
+indexing, ready coverage and lexical fallback. Background download/activation/
+indexing activity offers **Manage** beside Settings, including while the view is
+closed or the reader is open. The App-owned controller observes existing download
+start/terminal events and retains bounded, busy-only polling; byte-progress events
+do not trigger extra status IPC. No new native commands, job manager or idle poll.
+
+All eight UI locales are updated. Default-off consent, per-format download
+permission, explicit activation/indexing, cooperative cancellation and separate
+conceptual results retain their existing contracts. No Rust/runtime/model,
+dependency, shipping command or CI change is made.
+
+Validation: **192 frontend/tooling tests in 50 files**, lint, locale parity,
+TypeScript and the frontend build pass. Focused regressions cover Settings
+navigation, cleanup confirmation, empty/partial/ready index states, activity
+labels and download events/cleanup without idle polling; existing consent,
+cancellation, fallback and stale-response tests remain passing. An actual browser
+preview with mocked native state was inspected in English/Arabic at desktop and
+320-pixel viewport widths: no horizontal overflow, persistent navigation,
+keyboard disclosure/focus wrapping and Escape restoration. These are UI-preview
+checks, not installed-app, screen-reader or physical-device acceptance.
+
+**Next:** review this rebuilt layout and resume the updated consolidated
+[smoke checklist](search-v2-smoke.md) when ready. Smoke remains user-deferred;
+no checkbox is marked passed. The previous full CI acceptance is evidence for its
+recorded revision, not this UI delta. No additional native inference matrix or
+model tuning is needed for a React/layout-only change.
 
 ## Stage 7 — final automated branch acceptance review — 2026-10-10
 

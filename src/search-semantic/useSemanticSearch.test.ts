@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
-const mocked = vi.hoisted(() => ({ invoke: vi.fn(), isTauri: vi.fn(), cursor: 0,
+const mocked = vi.hoisted(() => ({ invoke: vi.fn(), isTauri: vi.fn(), listen: vi.fn(), stop: vi.fn(), cursor: 0,
   slots: [] as unknown[], effects: [] as (() => void)[] }))
+vi.mock('@tauri-apps/api/event', () => ({ listen: mocked.listen }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocked.invoke, isTauri: mocked.isTauri }))
 // The repository uses hook slots to exercise async behavior without a DOM dependency.
 vi.mock('react', () => {
@@ -68,6 +69,8 @@ beforeEach(() => {
     localStorage: { getItem: (name: string) => storage.get(name) ?? null,
       setItem: (name: string, value: string) => storage.set(name, value) } })
   mocked.slots = []; mocked.effects = []; mocked.cursor = 0
+  mocked.stop.mockReset()
+  mocked.listen.mockReset().mockResolvedValue(mocked.stop)
   mocked.isTauri.mockReset().mockReturnValue(true)
   provider = { compiled: true, activeFormat: null, loadingFormat: null, downloadingFormat: null }
   index = { running: false, cancelRequested: false, indexedDocuments: 0, eligibleDocuments: 2,
@@ -243,4 +246,29 @@ it('StrictMode effect replay starts only one activation from saved consent', asy
   for (const effect of effects) effect.cleanup = effect.effect() || undefined
   await settle()
   expect(commands().filter(cmd => cmd === 'search_embedding_configure')).toHaveLength(1)
+})
+
+
+it('tracks downloads outside Settings, polls only while busy, and ignores byte-progress events', async () => {
+  render(); await settle()
+  const notify = mocked.listen.mock.calls[0][1]
+  provider.downloadingFormat = 'float32'
+  notify({ payload: { phase: 'starting' } })
+  expect((await settle()).busy).toBe(true)
+  mocked.invoke.mockClear()
+  for (let i = 0; i < 50; i++) notify({ payload: { phase: 'downloading' } })
+  expect(commands()).toEqual([])
+  await vi.advanceTimersByTimeAsync(1000)
+  expect(commands()).toEqual(['search_embedding_status', 'search_semantic_index_status'])
+  provider.downloadingFormat = null
+  notify({ payload: { phase: 'installed' } })
+  const value = await settle()
+  expect(value.busy).toBe(false)
+  expect(value.enabled).toBe(false)
+  mocked.invoke.mockClear()
+  await vi.advanceTimersByTimeAsync(3000)
+  expect(commands()).toEqual([])
+  unmount(); expect(mocked.stop).toHaveBeenCalledTimes(1)
+  notify({ payload: { phase: 'starting' } })
+  expect(commands()).toEqual([])
 })

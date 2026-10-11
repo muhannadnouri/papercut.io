@@ -15,6 +15,7 @@ import { isMobileUserAgent } from '../../utils/platform'
 import { AppDialog } from '../AppDialog/AppDialog'
 import { AppSelect } from '../AppSelect/AppSelect'
 import { SearchModelSetup } from './SearchModelSetup'
+import { SearchActivity } from '../../search-semantic/SearchActivity'
 import type { SemanticSearchController } from '../../search-semantic/useSemanticSearch'
 import aiAudioUseNotice from '../../../AI_AUDIO_USE_NOTICE.md?raw'
 import papercutLicense from '../../../LICENSE.md?raw'
@@ -60,6 +61,7 @@ export function AppSettings({
   const { t } = useTranslation()
   const tauriRuntime = isTauri()
   const [open, setOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const [legalNoticesOpen, setLegalNoticesOpen] = useState(false)
   const [selectedLegalNotice, setSelectedLegalNotice] = useState<LegalNoticeId | null>(null)
   const [transferOpen, setTransferOpen] = useState(false)
@@ -67,6 +69,7 @@ export function AppSettings({
   const zoom = useAppZoom()
   const closeSettings = useCallback(() => {
     setOpen(false)
+    setSearchOpen(false)
     setLegalNoticesOpen(false)
     setSelectedLegalNotice(null)
   }, [])
@@ -106,7 +109,23 @@ export function AppSettings({
         <SettingsIcon />
       </button>
 
-      {open && legalNoticesOpen && (
+      {tauriRuntime && <SearchActivity semantic={semanticSearch} onManage={() => {
+        setOpen(true)
+        setSearchOpen(true)
+        setLegalNoticesOpen(false)
+      }} />}
+
+      {open && searchOpen && (
+        <AppDialog key="search" className="app-settings-search-dialog" title={t('settings.semantic.title')}
+          onCancel={closeSettings} actions={<>
+            <button type="button" className="app-dialog-cancel" onClick={() => setSearchOpen(false)}>{t('common.back')}</button>
+            <button type="button" className="app-dialog-submit" onClick={closeSettings}>{t('common.done')}</button>
+          </>}>
+          <SearchModelSetup semantic={semanticSearch} />
+        </AppDialog>
+      )}
+
+      {open && !searchOpen && legalNoticesOpen && (
         <AppDialog
           key={selectedLegalNotice ?? 'legal-notices'}
           className="app-settings-legal-dialog"
@@ -145,9 +164,9 @@ export function AppSettings({
         </AppDialog>
       )}
 
-      {open && !legalNoticesOpen && (
+      {open && !searchOpen && !legalNoticesOpen && (
         <AppDialog
-          title={t('settings.title')}
+          key="general" title={t('settings.title')}
           onCancel={closeSettings}
           actions={(
             <button type="button" className="app-dialog-submit" onClick={closeSettings}>
@@ -237,7 +256,13 @@ export function AppSettings({
             </section>
           )}
 
-          {tauriRuntime && <SearchModelSetup semantic={semanticSearch} />}
+          {tauriRuntime && <section className="app-settings-section app-settings-data" aria-labelledby="app-settings-search">
+            <h3 id="app-settings-search">{t('settings.semantic.title')}</h3>
+            <p className="app-settings-search-summary">{t(semanticSearch.enabled ? 'settings.semantic.summaryOn' : 'settings.semantic.summaryOff')}</p>
+            <button type="button" className="app-settings-data-action" onClick={() => setSearchOpen(true)}>
+              {t('settings.semantic.manage')}
+            </button>
+          </section>}
 
           <section className="app-settings-section app-settings-developer" aria-labelledby="app-settings-developer">
             <h3 id="app-settings-developer">{t('settings.developer')}</h3>

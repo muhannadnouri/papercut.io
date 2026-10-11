@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { listen } from '@tauri-apps/api/event'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 
 export type ModelFormat = 'float32' | 'dynamic-int8'
@@ -166,6 +167,22 @@ export function useSemanticSearch() {
     })()
     return invalidate
   }, [refresh, configure, invalidate])
+
+  useEffect(() => {
+    if (!isTauri()) return
+    let closed = false
+    let stop: (() => void) | undefined
+    // Downloads outlive Settings; terminal events also catch jobs shorter than one poll.
+    void listen<{ phase: string }>('search-embedding-download-progress', ({ payload }) => {
+      if (!closed && payload.phase !== 'downloading') void refresh().catch((err: unknown) => {
+        if (!closed) setError(String(err))
+      })
+    }).then((unlisten) => {
+      if (closed) unlisten()
+      else stop = unlisten
+    }).catch((err: unknown) => { if (!closed) setError(String(err)) })
+    return () => { closed = true; stop?.() }
+  }, [refresh])
 
   useEffect(() => {
     if (!busy) return
