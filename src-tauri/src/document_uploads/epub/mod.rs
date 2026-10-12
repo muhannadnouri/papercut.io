@@ -420,7 +420,15 @@ fn sanitize_epub_fragment(fragment: &str) -> String {
     let normalized = normalize_empty_xhtml_elements(fragment);
     let annotated = rewrite::annotate_image_issues(&normalized);
     let mut builder = ammonia::Builder::default();
-    builder.add_generic_attributes(&["id", "name"]);
+    builder.add_tags(&["aside", "nav", "section"]);
+    builder.add_generic_attributes(&["id", "name", "role", "epub:type"]);
+    builder.attribute_filter(|_, attribute, value| {
+        if matches!(attribute, "role" | "epub:type") {
+            super::search_content::safe_role(attribute, value).map(std::borrow::Cow::Owned)
+        } else {
+            Some(std::borrow::Cow::Borrowed(value))
+        }
+    });
     builder.add_tag_attributes("img", &["data-papercut-image-error"]);
     builder.clean(&annotated).to_string()
 }
@@ -584,6 +592,27 @@ mod tests {
         assert!(anchor_end < heading_text);
         assert!(anchor_end < body_text);
         assert_eq!(sanitized.matches("id=\"chap01\"").count(), 1);
+    }
+
+    #[test]
+    fn note_roles_survive_both_epub_and_reader_sanitizers() {
+        let safe = sanitize_epub_fragment(
+            r#"<aside epub:type="footnote" id="note" onclick="alert(1)"><p>Harbor note.</p></aside>
+            <section role="doc-bibliography button"><p>A citation.</p></section>"#,
+        );
+        let parsed = parsed_html_document(
+            "Transit guide".into(),
+            "epub",
+            crate::document_uploads::html::sanitize_html(&safe),
+        );
+        assert_eq!(parsed.sections.len(), 2);
+        assert!(parsed
+            .sections
+            .iter()
+            .all(|section| section.body_ranges == Some(Vec::new())));
+        assert!(parsed.view_html.contains("id=\"note\""));
+        assert!(!parsed.view_html.contains("onclick"));
+        assert!(parsed.view_html.contains("role=\"doc-bibliography\""));
     }
 
     #[test]

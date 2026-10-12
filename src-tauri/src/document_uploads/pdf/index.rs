@@ -11,9 +11,7 @@ use super::super::storage::{
 };
 use super::super::store::{find_upload_by_id, open_db, upsert_document, PdfTextStatus};
 use super::super::types::UploadedDocument;
-use super::narration::{
-    reconstruct_narration_segments, reconstruct_search_text, PdfNarrationSegment,
-};
+use super::narration::{reconstruct_narration_segments, PdfNarrationSegment};
 use super::page_text::{
     has_ocr_text_marker, read_page_text_layer, sync_ocr_text_marker, write_page_text_layer,
     PageTextLayer,
@@ -135,14 +133,25 @@ pub(crate) fn finalize_pdf_index<R: Runtime>(
     let mut sections = Vec::with_capacity(request.page_count as usize);
     let mut has_ocr_text = false;
 
+    let mut counts = std::collections::HashMap::new();
+    for page_index in 0..request.page_count {
+        for key in super::narration::edge_keys(read_page_text_layer(&dir, page_index)?) {
+            *counts.entry(key).or_insert(0usize) += 1;
+        }
+    }
+    let repeated = counts
+        .into_iter()
+        .filter_map(|(key, count)| (count >= 3).then_some(key))
+        .collect();
     for page_index in 0..request.page_count {
         let layer = read_page_text_layer(&dir, page_index)?;
         has_ocr_text |= layer.blocks.iter().any(|block| block.confidence.is_some());
-        let text = reconstruct_search_text(layer);
+        let (text, body_ranges) = super::narration::search_content(layer, &repeated);
         sections.push(ParsedSection {
             heading: None,
             text,
             page_index: Some(page_index),
+            body_ranges: Some(body_ranges),
         });
     }
     sync_ocr_text_marker(&dir, has_ocr_text)?;

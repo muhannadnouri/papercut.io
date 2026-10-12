@@ -28,17 +28,26 @@ pub(crate) fn parsed_html_document(
 
     for block in blocks {
         if block.is_heading {
-            current_heading = Some(block.text.clone());
+            if !block.auxiliary {
+                current_heading = Some(block.text.clone());
+            }
             sections.push(ParsedSection {
                 heading: current_heading.clone(),
                 text: block.text,
                 page_index: None,
+                body_ranges: Some(Vec::new()),
             });
         } else if !block.text.is_empty() {
+            let body_ranges = if block.auxiliary {
+                Vec::new()
+            } else {
+                vec![0..block.text.len()]
+            };
             sections.push(ParsedSection {
                 heading: current_heading.clone(),
                 text: block.text,
                 page_index: None,
+                body_ranges: Some(body_ranges),
             });
         }
     }
@@ -86,6 +95,7 @@ struct TextBlock {
     node: NodeRef,
     is_heading: bool,
     text: String,
+    auxiliary: bool,
 }
 
 /// Walk the sanitized DOM for readable blocks in document order.
@@ -135,6 +145,8 @@ fn extract_text_blocks(root: &NodeRef) -> Vec<TextBlock> {
         let text = normalize_text(&strip_tags(&serialize_node(&node)));
         if !text.is_empty() {
             blocks.push(TextBlock {
+                // DOM parents are weak references: retain the role before the root drops.
+                auxiliary: super::super::search_content::auxiliary(&node),
                 node,
                 is_heading: is_heading(&tag_name),
                 text,
@@ -149,6 +161,7 @@ fn extract_text_blocks(root: &NodeRef) -> Vec<TextBlock> {
                 node: root.clone(),
                 is_heading: false,
                 text,
+                auxiliary: super::super::search_content::auxiliary(root),
             });
         }
     }
@@ -238,6 +251,64 @@ fn extract_between_case_insensitive<'a>(html: &'a str, open: &str, close: &str) 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn preserves_note_navigation_roles_without_losing_text_or_reader_targets() {
+        let parsed = parse_html_document(
+            r#"<body><h2>Harbor Guide</h2>
+            <p>Electric ferries serve the harbor.</p>
+            <aside epub:type="footnote" role="doc-footnote" id="note"><p>A ferry citation.</p></aside>
+            <nav role="navigation"><p>Harbor Guide 12</p></nav>
+            <section role="doc-bibliography"><h3>Sources</h3><p>A source entry.</p></section>
+            <p>Ferries stop at the island.</p></body>"#,
+        );
+        assert!(parsed.view_html.contains("id=\"note\""));
+        assert!(parsed.view_html.contains("role=\"doc-footnote\""));
+        assert!(parsed.view_html.contains("epub:type=\"footnote\""));
+        assert!(has_complete_section_locators(
+            &parsed.view_html,
+            parsed.sections.len()
+        ));
+        assert_eq!(parsed.sections.len(), 7);
+        for index in [0, 2, 3, 4, 5] {
+            assert!(
+                parsed.sections[index]
+                    .body_ranges
+                    .as_ref()
+                    .unwrap()
+                    .is_empty(),
+                "auxiliary section {index}"
+            );
+        }
+        for index in [1, 6] {
+            assert_eq!(
+                parsed.sections[index].body_ranges,
+                Some(vec![0..parsed.sections[index].text.len()])
+            );
+        }
+        assert_eq!(parsed.sections[6].heading.as_deref(), Some("Harbor Guide"));
+        let round_trip = parse_html_document(&parsed.view_html);
+        assert_eq!(section_texts(&parsed), section_texts(&round_trip));
+        assert_eq!(
+            parsed.sections[2].body_ranges,
+            round_trip.sections[2].body_ranges
+        );
+    }
+
+    #[test]
+    fn epub_type_and_dpub_role_each_classify_notes_without_the_other() {
+        for markup in [
+            r#"<aside epub:type="footnote"><p>Harbor note.</p></aside>"#,
+            r#"<section role="doc-endnotes"><p>Harbor note.</p></section>"#,
+        ] {
+            let parsed = parse_html_document(markup);
+            assert_eq!(parsed.sections[0].body_ranges, Some(Vec::new()));
+            assert_eq!(
+                parse_html_document(&parsed.view_html).sections[0].body_ranges,
+                Some(Vec::new())
+            );
+        }
+    }
 
     fn section_texts(parsed: &ParsedDocument) -> Vec<String> {
         parsed

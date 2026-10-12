@@ -232,6 +232,9 @@ pub(crate) async fn search_semantic_index_build<R: tauri::Runtime>(
                 crate::library_transfer::ensure_available_space(&root, 1536)
                     .map_err(|err| err.to_string())?;
                 let mut db = super::store::open_db(&app)?;
+                while super::store::rebuild_search_content_batch(&mut db, &root)? {
+                    control.check()?;
+                }
                 store::initialize(&mut db, &identity)?;
                 for id in store::document_ids(&db)? {
                     control.check()?;

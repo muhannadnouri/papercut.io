@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 
 pub(super) const SCHEMA_VERSION: i64 = 1;
 // Change this whenever extraction, source normalization or passage construction changes.
-const POLICY: &str = "uploaded-sections-v1/authored-v1/e5-prefix-v1/chunks-v1";
+const POLICY: &str = "uploaded-sections-v1/authored-v1/e5-prefix-v1/chunks-v1/body-ranges-v1";
 pub(crate) const CHUNK_TOKENS: usize = 320;
 pub(crate) const OVERLAP_TOKENS: usize = 40;
 
@@ -39,6 +39,7 @@ pub(super) struct Section {
     pub ordinal: usize,
     pub heading: Option<String>,
     pub text: String,
+    pub body_ranges: Vec<Range<usize>>,
 }
 
 pub(super) struct Source {
@@ -134,9 +135,10 @@ pub(super) fn initialize(db: &mut Connection, identity: &Identity) -> Result<(),
            UPDATE upload_semantic_documents SET ready=0,generation=(SELECT generation FROM upload_semantic_metadata WHERE id=1)
              WHERE document_id=old.document_id;
          END;
-         CREATE TRIGGER IF NOT EXISTS upload_semantic_section_update AFTER UPDATE ON uploaded_sections
-           WHEN (old.document_id,old.ordinal,old.page_index,old.heading,old.text)
-             IS NOT (new.document_id,new.ordinal,new.page_index,new.heading,new.text) BEGIN
+         DROP TRIGGER IF EXISTS upload_semantic_section_update;
+         CREATE TRIGGER upload_semantic_section_update AFTER UPDATE ON uploaded_sections
+           WHEN (old.document_id,old.ordinal,old.page_index,old.heading,old.text,old.body_ranges)
+             IS NOT (new.document_id,new.ordinal,new.page_index,new.heading,new.text,new.body_ranges) BEGIN
            UPDATE upload_semantic_metadata SET generation=generation+1 WHERE id=1;
            UPDATE upload_semantic_documents SET ready=0,generation=(SELECT generation FROM upload_semantic_metadata WHERE id=1)
              WHERE document_id IN (old.document_id,new.document_id);
@@ -190,18 +192,31 @@ pub(super) fn source(db: &mut Connection, id: &str) -> Result<Option<Source>, St
     let Some((title, generation, indexed)) = metadata else {
         return Ok(None);
     };
-    let mut stmt = tx.prepare("SELECT ordinal,heading,text FROM uploaded_sections WHERE document_id=?1 ORDER BY ordinal").map_err(err)?;
+    let mut stmt = tx.prepare("SELECT ordinal,heading,text,body_ranges FROM uploaded_sections WHERE document_id=?1 ORDER BY ordinal").map_err(err)?;
     let sections = stmt
         .query_map([id], |row| {
-            Ok(Section {
-                ordinal: row.get(0)?,
-                heading: row.get(1)?,
-                text: row.get(2)?,
-            })
+            Ok((
+                row.get::<_, usize>(0)?,
+                row.get::<_, Option<String>>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, Option<String>>(3)?,
+            ))
         })
         .map_err(err)?
-        .collect::<Result<_, _>>()
+        .collect::<Result<Vec<_>, _>>()
         .map_err(err)?;
+    let sections = sections
+        .into_iter()
+        .map(|(ordinal, heading, text, encoded)| {
+            let body_ranges = super::super::search_content::ranges(&text, encoded.as_deref())?;
+            Ok(Section {
+                ordinal,
+                heading,
+                text,
+                body_ranges,
+            })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
     Ok(Some(Source {
         id: id.into(),
         title,
@@ -272,7 +287,33 @@ pub(super) fn synchronize(
             continue;
         }
         let mut previous_start = None;
-        let spans = ranges(&source.title, section.heading.as_deref(), &section.text)?;
+        // Split at role boundaries so a short note cannot contaminate a body embedding.
+        let mut regions = Vec::new();
+        let mut start = 0;
+        for body in &section.body_ranges {
+            if start < body.start {
+                regions.push(start..body.start);
+            }
+            regions.push(body.clone());
+            start = body.end;
+        }
+        if start < section.text.len() {
+            regions.push(start..section.text.len());
+        }
+        let mut spans = Vec::new();
+        for region in regions {
+            cancel()?;
+            let text = &section.text[region.clone()];
+            if text.trim().is_empty() {
+                continue;
+            }
+            for span in ranges(&source.title, section.heading.as_deref(), text)? {
+                if span.start >= span.end || text.get(span.clone()).is_none() {
+                    return Err("Invalid semantic role-local span".into());
+                }
+                spans.push((region.start + span.start)..(region.start + span.end));
+            }
+        }
         if spans.is_empty() {
             return Err("Readable semantic section produced no passages".into());
         }

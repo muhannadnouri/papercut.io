@@ -80,7 +80,7 @@ struct ExactPhraseEvidence {
 }
 
 struct SearchEvidence {
-    passages: Vec<(f64, i64, UploadedDocumentSearchPassage)>,
+    passages: Vec<(bool, f64, i64, UploadedDocumentSearchPassage)>,
     locations: Vec<Option<UploadedDocumentSearchLocation>>,
 }
 
@@ -1252,15 +1252,10 @@ fn attach_search_evidence(
         .collect::<Vec<_>>()
         .join(", ");
     let table = index.table();
-    let source_column = if index == SearchIndex::SearchForm {
-        "s.text"
-    } else {
-        "NULL"
-    };
     let sql = format!(
         "SELECT {table}.document_id, s.ordinal, s.page_index, s.heading, \
                 snippet({table}, 4, '<mark>', '</mark>', '…', 18), \
-                bm25({table}, 0, 0, 0, 0, 1), {source_column}, {table}.rowid \
+                bm25({table}, 0, 0, 0, 0, 1), s.text, {table}.rowid, s.body_ranges \
          FROM {table} \
          JOIN uploaded_sections s ON s.id = {table}.section_id \
          WHERE {table} MATCH ? \
@@ -1300,19 +1295,26 @@ fn attach_search_evidence(
                 row.get::<_, Option<String>>(3)?,
                 row.get::<_, String>(4)?,
                 row.get::<_, f64>(5)?,
-                row.get::<_, Option<String>>(6)?,
+                row.get::<_, String>(6)?,
                 row.get::<_, i64>(7)?,
+                row.get::<_, Option<String>>(8)?,
             ))
         })
         .map_err(db_err)?;
     for row in rows {
-        let (document_id, section_index, page_index, section_title, excerpt, score, source, row_id) =
-            row.map_err(db_err)?;
-        let excerpt = if let Some(source) = source {
-            source_excerpt(&source, terms, &excerpt)
-        } else {
-            excerpt
-        };
+        let (
+            document_id,
+            section_index,
+            page_index,
+            section_title,
+            excerpt,
+            score,
+            source,
+            row_id,
+            encoded,
+        ) = row.map_err(db_err)?;
+        let (main_content, excerpt) =
+            content_excerpt(&source, encoded.as_deref(), terms, &excerpt, index)?;
         let Some(candidate) = candidate_by_document.get(document_id.as_str()) else {
             continue;
         };
@@ -1322,6 +1324,7 @@ fn attach_search_evidence(
         let text = first_marked_text(&excerpt);
 
         evidence.passages.push((
+            main_content,
             score,
             row_id,
             UploadedDocumentSearchPassage {
@@ -1332,9 +1335,11 @@ fn attach_search_evidence(
             },
         ));
         evidence.passages.sort_by(|left, right| {
-            left.0
-                .total_cmp(&right.0)
-                .then_with(|| left.2.section_index.cmp(&right.2.section_index))
+            right
+                .0
+                .cmp(&left.0)
+                .then_with(|| left.1.total_cmp(&right.1))
+                .then_with(|| left.3.section_index.cmp(&right.3.section_index))
         });
         evidence.passages.truncate(MAX_EVIDENCE_PASSAGES);
 
@@ -1358,14 +1363,14 @@ fn attach_search_evidence(
     // Expand only retained passages, in one batch so FTS query work is shared.
     let row_ids = evidence_by_document
         .values()
-        .flat_map(|evidence| evidence.passages.iter().map(|(_, row_id, _)| *row_id))
+        .flat_map(|evidence| evidence.passages.iter().map(|(_, _, row_id, _)| *row_id))
         .collect::<Vec<_>>();
     let placeholders = row_ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
     let mut passage_values = vec![values[0].clone()];
     passage_values.extend(row_ids.into_iter().map(Value::Integer));
     let mut passage_stmt = db
         .prepare(&format!(
-        "SELECT {table}.rowid, snippet({table}, 4, '<mark>', '</mark>', '…', 64), {source_column} \
+        "SELECT {table}.rowid, snippet({table}, 4, '<mark>', '</mark>', '…', 64), s.text, s.body_ranges \
          FROM {table} JOIN uploaded_sections s ON s.id = {table}.section_id \
          WHERE {table} MATCH ? AND {table}.rowid IN ({placeholders})"
     ))
@@ -1373,16 +1378,22 @@ fn attach_search_evidence(
     let mut excerpts = passage_stmt
         .query_map(params_from_iter(passage_values.iter()), |row| {
             let excerpt = row.get::<_, String>(1)?;
-            let excerpt = if let Some(source) = row.get::<_, Option<String>>(2)? {
-                source_excerpt(&source, terms, &excerpt)
-            } else {
-                excerpt
-            };
-            Ok((row.get::<_, i64>(0)?, excerpt))
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, Option<String>>(3)?,
+                excerpt,
+            ))
         })
         .map_err(db_err)?
-        .collect::<Result<HashMap<_, _>, _>>()
-        .map_err(db_err)?;
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(db_err)?
+        .into_iter()
+        .map(|(id, source, encoded, excerpt)| {
+            content_excerpt(&source, encoded.as_deref(), terms, &excerpt, index)
+                .map(|(_, excerpt)| (id, excerpt))
+        })
+        .collect::<Result<HashMap<_, _>, String>>()?;
     for result in results {
         let Some(evidence) = evidence_by_document.remove(&result.document_id) else {
             continue;
@@ -1391,22 +1402,22 @@ fn attach_search_evidence(
             result.passages = evidence
                 .passages
                 .into_iter()
-                .map(|(_, row_id, mut passage)| {
+                .map(|(_, _, row_id, mut passage)| {
                     passage.excerpt = excerpts
                         .remove(&row_id)
                         .ok_or_else(|| "Selected search evidence disappeared".to_string())?;
                     Ok(passage)
                 })
                 .collect::<Result<Vec<_>, String>>()?;
-            if result.match_scope == "section" {
+            {
                 let passage = &result.passages[0];
                 result.excerpt = passage.excerpt.clone();
                 result.section_title = passage.section_title.clone();
                 result.section_index = passage.section_index;
                 result.page_index = passage.page_index;
                 result.id = format!(
-                    "upload:section:{}:{}",
-                    result.document_id, result.section_index
+                    "upload:{}:{}:{}",
+                    result.match_scope, result.document_id, result.section_index
                 );
             }
         }
@@ -1420,6 +1431,46 @@ fn first_marked_text(excerpt: &str) -> Option<String> {
     let end = start + excerpt[start..].find("</mark>")?;
     let text = excerpt[start..end].trim();
     (!text.is_empty()).then(|| text.to_string())
+}
+
+/// Prefer matching body evidence, while leaving citation-only searches and literal counts intact.
+fn content_excerpt(
+    source: &str,
+    encoded: Option<&str>,
+    terms: &[String],
+    snippet: &str,
+    index: SearchIndex,
+) -> Result<(bool, String), String> {
+    let ranges = super::search_content::ranges(source, encoded)?;
+    let original = || {
+        if index == SearchIndex::SearchForm {
+            source_excerpt(source, terms, snippet)
+        } else {
+            snippet.to_string()
+        }
+    };
+    if encoded.is_none() || ranges == vec![0..source.len()] {
+        return Ok((true, original()));
+    }
+    let marked = first_marked_text(snippet);
+    let mut best = None;
+    for range in ranges {
+        let body = &source[range];
+        let count = terms
+            .iter()
+            .filter(|term| search_form::source_span(body, &search_form::normalize(term)).is_some())
+            .count();
+        let matches = count > 0
+            || marked
+                .as_ref()
+                .is_some_and(|term| search_form::source_span(body, term).is_some());
+        if matches && best.as_ref().is_none_or(|(old, _)| count > *old) {
+            best = Some((count, body));
+        }
+    }
+    Ok(best
+        .map(|(_, body)| (true, source_excerpt(body, terms, snippet)))
+        .unwrap_or_else(|| (false, original())))
 }
 
 // ponytail: scan a matched source section to recover authored characters;

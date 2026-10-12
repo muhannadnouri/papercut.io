@@ -61,12 +61,87 @@ and the [conceptual summary cleanup](#stage-7--conceptual-results-summary--2026-
 followed by the [settings readiness cleanup](#stage-7--settings-readiness-and-copy--2026-10-11),
 also have focused frontend/browser validation. The subsequent
 [stored-work and conditional layout pass](#stage-7--stored-work-guards-and-conditional-settings--2026-10-11)
-adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The recorded full CI predates these UI and model changes. The first
+adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The recorded full CI predates these UI, model and content changes. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 7 — Main-content evidence and passage roles — 2026-10-12
+
+This corrective pass addresses auxiliary content dominating previews without
+adding another model, reranker, synonym list or CI harness. Source text and
+section/page locators remain intact. The role classifier uses document structure
+and PDF geometry, rather than subject words or per-document overrides.
+
+HTML/EPUB imports retain safe EPUB/DPUB note, bibliography and navigation roles
+through both sanitizers. Headings remain searchable but are auxiliary standalone
+passages; body paragraphs retain their source spans. PDFs retain canonical
+extraction order while deriving main-content spans from repeated page-edge
+furniture, smaller bottom notes, dense dot-leader navigation and bracketed
+citation lists with links. Numeric tables alone do not qualify as navigation.
+
+Keyword evidence prefers matching body text, including within a mixed PDF page.
+Citation-only queries retain auxiliary evidence, and authored exact-phrase
+previews keep their existing path. Literal eligibility, scope, quote rules and
+match-count queries are unchanged; notes are not deleted or excluded from FTS.
+Conceptual windows split at body/auxiliary boundaries before tokenization and
+keep offsets into the original UTF-8 source. Retrieval chooses the highest-scoring
+main passage within each document, falling back to auxiliary passages when that
+document has no main content. Document ordering still uses the selected cosine
+score; there is no new confidence threshold or multi-passage result policy.
+Required quotes still constrain document eligibility, so the displayed conceptual
+body passage can be elsewhere than a required quote in a note.
+
+Upgrade behavior:
+
+- Upload schema 9 adds derived `body_ranges` metadata. Restartable background
+  backfill handles one document per transaction without inference, rewriting
+  reader text or replacing section IDs. An explicit semantic build also finishes
+  pending role backfill before taking its source snapshots.
+- Saved HTML is reparsed only when section order and text match. Saved, validated
+  PDF page layers are reused only when reconstructed text matches exactly.
+  Missing or mismatched source sidecars conservatively retain all text.
+- Previously stripped EPUB role markup cannot be recovered from saved HTML;
+  re-import those EPUBs to obtain reliable note classification. Unmarked content
+  is not silently guessed from vocabulary.
+- The passage policy identity changes. Existing semantic vectors are incompatible
+  and queries fall back to keywords until the user explicitly rebuilds the index.
+  Metadata changes invalidate coverage/checkpoints. Downloads and indexing stay
+  explicit; lexical remains available with the toggle off.
+
+Validation:
+
+- 232 provider-enabled native regressions pass (10 explicit probes ignored by
+  default); 174 provider-disabled regressions pass (five explicit probes ignored).
+  New generic cases cover independent EPUB/DPUB roles and sanitizer round trips,
+  inherited roles, canonical PDF text, Unicode offsets, numeric-table protection,
+  body previews, citation-only/exact searches, auxiliary-only fallback, metadata
+  invalidation and restartable HTML/PDF backfill with absent-source fallback.
+- Actual cached Small FP32/INT8 lifecycle and SQLite controls pass on this Linux
+  development host, including real tokenizer windows split at role boundaries,
+  exact source offsets, quotes, filters, cancellation and lexical preservation.
+- A local saved-page check confirms byte-identical source reconstruction while
+  classifying page furniture and auxiliary lists. This is extraction evidence,
+  not a fresh full-library ranking comparison or physical-device acceptance.
+- The existing optimized retrieval probe passes with 200 documents and 100,000
+  synthetic 384-dimensional passages: broad/common-phrase scans take about
+  0.20–0.24 seconds here, a 500-passage scope about 1.5 ms. This excludes model
+  inference, uses OS-warm fixture pages and does not establish weak-device latency.
+- Formatting and diff checks pass. No dependency, frontend, shipping-script,
+  workflow or model manifest changes are part of this pass.
+
+**Limits and next:** PDF classification is heuristic: unusual notes, unmarked
+references or layouts can remain unclassified, and smaller bottom captions may
+be treated as auxiliary. Main-content preference can suppress a useful note
+when body passages exist; exact note searches remain available lexically. Token
+windows still lack complete paragraph/sentence and cross-section context, and
+unrelated conceptual neighbors are not yet suppressed. Next address those
+passage/context boundaries, then evaluate fresh relevance before introducing a
+calibrated weak-match policy. Push and validate this revision through existing
+CI; interactive smoke remains explicitly deferred, including re-import/rebuild
+and source-navigation checks in the consolidated checklist.
 
 ## Stage 7 — Optional Base and Large models — 2026-10-11
 

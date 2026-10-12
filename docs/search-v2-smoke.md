@@ -280,6 +280,30 @@ quality, index/query/toggle lifecycle, reference-device resource limits and each
 advertised provider platform still need their own release evidence. The earlier
 native crash is not explained by this successful cache-only UI check.
 
+## Main-content preview follow-up — 2026-10-12
+
+**Deferred.** After upgrading, explicitly rebuild the semantic index: the new
+passage policy rejects older vectors and uses keyword fallback until rebuilding.
+Re-import older EPUBs if their saved HTML lost authored note/navigation roles.
+PDF upgrades reuse matching saved page geometry; unavailable geometry retains
+all text conservatively.
+
+- [ ] With semantic search **off**, use a generic guide containing body prose,
+      a note and references sharing a keyword. The preview prefers matching body
+      prose; a note-only term and a quoted note phrase still return the note.
+      All Words/Broader counts and document filters remain understandable.
+- [ ] With semantic search **on** and the rebuilt index ready, body passages
+      take precedence over notes/navigation within each document. A required
+      quote in a note still constrains document eligibility; its conceptual
+      passage may be elsewhere, as the explanation states. Keyword quote
+      evidence should still show the quoted note.
+- [ ] Open each selected passage in HTML/EPUB/PDF and confirm its original
+      section/page and authored text, including Arabic/CJK or emoji. Footnote
+      links, tables and reader/audio text remain available.
+- [ ] Restart during preparation, resume explicitly and verify coverage updates.
+      Re-import/edit content and confirm stale coverage cannot return old vectors.
+      No model download or semantic rebuild starts solely from opening settings.
+
 ## Stage 7 preparation controls — new follow-up
 
 **Deferred by the user on 2026-10-09.** The separate conceptual-results UI is now

@@ -17,6 +17,77 @@ use super::{
 };
 
 #[test]
+fn main_content_previews_do_not_remove_citations_or_change_literal_eligibility() {
+    let run = |query: &str, phrases: Option<Vec<String>>| {
+        search_uploads_with_db(
+            UploadedDocumentSearchRequest {
+                query: query.into(),
+                mode: UploadedDocumentSearchMode::All,
+                limit: Some(10),
+                document_urls: None,
+                exact_phrases: phrases,
+            },
+            || {
+                let db = test_db();
+                insert_document(
+                    &db,
+                    "abc123",
+                    "/uploads/abc123.html",
+                    "Harbor Guide",
+                    &[
+                        "Ferry ferry ferry ferry citation sapphire.",
+                        "Ferry routes serve the island.",
+                    ],
+                );
+                db.execute(
+                    "UPDATE uploaded_sections SET body_ranges='[]' WHERE ordinal=0",
+                    [],
+                )
+                .unwrap();
+                Ok(db)
+            },
+            |_| {},
+        )
+        .unwrap()
+        .0
+    };
+    let ordinary = run("ferry", None);
+    assert_eq!(ordinary.total_documents, 1);
+    assert_eq!(ordinary.results[0].section_index, 1);
+    assert_eq!(ordinary.results[0].matching_sections, 2);
+    assert_eq!(run("sapphire", None).results[0].section_index, 0);
+    let across = run("ferry sapphire", None);
+    assert_eq!(across.total_documents, 1);
+    // All Words still includes a document whose required rare word is in a note.
+    assert!(across.results[0]
+        .passages
+        .iter()
+        .any(|passage| passage.section_index == 0));
+    assert_eq!(
+        run("", Some(vec!["citation sapphire".into()])).results[0].section_index,
+        0
+    );
+}
+
+#[test]
+fn partial_pdf_body_preview_does_not_start_in_a_note() {
+    let source = "Ferry citation.\n港 Ferry routes serve the island.\nHarbor Guide | 12";
+    let start = source.find('港').unwrap();
+    let end = source.find("\nHarbor Guide").unwrap();
+    let encoded = serde_json::to_string(&vec![start..end]).unwrap();
+    let (body, excerpt) = super::content_excerpt(
+        source,
+        Some(&encoded),
+        &["ferry".into()],
+        "<mark>Ferry</mark> citation.",
+        SearchIndex::Original,
+    )
+    .unwrap();
+    assert!(body && excerpt.contains("routes serve"));
+    assert!(!excerpt.contains("citation") && !excerpt.contains("Harbor Guide"));
+}
+
+#[test]
 fn long_search_keeps_tail_terms_quotes_and_scope() {
     let prefix = "archive compass lantern orchard survey ledger atlas workshop harbor bridge meadow calendar";
     let query = format!("{prefix} sapphire");
@@ -1015,7 +1086,8 @@ fn test_db() -> Connection {
            ordinal INTEGER NOT NULL,
            page_index INTEGER,
            heading TEXT,
-           text TEXT NOT NULL
+           text TEXT NOT NULL,
+           body_ranges TEXT
          );
          CREATE INDEX uploaded_sections_document_order_idx
            ON uploaded_sections(document_id, ordinal);

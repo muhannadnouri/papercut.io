@@ -178,6 +178,7 @@ struct Candidate {
     start: usize,
     end: usize,
     hash: String,
+    main_content: bool,
 }
 
 /// Scope and authored quotes constrain the whole scan before top-k selection, avoiding starvation.
@@ -275,10 +276,12 @@ pub(super) fn retrieve(
             }
             let title: String = row.get(2).map_err(db_err)?;
             let format: String = row.get(3).map_err(db_err)?;
-            let mut passages = tx.prepare("SELECT section_ordinal,byte_start,byte_end,content_hash,vector,vector_hash
-                FROM upload_semantic_passages WHERE document_id=?1 ORDER BY section_ordinal,byte_start,byte_end").map_err(db_err)?;
+            let mut passages = tx.prepare("SELECT p.section_ordinal,p.byte_start,p.byte_end,p.content_hash,p.vector,p.vector_hash,s.text,s.body_ranges
+                FROM upload_semantic_passages p JOIN uploaded_sections s ON s.document_id=p.document_id AND s.ordinal=p.section_ordinal
+                WHERE p.document_id=?1 ORDER BY p.section_ordinal,p.byte_start,p.byte_end").map_err(db_err)?;
             let mut passages = passages.query([&id]).map_err(db_err)?;
             let mut best = None;
+            let mut section_ranges = None;
             while let Some(passage) = passages.next().map_err(db_err)? {
                 check()?;
                 let bytes: Vec<u8> = passage.get(4).map_err(db_err)?;
@@ -291,21 +294,44 @@ pub(super) fn retrieve(
                     .sum::<f64>()
                     .clamp(-1.0, 1.0);
                 response.scanned_passages += 1;
-                // SQL source order resolves equal passage scores without extra overlap votes.
-                if best
+                let section: usize = passage.get(0).map_err(db_err)?;
+                let start: usize = passage.get(1).map_err(db_err)?;
+                let end: usize = passage.get(2).map_err(db_err)?;
+                if section_ranges
                     .as_ref()
-                    .is_none_or(|old: &Candidate| score > old.score)
+                    .is_none_or(|(ordinal, _)| *ordinal != section)
                 {
+                    let text: String = passage.get(6).map_err(db_err)?;
+                    let encoded: Option<String> = passage.get(7).map_err(db_err)?;
+                    section_ranges = Some((
+                        section,
+                        super::super::search_content::ranges(&text, encoded.as_deref())?,
+                    ));
+                }
+                let main_content = section_ranges
+                    .as_ref()
+                    .unwrap()
+                    .1
+                    .iter()
+                    .any(|range| range.start <= start && end <= range.end);
+                // SQL source order resolves equal passage scores without extra overlap votes.
+                // Auxiliary passages remain available when a document has no main content.
+                // shortcut: body always wins; revisit with judged citation queries before blending roles.
+                if best.as_ref().is_none_or(|old: &Candidate| {
+                    main_content > old.main_content
+                        || (main_content == old.main_content && score > old.score)
+                }) {
                     best = Some(Candidate {
                         id: id.clone(),
                         url: url.clone(),
                         title: title.clone(),
                         format: format.clone(),
                         score,
-                        section: passage.get(0).map_err(db_err)?,
-                        start: passage.get(1).map_err(db_err)?,
-                        end: passage.get(2).map_err(db_err)?,
+                        section,
+                        start,
+                        end,
                         hash: passage.get(3).map_err(db_err)?,
+                        main_content,
                     });
                 }
             }

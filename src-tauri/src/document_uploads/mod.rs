@@ -34,6 +34,7 @@ mod parsed;
 mod pdf;
 mod pipeline;
 mod search;
+mod search_content;
 mod search_form;
 pub(crate) mod semantic;
 mod spelling;

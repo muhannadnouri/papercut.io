@@ -96,9 +96,15 @@ pub(crate) fn reconstruct_narration_segments<E>(
 
 /// Preserve visual line boundaries for page-level FTS text while reusing the
 /// same inline-fragment and whitespace normalization as PDF narration.
+#[cfg(test)]
 pub(crate) fn reconstruct_search_text(page: PageTextLayer) -> String {
+    search_text_lines(page).0
+}
+
+fn search_text_lines(page: PageTextLayer) -> (String, Vec<(TextLine, std::ops::Range<usize>)>) {
     let lines = page_lines(page);
     let mut text = String::new();
+    let mut mapped: Vec<(TextLine, std::ops::Range<usize>)> = Vec::new();
 
     for (index, line) in lines.iter().enumerate() {
         let mut builder = SegmentBuilder::default();
@@ -110,14 +116,113 @@ pub(crate) fn reconstruct_search_text(page: PageTextLayer) -> String {
         if !text.is_empty() {
             if index > 0 && is_soft_hyphenated_wrap(&lines[index - 1], line) {
                 text.pop();
+                if let Some((_, range)) = mapped.last_mut() {
+                    range.end = text.len();
+                }
             } else {
                 text.push('\n');
             }
         }
+        let start = text.len();
         text.push_str(&builder.text);
+        mapped.push((line.clone(), start..text.len()));
     }
 
-    text
+    (text, mapped)
+}
+
+/// Page-edge repetition is document-local evidence; page numbers alone cannot identify a header.
+pub(crate) fn edge_keys(page: PageTextLayer) -> std::collections::HashSet<String> {
+    page_lines(page)
+        .iter()
+        .filter(|line| edge(line))
+        .map(|line| edge_key(&line.text()))
+        .filter(|key| key.chars().count() >= 4)
+        .collect()
+}
+
+fn edge(line: &TextLine) -> bool {
+    line.top < line.page_height * 0.07 || line.bottom > line.page_height * 0.92
+}
+
+fn edge_key(text: &str) -> String {
+    text.chars()
+        .filter(|ch| !ch.is_numeric())
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Classify derived spans without sorting columns or changing canonical text/reader offsets.
+/// Small bottom notes, repeated edge furniture and dense navigation/citation lists stay literal-searchable.
+pub(crate) fn search_content(
+    page: PageTextLayer,
+    repeated: &std::collections::HashSet<String>,
+) -> (String, Vec<std::ops::Range<usize>>) {
+    let (text, mapped) = search_text_lines(page);
+    // shortcut: small bottom captions can resemble notes; refine against annotated layout failures.
+    let mut heights = mapped
+        .iter()
+        .filter(|(line, _)| !edge(line))
+        .map(|(line, _)| line.height)
+        .collect::<Vec<_>>();
+    heights.sort_by(f32::total_cmp);
+    let typical = heights.get(heights.len() / 2).copied().unwrap_or(0.0);
+    let contents_lines = mapped
+        .iter()
+        .filter(|(line, _)| {
+            let value = line.text();
+            value
+                .split_whitespace()
+                .last()
+                .is_some_and(|last| last.chars().all(|ch| ch.is_numeric()))
+                && value.split_whitespace().count() >= 2
+        })
+        .count();
+    // A numeric table is not navigation: require repeated dot leaders as well as page-like endings.
+    let leaders = text.matches(". . .").count() + text.matches("...").count();
+    let toc = contents_lines >= 8 && contents_lines * 2 >= mapped.len() && leaders >= 2;
+    let citations = mapped
+        .iter()
+        .enumerate()
+        .filter_map(|(index, (line, _))| {
+            let value = line.text();
+            let numbered = value
+                .trim_start()
+                .strip_prefix('[')
+                .and_then(|rest| rest.split_once(']'))
+                .is_some_and(|(number, _)| {
+                    !number.is_empty() && number.chars().all(|ch| ch.is_ascii_digit())
+                });
+            numbered.then_some(index)
+        })
+        .collect::<Vec<_>>();
+    let links = text.matches("https://").count()
+        + text.matches("http://").count()
+        + text.matches("doi:").count();
+    let reference_start =
+        (citations.len() >= 3 && links >= 2)
+            .then(|| if citations[0] <= 1 { 0 } else { citations[0] });
+    let mut ranges: Vec<std::ops::Range<usize>> = Vec::new();
+    for (index, (line, range)) in mapped.iter().enumerate() {
+        let value = line.text();
+        let note = line.top > line.page_height * 0.7 && line.height < typical * 0.85;
+        let furniture = edge(line)
+            && (repeated.contains(&edge_key(&value))
+                || value.trim().chars().all(|ch| ch.is_numeric()));
+        if toc || note || furniture || reference_start.is_some_and(|start| index >= start) {
+            continue;
+        }
+        if let Some(previous) = ranges.last_mut() {
+            if text[previous.end..range.start].trim().is_empty() {
+                previous.end = range.end;
+                continue;
+            }
+        }
+        ranges.push(range.clone());
+    }
+    (text, ranges)
 }
 
 /// Group adjacent PDF.js items into visual lines while honoring explicit EOL
@@ -367,6 +472,78 @@ fn expanded_ligature(character: char) -> Option<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn derived_body_ranges_keep_source_order_but_exclude_bottom_notes_and_furniture() {
+        let page = layer(
+            0,
+            vec![
+                block(0, "i. A footnote citation.\n", 700.0, 8.0),
+                block(1, "港 Electric ferries serve the island.\n", 100.0, 12.0),
+                block(2, "Tickets are available at the harbor.\n", 116.0, 12.0),
+                block(3, "Harbor Guide | 12", 760.0, 10.0),
+            ],
+        );
+        let repeated = std::collections::HashSet::from(["Harbor Guide |".into()]);
+        let canonical = reconstruct_search_text(page.clone());
+        let (text, ranges) = search_content(page, &repeated);
+        assert_eq!(text, canonical);
+        assert!(text.starts_with("i. A footnote"));
+        let body = crate::document_uploads::search_content::body_text(&text, &ranges);
+        assert!(body.starts_with("港 Electric ferries"));
+        assert!(!body.contains("footnote") && !body.contains("Harbor Guide"));
+        assert!(crate::document_uploads::search_content::ranges(
+            &text,
+            Some(&serde_json::to_string(&ranges).unwrap())
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn navigation_and_citation_lists_are_auxiliary_but_numeric_tables_are_not() {
+        let table = (0..10)
+            .map(|i| {
+                block(
+                    i,
+                    &format!("Route {i} {}\n", i + 10),
+                    100.0 + i as f32 * 16.0,
+                    12.0,
+                )
+            })
+            .collect::<Vec<_>>();
+        let (_, ranges) = search_content(layer(0, table.clone()), &Default::default());
+        assert!(!ranges.is_empty());
+        let toc = (0..10)
+            .map(|i| {
+                block(
+                    i,
+                    &format!("Route {i} . . . . . {}\n", i + 10),
+                    100.0 + i as f32 * 16.0,
+                    12.0,
+                )
+            })
+            .collect();
+        assert!(search_content(layer(0, toc), &Default::default())
+            .1
+            .is_empty());
+        let references = (0..4)
+            .map(|i| {
+                block(
+                    i,
+                    &format!("[{}] Author. https://example.org/{i}\n", i + 1),
+                    100.0 + i as f32 * 16.0,
+                    12.0,
+                )
+            })
+            .collect();
+        assert!(search_content(layer(0, references), &Default::default())
+            .1
+            .is_empty());
+        assert_eq!(
+            edge_keys(layer(0, vec![block(0, "Harbor Guide | 14", 760.0, 10.0)])),
+            edge_keys(layer(1, vec![block(0, "Harbor Guide | 15", 760.0, 10.0)]))
+        );
+    }
 
     #[test]
     fn rebuilds_wrapped_prose_ligatures_and_page_seams() {

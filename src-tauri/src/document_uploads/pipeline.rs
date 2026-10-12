@@ -886,6 +886,7 @@ mod tests {
                 heading: None,
                 text: "Test".into(),
                 page_index: None,
+                body_ranges: None,
             }],
             cover: Some(ParsedDocumentCover {
                 media_type: "image/png",

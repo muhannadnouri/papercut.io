@@ -130,6 +130,7 @@ pub(super) fn open_db_in(root: &std::path::Path) -> Result<Connection, String> {
            page_index INTEGER,
            heading TEXT,
            text TEXT NOT NULL,
+           body_ranges TEXT,
            FOREIGN KEY(document_id) REFERENCES uploaded_documents(id) ON DELETE CASCADE
          );
          CREATE VIRTUAL TABLE IF NOT EXISTS uploaded_document_fts USING fts5(
@@ -258,7 +259,7 @@ pub(super) fn open_db_in(root: &std::path::Path) -> Result<Connection, String> {
         [search_form::VERSION],
     ).map_err(db_err)?;
     tx.execute(
-        "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('schema_version', '8')",
+        "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('schema_version', '9')",
         [],
     )
     .map_err(db_err)?;
@@ -330,12 +331,118 @@ pub(crate) fn schedule_search_index_rebuild<R: Runtime>(app: tauri::AppHandle<R>
             let mut db = open_db(&app)?;
             while rebuild_search_form_batch(&mut db)? {}
             while rebuild_spelling_batch(&mut db)? {}
+            let root = uploads_root(&app)?;
+            while rebuild_search_content_batch(&mut db, &root)? {}
             Ok(())
         })();
         if let Err(error) = result {
             log::warn!("Uploaded search index rebuild will retry on restart: {error}");
         }
     });
+}
+
+/// Backfill one legacy document without rewriting authored text or section locators.
+/// Lost EPUB roles need re-import; absent/mismatched sidecars conservatively retain all text.
+pub(super) fn rebuild_search_content_batch(
+    db: &mut Connection,
+    root: &std::path::Path,
+) -> Result<bool, String> {
+    let next: Option<(String, String)> = db.query_row(
+        "SELECT d.id,d.source_kind FROM uploaded_documents d WHERE d.text_status<>'processing'
+         AND EXISTS(SELECT 1 FROM uploaded_sections s WHERE s.document_id=d.id AND s.body_ranges IS NULL) ORDER BY d.id LIMIT 1",
+        [], |row| Ok((row.get(0)?,row.get(1)?)),
+    ).optional().map_err(db_err)?;
+    let Some((id, kind)) = next else {
+        return Ok(false);
+    };
+    let rows = |db: &Connection| -> Result<Vec<(i64, usize, String, Option<u32>)>, String> {
+        let mut stmt = db.prepare("SELECT id,ordinal,text,page_index FROM uploaded_sections WHERE document_id=?1 ORDER BY ordinal").map_err(db_err)?;
+        let values = stmt
+            .query_map([&id], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })
+            .map_err(db_err)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(db_err)?;
+        Ok(values)
+    };
+    let original = rows(db)?;
+    let dir = root.join(&id);
+    let safe_id = !id.is_empty() && id.chars().all(|ch| ch.is_ascii_hexdigit());
+    let html = if safe_id && kind == "html" {
+        use std::io::Read;
+        std::fs::File::open(dir.join(StoredSourceKind::Html.file_name()))
+            .ok()
+            .and_then(|file| {
+                let mut value = String::new();
+                file.take(100 * 1024 * 1024 + 1)
+                    .read_to_string(&mut value)
+                    .ok()?;
+                (value.len() <= 100 * 1024 * 1024).then(|| super::html::parse_html_document(&value))
+            })
+            .filter(|parsed| {
+                parsed.sections.len() == original.len()
+                    && parsed.sections.iter().zip(&original).enumerate().all(
+                        |(index, (section, (_, ordinal, text, _)))| {
+                            index == *ordinal && &section.text == text
+                        },
+                    )
+            })
+    } else {
+        None
+    };
+    let mut counts = std::collections::HashMap::new();
+    if safe_id && kind == "pdf" {
+        for (_, _, _, page) in &original {
+            if let Some(layer) =
+                page.and_then(|page| super::pdf::page_text::read_page_text_layer(&dir, page).ok())
+            {
+                for key in super::pdf::narration::edge_keys(layer) {
+                    *counts.entry(key).or_insert(0usize) += 1;
+                }
+            }
+        }
+    }
+    let repeated = counts
+        .into_iter()
+        .filter_map(|(key, count)| (count >= 3).then_some(key))
+        .collect();
+    let mut updates = Vec::new();
+    for (section_id, ordinal, text, page) in &original {
+        let ranges = if let Some(parsed) = &html {
+            parsed.sections[*ordinal]
+                .body_ranges
+                .clone()
+                .unwrap_or_default()
+        } else if safe_id && kind == "pdf" {
+            page.and_then(|page| super::pdf::page_text::read_page_text_layer(&dir, page).ok())
+                .map(|layer| super::pdf::narration::search_content(layer, &repeated))
+                .filter(|(source, _)| source == text)
+                .map(|(_, ranges)| ranges)
+                .unwrap_or(super::search_content::ranges(text, None)?)
+        } else {
+            super::search_content::ranges(text, None)?
+        };
+        updates.push((
+            *section_id,
+            serde_json::to_string(&ranges).map_err(|err| err.to_string())?,
+        ));
+    }
+    let tx = db
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(db_err)?;
+    if rows(&tx)? != original {
+        return Ok(true);
+    }
+    for (section, ranges) in updates {
+        tx.execute(
+            "UPDATE uploaded_sections SET body_ranges=?1 WHERE id=?2 AND body_ranges IS NULL",
+            params![ranges, section],
+        )
+        .map_err(db_err)?;
+    }
+    tx.commit().map_err(db_err)?;
+    Ok(true)
 }
 
 /// One document per transaction keeps a stopped migration restartable without
@@ -424,6 +531,12 @@ fn write_spelling_terms(
 /// Add metadata columns and the reading-order section index in place so
 /// existing documents and FTS rows survive upgrades without a rebuild.
 fn ensure_schema_columns(db: &Connection) -> Result<(), String> {
+    ensure_column(
+        db,
+        "uploaded_sections",
+        "body_ranges",
+        "ALTER TABLE uploaded_sections ADD COLUMN body_ranges TEXT",
+    )?;
     ensure_column(
         db,
         "uploaded_documents",
@@ -631,14 +744,15 @@ pub(crate) fn upsert_document(
 
     for (index, section) in parsed.sections.iter().enumerate() {
         tx.execute(
-            "INSERT INTO uploaded_sections (document_id, ordinal, page_index, heading, text) \
-             VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT INTO uploaded_sections (document_id, ordinal, page_index, heading, text, body_ranges) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
                 id,
                 index as i64,
                 section.page_index.map(i64::from),
                 section.heading,
-                section.text
+                section.text,
+                section.body_ranges.as_ref().map(serde_json::to_string).transpose().map_err(|err| err.to_string())?
             ],
         )
         .map_err(db_err)?;
@@ -830,6 +944,131 @@ mod tests {
         upsert_document, PdfTextStatus, MAX_TITLE_CHARS,
     };
     use crate::document_uploads::parsed::{ParsedDocument, ParsedSection};
+
+    #[test]
+    fn legacy_content_backfill_is_restartable_and_preserves_sections_and_missing_sources() {
+        let root = std::env::temp_dir().join(format!(
+            "papercut-content-backfill-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let mut db = open_db_in(&root).unwrap();
+        let mut parsed = super::super::html::parse_html_document(
+            r#"<body><p>港 Ferry routes.</p><aside role="doc-footnote"><p>Ferry citation.</p></aside></body>"#,
+        );
+        let source = parsed.view_html.clone();
+        for section in &mut parsed.sections {
+            section.body_ranges = None;
+        }
+        upsert_document(
+            &mut db,
+            "abc123",
+            "/uploads/abc123.html",
+            &parsed,
+            None,
+            StoredSourceKind::Html,
+            1,
+            1,
+            PdfTextStatus::Ready,
+        )
+        .unwrap();
+        upsert_document(
+            &mut db,
+            "def456",
+            "/uploads/def456.html",
+            &parsed,
+            None,
+            StoredSourceKind::Html,
+            1,
+            1,
+            PdfTextStatus::Ready,
+        )
+        .unwrap();
+        std::fs::create_dir_all(root.join("abc123")).unwrap();
+        std::fs::write(root.join("abc123/source.html"), source).unwrap();
+        let layer = super::super::pdf::page_text::PageTextLayer {
+            schema_version: 1,
+            page_index: 0,
+            width: 400.0,
+            height: 800.0,
+            blocks: vec![
+                super::super::pdf::page_text::PageTextBlock {
+                    text: "Ferry routes.".into(),
+                    bounds: [20.0, 100.0, 200.0, 12.0],
+                    order: 0,
+                    confidence: None,
+                },
+                super::super::pdf::page_text::PageTextBlock {
+                    text: "Citation.".into(),
+                    bounds: [20.0, 700.0, 150.0, 8.0],
+                    order: 1,
+                    confidence: None,
+                },
+            ],
+        };
+        let (text, expected_ranges) =
+            super::super::pdf::narration::search_content(layer.clone(), &Default::default());
+        let mut pdf = super::super::html::parse_html_document("<p>Ferry routes.</p>");
+        pdf.sections[0].text = text;
+        pdf.sections[0].page_index = Some(0);
+        pdf.sections[0].body_ranges = None;
+        upsert_document(
+            &mut db,
+            "fff123",
+            "/uploads/fff123.pdf",
+            &pdf,
+            None,
+            StoredSourceKind::Pdf,
+            1,
+            1,
+            PdfTextStatus::Ready,
+        )
+        .unwrap();
+        super::super::pdf::page_text::write_page_text_layer(&root.join("fff123"), &layer).unwrap();
+        let before: Vec<(i64, String)> = db
+            .prepare("SELECT id,text FROM uploaded_sections ORDER BY id")
+            .unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert!(super::rebuild_search_content_batch(&mut db, &root).unwrap());
+        drop(db);
+        let mut db = open_db_in(&root).unwrap();
+        assert!(super::rebuild_search_content_batch(&mut db, &root).unwrap());
+        assert!(super::rebuild_search_content_batch(&mut db, &root).unwrap());
+        assert!(!super::rebuild_search_content_batch(&mut db, &root).unwrap());
+        let pdf_ranges: String = db
+            .query_row(
+                "SELECT body_ranges FROM uploaded_sections WHERE document_id='fff123'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            serde_json::from_str::<Vec<std::ops::Range<usize>>>(&pdf_ranges).unwrap(),
+            expected_ranges
+        );
+        assert_eq!(db.query_row("SELECT body_ranges FROM uploaded_sections WHERE document_id='abc123' AND ordinal=1",[],|row|row.get::<_,String>(0)).unwrap(),"[]");
+        let fallback:String = db.query_row("SELECT body_ranges FROM uploaded_sections WHERE document_id='def456' AND ordinal=1",[],|row|row.get(0)).unwrap();
+        assert_eq!(
+            super::super::search_content::ranges("Ferry citation.", Some(&fallback)).unwrap(),
+            vec![0.."Ferry citation.".len()]
+        );
+        let after: Vec<(i64, String)> = db
+            .prepare("SELECT id,text FROM uploaded_sections ORDER BY id")
+            .unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(before, after);
+        drop(db);
+        std::fs::remove_dir_all(root).unwrap();
+    }
     use crate::document_uploads::StoredSourceKind;
 
     /// Regression test for SQLite's `INSERT OR REPLACE` footgun:
@@ -1485,6 +1724,7 @@ mod tests {
                page_index INTEGER,
                heading TEXT,
                text TEXT NOT NULL,
+               body_ranges TEXT,
                FOREIGN KEY(document_id) REFERENCES uploaded_documents(id) ON DELETE CASCADE
              );
              CREATE VIRTUAL TABLE uploaded_document_fts USING fts5(
@@ -1547,6 +1787,7 @@ mod tests {
                     heading: Some(format!("Section {}", index + 1)),
                     text: (*text).to_string(),
                     page_index: None,
+                    body_ranges: None,
                 })
                 .collect(),
             cover: None,

@@ -255,6 +255,43 @@ pub(crate) fn verify_native_index_queries(
     );
     assert_eq!(lexical(), baseline);
 
+    // Real tokenizer windows must stay inside derived roles and still point into authored UTF-8.
+    let content_library = Library::new();
+    let mut content_db = content_library.db();
+    let note = "Citation: electric buses.\n";
+    let body = "港 Residents travel between the harbor and station by bus. 🙂";
+    put(
+        &mut content_db,
+        "roles",
+        "Transit guide",
+        &[&format!("{note}{body}")],
+    );
+    content_db
+        .execute(
+            "UPDATE uploaded_sections SET body_ranges=?1 WHERE document_id='roles'",
+            [serde_json::to_string(&vec![note.len()..note.len() + body.len()]).unwrap()],
+        )
+        .unwrap();
+    initialize(&mut content_db, &key).unwrap();
+    let snapshot = source(&mut content_db, "roles").unwrap().unwrap();
+    synchronize(
+        &mut content_db,
+        &key,
+        &snapshot,
+        |title, heading, text| provider.index_passage_ranges(&encoder, title, heading, text),
+        |text| provider.index_encode(&encoder, text),
+        || Ok(()),
+        |_| {},
+    )
+    .unwrap();
+    let hit = query(
+        &mut content_db,
+        json!({"query":"electric buses", "exactPhrases":["electric buses"]}),
+    );
+    assert_eq!(hit["results"][0]["text"], body);
+    assert_eq!(hit["results"][0]["byteStart"], note.len());
+    assert_eq!(hit["results"][0]["byteEnd"], note.len() + body.len());
+
     // Disable from the query's native boundary: completed inference must not publish after opt-out.
     let guard = state.begin_query().unwrap();
     let version = provider.index_generation();
@@ -599,6 +636,136 @@ fn identity() -> Identity {
 }
 
 #[test]
+fn main_content_wins_over_a_higher_scoring_note_with_source_and_quotes_preserved() {
+    let library = Library::new();
+    let mut db = library.db();
+    put(
+        &mut db,
+        "abc123",
+        "Harbor Guide",
+        &[
+            "Sapphire ferry citation.",
+            "港 Electric ferries serve the island.",
+        ],
+    );
+    db.execute(
+        "UPDATE uploaded_sections SET body_ranges='[]' WHERE ordinal=0",
+        [],
+    )
+    .unwrap();
+    let key = identity();
+    initialize(&mut db, &key).unwrap();
+    let snapshot = source(&mut db, "abc123").unwrap().unwrap();
+    synchronize(
+        &mut db,
+        &key,
+        &snapshot,
+        |_, _, text| Ok(vec![0..text.len()]),
+        |text| {
+            Ok(if text.contains("citation") {
+                vec![1.0, 0.0]
+            } else {
+                vec![0.8, 0.6]
+            })
+        },
+        || Ok(()),
+        |_| {},
+    )
+    .unwrap();
+    let result = serde_json::to_value(
+        retrieve(
+            &mut db,
+            &key,
+            &request(json!({"query":"island travel","exactPhrases":["Sapphire ferry"]})),
+            |_| Ok(vec![1.0, 0.0]),
+            || Ok(()),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(result["results"][0]["sectionIndex"], 1);
+    assert_eq!(
+        result["results"][0]["text"],
+        "港 Electric ferries serve the island."
+    );
+    assert_eq!(
+        db.query_row(
+            "SELECT text FROM uploaded_sections WHERE ordinal=0",
+            [],
+            |row| row.get::<_, String>(0)
+        )
+        .unwrap(),
+        "Sapphire ferry citation."
+    );
+    db.execute(
+        "UPDATE uploaded_sections SET body_ranges='[]' WHERE ordinal=1",
+        [],
+    )
+    .unwrap();
+    assert_eq!(coverage(&mut db, Some(&key)).unwrap().indexed_documents, 0);
+    sync(&mut db, &key, "abc123");
+    let auxiliary = serde_json::to_value(
+        retrieve(
+            &mut db,
+            &key,
+            &request(json!({"query":"citation"})),
+            |_| Ok(vec![1.0, 0.0]),
+            || Ok(()),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(auxiliary["results"].as_array().unwrap().len(), 1);
+}
+
+#[test]
+fn role_boundaries_keep_original_utf8_offsets() {
+    let library = Library::new();
+    let mut db = library.db();
+    let text = "Note.\n港 Ferry routes.\nFooter";
+    put(&mut db, "abc123", "Harbor", &[text]);
+    let start = text.find('港').unwrap();
+    let end = text.find("\nFooter").unwrap();
+    db.execute(
+        "UPDATE uploaded_sections SET body_ranges=?1",
+        [serde_json::to_string(&vec![start..end]).unwrap()],
+    )
+    .unwrap();
+    let key = identity();
+    initialize(&mut db, &key).unwrap();
+    let source = source(&mut db, "abc123").unwrap().unwrap();
+    let mut seen = Vec::new();
+    synchronize(
+        &mut db,
+        &key,
+        &source,
+        |_, _, text| Ok(vec![0..text.len()]),
+        |input| {
+            seen.push(input.to_string());
+            Ok(vec![1.0, 0.0])
+        },
+        || Ok(()),
+        |_| {},
+    )
+    .unwrap();
+    assert_eq!(seen.len(), 3);
+    assert!(seen[1].ends_with("港 Ferry routes."));
+    let result = serde_json::to_value(
+        retrieve(
+            &mut db,
+            &key,
+            &request(json!({"query":"ferry"})),
+            |_| Ok(vec![1.0, 0.0]),
+            || Ok(()),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(result["results"][0]["byteStart"], start);
+    assert_eq!(result["results"][0]["byteEnd"], end);
+}
+
+#[test]
 fn stored_index_is_independent_of_ready_coverage_and_empty_retained_tables() {
     let library = Library::new();
     let mut db = library.db();
@@ -626,6 +793,7 @@ fn put(db: &mut Connection, id: &str, title: &str, texts: &[&str]) {
                 heading: Some(format!("Section {index}")),
                 text: (*text).into(),
                 page_index: Some(index as u32),
+                body_ranges: None,
             })
             .collect(),
         cover: None,
