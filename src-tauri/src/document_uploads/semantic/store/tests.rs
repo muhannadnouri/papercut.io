@@ -599,6 +599,22 @@ fn identity() -> Identity {
     Identity::new("synthetic-encoder/tokenizer-v1", 2).unwrap()
 }
 
+#[test]
+fn stored_index_is_independent_of_ready_coverage_and_empty_retained_tables() {
+    let library = Library::new();
+    let mut db = library.db();
+    assert!(!has_stored_index(&db).unwrap());
+    assert!(!exists(&db).unwrap());
+    initialize(&mut db, &identity()).unwrap();
+    assert!(has_stored_index(&db).unwrap());
+    assert_eq!(coverage(&mut db, None).unwrap().passages, 0);
+    remove(&mut db).unwrap();
+    assert!(exists(&db).unwrap()); // Invalidation triggers remain for a later rebuild.
+    assert!(!has_stored_index(&db).unwrap());
+    initialize(&mut db, &identity()).unwrap();
+    assert!(has_stored_index(&db).unwrap());
+}
+
 fn put(db: &mut Connection, id: &str, title: &str, texts: &[&str]) {
     let parsed = ParsedDocument {
         title: title.into(),

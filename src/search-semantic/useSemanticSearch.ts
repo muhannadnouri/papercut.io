@@ -15,6 +15,7 @@ interface IndexStatus {
   indexedDocuments: number
   eligibleDocuments: number
   passages: number
+  hasStoredIndex: boolean
   embeddedPassages: number
   reusedPassages: number
   error: string | null
@@ -125,6 +126,7 @@ export function useSemanticSearch() {
 
   async function run(kind: 'build' | 'remove') {
     if (action.current || busy || !provider?.compiled) return
+    if (kind === 'remove' && !index?.hasStoredIndex) return
     if (kind === 'build' && (!currentPreference.current.enabled || provider.activeFormat !== preference.format)) return
     action.current = true
     const version = generation.current

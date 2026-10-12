@@ -74,7 +74,7 @@ beforeEach(() => {
   mocked.isTauri.mockReset().mockReturnValue(true)
   provider = { compiled: true, activeFormat: null, loadingFormat: null, downloadingFormat: null }
   index = { running: false, cancelRequested: false, indexedDocuments: 0, eligibleDocuments: 2,
-    passages: 0, embeddedPassages: 0, reusedPassages: 0, error: null }
+    passages: 0, hasStoredIndex: false, embeddedPassages: 0, reusedPassages: 0, error: null }
   mocked.invoke.mockReset().mockImplementation(async (command: string, args?: { format: ModelFormat | null }) => {
     if (command === 'search_embedding_status') return { ...provider }
     if (command === 'search_semantic_index_status') return { ...index }
@@ -175,7 +175,7 @@ it('explicit jobs keep cancellation busy, expose coverage, and reject conflictin
   value = render()
   await value.cancel() // Native reservation has not been observed by status yet.
   expect(commands()).not.toContain('search_semantic_index_cancel')
-  index.embeddedPassages = 3; index.reusedPassages = 2; index.indexedDocuments = 1
+  index.hasStoredIndex = true; index.embeddedPassages = 3; index.reusedPassages = 2; index.indexedDocuments = 1
   value = render(); await vi.advanceTimersByTimeAsync(1000); value = await settle()
   expect(value.index?.embeddedPassages).toBe(3)
   expect(value.index?.indexedDocuments).toBe(1)
@@ -319,4 +319,17 @@ it('distinguishes confirmed cancellation from a failure racing cancel, and prese
   expect(value.activityNotice).toBe('complete')
   await value.setEnabled(false); value = await settle()
   expect(value.activityNotice).toBeNull()
+})
+
+
+it('guards index removal by saved work, including checkpoints without ready passages', async () => {
+  render(); let value = await settle()
+  await value.remove()
+  expect(commands()).not.toContain('search_semantic_index_remove')
+  index.hasStoredIndex = true
+  await value.refresh(); value = await settle()
+  mocked.invoke.mockImplementationOnce(async () => { index.hasStoredIndex = false })
+  await value.remove(); value = await settle()
+  await value.remove()
+  expect(commands().filter(cmd => cmd === 'search_semantic_index_remove')).toHaveLength(1)
 })

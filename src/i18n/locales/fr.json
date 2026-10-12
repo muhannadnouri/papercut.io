@@ -385,7 +385,7 @@
       "resources": "La recherche s’exécute sur cet appareil. L’utilisation de la mémoire, la vitesse d’indexation et l’impact sur la batterie dépendent de votre matériel et de la taille de votre bibliothèque.",
       "int8Warning": "INT8 utilise un modèle quantifié. Les résultats et les performances peuvent différer de FP32. Essayez FP32 si INT8 ne se charge pas.",
       "present": "Fichiers présents ; leur intégrité est vérifiée au chargement du modèle.",
-      "absent": "Modèle non téléchargé ou téléchargement incomplet.",
+      "absent": "Aucun fichier de modèle enregistré.",
       "consent": "Autoriser le téléchargement de ce format depuis Hugging Face.",
       "verify": "Vérifier le cache",
       "download": "Télécharger les fichiers du modèle",
@@ -402,14 +402,15 @@
       "cancelled": "Téléchargement annulé. Vérifiez l’état du cache avant de réessayer.",
       "failed": "Échec du téléchargement. Vérifiez la connexion et l’espace libre ; supprimez les fichiers du cache endommagés avant de réessayer.",
       "details": "Détails techniques",
-      "storage": "Gérer le stockage",
       "resourceSummary": "Utilise davantage de mémoire et de calcul lorsqu’il est activé.",
       "confirmRemove": "Supprimer les fichiers de ce modèle, y compris les téléchargements incomplets ? Les documents et l’index sont conservés. Vous devrez télécharger le modèle à nouveau.",
       "manage": "Gérer le modèle",
       "model": "Modèle",
       "downloadSize": "Taille du téléchargement",
       "loaded": "Modèle chargé",
-      "reserve": "Les téléchargements nécessitent 64 Mio supplémentaires d’espace libre."
+      "reserve": "Les téléchargements nécessitent 64 Mio supplémentaires d’espace libre.",
+      "incomplete": "Les fichiers du modèle sont incomplets. Supprimez-les avant de les télécharger à nouveau.",
+      "stored": "Fichiers Enregistrés"
     },
     "semantic": {
       "title": "Recherche sémantique (expérimentale)",
@@ -477,7 +478,9 @@
         "needsIndex": "Activé · Indexation nécessaire",
         "ready": "Activé · Prêt"
       },
-      "modelRequired": "L’indexation est disponible une fois le modèle de recherche chargé."
+      "modelRequired": "L’indexation est disponible une fois le modèle de recherche chargé.",
+      "savedIndex": "Index Enregistré · Recherche Désactivée",
+      "noStoredIndex": "Aucun index enregistré."
     }
   },
   "libraryTransfer": {

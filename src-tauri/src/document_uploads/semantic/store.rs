@@ -68,6 +68,17 @@ pub(super) fn exists(db: &Connection) -> Result<bool, String> {
     ).map_err(err)
 }
 
+/// Removal retains empty tables/triggers; saved checkpoints exist independently of active coverage.
+pub(super) fn has_stored_index(db: &Connection) -> Result<bool, String> {
+    if !exists(db)? {
+        return Ok(false);
+    }
+    db.query_row(
+        "SELECT identity<>'' OR EXISTS(SELECT 1 FROM upload_semantic_passages) FROM upload_semantic_metadata WHERE id=1",
+        [], |row| row.get(0),
+    ).map_err(err)
+}
+
 /// Called only by an explicit indexing request, never by normal database startup.
 pub(super) fn initialize(db: &mut Connection, identity: &Identity) -> Result<(), String> {
     let tx = db

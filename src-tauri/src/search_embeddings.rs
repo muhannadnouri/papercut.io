@@ -109,6 +109,7 @@ fn cache_dir<R: tauri::Runtime>(
 pub(crate) struct CacheStatus {
     format: ModelFormat,
     files_present: bool,
+    has_stored_files: bool,
     expected_bytes: u64,
 }
 
@@ -128,6 +129,7 @@ pub(crate) async fn search_embedding_cache_status<R: tauri::Runtime>(
                     Ok(CacheStatus {
                         format,
                         files_present: cache::files_present(&dir, &format.assets()),
+                        has_stored_files: cache::has_stored_files(&dir)?,
                         expected_bytes: format.installed_bytes(),
                     })
                 })

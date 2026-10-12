@@ -385,7 +385,7 @@
       "resources": "A busca é executada neste dispositivo. O uso de memória, a velocidade de indexação e o impacto na bateria dependem do hardware e do tamanho da biblioteca.",
       "int8Warning": "INT8 usa um modelo quantizado. Os resultados e o desempenho podem diferir de FP32. Experimente FP32 se INT8 não carregar.",
       "present": "Arquivos presentes; a integridade é verificada ao carregar o modelo.",
-      "absent": "Modelo não baixado ou download incompleto.",
+      "absent": "Nenhum arquivo do modelo armazenado.",
       "consent": "Permitir o download deste formato do Hugging Face.",
       "verify": "Verificar cache",
       "download": "Baixar arquivos do modelo",
@@ -402,14 +402,15 @@
       "cancelled": "Download cancelado. Verifique o status do cache antes de tentar novamente.",
       "failed": "O download falhou. Verifique a conexão e o espaço livre; remova arquivos de cache danificados antes de tentar novamente.",
       "details": "Detalhes técnicos",
-      "storage": "Gerenciar armazenamento",
       "resourceSummary": "Usa memória e processamento adicionais enquanto ativado.",
       "confirmRemove": "Remover os arquivos deste modelo, incluindo downloads incompletos? Documentos e índice serão preservados. Será necessário baixar o modelo novamente.",
       "manage": "Gerenciar modelo",
       "model": "Modelo",
       "downloadSize": "Tamanho do download",
       "loaded": "Modelo carregado",
-      "reserve": "Os downloads exigem mais 64 MiB de espaço livre."
+      "reserve": "Os downloads exigem mais 64 MiB de espaço livre.",
+      "incomplete": "Os arquivos do modelo estão incompletos. Remova-os antes de baixar novamente.",
+      "stored": "Arquivos Armazenados"
     },
     "semantic": {
       "title": "Busca semântica (experimental)",
@@ -477,7 +478,9 @@
         "needsIndex": "Ativado · Indexação necessária",
         "ready": "Ativado · Pronto"
       },
-      "modelRequired": "A indexação fica disponível quando o modelo de busca está carregado."
+      "modelRequired": "A indexação fica disponível quando o modelo de busca está carregado.",
+      "savedIndex": "Índice Salvo · Busca Desativada",
+      "noStoredIndex": "Nenhum índice salvo."
     }
   },
   "libraryTransfer": {

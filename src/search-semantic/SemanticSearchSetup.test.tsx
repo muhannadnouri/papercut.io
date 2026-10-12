@@ -12,7 +12,7 @@ function controller(overrides: Partial<SemanticSearchController> = {}): Semantic
   return { enabled: false, format: 'float32', busy: false, operation: null, cancelling: false, error: '',
     provider: { compiled: true, activeFormat: null, loadingFormat: null, downloadingFormat: null },
     index: { running: false, cancelRequested: false, indexedDocuments: 1, eligibleDocuments: 2,
-      passages: 3, embeddedPassages: 2, reusedPassages: 1, error: null },
+      passages: 3, hasStoredIndex: true, embeddedPassages: 2, reusedPassages: 1, error: null },
     setEnabled: vi.fn(), setFormat: vi.fn(), build: vi.fn(), remove: vi.fn(), cancel: vi.fn(), refresh: vi.fn(), activityNotice: null, dismissActivity: vi.fn(),
     ...overrides }
 }
@@ -24,7 +24,8 @@ it('shows off and opt-in wording, coverage, and blocks enabling without a cache 
   const ready = html(controller())
   expect(ready).toContain('settings.semantic.summary.off')
   expect(ready).toContain('settings.semantic.controlsTitle')
-  expect(ready).toContain('&quot;ready&quot;:1')
+  expect(ready).toContain('settings.semantic.savedIndex')
+  expect(ready).not.toContain('settings.semantic.documentsReady')
   expect(ready).toContain('role="switch"')
   expect(ready).not.toMatch(/role="switch"[^>]*disabled=""/)
   expect(html(controller(), false)).toMatch(/role="switch"[^>]*disabled=""/)
@@ -45,7 +46,7 @@ it('labels unavailable opted-in state as lexical fallback with an actionable err
   expect(html(duplicate)).toContain('Different index failure')
 })
 
-it('keeps the off switch usable during indexing, shows progress/cancellation and hides old errors after disable', () => {
+it('keeps the off switch usable during indexing and preserves errors after disable', () => {
   const semantic = controller({ enabled: true, busy: true, operation: 'build', cancelling: true })
   const value = html(semantic)
   expect(value).toContain('settings.semantic.progress')
@@ -53,7 +54,7 @@ it('keeps the off switch usable during indexing, shows progress/cancellation and
   expect(value).not.toMatch(/role="switch"[^>]*disabled=""/)
   const old = controller()
   old.index!.error = 'Cancelled earlier'
-  expect(html(old)).not.toContain('Cancelled earlier')
+  expect(html(old)).toContain('Cancelled earlier')
 })
 
 
@@ -140,4 +141,23 @@ it('reports observed readiness instead of saved consent and never treats stale o
   expect(semanticSearchStatus(semantic)).toBe('fallback')
   semantic.enabled = false
   expect(semanticSearchStatus(semantic)).toBe('off')
+})
+
+
+it('hides an empty off index, collapses saved checkpoints, and expands pending work or errors', () => {
+  const semantic = controller()
+  semantic.index!.hasStoredIndex = false; semantic.index!.passages = 0
+  expect(html(semantic)).not.toContain('settings.semantic.libraryTitle')
+  semantic.index!.hasStoredIndex = true
+  const saved = html(semantic)
+  expect(saved).toContain('settings.semantic.savedIndex')
+  expect(saved).toContain('<details class="search-model-panel search-library-index">')
+  expect(saved).not.toContain('settings.semantic.build')
+  expect(saved).not.toContain('settings.semantic.documentsReady')
+  semantic.index!.running = true
+  expect(html(semantic)).toContain('class="search-model-panel search-library-index" open=""')
+  expect(html(semantic)).toContain('common.cancel')
+  semantic.index!.running = false; semantic.index!.error = 'Cleanup failed'
+  expect(html(semantic)).toContain('class="search-model-panel search-library-index" open=""')
+  expect(html(semantic)).toContain('Cleanup failed')
 })

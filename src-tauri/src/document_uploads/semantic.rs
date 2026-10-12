@@ -44,6 +44,7 @@ pub(crate) struct IndexStatus {
     indexed_documents: usize,
     eligible_documents: usize,
     passages: usize,
+    has_stored_index: bool,
     embedded_passages: usize,
     reused_passages: usize,
     error: Option<String>,
@@ -178,6 +179,7 @@ pub(crate) async fn search_semantic_index_status<R: tauri::Runtime>(
                 .exists()
             {
                 let mut db = super::store::open_db(&app)?;
+                status.has_stored_index = store::has_stored_index(&db)?;
                 let encoder = provider.index_encoder_key().ok();
                 let identity = encoder
                     .as_deref()
@@ -194,6 +196,7 @@ pub(crate) async fn search_semantic_index_status<R: tauri::Runtime>(
                 indexed_documents: status.indexed_documents,
                 eligible_documents: status.eligible_documents,
                 passages: status.passages,
+                has_stored_index: status.has_stored_index,
                 ..job
             })
         })

@@ -59,12 +59,59 @@ frontend validation, followed by the
 the [Search Mode heading cleanup](#stage-7--search-mode-heading-cleanup--2026-10-11)
 and the [conceptual summary cleanup](#stage-7--conceptual-results-summary--2026-10-11),
 followed by the [settings readiness cleanup](#stage-7--settings-readiness-and-copy--2026-10-11),
-also have focused frontend/browser validation. The recorded full CI predates these UI changes. The first
+also have focused frontend/browser validation. The subsequent
+[stored-work and conditional layout pass](#stage-7--stored-work-guards-and-conditional-settings--2026-10-11)
+adds native storage-status and frontend validation. The recorded full CI predates these UI changes. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 7 — Stored-work guards and conditional settings — 2026-10-11
+
+The user approved removal guards, conditional off-state layout and contextual
+cleanup controls. Native cache status now distinguishes complete files from any
+stored final/staging cache (`hasStoredFiles`); native index status distinguishes
+retained preparation/checkpoints (`hasStoredIndex`) from compatible ready coverage.
+Empty retained SQLite tables/triggers after removal are not saved work. These are
+additive read-only status fields; no schema migration, ranking, download/indexing
+policy, dependencies or CI jobs change. Existing native cleanup stays idempotent.
+
+Model removal guards apply at confirmation and invocation, including incomplete
+files, and refresh after completion prevents repeated empty removal. Index removal
+uses stored work rather than ready-passage count, so disabled/incompatible encoders
+and partial checkpoints remain cleanable. Remove Model Files and Remove Index now
+sit inside their respective sections, with a separator, consequence text and inline
+confirmation. The separate Manage Storage card is removed. Confirm/cancel moves
+focus to a surviving control before the confirmation or empty off-index disappears.
+
+Installed unloaded models collapse to format/Files Stored; missing/incomplete files
+and relevant model operations/errors expand. When off, an empty index is hidden and
+stored preparation is collapsed as Saved Index · Search Off. Enabled, running,
+removing or failed index states expand; diagnostics survive disabling. Ready status
+and coverage share a wrapping row, spacing is modestly reduced, and recovery details
+remain under Technical Details. All eight locales and the consolidated smoke list
+are updated. Opening controls still starts no download, activation or index job.
+
+Validation: **212 frontend tests across 50 files** and **219 native library tests**
+with `native-tts-shared,experimental-search-embeddings` pass; ten existing opt-in
+native tests remain ignored. Native storage regressions cover partial final/staging
+files, initialized work without ready coverage, cleanup, retained empty tables and
+rebuild. Frontend regressions cover repeat removal, partial cleanup, stored-work
+guards, contextual controls, empty/collapsed off-state and pending/error visibility.
+Lint, eight-locale parity, TypeScript, production build and formatting pass. The
+native suite's loopback-fixture tests needed execution outside the socket-restricted
+sandbox; all passed there. Actual-component simulated-IPC browser checks verify
+model cleanup/focus, off-index removal with focus on the surviving toggle, compact
+English desktop and Arabic320px dark wrapping with visible Back/Done. Fixtures and
+preview server are removed from the checkout; no app data or real models were
+modified. These are not native smoke or screen-reader/device acceptance.
+
+Next: push and review current-revision full CI with provider inference enabled;
+when the user is ready, rebuild with `npm run desktop` and run the updated
+[consolidated semantic off/on smoke checklist](search-v2-smoke.md). Interactive
+smoke remains explicitly deferred; release gates remain open.
 
 ## Stage 7 — Settings readiness and copy — 2026-10-11
 

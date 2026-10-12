@@ -52,6 +52,7 @@ import type { SemanticSearchController } from '../../search-semantic/useSemantic
 
 let status: { compiled: boolean; platform: string; activeFormat: string | null; loadingFormat: string | null; downloadingFormat: string | null }
 let present: boolean
+let storedFiles: boolean
 let tree: ReactElement
 let semantic: SemanticSearchController | undefined
 function render() {
@@ -63,7 +64,7 @@ function render() {
 function controls(node: ReactNode = tree): ReactElement<Record<string, unknown>>[] {
   return Children.toArray(node).flatMap((child) => {
     if (!isValidElement<Record<string, unknown>>(child)) return []
-    return [child, ...controls((child.props.children ?? null) as ReactNode)]
+    return [child, ...controls((child.props.children ?? null) as ReactNode), ...controls((child.props.indexRemoval ?? null) as ReactNode)]
   })
 }
 function control(type: string, text?: string) {
@@ -74,7 +75,7 @@ function control(type: string, text?: string) {
 function click(key: string) {
   const button = control('button', key)
   expect(button.props.disabled).not.toBe(true)
-  ;(button.props.onClick as () => void)()
+  ;(button.props.onClick as (event: unknown) => void)({ currentTarget: { closest: () => null } })
 }
 function consent() {
   ;(control('input').props.onChange as (event: unknown) => void)({ target: { checked: true } })
@@ -103,13 +104,14 @@ beforeEach(() => {
   mocked.stop.mockReset()
   mocked.listen.mockReset().mockResolvedValue(mocked.stop)
   status = { compiled: true, platform: 'linux', activeFormat: null, loadingFormat: null, downloadingFormat: null }
-  present = false
+  present = false; storedFiles = false
   mocked.invoke.mockReset().mockImplementation(async (command: string) => {
     if (command === 'search_embedding_status') return { ...status }
     if (command === 'search_embedding_cache_status') return [
-      { format: 'float32', expectedBytes: 487352505, filesPresent: present },
-      { format: 'dynamic-int8', expectedBytes: 135430819, filesPresent: present },
+      { format: 'float32', expectedBytes: 487352505, filesPresent: present, hasStoredFiles: present || storedFiles },
+      { format: 'dynamic-int8', expectedBytes: 135430819, filesPresent: present, hasStoredFiles: present || storedFiles },
     ]
+    if (command === 'search_embedding_remove') { present = false; storedFiles = false }
     return { ...status }
   })
 })
@@ -176,6 +178,7 @@ it('requires fresh consent after changing format and keeps cancellation busy thr
   expect(control('button', 'settings.searchModel.remove').props.disabled).toBe(true)
   expect(control('button', 'common.cancel').props.disabled).toBe(true)
   status.downloadingFormat = null
+  storedFiles = true // Partial cache cleanup stays available after cancellation.
   download.reject('Embedding download cancelled')
   expect(await settle()).toContain('role="alert"')
   expect(control('button', 'settings.searchModel.remove').props.disabled).toBe(false)
@@ -272,6 +275,7 @@ it('recovers failed subscriptions and releases listeners even if they arrive aft
 
 
 it('requires confirmation for cleanup, cancellation preserves files, and format changes retire confirmation', async () => {
+  storedFiles = true
   render(); await settle()
   click('settings.searchModel.remove'); render()
   expect(mocked.invoke.mock.calls.some(([cmd]) => cmd === 'search_embedding_remove')).toBe(false)
@@ -292,7 +296,7 @@ it('keeps index removal behind confirmation and disables it for an empty index',
   semantic = { enabled: false, format: 'float32', busy: false, operation: null, error: '', cancelling: false,
     provider: { compiled: true, activeFormat: null, loadingFormat: null, downloadingFormat: null },
     index: { running: false, cancelRequested: false, indexedDocuments: 1, eligibleDocuments: 2,
-      passages: 4, embeddedPassages: 0, reusedPassages: 0, error: null },
+      passages: 4, hasStoredIndex: true, embeddedPassages: 0, reusedPassages: 0, error: null },
     setEnabled: vi.fn(), setFormat: vi.fn(), build: vi.fn(), remove: vi.fn(), cancel: vi.fn(), refresh: vi.fn(), activityNotice: null, dismissActivity: vi.fn() }
   render(); await settle()
   const markup = render()
@@ -306,7 +310,7 @@ it('keeps index removal behind confirmation and disables it for an empty index',
   expect(semantic.remove).not.toHaveBeenCalled()
   click('settings.semantic.remove'); render(); click('common.confirm')
   expect(semantic.remove).toHaveBeenCalledTimes(1)
-  semantic.index!.passages = 0; render()
+  semantic.index!.passages = 0; semantic.index!.hasStoredIndex = false; render()
   expect(control('button', 'settings.semantic.remove').props.disabled).toBe(true)
 })
 
@@ -320,11 +324,12 @@ it('keeps background guidance with active downloads or indexing without starting
   semantic = { enabled: true, format: 'float32', busy: true, operation: 'build', error: '', cancelling: false,
     provider: { compiled: true, activeFormat: 'float32', loadingFormat: null, downloadingFormat: null },
     index: { running: true, cancelRequested: false, indexedDocuments: 1, eligibleDocuments: 2,
-      passages: 4, embeddedPassages: 0, reusedPassages: 0, error: null },
+      passages: 4, hasStoredIndex: true, embeddedPassages: 0, reusedPassages: 0, error: null },
     setEnabled: vi.fn(), setFormat: vi.fn(), build: vi.fn(), remove: vi.fn(), cancel: vi.fn(), refresh: vi.fn(), activityNotice: null, dismissActivity: vi.fn() }
   await vi.advanceTimersByTimeAsync(1000); await settle()
   expect(render()).toContain('settings.semantic.closeHelp')
   expect(render()).not.toContain('settings.searchModel.closeHelp')
+  expect(controls().find(node => node.type === 'details' && node.props.className === 'search-model-panel search-model-management')!.props.open).toBe(false)
   expect(semantic.build).not.toHaveBeenCalled()
 })
 
@@ -349,4 +354,26 @@ it('collapses a loaded model, keeps file presence distinct from verification and
   expect(await settle()).toContain('settings.searchModel.consent')
   expect(control('button', 'settings.searchModel.verify').props.disabled).toBe(true)
   expect(downloadCalls()).toHaveLength(1)
+})
+
+
+it('blocks repeated removal after cleanup, but permits incomplete-file cleanup', async () => {
+  storedFiles = true
+  render(); await settle()
+  expect(render()).toContain('settings.searchModel.incomplete')
+  click('settings.searchModel.remove'); render(); click('common.confirm'); await settle()
+  expect(control('button', 'settings.searchModel.remove').props.disabled).toBe(true)
+  ;(control('button', 'settings.searchModel.remove').props.onClick as () => void)()
+  expect(render()).not.toContain('settings.searchModel.confirmRemove')
+  expect(mocked.invoke.mock.calls.filter(([cmd]) => cmd === 'search_embedding_remove')).toHaveLength(1)
+  expect(render()).toContain('settings.searchModel.absent')
+})
+
+it('collapses installed files while off, keeps model removal in its section, and omits separate storage', async () => {
+  present = true
+  render(); await settle()
+  const model = controls().find(node => node.type === 'details' && node.props.className === 'search-model-panel search-model-management')!
+  expect(model.props.open).toBe(false)
+  expect(controls(model.props.children as ReactNode).some(node => node.props.children === 'settings.searchModel.remove')).toBe(true)
+  expect(render()).not.toContain('settings.searchModel.storage')
 })

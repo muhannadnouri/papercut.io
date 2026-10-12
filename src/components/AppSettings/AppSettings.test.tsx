@@ -94,7 +94,7 @@ it('shows current readiness in general Settings rather than a generic enabled pr
   semantic.provider = { compiled: true, activeFormat: 'float32', loadingFormat: null, downloadingFormat: null }
   semantic.format = 'float32'
   semantic.index = { running: false, cancelRequested: false, indexedDocuments: 1, eligibleDocuments: 2,
-    passages: 3, embeddedPassages: 0, reusedPassages: 0, error: null }
+    passages: 3, hasStoredIndex: true, embeddedPassages: 0, reusedPassages: 0, error: null }
   expect(render()).toContain('settings.semantic.summary.needsIndex')
   semantic.index.indexedDocuments = 2
   expect(render()).toContain('settings.semantic.summary.ready')

@@ -371,7 +371,7 @@
       "resources": "搜索在此设备上运行。内存使用量、索引速度和电池消耗取决于硬件和文档库大小。",
       "int8Warning": "INT8 使用量化模型。结果和性能可能与 FP32 不同。如果 INT8 无法加载，请尝试 FP32。",
       "present": "文件已存在；加载模型时会检查完整性。",
-      "absent": "模型尚未下载或下载未完成。",
+      "absent": "未保存模型文件。",
       "consent": "允许从 Hugging Face 下载此格式。",
       "verify": "验证缓存",
       "download": "下载模型文件",
@@ -388,14 +388,15 @@
       "cancelled": "下载已取消。重试前请检查缓存状态。",
       "failed": "下载失败。请检查连接和可用空间；重试前请删除损坏的缓存文件。",
       "details": "技术详情",
-      "storage": "管理存储",
       "resourceSummary": "启用时会使用额外的内存和计算资源。",
       "confirmRemove": "移除此模型的文件，包括未完成的下载？文档和搜索索引将保留。要使用该模型，必须重新下载。",
       "manage": "管理模型",
       "model": "模型",
       "downloadSize": "下载大小",
       "loaded": "模型已加载",
-      "reserve": "下载还需要额外的 64 MiB 可用空间。"
+      "reserve": "下载还需要额外的 64 MiB 可用空间。",
+      "incomplete": "模型文件不完整。请先移除，再重新下载。",
+      "stored": "文件已保存"
     },
     "semantic": {
       "title": "语义搜索（实验性）",
@@ -463,7 +464,9 @@
         "needsIndex": "已开启 · 需要建立索引",
         "ready": "已开启 · 已就绪"
       },
-      "modelRequired": "搜索模型加载后即可建立索引。"
+      "modelRequired": "搜索模型加载后即可建立索引。",
+      "savedIndex": "已保存索引 · 搜索已关闭",
+      "noStoredIndex": "没有已保存的索引。"
     }
   },
   "libraryTransfer": {

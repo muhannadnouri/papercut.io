@@ -419,9 +419,11 @@ General Settings and the toggle card use the same observed readiness summary:
 off, loading, indexing/cancelling, index required, empty/checking library, ready or
 keyword-only fallback. Saved opt-in alone never means ready; inactive encoders,
 failed jobs, index removal and empty coverage cannot claim readiness.
-**Technical Details** holds device-independent resource and lifecycle explanations,
-while **Manage Storage** holds model/index removal with consequence text and an
-explicit confirmation. It reuses the existing dialog/focus handling, widens on
+**Technical Details** holds device-independent resource, recovery and lifecycle
+explanations. **Remove Model Files** lives inside model management; **Remove Index**
+lives inside the library-index panel. Each has a separated destructive-action row,
+consequence text and inline confirmation; there is no separate Manage Storage card.
+The view reuses the existing dialog/focus handling, widens on
 desktop and scrolls its body without hiding Back/Done on narrow screens.
 Search view rules live in `SearchModelSetup.css`; header activity rules live in
 `SearchActivity.css`, rather than general `AppSettings.css`.
@@ -443,15 +445,29 @@ Each format change and completed attempt clears consent. Only an explicit
 **Download Model Files** or **Verify Cache** click invokes the native installer.
 The latter verifies a valid existing cache without fetching, but can fetch
 missing files, so it still requires explicit per-format consent. Metadata-only
-presence is not labeled as verified. A loaded selected provider has verified its
+presence is not labeled as verified. Installed files collapse to **Files Stored**,
+including when search is off; missing/incomplete files and relevant model operations
+remain expanded. A loaded selected provider has verified its
 assets during activation; the view shows **Model Loaded** in a collapsed **Manage
 Model** summary and hides consent/installer controls. Turn off to restore them;
 this UI status does not add a persistent verification record. **Remove Model Files**
-is available even for an incomplete/missing cache, so it can clear interrupted staging. Active
+is available for incomplete final files or interrupted staging, but unavailable
+when neither exists. Native `hasStoredFiles` is separate from complete-by-size
+`filesPresent`; cleanup remains idempotent. Confirmation and handlers recheck their
+current guards, and status refresh disables repeated empty removal. Active
 selected caches cannot be removed, and pending native activation/download blocks
 cache mutation. Download/verification never activate. The separate semantic-search
 opt-in panel owns activation; turn it off before changing format or removing
 model files. Ordinary search results remain unchanged.
+
+When off, an empty Library Index is hidden. Saved derived preparation/checkpoints
+remain in a collapsed **Saved Index · Search Off** panel with cleanup access.
+Native `hasStoredIndex` is independent of active-encoder coverage: it includes
+prepared identity/partial work, excludes empty tables retained after removal, and
+does not claim indexed readiness. When enabled, working, removing or reporting an
+index error, the panel expands; errors remain visible after disable. Active status
+and coverage share a wrapping row. Confirm/cancel returns focus to a surviving
+control before the confirmation or empty off-index disappears.
 
 A compact activity button beside Settings remains visible during native download,
 model loading/disable or indexing, including reader navigation. Its spinner and

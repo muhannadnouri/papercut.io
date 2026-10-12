@@ -203,7 +203,7 @@ unaccepted until tested. Downloading alone still does not enable semantic search
 - [ ] In the native shipping build, open **Settings → Semantic Search → Manage**. Opening
       settings must not download or load a model. Check the FP32/INT8 labels,
       disk reserve and short resource warning. **Semantic Search** appears before
-      **Download Model / Manage Model**, then **Library Index**. Without files,
+      **Download Model / Manage Model**, then **Library Index** when applicable. Without files,
       the toggle is off/disabled with an accessible explanation pointing below.
       Open **Technical Details** to check device-independent resource/lifecycle
       guidance; host RAM measurements and CI claims must not appear in the UI.
@@ -243,7 +243,7 @@ unaccepted until tested. Downloading alone still does not enable semantic search
       Where practical, interrupt the app during a download, then restart with the
       same isolated directory and retry; stale staging must not become a complete
       cache. A damaged/incomplete final cache needs explicit removal/redownload.
-- [ ] Open **Manage Storage**, select **Remove Model Files**, then cancel its
+- [ ] Expand **Manage Model**, select **Remove Model Files**, then cancel its
       confirmation: files remain. Confirm removal, then reopen/restart. The
       library/search remains intact; cache removal does not remove a separately created native index.
 - [ ] Check keyboard focus, labels, progress/error announcements, Arabic RTL,
@@ -303,13 +303,29 @@ restart checks; the explicit unbundled recipe is only a diagnostic alternative.
 - [ ] Once loaded, **Manage Model** collapses to the selected format and **Model
       Loaded** summary. Expanding it must not show a verify-before-use warning,
       download permission or installer action. Turn off: preparation controls
-      return, and explicit consent is still needed before invoking the installer.
+      remain accessible by expanding Manage Model, and explicit consent is still
+      needed before invoking the installer. Installed unloaded files collapse to
+      **Files Stored**; missing/incomplete files keep preparation expanded.
 - [ ] With current nonempty coverage, **Semantic Search** and **Library Index**
       keep unnumbered headings. Ready/up-to-date status and document counts
       are visible; there is no Build/Update action. **Index Details** exposes passage
       counts and **Refresh Status** across a row on wide screens, stacked on narrow
       English/Arabic views, with visible keyboard focus. Partial coverage offers **Update Index**;
       inactive, failed or running states must not claim readiness.
+- [ ] With semantic search off and no saved index, Library Index is hidden. With
+      saved preparation/checkpoints, it is collapsed with **Saved Index · Search Off**;
+      expand it to remove work without enabling search. On, pending cancellation,
+      removal and errors keep the affected panel visible/expanded. Ready coverage
+      must not be inferred from stored-work presence, including after a model change.
+- [ ] There is no separate Manage Storage card. **Remove Model Files** is in model
+      management and **Remove Index** is in Library Index, separated from routine
+      preparation actions. In a disposable profile, cancel each confirmation and
+      verify no deletion; then confirm. Empty model storage disables removal and
+      reports **No model files stored**. Partial final/staging files remain removable.
+      Cleared index work disables removal (or hides the empty off-index), even though
+      SQLite tables/triggers remain. Repeat clicks must not reopen empty removal.
+      Verify keyboard focus remains on the model summary or semantic toggle after
+      confirmation and returns to the initiating removal button on cancel.
 - [ ] General Settings and the semantic toggle card agree on observed state:
       off, loading, indexing/cancelling, index required, empty/checking library,
       ready or keyword-only fallback. Saved opt-in is not readiness. Loading or
@@ -333,7 +349,7 @@ restart checks; the explicit unbundled recipe is only a diagnostic alternative.
       remain; do not expect the RSS to instantly return to its initial value.
 - [ ] Edit a title, import/delete a document, or update extracted text; **Refresh
       Status** under **Index Details** reflects invalidation, and build/update
-      synchronizes it. **Remove Index** under **Manage Storage** first asks for
+      synchronizes it. **Remove Index** inside **Library Index** first asks for
       confirmation. Cancel leaves
       coverage intact; confirming clears derived coverage but preserves documents
       and lexical search.

@@ -173,6 +173,18 @@ fn staging_dir(dir: &Path) -> PathBuf {
     dir.with_extension("installing")
 }
 
+/// Incomplete final/staging caches still need cleanup; completeness is not storage presence.
+pub(super) fn has_stored_files(dir: &Path) -> Result<bool, String> {
+    for path in [dir.to_path_buf(), staging_dir(dir)] {
+        match fs::symlink_metadata(path) {
+            Ok(_) => return Ok(true),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+            Err(err) => return Err(err.to_string()),
+        }
+    }
+    Ok(false)
+}
+
 struct StagingDir(PathBuf);
 impl Drop for StagingDir {
     fn drop(&mut self) {
@@ -407,6 +419,24 @@ mod tests {
         bytes: 3,
         sha256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
     };
+
+    #[test]
+    fn stored_files_include_partial_caches_and_staging_until_removed() {
+        let root = work("storage-presence");
+        let dir = root.0.join("cache");
+        assert!(!has_stored_files(&dir).unwrap());
+        fs::create_dir_all(staging_dir(&dir)).unwrap();
+        fs::write(staging_dir(&dir).join("partial"), b"partial").unwrap();
+        assert!(has_stored_files(&dir).unwrap());
+        assert!(!files_present(&dir, &[SMALL]));
+        remove_dir(&staging_dir(&dir)).unwrap();
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("incomplete"), b"partial").unwrap();
+        assert!(has_stored_files(&dir).unwrap());
+        assert!(!files_present(&dir, &[SMALL]));
+        remove_dir(&dir).unwrap();
+        assert!(!has_stored_files(&dir).unwrap());
+    }
 
     fn work(name: &str) -> StagingDir {
         let path = std::env::temp_dir().join(format!(

@@ -378,7 +378,7 @@
       "resources": "Search runs on this device. Memory use, indexing speed and battery impact depend on your hardware and library size.",
       "int8Warning": "INT8 uses a quantized model. Results and performance may differ from FP32. Try FP32 if INT8 fails to load.",
       "present": "Files present; integrity is checked when the model loads.",
-      "absent": "Model not downloaded or download incomplete.",
+      "absent": "No model files stored.",
       "consent": "Allow a download from Hugging Face for this format.",
       "verify": "Verify Cache",
       "download": "Download Model Files",
@@ -395,14 +395,15 @@
       "cancelled": "Download cancelled. Check cache status before retrying.",
       "failed": "Download failed. Check your connection and free space; remove damaged cache files before retrying.",
       "details": "Technical Details",
-      "storage": "Manage Storage",
       "resourceSummary": "Uses additional memory and processing while enabled.",
       "confirmRemove": "Remove these model files, including incomplete downloads? Documents and the search index stay intact. The model must be downloaded again to use it.",
       "manage": "Manage Model",
       "model": "Model",
       "downloadSize": "Download Size",
       "loaded": "Model Loaded",
-      "reserve": "Downloads require 64 MiB of additional free space."
+      "reserve": "Downloads require 64 MiB of additional free space.",
+      "incomplete": "Model files are incomplete. Remove them before downloading again.",
+      "stored": "Files Stored"
     },
     "semantic": {
       "title": "Semantic Search (Experimental)",
@@ -470,7 +471,9 @@
         "needsIndex": "On · Index Required",
         "ready": "On · Ready"
       },
-      "modelRequired": "Indexing is available once the search model is loaded."
+      "modelRequired": "Indexing is available once the search model is loaded.",
+      "savedIndex": "Saved Index · Search Off",
+      "noStoredIndex": "No saved index."
     }
   },
   "libraryTransfer": {

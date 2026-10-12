@@ -125,6 +125,7 @@ fn semantic_index_commands_are_default_off_and_do_not_initialize_storage() {
     assert_eq!(status["running"], false);
     assert_eq!(status["indexedDocuments"], 0);
     assert_eq!(status["eligibleDocuments"], 0);
+    assert_eq!(status["hasStoredIndex"], false);
     assert_eq!(
         invoke(&window, "search_semantic_index_cancel", json!({})).unwrap(),
         Value::Null
@@ -487,11 +488,11 @@ fn command_cache_lifecycle_in_isolated_app_data() {
     let initial = invoke(&window, "search_embedding_cache_status", json!({})).unwrap();
     assert_eq!(
         initial[0],
-        json!({"format":"float32","filesPresent":false,"expectedBytes":487352505})
+        json!({"format":"float32","filesPresent":false,"hasStoredFiles":false,"expectedBytes":487352505})
     );
     assert_eq!(
         initial[1],
-        json!({"format":"dynamic-int8","filesPresent":false,"expectedBytes":135430819})
+        json!({"format":"dynamic-int8","filesPresent":false,"hasStoredFiles":false,"expectedBytes":135430819})
     );
     assert!(!data.exists(), "status must not create cache directories");
     assert!(invoke(&window, "search_embedding_configure", request.clone()).is_err());
