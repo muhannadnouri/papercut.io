@@ -56,12 +56,43 @@ without enabling saved user consent. The subsequent
 [keyword-results cleanup](#stage-7--keyword-results-and-starter-eligibility--2026-10-11) has local
 frontend validation, followed by the
 [activity and results presentation pass](#stage-7--compact-search-activity-and-results-copy--2026-10-11);
-the recorded full CI predates these UI changes. The first
+the [Search Mode heading cleanup](#stage-7--search-mode-heading-cleanup--2026-10-11)
+also has focused frontend/browser validation. The recorded full CI predates these UI changes. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 7 — Search Mode heading cleanup — 2026-10-11
+
+The user-approved cleanup visually hides the existing native fieldset legend in
+SearchBar's own stylesheet. The localized **Search Mode** accessible name, radio
+choices, keyboard behavior and mode-dependent helper text remain intact. No
+query, filter, index, preference or conceptual-results behavior changes.
+
+Validation: all **four focused SearchBar tests**, lint, locale parity, TypeScript
+and the production frontend build pass. Existing assertions now also protect the
+legend and input/helper association. A browser fixture using the actual SearchBar
+confirms the group name remains in the accessibility tree while the legend is
+visually clipped; arrow keys switch the selected radio and helper copy. English
+desktop and 320-pixel Arabic/RTL layouts have no horizontal overflow. Native app
+smoke and actual screen-reader testing remain user-deferred.
+
+**Next recommendation, not implemented:** simplify the conceptual-results summary.
+Use **Conceptual Results** as the title and a count such as **2 documents** for
+displayed cards, without implying a known total beyond the response limit. Retain
+the imported-document restriction in brief supporting copy rather than repeating
+**Your Library** in the heading. Hide healthy complete indexing coverage from
+results; keep coverage visible when it explains a fallback/problem and retain full
+details in Search settings. Partial coverage must still withhold conceptual cards
+and explain lexical fallback. Move the detailed quote rule into an accessible
+**How Matching Works** disclosure while keeping a short explanation visible.
+This follows [NN/G's minimalist design guidance](https://www.nngroup.com/articles/aesthetic-minimalist-design/)
+and [progressive disclosure](https://www.nngroup.com/articles/progressive-disclosure/);
+it is a design recommendation, not a user-test finding. The screenshot's current
+labels are unchanged in this commit. Resume the [consolidated smoke checklist](search-v2-smoke.md)
+after rebuilding with `npm run desktop` when the user is ready; all boxes remain open.
 
 ## Stage 7 — Compact search activity and results copy — 2026-10-11
 

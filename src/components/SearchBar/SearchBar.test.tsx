@@ -24,6 +24,8 @@ describe('search query errors', () => {
 
     expect(html).toContain('search.input.broaderMode')
     expect(html).toContain('search.input.helpBroader')
+    expect(html).toContain('<legend>search.input.modeLabel</legend>')
+    expect(html).toContain('aria-describedby="search-input-help"')
     expect(html).toContain('checked=""')
   })
 

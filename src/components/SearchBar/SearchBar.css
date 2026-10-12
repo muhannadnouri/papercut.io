@@ -19,6 +19,7 @@
 }
 
 .search-mode {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
@@ -30,9 +31,15 @@
 }
 
 .search-mode legend {
-  color: var(--text-muted);
-  text-align: center;
-  margin: 0 auto 0.25rem;
+  /* Retain the native radio-group label without a visible heading. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .search-mode label {

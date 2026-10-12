@@ -618,6 +618,11 @@ See [current acceptance evidence](search-v2-progress.md) for packaging and gates
 
 ## React conceptual results and fallback
 
+SearchBar visually hides its native **Search Mode** legend while retaining the
+localized accessible group name, both radio choices and mode-dependent helper text.
+This is a presentation change; All Words/Broader behavior remains independent of
+the semantic opt-in.
+
 Ordinary keyword results start with their summary count, without an extra heading.
 Cards use one list/count, with a **Starter Document** badge
 rather than source-group sections. Existing uploaded-first and per-provider order

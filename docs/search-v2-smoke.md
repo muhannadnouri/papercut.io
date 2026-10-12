@@ -143,6 +143,10 @@ move or damage the installed app's files.
 
 ## Search, evidence and reader navigation
 
+- [ ] Search choices appear without a visible **Search Mode** heading. Check that
+      the radio group retains its localized accessible name, both radio labels,
+      arrow-key selection and the visible mode-dependent helper text. Check narrow
+      English/Arabic views and a screen reader; helper/error associations remain intact.
 - [ ] Import ordinary English and Arabic HTML/EPUB documents and a text PDF.
       Confirm import completion, library entries and reader text. Include a long
       document, repeated words and matches in different sections/pages.
