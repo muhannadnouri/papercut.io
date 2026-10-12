@@ -106,11 +106,14 @@
       "starterDocument": "Starter Document"
     },
     "conceptual": {
-      "title": "Conceptual Results · Your Library",
-      "description": "Conceptual passages may use different words. Quoted clauses are required somewhere in the document; the displayed passage may be elsewhere.",
-      "shown": "Documents shown: {{count}}",
+      "title": "Conceptual Results",
+      "description": "Related passages from your imported documents.",
+      "matchingTitle": "How Matching Works",
+      "matchingDetails": "Conceptual passages may use different words. Quoted clauses are required somewhere in the document; the displayed passage may be elsewhere.",
+      "shown_one": "{{count, number}} document",
+      "shown_other": "{{count, number}} documents",
       "loading": "Finding conceptual passages…",
-      "coverage": "Indexed in this scope: {{ready}} / {{total}}",
+      "coverage": "Documents ready for this search: {{ready, number}} / {{total, number}}",
       "empty": "No conceptual passages in this scope.",
       "unavailable": "Conceptual search is unavailable. Lexical results remain available. Check the model in Settings.",
       "preparing": "Preparing the model or index. Using lexical results while work finishes.",

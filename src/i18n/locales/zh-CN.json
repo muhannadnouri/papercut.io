@@ -101,11 +101,13 @@
       "starterDocument": "入门文档"
     },
     "conceptual": {
-      "title": "概念结果 · 你的资料库",
-      "description": "概念段落可能使用不同的词语。文档中必须包含所有引号内的短语，但显示的段落可能在别处。",
-      "shown": "显示的文档：{{count}}",
+      "title": "概念结果",
+      "description": "来自你导入文档的相关段落。",
+      "matchingTitle": "匹配方式",
+      "matchingDetails": "概念段落可能使用不同的词语。文档中必须包含所有引号内的短语，但显示的段落可能在别处。",
+      "shown_other": "{{count, number}} 个文档",
       "loading": "正在查找概念段落…",
-      "coverage": "此范围内已索引：{{ready}} / {{total}}",
+      "coverage": "可用于此次搜索的文档：{{ready, number}} / {{total, number}}",
       "empty": "此范围内没有概念段落。",
       "unavailable": "概念搜索不可用。词汇匹配结果仍可使用。请在设置中检查模型。",
       "preparing": "正在准备模型或索引。工作完成前使用词汇匹配结果。",

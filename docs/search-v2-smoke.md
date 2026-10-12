@@ -347,9 +347,13 @@ tracked fixtures.
       Download/verify alone must not enable semantic search.
 - [ ] Enable a verified cached model and finish **Build Index** or **Update Index**.
       Submit a question about an actual passage in the library, with different wording from that
-      passage. **Conceptual Results · Your Library** appears separately from
+      passage. **Conceptual Results** appears separately from
       the ordinary results count/cards, with no **Keyword Results** heading.
-      The conceptual explanation is fully readable and wraps on narrow/RTL views.
+      A short imported-document explanation appears above a collapsed
+      **How Matching Works** disclosure. Open/close it with the keyboard; the full
+      quoted-clause explanation wraps on narrow/RTL views and focus stays visible.
+      Check localized counts for zero, one and multiple displayed documents;
+      complete indexing coverage is absent here and remains available in Settings.
       All words/Broader counts, marks and Explore Matches
       retain literal meaning. A document may occur in both independent channels.
 - [ ] Conceptual cards show actual source text without query-word marks, literal
@@ -360,7 +364,8 @@ tracked fixtures.
       not exact-span acceptance. Reader Find and audio highlighting still work.
 - [ ] Apply include, exclude and empty scopes, including a scope containing only
       starter documents. Conceptual results never escape the uploaded scope.
-      Counts mean shown documents; coverage describes the current eligible scope.
+      Counts mean shown documents, not an uncapped match total; partial-fallback
+      coverage describes the current eligible scope.
       Switch filters/modes and rapidly resubmit A→B→A; no old card may reappear.
       While a conceptual query is still running, submit a different query/scope.
       Once it finishes, the latest request must complete without another submit;
@@ -372,7 +377,8 @@ tracked fixtures.
       to be literal quote evidence. Check supported punctuation/hyphen aliases.
 - [ ] In a disposable library, add unindexed text or remove the derived index.
       Enabled search must show missing/partial fallback and recovery guidance,
-      with lexical results available; partial conceptual cards stay hidden.
+      with lexical results available; partial conceptual cards stay hidden and
+      **Documents ready for this search** shows ready/eligible coverage.
       Build/resume restores conceptual querying. A fully scoped ready empty
       response is separate from failure, not a model/index error.
 - [ ] Turn off during activation/indexing/querying and immediately return to search.

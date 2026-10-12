@@ -630,8 +630,14 @@ is retained; this is not cross-engine score fusion. Starter All Words candidates
 are filtered through each distinct unquoted term's Pagefind quoted search before
 scope/count/display limits; authored phrase verification remains separate. There
 is no change to uploaded/native retrieval or the separate conceptual contract.
-Conceptual explanatory and coverage text use their own wrapping styles rather
-than the single-line card metadata style; the heading/count also wrap on narrow screens.
+The conceptual summary uses **Conceptual Results**, a localized displayed-document
+count and the short explanation **Related passages from your imported documents.**
+The count is the number of displayed cards, not a known total beyond the response
+limit. The full explanation, including the unchanged quoted-clause rule, lives in
+the native keyboard-accessible **How Matching Works** disclosure. Complete healthy
+indexing coverage stays in Settings; partial fallback retains **Documents ready
+for this search** coverage and withholds conceptual cards. Supporting text uses
+the component's own wrapping styles; the heading/count also wrap on narrow screens.
 
 
 `src/search-semantic/useConceptualSearch.ts` owns invocation/state and

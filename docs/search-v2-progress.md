@@ -57,12 +57,44 @@ without enabling saved user consent. The subsequent
 frontend validation, followed by the
 [activity and results presentation pass](#stage-7--compact-search-activity-and-results-copy--2026-10-11);
 the [Search Mode heading cleanup](#stage-7--search-mode-heading-cleanup--2026-10-11)
-also has focused frontend/browser validation. The recorded full CI predates these UI changes. The first
+and the [conceptual summary cleanup](#stage-7--conceptual-results-summary--2026-10-11)
+also have focused frontend/browser validation. The recorded full CI predates these UI changes. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 7 — Conceptual results summary — 2026-10-11
+
+The user-approved summary now uses **Conceptual Results**, a localized count such
+as **2 documents**, and **Related passages from your imported documents.** The count
+represents displayed cards, not a known total beyond the native response limit of
+50. The imported-only restriction remains explicit without repeating **Your Library**
+in the heading. Complete healthy indexing coverage stays in Search settings;
+partial fallback shows **Documents ready for this search** coverage, retains lexical
+fallback guidance and continues withholding partial conceptual cards.
+
+The existing full explanation and quoted-clause rule move unchanged into a native
+collapsed **How Matching Works** disclosure. Its keyboard focus is visible and its
+text wraps using the component's own CSS. All eight locales include the new copy
+and appropriate document-count plural forms. Retrieval, filters, quote eligibility,
+model consent, native behavior and CI are unchanged.
+
+Validation: all **205 frontend tests across 50 files**, lint, locale parity,
+TypeScript and the production frontend build pass. A focused regression distinguishes
+displayed-card count from indexed-document coverage and protects empty/loading/
+partial states. An actual-component browser fixture verifies English zero/one/two
+counts, disabled silence, partial fallback without cards, and keyboard disclosure.
+English desktop and 320-pixel Arabic/RTL views have no horizontal overflow; the
+Arabic disclosure wraps and remains translated. Browser checks are not native
+smoke or actual screen-reader acceptance.
+
+Next: push this presentation commit and review current-revision CI. When the user
+is ready, rebuild with `npm run desktop` and run the updated
+[consolidated smoke checklist](search-v2-smoke.md), including semantic off/on and
+the latest settings/activity/results changes. Smoke remains explicitly deferred;
+all checklist boxes and interactive release gates remain open.
 
 ## Stage 7 — Search Mode heading cleanup — 2026-10-11
 
@@ -79,7 +111,7 @@ visually clipped; arrow keys switch the selected radio and helper copy. English
 desktop and 320-pixel Arabic/RTL layouts have no horizontal overflow. Native app
 smoke and actual screen-reader testing remain user-deferred.
 
-**Next recommendation, not implemented:** simplify the conceptual-results summary.
+**Recommendation recorded in that pass:** simplify the conceptual-results summary.
 Use **Conceptual Results** as the title and a count such as **2 documents** for
 displayed cards, without implying a known total beyond the response limit. Retain
 the imported-document restriction in brief supporting copy rather than repeating
@@ -91,7 +123,9 @@ and explain lexical fallback. Move the detailed quote rule into an accessible
 This follows [NN/G's minimalist design guidance](https://www.nngroup.com/articles/aesthetic-minimalist-design/)
 and [progressive disclosure](https://www.nngroup.com/articles/progressive-disclosure/);
 it is a design recommendation, not a user-test finding. The screenshot's current
-labels are unchanged in this commit. Resume the [consolidated smoke checklist](search-v2-smoke.md)
+labels are unchanged in that commit; the recommendation is implemented in the
+[following summary pass](#stage-7--conceptual-results-summary--2026-10-11).
+Resume the [consolidated smoke checklist](search-v2-smoke.md)
 after rebuilding with `npm run desktop` when the user is ready; all boxes remain open.
 
 ## Stage 7 — Compact search activity and results copy — 2026-10-11

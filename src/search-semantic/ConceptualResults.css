@@ -7,8 +7,14 @@
   row-gap: 0.25rem;
 }
 
+.conceptual-results-help {
+  display: grid;
+  gap: 0.35rem;
+}
+
 .conceptual-results-description,
-.conceptual-results-coverage {
+.conceptual-results-coverage,
+.conceptual-results-details p {
   margin: 0;
   color: var(--text-muted);
   line-height: 1.5;
@@ -25,4 +31,29 @@
 .conceptual-results-coverage {
   font-size: 0.75rem;
   font-weight: 600;
+}
+
+.conceptual-results-details {
+  max-inline-size: 75ch;
+  font-size: 0.82rem;
+  text-align: start;
+}
+
+.conceptual-results-details summary {
+  width: fit-content;
+  min-height: 2rem;
+  color: var(--accent-text);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.conceptual-results-details summary:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 3px;
+}
+
+.conceptual-results-details p { margin-block-start: 0.35rem; }
+
+@media (pointer: coarse) {
+  .conceptual-results-details summary { min-height: 2.75rem; }
 }

@@ -24,12 +24,18 @@ export function ConceptualResults({ state, openingDisabled = false, openingDocum
       <h2 id={id}>{t('search.conceptual.title')}</h2>
       {state.phase === 'ready' && <span>{t('search.conceptual.shown', { count: results.length })}</span>}
     </div>
-    <p className="conceptual-results-description">{t('search.conceptual.description')}</p>
+    <div className="conceptual-results-help">
+      <p className="conceptual-results-description">{t('search.conceptual.description')}</p>
+      <details className="conceptual-results-details">
+        <summary>{t('search.conceptual.matchingTitle')}</summary>
+        <p>{t('search.conceptual.matchingDetails')}</p>
+      </details>
+    </div>
     {state.phase === 'loading' && <p role="status">{t('search.conceptual.loading')}</p>}
     {state.phase === 'fallback' && <p className="search-feedback" role="status">
       {t(`search.conceptual.${state.reason ?? 'failed'}`)}
     </p>}
-    {state.response && (state.phase === 'ready' || state.reason === 'partial') && <p className="conceptual-results-coverage">
+    {state.response && state.phase === 'fallback' && state.reason === 'partial' && <p className="conceptual-results-coverage">
       {t('search.conceptual.coverage', { ready: state.response.indexedDocuments, total: state.response.eligibleDocuments })}
     </p>}
     {state.phase === 'ready' && results.length === 0 && <p role="status">{t('search.conceptual.empty')}</p>}
