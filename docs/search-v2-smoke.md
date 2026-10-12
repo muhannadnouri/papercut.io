@@ -326,6 +326,25 @@ all text conservatively.
       outside tracked files. Do not treat this mechanical check as relevance
       acceptance; separately grade whether the displayed text answers the query.
 
+## PDF backmatter follow-up — 2026-10-12
+
+**Deferred.** This upgrade queues existing PDF roles for recalculation from saved
+page geometry. Explicitly update the semantic index afterward; no model
+redownload or unrelated EPUB-only rebuild is required.
+
+- [ ] With semantic search **off**, ordinary prose and numeric tables still have
+      useful keyword evidence. Printed references, bare-domain citations and
+      subject-index terms remain searchable, including quoted phrases. Open
+      their original pages and confirm reader text/locators remain intact.
+- [ ] With semantic search **on**, affected PDFs show keyword fallback until
+      explicit index preparation finishes. Afterwards, body passages take
+      precedence over recognized references/indexes within documents containing
+      both. A required quote in auxiliary text still constrains the document.
+- [ ] Restart during preparation and explicitly resume. Coverage must recover
+      without repeated role resets or a model download. Existing EPUB-only work
+      should remain ready. An unknown layout may remain main content; do not
+      interpret unrelated nearest passages as verified answers.
+
 ## Stage 7 preparation controls — new follow-up
 
 **Deferred by the user on 2026-10-09.** The separate conceptual-results UI is now

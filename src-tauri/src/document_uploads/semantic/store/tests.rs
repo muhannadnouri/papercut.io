@@ -379,6 +379,153 @@ fn changed_window_policy_requires_explicit_rebuild_without_touching_source() {
 }
 
 #[test]
+fn pdf_role_upgrade_preserves_sources_and_other_roles_until_explicit_semantic_update() {
+    use crate::document_uploads::pdf::{
+        narration,
+        page_text::{self, PageTextBlock, PageTextLayer},
+    };
+    let library = Library::new();
+    let mut db = library.db();
+    let page = PageTextLayer {
+        schema_version: 1,
+        page_index: 1,
+        width: 600.0,
+        height: 800.0,
+        blocks: (1..=3)
+            .map(|i| PageTextBlock {
+                text: format!("[{i}] A. Reed: “Sapphire Ferry Guide,” Printed Journal, 2020.\n"),
+                bounds: [40.0, 100.0 + i as f32 * 16.0, 500.0, 12.0],
+                order: i,
+                confidence: None,
+            })
+            .collect(),
+    };
+    let references = narration::reconstruct_search_text(page.clone());
+    put(
+        &mut db,
+        "abc123",
+        "Harbor Guide",
+        &["港 Ferries connect the island.", &references],
+    );
+    put(
+        &mut db,
+        "def456",
+        "Port Notes",
+        &["An auxiliary EPUB note."],
+    );
+    db.execute(
+        "UPDATE uploaded_documents SET format='pdf',source_kind='pdf' WHERE id='abc123'",
+        [],
+    )
+    .unwrap();
+    db.execute(
+        "UPDATE uploaded_sections SET page_index=ordinal WHERE document_id='abc123'",
+        [],
+    )
+    .unwrap();
+    // The previous classifier kept these printed references inside persisted body ranges.
+    for (ordinal, text) in ["港 Ferries connect the island.", &references]
+        .iter()
+        .enumerate()
+    {
+        db.execute(
+            "UPDATE uploaded_sections SET body_ranges=?1 WHERE document_id='abc123' AND ordinal=?2",
+            params![
+                serde_json::to_string(&vec![0..text.len()]).unwrap(),
+                ordinal
+            ],
+        )
+        .unwrap();
+    }
+    db.execute(
+        "UPDATE uploaded_sections SET body_ranges='[]' WHERE document_id='def456'",
+        [],
+    )
+    .unwrap();
+    db.execute(
+        "UPDATE uploaded_documents SET format='epub',source_kind='epub' WHERE id='def456'",
+        [],
+    )
+    .unwrap();
+    page_text::write_page_text_layer(&library.0.join("abc123"), &page).unwrap();
+    let before: Vec<(i64, usize, String, Option<usize>)> = db
+        .prepare("SELECT id,ordinal,text,page_index FROM uploaded_sections ORDER BY id")
+        .unwrap()
+        .query_map([], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+        })
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    let key = identity();
+    initialize(&mut db, &key).unwrap();
+    sync(&mut db, &key, "abc123");
+    sync(&mut db, &key, "def456");
+    db.execute(
+        "UPDATE upload_schema_metadata SET value='9' WHERE key='schema_version'",
+        [],
+    )
+    .unwrap();
+    drop(db);
+
+    let mut db = library.db();
+    assert_eq!(coverage(&mut db, Some(&key)).unwrap().indexed_documents, 1);
+    assert_eq!(
+        db.query_row(
+            "SELECT body_ranges FROM uploaded_sections WHERE document_id='def456'",
+            [],
+            |row| row.get::<_, String>(0)
+        )
+        .unwrap(),
+        "[]"
+    );
+    let pending: usize = db.query_row("SELECT count(*) FROM uploaded_sections WHERE document_id='abc123' AND body_ranges IS NULL", [], |row| row.get(0)).unwrap();
+    assert_eq!(pending, 2);
+    assert!(
+        crate::document_uploads::store::rebuild_search_content_batch(&mut db, &library.0).unwrap()
+    );
+    assert!(
+        !crate::document_uploads::store::rebuild_search_content_batch(&mut db, &library.0).unwrap()
+    );
+    assert_eq!(
+        db.query_row(
+            "SELECT body_ranges FROM uploaded_sections WHERE document_id='abc123' AND ordinal=1",
+            [],
+            |row| row.get::<_, String>(0)
+        )
+        .unwrap(),
+        "[]"
+    );
+    // A missing body-page sidecar retains its text; classified citations stay literal-searchable.
+    assert_eq!(db.query_row("SELECT count(*) FROM uploaded_document_fts WHERE uploaded_document_fts MATCH '\"Sapphire Ferry Guide\"'", [], |row| row.get::<_,usize>(0)).unwrap(), 1);
+    assert_eq!(db.query_row("SELECT count(*) FROM uploaded_document_search_fts WHERE uploaded_document_search_fts MATCH 'sapphire'", [], |row| row.get::<_,usize>(0)).unwrap(), 1);
+    let after: Vec<(i64, usize, String, Option<usize>)> = db
+        .prepare("SELECT id,ordinal,text,page_index FROM uploaded_sections ORDER BY id")
+        .unwrap()
+        .query_map([], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+        })
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert_eq!(before, after);
+    assert_eq!(coverage(&mut db, Some(&key)).unwrap().indexed_documents, 1);
+    sync(&mut db, &key, "abc123");
+    assert_eq!(coverage(&mut db, Some(&key)).unwrap().indexed_documents, 2);
+    let hit = retrieve(&mut db, &key, &request(json!({"query":"harbor travel", "exactPhrases":["Sapphire Ferry Guide"], "documentUrls":["/uploads/abc123.html"]})), |_| Ok(vec![1.0,0.0]), || Ok(())).unwrap();
+    assert_eq!(
+        serde_json::to_value(hit).unwrap()["results"][0]["text"],
+        "港 Ferries connect the island."
+    );
+    drop(db);
+    let mut db = library.db();
+    assert_eq!(coverage(&mut db, Some(&key)).unwrap().indexed_documents, 2);
+    assert!(
+        !crate::document_uploads::store::rebuild_search_content_batch(&mut db, &library.0).unwrap()
+    );
+}
+
+#[test]
 fn conceptual_scope_quotes_constrain_ranking_before_limit_without_chunk_votes() {
     let library = Library::new();
     let mut db = library.db();

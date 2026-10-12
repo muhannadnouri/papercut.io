@@ -254,12 +254,21 @@ pub(super) fn open_db_in(root: &std::path::Path) -> Result<Connection, String> {
             [if has_sections { "0" } else { "1" }],
         ).map_err(db_err)?;
     }
+    if previous_schema_version < 10 {
+        // Reclassify PDFs from saved geometry; preserve EPUB roles that cannot be recovered from legacy HTML.
+        tx.execute(
+            "UPDATE uploaded_sections SET body_ranges=NULL WHERE document_id IN
+            (SELECT id FROM uploaded_documents WHERE source_kind='pdf')",
+            [],
+        )
+        .map_err(db_err)?;
+    }
     tx.execute(
         "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('search_form_version', ?1)",
         [search_form::VERSION],
     ).map_err(db_err)?;
     tx.execute(
-        "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('schema_version', '9')",
+        "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('schema_version', '10')",
         [],
     )
     .map_err(db_err)?;

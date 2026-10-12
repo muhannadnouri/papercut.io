@@ -183,27 +183,51 @@ pub(crate) fn search_content(
     // A numeric table is not navigation: require repeated dot leaders as well as page-like endings.
     let leaders = text.matches(". . .").count() + text.matches("...").count();
     let toc = contents_lines >= 8 && contents_lines * 2 >= mapped.len() && leaders >= 2;
-    let citations = mapped
+    let values = mapped
+        .iter()
+        .map(|(line, _)| line.text())
+        .collect::<Vec<_>>();
+    let citations = values
         .iter()
         .enumerate()
-        .filter_map(|(index, (line, _))| {
-            let value = line.text();
-            let numbered = value
+        .filter_map(|(index, value)| {
+            let number = value
                 .trim_start()
                 .strip_prefix('[')
                 .and_then(|rest| rest.split_once(']'))
-                .is_some_and(|(number, _)| {
+                .filter(|(number, _)| {
                     !number.is_empty() && number.chars().all(|ch| ch.is_ascii_digit())
-                });
-            numbered.then_some(index)
+                })
+                .and_then(|(number, _)| number.parse::<u32>().ok());
+            number.map(|number| (index, number))
         })
         .collect::<Vec<_>>();
     let links = text.matches("https://").count()
         + text.matches("http://").count()
         + text.matches("doi:").count();
-    let reference_start =
-        (citations.len() >= 3 && links >= 2)
-            .then(|| if citations[0] <= 1 { 0 } else { citations[0] });
+    let printed = citations
+        .iter()
+        .enumerate()
+        .filter(|(position, (start, _))| {
+            let end = citations
+                .get(position + 1)
+                .map_or(values.len(), |next| next.0);
+            printed_reference(&values[*start..end].join(" "))
+        })
+        .count();
+    let sequential = citations
+        .windows(2)
+        .all(|pair| pair[0].1.checked_add(1) == Some(pair[1].1));
+    let reference_start = (citations.len() >= 3
+        && (links >= 2 || (sequential && printed >= 3 && printed * 2 >= citations.len())))
+    .then(|| {
+        if citations[0].0 <= 1 {
+            0
+        } else {
+            citations[0].0
+        }
+    });
+    let index_page = subject_index(&values);
     let mut ranges: Vec<std::ops::Range<usize>> = Vec::new();
     for (index, (line, range)) in mapped.iter().enumerate() {
         let value = line.text();
@@ -211,7 +235,12 @@ pub(crate) fn search_content(
         let furniture = edge(line)
             && (repeated.contains(&edge_key(&value))
                 || value.trim().chars().all(|ch| ch.is_numeric()));
-        if toc || note || furniture || reference_start.is_some_and(|start| index >= start) {
+        if toc
+            || index_page
+            || note
+            || furniture
+            || reference_start.is_some_and(|start| index >= start)
+        {
             continue;
         }
         if let Some(previous) = ranges.last_mut() {
@@ -223,6 +252,80 @@ pub(crate) fn search_content(
         ranges.push(range.clone());
     }
     (text, ranges)
+}
+
+/// Printed references need a dated, quoted title after an author separator, not merely numbers or domains.
+fn printed_reference(text: &str) -> bool {
+    let Some((_, title)) = text.split_once(':') else {
+        return false;
+    };
+    let quoted = (title.contains('“') && title.contains('”')) || title.matches('"').count() >= 2;
+    quoted
+        && text
+            .split(|ch: char| !ch.is_ascii_digit())
+            .any(|number| number.len() == 4 && matches!(number.as_bytes()[0], b'1' | b'2'))
+}
+
+/// Combine independent page-list cues; numbers alone cannot distinguish an index from a table.
+fn subject_index(lines: &[String]) -> bool {
+    let entries = lines
+        .iter()
+        .filter_map(|line| index_entry(line))
+        .collect::<Vec<_>>();
+    // shortcut: qualified dense indexes only; expand against annotated layouts without weakening table guards.
+    entries.len() >= 8
+        && entries.len() * 2 >= lines.len()
+        && !lines.iter().any(|line| {
+            line.split_whitespace().count() > 10
+                || line.trim_end().ends_with(['.', '?', '!'])
+                || (index_entry(line).is_none()
+                    && line.chars().any(char::is_alphabetic)
+                    && line
+                        .split_whitespace()
+                        .filter(|word| word.chars().all(|ch| ch.is_ascii_digit()))
+                        .count()
+                        >= 2)
+        })
+        && entries.iter().filter(|(_, multiple)| *multiple).count() >= 2
+        && entries
+            .iter()
+            .filter(|(label, _)| label.contains('(') && label.contains(')'))
+            .count()
+            >= 2
+        && entries
+            .windows(2)
+            .filter(|pair| pair[0].0.to_lowercase() <= pair[1].0.to_lowercase())
+            .count()
+            * 2
+            >= entries.len() - 1
+}
+
+/// Separate a short subject label from comma/range page references; retain original UTF-8 text untouched.
+fn index_entry(text: &str) -> Option<(&str, bool)> {
+    let text = text.trim();
+    let start = text
+        .char_indices()
+        .rev()
+        .find(|(_, ch)| !ch.is_ascii_digit() && !matches!(ch, ' ' | ',' | '-' | '–' | '—'))
+        .map_or(0, |(index, ch)| index + ch.len_utf8());
+    let (label, pages) = text.split_at(start);
+    let label = label.trim_end_matches([' ', ',']);
+    let pages = pages.trim_matches([' ', ',']);
+    if !label.starts_with(char::is_alphabetic)
+        || label.split_whitespace().count() > 8
+        || label
+            .chars()
+            .any(|ch| ch.is_ascii_digit() || matches!(ch, '.' | ':' | ';' | '!' | '?'))
+        || !pages.split([',', '-', '–', '—']).all(|part| {
+            let part = part.trim();
+            !part.is_empty()
+                && part.chars().all(|ch| ch.is_ascii_digit())
+                && part.parse::<u32>().is_ok_and(|page| page > 0)
+        })
+    {
+        return None;
+    }
+    Some((label, pages.contains([',', '-', '–', '—'])))
 }
 
 /// Group adjacent PDF.js items into visual lines while honoring explicit EOL
@@ -543,6 +646,152 @@ mod tests {
             edge_keys(layer(0, vec![block(0, "Harbor Guide | 14", 760.0, 10.0)])),
             edge_keys(layer(1, vec![block(0, "Harbor Guide | 15", 760.0, 10.0)]))
         );
+    }
+
+    #[test]
+    fn printed_references_keep_preceding_prose_and_original_offsets() {
+        let references = [
+            "[21] A. Reed: “Harbor Lighting,” Printed Journal, 2018.",
+            "[22] B. Moss: \"Port Maps,\" Press, 2019.",
+            "[23] C. Stone: “Tide Charts,” maps.example.test, 2021.",
+        ];
+        let mut blocks = vec![
+            block(0, "港 Ferries run every day.\n", 100.0, 12.0),
+            block(1, "Tickets remain valid after sunset.\n", 116.0, 12.0),
+        ];
+        blocks.extend(references.iter().enumerate().map(|(i, text)| {
+            block(
+                i as u32 + 2,
+                &format!("{text}\n"),
+                160.0 + i as f32 * 16.0,
+                12.0,
+            )
+        }));
+        let page = layer(0, blocks);
+        let canonical = reconstruct_search_text(page.clone());
+        let (text, ranges) = search_content(page, &Default::default());
+        assert_eq!(text, canonical);
+        assert_eq!(
+            crate::document_uploads::search_content::body_text(&text, &ranges),
+            "港 Ferries run every day.\nTickets remain valid after sunset."
+        );
+        assert!(text.contains(references[2]));
+        assert_eq!(ranges, vec![0..text.find("\n[21]").unwrap()]);
+        // Numeric rows and dated prose quotations do not have the author/title structure.
+        for lines in [
+            vec![
+                "[1] Route 2018 12",
+                "[2] Route 2019 13",
+                "[3] Route 2020 14",
+            ],
+            vec![
+                "[1] In 2018, “tides changed.”",
+                "[2] In 2019, \"winds changed.\"",
+                "[3] In 2020, “routes changed.”",
+            ],
+        ] {
+            let blocks = lines
+                .iter()
+                .enumerate()
+                .map(|(i, text)| {
+                    block(
+                        i as u32,
+                        &format!("{text}\n"),
+                        100.0 + i as f32 * 16.0,
+                        12.0,
+                    )
+                })
+                .collect();
+            let (text, ranges) = search_content(layer(0, blocks), &Default::default());
+            assert_eq!(ranges, vec![0..text.len()]);
+        }
+    }
+
+    #[test]
+    fn qualified_subject_indexes_need_density_order_and_multiple_page_lists() {
+        let entries = [
+            "Anchors (equipment), 12, 24",
+            "Berths (allocation), 15–18",
+            "Cargo handling, 19, 21",
+            "Dock schedules, 30",
+            "Electric ferries, 35",
+            "Freight routes, 41",
+            "Harbor maps, 50",
+            "Island service, 52",
+        ];
+        let make_page = |lines: &[&str]| {
+            layer(
+                0,
+                lines
+                    .iter()
+                    .enumerate()
+                    .map(|(i, text)| {
+                        block(
+                            i as u32,
+                            &format!("{text}\n"),
+                            100.0 + i as f32 * 16.0,
+                            12.0,
+                        )
+                    })
+                    .collect(),
+            )
+        };
+        let page = make_page(&entries);
+        let canonical = reconstruct_search_text(page.clone());
+        let (text, ranges) = search_content(page, &Default::default());
+        assert_eq!(text, canonical);
+        assert!(ranges.is_empty());
+        // Similar short lists remain main content without the independent index cues.
+        for lines in [
+            entries[..4].to_vec(),
+            vec![
+                "Anchors 12 24",
+                "Berths 15 18",
+                "Cargo 19 21",
+                "Docks 30 32",
+                "Ferries 35 39",
+                "Freight 41 44",
+                "Harbors 50 51",
+                "Islands 52 53",
+            ],
+            {
+                let mut lines = entries.to_vec();
+                lines.push("This sentence explains the routes.");
+                lines
+            },
+            {
+                let mut lines = entries.to_vec();
+                lines.reverse();
+                lines
+            },
+            vec![
+                "Equipment 2020 2021",
+                "Anchors (count), 12, 24",
+                "Berths (count), 15, 18",
+                "Cargo (tons), 19, 21",
+                "Docks (count), 30, 32",
+                "Ferries (count), 35, 39",
+                "Freight (tons), 41, 44",
+                "Harbors (count), 50, 51",
+                "Islands (count), 52, 53",
+            ],
+        ] {
+            let (text, ranges) = search_content(make_page(&lines), &Default::default());
+            assert_eq!(ranges, vec![0..text.len()]);
+        }
+        assert_eq!(
+            index_entry("港 (航路), 12—14, 20"),
+            Some(("港 (航路)", true))
+        );
+        for invalid in [
+            "Cargo 0",
+            "Cargo 12,,14",
+            "Cargo -12",
+            "Cargo 12-",
+            "Route 2 12",
+        ] {
+            assert!(index_entry(invalid).is_none(), "{invalid}");
+        }
     }
 
     #[test]

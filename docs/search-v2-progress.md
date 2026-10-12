@@ -61,12 +61,72 @@ and the [conceptual summary cleanup](#stage-7--conceptual-results-summary--2026-
 followed by the [settings readiness cleanup](#stage-7--settings-readiness-and-copy--2026-10-11),
 also have focused frontend/browser validation. The subsequent
 [stored-work and conditional layout pass](#stage-7--stored-work-guards-and-conditional-settings--2026-10-11)
-adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The subsequent [passage-window evaluation](#stage-7--passage-window-quality-and-cost-review--2026-10-12) finds a bounded local usefulness gain while leaving backmatter classification, missing context and unsupported-query failures open. The recorded full CI predates these UI, model and content changes. The first
+adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The subsequent [passage-window evaluation](#stage-7--passage-window-quality-and-cost-review--2026-10-12) finds a bounded local usefulness gain while leaving backmatter classification, missing context and unsupported-query failures open. The [PDF backmatter correction](#stage-7--pdf-backmatter-classification--2026-10-12) addresses the measured reference/index role gaps without claiming an unsupported-query relevance gain. The recorded full CI predates these UI, model and content changes. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 7 — PDF backmatter classification — 2026-10-12
+
+The shared PDF classifier now recognizes additional structural reference/index
+layouts without a subject-word list or document-specific overrides. Printed
+references can qualify without explicit HTTP/HTTPS/DOI text when consecutive
+numbered entries contain repeated dated, quoted titles after author separators.
+Continuation lines belong to their original numbered entry. Existing linked
+reference and dot-leader navigation rules remain available.
+
+Dense subject indexes require several independent cues: short alphabetic labels,
+valid comma/range page lists, repeated parenthetical qualifiers and a majority of
+ascending adjacent labels. Sentence-like prose, long lines and numeric column
+headings block whole-page index classification. These conservative rules leave
+ambiguous or unsupported layouts as main content; they are not a general PDF
+layout parser. A headerless table formatted exactly like an index remains an
+ambiguous case. Reader text, extraction order, UTF-8 offsets and literal FTS
+eligibility/counts remain unchanged. Mixed reference pages retain preceding
+body prose. References and indexes stay searchable, rather than being deleted.
+
+Upload schema version 10 queues existing PDF roles for the existing restartable
+backfill from saved geometry. It preserves EPUB/HTML roles, including structural
+roles that cannot be recovered from legacy rendered HTML. Missing or mismatched
+sidecars retain authored text conservatively. Existing semantic freshness
+triggers invalidate the affected PDF checkpoints; an explicit Build / Update
+Index is required before those documents can supply conceptual results again.
+Compatible vectors may be reused. The semantic model/window identity is
+unchanged, so this does not force an unrelated EPUB-only index rebuild or model
+download. Ordinary keyword search remains available during preparation.
+
+Validation:
+
+- 239 provider-enabled native tests pass (10 explicit probes ignored), and 181
+  provider-disabled tests pass (five ignored). Generic fixtures cover printed
+  and bare-domain references, mixed body/reference pages, dense subject indexes,
+  Unicode page-list offsets, numeric tables/column headings, prose quotations,
+  sparse and reversed lists, and malformed page references.
+- A version-9 upgrade regression checks PDF-only invalidation, unchanged source
+  rows/locators and EPUB roles, literal quoted citation eligibility, missing
+  sidecar fallback, explicit semantic update and an idempotent reopen. A required
+  citation quote can still select the document while its conceptual result uses
+  body text, preserving the existing quote contract.
+- A real cached Small FP32 run on a disposable native snapshot reuses the frozen
+  regression packet from the preceding review. All eight answerable cases retain
+  their previous returned passages and grades. The targeted reference/index hits
+  now yield body passages, but all four unsupported questions still yield
+  irrelevant results. This establishes the classification correction, not a new
+  relevance win or independent quality acceptance. EPUB roles remain unchanged;
+  canonical source digests and exact returned UTF-8 spans pass. Unchanged resume
+  performs no inference or passage writes. Private details remain untracked.
+- Temporary probe edits are removed before the normal suites; formatting and
+  diff checks pass. No frontend, dependencies, models, shipping scripts or CI
+  jobs change in this pass.
+
+**Next:** evaluate bounded neighboring context or a small alternative-passage
+set for answers split across original blocks, retaining individual source
+anchors and input limits. A score threshold still needs broader calibration;
+this pass does not justify one. Interactive smoke remains deferred, including
+the PDF upgrade/explicit index-update checks in the consolidated checklist.
+Physical-device, independent-quality and current-revision CI gates remain open.
 
 ## Stage 7 — Passage-window quality and cost review — 2026-10-12
 
