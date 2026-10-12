@@ -61,12 +61,105 @@ and the [conceptual summary cleanup](#stage-7--conceptual-results-summary--2026-
 followed by the [settings readiness cleanup](#stage-7--settings-readiness-and-copy--2026-10-11),
 also have focused frontend/browser validation. The subsequent
 [stored-work and conditional layout pass](#stage-7--stored-work-guards-and-conditional-settings--2026-10-11)
-adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The subsequent [passage-window evaluation](#stage-7--passage-window-quality-and-cost-review--2026-10-12) finds a bounded local usefulness gain while leaving backmatter classification, missing context and unsupported-query failures open. The [PDF backmatter correction](#stage-7--pdf-backmatter-classification--2026-10-12) addresses the measured reference/index role gaps without claiming an unsupported-query relevance gain. The [alternative-passage review](#stage-7--alternative-passages-and-weak-matches--2026-10-12) rejects an unhelpful expansion and leaves selection/unsupported-query quality open. The recorded full CI predates these UI, model and content changes. The first
+adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The subsequent [passage-window evaluation](#stage-7--passage-window-quality-and-cost-review--2026-10-12) finds a bounded local usefulness gain while leaving backmatter classification, missing context and unsupported-query failures open. The [PDF backmatter correction](#stage-7--pdf-backmatter-classification--2026-10-12) addresses the measured reference/index role gaps without claiming an unsupported-query relevance gain. The [alternative-passage review](#stage-7--alternative-passages-and-weak-matches--2026-10-12) rejects an unhelpful expansion and leaves selection/unsupported-query quality open. The subsequent [candidate-coverage diagnosis](#stage-7--candidate-coverage-diagnosis--2026-10-12) distinguishes two selection failures from an explanation missing from the bounded pool; it justifies a representation experiment, not a shipped reranker. The recorded full CI predates these UI, model and content changes. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 7 — Candidate-coverage diagnosis — 2026-10-12
+
+**Decision: separate passage-selection failures from missing reference coverage;
+do not ship a larger results disclosure or a reranker from this diagnosis.**
+Two incomplete cases have complete evidence deeper in existing candidates. The
+third case's intended explanation is outside the tested pool, even though its
+source paragraphs are correctly stored and indexed. A reranker cannot promote
+an explanation it never receives.
+
+This reuses the preceding frozen eight-answerable/four-unsupported packet,
+reference clauses, grades, disposable index and pinned Small FP32 model. It is
+a development diagnosis, not a new held-out comparison or independent acceptance.
+Private source identities, questions, references and raw reports remain untracked;
+live application data was not modified. No reimport, passage embedding or index
+update was required.
+
+Before retrieval, diagnostic caps were fixed at 3, 10, 25 and 50 distinct body
+passages **per document**. Both eligible documents are inspected, so the largest
+pool is up to 100 candidates overall; this is not a scalable global reranking
+budget. Ranking uses unchanged cosine scores with stable source-order ties.
+Greedy deduplication excludes intersecting byte spans within a source block,
+not semantic repetition. Existing primary spans, document order and scores are
+preserved. For each bounded candidate, the probe obtains its actual production
+nearby context, with unchanged source boundaries and clipping limits.
+
+Coverage is checked against essential reference clauses in exact source slices.
+Merely hitting a reference block, or combining arbitrary distant passages, does
+not count as a complete candidate bundle. The three remaining cases are:
+
+| Diagnostic case | Existing candidate coverage | Implication |
+| --- | --- | --- |
+| Partial evidence A | Candidate 3's nearby text contains the complete explanation. The directly answering primary passage ranks 7 among distinct spans, or 8 before overlap removal. | Useful evidence is available; selecting the highest-scoring primary misses it. The previous two-extra comparison supplied those extra primary passages without their own nearby context. |
+| Wrong-topic case B | The intended explanation's six short body paragraphs rank 58–979 among distinct passages. None occurs in the top 50 or their bounded nearby text. Inspected alternate explanations provide partial evidence; the useful document still ranks second. | Both document order and reference coverage need attention. This is not a missing import/vector or a reader-offset fault. Reranking the tested pool cannot recover that reference explanation. |
+| Partial evidence C | Candidate 13's nearby text supplies all required components. The first direct reference paragraph ranks 20 and also needs adjacent text for completeness; other reference paragraphs rank 24 and 26. | Useful evidence is available below ten candidates. One paragraph's score does not establish completeness of a multi-part explanation. |
+
+The five previously complete cases retain their complete baseline evidence.
+Potential coverage of the **frozen reference explanations**, across both documents,
+is therefore:
+
+| Evidence pool | Cases with a complete reference explanation in at least one bundle |
+| --- | --- |
+| Current primary plus nearby text | 5/8 |
+| Top 3 candidates with each candidate's nearby text | 6/8 |
+| Top 10 with nearby text | 6/8 |
+| Top 25 with nearby text | 7/8 |
+| Top 50 with nearby text | 7/8 |
+
+These are oracle-selection coverage bounds, **not achieved first-result grades**.
+No selector has been demonstrated to choose the right bundle, and all top-50
+alternatives have not received exhaustive relevance labels. Absence of the frozen
+reference explanation is not proof that no other source could answer the question.
+Displaying all candidates would add substantial irrelevant and repeated material;
+the earlier three-passage expansion remains rejected. All four unsupported
+queries retain their identical unsupported nearest results. Wider coverage is
+not an abstention policy, and the overlapping score ranges still do not justify
+a universal confidence threshold.
+
+The missing reference group consists of short adjacent body blocks under the
+same authored heading. Current embeddings represent each block independently;
+nearby text is attached only after selection. This makes bounded grouping of
+adjacent body text at embedding time a relevant next hypothesis. The diagnosis
+does not prove fragmentation is the sole cause or that grouping will improve
+ranking. Existing title/heading context is already present; adding it again is
+not a proposed fix. Do not relabel intentional exercises as auxiliary content or
+add subject-specific keywords to force these cases upward.
+
+Validation: all twelve real-provider native queries pass against the existing
+5,709-passage index. Full production responses, including primary text, source
+spans, scores, document order and nearby context, are identical to the preceding
+control. The first three distinct spans also match the preceding comparison.
+Vector checksums/dimensions and source-input hashes are checked during scanning;
+8,023 candidate/context excerpts pass exact UTF-8 slicing, body membership,
+original locator and context-bound checks. Frozen packet, grade, source and model
+digests match; authoritative source rows, roles and locators remain unchanged.
+The native probe checks read-only query behavior. Temporary generic probe edits
+were restored byte-for-byte and its owned executable removed. Rust formatting
+and diff checks pass. Application behavior is unchanged, so the application
+suites were not rerun; this probe is not a latency/memory or device benchmark.
+No UI, runtime, dependency, model option, shipping script or CI job changes.
+
+**Next:** compare one bounded adjacent-body representation against the unchanged
+control using the cached model and disposable indexes. Preserve source locators,
+body/heading boundaries, input limits, quotes and scope; measure index/query cost
+and regressions as well as reference recovery. Treat this packet as development
+evidence and use fresh questions for any quality-win claim. Only consider a
+bounded local reranker trial once useful candidates are demonstrated, with a
+separate global budget and measured quality/resource cost, as required by Stage 8
+of the original plan. Do not raise caps to known reference ranks, launch another
+model sweep, or add ANN without a measured bottleneck. Default-off semantics and
+explicit downloads/indexing remain unchanged. Consolidated interactive smoke
+remains deferred; current-revision CI, physical-device performance and independent
+relevance acceptance remain open.
 
 ## Stage 7 — Alternative passages and weak matches — 2026-10-12
 
