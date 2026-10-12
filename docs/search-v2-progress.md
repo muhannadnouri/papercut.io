@@ -42,7 +42,7 @@ machine. Other device/provider acceptance and semantic quality remain open.
 | Gate | Current evidence and decision |
 | --- | --- |
 | Model-free search | Ranking, Broader mode, source evidence, authored-word spelling help, Arabic normalization and query corrections are implemented on this branch. A 500-document / 100,000-section saturated-match native probe passes common-query timing thresholds on this development host; it does not establish weak-device suitability. The user reports ordinary-search/reader/audio smoke passed. General synonym expansion is unclaimed; hard-coded word pairs were removed. |
-| Embedding baseline | Cached FP32/INT8 providers, anchored passages, incremental SQLite indexing, read-only queries and document-level fusion remain experimental. The standalone report now includes an evidence-preserving semantic-first response alongside the unchanged semantic/RRF controls. The comparison accepts verified Small/Base metadata and dimension-safe 384/768-vector indexes; the app provider/model setup still supports only the retained Small formats. Native primary evidence and separate conceptual context are preserved. Semantic ordering does not enforce unquoted names/dates and must not redefine All words. |
+| Embedding baseline | Cached FP32/INT8 providers, anchored passages, incremental SQLite indexing, read-only queries and document-level fusion remain experimental. The standalone report now includes an evidence-preserving semantic-first response alongside the unchanged semantic/RRF controls. The comparison accepts verified Small/Base metadata and dimension-safe 384/768-vector indexes; the app now also offers optional Base FP32 and Large FP32 with dimension-safe 768/1,024-vector indexes. Small retains its existing FP32/INT8 selections and identities. Native primary evidence and separate conceptual context are preserved. Semantic ordering does not enforce unquoted names/dates and must not redefine All words. |
 | Representative quality | The [public human-label comparison](#stage-6--public-human-label-comparison-2026-10-08) supports same-language conceptual passage ranking. The [wider-pool check](#stage-6--frozen-wider-pool-check-2026-10-08) and [fresh-query verification](#stage-6--fresh-query-fusion-verification-2026-10-08) confirm Broader fusion can replace positive first results with judged negatives and reduce known-positive recall. Keep semantic-only ordering as the conceptual control; the fresh English All words result cautions against a universal semantic-first policy. Base's mixed gain and higher cost do not establish an overall acceptance win. Prior cross-language/entity/date and missing-answer-span failures remain. Public passage labels do not establish private-book, displayed-answer or full-library quality. The original independent packet remains unjudged; product acceptance remains open. |
 | Cached reranker/context augmentation | Rejected: a cross-language gain introduces a same-language date regression; combined-context and explicit-exclusion controls do not justify a repair. Its live CLI/module are removed. |
 | Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the historical shared-runtime experiment reused the app adapter with FastEmbed/sherpa and is now retired in favor of app-native checks. Provider-enabled Windows/macOS/Android builds and iOS simulator archive/device linking now pass CI, as recorded below. Linked initialization is runtime-tested on Linux and the iOS arm64 simulator; Android x86_64 shared-runtime FP32/INT8 inference and clean exit now pass the bounded mobile review below. Mobile app linking remains separate from inference evidence. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. Desktop FP32/INT8 initialization and the bounded provider lifecycle now pass on Linux, Windows and both macOS architectures in the verified run below. Android arm64/physical-device execution, weak reference hardware, responsiveness and app-level lifecycle/fallback validation remain open. |
@@ -61,12 +61,75 @@ and the [conceptual summary cleanup](#stage-7--conceptual-results-summary--2026-
 followed by the [settings readiness cleanup](#stage-7--settings-readiness-and-copy--2026-10-11),
 also have focused frontend/browser validation. The subsequent
 [stored-work and conditional layout pass](#stage-7--stored-work-guards-and-conditional-settings--2026-10-11)
-adds native storage-status and frontend validation. The recorded full CI predates these UI changes. The first
+adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The recorded full CI predates these UI and model changes. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 7 — Optional Base and Large models — 2026-10-11
+
+The user requested two additional capacities, preserving both Small choices.
+Settings now separates Model from Model Format: multilingual-e5-small offers FP32
+and dynamic INT8; multilingual-e5-base and multilingual-e5-large offer FP32.
+Lexical remains default and semantic search remains opt-in. Selection starts no
+work. Downloads and index builds still require explicit action; model/precision
+changes require turning search off and reset download consent. Only the selected
+model is loaded. Desktop controls share a row and stack on narrow screens;
+resource and rebuild guidance is translated in all eight locales.
+
+A focused native asset manifest holds each pinned revision, byte count, SHA-256
+and dimension. Base installs 1,127,143,136 bytes and emits 768 dimensions; Large
+installs 2,252,993,226 bytes and emits 1,024. Large's external ONNX weights are
+verified and passed through the installed FastEmbed public initializer API.
+There are no dependency, ORT, Libtashkeel, shipping-script or CI changes, and
+model weights remain outside tracked files. Existing Small preferences, cache
+paths and encoder identities remain unchanged. Base/Large use separate caches;
+removing a selected cache leaves other models' files intact.
+
+Index/query callers read the active checksummed encoder identity and dimension
+together. Incompatible vectors cannot be reused or searched: switching models
+requires explicitly rebuilding the derived semantic index. The app keeps one
+semantic index, so switching back after replacement requires rebuilding again.
+Source documents, reader content and lexical search remain intact. Opening
+settings, choosing a model and restarting do not rebuild or download; a saved
+opt-in reloads only the selected cached model.
+
+Validation:
+
+- 215 frontend tests across 50 files pass. New choice/consent tests cover the two
+  additional capacities, FP32-only precision, no implicit setup, saved selection
+  and restart behavior. Lint, locale parity, TypeScript and Vite build pass.
+- 221 native tests pass; 10 existing explicit probes remain ignored by default.
+  The manifest regression protects Small's exact identity and all four selections;
+  a Small → Base → Large → Small index regression requires explicit rebuilds,
+  rejects incompatible coverage/vectors and preserves source text. Cache IPC
+  exposes the four choices without creating model files. Provider-disabled
+  native compilation also passes.
+- Real pinned Base and Large lifecycle probes pass on this Linux development
+  machine, including factory loading, finite normalized vectors of the expected
+  dimensions, repeatability, English/Arabic input and prefix/size limits. The
+  existing native SQLite controls pass with each actual model: filters, required
+  quotes, cancellation/checkpoint reuse, incompatible-index lexical fallback and
+  preserved sources. Large's verified external-weight loading succeeds.
+- The debug probe peaks at about 2.85 GiB for Base and 5.18 GiB for Large; bounded
+  test durations are 18.78/36.56 seconds. These are test-process measurements,
+  not product query latency or guarantees for other hardware. Larger does not
+  establish better relevance; previous mixed Base comparisons remain relevant.
+- Browser checks of the actual settings component with synthetic IPC confirm
+  explicit download/enable, active selection locks, readable desktop controls
+  and Arabic dark layout at 320px with no horizontal overflow. Temporary preview
+  files, tab and server are cleaned up. Native WebView smoke is not claimed.
+
+**Next:** push and run the existing full CI with provider inference enabled;
+its default probes remain Small FP32/INT8, avoiding multi-gigabyte downloads on
+every run. Base/Large checks can be selected explicitly through the existing
+ignored regression for later platform/resource validation. Rebuild with
+`npm run desktop` when ready and resume the consolidated smoke checklist,
+including explicit model switching/rebuilds. Smoke stays deferred at the user's
+request. Representative same-language relevance and physical-device memory/
+responsiveness remain acceptance work before claiming a larger-model quality win.
 
 ## Stage 7 — Stored-work guards and conditional settings — 2026-10-11
 

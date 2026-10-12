@@ -244,7 +244,7 @@ and app smoke remain open.
 ## Explicit cached-model activation
 
 The native `search_embedding_configure` command accepts `format: null` to
-cancel/unload, or `"float32"` / `"dynamic-int8"` to activate an already staged
+cancel/unload, or `"float32"`, `"dynamic-int8"`, `"base-float32"` or `"large-float32"` to activate an already staged
 snapshot. It accepts no arbitrary path, model URL or unverified model identifier.
 All asset reading and native loading/cleanup run on the blocking pool. Disabling
 also signals index cancellation before waiting on provider cleanup and cancels
@@ -268,8 +268,7 @@ models/search/multilingual-e5-small/
       onnx/model.onnx
 ```
 
-These are two formats of the existing experimental baseline, not a product model
-catalogue or a decision to impose the smallest encoder on every device. The
+Small's existing paths and serialized selections remain unchanged. The
 [pinned upstream snapshot](https://huggingface.co/intfloat/multilingual-e5-small/tree/614241f622f53c4eeff9890bdc4f31cfecc418b3)
 uses `onnx/model.onnx` for FP32. The tested INT8 artifact is specifically
 `onnx/model_qint8_avx512_vnni.onnx`, staged under the common `onnx/model.onnx`
@@ -282,6 +281,51 @@ and SHA-256 and checks the actual bytes supplied to the loader. Installed sizes
 are **487,352,505 bytes** for FP32 and **135,430,819 bytes** for INT8, including
 all four tokenizer/configuration files. Disk size is not peak RAM usage.
 No weights are bundled in the application or copied into the repository.
+
+### Optional model capacities — 2026-10-11
+
+The user requested Base and Large alongside the existing Small choices. Settings
+separates **Model** from **Model Format**: Small retains FP32 and INT8; Base and
+Large currently offer FP32 only. Semantic search still starts off. Selection
+starts no download, activation or indexing; download consent resets on a change.
+Turn search off before changing the selected model or precision. Only one model
+can be resident. Each choice has its own verified cache; removing one does not
+remove another.
+
+| Selection | Installed bytes | Vector dimensions | Pinned snapshot |
+| --- | ---: | ---: | --- |
+| Small FP32 (`float32`) | 487,352,505 | 384 | `614241f622f53c4eeff9890bdc4f31cfecc418b3` |
+| Small INT8 (`dynamic-int8`) | 135,430,819 | 384 | Same Small snapshot |
+| Base FP32 (`base-float32`) | 1,127,143,136 | 768 | [Base snapshot](https://huggingface.co/intfloat/multilingual-e5-base/tree/d128750597153bb5987e10b1c3493a34e5a4502a) |
+| Large FP32 (`large-float32`) | 2,252,993,226 | 1,024 | [Large snapshot](https://huggingface.co/intfloat/multilingual-e5-large/tree/3d7cfbdacd47fdda877c5cd8a79fbcc4f2a574f3) |
+
+The [asset manifest](../src-tauri/src/search_embeddings/models.rs) pins sizes and
+SHA-256 values. Base/Large use `models/search/<model>/<revision>/float32/`, with
+the same four tokenizer/configuration files and `onnx/model.onnx`. Large also
+requires `onnx/model.onnx_data` (2,235,363,328 bytes); the existing FastEmbed public
+external-initializer API receives its verified bytes. The graph alone is not an
+installed model. No new runtime, package fork or dependency is introduced.
+
+Index callers read the active encoder identity and dimension together. The
+identity covers all assets, including external weights. Small identities are
+unchanged; a different model/precision has zero compatible coverage until an
+explicit build replaces the derived index. Source documents and lexical search
+remain intact. Returning to an older model requires another explicit rebuild
+if its index was replaced; the app retains one derived semantic index.
+
+Real Base and Large provider lifecycle checks passed locally with fully verified
+assets: warm-up, finite normalized 768/1,024 vectors, repeatability, English/Arabic
+input, prefix/size limits, unload/failure handling and the existing SQLite
+index/query controls (filters, required quotes, cancellation/checkpoints and
+incompatible-index fallback). The debug test process peaked at approximately
+**2.85 GiB for Base** and **5.18 GiB for Large**, completing the bounded lifecycle
+tests in 18.78 and 36.56 seconds. These are development-host process peaks and
+test durations, not steady query latency, phone requirements or a relevance win.
+Settings warns about the larger resource cost without promising hardware fit.
+
+Existing CI remains on the Small FP32/INT8 controls. Base/Large execution on other
+platforms, physical-device responsiveness and representative ranking quality are
+not established by this Linux check. Interactive smoke remains deferred.
 
 Only one activation can run. Re-selecting the active format is idempotent;
 selecting another requires explicitly disabling first. A rejected selection
@@ -376,7 +420,7 @@ AVX512/VNNI-named export; downloading it does not establish portability.
 
 Before writing, the installer reuses library transfer's free-space preflight:
 the full payload plus **64 MiB** of reserve on the same filesystem. Files are
-written beneath a sibling `float32.installing` or `dynamic-int8.installing`
+written beneath a sibling `<precision>.installing`
 directory, synced, rechecked, then renamed into place. Failed/cancelled work
 cleans staging on normal return or Rust unwinding. After a process interruption,
 the next explicit download discards stale staging and restarts; removal can also
@@ -789,8 +833,12 @@ downloads. Set
 verified assets in each of `float32/` and `dynamic-int8/`, then explicitly run
 `cached_provider_activation_switch_failure_and_unload -- --ignored --nocapture`
 with the same Cargo options. Set optional test-only
-`PAPERCUT_EMBEDDING_TEST_FORMAT` to `float32` or `dynamic-int8` to isolate one
-format for measurement; invalid values fail. This invocation reads only that
+`PAPERCUT_EMBEDDING_TEST_FORMAT` to `float32`, `dynamic-int8`, `base-float32` or
+`large-float32` to isolate one selection for measurement; invalid values fail.
+For Base/Large, supply the pinned assets under that selection's named folder;
+Large needs the sixth external-weight file. Without this selector, only the
+existing two Small formats run, keeping routine CI downloads unchanged.
+This invocation reads only that
 cache and uses test state plus disposable SQLite fixtures, without accessing the
 installed library or app model directory.
 

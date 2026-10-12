@@ -62,8 +62,8 @@ pub(crate) fn verify_native_index_queries(
     };
     let baseline = lexical();
     assert!(!baseline["results"].as_array().unwrap().is_empty());
-    let encoder = provider.index_encoder_key().unwrap();
-    let key = Identity::new(&encoder, crate::search_embeddings::DIMENSIONS).unwrap();
+    let (encoder, dimensions) = provider.index_encoder_identity().unwrap();
+    let key = Identity::new(&encoder, dimensions).unwrap();
     let query = |db: &mut Connection, input: Value| {
         serde_json::to_value(
             retrieve(
@@ -238,8 +238,7 @@ pub(crate) fn verify_native_index_queries(
     );
     assert_eq!(cancelled_query.err().unwrap(), "query cancelled");
     assert_eq!(lexical(), baseline);
-    let incompatible =
-        Identity::new("another-encoder", crate::search_embeddings::DIMENSIONS).unwrap();
+    let incompatible = Identity::new("another-encoder", dimensions).unwrap();
     assert_eq!(
         serde_json::to_value(
             retrieve(
@@ -1013,6 +1012,97 @@ fn incompatible_identity_rebuilds_only_derived_data_and_unknown_schema_fails_clo
         1,
         "unknown schema must not be destructively reset"
     );
+}
+
+#[test]
+#[cfg(feature = "experimental-search-embeddings-core")]
+fn changing_model_capacity_requires_explicit_rebuild_and_never_reuses_vectors() {
+    use crate::search_embeddings::ModelSelection;
+    let library = Library::new();
+    let mut db = library.db();
+    put(
+        &mut db,
+        "guide",
+        "Transport Guide",
+        &["The city operates electric buses."],
+    );
+    for format in [
+        ModelSelection::Float32,
+        ModelSelection::BaseFloat32,
+        ModelSelection::LargeFloat32,
+        ModelSelection::Float32,
+    ] {
+        let identity = Identity::new(
+            &serde_json::to_string(&format).unwrap(),
+            format.dimensions(),
+        )
+        .unwrap();
+        assert_eq!(
+            coverage(&mut db, Some(&identity))
+                .unwrap()
+                .indexed_documents,
+            0
+        );
+        let response = retrieve(
+            &mut db,
+            &identity,
+            &request(json!({"query":"city transport"})),
+            |_| panic!("incompatible or absent vectors must not infer"),
+            || Ok(()),
+        )
+        .unwrap();
+        assert!(serde_json::to_value(response).unwrap()["results"]
+            .as_array()
+            .unwrap()
+            .is_empty());
+        initialize(&mut db, &identity).unwrap();
+        let source = source(&mut db, "guide").unwrap().unwrap();
+        let mut vector = vec![0.0; identity.dimensions];
+        vector[0] = 1.0;
+        let mut reused = 0;
+        synchronize(
+            &mut db,
+            &identity,
+            &source,
+            |_, _, body| Ok(vec![0..body.len()]),
+            |_| Ok(vector.clone()),
+            || Ok(()),
+            |old| {
+                if old {
+                    reused += 1
+                }
+            },
+        )
+        .unwrap();
+        assert_eq!(reused, 0);
+        assert_eq!(
+            coverage(&mut db, Some(&identity))
+                .unwrap()
+                .indexed_documents,
+            1
+        );
+        let response = retrieve(
+            &mut db,
+            &identity,
+            &request(json!({"query":"city transport"})),
+            |_| Ok(vector.clone()),
+            || Ok(()),
+        )
+        .unwrap();
+        assert_eq!(
+            serde_json::to_value(response).unwrap()["results"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            db.query_row("SELECT text FROM uploaded_sections", [], |row| row
+                .get::<_, String>(0))
+                .unwrap(),
+            "The city operates electric buses."
+        );
+    }
 }
 
 /// Saturated synthetic vectors isolate production scan cost, not model inference or relevance.

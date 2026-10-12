@@ -2,12 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 
-export type ModelFormat = 'float32' | 'dynamic-int8'
+// Existing Small preference keys remain valid; larger selections are FP32 only.
+const MODEL_SELECTIONS = ['float32', 'dynamic-int8', 'base-float32', 'large-float32'] as const
+export type ModelSelection = typeof MODEL_SELECTIONS[number]
 export interface ProviderStatus {
   compiled: boolean
-  activeFormat: ModelFormat | null
-  loadingFormat: ModelFormat | null
-  downloadingFormat: ModelFormat | null
+  activeFormat: ModelSelection | null
+  loadingFormat: ModelSelection | null
+  downloadingFormat: ModelSelection | null
 }
 interface IndexStatus {
   running: boolean
@@ -20,7 +22,7 @@ interface IndexStatus {
   reusedPassages: number
   error: string | null
 }
-interface Preference { enabled: boolean; format: ModelFormat }
+interface Preference { enabled: boolean; format: ModelSelection }
 type ActivityNotice = 'complete' | 'cancelled' | 'failed' | 'statusFailed'
 const STORAGE_KEY = 'papercut.semantic-search.v1'
 
@@ -29,7 +31,7 @@ function readPreference(): Preference {
   try {
     const value = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? 'null')
     if (value && typeof value.enabled === 'boolean' &&
-      (value.format === 'float32' || value.format === 'dynamic-int8')) return value
+      MODEL_SELECTIONS.includes(value.format)) return value
   } catch { /* Start disabled when storage is unavailable. */ }
   return { enabled: false, format: 'float32' }
 }
@@ -67,7 +69,7 @@ export function useSemanticSearch() {
     return value
   }, [])
 
-  const configure = useCallback(async (format: ModelFormat | null, version: number) => {
+  const configure = useCallback(async (format: ModelSelection | null, version: number) => {
     action.current = true
     setOperation(format ? 'activate' : 'disable')
     try {
@@ -114,7 +116,7 @@ export function useSemanticSearch() {
     await configure(enabled ? value.format : null, version)
   }
 
-  function setFormat(format: ModelFormat) {
+  function setFormat(format: ModelSelection) {
     if (currentPreference.current.enabled || action.current || busy) return
     const value = { enabled: false, format }
     setError('')

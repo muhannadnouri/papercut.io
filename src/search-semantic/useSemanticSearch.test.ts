@@ -31,7 +31,7 @@ vi.mock('react', () => {
   }
 })
 
-import { useSemanticSearch, type ModelFormat, type ProviderStatus } from './useSemanticSearch'
+import { useSemanticSearch, type ModelSelection, type ProviderStatus } from './useSemanticSearch'
 const key = 'papercut.semantic-search.v1'
 let storage: Map<string, string>
 let provider: ProviderStatus
@@ -75,7 +75,7 @@ beforeEach(() => {
   provider = { compiled: true, activeFormat: null, loadingFormat: null, downloadingFormat: null }
   index = { running: false, cancelRequested: false, indexedDocuments: 0, eligibleDocuments: 2,
     passages: 0, hasStoredIndex: false, embeddedPassages: 0, reusedPassages: 0, error: null }
-  mocked.invoke.mockReset().mockImplementation(async (command: string, args?: { format: ModelFormat | null }) => {
+  mocked.invoke.mockReset().mockImplementation(async (command: string, args?: { format: ModelSelection | null }) => {
     if (command === 'search_embedding_status') return { ...provider }
     if (command === 'search_semantic_index_status') return { ...index }
     if (command === 'search_embedding_configure') { provider.activeFormat = args!.format; return { ...provider } }
@@ -95,6 +95,23 @@ it('starts off, reads status only, and never invokes native commands in a browse
   restart(); value = await settle()
   expect(value.enabled).toBe(false)
   expect(commands()).toEqual([])
+})
+
+it.each(['base-float32', 'large-float32'] as const)('restores %s only with saved consent and prevents a live model switch', async (format) => {
+  storage.set(key, JSON.stringify({ enabled: false, format }))
+  render(); let value = await settle()
+  expect(value.format).toBe(format)
+  expect(commands()).not.toContain('search_embedding_configure')
+  await value.setEnabled(true); value = await settle()
+  value.setFormat('float32')
+  expect(render().format).toBe(format)
+  provider.activeFormat = null
+  mocked.invoke.mockClear(); restart(); value = await settle()
+  expect(value.enabled).toBe(true)
+  expect(provider.activeFormat).toBe(format)
+  expect(mocked.invoke.mock.calls).toContainEqual(['search_embedding_configure', { format }])
+  expect(commands()).not.toContain('search_embedding_download')
+  expect(commands()).not.toContain('search_semantic_index_build')
 })
 
 it('persists format and opt-in, restores only cached activation, and stays off after disable/restart', async () => {

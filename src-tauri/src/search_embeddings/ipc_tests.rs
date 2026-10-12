@@ -107,6 +107,25 @@ fn command_capability_and_argument_contract() {
             .unwrap()
             .contains("not compiled"));
     }
+    #[cfg(feature = "experimental-search-embeddings-core")]
+    {
+        let caches = invoke(&window, "search_embedding_cache_status", json!({})).unwrap();
+        let selections = caches
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|cache| cache["format"].as_str().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            selections,
+            ["float32", "dynamic-int8", "base-float32", "large-float32"]
+        );
+        assert!(caches
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|cache| cache["filesPresent"] == false && cache["hasStoredFiles"] == false));
+    }
     assert!(!app.path().app_data_dir().unwrap().exists());
 }
 
@@ -177,26 +196,17 @@ fn cached_semantic_index_commands_checkpoint_and_preserve_sources() {
     let app = app(&format!("io.papercut.index-test-{}", std::process::id()));
     let window = window(&app);
     assert!(!app.path().app_data_dir().unwrap().exists());
-    let format = match std::env::var("PAPERCUT_EMBEDDING_TEST_FORMAT")
-        .as_deref()
-        .unwrap_or("float32")
-    {
-        "float32" => ModelFormat::Float32,
-        "dynamic-int8" => ModelFormat::DynamicInt8,
-        other => panic!("unsupported test format {other}"),
-    };
+    let folder =
+        std::env::var("PAPERCUT_EMBEDDING_TEST_FORMAT").unwrap_or_else(|_| "float32".into());
+    let format: ModelSelection =
+        serde_json::from_value(json!(&folder)).expect("supported model selection");
     let source =
         std::env::var_os("PAPERCUT_EMBEDDING_TEST_MODELS").expect("set cached models source");
-    let folder = if format == ModelFormat::Float32 {
-        "float32"
-    } else {
-        "dynamic-int8"
-    };
     let dir = cache_dir(app.handle(), format).unwrap();
     for asset in format.assets() {
         let path = dir.join(asset.path);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
-        fs::copy(Path::new(&source).join(folder).join(asset.path), path).unwrap();
+        fs::copy(Path::new(&source).join(&folder).join(asset.path), path).unwrap();
     }
     invoke(
         &window,
@@ -205,7 +215,7 @@ fn cached_semantic_index_commands_checkpoint_and_preserve_sources() {
     )
     .unwrap();
     let provider = app.state::<SearchEmbeddingState>();
-    let key = provider.index_encoder_key().unwrap();
+    let key = provider.index_encoder_identity().unwrap().0;
     assert!(provider
         .index_encode("wrong-model", "passage: guide")
         .is_err());
@@ -447,7 +457,10 @@ fn command_cache_lifecycle_in_isolated_app_data() {
         );
         let active = invoke(&window, "search_embedding_configure", request.clone()).unwrap();
         assert_eq!(active["activeFormat"], "dynamic-int8");
-        assert_eq!(active["encoderKey"], ModelFormat::DynamicInt8.encoder_key());
+        assert_eq!(
+            active["encoderKey"],
+            ModelSelection::DynamicInt8.encoder_key()
+        );
         assert!(invoke(&window, "search_embedding_remove", request.clone()).is_err());
         if phase == "active" {
             let ready = data.join("restart-ready");
@@ -483,7 +496,7 @@ fn command_cache_lifecycle_in_isolated_app_data() {
     assert_eq!(app.path().app_data_dir().unwrap(), data);
     let window = window(&app);
     let request = json!({"format":"dynamic-int8"});
-    let dir = cache_dir(app.handle(), ModelFormat::DynamicInt8).unwrap();
+    let dir = cache_dir(app.handle(), ModelSelection::DynamicInt8).unwrap();
     assert!(dir.starts_with(data.join("models/search")));
     let initial = invoke(&window, "search_embedding_cache_status", json!({})).unwrap();
     assert_eq!(
@@ -505,7 +518,7 @@ fn command_cache_lifecycle_in_isolated_app_data() {
     // regression separately proves busy-slot retention until actual cleanup.
     let cancel = Arc::new(AtomicBool::new(false));
     let state = app.state::<SearchEmbeddingState>();
-    state.0.lock().unwrap().downloading = Some((ModelFormat::DynamicInt8, cancel.clone()));
+    state.0.lock().unwrap().downloading = Some((ModelSelection::DynamicInt8, cancel.clone()));
     for cmd in [
         "search_embedding_download",
         "search_embedding_configure",
@@ -536,7 +549,7 @@ fn command_cache_lifecycle_in_isolated_app_data() {
 
     // Complete-by-size, deliberately corrupt cache: real command must refuse
     // integrity without going to the network or replacing the final directory.
-    for asset in ModelFormat::DynamicInt8.assets() {
+    for asset in ModelSelection::DynamicInt8.assets() {
         let path = dir.join(asset.path);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::File::create(path)
@@ -573,7 +586,7 @@ fn command_cache_lifecycle_in_isolated_app_data() {
     assert!(!dir.exists() && !staging.exists());
 
     // Real pinned cached bytes; copy, never link or mutate the source models.
-    for asset in ModelFormat::DynamicInt8.assets() {
+    for asset in ModelSelection::DynamicInt8.assets() {
         let path = dir.join(asset.path);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::copy(
@@ -656,13 +669,16 @@ fn command_cache_lifecycle_in_isolated_app_data() {
         }
     }
     assert_eq!(active["activeFormat"], "dynamic-int8");
-    assert_eq!(active["encoderKey"], ModelFormat::DynamicInt8.encoder_key());
+    assert_eq!(
+        active["encoderKey"],
+        ModelSelection::DynamicInt8.encoder_key()
+    );
     assert!(invoke(&window, "search_embedding_remove", request.clone())
         .unwrap_err()
         .as_str()
         .unwrap()
         .contains("Disable embeddings"));
-    let other = cache_dir(app.handle(), ModelFormat::Float32).unwrap();
+    let other = cache_dir(app.handle(), ModelSelection::Float32).unwrap();
     fs::create_dir_all(&other).unwrap();
     fs::write(other.join("partial"), b"partial").unwrap();
     assert_eq!(

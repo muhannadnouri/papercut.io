@@ -68,7 +68,7 @@ function controls(node: ReactNode = tree): ReactElement<Record<string, unknown>>
   })
 }
 function control(type: string, text?: string) {
-  const element = controls().find((item) => item.type === type && (!text || item.props.children === text))
+  const element = controls().find((item) => item.type === type && (type !== 'select' || item.props['aria-label'] === 'settings.searchModel.format') && (!text || item.props.children === text))
   expect(element, `${type} ${text ?? ''}`).toBeDefined()
   return element!
 }
@@ -110,6 +110,8 @@ beforeEach(() => {
     if (command === 'search_embedding_cache_status') return [
       { format: 'float32', expectedBytes: 487352505, filesPresent: present, hasStoredFiles: present || storedFiles },
       { format: 'dynamic-int8', expectedBytes: 135430819, filesPresent: present, hasStoredFiles: present || storedFiles },
+      { format: 'base-float32', expectedBytes: 1127143136, filesPresent: false, hasStoredFiles: false },
+      { format: 'large-float32', expectedBytes: 2252993226, filesPresent: false, hasStoredFiles: false },
     ]
     if (command === 'search_embedding_remove') { present = false; storedFiles = false }
     return { ...status }
@@ -119,6 +121,29 @@ afterEach(() => {
   unmount()
   vi.useRealTimers()
   vi.unstubAllGlobals()
+})
+
+it('selects Base and Large independently of precision without implicit work or shared consent', async () => {
+  render(); await settle()
+  consent(); render()
+  for (const format of ['base-float32', 'large-float32']) {
+    const select = controls().find((item) => item.type === 'select' && item.props['aria-label'] === 'settings.searchModel.model')!
+    expect(select.props.disabled).toBe(false)
+    ;(select.props.onChange as (event: unknown) => void)({ target: { value: format } })
+    const html = render()
+    expect(html).toContain('settings.searchModel.largerWarning')
+    expect(html).toContain('settings.searchModel.switchHint')
+    expect(control('select').props.disabled).toBe(true)
+    expect(control('select').props.value).toBe(format)
+    expect(control('input').props.checked).toBe(false)
+    expect(control('button', 'settings.searchModel.download').props.disabled).toBe(true)
+    expect(mocked.invoke.mock.calls.some(([cmd]) => cmd === 'search_embedding_configure' || cmd === 'search_semantic_index_build')).toBe(false)
+    consent(); render(); click('settings.searchModel.download'); await settle()
+  }
+  expect(mocked.invoke.mock.calls.filter(([cmd]) => cmd === 'search_embedding_download')).toEqual([
+    ['search_embedding_download', { format: 'base-float32' }],
+    ['search_embedding_download', { format: 'large-float32' }],
+  ])
 })
 
 it('keeps normal builds unavailable and never starts downloads or activates on opening', async () => {

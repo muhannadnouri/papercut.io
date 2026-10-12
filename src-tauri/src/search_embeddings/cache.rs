@@ -1,5 +1,5 @@
 //! Explicit, pinned model-cache downloads. No inference, indexing or implicit network work.
-use super::{ModelFormat, ProviderStatus, SearchEmbeddingState};
+use super::{ModelSelection, ProviderStatus, SearchEmbeddingState};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::{
@@ -15,86 +15,8 @@ use std::{
 };
 use tauri::Emitter;
 
-const REVISION: &str = "614241f622f53c4eeff9890bdc4f31cfecc418b3";
 const PROGRESS_EVENT: &str = "search-embedding-download-progress";
-
-#[derive(Clone, Copy)]
-pub(super) struct Asset {
-    pub path: &'static str,
-    pub upstream_path: &'static str,
-    pub bytes: u64,
-    pub sha256: &'static str,
-}
-
-impl ModelFormat {
-    pub(super) fn cache_key(self) -> String {
-        let format = match self {
-            Self::Float32 => "float32",
-            Self::DynamicInt8 => "dynamic-int8",
-        };
-        format!("multilingual-e5-small/{REVISION}/{format}")
-    }
-
-    pub(super) fn encoder_key(self) -> String {
-        // Index identity must ALSO include source/extraction/chunking versions.
-        format!(
-            "{}/{}/mean-e5-prefix-v1/384/512/single-text",
-            self.cache_key(),
-            self.assets()[4].sha256
-        )
-    }
-
-    pub(super) fn assets(self) -> [Asset; 5] {
-        let (upstream_path, bytes, sha256) = match self {
-            Self::Float32 => (
-                "onnx/model.onnx",
-                470_268_510,
-                "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665",
-            ),
-            Self::DynamicInt8 => (
-                "onnx/model_qint8_avx512_vnni.onnx",
-                118_346_824,
-                "dd476dd0c2514e9b9be83aeb3853fac0763e0bdf4a71645407587d77c48a2d88",
-            ),
-        };
-        [
-            Asset {
-                path: "config.json",
-                upstream_path: "config.json",
-                bytes: 655,
-                sha256: "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959",
-            },
-            Asset {
-                path: "tokenizer.json",
-                upstream_path: "tokenizer.json",
-                bytes: 17_082_730,
-                sha256: "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39",
-            },
-            Asset {
-                path: "special_tokens_map.json",
-                upstream_path: "special_tokens_map.json",
-                bytes: 167,
-                sha256: "d05497f1da52c5e09554c0cd874037a083e1dc1b9cfd48034d1c717f1afc07a7",
-            },
-            Asset {
-                path: "tokenizer_config.json",
-                upstream_path: "tokenizer_config.json",
-                bytes: 443,
-                sha256: "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b",
-            },
-            Asset {
-                path: "onnx/model.onnx",
-                upstream_path,
-                bytes,
-                sha256,
-            },
-        ]
-    }
-
-    pub(super) fn installed_bytes(self) -> u64 {
-        self.assets().iter().map(|asset| asset.bytes).sum()
-    }
-}
+use super::models::Asset;
 
 fn check_cancel(cancel: &AtomicBool) -> Result<(), String> {
     if cancel.load(Ordering::Relaxed) {
@@ -289,7 +211,7 @@ fn fetch_asset(
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DownloadProgress {
-    format: ModelFormat,
+    format: ModelSelection,
     phase: &'static str,
     downloaded_bytes: u64,
     total_bytes: u64,
@@ -298,7 +220,7 @@ struct DownloadProgress {
 impl SearchEmbeddingState {
     fn download_with(
         &self,
-        format: ModelFormat,
+        format: ModelSelection,
         task: impl FnOnce(&AtomicBool) -> Result<(), String>,
     ) -> Result<ProviderStatus, String> {
         let cancel = Arc::new(AtomicBool::new(false));
@@ -327,7 +249,7 @@ impl SearchEmbeddingState {
         &self,
         app: &tauri::AppHandle<R>,
         dir: &Path,
-        format: ModelFormat,
+        format: ModelSelection,
     ) -> Result<ProviderStatus, String> {
         self.download_with(format, |cancel| {
             let total = format.installed_bytes();
@@ -350,10 +272,7 @@ impl SearchEmbeddingState {
                     &format.assets(),
                     cancel,
                     |asset, file, cancel| {
-                        let url = format!(
-                            "https://huggingface.co/intfloat/multilingual-e5-small/resolve/{REVISION}/{}",
-                            asset.upstream_path
-                        );
+                        let url = format.asset_url(asset);
                         let offset = downloaded;
                         fetch_asset(&client, &url, asset, file, cancel, |count| {
                             let bytes = offset + count;
@@ -387,7 +306,11 @@ impl SearchEmbeddingState {
         fs::rename(stage, dir).map_err(|err| err.to_string())
     }
 
-    pub(super) fn remove(&self, dir: &Path, format: ModelFormat) -> Result<ProviderStatus, String> {
+    pub(super) fn remove(
+        &self,
+        dir: &Path,
+        format: ModelSelection,
+    ) -> Result<ProviderStatus, String> {
         let inner = self.0.lock().map_err(|_| "Embedding state lock failed")?;
         if inner.loading.is_some() || inner.downloading.is_some() {
             return Err(
@@ -453,8 +376,8 @@ mod tests {
 
     #[test]
     fn pinned_cache_checks_integrity_cleanup_reuse_cancellation_and_removal() {
-        assert_eq!(ModelFormat::Float32.installed_bytes(), 487_352_505);
-        assert_eq!(ModelFormat::DynamicInt8.installed_bytes(), 135_430_819);
+        assert_eq!(ModelSelection::Float32.installed_bytes(), 487_352_505);
+        assert_eq!(ModelSelection::DynamicInt8.installed_bytes(), 135_430_819);
         let root = work("lifecycle");
         let dir = root.0.join("float32");
         let assets = [
@@ -553,8 +476,8 @@ mod tests {
         )
         .is_err());
         assert_eq!(fs::read(dir.join("config.json")).unwrap(), b"abd");
-        state.remove(&dir, ModelFormat::Float32).unwrap();
-        state.remove(&dir, ModelFormat::Float32).unwrap();
+        state.remove(&dir, ModelSelection::Float32).unwrap();
+        state.remove(&dir, ModelSelection::Float32).unwrap();
         let oversized = [Asset {
             bytes: u64::MAX,
             ..SMALL
@@ -585,7 +508,7 @@ mod tests {
             let worker = scope.spawn(move || {
                 let state = worker_state;
                 let dir = worker_dir;
-                state.download_with(ModelFormat::Float32, |cancel| {
+                state.download_with(ModelSelection::Float32, |cancel| {
                     install(
                         &dir,
                         &[SMALL],
@@ -603,18 +526,20 @@ mod tests {
             ready_rx.recv().unwrap();
             assert_eq!(
                 state.status().unwrap().downloading_format,
-                Some(ModelFormat::Float32)
+                Some(ModelSelection::Float32)
             );
             assert!(state
-                .download_with(ModelFormat::DynamicInt8, |_| panic!("duplicate download"))
+                .download_with(ModelSelection::DynamicInt8, |_| panic!(
+                    "duplicate download"
+                ))
                 .is_err());
             assert!(state
-                .activate(Path::new("missing"), ModelFormat::Float32)
+                .activate(Path::new("missing"), ModelSelection::Float32)
                 .unwrap_err()
                 .contains("already running"));
-            assert!(state.remove(&dir, ModelFormat::Float32).is_err());
+            assert!(state.remove(&dir, ModelSelection::Float32).is_err());
             state.disable().unwrap();
-            assert!(state.remove(&dir, ModelFormat::Float32).is_err());
+            assert!(state.remove(&dir, ModelSelection::Float32).is_err());
             resume_tx.send(()).unwrap();
             assert!(worker.join().unwrap().unwrap_err().contains("cancelled"));
         });
@@ -622,7 +547,7 @@ mod tests {
         assert!(!dir.exists());
         assert!(!staging_dir(&dir).exists());
         assert!(state
-            .download_with(ModelFormat::Float32, |_| {
+            .download_with(ModelSelection::Float32, |_| {
                 install(
                     &dir,
                     &[SMALL],
@@ -635,7 +560,7 @@ mod tests {
         assert!(state.status().unwrap().downloading_format.is_none());
         assert!(!staging_dir(&dir).exists());
         assert!(state
-            .download_with(ModelFormat::Float32, |_| Err("offline".into()))
+            .download_with(ModelSelection::Float32, |_| Err("offline".into()))
             .is_err());
         assert!(state.status().unwrap().downloading_format.is_none());
     }
@@ -679,7 +604,7 @@ mod tests {
                 }
             };
             let status = state
-                .download_with(ModelFormat::Float32, |cancel| {
+                .download_with(ModelSelection::Float32, |cancel| {
                     install(
                         &dir,
                         &assets,
@@ -777,7 +702,7 @@ mod tests {
             verify_cache(&dir, &assets, &AtomicBool::new(false)).unwrap();
             assert!(!staging_dir(&dir).exists());
             eprintln!("SIGKILL at {phase}: fresh-process recovery passed");
-            state.remove(&dir, ModelFormat::Float32).unwrap();
+            state.remove(&dir, ModelSelection::Float32).unwrap();
         }
     }
 

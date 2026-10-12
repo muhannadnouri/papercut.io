@@ -4,17 +4,17 @@ import { listen } from '@tauri-apps/api/event'
 import { useTranslation } from 'react-i18next'
 import { formatStorageSize } from '../../utils/formatUtils'
 import { SemanticSearchSetup } from '../../search-semantic/SemanticSearchSetup'
-import type { ModelFormat, ProviderStatus, SemanticSearchController } from '../../search-semantic/useSemanticSearch'
+import type { ModelSelection, ProviderStatus, SemanticSearchController } from '../../search-semantic/useSemanticSearch'
 import './SearchModelSetup.css'
 
 interface CacheStatus {
-  format: ModelFormat
+  format: ModelSelection
   filesPresent: boolean
   hasStoredFiles: boolean
   expectedBytes: number
 }
 interface DownloadProgress {
-  format: ModelFormat
+  format: ModelSelection
   phase: 'starting' | 'downloading' | 'installed' | 'cancelled' | 'failed'
   downloadedBytes: number
   totalBytes: number
@@ -26,7 +26,7 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
   const id = useId()
   const [snapshot, setSnapshot] = useState<{ status: ProviderStatus; caches: CacheStatus[] } | null>(null)
   const [ready, setReady] = useState(false)
-  const [localFormat, setLocalFormat] = useState<ModelFormat>('float32')
+  const [localFormat, setLocalFormat] = useState<ModelSelection>('float32')
   const format = semantic?.format ?? localFormat
   const [consent, setConsent] = useState(false)
   const [operation, setOperation] = useState<'download' | 'remove' | null>(null)
@@ -152,7 +152,21 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
   // Active provider identity is verified during native loading; file presence alone is not.
   const loaded = (semantic?.provider ?? status)?.activeFormat === format
   const canChange = ready && status?.compiled && !busy && !semantic?.enabled && !loaded
-  const formatLabel = t(format === 'float32' ? 'settings.searchModel.float32' : 'settings.searchModel.int8')
+  const small = format === 'float32' || format === 'dynamic-int8'
+  const modelName = `multilingual-e5-${format === 'base-float32' ? 'base' : format === 'large-float32' ? 'large' : 'small'}`
+  const formatLabel = `${modelName} · ${t(format === 'dynamic-int8' ? 'settings.searchModel.int8' : 'settings.searchModel.float32')}`
+
+  /** A different model or precision needs its own download consent; changing it starts no work. */
+  function selectFormat(choice: ModelSelection) {
+    if (!canChange) return
+    if (semantic) semantic.setFormat(choice)
+    else setLocalFormat(choice)
+    setConsent(false)
+    setRemoval(null)
+    setError('')
+    setMessage('')
+    setProgress(null)
+  }
 
   const canRemoveModel = !!canChange && !!cache?.hasStoredFiles && status?.activeFormat !== format
   const canRemoveIndex = !busy && !!semantic?.provider?.compiled && !!semantic.index?.hasStoredIndex
@@ -192,26 +206,30 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
       <summary>{t(loaded || cache?.hasStoredFiles ? 'settings.searchModel.manage' : 'settings.searchModel.title')}
         {(loaded || cache?.filesPresent) && <span className="search-model-summary-status" role="status">{formatLabel} · {t(loaded ? 'settings.searchModel.loaded' : 'settings.searchModel.stored')}</span>}
       </summary>
+      <div className="search-model-selection">
+        <label className="search-model-field">
+          <span>{t('settings.searchModel.model')}</span>
+          <select aria-label={t('settings.searchModel.model')} value={small ? 'float32' : format} disabled={!canChange}
+            onChange={(event) => selectFormat(event.target.value as ModelSelection)}>
+            <option value="float32">multilingual-e5-small</option>
+            <option value="base-float32">multilingual-e5-base</option>
+            <option value="large-float32">multilingual-e5-large</option>
+          </select>
+        </label>
+        <label className="search-model-field">
+          <span>{t('settings.searchModel.format')}</span>
+          <select aria-label={t('settings.searchModel.format')} value={format} disabled={!canChange || !small}
+            onChange={(event) => selectFormat(event.target.value as ModelSelection)}>
+            <option value={small ? 'float32' : format}>{t('settings.searchModel.float32')}</option>
+            {small && <option value="dynamic-int8">{t('settings.searchModel.int8')}</option>}
+          </select>
+        </label>
+      </div>
       <dl className="search-model-metadata">
-        <dt>{t('settings.searchModel.model')}</dt><dd>multilingual-e5-small</dd>
         <dt>{t('settings.searchModel.downloadSize')}</dt><dd>{formatStorageSize(cache?.expectedBytes) ?? '—'}</dd>
       </dl>
-      <label className="search-model-field">
-        <span>{t('settings.searchModel.format')}</span>
-        <select value={format} disabled={!canChange} onChange={(event) => {
-          const choice = event.target.value as ModelFormat
-          if (semantic) semantic.setFormat(choice)
-          else setLocalFormat(choice)
-          setConsent(false)
-          setRemoval(null)
-          setError('')
-          setMessage('')
-          setProgress(null)
-        }}>
-          <option value="float32">{t('settings.searchModel.float32')}</option>
-          <option value="dynamic-int8">{t('settings.searchModel.int8')}</option>
-        </select>
-      </label>
+      {!small && <p>{t('settings.searchModel.largerWarning')}</p>}
+      <p>{t('settings.searchModel.switchHint')}</p>
       {format === 'dynamic-int8' && <p>{t('settings.searchModel.int8Warning')}</p>}
       {!loaded && <p role="status">{t(cache?.filesPresent
         ? message === 'verified' ? 'settings.searchModel.verified' : 'settings.searchModel.present'
@@ -234,7 +252,7 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
       {(operation !== null || downloading) && <div role="status" aria-live="polite">
         <p>{t('settings.searchModel.working')}</p>
         {downloading && <>
-          <p>{t(downloading === 'float32' ? 'settings.searchModel.float32' : 'settings.searchModel.int8')}</p>
+          <p>{formatLabel}</p>
           <progress aria-label={t('settings.searchModel.progress')} max={100}
             value={matchingProgress && percent !== null ? percent : undefined} />
           {matchingProgress && percent !== null && <span>{percent}%</span>}

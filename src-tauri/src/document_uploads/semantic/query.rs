@@ -109,9 +109,8 @@ pub(crate) async fn search_semantic_query<R: tauri::Runtime>(
             if provider.index_generation() != version {
                 return Err("Semantic model disabled; retry query".into());
             }
-            let encoder = provider.index_encoder_key()?;
-            let identity =
-                super::store::Identity::new(&encoder, crate::search_embeddings::DIMENSIONS)?;
+            let (encoder, dimensions) = provider.index_encoder_identity()?;
+            let identity = super::store::Identity::new(&encoder, dimensions)?;
             let path = crate::document_uploads::storage::uploads_root(&app)?.join("search.sqlite3");
             if !path.exists() {
                 return Ok(QueryResponse::default());
@@ -141,7 +140,9 @@ pub(crate) async fn search_semantic_query<R: tauri::Runtime>(
                     Ok(())
                 },
             )?;
-            if provider.index_generation() != version || provider.index_encoder_key()? != encoder {
+            if provider.index_generation() != version
+                || provider.index_encoder_identity()?.0 != encoder
+            {
                 return Err("Semantic model changed; retry query".into());
             }
             Ok(response)

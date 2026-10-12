@@ -5,12 +5,17 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "experimental-search-embeddings-core")]
 mod cache;
+#[cfg(feature = "experimental-search-embeddings-core")]
+mod models;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
-pub(crate) enum ModelFormat {
+// Preserve existing serialized Small selections and saved preferences while adding model capacities.
+pub(crate) enum ModelSelection {
     Float32,
     DynamicInt8,
+    BaseFloat32,
+    LargeFloat32,
 }
 
 #[derive(Debug, Serialize)]
@@ -18,14 +23,14 @@ pub(crate) enum ModelFormat {
 pub(crate) struct ProviderStatus {
     compiled: bool,
     platform: &'static str,
-    active_format: Option<ModelFormat>,
-    loading_format: Option<ModelFormat>,
-    downloading_format: Option<ModelFormat>,
+    active_format: Option<ModelSelection>,
+    loading_format: Option<ModelSelection>,
+    downloading_format: Option<ModelSelection>,
     encoder_key: Option<String>,
 }
 
 #[cfg(feature = "experimental-search-embeddings-core")]
-pub(crate) use provider::{SearchEmbeddingState, DIMENSIONS};
+pub(crate) use provider::SearchEmbeddingState;
 #[cfg(not(feature = "experimental-search-embeddings-core"))]
 #[derive(Clone, Default)]
 pub(crate) struct SearchEmbeddingState {}
@@ -55,7 +60,7 @@ impl SearchEmbeddingState {
             loading_format,
             downloading_format,
             #[cfg(feature = "experimental-search-embeddings-core")]
-            encoder_key: active_format.map(ModelFormat::encoder_key),
+            encoder_key: active_format.map(ModelSelection::encoder_key),
             #[cfg(not(feature = "experimental-search-embeddings-core"))]
             encoder_key: None,
         })
@@ -93,7 +98,7 @@ impl SearchEmbeddingState {
 #[cfg(feature = "experimental-search-embeddings-core")]
 fn cache_dir<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
-    format: ModelFormat,
+    format: ModelSelection,
 ) -> Result<std::path::PathBuf, String> {
     use tauri::Manager;
     Ok(app
@@ -107,7 +112,7 @@ fn cache_dir<R: tauri::Runtime>(
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CacheStatus {
-    format: ModelFormat,
+    format: ModelSelection,
     files_present: bool,
     has_stored_files: bool,
     expected_bytes: u64,
@@ -120,8 +125,13 @@ pub(crate) async fn search_embedding_cache_status<R: tauri::Runtime>(
 ) -> Result<Vec<CacheStatus>, String> {
     #[cfg(feature = "experimental-search-embeddings-core")]
     {
-        let dirs = [ModelFormat::Float32, ModelFormat::DynamicInt8]
-            .map(|format| cache_dir(&app, format).map(|dir| (format, dir)));
+        let dirs = [
+            ModelSelection::Float32,
+            ModelSelection::DynamicInt8,
+            ModelSelection::BaseFloat32,
+            ModelSelection::LargeFloat32,
+        ]
+        .map(|format| cache_dir(&app, format).map(|dir| (format, dir)));
         tauri::async_runtime::spawn_blocking(move || {
             dirs.into_iter()
                 .map(|entry| {
@@ -149,7 +159,7 @@ pub(crate) async fn search_embedding_cache_status<R: tauri::Runtime>(
 pub(crate) async fn search_embedding_download<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     state: tauri::State<'_, SearchEmbeddingState>,
-    format: ModelFormat,
+    format: ModelSelection,
 ) -> Result<ProviderStatus, String> {
     #[cfg(feature = "experimental-search-embeddings-core")]
     {
@@ -170,7 +180,7 @@ pub(crate) async fn search_embedding_download<R: tauri::Runtime>(
 pub(crate) async fn search_embedding_remove<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     state: tauri::State<'_, SearchEmbeddingState>,
-    format: ModelFormat,
+    format: ModelSelection,
 ) -> Result<ProviderStatus, String> {
     #[cfg(feature = "experimental-search-embeddings-core")]
     {
@@ -225,7 +235,7 @@ pub(crate) async fn search_embedding_configure<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     state: tauri::State<'_, SearchEmbeddingState>,
     index: tauri::State<'_, crate::document_uploads::semantic::SemanticIndexState>,
-    format: Option<ModelFormat>,
+    format: Option<ModelSelection>,
 ) -> Result<ProviderStatus, String> {
     // Invalidate queued workers before dispatch; a late load must not undo a newer disable.
     #[cfg(feature = "experimental-search-embeddings-core")]
@@ -264,7 +274,7 @@ pub(crate) async fn search_embedding_configure<R: tauri::Runtime>(
 
 #[cfg(feature = "experimental-search-embeddings-core")]
 mod provider {
-    use super::{ModelFormat, ProviderStatus};
+    use super::{ModelSelection, ProviderStatus};
     use fastembed::{
         InitOptionsUserDefined, Pooling, QuantizationMode, TextEmbedding, TokenizerFiles,
         UserDefinedEmbeddingModel,
@@ -281,7 +291,6 @@ mod provider {
         },
     };
 
-    pub(crate) const DIMENSIONS: usize = 384;
     const MAX_TOKENS: usize = 512;
 
     #[derive(Clone, Default)]
@@ -294,12 +303,12 @@ mod provider {
     #[derive(Default)]
     pub(super) struct ProviderState {
         pub(super) active: Option<LoadedProvider>,
-        pub(super) loading: Option<(ModelFormat, Arc<AtomicBool>)>,
-        pub(super) downloading: Option<(ModelFormat, Arc<AtomicBool>)>,
+        pub(super) loading: Option<(ModelSelection, Arc<AtomicBool>)>,
+        pub(super) downloading: Option<(ModelSelection, Arc<AtomicBool>)>,
     }
 
     pub(super) struct LoadedProvider {
-        pub(super) format: ModelFormat,
+        pub(super) format: ModelSelection,
         model: TextEmbedding,
     }
 
@@ -308,13 +317,13 @@ mod provider {
         pub(crate) fn index_generation(&self) -> u64 {
             self.1.load(Ordering::SeqCst)
         }
-        /// Include tokenizer/config checksums as well as the provider's model identity.
-        pub(crate) fn index_encoder_key(&self) -> Result<String, String> {
+        /// Read the checksummed identity and dimensions together so a model switch cannot mix them.
+        pub(crate) fn index_encoder_identity(&self) -> Result<(String, usize), String> {
             let state = self.0.lock().map_err(|_| "Embedding state lock failed")?;
             state
                 .active
                 .as_ref()
-                .map(LoadedProvider::index_key)
+                .map(|loaded| (loaded.index_key(), loaded.format.dimensions()))
                 .ok_or_else(|| "Enable a verified embedding model before indexing".into())
         }
 
@@ -353,7 +362,7 @@ mod provider {
         pub(super) fn activate_at(
             &self,
             dir: &Path,
-            format: ModelFormat,
+            format: ModelSelection,
             version: u64,
         ) -> Result<ProviderStatus, String> {
             self.activate_with_version(format, version, |cancel| {
@@ -365,7 +374,7 @@ mod provider {
         pub(super) fn activate(
             &self,
             dir: &Path,
-            format: ModelFormat,
+            format: ModelSelection,
         ) -> Result<ProviderStatus, String> {
             self.activate_at(dir, format, self.1.load(Ordering::SeqCst))
         }
@@ -373,7 +382,7 @@ mod provider {
         #[cfg(test)]
         fn activate_with(
             &self,
-            format: ModelFormat,
+            format: ModelSelection,
             load: impl FnOnce(&AtomicBool) -> Result<LoadedProvider, String>,
         ) -> Result<ProviderStatus, String> {
             self.activate_with_version(format, self.1.load(Ordering::SeqCst), load)
@@ -381,7 +390,7 @@ mod provider {
 
         fn activate_with_version(
             &self,
-            format: ModelFormat,
+            format: ModelSelection,
             version: u64,
             load: impl FnOnce(&AtomicBool) -> Result<LoadedProvider, String>,
         ) -> Result<ProviderStatus, String> {
@@ -541,9 +550,9 @@ mod provider {
             Ok(result)
         }
 
-        fn load(dir: &Path, format: ModelFormat, cancel: &AtomicBool) -> Result<Self, String> {
+        fn load(dir: &Path, format: ModelSelection, cancel: &AtomicBool) -> Result<Self, String> {
             let assets = format.assets();
-            let read = |asset: &super::cache::Asset| {
+            let read = |asset: &super::models::Asset| {
                 read_verified(&dir.join(asset.path), asset.bytes, asset.sha256, cancel)
             };
             let files = TokenizerFiles {
@@ -553,8 +562,10 @@ mod provider {
                 tokenizer_config_file: read(&assets[3])?,
             };
             let quantization = match format {
-                ModelFormat::Float32 => QuantizationMode::None,
-                ModelFormat::DynamicInt8 => QuantizationMode::Dynamic,
+                ModelSelection::Float32
+                | ModelSelection::BaseFloat32
+                | ModelSelection::LargeFloat32 => QuantizationMode::None,
+                ModelSelection::DynamicInt8 => QuantizationMode::Dynamic,
             };
             let bytes = read(&assets[4])?;
             check_cancel(cancel)?;
@@ -564,10 +575,22 @@ mod provider {
             } else {
                 std::thread::available_parallelism().map_or(1, |n| n.get().min(2))
             };
+            let mut definition = UserDefinedEmbeddingModel::new(bytes, files)
+                .with_pooling(Pooling::Mean)
+                .with_quantization(quantization);
+            // Large's graph refers to external weights; verify the bytes before handing them to ORT.
+            for asset in &assets[5..] {
+                definition = definition.with_external_initializer(
+                    asset
+                        .path
+                        .strip_prefix("onnx/")
+                        .ok_or("Invalid external embedding asset path")?
+                        .into(),
+                    read(asset)?,
+                );
+            }
             let mut model = TextEmbedding::try_new_from_user_defined(
-                UserDefinedEmbeddingModel::new(bytes, files)
-                    .with_pooling(Pooling::Mean)
-                    .with_quantization(quantization),
+                definition,
                 InitOptionsUserDefined::new()
                     .with_max_length(MAX_TOKENS)
                     .with_intra_threads(threads),
@@ -612,7 +635,7 @@ mod provider {
             }
             let vector = vectors.remove(0);
             let norm = vector.iter().map(|n| n * n).sum::<f32>().sqrt();
-            if vector.len() != DIMENSIONS
+            if vector.len() != self.format.dimensions()
                 || vector.iter().any(|n| !n.is_finite())
                 || (norm - 1.0).abs() > 1e-4
             {
@@ -654,7 +677,7 @@ mod provider {
             std::thread::scope(|scope| {
                 let worker_state = state.clone();
                 let worker = scope.spawn(move || {
-                    worker_state.activate_with(ModelFormat::Float32, |cancel| {
+                    worker_state.activate_with(ModelSelection::Float32, |cancel| {
                         ready_tx.send(()).unwrap();
                         resume_rx.recv().unwrap();
                         check_cancel(cancel)?;
@@ -664,15 +687,15 @@ mod provider {
                 ready_rx.recv().unwrap();
                 assert_eq!(
                     state.status().unwrap().loading_format,
-                    Some(ModelFormat::Float32)
+                    Some(ModelSelection::Float32)
                 );
                 assert!(state
-                    .activate_with(ModelFormat::Float32, |_| panic!("duplicate load"))
+                    .activate_with(ModelSelection::Float32, |_| panic!("duplicate load"))
                     .is_err());
                 assert!(state.disable().unwrap().active_format.is_none());
                 // A cancelled loader still owns its slot until it actually returns.
                 assert!(state
-                    .activate_with(ModelFormat::DynamicInt8, |_| panic!("overlapping load"))
+                    .activate_with(ModelSelection::DynamicInt8, |_| panic!("overlapping load"))
                     .is_err());
                 resume_tx.send(()).unwrap();
                 assert_eq!(
@@ -682,10 +705,10 @@ mod provider {
             });
             assert!(state.status().unwrap().loading_format.is_none());
             assert!(state
-                .activate_with(ModelFormat::Float32, |_| Err("missing model".into()))
+                .activate_with(ModelSelection::Float32, |_| Err("missing model".into()))
                 .is_err());
             assert!(state
-                .activate_with(ModelFormat::Float32, |_| panic!("invalid runtime"))
+                .activate_with(ModelSelection::Float32, |_| panic!("invalid runtime"))
                 .is_err());
             assert!(state.status().unwrap().loading_format.is_none());
             assert!(state.disable().unwrap().active_format.is_none());
@@ -698,7 +721,7 @@ mod provider {
             state.disable_at(state.invalidate_activation()).unwrap();
             assert_eq!(
                 state
-                    .activate_with_version(ModelFormat::Float32, queued, |_| panic!(
+                    .activate_with_version(ModelSelection::Float32, queued, |_| panic!(
                         "a superseded queued request must never load native assets"
                     ))
                     .unwrap_err(),
@@ -708,7 +731,7 @@ mod provider {
             assert!(state.status().unwrap().loading_format.is_none());
             let current = state.1.load(Ordering::SeqCst);
             assert!(state
-                .activate_with_version(ModelFormat::Float32, current, |_| Err(
+                .activate_with_version(ModelSelection::Float32, current, |_| Err(
                     "fresh request reached loader".into()
                 ))
                 .unwrap_err()
@@ -725,9 +748,10 @@ mod provider {
             let root = std::env::var_os("PAPERCUT_EMBEDDING_TEST_MODELS")
                 .expect("set test-only cached models directory");
             let only = std::env::var("PAPERCUT_EMBEDDING_TEST_FORMAT").ok();
-            assert!(only
-                .as_deref()
-                .is_none_or(|format| matches!(format, "float32" | "dynamic-int8")));
+            assert!(only.as_deref().is_none_or(|format| matches!(
+                format,
+                "float32" | "dynamic-int8" | "base-float32" | "large-float32"
+            )));
             let state = SearchEmbeddingState::default();
             // Manual runtime CI may install pinned test assets; ordinary/cached runs never fetch.
             let installer = (std::env::var("PAPERCUT_EMBEDDING_TEST_DOWNLOAD").as_deref()
@@ -740,12 +764,21 @@ mod provider {
             let mut baselines = Vec::new();
             for (cycle, (format, folder)) in (1..=cycles).flat_map(|cycle| {
                 [
-                    (ModelFormat::Float32, "float32"),
-                    (ModelFormat::DynamicInt8, "dynamic-int8"),
+                    (ModelSelection::Float32, "float32"),
+                    (ModelSelection::DynamicInt8, "dynamic-int8"),
+                    (ModelSelection::BaseFloat32, "base-float32"),
+                    (ModelSelection::LargeFloat32, "large-float32"),
                 ]
                 .map(|selection| (cycle, selection))
             }) {
-                if only.as_deref().is_some_and(|requested| requested != folder) {
+                // Routine CI keeps its two Small runs; larger, heavier checks require an explicit selection.
+                if only.as_deref().map_or(
+                    !matches!(
+                        format,
+                        ModelSelection::Float32 | ModelSelection::DynamicInt8
+                    ),
+                    |requested| requested != folder,
+                ) {
                     continue;
                 }
                 let dir = Path::new(&root).join(folder);
@@ -765,8 +798,10 @@ mod provider {
                 // An already loaded, unchanged selection does not read disk again.
                 state.activate(Path::new("missing"), format).unwrap();
                 let other = match format {
-                    ModelFormat::Float32 => ModelFormat::DynamicInt8,
-                    ModelFormat::DynamicInt8 => ModelFormat::Float32,
+                    ModelSelection::Float32
+                    | ModelSelection::BaseFloat32
+                    | ModelSelection::LargeFloat32 => ModelSelection::DynamicInt8,
+                    ModelSelection::DynamicInt8 => ModelSelection::Float32,
                 };
                 assert!(state
                     .activate(Path::new("missing"), other)
@@ -792,6 +827,7 @@ mod provider {
                     let loaded = inner.active.as_mut().unwrap();
                     eprintln!("inference controls: {format:?}");
                     let first = loaded.encode("query: public transport").unwrap();
+                    assert_eq!(first.len(), format.dimensions());
                     assert_eq!(first, loaded.encode("query: public transport").unwrap());
                     if let Some((_, expected)) = baselines.iter().find(|(key, _)| *key == format) {
                         assert_eq!(&first, expected, "vector changed across provider reloads");
@@ -831,7 +867,7 @@ mod provider {
                 assert!(state.activate(Path::new("missing"), other).is_err());
                 assert!(state.status().unwrap().active_format.is_none());
                 assert!(state.status().unwrap().loading_format.is_none());
-                if format == ModelFormat::DynamicInt8 {
+                if format == ModelSelection::DynamicInt8 {
                     // Disable during non-interruptible native setup: discard the
                     // completed session instead of publishing it after opting out.
                     let result = state.activate_with(format, |cancel| {
@@ -872,7 +908,7 @@ mod tests {
         assert!(status.loading_format.is_none());
         assert!(status.downloading_format.is_none());
         state.disable().unwrap();
-        assert!(serde_json::from_str::<ModelFormat>("\"unknown-model\"").is_err());
+        assert!(serde_json::from_str::<ModelSelection>("\"unknown-model\"").is_err());
     }
 }
 

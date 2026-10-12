@@ -180,10 +180,10 @@ pub(crate) async fn search_semantic_index_status<R: tauri::Runtime>(
             {
                 let mut db = super::store::open_db(&app)?;
                 status.has_stored_index = store::has_stored_index(&db)?;
-                let encoder = provider.index_encoder_key().ok();
+                let encoder = provider.index_encoder_identity().ok();
                 let identity = encoder
-                    .as_deref()
-                    .map(|key| store::Identity::new(key, crate::search_embeddings::DIMENSIONS))
+                    .as_ref()
+                    .map(|(key, dimensions)| store::Identity::new(key, *dimensions))
                     .transpose()?;
                 let coverage = store::coverage(&mut db, identity.as_ref())?;
                 status.indexed_documents = coverage.indexed_documents;
@@ -225,9 +225,8 @@ pub(crate) async fn search_semantic_index_build<R: tauri::Runtime>(
         tauri::async_runtime::spawn_blocking(move || {
             let result = (|| {
                 control.check()?;
-                let encoder = provider.index_encoder_key()?;
-                let identity =
-                    store::Identity::new(&encoder, crate::search_embeddings::DIMENSIONS)?;
+                let (encoder, dimensions) = provider.index_encoder_identity()?;
+                let identity = store::Identity::new(&encoder, dimensions)?;
                 let root = super::storage::uploads_root(&app)?;
                 std::fs::create_dir_all(&root).map_err(|err| err.to_string())?;
                 crate::library_transfer::ensure_available_space(&root, 1536)
@@ -257,7 +256,7 @@ pub(crate) async fn search_semantic_index_build<R: tauri::Runtime>(
                         |text| provider.index_encode(&encoder, text),
                         || {
                             control.check()?;
-                            if provider.index_encoder_key()? != encoder {
+                            if provider.index_encoder_identity()?.0 != encoder {
                                 return Err("Semantic model changed; retry indexing".into());
                             }
                             Ok(())

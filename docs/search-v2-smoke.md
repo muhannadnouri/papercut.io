@@ -296,9 +296,25 @@ restart checks; the explicit unbundled recipe is only a diagnostic alternative.
       downloads a model, activates one or starts indexing. Ordinary All words,
       Broader, quoted phrases and filters still work. Builds without embedding
       features report unavailability even if that profile previously saved an opt-in.
-- [ ] Choose a cached format and turn on **Enabled** in the semantic-search panel. No
+- [ ] Model choices: Small retains FP32 and INT8; Base and Large offer FP32 only.
+      Choosing one starts no download, activation or indexing and resets download
+      permission. Model/precision selectors lock while enabled or busy. Separate
+      selectors share a row on wide screens and stack in narrow English/Arabic
+      layouts. Base/Large show higher resource and explicit rebuild guidance.
+- [ ] In a disposable profile, explicitly download a chosen additional model
+      when hardware/storage allows, then enable and build the index. Base/Large
+      total files are approximately 1.05/2.10 GiB, plus the installer reserve;
+      disk size is not peak memory. Turn off and switch model/precision:
+      incompatible coverage must not appear ready and searches must fall back
+      to keywords until **Build Index** is explicitly requested. Confirm source
+      documents and lexical search survive. Switching back after index replacement
+      requires rebuilding again. Restart preserves selection and explicit opt-in
+      without downloading or indexing. Removing one selected model's cache leaves
+      other cached models intact. These cases remain deferred; local native probes
+      do not replace WebView/device or relevance acceptance.
+- [ ] Choose a cached model/format and turn on **Enabled** in the semantic-search panel. No
       download occurs; activation failure shows an error and lexical availability; submitted searches show fallback guidance.
-      Retry after repairing the cache. Format/cache mutation requires turning
+      Retry after repairing the cache. Model/format/cache mutation requires turning
       off first. Turning off during activation stays off after cleanup.
 - [ ] Once loaded, **Manage Model** collapses to the selected format and **Model
       Loaded** summary. Expanding it must not show a verify-before-use warning,
