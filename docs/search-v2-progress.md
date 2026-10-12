@@ -61,12 +61,101 @@ and the [conceptual summary cleanup](#stage-7--conceptual-results-summary--2026-
 followed by the [settings readiness cleanup](#stage-7--settings-readiness-and-copy--2026-10-11),
 also have focused frontend/browser validation. The subsequent
 [stored-work and conditional layout pass](#stage-7--stored-work-guards-and-conditional-settings--2026-10-11)
-adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The subsequent [passage-window evaluation](#stage-7--passage-window-quality-and-cost-review--2026-10-12) finds a bounded local usefulness gain while leaving backmatter classification, missing context and unsupported-query failures open. The [PDF backmatter correction](#stage-7--pdf-backmatter-classification--2026-10-12) addresses the measured reference/index role gaps without claiming an unsupported-query relevance gain. The recorded full CI predates these UI, model and content changes. The first
+adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The subsequent [passage-window evaluation](#stage-7--passage-window-quality-and-cost-review--2026-10-12) finds a bounded local usefulness gain while leaving backmatter classification, missing context and unsupported-query failures open. The [PDF backmatter correction](#stage-7--pdf-backmatter-classification--2026-10-12) addresses the measured reference/index role gaps without claiming an unsupported-query relevance gain. The [alternative-passage review](#stage-7--alternative-passages-and-weak-matches--2026-10-12) rejects an unhelpful expansion and leaves selection/unsupported-query quality open. The recorded full CI predates these UI, model and content changes. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 7 — Alternative passages and weak matches — 2026-10-12
+
+**Decision: do not add the tested three-passage expansion or a score-based
+rejection rule.** The expansion adds reading burden without improving the
+provisional answer grades. The remaining failures concern selecting the right
+explanation and distinguishing a related passage from a supported answer.
+They are not solved by displaying more nearest neighbors.
+
+The earlier temporary evaluation snapshots were no longer available. A new
+owned, disposable snapshot was prepared using the current PDF.js page-layer
+helper, native PDF content-role classifier and native EPUB parser/persistence.
+Application data was not modified. Both candidates use that same snapshot,
+the pinned cached Small FP32 model and the current passage policy. This is a
+fresh paired quality check, not a before/after comparison with earlier snapshots.
+Private inputs, reference clauses, queries and raw reports remain untracked.
+
+Eight fresh answerable questions and four unsupported requests were frozen,
+with reference clauses and the grading rubric, before retrieval. The unsupported
+set includes two requests near the source domain and two unrelated requests.
+Grade 0 means no requested answer component, 1 means supported but incomplete
+evidence, and 2 means all essential requested components are supplied. Topic
+similarity alone is not useful evidence. Passage bundles were presented in
+shuffled document order with scores/ranks hidden; grades were frozen before
+unblinding. The same agent prepared and graded the packet, so this remains
+**provisional evidence, not independent quality acceptance**.
+
+The control is actual native retrieval: one best passage per document plus its
+bounded nearby body text. The candidate retains that exact primary passage,
+score, document order and context, adding at most two further body passages per
+document. Candidates are sorted by existing cosine scores with source-order
+ties; greedy selection rejects intersecting byte spans in the same source block.
+Nonoverlapping spans can still repeat a topic or text already shown as context.
+Each extra has its own original source locator; nothing is concatenated into a
+new embedding, and no index, model or document-ranking policy changes.
+
+| Evidence available in the first document result | At least partial useful evidence | Complete requested evidence |
+| --- | --- | --- |
+| Full primary passage alone | 7/8 | 4/8 |
+| Primary plus existing nearby text | 7/8 | 5/8 |
+| Same evidence plus two distinct extra passages | 7/8 | 5/8 |
+
+Across both returned documents, all eight answerable cases have at least partial
+evidence, but only five have complete evidence under either expanded policy.
+One useful document ranks second behind a wrong-topic result; two other first
+results remain incomplete. An exercise-like passage can outrank the concrete
+explanation. These observations do not justify treating all exercises or
+questions as auxiliary content: they can themselves be intentional search targets.
+
+Of the 32 additional passages across answerable cases and both documents, 25
+supply no requested answer component. Across the full packet, nine of 48 extras
+are entirely within text already provided by the baseline. The two extras add
+about 1,760 characters per document at the median, with about 1,208 characters
+not already present in the baseline; the observed maximum added text is 2,507
+characters per document. These are observed payload/reading costs, not new
+production limits or latency/memory benchmarks. Adding two passages is not a
+substitute for improving selection.
+
+All four unsupported requests still receive nearest matches, with no useful
+requested evidence in either document or expansion. Across all returned document
+candidates, useful-evidence cosine scores span approximately 0.846–0.895 and
+irrelevant scores 0.745–0.856. They overlap. The highest unsupported first-result
+score is less than 0.001 below a useful partial first result. Document-score gaps
+also overlap: approximately 0.004–0.052 for answerable queries and 0.012–0.051
+for unsupported queries. Gaps between distinct passage scores likewise overlap.
+Neither a large gap nor a high cosine score proves that a source answers the
+question. No threshold was fitted or shipped from this small packet.
+
+Validation: the temporary native import, real-provider indexing and query probes
+all pass. The comparison checks exact primary spans/scores against production
+retrieval, vector checksums/dimensions, source-input hashes, authoritative UTF-8
+slices and body membership for every candidate/context excerpt, context bounds,
+and read-only query behavior. Stored source text, roles and locators remain
+identical after evaluation. The packet and grade digests remain frozen. Temporary
+probe edits were restored byte-for-byte and the owned executable removed.
+Rust formatting and diff checks pass. The unchanged application suites were not
+rerun for this documentation-only pass. No UI, runtime, dependency, model option,
+shipping script or CI job is added.
+
+**Next:** perform a bounded candidate-coverage diagnosis for the incomplete and
+wrong-topic cases: check where the reference explanations appear deeper in the
+existing vector results before choosing a selection change. Only consider local
+reranking if a bounded pool actually contains useful explanations and ordering
+is the measured problem; a reranker cannot recover missing candidates. Do not
+ship a larger disclosure, exclusion-word list, universal cutoff, model sweep or
+ANN index on this evidence. Keep default-off semantics, explicit preparation,
+source anchors, filters and mandatory quotes. The consolidated context/reader,
+lifecycle, RTL and responsiveness smoke remains deferred. Current-revision CI,
+physical-device performance and independent relevance acceptance remain open.
 
 ## Stage 7 — Bounded neighboring source context — 2026-10-12
 
