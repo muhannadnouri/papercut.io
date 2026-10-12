@@ -108,6 +108,11 @@
     "conceptual": {
       "title": "Conceptual Results",
       "description": "Related passages from your imported documents.",
+      "contextTitle": "Passage and Nearby Text",
+      "contextHelp": "Nearby text is shown in source order, not ranked for relevance. It may be shortened. Open a passage to read its source.",
+      "matchedPassage": "Matched Passage",
+      "nearbyText": "Nearby Text",
+      "openPassage": "Open Passage",
       "matchingTitle": "How Matching Works",
       "matchingDetails": "Conceptual passages may use different words. Quoted clauses are required somewhere in the document; the displayed passage may be elsewhere.",
       "shown_one": "{{count, number}} document",

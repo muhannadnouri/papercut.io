@@ -5,19 +5,22 @@ import type { SearchQueryError } from '../hooks/useSearch'
 import { parseSearchQuery } from '../utils/phraseSearch'
 import type { SemanticSearchController } from './useSemanticSearch'
 
-export interface ConceptualResult {
-  documentId: string
-  url: string
-  title: string
-  format: string
-  score: number
-  provenance: 'conceptual'
+export interface SourceContext {
   sectionIndex: number
   pageIndex: number | null
   sectionTitle: string | null
   byteStart: number
   byteEnd: number
   text: string
+}
+export interface ConceptualResult extends SourceContext {
+  documentId: string
+  url: string
+  title: string
+  format: string
+  score: number
+  provenance: 'conceptual'
+  context: SourceContext[]
 }
 export interface ConceptualResponse {
   availability: 'missing-index' | 'incompatible-index' | 'partial' | 'ready'

@@ -40,7 +40,7 @@ let options: Parameters<typeof useConceptualSearch>[0]
 const response = (availability: ConceptualResponse['availability'] = 'ready'): ConceptualResponse => ({
   availability, indexedDocuments: 1, eligibleDocuments: availability === 'partial' ? 2 : 1, scannedPassages: 1,
   results: [{ documentId: 'guide', url: '/uploads/guide.html', title: 'Transit guide', format: 'html',
-    provenance: 'conceptual', score: 0.5, sectionIndex: 2, pageIndex: null, sectionTitle: 'Connections',
+    context: [], provenance: 'conceptual', score: 0.5, sectionIndex: 2, pageIndex: null, sectionTitle: 'Connections',
     byteStart: 0, byteEnd: 20, text: 'Electric buses run.' }],
 })
 function render(patch: Partial<typeof options> = {}) {

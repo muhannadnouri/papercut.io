@@ -57,3 +57,30 @@
 @media (pointer: coarse) {
   .conceptual-results-details summary { min-height: 2.75rem; }
 }
+
+.conceptual-context-help {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.conceptual-context-block > .result-meta { margin: 0; }
+.conceptual-context-block .result-card-primary { padding: 0.5rem; }
+
+.conceptual-context-text {
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+  color: var(--text-body);
+  font-size: 0.9rem;
+}
+
+.conceptual-context-open {
+  display: block;
+  margin-block-start: 0.5rem;
+  color: var(--accent-text);
+  font-size: 0.8rem;
+  font-weight: 600;
+}

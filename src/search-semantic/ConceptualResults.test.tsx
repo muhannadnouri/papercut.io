@@ -11,7 +11,7 @@ vi.mock('react-i18next', () => ({ useTranslation: () => ({
 const response: ConceptualResponse = {
   availability: 'ready', indexedDocuments: 1, eligibleDocuments: 1, scannedPassages: 2,
   results: [{ documentId: 'guide', url: '/uploads/guide.pdf', format: 'pdf', title: 'Guide <b>title</b>',
-    provenance: 'conceptual', score: 0.8, sectionIndex: 3, pageIndex: 3, sectionTitle: 'Connections',
+    context: [], provenance: 'conceptual', score: 0.8, sectionIndex: 3, pageIndex: 3, sectionTitle: 'Connections',
     byteStart: 120, byteEnd: 180, text: '🙂 Electric buses <mark>run</mark> & connect.' }],
 }
 function html(state: ConceptualState, openingDisabled = false) {
@@ -69,4 +69,31 @@ it('counts displayed documents, hides healthy coverage and retains partial fallb
   expect(partial).not.toContain('search.conceptual.shown')
   expect(partial).not.toContain('result-card-primary')
   expect(html({ phase: 'loading' })).not.toContain('search.conceptual.shown')
+})
+
+it('expands unranked context with full escaped text and independent reader links outside the preview button', () => {
+  const neighbor = { sectionIndex: 4, pageIndex: 4, sectionTitle: 'Cautions',
+    byteStart: 3, byteEnd: 60, text: '港 Keep <script>unsafe()</script> as source text.' }
+  const state: ConceptualState = { phase: 'ready', response: { ...response,
+    results: [{ ...response.results[0], context: [neighbor] }] } }
+  const value = html(state)
+  expect(value).toContain('</button><details class="result-explore conceptual-context">')
+  expect(value).toContain('search.conceptual.contextHelp')
+  expect(value).toContain('search.conceptual.matchedPassage')
+  expect(value).toContain('search.conceptual.nearbyText')
+  expect(value).toContain('&lt;script&gt;unsafe()&lt;/script&gt;')
+  expect(value).not.toContain('<script>')
+  expect(html(state, true).match(/disabled=""/g)).toHaveLength(3)
+  const onViewDocument = vi.fn()
+  function clickAll(node: ReactNode) {
+    if (Array.isArray(node)) { node.forEach(clickAll); return }
+    if (!isValidElement<{ children?: ReactNode; onClick?: () => void }>(node)) return
+    if (node.type === 'button') node.props.onClick!()
+    clickAll(node.props.children)
+  }
+  clickAll(ConceptualResults({ state, onViewDocument }))
+  expect(onViewDocument).toHaveBeenLastCalledWith('/uploads/guide.pdf', {
+    text: neighbor.text, sectionIndex: 4, pageIndex: 4,
+  })
+  expect(onViewDocument).toHaveBeenCalledTimes(3)
 })

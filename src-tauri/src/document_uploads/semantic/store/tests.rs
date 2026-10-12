@@ -896,6 +896,152 @@ fn main_content_wins_over_a_higher_scoring_note_with_source_and_quotes_preserved
     )
     .unwrap();
     assert_eq!(auxiliary["results"].as_array().unwrap().len(), 1);
+    assert_eq!(auxiliary["results"][0]["context"], json!([]));
+}
+
+/// Nearby evidence keeps independent anchors and does not turn omitted notes into synthetic prose.
+#[test]
+fn conceptual_context_is_bounded_body_text_in_source_order_with_individual_anchors() {
+    let library = Library::new();
+    let mut db = library.db();
+    let large = "🙂港".repeat(3000);
+    let mut texts = vec![
+        "Far side of notes",
+        "Note only",
+        "Before four",
+        "Before three",
+        "Before two",
+        "Before one",
+        "港 Intro. MATCH Qualification. Footer",
+        "Note. Following body.",
+        "Following two",
+        "Following three",
+        "Following four",
+        "Too far",
+    ];
+    put(&mut db, "abc123", "Transit", &texts);
+    put(&mut db, "other", "Other", &["Different document text"]);
+    db.execute(
+        "UPDATE uploaded_sections SET body_ranges='[]' WHERE document_id='abc123' AND ordinal=1",
+        [],
+    )
+    .unwrap();
+    let primary = texts[6];
+    let end = primary.find(" Footer").unwrap();
+    let next = texts[7];
+    for (ordinal, range) in [
+        (6, 0..end),
+        (7, next.find("Following").unwrap()..next.len()),
+    ] {
+        db.execute(
+            "UPDATE uploaded_sections SET body_ranges=?1 WHERE document_id='abc123' AND ordinal=?2",
+            params![serde_json::to_string(&vec![range]).unwrap(), ordinal],
+        )
+        .unwrap();
+    }
+    let key = identity();
+    initialize(&mut db, &key).unwrap();
+    let index = |db: &mut Connection| {
+        let snapshot = source(db, "abc123").unwrap().unwrap();
+        synchronize(
+            db,
+            &key,
+            &snapshot,
+            |_, _, text| {
+                Ok(vec![if let Some(start) = text.find("MATCH") {
+                    start..start + 5
+                } else {
+                    0..text.len()
+                }])
+            },
+            |text| {
+                Ok(if text.ends_with("MATCH") {
+                    vec![1.0, 0.0]
+                } else {
+                    vec![0.0, 1.0]
+                })
+            },
+            || Ok(()),
+            |_| {},
+        )
+        .unwrap();
+    };
+    index(&mut db);
+    let changes = db.total_changes();
+    let result = conceptual(
+        &mut db,
+        json!({"query":"travel", "documentUrls":["/uploads/abc123.html"]}),
+    );
+    let hit = &result["results"][0];
+    assert_eq!(hit["text"], "MATCH");
+    let context = hit["context"].as_array().unwrap();
+    assert_eq!(context.len(), 10);
+    assert_eq!(context.first().unwrap()["sectionIndex"], 2);
+    assert_eq!(context.last().unwrap()["sectionIndex"], 10);
+    assert!(context.iter().any(|span| span["text"] == " Qualification."));
+    for span in context {
+        let ordinal = span["sectionIndex"].as_u64().unwrap() as usize;
+        assert_eq!(span["pageIndex"], ordinal);
+        assert_eq!(span["sectionTitle"], format!("Section {ordinal}"));
+        let start = span["byteStart"].as_u64().unwrap() as usize;
+        let end = span["byteEnd"].as_u64().unwrap() as usize;
+        assert_eq!(&texts[ordinal][start..end], span["text"].as_str().unwrap());
+        assert!(!span["text"].as_str().unwrap().contains("Note"));
+        assert!(!span["text"].as_str().unwrap().contains("Footer"));
+    }
+    assert_eq!(
+        db.total_changes(),
+        changes,
+        "context retrieval must remain read-only"
+    );
+
+    db.execute("UPDATE uploaded_sections SET body_ranges='[]' WHERE document_id='abc123' AND ordinal IN (5,9)", []).unwrap();
+    index(&mut db);
+    let guarded = conceptual(
+        &mut db,
+        json!({"query":"travel", "documentUrls":["/uploads/abc123.html"]}),
+    );
+    assert_eq!(guarded["results"][0]["sectionIndex"], 6);
+    assert_eq!(
+        guarded["results"][0]["context"].as_array().unwrap().len(),
+        4
+    );
+    for span in guarded["results"][0]["context"].as_array().unwrap() {
+        let ordinal = span["sectionIndex"].as_u64().unwrap();
+        assert!(
+            (6..9).contains(&ordinal),
+            "context must stop at auxiliary-only sections"
+        );
+    }
+
+    // Large multilingual blocks exercise suffix/prefix clipping on UTF-8 boundaries and both budgets.
+    texts[5] = &large;
+    texts[7] = &large;
+    put(&mut db, "abc123", "Transit", &texts);
+    index(&mut db);
+    let result = conceptual(
+        &mut db,
+        json!({"query":"travel", "documentUrls":["/uploads/abc123.html"]}),
+    );
+    let spans = result["results"][0]["context"].as_array().unwrap();
+    assert!(spans.len() <= 10);
+    assert!(
+        spans
+            .iter()
+            .map(|span| span["text"].as_str().unwrap().chars().count())
+            .sum::<usize>()
+            <= 8192
+    );
+    for span in spans {
+        let body = span["text"].as_str().unwrap();
+        assert!(body.chars().count() <= 2048);
+        let ordinal = span["sectionIndex"].as_u64().unwrap() as usize;
+        assert_eq!(
+            &texts[ordinal][span["byteStart"].as_u64().unwrap() as usize
+                ..span["byteEnd"].as_u64().unwrap() as usize],
+            body
+        );
+    }
 }
 
 #[test]

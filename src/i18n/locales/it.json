@@ -113,6 +113,11 @@
     "conceptual": {
       "title": "Risultati concettuali",
       "description": "Passaggi correlati dai tuoi documenti importati.",
+      "contextTitle": "Passaggio e Testo Vicino",
+      "contextHelp": "Il testo vicino segue l’ordine della fonte, non la rilevanza. Può essere abbreviato. Apri un passaggio per leggerne la fonte.",
+      "matchedPassage": "Passaggio Corrispondente",
+      "nearbyText": "Testo Vicino",
+      "openPassage": "Apri Passaggio",
       "matchingTitle": "Come funziona la ricerca delle corrispondenze",
       "matchingDetails": "I passaggi concettuali possono usare parole diverse. Le frasi tra virgolette sono obbligatorie nel documento; il passaggio mostrato può trovarsi altrove.",
       "shown_one": "{{count, number}} documento",

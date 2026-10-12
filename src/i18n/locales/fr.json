@@ -113,6 +113,11 @@
     "conceptual": {
       "title": "Résultats conceptuels",
       "description": "Passages connexes de vos documents importés.",
+      "contextTitle": "Passage et Texte Voisin",
+      "contextHelp": "Le texte voisin suit l’ordre de la source, sans classement par pertinence. Il peut être abrégé. Ouvrez un passage pour lire sa source.",
+      "matchedPassage": "Passage Correspondant",
+      "nearbyText": "Texte Voisin",
+      "openPassage": "Ouvrir le Passage",
       "matchingTitle": "Comment fonctionne la recherche de correspondances",
       "matchingDetails": "Les passages conceptuels peuvent employer d’autres mots. Les expressions entre guillemets sont obligatoires dans le document ; le passage affiché peut se trouver ailleurs.",
       "shown_one": "{{count, number}} document",

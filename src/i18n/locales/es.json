@@ -113,6 +113,11 @@
     "conceptual": {
       "title": "Resultados conceptuales",
       "description": "Pasajes relacionados de tus documentos importados.",
+      "contextTitle": "Pasaje y Texto Cercano",
+      "contextHelp": "El texto cercano se muestra en el orden de la fuente, no por relevancia. Puede estar abreviado. Abre un pasaje para leer su fuente.",
+      "matchedPassage": "Pasaje Coincidente",
+      "nearbyText": "Texto Cercano",
+      "openPassage": "Abrir Pasaje",
       "matchingTitle": "Cómo funciona la búsqueda de coincidencias",
       "matchingDetails": "Los pasajes conceptuales pueden usar otras palabras. Las frases entre comillas son obligatorias en el documento; el pasaje mostrado puede estar en otro lugar.",
       "shown_one": "{{count, number}} documento",

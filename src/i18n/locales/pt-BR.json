@@ -113,6 +113,11 @@
     "conceptual": {
       "title": "Resultados conceituais",
       "description": "Trechos relacionados dos seus documentos importados.",
+      "contextTitle": "Trecho e Texto Próximo",
+      "contextHelp": "O texto próximo é exibido na ordem da fonte, não por relevância. Pode estar abreviado. Abra um trecho para ler sua fonte.",
+      "matchedPassage": "Trecho Correspondente",
+      "nearbyText": "Texto Próximo",
+      "openPassage": "Abrir Trecho",
       "matchingTitle": "Como funciona a busca por correspondências",
       "matchingDetails": "Os trechos conceituais podem usar outras palavras. As frases entre aspas são obrigatórias no documento; o trecho exibido pode estar em outro lugar.",
       "shown_one": "{{count, number}} documento",

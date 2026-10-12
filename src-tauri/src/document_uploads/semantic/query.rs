@@ -55,6 +55,116 @@ struct ConceptualResult {
     byte_start: usize,
     byte_end: usize,
     text: String,
+    context: Vec<SourceContext>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SourceContext {
+    section_index: usize,
+    page_index: Option<usize>,
+    section_title: Option<String>,
+    byte_start: usize,
+    byte_end: usize,
+    text: String,
+}
+
+/// Read nearby body spans in the same snapshot; they are context, never scored or embedded together.
+#[cfg(any(test, feature = "experimental-search-embeddings-core"))]
+fn nearby_context(
+    tx: &rusqlite::Transaction<'_>,
+    candidate: &Candidate,
+    mut check: impl FnMut() -> Result<(), String>,
+) -> Result<Vec<SourceContext>, String> {
+    if !candidate.main_content {
+        return Ok(Vec::new());
+    }
+    let mut context = Vec::new();
+    // shortcut: four source blocks in each direction, not inferred chapters; revisit with judged context failures.
+    for before in [true, false] {
+        let order = if before { "DESC" } else { "ASC" };
+        let comparison = if before { "<=" } else { ">=" };
+        let mut stmt = tx
+            .prepare(&format!(
+                "SELECT ordinal,heading,text,page_index,body_ranges FROM uploaded_sections \
+             WHERE document_id=?1 AND ordinal {comparison} ?2 ORDER BY ordinal {order} LIMIT 5"
+            ))
+            .map_err(db_err)?;
+        let mut rows = stmt
+            .query(params![candidate.id, candidate.section])
+            .map_err(db_err)?;
+        let mut remaining = 4096;
+        let mut spans = 0;
+        while let Some(row) = rows.next().map_err(db_err)? {
+            check()?;
+            if remaining == 0 || spans == 5 {
+                break;
+            }
+            let ordinal: usize = row.get(0).map_err(db_err)?;
+            let heading: Option<String> = row.get(1).map_err(db_err)?;
+            let text: String = row.get(2).map_err(db_err)?;
+            let page: Option<usize> = row.get(3).map_err(db_err)?;
+            let encoded: Option<String> = row.get(4).map_err(db_err)?;
+            let mut ranges = super::super::search_content::ranges(&text, encoded.as_deref())?;
+            // An auxiliary-only block is a boundary, not a bridge into another part of the book.
+            if ranges.is_empty() {
+                break;
+            }
+            if ordinal == candidate.section {
+                ranges.retain(|range| range.start <= candidate.start && candidate.end <= range.end);
+                for range in &mut ranges {
+                    if before {
+                        range.end = candidate.start;
+                    } else {
+                        range.start = candidate.end;
+                    }
+                }
+            }
+            if before {
+                ranges.reverse();
+            }
+            for mut range in ranges {
+                check()?;
+                if remaining == 0 || spans == 5 {
+                    break;
+                }
+                if range.is_empty() {
+                    continue;
+                }
+                let mut chars = text[range.clone()].chars();
+                let mut count = 0;
+                let mut bytes = 0;
+                for _ in 0..2048.min(remaining) {
+                    let Some(ch) = (if before {
+                        chars.next_back()
+                    } else {
+                        chars.next()
+                    }) else {
+                        break;
+                    };
+                    count += 1;
+                    bytes += ch.len_utf8();
+                }
+                if before {
+                    range.start = range.end - bytes;
+                } else {
+                    range.end = range.start + bytes;
+                }
+                context.push(SourceContext {
+                    section_index: ordinal,
+                    page_index: page,
+                    section_title: heading.clone(),
+                    byte_start: range.start,
+                    byte_end: range.end,
+                    text: text[range].into(),
+                });
+                remaining -= count;
+                spans += 1;
+            }
+        }
+    }
+    context.sort_by_key(|span| (span.section_index, span.byte_start));
+    Ok(context)
 }
 
 impl QueryRequest {
@@ -363,6 +473,7 @@ pub(super) fn retrieve(
         if hash != candidate.hash {
             return Err("Semantic source content changed; rebuild index".into());
         }
+        let context = nearby_context(&tx, &candidate, &mut check)?;
         response.results.push(ConceptualResult {
             document_id: candidate.id,
             url: candidate.url,
@@ -376,6 +487,7 @@ pub(super) fn retrieve(
             byte_start: candidate.start,
             byte_end: candidate.end,
             text: body.into(),
+            context,
         });
     }
     response.availability = if response.indexed_documents < response.eligible_documents {

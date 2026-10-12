@@ -103,6 +103,11 @@
     "conceptual": {
       "title": "概念结果",
       "description": "来自你导入文档的相关段落。",
+      "contextTitle": "段落与相邻文本",
+      "contextHelp": "相邻文本按原文顺序显示，不按相关性排序，且可能有所缩短。打开段落以阅读原文。",
+      "matchedPassage": "匹配段落",
+      "nearbyText": "相邻文本",
+      "openPassage": "打开段落",
       "matchingTitle": "匹配方式",
       "matchingDetails": "概念段落可能使用不同的词语。文档中必须包含所有引号内的短语，但显示的段落可能在别处。",
       "shown_other": "{{count, number}} 个文档",

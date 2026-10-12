@@ -68,6 +68,76 @@ remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
 
+## Stage 7 — Bounded neighboring source context — 2026-10-12
+
+Conceptual cards now have a collapsed **Passage and Nearby Text** disclosure.
+It shows the full matched passage without the preview's four-line clamp, plus
+nearby main-content excerpts in original source order. Each excerpt retains its
+own section/page and exact UTF-8 byte span, and opens that source through the
+existing reader target helper. Nearby text is explicitly labeled as context,
+not another relevance-ranked match. Authored markup is escaped, not executed.
+The collapsed preview and one-result-per-document ordering remain unchanged.
+
+Native retrieval reads this context within the existing read-only query
+snapshot, cancellation/deadline checks and final freshness check. It considers
+the matching body range's remaining text and at most four neighboring source
+blocks in each direction. Each direction allows at most five separate excerpts
+and 4,096 characters; each excerpt allows at most 2,048 characters. Total nearby
+text is therefore at most ten excerpts / 8,192 characters per returned document.
+Auxiliary spans are omitted, an auxiliary-only block stops traversal, and an
+auxiliary-only primary match has no body context attached. Disjoint ranges
+remain separate. These are bounded source neighborhoods, not inferred chapter
+boundaries; nearby topics may differ and clipping may cut a word or clause.
+
+Context is never concatenated into an embedding input, scored independently,
+or counted as an additional document. Source text, vectors, model/window
+identity, required-quote document eligibility, filters, lexical results and
+fallback remain unchanged. No schema upgrade, model download or index rebuild
+is required for this addition. An outstanding PDF-role update from the preceding
+pass still requires its explicit index preparation. The React code and styles
+remain isolated under `src/search-semantic`; all eight locales include the new
+labels. No dependencies, model options, shipping scripts or CI jobs were added.
+
+Validation:
+
+- 240 provider-enabled native tests pass (ten explicit probes ignored). Generic
+  context fixtures check source order, original Unicode slices and locators,
+  same-block prefix/suffix text, four-block distance and character/excerpt limits,
+  auxiliary boundaries and mixed body/note content, scope isolation and read-only
+  retrieval. Existing quote, cancellation, freshness and fallback regressions pass.
+- 182 provider-disabled native tests pass (five ignored). All 216 frontend tests
+  pass; connected tests cover escaped full text, independent reader targets,
+  disabled opening controls and a disclosure outside the preview button.
+  Typecheck, locale parity, focused ESLint, Vite build, Rust formatting and diff
+  checks pass. The Vite build retains its existing chunk-size advisory.
+- A temporary generic browser preview verifies expansion at desktop and
+  390-pixel widths, no horizontal overflow or nested buttons, and keyboard opening
+  of a neighboring block with its own section/page/text target. This is component
+  evidence, not native WebView, PDF/EPUB navigation or physical-device acceptance.
+  Temporary preview files and probe edits are removed/restored before committing.
+- Real cached Small FP32 retrieval on an owned disposable snapshot preserves every
+  primary passage and score in the frozen regression packet. Source digests and
+  exact context slices/body roles pass. No passage inference or writes occur on
+  unchanged preparation/resume; model inputs and stored vectors are unchanged.
+  One ordered development-host run has approximately 326 ms median query time
+  and a largest observed serialized response of about 17.6 kB; this is not a
+  paired performance benchmark or mobile resource claim.
+- Provisional grading of the first result **with expanded evidence** supplies
+  missing clauses in two of eight answerable cases: useful evidence rises from
+  6/8 to 7/8 and direct/complete evidence from 5/8 to 7/8. Primary-only grades
+  remain unchanged. One answer is still outside the context bounds, and all four
+  unsupported questions still return irrelevant nearest matches. This is a
+  reused regression packet with agent grades, not independent quality acceptance.
+  Private questions, documents and raw grading artifacts remain untracked.
+
+**Next:** review a small alternative-passage candidate set and weak/unsupported
+matches against fresh judgments before adding ranking or rejection logic. A
+universal cosine cutoff remains unjustified. Keep source anchors and input limits,
+explicit preparation and default-off semantics. The consolidated reader, lifecycle,
+RTL and responsiveness smoke remains deferred, with a new context follow-up in
+[the smoke checklist](search-v2-smoke.md#neighboring-context-follow-up--2026-10-12).
+Current-revision CI and physical-device performance remain unverified.
+
 ## Stage 7 — PDF backmatter classification — 2026-10-12
 
 The shared PDF classifier now recognizes additional structural reference/index
