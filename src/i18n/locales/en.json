@@ -107,7 +107,6 @@
     },
     "conceptual": {
       "title": "Conceptual Results · Your Library",
-      "lexicalTitle": "Keyword Results",
       "description": "Conceptual passages may use different words. Quoted clauses are required somewhere in the document; the displayed passage may be elsewhere.",
       "shown": "Documents shown: {{count}}",
       "loading": "Finding conceptual passages…",
@@ -443,7 +442,21 @@
       "update": "Update Index",
       "details": "Index Details",
       "passages": "Indexed passages: {{count}}",
-      "indexHint": "Completed work is reused when you build or update the index."
+      "indexHint": "Completed work is reused when you build or update the index.",
+      "activity": {
+        "downloading": "Downloading Search Model…",
+        "loading": "Loading Search Model…",
+        "disabling": "Turning Search Off…",
+        "indexing": "Indexing Library…",
+        "cancelling": "Cancelling Indexing…",
+        "working": "Updating Search…",
+        "complete": "Indexing Complete",
+        "cancelled": "Indexing Cancelled",
+        "failed": "Indexing Failed",
+        "statusFailed": "Search Status Unavailable",
+        "view": "View Progress",
+        "review": "Review"
+      }
     }
   },
   "libraryTransfer": {

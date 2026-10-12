@@ -24,6 +24,7 @@ vi.mock('./SearchModelSetup', () => ({ SearchModelSetup: () => <div>model-and-in
 vi.mock('../../library-transfer/LibraryTransferDialog', () => ({ LibraryTransferDialog: () => null }))
 
 import { AppSettings } from './AppSettings'
+import { SearchActivity } from '../../search-semantic/SearchActivity'
 let tree: ReactElement
 const semantic = { enabled: false, busy: false } as SemanticSearchController
 function render() {
@@ -36,7 +37,10 @@ function elements(node: ReactNode = tree): ReactElement<Record<string, unknown>>
   return Children.toArray(node).flatMap(child => isValidElement<Record<string, unknown>>(child)
     ? [child, ...elements((child.props.children ?? null) as ReactNode)] : [])
 }
-beforeEach(() => { slots.values = []; slots.cursor = 0 })
+beforeEach(() => {
+  slots.values = []; slots.cursor = 0
+  semantic.busy = false; semantic.activityNotice = null; semantic.dismissActivity = vi.fn()
+})
 
 it('keeps model/index controls out of general Settings and restores the summary on Back', () => {
   render()
@@ -65,4 +69,14 @@ it('closes the search view through its existing dialog cancellation boundary', (
   ;(dialog.props.onCancel as () => void)()
   expect(render()).not.toContain('model-and-index-controls')
   expect(render()).not.toContain('settings.title')
+})
+
+it('retains the Settings gear while activity opens the model/index controls directly', () => {
+  semantic.busy = true; semantic.operation = 'build'
+  expect(render()).toContain('aria-label="settings.button"')
+  expect(render()).toContain('settings.semantic.activity.indexing')
+  const activity = elements().find(node => node.type === SearchActivity)!
+  ;(activity.props.onManage as () => void)()
+  expect(render()).toContain('model-and-index-controls')
+  expect(render()).not.toContain('settings.semantic.summaryOff')
 })

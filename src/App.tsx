@@ -541,7 +541,6 @@ function App() {
 
         {activeTab === 'search' && (
           <SearchTab
-            lexicalResultsLabel={conceptualResults ? t('search.conceptual.lexicalTitle') : undefined}
             additionalResults={<ConceptualResults state={conceptualResults}
               openingDisabled={documentOpening}
               openingDocumentUrl={documentLoad.status === 'loading' ? documentLoad.url : undefined}

@@ -112,7 +112,6 @@
     },
     "conceptual": {
       "title": "Resultados conceituais · Sua biblioteca",
-      "lexicalTitle": "Resultados por palavras-chave",
       "description": "Os trechos conceituais podem usar outras palavras. As frases entre aspas são obrigatórias no documento; o trecho exibido pode estar em outro lugar.",
       "shown": "Documentos exibidos: {{count}}",
       "loading": "Buscando trechos conceituais…",
@@ -449,7 +448,21 @@
       "update": "Atualizar índice",
       "details": "Detalhes do índice",
       "passages": "Trechos indexados: {{count}}",
-      "indexHint": "O trabalho concluído é reutilizado ao criar ou atualizar o índice."
+      "indexHint": "O trabalho concluído é reutilizado ao criar ou atualizar o índice.",
+      "activity": {
+        "downloading": "Baixando modelo de busca…",
+        "loading": "Carregando modelo de busca…",
+        "disabling": "Desativando busca…",
+        "indexing": "Indexando biblioteca…",
+        "cancelling": "Cancelando indexação…",
+        "working": "Atualizando busca…",
+        "complete": "Indexação concluída",
+        "cancelled": "Indexação cancelada",
+        "failed": "Falha na indexação",
+        "statusFailed": "Status da busca indisponível",
+        "view": "Ver progresso",
+        "review": "Revisar"
+      }
     }
   },
   "libraryTransfer": {

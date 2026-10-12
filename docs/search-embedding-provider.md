@@ -440,8 +440,17 @@ cache mutation. Download/verification never activate. The separate semantic-sear
 opt-in panel owns activation; turn it off before changing format or removing
 model files. Ordinary search results remain unchanged.
 
-A background activity **Manage** entry beside Settings remains visible during
-native download, model loading/disable or indexing, including reader navigation.
+A compact activity button beside Settings remains visible during native download,
+model loading/disable or indexing, including reader navigation. Its spinner and
+phase label open the existing Search settings view; the Settings gear remains
+available. Observed running indexing shows completed-document coverage, not a
+job percentage or time estimate. A stable live region announces phases without
+repeating every coverage tick, and narrow reader layouts keep activity below Back.
+App-owned indexing completion/cancellation notices last eight seconds; failure
+or unavailable final status offers **Review** until opened or another accepted
+action starts. Reviewing retains the settings diagnostic. Only the confirmed
+native cancellation result is treated as cancellation; late outcomes after disable
+are ignored. These notices survive navigation within the process, not restart.
 The App-owned semantic controller listens to existing download start/terminal
 events, skips byte-progress events and polls only while busy. It starts no work
 from this notification. Empty libraries request imports rather than reporting
@@ -609,13 +618,15 @@ See [current acceptance evidence](search-v2-progress.md) for packaging and gates
 
 ## React conceptual results and fallback
 
-The visible lexical channel is labeled **Keyword Results** when conceptual search
-is present. Keyword cards use one list/count, with a **Starter Document** badge
+Ordinary keyword results start with their summary count, without an extra heading.
+Cards use one list/count, with a **Starter Document** badge
 rather than source-group sections. Existing uploaded-first and per-provider order
 is retained; this is not cross-engine score fusion. Starter All Words candidates
 are filtered through each distinct unquoted term's Pagefind quoted search before
 scope/count/display limits; authored phrase verification remains separate. There
 is no change to uploaded/native retrieval or the separate conceptual contract.
+Conceptual explanatory and coverage text use their own wrapping styles rather
+than the single-line card metadata style; the heading/count also wrap on narrow screens.
 
 
 `src/search-semantic/useConceptualSearch.ts` owns invocation/state and

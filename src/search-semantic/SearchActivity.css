@@ -1,13 +1,14 @@
 .search-activity {
-  display: inline-grid;
-  gap: 0.15rem;
-  max-width: 12rem;
-  vertical-align: middle;
-  margin-inline-end: 0.5rem;
-  padding: 0.4rem 0.65rem;
-  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  min-height: 2.35rem;
+  max-width: 28rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid transparent;
   border-radius: var(--radius-control);
-  background: var(--control-surface);
+  background: transparent;
   color: var(--text-body);
   font: inherit;
   font-size: 0.75rem;
@@ -15,17 +16,86 @@
   cursor: pointer;
 }
 
-.search-activity > span:last-child {
+.search-activity-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-activity-count {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.search-activity-chevron {
+  flex-shrink: 0;
+  width: 0.35rem;
+  height: 0.35rem;
+  margin-inline: 0.15rem;
+  border-block-start: 2px solid currentcolor;
+  border-inline-end: 2px solid currentcolor;
+  rotate: 45deg;
   color: var(--accent-text);
 }
+
+[dir='rtl'] .search-activity-chevron { rotate: -135deg; }
+
+.search-activity[data-review] { color: var(--accent-text); }
+
+.search-activity:hover { background: var(--control-surface); }
 
 .search-activity:focus-visible {
   outline: 2px solid var(--accent-text);
   outline-offset: 2px;
 }
 
-@media (max-width: 600px) {
-  .search-activity {
-    max-width: 8rem;
+.search-activity-announcement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.app-settings:has(.search-activity) {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.app-settings:has(.search-activity) .app-settings-btn { flex-shrink: 0; }
+
+/* Reserve a toolbar row while activity is visible, without moving the Settings button. */
+.app-header:has(.search-activity) { padding-block-start: 3.1rem; }
+.app-header:has(.search-activity) .app-header-actions { inset-inline-start: 0; }
+
+@media (max-width: 767px) {
+  .search-activity { min-height: 2.5rem; }
+
+  .app:not(.app-reader-pdf-fullscreen) > .doc-header:has(.search-activity) {
+    grid-template-areas: "back back" "controls controls";
   }
+
+  .app-reader-pdf:not(.app-reader-pdf-fullscreen) > .doc-header:has(.search-activity) {
+    grid-template-areas: "back back" "controls controls" "viewer viewer";
+  }
+
+  .app:not(.app-reader-pdf-fullscreen) > .doc-header:has(.search-activity) .header-right {
+    display: flex;
+    grid-area: controls;
+    justify-self: stretch;
+  }
+
+  .app:not(.app-reader-pdf-fullscreen) > .doc-header:has(.search-activity) .header-control-group-reader { max-width: 100%; }
+}
+
+@media (pointer: coarse) {
+  .search-activity { min-height: 2.75rem; }
 }

@@ -54,12 +54,64 @@ functional Settings and the separate conceptual-results UI are implemented.
 Lexical remains default; native shipping scripts now include provider capability
 without enabling saved user consent. The subsequent
 [keyword-results cleanup](#stage-7--keyword-results-and-starter-eligibility--2026-10-11) has local
-frontend validation; the recorded full CI predates these UI changes. The first
+frontend validation, followed by the
+[activity and results presentation pass](#stage-7--compact-search-activity-and-results-copy--2026-10-11);
+the recorded full CI predates these UI changes. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 7 — Compact search activity and results copy — 2026-10-11
+
+The header now uses one compact activity button with a decorative spinner,
+phase label and chevron alongside the unchanged Settings control. It opens the
+existing Search settings view directly from home or the reader. During observed
+native indexing, it shows completed-document coverage such as **3 / 5**; these
+counts are neither a time estimate nor a job percentage. Before native reservation,
+old coverage is hidden. Cancellation has its own pending phase.
+
+App-owned indexing outcomes survive reader/settings navigation within the same
+process. **Indexing Complete** and **Indexing Cancelled** expire after eight
+seconds; **Indexing Failed** and **Search Status Unavailable** remain actionable
+with **Review** until opened or another accepted action starts. Reviewing dismisses
+the header notice while retaining the settings diagnostic. Only the native
+cancellation result is classified as cancellation, so a real failure racing a
+cancel request remains a failure. A failed final status refresh does not claim
+that indexing failed or that the library is ready. Generation guards suppress
+late outcomes after disable; repeated successful jobs reset the notice timer.
+This adds no persistent job history or terminal download/activation notices.
+
+The stable live region announces phases rather than byte/document ticks. The
+existing reduced-motion spinner rule is retained, and the full accessible name
+includes coverage and action even when narrow labels ellipsize. The Settings gear
+stays at the logical end; home reserves a toolbar row and narrow reader layouts
+put activity below Back. Styles remain in the component's own stylesheet.
+
+The requested results cleanup removes the redundant **Keyword Results** heading,
+its unused caller prop and locale key. Ordinary cards retain their summary count.
+The separate conceptual explanation now uses normal-weight, wrapping text with
+its own style, and its heading/count can wrap independently. Retrieval, quote
+rules, consent and conceptual/keyword separation are unchanged.
+
+Validation: **204 frontend/tooling tests in 50 files**, lint, locale parity,
+TypeScript and the frontend build pass. Focused regressions cover activity phases,
+quiet announcements, native coverage, outcomes, cancellation/failure races,
+timer reset/expiry, late completions and forwarding to existing settings controls.
+A browser fixture using the actual components checks desktop/light/dark views,
+320-pixel English/Arabic home and reader layouts, keyboard management access,
+wrapped conceptual copy and absence of the redundant heading. It caught and
+resolved narrow-reader crowding of Back. Fixture statuses/cards are synthetic;
+this is not native inference, screen-reader or installed-app smoke evidence.
+The narrow PDF toolbar layout also retains its existing fullscreen controls-only
+boundary: activity styles do not reveal the hidden settings/Back row in fullscreen.
+
+**Next:** review the updated [smoke checklist](search-v2-smoke.md) after rebuilding
+with `npm run desktop`, when the user is ready. Smoke remains explicitly deferred;
+all checklist boxes remain open. The visible Search Mode label has only been
+reviewed: recommend hiding it while retaining the radio group's accessible label
+and helper text in a small follow-up. No new CI jobs or dependencies are needed.
 
 ## Stage 7 — Keyword results and starter eligibility — 2026-10-11
 

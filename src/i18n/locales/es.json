@@ -112,7 +112,6 @@
     },
     "conceptual": {
       "title": "Resultados conceptuales · Tu biblioteca",
-      "lexicalTitle": "Resultados por palabras clave",
       "description": "Los pasajes conceptuales pueden usar otras palabras. Las frases entre comillas son obligatorias en el documento; el pasaje mostrado puede estar en otro lugar.",
       "shown": "Documentos mostrados: {{count}}",
       "loading": "Buscando pasajes conceptuales…",
@@ -449,7 +448,21 @@
       "update": "Actualizar índice",
       "details": "Detalles del índice",
       "passages": "Pasajes indexados: {{count}}",
-      "indexHint": "El trabajo completado se reutiliza al crear o actualizar el índice."
+      "indexHint": "El trabajo completado se reutiliza al crear o actualizar el índice.",
+      "activity": {
+        "downloading": "Descargando modelo de búsqueda…",
+        "loading": "Cargando modelo de búsqueda…",
+        "disabling": "Desactivando búsqueda…",
+        "indexing": "Indexando biblioteca…",
+        "cancelling": "Cancelando indexación…",
+        "working": "Actualizando búsqueda…",
+        "complete": "Indexación completada",
+        "cancelled": "Indexación cancelada",
+        "failed": "Error de indexación",
+        "statusFailed": "Estado de búsqueda no disponible",
+        "view": "Ver progreso",
+        "review": "Revisar"
+      }
     }
   },
   "libraryTransfer": {

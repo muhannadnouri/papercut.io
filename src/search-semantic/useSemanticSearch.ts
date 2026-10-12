@@ -20,6 +20,7 @@ interface IndexStatus {
   error: string | null
 }
 interface Preference { enabled: boolean; format: ModelFormat }
+type ActivityNotice = 'complete' | 'cancelled' | 'failed' | 'statusFailed'
 const STORAGE_KEY = 'papercut.semantic-search.v1'
 
 /** Invalid or inaccessible preferences fail closed; cache presence is never consent. */
@@ -40,6 +41,8 @@ export function useSemanticSearch() {
   const [operation, setOperation] = useState<'activate' | 'disable' | 'build' | 'remove' | null>(null)
   const [error, setError] = useState('')
   const [cancelling, setCancelling] = useState(false)
+  // A fresh identity resets expiry even when two fast jobs finish with the same outcome.
+  const [activityNotice, setActivityNotice] = useState<{ kind: ActivityNotice } | null>(null)
   const mounted = useRef(false)
   const generation = useRef(0)
   const request = useRef(0)
@@ -101,6 +104,7 @@ export function useSemanticSearch() {
     if (!enabled && operation === 'disable') return
     const value = { ...currentPreference.current, enabled }
     setError('')
+    setActivityNotice(null)
     if (!save(value) && enabled) return
     currentPreference.current = value
     setPreference(value)
@@ -113,6 +117,7 @@ export function useSemanticSearch() {
     if (currentPreference.current.enabled || action.current || busy) return
     const value = { enabled: false, format }
     setError('')
+    setActivityNotice(null)
     if (!save(value)) return
     currentPreference.current = value
     setPreference(value)
@@ -126,16 +131,25 @@ export function useSemanticSearch() {
     setOperation(kind)
     setCancelling(false)
     setError('')
+    setActivityNotice(null)
+    let notice: ActivityNotice | null = null
     try {
       await invoke(kind === 'build' ? 'search_semantic_index_build' : 'search_semantic_index_remove')
+      if (kind === 'build') notice = 'complete'
     } catch (err) {
+      // A requested cancel can race a real failure; only the native cancellation result is cancellation.
+      if (kind === 'build') notice = String(err) === 'Semantic indexing cancelled' ? 'cancelled' : 'failed'
       if (mounted.current && version === generation.current) setError(String(err))
     } finally {
       if (mounted.current && version === generation.current) {
         try { await refresh() } catch (err) {
+          if (notice === 'complete') notice = 'statusFailed'
           if (mounted.current && version === generation.current) setError(String(err))
         }
-        if (mounted.current && version === generation.current) { action.current = false; setOperation(null); setCancelling(false) }
+        if (mounted.current && version === generation.current) {
+          action.current = false; setOperation(null); setCancelling(false)
+          setActivityNotice(notice ? { kind: notice } : null)
+        }
       }
     }
   }
@@ -185,6 +199,13 @@ export function useSemanticSearch() {
   }, [refresh])
 
   useEffect(() => {
+    // App-owned notices survive reader navigation; errors stay until reviewed or a new action starts.
+    if (activityNotice?.kind !== 'complete' && activityNotice?.kind !== 'cancelled') return
+    const timer = setTimeout(() => setActivityNotice(null), 8000)
+    return () => clearTimeout(timer)
+  }, [activityNotice])
+
+  useEffect(() => {
     if (!busy) return
     let polling = false
     // One in-flight status request bounds polling even when a native call is slow.
@@ -200,7 +221,8 @@ export function useSemanticSearch() {
     return () => window.clearInterval(timer)
   }, [busy, refresh])
 
-  return { ...preference, provider, index, busy, operation, cancelling, error,
+  return { ...preference, provider, index, busy, operation, cancelling, error, activityNotice: activityNotice?.kind ?? null,
+    dismissActivity: () => setActivityNotice(null),
     setEnabled, setFormat, build: () => run('build'), remove: () => run('remove'), cancel,
     refresh: async () => { try { setError(''); await refresh() } catch (err) { setError(String(err)) } },
   }

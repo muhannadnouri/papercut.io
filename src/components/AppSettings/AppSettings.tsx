@@ -98,6 +98,12 @@ export function AppSettings({
 
   return (
     <div className="app-settings">
+      {tauriRuntime && <SearchActivity semantic={semanticSearch} onManage={() => {
+        setOpen(true)
+        setSearchOpen(true)
+        setLegalNoticesOpen(false)
+      }} />}
+
       <button
         type="button"
         className="app-settings-btn"
@@ -108,12 +114,6 @@ export function AppSettings({
       >
         <SettingsIcon />
       </button>
-
-      {tauriRuntime && <SearchActivity semantic={semanticSearch} onManage={() => {
-        setOpen(true)
-        setSearchOpen(true)
-        setLegalNoticesOpen(false)
-      }} />}
 
       {open && searchOpen && (
         <AppDialog key="search" className="app-settings-search-dialog" title={t('settings.semantic.title')}

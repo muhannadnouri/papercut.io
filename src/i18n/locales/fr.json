@@ -112,7 +112,6 @@
     },
     "conceptual": {
       "title": "Résultats conceptuels · Votre bibliothèque",
-      "lexicalTitle": "Résultats par mots-clés",
       "description": "Les passages conceptuels peuvent employer d’autres mots. Les expressions entre guillemets sont obligatoires dans le document ; le passage affiché peut se trouver ailleurs.",
       "shown": "Documents affichés : {{count}}",
       "loading": "Recherche de passages conceptuels…",
@@ -449,7 +448,21 @@
       "update": "Mettre à jour l’index",
       "details": "Détails de l’index",
       "passages": "Passages indexés : {{count}}",
-      "indexHint": "Le travail terminé est réutilisé lors de la création ou de la mise à jour de l’index."
+      "indexHint": "Le travail terminé est réutilisé lors de la création ou de la mise à jour de l’index.",
+      "activity": {
+        "downloading": "Téléchargement du modèle de recherche…",
+        "loading": "Chargement du modèle de recherche…",
+        "disabling": "Désactivation de la recherche…",
+        "indexing": "Indexation de la bibliothèque…",
+        "cancelling": "Annulation de l’indexation…",
+        "working": "Mise à jour de la recherche…",
+        "complete": "Indexation terminée",
+        "cancelled": "Indexation annulée",
+        "failed": "Échec de l’indexation",
+        "statusFailed": "État de la recherche indisponible",
+        "view": "Voir la progression",
+        "review": "Examiner"
+      }
     }
   },
   "libraryTransfer": {

@@ -112,7 +112,6 @@
     },
     "conceptual": {
       "title": "Risultati concettuali · La tua libreria",
-      "lexicalTitle": "Risultati per parole chiave",
       "description": "I passaggi concettuali possono usare parole diverse. Le frasi tra virgolette sono obbligatorie nel documento; il passaggio mostrato può trovarsi altrove.",
       "shown": "Documenti mostrati: {{count}}",
       "loading": "Ricerca di passaggi concettuali…",
@@ -449,7 +448,21 @@
       "update": "Aggiorna indice",
       "details": "Dettagli dell’indice",
       "passages": "Passaggi indicizzati: {{count}}",
-      "indexHint": "Il lavoro completato viene riutilizzato quando crei o aggiorni l’indice."
+      "indexHint": "Il lavoro completato viene riutilizzato quando crei o aggiorni l’indice.",
+      "activity": {
+        "downloading": "Download del modello di ricerca…",
+        "loading": "Caricamento del modello di ricerca…",
+        "disabling": "Disattivazione della ricerca…",
+        "indexing": "Indicizzazione della libreria…",
+        "cancelling": "Annullamento dell’indicizzazione…",
+        "working": "Aggiornamento della ricerca…",
+        "complete": "Indicizzazione completata",
+        "cancelled": "Indicizzazione annullata",
+        "failed": "Indicizzazione non riuscita",
+        "statusFailed": "Stato della ricerca non disponibile",
+        "view": "Visualizza avanzamento",
+        "review": "Controlla"
+      }
     }
   },
   "libraryTransfer": {

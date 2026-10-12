@@ -102,7 +102,6 @@
     },
     "conceptual": {
       "title": "概念结果 · 你的资料库",
-      "lexicalTitle": "关键词结果",
       "description": "概念段落可能使用不同的词语。文档中必须包含所有引号内的短语，但显示的段落可能在别处。",
       "shown": "显示的文档：{{count}}",
       "loading": "正在查找概念段落…",
@@ -437,7 +436,21 @@
       "update": "更新索引",
       "details": "索引详情",
       "passages": "已索引段落数：{{count}}",
-      "indexHint": "创建或更新索引时会复用已完成的工作。"
+      "indexHint": "创建或更新索引时会复用已完成的工作。",
+      "activity": {
+        "downloading": "正在下载搜索模型…",
+        "loading": "正在加载搜索模型…",
+        "disabling": "正在关闭搜索…",
+        "indexing": "正在索引文档库…",
+        "cancelling": "正在取消索引…",
+        "working": "正在更新搜索…",
+        "complete": "索引已完成",
+        "cancelled": "索引已取消",
+        "failed": "索引失败",
+        "statusFailed": "搜索状态不可用",
+        "view": "查看进度",
+        "review": "检查"
+      }
     }
   },
   "libraryTransfer": {

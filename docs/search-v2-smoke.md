@@ -206,9 +206,23 @@ unaccepted until tested. Downloading alone still does not enable semantic search
       format clears it. Only proceed with a supported test format and sufficient
       disk space. INT8 on this development host is not mobile/other-CPU acceptance.
 - [ ] Start a real download, close/reopen settings and confirm progress/busy state
-      recovers. The header activity **Manage** link should reopen the Search view
+      recovers. The compact header activity button should reopen the Search view
       from ordinary search and the reader. Cancel while pending; do not expect
       instant interruption. Controls remain busy until cleanup returns. Repeated clicks must not start extra jobs.
+- [ ] While indexing, confirm the header shows a spinner and phase, with completed
+      document counts only after native work starts. Counts are not remaining time
+      or a job percentage. Pending cancellation has its own label. Settings remains
+      available; activity opens the Search view by keyboard from home and reader.
+      Check a narrow window, Arabic/RTL, dark mode and reduced-motion preference:
+      no overlap with Back/title/Settings, visible focus and no animated spinner
+      when reduced motion is requested. Listen with a screen reader for phase
+      changes without repeated announcements on every document tick.
+- [ ] Finish/cancel an index build after closing settings or opening the reader.
+      The corresponding header outcome should last about eight seconds. An indexing
+      failure should retain **Review**, with no busy spinner, until reviewed or a
+      new action starts; opening it retains the diagnostic in Search settings.
+      Retry and disable must not revive an old outcome. This is an in-process
+      notice, not a restart history; test failure only in the disposable instance.
 - [ ] Complete a download. Presence by size and successful verification are
       distinct messages. **Verify Cache** should reuse valid files offline rather
       than fetching again. It still requires explicit per-format consent because
@@ -330,7 +344,9 @@ tracked fixtures.
 - [ ] Enable a verified cached model and finish **Build Index** or **Update Index**.
       Submit a question about an actual passage in the library, with different wording from that
       passage. **Conceptual Results · Your Library** appears separately from
-      **Keyword Results**. All words/Broader counts, marks and Explore Matches
+      the ordinary results count/cards, with no **Keyword Results** heading.
+      The conceptual explanation is fully readable and wraps on narrow/RTL views.
+      All words/Broader counts, marks and Explore Matches
       retain literal meaning. A document may occur in both independent channels.
 - [ ] Conceptual cards show actual source text without query-word marks, literal
       occurrence counts or confidence percentages. Open an English and Arabic

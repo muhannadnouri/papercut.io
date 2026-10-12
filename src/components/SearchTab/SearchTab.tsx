@@ -10,7 +10,6 @@ import { SearchScope } from '../SearchScope/SearchScope'
 
 interface SearchTabProps {
   additionalResults?: ReactNode
-  lexicalResultsLabel?: string
   mode: SearchMode
   collapsedAuthors: Set<string>
   disabled: boolean
@@ -48,7 +47,6 @@ interface SearchTabProps {
 
 export function SearchTab({
   additionalResults,
-  lexicalResultsLabel,
   mode,
   collapsedAuthors,
   disabled,
@@ -116,7 +114,6 @@ export function SearchTab({
         onScopeModeChange={onScopeModeChange}
       />
 
-      {lexicalResultsLabel && <h2>{lexicalResultsLabel}</h2>}
       <SearchResults
         results={results}
         loading={loading}

@@ -12,7 +12,7 @@ function controller(overrides: Partial<SemanticSearchController> = {}): Semantic
     provider: { compiled: true, activeFormat: null, loadingFormat: null, downloadingFormat: null },
     index: { running: false, cancelRequested: false, indexedDocuments: 1, eligibleDocuments: 2,
       passages: 3, embeddedPassages: 2, reusedPassages: 1, error: null },
-    setEnabled: vi.fn(), setFormat: vi.fn(), build: vi.fn(), remove: vi.fn(), cancel: vi.fn(), refresh: vi.fn(),
+    setEnabled: vi.fn(), setFormat: vi.fn(), build: vi.fn(), remove: vi.fn(), cancel: vi.fn(), refresh: vi.fn(), activityNotice: null, dismissActivity: vi.fn(),
     ...overrides }
 }
 function html(semantic: SemanticSearchController, cachePresent = true, cacheBusy = false) {

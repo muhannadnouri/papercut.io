@@ -135,7 +135,7 @@ it('offers turning off a saved opt-in even when the current build has no provide
   semantic = { enabled: true, format: 'float32', busy: false, operation: null, error: '', cancelling: false,
     provider: { compiled: false, activeFormat: null, loadingFormat: null, downloadingFormat: null },
     index: undefined, setEnabled: vi.fn(), setFormat: vi.fn(), build: vi.fn(), remove: vi.fn(),
-    cancel: vi.fn(), refresh: vi.fn() }
+    cancel: vi.fn(), refresh: vi.fn(), activityNotice: null, dismissActivity: vi.fn() }
   render()
   const html = await settle()
   expect(html).toContain('settings.semantic.enabled')
@@ -293,7 +293,7 @@ it('keeps index removal behind confirmation and disables it for an empty index',
     provider: { compiled: true, activeFormat: null, loadingFormat: null, downloadingFormat: null },
     index: { running: false, cancelRequested: false, indexedDocuments: 1, eligibleDocuments: 2,
       passages: 4, embeddedPassages: 0, reusedPassages: 0, error: null },
-    setEnabled: vi.fn(), setFormat: vi.fn(), build: vi.fn(), remove: vi.fn(), cancel: vi.fn(), refresh: vi.fn() }
+    setEnabled: vi.fn(), setFormat: vi.fn(), build: vi.fn(), remove: vi.fn(), cancel: vi.fn(), refresh: vi.fn(), activityNotice: null, dismissActivity: vi.fn() }
   render(); await settle()
   click('settings.semantic.remove'); render()
   expect(semantic.remove).not.toHaveBeenCalled()
