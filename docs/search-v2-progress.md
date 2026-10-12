@@ -61,12 +61,96 @@ and the [conceptual summary cleanup](#stage-7--conceptual-results-summary--2026-
 followed by the [settings readiness cleanup](#stage-7--settings-readiness-and-copy--2026-10-11),
 also have focused frontend/browser validation. The subsequent
 [stored-work and conditional layout pass](#stage-7--stored-work-guards-and-conditional-settings--2026-10-11)
-adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The subsequent [passage-window evaluation](#stage-7--passage-window-quality-and-cost-review--2026-10-12) finds a bounded local usefulness gain while leaving backmatter classification, missing context and unsupported-query failures open. The [PDF backmatter correction](#stage-7--pdf-backmatter-classification--2026-10-12) addresses the measured reference/index role gaps without claiming an unsupported-query relevance gain. The [alternative-passage review](#stage-7--alternative-passages-and-weak-matches--2026-10-12) rejects an unhelpful expansion and leaves selection/unsupported-query quality open. The subsequent [candidate-coverage diagnosis](#stage-7--candidate-coverage-diagnosis--2026-10-12) distinguishes two selection failures from an explanation missing from the bounded pool; it justifies a representation experiment, not a shipped reranker. The subsequent [adjacent-body experiment](#stage-7--bounded-adjacent-body-embedding-experiment--2026-10-12) reduces derived vector storage and improves one fresh first-result bundle, but does not justify shipping grouping or establish a general relevance win. The [global candidate-selection feasibility pass](#stage-7--bounded-global-candidate-selection-feasibility--2026-10-12) establishes complete reference witnesses within a fixed global pool, justifying a bounded local selector trial with an explicit evidence-token budget; it does not demonstrate improved ranking. The subsequent [reranker input gate](#stage-8--bounded-reranker-input-gate--2026-10-12) rejects full-bundle single-pair scoring because the cached model cannot accept that evidence intact; compact source-aware inputs remain an experiment, not a shipping change. The recorded full CI predates these UI, model and content changes. The first
+adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The subsequent [passage-window evaluation](#stage-7--passage-window-quality-and-cost-review--2026-10-12) finds a bounded local usefulness gain while leaving backmatter classification, missing context and unsupported-query failures open. The [PDF backmatter correction](#stage-7--pdf-backmatter-classification--2026-10-12) addresses the measured reference/index role gaps without claiming an unsupported-query relevance gain. The [alternative-passage review](#stage-7--alternative-passages-and-weak-matches--2026-10-12) rejects an unhelpful expansion and leaves selection/unsupported-query quality open. The subsequent [candidate-coverage diagnosis](#stage-7--candidate-coverage-diagnosis--2026-10-12) distinguishes two selection failures from an explanation missing from the bounded pool; it justifies a representation experiment, not a shipped reranker. The subsequent [adjacent-body experiment](#stage-7--bounded-adjacent-body-embedding-experiment--2026-10-12) reduces derived vector storage and improves one fresh first-result bundle, but does not justify shipping grouping or establish a general relevance win. The [global candidate-selection feasibility pass](#stage-7--bounded-global-candidate-selection-feasibility--2026-10-12) establishes complete reference witnesses within a fixed global pool, justifying a bounded local selector trial with an explicit evidence-token budget; it does not demonstrate improved ranking. The subsequent [reranker input gate](#stage-8--bounded-reranker-input-gate--2026-10-12) rejects full-bundle single-pair scoring because the cached model cannot accept that evidence intact; compact source-aware inputs remain an experiment, not a shipping change. The subsequent [compact-window trial](#stage-8--compact-scoring-window-trial--2026-10-12) also fails its frozen size/evidence gate; keep the reranker rejected and address the measured source-role gap before further selector work. The recorded full CI predates these UI, model and content changes. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 8 — Compact scoring-window trial — 2026-10-12
+
+**Decision: reject this compact single-window policy. Both input validity and
+required evidence preservation fail the frozen pre-inference gate.** Do not run
+inference, retune the rule after seeing results or integrate the cached reranker.
+This experiment changes no shipping code, model, dependency, index or CI check.
+The native response and experimental grouping remain unchanged.
+
+Before construction, freeze the existing global 24 candidates per query across
+24 reused development questions, one 512-token scoring pair per candidate and a
+source-only construction rule. Within
+each captured body/context union, choose a local sentence seed with FTS5 BM25;
+use the existing Porter/Unicode tokenizer and safely quoted OR query terms,
+without a word list or reference labels. Equal-score ties prefer original member
+span overlap, then source proximity; an unmatched query uses those source ties.
+Include the original document title and the seed's actual heading. Add neighboring
+units alternately after and before the seed while each complete unit fits. A
+blocked side stays blocked; do not skip ahead to known reference evidence.
+
+Units use the production punctuation/paragraph boundary heuristic projected onto
+existing bounded source spans. They retain exact UTF-8 locators, but are not a
+guarantee of complete linguistic sentences. Count query, metadata, source text and
+special tokens with the cached model's actual tokenizer, without truncation or
+padding. An oversized seed is an explicit failure, not a silently removed
+candidate. The compact scoring text is assessed separately from its unchanged,
+larger display bundle. Policy and source/model inputs were hashed before results;
+source-only judgments were recorded before any inference, which was never run.
+
+| Frozen feasibility check | Current control | Grouped trial |
+| --- | --- | --- |
+| Compact candidate pairs within 512 tokens | 569/576 | 569/576 |
+| Previously identified complete display-bundle witnesses | 15/16 | 16/16 |
+| Those witnesses still complete in compact scoring text | 10/16 | 10/16 |
+| Required complete-witness lower bound before inference | 11/16 | 12/16 |
+
+Across both variants, 1,138 of 1,152 pairs fit; their median is 498 tokens and
+maximum is 512. The other 14 pairs require 877–884 tokens even before neighbor
+expansion. **These are repeated appearances of one index-style source block,
+not 14 distinct boundary failures.** That captured block remains classified as
+body content despite its auxiliary layout. Its wrapped entries and cross-references
+also contain too few recognized sentence boundaries for this scoring policy.
+The conservative page classifier does not cover every such layout; this is a
+source-role gap to investigate with generic examples, not a reason to weaken
+prose/table guards or hide arbitrary numeric text.
+
+Assistant provisional clause review finds 20 of the 31 selected complete
+witnesses remain complete; eleven become useful but partial. A lexical seed can
+favor topic vocabulary and fill its budget with surrounding prose while omitting
+an essential mechanism or qualification. This is not a new ranking result.
+Only previously identified complete witnesses were graded; alternative compact
+witnesses elsewhere in the pool were not exhaustively labeled. The failed lower
+bound does not prove that every compact representation must fail, or that all
+answers inherently need more than 512 tokens.
+
+Four fresh authored English/Arabic identity/date/approval cases, each with a
+mirrored exclusion negative, were frozen before construction. All eight short
+windows fit and retain the intended clauses, including the explicit exclusions.
+These near-duplicate construction controls fit intact: they neither stress
+long-window compaction nor demonstrate ranking, independent quality or a repair
+for the cached model's earlier name/date/exclusion failures. No model weights
+were loaded, and no new relevance ordering, inference latency or reranker memory
+measurement is claimed. Constructing all 1,152 diagnostic windows took about
+6.3 seconds on this host; this is not an app query-latency or device benchmark.
+
+Validation: frozen policy/input/model and review hashes pass; all 1,152 candidate
+windows and eight authored controls reconstruct deterministically. Token counts,
+source ordering, exact original slices, body-range membership and 15,039 selected
+source units pass checks, alongside multilingual/UTF-8, decimal, no-hit and
+oversized-seed self-checks. The earlier independent global full-sort reference,
+vector checksums, unchanged source rows and 8,224 captured evidence slices still
+pass. Private reports/helpers remain outside tracked files. App suites are not
+rerun because shipping behavior is unchanged; diff checks pass. Memsearch recall,
+expansion and memory creation/readback work; automatic index refresh is unclaimed.
+
+**Next:** investigate and correct the measured PDF source-role gap for wrapped
+index entries and cross-references using generic layouts, with retained prose,
+numeric-table and exact-source-offset safeguards. Verify derived-index invalidation
+before shipping any classification change. Do not start another cached-reranker,
+window-size or model sweep from this result; optional Stage 8 optimization has
+not earned integration. Grouping stays experimental. Lexical default, explicit
+downloads/indexing and opt-in fallback remain unchanged. Consolidated smoke stays
+deferred; independent relevance, current-revision CI, physical-device performance
+and app acceptance remain open.
 
 ## Stage 8 — Bounded reranker input gate — 2026-10-12
 
