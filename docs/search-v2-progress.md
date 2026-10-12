@@ -61,12 +61,92 @@ and the [conceptual summary cleanup](#stage-7--conceptual-results-summary--2026-
 followed by the [settings readiness cleanup](#stage-7--settings-readiness-and-copy--2026-10-11),
 also have focused frontend/browser validation. The subsequent
 [stored-work and conditional layout pass](#stage-7--stored-work-guards-and-conditional-settings--2026-10-11)
-adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The subsequent [passage-window evaluation](#stage-7--passage-window-quality-and-cost-review--2026-10-12) finds a bounded local usefulness gain while leaving backmatter classification, missing context and unsupported-query failures open. The [PDF backmatter correction](#stage-7--pdf-backmatter-classification--2026-10-12) addresses the measured reference/index role gaps without claiming an unsupported-query relevance gain. The [alternative-passage review](#stage-7--alternative-passages-and-weak-matches--2026-10-12) rejects an unhelpful expansion and leaves selection/unsupported-query quality open. The subsequent [candidate-coverage diagnosis](#stage-7--candidate-coverage-diagnosis--2026-10-12) distinguishes two selection failures from an explanation missing from the bounded pool; it justifies a representation experiment, not a shipped reranker. The subsequent [adjacent-body experiment](#stage-7--bounded-adjacent-body-embedding-experiment--2026-10-12) reduces derived vector storage and improves one fresh first-result bundle, but does not justify shipping grouping or establish a general relevance win. The [global candidate-selection feasibility pass](#stage-7--bounded-global-candidate-selection-feasibility--2026-10-12) establishes complete reference witnesses within a fixed global pool, justifying a bounded local selector trial with an explicit evidence-token budget; it does not demonstrate improved ranking. The recorded full CI predates these UI, model and content changes. The first
+adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The subsequent [passage-window evaluation](#stage-7--passage-window-quality-and-cost-review--2026-10-12) finds a bounded local usefulness gain while leaving backmatter classification, missing context and unsupported-query failures open. The [PDF backmatter correction](#stage-7--pdf-backmatter-classification--2026-10-12) addresses the measured reference/index role gaps without claiming an unsupported-query relevance gain. The [alternative-passage review](#stage-7--alternative-passages-and-weak-matches--2026-10-12) rejects an unhelpful expansion and leaves selection/unsupported-query quality open. The subsequent [candidate-coverage diagnosis](#stage-7--candidate-coverage-diagnosis--2026-10-12) distinguishes two selection failures from an explanation missing from the bounded pool; it justifies a representation experiment, not a shipped reranker. The subsequent [adjacent-body experiment](#stage-7--bounded-adjacent-body-embedding-experiment--2026-10-12) reduces derived vector storage and improves one fresh first-result bundle, but does not justify shipping grouping or establish a general relevance win. The [global candidate-selection feasibility pass](#stage-7--bounded-global-candidate-selection-feasibility--2026-10-12) establishes complete reference witnesses within a fixed global pool, justifying a bounded local selector trial with an explicit evidence-token budget; it does not demonstrate improved ranking. The subsequent [reranker input gate](#stage-8--bounded-reranker-input-gate--2026-10-12) rejects full-bundle single-pair scoring because the cached model cannot accept that evidence intact; compact source-aware inputs remain an experiment, not a shipping change. The recorded full CI predates these UI, model and content changes. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 8 — Bounded reranker input gate — 2026-10-12
+
+**Decision: reject full-bundle, single-pair reranking at the cached model's
+512-token limit. Do not run inference or integrate a reranker from this pass.**
+The preceding global pool establishes useful candidate coverage, but that does
+not mean its complete source evidence fits a small cross-encoder. This rejects
+one input policy, not the possibility of useful compact scoring windows.
+
+The frozen policy keeps the same global 24 candidates, original member spans
+and nearby-context union. Its scoring input includes the document title, anchor
+heading and every ordered evidence span, with separate source locators retained.
+Count the query and pair special tokens using the cached quantized mMARCO MiniLM
+model's actual tokenizer. Its configured maximum is 512 pair tokens. Disable
+truncation and padding; reject an oversized input rather than silently dropping
+text or candidates. Model, input and policy hashes were frozen before token
+analysis. No new model, download, dependency, retrieval or index is introduced.
+
+The cached model's earlier name/date and exclusion failures remain rejection
+controls; the previous implementation remains removed. Before analyzing the new
+pool, the tokenizer reproduces all 140 archived regression-pair token counts
+from the original native scoring report. This verifies input counting across
+the diagnostic runtime, **not a new inference replay or a fix for those failures**.
+Exact-boundary self-checks accept 512 tokens and reject 513 without truncation;
+empty pairs are rejected and Arabic pair encoding is checked for deterministic,
+nonempty source offsets.
+
+| Input-budget check across 24 reused development questions | Current control | Grouped trial |
+| --- | --- | --- |
+| Full candidate bundles within 512 pair tokens | 41/576 | 36/576 |
+| Previously identified complete source-witness bundles within the limit | 0/15 | 0/16 |
+| Median full-bundle pair tokens | 2,068 | 2,068 |
+| Largest full-bundle pair | 2,611 | 2,611 |
+| Existing embedding-input-only pairs within the limit | 576/576 | 576/576 |
+| Median embedding-input-only pair tokens | 289 | 302 |
+| Largest embedding-input-only pair | 352 | 352 |
+
+Overall, 1,075 of 1,152 full pairs exceed the limit. None of the 31 selected
+complete witnesses fits intact. These witnesses contain surrounding source text
+as well as essential clauses: **this does not prove that each answer itself
+needs more than 512 tokens, or that no compact alternative candidate exists**.
+Do not reinterpret this representation failure as a new retrieval/ranking loss.
+
+Exact existing embedding input is a frozen diagnostic ablation, not an accepted
+replacement for complete evidence. It fits all pairs, but six previously reviewed
+inputs from eleven identical-input controls omit essential clauses supplied by
+their nearby context, while the full source bundles are complete. Those grades
+and source-input hashes are reused unchanged. Thus omitting context cannot be
+assumed to preserve the coverage that justified the trial. No exhaustive
+embedding-input-only quality or alternative-witness labeling is claimed.
+
+The pre-inference gate fails, so no new ranking, relevance gain, inference
+latency, model-load cost or peak reranker memory is reported. Fresh quality cases
+and native scoring-regression replay remain conditional on a valid input policy;
+they are not performed or represented as passing here. Increasing the input
+length is not a setting-only remedy for this cached model's positional limit.
+The prior rejected model also cannot be accepted merely because a later input
+representation fits.
+
+Validation: all frozen input/model/source hashes and the preceding native pool's
+independent ordering, checksums, original source rows and 8,224 evidence slices
+remain valid. All 1,152 full/core pair counts are repeated with truncation disabled;
+the result bounds, witness membership and identical-input omission controls pass.
+Reports and generic reproduction/self-check code remain private; no temporary
+app edit, new maintained script or CI check is needed. Diff checks pass. App
+suites are not rerun because shipping behavior is unchanged. Memsearch recall,
+expansion and memory creation/readback work; this does not claim an automatic
+memory-index refresh.
+
+**Next:** one source-aware compact scoring-window experiment. Freeze a generic
+construction rule and actual-tokenizer budget before results, preserve exact
+source locators, and check required answer clauses separately from surplus
+context. Do not choose windows using reference labels, silently truncate them,
+expand the global pool, add private word rules or start another model sweep.
+Only an input policy that preserves useful evidence justifies the bounded
+selection comparison and its fresh relevance, name/date/exclusion and resource
+checks. Keep grouping experimental and the native response unchanged. Lexical
+default, explicit downloads/indexing and opt-in fallback remain unchanged.
+Consolidated smoke stays deferred; independent relevance, current-revision CI,
+physical-device performance and app acceptance remain open.
 
 ## Stage 7 — Bounded global candidate-selection feasibility — 2026-10-12
 
