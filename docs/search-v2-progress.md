@@ -61,12 +61,72 @@ and the [conceptual summary cleanup](#stage-7--conceptual-results-summary--2026-
 followed by the [settings readiness cleanup](#stage-7--settings-readiness-and-copy--2026-10-11),
 also have focused frontend/browser validation. The subsequent
 [stored-work and conditional layout pass](#stage-7--stored-work-guards-and-conditional-settings--2026-10-11)
-adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The recorded full CI predates these UI, model and content changes. The first
+adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The recorded full CI predates these UI, model and content changes. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 7 — Sentence and paragraph windows — 2026-10-12
+
+Semantic windows now prefer sentence ends or explicit paragraph breaks after
+at least half the available window. Context overlap prefers a sentence start
+near the existing 40-token target and cannot exceed half the window; small
+character-limited windows reduce that target to keep advancing. The total input
+still includes the E5 prefix, title and heading within the 320-token and
+4,096-character ceilings. Complete inputs are retokenized before inference;
+oversized metadata fails explicitly rather than being silently truncated.
+
+The isolated passage helper recognizes common Latin, Arabic and CJK terminal
+punctuation, retains closing quotation marks/brackets and skips dots inside
+decimal numbers and URLs. Long sentences prefer whole-word cuts; unbroken text
+falls back to token edges. SentencePiece offsets may include leading whitespace,
+so overlap retains the token containing the selected start instead of skipping
+the sentence's first word. Boundary lookups use sorted ranges rather than
+repeatedly searching all boundaries for every passage.
+
+Each window remains inside one original section/page and body/auxiliary region.
+Original UTF-8 offsets, reader locators, authored text, role preference, document
+ordering, required quotes and filters remain intact. This pass does not join
+adjacent sections/pages or expand the frontend preview clamp. Lexical search,
+default-off consent and explicit download/build controls are unchanged.
+
+The policy identity advances to `chunks-v2`. Old vectors are incompatible and
+the enabled semantic path falls back to keywords until an explicit index rebuild.
+The rebuild replaces only derived semantic data; it neither rewrites sources nor
+downloads another model. Natural boundaries can produce more passages and more
+indexing work than fixed token cuts; this is not a claim of unchanged index cost.
+
+Validation:
+
+- 236 provider-enabled native regressions pass, with 10 explicit probes ignored
+  by default; 178 provider-disabled regressions pass, with five explicit probes
+  ignored. New generic cases cover sentence overlap, whitespace-bearing tokens,
+  closing quotes, LF/CRLF paragraph breaks, Arabic/CJK/emoji UTF-8 spans, numeric/URL
+  punctuation, forced cuts/progress, invalid offsets and policy mismatch followed
+  by explicit rebuild with source preservation.
+- Actual cached Small FP32/INT8 provider probes on this Linux development host
+  check long English, Arabic and CJK windows against the real tokenizer and
+  complete-input limits, and run inference. Existing SQLite quote/filter,
+  cancellation/checkpoint and lexical-preservation controls also pass.
+- The existing isolated Small FP32 command probe passes explicit indexing,
+  source-locator verification, scoped/quoted queries, checkpoint reuse, title
+  invalidation and removal through Tauri handlers on MockRuntime. It does not
+  launch the WebView.
+- Formatting and diff checks pass. There are no dependencies, frontend, model
+  manifest, shipping-script or CI workflow changes.
+
+**Limits and next:** punctuation heuristics are not a language-aware sentence
+parser: abbreviations, missing punctuation and oversized sentences can still
+produce imperfect boundaries. Section/page and role edges remain hard limits.
+These controls establish valid windows, not better full-library rankings; no
+fresh relevance comparison, Base/Large platform sweep or physical-device latency
+claim is made. Next rebuild a disposable index and evaluate displayed passages
+on fresh questions before deciding whether cross-section context, multiple
+passages or a calibrated weak-match policy is justified. Use the existing full
+CI with provider inference after pushing. Interactive smoke stays deferred;
+the consolidated checklist includes this rebuild and source-navigation follow-up.
 
 ## Stage 7 — Main-content evidence and passage roles — 2026-10-12
 

@@ -497,8 +497,8 @@ mod provider {
             )
         }
 
-        /// Keep the experiment's 320-token/40-overlap policy, including metadata and E5 prefix.
-        /// Source spans remain section-local; headers too large to leave body room fail explicitly.
+        /// Prefer natural boundaries inside the 320-token ceiling, including metadata and E5 prefix.
+        /// Context overlap stays source-local; oversized metadata fails instead of silently truncating.
         fn passage_ranges(
             &self,
             title: &str,
@@ -521,17 +521,19 @@ mod provider {
             let encoding = tokenizer
                 .encode(text, false)
                 .map_err(|err| err.to_string())?;
-            let offsets = encoding.get_offsets();
-            let mut result = Vec::new();
-            let mut first = 0;
-            while first < offsets.len() {
-                let last = (first + budget).min(offsets.len());
-                let span = offsets[first].0..offsets[last - 1].1;
-                let body = text
-                    .get(span.clone())
-                    .filter(|body| !body.is_empty())
-                    .ok_or("Invalid semantic tokenizer offsets")?;
-                let input = passage_input(title, heading, body);
+            let characters = 4096usize
+                .checked_sub(header.chars().count())
+                .filter(|remaining| *remaining > 0)
+                .ok_or("Title/heading leaves no character room for semantic passage text")?;
+            let result = crate::document_uploads::semantic::passages::windows(
+                text,
+                encoding.get_offsets(),
+                budget,
+                characters,
+            )?;
+            // Re-tokenize the complete input: slicing can change tokenization at either boundary.
+            for span in &result {
+                let input = passage_input(title, heading, &text[span.clone()]);
                 if input.chars().count() > 4096
                     || tokenizer
                         .encode(input.as_str(), true)
@@ -541,11 +543,6 @@ mod provider {
                 {
                     return Err("Semantic passage exceeds token/character budget".into());
                 }
-                result.push(span);
-                if last == offsets.len() {
-                    break;
-                }
-                first = last - OVERLAP_TOKENS;
             }
             Ok(result)
         }
@@ -853,6 +850,25 @@ mod provider {
                         .encode(&format!("query: {}", "bus ".repeat(600)))
                         .unwrap_err()
                         .contains("512-token"));
+                    // Test actual model offsets/budgets; synthetic word tokens cannot expose subword cuts.
+                    for text in [
+                        "Electric ferries connect the harbor and station. Riders buy tickets before boarding. ".repeat(80),
+                        "港口有电动渡船。乘客在车站买票！".repeat(80),
+                        "الحافلات تصل إلى الميناء؟ يشتري الركاب التذاكر قبل الرحلة. ".repeat(80),
+                    ] {
+                        let spans = loaded.passage_ranges("Transit guide", None, &text).unwrap();
+                        assert!(spans.len() > 1);
+                        for span in &spans {
+                            let body = text.get(span.clone()).unwrap();
+                            assert!(body.trim_end().ends_with(['.', '!', '؟', '。', '！']), "mid-sentence end: {span:?}, body: {body}");
+                            assert!(span.start == 0 || text[..span.start].trim_end().ends_with(['.', '!', '؟', '。', '！']), "mid-sentence start: {span:?}, body: {body}");
+                        }
+                        assert!(spans.windows(2).all(|pair| pair[0].start < pair[1].start && pair[0].end >= pair[1].start));
+                        assert!(text[spans.last().unwrap().end..].trim().is_empty());
+                        loaded.encode(&crate::document_uploads::semantic::store::passage_input(
+                            "Transit guide", None, &text[spans[0].clone()],
+                        )).unwrap();
+                    }
                 }
                 eprintln!("inference controls complete: {format:?}");
                 if cycle == 1 {

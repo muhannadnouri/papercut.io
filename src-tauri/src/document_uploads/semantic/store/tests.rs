@@ -346,6 +346,39 @@ fn conceptual(db: &mut Connection, input: Value) -> Value {
 }
 
 #[test]
+fn changed_window_policy_requires_explicit_rebuild_without_touching_source() {
+    let library = Library::new();
+    let mut db = library.db();
+    put(&mut db, "abc123", "Guide", &["Ferries connect the harbor."]);
+    let key = identity();
+    initialize(&mut db, &key).unwrap();
+    sync(&mut db, &key, "abc123");
+    db.execute(
+        "UPDATE upload_semantic_metadata SET identity=?1",
+        [key.key.replace("chunks-v2", "chunks-v1")],
+    )
+    .unwrap();
+    let response = retrieve(
+        &mut db,
+        &key,
+        &request(json!({"query":"harbor travel"})),
+        |_| panic!("old window policy must not infer"),
+        || Ok(()),
+    )
+    .unwrap();
+    assert_eq!(
+        serde_json::to_value(response).unwrap()["availability"],
+        "incompatible-index"
+    );
+    initialize(&mut db, &key).unwrap();
+    assert_eq!(coverage(&mut db, Some(&key)).unwrap().indexed_documents, 0);
+    let snapshot = source(&mut db, "abc123").unwrap().unwrap();
+    assert_eq!(snapshot.sections[0].text, "Ferries connect the harbor.");
+    sync(&mut db, &key, "abc123");
+    assert_eq!(coverage(&mut db, Some(&key)).unwrap().indexed_documents, 1);
+}
+
+#[test]
 fn conceptual_scope_quotes_constrain_ranking_before_limit_without_chunk_votes() {
     let library = Library::new();
     let mut db = library.db();

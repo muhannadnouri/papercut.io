@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 
 pub(super) const SCHEMA_VERSION: i64 = 1;
 // Change this whenever extraction, source normalization or passage construction changes.
-const POLICY: &str = "uploaded-sections-v1/authored-v1/e5-prefix-v1/chunks-v1/body-ranges-v1";
+const POLICY: &str = "uploaded-sections-v1/authored-v1/e5-prefix-v1/chunks-v2/body-ranges-v1";
 pub(crate) const CHUNK_TOKENS: usize = 320;
 pub(crate) const OVERLAP_TOKENS: usize = 40;
 

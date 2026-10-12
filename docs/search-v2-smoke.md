@@ -304,6 +304,28 @@ all text conservatively.
       Re-import/edit content and confirm stale coverage cannot return old vectors.
       No model download or semantic rebuild starts solely from opening settings.
 
+## Natural-boundary follow-up — 2026-10-12
+
+**Deferred.** Explicitly rebuild the semantic index after this upgrade; the
+`chunks-v2` policy rejects prior windows. No model redownload is required.
+
+- [ ] With semantic search **off**, keyword searches, quotes, filters and reader
+      navigation behave as before. Enabling semantic search with an old index
+      shows keyword fallback until the explicit rebuild completes.
+- [ ] After rebuilding, inspect conceptual passages in ordinary English, Arabic
+      and CJK prose containing several sentences or paragraphs. Prefer complete
+      sentences and useful repeated context, and open the result at its original
+      section/page. The card preview may still visually truncate a longer indexed
+      passage; inspect the source before judging the boundary.
+- [ ] Include a long sentence, an unbroken string, closing quotes, decimals and
+      URLs. Preparation must finish or report an actionable error; forced cuts
+      are allowed when input limits prevent a complete sentence. Body/auxiliary
+      and page/section edges must remain distinct, with no fabricated joins.
+- [ ] Repeat quote/filter/cancel/resume and restart checks after rebuilding.
+      Record changed passage counts, preparation time and any missing context
+      outside tracked files. Do not treat this mechanical check as relevance
+      acceptance; separately grade whether the displayed text answers the query.
+
 ## Stage 7 preparation controls — new follow-up
 
 **Deferred by the user on 2026-10-09.** The separate conceptual-results UI is now

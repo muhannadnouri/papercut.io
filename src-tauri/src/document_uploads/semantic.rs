@@ -5,6 +5,8 @@ use std::sync::{
     Arc, Mutex,
 };
 
+#[cfg(any(test, feature = "experimental-search-embeddings-core"))]
+pub(crate) mod passages;
 pub(crate) mod query;
 #[cfg(any(test, feature = "experimental-search-embeddings-core"))]
 pub(crate) mod store;
