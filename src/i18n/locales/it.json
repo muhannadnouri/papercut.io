@@ -374,7 +374,7 @@
     "versionUnavailable": "Non disponibile",
     "webBuild": "Costruzione web",
     "searchModel": {
-      "title": "1. Scarica il modello",
+      "title": "Scarica modello",
       "description": "multilingual-e5-small funziona su questo dispositivo. Il download non attiva la ricerca.",
       "loading": "Verifica della configurazione…",
       "unavailable": "La configurazione del modello non è disponibile in questa build. La ricerca normale resta disponibile.",
@@ -382,9 +382,8 @@
       "float32": "Precisione completa (FP32)",
       "int8": "Download ridotto (INT8)",
       "size": "File del modello: {{size}}. Il download richiede anche 64 MiB di spazio libero di riserva.",
-      "resources": "La dimensione su disco non è il consumo di RAM. I test nativi su questo computer hanno raggiunto circa 1.42 GiB per FP32 e 846 MiB per INT8; altri dispositivi possono differire.",
-      "platform": "I controlli automatici passano sui target CI testati. Prestazioni sui dispositivi fisici e usabilità richiedono ancora verifica.",
-      "int8Warning": "L’esportazione INT8 usa il nome AVX512/VNNI. L’inferenza passa sui runtime CI testati; ciò non garantisce prestazioni o compatibilità su ogni dispositivo.",
+      "resources": "La ricerca viene eseguita su questo dispositivo. Uso della memoria, velocità di indicizzazione e impatto sulla batteria dipendono dall’hardware e dalle dimensioni della libreria.",
+      "int8Warning": "INT8 usa un modello quantizzato. Risultati e prestazioni possono differire da FP32. Prova FP32 se INT8 non si carica.",
       "present": "File presenti; l’integrità viene verificata al caricamento del modello.",
       "absent": "Modello non scaricato o download incompleto.",
       "consent": "Consenti il download di questo formato da Hugging Face.",
@@ -399,7 +398,7 @@
       "verified": "Modello pronto. La ricerca semantica resta invariata.",
       "removed": "File del modello rimossi. La ricerca è invariata.",
       "cancelling": "Annullamento richiesto; in attesa dell’arresto e della pulizia…",
-      "closeHelp": "Il lavoro continua dopo la chiusura. Usa Gestisci nell’intestazione per controllare l’avanzamento o annullare.",
+      "closeHelp": "Chiudere le impostazioni non annulla questo download. Controlla l’avanzamento o annullalo dall’intestazione.",
       "cancelled": "Download annullato. Controlla lo stato della cache prima di riprovare.",
       "failed": "Download non riuscito. Controlla la connessione e lo spazio libero; rimuovi i file della cache danneggiati prima di riprovare.",
       "details": "Dettagli tecnici",
@@ -427,10 +426,8 @@
       "retry": "Riprova attivazione",
       "refresh": "Aggiorna stato",
       "cancelling": "Annullamento richiesto. In attesa della chiamata nativa corrente e della pulizia.",
-      "recovery": "Disattiva per cambiare formato o rimuovere i file del modello. La disattivazione ferma l’indicizzazione e scarica il modello dalla memoria; file e punti di ripresa restano. La scelta salvata ricarica il modello locale al riavvio, senza download. Crea / riprendi dopo il riavvio o modifiche alla libreria. Chiudere le impostazioni non annulla il lavoro.",
+      "recovery": "La disattivazione interrompe l’indicizzazione e scarica il modello dalla memoria. I file scaricati e il lavoro di indicizzazione completato vengono conservati. Se la ricerca è attivata, il modello in cache viene ricaricato al riavvio; aggiorna l’indice dopo modifiche alla libreria o interruzioni dell’indicizzazione.",
       "manage": "Gestisci",
-      "summaryOff": "Disattivata · ricerca per parole",
-      "summaryOn": "Attivata · risultati concettuali quando la libreria è pronta",
       "enableTitle": "2. Attiva ricerca semantica",
       "indexTitle": "3. Prepara la libreria",
       "checkingIndex": "Controllo della libreria…",
@@ -438,7 +435,7 @@
       "indexReady": "L’indice è aggiornato.",
       "needsIndex": "La libreria deve essere indicizzata.",
       "enableFirst": "Attiva la ricerca semantica prima di preparare la libreria.",
-      "downloadFirst": "Scarica il modello prima di attivare questa opzione.",
+      "downloadFirst": "Scarica il modello qui sotto prima di attivare la ricerca semantica.",
       "loading": "Caricamento del modello di ricerca…",
       "indexing": "Indicizzazione della libreria…",
       "downloading": "Download del modello di ricerca…",
@@ -466,7 +463,21 @@
         "statusFailed": "Stato della ricerca non disponibile",
         "view": "Visualizza avanzamento",
         "review": "Controlla"
-      }
+      },
+      "closeHelp": "Chiudere le impostazioni non annulla l’indicizzazione. Controlla l’avanzamento o annullala dall’intestazione.",
+      "summary": {
+        "off": "Disattivata · Ricerca per parole",
+        "disabling": "Disattivazione…",
+        "loading": "Attivata · Caricamento modello…",
+        "cancelling": "Attivata · Annullamento indicizzazione…",
+        "indexing": "Attivata · Indicizzazione…",
+        "fallback": "Attivata · Solo ricerca per parole",
+        "checking": "Attivata · Verifica libreria…",
+        "empty": "Attivata · Importa documenti",
+        "needsIndex": "Attivata · Indicizzazione necessaria",
+        "ready": "Attivata · Pronta"
+      },
+      "modelRequired": "L’indicizzazione è disponibile quando il modello di ricerca è caricato."
     }
   },
   "libraryTransfer": {

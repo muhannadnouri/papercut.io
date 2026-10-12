@@ -57,13 +57,55 @@ without enabling saved user consent. The subsequent
 frontend validation, followed by the
 [activity and results presentation pass](#stage-7--compact-search-activity-and-results-copy--2026-10-11);
 the [Search Mode heading cleanup](#stage-7--search-mode-heading-cleanup--2026-10-11)
-and the [conceptual summary cleanup](#stage-7--conceptual-results-summary--2026-10-11)
+and the [conceptual summary cleanup](#stage-7--conceptual-results-summary--2026-10-11),
+followed by the [settings readiness cleanup](#stage-7--settings-readiness-and-copy--2026-10-11),
 also have focused frontend/browser validation. The recorded full CI predates these UI changes. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 7 — Settings readiness and copy — 2026-10-11
+
+The approved task view now presents **Semantic Search**, **Download Model / Manage
+Model**, then **Library Index**. The switch remains off and disabled without model
+files, with its prerequisite and status linked accessibly. Downloads retain fresh
+per-format consent and an explicit installer click; index build/update remains
+explicit. The model installer stays owned by SearchModelSetup, inserted between
+SemanticSearchSetup's existing toggle and index panels without taking over their
+state. Native commands, opt-in persistence, retrieval and CI are unchanged.
+
+A small shared observed-state function replaces the generic enabled promise in
+general Settings and the toggle card. Loading, indexing/cancelling, incomplete
+coverage, empty/checking library and keyword-only fallback remain distinct from
+**On · Ready**. Failed/stale encoder state, index removal and `0 / 0` cannot claim
+readiness. Inactive index controls explain that a loaded model is required; they
+do not tell an already-enabled user to enable again.
+
+Technical copy now describes local processing, device-dependent resources, retained
+files/work and saved opt-in reloads without development-host RAM figures or CI
+claims. Those measurements remain in developer docs. INT8's result/performance
+caveat stays beside its format choice. A short closing-Settings notice appears
+only beside active downloads/indexing and points to header progress/cancellation;
+it makes no promise about app exit or mobile suspension. Expanded **Index Details**
+uses a horizontal count/action row on wide screens and stacks on narrow screens.
+All eight locales are updated; styles remain in the component's own stylesheet.
+
+Validation: **208 frontend tests across 50 files**, lint, locale parity, TypeScript
+and the production frontend build pass. Regressions protect observed-state
+precedence in both Settings views, prerequisite guards, panel order, explicit
+operation ownership and conditional background guidance. A browser fixture using
+the actual dialog/setup components with simulated IPC verifies off/missing model,
+loading, failure, download and indexing states; only status/cache reads occur on
+opening. Keyboard disclosure focus, desktop count/action alignment, narrow Arabic
+stacking/dark mode, no horizontal overflow and visible dialog actions pass. This
+is presentation evidence, not native smoke or screen-reader/device acceptance.
+
+Next: push this commit and review current-revision CI; when the user is ready,
+rebuild with `npm run desktop` and run the updated consolidated semantic off/on
+[smoke checklist](search-v2-smoke.md). Smoke remains explicitly deferred and all
+interactive release gates remain open.
 
 ## Stage 7 — Conceptual results summary — 2026-10-11
 

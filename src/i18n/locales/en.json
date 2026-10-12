@@ -367,7 +367,7 @@
     "versionUnavailable": "Unavailable",
     "webBuild": "Web build",
     "searchModel": {
-      "title": "1. Download Model",
+      "title": "Download Model",
       "description": "multilingual-e5-small runs on this device. Downloading does not enable search.",
       "loading": "Checking model setup…",
       "unavailable": "Model setup is unavailable in this build. Ordinary search remains available.",
@@ -375,9 +375,8 @@
       "float32": "Full Precision (FP32)",
       "int8": "Smaller Download (INT8)",
       "size": "Model files: {{size}}. Downloads also require 64 MiB of free-space reserve.",
-      "resources": "Disk size is not RAM usage. Native checks on this development machine peaked at about 1.42 GiB for FP32 and 846 MiB for INT8; other devices may differ.",
-      "platform": "Automated runtime checks pass on the tested CI targets. Physical-device performance and app usability still need validation.",
-      "int8Warning": "The INT8 export uses an AVX512/VNNI name. It passes inference on the tested CI runtimes; this does not establish performance or compatibility on every device.",
+      "resources": "Search runs on this device. Memory use, indexing speed and battery impact depend on your hardware and library size.",
+      "int8Warning": "INT8 uses a quantized model. Results and performance may differ from FP32. Try FP32 if INT8 fails to load.",
       "present": "Files present; integrity is checked when the model loads.",
       "absent": "Model not downloaded or download incomplete.",
       "consent": "Allow a download from Hugging Face for this format.",
@@ -392,7 +391,7 @@
       "verified": "Search model ready. Semantic search remains unchanged.",
       "removed": "Model files removed. Search is unchanged.",
       "cancelling": "Cancellation requested; waiting for the worker to stop and clean up…",
-      "closeHelp": "Background work continues when you close this view. Use Manage in the header to check progress or cancel.",
+      "closeHelp": "Closing Settings does not cancel this download. View progress or cancel from the header.",
       "cancelled": "Download cancelled. Check cache status before retrying.",
       "failed": "Download failed. Check your connection and free space; remove damaged cache files before retrying.",
       "details": "Technical Details",
@@ -420,10 +419,8 @@
       "retry": "Retry Activation",
       "refresh": "Refresh Status",
       "cancelling": "Cancellation requested. Waiting for the current native call and cleanup.",
-      "recovery": "Turn off to change model format or remove model files. Turning off stops indexing and unloads the model; cached files and checkpoints remain. The saved opt-in reloads the cached model on restart, without downloading. Build / resume after restart or library edits. Closing settings does not cancel work.",
+      "recovery": "Turning off stops indexing and unloads the model. Downloaded files and completed indexing work are kept. If enabled, the cached model reloads on restart; update the index after library changes or interrupted indexing.",
       "manage": "Manage",
-      "summaryOff": "Off · keyword search",
-      "summaryOn": "On · conceptual results when the library is ready",
       "enableTitle": "2. Enable Semantic Search",
       "indexTitle": "3. Prepare Library",
       "checkingIndex": "Checking library status…",
@@ -431,7 +428,7 @@
       "indexReady": "Library index is up to date.",
       "needsIndex": "Library needs indexing.",
       "enableFirst": "Enable semantic search above before preparing the library.",
-      "downloadFirst": "Download the model above before enabling this option.",
+      "downloadFirst": "Download the model below before enabling semantic search.",
       "loading": "Loading search model…",
       "indexing": "Indexing library…",
       "downloading": "Downloading search model…",
@@ -459,7 +456,21 @@
         "statusFailed": "Search Status Unavailable",
         "view": "View Progress",
         "review": "Review"
-      }
+      },
+      "closeHelp": "Closing Settings does not cancel indexing. View progress or cancel from the header.",
+      "summary": {
+        "off": "Off · Keyword Search",
+        "disabling": "Turning Off…",
+        "loading": "On · Loading Model…",
+        "cancelling": "On · Cancelling Indexing…",
+        "indexing": "On · Indexing…",
+        "fallback": "On · Keyword Search Only",
+        "checking": "On · Checking Library…",
+        "empty": "On · Import Documents",
+        "needsIndex": "On · Index Required",
+        "ready": "On · Ready"
+      },
+      "modelRequired": "Indexing is available once the search model is loaded."
     }
   },
   "libraryTransfer": {

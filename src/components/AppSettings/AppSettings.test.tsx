@@ -40,13 +40,14 @@ function elements(node: ReactNode = tree): ReactElement<Record<string, unknown>>
 beforeEach(() => {
   slots.values = []; slots.cursor = 0
   semantic.busy = false; semantic.activityNotice = null; semantic.dismissActivity = vi.fn()
+  semantic.enabled = false; semantic.operation = null; semantic.error = ''; semantic.provider = undefined; semantic.index = undefined
 })
 
 it('keeps model/index controls out of general Settings and restores the summary on Back', () => {
   render()
   const settings = elements().find(node => node.props['aria-label'] === 'settings.button')!
   ;(settings.props.onClick as () => void)()
-  expect(render()).toContain('settings.semantic.summaryOff')
+  expect(render()).toContain('settings.semantic.summary.off')
   expect(render()).not.toContain('model-and-index-controls')
   const manage = elements().find(node => node.type === 'button' && node.props.children === 'settings.semantic.manage')!
   ;(manage.props.onClick as () => void)()
@@ -55,7 +56,7 @@ it('keeps model/index controls out of general Settings and restores the summary 
   const actions = elements(dialog.props.actions as ReactNode)
   const back = actions.find(node => node.type === 'button' && node.props.children === 'common.back')!
   ;(back.props.onClick as () => void)()
-  expect(render()).toContain('settings.semantic.summaryOff')
+  expect(render()).toContain('settings.semantic.summary.off')
   expect(render()).not.toContain('model-and-index-controls')
 })
 
@@ -78,5 +79,23 @@ it('retains the Settings gear while activity opens the model/index controls dire
   const activity = elements().find(node => node.type === SearchActivity)!
   ;(activity.props.onManage as () => void)()
   expect(render()).toContain('model-and-index-controls')
-  expect(render()).not.toContain('settings.semantic.summaryOff')
+  expect(render()).not.toContain('settings.semantic.summary.off')
+})
+
+it('shows current readiness in general Settings rather than a generic enabled promise', () => {
+  render()
+  const settings = elements().find(node => node.props['aria-label'] === 'settings.button')!
+  ;(settings.props.onClick as () => void)()
+  semantic.enabled = true
+  expect(render()).toContain('settings.semantic.summary.fallback')
+  semantic.operation = 'activate'
+  expect(render()).toContain('settings.semantic.summary.loading')
+  semantic.operation = null
+  semantic.provider = { compiled: true, activeFormat: 'float32', loadingFormat: null, downloadingFormat: null }
+  semantic.format = 'float32'
+  semantic.index = { running: false, cancelRequested: false, indexedDocuments: 1, eligibleDocuments: 2,
+    passages: 3, embeddedPassages: 0, reusedPassages: 0, error: null }
+  expect(render()).toContain('settings.semantic.summary.needsIndex')
+  semantic.index.indexedDocuments = 2
+  expect(render()).toContain('settings.semantic.summary.ready')
 })

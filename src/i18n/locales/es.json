@@ -374,7 +374,7 @@
     "versionUnavailable": "Indisponible",
     "webBuild": "construcción web",
     "searchModel": {
-      "title": "1. Descargar modelo",
+      "title": "Descargar modelo",
       "description": "multilingual-e5-small se ejecuta en este dispositivo. Descargarlo no activa la búsqueda.",
       "loading": "Comprobando la configuración…",
       "unavailable": "La configuración del modelo no está disponible en esta compilación. La búsqueda habitual sigue disponible.",
@@ -382,9 +382,8 @@
       "float32": "Precisión completa (FP32)",
       "int8": "Descarga menor (INT8)",
       "size": "Archivos del modelo: {{size}}. La descarga también requiere 64 MiB de espacio libre de reserva.",
-      "resources": "El tamaño en disco no es el uso de RAM. Las pruebas nativas en este equipo alcanzaron unos 1.42 GiB para FP32 y 846 MiB para INT8; otros dispositivos pueden variar.",
-      "platform": "Las comprobaciones automáticas pasan en los destinos CI probados. El rendimiento en dispositivos físicos y la usabilidad aún requieren validación.",
-      "int8Warning": "La exportación INT8 lleva el nombre AVX512/VNNI. Pasa la inferencia en los entornos CI probados; no garantiza rendimiento ni compatibilidad en todos los dispositivos.",
+      "resources": "La búsqueda se ejecuta en este dispositivo. El uso de memoria, la velocidad de indexación y el impacto en la batería dependen del hardware y del tamaño de tu biblioteca.",
+      "int8Warning": "INT8 usa un modelo cuantizado. Los resultados y el rendimiento pueden diferir de FP32. Prueba FP32 si INT8 no se carga.",
       "present": "Archivos presentes; su integridad se verifica al cargar el modelo.",
       "absent": "Modelo no descargado o descarga incompleta.",
       "consent": "Permitir descargar este formato desde Hugging Face.",
@@ -399,7 +398,7 @@
       "verified": "Modelo listo. La búsqueda semántica no ha cambiado.",
       "removed": "Archivos del modelo eliminados. La búsqueda no cambia.",
       "cancelling": "Cancelación solicitada; esperando a que el proceso se detenga y limpie…",
-      "closeHelp": "El trabajo continúa al cerrar esta vista. Usa Administrar en la cabecera para ver el progreso o cancelar.",
+      "closeHelp": "Cerrar Configuración no cancela esta descarga. Consulta el progreso o cancélala desde la cabecera.",
       "cancelled": "Descarga cancelada. Comprueba el estado de la caché antes de reintentar.",
       "failed": "La descarga falló. Comprueba la conexión y el espacio libre; elimina los archivos dañados antes de reintentar.",
       "details": "Detalles técnicos",
@@ -427,10 +426,8 @@
       "retry": "Reintentar activación",
       "refresh": "Actualizar estado",
       "cancelling": "Cancelación solicitada. Esperando la llamada nativa actual y la limpieza.",
-      "recovery": "Desactiva para cambiar el formato o eliminar archivos del modelo. Desactivar detiene la indexación y descarga el modelo de la memoria; se conservan archivos y puntos de control. La opción guardada recarga el modelo local al reiniciar, sin descargarlo. Crea / reanuda tras reiniciar o editar la biblioteca. Cerrar los ajustes no cancela el trabajo.",
+      "recovery": "Desactivar detiene la indexación y descarga el modelo de la memoria. Se conservan los archivos descargados y el trabajo de indexación completado. Si está activada, la búsqueda vuelve a cargar el modelo almacenado al reiniciar; actualiza el índice tras cambios en la biblioteca o interrupciones de la indexación.",
       "manage": "Administrar",
-      "summaryOff": "Desactivado · búsqueda por palabras",
-      "summaryOn": "Activado · resultados conceptuales cuando la biblioteca esté lista",
       "enableTitle": "2. Activar búsqueda semántica",
       "indexTitle": "3. Preparar biblioteca",
       "checkingIndex": "Comprobando la biblioteca…",
@@ -438,7 +435,7 @@
       "indexReady": "El índice está actualizado.",
       "needsIndex": "La biblioteca necesita indexación.",
       "enableFirst": "Activa la búsqueda semántica antes de preparar la biblioteca.",
-      "downloadFirst": "Descarga el modelo antes de activar esta opción.",
+      "downloadFirst": "Descarga el modelo de abajo antes de activar la búsqueda semántica.",
       "loading": "Cargando modelo de búsqueda…",
       "indexing": "Indexando biblioteca…",
       "downloading": "Descargando modelo de búsqueda…",
@@ -466,7 +463,21 @@
         "statusFailed": "Estado de búsqueda no disponible",
         "view": "Ver progreso",
         "review": "Revisar"
-      }
+      },
+      "closeHelp": "Cerrar Configuración no cancela la indexación. Consulta el progreso o cancélala desde la cabecera.",
+      "summary": {
+        "off": "Desactivado · Búsqueda por palabras",
+        "disabling": "Desactivando…",
+        "loading": "Activado · Cargando modelo…",
+        "cancelling": "Activado · Cancelando indexación…",
+        "indexing": "Activado · Indexando…",
+        "fallback": "Activado · Solo búsqueda por palabras",
+        "checking": "Activado · Comprobando biblioteca…",
+        "empty": "Activado · Importa documentos",
+        "needsIndex": "Activado · Se requiere indexación",
+        "ready": "Activado · Listo"
+      },
+      "modelRequired": "La indexación está disponible cuando el modelo de búsqueda está cargado."
     }
   },
   "libraryTransfer": {

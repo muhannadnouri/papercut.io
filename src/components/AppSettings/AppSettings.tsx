@@ -16,6 +16,7 @@ import { AppDialog } from '../AppDialog/AppDialog'
 import { AppSelect } from '../AppSelect/AppSelect'
 import { SearchModelSetup } from './SearchModelSetup'
 import { SearchActivity } from '../../search-semantic/SearchActivity'
+import { semanticSearchStatus } from '../../search-semantic/semanticSearchStatus'
 import type { SemanticSearchController } from '../../search-semantic/useSemanticSearch'
 import aiAudioUseNotice from '../../../AI_AUDIO_USE_NOTICE.md?raw'
 import papercutLicense from '../../../LICENSE.md?raw'
@@ -258,7 +259,7 @@ export function AppSettings({
 
           {tauriRuntime && <section className="app-settings-section app-settings-data" aria-labelledby="app-settings-search">
             <h3 id="app-settings-search">{t('settings.semantic.title')}</h3>
-            <p className="app-settings-search-summary">{t(semanticSearch.enabled ? 'settings.semantic.summaryOn' : 'settings.semantic.summaryOff')}</p>
+            <p className="app-settings-search-summary">{t(`settings.semantic.summary.${semanticSearchStatus(semanticSearch)}`)}</p>
             <button type="button" className="app-settings-data-action" onClick={() => setSearchOpen(true)}>
               {t('settings.semantic.manage')}
             </button>

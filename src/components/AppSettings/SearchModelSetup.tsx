@@ -152,82 +152,90 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
   const canChange = ready && status?.compiled && !busy && !semantic?.enabled && !loaded
   const formatLabel = t(format === 'float32' ? 'settings.searchModel.float32' : 'settings.searchModel.int8')
 
+  // Model preparation sits between the opt-in and index controls without owning their state.
+  const modelControls = <>
+    {ready && status?.compiled && <details className="search-model-panel search-model-management" open={!loaded}>
+      <summary>{t(loaded || cache?.filesPresent ? 'settings.searchModel.manage' : 'settings.searchModel.title')}
+        {loaded && <span className="search-model-summary-status" role="status">{formatLabel} · {t('settings.searchModel.loaded')}</span>}
+      </summary>
+      <dl className="search-model-metadata">
+        <dt>{t('settings.searchModel.model')}</dt><dd>multilingual-e5-small</dd>
+        <dt>{t('settings.searchModel.downloadSize')}</dt><dd>{formatStorageSize(cache?.expectedBytes) ?? '—'}</dd>
+      </dl>
+      <label className="search-model-field">
+        <span>{t('settings.searchModel.format')}</span>
+        <select value={format} disabled={!canChange} onChange={(event) => {
+          const choice = event.target.value as ModelFormat
+          if (semantic) semantic.setFormat(choice)
+          else setLocalFormat(choice)
+          setConsent(false)
+          setRemoval(null)
+          setError('')
+          setMessage('')
+          setProgress(null)
+        }}>
+          <option value="float32">{t('settings.searchModel.float32')}</option>
+          <option value="dynamic-int8">{t('settings.searchModel.int8')}</option>
+        </select>
+      </label>
+      {format === 'dynamic-int8' && <p>{t('settings.searchModel.int8Warning')}</p>}
+      {!loaded && <p role="status">{t(cache?.filesPresent
+        ? message === 'verified' ? 'settings.searchModel.verified' : 'settings.searchModel.present'
+        : 'settings.searchModel.absent')}</p>}
+      {(!semantic?.enabled && !loaded) && <>
+        <p>{t('settings.searchModel.reserve')}</p>
+        <label className="search-model-consent">
+          <input type="checkbox" checked={consent} disabled={!canChange} onChange={(event) => setConsent(event.target.checked)} />
+          <span>{t('settings.searchModel.consent')}</span>
+        </label>
+        <div className="search-model-actions">
+          <button type="button" className="app-settings-data-action search-action-primary" disabled={!canChange || !cache || !consent}
+            onClick={() => { void run('download') }}>
+            {t(cache?.filesPresent ? 'settings.searchModel.verify' : 'settings.searchModel.download')}
+          </button>
+        </div>
+      </>}
+      {(semantic?.enabled || loaded) && <p>{t('settings.searchModel.inUse')}</p>}
+
+      {(operation !== null || downloading) && <div role="status" aria-live="polite">
+        <p>{t('settings.searchModel.working')}</p>
+        {downloading && <>
+          <p>{t(downloading === 'float32' ? 'settings.searchModel.float32' : 'settings.searchModel.int8')}</p>
+          <progress aria-label={t('settings.searchModel.progress')} max={100}
+            value={matchingProgress && percent !== null ? percent : undefined} />
+          {matchingProgress && percent !== null && <span>{percent}%</span>}
+        </>}
+      </div>}
+      {downloading && <button type="button" className="app-settings-data-action" disabled={cancelling}
+        onClick={() => { void cancel() }}>{t('common.cancel')}</button>}
+      {downloading && <p>{t('settings.searchModel.closeHelp')}</p>}
+      {message === 'removed' && <p role="status">{t('settings.searchModel.removed')}</p>}
+      {cancelling && busy && <p role="status">{t('settings.searchModel.cancelling')}</p>}
+      {!busy && progress?.phase === 'cancelled' && !error && <p role="status">{t('settings.searchModel.cancelled')}</p>}
+      {!busy && progress?.phase === 'failed' && !error && <p role="alert">{t('settings.searchModel.failed')}</p>}
+    </details>}
+    {error && <p className="app-dialog-error" role="alert" dir="auto">{error}</p>}
+    {error && <button type="button" className="app-settings-data-action" onClick={() => {
+      setError('')
+      setReady(false)
+      setCancelling(false)
+      setConnecting((value) => value + 1)
+    }}>{t('common.retry')}</button>}
+  </>
+
   return (
     <section className="app-settings-section search-model-setup" aria-labelledby={`${id}-title`}>
       <p id={`${id}-title`}>{t('settings.semantic.description')}</p>
       {!ready && <p role="status">{t('settings.searchModel.loading')}</p>}
       {ready && !status?.compiled && <p>{t('settings.searchModel.unavailable')}</p>}
-      {ready && status?.compiled && <details className="search-model-panel search-model-management" open={!loaded}>
-        <summary>{t(loaded ? 'settings.searchModel.manage' : 'settings.searchModel.title')}
-          {loaded && <span className="search-model-summary-status" role="status">{formatLabel} · {t('settings.searchModel.loaded')}</span>}
-        </summary>
-        <dl className="search-model-metadata">
-          <dt>{t('settings.searchModel.model')}</dt><dd>multilingual-e5-small</dd>
-          <dt>{t('settings.searchModel.downloadSize')}</dt><dd>{formatStorageSize(cache?.expectedBytes) ?? '—'}</dd>
-        </dl>
-        <label className="search-model-field">
-          <span>{t('settings.searchModel.format')}</span>
-          <select value={format} disabled={!canChange} onChange={(event) => {
-            const choice = event.target.value as ModelFormat
-            if (semantic) semantic.setFormat(choice)
-            else setLocalFormat(choice)
-            setConsent(false)
-            setRemoval(null)
-            setError('')
-            setMessage('')
-            setProgress(null)
-          }}>
-            <option value="float32">{t('settings.searchModel.float32')}</option>
-            <option value="dynamic-int8">{t('settings.searchModel.int8')}</option>
-          </select>
-        </label>
-        {!loaded && <p role="status">{t(cache?.filesPresent
-          ? message === 'verified' ? 'settings.searchModel.verified' : 'settings.searchModel.present'
-          : 'settings.searchModel.absent')}</p>}
-        {(!semantic?.enabled && !loaded) && <>
-          <p>{t('settings.searchModel.reserve')}</p>
-          <label className="search-model-consent">
-            <input type="checkbox" checked={consent} disabled={!canChange} onChange={(event) => setConsent(event.target.checked)} />
-            <span>{t('settings.searchModel.consent')}</span>
-          </label>
-          <div className="search-model-actions">
-            <button type="button" className="app-settings-data-action search-action-primary" disabled={!canChange || !cache || !consent}
-              onClick={() => { void run('download') }}>
-              {t(cache?.filesPresent ? 'settings.searchModel.verify' : 'settings.searchModel.download')}
-            </button>
-          </div>
-        </>}
-        {(semantic?.enabled || loaded) && <p>{t('settings.searchModel.inUse')}</p>}
-
-        {(operation !== null || downloading) && <div role="status" aria-live="polite">
-          <p>{t('settings.searchModel.working')}</p>
-          {downloading && <>
-            <p>{t(downloading === 'float32' ? 'settings.searchModel.float32' : 'settings.searchModel.int8')}</p>
-            <progress aria-label={t('settings.searchModel.progress')} max={100}
-              value={matchingProgress && percent !== null ? percent : undefined} />
-            {matchingProgress && percent !== null && <span>{percent}%</span>}
-          </>}
-        </div>}
-        {downloading && <button type="button" className="app-settings-data-action" disabled={cancelling}
-          onClick={() => { void cancel() }}>{t('common.cancel')}</button>}
-        {message === 'removed' && <p role="status">{t('settings.searchModel.removed')}</p>}
-        {cancelling && busy && <p role="status">{t('settings.searchModel.cancelling')}</p>}
-        {!busy && progress?.phase === 'cancelled' && !error && <p role="status">{t('settings.searchModel.cancelled')}</p>}
-        {!busy && progress?.phase === 'failed' && !error && <p role="alert">{t('settings.searchModel.failed')}</p>}
-      </details>}
-      {error && <p className="app-dialog-error" role="alert" dir="auto">{error}</p>}
-      {error && <button type="button" className="app-settings-data-action" onClick={() => {
-        setError('')
-        setReady(false)
-        setCancelling(false)
-        setConnecting((value) => value + 1)
-      }}>{t('common.retry')}</button>}
-      {ready && semantic && <SemanticSearchSetup semantic={semantic} cachePresent={!!cache?.filesPresent} cacheBusy={busy} />}
+      {ready && semantic
+        ? <SemanticSearchSetup semantic={semantic} cachePresent={!!cache?.filesPresent} cacheBusy={busy}>
+          {modelControls}
+        </SemanticSearchSetup>
+        : modelControls}
       {ready && status?.compiled && <details className="search-model-panel">
         <summary>{t('settings.searchModel.details')}</summary>
         <p>{t('settings.searchModel.resources')}</p>
-        <p>{t('settings.searchModel.platform')}</p>
-        {format === 'dynamic-int8' && <p>{t('settings.searchModel.int8Warning')}</p>}
         <p>{t('settings.semantic.recovery')}</p>
       </details>}
       {ready && status?.compiled && <details className="search-model-panel">
@@ -253,7 +261,6 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
           </div>
         </div>}
       </details>}
-      {(busy || downloading) && <p>{t('settings.searchModel.closeHelp')}</p>}
     </section>
   )
 }

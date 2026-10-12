@@ -202,9 +202,13 @@ unaccepted until tested. Downloading alone still does not enable semantic search
       Browser settings do not offer native model controls. Ordinary search works.
 - [ ] In the native shipping build, open **Settings → Semantic Search → Manage**. Opening
       settings must not download or load a model. Check the FP32/INT8 labels,
-      disk reserve and short resource warning. Open **Technical Details** to check
-      the file-size/RAM distinction and INT8 physical-device compatibility caveat.
-      General Settings should show only a summary and **Manage**; **Back** returns
+      disk reserve and short resource warning. **Semantic Search** appears before
+      **Download Model / Manage Model**, then **Library Index**. Without files,
+      the toggle is off/disabled with an accessible explanation pointing below.
+      Open **Technical Details** to check device-independent resource/lifecycle
+      guidance; host RAM measurements and CI claims must not appear in the UI.
+      Selecting INT8 shows its result/performance caveat beside the format choice.
+      General Settings shows the observed state and **Manage**; **Back** returns
       there and **Done** closes the dedicated view without changing consent.
 - [ ] Download requires unchecked, per-format Hugging Face consent. Changing
       format clears it. Only proceed with a supported test format and sufficient
@@ -213,6 +217,8 @@ unaccepted until tested. Downloading alone still does not enable semantic search
       recovers. The compact header activity button should reopen the Search view
       from ordinary search and the reader. Cancel while pending; do not expect
       instant interruption. Controls remain busy until cleanup returns. Repeated clicks must not start extra jobs.
+      Closing-Settings guidance appears beside the active download and disappears
+      when it ends; it must not promise continued work after app exit/suspension.
 - [ ] While indexing, confirm the header shows a spinner and phase, with completed
       document counts only after native work starts. Counts are not remaining time
       or a job percentage. Pending cancellation has its own label. Settings remains
@@ -299,10 +305,16 @@ restart checks; the explicit unbundled recipe is only a diagnostic alternative.
       download permission or installer action. Turn off: preparation controls
       return, and explicit consent is still needed before invoking the installer.
 - [ ] With current nonempty coverage, **Semantic Search** and **Library Index**
-      replace numbered setup headings. Ready/up-to-date status and document counts
+      keep unnumbered headings. Ready/up-to-date status and document counts
       are visible; there is no Build/Update action. **Index Details** exposes passage
-      counts and **Refresh Status**. Partial coverage offers **Update Index**;
+      counts and **Refresh Status** across a row on wide screens, stacked on narrow
+      English/Arabic views, with visible keyboard focus. Partial coverage offers **Update Index**;
       inactive, failed or running states must not claim readiness.
+- [ ] General Settings and the semantic toggle card agree on observed state:
+      off, loading, indexing/cancelling, index required, empty/checking library,
+      ready or keyword-only fallback. Saved opt-in is not readiness. Loading or
+      failed activation must not tell an already-enabled user to enable again;
+      index actions wait for a loaded model. Opening either view starts no job.
 - [ ] With no searchable uploads, the library-preparation panel requests imports,
       never reports `0 / 0` as ready and disables **Build Index**. With
       uploaded searchable text, click **Build Index** (or **Update Index** when
@@ -310,6 +322,7 @@ restart checks; the explicit unbundled recipe is only a diagnostic alternative.
       counts update and completed-document coverage grows. Close/reopen Settings
       or enter a reader during work: the job continues. Ordinary search and
       audio remain usable; record stalls, native errors and resource peaks.
+      Closing-Settings guidance appears beside active indexing only, not on idle cards.
 - [ ] Cancel during indexing, then resume. Cleanup can wait for the current
       native call. Completed/checkpointed work is reused; partial documents are
       not reported ready. Turn off during indexing: work stops, the model unloads,

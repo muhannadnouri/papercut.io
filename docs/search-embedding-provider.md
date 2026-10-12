@@ -411,8 +411,15 @@ controls require the focused follow-up below.
 
 Open **Settings → Semantic Search → Manage** in a Tauri build; Developer mode is
 not required. General Settings contains a summary rather than model/index actions.
-The dedicated task view separates download, opt-in and library preparation;
-**Technical Details** holds memory/compatibility and lifecycle explanations,
+The dedicated task view starts with **Semantic Search**, followed by **Download
+Model / Manage Model** and **Library Index**. The switch remains off and unavailable
+without model files; its status/prerequisite explanation is associated accessibly.
+Downloading and building/updating the index remain separate explicit actions.
+General Settings and the toggle card use the same observed readiness summary:
+off, loading, indexing/cancelling, index required, empty/checking library, ready or
+keyword-only fallback. Saved opt-in alone never means ready; inactive encoders,
+failed jobs, index removal and empty coverage cannot claim readiness.
+**Technical Details** holds device-independent resource and lifecycle explanations,
 while **Manage Storage** holds model/index removal with consequence text and an
 explicit confirmation. It reuses the existing dialog/focus handling, widens on
 desktop and scrolls its body without hiding Back/Done on narrow screens.
@@ -421,8 +428,14 @@ Search view rules live in `SearchModelSetup.css`; header activity rules live in
 
 Native shipping scripts compile the provider; providerless diagnostic builds
 report unavailability. There is no desktop-only UI check. FP32 remains the
-initial format, with installed-file size and the 64 MiB disk reserve visible;
-measured native-test RAM and INT8 physical-device limits stay in Technical details.
+initial format, with installed-file size and the 64 MiB disk reserve visible.
+INT8 result/performance differences and FP32 recovery guidance appear beside the
+selected format. Host-specific RAM measurements and CI acceptance evidence stay
+in developer documentation, not product copy. Expanded **Index Details** places
+passage counts and **Refresh Status** across a row when space permits and stacks
+them on narrow screens. Closing-Settings guidance appears only beside an active
+download or indexing operation, with the header progress/cancellation route;
+it does not promise work continues after app exit or mobile suspension.
 CI emulator/simulator inference does not establish physical-device acceptance.
 
 An unchecked consent box names Hugging Face and this device as the destination.

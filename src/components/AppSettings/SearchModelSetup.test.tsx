@@ -295,6 +295,11 @@ it('keeps index removal behind confirmation and disables it for an empty index',
       passages: 4, embeddedPassages: 0, reusedPassages: 0, error: null },
     setEnabled: vi.fn(), setFormat: vi.fn(), build: vi.fn(), remove: vi.fn(), cancel: vi.fn(), refresh: vi.fn(), activityNotice: null, dismissActivity: vi.fn() }
   render(); await settle()
+  const markup = render()
+  expect(markup.indexOf('settings.semantic.controlsTitle')).toBeLessThan(markup.indexOf('settings.searchModel.title'))
+  expect(markup.indexOf('settings.searchModel.title')).toBeLessThan(markup.indexOf('settings.semantic.libraryTitle'))
+  expect(markup).not.toContain('settings.searchModel.closeHelp')
+  expect(markup).not.toContain('settings.semantic.closeHelp')
   click('settings.semantic.remove'); render()
   expect(semantic.remove).not.toHaveBeenCalled()
   click('common.cancel'); render()
@@ -303,6 +308,24 @@ it('keeps index removal behind confirmation and disables it for an empty index',
   expect(semantic.remove).toHaveBeenCalledTimes(1)
   semantic.index!.passages = 0; render()
   expect(control('button', 'settings.semantic.remove').props.disabled).toBe(true)
+})
+
+it('keeps background guidance with active downloads or indexing without starting either on open', async () => {
+  status.downloadingFormat = 'float32'
+  render(); await settle()
+  expect(render()).toContain('settings.searchModel.closeHelp')
+  expect(render()).not.toContain('settings.semantic.closeHelp')
+  expect(mocked.invoke.mock.calls.some(([cmd]) => cmd === 'search_embedding_download')).toBe(false)
+  status.downloadingFormat = null
+  semantic = { enabled: true, format: 'float32', busy: true, operation: 'build', error: '', cancelling: false,
+    provider: { compiled: true, activeFormat: 'float32', loadingFormat: null, downloadingFormat: null },
+    index: { running: true, cancelRequested: false, indexedDocuments: 1, eligibleDocuments: 2,
+      passages: 4, embeddedPassages: 0, reusedPassages: 0, error: null },
+    setEnabled: vi.fn(), setFormat: vi.fn(), build: vi.fn(), remove: vi.fn(), cancel: vi.fn(), refresh: vi.fn(), activityNotice: null, dismissActivity: vi.fn() }
+  await vi.advanceTimersByTimeAsync(1000); await settle()
+  expect(render()).toContain('settings.semantic.closeHelp')
+  expect(render()).not.toContain('settings.searchModel.closeHelp')
+  expect(semantic.build).not.toHaveBeenCalled()
 })
 
 it('collapses a loaded model, keeps file presence distinct from verification and restores preparation after disable', async () => {
