@@ -61,12 +61,96 @@ and the [conceptual summary cleanup](#stage-7--conceptual-results-summary--2026-
 followed by the [settings readiness cleanup](#stage-7--settings-readiness-and-copy--2026-10-11),
 also have focused frontend/browser validation. The subsequent
 [stored-work and conditional layout pass](#stage-7--stored-work-guards-and-conditional-settings--2026-10-11)
-adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The recorded full CI predates these UI, model and content changes. The first
+adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The subsequent [passage-window evaluation](#stage-7--passage-window-quality-and-cost-review--2026-10-12) finds a bounded local usefulness gain while leaving backmatter classification, missing context and unsupported-query failures open. The recorded full CI predates these UI, model and content changes. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 7 — Passage-window quality and cost review — 2026-10-12
+
+This pass evaluates the preceding window change; it adds no product code or new
+CI harness. Separate disposable native indexes compare the fixed-token method
+from `801949d` with sentence-aware windows from `a0222f6`, keeping source text,
+current body/auxiliary classification, titles, retrieval and pinned Small FP32
+assets constant. Installed app data is untouched. Production EPUB parsing
+matches saved source text exactly; PDF role backfill uses saved page geometry,
+so this is not a fresh PDF extraction/OCR check.
+
+Eight fresh answerable questions and four unsupported questions, with
+source-grounded expectations, were frozen before retrieval. A familiar control
+is excluded from fresh metrics. The rubric was fixed before inspection:
+3 = direct answer with adequate evidence, 2 = useful partial answer,
+1 = related topic without an answer, 0 = unrelated/unsupported.
+All returned passages were graded with variant, rank and score hidden; judgments
+were frozen before unblinding. These are implementing-agent provisional grades,
+not independent labels. Grades concern full native passages, not the rendered
+four-line cards. Private source identities, questions and excerpts remain outside
+tracked files.
+
+| Measure | Fixed windows | Sentence-aware windows |
+| --- | --- | --- |
+| Useful first result on fresh answerable cases | 5 / 8 | 6 / 8 |
+| Direct first answer | 4 / 8 | 5 / 8 |
+| At least one useful result | 6 / 8 | 7 / 8 |
+| Unsupported questions still returning irrelevant results | 4 / 4 | 4 / 4 |
+| Cold derived-index rebuild | 240.4 s | 247.1 s |
+| Unchanged resume, without inference or passage writes | 9.9 ms | 9.7 ms |
+| Warm native query median | 312.5 ms | 316.0 ms |
+| Sampled full-process peak RSS | About 1.43 GiB | About 1.43 GiB |
+
+Across the positive document-passage comparisons, three grades improve,
+thirteen tie and none regress. One improvement changes first-result usefulness:
+the sentence-aware selection includes a remedy omitted by the fixed window.
+The other improvements affect secondary results. Passage count rises 1.2%,
+rebuild time 2.8% and whole SQLite file size 0.44%. The observed query median
+rises 1.1%; this is one ordered run per variant, not a statistically established
+latency change. Both native probes used debug builds and the existing two-thread
+CPU provider on the development host. Queries were OS-warm after indexing; RSS
+was sampled over parsing, model loading, indexing and retrieval. These figures
+do not establish production or weak-device performance.
+
+The remaining failures have distinct causes:
+
+- Some PDF bibliography and alphabetical-index passages still lie inside stored
+  main-content ranges. Body-first retrieval cannot repair a mistaken source role.
+  The current citation detector requires explicit HTTP/HTTPS/DOI text, and the
+  navigation detector requires dot leaders; other reference/index layouts escape
+  these conservative rules. Authored text and literal citation search must remain
+  available when improving classification.
+- Some useful answers or qualifications occupy adjacent original blocks; one
+  selected block describes a request while the linking explanation is elsewhere.
+  Sentence cuts inside a single block cannot recover missing neighboring evidence.
+  Another useful answer ranks behind a related but non-answering passage.
+- Unsupported questions always receive nearest passages under the current
+  document-level retrieval contract. Useful and irrelevant scores overlap, so a
+  universal cosine cutoff cannot separate all reviewed answers from all bad hits.
+  Similarity is not answer confidence; this packet does not justify tuning a
+  suppression threshold or requiring lexical overlap.
+- React still clamps conceptual previews to four lines without an inline full-text
+  expansion. A full native passage grade does not prove that its answer is visible
+  on the search screen; expanding a preview alone cannot supply omitted evidence.
+
+Both probes preserve the canonical source digest and verify every returned UTF-8
+slice against its original source. Unchanged resume also asserts no retokenization,
+inference or passage writes. Temporary probe source edits were restored byte-for-
+byte before the normal provider-enabled suite passed: 236 tests, 10 explicit
+probes ignored. Formatting and diff checks pass. No dependencies, frontend,
+model manifests, shipping scripts or CI jobs change in this pass.
+
+**Decision and next:** retain sentence-aware windows as a bounded local
+improvement, without claiming overall quality acceptance. Next repair the generic
+PDF backmatter classification gaps with guarded fixtures for ordinary prose,
+numeric tables and literal citations. Then evaluate bounded neighboring context
+or a small alternative-passage set with preserved individual source anchors;
+do not blindly join pages or exceed input limits. Reuse this frozen packet as
+regression evidence and add fresh cases for later acceptance. No new model sweep,
+reranker or ANN implementation is justified here. Indexing is incremental for
+unchanged source/model/policy identities; imports, edits and identity changes can
+require more derived work. Interactive smoke remains deferred. No new CI,
+native WebView, independent grading, additional-model/language quality or
+physical-device performance evidence is claimed.
 
 ## Stage 7 — Sentence and paragraph windows — 2026-10-12
 
