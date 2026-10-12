@@ -61,12 +61,139 @@ and the [conceptual summary cleanup](#stage-7--conceptual-results-summary--2026-
 followed by the [settings readiness cleanup](#stage-7--settings-readiness-and-copy--2026-10-11),
 also have focused frontend/browser validation. The subsequent
 [stored-work and conditional layout pass](#stage-7--stored-work-guards-and-conditional-settings--2026-10-11)
-adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The subsequent [passage-window evaluation](#stage-7--passage-window-quality-and-cost-review--2026-10-12) finds a bounded local usefulness gain while leaving backmatter classification, missing context and unsupported-query failures open. The [PDF backmatter correction](#stage-7--pdf-backmatter-classification--2026-10-12) addresses the measured reference/index role gaps without claiming an unsupported-query relevance gain. The [alternative-passage review](#stage-7--alternative-passages-and-weak-matches--2026-10-12) rejects an unhelpful expansion and leaves selection/unsupported-query quality open. The subsequent [candidate-coverage diagnosis](#stage-7--candidate-coverage-diagnosis--2026-10-12) distinguishes two selection failures from an explanation missing from the bounded pool; it justifies a representation experiment, not a shipped reranker. The recorded full CI predates these UI, model and content changes. The first
+adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The subsequent [passage-window evaluation](#stage-7--passage-window-quality-and-cost-review--2026-10-12) finds a bounded local usefulness gain while leaving backmatter classification, missing context and unsupported-query failures open. The [PDF backmatter correction](#stage-7--pdf-backmatter-classification--2026-10-12) addresses the measured reference/index role gaps without claiming an unsupported-query relevance gain. The [alternative-passage review](#stage-7--alternative-passages-and-weak-matches--2026-10-12) rejects an unhelpful expansion and leaves selection/unsupported-query quality open. The subsequent [candidate-coverage diagnosis](#stage-7--candidate-coverage-diagnosis--2026-10-12) distinguishes two selection failures from an explanation missing from the bounded pool; it justifies a representation experiment, not a shipped reranker. The subsequent [adjacent-body experiment](#stage-7--bounded-adjacent-body-embedding-experiment--2026-10-12) reduces derived vector storage and improves one fresh first-result bundle, but does not justify shipping grouping or establish a general relevance win. The recorded full CI predates these UI, model and content changes. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 7 — Bounded adjacent-body embedding experiment — 2026-10-12
+
+**Decision: retain grouping as an experimental candidate for a bounded selection
+comparison; do not integrate it into app indexing yet.** One fresh first-result
+bundle improves, derived vector storage falls, and a previously buried reference
+group becomes retrievable much earlier. The three incomplete development cases
+remain incomplete at the first result. This is a promising representation signal,
+not a demonstrated overall quality win or a release decision.
+
+One policy was frozen before retrieval: greedily join at most four consecutive,
+complete, single-window body blocks under the same nonempty authored heading.
+Only non-page source sections qualify. Stop at a document/heading/page boundary,
+source-order gap, auxiliary or mixed-role block, multiple existing windows, or
+the existing input limit. Retokenize the complete joined input, including the
+existing title/heading and encoder prefix, against the 320-token/4,096-character
+ceilings; never truncate it to fit. All other existing passages remain unchanged.
+Each member retains its original source block and UTF-8 byte range; a group is
+never represented as one fabricated contiguous range across different blocks.
+
+Both variants use the same disposable source snapshot, pinned cached Small FP32
+provider, 384 dimensions, complete fresh encodes and identical diagnostic SQLite
+schema. The control reproduces actual native retrieval. Query input/vector,
+cosine/body preference and stable source/document ties are shared. Each variant
+returns one best candidate per document. Live application data is untouched;
+private source identities, questions, reference text and reports stay untracked.
+No new model, dependency, shipping code or CI checks are introduced.
+
+There are 842 merged groups. Candidate count falls from 5,709 to 4,177. The
+page-based document retains all 2,152 candidates; the short-block document falls
+from 3,557 to 2,025. Every original source unit remains represented exactly once
+in the ordered plan, including unchanged pre-existing overlapping windows.
+
+The response **projects the first original member as its primary anchor**, keeps
+all group-member locators separately, and attaches unchanged production nearby
+context to that anchor. Thus primary grades below measure this proposed display
+projection, not the relevance of the entire embedded group. A shipping design
+would need honest multi-span evidence and a useful preview; a heading-only first
+member cannot stand in for a complete multi-paragraph answer. Full nearby-bundle
+grades do not validate the current collapsed card preview.
+
+Eight fresh answerable questions and four unsupported requests, with reference
+clauses and rubric, were frozen before retrieval. The preceding eight-answerable/
+four-unsupported packet is retained separately as development diagnosis.
+Ninety-six document bundles were graded with variant, rank and score hidden;
+43 exact prior-evidence grades were reused, 17 identical new bundles share grades,
+and 36 unique bundles were read and graded. Grades were frozen before unblinding.
+The same agent authored and graded the fresh questions: **provisional evidence,
+not independent acceptance**. Grade 0 supplies no requested component, 1 supports
+part of the answer, and 2 supplies all essential clauses; topic similarity alone
+is insufficient.
+
+| Measure | Current control | Grouped trial |
+| --- | --- | --- |
+| Development first primary supplies an answer component | 7/8 | 6/8 |
+| Development first primary is complete | 4/8 | 4/8 |
+| Development first primary plus nearby text is complete | 5/8 | 5/8 |
+| Fresh first primary supplies an answer component | 6/8 | 5/8 |
+| Fresh first primary is complete | 2/8 | 2/8 |
+| Fresh first primary plus nearby text is complete | 6/8 | 7/8 |
+| Fresh complete bundle somewhere among returned documents | 7/8 | 7/8 |
+| Unsupported requests with a supported answer component, either packet | 0/8 | 0/8 |
+
+The fresh gain promotes the document with complete evidence above a partial
+answer in another document. It does not recover an answer absent from the
+returned documents. The trial's first anchor is only a heading, while its grouped
+input and attached nearby text contain the requested explanation. The same
+heading-first projection also weakens one development primary without completing
+its bundle. All unsupported requests still receive nearest results; zero supported
+answers is a failure to answer, **not successful abstention**. No confidence
+threshold or weak-match rejection policy follows from these grades.
+
+A post-grading raw-candidate diagnosis explains why grouping remains worth a
+selection comparison. In wrong-topic development case B, three related reference
+blocks individually rank 157, 212 and 247 in the unchanged all-body raw ordering;
+their joined input ranks 5 in the grouped ordering. In partial case C, reference
+blocks previously at raw ranks 23, 27 and 29 are represented in groups at ranks
+7 and 16. These are per-document raw ranks before overlap removal, distinct from
+the preceding coverage table. They locate reference-containing inputs, **not
+complete-bundle oracle coverage or achieved first-result wins**. Case B's first
+wrong-topic result is unchanged. Grouping helps candidate availability without
+by itself solving selection; no caps were raised or policy tuned to these ranks.
+
+| Development-host cost | Current control | Grouped trial |
+| --- | --- | --- |
+| Derived vector database, excluding source/model files and sidecars | 11,726,848 bytes | 8,585,216 bytes |
+| Full encode and persistence, excluding planning/import | 232.52 s | 217.56 s |
+| Median instrumented warm scan | 386.90 ms | 296.18 ms |
+| Largest per-query median instrumented scan | 388.54 ms | 297.72 ms |
+| Peak child-process RSS during index build | 1,504,448 KiB | 1,504,696 KiB |
+
+Derived storage falls about 26.8%, encode/persist time 6.4%, and instrumented scan
+time 23.4%; there is no observed memory reduction. Planning took a separate
+16.13-second process, including provider activation and both plans. Index builds
+ran once each in control-then-group order; these are not repeated end-to-end
+indexing benchmarks. Import/extraction and shipping checkpoints are excluded.
+Scans alternate order with four warm samples per query/variant; the reported
+median is across the 24 per-query medians. They include diagnostic input/vector
+integrity checks and exclude shared query encoding (median 9.80 ms), so they are
+not app response timings. Host RSS includes the provider and diagnostic plans;
+no mobile, weak-device, Base/Large or whole-app performance claim is made.
+Incremental cost remains open: editing a paragraph can shift later greedy groups
+under its heading and invalidate additional embedding inputs.
+
+Validation: native planning, both full indexing runs and all 24 paired queries
+pass. Control primary spans, text, order, nearby context and scores reproduce
+actual native results; repeated paired queries are stable and read-only. Vector
+checksums/dimensions, input hashes, frozen policy/packet/plan/grade/model digests,
+original source rows and every returned UTF-8 slice/locator/context limit pass.
+Merged inputs satisfy complete-body, single-window, heading/order and input-bound
+assertions. Temporary generic probe edits are restored byte-for-byte and its
+owned executable removed. Rust formatting and diff checks pass. Application
+behavior is unchanged, so application suites are not rerun. This trial does not
+implement or validate grouped migrations, resume/checkpoint invalidation,
+quote/filter/cancellation integration or a grouped-results UI.
+
+**Next:** a bounded global candidate-selection feasibility pass, keeping the
+current app response as the baseline and this grouped index as an experimental
+control. First establish complete anchored evidence in a fixed candidate pool;
+then compare a minimal selector or small local cross-encoder only if candidate
+coverage justifies it, with measured quality, latency and memory as required by
+Stage 8. Resolve multi-source evidence/preview semantics before any shipping
+change. Do not inflate per-document caps, retune groups to familiar questions,
+add a model sweep or introduce ANN from this result. Default-off semantics,
+explicit downloads/indexing and lexical fallback are unchanged. Consolidated
+smoke stays deferred; current-revision CI, physical-device performance and
+independent relevance acceptance remain open.
 
 ## Stage 7 — Candidate-coverage diagnosis — 2026-10-12
 
