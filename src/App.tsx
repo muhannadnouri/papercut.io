@@ -62,7 +62,6 @@ function isBundledDocumentUrl(url: string): boolean {
 function App() {
   const { t } = useTranslation()
   const theme = useTheme()
-  const semanticSearch = useSemanticSearch()
   const bookmarkedDocumentUrls = useBookmarkedDocumentUrls()
   const documentScanner = useDocumentScanner()
   const [activeTab, setActiveTab] = useState<AppTab>('library')
@@ -97,6 +96,7 @@ function App() {
     uploadedLibraryOrganization,
     updateDocumentTitle,
   } = useUploadedLibrary()
+  const semanticSearch = useSemanticSearch(uploadedDocuments)
 
   const loadHtmlDocument = useCallback(async (url: string): Promise<string> => {
     if (isUploadedHtmlDocumentUrl(url)) return getUploadedDocumentSource(url)

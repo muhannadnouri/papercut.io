@@ -9,12 +9,16 @@ export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, childre
 }) {
   const { t } = useTranslation()
   const id = useId()
-  const { enabled, provider, index, operation, error } = semantic
+  const { enabled, provider, index, operation, error, statusError } = semantic
   const busy = semantic.busy || cacheBusy
   const active = enabled && provider?.activeFormat === semantic.format
   const indexing = index?.running || operation === 'build'
   const status = semanticSearchStatus(semantic)
   const current = status === 'ready'
+  const cancelling = indexing && (semantic.cancelling || index?.cancelRequested)
+  const needsIndex = active && !busy && !statusError && !error && !index?.error
+    && !!index && index.eligibleDocuments > 0 && !current
+  const summary = ['indexing', 'cancelling', 'ready', 'needsIndex', 'empty', 'checking'].includes(status) ? 'on' : status
   const showIndex = enabled || index?.hasStoredIndex || indexing || operation === 'remove' || !!index?.error
   const expandIndex = enabled || indexing || operation === 'remove' || !!index?.error
   return <>
@@ -25,42 +29,58 @@ export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, childre
         <span className="app-settings-switch"><input type="checkbox" role="switch" checked={enabled}
           aria-labelledby={`${id}-enabled-label`}
           aria-describedby={`${id}-status${!cachePresent && !enabled ? ` ${id}-prerequisite` : ''}`}
-          disabled={operation === 'disable' || (!enabled && (busy || !cachePresent || !provider?.compiled))}
+          disabled={operation === 'disable' || (!enabled && (busy || !!statusError || !cachePresent || !provider?.compiled))}
           onChange={(event) => { void semantic.setEnabled(event.target.checked) }} /><span aria-hidden="true" /></span>
       </label>
-      <p id={`${id}-status`} role="status" aria-live="polite">{t(`settings.semantic.summary.${status}`)}</p>
-      {enabled && !active && <button type="button" className="app-settings-data-action" disabled={busy || !cachePresent || !provider?.compiled}
+      <p id={`${id}-status`} role="status" aria-live="polite">{t(`settings.semantic.summary.${summary}`)}</p>
+      {enabled && !active && !statusError && <button type="button" className="app-settings-data-action" disabled={busy || !cachePresent || !provider?.compiled}
         onClick={() => { void semantic.setEnabled(true) }}>{t('settings.semantic.retry')}</button>}
       {error && <p className="app-dialog-error" role="alert" dir="auto">{error}</p>}
+      {statusError && <div className="search-status-recovery">
+        <p className="app-dialog-error" role="alert" dir="auto">{statusError}</p>
+        <button type="button" className="app-settings-data-action" onClick={async (event) => {
+          const button = event.currentTarget
+          const toggle = button.closest('.search-semantic-setup')?.querySelector<HTMLInputElement>('input[role="switch"]')
+          await semantic.refresh()
+          requestAnimationFrame(() => {
+            if (!button.isConnected && button.ownerDocument.activeElement === button.ownerDocument.body && toggle?.isConnected && !toggle.disabled) toggle.focus()
+          })
+        }}>{t('settings.semantic.retryStatus')}</button>
+      </div>}
       {!cachePresent && !enabled && <p id={`${id}-prerequisite`}>{t('settings.semantic.downloadFirst')}</p>}
     </section>
     {children}
     {showIndex && <details className="search-model-panel search-library-index" open={expandIndex}>
-      <summary aria-label={indexing ? `${t('settings.semantic.libraryTitle')} · ${t(semantic.cancelling || index?.cancelRequested ? 'settings.semantic.cancelling' : 'settings.semantic.indexing')}` : undefined}>
+      <summary>
         {t('settings.semantic.libraryTitle')}
-        {indexing && <span className="spinner search-index-spinner" aria-hidden="true" />}
+        {indexing && <span className="search-index-phase" role="status" aria-live="polite">
+          <span className="spinner search-index-spinner" aria-hidden="true" />
+          {t(cancelling ? 'settings.semantic.cancelling' : 'settings.semantic.indexing')}
+        </span>}
         {!enabled && !indexing && index?.hasStoredIndex && <span className="search-model-summary-status">{t('settings.semantic.savedIndex')}</span>}
       </summary>
       <div className="search-index-status">
-        <p role="status">{t(!enabled && !indexing ? 'settings.semantic.enableFirst' : indexing ? 'settings.semantic.indexing' : !index ? 'settings.semantic.checkingIndex' : index.eligibleDocuments === 0
+        {!indexing && <p role="status" className={needsIndex ? 'search-index-attention' : undefined}>
+          {needsIndex && <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 3 2 21h20L12 3Z" /><path d="M12 9v5m0 3v1" /></svg>}
+          {t(statusError ? 'settings.semantic.statusUnavailable' : !enabled ? 'settings.semantic.enableFirst' : !index ? 'settings.semantic.checkingIndex' : index.eligibleDocuments === 0
           ? 'settings.semantic.emptyLibrary' : !active ? 'settings.semantic.modelRequired'
-          : current ? 'settings.semantic.indexReady' : 'settings.semantic.needsIndex')}</p>
-        {enabled && index && index.eligibleDocuments > 0 && <p>{t('settings.semantic.documentsReady', { ready: index.indexedDocuments,
+          : current ? 'settings.semantic.indexReady' : 'settings.semantic.needsIndex')}</p>}
+        {enabled && !statusError && index && index.eligibleDocuments > 0 && <p>{t('settings.semantic.documentsReady', { ready: index.indexedDocuments,
           total: index.eligibleDocuments })}</p>}
       </div>
-      {indexing && index && <p role="status">{t('settings.semantic.progress', {
-        embedded: index.embeddedPassages, reused: index.reusedPassages })}</p>}
-      {(enabled || indexing) && !current && <div className="search-model-actions">
-        <button type="button" className="app-settings-data-action search-action-primary" disabled={busy || !active || !index || index.eligibleDocuments === 0}
+      {indexing && !statusError && index && <p>{t('settings.semantic.progress', { embedded: index.embeddedPassages })}
+        {index.reusedPassages > 0 && <> · {t('settings.semantic.reusedProgress', { reused: index.reusedPassages })}</>}</p>}
+      {needsIndex && <p className="search-index-help">{t(index.indexedDocuments > 0 ? 'settings.semantic.updateHelp' : 'settings.semantic.buildHelp')}</p>}
+      {((enabled && !statusError) || indexing) && !current && <div className="search-model-actions">
+        {!indexing && <button type="button" className="app-settings-data-action search-action-primary" disabled={busy || !active || !index || index.eligibleDocuments === 0}
           onClick={() => { void semantic.build() }}>{t(index && index.eligibleDocuments > 0 && (index.indexedDocuments > 0 || index.passages > 0)
-            ? 'settings.semantic.update' : 'settings.semantic.build')}</button>
+            ? 'settings.semantic.update' : 'settings.semantic.build')}</button>}
         {indexing && <button type="button" className="app-settings-data-action"
           disabled={!index?.running || semantic.cancelling || index.cancelRequested}
           onClick={() => { void semantic.cancel() }}>{t('settings.semantic.stop')}</button>}
       </div>}
-      {enabled && !current && index && index.eligibleDocuments > 0 && <p>{t('settings.semantic.indexHint')}</p>}
-      {active && index && index.passages > 0 && <p className="search-index-passages">{t('settings.semantic.passages', { count: index.passages })}</p>}
-      {(semantic.cancelling || index?.cancelRequested) && busy && <p role="status">{t('settings.semantic.cancelling')}</p>}
+      {needsIndex && (index.indexedDocuments > 0 || index.passages > 0) && <p className="search-index-help">{t('settings.semantic.indexHint')}</p>}
+      {!indexing && !statusError && active && index && index.passages > 0 && <p className="search-index-passages">{t('settings.semantic.passages', { count: index.passages })}</p>}
       {index?.error && index.error !== error && <p className="app-dialog-error" role="alert" dir="auto">{index.error}</p>}
       {indexMaintenance}
     </details>}

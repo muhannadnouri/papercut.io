@@ -45,6 +45,8 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
   const removalReturnFocus = useRef<HTMLButtonElement | null>(null)
   // A completed job must not collapse the panel the user is currently watching.
   const [modelExpanded, setModelExpanded] = useState<boolean | null>(null)
+  const refreshSemantic = semantic?.refresh
+  useEffect(() => { void refreshSemantic?.() }, [refreshSemantic])
 
   // Move focus only after the confirmation or its hidden trigger becomes visible.
   useEffect(() => {
@@ -185,7 +187,7 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
   }
 
   const canRemoveModel = !!canChange && !!cache?.hasStoredFiles && status?.activeFormat !== format
-  const canRemoveIndex = !busy && !!semantic?.provider?.compiled && !!semantic.index?.hasStoredIndex
+  const canRemoveIndex = !busy && !semantic?.statusError && !!semantic?.provider?.compiled && !!semantic.index?.hasStoredIndex
 
   /** Share the action row, but keep confirmation outside it and removal apart from preparation. */
   function removalControls(kind: 'model' | 'index', preparation?: ReactNode) {
@@ -302,9 +304,7 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
       {!ready && <p role="status">{t('settings.searchModel.loading')}</p>}
       {ready && !status?.compiled && <p>{t('settings.searchModel.unavailable')}</p>}
       {ready && semantic
-        ? <SemanticSearchSetup semantic={semantic} cachePresent={!!cache?.filesPresent} cacheBusy={busy} indexMaintenance={removalControls('index',
-          <button type="button" className="app-settings-data-action" disabled={busy}
-            onClick={() => { void semantic.refresh() }}>{t('settings.semantic.refresh')}</button>)}>
+        ? <SemanticSearchSetup semantic={semantic} cachePresent={!!cache?.filesPresent} cacheBusy={busy} indexMaintenance={removalControls('index')}>
           {modelControls}
         </SemanticSearchSetup>
         : modelControls}

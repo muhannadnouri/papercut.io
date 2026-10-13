@@ -41,6 +41,53 @@
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
+  min-height: 44px;
+  padding-block: 0.3rem;
+  cursor: pointer;
+}
+
+.search-model-consent input {
+  accent-color: var(--accent-text);
+  width: 1rem;
+  height: 1rem;
+  margin: 0.13rem 0 0;
+  flex-shrink: 0;
+}
+
+.search-model-consent input:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 3px;
+}
+
+.search-model-consent:has(input:disabled) {
+  cursor: default;
+}
+
+.search-index-phase,
+.search-index-attention {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.search-index-phase {
+  margin-inline-start: 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.search-model-setup .search-index-attention {
+  color: var(--warning-strong);
+  font-weight: 600;
+}
+
+.search-index-attention svg {
+  flex-shrink: 0;
+}
+
+.search-model-setup .search-index-help {
+  font-size: 0.85rem;
+  color: var(--text-muted);
 }
 
 .search-model-actions {
@@ -170,6 +217,10 @@ details.search-model-panel[open] > * + * {
   gap: 0.75rem 2rem;
 }
 
+.search-library-index .search-removal-actions {
+  justify-content: flex-end;
+}
+
 .search-removal-confirmation {
   margin-top: 0.65rem;
   padding: 0.75rem;
@@ -243,7 +294,7 @@ details.search-model-panel[open] > * + * {
 
 .search-index-spinner {
   display: inline-block;
-  margin-inline-start: 0.5rem;
+  flex-shrink: 0;
   vertical-align: middle;
 }
 

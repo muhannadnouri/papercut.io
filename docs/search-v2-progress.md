@@ -70,6 +70,50 @@ remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
 
+## Stage 7 — Settings status hierarchy and recovery — 2026-10-13
+
+User approved the consent-control, index setup, progress and status-refresh
+cleanup. Downloads and indexing remain explicit; smoke remains deferred.
+
+The native consent checkbox now uses the app accent, consistent sizing, first-line
+alignment and a clickable label row of at least 44px. Copy explicitly identifies
+the selected model/format and Hugging Face. Keyboard focus and the unchecked
+initial state remain intact; semantic CSS stays in SearchModelSetup.css.
+
+Within this settings view, the toggle reports On/Off while Library Index owns
+index readiness and job progress. Its summary shows one spinner and a short
+Indexing/Stopping state, including when collapsed. The body shows processed
+passages and completed-document coverage without a time percentage; zero reused
+passages and the disabled Build button are omitted during work. Stop Indexing
+remains neutral and available during status-read failures. A loaded, enabled
+model with incomplete nonempty coverage shows an amber Index Required indicator,
+next-action help and Build/Update Index. Empty/off libraries have no warning;
+reuse help appears only with known completed coverage, not metadata alone.
+
+Status now refreshes when the uploaded-library array changes (including imports,
+deletion, recognized-text updates and transfer refreshes), when search settings
+opens, and through the existing job polling/completion paths. The public refresh
+callback is stable; idle renders add no polling or job starts. Routine Refresh
+Status is removed. A failed read shows Retry Status and suppresses stale coverage
+claims; successful retry restores focus when its button disappears. Status errors
+are separate from action diagnostics, so retrying does not erase an indexing or
+activation failure. Late failures cannot replace a newer successful snapshot.
+General Settings retains observed readiness and explicitly labels unavailable
+status instead of claiming keyword-only fallback from a failed read.
+
+Validation: 249 frontend tests in 52 files, lint, all eight locale resource checks,
+TypeScript, Vite build and diff checks pass. Generic regressions cover idle library
+refresh, stable callbacks, stale failures, independent error recovery, attention
+and reuse guards, consolidated progress and cancellation access. An actual-component
+browser preview with simulated native IPC confirms settings reopen and a 0/2 →
+0/3 idle-library update, retry focus restoration, collapsed progress, clickable
+consent and first-line alignment. The consent target is 44px on a single line;
+wrapped Arabic labels grow naturally. Light/dark and 320px Arabic RTL layouts have
+no dialog overflow. Temporary fixtures stay outside the branch; no CI job,
+dependency, native index schema or retrieval change was added. Native WebView,
+screen-reader and physical-device smoke remain unchecked. Next: push and review
+current-source CI before resuming deferred interactive acceptance.
+
 ## Stage 7 — Unicode PDF reader highlighting and Find — 2026-10-13
 
 User approved completing Unicode word-wrap handling in the PDF reader, with

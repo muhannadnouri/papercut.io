@@ -31,15 +31,17 @@ vi.mock('react', () => {
   }
 })
 
+import type { UploadedDocument } from '../uploads/DocumentUploads'
 import { useSemanticSearch, type ModelSelection, type ProviderStatus } from './useSemanticSearch'
 const key = 'papercut.semantic-search.v1'
+let library: UploadedDocument[] | undefined
 let storage: Map<string, string>
 let provider: ProviderStatus
 let index: NonNullable<ReturnType<typeof useSemanticSearch>['index']>
 function render() {
   mocked.cursor = 0
   // eslint-disable-next-line react-hooks/rules-of-hooks -- Explicit hook harness, not a React component.
-  const value = useSemanticSearch()
+  const value = useSemanticSearch(library)
   for (const effect of mocked.effects.splice(0)) effect()
   return value
 }
@@ -64,6 +66,7 @@ function commands() { return mocked.invoke.mock.calls.map(([command]) => command
 
 beforeEach(() => {
   vi.useFakeTimers()
+  library = undefined
   storage = new Map()
   vi.stubGlobal('window', { setInterval, clearInterval,
     localStorage: { getItem: (name: string) => storage.get(name) ?? null,
@@ -95,6 +98,50 @@ it('starts off, reads status only, and never invokes native commands in a browse
   restart(); value = await settle()
   expect(value.enabled).toBe(false)
   expect(commands()).toEqual([])
+})
+
+it('refreshes idle library mutations without polling or starting model/index work', async () => {
+  library = []
+  render(); let value = await settle()
+  const refresh = value.refresh
+  mocked.invoke.mockClear()
+  index.eligibleDocuments = 3
+  library = [...library]
+  render(); value = await settle()
+  expect(value.index!.eligibleDocuments).toBe(3)
+  expect(value.refresh).toBe(refresh)
+  expect(commands()).toEqual(['search_embedding_status', 'search_semantic_index_status'])
+  mocked.invoke.mockClear()
+  render(); await settle(); await vi.advanceTimersByTimeAsync(4000)
+  expect(commands()).toEqual([])
+  index.eligibleDocuments = 1
+  library = [...library]
+  render(); value = await settle()
+  expect(value.index!.eligibleDocuments).toBe(1)
+  expect(commands()).not.toContain('search_embedding_configure')
+  expect(commands()).not.toContain('search_semantic_index_build')
+})
+
+it('retries failed status reads independently of action errors and discards stale failures', async () => {
+  render(); let value = await settle()
+  await value.setEnabled(true); value = await settle()
+  mocked.invoke.mockRejectedValueOnce('Index disk full')
+  await value.build(); value = await settle()
+  expect(value.error).toBe('Index disk full')
+  mocked.invoke.mockRejectedValueOnce('Status read failed')
+  await value.refresh(); value = await settle()
+  expect(value.statusError).toBe('Status read failed')
+  expect(value.error).toBe('Index disk full')
+  await value.refresh(); value = await settle()
+  expect(value.statusError).toBe('')
+  expect(value.error).toBe('Index disk full')
+  const stale = deferred()
+  mocked.invoke.mockImplementationOnce(() => stale.promise)
+  const first = value.refresh()
+  await value.refresh()
+  stale.reject('Old status error'); await first; value = await settle()
+  expect(value.statusError).toBe('')
+  expect(value.refresh).toBe(render().refresh)
 })
 
 it.each(['base-float32', 'large-float32'] as const)('restores %s only with saved consent and prevents a live model switch', async (format) => {
@@ -306,12 +353,12 @@ it('keeps a completed job notice across renders, expires it and does not claim s
   mocked.invoke.mockImplementationOnce(async () => {}).mockRejectedValueOnce('Status unavailable')
   await value.build(); value = await settle()
   expect(value.activityNotice).toBe('statusFailed')
-  expect(value.error).toBe('Status unavailable')
+  expect(value.statusError).toBe('Status unavailable')
   await vi.advanceTimersByTimeAsync(30000)
   expect(render().activityNotice).toBe('statusFailed')
   value.dismissActivity()
   expect(render().activityNotice).toBeNull()
-  expect(render().error).toBe('Status unavailable') // Reviewing must not discard the diagnostic.
+  expect(render().statusError).toBe('Status unavailable') // Reviewing must not discard the diagnostic.
 })
 
 it('distinguishes confirmed cancellation from a failure racing cancel, and preserves a newer outcome', async () => {

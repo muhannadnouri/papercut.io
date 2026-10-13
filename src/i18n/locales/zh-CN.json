@@ -416,12 +416,11 @@
       "fallback": "所选模型不可用。搜索继续使用词汇匹配结果。",
       "working": "正在处理。搜索继续使用词汇匹配结果。",
       "coverage": "已索引文档：{{ready}} / {{total}} · 就绪片段：{{passages}}",
-      "progress": "本次任务：已编码 {{embedded}} 个片段 · 已复用 {{reused}} 个",
+      "progress": "已处理 {{embedded}} 个段落",
       "build": "创建索引",
       "remove": "删除索引",
       "retry": "重试激活",
-      "refresh": "刷新状态",
-      "cancelling": "已请求取消。正在等待当前原生调用和清理完成。",
+      "cancelling": "正在停止…",
       "recovery": "关闭会停止索引并卸载模型。已下载文件和已完成的索引工作会保留。如果搜索已开启，重启后会重新加载缓存模型；修改文档库或索引中断后，请更新索引。",
       "manage": "管理",
       "enableTitle": "2. 启用语义搜索",
@@ -429,11 +428,11 @@
       "checkingIndex": "正在检查文档库状态…",
       "emptyLibrary": "请先将文档导入“你的文档库”。",
       "indexReady": "文档库索引已更新。",
-      "needsIndex": "文档库需要建立索引。",
+      "needsIndex": "需要建立索引",
       "enableFirst": "准备文档库前，请先启用上方的语义搜索。",
       "downloadFirst": "启用语义搜索前，请下载下方的模型。",
       "loading": "正在加载搜索模型…",
-      "indexing": "正在为文档库建立索引…",
+      "indexing": "正在建立索引…",
       "downloading": "正在下载搜索模型…",
       "disabling": "正在关闭语义搜索…",
       "confirmRemove": "移除搜索索引？导入的文档将保留。之后需要重新建立索引。",
@@ -444,7 +443,7 @@
       "documentsReady": "已索引 {{ready}} / {{total}} 个文档。",
       "update": "更新索引",
       "passages": "已索引段落数：{{count}}",
-      "indexHint": "创建或更新索引时会复用已完成的工作。",
+      "indexHint": "将复用之前已完成的工作。",
       "activity": {
         "downloading": "正在下载搜索模型…",
         "loading": "正在加载搜索模型…",
@@ -469,11 +468,18 @@
         "checking": "已开启 · 正在检查文档库…",
         "empty": "已开启 · 请导入文档",
         "needsIndex": "已开启 · 需要建立索引",
-        "ready": "已开启 · 已就绪"
+        "ready": "已开启 · 已就绪",
+        "on": "已开启",
+        "statusUnavailable": "已开启 · 状态不可用"
       },
       "modelRequired": "搜索模型加载后即可建立索引。",
       "savedIndex": "已保存索引 · 搜索已关闭",
-      "stop": "停止索引"
+      "stop": "停止索引",
+      "reusedProgress": "已复用 {{reused}} 个",
+      "buildHelp": "建立索引以添加概念搜索结果。",
+      "updateHelp": "更新索引以包含其余文档。",
+      "retryStatus": "重试状态查询",
+      "statusUnavailable": "索引状态不可用。"
     }
   },
   "libraryTransfer": {

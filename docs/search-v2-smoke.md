@@ -379,9 +379,9 @@ restart checks; the explicit unbundled recipe is only a diagnostic alternative.
       **Files Stored**; missing/incomplete files keep preparation expanded.
 - [ ] With current nonempty coverage, **Semantic Search** and **Library Index**
       keep unnumbered headings. Ready/up-to-date status and document counts
-      are visible; there is no Build/Update action. **Index Details** exposes passage
-      counts and **Refresh Status** across a row on wide screens, stacked on narrow
-      English/Arabic views, with visible keyboard focus. Partial coverage offers **Update Index**;
+      are visible in Library Index; the toggle reports **On** and there is no
+      Build/Update action or nested Index Details. Passage counts remain supporting
+      text in wide/narrow English/Arabic views, with visible keyboard focus. Partial coverage offers **Update Index**;
       inactive, failed or running states must not claim readiness.
 - [ ] With semantic search off and no saved index, Library Index is hidden. With
       saved preparation/checkpoints, it is collapsed with **Saved Index · Search Off**;
@@ -397,9 +397,10 @@ restart checks; the explicit unbundled recipe is only a diagnostic alternative.
       SQLite tables/triggers remain. Repeat clicks must not reopen empty removal.
       Verify keyboard focus remains on the model summary or semantic toggle after
       confirmation and returns to the initiating removal button on cancel.
-- [ ] General Settings and the semantic toggle card agree on observed state:
+- [ ] General Settings and the semantic task view agree on observed state:
       off, loading, indexing/cancelling, index required, empty/checking library,
-      ready or keyword-only fallback. Saved opt-in is not readiness. Loading or
+      ready, unavailable status or keyword-only fallback. The toggle reports On/Off;
+      Library Index owns readiness and progress. Saved opt-in is not readiness. Loading or
       failed activation must not tell an already-enabled user to enable again;
       index actions wait for a loaded model. Opening either view starts no job.
 - [ ] With no searchable uploads, the library-preparation panel requests imports,
@@ -418,8 +419,9 @@ restart checks; the explicit unbundled recipe is only a diagnostic alternative.
       without downloading or automatically indexing. Explicitly build/resume.
       Turn off, restart again: no activation or indexing. Cached files/checkpoints
       remain; do not expect the RSS to instantly return to its initial value.
-- [ ] Edit a title, import/delete a document, or update extracted text; **Refresh
-      Status** under **Index Details** reflects invalidation, and build/update
+- [ ] Edit a title, import/delete a document, accept recognized text or receive a
+      library transfer; status reflects invalidation automatically even while idle.
+      Reopening semantic settings refreshes status without starting work; build/update
       synchronizes it. **Remove Index** inside **Library Index** first asks for
       confirmation. Cancel leaves
       coverage intact; confirming clears derived coverage but preserves documents
@@ -530,17 +532,26 @@ use the normal native shipping build and disposable data.
 - [ ] Library Index keeps its outer disclosure but has no nested Index Details.
       Coverage stays visible; a nonzero active passage count is supporting text.
       A new empty index does not repeat zero passages or No Saved Index.
-      Refresh Status and Remove Index share one maintenance row on wide views,
-      stack on narrow/RTL views, and remain disabled during work. Refresh still
-      updates status; removal retains its inline confirmation and empty-index
-      guard. Build/Update Index remains the separate primary action.
+      Remove Index remains a separate maintenance action, with its inline
+      confirmation, busy and empty-index guards. Routine Refresh Status is absent;
+      failed reads expose Retry Status. Retry clears only the status failure,
+      preserves job errors and restores focus after successful recovery. Stale
+      failures cannot overwrite newer snapshots. Build/Update remains the primary action.
 
 - [ ] Enable Semantic Search is the stable toggle label when off or on; its
-      checked state and separate Off/On readiness agree. Resource guidance is
+      checked state and Off/On status agree. Resource guidance is
       available in Technical Details without repeating it in the toggle card.
-      During indexing/stopping, Library Index shows the app spinner even when
-      collapsed, with an accessible state label; reduced motion disables rotation.
+      During indexing/stopping, Library Index shows one app spinner and phase even
+      when collapsed; reduced motion disables rotation. Its body shows completed
+      documents and processed passages without repeating the phase, zero reuse or
+      a disabled Build action. Nonzero reused work is visible. Index Required has
+      an amber indicator and actionable help only when enabled with a loaded model
+      and incomplete nonempty coverage. Reuse help requires known completed work.
       Stop Indexing remains neutral and completed checkpoints remain reusable.
+- [ ] Download consent uses the app accent and visible keyboard focus. Clicking
+      its label toggles consent without starting a download. Its row is at least
+      44px tall; the checkbox aligns with the first text line in narrow/RTL layouts.
+      New setup still starts unchecked, and unavailable controls stay disabled.
 - [ ] Manage Model stays expanded after a download/verification completes in this
       visit. Manual expansion/collapse survives ordinary status refreshes; reopening
       Settings with stored/loaded files starts collapsed. Check pending work/errors,
