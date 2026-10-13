@@ -58,7 +58,6 @@ it('counts displayed documents, hides healthy coverage and retains partial fallb
   const ready = html({ phase: 'ready', response: { ...response, indexedDocuments: 10, eligibleDocuments: 10 } })
   expect(ready).toContain('search.conceptual.shown{&quot;count&quot;:1}')
   expect(ready).not.toContain('search.conceptual.coverage')
-  expect(ready).not.toContain('search.conceptual.matchingTitle')
   expect(ready).not.toContain('search.conceptual.matchingDetails')
   const empty = html({ phase: 'ready', response: { ...response, results: [] } })
   expect(empty).toContain('search.conceptual.shown{&quot;count&quot;:0}')

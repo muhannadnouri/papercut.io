@@ -71,7 +71,6 @@ it('distinguishes an empty library, incomplete and complete indexes without clai
   const empty = html(semantic)
   expect(empty).toContain('settings.semantic.emptyLibrary')
   expect(empty).not.toContain('settings.semantic.indexReady')
-  expect(empty).not.toContain('settings.semantic.coverage')
   expect(empty).toMatch(/disabled="">settings.semantic.build/)
 })
 
@@ -94,7 +93,6 @@ it('shows ready status without a build action, then offers an update when covera
   expect(ready).not.toContain('settings.semantic.build')
   expect(ready).not.toContain('settings.semantic.update')
   expect(ready).not.toContain('search-action-primary')
-  expect(ready).not.toContain('settings.semantic.enableTitle')
   expect(ready).not.toContain('search-index-details')
   expect(ready).toContain('class="search-index-passages"')
   semantic.index!.eligibleDocuments = 3

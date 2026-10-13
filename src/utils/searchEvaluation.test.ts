@@ -15,9 +15,9 @@ test('every evaluation query reaches native search with its intended clauses', (
   }
 })
 
-test('prepares private evaluation requests with the production query parser', () => {
+test.skipIf(!process.env.PAPERCUT_SEARCH_EVAL_QUERIES)('prepares private evaluation requests with the production query parser', () => {
   const input = process.env.PAPERCUT_SEARCH_EVAL_QUERIES
-  if (!input) return
+  if (!input) throw new Error('missing private query input path')
   const output = process.env.PAPERCUT_SEARCH_EVAL_REQUESTS
   if (!output) throw new Error('missing private request output path')
   const queries: unknown = JSON.parse(readFileSync(input, 'utf8'))

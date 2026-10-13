@@ -534,10 +534,13 @@ recovers native busy/cache state when reopened. Closing settings, changing tabs
 detaches listeners and timers; it does not cancel the
 native download. Cancellation remains busy until the worker finishes, and is
 separate from unloading an active provider. Errors are shown with retry and
-explicit damaged-cache removal guidance. An observed failure/cancellation event
-also supplies a terminal message when the panel did not start the job. There is
-no persistent job/error history: reopening after a finished job shows current
-cache presence, and verification remains an explicit action.
+explicit damaged-cache removal guidance. The panel requires the App-owned
+semantic controller; selection and failed-download diagnostics survive Settings
+navigation in that controller. Local state handles cache preparation/progress,
+consent and confirmation only, with no standalone model-manager mode. An
+observed cancellation event supplies a terminal message even when the panel did
+not start the job. There is no persistent job/error history across process
+restart; verification remains an explicit action.
 
 Frontend regressions use the repository's hook-mocking pattern and
 server-rendered controls to exercise default-build availability, explicit
@@ -597,6 +600,14 @@ and diagnostic across Settings navigation with **Model Download Failed / Review*
 reviewing or rereading status does not erase it. A new download clears it and
 stale/duplicate job events cannot replace the newer outcome. This is session
 state, not persistent job history, and introduces no automatic retry/activation.
+
+Semantic source/checkpoint errors include the document ID and, for section work,
+the one-based section number. Document-wide failures omit the section. Context
+adds no title/heading, passage or query text and introduces no logging. The exact
+`Semantic indexing cancelled` outcome is preserved for the App's cancellation
+handling. Tokenizer, inference and vector-validation failures leave committed
+checkpoints reusable by a later explicit build; they do not publish partial
+coverage or trigger an automatic rebuild.
 
 UI actions reject conflicting/duplicate jobs, and generations ignore late
 activation/index completions after disable. Status polling has one outstanding

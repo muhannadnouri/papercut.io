@@ -1,5 +1,18 @@
 # Search v2 branch acceptance and review
 
+## Maintenance follow-up — 2026-10-13
+
+Review items **8–11** are complete against baseline `a36e213`. Together with the two follow-ups below, this addresses all eleven ranked recommendations; it does not close merge/release acceptance.
+
+| Rank | Finding | Resolution |
+| --- | --- | --- |
+| 8 | Index failures omit document/section identity | Source and checkpoint boundaries add document ID and one-based section context, without adding source/query text. Canonical cancellation stays unchanged. Production-store regressions cover malformed roles, tokenizer/inference/vector failures, document-wide errors and checkpoint reuse after retry. |
+| 9 | Unused standalone model-manager mode duplicates state | Require the App controller; delete local format state and optional-controller branches. Cache-action tests supply that configuration and assert selection ownership, retained failure diagnostics and explicit consent/job guards. |
+| 10 | Optional evaluation utility is counted as passing without executing | Skip explicitly when input is absent; verify a generic explicit input produces the correct native request, and duplicate IDs fail without replacing output. |
+| 11 | Obsolete translation keys and absent-label assertions remain | Delete eight confirmed unused keys across eight locales and three assertions against dead labels; retain live coverage checks and dynamic status keys. |
+
+Current checks: **253 frontend passed / 1 optional skipped**, **190 default / 248 provider-enabled Rust passed** (5 / 10 ignored), lint/i18n/typecheck/Vite build, Rust formatting and diff checks. These tests exercise Papercut's behavior with synthetic failure inputs; they do not accept physical-device performance, WebView painting or accessibility behavior. The next gate is existing full CI at the committed source. Smoke remains deferred, with no current CI run, push or merge claimed here.
+
 ## Test-quality follow-up — 2026-10-13
 
 The approved review items **5–7** are complete against baseline `5488e66`.

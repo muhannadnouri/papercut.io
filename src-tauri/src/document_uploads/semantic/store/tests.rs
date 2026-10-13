@@ -1733,6 +1733,133 @@ fn optional_storage_reuses_passages_across_reimport_and_cascades_delete() {
 }
 
 #[test]
+fn indexing_failures_identify_the_section_and_keep_committed_work_reusable() {
+    for (stage, reason) in [
+        ("ranges", "Title/heading leaves too little room"),
+        ("encode", "Embedding runtime failed"),
+        (
+            "vector",
+            "Invalid semantic vector; expected finite unit-normalized values",
+        ),
+    ] {
+        let library = Library::new();
+        let mut db = library.db();
+        put(
+            &mut db,
+            "abc123",
+            "Private title",
+            &["First private passage", "Second private passage"],
+        );
+        let identity = identity();
+        initialize(&mut db, &identity).unwrap();
+        let snapshot = source(&mut db, "abc123").unwrap().unwrap();
+        let encoded = Cell::new(0);
+        let failure = synchronize(
+            &mut db,
+            &identity,
+            &snapshot,
+            |_, _, text| {
+                if stage == "ranges" && text.starts_with("Second") {
+                    Err(reason.into())
+                } else {
+                    Ok(vec![0..text.len()])
+                }
+            },
+            |_| {
+                encoded.set(encoded.get() + 1);
+                if encoded.get() == 2 {
+                    if stage == "encode" {
+                        return Err(reason.into());
+                    }
+                    if stage == "vector" {
+                        return Ok(vec![f32::NAN, 0.0]);
+                    }
+                }
+                Ok(vec![1.0, 0.0])
+            },
+            || Ok(()),
+            |_| {},
+        )
+        .unwrap_err();
+        assert_eq!(
+            failure,
+            format!("Semantic index document abc123, section 2: {reason}")
+        );
+        assert!(!failure.contains("private") && !failure.contains("Private"));
+        assert_eq!(
+            coverage(&mut db, Some(&identity))
+                .unwrap()
+                .indexed_documents,
+            0
+        );
+        assert_eq!(sync(&mut db, &identity, "abc123"), (1, 1));
+        assert_eq!(
+            coverage(&mut db, Some(&identity))
+                .unwrap()
+                .indexed_documents,
+            1
+        );
+    }
+}
+
+#[test]
+fn malformed_source_roles_identify_the_document_and_section() {
+    let library = Library::new();
+    let mut db = library.db();
+    put(
+        &mut db,
+        "abc123",
+        "Private title",
+        &["Valid body", "Private second body"],
+    );
+    initialize(&mut db, &identity()).unwrap();
+    db.execute("UPDATE uploaded_sections SET body_ranges='[[0,999]]' WHERE document_id='abc123' AND ordinal=1", []).unwrap();
+    let failure = source(&mut db, "abc123").err().unwrap();
+    assert!(
+        failure.starts_with("Semantic index document abc123, section 2: "),
+        "{failure}"
+    );
+    assert!(!failure.contains("Private"));
+    db.execute(
+        "UPDATE uploaded_sections SET body_ranges=NULL WHERE document_id='abc123' AND ordinal=1",
+        [],
+    )
+    .unwrap();
+    assert!(source(&mut db, "abc123").unwrap().is_some());
+}
+
+#[test]
+fn document_level_failures_do_not_claim_a_section() {
+    let library = Library::new();
+    let mut db = library.db();
+    put(&mut db, "abc123", "Private title", &[" "]);
+    let identity = identity();
+    initialize(&mut db, &identity).unwrap();
+    let snapshot = source(&mut db, "abc123").unwrap().unwrap();
+    let failure = synchronize(
+        &mut db,
+        &identity,
+        &snapshot,
+        |_, _, _| panic!("empty sections must not reach the tokenizer"),
+        |_| panic!("empty sections must not reach inference"),
+        || Ok(()),
+        |_| {},
+    )
+    .unwrap_err();
+    assert_eq!(
+        failure,
+        "Semantic index document abc123: Document has no readable semantic passages"
+    );
+    db.execute("DROP TABLE uploaded_sections", []).unwrap();
+    let failure = source(&mut db, "abc123").err().unwrap();
+    assert!(
+        failure.starts_with("Semantic index document abc123: "),
+        "{failure}"
+    );
+    assert!(!failure.contains("section 1") && !failure.contains("Private"));
+}
+
+#[test]
 fn cancellation_hides_partial_documents_and_reuses_checkpoints_after_restart() {
     let library = Library::new();
     let mut db = library.db();
@@ -1754,14 +1881,14 @@ fn cancellation_hides_partial_documents_and_reuses_checkpoints_after_restart() {
         |_| Ok(vec![1.0, 0.0]),
         || {
             if cancelled.get() {
-                Err("cancelled".into())
+                Err("Semantic indexing cancelled".into())
             } else {
                 Ok(())
             }
         },
         |_| cancelled.set(true),
     );
-    assert_eq!(result.err().unwrap(), "cancelled");
+    assert_eq!(result.err().unwrap(), "Semantic indexing cancelled");
     assert_eq!(
         coverage(&mut db, Some(&identity))
             .unwrap()

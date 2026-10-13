@@ -7,7 +7,7 @@ const mocked = vi.hoisted(() => ({
   slots: [] as unknown[], effects: [] as (() => void)[],
 }))
 
-// Reuse the repo's hook-mocking approach without adding a DOM/test dependency.
+// Focused cache-action harness; the App controller is supplied as in production.
 vi.mock('react', async (original) => {
   const actual = await original<typeof import('react')>()
   function stable<T>(value: T, deps: unknown[]): T {
@@ -48,13 +48,13 @@ vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => k
 vi.mock('../../i18n', () => ({ currentAppLocale: () => 'en' }))
 
 import { SearchModelSetup } from './SearchModelSetup'
-import type { SemanticSearchController } from '../../search-semantic/useSemanticSearch'
+import type { ProviderStatus, SemanticSearchController } from '../../search-semantic/useSemanticSearch'
 
-let status: { compiled: boolean; platform: string; activeFormat: string | null; loadingFormat: string | null; downloadingFormat: string | null }
+let status: ProviderStatus & { platform: string }
 let present: boolean
 let storedFiles: boolean
 let tree: ReactElement
-let semantic: SemanticSearchController | undefined
+let semantic: SemanticSearchController
 function render() {
   mocked.cursor = 0
   tree = SearchModelSetup({ semantic })
@@ -91,7 +91,10 @@ function consent() {
   ;(control('input').props.onChange as (event: unknown) => void)({ target: { checked: true } })
 }
 async function settle() {
-  for (let i = 0; i < 20; i++) await Promise.resolve()
+  for (let pass = 0; pass < 3; pass++) {
+    for (let i = 0; i < 20; i++) await Promise.resolve()
+    render()
+  }
   return render()
 }
 function unmount() {
@@ -105,7 +108,6 @@ function deferred<T>() {
 }
 
 beforeEach(() => {
-  semantic = undefined
   vi.useFakeTimers()
   vi.stubGlobal('window', { setInterval, clearInterval })
   mocked.cursor = 0
@@ -114,6 +116,10 @@ beforeEach(() => {
   mocked.stop.mockReset()
   mocked.listen.mockReset().mockResolvedValue(mocked.stop)
   status = { compiled: true, platform: 'linux', activeFormat: null, loadingFormat: null, downloadingFormat: null }
+  semantic = { enabled: false, format: 'float32', busy: false, operation: null, error: '', statusError: '', downloadFailure: null, cancelling: false,
+    provider: status, index: undefined, setEnabled: vi.fn(),
+    setFormat: vi.fn((format) => { semantic.format = format }), build: vi.fn(), remove: vi.fn(),
+    cancel: vi.fn(), refresh: vi.fn(), activityNotice: null, dismissActivity: vi.fn() }
   present = false; storedFiles = false
   mocked.invoke.mockReset().mockImplementation(async (command: string) => {
     if (command === 'search_embedding_status') return { ...status }
@@ -141,6 +147,8 @@ it('selects Base and Large independently of precision without implicit work or s
     expect(select.props.disabled).toBe(false)
     ;(select.props.onChange as (event: unknown) => void)({ target: { value: format } })
     const html = render()
+    expect(semantic.setFormat).toHaveBeenLastCalledWith(format)
+    expect(semantic.format).toBe(format)
     expect(html).toContain('settings.searchModel.largerWarning')
     expect(html).toContain('settings.searchModel.switchHint')
     expect(control('select').props.disabled).toBe(true)
@@ -156,6 +164,22 @@ it('selects Base and Large independently of precision without implicit work or s
   ])
 })
 
+it('uses the App-owned download diagnostic and selection without starting recovery work', async () => {
+  semantic.downloadFailure = { format: 'float32', message: 'Native cache checksum failed' }
+  render(); await settle()
+  expect(render()).toContain('Native cache checksum failed')
+  ;(control('select').props.onChange as (event: unknown) => void)({ target: { value: 'dynamic-int8' } })
+  expect(render()).not.toContain('Native cache checksum failed')
+  expect(semantic.format).toBe('dynamic-int8')
+  expect(semantic.downloadFailure?.message).toBe('Native cache checksum failed')
+  ;(control('select').props.onChange as (event: unknown) => void)({ target: { value: 'float32' } })
+  expect(render()).toContain('Native cache checksum failed')
+  expect(control('button', 'settings.searchModel.download').props.disabled).toBe(true)
+  expect(mocked.invoke.mock.calls.every(([command]) => ['search_embedding_status', 'search_embedding_cache_status'].includes(command))).toBe(true)
+  expect(semantic.setEnabled).not.toHaveBeenCalled()
+  expect(semantic.build).not.toHaveBeenCalled()
+})
+
 it('keeps normal builds unavailable and never starts downloads or activates on opening', async () => {
   status.compiled = false
   render()
@@ -163,7 +187,8 @@ it('keeps normal builds unavailable and never starts downloads or activates on o
   expect(html).toContain('settings.searchModel.unavailable')
   expect(html).toContain('settings.semantic.description')
   expect(html).not.toContain('<select')
-  expect(mocked.invoke.mock.calls.map(([command]) => command)).toEqual(['search_embedding_status'])
+  expect(new Set(mocked.invoke.mock.calls.map(([command]) => command))).toEqual(new Set(['search_embedding_status']))
+  expect(semantic.refresh).toHaveBeenCalledOnce()
   expect(mocked.stop).not.toHaveBeenCalled()
 })
 

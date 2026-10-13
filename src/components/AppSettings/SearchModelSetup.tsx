@@ -15,13 +15,12 @@ interface CacheStatus {
   expectedBytes: number
 }
 /** Cache preparation never activates a model; the separate opt-in controls own activation. */
-export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchController } = {}) {
+export function SearchModelSetup({ semantic }: { semantic: SemanticSearchController }) {
   const { t } = useTranslation()
   const id = useId()
   const [snapshot, setSnapshot] = useState<{ status: ProviderStatus; caches: CacheStatus[] } | null>(null)
   const [ready, setReady] = useState(false)
-  const [localFormat, setLocalFormat] = useState<ModelSelection>('float32')
-  const format = semantic?.format ?? localFormat
+  const format = semantic.format
   const [consent, setConsent] = useState(false)
   const [operation, setOperation] = useState<'download' | 'remove' | null>(null)
   const [progress, setProgress] = useState<DownloadProgress | null>(null)
@@ -38,8 +37,8 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
   const removalReturnFocus = useRef<HTMLButtonElement | null>(null)
   // A completed job must not collapse the panel the user is currently watching.
   const [modelExpanded, setModelExpanded] = useState<boolean | null>(null)
-  const refreshSemantic = semantic?.refresh
-  useEffect(() => { void refreshSemantic?.() }, [refreshSemantic])
+  const refreshSemantic = semantic.refresh
+  useEffect(() => { void refreshSemantic() }, [refreshSemantic])
 
   // Move focus only after the confirmation or its hidden trigger becomes visible.
   useEffect(() => {
@@ -88,13 +87,13 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
   }, [connecting, refresh])
 
   const status = snapshot?.status
-  const busy = operation !== null || !!status?.downloadingFormat || !!status?.loadingFormat || !!semantic?.busy
+  const busy = operation !== null || !!status?.downloadingFormat || !!status?.loadingFormat || !!semantic.busy
   const cache = snapshot?.caches.find((item) => item.format === format)
-  const semanticActiveFormat = semantic?.provider?.activeFormat
-  const semanticBusy = semantic?.busy
+  const semanticActiveFormat = semantic.provider?.activeFormat
+  const semanticBusy = semantic.busy
 
   useEffect(() => {
-    if (!ready || semanticBusy === undefined || semanticBusy) return
+    if (!ready || semanticBusy) return
     // Fast native operations can finish before the poll fires; refresh cache controls too.
     void refresh().catch((err: unknown) => { if (mounted.current) setError(String(err)) })
   }, [ready, semanticBusy, semanticActiveFormat, refresh])
@@ -112,7 +111,7 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
   }, [busy, ready, refresh])
 
   async function run(kind: 'download' | 'remove') {
-    if (action.current || !ready || !status?.compiled || busy || !cache || semantic?.enabled) return
+    if (action.current || !ready || !status?.compiled || busy || !cache || semantic.enabled) return
     if (kind === 'download' && !consent) return
     if (kind === 'remove' && (!cache.hasStoredFiles || status.activeFormat === format)) return
     action.current = true
@@ -162,16 +161,15 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
     : matchingProgress?.phase === 'downloading' && percent !== null && percent < 100 ? 'transferring'
     : (!downloading || downloading === format) && cache?.filesPresent && matchingProgress?.phase !== 'downloading' ? 'verifying' : 'working'
   // Active provider identity is verified during native loading; file presence alone is not.
-  const loaded = (semantic?.provider ?? status)?.activeFormat === format
-  const canChange = ready && status?.compiled && !busy && !semantic?.enabled && !loaded
+  const loaded = (semantic.provider ?? status)?.activeFormat === format
+  const canChange = ready && status?.compiled && !busy && !semantic.enabled && !loaded
   const small = format === 'float32' || format === 'dynamic-int8'
   const formatLabel = (choice: ModelSelection) => `multilingual-e5-${choice === 'base-float32' ? 'base' : choice === 'large-float32' ? 'large' : 'small'} · ${t(choice === 'dynamic-int8' ? 'settings.searchModel.int8' : 'settings.searchModel.float32')}`
 
   /** A different model or precision needs its own download consent; changing it starts no work. */
   function selectFormat(choice: ModelSelection) {
     if (!canChange) return
-    if (semantic) semantic.setFormat(choice)
-    else setLocalFormat(choice)
+    semantic.setFormat(choice)
     setConsent(false)
     setRemoval(null)
     setError('')
@@ -180,7 +178,7 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
   }
 
   const canRemoveModel = !!canChange && !!cache?.hasStoredFiles && status?.activeFormat !== format
-  const canRemoveIndex = !busy && !semantic?.statusError && !!semantic?.provider?.compiled && !!semantic.index?.hasStoredIndex
+  const canRemoveIndex = !busy && !semantic.statusError && !!semantic.provider?.compiled && !!semantic.index?.hasStoredIndex
 
   /** Share the action row, but keep confirmation outside it and removal apart from preparation. */
   function removalControls(kind: 'model' | 'index', preparation?: ReactNode) {
@@ -208,7 +206,7 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
                 ? 'input[role="switch"]:not(:disabled), .search-model-management > summary'
                 : '.search-model-management > summary')?.focus()
               if (kind === 'model') void run('remove')
-              else void semantic?.remove()
+              else void semantic.remove()
               setRemoval(null)
             }}><TrashIcon className="app-settings-data-icon" />{label}</button>
         </div>
@@ -218,7 +216,7 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
 
   // Model preparation sits between the opt-in and index controls without owning their state.
   const modelControls = <>
-    {ready && status?.compiled && <details className="search-model-panel search-model-management" open={operation !== null || !!downloading || !!status.loadingFormat || !!error || (modelExpanded ?? (semantic?.downloadFailure?.format === format || (!loaded && !cache?.filesPresent)))}
+    {ready && status?.compiled && <details className="search-model-panel search-model-management" open={operation !== null || !!downloading || !!status.loadingFormat || !!error || (modelExpanded ?? (semantic.downloadFailure?.format === format || (!loaded && !cache?.filesPresent)))}
       onToggle={(event) => setModelExpanded(event.currentTarget.open)}>
       <summary>{t(loaded || cache?.hasStoredFiles ? 'settings.searchModel.manage' : 'settings.searchModel.title')}
         {(loaded || cache?.filesPresent) && <span className="search-model-summary-status" role="status">{formatLabel(format)} · {t(loaded ? 'settings.searchModel.loaded' : 'settings.searchModel.stored')}</span>}
@@ -251,15 +249,15 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
       {!loaded && !preparingFiles && operation !== 'remove' && <p role="status">{t(cache?.filesPresent
         ? message === 'verified' ? 'settings.searchModel.verified' : 'settings.searchModel.present'
         : cache?.hasStoredFiles ? 'settings.searchModel.incomplete' : 'settings.searchModel.absent')}</p>}
-      {(!semantic?.enabled && !loaded) && <>
+      {(!semantic.enabled && !loaded) && <>
         <p>{t('settings.searchModel.reserve')}</p>
         <label className="search-model-consent">
           <input type="checkbox" checked={consent} disabled={!canChange} onChange={(event) => setConsent(event.target.checked)} />
           <span>{t('settings.searchModel.consent')}</span>
         </label>
       </>}
-      {(semantic?.enabled || loaded) && <p>{t('settings.searchModel.inUse')}</p>}
-      {removalControls('model', !semantic?.enabled && !loaded &&
+      {(semantic.enabled || loaded) && <p>{t('settings.searchModel.inUse')}</p>}
+      {removalControls('model', !semantic.enabled && !loaded &&
         <button type="button" className="app-settings-data-action search-action-primary" disabled={!canChange || !cache || !consent}
           onClick={() => { void run('download') }}>
           {t(cache?.filesPresent ? 'settings.searchModel.verify' : 'settings.searchModel.download')}
@@ -280,7 +278,7 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
       </div>}
       {message === 'removed' && <p role="status">{t('settings.searchModel.removed')}</p>}
       {!busy && progress?.phase === 'cancelled' && !error && <p role="status">{t('settings.searchModel.cancelled')}</p>}
-      {!busy && (semantic ? semantic.downloadFailure?.format === format : progress?.phase === 'failed') && !error && <p role="alert" dir="auto">{semantic?.downloadFailure?.format === format && semantic.downloadFailure.message || t('settings.searchModel.failed')}</p>}
+      {!busy && semantic.downloadFailure?.format === format && !error && <p role="alert" dir="auto">{semantic.downloadFailure?.format === format && semantic.downloadFailure.message || t('settings.searchModel.failed')}</p>}
     </details>}
     {error && <p className="app-dialog-error" role="alert" dir="auto">{error}</p>}
     {error && <button type="button" className="app-settings-data-action" onClick={() => {
@@ -296,7 +294,7 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
       <p id={`${id}-title`}>{t('settings.semantic.description')}</p>
       {!ready && <p role="status">{t('settings.searchModel.loading')}</p>}
       {ready && !status?.compiled && <p>{t('settings.searchModel.unavailable')}</p>}
-      {ready && semantic
+      {ready
         ? <SemanticSearchSetup semantic={semantic} cachePresent={!!cache?.filesPresent} cacheBusy={busy} indexMaintenance={(actions) => removalControls('index', actions)}>
           {modelControls}
         </SemanticSearchSetup>

@@ -182,48 +182,66 @@ pub(super) fn document_ids(db: &Connection) -> Result<Vec<String>, String> {
     Ok(ids)
 }
 
+// Cancellation is a caller-visible outcome, not a contextualized indexing failure.
+fn index_error(error: String, id: &str, section: Option<usize>) -> String {
+    if error == "Semantic indexing cancelled" {
+        return error;
+    }
+    match section {
+        Some(ordinal) => format!(
+            "Semantic index document {id}, section {}: {error}",
+            ordinal + 1
+        ),
+        None => format!("Semantic index document {id}: {error}"),
+    }
+}
+
 /// Pin title, ordered sections and the invalidation generation to one read snapshot.
 pub(super) fn source(db: &mut Connection, id: &str) -> Result<Option<Source>, String> {
-    let tx = db.transaction().map_err(err)?;
-    let metadata: Option<(String, i64, bool)> = tx.query_row(
-        "SELECT d.title,i.generation,i.ready FROM uploaded_documents d JOIN upload_semantic_documents i ON i.document_id=d.id WHERE d.id=?1 AND d.text_status<>'processing'",
-        [id], |row| Ok((row.get(0)?,row.get(1)?,row.get(2)?)),
-    ).optional().map_err(err)?;
-    let Some((title, generation, indexed)) = metadata else {
-        return Ok(None);
-    };
-    let mut stmt = tx.prepare("SELECT ordinal,heading,text,body_ranges FROM uploaded_sections WHERE document_id=?1 ORDER BY ordinal").map_err(err)?;
-    let sections = stmt
-        .query_map([id], |row| {
-            Ok((
-                row.get::<_, usize>(0)?,
-                row.get::<_, Option<String>>(1)?,
-                row.get::<_, String>(2)?,
-                row.get::<_, Option<String>>(3)?,
-            ))
-        })
-        .map_err(err)?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(err)?;
-    let sections = sections
-        .into_iter()
-        .map(|(ordinal, heading, text, encoded)| {
-            let body_ranges = super::super::search_content::ranges(&text, encoded.as_deref())?;
-            Ok(Section {
-                ordinal,
-                heading,
-                text,
-                body_ranges,
+    let mut section_ordinal = None;
+    (|| {
+        let tx = db.transaction().map_err(err)?;
+        let metadata: Option<(String, i64, bool)> = tx.query_row(
+            "SELECT d.title,i.generation,i.ready FROM uploaded_documents d JOIN upload_semantic_documents i ON i.document_id=d.id WHERE d.id=?1 AND d.text_status<>'processing'",
+            [id], |row| Ok((row.get(0)?,row.get(1)?,row.get(2)?)),
+        ).optional().map_err(err)?;
+        let Some((title, generation, indexed)) = metadata else {
+            return Ok(None);
+        };
+        let mut stmt = tx.prepare("SELECT ordinal,heading,text,body_ranges FROM uploaded_sections WHERE document_id=?1 ORDER BY ordinal").map_err(err)?;
+        let sections = stmt
+            .query_map([id], |row| {
+                Ok((
+                    row.get::<_, usize>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                ))
             })
-        })
-        .collect::<Result<Vec<_>, String>>()?;
-    Ok(Some(Source {
-        id: id.into(),
-        title,
-        generation,
-        indexed,
-        sections,
-    }))
+            .map_err(err)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(err)?;
+        let sections = sections
+            .into_iter()
+            .map(|(ordinal, heading, text, encoded)| {
+                section_ordinal = Some(ordinal);
+                let body_ranges = super::super::search_content::ranges(&text, encoded.as_deref())?;
+                Ok(Section {
+                    ordinal,
+                    heading,
+                    text,
+                    body_ranges,
+                })
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        Ok(Some(Source {
+            id: id.into(),
+            title,
+            generation,
+            indexed,
+            sections,
+        }))
+    })().map_err(|error| index_error(error, id, section_ordinal))
 }
 
 /// Generations also reject delete/recreate and model-switch-away/back races with identical IDs.
@@ -275,103 +293,108 @@ pub(super) fn synchronize(
     mut cancel: impl FnMut() -> Result<(), String>,
     mut progress: impl FnMut(bool),
 ) -> Result<(), String> {
-    cancel()?;
-    check_current(db, source, identity)?;
-    if source.indexed {
-        return Ok(());
-    }
-    let mut live = Vec::new();
-    for section in &source.sections {
+    let mut section_ordinal = None;
+    (|| {
         cancel()?;
-        if section.text.trim().is_empty() {
-            continue;
+        check_current(db, source, identity)?;
+        if source.indexed {
+            return Ok(());
         }
-        let mut previous_start = None;
-        // Split at role boundaries so a short note cannot contaminate a body embedding.
-        let mut regions = Vec::new();
-        let mut start = 0;
-        for body in &section.body_ranges {
-            if start < body.start {
-                regions.push(start..body.start);
-            }
-            regions.push(body.clone());
-            start = body.end;
-        }
-        if start < section.text.len() {
-            regions.push(start..section.text.len());
-        }
-        let mut spans = Vec::new();
-        for region in regions {
+        let mut live = Vec::new();
+        for section in &source.sections {
+            section_ordinal = Some(section.ordinal);
             cancel()?;
-            let text = &section.text[region.clone()];
-            if text.trim().is_empty() {
+            if section.text.trim().is_empty() {
                 continue;
             }
-            for span in ranges(&source.title, section.heading.as_deref(), text)? {
-                if span.start >= span.end || text.get(span.clone()).is_none() {
-                    return Err("Invalid semantic role-local span".into());
+            let mut previous_start = None;
+            // Split at role boundaries so a short note cannot contaminate a body embedding.
+            let mut regions = Vec::new();
+            let mut start = 0;
+            for body in &section.body_ranges {
+                if start < body.start {
+                    regions.push(start..body.start);
                 }
-                spans.push((region.start + span.start)..(region.start + span.end));
+                regions.push(body.clone());
+                start = body.end;
+            }
+            if start < section.text.len() {
+                regions.push(start..section.text.len());
+            }
+            let mut spans = Vec::new();
+            for region in regions {
+                cancel()?;
+                let text = &section.text[region.clone()];
+                if text.trim().is_empty() {
+                    continue;
+                }
+                for span in ranges(&source.title, section.heading.as_deref(), text)? {
+                    if span.start >= span.end || text.get(span.clone()).is_none() {
+                        return Err("Invalid semantic role-local span".into());
+                    }
+                    spans.push((region.start + span.start)..(region.start + span.end));
+                }
+            }
+            if spans.is_empty() {
+                return Err("Readable semantic section produced no passages".into());
+            }
+            for span in spans {
+                cancel()?;
+                if span.start >= span.end
+                    || previous_start.is_some_and(|previous| span.start <= previous)
+                {
+                    return Err("Invalid semantic passage order/span".into());
+                }
+                previous_start = Some(span.start);
+                let body = section
+                    .text
+                    .get(span.clone())
+                    .ok_or("Invalid semantic UTF-8 source span")?;
+                let input = passage_input(&source.title, section.heading.as_deref(), body);
+                let hash = format!("{:x}", Sha256::digest(input.as_bytes()));
+                let bytes: Option<(Vec<u8>, String)> = db.query_row(
+                    "SELECT vector,vector_hash FROM upload_semantic_passages WHERE document_id=?1 AND content_hash=?2 ORDER BY section_ordinal,byte_start LIMIT 1",
+                    params![source.id,hash], |row| Ok((row.get(0)?,row.get(1)?)),
+                ).optional().map_err(err)?;
+                let reused = bytes.is_some();
+                let bytes: Vec<u8> = if let Some((bytes, checksum)) = bytes {
+                    decode(&bytes, identity.dimensions, &checksum)?;
+                    bytes
+                } else {
+                    let vector = encode(&input)?;
+                    validate(&vector, identity.dimensions)?;
+                    vector
+                        .iter()
+                        .flat_map(|value| value.to_le_bytes())
+                        .collect()
+                };
+                cancel()?;
+                let tx = db
+                    .transaction_with_behavior(TransactionBehavior::Immediate)
+                    .map_err(err)?;
+                check_current(&tx, source, identity)?;
+                tx.execute(
+                    "INSERT INTO upload_semantic_passages VALUES(?1,?2,?3,?4,?5,?6,?7) ON CONFLICT(document_id,section_ordinal,byte_start,byte_end) DO UPDATE SET content_hash=excluded.content_hash,vector=excluded.vector,vector_hash=excluded.vector_hash",
+                    params![source.id,section.ordinal,span.start,span.end,hash,bytes,format!("{:x}", Sha256::digest(&bytes))],
+                ).map_err(err)?;
+                tx.commit().map_err(err)?;
+                live.push((section.ordinal, span.start, span.end));
+                progress(reused);
             }
         }
-        if spans.is_empty() {
-            return Err("Readable semantic section produced no passages".into());
+        section_ordinal = None;
+        cancel()?;
+        if live.is_empty() {
+            return Err("Document has no readable semantic passages".into());
         }
-        for span in spans {
-            cancel()?;
-            if span.start >= span.end
-                || previous_start.is_some_and(|previous| span.start <= previous)
-            {
-                return Err("Invalid semantic passage order/span".into());
-            }
-            previous_start = Some(span.start);
-            let body = section
-                .text
-                .get(span.clone())
-                .ok_or("Invalid semantic UTF-8 source span")?;
-            let input = passage_input(&source.title, section.heading.as_deref(), body);
-            let hash = format!("{:x}", Sha256::digest(input.as_bytes()));
-            let bytes: Option<(Vec<u8>, String)> = db.query_row(
-                "SELECT vector,vector_hash FROM upload_semantic_passages WHERE document_id=?1 AND content_hash=?2 ORDER BY section_ordinal,byte_start LIMIT 1",
-                params![source.id,hash], |row| Ok((row.get(0)?,row.get(1)?)),
-            ).optional().map_err(err)?;
-            let reused = bytes.is_some();
-            let bytes: Vec<u8> = if let Some((bytes, checksum)) = bytes {
-                decode(&bytes, identity.dimensions, &checksum)?;
-                bytes
-            } else {
-                let vector = encode(&input)?;
-                validate(&vector, identity.dimensions)?;
-                vector
-                    .iter()
-                    .flat_map(|value| value.to_le_bytes())
-                    .collect()
-            };
-            cancel()?;
-            let tx = db
-                .transaction_with_behavior(TransactionBehavior::Immediate)
-                .map_err(err)?;
-            check_current(&tx, source, identity)?;
-            tx.execute(
-                "INSERT INTO upload_semantic_passages VALUES(?1,?2,?3,?4,?5,?6,?7) ON CONFLICT(document_id,section_ordinal,byte_start,byte_end) DO UPDATE SET content_hash=excluded.content_hash,vector=excluded.vector,vector_hash=excluded.vector_hash",
-                params![source.id,section.ordinal,span.start,span.end,hash,bytes,format!("{:x}", Sha256::digest(&bytes))],
-            ).map_err(err)?;
-            tx.commit().map_err(err)?;
-            live.push((section.ordinal, span.start, span.end));
-            progress(reused);
-        }
-    }
-    cancel()?;
-    if live.is_empty() {
-        return Err("Document has no readable semantic passages".into());
-    }
-    let tx = db
-        .transaction_with_behavior(TransactionBehavior::Immediate)
-        .map_err(err)?;
-    check_current(&tx, source, identity)?;
-    finish(&tx, source, &live)?;
-    cancel()?;
-    tx.commit().map_err(err)
+        let tx = db
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(err)?;
+        check_current(&tx, source, identity)?;
+        finish(&tx, source, &live)?;
+        cancel()?;
+        tx.commit().map_err(err)
+    })().map_err(|error| index_error(error, &source.id, section_ordinal))
 }
 
 /// Publish only after every span is checkpointed; prune obsolete spans in that same transaction.

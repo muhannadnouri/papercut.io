@@ -2,6 +2,19 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+## Branch review fixes 8–11 — 2026-10-13
+
+The user approved the remaining ranked cleanup against baseline `a36e213b2038cba7c438e28d1325ec90cddec273`, with smoke deferred.
+
+- Semantic source reading and indexing errors now identify the document ID and, when known, the one-based section number. Document-wide failures do not claim a section; cancellation remains exactly `Semantic indexing cancelled`. The context adds no title, heading, passage or query text and creates no new logs. Tokenization/inference/vector failures retain committed checkpoints for explicit retry; no index policy/schema change or automatic rebuild is introduced.
+- `SearchModelSetup` requires the App-owned semantic controller. Removed its unused standalone format state and optional-controller branches. Cache-action tests now supply the production configuration and verify controller-owned model selection/diagnostics, independent download consent, removal guards and no implicit activation/indexing.
+- The private request-preparation utility is explicitly skipped without `PAPERCUT_SEARCH_EVAL_QUERIES`, rather than reporting a pass after returning early. An explicit generic input outside the checkout produced the expected parsed clauses, mode, scope and limits; duplicate IDs failed without overwriting the prior output.
+- Removed eight unused setup/results translation keys from each of the eight locales (64 entries), plus three assertions that only checked absence of obsolete labels. Live dynamic status keys and healthy/partial conceptual coverage assertions remain.
+
+Validation: 253 frontend tests pass in 53 files, with one optional utility skipped; 190 default Rust tests pass (5 ignored), and 248 provider-enabled Rust tests pass (10 ignored). The explicit utility run passes both cases. Lint, i18n parity, TypeScript, Vite build, Rust formatting and diff checks pass. New native regressions use production SQLite source/checkpoint paths with synthetic provider failures; they assert diagnostic context, cancellation identity, unpublished partial documents and successful checkpoint reuse. No dependencies added. Vite's existing large-chunk warning remains.
+
+Next: all eleven ranked review items are addressed. Run/review existing full CI for the new commit before acceptance; app/device/screen-reader smoke and ignored cached-model/scale checks remain deferred. No push, workflow dispatch or merge in this pass.
+
 ## Branch review fixes 5–7 — 2026-10-13
 
 The user approved the next test-quality stage from baseline `5488e667576c935082e6e5cf00937d1d31b4d956`, with app smoke still deferred.
