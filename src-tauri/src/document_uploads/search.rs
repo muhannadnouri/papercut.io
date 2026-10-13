@@ -643,39 +643,6 @@ fn count_normalized_matches(text: &str, normalized_query: &str) -> usize {
     normalize_exact_text(text).matches(normalized_query).count()
 }
 
-/// FTS narrows the candidate set efficiently, then this verifies Papercut's
-/// literal, whitespace-normalized phrase semantics without reading every PDF.
-#[cfg(test)]
-fn retain_exact_phrase_hits(
-    db: &Connection,
-    results: Vec<UploadedDocumentSearchResult>,
-    phrases: &[String],
-) -> Result<Vec<UploadedDocumentSearchResult>, String> {
-    let normalized_phrases = phrases
-        .iter()
-        .filter(|phrase| !fts_terms(phrase, 128).is_empty())
-        .map(|phrase| normalize_exact_text(phrase))
-        .collect::<Vec<_>>();
-    let mut verdicts = HashMap::new();
-    let mut verified = Vec::new();
-
-    for result in results {
-        let matches = match verdicts.get(&result.document_id) {
-            Some(matches) => *matches,
-            None => {
-                let matches =
-                    document_contains_exact_phrases(db, &result.document_id, &normalized_phrases)?;
-                verdicts.insert(result.document_id.clone(), matches);
-                matches
-            }
-        };
-        if matches {
-            verified.push(result);
-        }
-    }
-    Ok(verified)
-}
-
 /// Verify the complete ranked candidate set before the visible-result limit is
 /// applied, so stemmed FTS false positives cannot crowd out later literal hits.
 fn retain_exact_phrase_candidates(

@@ -21,6 +21,12 @@ records remaining quality, CI, device and distribution limits.
 Automated boundary regressions cover these contracts; the interactive cases above
 are not marked passed.
 
+Review items 5–7 now have real React/DOM interaction and parser/Find integration
+regressions in the normal `npm test` suite. These use jsdom visibility fixtures
+and assert source match offsets; they do not paint PDF canvases or validate actual
+browser layout, keyboard default traversal, touch targets or screen-reader output.
+Keep all interactive checks deferred until the user resumes this pass.
+
 ## Build and Run Order
 
 Normal native shipping builds include provider capability; semantic use still

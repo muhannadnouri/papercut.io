@@ -11,9 +11,8 @@ use super::query::{
 use super::{
     attach_exact_phrase_evidence, attach_search_term_matches, count_normalized_matches,
     document_candidates, document_concordance, document_ids_matching_all_queries,
-    highlighted_exact_excerpt, retain_exact_phrase_candidates, retain_exact_phrase_hits,
-    search_cross_section_document_hits, search_results_for_candidates, search_section_hits,
-    search_uploads_with_db, SearchIndex,
+    highlighted_exact_excerpt, retain_exact_phrase_candidates, search_cross_section_document_hits,
+    search_results_for_candidates, search_section_hits, search_uploads_with_db, SearchIndex,
 };
 
 #[test]
@@ -377,51 +376,43 @@ fn exact_excerpt_avoids_wrong_marks_when_lowercasing_expands_unicode() {
 
 #[test]
 fn exact_search_accepts_joined_and_explicitly_hyphenated_forms() {
-    let db = test_db();
-    insert_document(
-        &db,
-        "dehyphenated-exact-pdf",
-        "/uploads/dehyphenated-exact-pdf.pdf",
-        "Dehyphenated Exact PDF",
-        &["The page highlights the final result."],
-    );
-
     for phrase in [
         "highlights the final",
         "high-lights the final",
         "high- lights the final",
     ] {
-        let queries = fts_phrase_queries(&[phrase.to_string()]);
-        let candidates = search_section_hits(&db, &fts_and_query(&queries), 10, &[])
-            .expect("hyphen-equivalent phrase candidates");
-        let hits = retain_exact_phrase_hits(&db, candidates, &[phrase.to_string()])
-            .expect("hyphen-equivalent exact verification");
+        let db = test_db();
+        insert_document(
+            &db,
+            "dehyphenated-exact-pdf",
+            "/uploads/dehyphenated-exact-pdf.pdf",
+            "Dehyphenated Exact PDF",
+            &["The page highlights the final result."],
+        );
+
+        let hits = phrase_search(db, &[phrase]);
         assert_eq!(hits.len(), 1, "phrase: {phrase}");
     }
 }
 
 #[test]
 fn exact_search_accepts_independently_hyphenated_compounds() {
-    let db = test_db();
-    insert_document(
-        &db,
-        "mixed-hyphen-exact-pdf",
-        "/uploads/mixed-hyphen-exact-pdf.pdf",
-        "Mixed Hyphen Exact PDF",
-        &["The highlights remain stateowned."],
-    );
-
     for phrase in [
         "highlights remain state-owned",
         "high-lights remain state-owned",
         "highlights remain stateowned",
         "high-lights remain stateowned",
     ] {
-        let queries = fts_phrase_queries(&[phrase.to_string()]);
-        let candidates = search_section_hits(&db, &fts_and_query(&queries), 10, &[])
-            .expect("mixed hyphen phrase candidates");
-        let hits = retain_exact_phrase_hits(&db, candidates, &[phrase.to_string()])
-            .expect("mixed hyphen exact verification");
+        let db = test_db();
+        insert_document(
+            &db,
+            "mixed-hyphen-exact-pdf",
+            "/uploads/mixed-hyphen-exact-pdf.pdf",
+            "Mixed Hyphen Exact PDF",
+            &["The highlights remain stateowned."],
+        );
+
+        let hits = phrase_search(db, &[phrase]);
         assert_eq!(hits.len(), 1, "phrase: {phrase}");
     }
 }
@@ -963,7 +954,7 @@ fn pdf_search_hit_retains_its_page_index() {
 }
 
 #[test]
-fn committed_pdf_fixture_phrase_is_searchable_once_on_its_page() {
+fn pdf_phrase_search_returns_exact_count_excerpt_and_page_locator() {
     let db = test_db();
     insert_document(
         &db,
@@ -988,14 +979,13 @@ fn committed_pdf_fixture_phrase_is_searchable_once_on_its_page() {
     )
     .expect("clear fixture page heading");
 
-    let queries = fts_phrase_queries(&["inline format preserved".to_string()]);
-    let candidates = search_section_hits(&db, &fts_and_query(&queries), 10, &[])
-        .expect("fixture phrase candidates");
-    let hits = retain_exact_phrase_hits(&db, candidates, &["inline format preserved".to_string()])
-        .expect("verify fixture phrase");
-
+    let hits = phrase_search(db, &["inline format preserved"]);
     assert_eq!(hits.len(), 1);
     assert_eq!(hits[0].page_index, Some(0));
+    assert_eq!(hits[0].match_count, Some(1));
+    assert!(hits[0]
+        .excerpt
+        .contains("<mark>INLINE FORMAT PRESERVED</mark>"));
 }
 
 #[test]
@@ -1016,9 +1006,7 @@ fn phrase_search_rejects_words_with_an_intervening_token() {
         &["The silver pocket compass points north."],
     );
 
-    let queries = fts_phrase_queries(&["silver compass".to_string()]);
-    let hits = search_section_hits(&db, &fts_and_query(&queries), 10, &[]).expect("phrase search");
-
+    let hits = phrase_search(db, &["silver compass"]);
     assert_eq!(hits.len(), 1);
     assert_eq!(hits[0].document_id, "exact-phrase");
 }
@@ -1034,12 +1022,7 @@ fn phrase_verifier_rejects_porter_stem_false_positives() {
         &["The running compass points north."],
     );
 
-    let queries = fts_phrase_queries(&["run compass".to_string()]);
-    let candidates = search_section_hits(&db, &fts_and_query(&queries), 10, &[])
-        .expect("stemmed FTS candidates");
-    let verified = retain_exact_phrase_hits(&db, candidates, &["run compass".to_string()])
-        .expect("literal phrase verification");
-
+    let verified = phrase_search(db, &["run compass"]);
     assert!(verified.is_empty());
 }
 
@@ -1054,18 +1037,26 @@ fn phrase_verifier_ignores_punctuation_only_phrases() {
         &["The archive contains hello world."],
     );
 
-    let queries = fts_phrase_queries(&["hello world".to_string(), "??".to_string()]);
-    let candidates =
-        search_section_hits(&db, &fts_and_query(&queries), 10, &[]).expect("phrase candidates");
-    let verified = retain_exact_phrase_hits(
-        &db,
-        candidates,
-        &["hello world".to_string(), "??".to_string()],
-    )
-    .expect("literal phrase verification");
-
+    let verified = phrase_search(db, &["hello world", "??"]);
     assert_eq!(verified.len(), 1);
     assert_eq!(verified[0].document_id, "exact-phrase");
+}
+
+fn phrase_search(db: Connection, phrases: &[&str]) -> Vec<super::UploadedDocumentSearchResult> {
+    search_uploads_with_db(
+        UploadedDocumentSearchRequest {
+            query: String::new(),
+            mode: UploadedDocumentSearchMode::All,
+            limit: Some(10),
+            document_urls: None,
+            exact_phrases: Some(phrases.iter().map(|phrase| (*phrase).into()).collect()),
+        },
+        || Ok(db),
+        |_| {},
+    )
+    .expect("production phrase search")
+    .0
+    .results
 }
 
 fn test_db() -> Connection {

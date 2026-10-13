@@ -2,6 +2,20 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+## Branch review fixes 5–7 — 2026-10-13
+
+The user approved the next test-quality stage from baseline `5488e667576c935082e6e5cf00937d1d31b4d956`, with app smoke still deferred.
+
+- Replaced the AppDialog effect mocks/direct handler calls with real React mounts and DOM keyboard/click/focus events. Regressions cover initial focus, Tab/Shift+Tab trapping, hidden/disabled controls, focus restoration, StrictMode listener cleanup, updated busy/Close handlers, backdrop dismissal and form submission. Transfer Library's slot-number mocks are replaced by actual preparation/waiting/cancel-retry/completion flows at the mocked native IPC boundary; its interval/listener cleanup is checked too.
+- Added a generic two-page PDF fixture with U+2010/U+2011 line wraps and an emoji prefix. The installed PDF parser/worker and Find controller run through Papercut's production loader, controller wrapper, adapter and page-target helper. Assertions cover exact phrase count, original UTF-16 start/length, unchanged source extraction, next/previous page selection, no-match recovery, clearing and adapter listener disposal.
+- Deleted the duplicate test-only exact-phrase result filter. Six phrase regressions now call `search_uploads_with_db`, including actual verification and evidence/counts/page locators, rather than that alternate implementation. The routing-only test helper contains no matching logic.
+
+Added only `jsdom@29.1.1` as a development dependency, using Vitest's per-file DOM environment and existing React APIs. All 40 new lockfile packages are dev-only and their declared engines allow the repository's pinned Node 22.22.1; local tests ran on Node 24.21.0. No new CI job, browser automation framework or shipping dependency is introduced. jsdom supplies DOM behavior but not layout, so the modal fixture supplies visibility rectangles; PDF canvas painting is outside this integration check.
+
+Validation: 253 frontend tests in 53 files, 187 default Rust tests (5 ignored), 245 provider-enabled Rust tests (10 ignored), lint/i18n/typecheck/Vite build/diff checks pass. Removing the production Escape busy guard or Unicode Find extraction repair temporarily makes the respective new regression fail; both mutations were restored. Vite's existing large-chunk warning remains. No product behavior changed beyond removing test-only code.
+
+Next: lower-priority review items 8–11—indexing diagnostics, the unused standalone setup path, and redundant evaluation/translation code. Full current-source CI and app/device/screen-reader smoke remain separate acceptance gates; no push, workflow dispatch or merge in this pass.
+
 ## Branch review fixes 1–4 — 2026-10-13
 
 The user authorized the first four ranked review fixes, with smoke deferred.

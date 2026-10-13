@@ -1,5 +1,23 @@
 # Search v2 branch acceptance and review
 
+## Test-quality follow-up — 2026-10-13
+
+The approved review items **5–7** are complete against baseline `5488e66`.
+
+| Rank | Finding | Resolution |
+| --- | --- | --- |
+| 5 | Mocked modal effects/state do not exercise lifecycle behavior | Real React/DOM tests drive Escape, live busy updates, Tab wrapping, focus restoration, form events and listener cleanup. Transfer tests drive actual component state through mocked IPC preparation/waiting/cancellation/completion, without hook-slot overrides. |
+| 6 | Fake PDF controller misses integration regressions | A generic committed Unicode-wrap PDF is parsed by the real worker and searched through Papercut's production wrapper/adapter with the installed Find controller. Tests assert counts, source-offset mapping, preserved extraction and page navigation. |
+| 7 | Parallel test-only phrase verification can diverge from shipping behavior | Removed `retain_exact_phrase_hits`; six regressions run the complete production `search_uploads_with_db` path. |
+
+The busy-guard and Unicode-wrap tests fail when their production fixes are
+removed, then pass after restoration. Current checks: 253 frontend tests,
+187 default / 245 provider-enabled Rust tests, lint/i18n/typecheck/Vite build.
+`jsdom@29.1.1` is test-only and fits the existing pinned Node engines. Tests use
+synthetic visibility geometry and do not validate canvas painting, browser layout
+or screen readers. Remaining review items **8–11** are the next cleanup stage;
+current-source CI and deferred app/device smoke are still required for acceptance.
+
 ## Corrective review follow-up — 2026-10-13
 
 Reviewed application baseline: `d53a6aee73c613a3c28105f06ed4fcc47241706a`.

@@ -259,3 +259,19 @@ stored section ordinals/text before repairing these ranges. A changed range
 invalidates semantic coverage; **Build/Update Index** remains explicit. Missing
 or mismatched saved source preserves existing classifications. Older EPUBs whose
 saved reading copy already lost note roles still need reimport for classification.
+
+### Reader And Phrase Regression Boundaries
+
+The default `npm test` suite includes `pdfFind.integration.test.ts`: a generic
+committed PDF with Unicode word wraps is extracted by the installed PDF.js worker
+and searched through Papercut's actual Find wrapper/adapter. Match offsets are
+checked against original UTF-16 source, with an emoji prefix, along with page
+navigation and recovery. This covers the application/dependency boundary; canvas
+painting remains an app smoke check. Modal tests use real React/DOM events through
+Vitest's [jsdom environment](https://vitest.dev/guide/environment.html), with
+explicit visibility rectangles because [jsdom does not perform layout](https://github.com/jsdom/jsdom#unimplemented-parts-of-the-web-platform).
+
+Native phrase regressions call the shipping `search_uploads_with_db` entry point;
+the retired `retain_exact_phrase_hits` test-only implementation is no longer an
+alternate verification path. In-memory fixture/request helpers contain setup and
+routing only.
