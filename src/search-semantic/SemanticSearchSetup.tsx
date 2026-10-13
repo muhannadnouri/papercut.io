@@ -55,7 +55,7 @@ export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, childre
             ? 'settings.semantic.update' : 'settings.semantic.build')}</button>
         {indexing && <button type="button" className="app-settings-data-action"
           disabled={!index?.running || semantic.cancelling || index.cancelRequested}
-          onClick={() => { void semantic.cancel() }}>{t('common.cancel')}</button>}
+          onClick={() => { void semantic.cancel() }}>{t('settings.semantic.stop')}</button>}
       </div>}
       {enabled && !current && index && index.eligibleDocuments > 0 && <p>{t('settings.semantic.indexHint')}</p>}
       <details className="search-index-details">

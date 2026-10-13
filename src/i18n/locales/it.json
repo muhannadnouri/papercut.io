@@ -400,12 +400,12 @@
       "inUse": "Disattiva la ricerca semantica per cambiare modello o formato, verificare i file o rimuoverli.",
       "recovery": "Se la cache è incompleta o danneggiata, rimuovi i file e scaricali di nuovo. I download interrotti ripartono da zero.",
       "activationBusy": "Il modello è in fase di attivazione. Le modifiche alla cache devono attendere.",
-      "working": "In corso; la verifica e la pulizia possono richiedere tempo…",
+      "working": "Preparazione o verifica dei file del modello…",
       "progress": "Avanzamento del download del modello",
       "verified": "Modello pronto. La ricerca semantica resta invariata.",
       "removed": "File del modello rimossi. La ricerca è invariata.",
       "cancelling": "Annullamento richiesto; in attesa dell’arresto e della pulizia…",
-      "closeHelp": "Chiudere le impostazioni non annulla questo download. Controlla l’avanzamento o annullalo dall’intestazione.",
+      "closeHelp": "Il download continua quando chiudi le impostazioni.",
       "cancelled": "Download annullato. Controlla lo stato della cache prima di riprovare.",
       "failed": "Download non riuscito. Controlla la connessione e lo spazio libero; rimuovi i file della cache danneggiati prima di riprovare.",
       "details": "Dettagli tecnici",
@@ -417,7 +417,11 @@
       "loaded": "Modello caricato",
       "reserve": "I download richiedono altri 64 MiB di spazio libero.",
       "incomplete": "I file del modello sono incompleti. Rimuovili prima di scaricarli di nuovo.",
-      "stored": "File Salvati"
+      "stored": "File Salvati",
+      "transferring": "Download dei file del modello…",
+      "verifying": "Verifica dei file del modello…",
+      "removing": "Rimozione dei file del modello…",
+      "cancel": "Annulla Download"
     },
     "semantic": {
       "title": "Ricerca semantica (sperimentale)",
@@ -487,7 +491,8 @@
       },
       "modelRequired": "L’indicizzazione è disponibile quando il modello di ricerca è caricato.",
       "savedIndex": "Indice Salvato · Ricerca Disattivata",
-      "noStoredIndex": "Nessun indice salvato."
+      "noStoredIndex": "Nessun indice salvato.",
+      "stop": "Interrompi Indicizzazione"
     }
   },
   "libraryTransfer": {

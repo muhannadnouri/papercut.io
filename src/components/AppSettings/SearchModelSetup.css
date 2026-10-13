@@ -109,7 +109,7 @@
   max-width: 70ch;
 }
 
-.search-action-primary:not(:disabled) {
+.search-model-setup .search-action-primary:not(:disabled) {
   background: var(--accent);
   color: var(--text-inverse);
 }
@@ -180,7 +180,18 @@ details.search-model-panel[open] > * + * {
   padding-top: 0.65rem;
 }
 
+.search-model-management .search-removal-controls {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.search-removal-actions {
+  justify-content: space-between;
+  gap: 0.75rem 2rem;
+}
+
 .search-removal-confirmation {
+  margin-top: 0.65rem;
   padding: 0.75rem;
   background: var(--surface-muted);
   border-radius: var(--radius-control);
@@ -190,8 +201,41 @@ details.search-model-panel[open] > * + * {
   margin-bottom: 0.75rem;
 }
 
-.search-remove-confirm {
+.search-model-setup .search-remove-confirm {
   color: var(--danger-strong);
+  border-color: var(--danger-border);
+}
+
+.search-model-setup .search-remove-confirm:hover:not(:disabled),
+.search-model-setup .search-remove-confirm:focus-visible,
+.search-removal-confirmation .search-remove-confirm:not(:disabled) {
+  color: var(--danger-strong);
+  border-color: var(--danger-border);
+  background: var(--surface-danger);
+}
+
+.search-model-setup .search-remove-confirm:focus-visible {
+  outline: 2px solid var(--danger-strong);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.search-model-setup .search-remove-confirm:disabled {
+  color: var(--text-muted);
+  border-color: transparent;
+}
+
+.search-download-progress > * + * {
+  margin-top: 0.5rem;
+}
+
+.search-download-actions {
+  align-items: center;
+}
+
+.search-model-setup .search-model-background-note {
+  color: var(--text-muted);
+  font-size: 0.8rem;
 }
 
 .app-settings-search-summary {
@@ -218,6 +262,11 @@ details.search-model-panel[open] > * + * {
   .search-model-actions > button {
     flex: 1 1 auto;
     justify-content: center;
+  }
+
+  .search-removal-actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .search-index-details-content {

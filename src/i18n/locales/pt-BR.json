@@ -400,12 +400,12 @@
       "inUse": "Desative a busca semântica para alterar o modelo ou formato, verificar arquivos ou removê-los.",
       "recovery": "Para um cache incompleto ou danificado, remova os arquivos e baixe novamente. Downloads interrompidos recomeçam do início.",
       "activationBusy": "O modelo está sendo ativado. As alterações no cache devem esperar.",
-      "working": "Em andamento; a verificação e a limpeza podem levar tempo…",
+      "working": "Preparando ou verificando os arquivos do modelo…",
       "progress": "Progresso do download do modelo",
       "verified": "Modelo pronto. A busca semântica não foi alterada.",
       "removed": "Arquivos do modelo removidos. A busca não mudou.",
       "cancelling": "Cancelamento solicitado; aguardando a interrupção e a limpeza…",
-      "closeHelp": "Fechar as configurações não cancela este download. Veja o progresso ou cancele pelo cabeçalho.",
+      "closeHelp": "O download continua ao fechar as configurações.",
       "cancelled": "Download cancelado. Verifique o status do cache antes de tentar novamente.",
       "failed": "O download falhou. Verifique a conexão e o espaço livre; remova arquivos de cache danificados antes de tentar novamente.",
       "details": "Detalhes técnicos",
@@ -417,7 +417,11 @@
       "loaded": "Modelo carregado",
       "reserve": "Os downloads exigem mais 64 MiB de espaço livre.",
       "incomplete": "Os arquivos do modelo estão incompletos. Remova-os antes de baixar novamente.",
-      "stored": "Arquivos Armazenados"
+      "stored": "Arquivos Armazenados",
+      "transferring": "Baixando os arquivos do modelo…",
+      "verifying": "Verificando os arquivos do modelo…",
+      "removing": "Removendo os arquivos do modelo…",
+      "cancel": "Cancelar Download"
     },
     "semantic": {
       "title": "Busca semântica (experimental)",
@@ -487,7 +491,8 @@
       },
       "modelRequired": "A indexação fica disponível quando o modelo de busca está carregado.",
       "savedIndex": "Índice Salvo · Busca Desativada",
-      "noStoredIndex": "Nenhum índice salvo."
+      "noStoredIndex": "Nenhum índice salvo.",
+      "stop": "Parar Indexação"
     }
   },
   "libraryTransfer": {

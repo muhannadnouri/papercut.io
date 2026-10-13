@@ -400,12 +400,12 @@
       "inUse": "Désactivez la recherche sémantique pour changer de modèle ou de format, vérifier les fichiers ou les supprimer.",
       "recovery": "Pour un cache incomplet ou endommagé, supprimez ses fichiers puis téléchargez-les à nouveau. Les téléchargements interrompus repartent de zéro.",
       "activationBusy": "Le modèle est en cours d’activation. Les modifications du cache doivent attendre.",
-      "working": "En cours ; la vérification et le nettoyage peuvent prendre du temps…",
+      "working": "Préparation ou vérification des fichiers du modèle…",
       "progress": "Progression du téléchargement du modèle",
       "verified": "Modèle prêt. La recherche sémantique reste inchangée.",
       "removed": "Fichiers du modèle supprimés. La recherche est inchangée.",
       "cancelling": "Annulation demandée ; en attente de l’arrêt et du nettoyage…",
-      "closeHelp": "Fermer les paramètres n’annule pas ce téléchargement. Consultez la progression ou annulez-le depuis l’en-tête.",
+      "closeHelp": "Le téléchargement continue après la fermeture des paramètres.",
       "cancelled": "Téléchargement annulé. Vérifiez l’état du cache avant de réessayer.",
       "failed": "Échec du téléchargement. Vérifiez la connexion et l’espace libre ; supprimez les fichiers du cache endommagés avant de réessayer.",
       "details": "Détails techniques",
@@ -417,7 +417,11 @@
       "loaded": "Modèle chargé",
       "reserve": "Les téléchargements nécessitent 64 Mio supplémentaires d’espace libre.",
       "incomplete": "Les fichiers du modèle sont incomplets. Supprimez-les avant de les télécharger à nouveau.",
-      "stored": "Fichiers Enregistrés"
+      "stored": "Fichiers Enregistrés",
+      "transferring": "Téléchargement des fichiers du modèle…",
+      "verifying": "Vérification des fichiers du modèle…",
+      "removing": "Suppression des fichiers du modèle…",
+      "cancel": "Annuler le Téléchargement"
     },
     "semantic": {
       "title": "Recherche sémantique (expérimentale)",
@@ -487,7 +491,8 @@
       },
       "modelRequired": "L’indexation est disponible une fois le modèle de recherche chargé.",
       "savedIndex": "Index Enregistré · Recherche Désactivée",
-      "noStoredIndex": "Aucun index enregistré."
+      "noStoredIndex": "Aucun index enregistré.",
+      "stop": "Arrêter l’Indexation"
     }
   },
   "libraryTransfer": {

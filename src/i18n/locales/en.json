@@ -393,12 +393,12 @@
       "inUse": "Turn semantic search off to change the model or format, verify files or remove them.",
       "recovery": "For an incomplete or damaged cache, remove its files, then download again. Interrupted downloads restart from the beginning.",
       "activationBusy": "Model activation is running. Cache changes must wait.",
-      "working": "Working; verification and cleanup can take time…",
+      "working": "Preparing or verifying model files…",
       "progress": "Model download progress",
       "verified": "Search model ready. Semantic search remains unchanged.",
       "removed": "Model files removed. Search is unchanged.",
       "cancelling": "Cancellation requested; waiting for the worker to stop and clean up…",
-      "closeHelp": "Closing Settings does not cancel this download. View progress or cancel from the header.",
+      "closeHelp": "Download continues when Settings closes.",
       "cancelled": "Download cancelled. Check cache status before retrying.",
       "failed": "Download failed. Check your connection and free space; remove damaged cache files before retrying.",
       "details": "Technical Details",
@@ -410,7 +410,11 @@
       "loaded": "Model Loaded",
       "reserve": "Downloads require 64 MiB of additional free space.",
       "incomplete": "Model files are incomplete. Remove them before downloading again.",
-      "stored": "Files Stored"
+      "stored": "Files Stored",
+      "transferring": "Downloading model files…",
+      "verifying": "Verifying model files…",
+      "removing": "Removing model files…",
+      "cancel": "Cancel Download"
     },
     "semantic": {
       "title": "Semantic Search (Experimental)",
@@ -480,7 +484,8 @@
       },
       "modelRequired": "Indexing is available once the search model is loaded.",
       "savedIndex": "Saved Index · Search Off",
-      "noStoredIndex": "No saved index."
+      "noStoredIndex": "No saved index.",
+      "stop": "Stop Indexing"
     }
   },
   "libraryTransfer": {

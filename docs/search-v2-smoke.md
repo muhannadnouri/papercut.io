@@ -483,3 +483,26 @@ tracked fixtures.
       running during conceptual search/indexing and record stalls/crashes/resource
       peaks. This development-host smoke does not establish mobile/weak-device,
       thermal/battery or representative relevance acceptance.
+
+
+## Settings Action Presentation Follow-Up
+
+**Deferred.** Include these checks in the existing model/index setup round;
+use the normal native shipping build and disposable data.
+
+- [ ] Download/Verify and Remove Model Files occupy opposite ends of one row
+      on wide views and stack without overflow on narrow/zoomed/RTL views.
+      Removal confirmation appears below the row with the specific removal label;
+      Cancel returns focus to the removal trigger. Stored-file/index and busy
+      guards still prevent empty, repeated or active-model removal.
+- [ ] Enabled removal and its confirmation have distinct danger styling in
+      light/dark, hover and keyboard focus states. Disabled removal is muted;
+      Cancel Download and Stop Indexing retain neutral secondary styling.
+- [ ] An active transfer does not instruct you to remove incomplete files.
+      Transfer/verification/removal and pending cleanup have appropriate status;
+      100% transferred does not claim successful installation before verification.
+      Reopening while another model/format downloads labels that actual download.
+- [ ] The short background-download note appears beside progress/cancellation
+      only during active work. Closing Settings keeps the job running; reopen
+      from header activity to cancel. Idle recovery copy returns after termination,
+      with cancellation/failure details and no download/index activation on open.

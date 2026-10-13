@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { useTranslation } from 'react-i18next'
@@ -149,12 +149,16 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
     ? Math.min(100, Math.max(0, Math.floor(progress.downloadedBytes / progress.totalBytes * 100))) : null
   const downloading = status?.downloadingFormat
   const matchingProgress = progress?.format === downloading ? progress : null
+  const preparingFiles = operation === 'download' || !!downloading
+  // Byte events do not report native verification separately; retain an honest pending label.
+  const workLabel = operation === 'remove' ? 'removing'
+    : matchingProgress?.phase === 'downloading' && percent !== null && percent < 100 ? 'transferring'
+    : (!downloading || downloading === format) && cache?.filesPresent && matchingProgress?.phase !== 'downloading' ? 'verifying' : 'working'
   // Active provider identity is verified during native loading; file presence alone is not.
   const loaded = (semantic?.provider ?? status)?.activeFormat === format
   const canChange = ready && status?.compiled && !busy && !semantic?.enabled && !loaded
   const small = format === 'float32' || format === 'dynamic-int8'
-  const modelName = `multilingual-e5-${format === 'base-float32' ? 'base' : format === 'large-float32' ? 'large' : 'small'}`
-  const formatLabel = `${modelName} · ${t(format === 'dynamic-int8' ? 'settings.searchModel.int8' : 'settings.searchModel.float32')}`
+  const formatLabel = (choice: ModelSelection) => `multilingual-e5-${choice === 'base-float32' ? 'base' : choice === 'large-float32' ? 'large' : 'small'} · ${t(choice === 'dynamic-int8' ? 'settings.searchModel.int8' : 'settings.searchModel.float32')}`
 
   /** A different model or precision needs its own download consent; changing it starts no work. */
   function selectFormat(choice: ModelSelection) {
@@ -171,16 +175,21 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
   const canRemoveModel = !!canChange && !!cache?.hasStoredFiles && status?.activeFormat !== format
   const canRemoveIndex = !busy && !!semantic?.provider?.compiled && !!semantic.index?.hasStoredIndex
 
-  function removalControls(kind: 'model' | 'index') {
+  /** Share the action row, but keep confirmation outside it and removal apart from preparation. */
+  function removalControls(kind: 'model' | 'index', preparation?: ReactNode) {
     const allowed = kind === 'model' ? canRemoveModel : canRemoveIndex
+    const label = t(kind === 'model' ? 'settings.searchModel.remove' : 'settings.semantic.remove')
     return <div className="search-removal-controls">
-      <button type="button" className="app-settings-data-action search-remove-confirm" disabled={!allowed}
-        onClick={() => { if (allowed) setRemoval(kind) }}>{t(kind === 'model' ? 'settings.searchModel.remove' : 'settings.semantic.remove')}</button>
-      {removal === kind && <div className="search-removal-confirmation" aria-live="polite" role="group" aria-label={t('common.confirm')}>
+      <div className="search-model-actions search-removal-actions">
+        {preparation}
+        <button type="button" className="app-settings-data-action search-remove-confirm" disabled={!allowed}
+          onClick={() => { if (allowed) setRemoval(kind) }}>{label}</button>
+      </div>
+      {removal === kind && <div className="search-removal-confirmation" aria-live="polite" role="group" aria-label={label}>
         <p>{t(kind === 'model' ? 'settings.searchModel.confirmRemove' : 'settings.semantic.confirmRemove')}</p>
         <div className="search-model-actions">
           <button type="button" className="app-settings-data-action" onClick={(event) => {
-            event.currentTarget.closest('.search-removal-controls')?.querySelector<HTMLButtonElement>('button')?.focus()
+            event.currentTarget.closest('.search-removal-controls')?.querySelector<HTMLButtonElement>('.search-remove-confirm')?.focus()
             setRemoval(null)
           }}>{t('common.cancel')}</button>
           <button type="button" className="app-settings-data-action search-remove-confirm" disabled={!allowed}
@@ -194,7 +203,7 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
               if (kind === 'model') void run('remove')
               else void semantic?.remove()
               setRemoval(null)
-            }}>{t('common.confirm')}</button>
+            }}>{label}</button>
         </div>
       </div>}
     </div>
@@ -204,7 +213,7 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
   const modelControls = <>
     {ready && status?.compiled && <details className="search-model-panel search-model-management" open={(!loaded && !cache?.filesPresent) || operation !== null || !!downloading || !!status.loadingFormat || !!error}>
       <summary>{t(loaded || cache?.hasStoredFiles ? 'settings.searchModel.manage' : 'settings.searchModel.title')}
-        {(loaded || cache?.filesPresent) && <span className="search-model-summary-status" role="status">{formatLabel} · {t(loaded ? 'settings.searchModel.loaded' : 'settings.searchModel.stored')}</span>}
+        {(loaded || cache?.filesPresent) && <span className="search-model-summary-status" role="status">{formatLabel(format)} · {t(loaded ? 'settings.searchModel.loaded' : 'settings.searchModel.stored')}</span>}
       </summary>
       <div className="search-model-selection">
         <label className="search-model-field">
@@ -231,7 +240,7 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
       {!small && <p>{t('settings.searchModel.largerWarning')}</p>}
       <p>{t('settings.searchModel.switchHint')}</p>
       {format === 'dynamic-int8' && <p>{t('settings.searchModel.int8Warning')}</p>}
-      {!loaded && <p role="status">{t(cache?.filesPresent
+      {!loaded && !preparingFiles && operation !== 'remove' && <p role="status">{t(cache?.filesPresent
         ? message === 'verified' ? 'settings.searchModel.verified' : 'settings.searchModel.present'
         : cache?.hasStoredFiles ? 'settings.searchModel.incomplete' : 'settings.searchModel.absent')}</p>}
       {(!semantic?.enabled && !loaded) && <>
@@ -240,32 +249,31 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
           <input type="checkbox" checked={consent} disabled={!canChange} onChange={(event) => setConsent(event.target.checked)} />
           <span>{t('settings.searchModel.consent')}</span>
         </label>
-        <div className="search-model-actions">
-          <button type="button" className="app-settings-data-action search-action-primary" disabled={!canChange || !cache || !consent}
-            onClick={() => { void run('download') }}>
-            {t(cache?.filesPresent ? 'settings.searchModel.verify' : 'settings.searchModel.download')}
-          </button>
-        </div>
       </>}
       {(semantic?.enabled || loaded) && <p>{t('settings.searchModel.inUse')}</p>}
+      {removalControls('model', !semantic?.enabled && !loaded &&
+        <button type="button" className="app-settings-data-action search-action-primary" disabled={!canChange || !cache || !consent}
+          onClick={() => { void run('download') }}>
+          {t(cache?.filesPresent ? 'settings.searchModel.verify' : 'settings.searchModel.download')}
+        </button>)}
 
-      {(operation !== null || downloading) && <div role="status" aria-live="polite">
-        <p>{t('settings.searchModel.working')}</p>
+      {(operation !== null || downloading) && <div className="search-download-progress">
+        <p role="status" aria-live="polite">{t(`settings.searchModel.${cancelling ? 'cancelling' : workLabel}`)}</p>
         {downloading && <>
-          <p>{formatLabel}</p>
+          <p>{formatLabel(downloading)}</p>
           <progress aria-label={t('settings.searchModel.progress')} max={100}
             value={matchingProgress && percent !== null ? percent : undefined} />
           {matchingProgress && percent !== null && <span>{percent}%</span>}
+          <div className="search-model-actions search-download-actions">
+            <button type="button" className="app-settings-data-action" disabled={cancelling}
+              onClick={() => { void cancel() }}>{t('settings.searchModel.cancel')}</button>
+            <p className="search-model-background-note">{t('settings.searchModel.closeHelp')}</p>
+          </div>
         </>}
       </div>}
-      {downloading && <button type="button" className="app-settings-data-action" disabled={cancelling}
-        onClick={() => { void cancel() }}>{t('common.cancel')}</button>}
-      {downloading && <p>{t('settings.searchModel.closeHelp')}</p>}
       {message === 'removed' && <p role="status">{t('settings.searchModel.removed')}</p>}
-      {cancelling && busy && <p role="status">{t('settings.searchModel.cancelling')}</p>}
       {!busy && progress?.phase === 'cancelled' && !error && <p role="status">{t('settings.searchModel.cancelled')}</p>}
       {!busy && progress?.phase === 'failed' && !error && <p role="alert">{t('settings.searchModel.failed')}</p>}
-      {removalControls('model')}
     </details>}
     {error && <p className="app-dialog-error" role="alert" dir="auto">{error}</p>}
     {error && <button type="button" className="app-settings-data-action" onClick={() => {

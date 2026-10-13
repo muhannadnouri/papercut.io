@@ -156,7 +156,7 @@ it('hides an empty off index, collapses saved checkpoints, and expands pending w
   expect(saved).not.toContain('settings.semantic.documentsReady')
   semantic.index!.running = true
   expect(html(semantic)).toContain('class="search-model-panel search-library-index" open=""')
-  expect(html(semantic)).toContain('common.cancel')
+  expect(html(semantic)).toContain('settings.semantic.stop')
   semantic.index!.running = false; semantic.index!.error = 'Cleanup failed'
   expect(html(semantic)).toContain('class="search-model-panel search-library-index" open=""')
   expect(html(semantic)).toContain('Cleanup failed')

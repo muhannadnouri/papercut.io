@@ -400,12 +400,12 @@
       "inUse": "Desactiva la búsqueda semántica para cambiar el modelo o formato, verificar los archivos o eliminarlos.",
       "recovery": "Si la caché está incompleta o dañada, elimina sus archivos y vuelve a descargarlos. Las descargas interrumpidas empiezan desde cero.",
       "activationBusy": "El modelo se está activando. Los cambios de caché deben esperar.",
-      "working": "En curso; la verificación y la limpieza pueden tardar…",
+      "working": "Preparando o verificando los archivos del modelo…",
       "progress": "Progreso de descarga del modelo",
       "verified": "Modelo listo. La búsqueda semántica no ha cambiado.",
       "removed": "Archivos del modelo eliminados. La búsqueda no cambia.",
       "cancelling": "Cancelación solicitada; esperando a que el proceso se detenga y limpie…",
-      "closeHelp": "Cerrar Configuración no cancela esta descarga. Consulta el progreso o cancélala desde la cabecera.",
+      "closeHelp": "La descarga continúa al cerrar Configuración.",
       "cancelled": "Descarga cancelada. Comprueba el estado de la caché antes de reintentar.",
       "failed": "La descarga falló. Comprueba la conexión y el espacio libre; elimina los archivos dañados antes de reintentar.",
       "details": "Detalles técnicos",
@@ -417,7 +417,11 @@
       "loaded": "Modelo cargado",
       "reserve": "Las descargas requieren 64 MiB adicionales de espacio libre.",
       "incomplete": "Los archivos del modelo están incompletos. Elimínalos antes de volver a descargarlos.",
-      "stored": "Archivos Guardados"
+      "stored": "Archivos Guardados",
+      "transferring": "Descargando los archivos del modelo…",
+      "verifying": "Verificando los archivos del modelo…",
+      "removing": "Eliminando los archivos del modelo…",
+      "cancel": "Cancelar Descarga"
     },
     "semantic": {
       "title": "Búsqueda semántica (experimental)",
@@ -487,7 +491,8 @@
       },
       "modelRequired": "La indexación está disponible cuando el modelo de búsqueda está cargado.",
       "savedIndex": "Índice Guardado · Búsqueda Desactivada",
-      "noStoredIndex": "No hay un índice guardado."
+      "noStoredIndex": "No hay un índice guardado.",
+      "stop": "Detener Indexación"
     }
   },
   "libraryTransfer": {

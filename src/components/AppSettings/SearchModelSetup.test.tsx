@@ -77,6 +77,13 @@ function click(key: string) {
   expect(button.props.disabled).not.toBe(true)
   ;(button.props.onClick as (event: unknown) => void)({ currentTarget: { closest: () => null } })
 }
+function confirmRemoval(kind: 'model' | 'index' = 'model') {
+  const confirmation = controls().find(node => node.props.className === 'search-removal-confirmation')!
+  const label = kind === 'model' ? 'settings.searchModel.remove' : 'settings.semantic.remove'
+  const button = controls(confirmation.props.children as ReactNode).find(node => node.type === 'button' && node.props.children === label)!
+  expect(button.props.disabled).not.toBe(true)
+  ;(button.props.onClick as () => void)()
+}
 function consent() {
   ;(control('input').props.onChange as (event: unknown) => void)({ target: { checked: true } })
 }
@@ -198,10 +205,10 @@ it('requires fresh consent after changing format and keeps cancellation busy thr
   const onEvent = mocked.listen.mock.calls[0][1]
   onEvent({ payload: { format: 'dynamic-int8', phase: 'downloading', downloadedBytes: 50, totalBytes: 100 } })
   expect(render()).toContain('value="50"')
-  click('common.cancel')
+  click('settings.searchModel.cancel')
   await settle()
   expect(control('button', 'settings.searchModel.remove').props.disabled).toBe(true)
-  expect(control('button', 'common.cancel').props.disabled).toBe(true)
+  expect(control('button', 'settings.searchModel.cancel').props.disabled).toBe(true)
   status.downloadingFormat = null
   storedFiles = true // Partial cache cleanup stays available after cancellation.
   download.reject('Embedding download cancelled')
@@ -211,7 +218,7 @@ it('requires fresh consent after changing format and keeps cancellation busy thr
   expect(mocked.invoke.mock.calls.some(([command]) => command === 'search_embedding_configure')).toBe(false)
   click('settings.searchModel.remove')
   render()
-  click('common.confirm')
+  confirmRemoval()
   expect(await settle()).toContain('settings.searchModel.removed')
 })
 
@@ -222,7 +229,8 @@ it('reconnects to pending work, ignores unrelated progress and protects an activ
   mocked.listen.mock.calls[0][1]({ payload: { format: 'dynamic-int8', phase: 'starting', downloadedBytes: 0, totalBytes: 100 } })
   await settle()
   expect(control('select').props.disabled).toBe(true)
-  expect(control('button', 'common.cancel').props.disabled).toBe(false)
+  expect(control('button', 'settings.searchModel.cancel').props.disabled).toBe(false)
+  expect(render()).toContain('multilingual-e5-small · settings.searchModel.int8')
   mocked.listen.mock.calls[0][1]({ payload: { format: 'float32', phase: 'installed', downloadedBytes: 100, totalBytes: 100 } })
   expect(render()).not.toContain('value="100"')
   expect(render()).not.toContain('settings.searchModel.verified')
@@ -245,7 +253,7 @@ it('reconnects to pending work, ignores unrelated progress and protects an activ
   mocked.slots = []
   render()
   await settle()
-  click('common.cancel')
+  click('settings.searchModel.cancel')
   await settle()
   status.downloadingFormat = null
   mocked.listen.mock.calls.at(-1)![1]({ payload: { format: 'dynamic-int8', phase: 'cancelled', downloadedBytes: 50, totalBytes: 100 } })
@@ -311,7 +319,7 @@ it('requires confirmation for cleanup, cancellation preserves files, and format 
   ;(control('select').props.onChange as (event: unknown) => void)({ target: { value: 'dynamic-int8' } })
   expect(render()).not.toContain('settings.searchModel.confirmRemove')
   click('settings.searchModel.remove'); render()
-  click('common.confirm'); await settle()
+  confirmRemoval(); await settle()
   expect(mocked.invoke.mock.calls.filter(([cmd]) => cmd === 'search_embedding_remove')).toEqual([
     ['search_embedding_remove', { format: 'dynamic-int8' }],
   ])
@@ -333,7 +341,7 @@ it('keeps index removal behind confirmation and disables it for an empty index',
   expect(semantic.remove).not.toHaveBeenCalled()
   click('common.cancel'); render()
   expect(semantic.remove).not.toHaveBeenCalled()
-  click('settings.semantic.remove'); render(); click('common.confirm')
+  click('settings.semantic.remove'); render(); confirmRemoval('index')
   expect(semantic.remove).toHaveBeenCalledTimes(1)
   semantic.index!.passages = 0; semantic.index!.hasStoredIndex = false; render()
   expect(control('button', 'settings.semantic.remove').props.disabled).toBe(true)
@@ -386,7 +394,7 @@ it('blocks repeated removal after cleanup, but permits incomplete-file cleanup',
   storedFiles = true
   render(); await settle()
   expect(render()).toContain('settings.searchModel.incomplete')
-  click('settings.searchModel.remove'); render(); click('common.confirm'); await settle()
+  click('settings.searchModel.remove'); render(); confirmRemoval(); await settle()
   expect(control('button', 'settings.searchModel.remove').props.disabled).toBe(true)
   ;(control('button', 'settings.searchModel.remove').props.onClick as () => void)()
   expect(render()).not.toContain('settings.searchModel.confirmRemove')
@@ -401,4 +409,37 @@ it('collapses installed files while off, keeps model removal in its section, and
   expect(model.props.open).toBe(false)
   expect(controls(model.props.children as ReactNode).some(node => node.props.children === 'settings.searchModel.remove')).toBe(true)
   expect(render()).not.toContain('settings.searchModel.storage')
+})
+
+
+it('shows active file work instead of recovery instructions and keeps cancellation distinct from removal', async () => {
+  storedFiles = true
+  status.downloadingFormat = 'float32'
+  render(); await settle()
+  const event = mocked.listen.mock.calls[0][1]
+  const start = render()
+  expect(start).toContain('settings.searchModel.working')
+  expect(start).not.toContain('settings.searchModel.incomplete')
+  expect(start).not.toContain('settings.searchModel.absent')
+  expect(control('button', 'settings.searchModel.remove').props.disabled).toBe(true)
+  event({ payload: { format: 'float32', phase: 'downloading', downloadedBytes: 20, totalBytes: 100 } })
+  expect(render()).toContain('settings.searchModel.transferring')
+  expect(render()).toContain('value="20"')
+  expect(control('button', 'settings.searchModel.cancel').props.className).not.toContain('search-remove-confirm')
+  event({ payload: { format: 'float32', phase: 'downloading', downloadedBytes: 100, totalBytes: 100 } })
+  expect(render()).toContain('settings.searchModel.working')
+  expect(render()).not.toContain('settings.searchModel.verified')
+  status.downloadingFormat = null
+  event({ payload: { format: 'float32', phase: 'cancelled', downloadedBytes: 100, totalBytes: 100 } })
+  expect(await settle()).toContain('settings.searchModel.incomplete')
+  expect(render()).not.toContain('settings.searchModel.closeHelp')
+  present = true
+  event({ payload: { format: 'float32', phase: 'installed', downloadedBytes: 100, totalBytes: 100 } })
+  await settle(); consent(); render()
+  const verification = deferred<unknown>()
+  mocked.invoke.mockImplementationOnce(() => verification.promise)
+  click('settings.searchModel.verify')
+  expect(render()).toContain('settings.searchModel.verifying')
+  expect(render()).not.toContain('settings.searchModel.present')
+  verification.resolve(null); await settle()
 })

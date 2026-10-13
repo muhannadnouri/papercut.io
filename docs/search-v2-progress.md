@@ -70,6 +70,49 @@ remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
 
+## Stage 7 — Settings action layout and download status — 2026-10-12
+
+User approved the presentation follow-up; installed-app smoke stays deferred.
+Download/Verify and Remove Model Files share a spaced action row on wide views,
+with preparation at the leading edge and removal at the trailing edge. Narrow
+views stack them. Confirmation remains inline below that row, names the actual
+removal action, and retains the stored-file/index, busy, active-model and repeat
+removal guards. Dismissing confirmation returns focus to the removal trigger,
+not the newly adjacent preparation button.
+
+Search-owned CSS keeps removal's danger text/border/background and visible focus
+in both themes even when general Settings hover rules load later. Disabled
+removal is muted. Cancel Download and Stop Indexing remain neutral secondary
+controls; removal is recoverable by downloading/rebuilding, without deleting
+imported documents. Consent, download/index dispatch and cancellation cleanup
+behavior are unchanged.
+
+Active cache work suppresses idle absent/incomplete/present recovery instructions.
+Byte-transfer events show downloading; explicit existing-file checks show
+verification, and removal has its own status. Because the native event contract
+has no separate verification phase, unknown/final pending work uses honest
+preparation/verification wording rather than claiming installation at 100%.
+Only the status line announces updates; byte ticks are not a live region.
+Reopening uses the active download's model/format label, even when the selected
+format differs. One muted background sentence remains beside progress and
+Cancel Download only during active work. All eight locales include the clarified
+labels; no native event/schema/runtime/dependency or CI change is introduced.
+
+Validation: 217 frontend/tooling tests across 50 files, locale parity, typecheck,
+lint, frontend production build and diff checks pass. The focused UI regressions
+cover active/terminal cache copy, verification, cancellation guards, unrelated
+progress, format identity and action-specific removal confirmation. An isolated
+actual-component browser fixture with synthetic IPC checks desktop action
+separation, light/dark danger and confirmation focus, active transfer copy and
+320px Arabic RTL stacking without page overflow. This is visual/frontend evidence,
+not installed WebView, network download, screen-reader or physical-device acceptance.
+
+The existing CI run was already underway before this UI commit; review its exact
+source SHA when supplied and do not call it coverage of this later delta. No new
+provider matrix or model-inference run is required for this presentation-only
+change. Push this commit, review CI evidence, and use the updated consolidated
+smoke checklist when the user resumes testing. No smoke case is marked passed.
+
 ## Stage 7/8 — Branch acceptance consolidation — 2026-10-12
 
 **Decision: retain the implemented default-off semantic feature and close the
