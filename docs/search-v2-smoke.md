@@ -545,8 +545,10 @@ immediately and these checks do not replace the model/index lifecycle cases.
       at root and keyboard focus returns to the opener. No bottom Back/Done row
       remains in these views.
 - [ ] Scroll a long setup/legal view at narrow width and enlarged text/WebView zoom.
-      Header controls occupy their own row above the title, with 44px square targets
-      and 24px icons at default text size. They stay visible while only the body
+      Header controls occupy their own row above the title, matching the Settings
+      cog's square size: 37.6px on desktop, 40px at narrow widths and at least 44px
+      with a coarse pointer, at default text size. Icons remain 24px. They stay
+      visible while only the body
       scrolls, titles wrap without overlap, and Tab/Shift+Tab remain inside the dialog.
       Check light/dark focus
       rings, Arabic RTL arrow/layout, and localized screen-reader labels.

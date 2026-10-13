@@ -70,6 +70,25 @@ remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
 
+## Stage 7 — Modal control size alignment — 2026-10-12
+
+User approved matching Back/Close button boxes to the Settings cog while retaining
+the 24px icons. Shared AppDialog navigation now uses 2.35rem squares on desktop
+and 2.5rem at widths up to 767px (37.6px/40px at default text size). Coarse pointers
+retain a 2.75rem minimum (44px). The cog also gains that minimum so its later
+narrow-width rule cannot shrink the touch target. Labels, focus behavior, header
+layout and transfer busy guards are unchanged.
+
+Validation: actual-component browser measurements match the cog and both header
+controls at desktop and 320px widths, with unchanged icons and no horizontal
+overflow. A CSS cascade self-check verifies both controls retain 44px coarse-
+pointer minimums at either width; the frontend production build and diff checks
+pass. Native smoke and physical touch-device testing remain deferred; the browser
+uses synthetic IPC and a fine pointer. No native, dependency or CI changes.
+
+Next push the revision and review full CI, then resume the consolidated native
+smoke checklist when the user is ready. No deferred cases are marked passed.
+
 ## Stage 7 — Shared modal navigation follow-up — 2026-10-12
 
 User approved a separate navigation row above the dialog title, with icon-only

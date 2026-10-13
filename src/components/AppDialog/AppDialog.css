@@ -68,8 +68,8 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 2.35rem;
+  height: 2.35rem;
   padding: 0;
   border-radius: var(--radius-control);
   color: var(--text-body);
@@ -84,6 +84,20 @@
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+@media (max-width: 767px) {
+  .app-dialog-navigation button {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+}
+
+@media (pointer: coarse) {
+  .app-dialog-navigation button {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
 }
 
 .app-dialog-back:dir(rtl) svg {
