@@ -46,7 +46,7 @@ import {
   clearSearchTargetHighlight,
   highlightSearchTarget,
 } from '../components/DocumentViewer/readerTarget'
-import { createPdfFindAdapter, pdfSearchTargetPage } from './pdfFind'
+import { createPdfFindAdapter, createPdfFindController, pdfSearchTargetPage } from './pdfFind'
 import { createPdfBookmarkApi } from './pdfBookmark'
 import {
   PdfControls,
@@ -210,7 +210,7 @@ export function PdfViewer({
       eventBus = new viewerModule.EventBus()
       eventBusRef.current = eventBus
       linkService = new viewerModule.PDFLinkService({ eventBus })
-      findController = new viewerModule.PDFFindController({
+      findController = createPdfFindController(viewerModule.PDFFindController, {
         eventBus,
         linkService,
         delay: 0,
@@ -280,6 +280,7 @@ export function PdfViewer({
           searchLayer,
           activeOcrFind.query,
           activeOcrFind.match.occurrenceIndex,
+          true,
         )
         if (!range) return false
         setSearchProgress(null)

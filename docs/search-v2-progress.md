@@ -70,6 +70,46 @@ remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
 
+## Stage 7 — Unicode PDF reader highlighting and Find — 2026-10-13
+
+User approved completing Unicode word-wrap handling in the PDF reader, with
+original source offsets, regression tests and documentation. Smoke stays deferred.
+
+The preceding index repair exposed a separate reader limitation: PDF.js Find and
+the rendered-text target matcher still missed joined wording across U+2010/U+2011
+hyphen wraps. Those reader files and PDF.js 6.2.108 were identical to local `main`
+(`8be9952`); this was a pre-existing reader bug, and the index repair alone did not
+complete the result-to-reader path. Remote main was not refreshed.
+
+PDF-only target matching now joins supported hyphens at explicit line breaks
+using the conservative lowercase/uppercase continuation rule. Matches still map
+to the original DOM nodes and UTF-16 offsets; CSS highlights do not rewrite the
+rendered page. Ordinary HTML/EPUB Find remains unchanged. Both native PDF result
+targets and OCR Find targets use this mapping.
+
+Find retains PDF.js extraction, highlighting, counts and navigation. Its
+extraction view replaces Unicode wrap hyphens with equal-length ASCII hyphens
+before PDF.js's existing line-wrap normalization and offset mapping. Original
+page objects, rendering, copying and TTS keep their Unicode source text. Same-line
+compounds, en/em dashes and non-continuing lines retain their existing behavior;
+no dependency, index migration or additional CI job was added.
+
+Validation: all 244 frontend tests in 52 files pass, plus lint, locale parity,
+TypeScript, Vite build and diff checks. Generic regressions cover Unicode/ASCII
+wraps, multiple occurrences, split hyphen spans, empty end-of-line items, marked
+content, uppercase continuations, original offsets after emoji, compound/dash
+preservation, HTML isolation, extraction errors and controller reset.
+
+A temporary local browser check with the installed PDF.js runtime verifies the
+reported sample page: opening the joined phrase highlights its original text on
+page 40 without document-wide fallback; manual Find and the explicit hyphen
+spelling each produce one match with correct original offsets. Generic two-page
+input produces three matches across U+2010/U+2011 wraps, with next/previous
+navigation and cleanup verified. Private book text and diagnostic scripts stay
+outside tracked fixtures. This is bounded browser evidence, not native WebView,
+screen-reader or physical-device acceptance. Push and current-source CI remain
+next; interactive smoke remains unchecked.
+
 ## Stage 7 — Unicode PDF phrase repair and results header cleanup — 2026-10-12
 
 User approved fixing the reported quoted PDF phrase miss, repairing existing

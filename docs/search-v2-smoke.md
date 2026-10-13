@@ -125,7 +125,13 @@ move or damage the installed app's files.
       hyphen wrap (U+2010/U+2011), in both All words and Broader, with semantic
       search off and on. Test a new import and an existing schema-11 library
       after the automatic repair; section/page navigation must still land on the
-      source. Same-line compounds and paragraph breaks must stay intact.
+      source and highlight the complete phrase across the original line-wrap
+      spans. In the PDF reader, Find the same joined phrase and its copied
+      hyphenated spelling; check counts, next/previous navigation across repeated
+      occurrences/pages, and clearing Find. Include a wrap after non-BMP text
+      (such as emoji) to check UTF-16 offsets. Repeat target highlighting on an
+      OCR page. Same-line compounds and paragraph breaks must stay intact;
+      ordinary HTML/EPUB Find must retain its original matching behavior.
       An over-limit query should show a useful error.
 - [ ] Check a request with thirteen distinct words whose final word distinguishes two sources.
       The final word must remain required in both modes. Inputs above 128 terms
