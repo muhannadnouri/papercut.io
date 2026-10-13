@@ -27,7 +27,7 @@ it('shows off and opt-in wording, coverage, and blocks enabling without a cache 
   expect(ready).toContain('settings.semantic.enabled')
   expect(ready).not.toContain('settings.searchModel.resourceSummary')
   expect(ready).toContain('settings.semantic.savedIndex')
-  expect(ready).not.toContain('settings.semantic.documentsReady')
+  expect(ready).not.toContain('settings.semantic.documentsIndexed')
   expect(ready).toContain('role="switch"')
   expect(ready).not.toMatch(/role="switch"[^>]*disabled=""/)
   expect(html(controller(), false)).toMatch(/role="switch"[^>]*disabled=""/)
@@ -89,7 +89,7 @@ it('shows ready status without a build action, then offers an update when covera
   semantic.index!.indexedDocuments = 2
   const ready = html(semantic)
   expect(ready).toContain('settings.semantic.summary.on')
-  expect(ready).toContain('settings.semantic.documentsReady')
+  expect(ready).toContain('settings.semantic.documentsIndexed')
   expect(ready).not.toContain('search-index-spinner')
   expect(ready).not.toContain('settings.semantic.build')
   expect(ready).not.toContain('settings.semantic.update')
@@ -104,7 +104,7 @@ it('shows ready status without a build action, then offers an update when covera
   semantic.index!.hasStoredIndex = false
   const pending = html(semantic)
   expect(pending).toContain('settings.semantic.build')
-  expect(pending).toContain('settings.semantic.documentsReady')
+  expect(pending).toContain('settings.semantic.documentsIndexed')
   expect(pending).not.toContain('settings.semantic.passages')
   expect(pending).not.toContain('settings.semantic.noStoredIndex')
 })
@@ -164,7 +164,7 @@ it('hides an empty off index, collapses saved checkpoints, and expands pending w
   expect(saved).toContain('settings.semantic.savedIndex')
   expect(saved).toContain('<details class="search-model-panel search-library-index">')
   expect(saved).not.toContain('settings.semantic.build')
-  expect(saved).not.toContain('settings.semantic.documentsReady')
+  expect(saved).not.toContain('settings.semantic.documentsIndexed')
   semantic.index!.running = true
   expect(html(semantic)).toContain('class="search-model-panel search-library-index" open=""')
   expect(html(semantic)).toContain('settings.semantic.stop')

@@ -64,7 +64,7 @@ function render() {
 function controls(node: ReactNode = tree): ReactElement<Record<string, unknown>>[] {
   return Children.toArray(node).flatMap((child) => {
     if (!isValidElement<Record<string, unknown>>(child)) return []
-    return [child, ...controls((child.props.children ?? null) as ReactNode), ...controls((child.props.indexMaintenance ?? null) as ReactNode)]
+    return [child, ...controls((child.props.children ?? null) as ReactNode), ...controls(typeof child.props.indexMaintenance === 'function' ? child.props.indexMaintenance(null) : null)]
   })
 }
 function buttonText(node: ReactElement<Record<string, unknown>>) {
@@ -374,6 +374,14 @@ it('keeps progress and cancellation without background notices or starting work 
   expect(render()).not.toContain('settings.semantic.closeHelp')
   expect(render()).toContain('settings.semantic.stop')
   expect(render()).toContain('settings.semantic.progress')
+  const library = render().split('class="search-model-panel search-library-index"')[1]
+  const metrics = library.match(/class="search-index-status">([\s\S]*?)<\/div>/)![1]
+  expect(metrics).toContain('settings.semantic.progress')
+  expect(metrics).toContain('settings.semantic.documentsIndexed')
+  const actions = library.match(/class="search-model-actions search-removal-actions">([\s\S]*?)<\/div>/)![1]
+  expect(actions).toContain('settings.semantic.stop')
+  expect(actions).toMatch(/disabled=""[^>]*>[\s\S]*settings.semantic.remove/)
+  expect(actions).toMatch(/<button[^>]*class="app-settings-data-action"[^>]*>settings.semantic.stop<\/button>/)
   expect(render()).not.toContain('settings.searchModel.closeHelp')
   expect(controls().find(node => node.type === 'details' && node.props.className === 'search-model-panel search-model-management')!.props.open).toBe(false)
   expect(render()).not.toContain('settings.semantic.refresh')

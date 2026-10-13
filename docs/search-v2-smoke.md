@@ -411,6 +411,16 @@ restart checks; the explicit unbundled recipe is only a diagnostic alternative.
       or enter a reader during work: the job continues. Ordinary search and
       audio remain usable; record stalls, native errors and resource peaks.
       No repeated closing-Settings notice appears during indexing.
+- [ ] During indexing, wide Library Index layout places **Passages Processed: n**
+      and **Documents Indexed: x of y** across one row, with title-case English
+      labels and no “This Run” suffix. The processed count remains job-local;
+      document coverage can stay zero while the first document is in progress.
+      A single divider precedes the shared **Stop Indexing** / **Remove Index**
+      action row, at opposite ends. Stop stays neutral and removal stays disabled
+      during work. Idle Build/Update uses the same action row; confirmation stays
+      beneath it with Cancel/Remove and existing focus restoration. At 600px and
+      below, both rows stack without overflow in English/Arabic RTL and light/dark
+      themes. All controls retain readable labels and touch targets.
 - [ ] Cancel during indexing, then resume. Cleanup can wait for the current
       native call. Completed/checkpointed work is reused; partial documents are
       not reported ready. Turn off during indexing: work stops, the model unloads,

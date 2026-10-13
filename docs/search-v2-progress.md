@@ -70,6 +70,31 @@ remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
 
+## Stage 7 — Compact Library Index metrics and actions — 2026-10-13
+
+User approved the compact settings layout with **Passages Processed**, without a
+“This Run” suffix. During indexing, this count and **Documents Indexed: x of y**
+share one row on wide screens. The passage count still reflects the current job;
+document coverage counts completed documents, so it can remain zero while the
+first document is being processed. All eight locales have the short settings
+labels; the home activity document-count wording remains unchanged.
+
+The existing removal-controls row now receives Build/Update or Stop Indexing.
+A single divider sits above the whole row, with the routine action at the start
+and Remove Index at the opposite end. Stop retains neutral styling; removal
+retains its disabled-during-work guard, tonal danger styling, trash icon,
+confirmation and focus handling. At 600px and below, metrics and actions stack;
+logical spacing supports RTL. Downloads and indexing remain explicit.
+
+Validation: 249 frontend tests in 52 files, lint, eight-locale checks, TypeScript,
+Vite build and diff checks pass. The settings regression verifies shared metric
+and action rows, neutral Stop styling and disabled removal during indexing;
+existing confirmation and recovery regressions pass. An actual-component browser
+preview with simulated native IPC verifies aligned wide English metrics/actions,
+aligned idle Build/Remove actions, and stacked 320px Arabic dark layout without
+dialog overflow. Native/device/screen-reader smoke remains deferred; this preview
+does not establish native acceptance. No native retrieval or CI changes.
+
 ## Stage 7 — Settings status hierarchy and recovery — 2026-10-13
 
 User approved the consent-control, index setup, progress and status-refresh

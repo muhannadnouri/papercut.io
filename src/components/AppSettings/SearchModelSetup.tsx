@@ -304,7 +304,7 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
       {!ready && <p role="status">{t('settings.searchModel.loading')}</p>}
       {ready && !status?.compiled && <p>{t('settings.searchModel.unavailable')}</p>}
       {ready && semantic
-        ? <SemanticSearchSetup semantic={semantic} cachePresent={!!cache?.filesPresent} cacheBusy={busy} indexMaintenance={removalControls('index')}>
+        ? <SemanticSearchSetup semantic={semantic} cachePresent={!!cache?.filesPresent} cacheBusy={busy} indexMaintenance={(actions) => removalControls('index', actions)}>
           {modelControls}
         </SemanticSearchSetup>
         : modelControls}

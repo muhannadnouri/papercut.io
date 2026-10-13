@@ -201,7 +201,7 @@ details.search-model-panel[open] > * + * {
   gap: 0.4rem 1rem;
 }
 
-/* Destructive actions belong to their object, separated from preparation controls. */
+/* Keep removal in its owning section, apart from the routine action. */
 .search-removal-controls {
   border-top: 1px solid var(--border);
   padding-top: 0.65rem;
@@ -217,8 +217,8 @@ details.search-model-panel[open] > * + * {
   gap: 0.75rem 2rem;
 }
 
-.search-library-index .search-removal-actions {
-  justify-content: flex-end;
+.search-library-index .search-removal-actions > .search-remove-confirm {
+  margin-inline-start: auto;
 }
 
 .search-removal-confirmation {
@@ -284,6 +284,14 @@ details.search-model-panel[open] > * + * {
   .search-model-actions > button {
     flex: 1 1 auto;
     justify-content: center;
+  }
+
+  .search-index-status {
+    flex-direction: column;
+  }
+
+  .search-library-index .search-removal-actions > .search-remove-confirm {
+    margin-inline-start: 0;
   }
 
   .search-removal-actions {
