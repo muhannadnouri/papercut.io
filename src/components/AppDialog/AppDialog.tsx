@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useId, useRef, type FormEvent, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import './AppDialog.css'
 
 const FOCUSABLE_SELECTOR = [
@@ -15,18 +16,22 @@ interface AppDialogProps {
   title: ReactNode
   description?: ReactNode
   children?: ReactNode
-  actions: ReactNode
+  actions?: ReactNode
   className?: string
+  showCloseButton?: boolean
+  onBack?: () => void
   onCancel: () => void
   onSubmit?: (event: FormEvent) => void
 }
 
-export function AppDialog({ title, description, children, actions, className, onCancel, onSubmit }: AppDialogProps) {
+export function AppDialog({ title, description, children, actions, className, showCloseButton = false, onBack, onCancel, onSubmit }: AppDialogProps) {
+  const { t } = useTranslation()
   const titleId = useId()
   const descriptionId = useId()
   const dialogRef = useRef<HTMLDivElement | HTMLFormElement | null>(null)
   // Keep Escape current without reinstalling the focus trap when a parent callback changes identity.
   const cancelDialog = useEffectEvent(onCancel)
+  const dialogClassName = 'app-dialog' + (showCloseButton || onBack ? ' app-dialog-navigable' : '') + (className ? ` ${className}` : '')
   const setDialogRef = (node: HTMLDivElement | HTMLFormElement | null) => {
     dialogRef.current = node
   }
@@ -86,11 +91,21 @@ export function AppDialog({ title, description, children, actions, className, on
   const content = (
     <>
       <header className="app-dialog-header">
-        <h2 id={titleId}>{title}</h2>
+        <div className="app-dialog-heading">
+          {onBack && <button type="button" className="app-dialog-cancel app-dialog-back" onClick={onBack}>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 5-7 7 7 7M5 12h14" /></svg>
+            {t('common.back')}
+          </button>}
+          <h2 id={titleId}>{title}</h2>
+          {showCloseButton && <button type="button" className="app-dialog-cancel app-dialog-close"
+            aria-label={t('common.close')} title={t('common.close')} onClick={onCancel}>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 6 12 12M6 18 18 6" /></svg>
+          </button>}
+        </div>
         {description && <p id={descriptionId}>{description}</p>}
       </header>
       {children && <div className="app-dialog-body">{children}</div>}
-      <div className="app-dialog-actions">{actions}</div>
+      {actions && <div className="app-dialog-actions">{actions}</div>}
     </>
   )
 
@@ -99,7 +114,7 @@ export function AppDialog({ title, description, children, actions, className, on
       {onSubmit ? (
         <form
           ref={setDialogRef}
-          className={'app-dialog' + (className ? ` ${className}` : '')}
+          className={dialogClassName}
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
@@ -113,7 +128,7 @@ export function AppDialog({ title, description, children, actions, className, on
       ) : (
         <div
           ref={setDialogRef}
-          className={'app-dialog' + (className ? ` ${className}` : '')}
+          className={dialogClassName}
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}

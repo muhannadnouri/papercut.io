@@ -70,6 +70,35 @@ remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
 
+## Stage 7 — Settings header navigation — 2026-10-12
+
+User approved shared header navigation for the immediate-apply Settings views.
+Root Settings has a labeled Close icon; semantic setup and legal views add
+an arrow with visible Back text. Back returns one level, including notice
+content to the legal list. Close, Escape and backdrop dismissal close Settings
+entirely; reopening starts at the root. The redundant bottom Back/Done rows
+are removed from these views.
+
+AppDialog owns the optional controls, localized labels, tonal/focus styling
+and body-only scrolling. The header remains visible, long titles wrap, touch
+targets are at least 44px at the default text size, and the arrow mirrors in RTL.
+SearchModelSetup.css retains the wider search layout; shared navigation styles
+are in AppDialog.css. Existing form/confirmation footer actions and transfer
+busy guards remain caller-owned, with no automatic Close button added.
+Downloads/indexing still require explicit actions; navigation does not cancel them.
+
+Validation: 221 frontend/tooling tests across 51 files, lint, locale parity,
+typecheck, frontend production build and diff checks pass. Tests cover distinct
+Back/Close callbacks, retained form submission/actions and nested legal navigation.
+An actual-component browser preview with synthetic IPC verifies root/search/legal
+navigation, keyboard focus wrapping/restoration, Escape, retained Save/Cancel and
+Enter submission, plus a 320px Arabic RTL dark layout with no horizontal overflow
+and a fixed header while the body scrolls. This is frontend evidence only.
+
+Next review full CI against the pushed source revision, including the preceding
+dependency repair. Consolidated native smoke, screen-reader use and physical-device
+validation remain deferred; the checklist is updated without marking cases passed.
+
 ## Stage 7 — Rust audit unblock — 2026-10-12
 
 [Run 38342012039](https://github.com/muhannadnouri/papercut.io/actions/runs/38342012039)

@@ -118,10 +118,7 @@ export function AppSettings({
 
       {open && searchOpen && (
         <AppDialog key="search" className="app-settings-search-dialog" title={t('settings.semantic.title')}
-          onCancel={closeSettings} actions={<>
-            <button type="button" className="app-dialog-cancel" onClick={() => setSearchOpen(false)}>{t('common.back')}</button>
-            <button type="button" className="app-dialog-submit" onClick={closeSettings}>{t('common.done')}</button>
-          </>}>
+          showCloseButton onCancel={closeSettings} onBack={() => setSearchOpen(false)}>
           <SearchModelSetup semantic={semanticSearch} />
         </AppDialog>
       )}
@@ -131,19 +128,12 @@ export function AppSettings({
           key={selectedLegalNotice ?? 'legal-notices'}
           className="app-settings-legal-dialog"
           title={selectedNotice?.title ?? t('settings.legalAndNotices')}
+          showCloseButton
           onCancel={closeSettings}
-          actions={(
-            <button
-              type="button"
-              className="app-dialog-cancel"
-              onClick={() => {
-                if (selectedLegalNotice) setSelectedLegalNotice(null)
-                else setLegalNoticesOpen(false)
-              }}
-            >
-              {t('common.back')}
-            </button>
-          )}
+          onBack={() => {
+            if (selectedLegalNotice) setSelectedLegalNotice(null)
+            else setLegalNoticesOpen(false)
+          }}
         >
           {selectedLegalNotice ? (
             <LegalNoticeContent source={LEGAL_NOTICE_CONTENT[selectedLegalNotice]} />
@@ -168,12 +158,8 @@ export function AppSettings({
       {open && !searchOpen && !legalNoticesOpen && (
         <AppDialog
           key="general" title={t('settings.title')}
+          showCloseButton
           onCancel={closeSettings}
-          actions={(
-            <button type="button" className="app-dialog-submit" onClick={closeSettings}>
-              {t('common.done')}
-            </button>
-          )}
         >
           <section className="app-settings-section" aria-labelledby="app-settings-appearance">
             <h3 id="app-settings-appearance">{t('settings.appearance')}</h3>

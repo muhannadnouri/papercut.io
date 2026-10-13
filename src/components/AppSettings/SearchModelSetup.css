@@ -62,15 +62,7 @@
 /* Search setup is a task view; general Settings and confirmation dialogs stay compact. */
 .app-settings-search-dialog {
   width: min(100%, 52rem);
-  max-height: calc(100dvh - 2rem);
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  overflow: hidden;
   text-align: start;
-}
-
-.app-settings-search-dialog .app-dialog-body {
-  overflow: auto;
-  padding-inline-end: 0.4rem;
 }
 
 .app-settings-search-dialog .search-model-setup {

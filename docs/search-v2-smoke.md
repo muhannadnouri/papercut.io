@@ -152,14 +152,14 @@ unaccepted until tested. Downloading alone still does not enable semantic search
       Browser settings do not offer native model controls. Ordinary search works.
 - [ ] In the native shipping build, open **Settings → Semantic Search → Manage**. Opening
       settings must not download or load a model. Check the FP32/INT8 labels,
-      disk reserve and short resource warning. **Semantic Search** appears before
+      disk reserve. **Semantic Search** appears before
       **Download Model / Manage Model**, then **Library Index** when applicable. Without files,
       the toggle is off/disabled with an accessible explanation pointing below.
       Open **Technical Details** to check device-independent resource/lifecycle
       guidance; host RAM measurements and CI claims must not appear in the UI.
       Selecting INT8 shows its result/performance caveat beside the format choice.
       General Settings shows the observed state and **Manage**; **Back** returns
-      there and **Done** closes the dedicated view without changing consent.
+      there and the header **Close** icon closes Settings without changing consent.
 - [ ] Download requires unchecked, per-format Hugging Face consent. Changing
       format clears it. Only proceed with a supported test format and sufficient
       disk space. INT8 on this development host is not mobile/other-CPU acceptance.
@@ -167,8 +167,8 @@ unaccepted until tested. Downloading alone still does not enable semantic search
       recovers. The compact header activity button should reopen the Search view
       from ordinary search and the reader. Cancel while pending; do not expect
       instant interruption. Controls remain busy until cleanup returns. Repeated clicks must not start extra jobs.
-      Closing-Settings guidance appears beside the active download and disappears
-      when it ends; it must not promise continued work after app exit/suspension.
+      No repeated closing-Settings notice appears. Header activity remains the
+      route to progress/cancellation; continued work after app exit/suspension is not promised.
 - [ ] While indexing, confirm the header shows a spinner and phase, with completed
       document counts only after native work starts. Counts are not remaining time
       or a job percentage. Pending cancellation has its own label. Settings remains
@@ -198,10 +198,10 @@ unaccepted until tested. Downloading alone still does not enable semantic search
       library/search remains intact; cache removal does not remove a separately created native index.
 - [ ] Check keyboard focus, labels, progress/error announcements, Arabic RTL,
       narrow-window layout and recovery after opening/closing settings repeatedly.
-      Header/Back/Done stay accessible while the task body scrolls; keyboard Tab
-      reaches every native disclosure, including **Manage Model** and **Index
-      Details** when present, and Escape restores focus to the opener. Repeat at
-      enlarged text/WebView zoom: the footer must remain reachable without
+      Header/Back/Close stay accessible while the task body scrolls; keyboard Tab
+      reaches every native disclosure, including **Manage Model**, **Library Index**
+      and **Technical Details**, and Escape restores focus to the opener. Repeat at
+      enlarged text/WebView zoom: navigation must remain reachable without
       horizontal scrolling; browser preview alone does not close this check.
 
 ## Audio and responsiveness
@@ -397,7 +397,7 @@ restart checks; the explicit unbundled recipe is only a diagnostic alternative.
       counts update and completed-document coverage grows. Close/reopen Settings
       or enter a reader during work: the job continues. Ordinary search and
       audio remain usable; record stalls, native errors and resource peaks.
-      Closing-Settings guidance appears beside active indexing only, not on idle cards.
+      No repeated closing-Settings notice appears during indexing.
 - [ ] Cancel during indexing, then resume. Cleanup can wait for the current
       native call. Completed/checkpointed work is reused; partial documents are
       not reported ready. Turn off during indexing: work stops, the model unloads,
@@ -532,3 +532,23 @@ use the normal native shipping build and disposable data.
       Only one removal action is visible for that object. Confirming still uses
       the specific removal label, preserves document data and checks busy/storage
       guards. Verify bookmark/audio removal icons retain their previous appearance.
+
+## Settings Header Navigation Follow-Up
+
+**Deferred.** Include in the existing rebuilt-app setup round; settings apply
+immediately and these checks do not replace the model/index lifecycle cases.
+
+- [ ] Root Settings shows only a header Close icon, with a localized accessible
+      label/tooltip. Semantic setup and Legal & Notices add an arrow with Back text.
+      Back returns one level; a legal notice returns to the list before root Settings.
+      Close, Escape and backdrop dismissal close all Settings; reopening starts
+      at root and keyboard focus returns to the opener. No bottom Back/Done row
+      remains in these views.
+- [ ] Scroll a long setup/legal view at narrow width and enlarged text/WebView zoom.
+      Header controls stay visible while only the body scrolls, titles wrap without
+      overlap, and Tab/Shift+Tab remain inside the dialog. Check light/dark focus
+      rings, Arabic RTL arrow/layout, and localized screen-reader labels.
+- [ ] Closing or going Back during a download/index build leaves its header activity
+      available; reopen to cancel explicitly. Preferences/consent are preserved.
+      Edit/paste/document-info forms retain their Save/Cancel actions; confirmation
+      dialogs retain explicit decisions. Transfer still blocks dismissal while busy.

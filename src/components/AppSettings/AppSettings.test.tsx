@@ -53,11 +53,41 @@ it('keeps model/index controls out of general Settings and restores the summary 
   ;(manage.props.onClick as () => void)()
   expect(render()).toContain('model-and-index-controls')
   const dialog = elements().find(node => node.props.className === 'app-settings-search-dialog')!
-  const actions = elements(dialog.props.actions as ReactNode)
-  const back = actions.find(node => node.type === 'button' && node.props.children === 'common.back')!
-  ;(back.props.onClick as () => void)()
+  expect(dialog.props.showCloseButton).toBe(true)
+  expect(dialog.props.actions).toBeUndefined()
+  ;(dialog.props.onBack as () => void)()
   expect(render()).toContain('settings.semantic.summary.off')
   expect(render()).not.toContain('model-and-index-controls')
+})
+
+it('uses Close at root and Back one level at a time in legal Settings', () => {
+  render()
+  ;(elements().find(node => node.props['aria-label'] === 'settings.button')!.props.onClick as () => void)()
+  render()
+  const root = elements().find(node => node.props.title === 'settings.title')!
+  expect(root.props.showCloseButton).toBe(true)
+  expect(root.props.onBack).toBeUndefined()
+  expect(root.props.actions).toBeUndefined()
+  const openLegal = () => (elements().find(node => node.type === 'button' && node.props.children === 'settings.legalAndNotices')!.props.onClick as () => void)()
+  openLegal(); render()
+  ;(elements().find(node => node.props.className === 'app-settings-legal-notice-link')!.props.onClick as () => void)()
+  render()
+  const notice = elements().find(node => node.props.className === 'app-settings-legal-dialog')!
+  expect(notice.props.showCloseButton).toBe(true)
+  expect(notice.props.actions).toBeUndefined()
+  ;(notice.props.onBack as () => void)()
+  expect(render()).toContain('app-settings-legal-notice-link')
+  const list = elements().find(node => node.props.className === 'app-settings-legal-dialog')!
+  ;(list.props.onBack as () => void)()
+  expect(render()).toContain('settings.title')
+  openLegal(); render()
+  ;(elements().find(node => node.props.className === 'app-settings-legal-notice-link')!.props.onClick as () => void)()
+  render()
+  ;(elements().find(node => node.props.className === 'app-settings-legal-dialog')!.props.onCancel as () => void)()
+  expect(render()).not.toContain('settings.title')
+  ;(elements().find(node => node.props['aria-label'] === 'settings.button')!.props.onClick as () => void)()
+  expect(render()).toContain('settings.title')
+  expect(render()).not.toContain('app-settings-legal-notice-link')
 })
 
 it('closes the search view through its existing dialog cancellation boundary', () => {
