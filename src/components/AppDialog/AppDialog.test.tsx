@@ -23,6 +23,9 @@ it('keeps Back separate from Close, with labeled non-submit header controls and 
   const buttons = elements(tree).filter(node => node.type === 'button')
   expect(buttons).toHaveLength(2)
   expect(buttons.every(node => node.props.type === 'button')).toBe(true)
+  expect(buttons[0].props['aria-label']).toBe('common.back')
+  expect(buttons[0].props.title).toBe('common.back')
+  expect(renderToStaticMarkup(buttons[0])).not.toContain('>common.back<')
   ;(buttons[0].props.onClick as () => void)()
   expect(back).toHaveBeenCalledOnce()
   expect(close).not.toHaveBeenCalled()
@@ -34,6 +37,17 @@ it('keeps Back separate from Close, with labeled non-submit header controls and 
   expect(html).toContain('app-dialog-navigable')
   expect(html).toContain('common.back')
   expect(html).not.toContain('app-dialog-actions')
+})
+
+it.each([true, false])('applies the busy navigation guard to Back, Close and backdrop (disabled=%s)', navigationDisabled => {
+  const back = vi.fn(), close = vi.fn()
+  const tree = AppDialog({ title: 'Transfer', showCloseButton: true, onBack: back, onCancel: close, navigationDisabled })
+  const buttons = elements(tree).filter(node => node.type === 'button')
+  expect(buttons.every(node => node.props.disabled === navigationDisabled)).toBe(true)
+  for (const button of buttons) (button.props.onClick as () => void)()
+  ;(tree.props.onClick as () => void)()
+  expect(back).toHaveBeenCalledTimes(navigationDisabled ? 0 : 1)
+  expect(close).toHaveBeenCalledTimes(navigationDisabled ? 0 : 2)
 })
 
 it('preserves form submission and footer actions unless a caller opts into header navigation', () => {

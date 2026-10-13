@@ -52,36 +52,33 @@
   padding-inline-end: 0.4rem;
 }
 
-.app-dialog-heading {
+.app-dialog-navigation {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.5rem;
 }
 
-.app-dialog-heading h2 {
-  flex: 1;
-  min-width: 0;
-  overflow-wrap: anywhere;
+.app-dialog-close {
+  margin-inline-start: auto;
 }
 
-.app-dialog-heading button {
+.app-dialog-navigation button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
   flex-shrink: 0;
-  min-width: 2.75rem;
-  min-height: 2.75rem;
-  padding: 0 0.5rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
   border-radius: var(--radius-control);
-  font-size: 0.85rem;
-  font-weight: 600;
+  color: var(--text-body);
   cursor: pointer;
 }
 
-.app-dialog-heading svg {
-  width: 1.1rem;
-  height: 1.1rem;
+.app-dialog-navigation svg {
+  width: 1.5rem;
+  height: 1.5rem;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
@@ -95,6 +92,8 @@
 
 .app-dialog-header h2 {
   margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 1rem;
   line-height: 1.25;
 }
@@ -239,7 +238,8 @@
   }
 }
 
-.app-dialog-actions button:disabled {
+.app-dialog-actions button:disabled,
+.app-dialog-navigation button:disabled {
   border-color: transparent;
   background: var(--surface-muted);
   color: var(--text-soft);

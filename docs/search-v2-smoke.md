@@ -539,16 +539,27 @@ use the normal native shipping build and disposable data.
 immediately and these checks do not replace the model/index lifecycle cases.
 
 - [ ] Root Settings shows only a header Close icon, with a localized accessible
-      label/tooltip. Semantic setup and Legal & Notices add an arrow with Back text.
+      label/tooltip. Semantic setup and Legal & Notices add an icon-only Back arrow.
       Back returns one level; a legal notice returns to the list before root Settings.
       Close, Escape and backdrop dismissal close all Settings; reopening starts
       at root and keyboard focus returns to the opener. No bottom Back/Done row
       remains in these views.
 - [ ] Scroll a long setup/legal view at narrow width and enlarged text/WebView zoom.
-      Header controls stay visible while only the body scrolls, titles wrap without
-      overlap, and Tab/Shift+Tab remain inside the dialog. Check light/dark focus
+      Header controls occupy their own row above the title, with 44px square targets
+      and 24px icons at default text size. They stay visible while only the body
+      scrolls, titles wrap without overlap, and Tab/Shift+Tab remain inside the dialog.
+      Check light/dark focus
       rings, Arabic RTL arrow/layout, and localized screen-reader labels.
 - [ ] Closing or going Back during a download/index build leaves its header activity
       available; reopen to cancel explicitly. Preferences/consent are preserved.
       Edit/paste/document-info forms retain their Save/Cancel actions; confirmation
-      dialogs retain explicit decisions. Transfer still blocks dismissal while busy.
+      dialogs retain explicit decisions.
+- [ ] Open Audio Setup from both the reader and Audiobooks tab. It has only header
+      Close, without footer Done/Back. Close/Escape/backdrop dismiss setup and restore
+      focus; preferences remain saved and any parent-owned download keeps running.
+- [ ] Transfer Library has header Back to Settings and Close to dismiss all Settings,
+      without footer Back/Done. During export, import, preparation, receiving or
+      waiting/sending, both controls are disabled and Escape/backdrop cannot dismiss
+      the dialog. Explicit Change Selection/Stop Sending still cancel the session;
+      navigation becomes available again once idle. Completion remains visible until
+      Back or Close; reopening Settings starts at its root.

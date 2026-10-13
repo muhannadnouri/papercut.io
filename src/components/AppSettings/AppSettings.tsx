@@ -286,6 +286,10 @@ export function AppSettings({
 
       {transferOpen && (
         <LibraryTransferDialog
+          onClose={() => {
+            setTransferOpen(false)
+            closeSettings()
+          }}
           onBack={() => {
             setTransferOpen(false)
             setOpen(true)

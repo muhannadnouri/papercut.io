@@ -70,6 +70,36 @@ remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
 
+## Stage 7 — Shared modal navigation follow-up — 2026-10-12
+
+User approved a separate navigation row above the dialog title, with icon-only
+Back and Close controls. AppDialog reuses tonal controls with 44px square targets
+and 24px icons at the default text size. Localized accessible labels/tooltips,
+RTL arrow mirroring, focus trapping/restoration and body-only scrolling remain.
+The title no longer competes with the controls for horizontal space.
+
+Audio Setup uses Close only in both the reader and Audiobooks tab. Transfer
+Library uses Back to return to Settings and Close to dismiss the entire Settings
+flow. Its existing busy states now guard both header controls, Escape and backdrop
+dismissal through AppDialog; explicit Change Selection/Stop Sending remain the
+ways to cancel the session. Completion stays visible until Back or Close.
+Only these immediate-apply views lose their footer navigation. Form Save/Cancel
+and destructive confirmations retain explicit decisions. No dependency, native
+runtime or CI changes are included; navigation does not cancel background work.
+
+Validation: 232 frontend/tooling tests across 52 files, lint, locale parity,
+typecheck, frontend production build and diff checks pass. Tests cover transfer
+busy-state navigation guards and distinct Back/Close destinations. An actual-
+component browser preview with synthetic IPC verifies separate control/title
+rows, Audio Setup dismissal/focus restoration, active transfer dismissal guards
+and their release after cancellation, plus a 320px Arabic RTL dark layout with
+44px controls, no horizontal overflow and a fixed header during body scrolling.
+This is frontend evidence, not native transfer/audio or device acceptance.
+
+Next review full CI against the pushed source revision, including the preceding
+Rust audit repair. Consolidated native smoke, screen-reader use and physical-device
+validation remain deferred; the checklist is updated without marking cases passed.
+
 ## Stage 7 — Settings header navigation — 2026-10-12
 
 User approved shared header navigation for the immediate-apply Settings views.

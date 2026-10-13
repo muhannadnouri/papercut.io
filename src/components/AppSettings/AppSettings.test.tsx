@@ -112,6 +112,25 @@ it('retains the Settings gear while activity opens the model/index controls dire
   expect(render()).not.toContain('settings.semantic.summary.off')
 })
 
+it('separates transfer Back to Settings from closing the entire flow', () => {
+  render()
+  const openTransfer = () => {
+    ;(elements().find(node => node.props['aria-label'] === 'settings.button')!.props.onClick as () => void)()
+    render()
+    ;(elements().find(node => node.type === 'button' && Children.toArray(node.props.children as ReactNode).includes('settings.transferLibrary'))!.props.onClick as () => void)()
+    render()
+    return elements().find(node => node.props.onImported)!
+  }
+  ;(openTransfer().props.onBack as () => void)()
+  expect(render()).toContain('settings.title')
+  ;(elements().find(node => node.type === 'button' && Children.toArray(node.props.children as ReactNode).includes('settings.transferLibrary'))!.props.onClick as () => void)()
+  render()
+  ;(elements().find(node => node.props.onImported)!.props.onClose as () => void)()
+  expect(render()).not.toContain('settings.title')
+  ;(elements().find(node => node.props['aria-label'] === 'settings.button')!.props.onClick as () => void)()
+  expect(render()).toContain('settings.title')
+})
+
 it('shows current readiness in general Settings rather than a generic enabled promise', () => {
   render()
   const settings = elements().find(node => node.props['aria-label'] === 'settings.button')!

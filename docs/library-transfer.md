@@ -233,8 +233,14 @@ one-use code, existing byte and receiver-import progress, and the final result.
 an in-flight transfer instead exposes **Stop Sending**. This uses the existing
 dialog and session state rather than introducing routes or a multi-page wizard.
 
+The header has icon-only **Back** and **Close** controls on a separate row above
+the title. Back returns to Settings; Close dismisses the entire Settings flow.
+During export, import, preparation, receiving or waiting/sending, both controls
+are disabled and Escape/backdrop dismissal is blocked. Session cancellation
+remains an explicit **Change Selection** or **Stop Sending** action in the body.
+
 Completion also replaces the active controls in place and keeps the result open
-until the user chooses **Done**. The source reports the document and audiobook
+until the user chooses **Back** or **Close**. The source reports the document and audiobook
 counts sent because the protocol returns only a final receiver acknowledgement;
 the target shows imported, already-present, and failed counts plus expandable
 failure details. Partial completion uses a distinct warning state instead of

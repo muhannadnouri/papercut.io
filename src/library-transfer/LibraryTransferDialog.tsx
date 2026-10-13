@@ -26,6 +26,7 @@ import './LibraryTransferDialog.css'
 
 interface LibraryTransferDialogProps {
   onBack: () => void
+  onClose: () => void
   onImported: () => void | Promise<void>
 }
 
@@ -42,7 +43,7 @@ type TransferStatus =
 
 const DOCUMENT_FILTER_THRESHOLD = 20
 
-export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDialogProps) {
+export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTransferDialogProps) {
   const { t, i18n } = useTranslation()
   const [mode, setMode] = useState<TransferMode>('send')
   const [status, setStatus] = useState<TransferStatus>({ state: 'idle' })
@@ -95,10 +96,6 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
   const hasContent = effectiveDocumentIds.length > 0 || selectedAudiobookIds.length > 0
   const sendSelectionReady = documentsLoaded && !documentsLoadFailed
   const selectionEmpty = sendSelectionReady && !hasContent
-  const transferComplete = mode === 'send'
-    ? sendStatus?.state === 'complete'
-    : status.state === 'imported'
-
   /** Reload the sendable documents while exposing the existing loading and failure states. */
   const loadDocuments = useCallback(async () => {
     setDocumentsLoaded(false)
@@ -246,17 +243,10 @@ export function LibraryTransferDialog({ onBack, onImported }: LibraryTransferDia
     <AppDialog
       title={t('libraryTransfer.title')}
       description={t('libraryTransfer.description')}
-      onCancel={busy ? () => {} : onBack}
-      actions={(
-        <button
-          type="button"
-          className={transferComplete ? 'app-dialog-submit' : 'app-dialog-cancel'}
-          disabled={busy}
-          onClick={onBack}
-        >
-          {t(transferComplete ? 'common.done' : 'common.back')}
-        </button>
-      )}
+      showCloseButton
+      navigationDisabled={busy}
+      onBack={onBack}
+      onCancel={onClose}
     >
       <div className="library-transfer-mode" role="group" aria-label={t('libraryTransfer.modeLabel')}>
         <button type="button" aria-pressed={mode === 'send'} disabled={busy} onClick={() => selectMode('send')}>

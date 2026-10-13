@@ -501,7 +501,6 @@ function App() {
               onDiagnosticsChange: handleTtsDiagnosticsChange,
             }}
             title={t('tts.audiobooks.audioSetup')}
-            doneLabel={t('common.done')}
             onClose={() => setReaderAudioSetupOpen(false)}
           />
         )}

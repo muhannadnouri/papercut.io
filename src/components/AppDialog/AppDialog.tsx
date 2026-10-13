@@ -19,18 +19,20 @@ interface AppDialogProps {
   actions?: ReactNode
   className?: string
   showCloseButton?: boolean
+  navigationDisabled?: boolean
   onBack?: () => void
   onCancel: () => void
   onSubmit?: (event: FormEvent) => void
 }
 
-export function AppDialog({ title, description, children, actions, className, showCloseButton = false, onBack, onCancel, onSubmit }: AppDialogProps) {
+export function AppDialog({ title, description, children, actions, className, showCloseButton = false, navigationDisabled = false, onBack, onCancel, onSubmit }: AppDialogProps) {
   const { t } = useTranslation()
   const titleId = useId()
   const descriptionId = useId()
   const dialogRef = useRef<HTMLDivElement | HTMLFormElement | null>(null)
-  // Keep Escape current without reinstalling the focus trap when a parent callback changes identity.
-  const cancelDialog = useEffectEvent(onCancel)
+  // Use one busy guard for Close, Escape and backdrop dismissal, including updated transfer state.
+  const dismiss = () => { if (!navigationDisabled) onCancel() }
+  const cancelDialog = useEffectEvent(dismiss)
   const dialogClassName = 'app-dialog' + (showCloseButton || onBack ? ' app-dialog-navigable' : '') + (className ? ` ${className}` : '')
   const setDialogRef = (node: HTMLDivElement | HTMLFormElement | null) => {
     dialogRef.current = node
@@ -91,17 +93,17 @@ export function AppDialog({ title, description, children, actions, className, sh
   const content = (
     <>
       <header className="app-dialog-header">
-        <div className="app-dialog-heading">
-          {onBack && <button type="button" className="app-dialog-cancel app-dialog-back" onClick={onBack}>
+        {(onBack || showCloseButton) && <div className="app-dialog-navigation">
+          {onBack && <button type="button" className="app-dialog-cancel app-dialog-back" disabled={navigationDisabled}
+            aria-label={t('common.back')} title={t('common.back')} onClick={() => { if (!navigationDisabled) onBack() }}>
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 5-7 7 7 7M5 12h14" /></svg>
-            {t('common.back')}
           </button>}
-          <h2 id={titleId}>{title}</h2>
           {showCloseButton && <button type="button" className="app-dialog-cancel app-dialog-close"
-            aria-label={t('common.close')} title={t('common.close')} onClick={onCancel}>
+            disabled={navigationDisabled} aria-label={t('common.close')} title={t('common.close')} onClick={dismiss}>
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 6 12 12M6 18 18 6" /></svg>
           </button>}
-        </div>
+        </div>}
+        <h2 id={titleId}>{title}</h2>
         {description && <p id={descriptionId}>{description}</p>}
       </header>
       {children && <div className="app-dialog-body">{children}</div>}
@@ -110,7 +112,7 @@ export function AppDialog({ title, description, children, actions, className, sh
   )
 
   return (
-    <div className="app-dialog-backdrop" role="presentation" onClick={onCancel}>
+    <div className="app-dialog-backdrop" role="presentation" onClick={dismiss}>
       {onSubmit ? (
         <form
           ref={setDialogRef}
