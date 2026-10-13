@@ -90,12 +90,18 @@ it('shows ready status without a build action, then offers an update when covera
   expect(ready).not.toContain('settings.semantic.update')
   expect(ready).not.toContain('search-action-primary')
   expect(ready).not.toContain('settings.semantic.enableTitle')
-  expect(ready).toContain('<details class="search-index-details">')
+  expect(ready).not.toContain('search-index-details')
+  expect(ready).toContain('class="search-index-passages"')
   semantic.index!.eligibleDocuments = 3
   expect(html(semantic)).toContain('settings.semantic.update')
   expect(html(semantic)).not.toContain('settings.semantic.summary.ready')
   semantic.index!.indexedDocuments = 0; semantic.index!.passages = 0
-  expect(html(semantic)).toContain('settings.semantic.build')
+  semantic.index!.hasStoredIndex = false
+  const pending = html(semantic)
+  expect(pending).toContain('settings.semantic.build')
+  expect(pending).toContain('settings.semantic.documentsReady')
+  expect(pending).not.toContain('settings.semantic.passages')
+  expect(pending).not.toContain('settings.semantic.noStoredIndex')
 })
 
 it('does not claim readiness for an inactive encoder or a failed job even with full coverage', () => {

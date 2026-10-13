@@ -495,14 +495,23 @@ use the normal native shipping build and disposable data.
       Removal confirmation appears below the row with the specific removal label;
       Cancel returns focus to the removal trigger. Stored-file/index and busy
       guards still prevent empty, repeated or active-model removal.
-- [ ] Enabled removal and its confirmation have distinct danger styling in
-      light/dark, hover and keyboard focus states. Disabled removal is muted;
+- [ ] Remove Model Files, Remove Index and their confirmations use the app's
+      tonal button surface with red text, no colored border/fill, and a visible
+      keyboard focus ring in light/dark themes. Disabled removal is muted;
       Cancel Download and Stop Indexing retain neutral secondary styling.
 - [ ] An active transfer does not instruct you to remove incomplete files.
       Transfer/verification/removal and pending cleanup have appropriate status;
       100% transferred does not claim successful installation before verification.
       Reopening while another model/format downloads labels that actual download.
-- [ ] The short background-download note appears beside progress/cancellation
-      only during active work. Closing Settings keeps the job running; reopen
-      from header activity to cancel. Idle recovery copy returns after termination,
-      with cancellation/failure details and no download/index activation on open.
+- [ ] Download and indexing progress retain Cancel Download/Stop Indexing without
+      either background-work notice. Closing Settings keeps the job running;
+      header activity remains visible and lets you reopen controls to cancel.
+      Idle recovery copy returns after termination, with cancellation/failure
+      details and no download/index activation on open.
+- [ ] Library Index keeps its outer disclosure but has no nested Index Details.
+      Coverage stays visible; a nonzero active passage count is supporting text.
+      A new empty index does not repeat zero passages or No Saved Index.
+      Refresh Status and Remove Index share one maintenance row on wide views,
+      stack on narrow/RTL views, and remain disabled during work. Refresh still
+      updates status; removal retains its inline confirmation and empty-index
+      guard. Build/Update Index remains the separate primary action.

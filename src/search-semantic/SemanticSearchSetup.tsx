@@ -4,8 +4,8 @@ import type { SemanticSearchController } from './useSemanticSearch'
 import { semanticSearchStatus } from './semanticSearchStatus'
 
 /** Explicit opt-in shares the cache installer; no download or indexing starts from a search. */
-export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, children, indexRemoval }: {
-  semantic: SemanticSearchController; cachePresent: boolean; cacheBusy: boolean; children?: ReactNode; indexRemoval?: ReactNode
+export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, children, indexMaintenance }: {
+  semantic: SemanticSearchController; cachePresent: boolean; cacheBusy: boolean; children?: ReactNode; indexMaintenance?: ReactNode
 }) {
   const { t } = useTranslation()
   const id = useId()
@@ -58,19 +58,10 @@ export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, childre
           onClick={() => { void semantic.cancel() }}>{t('settings.semantic.stop')}</button>}
       </div>}
       {enabled && !current && index && index.eligibleDocuments > 0 && <p>{t('settings.semantic.indexHint')}</p>}
-      <details className="search-index-details">
-        <summary>{t('settings.semantic.details')}</summary>
-        <div className="search-index-details-content">
-          {active && index && <p>{t('settings.semantic.passages', { count: index.passages })}</p>}
-          <button type="button" className="app-settings-data-action" disabled={busy}
-            onClick={() => { void semantic.refresh() }}>{t('settings.semantic.refresh')}</button>
-        </div>
-      </details>
+      {active && index && index.passages > 0 && <p className="search-index-passages">{t('settings.semantic.passages', { count: index.passages })}</p>}
       {(semantic.cancelling || index?.cancelRequested) && busy && <p role="status">{t('settings.semantic.cancelling')}</p>}
       {index?.error && index.error !== error && <p className="app-dialog-error" role="alert" dir="auto">{index.error}</p>}
-      {indexing && <p>{t('settings.semantic.closeHelp')}</p>}
-      {index && !index.hasStoredIndex && !indexing && <p>{t('settings.semantic.noStoredIndex')}</p>}
-      {indexRemoval}
+      {indexMaintenance}
     </details>}
   </>
 }

@@ -150,21 +150,9 @@ details.search-model-panel[open] > * + * {
   overflow-wrap: anywhere;
 }
 
-.search-index-details summary {
+.search-model-setup .search-index-passages {
+  color: var(--text-muted);
   font-size: 0.85rem;
-  font-weight: 400;
-}
-
-.search-index-details[open] > * + * {
-  margin-top: 0.65rem;
-}
-
-.search-index-details-content {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.65rem 1rem;
 }
 
 .search-index-status {
@@ -203,15 +191,15 @@ details.search-model-panel[open] > * + * {
 
 .search-model-setup .search-remove-confirm {
   color: var(--danger-strong);
-  border-color: var(--danger-border);
+  border-color: transparent;
 }
 
 .search-model-setup .search-remove-confirm:hover:not(:disabled),
 .search-model-setup .search-remove-confirm:focus-visible,
 .search-removal-confirmation .search-remove-confirm:not(:disabled) {
   color: var(--danger-strong);
-  border-color: var(--danger-border);
-  background: var(--surface-danger);
+  border-color: transparent;
+  background: var(--control-surface);
 }
 
 .search-model-setup .search-remove-confirm:focus-visible {
@@ -227,15 +215,6 @@ details.search-model-panel[open] > * + * {
 
 .search-download-progress > * + * {
   margin-top: 0.5rem;
-}
-
-.search-download-actions {
-  align-items: center;
-}
-
-.search-model-setup .search-model-background-note {
-  color: var(--text-muted);
-  font-size: 0.8rem;
 }
 
 .app-settings-search-summary {
@@ -267,10 +246,5 @@ details.search-model-panel[open] > * + * {
   .search-removal-actions {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .search-index-details-content {
-    flex-direction: column;
-    align-items: flex-start;
   }
 }

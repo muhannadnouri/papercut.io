@@ -70,6 +70,42 @@ remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
 
+## Stage 7 — Combined settings cleanup — 2026-10-12
+
+User approved removing both background-work notices and simplifying index
+maintenance; the subsequent styling feedback applies to both removal buttons.
+Download and indexing progress retain their explicit Cancel Download/Stop
+Indexing controls. Persistent header activity and native job lifetimes are
+unchanged; closing Settings still does not cancel work.
+
+Library Index keeps its outer disclosure but no longer nests Index Details.
+Document coverage stays visible, and a nonzero active passage count appears as
+muted supporting text. The empty state omits zero passages and the duplicate
+No Saved Index sentence. Refresh Status shares the existing responsive removal
+row with Remove Index; Build/Update Index stays separate and primary. Inline
+confirmation, focus return and busy/stored-work guards remain intact.
+
+Remove Model Files, Remove Index and their confirmation buttons use the app's
+standard tonal surface and transparent border with danger text. Hover does not
+add a pink fill/outline; keyboard focus retains a visible danger-colored ring.
+Disabled removal remains muted. Search-owned CSS and unused disclosure/notice
+translations are cleaned up across all eight locales. No native, runtime,
+dependency or CI change is introduced.
+
+Validation: all 217 frontend/tooling tests across 50 files, locale parity,
+typecheck, lint, frontend production build and diff checks pass. Existing tests
+cover maintenance dispatch/adjacency, zero-count presentation, progress and
+cancellation without notices, and busy/removal guards. An isolated actual-component
+browser preview with synthetic IPC confirms light/dark tonal styling, desktop
+maintenance alignment, confirmation-cancel focus return, visible keyboard focus,
+empty-index presentation and 320px Arabic RTL stacking without page overflow.
+This is frontend evidence, not installed-app or physical-device smoke.
+
+Smoke remains explicitly deferred, including header activity after Settings
+closes. Use the updated Settings Action Presentation Follow-Up when testing
+resumes. Next review the user's current CI result against its exact source SHA;
+no fresh provider matrix is justified solely by this presentation change.
+
 ## Stage 7 — Settings action layout and download status — 2026-10-12
 
 User approved the presentation follow-up; installed-app smoke stays deferred.

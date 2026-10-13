@@ -264,10 +264,9 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
           <progress aria-label={t('settings.searchModel.progress')} max={100}
             value={matchingProgress && percent !== null ? percent : undefined} />
           {matchingProgress && percent !== null && <span>{percent}%</span>}
-          <div className="search-model-actions search-download-actions">
+          <div className="search-model-actions">
             <button type="button" className="app-settings-data-action" disabled={cancelling}
               onClick={() => { void cancel() }}>{t('settings.searchModel.cancel')}</button>
-            <p className="search-model-background-note">{t('settings.searchModel.closeHelp')}</p>
           </div>
         </>}
       </div>}
@@ -290,7 +289,9 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
       {!ready && <p role="status">{t('settings.searchModel.loading')}</p>}
       {ready && !status?.compiled && <p>{t('settings.searchModel.unavailable')}</p>}
       {ready && semantic
-        ? <SemanticSearchSetup semantic={semantic} cachePresent={!!cache?.filesPresent} cacheBusy={busy} indexRemoval={removalControls('index')}>
+        ? <SemanticSearchSetup semantic={semantic} cachePresent={!!cache?.filesPresent} cacheBusy={busy} indexMaintenance={removalControls('index',
+          <button type="button" className="app-settings-data-action" disabled={busy}
+            onClick={() => { void semantic.refresh() }}>{t('settings.semantic.refresh')}</button>)}>
           {modelControls}
         </SemanticSearchSetup>
         : modelControls}

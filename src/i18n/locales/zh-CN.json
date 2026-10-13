@@ -391,7 +391,6 @@
       "verified": "搜索模型已就绪。语义搜索设置未改变。",
       "removed": "模型文件已删除。搜索未改变。",
       "cancelling": "已请求取消；正在等待任务停止并清理…",
-      "closeHelp": "关闭设置后下载仍会继续。",
       "cancelled": "下载已取消。重试前请检查缓存状态。",
       "failed": "下载失败。请检查连接和可用空间；重试前请删除损坏的缓存文件。",
       "details": "技术详情",
@@ -445,7 +444,6 @@
       "ready": "已准备好进行概念搜索。",
       "documentsReady": "已索引 {{ready}} / {{total}} 个文档。",
       "update": "更新索引",
-      "details": "索引详情",
       "passages": "已索引段落数：{{count}}",
       "indexHint": "创建或更新索引时会复用已完成的工作。",
       "activity": {
@@ -462,7 +460,6 @@
         "view": "查看进度",
         "review": "检查"
       },
-      "closeHelp": "关闭设置不会取消索引。可从页眉查看进度或取消。",
       "summary": {
         "off": "已关闭 · 关键词搜索",
         "disabling": "正在关闭…",
@@ -477,7 +474,6 @@
       },
       "modelRequired": "搜索模型加载后即可建立索引。",
       "savedIndex": "已保存索引 · 搜索已关闭",
-      "noStoredIndex": "没有已保存的索引。",
       "stop": "停止索引"
     }
   },

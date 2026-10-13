@@ -405,7 +405,6 @@
       "verified": "Modello pronto. La ricerca semantica resta invariata.",
       "removed": "File del modello rimossi. La ricerca è invariata.",
       "cancelling": "Annullamento richiesto; in attesa dell’arresto e della pulizia…",
-      "closeHelp": "Il download continua quando chiudi le impostazioni.",
       "cancelled": "Download annullato. Controlla lo stato della cache prima di riprovare.",
       "failed": "Download non riuscito. Controlla la connessione e lo spazio libero; rimuovi i file della cache danneggiati prima di riprovare.",
       "details": "Dettagli tecnici",
@@ -459,7 +458,6 @@
       "ready": "Pronto per la ricerca concettuale.",
       "documentsReady": "{{ready}} documenti indicizzati su {{total}}.",
       "update": "Aggiorna indice",
-      "details": "Dettagli dell’indice",
       "passages": "Passaggi indicizzati: {{count}}",
       "indexHint": "Il lavoro completato viene riutilizzato quando crei o aggiorni l’indice.",
       "activity": {
@@ -476,7 +474,6 @@
         "view": "Visualizza avanzamento",
         "review": "Controlla"
       },
-      "closeHelp": "Chiudere le impostazioni non annulla l’indicizzazione. Controlla l’avanzamento o annullala dall’intestazione.",
       "summary": {
         "off": "Disattivata · Ricerca per parole",
         "disabling": "Disattivazione…",
@@ -491,7 +488,6 @@
       },
       "modelRequired": "L’indicizzazione è disponibile quando il modello di ricerca è caricato.",
       "savedIndex": "Indice Salvato · Ricerca Disattivata",
-      "noStoredIndex": "Nessun indice salvato.",
       "stop": "Interrompi Indicizzazione"
     }
   },

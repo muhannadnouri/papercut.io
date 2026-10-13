@@ -64,7 +64,7 @@ function render() {
 function controls(node: ReactNode = tree): ReactElement<Record<string, unknown>>[] {
   return Children.toArray(node).flatMap((child) => {
     if (!isValidElement<Record<string, unknown>>(child)) return []
-    return [child, ...controls((child.props.children ?? null) as ReactNode), ...controls((child.props.indexRemoval ?? null) as ReactNode)]
+    return [child, ...controls((child.props.children ?? null) as ReactNode), ...controls((child.props.indexMaintenance ?? null) as ReactNode)]
   })
 }
 function control(type: string, text?: string) {
@@ -337,6 +337,12 @@ it('keeps index removal behind confirmation and disables it for an empty index',
   expect(markup.indexOf('settings.searchModel.title')).toBeLessThan(markup.indexOf('settings.semantic.libraryTitle'))
   expect(markup).not.toContain('settings.searchModel.closeHelp')
   expect(markup).not.toContain('settings.semantic.closeHelp')
+  const maintenance = controls().find(node => node.props.className === 'search-model-actions search-removal-actions'
+    && controls(node.props.children as ReactNode).some(child => child.props.children === 'settings.semantic.refresh'))!
+  expect(controls(maintenance.props.children as ReactNode).filter(node => node.type === 'button').map(node => node.props.children))
+    .toEqual(['settings.semantic.refresh', 'settings.semantic.remove'])
+  click('settings.semantic.refresh'); render()
+  expect(semantic.refresh).toHaveBeenCalledTimes(1)
   click('settings.semantic.remove'); render()
   expect(semantic.remove).not.toHaveBeenCalled()
   click('common.cancel'); render()
@@ -347,10 +353,12 @@ it('keeps index removal behind confirmation and disables it for an empty index',
   expect(control('button', 'settings.semantic.remove').props.disabled).toBe(true)
 })
 
-it('keeps background guidance with active downloads or indexing without starting either on open', async () => {
+it('keeps progress and cancellation without background notices or starting work on open', async () => {
   status.downloadingFormat = 'float32'
   render(); await settle()
-  expect(render()).toContain('settings.searchModel.closeHelp')
+  expect(render()).not.toContain('settings.searchModel.closeHelp')
+  expect(render()).toContain('settings.searchModel.cancel')
+  expect(render()).toContain('<progress')
   expect(render()).not.toContain('settings.semantic.closeHelp')
   expect(mocked.invoke.mock.calls.some(([cmd]) => cmd === 'search_embedding_download')).toBe(false)
   status.downloadingFormat = null
@@ -360,9 +368,13 @@ it('keeps background guidance with active downloads or indexing without starting
       passages: 4, hasStoredIndex: true, embeddedPassages: 0, reusedPassages: 0, error: null },
     setEnabled: vi.fn(), setFormat: vi.fn(), build: vi.fn(), remove: vi.fn(), cancel: vi.fn(), refresh: vi.fn(), activityNotice: null, dismissActivity: vi.fn() }
   await vi.advanceTimersByTimeAsync(1000); await settle()
-  expect(render()).toContain('settings.semantic.closeHelp')
+  expect(render()).not.toContain('settings.semantic.closeHelp')
+  expect(render()).toContain('settings.semantic.stop')
+  expect(render()).toContain('settings.semantic.progress')
   expect(render()).not.toContain('settings.searchModel.closeHelp')
   expect(controls().find(node => node.type === 'details' && node.props.className === 'search-model-panel search-model-management')!.props.open).toBe(false)
+  expect(control('button', 'settings.semantic.refresh').props.disabled).toBe(true)
+  expect(control('button', 'settings.semantic.remove').props.disabled).toBe(true)
   expect(semantic.build).not.toHaveBeenCalled()
 })
 

@@ -405,7 +405,6 @@
       "verified": "Modelo pronto. A busca semântica não foi alterada.",
       "removed": "Arquivos do modelo removidos. A busca não mudou.",
       "cancelling": "Cancelamento solicitado; aguardando a interrupção e a limpeza…",
-      "closeHelp": "O download continua ao fechar as configurações.",
       "cancelled": "Download cancelado. Verifique o status do cache antes de tentar novamente.",
       "failed": "O download falhou. Verifique a conexão e o espaço livre; remova arquivos de cache danificados antes de tentar novamente.",
       "details": "Detalhes técnicos",
@@ -459,7 +458,6 @@
       "ready": "Pronto para a busca conceitual.",
       "documentsReady": "{{ready}} de {{total}} documentos indexados.",
       "update": "Atualizar índice",
-      "details": "Detalhes do índice",
       "passages": "Trechos indexados: {{count}}",
       "indexHint": "O trabalho concluído é reutilizado ao criar ou atualizar o índice.",
       "activity": {
@@ -476,7 +474,6 @@
         "view": "Ver progresso",
         "review": "Revisar"
       },
-      "closeHelp": "Fechar as configurações não cancela a indexação. Veja o progresso ou cancele pelo cabeçalho.",
       "summary": {
         "off": "Desativado · Busca por palavras",
         "disabling": "Desativando…",
@@ -491,7 +488,6 @@
       },
       "modelRequired": "A indexação fica disponível quando o modelo de busca está carregado.",
       "savedIndex": "Índice Salvo · Busca Desativada",
-      "noStoredIndex": "Nenhum índice salvo.",
       "stop": "Parar Indexação"
     }
   },

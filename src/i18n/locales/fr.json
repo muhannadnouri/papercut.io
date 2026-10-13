@@ -405,7 +405,6 @@
       "verified": "Modèle prêt. La recherche sémantique reste inchangée.",
       "removed": "Fichiers du modèle supprimés. La recherche est inchangée.",
       "cancelling": "Annulation demandée ; en attente de l’arrêt et du nettoyage…",
-      "closeHelp": "Le téléchargement continue après la fermeture des paramètres.",
       "cancelled": "Téléchargement annulé. Vérifiez l’état du cache avant de réessayer.",
       "failed": "Échec du téléchargement. Vérifiez la connexion et l’espace libre ; supprimez les fichiers du cache endommagés avant de réessayer.",
       "details": "Détails techniques",
@@ -459,7 +458,6 @@
       "ready": "Prêt pour la recherche conceptuelle.",
       "documentsReady": "{{ready}} documents indexés sur {{total}}.",
       "update": "Mettre à jour l’index",
-      "details": "Détails de l’index",
       "passages": "Passages indexés : {{count}}",
       "indexHint": "Le travail terminé est réutilisé lors de la création ou de la mise à jour de l’index.",
       "activity": {
@@ -476,7 +474,6 @@
         "view": "Voir la progression",
         "review": "Examiner"
       },
-      "closeHelp": "Fermer les paramètres n’annule pas l’indexation. Consultez la progression ou annulez-la depuis l’en-tête.",
       "summary": {
         "off": "Désactivé · Recherche par mots",
         "disabling": "Désactivation…",
@@ -491,7 +488,6 @@
       },
       "modelRequired": "L’indexation est disponible une fois le modèle de recherche chargé.",
       "savedIndex": "Index Enregistré · Recherche Désactivée",
-      "noStoredIndex": "Aucun index enregistré.",
       "stop": "Arrêter l’Indexation"
     }
   },

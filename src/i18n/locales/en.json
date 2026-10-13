@@ -398,7 +398,6 @@
       "verified": "Search model ready. Semantic search remains unchanged.",
       "removed": "Model files removed. Search is unchanged.",
       "cancelling": "Cancellation requested; waiting for the worker to stop and clean up…",
-      "closeHelp": "Download continues when Settings closes.",
       "cancelled": "Download cancelled. Check cache status before retrying.",
       "failed": "Download failed. Check your connection and free space; remove damaged cache files before retrying.",
       "details": "Technical Details",
@@ -452,7 +451,6 @@
       "ready": "Ready for conceptual search.",
       "documentsReady": "{{ready}} of {{total}} documents indexed.",
       "update": "Update Index",
-      "details": "Index Details",
       "passages": "Indexed passages: {{count}}",
       "indexHint": "Completed work is reused when you build or update the index.",
       "activity": {
@@ -469,7 +467,6 @@
         "view": "View Progress",
         "review": "Review"
       },
-      "closeHelp": "Closing Settings does not cancel indexing. View progress or cancel from the header.",
       "summary": {
         "off": "Off · Keyword Search",
         "disabling": "Turning Off…",
@@ -484,7 +481,6 @@
       },
       "modelRequired": "Indexing is available once the search model is loaded.",
       "savedIndex": "Saved Index · Search Off",
-      "noStoredIndex": "No saved index.",
       "stop": "Stop Indexing"
     }
   },
