@@ -401,11 +401,37 @@ fn pdf_role_upgrade_preserves_sources_and_other_roles_until_explicit_semantic_up
             .collect(),
     };
     let references = narration::reconstruct_search_text(page.clone());
+    let index = PageTextLayer {
+        page_index: 2,
+        blocks: [
+            "Anchors (equipment),",
+            "12, 24",
+            "Anchor lights (see Beacons)",
+            "Berths (allocation), 15–18",
+            "Cargo handling, 19, 21",
+            "Dock schedules, 30",
+            "Electric ferries, 35",
+            "Freight routes, 41",
+            "Harbor maps, 50",
+            "Island service, 52",
+        ]
+        .iter()
+        .enumerate()
+        .map(|(i, text)| PageTextBlock {
+            text: format!("{text}\n"),
+            bounds: [40.0, 100.0 + i as f32 * 16.0, 500.0, 12.0],
+            order: i as u32,
+            confidence: None,
+        })
+        .collect(),
+        ..page.clone()
+    };
+    let index_text = narration::reconstruct_search_text(index.clone());
     put(
         &mut db,
         "abc123",
         "Harbor Guide",
-        &["港 Ferries connect the island.", &references],
+        &["港 Ferries connect the island.", &references, &index_text],
     );
     put(
         &mut db,
@@ -423,8 +449,8 @@ fn pdf_role_upgrade_preserves_sources_and_other_roles_until_explicit_semantic_up
         [],
     )
     .unwrap();
-    // The previous classifier kept these printed references inside persisted body ranges.
-    for (ordinal, text) in ["港 Ferries connect the island.", &references]
+    // Schema 10 could persist wrapped index entries as body; both upgrades preserve authored rows.
+    for (ordinal, text) in ["港 Ferries connect the island.", &references, &index_text]
         .iter()
         .enumerate()
     {
@@ -448,6 +474,7 @@ fn pdf_role_upgrade_preserves_sources_and_other_roles_until_explicit_semantic_up
     )
     .unwrap();
     page_text::write_page_text_layer(&library.0.join("abc123"), &page).unwrap();
+    page_text::write_page_text_layer(&library.0.join("abc123"), &index).unwrap();
     let before: Vec<(i64, usize, String, Option<usize>)> = db
         .prepare("SELECT id,ordinal,text,page_index FROM uploaded_sections ORDER BY id")
         .unwrap()
@@ -462,13 +489,22 @@ fn pdf_role_upgrade_preserves_sources_and_other_roles_until_explicit_semantic_up
     sync(&mut db, &key, "abc123");
     sync(&mut db, &key, "def456");
     db.execute(
-        "UPDATE upload_schema_metadata SET value='9' WHERE key='schema_version'",
+        "UPDATE upload_schema_metadata SET value='10' WHERE key='schema_version'",
         [],
     )
     .unwrap();
     drop(db);
 
     let mut db = library.db();
+    assert_eq!(
+        db.query_row(
+            "SELECT value FROM upload_schema_metadata WHERE key='schema_version'",
+            [],
+            |row| row.get::<_, String>(0)
+        )
+        .unwrap(),
+        "11"
+    );
     assert_eq!(coverage(&mut db, Some(&key)).unwrap().indexed_documents, 1);
     assert_eq!(
         db.query_row(
@@ -480,7 +516,7 @@ fn pdf_role_upgrade_preserves_sources_and_other_roles_until_explicit_semantic_up
         "[]"
     );
     let pending: usize = db.query_row("SELECT count(*) FROM uploaded_sections WHERE document_id='abc123' AND body_ranges IS NULL", [], |row| row.get(0)).unwrap();
-    assert_eq!(pending, 2);
+    assert_eq!(pending, 3);
     assert!(
         crate::document_uploads::store::rebuild_search_content_batch(&mut db, &library.0).unwrap()
     );
@@ -496,9 +532,19 @@ fn pdf_role_upgrade_preserves_sources_and_other_roles_until_explicit_semantic_up
         .unwrap(),
         "[]"
     );
+    assert_eq!(
+        db.query_row(
+            "SELECT body_ranges FROM uploaded_sections WHERE document_id='abc123' AND ordinal=2",
+            [],
+            |row| row.get::<_, String>(0)
+        )
+        .unwrap(),
+        "[]"
+    );
     // A missing body-page sidecar retains its text; classified citations stay literal-searchable.
     assert_eq!(db.query_row("SELECT count(*) FROM uploaded_document_fts WHERE uploaded_document_fts MATCH '\"Sapphire Ferry Guide\"'", [], |row| row.get::<_,usize>(0)).unwrap(), 1);
     assert_eq!(db.query_row("SELECT count(*) FROM uploaded_document_search_fts WHERE uploaded_document_search_fts MATCH 'sapphire'", [], |row| row.get::<_,usize>(0)).unwrap(), 1);
+    assert_eq!(db.query_row("SELECT count(*) FROM uploaded_document_fts WHERE uploaded_document_fts MATCH 'anchors'", [], |row| row.get::<_,usize>(0)).unwrap(), 1);
     let after: Vec<(i64, usize, String, Option<usize>)> = db
         .prepare("SELECT id,ordinal,text,page_index FROM uploaded_sections ORDER BY id")
         .unwrap()
@@ -510,9 +556,20 @@ fn pdf_role_upgrade_preserves_sources_and_other_roles_until_explicit_semantic_up
         .unwrap();
     assert_eq!(before, after);
     assert_eq!(coverage(&mut db, Some(&key)).unwrap().indexed_documents, 1);
+    let stale = retrieve(
+        &mut db,
+        &key,
+        &request(json!({"query":"harbor travel", "documentUrls":["/uploads/abc123.html"]})),
+        |_| panic!("a stale PDF must not invoke query inference"),
+        || Ok(()),
+    )
+    .unwrap();
+    let stale = serde_json::to_value(stale).unwrap();
+    assert_eq!(stale["availability"], "partial");
+    assert!(stale["results"].as_array().unwrap().is_empty());
     sync(&mut db, &key, "abc123");
     assert_eq!(coverage(&mut db, Some(&key)).unwrap().indexed_documents, 2);
-    let hit = retrieve(&mut db, &key, &request(json!({"query":"harbor travel", "exactPhrases":["Sapphire Ferry Guide"], "documentUrls":["/uploads/abc123.html"]})), |_| Ok(vec![1.0,0.0]), || Ok(())).unwrap();
+    let hit = retrieve(&mut db, &key, &request(json!({"query":"harbor travel", "exactPhrases":["Sapphire Ferry Guide", "Anchors (equipment)"], "documentUrls":["/uploads/abc123.html"]})), |_| Ok(vec![1.0,0.0]), || Ok(())).unwrap();
     assert_eq!(
         serde_json::to_value(hit).unwrap()["results"][0]["text"],
         "港 Ferries connect the island."

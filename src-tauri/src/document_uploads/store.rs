@@ -254,7 +254,7 @@ pub(super) fn open_db_in(root: &std::path::Path) -> Result<Connection, String> {
             [if has_sections { "0" } else { "1" }],
         ).map_err(db_err)?;
     }
-    if previous_schema_version < 10 {
+    if previous_schema_version < 11 {
         // Reclassify PDFs from saved geometry; preserve EPUB roles that cannot be recovered from legacy HTML.
         tx.execute(
             "UPDATE uploaded_sections SET body_ranges=NULL WHERE document_id IN
@@ -268,7 +268,7 @@ pub(super) fn open_db_in(root: &std::path::Path) -> Result<Connection, String> {
         [search_form::VERSION],
     ).map_err(db_err)?;
     tx.execute(
-        "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('schema_version', '10')",
+        "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('schema_version', '11')",
         [],
     )
     .map_err(db_err)?;

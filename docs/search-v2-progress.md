@@ -61,12 +61,78 @@ and the [conceptual summary cleanup](#stage-7--conceptual-results-summary--2026-
 followed by the [settings readiness cleanup](#stage-7--settings-readiness-and-copy--2026-10-11),
 also have focused frontend/browser validation. The subsequent
 [stored-work and conditional layout pass](#stage-7--stored-work-guards-and-conditional-settings--2026-10-11)
-adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The subsequent [passage-window evaluation](#stage-7--passage-window-quality-and-cost-review--2026-10-12) finds a bounded local usefulness gain while leaving backmatter classification, missing context and unsupported-query failures open. The [PDF backmatter correction](#stage-7--pdf-backmatter-classification--2026-10-12) addresses the measured reference/index role gaps without claiming an unsupported-query relevance gain. The [alternative-passage review](#stage-7--alternative-passages-and-weak-matches--2026-10-12) rejects an unhelpful expansion and leaves selection/unsupported-query quality open. The subsequent [candidate-coverage diagnosis](#stage-7--candidate-coverage-diagnosis--2026-10-12) distinguishes two selection failures from an explanation missing from the bounded pool; it justifies a representation experiment, not a shipped reranker. The subsequent [adjacent-body experiment](#stage-7--bounded-adjacent-body-embedding-experiment--2026-10-12) reduces derived vector storage and improves one fresh first-result bundle, but does not justify shipping grouping or establish a general relevance win. The [global candidate-selection feasibility pass](#stage-7--bounded-global-candidate-selection-feasibility--2026-10-12) establishes complete reference witnesses within a fixed global pool, justifying a bounded local selector trial with an explicit evidence-token budget; it does not demonstrate improved ranking. The subsequent [reranker input gate](#stage-8--bounded-reranker-input-gate--2026-10-12) rejects full-bundle single-pair scoring because the cached model cannot accept that evidence intact; compact source-aware inputs remain an experiment, not a shipping change. The subsequent [compact-window trial](#stage-8--compact-scoring-window-trial--2026-10-12) also fails its frozen size/evidence gate; keep the reranker rejected and address the measured source-role gap before further selector work. The recorded full CI predates these UI, model and content changes. The first
+adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The subsequent [passage-window evaluation](#stage-7--passage-window-quality-and-cost-review--2026-10-12) finds a bounded local usefulness gain while leaving backmatter classification, missing context and unsupported-query failures open. The [PDF backmatter correction](#stage-7--pdf-backmatter-classification--2026-10-12) addresses the measured reference/index role gaps without claiming an unsupported-query relevance gain. The [alternative-passage review](#stage-7--alternative-passages-and-weak-matches--2026-10-12) rejects an unhelpful expansion and leaves selection/unsupported-query quality open. The subsequent [candidate-coverage diagnosis](#stage-7--candidate-coverage-diagnosis--2026-10-12) distinguishes two selection failures from an explanation missing from the bounded pool; it justifies a representation experiment, not a shipped reranker. The subsequent [adjacent-body experiment](#stage-7--bounded-adjacent-body-embedding-experiment--2026-10-12) reduces derived vector storage and improves one fresh first-result bundle, but does not justify shipping grouping or establish a general relevance win. The [global candidate-selection feasibility pass](#stage-7--bounded-global-candidate-selection-feasibility--2026-10-12) establishes complete reference witnesses within a fixed global pool, justifying a bounded local selector trial with an explicit evidence-token budget; it does not demonstrate improved ranking. The subsequent [reranker input gate](#stage-8--bounded-reranker-input-gate--2026-10-12) rejects full-bundle single-pair scoring because the cached model cannot accept that evidence intact; compact source-aware inputs remain an experiment, not a shipping change. The subsequent [compact-window trial](#stage-8--compact-scoring-window-trial--2026-10-12) also fails its frozen size/evidence gate; keep the reranker rejected and address the measured source-role gap before further selector work. The subsequent [wrapped-index correction](#stage-7--wrapped-pdf-index-entries-and-cross-references--2026-10-12) fixes that measured role gap with generic guards and a PDF-only upgrade; model-ranking acceptance remains open. The recorded full CI predates these UI, model and content changes. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 7 — Wrapped PDF index entries and cross-references — 2026-10-12
+
+The shared PDF source-role classifier now recognizes cued index-entry wraps and
+parenthesized publisher cross-references. It joins classification-only copies
+when a page-number continuation, hyphenated label or unfinished parenthesis
+produces a valid complete entry. Recognized `(see …)` / `(see also …)` references
+contribute to navigation density only on an independently qualified index page;
+they do not qualify a page alone. These are publisher syntax cues, not subject
+aliases or spelling overrides. Existing minimum numeric-entry, multiple-page-list,
+parenthetical-qualifier and alphabetical-order requirements remain.
+
+Long prose, sentence punctuation (including Arabic/CJK) and whitespace-only numeric
+columns still block whole-page classification. Split numeric column headings also
+remain body content. Zero/malformed page lists, incomplete cross-references and
+sparse/ambiguous layouts do not gain index status merely from wrapping. Uncued
+wraps, wraps beyond two visual lines and other-language reference syntax remain
+conservative limitations; a headerless table formatted exactly like a qualified
+index remains ambiguous.
+Canonical reader text, extraction order, original UTF-8 offsets and literal
+search eligibility remain unchanged. Only derived body/auxiliary roles change.
+
+Upload schema **11** queues existing PDF roles for the established restartable
+saved-geometry backfill, including libraries already on schema 10. It preserves
+EPUB/HTML roles; absent or mismatched sidecars conservatively keep source text.
+The existing semantic freshness triggers mark affected PDF checkpoints stale.
+**Explicitly update the semantic index before affected PDFs supply conceptual
+results again.** Ordinary keyword search remains available. Compatible vectors
+can be reused; the model/window identity is unchanged, with no model download or
+unrelated EPUB-only rebuild. The upgrade does not start embedding work itself.
+
+Validation:
+
+- The new generic wrapped-index regression fails on the old classifier and passes
+  after the correction. It checks page-list/parenthesis/hyphen wraps, cross-reference
+  density, multilingual source preservation, prose, long lines, numeric headings,
+  malformed lists and insufficient cross-reference-only pages. Existing sparse,
+  reversed-list, table, reference and source-offset tests still pass.
+- The expanded schema-10 upgrade regression verifies PDF-only invalidation,
+  saved-geometry reclassification, unchanged source rows/page locators and EPUB
+  roles, missing-sidecar fallback and idempotent reopen. A stale scoped PDF returns
+  no conceptual results or query inference before its explicit update. Literal index
+  terms and reference quotes remain searchable; required quotes in auxiliary text still
+  qualify a document whose conceptual result uses body prose after explicit update.
+- A private native source replay checks 613 captured PDF pages against original
+  text and geometry hashes. Exactly one previously missed index-style page changes
+  from body to auxiliary; the other 612 recorded role projections are identical.
+  Canonical source text matches on every page and all derived ranges preserve UTF-8
+  boundaries. This verifies the measured classification correction, **not a new
+  model-ranking, relevance or unsupported-query win**. No weights are loaded and
+  live app data is untouched; private files/helpers remain outside the checkout.
+- Complete local Rust suites pass: **183 default-feature tests** (five opt-in
+  checks ignored) and **241 native/provider-enabled tests** (ten opt-in checks
+  ignored). Existing localhost tests require execution outside the socket-restricted
+  sandbox; those reruns pass. Formatting and diff checks pass. No React, dependencies,
+  maintained scripts, model choices or CI jobs change.
+
+**Next:** a bounded native retrieval regression after explicitly updating a
+**disposable** index. Check that the corrected auxiliary page no longer wins over
+body evidence, retained answerable controls keep their useful source passages,
+and quotes, filters and source navigation remain intact. Report unsupported
+queries honestly; this correction does not solve answer absence or selection of
+incomplete body passages. Do not restart the rejected cached-reranker/window/model
+sweep or ship experimental grouping. The [consolidated smoke packet](search-v2-smoke.md#pdf-backmatter-follow-up--2026-10-12)
+now includes this upgrade and remains deferred. Current-revision CI, independent
+relevance, physical-device performance and app acceptance remain open.
 
 ## Stage 8 — Compact scoring-window trial — 2026-10-12
 

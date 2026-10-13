@@ -328,14 +328,18 @@ all text conservatively.
 
 ## PDF backmatter follow-up — 2026-10-12
 
-**Deferred.** This upgrade queues existing PDF roles for recalculation from saved
-page geometry. Explicitly update the semantic index afterward; no model
-redownload or unrelated EPUB-only rebuild is required.
+**Deferred.** Upload schema 11 also refreshes PDFs already classified by schema
+10, including wrapped index entries and parenthesized cross-references. This
+upgrade queues existing PDF roles for recalculation from saved page geometry.
+Explicitly update the semantic index afterward; no model redownload or unrelated
+EPUB-only rebuild is required.
 
 - [ ] With semantic search **off**, ordinary prose and numeric tables still have
       useful keyword evidence. Printed references, bare-domain citations and
-      subject-index terms remain searchable, including quoted phrases. Open
-      their original pages and confirm reader text/locators remain intact.
+      subject-index terms remain searchable, including quoted phrases. Include
+      wrapped page-number entries and parenthesized cross-references in a generic
+      guide, plus prose and numeric-column headings that must remain body content.
+      Open their original pages and confirm reader text/locators remain intact.
 - [ ] With semantic search **on**, affected PDFs show keyword fallback until
       explicit index preparation finishes. Afterwards, body passages take
       precedence over recognized references/indexes within documents containing

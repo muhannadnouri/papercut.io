@@ -268,18 +268,43 @@ fn printed_reference(text: &str) -> bool {
 
 /// Combine independent page-list cues; numbers alone cannot distinguish an index from a table.
 fn subject_index(lines: &[String]) -> bool {
-    let entries = lines
+    // Join only cued wraps for classification; canonical text and source locators stay untouched.
+    let mut logical: Vec<String> = Vec::new();
+    for line in lines {
+        let value = line.trim();
+        if let Some(previous) = logical.last_mut() {
+            let wrapping = (page_references(value)
+                && (index_entry(previous).is_none() || previous.ends_with(',')))
+                || previous.ends_with(['-', '‐', '\u{ad}'])
+                || (previous.contains('(') && !previous.contains(')'));
+            if wrapping {
+                let joined = format!("{previous} {value}");
+                if index_entry(&joined).is_some() || index_cross_reference(&joined) {
+                    *previous = joined;
+                    continue;
+                }
+            }
+        }
+        logical.push(value.to_owned());
+    }
+    let entries = logical
         .iter()
         .filter_map(|line| index_entry(line))
         .collect::<Vec<_>>();
-    // shortcut: qualified dense indexes only; expand against annotated layouts without weakening table guards.
+    let cross_references = logical
+        .iter()
+        .filter(|line| index_cross_reference(line))
+        .count();
+    // shortcut: qualified dense indexes only; uncued wraps and other reference syntax need annotated layouts.
     entries.len() >= 8
-        && entries.len() * 2 >= lines.len()
-        && !lines.iter().any(|line| {
+        && (entries.len() + cross_references) * 2 >= logical.len()
+        && !logical.iter().any(|line| {
             line.split_whitespace().count() > 10
-                || line.trim_end().ends_with(['.', '?', '!'])
+                || line
+                    .trim_end()
+                    .ends_with(['.', '?', '!', '؟', '。', '！', '？'])
                 || (index_entry(line).is_none()
-                    && line.chars().any(char::is_alphabetic)
+                    && !index_cross_reference(line)
                     && line
                         .split_whitespace()
                         .filter(|word| word.chars().all(|ch| ch.is_ascii_digit()))
@@ -300,6 +325,41 @@ fn subject_index(lines: &[String]) -> bool {
             >= entries.len() - 1
 }
 
+/// Parenthesized publisher cross-references count as navigation only on an independently qualified index page.
+fn index_cross_reference(text: &str) -> bool {
+    let Some((label, reference)) = text.strip_suffix(')').and_then(|text| text.split_once('('))
+    else {
+        return false;
+    };
+    let Some(target) = reference
+        .strip_prefix("see ")
+        .or_else(|| reference.strip_prefix("See "))
+    else {
+        return false;
+    };
+    let label = label.trim();
+    let target = target.strip_prefix("also ").unwrap_or(target);
+    (label.is_empty()
+        || (label.starts_with(char::is_alphabetic) && label.split_whitespace().count() <= 8))
+        && target.starts_with(char::is_alphabetic)
+        && !text.chars().any(|ch| {
+            ch.is_ascii_digit()
+                || matches!(ch, '.' | ':' | ';' | '!' | '?' | '؟' | '。' | '！' | '？')
+        })
+        && !reference.contains(['(', ')'])
+}
+
+/// Validate single page numbers and comma/range lists; whitespace-only numeric columns remain tables.
+fn page_references(pages: &str) -> bool {
+    !pages.is_empty()
+        && pages.split([',', '-', '–', '—']).all(|part| {
+            let part = part.trim();
+            !part.is_empty()
+                && part.chars().all(|ch| ch.is_ascii_digit())
+                && part.parse::<u32>().is_ok_and(|page| page > 0)
+        })
+}
+
 /// Separate a short subject label from comma/range page references; retain original UTF-8 text untouched.
 fn index_entry(text: &str) -> Option<(&str, bool)> {
     let text = text.trim();
@@ -316,12 +376,7 @@ fn index_entry(text: &str) -> Option<(&str, bool)> {
         || label
             .chars()
             .any(|ch| ch.is_ascii_digit() || matches!(ch, '.' | ':' | ';' | '!' | '?'))
-        || !pages.split([',', '-', '–', '—']).all(|part| {
-            let part = part.trim();
-            !part.is_empty()
-                && part.chars().all(|ch| ch.is_ascii_digit())
-                && part.parse::<u32>().is_ok_and(|page| page > 0)
-        })
+        || !page_references(pages)
     {
         return None;
     }
@@ -791,6 +846,96 @@ mod tests {
             "Route 2 12",
         ] {
             assert!(index_entry(invalid).is_none(), "{invalid}");
+        }
+    }
+
+    #[test]
+    fn wrapped_index_entries_and_cross_references_keep_literal_source_text() {
+        let lines = [
+            "Anchors (equipment),",
+            "12, 24",
+            "Anchor lights (see Beacons)",
+            "Berths (allocation), 15–",
+            "18",
+            "Berth maps (see Harbor maps)",
+            "Cargo handling, 19, 21",
+            "Cargo lifts (see Cranes)",
+            "Coastal routes (see",
+            "Ferry routes)",
+            "Dock schedules, 30",
+            "Dock signs (see Beacons)",
+            "Electric ferries, 35",
+            "Electric motors (see Propulsion)",
+            "Freight trans-",
+            "port, 41",
+            "Freight ships (see Vessels)",
+            "Harbor maps, 50",
+            "(see also Navigation)",
+            "Island service, 52",
+            "Island terminals (see Berths)",
+            "港 (航路), 61—63, 70",
+        ];
+        let page = |lines: &[&str]| {
+            layer(
+                0,
+                lines
+                    .iter()
+                    .enumerate()
+                    .map(|(i, text)| {
+                        block(
+                            i as u32,
+                            &format!("{text}\n"),
+                            100.0 + i as f32 * 12.0,
+                            12.0,
+                        )
+                    })
+                    .collect(),
+            )
+        };
+        let canonical = reconstruct_search_text(page(&lines));
+        let (text, ranges) = search_content(page(&lines), &Default::default());
+        assert_eq!(text, canonical);
+        assert!(text.contains("12, 24") && text.contains("港 (航路)"));
+        assert!(ranges.is_empty(), "wrapped navigation must be auxiliary");
+
+        for extra in [
+            "This sentence explains the ferry routes.",
+            "هذه جملة تشرح مسارات العبارات؟",
+            "港の航路を説明します。",
+            "Equipment 2020 2021",
+            "These operational observations describe the routes and their maintenance requirements in detail",
+        ] {
+            let mut mixed = lines.to_vec();
+            mixed.push(extra);
+            let (text, ranges) = search_content(page(&mixed), &Default::default());
+            assert_eq!(ranges, vec![0..text.len()], "retain ambiguous page: {extra}");
+        }
+        let mut malformed = lines.to_vec();
+        malformed[1] = "0, 24";
+        malformed[4] = "18,,19";
+        // Losing both qualified entries must not turn arbitrary wrapped numbers into navigation.
+        let (text, ranges) = search_content(page(&malformed), &Default::default());
+        assert_eq!(ranges, vec![0..text.len()]);
+
+        let mut columns = lines.to_vec();
+        columns.extend(["Equipment", "2020 2021"]);
+        let (text, ranges) = search_content(page(&columns), &Default::default());
+        assert_eq!(ranges, vec![0..text.len()]);
+        let references = ["Anchors (see Berths)"; 12];
+        let (text, ranges) = search_content(page(&references), &Default::default());
+        assert_eq!(
+            ranges,
+            vec![0..text.len()],
+            "references alone are insufficient"
+        );
+        for invalid in [
+            "(see )",
+            "(see also )",
+            "(see Routes. More prose)",
+            "Dock 2020 (see Maps)",
+            "(see Routes",
+        ] {
+            assert!(!index_cross_reference(invalid), "{invalid}");
         }
     }
 
