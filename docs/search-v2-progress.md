@@ -61,12 +61,97 @@ and the [conceptual summary cleanup](#stage-7--conceptual-results-summary--2026-
 followed by the [settings readiness cleanup](#stage-7--settings-readiness-and-copy--2026-10-11),
 also have focused frontend/browser validation. The subsequent
 [stored-work and conditional layout pass](#stage-7--stored-work-guards-and-conditional-settings--2026-10-11)
-adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The subsequent [passage-window evaluation](#stage-7--passage-window-quality-and-cost-review--2026-10-12) finds a bounded local usefulness gain while leaving backmatter classification, missing context and unsupported-query failures open. The [PDF backmatter correction](#stage-7--pdf-backmatter-classification--2026-10-12) addresses the measured reference/index role gaps without claiming an unsupported-query relevance gain. The [alternative-passage review](#stage-7--alternative-passages-and-weak-matches--2026-10-12) rejects an unhelpful expansion and leaves selection/unsupported-query quality open. The subsequent [candidate-coverage diagnosis](#stage-7--candidate-coverage-diagnosis--2026-10-12) distinguishes two selection failures from an explanation missing from the bounded pool; it justifies a representation experiment, not a shipped reranker. The subsequent [adjacent-body experiment](#stage-7--bounded-adjacent-body-embedding-experiment--2026-10-12) reduces derived vector storage and improves one fresh first-result bundle, but does not justify shipping grouping or establish a general relevance win. The [global candidate-selection feasibility pass](#stage-7--bounded-global-candidate-selection-feasibility--2026-10-12) establishes complete reference witnesses within a fixed global pool, justifying a bounded local selector trial with an explicit evidence-token budget; it does not demonstrate improved ranking. The subsequent [reranker input gate](#stage-8--bounded-reranker-input-gate--2026-10-12) rejects full-bundle single-pair scoring because the cached model cannot accept that evidence intact; compact source-aware inputs remain an experiment, not a shipping change. The subsequent [compact-window trial](#stage-8--compact-scoring-window-trial--2026-10-12) also fails its frozen size/evidence gate; keep the reranker rejected and address the measured source-role gap before further selector work. The subsequent [wrapped-index correction](#stage-7--wrapped-pdf-index-entries-and-cross-references--2026-10-12) fixes that measured role gap with generic guards and a PDF-only upgrade; model-ranking acceptance remains open. The [updated-index retrieval regression](#stage-7--updated-pdf-role-retrieval-regression--2026-10-12) preserves retained results and native contracts but shows no new relevance gain. The [fresh same-language review](#stage-7--fresh-same-language-relevance-review--2026-10-12) finds useful first passages for all six fully supported questions, but only five complete answers with nearby text; unsupported nearest matches and one context-selection gap remain. The [focused selection diagnosis](#stage-7--fresh-result-selection-and-context-diagnosis--2026-10-12) finds complete source witnesses inside the fixed global pool with unchanged nearby context; choosing them remains unsolved. The subsequent [context-capable scorer input gate](#stage-8--context-capable-scorer-input-fit-gate--2026-10-12) preserves all tested full evidence pairs within frozen token bounds, permitting only a controlled inference/resource trial; relevance and runtime compatibility are untested. The recorded full CI predates these UI, model and content changes. The first
+adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The subsequent [passage-window evaluation](#stage-7--passage-window-quality-and-cost-review--2026-10-12) finds a bounded local usefulness gain while leaving backmatter classification, missing context and unsupported-query failures open. The [PDF backmatter correction](#stage-7--pdf-backmatter-classification--2026-10-12) addresses the measured reference/index role gaps without claiming an unsupported-query relevance gain. The [alternative-passage review](#stage-7--alternative-passages-and-weak-matches--2026-10-12) rejects an unhelpful expansion and leaves selection/unsupported-query quality open. The subsequent [candidate-coverage diagnosis](#stage-7--candidate-coverage-diagnosis--2026-10-12) distinguishes two selection failures from an explanation missing from the bounded pool; it justifies a representation experiment, not a shipped reranker. The subsequent [adjacent-body experiment](#stage-7--bounded-adjacent-body-embedding-experiment--2026-10-12) reduces derived vector storage and improves one fresh first-result bundle, but does not justify shipping grouping or establish a general relevance win. The [global candidate-selection feasibility pass](#stage-7--bounded-global-candidate-selection-feasibility--2026-10-12) establishes complete reference witnesses within a fixed global pool, justifying a bounded local selector trial with an explicit evidence-token budget; it does not demonstrate improved ranking. The subsequent [reranker input gate](#stage-8--bounded-reranker-input-gate--2026-10-12) rejects full-bundle single-pair scoring because the cached model cannot accept that evidence intact; compact source-aware inputs remain an experiment, not a shipping change. The subsequent [compact-window trial](#stage-8--compact-scoring-window-trial--2026-10-12) also fails its frozen size/evidence gate; keep the reranker rejected and address the measured source-role gap before further selector work. The subsequent [wrapped-index correction](#stage-7--wrapped-pdf-index-entries-and-cross-references--2026-10-12) fixes that measured role gap with generic guards and a PDF-only upgrade; model-ranking acceptance remains open. The [updated-index retrieval regression](#stage-7--updated-pdf-role-retrieval-regression--2026-10-12) preserves retained results and native contracts but shows no new relevance gain. The [fresh same-language review](#stage-7--fresh-same-language-relevance-review--2026-10-12) finds useful first passages for all six fully supported questions, but only five complete answers with nearby text; unsupported nearest matches and one context-selection gap remain. The [focused selection diagnosis](#stage-7--fresh-result-selection-and-context-diagnosis--2026-10-12) finds complete source witnesses inside the fixed global pool with unchanged nearby context; choosing them remains unsolved. The subsequent [context-capable scorer input gate](#stage-8--context-capable-scorer-input-fit-gate--2026-10-12) preserves all tested full evidence pairs within frozen token bounds, permitting only a controlled inference/resource trial; relevance and runtime compatibility are untested. The subsequent [native scorer cost gate](#stage-8--context-capable-scorer-native-cost-gate--2026-10-12) validates intact long-input inference but stops before broader grading because one warm pair exceeds the whole-query budget; keep this scorer unintegrated. The recorded full CI predates these UI, model and content changes. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 8 — Context-capable scorer native cost gate — 2026-10-12
+
+**Decision: do not integrate the tested FP32 CPU scorer.** Initialization and
+intact long-input inference pass, but one warmed pair exceeds the frozen budget
+for an entire bounded query. Stop before broader relevance grading; no ranking
+benefit or regression outcome is established. The earlier tokenizer fit remains
+valid, and current cosine selection is unchanged.
+
+Before downloading or running weights, freeze the same 24-candidate,
+8,192-token pair and 65,536-token query limits, CPU inference with two intra-op
+threads, batch size one, a five-second warm whole-query target, a 60-second
+session-load limit and a 6 GiB combined process-RSS ceiling. A watchdog also
+limits an individual inference phase/query to 30 seconds. These are conservative
+development-trial decision limits, not measured user tolerance or promises for
+all hardware. The gate order permits retained/fresh relevance testing only after
+resource checks pass. Do not change limits, truncate evidence or drop candidates
+after seeing the result.
+
+Download the previously pinned `rozgo/bge-reranker-v2-m3` export at
+`fbd57b17b4db111a9d16813bb08b4c804fac18e9` into a disposable directory. Verify
+both its 108,479-byte ONNX graph and 2,271,088,656-byte external data file against
+the published LFS SHA-256 and sizes before native loading. No private query or
+source text is sent to the download host. Reuse cached FastEmbed 7.1.0/ORT
+`rc.13` Rust libraries and the existing Linux shared runtime; the actual loaded
+ONNX Runtime reports **1.27.0**. No new dependency, compatibility adapter or
+shipping model is introduced.
+
+The native child keeps the existing verified Small FP32 embedding provider
+loaded and initialized while loading/scoring with the cross-encoder. Both use
+two intra-op threads. Explicitly set the scorer limit to 8,192, then disable
+truncation/padding and validate the tokenizer boundaries before inference.
+Select the largest frozen pair by token count, without consulting its judgment;
+its **2,611 tokens** include the full query/title/heading/source-context union.
+Run the same pair twice at batch size one. This is an input/cost probe of a
+retained development pair, not a fresh quality case or the full focused query.
+
+| Native Linux check | Observed result |
+| --- | --- |
+| Scorer session initialization in a fresh process | 1.834 seconds |
+| First intact 2,611-token pair | 10.470 seconds |
+| Warm repeat of that same pair | 10.389 seconds |
+| Combined child-process peak RSS with embedding provider present | 2.981 GiB |
+| Inference output/repeat | Finite, identical scalar score |
+| Native teardown | Exit 0; no watchdog termination |
+| Five-second whole-query resource gate | Failed by one warm pair alone |
+| Full 24-candidate query, retained controls and fresh relevance grading | Not run after the cost failure |
+
+The load measurement has a warm filesystem/page cache after asset download and
+verification; it is not a true cold-storage benchmark. Peak RSS is the observed
+short probe's coexisting-process peak, not incremental scorer memory, total
+system memory including file cache, or a worst-case full-query result. The
+embedding session is idle during scoring; foreground reader/audio contention is
+not tested. Cached Rust library builds are reused rather than a packaged release
+app; the native ORT library performs inference. These measurements do not prove
+all queries, platforms, accelerators or quantized variants would have the same
+cost. No 8,192-token graph inference is attempted: the boundary controls validate
+tokenizer/guard behavior, while actual graph inference covers 2,611 tokens.
+
+The repeated pair already costs more than the allowed entire query, so the
+frozen gate stops before the focused global pool, name/date/exclusion controls
+or fresh same-language batch. There is no complete-query latency extrapolation,
+new selector ranking, relevance grade or answerability cutoff. The scalar score
+is not used as confidence. Historical unsupported-query and passage-selection
+failures remain; acceptable short-probe memory and clean exit do not override
+the query-time failure.
+
+Validation: original input/source/model/runtime hashes pass before and after
+execution; linked-library resolution and its version are recorded. Assert-based
+checks cover input limits, finite/deterministic output, watchdog time/RSS bounds,
+expected gate failure and absence of downstream query/grading phases. Private
+reports/helpers and model assets remain outside the checkout. The owned probe
+executable is removed. No app/index/runtime/dependency/CI change occurs; diff
+checks pass and unchanged application suites are not rerun. Memsearch recall,
+expansion and memory append/readback work.
+
+**Next:** close this optional scorer route under the current policy and
+consolidate branch acceptance around the implemented default-off semantic
+feature, its known relevance limits and the pending smoke checklist. A slower
+optional scorer, acceleration or another precision/runtime would require a
+separate product/resource decision and evidence; no automatic model, candidate,
+thread or clipping sweep is justified. Do not present this result as Stage 7
+quality acceptance or a completed relevance comparison. Current-revision CI,
+independent quality, physical-device performance and app acceptance remain open.
+Consolidated smoke remains deferred.
 
 ## Stage 8 — Context-capable scorer input-fit gate — 2026-10-12
 
