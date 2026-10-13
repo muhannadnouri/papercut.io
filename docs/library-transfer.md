@@ -74,6 +74,15 @@ lockfile through `tauri-plugin-log` -> `byte-unit` -> `rust_decimal`, but
 complete feature/target dependency graph and fails if that edge becomes active.
 Remove the waiver once the lockfile no longer contains `rkyv` 0.7.
 
+The October 12, 2026 audit repair upgrades Ammonia to 4.2.3 and the locked
+`quinn-proto` to 0.11.18 without new waivers. Compatible `anyhow`,
+`event-listener` and rand 0.8 patches also remove their reported unsoundness
+warnings. The updated lockfile has no blocking findings against that day's
+RustSec database, but retains eight maintenance notices and upstream GLib 0.18
+and rand 0.7 unsoundness notices. GLib is required by the Linux GTK/WebKit stack;
+rand 0.7 is parser build tooling without the affected logging feature. These
+remaining warnings are not treated as fixed or suppressed by this repair.
+
 Transferred display-title overrides and available original filenames are
 restored after parsing so metadata corrections survive a device move.
 Document ids come from the manifest rather than a hash of normalized HTML;

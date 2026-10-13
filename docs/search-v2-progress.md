@@ -70,6 +70,46 @@ remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
 
+## Stage 7 — Rust audit unblock — 2026-10-12
+
+[Run 38342012039](https://github.com/muhannadnouri/papercut.io/actions/runs/38342012039)
+tested `df2e728efb1abc83c5395f15a957ea099d800301`, before the latest Settings
+passes. Its checks job failed at the Rust dependency audit: six blocking
+findings and thirteen warnings. Downstream platform jobs were skipped; this
+run provides no current package/provider acceptance. The blocking advisories
+were issued on October 12, so earlier audit success does not contradict this
+failure.
+
+The app now requires Ammonia 4.2.3 and locks `quinn-proto` to 0.11.18, fixing
+`RUSTSEC-2021-0157` and `RUSTSEC-2026-0338` through `0342`. Compatible patches
+also update `anyhow` to 1.0.103, `event-listener` to 5.4.2 and rand 0.8 to 0.8.6
+for three unsoundness warnings. Lockfile additions belong to the patched parser
+and QUIC dependency closures; no runtime/model version, vendored fork, feature
+selection or CI policy changes.
+
+The same all-feature/all-target normal/build graph confirms `quinn-proto` is
+inactive and the existing waived `rkyv` 0.7 edge remains inactive. Reader/EPUB
+sanitizers do not allow styles or enable Ammonia's affected CSS filter. These
+reachability checks support the diagnosis; the patched dependencies are retained
+instead of adding exceptions.
+
+Validation with cargo-audit 0.22.2 and the same RustSec database revision as CI
+(`57dcc0f2192e025138907a495c1ac9a7e1e3e123`) reproduces six findings on the exact
+run's lockfile and zero on the updated lockfile, with the sole existing
+`RUSTSEC-2026-0235` waiver unchanged. Ten non-blocking warnings remain: eight
+maintenance notices plus upstream GLib 0.18 and rand 0.7 unsoundness notices.
+GLib comes from Tauri's GTK/WebKit stack; rand 0.7 comes from parser build tooling
+without its affected logging feature. No forced cross-major replacement or
+claim that these warnings are fixed.
+
+Default Rust tests pass (183 passed, five opt-in checks ignored), as
+do provider-enabled/native-TTS tests (241 passed, ten ignored), including
+sanitization, EPUB parsing, authenticated transfer and cache/index/query guards.
+No new tests duplicate upstream patches; existing boundary regressions exercise
+the updated dependencies. Full platform/package CI and cached-model inference
+must be rerun on the pushed revision. App smoke remains explicitly deferred;
+no acceptance gate is closed by this local repair.
+
 ## Stage 7 — Settings labels, activity and confirmation — 2026-10-12
 
 User approved the label/spinner/expansion/confirmation follow-up and reuse of
