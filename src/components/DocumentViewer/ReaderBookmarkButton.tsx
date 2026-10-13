@@ -1,5 +1,6 @@
 import { Button, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components'
 import { useTranslation } from 'react-i18next'
+import { TrashIcon } from '../TrashIcon/TrashIcon'
 
 interface ReaderBookmarkButtonProps {
   hasBookmark: boolean
@@ -63,7 +64,7 @@ export function ReaderBookmarkButton({
             className="reader-bookmark-menu-item reader-bookmark-menu-item-danger"
             onAction={onRemove}
           >
-            <RemoveBookmarkIcon />
+            <TrashIcon className="reader-bookmark-menu-item-icon" />
             <span>{t('reader.removeBookmark')}</span>
           </MenuItem>
         </Menu>
@@ -96,14 +97,6 @@ function MoveBookmarkIcon() {
     <svg className="reader-bookmark-menu-item-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d="M6 4.75A2.75 2.75 0 0 1 8.75 2h6.5A2.75 2.75 0 0 1 18 4.75V21l-6-3.5L6 21z" />
       <path d="M12 6v7m-3-3 3 3 3-3" />
-    </svg>
-  )
-}
-
-function RemoveBookmarkIcon() {
-  return (
-    <svg className="reader-bookmark-menu-item-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M4 7h16M9 7V4h6v3m3 0-1 14H7L6 7m4 4v6m4-6v6" />
     </svg>
   )
 }

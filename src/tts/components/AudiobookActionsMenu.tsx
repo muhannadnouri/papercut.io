@@ -1,5 +1,6 @@
 import { Button, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components'
 import type { TFunction } from 'i18next'
+import { TrashIcon } from '../../components/TrashIcon/TrashIcon'
 import type { NativeAudiobookExportFormat } from '../api/nativeTts'
 import type { SavedAudiobookRecord } from '../storage/AudiobookLibrary'
 import { SILMA_MODEL_ID } from '../types'
@@ -67,7 +68,7 @@ export function AudiobookActionsMenu({
                 textValue={t('tts.audiobooks.delete')}
                 onAction={onDelete}
               >
-                <AudiobookDeleteIcon />
+                <TrashIcon className="audiobook-actions-option-icon" />
                 <span>{t('tts.audiobooks.delete')}</span>
               </MenuItem>
             </Menu>
@@ -88,14 +89,6 @@ function AudiobookMoreActionsIcon() {
       <circle cx="12" cy="5" r="2" />
       <circle cx="12" cy="12" r="2" />
       <circle cx="12" cy="19" r="2" />
-    </svg>
-  )
-}
-
-function AudiobookDeleteIcon() {
-  return (
-    <svg className="audiobook-actions-option-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M4 7h16M9 7V4h6v3m3 0-1 14H7L6 7m4 4v6m4-6v6" fill="none" stroke="currentcolor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }

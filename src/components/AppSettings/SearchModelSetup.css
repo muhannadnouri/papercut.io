@@ -248,3 +248,13 @@ details.search-model-panel[open] > * + * {
     align-items: stretch;
   }
 }
+
+.search-index-spinner {
+  display: inline-block;
+  margin-inline-start: 0.5rem;
+  vertical-align: middle;
+}
+
+.search-removal-actions > button[hidden] {
+  display: none;
+}

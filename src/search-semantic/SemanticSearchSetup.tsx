@@ -23,12 +23,11 @@ export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, childre
       <label className="app-setting app-setting-toggle">
         <span id={`${id}-enabled-label`}>{t('settings.semantic.enabled')}</span>
         <span className="app-settings-switch"><input type="checkbox" role="switch" checked={enabled}
-          aria-labelledby={`${id}-semantic-title ${id}-enabled-label`}
+          aria-labelledby={`${id}-enabled-label`}
           aria-describedby={`${id}-status${!cachePresent && !enabled ? ` ${id}-prerequisite` : ''}`}
           disabled={operation === 'disable' || (!enabled && (busy || !cachePresent || !provider?.compiled))}
           onChange={(event) => { void semantic.setEnabled(event.target.checked) }} /><span aria-hidden="true" /></span>
       </label>
-      <p>{t('settings.searchModel.resourceSummary')}</p>
       <p id={`${id}-status`} role="status" aria-live="polite">{t(`settings.semantic.summary.${status}`)}</p>
       {enabled && !active && <button type="button" className="app-settings-data-action" disabled={busy || !cachePresent || !provider?.compiled}
         onClick={() => { void semantic.setEnabled(true) }}>{t('settings.semantic.retry')}</button>}
@@ -37,7 +36,9 @@ export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, childre
     </section>
     {children}
     {showIndex && <details className="search-model-panel search-library-index" open={expandIndex}>
-      <summary>{t('settings.semantic.libraryTitle')}
+      <summary aria-label={indexing ? `${t('settings.semantic.libraryTitle')} · ${t(semantic.cancelling || index?.cancelRequested ? 'settings.semantic.cancelling' : 'settings.semantic.indexing')}` : undefined}>
+        {t('settings.semantic.libraryTitle')}
+        {indexing && <span className="spinner search-index-spinner" aria-hidden="true" />}
         {!enabled && !indexing && index?.hasStoredIndex && <span className="search-model-summary-status">{t('settings.semantic.savedIndex')}</span>}
       </summary>
       <div className="search-index-status">

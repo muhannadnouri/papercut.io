@@ -67,8 +67,11 @@ function controls(node: ReactNode = tree): ReactElement<Record<string, unknown>>
     return [child, ...controls((child.props.children ?? null) as ReactNode), ...controls((child.props.indexMaintenance ?? null) as ReactNode)]
   })
 }
+function buttonText(node: ReactElement<Record<string, unknown>>) {
+  return Children.toArray(node.props.children as ReactNode).filter(child => typeof child === 'string').join('')
+}
 function control(type: string, text?: string) {
-  const element = controls().find((item) => item.type === type && (type !== 'select' || item.props['aria-label'] === 'settings.searchModel.format') && (!text || item.props.children === text))
+  const element = controls().find((item) => item.type === type && !item.props.hidden && (type !== 'select' || item.props['aria-label'] === 'settings.searchModel.format') && (!text || buttonText(item) === text))
   expect(element, `${type} ${text ?? ''}`).toBeDefined()
   return element!
 }
@@ -80,7 +83,7 @@ function click(key: string) {
 function confirmRemoval(kind: 'model' | 'index' = 'model') {
   const confirmation = controls().find(node => node.props.className === 'search-removal-confirmation')!
   const label = kind === 'model' ? 'settings.searchModel.remove' : 'settings.semantic.remove'
-  const button = controls(confirmation.props.children as ReactNode).find(node => node.type === 'button' && node.props.children === label)!
+  const button = controls(confirmation.props.children as ReactNode).find(node => node.type === 'button' && buttonText(node) === label)!
   expect(button.props.disabled).not.toBe(true)
   ;(button.props.onClick as () => void)()
 }
@@ -313,6 +316,10 @@ it('requires confirmation for cleanup, cancellation preserves files, and format 
   click('settings.searchModel.remove'); render()
   expect(mocked.invoke.mock.calls.some(([cmd]) => cmd === 'search_embedding_remove')).toBe(false)
   expect(render()).toContain('settings.searchModel.confirmRemove')
+  const removals = controls().filter(node => node.type === 'button' && buttonText(node) === 'settings.searchModel.remove')
+  expect(removals.filter(node => !node.props.hidden)).toHaveLength(1)
+  expect(removals.filter(node => node.props.hidden)).toHaveLength(1)
+  expect(render()).toContain('class="app-settings-data-icon"')
   click('common.cancel'); render()
   expect(render()).not.toContain('settings.searchModel.confirmRemove')
   click('settings.searchModel.remove'); render()
@@ -338,8 +345,8 @@ it('keeps index removal behind confirmation and disables it for an empty index',
   expect(markup).not.toContain('settings.searchModel.closeHelp')
   expect(markup).not.toContain('settings.semantic.closeHelp')
   const maintenance = controls().find(node => node.props.className === 'search-model-actions search-removal-actions'
-    && controls(node.props.children as ReactNode).some(child => child.props.children === 'settings.semantic.refresh'))!
-  expect(controls(maintenance.props.children as ReactNode).filter(node => node.type === 'button').map(node => node.props.children))
+    && controls(node.props.children as ReactNode).some(child => buttonText(child) === 'settings.semantic.refresh'))!
+  expect(controls(maintenance.props.children as ReactNode).filter(node => node.type === 'button').map(buttonText))
     .toEqual(['settings.semantic.refresh', 'settings.semantic.remove'])
   click('settings.semantic.refresh'); render()
   expect(semantic.refresh).toHaveBeenCalledTimes(1)
@@ -378,7 +385,7 @@ it('keeps progress and cancellation without background notices or starting work 
   expect(semantic.build).not.toHaveBeenCalled()
 })
 
-it('collapses a loaded model, keeps file presence distinct from verification and restores preparation after disable', async () => {
+it('keeps model preparation expanded through completion and restores preparation after disable', async () => {
   present = true
   render(); await settle()
   expect(render()).toContain('settings.searchModel.present')
@@ -391,7 +398,7 @@ it('collapses a loaded model, keeps file presence distinct from verification and
   status.activeFormat = 'float32'
   mocked.listen.mock.calls[0][1]({ payload: { phase: 'installed', format: 'float32' } })
   const loaded = await settle()
-  expect(controls().find(node => node.type === 'details' && node.props.className === 'search-model-panel search-model-management')!.props.open).toBe(false)
+  expect(controls().find(node => node.type === 'details' && node.props.className === 'search-model-panel search-model-management')!.props.open).toBe(true)
   expect(loaded).toContain('settings.searchModel.loaded')
   expect(loaded).not.toContain('settings.searchModel.consent')
   status.activeFormat = null
@@ -414,12 +421,31 @@ it('blocks repeated removal after cleanup, but permits incomplete-file cleanup',
   expect(render()).toContain('settings.searchModel.absent')
 })
 
+it('preserves manual model expansion and collapse as provider status changes', async () => {
+  present = true
+  render(); await settle()
+  const model = () => controls().find(node => node.type === 'details' && node.props.className === 'search-model-panel search-model-management')!
+  expect(model().props.open).toBe(false)
+  ;(model().props.onToggle as (event: unknown) => void)({ currentTarget: { open: true } })
+  render()
+  status.activeFormat = 'float32'
+  mocked.listen.mock.calls[0][1]({ payload: { phase: 'installed', format: 'float32' } })
+  await settle()
+  expect(model().props.open).toBe(true)
+  ;(model().props.onToggle as (event: unknown) => void)({ currentTarget: { open: false } })
+  render()
+  status.activeFormat = null
+  mocked.listen.mock.calls[0][1]({ payload: { phase: 'installed', format: 'float32' } })
+  await settle()
+  expect(model().props.open).toBe(false)
+})
+
 it('collapses installed files while off, keeps model removal in its section, and omits separate storage', async () => {
   present = true
   render(); await settle()
   const model = controls().find(node => node.type === 'details' && node.props.className === 'search-model-panel search-model-management')!
   expect(model.props.open).toBe(false)
-  expect(controls(model.props.children as ReactNode).some(node => node.props.children === 'settings.searchModel.remove')).toBe(true)
+  expect(controls(model.props.children as ReactNode).some(node => buttonText(node) === 'settings.searchModel.remove')).toBe(true)
   expect(render()).not.toContain('settings.searchModel.storage')
 })
 

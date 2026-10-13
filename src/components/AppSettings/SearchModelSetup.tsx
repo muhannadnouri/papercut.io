@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { formatStorageSize } from '../../utils/formatUtils'
 import { SemanticSearchSetup } from '../../search-semantic/SemanticSearchSetup'
 import type { ModelSelection, ProviderStatus, SemanticSearchController } from '../../search-semantic/useSemanticSearch'
+import { TrashIcon } from '../TrashIcon/TrashIcon'
 import './SearchModelSetup.css'
 
 interface CacheStatus {
@@ -41,6 +42,16 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
   const [cancelling, setCancelling] = useState(false)
   const refreshPending = useRef<Promise<void> | null>(null)
   const setup = useRef<HTMLElement>(null)
+  const removalReturnFocus = useRef<HTMLButtonElement | null>(null)
+  // A completed job must not collapse the panel the user is currently watching.
+  const [modelExpanded, setModelExpanded] = useState<boolean | null>(null)
+
+  // Move focus only after the confirmation or its hidden trigger becomes visible.
+  useEffect(() => {
+    if (removal) setup.current?.querySelector<HTMLButtonElement>('.search-removal-confirmation button')?.focus()
+    else removalReturnFocus.current?.focus()
+    removalReturnFocus.current = null
+  }, [removal])
 
   const refresh = useCallback(async () => {
     if (refreshPending.current) return refreshPending.current
@@ -110,6 +121,7 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
     if (kind === 'download' && !consent) return
     if (kind === 'remove' && (!cache.hasStoredFiles || status.activeFormat === format)) return
     action.current = true
+    setModelExpanded(true)
     setOperation(kind)
     setProgress(null)
     setMessage('')
@@ -182,14 +194,14 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
     return <div className="search-removal-controls">
       <div className="search-model-actions search-removal-actions">
         {preparation}
-        <button type="button" className="app-settings-data-action search-remove-confirm" disabled={!allowed}
-          onClick={() => { if (allowed) setRemoval(kind) }}>{label}</button>
+        <button type="button" className="app-settings-data-action search-remove-confirm" hidden={removal === kind} disabled={!allowed}
+          onClick={() => { if (allowed) setRemoval(kind) }}><TrashIcon className="app-settings-data-icon" />{label}</button>
       </div>
       {removal === kind && <div className="search-removal-confirmation" aria-live="polite" role="group" aria-label={label}>
         <p>{t(kind === 'model' ? 'settings.searchModel.confirmRemove' : 'settings.semantic.confirmRemove')}</p>
         <div className="search-model-actions">
           <button type="button" className="app-settings-data-action" onClick={(event) => {
-            event.currentTarget.closest('.search-removal-controls')?.querySelector<HTMLButtonElement>('.search-remove-confirm')?.focus()
+            removalReturnFocus.current = event.currentTarget.closest('.search-removal-controls')?.querySelector<HTMLButtonElement>('.search-removal-actions .search-remove-confirm') ?? null
             setRemoval(null)
           }}>{t('common.cancel')}</button>
           <button type="button" className="app-settings-data-action search-remove-confirm" disabled={!allowed}
@@ -203,7 +215,7 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
               if (kind === 'model') void run('remove')
               else void semantic?.remove()
               setRemoval(null)
-            }}>{label}</button>
+            }}><TrashIcon className="app-settings-data-icon" />{label}</button>
         </div>
       </div>}
     </div>
@@ -211,7 +223,8 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
 
   // Model preparation sits between the opt-in and index controls without owning their state.
   const modelControls = <>
-    {ready && status?.compiled && <details className="search-model-panel search-model-management" open={(!loaded && !cache?.filesPresent) || operation !== null || !!downloading || !!status.loadingFormat || !!error}>
+    {ready && status?.compiled && <details className="search-model-panel search-model-management" open={operation !== null || !!downloading || !!status.loadingFormat || !!error || (modelExpanded ?? (!loaded && !cache?.filesPresent))}
+      onToggle={(event) => setModelExpanded(event.currentTarget.open)}>
       <summary>{t(loaded || cache?.hasStoredFiles ? 'settings.searchModel.manage' : 'settings.searchModel.title')}
         {(loaded || cache?.filesPresent) && <span className="search-model-summary-status" role="status">{formatLabel(format)} · {t(loaded ? 'settings.searchModel.loaded' : 'settings.searchModel.stored')}</span>}
       </summary>

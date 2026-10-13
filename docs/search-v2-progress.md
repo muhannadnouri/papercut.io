@@ -70,6 +70,45 @@ remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
 
+## Stage 7 — Settings labels, activity and confirmation — 2026-10-12
+
+User approved the label/spinner/expansion/confirmation follow-up and reuse of
+the existing trash icon. The switch now says Enable Semantic Search in every
+locale, with one accessible control label; observed Off/On readiness remains
+separate. The repeated resource sentence is removed from that card, while
+Technical Details retains the hardware/memory/battery explanation.
+
+Library Index reuses the app spinner during indexing, including cancellation
+cleanup. It remains visible when the outer disclosure is collapsed, whose
+accessible name reports indexing/stopping. The existing global reduced-motion
+rule applies; no percentage or ETA is invented. Stop Indexing stays neutral,
+with checkpoint reuse and cancellation behavior unchanged.
+
+Manage Model records expansion for the current settings visit and stays open
+after an explicitly started file operation completes. Manual expansion/collapse
+survives ordinary provider refreshes; new visits with stored/loaded files still
+start collapsed. Pending work/errors retain their existing expansion behavior.
+
+Inline removal confirmation hides its original trigger instead of displaying
+two removal buttons. Cancel receives focus; cancelling restores the trigger
+and then returns focus after it is visible. The specific removal label,
+consequence text, busy/stored-work guards and safe focus after removal remain.
+The existing audiobook/bookmark trash SVG is extracted into a small shared
+component, reused by those controls and model/index removal; icons are decorative
+and all Settings actions retain visible labels. No dependency or native/CI change.
+
+Validation: all 218 frontend/tooling tests across 50 files, locale parity,
+typecheck, lint, frontend production build and diff checks pass. Regressions cover
+manual and job-completion expansion, spinner/accessible state, single visible
+confirmation action, icon rendering and existing guards. An isolated actual-component
+preview with synthetic IPC verifies expanded completion feedback, collapsed
+index activity, confirmation focus/return, stable off/on labeling, and 320px
+Arabic RTL spinner/confirmation layout without overflow. This is frontend evidence;
+installed-app, network, screen-reader and physical-device smoke remain deferred.
+
+Next review CI evidence for the actual source revision, then use the updated
+consolidated checklist when the user resumes smoke. No smoke case is marked passed.
+
 ## Stage 7 — Combined settings cleanup — 2026-10-12
 
 User approved removing both background-work notices and simplifying index

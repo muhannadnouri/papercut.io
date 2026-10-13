@@ -515,3 +515,20 @@ use the normal native shipping build and disposable data.
       stack on narrow/RTL views, and remain disabled during work. Refresh still
       updates status; removal retains its inline confirmation and empty-index
       guard. Build/Update Index remains the separate primary action.
+
+- [ ] Enable Semantic Search is the stable toggle label when off or on; its
+      checked state and separate Off/On readiness agree. Resource guidance is
+      available in Technical Details without repeating it in the toggle card.
+      During indexing/stopping, Library Index shows the app spinner even when
+      collapsed, with an accessible state label; reduced motion disables rotation.
+      Stop Indexing remains neutral and completed checkpoints remain reusable.
+- [ ] Manage Model stays expanded after a download/verification completes in this
+      visit. Manual expansion/collapse survives ordinary status refreshes; reopening
+      Settings with stored/loaded files starts collapsed. Check pending work/errors,
+      format changes and removal do not conceal required recovery feedback.
+- [ ] Both removal actions and their confirmations show the existing trash icon
+      beside a readable label. Opening confirmation hides the original removal
+      trigger and focuses Cancel; cancelling restores it and returns focus.
+      Only one removal action is visible for that object. Confirming still uses
+      the specific removal label, preserves document data and checks busy/storage
+      guards. Verify bookmark/audio removal icons retain their previous appearance.
