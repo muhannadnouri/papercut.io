@@ -598,18 +598,26 @@ mod tests {
     fn note_roles_survive_both_epub_and_reader_sanitizers() {
         let safe = sanitize_epub_fragment(
             r#"<aside epub:type="footnote" id="note" onclick="alert(1)"><p>Harbor note.</p></aside>
-            <section role="doc-bibliography button"><p>A citation.</p></section>"#,
+            <section role="doc-bibliography button"><p>A citation.</p></section>
+            <p>港 Ferry routes. <span epub:type="footnote"><b>Inline note.</b></span> Island stops.</p>"#,
         );
         let parsed = parsed_html_document(
             "Transit guide".into(),
             "epub",
             crate::document_uploads::html::sanitize_html(&safe),
         );
-        assert_eq!(parsed.sections.len(), 2);
-        assert!(parsed
-            .sections
+        assert_eq!(parsed.sections.len(), 3);
+        assert!(parsed.sections[..2]
             .iter()
             .all(|section| section.body_ranges == Some(Vec::new())));
+        assert_eq!(
+            crate::document_uploads::search_content::body_text(
+                &parsed.sections[2].text,
+                parsed.sections[2].body_ranges.as_ref().unwrap()
+            ),
+            "港 Ferry routes.\nIsland stops."
+        );
+        assert!(parsed.sections[2].text.contains("Inline note."));
         assert!(parsed.view_html.contains("id=\"note\""));
         assert!(!parsed.view_html.contains("onclick"));
         assert!(parsed.view_html.contains("role=\"doc-bibliography\""));

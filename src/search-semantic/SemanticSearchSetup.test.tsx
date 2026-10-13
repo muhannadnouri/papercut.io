@@ -9,7 +9,7 @@ vi.mock('react-i18next', () => ({ useTranslation: () => ({
 }) }))
 
 function controller(overrides: Partial<SemanticSearchController> = {}): SemanticSearchController {
-  return { enabled: false, format: 'float32', busy: false, operation: null, cancelling: false, error: '', statusError: '',
+  return { enabled: false, format: 'float32', busy: false, operation: null, cancelling: false, error: '', statusError: '', downloadFailure: null,
     provider: { compiled: true, activeFormat: null, loadingFormat: null, downloadingFormat: null },
     index: { running: false, cancelRequested: false, indexedDocuments: 1, eligibleDocuments: 2,
       passages: 3, hasStoredIndex: true, embeddedPassages: 2, reusedPassages: 1, error: null },

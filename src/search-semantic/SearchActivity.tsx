@@ -14,7 +14,7 @@ export function SearchActivity({ semantic, onManage }: {
     : semantic.index?.running && (semantic.cancelling || semantic.index.cancelRequested) ? 'cancelling'
     : semantic.index?.running || semantic.operation === 'build' ? 'indexing' : 'working'
   const label = phase ? t(`settings.semantic.activity.${phase}`) : ''
-  const review = phase === 'failed' || phase === 'statusFailed'
+  const review = phase === 'failed' || phase === 'statusFailed' || phase === 'downloadFailed'
   // Coverage is completed documents, not a time estimate; never turn it into a job percentage.
   const index = phase === 'indexing' && semantic.index?.running ? semantic.index : null
   const progress = index && index.eligibleDocuments > 0 ? t('settings.semantic.documentsReady', {

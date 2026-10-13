@@ -578,9 +578,10 @@ incomplete; already current coverage hides the action. Native invalidation alrea
 hides stale documents.
 Coverage reports compatible completed documents and ready passages, while job
 counts report encoded/reused passages rather than an invented percent complete.
-The visible document count is separate from passage/job details. **Index Details**
-holds passage counts and **Refresh Status**, which explicitly rereads coverage
-after edits. Ready status requires the selected active provider, nonempty complete
+Wide settings pair **Passages Processed** with **Documents Indexed**; narrow
+layouts stack them. The Library Index owns work/readiness status and its single
+spinner. Status refreshes on library changes, settings open and busy polling;
+**Retry Status** appears only after a failed read. Ready status requires the selected active provider, nonempty complete
 coverage, no running build and no current error. Disabled coverage is zero for
 ready passages/documents because no active model identity can be verified; this
 does not imply deletion of checkpoint data.
@@ -589,6 +590,14 @@ Cancel or turn off to stop indexing cooperatively. Turn off unloads the provider
 but retains model files and validated checkpoints; explicit index removal deletes
 only derived data, while cache removal is separate. Closing Settings, opening a
 reader does not cancel work or discard the controller.
+Download terminal events carry a process-local `jobId`, selection, phase, byte
+counts and nullable native `error`. The terminal outcome is emitted after native
+reservation cleanup, including failure/unwind. The App retains the failed model
+and diagnostic across Settings navigation with **Model Download Failed / Review**;
+reviewing or rereading status does not erase it. A new download clears it and
+stale/duplicate job events cannot replace the newer outcome. This is session
+state, not persistent job history, and introduces no automatic retry/activation.
+
 UI actions reject conflicting/duplicate jobs, and generations ignore late
 activation/index completions after disable. Status polling has one outstanding
 poll per owner, only during pending work. Native cleanup can take time and does

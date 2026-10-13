@@ -4,7 +4,7 @@ import { listen } from '@tauri-apps/api/event'
 import { useTranslation } from 'react-i18next'
 import { formatStorageSize } from '../../utils/formatUtils'
 import { SemanticSearchSetup } from '../../search-semantic/SemanticSearchSetup'
-import type { ModelSelection, ProviderStatus, SemanticSearchController } from '../../search-semantic/useSemanticSearch'
+import type { DownloadProgress, ModelSelection, ProviderStatus, SemanticSearchController } from '../../search-semantic/useSemanticSearch'
 import { TrashIcon } from '../TrashIcon/TrashIcon'
 import './SearchModelSetup.css'
 
@@ -14,13 +14,6 @@ interface CacheStatus {
   hasStoredFiles: boolean
   expectedBytes: number
 }
-interface DownloadProgress {
-  format: ModelSelection
-  phase: 'starting' | 'downloading' | 'installed' | 'cancelled' | 'failed'
-  downloadedBytes: number
-  totalBytes: number
-}
-
 /** Cache preparation never activates a model; the separate opt-in controls own activation. */
 export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchController } = {}) {
   const { t } = useTranslation()
@@ -225,7 +218,7 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
 
   // Model preparation sits between the opt-in and index controls without owning their state.
   const modelControls = <>
-    {ready && status?.compiled && <details className="search-model-panel search-model-management" open={operation !== null || !!downloading || !!status.loadingFormat || !!error || (modelExpanded ?? (!loaded && !cache?.filesPresent))}
+    {ready && status?.compiled && <details className="search-model-panel search-model-management" open={operation !== null || !!downloading || !!status.loadingFormat || !!error || (modelExpanded ?? (semantic?.downloadFailure?.format === format || (!loaded && !cache?.filesPresent)))}
       onToggle={(event) => setModelExpanded(event.currentTarget.open)}>
       <summary>{t(loaded || cache?.hasStoredFiles ? 'settings.searchModel.manage' : 'settings.searchModel.title')}
         {(loaded || cache?.filesPresent) && <span className="search-model-summary-status" role="status">{formatLabel(format)} · {t(loaded ? 'settings.searchModel.loaded' : 'settings.searchModel.stored')}</span>}
@@ -287,7 +280,7 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
       </div>}
       {message === 'removed' && <p role="status">{t('settings.searchModel.removed')}</p>}
       {!busy && progress?.phase === 'cancelled' && !error && <p role="status">{t('settings.searchModel.cancelled')}</p>}
-      {!busy && progress?.phase === 'failed' && !error && <p role="alert">{t('settings.searchModel.failed')}</p>}
+      {!busy && (semantic ? semantic.downloadFailure?.format === format : progress?.phase === 'failed') && !error && <p role="alert" dir="auto">{semantic?.downloadFailure?.format === format && semantic.downloadFailure.message || t('settings.searchModel.failed')}</p>}
     </details>}
     {error && <p className="app-dialog-error" role="alert" dir="auto">{error}</p>}
     {error && <button type="button" className="app-settings-data-action" onClick={() => {

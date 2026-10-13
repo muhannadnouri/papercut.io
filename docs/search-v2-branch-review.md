@@ -1,5 +1,26 @@
 # Search v2 branch acceptance and review
 
+## Corrective review follow-up — 2026-10-13
+
+Reviewed application baseline: `d53a6aee73c613a3c28105f06ed4fcc47241706a`.
+The user approved fixes **1–4** from the ranked branch review. They are implemented
+with behavioral regressions; the earlier acceptance consolidation below remains
+historical and does not describe the current application HEAD.
+
+| Rank | Finding | Resolution |
+| --- | --- | --- |
+| 1 | Inline notes flatten into preferred body evidence | Role-aware UTF-8 ranges preserve literal source/locators; schema-13 verified saved-source repair invalidates affected vectors and resumes after restart. Missing/mismatched sources retain known ranges. |
+| 2 | Download failures disappear after Settings closes | App-owned failure/model diagnostic and Review notice survive navigation/status retry; new job IDs guard stale terminal events. Explicit retry still requires download consent. |
+| 3 | Runner cleanup hides native inference failures | All owned cleanup is attempted; secondary failures are reported; original error identity is retained. Cleanup failure alone still fails the runner. |
+| 4 | Native query limits leave starter work running | Frontend budget rejects before provider calls, clears conceptual input, and stops superseded starter term loops; native trust-boundary checks remain. |
+
+Regression checks: 257 frontend tests, 187 default / 245 provider-enabled Rust
+tests, 7 runner self-tests; lint/i18n/typecheck/Vite build pass. Real modal DOM
+interaction and production PDF.js integration coverage remain open (review items
+5–7); these are the next recommended fixes. Lower-ranked maintainability/test
+cleanup remains unaddressed. App/device/screen-reader smoke stays deferred; no
+current acceptance checkbox, CI run, push or merge is implied.
+
 ## Current Acceptance Consolidation — 2026-10-12
 
 **Development and the bounded scorer experiment are complete for this pass;

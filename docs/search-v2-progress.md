@@ -2,6 +2,19 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+## Branch review fixes 1–4 — 2026-10-13
+
+The user authorized the first four ranked review fixes, with smoke deferred.
+
+- HTML/EPUB inline auxiliary descendants now retain literal text and reader locators while their UTF-8 bytes are excluded from preferred body evidence. Schema 13 queues existing saved HTML for restartable verification: matching source updates only derived ranges, invalidates affected semantic coverage, and requires explicit **Build/Update Index**. Missing or mismatched sources retain known ranges; no documents, source files or model files are removed.
+- The App owner retains a failed download's selected model and native diagnostic across Settings navigation and status retries. **Model Download Failed / Review** is separate from indexing failure; a fresh download clears the old outcome. Native job IDs reject stale/duplicate terminal events. Neither recovery nor navigation enables semantic search or starts indexing.
+- Android/iOS inference runners attempt all owned cleanup, report secondary cleanup failures, preserve the original native error, and fail if cleanup alone fails.
+- React checks the native 4,096-Unicode-character / 128-normalized-term budget across broad and quoted clauses before either lexical provider starts. Invalid queries clear the conceptual submission too; superseded starter requests stop further term lookups. Native validation remains independently enforced.
+
+Validation: 257 frontend tests in 52 files; 187 default Rust tests (5 ignored); 245 provider-enabled Rust tests (10 ignored); 7 mobile runner self-tests. New regressions assert source offsets/literal eligibility, upgrade restart and vector invalidation, retained download outcomes, provider-call budgets and cleanup error identity. Lint, i18n, TypeScript and Vite build pass. Vite's existing large-chunk warning remains. These unit/native-boundary checks do not claim real React DOM, physical-device or WebView acceptance.
+
+Next: remaining review items 5–7—real modal interaction tests, a production PDF.js integration regression, and removal of the parallel test-only phrase implementation. Keep app smoke deferred; no push, workflow dispatch or merge in this pass.
+
 ## Current decision — Stage 7 opt-in integration approved
 
 **On 2026-10-09 the user authorized Stage 7 development with a default-off semantic toggle.** Lexical search remains the default. The user chose a separate labeled conceptual-results section alongside existing All words/Broader results, preserving their semantics. Only a user who enables semantic search should receive conceptual results or a visible lexical fallback when the provider/index is unavailable, incomplete or fails. This is authorization to integrate, not a claim of release acceptance or an independently demonstrated overall ranking win. Cross-language ranking is a lower product priority; same-language relevance, required quotes, filters, source evidence and resource safety remain requirements. Retain the model-free improvements and isolated experimental controls. The rejected reranker remains removed. Earlier sections below record historical decisions and deferrals, not the current authorization.

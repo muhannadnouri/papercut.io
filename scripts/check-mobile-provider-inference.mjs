@@ -43,6 +43,18 @@ export function command(program, args, { timeout = 120_000, env = process.env, c
   return (result.stdout ?? "") + (combined ? result.stderr ?? "" : "")
 }
 
+// Attempt every owned cleanup; secondary failures must not replace the native diagnostic.
+function cleanup(tasks, failed) {
+  let firstError
+  for (const task of tasks) {
+    try { task() } catch (error) {
+      console.error(`Provider cleanup failed: ${error.message}`)
+      firstError ??= error
+    }
+  }
+  if (!failed && firstError) throw firstError
+}
+
 // Own only a disposable directory on the action's emulator, never a connected physical device.
 export function checkAndroid({ executable, models, runtimeLibs }, run = command) {
   const port = process.env.EMULATOR_PORT || "5554"
@@ -52,6 +64,7 @@ export function checkAndroid({ executable, models, runtimeLibs }, run = command)
     throw new Error("Provider validation requires an x86_64 emulator")
   }
   const remote = `/data/local/tmp/papercut-provider-${randomUUID()}`
+  let failed = false
   try {
     adb(["shell", "mkdir", "-p", remote])
     adb(["push", executable, `${remote}/provider-test`])
@@ -69,6 +82,7 @@ export function checkAndroid({ executable, models, runtimeLibs }, run = command)
     ].join(" ")], { timeout: 660_000, combined: true })
     assertInferenceCompleted(output)
   } catch (error) {
+    failed = true
     // Capture native teardown stacks before cleanup/emulator shutdown; preserve the original failure.
     try {
       adb(["logcat", "-b", "crash", "-d", "-v", "threadtime"], { timeout: 10_000 })
@@ -77,7 +91,7 @@ export function checkAndroid({ executable, models, runtimeLibs }, run = command)
     }
     throw error
   } finally {
-    adb(["shell", "rm", "-rf", remote])
+    cleanup([() => adb(["shell", "rm", "-rf", remote])], failed)
   }
 }
 
@@ -102,6 +116,7 @@ export function checkIos({ executable, models }, run = command) {
   }
   let dir
   let booted = false
+  let failed = false
   try {
     dir = mkdtempSync(join(tmpdir(), "papercut-provider-"))
     const signedTest = join(dir, "provider-test")
@@ -123,17 +138,16 @@ export function checkIos({ executable, models }, run = command) {
     env.SIMCTL_CHILD_TMPDIR = dir
     const output = run("xcrun", ["simctl", "spawn", uuid, signedTest, ...TEST_ARGS], { timeout: 660_000, env, combined: true })
     assertInferenceCompleted(output)
+  } catch (error) {
+    failed = true
+    throw error
   } finally {
-    try {
-      // Shutdown stops any native child after a timeout before deleting the owned simulator.
-      try {
-        if (booted) run("xcrun", ["simctl", "shutdown", uuid])
-      } finally {
-        run("xcrun", ["simctl", "delete", uuid])
-      }
-    } finally {
-      if (dir) rmSync(dir, { recursive: true, force: true })
-    }
+    cleanup([
+      // Stop a timed-out native child before deleting the owned simulator.
+      () => { if (booted) run("xcrun", ["simctl", "shutdown", uuid]) },
+      () => run("xcrun", ["simctl", "delete", uuid]),
+      () => { if (dir) rmSync(dir, { recursive: true, force: true }) },
+    ], failed)
   }
 }
 

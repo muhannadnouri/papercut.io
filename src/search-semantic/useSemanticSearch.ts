@@ -12,6 +12,14 @@ export interface ProviderStatus {
   loadingFormat: ModelSelection | null
   downloadingFormat: ModelSelection | null
 }
+export interface DownloadProgress {
+  jobId: string
+  format: ModelSelection
+  phase: 'starting' | 'downloading' | 'installed' | 'cancelled' | 'failed'
+  downloadedBytes: number
+  totalBytes: number
+  error: string | null
+}
 interface IndexStatus {
   running: boolean
   cancelRequested: boolean
@@ -24,7 +32,7 @@ interface IndexStatus {
   error: string | null
 }
 interface Preference { enabled: boolean; format: ModelSelection }
-type ActivityNotice = 'complete' | 'cancelled' | 'failed' | 'statusFailed'
+type ActivityNotice = 'complete' | 'cancelled' | 'failed' | 'statusFailed' | 'downloadFailed'
 const STORAGE_KEY = 'papercut.semantic-search.v1'
 
 /** Invalid or inaccessible preferences fail closed; cache presence is never consent. */
@@ -46,6 +54,8 @@ export function useSemanticSearch(library?: readonly UploadedDocument[]) {
   const [error, setError] = useState('')
   // Retrying a status read must not erase a failed indexing/activation diagnostic.
   const [statusError, setStatusError] = useState('')
+  const [downloadFailure, setDownloadFailure] = useState<{ format: ModelSelection; message: string } | null>(null)
+  const download = useRef<{ jobId: string; finished: boolean } | null>(null)
   const [cancelling, setCancelling] = useState(false)
   // A fresh identity resets expiry even when two fast jobs finish with the same outcome.
   const [activityNotice, setActivityNotice] = useState<{ kind: ActivityNotice } | null>(null)
@@ -207,8 +217,21 @@ export function useSemanticSearch(library?: readonly UploadedDocument[]) {
     let closed = false
     let stop: (() => void) | undefined
     // Downloads outlive Settings; terminal events also catch jobs shorter than one poll.
-    void listen<{ phase: string }>('search-embedding-download-progress', ({ payload }) => {
-      if (!closed && payload.phase !== 'downloading') void refresh().catch(() => {})
+    void listen<DownloadProgress>('search-embedding-download-progress', ({ payload }) => {
+      if (closed) return
+      if (payload.phase === 'starting') {
+        download.current = { jobId: payload.jobId, finished: false }
+        setDownloadFailure(null)
+        setActivityNotice(null)
+      } else if (payload.phase !== 'downloading') {
+        if (download.current && (download.current.finished || download.current.jobId !== payload.jobId)) return
+        download.current = { jobId: payload.jobId, finished: true }
+        if (payload.phase === 'failed') {
+          setDownloadFailure({ format: payload.format, message: payload.error ?? '' })
+          setActivityNotice({ kind: 'downloadFailed' })
+        }
+      }
+      if (payload.phase !== 'downloading') void refresh().catch(() => {})
     }).then((unlisten) => {
       if (closed) unlisten()
       else stop = unlisten
@@ -240,7 +263,7 @@ export function useSemanticSearch(library?: readonly UploadedDocument[]) {
     if (isTauri()) await refresh().catch(() => {})
   }, [refresh])
 
-  return { ...preference, provider, index, busy, operation, cancelling, error, statusError, activityNotice: activityNotice?.kind ?? null,
+  return { ...preference, provider, index, busy, operation, cancelling, error, statusError, downloadFailure, activityNotice: activityNotice?.kind ?? null,
     dismissActivity: () => setActivityNotice(null),
     setEnabled, setFormat, build: () => run('build'), remove: () => run('remove'), cancel,
     refresh: refreshStatus,

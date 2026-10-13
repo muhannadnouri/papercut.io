@@ -454,6 +454,7 @@
         "working": "正在更新搜索…",
         "complete": "索引已完成",
         "cancelled": "索引已取消",
+        "downloadFailed": "模型下载失败",
         "failed": "索引失败",
         "statusFailed": "搜索状态不可用",
         "view": "查看进度",

@@ -1,4 +1,4 @@
-import { normalizeForDisplay, escapeHtml, escapeRegex } from './textUtils'
+import { normalizeForDisplay, normalizeSearchPunctuation, escapeHtml, escapeRegex } from './textUtils'
 
 interface DocText {
   raw: string
@@ -161,4 +161,21 @@ export async function buildPhraseExcerpt(
     html = html.replace(re, (m) => '<mark>' + m + '</mark>')
   }
   return html
+}
+
+/** Match the native query budget before either provider starts; IPC still validates independently. */
+export function searchQueryWithinLimits(query: string, phrases: readonly string[]): boolean {
+  const parts = [query, ...phrases]
+  if (parts.reduce((count, part) => count + Array.from(part).length, 0) > 4096) return false
+  let terms = 0
+  for (const part of parts) {
+    const tokens = normalizeSearchPunctuation(part)
+      .replace(/(\p{Alphabetic})-\p{White_Space}+(?=\p{Alphabetic})/gu, '$1-')
+      .split(/\p{White_Space}+/u)
+    for (const token of tokens) {
+      if (token.replace(/^[^\p{Alphabetic}\p{N}_-]+|[^\p{Alphabetic}\p{N}_-]+$/gu, '')) terms++
+      if (terms > 128) return false
+    }
+  }
+  return true
 }

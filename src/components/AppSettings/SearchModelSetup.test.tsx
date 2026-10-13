@@ -169,7 +169,7 @@ it('keeps normal builds unavailable and never starts downloads or activates on o
 
 it('offers turning off a saved opt-in even when the current build has no provider', async () => {
   status.compiled = false
-  semantic = { enabled: true, format: 'float32', busy: false, operation: null, error: '', statusError: '', cancelling: false,
+  semantic = { enabled: true, format: 'float32', busy: false, operation: null, error: '', statusError: '', downloadFailure: null, cancelling: false,
     provider: { compiled: false, activeFormat: null, loadingFormat: null, downloadingFormat: null },
     index: undefined, setEnabled: vi.fn(), setFormat: vi.fn(), build: vi.fn(), remove: vi.fn(),
     cancel: vi.fn(), refresh: vi.fn(), activityNotice: null, dismissActivity: vi.fn() }
@@ -333,7 +333,7 @@ it('requires confirmation for cleanup, cancellation preserves files, and format 
 })
 
 it('keeps index removal behind confirmation and disables it for an empty index', async () => {
-  semantic = { enabled: false, format: 'float32', busy: false, operation: null, error: '', statusError: '', cancelling: false,
+  semantic = { enabled: false, format: 'float32', busy: false, operation: null, error: '', statusError: '', downloadFailure: null, cancelling: false,
     provider: { compiled: true, activeFormat: null, loadingFormat: null, downloadingFormat: null },
     index: { running: false, cancelRequested: false, indexedDocuments: 1, eligibleDocuments: 2,
       passages: 4, hasStoredIndex: true, embeddedPassages: 0, reusedPassages: 0, error: null },
@@ -365,7 +365,7 @@ it('keeps progress and cancellation without background notices or starting work 
   expect(render()).not.toContain('settings.semantic.closeHelp')
   expect(mocked.invoke.mock.calls.some(([cmd]) => cmd === 'search_embedding_download')).toBe(false)
   status.downloadingFormat = null
-  semantic = { enabled: true, format: 'float32', busy: true, operation: 'build', error: '', statusError: '', cancelling: false,
+  semantic = { enabled: true, format: 'float32', busy: true, operation: 'build', error: '', statusError: '', downloadFailure: null, cancelling: false,
     provider: { compiled: true, activeFormat: 'float32', loadingFormat: null, downloadingFormat: null },
     index: { running: true, cancelRequested: false, indexedDocuments: 1, eligibleDocuments: 2,
       passages: 4, hasStoredIndex: true, embeddedPassages: 0, reusedPassages: 0, error: null },

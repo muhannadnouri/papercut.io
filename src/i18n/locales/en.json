@@ -461,6 +461,7 @@
         "working": "Updating Search…",
         "complete": "Indexing Complete",
         "cancelled": "Indexing Cancelled",
+        "downloadFailed": "Model Download Failed",
         "failed": "Indexing Failed",
         "statusFailed": "Search Status Unavailable",
         "view": "View Progress",

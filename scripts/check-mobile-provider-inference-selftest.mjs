@@ -160,3 +160,52 @@ test("iOS isolates forwarded settings and cleans its simulator/test copy after s
     rmSync(fixture, { recursive: true, force: true })
   }
 })
+
+test("cleanup reports secondary errors, preserves native failures and still fails after successful inference", () => {
+  const fixture = mkdtempSync(join(tmpdir(), "papercut-provider-cleanup-"))
+  const executable = join(fixture, "test")
+  writeFileSync(executable, "fixture")
+  const originalLog = console.error
+  const diagnostics = []
+  console.error = message => diagnostics.push(message)
+  try {
+    for (const platform of ["android", "ios"]) {
+      for (const inferenceFails of [false, true]) {
+        diagnostics.length = 0
+        const nativeError = new Error("native inference aborted")
+        const cleanupError = new Error("cleanup disconnected")
+        const calls = []
+        let signedTest
+        const run = (program, args) => {
+          calls.push({ program, args })
+          if (args.includes("getprop")) return "x86_64"
+          if (args.includes("list")) return JSON.stringify({ devices: {
+            "com.apple.CoreSimulator.SimRuntime.iOS-26-2": [{ isAvailable: true, deviceTypeIdentifier: "com.apple.CoreSimulator.SimDeviceType.iPhone-17" }],
+          } })
+          if (args.includes("create")) return "12345678-1234-1234-1234-123456789abc"
+          if (program === "codesign") signedTest = args.at(-1)
+          if (args.includes("spawn") || args.some(arg => arg.includes("timeout 600"))) {
+            if (inferenceFails) throw nativeError
+            return completed
+          }
+          if (args.includes("rm") || args.includes("shutdown")) throw cleanupError
+          if (args.includes("delete")) throw new Error("delete failed too")
+          return ""
+        }
+        const check = () => platform === "android"
+          ? checkAndroid({ executable, models: "/tmp/models", runtimeLibs: "/tmp/libs" }, run)
+          : checkIos({ executable, models: "/tmp/models" }, run)
+        assert.throws(check, error => error === (inferenceFails ? nativeError : cleanupError))
+        assert.ok(diagnostics.some(message => message.includes("cleanup disconnected")))
+        if (platform === "ios") {
+          assert.ok(calls.some(({ args }) => args.includes("delete")), "deletion still attempted after shutdown fails")
+          assert.ok(diagnostics.some(message => message.includes("delete failed too")))
+          assert.ok(!existsSync(signedTest), "host test copy removed despite both simulator cleanup failures")
+        }
+      }
+    }
+  } finally {
+    console.error = originalLog
+    rmSync(fixture, { recursive: true, force: true })
+  }
+})

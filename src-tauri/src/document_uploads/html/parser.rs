@@ -3,7 +3,7 @@
 //! Sanitizes first, then walks the parsed DOM to build searchable sections,
 //! attaching each block to the most recent heading.
 
-use kuchikiki::{parse_html, traits::TendrilSink, NodeRef};
+use kuchikiki::{iter::NodeEdge, parse_html, traits::TendrilSink, NodeRef};
 
 use super::{decode_entities, normalize_text, sanitize_html, strip_tags};
 use crate::document_uploads::parsed::{ParsedDocument, ParsedSection};
@@ -38,11 +38,7 @@ pub(crate) fn parsed_html_document(
                 body_ranges: Some(Vec::new()),
             });
         } else if !block.text.is_empty() {
-            let body_ranges = if block.auxiliary {
-                Vec::new()
-            } else {
-                vec![0..block.text.len()]
-            };
+            let body_ranges = block.body_ranges;
             sections.push(ParsedSection {
                 heading: current_heading.clone(),
                 text: block.text,
@@ -96,6 +92,7 @@ struct TextBlock {
     is_heading: bool,
     text: String,
     auxiliary: bool,
+    body_ranges: Vec<std::ops::Range<usize>>,
 }
 
 /// Walk the sanitized DOM for readable blocks in document order.
@@ -142,7 +139,7 @@ fn extract_text_blocks(root: &NodeRef) -> Vec<TextBlock> {
             continue;
         }
 
-        let text = normalize_text(&strip_tags(&serialize_node(&node)));
+        let (text, body_ranges) = block_text(&node);
         if !text.is_empty() {
             blocks.push(TextBlock {
                 // DOM parents are weak references: retain the role before the root drops.
@@ -150,23 +147,88 @@ fn extract_text_blocks(root: &NodeRef) -> Vec<TextBlock> {
                 node,
                 is_heading: is_heading(&tag_name),
                 text,
+                body_ranges,
             });
         }
     }
 
     if blocks.is_empty() {
-        let text = normalize_text(&strip_tags(&serialize_node(root)));
+        let (text, body_ranges) = block_text(root);
         if !text.is_empty() {
             blocks.push(TextBlock {
                 node: root.clone(),
                 is_heading: false,
                 text,
+                body_ranges,
                 auxiliary: super::super::search_content::auxiliary(root),
             });
         }
     }
 
     blocks
+}
+
+/// Keep inline notes in literal text while excluding their bytes from body evidence.
+fn block_text(node: &NodeRef) -> (String, Vec<std::ops::Range<usize>>) {
+    let text = normalize_text(&strip_tags(&serialize_node(node)));
+    if super::super::search_content::auxiliary(node) {
+        return (text, Vec::new());
+    }
+    if !node
+        .descendants()
+        .any(|child| super::super::search_content::auxiliary(&child))
+    {
+        let length = text.len();
+        return (text, vec![0..length]);
+    }
+    let mut characters = Vec::new();
+    for edge in node.traverse_inclusive() {
+        let (child, entering) = match edge {
+            NodeEdge::Start(child) => (child, true),
+            NodeEdge::End(child) => (child, false),
+        };
+        let body = !super::super::search_content::auxiliary(&child);
+        if entering && child.as_text().is_some() {
+            characters.extend(
+                strip_tags(&serialize_node(&child))
+                    .chars()
+                    .map(|ch| (ch, body)),
+            );
+        } else if node_tag_name(&child).is_some_and(|tag| super::sanitize::tag_separates_text(&tag))
+        {
+            characters.push((' ', body));
+        }
+    }
+    let mut text = String::new();
+    let mut ranges: Vec<std::ops::Range<usize>> = Vec::new();
+    let mut whitespace = false;
+    let mut previous_body = false;
+    for (ch, body) in characters {
+        if ch.is_whitespace() {
+            whitespace = !text.is_empty();
+            continue;
+        }
+        if whitespace {
+            text.push(' ');
+            if body && previous_body {
+                if let Some(range) = ranges.last_mut() {
+                    range.end = text.len();
+                }
+            }
+            whitespace = false;
+        }
+        let start = text.len();
+        text.push(ch);
+        if body {
+            if let Some(range) = ranges.last_mut().filter(|range| range.end == start) {
+                range.end = text.len();
+            } else {
+                ranges.push(start..text.len());
+            }
+        }
+        previous_body = body;
+    }
+    (text, ranges)
 }
 
 /// Return the parsed body node, falling back to the document for fragments.
@@ -251,6 +313,35 @@ fn extract_between_case_insensitive<'a>(html: &'a str, open: &str, close: &str) 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn inline_notes_preserve_literal_text_and_utf8_body_offsets() {
+        let parsed = parse_html_document(
+            r#"<p>港 <b>Ferries</b><br>serve <span role="doc-footnote" id="note">a <i>citation 🙂</i></span> the island.</p>"#,
+        );
+        let section = &parsed.sections[0];
+        assert_eq!(section.text, "港 Ferries serve a citation 🙂 the island.");
+        assert_eq!(
+            super::super::super::search_content::body_text(
+                &section.text,
+                section.body_ranges.as_ref().unwrap()
+            ),
+            "港 Ferries serve\nthe island."
+        );
+        assert!(parsed.view_html.contains("id=\"note\""));
+        assert!(has_complete_section_locators(&parsed.view_html, 1));
+        let again = parse_html_document(&parsed.view_html);
+        assert_eq!(again.sections[0].text, section.text);
+        assert_eq!(again.sections[0].body_ranges, section.body_ranges);
+        for markup in [
+            r#"<span epub:type="endnote">Note.</span>"#,
+            r#"<span role="doc-footnote"><span>Note.</span></span>"#,
+        ] {
+            let parsed = parse_html_document(&format!("<p>{markup}</p>"));
+            assert_eq!(parsed.sections[0].text, "Note.");
+            assert_eq!(parsed.sections[0].body_ranges, Some(vec![]));
+        }
+    }
 
     #[test]
     fn preserves_note_navigation_roles_without_losing_text_or_reader_targets() {

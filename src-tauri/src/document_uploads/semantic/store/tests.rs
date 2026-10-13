@@ -503,7 +503,7 @@ fn pdf_role_upgrade_preserves_sources_and_other_roles_until_explicit_semantic_up
             |row| row.get::<_, String>(0)
         )
         .unwrap(),
-        "12"
+        "13"
     );
     assert_eq!(coverage(&mut db, Some(&key)).unwrap().indexed_documents, 1);
     assert_eq!(
@@ -1141,6 +1141,118 @@ fn conceptual_snapshot_rejects_edits_or_removal_during_scoring_and_obeys_cancell
         || Ok(()),
     );
     assert!(result.err().unwrap().contains("library changed"));
+}
+
+#[test]
+fn inline_role_upgrade_preserves_sources_invalidates_vectors_and_keeps_notes_literal_searchable() {
+    use crate::document_uploads::{html::parse_html_document, store::rebuild_search_content_batch};
+    let library = Library::new();
+    let mut db = library.db();
+    let mut parsed = parse_html_document(
+        r#"<p>港 Ferry routes. <span epub:type="footnote">Sapphire citation.</span> Island stops.</p>"#,
+    );
+    let saved_html = parsed.view_html.clone();
+    let text = parsed.sections[0].text.clone();
+    let corrected = parsed.sections[0].body_ranges.clone().unwrap();
+    parsed.sections[0].body_ranges = Some(vec![0..text.len()]);
+    for id in ["abc123", "def456", "fed789"] {
+        parsed.format = if id == "abc123" { "epub" } else { "html" }.into();
+        upsert_document(
+            &mut db,
+            id,
+            &format!("/uploads/{id}.html"),
+            &parsed,
+            None,
+            StoredSourceKind::Html,
+            1,
+            1,
+            PdfTextStatus::Ready,
+        )
+        .unwrap();
+    }
+    // Missing/mismatched saved sources must not destroy known classifications.
+    db.execute(
+        "UPDATE uploaded_sections SET body_ranges='[]' WHERE document_id<>'abc123'",
+        [],
+    )
+    .unwrap();
+    std::fs::create_dir_all(library.0.join("abc123")).unwrap();
+    std::fs::write(library.0.join("abc123/source.html"), &saved_html).unwrap();
+    std::fs::create_dir_all(library.0.join("fed789")).unwrap();
+    std::fs::write(
+        library.0.join("fed789/source.html"),
+        "<p>Different stored source.</p>",
+    )
+    .unwrap();
+    let key = identity();
+    initialize(&mut db, &key).unwrap();
+    for id in ["abc123", "def456", "fed789"] {
+        sync(&mut db, &key, id);
+    }
+    let before: Vec<(i64, usize, String)> = db
+        .prepare("SELECT id,ordinal,text FROM uploaded_sections ORDER BY id")
+        .unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    db.execute(
+        "UPDATE upload_schema_metadata SET value='12' WHERE key='schema_version'",
+        [],
+    )
+    .unwrap();
+    drop(db);
+    let mut db = library.db();
+    assert!(rebuild_search_content_batch(&mut db, &library.0).unwrap());
+    assert_eq!(coverage(&mut db, Some(&key)).unwrap().indexed_documents, 2);
+    // A restart continues the repair without re-queuing already repaired documents.
+    drop(db);
+    let mut db = library.db();
+    while rebuild_search_content_batch(&mut db, &library.0).unwrap() {}
+    assert!(!rebuild_search_content_batch(&mut db, &library.0).unwrap());
+    let after: Vec<(i64, usize, String)> = db
+        .prepare("SELECT id,ordinal,text FROM uploaded_sections ORDER BY id")
+        .unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert_eq!(before, after);
+    assert_eq!(
+        std::fs::read_to_string(library.0.join("abc123/source.html")).unwrap(),
+        saved_html
+    );
+    assert_eq!(
+        source(&mut db, "abc123").unwrap().unwrap().sections[0].body_ranges,
+        corrected
+    );
+    for id in ["def456", "fed789"] {
+        assert!(source(&mut db, id).unwrap().unwrap().sections[0]
+            .body_ranges
+            .is_empty());
+    }
+    sync(&mut db, &key, "abc123");
+    let found = retrieve(&mut db, &key, &request(json!({"query":"island travel", "exactPhrases":["Sapphire citation"], "documentUrls":["/uploads/abc123.html"]})), |_| Ok(vec![1.0,0.0]), || Ok(())).unwrap();
+    let found = serde_json::to_value(found).unwrap();
+    assert!(!found["results"].as_array().unwrap().is_empty());
+    assert!(!found["results"][0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("citation"));
+    let literal = crate::document_uploads::search::search_uploads_with_db(
+        serde_json::from_value(
+            json!({"query":"", "exactPhrases":["Sapphire citation"], "limit":10}),
+        )
+        .unwrap(),
+        || Ok(library.db()),
+        |_| {},
+    )
+    .unwrap()
+    .0;
+    assert!(!serde_json::to_value(literal).unwrap()["results"]
+        .as_array()
+        .unwrap()
+        .is_empty());
 }
 
 struct Library(PathBuf);

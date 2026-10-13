@@ -11,6 +11,7 @@ import {
   countPhraseOccurrences,
   docContainsAllPhrases,
   parseSearchQuery,
+  searchQueryWithinLimits,
   type DocumentSourceLoader,
 } from '../utils/phraseSearch'
 
@@ -129,6 +130,17 @@ export function useSearch(
     const phrases = displayPhrases.map(normalizeForPhraseMatch)
     const searchQuery = parsedQuery.providerQuery.toLowerCase()
     const uploadedQuery = parsedQuery.unquotedText
+    if (!searchQueryWithinLimits(uploadedQuery, phrases)) {
+      activeSearchKeyRef.current = ''
+      submittedQueryRef.current = ''
+      setSubmittedQuery('')
+      setResults([])
+      setQueryError('tooLong')
+      setSearchFailed(false)
+      setLastSearchInfo(null)
+      setSearchPhase(null)
+      return
+    }
     if (searchQuery.length === 0) {
       activeSearchKeyRef.current = ''
       setResults([])
@@ -158,7 +170,7 @@ export function useSearch(
     setSearchPhase('indexes')
     try {
       const pagefindPromise = mode === 'all' && pagefindRef.current
-        ? searchStarterDocuments(pagefindRef.current, searchQuery, uploadedQuery)
+        ? searchStarterDocuments(pagefindRef.current, searchQuery, uploadedQuery, () => latestSearchRequestRef.current === requestId)
         : Promise.resolve({ results: [] })
       const uploadPromise = searchUploadedDocuments(
         uploadedQuery,
@@ -310,10 +322,11 @@ export function useSearch(
 
 /** Pagefind's loose candidates can match only a short fragment; require each
  * unquoted term via its exact-token search, retaining stemming and candidate order. */
-export async function searchStarterDocuments(pagefind: PagefindInstance, query: string, unquotedText: string) {
+export async function searchStarterDocuments(pagefind: PagefindInstance, query: string, unquotedText: string, isCurrent = () => true) {
   const found = await pagefind.search(query)
   let results = found.results
   for (const term of new Set(unquotedText.split(/\s+/).filter(Boolean))) {
+    if (!isCurrent()) return { results: [] }
     if (results.length === 0) break
     const required = await pagefind.search(`"${term}"`)
     const ids = new Set(required.results.map((result) => result.id))

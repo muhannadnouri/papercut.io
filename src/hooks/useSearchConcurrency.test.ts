@@ -32,11 +32,12 @@ function response(totalDocuments: number): UploadedDocumentSearchResponse {
   return { results: [], totalDocuments, totalMatchingSections: 0 }
 }
 
+beforeEach(() => {
+  mocked.setters.length = 0
+  mocked.searchUploadedDocuments.mockReset()
+})
+
 describe('search request freshness', () => {
-  beforeEach(() => {
-    mocked.setters.length = 0
-    mocked.searchUploadedDocuments.mockReset()
-  })
 
   it('ignores an old request when the same query is submitted again', async () => {
     const firstAlpha = deferredSearch()
@@ -92,26 +93,23 @@ describe('search request freshness', () => {
   })
 
   it('shows the query-limit error and clears it on a successful retry', async () => {
-    mocked.searchUploadedDocuments.mockRejectedValueOnce('searchQueryTooLong')
-      .mockResolvedValueOnce(response(1))
-    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
-    try {
-      const search = useSearch({ current: null })
-      const setQueryError = mocked.setters[2]
-      const setSearchFailed = mocked.setters[3]
-      search.handleSearch('compass '.repeat(129))
-      search.submitSearch()
-      await vi.waitFor(() => expect(setQueryError).toHaveBeenLastCalledWith('tooLong'))
-      expect(setSearchFailed).toHaveBeenLastCalledWith(false)
-      search.handleSearch('compass')
-      search.submitSearch()
-      await vi.waitFor(() => expect(mocked.setters.at(-1)).toHaveBeenCalledWith(
-        expect.objectContaining({ uploadedDocuments: 1 }),
-      ))
-      expect(setQueryError).toHaveBeenLastCalledWith(null)
-    } finally {
-      errorLog.mockRestore()
-    }
+    mocked.searchUploadedDocuments.mockResolvedValue(response(1))
+    const pagefind = { search: vi.fn().mockResolvedValue({ results: [] }) }
+    const search = useSearch({ current: pagefind })
+    const setQueryError = mocked.setters[2]
+    const setSearchFailed = mocked.setters[3]
+    search.handleSearch('compass '.repeat(129))
+    search.submitSearch()
+    await vi.waitFor(() => expect(setQueryError).toHaveBeenLastCalledWith('tooLong'))
+    expect(setSearchFailed).toHaveBeenLastCalledWith(false)
+    expect(pagefind.search).not.toHaveBeenCalled()
+    expect(mocked.searchUploadedDocuments).not.toHaveBeenCalled()
+    search.handleSearch('compass')
+    search.submitSearch()
+    await vi.waitFor(() => expect(mocked.setters.at(-1)).toHaveBeenCalledWith(
+      expect.objectContaining({ uploadedDocuments: 1 }),
+    ))
+    expect(setQueryError).toHaveBeenLastCalledWith(null)
   })
 
   it('routes broader search only to uploaded documents', () => {
@@ -164,4 +162,28 @@ describe('search request freshness', () => {
       'Collonialism', 50, undefined, undefined, expect.any(Function), 'all',
     )
   })
+})
+
+
+it.each([
+  Array.from({ length: 129 }, (_, i) => `word${i}`).join(' '),
+  'é'.repeat(4097),
+  `extra "${'word '.repeat(128).trim()}"`,
+])('rejects over-budget input before either provider and clears the conceptual submission', (query) => {
+  const pagefind = { search: vi.fn() }
+  const search = useSearch({ current: pagefind })
+  search.handleSearch(query); search.submitSearch()
+  expect(pagefind.search).not.toHaveBeenCalled()
+  expect(mocked.searchUploadedDocuments).not.toHaveBeenCalled()
+  expect(mocked.setters[2]).toHaveBeenLastCalledWith('tooLong')
+  expect(mocked.setters[5]).toHaveBeenLastCalledWith('')
+})
+
+it.each(['é'.repeat(4096), 'word '.repeat(128).trim()])('permits budget boundaries through both providers', (query) => {
+  mocked.searchUploadedDocuments.mockResolvedValue(response(0))
+  const pagefind = { search: vi.fn().mockResolvedValue({ results: [] }) }
+  const search = useSearch({ current: pagefind })
+  search.handleSearch(query); search.submitSearch()
+  expect(pagefind.search).toHaveBeenCalledOnce()
+  expect(mocked.searchUploadedDocuments).toHaveBeenCalledOnce()
 })

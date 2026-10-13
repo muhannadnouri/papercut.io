@@ -239,7 +239,7 @@ pub(crate) fn strip_tags(html: &str) -> String {
 /// The list is intentionally a small block/row/line-break set. Inline tags like
 /// `b`, `i`, `span`, and `a` are omitted so styled words remain searchable as
 /// the continuous text users see.
-fn tag_separates_text(tag: &str) -> bool {
+pub(super) fn tag_separates_text(tag: &str) -> bool {
     matches!(
         tag_name(tag).as_str(),
         "address"

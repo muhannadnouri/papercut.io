@@ -12,6 +12,15 @@ sources, screenshots and per-case results outside tracked files. The current
 [acceptance summary](search-v2-branch-review.md#current-acceptance-consolidation--2026-10-12)
 records remaining quality, CI, device and distribution limits.
 
+## Added review-fix checks — deferred
+
+- Import generic HTML/EPUB with body text before/after an inline footnote; confirm the note remains literal-searchable and reader links/locations survive, while conceptual primary evidence prefers the body spans. Reopen a schema-12 disposable library: affected vectors require explicit update, interrupted repair resumes, and missing/mismatched sources preserve their text/classification.
+- Start an explicitly permitted model download, close Settings and interrupt the connection. Confirm **Model Download Failed / Review** appears after native work ends; reopen to see the model diagnostic and cleanup/retry controls. Status retry or Review must not discard the diagnostic; a new permitted download clears it. Success does not enable the toggle or start indexing.
+- Submit more than 128 combined broad/quoted terms or 4,096 Unicode characters: confirm the inline limit error and no starter/native/conceptual work. Submit a valid retry; changing/clearing a query must stop old starter term lookups without publishing stale results.
+
+Automated boundary regressions cover these contracts; the interactive cases above
+are not marked passed.
+
 ## Build and Run Order
 
 Normal native shipping builds include provider capability; semantic use still

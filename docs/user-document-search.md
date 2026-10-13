@@ -147,7 +147,7 @@ The current search pipeline and the measured Search v2 baseline are recorded in 
 
 When a user submits a search:
 
-1. React parses straight or curly quotation marks once for both execution and presentation, preserving differently delimited inner quotes within an outer phrase. In All words mode, every unquoted word is required, while each quoted span adds a literal phrase requirement. Mixed input such as `anne "green gables"` therefore requires both clauses and displays both in the result summary; an unmatched quote is rejected beside the search field. Native requests retain their complete clauses up to 128 normalized terms and 4,096 characters; larger requests produce an inline error rather than silently searching a prefix. Literal comparison also canonicalizes curly quote glyphs and Unicode hyphen/en/em-dash punctuation to their straight equivalents without rewriting stored source.
+1. React parses straight or curly quotation marks once for both execution and presentation, preserving differently delimited inner quotes within an outer phrase. In All words mode, every unquoted word is required, while each quoted span adds a literal phrase requirement. Mixed input such as `anne "green gables"` therefore requires both clauses and displays both in the result summary; an unmatched quote is rejected beside the search field. React rejects queries beyond 128 normalized terms or 4,096 Unicode characters across broad and quoted clauses before starting starter/uploaded work; native requests independently enforce the same budget. Valid requests retain complete clauses; larger requests produce an inline error rather than silently searching a prefix. Literal comparison also canonicalizes curly quote glyphs and Unicode hyphen/en/em-dash punctuation to their straight equivalents without rewriting stored source.
 2. **Filter By Document** treats checked documents as either the included search scope or the documents excluded from it. With no checked documents, search uses the full library.
 3. Pagefind searches bundled build-time documents when the Pagefind index is available, then `useSearch` consumes matching results from the resolved allowed-URL set before applying its visible-result limit. The status region starts with the number of indexed documents in that submitted scope and follows actual phase transitions rather than estimating a percentage.
 4. SQLite FTS5 searches uploaded runtime documents when the app is running in Tauri, with allowed upload URLs passed into the SQL query when a scope is active. Its blocking worker sends at most three semantic stages over the invocation's Tauri channel: finding candidate documents, verifying literal phrases when requested, and ranking results/building bounded evidence. A stage remains visible when its underlying work is slow; no artificial minimum duration is added merely to display every label.
@@ -248,3 +248,14 @@ For reflowable formats, the persisted ordinal is the locator; for PDF, `page_ind
 5. Follow [pdf-ocr-scanning.md](pdf-ocr-scanning.md) for remaining PDF parity, OCR, and mobile scanning work; do not implement those concerns as isolated additions here.
 6. Add multilingual search fixtures and choose an indexing strategy for scripts that do not use whitespace word boundaries before exposing corpus vocabulary statistics.
 7. After that search foundation is validated, add corpus-wide distinctive-term and coverage views before considering a word co-occurrence graph.
+
+### Inline Auxiliary Roles And Existing Imports
+
+HTML/EPUB footnote/endnote, bibliography, navigation and index roles apply to
+inline descendants as well as complete blocks. Derived body ranges retain
+UTF-8 offsets into complete section text; auxiliary text stays available to
+literal search and reader navigation. Schema 13 verifies saved HTML against all
+stored section ordinals/text before repairing these ranges. A changed range
+invalidates semantic coverage; **Build/Update Index** remains explicit. Missing
+or mismatched saved source preserves existing classifications. Older EPUBs whose
+saved reading copy already lost note roles still need reimport for classification.

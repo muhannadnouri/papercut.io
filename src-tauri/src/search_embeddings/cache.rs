@@ -8,12 +8,14 @@ use std::{
     panic::{catch_unwind, AssertUnwindSafe},
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
     },
     time::Duration,
 };
 use tauri::Emitter;
+
+static DOWNLOAD_ID: AtomicU64 = AtomicU64::new(0);
 
 const PROGRESS_EVENT: &str = "search-embedding-download-progress";
 use super::models::Asset;
@@ -211,10 +213,12 @@ fn fetch_asset(
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DownloadProgress {
+    job_id: String,
     format: ModelSelection,
     phase: &'static str,
     downloaded_bytes: u64,
     total_bytes: u64,
+    error: Option<String>,
 }
 
 impl SearchEmbeddingState {
@@ -251,21 +255,26 @@ impl SearchEmbeddingState {
         dir: &Path,
         format: ModelSelection,
     ) -> Result<ProviderStatus, String> {
-        self.download_with(format, |cancel| {
-            let total = format.installed_bytes();
-            let emit = |phase, downloaded| {
-                let progress = DownloadProgress {
-                    format,
-                    phase,
-                    downloaded_bytes: downloaded,
-                    total_bytes: total,
-                };
-                let _ = app.emit(PROGRESS_EVENT, progress);
+        let job_id = DOWNLOAD_ID.fetch_add(1, Ordering::Relaxed).to_string();
+        let total = format.installed_bytes();
+        let emit = |phase, downloaded, error| {
+            let progress = DownloadProgress {
+                job_id: job_id.clone(),
+                format,
+                phase,
+                downloaded_bytes: downloaded,
+                total_bytes: total,
+                error,
             };
-            emit("starting", 0);
-            let mut downloaded = 0;
+            let _ = app.emit(PROGRESS_EVENT, progress);
+        };
+        let mut downloaded = 0;
+        let mut started = false;
+        let result = self.download_with(format, |cancel| {
+            started = true;
+            emit("starting", 0, None);
             let mut last_percent = 0;
-            let result = (|| {
+            (|| {
                 let client = downloader()?;
                 install(
                     dir,
@@ -280,24 +289,34 @@ impl SearchEmbeddingState {
                             let percent = bytes * 100 / total;
                             if percent >= last_percent + 2 {
                                 last_percent = percent;
-                                emit("downloading", bytes);
+                                emit("downloading", bytes, None);
                             }
                         })?;
                         Ok(())
                     },
                     |stage| self.publish(stage, dir, cancel),
                 )
-            })();
+            })()
+        });
+        if started {
             let phase = if result.is_ok() {
                 "installed"
-            } else if cancel.load(Ordering::Relaxed) {
+            } else if result
+                .as_ref()
+                .err()
+                .is_some_and(|error| error == "Embedding download cancelled")
+            {
                 "cancelled"
             } else {
                 "failed"
             };
-            emit(phase, if result.is_ok() { total } else { downloaded });
-            result
-        })
+            emit(
+                phase,
+                if result.is_ok() { total } else { downloaded },
+                result.as_ref().err().cloned(),
+            );
+        }
+        result
     }
 
     fn publish(&self, stage: &Path, dir: &Path, cancel: &AtomicBool) -> Result<(), String> {

@@ -468,6 +468,7 @@
         "working": "Aggiornamento della ricerca…",
         "complete": "Indicizzazione completata",
         "cancelled": "Indicizzazione annullata",
+        "downloadFailed": "Download del modello non riuscito",
         "failed": "Indicizzazione non riuscita",
         "statusFailed": "Stato della ricerca non disponibile",
         "view": "Visualizza avanzamento",

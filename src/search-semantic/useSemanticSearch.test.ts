@@ -397,3 +397,38 @@ it('guards index removal by saved work, including checkpoints without ready pass
   await value.remove()
   expect(commands().filter(cmd => cmd === 'search_semantic_index_remove')).toHaveLength(1)
 })
+
+it('retains a background download failure after settings navigation, review and status retry, until a new download', async () => {
+  render(); await settle()
+  const notify = mocked.listen.mock.calls[0][1]
+  // No Settings subscriber is mounted; only the App owner receives the terminal event.
+  provider.downloadingFormat = 'float32'
+  notify({ payload: { jobId: '1', phase: 'starting', format: 'float32' } })
+  expect((await settle()).busy).toBe(true)
+  provider.downloadingFormat = null
+  notify({ payload: { jobId: '1', phase: 'failed', format: 'float32', error: 'Network disconnected' } })
+  let value = await settle()
+  expect(value.busy).toBe(false)
+  expect(value.activityNotice).toBe('downloadFailed')
+  expect(value.downloadFailure).toEqual({ format: 'float32', message: 'Network disconnected' })
+  await vi.advanceTimersByTimeAsync(30000)
+  value = render(); expect(value.activityNotice).toBe('downloadFailed')
+  value.dismissActivity(); await value.refresh(); value = await settle()
+  expect(value.activityNotice).toBeNull()
+  expect(value.downloadFailure?.message).toBe('Network disconnected') // Reopening Settings reads the same diagnostic.
+  notify({ payload: { jobId: '2', phase: 'starting', format: 'float32' } })
+  notify({ payload: { jobId: '1', phase: 'failed', format: 'float32', error: 'Old failure' } })
+  value = await settle()
+  expect(value.downloadFailure).toBeNull()
+  expect(value.activityNotice).toBeNull()
+  notify({ payload: { jobId: '2', phase: 'installed', format: 'float32' } })
+  notify({ payload: { jobId: '2', phase: 'failed', format: 'float32', error: 'Duplicate terminal event' } })
+  value = await settle()
+  expect(value.downloadFailure).toBeNull()
+  expect(value.enabled).toBe(false)
+  expect(commands()).not.toContain('search_embedding_configure')
+  expect(commands()).not.toContain('search_semantic_index_build')
+  unmount()
+  notify({ payload: { jobId: '3', phase: 'failed', format: 'float32', error: 'After App unmount' } })
+  expect(render().downloadFailure).toBeNull()
+})

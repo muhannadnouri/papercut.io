@@ -468,6 +468,7 @@
         "working": "Mise à jour de la recherche…",
         "complete": "Indexation terminée",
         "cancelled": "Indexation annulée",
+        "downloadFailed": "Échec du téléchargement du modèle",
         "failed": "Échec de l’indexation",
         "statusFailed": "État de la recherche indisponible",
         "view": "Voir la progression",

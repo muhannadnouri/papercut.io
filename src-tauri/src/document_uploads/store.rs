@@ -264,12 +264,22 @@ pub(super) fn open_db_in(root: &std::path::Path) -> Result<Connection, String> {
         )
         .map_err(db_err)?;
     }
+    tx.execute_batch(
+        "CREATE TABLE IF NOT EXISTS upload_search_content_pending (
+        document_id TEXT PRIMARY KEY REFERENCES uploaded_documents(id) ON DELETE CASCADE
+    )",
+    )
+    .map_err(db_err)?;
+    if previous_schema_version < 13 {
+        // Preserve old ranges until the saved HTML is verified against every stored section.
+        tx.execute("INSERT OR IGNORE INTO upload_search_content_pending SELECT id FROM uploaded_documents WHERE source_kind='html'", []).map_err(db_err)?;
+    }
     tx.execute(
         "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('search_form_version', ?1)",
         [search_form::VERSION],
     ).map_err(db_err)?;
     tx.execute(
-        "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('schema_version', '12')",
+        "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('schema_version', '13')",
         [],
     )
     .map_err(db_err)?;
@@ -359,7 +369,8 @@ pub(super) fn rebuild_search_content_batch(
 ) -> Result<bool, String> {
     let next: Option<(String, String)> = db.query_row(
         "SELECT d.id,d.source_kind FROM uploaded_documents d WHERE d.text_status<>'processing'
-         AND EXISTS(SELECT 1 FROM uploaded_sections s WHERE s.document_id=d.id AND s.body_ranges IS NULL) ORDER BY d.id LIMIT 1",
+         AND (EXISTS(SELECT 1 FROM uploaded_sections s WHERE s.document_id=d.id AND s.body_ranges IS NULL)
+         OR EXISTS(SELECT 1 FROM upload_search_content_pending p WHERE p.document_id=d.id)) ORDER BY d.id LIMIT 1",
         [], |row| Ok((row.get(0)?,row.get(1)?)),
     ).optional().map_err(db_err)?;
     let Some((id, kind)) = next else {
@@ -457,8 +468,8 @@ pub(super) fn rebuild_search_content_batch(
     let mut text_changed = false;
     for (section, ranges, text, previous) in updates {
         let changed = tx.execute(
-            "UPDATE uploaded_sections SET text=?1,body_ranges=?2 WHERE id=?3 AND body_ranges IS NULL",
-            params![text, ranges, section],
+            "UPDATE uploaded_sections SET text=?1,body_ranges=?2 WHERE id=?3 AND (body_ranges IS NULL OR ?4)",
+            params![text, ranges, section, html.is_some()],
         ).map_err(db_err)?;
         if changed > 0 && text != previous {
             text_changed = true;
@@ -474,6 +485,11 @@ pub(super) fn rebuild_search_content_batch(
             .map_err(db_err)?;
         }
     }
+    tx.execute(
+        "DELETE FROM upload_search_content_pending WHERE document_id=?1",
+        [&id],
+    )
+    .map_err(db_err)?;
     if text_changed {
         tx.execute(
             "DELETE FROM uploaded_spelling_terms WHERE document_id=?1",

@@ -94,3 +94,18 @@ describe('starter All Words eligibility', () => {
     expect(pagefind.search).toHaveBeenCalledTimes(1)
   })
 })
+
+it('stops starter term lookups when a request is superseded during provider work', async () => {
+  let release!: (value: { results: { id: string; data: ReturnType<typeof vi.fn> }[] }) => void
+  const row = { id: 'one', data: vi.fn() }
+  const pagefind = { search: vi.fn().mockResolvedValueOnce({ results: [row] })
+    .mockImplementationOnce(() => new Promise(resolve => { release = resolve })) }
+  let current = true
+  const work = searchStarterDocuments(pagefind, 'orchard lantern compass', 'orchard lantern compass', () => current)
+  await vi.waitFor(() => expect(pagefind.search).toHaveBeenCalledTimes(2))
+  current = false
+  release({ results: [row] })
+  expect(await work).toEqual({ results: [] })
+  expect(pagefind.search).toHaveBeenCalledTimes(2)
+  expect(row.data).not.toHaveBeenCalled()
+})
