@@ -61,12 +61,105 @@ and the [conceptual summary cleanup](#stage-7--conceptual-results-summary--2026-
 followed by the [settings readiness cleanup](#stage-7--settings-readiness-and-copy--2026-10-11),
 also have focused frontend/browser validation. The subsequent
 [stored-work and conditional layout pass](#stage-7--stored-work-guards-and-conditional-settings--2026-10-11)
-adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The subsequent [passage-window evaluation](#stage-7--passage-window-quality-and-cost-review--2026-10-12) finds a bounded local usefulness gain while leaving backmatter classification, missing context and unsupported-query failures open. The [PDF backmatter correction](#stage-7--pdf-backmatter-classification--2026-10-12) addresses the measured reference/index role gaps without claiming an unsupported-query relevance gain. The [alternative-passage review](#stage-7--alternative-passages-and-weak-matches--2026-10-12) rejects an unhelpful expansion and leaves selection/unsupported-query quality open. The subsequent [candidate-coverage diagnosis](#stage-7--candidate-coverage-diagnosis--2026-10-12) distinguishes two selection failures from an explanation missing from the bounded pool; it justifies a representation experiment, not a shipped reranker. The subsequent [adjacent-body experiment](#stage-7--bounded-adjacent-body-embedding-experiment--2026-10-12) reduces derived vector storage and improves one fresh first-result bundle, but does not justify shipping grouping or establish a general relevance win. The [global candidate-selection feasibility pass](#stage-7--bounded-global-candidate-selection-feasibility--2026-10-12) establishes complete reference witnesses within a fixed global pool, justifying a bounded local selector trial with an explicit evidence-token budget; it does not demonstrate improved ranking. The subsequent [reranker input gate](#stage-8--bounded-reranker-input-gate--2026-10-12) rejects full-bundle single-pair scoring because the cached model cannot accept that evidence intact; compact source-aware inputs remain an experiment, not a shipping change. The subsequent [compact-window trial](#stage-8--compact-scoring-window-trial--2026-10-12) also fails its frozen size/evidence gate; keep the reranker rejected and address the measured source-role gap before further selector work. The subsequent [wrapped-index correction](#stage-7--wrapped-pdf-index-entries-and-cross-references--2026-10-12) fixes that measured role gap with generic guards and a PDF-only upgrade; model-ranking acceptance remains open. The [updated-index retrieval regression](#stage-7--updated-pdf-role-retrieval-regression--2026-10-12) preserves retained results and native contracts but shows no new relevance gain. The [fresh same-language review](#stage-7--fresh-same-language-relevance-review--2026-10-12) finds useful first passages for all six fully supported questions, but only five complete answers with nearby text; unsupported nearest matches and one context-selection gap remain. The [focused selection diagnosis](#stage-7--fresh-result-selection-and-context-diagnosis--2026-10-12) finds complete source witnesses inside the fixed global pool with unchanged nearby context; choosing them remains unsolved. The recorded full CI predates these UI, model and content changes. The first
+adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The subsequent [passage-window evaluation](#stage-7--passage-window-quality-and-cost-review--2026-10-12) finds a bounded local usefulness gain while leaving backmatter classification, missing context and unsupported-query failures open. The [PDF backmatter correction](#stage-7--pdf-backmatter-classification--2026-10-12) addresses the measured reference/index role gaps without claiming an unsupported-query relevance gain. The [alternative-passage review](#stage-7--alternative-passages-and-weak-matches--2026-10-12) rejects an unhelpful expansion and leaves selection/unsupported-query quality open. The subsequent [candidate-coverage diagnosis](#stage-7--candidate-coverage-diagnosis--2026-10-12) distinguishes two selection failures from an explanation missing from the bounded pool; it justifies a representation experiment, not a shipped reranker. The subsequent [adjacent-body experiment](#stage-7--bounded-adjacent-body-embedding-experiment--2026-10-12) reduces derived vector storage and improves one fresh first-result bundle, but does not justify shipping grouping or establish a general relevance win. The [global candidate-selection feasibility pass](#stage-7--bounded-global-candidate-selection-feasibility--2026-10-12) establishes complete reference witnesses within a fixed global pool, justifying a bounded local selector trial with an explicit evidence-token budget; it does not demonstrate improved ranking. The subsequent [reranker input gate](#stage-8--bounded-reranker-input-gate--2026-10-12) rejects full-bundle single-pair scoring because the cached model cannot accept that evidence intact; compact source-aware inputs remain an experiment, not a shipping change. The subsequent [compact-window trial](#stage-8--compact-scoring-window-trial--2026-10-12) also fails its frozen size/evidence gate; keep the reranker rejected and address the measured source-role gap before further selector work. The subsequent [wrapped-index correction](#stage-7--wrapped-pdf-index-entries-and-cross-references--2026-10-12) fixes that measured role gap with generic guards and a PDF-only upgrade; model-ranking acceptance remains open. The [updated-index retrieval regression](#stage-7--updated-pdf-role-retrieval-regression--2026-10-12) preserves retained results and native contracts but shows no new relevance gain. The [fresh same-language review](#stage-7--fresh-same-language-relevance-review--2026-10-12) finds useful first passages for all six fully supported questions, but only five complete answers with nearby text; unsupported nearest matches and one context-selection gap remain. The [focused selection diagnosis](#stage-7--fresh-result-selection-and-context-diagnosis--2026-10-12) finds complete source witnesses inside the fixed global pool with unchanged nearby context; choosing them remains unsolved. The subsequent [context-capable scorer input gate](#stage-8--context-capable-scorer-input-fit-gate--2026-10-12) preserves all tested full evidence pairs within frozen token bounds, permitting only a controlled inference/resource trial; relevance and runtime compatibility are untested. The recorded full CI predates these UI, model and content changes. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 8 — Context-capable scorer input-fit gate — 2026-10-12
+
+**Decision: one local scorer passes the bounded tokenizer/input gate with full
+candidate evidence. Proceed only to a controlled native inference and resource
+trial; no ranking improvement or shipping integration is accepted.** The cached
+512-token scorer and its failed compact-window policy remain rejected. Current
+cosine selection, app models, source roles and nearby-context behavior are unchanged.
+
+The single candidate is `BAAI/bge-reranker-v2-m3`, pinned at
+`953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e`. Its
+[publisher tokenizer configuration](https://huggingface.co/BAAI/bge-reranker-v2-m3/blob/953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e/tokenizer_config.json)
+permits 8,192 tokens; the
+[model configuration](https://huggingface.co/BAAI/bge-reranker-v2-m3/blob/953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e/config.json)
+has 8,194 positions with the matching padding/position offset. This is a joint
+query-plus-document limit, including special tokens. Download only pinned
+configuration, tokenizer and model-card metadata, verifying regular Git blobs
+and LFS sizes/SHA-256 where applicable. No graph or weights are downloaded and
+no model session is initialized.
+
+Freeze before counting:
+
+- At most **24 candidates**, **8,192 tokens per complete pair** and **65,536 total
+  pair tokens per query**, with batch size one reserved for a future inference
+  trial. These are input bounds, not measured latency or memory guarantees.
+- Pair the raw query with the original title, anchor heading and full ordered
+  source/context union. Merge overlapping spans only within the same original
+  source section; preserve all source bytes and locators. Apply no summaries,
+  clipping, extra prompts, grouping or judgment-based input selection.
+- Disable truncation and padding for counts. Reject any oversized pair or query
+  group before inference; never silently shorten evidence or drop a candidate.
+  Retained complete-witness records must fit with their original source clauses.
+
+| Frozen input set | Intact pairs fitting | Largest pair | Known complete witnesses fitting |
+| --- | --- | --- | --- |
+| Archived ungrouped global pools: 24 questions × 24 candidates | 576 / 576 | 2,611 tokens | 15 / 15 |
+| Current native document results: 12 questions × 2 results | 24 / 24 | 2,364 tokens | 5 / 5 |
+| Current focused global pool: 24 candidates | 24 / 24 | 2,393 tokens | 4 / 4 |
+| Retained name/date/exclusion controls | 140 / 140 | 157 tokens | Not a witness comparison |
+| Previously authored English/Arabic mirror controls | 8 / 8 | 339 tokens | Four positive controls fit |
+
+All **624 candidate pairs** and **148 additional controls** fit. The largest
+actual query group contains **53,418 tokens**, below the frozen total budget;
+all 37 candidate/query groups also satisfy the candidate cap. All 24 known
+candidate-witness records retain complete evidence. These records overlap prior
+development judgments and are not 24 independent questions or new relevance
+wins. Archived pools are input stress cases, not recomputed current-schema
+retrieval. The twelve current questions supply document winners, not a fresh
+global 24 for each question. Controls reuse assistant-provisional judgments;
+this pass provides no held-out or independent quality evidence.
+
+The installed FastEmbed 7.1.0 already lists this model through the
+[`rozgo/bge-reranker-v2-m3` ONNX export](https://huggingface.co/rozgo/bge-reranker-v2-m3/tree/fbd57b17b4db111a9d16813bb08b4c804fac18e9),
+pinned separately at `fbd57b17b4db111a9d16813bb08b4c804fac18e9`. Its tokenizer
+file differs in bytes from the publisher's file; it is not treated as an
+identical artifact. Both verified metadata sets declare the same input limit.
+Actual encodings agree on every tested token ID, offset and sequence boundary;
+Rust and Python token IDs agree for all 772 inputs and three boundary controls.
+This establishes tested tokenizer compatibility, not graph equivalence or ORT
+runtime compatibility. FastEmbed's default limit is 512; a later runner must
+set the intended limit explicitly and precheck full inputs before its truncating
+encoding path. Merely selecting this model would not preserve the evidence.
+
+Validation includes exact original UTF-8/source-span bindings, frozen input and
+metadata hashes, deterministic repeat encodings and intact end offsets for both
+parts of every pair. Assert-based helpers check 8,192-token acceptance,
+8,193-token rejection, empty inputs, Arabic offsets, the total-query boundary
+and rejection of a 25th candidate. All 140 retained control counts reproduce
+prior native counts; their historical ranking failures remain unresolved.
+Owned tokenizer executables are removed. Reports/helpers and private inputs
+remain outside the checkout, with no app/index/dependency/CI change. Memsearch
+recall, expansion and memory append/readback work. Diff checks pass; unchanged
+application suites are not rerun for this evaluation/documentation pass.
+
+**Cost caveat:** the [BGE publisher documentation](https://bge-model.com/tutorial/5_Reranking/5.2.html)
+lists 568 million parameters. The pinned publisher weight-file metadata lists
+about 2.27 GB; the ONNX export lists a similarly sized external data file. Neither
+is downloaded or validated here. Disk size is not peak RAM. This is substantially
+larger than the rejected compact scorer, and processing tens of thousands of
+pair tokens per query may be too costly even with batch size one. Reranking is
+query-time work, not a one-time indexing expense. No quantization, weak-device,
+mobile, latency or memory claim follows from input fit.
+
+**Next:** one bounded offline native quality/cost trial, starting with pinned
+ONNX graph/external-data integrity, initialization and full-length input checks.
+Freeze resource limits, CPU threads, batch size and relevance criteria before
+measurement. Compare against unchanged cosine selection, retain name/date/
+exclusion controls and include fresh same-language cases. Measure cold load,
+warm query latency and peak memory, including coexistence with the embedding
+provider. Reject regressions, clipping or unacceptable cost before considering
+integration; no broader model sweep or shipping change is justified yet.
+Current-revision CI, independent quality, physical-device performance and app
+acceptance remain open. Consolidated smoke remains deferred.
 
 ## Stage 7 — Fresh result selection and context diagnosis — 2026-10-12
 
