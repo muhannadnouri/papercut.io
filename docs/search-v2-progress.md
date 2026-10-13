@@ -61,12 +61,95 @@ and the [conceptual summary cleanup](#stage-7--conceptual-results-summary--2026-
 followed by the [settings readiness cleanup](#stage-7--settings-readiness-and-copy--2026-10-11),
 also have focused frontend/browser validation. The subsequent
 [stored-work and conditional layout pass](#stage-7--stored-work-guards-and-conditional-settings--2026-10-11)
-adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The subsequent [passage-window evaluation](#stage-7--passage-window-quality-and-cost-review--2026-10-12) finds a bounded local usefulness gain while leaving backmatter classification, missing context and unsupported-query failures open. The [PDF backmatter correction](#stage-7--pdf-backmatter-classification--2026-10-12) addresses the measured reference/index role gaps without claiming an unsupported-query relevance gain. The [alternative-passage review](#stage-7--alternative-passages-and-weak-matches--2026-10-12) rejects an unhelpful expansion and leaves selection/unsupported-query quality open. The subsequent [candidate-coverage diagnosis](#stage-7--candidate-coverage-diagnosis--2026-10-12) distinguishes two selection failures from an explanation missing from the bounded pool; it justifies a representation experiment, not a shipped reranker. The subsequent [adjacent-body experiment](#stage-7--bounded-adjacent-body-embedding-experiment--2026-10-12) reduces derived vector storage and improves one fresh first-result bundle, but does not justify shipping grouping or establish a general relevance win. The [global candidate-selection feasibility pass](#stage-7--bounded-global-candidate-selection-feasibility--2026-10-12) establishes complete reference witnesses within a fixed global pool, justifying a bounded local selector trial with an explicit evidence-token budget; it does not demonstrate improved ranking. The subsequent [reranker input gate](#stage-8--bounded-reranker-input-gate--2026-10-12) rejects full-bundle single-pair scoring because the cached model cannot accept that evidence intact; compact source-aware inputs remain an experiment, not a shipping change. The subsequent [compact-window trial](#stage-8--compact-scoring-window-trial--2026-10-12) also fails its frozen size/evidence gate; keep the reranker rejected and address the measured source-role gap before further selector work. The subsequent [wrapped-index correction](#stage-7--wrapped-pdf-index-entries-and-cross-references--2026-10-12) fixes that measured role gap with generic guards and a PDF-only upgrade; model-ranking acceptance remains open. The [updated-index retrieval regression](#stage-7--updated-pdf-role-retrieval-regression--2026-10-12) preserves retained results and native contracts but shows no new relevance gain. The recorded full CI predates these UI, model and content changes. The first
+adds native storage-status and frontend validation. The subsequent [optional Base/Large pass](#stage-7--optional-base-and-large-models--2026-10-11) adds locally tested model choices. The [main-content evidence pass](#stage-7--main-content-evidence-and-passage-roles--2026-10-12) adds structural cleanup with preserved source anchors. The [natural-boundary pass](#stage-7--sentence-and-paragraph-windows--2026-10-12) adds bounded sentence context within those source regions. The subsequent [passage-window evaluation](#stage-7--passage-window-quality-and-cost-review--2026-10-12) finds a bounded local usefulness gain while leaving backmatter classification, missing context and unsupported-query failures open. The [PDF backmatter correction](#stage-7--pdf-backmatter-classification--2026-10-12) addresses the measured reference/index role gaps without claiming an unsupported-query relevance gain. The [alternative-passage review](#stage-7--alternative-passages-and-weak-matches--2026-10-12) rejects an unhelpful expansion and leaves selection/unsupported-query quality open. The subsequent [candidate-coverage diagnosis](#stage-7--candidate-coverage-diagnosis--2026-10-12) distinguishes two selection failures from an explanation missing from the bounded pool; it justifies a representation experiment, not a shipped reranker. The subsequent [adjacent-body experiment](#stage-7--bounded-adjacent-body-embedding-experiment--2026-10-12) reduces derived vector storage and improves one fresh first-result bundle, but does not justify shipping grouping or establish a general relevance win. The [global candidate-selection feasibility pass](#stage-7--bounded-global-candidate-selection-feasibility--2026-10-12) establishes complete reference witnesses within a fixed global pool, justifying a bounded local selector trial with an explicit evidence-token budget; it does not demonstrate improved ranking. The subsequent [reranker input gate](#stage-8--bounded-reranker-input-gate--2026-10-12) rejects full-bundle single-pair scoring because the cached model cannot accept that evidence intact; compact source-aware inputs remain an experiment, not a shipping change. The subsequent [compact-window trial](#stage-8--compact-scoring-window-trial--2026-10-12) also fails its frozen size/evidence gate; keep the reranker rejected and address the measured source-role gap before further selector work. The subsequent [wrapped-index correction](#stage-7--wrapped-pdf-index-entries-and-cross-references--2026-10-12) fixes that measured role gap with generic guards and a PDF-only upgrade; model-ranking acceptance remains open. The [updated-index retrieval regression](#stage-7--updated-pdf-role-retrieval-regression--2026-10-12) preserves retained results and native contracts but shows no new relevance gain. The [fresh same-language review](#stage-7--fresh-same-language-relevance-review--2026-10-12) finds useful first passages for all six fully supported questions, but only five complete answers with nearby text; unsupported nearest matches and one context-selection gap remain. The recorded full CI predates these UI, model and content changes. The first
 integrated scale probe found and fixed repeated common-phrase FTS scans without
 changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 7 — Fresh same-language relevance review — 2026-10-12
+
+**Decision: useful retrieval is demonstrated in this small fresh batch, but
+complete primary evidence and unsupported-query behavior remain quality gaps.**
+Keep the shipping model and selection policy unchanged. This is an evaluation
+and documentation pass; it adds no runtime code, dependency, maintained probe or
+CI job. Live app data is untouched.
+
+Freeze 12 new English questions and source-based answer criteria before native
+retrieval: six fully supported, two with a supported explanation but an
+unreported requested measurement, and four unsupported by the source snapshot.
+None repeats the preceding retained packet's queries. Use SQLite's backup API to
+copy the updated disposable index and reuse the checksum-verified cached Small
+FP32 model. The actual shipping query path searches all imported documents with
+a two-document limit and no changed ranking, extra candidate pool or model sweep.
+
+Grade all 24 returned document bundles against those criteria on a three-point
+scale: 0 means irrelevant or only related to the topic; 1 means useful but
+incomplete; 2 means complete source support for the requested clauses and
+qualifications. Mixed questions cannot earn a complete grade when their requested
+measurement is absent. Review primary passages and expanded nearby text
+separately. Shuffle bundles and mask document titles, result rank and similarity
+scores; freeze judgments before unmasking. The same assistant authored the
+questions and graded them, so these remain **provisional development judgments,
+not independent quality evidence**. Source-selected questions on an existing
+small corpus do not establish representative same-language performance.
+
+| Fresh native relevance check | Result |
+| --- | --- |
+| Fully supported: useful first primary passage | 6/6 |
+| Fully supported: complete first primary passage | 2/6 |
+| Fully supported: useful first passage plus nearby text | 6/6 |
+| Fully supported: complete first passage plus nearby text | 5/6 |
+| Fully supported: complete evidence in either returned document | 5/6 |
+| Partially supported: useful first passage plus nearby text | 2/2 |
+| Partially supported: requested measurement supplied | 0/2 |
+| Unsupported: useful evidence in either returned document | 0/4 |
+| Unsupported: still returned two nearest documents | 4/4 |
+
+Nearby text completes three answers whose primary passages omit a requested
+clause. One fully supported question still receives useful advice without its
+causal explanation; the frozen reference shows that explanation elsewhere in
+the document, outside the returned nearby text. This is a remaining selection
+and context-coverage failure, not evidence that the source lacks the answer.
+An unsupported measurement question retrieves numbers for different conditions
+and a different metric; those numbers do not answer it. Conceptual retrieval
+still returns nearest passages when the library cannot support the question.
+
+Useful fully supported results score higher than unsupported results in this
+packet, but one useful partially supported result scores below an unsupported
+result. A universal similarity cutoff would therefore discard useful partial
+evidence if tuned to suppress all four negatives. This packet does not justify
+such a cutoff, query-specific rules, a larger model or restarting the rejected
+reranker. There is no controlled before/after comparison on these fresh questions,
+so the counts establish neither a new relevance gain nor a regression rate.
+
+Validation:
+
+- The native cached-provider probe passes all 12 queries and deterministic,
+  read-only repeats. Each ready query scans 5,708 passages with full index coverage.
+  The copied database remains byte-identical and all logical rows remain equal to
+  the updated source index. No synchronization or live-library mutation occurs.
+- All **170** returned primary/context spans reconstruct exact original UTF-8
+  slices with matching headings and page locators, inside body ranges. Nearby
+  text stays within the existing block and byte limits. Frozen question, result,
+  grade, model and restored-source hashes are checked.
+- Temporary native access edits are restored byte-for-byte before execution;
+  owned probe executables are removed afterward. Private questions, references,
+  judgments, reports and assert-based helpers stay outside tracked files.
+  Formatting and diff checks pass. Unchanged application suites are not rerun.
+  Memsearch recall, expansion and memory creation/readback work.
+
+**Next:** diagnose the one incomplete fully supported result against a fixed,
+bounded candidate pool: establish whether a source-complete witness is available
+and whether selection or nearby-context construction loses it before proposing a
+change. Treat this now-graded packet as a development regression set; freeze new
+quality criteria before any later selection trial. The counts grade full primary
+text and expanded nearby text, not the always-visible clamped preview. Current
+revision full CI, independent quality, other languages, physical-device cost and
+interactive reader/settings acceptance remain open. The
+[consolidated smoke packet](search-v2-smoke.md#pdf-backmatter-follow-up--2026-10-12)
+remains deferred; this run closes none of its interactive checkboxes.
 
 ## Stage 7 — Updated PDF role retrieval regression — 2026-10-12
 
