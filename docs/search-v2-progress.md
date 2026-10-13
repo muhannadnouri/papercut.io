@@ -27,8 +27,8 @@ existing provider, Arabic audio and command-recovery checks in release tests;
 it leaves the original crash and resource/device caveats unresolved.
 Earlier, the user reported all five consolidated smoke groups passed, including
 the explicitly compiled model-cache UI, and an earlier full CI pass. Device
-details and individual smoke logs were not inspected. Current-revision full CI
-is now verified in the acceptance review below.
+details and individual smoke logs were not inspected. Full CI for the dated
+2026-10-10 source is recorded below; current-source acceptance remains open.
 The earlier smoke/cache checks preceded the new indexing commands and do not
 validate semantic ranking or mobile provider runtimes.
 
@@ -48,8 +48,10 @@ machine. Other device/provider acceptance and semantic quality remain open.
 | Resource and platform readiness | The app now uses official Libtashkeel 1.5.0's public inference interface with ORT `rc.13`, a checksum-verified bundled model and no package fork. Linux native tests and a production Debian package pass; the historical shared-runtime experiment reused the app adapter with FastEmbed/sherpa and is now retired in favor of app-native checks. Provider-enabled Windows/macOS/Android builds and iOS simulator archive/device linking now pass CI, as recorded below. Linked initialization is runtime-tested on Linux and the iOS arm64 simulator; Android x86_64 shared-runtime FP32/INT8 inference and clean exit now pass the bounded mobile review below. Mobile app linking remains separate from inference evidence. Unix build copies now replace shared libraries atomically. The earlier native crash remains unexplained, and measured allocator retention prevents promising immediate RSS recovery on disable. Desktop FP32/INT8 initialization and the bounded provider lifecycle now pass on Linux, Windows and both macOS architectures in the verified run below. Android arm64/physical-device execution, weak reference hardware, responsiveness and app-level lifecycle/fallback validation remain open. |
 | Production optional hybrid | Stage 7 development is explicitly authorized with a default-off toggle and lexical fallback only within the enabled semantic path. App indexing, saved opt-in/lifecycle controls, native retrieval and the separate React conceptual-results/fallback path are implemented below. Functional settings no longer require Developer mode. Quality, resource and platform limits remain release gates. |
 
-**Automated branch acceptance is complete; interactive/product release gates remain open**
-in the [final review below](#stage-7--final-automated-branch-acceptance-review--2026-10-10). Native retrieval,
+**Automated acceptance was recorded for the 2026-10-10 source; current-source
+CI and interactive/product release gates remain open.** See the
+[current consolidation](#stage-78--branch-acceptance-consolidation--2026-10-12) and
+the dated [final review below](#stage-7--final-automated-branch-acceptance-review--2026-10-10). Native retrieval,
 functional Settings and the separate conceptual-results UI are implemented.
 Lexical remains default; native shipping scripts now include provider capability
 without enabling saved user consent. The subsequent
@@ -67,6 +69,62 @@ changing ranking, quote rules or coverage. Interactive lifecycle/results smoke
 remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
+
+## Stage 7/8 — Branch acceptance consolidation — 2026-10-12
+
+**Decision: retain the implemented default-off semantic feature and close the
+tested scorer route under its frozen resource policy. Current merge/release
+acceptance remains open; no further speculative implementation is scheduled.**
+This pass reconciles the original plan, latest application boundaries and retained
+evidence. It is documentation/acceptance tracking, not a new whole-branch audit,
+relevance comparison, CI verification or smoke run.
+
+Reviewed source `e6fe8cc716d4ea6724cdec7ca654fc9ec3c6ff5e`; application code is
+unchanged since `5b29ab4`. The last verified full/inference CI in the record is
+`38110242011` on `1f020d3`. It predates the later UI, model-choice, source-role,
+window and nearby-text changes. Preserve that historical result without calling
+current-source automated acceptance complete.
+
+| Original plan stage | Current disposition |
+| --- | --- |
+| 0–4: lexical baseline/ranking, Broader, typo help, Arabic forms | Implemented with native/frontend regression evidence. These remain independent of semantic consent; current UI/source navigation smoke is still pending. |
+| 5: controlled aliases | Intentionally deferred following the user's removal of all hard-coded word pairs. No maintained synonym dictionary or universal synonym coverage is promised. |
+| 6: embedding evaluation | Bounded same-language usefulness and resource evidence exist, with provisional private grading and retained failures. Representative independent quality and reference-device evidence remain open. |
+| 7: optional integration | User-authorized implementation includes explicit downloads/indexing, saved default-off consent, separate conceptual results and lexical fallback. Shipping capability is integrated; current CI, installed-app/source upgrade smoke and platform/resource/product gates remain open. |
+| 8: measured optimization | Candidate-selection failure justified the experiment. The compact policies and tested long-context FP32 CPU scorer fail their gates; none is integrated. Stop this route under the tested limits; no ANN/model/cap/thread sweep is justified. |
+
+The [current branch acceptance summary](search-v2-branch-review.md#current-acceptance-consolidation--2026-10-12)
+now separates implemented contracts, evidence, known quality limitations and
+remaining gates. The [smoke checklist](search-v2-smoke.md) opens with current status,
+shipping build commands and a six-round off/on run order. Remove obsolete
+provider-free artifact guidance and duplicated historical CI narrative from that
+checklist; keep the dated evidence in this progress log. Preserve every existing
+manual checkbox and follow-up case, including schema-11 PDF upgrades and model
+switching. No case is newly marked passed, and no smoke is required during this
+user-deferred pass.
+
+The fresh development batch's 5/6 complete expanded supported answers and 0/4
+useful unsupported-question results remain limits, not representative acceptance.
+Complete source witnesses for the remaining supported case are present in a
+bounded pool, but the tested scorer does not meet query cost. Neither opt-in nor
+passing input/runtime checks proves a better selector or calibrated no-answer
+behavior. Base/Large remain optional embedding choices, with no blanket
+platform-quality/resource claim from Small FP32/INT8 CI.
+
+Validation: current build/CI/model/opt-in/results/index-policy boundaries are
+read against the original plan; documentation links, preserved checkbox text,
+build commands, source-tree identity and diff checks pass. No application,
+runtime, dependency, CI or private-corpus file is changed. Memsearch recall,
+expansion and memory append/readback work. Unchanged application suites and
+platform builds are not rerun for this documentation-only pass.
+
+**Next:** push and run the existing `validation_scope=full` workflow with
+`provider_inference=true` once for the current native/model source, then review
+that actual run/SHA. Keep inference optional for routine CI. Resume the
+consolidated installed-app smoke only when the user is ready; preserve any
+physical-device, independent-quality and signed-distribution deferrals honestly.
+Fix observed defects rather than start another automatic optimization pass.
+No push, dispatch, merge or release is performed here.
 
 ## Stage 8 — Context-capable scorer native cost gate — 2026-10-12
 

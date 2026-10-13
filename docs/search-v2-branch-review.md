@@ -1,4 +1,43 @@
-# Search v2 branch review — 2026-10-10
+# Search v2 branch acceptance and review
+
+## Current Acceptance Consolidation — 2026-10-12
+
+**Development and the bounded scorer experiment are complete for this pass;
+merge/release acceptance remains open.** Reviewed local source
+`e6fe8cc716d4ea6724cdec7ca654fc9ec3c6ff5e`. The last application change is
+`5b29ab4` (wrapped PDF role correction); subsequent commits contain evaluation
+and documentation only. This is an acceptance-status reconciliation against
+the original plan and connected current flows, not another whole-branch audit.
+The dated reviews below are historical snapshots.
+
+| Boundary | Current decision / remaining evidence |
+| --- | --- |
+| Model-free search | Keep field ranking, All Words/Broader, bounded explicit spelling retries, Arabic normalization and source evidence. Hard-coded word pairs remain removed; Stage 5's maintained alias list is intentionally deferred. Unified keyword cards and body-preferred previews are implemented but need current app smoke. |
+| Semantic integration | Keep the user-approved default-off opt-in, explicit cache/index actions and separate conceptual section. This supersedes the original plan's trial fusion proposal. Small FP32/INT8 and Base/Large FP32 are embedding choices; the tested BGE scorer is not an app model option. |
+| Source and upgrade behavior | Keep natural passage boundaries, body/auxiliary roles, schema-11 PDF refresh and bounded original nearby text. Old semantic policies require explicit rebuild; affected PDF coverage requires update. Preserved source text/locators and required quotes have native regressions; exact current-reader landing and upgrade/restart UX remain deferred. |
+| Same-language quality | The fresh assistant-graded batch finds useful first evidence for 6/6 supported questions, complete primary evidence for 2/6 and complete expanded evidence for 5/6. All four unsupported questions still return nearest documents without useful answers. These are small provisional development results, not independent or representative acceptance. No calibrated answerability cutoff is validated. |
+| Stage 8 selection | Close the tested scorer route under its frozen policy: intact inference works, but one warm pair takes 10.39 seconds against a five-second whole-query target. Broader relevance grading stopped at that gate. Do not integrate it, shrink evidence or start another automatic model/cap/thread sweep. Candidate grouping and compact-window policies also remain unshipped. No ANN scan bottleneck is established by these selection failures. |
+| CI / packages | The last recorded verified full/inference run is `38110242011` on `1f020d3`, before the later UI, model and source-policy changes. It is historical evidence, not current-source acceptance. Run the existing full workflow on the pushed current branch, with provider inference enabled once for the native/model changes; ordinary inference stays optional. No new jobs or matrix are needed. |
+| Device/model coverage | Small FP32/INT8 desktop/emulator/simulator runtime controls are recorded; their success does not validate Base/Large on every device. Physical Android arm64/minimum-OS behavior, weak reference hardware, foreground responsiveness, battery/thermal effects and signed Apple distribution remain unaccepted. |
+| Smoke / native limits | All current Stage 7 interactive cases remain user-deferred in the [consolidated checklist](search-v2-smoke.md). The earlier reported five-group pass does not cover this revision. The original Linux native crash remains unexplained; disable does not promise immediate RSS recovery. |
+
+**Next:** push the current branch and use the existing manual workflow with
+`validation_scope=full`, `provider_inference=true`; bind the resulting run to its
+actual source SHA before closing the CI gap. When the user resumes smoke, build
+with `npm run desktop` (or the existing native Android/iOS commands) and run the
+single off/on checklist in an isolated library, including package launch and
+upgrade cases. Record failures and fix reproducible defects; do not add another
+speculative feature pass merely to advance stages. Relevance/device/distribution
+limits still need evidence or an explicit, scoped product decision before claiming
+acceptance. This review performs no push, dispatch, merge, release or interactive
+smoke and marks no deferred case passed.
+
+Keep the existing lexical evaluator and mobile runner/self-tests. The old
+retrieval experiment remains frozen outside app/npm/CI builds; the compatibility
+crate stays retired. New private diagnosis/scorer helpers, assets and reports
+remain outside the checkout and introduce no maintained shipping/CI scripts.
+
+## Historical Branch Review — 2026-10-10
 
 What this change does: The branch improves local lexical ranking, Broader mode,
 source evidence, spelling suggestions and Arabic search forms. It also adds a

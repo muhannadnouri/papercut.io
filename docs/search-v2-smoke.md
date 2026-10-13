@@ -1,103 +1,53 @@
 # Search v2 consolidated smoke pass
 
-Status: **user-reported passed on 2026-10-09** for all five groups in the
-consolidated normal/experimental-cache checklist. The user also reports full CI
-passed. Exact smoke-build SHA and per-case logs were not inspected. The
-checklist remains below for future regressions; new index/toggle/query behavior
-added after this pass needs its own acceptance. Automated native, command and frontend checks are recorded in
-[progress](search-v2-progress.md); this checklist does not mark them as manual
-acceptance. Use documents you can inspect and keep private sources, questions,
-screenshots and judgments out of tracked files.
+Status: **current Stage 7 app smoke remains user-deferred**. The earlier five-group
+normal/cache smoke was user-reported passed on 2026-10-09; its exact build SHA and
+individual logs were not inspected. It does not accept the later settings,
+keyword/conceptual results, model choices, source roles or nearby-text behavior.
+No current checkbox is marked passed by automated tests or this consolidation.
 
-Stage 7 native scale and cached-handler acceptance checks now exercise the
-integrated query contract, including title invalidation, removal and disable.
-They do not mark any interactive case as passed. The new lifecycle and
-conceptual-results groups below remain explicitly **deferred** by the user;
-run them together against the rebuilt provider-feature app when ready.
+Use this as **one rebuilt-app pass**, reusing the same disposable profile and
+sources for overlapping cases below. Keep build/device details, private questions,
+sources, screenshots and per-case results outside tracked files. The current
+[acceptance summary](search-v2-branch-review.md#current-acceptance-consolidation--2026-10-12)
+records remaining quality, CI, device and distribution limits.
 
-The [acceptance review](search-v2-progress.md#stage-7--verified-full-ci-acceptance--2026-10-09)
-verifies full CI run 38002904236 on pushed source `022ea95`, including the new
-Stage 7 commits. The earlier branch/run SHA gap is resolved. Normal platform
-builds and automated checks pass; they omit the semantic provider and do not
-replace the explicitly deferred lifecycle/conceptual reader, RTL, recovery and
-responsiveness cases below. No new interactive checkbox is marked complete.
+## Build and Run Order
 
-The [provider CI follow-up](search-v2-progress.md#stage-7--opt-in-provider-ci-checks--2026-10-09)
-verifies Linux provider-enabled compilation and 216 fixture regressions in
-full CI run 38005733746 on pushed `9bfe030` (10 tests explicitly ignored). It
-does not run model-dependent inference checks or change this interactive
-deferral. Use the explicit provider build below
-when resuming smoke; normal CI package artifacts still omit the provider.
+Normal native shipping builds include provider capability; semantic use still
+starts off and weights are not bundled. From the repository root:
 
-The [cross-platform provider build checks](search-v2-progress.md#stage-7--cross-platform-provider-build-checks--2026-10-09)
-now cover Windows, both macOS architectures, Android arm64 and unsigned iOS
-simulator/device linking in the workflow. Full run 38009770905 on `0796645`
-passes the Windows/macOS/Android provider steps; only iOS fails on the second
-simulator export. [Mobile run 38023521669](https://github.com/muhannadnouri/papercut.io/actions/runs/38023521669)
-on `771b034` then verifies the archive-only correction, normal/provider iOS
-simulator archives and unsigned device links, plus Android builds.
-They do not launch the apps or download embedding weights, and normal uploaded
-artifacts still omit the provider. Interactive smoke remains deferred; no case
-below is newly marked passed.
+```sh
+npm run desktop
+```
 
-The [explicit runtime follow-up](search-v2-progress.md#stage-7--explicit-provider-runtime-checks--2026-10-10)
-passes local Linux FP32/INT8 initialization/inference checks and adds manual
-Windows/macOS native checks. After pushing, CI can run them with
-`validation_scope=desktop` and `provider_inference=true`; the latter defaults
-to false and explicitly permits pinned test-model downloads into a temporary
-cache. These checks do not launch the WebView, establish mobile inference or
-replace the deferred lifecycle/results/reader/RTL/responsiveness cases below.
-No interactive case is marked passed by this pass. The
-[verified desktop inference run](search-v2-progress.md#desktop-provider-runtime-acceptance-verified--2026-10-10)
-`38075038695` on `982e3f9` passes FP32/INT8 provider activation, inference and
-bounded lifecycle checks on Linux, Windows and both macOS architectures.
-Explicit manifest embedding resolves Windows test startup; normal packaging also
-passes. These MockRuntime checks do not exercise the WebView or the integrated
-search/index/reader/audio flows below. All existing Stage 7 interactive cases
-remain deferred at the user's request. No additional manual smoke case is needed
-for the manifest correction. Next automated acceptance work is mobile provider
-execution; emulator/simulator checks also cannot replace physical-device resource
-or interactive acceptance. Remind the user at the consolidated final smoke pass.
+On Android use `npm run android:apk:native-tts`; on macOS for iOS use
+`npm run ios:ipa:native-tts` with the appropriate signing/device setup. Launch the
+built package as well as any diagnostic binary. No separate semantic npm script
+or BGE scorer build is required. `desktop:static` remains a lexical-only
+alternative, not the build for the semantic-on checks.
 
-The [mobile inference harness](search-v2-progress.md#stage-7--mobile-provider-inference-harness--2026-10-10)
-is now ready for explicit CI: push, then dispatch `validation_scope=mobile` and
-`provider_inference=true`. It runs the native FP32/INT8 provider regression on an
-Android x86_64/API 35 emulator and an iOS arm64 simulator with disposable test
-state. [Run 38090360569](https://github.com/muhannadnouri/papercut.io/actions/runs/38090360569)
-on `955fe5b` verifies both model formats, normal process exit and owned cleanup
-on Android API 35/x86_64 and the iOS arm64 simulator. The previous Android
-post-test abort does not recur with the environment-lifetime guard. This closes
-the bounded provider check; the exact old teardown call chain is unconfirmed.
-See the [acceptance review](search-v2-progress.md#mobile-provider-inference-acceptance-review--2026-10-10).
-The [native index/query extension](search-v2-progress.md#stage-7--native-indexingquery-checks-without-new-ci-jobs--2026-10-10)
-now covers scoped/quoted retrieval, checkpoint cancellation/resume, query
-cancellation/disable and unchanged lexical availability in the same existing
-provider test. [Run 38094061234](https://github.com/muhannadnouri/papercut.io/actions/runs/38094061234)
-on `f42af57` now passes the extended test for both formats on Android API 35/x86_64,
-the iOS arm64 simulator and Linux, with normal mobile process exit and cleanup.
-The [acceptance review](search-v2-progress.md#mobile-indexingquery-acceptance-verified--2026-10-10)
-records the exact source and limits. These backend checks do not verify the React fallback
-banner, launch the WebView or replace Android arm64/physical-device resource and
-app acceptance.
-All interactive cases below remain deferred; no new checkbox is marked passed.
+| Round | What to cover |
+| --- | --- |
+| 1. Fresh Profile / Semantic Off | Isolate data first; import inspectable HTML/EPUB/text PDF. Check lexical modes, quotes, filters, typo/Arabic forms, unified result counts and source opening. Opening Settings/searching starts no model or index work. |
+| 2. Explicit Setup | Exercise model permission, download/verify, cancellation, reopen, recovery and header activity. Start with Small FP32 for the baseline; record other chosen models/formats separately. Downloading does not enable use. |
+| 3. Semantic On / Index Lifecycle | Enable the cached model, explicitly build/update, cancel/resume and restart. Check ready/partial/empty states and foreground reader/audio interaction. Use the preparation controls cases below. |
+| 4. Conceptual Results / Source Evidence | Check separate results, scopes, required quotes, latest-request recovery, missing/partial fallback and disabling during work. Expand and open primary/nearby text in its own original location; judge actual source support, not just similarity. |
+| 5. Upgrade / Stored Work | Complete the main-content, natural-boundary and PDF backmatter follow-ups below in the same pass. Update affected old PDF coverage/rebuild incompatible windows; reimport role-losing old EPUBs where needed. Test model switching and guarded removals only in disposable data. |
+| 6. Package / Accessibility / Responsiveness | Check package launch, keyboard/focus, narrow/zoom/dark/RTL/reduced-motion views and short reader/audio/audiobook flows. Record slow cleanup, stalls or crashes. Mark unavailable physical/minimum-OS or larger-model checks not run. |
 
-The [branch review corrections](search-v2-progress.md#stage-7--branch-review-corrections--2026-10-10)
-fix latest-query recovery under native single-slot load and stale lexical
-projections after an older-app round trip, with automated regressions. These
-checks do not mark the corresponding interactive behavior accepted. Keep app data
-isolated; a Git branch or semantic opt-out does not isolate lexical migrations.
-The expanded rapid-submission check below remains deferred with the other Stage 7
-cases. The [shipping integration](search-v2-progress.md#stage-7--provider-in-shipping-builds--2026-10-10)
-now includes provider capability in ordinary native shipping scripts; earlier CI
-artifact reports above retain their historical feature sets.
-[Full run 38107442282](https://github.com/muhannadnouri/papercut.io/actions/runs/38107442282)
-on `e686960` passes platform shipping builds/uploads and optional FP32/INT8 native
-index/query/lifecycle checks. Redundant provider build variants are removed in
-the follow-up; [full run 38110242011](https://github.com/muhannadnouri/papercut.io/actions/runs/38110242011)
-on `1f020d3` confirms the simplified workflow and its inference prerequisites.
-These checks do not install/launch uploaded
-packages, validate signed Apple distribution or mark any interactive case passed.
-All interactive cases remain deferred for the consolidated smoke pass.
+A conceptual nearest match can be incomplete or irrelevant when the library lacks
+an answer. The current model is not an answer verifier; the rejected scorer and
+experimental grouping are not shipped. Do not use a lack of exact keyword overlap
+as a failure by itself, or a related passage as proof of a complete answer.
+
+The last recorded verified full CI/inference run is `38110242011` on `1f020d3`;
+it predates the later application changes. Current-source full CI remains a
+separate gate. Routine inference stays default-off; use the existing explicit
+full/inference workflow for the current native/model changes. CI does not launch
+the WebView or replace this checklist. Recorded provider checks cover Small
+FP32/INT8, not every Base/Large device combination. Earlier CI/run history is in
+[progress](search-v2-progress.md), rather than repeated as current build guidance.
 
 ## Isolate the library first
 
