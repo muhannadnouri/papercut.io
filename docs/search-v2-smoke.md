@@ -121,7 +121,12 @@ move or damage the installed app's files.
 - [ ] Check an authored quoted phrase, a missing phrase and a long pasted quote.
       Quotes remain mandatory in both modes. Straight/curly punctuation and
       supported PDF line-wrap/hyphen handling must retain the complete query and
-      real source evidence. An over-limit query should show a useful error.
+      real source evidence. Include a joined word copied from a PDF Unicode
+      hyphen wrap (U+2010/U+2011), in both All words and Broader, with semantic
+      search off and on. Test a new import and an existing schema-11 library
+      after the automatic repair; section/page navigation must still land on the
+      source. Same-line compounds and paragraph breaks must stay intact.
+      An over-limit query should show a useful error.
 - [ ] Check a request with thirteen distinct words whose final word distinguishes two sources.
       The final word must remain required in both modes. Inputs above 128 terms
       or 4,096 Unicode characters across unquoted text and phrases must show the
@@ -156,7 +161,8 @@ unaccepted until tested. Downloading alone still does not enable semantic search
       **Download Model / Manage Model**, then **Library Index** when applicable. Without files,
       the toggle is off/disabled with an accessible explanation pointing below.
       Open **Technical Details** to check device-independent resource/lifecycle
-      guidance; host RAM measurements and CI claims must not appear in the UI.
+      guidance and conceptual scope/quoted-clause matching guidance; host RAM
+      measurements and CI claims must not appear in the UI.
       Selecting INT8 shows its result/performance caveat beside the format choice.
       General Settings shows the observed state and **Manage**; **Back** returns
       there and the header **Close** icon closes Settings without changing consent.
@@ -437,9 +443,10 @@ tracked fixtures.
       Submit a question about an actual passage in the library, with different wording from that
       passage. **Conceptual Results** appears separately from
       the ordinary results count/cards, with no **Keyword Results** heading.
-      A short imported-document explanation appears above a collapsed
-      **How Matching Works** disclosure. Open/close it with the keyboard; the full
-      quoted-clause explanation wraps on narrow/RTL views and focus stays visible.
+      The header contains only its title and shown-document count; no permanent
+      imported-document explanation or **How Matching Works** disclosure appears.
+      Matching guidance remains in Settings → Semantic Search → **Technical Details**;
+      expand it with the keyboard and check wrapping/focus on narrow/RTL views.
       Check localized counts for zero, one and multiple displayed documents;
       complete indexing coverage is absent here and remains available in Settings.
       All words/Broader counts, marks and Explore Matches
@@ -463,6 +470,12 @@ tracked fixtures.
       in the document before semantic selection. If clauses are in different
       sections, the displayed semantic passage may differ and must not pretend
       to be literal quote evidence. Check supported punctuation/hyphen aliases.
+- [ ] Open an existing library with Unicode PDF hyphen wraps. The automatic repair
+      updates derived lexical text from matching saved page layers, without
+      downloading models or starting inference. Affected conceptual coverage
+      becomes stale until an explicit **Update Index** / **Build Index**;
+      lexical search remains available. Missing or mismatched page layers preserve
+      existing text; re-import the PDF if those pages still cannot match.
 - [ ] In a disposable library, add unindexed text or remove the derived index.
       Enabled search must show missing/partial fallback and recovery guidance,
       with lexical results available; partial conceptual cards stay hidden and

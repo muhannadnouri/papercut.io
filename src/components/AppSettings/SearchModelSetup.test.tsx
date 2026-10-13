@@ -481,3 +481,13 @@ it('shows active file work instead of recovery instructions and keeps cancellati
   expect(render()).not.toContain('settings.searchModel.present')
   verification.resolve(null); await settle()
 })
+
+it('keeps conceptual scope and quoted-clause help in Technical Details', async () => {
+  render(); await settle()
+  const details = controls().find(node => node.type === 'details'
+    && buttonText(controls(node.props.children as ReactNode).find(child => child.type === 'summary')!) === 'settings.searchModel.details')!
+  const markup = renderToStaticMarkup(details)
+  expect(markup).toContain('search.conceptual.description')
+  expect(markup).toContain('search.conceptual.matchingDetails')
+  expect(markup).toContain('settings.searchModel.resources')
+})

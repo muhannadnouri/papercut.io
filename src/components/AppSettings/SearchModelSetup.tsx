@@ -310,6 +310,7 @@ export function SearchModelSetup({ semantic }: { semantic?: SemanticSearchContro
         : modelControls}
       {ready && status?.compiled && <details className="search-model-panel">
         <summary>{t('settings.searchModel.details')}</summary>
+        <p>{t('search.conceptual.description')} {t('search.conceptual.matchingDetails')}</p>
         <p>{t('settings.searchModel.resources')}</p>
         <p>{t('settings.semantic.recovery')}</p>
         <p>{t('settings.searchModel.recovery')}</p>

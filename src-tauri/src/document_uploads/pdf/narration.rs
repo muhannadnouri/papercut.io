@@ -98,10 +98,18 @@ pub(crate) fn reconstruct_narration_segments<E>(
 /// same inline-fragment and whitespace normalization as PDF narration.
 #[cfg(test)]
 pub(crate) fn reconstruct_search_text(page: PageTextLayer) -> String {
-    search_text_lines(page).0
+    search_text_lines(page, true).0
 }
 
-fn search_text_lines(page: PageTextLayer) -> (String, Vec<(TextLine, std::ops::Range<usize>)>) {
+// Verify old derived text before repairing it from a saved page layer.
+pub(crate) fn legacy_search_text(page: PageTextLayer) -> String {
+    search_text_lines(page, false).0
+}
+
+fn search_text_lines(
+    page: PageTextLayer,
+    unicode_wraps: bool,
+) -> (String, Vec<(TextLine, std::ops::Range<usize>)>) {
     let lines = page_lines(page);
     let mut text = String::new();
     let mut mapped: Vec<(TextLine, std::ops::Range<usize>)> = Vec::new();
@@ -114,7 +122,10 @@ fn search_text_lines(page: PageTextLayer) -> (String, Vec<(TextLine, std::ops::R
         }
 
         if !text.is_empty() {
-            if index > 0 && is_soft_hyphenated_wrap(&lines[index - 1], line) {
+            if index > 0
+                && is_soft_hyphenated_wrap(&lines[index - 1], line)
+                && (unicode_wraps || lines[index - 1].text().trim_end().ends_with('-'))
+            {
                 text.pop();
                 if let Some((_, range)) = mapped.last_mut() {
                     range.end = text.len();
@@ -160,7 +171,7 @@ pub(crate) fn search_content(
     page: PageTextLayer,
     repeated: &std::collections::HashSet<String>,
 ) -> (String, Vec<std::ops::Range<usize>>) {
-    let (text, mapped) = search_text_lines(page);
+    let (text, mapped) = search_text_lines(page, true);
     // shortcut: small bottom captions can resemble notes; refine against annotated layout failures.
     let mut heights = mapped
         .iter()
@@ -483,7 +494,7 @@ fn is_soft_hyphenated_wrap(previous: &TextLine, next: &TextLine) -> bool {
 
     let previous_text = previous.text();
     let mut previous_chars = previous_text.trim_end().chars().rev();
-    if previous_chars.next() != Some('-') {
+    if !matches!(previous_chars.next(), Some('-' | '\u{2010}' | '\u{2011}')) {
         return false;
     }
     let Some(before) = previous_chars.next() else {
@@ -1037,6 +1048,49 @@ mod tests {
             text,
             "Visible highlights remain searchable.\nA state-owned archive."
         );
+    }
+
+    #[test]
+    fn unicode_hyphen_wraps_join_only_at_continuing_visual_lines() {
+        for hyphen in ['-', '\u{2010}', '\u{2011}'] {
+            let page = layer(
+                0,
+                vec![
+                    block(0, &format!("港 A high{hyphen}\n"), 100.0, 12.0),
+                    block(1, "light guides the ferry.\n", 117.0, 12.0),
+                    block(2, &format!("A state{hyphen}owned archive."), 150.0, 12.0),
+                ],
+            );
+            let (text, ranges) = search_content(page.clone(), &Default::default());
+            assert_eq!(
+                text,
+                format!("港 A highlight guides the ferry.\nA state{hyphen}owned archive.")
+            );
+            assert!(ranges.iter().all(|range| text.get(range.clone()).is_some()));
+            if hyphen != '-' {
+                assert!(legacy_search_text(page).contains(&format!("high{hyphen}\nlight")));
+            }
+            for (top, following) in [(150.0, "light"), (117.0, "Light")] {
+                let separated = reconstruct_search_text(layer(
+                    0,
+                    vec![
+                        block(0, &format!("A high{hyphen}"), 100.0, 12.0),
+                        block(1, following, top, 12.0),
+                    ],
+                ));
+                assert!(separated.contains(&format!("high{hyphen}\n{following}")));
+            }
+        }
+        for dash in ['\u{2013}', '\u{2014}'] {
+            assert!(reconstruct_search_text(layer(
+                0,
+                vec![
+                    block(0, &format!("A word{dash}"), 100.0, 12.0),
+                    block(1, "continuation", 117.0, 12.0),
+                ]
+            ))
+            .contains(&format!("word{dash}\ncontinuation")));
+        }
     }
 
     fn layer(page_index: u32, blocks: Vec<PageTextBlock>) -> PageTextLayer {

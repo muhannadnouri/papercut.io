@@ -70,6 +70,66 @@ remains explicitly deferred by the user; the earlier five-group pass predates
 this UI. Native stability, allocator retention, reference hardware, platform
 runtimes and representative same-language quality remain release gates.
 
+## Stage 7 — Unicode PDF phrase repair and results header cleanup — 2026-10-12
+
+User approved fixing the reported quoted PDF phrase miss, repairing existing
+indexes, simplifying the conceptual-results header and adding generic regression
+coverage. Smoke remains deferred.
+
+Diagnosis: the saved PDF.js page layer contains a U+2010 hyphen at a visual word
+wrap. Exact verification already accepts the joined wording, but FTS indexed the
+two word fragments separately and never supplied a candidate. Replaying the same
+page against local `main` (`8be9952`) and the prior branch revision reproduces zero
+candidates in both; this is a pre-existing extraction limitation, not evidence of
+a branch-only regression. Remote main was not refreshed for that comparison.
+
+The shared PDF search reconstruction now joins ASCII, U+2010 and U+2011 hyphens
+only at continuing visual lines under the existing geometry and letter-case
+rules. Same-line compounds, paragraph/column boundaries and en/em dashes retain
+their text. Reader source files, saved PDF.js layers and narration are preserved.
+
+Upload schema 12 reuses the restartable, one-document backfill. Schema-11 pages
+with Unicode hyphen wraps are queued; older PDF role migrations retain their
+existing full reclassification. A replacement is accepted only when the entire
+saved page reproduces the current or legacy derived text. Canonical search text,
+body ranges and both FTS projections update in one transaction; changed documents
+refresh spelling terms through the existing batch. Section IDs, ordinals,
+page locators, titles and library placement stay intact. Missing/mismatched
+sidecars preserve existing text instead of overwriting OCR or a replaced import.
+
+Existing semantic triggers invalidate affected vectors; no download, opt-in or
+inference starts automatically. The user must explicitly build/update the
+semantic index before conceptual coverage becomes ready again. PDFs without
+these wraps and preserved EPUB roles keep their existing ready state. Opening
+an already repaired library does not repeat the migration. If saved page layers
+are unavailable or no longer match, re-import is needed to repair those pages.
+
+Conceptual Results keeps its heading, shown-document count and loading/empty/
+partial/failure feedback. Permanent imported-document and matching-help blocks
+are removed, with their existing translated explanation moved to Settings →
+Semantic Search → Technical Details. Existing nearby-passage controls remain.
+
+Validation: generic native regressions exercise Unicode/ASCII line joins,
+compound/paragraph/case/dash preservation, UTF-8 ranges, schema-11 repair,
+transaction rollback/retry, both FTS projections, spelling refresh, quoted queries
+in both modes, document scopes, absent phrases, source/locator preservation,
+missing/mismatched sidecars, unaffected PDF/EPUB state, explicit vector update and
+idempotent reopen. Frontend regressions retain status/count semantics and verify
+matching help is available in Technical Details. Private replay of the reported
+PDF page changes FTS candidates from 0 to 1 and passes exact verification; book
+text remains outside tracked fixtures. Checks pass: 185 default-feature Rust tests
+(5 unchanged ignored checks), 195 provider-enabled Rust tests (8 unchanged ignored
+checks), 233 frontend tests in 52 files, lint, locale parity, TypeScript, Vite
+production build, Rust formatting and diff checks. The strengthened rollback
+regression also passes independently. Native/device/screen-reader smoke and real
+cached-model inference were not run; generic vector tests use deterministic
+embeddings and the private page replay does not establish reader-jump acceptance.
+
+Next push this revision and review full CI with provider inference enabled. When
+ready, resume the consolidated native smoke checklist, especially the reported
+quoted PDF phrase, reader targeting and explicit semantic index update. No
+additional relevance/model experiment or CI workflow change is introduced.
+
 ## Stage 7 — Modal control size alignment — 2026-10-12
 
 User approved matching Back/Close button boxes to the Settings cog while retaining

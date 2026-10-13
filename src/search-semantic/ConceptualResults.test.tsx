@@ -40,7 +40,7 @@ it('escapes authored text, labels the channel separately and avoids scores, lite
   const state = { phase: 'ready', response } as const
   const value = html(state)
   expect(value).toContain('search.conceptual.title')
-  expect(value).toContain('search.conceptual.description')
+  expect(value).not.toContain('search.conceptual.description')
   expect(value).toContain('&lt;mark&gt;run&lt;/mark&gt; &amp; connect.')
   expect(value).not.toContain('<mark>')
   expect(value).not.toContain('exactMatch')
@@ -54,12 +54,12 @@ it('escapes authored text, labels the channel separately and avoids scores, lite
   expect(onViewDocument.mock.calls[0][1]).not.toHaveProperty('byteStart')
 })
 
-it('counts displayed documents, hides healthy coverage and retains partial fallback with matching help', () => {
+it('counts displayed documents, hides healthy coverage and retains partial fallback without permanent matching help', () => {
   const ready = html({ phase: 'ready', response: { ...response, indexedDocuments: 10, eligibleDocuments: 10 } })
   expect(ready).toContain('search.conceptual.shown{&quot;count&quot;:1}')
   expect(ready).not.toContain('search.conceptual.coverage')
-  expect(ready).toContain('<details class="conceptual-results-details"><summary>search.conceptual.matchingTitle</summary>')
-  expect(ready).toContain('search.conceptual.matchingDetails')
+  expect(ready).not.toContain('search.conceptual.matchingTitle')
+  expect(ready).not.toContain('search.conceptual.matchingDetails')
   const empty = html({ phase: 'ready', response: { ...response, results: [] } })
   expect(empty).toContain('search.conceptual.shown{&quot;count&quot;:0}')
   expect(empty).not.toContain('search.conceptual.coverage')

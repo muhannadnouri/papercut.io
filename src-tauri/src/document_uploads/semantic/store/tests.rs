@@ -503,7 +503,7 @@ fn pdf_role_upgrade_preserves_sources_and_other_roles_until_explicit_semantic_up
             |row| row.get::<_, String>(0)
         )
         .unwrap(),
-        "11"
+        "12"
     );
     assert_eq!(coverage(&mut db, Some(&key)).unwrap().indexed_documents, 1);
     assert_eq!(
@@ -580,6 +580,305 @@ fn pdf_role_upgrade_preserves_sources_and_other_roles_until_explicit_semantic_up
     assert!(
         !crate::document_uploads::store::rebuild_search_content_batch(&mut db, &library.0).unwrap()
     );
+}
+
+#[test]
+fn unicode_pdf_upgrade_repairs_fts_and_spelling_but_requires_explicit_vector_update() {
+    use crate::document_uploads::{
+        pdf::{
+            narration,
+            page_text::{self, PageTextBlock, PageTextLayer},
+        },
+        search::search_uploads_with_db,
+        store::{rebuild_search_content_batch, rebuild_spelling_batch},
+        types::UploadedDocumentSearchRequest,
+    };
+    let library = Library::new();
+    let mut db = library.db();
+    let page = PageTextLayer {
+        schema_version: 1,
+        page_index: 0,
+        width: 600.0,
+        height: 800.0,
+        blocks: vec![
+            PageTextBlock {
+                text: "港 A high‐\n".into(),
+                bounds: [40.0, 100.0, 500.0, 12.0],
+                order: 0,
+                confidence: None,
+            },
+            PageTextBlock {
+                text: "light guides the ferry.".into(),
+                bounds: [40.0, 117.0, 500.0, 12.0],
+                order: 1,
+                confidence: None,
+            },
+        ],
+    };
+    let legacy = narration::legacy_search_text(page.clone());
+    let repaired = narration::reconstruct_search_text(page.clone());
+    let second = PageTextLayer {
+        page_index: 1,
+        blocks: vec![
+            PageTextBlock {
+                text: "A beau‑\n".into(),
+                ..page.blocks[0].clone()
+            },
+            PageTextBlock {
+                text: "tiful harbor.".into(),
+                ..page.blocks[1].clone()
+            },
+        ],
+        ..page.clone()
+    };
+    let legacy_second = narration::legacy_search_text(second.clone());
+    put(
+        &mut db,
+        "abc123",
+        "Harbor Guide",
+        &[
+            &legacy,
+            &legacy_second,
+            "Saved OCR text.",
+            "A missing sidecar.",
+        ],
+    );
+    put(
+        &mut db,
+        "def456",
+        "EPUB Guide",
+        &["A high‐\nlight EPUB note."],
+    );
+    db.execute(
+        "UPDATE uploaded_documents SET format='pdf',source_kind='pdf' WHERE id='abc123'",
+        [],
+    )
+    .unwrap();
+    db.execute(
+        "UPDATE uploaded_documents SET format='epub',source_kind='epub' WHERE id='def456'",
+        [],
+    )
+    .unwrap();
+    db.execute(
+        "UPDATE uploaded_sections SET body_ranges='[]' WHERE document_id='def456'",
+        [],
+    )
+    .unwrap();
+    page_text::write_page_text_layer(&library.0.join("abc123"), &page).unwrap();
+    page_text::write_page_text_layer(&library.0.join("abc123"), &second).unwrap();
+    let mismatched = PageTextLayer {
+        page_index: 2,
+        ..page.clone()
+    };
+    page_text::write_page_text_layer(&library.0.join("abc123"), &mismatched).unwrap();
+    let source_path = library.0.join("abc123/source.pdf");
+    std::fs::write(&source_path, b"Original PDF source bytes").unwrap();
+    let locators = |db: &Connection| -> Vec<(i64, String, usize, Option<u32>)> {
+        db.prepare("SELECT id,document_id,ordinal,page_index FROM uploaded_sections ORDER BY id")
+            .unwrap()
+            .query_map([], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
+    };
+    // Schema 11 persisted body roles before these Unicode wraps were repaired.
+    for (ordinal, text) in [
+        &legacy,
+        &legacy_second,
+        "Saved OCR text.",
+        "A missing sidecar.",
+    ]
+    .iter()
+    .enumerate()
+    {
+        db.execute(
+            "UPDATE uploaded_sections SET body_ranges=?1 WHERE document_id='abc123' AND ordinal=?2",
+            params![
+                serde_json::to_string(&vec![0..text.len()]).unwrap(),
+                ordinal
+            ],
+        )
+        .unwrap();
+    }
+    put(
+        &mut db,
+        "fed789",
+        "Unaffected PDF",
+        &["A state‐owned archive."],
+    );
+    db.execute(
+        "UPDATE uploaded_documents SET format='pdf',source_kind='pdf' WHERE id='fed789'",
+        [],
+    )
+    .unwrap();
+    db.execute(
+        "UPDATE uploaded_sections SET body_ranges=?1 WHERE document_id='fed789'",
+        [serde_json::to_string(&vec![0.."A state‐owned archive.".len()]).unwrap()],
+    )
+    .unwrap();
+    let before = locators(&db);
+    let lexical = |mode: &str, urls: Value, phrase: &str| {
+        let input: UploadedDocumentSearchRequest = serde_json::from_value(json!({
+            "query": format!("\"{phrase}\""), "exactPhrases": [phrase], "mode": mode, "documentUrls": urls, "limit": 10
+        })).unwrap();
+        search_uploads_with_db(input, || Ok(library.db()), |_| {})
+            .unwrap()
+            .0
+    };
+    assert_eq!(
+        lexical("all", Value::Null, "A highlight guides the ferry").total_documents,
+        0
+    );
+    let key = identity();
+    initialize(&mut db, &key).unwrap();
+    sync(&mut db, &key, "abc123");
+    sync(&mut db, &key, "def456");
+    sync(&mut db, &key, "fed789");
+    db.execute(
+        "UPDATE upload_schema_metadata SET value='11' WHERE key='schema_version'",
+        [],
+    )
+    .unwrap();
+    drop(db);
+    let mut db = library.db();
+    assert_eq!(coverage(&mut db, Some(&key)).unwrap().indexed_documents, 2);
+    assert_eq!(db.query_row("SELECT count(*) FROM uploaded_sections WHERE document_id='fed789' AND body_ranges IS NULL", [], |r|r.get::<_,usize>(0)).unwrap(), 0);
+    // A mid-document write error rolls back both FTS projections and canonical text.
+    db.execute_batch(
+        "CREATE TEMP TRIGGER fail_pdf_repair BEFORE UPDATE ON uploaded_sections
+        WHEN old.document_id='abc123' AND old.ordinal=1 AND old.text<>new.text
+        BEGIN SELECT RAISE(ABORT,'repair interrupted'); END;",
+    )
+    .unwrap();
+    assert!(rebuild_search_content_batch(&mut db, &library.0).is_err());
+    assert_eq!(
+        db.query_row(
+            "SELECT text FROM uploaded_sections WHERE document_id='abc123' AND ordinal=0",
+            [],
+            |r| r.get::<_, String>(0)
+        )
+        .unwrap(),
+        legacy
+    );
+    assert_eq!(
+        lexical("all", Value::Null, "A highlight guides the ferry").total_documents,
+        0
+    );
+    db.execute_batch("DROP TRIGGER fail_pdf_repair;").unwrap();
+    assert!(rebuild_search_content_batch(&mut db, &library.0).unwrap());
+    assert!(!rebuild_search_content_batch(&mut db, &library.0).unwrap());
+    assert_eq!(locators(&db), before);
+    let texts: Vec<String> = db
+        .prepare("SELECT text FROM uploaded_sections WHERE document_id='abc123' ORDER BY ordinal")
+        .unwrap()
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert_eq!(
+        texts,
+        [
+            repaired,
+            narration::reconstruct_search_text(second.clone()),
+            "Saved OCR text.".into(),
+            "A missing sidecar.".into()
+        ]
+    );
+    assert_eq!(
+        std::fs::read(&source_path).unwrap(),
+        b"Original PDF source bytes"
+    );
+    assert_eq!(
+        serde_json::to_value(
+            page_text::read_page_text_layer(&library.0.join("abc123"), 0).unwrap()
+        )
+        .unwrap(),
+        serde_json::to_value(&page).unwrap()
+    );
+    assert_eq!(
+        db.query_row(
+            "SELECT body_ranges FROM uploaded_sections WHERE document_id='def456'",
+            [],
+            |r| r.get::<_, String>(0)
+        )
+        .unwrap(),
+        "[]"
+    );
+    for table in ["uploaded_document_fts", "uploaded_document_search_fts"] {
+        assert_eq!(db.query_row(&format!("SELECT count(*) FROM {table} WHERE {table} MATCH '\"A highlight guides the ferry\"'"), [], |r|r.get::<_,usize>(0)).unwrap(), 1);
+        assert_eq!(
+            db.query_row(
+                &format!("SELECT count(*) FROM {table} WHERE {table} MATCH 'beautiful'"),
+                [],
+                |r| r.get::<_, usize>(0)
+            )
+            .unwrap(),
+            1
+        );
+    }
+    assert_eq!(
+        db.query_row(
+            "SELECT value FROM upload_schema_metadata WHERE key='spelling_ready'",
+            [],
+            |r| r.get::<_, String>(0)
+        )
+        .unwrap(),
+        "0"
+    );
+    while rebuild_spelling_batch(&mut db).unwrap() {}
+    assert_eq!(db.query_row("SELECT count(*) FROM uploaded_spelling_terms WHERE document_id='abc123' AND term='highlight'", [], |r|r.get::<_,usize>(0)).unwrap(), 1);
+    assert_eq!(db.query_row("SELECT count(*) FROM uploaded_spelling_terms WHERE document_id='abc123' AND term='high'", [], |r|r.get::<_,usize>(0)).unwrap(), 0);
+    for mode in ["all", "broader"] {
+        assert_eq!(
+            lexical(
+                mode,
+                json!(["/uploads/abc123.html"]),
+                "A highlight guides the ferry"
+            )
+            .total_documents,
+            1
+        );
+        assert_eq!(
+            lexical(
+                mode,
+                json!(["/uploads/def456.html"]),
+                "A highlight guides the ferry"
+            )
+            .total_documents,
+            0
+        );
+        assert_eq!(
+            lexical(mode, Value::Null, "A highlight guides an airport").total_documents,
+            0
+        );
+    }
+    let stale = retrieve(
+        &mut db,
+        &key,
+        &request(json!({"query":"harbor travel", "documentUrls":["/uploads/abc123.html"]})),
+        |_| panic!("stale vectors must not run inference"),
+        || Ok(()),
+    )
+    .unwrap();
+    assert_eq!(
+        serde_json::to_value(stale).unwrap()["availability"],
+        "partial"
+    );
+    let (encoded, _) = sync(&mut db, &key, "abc123");
+    assert!(encoded > 0);
+    assert_eq!(coverage(&mut db, Some(&key)).unwrap().indexed_documents, 3);
+    let hit = retrieve(&mut db, &key, &request(json!({"query":"harbor travel", "exactPhrases":["A highlight guides the ferry"], "documentUrls":["/uploads/abc123.html"]})), |_| Ok(vec![1.0,0.0]), || Ok(())).unwrap();
+    assert_eq!(
+        serde_json::to_value(hit).unwrap()["results"][0]["text"],
+        texts[0]
+    );
+    drop(db);
+    let mut db = library.db();
+    assert!(!rebuild_search_content_batch(&mut db, &library.0).unwrap());
+    assert!(!rebuild_spelling_batch(&mut db).unwrap());
+    assert_eq!(coverage(&mut db, Some(&key)).unwrap().indexed_documents, 3);
 }
 
 #[test]

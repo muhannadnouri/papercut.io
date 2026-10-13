@@ -237,6 +237,9 @@ pub(crate) async fn search_semantic_index_build<R: tauri::Runtime>(
                 while super::store::rebuild_search_content_batch(&mut db, &root)? {
                     control.check()?;
                 }
+                while super::store::rebuild_spelling_batch(&mut db)? {
+                    control.check()?;
+                }
                 store::initialize(&mut db, &identity)?;
                 for id in store::document_ids(&db)? {
                     control.check()?;

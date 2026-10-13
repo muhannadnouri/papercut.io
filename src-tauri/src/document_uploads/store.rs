@@ -254,12 +254,13 @@ pub(super) fn open_db_in(root: &std::path::Path) -> Result<Connection, String> {
             [if has_sections { "0" } else { "1" }],
         ).map_err(db_err)?;
     }
-    if previous_schema_version < 11 {
-        // Reclassify PDFs from saved geometry; preserve EPUB roles that cannot be recovered from legacy HTML.
+    if previous_schema_version < 12 {
+        // Older roles need full reclassification; schema 11 only needs Unicode-wrap repairs.
         tx.execute(
             "UPDATE uploaded_sections SET body_ranges=NULL WHERE document_id IN
-            (SELECT id FROM uploaded_documents WHERE source_kind='pdf')",
-            [],
+            (SELECT id FROM uploaded_documents WHERE source_kind='pdf')
+            AND (?1<11 OR instr(text,?2)>0 OR instr(text,?3)>0)",
+            params![previous_schema_version, "\u{2010}\n", "\u{2011}\n"],
         )
         .map_err(db_err)?;
     }
@@ -268,7 +269,7 @@ pub(super) fn open_db_in(root: &std::path::Path) -> Result<Connection, String> {
         [search_form::VERSION],
     ).map_err(db_err)?;
     tx.execute(
-        "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('schema_version', '11')",
+        "INSERT OR REPLACE INTO upload_schema_metadata (key, value) VALUES ('schema_version', '12')",
         [],
     )
     .map_err(db_err)?;
@@ -338,10 +339,10 @@ pub(crate) fn schedule_search_index_rebuild<R: Runtime>(app: tauri::AppHandle<R>
     tauri::async_runtime::spawn_blocking(move || {
         let result = (|| -> Result<(), String> {
             let mut db = open_db(&app)?;
-            while rebuild_search_form_batch(&mut db)? {}
-            while rebuild_spelling_batch(&mut db)? {}
             let root = uploads_root(&app)?;
             while rebuild_search_content_batch(&mut db, &root)? {}
+            while rebuild_search_form_batch(&mut db)? {}
+            while rebuild_spelling_batch(&mut db)? {}
             Ok(())
         })();
         if let Err(error) = result {
@@ -350,7 +351,7 @@ pub(crate) fn schedule_search_index_rebuild<R: Runtime>(app: tauri::AppHandle<R>
     });
 }
 
-/// Backfill one legacy document without rewriting authored text or section locators.
+/// Repair one derived document while preserving source files and section locators.
 /// Lost EPUB roles need re-import; absent/mismatched sidecars conservatively retain all text.
 pub(super) fn rebuild_search_content_batch(
     db: &mut Connection,
@@ -418,6 +419,7 @@ pub(super) fn rebuild_search_content_batch(
         .collect();
     let mut updates = Vec::new();
     for (section_id, ordinal, text, page) in &original {
+        let mut repaired = text.clone();
         let ranges = if let Some(parsed) = &html {
             parsed.sections[*ordinal]
                 .body_ranges
@@ -425,9 +427,16 @@ pub(super) fn rebuild_search_content_batch(
                 .unwrap_or_default()
         } else if safe_id && kind == "pdf" {
             page.and_then(|page| super::pdf::page_text::read_page_text_layer(&dir, page).ok())
-                .map(|layer| super::pdf::narration::search_content(layer, &repeated))
-                .filter(|(source, _)| source == text)
-                .map(|(_, ranges)| ranges)
+                .and_then(|layer| {
+                    let (source, ranges) =
+                        super::pdf::narration::search_content(layer.clone(), &repeated);
+                    (source == *text || super::pdf::narration::legacy_search_text(layer) == *text)
+                        .then_some((source, ranges))
+                })
+                .map(|(source, ranges)| {
+                    repaired = source;
+                    ranges
+                })
                 .unwrap_or(super::search_content::ranges(text, None)?)
         } else {
             super::search_content::ranges(text, None)?
@@ -435,6 +444,8 @@ pub(super) fn rebuild_search_content_batch(
         updates.push((
             *section_id,
             serde_json::to_string(&ranges).map_err(|err| err.to_string())?,
+            repaired,
+            text.clone(),
         ));
     }
     let tx = db
@@ -443,10 +454,40 @@ pub(super) fn rebuild_search_content_batch(
     if rows(&tx)? != original {
         return Ok(true);
     }
-    for (section, ranges) in updates {
+    let mut text_changed = false;
+    for (section, ranges, text, previous) in updates {
+        let changed = tx.execute(
+            "UPDATE uploaded_sections SET text=?1,body_ranges=?2 WHERE id=?3 AND body_ranges IS NULL",
+            params![text, ranges, section],
+        ).map_err(db_err)?;
+        if changed > 0 && text != previous {
+            text_changed = true;
+            tx.execute(
+                "UPDATE uploaded_document_fts SET text=?1 WHERE section_id=?2",
+                params![text, section],
+            )
+            .map_err(db_err)?;
+            tx.execute(
+                "UPDATE uploaded_document_search_fts SET text=?1 WHERE section_id=?2",
+                params![search_form::normalize(&text), section],
+            )
+            .map_err(db_err)?;
+        }
+    }
+    if text_changed {
         tx.execute(
-            "UPDATE uploaded_sections SET body_ranges=?1 WHERE id=?2 AND body_ranges IS NULL",
-            params![ranges, section],
+            "DELETE FROM uploaded_spelling_terms WHERE document_id=?1",
+            [&id],
+        )
+        .map_err(db_err)?;
+        tx.execute(
+            "DELETE FROM uploaded_spelling_indexed WHERE document_id=?1",
+            [&id],
+        )
+        .map_err(db_err)?;
+        tx.execute(
+            "UPDATE upload_schema_metadata SET value='0' WHERE key='spelling_ready'",
+            [],
         )
         .map_err(db_err)?;
     }
