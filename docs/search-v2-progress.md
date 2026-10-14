@@ -2,6 +2,18 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+## Rust TLS security patch — 2026-10-14
+
+[CI run 38613631090](https://github.com/muhannadnouri/papercut.io/actions/runs/38613631090), attempt 1, tested `1e4076cf3e13a2413b63926675354017d262d396`. Its checks job passed npm audit, lint, frontend tests/build/Pagefind, monitor/runner regressions, SILMA self-test and the inactive-waiver guard, then failed Rust audit. Rust/provider/inference steps and downstream platform packages were skipped; this run provides no package/native acceptance.
+
+Four blocking advisories were published on October 14 against rustls 0.23.45: `RUSTSEC-2026-0346` (session debug secret exposure), `0347` (buffered application data after rejected ECH), `0348` (Brotli certificate-decompression memory exhaustion) and `0349` (unauthenticated key-share prediction downgrade). [The RustSec database used by CI](https://github.com/rustsec/advisory-db/tree/caee11f41fab07d676c0a4655a2a5dd1f94da97c/crates/rustls) specifies 0.23.46 as the fix for all four. Earlier audit success does not contradict newly published advisories; the UI edits did not change this dependency.
+
+Require rustls **0.23.46 or a compatible newer release** and lock **0.23.46**. Only that locked package's version/checksum changes. Existing ring/std/TLS 1.2 features, provider/runtime versions, vendored code and audit policy stay unchanged. The active dependency reaches authenticated library transfer, reqwest's model/audio download transport and sherpa's build-time downloader. No new waiver or upstream-library test is added; existing Papercut boundary regressions validate the update.
+
+Local verification with **cargo-audit 0.22.2**, CI's database revision `caee11f41fab07d676c0a4655a2a5dd1f94da97c`, and the exact CI lockfile reproduces four failures; the patched lockfile reports **zero blocking vulnerabilities**. The sole ignored advisory remains `RUSTSEC-2026-0235`; the all-feature/all-target normal/build graph confirms its rkyv 0.7 dependency remains inactive. Ten existing non-blocking warnings remain (eight unmaintained, GLib 0.18 and rand 0.7 unsoundness notices); these are not claimed fixed or newly waived.
+
+Default Rust library regressions: **190 passed / 5 ignored**. Native-TTS/provider-enabled regressions: **248 passed / 10 ignored**, including authenticated pairing, malformed-TLS recovery and transfer consumption after a wrong code. Lockfile scope and diff checks pass. No frontend logic changed, so frontend checks were not repeated locally; the failed run verified those at the unchanged application source. Fresh full CI on the patched revision is still required for packaging and explicit cached-model inference. Further installed-app/device smoke remains deferred; no push, merge or release is claimed.
+
 ## Settings feedback and safe areas — 2026-10-14
 
 Implemented the six approved settings changes against `b661b00`. Shared dialogs now include all four safe-area insets in backdrop padding and subtract the top/bottom spacing from their viewport height limit, with dynamic viewport units and the existing mobile top fallback. Navigable dialogs keep their header outside the scrolling body; ordinary form dialogs retain their scrolling/action behavior.

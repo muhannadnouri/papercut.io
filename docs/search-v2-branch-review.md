@@ -1,5 +1,13 @@
 # Search v2 branch acceptance and review
 
+## Current CI audit failure and local repair — 2026-10-14
+
+[Run 38613631090](https://github.com/muhannadnouri/papercut.io/actions/runs/38613631090) failed at Rust audit on `1e4076c`, after npm audit/frontend checks and the existing inactive-waiver guard passed. Four rustls advisories published that day (`RUSTSEC-2026-0346`–`0349`) affect the locked 0.23.45 release. Rust tests/provider inference and downstream platform builds were skipped; this run cannot close release acceptance.
+
+The app now requires at least rustls **0.23.46**, with that patch locked and no other locked-package changes. Audit policy and TLS features remain unchanged. Local cargo-audit 0.22.2 with CI's exact database revision reproduces four findings on the old lockfile and zero on the patched lockfile. The sole rkyv waiver remains guarded/inactive; ten pre-existing non-blocking warnings remain. Default/provider-enabled Rust regressions pass (**190 / 248**, with **5 / 10 ignored**), including the app's TLS/pairing/transfer boundaries. See [the progress record](search-v2-progress.md) for details.
+
+**Fresh full CI is required on the security-patched source.** Explicit cached-model inference, desktop/mobile packaging and the existing immediate-release distribution/device gates remain open. Smoke remains deferred. This local repair does not authorize or claim a push, merge or release.
+
 ## Settings follow-up — 2026-10-14
 
 The six approved settings changes add shared safe-area-aware modal padding/height limits, model-loading feedback in Manage Model, removal of the redundant toggle-card On line, **How It Works** explanations, concise model instructions and standard removal-button hover feedback. Main Settings readiness summaries, confirmations and job/data guards are retained.
