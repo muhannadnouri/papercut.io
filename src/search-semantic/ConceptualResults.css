@@ -85,3 +85,9 @@
 .conceptual-settings-action svg {
   flex-shrink: 0;
 }
+
+.welcome > .conceptual-settings-action {
+  display: flex;
+  width: fit-content;
+  margin: 0.5rem auto 0;
+}

@@ -648,7 +648,8 @@ does not accept these settings changes.
       distinguishes checking/loading, indexing, an empty eligible library and status/model failures. No unknown/error
       status is called Index Required, and switching retains the typed draft and scope.
 - [ ] For a missing/outdated index, pre-query guidance shows only the warning
-      icon/title and Search Settings button, with the settings cog before its text.
+      icon/title above a centered Search Settings button, with the settings cog
+      before its text.
       Submitted missing/incompatible/partial scoped searches retain their explanations
       and coverage alongside the same action. The action opens semantic setup directly without starting work. Back opens root
       Settings; Close/Escape/backdrop restore the action's focus, or the Settings cog

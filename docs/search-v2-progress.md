@@ -2,6 +2,10 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+## Stacked pre-query settings action — 2026-10-14
+
+Removing the pre-query explanation exposed an inline layout regression: the warning and settings action could share one line. The idle Conceptual settings button now uses block flex layout, content-sized width and automatic side margins, keeping it centered below the warning with a small gap. This CSS rule is limited to the welcome area; submitted-result actions and warning icon/text layout stay unchanged. All 32 focused SearchTab/Conceptual regressions and the frontend build pass, validating the existing behavior and CSS compilation; no render-only test is added for this layout-only fix. Actual visual/device smoke remains deferred.
+
 ## Tonal settings and empty-state copy — 2026-10-14
 
 Semantic settings sections now use the app's muted surface tokens and transparent borders in light/dark themes. Field borders, keyboard focus rings and section spacing stay intact; removal confirmations use the base surface to remain distinct inside the tonal section.
