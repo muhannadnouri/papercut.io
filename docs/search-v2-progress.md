@@ -2,6 +2,12 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+## Concise search helpers — 2026-10-14
+
+Broader now says **Some unquoted words may be missing. Use quotes for an exact phrase.** Conceptual says **Find related passages. Use quotes for an exact phrase.** Both follow All Words' short two-sentence style, without library/imported-document boilerplate or numeric thresholds. All Words and the Broader label are unchanged. Updated both helper strings across all eight locales and renamed the existing helper-association test to match its actual contract.
+
+This is copy only: Broader's omission limits/imported-only scope and quoted-clause requirements are unchanged. Conceptual phrases still qualify the document rather than guaranteeing the displayed passage is literal phrase evidence; Settings Technical Details retains that explanation. Locale parity, TypeScript, the 19 focused SearchBar/SearchTab tests and diff checks pass. No new render-only copy tests or repeated full/native suites/builds for static wording. Further smoke remains deferred; current-source CI and release acceptance remain open.
+
 ## Centered compact search controls — 2026-10-14
 
 User feedback on `668888f` restores centered search options, helper text and example chips in both semantic-off and semantic-on states. The result selector and keyword options form one centered group on wide screens and remain centered when stacked on narrow screens. Remove the automatic margin that spread these controls to opposite edges; sticky behavior and shared scope remain unchanged.

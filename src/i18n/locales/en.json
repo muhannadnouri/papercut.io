@@ -38,13 +38,13 @@
       "modeLabel": "Keyword matching",
       "allWordsMode": "All Words",
       "broaderMode": "Broader",
-      "helpBroader": "With 3–12 different words, some may be missing. Longer searches require all words. Quoted phrases stay required. Searches Your Library only.",
+      "helpBroader": "Some unquoted words may be missing. Use quotes for an exact phrase.",
       "unmatchedQuote": "Add a closing quotation mark, or remove the unmatched quote.",
       "tooLong": "Shorten your search to at most 128 words and 4,096 characters, including quoted phrases.",
       "examplesLabel": "Search examples",
       "exampleBroad": "green gables",
       "exampleExact": "\"Anne Shirley\"",
-      "helpConceptual": "Find related passages in imported documents. Quoted phrases remain required."
+      "helpConceptual": "Find related passages. Use quotes for an exact phrase."
     },
     "scope": {
       "ariaLabel": "Search scope",

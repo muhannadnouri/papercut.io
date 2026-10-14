@@ -38,13 +38,13 @@
       "modeLabel": "Coincidencia de palabras clave",
       "allWordsMode": "Todas las palabras",
       "broaderMode": "Búsqueda amplia",
-      "helpBroader": "Con 3–12 palabras distintas, algunas pueden faltar. Las búsquedas más largas requieren todas las palabras. Las frases entre comillas siguen siendo obligatorias. Solo busca en Tu biblioteca.",
+      "helpBroader": "Algunas palabras sin comillas pueden faltar. Use comillas para una frase exacta.",
       "unmatchedQuote": "Añada una comilla de cierre o elimine la comilla sin pareja.",
       "tooLong": "Acorta la búsqueda a un máximo de 128 palabras y 4096 caracteres, incluidas las frases entre comillas.",
       "examplesLabel": "Ejemplos de búsqueda",
       "exampleBroad": "palabras de búsqueda",
       "exampleExact": "\"frase exacta\"",
-      "helpConceptual": "Busca pasajes relacionados en documentos importados. Las frases entre comillas siguen siendo obligatorias."
+      "helpConceptual": "Encuentre pasajes relacionados. Use comillas para una frase exacta."
     },
     "scope": {
       "ariaLabel": "Alcance de la búsqueda",

@@ -8,7 +8,7 @@ vi.mock('react-i18next', () => ({
 }))
 
 describe('search query errors', () => {
-  it('shows the uploaded-library scope of broader mode', () => {
+  it('associates broader matching help with the query input', () => {
     const html = renderToStaticMarkup(
       <>
         <SearchBar

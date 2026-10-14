@@ -38,13 +38,13 @@
       "modeLabel": "Correspondance des mots-clés",
       "allWordsMode": "Tous les mots",
       "broaderMode": "Recherche élargie",
-      "helpBroader": "Avec 3 à 12 mots différents, certains peuvent manquer. Les recherches plus longues exigent tous les mots. Les expressions entre guillemets restent obligatoires. Recherche uniquement dans Votre bibliothèque.",
+      "helpBroader": "Certains mots sans guillemets peuvent manquer. Utilisez des guillemets pour une expression exacte.",
       "unmatchedQuote": "Ajoutez un guillemet fermant ou supprimez le guillemet sans paire.",
       "tooLong": "Limitez la recherche à 128 mots et 4 096 caractères, y compris les expressions entre guillemets.",
       "examplesLabel": "Exemples de recherche",
       "exampleBroad": "mots de recherche",
       "exampleExact": "\"expression exacte\"",
-      "helpConceptual": "Trouvez des passages liés dans les documents importés. Les expressions entre guillemets restent requises."
+      "helpConceptual": "Trouvez des passages liés. Utilisez des guillemets pour une expression exacte."
     },
     "scope": {
       "ariaLabel": "Portée de la recherche",

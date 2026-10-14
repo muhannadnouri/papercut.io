@@ -38,13 +38,13 @@
       "modeLabel": "Corrispondenza delle parole chiave",
       "allWordsMode": "Tutte le parole",
       "broaderMode": "Ricerca ampia",
-      "helpBroader": "Con 3–12 parole diverse, alcune possono mancare. Le ricerche più lunghe richiedono tutte le parole. Le frasi tra virgolette restano obbligatorie. Cerca solo nella Tua biblioteca.",
+      "helpBroader": "Alcune parole senza virgolette possono mancare. Usa le virgolette per una frase esatta.",
       "unmatchedQuote": "Aggiungi una virgoletta di chiusura o rimuovi quella senza coppia.",
       "tooLong": "Riduci la ricerca a un massimo di 128 parole e 4096 caratteri, incluse le frasi tra virgolette.",
       "examplesLabel": "Esempi di ricerca",
       "exampleBroad": "parole da cercare",
       "exampleExact": "\"frase esatta\"",
-      "helpConceptual": "Trova passaggi correlati nei documenti importati. Le frasi tra virgolette restano obbligatorie."
+      "helpConceptual": "Trova passaggi correlati. Usa le virgolette per una frase esatta."
     },
     "scope": {
       "ariaLabel": "Ambito di ricerca",
