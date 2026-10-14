@@ -2,6 +2,14 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+## Current-source full CI verified — 2026-10-13
+
+The user supplied [successful run 38480780209](https://github.com/muhannadnouri/papercut.io/actions/runs/38480780209). Verified attempt 1 against application commit **`7dabec79044cb53e8df8c453d0505be14c9850ee`**, including all 10 successful jobs and explicit provider-inference step conclusions. Checks logs confirm 253 frontend passed / 1 optional utility skipped and 190 default / 248 provider-enabled Rust passed. Desktop packaging, Android APK, unsigned iOS simulator/device builds, configured security audits and Linux CPU SILMA runtime packaging passed.
+
+Read the cached-provider test logs: `cached_provider_activation_switch_failure_and_unload` ran and passed on Linux, Windows, macOS Intel/arm64, Android x86_64 emulator and iOS arm64 simulator. These are actual runtime checks, not compilation-only evidence. Remaining ignored checks and other model/hardware combinations are unclaimed. The configured Rust audit retains its existing inactive-optional-dependency waiver and passed its activation guard.
+
+Next: the automated CI gate for the completed review fixes is closed; no new implementation stage is needed from these results. App/device/screen-reader smoke remains deferred, with physical-device/resource and signed distribution acceptance still open. The [CI acceptance record](search-v2-branch-review.md#current-source-ci-verified--2026-10-13) separates those gates. This is a documentation-only evidence update; no merge or release performed.
+
 ## Branch review fixes 8–11 — 2026-10-13
 
 The user approved the remaining ranked cleanup against baseline `a36e213b2038cba7c438e28d1325ec90cddec273`, with smoke deferred.

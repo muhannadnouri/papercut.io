@@ -1,5 +1,18 @@
 # Search v2 branch acceptance and review
 
+## Current-source CI verified — 2026-10-13
+
+[CI run 38480780209](https://github.com/muhannadnouri/papercut.io/actions/runs/38480780209), attempt 1, completed successfully at **`7dabec79044cb53e8df8c453d0505be14c9850ee`** on `feature/search-v2`. The run SHA matches the application cleanup commit covering all eleven review items. All **10 jobs** succeeded; the full desktop/mobile/SILMA jobs and explicit provider-inference steps ran, rather than being skipped.
+
+| Gate | Verified evidence |
+| --- | --- |
+| Checks and configured audits | Frontend 253 passed / 1 optional utility skipped; Rust 190 default / 248 provider-enabled passed (5 / 10 ignored in those suites). Lint, frontend/Pagefind build, npm/Rust audit, monitor/runner regressions and SILMA worker self-test steps passed. The existing `RUSTSEC-2026-0235` waiver remains; its all-features/all-targets inactive-`rkyv` guard passed. |
+| Desktop packaging | Linux AppImage/Debian, Windows MSI/NSIS and macOS Intel/arm64 build and artifact steps passed, including platform bundle checks. |
+| Mobile and sidecar builds | Android APK, unsigned iOS simulator/device builds and the Linux CPU SILMA runtime archive job passed. |
+| Explicit cached-model runtime check | Logs show `cached_provider_activation_switch_failure_and_unload` executed and passed once on Linux, Windows, both macOS architectures, Android x86_64 emulator and iOS arm64 simulator. This closes the cached-provider runtime CI gate for this source, not every ignored test or model choice. |
+
+**The current-source automated CI gate is closed.** No additional code stage is indicated by this run. App/WebView, screen-reader, physical-device/weak-hardware acceptance and the remaining ignored scale/model checks stay open; smoke remains deferred at the user's request. The signed-device/distribution gates and earlier relevance/resource caveats are unchanged. This evidence update changes documentation only and does not authorize a merge or release.
+
 ## Maintenance follow-up — 2026-10-13
 
 Review items **8–11** are complete against baseline `a36e213`. Together with the two follow-ups below, this addresses all eleven ranked recommendations; it does not close merge/release acceptance.
