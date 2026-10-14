@@ -76,7 +76,7 @@ it('distinguishes an empty library, incomplete and complete indexes without clai
 
 it('shows loading and indexing at the affected step and provides download prerequisites', () => {
   const semantic = controller({ enabled: true, busy: true, operation: 'activate' })
-  expect(html(semantic)).toContain('settings.semantic.summary.loading')
+  expect(html(semantic)).not.toMatch(/role="switch"[^>]*aria-describedby/)
   semantic.operation = 'build'; semantic.index!.running = true
   expect(html(semantic)).toContain('settings.semantic.indexing')
   expect(html(controller(), false)).toContain('settings.semantic.downloadFirst')
@@ -87,7 +87,7 @@ it('shows ready status without a build action, then offers an update when covera
     provider: { compiled: true, activeFormat: 'float32', loadingFormat: null, downloadingFormat: null } })
   semantic.index!.indexedDocuments = 2
   const ready = html(semantic)
-  expect(ready).toContain('settings.semantic.summary.on')
+  expect(ready).toMatch(/role="switch"[^>]*checked=""/)
   expect(ready).toContain('settings.semantic.documentsIndexed')
   expect(ready).not.toContain('search-index-spinner')
   expect(ready).not.toContain('settings.semantic.build')
@@ -177,7 +177,7 @@ it('keeps indexing feedback in one place and hides Build and zero reuse during w
   semantic.index!.running = true
   semantic.index!.reusedPassages = 0
   const value = html(semantic)
-  expect(value).toContain('settings.semantic.summary.on')
+  expect(value).toMatch(/role="switch"[^>]*checked=""/)
   expect(value.match(/settings.semantic.indexing/g)).toHaveLength(1)
   expect(value).not.toContain('settings.semantic.summary.indexing')
   expect(value).not.toContain('settings.semantic.build')

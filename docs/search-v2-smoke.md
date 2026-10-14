@@ -637,3 +637,32 @@ immediately and these checks do not replace the model/index lifecycle cases.
       the dialog. Explicit Change Selection/Stop Sending still cancel the session;
       navigation becomes available again once idle. Completion remains visible until
       Back or Close; reopening Settings starts at its root.
+
+## Settings Safe Areas and Feedback Follow-Up
+
+**Deferred.** Use a rebuilt artifact from the new commit; earlier reported smoke
+does not accept these settings changes.
+
+- [ ] On Android and iOS, expand every semantic-settings section and scroll to both
+      ends at narrow width, enlarged text/zoom, portrait and landscape, with keyboard
+      open/closed. Content and Back/Close stay within the system safe areas; only the
+      navigable body scrolls. Check notches, status/gesture bars and actual WebView
+      inset propagation. Ordinary forms, Transfer Library, Audio Setup and legal
+      dialogs retain usable actions and existing dismissal/busy/focus guards.
+- [ ] Enable semantic search on a slower device: Manage Model announces Loading
+      Model once with a spinner even when initially collapsed. Off remains usable.
+      Completion, activation failure/retry and disabling clear the spinner; a late
+      activation completion cannot restore On. Download/verification remains a
+      separate phase. Check reopening during native activation and restart.
+- [ ] The toggle card has no redundant On line or duplicate loading label. Off,
+      prerequisites, fallback and error/retry remain understandable. Main Settings
+      still conveys readiness without a switch. Screen readers resolve descriptions
+      and announce the loading phase without repeated indexing counters.
+- [ ] How It Works shows Matching, Device Resources and Saved Work in light/dark
+      and Arabic RTL. Check wraps and translated copy: partial relevance, document-wide
+      quotes, local search/download connection, model resource costs, retained work,
+      restart/update/retry and interrupted-download behavior remain clear.
+- [ ] On a fine pointer, enabled Remove Model Files/Remove Index and their inline
+      confirmation buttons show the app’s tonal hover with red labels; keyboard focus
+      retains a red ring. Disabled removal during loading/indexing stays quiet.
+      Coarse-pointer taps do not acquire a persistent hover appearance.

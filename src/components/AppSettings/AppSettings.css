@@ -283,7 +283,7 @@
     background: var(--surface-accent);
   }
 
-  .app-settings-data-action:hover {
+  .app-settings-data-action:hover:not(:disabled) {
     border-color: transparent;
     color: var(--accent-text);
     background: var(--surface-accent);

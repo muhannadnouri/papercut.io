@@ -2,6 +2,18 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+## Settings feedback and safe areas — 2026-10-14
+
+Implemented the six approved settings changes against `b661b00`. Shared dialogs now include all four safe-area insets in backdrop padding and subtract the top/bottom spacing from their viewport height limit, with dynamic viewport units and the existing mobile top fallback. Navigable dialogs keep their header outside the scrolling body; ordinary form dialogs retain their scrolling/action behavior.
+
+Manage Model owns the localized **Loading Model…** spinner, derived from the existing semantic status (activation or native loading). It clears on completion, failure or disable; download/verification feedback remains separate. The toggle card omits redundant **On** and duplicate loading text, without dangling description IDs or removing fallback/recovery explanations. General Settings keeps its compact readiness summary.
+
+**How It Works** groups explanations under Matching, Device Resources and Saved Work in all eight locales. It preserves document-wide quoted-phrase requirements, partial relevance, local search versus the Hugging Face download connection, selected-model resource costs, retained files/checkpoints, restart/retry and interrupted-download behavior. Manage Model now explains rebuild requirements and the off prerequisite directly. Removal buttons inherit the standard fine-pointer tonal hover while keeping red labels/focus rings; disabled actions remain quiet.
+
+Checks: **281 frontend passed / 1 optional skipped in 55 files**, lint/i18n/typecheck/Vite build/diff checks. New real DOM/component/controller regressions exercise pending activation, successful readiness, failure/retry, disable with late completion, native loading after IPC completion and separate verification work, including usable Off and resolved accessibility descriptions. Native IPC is mocked; React state and DOM events are real. No React hook-slot mocks or dependency-render tests were added.
+
+Further smoke remains deferred. Android WebView inset propagation, physical-device clipping, landscape/keyboard/zoom, hover painting and screen-reader announcements are not accepted by these tests. Fresh CI and the existing installed-platform/distribution gates remain open; prior reported CachyOS/Android smoke does not validate this follow-up. No native logic, search/index policy, dependencies or source offsets change.
+
 ## Concise search helpers — 2026-10-14
 
 Broader now says **Some unquoted words may be missing. Use quotes for an exact phrase.** Conceptual says **Find related passages. Use quotes for an exact phrase.** Both follow All Words' short two-sentence style, without library/imported-document boilerplate or numeric thresholds. All Words and the Broader label are unchanged. Updated both helper strings across all eight locales and renamed the existing helper-association test to match its actual contract.

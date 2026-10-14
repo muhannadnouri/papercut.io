@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { useTranslation } from 'react-i18next'
 import { formatStorageSize } from '../../utils/formatUtils'
+import { semanticSearchStatus } from '../../search-semantic/semanticSearchStatus'
 import { SemanticSearchSetup } from '../../search-semantic/SemanticSearchSetup'
 import type { DownloadProgress, ModelSelection, ProviderStatus, SemanticSearchController } from '../../search-semantic/useSemanticSearch'
 import { TrashIcon } from '../TrashIcon/TrashIcon'
@@ -87,6 +88,7 @@ export function SearchModelSetup({ semantic }: { semantic: SemanticSearchControl
   }, [connecting, refresh])
 
   const status = snapshot?.status
+  const loadingModel = semanticSearchStatus(semantic) === 'loading'
   const busy = operation !== null || !!status?.downloadingFormat || !!status?.loadingFormat || !!semantic.busy
   const cache = snapshot?.caches.find((item) => item.format === format)
   const semanticActiveFormat = semantic.provider?.activeFormat
@@ -216,9 +218,12 @@ export function SearchModelSetup({ semantic }: { semantic: SemanticSearchControl
 
   // Model preparation sits between the opt-in and index controls without owning their state.
   const modelControls = <>
-    {ready && status?.compiled && <details className="search-model-panel search-model-management" open={operation !== null || !!downloading || !!status.loadingFormat || !!error || (modelExpanded ?? (semantic.downloadFailure?.format === format || (!loaded && !cache?.filesPresent)))}
+    {ready && status?.compiled && <details className="search-model-panel search-model-management" open={operation !== null || !!downloading || loadingModel || !!error || (modelExpanded ?? (semantic.downloadFailure?.format === format || (!loaded && !cache?.filesPresent)))}
       onToggle={(event) => setModelExpanded(event.currentTarget.open)}>
       <summary>{t(loaded || cache?.hasStoredFiles ? 'settings.searchModel.manage' : 'settings.searchModel.title')}
+        {loadingModel && <span className="search-model-phase" role="status" aria-live="polite">
+          <span className="spinner" aria-hidden="true" />{t('settings.searchModel.loadingModel')}
+        </span>}
         {(loaded || cache?.filesPresent) && <span className="search-model-summary-status" role="status">{formatLabel(format)} · {t(loaded ? 'settings.searchModel.loaded' : 'settings.searchModel.stored')}</span>}
       </summary>
       <div className="search-model-selection">
@@ -301,8 +306,11 @@ export function SearchModelSetup({ semantic }: { semantic: SemanticSearchControl
         : modelControls}
       {ready && status?.compiled && <details className="search-model-panel">
         <summary>{t('settings.searchModel.details')}</summary>
+        <h4>{t('settings.searchModel.matchingTitle')}</h4>
         <p>{t('search.conceptual.description')} {t('search.conceptual.matchingDetails')}</p>
+        <h4>{t('settings.searchModel.resourcesTitle')}</h4>
         <p>{t('settings.searchModel.resources')}</p>
+        <h4>{t('settings.searchModel.savedWorkTitle')}</h4>
         <p>{t('settings.semantic.recovery')}</p>
         <p>{t('settings.searchModel.recovery')}</p>
       </details>}

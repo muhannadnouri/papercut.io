@@ -63,6 +63,7 @@
   cursor: default;
 }
 
+.search-model-phase,
 .search-index-phase,
 .search-index-attention {
   display: inline-flex;
@@ -70,6 +71,7 @@
   gap: 0.5rem;
 }
 
+.search-model-phase,
 .search-index-phase {
   margin-inline-start: 0.75rem;
   font-size: 0.85rem;
@@ -237,15 +239,8 @@ details.search-model-panel[open] > * + * {
   border-color: transparent;
 }
 
-.search-model-setup .search-remove-confirm:hover:not(:disabled),
-.search-model-setup .search-remove-confirm:focus-visible,
-.search-removal-confirmation .search-remove-confirm:not(:disabled) {
-  color: var(--danger-strong);
-  border-color: transparent;
-  background: var(--control-surface);
-}
-
 .search-model-setup .search-remove-confirm:focus-visible {
+  background: var(--surface-accent);
   outline: 2px solid var(--danger-strong);
   outline-offset: 2px;
   box-shadow: none;
@@ -308,4 +303,9 @@ details.search-model-panel[open] > * + * {
 
 .search-removal-actions > button[hidden] {
   display: none;
+}
+
+.search-model-panel h4 {
+  margin-bottom: 0;
+  font-size: 0.9rem;
 }

@@ -1,11 +1,14 @@
 .app-dialog-backdrop {
+  --dialog-safe-top: env(safe-area-inset-top, 0px);
+  --dialog-safe-bottom: env(safe-area-inset-bottom, 0px);
   position: fixed;
   inset: 0;
   z-index: 120;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  padding: calc(1rem + var(--dialog-safe-top)) calc(1rem + env(safe-area-inset-right, 0px))
+    calc(1rem + var(--dialog-safe-bottom)) calc(1rem + env(safe-area-inset-left, 0px));
   background: var(--backdrop);
 }
 
@@ -13,7 +16,8 @@
   display: grid;
   gap: 0.85rem;
   width: min(100%, 24rem);
-  max-height: calc(100vh - 2rem);
+  max-height: calc(100vh - 2rem - var(--dialog-safe-top) - var(--dialog-safe-bottom));
+  max-height: calc(100dvh - 2rem - var(--dialog-safe-top) - var(--dialog-safe-bottom));
   overflow: auto;
   padding: 1rem;
   border: 1px solid transparent;
@@ -37,7 +41,6 @@
 .app-dialog-navigable {
   display: flex;
   flex-direction: column;
-  max-height: calc(100dvh - 2rem);
   overflow: hidden;
 }
 
@@ -87,6 +90,11 @@
 }
 
 @media (max-width: 767px) {
+  .app-dialog-backdrop {
+    /* Match the app fallback where mobile WebViews do not expose a top inset. */
+    --dialog-safe-top: var(--mobile-safe-top-space, env(safe-area-inset-top, 0px));
+  }
+
   .app-dialog-navigation button {
     width: 2.5rem;
     height: 2.5rem;

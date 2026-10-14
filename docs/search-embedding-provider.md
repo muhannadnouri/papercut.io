@@ -456,16 +456,25 @@ The dedicated task view starts with **Semantic Search**, followed by **Download
 Model / Manage Model** and **Library Index**. The switch remains off and unavailable
 without model files; its status/prerequisite explanation is associated accessibly.
 Downloading and building/updating the index remain separate explicit actions.
-General Settings and the toggle card use the same observed readiness summary:
-off, loading, indexing/cancelling, index required, empty/checking library, ready or
-keyword-only fallback. Saved opt-in alone never means ready; inactive encoders,
+General Settings retains its observed readiness summary: off, loading,
+indexing/cancelling, index required, empty/checking library, ready or keyword-only
+fallback. In the task view the switch conveys On, Manage Model owns the live
+Loading Model spinner, and Library Index owns indexing/coverage feedback. The
+toggle card keeps off/fallback/recovery explanations with valid description IDs. Saved opt-in alone never means ready; inactive encoders,
 failed jobs, index removal and empty coverage cannot claim readiness.
-**Technical Details** holds device-independent resource, recovery and lifecycle
-explanations. **Remove Model Files** lives inside model management; **Remove Index**
+**How It Works** groups Matching, Device Resources and Saved Work. It explains
+partial conceptual relevance and document-wide quote requirements, local search
+and the Hugging Face model-download connection, model/hardware/library resource
+costs, retained files/checkpoints, restart behavior and download recovery. **Remove Model Files** lives inside model management; **Remove Index**
 lives inside the library-index panel. Each has a separated destructive-action row,
 consequence text and inline confirmation; there is no separate Manage Storage card.
 The view reuses the existing dialog/focus handling, widens on
-desktop and scrolls its body without hiding Back/Done on narrow screens.
+desktop and scrolls its body without hiding header Back/Close on narrow screens.
+Shared dialog padding includes all four safe-area insets; viewport height limits
+subtract top/bottom padding and reuse the app’s mobile top fallback. Actual native
+inset propagation and clipping still require deferred device smoke. Enabled
+removal actions share standard fine-pointer tonal hover, retain red labels and
+focus rings, and preserve confirmation/data guards; disabled actions do not hover.
 Search view rules live in `SearchModelSetup.css`; header activity rules live in
 `SearchActivity.css`, rather than general `AppSettings.css`.
 
@@ -712,7 +721,7 @@ When semantic search is enabled, SearchTab places a tonal **Keyword (N) / Concep
 
 Both views initially render ten returned document cards, with **Show More** revealing ten additional cards from the same response. Only the compact selector/options row is sticky; input, helper/examples and filter scroll normally. Panels stay mounted while hidden/inert so expanded evidence and each view's list window survive switching. The selected view and scroll place are distinct: switching from the scrolled selector restores that channel's remembered position, while a new request/scope resets windows and positions. No nested scrolling or retrieval pagination is added. Counts mean scoped **returned documents**, not literal occurrences, confidence, or an exhaustive total beyond the provider response limit. Pending and failed tab counts are omitted. More reports shown/returned counts and remains focusable but unavailable when the response is exhausted. Session view choice survives SearchTab unmount; card/window/scroll state is local to the mounted search view.
 
-Keyword cards retain one list/count and a **Starter Document** badge rather than source-group sections. Existing uploaded-first and per-provider order remains; there is no cross-engine score fusion. Starter All Words candidates are filtered through each distinct unquoted term's Pagefind quoted search before scope/count/display limits; authored phrase verification is separate. No native retrieval changes. The conceptual summary retains **Conceptual Results** and returned-document count; matching explanations remain in Settings Technical Details. Healthy coverage remains in Settings; partial fallback retains **Documents ready for this search** coverage and withholds conceptual cards.
+Keyword cards retain one list/count and a **Starter Document** badge rather than source-group sections. Existing uploaded-first and per-provider order remains; there is no cross-engine score fusion. Starter All Words candidates are filtered through each distinct unquoted term's Pagefind quoted search before scope/count/display limits; authored phrase verification is separate. No native retrieval changes. The conceptual summary retains **Conceptual Results** and returned-document count; matching explanations remain in Settings How It Works. Healthy coverage remains in Settings; partial fallback retains **Documents ready for this search** coverage and withholds conceptual cards.
 
 `src/search-semantic/useConceptualSearch.ts` owns invocation/state, App supplies submission/scope/library snapshots, and SearchTab owns result-view presentation. SearchBar retains input/submission/error behavior; SearchOptions renders the matching/helper/examples and selector as siblings within the full result view, avoiding a short sticky containing block. `ConceptualResults.tsx` renders authored passages; `SearchResults.tsx` retains lexical evidence, opening and failure behavior. The shared quote parser keeps unquoted text and authored clauses complete. All/empty/include/exclude scope is forwarded without widening selection. Scope changes wait for their matching submission rather than triggering another native scan.
 
@@ -747,7 +756,7 @@ source/index text, byte spans and reader targets remain original. More reveals
 additional previews, not full text: use **Open Passage** to read its source.
 
 **All Words** uses title case in English; **Broader** omits the library suffix,
-with imported-only scope retained as a retrieval rule rather than repeated in the helper. Broader uses **Some unquoted words may be missing. Use quotes for an exact phrase.** Conceptual uses **Find related passages. Use quotes for an exact phrase.** All Words remains unchanged; all eight locales use the same two-sentence pattern. The abbreviated helpers omit numeric thresholds and scope boilerplate; matching rules are unchanged. Quoted clauses remain required somewhere in the document, and a conceptual passage may be elsewhere, as explained in Settings Technical Details.
+with imported-only scope retained as a retrieval rule rather than repeated in the helper. Broader uses **Some unquoted words may be missing. Use quotes for an exact phrase.** Conceptual uses **Find related passages. Use quotes for an exact phrase.** All Words remains unchanged; all eight locales use the same two-sentence pattern. The abbreviated helpers omit numeric thresholds and scope boilerplate; matching rules are unchanged. Quoted clauses remain required somewhere in the document, and a conceptual passage may be elsewhere, as explained in Settings How It Works.
 Buttons use the existing
 section/page/text reader-target boundary and the actual passage, not a query term
 or a quote in a different section. Bytes are not DOM offsets. Existing legacy/

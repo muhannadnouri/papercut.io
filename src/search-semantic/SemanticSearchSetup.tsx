@@ -19,6 +19,8 @@ export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, childre
   const needsIndex = active && !busy && !statusError && !error && !index?.error
     && !!index && index.eligibleDocuments > 0 && !current
   const summary = ['indexing', 'cancelling', 'ready', 'needsIndex', 'empty', 'checking'].includes(status) ? 'on' : status
+  const showSummary = summary !== 'on' && summary !== 'loading'
+  const description = [showSummary && `${id}-status`, !cachePresent && !enabled && `${id}-prerequisite`].filter(Boolean).join(' ') || undefined
   const showIndex = enabled || index?.hasStoredIndex || indexing || operation === 'remove' || !!index?.error
   const expandIndex = enabled || indexing || operation === 'remove' || !!index?.error
   const indexActions = ((enabled && !statusError) || indexing) && !current && <>
@@ -36,11 +38,11 @@ export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, childre
         <span id={`${id}-enabled-label`}>{t('settings.semantic.enabled')}</span>
         <span className="app-settings-switch"><input type="checkbox" role="switch" checked={enabled}
           aria-labelledby={`${id}-enabled-label`}
-          aria-describedby={`${id}-status${!cachePresent && !enabled ? ` ${id}-prerequisite` : ''}`}
+          aria-describedby={description}
           disabled={operation === 'disable' || (!enabled && (busy || !!statusError || !cachePresent || !provider?.compiled))}
           onChange={(event) => { void semantic.setEnabled(event.target.checked) }} /><span aria-hidden="true" /></span>
       </label>
-      <p id={`${id}-status`} role="status" aria-live="polite">{t(`settings.semantic.summary.${summary}`)}</p>
+      {showSummary && <p id={`${id}-status`} role="status" aria-live="polite">{t(`settings.semantic.summary.${summary}`)}</p>}
       {enabled && !active && !statusError && <button type="button" className="app-settings-data-action" disabled={busy || !cachePresent || !provider?.compiled}
         onClick={() => { void semantic.setEnabled(true) }}>{t('settings.semantic.retry')}</button>}
       {error && <p className="app-dialog-error" role="alert" dir="auto">{error}</p>}

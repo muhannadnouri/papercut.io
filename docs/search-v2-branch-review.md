@@ -1,5 +1,13 @@
 # Search v2 branch acceptance and review
 
+## Settings follow-up — 2026-10-14
+
+The six approved settings changes add shared safe-area-aware modal padding/height limits, model-loading feedback in Manage Model, removal of the redundant toggle-card On line, **How It Works** explanations, concise model instructions and standard removal-button hover feedback. Main Settings readiness summaries, confirmations and job/data guards are retained.
+
+Checks: **281 frontend passed / 1 optional skipped in 55 files**, lint/i18n/typecheck/Vite build/diff. Four new real component/controller regressions cover activation completion, error/retry, disable/late completion and native loading versus separate verification, with live-status and description-ID checks. Native IPC is mocked; no hardware performance/layout acceptance is claimed. Details are in [the progress record](search-v2-progress.md).
+
+**Current-source CI remains pending; further smoke stays deferred.** The verified CI below covers `15b3710`, and the reported CachyOS/Android smoke predates these changes. Android safe-area propagation/clipping and iOS installed-app testing remain unverified; release gates below are unchanged. No push, merge or release is claimed.
+
 ## Result-view follow-up and reported smoke — 2026-10-14
 
 The approved follow-up adds a tonal **Keyword / Conceptual** selector directly below the query, sharing a compact sticky row with Keyword-only All Words/Broader options. The selector/options group, helper text and keyword examples are centered in both opt-in states, with responsive stacking before the shared filter. Decorative magnifier/related-node icons sit physically left of the labels; automatic label direction is retained. Tab minimums are 36px on mouse-only screens and 44px with any coarse pointer. Keyword examples are hidden in Conceptual view. Ten-card batches per channel preserve the shared query/scope and independent retrieval. Session-selected view never changes on async completion. Switching retains list expansion/evidence and scroll position; a new submission resets list windows/positions. Accessible hidden/inert panels reuse installed React Aria tabs. All Words/Broader applies to the Keyword view, and fallback text points there without switching automatically. Counts identify returned documents, not exhaustive library matches or confidence.
