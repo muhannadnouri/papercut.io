@@ -35,7 +35,7 @@
       "placeholder": "搜索文档...",
       "button": "搜索",
       "help": "所有未加引号的词都必须匹配。使用引号搜索精确短语。",
-      "modeLabel": "搜索模式",
+      "modeLabel": "关键词匹配",
       "allWordsMode": "所有词",
       "broaderMode": "宽泛搜索",
       "helpBroader": "包含3–12个不同词时，部分词可以缺失。更长的搜索要求包含所有词。引号内的短语始终必须匹配。仅搜索你的书库。",
@@ -43,7 +43,8 @@
       "tooLong": "请将搜索缩短至最多128个词和4096个字符，包括引号内的短语。",
       "examplesLabel": "搜索示例",
       "exampleBroad": "搜索词",
-      "exampleExact": "\"精确短语\""
+      "exampleExact": "\"精确短语\"",
+      "helpConceptual": "查找导入文档中的相关段落。引号内的短语仍为必需。"
     },
     "scope": {
       "ariaLabel": "搜索范围",
@@ -98,7 +99,13 @@
       "occurrencesFailed": "无法加载出现位置。",
       "noLiteralOccurrences": "正文中未找到出现位置。",
       "retryOccurrences": "重试",
-      "starterDocument": "入门文档"
+      "starterDocument": "入门文档",
+      "views": "搜索结果",
+      "keyword": "关键词",
+      "conceptual": "概念",
+      "showMore": "显示更多",
+      "documentsShown": "显示返回的 {{total, number}} 个文档中的 {{shown, number}} 个",
+      "count": "{{count, number}}"
     },
     "conceptual": {
       "title": "概念结果",
@@ -115,12 +122,12 @@
       "loading": "正在查找概念段落…",
       "coverage": "可用于此次搜索的文档：{{ready, number}} / {{total, number}}",
       "empty": "此范围内没有概念段落。",
-      "unavailable": "概念搜索不可用。词汇匹配结果仍可使用。请在设置中检查模型。",
-      "preparing": "正在准备模型或索引。工作完成前使用词汇匹配结果。",
-      "missing-index": "没有可用的语义索引。使用词汇匹配结果。请在设置中构建或恢复索引。",
-      "incompatible-index": "索引与所选模型不匹配。使用词汇匹配结果。请在设置中构建或恢复索引。",
-      "partial": "此范围尚未完全索引。使用词汇匹配结果。请在设置中构建或恢复索引。",
-      "failed": "概念搜索未能完成。词汇匹配结果仍可使用。请在设置中检查模型和索引状态，然后重试搜索；缩短查询可能有帮助。"
+      "unavailable": "概念搜索不可用。请查看关键词结果，并在设置中检查模型。",
+      "preparing": "正在准备模型或索引。工作完成前请查看关键词结果。",
+      "missing-index": "没有可用的语义索引。请查看关键词结果，并在设置中建立或继续建立索引。",
+      "incompatible-index": "索引与所选模型不匹配。请查看关键词结果，并在设置中建立或继续建立索引。",
+      "partial": "此范围尚未完全建立索引。请查看关键词结果，并在设置中建立或继续建立索引。",
+      "failed": "概念搜索未能完成。请查看关键词结果，在设置中检查模型和索引状态后重试；较短的查询可能有帮助。"
     }
   },
   "library": {

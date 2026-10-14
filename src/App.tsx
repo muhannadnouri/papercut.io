@@ -10,9 +10,8 @@ import { usePagefind } from './hooks/usePagefind'
 import { useSearch } from './hooks/useSearch'
 import { useSemanticSearch } from './search-semantic/useSemanticSearch'
 import { useConceptualSearch } from './search-semantic/useConceptualSearch'
-import { ConceptualResults } from './search-semantic/ConceptualResults'
 import { AppHeader } from './components/AppHeader/AppHeader'
-import { SearchTab } from './components/SearchTab/SearchTab'
+import { SearchTab, type SearchResultView } from './components/SearchTab/SearchTab'
 import { LibraryTab } from './components/LibraryTab/LibraryTab'
 import { useDocumentScanner } from './document-scanner/useDocumentScanner'
 import { ScanSetupDialog } from './document-scanner/ScanSetupDialog'
@@ -66,6 +65,7 @@ function App() {
   const documentScanner = useDocumentScanner()
   const [activeTab, setActiveTab] = useState<AppTab>('library')
   const [searchMode, setSearchMode] = useState<SearchMode>('all')
+  const [searchResultView, setSearchResultView] = useState<SearchResultView>('keyword')
   const [userUploads, setUserUploads] = useState<UserUploadDocument[]>(() => getUserUploads())
   const [ttsDiagnosticsEnabled, setTtsDiagnosticsEnabled] = useState(() => isDebugEnabled())
   const [scanSetupSource, setScanSetupSource] = useState<'camera' | 'photos' | null>(null)
@@ -540,10 +540,12 @@ function App() {
 
         {activeTab === 'search' && (
           <SearchTab
-            additionalResults={<ConceptualResults state={conceptualResults}
-              openingDisabled={documentOpening}
-              openingDocumentUrl={documentLoad.status === 'loading' ? documentLoad.url : undefined}
-              onViewDocument={handleViewDocument} />}
+            semanticEnabled={semanticSearch.enabled}
+            conceptualState={conceptualResults}
+            resultView={searchResultView}
+            onResultViewChange={setSearchResultView}
+            searchRequest={searchRequest}
+            onViewConceptualResult={handleViewDocument}
             mode={searchMode}
             onModeChange={setSearchMode}
             query={query}

@@ -9,7 +9,9 @@ import './ConceptualResults.css'
 
 /** Render authored passage text as text, with no synthetic query marks or literal counts.
  * UTF-8 byte spans stay native metadata; reader navigation uses existing section/page/text targets. */
-export function ConceptualResults({ state, openingDisabled = false, openingDocumentUrl, onViewDocument }: {
+export function ConceptualResults({ visibleLimit = Infinity, onShowMore, state, openingDisabled = false, openingDocumentUrl, onViewDocument }: {
+  visibleLimit?: number
+  onShowMore?: () => void
   state: ConceptualState
   openingDisabled?: boolean
   openingDocumentUrl?: string
@@ -33,8 +35,13 @@ export function ConceptualResults({ state, openingDisabled = false, openingDocum
       {t('search.conceptual.coverage', { ready: state.response.indexedDocuments, total: state.response.eligibleDocuments })}
     </p>}
     {state.phase === 'ready' && results.length === 0 && <p role="status">{t('search.conceptual.empty')}</p>}
-    {results.map(result => <ConceptualResultCard key={`${result.documentId}:${result.sectionIndex}:${result.byteStart}:${result.byteEnd}`}
+    {results.slice(0, visibleLimit).map(result => <ConceptualResultCard key={`${result.documentId}:${result.sectionIndex}:${result.byteStart}:${result.byteEnd}`}
       result={result} opening={result.url === openingDocumentUrl} openingDisabled={openingDisabled} onViewDocument={onViewDocument} />)}
+    {onShowMore && results.length > 10 && <div className="result-list-more">
+      <span role="status">{t('search.results.documentsShown', { shown: Math.min(visibleLimit, results.length), total: results.length })}</span>
+      <button type="button" className="result-evidence-action" aria-disabled={visibleLimit >= results.length}
+        onClick={() => { if (visibleLimit < results.length) onShowMore() }}>{t('search.results.showMore')}</button>
+    </div>}
   </section>
 }
 

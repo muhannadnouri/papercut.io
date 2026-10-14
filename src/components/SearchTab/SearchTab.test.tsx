@@ -1,0 +1,241 @@
+// @vitest-environment jsdom
+import { act, useState, type ComponentProps } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { SearchTab, type SearchResultView } from './SearchTab'
+import type { ConceptualResponse } from '../../search-semantic/useConceptualSearch'
+
+vi.mock('react-i18next', () => ({ useTranslation: () => ({
+  t: (key: string, values?: Record<string, unknown>) => `${key}${values ? JSON.stringify(values) : ''}`,
+  i18n: { language: 'en', resolvedLanguage: 'en' },
+}) }))
+
+const response: ConceptualResponse = {
+  availability: 'ready', indexedDocuments: 23, eligibleDocuments: 23, scannedPassages: 230,
+  results: Array.from({ length: 23 }, (_, i) => ({
+    documentId: `guide-${i}`, url: `/uploads/guide-${i}.pdf`, format: 'pdf', title: `Concept ${i}`,
+    context: Array.from({ length: 4 }, (_, j) => ({
+      sectionIndex: j, pageIndex: j, sectionTitle: null, byteStart: j * 100, byteEnd: j * 100 + 90, text: `Context ${j}`,
+    })),
+    provenance: 'conceptual', score: 0.8, sectionIndex: 2, pageIndex: 2, sectionTitle: 'Connections',
+    byteStart: 290, byteEnd: 450, text: 'Original full source 🙂 straightfor‐\nward passage.',
+  })),
+}
+function props(): ComponentProps<typeof SearchTab> {
+  return {
+    semanticEnabled: true, conceptualState: { phase: 'ready', response }, resultView: 'keyword',
+    searchRequest: { revision: 1, scope: '*' }, onResultViewChange: vi.fn(), onViewConceptualResult: vi.fn(),
+    mode: 'all', collapsedAuthors: new Set(), disabled: false, docFilterLower: '', documentFilter: '',
+    filterTitleByUrl: new Map(), groupedDocs: [], libraryOrganization: { folders: [], documentLocations: [] },
+    loading: false, searchFailed: false, searchableDocumentCount: 200, searchPhase: null,
+    openingDisabled: false, query: 'connections', queryError: null,
+    results: Array.from({ length: 23 }, (_, i) => ({
+      id: `guide-${i}`, url: `/uploads/guide-${i}.pdf`, meta: { title: `Keyword ${i}` },
+      source: 'upload', excerpt: '<mark>connections</mark> to source', sectionIndex: 2, pageIndex: 2,
+      matchCount: 1, matchingSections: 2, passages: [{ sectionIndex: 3, excerpt: 'Further connections' }],
+    })),
+    selectedFilters: new Set(), scopeMode: 'include', scopeUrls: new Set(), scopeActive: false,
+    submittedQuery: 'connections', lastSearchInfo: { mode: 'all', phrases: [], unquotedText: 'connections',
+      uploadedDocuments: 23, uploadedMatchingSections: 46, starterDocuments: 0 },
+    onChangeQuery: vi.fn(), onModeChange: vi.fn(), onClearFilters: vi.fn(), onScopeModeChange: vi.fn(),
+    onFilterChange: vi.fn(), onSubmitSearch: vi.fn(), onToggleAllInGroup: vi.fn(), onToggleAuthor: vi.fn(),
+    onToggleFilter: vi.fn(), onViewResult: vi.fn(),
+  }
+}
+function Harness({ value }: { value: ComponentProps<typeof SearchTab> }) {
+  // App owns the selected view, independently of either request's completion.
+  const [view, setView] = useState<SearchResultView>('keyword')
+  return <SearchTab {...value} resultView={view} onResultViewChange={next => {
+    value.onResultViewChange(next)
+    setView(next)
+  }} />
+}
+let root: Root
+let container: HTMLDivElement
+beforeEach(() => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  // jsdom has no CSS.escape; supply the platform selector escape for generated IDs.
+  vi.stubGlobal('CSS', { escape: (value: string) => value.replace(/[^a-zA-Z0-9_-]/g, character => `\\${character}`) })
+  vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+  container = document.createElement('div')
+  document.body.append(container)
+  root = createRoot(container)
+})
+afterEach(async () => {
+  await act(() => root.unmount())
+  container.remove()
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+})
+async function render(value: ComponentProps<typeof SearchTab>) { await act(() => root.render(<Harness value={value} />)) }
+async function click(node: HTMLElement) { await act(() => node.click()) }
+function tab(view: SearchResultView) {
+  return [...container.querySelectorAll<HTMLElement>('[role="tab"]')]
+    .find(node => node.textContent!.startsWith(`search.results.${view}`))!
+}
+function panel(view: SearchResultView) {
+  return container.querySelectorAll<HTMLElement>('.search-result-panel')[view === 'keyword' ? 0 : 1]
+}
+function more(view: SearchResultView) { return panel(view).querySelector<HTMLButtonElement>('.result-list-more button')! }
+
+it('keeps semantic-off search bounded with no result tabs or conceptual notices', async () => {
+  const value = props()
+  await render({ ...value, semanticEnabled: false, conceptualState: { phase: 'fallback', reason: 'failed' } })
+  expect(container.querySelector('[role="tablist"]')).toBeNull()
+  expect(container.querySelectorAll('.result-card')).toHaveLength(10)
+  expect(container.textContent).not.toContain('search.conceptual.failed')
+  await click(container.querySelector('.result-list-more button')!)
+  expect(container.querySelectorAll('.result-card')).toHaveLength(20)
+  expect(value.onSubmitSearch).not.toHaveBeenCalled()
+})
+
+it('uses linked tabs with one active focus target, hides inactive evidence and scopes keyword options', async () => {
+  const value = props()
+  await render(value)
+  expect(tab('keyword').getAttribute('aria-selected')).toBe('true')
+  expect(tab('keyword').tabIndex).toBe(0)
+  expect(tab('conceptual').tabIndex).toBe(-1)
+  expect(panel('keyword').getAttribute('aria-labelledby')).toBe(tab('keyword').id)
+  expect(panel('conceptual').hasAttribute('inert')).toBe(true)
+  expect(panel('conceptual').hidden).toBe(true)
+  expect(container.querySelectorAll('input[name="search-mode"]')).toHaveLength(2)
+  await click(tab('conceptual'))
+  expect(tab('conceptual').getAttribute('aria-selected')).toBe('true')
+  expect(panel('keyword').hasAttribute('inert')).toBe(true)
+  expect(panel('conceptual').hasAttribute('inert')).toBe(false)
+  expect(panel('conceptual').hidden).toBe(false)
+  expect(document.getElementById(tab('conceptual').getAttribute('aria-controls')!)).toBe(panel('conceptual'))
+  expect(container.querySelector('input[name="search-mode"]')).toBeNull()
+  expect(container.querySelector('#search-input-help')!.textContent).toBe('search.input.helpConceptual')
+  await click(container.querySelector('.search-btn')!)
+  expect(value.onSubmitSearch).toHaveBeenCalledOnce()
+  expect(value.onModeChange).not.toHaveBeenCalled()
+})
+
+it('switches by keyboard without submitting or resetting the shared query and keeps async updates in their channel', async () => {
+  const value = props()
+  await render({ ...value, conceptualState: { phase: 'loading' } })
+  expect(tab('conceptual').textContent).not.toContain('search.results.count')
+  await act(() => tab('keyword').focus())
+  await act(() => tab('keyword').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })))
+  expect(tab('conceptual').getAttribute('aria-selected')).toBe('true')
+  expect(document.activeElement).toBe(tab('conceptual'))
+  expect(panel('conceptual').textContent).toContain('search.conceptual.loading')
+  await render(value)
+  expect(tab('conceptual').getAttribute('aria-selected')).toBe('true')
+  expect(container.querySelector<HTMLInputElement>('.search-input')!.value).toBe(value.query)
+  await click(tab('keyword'))
+  await render({ ...value, conceptualState: { phase: 'ready', response: { ...response, results: [] } } })
+  expect(tab('keyword').getAttribute('aria-selected')).toBe('true')
+  expect(value.onSubmitSearch).not.toHaveBeenCalled()
+  expect(value.onChangeQuery).not.toHaveBeenCalled()
+})
+
+it('reveals ten returned cards at a time per channel, retains expansion and keeps source opening unchanged', async () => {
+  const value = props()
+  await render(value)
+  expect(tab('keyword').textContent).toContain('"count":23')
+  expect(tab('conceptual').textContent).toContain('"count":23')
+  expect(panel('keyword').querySelectorAll('.result-card')).toHaveLength(10)
+  expect(panel('conceptual').querySelectorAll('.result-card')).toHaveLength(10)
+  await click(panel('keyword').querySelector('summary')!)
+  const details = panel('keyword').querySelector('details')!
+  await click(more('keyword'))
+  expect(panel('keyword').querySelectorAll('.result-card')).toHaveLength(20)
+  await click(tab('conceptual'))
+  expect(panel('conceptual').querySelectorAll('.result-card')).toHaveLength(10)
+  await click(panel('conceptual').querySelector('summary')!)
+  const context = panel('conceptual').querySelector('details')!
+  await click(context.querySelector('.result-evidence-action')!)
+  const blocks = context.querySelectorAll('.conceptual-context-block').length
+  await click(more('conceptual'))
+  await act(() => more('conceptual').focus())
+  await click(more('conceptual'))
+  expect(panel('conceptual').querySelectorAll('.result-card')).toHaveLength(23)
+  expect(more('conceptual').getAttribute('aria-disabled')).toBe('true')
+  expect(document.activeElement).toBe(more('conceptual'))
+  await click(more('conceptual'))
+  expect(panel('conceptual').querySelectorAll('.result-card')).toHaveLength(23)
+  expect(panel('conceptual').querySelector('.result-list-more')!.textContent).toContain('"shown":23,"total":23')
+  await click(tab('keyword'))
+  expect(details.open).toBe(true)
+  expect(panel('keyword').querySelector('details')).toBe(details)
+  expect(panel('keyword').querySelectorAll('.result-card')).toHaveLength(20)
+  await click(panel('keyword').querySelector('.result-card-primary')!)
+  expect(value.onViewResult).toHaveBeenCalledWith(value.results[0], { text: 'connections', sectionIndex: 2, pageIndex: 2 })
+  await click(tab('conceptual'))
+  expect(context.open).toBe(true)
+  expect(context.querySelectorAll('.conceptual-context-block')).toHaveLength(blocks)
+  await click(panel('conceptual').querySelector('.result-card-primary')!)
+  expect(value.onViewConceptualResult).toHaveBeenCalledWith(response.results[0].url, {
+    text: response.results[0].text, sectionIndex: 2, pageIndex: 2,
+  })
+  expect(value.onSubmitSearch).not.toHaveBeenCalled()
+})
+
+it('resets list windows for a new request/scope but retains the chosen view and counts only scoped returned documents', async () => {
+  const value = props()
+  await render(value)
+  await click(more('keyword'))
+  await click(tab('conceptual'))
+  await click(more('conceptual'))
+  await render({ ...value, searchRequest: { revision: 2, scope: 'selected' }, scopeActive: true,
+    scopeUrls: new Set(value.results.slice(4, 16).map(result => result.url)),
+    conceptualState: { phase: 'ready', response: { ...response, results: response.results.slice(4, 16) } },
+  })
+  expect(tab('conceptual').getAttribute('aria-selected')).toBe('true')
+  expect(panel('keyword').querySelectorAll('.result-card')).toHaveLength(10)
+  expect(panel('conceptual').querySelectorAll('.result-card')).toHaveLength(10)
+  expect(tab('keyword').textContent).toContain('"count":12')
+  expect(tab('conceptual').textContent).toContain('"count":12')
+  expect(panel('keyword').textContent).not.toContain('Keyword 0')
+  expect(panel('keyword').querySelector('.result-list-more')!.textContent).toContain('"shown":10,"total":12')
+})
+
+it.each(['partial', 'missing-index', 'incompatible-index', 'unavailable', 'preparing', 'failed'] as const)(
+  'retains selectable %s fallback and never reports it as zero conceptual results', async reason => {
+    const value = props()
+    await render({ ...value, conceptualState: { phase: 'fallback', reason, response: { ...response, availability: 'partial' } } })
+    await click(tab('conceptual'))
+    expect(panel('conceptual').textContent).toContain(`search.conceptual.${reason}`)
+    expect(panel('conceptual').querySelector('.result-card')).toBeNull()
+    expect(tab('conceptual').textContent).not.toContain('search.results.count')
+    await click(tab('keyword'))
+    expect(panel('keyword').querySelectorAll('.result-card')).toHaveLength(10)
+  },
+)
+
+it('restores each list scroll position after a scrolled switch and forgets positions for a new query', async () => {
+  const value = props()
+  await render(value)
+  const area = container.querySelector('.search-result-views')!
+  vi.spyOn(area, 'getBoundingClientRect').mockReturnValue({ top: -700 } as DOMRect)
+  vi.spyOn(window, 'scrollY', 'get').mockReturnValue(1000)
+  await click(tab('conceptual'))
+  expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 300, behavior: 'instant' })
+  vi.spyOn(window, 'scrollY', 'get').mockReturnValue(500)
+  await click(tab('keyword'))
+  expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 1000, behavior: 'instant' })
+  await render({ ...value, searchRequest: { revision: 2, scope: '*' } })
+  await click(tab('conceptual'))
+  expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 0, behavior: 'instant' })
+})
+
+it('distinguishes pending/failed keyword counts from ready empty results and keeps reader busy guards in both views', async () => {
+  const value = props()
+  await render({ ...value, loading: true })
+  expect(tab('keyword').textContent).not.toContain('search.results.count')
+  await click(tab('conceptual'))
+  await render({ ...value, searchFailed: true, results: [], openingDisabled: true })
+  expect(tab('keyword').textContent).not.toContain('search.results.count')
+  await click(panel('conceptual').querySelector('.result-card-primary')!)
+  expect(value.onViewConceptualResult).not.toHaveBeenCalled()
+  await click(tab('keyword'))
+  expect(panel('keyword').querySelector('[role="alert"]')!.textContent).toContain('search.results.searchFailed')
+  await render({ ...value, results: [], conceptualState: { phase: 'ready', response: { ...response, results: [] } } })
+  expect(tab('keyword').textContent).toContain('"count":0')
+  expect(tab('conceptual').textContent).toContain('"count":0')
+  await render({ ...value, openingDisabled: true })
+  await click(panel('keyword').querySelector('.result-card-primary')!)
+  expect(value.onViewResult).not.toHaveBeenCalled()
+})

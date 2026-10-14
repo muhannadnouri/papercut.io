@@ -4,6 +4,7 @@ import type { SearchMode } from '../../types/search'
 import './SearchBar.css'
 
 interface SearchBarProps {
+  keywordOptions?: boolean
   mode: SearchMode
   query: string
   queryError: SearchQueryError | null
@@ -16,6 +17,7 @@ interface SearchBarProps {
 }
 
 export function SearchBar({
+  keywordOptions = true,
   mode,
   query,
   queryError,
@@ -68,7 +70,7 @@ export function SearchBar({
           {t('search.input.button')}
         </button>
       </div>
-      <fieldset className="search-mode">
+      {keywordOptions && <fieldset className="search-mode">
         <legend>{t('search.input.modeLabel')}</legend>
         <label>
           <input type="radio" name="search-mode" checked={mode === 'all'} onChange={() => onModeChange('all')} />
@@ -78,9 +80,10 @@ export function SearchBar({
           <input type="radio" name="search-mode" checked={mode === 'broader'} onChange={() => onModeChange('broader')} />
           {t('search.input.broaderMode')}
         </label>
-      </fieldset>
+      </fieldset>}
       <p className="search-help" id="search-input-help">
-        {t(mode === 'broader' ? 'search.input.helpBroader' : 'search.input.help')}
+        {t(!keywordOptions ? 'search.input.helpConceptual'
+          : mode === 'broader' ? 'search.input.helpBroader' : 'search.input.help')}
       </p>
       {queryError && (
         <p className="search-input-error" id="search-input-error" role="alert">

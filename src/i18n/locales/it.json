@@ -35,7 +35,7 @@
       "placeholder": "Cerca documenti...",
       "button": "Cerca",
       "help": "Tutte le parole senza virgolette sono obbligatorie. Usa le virgolette per una frase esatta.",
-      "modeLabel": "Modalità di ricerca",
+      "modeLabel": "Corrispondenza delle parole chiave",
       "allWordsMode": "Tutte le parole",
       "broaderMode": "Ricerca ampia",
       "helpBroader": "Con 3–12 parole diverse, alcune possono mancare. Le ricerche più lunghe richiedono tutte le parole. Le frasi tra virgolette restano obbligatorie. Cerca solo nella Tua biblioteca.",
@@ -43,7 +43,8 @@
       "tooLong": "Riduci la ricerca a un massimo di 128 parole e 4096 caratteri, incluse le frasi tra virgolette.",
       "examplesLabel": "Esempi di ricerca",
       "exampleBroad": "parole da cercare",
-      "exampleExact": "\"frase esatta\""
+      "exampleExact": "\"frase esatta\"",
+      "helpConceptual": "Trova passaggi correlati nei documenti importati. Le frasi tra virgolette restano obbligatorie."
     },
     "scope": {
       "ariaLabel": "Ambito di ricerca",
@@ -108,7 +109,13 @@
       "occurrencesFailed": "Impossibile caricare le occorrenze.",
       "noLiteralOccurrences": "Nessuna occorrenza trovata nel corpo del testo.",
       "retryOccurrences": "Riprova",
-      "starterDocument": "Documento iniziale"
+      "starterDocument": "Documento iniziale",
+      "views": "Risultati di ricerca",
+      "keyword": "Parole chiave",
+      "conceptual": "Concettuali",
+      "showMore": "Mostra Altro",
+      "documentsShown": "Visualizzazione di {{shown, number}} su {{total, number}} documenti restituiti",
+      "count": "{{count, number}}"
     },
     "conceptual": {
       "title": "Risultati concettuali",
@@ -127,12 +134,12 @@
       "loading": "Ricerca di passaggi concettuali…",
       "coverage": "Documenti pronti per questa ricerca: {{ready, number}} / {{total, number}}",
       "empty": "Nessun passaggio concettuale in questo ambito.",
-      "unavailable": "La ricerca concettuale non è disponibile. I risultati lessicali restano disponibili. Controlla il modello nelle impostazioni.",
-      "preparing": "Preparazione del modello o dell’indice. Si usano i risultati lessicali fino al termine del lavoro.",
-      "missing-index": "Nessun indice semantico disponibile. Si usano i risultati lessicali. Crea o riprendi l’indice nelle impostazioni.",
-      "incompatible-index": "L’indice non corrisponde al modello selezionato. Si usano i risultati lessicali. Crea o riprendi l’indice nelle impostazioni.",
-      "partial": "Questo ambito non è interamente indicizzato. Si usano i risultati lessicali. Crea o riprendi l’indice nelle impostazioni.",
-      "failed": "La ricerca concettuale non è terminata. I risultati lessicali restano disponibili. Controlla lo stato del modello e dell’indice nelle impostazioni e riprova; una query più breve può aiutare."
+      "unavailable": "La ricerca concettuale non è disponibile. Consulta i risultati Parole chiave. Controlla il modello nelle impostazioni.",
+      "preparing": "Preparazione del modello o dell’indice. Consulta i risultati Parole chiave durante il lavoro.",
+      "missing-index": "Nessun indice semantico disponibile. Consulta i risultati Parole chiave. Crea o riprendi l’indice nelle impostazioni.",
+      "incompatible-index": "L’indice non corrisponde al modello selezionato. Consulta i risultati Parole chiave. Crea o riprendi l’indice nelle impostazioni.",
+      "partial": "Questo ambito non è completamente indicizzato. Consulta i risultati Parole chiave. Crea o riprendi l’indice nelle impostazioni.",
+      "failed": "La ricerca concettuale non è terminata. Consulta i risultati Parole chiave. Controlla modello e indice nelle impostazioni, poi riprova; una query più breve può aiutare."
     }
   },
   "library": {

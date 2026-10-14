@@ -35,7 +35,7 @@
       "placeholder": "Rechercher des documents...",
       "button": "Rechercher",
       "help": "Tous les mots sans guillemets sont requis. Utilisez des guillemets pour une expression exacte.",
-      "modeLabel": "Mode de recherche",
+      "modeLabel": "Correspondance des mots-clés",
       "allWordsMode": "Tous les mots",
       "broaderMode": "Recherche élargie",
       "helpBroader": "Avec 3 à 12 mots différents, certains peuvent manquer. Les recherches plus longues exigent tous les mots. Les expressions entre guillemets restent obligatoires. Recherche uniquement dans Votre bibliothèque.",
@@ -43,7 +43,8 @@
       "tooLong": "Limitez la recherche à 128 mots et 4 096 caractères, y compris les expressions entre guillemets.",
       "examplesLabel": "Exemples de recherche",
       "exampleBroad": "mots de recherche",
-      "exampleExact": "\"expression exacte\""
+      "exampleExact": "\"expression exacte\"",
+      "helpConceptual": "Trouvez des passages liés dans les documents importés. Les expressions entre guillemets restent requises."
     },
     "scope": {
       "ariaLabel": "Portée de la recherche",
@@ -108,7 +109,13 @@
       "occurrencesFailed": "Impossible de charger les occurrences.",
       "noLiteralOccurrences": "Aucune occurrence trouvée dans le corps du texte.",
       "retryOccurrences": "Réessayer",
-      "starterDocument": "Document de démarrage"
+      "starterDocument": "Document de démarrage",
+      "views": "Résultats de recherche",
+      "keyword": "Mots-clés",
+      "conceptual": "Conceptuels",
+      "showMore": "Afficher Plus",
+      "documentsShown": "Affichage de {{shown, number}} sur {{total, number}} documents retournés",
+      "count": "{{count, number}}"
     },
     "conceptual": {
       "title": "Résultats conceptuels",
@@ -127,12 +134,12 @@
       "loading": "Recherche de passages conceptuels…",
       "coverage": "Documents prêts pour cette recherche : {{ready, number}} / {{total, number}}",
       "empty": "Aucun passage conceptuel dans ce périmètre.",
-      "unavailable": "La recherche conceptuelle est indisponible. Les résultats lexicaux restent disponibles. Vérifiez le modèle dans les paramètres.",
-      "preparing": "Préparation du modèle ou de l’index. Les résultats lexicaux sont utilisés en attendant.",
-      "missing-index": "Aucun index sémantique disponible. Les résultats lexicaux sont utilisés. Créez ou reprenez l’index dans les paramètres.",
-      "incompatible-index": "L’index ne correspond pas au modèle sélectionné. Les résultats lexicaux sont utilisés. Créez ou reprenez l’index dans les paramètres.",
-      "partial": "Ce périmètre n’est pas entièrement indexé. Les résultats lexicaux sont utilisés. Créez ou reprenez l’index dans les paramètres.",
-      "failed": "La recherche conceptuelle n’a pas pu aboutir. Les résultats lexicaux restent disponibles. Vérifiez l’état du modèle et de l’index dans les paramètres, puis réessayez ; une requête plus courte peut aider."
+      "unavailable": "La recherche conceptuelle est indisponible. Consultez les résultats Mots-clés. Vérifiez le modèle dans les paramètres.",
+      "preparing": "Préparation du modèle ou de l’index. Consultez les résultats Mots-clés pendant le traitement.",
+      "missing-index": "Aucun index sémantique disponible. Consultez les résultats Mots-clés. Créez ou reprenez l’index dans les paramètres.",
+      "incompatible-index": "L’index ne correspond pas au modèle sélectionné. Consultez les résultats Mots-clés. Créez ou reprenez l’index dans les paramètres.",
+      "partial": "Ce périmètre n’est pas entièrement indexé. Consultez les résultats Mots-clés. Créez ou reprenez l’index dans les paramètres.",
+      "failed": "La recherche conceptuelle n’a pas abouti. Consultez les résultats Mots-clés. Vérifiez le modèle et l’index dans les paramètres, puis réessayez ; une requête plus courte peut aider."
     }
   },
   "library": {

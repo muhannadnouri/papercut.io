@@ -35,7 +35,7 @@
       "placeholder": "Search Documents...",
       "button": "Search",
       "help": "All unquoted words are required. Use quotes for an exact phrase.",
-      "modeLabel": "Search mode",
+      "modeLabel": "Keyword matching",
       "allWordsMode": "All Words",
       "broaderMode": "Broader",
       "helpBroader": "With 3–12 different words, some may be missing. Longer searches require all words. Quoted phrases stay required. Searches Your Library only.",
@@ -43,7 +43,8 @@
       "tooLong": "Shorten your search to at most 128 words and 4,096 characters, including quoted phrases.",
       "examplesLabel": "Search examples",
       "exampleBroad": "green gables",
-      "exampleExact": "\"Anne Shirley\""
+      "exampleExact": "\"Anne Shirley\"",
+      "helpConceptual": "Find related passages in imported documents. Quoted phrases remain required."
     },
     "scope": {
       "ariaLabel": "Search scope",
@@ -103,7 +104,13 @@
       "occurrencesFailed": "Occurrences couldn't be loaded.",
       "noLiteralOccurrences": "No body-text occurrences found.",
       "retryOccurrences": "Try Again",
-      "starterDocument": "Starter Document"
+      "starterDocument": "Starter Document",
+      "views": "Search results",
+      "keyword": "Keyword",
+      "conceptual": "Conceptual",
+      "showMore": "Show More",
+      "documentsShown": "Showing {{shown, number}} of {{total, number}} returned documents",
+      "count": "{{count, number}}"
     },
     "conceptual": {
       "title": "Conceptual Results",
@@ -121,12 +128,12 @@
       "loading": "Finding conceptual passages…",
       "coverage": "Documents ready for this search: {{ready, number}} / {{total, number}}",
       "empty": "No conceptual passages in this scope.",
-      "unavailable": "Conceptual search is unavailable. Lexical results remain available. Check the model in Settings.",
-      "preparing": "Preparing the model or index. Using lexical results while work finishes.",
-      "missing-index": "No semantic index is available. Using lexical results. Build / resume the index in Settings.",
-      "incompatible-index": "The index does not match the selected model. Using lexical results. Build / resume the index in Settings.",
-      "partial": "This scope is not fully indexed. Using lexical results. Build / resume the index in Settings.",
-      "failed": "Conceptual search could not finish. Lexical results remain available. Check model/index status in Settings, then retry the search; a shorter query may help."
+      "unavailable": "Conceptual search is unavailable. View Keyword results. Check the model in Settings.",
+      "preparing": "Preparing the model or index. View Keyword results while work finishes.",
+      "missing-index": "No semantic index is available. View Keyword results. Build / resume the index in Settings.",
+      "incompatible-index": "The index does not match the selected model. View Keyword results. Build / resume the index in Settings.",
+      "partial": "This scope is not fully indexed. View Keyword results. Build / resume the index in Settings.",
+      "failed": "Conceptual search could not finish. View Keyword results. Check model/index status in Settings, then retry the search; a shorter query may help."
     }
   },
   "library": {

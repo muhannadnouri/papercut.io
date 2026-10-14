@@ -2,6 +2,18 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+## Keyword/Conceptual result views — 2026-10-14
+
+Implemented the approved large-library presentation change. Opted-in search has a secondary, sticky **Keyword (N) / Conceptual (N)** selector above the result cards. The default is Keyword; App retains the selected view during the session, including later submissions, and completion never switches it. Query and document scope remain shared. All Words/Broader radios and their helper are shown only for Keyword, with an accessible **Keyword matching** group name; Conceptual retains the required-quote reminder.
+
+Each channel initially renders ten returned document cards. **Show More** reveals ten more from the same response, without another search or changes to ranking. Per-channel windows, expanded evidence and scroll positions survive switching views; a new submission/scope resets the windows and remembered positions. Hidden panels stay mounted but hidden/inert. The installed React Aria tabs provide linked roles and keyboard selection; no dependency is added. Returned counts omit pending/failed states and never claim a complete-library total. The final More control stays focusable, marked unavailable and guarded against further actions. Fallback wording points to Keyword, without an automatic switch.
+
+Validation: **275 frontend passed / 1 optional utility skipped in 54 files**, lint, locale parity, TypeScript, Vite build and diff checks pass. Thirteen new real React/DOM regressions cover list batches, scoped counts, active/hidden panels, keyboard selection, async/fallback states, retained expansion/scroll, fresh-request reset, source opening and busy guards. Removing the production Keyword slice makes the bounded-list regression fail; the mutation was restored. No native retrieval, source offsets, index policy/schema or model changes. Vite's existing chunk-size warning remains.
+
+Recorded the user's downloaded-artifact smoke report in the [consolidated smoke record](search-v2-smoke.md): CachyOS Linux broadly worked as intended; Android 17 completed Small FP32 model download, enablement, explicit indexing and conceptual search. Exact installed SHA, Android device/architecture and fresh-versus-existing library were not independently established. This accepts only those reported paths, not all checklist cases or these newer result tabs. iOS was not tested. Further smoke remains deferred.
+
+Next: existing full CI for this new application commit, then targeted installed-app result-tab/large-library checks and outstanding platform/release acceptance. Previous successful CI `38500026388` applies to `15b3710`, not this follow-up. Immediate release is the user's intent; iOS smoke and other unconfirmed platform/distribution coverage remain open. No push, dispatch, merge or release performed.
+
 ## Context-preview full CI verified — 2026-10-13
 
 Verified [run 38500026388](https://github.com/muhannadnouri/papercut.io/actions/runs/38500026388), attempt 1, against application commit **`15b3710086050391958d75f61a3b53f8fb22235c`** on `feature/search-v2`. All **10 jobs** succeeded, including desktop packaging, Android APK, unsigned iOS simulator/device builds, configured audits and SILMA runtime packaging. Checks logs confirm **262 frontend passed / 1 optional utility skipped**, **190 default / 248 provider-enabled Rust passed** (5 / 10 ignored in those suites).

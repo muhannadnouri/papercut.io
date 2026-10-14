@@ -1,7 +1,7 @@
 # Experimental search embedding provider
 
-This is an app-level, default-off **optional conceptual-search path**, with a
-separate labeled results section beside lexical All words/Broader results.
+This is an app-level, default-off **optional conceptual-search path**, with
+separate **Keyword / Conceptual** result views with bounded document-card lists.
 Functional Settings controls do not require Developer mode. The native shipping
 scripts now compile the provider; model loading/querying still require user opt-in.
 There is no automatic download or indexing. Saved opt-in reloads a verified cached
@@ -9,10 +9,7 @@ model on restart; without it, no activation or semantic querying occurs. Queries
 never initiate installation/indexing, and lexical results finish independently.
 Missing/incomplete/failed semantic work shows fallback guidance only while opted in.
 
-On 2026-10-09 the user reports normal search/reader/audio and experimental-cache
-smoke passed, plus CI `validation_scope=full`. Earlier validation sections below
-retain their historical deferrals. These reports predate the new opt-in/index/query UI. Its focused smoke remains
-explicitly deferred; semantic relevance and other-platform runtimes remain open.
+The user reports partial downloaded-artifact smoke on CachyOS Linux and Android 17 with Small FP32, including Android model download, enablement, explicit indexing and conceptual search. The [consolidated smoke record](search-v2-smoke.md) separates these reported paths from unconfirmed cases. iOS was not tested. The new result tabs postdate that artifact; further app/device/accessibility smoke stays deferred. Earlier normal/cache reports remain historical, and relevance/resource caveats are unchanged.
 
 The [branch review on 2026-10-10](search-v2-branch-review.md) is followed by
 [corrections](search-v2-progress.md#stage-7--branch-review-corrections--2026-10-10)
@@ -711,39 +708,17 @@ See [current acceptance evidence](search-v2-progress.md) for packaging and gates
 
 ## React conceptual results and fallback
 
-SearchBar visually hides its native **Search Mode** legend while retaining the
-localized accessible group name, both radio choices and mode-dependent helper text.
-This is a presentation change; All Words/Broader behavior remains independent of
-the semantic opt-in.
+When semantic search is enabled, SearchTab places secondary **Keyword (N) / Conceptual (N)** tabs above the results. App owns the selected view, initially Keyword, and retains it across session navigation/submissions. Each query still starts both channels independently; switching views neither searches again nor combines their rankings. Async completion never selects a different view. Query and document scope are shared. All Words/Broader radios and the accessible **Keyword matching** group are shown only for Keyword; Conceptual shows the required-quote helper instead.
 
-Ordinary keyword results start with their summary count, without an extra heading.
-Cards use one list/count, with a **Starter Document** badge
-rather than source-group sections. Existing uploaded-first and per-provider order
-is retained; this is not cross-engine score fusion. Starter All Words candidates
-are filtered through each distinct unquoted term's Pagefind quoted search before
-scope/count/display limits; authored phrase verification remains separate. There
-is no change to uploaded/native retrieval or the separate conceptual contract.
-The conceptual summary uses **Conceptual Results**, a localized displayed-document
-count and the short explanation **Related passages from your imported documents.**
-The count is the number of displayed cards, not a known total beyond the response
-limit. The full explanation, including the unchanged quoted-clause rule, lives in
-the native keyboard-accessible **How Matching Works** disclosure. Complete healthy
-indexing coverage stays in Settings; partial fallback retains **Documents ready
-for this search** coverage and withholds conceptual cards. Supporting text uses
-the component's own wrapping styles; the heading/count also wrap on narrow screens.
+Both views initially render ten returned document cards, with **Show More** revealing ten additional cards from the same response. The selector is sticky; panels stay mounted while hidden/inert so expanded evidence and each view's list window survive switching. The selected view and scroll place are distinct: switching from the scrolled selector restores that channel's remembered position, while a new request/scope resets windows and positions. No nested scrolling or retrieval pagination is added. Counts mean scoped **returned documents**, not literal occurrences, confidence, or an exhaustive total beyond the provider response limit. Pending and failed tab counts are omitted. More reports shown/returned counts and remains focusable but unavailable when the response is exhausted. Session view choice survives SearchTab unmount; card/window/scroll state is local to the mounted search view.
 
+Keyword cards retain one list/count and a **Starter Document** badge rather than source-group sections. Existing uploaded-first and per-provider order remains; there is no cross-engine score fusion. Starter All Words candidates are filtered through each distinct unquoted term's Pagefind quoted search before scope/count/display limits; authored phrase verification is separate. No native retrieval changes. The conceptual summary retains **Conceptual Results** and returned-document count; matching explanations remain in Settings Technical Details. Healthy coverage remains in Settings; partial fallback retains **Documents ready for this search** coverage and withholds conceptual cards.
 
-`src/search-semantic/useConceptualSearch.ts` owns invocation/state and
-`ConceptualResults.tsx` owns rendering. `App` supplies submission identity, current
-scope and uploaded-library snapshots; SearchTab has a results slot rather than
-changing lexical cards or their counts. The existing shared quote parser keeps
-unquoted text and authored clauses complete. All/empty/include/exclude scope is
-forwarded without widening a selection. Scope changes wait for their matching
-submission rather than starting a duplicate native scan.
+`src/search-semantic/useConceptualSearch.ts` owns invocation/state, App supplies submission/scope/library snapshots, and SearchTab owns result-view presentation. `ConceptualResults.tsx` renders authored passages; `SearchResults.tsx` retains lexical evidence, opening and failure behavior. The shared quote parser keeps unquoted text and authored clauses complete. All/empty/include/exclude scope is forwarded without widening selection. Scope changes wait for their matching submission rather than triggering another native scan.
 
 Off, empty or invalid input has no query or fallback notice. Enabled unavailable/
 preparing states keep lexical results usable; missing/incompatible/partial or
-failed queries explain lexical fallback and Settings/retry recovery. Partial
+failed queries direct the user to the Keyword tab and Settings/retry recovery without automatically switching views. Partial
 responses are deliberately withheld until the scope is complete. Known scoped
 coverage is distinct from displayed-document count; a ready empty response is not
 failure. The lexical channel can finish before the conceptual channel.

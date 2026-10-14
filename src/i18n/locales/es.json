@@ -35,7 +35,7 @@
       "placeholder": "Buscar documentos...",
       "button": "Buscar",
       "help": "Se requieren todas las palabras sin comillas. Use comillas para una frase exacta.",
-      "modeLabel": "Modo de búsqueda",
+      "modeLabel": "Coincidencia de palabras clave",
       "allWordsMode": "Todas las palabras",
       "broaderMode": "Búsqueda amplia",
       "helpBroader": "Con 3–12 palabras distintas, algunas pueden faltar. Las búsquedas más largas requieren todas las palabras. Las frases entre comillas siguen siendo obligatorias. Solo busca en Tu biblioteca.",
@@ -43,7 +43,8 @@
       "tooLong": "Acorta la búsqueda a un máximo de 128 palabras y 4096 caracteres, incluidas las frases entre comillas.",
       "examplesLabel": "Ejemplos de búsqueda",
       "exampleBroad": "palabras de búsqueda",
-      "exampleExact": "\"frase exacta\""
+      "exampleExact": "\"frase exacta\"",
+      "helpConceptual": "Busca pasajes relacionados en documentos importados. Las frases entre comillas siguen siendo obligatorias."
     },
     "scope": {
       "ariaLabel": "Alcance de la búsqueda",
@@ -108,7 +109,13 @@
       "occurrencesFailed": "No se pudieron cargar las apariciones.",
       "noLiteralOccurrences": "No se encontraron apariciones en el cuerpo del texto.",
       "retryOccurrences": "Intentar de nuevo",
-      "starterDocument": "Documento inicial"
+      "starterDocument": "Documento inicial",
+      "views": "Resultados de búsqueda",
+      "keyword": "Palabras clave",
+      "conceptual": "Conceptual",
+      "showMore": "Mostrar Más",
+      "documentsShown": "Mostrando {{shown, number}} de {{total, number}} documentos devueltos",
+      "count": "{{count, number}}"
     },
     "conceptual": {
       "title": "Resultados conceptuales",
@@ -127,12 +134,12 @@
       "loading": "Buscando pasajes conceptuales…",
       "coverage": "Documentos listos para esta búsqueda: {{ready, number}} / {{total, number}}",
       "empty": "No hay pasajes conceptuales en este ámbito.",
-      "unavailable": "La búsqueda conceptual no está disponible. Los resultados léxicos siguen disponibles. Comprueba el modelo en Ajustes.",
-      "preparing": "Preparando el modelo o el índice. Se usan resultados léxicos mientras termina el trabajo.",
-      "missing-index": "No hay un índice semántico disponible. Se usan resultados léxicos. Crea o reanuda el índice en Ajustes.",
-      "incompatible-index": "El índice no coincide con el modelo seleccionado. Se usan resultados léxicos. Crea o reanuda el índice en Ajustes.",
-      "partial": "Este ámbito no está totalmente indexado. Se usan resultados léxicos. Crea o reanuda el índice en Ajustes.",
-      "failed": "La búsqueda conceptual no pudo terminar. Los resultados léxicos siguen disponibles. Comprueba el estado del modelo y del índice en Ajustes y repite la búsqueda; una consulta más corta puede ayudar."
+      "unavailable": "La búsqueda conceptual no está disponible. Consulta los resultados de Palabras clave. Revisa el modelo en Configuración.",
+      "preparing": "Preparando el modelo o el índice. Consulta los resultados de Palabras clave mientras finaliza el trabajo.",
+      "missing-index": "No hay un índice semántico disponible. Consulta los resultados de Palabras clave. Crea o reanuda el índice en Configuración.",
+      "incompatible-index": "El índice no coincide con el modelo seleccionado. Consulta los resultados de Palabras clave. Crea o reanuda el índice en Configuración.",
+      "partial": "Este ámbito no está completamente indexado. Consulta los resultados de Palabras clave. Crea o reanuda el índice en Configuración.",
+      "failed": "La búsqueda conceptual no pudo finalizar. Consulta los resultados de Palabras clave. Revisa el modelo y el índice en Configuración y vuelve a buscar; una consulta más corta puede ayudar."
     }
   },
   "library": {

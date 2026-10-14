@@ -1,16 +1,28 @@
 # Search v2 consolidated smoke pass
 
-Status: **current Stage 7 app smoke remains user-deferred**. The earlier five-group
-normal/cache smoke was user-reported passed on 2026-10-09; its exact build SHA and
-individual logs were not inspected. It does not accept the later settings,
-keyword/conceptual results, model choices, source roles or nearby-text behavior.
-No current checkbox is marked passed by automated tests or this consolidation.
+Status: **partial user-reported installed-app smoke; further smoke deferred**.
 
-Use this as **one rebuilt-app pass**, reusing the same disposable profile and
-sources for overlapping cases below. Keep build/device details, private questions,
-sources, screenshots and per-case results outside tracked files. The current
-[acceptance summary](search-v2-branch-review.md#current-acceptance-consolidation--2026-10-12)
-records remaining quality, CI, device and distribution limits.
+Reported on 2026-10-14 after the user supplied [successful CI run 38500026388](https://github.com/muhannadnouri/papercut.io/actions/runs/38500026388) (application source `15b3710`):
+
+| Environment | Reported coverage | Unconfirmed details |
+| --- | --- | --- |
+| CachyOS Linux desktop | Some smoke tests; behavior appeared to work as intended. Small FP32 selected. | Specific cases, installed SHA/architecture and fresh-versus-existing library not established. |
+| Android 17 | Downloaded CI artifact; Small FP32 model download, semantic enablement, explicit library indexing and a successful conceptual search. | Device model, physical/emulated hardware, architecture, exact installed SHA and fresh-versus-existing library not established. |
+| iOS | Not conducted. | Installed-app coverage remains open. |
+
+This is the user's report, not independently observed automation. Do not mark whole checklist rounds passed: restart/upgrade, cancellation/error recovery, exact reader/Find, RTL/accessibility, large-library responsiveness and other model formats were not confirmed. Windows/macOS installed-app smoke is also unconfirmed. The earlier normal/cache smoke reported on 2026-10-09 remains historical. No checkbox below is marked passed by automated tests or these partial reports.
+
+The new Keyword/Conceptual result tabs and bounded lists postdate that artifact and need fresh current-source CI and targeted installed-app checks. Further smoke is explicitly deferred for this implementation pass. Merging is intended to release immediately, so outstanding iOS/platform/distribution acceptance remains a release gate.
+
+Use this as **one rebuilt-app pass**, reusing a disposable profile and sources for overlapping cases below. Keep private questions, sources, screenshots and individual logs outside tracked files. The [current acceptance follow-up](search-v2-branch-review.md#result-view-follow-up-and-reported-smoke--2026-10-14) separates verified automation, reported smoke and remaining release gates.
+
+## Result-view checks — deferred
+
+- With semantic search off, confirm ordinary bounded Keyword results and no result-view selector or conceptual fallback notice. Turning it on must not download or index implicitly.
+- With a large library, confirm Keyword/Conceptual tabs stay reachable while scrolling, start with ten cards and reveal batches through Show More. Counts must describe returned documents in the shared scope; loading/failures must not claim zero matches or an exhaustive library total.
+- Switch using touch and keyboard; retain the chosen view across subsequent searches, expanded evidence and each view's scroll place when switching. New queries/scopes reset the list window. A late result must never switch the view. All Words/Broader controls are associated only with Keyword.
+- Select Conceptual while loading and while missing/partial/failed; fallback should remain readable and direct the user to Keyword, whose results remain independently usable. Confirm active-panel focus/live announcements, narrow/zoom/RTL layouts and sticky controls in the actual WebView.
+- Open results after More; reader targets must still use full original text/page/section metadata. Confirm scroll restoration when switching between lists of different lengths. These DOM regressions do not verify WebView layout or device performance.
 
 ## Added review-fix checks — deferred
 
@@ -26,7 +38,7 @@ Review items 5–7 now have real React/DOM interaction and parser/Find integrati
 regressions in the normal `npm test` suite. These use jsdom visibility fixtures
 and assert source match offsets; they do not paint PDF canvases or validate actual
 browser layout, keyboard default traversal, touch targets or screen-reader output.
-Keep all interactive checks deferred until the user resumes this pass.
+The reported subset above does not accept these interactive review-fix checks; keep further checks deferred until the user resumes this pass.
 
 ## Build and Run Order
 
@@ -57,13 +69,7 @@ an answer. The current model is not an answer verifier; the rejected scorer and
 experimental grouping are not shipped. Do not use a lack of exact keyword overlap
 as a failure by itself, or a related passage as proof of a complete answer.
 
-The last recorded verified full CI/inference run is `38110242011` on `1f020d3`;
-it predates the later application changes. Current-source full CI remains a
-separate gate. Routine inference stays default-off; use the existing explicit
-full/inference workflow for the current native/model changes. CI does not launch
-the WebView or replace this checklist. Recorded provider checks cover Small
-FP32/INT8, not every Base/Large device combination. Earlier CI/run history is in
-[progress](search-v2-progress.md), rather than repeated as current build guidance.
+The last verified full CI/inference run is [38500026388](https://github.com/muhannadnouri/papercut.io/actions/runs/38500026388) on `15b3710`; all ten jobs passed, including explicit cached-provider activation on desktop, Android emulator and iOS simulator. It predates the result-tab follow-up, so current-source full CI remains a separate gate. CI does not launch the WebView or replace this checklist. Recorded provider checks cover Small FP32/INT8, not every Base/Large device combination. Earlier history lives in [progress](search-v2-progress.md).
 
 ## Isolate the library first
 

@@ -22,6 +22,8 @@ const SEARCH_PHASE_KEYS = {
 } as const
 
 interface SearchResultsProps {
+  visibleLimit?: number
+  onShowMore?: () => void
   results: SearchResult[]
   loading: boolean
   searchFailed: boolean
@@ -38,6 +40,8 @@ interface SearchResultsProps {
 }
 
 export function SearchResults({
+  visibleLimit = Infinity,
+  onShowMore,
   results,
   loading,
   searchFailed,
@@ -152,7 +156,7 @@ export function SearchResults({
         </button>
       )}
 
-      {filtered.map((result) => {
+      {filtered.slice(0, visibleLimit).map((result) => {
         const opening = openingDocumentUrl === result.url
         const disabled = openingDisabled || opening
         const exactPhrase = Boolean(lastSearchInfo?.phrases.length)
@@ -426,6 +430,11 @@ export function SearchResults({
           </article>
         )
       })}
+      {onShowMore && filtered.length > 10 && <div className="result-list-more">
+        <span role="status">{t('search.results.documentsShown', { shown: Math.min(visibleLimit, filtered.length), total: filtered.length })}</span>
+        <button type="button" className="result-evidence-action" aria-disabled={visibleLimit >= filtered.length}
+          onClick={() => { if (visibleLimit < filtered.length) onShowMore() }}>{t('search.results.showMore')}</button>
+      </div>}
 
       {submittedQuery.length === 0 && (
         <div className="welcome">

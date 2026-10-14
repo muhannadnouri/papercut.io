@@ -1,5 +1,13 @@
 # Search v2 branch acceptance and review
 
+## Result-view follow-up and reported smoke — 2026-10-14
+
+The approved follow-up adds sticky **Keyword / Conceptual** tabs and ten-card batches per channel, preserving the shared query/scope and independent retrieval. Session-selected view never changes on async completion. Switching retains list expansion/evidence and scroll position; a new submission resets list windows/positions. Accessible hidden/inert panels reuse installed React Aria tabs. All Words/Broader applies to the Keyword view, and fallback text points there without switching automatically. Counts identify returned documents, not exhaustive library matches or confidence.
+
+Checks: **275 frontend passed / 1 optional skipped in 54 files**, lint/i18n/typecheck/Vite build/diff. Real DOM regression coverage includes keyboard/selection, loading/failure versus zero counts, scoped batches, source targets and busy guards, retained evidence/positions and new-request reset; removing the production bound fails the regression. Native tests were not repeated for this frontend-only change.
+
+**The current-source CI gate is reopened for this follow-up.** The verified run below covers `15b3710`. The user's [reported smoke subset](search-v2-smoke.md) covers CachyOS Linux and Android 17 with Small FP32; Android explicitly downloaded/enabled/indexed/searched. It does not cover the new tabs, upgrades, recovery, other models or every checklist case. iOS testing was not conducted; Windows/macOS installed-app coverage and signed distribution remain unconfirmed. Further smoke stays deferred. Because merging is intended to release immediately, these remaining release gates must be resolved before release. No merge/release/push is authorized by this record.
+
 ## Context preview follow-up — 2026-10-13
 
 Approved after the eleven review fixes: concise mode labels, nearest-three conceptual context previews, localized Show More/Show Less and PDF display reflow. Expansion is per card and source ordered, with the matched passage emphasized. Previews are Unicode/word bounded and visually clamped; More reveals further previews, while reader actions retain the full original text/page/section target. PDF display uses the existing conservative wrap rule and retains blank-line paragraph boundaries. No source offsets, index schema/policy, ranking or confidence labels change.
@@ -19,7 +27,7 @@ The full CI record below now verifies this application change at **`15b3710`**. 
 | Mobile and sidecar builds | Android APK, unsigned iOS simulator/device builds and the Linux CPU SILMA runtime archive job passed. |
 | Explicit cached-model runtime check | Logs show `cached_provider_activation_switch_failure_and_unload` executed and passed once on Linux, Windows, both macOS architectures, Android x86_64 emulator and iOS arm64 simulator. This closes the cached-provider runtime CI gate for this source, not every ignored test or model choice. |
 
-**The current-source automated CI gate is closed.** No additional code stage is indicated by this run. App/WebView, screen-reader, physical-device/weak-hardware acceptance and the remaining ignored scale/model checks stay open; smoke remains deferred at the user's request. The signed-device/distribution gates and earlier relevance/resource caveats are unchanged. This evidence update changes documentation only and does not authorize a merge or release.
+**The automated CI gate was closed for `15b3710`.** The result-view follow-up above requires a fresh CI run. App/WebView and remaining platform/accessibility/resource coverage stay open beyond the user-reported subset; further smoke remains deferred. The signed-device/distribution gates and earlier relevance/resource caveats are unchanged. This evidence update changes documentation only and does not authorize a merge or release.
 
 ## Maintenance follow-up — 2026-10-13
 

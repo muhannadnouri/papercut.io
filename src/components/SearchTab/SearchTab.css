@@ -1,0 +1,40 @@
+.search-result-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-block-end: 1rem;
+  padding-block: 0.4rem;
+  background: var(--app-bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.search-result-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 44px;
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--radius-compact);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.search-result-tab[data-selected] {
+  color: var(--accent-strong);
+  background: var(--surface-accent);
+  font-weight: 600;
+}
+
+.search-result-tab[data-focus-visible],
+.search-result-panel[data-focus-visible] {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+
+.search-result-panel[data-inert] {
+  display: none;
+}

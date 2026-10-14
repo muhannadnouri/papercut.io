@@ -35,7 +35,7 @@
       "placeholder": "Pesquisar documentos...",
       "button": "Pesquisar",
       "help": "Todas as palavras sem aspas são obrigatórias. Use aspas para uma frase exata.",
-      "modeLabel": "Modo de busca",
+      "modeLabel": "Correspondência de palavras-chave",
       "allWordsMode": "Todas as palavras",
       "broaderMode": "Busca ampla",
       "helpBroader": "Com 3–12 palavras diferentes, algumas podem faltar. Buscas mais longas exigem todas as palavras. Frases entre aspas continuam obrigatórias. Pesquisa apenas em Sua biblioteca.",
@@ -43,7 +43,8 @@
       "tooLong": "Encurte a busca para no máximo 128 palavras e 4096 caracteres, incluindo frases entre aspas.",
       "examplesLabel": "Exemplos de pesquisa",
       "exampleBroad": "termos de pesquisa",
-      "exampleExact": "\"frase exata\""
+      "exampleExact": "\"frase exata\"",
+      "helpConceptual": "Encontre trechos relacionados nos documentos importados. As frases entre aspas continuam obrigatórias."
     },
     "scope": {
       "ariaLabel": "Escopo da pesquisa",
@@ -108,7 +109,13 @@
       "occurrencesFailed": "Não foi possível carregar as ocorrências.",
       "noLiteralOccurrences": "Nenhuma ocorrência encontrada no corpo do texto.",
       "retryOccurrences": "Tentar novamente",
-      "starterDocument": "Documento inicial"
+      "starterDocument": "Documento inicial",
+      "views": "Resultados da pesquisa",
+      "keyword": "Palavras-chave",
+      "conceptual": "Conceituais",
+      "showMore": "Mostrar Mais",
+      "documentsShown": "Mostrando {{shown, number}} de {{total, number}} documentos retornados",
+      "count": "{{count, number}}"
     },
     "conceptual": {
       "title": "Resultados conceituais",
@@ -127,12 +134,12 @@
       "loading": "Buscando trechos conceituais…",
       "coverage": "Documentos prontos para esta busca: {{ready, number}} / {{total, number}}",
       "empty": "Nenhum trecho conceitual neste escopo.",
-      "unavailable": "A busca conceitual está indisponível. Os resultados lexicais continuam disponíveis. Verifique o modelo nas configurações.",
-      "preparing": "Preparando o modelo ou o índice. Os resultados lexicais são usados enquanto o trabalho termina.",
-      "missing-index": "Nenhum índice semântico disponível. Os resultados lexicais são usados. Crie ou retome o índice nas configurações.",
-      "incompatible-index": "O índice não corresponde ao modelo selecionado. Os resultados lexicais são usados. Crie ou retome o índice nas configurações.",
-      "partial": "Este escopo não está totalmente indexado. Os resultados lexicais são usados. Crie ou retome o índice nas configurações.",
-      "failed": "A busca conceitual não pôde terminar. Os resultados lexicais continuam disponíveis. Verifique o estado do modelo e do índice nas configurações e tente novamente; uma consulta mais curta pode ajudar."
+      "unavailable": "A pesquisa conceitual está indisponível. Veja os resultados de Palavras-chave. Confira o modelo nas configurações.",
+      "preparing": "Preparando o modelo ou o índice. Veja os resultados de Palavras-chave enquanto o trabalho termina.",
+      "missing-index": "Nenhum índice semântico disponível. Veja os resultados de Palavras-chave. Crie ou retome o índice nas configurações.",
+      "incompatible-index": "O índice não corresponde ao modelo selecionado. Veja os resultados de Palavras-chave. Crie ou retome o índice nas configurações.",
+      "partial": "Este escopo não está totalmente indexado. Veja os resultados de Palavras-chave. Crie ou retome o índice nas configurações.",
+      "failed": "A pesquisa conceitual não foi concluída. Veja os resultados de Palavras-chave. Confira o modelo e o índice nas configurações e tente novamente; uma consulta mais curta pode ajudar."
     }
   },
   "library": {
