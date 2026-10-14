@@ -2,6 +2,19 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+## Conceptual context preview cleanup — 2026-10-13
+
+The user approved label cleanup, three bounded context previews, Show More/Show Less and PDF display reflow against baseline `457ff623e70621ec6f0fedb3bbf0afaca4215ca5`. Smoke remains deferred; confidence badges are intentionally omitted.
+
+- English controls/summary use **All Words**; **Broader** drops its library suffix in all eight locales. Its helper still explains the imported-library scope. The English disclosure is **Passage & Nearby Text**, with localized More/Less controls.
+- Expanding a card shows the matched passage and its closest preceding/following source blocks (up to three), in source order. The match has tonal emphasis. **Show More Nearby Text (N)** reveals the remaining available blocks; **Show Less** restores the same nearest window. Each card owns its expansion; a different matched span resets it. The toggle retains its DOM/focus identity and controls the preview region via ARIA. Small contexts have no redundant toggle.
+- All conceptual previews are capped at 400 Unicode characters before an ellipsis, shortened at a whitespace boundary when possible. Context styling caps prose at six lines and an 80ch reading width; leading ellipses mark nearby spans beginning within a section. Show More reveals additional bounded previews, not unbounded source text; **Open Passage** reads the original source.
+- PDF display text folds extracted single line breaks and conservatively rejoins ASCII/U+2010/U+2011 word wraps using the existing shared rule. Blank-line paragraph boundaries and authored inline punctuation are preserved. HTML/EPUB line breaks remain. Original text, UTF-8 offsets, page/section metadata, native retrieval and index policy are unchanged; reader targets always receive the original full passage rather than its reflowed/shortened display.
+
+Validation: 262 frontend tests pass in 53 files, with one optional utility skipped; lint, locale parity, TypeScript, Vite build and diff checks pass. The 13 conceptual-results regressions include real React/DOM expansion/collapse, nearest selection, source ordering, focus, independent/reset state, escaped text, opening guards, Unicode limits and untouched reader targets. Selecting the first three blocks or substituting preview text into a reader target makes the corresponding assertion fail; both mutations were restored. No new dependency or native code change. Vite's existing large-chunk warning remains.
+
+Next: existing CI for this new application commit. The successful `7dabec7` CI below covers the preceding application source, not these UI changes. App/WebView layout, RTL/zoom, touch and screen-reader acceptance remain in the consolidated deferred smoke checklist; no push, workflow dispatch or merge performed.
+
 ## Current-source full CI verified — 2026-10-13
 
 The user supplied [successful run 38480780209](https://github.com/muhannadnouri/papercut.io/actions/runs/38480780209). Verified attempt 1 against application commit **`7dabec79044cb53e8df8c453d0505be14c9850ee`**, including all 10 successful jobs and explicit provider-inference step conclusions. Checks logs confirm 253 frontend passed / 1 optional utility skipped and 190 default / 248 provider-enabled Rust passed. Desktop packaging, Android APK, unsigned iOS simulator/device builds, configured security audits and Linux CPU SILMA runtime packaging passed.

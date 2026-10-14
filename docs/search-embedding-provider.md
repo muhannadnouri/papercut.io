@@ -755,7 +755,25 @@ from StrictMode effect replay. Native busy/timeout errors require a later explic
 search retry rather than building an unbounded queue.
 
 Conceptual passages render as plain React text, never marked HTML or invented
-literal evidence. Similarity scores stay out of the UI. Buttons use the existing
+literal evidence. Similarity scores stay out of the UI. **Passage & Nearby Text**
+initially shows the match and the nearest available source neighbour on each side,
+in source order. **Show More Nearby Text (N)** reveals the remaining bounded
+previews; **Show Less** restores that window. The match is emphasized and each
+card owns its expansion, reset when its matched span changes. The toggle uses
+`aria-expanded`/`aria-controls` and remains focusable through either transition.
+
+Preview text is capped at 400 Unicode characters before an ellipsis, preferring a
+whitespace boundary, with a six-line context clamp and 80ch reading width. Nearby
+spans beginning within a section have a leading ellipsis. PDF display reflows
+single line breaks and rejoins conservative ASCII/U+2010/U+2011 word wraps using
+the existing shared predicate; blank-line paragraphs and inline punctuation stay
+intact. Non-PDF authored line breaks remain. Only display strings are transformed;
+source/index text, byte spans and reader targets remain original. More reveals
+additional previews, not full text: use **Open Passage** to read its source.
+
+**All Words** uses title case in English; **Broader** omits the library suffix,
+with its imported-only scope retained in helper text across all eight locales.
+Buttons use the existing
 section/page/text reader-target boundary and the actual passage, not a query term
 or a quote in a different section. Bytes are not DOM offsets. Existing legacy/
 block/navigation limitations remain; real viewer targeting, keyboard/RTL, native

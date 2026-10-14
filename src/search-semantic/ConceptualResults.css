@@ -24,11 +24,27 @@
   line-height: 1.5;
 }
 
+.conceptual-context-previews {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.conceptual-context-block-matched {
+  padding: 0.65rem;
+  border-radius: var(--radius-control);
+  background: var(--surface-accent);
+}
+
 .conceptual-context-block > .result-meta { margin: 0; }
 .conceptual-context-block .result-card-primary { padding: 0.5rem; }
 
 .conceptual-context-text {
-  display: block;
+  display: -webkit-box;
+  max-width: 80ch;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   line-height: 1.6;

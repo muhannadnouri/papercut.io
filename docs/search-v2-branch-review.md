@@ -1,5 +1,13 @@
 # Search v2 branch acceptance and review
 
+## Context preview follow-up — 2026-10-13
+
+Approved after the eleven review fixes: concise mode labels, nearest-three conceptual context previews, localized Show More/Show Less and PDF display reflow. Expansion is per card and source ordered, with the matched passage emphasized. Previews are Unicode/word bounded and visually clamped; More reveals further previews, while reader actions retain the full original text/page/section target. PDF display uses the existing conservative wrap rule and retains blank-line paragraph boundaries. No source offsets, index schema/policy, ranking or confidence labels change.
+
+Checks: **262 frontend passed / 1 optional skipped**, lint/i18n/typecheck/Vite build/diff checks. Real DOM regressions cover focus, selection/order, More/Less, per-card/reset state and unchanged original reader navigation; mutation checks reject a first-three window and a shortened reader target. Native tests were not repeated for this frontend-only change. Visual layout and screen-reader/device smoke remain deferred.
+
+The verified full CI below is for **`7dabec7`**, preceding this application change. Run existing CI at the new commit before treating its automated gate as closed. Earlier source acceptance evidence and the remaining resource/distribution limits are unchanged.
+
 ## Current-source CI verified — 2026-10-13
 
 [CI run 38480780209](https://github.com/muhannadnouri/papercut.io/actions/runs/38480780209), attempt 1, completed successfully at **`7dabec79044cb53e8df8c453d0505be14c9850ee`** on `feature/search-v2`. The run SHA matches the application cleanup commit covering all eleven review items. All **10 jobs** succeeded; the full desktop/mobile/SILMA jobs and explicit provider-inference steps ran, rather than being skipped.

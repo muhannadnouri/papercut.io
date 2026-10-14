@@ -327,18 +327,23 @@ EPUB-only rebuild is required.
       should remain ready. An unknown layout may remain main content; do not
       interpret unrelated nearest passages as verified answers.
 
-## Neighboring-context follow-up — 2026-10-12
+## Neighboring-context follow-up — 2026-10-13
 
 **Deferred.** Rebuild the app; this context display itself needs no model download
 or index rebuild. Complete any outstanding PDF-role/index update from the preceding
-pass first. The generic browser preview and native fixtures do not close these cases.
+pass first. The jsdom regressions, older browser preview and native fixtures do not close these cases.
 
 - [ ] With semantic search **off**, no conceptual cards or context controls appear;
       keyword results, All Words/Broader, quotes, filters and reader opening still work.
-- [ ] With semantic search **on** and the index ready, expand **Passage and Nearby
-      Text** using pointer and keyboard. The full match is readable without the
-      preview clamp. Nearby text is labeled separately, source ordered and bounded;
-      it may be shortened and must not be interpreted as a relevance-ranked answer.
+- [ ] Confirm **All Words** / **Broader** mode labels, with the imported-library
+      scope still explained in Broader's helper text.
+- [ ] With semantic search **on** and the index ready, expand **Passage & Nearby
+      Text** using pointer and keyboard. Up to three bounded previews show the
+      match and nearest available neighbour on each side, in source order. The
+      match is emphasized; nearby text is not another relevance-ranked answer.
+      **Show More Nearby Text (N)** reveals remaining bounded previews, and
+      **Show Less** restores the nearest window with focus retained. Check a
+      second card and changed match: expansion must not leak across them.
 - [ ] Open the match and different nearby blocks in PDF and EPUB. Each opens its
       own original page/section and text target. Check a split qualification, a
       Unicode passage and a mixed body/note block; no omitted note is stitched into
@@ -347,9 +352,13 @@ pass first. The generic browser preview and native fixtures do not close these c
       remove a source while a query is running. Old context must disappear with its
       old card; fallback must preserve keyword search. Opening guards apply to every
       excerpt while a document is loading.
-- [ ] Check narrow and wide layouts, RTL, long prose/code and text zoom. Excerpts
-      wrap without horizontal overflow; focus is visible and controls are reachable.
-      Collapse the disclosure to return to the compact result preview.
+- [ ] Check narrow and wide layouts, RTL, long prose/code and text zoom. PDF
+      layout breaks reflow while blank-line paragraphs remain; HTML/EPUB authored
+      breaks stay intact. Unicode previews shorten safely with ellipses, six-line
+      clamps and readable widths. No horizontal overflow; focus is visible and
+      controls are reachable. Check viewport stability after More/Less, and
+      collapse the disclosure to return to the compact card. Read full source
+      through **Open Passage**; source offsets and reader highlighting must survive.
 
 ## Stage 7 preparation controls — new follow-up
 
