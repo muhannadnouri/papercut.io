@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import { SearchBar } from './SearchBar'
+import { SearchOptions } from './SearchOptions'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -9,17 +10,19 @@ vi.mock('react-i18next', () => ({
 describe('search query errors', () => {
   it('shows the uploaded-library scope of broader mode', () => {
     const html = renderToStaticMarkup(
-      <SearchBar
-        mode="broader"
-        onModeChange={() => undefined}
-        query="silver compass lantern"
-        queryError={null}
-        disabled={false}
-        loading={false}
-        submittedQuery=""
-        onChange={() => undefined}
-        onSubmit={() => undefined}
-      />,
+      <>
+        <SearchBar
+          query="silver compass lantern"
+          queryError={null}
+          disabled={false}
+          loading={false}
+          submittedQuery=""
+          onChange={() => undefined}
+          onSubmit={() => undefined}
+        />
+        <SearchOptions keywordOptions mode="broader" query="silver compass lantern"
+          disabled={false} onChange={() => undefined} onModeChange={() => undefined} />
+      </>,
     )
 
     expect(html).toContain('search.input.broaderMode')
@@ -32,8 +35,6 @@ describe('search query errors', () => {
   it.each(['unmatchedQuote', 'tooLong'] as const)('associates %s with the search input', (error) => {
     const html = renderToStaticMarkup(
       <SearchBar
-        mode="all"
-        onModeChange={() => undefined}
         query={'anne "green gables'}
         queryError={error}
         disabled={false}
@@ -53,8 +54,6 @@ describe('search query errors', () => {
   it('shows a busy button only while the submitted query is still in the input', () => {
     const busy = renderToStaticMarkup(
       <SearchBar
-        mode="all"
-        onModeChange={() => undefined}
         query="orchard"
         queryError={null}
         disabled={false}
@@ -66,8 +65,6 @@ describe('search query errors', () => {
     )
     const edited = renderToStaticMarkup(
       <SearchBar
-        mode="all"
-        onModeChange={() => undefined}
         query="orchard lantern"
         queryError={null}
         disabled={false}

@@ -9,6 +9,7 @@ import { ConceptualResults } from '../../search-semantic/ConceptualResults'
 import type { ConceptualState } from '../../search-semantic/useConceptualSearch'
 import './SearchTab.css'
 import { SearchBar } from '../SearchBar/SearchBar'
+import { SearchOptions } from '../SearchBar/SearchOptions'
 import { SearchResults } from '../SearchResults/SearchResults'
 import { SearchScope } from '../SearchScope/SearchScope'
 
@@ -138,12 +139,42 @@ export function SearchTab({
     }}
   />
 
+  const resultSelector = semanticEnabled ? (
+    <TabList className="search-result-tabs" aria-label={t('search.results.views')}>
+      <Tab id="keyword" className="search-result-tab">
+        {t('search.results.keyword')}{submittedQuery && !loading && !searchFailed
+          ? ` (${t('search.results.count', { count: keywordCount })})` : ''}
+        {loading && <span className="spinner" role="img" aria-label={t('search.results.searching')} />}
+      </Tab>
+      <Tab id="conceptual" className="search-result-tab">
+        {t('search.results.conceptual')}{conceptualState?.phase === 'ready'
+          ? ` (${t('search.results.count', { count: conceptualState.response?.results.length ?? 0 })})` : ''}
+        {conceptualState?.phase === 'loading' && <span className="spinner" role="img" aria-label={t('search.conceptual.loading')} />}
+      </Tab>
+    </TabList>
+  ) : undefined
+  const searchOptions = <SearchOptions resultSelector={resultSelector} keywordOptions={view === 'keyword'}
+    mode={mode} onModeChange={onModeChange} query={query} disabled={disabled} onChange={onChangeQuery} />
+  const searchScope = <SearchScope
+    groupedDocs={groupedDocs}
+    collapsedAuthors={collapsedAuthors}
+    docFilterLower={docFilterLower}
+    documentFilter={documentFilter}
+    libraryOrganization={libraryOrganization}
+    selectedFilters={selectedFilters}
+    scopeMode={scopeMode}
+    filterTitleByUrl={filterTitleByUrl}
+    onFilterChange={onFilterChange}
+    onToggleFilter={onToggleFilter}
+    onToggleAllInGroup={onToggleAllInGroup}
+    onToggleAuthor={onToggleAuthor}
+    onClearFilters={onClearFilters}
+    onScopeModeChange={onScopeModeChange}
+  />
+
   return (
     <section className="tab-panel" role="tabpanel" aria-label={t('search.tabLabel')} data-tab="search">
       <SearchBar
-        keywordOptions={view === 'keyword'}
-        mode={mode}
-        onModeChange={onModeChange}
         query={query}
         queryError={queryError}
         disabled={disabled}
@@ -151,23 +182,6 @@ export function SearchTab({
         submittedQuery={submittedQuery}
         onChange={onChangeQuery}
         onSubmit={onSubmitSearch}
-      />
-
-      <SearchScope
-        groupedDocs={groupedDocs}
-        collapsedAuthors={collapsedAuthors}
-        docFilterLower={docFilterLower}
-        documentFilter={documentFilter}
-        libraryOrganization={libraryOrganization}
-        selectedFilters={selectedFilters}
-        scopeMode={scopeMode}
-        filterTitleByUrl={filterTitleByUrl}
-        onFilterChange={onFilterChange}
-        onToggleFilter={onToggleFilter}
-        onToggleAllInGroup={onToggleAllInGroup}
-        onToggleAuthor={onToggleAuthor}
-        onClearFilters={onClearFilters}
-        onScopeModeChange={onScopeModeChange}
       />
 
       {semanticEnabled ? <Tabs className="search-result-views" ref={resultArea} selectedKey={view}
@@ -181,18 +195,8 @@ export function SearchTab({
             ? positions.current[key] ?? Math.max(0, window.scrollY + top) : null
           onResultViewChange(key)
         }}>
-        <TabList className="search-result-tabs" aria-label={t('search.results.views')}>
-          <Tab id="keyword" className="search-result-tab">
-            {t('search.results.keyword')}{submittedQuery && !loading && !searchFailed
-              ? ` (${t('search.results.count', { count: keywordCount })})` : ''}
-            {loading && <span className="spinner" role="img" aria-label={t('search.results.searching')} />}
-          </Tab>
-          <Tab id="conceptual" className="search-result-tab">
-            {t('search.results.conceptual')}{conceptualState?.phase === 'ready'
-              ? ` (${t('search.results.count', { count: conceptualState.response?.results.length ?? 0 })})` : ''}
-            {conceptualState?.phase === 'loading' && <span className="spinner" role="img" aria-label={t('search.conceptual.loading')} />}
-          </Tab>
-        </TabList>
+        {searchOptions}
+        {searchScope}
         <TabPanel id="keyword" className="search-result-panel" hidden={view !== 'keyword'} shouldForceMount>{keywordResults}</TabPanel>
         <TabPanel id="conceptual" className="search-result-panel" hidden={view !== 'conceptual'} shouldForceMount>
           <ConceptualResults state={conceptualState} openingDisabled={openingDisabled}
@@ -200,7 +204,7 @@ export function SearchTab({
             visibleLimit={limits.conceptual}
             onShowMore={() => setLimits(current => ({ ...current, conceptual: current.conceptual + 10 }))} />
         </TabPanel>
-      </Tabs> : keywordResults}
+      </Tabs> : <>{searchOptions}{searchScope}{keywordResults}</>}
     </section>
   )
 }

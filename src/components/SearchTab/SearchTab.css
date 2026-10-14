@@ -1,14 +1,11 @@
 .search-result-tabs {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
   gap: 0.25rem;
-  margin-block-end: 1rem;
-  padding-block: 0.4rem;
-  background: var(--app-bg);
-  border-bottom: 1px solid var(--border);
+  max-width: 100%;
+  padding: 0.25rem;
+  background: var(--control-surface);
+  border-radius: var(--radius-control);
 }
 
 .search-result-tab {
@@ -20,12 +17,13 @@
   padding: 0.4rem 0.75rem;
   border-radius: var(--radius-compact);
   color: var(--text-muted);
+  font-size: 0.85rem;
   cursor: pointer;
 }
 
 .search-result-tab[data-selected] {
   color: var(--accent-strong);
-  background: var(--surface-accent);
+  background: var(--surface-accent-strong);
   font-weight: 600;
 }
 
@@ -37,4 +35,11 @@
 
 .search-result-panel[data-inert] {
   display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .search-result-tab:hover:not([data-selected]) {
+    color: var(--text-body);
+    background: var(--surface-accent);
+  }
 }

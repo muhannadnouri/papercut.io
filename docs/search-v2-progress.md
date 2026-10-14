@@ -2,6 +2,16 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+## Grouped search controls — 2026-10-14
+
+Follow-up to `ddebe260c61eb6d841770f63e2d8556f18da56f0`: the tonal **Keyword / Conceptual** selector now shares a compact row with Keyword-only **All Words / Broader**, directly below the query input. Matching options sit opposite the selector on wide screens and stack below it on narrow screens. The helper follows this row, then the shared document filter and results. Query, helper, examples and filter use the same inline-start alignment; the form no longer adds a separate desktop width inset. The compact selector/options row is sticky through the results; input, helper/examples and filter scroll normally. Controls retain keyboard selection, visible focus and 44px tab/coarse-pointer matching targets.
+
+`SearchBar` keeps submission, busy/error behavior and the input; a small `SearchOptions` component renders the existing matching/helper/examples alongside the result selector. It returns sibling elements so a short form wrapper cannot confine the sticky row. Keyword examples remain explicit query fills without submission; Conceptual hides them. Shared filter disclosure state, query, selected view, evidence, list limits, scroll restoration, fallback and reader targets remain intact when switching. No retrieval/index/model/dependency/translation changes.
+
+Validation: **277 frontend passed / 1 optional utility skipped in 54 files**, lint, locale parity, TypeScript, Vite build and diff checks pass. The two added real DOM regressions exercise grouped control order plus live matching/help/description changes, retained open filter, keyword-only examples, disabled fill guards and Enter submission. Restoring the old always-visible examples makes the regression fail; the mutation was restored. Existing tab/async/batch/source-navigation tests also pass. Vite's existing chunk/import warnings remain. Native tests and further browser/app/device smoke were not repeated.
+
+Docs and the consolidated deferred smoke checks reflect the new arrangement. Previously reported Linux/Android Small FP32 coverage is unchanged and does not accept this newer layout; iOS remains untested. Next is current-source full CI followed, when resumed, by narrow/RTL/zoom/sticky and remaining installed-app/release smoke. No push, dispatch, merge or release performed.
+
 ## Keyword/Conceptual result views — 2026-10-14
 
 Implemented the approved large-library presentation change. Opted-in search has a secondary, sticky **Keyword (N) / Conceptual (N)** selector above the result cards. The default is Keyword; App retains the selected view during the session, including later submissions, and completion never switches it. Query and document scope remain shared. All Words/Broader radios and their helper are shown only for Keyword, with an accessible **Keyword matching** group name; Conceptual retains the required-quote reminder.

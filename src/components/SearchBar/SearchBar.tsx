@@ -1,36 +1,27 @@
 import { useTranslation } from 'react-i18next'
 import type { SearchQueryError } from '../../hooks/useSearch'
-import type { SearchMode } from '../../types/search'
 import './SearchBar.css'
 
 interface SearchBarProps {
-  keywordOptions?: boolean
-  mode: SearchMode
   query: string
   queryError: SearchQueryError | null
   disabled: boolean
   loading: boolean
   submittedQuery: string
   onChange: (value: string) => void
-  onModeChange: (mode: SearchMode) => void
   onSubmit: () => void
 }
 
 export function SearchBar({
-  keywordOptions = true,
-  mode,
   query,
   queryError,
   disabled,
   loading,
   submittedQuery,
   onChange,
-  onModeChange,
   onSubmit,
 }: SearchBarProps) {
   const { t } = useTranslation()
-  const broadExample = t('search.input.exampleBroad')
-  const exactExample = t('search.input.exampleExact')
   const searching = loading && query.trim().toLowerCase() === submittedQuery.toLowerCase()
   const submitDisabled = disabled || searching || query.trim().length === 0
 
@@ -70,35 +61,10 @@ export function SearchBar({
           {t('search.input.button')}
         </button>
       </div>
-      {keywordOptions && <fieldset className="search-mode">
-        <legend>{t('search.input.modeLabel')}</legend>
-        <label>
-          <input type="radio" name="search-mode" checked={mode === 'all'} onChange={() => onModeChange('all')} />
-          {t('search.input.allWordsMode')}
-        </label>
-        <label>
-          <input type="radio" name="search-mode" checked={mode === 'broader'} onChange={() => onModeChange('broader')} />
-          {t('search.input.broaderMode')}
-        </label>
-      </fieldset>}
-      <p className="search-help" id="search-input-help">
-        {t(!keywordOptions ? 'search.input.helpConceptual'
-          : mode === 'broader' ? 'search.input.helpBroader' : 'search.input.help')}
-      </p>
       {queryError && (
         <p className="search-input-error" id="search-input-error" role="alert">
           {t(`search.input.${queryError}`)}
         </p>
-      )}
-      {query.trim().length === 0 && (
-        <div className="search-examples" aria-label={t('search.input.examplesLabel')}>
-          <button type="button" className="search-example" onClick={() => onChange(broadExample)} disabled={disabled}>
-            {broadExample}
-          </button>
-          <button type="button" className="search-example" onClick={() => onChange(exactExample)} disabled={disabled}>
-            {exactExample}
-          </button>
-        </div>
       )}
     </div>
   )
