@@ -443,7 +443,7 @@
       "indexReady": "Library Index Updated",
       "needsIndex": "Index Required",
       "enableFirst": "Enable semantic search above before preparing the library.",
-      "downloadFirst": "Download the model below before enabling semantic search.",
+      "downloadFirst": "Download a model to enable semantic search.",
       "loading": "Loading Search Model…",
       "indexing": "Indexing…",
       "downloading": "Downloading Search Model…",

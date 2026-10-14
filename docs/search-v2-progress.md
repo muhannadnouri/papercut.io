@@ -2,6 +2,12 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+## Model download prerequisite warning — 2026-10-14
+
+The missing-model prerequisite now uses the same warning triangle, warning color and emphasis as Library Index's attention state. English copy is **Download a model to enable semantic search.**, with corresponding concise wording across all eight locales. The shared icon is decorative; the existing prerequisite ID remains in the disabled switch's description. Model consent, cache checks, explicit download and enablement guards are unchanged. The warning disappears when usable model files are available.
+
+Validation: 39 focused settings/controller tests, lint, i18n parity, TypeScript, Vite build and diff checks pass. The existing prerequisite regression checks the disabled switch, linked description and decorative warning; no new render-only test or dependency was added. Further visual/device smoke stays deferred; current-source CI and the remaining release gates are still open.
+
 ## Rust TLS security patch — 2026-10-14
 
 [CI run 38613631090](https://github.com/muhannadnouri/papercut.io/actions/runs/38613631090), attempt 1, tested `1e4076cf3e13a2413b63926675354017d262d396`. Its checks job passed npm audit, lint, frontend tests/build/Pagefind, monitor/runner regressions, SILMA self-test and the inactive-waiver guard, then failed Rust audit. Rust/provider/inference steps and downstream platform packages were skipped; this run provides no package/native acceptance.

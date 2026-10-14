@@ -65,6 +65,7 @@
 
 .search-model-phase,
 .search-index-phase,
+.search-model-attention,
 .search-index-attention {
   display: inline-flex;
   align-items: center;
@@ -78,11 +79,13 @@
   font-weight: 400;
 }
 
+.search-model-setup .search-model-attention,
 .search-model-setup .search-index-attention {
   color: var(--warning-strong);
   font-weight: 600;
 }
 
+.search-model-attention svg,
 .search-index-attention svg {
   flex-shrink: 0;
 }

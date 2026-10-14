@@ -436,7 +436,7 @@
       "indexReady": "文档库索引已更新。",
       "needsIndex": "需要建立索引",
       "enableFirst": "准备文档库前，请先启用上方的语义搜索。",
-      "downloadFirst": "启用语义搜索前，请下载下方的模型。",
+      "downloadFirst": "下载模型以启用语义搜索。",
       "loading": "正在加载搜索模型…",
       "indexing": "正在建立索引…",
       "downloading": "正在下载搜索模型…",

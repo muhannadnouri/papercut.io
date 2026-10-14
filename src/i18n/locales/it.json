@@ -450,7 +450,7 @@
       "indexReady": "L’indice è aggiornato.",
       "needsIndex": "Indice Necessario",
       "enableFirst": "Attiva la ricerca semantica prima di preparare la libreria.",
-      "downloadFirst": "Scarica il modello qui sotto prima di attivare la ricerca semantica.",
+      "downloadFirst": "Scarica un modello per attivare la ricerca semantica.",
       "loading": "Caricamento del modello di ricerca…",
       "indexing": "Indicizzazione…",
       "downloading": "Download del modello di ricerca…",

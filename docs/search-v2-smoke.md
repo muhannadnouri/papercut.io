@@ -643,6 +643,11 @@ immediately and these checks do not replace the model/index lifecycle cases.
 **Deferred.** Use a rebuilt artifact from the new commit; earlier reported smoke
 does not accept these settings changes.
 
+- [ ] With no usable model files, the disabled semantic switch is described by the
+      concise download prerequisite, styled like Library Index's warning. Its icon
+      is decorative; it does not replace the readable message. Check narrow/RTL
+      wrapping and light/dark warning contrast. After explicit model preparation,
+      the warning disappears and enabling remains a separate action.
 - [ ] On Android and iOS, expand every semantic-settings section and scroll to both
       ends at narrow width, enlarged text/zoom, portrait and landscape, with keyboard
       open/closed. Content and Back/Close stay within the system safe areas; only the

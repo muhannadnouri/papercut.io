@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import type { SemanticSearchController } from './useSemanticSearch'
 import { semanticSearchStatus } from './semanticSearchStatus'
 
+const warningIcon = <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 3 2 21h20L12 3Z" /><path d="M12 9v5m0 3v1" /></svg>
+
 /** Explicit opt-in shares the cache installer; no download or indexing starts from a search. */
 export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, children, indexMaintenance }: {
   semantic: SemanticSearchController; cachePresent: boolean; cacheBusy: boolean; children?: ReactNode; indexMaintenance?: (actions: ReactNode) => ReactNode
@@ -57,7 +59,7 @@ export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, childre
           })
         }}>{t('settings.semantic.retryStatus')}</button>
       </div>}
-      {!cachePresent && !enabled && <p id={`${id}-prerequisite`}>{t('settings.semantic.downloadFirst')}</p>}
+      {!cachePresent && !enabled && <p id={`${id}-prerequisite`} className="search-model-attention">{warningIcon}{t('settings.semantic.downloadFirst')}</p>}
     </section>
     {children}
     {showIndex && <details className="search-model-panel search-library-index" open={expandIndex}>
@@ -73,7 +75,7 @@ export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, childre
         {indexing && !statusError && index && <p>{t('settings.semantic.progress', { embedded: index.embeddedPassages })}
           {index.reusedPassages > 0 && <> · {t('settings.semantic.reusedProgress', { reused: index.reusedPassages })}</>}</p>}
         {!indexing && <p role="status" className={needsIndex ? 'search-index-attention' : undefined}>
-          {needsIndex && <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 3 2 21h20L12 3Z" /><path d="M12 9v5m0 3v1" /></svg>}
+          {needsIndex && warningIcon}
           {t(statusError ? 'settings.semantic.statusUnavailable' : !enabled ? 'settings.semantic.enableFirst' : !index ? 'settings.semantic.checkingIndex' : index.eligibleDocuments === 0
           ? 'settings.semantic.emptyLibrary' : !active ? 'settings.semantic.modelRequired'
           : current ? 'settings.semantic.indexReady' : 'settings.semantic.needsIndex')}</p>}
