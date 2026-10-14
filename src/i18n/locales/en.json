@@ -233,8 +233,8 @@
         "readingFile": "Reading file...",
         "preparingDocument": "Preparing document...",
         "preparingBook": "Preparing chapters and illustrations...",
-        "storingDocument": "Saving to your Library...",
-        "extractingPdfText": "Preparing searchable PDF text..."
+        "storingDocument": "Saving to library...",
+        "extractingPdfText": "Preparing Searchable PDF Text..."
       },
       "stoppingBatch": "Stopping after the current file...",
       "stopping": "Stopping...",
@@ -251,7 +251,7 @@
       "deleteBatchComplete": "Deleted: {{deleted, number}}. Failed: {{failed, number}}.",
       "failedDeletes": "Documents that could not be deleted: {{count, number}}",
       "imported": "Imported <title>{{title}}</title>.",
-      "cancelled": "Import cancelled.",
+      "cancelled": "Import Cancelled.",
       "deleting": "Deleting <title>{{title}}</title>...",
       "deleted": "Deleted <title>{{title}}</title>.",
       "deletedWithStorage": "Deleted <title>{{title}}</title> and freed {{storage}}.",
@@ -439,7 +439,7 @@
       "recovery": "Turning off semantic search stops indexing and unloads the model. Downloaded files and completed indexing work are kept. If left enabled, the saved model loads again on restart. Update the index after library changes or interrupted indexing; completed work is reused.",
       "manage": "Manage",
       "checkingIndex": "Checking Library Status…",
-      "emptyLibrary": "Import documents into Your Library to get started.",
+      "emptyLibrary": "Import documents into your library to get started.",
       "indexReady": "Library Index Updated",
       "needsIndex": "Index Required",
       "enableFirst": "Enable semantic search above before preparing the library.",
