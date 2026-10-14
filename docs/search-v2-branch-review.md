@@ -4,17 +4,17 @@
 
 Approved after the eleven review fixes: concise mode labels, nearest-three conceptual context previews, localized Show More/Show Less and PDF display reflow. Expansion is per card and source ordered, with the matched passage emphasized. Previews are Unicode/word bounded and visually clamped; More reveals further previews, while reader actions retain the full original text/page/section target. PDF display uses the existing conservative wrap rule and retains blank-line paragraph boundaries. No source offsets, index schema/policy, ranking or confidence labels change.
 
-Checks: **262 frontend passed / 1 optional skipped**, lint/i18n/typecheck/Vite build/diff checks. Real DOM regressions cover focus, selection/order, More/Less, per-card/reset state and unchanged original reader navigation; mutation checks reject a first-three window and a shortened reader target. Native tests were not repeated for this frontend-only change. Visual layout and screen-reader/device smoke remain deferred.
+Checks: **262 frontend passed / 1 optional skipped**, lint/i18n/typecheck/Vite build/diff checks. Real DOM regressions cover focus, selection/order, More/Less, per-card/reset state and unchanged original reader navigation; mutation checks reject a first-three window and a shortened reader target. Native tests were not repeated locally for this frontend-only change; the full CI run below includes them. Visual layout and screen-reader/device smoke remain deferred.
 
-The verified full CI below is for **`7dabec7`**, preceding this application change. Run existing CI at the new commit before treating its automated gate as closed. Earlier source acceptance evidence and the remaining resource/distribution limits are unchanged.
+The full CI record below now verifies this application change at **`15b3710`**. Its automated gate is closed; visual smoke and the remaining resource/distribution limits stay open.
 
 ## Current-source CI verified — 2026-10-13
 
-[CI run 38480780209](https://github.com/muhannadnouri/papercut.io/actions/runs/38480780209), attempt 1, completed successfully at **`7dabec79044cb53e8df8c453d0505be14c9850ee`** on `feature/search-v2`. The run SHA matches the application cleanup commit covering all eleven review items. All **10 jobs** succeeded; the full desktop/mobile/SILMA jobs and explicit provider-inference steps ran, rather than being skipped.
+[CI run 38500026388](https://github.com/muhannadnouri/papercut.io/actions/runs/38500026388), attempt 1, completed successfully at **`15b3710086050391958d75f61a3b53f8fb22235c`** on `feature/search-v2`. The run SHA matches the context-preview/label/PDF-display commit built on the eleven completed review fixes. This supersedes the earlier verified `7dabec7` CI for current-source acceptance. All **10 jobs** succeeded; the full desktop/mobile/SILMA jobs and explicit provider-inference steps ran, rather than being skipped.
 
 | Gate | Verified evidence |
 | --- | --- |
-| Checks and configured audits | Frontend 253 passed / 1 optional utility skipped; Rust 190 default / 248 provider-enabled passed (5 / 10 ignored in those suites). Lint, frontend/Pagefind build, npm/Rust audit, monitor/runner regressions and SILMA worker self-test steps passed. The existing `RUSTSEC-2026-0235` waiver remains; its all-features/all-targets inactive-`rkyv` guard passed. |
+| Checks and configured audits | Frontend 262 passed / 1 optional utility skipped; Rust 190 default / 248 provider-enabled passed (5 / 10 ignored in those suites). Lint, frontend/Pagefind build, npm/Rust audit, monitor/runner regressions and SILMA worker self-test steps passed. The existing `RUSTSEC-2026-0235` waiver remains; its all-features/all-targets inactive-`rkyv` guard passed. |
 | Desktop packaging | Linux AppImage/Debian, Windows MSI/NSIS and macOS Intel/arm64 build and artifact steps passed, including platform bundle checks. |
 | Mobile and sidecar builds | Android APK, unsigned iOS simulator/device builds and the Linux CPU SILMA runtime archive job passed. |
 | Explicit cached-model runtime check | Logs show `cached_provider_activation_switch_failure_and_unload` executed and passed once on Linux, Windows, both macOS architectures, Android x86_64 emulator and iOS arm64 simulator. This closes the cached-provider runtime CI gate for this source, not every ignored test or model choice. |

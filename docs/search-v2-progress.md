@@ -2,6 +2,14 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+## Context-preview full CI verified — 2026-10-13
+
+Verified [run 38500026388](https://github.com/muhannadnouri/papercut.io/actions/runs/38500026388), attempt 1, against application commit **`15b3710086050391958d75f61a3b53f8fb22235c`** on `feature/search-v2`. All **10 jobs** succeeded, including desktop packaging, Android APK, unsigned iOS simulator/device builds, configured audits and SILMA runtime packaging. Checks logs confirm **262 frontend passed / 1 optional utility skipped**, **190 default / 248 provider-enabled Rust passed** (5 / 10 ignored in those suites).
+
+Read the runtime logs: `cached_provider_activation_switch_failure_and_unload` executed and passed on Linux, Windows, macOS Intel/arm64, Android x86_64 emulator and iOS arm64 simulator. Provider steps ran rather than being skipped; this does not accept every ignored check, Base/Large or other hardware. The existing Rust audit waiver/activation guard remains unchanged and passed.
+
+The current application source now has verified full CI. No additional implementation fix is indicated by this run. App/WebView layout, RTL/zoom, touch, screen-reader and physical-device/resource acceptance remain deferred/open in the consolidated smoke checklist. This evidence update is documentation only; no merge or release performed.
+
 ## Conceptual context preview cleanup — 2026-10-13
 
 The user approved label cleanup, three bounded context previews, Show More/Show Less and PDF display reflow against baseline `457ff623e70621ec6f0fedb3bbf0afaca4215ca5`. Smoke remains deferred; confidence badges are intentionally omitted.
@@ -13,7 +21,7 @@ The user approved label cleanup, three bounded context previews, Show More/Show 
 
 Validation: 262 frontend tests pass in 53 files, with one optional utility skipped; lint, locale parity, TypeScript, Vite build and diff checks pass. The 13 conceptual-results regressions include real React/DOM expansion/collapse, nearest selection, source ordering, focus, independent/reset state, escaped text, opening guards, Unicode limits and untouched reader targets. Selecting the first three blocks or substituting preview text into a reader target makes the corresponding assertion fail; both mutations were restored. No new dependency or native code change. Vite's existing large-chunk warning remains.
 
-Next: existing CI for this new application commit. The successful `7dabec7` CI below covers the preceding application source, not these UI changes. App/WebView layout, RTL/zoom, touch and screen-reader acceptance remain in the consolidated deferred smoke checklist; no push, workflow dispatch or merge performed.
+CI follow-up: run `38500026388` now verifies this application change at `15b3710`, as recorded above. App/WebView layout, RTL/zoom, touch and screen-reader acceptance remain in the consolidated deferred smoke checklist; no merge performed.
 
 ## Current-source full CI verified — 2026-10-13
 
