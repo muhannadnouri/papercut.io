@@ -240,7 +240,9 @@ it('requires fresh consent after changing format and keeps cancellation busy thr
   status.downloadingFormat = null
   storedFiles = true // Partial cache cleanup stays available after cancellation.
   download.reject('Embedding download cancelled')
-  expect(await settle()).toContain('role="alert"')
+  const cancelled = await settle()
+  expect(cancelled).toContain('settings.searchModel.cancelled')
+  expect(cancelled).not.toContain('role="alert"')
   expect(control('button', 'settings.searchModel.remove').props.disabled).toBe(false)
   expect(control('input').props.checked).toBe(false)
   expect(mocked.invoke.mock.calls.some(([command]) => command === 'search_embedding_configure')).toBe(false)

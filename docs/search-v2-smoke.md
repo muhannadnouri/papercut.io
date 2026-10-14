@@ -643,6 +643,13 @@ immediately and these checks do not replace the model/index lifecycle cases.
 **Deferred.** Use a rebuilt artifact from the new commit; earlier reported smoke
 does not accept these settings changes.
 
+- [ ] Cancel an in-progress model download. Controls remain busy until native cleanup
+      completes, then Download Cancelled appears inside the model panel without a red
+      cancellation error or external Retry. Re-downloading still requires consent and
+      an explicit download action. Check focus when the progress controls disappear.
+      For a real download/cancel/status error, the diagnostic and Retry stay inside
+      model management when available; retrying status does not start a download.
+      Initial setup failure still offers Retry when no model panel can initialize.
 - [ ] With no usable model files, the disabled semantic switch is described by the
       concise download prerequisite, styled like Library Index's warning. Its icon
       is decorative; it does not replace the readable message. Check narrow/RTL

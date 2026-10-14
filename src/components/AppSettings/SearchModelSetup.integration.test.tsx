@@ -3,9 +3,10 @@ import { act, useEffect } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { SearchModelSetup } from './SearchModelSetup'
-import { useSemanticSearch, type ProviderStatus, type SemanticSearchController } from '../../search-semantic/useSemanticSearch'
+import { useSemanticSearch, type ProviderStatus, type SemanticSearchController, type DownloadProgress } from '../../search-semantic/useSemanticSearch'
 import { semanticSearchStatus } from '../../search-semantic/semanticSearchStatus'
 import { invoke } from '@tauri-apps/api/core'
+import { listen, type Event } from '@tauri-apps/api/event'
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(), isTauri: () => true }))
 vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn(async () => () => {}) }))
@@ -20,6 +21,16 @@ let semantic: SemanticSearchController
 let provider: ProviderStatus
 let resolveActivation: () => void
 let rejectActivation: (error: Error) => void
+let filesPresent: boolean
+let storedFiles: boolean
+let resolveDownload: () => void
+let rejectDownload: (error: string) => void
+let downloadJob: number
+const downloadListeners = new Set<(event: Event<DownloadProgress>) => void>()
+function downloadEvent(phase: DownloadProgress['phase'], error: string | null = null) {
+  for (const listener of downloadListeners) listener({ event: 'search-embedding-download-progress', id: 0,
+    payload: { jobId: `download-${downloadJob}`, format: 'float32', phase, downloadedBytes: 50, totalBytes: 100, error } })
+}
 
 function Harness() {
   const controller = useSemanticSearch()
@@ -33,12 +44,28 @@ beforeEach(async () => {
   container = document.createElement('div')
   document.body.append(container)
   root = createRoot(container)
+  filesPresent = true
+  storedFiles = true
+  downloadJob = 0
+  downloadListeners.clear()
+  vi.mocked(listen).mockImplementation(async (_, callback) => {
+    const listener = callback as (event: Event<DownloadProgress>) => void
+    downloadListeners.add(listener)
+    return () => { downloadListeners.delete(listener) }
+  })
   provider = { compiled: true, activeFormat: null, loadingFormat: null, downloadingFormat: null }
   vi.mocked(invoke).mockImplementation(async (command, args) => {
     if (command === 'search_embedding_status') return { ...provider }
-    if (command === 'search_embedding_cache_status') return [{ format: 'float32', filesPresent: true, hasStoredFiles: true, expectedBytes: 465000000 }]
+    if (command === 'search_embedding_cache_status') return [{ format: 'float32', filesPresent, hasStoredFiles: storedFiles, expectedBytes: 465000000 }]
     if (command === 'search_semantic_index_status') return { running: false, cancelRequested: false, indexedDocuments: 2,
       eligibleDocuments: 2, passages: 100, hasStoredIndex: true, embeddedPassages: 0, reusedPassages: 0, error: null }
+    if (command === 'search_embedding_download') {
+      downloadJob++
+      provider = { ...provider, downloadingFormat: 'float32' }
+      downloadEvent('starting')
+      return new Promise<void>((resolve, reject) => { resolveDownload = resolve; rejectDownload = reject })
+    }
+    if (command === 'search_embedding_cancel_download') return { ...provider }
     if (command === 'search_embedding_configure') {
       if ((args as { format: string | null }).format === null) {
         provider = { ...provider, activeFormat: null, loadingFormat: null }
@@ -135,4 +162,102 @@ it('keeps native loading feedback after activation IPC settles, while download w
   await act(() => vi.advanceTimersByTimeAsync(1000))
   expect(container.querySelector('.search-download-progress')?.textContent).toContain('settings.searchModel.verifying')
   assertDescriptionsResolve()
+})
+
+
+function button(key: string) {
+  return [...container.querySelectorAll<HTMLButtonElement>('button')].find(item => item.textContent === key)
+}
+async function reopen() {
+  await act(() => root.unmount())
+  root = createRoot(container)
+  await act(() => root.render(<Harness />))
+}
+async function startDownload() {
+  filesPresent = false; storedFiles = false
+  await reopen()
+  expect(button('settings.searchModel.download')?.disabled).toBe(true)
+  await act(() => container.querySelector<HTMLInputElement>('.search-model-consent input')!.click())
+  await act(() => button('settings.searchModel.download')!.click())
+}
+function downloadCalls() { return vi.mocked(invoke).mock.calls.filter(([command]) => command === 'search_embedding_download') }
+
+it.each([true, false])('keeps cancellation local and guarded through cleanup (terminal event: %s)', async (withEvent) => {
+  vi.useFakeTimers()
+  await startDownload()
+  await act(() => button('settings.searchModel.cancel')!.click())
+  expect(button('settings.searchModel.cancel')?.disabled).toBe(true)
+  expect(toggle().disabled).toBe(true)
+  expect(container.querySelector('.search-model-management')?.textContent).not.toContain('settings.searchModel.cancelled')
+  expect(downloadCalls()).toHaveLength(1)
+  await act(() => {
+    provider = { ...provider, downloadingFormat: null }
+    storedFiles = true
+    if (withEvent) downloadEvent('cancelled', 'Embedding download cancelled')
+    rejectDownload('Embedding download cancelled')
+  })
+  // Native polling reconciles the controller even when its terminal event is missed.
+  await act(() => vi.advanceTimersByTimeAsync(1000))
+  const panel = container.querySelector<HTMLDetailsElement>('.search-model-management')!
+  expect(panel.open).toBe(true)
+  expect([...panel.querySelectorAll('[role="status"]')].filter(item => item.textContent === 'settings.searchModel.cancelled')).toHaveLength(1)
+  expect(container.textContent).not.toContain('Embedding download cancelled')
+  expect(container.querySelector('[role="alert"]')).toBeNull()
+  expect(button('common.retry')).toBeUndefined()
+  expect(panel.querySelector<HTMLInputElement>('.search-model-consent input')?.checked).toBe(false)
+  expect(button('settings.searchModel.download')?.disabled).toBe(true)
+  expect(button('settings.searchModel.remove')?.disabled).toBe(false)
+  expect(downloadCalls()).toHaveLength(1)
+  expect(vi.mocked(invoke).mock.calls.some(([command]) => command === 'search_embedding_configure')).toBe(false)
+})
+
+it('keeps real download failure and Retry in the model panel, even after a cancellation request', async () => {
+  await startDownload()
+  await act(() => button('settings.searchModel.cancel')!.click())
+  const diagnostic = 'Embedding download unavailable: connection cancelled by proxy'
+  await act(() => {
+    provider = { ...provider, downloadingFormat: null }
+    downloadEvent('failed', diagnostic)
+    rejectDownload(diagnostic)
+  })
+  const panel = container.querySelector<HTMLDetailsElement>('.search-model-management')!
+  expect(panel.open).toBe(true)
+  expect(panel.querySelector('[role="alert"]')?.textContent).toBe(diagnostic)
+  expect(container.querySelectorAll('[role="alert"]')).toHaveLength(1)
+  expect(panel.contains(button('common.retry')!)).toBe(true)
+  expect(panel.textContent).not.toContain('settings.searchModel.cancelled')
+  await act(() => button('common.retry')!.click())
+  expect(container.querySelector('.search-model-management [role="alert"]')?.textContent).toBe(diagnostic)
+  expect(button('settings.searchModel.download')?.disabled).toBe(true)
+  expect(downloadCalls()).toHaveLength(1)
+  await act(() => container.querySelector<HTMLInputElement>('.search-model-consent input')!.click())
+  await act(() => button('settings.searchModel.download')!.click())
+  expect(downloadCalls()).toHaveLength(2)
+  expect(container.querySelector('[role="alert"]')).toBeNull()
+  await act(() => {
+    provider = { ...provider, downloadingFormat: null }
+    filesPresent = true; storedFiles = true
+    downloadEvent('installed')
+    resolveDownload()
+  })
+  expect(container.querySelector('.search-model-management')?.textContent).toContain('settings.searchModel.verified')
+  expect(toggle().checked).toBe(false)
+})
+
+it('keeps setup recovery available when the initial cache-status read cannot open the model panel', async () => {
+  const invokeNormally = vi.mocked(invoke).getMockImplementation()!
+  let unavailable = true
+  vi.mocked(invoke).mockImplementation(async (command, args, options) => {
+    if (command === 'search_embedding_cache_status' && unavailable) throw new Error('Cache status unavailable')
+    return invokeNormally(command, args, options)
+  })
+  await reopen()
+  expect(container.querySelector('.search-model-management')).toBeNull()
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain('Cache status unavailable')
+  expect(button('common.retry')?.disabled).toBe(false)
+  unavailable = false
+  await act(() => button('common.retry')!.click())
+  expect(container.querySelector('.search-model-management')).not.toBeNull()
+  expect(container.querySelector('[role="alert"]')).toBeNull()
+  expect(downloadCalls()).toHaveLength(0)
 })

@@ -2,6 +2,14 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+## Download cancellation and local recovery — 2026-10-14
+
+The canonical native download-cancellation result is now a normal terminal state: **Download Cancelled**, localized across all eight languages, appears inside Download Model / Manage Model after cleanup finishes. It no longer displays raw native cancellation text as a red error or adds a full-width Retry below the panel. The IPC result itself is unchanged; only that exact download result is classified as cancellation. A cancellation request cannot conceal a concurrent real download failure.
+
+Real action/status errors and their existing Retry recovery stay inside model management whenever that panel is available. Initial subscription/status failures retain recovery outside because the panel cannot initialize. Error diagnostics remain verbatim. Retry still checks/reconnects status; downloading again requires the existing explicit consent and Download Model Files action. Model-activation retry, cleanup/busy guards, stored-file removal, automatic cache/status refresh and native wire contracts are unchanged.
+
+Real DOM/component/controller regressions cover cancellation with and without terminal progress delivery (polling reconciles missed events), retained busy guards through cleanup, fresh consent/no automatic restart, a genuine failure after cancellation plus recovery/re-download, and initial cache-status recovery without a model panel. The prior cancellation regression now expects a status rather than an alert. Validation: **285 frontend passed / 1 optional skipped in 55 files**, lint/i18n/typecheck/Vite build/diff checks. Native tests were not repeated for this frontend-only repair; further visual/device smoke and current-source CI remain deferred/open respectively.
+
 ## Model download prerequisite warning — 2026-10-14
 
 The missing-model prerequisite now uses the same warning triangle, warning color and emphasis as Library Index's attention state. Following the user’s title-case feedback, English copy is **Model Download Required**, with corresponding short wording across all eight locales. The shared icon is decorative; the existing prerequisite ID remains in the disabled switch's description. Model consent, cache checks, explicit download and enablement guards are unchanged. The warning disappears when usable model files are available.

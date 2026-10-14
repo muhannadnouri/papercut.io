@@ -410,7 +410,7 @@
       "verified": "Modelo pronto. A busca semântica não foi alterada.",
       "removed": "Arquivos do modelo removidos. A busca não mudou.",
       "cancelling": "Cancelamento solicitado; aguardando a interrupção e a limpeza…",
-      "cancelled": "Download cancelado. Verifique o status do cache antes de tentar novamente.",
+      "cancelled": "Download Cancelado",
       "failed": "O download falhou. Verifique a conexão e o espaço livre; remova arquivos de cache danificados antes de tentar novamente.",
       "details": "Como Funciona",
       "confirmRemove": "Remover os arquivos deste modelo, incluindo downloads incompletos? Documentos e índice serão preservados. Será necessário baixar o modelo novamente.",

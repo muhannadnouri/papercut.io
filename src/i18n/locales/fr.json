@@ -410,7 +410,7 @@
       "verified": "Modèle prêt. La recherche sémantique reste inchangée.",
       "removed": "Fichiers du modèle supprimés. La recherche est inchangée.",
       "cancelling": "Annulation demandée ; en attente de l’arrêt et du nettoyage…",
-      "cancelled": "Téléchargement annulé. Vérifiez l’état du cache avant de réessayer.",
+      "cancelled": "Téléchargement Annulé",
       "failed": "Échec du téléchargement. Vérifiez la connexion et l’espace libre ; supprimez les fichiers du cache endommagés avant de réessayer.",
       "details": "Comment Ça Marche",
       "confirmRemove": "Supprimer les fichiers de ce modèle, y compris les téléchargements incomplets ? Les documents et l’index sont conservés. Vous devrez télécharger le modèle à nouveau.",

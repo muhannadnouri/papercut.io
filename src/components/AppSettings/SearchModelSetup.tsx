@@ -26,7 +26,7 @@ export function SearchModelSetup({ semantic }: { semantic: SemanticSearchControl
   const [operation, setOperation] = useState<'download' | 'remove' | null>(null)
   const [progress, setProgress] = useState<DownloadProgress | null>(null)
   const [error, setError] = useState('')
-  const [message, setMessage] = useState<'' | 'verified' | 'removed'>('')
+  const [message, setMessage] = useState<'' | 'verified' | 'removed' | 'cancelled'>('')
   const [connecting, setConnecting] = useState(0)
   const mounted = useRef(false)
   const request = useRef(0)
@@ -127,7 +127,10 @@ export function SearchModelSetup({ semantic }: { semantic: SemanticSearchControl
       await invoke(kind === 'download' ? 'search_embedding_download' : 'search_embedding_remove', { format })
       if (mounted.current) setMessage(kind === 'download' ? 'verified' : 'removed')
     } catch (err) {
-      if (mounted.current) setError(String(err))
+      if (mounted.current) {
+        if (kind === 'download' && String(err) === 'Embedding download cancelled') setMessage('cancelled')
+        else setError(String(err))
+      }
     } finally {
       try { await refresh() } catch (err) {
         if (mounted.current) setError(String(err))
@@ -216,6 +219,16 @@ export function SearchModelSetup({ semantic }: { semantic: SemanticSearchControl
     </div>
   }
 
+  const errorRecovery = error && <>
+    <p className="app-dialog-error" role="alert" dir="auto">{error}</p>
+    <button type="button" className="app-settings-data-action" onClick={() => {
+      setError('')
+      setReady(false)
+      setCancelling(false)
+      setConnecting((value) => value + 1)
+    }}>{t('common.retry')}</button>
+  </>
+
   // Model preparation sits between the opt-in and index controls without owning their state.
   const modelControls = <>
     {ready && status?.compiled && <details className="search-model-panel search-model-management" open={operation !== null || !!downloading || loadingModel || !!error || (modelExpanded ?? (semantic.downloadFailure?.format === format || (!loaded && !cache?.filesPresent)))}
@@ -282,16 +295,11 @@ export function SearchModelSetup({ semantic }: { semantic: SemanticSearchControl
         </>}
       </div>}
       {message === 'removed' && <p role="status">{t('settings.searchModel.removed')}</p>}
-      {!busy && progress?.phase === 'cancelled' && !error && <p role="status">{t('settings.searchModel.cancelled')}</p>}
+      {!busy && (message === 'cancelled' || progress?.phase === 'cancelled') && !error && <p role="status">{t('settings.searchModel.cancelled')}</p>}
       {!busy && semantic.downloadFailure?.format === format && !error && <p role="alert" dir="auto">{semantic.downloadFailure?.format === format && semantic.downloadFailure.message || t('settings.searchModel.failed')}</p>}
+      {errorRecovery}
     </details>}
-    {error && <p className="app-dialog-error" role="alert" dir="auto">{error}</p>}
-    {error && <button type="button" className="app-settings-data-action" onClick={() => {
-      setError('')
-      setReady(false)
-      setCancelling(false)
-      setConnecting((value) => value + 1)
-    }}>{t('common.retry')}</button>}
+    {(!ready || !status?.compiled) && errorRecovery}
   </>
 
   return (

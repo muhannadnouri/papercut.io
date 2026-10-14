@@ -403,7 +403,7 @@
       "verified": "Search model ready. Semantic search remains unchanged.",
       "removed": "Model files removed. Search is unchanged.",
       "cancelling": "Cancellation requested; waiting for the worker to stop and clean up…",
-      "cancelled": "Download cancelled. Check cache status before retrying.",
+      "cancelled": "Download Cancelled",
       "failed": "Download failed. Check your connection and free space; remove damaged cache files before retrying.",
       "details": "How It Works",
       "confirmRemove": "Remove these model files, including incomplete downloads? Documents and the search index stay intact. The model must be downloaded again to use it.",
