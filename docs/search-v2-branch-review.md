@@ -1,5 +1,11 @@
 # Search v2 branch acceptance and review
 
+## Contextual empty-state follow-up — 2026-10-14
+
+Ready Keyword and Conceptual views share a short query prompt before submission. Conceptual's empty result area now reflects observed setup readiness, with index warnings and an Open Search Settings action. Loading/checking, empty-library and error states are distinct; scoped submitted-search availability overrides global pre-query guidance, and validation failures keep their input feedback. The existing dialog opens directly, returns to root on Back and restores focus on dismissal, falling back to the Settings cog if setup removed the original action, without starting work or resetting query/filter/result state.
+
+Checks: **294 frontend passed / 1 optional skipped in 56 files**, lint/i18n/typecheck/Vite build/diff. Real DOM tests cover state transitions, action callbacks, scoped precedence and actual dialog navigation/dismissal/focus boundaries with mocked native IPC. Details are in [the progress record](search-v2-progress.md). **Current-source CI remains pending and further smoke is deferred**; the earlier audit repair, installed-platform and immediate-release distribution gates remain open. No push, merge or release is claimed.
+
 ## Current CI audit failure and local repair — 2026-10-14
 
 [Run 38613631090](https://github.com/muhannadnouri/papercut.io/actions/runs/38613631090) failed at Rust audit on `1e4076c`, after npm audit/frontend checks and the existing inactive-waiver guard passed. Four rustls advisories published that day (`RUSTSEC-2026-0346`–`0349`) affect the locked 0.23.45 release. Rust tests/provider inference and downstream platform builds were skipped; this run cannot close release acceptance.

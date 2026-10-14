@@ -83,8 +83,7 @@
       "noResults": "Sin resultados.",
       "noResultsHint": "Pruebe con menos palabras o cambie el alcance de documentos.",
       "filtersApplied": "Se aplican filtros de documentos.",
-      "welcome": "Escriba una consulta y presione Buscar (o Enter) para buscar en todos los documentos indexados.",
-      "welcomeHint": "Envuelva una frase entre comillas dobles para una búsqueda de coincidencia exacta.",
+      "welcome": "Escribe una consulta y pulsa Buscar (o Enter).",
       "showingCount": "Mostrando {{shown, number}} de {{total, number}}",
       "termsSeparateSections": "Se encontraron todas las palabras, pero no en la misma sección.",
       "bestSection": "Mejor sección coincidente: {{title}}",
@@ -139,7 +138,11 @@
       "missing-index": "No hay un índice semántico disponible. Consulta los resultados de Palabras clave. Crea o reanuda el índice en Configuración.",
       "incompatible-index": "El índice no coincide con el modelo seleccionado. Consulta los resultados de Palabras clave. Crea o reanuda el índice en Configuración.",
       "partial": "Este ámbito no está completamente indexado. Consulta los resultados de Palabras clave. Crea o reanuda el índice en Configuración.",
-      "failed": "La búsqueda conceptual no pudo finalizar. Consulta los resultados de Palabras clave. Revisa el modelo y el índice en Configuración y vuelve a buscar; una consulta más corta puede ayudar."
+      "failed": "La búsqueda conceptual no pudo finalizar. Consulta los resultados de Palabras clave. Revisa el modelo y el índice en Configuración y vuelve a buscar; una consulta más corta puede ayudar.",
+      "indexUpdateRequired": "Actualización del Índice Necesaria",
+      "emptyLibrary": "Importa documentos para empezar.",
+      "setupUnavailable": "La búsqueda conceptual no está lista. Comprueba el modelo y el índice en los ajustes de búsqueda.",
+      "openSettings": "Abrir Ajustes de Búsqueda"
     }
   },
   "library": {

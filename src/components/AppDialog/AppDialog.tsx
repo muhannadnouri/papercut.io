@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useId, useRef, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useEffectEvent, useId, useRef, type FormEvent, type ReactNode, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import './AppDialog.css'
 
@@ -20,12 +20,13 @@ interface AppDialogProps {
   className?: string
   showCloseButton?: boolean
   navigationDisabled?: boolean
+  fallbackFocusRef?: RefObject<HTMLElement | null>
   onBack?: () => void
   onCancel: () => void
   onSubmit?: (event: FormEvent) => void
 }
 
-export function AppDialog({ title, description, children, actions, className, showCloseButton = false, navigationDisabled = false, onBack, onCancel, onSubmit }: AppDialogProps) {
+export function AppDialog({ title, description, children, actions, className, showCloseButton = false, navigationDisabled = false, fallbackFocusRef, onBack, onCancel, onSubmit }: AppDialogProps) {
   const { t } = useTranslation()
   const titleId = useId()
   const descriptionId = useId()
@@ -33,6 +34,10 @@ export function AppDialog({ title, description, children, actions, className, sh
   // Use one busy guard for Close, Escape and backdrop dismissal, including updated transfer state.
   const dismiss = () => { if (!navigationDisabled) onCancel() }
   const cancelDialog = useEffectEvent(dismiss)
+  const restoreDialogFocus = useEffectEvent((previousFocus: HTMLElement | null) => {
+    const focusTarget = previousFocus?.isConnected ? previousFocus : fallbackFocusRef?.current
+    if (focusTarget?.isConnected) focusTarget.focus()
+  })
   const dialogClassName = 'app-dialog' + (showCloseButton || onBack ? ' app-dialog-navigable' : '') + (className ? ` ${className}` : '')
   const setDialogRef = (node: HTMLDivElement | HTMLFormElement | null) => {
     dialogRef.current = node
@@ -86,7 +91,7 @@ export function AppDialog({ title, description, children, actions, className, sh
     document.addEventListener('keydown', handleKeyDown)
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
-      if (previousFocus?.isConnected) previousFocus.focus()
+      restoreDialogFocus(previousFocus)
     }
   }, [])
 

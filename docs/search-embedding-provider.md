@@ -456,6 +456,18 @@ The dedicated task view starts with **Semantic Search**, followed by **Download
 Model / Manage Model** and **Library Index**. The switch remains off and unavailable
 without model files; its status/prerequisite explanation is associated accessibly.
 Downloading and building/updating the index remain separate explicit actions.
+Before a query is submitted, Conceptual reflects this observed setup status rather
+than leaving a blank result area. Ready views share a short query prompt. Known
+missing/incomplete library coverage offers Index Required/Index Update Required and
+Open Search Settings; checking/loading, empty-library and status/model errors remain
+distinct. Pre-query coverage is library-wide guidance, not a submission gate. After
+submission the scoped native response is authoritative; missing/incompatible/partial
+coverage keeps its fallback and gains the same Settings action, while a ready scoped
+response is shown independently of global coverage. Validation feedback is unchanged.
+The action uses the existing AppDialog with Back to root, full dismissal/focus
+restoration (or the Settings cog if setup removed its opener) and no automatic
+preparation. Opening preserves query, scope and result
+state; explicit consent/download/build controls still own every job.
 General Settings retains its observed readiness summary: off, loading,
 indexing/cancelling, index required, empty/checking library, ready or keyword-only
 fallback. In the task view the switch conveys On, Manage Model owns the live

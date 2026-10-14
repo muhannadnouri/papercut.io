@@ -11,6 +11,7 @@ vi.mock('react', async (original) => ({
     if (i >= slots.values.length) slots.values[i] = typeof initial === 'function' ? initial() : initial
     return [slots.values[i], (next: unknown) => { slots.values[i] = next }]
   },
+  useRef: () => ({ current: null }),
   useCallback: (callback: unknown) => callback,
   useEffect: () => {},
 }))
@@ -26,11 +27,12 @@ vi.mock('../../library-transfer/LibraryTransferDialog', () => ({ LibraryTransfer
 import { AppSettings } from './AppSettings'
 import { SearchActivity } from '../../search-semantic/SearchActivity'
 let tree: ReactElement
+let searchOpen = false
 const semantic = { enabled: false, busy: false } as SemanticSearchController
 function render() {
   slots.cursor = 0
   tree = AppSettings({ themeChoice: 'light', onThemeChange: vi.fn(), developerMode: false,
-    onDeveloperModeChange: vi.fn(), onLibraryImported: vi.fn(), semanticSearch: semantic })
+    onDeveloperModeChange: vi.fn(), onLibraryImported: vi.fn(), semanticSearch: semantic, searchOpen, onSearchOpenChange: (next) => { searchOpen = next } })
   return renderToStaticMarkup(tree)
 }
 function elements(node: ReactNode = tree): ReactElement<Record<string, unknown>>[] {
@@ -38,7 +40,7 @@ function elements(node: ReactNode = tree): ReactElement<Record<string, unknown>>
     ? [child, ...elements((child.props.children ?? null) as ReactNode)] : [])
 }
 beforeEach(() => {
-  slots.values = []; slots.cursor = 0
+  slots.values = []; slots.cursor = 0; searchOpen = false
   semantic.busy = false; semantic.activityNotice = null; semantic.dismissActivity = vi.fn()
   semantic.enabled = false; semantic.operation = null; semantic.error = ''; semantic.provider = undefined; semantic.index = undefined
 })

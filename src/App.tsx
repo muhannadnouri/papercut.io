@@ -5,9 +5,11 @@ import {
   useMemo
 } from 'react'
 import { useTranslation } from 'react-i18next'
+import { isTauri } from '@tauri-apps/api/core'
 import './App.css'
 import { usePagefind } from './hooks/usePagefind'
 import { useSearch } from './hooks/useSearch'
+import { semanticSearchStatus } from './search-semantic/semanticSearchStatus'
 import { useSemanticSearch } from './search-semantic/useSemanticSearch'
 import { useConceptualSearch } from './search-semantic/useConceptualSearch'
 import { AppHeader } from './components/AppHeader/AppHeader'
@@ -66,6 +68,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('library')
   const [searchMode, setSearchMode] = useState<SearchMode>('all')
   const [searchResultView, setSearchResultView] = useState<SearchResultView>('keyword')
+  const [searchSettingsOpen, setSearchSettingsOpen] = useState(false)
   const [userUploads, setUserUploads] = useState<UserUploadDocument[]>(() => getUserUploads())
   const [ttsDiagnosticsEnabled, setTtsDiagnosticsEnabled] = useState(() => isDebugEnabled())
   const [scanSetupSource, setScanSetupSource] = useState<'camera' | 'photos' | null>(null)
@@ -460,6 +463,8 @@ function App() {
                 onDeveloperModeChange={handleTtsDiagnosticsChange}
                 onLibraryImported={handleLibraryTransferImported}
                 semanticSearch={semanticSearch}
+                searchOpen={searchSettingsOpen}
+                onSearchOpenChange={setSearchSettingsOpen}
               />
             )}
             headerControls={(
@@ -524,6 +529,8 @@ function App() {
             onDeveloperModeChange={handleTtsDiagnosticsChange}
             onLibraryImported={handleLibraryTransferImported}
             semanticSearch={semanticSearch}
+            searchOpen={searchSettingsOpen}
+            onSearchOpenChange={setSearchSettingsOpen}
           />
         )} />
       </div>
@@ -541,6 +548,11 @@ function App() {
         {activeTab === 'search' && (
           <SearchTab
             semanticEnabled={semanticSearch.enabled}
+            semanticStatus={semanticSearch.provider?.downloadingFormat ? 'downloading'
+              : isTauri() && !semanticSearch.provider && !semanticSearch.statusError && !semanticSearch.operation ? 'checking'
+              : semanticSearchStatus(semanticSearch)}
+            hasStoredIndex={!!semanticSearch.index?.hasStoredIndex}
+            onOpenSearchSettings={() => setSearchSettingsOpen(true)}
             conceptualState={conceptualResults}
             resultView={searchResultView}
             onResultViewChange={setSearchResultView}

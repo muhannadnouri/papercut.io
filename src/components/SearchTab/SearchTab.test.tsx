@@ -23,7 +23,7 @@ const response: ConceptualResponse = {
 }
 function props(): ComponentProps<typeof SearchTab> {
   return {
-    semanticEnabled: true, conceptualState: { phase: 'ready', response }, resultView: 'keyword',
+    semanticEnabled: true, semanticStatus: 'ready', hasStoredIndex: true, onOpenSearchSettings: vi.fn(), conceptualState: { phase: 'ready', response }, resultView: 'keyword',
     searchRequest: { revision: 1, scope: '*' }, onResultViewChange: vi.fn(), onViewConceptualResult: vi.fn(),
     mode: 'all', collapsedAuthors: new Set(), disabled: false, docFilterLower: '', documentFilter: '',
     filterTitleByUrl: new Map(), groupedDocs: [], libraryOrganization: { folders: [], documentLocations: [] },
@@ -300,4 +300,85 @@ it('keeps examples in empty Keyword view, hides them in Conceptual and preserves
   expect(container.querySelector('.search-examples')).toBeNull()
   await act(() => container.querySelector('.search-input')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })))
   expect(value.onSubmitSearch).toHaveBeenCalledOnce()
+})
+
+it('shares the pre-submit query prompt across views and replaces it on submission without clearing the draft', async () => {
+  const value = { ...props(), query: 'draft connections', submittedQuery: '', conceptualState: null, lastSearchInfo: null }
+  await render(value)
+  expect(panel('keyword').querySelector('.welcome')?.textContent).toBe('search.results.welcome')
+  await click(tab('conceptual'))
+  expect(panel('conceptual').querySelector('.welcome')?.textContent).toBe('search.results.welcome')
+  expect(container.querySelector<HTMLInputElement>('.search-input')!.value).toBe(value.query)
+  expect(value.onSubmitSearch).not.toHaveBeenCalled()
+  await render({ ...value, submittedQuery: value.query, conceptualState: { phase: 'loading' } })
+  expect(panel('conceptual').querySelector('.welcome')).toBeNull()
+  expect(panel('conceptual').textContent).toContain('search.conceptual.loading')
+  await render({ ...value, submittedQuery: value.query, conceptualState: { phase: 'ready', response } })
+  expect(panel('conceptual').querySelectorAll('.result-card')).toHaveLength(10)
+  expect(tab('conceptual').getAttribute('aria-selected')).toBe('true')
+})
+
+it('transitions setup guidance without claiming missing indexes during loading, errors or an empty library', async () => {
+  const value = { ...props(), query: 'unsubmitted query', submittedQuery: '', conceptualState: null, scopeActive: true,
+    scopeUrls: new Set(['/uploads/guide-1.pdf']), selectedFilters: new Set(['/uploads/guide-1.pdf']) }
+  await render({ ...value, semanticStatus: 'needsIndex', hasStoredIndex: false })
+  await click(tab('conceptual'))
+  const warning = panel('conceptual').querySelector('.conceptual-index-warning')!
+  expect(warning.textContent).toBe('settings.semantic.needsIndex')
+  expect(warning.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true')
+  const open = panel('conceptual').querySelector<HTMLButtonElement>('[aria-haspopup="dialog"]')!
+  await act(() => open.focus())
+  await click(open)
+  expect(value.onOpenSearchSettings).toHaveBeenCalledOnce()
+  expect(value.onSubmitSearch).not.toHaveBeenCalled()
+  await render({ ...value, semanticStatus: 'needsIndex', hasStoredIndex: true })
+  expect(panel('conceptual').querySelector('.conceptual-index-warning')?.textContent).toBe('search.conceptual.indexUpdateRequired')
+  for (const status of ['checking', 'loading', 'downloading', 'indexing', 'cancelling', 'disabling'] as const) {
+    await render({ ...value, semanticStatus: status })
+    expect(panel('conceptual').querySelector('.conceptual-index-warning')).toBeNull()
+    expect(panel('conceptual').querySelector('.spinner')?.getAttribute('aria-hidden')).toBe('true')
+    expect(panel('conceptual').querySelector('[aria-haspopup="dialog"]')).toBeNull()
+  }
+  for (const status of ['statusUnavailable', 'fallback', 'empty', 'ready'] as const) {
+    await render({ ...value, semanticStatus: status })
+    expect(panel('conceptual').querySelector('.conceptual-index-warning')).toBeNull()
+    expect(panel('conceptual').querySelector('.spinner')).toBeNull()
+  }
+  expect(panel('conceptual').textContent).toBe('search.results.welcome')
+  expect(container.querySelector<HTMLInputElement>('.search-input')!.value).toBe(value.query)
+  expect(value.onClearFilters).not.toHaveBeenCalled()
+  await click(tab('keyword'))
+  expect(panel('keyword').querySelector('.welcome')?.textContent).toBe('search.results.welcome')
+})
+
+it('uses scoped query coverage over idle global warnings and opens Settings without resetting either channel', async () => {
+  const value = { ...props(), semanticStatus: 'needsIndex' as const, scopeActive: true, scopeUrls: new Set(['/uploads/guide-1.pdf']) }
+  await render(value)
+  await click(tab('conceptual'))
+  expect(panel('conceptual').querySelector('.conceptual-index-warning')).toBeNull()
+  expect(panel('conceptual').querySelectorAll('.result-card')).toHaveLength(10)
+  for (const reason of ['missing-index', 'incompatible-index', 'partial'] as const) {
+    await render({ ...value, conceptualState: { phase: 'fallback', reason,
+      response: { ...response, availability: reason, indexedDocuments: 1, eligibleDocuments: 2, results: [] } } })
+    expect(panel('conceptual').querySelectorAll('.result-card')).toHaveLength(0)
+    expect(panel('conceptual').querySelector('.conceptual-index-warning')?.textContent).toBe(`search.conceptual.${reason}`)
+    await click(panel('conceptual').querySelector('[aria-haspopup="dialog"]')!)
+    expect(tab('conceptual').getAttribute('aria-selected')).toBe('true')
+  }
+  expect(value.onOpenSearchSettings).toHaveBeenCalledTimes(3)
+  expect(value.onSubmitSearch).not.toHaveBeenCalled()
+  expect(value.onChangeQuery).not.toHaveBeenCalled()
+  expect(value.onClearFilters).not.toHaveBeenCalled()
+  await click(tab('keyword'))
+  expect(panel('keyword').querySelectorAll('.result-card')).toHaveLength(1)
+})
+
+it('leaves validation feedback in charge rather than showing setup or no-results text for an invalid query', async () => {
+  const value = { ...props(), submittedQuery: '', conceptualState: null, queryError: 'unmatchedQuote' as const }
+  await render(value)
+  await click(tab('conceptual'))
+  expect(panel('conceptual').querySelector('.welcome')).toBeNull()
+  expect(panel('conceptual').textContent).not.toContain('search.conceptual.empty')
+  expect(container.textContent).toContain('search.input.unmatchedQuote')
+  expect(value.onOpenSearchSettings).not.toHaveBeenCalled()
 })

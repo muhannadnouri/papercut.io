@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getVersion } from '@tauri-apps/api/app'
 import { isTauri } from '@tauri-apps/api/core'
@@ -49,6 +49,8 @@ interface AppSettingsProps {
   onDeveloperModeChange: (enabled: boolean) => void
   onLibraryImported: () => void | Promise<void>
   semanticSearch: SemanticSearchController
+  searchOpen: boolean
+  onSearchOpenChange: (open: boolean) => void
 }
 
 export function AppSettings({
@@ -58,22 +60,24 @@ export function AppSettings({
   onDeveloperModeChange,
   onLibraryImported,
   semanticSearch,
+  searchOpen,
+  onSearchOpenChange: setSearchOpen,
 }: AppSettingsProps) {
   const { t } = useTranslation()
   const tauriRuntime = isTauri()
   const [open, setOpen] = useState(false)
-  const [searchOpen, setSearchOpen] = useState(false)
   const [legalNoticesOpen, setLegalNoticesOpen] = useState(false)
   const [selectedLegalNotice, setSelectedLegalNotice] = useState<LegalNoticeId | null>(null)
   const [transferOpen, setTransferOpen] = useState(false)
   const [version, setVersion] = useState<string | null>(() => tauriRuntime ? null : '')
+  const settingsButton = useRef<HTMLButtonElement>(null)
   const zoom = useAppZoom()
   const closeSettings = useCallback(() => {
     setOpen(false)
     setSearchOpen(false)
     setLegalNoticesOpen(false)
     setSelectedLegalNotice(null)
-  }, [])
+  }, [setSearchOpen])
   const themeOption = {
     system: t('settings.themeSystem'),
     light: t('settings.themeLight'),
@@ -108,6 +112,7 @@ export function AppSettings({
       <button
         type="button"
         className="app-settings-btn"
+        ref={settingsButton}
         aria-label={t('settings.button')}
         aria-haspopup="dialog"
         title={t('settings.button')}
@@ -116,9 +121,9 @@ export function AppSettings({
         <SettingsIcon />
       </button>
 
-      {open && searchOpen && (
-        <AppDialog key="search" className="app-settings-search-dialog" title={t('settings.semantic.title')}
-          showCloseButton onCancel={closeSettings} onBack={() => setSearchOpen(false)}>
+      {searchOpen && (
+        <AppDialog key="search" fallbackFocusRef={settingsButton} className="app-settings-search-dialog" title={t('settings.semantic.title')}
+          showCloseButton onCancel={closeSettings} onBack={() => { setOpen(true); setSearchOpen(false) }}>
           <SearchModelSetup semantic={semanticSearch} />
         </AppDialog>
       )}
@@ -157,7 +162,7 @@ export function AppSettings({
 
       {open && !searchOpen && !legalNoticesOpen && (
         <AppDialog
-          key="general" title={t('settings.title')}
+          key="general" fallbackFocusRef={settingsButton} title={t('settings.title')}
           showCloseButton
           onCancel={closeSettings}
         >

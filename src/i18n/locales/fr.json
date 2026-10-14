@@ -83,8 +83,7 @@
       "noResults": "Aucun résultat.",
       "noResultsHint": "Essayez moins de mots ou modifiez la portée des documents.",
       "filtersApplied": "Des filtres de documents sont appliqués.",
-      "welcome": "Tapez une requête et appuyez sur Rechercher (ou Enter) pour effectuer une recherche dans tous les documents indexés.",
-      "welcomeHint": "Enveloppez une phrase entre guillemets doubles pour une recherche de correspondance exacte.",
+      "welcome": "Saisissez une recherche et appuyez sur Rechercher (ou Entrée).",
       "showingCount": "Affichage de {{shown, number}} sur {{total, number}}",
       "termsSeparateSections": "Tous les mots ont été trouvés, mais pas dans la même section",
       "bestSection": "Section la mieux adaptée : {{title}}",
@@ -139,7 +138,11 @@
       "missing-index": "Aucun index sémantique disponible. Consultez les résultats Mots-clés. Créez ou reprenez l’index dans les paramètres.",
       "incompatible-index": "L’index ne correspond pas au modèle sélectionné. Consultez les résultats Mots-clés. Créez ou reprenez l’index dans les paramètres.",
       "partial": "Ce périmètre n’est pas entièrement indexé. Consultez les résultats Mots-clés. Créez ou reprenez l’index dans les paramètres.",
-      "failed": "La recherche conceptuelle n’a pas abouti. Consultez les résultats Mots-clés. Vérifiez le modèle et l’index dans les paramètres, puis réessayez ; une requête plus courte peut aider."
+      "failed": "La recherche conceptuelle n’a pas abouti. Consultez les résultats Mots-clés. Vérifiez le modèle et l’index dans les paramètres, puis réessayez ; une requête plus courte peut aider.",
+      "indexUpdateRequired": "Mise à Jour de l’Index Requise",
+      "emptyLibrary": "Importez des documents pour commencer.",
+      "setupUnavailable": "La recherche conceptuelle n’est pas prête. Vérifiez son modèle et son index dans les paramètres de recherche.",
+      "openSettings": "Ouvrir les Paramètres de Recherche"
     }
   },
   "library": {

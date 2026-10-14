@@ -83,8 +83,7 @@
       "noResults": "Nessun risultato.",
       "noResultsHint": "Prova con meno parole o modifica l'ambito dei documenti.",
       "filtersApplied": "Vengono applicati i filtri del documento.",
-      "welcome": "Digita una query e premi Cerca (o Enter) per eseguire la ricerca in tutti i documenti indicizzati.",
-      "welcomeHint": "Racchiudi una frase tra virgolette doppie per la ricerca con corrispondenza esatta.",
+      "welcome": "Inserisci una ricerca e premi Cerca (o Invio).",
       "showingCount": "Visualizzazione di {{shown, number}} su {{total, number}}",
       "termsSeparateSections": "Tutte le parole sono state trovate, ma non nella stessa sezione",
       "bestSection": "Sezione con la migliore corrispondenza: {{title}}",
@@ -139,7 +138,11 @@
       "missing-index": "Nessun indice semantico disponibile. Consulta i risultati Parole chiave. Crea o riprendi l’indice nelle impostazioni.",
       "incompatible-index": "L’indice non corrisponde al modello selezionato. Consulta i risultati Parole chiave. Crea o riprendi l’indice nelle impostazioni.",
       "partial": "Questo ambito non è completamente indicizzato. Consulta i risultati Parole chiave. Crea o riprendi l’indice nelle impostazioni.",
-      "failed": "La ricerca concettuale non è terminata. Consulta i risultati Parole chiave. Controlla modello e indice nelle impostazioni, poi riprova; una query più breve può aiutare."
+      "failed": "La ricerca concettuale non è terminata. Consulta i risultati Parole chiave. Controlla modello e indice nelle impostazioni, poi riprova; una query più breve può aiutare.",
+      "indexUpdateRequired": "Aggiornamento dell’Indice Necessario",
+      "emptyLibrary": "Importa documenti per iniziare.",
+      "setupUnavailable": "La ricerca concettuale non è pronta. Controlla modello e indice nelle impostazioni di ricerca.",
+      "openSettings": "Apri Impostazioni di Ricerca"
     }
   },
   "library": {

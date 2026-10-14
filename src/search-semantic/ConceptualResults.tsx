@@ -1,5 +1,7 @@
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { WarningIcon } from '../components/WarningIcon/WarningIcon'
+import type { semanticSearchStatus } from './semanticSearchStatus'
 import type { SearchOpenTarget } from '../types/search'
 import { indexedSearchOpenTarget } from '../utils/searchOpenTarget'
 import { contextPreview } from './contextPreview'
@@ -9,17 +11,47 @@ import './ConceptualResults.css'
 
 /** Render authored passage text as text, with no synthetic query marks or literal counts.
  * UTF-8 byte spans stay native metadata; reader navigation uses existing section/page/text targets. */
-export function ConceptualResults({ visibleLimit = Infinity, onShowMore, state, openingDisabled = false, openingDocumentUrl, onViewDocument }: {
+export function ConceptualResults({ visibleLimit = Infinity, onShowMore, state, setupStatus, hasStoredIndex = false, onOpenSearchSettings, openingDisabled = false, openingDocumentUrl, onViewDocument }: {
   visibleLimit?: number
   onShowMore?: () => void
   state: ConceptualState
+  setupStatus?: ReturnType<typeof semanticSearchStatus> | 'downloading'
+  hasStoredIndex?: boolean
+  onOpenSearchSettings?: () => void
   openingDisabled?: boolean
   openingDocumentUrl?: string
   onViewDocument: (url: string, target: SearchOpenTarget) => void
 }) {
   const { t } = useTranslation()
   const id = useId()
-  if (!state) return null
+  if (!state) {
+    if (!setupStatus) return null
+    const needsIndex = setupStatus === 'needsIndex'
+    const preparing = ['loading', 'downloading', 'indexing', 'cancelling', 'checking', 'disabling'].includes(setupStatus)
+    const message = ({
+      ready: 'search.results.welcome',
+      needsIndex: hasStoredIndex ? 'search.conceptual.indexUpdateRequired' : 'settings.semantic.needsIndex',
+      empty: 'search.conceptual.emptyLibrary',
+      loading: 'settings.searchModel.loadingModel',
+      downloading: 'settings.semantic.downloading',
+      indexing: 'settings.semantic.indexing',
+      cancelling: 'settings.semantic.cancelling',
+      checking: 'settings.semantic.checkingIndex',
+      disabling: 'settings.semantic.disabling',
+      statusUnavailable: 'settings.semantic.statusUnavailable',
+      fallback: 'search.conceptual.setupUnavailable',
+      off: 'search.conceptual.setupUnavailable',
+    } as const)[setupStatus]
+    return <div className="welcome">
+      <p role="status" className={needsIndex ? 'conceptual-index-warning' : preparing ? 'conceptual-setup-phase' : undefined}>
+        {needsIndex && <WarningIcon />}{preparing && <span className="spinner" aria-hidden="true" />}{t(message)}
+      </p>
+      {needsIndex && <p>{t(hasStoredIndex ? 'settings.semantic.updateHelp' : 'settings.semantic.buildHelp')}</p>}
+      {onOpenSearchSettings && (needsIndex || setupStatus === 'fallback' || setupStatus === 'statusUnavailable') &&
+        <button type="button" className="result-evidence-action" aria-haspopup="dialog" onClick={onOpenSearchSettings}>{t('search.conceptual.openSettings')}</button>}
+    </div>
+  }
+  const indexWarning = state.phase === 'fallback' && ['missing-index', 'incompatible-index', 'partial'].includes(state.reason ?? '')
   const results = state.phase === 'ready' ? state.response?.results ?? [] : []
   return <section className="results-container result-group conceptual-results" aria-labelledby={id}
     aria-busy={state.phase === 'loading'}>
@@ -28,9 +60,11 @@ export function ConceptualResults({ visibleLimit = Infinity, onShowMore, state, 
       {state.phase === 'ready' && <span>{t('search.conceptual.shown', { count: results.length })}</span>}
     </div>
     {state.phase === 'loading' && <p role="status">{t('search.conceptual.loading')}</p>}
-    {state.phase === 'fallback' && <p className="search-feedback" role="status">
-      {t(`search.conceptual.${state.reason ?? 'failed'}`)}
+    {state.phase === 'fallback' && <p className={`search-feedback${indexWarning ? ' conceptual-index-warning' : ''}`} role="status">
+      {indexWarning && <WarningIcon />}{t(`search.conceptual.${state.reason ?? 'failed'}`)}
     </p>}
+    {indexWarning && onOpenSearchSettings && <button type="button" className="result-evidence-action" aria-haspopup="dialog"
+      onClick={onOpenSearchSettings}>{t('search.conceptual.openSettings')}</button>}
     {state.response && state.phase === 'fallback' && state.reason === 'partial' && <p className="conceptual-results-coverage">
       {t('search.conceptual.coverage', { ready: state.response.indexedDocuments, total: state.response.eligibleDocuments })}
     </p>}

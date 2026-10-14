@@ -83,8 +83,7 @@
       "noResults": "Sem resultados.",
       "noResultsHint": "Tente usar menos palavras ou altere o escopo dos documentos.",
       "filtersApplied": "Filtros de documentos são aplicados.",
-      "welcome": "Digite uma consulta e pressione Pesquisar (ou Enter) para pesquisar todos os documentos indexados.",
-      "welcomeHint": "Coloque uma frase entre aspas duplas para pesquisa de correspondência exata.",
+      "welcome": "Digite uma consulta e pressione Pesquisar (ou Enter).",
       "showingCount": "Exibindo {{shown, number}} de {{total, number}}",
       "termsSeparateSections": "Todas as palavras foram encontradas, mas não na mesma seção",
       "bestSection": "Melhor seção correspondente: {{title}}",
@@ -139,7 +138,11 @@
       "missing-index": "Nenhum índice semântico disponível. Veja os resultados de Palavras-chave. Crie ou retome o índice nas configurações.",
       "incompatible-index": "O índice não corresponde ao modelo selecionado. Veja os resultados de Palavras-chave. Crie ou retome o índice nas configurações.",
       "partial": "Este escopo não está totalmente indexado. Veja os resultados de Palavras-chave. Crie ou retome o índice nas configurações.",
-      "failed": "A pesquisa conceitual não foi concluída. Veja os resultados de Palavras-chave. Confira o modelo e o índice nas configurações e tente novamente; uma consulta mais curta pode ajudar."
+      "failed": "A pesquisa conceitual não foi concluída. Veja os resultados de Palavras-chave. Confira o modelo e o índice nas configurações e tente novamente; uma consulta mais curta pode ajudar.",
+      "indexUpdateRequired": "Atualização do Índice Necessária",
+      "emptyLibrary": "Importe documentos para começar.",
+      "setupUnavailable": "A busca conceitual não está pronta. Verifique o modelo e o índice nas configurações de busca.",
+      "openSettings": "Abrir Configurações de Busca"
     }
   },
   "library": {

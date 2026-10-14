@@ -643,6 +643,18 @@ immediately and these checks do not replace the model/index lifecycle cases.
 **Deferred.** Use a rebuilt artifact from the new commit; earlier reported smoke
 does not accept these settings changes.
 
+- [ ] Before submitting a query, both ready result views show the same short prompt,
+      without a repeated bottom quote hint. Conceptual distinguishes checking/loading,
+      indexing, an empty eligible library and status/model failures. No unknown/error
+      status is called Index Required, and switching retains the typed draft and scope.
+- [ ] For a missing/outdated index, verify the warning and Open Search Settings action
+      before submission and after a missing/incompatible/partial scoped search. The
+      action opens semantic setup directly without starting work. Back opens root
+      Settings; Close/Escape/backdrop restore the action's focus, or the Settings cog
+      if completed setup removed that action. Query, filters,
+      selected mode, expanded evidence and list limits survive. Keyword remains usable;
+      a ready filtered Conceptual response is not replaced by a global index warning.
+      Check narrow/RTL wrapping, coarse-pointer targets and actual screen-reader status.
 - [ ] Cancel an in-progress model download. Controls remain busy until native cleanup
       completes, then Download Cancelled appears inside the model panel without a red
       cancellation error or external Retry. Re-downloading still requires consent and

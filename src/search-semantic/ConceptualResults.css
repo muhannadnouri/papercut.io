@@ -59,3 +59,19 @@
   font-size: 0.8rem;
   font-weight: 600;
 }
+
+.conceptual-index-warning,
+.conceptual-setup-phase {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.conceptual-index-warning {
+  color: var(--warning-strong);
+  font-weight: 600;
+}
+
+.conceptual-index-warning svg {
+  flex-shrink: 0;
+}

@@ -6,6 +6,7 @@ import type { LastSearchInfo, SearchPhase, SearchQueryError } from '../../hooks/
 import type { DocumentInfo, SearchMode, SearchOpenTarget, SearchResult } from '../../types/search'
 import type { UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
 import { ConceptualResults } from '../../search-semantic/ConceptualResults'
+import type { semanticSearchStatus } from '../../search-semantic/semanticSearchStatus'
 import type { ConceptualState } from '../../search-semantic/useConceptualSearch'
 import './SearchTab.css'
 import { SearchBar } from '../SearchBar/SearchBar'
@@ -17,6 +18,9 @@ export type SearchResultView = 'keyword' | 'conceptual'
 
 interface SearchTabProps {
   semanticEnabled: boolean
+  semanticStatus: ReturnType<typeof semanticSearchStatus> | 'downloading'
+  hasStoredIndex: boolean
+  onOpenSearchSettings: () => void
   conceptualState: ConceptualState
   resultView: SearchResultView
   searchRequest: { revision: number; scope: string }
@@ -59,6 +63,9 @@ interface SearchTabProps {
 
 export function SearchTab({
   semanticEnabled,
+  semanticStatus,
+  hasStoredIndex,
+  onOpenSearchSettings,
   conceptualState,
   resultView,
   searchRequest,
@@ -210,6 +217,8 @@ export function SearchTab({
         <TabPanel id="keyword" className="search-result-panel" hidden={view !== 'keyword'} shouldForceMount>{keywordResults}</TabPanel>
         <TabPanel id="conceptual" className="search-result-panel" hidden={view !== 'conceptual'} shouldForceMount>
           <ConceptualResults state={conceptualState} openingDisabled={openingDisabled}
+            setupStatus={!submittedQuery && !queryError ? semanticStatus : undefined}
+            hasStoredIndex={hasStoredIndex} onOpenSearchSettings={onOpenSearchSettings}
             openingDocumentUrl={openingDocumentUrl} onViewDocument={onViewConceptualResult}
             visibleLimit={limits.conceptual}
             onShowMore={() => setLimits(current => ({ ...current, conceptual: current.conceptual + 10 }))} />
