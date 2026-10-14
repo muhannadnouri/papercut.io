@@ -99,7 +99,14 @@ it('uses linked tabs with one active focus target, hides inactive evidence and s
   expect(panel('conceptual').hasAttribute('inert')).toBe(true)
   expect(panel('conceptual').hidden).toBe(true)
   expect(container.querySelectorAll('input[name="search-mode"]')).toHaveLength(2)
-  await click(tab('conceptual'))
+  for (const view of ['keyword', 'conceptual'] as const) {
+    const icon = tab(view).querySelector('.search-result-tab-icon')!
+    const label = tab(view).querySelector('span[dir="auto"]')!
+    expect(icon.getAttribute('aria-hidden')).toBe('true')
+    expect(icon.getAttribute('focusable')).toBe('false')
+    expect(icon.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  }
+  await act(() => tab('conceptual').querySelector('.search-result-tab-icon')!.dispatchEvent(new MouseEvent('click', { bubbles: true })))
   expect(tab('conceptual').getAttribute('aria-selected')).toBe('true')
   expect(panel('keyword').hasAttribute('inert')).toBe(true)
   expect(panel('conceptual').hasAttribute('inert')).toBe(false)

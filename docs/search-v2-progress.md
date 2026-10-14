@@ -2,6 +2,14 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+## Centered compact search controls — 2026-10-14
+
+User feedback on `668888f` restores centered search options, helper text and example chips in both semantic-off and semantic-on states. The result selector and keyword options form one centered group on wide screens and remain centered when stacked on narrow screens. Remove the automatic margin that spread these controls to opposite edges; sticky behavior and shared scope remain unchanged.
+
+Keyword reuses the app's magnifier shape; Conceptual uses related-node line art in the same stroke style. Both decorative icons are physically left of their visible labels, excluded from accessible names/focus, while each label keeps automatic text direction. Desktop tab minimum height is reduced to **36px** with smaller segment padding; any coarse pointer retains **44px**, including devices with both mouse and touch. Heights remain content-driven for zoom/wrapping rather than fixed. No new dependency, translation, query, ranking, source-offset or index changes.
+
+Validation: **277 frontend passed / 1 optional utility skipped in 54 files**, lint, TypeScript, Vite build and diff checks pass. Existing real DOM interaction coverage now also selects Conceptual through its icon and asserts decorative-icon ordering/focus attributes; keyboard selection, live descriptions, examples, batching, filter/evidence state and source targets continue to pass. CSS specifies centering/sizing; jsdom does not verify visual geometry. Vite's existing chunk/import warnings remain. Native tests were not repeated for this frontend-only change; further browser/app/device smoke remains deferred. This does not accept sticky/RTL/zoom/touch layout or close the current-source CI gate. No push, merge or release performed.
+
 ## Grouped search controls — 2026-10-14
 
 Follow-up to `ddebe260c61eb6d841770f63e2d8556f18da56f0`: the tonal **Keyword / Conceptual** selector now shares a compact row with Keyword-only **All Words / Broader**, directly below the query input. Matching options sit opposite the selector on wide screens and stack below it on narrow screens. The helper follows this row, then the shared document filter and results. Query, helper, examples and filter use the same inline-start alignment; the form no longer adds a separate desktop width inset. The compact selector/options row is sticky through the results; input, helper/examples and filter scroll normally. Controls retain keyboard selection, visible focus and 44px tab/coarse-pointer matching targets.

@@ -142,13 +142,23 @@ export function SearchTab({
   const resultSelector = semanticEnabled ? (
     <TabList className="search-result-tabs" aria-label={t('search.results.views')}>
       <Tab id="keyword" className="search-result-tab">
-        {t('search.results.keyword')}{submittedQuery && !loading && !searchFailed
-          ? ` (${t('search.results.count', { count: keywordCount })})` : ''}
+        <svg className="search-result-tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle cx="11" cy="11" r="7" />
+          <path d="m16 16 5 5" />
+        </svg>
+        <span dir="auto">{t('search.results.keyword')}{submittedQuery && !loading && !searchFailed
+          ? ` (${t('search.results.count', { count: keywordCount })})` : ''}</span>
         {loading && <span className="spinner" role="img" aria-label={t('search.results.searching')} />}
       </Tab>
       <Tab id="conceptual" className="search-result-tab">
-        {t('search.results.conceptual')}{conceptualState?.phase === 'ready'
-          ? ` (${t('search.results.count', { count: conceptualState.response?.results.length ?? 0 })})` : ''}
+        <svg className="search-result-tab-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle cx="5" cy="12" r="3" />
+          <circle cx="18" cy="5" r="3" />
+          <circle cx="18" cy="19" r="3" />
+          <path d="m8 10.5 7-4m-7 7 7 4" />
+        </svg>
+        <span dir="auto">{t('search.results.conceptual')}{conceptualState?.phase === 'ready'
+          ? ` (${t('search.results.count', { count: conceptualState.response?.results.length ?? 0 })})` : ''}</span>
         {conceptualState?.phase === 'loading' && <span className="spinner" role="img" aria-label={t('search.conceptual.loading')} />}
       </Tab>
     </TabList>
