@@ -38,7 +38,7 @@ it('shows off and opt-in wording, coverage, and blocks enabling without a cache 
   expect(html(controller(), true, true)).toMatch(/role="switch"[^>]*disabled=""/)
 })
 
-it('labels unavailable opted-in state as lexical fallback with an actionable error and retry', () => {
+it('preserves fallback diagnostics, localizes only canonical cancellation and avoids duplicate errors', () => {
   const value = html(controller({ enabled: true, error: 'Model cache is damaged' }))
   expect(value).toContain('settings.semantic.summary.fallback')
   expect(value).toContain('role="alert"')
@@ -49,6 +49,15 @@ it('labels unavailable opted-in state as lexical fallback with an actionable err
   expect(html(duplicate).match(/Index job failed/g)).toHaveLength(1)
   duplicate.index!.error = 'Different index failure'
   expect(html(duplicate)).toContain('Different index failure')
+  duplicate.error = 'Semantic indexing cancelled'
+  duplicate.index!.error = duplicate.error
+  expect(html(duplicate).match(/settings.semantic.activity.cancelled/g)).toHaveLength(1)
+  expect(html(duplicate)).not.toContain('Semantic indexing cancelled')
+  duplicate.error = ''
+  expect(html(duplicate)).toContain('settings.semantic.activity.cancelled')
+  duplicate.index!.error = 'Semantic indexing cancelled: cleanup failed'
+  expect(html(duplicate)).toContain('Semantic indexing cancelled: cleanup failed')
+  expect(html(duplicate)).not.toContain('settings.semantic.activity.cancelled')
 })
 
 it('keeps the off switch usable during indexing and preserves errors after disable', () => {

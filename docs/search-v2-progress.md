@@ -2,6 +2,10 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+## Index cancellation label — 2026-10-14
+
+Semantic settings now display the existing localized **Indexing Cancelled** label for the exact native `Semantic indexing cancelled` outcome, whether it arrives as an action error or a saved index diagnostic. Native/controller error values, cancellation and cleanup guards, fallback readiness, error styling and duplicate suppression stay unchanged. Other diagnostics, including cancellation text with a cleanup-failure suffix, remain verbatim. The existing boundary regression covers both sources and exact-match-only localization; controller and real settings integration regressions cover the surrounding lifecycle. All 39 focused tests in 3 files, lint, TypeScript and diff checks pass. No locale key, dependency or native change. The header description remains pending the user's decision; removing it is recommended because How It Works and explicit setup controls already cover it. Further smoke remains deferred.
+
 ## Stacked pre-query settings action — 2026-10-14
 
 Removing the pre-query explanation exposed an inline layout regression: the warning and settings action could share one line. The idle Conceptual settings button now uses block flex layout, content-sized width and automatic side margins, keeping it centered below the warning with a small gap. This CSS rule is limited to the welcome area; submitted-result actions and warning icon/text layout stay unchanged. All 32 focused SearchTab/Conceptual regressions and the frontend build pass, validating the existing behavior and CSS compilation; no render-only test is added for this layout-only fix. Actual visual/device smoke remains deferred.
