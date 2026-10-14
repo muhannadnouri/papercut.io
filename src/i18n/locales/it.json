@@ -437,7 +437,6 @@
     },
     "semantic": {
       "title": "Ricerca semantica (sperimentale)",
-      "description": "Trova passaggi correlati accanto ai risultati per parole. Disattivata per impostazione predefinita; download e indicizzazione richiedono una tua azione.",
       "toggle": "Attiva la ricerca semantica (facoltativa)",
       "off": "Disattivata. La ricerca per parole resta disponibile.",
       "active": "Modello di ricerca caricato.",

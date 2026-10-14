@@ -2,6 +2,10 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+## Remove redundant settings introduction — 2026-10-14
+
+Removed the description beneath **Semantic Search (Experimental)** and its unused translations across all eight locales. The setup section keeps an accessible name from the existing title rather than referencing the removed paragraph. Matching/resource/saved-work explanations remain in How It Works; opt-in, download consent, preparation controls and fallback/diagnostic behavior stay intact. The existing unavailable-build regression follows the accessible-name change while retaining its no-download/no-activation assertions. Validation: 30 focused settings tests in 3 files, locale parity, lint, TypeScript and diff checks pass. Further visual/device smoke stays deferred.
+
 ## Index cancellation label — 2026-10-14
 
 Semantic settings now display the existing localized **Indexing Cancelled** label for the exact native `Semantic indexing cancelled` outcome, whether it arrives as an action error or a saved index diagnostic. Native/controller error values, cancellation and cleanup guards, fallback readiness, error styling and duplicate suppression stay unchanged. Other diagnostics, including cancellation text with a cleanup-failure suffix, remain verbatim. The existing boundary regression covers both sources and exact-match-only localization; controller and real settings integration regressions cover the surrounding lifecycle. All 39 focused tests in 3 files, lint, TypeScript and diff checks pass. No locale key, dependency or native change. The header description remains pending the user's decision; removing it is recommended because How It Works and explicit setup controls already cover it. Further smoke remains deferred.

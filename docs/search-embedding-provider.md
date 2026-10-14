@@ -452,9 +452,11 @@ controls require the focused follow-up below.
 
 Open **Settings → Semantic Search → Manage** in a Tauri build; Developer mode is
 not required. General Settings contains a summary rather than model/index actions.
-The dedicated task view starts with **Semantic Search**, followed by **Download
-Model / Manage Model** and **Library Index**. The switch remains off and unavailable
-without model files; its status/prerequisite explanation is associated accessibly.
+The dedicated task view starts directly with **Semantic Search**, followed by
+**Download Model / Manage Model** and **Library Index**. There is no introductory
+paragraph beneath the dialog title; matching, resources and saved work are
+explained in **How It Works**. The switch remains off and unavailable without model
+files; its status/prerequisite explanation is associated accessibly.
 Sections use muted tonal surfaces, with distinct inline removal confirmations;
 field borders and keyboard focus rings remain visible.
 Downloading and building/updating the index remain separate explicit actions.

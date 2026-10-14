@@ -684,6 +684,8 @@ does not accept these settings changes.
       prerequisites, fallback and error/retry remain understandable. Main Settings
       still conveys readiness without a switch. Screen readers resolve descriptions
       and announce the loading phase without repeated indexing counters.
+- [ ] No introductory paragraph appears beneath Semantic Search (Experimental).
+      The setup section retains an accessible name from its title.
 - [ ] How It Works shows Matching, Device Resources and Saved Work in light/dark
       and Arabic RTL. Check wraps and translated copy: partial relevance, document-wide
       quotes, local search/download connection, model resource costs, retained work,

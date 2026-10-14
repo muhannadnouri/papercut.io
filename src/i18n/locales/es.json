@@ -437,7 +437,6 @@
     },
     "semantic": {
       "title": "Búsqueda semántica (experimental)",
-      "description": "Encuentra pasajes relacionados junto a resultados por palabras. Desactivado por defecto; descargas e indexación requieren tu acción.",
       "toggle": "Activar búsqueda semántica (opcional)",
       "off": "Desactivado. La búsqueda por palabras sigue disponible.",
       "active": "Modelo de búsqueda cargado.",

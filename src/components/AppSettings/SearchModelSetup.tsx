@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { useTranslation } from 'react-i18next'
@@ -18,7 +18,6 @@ interface CacheStatus {
 /** Cache preparation never activates a model; the separate opt-in controls own activation. */
 export function SearchModelSetup({ semantic }: { semantic: SemanticSearchController }) {
   const { t } = useTranslation()
-  const id = useId()
   const [snapshot, setSnapshot] = useState<{ status: ProviderStatus; caches: CacheStatus[] } | null>(null)
   const [ready, setReady] = useState(false)
   const format = semantic.format
@@ -303,8 +302,7 @@ export function SearchModelSetup({ semantic }: { semantic: SemanticSearchControl
   </>
 
   return (
-    <section ref={setup} className="app-settings-section search-model-setup" aria-labelledby={`${id}-title`}>
-      <p id={`${id}-title`}>{t('settings.semantic.description')}</p>
+    <section ref={setup} className="app-settings-section search-model-setup" aria-label={t('settings.semantic.title')}>
       {!ready && <p role="status">{t('settings.searchModel.loading')}</p>}
       {ready && !status?.compiled && <p>{t('settings.searchModel.unavailable')}</p>}
       {ready

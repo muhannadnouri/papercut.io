@@ -430,7 +430,6 @@
     },
     "semantic": {
       "title": "Semantic Search (Experimental)",
-      "description": "Find related passages alongside keyword results. Off by default; downloads and indexing require your action.",
       "toggle": "Enable Semantic Search (Optional)",
       "off": "Off. Keyword search remains available.",
       "active": "Search Model Loaded",

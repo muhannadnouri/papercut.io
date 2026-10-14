@@ -437,7 +437,6 @@
     },
     "semantic": {
       "title": "Busca semântica (experimental)",
-      "description": "Encontre trechos relacionados ao lado dos resultados por palavras. Desativado por padrão; downloads e indexação exigem sua ação.",
       "toggle": "Ativar busca semântica (opcional)",
       "off": "Desativado. A busca por palavras continua disponível.",
       "active": "Modelo de busca carregado.",

@@ -185,7 +185,7 @@ it('keeps normal builds unavailable and never starts downloads or activates on o
   render()
   const html = await settle()
   expect(html).toContain('settings.searchModel.unavailable')
-  expect(html).toContain('settings.semantic.description')
+  expect(html).toContain('aria-label="settings.semantic.title"')
   expect(html).not.toContain('<select')
   expect(new Set(mocked.invoke.mock.calls.map(([command]) => command))).toEqual(new Set(['search_embedding_status']))
   expect(semantic.refresh).toHaveBeenCalledOnce()

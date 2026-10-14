@@ -437,7 +437,6 @@
     },
     "semantic": {
       "title": "Recherche sémantique (expérimentale)",
-      "description": "Trouvez des passages liés à côté des résultats par mots. Désactivé par défaut ; téléchargement et indexation nécessitent votre action.",
       "toggle": "Activer la recherche sémantique (facultatif)",
       "off": "Désactivé. La recherche par mots reste disponible.",
       "active": "Modèle de recherche chargé.",
