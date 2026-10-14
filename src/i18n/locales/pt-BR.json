@@ -450,7 +450,7 @@
       "indexReady": "O índice está atualizado.",
       "needsIndex": "Índice Necessário",
       "enableFirst": "Ative a busca semântica antes de preparar a biblioteca.",
-      "downloadFirst": "Baixe um modelo para ativar a busca semântica.",
+      "downloadFirst": "Download do Modelo Necessário",
       "loading": "Carregando modelo de busca…",
       "indexing": "Indexando…",
       "downloading": "Baixando modelo de busca…",
