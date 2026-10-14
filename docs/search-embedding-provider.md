@@ -460,6 +460,9 @@ files; its status/prerequisite explanation is associated accessibly.
 Sections use muted tonal surfaces, with distinct inline removal confirmations;
 field borders and keyboard focus rings remain visible.
 Downloading and building/updating the index remain separate explicit actions.
+Stopping indexing retains completed work and reports confirmed cancellation as a
+normal Library Index status. Coverage determines whether Update is needed or
+search is ready; a real failure racing Stop remains an error.
 Before a query is submitted, Conceptual reflects this observed setup status rather
 than leaving a blank result area. Keyword retains its original two-line welcome
 and exact-phrase hint; ready Conceptual uses a short query prompt. Known

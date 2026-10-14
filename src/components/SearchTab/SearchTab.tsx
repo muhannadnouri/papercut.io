@@ -206,10 +206,12 @@ export function SearchTab({
           if (key !== 'keyword' && key !== 'conceptual') return
           if (key === view) return
           const top = resultArea.current?.getBoundingClientRect().top ?? 0
+          const toolbar = resultArea.current?.querySelector('.search-options-toolbar')
+          const inset = toolbar ? Number.parseFloat(window.getComputedStyle(toolbar).top) || 0 : 0
           positions.current[view] = window.scrollY
           // Restore each list's place only when switching from the scrolled result bar.
-          restoreScroll.current = top <= 0
-            ? positions.current[key] ?? Math.max(0, window.scrollY + top) : null
+          restoreScroll.current = top <= inset
+            ? positions.current[key] ?? Math.max(0, window.scrollY + top - inset) : null
           onResultViewChange(key)
         }}>
         {searchOptions}

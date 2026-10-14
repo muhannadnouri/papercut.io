@@ -70,7 +70,7 @@ an answer. The current model is not an answer verifier; the rejected scorer and
 experimental grouping are not shipped. Do not use a lack of exact keyword overlap
 as a failure by itself, or a related passage as proof of a complete answer.
 
-The last verified full CI/inference run is [38500026388](https://github.com/muhannadnouri/papercut.io/actions/runs/38500026388) on `15b3710`; all ten jobs passed, including explicit cached-provider activation on desktop, Android emulator and iOS simulator. It predates the result-tab follow-up, so current-source full CI remains a separate gate. CI does not launch the WebView or replace this checklist. Recorded provider checks cover Small FP32/INT8, not every Base/Large device combination. Earlier history lives in [progress](search-v2-progress.md).
+The last verified full CI/inference run is [38617694995](https://github.com/muhannadnouri/papercut.io/actions/runs/38617694995) on `8bb188a`; all ten jobs passed, including the repaired Rust audit, packaging and explicit cached-provider activation on desktop, Android emulator and iOS simulator. It predates subsequent UI fixes, so current-source full CI remains a separate gate. CI does not launch the WebView or replace this checklist. Recorded provider checks cover Small FP32/INT8, not every Base/Large device combination. Earlier history lives in [progress](search-v2-progress.md).
 
 ## Isolate the library first
 
@@ -643,6 +643,15 @@ immediately and these checks do not replace the model/index lifecycle cases.
 **Deferred.** Use a rebuilt artifact from the new commit; earlier reported smoke
 does not accept these settings changes.
 
+- [ ] On edge-to-edge/notched mobile screens, scroll the result selector until it
+      sticks; both tabs and keyword options stay below the system safe area. Switch
+      lists and confirm their saved places, including a first visit and switching
+      before the toolbar sticks. Check portrait/landscape and zoom.
+- [ ] Stop Indexing during work: busy/cancellation guards stay until cleanup ends.
+      Indexing Cancelled appears as a normal Library Index status. Completed work
+      remains saved; incomplete coverage offers explicit Update without automatic
+      restart, while completed coverage stays ready. A real failure racing Stop
+      remains a diagnostic/error. Refresh/reopen and explicitly resume.
 - [ ] Before submitting a query, Keyword shows the original two-line welcome text
       and exact-phrase hint; ready Conceptual keeps the short query prompt. Conceptual
       distinguishes checking/loading, indexing, an empty eligible library and status/model failures. No unknown/error

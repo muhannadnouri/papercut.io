@@ -206,8 +206,14 @@
 
 .search-options-toolbar-sticky {
   position: sticky;
-  top: 0;
+  top: env(safe-area-inset-top, 0px);
   z-index: 30;
+}
+
+@media (max-width: 767px) {
+  .search-options-toolbar-sticky {
+    top: var(--mobile-safe-top-space, env(safe-area-inset-top, 0px));
+  }
 }
 
 .search-options-content {

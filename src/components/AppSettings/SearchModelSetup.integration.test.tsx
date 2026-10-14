@@ -261,3 +261,67 @@ it('keeps setup recovery available when the initial cache-status read cannot ope
   expect(container.querySelector('[role="alert"]')).toBeNull()
   expect(downloadCalls()).toHaveLength(0)
 })
+
+
+it.each([
+  { outcome: 'Semantic indexing cancelled', readyDocuments: 1, expected: 'needsIndex' },
+  { outcome: 'Semantic indexing cancelled', readyDocuments: 2, expected: 'ready' },
+  { outcome: 'Disk full', readyDocuments: 1, expected: 'fallback' },
+  { outcome: 'Semantic indexing cancelled: cleanup failed', readyDocuments: 1, expected: 'fallback' },
+] as const)('retains checkpoints after Stop and derives $expected from $outcome ($readyDocuments ready)', async ({ outcome, readyDocuments, expected }) => {
+  const normally = vi.mocked(invoke).getMockImplementation()!
+  const index = { running: false, cancelRequested: false, indexedDocuments: 0, eligibleDocuments: 2,
+    passages: 0, hasStoredIndex: true, embeddedPassages: 0, reusedPassages: 0, error: null as string | null }
+  let rejectBuild!: (error: string) => void
+  let resolveBuild!: () => void
+  vi.mocked(invoke).mockImplementation(async (command, args, options) => {
+    if (command === 'search_semantic_index_status') return { ...index }
+    if (command === 'search_semantic_index_build') {
+      index.running = true
+      index.error = null
+      return new Promise<void>((resolve, reject) => { resolveBuild = resolve; rejectBuild = reject })
+    }
+    if (command === 'search_semantic_index_cancel') { index.cancelRequested = true; return }
+    return normally(command, args, options)
+  })
+  await enable()
+  await act(() => { provider = { ...provider, activeFormat: 'float32' }; resolveActivation() })
+  await act(() => button('settings.semantic.build')!.click())
+  index.passages = 20; index.indexedDocuments = readyDocuments; index.embeddedPassages = 15; index.reusedPassages = 5
+  await act(() => semantic.refresh())
+  await act(() => button('settings.semantic.stop')!.click())
+  expect(semantic.busy).toBe(true)
+  expect(button('settings.semantic.stop')?.disabled).toBe(true)
+  expect(container.querySelector('.search-library-index')?.textContent).not.toContain('settings.semantic.activity.cancelled')
+  await act(() => { index.running = false; index.error = outcome; rejectBuild(outcome) })
+  expect(semantic.busy).toBe(false)
+  expect(semantic.index?.passages).toBe(20)
+  expect(semantic.index?.indexedDocuments).toBe(readyDocuments)
+  expect(semanticSearchStatus(semantic)).toBe(expected)
+  const panel = container.querySelector('.search-library-index')!
+  if (expected === 'fallback') {
+    expect(semantic.error).toBe(outcome)
+    expect(semantic.activityNotice).toBe('failed')
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(outcome)
+    expect(container.textContent).not.toContain('settings.semantic.activity.cancelled')
+  } else {
+    expect(semantic.error).toBe('')
+    expect(semantic.activityNotice).toBe('cancelled')
+    expect(container.querySelector('[role="alert"]')).toBeNull()
+    expect([...panel.querySelectorAll('[role="status"]')].filter(item => item.textContent === 'settings.semantic.activity.cancelled')).toHaveLength(1)
+    expect(container.textContent).not.toContain('settings.semantic.summary.fallback')
+    expect(button('settings.semantic.update')?.disabled).toBe(expected === 'needsIndex' ? false : undefined)
+    expect(panel.querySelector('.search-index-attention') !== null).toBe(expected === 'needsIndex')
+    await act(() => semantic.refresh())
+    expect(semanticSearchStatus(semantic)).toBe(expected)
+  }
+  expect(vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === 'search_semantic_index_build')).toHaveLength(1)
+  if (expected === 'needsIndex') {
+    await act(() => button('settings.semantic.update')!.click())
+    expect(vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === 'search_semantic_index_build')).toHaveLength(2)
+    await act(() => { index.running = false; index.indexedDocuments = 2; resolveBuild() })
+    expect(semanticSearchStatus(semantic)).toBe('ready')
+    expect(semantic.error).toBe('')
+    expect(container.textContent).not.toContain('settings.semantic.activity.cancelled')
+  }
+})

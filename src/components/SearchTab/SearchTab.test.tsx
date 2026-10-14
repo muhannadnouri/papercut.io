@@ -3,6 +3,7 @@ import { act, useState, type ComponentProps } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { SearchTab, type SearchResultView } from './SearchTab'
+import { readFileSync } from 'node:fs'
 import type { ConceptualResponse } from '../../search-semantic/useConceptualSearch'
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({
@@ -226,6 +227,31 @@ it('restores each list scroll position after a scrolled switch and forgets posit
   await render({ ...value, searchRequest: { revision: 2, scope: '*' } })
   await click(tab('conceptual'))
   expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 0, behavior: 'instant' })
+})
+
+it('restores lists relative to the nonzero sticky inset and leaves unscrolled controls alone', async () => {
+  const value = props()
+  await render(value)
+  const area = container.querySelector('.search-result-views')!
+  const toolbar = container.querySelector<HTMLElement>('.search-options-toolbar')!
+  const css = readFileSync('src/components/SearchBar/SearchBar.css', 'utf8')
+  const stickyRules = css.match(/\.search-options-toolbar-sticky\s*\{[^}]*\}/g)!
+  expect(stickyRules[0]).toContain('top: env(safe-area-inset-top, 0px)')
+  expect(stickyRules[1]).toContain('top: var(--mobile-safe-top-space, env(safe-area-inset-top, 0px))')
+  // jsdom does not resolve env()/media geometry; supply the browser's resolved inset.
+  toolbar.style.top = '24px'
+  const rect = vi.spyOn(area, 'getBoundingClientRect').mockReturnValue({ top: 10 } as DOMRect)
+  vi.spyOn(window, 'scrollY', 'get').mockReturnValue(1000)
+  await click(tab('conceptual'))
+  expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 986, behavior: 'instant' })
+  vi.spyOn(window, 'scrollY', 'get').mockReturnValue(500)
+  await click(tab('keyword'))
+  expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 1000, behavior: 'instant' })
+  vi.mocked(window.scrollTo).mockClear()
+  rect.mockReturnValue({ top: 80 } as DOMRect)
+  await click(tab('conceptual'))
+  expect(window.scrollTo).not.toHaveBeenCalled()
+  expect(container.querySelector<HTMLInputElement>('.search-input')!.value).toBe(value.query)
 })
 
 it('distinguishes pending/failed keyword counts from ready empty results and keeps reader busy guards in both views', async () => {

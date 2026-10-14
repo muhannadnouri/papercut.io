@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import type { UploadedDocument } from '../uploads/DocumentUploads'
+import { isIndexingCancelled } from './indexingOutcome'
 
 // Existing Small preference keys remain valid; larger selections are FP32 only.
 const MODEL_SELECTIONS = ['float32', 'dynamic-int8', 'base-float32', 'large-float32'] as const
@@ -161,8 +162,8 @@ export function useSemanticSearch(library?: readonly UploadedDocument[]) {
       if (kind === 'build') notice = 'complete'
     } catch (err) {
       // A requested cancel can race a real failure; only the native cancellation result is cancellation.
-      if (kind === 'build') notice = String(err) === 'Semantic indexing cancelled' ? 'cancelled' : 'failed'
-      if (mounted.current && version === generation.current) setError(String(err))
+      if (kind === 'build') notice = isIndexingCancelled(err) ? 'cancelled' : 'failed'
+      if (mounted.current && version === generation.current) setError(notice === 'cancelled' ? '' : String(err))
     } finally {
       if (mounted.current && version === generation.current) {
         try { await refresh() } catch {

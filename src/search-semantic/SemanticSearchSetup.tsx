@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { SemanticSearchController } from './useSemanticSearch'
 import { WarningIcon } from '../components/WarningIcon/WarningIcon'
 import { semanticSearchStatus } from './semanticSearchStatus'
+import { isIndexingCancelled } from './indexingOutcome'
 
 /** Explicit opt-in shares the cache installer; no download or indexing starts from a search. */
 export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, children, indexMaintenance }: {
@@ -11,15 +12,16 @@ export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, childre
   const { t } = useTranslation()
   const id = useId()
   const { enabled, provider, index, operation, error, statusError } = semantic
-  const diagnostic = (message: string) => message === 'Semantic indexing cancelled' ? t('settings.semantic.activity.cancelled') : message
+  const actionError = isIndexingCancelled(error) ? '' : error
+  const indexError = isIndexingCancelled(index?.error) ? null : index?.error
+  const cancelled = isIndexingCancelled(error) || isIndexingCancelled(index?.error)
   const busy = semantic.busy || cacheBusy
   const active = enabled && provider?.activeFormat === semantic.format
   const indexing = index?.running || operation === 'build'
   const status = semanticSearchStatus(semantic)
   const current = status === 'ready'
   const cancelling = indexing && (semantic.cancelling || index?.cancelRequested)
-  const needsIndex = active && !busy && !statusError && !error && !index?.error
-    && !!index && index.eligibleDocuments > 0 && !current
+  const needsIndex = active && !busy && !!index && status === 'needsIndex'
   const summary = ['indexing', 'cancelling', 'ready', 'needsIndex', 'empty', 'checking'].includes(status) ? 'on' : status
   const showSummary = summary !== 'on' && summary !== 'loading'
   const description = [showSummary && `${id}-status`, !cachePresent && !enabled && `${id}-prerequisite`].filter(Boolean).join(' ') || undefined
@@ -47,7 +49,7 @@ export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, childre
       {showSummary && <p id={`${id}-status`} role="status" aria-live="polite">{t(`settings.semantic.summary.${summary}`)}</p>}
       {enabled && !active && !statusError && <button type="button" className="app-settings-data-action" disabled={busy || !cachePresent || !provider?.compiled}
         onClick={() => { void semantic.setEnabled(true) }}>{t('settings.semantic.retry')}</button>}
-      {error && <p className="app-dialog-error" role="alert" dir="auto">{diagnostic(error)}</p>}
+      {actionError && <p className="app-dialog-error" role="alert" dir="auto">{actionError}</p>}
       {statusError && <div className="search-status-recovery">
         <p className="app-dialog-error" role="alert" dir="auto">{statusError}</p>
         <button type="button" className="app-settings-data-action" onClick={async (event) => {
@@ -82,10 +84,11 @@ export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, childre
         {enabled && !statusError && index && index.eligibleDocuments > 0 && <p>{t('settings.semantic.documentsIndexed', { ready: index.indexedDocuments,
           total: index.eligibleDocuments })}</p>}
       </div>
+      {!indexing && cancelled && !actionError && !indexError && !statusError && <p role="status">{t('settings.semantic.activity.cancelled')}</p>}
       {needsIndex && <p className="search-index-help">{t(index.indexedDocuments > 0 ? 'settings.semantic.updateHelp' : 'settings.semantic.buildHelp')}</p>}
       {needsIndex && (index.indexedDocuments > 0 || index.passages > 0) && <p className="search-index-help">{t('settings.semantic.indexHint')}</p>}
       {!indexing && !statusError && active && index && index.passages > 0 && <p className="search-index-passages">{t('settings.semantic.passages', { count: index.passages })}</p>}
-      {index?.error && index.error !== error && <p className="app-dialog-error" role="alert" dir="auto">{diagnostic(index.error)}</p>}
+      {indexError && indexError !== actionError && <p className="app-dialog-error" role="alert" dir="auto">{indexError}</p>}
       {indexMaintenance ? indexMaintenance(indexActions) : <div className="search-model-actions">{indexActions}</div>}
     </details>}
   </>

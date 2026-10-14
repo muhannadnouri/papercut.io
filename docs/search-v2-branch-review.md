@@ -1,5 +1,11 @@
 # Search v2 branch acceptance and review
 
+## Latest UI review corrective status — 2026-10-14
+
+The follow-up review of `15b3710..df75da8` identified two P2 issues, now repaired: the sticky result selector ignored mobile safe-area spacing, and a normal indexing cancellation still forced error fallback after its wording was localized. The selector and scroll restoration now use the same resolved inset. Exact cancellation is classified consistently across the controller, readiness and display, with normal Library Index feedback, retained checkpoints, explicit Update for incomplete coverage and readiness for completed coverage. Real failures racing Stop remain errors. New DOM/controller regressions first reproduced the issues, then validate the repairs; production CSS bindings are checked alongside inset-aware switching. Validation: **299 frontend passed / 1 optional skipped in 56 files**, lint/i18n/TypeScript/full frontend+Pagefind build/diff checks pass. Actual layout/device/screen-reader acceptance is still deferred.
+
+The security repair now has full CI evidence: [run 38617694995](https://github.com/muhannadnouri/papercut.io/actions/runs/38617694995), attempt 1, passed all ten jobs on **`8bb188a`**, including Rust audit, native/provider checks, desktop/mobile packaging and explicit model inference. This closes the prior audit-repair CI gate for that source, not current UI acceptance. Current-source full CI remains required. iOS installed-app/signed-distribution, current UI/recovery/accessibility and remaining resource/platform acceptance remain open for the intended immediate release. Further smoke stays deferred; no push, dispatch, merge or release is claimed.
+
 ## Tonal settings and copy follow-up — 2026-10-14
 
 Semantic setup now uses muted tonal sections with distinct removal confirmations. Keyword restores its original two-line welcome text; ready Conceptual retains the short query prompt. Pre-query index warnings keep only their icon/title and **Search Settings** button, with the existing settings cog before the text. Submitted scoped fallback details/coverage and setup navigation/focus guards remain intact. All eight locales follow the copy changes; focused regressions and the progress record cover this follow-up. Further smoke remains deferred and current-source CI/release gates remain open.
@@ -10,13 +16,13 @@ Ready Keyword and Conceptual views share a short query prompt before submission.
 
 Checks: **294 frontend passed / 1 optional skipped in 56 files**, lint/i18n/typecheck/Vite build/diff. Real DOM tests cover state transitions, action callbacks, scoped precedence and actual dialog navigation/dismissal/focus boundaries with mocked native IPC. Details are in [the progress record](search-v2-progress.md). **Current-source CI remains pending and further smoke is deferred**; the earlier audit repair, installed-platform and immediate-release distribution gates remain open. No push, merge or release is claimed.
 
-## Current CI audit failure and local repair — 2026-10-14
+## CI audit failure and local repair history — 2026-10-14
 
 [Run 38613631090](https://github.com/muhannadnouri/papercut.io/actions/runs/38613631090) failed at Rust audit on `1e4076c`, after npm audit/frontend checks and the existing inactive-waiver guard passed. Four rustls advisories published that day (`RUSTSEC-2026-0346`–`0349`) affect the locked 0.23.45 release. Rust tests/provider inference and downstream platform builds were skipped; this run cannot close release acceptance.
 
 The app now requires at least rustls **0.23.46**, with that patch locked and no other locked-package changes. Audit policy and TLS features remain unchanged. Local cargo-audit 0.22.2 with CI's exact database revision reproduces four findings on the old lockfile and zero on the patched lockfile. The sole rkyv waiver remains guarded/inactive; ten pre-existing non-blocking warnings remain. Default/provider-enabled Rust regressions pass (**190 / 248**, with **5 / 10 ignored**), including the app's TLS/pairing/transfer boundaries. See [the progress record](search-v2-progress.md) for details.
 
-**Fresh full CI is required on the security-patched source.** Explicit cached-model inference, desktop/mobile packaging and the existing immediate-release distribution/device gates remain open. Smoke remains deferred. This local repair does not authorize or claim a push, merge or release.
+**The security-patched source is now verified by run `38617694995` on `8bb188a` above.** Fresh full CI is still required for subsequent UI changes; the existing immediate-release distribution/device gates remain open. Smoke remains deferred. This local repair does not authorize or claim a push, merge or release.
 
 ## Settings follow-up — 2026-10-14
 
