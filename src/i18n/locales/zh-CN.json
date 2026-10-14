@@ -79,7 +79,7 @@
       "noResults": "没有结果。",
       "noResultsHint": "请减少搜索词或更改文档范围。",
       "filtersApplied": "应用文档过滤器。",
-      "welcome": "输入查询并点击搜索（或按 Enter）。",
+      "welcome": "输入查询并按“搜索”（或 Enter）以搜索所有索引文档。",
       "showingCount": "显示 {{total, number}} 个中的 {{shown, number}} 个",
       "termsSeparateSections": "已找到所有词，但它们不在同一章节中",
       "bestSection": "最佳匹配章节：{{title}}",
@@ -104,7 +104,8 @@
       "conceptual": "概念",
       "showMore": "显示更多",
       "documentsShown": "显示返回的 {{total, number}} 个文档中的 {{shown, number}} 个",
-      "count": "{{count, number}}"
+      "count": "{{count, number}}",
+      "welcomeHint": "将短语括在双引号中以进行精确匹配搜索。"
     },
     "conceptual": {
       "title": "概念结果",
@@ -130,7 +131,8 @@
       "indexUpdateRequired": "需要更新索引",
       "emptyLibrary": "导入文档以开始使用。",
       "setupUnavailable": "概念搜索尚未就绪。请在搜索设置中检查模型和索引。",
-      "openSettings": "打开搜索设置"
+      "openSettings": "搜索设置",
+      "welcome": "输入查询并点击搜索（或按 Enter）。"
     }
   },
   "library": {

@@ -455,12 +455,15 @@ not required. General Settings contains a summary rather than model/index action
 The dedicated task view starts with **Semantic Search**, followed by **Download
 Model / Manage Model** and **Library Index**. The switch remains off and unavailable
 without model files; its status/prerequisite explanation is associated accessibly.
+Sections use muted tonal surfaces, with distinct inline removal confirmations;
+field borders and keyboard focus rings remain visible.
 Downloading and building/updating the index remain separate explicit actions.
 Before a query is submitted, Conceptual reflects this observed setup status rather
-than leaving a blank result area. Ready views share a short query prompt. Known
-missing/incomplete library coverage offers Index Required/Index Update Required and
-Open Search Settings; checking/loading, empty-library and status/model errors remain
-distinct. Pre-query coverage is library-wide guidance, not a submission gate. After
+than leaving a blank result area. Keyword retains its original two-line welcome
+and exact-phrase hint; ready Conceptual uses a short query prompt. Known
+missing/incomplete library coverage shows only Index Required/Index Update Required
+and a Search Settings button with the app's settings cog before its label.
+Checking/loading, empty-library and status/model errors remain distinct. Pre-query coverage is library-wide guidance, not a submission gate. After
 submission the scoped native response is authoritative; missing/incompatible/partial
 coverage keeps its fallback and gains the same Settings action, while a ready scoped
 response is shown independently of global coverage. Validation feedback is unchanged.

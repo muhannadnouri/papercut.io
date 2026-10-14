@@ -2,6 +2,14 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+## Tonal settings and empty-state copy — 2026-10-14
+
+Semantic settings sections now use the app's muted surface tokens and transparent borders in light/dark themes. Field borders, keyboard focus rings and section spacing stay intact; removal confirmations use the base surface to remain distinct inside the tonal section.
+
+Keyword's original two-line welcome text is restored, including the exact-phrase hint. Ready Conceptual keeps its shorter query prompt. Before submission, confirmed incomplete-index guidance shows only the warning icon/title and **Search Settings** action; the redundant explanation is removed. The action reuses the app's settings cog before its visible text, including after submitted-search index fallbacks. All eight locales are updated. Submitted-search fallback explanations and partial-coverage counts stay intact, as do direct setup navigation, focus restoration, consent/job controls and query/filter state.
+
+Validation: **80 focused search/settings tests in 7 files**, lint, locale parity, TypeScript, Vite build and diff checks pass. Existing transition/action tests now check the restored Keyword hint, distinct ready Conceptual prompt and concise warning with a decorative leading settings icon. No new render-only test, dependency or retrieval/native change. Further visual/device smoke remains deferred; current-source CI and immediate-release acceptance gates remain open.
+
 ## Contextual search empty states — 2026-10-14
 
 Before submission, both ready search views use **Enter a query and press Search (or Enter).** The duplicated bottom quote hint and its unused styles/translations are removed; mode-specific matching/quote guidance remains beside the selector. Conceptual now distinguishes checking status, model loading/downloading, indexing/cancelling/disabling, an empty eligible library, unavailable setup and failed status reads. Unknown or failed status is not labelled Index Required.

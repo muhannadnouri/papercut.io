@@ -83,7 +83,7 @@
       "noResults": "Aucun résultat.",
       "noResultsHint": "Essayez moins de mots ou modifiez la portée des documents.",
       "filtersApplied": "Des filtres de documents sont appliqués.",
-      "welcome": "Saisissez une recherche et appuyez sur Rechercher (ou Entrée).",
+      "welcome": "Tapez une requête et appuyez sur Rechercher (ou Enter) pour effectuer une recherche dans tous les documents indexés.",
       "showingCount": "Affichage de {{shown, number}} sur {{total, number}}",
       "termsSeparateSections": "Tous les mots ont été trouvés, mais pas dans la même section",
       "bestSection": "Section la mieux adaptée : {{title}}",
@@ -114,7 +114,8 @@
       "conceptual": "Conceptuels",
       "showMore": "Afficher Plus",
       "documentsShown": "Affichage de {{shown, number}} sur {{total, number}} documents retournés",
-      "count": "{{count, number}}"
+      "count": "{{count, number}}",
+      "welcomeHint": "Enveloppez une phrase entre guillemets doubles pour une recherche de correspondance exacte."
     },
     "conceptual": {
       "title": "Résultats conceptuels",
@@ -142,7 +143,8 @@
       "indexUpdateRequired": "Mise à Jour de l’Index Requise",
       "emptyLibrary": "Importez des documents pour commencer.",
       "setupUnavailable": "La recherche conceptuelle n’est pas prête. Vérifiez son modèle et son index dans les paramètres de recherche.",
-      "openSettings": "Ouvrir les Paramètres de Recherche"
+      "openSettings": "Paramètres de Recherche",
+      "welcome": "Saisissez une recherche et appuyez sur Rechercher (ou Entrée)."
     }
   },
   "library": {

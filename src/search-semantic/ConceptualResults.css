@@ -75,3 +75,13 @@
 .conceptual-index-warning svg {
   flex-shrink: 0;
 }
+
+.conceptual-settings-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.conceptual-settings-action svg {
+  flex-shrink: 0;
+}

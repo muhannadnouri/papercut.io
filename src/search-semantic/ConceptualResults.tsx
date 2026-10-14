@@ -1,5 +1,6 @@
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { SettingsIcon } from '../components/SettingsIcon/SettingsIcon'
 import { WarningIcon } from '../components/WarningIcon/WarningIcon'
 import type { semanticSearchStatus } from './semanticSearchStatus'
 import type { SearchOpenTarget } from '../types/search'
@@ -29,7 +30,7 @@ export function ConceptualResults({ visibleLimit = Infinity, onShowMore, state, 
     const needsIndex = setupStatus === 'needsIndex'
     const preparing = ['loading', 'downloading', 'indexing', 'cancelling', 'checking', 'disabling'].includes(setupStatus)
     const message = ({
-      ready: 'search.results.welcome',
+      ready: 'search.conceptual.welcome',
       needsIndex: hasStoredIndex ? 'search.conceptual.indexUpdateRequired' : 'settings.semantic.needsIndex',
       empty: 'search.conceptual.emptyLibrary',
       loading: 'settings.searchModel.loadingModel',
@@ -46,9 +47,8 @@ export function ConceptualResults({ visibleLimit = Infinity, onShowMore, state, 
       <p role="status" className={needsIndex ? 'conceptual-index-warning' : preparing ? 'conceptual-setup-phase' : undefined}>
         {needsIndex && <WarningIcon />}{preparing && <span className="spinner" aria-hidden="true" />}{t(message)}
       </p>
-      {needsIndex && <p>{t(hasStoredIndex ? 'settings.semantic.updateHelp' : 'settings.semantic.buildHelp')}</p>}
       {onOpenSearchSettings && (needsIndex || setupStatus === 'fallback' || setupStatus === 'statusUnavailable') &&
-        <button type="button" className="result-evidence-action" aria-haspopup="dialog" onClick={onOpenSearchSettings}>{t('search.conceptual.openSettings')}</button>}
+        <button type="button" className="result-evidence-action conceptual-settings-action" aria-haspopup="dialog" onClick={onOpenSearchSettings}><SettingsIcon />{t('search.conceptual.openSettings')}</button>}
     </div>
   }
   const indexWarning = state.phase === 'fallback' && ['missing-index', 'incompatible-index', 'partial'].includes(state.reason ?? '')
@@ -63,8 +63,8 @@ export function ConceptualResults({ visibleLimit = Infinity, onShowMore, state, 
     {state.phase === 'fallback' && <p className={`search-feedback${indexWarning ? ' conceptual-index-warning' : ''}`} role="status">
       {indexWarning && <WarningIcon />}{t(`search.conceptual.${state.reason ?? 'failed'}`)}
     </p>}
-    {indexWarning && onOpenSearchSettings && <button type="button" className="result-evidence-action" aria-haspopup="dialog"
-      onClick={onOpenSearchSettings}>{t('search.conceptual.openSettings')}</button>}
+    {indexWarning && onOpenSearchSettings && <button type="button" className="result-evidence-action conceptual-settings-action" aria-haspopup="dialog"
+      onClick={onOpenSearchSettings}><SettingsIcon />{t('search.conceptual.openSettings')}</button>}
     {state.response && state.phase === 'fallback' && state.reason === 'partial' && <p className="conceptual-results-coverage">
       {t('search.conceptual.coverage', { ready: state.response.indexedDocuments, total: state.response.eligibleDocuments })}
     </p>}

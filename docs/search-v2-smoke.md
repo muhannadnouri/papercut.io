@@ -643,13 +643,14 @@ immediately and these checks do not replace the model/index lifecycle cases.
 **Deferred.** Use a rebuilt artifact from the new commit; earlier reported smoke
 does not accept these settings changes.
 
-- [ ] Before submitting a query, both ready result views show the same short prompt,
-      without a repeated bottom quote hint. Conceptual distinguishes checking/loading,
-      indexing, an empty eligible library and status/model failures. No unknown/error
+- [ ] Before submitting a query, Keyword shows the original two-line welcome text
+      and exact-phrase hint; ready Conceptual keeps the short query prompt. Conceptual
+      distinguishes checking/loading, indexing, an empty eligible library and status/model failures. No unknown/error
       status is called Index Required, and switching retains the typed draft and scope.
-- [ ] For a missing/outdated index, verify the warning and Open Search Settings action
-      before submission and after a missing/incompatible/partial scoped search. The
-      action opens semantic setup directly without starting work. Back opens root
+- [ ] For a missing/outdated index, pre-query guidance shows only the warning
+      icon/title and Search Settings button, with the settings cog before its text.
+      Submitted missing/incompatible/partial scoped searches retain their explanations
+      and coverage alongside the same action. The action opens semantic setup directly without starting work. Back opens root
       Settings; Close/Escape/backdrop restore the action's focus, or the Settings cog
       if completed setup removed that action. Query, filters,
       selected mode, expanded evidence and list limits survive. Keyword remains usable;
@@ -686,6 +687,9 @@ does not accept these settings changes.
       and Arabic RTL. Check wraps and translated copy: partial relevance, document-wide
       quotes, local search/download connection, model resource costs, retained work,
       restart/update/retry and interrupted-download behavior remain clear.
+- [ ] Semantic settings sections use muted tonal surfaces in light/dark themes,
+      with distinct inline removal confirmations. Field borders, focus rings and
+      warning contrast remain readable at narrow width and enlarged text.
 - [ ] On a fine pointer, enabled Remove Model Files/Remove Index and their inline
       confirmation buttons show the app’s tonal hover with red labels; keyboard focus
       retains a red ring. Disabled removal during loading/indexing stays quiet.

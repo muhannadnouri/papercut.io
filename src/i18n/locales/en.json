@@ -83,7 +83,7 @@
       "noResults": "No results.",
       "noResultsHint": "Try fewer words or change the document scope.",
       "filtersApplied": "Document filters are applied.",
-      "welcome": "Enter a query and press Search (or Enter).",
+      "welcome": "Type a query and press Search (or Enter) to search across all indexed documents.",
       "exactMatch_one": "{{count, number}} exact match",
       "exactMatch_other": "{{count, number}} exact matches",
       "showingCount": "Showing {{shown, number}} of {{total, number}}",
@@ -109,7 +109,8 @@
       "conceptual": "Conceptual",
       "showMore": "Show More",
       "documentsShown": "Showing {{shown, number}} of {{total, number}} returned documents",
-      "count": "{{count, number}}"
+      "count": "{{count, number}}",
+      "welcomeHint": "Wrap a phrase in double quotes for exact-match search."
     },
     "conceptual": {
       "title": "Conceptual Results",
@@ -136,7 +137,8 @@
       "indexUpdateRequired": "Index Update Required",
       "emptyLibrary": "Import documents to get started.",
       "setupUnavailable": "Conceptual search is not ready. Check its model and index in Search Settings.",
-      "openSettings": "Open Search Settings"
+      "openSettings": "Search Settings",
+      "welcome": "Enter a query and press Search (or Enter)."
     }
   },
   "library": {

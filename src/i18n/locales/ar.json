@@ -95,7 +95,7 @@
       "noResults": "لا توجد نتائج.",
       "noResultsHint": "جرّب كلمات أقل أو غيّر نطاق المستندات.",
       "filtersApplied": "تُطبَّق عوامل تصفية المستندات.",
-      "welcome": "اكتب عبارة بحث واضغط بحث (أو Enter).",
+      "welcome": "اكتب استعلامًا واضغط على «بحث» أو مفتاح الإدخال للبحث في جميع المستندات المفهرسة.",
       "exactMatch_zero": "لا تطابقات تامة",
       "exactMatch_one": "تطابق تام واحد",
       "exactMatch_two": "تطابقان تامان",
@@ -129,7 +129,8 @@
       "conceptual": "المفاهيم",
       "showMore": "عرض المزيد",
       "documentsShown": "عرض {{shown, number}} من {{total, number}} مستندًا مُعادًا",
-      "count": "{{count, number}}"
+      "count": "{{count, number}}",
+      "welcomeHint": "ضع العبارة بين علامتَي اقتباس للبحث عن تطابق تام."
     },
     "conceptual": {
       "title": "نتائج مفاهيمية",
@@ -160,7 +161,8 @@
       "indexUpdateRequired": "يلزم تحديث الفهرس",
       "emptyLibrary": "استورد مستندات للبدء.",
       "setupUnavailable": "البحث المفاهيمي غير جاهز. تحقّق من النموذج والفهرس في إعدادات البحث.",
-      "openSettings": "فتح إعدادات البحث"
+      "openSettings": "إعدادات البحث",
+      "welcome": "اكتب عبارة بحث واضغط بحث (أو Enter)."
     }
   },
   "library": {

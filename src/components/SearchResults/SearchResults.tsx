@@ -439,6 +439,7 @@ export function SearchResults({
       {submittedQuery.length === 0 && (
         <div className="welcome">
           <p>{t('search.results.welcome')}</p>
+          <p className="welcome-hint">{t('search.results.welcomeHint')}</p>
         </div>
       )}
     </div>

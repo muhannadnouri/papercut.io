@@ -20,7 +20,7 @@ function Harness({ completed = false }: { completed?: boolean }) {
   const [searchOpen, setSearchOpen] = useState(false)
   return <>
     <input aria-label="Query" defaultValue="draft query" />
-    {!completed && <button onClick={() => setSearchOpen(true)}>Open Search Settings</button>}
+    {!completed && <button onClick={() => setSearchOpen(true)}>Search Settings</button>}
     <AppSettings searchOpen={searchOpen} onSearchOpenChange={setSearchOpen} semanticSearch={semantic}
       themeChoice="light" onThemeChange={vi.fn()} developerMode={false} onDeveloperModeChange={vi.fn()} onLibraryImported={vi.fn()} />
   </>
@@ -55,7 +55,7 @@ afterEach(async () => {
   vi.clearAllMocks()
   vi.unstubAllGlobals()
 })
-function opener() { return [...container.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === 'Open Search Settings')! }
+function opener() { return [...container.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === 'Search Settings')! }
 async function click(element: HTMLElement) { await act(() => element.click()) }
 async function openSearch() {
   await act(() => opener().focus())

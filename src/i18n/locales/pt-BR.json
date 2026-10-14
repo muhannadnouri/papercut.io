@@ -83,7 +83,7 @@
       "noResults": "Sem resultados.",
       "noResultsHint": "Tente usar menos palavras ou altere o escopo dos documentos.",
       "filtersApplied": "Filtros de documentos são aplicados.",
-      "welcome": "Digite uma consulta e pressione Pesquisar (ou Enter).",
+      "welcome": "Digite uma consulta e pressione Pesquisar (ou Enter) para pesquisar todos os documentos indexados.",
       "showingCount": "Exibindo {{shown, number}} de {{total, number}}",
       "termsSeparateSections": "Todas as palavras foram encontradas, mas não na mesma seção",
       "bestSection": "Melhor seção correspondente: {{title}}",
@@ -114,7 +114,8 @@
       "conceptual": "Conceituais",
       "showMore": "Mostrar Mais",
       "documentsShown": "Mostrando {{shown, number}} de {{total, number}} documentos retornados",
-      "count": "{{count, number}}"
+      "count": "{{count, number}}",
+      "welcomeHint": "Coloque uma frase entre aspas duplas para pesquisa de correspondência exata."
     },
     "conceptual": {
       "title": "Resultados conceituais",
@@ -142,7 +143,8 @@
       "indexUpdateRequired": "Atualização do Índice Necessária",
       "emptyLibrary": "Importe documentos para começar.",
       "setupUnavailable": "A busca conceitual não está pronta. Verifique o modelo e o índice nas configurações de busca.",
-      "openSettings": "Abrir Configurações de Busca"
+      "openSettings": "Configurações de Busca",
+      "welcome": "Digite uma consulta e pressione Pesquisar (ou Enter)."
     }
   },
   "library": {

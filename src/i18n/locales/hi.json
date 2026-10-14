@@ -81,7 +81,7 @@
       "noResults": "कोई परिणाम नहीं.",
       "noResultsHint": "कम शब्द आज़माएँ या दस्तावेज़ का दायरा बदलें।",
       "filtersApplied": "दस्तावेज़ फ़िल्टर लागू किए जाते हैं.",
-      "welcome": "अपनी खोज लिखें और खोज बटन (या Enter) दबाएँ।",
+      "welcome": "एक क्वेरी टाइप करें और सभी अनुक्रमित दस्तावेज़ों में खोजने के लिए खोजें (या Enter) दबाएँ।",
       "showingCount": "{{total, number}} में से {{shown, number}} दिखाए जा रहे हैं",
       "termsSeparateSections": "सभी शब्द मिले, लेकिन एक ही अनुभाग में नहीं",
       "bestSection": "सर्वोत्तम मिलान अनुभाग: {{title}}",
@@ -109,7 +109,8 @@
       "conceptual": "वैचारिक",
       "showMore": "और दिखाएँ",
       "documentsShown": "लौटाए गए {{total, number}} दस्तावेज़ों में से {{shown, number}} दिखाए जा रहे हैं",
-      "count": "{{count, number}}"
+      "count": "{{count, number}}",
+      "welcomeHint": "सटीक-मिलान खोज के लिए किसी वाक्यांश को दोहरे उद्धरण चिह्नों में लपेटें।"
     },
     "conceptual": {
       "title": "वैचारिक परिणाम",
@@ -136,7 +137,8 @@
       "indexUpdateRequired": "इंडेक्स अपडेट आवश्यक",
       "emptyLibrary": "शुरू करने के लिए दस्तावेज़ आयात करें।",
       "setupUnavailable": "वैचारिक खोज तैयार नहीं है। खोज सेटिंग में उसके मॉडल और इंडेक्स की जाँच करें।",
-      "openSettings": "खोज सेटिंग खोलें"
+      "openSettings": "खोज सेटिंग",
+      "welcome": "अपनी खोज लिखें और खोज बटन (या Enter) दबाएँ।"
     }
   },
   "library": {

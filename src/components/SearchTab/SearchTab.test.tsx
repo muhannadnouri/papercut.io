@@ -302,12 +302,13 @@ it('keeps examples in empty Keyword view, hides them in Conceptual and preserves
   expect(value.onSubmitSearch).toHaveBeenCalledOnce()
 })
 
-it('shares the pre-submit query prompt across views and replaces it on submission without clearing the draft', async () => {
+it('keeps mode-specific pre-submit prompts and replaces them on submission without clearing the draft', async () => {
   const value = { ...props(), query: 'draft connections', submittedQuery: '', conceptualState: null, lastSearchInfo: null }
   await render(value)
-  expect(panel('keyword').querySelector('.welcome')?.textContent).toBe('search.results.welcome')
+  expect(panel('keyword').querySelector('.welcome > p')?.textContent).toBe('search.results.welcome')
+  expect(panel('keyword').querySelector('.welcome-hint')?.textContent).toBe('search.results.welcomeHint')
   await click(tab('conceptual'))
-  expect(panel('conceptual').querySelector('.welcome')?.textContent).toBe('search.results.welcome')
+  expect(panel('conceptual').querySelector('.welcome')?.textContent).toBe('search.conceptual.welcome')
   expect(container.querySelector<HTMLInputElement>('.search-input')!.value).toBe(value.query)
   expect(value.onSubmitSearch).not.toHaveBeenCalled()
   await render({ ...value, submittedQuery: value.query, conceptualState: { phase: 'loading' } })
@@ -325,8 +326,11 @@ it('transitions setup guidance without claiming missing indexes during loading, 
   await click(tab('conceptual'))
   const warning = panel('conceptual').querySelector('.conceptual-index-warning')!
   expect(warning.textContent).toBe('settings.semantic.needsIndex')
+  expect(panel('conceptual').querySelectorAll('.welcome p')).toHaveLength(1)
   expect(warning.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true')
   const open = panel('conceptual').querySelector<HTMLButtonElement>('[aria-haspopup="dialog"]')!
+  expect(open.firstElementChild?.tagName.toLowerCase()).toBe('svg')
+  expect(open.firstElementChild?.getAttribute('aria-hidden')).toBe('true')
   await act(() => open.focus())
   await click(open)
   expect(value.onOpenSearchSettings).toHaveBeenCalledOnce()
@@ -344,11 +348,12 @@ it('transitions setup guidance without claiming missing indexes during loading, 
     expect(panel('conceptual').querySelector('.conceptual-index-warning')).toBeNull()
     expect(panel('conceptual').querySelector('.spinner')).toBeNull()
   }
-  expect(panel('conceptual').textContent).toBe('search.results.welcome')
+  expect(panel('conceptual').textContent).toBe('search.conceptual.welcome')
   expect(container.querySelector<HTMLInputElement>('.search-input')!.value).toBe(value.query)
   expect(value.onClearFilters).not.toHaveBeenCalled()
   await click(tab('keyword'))
-  expect(panel('keyword').querySelector('.welcome')?.textContent).toBe('search.results.welcome')
+  expect(panel('keyword').querySelector('.welcome > p')?.textContent).toBe('search.results.welcome')
+  expect(panel('keyword').querySelector('.welcome-hint')?.textContent).toBe('search.results.welcomeHint')
 })
 
 it('uses scoped query coverage over idle global warnings and opens Settings without resetting either channel', async () => {

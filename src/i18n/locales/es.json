@@ -83,7 +83,7 @@
       "noResults": "Sin resultados.",
       "noResultsHint": "Pruebe con menos palabras o cambie el alcance de documentos.",
       "filtersApplied": "Se aplican filtros de documentos.",
-      "welcome": "Escribe una consulta y pulsa Buscar (o Enter).",
+      "welcome": "Escriba una consulta y presione Buscar (o Enter) para buscar en todos los documentos indexados.",
       "showingCount": "Mostrando {{shown, number}} de {{total, number}}",
       "termsSeparateSections": "Se encontraron todas las palabras, pero no en la misma sección.",
       "bestSection": "Mejor sección coincidente: {{title}}",
@@ -114,7 +114,8 @@
       "conceptual": "Conceptual",
       "showMore": "Mostrar Más",
       "documentsShown": "Mostrando {{shown, number}} de {{total, number}} documentos devueltos",
-      "count": "{{count, number}}"
+      "count": "{{count, number}}",
+      "welcomeHint": "Envuelva una frase entre comillas dobles para una búsqueda de coincidencia exacta."
     },
     "conceptual": {
       "title": "Resultados conceptuales",
@@ -142,7 +143,8 @@
       "indexUpdateRequired": "Actualización del Índice Necesaria",
       "emptyLibrary": "Importa documentos para empezar.",
       "setupUnavailable": "La búsqueda conceptual no está lista. Comprueba el modelo y el índice en los ajustes de búsqueda.",
-      "openSettings": "Abrir Ajustes de Búsqueda"
+      "openSettings": "Ajustes de Búsqueda",
+      "welcome": "Escribe una consulta y pulsa Buscar (o Enter)."
     }
   },
   "library": {

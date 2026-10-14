@@ -1,5 +1,9 @@
 # Search v2 branch acceptance and review
 
+## Tonal settings and copy follow-up — 2026-10-14
+
+Semantic setup now uses muted tonal sections with distinct removal confirmations. Keyword restores its original two-line welcome text; ready Conceptual retains the short query prompt. Pre-query index warnings keep only their icon/title and **Search Settings** button, with the existing settings cog before the text. Submitted scoped fallback details/coverage and setup navigation/focus guards remain intact. All eight locales follow the copy changes; focused regressions and the progress record cover this follow-up. Further smoke remains deferred and current-source CI/release gates remain open.
+
 ## Contextual empty-state follow-up — 2026-10-14
 
 Ready Keyword and Conceptual views share a short query prompt before submission. Conceptual's empty result area now reflects observed setup readiness, with index warnings and an Open Search Settings action. Loading/checking, empty-library and error states are distinct; scoped submitted-search availability overrides global pre-query guidance, and validation failures keep their input feedback. The existing dialog opens directly, returns to root on Back and restores focus on dismissal, falling back to the Settings cog if setup removed the original action, without starting work or resetting query/filter/result state.
