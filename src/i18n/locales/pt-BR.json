@@ -461,7 +461,6 @@
       "disabling": "Desativando busca semântica…",
       "confirmRemove": "Remover o índice? Os documentos importados serão preservados. Será necessário criar o índice novamente.",
       "controlsTitle": "Busca semântica",
-      "enabled": "Ativar Busca Semântica",
       "libraryTitle": "Índice da biblioteca",
       "documentsReady": "{{ready}} de {{total}} documentos indexados.",
       "documentsIndexed": "Documentos indexados: {{ready}} de {{total}}",
@@ -494,7 +493,6 @@
         "empty": "Ativado · Importe documentos",
         "needsIndex": "Ativado · Indexação necessária",
         "ready": "Ativado · Pronto",
-        "on": "Ativada",
         "statusUnavailable": "Ativada · Status Indisponível"
       },
       "modelRequired": "A indexação fica disponível quando o modelo de busca está carregado.",

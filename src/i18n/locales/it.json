@@ -461,7 +461,6 @@
       "disabling": "Disattivazione della ricerca semantica…",
       "confirmRemove": "Rimuovere l’indice? I documenti importati restano intatti. Dovrai ricreare l’indice.",
       "controlsTitle": "Ricerca semantica",
-      "enabled": "Abilita Ricerca Semantica",
       "libraryTitle": "Indice della libreria",
       "documentsReady": "{{ready}} documenti indicizzati su {{total}}.",
       "documentsIndexed": "Documenti indicizzati: {{ready}} su {{total}}",
@@ -494,7 +493,6 @@
         "empty": "Attivata · Importa documenti",
         "needsIndex": "Attivata · Indicizzazione necessaria",
         "ready": "Attivata · Pronta",
-        "on": "Attiva",
         "statusUnavailable": "Attiva · Stato Non Disponibile"
       },
       "modelRequired": "L’indicizzazione è disponibile quando il modello di ricerca è caricato.",

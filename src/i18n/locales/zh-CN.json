@@ -447,7 +447,6 @@
       "disabling": "正在关闭语义搜索…",
       "confirmRemove": "移除搜索索引？导入的文档将保留。之后需要重新建立索引。",
       "controlsTitle": "语义搜索",
-      "enabled": "启用语义搜索",
       "libraryTitle": "资料库索引",
       "documentsReady": "已索引 {{ready}} / {{total}} 个文档。",
       "documentsIndexed": "已索引文档：{{ready}} / {{total}}",
@@ -480,7 +479,6 @@
         "empty": "已开启 · 请导入文档",
         "needsIndex": "已开启 · 需要建立索引",
         "ready": "已开启 · 已就绪",
-        "on": "已开启",
         "statusUnavailable": "已开启 · 状态不可用"
       },
       "modelRequired": "搜索模型加载后即可建立索引。",

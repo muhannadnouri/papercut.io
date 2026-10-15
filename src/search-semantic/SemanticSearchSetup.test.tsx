@@ -24,7 +24,7 @@ it('shows off and opt-in wording, coverage, and blocks enabling without a cache 
   const ready = html(controller())
   expect(ready).toContain('settings.semantic.summary.off')
   expect(ready).toContain('settings.semantic.controlsTitle')
-  expect(ready).toContain('settings.semantic.enabled')
+  expect(ready).toMatch(/role="switch"[^>]*aria-labelledby="[^"]+-semantic-title"/)
   expect(ready).not.toContain('settings.searchModel.resourceSummary')
   expect(ready).toContain('settings.semantic.savedIndex')
   expect(ready).not.toContain('settings.semantic.documentsIndexed')
@@ -86,9 +86,10 @@ it('distinguishes an empty library, incomplete and complete indexes without clai
   expect(empty).toMatch(/disabled="">settings.semantic.build/)
 })
 
-it('shows loading and indexing at the affected step and provides download prerequisites', () => {
+it('describes loading and indexing beside the switch and provides download prerequisites', () => {
   const semantic = controller({ enabled: true, busy: true, operation: 'activate' })
-  expect(html(semantic)).not.toMatch(/role="switch"[^>]*aria-describedby/)
+  expect(html(semantic)).toMatch(/role="switch"[^>]*aria-describedby="[^"]+-status"/)
+  expect(html(semantic)).toContain('settings.semantic.summary.loading')
   semantic.operation = 'build'; semantic.index!.running = true
   expect(html(semantic)).toContain('settings.semantic.indexing')
   expect(html(controller(), false)).toContain('settings.semantic.downloadFirst')
@@ -183,7 +184,7 @@ it('hides an empty off index, collapses saved checkpoints, and expands pending w
   expect(html(semantic)).toContain('Cleanup failed')
 })
 
-it('keeps indexing feedback in one place and hides Build and zero reuse during work', () => {
+it('keeps detailed indexing progress separate from the compact switch status and hides Build and zero reuse during work', () => {
   const semantic = controller({ enabled: true, busy: true, operation: 'build',
     provider: { compiled: true, activeFormat: 'float32', loadingFormat: null, downloadingFormat: null } })
   semantic.index!.running = true
@@ -191,7 +192,7 @@ it('keeps indexing feedback in one place and hides Build and zero reuse during w
   const value = html(semantic)
   expect(value).toMatch(/role="switch"[^>]*checked=""/)
   expect(value.match(/settings.semantic.indexing/g)).toHaveLength(1)
-  expect(value).not.toContain('settings.semantic.summary.indexing')
+  expect(value).toContain('settings.semantic.summary.indexing')
   expect(value).not.toContain('settings.semantic.build')
   expect(value).not.toContain('settings.semantic.update')
   expect(value).not.toContain('settings.semantic.indexHint')

@@ -91,6 +91,18 @@ function phase() { return container.querySelector('.search-model-management > su
 function assertDescriptionsResolve() {
   for (const id of toggle().getAttribute('aria-describedby')?.split(' ') ?? []) expect(document.getElementById(id)).not.toBeNull()
 }
+function assertToggleRow(state: string) {
+  const heading = container.querySelector<HTMLElement>('.search-semantic-setup h3')!
+  expect(heading.textContent).toBe('settings.semantic.controlsTitle')
+  expect(toggle().getAttribute('aria-labelledby')).toBe(heading.id)
+  const status = container.querySelector<HTMLElement>('.search-semantic-setup label [role="status"]')
+  expect(status).not.toBeNull()
+  expect(status!.textContent).toBe(`settings.semantic.summary.${state}`)
+  expect(status!.getAttribute('aria-live')).toBe('polite')
+  expect(toggle().getAttribute('aria-describedby')?.split(' ')).toContain(status!.id)
+  expect(container.querySelector('.search-semantic-setup > [role="status"]')).toBeNull()
+  assertDescriptionsResolve()
+}
 async function enable() { await act(() => toggle().click()) }
 
 it('announces activation once, keeps Off usable, then clears loading and exposes ready index controls', async () => {
@@ -104,14 +116,14 @@ it('announces activation once, keeps Off usable, then clears loading and exposes
   expect(phase()?.getAttribute('aria-live')).toBe('polite')
   expect(phase()?.querySelector('.spinner')?.getAttribute('aria-hidden')).toBe('true')
   expect(container.textContent?.match(/settings.searchModel.loadingModel/g)).toHaveLength(1)
-  expect(toggle().hasAttribute('aria-describedby')).toBe(false)
+  assertToggleRow('loading')
   await act(() => {
     provider = { ...provider, activeFormat: 'float32' }
     resolveActivation()
   })
   expect(phase()).toBeNull()
   expect(container.querySelector('.search-model-management > summary')?.textContent).toContain('settings.searchModel.loaded')
-  expect(container.querySelector('.search-semantic-setup [role="status"]')).toBeNull()
+  assertToggleRow('ready')
   expect(container.querySelector('.search-library-index')?.textContent).toContain('settings.semantic.indexReady')
   // Settings without the switch still need their compact readiness summary.
   expect(semanticSearchStatus(semantic)).toBe('ready')
@@ -121,6 +133,7 @@ it('replaces loading with the retained activation error and an enabled Retry act
   await enable()
   await act(() => rejectActivation(new Error('Invalid model file')))
   expect(phase()).toBeNull()
+  assertToggleRow('fallback')
   expect(container.querySelector('[role="alert"]')?.textContent).toContain('Invalid model file')
   const retry = [...container.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === 'settings.semantic.retry')!
   expect(retry.disabled).toBe(false)
@@ -324,4 +337,62 @@ it.each([
     expect(semantic.error).toBe('')
     expect(container.textContent).not.toContain('settings.semantic.activity.cancelled')
   }
+})
+
+
+it('keeps the switch name and row interaction stable across coverage, native work and status recovery', async () => {
+  assertToggleRow('off')
+  const titleId = toggle().getAttribute('aria-labelledby')
+  await act(() => container.querySelector<HTMLElement>('.search-semantic-setup label [role="status"]')!.click())
+  assertToggleRow('loading')
+  expect(toggle().checked).toBe(true)
+  expect(toggle().disabled).toBe(false)
+  await act(() => { provider = { ...provider, activeFormat: 'float32' }; resolveActivation() })
+  assertToggleRow('ready')
+  const normally = vi.mocked(invoke).getMockImplementation()!
+  const index = { ...semantic.index!, indexedDocuments: 1 }
+  let statusUnavailable = false
+  vi.mocked(invoke).mockImplementation(async (command, args, options) => {
+    if (command === 'search_semantic_index_status') {
+      if (statusUnavailable) throw new Error('Index status unavailable')
+      return { ...index }
+    }
+    return normally(command, args, options)
+  })
+  await act(() => semantic.refresh())
+  assertToggleRow('needsIndex')
+  index.running = true
+  await act(() => semantic.refresh())
+  assertToggleRow('indexing')
+  index.cancelRequested = true
+  await act(() => semantic.refresh())
+  assertToggleRow('cancelling')
+  index.running = false; index.cancelRequested = false
+  statusUnavailable = true
+  await act(() => semantic.refresh())
+  assertToggleRow('statusUnavailable')
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain('Index status unavailable')
+  statusUnavailable = false; index.indexedDocuments = 2
+  await act(() => button('settings.semantic.retryStatus')!.click())
+  assertToggleRow('ready')
+  expect(container.querySelector('[role="alert"]')).toBeNull()
+  expect(toggle().getAttribute('aria-labelledby')).toBe(titleId)
+  await act(() => container.querySelector<HTMLElement>('.search-semantic-setup label [role="status"]')!.click())
+  assertToggleRow('off')
+  expect(toggle().checked).toBe(false)
+  expect(vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === 'search_embedding_configure')).toHaveLength(2)
+  expect(vi.mocked(invoke).mock.calls.some(([cmd]) => ['search_embedding_download', 'search_semantic_index_build'].includes(cmd))).toBe(false)
+})
+
+it('keeps the missing-model warning tied to the stable switch and blocks status-label clicks without consent or files', async () => {
+  filesPresent = false; storedFiles = false
+  await reopen()
+  assertToggleRow('off')
+  const warning = container.querySelector<HTMLElement>('.search-semantic-setup .search-model-attention')!
+  expect(warning.textContent).toBe('settings.semantic.downloadFirst')
+  expect(toggle().getAttribute('aria-describedby')?.split(' ')).toContain(warning.id)
+  expect(toggle().disabled).toBe(true)
+  await act(() => container.querySelector<HTMLElement>('.search-semantic-setup label [role="status"]')!.click())
+  expect(toggle().checked).toBe(false)
+  expect(vi.mocked(invoke).mock.calls.some(([cmd]) => ['search_embedding_configure', 'search_embedding_download', 'search_semantic_index_build'].includes(cmd))).toBe(false)
 })

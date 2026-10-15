@@ -689,10 +689,14 @@ does not accept these settings changes.
       Completion, activation failure/retry and disabling clear the spinner; a late
       activation completion cannot restore On. Download/verification remains a
       separate phase. Check reopening during native activation and restart.
-- [ ] The toggle card has no redundant On line or duplicate loading label. Off,
-      prerequisites, fallback and error/retry remain understandable. Main Settings
-      still conveys readiness without a switch. Screen readers resolve descriptions
-      and announce the loading phase without repeated indexing counters.
+- [ ] The toggle card has one status/switch row and no separate Enable label or
+      repeated status line. Off/Keyword Search, On/Loading Model, Index Required,
+      Ready, native indexing/stopping and fallback/status failure stay accurate.
+      Clicking row text toggles only when allowed. Model Download Required appears
+      below when needed and cannot be bypassed. Main Settings retains its summary.
+      Check narrow/RTL/zoom wraps. Screen readers keep the fixed Semantic Search
+      name while reading the changing status/prerequisite descriptions, with phase
+      announcements rather than repeated passage/document counter updates.
 - [ ] No introductory paragraph appears beneath Semantic Search (Experimental).
       The setup section retains an accessible name from its title.
 - [ ] How It Works shows Matching, Device Resources and Saved Work in light/dark

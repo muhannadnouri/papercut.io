@@ -22,9 +22,7 @@ export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, childre
   const current = status === 'ready'
   const cancelling = indexing && (semantic.cancelling || index?.cancelRequested)
   const needsIndex = active && !busy && !!index && status === 'needsIndex'
-  const summary = ['indexing', 'cancelling', 'ready', 'needsIndex', 'empty', 'checking'].includes(status) ? 'on' : status
-  const showSummary = summary !== 'on' && summary !== 'loading'
-  const description = [showSummary && `${id}-status`, !cachePresent && !enabled && `${id}-prerequisite`].filter(Boolean).join(' ') || undefined
+  const description = [`${id}-status`, !cachePresent && !enabled && `${id}-prerequisite`].filter(Boolean).join(' ')
   const showIndex = enabled || index?.hasStoredIndex || indexing || operation === 'remove' || !!index?.error
   const expandIndex = enabled || indexing || operation === 'remove' || !!index?.error
   const indexActions = ((enabled && !statusError) || indexing) && !current && <>
@@ -39,14 +37,13 @@ export function SemanticSearchSetup({ semantic, cachePresent, cacheBusy, childre
     <section className="search-model-panel search-semantic-setup" aria-labelledby={`${id}-semantic-title`}>
       <h3 id={`${id}-semantic-title`}>{t('settings.semantic.controlsTitle')}</h3>
       <label className="app-setting app-setting-toggle">
-        <span id={`${id}-enabled-label`}>{t('settings.semantic.enabled')}</span>
+        <span id={`${id}-status`} role="status" aria-live="polite">{t(`settings.semantic.summary.${status}`)}</span>
         <span className="app-settings-switch"><input type="checkbox" role="switch" checked={enabled}
-          aria-labelledby={`${id}-enabled-label`}
+          aria-labelledby={`${id}-semantic-title`}
           aria-describedby={description}
           disabled={operation === 'disable' || (!enabled && (busy || !!statusError || !cachePresent || !provider?.compiled))}
           onChange={(event) => { void semantic.setEnabled(event.target.checked) }} /><span aria-hidden="true" /></span>
       </label>
-      {showSummary && <p id={`${id}-status`} role="status" aria-live="polite">{t(`settings.semantic.summary.${summary}`)}</p>}
       {enabled && !active && !statusError && <button type="button" className="app-settings-data-action" disabled={busy || !cachePresent || !provider?.compiled}
         onClick={() => { void semantic.setEnabled(true) }}>{t('settings.semantic.retry')}</button>}
       {actionError && <p className="app-dialog-error" role="alert" dir="auto">{actionError}</p>}

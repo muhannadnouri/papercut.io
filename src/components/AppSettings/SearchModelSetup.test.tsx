@@ -200,7 +200,7 @@ it('offers turning off a saved opt-in even when the current build has no provide
     cancel: vi.fn(), refresh: vi.fn(), activityNotice: null, dismissActivity: vi.fn() }
   render()
   const html = await settle()
-  expect(html).toContain('settings.semantic.enabled')
+  expect(html).toContain('settings.semantic.summary.fallback')
   expect(html).toMatch(/role="switch"[^>]*checked=""/)
   expect(html).not.toMatch(/role="switch"[^>]*disabled=""/)
   expect(new Set(mocked.invoke.mock.calls.map(([command]) => command))).toEqual(new Set(['search_embedding_status']))

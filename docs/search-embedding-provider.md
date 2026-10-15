@@ -456,7 +456,10 @@ The dedicated task view starts directly with **Semantic Search**, followed by
 **Download Model / Manage Model** and **Library Index**. There is no introductory
 paragraph beneath the dialog title; matching, resources and saved work are
 explained in **How It Works**. The switch remains off and unavailable without model
-files; its status/prerequisite explanation is associated accessibly.
+files. The first card places its observed status beside the switch and names the
+switch from the fixed Semantic Search heading. The live status and conditional
+model-download prerequisite describe the switch; there is no separate Enable
+label or repeated status line.
 Sections use muted tonal surfaces, with distinct inline removal confirmations;
 field borders and keyboard focus rings remain visible.
 Downloading and building/updating the index remain separate explicit actions.

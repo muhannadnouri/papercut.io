@@ -454,7 +454,6 @@
       "disabling": "Turning Semantic Search Off…",
       "confirmRemove": "Remove the search index? Imported documents stay intact. You will need to build the index again.",
       "controlsTitle": "Semantic Search",
-      "enabled": "Enable Semantic Search",
       "libraryTitle": "Library Index",
       "documentsReady": "{{ready}} of {{total}} documents indexed.",
       "documentsIndexed": "Documents Indexed: {{ready}} of {{total}}",
@@ -487,7 +486,6 @@
         "empty": "On · Import Documents",
         "needsIndex": "On · Index Required",
         "ready": "On · Ready",
-        "on": "On",
         "statusUnavailable": "On · Status Unavailable"
       },
       "modelRequired": "Indexing is available once the search model is loaded.",

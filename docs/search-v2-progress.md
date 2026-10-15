@@ -2,6 +2,14 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+## Compact semantic status and switch — 2026-10-15
+
+The first settings card now puts the observed status directly beside the switch instead of displaying Enable Semantic Search plus a separate status line. Existing localized summaries cover Off/Keyword Search, loading, index required, ready, indexing/stopping, unavailable status and fallback. Turning the preference on is never presented as readiness by itself. The existing card heading supplies the switch's stable accessible name; the changing row is a polite status and an associated description, with Model Download Required below and linked only when needed. The existing label keeps the row clickable and its native disabled behavior intact.
+
+Removed the unused Enable label and generic On translations in all eight locales. General Settings still uses the same readiness summary; model/index details, explicit consent/jobs, busy/cleanup guards, failure recovery and retained work are unchanged. No new styling, dependency, native command or retrieval change.
+
+Two new real settings/controller regressions first fail on the previous heading/name association. They cover stable naming and description targets across Off/activation/ready/incomplete/native indexing/stopping/status failure/retry/disable, clicking the status row, missing-file guards and no automatic download/indexing. Existing activation/fallback/unavailable-build checks follow the compact row. Validation: **301 frontend passed / 1 optional skipped in 56 files**, lint/i18n/TypeScript/full Vite+Pagefind build/diff checks pass. Native tests were not repeated for this UI-only change. These are jsdom/IPC-mocked checks; actual narrow/RTL layout and screen-reader behavior remain deferred along with further smoke. Fresh current-source CI and the existing immediate-release gates remain open.
+
 ## Review fixes: mobile selector and index cancellation — 2026-10-14
 
 Review items **1–2** are repaired. The sticky search toolbar uses the system top inset and, below 768px, the same mobile safe-top fallback as the app/dialogs. Result-view switching reads the toolbar's resolved offset when deciding whether it is stuck and positioning a newly visited list. Stored list positions and above-toolbar switching stay unchanged.

@@ -461,7 +461,6 @@
       "disabling": "Désactivation de la recherche sémantique…",
       "confirmRemove": "Supprimer l’index ? Les documents importés sont conservés. Vous devrez recréer l’index.",
       "controlsTitle": "Recherche sémantique",
-      "enabled": "Activer la Recherche Sémantique",
       "libraryTitle": "Index de la bibliothèque",
       "documentsReady": "{{ready}} documents indexés sur {{total}}.",
       "documentsIndexed": "Documents indexés : {{ready}} sur {{total}}",
@@ -494,7 +493,6 @@
         "empty": "Activé · Importez des documents",
         "needsIndex": "Activé · Indexation nécessaire",
         "ready": "Activé · Prêt",
-        "on": "Activée",
         "statusUnavailable": "Activée · Statut Indisponible"
       },
       "modelRequired": "L’indexation est disponible une fois le modèle de recherche chargé.",
