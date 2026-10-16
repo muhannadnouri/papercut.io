@@ -885,38 +885,38 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "requires the AI Agents in Depth sample EPUB at the repository root"]
-    fn ai_agents_sample_retains_all_images_and_chapters() {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../AI Agents in Depth - Design Principles and Engineering Practice.epub");
-        let parsed = parse_epub_document(&std::fs::read(path).unwrap(), "Sample").unwrap();
-        assert_eq!(parsed.assets.len(), 115);
-        assert!(super::super::parsed::image_import_warnings(&parsed.view_html).is_empty());
+    fn generated_epub_retains_spine_images_and_embedded_cover() {
+        let parsed = parse_epub_document(&fixture_epub(), "Sample").unwrap();
+        assert_eq!(parsed.assets.len(), 4);
+        assert_eq!(
+            super::super::parsed::image_import_warnings(&parsed.view_html),
+            std::collections::BTreeMap::from([("missing".into(), 1)])
+        );
         assert_eq!(
             parsed
                 .assets
                 .iter()
                 .filter(|asset| asset.file_name.ends_with(".svg"))
                 .count(),
-            113
+            2
         );
-        assert_eq!(
-            parsed.view_html.matches("data-papercut-asset=").count(),
-            115
-        );
-        assert_eq!(parsed.view_html.matches("<img ").count(), 115);
+        assert_eq!(parsed.view_html.matches("data-papercut-asset=").count(), 5);
         assert!(!parsed.view_html.contains("<svg"));
         assert_eq!(
             parsed.view_html.matches("class=\"epub-chapter\"").count(),
-            15
+            6
         );
-        let cover_svg = String::from_utf8(parsed.assets[0].bytes.clone()).unwrap();
-        assert!(cover_svg.contains("viewBox=\"0 0 1323 1871\""));
+        let cover_svg = parsed
+            .assets
+            .iter()
+            .filter_map(|asset| std::str::from_utf8(&asset.bytes).ok())
+            .find(|svg| svg.contains("viewBox=\"0 0 100 200\""))
+            .expect("generated cover SVG keeps its viewport");
         assert!(cover_svg.contains("preserveAspectRatio=\"xMidYMid\""));
         use base64::Engine as _;
         let cover =
             base64::engine::general_purpose::STANDARD.encode(&parsed.cover.as_ref().unwrap().bytes);
-        assert!(cover_svg.contains(&format!("data:image/jpeg;base64,{cover}")));
+        assert!(cover_svg.contains(&format!("data:image/png;base64,{cover}")));
         let sanitized = super::super::html::sanitize_html(&parsed.view_html);
         for asset in &parsed.assets {
             assert!(sanitized.contains(&asset.file_name));
@@ -962,7 +962,7 @@ mod tests {
             zip.write_all(b"<html><body><img src='../missing.png' alt='Missing chapter image'/></body></html>").unwrap();
             zip.start_file("OPS/text/inline-cover.xhtml", deflated)
                 .unwrap();
-            zip.write_all(br#"<!DOCTYPE html><html><body><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 200"><image href="../images/cover.png" width="100" height="200"/></svg></body></html>"#).unwrap();
+            zip.write_all(br#"<!DOCTYPE html><html><body><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 200" preserveAspectRatio="xMidYMid"><image href="../images/cover.png" width="100" height="200"/></svg></body></html>"#).unwrap();
             zip.start_file("OPS/images/cover.png", deflated).unwrap();
             zip.write_all(b"\x89PNG\r\n\x1a\nimage").unwrap();
             zip.start_file("OPS/images/photo.png", deflated).unwrap();

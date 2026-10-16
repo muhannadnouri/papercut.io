@@ -2,6 +2,46 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+## Standalone experiment retired — 2026-10-16
+
+After production integration and owner acceptance, removed all five remaining
+tracked files in the isolated embedding experiment (3,624 lines). The prior
+keep-frozen decision is superseded; use the
+[last pushed snapshot at ffbb4e6](https://github.com/muhannadnouri/papercut.io/tree/ffbb4e65ba8e77d80c2fd4df0db76fad4827d13f/experiments/search-v2-embeddings)
+and its Git history for historical replay. Standalone experiment commands in
+the Stage 6–8 entries below describe their historical revisions, not commands
+available from the current checkout. Cached models/private evaluation inputs
+were never part of those tracked sources.
+
+Production search/provider/index/IPC tests, `scripts/search-eval.mjs`, generic
+fixtures/baseline, the mobile inference runner/self-tests and shipping build
+regressions remain intact. No app code, application lockfile, runtime/model,
+build configuration, retrieval policy or CI workflow changes. This checkout's
+local experiment caches are preserved under ignored `.cache/retired-search-v2-ffbb4e6/`.
+Current application CI evidence and owner acceptance remain unchanged; this is
+source retirement rather than a new search implementation. Further smoke,
+post-merge iOS acceptance and the separate transfer redesign remain deferred.
+
+Also replaced the transfer path guard's named collection with a generic URL
+that retains its encoded-space case. Replaced the optional personal-book EPUB
+test with an ordinary generated-fixture regression covering chapter/assets,
+missing-image reporting, SVG cover dimensions/aspect ratio/embedded raster bytes
+and sanitization. Removed named sample references from tracked code/docs and
+documented the generic command in the EPUB notes. Both Rust changes are confined
+to test modules; production tests/tooling remain, with no personal input required.
+
+Validation: **311 frontend passed / 1 optional skipped in 57 files**;
+`npm run test:search-eval` passes its parser, complete native lexical evaluation
+and baseline assertions; all **7 mobile inference runner self-tests pass**.
+The runner's subprocess case initially hit sandbox `EPERM`, then passed outside
+the sandbox with mocked mobile tools. Archive objects/links, exact changed-file
+scope, unchanged production code/tooling, Rust formatting and diff checks pass.
+Native suites pass: **197 default passed / 4 ignored** and **255 provider passed /
+9 ignored**, including the generated EPUB regression and transfer path guard.
+The former personal-book check is now an ordinary passing test, reducing ignored
+tests by one. No cached-model inference rerun,
+device smoke, new platform CI, push, merge or release.
+
 ## CI and owner acceptance reconciled — 2026-10-16
 
 [Run 38859560492](https://github.com/muhannadnouri/papercut.io/actions/runs/38859560492)
@@ -4194,7 +4234,12 @@ The next evaluation needs independently judged queries and relevant passage/docu
 
 ## Stage 6 — isolated desktop embedding probe
 
-Status: inference and synthetic comparison working; relevance, storage, and reference-device gates open. [`experiments/search-v2-embeddings`](../experiments/search-v2-embeddings) is a standalone Rust executable, not part of the Tauri app. It uses FastEmbed 7.1.0 with `intfloat/multilingual-e5-small`; its ONNX Runtime dependency stays separate from Papercut's existing TTS/runtime build. No app dependency, search index, result UI, or default behavior changed. The model and any private inputs stay outside the repository.
+**Historical record:** the standalone probe and subsequent standalone command
+examples were retired on 2026-10-16. Use the archived source/Git history linked
+above to replay an appropriate historical revision; production checks remain in
+the app and retained scripts.
+
+Status at this stage: inference and synthetic comparison working; relevance, storage, and reference-device gates open. [Archived `experiments/search-v2-embeddings`](https://github.com/muhannadnouri/papercut.io/tree/ffbb4e65ba8e77d80c2fd4df0db76fad4827d13f/experiments/search-v2-embeddings) was a standalone Rust executable, not part of the Tauri app. It used FastEmbed 7.1.0 with `intfloat/multilingual-e5-small`; its ONNX Runtime dependency stayed separate from Papercut's existing TTS/runtime build. No app dependency, search index, result UI, or default behavior changed in that probe. The model and any private inputs stayed outside the repository.
 
 The model card specifies `query:`/`passage:` prefixes, 384-dimensional vectors, mean pooling, L2 normalization, and a 512-token maximum. The executable verifies finite, unit-length 384-dimensional outputs. It makes section-anchored passages using the model tokenizer, a 320-token budget including heading/prefix, and 40-token overlap, retaining source section and byte spans. It ranks documents by their best passage score, then compares the existing lexical report with semantic-only and simple document-level rank fusion. Quoted queries are excluded from this prototype comparison because semantic similarity cannot satisfy source-verified phrases. The original probe repeated indexing; the aligned comparison pass below adds an immutable external development cache. It still does not serve app search results. The nested-quote parsing defect found during evaluation is addressed in the corrective pass below. [Model card](https://huggingface.co/intfloat/multilingual-e5-small) · [FastEmbed model support](https://docs.rs/fastembed/7.1.0/fastembed/enum.EmbeddingModel.html).
 
@@ -5081,7 +5126,7 @@ This earlier separation proposal is superseded by the user's request for one com
 | Search evaluation and import regressions | `scripts/search-eval.mjs`, its generic corpus, `search/evaluation.rs`, `pipeline.rs` test additions and `searchEvaluation.test.ts`. Retain runnable checks and source-locator contracts; private inputs stay external. The new EPUB import entry point is test-only. |
 | Documentation | `docs/search-v2-progress.md` and `docs/user-document-search.md`. This pass changes only these tracked files. |
 | Native runtime compatibility | Review/commit separately as one complete unit: `src-tauri/Cargo.toml`, `Cargo.lock`, both modified native TTS engine files and the complete `vendor/libtashkeel_base` source/model/maps/license/README. The manifest already references that currently untracked vendor directory; committing the manifest without it would break reproducibility. Prior runtime parity/speech evidence remains separate from today's default-feature checks. |
-| Isolated experiment | `experiments/search-v2-embeddings` has no app integration. If retained in version control, select only its maintained source, manifest/lockfile and documentation, with its own review; never stage targets, downloaded assets or private reports. |
+| Isolated experiment | Historical decision at this stage: no app integration; retain only reviewed source/manifest/lockfile, never targets, downloaded assets or private reports. **Superseded on 2026-10-16:** the remaining tracked experiment is retired; [Git history](https://github.com/muhannadnouri/papercut.io/tree/ffbb4e65ba8e77d80c2fd4df0db76fad4827d13f/experiments/search-v2-embeddings) preserves it. |
 | Excluded from these commits | Editor settings, MemSearch, temporary/session files, root smoke documents, private libraries/relevance reports, generated build output and the locally supplied root planning handoff. Use explicit file lists rather than staging the entire worktree. |
 
 These boundaries are a preparation record, not staged or committed changes. The checkout includes the pending runtime/vendor unit; today's successful checks alone do not prove a clean model-free-only checkout or every native feature configuration. Verify the actual selected commit from a clean checkout before packaging it.

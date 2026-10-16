@@ -1,5 +1,41 @@
 # Search v2 branch acceptance and review
 
+## Standalone experiment retired — 2026-10-16
+
+Removed the remaining five tracked files under `experiments/search-v2-embeddings/`
+(3,624 lines): its manifest, lockfile, ignore file and two Rust sources. This
+supersedes the earlier keep-frozen decision. The last pushed snapshot remains in
+[Git history at ffbb4e6](https://github.com/muhannadnouri/papercut.io/tree/ffbb4e65ba8e77d80c2fd4df0db76fad4827d13f/experiments/search-v2-embeddings).
+It was outside the app Cargo graph, npm build and CI; no shipping source,
+dependency lockfile, build configuration, regression test or evaluation tool is
+removed. Local build caches are preserved outside tracked files.
+
+Keep the production lexical evaluator/fixtures, provider/index/IPC regressions,
+mobile inference runner and self-tests, shared ORT initializer and official
+Arabic-preprocessing adapter/model. Historical standalone commands later in the
+progress record require an archived revision and are not current run guidance.
+Verified CI still covers application source `e511c39`; this retirement changes
+the isolated experiment, documentation and generic test fixtures. Further smoke,
+iOS acceptance and transfer redesign retain their existing deferrals.
+
+The additional named-data cleanup uses a neutral encoded-space collection URL
+for the transfer path guard. The optional EPUB check that depended on a named
+repository-root book now runs against the existing generated EPUB fixture in the
+normal suite. It still checks chapter/asset retention, missing-image diagnostics,
+SVG cover viewport/aspect ratio/embedded bytes and sanitized asset references.
+Named corpus titles/paths are absent from tracked code and docs; no private
+fixture or downloaded asset is added, removed or committed.
+
+Retirement validation: **311 frontend passed / 1 optional skipped in 57 files**,
+the production lexical evaluator/baseline assertions pass, and all **7 mobile
+runner self-tests pass**. The runner subprocess test needed execution outside
+the sandbox after its child spawn was denied; no real emulator/device was run.
+Git object/link, removal-scope, unchanged production/tooling and diff checks pass.
+Native regressions pass: **197 default passed / 4 ignored** and **255 provider
+passed / 9 ignored**. The generated EPUB check now runs instead of being ignored.
+No new model inference or platform CI is claimed; the
+application code outside test modules remains identical to the verified source.
+
 ## Current merge assessment — 2026-10-16
 
 **Ready to merge for the agreed search-v2 scope.** This section supersedes the
@@ -391,7 +427,7 @@ quality and the root cause of the original Linux native crash.
 | `scripts/search-eval.mjs`, generic `scripts/fixtures/search-v2/corpus.json`, `search/evaluation.rs`, parser evaluation tests and `docs/search-v2-baseline.json` | **Keep.** They exercise the actual lexical parser/store/search and preserve the initial comparison. The Rust evaluator is test-only; private snapshot/review modes are explicit developer actions. Do not replace these with manual checks. |
 | `scripts/check-mobile-provider-inference.mjs` and its self-tests | **Keep.** One runner selects the Cargo-built executable, requires both formats' index/query/lifecycle completion and successful native exit, and cleans owned emulator/simulator fixtures. It is CI/developer tooling, not app code or a new search implementation. |
 | `experiments/search-v2-embeddings/compat/` | **Removed in the corrective pass**, as finding 4 specifies. The four archived files total **2,028 lines**, including 1,753 lockfile lines and 174 Rust lines. Do not delete the app's official Libtashkeel adapter or its model. |
-| Remaining `experiments/search-v2-embeddings/` manifest/lockfile and `src/main.rs`/`storage.rs` | **Keep frozen for reproducible historical quality comparisons.** Its Small/Base, FP32/INT8, semantic/fusion and standalone-index controls differ from the app. It is outside the app Cargo graph, npm build and release packaging; do not synchronize it with product migrations, add models/options or make it mandatory CI. Product acceptance must use the app path; prune the frozen experiment in a later dedicated archival pass if historical replay is no longer needed. |
+| Remaining `experiments/search-v2-embeddings/` manifest/lockfile and `src/main.rs`/`storage.rs` | **Removed on 2026-10-16 after owner acceptance.** The five tracked files total 3,624 lines. [Archived source and lockfile](https://github.com/muhannadnouri/papercut.io/tree/ffbb4e65ba8e77d80c2fd4df0db76fad4827d13f/experiments/search-v2-embeddings) remain available for historical replay. This supersedes the keep-frozen decision; current product acceptance uses the retained app tests and tooling. |
 | Root smoke HTML, root handoff, `.memsearch/`, editor/session files | **Exclude from this commit.** They are not shipping tooling or reviewed branch implementation. |
 
 The original review changed documentation only. The corrective pass removes the

@@ -1489,7 +1489,7 @@ mod tests {
     #[test]
     fn bundled_document_urls_stay_below_the_documents_root() {
         assert!(is_bundled_document_url(
-            "/documents/Linea%20Proletaria/Article.html"
+            "/documents/Sample%20Collection/Article.html"
         ));
         assert!(!is_bundled_document_url("data:text/html,<script></script>"));
         assert!(!is_bundled_document_url("/documents/%2e%2e/index.html"));
