@@ -1,6 +1,10 @@
 # Search v2 branch acceptance and review
 
 
+## Transfer diagnostics follow-up — 2026-10-15
+
+Library Transfer now has bounded native diagnostics, Show Details and allowlisted/redacted Copy Diagnostic Report, with visible retryable errors and progress-listener failure feedback. Existing SPAKE2/TLS, `PCLAN003`, archive validation, session/operation guards and transfer outcomes remain intact. The reported Linux 1.9.2 → Android 1.9.0 connection failure is not attributed or claimed fixed; those releases have compatible transfer code. Validation: **311 frontend passed / 1 optional skipped**, **196 default Rust passed / 5 opt-in ignored**, lint/i18n/TypeScript/full frontend build/format/diff checks pass. See [the transfer contract](library-transfer.md#transfer-diagnostics) and [progress record](search-v2-progress.md). Device/network/clipboard/accessibility smoke remains deferred; fresh full current-source CI and existing release acceptance gates remain open.
+
 ## Matched passage hierarchy follow-up — 2026-10-15
 
 Matched Passage now has a stronger semantic heading and persistent logical start-edge accent rule. All context blocks share padding/border space; Nearby Text retains secondary heading styling. Source order, context bounds/expansion, focus and original reader targets are preserved. LTR/RTL DOM and shipped-style regressions cover the hierarchy and source order; physical layout/hover/screen-reader smoke remains deferred. Validation: **305 frontend passed / 1 optional skipped in 56 files**, lint/i18n/TypeScript/full Vite+Pagefind build/diff checks pass. See [the progress record](search-v2-progress.md). Fresh current-source full CI and the existing immediate-release acceptance gates remain open; earlier CI and user-reported smoke evidence is unchanged.

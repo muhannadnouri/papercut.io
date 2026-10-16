@@ -492,6 +492,18 @@
     }
   },
   "libraryTransfer": {
+    "diagnostics": {
+      "showDetails": "显示详情",
+      "copy": "复制诊断报告",
+      "copied": "已复制",
+      "copyFailed": "无法复制报告。请重试。",
+      "loading": "正在加载传输详情…",
+      "unavailable": "传输详情不可用。之前加载的详情可能已过时。",
+      "retained": "显示 {{count, number}} 条事件；已省略 {{dropped, number}} 条较早事件。",
+      "events": "传输事件",
+      "privacy": "仅记录近期活动，不包含密钥、地址、文档内容或私人路径。退出 Papercut 后详情将清除。",
+      "progressUnavailable": "实时进度不可用。传输仍在继续；请查看“显示详情”中的原生活动。"
+    },
     "title": "传输资料库",
     "description": "无需账户，即可在 Papercut 设备之间复制所选的资料库内容。",
     "modeLabel": "传输方向",

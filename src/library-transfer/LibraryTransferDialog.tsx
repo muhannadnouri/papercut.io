@@ -23,6 +23,7 @@ import { formatSavedAudiobookMetaParts } from '../tts/utils/format'
 import { listUploadedDocuments, type UploadedDocument } from '../uploads/DocumentUploads'
 import { filterTransferDocuments, updateScopedSelection } from './documentSelection'
 import './LibraryTransferDialog.css'
+import { TransferDiagnostics } from './TransferDiagnostics'
 
 interface LibraryTransferDialogProps {
   onBack: () => void
@@ -48,6 +49,7 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
   const [mode, setMode] = useState<TransferMode>('send')
   const [status, setStatus] = useState<TransferStatus>({ state: 'idle' })
   const [progress, setProgress] = useState<LibraryTransferProgress | null>(null)
+  const [progressUnavailable, setProgressUnavailable] = useState(false)
   const [documents, setDocuments] = useState<UploadedDocument[]>([])
   const [documentsLoaded, setDocumentsLoaded] = useState(false)
   const [documentsLoadFailed, setDocumentsLoadFailed] = useState(false)
@@ -124,11 +126,11 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
   useEffect(() => {
     let unlisten: (() => void) | undefined
     let disposed = false
-    void listenLibraryTransferProgress((next) => setProgress(next))
+    void listenLibraryTransferProgress((next) => { if (!disposed) setProgress(next) })
       .then((stop) => {
         if (disposed) stop()
         else unlisten = stop
-      })
+      }).catch(() => { if (!disposed) setProgressUnavailable(true) })
     return () => {
       disposed = true
       unlisten?.()
@@ -571,6 +573,8 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
       </div>
 
       {sendStatus?.state !== 'failed' && <TransferStatusMessage status={status} />}
+      {progressUnavailable && <p role="alert">{t('libraryTransfer.diagnostics.progressUnavailable')}</p>}
+      <TransferDiagnostics active={busy} revision={`${status.state}:${sendStatus?.state ?? ''}`} />
     </AppDialog>
   )
 }
@@ -766,8 +770,8 @@ function LibrarySendStatusMessage({ status, locale }: { status: LibraryTransferS
   return (
     <div
       className="library-transfer-session"
-      role={receivingProgress ? undefined : 'status'}
-      aria-live={receivingProgress ? undefined : 'polite'}
+      role={receivingProgress || status.error ? undefined : 'status'}
+      aria-live={receivingProgress || status.error ? undefined : 'polite'}
     >
       {receivingProgress ? (
         <TransferProgressMessage progress={receivingProgress} locale={locale} />
@@ -784,6 +788,7 @@ function LibrarySendStatusMessage({ status, locale }: { status: LibraryTransferS
           {sending && <progress value={status.bytesTransferred} max={status.packageBytes} />}
         </>
       )}
+      {status.error && status.state === 'waiting' && <p className="app-dialog-error" role="alert" dir="auto">{status.error}</p>}
       <dl>
         <div>
           <dt>{t('libraryTransfer.sourceAddress')}</dt>

@@ -326,6 +326,75 @@ targets SDK 36 and uses its existing normal `INTERNET` permission. Before raisin
 the target to Android 17 / SDK 37, add and request `ACCESS_LOCAL_NETWORK` as
 required by Android's local-network privacy model.
 
+## Transfer Diagnostics
+
+Every transfer dialog exposes **Show Details** and **Copy Diagnostic Report**,
+including after failure or completion. Rust owns a process-local history of the
+most recent **200 events across attempts**. New attempts do not clear earlier
+failures. The UI loads a snapshot on opening and state changes and polls once a
+second while work is active; missed progress events cannot erase native history.
+It stops polling on unmount. Diagnostic read failures are explicit, retain the
+last display as potentially stale, disable copying, and offer Retry. Copying reads
+a fresh snapshot so a terminal error between polls is included. Clipboard failure
+is also visible. No diagnostic file, background upload or new logging
+service is created; quitting Papercut discards this history.
+
+Events contain UTC timestamps, monotonic elapsed time, local attempt number and
+role, stage, severity, fixed diagnostic code and optional numeric progress. Local
+app version, OS, architecture, protocol capability and a build SHA when available
+are included in the report header. The remote app version is not negotiated or
+inferred. Network stages distinguish address/code validation, preparation,
+interface selection/listener binding, TCP connection/accept, TLS, protocol
+compatibility, pairing, package headers/storage checks, transfer/resume,
+verification/restore and completion acknowledgement. File transfers retain
+preparation, observed import phases and terminal outcome. Progress is sampled at
+most once per second within a phase, with first/final counts retained and repeated
+identical samples omitted. Phase changes, terminal outcomes and errors are kept;
+the omitted-event count discloses bounded-history eviction.
+
+Privacy is enforced when recording, not by attempting to scrub arbitrary text
+later. Only fixed labels and an allowlist of numeric facts enter the history.
+Socket errors retain their OS error kind/code; storage failures retain required
+and available bytes. Restore summaries keep aggregate imported/skipped/failed
+counts (documents plus audiobooks), including partial outcomes, without item names
+or per-item error strings. Endpoint details retain port and IPv4 scope (private,
+link-local or loopback), **never the IP address**. Keys, TLS/PAKE material, request
+objects, document content/titles, private paths and raw error display strings are
+excluded. The copy formatter also projects only these allowed fields, so adding
+fields to command results cannot silently expand copied reports. Local technical
+stage/error identifiers remain stable English tokens; diagnostic controls and
+privacy/recovery text are localized in all eight languages.
+
+Retryable sender interruptions show their existing diagnostic outside Details,
+beside Waiting to Resume. Progress-subscription failures no longer disappear as
+unhandled rejections; a localized warning points to native details without
+stopping the transfer. Pre-authentication failures remain nonfatal and do not
+consume a pairing code, but now retain diagnostic evidence; a completed wrong-code
+exchange still consumes the session. Failures forwarding import progress or its
+acknowledgement are recorded without undoing successfully restored content. The
+protocol, key handling, timeouts, listener selection, archive limits and consent
+behavior are unchanged.
+
+The `v1.9.0` and `v1.9.2` release tags use the same `PCLAN003` implementation and
+package versions. Matching app versions are not a transfer prerequisite. Earlier
+incompatible development protocols still fail closed. The reported Linux 1.9.2
+to Android 1.9.0 connection failure has **not** been reproduced or attributed to
+a specific network condition; these diagnostics make a subsequent attempt
+reportable rather than claiming to repair the user's network.
+
+Automated regressions cover bounded history, sampling/final counts, retained
+attempt failures, redaction, protocol mismatch, wrong-code consumption, real
+localhost TLS resume, refusal with OS facts, visible retryable errors, lost UI
+progress subscription, native snapshot recovery, copy errors, polling cleanup and
+native diagnostic Retry without starting transfer work. These are automated
+Linux/jsdom boundaries, not installed-device acceptance. Further smoke remains
+deferred. During the eventual consolidated pass, test Show Details and copying
+on both devices through refusal/timeout, wrong key, interrupted resume, partial
+import, cancellation and completion; verify redaction and retained errors after
+reopening, touch/RTL/keyboard/screen-reader behavior and clipboard permissions.
+
+Validation for this follow-up: **311 frontend passed / 1 optional skipped in 57 files**, **196 default Rust passed / 5 opt-in ignored**, plus lint, locale parity, TypeScript, Vite+Pagefind build, Rust formatting and diff checks. The sender hidden-error regression also rejects removing its production diagnostic. New tests do not claim physical-network, mobile clipboard, screen-reader, provider-inference or current-source CI acceptance.
+
 ## Delivery Checklist
 
 - [x] Architecture, package contract, merge rules, and staged scope documented.

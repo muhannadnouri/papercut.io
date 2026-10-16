@@ -506,6 +506,18 @@
     }
   },
   "libraryTransfer": {
+    "diagnostics": {
+      "showDetails": "Mostra dettagli",
+      "copy": "Copia rapporto diagnostico",
+      "copied": "Copiato",
+      "copyFailed": "Impossibile copiare il rapporto. Riprova.",
+      "loading": "Caricamento dei dettagli del trasferimento…",
+      "unavailable": "Dettagli non disponibili. I dati caricati in precedenza potrebbero essere obsoleti.",
+      "retained": "{{count, number}} eventi mostrati; {{dropped, number}} eventi precedenti omessi.",
+      "events": "Eventi del trasferimento",
+      "privacy": "Solo attività recente. Sono esclusi chiavi, indirizzi, contenuti dei documenti e percorsi privati. I dettagli vengono cancellati alla chiusura di Papercut.",
+      "progressUnavailable": "Avanzamento in tempo reale non disponibile. Il trasferimento continua; consulta Mostra dettagli per l’attività nativa."
+    },
     "title": "Trasferisci libreria",
     "description": "Copia il contenuto selezionato della libreria tra dispositivi Papercut senza un account.",
     "modeLabel": "Direzione del trasferimento",

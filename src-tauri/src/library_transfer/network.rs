@@ -34,6 +34,7 @@ use rustls::ServerConfig;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
+use super::diagnostics::{Diagnostics, Trace};
 use super::{
     build_library_package, create_transfer_temp, emit_transfer_progress, import_library_package,
     LibraryTransferError, LibraryTransferExportRequest, LibraryTransferImportResult,
@@ -52,10 +53,15 @@ use transport::{
     SendAttemptError,
 };
 
+pub(super) fn protocol_version() -> &'static str {
+    std::str::from_utf8(security::PROTOCOL_MAGIC).unwrap_or("unknown")
+}
+
 const SESSION_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
 #[derive(Clone, Default)]
 pub struct LibraryTransferState {
+    pub(super) diagnostics: Diagnostics,
     send: Arc<Mutex<Option<SendSession>>>,
     send_preparing: Arc<AtomicBool>,
     restoring: Arc<AtomicBool>,
@@ -144,12 +150,25 @@ pub async fn library_transfer_send_start(
     let state = state.inner().clone();
     let reservation = state.begin_send_preparation()?;
     let request = request.unwrap_or_default();
-    tauri::async_runtime::spawn_blocking(move || {
+    let trace = state.diagnostics.begin("send");
+    let worker_trace = trace.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
         let _reservation = reservation;
-        start_send(app, state, request.document_ids, request.audiobook_ids)
+        start_send(
+            app,
+            state,
+            request.document_ids,
+            request.audiobook_ids,
+            worker_trace,
+        )
     })
     .await
-    .map_err(|err| format!("Library send task failed: {err}"))?
+    .map_err(|err| LibraryTransferError::message(format!("Library send task failed: {err}")))
+    .and_then(|result| result);
+    if result.is_err() {
+        trace.finish(result.as_ref().err());
+    }
+    result
 }
 
 #[tauri::command]
@@ -189,12 +208,17 @@ pub async fn library_transfer_receive(
     request: LibraryTransferReceiveRequest,
 ) -> LibraryTransferResult<LibraryTransferImportResult> {
     let reservation = state.begin_restore()?;
-    tauri::async_runtime::spawn_blocking(move || {
+    let trace = state.diagnostics.begin("receive");
+    let worker_trace = trace.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
         let _reservation = reservation;
-        receive_library(app, request)
+        receive_library(app, request, &worker_trace)
     })
     .await
-    .map_err(|err| format!("Library receive task failed: {err}"))?
+    .map_err(|err| LibraryTransferError::message(format!("Library receive task failed: {err}")))
+    .and_then(|result| result);
+    trace.finish(result.as_ref().err());
+    result
 }
 
 fn reserve_operation(
@@ -216,6 +240,7 @@ fn start_send(
     state: LibraryTransferState,
     document_ids: Option<Vec<String>>,
     audiobook_ids: Vec<String>,
+    trace: Trace,
 ) -> LibraryTransferResult<LibraryTransferSendStatus> {
     {
         let send = lock(&state.send)?;
@@ -233,6 +258,7 @@ fn start_send(
         }
     }
 
+    trace.stage("package-preparation");
     let mut package = create_transfer_temp(&app, "lan-send")?;
     let package_path = package.path().to_path_buf();
     let prepared = build_library_package(
@@ -246,16 +272,26 @@ fn start_send(
         let package_bytes = fs::metadata(&package_path)
             .map_err(|err| format!("Failed to inspect prepared library package: {err}"))?
             .len();
-        let listener = TcpListener::bind((local_ipv4()?, 0))
-            .map_err(|err| format!("Failed to start local library transfer: {err}"))?;
+        trace.stage("address-selection");
+        let address = local_ipv4()?;
+        trace.stage("listener-bind");
+        let listener = TcpListener::bind((address, 0)).map_err(|err| {
+            trace.io_error(&err);
+            format!("Failed to start local library transfer: {err}")
+        })?;
         listener
             .set_nonblocking(true)
             .map_err(|err| format!("Failed to configure local library transfer: {err}"))?;
-        let address = listener
-            .local_addr()
-            .map_err(|err| format!("Failed to read local library transfer address: {err}"))?
-            .to_string();
+        let local_address = listener.local_addr().map_err(|error| {
+            trace.io_error(&error);
+            format!("Failed to read local library transfer address: {error}")
+        })?;
+        if let std::net::SocketAddr::V4(address) = local_address {
+            trace.endpoint(address);
+        }
+        let address = local_address.to_string();
         let code = new_pairing_code()?;
+        trace.stage("certificate-setup");
         let tls_config = server_tls_config()?;
         let status = Arc::new(Mutex::new(LibraryTransferSendStatus {
             state: LibraryTransferSendState::Waiting,
@@ -279,6 +315,7 @@ fn start_send(
     })();
     let (listener, tls_config, code, status, cancel, active_socket) = setup?;
 
+    trace.stage("waiting");
     let thread_status = Arc::clone(&status);
     thread::spawn(move || {
         run_sender(
@@ -289,6 +326,7 @@ fn start_send(
             &thread_status,
             &cancel,
             &active_socket,
+            &trace,
         );
     });
     Ok(lock(&status).map(|status| status.clone())?)
@@ -305,14 +343,18 @@ fn run_sender(
     status: &Arc<Mutex<LibraryTransferSendStatus>>,
     cancel: &AtomicBool,
     active_socket: &Mutex<Option<TcpStream>>,
+    trace: &Trace,
 ) {
     let deadline = Instant::now() + SESSION_TIMEOUT;
     loop {
         if cancel.load(Ordering::Relaxed) {
+            trace.cancelled();
             set_send_status(status, LibraryTransferSendState::Cancelled, None);
             return;
         }
         if Instant::now() >= deadline {
+            trace.failure("session-expired");
+            trace.finish(Some(&LibraryTransferError::message("expired")));
             set_send_status(
                 status,
                 LibraryTransferSendState::Failed,
@@ -322,7 +364,9 @@ fn run_sender(
         }
         match listener.accept() {
             Ok((stream, _)) => {
+                trace.stage("tcp-accepted");
                 if let Err(error) = track_active_socket(&stream, active_socket) {
+                    trace.finish(Some(&LibraryTransferError::message(&error)));
                     set_send_status(status, LibraryTransferSendState::Failed, Some(error));
                     return;
                 }
@@ -330,6 +374,7 @@ fn run_sender(
                     if let Some(socket) = take_active_socket(active_socket) {
                         let _ = socket.shutdown(Shutdown::Both);
                     }
+                    trace.cancelled();
                     set_send_status(status, LibraryTransferSendState::Cancelled, None);
                     return;
                 }
@@ -340,25 +385,31 @@ fn run_sender(
                     package_path,
                     status,
                     cancel,
+                    trace,
                 );
                 let _ = take_active_socket(active_socket);
                 if cancel.load(Ordering::Relaxed) {
+                    trace.cancelled();
                     set_send_status(status, LibraryTransferSendState::Cancelled, None);
                     return;
                 }
                 match result {
                     Ok(()) => {
+                        trace.finish(None);
                         set_send_status(status, LibraryTransferSendState::Complete, None);
                         return;
                     }
                     Err(SendAttemptError::Unauthenticated) => {
+                        trace.note("waiting", "unauthenticated-connection");
                         set_send_waiting(status, None);
                     }
                     Err(SendAttemptError::Fatal(error)) => {
+                        trace.finish(Some(&LibraryTransferError::message(&error)));
                         set_send_status(status, LibraryTransferSendState::Failed, Some(error));
                         return;
                     }
                     Err(SendAttemptError::Retryable(error)) => {
+                        trace.note("waiting", "retryable-interruption");
                         set_send_waiting(status, Some(error));
                     }
                 }
@@ -367,6 +418,7 @@ fn run_sender(
                 thread::sleep(Duration::from_millis(100));
             }
             Err(error) => {
+                trace.io_error(&error);
                 set_send_status(
                     status,
                     LibraryTransferSendState::Failed,
@@ -383,42 +435,66 @@ fn run_sender(
 fn receive_library(
     app: tauri::AppHandle,
     request: LibraryTransferReceiveRequest,
+    trace: &Trace,
 ) -> LibraryTransferResult<LibraryTransferImportResult> {
+    trace.stage("address-validation");
     emit_transfer_progress(&app, "receive", "connecting", None, None, None);
     let address = parse_local_address(&request.address)?;
+    trace.stage("code-validation");
     let code = normalize_code(&request.code)?;
+    trace.stage("staging");
     let temp_path = receive_resume_path(&app, address, &code)?;
     (|| {
-        let mut stream = receive_package(address, &code, &temp_path, |processed, total| {
-            emit_transfer_progress(
-                &app,
-                "receive",
-                "receiving",
-                Some((processed, total)),
-                None,
-                None,
-            );
-        })?;
+        let mut stream = receive_package(
+            address,
+            &code,
+            &temp_path,
+            |processed, total| {
+                emit_transfer_progress(
+                    &app,
+                    "receive",
+                    "receiving",
+                    Some((processed, total)),
+                    None,
+                    None,
+                );
+            },
+            trace,
+        )?;
 
+        trace.stage("verification");
         let import_result = {
             let mut forward = |progress: &LibraryTransferProgress| {
-                let _ = write_receiver_message(
+                if let Err(error) = write_receiver_message(
                     &mut stream,
                     &ReceiverMessage::Progress(progress.clone()),
-                );
+                ) {
+                    trace.io_error(&error);
+                }
             };
             import_library_package(&app, &temp_path, "receive", Some(&mut forward))
         };
         match import_result {
             Ok(result) => {
-                let _ = write_receiver_message(&mut stream, &ReceiverMessage::Complete);
-                let _ = fs::remove_file(&temp_path);
+                trace.import_result(&result);
+                trace.stage("acknowledgement");
+                if let Err(error) = write_receiver_message(&mut stream, &ReceiverMessage::Complete)
+                {
+                    trace.io_error(&error);
+                }
+                trace.stage("cleanup");
+                if let Err(error) = fs::remove_file(&temp_path) {
+                    trace.io_error(&error);
+                }
                 Ok(result)
             }
             Err(error) => {
                 let retryable = error.is_retryable();
-                let _ =
-                    write_receiver_message(&mut stream, &ReceiverMessage::Failed(error.clone()));
+                if let Err(error) =
+                    write_receiver_message(&mut stream, &ReceiverMessage::Failed(error.clone()))
+                {
+                    trace.io_error(&error);
+                }
                 if !retryable {
                     let _ = fs::remove_file(&temp_path);
                 }

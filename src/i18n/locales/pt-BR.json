@@ -506,6 +506,18 @@
     }
   },
   "libraryTransfer": {
+    "diagnostics": {
+      "showDetails": "Mostrar detalhes",
+      "copy": "Copiar relatório de diagnóstico",
+      "copied": "Copiado",
+      "copyFailed": "Não foi possível copiar o relatório. Tente novamente.",
+      "loading": "Carregando detalhes da transferência…",
+      "unavailable": "Detalhes indisponíveis. Os dados carregados anteriormente podem estar desatualizados.",
+      "retained": "Exibindo {{count, number}} eventos; {{dropped, number}} eventos anteriores omitidos.",
+      "events": "Eventos da transferência",
+      "privacy": "Somente atividade recente. Chaves, endereços, conteúdo dos documentos e caminhos privados são excluídos. Os detalhes são apagados ao sair do Papercut.",
+      "progressUnavailable": "O progresso ao vivo está indisponível. A transferência continua; consulte Mostrar detalhes para ver a atividade nativa."
+    },
     "title": "Transferir biblioteca",
     "description": "Copie o conteúdo selecionado da biblioteca entre dispositivos Papercut sem uma conta.",
     "modeLabel": "Direção da transferência",

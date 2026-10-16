@@ -499,6 +499,18 @@
     }
   },
   "libraryTransfer": {
+    "diagnostics": {
+      "showDetails": "Show Details",
+      "copy": "Copy Diagnostic Report",
+      "copied": "Copied",
+      "copyFailed": "Could not copy the report. Try again.",
+      "loading": "Loading transfer details…",
+      "unavailable": "Transfer details are unavailable. Previously loaded details may be out of date.",
+      "retained": "Showing {{count, number}} events; {{dropped, number}} older events omitted.",
+      "events": "Transfer events",
+      "privacy": "Recent activity only. Keys, addresses, document contents and private paths are excluded. Details reset when Papercut exits.",
+      "progressUnavailable": "Live progress is unavailable. Transfer work continues; check Show Details for native activity."
+    },
     "title": "Transfer Library",
     "description": "Copy selected library content between Papercut devices without an account.",
     "modeLabel": "Transfer direction",

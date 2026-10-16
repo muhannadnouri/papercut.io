@@ -3,9 +3,9 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
-const ipc = vi.hoisted(() => ({ invoke: vi.fn(), stop: vi.fn() }))
+const ipc = vi.hoisted(() => ({ invoke: vi.fn(), stop: vi.fn(), listen: vi.fn() }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: ipc.invoke, isTauri: () => true }))
-vi.mock('@tauri-apps/api/event', () => ({ listen: async () => ipc.stop }))
+vi.mock('@tauri-apps/api/event', () => ({ listen: ipc.listen }))
 vi.mock('react-i18next', () => ({ useTranslation: () => ({
   t: (key: string) => key,
   i18n: { language: 'en', getFixedT: () => (key: string) => key },
@@ -29,7 +29,9 @@ beforeEach(() => {
   root = createRoot(container)
   vi.spyOn(HTMLElement.prototype, 'getClientRects').mockReturnValue([new DOMRect(0, 0, 44, 44)] as unknown as DOMRectList)
   ipc.stop.mockReset()
+  ipc.listen.mockReset().mockResolvedValue(ipc.stop)
   ipc.invoke.mockReset().mockImplementation(async (command: string) => {
+    if (command === 'library_transfer_diagnostics') return { appVersion: '1.9.2', build: null, os: 'linux', arch: 'x86_64', protocol: 'PCLAN003', events: [], dropped: 0 }
     if (command === 'document_uploads_list') return [{ id: 'abc123', url: '/uploads/abc123.html', title: 'Harbor Guide', format: 'html', sourceKind: 'html', textStatus: 'ready', bytes: 12, sections: 1, importedAtMs: 1 }]
     if (command === 'library_transfer_send_start') return new Promise(resolve => { releaseSend = resolve })
     if (command === 'library_transfer_send_status') return waiting
@@ -37,6 +39,29 @@ beforeEach(() => {
     if (command === 'tts_list_saved_audiobooks') return []
     throw new Error(`Unexpected IPC command: ${command}`)
   })
+})
+
+it('shows the retained sender interruption outside Details while keeping the waiting session and diagnostics available', async () => {
+  await act(() => root.render(<LibraryTransferDialog onBack={vi.fn()} onClose={vi.fn()} onImported={vi.fn()} />))
+  await clickLabel('libraryTransfer.startSending')
+  await act(() => releaseSend({ ...waiting, error: 'Failed to send library package: Connection reset by peer' }))
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain('Connection reset by peer')
+  expect(container.querySelector('.library-transfer-session')?.getAttribute('aria-live')).toBeNull()
+  expect(container.textContent).toContain('libraryTransfer.waitingToResume')
+  expect(container.textContent).toContain(waiting.code)
+  expect(container.querySelector('.library-transfer-diagnostics')).not.toBeNull()
+  expect(container.querySelector<HTMLButtonElement>('.app-dialog-close')!.disabled).toBe(true)
+  expect(ipc.invoke.mock.calls.filter(([command]) => command === 'library_transfer_send_start')).toHaveLength(1)
+})
+
+it('exposes failed progress subscription without blocking transfer actions or losing diagnostic access', async () => {
+  ipc.listen.mockRejectedValueOnce(new Error('Listener failed with private implementation details'))
+  await act(() => root.render(<LibraryTransferDialog onBack={vi.fn()} onClose={vi.fn()} onImported={vi.fn()} />))
+  expect(container.querySelector('[role="alert"]')?.textContent).toBe('libraryTransfer.diagnostics.progressUnavailable')
+  expect(container.textContent).not.toContain('private implementation details')
+  expect(container.querySelector<HTMLButtonElement>('.library-transfer-primary')!.disabled).toBe(false)
+  expect(container.querySelector('.library-transfer-diagnostics')).not.toBeNull()
+  expect(ipc.invoke.mock.calls.some(([command]) => command === 'library_transfer_send_start')).toBe(false)
 })
 
 afterEach(async () => {

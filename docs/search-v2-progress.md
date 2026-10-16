@@ -3,6 +3,14 @@
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
 
+## Transfer diagnostics follow-up — 2026-10-15
+
+Implemented the approved Library Transfer Show Details/Copy Diagnostic Report follow-up. Native bounded history (200 events across attempts) records safe stage/error facts independently of frontend progress delivery. It distinguishes TCP/TLS/protocol/pairing from package streaming/restore, samples progress with first/final counts, preserves failures across retries and reports evicted events. Reports exclude keys, addresses, paths, titles/content and arbitrary error strings by construction; safe port/scope, OS errors and storage counts remain. UI snapshot recovery/pending-only polling, copy/read failure feedback and eight-locale controls are included. Retryable sender errors are visible; progress-subscription errors are caught. No pairing/wire/package, permission, listener, dependency or retrieval changes.
+
+`v1.9.0` and `v1.9.2` transfer code is compatible; the user's Linux-to-Android cannot-connect report still lacks a reproduced network cause. This change addresses observability, not an asserted firewall/routing repair. See [transfer diagnostics](library-transfer.md#transfer-diagnostics) for behavior/privacy contracts and regression scope. Further native/device/clipboard/accessibility smoke remains deferred. Current-source full CI and existing immediate-release gates remain open; prior CI evidence is unchanged.
+
+Validation: **311 frontend passed / 1 optional skipped in 57 files**, **196 default Rust passed / 5 opt-in ignored** (including all transfer/TLS/package checks), lint/all-eight-locale validation/TypeScript/full Vite+Pagefind build/format/diff checks pass. A temporary removal of the sender diagnostic was rejected by the new real DOM regression, then the source was restored. Native tests use localhost sockets and isolated temporary files; no installed library or physical device was exercised. Provider-specific inference and further smoke were not rerun.
+
 ## Matched passage hierarchy — 2026-10-15
 
 Approved follow-up to the passage-label assessment: every context block now has equal padding, corner treatment and a reserved 3px logical start border. The matched block alone colors that rule with the theme accent and retains its tonal surface; its **Matched Passage** heading is larger, heavier and uses the primary text color. **Nearby Text** remains a readable secondary heading. Both labels are semantic headings outside the source-opening buttons and wrap without metadata truncation. This gives the match a persistent marker distinct from nearby-button hover, with no label icons or confidence badges.
