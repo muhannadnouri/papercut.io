@@ -100,6 +100,41 @@ SHERPA_ONNX_LIB_DIR="$task_shared_dir" LD_LIBRARY_PATH="$task_shared_dir" \
 Ordinary tests never download the weights. The existing full model-download check
 also includes Nabra; the existing immutable Kokoro mirror is not replaced.
 
+#### Known Nabra merge blockers
+
+Review on 2026-10-16 found that successful short-sentence synthesis does not
+qualify the integration for merging. Two upstream frontend issues remain open:
+
+- **Native process exit at the token boundary.** With the pinned model and official
+  Sherpa 1.13.4 runtime, the 356-character input formed by
+  `("لا هذه في ب ب من هل درس " + "الطائرات " * 37).strip()` terminates an isolated
+  synthesis process with `Bad things happened! 510 vs 510` (exit 255). It fits both
+  Papercut's save and preview limits. Sherpa's
+  [Kokoro token splitter](https://github.com/k2-fsa/sherpa-onnx/blob/v1.13.4/sherpa-onnx/csrc/piper-phonemize-lexicon.cc)
+  does not account for the extra space emitted after a period when checking the
+  style-table limit. Rust error handling cannot catch a native `exit()`.
+- **Missing Nabra-specific phoneme cleanup.** The
+  [reference frontend](https://gist.github.com/Oddadmix/dc699f7942a9516ce29d4842c7aed756)
+  removes mid-word syllable dots while retaining sentence punctuation and the
+  distinct `ʕ`/`ħ` consonants. The generic Sherpa frontend retains these dots as
+  pause tokens. Its warnings for skipped `U+02E4` and `U+032A` modifiers are a
+  separate issue: the reference frontend intentionally removes those modifiers.
+
+Papercut will not maintain a local Sherpa C++ patch or a custom runtime-build
+script for this integration. The next step is to prepare upstream reproductions
+and use an official runtime/frontend fix once available and verified. The inspected
+upstream `master` implementation still contains the boundary check and exposes no
+public Kokoro phoneme-input/cleanup hook. Do not assume a version or FP16 upgrade
+resolves either issue without reproducing the failures and checking the fix.
+
+The rejected backport was removed without changing production synthesis, runtime
+pins, model archives, cache identities, bundle formats, canonical chunks or source
+spans. Existing saved audiobooks and read-along metadata are preserved. A regression
+locks the pre-Nabra English audiobook IDs for American and British voices. Nabra's
+merge blockers remain unresolved; intro/credit-line narration boundaries, device
+smoke and the app version bump remain deferred. No migration for partial Nabra
+generations is planned at this experimental stage.
+
 ### Other Kokoro Languages
 
 Mandarin is a separate catalog entry with its own stable model ID and the eight

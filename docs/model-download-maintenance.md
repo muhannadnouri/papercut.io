@@ -63,6 +63,11 @@ Local validation passed: 312 frontend tests / 1 skipped, 198 default Rust tests 
 checks must assess unvocalized text through Libtashkeel as well as Original text
 with supplied diacritics, particularly the logged unsupported `U+032A` phoneme mark.
 
+The follow-up review found [Nabra merge blockers](kokoro-tts.md#known-nabra-merge-blockers)
+in token-boundary handling and phoneme cleanup. The short compatibility regression
+does not cover those failures. Local C++ patches and a custom runtime-build script
+were rejected; retain official runtimes and require a verified upstream fix.
+
 ### Existing multilingual Kokoro mirror
 
 The workflows below only become operational once pushed. No model release,
