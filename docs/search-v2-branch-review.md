@@ -1,5 +1,16 @@
 # Search v2 branch acceptance and review
 
+## Transfer scope decision — 2026-10-15
+
+Diagnostics commit `bfc7245` stays in search-v2. Discovery, stable-port selection,
+connection-direction changes and firewall integration are deferred to a separate
+follow-up, with findings and security/acceptance requirements in the
+[transfer TODO](library-transfer.md#deferred-lan-redesign--2026-10-15). New user
+evidence makes incoming UFW policy the strongest lead, but an empty listener check
+also needs resolution; no repair or device acceptance is claimed. This design
+follow-up is not additional implementation scope for this branch. Existing
+release gates and deferred smoke remain unchanged; no production code changes.
+
 
 ## Transfer diagnostics follow-up — 2026-10-15
 

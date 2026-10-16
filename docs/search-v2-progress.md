@@ -2,6 +2,19 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+## Transfer redesign deferred — 2026-10-15
+
+Keep diagnostics commit `bfc7245` in this branch. The user's subsequent sender
+report stops at Waiting; inbound-deny UFW policy is the strongest connection
+failure lead, while the supplied empty listener check leaves session lifetime
+unresolved. No reproduced root cause or network repair is claimed. The
+[transfer redesign evaluation and TODO](library-transfer.md#deferred-lan-redesign--2026-10-15)
+records LocalSend's discovery/stable-port approach, connection-direction options,
+security/firewall constraints and the later validation plan. Further transfer
+implementation is explicitly outside search-v2. This is documentation only;
+earlier test/CI evidence and existing release gates are unchanged, and smoke stays
+deferred.
+
 
 ## Transfer diagnostics follow-up — 2026-10-15
 

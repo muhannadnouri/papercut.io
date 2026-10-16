@@ -378,9 +378,10 @@ behavior are unchanged.
 The `v1.9.0` and `v1.9.2` release tags use the same `PCLAN003` implementation and
 package versions. Matching app versions are not a transfer prerequisite. Earlier
 incompatible development protocols still fail closed. The reported Linux 1.9.2
-to Android 1.9.0 connection failure has **not** been reproduced or attributed to
-a specific network condition; these diagnostics make a subsequent attempt
-reportable rather than claiming to repair the user's network.
+to Android 1.9.0 connection failure has **not** been reproduced. Subsequent user
+evidence identifies inbound firewall policy as the strongest lead, with listener
+lifetime still unresolved; see the deferred evaluation below. Diagnostics expose
+the failing stage rather than claiming to repair the user's network.
 
 Automated regressions cover bounded history, sampling/final counts, retained
 attempt failures, redaction, protocol mismatch, wrong-code consumption, real
@@ -394,6 +395,107 @@ import, cancellation and completion; verify redaction and retained errors after
 reopening, touch/RTL/keyboard/screen-reader behavior and clipboard permissions.
 
 Validation for this follow-up: **311 frontend passed / 1 optional skipped in 57 files**, **196 default Rust passed / 5 opt-in ignored**, plus lint, locale parity, TypeScript, Vite+Pagefind build, Rust formatting and diff checks. The sender hidden-error regression also rejects removing its production diagnostic. New tests do not claim physical-network, mobile clipboard, screen-reader, provider-inference or current-source CI acceptance.
+
+## Deferred LAN Redesign — 2026-10-15
+
+**Decision:** keep the bounded diagnostics from `bfc7245` in `feature/search-v2`.
+Further transfer investigation and implementation belong in a separate follow-up
+after this branch. This is an evaluation and TODO, not an approved transport
+change, a repaired connection, or an additional search-v2 implementation gate.
+Existing release acceptance requirements still apply; device smoke remains
+explicitly deferred.
+
+### Reported Failure and Remaining Uncertainty
+
+The user tested Linux 1.9.2 on CachyOS sending to Android 1.9.0 on the same Wi-Fi,
+using the displayed address and pairing key, with no Linux VPN. Android reported
+`Could not connect to the source device: connection timed out`. The source report
+reached listener binding on private IPv4/TCP port `41803`, certificate setup and
+`waiting`, with no `tcp-accepted` event in the captured history. This places the
+observed failure before TLS, protocol negotiation or pairing; changing the key or
+requiring identical app versions does not address this evidence.
+
+UFW was active with default incoming deny/outgoing allow and only KDE Connect
+ports allowed. That policy does not permit the advertised Papercut port. However,
+the supplied `ss -ltn` check showed **no listener** on that port at the time of
+inspection. A firewall does not hide a listener from `ss`: an expired/cancelled
+session, app closure or stale endpoint must also be ruled out. The earlier bind
+event is historical evidence, not a current liveness check. No packet capture or
+successful restricted-rule retry establishes a single root cause yet.
+
+CachyOS documents UFW as enabled by default with incoming traffic blocked. A
+different firewall configuration plausibly explains the earlier Mint success;
+there is no demonstrated distro-specific socket defect. Same Wi-Fi alone does
+not guarantee peer reachability. See [CachyOS firewall documentation](https://wiki.cachyos.org/configuration/post_install_setup/#configuring-firewall-ufw).
+
+When investigation resumes, start a fresh foreground send and check the **current**
+displayed port with `ss` while it is waiting. Only after confirming the listener,
+test a temporary incoming TCP exception restricted to the actual receiving peer,
+Wi-Fi interface and current port, then remove it. Record both devices' reports
+and any matching firewall drop metadata. If that still fails, distinguish host
+filtering from router client isolation/routing before changing the protocol.
+[UFW supports interface, source, destination and port restrictions and removal of the original rule](https://manpages.ubuntu.com/manpages/noble/man8/ufw.8.html).
+
+### LocalSend Comparison and Recommended Direction
+
+LocalSend's documented v2.2 protocol uses configurable defaults of TCP/UDP
+`53317`, multicast discovery at `224.0.0.167`, and a normal upload flow in which
+the receiver listens and accepts or rejects a transfer request. It also documents
+HTTP discovery fallback. Discovery removes routine address entry; a stable port
+makes firewall configuration reusable. Neither bypasses packet filtering.
+[LocalSend protocol](https://github.com/localsend/protocol)
+
+LocalSend documents HTTPS for normal app transfers, but still requires firewall
+access and warns about router client isolation. Its existence is not evidence
+that an application can safely avoid all network permission prompts.
+[LocalSend setup](https://github.com/localsend/localsend/blob/main/README.md#setup)
+
+Recommended Papercut follow-up, subject to a separate design/security review:
+
+| Area | Candidate and tradeoff |
+| --- | --- |
+| Stable port | Choose a Papercut-specific default after checking conflicts; do not take LocalSend's port. Keep listening foreground/session-scoped. Explain an occupied port and allow an explicit override rather than silently falling back to an unpredictable port. A fixed port improves configuration, not authentication. |
+| Discovery | Evaluate bounded UDP multicast against platform DNS-SD/mDNS support and packaging cost; select one discovery mechanism. Advertise only minimal temporary presence/capability metadata while the transfer flow is open. Keep manual address/key entry; evaluate QR as a convenience fallback. Do not begin with a subnet scanner. |
+| Connection direction | Evaluate receiver-listens/sender-connects against retaining the current sender listener. The former makes Linux-to-Android data upload outgoing from Linux, but the receiving host still needs inbound access and discovery may need its own exception. Do not promise a universal firewall fix or implement automatic dual-direction fallback first. |
+| Transport reuse | Reuse the native package, restore, progress, resume and diagnostic boundaries. LocalSend-style discovery does not require adopting its REST API or weakening Papercut's authenticated transport. Changing listener roles affects TLS/PAKE roles and framing; review those bindings and version changed wire semantics explicitly. |
+| Firewall UX | Explain discovery versus transfer reachability and show the actual listener state/port. Offer documented UFW/firewalld profiles or OS-supported permission guidance with explicit user/admin consent. Scope rules to the selected trusted interface/network, or a peer where practical; include removal instructions. Never silently elevate, disable filtering, open a broad port range, configure router forwarding/UPnP, or treat all private-address networks as trusted. |
+
+Discovery results are untrusted hints, never authorization. Bound announcement
+sizes, response rates, cached peers and lifetimes; reject malformed or unsupported
+capabilities without triggering transfers. Do not advertise pairing secrets,
+library metadata or persistent tracking identifiers. A received announcement must
+not trigger arbitrary endpoint probing; retain an explicit interface/address
+policy and review VPN, multiple-interface and IPv6 behavior. Recheck mobile
+local-network/multicast permissions and Apple service declarations before choosing
+the discovery mechanism.
+
+Preserve encryption, explicit transfer consent, one-use expiring pairing and
+mutual confirmation bound to the encrypted channel, archive validation, private
+staging, authenticated resume and operation guards. Never downgrade to plaintext
+or trust a self-signed certificate merely because discovery returned it. Keep
+bounded/redacted diagnostics and distinguish confirmed local failures from
+inferred firewall/routing causes. Legacy `PCLAN003` compatibility must be an
+explicitly tested decision; incompatible peers must fail clearly and closed.
+
+### Resume Checklist for the Separate Follow-Up
+
+- [ ] Confirm active listener versus blocked traffic using the narrow test above;
+      record both endpoint reports without secrets or private payloads.
+- [ ] Choose discovery, a stable default port and connection direction in a short
+      design review, including permission, lifecycle and firewall-rule ownership.
+- [ ] Define compatibility with existing apps before changing transport roles or
+      protocol framing; retain file export/import as the offline fallback.
+- [ ] Add regressions for port conflicts, listener teardown/expiry, discovery
+      spoofing/floods/stale peers, address policy, denied permissions, incompatible
+      peers, TLS/PAKE binding, cancellation, authenticated resume and redaction.
+- [ ] When smoke is resumed, test both directions on Linux with UFW/firewalld,
+      Android and supported Apple/Windows builds, including network changes,
+      multiple interfaces and isolated Wi-Fi. Verify scoped firewall rule removal
+      and manual fallback when multicast is unavailable.
+
+This documentation-only evaluation does not rerun the automated transfer suite,
+change firewall settings or perform device/network smoke. Earlier passing counts
+above remain evidence for the diagnostics commit, not for this proposed redesign.
 
 ## Delivery Checklist
 
@@ -429,6 +531,9 @@ Validation for this follow-up: **311 frontend passed / 1 optional skipped in 57 
 - [x] Review hardening: verify transferred WAV contents against measured playback metadata.
 - [x] Review hardening: classify terminal receiver failures and interrupt active sends on cancel.
 - [x] Review hardening: align local-address policy and prune stale transfer cache files.
+- [ ] Separate follow-up after search-v2: [evaluate discovery, a stable port and
+      secure firewall handling](#deferred-lan-redesign--2026-10-15); keep diagnostics
+      in this branch and leave transfer implementation/device smoke deferred.
 - [ ] Later: evaluate an optional reading-data category for bookmarks and preferences.
 
 ## Release Acceptance Gate
