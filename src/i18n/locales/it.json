@@ -739,7 +739,7 @@
       "preprocessorOriginalDescription": "Sintetizza il testo sorgente senza preelaborazione della lingua.",
       "preprocessorArabicOriginalDescription": "Sintetizza il testo di origine arabo senza diacritizzazione automatica.",
       "preprocessorTashkeel": "Autodiacritizzazione",
-      "preprocessorTashkeelDescription": "Ripristina il tashkeel arabo con Libtashkeel prima della sintesi di Piper.",
+      "preprocessorTashkeelDescription": "Ripristina il tashkeel arabo con Libtashkeel prima della sintesi.",
       "preprocessorSilma": "SILMA predefinito",
       "preprocessorSilmaDescription": "Utilizza l'elaborazione del testo arabo predefinita di SILMA prima della sintesi.",
       "sourceHuggingFace": "File Hugging Face",

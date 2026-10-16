@@ -39,6 +39,32 @@ of the application rollout below.
 
 ## Activate after committing
 
+### Nabra Arabic INT8 addition — 2026-10-16
+
+The manifest now pins the separate upstream `nabra-82m-arabic-int8` archive
+(82,775,122 bytes, asset id `550149204` at validation). Its exact digest is in the
+manifest; the downloaded bytes matched that published digest. It does not replace
+the immutable multilingual Kokoro mirror or change any existing archive identity.
+The original model and Sherpa conversion declare Apache-2.0; retain attribution.
+
+Metadata/full checks automatically include the fourth unique Sherpa archive and
+eleventh Sherpa catalog entry. `--family kokoro` now selects both the original
+multilingual package and Nabra; prepare-mirror verifies both but its upload still
+targets only the original multilingual archive. Do not republish that immutable
+release or assume it mirrors Nabra. The full native archive check applies each
+entry's declared default preprocessing before synthesis.
+
+The explicit Nabra compatibility regression in [TTS documentation](kokoro-tts.md#nabra-arabic-int8)
+passed on Linux using existing Sherpa 1.13.4 and prepared ONNX Runtime 1.27.0,
+without dependency upgrades. Both generated WAVs were finite, non-silent and
+24 kHz; this is not listening, packaged-app, cross-platform or full audiobook
+acceptance. Full scheduled archive checks and hosted CI were not rerun here.
+Local validation passed: 312 frontend tests / 1 skipped, 198 default Rust tests / 4 ignored, 257 provider-enabled Rust tests / 10 ignored, plus the explicit cached Nabra regression. Lint, locale parity, TypeScript, Vite build, monitor self-test and metadata for all four archives passed. Device smoke and the application version bump remain deferred. Native-speaker
+checks must assess unvocalized text through Libtashkeel as well as Original text
+with supplied diacritics, particularly the logged unsupported `U+032A` phoneme mark.
+
+### Existing multilingual Kokoro mirror
+
 The workflows below only become operational once pushed. No model release,
 repository setting, user notification preference, or installed app is changed
 by the source patch itself.

@@ -725,7 +725,7 @@
       "preprocessorOriginalDescription": "无需语言预处理即可合成源文本。",
       "preprocessorArabicOriginalDescription": "合成阿拉伯语源文本，无需自动变音符。",
       "preprocessorTashkeel": "自动变音符",
-      "preprocessorTashkeelDescription": "在 Piper 合成之前用 Libtashkeel 恢复阿拉伯语塔什基尔。",
+      "preprocessorTashkeelDescription": "在语音合成之前用 Libtashkeel 恢复阿拉伯语塔什基尔。",
       "preprocessorSilma": "默认SILMA",
       "preprocessorSilmaDescription": "合成前使用SILMA默认的阿拉伯语文本处理。",
       "sourceHuggingFace": "Hugging Face 文件",

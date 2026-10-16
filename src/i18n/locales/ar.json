@@ -766,7 +766,7 @@
       "preprocessorOriginalDescription": "توليد الكلام من النص المصدر دون معالجة لغوية.",
       "preprocessorArabicOriginalDescription": "توليد الكلام من النص العربي دون تشكيل تلقائي.",
       "preprocessorTashkeel": "التشكيل التلقائي",
-      "preprocessorTashkeelDescription": "استعادة التشكيل العربي باستخدام Libtashkeel قبل التوليد بواسطة Piper.",
+      "preprocessorTashkeelDescription": "استعادة التشكيل العربي باستخدام Libtashkeel قبل التوليد الصوتي.",
       "preprocessorSilma": "المعالجة الافتراضية لـ SILMA",
       "preprocessorSilmaDescription": "استخدام معالجة SILMA الافتراضية للنص العربي قبل التوليد.",
       "sourceHuggingFace": "ملفات Hugging Face",

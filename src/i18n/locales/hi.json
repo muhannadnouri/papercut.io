@@ -732,7 +732,7 @@
       "preprocessorOriginalDescription": "भाषा पूर्वप्रसंस्करण के बिना स्रोत पाठ को संश्लेषित करें।",
       "preprocessorArabicOriginalDescription": "स्वचालित विशेषकीकरण के बिना अरबी स्रोत पाठ को संश्लेषित करें।",
       "preprocessorTashkeel": "ऑटो डायक्रिटाइजेशन",
-      "preprocessorTashkeelDescription": "पाइपर संश्लेषण से पहले Libtashkeel के साथ अरबी ताशकील को पुनर्स्थापित करें।",
+      "preprocessorTashkeelDescription": "वाक् संश्लेषण से पहले Libtashkeel के साथ अरबी ताशकील को पुनर्स्थापित करें।",
       "preprocessorSilma": "SILMA डिफ़ॉल्ट",
       "preprocessorSilmaDescription": "संश्लेषण से पहले SILMA के डिफ़ॉल्ट अरबी पाठ प्रसंस्करण का उपयोग करें।",
       "sourceHuggingFace": "Hugging Face फ़ाइलें",

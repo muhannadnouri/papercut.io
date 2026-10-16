@@ -3,6 +3,16 @@
   "archives": [
     {
       "family": "kokoro",
+      "modelName": "nabra-82m-arabic-int8",
+      "sourceLabel": "k2-fsa/sherpa-onnx Nabra-82M Arabic INT8",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/nabra-82m-arabic-int8.tar.bz2",
+      "sha256": "e7c644fabb1529190de9a2f7d6044f88c26bf6d9b717ad41ef5d2b748e01459b",
+      "archiveBytes": 82775122,
+      "platforms": ["desktop", "android", "ios"],
+      "licenseNote": "Nabra-82M v0.1 and its Sherpa conversion declare Apache-2.0; retain upstream attribution. Separate from multilingual Kokoro v1.0."
+    },
+    {
+      "family": "kokoro",
       "modelName": "kokoro-multi-lang-v1_0",
       "sourceLabel": "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
       "url": "https://github.com/muhannadnouri/papercut.io/releases/download/tts-kokoro-v1.0-2026-09-08/kokoro-multi-lang-v1_0.tar.bz2",

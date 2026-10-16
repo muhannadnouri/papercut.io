@@ -487,6 +487,28 @@ mod tests {
         assert!(diacritized.contains("|libtashkeel-1.5.0|"));
         assert_ne!(diacritized, legacy);
 
+        let nabra = create_native_audiobook_id(
+            super::super::models::NABRA_MODEL_ID,
+            "/documents/book.html",
+            "af_msa",
+            1.0,
+            "native",
+            "libtashkeel-1.5.0",
+        );
+        assert_ne!(nabra, diacritized);
+        assert_ne!(nabra, legacy);
+        assert_ne!(
+            nabra,
+            create_native_audiobook_id(
+                super::super::models::NABRA_MODEL_ID,
+                "/documents/book.html",
+                "af_msa",
+                1.0,
+                "native",
+                "none",
+            )
+        );
+
         assert_eq!(
             normalize_native_document_url("http://localhost:1420/documents/book.html?q=1#two"),
             "/documents/book.html"

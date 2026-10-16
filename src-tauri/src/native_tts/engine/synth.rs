@@ -428,6 +428,8 @@ fn generate_audio(
 /// selects one language for the whole catalog entry.
 fn generation_language(model: &ModelDefinition, voice: &str) -> Option<&'static str> {
     match model.require_sherpa_family().ok()? {
+        // Nabra's `af_msa` is Arabic despite sharing Kokoro's American voice prefix.
+        SherpaModelFamily::Kokoro if model.language == "ar" => Some("ar"),
         SherpaModelFamily::Kokoro if voice.starts_with('a') => Some("en-us"),
         // The bundled eSpeak data accepts `en` for British phonemization, not `en-gb`.
         SherpaModelFamily::Kokoro if voice.starts_with('b') => Some("en"),
@@ -565,6 +567,57 @@ mod tests {
         assert!(audio.samples().iter().any(|sample| sample.abs() > 0.001));
     }
 
+    /// Verify the pinned Nabra archive and real inference without installed app data.
+    #[cfg(feature = "native-text-preprocessing-core")]
+    #[test]
+    #[ignore = "requires the pinned Nabra archive in PAPERCUT_MODEL_ARCHIVE_DIR"]
+    fn cached_nabra_arabic_runtime() {
+        use super::super::model::{extract_model_archive, verify_model_archive};
+        let model = model_definition(super::super::models::NABRA_MODEL_ID).unwrap();
+        let archive_dir = std::path::PathBuf::from(
+            std::env::var_os("PAPERCUT_MODEL_ARCHIVE_DIR").expect("explicit archive directory"),
+        );
+        let archive = archive_dir.join(format!("{}.tar.bz2", model.directory_name));
+        verify_model_archive(&archive, model).unwrap();
+        let work = archive_dir.join(format!("nabra-runtime-{}", std::process::id()));
+        fs::create_dir(&work).unwrap();
+        extract_model_archive(&archive, &work).unwrap();
+        let model_dir = work.join(model.directory_name);
+        assert!(model.has_required_files(&model_dir));
+        let preprocessor =
+            TextPreprocessor::create(model, model.default_text_preprocessor).unwrap();
+        let source = "كتب الطالب الدرس";
+        let processed = preprocessor.process(source).unwrap();
+        assert_eq!(processed, "كَتَبَ الطَّالِبُ الدَّرْس");
+        let engine = SherpaTtsEngine {
+            tts: create_engine(model, &model_dir, 2).unwrap(),
+            model,
+            model_dir,
+            num_threads: 2,
+        };
+        assert_eq!(engine.tts.num_speakers(), 1);
+        for (index, text) in [processed.as_str(), "السَّلَامُ عَلَيْكُمْ، هَذَا اخْتِبَارٌ لِلصَّوْتِ الْعَرَبِيِّ."]
+            .iter()
+            .enumerate()
+        {
+            let audio = generate_audio(&engine, text, model.default_voice, 1.0)
+                .unwrap()
+                .unwrap();
+            assert_eq!(audio.sample_rate(), 24_000);
+            assert!(audio.samples().len() > 6_000);
+            assert!(audio.samples().iter().all(|sample| sample.is_finite()));
+            assert!(audio.samples().iter().any(|sample| sample.abs() > 0.001));
+            let wav = work.join(format!("nabra-{index}.wav"));
+            assert!(audio.save(wav.to_str().unwrap()));
+            assert!(super::super::cache::wav_info(&wav).is_some());
+            println!(
+                "PASS Nabra case {index}: {} samples at 24 kHz",
+                audio.samples().len()
+            );
+        }
+        fs::remove_dir_all(work).unwrap();
+    }
+
     /// Run explicitly after downloading archives with scripts/check-model-downloads.js.
     #[test]
     #[ignore = "requires real model archives; run by the model-download workflow"]
@@ -628,7 +681,11 @@ mod tests {
                 "ar" | "ar-JO" => "مرحبا هذا اختبار للصوت",
                 language => panic!("Add a smoke sample for {language}"),
             };
-            let audio = generate_audio(&engine, text, model.default_voice, 1.0)
+            let text = TextPreprocessor::create(model, model.default_text_preprocessor)
+                .unwrap()
+                .process(text)
+                .unwrap();
+            let audio = generate_audio(&engine, &text, model.default_voice, 1.0)
                 .unwrap()
                 .unwrap();
             assert!(
@@ -670,6 +727,9 @@ mod tests {
         let model = model_definition(DEFAULT_MODEL_ID).unwrap();
         assert_eq!(generation_language(model, "af_heart"), Some("en-us"));
         assert_eq!(generation_language(model, "bf_emma"), Some("en"));
+        let nabra = model_definition(super::super::models::NABRA_MODEL_ID).unwrap();
+        assert_eq!(generation_language(nabra, "af_msa"), Some("ar"));
+        assert!(!nabra.english_text_normalization());
         assert_eq!(
             generation_language(model_definition(KOKORO_ZH_MODEL_ID).unwrap(), "zf_xiaobei"),
             None

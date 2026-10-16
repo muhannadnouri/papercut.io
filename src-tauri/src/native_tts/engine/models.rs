@@ -494,7 +494,7 @@ const SILMA_TEXT_PREPROCESSORS: &[TextPreprocessorDefinition] = &[TextPreprocess
 }];
 
 #[cfg(feature = "native-text-preprocessing-core")]
-const PIPER_TEXT_PREPROCESSORS: &[TextPreprocessorDefinition] = &[
+const ARABIC_TEXT_PREPROCESSORS: &[TextPreprocessorDefinition] = &[
     TextPreprocessorDefinition {
         id: TEXT_PREPROCESSOR_NONE,
         name: "Original text",
@@ -503,16 +503,16 @@ const PIPER_TEXT_PREPROCESSORS: &[TextPreprocessorDefinition] = &[
     TextPreprocessorDefinition {
         id: TEXT_PREPROCESSOR_LIBTASHKEEL,
         name: "Auto diacritization",
-        description: "Restore Arabic tashkeel with Libtashkeel before Piper synthesis.",
+        description: "Restore Arabic tashkeel with Libtashkeel before synthesis.",
     },
 ];
 #[cfg(not(feature = "native-text-preprocessing-core"))]
-const PIPER_TEXT_PREPROCESSORS: &[TextPreprocessorDefinition] = IDENTITY_TEXT_PREPROCESSORS;
+const ARABIC_TEXT_PREPROCESSORS: &[TextPreprocessorDefinition] = IDENTITY_TEXT_PREPROCESSORS;
 
 #[cfg(feature = "native-text-preprocessing-core")]
-const PIPER_DEFAULT_TEXT_PREPROCESSOR: &str = TEXT_PREPROCESSOR_LIBTASHKEEL;
+const ARABIC_DEFAULT_TEXT_PREPROCESSOR: &str = TEXT_PREPROCESSOR_LIBTASHKEEL;
 #[cfg(not(feature = "native-text-preprocessing-core"))]
-const PIPER_DEFAULT_TEXT_PREPROCESSOR: &str = TEXT_PREPROCESSOR_NONE;
+const ARABIC_DEFAULT_TEXT_PREPROCESSOR: &str = TEXT_PREPROCESSOR_NONE;
 
 const KOKORO_REQUIRED_FILES: &[&str] = &[
     "model.onnx",
@@ -524,6 +524,17 @@ const KOKORO_REQUIRED_FILES: &[&str] = &[
     "espeak-ng-data/intonations",
     "espeak-ng-data/en_dict",
     "lexicon-us-en.txt",
+];
+
+const NABRA_REQUIRED_FILES: &[&str] = &[
+    "model.int8.onnx",
+    "voices.bin",
+    "tokens.txt",
+    "espeak-ng-data/phontab",
+    "espeak-ng-data/phonindex",
+    "espeak-ng-data/phondata",
+    "espeak-ng-data/intonations",
+    "espeak-ng-data/ar_dict",
 ];
 
 const KOKORO_ESPEAK_REQUIRED_FILES: &[&str] = &[
@@ -574,6 +585,7 @@ const SILMA_REQUIRED_FILES: &[&str] = &[
 
 pub(super) const DEFAULT_MODEL_ID: &str = "sherpa-onnx/kokoro-multi-lang-v1_0";
 pub(super) const KOKORO_ZH_MODEL_ID: &str = "sherpa-onnx/kokoro-multi-lang-v1_0-zh";
+pub(super) const NABRA_MODEL_ID: &str = "sherpa-onnx/nabra-82m-arabic-int8";
 pub(super) const SILMA_MODEL_ID: &str = "silma-ai/silma-tts";
 pub(super) const SILMA_HF_CACHE_REPO_DIR: &str = "models--silma-ai--silma-tts";
 pub(super) const SILMA_HF_REVISION: &str = "d2515317033803648ecb8844765db9e583afecf9";
@@ -766,8 +778,31 @@ pub(super) const MODELS: &[ModelDefinition] = &[
         required_files: PIPER_REQUIRED_FILES,
         default_voice: "kareem",
         voices: PIPER_KAREEM_VOICES,
-        default_text_preprocessor: PIPER_DEFAULT_TEXT_PREPROCESSOR,
-        text_preprocessors: PIPER_TEXT_PREPROCESSORS,
+        default_text_preprocessor: ARABIC_DEFAULT_TEXT_PREPROCESSOR,
+        text_preprocessors: ARABIC_TEXT_PREPROCESSORS,
+    },
+    ModelDefinition {
+        id: NABRA_MODEL_ID,
+        directory_name: "nabra-82m-arabic-int8",
+        display_name: "Nabra Arabic INT8 (Experimental)",
+        backend: TtsModelBackend::SherpaOnnx,
+        family: TtsModelFamily::Kokoro,
+        sherpa_family: Some(SherpaModelFamily::Kokoro),
+        language: "ar",
+        language_label: "Arabic (Modern Standard)",
+        supertonic_lang: None,
+        source_label: "k2-fsa/sherpa-onnx Nabra-82M Arabic INT8",
+        download: NABRA_82M_ARABIC_INT8,
+        model_file: "model.int8.onnx",
+        required_files: NABRA_REQUIRED_FILES,
+        default_voice: "af_msa",
+        voices: &[VoiceDefinition {
+            id: "af_msa",
+            name: "MSA (Female)",
+            speaker_id: 0,
+        }],
+        default_text_preprocessor: ARABIC_DEFAULT_TEXT_PREPROCESSOR,
+        text_preprocessors: ARABIC_TEXT_PREPROCESSORS,
     },
     ModelDefinition {
         id: SILMA_MODEL_ID,
@@ -909,6 +944,31 @@ mod tests {
         );
         assert_eq!(model.speaker_id("kareem").unwrap(), 0);
         assert!(model.speaker_id("af_heart").is_err());
+    }
+
+    #[test]
+    fn nabra_has_separate_assets_and_arabic_preprocessing_without_english_rewrites() {
+        let model = model_definition(NABRA_MODEL_ID).unwrap();
+        let english = model_definition(DEFAULT_MODEL_ID).unwrap();
+        let piper = model_definition("sherpa-onnx/vits-piper-ar_JO-kareem-medium").unwrap();
+        assert_eq!(
+            model.require_sherpa_family().unwrap(),
+            SherpaModelFamily::Kokoro
+        );
+        assert_ne!(model.directory_name, english.directory_name);
+        assert_ne!(model.download.sha256, english.download.sha256);
+        assert_eq!(model.model_file, "model.int8.onnx");
+        assert_eq!(model.speaker_id("af_msa").unwrap(), 0);
+        assert_eq!(model.voices.len(), 1);
+        assert!(model.speaker_id("af_heart").is_err());
+        assert!(!model.english_text_normalization());
+        assert_eq!(
+            model.default_text_preprocessor,
+            piper.default_text_preprocessor
+        );
+        assert!(model.supports_text_preprocessor(TEXT_PREPROCESSOR_NONE));
+        #[cfg(feature = "native-text-preprocessing-core")]
+        assert!(model.supports_text_preprocessor(TEXT_PREPROCESSOR_LIBTASHKEEL));
     }
 
     #[test]

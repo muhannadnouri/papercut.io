@@ -734,7 +734,7 @@
       "preprocessorOriginalDescription": "Synthesize source text without language preprocessing.",
       "preprocessorArabicOriginalDescription": "Synthesize Arabic source text without automatic diacritization.",
       "preprocessorTashkeel": "Auto diacritization",
-      "preprocessorTashkeelDescription": "Restore Arabic tashkeel with Libtashkeel before Piper synthesis.",
+      "preprocessorTashkeelDescription": "Restore Arabic tashkeel with Libtashkeel before synthesis.",
       "preprocessorSilma": "SILMA default",
       "preprocessorSilmaDescription": "Use SILMA's default Arabic text processing before synthesis.",
       "sourceHuggingFace": "Hugging Face files",

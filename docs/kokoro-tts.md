@@ -35,6 +35,7 @@ Pinned archives (exact sizes and SHA-256 values are in the [download manifest](.
 | Archive | Family | Supported app languages |
 | --- | --- | --- |
 | Kokoro multi-lang v1.0 | Kokoro | `en-US`, `zh-CN`, `es-ES`, `fr-FR`, `hi-IN`, `it-IT`, `pt-BR` |
+| Nabra-82M Arabic INT8 (Experimental) | Kokoro | `ar` (Modern Standard) |
 | Piper Kareem Medium | VITS/Piper | `ar-JO` |
 | Supertonic 3 int8 | SupertonicTTS | `en-US`, `ar` |
 
@@ -51,6 +52,55 @@ training-data grade. The [upstream voice catalog](https://huggingface.co/hexgrad
 describes those grades as estimates rather than guarantees of subjective voice
 quality. These display and phonemization changes do not alter audiobook identity
 or invalidate existing saved WAV files.
+
+### Nabra Arabic INT8
+
+Nabra is a separate [Arabic fine-tune](https://huggingface.co/oddadmix/Nabra-82M-v0.1)
+using Sherpa's existing Kokoro backend, not an extra voice in the multilingual
+Kokoro archive. The catalog id is `sherpa-onnx/nabra-82m-arabic-int8`, its own
+directory is `nabra-82m-arabic-int8`, and its only voice is `af_msa` (speaker 0,
+female MSA). Its pinned upstream archive is downloaded on demand; exact size and
+SHA-256 live in the shared manifest. The original and converted model cards declare
+Apache-2.0; retain their attribution when redistributing model bytes. Existing
+Kokoro, Piper and Supertonic downloads, defaults and saved identities are unchanged.
+
+Nabra explicitly selects eSpeak `ar` before Kokoro's voice-prefix routing: `af_msa`
+would otherwise select American English. It receives no English text rewrites.
+Shipping builds default to the existing Libtashkeel diacritizer for unvocalized
+Arabic, with Original text available for fully vocalized input. Preprocessing
+changes only the synthesis copy, not document text, chunks or highlighting. Builds
+without native preprocessing expose Original text only and require vocalized input.
+The separate model id and existing preprocessing key distinguish saved audio;
+`native-save-v4-segmented`, bundle and database schemas do not change. Older apps
+without Nabra in their catalog reject its bundles as unsupported.
+
+On 2026-10-16 the pinned 82,775,122-byte archive passed exact checksum verification,
+production extraction/loading and real synthesis on Linux x86_64 with the existing
+Sherpa **1.13.4** and prepared ONNX Runtime **1.27.0**. The explicit cached regression
+generated finite, non-silent 24 kHz WAVs from both Libtashkeel-prepared plain Arabic
+and already-vocalized Arabic. No dependency or app-version bump was needed.
+Sherpa logged an unknown phoneme mark `U+032A`; synthesis success does not establish
+pronunciation quality or equivalence to the upstream diacritization pipeline.
+Native-speaker listening, full audiobook/device smoke, other-platform execution
+and the v1.10.0 release/version bump remain deferred.
+
+To repeat only the native compatibility regression, put the pinned archive in an
+explicit disposable directory and use the already prepared runtime (no app-data
+profile or automatic download):
+
+```sh
+task_shared_dir="$PWD/src-tauri/tts/runtime/linux-x64-shared-libs"
+PAPERCUT_MODEL_ARCHIVE_DIR=/tmp/papercut-nabra-int8 \
+SHERPA_ONNX_LIB_DIR="$task_shared_dir" LD_LIBRARY_PATH="$task_shared_dir" \
+  cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --lib \
+  --features native-tts-shared,experimental-search-embeddings \
+  native_tts::engine::synth::tests::cached_nabra_arabic_runtime -- --ignored --exact --nocapture
+```
+
+Ordinary tests never download the weights. The existing full model-download check
+also includes Nabra; the existing immutable Kokoro mirror is not replaced.
+
+### Other Kokoro Languages
 
 Mandarin is a separate catalog entry with its own stable model ID and the eight
 official `zf_*`/`zm_*` speakers, but it reuses the same `kokoro-multi-lang-v1_0`
@@ -87,12 +137,12 @@ Existing saved audiobook files are unchanged. The cache version stays `native-sa
 
 ## Arabic Pronunciation And Diacritization
 
-Piper Kareem uses eSpeak-ng phonemization through sherpa-onnx. Arabic normally omits short vowels, so an undiacritized spelling can represent several pronunciations and meanings. Piper and eSpeak-ng do not provide enough contextual language understanding to resolve every ambiguity by themselves.
+Piper Kareem and Nabra use eSpeak-ng phonemization through sherpa-onnx. Arabic normally omits short vowels, so an undiacritized spelling can represent several pronunciations and meanings. These synthesis models and eSpeak-ng do not provide enough contextual language understanding to resolve every ambiguity by themselves.
 
 Shared native builds and iOS native builds now compile `libtashkeel_base = 1.5.0` as an optional preprocessing backend. The model catalog exposes preprocessing as data instead of Piper-specific UI logic:
 
-- `none`: pass source text to synthesis unchanged. This is the only Kokoro option and preserves all historical audiobook IDs.
-- `libtashkeel-1.5.0`: run the bundled 4,788,213-byte Arabic diacritization model before Piper synthesis. This is the Piper default on desktop shared builds, Android, and iOS native builds.
+- `none`: pass source text to synthesis unchanged. This is the only multilingual Kokoro option and preserves all historical audiobook IDs; Nabra also offers it for fully vocalized text.
+- `libtashkeel-1.5.0`: run the bundled 4,788,213-byte Arabic diacritization model before Piper or Nabra synthesis. This is their default on desktop shared builds, Android, and iOS native builds.
 
 The Rust `TextPreprocessor` boundary is deliberately small. Save retains canonical `chunk.text`, chunk IDs, source hashes, and source spans; it creates a separate synthesis string, applies Libtashkeel once per missing chunk, then passes that result through the normal sherpa text sanitizer and selected model. React only consumes model capabilities and persists the selected preprocessing ID. A future Arabic preprocessor or another language pipeline can therefore be added in the model catalog without changing audiobook orchestration.
 
@@ -230,7 +280,7 @@ The document header exposes one consolidated audio control surface:
 - Model selects the engine/language. Download voice model installs the selected pinned model into app data. Papercut may suggest an Arabic or Mandarin model when the document script is unambiguous, but Latin-script documents preserve the user's selected engine because script alone cannot distinguish English, Spanish, French, and other supported languages.
 - Voice marks each model's catalog default as the recommended starting point. Once the selected model is installed, Preview Voice synthesizes and plays a short language-matched sample through the normal native engine and preprocessing path. The temporary WAV is removed immediately and never creates an audiobook record.
 - Audio Setup keeps language, model, voice, installation, and preview controls visible. Text processing, threads, diagnostics, and SILMA-specific tuning use one native **Advanced** disclosure that starts collapsed; active non-default choices remain summarized on the disclosure row.
-- Text processing selects a model-supported synthesis preprocessor. Piper offers automatic Arabic diacritization or original text; Kokoro exposes original text only.
+- Text processing selects a model-supported synthesis preprocessor. Piper and Nabra offer automatic Arabic diacritization or original text; multilingual Kokoro exposes original text only.
 - New saves generate audio at `1x`. Use the player speed control for ordinary listening-speed changes.
 - Threads controls the native ONNX Runtime thread count for benchmarking save throughput on the current device. Options extend to the logical CPU parallelism detected by Rust, each app session starts with the conservative native platform default (1 on Android, up to 4 on desktop), and the UI reports the backend-confirmed count applied to the active or most recent save. Selecting more than 4 threads shows a warning because extra parallelism can increase memory use, heat, battery drain, and thermal throttling without guaranteeing faster synthesis.
 

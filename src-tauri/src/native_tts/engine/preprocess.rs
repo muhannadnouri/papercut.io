@@ -144,16 +144,28 @@ mod tests {
     #[cfg(feature = "native-text-preprocessing-core")]
     #[test]
     fn libtashkeel_adds_arabic_diacritics() {
-        let model = model_definition("sherpa-onnx/vits-piper-ar_JO-kareem-medium").unwrap();
-        let preprocessor =
-            TextPreprocessor::create(model, super::super::models::TEXT_PREPROCESSOR_LIBTASHKEEL)
-                .unwrap();
-        let output = preprocessor.process("كتب الطالب الدرس").unwrap();
+        for id in [
+            "sherpa-onnx/vits-piper-ar_JO-kareem-medium",
+            super::super::models::NABRA_MODEL_ID,
+        ] {
+            let model = model_definition(id).unwrap();
+            let preprocessor = TextPreprocessor::create(
+                model,
+                super::super::models::TEXT_PREPROCESSOR_LIBTASHKEEL,
+            )
+            .unwrap();
+            let output = preprocessor.process("كتب الطالب الدرس").unwrap();
 
-        assert_eq!(output, "كَتَبَ الطَّالِبُ الدَّرْس");
-        let non_arabic = "Text  with punctuation - and 123.";
-        assert_eq!(preprocessor.process(non_arabic).unwrap(), non_arabic);
-        assert_eq!(preprocessor.process("كتب الطالب الدرس").unwrap(), output);
+            assert_eq!(output, "كَتَبَ الطَّالِبُ الدَّرْس");
+            let non_arabic = "Text  with punctuation - and 123.";
+            assert_eq!(preprocessor.process(non_arabic).unwrap(), non_arabic);
+            assert_eq!(preprocessor.process("كتب الطالب الدرس").unwrap(), output);
+            let original = TextPreprocessor::create(model, TEXT_PREPROCESSOR_NONE).unwrap();
+            assert_eq!(
+                original.process("كَتَبَ الطَّالِبُ الدَّرْس").unwrap(),
+                "كَتَبَ الطَّالِبُ الدَّرْس"
+            );
+        }
     }
 
     #[cfg(feature = "native-text-preprocessing-core")]

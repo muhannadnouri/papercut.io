@@ -2,6 +2,7 @@ import {
   DEFAULT_TTS_MODEL_ID,
   KOKORO_ZH_MODEL_ID,
   LIBTASHKEEL_TEXT_PREPROCESSOR,
+  NABRA_MODEL_ID,
   PIPER_KAREEM_MODEL_ID,
   SILMA_MODEL_ID,
   SUPERTONIC_AR_MODEL_ID,
@@ -169,10 +170,32 @@ export const FALLBACK_TTS_MODELS: TtsModelInfo[] = [
       {
         id: LIBTASHKEEL_TEXT_PREPROCESSOR,
         name: 'Auto diacritization',
-        description: 'Restore Arabic tashkeel with Libtashkeel before Piper synthesis.',
+        description: 'Restore Arabic tashkeel with Libtashkeel before synthesis.',
       },
     ],
     voices: [{ id: 'kareem', name: 'Kareem' }],
+  },
+  {
+    id: NABRA_MODEL_ID,
+    name: 'Nabra Arabic INT8 (Experimental)',
+    family: 'kokoro',
+    language: 'ar',
+    languageLabel: 'Arabic (Modern Standard)',
+    defaultVoice: 'af_msa',
+    defaultTextPreprocessor: LIBTASHKEEL_TEXT_PREPROCESSOR,
+    textPreprocessors: [
+      {
+        id: TEXT_PREPROCESSOR_NONE,
+        name: 'Original text',
+        description: 'Synthesize Arabic source text without automatic diacritization.',
+      },
+      {
+        id: LIBTASHKEEL_TEXT_PREPROCESSOR,
+        name: 'Auto diacritization',
+        description: 'Restore Arabic tashkeel with Libtashkeel before synthesis.',
+      },
+    ],
+    voices: [{ id: 'af_msa', name: 'MSA (Female)' }],
   },
   {
     id: SUPERTONIC_EN_MODEL_ID,
