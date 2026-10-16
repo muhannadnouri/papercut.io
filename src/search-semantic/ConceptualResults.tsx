@@ -73,8 +73,11 @@ export function ConceptualResults({ visibleLimit = Infinity, onShowMore, state, 
       result={result} opening={result.url === openingDocumentUrl} openingDisabled={openingDisabled} onViewDocument={onViewDocument} />)}
     {onShowMore && results.length > 10 && <div className="result-list-more">
       <span role="status">{t('search.results.documentsShown', { shown: Math.min(visibleLimit, results.length), total: results.length })}</span>
-      <button type="button" className="result-evidence-action" aria-disabled={visibleLimit >= results.length}
-        onClick={() => { if (visibleLimit < results.length) onShowMore() }}>{t('search.results.showMore')}</button>
+      <button type="button" className="result-evidence-action conceptual-more-action" aria-disabled={visibleLimit >= results.length}
+        onClick={() => { if (visibleLimit < results.length) onShowMore() }}>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6" /></svg>
+        {t('search.results.showMore')}
+      </button>
     </div>}
   </section>
 }
@@ -118,8 +121,11 @@ function ConceptualResultCard({ result, opening, openingDisabled, onViewDocument
             </button>
           </div>)}
         </div>
-        {passages.length > initial.length && <button type="button" className="result-evidence-action"
+        {passages.length > initial.length && <button type="button" className="result-evidence-action conceptual-more-action"
           aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(value => !value)}>
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d={expanded ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6'} />
+          </svg>
           {t(expanded ? 'search.conceptual.showLess' : 'search.conceptual.showMore', { count: passages.length - initial.length })}
         </button>}
       </div>

@@ -134,25 +134,54 @@ it('shows the nearest three blocks, expands in source order and collapses withou
   expect(container.querySelector('.conceptual-context-block-matched')!.textContent).toContain('Connections')
   const more = container.querySelector<HTMLButtonElement>('.result-evidence-action')!
   expect(more.textContent).toContain('search.conceptual.showMore{"count":4}')
+  const icon = more.firstElementChild!
+  expect(icon.tagName.toLowerCase()).toBe('svg')
+  expect(icon.getAttribute('aria-hidden')).toBe('true')
+  expect(icon.getAttribute('focusable')).toBe('false')
+  const collapsedIcon = icon.querySelector('path')!.getAttribute('d')
   expect(more.getAttribute('aria-expanded')).toBe('false')
   expect(document.getElementById(more.getAttribute('aria-controls')!)).toBe(container.querySelector('.conceptual-context-previews'))
   more.focus()
-  await click(more)
+  await act(() => { icon.querySelector('path')!.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
   expect(headings()).toEqual(['Far Before', 'Earlier', 'Closest Before', 'Connections', 'Closest After', 'Later', 'Far After'])
   expect(more.getAttribute('aria-expanded')).toBe('true')
   expect(more.textContent).toContain('search.conceptual.showLess')
+  expect(more.querySelector('path')!.getAttribute('d')).not.toBe(collapsedIcon)
   expect(document.activeElement).toBe(more)
   await click(container.querySelector<HTMLButtonElement>('.conceptual-context-block button')!)
   expect(onViewDocument).toHaveBeenLastCalledWith(result.url, {
     text: 'Far before source', sectionIndex: 0, pageIndex: 3,
   })
   await click(more)
+  expect(more.querySelector('path')!.getAttribute('d')).toBe(collapsedIcon)
   expect(headings()).toEqual(['Closest Before', 'Connections', 'Closest After'])
   expect(document.activeElement).toBe(more)
   expect(container.querySelector('.conceptual-context-previews')!.textContent).not.toContain('Far before source')
   expect(JSON.stringify(result)).toBe(original)
   await render({ phase: 'ready', response: { ...response, results: [result] } }, onViewDocument, true)
   for (const button of container.querySelectorAll<HTMLButtonElement>('.result-card-primary')) expect(button.disabled).toBe(true)
+})
+
+it('loads the next document batch from its leading icon and keeps the exhausted action guarded', async () => {
+  const results = Array.from({ length: 11 }, (_, index) => ({ ...response.results[0], documentId: `guide-${index}` }))
+  const onShowMore = vi.fn()
+  const renderBatch = (visibleLimit: number) => act(() => root.render(<ConceptualResults
+    state={{ phase: 'ready', response: { ...response, results } }} visibleLimit={visibleLimit}
+    onShowMore={onShowMore} onViewDocument={vi.fn()} />))
+  await renderBatch(10)
+  const more = container.querySelector<HTMLButtonElement>('.result-list-more button')!
+  expect(more.textContent).toBe('search.results.showMore')
+  expect(more.firstElementChild?.tagName.toLowerCase()).toBe('svg')
+  expect(more.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true')
+  expect(more.querySelector('svg')?.getAttribute('focusable')).toBe('false')
+  await act(() => { more.querySelector('path')!.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
+  expect(onShowMore).toHaveBeenCalledOnce()
+  expect(container.querySelectorAll('article')).toHaveLength(10)
+  await renderBatch(11)
+  expect(container.querySelectorAll('article')).toHaveLength(11)
+  expect(more.getAttribute('aria-disabled')).toBe('true')
+  await act(() => { more.querySelector('path')!.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
+  expect(onShowMore).toHaveBeenCalledOnce()
 })
 
 it('keeps expansion local to each card and resets it for a different matched source span', async () => {

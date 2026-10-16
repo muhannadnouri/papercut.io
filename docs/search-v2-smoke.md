@@ -25,6 +25,11 @@ Use this as **one rebuilt-app pass**, reusing a disposable profile and sources f
 - Select Conceptual while loading and while missing/partial/failed; fallback should remain readable and direct the user to Keyword, whose results remain independently usable. Confirm active-panel focus/live announcements, narrow/zoom/RTL layouts and sticky controls in the actual WebView.
 - Open results after More; reader targets must still use full original text/page/section metadata. Confirm scroll restoration when switching between lists of different lengths. These DOM regressions do not verify WebView layout or device performance.
 
+## Conceptual expansion icons — deferred
+
+- Confirm leading down-chevrons on Show More document batches/nearby text and an up-chevron on Show Less, with full labels/counts readable at narrow widths, RTL and zoom. Icons remain decorative and share the button's click/touch area. Verify collapse retains focus, context stays in source order and reader links use original targets. Exhausted document batches must not request another batch.
+- Passage-label hierarchy has not changed in this pass. Review persistent matched emphasis against nearby-text hover before accepting any later hierarchy refinement.
+
 ## Model preparation hierarchy checks — deferred
 
 - With model files stored but search off, confirm Download Size groups the visible 64 MiB additional-space requirement beneath its value at narrow widths, zoom and RTL. The muted information icon/guidance should remain distinct from file status in light and dark themes.

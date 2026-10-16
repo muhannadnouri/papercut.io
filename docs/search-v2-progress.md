@@ -3,6 +3,14 @@
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
 
+## Conceptual expansion action icons — 2026-10-15
+
+Conceptual Show More document batches and Show More Nearby Text now have a decorative leading down-chevron; Show Less changes the same control to an up-chevron. Visible localized labels, context counts, expanded/controls associations, focus, independent card expansion, source order and original reader targets remain intact. Icons are hidden from accessibility APIs and cannot take focus. Exhausted batch actions retain their existing aria-disabled guard. No retrieval, offsets, locale strings or dependencies change.
+
+Real DOM regressions first failed without the icons, then cover clicks on the icon path, expansion/collapse direction, retained focus/source targets, bounded document batches and exhausted-action guards. Passage-label hierarchy remains unchanged pending the user's decision: current nearby-text hover uses the same surface as persistent matched emphasis, so a distinct matched heading/start-edge marker is recommended over adding ambiguous label icons. Further smoke stays deferred; current-source CI and existing release acceptance remain open.
+
+Validation: **303 frontend passed / 1 optional skipped in 56 files**; lint, locale validation, TypeScript, full Vite+Pagefind build and diff checks pass. No native or physical UI/screen-reader smoke repeated.
+
 ## Model preparation hierarchy — 2026-10-15
 
 Model management now keeps the 64 MiB additional free-space requirement directly under Download Size as visible muted text. General model/format rebuilding guidance has a decorative information icon; successful explicit preparation/verification shows a separate success-colored check-circle and **Model Files Verified**. Stored-by-size files retain the integrity-check explanation and never get a verification check merely from presence, a progress event or reopening Settings. Changing selection clears the local verification message; verification still never enables semantic search or starts indexing. Copy is updated in all eight locales.

@@ -60,6 +60,23 @@
   font-weight: 600;
 }
 
+.conceptual-more-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.conceptual-more-action svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .conceptual-index-warning,
 .conceptual-setup-phase {
   display: inline-flex;
