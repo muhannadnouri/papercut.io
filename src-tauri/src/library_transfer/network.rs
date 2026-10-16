@@ -23,6 +23,9 @@ mod endpoints;
 mod security;
 mod session;
 mod transport;
+// shortcut: v4 is compiled but not exposed by v3 commands until the coordinated transport/UI cutover.
+#[allow(dead_code)]
+mod v4;
 use endpoints::{ConnectionOptions, TransferInterface, DEFAULT_PORT};
 use security::{display_code, new_pairing_code, normalize_code, server_tls_config};
 use session::{NetworkWatch, TransferControl};

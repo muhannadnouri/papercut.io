@@ -277,8 +277,9 @@ presenting every completed operation as an unqualified success.
 
 ## Same-Network Transport
 
-The implemented `PCLAN003` path remains foreground and manual. The revised
-receiver-listens design below is not implemented:
+The implemented `PCLAN003` path remains foreground and manual. The revised v4
+core is tested but its receiver-listens flow is not exposed by the UI yet.
+The current production flow is:
 
 1. The source builds an app-owned temporary `.papercut-library` package.
 2. It binds TCP **53318**, or an explicit advanced override (1024–65535), on
@@ -637,8 +638,9 @@ model for Papercut's encrypted native transfer.
 
 #### Connection Roles and Protocol Cutover
 
-**v4 implementation contract, reviewed 2026-10-16; not implemented.** The current
-`security.rs`/`transport.rs` still implement `PCLAN003`. The following wire change
+**v4 core implemented/tested 2026-10-16; production cutover pending.**
+`network/v4/` implements the contract below. The current IPC/dialog still use
+the `PCLAN003` path in `security.rs`/`transport.rs`. The following wire change
 is deliberate: new peers use **only `PCLAN004`**, with no version negotiation or
 fallback to v3 after failure. Read the eight-byte marker before any remaining
 pairing bytes; a different marker closes the connection and gives a local
@@ -915,12 +917,73 @@ loss, deadline trickling, both-mode cancellation/expiry/network changes, stale
 callbacks and the cancellation/restore race. Preserve existing sanitizer,
 path/ZIP bounds, partial import, private staging and diagnostic-redaction tests.
 
-**Review verdict:** the documented contract is ready for implementation and its
-regression tests; it is not a release-ready transport or an independent
-cryptographic audit. Runtime parsing/state tests, platform builds and
-packaged LAN acceptance remain unverified. Smoke and app version bump stay
-deferred; no dependency, runtime, wire implementation or machine policy changes
-are part of this document commit.
+**Review verdict:** the native core now has executable codec/state and real
+TLS/PAKE regressions; this is not a release-ready transport or an independent
+cryptographic audit. Production orchestration, platform builds and packaged LAN
+acceptance remain gates. Smoke and app version bump stay deferred.
+
+##### Native v4 Core Implementation Record — 2026-10-16
+
+The compiled `network/v4/` module provides one authenticated `Channel` for both
+Push and Pull, with content roles derived from the locally selected mode:
+
+- `auth.rs` uses the existing certificate/signature verifier and locked PAKE,
+  HMAC and rustls dependencies. Its transfer-only TLS configuration permits
+  TLS 1.3, disables resumption/tickets/early data, and shares one absolute
+  TLS-plus-PAKE deadline. Fixed hellos, the exact exporter/transcript and
+  connector-first proof order gate construction of an authenticated channel.
+- `codec.rs` bounds/validates Offer, Ready and existing receiver Status messages
+  before reading their bodies. Only a rejection is legal before Ready; raw
+  archive copying and subsequent status parsing have separate states.
+- `mod.rs` owns per-generation credentials, monotonic eligibility, one active
+  connection, authenticated listener ID/endpoint and immutable Offer pins.
+  It implements bounded hashing/copying, capacity rejection, offset validation,
+  full staged SHA-256 verification (including a complete-length partial), atomic
+  restore admission, terminal cleanup and unknown sender outcomes after copy.
+  A retained channel prevents another attempt until it releases ownership.
+  Network teardown after admission preserves local import completion; progress
+  forwarding stops after its first failure. No credentials/session types have
+  Debug or serialization implementations.
+
+The integration boundary is deliberate. The existing v3 commands, diagnostics
+protocol header, UI, package formats and saved data remain unchanged. The v4
+module is compiled in normal builds, with one documented temporary dead-code
+allowance until the coordinated cutover; it is not a parallel advertised
+protocol, a preference or a runtime fallback.
+
+Orchestration must supply only the selected interface's successfully bound
+endpoint set, retain/close its listeners and package guard, serialize device-wide
+send/restore reservations, and invoke `begin_connect` before cancellable TCP
+connect using its returned deadline. It supplies app-owned private staging,
+deletes terminal/untrusted partials, calls the existing importer only after
+`admit_import`, and passes that importer's result to `finish_import`. The core
+does not replace ZIP/path/checksum/sanitization/merge checks or turn peer strings
+into diagnostics. Production lifecycle/IPC/result translation, private staging
+ownership, listener expiry timers and both dialog modes are the next stage;
+discovery and OS permission adapters follow separately.
+
+Validation: `cargo test --offline --manifest-path src-tauri/Cargo.toml --locked
+--lib --no-default-features --quiet` passes **236 tests, 4 existing opt-in tests
+ignored**, including **24 v4 regressions**. Loopback sockets required running
+the automated suite outside the socket-restricted sandbox; this was not device
+smoke. New coverage includes both mode mappings over real TLS/PAKE, empty/nonzero/
+complete resume, fresh matching TLS exporters/full TLS 1.3 handshakes on resume,
+wrong-code consumption and proof-release order, old marker/mode/reflected/invalid
+PAKE rejection, changed authenticated session/package, corrupt full-length
+partials, pre-Ready versus admitted-import storage errors, cancellation/import
+admission races, stale channel ownership, lost/invalid results, forwarding
+failure, absolute eligibility/authentication limits and trickled TLS bytes.
+Codec tests exercise truncation, invalid lengths/offsets, unknown/out-of-order
+types and malformed UTF-8/JSON, alongside the published transcript fixtures.
+Formatting and diff whitespace checks pass. Strict library Clippy was also
+attempted; `-D warnings` is blocked by 14 existing findings in document uploads,
+transfer diagnostics and the unchanged sender function, with none reported in
+the new v4 core. Those unrelated cleanups are outside this stage.
+
+Still required at integration: actual file/importer fault injection (including
+final-write/flush ambiguity), listener/reservation/lifecycle cleanup in both UI
+modes, safe diagnostic/state mapping, platform build/link checks and physical
+LAN acceptance. No firewall rules, dependencies or app versions changed here.
 
 #### DNS-SD Feasibility and Platform Choice
 
@@ -1335,10 +1398,8 @@ needs platform validation before claiming the complete transfer UX:
    pair; no direction or firewall fallback may run without user intent.
    Firewalld/native permission paths still need scope, denial, expiry, crash and
    packaging validation. Static profiles/GUI recovery are not acceptance.
-3. **v4 design review complete; next is tested implementation:** implement the
-   fixed framing/transcript and state contract above, first with real TLS/PAKE
-   and adversarial codec/state regressions. Then wire one authenticated stream
-   boundary to shared package framing and native generations, followed by the
+3. **v4 core implemented/tested; next is coordinated integration:** wire one
+   authenticated stream boundary to shared package framing and native generations, followed by the
    default/Connect to Sender UI and bounded native DNS-SD adapters. Add only
    supported OS permission paths, not an automatic UFW grant. Compile
    and link adapters on the supported minimum OS; verify callback teardown,
@@ -1401,8 +1462,11 @@ firewall mutation accompanies this revised design.
   distinguish the listening device/code owner from the content sender/receiver.
 - [x] Finalize/review both modes' v4 framing, transcript, state/consent, resume,
   deadlines and old-peer cutover; validate mechanical confirmation fixtures.
-- [ ] Implement/test the v4 codec/authentication and state contract with real
-  TLS/PAKE before integrating the shared stream boundary and dialog controls.
+- [x] Implement/test the v4 codec/authentication and per-generation state contract
+  with real TLS/PAKE before integrating the shared stream boundary and dialog controls.
+- [ ] Integrate v4 with production listener/package/staging ownership, native
+  reservations/lifecycle/diagnostics and both dialog modes; remove the temporary
+  dead-code allowance and cut over from v3 without fallback.
 - [ ] Validate the no-terminal flow with packaged builds; inbound UFW approval
   remains unsupported without separately reviewed integration or administrator setup.
 - [ ] Implement/test supported native OS permission paths without a custom UFW helper.

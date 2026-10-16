@@ -25,6 +25,7 @@ const PAKE_MESSAGE_BYTES: usize = 33;
 const CONFIRMATION_BYTES: usize = 32;
 const CODE_ALPHABET: &[u8; 32] = b"23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 const CODE_CHARS: usize = 12;
+const TLS13_ONLY: &[&rustls::SupportedProtocolVersion] = &[&rustls::version::TLS13];
 
 type HmacSha256 = Hmac<sha2::Sha256>;
 pub(super) type PairingState = Spake2<Ed25519Group>;
@@ -188,32 +189,65 @@ impl ExportKeyingMaterial for ClientConnection {
 /// Create a fresh self-signed certificate for one foreground send session; the
 /// PAKE exchange, rather than a persistent certificate, authenticates the peer.
 pub(super) fn server_tls_config() -> Result<Arc<ServerConfig>, String> {
+    server_tls_config_for(false)
+}
+
+pub(super) fn v4_server_tls_config() -> Result<Arc<ServerConfig>, String> {
+    server_tls_config_for(true)
+}
+
+fn server_tls_config_for(v4: bool) -> Result<Arc<ServerConfig>, String> {
     let certified = generate_simple_self_signed(["papercut.local".to_string()])
         .map_err(|err| format!("Failed to create secure transfer certificate: {err}"))?;
     let key = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certified.key_pair.serialize_der()));
     let provider = Arc::new(rustls::crypto::ring::default_provider());
-    let config = ServerConfig::builder_with_provider(provider)
-        .with_safe_default_protocol_versions()
+    let mut config = ServerConfig::builder_with_provider(provider)
+        .with_protocol_versions(if v4 {
+            TLS13_ONLY
+        } else {
+            rustls::DEFAULT_VERSIONS
+        })
         .map_err(|err| format!("Failed to configure secure library transfer: {err}"))?
         .with_no_client_auth()
         .with_single_cert(vec![certified.cert.der().clone()], key)
         .map_err(|err| format!("Failed to configure secure transfer certificate: {err}"))?;
+    if v4 {
+        config.send_tls13_tickets = 0;
+        config.session_storage = Arc::new(rustls::server::NoServerSessionStorage {});
+        config.max_early_data_size = 0;
+    }
     Ok(Arc::new(config))
 }
 
 /// Accept the source's ephemeral certificate chain while retaining TLS signature
 /// verification; the following channel-bound PAKE confirmation establishes trust.
 pub(super) fn client_tls_config() -> Result<Arc<ClientConfig>, String> {
+    client_tls_config_for(false)
+}
+
+pub(super) fn v4_client_tls_config() -> Result<Arc<ClientConfig>, String> {
+    client_tls_config_for(true)
+}
+
+fn client_tls_config_for(v4: bool) -> Result<Arc<ClientConfig>, String> {
     let provider = Arc::new(rustls::crypto::ring::default_provider());
     let verifier = Arc::new(PairingCertificateVerifier {
         supported: provider.signature_verification_algorithms,
     });
-    let config = ClientConfig::builder_with_provider(provider)
-        .with_safe_default_protocol_versions()
+    let mut config = ClientConfig::builder_with_provider(provider)
+        .with_protocol_versions(if v4 {
+            TLS13_ONLY
+        } else {
+            rustls::DEFAULT_VERSIONS
+        })
         .map_err(|err| format!("Failed to configure secure library transfer: {err}"))?
         .dangerous()
         .with_custom_certificate_verifier(verifier)
         .with_no_client_auth();
+    if v4 {
+        config.resumption = rustls::client::Resumption::disabled();
+        config.enable_early_data = false;
+    }
     Ok(Arc::new(config))
 }
 
