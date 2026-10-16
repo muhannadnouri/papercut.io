@@ -2,6 +2,32 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+## CI and owner acceptance reconciled — 2026-10-16
+
+[Run 38859560492](https://github.com/muhannadnouri/papercut.io/actions/runs/38859560492)
+passed all ten jobs on exact source `e511c3991966637f21d4f4c482aa8d737c78e50a`
+(`feature/search-v2`, attempt 1). Read-only inspection confirms successful audits,
+packaging and actual cached-provider inference on Linux, Windows, both macOS
+architectures, Android emulator and iOS simulator. Frontend 311 passed / 1 skipped,
+default Rust 196 passed / 5 ignored, provider Rust 254 passed / 10 ignored;
+inference was separately executed rather than relabeling ignored tests as passed.
+The existing audit policy/waiver is unchanged; Rust reports zero vulnerabilities
+and 11 non-blocking warnings.
+
+The owner accepts the reported WebView layout and Android behavior, and is
+satisfied with conceptual results from manual testing on a private corpus. These
+close the prior reported UI/Android and result-quality merge concerns. iOS is not
+yet released: installed-app/iOS distribution acceptance is explicitly after merge
+and before its first release. Do not label every smoke case or broader hardware/
+resource/accessibility combination as tested. Further smoke remains deferred;
+those coverage limits and existing release procedures stay documented.
+
+The [current merge assessment](search-v2-branch-review.md#current-merge-assessment--2026-10-16)
+supersedes earlier pending-gate statements: no remaining blocker is identified for
+the agreed scope. Diagnostics remain in search-v2; transfer redesign remains a
+separate TODO. This pass updates records only, with no runtime change, new test
+run, push, merge, release or CI dispatch.
+
 ## Transfer redesign deferred — 2026-10-15
 
 Keep diagnostics commit `bfc7245` in this branch. The user's subsequent sender

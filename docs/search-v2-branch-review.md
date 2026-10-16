@@ -1,5 +1,48 @@
 # Search v2 branch acceptance and review
 
+## Current merge assessment — 2026-10-16
+
+**Ready to merge for the agreed search-v2 scope.** This section supersedes the
+earlier open-gate assessments below; it records new evidence and the owner's
+release scope, not a new implementation or permission to merge/publish.
+
+1. **Current-source CI closed.** [Run 38859560492](https://github.com/muhannadnouri/papercut.io/actions/runs/38859560492),
+   attempt 1, passed all ten jobs on `feature/search-v2` at
+   `e511c3991966637f21d4f4c482aa8d737c78e50a`, including retained transfer diagnostics.
+   Checked job logs confirm the provider inference test actually ran and passed
+   on Linux, Windows, macOS Intel/Apple Silicon, Android emulator and iOS simulator.
+   Frontend: 311 passed / 1 optional skipped; default Rust: 196 passed / 5 ignored;
+   provider-enabled Rust: 254 passed / 10 ignored, with the cached inference test
+   separately executed. npm/Rust audits and platform packaging passed. Rust audit
+   reported no vulnerabilities under the existing policy, retained the guarded
+   inactive-rkyv waiver and reported 11 non-blocking warnings; a green run does
+   not mean every dependency warning is absent.
+2. **Reported UI/Android acceptance accepted.** The owner reports that WebView
+   layout looks good and Android behavior works as intended. This closes the
+   reported layout/Android merge concern; it does not invent a pass for every
+   detailed smoke case. iOS is not released, and the owner explicitly moves
+   installed-device/iOS distribution acceptance to after merge, before its first
+   release. macOS signing/notarization remains part of the existing release
+   procedure, not something this unsigned CI run claims to validate.
+3. **Conceptual result quality accepted by the owner.** Manual testing against
+   the owner's private corpus produced satisfactory results. This replaces the
+   previous lack of owner quality acceptance; the private corpus is not committed
+   or presented as an independent benchmark. The prior bundled quality/resource
+   concern is separated: minimum-OS/weak-device behavior, every Base/Large model
+   combination, memory/battery/thermal qualification and exhaustive accessibility
+   cases remain unverified limits/follow-up work, not newly confirmed code defects
+   or a claim of universal device support.
+
+The latest code review found no new must-fix defect in the reviewed search and
+diagnostic paths. No remaining blocker is identified for this agreed merge scope.
+Keep the default-off experiment, resource warnings and source-evidence caveats.
+Further smoke remains deferred; use the [smoke record](search-v2-smoke.md) for the
+actual reported coverage and the remaining checklist. Retain diagnostics
+`bfc7245`; the [LAN redesign TODO](library-transfer.md#deferred-lan-redesign--2026-10-15)
+stays outside this branch, with the original connectivity cause still unconfirmed.
+This update changes documentation only; the verified application source remains
+`e511c39`. No merge, push, release or additional workflow run is performed.
+
 ## Transfer scope decision — 2026-10-15
 
 Diagnostics commit `bfc7245` stays in search-v2. Discovery, stable-port selection,

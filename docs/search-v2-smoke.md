@@ -1,6 +1,30 @@
 # Search v2 consolidated smoke pass
 
-Status: **partial user-reported installed-app smoke; further smoke deferred**.
+Status: **owner-reported WebView/Android and conceptual-result acceptance recorded;
+further smoke deferred. iOS acceptance is after merge and before its first release.**
+
+## Current acceptance update — 2026-10-16
+
+The owner reports that WebView layout looks good and Android behavior works as
+intended, including the concerns raised against the earlier partial record below.
+The owner also manually tested conceptual results against a private corpus and
+is satisfied with their quality. This is owner acceptance, not independently
+observed automation or a pass for every checklist case. The latest report does
+not specify the installed SHA, device model, model/format, fresh-versus-existing
+library or individual recovery/accessibility/resource cases; do not infer them
+from the CI SHA or the earlier Small FP32 report.
+
+Current source `e511c39` has verified [full CI run 38859560492](https://github.com/muhannadnouri/papercut.io/actions/runs/38859560492),
+with ten successful jobs and actual provider inference on all six runtime targets.
+The owner explicitly defers iOS installed-app/distribution acceptance because
+iOS is not released; complete it after merge and before that platform's first
+release. Broader hardware/model/resource/accessibility checks and detailed cases
+below remain unverified and deferred. The
+[current merge assessment](search-v2-branch-review.md#current-merge-assessment--2026-10-16)
+records no remaining blocker for the agreed scope. No new smoke, merge or release
+was performed to create this record.
+
+## Earlier reported smoke — 2026-10-14
 
 Reported on 2026-10-14 after the user supplied [successful CI run 38500026388](https://github.com/muhannadnouri/papercut.io/actions/runs/38500026388) (application source `15b3710`):
 
@@ -12,7 +36,11 @@ Reported on 2026-10-14 after the user supplied [successful CI run 38500026388](h
 
 This is the user's report, not independently observed automation. Do not mark whole checklist rounds passed: restart/upgrade, cancellation/error recovery, exact reader/Find, RTL/accessibility, large-library responsiveness and other model formats were not confirmed. Windows/macOS installed-app smoke is also unconfirmed. The earlier normal/cache smoke reported on 2026-10-09 remains historical. No checkbox below is marked passed by automated tests or these partial reports.
 
-The new Keyword/Conceptual result tabs, grouped tonal controls and bounded lists postdate that artifact and need fresh current-source CI and targeted installed-app checks. Further smoke is explicitly deferred for this implementation pass. Merging is intended to release immediately, so outstanding iOS/platform/distribution acceptance remains a release gate.
+That artifact predates the new Keyword/Conceptual controls and bounded lists.
+The current-source CI gap and reported layout/Android concerns are addressed by
+the 2026-10-16 update above. iOS acceptance is now explicitly post-merge, before
+its first release; the earlier all-platform immediate-release assumption no
+longer makes unreleased iOS a blocker for merging this branch.
 
 Use this as **one rebuilt-app pass**, reusing a disposable profile and sources for overlapping cases below. Keep private questions, sources, screenshots and individual logs outside tracked files. The [current acceptance follow-up](search-v2-branch-review.md#result-view-follow-up-and-reported-smoke--2026-10-14) separates verified automation, reported smoke and remaining release gates.
 
@@ -83,7 +111,13 @@ an answer. The current model is not an answer verifier; the rejected scorer and
 experimental grouping are not shipped. Do not use a lack of exact keyword overlap
 as a failure by itself, or a related passage as proof of a complete answer.
 
-The last verified full CI/inference run is [38617694995](https://github.com/muhannadnouri/papercut.io/actions/runs/38617694995) on `8bb188a`; all ten jobs passed, including the repaired Rust audit, packaging and explicit cached-provider activation on desktop, Android emulator and iOS simulator. It predates subsequent UI fixes, so current-source full CI remains a separate gate. CI does not launch the WebView or replace this checklist. Recorded provider checks cover Small FP32/INT8, not every Base/Large device combination. Earlier history lives in [progress](search-v2-progress.md).
+The latest verified full CI/inference run is [38859560492](https://github.com/muhannadnouri/papercut.io/actions/runs/38859560492)
+on `e511c39`; all ten jobs passed, including audits, packaging and separately
+executed cached-provider activation on desktop, Android emulator and iOS
+simulator. This covers the current application source and retained diagnostics.
+CI does not launch the WebView or replace the remaining detailed checklist.
+Recorded provider checks cover Small FP32/INT8, not every Base/Large device
+combination. Earlier history lives in [progress](search-v2-progress.md).
 
 ## Isolate the library first
 
