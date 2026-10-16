@@ -355,7 +355,9 @@ the omitted-event count discloses bounded-history eviction.
 Privacy is enforced when recording, not by attempting to scrub arbitrary text
 later. Only fixed labels and an allowlist of numeric facts enter the history.
 Socket errors retain their OS error kind/code; storage failures retain required
-and available bytes. Restore summaries keep aggregate imported/skipped/failed
+and available bytes. A fatal listener accept error records both the I/O facts and
+a terminal failure, then closes that attempt against late events. Restore summaries
+keep aggregate imported/skipped/failed
 counts (documents plus audiobooks), including partial outcomes, without item names
 or per-item error strings. Endpoint details retain port and IPv4 scope (private,
 link-local or loopback), **never the IP address**. Keys, TLS/PAKE material, request

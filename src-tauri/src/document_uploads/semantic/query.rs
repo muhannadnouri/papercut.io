@@ -111,12 +111,18 @@ fn nearby_context(
                 break;
             }
             if ordinal == candidate.section {
-                ranges.retain(|range| range.start <= candidate.start && candidate.end <= range.end);
+                ranges.retain(|range| {
+                    if before {
+                        range.start < candidate.start
+                    } else {
+                        range.end > candidate.end
+                    }
+                });
                 for range in &mut ranges {
                     if before {
-                        range.end = candidate.start;
+                        range.end = range.end.min(candidate.start);
                     } else {
-                        range.start = candidate.end;
+                        range.start = range.start.max(candidate.end);
                     }
                 }
             }

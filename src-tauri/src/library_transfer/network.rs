@@ -319,7 +319,7 @@ fn start_send(
     let thread_status = Arc::clone(&status);
     thread::spawn(move || {
         run_sender(
-            listener,
+            || listener.accept().map(|(stream, _)| stream),
             tls_config,
             &code,
             package.path(),
@@ -336,7 +336,7 @@ fn start_send(
 /// completes, cancellation, or expiry. Pre-authentication transport noise is
 /// ignored, but a complete incorrect proof consumes the one-use session.
 fn run_sender(
-    listener: TcpListener,
+    mut accept: impl FnMut() -> io::Result<TcpStream>,
     tls_config: Arc<ServerConfig>,
     code: &str,
     package_path: &Path,
@@ -362,8 +362,8 @@ fn run_sender(
             );
             return;
         }
-        match listener.accept() {
-            Ok((stream, _)) => {
+        match accept() {
+            Ok(stream) => {
                 trace.stage("tcp-accepted");
                 if let Err(error) = track_active_socket(&stream, active_socket) {
                     trace.finish(Some(&LibraryTransferError::message(&error)));
@@ -419,6 +419,7 @@ fn run_sender(
             }
             Err(error) => {
                 trace.io_error(&error);
+                trace.finish(Some(&LibraryTransferError::message("listener failed")));
                 set_send_status(
                     status,
                     LibraryTransferSendState::Failed,
@@ -561,6 +562,72 @@ fn lock<T>(mutex: &Mutex<T>) -> Result<std::sync::MutexGuard<'_, T>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn listener_failure_finishes_send_trace_and_preserves_safe_io_facts() {
+        for error in [
+            io::Error::from_raw_os_error(13),
+            io::Error::new(io::ErrorKind::PermissionDenied, "private listener details"),
+        ] {
+            let kind = format!("{:?}", error.kind());
+            let code = error.raw_os_error();
+            let diagnostics = Diagnostics::default();
+            let trace = diagnostics.begin("send");
+            trace.stage("waiting");
+            let status = Arc::new(Mutex::new(LibraryTransferSendStatus {
+                state: LibraryTransferSendState::Waiting,
+                address: String::new(),
+                code: String::new(),
+                documents: 0,
+                audiobooks: 0,
+                package_bytes: 0,
+                bytes_transferred: 0,
+                receiver_progress: None,
+                error: None,
+            }));
+            let mut calls = 0;
+            let mut error = Some(error);
+            run_sender(
+                || {
+                    calls += 1;
+                    if calls == 1 {
+                        Err(io::ErrorKind::WouldBlock.into())
+                    } else {
+                        Err(error.take().unwrap())
+                    }
+                },
+                server_tls_config().unwrap(),
+                "unused-code",
+                Path::new("unused-package"),
+                &status,
+                &AtomicBool::new(false),
+                &Mutex::new(None),
+                &trace,
+            );
+            assert_eq!(calls, 2);
+            let status = status.lock().unwrap();
+            assert_eq!(status.state, LibraryTransferSendState::Failed);
+            assert!(status
+                .error
+                .as_deref()
+                .unwrap()
+                .starts_with("Local library transfer failed:"));
+            let snapshot = serde_json::to_value(diagnostics.snapshot().unwrap()).unwrap();
+            let events = snapshot["events"].as_array().unwrap();
+            assert_eq!(events.len(), 4);
+            assert_eq!(events[2]["code"], "io-error");
+            assert_eq!(events[2]["ioKind"], kind);
+            assert_eq!(events[2]["osCode"], serde_json::json!(code));
+            assert_eq!(events[3]["phase"], "waiting");
+            assert_eq!(events[3]["code"], "failed");
+            assert!(!snapshot.to_string().contains("private listener details"));
+            trace.note("waiting", "late-event");
+            assert_eq!(
+                serde_json::to_value(diagnostics.snapshot().unwrap()).unwrap(),
+                snapshot
+            );
+        }
+    }
 
     #[test]
     fn native_operation_reservations_release_after_every_owner() {

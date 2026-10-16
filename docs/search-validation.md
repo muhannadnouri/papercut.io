@@ -8,6 +8,8 @@ books; one maintainer should be able to resume testing without replaying the bra
 ## Acceptance And Scope
 
 **2026-10-16: no remaining confirmed merge blocker for the agreed search-v2 scope.**
+The post-review native corrections below pass local regressions; fresh full CI at
+the corrected source remains pending. Earlier green CI stays bound to its recorded SHA.
 Keep optional semantic search default-off. Further smoke is deferred. iOS installed-app/
 distribution acceptance is after merge and before its first release. Retained Library
 Transfer diagnostics do not repair the reported connectivity failure; discovery,
@@ -410,8 +412,10 @@ env XDG_DATA_HOME="$task_smoke_dir/data" XDG_CONFIG_HOME="$task_smoke_dir/config
   or cog when setup removed it. Retain draft/query, filters, selected view, open evidence,
   batch limits and focus; check keyboard/coarse touch/narrow/RTL and announcements.
 - [ ] **C06 — Nearby text and hierarchy.** Expand Passage & Nearby Text: match and nearest
-  available neighbour each side remain in source order, not relevance order. Matched
-  Passage is a stronger semantic heading with persistent logical-start accent/tonal
+  available neighbour each side remain in source order, not relevance order. Other
+  body spans before/after inline notes in the matched section stay separately available, excluding the
+  note text and preserving original offsets within the existing bounds.
+  Matched Passage is a stronger semantic heading with persistent logical-start accent/tonal
   surface; Nearby Text is secondary with equal block padding/border space. More reveals
   remaining bounded previews, Less restores nearest window and focus. Down/up decorative
   chevrons share click/touch area; labels/counts wrap. Expansion is per card and resets
@@ -517,3 +521,31 @@ reconciliation, script syntax/lint and diff checks pass. Application code, fixtu
 other than baseline location, dependencies and workflows remain unchanged. No fresh
 full suites/platform CI, model inference or installed-app smoke were rerun, and no
 push, merge or release is implied.
+
+## Post-Review Corrections — 2026-10-16
+
+The two confirmed CodeRabbit findings after `7006e5b` are repaired:
+
+- [Nearby context](https://github.com/muhannadnouri/papercut.io/pull/79#discussion_r4292110860):
+  clip all eligible body ranges in the matched section on either side of the
+  candidate, rather than discarding disjoint ranges. The production-store regression
+  now includes body/note/body/note/body text with Unicode, checks closer spans before
+  farther sections, independent source offsets, note exclusion, source order, budgets,
+  auxiliary-only boundaries and read-only retrieval. Ranking/index identity is unchanged;
+  this context repair requires no rebuild or model download.
+- [Listener failure diagnostics](https://github.com/muhannadnouri/papercut.io/pull/79#discussion_r4292110902):
+  record terminal failure after safe OS I/O facts and close the attempt. The real
+  sender loop accepts a callback so its existing listener can be replaced by a
+  deterministic WouldBlock-then-fatal error in the regression, without opening a
+  socket. It checks UI Failed state, one terminal event, error kind/optional OS code,
+  redaction of arbitrary error text and rejection of late events. Listener selection,
+  TLS/pairing, retry policy and transfer protocol remain unchanged.
+
+Both regressions failed before their fixes and pass afterward. Local complete Rust
+suites pass: **198 default / 4 ignored**, **256 provider-enabled / 9 ignored**.
+Rust formatting, documentation links, scope and diff checks pass. No frontend source
+changed, so frontend suites were not repeated. No model inference, platform CI or
+device smoke was rerun. The earlier full CI remains historical evidence, not coverage
+of these corrections. Next run the existing full workflow on the pushed corrected
+source with explicit provider inference, then bind the result to its actual SHA.
+Smoke, iOS acceptance and transfer redesign retain their existing deferrals.

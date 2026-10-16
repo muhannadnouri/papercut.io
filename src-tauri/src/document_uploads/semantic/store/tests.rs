@@ -1380,7 +1380,7 @@ fn conceptual_context_is_bounded_body_text_in_source_order_with_individual_ancho
         "Before three",
         "Before two",
         "Before one",
-        "港 Intro. MATCH Qualification. Footer",
+        "港 Before. Note. 港 Intro. MATCH Qualification. Note. 港 After. Footer",
         "Note. Following body.",
         "Following two",
         "Following three",
@@ -1395,15 +1395,21 @@ fn conceptual_context_is_bounded_body_text_in_source_order_with_individual_ancho
     )
     .unwrap();
     let primary = texts[6];
-    let end = primary.find(" Footer").unwrap();
     let next = texts[7];
-    for (ordinal, range) in [
-        (6, 0..end),
-        (7, next.find("Following").unwrap()..next.len()),
+    for (ordinal, ranges) in [
+        (
+            6,
+            vec![
+                0..primary.find(" Note.").unwrap(),
+                primary.find("港 Intro.").unwrap()..primary.rfind(" Note.").unwrap(),
+                primary.find("港 After.").unwrap()..primary.find(" Footer").unwrap(),
+            ],
+        ),
+        (7, vec![next.find("Following").unwrap()..next.len()]),
     ] {
         db.execute(
             "UPDATE uploaded_sections SET body_ranges=?1 WHERE document_id='abc123' AND ordinal=?2",
-            params![serde_json::to_string(&vec![range]).unwrap(), ordinal],
+            params![serde_json::to_string(&ranges).unwrap(), ordinal],
         )
         .unwrap();
     }
@@ -1444,9 +1450,12 @@ fn conceptual_context_is_bounded_body_text_in_source_order_with_individual_ancho
     assert_eq!(hit["text"], "MATCH");
     let context = hit["context"].as_array().unwrap();
     assert_eq!(context.len(), 10);
-    assert_eq!(context.first().unwrap()["sectionIndex"], 2);
-    assert_eq!(context.last().unwrap()["sectionIndex"], 10);
+    assert_eq!(context.first().unwrap()["sectionIndex"], 3);
+    assert_eq!(context.last().unwrap()["sectionIndex"], 9);
+    assert!(context.iter().any(|span| span["text"] == "港 Before."));
+    assert!(context.iter().any(|span| span["text"] == "港 Intro. "));
     assert!(context.iter().any(|span| span["text"] == " Qualification."));
+    assert!(context.iter().any(|span| span["text"] == "港 After."));
     for span in context {
         let ordinal = span["sectionIndex"].as_u64().unwrap() as usize;
         assert_eq!(span["pageIndex"], ordinal);
@@ -1472,7 +1481,7 @@ fn conceptual_context_is_bounded_body_text_in_source_order_with_individual_ancho
     assert_eq!(guarded["results"][0]["sectionIndex"], 6);
     assert_eq!(
         guarded["results"][0]["context"].as_array().unwrap().len(),
-        4
+        6
     );
     for span in guarded["results"][0]["context"].as_array().unwrap() {
         let ordinal = span["sectionIndex"].as_u64().unwrap();

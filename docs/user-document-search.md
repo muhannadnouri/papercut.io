@@ -488,6 +488,9 @@ retrieval semantics.
 Conceptual cards contain plain authored text, no invented marks/counts. **Passage &
 Nearby Text** initially shows the match and nearest available neighbour on each side,
 in source order; More reveals remaining bounded previews, Less restores that window.
+Other body spans in the matched section remain eligible on either side of the match,
+including across an inline note. They stay separately anchored; the omitted note is
+never joined into synthetic prose, and nearer spans consume the existing budgets first.
 Matched Passage has a stronger semantic heading, tonal surface and persistent logical
 start-edge accent rule. All context blocks reserve equal padding/border space; Nearby
 Text stays secondary. Leading down/up chevrons are decorative; expanded/controls
