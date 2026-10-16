@@ -1,6 +1,10 @@
 # Search v2 branch acceptance and review
 
 
+## Matched passage hierarchy follow-up — 2026-10-15
+
+Matched Passage now has a stronger semantic heading and persistent logical start-edge accent rule. All context blocks share padding/border space; Nearby Text retains secondary heading styling. Source order, context bounds/expansion, focus and original reader targets are preserved. LTR/RTL DOM and shipped-style regressions cover the hierarchy and source order; physical layout/hover/screen-reader smoke remains deferred. Validation: **305 frontend passed / 1 optional skipped in 56 files**, lint/i18n/TypeScript/full Vite+Pagefind build/diff checks pass. See [the progress record](search-v2-progress.md). Fresh current-source full CI and the existing immediate-release acceptance gates remain open; earlier CI and user-reported smoke evidence is unchanged.
+
 ## Model preparation hierarchy follow-up — 2026-10-15
 
 Manage Model groups the 64 MiB disk reserve under Download Size, separates muted information from explicit **Model Files Verified** success feedback, and adds a decorative leading circle-X to the tonal Cancel Download action. Stored files do not imply verification or model activation. Existing consent, cancellation/cleanup, error and removal-confirmation guards remain intact. DOM/controller regressions cover the status lifecycle, selection/reopen resets, storage grouping, icons and guarded cancellation; see [the progress record](search-v2-progress.md). Validation: **302 frontend passed / 1 optional skipped in 56 files**, lint/i18n/TypeScript/full Vite+Pagefind build/diff checks pass. Further smoke remains deferred. Fresh current-source CI and immediate-release platform/distribution acceptance remain open; earlier CI evidence is unchanged.

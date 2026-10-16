@@ -3,6 +3,14 @@
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
 
+## Matched passage hierarchy — 2026-10-15
+
+Approved follow-up to the passage-label assessment: every context block now has equal padding, corner treatment and a reserved 3px logical start border. The matched block alone colors that rule with the theme accent and retains its tonal surface; its **Matched Passage** heading is larger, heavier and uses the primary text color. **Nearby Text** remains a readable secondary heading. Both labels are semantic headings outside the source-opening buttons and wrap without metadata truncation. This gives the match a persistent marker distinct from nearby-button hover, with no label icons or confidence badges.
+
+Presentation only: the match stays between its source neighbours, rather than moving to the front. Nearest-three previews, expanded source order, per-card state, More/Less focus and accessible control associations, source text/offsets and original reader targets remain unchanged. No native/retrieval/schema, dependency or locale changes. New LTR/RTL DOM/style regressions failed on the previous UI, then cover heading roles, stronger type, equal padding, logical rule binding and collapsed/expanded source order. Existing reader/focus/escaping/bounds regressions remain in place. jsdom does not resolve logical border shorthands, so the actual CSS rule is checked alongside computed padding/type; these checks do not establish painted layout, hover or physical RTL/screen-reader acceptance. Further smoke remains deferred; fresh current-source CI and existing immediate-release acceptance remain open.
+
+Validation: **305 frontend passed / 1 optional skipped in 56 files**; lint, all-eight-locale validation, TypeScript, full Vite+Pagefind build and diff checks pass. Native tests were not repeated for this presentation-only change.
+
 ## Conceptual expansion action icons — 2026-10-15
 
 Conceptual Show More document batches and Show More Nearby Text now have a decorative leading down-chevron; Show Less changes the same control to an up-chevron. Visible localized labels, context counts, expanded/controls associations, focus, independent card expansion, source order and original reader targets remain intact. Icons are hidden from accessibility APIs and cannot take focus. Exhausted batch actions retain their existing aria-disabled guard. No retrieval, offsets, locale strings or dependencies change.

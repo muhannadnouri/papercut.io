@@ -111,8 +111,8 @@ function ConceptualResultCard({ result, opening, openingDisabled, onViewDocument
         <div id={id} className="conceptual-context-previews">
           {visible.map((passage) => <div className={`conceptual-context-block${passage === result ? ' conceptual-context-block-matched' : ''}`}
             key={`${passage.sectionIndex}:${passage.byteStart}`}>
-            <p className="result-meta">{t(passage === result
-              ? 'search.conceptual.matchedPassage' : 'search.conceptual.nearbyText')}</p>
+            <h3 className="conceptual-context-label">{t(passage === result
+              ? 'search.conceptual.matchedPassage' : 'search.conceptual.nearbyText')}</h3>
             <button type="button" className="result-card-primary" disabled={openingDisabled || opening}
               onClick={() => onViewDocument(result.url, indexedSearchOpenTarget(passage))}>
               {passage.sectionTitle && <span className="result-meta" dir="auto"><bdi>{passage.sectionTitle}</bdi></span>}

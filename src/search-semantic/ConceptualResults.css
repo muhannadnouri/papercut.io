@@ -30,13 +30,31 @@
   gap: 0.8rem;
 }
 
-.conceptual-context-block-matched {
+.conceptual-context-block {
   padding: 0.65rem;
+  border-inline-start: 3px solid transparent;
   border-radius: var(--radius-control);
+}
+
+.conceptual-context-block-matched {
+  border-inline-start-color: var(--accent-text);
   background: var(--surface-accent);
 }
 
-.conceptual-context-block > .result-meta { margin: 0; }
+.conceptual-context-label {
+  margin: 0 0 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.conceptual-context-block-matched > .conceptual-context-label {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 .conceptual-context-block .result-card-primary { padding: 0.5rem; }
 
 .conceptual-context-text {

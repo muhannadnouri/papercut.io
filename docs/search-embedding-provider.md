@@ -773,8 +773,12 @@ Conceptual passages render as plain React text, never marked HTML or invented
 literal evidence. Similarity scores stay out of the UI. **Passage & Nearby Text**
 initially shows the match and the nearest available source neighbour on each side,
 in source order. **Show More Nearby Text (N)** reveals the remaining bounded
-previews; **Show Less** restores that window. The match is emphasized and each
-card owns its expansion, reset when its matched span changes. The toggle uses
+previews; **Show Less** restores that window. Every context block shares padding
+and reserved border space. The match has a stronger **Matched Passage** heading,
+a persistent theme-accent logical start rule and a tonal surface; **Nearby Text**
+uses a secondary heading. The rule remains distinct from nearby-button hover;
+source order is preserved. Labels wrap and remain outside the opening buttons.
+Each card owns its expansion, reset when its matched span changes. The toggle uses
 `aria-expanded`/`aria-controls` and remains focusable through either transition.
 
 Preview text is capped at 400 Unicode characters before an ellipsis, preferring a

@@ -28,7 +28,7 @@ Use this as **one rebuilt-app pass**, reusing a disposable profile and sources f
 ## Conceptual expansion icons — deferred
 
 - Confirm leading down-chevrons on Show More document batches/nearby text and an up-chevron on Show Less, with full labels/counts readable at narrow widths, RTL and zoom. Icons remain decorative and share the button's click/touch area. Verify collapse retains focus, context stays in source order and reader links use original targets. Exhausted document batches must not request another batch.
-- Passage-label hierarchy has not changed in this pass. Review persistent matched emphasis against nearby-text hover before accepting any later hierarchy refinement.
+- Confirm Matched Passage has a larger/heavier heading, primary text color and persistent start-edge accent rule, with the same block padding as Nearby Text. The rule follows RTL direction and remains distinct while hovering/focusing nearby buttons; labels wrap at narrow widths/zoom. Check light/dark themes, heading navigation and readable nearby text. Expand/collapse and open source passages: source order, focus and original reader targets must remain intact. These checks remain deferred; DOM/style regressions do not accept actual WebView rendering.
 
 ## Model preparation hierarchy checks — deferred
 

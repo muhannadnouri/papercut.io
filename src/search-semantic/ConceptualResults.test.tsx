@@ -2,6 +2,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ConceptualResults } from './ConceptualResults'
 import type { ConceptualResponse, ConceptualState } from './useConceptualSearch'
@@ -124,6 +125,45 @@ function headings(card: ParentNode = container) {
   return [...card.querySelectorAll('.conceptual-context-block button > .result-meta')].map(node => node.textContent)
 }
 
+it.each(['ltr', 'rtl'])('keeps matched hierarchy and equal block spacing bound to the stylesheet in %s source order', async direction => {
+  const style = document.createElement('style')
+  style.textContent = readFileSync('src/search-semantic/ConceptualResults.css', 'utf8')
+  document.head.append(style)
+  container.dir = direction
+  try {
+    const result = surroundingResult()
+    await render({ phase: 'ready', response: { ...response, results: [result] } })
+    await click(container.querySelector('summary')!)
+    const blocks = [...container.querySelectorAll<HTMLElement>('.conceptual-context-block')]
+    expect(blocks.map(block => block.querySelector('h3')?.textContent)).toEqual([
+      'search.conceptual.nearbyText', 'search.conceptual.matchedPassage', 'search.conceptual.nearbyText',
+    ])
+    const matched = blocks[1]
+    expect(container.querySelectorAll('.conceptual-context-block-matched')).toHaveLength(1)
+    expect(matched.classList.contains('conceptual-context-block-matched')).toBe(true)
+    const matchStyle = getComputedStyle(matched)
+    expect(matchStyle.padding).toBe('0.65rem')
+    // jsdom does not resolve logical border shorthands; check the shipped rule too.
+    const blockRule = [...style.sheet!.cssRules].find(rule => (rule as CSSStyleRule).selectorText === '.conceptual-context-block') as CSSStyleRule
+    expect(blockRule.style.getPropertyValue('border-inline-start')).toBe('3px solid transparent')
+    for (const nearby of [blocks[0], blocks[2]]) {
+      const nearbyStyle = getComputedStyle(nearby)
+      expect(nearbyStyle.padding).toBe(matchStyle.padding)
+      expect(Number(getComputedStyle(matched.querySelector('h3')!).fontWeight)).toBeGreaterThan(
+        Number(getComputedStyle(nearby.querySelector('h3')!).fontWeight))
+      expect(parseFloat(getComputedStyle(matched.querySelector('h3')!).fontSize)).toBeGreaterThan(
+        parseFloat(getComputedStyle(nearby.querySelector('h3')!).fontSize))
+    }
+    // A neighboring button's hover surface cannot remove the match's separate marker.
+    const matchRule = [...style.sheet!.cssRules].find(rule => (rule as CSSStyleRule).selectorText === '.conceptual-context-block-matched') as CSSStyleRule
+    expect(matchRule.style.getPropertyValue('border-inline-start-color')).toBe('var(--accent-text)')
+    expect(matched.querySelector('h3')?.closest('button')).toBeNull()
+    expect(headings()).toEqual(['Closest Before', 'Connections', 'Closest After'])
+  } finally {
+    style.remove()
+  }
+})
+
 it('shows the nearest three blocks, expands in source order and collapses without losing control focus or reader targets', async () => {
   const result = surroundingResult()
   const original = JSON.stringify(result)
@@ -144,6 +184,10 @@ it('shows the nearest three blocks, expands in source order and collapses withou
   more.focus()
   await act(() => { icon.querySelector('path')!.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
   expect(headings()).toEqual(['Far Before', 'Earlier', 'Closest Before', 'Connections', 'Closest After', 'Later', 'Far After'])
+  expect([...container.querySelectorAll('.conceptual-context-block > h3')].map(node => node.textContent)).toEqual([
+    ...Array(3).fill('search.conceptual.nearbyText'), 'search.conceptual.matchedPassage',
+    ...Array(3).fill('search.conceptual.nearbyText'),
+  ])
   expect(more.getAttribute('aria-expanded')).toBe('true')
   expect(more.textContent).toContain('search.conceptual.showLess')
   expect(more.querySelector('path')!.getAttribute('d')).not.toBe(collapsedIcon)
