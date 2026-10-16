@@ -195,6 +195,35 @@ details.search-model-panel[open] > * + * {
   overflow-wrap: anywhere;
 }
 
+.search-model-reserve {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.85em;
+  color: var(--text-muted);
+}
+
+.search-model-guidance,
+.search-model-file-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.search-model-guidance svg,
+.search-model-file-status svg {
+  flex-shrink: 0;
+  margin-top: 0.1em;
+}
+
+.search-model-setup .search-model-guidance {
+  color: var(--text-muted);
+}
+
+.search-model-setup .search-model-verified {
+  color: var(--success-strong);
+  font-weight: 600;
+}
+
 .search-model-setup .search-index-passages {
   color: var(--text-muted);
   font-size: 0.85rem;

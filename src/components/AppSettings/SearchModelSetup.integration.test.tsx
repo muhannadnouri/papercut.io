@@ -198,7 +198,15 @@ function downloadCalls() { return vi.mocked(invoke).mock.calls.filter(([command]
 it.each([true, false])('keeps cancellation local and guarded through cleanup (terminal event: %s)', async (withEvent) => {
   vi.useFakeTimers()
   await startDownload()
-  await act(() => button('settings.searchModel.cancel')!.click())
+  const cancel = button('settings.searchModel.cancel')!
+  expect(cancel.classList.contains('search-remove-confirm')).toBe(false)
+  expect(cancel.firstElementChild?.tagName.toLowerCase()).toBe('svg')
+  expect(cancel.firstElementChild?.getAttribute('aria-hidden')).toBe('true')
+  expect(cancel.firstElementChild?.getAttribute('focusable')).toBe('false')
+  await act(() => cancel.click())
+  await act(() => cancel.click())
+  expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === 'search_embedding_cancel_download')).toHaveLength(1)
+  expect(container.querySelector('.search-removal-confirmation')).toBeNull()
   expect(button('settings.searchModel.cancel')?.disabled).toBe(true)
   expect(toggle().disabled).toBe(true)
   expect(container.querySelector('.search-model-management')?.textContent).not.toContain('settings.searchModel.cancelled')
@@ -224,6 +232,59 @@ it.each([true, false])('keeps cancellation local and guarded through cleanup (te
   expect(vi.mocked(invoke).mock.calls.some(([command]) => command === 'search_embedding_configure')).toBe(false)
 })
 
+it('groups storage guidance and distinguishes stored, pending and explicitly verified files without activation', async () => {
+  const metadata = container.querySelector('.search-model-metadata')!
+  expect(metadata.querySelector('dt')?.textContent).toBe('settings.searchModel.downloadSize')
+  expect(metadata.querySelector('dd')?.textContent).toContain('444 MB')
+  expect(metadata.querySelector('dd .search-model-reserve')?.textContent).toBe('settings.searchModel.reserve')
+  const guidance = container.querySelector('.search-model-guidance')!
+  expect(guidance.textContent).toBe('settings.searchModel.switchHint')
+  expect(guidance.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true')
+  expect(guidance.querySelector('svg')?.getAttribute('focusable')).toBe('false')
+  expect(guidance.getAttribute('role')).toBeNull()
+  const fileStatus = () => container.querySelector('.search-model-file-status')
+  expect(fileStatus()?.textContent).toBe('settings.searchModel.present')
+  expect(fileStatus()?.querySelector('svg')).toBeNull()
+  expect(button('settings.searchModel.verify')?.disabled).toBe(true)
+  expect(downloadCalls()).toHaveLength(0)
+
+  await act(() => container.querySelector<HTMLInputElement>('.search-model-consent input')!.click())
+  await act(() => button('settings.searchModel.verify')!.click())
+  expect(fileStatus()).toBeNull()
+  expect(container.querySelector('.search-model-verified')).toBeNull()
+  await act(() => {
+    provider = { ...provider, downloadingFormat: null }
+    downloadEvent('installed')
+    resolveDownload()
+  })
+  const verified = fileStatus()!
+  expect(verified.textContent).toBe('settings.searchModel.verified')
+  expect(verified.classList.contains('search-model-verified')).toBe(true)
+  expect(verified.getAttribute('role')).toBe('status')
+  expect(verified.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true')
+  expect(verified.querySelector('svg')?.getAttribute('focusable')).toBe('false')
+  expect(toggle().checked).toBe(false)
+  expect(semantic.provider?.activeFormat).toBeNull()
+  expect(vi.mocked(invoke).mock.calls.some(([command]) => ['search_embedding_configure', 'search_semantic_index_build'].includes(command))).toBe(false)
+  expect(button('settings.searchModel.verify')?.disabled).toBe(true)
+
+  const format = container.querySelectorAll<HTMLSelectElement>('select')[1]
+  await act(() => {
+    format.value = 'dynamic-int8'
+    format.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+  expect(container.querySelector('.search-model-verified')).toBeNull()
+  await act(() => {
+    format.value = 'float32'
+    format.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+  expect(fileStatus()?.textContent).toBe('settings.searchModel.present')
+  await reopen()
+  expect(fileStatus()?.textContent).toBe('settings.searchModel.present')
+  expect(container.querySelector('.search-model-verified')).toBeNull()
+  expect(downloadCalls()).toHaveLength(1)
+})
+
 it('keeps real download failure and Retry in the model panel, even after a cancellation request', async () => {
   await startDownload()
   await act(() => button('settings.searchModel.cancel')!.click())
@@ -236,6 +297,7 @@ it('keeps real download failure and Retry in the model panel, even after a cance
   const panel = container.querySelector<HTMLDetailsElement>('.search-model-management')!
   expect(panel.open).toBe(true)
   expect(panel.querySelector('[role="alert"]')?.textContent).toBe(diagnostic)
+  expect(panel.querySelector('.search-model-verified')).toBeNull()
   expect(container.querySelectorAll('[role="alert"]')).toHaveLength(1)
   expect(panel.contains(button('common.retry')!)).toBe(true)
   expect(panel.textContent).not.toContain('settings.searchModel.cancelled')

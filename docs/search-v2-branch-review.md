@@ -1,5 +1,10 @@
 # Search v2 branch acceptance and review
 
+
+## Model preparation hierarchy follow-up — 2026-10-15
+
+Manage Model groups the 64 MiB disk reserve under Download Size, separates muted information from explicit **Model Files Verified** success feedback, and adds a decorative leading circle-X to the tonal Cancel Download action. Stored files do not imply verification or model activation. Existing consent, cancellation/cleanup, error and removal-confirmation guards remain intact. DOM/controller regressions cover the status lifecycle, selection/reopen resets, storage grouping, icons and guarded cancellation; see [the progress record](search-v2-progress.md). Validation: **302 frontend passed / 1 optional skipped in 56 files**, lint/i18n/TypeScript/full Vite+Pagefind build/diff checks pass. Further smoke remains deferred. Fresh current-source CI and immediate-release platform/distribution acceptance remain open; earlier CI evidence is unchanged.
+
 ## Compact status row follow-up — 2026-10-15
 
 The first semantic settings card now has one observed-status/switch row, with its fixed accessible name taken from the Semantic Search heading. Live status and conditional model-download prerequisites are descriptions; the previous Enable label and standalone status line are removed. Existing status summaries preserve the distinction between opt-in and readiness, with the same disabled/consent/job/recovery guards. Real DOM/controller regressions cover state transitions, label-click behavior, stable names/description IDs, status retry and missing-model guard behavior without automatic preparation. Validation: **301 frontend passed / 1 optional skipped in 56 files**, lint/i18n/TypeScript/full frontend+Pagefind build/diff checks pass. Details are in [the progress record](search-v2-progress.md). Further smoke, fresh current-source CI and immediate-release acceptance remain open; the verified `8bb188a` CI record below is unchanged.

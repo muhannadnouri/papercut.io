@@ -2,6 +2,15 @@
 
 Branch: `feature/search-v2`. Plan: the locally supplied `Papercut_Search_v2_Codex_Implementation_Plan.md` handoff at the repository root. This file records completed stages; the current product search behavior remains the control until a later stage passes its gate.
 
+
+## Model preparation hierarchy — 2026-10-15
+
+Model management now keeps the 64 MiB additional free-space requirement directly under Download Size as visible muted text. General model/format rebuilding guidance has a decorative information icon; successful explicit preparation/verification shows a separate success-colored check-circle and **Model Files Verified**. Stored-by-size files retain the integrity-check explanation and never get a verification check merely from presence, a progress event or reopening Settings. Changing selection clears the local verification message; verification still never enables semantic search or starts indexing. Copy is updated in all eight locales.
+
+**Cancel Download** retains the standard tonal action with a leading decorative circle-X. Removal alone keeps destructive styling and its confirmation. Explicit consent, duplicate-action/cleanup guards, normal cancellation and real-error recovery are unchanged. No dependency, native command, retrieval or source-offset changes. Real DOM/controller regressions cover stored/pending/verified states, selection/reopen reset, grouped storage information, decorative icon semantics, no activation/indexing, and single cancellation through cleanup with terminal events present or missed. Further device/visual/screen-reader smoke remains deferred; fresh current-source CI and the existing immediate-release acceptance gates stay open.
+
+Validation: **302 frontend passed / 1 optional skipped in 56 files**, lint, all-eight-locale validation, TypeScript, full Vite+Pagefind build and diff checks pass. The new storage/icon regressions failed on the previous UI before the fix. Native tests were not repeated for this presentation-only change; no physical layout, hover or screen-reader acceptance is claimed.
+
 ## Compact semantic status and switch — 2026-10-15
 
 The first settings card now puts the observed status directly beside the switch instead of displaying Enable Semantic Search plus a separate status line. Existing localized summaries cover Off/Keyword Search, loading, index required, ready, indexing/stopping, unavailable status and fallback. Turning the preference on is never presented as readiness by itself. The existing card heading supplies the switch's stable accessible name; the changing row is a polite status and an associated description, with Model Download Required below and linked only when needed. The existing label keeps the row clickable and its native disabled behavior intact.

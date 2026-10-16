@@ -25,6 +25,14 @@ Use this as **one rebuilt-app pass**, reusing a disposable profile and sources f
 - Select Conceptual while loading and while missing/partial/failed; fallback should remain readable and direct the user to Keyword, whose results remain independently usable. Confirm active-panel focus/live announcements, narrow/zoom/RTL layouts and sticky controls in the actual WebView.
 - Open results after More; reader targets must still use full original text/page/section metadata. Confirm scroll restoration when switching between lists of different lengths. These DOM regressions do not verify WebView layout or device performance.
 
+## Model preparation hierarchy checks — deferred
+
+- With model files stored but search off, confirm Download Size groups the visible 64 MiB additional-space requirement beneath its value at narrow widths, zoom and RTL. The muted information icon/guidance should remain distinct from file status in light and dark themes.
+- Explicitly permit Verify Cache or Download Model Files. Pending work must not show verified success; only a successful completion shows the check-circle and **Model Files Verified**, with search still off and no indexing. Changing model/format or reopening restores the stored-file integrity explanation rather than persisting a verified badge. Failed/cancelled preparation must not show success.
+- Confirm Cancel Download uses a leading circle-X and ordinary tonal hover/focus treatment. Removal retains destructive treatment/confirmation. Cancellation stays disabled through worker cleanup; repeating a click does not queue another request, and restarting requires fresh consent. Check accessible names and status announcements in the actual WebView/screen reader.
+
+These cases remain deferred. jsdom/IPC-mocked regressions do not establish actual layout, hover, native cleanup or device accessibility acceptance.
+
 ## Added review-fix checks — deferred
 
 - Import generic HTML/EPUB with body text before/after an inline footnote; confirm the note remains literal-searchable and reader links/locations survive, while conceptual primary evidence prefers the body spans. Reopen a schema-12 disposable library: affected vectors require explicit update, interrupted repair resumes, and missing/mismatched sources preserve their text/classification.

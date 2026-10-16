@@ -166,6 +166,7 @@ export function SearchModelSetup({ semantic }: { semantic: SemanticSearchControl
     : (!downloading || downloading === format) && cache?.filesPresent && matchingProgress?.phase !== 'downloading' ? 'verifying' : 'working'
   // Active provider identity is verified during native loading; file presence alone is not.
   const loaded = (semantic.provider ?? status)?.activeFormat === format
+  const filesVerified = !!cache?.filesPresent && message === 'verified'
   const canChange = ready && status?.compiled && !busy && !semantic.enabled && !loaded
   const small = format === 'float32' || format === 'dynamic-int8'
   const formatLabel = (choice: ModelSelection) => `multilingual-e5-${choice === 'base-float32' ? 'base' : choice === 'large-float32' ? 'large' : 'small'} · ${t(choice === 'dynamic-int8' ? 'settings.searchModel.int8' : 'settings.searchModel.float32')}`
@@ -258,21 +259,31 @@ export function SearchModelSetup({ semantic }: { semantic: SemanticSearchControl
         </label>
       </div>
       <dl className="search-model-metadata">
-        <dt>{t('settings.searchModel.downloadSize')}</dt><dd>{formatStorageSize(cache?.expectedBytes) ?? '—'}</dd>
+        <dt>{t('settings.searchModel.downloadSize')}</dt>
+        <dd>{formatStorageSize(cache?.expectedBytes) ?? '—'}
+          {!semantic.enabled && !loaded && <span className="search-model-reserve">{t('settings.searchModel.reserve')}</span>}
+        </dd>
       </dl>
       {!small && <p>{t('settings.searchModel.largerWarning')}</p>}
-      <p>{t('settings.searchModel.switchHint')}</p>
+      <p className="search-model-guidance">
+        <svg className="app-settings-data-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="9" /><path d="M12 11v6m0-10v1" />
+        </svg>
+        <span>{t('settings.searchModel.switchHint')}</span>
+      </p>
       {format === 'dynamic-int8' && <p>{t('settings.searchModel.int8Warning')}</p>}
-      {!loaded && !preparingFiles && operation !== 'remove' && <p role="status">{t(cache?.filesPresent
-        ? message === 'verified' ? 'settings.searchModel.verified' : 'settings.searchModel.present'
-        : cache?.hasStoredFiles ? 'settings.searchModel.incomplete' : 'settings.searchModel.absent')}</p>}
-      {(!semantic.enabled && !loaded) && <>
-        <p>{t('settings.searchModel.reserve')}</p>
-        <label className="search-model-consent">
-          <input type="checkbox" checked={consent} disabled={!canChange} onChange={(event) => setConsent(event.target.checked)} />
-          <span>{t('settings.searchModel.consent')}</span>
-        </label>
-      </>}
+      {!loaded && !preparingFiles && operation !== 'remove' && <p className={`search-model-file-status${filesVerified ? ' search-model-verified' : ''}`} role="status">
+        {filesVerified && <svg className="app-settings-data-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="9" /><path d="m8 12 3 3 5-6" />
+        </svg>}
+        <span>{t(cache?.filesPresent
+          ? filesVerified ? 'settings.searchModel.verified' : 'settings.searchModel.present'
+          : cache?.hasStoredFiles ? 'settings.searchModel.incomplete' : 'settings.searchModel.absent')}</span>
+      </p>}
+      {!semantic.enabled && !loaded && <label className="search-model-consent">
+        <input type="checkbox" checked={consent} disabled={!canChange} onChange={(event) => setConsent(event.target.checked)} />
+        <span>{t('settings.searchModel.consent')}</span>
+      </label>}
       {(semantic.enabled || loaded) && <p>{t('settings.searchModel.inUse')}</p>}
       {removalControls('model', !semantic.enabled && !loaded &&
         <button type="button" className="app-settings-data-action search-action-primary" disabled={!canChange || !cache || !consent}
@@ -289,7 +300,11 @@ export function SearchModelSetup({ semantic }: { semantic: SemanticSearchControl
           {matchingProgress && percent !== null && <span>{percent}%</span>}
           <div className="search-model-actions">
             <button type="button" className="app-settings-data-action" disabled={cancelling}
-              onClick={() => { void cancel() }}>{t('settings.searchModel.cancel')}</button>
+              onClick={() => { void cancel() }}>
+              <svg className="app-settings-data-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle cx="12" cy="12" r="9" /><path d="m9 9 6 6m0-6-6 6" />
+              </svg>{t('settings.searchModel.cancel')}
+            </button>
           </div>
         </>}
       </div>}

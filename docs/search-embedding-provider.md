@@ -518,7 +518,15 @@ Each format change and completed attempt clears consent. Only an explicit
 **Download Model Files** or **Verify Cache** click invokes the native installer.
 The latter verifies a valid existing cache without fetching, but can fetch
 missing files, so it still requires explicit per-format consent. Metadata-only
-presence is not labeled as verified. Installed files collapse to **Files Stored**,
+presence is not labeled as verified. Download Size groups the 64 MiB additional
+free-space requirement directly beneath the value as visible muted text. General
+model/format rebuilding guidance has a decorative information icon. Only a
+successful explicit installer/verification attempt shows **Model Files Verified**
+with a success-colored check-circle; changing selection or reopening clears this
+local feedback. This does not mean the provider is loaded or search is enabled.
+**Cancel Download** uses the standard tonal action and a decorative leading
+circle-X; destructive styling/confirmation remains reserved for removal.
+Installed files collapse to **Files Stored**,
 including when search is off; missing/incomplete files and relevant model operations
 remain expanded. A loaded selected provider has verified its
 assets during activation; the view shows **Model Loaded** in a collapsed **Manage
