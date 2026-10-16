@@ -196,9 +196,6 @@ jobs:
     if: needs.changes.outputs.code_checks == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    permissions:
-      contents: read
-      checks: write
 
     steps:
       - uses: actions/checkout@v6
@@ -265,14 +262,13 @@ jobs:
             exit 1
           fi
 
+      - name: Install Rust audit tool
+        run: cargo install cargo-audit --version 0.22.2 --locked
+
       - name: Audit Rust dependencies
-        uses: rustsec/audit-check@v2.0.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          working-directory: src-tauri
-          # rust_decimal declares rkyv 0.7 optionally; the preceding dependency
-          # graph check prevents this waiver from hiding an activated edge.
-          ignore: RUSTSEC-2026-0235
+        # Use the CLI exit status; audit-check's secondary Check API update can fail.
+        # The preceding graph check prevents this waiver from hiding an active edge.
+        run: cargo audit --file src-tauri/Cargo.lock --ignore RUSTSEC-2026-0235
 
       - name: Rust tests
         run: |

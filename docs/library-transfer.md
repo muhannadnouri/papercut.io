@@ -83,6 +83,23 @@ and rand 0.7 unsoundness notices. GLib is required by the Linux GTK/WebKit stack
 rand 0.7 is parser build tooling without the affected logging feature. These
 remaining warnings are not treated as fixed or suppressed by this repair.
 
+The October 16, 2026 manual mobile CI run
+[38969619278](https://github.com/muhannadnouri/papercut.io/actions/runs/38969619278)
+on `750fbd1` completed its Rust audit with zero blocking vulnerabilities and
+11 warnings (eight maintenance, two unsoundness and one yanked `zip` 0.6.6
+notice). The job then failed when `rustsec/audit-check` updated a separate GitHub
+check, despite having `checks: write`; Rust tests and mobile packaging were
+skipped. This is not Android acceptance or a successful CI run.
+CI now runs pinned `cargo-audit` 0.22.2 directly, using its exit status and log
+output without a separate Check/issue API call or write-token permission.
+Blocking vulnerabilities and audit errors still fail the job; the existing
+warning policy, sole waiver and inactive-dependency guard remain unchanged.
+Local verification with that CLI and a fresh official advisory database reproduced
+zero blocking findings and the same 11 warnings. A temporary known-vulnerable
+lockfile and an unavailable database both returned failure. Workflow YAML,
+checks-job shell syntax and whitespace validation passed; the replacement still
+needs a new GitHub CI run before mobile packaging can be claimed successful.
+
 Transferred display-title overrides and available original filenames are
 restored after parsing so metadata corrections survive a device move.
 Document ids come from the manifest rather than a hash of normalized HTML;
@@ -735,9 +752,9 @@ Validation on Linux after the review fixes: `npm test` passed **324 tests** (one
 passed **212 tests** (four existing ignored tests). All seven new regression cases
 failed against the previous implementation and passed after the fixes. `npm run build` passed i18n,
 TypeScript, Vite and Pagefind; lint, Rust formatting and documentation-link checks
-passed. Vite retains its module/chunk-size warnings. `cargo-audit` is not installed
-locally, so no fresh local Rust advisory audit is claimed; the existing CI audit
-remains required.
+passed. Vite retains its module/chunk-size warnings. The failed CI run above
+confirms the audit result only; a successful rerun with the direct audit command
+is still required for the Rust tests and platform packaging gates.
 
 Discovery implementation, physical/network smoke and the app version bump remain deferred. Linux automated
 checks do not establish Android/Apple/Windows packaging or OS lifecycle behavior;
