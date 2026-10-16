@@ -9,32 +9,31 @@ This avoids the trap of trying to rebuild Pagefind on a user's device every time
 
 ## Current Scope
 
-The model-free Search v2 changes are a **release candidate**, with fresh native,
-frontend and original-baseline regressions passing. Normal builds do not include
-FastEmbed. Optional model-cache, saved opt-in/index controls and a separate conceptual-results
-section are implemented, with lexical search still default. Functional controls
-are in Settings outside Developer mode; normal builds still omit the provider.
-The [current progress](search-v2-progress.md) records behavior and limits. The
-user reports the earlier consolidated app smoke passed; the new lifecycle/query
-UI smoke remains explicitly deferred and now has a focused checklist for the
-functional result path. Representative-device responsiveness and advertised
-provider-platform acceptance remain open; automated success alone does not
-approve release.
+Keyword search is the default. Native shipping builds also compile an optional,
+default-off conceptual-search provider. Users explicitly download model files,
+enable semantic search and build its index; searching or opening Settings starts
+none of that work. Keyword and Conceptual have independent result views sharing
+the submitted query and document scope.
+
+This is the current behavior/architecture reference. [Search validation](search-validation.md)
+owns CI evidence, owner acceptance, reproducible checks and the deferred manual
+checklist. Historical development and rejected experiments live in Git, not in a
+second maintained implementation guide.
 
 The current app supports local HTML, EPUB, PDF, TXT, and Markdown files. PDF search and TTS
 require a usable extracted text layer; fully textless PDFs remain readable and
-are marked for opt-in English text recognition:
+are marked for opt-in English or Arabic text recognition:
 
 - Users open **Import** from the document list and choose **Files** for one or more HTML, EPUB, PDF, TXT, or Markdown files, or **Folder** for a desktop folder. Desktop users can also drop supported files onto the open Library. Installed desktop, Android, and iOS builds can receive supported files from the operating system's file-opening UI.
 - Tauri opens the native filesystem picker for `.html`/`.htm`, `.epub`, `.pdf`, `.txt`, `.md`, or `.markdown` files. Desktop folder import preserves the selected folder and supported subfolders through the Library's five visible levels (the selected folder plus four descendant levels). If its top-level name already exists, Papercut creates a suffixed folder such as `Books (2)` rather than merging the trees.
 - Rust reads the selected HTML file, enforces a 25 MB limit, decodes UTF-8 or declared legacy browser encodings, sanitizes the HTML, extracts readable sections, stores the sanitized source, and indexes the sections into SQLite FTS5.
-- Rust reads the selected EPUB file, enforces a 100 MB limit, validates the EPUB ZIP/container, follows OPF spine order, sanitizes XHTML chapters into generated reading HTML, rewrites and target-validates local chapter, TOC, and footnote links, retains supported local raster images within safety caps, extracts readable sections, and indexes the sections into SQLite FTS5.
-- Rust stages a selected PDF under a 250 MB limit, then the existing lazy-loaded PDF.js path extracts and stores bounded page text, page locators, and a best-effort first-page thumbnail before atomically finalizing its SQLite FTS5 rows. PDFs are limited to 2,000 pages. Fully textless and hybrid PDFs with image-backed pages lacking usable text remain renderable but are marked **Text Recognition Required**. **Recognize English Text** runs the local Tesseract worker one page at a time, reports progress, supports cancellation, and exposes recognized text to search, Find, and TTS only after the existing atomic finalizer succeeds. Failed or conservatively low-confidence pages remain listed for targeted retry without reprocessing successful pages.
+- Rust reads the selected EPUB file, enforces a 100 MB limit, validates the EPUB ZIP/container, follows OPF spine order, sanitizes XHTML chapters into generated reading HTML, rewrites and target-validates local chapter, TOC, and footnote links, retains supported local raster/SVG reader assets within safety caps, extracts readable sections, and indexes the sections into SQLite FTS5.
+- Rust stages a selected PDF under a 250 MB limit, then the existing lazy-loaded PDF.js path extracts and stores bounded page text, page locators, and a best-effort first-page thumbnail before atomically finalizing its SQLite FTS5 rows. PDFs are limited to 2,000 pages. Fully textless and hybrid PDFs with image-backed pages lacking usable text remain renderable but are marked **Text Recognition Required**. **Recognize Text** runs the selected English or Arabic local Tesseract worker one page at a time, reports progress, supports cancellation, and exposes recognized text to search, Find, and TTS only after the existing atomic finalizer succeeds. Failed or conservatively low-confidence pages remain listed for targeted retry without reprocessing successful pages.
 - New imports use the original file's SHA-256 as their stable upload id. Selecting the same unchanged file again reuses its existing stored document instead of creating another copy. Batch results report that source under **Already in Library** rather than counting it as newly added.
 - New imports retain the original filename as read-only provenance. In Library list view, **Manage** exposes a pencil action for each uploaded document; its **Document Info** dialog lets users correct Papercut's display title without renaming the source, changing its stable URL, or invalidating folders, bookmarks, and saved audio.
 - Library gallery and list views mark documents that have an explicit reader bookmark, and the Library toolbar can filter to those documents. The reader saves a first bookmark directly; an existing bookmark exposes explicit actions to return, move, or remove it, with Undo after a move or removal.
 - React lists imported files under **User Uploads** and opens them through the shared document reader. EPUB uses generated reading HTML; PDF uses the dedicated PDF.js viewer.
-- Search queries run through `src/hooks/useSearch.ts`, which queries Pagefind and SQLite FTS in parallel, presents user-library results first, and labels bundled results separately as **Starter Documents**.
+- Search queries run through `src/hooks/useSearch.ts`, which queries Pagefind and SQLite FTS in parallel, keeps uploaded results first in one Keyword list and identifies bundled cards with a **Starter Document** badge.
 - Users can open **Manage**, select uploaded documents, and delete them in one confirmed batch. Selecting a populated folder offers **Delete Folder and Contents** with the folder name plus exact nested-folder and document counts from the unfiltered hierarchy, even when a Library filter hides some descendants. Delete removes SQLite metadata, section rows, FTS rows, folder organization, and stored source directories. Documents referenced by saved audiobooks cannot be deleted until their audio is removed from the Audiobooks tab; the same native guard covers single, batch, and recursive-folder deletion. Progress is count-based and remains with the sticky Manage controls while scrolling; partial failures are listed, and the surviving folder remains selected for retry.
 
 Generic document import remains separate from `.papercut-audiobook` import/export. A PDF audiobook bundle restores its canonical PDF through the same PDF import/index path rather than copying derived page text, search rows, or thumbnails. EPUB implementation notes live in [epub-implementation-plan.md](epub-implementation-plan.md); PDF/OCR decisions and remaining work live in [pdf-ocr-scanning.md](pdf-ocr-scanning.md).
@@ -90,7 +89,7 @@ Storage:
 - Android document providers may expose selected files through extensionless content URLs. In that ambiguous case Papercut reads only a small prefix to distinguish ZIP-based EPUB, PDF, HTML, or readable plain text, then runs the same full format-specific validation used for named files. If a provider removes a Markdown filename, Papercut conservatively imports that otherwise ambiguous text as plain text instead of guessing Markdown semantics.
 - Desktop builds can select one folder and feed up to 500 HTML, EPUB, PDF, TXT, or Markdown files into that same batch pipeline. Papercut recreates the selected folder and supported descendants through five visible Library levels, skips symlinks and deeper descendants, and gives a conflicting top-level folder a numeric suffix instead of merging it. Exact duplicate documents already in the Library are reported and remain in their current location.
 - Selected-document batch deletion is sequential and capped at 500 items like import. Recursive folder deletion instead derives its complete document list from the native SQLite hierarchy, so it cannot omit descendants or inherit the frontend selection cap. Both paths reuse the saved-audio guard, staged filesystem/SQLite deletion, count progress, shared-state refresh, and partial-failure reporting. A populated folder stays available for retry if any document fails; only a fresh transaction that finds no remaining subtree documents may cascade-delete its folder metadata.
-- EPUB stores a sanitized generated reading HTML copy at the same stored-source path. Search and TTS depend on the generated safe reading copy and normalized sections, not on rendering the raw EPUB archive in React. Local PNG, JPEG, GIF, and WebP manifest images referenced by retained reader content—including image-only spine sections—are stored as content-hashed files with a 5 MB per-image cap and 100 MB total-image cap. The reader keeps one continuous page while loading and decoding those images lazily. Remote images, SVG, CSS background images, and `srcset` are skipped; unused manifest images are not copied. The original EPUB archive is not retained by the current MVP. Older inline-image imports remain readable and are upgraded to stored assets on open when possible.
+- EPUB stores a sanitized generated reading HTML copy at the same stored-source path. Search and TTS depend on the generated safe reading copy and normalized sections, not on rendering the raw EPUB archive in React. Local PNG, JPEG, GIF, WebP and SVG manifest images referenced by retained reader content—including image-only spine sections—are stored as content-hashed files with a 5 MB per-image cap and 100 MB total-image cap. The reader keeps one continuous page while loading and decoding those images lazily. SVG remains an external HTML image with scripts/external resource loading disabled, never active inline reader markup; supported inline SVG covers are converted to image assets. Remote images, CSS backgrounds and `srcset` are skipped; unused manifest images are not copied. See the EPUB notes for image diagnostics and remaining limits. The original EPUB archive is not retained by the current MVP. Older inline-image imports remain readable and are upgraded to stored assets on open when possible.
 - PDF retains the original source because PDF.js needs it for rendering. Derived page text, FTS rows, thumbnails, and text-readiness status can be rebuilt from that canonical source and are not embedded in portable audiobook bundles.
 - The runtime search index lives at `document_uploads/search.sqlite3`.
 - Uploaded-document folders and manual order live in SQLite metadata tables beside the search index. Existing uploaded documents are assigned root-level locations automatically. Moving a document between folders changes only organization metadata, not the uploaded document URL, stored source, FTS rows, or audiobook cache identity.
@@ -143,7 +142,7 @@ EPUB plugs in at step 3 by validating the ZIP/container, reading OPF metadata an
 
 ## Search Flow
 
-The current search pipeline and the measured Search v2 baseline are recorded in [search-v2-progress.md](search-v2-progress.md).
+The flow below describes Keyword search. [Conceptual search](#conceptual-search) adds an independent opt-in channel; [validation](search-validation.md#automated-checks) documents the original lexical baseline and evaluator.
 
 When a user submits a search:
 
@@ -154,19 +153,19 @@ When a user submits a search:
 5. SQLite groups matching sections by uploaded document before applying the result limit. It returns the best section, the complete supporting-section count for each visible document, up to three ranked passages, and at most twelve distribution bins. For a same-section result, the count covers sections matching the complete query; for a cross-section result, it covers sections containing at least one query word. The UI labels those meanings separately and does not combine them into one ambiguous corpus-wide section total. Each bin retains one source locator, its exact supporting-section count, and the first marked token from that section when available. Total matching-document/section counts are still computed before limiting the response.
 6. `useSearch` maps both providers into the existing `SearchResult` shape; it no longer has to deduplicate uploaded section rows.
 7. Quoted exact-phrase searches use Pagefind/SQLite only as a candidate finder. Rust verifies uploaded candidates against their indexed sections, then returns the complete phrase occurrence count, first literal-phrase locator, and a bounded highlighted excerpt for each visible result; React does not reopen uploaded sources. Bundled starter candidates are still verified against their source in React. Broad uploaded searches prefer a section containing every word, then fall back to a labelled document-level result when the required words occur across separate sections. For a mixed cross-section match, the native result targets the first section containing the first verified exact phrase. Exact results hide the broad matching-section distribution rather than presenting candidate sections as literal phrase evidence.
-8. Results share one panel but remain visibly separated into **Your Library** first and **Starter Documents** second. Each group states when only its initial 50 results are shown. Example-query chips disappear once the user starts typing, long query tags and result excerpts are visually bounded, and advanced uploaded evidence stays behind one native **Explore matches** disclosure. Opening a term or phrase concordance runs one literal scan over that uploaded document's indexed sections, reports the complete count, and returns at most 50 context lines per request. Search phases and empty results use polite status regions; a reassurance that processing remains local appears only if the search lasts five seconds, while search and occurrence failures receive distinct alerts instead of being presented as empty results.
+8. Keyword results form one list with one count, preserving uploaded-first order and a **Starter Document** badge on bundled cards. Keyword and Conceptual each initially display ten returned cards, with explicit Show More batches. Counts distinguish displayed and available results where known; conceptual returned-document counts are not exhaustive library totals. Keyword examples appear only for an empty Keyword draft and fill the input without submitting. Advanced uploaded evidence stays behind **Explore matches**: concordance scans the selected document, counts all occurrences and returns at most 50 context lines per request. Loading, errors and valid empty responses have distinct accessible status. A local-processing reassurance appears only after five seconds of lexical work.
 9. Opening a result keeps the canonical document URL, then passes a best-effort target to the reader. Uploaded reflowable documents resolve their persisted SQLite section ordinal to a generated reader marker and constrain snippet-text matching to that indexed block; PDFs use their page target, while Pagefind starter documents keep heading-hash/text fallback behavior. Evidence bins include SQLite's literal marked spelling so stemming does not make the target highlight a different word form. Concordance lines also carry the zero-based occurrence within their section/page, so repeated terms highlight the selected instance rather than always selecting the first. Search-result navigation and in-document Find share block-aware text and punctuation matching, so inline formatting or equivalent straight/typographic punctuation does not prevent a visible phrase from being selected. Starting an explicit Find retires the transient result highlight, caches the rendered reader's normalized text map, and uses CSS highlights without rewriting the reader DOM; audiobook playback highlights remain independent.
 10. If a result points to an uploaded document URL, source loading calls `document_uploads_get_source` instead of fetching from `dist/`.
 
 SQLite FTS uses a Porter/unicode tokenizer with diacritic removal and BM25 ranking. Candidate scans give indexed title, heading, and text relative weights of 5:3:1; passage evidence uses body-only scoring. Two-to-six-word unquoted searches additionally prefer an adjacent body phrase within existing scope and coverage tiers, without making that phrase mandatory. Queries on the original index use SQLite snippets; Arabic search-form matches use authored section text for marked excerpts because normalization removes characters and changes offsets. Retained excerpts use up to 64 tokens; a section card's excerpt and source target follow its selected body passage. Cross-section cards disclose all retained passages, up to three, through Explore matches. React sanitizes every excerpt before rendering, retaining only `<mark>` highlighting. SQLite scans lightweight match metadata to group and count every matching uploaded document, then builds excerpts only for the bounded visible document set. Because the reader has its own in-document Find/highlight workflow, the search panel shows one uploaded-document card with the best relevant snippet instead of one card per matching section.
 
-Arabic-containing uploaded queries use a versioned derived FTS search form that removes tashkeel and tatweel and folds common alef/hamza forms to bare alef. Authored sections and the original FTS table remain intact, and quoted phrases still require literal source verification. A background worker builds the derived index for existing libraries in small committed batches; Arabic queries retain their previous search behavior until it is complete, and an interrupted rebuild resumes on restart. Imports, OCR replacements, title changes, and deletes update both indexes in the same transaction. This improves selected orthographic variants, not Arabic morphology or general semantic matching. The second index needs large-library storage and latency checks before release.
+Arabic-containing uploaded queries use a versioned derived FTS search form that removes tashkeel and tatweel and folds common alef/hamza forms to bare alef. Authored sections and the original FTS table remain intact, and quoted phrases still require literal source verification. A background worker builds the derived index for existing libraries in small committed batches; Arabic queries retain their previous search behavior until it is complete, and an interrupted rebuild resumes on restart. Imports, OCR replacements, title changes, and deletes update both indexes in the same transaction. This improves selected orthographic variants, not Arabic morphology or general semantic matching. The synthetic scale check is recorded in validation; representative-device storage and latency remain unverified.
 
-An empty uploaded **All words** search can offer one explicit English spelling retry drawn from authored document words, even when starter documents have partial hits. Choosing it runs a new search, so counts, excerpts, and navigation describe the corrected term rather than a fictional occurrence of the typo. Quoted phrases, broader mode, Arabic/mixed-script queries, uppercase names, identifiers, and short words do not receive suggestions. The per-document vocabulary is rebuilt in the background for existing libraries, resumes after interruption, and is maintained by import, title edit, and delete transactions. Its two-letter prefix and candidate caps intentionally trade some recall for less search work; large-library behavior remains to be measured.
+An empty uploaded **All words** search can offer one explicit English spelling retry drawn from authored document words, even when starter documents have partial hits. Choosing it runs a new search, so counts, excerpts, and navigation describe the corrected term rather than a fictional occurrence of the typo. Quoted phrases, broader mode, Arabic/mixed-script queries, uppercase names, identifiers, and short words do not receive suggestions. The per-document vocabulary is rebuilt in the background for existing libraries, resumes after interruption, and is maintained by import, title edit, and delete transactions. Its two-letter prefix and candidate caps intentionally trade some recall for less search work; representative-library/device behavior remains unverified.
 
-There are no hard-coded related-word pairs or general synonym expansion. Porter stemming covers some inflections, and the bounded spelling retry handles some typos; neither establishes semantic equivalence. Optional conceptual results remain independent of lexical results and their counts, under the gates in [search-v2-progress.md](search-v2-progress.md).
+There are no hard-coded related-word pairs or general synonym expansion. Porter stemming covers some inflections, and the bounded spelling retry handles some typos; neither establishes semantic equivalence. Optional conceptual results remain independent of lexical results and their counts, with the limits in [Conceptual search](#conceptual-search) and the evidence in [validation](search-validation.md).
 
-The default **All words** mode requires every unquoted term at document scope in uploaded documents, including matches across sections. Starter search retains its existing Pagefind behavior; the uploaded required-term and coverage guarantees must not be inferred for starter results merely from the shared mode label. The optional **Broader · Your Library** mode searches uploaded documents only. With three to twelve distinct unquoted words it requires at least half, with a minimum of two, anywhere in the document, then ranks fuller coverage first. With one or two words, or more than twelve distinct words, it retains all-terms matching without dropping words. Exact quoted phrases always remain required and source-verified. Cards show which unquoted words are missing; a title match is not reported as a body-text occurrence. The small regression fixture and existing 100,000-section development-host probe pass; representative-device and interactive acceptance remain open.
+The default **All Words** mode requires every unquoted term at document scope in uploaded documents, including matches across sections. Starter candidates must also occur in each distinct unquoted term's Pagefind quoted search before scope, count and display limits; source-verified phrases are checked separately. Starter ranking and uploaded evidence/count contracts remain different. The optional **Broader** mode searches uploaded documents only. With three to twelve distinct unquoted words it requires at least half, with a minimum of two, anywhere in the document, then ranks fuller coverage first. With one or two words, or more than twelve distinct words, it retains all-terms matching without dropping words. Exact quoted phrases always remain required and source-verified. Cards show which unquoted words are missing; a title match is not reported as a body-text occurrence. The small regression fixture and existing 100,000-section development-host probe pass; representative-device and interactive acceptance remain open.
 
 For quoted searches, broad provider counts are not treated as exact phrase counts. Uploaded results use exact occurrence counts from the native indexed-section verification scan, while starter results use source-verified counts in React. Unquoted searches can still show matching-section counts when SQLite or Pagefind exposes them. The twelve-bin distribution also represents matching sections, not the number of individual word occurrences inside those sections.
 
@@ -194,7 +193,7 @@ Use a release corpus with at least 500 documents and 100,000 indexed sections, i
 
 The reference-device gate is a warm median at or below one second for broad search and three seconds for exact or mixed search, with no warm run above five seconds. The status region must remain visible and accurate throughout a slow phase, the five-second local-processing detail must appear only when needed, and opening an exact result must land on and highlight its native section/page evidence. A failure should be investigated by the logged phase before adding caches, workers, pagination, or another search dependency. Record desktop and mobile results separately because storage and CPU characteristics differ.
 
-The Search v2 development-host probe now exercises 500 documents / 100,000 authored sections, including three 1,200-section documents, through the production store and release native search path. Warm medians for saturated common-word, quoted and mixed cases meet those numerical thresholds on this machine; candidate retrieval dominates. The [recorded scale validation](search-v2-progress.md#model-free-desktop-scale-native-validation-2026-10-07) includes scope, complete counts, evidence targets, payload bounds and measurement limits. Repeated synthetic text, warm OS caches and native-only timing do not establish real-book diversity, weak-device performance, WebView responsiveness or interactive smoke acceptance.
+The recorded Search v2 development-host probe exercised 500 documents / 100,000 authored sections, including three 1,200-section documents, through the production store and release native search path. Warm medians for saturated common-word, quoted and mixed cases met those numerical thresholds on that host; candidate retrieval dominated. The [recorded scale validation](search-validation.md#performance-and-native-limits) includes scope, complete counts, evidence targets, payload bounds and measurement limits. Repeated synthetic text, warm OS caches and native-only timing do not establish real-book diversity, weak-device performance, WebView responsiveness or interactive smoke acceptance.
 
 Concordance work is isolated from the default search payload. Each page scans only the selected document through the `(document_id, ordinal)` index, counts all literal matches, and sends at most 50 bounded excerpts over IPC. Requesting another page repeats that one-document scan; this deliberately avoids stored occurrence offsets or another schema until real paging measurements justify them.
 
@@ -209,7 +208,7 @@ TTS highlighting currently maps saved audiobook chunks back onto the live reader
 Yes, upload formats should have separate sanitization/parser modules. HTML, PDF, and EPUB have different risks and extraction behavior:
 
 - HTML needs active content stripping, URL cleanup, and safe stored rendering.
-- PDF needs text-layer extraction, page boundaries, metadata extraction, and possibly OCR later.
+- PDF needs text-layer extraction, page boundaries, metadata and resumable on-device OCR for pages without usable text.
 - EPUB needs ZIP/container validation, OPF spine parsing, XHTML sanitization, and chapter ordering.
 
 The shared indexed metadata should be boring and stable:
@@ -223,31 +222,30 @@ For reflowable formats, the persisted ordinal is the locator; for PDF, `page_ind
 - Runtime import supports HTML, EPUB, TXT, CommonMark Markdown, text-native PDF, and local English or Arabic recognition for image-only or hybrid PDFs. Pages with usable native text and intentionally blank pages are preserved, while image-backed pages without usable text are recognized. Additional recognition languages remain deferred until their local assets and acceptance cases are ready.
 - HTML files must be at most 25 MB. UTF-8 is used directly; non-UTF-8 HTML can import when it declares a supported browser charset such as Windows-1252.
 - TXT and Markdown files must be at most 25 MB and use UTF-8 or explicitly BOM-marked UTF-16. Ambiguous legacy encodings are rejected instead of guessed. Plain text that resembles markup remains literal; Markdown output passes through the existing sanitizer, and remote or sibling-file images are intentionally omitted until the reader owns an explicit local-asset contract for those formats.
-- EPUB files must be readable ZIP-based EPUB archives with a valid container and OPF spine, and must be at most 100 MB. Only referenced local PNG, JPEG, GIF, and WebP reader images are retained, with 5 MB per image and 100 MB total reader-image caps. A declared EPUB 2/3 cover is retained beside the generated source only after the bounded thumbnail decoder validates it under the same 5 MB per-image cap; an invalid optional cover falls back to the generated title placeholder without failing the document import. The Library gallery serves the persisted display-sized PNG thumbnail rather than decoding the original cover. Existing imports with retained covers receive that thumbnail lazily on first gallery access; imports without cover metadata are not retroactively reparsed.
+- EPUB files must be readable ZIP-based EPUB archives with a valid container and OPF spine, and must be at most 100 MB. Only referenced local PNG, JPEG, GIF, WebP and SVG reader images are retained, with 5 MB per image and 100 MB total reader-image caps. A declared EPUB 2/3 cover is retained beside the generated source only after the bounded thumbnail decoder validates it under the same 5 MB per-image cap; an invalid optional cover falls back to the generated title placeholder without failing the document import. The Library gallery serves the persisted display-sized PNG thumbnail rather than decoding the original cover. Existing imports with retained covers receive that thumbnail lazily on first gallery access; imports without cover metadata are not retroactively reparsed.
 - PDF files must have a valid PDF signature and be at most 250 MB and 2,000 pages. Search and TTS require native extracted text or a completed supported recognition job. PDF.js rendering remains page-faithful and does not recolor page contents for app themes.
-- HTML and EPUB content use the parser-based `ammonia` allowlist before storage. The shared reader boundary validates browser-decoded URL schemes, preserves same-document footnote anchors and EPUB-generated raster images, and strips active elements, event handlers, inline styles, remote images, SVG data URLs, and unsupported links. Uploaded documents and audiobook-bundle sources are sanitized again when read so files retained from older app versions receive the current policy before entering the app DOM.
+- HTML and EPUB content use the parser-based `ammonia` allowlist before storage. The shared reader boundary validates browser-decoded URL schemes, preserves same-document footnote anchors and validated EPUB image assets, and strips active elements, event handlers, inline styles, remote images, SVG data URLs, and unsupported links. Uploaded documents and audiobook-bundle sources are sanitized again when read so files retained from older app versions receive the current policy before entering the app DOM.
 - Uploaded-document search only runs inside the Tauri app, not plain browser preview.
 - Folder import is desktop-only. It preserves supported files through five visible folder levels, skips deeper descendants and symlinks, and leaves already-imported duplicate documents in their current Library location.
 - There is no user-facing reindex action for generic uploaded documents yet.
-- Search currently shows the first 50 results from each provider, or up to 100 uploaded results when a document scope is active, and reports the complete provider count; pagination or **Show more** is not implemented yet.
+- Keyword retrieval is capped at 50 results per provider, or up to 100 uploaded results with document scope. Its UI starts at ten cards and Show More reveals batches from the same bounded response, not server pagination. Provider counts remain distinct from displayed-card counts. Conceptual independently returns at most 50 documents.
 - Starting a newer query suppresses stale results from an older in-flight search, and re-submitting the identical active query does not start duplicate provider work. Pagefind and the native SQLite command do not currently expose cooperative cancellation, so the UI does not offer a misleading Cancel action.
 - Multi-passage evidence, supporting-section distribution strips, and concordance currently apply only to uploaded SQLite results. Each card retains at most three ranked passages and twelve position bins; a bin with several matches opens its first supporting section/page, while the same **Explore matches** disclosure lists literal occurrences on demand.
 - Concordance can inspect any quoted phrase or required broad-search term available for that result and loads 50 lines per page. Exact results with one occurrence omit this redundant disclosure.
 - Broad two-to-six-term uploaded results show per-term matching-section counts directly on each card. Those values describe section coverage, not repeated word occurrences or semantic agreement between terms; a separate selected-document comparison mode is intentionally not retained without evidence that it improves decisions.
-- Uploaded documents are not exported as part of a library backup yet.
+- Selected uploaded documents can be exported/imported through [Library Transfer](library-transfer.md), including supported EPUB reader assets. This is a portable transfer package, not a synchronized backup service.
 - Quoted exact-phrase results are document-level matches with native indexed-section occurrence counts for uploads and source-verified counts for bundled starters, not broad provider section counts.
 - Very large HTML/EPUB books currently render as one generated reader DOM. The app treats document opening as one global reader transition, disables competing View/Open actions while source HTML loads, and progressively discloses localized preparation detail after 700 ms plus a large-document reassurance after five seconds. It avoids DOM mutation for search-result target highlights on modern WebViews and does not build the TTS text-node index until playback highlighting needs it. The first audiobook highlight after a large DOM mutation may still rebuild the text segment index. Chapter-level rendering with locator-aware highlighting is the preferred long-term fix for those formats; PDF already uses page virtualization and page-aware locators.
 - Light/Dark/System theme selection is UI state, not document state. Theme polish should stay in CSS tokens where possible so imported HTML, generated EPUB HTML, and saved audiobook highlighting remain stable across theme changes.
 
-## Recommended Next Steps
+## Other Upload And Reader Follow-Ups
 
 1. Add more EPUB parser fixtures for malformed OPF/container cases, spine edge cases, oversized image skipping, and metadata fallback.
-2. Include retained covers in library-transfer packages so covers survive device-to-device transfer.
+2. Track transfer transport changes separately in [Library Transfer](library-transfer.md#deferred-lan-redesign--2026-10-15); they are outside search-v2.
 3. Add a reindex action for uploaded documents if parser or sanitizer behavior changes after import.
 4. Add richer EPUB reader features such as TOC, location restore, pagination, EPUB-specific appearance controls, or a foliate-js/epub.js-backed viewer if generated reading HTML is not enough.
 5. Follow [pdf-ocr-scanning.md](pdf-ocr-scanning.md) for remaining PDF parity, OCR, and mobile scanning work; do not implement those concerns as isolated additions here.
-6. Add multilingual search fixtures and choose an indexing strategy for scripts that do not use whitespace word boundaries before exposing corpus vocabulary statistics.
-7. After that search foundation is validated, add corpus-wide distinctive-term and coverage views before considering a word co-occurrence graph.
+6. Existing English/Arabic and structural multilingual fixtures do not establish universal language quality. Corpus vocabulary statistics, distinctive-term/coverage views and word graphs remain unimplemented ideas, not queued search work.
 
 ### Inline Auxiliary Roles And Existing Imports
 
@@ -275,3 +273,257 @@ Native phrase regressions call the shipping `search_uploads_with_db` entry point
 the retired `retain_exact_phrase_hits` test-only implementation is no longer an
 alternate verification path. In-memory fixture/request helpers contain setup and
 routing only.
+
+## Conceptual Search
+
+### Ownership And Shipping Builds
+
+The feature uses existing upload storage and reader targets, not a second importer.
+
+| Boundary | Owner |
+| --- | --- |
+| Model manifest, verified cache, provider/session and native commands | `src-tauri/src/search_embeddings.rs`, `search_embeddings/models.rs`, `cache.rs` |
+| Shared ONNX Runtime (ORT) initialization | `src-tauri/src/onnx_runtime.rs`; also used by Arabic TTS preprocessing |
+| Derived index/jobs, natural passage windows and read-only retrieval | `src-tauri/src/document_uploads/semantic.rs`, `semantic/store.rs`, `passages.rs`, `query.rs` |
+| Saved opt-in, selected model, setup/index status and outcome notices | One `src/search-semantic/useSemanticSearch.ts` owner in `App` |
+| Latest eligible conceptual request | `useConceptualSearch.ts`; one in-flight request, coalescing replacements without an unbounded queue |
+| Result views, matching options and source opening | SearchTab, SearchOptions, ConceptualResults and the existing viewer boundary |
+| Model preparation UI | `SearchModelSetup`; requires the App-owned controller, with local consent/confirmation state |
+
+| Target | Existing shipping command | Provider feature |
+| --- | --- | --- |
+| Linux, Windows, macOS | `npm run desktop` | `native-tts-shared,experimental-search-embeddings` |
+| Android arm64 | `npm run android:apk:native-tts` | Same shared/dynamic features |
+| iOS signed export on macOS | `npm run ios:ipa:native-tts` | `native-tts-ios,experimental-search-embeddings-linked` |
+| Unsigned iOS simulator/device checks on macOS | `npm run ios:ci -- --native-tts` / `npm run ios:ci:device` | Linked provider with the prepared static archives |
+
+No model weights are bundled or fetched during builds. `desktop:static` and mobile
+builds without native TTS are providerless alternatives; Android custom argument
+lists own their feature selection. Cargo defaults are unchanged. Providerless
+builds report `compiled: false` and allow disabling a saved preference; browser
+preview has no native model controls.
+
+FastEmbed requires ORT API 24 in provider builds; providerless TTS uses API 17.
+Both consumers use ORT `2.0.0-rc.13` through one initializer and the packaged runtime.
+iOS uses linked initialization; desktop/Android use dynamic loading. Initialization
+errors are cached, so repairing a packaged runtime requires restart. Official
+Libtashkeel remains a registry dependency with the unchanged attributed model and
+a small app adapter; see [TTS runtime ownership](kokoro-tts.md). Android retains a
+process-lifetime ORT environment reference, not model sessions, to avoid the observed
+post-test teardown abort. Keep it until a compatible upstream fix is validated.
+Unix build staging replaces shared libraries atomically rather than truncating
+files potentially mapped by a running app; Windows stages DLLs beside executables.
+
+### Models, Cache And Consent
+
+The serialized selection is fixed; commands accept no arbitrary model, URL or path.
+The [asset manifest](../src-tauri/src/search_embeddings/models.rs) owns pinned
+revisions, sizes and SHA-256 values. Do not maintain another checksum list here.
+
+| Selection | Installed bytes | Dimensions | Files |
+| --- | ---: | ---: | ---: |
+| Small FP32 (`float32`) | 487,352,505 | 384 | 5 |
+| Small INT8 (`dynamic-int8`) | 135,430,819 | 384 | 5 |
+| Base FP32 (`base-float32`) | 1,127,143,136 | 768 | 5 |
+| Large FP32 (`large-float32`) | 2,252,993,226 | 1,024 | 6 |
+
+Cache layout beneath Tauri app data is
+`models/search/<model>/<revision>/<precision>/`. Each cache holds four tokenizer/
+configuration files and `onnx/model.onnx`; Large also needs `onnx/model.onnx_data`.
+The INT8 upstream artifact is named `model_qint8_avx512_vnni.onnx` and staged under
+`model.onnx`; its name and a smaller download do not guarantee every CPU's suitability.
+Disk size is not peak RAM. Base/Large currently offer FP32 only.
+
+Fresh/invalid preferences start off. The local WebView key
+`papercut.semantic-search.v1` saves only enabled state and the fixed selection.
+Saving must succeed before enabling; disabling still stops work if saving fails
+and warns that an old preference may return after restart. Saved opt-in reloads a
+cached verified model, never downloads or resumes indexing automatically.
+
+Download consent names Hugging Face and resets on selection changes and completed
+attempts. **Verify Cache** uses the installer too: intact files need no HTTP request,
+but missing files can be fetched, so consent is still required. Presence by regular
+file/size is not checksum verification. A successful explicit preparation shows
+session-local **Model Files Verified**; selection/reopening clears it. Activation
+always rechecks the actual bytes supplied to the loader. Only one model is resident;
+turn off before changing model/format or removing its active files.
+
+The installer checks full payload plus 64 MiB reserve on the same filesystem. It
+streams bounded, checksum-pinned assets over HTTPS (including redirects), writes a
+sibling `<precision>.installing` directory, syncs/rechecks it and renames it into place.
+Cancellation before publication prevents it; cancellation after committed publication
+does not undo a valid cache. Failed/cancelled work cleans staging on normal return or
+unwind. After process interruption, explicit retry discards stale staging and starts
+over; byte-offset resume and automatic retry are absent. An incomplete/corrupt final
+cache needs explicit removal and is never silently replaced. Removal can clear partial
+final/staging files and never removes another model's cache or source documents.
+
+Download/activation reservations remain occupied until workers finish cleanup.
+Cancellation is cooperative between asset reads and native calls; ORT construction/
+inference cannot be interrupted. HTTP connection/idle-read deadlines are 10 seconds,
+with a 30-minute request deadline; cancellation may wait for an in-flight read.
+Model unload releases the session, not the shared environment or a guaranteed quantity
+of process memory. Expensive filesystem, network and provider operations use the
+blocking pool; no SQLite write lock spans inference.
+
+### Native Command Contracts
+
+Registered handlers use camelCase requests/responses. Capability does not imply
+activation, complete coverage, relevance or device acceptance.
+
+| Command | Contract |
+| --- | --- |
+| `search_embedding_status` | Capability/platform plus active/loading/downloading selection and encoder identity; non-null active state follows verified native warm-up. |
+| `search_embedding_cache_status` | Four selections with `expectedBytes`, `filesPresent` and `hasStoredFiles`; metadata presence is distinct from integrity and partial storage. |
+| `search_embedding_configure` | A fixed selection loads already cached verified bytes; null cancels/unloads. Disabling also signals index/download cancellation. Native generations prevent old activation publication after disable. |
+| `search_embedding_download` | Explicitly verify/reuse or install the selected manifest, without opt-in, activation or indexing. |
+| `search_embedding_cancel_download` | Request cancellation, retaining busy state through cleanup. |
+| `search_embedding_remove` | Remove only selected cache/staging; refuse conflicting jobs or an active selected model. |
+| `search_semantic_index_status` | Read compatible completed-document coverage, job state and stored work; no activation or semantic-table creation. Without a compatible active provider, ready coverage is zero, not proof of deletion. |
+| `search_semantic_index_build` | Explicit build/update with a verified active provider, one document at a time; reuse validated unchanged checkpoints. Returns on completion/failure. |
+| `search_semantic_index_cancel` | Cooperative stop, preserving committed checkpoints and keeping the slot reserved until worker exit. |
+| `search_semantic_index_remove` | Remove derived work under the job slot, invalidate writers and retain source/lexical data plus empty tables/triggers for future invalidation. |
+| `search_semantic_query` | Read-only scoped conceptual retrieval; never download, activate, index or alter Keyword matching. |
+
+Download progress events include selection, phase and bounded byte progress. Terminal
+events also carry process-local job identity and nullable error after reservation
+cleanup. The controller ignores stale/duplicate outcomes, retains failed-model
+feedback across Settings navigation and polls only while busy with one outstanding
+poll. New downloads clear old failure state; status retry/Review does not. This is
+session feedback, not persistent diagnostic history. Index errors add document ID
+and one-based section where known, without title/query/passage text. Confirmed
+cancellation is normal **Indexing Cancelled** feedback; a real failure racing Stop
+remains an error. Source/query content is not logged by conceptual retrieval.
+
+### Index Identity, Source Roles And Upgrades
+
+The three derived `upload_semantic_*` tables are created lazily by explicit build.
+Five source-mutation triggers invalidate readiness transactionally, including when a
+providerless/older app changes source metadata. Complete current documents alone are
+queryable; partial-document checkpoints remain reusable but unavailable as results.
+Unknown semantic schemas fail closed. Stored vectors have independent checksums,
+dimension, finite-value and unit-norm validation.
+
+Identity includes exact model/tokenizer/config bytes, dimensions, pooling/prefix
+rules and the versioned extraction/body-range/window policy. A different model or
+policy has no compatible coverage until explicit rebuild replaces the one derived
+index. Returning to an older model after replacement requires another rebuild.
+Title, source/page edits, OCR, deletion and imports invalidate affected generations;
+checks before publication reject concurrent mutation, removal and stale writers.
+Readiness is not inferred from cached files, saved opt-in or stored checkpoints.
+
+Passages stay within one anchored body/auxiliary region and one section/page. Natural
+sentence/paragraph boundaries are preferred within 320 tokens (including metadata/
+prefix) and 40-token overlap bounds; character/token ceilings can force shorter cuts.
+Complete authored text remains searchable and navigable even when notes/navigation/
+references are excluded from preferred body evidence. Body matches take precedence
+within a document; auxiliary-only matches remain possible. No synthetic joins across
+sources or omitted notes are presented as authored text.
+
+Upload migrations retain original text and locators. Schema-11 PDF role repair uses
+matching saved page geometry, including wrapped indexes and parenthesized references;
+missing/mismatched geometry preserves text conservatively. Unicode PDF line-wrap
+repair updates derived lexical forms with original UTF-16 targeting. Schema 13 repairs
+inline HTML/EPUB roles only after verifying saved text/ordinals; interrupted repair
+resumes and missing/mismatched source preserves known classifications. Old saved EPUBs
+that lost role markup need reimport. Affected semantic vectors require explicit update;
+unrelated compatible work remains usable. Pre-7/pre-8 lexical/spelling migrations
+invalidate stale projections/checkpoints after writes by older app versions.
+
+For eventual removal of the feature, remove handlers/state, provider integration and
+React preference/UI together. Migrate existing installs by dropping the five semantic
+triggers before the three derived tables; preserve original upload/source/lexical data.
+
+### Retrieval And Result Views
+
+The conceptual request has `query`, optional `exactPhrases`, `documentUrls` and `limit`.
+Absent/null scope means all uploads; an empty array means none. Scope rejects over
+10,000 URLs, blank entries or URLs over 2,048 bytes. Limits are 1–50, default 50.
+The shared 128-term/4,096-character query budget is enforced before frontend work
+and independently at the native boundary. E5 encoding requires nonempty `query: ` /
+`passage: ` prefixes, at most 4,096 characters including prefix and 512 actual tokens
+including special tokens; overflow fails instead of truncating. Mean pooling,
+normalized vectors, one text per call and at most two desktop/one mobile intra-op
+threads retain the INT8 policy.
+
+Before scoring/top-k, scope and required quotes are verified against authored body
+text at document scope. Different phrases may occur in different sections; title-only
+matches do not qualify. The conceptual passage may be elsewhere and is not literal
+quote evidence. Unquoted names/dates/words are conceptual input, not requirements.
+There is no rank fusion, synonym override list, confidence score or calibrated
+no-answer threshold. Similarity cannot establish a complete supported answer.
+
+Among the preferred passage role, best cosine similarity ranks each document; source
+order breaks passage ties and document ID breaks document ties. Result memory is
+bounded to 50 documents while vectors are scanned individually. Query cost is linear
+in compatible scoped passages; there is no approximate-nearest-neighbour (ANN) index.
+One read snapshot pins sources/index/vectors and a fresh generation check rejects
+mutation before return. One native query slot has a cooperative ten-second budget
+including queue time; a native call, SQLite wait or single-document phrase check can
+exceed it before the next cancellation check. UI replacement requests drain only the
+latest eligible request after the prior call settles; stale completions cannot publish.
+
+Native availability is missing-index, incompatible-index, partial or ready; errors
+remain distinct from a ready empty response. Scoped eligible/ready coverage precedes
+phrase filtering. Partial results are withheld by the UI until that submitted scope
+is complete. Pre-query guidance is library-wide; a ready scoped response takes
+precedence afterward. Keyword stays usable independently. Missing/update warnings
+show their icon/title above **Search Settings**; the cog precedes its text. Settings
+opens directly, preserves query/scope/results, and restores focus to the opener or
+Settings cog if setup removed it. Other empty/loading/error states stay distinct.
+
+The compact tonal Keyword/Conceptual selector and Keyword-only All Words/Broader
+radios are centered under the query, before helper/examples and the shared filter.
+Only that control row sticks, respecting the same safe-area inset as scroll restoration.
+Desktop segments have a 36px minimum, or 44px with any coarse pointer. Icons sit
+physically left of labels; text direction remains automatic. Switching views starts
+no query and never merges ranking. Each view retains its ten-card batch window,
+expanded evidence and scroll place while mounted; new submitted queries/scopes reset
+them. App retains the selected view during navigation; async completion never selects
+another. Hidden panels stay mounted/inert. Keyword examples fill only, without submit;
+Conceptual hides them. Keyword retains the two-line welcome, ready Conceptual a short
+query prompt. Helpers omit repeated library scope and numeric rules without changing
+retrieval semantics.
+
+Conceptual cards contain plain authored text, no invented marks/counts. **Passage &
+Nearby Text** initially shows the match and nearest available neighbour on each side,
+in source order; More reveals remaining bounded previews, Less restores that window.
+Matched Passage has a stronger semantic heading, tonal surface and persistent logical
+start-edge accent rule. All context blocks reserve equal padding/border space; Nearby
+Text stays secondary. Leading down/up chevrons are decorative; expanded/controls
+associations, focus and per-card reset behavior survive either transition.
+
+Previews cap at 400 Unicode characters, preferring word boundaries, six visible lines
+and 80ch width. PDF display rejoins conservative ASCII/U+2010/U+2011 word wraps and
+single line breaks, retaining paragraph breaks; non-PDF authored breaks remain.
+Only display text changes. Reader actions use full original text, section/page and
+UTF-8 source spans through the existing target boundary; byte offsets are not DOM
+UTF-16 offsets. Open Passage reads the source instead of expanding a preview into
+an unbounded document.
+
+### Settings And Activity
+
+Settings → Semantic Search → Manage uses the existing AppDialog, with header Back/
+Close, four-side safe-area padding and a scrollable body. There is no introduction
+under **Semantic Search (Experimental)**. Tonal sections retain field borders/focus
+rings. The first card has one status/switch row, stably named by its Semantic Search
+heading; live status and conditional Model Download Required describe it. Opt-in alone
+never means ready. General Settings keeps its observed readiness summary.
+
+Manage Model owns loading/verification/download feedback and collapses stored/loaded
+summaries; current operations/errors remain discoverable. Library Index owns coverage,
+processed counts, Build/Update/Stop and separate index removal. Empty libraries request
+imports, not 0/0 readiness. **How It Works** explains Matching, Device Resources and
+Saved Work. The 64 MiB reserve is grouped under Download Size; general information and
+explicit file verification have distinct icons/styles. Cancel Download/Stop Indexing
+are neutral tonal actions; removals have red labels, standard hover/focus, inline
+confirmation and current busy/empty-data guards. Confirmation cancel/restoration keeps
+focus on a surviving control if removal hides the original panel.
+
+Header activity remains reachable from reader/search while native work runs; it opens
+setup without starting work. It announces phases rather than every document tick,
+respects reduced motion and does not promise work after process exit/mobile suspension.
+Completed/cancelled indexing notices last eight seconds; failure/unavailable-final-state
+Review remains until opened or a new accepted action. Closing Settings detaches its
+listeners/timers, not the App-owned controller or native work. Native status recovery
+and generation checks preserve late-completion and duplicate-action guards.

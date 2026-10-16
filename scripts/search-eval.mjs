@@ -543,7 +543,7 @@ try {
     }
   })
   const currentById = new Map(rows.map((row) => [row.id, row]))
-  const baseline = JSON.parse(readFileSync(join(ROOT, 'docs/search-v2-baseline.json')))
+  const baseline = JSON.parse(readFileSync(join(ROOT, 'scripts/fixtures/search-v2/baseline.json')))
   for (const previous of baseline.queries) {
     assert.ok(byId.has(previous.id), `missing baseline query ${previous.id}`)
     const current = currentById.get(previous.id)
