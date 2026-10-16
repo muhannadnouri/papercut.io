@@ -637,40 +637,290 @@ model for Papercut's encrypted native transfer.
 
 #### Connection Roles and Protocol Cutover
 
-The current `security.rs` explicitly binds sender/server and receiver/client to
-`PCLAN003`, ordered SPAKE2 identities and a versioned TLS exporter. Reversing TCP
-alone is not a compatible refactor. Require a reviewed new wire version
-(`PCLAN004` is the proposed marker, not an implemented capability), exporter
-domain and explicit content-role confirmations. Reuse the cryptographic
-libraries; do not invent cryptographic primitives or weaken certificate/channel
-binding. The v4 framing/security review must explicitly cover:
+**v4 implementation contract, reviewed 2026-10-16; not implemented.** The current
+`security.rs`/`transport.rs` still implement `PCLAN003`. The following wire change
+is deliberate: new peers use **only `PCLAN004`**, with no version negotiation or
+fallback to v3 after failure. Read the eight-byte marker before any remaining
+pairing bytes; a different marker closes the connection and gives a local
+update/file-transfer explanation. EOF before a marker is only a connection
+failure with compatibility guidance, not evidence of the peer's version. Old
+v3 peers remain compatible with each other; package versions 1–4, saved libraries
+and audiobook formats are unchanged.
 
-- Listener/connector PAKE roles with fixed, versioned identities, independent of
-  the content sender/receiver. Keep a deterministic exchange order in both modes.
-- A bounded mode/role prelude treated as untrusted until both key confirmations
-  bind the protocol, expected ordered content roles, selected mode and TLS
-  exporter. Reject mismatched roles/modes and reflections before package metadata
-  or bytes. Discovery hints cannot select or authenticate these roles.
-- A private resume identity valid only for the same unexpired content session,
-  chosen mode and listener endpoint. The old source-address/code cache key alone
-  does not describe a receiver-hosted session. Pin the immutable package identity
-  in authenticated framing, validate offsets and reject a changed package before
-  appending; never carry a partial into a new code, peer selection or mode.
-- Preserve completed-wrong-code consumption and bounded unauthenticated traffic,
-  reauthenticate each resumed TLS channel, and accept import progress/final
-  acknowledgement only from the authenticated content receiver. Keep the atomic
-  restore boundary and successfully imported data on acknowledgement failure.
+##### Roles and TLS
 
-Exact framing and confirmation inputs require review and regression tests before
-shipping either mode. Human code entry precedes short authentication I/O timeouts.
+`C` is the TCP connector/TLS client; `L` is the listener/TLS server. The mode is
+selected locally before connecting, never negotiated from discovery or a socket:
 
-Prefer a deliberate protocol cutover with a clear update/file-transfer fallback
-for old peers over indefinitely maintaining two network implementations. The
-compatibility decision and new framing/pairing transcript must be reviewed before
-code changes. Do not silently retry a failed authenticated exchange using v3;
-DNS-SD metadata cannot authorize a downgrade. Existing v3 peers continue to work
-with each other until cutover; package versions 1–4 and saved libraries are not
-changed by the new network protocol. App version/release timing remains deferred.
+| Mode byte | Discovery hint | C's content role | L's content role |
+| --- | --- | --- | --- |
+| `01` | `m=push` | Sender | Receiver |
+| `02` | `m=pull` | Receiver | Sender |
+
+These are the only valid values. Content roles follow the mode, so no redundant
+role byte or peer-supplied role assignment is needed. Use TLS 1.3 through the
+existing rustls/ring stack, with a fresh self-signed certificate per listener
+session. Keep handshake-signature verification; the following PAKE authenticates
+the otherwise untrusted certificate/channel. Do not consult public certificate
+services, persist trust, enable TLS tickets/resumption or accept 0-RTT. Application
+resume always starts a fresh TLS handshake and fresh PAKE instances. This narrows
+the new transfer configuration, not TLS settings used by other app features.
+
+Use the existing 12-symbol, 60-bit CSPRNG code and normalization/alphabet. The
+listener displays it; it is neither a user-chosen password nor a persistent key.
+Also generate a native-owned, random **16-byte session ID** at listener readiness;
+retain it only for that foreground session and its eligible resumes. Neither
+code nor ID goes into DNS-SD, logs, copied diagnostics or persistent preferences.
+Possession of the code authorizes the selected session, not a permanent physical
+device identity; anyone given the same code has that authority.
+
+##### Fixed Pairing Frames and Transcript
+
+All bytes below travel **inside completed TLS**. `||` means concatenation; quoted
+labels are exact ASCII bytes, without a terminator unless `\0` is shown. SPAKE2
+messages are the opaque 33-byte messages from the currently locked
+`spake2` 0.4.0 `Ed25519Group`, including its side byte; do not reimplement group
+parsing or claim RFC 9382 wire interoperability.
+
+| Message | Direction | Exact encoding | Bytes |
+| --- | --- | --- | --- |
+| `HelloC` | C → L | `"PCLAN004" \|\| mode:u8 \|\| pake_C:[u8;33]` | 42 |
+| `HelloL` | L → C | `"PCLAN004" \|\| mode:u8 \|\| session_id:[u8;16] \|\| pake_L:[u8;33]` | 58 |
+| `ConfirmL` | L → C | HMAC-SHA256 tag defined below | 32 |
+| `ConfirmC` | C → L | HMAC-SHA256 tag defined below | 32 |
+
+C calls `start_a`, L calls `start_b`; both pass these identities in the same order:
+`id_A="papercut-library-transfer-v4-connector"`,
+`id_B="papercut-library-transfer-v4-listener"`. Both use the normalized code as
+`Password`. Let `K` be the shared bytes returned by `finish`, not a raw group
+element. Each attempt uses new PAKE randomness. The exact confirmation inputs are:
+
+```text
+E = completed_tls.export_keying_material([0u8; 32],
+      b"EXPORTER-papercut-library-transfer-v4", None)?
+T = "papercut-library-transfer-v4-confirm\0" || HelloC || HelloL || E
+ConfirmL = HMAC-SHA256(K, T || 02)
+ConfirmC = HMAC-SHA256(K, T || 01)
+```
+
+Exporter failure closes the attempt; never substitute a zero output. The final
+`01`/`02` are single hexadecimal connection-role bytes, not ASCII digits or
+content-role bytes. Both hello mode bytes must equal the local choice. The fixed layout makes the
+transcript unambiguous; its mode determines the ordered content-role mapping.
+The session ID and both PAKE messages are included verbatim. No JSON, discovery
+name, IP string, locale-dependent text or code is concatenated into `T`.
+
+The only exchange order is `C: HelloC` → `L: HelloL` → `C: ConfirmC` →
+`L: ConfirmL`. Flush each flight. L verifies ConfirmC in constant time **before
+releasing its own confirmation**: a guessing connector cannot inspect L's tag
+and disconnect before presenting the proof that consumes an incorrect attempt.
+C verifies ConfirmL in constant time. A side handles content only after
+verifying the peer and sending its own confirmation. L may queue its first
+content frame after flushing ConfirmL; C checks that tag first. No library
+metadata, archive bytes or filesystem effects based on a peer occur before this
+gate. Do not add another ready acknowledgement or custom encryption layer.
+Drop per-connection PAKE/key material promptly after confirmation; retain only
+the native session credentials needed for explicitly permitted resume.
+
+Reject wrong magic/mode/side, malformed group elements and incomplete flights as
+unauthenticated traffic. They close that socket without consuming the code or
+changing the waiting deadline. At L, a complete invalid ConfirmC is a completed
+online guess: close its listener session and discard its code. At C, an invalid
+ConfirmL ends the local generation; it cannot command a remote reset or trigger
+another connection. A valid ConfirmL
+pins the listener/session at C; later reconnects require the same authenticated
+session ID. A mismatching untrusted hello must not delete or repurpose a partial.
+An attacker can still occupy or terminate a foreground session; code consumption
+limits guessing, not denial of service. Accept one handshake at a time, with no
+application queue of pending handshakes and no per-peer ban database.
+
+The existing [SPAKE2 API](https://docs.rs/spake2/0.4.0/spake2/)
+supports fixed identities and using `finish` output as an HMAC key. It explicitly
+reports no independent security audit; reusing it is not an audit claim. The
+exporter is the post-handshake exporter, never the early-data exporter.
+[TLS exporter contract](https://www.rfc-editor.org/rfc/rfc8446.html#section-7.5)
+
+##### Authenticated Package and Status Framing
+
+After pairing, use `type:u8 || length:u32be || body[length]` for control frames.
+All integers are unsigned and big-endian; lengths count bytes, not characters.
+Read/validate type, state and length **before allocation**. Unknown types,
+out-of-order frames, zero/oversized JSON, malformed UTF-8/JSON, truncated fixed
+fields and arithmetic overflow fail closed; do not skip extensions or retry a
+different protocol/mode. Only these types exist:
+
+| Type | Direction / allowed state | Body |
+| --- | --- | --- |
+| `10` (hex), Offer | Content S → R, immediately after pairing | Exactly 40 bytes: archive size `N:u64be` then `SHA256(archive):[u8;32]`. Require `0 < N <= 8 GiB`, the existing `MAX_PACKAGE_BYTES`. |
+| `11` (hex), Ready | R → S, after validating Offer and local staging capacity | Exactly 8 bytes: resume offset `O:u64be`, with `0 <= O <= N`. |
+| `12` (hex), Status | R → S, before Ready for a rejection, or after all archive bytes | 1–65,536 bytes of UTF-8 JSON using the existing `ReceiverMessage` representation below. Before Ready only `failed` is legal. |
+
+Following Ready, S writes **exactly `N-O` raw bytes**, with no chunk headers;
+only then does S read Status frames. R emits no wire progress during byte copy;
+both UIs use native local byte progress. An error during raw streaming closes
+the socket; do not block trying to exchange duplex control messages. A sender
+must not append extra content; only the announced archive is staged/imported.
+Keep the existing 64 KiB copy buffer and checked arithmetic. Do not allocate
+from `N`, map the whole archive or trust a remote offset as a local file path.
+
+Reuse these JSON shapes, not a second result/error model:
+`{"kind":"progress","value":<LibraryTransferProgress>}`,
+`{"kind":"complete"}`, and
+`{"kind":"failed","value":<LibraryTransferError>}`. Existing camelCase fields
+and unsigned numeric bounds apply. Reject unknown variants; progress is display
+data, never authority to import, complete, extend pairing expiry or change roles.
+Coalesce its UI updates within the existing bounds; render strings as text and
+keep raw peer strings/item names out of copied diagnostic reports. `complete`
+means the importer returned its result; retain the current receiver-owned
+partial/skipped/failed-item details instead of claiming every item was imported.
+
+Compute the archive digest once from the closed, immutable prepared file before
+connecting/advertising, using bounded reads with cancellation checks. Offer is
+on the authenticated TLS stream. Pin its size
+and digest on the first accepted Offer; reject a changed Offer in the same
+session rather than silently overwriting a partial. R's native-only resume key
+is the tuple `(local generation, mode, authenticated listener session ID,
+listener endpoint, N, digest)`. Code/PAKE proof is still required on every
+connection; that tuple or a digest alone grants no authority. Do not persist
+session credentials to allow process-restart resume or accept a peer filename.
+
+For a retained private partial, validate its local length against N, then request
+that length as O. Rehash the prefix with bounded reads if maintaining an
+incremental full-file hash; length or filename alone is not a proof of correct
+prefix contents. There is no new prefix-hash protocol. Check remaining staging
+space before Ready. After receiving the remainder, verify the full staged
+archive digest before atomically admitting restore, including when `O=N`.
+Every pre-admission hash pass uses bounded reads and checks cancellation.
+A digest failure is terminal: remove the untrusted partial, import nothing and
+end the session. Existing package checksums, ZIP/path limits, sanitization,
+merge rules and restore-space checks remain mandatory afterward.
+
+Before Ready, an explicit `failed` with `insufficient-space` permits user Retry
+in the same unexpired session; retain the pinned Offer/package. Other rejections
+are terminal. Once restore is admitted, **all** import outcomes are terminal for
+this network session, including an insufficient-space error; do not infer safe
+network replay from its error code. A later user action may recover through the
+existing importer/merge rules, but the wire protocol promises no rollback.
+
+Once bytes are staged, R sends bounded verification/import progress and one
+terminal Status. Forwarding is best effort with bounded writes; after a write
+failure, disable further forwarding rather than blocking each import callback
+again. A lost final message never undoes receiver data. After S has written all
+bytes, EOF, timeout or cancellation before terminal Status means **Outcome
+Unknown — Check Receiving Device**, not confirmed failure or successful import.
+Treat an ambiguous final-write/flush error the same way if all bytes may have
+been delivered. Invalid post-copy status also closes the channel with an unknown
+import outcome; a parser error is not proof of rollback. An authenticated
+`failed` reports the receiver's failure, not that zero items were restored.
+Close that session without automatic resend/re-import. No distributed commit,
+exactly-once guarantee or result-recovery service is introduced.
+
+##### Session State and Deadlines
+
+Rust owns one foreground generation per device, with independent content and
+connection roles. Reserve receiving/import work before exposing readiness or
+connecting; retain the sender's package guard until terminal cleanup. A listener
+generation owns the code/session ID/certificate/listener set and its deadline.
+The connector retains its selected mode/endpoint and authenticated session ID
+only within that generation. The UI never reconstructs these from progress events.
+
+| State | Entry / permitted next states |
+| --- | --- |
+| Preparing / Selecting / Permission | Local selection and sender packaging; then listener Binding or connector Connecting. Cancel/failure is terminal. No socket waits for human code entry. |
+| Binding → Waiting | Bind all eligible addresses, create credentials/TLS, then mark Ready and advertise. Any required bind failure closes the entire set before failure. |
+| Connecting → Authenticating | Explicit peer/code selection; TCP, TLS and the fixed exchange. A listener also enters Authenticating after accept. One socket attempt owns this state. |
+| Waiting after unauthenticated noise | Close only the rejected socket; listener returns to its existing waiting generation/deadline. A connector may offer explicit Retry without a mode switch. |
+| Authenticated → Offer / Ready → Streaming | Withdraw advertising and allow only the grammar above. No second peer or simultaneous attempt. Pin package identity before staging. |
+| Waiting to Resume | Only recoverable I/O before local raw-copy completion, or pre-Ready storage rejection, while foreground and unexpired. L may re-advertise; C explicitly reconnects to the same endpoint/session using fresh TLS/PAKE. Both sessions must still be eligible; a terminal peer cannot be revived. Preserve the partial/package, not old TLS/PAKE state. |
+| Verifying → Finishing Import | R validates the staged digest, then wins atomic restore admission against cancellation. After admission no cancel, mode switch, new connection or network replay can start another restore in this generation. |
+| Awaiting Result | S has written all raw bytes; only Status frames are accepted. Confirmed terminal Status ends the session; connection loss becomes Outcome Unknown, not automatic Waiting to Resume. |
+| Complete / Failed / Cancelled / Expired / Outcome Unknown | Terminal snapshots close listeners, sockets and registrations before reporting recovery controls; clear code/session ID/deadlines and release reservations/guards. Retain bounded safe diagnostics and immutable result facts. |
+
+Pairing/resume eligibility is a **600-second absolute monotonic deadline** from
+listener readiness. Discovery, noise and retries never renew it; authentication
+must finish before it. Successful streaming/import can outlive that window, but
+no later reconnect is admitted. C has one cancellable **30-second total TCP
+connect budget**, and also enforces its own unextended 600-second foreground
+attempt window from its first TCP connect, after preparation/code entry. A retry
+does not reset it. Do not transmit wall-clock deadlines or assume clock agreement;
+only L can display its authoritative code expiry. C's local budget is not a claim
+about L's remaining time.
+Each TLS-plus-PAKE attempt has **one five-second absolute budget**, capped by
+remaining eligibility, not a timeout reset for each byte. Use shutdown-based
+cancellation to interrupt blocked I/O in both roles.
+
+Authenticated header/body writes/reads and raw streaming use **30-second I/O
+inactivity limits**, except that S allows one **600-second absolute wait for
+Ready/rejection** after Offer, accommodating local partial-file reads and space
+checks. S uses **600 seconds of inactivity** while awaiting post-copy receiver
+status, matching the existing import-wait allowance. Parsing each control frame
+also has a 30-second absolute assembly budget after its first header byte;
+trickling bytes cannot renew it. A Ready wait never exceeds its 600-second budget.
+There is no new total archive-transfer deadline: bounded size, inactivity limits,
+foreground ownership and explicit cancellation accommodate large audiobooks.
+An observing sender timeout cannot cancel or roll back admitted local import.
+
+Before restore admission, cancel, actual mobile background, close or selected
+network loss wins over I/O and closes that generation; changing mode creates a
+new generation/code and cannot reuse a partial. During admitted restore, finish
+safely even if transport/UI visibility is lost, suppress further network starts
+and report the local result. Network teardown must still close sockets/listeners
+and disable forwarding without turning that into importer cancellation. This
+does not promise continued execution after the OS kills/suspends the process.
+Never wait for a sender acknowledgement to commit or keep a listener open just
+to recover a lost result. Exact resume requires both
+native sessions to remain eligible; no promise survives backgrounding, app exit,
+network replacement, a new peer/code/mode or a terminal sender outcome.
+
+##### Review Record and Required Implementation Checks
+
+The review assumes one user-selected foreground transfer, up to the existing
+8 GiB archive limit, with an untrusted LAN and arbitrary peers before pairing.
+It traces `security.rs`, `transport.rs`, `network.rs`, restore admission and the
+existing package/status types. These design ambiguities were resolved before
+implementation; none is a claim of a new runtime fix:
+
+| Reviewed failure case | Final design rule |
+| --- | --- |
+| A guessing connector reads L's confirmation and abandons its own proof. | C confirms first; L verifies before releasing its tag. Completed incorrect proofs consume the listener session. |
+| Mode, peer hello, connection role or TLS channel is substituted/reflected. | Fixed PAKE identities, exact ordered transcript, role-separated tags and expected mode checks before content. |
+| A different package or corrupted old prefix is resumed by matching only address/code/length. | Session/mode/endpoint/package pinning, bounded private partial handling and full archive SHA-256 before restore, even at offset N. |
+| A slow pre-authentication header renews timeouts indefinitely. | Fixed-size parsing, one absolute authentication budget, immutable pairing deadline and one active handshake. |
+| Final result is lost after import starts, or a storage error triggers a second restore. | Phase-gated resume; admitted restore is terminal for replay. Sender reports unknown outcome after ambiguous delivery; receiver retains data. |
+| A digest pass over a large partial or stalled progress writer blocks the workflow. | Bounded reads and Ready wait, bounded status assembly/writes, and forwarding disabled after its first failure without cancelling import. |
+
+Mechanical fixtures below fix the serialization/confirmation contract. They use
+**synthetic** message/key bytes, not valid SPAKE2 group encodings or a real TLS
+session: `K=00..1f`, `E=20..3f`, `session_id=00..0f`,
+`pake_C=41 || 00..1f`, `pake_L=42 || 20..3f` (hex inclusive byte ranges).
+`HelloC=42`, `HelloL=58`, `T=169` bytes in both modes; the confirmation domain
+is 37 bytes including its final NUL. Expected tags are:
+
+| Mode | ConfirmC (hex) | ConfirmL (hex) |
+| --- | --- | --- |
+| `01` | `72d53e91684808e350f4b0482158d9abe7cc4449b55580af7ebc964445814013` | `defef37eecaf9d9d5fb7b61a1cd227433cf1941073499979abd1fb2fe36b632a` |
+| `02` | `409b69ad2a0ecb8995db9ae0506c93d5ab1e890100f01dcafe0ac4ce8016bfe0` | `8267d4fb112bf47405cc095dc773fd1e904e36256860856467882880039dc836` |
+
+Control-header fixtures are `1000000028` (Offer/40), `1100000008` (Ready/8),
+and `1200010000` (maximum Status/65,536). These checks establish lengths,
+byte order and transcript sensitivity, not PAKE/TLS security or interoperability.
+
+Before release, implementation tests must use **real rustls plus the locked PAKE
+library** in both role mappings, not only these synthetic fixtures. Require
+wrong-code, wrong-side/role/mode, changed session ID/exporter, replay/reflection,
+truncation at every framing boundary, oversized/out-of-state frames, invalid
+UTF-8/JSON and offsets `0`, `N`, `N+1`/overflow. Exercise changed package/prefix,
+storage rejection before Ready versus after admission, final-write/flush/result
+loss, deadline trickling, both-mode cancellation/expiry/network changes, stale
+callbacks and the cancellation/restore race. Preserve existing sanitizer,
+path/ZIP bounds, partial import, private staging and diagnostic-redaction tests.
+
+**Review verdict:** the documented contract is ready for implementation and its
+regression tests; it is not a release-ready transport or an independent
+cryptographic audit. Runtime parsing/state tests, platform builds and
+packaged LAN acceptance remain unverified. Smoke and app version bump stay
+deferred; no dependency, runtime, wire implementation or machine policy changes
+are part of this document commit.
 
 #### DNS-SD Feasibility and Platform Choice
 
@@ -810,10 +1060,10 @@ In either selected mode, the listener owns binding, readiness and the waiting/co
 window; the connector owns the outgoing connection. The content sender owns
 package preparation and the content receiver owns staging/import. Both expose
 authentication, streaming, receiver import and a terminal result. Expose the
-native waiting/pairing deadline and expiry reason. Retain the existing ten-minute
-pairing window, authentication timeouts and authenticated-stream/import timeouts;
-discovery refreshes do not extend them. Withdraw advertising after successful
-pairing, re-advertise only
+native waiting/pairing deadline and expiry reason. The exact v4 deadlines and
+phase-gated resume rules above take precedence over the current v3 timeouts;
+the ten-minute pairing window remains unextended by discovery or retries.
+Withdraw advertising after successful pairing, re-advertise only
 after an eligible authenticated interruption, and preserve the same code/package
 only within its unexpired session. Incomplete unauthenticated traffic must not
 consume the code; a completed incorrect proof still does.
@@ -1070,8 +1320,9 @@ port selection is not claimed to fix incoming-deny policy.
 
 ### Delivery Order and Validation Gates
 
-The default plus explicit alternative are selected; the new wire transcript and
-native lifecycle/permission integration remain review gates before implementation:
+The default/explicit alternative and their wire/state contract are reviewed.
+Implementation remains staged; native lifecycle/permission integration still
+needs platform validation before claiming the complete transfer UX:
 
 1. **Endpoint/session foundation (implemented; platform acceptance pending):** typed interface-aware endpoints,
    stable binding, authoritative readiness/deadlines, cancellable receive and
@@ -1084,10 +1335,10 @@ native lifecycle/permission integration remain review gates before implementatio
    pair; no direction or firewall fallback may run without user intent.
    Firewalld/native permission paths still need scope, denial, expiry, crash and
    packaging validation. Static profiles/GUI recovery are not acceptance.
-3. **Next: protocol/state review, then implementation:** finalize exact v4
-   framing/confirmation inputs, listener-owned codes and deadlines, expected
-   content roles, mode-specific resume identity and old-peer cutover. Then build
-   one authenticated stream boundary and shared package framing, followed by the
+3. **v4 design review complete; next is tested implementation:** implement the
+   fixed framing/transcript and state contract above, first with real TLS/PAKE
+   and adversarial codec/state regressions. Then wire one authenticated stream
+   boundary to shared package framing and native generations, followed by the
    default/Connect to Sender UI and bounded native DNS-SD adapters. Add only
    supported OS permission paths, not an automatic UFW grant. Compile
    and link adapters on the supported minimum OS; verify callback teardown,
@@ -1148,8 +1399,10 @@ firewall mutation accompanies this revised design.
   record profile/catalog differences and reject an assumed approval API.
 - [x] Evaluate/select explicit outbound receiving before privileged UFW integration;
   distinguish the listening device/code owner from the content sender/receiver.
-- [ ] Review both selected modes' exact v4 transcript, state/consent, resume
-  identity and old-peer cutover before implementing the shared stream boundary.
+- [x] Finalize/review both modes' v4 framing, transcript, state/consent, resume,
+  deadlines and old-peer cutover; validate mechanical confirmation fixtures.
+- [ ] Implement/test the v4 codec/authentication and state contract with real
+  TLS/PAKE before integrating the shared stream boundary and dialog controls.
 - [ ] Validate the no-terminal flow with packaged builds; inbound UFW approval
   remains unsupported without separately reviewed integration or administrator setup.
 - [ ] Implement/test supported native OS permission paths without a custom UFW helper.
@@ -1207,6 +1460,8 @@ new-design cases become required when that implementation is available:
 | Linux receiving | Use Connect to Sender on incoming-deny Linux/AppImage, and Let Receiver Connect on Android with selected content. Separately exercise default listening on OSes with supported grants. | Linux receives over an outgoing authenticated connection without a Linux incoming transfer-TCP rule, terminal or per-phone exceptions. Android must be reachable and foregrounded; discovery/permissions remain separate gates. Any OS grant explains scope/duration. |
 | Explicit mode and role safety | Switch modes before pairing and near cancellation/expiry; tamper or reflect the advertised/authenticated mode and content roles. | Old listeners/codes/advertisements cannot survive or alter the new generation. Only complementary, mutually authenticated expected roles move metadata/data; no automatic fallback, callback connection or second listener. |
 | Resume in both modes | Interrupt an authenticated transfer in each connection direction; retry the same session, then offer a different prepared package or switch modes. | Same-session data resumes safely. Changed package/invalid offset is rejected before append; new mode/code/peer selection cannot reuse a prior partial. Import and acknowledgement behavior remain unchanged. |
+| Completed-byte/result ambiguity | Lose the last write/flush or final Status, inject invalid post-copy Status, and disconnect/background either device during admitted import. | Sender reports Outcome Unknown where delivery may be complete and never automatically resends. Receiver finishes admitted work safely while allowed by the OS; network teardown cannot cancel import or reopen the generation for replay. |
+| Full-length or corrupt partial | Retry with `O=N`, corrupt the retained prefix, or change the authenticated Offer. | Full archive SHA-256 still gates restore; wrong content imports nothing. A new Offer cannot repurpose the partial. Storage Retry is same-session only before Ready, not after restore admission. |
 | UFW integration packaging | If descriptors or privileged integration are later selected, inspect matching distro packages, upgrade/remove them and compare KDE/Gufw catalog behavior. | Descriptors appear in the intended GUI without installing rules; no app launch writes system policy. Foreign packages, a generic settings button or an unscoped preset do not establish guided consent. |
 | Authorization denial | Deny/cancel OS consent, remove the agent/service, or enforce administrator restrictions. | Visible recovery without password collection, text-agent fallback, privilege bypass or indefinite waiting. |
 | Grant lifecycle | Cancel/expire Receive, change networks, crash/restart, reload the firewall service and uninstall; retain an unrelated administrator rule. | Temporary grants expire/revoke within their declared bound; persistent consent is separately explicit and revocable. Unrelated rules survive and the app never silently broadens scope. |
