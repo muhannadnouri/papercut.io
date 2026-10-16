@@ -248,13 +248,16 @@ presenting every completed operation as an unqualified success.
 
 ## Same-Network Transport
 
-The first LAN implementation is intentionally foreground and manual:
+The LAN path remains foreground and manual; native discovery is a separate deferred stage:
 
 1. The source builds an app-owned temporary `.papercut-library` package.
-2. It binds an ephemeral port only on the private, link-local, or loopback IPv4
-   address shown to the user. A twelve-character base-32 pairing code provides
+2. It binds TCP **53318**, or an explicit advanced override (1024–65535), on
+   every eligible address of the selected interface. IPv4 private/link-local and
+   IPv6 ULA/link-local addresses are supported; loopback requires explicit
+   selection for same-device testing. A twelve-character base-32 pairing code provides
    60 bits of entropy and is grouped as `XXXX-XXXX-XXXX` for transcription. The
-   session expires after ten minutes.
+   waiting/pairing session expires after ten minutes. A port conflict fails
+   visibly without silently changing ports; any earlier successful binds are closed.
 3. The target connects over ephemeral TLS. The target and source use the
    one-use code as the password for a role-separated SPAKE2 exchange, then send
    mutual HMAC-SHA256 key confirmations bound to the TLS exporter. This prevents
@@ -282,10 +285,22 @@ errors, but are removed after a successful import or a non-recoverable package
 error. A resumed package is always checksum-verified in full before restore, so
 the byte offset is an optimization rather than a trust boundary.
 
-Source address discovery uses the same private, link-local, or loopback IPv4
-policy enforced by the receiver. The listener binds only that displayed address,
-so VPN or secondary interfaces are not exposed implicitly. App startup creates
-or repairs the data and cache roots as owner-only directories on Unix (`0700`).
+Native interface enumeration replaces the default-route UDP probe and needs no
+Internet route. The dialog shows the selected interface and its local addresses,
+allows refresh after a network change, and requires an explicit choice when
+multiple recognizable Wi-Fi/Ethernet interfaces are available. Tunnel, loopback
+and unknown interfaces are never selected automatically. Recognition uses
+platform interface names and the point-to-point flag; it is a convenience, not
+a guarantee about physical hardware or network trust. Listeners bind selected
+addresses, never wildcard addresses. Receives bind a matching source address;
+OS routing and firewall policy remain authoritative. Global-only IPv6 networks
+require transfer-file fallback. IPv6 link-local scope comes from the receiving
+device's selected interface, never the remote device's numeric zone. Windows
+adapter identity groups both address families while retaining their separate
+interface indices.
+
+App startup creates or repairs the data and cache roots as owner-only directories
+on Unix (`0700`).
 Transfer packages use cryptographically random names, atomic exclusive creation,
 and owner-only Unix permissions (`0600`); their scope guard removes them after
 normal completion or failure. Resumable receive partials use the same file
@@ -301,16 +316,28 @@ The receiver marks only explicit insufficient-storage failures as retryable.
 Invalid schemas, checksums, payloads, or restore data fail the sender session
 instead of offering a retry that would reproduce the same result. Cancelling the
 source closes its active socket, including while it waits for target-side import.
+The receiver can cancel TCP connection, TLS/pairing and package staging. Once
+restore is admitted atomically, native status becomes **Finishing Import** and
+cancellation is disabled; successful imports are retained even if acknowledgement
+fails. Sender cancellation during preparation waits for the current synchronous
+package build to finish, then discards it without exposing a listener.
 Transfer failures cross the LAN and Tauri boundaries as a structured code,
 diagnostic message, and optional storage byte counts, so retry decisions and
 localized storage guidance never depend on parsing human-readable text.
 
 The command and session lifecycle lives in
 `src-tauri/src/library_transfer/network.rs`, resumable package streaming and
-progress framing live in `network/transport.rs`, and TLS plus one-use SPAKE2
+progress framing live in `network/transport.rs`, interface/address policy and
+all-or-nothing binding live in `network/endpoints.rs`, socket cancellation and
+interface watching live in `network/session.rs`, and TLS plus one-use SPAKE2
 pairing live in `network/security.rs`. Storage remains owned by `package.rs` and
-`mod.rs`. The React UI polls source session state and listens
-for locale-neutral receiver progress events. Rust reports transferred bytes,
+`mod.rs`. React polls native send/receive snapshots and listens
+for locale-neutral receiver progress events. Native snapshots identify session
+generations, listener readiness and the waiting deadline. Terminal sender
+snapshots clear every endpoint, pairing code and deadline after closing listeners.
+Cancel commands and local receive-progress events carry generation IDs; stale
+polls/events cannot overwrite or cancel a newer session. Local event IDs are not
+added to `PCLAN003` progress frames. Rust reports transferred bytes,
 package verification, document counts, and optional audiobook counts; it never
 moves library bytes or networking into the WebView.
 
@@ -645,14 +672,72 @@ elevate, disable a firewall, open a range, configure UPnP/router forwarding or
 classify all private networks as trusted. Windows/Apple OS permission prompts
 remain authoritative. File fallback remains usable on isolated Wi-Fi.
 
+### Endpoint/Session Foundation — Implemented 2026-10-16
+
+This stage implements the manual endpoint/session foundation above, not nearby
+device discovery. `if-addrs` **0.15.0** (MIT OR BSD-3-Clause) supplies native
+interface enumeration; `socket2` **0.6.3** and Unix `libc` already existed in the
+lockfile and are now direct dependencies for scoped listeners and cancellable
+nonblocking TCP connection. No unrelated dependencies were upgraded. Pairing,
+package versions 1–4, library merge rules, existing audiobooks and search indexes
+retain their existing contracts.
+
+The small `src-tauri/plugins/library-transfer/` plugin reports Android `onStop` /
+`onResume` and iOS background/foreground notifications to Rust. It does not use
+WebView timers, Android `onPause`, iOS resign-active notifications or desktop
+focus/minimize events as cancellation signals. Permission prompts therefore do
+not cancel a foreground transfer. LAN commands fail closed until the first mobile
+visibility callback; transfer-file fallback stays available if visibility tracking
+cannot initialize. Closing the main window, actual backgrounding or selected
+interface/address loss cancels network work without cancelling an admitted
+restore. A visibility epoch also rejects a start request interrupted by a
+background/foreground cycle before its session could be installed. Returning to
+the foreground never restarts sharing.
+
+The interface watcher exists only during network sessions and stops on cleanup.
+It detects operational/interface/address changes, not an SSID change that
+retains an identical interface and address set. Network-identity integration and
+system-picker coordination belong with the native discovery adapters; no such
+picker is introduced by this stage. The connect budget remains one 30-second
+attempt that polls cancellation every 25 ms, followed by existing socket
+timeouts. Failed status polling is visible and never unlocks navigation while
+the native command is still active. Receive-progress events before the first
+native generation snapshot are ignored; the native diagnostic history retains
+them.
+
+Regression coverage includes offline/ambiguous interface selection, explicit
+advanced interfaces, legacy `IPv4:port`, bare-IP default ports, IPv6 scope
+replacement, unsafe destinations, dual-family partial-bind rollback, expiry and
+terminal credential cleanup, stale generations, close/background admission
+races, network loss, connect-budget cancellation, blocked TLS cancellation,
+authenticated staging cancellation with private resume files, and the atomic
+restore boundary. Existing wrong-code, channel binding, malformed traffic,
+authenticated resume, package validation and bounded/redacted diagnostics tests
+remain in place. Dialog regressions cover selection/override validation,
+expiry, stale polls/progress, cancellation errors and Finishing Import.
+
+Validation on Linux: `npm test` passed **320 tests** (one existing skip);
+`cargo test --manifest-path src-tauri/Cargo.toml --lib --no-default-features`
+passed **209 tests** (four existing ignored tests). `npm run build` passed i18n,
+TypeScript, Vite and Pagefind; lint, Rust formatting and documentation-link checks
+passed. Vite retains its module/chunk-size warnings. `cargo-audit` is not installed
+locally, so no fresh local Rust advisory audit is claimed; the existing CI audit
+remains required.
+
+Discovery implementation, physical/network smoke and the app version bump remain deferred. Linux automated
+checks do not establish Android/Apple/Windows packaging or OS lifecycle behavior;
+those builds and platform acceptance remain gates before release. The original
+Wi-Fi timeout still needs a live listener/firewall investigation and is not
+claimed fixed by selecting a stable port.
+
 ### Delivery Order and Validation Gates
 
 This is a finalized design for staged implementation, not completed discovery:
 
-1. **Endpoint/session foundation:** implement typed interface-aware endpoints,
+1. **Endpoint/session foundation (implemented; platform acceptance pending):** typed interface-aware endpoints,
    stable binding, authoritative readiness/deadlines, cancellable receive and
-   cleanup. Keep the manual `PCLAN003` path working first; do not call a port-only
-   change the completed redesign.
+   cleanup. The manual `PCLAN003` path remains the first integration gate;
+   the full discovery redesign is not complete.
 2. **Native discovery adapters and UI:** add bounded metadata adapters, device
    selection, permissions and manual fallback. Compile/link each adapter on its
    supported minimum OS, verify Tauri callback teardown and Linux missing-bus /
@@ -672,19 +757,13 @@ This is a finalized design for staged implementation, not completed discovery:
    fallback, SDK 33+ scoped NSD, Linux without Avahi, multiple interfaces/VPNs,
    network changes, blocked multicast, isolated Wi-Fi and scoped rule removal.
 
-Implementation will touch `network.rs` for session ownership, address helpers
-currently in `network/security.rs`, endpoint/cancellation plumbing in
-`network/transport.rs`, native plugin/platform bindings and packaging declarations,
-the transfer command/status types, dialog/diagnostic UI, locale strings and their
-existing tests. Package/import storage and pairing cryptography remain their
-existing owners; no package or audiobook schema change is planned. The app
-version bump remains deferred.
-
-This commit checks documentation and primary API sources only. It adds no
-implementation, dependency, firewall rule or protocol change and runs no device
-or discovery smoke. Cross-platform compilation, actual daemon/permission behavior
-and Wi-Fi reachability remain implementation/release gates. Earlier passing test
-counts describe the shipped transfer/diagnostics work, not this redesign.
+The foundation touches session/endpoint ownership, transport cancellation, native
+visibility callbacks, transfer IPC, dialog controls, locale resources and their
+tests. Package/import storage and pairing cryptography remain their existing
+owners. Future discovery work adds the selected native adapters and packaging
+permissions without replacing the manual/file paths. The design-only commit
+`7a69843` contains the primary API evaluation; the foundation has its own
+implementation and validation record above.
 
 ## Delivery Checklist
 
@@ -697,6 +776,10 @@ counts describe the shipped transfer/diagnostics work, not this redesign.
 - [x] Stage 2: add individually selectable completed-audiobook payloads, defaulting to excluded.
 - [x] Stage 3: add foreground, authenticated same-network transfer using this package.
 - [x] Stage 3: add one-use expiry and foreground sender cancellation.
+- [x] Foundation: explicit interfaces, stable port/override, scoped IPv6,
+  generation-owned snapshots and cancellable receive with protected restore.
+- [ ] Foundation platform builds and physical lifecycle/network acceptance.
+- [ ] Native DNS-SD adapters, nearby-session UI and platform discovery acceptance.
 - [x] Stage 3: add byte-level transfer and item-level restore phases.
 - [x] Stage 3: reject package staging and restoration when storage is insufficient.
 - [x] Stage 3: resume interrupted transfers, especially large audio.
@@ -745,7 +828,15 @@ with packaged builds and record the platform, network type, and result:
 | Protocol mismatch | Connect a `PCLAN003` build to the last pre-`PCLAN003` development build. | Pairing fails closed and neither build imports partial or unauthenticated data. |
 | Transfer-file fallback | Save, move, and import a `.papercut-library` file after reviewing its privacy notice. | The file route preserves the same selection and validation behavior and never implies that the saved package is encrypted. |
 
-The v1.9.0 packaged-build smoke test passed every case in this matrix.
+The v1.9.0 packaged-build smoke record covers the original manual transfer flow;
+it does not establish acceptance of the endpoint/session foundation. Current
+smoke remains deferred. In addition to the matrix, the foundation needs packaged
+checks for occupied/default/override ports, IPv4-to-legacy peers, IPv6-only and
+scoped link-local peers, Wi-Fi without Internet (including mobile cellular enabled),
+network/address changes, actual backgrounding versus permission prompts, main-window
+closure, cancellation during connect/TLS/staging and safe completion after restore
+starts. Verify desktop focus/minimization does not cancel and remove every temporary
+firewall exception after testing.
 
 ## Deferred Decisions
 

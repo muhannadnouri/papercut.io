@@ -119,8 +119,10 @@ dependencies = [
  "fs4",
  "getrandom 0.3.4",
  "hmac",
+ "if-addrs",
  "image",
  "kuchikiki",
+ "libc",
  "libtashkeel_base",
  "log",
  "num2words",
@@ -136,6 +138,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "sherpa-onnx",
+ "socket2",
  "spake2",
  "tar",
  "tauri",
@@ -143,6 +146,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-document-scanner",
  "tauri-plugin-fs",
+ "tauri-plugin-library-transfer",
  "tauri-plugin-log",
  "tauri-plugin-native-audio",
  "tauri-plugin-opener",
@@ -2378,6 +2382,16 @@ checksum = "3acae9609540aa318d1bc588455225fb2085b9ed0c4f6bd0d9d5bcd86f1a0344"
 dependencies = [
  "icu_normalizer",
  "icu_properties",
+]
+
+[[package]]
+name = "if-addrs"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0a05c691e1fae256cf7013d99dad472dc52d5543322761f83ec8d47eab40d2b"
+dependencies = [
+ "libc",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5396,6 +5410,16 @@ dependencies = [
  "thiserror 2.0.18",
  "toml 1.0.6+spec-1.1.0",
  "url",
+]
+
+[[package]]
+name = "tauri-plugin-library-transfer"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
 ]
 
 [[package]]

@@ -608,3 +608,26 @@ html[dir="rtl"] .library-transfer-content[open] summary::before {
 @media (pointer: coarse) {
   .library-transfer-diagnostics button { min-height: 2.75rem; }
 }
+
+.library-transfer-network {
+  display: grid;
+  min-width: 0;
+  gap: 0.65rem;
+  text-align: start;
+}
+
+.library-transfer-port {
+  display: grid;
+  gap: 0.4rem;
+  padding-block: 0.5rem;
+}
+
+.library-transfer-port input {
+  max-width: 10rem;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--control-surface);
+  color: var(--text-body);
+  font: inherit;
+}

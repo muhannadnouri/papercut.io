@@ -1,9 +1,15 @@
-import { useCallback, useEffect, useId, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
+import { AppSelect } from '../components/AppSelect/AppSelect'
 import { AppDialog } from '../components/AppDialog/AppDialog'
 import {
   cancelLibrarySend,
+  cancelLibraryReceive,
+  getLibraryReceiveStatus,
+  getTransferInterfaces,
+  type TransferInterface,
+  type LibraryTransferReceiveStatus,
   exportLibrary,
   getLibrarySendStatus,
   importLibrary,
@@ -59,12 +65,26 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
   const [savedAudiobooks, setSavedAudiobooks] = useState<SavedAudiobookRecord[]>([])
   const [selectedAudiobookIds, setSelectedAudiobookIds] = useState<string[]>([])
   const [sendStatus, setSendStatus] = useState<LibraryTransferSendStatus | null>(null)
+  const [networks, setNetworks] = useState<TransferInterface[]>([])
+  const [networkId, setNetworkId] = useState('')
+  const [networksLoading, setNetworksLoading] = useState(true)
+  const [networkError, setNetworkError] = useState(false)
+  const [port, setPort] = useState('53318')
+  const [receiveStatus, setReceiveStatus] = useState<LibraryTransferReceiveStatus | null>(null)
+  const [statusUnavailable, setStatusUnavailable] = useState(false)
+  const [controlError, setControlError] = useState<string | null>(null)
+  const [cancelling, setCancelling] = useState(false)
+  const receiveAttempt = useRef(0)
+  const receiveSessionId = useRef<number | null>(null)
+  const validPort = /^\d+$/.test(port) && Number(port) >= 1024 && Number(port) <= 65535
+  const validConnection = Boolean(networkId) && validPort
+  const portHelpId = useId()
   const [sourceAddress, setSourceAddress] = useState('')
   const [pairingCode, setPairingCode] = useState('')
   const selectionHelpId = useId()
   const exportPrivacyId = useId()
   const operationBusy = ['exporting', 'importing', 'preparingSend', 'receiving'].includes(status.state)
-  const sendActive = sendStatus?.state === 'waiting' || sendStatus?.state === 'sending'
+  const sendActive = Boolean(sendStatus && ['preparing', 'binding', 'waiting', 'sending'].includes(sendStatus.state))
   const sendFlowVisible = status.state === 'preparingSend'
     || Boolean(sendStatus && sendStatus.state !== 'cancelled')
   const busy = operationBusy || sendActive
@@ -113,6 +133,23 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
     }
   }, [])
 
+  const loadNetworks = useCallback(async () => {
+    setNetworksLoading(true)
+    setNetworkError(false)
+    setNetworks([])
+    setNetworkId('')
+    try {
+      const next = await getTransferInterfaces()
+      setNetworks(next)
+      const automatic = next.filter(network => network.automatic)
+      if (automatic.length === 1) setNetworkId(automatic[0].id)
+      if (!next.length) setNetworkError(true)
+    } catch { setNetworkError(true) }
+    finally { setNetworksLoading(false) }
+  }, [])
+
+  useEffect(() => { void loadNetworks() }, [loadNetworks])
+
   useEffect(() => {
     void loadDocuments()
   }, [loadDocuments])
@@ -126,7 +163,10 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
   useEffect(() => {
     let unlisten: (() => void) | undefined
     let disposed = false
-    void listenLibraryTransferProgress((next) => { if (!disposed) setProgress(next) })
+    void listenLibraryTransferProgress((next) => {
+      if (disposed || (next.operation === 'receive' && next.sessionId !== receiveSessionId.current)) return
+      setProgress(next)
+    })
       .then((stop) => {
         if (disposed) stop()
         else unlisten = stop
@@ -138,22 +178,41 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
   }, [])
 
   useEffect(() => {
-    if (!sendActive) return
+    if (!sendActive && status.state !== 'preparingSend') return
+    let disposed = false, pending = false
     const timer = window.setInterval(() => {
-      void getLibrarySendStatus()
-        .then((next) => {
-          if (!next) return
-          setSendStatus(next)
-          if (next.state === 'failed') {
-            setStatus({ state: 'error', message: next.error ?? t('libraryTransfer.sendFailed') })
-          }
-        })
-        .catch((error) => {
-          setStatus({ state: 'error', message: formatTransferError(error, locale, t) })
-        })
+      if (pending) return
+      pending = true
+      void getLibrarySendStatus().then(next => {
+        if (disposed || !next || (sendStatus?.id !== undefined && next.id !== sendStatus.id)) return
+        if (!sendStatus && !['preparing', 'binding', 'waiting', 'sending'].includes(next.state)) return
+        setStatusUnavailable(false)
+        setSendStatus(next)
+        if (next.state === 'cancelled') { setStatus({ state: 'idle' }); setCancelling(false) }
+      }).catch(() => {
+        if (!disposed) setStatusUnavailable(true)
+      }).finally(() => { pending = false })
     }, 500)
-    return () => window.clearInterval(timer)
-  }, [sendActive, locale, t])
+    return () => { disposed = true; window.clearInterval(timer) }
+  }, [sendActive, sendStatus, status.state, locale, t])
+
+  useEffect(() => {
+    if (status.state !== 'receiving') return
+    let disposed = false, pending = false
+    const timer = window.setInterval(() => {
+      if (pending) return
+      pending = true
+      void getLibraryReceiveStatus().then(next => {
+        if (disposed || !next || !['connecting', 'receiving', 'finishingImport'].includes(next.phase)) return
+        if (receiveSessionId.current !== null && receiveSessionId.current !== next.id) return
+        receiveSessionId.current = next.id
+        setReceiveStatus(next)
+        setStatusUnavailable(false)
+      }).catch(() => { if (!disposed) setStatusUnavailable(true) })
+        .finally(() => { pending = false })
+    }, 250)
+    return () => { disposed = true; window.clearInterval(timer) }
+  }, [status.state, t])
 
   const applyImportResult = async (result: LibraryTransferImportResult) => {
     for (const record of result.importedAudiobooks) {
@@ -205,38 +264,75 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
 
   const handleStartSend = async () => {
     setProgress(null)
+    setSendStatus(null)
+    setCancelling(false)
+    setStatusUnavailable(false)
     setStatus({ state: 'preparingSend' })
     try {
-      setSendStatus(await startLibrarySend(effectiveDocumentIds, selectedAudiobookIds))
+      setSendStatus(await startLibrarySend(effectiveDocumentIds, selectedAudiobookIds, { interfaceId: networkId, port: Number(port) }))
       setStatus({ state: 'idle' })
     } catch (error) {
-      setStatus({ state: 'error', message: formatTransferError(error, locale, t) })
+      if (isLibraryTransferErrorPayload(error) && error.code === 'TRANSFER_CANCELLED') {
+        setSendStatus(null)
+        setStatus({ state: 'idle' })
+      } else setStatus({ state: 'error', message: formatTransferError(error, locale, t) })
     }
   }
 
   const handleCancelSend = async () => {
+    setControlError(null)
     try {
-      if (sendActive) await cancelLibrarySend()
-      setSendStatus(null)
-      setStatus({ state: 'idle' })
+      if (sendActive || status.state === 'preparingSend') {
+        if (sendStatus?.id === undefined) return
+        setCancelling(true)
+        await cancelLibrarySend(sendStatus.id)
+      } else {
+        setSendStatus(null)
+        setStatus({ state: 'idle' })
+      }
     } catch (error) {
-      setStatus({ state: 'error', message: formatTransferError(error, locale, t) })
+      setCancelling(false)
+      setControlError(formatTransferError(error, locale, t))
     }
   }
 
   const handleReceive = async () => {
+    const attempt = ++receiveAttempt.current
+    receiveSessionId.current = null
+    setReceiveStatus(null)
+    setControlError(null)
+    setCancelling(false)
     setProgress(null)
+    setStatusUnavailable(false)
     setStatus({ state: 'receiving' })
     try {
-      await applyImportResult(await receiveLibrary(sourceAddress, pairingCode))
+      const result = await receiveLibrary(sourceAddress, pairingCode, networkId)
+      if (receiveAttempt.current === attempt) await applyImportResult(result)
     } catch (error) {
-      setStatus({ state: 'error', message: formatTransferError(error, locale, t) })
+      if (receiveAttempt.current === attempt) {
+        setStatus(isLibraryTransferErrorPayload(error) && error.code === 'TRANSFER_CANCELLED'
+          ? { state: 'idle' } : { state: 'error', message: formatTransferError(error, locale, t) })
+      }
+    }
+  }
+
+  const handleCancelReceive = async () => {
+    if (!receiveStatus?.cancellable || cancelling) return
+    setControlError(null)
+    setCancelling(true)
+    try {
+      await cancelLibraryReceive(receiveStatus.id)
+    } catch (error) {
+      setCancelling(false)
+      setControlError(formatTransferError(error, locale, t))
     }
   }
 
   const selectMode = (nextMode: TransferMode) => {
     if (busy) return
     setMode(nextMode)
+    setControlError(null)
+    setStatusUnavailable(false)
     setStatus({ state: 'idle' })
     setProgress(null)
   }
@@ -259,6 +355,31 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
         </button>
       </div>
 
+      {!sendFlowVisible && status.state !== 'imported' && <section className="library-transfer-primary-section library-transfer-network">
+        <AppSelect
+          ariaLabel={t('libraryTransfer.network')}
+          value={networkId}
+          options={[{ value: '', label: t('libraryTransfer.chooseNetwork'), disabled: true }, ...networks.map(network => ({
+            value: network.id, label: `${network.name} · ${network.addresses.join(', ')}`,
+          }))]}
+          disabled={busy || !networks.length}
+          onChange={setNetworkId}
+        />
+        {!networkError && <button type="button" disabled={busy || networksLoading} onClick={() => { void loadNetworks() }}>{t('libraryTransfer.refreshNetworks')}</button>}
+        {networkError && <div role="alert">
+          <p>{t('libraryTransfer.networkUnavailable')}</p>
+          <button type="button" disabled={busy || networksLoading} onClick={() => { void loadNetworks() }}>{t('common.retry')}</button>
+        </div>}
+        {mode === 'send' && <details className="library-transfer-alternate">
+          <summary>{t('libraryTransfer.port')}</summary>
+          <label className="library-transfer-port">
+            <span>{t('libraryTransfer.port')}</span>
+            <input type="number" min="1024" max="65535" value={port} disabled={busy} aria-invalid={!validPort} aria-describedby={portHelpId}
+              onChange={event => setPort(event.target.value)} />
+            <small id={portHelpId} dir="ltr">1024–65535</small>
+          </label>
+        </details>}
+      </section>}
       <div className="library-transfer-actions">
         {mode === 'send' ? (
           sendStatus?.state === 'complete' ? (
@@ -268,6 +389,7 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
               preparing={status.state === 'preparingSend'}
               status={sendStatus}
               locale={locale}
+              cancelling={cancelling}
               onExit={() => { void handleCancelSend() }}
             />
           ) : (
@@ -473,7 +595,7 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
               <button
                 type="button"
                 className="library-transfer-primary"
-                disabled={operationBusy || !sendSelectionReady || !hasContent}
+                disabled={operationBusy || !sendSelectionReady || !hasContent || !validConnection}
                 aria-describedby={selectionEmpty ? selectionHelpId : undefined}
                 onClick={() => { void handleStartSend() }}
               >
@@ -524,7 +646,7 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
                     dir="ltr"
                     value={sourceAddress}
                     disabled={busy}
-                    placeholder="192.168.1.20:49152"
+                    placeholder="192.168.1.20:53318"
                     onChange={(event) => setSourceAddress(event.target.value)}
                   />
                 </label>
@@ -546,11 +668,17 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
               <button
                 type="button"
                 className="library-transfer-primary"
-                disabled={busy || !sourceAddress.trim() || !pairingCode.trim()}
+                disabled={busy || !networkId || !sourceAddress.trim() || !pairingCode.trim()}
                 onClick={() => { void handleReceive() }}
               >
                 {status.state === 'receiving' ? t('libraryTransfer.receiving') : t('libraryTransfer.receive')}
               </button>
+              {status.state === 'receiving' && <>
+                {receiveStatus?.phase === 'finishingImport'
+                  ? <p role="status">{t('libraryTransfer.finishingImport')}</p>
+                  : <button type="button" disabled={!receiveStatus?.cancellable || cancelling}
+                      onClick={() => { void handleCancelReceive() }}>{t(cancelling ? 'libraryTransfer.cancelling' : 'libraryTransfer.cancelReceive')}</button>}
+              </>}
               {status.state === 'receiving' && progress?.operation === 'receive' && (
                 <TransferProgressMessage progress={progress} locale={locale} />
               )}
@@ -573,6 +701,8 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
       </div>
 
       {sendStatus?.state !== 'failed' && <TransferStatusMessage status={status} />}
+      {statusUnavailable && busy && <p role="alert" className="app-dialog-error">{t('libraryTransfer.statusUnavailable')}</p>}
+      {controlError && <p role="alert" className="app-dialog-error">{controlError}</p>}
       {progressUnavailable && <p role="alert">{t('libraryTransfer.diagnostics.progressUnavailable')}</p>}
       <TransferDiagnostics active={busy} revision={`${status.state}:${sendStatus?.state ?? ''}`} />
     </AppDialog>
@@ -621,11 +751,13 @@ export function LibrarySendFlow({
   status,
   locale,
   onExit,
+  cancelling = false,
 }: {
   preparing: boolean
   status: LibraryTransferSendStatus | null
   locale: string
   onExit: () => void
+  cancelling?: boolean
 }) {
   const { t } = useTranslation()
   const waiting = status?.state === 'waiting'
@@ -641,12 +773,12 @@ export function LibrarySendFlow({
           <li>{t('libraryTransfer.connectStepEnter')}</li>
         </ol>
       )}
-      {preparing
+      {preparing || status?.state === 'preparing' || status?.state === 'binding'
         ? <TransferPreparationMessage />
         : <LibrarySendStatusMessage status={status} locale={locale} />}
-      {status && (
-        <button type="button" className={sending ? 'library-transfer-stop' : undefined} onClick={onExit}>
-          {t(sending ? 'libraryTransfer.stopSending' : 'libraryTransfer.changeSelection')}
+      {(status || preparing) && (
+        <button type="button" disabled={cancelling || status?.id === undefined} className={sending ? 'library-transfer-stop' : undefined} onClick={onExit}>
+          {t(cancelling ? 'libraryTransfer.cancelling' : sending || preparing ? 'libraryTransfer.stopSending' : 'libraryTransfer.changeSelection')}
         </button>
       )}
     </section>
@@ -760,7 +892,7 @@ function LibrarySendStatusMessage({ status, locale }: { status: LibraryTransferS
   const { t } = useTranslation()
   if (!status || status.state === 'cancelled') return null
   if (status.state === 'failed') {
-    return <p className="app-dialog-error" role="alert" dir="auto">{status.error ?? t('libraryTransfer.sendFailed')}</p>
+    return <p className="app-dialog-error" role="alert" dir="auto">{status.reason === 'session-expired' ? t('libraryTransfer.expired') : status.error ?? t('libraryTransfer.sendFailed')}</p>
   }
   if (status.state === 'complete') {
     return <p className="library-transfer-status" role="status">{t('libraryTransfer.sendComplete')}</p>
@@ -789,16 +921,17 @@ function LibrarySendStatusMessage({ status, locale }: { status: LibraryTransferS
         </>
       )}
       {status.error && status.state === 'waiting' && <p className="app-dialog-error" role="alert" dir="auto">{status.error}</p>}
-      <dl>
+      {status.listenerReady && <dl>
         <div>
           <dt>{t('libraryTransfer.sourceAddress')}</dt>
-          <dd><code dir="ltr">{status.address}</code></dd>
+          <dd>{(status.addresses?.length ? status.addresses : [status.address]).map(address => <code key={address} dir="ltr">{address}<br /></code>)}</dd>
         </div>
         <div>
           <dt>{t('libraryTransfer.pairingCode')}</dt>
           <dd><code dir="ltr">{status.code}</code></dd>
         </div>
-      </dl>
+      </dl>}
+      {status.expiresAtMs && <small>{t('libraryTransfer.expiresAt', { time: new Intl.DateTimeFormat(locale, { timeStyle: 'short' }).format(status.expiresAtMs) })}</small>}
       <small>{t('libraryTransfer.keepOpen')}</small>
     </div>
   )
@@ -827,6 +960,7 @@ function formatTransferError(error: unknown, locale: string, t: TFunction): stri
       available: formatBytes(error.availableBytes, locale),
     })
   }
+  if (isLibraryTransferErrorPayload(error) && error.code === 'TRANSFER_PORT_IN_USE') return t('libraryTransfer.portInUse')
   if (isLibraryTransferErrorPayload(error)) return error.message
   return error instanceof Error ? error.message : String(error)
 }

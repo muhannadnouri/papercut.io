@@ -492,6 +492,18 @@
     }
   },
   "libraryTransfer": {
+    "refreshNetworks": "刷新网络",
+    "network": "本地网络",
+    "chooseNetwork": "选择网络",
+    "networkUnavailable": "没有可用的本地网络。请检查连接或使用传输文件。",
+    "port": "TCP 端口（高级）",
+    "cancelReceive": "取消接收",
+    "cancelling": "正在取消…",
+    "finishingImport": "正在完成导入…",
+    "expired": "此发送会话已过期。请开始新的传输。",
+    "expiresAt": "配对将于 {{time}} 过期",
+    "portInUse": "此端口已被占用。请重试或选择其他 TCP 端口。",
+    "statusUnavailable": "无法获取传输状态。详情可能已过期，请查看诊断报告。",
     "diagnostics": {
       "showDetails": "显示详情",
       "copy": "复制诊断报告",

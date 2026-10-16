@@ -45,9 +45,12 @@ tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-native-audio = "=1.0.5"
 tauri-plugin-document-scanner = { path = "plugins/document-scanner" }
+tauri-plugin-library-transfer = { path = "plugins/library-transfer" }
 base64 = "0.22"
 getrandom = "0.3"
 hmac = "0.12"
+if-addrs = "=0.15.0"
+socket2 = "=0.6.3"
 num2words = { version = "1.2", optional = true }
 rcgen = "0.13"
 rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
@@ -78,6 +81,9 @@ tauri = { version = "2.11.2", features = ["test"] }
 
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = "2"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
 
 [profile.dev.package.image]
 opt-level = 2

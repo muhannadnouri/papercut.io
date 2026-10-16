@@ -33,6 +33,7 @@ describe('library transfer send flow', () => {
         locale="en"
         onExit={() => undefined}
         status={{
+          id: 1, listenerReady: true, addresses: ['192.168.1.20:49152'],
           state: 'waiting',
           address: '192.168.1.20:49152',
           code: 'ABCD-EFGH-JKLM',
@@ -57,6 +58,7 @@ describe('library transfer send flow', () => {
       <LibraryTransferCompletion
         kind="send"
         status={{
+          id: 1, listenerReady: true, addresses: ['192.168.1.20:49152'],
           state: 'complete',
           address: '192.168.1.20:49152',
           code: 'ABCD-EFGH-JKLM',

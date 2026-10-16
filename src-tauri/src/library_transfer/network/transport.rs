@@ -2,7 +2,7 @@
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufReader, Read, Seek, SeekFrom, Write};
-use std::net::{SocketAddr, SocketAddrV4, TcpStream};
+use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -13,11 +13,13 @@ use rustls::{ClientConnection, ServerConfig, ServerConnection, StreamOwned};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+use super::endpoints::{source_address, TransferInterface};
 use super::security::{
     client_tls_config, finish_pairing, pairing_confirmation, read_and_verify_confirmation,
     read_pairing_message, start_receiver_pairing, start_sender_pairing, tls_exporter,
     write_pairing_message, PairingError, RECEIVER_ROLE, SENDER_ROLE,
 };
+use super::session::TransferControl;
 use super::{set_send_active, LibraryTransferSendStatus};
 use crate::library_transfer::diagnostics::Trace;
 use crate::library_transfer::package::MAX_PACKAGE_BYTES;
@@ -200,23 +202,25 @@ pub(super) fn send_package(
 /// Authenticate the source, resume its package into app cache, and return the
 /// live TLS stream so target-side import progress can travel back to the sender.
 pub(super) fn receive_package<P: FnMut(u64, u64)>(
-    address: SocketAddrV4,
+    address: SocketAddr,
     code: &str,
     output_path: &Path,
     mut progress: P,
     trace: &Trace,
+    control: &TransferControl,
+    network: Option<&TransferInterface>,
 ) -> LibraryTransferResult<StreamOwned<ClientConnection, TcpStream>> {
     trace.stage("tcp-connect");
     trace.endpoint(address);
     let mut socket =
-        TcpStream::connect_timeout(&SocketAddr::V4(address), SOCKET_TIMEOUT).map_err(|err| {
+        connect_cancellable(address, network, control, SOCKET_TIMEOUT).map_err(|err| {
             trace.io_error(&err);
             format!("Could not connect to the source device: {err}")
         })?;
     trace.stage("tls-handshake");
     configure_socket(&socket, SOCKET_TIMEOUT)?;
     let config = client_tls_config()?;
-    let server_name = ServerName::IpAddress((*address.ip()).into());
+    let server_name = ServerName::IpAddress(address.ip().into());
     let mut connection = ClientConnection::new(config, server_name)
         .map_err(|err| format!("Failed to initialize secure library transfer: {err}"))?;
     connection.complete_io(&mut socket).map_err(|err| {
@@ -302,7 +306,7 @@ pub(super) fn receive_package<P: FnMut(u64, u64)>(
         &mut stream,
         &mut output,
         size - offset,
-        || false,
+        || control.cancelled.load(Ordering::Acquire),
         |processed| {
             let total_processed = offset + processed;
             if total_processed == size || last_progress.elapsed() >= PROGRESS_INTERVAL {
@@ -323,6 +327,67 @@ pub(super) fn receive_package<P: FnMut(u64, u64)>(
         format!("Failed to finish partial library package: {err}")
     })?;
     Ok(stream)
+}
+
+/// Initiate one nonblocking connect; polling does not restart TCP's SYN timer.
+fn connect_cancellable(
+    address: SocketAddr,
+    network: Option<&TransferInterface>,
+    control: &TransferControl,
+    timeout: Duration,
+) -> io::Result<TcpStream> {
+    use socket2::{Domain, Protocol, Socket, Type};
+    control.check()?;
+    let deadline = Instant::now() + timeout;
+    let socket = Socket::new(
+        Domain::for_address(address),
+        Type::STREAM,
+        Some(Protocol::TCP),
+    )?;
+    if let Some(network) = network {
+        socket.bind(
+            &source_address(network, address)
+                .map_err(io::Error::other)?
+                .into(),
+        )?;
+    }
+    socket.set_nonblocking(true)?;
+    if let Err(error) = socket.connect(&address.into()) {
+        #[cfg(unix)]
+        let pending = error.raw_os_error() == Some(libc::EINPROGRESS);
+        // Winsock reports WSAEWOULDBLOCK for nonblocking connect.
+        #[cfg(windows)]
+        let pending = error.raw_os_error() == Some(10035);
+        if !pending && error.kind() != io::ErrorKind::WouldBlock {
+            return Err(error);
+        }
+    }
+    let stream: TcpStream = socket.into();
+    control.track(&stream)?;
+    wait_for_connection(&stream, control, deadline)?;
+    stream.set_nonblocking(false)?;
+    Ok(stream)
+}
+
+fn wait_for_connection(
+    stream: &TcpStream,
+    control: &TransferControl,
+    deadline: Instant,
+) -> io::Result<()> {
+    loop {
+        control.check()?;
+        if Instant::now() >= deadline {
+            return Err(io::ErrorKind::TimedOut.into());
+        }
+        if let Some(error) = stream.take_error()? {
+            return Err(error);
+        }
+        if stream.peer_addr().is_ok() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    Ok(())
 }
 
 /// Preserve the one-use policy: malformed traffic is ignored, while a peer
@@ -372,7 +437,7 @@ fn open_receive_part(path: &Path) -> Result<File, String> {
 /// name; starting another authenticated receive discards older unusable parts.
 pub(super) fn receive_resume_path(
     app: &tauri::AppHandle,
-    address: SocketAddrV4,
+    address: SocketAddr,
     code: &str,
 ) -> Result<PathBuf, String> {
     let cache = transfer_cache_dir(app)?;
@@ -515,6 +580,148 @@ mod tests {
     }
 
     #[test]
+    fn pending_connect_has_one_deadline_and_cancels_without_waiting_for_it() {
+        use socket2::{Domain, Protocol, Socket, Type};
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let connected = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        assert_eq!(
+            wait_for_connection(&connected, &TransferControl::default(), Instant::now())
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::TimedOut
+        );
+        let socket: TcpStream = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))
+            .unwrap()
+            .into();
+        let control = TransferControl::default();
+        assert_eq!(
+            wait_for_connection(&socket, &control, Instant::now())
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::TimedOut
+        );
+        let control = Arc::new(control);
+        let worker_control = control.clone();
+        let (started, ready) = std::sync::mpsc::channel();
+        let worker = thread::spawn(move || {
+            started.send(()).unwrap();
+            wait_for_connection(&socket, &worker_control, Instant::now() + SOCKET_TIMEOUT)
+        });
+        ready.recv_timeout(Duration::from_secs(2)).unwrap();
+        let now = Instant::now();
+        control.cancel("cancelled");
+        assert_eq!(
+            worker.join().unwrap().unwrap_err().kind(),
+            io::ErrorKind::Interrupted
+        );
+        assert!(now.elapsed() < Duration::from_secs(2));
+    }
+
+    #[test]
+    fn cancellation_interrupts_an_unresponsive_tls_peer_without_creating_a_partial() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let address = listener.local_addr().unwrap();
+        let output = std::env::temp_dir().join(format!(
+            "papercut-cancel-test-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir(&output).unwrap();
+        let path = output.join("receive.part");
+        let worker_path = path.clone();
+        let control = Arc::new(TransferControl::default());
+        let worker_control = control.clone();
+        let worker = thread::spawn(move || {
+            let trace =
+                crate::library_transfer::diagnostics::Diagnostics::default().begin("receive");
+            receive_package(
+                address,
+                "2345ABCDGHJK",
+                &worker_path,
+                |_, _| {},
+                &trace,
+                &worker_control,
+                None,
+            )
+        });
+        let (mut server, _) = listener.accept().unwrap();
+        server
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        assert!(server.read(&mut [0u8; 1]).unwrap() > 0); // ClientHello, not merely TCP connect.
+        let now = Instant::now();
+        control.cancel("cancelled");
+        assert!(worker.join().unwrap().is_err());
+        assert!(now.elapsed() < Duration::from_secs(2));
+        assert!(!path.exists());
+        fs::remove_dir_all(output).unwrap();
+    }
+
+    #[test]
+    fn cancellation_during_authenticated_staging_keeps_the_private_partial_for_resume() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let address = listener.local_addr().unwrap();
+        let output = std::env::temp_dir().join(format!(
+            "papercut-cancel-test-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir(&output).unwrap();
+        let source = output.join("source");
+        let path = output.join("receive.part");
+        fs::write(&source, vec![1u8; COPY_BUFFER_BYTES * 4]).unwrap();
+        let diagnostics = crate::library_transfer::diagnostics::Diagnostics::default();
+        let sender_trace = diagnostics.begin("send");
+        let receiver_trace = diagnostics.begin("receive");
+        let worker = thread::spawn(move || {
+            let (socket, _) = listener.accept().unwrap();
+            send_package(
+                socket,
+                server_tls_config().unwrap(),
+                "2345ABCDGHJK",
+                &source,
+                &Arc::new(Mutex::new(LibraryTransferSendStatus::default())),
+                &AtomicBool::new(false),
+                &sender_trace,
+            )
+        });
+        let control = TransferControl::default();
+        let result = receive_package(
+            address,
+            "2345ABCDGHJK",
+            &path,
+            |received, _| {
+                if received > 0 {
+                    control.cancel("cancelled");
+                }
+            },
+            &receiver_trace,
+            &control,
+            None,
+        );
+        assert!(result.is_err());
+        assert!(matches!(
+            worker.join().unwrap(),
+            Err(SendAttemptError::Retryable(_))
+        ));
+        assert!(path.metadata().unwrap().len() > 0);
+        assert!(path.metadata().unwrap().len() < (COPY_BUFFER_BYTES * 4) as u64);
+        assert!(control.begin_import().is_err());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(path.metadata().unwrap().permissions().mode() & 0o777, 0o600);
+        }
+        fs::remove_dir_all(output).unwrap();
+    }
+
+    #[test]
     fn refused_connection_records_os_facts_at_tcp_stage_without_credentials_or_paths() {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         let SocketAddr::V4(address) = listener.local_addr().unwrap() else {
@@ -524,11 +731,13 @@ mod tests {
         let diagnostics = crate::library_transfer::diagnostics::Diagnostics::default();
         let trace = diagnostics.begin("receive");
         let result = receive_package(
-            address,
+            address.into(),
             "2345ABCDGHJK",
             Path::new("private-library.part"),
             |_, _| {},
             &trace,
+            &TransferControl::default(),
+            None,
         );
         assert!(result.is_err());
         trace.finish(result.as_ref().err());
@@ -580,6 +789,7 @@ mod tests {
                 bytes_transferred: 0,
                 receiver_progress: None,
                 error: None,
+                ..Default::default()
             }));
             let tls_config = server_tls_config().unwrap();
             let (unrelated, _) = listener.accept().unwrap();
@@ -618,11 +828,13 @@ mod tests {
             .write_all(b"not a TLS client")
             .unwrap();
         let mut stream = receive_package(
-            address,
+            address.into(),
             "2345ABCDGHJK",
             &received_path,
             |_, _| {},
             &receiver_trace,
+            &TransferControl::default(),
+            None,
         )
         .unwrap();
         let progress = LibraryTransferProgress {
@@ -707,6 +919,7 @@ mod tests {
                 bytes_transferred: 0,
                 receiver_progress: None,
                 error: None,
+                ..Default::default()
             }));
             let (stream, _) = listener.accept().unwrap();
             send_package(
@@ -721,11 +934,13 @@ mod tests {
         });
 
         let receiver_error = receive_package(
-            address,
+            address.into(),
             "3456BCDEHJKM",
             &received_path,
             |_, _| {},
             &receiver_trace,
+            &TransferControl::default(),
+            None,
         )
         .err()
         .unwrap();

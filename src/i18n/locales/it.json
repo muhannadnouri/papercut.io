@@ -506,6 +506,18 @@
     }
   },
   "libraryTransfer": {
+    "refreshNetworks": "Aggiorna reti",
+    "network": "Rete locale",
+    "chooseNetwork": "Scegli una rete",
+    "networkUnavailable": "Nessuna rete locale disponibile. Controlla la connessione o usa un file di trasferimento.",
+    "port": "Porta TCP (avanzate)",
+    "cancelReceive": "Annulla ricezione",
+    "cancelling": "Annullamento…",
+    "finishingImport": "Completamento importazione…",
+    "expired": "La sessione di invio è scaduta. Avvia un nuovo trasferimento.",
+    "expiresAt": "L’associazione scade alle {{time}}",
+    "portInUse": "Questa porta è già in uso. Riprova o scegli un’altra porta TCP.",
+    "statusUnavailable": "Lo stato del trasferimento non è disponibile. I dettagli potrebbero essere obsoleti; consulta il rapporto diagnostico.",
     "diagnostics": {
       "showDetails": "Mostra dettagli",
       "copy": "Copia rapporto diagnostico",

@@ -10,7 +10,6 @@ mod onnx_runtime;
 mod open_documents;
 mod search_embeddings;
 
-#[cfg(desktop)]
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -37,6 +36,10 @@ pub fn run() {
         .plugin(tauri_plugin_native_audio::init())
         .plugin(tauri_plugin_document_scanner::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_library_transfer::init(|app, backgrounded| {
+            app.state::<library_transfer::LibraryTransferState>()
+                .set_backgrounded(backgrounded);
+        }))
         .manage(open_documents::OpenDocumentState::default())
         .manage(document_uploads::DocumentUploadState::default())
         .manage(library_transfer::LibraryTransferState::default())
@@ -94,6 +97,9 @@ pub fn run() {
             library_transfer::network::library_transfer_send_status,
             library_transfer::network::library_transfer_send_cancel,
             library_transfer::network::library_transfer_receive,
+            library_transfer::network::library_transfer_interfaces,
+            library_transfer::network::library_transfer_receive_status,
+            library_transfer::network::library_transfer_receive_cancel,
             native_tts::commands::tts_native_capabilities,
             native_tts::commands::tts_model_status,
             native_tts::commands::tts_install_model,
@@ -132,6 +138,13 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
+            if matches!(&event, tauri::RunEvent::Exit) {
+                app.state::<library_transfer::LibraryTransferState>()
+                    .set_backgrounded(true);
+            }
+            if matches!(&event, tauri::RunEvent::WindowEvent { label, event: tauri::WindowEvent::Destroyed, .. } if label == "main") {
+                app.state::<library_transfer::LibraryTransferState>().cancel_network_sessions("closed");
+            }
             #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
             if let tauri::RunEvent::Opened { urls } = event {
                 open_documents::queue_opened_urls(app, urls);

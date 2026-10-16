@@ -1,7 +1,6 @@
 //! Ephemeral TLS and one-use pairing for local library transfer.
 
 use std::io::{self, Read};
-use std::net::{Ipv4Addr, SocketAddrV4, UdpSocket};
 use std::sync::Arc;
 
 use hmac::{Hmac, Mac};
@@ -261,42 +260,6 @@ impl ServerCertVerifier for PairingCertificateVerifier {
     }
 }
 
-/// Ask the routing table which IPv4 interface would carry a packet. UDP
-/// `connect` does not send traffic, so address discovery remains offline.
-pub(super) fn local_ipv4() -> Result<Ipv4Addr, String> {
-    let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0))
-        .map_err(|err| format!("Failed to inspect local network: {err}"))?;
-    socket
-        .connect((Ipv4Addr::new(192, 0, 2, 1), 9))
-        .map_err(|err| format!("Connect both devices to the same local network: {err}"))?;
-    match socket
-        .local_addr()
-        .map_err(|err| format!("Failed to inspect local network address: {err}"))?
-        .ip()
-    {
-        std::net::IpAddr::V4(ip) if is_local_network_ipv4(ip) => Ok(ip),
-        _ => Err("Could not find this device's local IPv4 address".into()),
-    }
-}
-
-/// Keep source advertisement and receiver validation on the same deliberately
-/// narrow address policy so Papercut never displays an address it later rejects.
-fn is_local_network_ipv4(ip: Ipv4Addr) -> bool {
-    ip.is_private() || ip.is_link_local() || ip.is_loopback()
-}
-
-pub(super) fn parse_local_address(value: &str) -> Result<SocketAddrV4, String> {
-    let address = value
-        .trim()
-        .parse::<SocketAddrV4>()
-        .map_err(|_| "Enter the source address exactly as shown on the other device".to_string())?;
-    let ip = address.ip();
-    if !is_local_network_ipv4(*ip) {
-        return Err("The source address must be on the local network".into());
-    }
-    Ok(address)
-}
-
 /// Generate 12 independent base-32 symbols for 60 bits of pairing entropy.
 /// Masking is unbiased because a byte's 256 values divide evenly across 32 symbols.
 pub(super) fn new_pairing_code() -> Result<String, String> {
@@ -403,14 +366,5 @@ mod tests {
         assert_eq!(generated.len(), CODE_CHARS);
         assert!(generated.bytes().all(|byte| CODE_ALPHABET.contains(&byte)));
         assert!(normalize_code("2345-abcd").is_err());
-    }
-
-    #[test]
-    fn source_and_receiver_share_the_local_address_policy() {
-        assert!(is_local_network_ipv4(Ipv4Addr::new(192, 168, 1, 20)));
-        assert!(is_local_network_ipv4(Ipv4Addr::new(169, 254, 1, 20)));
-        assert!(is_local_network_ipv4(Ipv4Addr::LOCALHOST));
-        assert!(!is_local_network_ipv4(Ipv4Addr::new(203, 0, 113, 20)));
-        assert!(!is_local_network_ipv4(Ipv4Addr::UNSPECIFIED));
     }
 }

@@ -16,7 +16,7 @@ import { LibraryTransferDialog } from './LibraryTransferDialog'
 let root: Root
 let container: HTMLDivElement
 let releaseSend: (status: object) => void
-const waiting = { state: 'waiting', address: '127.0.0.1:12345', code: 'ABCD-EFGH-JKLM',
+const waiting = { id: 1, listenerReady: true, addresses: ['127.0.0.1:12345'], state: 'waiting', address: '127.0.0.1:12345', code: 'ABCD-EFGH-JKLM',
   documents: 1, audiobooks: 0, packageBytes: 4096, bytesTransferred: 0 }
 
 beforeEach(() => {
@@ -28,9 +28,11 @@ beforeEach(() => {
   container = document.querySelector('#mount')!
   root = createRoot(container)
   vi.spyOn(HTMLElement.prototype, 'getClientRects').mockReturnValue([new DOMRect(0, 0, 44, 44)] as unknown as DOMRectList)
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() })
   ipc.stop.mockReset()
   ipc.listen.mockReset().mockResolvedValue(ipc.stop)
   ipc.invoke.mockReset().mockImplementation(async (command: string) => {
+    if (command === 'library_transfer_interfaces') return [{ id: '2:wlan0', name: 'wlan0', index: 2, addresses: ['192.168.1.20'], automatic: true }]
     if (command === 'library_transfer_diagnostics') return { appVersion: '1.9.2', build: null, os: 'linux', arch: 'x86_64', protocol: 'PCLAN003', events: [], dropped: 0 }
     if (command === 'document_uploads_list') return [{ id: 'abc123', url: '/uploads/abc123.html', title: 'Harbor Guide', format: 'html', sourceKind: 'html', textStatus: 'ready', bytes: 12, sections: 1, importedAtMs: 1 }]
     if (command === 'library_transfer_send_start') return new Promise(resolve => { releaseSend = resolve })
@@ -88,7 +90,7 @@ it.each(['cancel', 'complete'] as const)('blocks dismissal while preparing/waiti
   await act(() => root.render(<LibraryTransferDialog onBack={back} onClose={close} onImported={vi.fn()} />))
   await act(async () => { await vi.waitFor(() => expect(container.querySelector<HTMLButtonElement>('.library-transfer-primary')!.disabled).toBe(false)) })
   await clickLabel('libraryTransfer.startSending')
-  expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_send_start', { request: { documentIds: ['abc123'], audiobookIds: [] } })
+  expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_send_start', { request: { documentIds: ['abc123'], audiobookIds: [] }, connection: { interfaceId: '2:wlan0', port: 53318 } })
   await tryNavigation()
   expect(back).not.toHaveBeenCalled(); expect(close).not.toHaveBeenCalled()
   await act(() => releaseSend(waiting))
@@ -101,6 +103,9 @@ it.each(['cancel', 'complete'] as const)('blocks dismissal while preparing/waiti
     expect(back).not.toHaveBeenCalled(); expect(close).not.toHaveBeenCalled()
     await clickLabel('libraryTransfer.changeSelection')
     expect(ipc.invoke.mock.calls.filter(([command]) => command === 'library_transfer_send_cancel')).toHaveLength(2)
+    expect(container.querySelector<HTMLButtonElement>('.app-dialog-close')!.disabled).toBe(true)
+    ipc.invoke.mockResolvedValueOnce({ ...waiting, state: 'cancelled', listenerReady: false, address: '', code: '' })
+    await act(async () => { await vi.advanceTimersByTimeAsync(500) })
   } else {
     ipc.invoke.mockResolvedValueOnce({ ...waiting, state: 'complete', bytesTransferred: 4096 })
     await act(async () => { await vi.advanceTimersByTimeAsync(500) })
@@ -112,4 +117,151 @@ it.each(['cancel', 'complete'] as const)('blocks dismissal while preparing/waiti
   const count = ipc.invoke.mock.calls.length
   await vi.advanceTimersByTimeAsync(1000)
   expect(ipc.invoke).toHaveBeenCalledTimes(count)
+})
+
+it('requires an explicit interface when multiple networks are eligible and keeps file export available', async () => {
+  const fallback = ipc.invoke.getMockImplementation()!
+  ipc.invoke.mockImplementation(async (command: string, args: unknown) => command === 'library_transfer_interfaces'
+    ? [
+        { id: '2:wlan0', name: 'wlan0', addresses: ['192.168.1.20'], automatic: true },
+        { id: '3:eth0', name: 'eth0', addresses: ['10.0.0.20'], automatic: true },
+      ] : fallback(command, args))
+  await act(() => root.render(<LibraryTransferDialog onBack={vi.fn()} onClose={vi.fn()} onImported={vi.fn()} />))
+  expect(container.querySelector<HTMLButtonElement>('.library-transfer-primary')!.disabled).toBe(true)
+  const fileButton = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'libraryTransfer.export')!
+  expect(fileButton.disabled).toBe(false)
+  const choose = container.querySelector<HTMLButtonElement>('[aria-label="libraryTransfer.network"]')!
+  await act(() => { choose.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })) })
+  await act(() => { choose.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })) })
+  await clickLabel('libraryTransfer.startSending')
+  expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_send_start', expect.objectContaining({ connection: { interfaceId: '2:wlan0', port: 53318 } }))
+  await act(() => releaseSend(waiting))
+})
+
+it('validates an advanced port before IPC and passes a valid override unchanged', async () => {
+  await act(() => root.render(<LibraryTransferDialog onBack={vi.fn()} onClose={vi.fn()} onImported={vi.fn()} />))
+  const input = container.querySelector<HTMLInputElement>('input[type="number"]')!
+  const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
+  const enter = async (value: string) => act(() => { set.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })) })
+  for (const port of ['0', '1023', '65536', '53318.5']) {
+    await enter(port)
+    expect(container.querySelector<HTMLButtonElement>('.library-transfer-primary')!.disabled).toBe(true)
+  }
+  expect(ipc.invoke.mock.calls.some(([command]) => command === 'library_transfer_send_start')).toBe(false)
+  await enter('54444')
+  await clickLabel('libraryTransfer.startSending')
+  expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_send_start', expect.objectContaining({ connection: { interfaceId: '2:wlan0', port: 54444 } }))
+  await act(() => releaseSend(waiting))
+})
+
+it('drops late sender polls after teardown and ignores snapshots from a different generation', async () => {
+  await act(() => root.render(<LibraryTransferDialog onBack={vi.fn()} onClose={vi.fn()} onImported={vi.fn()} />))
+  await clickLabel('libraryTransfer.startSending')
+  await act(() => releaseSend(waiting))
+  ipc.invoke.mockResolvedValueOnce({ ...waiting, id: 999, state: 'complete' })
+  await act(async () => { await vi.advanceTimersByTimeAsync(500) })
+  expect(container.textContent).toContain(waiting.code)
+  expect(container.textContent).not.toContain('libraryTransfer.completionTitle')
+  let releasePoll!: (value: unknown) => void
+  ipc.invoke.mockImplementationOnce(() => new Promise(resolve => { releasePoll = resolve }))
+  await act(async () => { await vi.advanceTimersByTimeAsync(500) })
+  await act(() => root.unmount())
+  await act(() => releasePoll({ ...waiting, state: 'complete' }))
+  expect(container.textContent).toBe('')
+})
+
+it('hides expired credentials and offers a fresh selection instead of a dead endpoint', async () => {
+  await act(() => root.render(<LibraryTransferDialog onBack={vi.fn()} onClose={vi.fn()} onImported={vi.fn()} />))
+  await clickLabel('libraryTransfer.startSending')
+  await act(() => releaseSend({ ...waiting, expiresAtMs: 1790000000000 }))
+  expect(container.textContent).toContain('libraryTransfer.expiresAt')
+  ipc.invoke.mockResolvedValueOnce({ ...waiting, state: 'failed', reason: 'session-expired', listenerReady: false, code: '', address: '', addresses: [], expiresAtMs: null })
+  await act(async () => { await vi.advanceTimersByTimeAsync(500) })
+  expect(container.textContent).toContain('libraryTransfer.expired')
+  expect(container.textContent).not.toContain(waiting.code)
+  expect(container.textContent).not.toContain(waiting.address)
+  await clickLabel('libraryTransfer.changeSelection')
+  expect(container.querySelector<HTMLButtonElement>('.library-transfer-primary')!.disabled).toBe(false)
+})
+
+it.each(['cancel', 'import', 'cancel-failure', 'status-failure'] as const)('uses native receive status to %s without dismissing active work', async (finish) => {
+  let finishReceive!: (value: unknown) => void
+  let failReceive!: (error: unknown) => void
+  let phase = 'connecting'
+  const fallback = ipc.invoke.getMockImplementation()!
+  ipc.invoke.mockImplementation(async (command: string, args: unknown) => {
+    if (command === 'library_transfer_receive') return new Promise((resolve, reject) => { finishReceive = resolve; failReceive = reject })
+    if (command === 'library_transfer_receive_status' && finish === 'status-failure') throw new Error('poll failure')
+    if (command === 'library_transfer_receive_status') return { id: 7, phase, cancellable: phase !== 'finishingImport' }
+    if (command === 'library_transfer_receive_cancel' && finish === 'cancel-failure') throw new Error('Cancel request failed')
+    if (command === 'library_transfer_receive_cancel') return true
+    return fallback(command, args)
+  })
+  await act(() => root.render(<LibraryTransferDialog onBack={vi.fn()} onClose={vi.fn()} onImported={vi.fn()} />))
+  await clickLabel('libraryTransfer.modeReceive')
+  const inputs = container.querySelectorAll<HTMLInputElement>('.library-transfer-pairing-fields input')
+  const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
+  await act(() => {
+    for (const [i, value] of ['192.168.1.21:41803', '2345-ABCD-GHJK'].entries()) {
+      set.call(inputs[i], value); inputs[i].dispatchEvent(new Event('input', { bubbles: true }))
+    }
+  })
+  await clickLabel('libraryTransfer.receive')
+  expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_receive', { request: { address: '192.168.1.21:41803', code: '2345-ABCD-GHJK', interfaceId: '2:wlan0' } })
+  await act(async () => { await vi.advanceTimersByTimeAsync(250) })
+  if (finish !== 'status-failure') {
+    const onProgress = ipc.listen.mock.calls[0][1] as (event: unknown) => void
+    await act(() => onProgress({ payload: { operation: 'receive', phase: 'verifying', sessionId: 6, itemsProcessed: 0, itemsTotal: 1 } }))
+    expect(container.textContent).not.toContain('libraryTransfer.progressVerifying')
+    await act(() => onProgress({ payload: { operation: 'receive', phase: 'verifying', sessionId: 7, itemsProcessed: 0, itemsTotal: 1 } }))
+    expect(container.textContent).toContain('libraryTransfer.progressVerifying')
+  }
+  if (finish === 'status-failure') {
+    expect(container.textContent).toContain('libraryTransfer.statusUnavailable')
+    expect(Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'libraryTransfer.cancelReceive')!.disabled).toBe(true)
+    expect(container.querySelector<HTMLButtonElement>('.app-dialog-close')!.disabled).toBe(true)
+    await act(() => failReceive(new Error('receive failed')))
+  } else if (finish === 'cancel-failure') {
+    await clickLabel('libraryTransfer.cancelReceive')
+    await act(async () => { await vi.advanceTimersByTimeAsync(250) })
+    expect(container.textContent).toContain('Cancel request failed')
+    expect(container.querySelector<HTMLButtonElement>('.app-dialog-close')!.disabled).toBe(true)
+    await act(() => failReceive(new Error('receive failed')))
+  } else if (finish === 'cancel') {
+    await clickLabel('libraryTransfer.cancelReceive')
+    expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_receive_cancel', { id: 7 })
+    expect(container.querySelector<HTMLButtonElement>('.app-dialog-close')!.disabled).toBe(true)
+    await act(() => failReceive({ code: 'TRANSFER_CANCELLED', message: 'cancelled' }))
+  } else {
+    phase = 'finishingImport'
+    await act(async () => { await vi.advanceTimersByTimeAsync(250) })
+    expect(container.textContent).toContain('libraryTransfer.finishingImport')
+    expect(container.textContent).not.toContain('libraryTransfer.cancelReceive')
+    expect(container.querySelector<HTMLButtonElement>('.app-dialog-close')!.disabled).toBe(true)
+    await act(() => finishReceive({ selected: 0, imported: 0, skipped: 0, failed: 0, foldersCreated: 0, audiobooksSelected: 0, audiobooksImported: 0, audiobooksSkipped: 0, audiobooksFailed: 0, importedAudiobooks: [], failures: [] }))
+  }
+  expect(container.querySelector<HTMLButtonElement>('.app-dialog-close')!.disabled).toBe(false)
+})
+
+it('waits for a native preparation generation before cancelling and treats cancellation as normal recovery', async () => {
+  let failStart!: (error: unknown) => void
+  const fallback = ipc.invoke.getMockImplementation()!
+  ipc.invoke.mockImplementation(async (command: string, args: unknown) => {
+    if (command === 'library_transfer_send_start') return new Promise((_, reject) => { failStart = reject })
+    if (command === 'library_transfer_send_status') return { ...waiting, state: 'preparing', listenerReady: false, addresses: [], address: '', code: '' }
+    return fallback(command, args)
+  })
+  await act(() => root.render(<LibraryTransferDialog onBack={vi.fn()} onClose={vi.fn()} onImported={vi.fn()} />))
+  await clickLabel('libraryTransfer.startSending')
+  const stop = () => Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'libraryTransfer.stopSending')!
+  expect(stop().disabled).toBe(true)
+  await act(async () => { await vi.advanceTimersByTimeAsync(500) })
+  expect(stop().disabled).toBe(false)
+  expect(container.textContent).not.toContain(waiting.code)
+  await clickLabel('libraryTransfer.stopSending')
+  expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_send_cancel', { id: 1 })
+  expect(container.querySelector<HTMLButtonElement>('.app-dialog-close')!.disabled).toBe(true)
+  await act(() => failStart({ code: 'TRANSFER_CANCELLED', message: 'Library transfer cancelled' }))
+  expect(container.querySelector<HTMLButtonElement>('.app-dialog-close')!.disabled).toBe(false)
+  expect(container.querySelector('[role="alert"]')).toBeNull()
 })

@@ -182,7 +182,28 @@ pub(crate) fn emit_transfer_progress(
     if let Some(state) = app.try_state::<LibraryTransferState>() {
         state.diagnostics.progress(&progress);
     }
-    let _ = app.emit(LIBRARY_TRANSFER_PROGRESS_EVENT, progress.clone());
+    #[derive(Clone, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct LocalProgress<'a> {
+        #[serde(flatten)]
+        progress: &'a LibraryTransferProgress,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        session_id: Option<u64>,
+    }
+    let session_id = if operation == "receive" {
+        app.try_state::<LibraryTransferState>()
+            .and_then(|state| state.receive_session_id())
+    } else {
+        None
+    };
+    // Generation metadata is local IPC only; the PCLAN003 progress frames stay unchanged.
+    let _ = app.emit(
+        LIBRARY_TRANSFER_PROGRESS_EVENT,
+        LocalProgress {
+            progress: &progress,
+            session_id,
+        },
+    );
     progress
 }
 

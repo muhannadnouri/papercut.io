@@ -47,9 +47,14 @@ export interface ImportedAudiobookRecord {
   wavBytes: number
 }
 
-export type LibraryTransferSendState = 'waiting' | 'sending' | 'complete' | 'cancelled' | 'failed'
+export type LibraryTransferSendState = 'preparing' | 'binding' | 'waiting' | 'sending' | 'complete' | 'cancelled' | 'failed'
 
 export interface LibraryTransferSendStatus {
+  id: number
+  listenerReady: boolean
+  addresses: string[]
+  expiresAtMs?: number | null
+  reason?: string | null
   state: LibraryTransferSendState
   address: string
   code: string
@@ -57,8 +62,40 @@ export interface LibraryTransferSendStatus {
   audiobooks: number
   packageBytes: number
   bytesTransferred: number
-  receiverProgress?: LibraryTransferProgress
-  error?: string
+  receiverProgress?: LibraryTransferProgress | null
+  error?: string | null
+}
+
+export interface TransferInterface {
+  id: string
+  name: string
+  index: number
+  addresses: string[]
+  automatic: boolean
+}
+
+export interface TransferConnection {
+  interfaceId: string
+  port: number
+}
+
+export interface LibraryTransferReceiveStatus {
+  id: number
+  phase: 'connecting' | 'receiving' | 'finishingImport' | 'complete' | 'cancelled' | 'failed'
+  cancellable: boolean
+}
+
+export async function getTransferInterfaces(): Promise<TransferInterface[]> {
+  if (!isTauri()) return []
+  return invoke('library_transfer_interfaces')
+}
+
+export async function getLibraryReceiveStatus(): Promise<LibraryTransferReceiveStatus | null> {
+  return invoke('library_transfer_receive_status')
+}
+
+export async function cancelLibraryReceive(id: number): Promise<boolean> {
+  return invoke('library_transfer_receive_cancel', { id })
 }
 
 export type LibraryTransferOperation = 'import' | 'receive'
@@ -70,6 +107,7 @@ export type LibraryTransferProgressPhase =
   | 'restoringAudiobooks'
 
 export interface LibraryTransferProgress {
+  sessionId?: number
   operation: LibraryTransferOperation
   phase: LibraryTransferProgressPhase
   bytesProcessed?: number
@@ -154,8 +192,10 @@ export async function importLibrary(): Promise<LibraryTransferImportResult | nul
 export async function startLibrarySend(
   documentIds: string[],
   audiobookIds: string[] = [],
+  connection?: TransferConnection,
 ): Promise<LibraryTransferSendStatus> {
   return invoke<LibraryTransferSendStatus>('library_transfer_send_start', {
+    ...(connection ? { connection } : {}),
     request: { documentIds, audiobookIds },
   })
 }
@@ -165,14 +205,14 @@ export async function getLibrarySendStatus(): Promise<LibraryTransferSendStatus 
   return invoke<LibraryTransferSendStatus | null>('library_transfer_send_status')
 }
 
-export async function cancelLibrarySend(): Promise<void> {
+export async function cancelLibrarySend(id: number): Promise<void> {
   if (!isTauri()) return
-  await invoke('library_transfer_send_cancel')
+  await invoke('library_transfer_send_cancel', { id })
 }
 
-export async function receiveLibrary(address: string, code: string): Promise<LibraryTransferImportResult> {
+export async function receiveLibrary(address: string, code: string, interfaceId?: string): Promise<LibraryTransferImportResult> {
   return invoke<LibraryTransferImportResult>('library_transfer_receive', {
-    request: { address, code },
+    request: { address, code, ...(interfaceId ? { interfaceId } : {}) },
   })
 }
 

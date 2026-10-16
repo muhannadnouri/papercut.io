@@ -499,6 +499,18 @@
     }
   },
   "libraryTransfer": {
+    "refreshNetworks": "Refresh Networks",
+    "network": "Local Network",
+    "chooseNetwork": "Choose a Network",
+    "networkUnavailable": "No local network is available. Check your connection or use a transfer file.",
+    "port": "TCP Port (Advanced)",
+    "cancelReceive": "Cancel Receiving",
+    "cancelling": "Cancelling…",
+    "finishingImport": "Finishing Import…",
+    "expired": "This send session expired. Start a new transfer.",
+    "expiresAt": "Pairing Expires at {{time}}",
+    "portInUse": "This port is already in use. Retry or choose another TCP port.",
+    "statusUnavailable": "Transfer status is unavailable. Details may be out of date; check the diagnostic report.",
     "diagnostics": {
       "showDetails": "Show Details",
       "copy": "Copy Diagnostic Report",
