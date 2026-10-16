@@ -521,6 +521,21 @@ access and warns about router client isolation. Its existence is not evidence
 that an application can safely avoid all network permission prompts.
 [LocalSend setup](https://github.com/localsend/localsend/blob/main/README.md#setup)
 
+The familiar **Allow through firewall** prompt is an OS facility on Windows,
+not a universal LocalSend authorization protocol. Windows can retain an
+application allow rule after consent; denial, existing rules and administrator
+policy affect whether a prompt appears and whether access works. A native grant
+is a viable Papercut path on supported systems, with the network scope and
+revocation requirements below. Do not repeatedly trigger prompts after denial.
+[Windows firewall application rules](https://learn.microsoft.com/en-us/windows/security/operating-system-security/network-security/windows-firewall/rules#applications-rules)
+
+LocalSend's Linux setup still documents UFW/firewalld commands; its evaluated
+Windows installer at `d01fdb1` has no explicit firewall-rule installation step.
+Neither establishes an equivalent one-time UFW/AppImage approval API. Showing our
+own confirmation would express intent but would not grant OS privileges. This
+comparison is source/documentation review, not a test of installed prompts.
+[LocalSend installer](https://github.com/localsend/localsend/blob/d01fdb14c978fa8b2b13e29a50cc0feaefe5c1b9/support/scripts/compile_windows_exe-inno.iss)
+
 In contrast, [croc's transport selection](https://github.com/schollz/croc#data-transport-selection)
 uses traversal and relay infrastructure when a direct path is unavailable.
 That improves reachability but does not establish a strictly offline LAN path.
@@ -536,14 +551,17 @@ changes below are design decisions and implementation gates only.
 
 Reuse the package/import boundary, maintained TLS/SPAKE2 primitives, native
 streaming, one-use codes, authenticated resume and bounded diagnostics. Choose
-**receiver-listens / sender-connects for new peers** as the smallest next design.
+**receiver-listens / sender-connects by default**, with an explicit
+**receiver-connects / sender-listens** option for incoming-blocked receivers.
+Use one new protocol and shared transfer engine for both, not two legacy stacks.
 Content roles and connection roles must be explicit rather than inferred from
 generic names such as client/server throughout storage and import code.
 
 | Option | Evaluation and decision |
 | --- | --- |
 | Keep sender-listens | Preserves the current wire path but unnecessarily requires inbound Linux access for the reported Linux-to-Android send. Keep it as the current implementation, not the future UX target. |
-| Receiver-listens | Standard upload pattern used by LocalSend. Linux sending to Android uses Linux's permitted outgoing path; Linux receiving still needs incoming access. Selected for the next protocol. |
+| Receiver-listens | Standard upload pattern used by LocalSend. Linux sending to Android uses Linux's permitted outgoing path; Linux receiving still needs incoming access. Selected default for the next protocol. |
+| Explicit receiver-connects | Select before pairing when the receiver cannot accept incoming connections. Android hosts the selected package and Linux connects out to receive it. Recommended alternative before adding a privileged UFW helper; the other device still needs a reachable listener. |
 | Automatically negotiate either connection direction | Could avoid an inbound restriction when the other endpoint is reachable, but needs coordinated discovery, role binding, simultaneous-attempt cleanup and fallback rules. Defer until the simpler flow and native authorization are tested; do not add speculative dual listeners or a custom rendezvous protocol. |
 | External relay or traversal service | Helps when direct traffic is blocked, but changes the offline, privacy and operating-cost contract. Excluded from this LAN-only design. |
 
@@ -556,6 +574,67 @@ Only after authentication may package metadata/data be accepted. Discovery
 replaces routine address entry, not authentication. Manual endpoints remain an
 advanced fallback; file export/import remains available without network access.
 
+#### Explicit Outbound Receiving — Selected Design, Not Implemented
+
+**Recommend an explicit connection choice, not automatic direction negotiation.**
+TCP is bidirectional: opening a connection does not determine which device sends
+the library. The current v3 `start_send`/`send_package` already listen on the
+source while `receive_package` connects from the target. Thus Android-to-Linux
+has the desired socket direction today; this is code evidence, not device
+acceptance. The next protocol should retain that useful direction while adding
+the receiver-listens default needed for the reported Linux-to-Android case.
+
+| Content direction | Listening device / code owner | Connecting device | Package flow |
+| --- | --- | --- | --- |
+| Linux sends to Android (default) | Android receiver | Linux sender | Linux uploads over its outgoing connection. |
+| Android sends to incoming-blocked Linux (explicit alternative) | Android sender | Linux receiver | Linux downloads over its outgoing connection. |
+
+This avoids a new **incoming transfer-TCP** allowance on Linux in those cases
+when outgoing traffic and replies are permitted. It neither changes UFW nor
+guarantees discovery, Android listener permission, routing or router peer access.
+Two incoming-blocked devices still need authorized access on one side or file
+transfer; no LAN-only architecture can promise reachability under every policy.
+
+Use these bounded UI/session rules:
+
+1. Keep ordinary **Send** / **Receive** controls. Default Receive waits for the
+   sender. Offer **Connect to Sender** before an attempt or as explicit recovery;
+   the other device selects content and chooses **Let Receiver Connect**. Explain
+   the two actions in place without requiring firewall diagnosis or port entry.
+   This is a session choice, not a persistent setting or an OS-name heuristic.
+2. The chosen listener alone displays the ephemeral name and one-use code.
+   The connecting device selects that nearby session and enters its code. In
+   either mode, the content sender explicitly selects and prepares the package;
+   the peer cannot browse its library or ask it to export different content.
+3. A mode switch cancels/closes the old generation before starting another,
+   withdraws its advertisement and discards its pairing credentials. Keep the
+   content selection, but start a fresh session. No timeout, discovery hint or
+   authentication failure silently changes direction or retries another mode.
+   Once restore starts, disable mode switching with cancellation until its
+   terminal result; do not imply rollback of imported data.
+4. Publish a sending listener only after packaging is ready. A connecting sender
+   also prepares before connecting; human code entry completes before TLS/PAKE
+   I/O begins. If a waiting receiver expires during preparation, require a fresh
+   session rather than extending its deadline or holding a half-paired socket.
+
+A single authenticated connection-establishment path should handle listener and
+connector roles, then hand its stream to the existing content send/receive
+framing. In current code, `send_package` embeds `ServerConnection` and
+`receive_package` embeds TCP connect plus `ClientConnection`; those are the seams
+to separate, not a reason to duplicate streaming/import code. Native ownership
+must distinguish content roles from connection roles: the listener owns socket
+readiness/code/expiry, the sender owns its immutable prepared package, and the
+receiver owns private staging and restore admission. Preserve one active session,
+bounded cancellation and stale-generation protection in both modes.
+
+This is preferable to a custom UFW helper for the reported device pair because
+it uses unprivileged sockets and already-maintained TLS/SPAKE2 primitives. It
+still requires protocol/UI work and secure role binding; it is not a one-line
+swap of existing calls. Do not add a new HTTP/browser API. LocalSend's separate
+browser download mode documents unencrypted HTTP; that is not an acceptable
+model for Papercut's encrypted native transfer.
+[LocalSend reverse transfer](https://github.com/localsend/protocol#5-reverse-file-transfer-http-aka-download-api)
+
 #### Connection Roles and Protocol Cutover
 
 The current `security.rs` explicitly binds sender/server and receiver/client to
@@ -563,8 +642,27 @@ The current `security.rs` explicitly binds sender/server and receiver/client to
 alone is not a compatible refactor. Require a reviewed new wire version
 (`PCLAN004` is the proposed marker, not an implemented capability), exporter
 domain and explicit content-role confirmations. Reuse the cryptographic
-libraries; do not invent negotiation or weaken certificate/channel binding.
-Finish human code entry before starting short authentication I/O timeouts.
+libraries; do not invent cryptographic primitives or weaken certificate/channel
+binding. The v4 framing/security review must explicitly cover:
+
+- Listener/connector PAKE roles with fixed, versioned identities, independent of
+  the content sender/receiver. Keep a deterministic exchange order in both modes.
+- A bounded mode/role prelude treated as untrusted until both key confirmations
+  bind the protocol, expected ordered content roles, selected mode and TLS
+  exporter. Reject mismatched roles/modes and reflections before package metadata
+  or bytes. Discovery hints cannot select or authenticate these roles.
+- A private resume identity valid only for the same unexpired content session,
+  chosen mode and listener endpoint. The old source-address/code cache key alone
+  does not describe a receiver-hosted session. Pin the immutable package identity
+  in authenticated framing, validate offsets and reject a changed package before
+  appending; never carry a partial into a new code, peer selection or mode.
+- Preserve completed-wrong-code consumption and bounded unauthenticated traffic,
+  reauthenticate each resumed TLS channel, and accept import progress/final
+  acknowledgement only from the authenticated content receiver. Keep the atomic
+  restore boundary and successfully imported data on acknowledgement failure.
+
+Exact framing and confirmation inputs require review and regression tests before
+shipping either mode. Human code entry precedes short authentication I/O timeouts.
 
 Prefer a deliberate protocol cutover with a clear update/file-transfer fallback
 for old peers over indefinitely maintaining two network implementations. The
@@ -582,7 +680,7 @@ integration path, not a compiled or device-tested implementation:
 
 | Platform | Selected adapter | Packaging and permission implications |
 | --- | --- | --- |
-| iOS / macOS | System `DNSServiceRegister`, `DNSServiceBrowse`, resolve/address callbacks and explicit reference disposal. Register the receiving session's one Rust listener port on the selected interface. | Apple supplies Bonjour. Declare `_papercut-xfer._tcp` in `NSBonjourServices`, retain the local-network usage description, and handle permission failure. Use the C API for compatibility with the current macOS 10.13 / iOS 15.0 floors; this does not require a custom multicast entitlement or an OS-version bump. |
+| iOS / macOS | System `DNSServiceRegister`, `DNSServiceBrowse`, resolve/address callbacks and explicit reference disposal. Register the chosen session listener's Rust port on the selected interface. | Apple supplies Bonjour. Declare `_papercut-xfer._tcp` in `NSBonjourServices`, retain the local-network usage description, and handle permission failure. Use the C API for compatibility with the current macOS 10.13 / iOS 15.0 floors; this does not require a custom multicast entitlement or an OS-version bump. |
 | Android | Kotlin `NsdManager` through a narrow Tauri native plugin, with a selected `Network`. | Network-scoped browse and `NsdServiceInfo.setNetwork` are available from API 33. For the app's API 26–32 range, retain manual/file transfer and report discovery as unsupported rather than silently searching/advertising on all networks. Keep the current minimum SDK. |
 | Windows | Native `DnsServiceBrowse`, `DnsServiceResolve`, `DnsServiceRegister` and cancellation/deregistration APIs, through Rust bindings. | Windows 10 desktop APIs avoid requiring a separate Bonjour installation. Availability and callback cleanup must be checked in the existing Windows build; missing APIs disable discovery, not manual transfer. |
 | Linux | Avahi's system D-Bus API: service browser/resolver and entry groups scoped to the selected interface. | Discovery requires an accessible system bus and running Avahi service. Use a maintained Rust D-Bus binding; do not bundle, install or start a daemon. AppImage hosts without Avahi retain manual/file transfer with an explicit unavailable state. |
@@ -600,7 +698,7 @@ support the selected-network policy. Target SDK 36 currently uses `INTERNET`;
 do not add or request `ACCESS_LOCAL_NETWORK` at this target. Before targeting
 SDK 37, implement its runtime permission for manual/general LAN access; the
 supported system NSD picker can grant access to a selected discovered endpoint
-without broad permission, but does not authorize receiver advertising/listening or
+without broad permission, but does not authorize either mode's advertising/listening or
 arbitrary manual addresses. [Android permission guidance](https://developer.android.com/privacy-and-security/local-network-permission)
 
 Microsoft documents [Windows DNS-SD browsing](https://learn.microsoft.com/en-us/windows/win32/api/windns/nf-windns-dnsservicebrowse)
@@ -660,7 +758,8 @@ needs the Kotlin bridge. [Tauri mobile plugin guide](https://v2.tauri.app/develo
   network. A replacement session gets a new code and public discovery name.
 - The existing v3 foundation retains full legacy `IPv4:port` input, including
   random ports, bare-IP defaults and IPv6 literals. The new receiver-listens
-  manual fallback enters the receiving endpoint on the sender. Do not imply that
+  manual fallback enters the receiving endpoint on the sender; Connect to Sender
+  instead enters the sending listener's endpoint on the receiver. Do not imply that
   an address makes incompatible wire versions interoperate. App versions need
   not match exactly; authenticated wire and package compatibility are decisive.
 - Advertise only an implemented wire capability. The proposed v4 flow must not
@@ -669,12 +768,16 @@ needs the Kotlin bridge. [Tauri mobile plugin guide](https://v2.tauri.app/develo
 
 #### Discovery Contract and Bounds
 
-Publish `_papercut-xfer._tcp.local.` only after the receiving TCP listeners are
-ready. Browse only that service while Send is foregrounded. Use an ephemeral
-random instance name, shown on the receiver for recognition; TXT contains only
-`v=1` (discovery schema) and the implemented `p` wire capability. The proposed v4
-path uses `p=PCLAN004` only after cutover; no discovery is implemented today.
-SRV supplies the port.
+Publish `_papercut-xfer._tcp.local.` only after the chosen TCP listeners are
+ready. Browse only on the connecting device while its transfer dialog is
+foregrounded. Use an ephemeral random instance name shown on the listening
+device; TXT contains only `v=1` (the proposed discovery schema), the implemented
+`p` wire capability and `m=push` (receiver listens) or `m=pull` (sender listens).
+Reject missing, malformed or unknown mode values in the proposed schema.
+The mode hint can filter the nearby list, but must match the explicitly selected
+mode and subsequent authenticated exchange. It cannot trigger a mode switch,
+callback connection or firewall action. The proposed v4 path uses `p=PCLAN004`
+only after cutover; no discovery is implemented today. SRV supplies the port.
 Do not add pairing codes, titles, counts, paths or persistent Papercut device IDs.
 Normal DNS-SD/IP metadata and OS-managed hostnames may still be visible on the
 LAN; this is not anonymous discovery. Names and compatibility hints are untrusted
@@ -703,20 +806,21 @@ listener readiness from discovery availability so an unavailable browser does
 not disable a working manual path. A historical bind event is not a liveness
 check, and a local Ready state is not proof of remote reachability.
 
-In the new flow, Receive owns binding, readiness and the waiting/code window;
-Send owns package preparation and the outgoing connection. Both expose
+In either selected mode, the listener owns binding, readiness and the waiting/code
+window; the connector owns the outgoing connection. The content sender owns
+package preparation and the content receiver owns staging/import. Both expose
 authentication, streaming, receiver import and a terminal result. Expose the
 native waiting/pairing deadline and expiry reason. Retain the existing ten-minute
 pairing window, authentication timeouts and authenticated-stream/import timeouts;
-discovery refreshes do not
-extend them. Withdraw advertising after successful pairing, re-advertise only
+discovery refreshes do not extend them. Withdraw advertising after successful
+pairing, re-advertise only
 after an eligible authenticated interruption, and preserve the same code/package
 only within its unexpired session. Incomplete unauthenticated traffic must not
 consume the code; a completed incorrect proof still does.
 
 Retain cancellation for connect, TLS/pairing and staging in the new roles. It
-must interrupt native I/O and release the restore reservation, not merely hide the dialog or
-await the full connect timeout. Once package restore starts, show **Finishing
+must interrupt native I/O and release the restore reservation, not merely hide
+the dialog or await the full connect timeout. Once package restore starts, show **Finishing
 Import** and disable cancellation until the existing importer reaches its result;
 do not claim rollback of already imported items. Preserve retryable partials
 under the existing authenticated-resume policy and retain successful imports
@@ -825,10 +929,10 @@ claiming universal zero-setup transfer.
 Papercut UFW helper now.** Package-managed profiles plus an existing firewall GUI
 are the smallest maintainable administrator fallback, but do **not** satisfy the
 full no-address/no-port-knowledge, selected-network consent flow. That acceptance
-gate remains unmet for incoming-deny UFW. Prefer evaluating an explicit outbound
-connection option for Linux receiving before taking ownership of privileged
-firewall software. This is a design recommendation, not a new implemented mode
-or a claim that UFW's policy can be bypassed.
+gate remains unmet for an incoming listener under UFW. The subsequent outbound
+evaluation above selects an explicit Connect to Sender alternative before
+privileged firewall software. That avoids the Linux listener in the target
+device pair; it does not grant UFW access or establish device acceptance.
 
 The source review found these concrete limits:
 
@@ -880,22 +984,19 @@ the image. The existing Debian/RPM artifacts do not supply an Arch/CachyOS
 integration package. Do not suggest installing a foreign package as a fix or
 quietly add an Arch/companion-package maintenance commitment.
 
-The next design decision is therefore **connection direction before privileged
-UFW integration**. Keep receiver-listens as the proposed normal flow: it avoids
-Linux's inbound transfer-TCP requirement when sending to Android, though mDNS
-and Android permissions still need validation. For the opposite content direction,
-evaluate an explicitly selected peer-hosted session so Linux can connect out
-while receiving. Compare its UX, TLS/PAKE role binding and resume cost with the
-helper's security/packaging cost before changing the selected protocol design.
-Require one chosen listener and authenticated content roles; no speculative
-simultaneous listeners, automatic probing, protocol downgrade or external relay.
-Automatic bidirectional negotiation remains deferred.
+**Connection direction takes precedence over privileged UFW integration.** Use
+the selected default/explicit alternative above with one chosen listener and
+authenticated content roles. Keep native permission/grant handling where the OS
+supports it, and optional GUI recovery for a device that must listen. Automatic
+negotiation, speculative simultaneous listeners, probes, downgrade and relays
+remain excluded from this implementation scope.
 
 If neither peer can accept LAN connections and authorized OS access is
 unavailable, direct LAN transfer cannot be promised. An existing firewall GUI is
 optional administrator recovery and file transfer is recovery; neither silently
-relaxes the ordinary-user requirement. The next review must select a flow that
-meets it or explicitly resolve this product limitation before implementation.
+relaxes the ordinary-user requirement. The selected outbound alternative needs
+protocol tests and packaged acceptance before claiming that requirement met;
+networks blocking both directions remain an explicit product limitation.
 
 ### Endpoint/Session Foundation — Implemented 2026-10-16
 
@@ -969,25 +1070,26 @@ port selection is not claimed to fix incoming-deny policy.
 
 ### Delivery Order and Validation Gates
 
-The revised direction is selected; platform authorization and the new security
-transcript must pass feasibility/review gates before implementation:
+The default plus explicit alternative are selected; the new wire transcript and
+native lifecycle/permission integration remain review gates before implementation:
 
 1. **Endpoint/session foundation (implemented; platform acceptance pending):** typed interface-aware endpoints,
    stable binding, authoritative readiness/deadlines, cancellable receive and
    cleanup. The manual `PCLAN003` path remains the first integration gate;
    the full discovery redesign is not complete.
-2. **Authorization/packaging source evaluation complete; UX gate unmet:** the
+2. **Authorization/packaging source evaluation complete; inbound UFW gate unmet:** the
    inspected UFW GUIs and profile-only packages do not provide the required
    scoped approval flow. Keep AppImage unprivileged and a custom helper
-   unselected. Next compare explicit outbound receiving with privileged system
-   integration in the protocol/UX review; do not implement either implicitly.
+   unselected. Prefer the explicit outbound-receive mode for the target device
+   pair; no direction or firewall fallback may run without user intent.
    Firewalld/native permission paths still need scope, denial, expiry, crash and
    packaging validation. Static profiles/GUI recovery are not acceptance.
-3. **Protocol review, then transport/discovery implementation:** resolve the
-   outbound-receiving candidate and finalize code ownership, content/connection
-   roles, new marker/exporter/transcript, authenticated resume and old-peer
-   cutover before coding. Then add the new
-   flow, bounded native DNS-SD adapters, device selection and permissions. Compile
+3. **Next: protocol/state review, then implementation:** finalize exact v4
+   framing/confirmation inputs, listener-owned codes and deadlines, expected
+   content roles, mode-specific resume identity and old-peer cutover. Then build
+   one authenticated stream boundary and shared package framing, followed by the
+   default/Connect to Sender UI and bounded native DNS-SD adapters. Add only
+   supported OS permission paths, not an automatic UFW grant. Compile
    and link adapters on the supported minimum OS; verify callback teardown,
    Linux missing-bus/missing-Avahi behavior and explicit unsupported discovery.
    No minimum-OS increase, third-party daemon installation or dual-stack protocol
@@ -998,8 +1100,13 @@ transcript must pass feasibility/review gates before implementation:
    cancellation in every pre-import phase. Add malformed/oversized/spoofed/stale
    discovery, event/resolve bounds, denial/unavailability and no automatic TCP
    probes. Cover new/old wire rejection without downgrade, TLS/PAKE role and
-   channel binding, wrong-code consumption, authenticated resume, partial import,
-   acknowledgement failure and report redaction. Authorization tests must verify
+   channel binding in both content/connection role mappings, reflected or
+   tampered mode/role preludes, wrong-code consumption and authenticated resume
+   with changed-package rejection. Exercise explicit mode switches during
+   preparation/waiting/connect, stale callbacks and credential/listener cleanup.
+   Retain partial import, acknowledgement failure and report redaction; bounded
+   diagnostic codes may identify the chosen mode/connection role without secrets.
+   Any authorization implementation must verify
    narrow scope, untrusted-input rejection, owned-rule cleanup and crash expiry
    without changing administrator-owned rules.
 5. **Deferred physical acceptance:** diagnose the failed connection using both
@@ -1039,11 +1146,13 @@ firewall mutation accompanies this revised design.
   authorization constraints documented; runtime unchanged.
 - [x] Evaluate UFW/AppImage GUI and packaging options against upstream source;
   record profile/catalog differences and reject an assumed approval API.
-- [ ] Resolve the unmet UFW ordinary-user UX: review explicit outbound receiving
-  before adopting privileged integration; validate scope/lifetime on supported OSes.
-- [ ] Review receiver-listens wire/security cutover, the explicit outbound-receive
-  candidate and old-peer messaging before selecting implementation scope.
-- [ ] Implement and test supported native authorization without terminal setup.
+- [x] Evaluate/select explicit outbound receiving before privileged UFW integration;
+  distinguish the listening device/code owner from the content sender/receiver.
+- [ ] Review both selected modes' exact v4 transcript, state/consent, resume
+  identity and old-peer cutover before implementing the shared stream boundary.
+- [ ] Validate the no-terminal flow with packaged builds; inbound UFW approval
+  remains unsupported without separately reviewed integration or administrator setup.
+- [ ] Implement/test supported native OS permission paths without a custom UFW helper.
 - [ ] Native DNS-SD adapters, nearby-session UI and platform discovery acceptance.
 - [x] Stage 3: add byte-level transfer and item-level restore phases.
 - [x] Stage 3: reject package staging and restoration when storage is insufficient.
@@ -1093,9 +1202,11 @@ new-design cases become required when that implementation is available:
 | Public network | Try a guest or public Wi-Fi network with client isolation, then one that permits device-to-device traffic. | Isolation produces a clear connection failure; when peer traffic is permitted, only the correct code authenticates and content remains encrypted in transit. |
 | Interface selection | Exercise representative Wi-Fi, Ethernet, hotspot, and explicitly selected advanced routes supported by the test devices, including an adapter with multiple local subnets where available. | The displayed address matches the listening interface; other interfaces are not exposed implicitly. The connecting side uses the peer's matching subnet, or reports an ambiguous source instead of choosing an unrelated address. |
 | Protocol mismatch | Connect a `PCLAN003` build to the last pre-`PCLAN003` development build. | Pairing fails closed and neither build imports partial or unauthenticated data. |
-| New protocol cutover | Pair the future receiver-listens build with v3 in both content directions; spoof compatibility metadata. | Clear incompatible-peer/update/file recovery; no authenticated-protocol downgrade or partial import. |
+| New protocol cutover | Pair either future v4 mode with v3 in both content directions; spoof compatibility/mode metadata. | Clear incompatible-peer/update/file recovery; no direction switch, authenticated-protocol downgrade or partial import. |
 | Linux sending to Android | Use incoming-deny Linux with no Papercut transfer rule; start Receive on Android and follow the new nearby-device/code flow. | Linux uses an outgoing connection; no Linux inbound transfer-TCP exception or terminal setup is required. Validate mDNS/discovery access separately. |
-| Linux receiving | Receive under UFW/AppImage and firewalld using the connection/authorization flow selected by the next design review. | No terminal or per-phone rule is required. Any OS grant clearly explains scope/duration; the unresolved ordinary-user UFW flow blocks claiming this acceptance. |
+| Linux receiving | Use Connect to Sender on incoming-deny Linux/AppImage, and Let Receiver Connect on Android with selected content. Separately exercise default listening on OSes with supported grants. | Linux receives over an outgoing authenticated connection without a Linux incoming transfer-TCP rule, terminal or per-phone exceptions. Android must be reachable and foregrounded; discovery/permissions remain separate gates. Any OS grant explains scope/duration. |
+| Explicit mode and role safety | Switch modes before pairing and near cancellation/expiry; tamper or reflect the advertised/authenticated mode and content roles. | Old listeners/codes/advertisements cannot survive or alter the new generation. Only complementary, mutually authenticated expected roles move metadata/data; no automatic fallback, callback connection or second listener. |
+| Resume in both modes | Interrupt an authenticated transfer in each connection direction; retry the same session, then offer a different prepared package or switch modes. | Same-session data resumes safely. Changed package/invalid offset is rejected before append; new mode/code/peer selection cannot reuse a prior partial. Import and acknowledgement behavior remain unchanged. |
 | UFW integration packaging | If descriptors or privileged integration are later selected, inspect matching distro packages, upgrade/remove them and compare KDE/Gufw catalog behavior. | Descriptors appear in the intended GUI without installing rules; no app launch writes system policy. Foreign packages, a generic settings button or an unscoped preset do not establish guided consent. |
 | Authorization denial | Deny/cancel OS consent, remove the agent/service, or enforce administrator restrictions. | Visible recovery without password collection, text-agent fallback, privilege bypass or indefinite waiting. |
 | Grant lifecycle | Cancel/expire Receive, change networks, crash/restart, reload the firewall service and uninstall; retain an unrelated administrator rule. | Temporary grants expire/revoke within their declared bound; persistent consent is separately explicit and revocable. Unrelated rules survive and the app never silently broadens scope. |
@@ -1123,7 +1234,8 @@ test-owned temporary grant after testing without changing unrelated policy.
   picker grant does not cover arbitrary manual connections or advertising/listening.
 - Automatic negotiation of either connection direction is deferred until a
   demonstrated need justifies its discovery, authentication and lifecycle cost.
-  External relays remain excluded from the LAN-only design.
+  The explicit Connect to Sender alternative is selected and does not authorize
+  automatic negotiation. External relays remain excluded from the LAN-only design.
 - Original EPUB archives are not transferable because the current upload
   pipeline stores only generated, sanitized reading HTML. Retaining originals
   would be a separate storage and migration feature.
