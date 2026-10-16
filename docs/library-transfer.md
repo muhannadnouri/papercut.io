@@ -756,7 +756,7 @@ automatically. Explain port details in Show Details, not as routine setup work.
 | macOS | Use system local-network consent and application-firewall settings for the signed application. Respect denial; do not run Papercut as administrator or replace system prompts. |
 | Android / iOS | Use system local-network/discovery permissions appropriate to the target OS and operation. These are not permission to modify a desktop firewall, nor proof that the router permits peers. Recheck the Android permission scope when switching to receiver-listens. |
 | Linux with running firewalld | Evaluate its supported system D-Bus API and polkit authorization for a narrowly scoped runtime rule with native expiry. Resolve the selected interface's actual zone; do not silently choose a default/public zone, reassign the interface, or request broad `authorizeAll` access. If the zone or backend cannot enforce the intended scope, fail explicitly. |
-| Linux with UFW, especially portable AppImage | A packaged application profile describes ports but does not grant access. UFW documents profiles and privileged CLI administration, not a verified per-app authorization API. First validate an existing firewall GUI plus a package-installed profile against this UX; no private Python APIs, direct rules-file edits or shell commands from the WebView. The portable AppImage authorization/packaging path is an unresolved gate, not an implemented solution. |
+| Linux with UFW, especially portable AppImage | Source review below found no supported, narrow Papercut authorization flow in the evaluated GUIs. Profiles plus an existing GUI are optional administrator recovery, not the fully guided transfer UX. Keep AppImage unprivileged; do not adopt a custom helper just to fill this gap. |
 
 Primary platform references: [Windows firewall policy API](https://learn.microsoft.com/en-us/windows/win32/api/netfw/nn-netfw-inetfwpolicy2),
 [Apple application firewall](https://support.apple.com/en-au/guide/mac-help/mh34041/mac),
@@ -818,6 +818,84 @@ administrator's prohibition. File transfer remains available, but does not count
 as passing the no-terminal LAN acceptance gate. If supported UFW/AppImage setup
 cannot meet that gate, report the limitation before implementation rather than
 claiming universal zero-setup transfer.
+
+#### UFW/AppImage Feasibility Outcome — 2026-10-16
+
+**Recommendation: keep the portable app unprivileged and do not implement a
+Papercut UFW helper now.** Package-managed profiles plus an existing firewall GUI
+are the smallest maintainable administrator fallback, but do **not** satisfy the
+full no-address/no-port-knowledge, selected-network consent flow. That acceptance
+gate remains unmet for incoming-deny UFW. Prefer evaluating an explicit outbound
+connection option for Linux receiving before taking ownership of privileged
+firewall software. This is a design recommendation, not a new implemented mode
+or a claim that UFW's policy can be bypassed.
+
+The source review found these concrete limits:
+
+- UFW's documented application integration names ports in
+  `/etc/ufw/applications.d`; it neither asks for consent nor provides rule expiry.
+  Installing a profile is not permission to add a rule. Do not change the global
+  application default or run an install-time allow operation.
+  [UFW manual](https://manpages.ubuntu.com/manpages/noble/man8/ufw.8.html)
+- Gufw snapshot `be5dc3f` loads its preset catalog from
+  `/etc/gufw/app_profiles`, a different directory and schema from UFW profiles.
+  Its preset-add path supplies ports but no interface/source restriction; those
+  require advanced rule fields. Its launcher authorizes the firewall GUI, not
+  a bounded Papercut request. A UFW profile alone therefore does not establish
+  a scoped Gufw workflow, and its named Home profile is not proof of OS network
+  trust. No supported request interface to prefill and approve our scoped rule
+  was found in this inspected source.
+  [Gufw rule/catalog source](https://github.com/costales/gufw/blob/be5dc3f8615cece46857171000e163d917f87e92/gufw/gufw/view/add.py),
+  [launcher policy](https://github.com/costales/gufw/blob/be5dc3f8615cece46857171000e163d917f87e92/policykit/actions/com.ubuntu.pkexec.gufw.policy)
+- KDE Plasma Firewall snapshot `405cec9` reads UFW application profiles and
+  supports scoped rule data, but uses its own KAuth helper with a general
+  `org.kde.ufw.modify` action. Calling that private backend is not a portable,
+  least-privilege Papercut API. Launching System Settings does not preconfigure
+  or verify a rule. Do not automate either GUI's widgets or import its backend.
+  [KDE UFW client](https://github.com/KDE/plasma-firewall/blob/405cec9620178f72a42706e938b38f1beba914e4/kcm/backends/ufw/ufwclient.cpp),
+  [helper dispatch](https://github.com/KDE/plasma-firewall/blob/405cec9620178f72a42706e938b38f1beba914e4/kcm/backends/ufw/helper/helper.cpp)
+
+These are source/API findings, not acceptance of every distribution's packaged
+GUI version. Neither inspected path supplies Papercut-owned, session-expiring
+UFW grants. Rules deliberately created through an administrator's GUI remain
+administrator-owned; Papercut must not delete them on session exit.
+
+Packaging options and their consequences:
+
+| Option | Decision |
+| --- | --- |
+| Portable AppImage alone | Retain as an unprivileged artifact. Files bundled inside its AppDir are not installed into the host's UFW/polkit directories. Desktop integration does not grant firewall permission; moving or updating the image cannot be a trusted privileged installation path. |
+| Existing `.deb` / `.rpm` packages with static profiles | Preferred packaging for any later system integration on matching distributions. Use Tauri's declarative package-file mappings, not a new setup script. Install descriptors only; no automatic rule, firewall enable/reload or manager replacement. A separate Gufw catalog entry would need its own compatibility check or upstream contribution. |
+| Data-only companion package for AppImage | Could install descriptors through an existing package-manager GUI without elevating Papercut, but still cannot authorize a scoped session. Adds release/update/removal work and a separate package per supported family; defer rather than claim it solves the UX. |
+| Papercut-owned root helper with polkit | A legitimate privilege-separation pattern if justified, but not the smallest solution here. Requires package-managed installation, narrow input/caller validation, serialized rule ownership, crash-safe lifetime, upgrades, revocation and uninstall. No implementation selected; do not elevate a bundled helper or call unrestricted `pkexec ufw`. |
+| Existing firewalld service | Retain its supported D-Bus/polkit runtime-rule candidate where already present, subject to the scope/expiry gates above. Do not install it over UFW, run both managers to solve one transfer, or require users to switch firewall software. |
+
+Papercut already builds `.deb`, `.rpm` and AppImage artifacts through
+`src-tauri/tauri.linux.conf.json` and `.github/workflows/release.yml`; neither
+config installs firewall descriptors or a helper. Tauri supports package-owned
+files for [Debian](https://v2.tauri.app/distribute/debian/#custom-files) and
+[RPM](https://v2.tauri.app/distribute/rpm/), while AppImage's
+[file mapping](https://v2.tauri.app/distribute/appimage/) packages files inside
+the image. The existing Debian/RPM artifacts do not supply an Arch/CachyOS
+integration package. Do not suggest installing a foreign package as a fix or
+quietly add an Arch/companion-package maintenance commitment.
+
+The next design decision is therefore **connection direction before privileged
+UFW integration**. Keep receiver-listens as the proposed normal flow: it avoids
+Linux's inbound transfer-TCP requirement when sending to Android, though mDNS
+and Android permissions still need validation. For the opposite content direction,
+evaluate an explicitly selected peer-hosted session so Linux can connect out
+while receiving. Compare its UX, TLS/PAKE role binding and resume cost with the
+helper's security/packaging cost before changing the selected protocol design.
+Require one chosen listener and authenticated content roles; no speculative
+simultaneous listeners, automatic probing, protocol downgrade or external relay.
+Automatic bidirectional negotiation remains deferred.
+
+If neither peer can accept LAN connections and authorized OS access is
+unavailable, direct LAN transfer cannot be promised. An existing firewall GUI is
+optional administrator recovery and file transfer is recovery; neither silently
+relaxes the ordinary-user requirement. The next review must select a flow that
+meets it or explicitly resolve this product limitation before implementation.
 
 ### Endpoint/Session Foundation — Implemented 2026-10-16
 
@@ -898,16 +976,17 @@ transcript must pass feasibility/review gates before implementation:
    stable binding, authoritative readiness/deadlines, cancellable receive and
    cleanup. The manual `PCLAN003` path remains the first integration gate;
    the full discovery redesign is not complete.
-2. **Next: authorization and packaging feasibility:** verify an end-to-end GUI
-   path for Linux receiving under UFW/AppImage and firewalld, plus native desktop
-   and mobile permission paths. Check selected-network scope, denial, missing
-   agents/services, administrator policy, expiry, crash recovery and uninstall.
-   Do not proceed on the assumption that an application profile grants access.
-   Prefer existing OS mechanisms; a custom privileged helper requires a separate
-   justified security/maintenance decision, not an incidental transfer script.
-3. **Protocol review, then transport/discovery implementation:** finalize the
-   receiver-owned code, content/connection roles, new marker/exporter/transcript,
-   authenticated resume and old-peer cutover before coding. Then add the new
+2. **Authorization/packaging source evaluation complete; UX gate unmet:** the
+   inspected UFW GUIs and profile-only packages do not provide the required
+   scoped approval flow. Keep AppImage unprivileged and a custom helper
+   unselected. Next compare explicit outbound receiving with privileged system
+   integration in the protocol/UX review; do not implement either implicitly.
+   Firewalld/native permission paths still need scope, denial, expiry, crash and
+   packaging validation. Static profiles/GUI recovery are not acceptance.
+3. **Protocol review, then transport/discovery implementation:** resolve the
+   outbound-receiving candidate and finalize code ownership, content/connection
+   roles, new marker/exporter/transcript, authenticated resume and old-peer
+   cutover before coding. Then add the new
    flow, bounded native DNS-SD adapters, device selection and permissions. Compile
    and link adapters on the supported minimum OS; verify callback teardown,
    Linux missing-bus/missing-Avahi behavior and explicit unsupported discovery.
@@ -925,9 +1004,10 @@ transcript must pass feasibility/review gates before implementation:
    without changing administrator-owned rules.
 5. **Deferred physical acceptance:** diagnose the failed connection using both
    reports and current listener/firewall/routing evidence. Verify Linux sending
-   to Android without a new Linux inbound grant, and Linux receiving through
-   supported GUI/OS consent without terminal or per-phone exceptions. Exercise
-   both directions across UFW/firewalld, Windows, Android and Apple builds. Keep
+   to Android without a new Linux inbound transfer-TCP grant. Linux receiving
+   must use a reviewed connection/authorization flow without terminal or
+   per-phone exceptions. Exercise both directions across UFW/firewalld, Windows,
+   Android and Apple builds. Keep
    SDK 26–32 manual fallback, SDK 33+ scoped NSD, Linux without Avahi, multiple
    interfaces/VPNs, network changes, blocked multicast, isolated Wi-Fi and grant
    revocation cases. File fallback is recovery, not proof of LAN success. Smoke
@@ -957,9 +1037,12 @@ firewall mutation accompanies this revised design.
 - [ ] Foundation platform builds and physical lifecycle/network acceptance.
 - [x] Revised LAN-only/no-terminal UX, connection direction and native
   authorization constraints documented; runtime unchanged.
-- [ ] Validate GUI authorization and packaging, especially UFW/AppImage; resolve
-  privilege, network scope, lifetime and revocation before implementation.
-- [ ] Review receiver-listens wire/security cutover and old-peer messaging.
+- [x] Evaluate UFW/AppImage GUI and packaging options against upstream source;
+  record profile/catalog differences and reject an assumed approval API.
+- [ ] Resolve the unmet UFW ordinary-user UX: review explicit outbound receiving
+  before adopting privileged integration; validate scope/lifetime on supported OSes.
+- [ ] Review receiver-listens wire/security cutover, the explicit outbound-receive
+  candidate and old-peer messaging before selecting implementation scope.
 - [ ] Implement and test supported native authorization without terminal setup.
 - [ ] Native DNS-SD adapters, nearby-session UI and platform discovery acceptance.
 - [x] Stage 3: add byte-level transfer and item-level restore phases.
@@ -1011,8 +1094,9 @@ new-design cases become required when that implementation is available:
 | Interface selection | Exercise representative Wi-Fi, Ethernet, hotspot, and explicitly selected advanced routes supported by the test devices, including an adapter with multiple local subnets where available. | The displayed address matches the listening interface; other interfaces are not exposed implicitly. The connecting side uses the peer's matching subnet, or reports an ambiguous source instead of choosing an unrelated address. |
 | Protocol mismatch | Connect a `PCLAN003` build to the last pre-`PCLAN003` development build. | Pairing fails closed and neither build imports partial or unauthenticated data. |
 | New protocol cutover | Pair the future receiver-listens build with v3 in both content directions; spoof compatibility metadata. | Clear incompatible-peer/update/file recovery; no authenticated-protocol downgrade or partial import. |
-| Linux sending to Android | Use incoming-deny Linux with no Papercut rule; start Receive on Android and follow the new nearby-device/code flow. | Linux uses an outgoing connection; no Linux inbound exception or terminal setup is required. |
-| Linux receiving | Receive under UFW/AppImage and firewalld using the supported GUI authorization path. | OS consent clearly explains scope/duration; no terminal or per-phone rule is required. Unresolved AppImage authorization blocks claiming this acceptance. |
+| Linux sending to Android | Use incoming-deny Linux with no Papercut transfer rule; start Receive on Android and follow the new nearby-device/code flow. | Linux uses an outgoing connection; no Linux inbound transfer-TCP exception or terminal setup is required. Validate mDNS/discovery access separately. |
+| Linux receiving | Receive under UFW/AppImage and firewalld using the connection/authorization flow selected by the next design review. | No terminal or per-phone rule is required. Any OS grant clearly explains scope/duration; the unresolved ordinary-user UFW flow blocks claiming this acceptance. |
+| UFW integration packaging | If descriptors or privileged integration are later selected, inspect matching distro packages, upgrade/remove them and compare KDE/Gufw catalog behavior. | Descriptors appear in the intended GUI without installing rules; no app launch writes system policy. Foreign packages, a generic settings button or an unscoped preset do not establish guided consent. |
 | Authorization denial | Deny/cancel OS consent, remove the agent/service, or enforce administrator restrictions. | Visible recovery without password collection, text-agent fallback, privilege bypass or indefinite waiting. |
 | Grant lifecycle | Cancel/expire Receive, change networks, crash/restart, reload the firewall service and uninstall; retain an unrelated administrator rule. | Temporary grants expire/revoke within their declared bound; persistent consent is separately explicit and revocable. Unrelated rules survive and the app never silently broadens scope. |
 | LAN-only operation | Transfer with Internet unavailable; also test mobile cellular enabled and multiple adapters. Inspect traffic where available. | Pairing, discovery and data use the selected LAN path; no external rendezvous/relay, automatic tunnel/cellular selection or Internet fallback. |
