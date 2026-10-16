@@ -1,0 +1,344 @@
+.search-model-setup {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.search-model-setup p {
+  margin: 0;
+  color: var(--text-body);
+  overflow-wrap: anywhere;
+}
+
+.search-model-setup .app-dialog-error {
+  color: var(--danger-strong);
+}
+
+.search-model-field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.search-model-selection {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.search-model-field select {
+  width: 100%;
+  min-height: 2.35rem;
+  padding: 0.4rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--control-surface);
+  color: var(--text-body);
+  font: inherit;
+}
+
+.search-model-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding-block: 0.3rem;
+  cursor: pointer;
+}
+
+.search-model-consent input {
+  accent-color: var(--accent-text);
+  width: 1rem;
+  height: 1rem;
+  margin: 0.13rem 0 0;
+  flex-shrink: 0;
+}
+
+.search-model-consent input:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 3px;
+}
+
+.search-model-consent:has(input:disabled) {
+  cursor: default;
+}
+
+.search-model-phase,
+.search-index-phase,
+.search-model-attention,
+.search-index-attention {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.search-model-phase,
+.search-index-phase {
+  margin-inline-start: 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.search-model-setup .search-model-attention,
+.search-model-setup .search-index-attention {
+  color: var(--warning-strong);
+  font-weight: 600;
+}
+
+.search-model-attention svg,
+.search-index-attention svg {
+  flex-shrink: 0;
+}
+
+.search-model-setup .search-index-help {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.search-model-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.search-model-setup button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.search-model-setup progress {
+  width: 100%;
+  accent-color: var(--accent-text);
+}
+
+/* Search setup is a task view; general Settings and confirmation dialogs stay compact. */
+.app-settings-search-dialog {
+  width: min(100%, 52rem);
+  text-align: start;
+}
+
+.app-settings-search-dialog .search-model-setup {
+  border-top: 0;
+  padding-top: 0;
+  font-size: 0.9rem;
+  gap: 0.75rem;
+}
+
+.search-model-panel {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.8rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--surface-muted);
+}
+
+.search-model-setup .search-model-panel h3,
+.search-model-panel summary {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.search-model-panel summary {
+  cursor: pointer;
+  min-height: 2rem;
+}
+
+.search-model-panel summary:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 3px;
+}
+
+.search-model-panel > p {
+  max-width: 70ch;
+}
+
+.search-model-setup .search-action-primary:not(:disabled) {
+  background: var(--accent);
+  color: var(--text-inverse);
+}
+
+.search-model-panel > * {
+  min-width: 0;
+}
+
+details.search-model-panel {
+  display: block;
+}
+
+details.search-model-panel[open] > * + * {
+  margin-top: 0.6rem;
+}
+
+.search-model-summary-status {
+  display: block;
+  margin-inline-start: 1.25rem;
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--text-body);
+}
+
+.search-model-metadata {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.35rem 1rem;
+}
+
+.search-model-metadata dt {
+  color: var(--text-muted);
+}
+
+.search-model-metadata dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.search-model-reserve {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.85em;
+  color: var(--text-muted);
+}
+
+.search-model-guidance,
+.search-model-file-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.search-model-guidance svg,
+.search-model-file-status svg {
+  flex-shrink: 0;
+  margin-top: 0.1em;
+}
+
+.search-model-setup .search-model-guidance {
+  color: var(--text-muted);
+}
+
+.search-model-setup .search-model-verified {
+  color: var(--success-strong);
+  font-weight: 600;
+}
+
+.search-model-setup .search-index-passages {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.search-index-status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+}
+
+/* Keep removal in its owning section, apart from the routine action. */
+.search-removal-controls {
+  border-top: 1px solid var(--border);
+  padding-top: 0.65rem;
+}
+
+.search-model-management .search-removal-controls {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.search-removal-actions {
+  justify-content: space-between;
+  gap: 0.75rem 2rem;
+}
+
+.search-library-index .search-removal-actions > .search-remove-confirm {
+  margin-inline-start: auto;
+}
+
+.search-removal-confirmation {
+  margin-top: 0.65rem;
+  padding: 0.75rem;
+  background: var(--surface);
+  border-radius: var(--radius-control);
+}
+
+.search-removal-confirmation p {
+  margin-bottom: 0.75rem;
+}
+
+.search-model-setup .search-remove-confirm {
+  color: var(--danger-strong);
+  border-color: transparent;
+}
+
+.search-model-setup .search-remove-confirm:focus-visible {
+  background: var(--surface-accent);
+  outline: 2px solid var(--danger-strong);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.search-model-setup .search-remove-confirm:disabled {
+  color: var(--text-muted);
+  border-color: transparent;
+}
+
+.search-download-progress > * + * {
+  margin-top: 0.5rem;
+}
+
+.app-settings-search-summary {
+  margin: 0;
+  text-align: start;
+  color: var(--text-body);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 600px) {
+  .search-model-selection {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-settings-search-dialog {
+    width: 100%;
+    padding: 0.75rem;
+  }
+
+  .search-model-panel {
+    padding: 0.75rem;
+  }
+
+  .search-model-actions > button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .search-index-status {
+    flex-direction: column;
+  }
+
+  .search-library-index .search-removal-actions > .search-remove-confirm {
+    margin-inline-start: 0;
+  }
+
+  .search-removal-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.search-index-spinner {
+  display: inline-block;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.search-removal-actions > button[hidden] {
+  display: none;
+}
+
+.search-model-panel h4 {
+  margin-bottom: 0;
+  font-size: 0.9rem;
+}

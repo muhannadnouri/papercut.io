@@ -22,8 +22,6 @@ export function SearchBar({
   onSubmit,
 }: SearchBarProps) {
   const { t } = useTranslation()
-  const broadExample = t('search.input.exampleBroad')
-  const exactExample = t('search.input.exampleExact')
   const searching = loading && query.trim().toLowerCase() === submittedQuery.toLowerCase()
   const submitDisabled = disabled || searching || query.trim().length === 0
 
@@ -63,23 +61,10 @@ export function SearchBar({
           {t('search.input.button')}
         </button>
       </div>
-      <p className="search-help" id="search-input-help">
-        {t('search.input.help')}
-      </p>
       {queryError && (
         <p className="search-input-error" id="search-input-error" role="alert">
           {t(`search.input.${queryError}`)}
         </p>
-      )}
-      {query.trim().length === 0 && (
-        <div className="search-examples" aria-label={t('search.input.examplesLabel')}>
-          <button type="button" className="search-example" onClick={() => onChange(broadExample)} disabled={disabled}>
-            {broadExample}
-          </button>
-          <button type="button" className="search-example" onClick={() => onChange(exactExample)} disabled={disabled}>
-            {exactExample}
-          </button>
-        </div>
       )}
     </div>
   )

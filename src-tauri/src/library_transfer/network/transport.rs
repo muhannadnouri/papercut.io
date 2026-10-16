@@ -19,6 +19,7 @@ use super::security::{
     write_pairing_message, PairingError, RECEIVER_ROLE, SENDER_ROLE,
 };
 use super::{set_send_active, LibraryTransferSendStatus};
+use crate::library_transfer::diagnostics::Trace;
 use crate::library_transfer::package::MAX_PACKAGE_BYTES;
 use crate::library_transfer::{
     ensure_available_space, transfer_cache_dir, LibraryTransferError, LibraryTransferProgress,
@@ -57,38 +58,54 @@ pub(super) fn send_package(
     package_path: &Path,
     status: &Arc<Mutex<LibraryTransferSendStatus>>,
     cancel: &AtomicBool,
+    trace: &Trace,
 ) -> Result<(), SendAttemptError> {
+    trace.stage("tls-handshake");
     configure_socket(&socket, AUTH_TIMEOUT).map_err(SendAttemptError::Fatal)?;
     let mut connection = ServerConnection::new(tls_config).map_err(|err| {
         SendAttemptError::Fatal(format!(
             "Failed to initialize secure library transfer: {err}"
         ))
     })?;
-    connection
-        .complete_io(&mut socket)
-        .map_err(|_| SendAttemptError::Unauthenticated)?;
+    connection.complete_io(&mut socket).map_err(|error| {
+        trace.io_error(&error);
+        SendAttemptError::Unauthenticated
+    })?;
     let exporter = tls_exporter(&connection).map_err(SendAttemptError::Fatal)?;
     let mut stream = StreamOwned::new(connection, socket);
-    let receiver_message = read_pairing_message(&mut stream).map_err(classify_pairing_error)?;
+    trace.stage("protocol-check");
+    let receiver_message = read_pairing_message(&mut stream)
+        .inspect_err(|error| record_pairing_error(trace, error))
+        .map_err(classify_pairing_error)?;
+    trace.stage("pairing");
     let (pairing, sender_message) = start_sender_pairing(code);
-    let shared_key = finish_pairing(pairing, &receiver_message).map_err(classify_pairing_error)?;
+    let shared_key = finish_pairing(pairing, &receiver_message)
+        .inspect_err(|error| record_pairing_error(trace, error))
+        .map_err(classify_pairing_error)?;
     let confirmation = pairing_confirmation(&shared_key, &exporter, SENDER_ROLE)
         .map_err(|_| SendAttemptError::Unauthenticated)?;
     write_pairing_message(&mut stream, &sender_message)
         .and_then(|_| stream.write_all(&confirmation))
         .and_then(|_| stream.flush())
-        .map_err(|_| SendAttemptError::Unauthenticated)?;
+        .map_err(|error| {
+            trace.io_error(&error);
+            SendAttemptError::Unauthenticated
+        })?;
     read_and_verify_confirmation(&mut stream, &shared_key, &exporter, RECEIVER_ROLE)
+        .inspect_err(|error| record_pairing_error(trace, error))
         .map_err(classify_pairing_error)?;
     configure_socket(&stream.sock, SOCKET_TIMEOUT).map_err(SendAttemptError::Fatal)?;
     set_send_active(status);
+    trace.stage("package-transfer");
 
     let mut package = File::open(package_path).map_err(|err| {
+        trace.io_error(&err);
         SendAttemptError::Fatal(format!("Failed to open prepared library package: {err}"))
     })?;
     let package_bytes = package
         .metadata()
         .map_err(|err| {
+            trace.io_error(&err);
             SendAttemptError::Fatal(format!("Failed to inspect prepared library package: {err}"))
         })?
         .len();
@@ -96,10 +113,12 @@ pub(super) fn send_package(
         .write_all(&package_bytes.to_be_bytes())
         .and_then(|_| stream.flush())
         .map_err(|err| {
+            trace.io_error(&err);
             SendAttemptError::Retryable(format!("Failed to send library package header: {err}"))
         })?;
     let mut offset = [0u8; 8];
     stream.read_exact(&mut offset).map_err(|err| {
+        trace.io_error(&err);
         SendAttemptError::Retryable(format!("Failed to read library resume position: {err}"))
     })?;
     let offset = u64::from_be_bytes(offset);
@@ -109,11 +128,13 @@ pub(super) fn send_package(
         ));
     }
     package.seek(SeekFrom::Start(offset)).map_err(|err| {
+        trace.io_error(&err);
         SendAttemptError::Fatal(format!("Failed to resume prepared library package: {err}"))
     })?;
     if let Ok(mut current) = status.lock() {
         current.bytes_transferred = offset;
     }
+    trace.bytes(offset, package_bytes);
     let mut last_progress = Instant::now() - PROGRESS_INTERVAL;
     let copied = copy_exact_with_progress(
         &mut BufReader::new(package),
@@ -126,17 +147,22 @@ pub(super) fn send_package(
                 if let Ok(mut current) = status.lock() {
                     current.bytes_transferred = total_processed;
                 }
+                trace.bytes(total_processed, package_bytes);
                 last_progress = Instant::now();
             }
         },
     )
-    .map_err(|err| SendAttemptError::Retryable(format!("Failed to send library package: {err}")))?;
+    .map_err(|err| {
+        trace.io_error(&err);
+        SendAttemptError::Retryable(format!("Failed to send library package: {err}"))
+    })?;
     if copied != package_bytes - offset {
         return Err(SendAttemptError::Retryable(
             "Receiver disconnected before the library package was complete".into(),
         ));
     }
     stream.flush().map_err(|err| {
+        trace.io_error(&err);
         SendAttemptError::Retryable(format!("Failed to finish library send: {err}"))
     })?;
     stream
@@ -148,9 +174,11 @@ pub(super) fn send_package(
             ))
         })?;
 
+    trace.stage("acknowledgement");
     loop {
-        match read_receiver_message(&mut stream).map_err(SendAttemptError::Retryable)? {
+        match read_receiver_message(&mut stream, trace).map_err(SendAttemptError::Retryable)? {
             ReceiverMessage::Progress(progress) => {
+                trace.progress(&progress);
                 if let Ok(mut current) = status.lock() {
                     current.receiver_progress = Some(progress);
                 }
@@ -176,42 +204,69 @@ pub(super) fn receive_package<P: FnMut(u64, u64)>(
     code: &str,
     output_path: &Path,
     mut progress: P,
+    trace: &Trace,
 ) -> LibraryTransferResult<StreamOwned<ClientConnection, TcpStream>> {
-    let mut socket = TcpStream::connect_timeout(&SocketAddr::V4(address), SOCKET_TIMEOUT)
-        .map_err(|err| format!("Could not connect to the source device: {err}"))?;
+    trace.stage("tcp-connect");
+    trace.endpoint(address);
+    let mut socket =
+        TcpStream::connect_timeout(&SocketAddr::V4(address), SOCKET_TIMEOUT).map_err(|err| {
+            trace.io_error(&err);
+            format!("Could not connect to the source device: {err}")
+        })?;
+    trace.stage("tls-handshake");
     configure_socket(&socket, SOCKET_TIMEOUT)?;
     let config = client_tls_config()?;
     let server_name = ServerName::IpAddress((*address.ip()).into());
     let mut connection = ClientConnection::new(config, server_name)
         .map_err(|err| format!("Failed to initialize secure library transfer: {err}"))?;
-    connection
-        .complete_io(&mut socket)
-        .map_err(|err| format!("Secure library transfer handshake failed: {err}"))?;
+    connection.complete_io(&mut socket).map_err(|err| {
+        trace.io_error(&err);
+        format!("Secure library transfer handshake failed: {err}")
+    })?;
     let exporter = tls_exporter(&connection)?;
     let mut stream = StreamOwned::new(connection, socket);
     let (pairing, receiver_message) = start_receiver_pairing(code);
     write_pairing_message(&mut stream, &receiver_message)
         .and_then(|_| stream.flush())
-        .map_err(|err| format!("Failed to authenticate library receiver: {err}"))?;
-    let sender_message = read_pairing_message(&mut stream).map_err(|error| error.to_string())?;
-    let shared_key = finish_pairing(pairing, &sender_message).map_err(|error| error.to_string())?;
-    let confirmation = pairing_confirmation(&shared_key, &exporter, RECEIVER_ROLE)
-        .map_err(|err| format!("Failed to confirm library receiver: {err}"))?;
+        .map_err(|err| {
+            trace.io_error(&err);
+            format!("Failed to authenticate library receiver: {err}")
+        })?;
+    trace.stage("protocol-check");
+    let sender_message = read_pairing_message(&mut stream)
+        .inspect_err(|error| record_pairing_error(trace, error))
+        .map_err(|error| error.to_string())?;
+    trace.stage("pairing");
+    let shared_key = finish_pairing(pairing, &sender_message)
+        .inspect_err(|error| record_pairing_error(trace, error))
+        .map_err(|error| error.to_string())?;
+    let confirmation =
+        pairing_confirmation(&shared_key, &exporter, RECEIVER_ROLE).map_err(|err| {
+            trace.io_error(&err);
+            format!("Failed to confirm library receiver: {err}")
+        })?;
     stream
         .write_all(&confirmation)
         .and_then(|_| stream.flush())
-        .map_err(|err| format!("Failed to confirm library receiver: {err}"))?;
+        .map_err(|err| {
+            trace.io_error(&err);
+            format!("Failed to confirm library receiver: {err}")
+        })?;
     read_and_verify_confirmation(&mut stream, &shared_key, &exporter, SENDER_ROLE)
+        .inspect_err(|error| record_pairing_error(trace, error))
         .map_err(|error| error.to_string())?;
+    trace.stage("package-header");
 
     let mut size = [0u8; 8];
-    stream
-        .read_exact(&mut size)
-        .map_err(|err| format!("Failed to read library package header: {err}"))?;
+    stream.read_exact(&mut size).map_err(|err| {
+        trace.io_error(&err);
+        format!("Failed to read library package header: {err}")
+    })?;
     let size = u64::from_be_bytes(size);
     if size == 0 || size > MAX_PACKAGE_BYTES {
         return Err("Source device reported an unsupported library package size".into());
     }
+    trace.stage("storage-check");
     remove_other_receive_parts(output_path);
     let mut output = open_receive_part(output_path)?;
     let mut offset = output
@@ -219,9 +274,10 @@ pub(super) fn receive_package<P: FnMut(u64, u64)>(
         .map_err(|err| format!("Failed to inspect partial library package: {err}"))?
         .len();
     if offset > size {
-        output
-            .set_len(0)
-            .map_err(|err| format!("Failed to reset partial library package: {err}"))?;
+        output.set_len(0).map_err(|err| {
+            trace.io_error(&err);
+            format!("Failed to reset partial library package: {err}")
+        })?;
         offset = 0;
     }
     let staging_dir = output_path
@@ -231,10 +287,15 @@ pub(super) fn receive_package<P: FnMut(u64, u64)>(
     stream
         .write_all(&offset.to_be_bytes())
         .and_then(|_| stream.flush())
-        .map_err(|err| format!("Failed to send library resume position: {err}"))?;
-    output
-        .seek(SeekFrom::Start(offset))
-        .map_err(|err| format!("Failed to resume partial library package: {err}"))?;
+        .map_err(|err| {
+            trace.io_error(&err);
+            format!("Failed to send library resume position: {err}")
+        })?;
+    output.seek(SeekFrom::Start(offset)).map_err(|err| {
+        trace.io_error(&err);
+        format!("Failed to resume partial library package: {err}")
+    })?;
+    trace.stage("package-transfer");
     progress(offset, size);
     let mut last_progress = Instant::now() - PROGRESS_INTERVAL;
     let copied = copy_exact_with_progress(
@@ -250,21 +311,35 @@ pub(super) fn receive_package<P: FnMut(u64, u64)>(
             }
         },
     )
-    .map_err(|err| format!("Failed to receive library package: {err}"))?;
+    .map_err(|err| {
+        trace.io_error(&err);
+        format!("Failed to receive library package: {err}")
+    })?;
     if copied != size - offset {
         return Err("Source device disconnected before the library package was complete".into());
     }
-    output
-        .flush()
-        .map_err(|err| format!("Failed to finish partial library package: {err}"))?;
+    output.flush().map_err(|err| {
+        trace.io_error(&err);
+        format!("Failed to finish partial library package: {err}")
+    })?;
     Ok(stream)
 }
 
 /// Preserve the one-use policy: malformed traffic is ignored, while a peer
 /// that reaches key confirmation with the wrong code consumes the session.
+fn record_pairing_error(trace: &Trace, error: &PairingError) {
+    trace.failure(match error {
+        PairingError::Unauthenticated(_) => "authentication-incomplete",
+        PairingError::IncorrectCode => "pairing-mismatch",
+        PairingError::IncompatibleProtocol => "protocol-mismatch",
+    });
+}
+
 fn classify_pairing_error(error: PairingError) -> SendAttemptError {
     match error {
-        PairingError::Unauthenticated(_) => SendAttemptError::Unauthenticated,
+        PairingError::Unauthenticated(_) | PairingError::IncompatibleProtocol => {
+            SendAttemptError::Unauthenticated
+        }
         PairingError::IncorrectCode => SendAttemptError::Fatal(error.to_string()),
     }
 }
@@ -345,19 +420,24 @@ pub(super) fn write_receiver_message<W: Write>(
 }
 
 /// Decode one bounded target-side status frame after package upload completes.
-fn read_receiver_message<R: Read>(reader: &mut R) -> Result<ReceiverMessage, String> {
+fn read_receiver_message<R: Read>(
+    reader: &mut R,
+    trace: &Trace,
+) -> Result<ReceiverMessage, String> {
     let mut size = [0u8; 4];
-    reader
-        .read_exact(&mut size)
-        .map_err(|err| format!("Failed to read receiving-device progress: {err}"))?;
+    reader.read_exact(&mut size).map_err(|err| {
+        trace.io_error(&err);
+        format!("Failed to read receiving-device progress: {err}")
+    })?;
     let size = u32::from_be_bytes(size) as usize;
     if size == 0 || size > RECEIVER_MESSAGE_MAX_BYTES {
         return Err("Receiving device sent an invalid progress message".into());
     }
     let mut body = vec![0u8; size];
-    reader
-        .read_exact(&mut body)
-        .map_err(|err| format!("Failed to read receiving-device progress: {err}"))?;
+    reader.read_exact(&mut body).map_err(|err| {
+        trace.io_error(&err);
+        format!("Failed to read receiving-device progress: {err}")
+    })?;
     serde_json::from_slice(&body)
         .map_err(|err| format!("Receiving device sent invalid progress data: {err}"))
 }
@@ -416,6 +496,56 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
+    fn protocol_mismatch_is_a_diagnostic_without_consuming_the_one_use_code() {
+        let diagnostics = crate::library_transfer::diagnostics::Diagnostics::default();
+        let trace = diagnostics.begin("send");
+        trace.stage("protocol-check");
+        let mut frame = b"PCLAN002".to_vec();
+        frame.extend_from_slice(&[0u8; 33]);
+        let error = read_pairing_message(&mut frame.as_slice()).unwrap_err();
+        record_pairing_error(&trace, &error);
+        assert!(matches!(
+            classify_pairing_error(error),
+            SendAttemptError::Unauthenticated
+        ));
+        let report = serde_json::to_string(&diagnostics.snapshot().unwrap()).unwrap();
+        assert!(report.contains("protocol-mismatch"));
+        assert!(report.contains("protocol-check"));
+        assert!(!report.contains("pairing-mismatch"));
+    }
+
+    #[test]
+    fn refused_connection_records_os_facts_at_tcp_stage_without_credentials_or_paths() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let SocketAddr::V4(address) = listener.local_addr().unwrap() else {
+            unreachable!()
+        };
+        drop(listener);
+        let diagnostics = crate::library_transfer::diagnostics::Diagnostics::default();
+        let trace = diagnostics.begin("receive");
+        let result = receive_package(
+            address,
+            "2345ABCDGHJK",
+            Path::new("private-library.part"),
+            |_, _| {},
+            &trace,
+        );
+        assert!(result.is_err());
+        trace.finish(result.as_ref().err());
+        let report = serde_json::to_string(&diagnostics.snapshot().unwrap()).unwrap();
+        assert!(report.contains("tcp-connect"));
+        assert!(report.contains("ConnectionRefused"));
+        for excluded in [
+            "2345ABCDGHJK",
+            "private-library",
+            "pairing",
+            "tls-handshake",
+        ] {
+            assert!(!report.contains(excluded));
+        }
+    }
+
+    #[test]
     fn tls_sender_ignores_malformed_connection_then_resumes_transfer() {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         let address = match listener.local_addr().unwrap() {
@@ -435,6 +565,9 @@ mod tests {
         let package = b"test papercut library package";
         fs::write(&package_path, package).unwrap();
         fs::write(&received_path, &package[..8]).unwrap();
+        let diagnostics = crate::library_transfer::diagnostics::Diagnostics::default();
+        let sender_trace = diagnostics.begin("send");
+        let receiver_trace = diagnostics.begin("receive");
         let sender_path = package_path.clone();
         let sender = thread::spawn(move || {
             let status = Arc::new(Mutex::new(LibraryTransferSendStatus {
@@ -458,6 +591,7 @@ mod tests {
                     &sender_path,
                     &status,
                     &AtomicBool::new(false),
+                    &sender_trace,
                 ),
                 Err(SendAttemptError::Unauthenticated)
             ));
@@ -473,6 +607,7 @@ mod tests {
                 &sender_path,
                 &status,
                 &AtomicBool::new(false),
+                &sender_trace,
             );
             let final_status = status.lock().unwrap().clone();
             (result, final_status)
@@ -482,8 +617,14 @@ mod tests {
             .unwrap()
             .write_all(b"not a TLS client")
             .unwrap();
-        let mut stream =
-            receive_package(address, "2345ABCDGHJK", &received_path, |_, _| {}).unwrap();
+        let mut stream = receive_package(
+            address,
+            "2345ABCDGHJK",
+            &received_path,
+            |_, _| {},
+            &receiver_trace,
+        )
+        .unwrap();
         let progress = LibraryTransferProgress {
             operation: "receive".into(),
             phase: "verifying".into(),
@@ -509,6 +650,26 @@ mod tests {
         }
         assert_eq!(status.bytes_transferred, package.len() as u64);
         assert_eq!(status.receiver_progress.unwrap().phase, progress.phase);
+        let report = serde_json::to_string(&diagnostics.snapshot().unwrap()).unwrap();
+        for phase in [
+            "tls-handshake",
+            "protocol-check",
+            "pairing",
+            "package-transfer",
+            "verification",
+            "acknowledgement",
+        ] {
+            assert!(report.contains(phase), "missing phase {phase}");
+        }
+        assert!(report.contains("io-error"));
+        assert!(!report.contains("2345ABCDGHJK"));
+        assert!(!report.contains(
+            &package_path
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .to_string()
+        ));
         let _ = fs::remove_file(package_path);
         let _ = fs::remove_file(received_path);
     }
@@ -531,6 +692,9 @@ mod tests {
         let package_path = std::env::temp_dir().join(format!("{test_key}-source"));
         let received_path = std::env::temp_dir().join(format!("{test_key}-received.part"));
         fs::write(&package_path, b"test papercut library package").unwrap();
+        let diagnostics = crate::library_transfer::diagnostics::Diagnostics::default();
+        let sender_trace = diagnostics.begin("send");
+        let receiver_trace = diagnostics.begin("receive");
         let sender_path = package_path.clone();
         let sender = thread::spawn(move || {
             let status = Arc::new(Mutex::new(LibraryTransferSendStatus {
@@ -552,18 +716,29 @@ mod tests {
                 &sender_path,
                 &status,
                 &AtomicBool::new(false),
+                &sender_trace,
             )
         });
 
-        let receiver_error = receive_package(address, "3456BCDEHJKM", &received_path, |_, _| {})
-            .err()
-            .unwrap();
+        let receiver_error = receive_package(
+            address,
+            "3456BCDEHJKM",
+            &received_path,
+            |_, _| {},
+            &receiver_trace,
+        )
+        .err()
+        .unwrap();
         assert!(receiver_error.message.contains("Pairing code"));
         assert!(matches!(
             sender.join().unwrap(),
             Err(SendAttemptError::Fatal(message)) if message.contains("Pairing code")
         ));
 
+        let report = serde_json::to_string(&diagnostics.snapshot().unwrap()).unwrap();
+        assert!(report.contains("pairing-mismatch"));
+        assert!(!report.contains("2345ABCDGHJK"));
+        assert!(!report.contains("3456BCDEHJKM"));
         let _ = fs::remove_file(package_path);
         let _ = fs::remove_file(received_path);
     }

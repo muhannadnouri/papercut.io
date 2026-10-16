@@ -1,3 +1,5 @@
+import type { SearchMode } from '../types/search'
+
 export type UploadedDocumentTextStatus =
   | 'processing'
   | 'ready'
@@ -57,12 +59,14 @@ export interface UploadedDocumentSearchTermMatch {
   sectionIndex?: number | null
   pageIndex?: number | null
   text?: string | null
+  matched?: boolean
 }
 
 export interface UploadedDocumentSearchResponse {
   results: UploadedDocumentSearchResult[]
   totalDocuments: number
   totalMatchingSections: number
+  suggestedQuery?: string
 }
 
 export interface UploadedDocumentConcordanceEntry {
@@ -305,6 +309,7 @@ export async function searchUploadedDocuments(
   documentUrls?: string[],
   exactPhrases?: string[],
   onProgress: (stage: UploadedDocumentSearchStage) => void = () => {},
+  mode: SearchMode = 'all',
 ): Promise<UploadedDocumentSearchResponse> {
   const hasExactPhrases = exactPhrases?.some((phrase) => phrase.trim().length > 0) ?? false
   if (!isTauriRuntime() || (query.trim().length === 0 && !hasExactPhrases)) {
@@ -313,7 +318,7 @@ export async function searchUploadedDocuments(
   const mod = await import('@tauri-apps/api/core')
   const progress = new mod.Channel<UploadedDocumentSearchStage>(onProgress)
   return mod.invoke<UploadedDocumentSearchResponse>('document_uploads_search', {
-    request: { query, limit, documentUrls, exactPhrases },
+    request: { query, limit, documentUrls, exactPhrases, mode },
     onProgress: progress,
   })
 }

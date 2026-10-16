@@ -1,0 +1,128 @@
+.conceptual-results {
+  margin-top: 1.5rem;
+}
+
+.conceptual-results .result-group-heading {
+  flex-wrap: wrap;
+  row-gap: 0.25rem;
+}
+
+.conceptual-results-coverage {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.5;
+  text-align: start;
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.conceptual-context-help {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.conceptual-context-previews {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.conceptual-context-block {
+  padding: 0.65rem;
+  border-inline-start: 3px solid transparent;
+  border-radius: var(--radius-control);
+}
+
+.conceptual-context-block-matched {
+  border-inline-start-color: var(--accent-text);
+  background: var(--surface-accent);
+}
+
+.conceptual-context-label {
+  margin: 0 0 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.conceptual-context-block-matched > .conceptual-context-label {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.conceptual-context-block .result-card-primary { padding: 0.5rem; }
+
+.conceptual-context-text {
+  display: -webkit-box;
+  max-width: 80ch;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+  color: var(--text-body);
+  font-size: 0.9rem;
+}
+
+.conceptual-context-open {
+  display: block;
+  margin-block-start: 0.5rem;
+  color: var(--accent-text);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.conceptual-more-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.conceptual-more-action svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.conceptual-index-warning,
+.conceptual-setup-phase {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.conceptual-index-warning {
+  color: var(--warning-strong);
+  font-weight: 600;
+}
+
+.conceptual-index-warning svg {
+  flex-shrink: 0;
+}
+
+.conceptual-settings-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.conceptual-settings-action svg {
+  flex-shrink: 0;
+}
+
+.welcome > .conceptual-settings-action {
+  display: flex;
+  width: fit-content;
+  margin: 0.5rem auto 0;
+}

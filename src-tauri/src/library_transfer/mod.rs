@@ -4,6 +4,7 @@
 //! transports that same document-and-optional-audiobook package without
 //! introducing a second serialization or restore path.
 
+pub(crate) mod diagnostics;
 pub(crate) mod network;
 mod package;
 
@@ -178,6 +179,9 @@ pub(crate) fn emit_transfer_progress(
         items_total: items.map(|value| value.1),
         item,
     };
+    if let Some(state) = app.try_state::<LibraryTransferState>() {
+        state.diagnostics.progress(&progress);
+    }
     let _ = app.emit(LIBRARY_TRANSFER_PROGRESS_EVENT, progress.clone());
     progress
 }
@@ -243,14 +247,23 @@ struct LibraryTransferFailure {
 #[tauri::command]
 pub async fn library_transfer_export(
     app: tauri::AppHandle,
+    state: tauri::State<'_, LibraryTransferState>,
     request: Option<LibraryTransferExportRequest>,
 ) -> LibraryTransferResult<Option<LibraryTransferExportResult>> {
     let request = request.unwrap_or_default();
-    tauri::async_runtime::spawn_blocking(move || {
+    let trace = state.diagnostics.begin("export");
+    let result = tauri::async_runtime::spawn_blocking(move || {
         export_library(app, request.document_ids, request.audiobook_ids)
     })
     .await
-    .map_err(|err| format!("Library export task failed: {err}"))?
+    .map_err(|err| LibraryTransferError::message(format!("Library export task failed: {err}")))
+    .and_then(|result| result);
+    if matches!(&result, Ok(None)) {
+        trace.cancelled();
+    } else {
+        trace.finish(result.as_ref().err());
+    }
+    result
 }
 
 /// Pick a package, merge new documents, and rebuild their target-side FTS rows.
@@ -261,12 +274,23 @@ pub async fn library_transfer_import(
     state: tauri::State<'_, LibraryTransferState>,
 ) -> LibraryTransferResult<Option<LibraryTransferImportResult>> {
     let reservation = state.begin_restore()?;
-    tauri::async_runtime::spawn_blocking(move || {
+    let trace = state.diagnostics.begin("import");
+    let result = tauri::async_runtime::spawn_blocking(move || {
         let _reservation = reservation;
         import_library(app)
     })
     .await
-    .map_err(|err| format!("Library import task failed: {err}"))?
+    .map_err(|err| LibraryTransferError::message(format!("Library import task failed: {err}")))
+    .and_then(|result| result);
+    if let Ok(Some(result)) = &result {
+        trace.import_result(result);
+    }
+    if matches!(&result, Ok(None)) {
+        trace.cancelled();
+    } else {
+        trace.finish(result.as_ref().err());
+    }
+    result
 }
 
 fn export_library(
@@ -1465,7 +1489,7 @@ mod tests {
     #[test]
     fn bundled_document_urls_stay_below_the_documents_root() {
         assert!(is_bundled_document_url(
-            "/documents/Linea%20Proletaria/Article.html"
+            "/documents/Sample%20Collection/Article.html"
         ));
         assert!(!is_bundled_document_url("data:text/html,<script></script>"));
         assert!(!is_bundled_document_url("/documents/%2e%2e/index.html"));

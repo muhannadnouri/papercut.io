@@ -534,6 +534,37 @@ mod tests {
     use super::super::models::{model_definition, DEFAULT_MODEL_ID, KOKORO_ZH_MODEL_ID};
     use super::*;
 
+    /// Read cached assets explicitly; never download models during ordinary tests.
+    #[cfg(feature = "native-text-preprocessing-core")]
+    #[test]
+    #[ignore = "requires PAPERCUT_ARABIC_TTS_MODEL_DIR pointing to cached Arabic VITS assets"]
+    fn cached_arabic_preprocessing_smoke() {
+        let model = model_definition("sherpa-onnx/vits-piper-ar_JO-kareem-medium").unwrap();
+        let model_dir = std::path::PathBuf::from(
+            std::env::var_os("PAPERCUT_ARABIC_TTS_MODEL_DIR")
+                .expect("PAPERCUT_ARABIC_TTS_MODEL_DIR is required"),
+        );
+        assert!(model.has_required_files(&model_dir));
+        let preprocessor =
+            TextPreprocessor::create(model, super::super::models::TEXT_PREPROCESSOR_LIBTASHKEEL)
+                .unwrap();
+        let text = preprocessor.process("كتب الطالب الدرس").unwrap();
+        assert_eq!(text, "كَتَبَ الطَّالِبُ الدَّرْس");
+        let engine = SherpaTtsEngine {
+            tts: create_engine(model, &model_dir, 2).unwrap(),
+            model,
+            model_dir,
+            num_threads: 2,
+        };
+        let audio = generate_audio(&engine, &text, model.default_voice, 1.0)
+            .unwrap()
+            .unwrap();
+        assert!(audio.sample_rate() > 0);
+        assert!(audio.samples().len() > audio.sample_rate() as usize / 4);
+        assert!(audio.samples().iter().all(|sample| sample.is_finite()));
+        assert!(audio.samples().iter().any(|sample| sample.abs() > 0.001));
+    }
+
     /// Run explicitly after downloading archives with scripts/check-model-downloads.js.
     #[test]
     #[ignore = "requires real model archives; run by the model-download workflow"]

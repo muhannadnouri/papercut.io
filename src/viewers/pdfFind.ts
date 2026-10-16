@@ -1,5 +1,8 @@
 import type { ViewerFindApi, ViewerFindResult } from './types'
 import type { SearchOpenTarget } from '../types/search'
+import type { PDFFindController } from 'pdfjs-dist/legacy/web/pdf_viewer.mjs'
+import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs'
+import { isPdfWordWrap } from '../pdf/pdfWordWrap'
 import {
   normalizeSearchPunctuation,
   SEARCH_DASH_CHARACTERS,
@@ -24,6 +27,59 @@ interface PdfFindAdapter {
 }
 
 type PdfJsQuery = string | string[]
+
+// PDF.js joins ASCII end-of-line hyphens, but normalizes Unicode hyphens too
+// late to join them. Equal-length replacements keep its source-offset map valid.
+export function pdfFindTextItems<T extends { str?: string; hasEOL?: boolean; type?: string }>(items: readonly T[]): T[] {
+  const result = [...items]
+  let previous = -1
+  let lineBreak = false
+  let lineTail = ''
+  items.forEach((item, index) => {
+    if (typeof item.str !== 'string') return
+    if (item.str) {
+      const before = result[previous]
+      if (lineBreak && before?.str && /[\u2010\u2011]$/u.test(before.str)
+        && isPdfWordWrap(lineTail, item.str)) {
+        result[previous] = { ...before, str: `${before.str.slice(0, -1)}-` }
+      }
+      previous = index
+      lineTail = `${lineBreak ? '' : lineTail}${item.str}`.slice(-4)
+      lineBreak = false
+    }
+    lineBreak ||= !!item.hasEOL
+  })
+  return result
+}
+
+export function createPdfFindController(
+  Controller: typeof PDFFindController,
+  options: ConstructorParameters<typeof PDFFindController>[0],
+): PDFFindController {
+  return new class extends Controller {
+    override setDocument(document: PDFDocumentProxy) {
+      // Only Find sees this extraction view; rendering, copying and TTS keep
+      // the original page objects and text, including their Unicode hyphens.
+      super.setDocument(document && new Proxy(document, {
+        get(target, property) {
+          if (property !== 'getPage') return Reflect.get(target, property, target)
+          return async (pageNumber: number) => {
+            const page = await target.getPage(pageNumber)
+            return new Proxy(page, {
+              get(target, property) {
+                if (property !== 'getTextContent') return Reflect.get(target, property, target)
+                return async (...args: Parameters<typeof page.getTextContent>) => {
+                  const content = await target.getTextContent(...args)
+                  return { ...content, items: pdfFindTextItems(content.items) }
+                }
+              },
+            })
+          }
+        },
+      }))
+    }
+  }(options)
+}
 
 /** Map the indexed zero-based PDF page to PDF.js's one-based viewer page. */
 export function pdfSearchTargetPage(

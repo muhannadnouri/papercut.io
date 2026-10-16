@@ -69,7 +69,7 @@ export function bindPdfSearchTarget({
   const highlightTargetPage = () => {
     const searchLayer = renderedPdfSearchLayer(viewer, pageNumber)
     if (!searchLayer) return false
-    const range = highlightSearchTarget(searchLayer, text, target.occurrenceIndex ?? 0)
+    const range = highlightSearchTarget(searchLayer, text, target.occurrenceIndex ?? 0, true)
     if (!range) return false
 
     finish()

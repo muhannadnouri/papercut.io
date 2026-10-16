@@ -81,6 +81,61 @@ export interface LibraryTransferProgress {
 
 const LIBRARY_TRANSFER_PROGRESS_EVENT = 'library-transfer-progress'
 
+export interface TransferDiagnosticEvent {
+  attempt: number
+  role: string
+  timestampMs: number
+  elapsedMs: number
+  phase: string
+  level: string
+  code: string
+  bytes: number | null
+  totalBytes: number | null
+  items: number | null
+  totalItems: number | null
+  ioKind: string | null
+  osCode: number | null
+  port: number | null
+  addressScope: string | null
+  requiredBytes: number | null
+  availableBytes: number | null
+  imported: number | null
+  skipped: number | null
+  failed: number | null
+}
+
+export interface TransferDiagnosticSnapshot {
+  appVersion: string
+  build: string | null
+  os: string
+  arch: string
+  protocol: string
+  dropped: number
+  events: TransferDiagnosticEvent[]
+}
+
+export async function getTransferDiagnostics(): Promise<TransferDiagnosticSnapshot | null> {
+  if (!isTauri()) return null
+  return invoke<TransferDiagnosticSnapshot>('library_transfer_diagnostics')
+}
+
+/** Copy only the native diagnostic allowlist, never command requests or progress item labels. */
+export function formatTransferDiagnosticReport(snapshot: TransferDiagnosticSnapshot): string {
+  return JSON.stringify({
+    reportVersion: 1, redacted: true,
+    appVersion: snapshot.appVersion, build: snapshot.build, os: snapshot.os, arch: snapshot.arch,
+    protocol: snapshot.protocol, dropped: snapshot.dropped + Math.max(0, snapshot.events.length - 200),
+    events: snapshot.events.slice(-200).map(event => ({
+      attempt: event.attempt, role: event.role, timestampMs: event.timestampMs,
+      elapsedMs: event.elapsedMs, phase: event.phase, level: event.level, code: event.code,
+      bytes: event.bytes, totalBytes: event.totalBytes, items: event.items, totalItems: event.totalItems,
+      ioKind: event.ioKind, osCode: event.osCode, port: event.port, addressScope: event.addressScope,
+      requiredBytes: event.requiredBytes, availableBytes: event.availableBytes,
+      imported: event.imported, skipped: event.skipped, failed: event.failed,
+    })),
+  }, null, 2)
+}
+
 export async function exportLibrary(
   documentIds: string[],
   audiobookIds: string[] = [],

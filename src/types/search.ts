@@ -19,12 +19,15 @@ export interface SearchMatchLocation {
   text?: string | null
 }
 
+export type SearchMode = 'all' | 'broader'
+
 export interface SearchTermMatch {
   term: string
   matchingSections: number
   sectionIndex?: number | null
   pageIndex?: number | null
   text?: string | null
+  matched?: boolean
 }
 
 export interface SearchResult {

@@ -29,8 +29,15 @@ pub(crate) fn sanitize_html(html: &str) -> String {
 
     let mut builder = Builder::default();
     builder
-        .add_tags(&["main", "section"])
-        .add_generic_attributes(&["dir", "id", "name", "data-papercut-section"])
+        .add_tags(&["main", "section", "aside", "nav"])
+        .add_generic_attributes(&[
+            "dir",
+            "id",
+            "name",
+            "data-papercut-section",
+            "role",
+            "epub:type",
+        ])
         .add_tag_attributes(
             "img",
             &[
@@ -80,6 +87,9 @@ fn filter_reader_attribute<'a>(
     value: &'a str,
 ) -> Option<Cow<'a, str>> {
     match (element, attribute) {
+        (_, "role" | "epub:type") => {
+            super::super::search_content::safe_role(attribute, value).map(Cow::Owned)
+        }
         ("img", "data-papercut-image-error")
             if crate::document_uploads::parsed::IMAGE_ERROR_REASONS.contains(&value) =>
         {
@@ -229,7 +239,7 @@ pub(crate) fn strip_tags(html: &str) -> String {
 /// The list is intentionally a small block/row/line-break set. Inline tags like
 /// `b`, `i`, `span`, and `a` are omitted so styled words remain searchable as
 /// the continuous text users see.
-fn tag_separates_text(tag: &str) -> bool {
+pub(super) fn tag_separates_text(tag: &str) -> bool {
     matches!(
         tag_name(tag).as_str(),
         "address"

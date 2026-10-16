@@ -5,11 +5,15 @@ import {
   useMemo
 } from 'react'
 import { useTranslation } from 'react-i18next'
+import { isTauri } from '@tauri-apps/api/core'
 import './App.css'
 import { usePagefind } from './hooks/usePagefind'
 import { useSearch } from './hooks/useSearch'
+import { semanticSearchStatus } from './search-semantic/semanticSearchStatus'
+import { useSemanticSearch } from './search-semantic/useSemanticSearch'
+import { useConceptualSearch } from './search-semantic/useConceptualSearch'
 import { AppHeader } from './components/AppHeader/AppHeader'
-import { SearchTab } from './components/SearchTab/SearchTab'
+import { SearchTab, type SearchResultView } from './components/SearchTab/SearchTab'
 import { LibraryTab } from './components/LibraryTab/LibraryTab'
 import { useDocumentScanner } from './document-scanner/useDocumentScanner'
 import { ScanSetupDialog } from './document-scanner/ScanSetupDialog'
@@ -25,7 +29,7 @@ import { useDocumentViewerState } from './hooks/useDocumentViewerState'
 import { useTheme } from './hooks/useTheme'
 import { useBookmarkedDocumentUrls } from './hooks/useReaderBookmark'
 import { useUploadedLibrary } from './hooks/useUploadedLibrary'
-import type { DocumentInfo, SearchOpenTarget } from './types/search'
+import type { DocumentInfo, SearchMode, SearchOpenTarget } from './types/search'
 import { clearPhraseFetchCache } from './utils/phraseSearch'
 import { isDebugEnabled, setDebugEnabled } from './utils/debugFlags'
 import { AudioControls } from './tts/components/AudioControls'
@@ -62,6 +66,9 @@ function App() {
   const bookmarkedDocumentUrls = useBookmarkedDocumentUrls()
   const documentScanner = useDocumentScanner()
   const [activeTab, setActiveTab] = useState<AppTab>('library')
+  const [searchMode, setSearchMode] = useState<SearchMode>('all')
+  const [searchResultView, setSearchResultView] = useState<SearchResultView>('keyword')
+  const [searchSettingsOpen, setSearchSettingsOpen] = useState(false)
   const [userUploads, setUserUploads] = useState<UserUploadDocument[]>(() => getUserUploads())
   const [ttsDiagnosticsEnabled, setTtsDiagnosticsEnabled] = useState(() => isDebugEnabled())
   const [scanSetupSource, setScanSetupSource] = useState<'camera' | 'photos' | null>(null)
@@ -92,6 +99,7 @@ function App() {
     uploadedLibraryOrganization,
     updateDocumentTitle,
   } = useUploadedLibrary()
+  const semanticSearch = useSemanticSearch(uploadedDocuments)
 
   const loadHtmlDocument = useCallback(async (url: string): Promise<string> => {
     if (isUploadedHtmlDocumentUrl(url)) return getUploadedDocumentSource(url)
@@ -201,14 +209,14 @@ function App() {
 
   const searchableDocumentCount = useMemo(() => {
     const urls = new Set([
-      ...allDocuments.map((document) => document.url),
+      ...(searchMode === 'all' ? allDocuments.map((document) => document.url) : []),
       ...uploadedDocuments
         .filter((document) => document.textStatus === 'ready' || document.textStatus === 'recognition-available')
         .map((document) => document.url),
     ])
     if (!searchScopeActive) return urls.size
     return Array.from(searchScopeUrls).filter((url) => urls.has(url)).length
-  }, [allDocuments, searchScopeActive, searchScopeUrls, uploadedDocuments])
+  }, [allDocuments, searchMode, searchScopeActive, searchScopeUrls, uploadedDocuments])
 
   const {
     query,
@@ -218,16 +226,22 @@ function App() {
     searchFailed,
     searchPhase,
     submittedQuery,
+    searchRequest,
     lastSearchInfo,
     handleSearch,
     rerunSearch,
     submitSearch,
     removeResultsForUrl,
   } = useSearch(pagefindRef, {
+    mode: searchMode,
     loadDocumentSource: loadHtmlDocument,
     scopeUrls: searchScopeUrls,
     scopeActive: searchScopeActive,
   })
+
+  const conceptualResults = useConceptualSearch({ semantic: semanticSearch,
+    submittedQuery, searchRequest, queryError, scopeUrls: searchScopeUrls,
+    scopeActive: searchScopeActive, library: uploadedDocuments })
 
   useEffect(() => {
     rerunSearch()
@@ -448,6 +462,9 @@ function App() {
                 developerMode={ttsDiagnosticsEnabled}
                 onDeveloperModeChange={handleTtsDiagnosticsChange}
                 onLibraryImported={handleLibraryTransferImported}
+                semanticSearch={semanticSearch}
+                searchOpen={searchSettingsOpen}
+                onSearchOpenChange={setSearchSettingsOpen}
               />
             )}
             headerControls={(
@@ -489,7 +506,6 @@ function App() {
               onDiagnosticsChange: handleTtsDiagnosticsChange,
             }}
             title={t('tts.audiobooks.audioSetup')}
-            doneLabel={t('common.done')}
             onClose={() => setReaderAudioSetupOpen(false)}
           />
         )}
@@ -512,6 +528,9 @@ function App() {
             developerMode={ttsDiagnosticsEnabled}
             onDeveloperModeChange={handleTtsDiagnosticsChange}
             onLibraryImported={handleLibraryTransferImported}
+            semanticSearch={semanticSearch}
+            searchOpen={searchSettingsOpen}
+            onSearchOpenChange={setSearchSettingsOpen}
           />
         )} />
       </div>
@@ -528,6 +547,19 @@ function App() {
 
         {activeTab === 'search' && (
           <SearchTab
+            semanticEnabled={semanticSearch.enabled}
+            semanticStatus={semanticSearch.provider?.downloadingFormat ? 'downloading'
+              : isTauri() && !semanticSearch.provider && !semanticSearch.statusError && !semanticSearch.operation ? 'checking'
+              : semanticSearchStatus(semanticSearch)}
+            hasStoredIndex={!!semanticSearch.index?.hasStoredIndex}
+            onOpenSearchSettings={() => setSearchSettingsOpen(true)}
+            conceptualState={conceptualResults}
+            resultView={searchResultView}
+            onResultViewChange={setSearchResultView}
+            searchRequest={searchRequest}
+            onViewConceptualResult={handleViewDocument}
+            mode={searchMode}
+            onModeChange={setSearchMode}
             query={query}
             queryError={queryError}
             disabled={!pagefindReady && uploadedDocuments.length === 0}

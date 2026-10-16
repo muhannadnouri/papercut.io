@@ -74,6 +74,15 @@ lockfile through `tauri-plugin-log` -> `byte-unit` -> `rust_decimal`, but
 complete feature/target dependency graph and fails if that edge becomes active.
 Remove the waiver once the lockfile no longer contains `rkyv` 0.7.
 
+The October 12, 2026 audit repair upgrades Ammonia to 4.2.3 and the locked
+`quinn-proto` to 0.11.18 without new waivers. Compatible `anyhow`,
+`event-listener` and rand 0.8 patches also remove their reported unsoundness
+warnings. The updated lockfile has no blocking findings against that day's
+RustSec database, but retains eight maintenance notices and upstream GLib 0.18
+and rand 0.7 unsoundness notices. GLib is required by the Linux GTK/WebKit stack;
+rand 0.7 is parser build tooling without the affected logging feature. These
+remaining warnings are not treated as fixed or suppressed by this repair.
+
 Transferred display-title overrides and available original filenames are
 restored after parsing so metadata corrections survive a device move.
 Document ids come from the manifest rather than a hash of normalized HTML;
@@ -224,8 +233,14 @@ one-use code, existing byte and receiver-import progress, and the final result.
 an in-flight transfer instead exposes **Stop Sending**. This uses the existing
 dialog and session state rather than introducing routes or a multi-page wizard.
 
+The header has icon-only **Back** and **Close** controls on a separate row above
+the title. Back returns to Settings; Close dismisses the entire Settings flow.
+During export, import, preparation, receiving or waiting/sending, both controls
+are disabled and Escape/backdrop dismissal is blocked. Session cancellation
+remains an explicit **Change Selection** or **Stop Sending** action in the body.
+
 Completion also replaces the active controls in place and keeps the result open
-until the user chooses **Done**. The source reports the document and audiobook
+until the user chooses **Back** or **Close**. The source reports the document and audiobook
 counts sent because the protocol returns only a final receiver acknowledgement;
 the target shows imported, already-present, and failed counts plus expandable
 failure details. Partial completion uses a distinct warning state instead of
@@ -311,6 +326,179 @@ targets SDK 36 and uses its existing normal `INTERNET` permission. Before raisin
 the target to Android 17 / SDK 37, add and request `ACCESS_LOCAL_NETWORK` as
 required by Android's local-network privacy model.
 
+## Transfer Diagnostics
+
+Every transfer dialog exposes **Show Details** and **Copy Diagnostic Report**,
+including after failure or completion. Rust owns a process-local history of the
+most recent **200 events across attempts**. New attempts do not clear earlier
+failures. The UI loads a snapshot on opening and state changes and polls once a
+second while work is active; missed progress events cannot erase native history.
+It stops polling on unmount. Diagnostic read failures are explicit, retain the
+last display as potentially stale, disable copying, and offer Retry. Copying reads
+a fresh snapshot so a terminal error between polls is included. Clipboard failure
+is also visible. No diagnostic file, background upload or new logging
+service is created; quitting Papercut discards this history.
+
+Events contain UTC timestamps, monotonic elapsed time, local attempt number and
+role, stage, severity, fixed diagnostic code and optional numeric progress. Local
+app version, OS, architecture, protocol capability and a build SHA when available
+are included in the report header. The remote app version is not negotiated or
+inferred. Network stages distinguish address/code validation, preparation,
+interface selection/listener binding, TCP connection/accept, TLS, protocol
+compatibility, pairing, package headers/storage checks, transfer/resume,
+verification/restore and completion acknowledgement. File transfers retain
+preparation, observed import phases and terminal outcome. Progress is sampled at
+most once per second within a phase, with first/final counts retained and repeated
+identical samples omitted. Phase changes, terminal outcomes and errors are kept;
+the omitted-event count discloses bounded-history eviction.
+
+Privacy is enforced when recording, not by attempting to scrub arbitrary text
+later. Only fixed labels and an allowlist of numeric facts enter the history.
+Socket errors retain their OS error kind/code; storage failures retain required
+and available bytes. A fatal listener accept error records both the I/O facts and
+a terminal failure, then closes that attempt against late events. Restore summaries
+keep aggregate imported/skipped/failed
+counts (documents plus audiobooks), including partial outcomes, without item names
+or per-item error strings. Endpoint details retain port and IPv4 scope (private,
+link-local or loopback), **never the IP address**. Keys, TLS/PAKE material, request
+objects, document content/titles, private paths and raw error display strings are
+excluded. The copy formatter also projects only these allowed fields, so adding
+fields to command results cannot silently expand copied reports. Local technical
+stage/error identifiers remain stable English tokens; diagnostic controls and
+privacy/recovery text are localized in all eight languages.
+
+Retryable sender interruptions show their existing diagnostic outside Details,
+beside Waiting to Resume. Progress-subscription failures no longer disappear as
+unhandled rejections; a localized warning points to native details without
+stopping the transfer. Pre-authentication failures remain nonfatal and do not
+consume a pairing code, but now retain diagnostic evidence; a completed wrong-code
+exchange still consumes the session. Failures forwarding import progress or its
+acknowledgement are recorded without undoing successfully restored content. The
+protocol, key handling, timeouts, listener selection, archive limits and consent
+behavior are unchanged.
+
+The `v1.9.0` and `v1.9.2` release tags use the same `PCLAN003` implementation and
+package versions. Matching app versions are not a transfer prerequisite. Earlier
+incompatible development protocols still fail closed. The reported Linux 1.9.2
+to Android 1.9.0 connection failure has **not** been reproduced. Subsequent user
+evidence identifies inbound firewall policy as the strongest lead, with listener
+lifetime still unresolved; see the deferred evaluation below. Diagnostics expose
+the failing stage rather than claiming to repair the user's network.
+
+Automated regressions cover bounded history, sampling/final counts, retained
+attempt failures, redaction, protocol mismatch, wrong-code consumption, real
+localhost TLS resume, refusal with OS facts, visible retryable errors, lost UI
+progress subscription, native snapshot recovery, copy errors, polling cleanup and
+native diagnostic Retry without starting transfer work. These are automated
+Linux/jsdom boundaries, not installed-device acceptance. Further smoke remains
+deferred. During the eventual consolidated pass, test Show Details and copying
+on both devices through refusal/timeout, wrong key, interrupted resume, partial
+import, cancellation and completion; verify redaction and retained errors after
+reopening, touch/RTL/keyboard/screen-reader behavior and clipboard permissions.
+
+Validation for this follow-up: **311 frontend passed / 1 optional skipped in 57 files**, **196 default Rust passed / 5 opt-in ignored**, plus lint, locale parity, TypeScript, Vite+Pagefind build, Rust formatting and diff checks. The sender hidden-error regression also rejects removing its production diagnostic. New tests do not claim physical-network, mobile clipboard, screen-reader, provider-inference or current-source CI acceptance.
+
+## Deferred LAN Redesign — 2026-10-15
+
+**Decision:** keep the bounded diagnostics from `bfc7245` in `feature/search-v2`.
+Further transfer investigation and implementation belong in a separate follow-up
+after this branch. This is an evaluation and TODO, not an approved transport
+change, a repaired connection, or an additional search-v2 implementation gate.
+Existing release acceptance requirements still apply; device smoke remains
+explicitly deferred.
+
+### Reported Failure and Remaining Uncertainty
+
+The user tested Linux 1.9.2 on CachyOS sending to Android 1.9.0 on the same Wi-Fi,
+using the displayed address and pairing key, with no Linux VPN. Android reported
+`Could not connect to the source device: connection timed out`. The source report
+reached listener binding on private IPv4/TCP port `41803`, certificate setup and
+`waiting`, with no `tcp-accepted` event in the captured history. This places the
+observed failure before TLS, protocol negotiation or pairing; changing the key or
+requiring identical app versions does not address this evidence.
+
+UFW was active with default incoming deny/outgoing allow and only KDE Connect
+ports allowed. That policy does not permit the advertised Papercut port. However,
+the supplied `ss -ltn` check showed **no listener** on that port at the time of
+inspection. A firewall does not hide a listener from `ss`: an expired/cancelled
+session, app closure or stale endpoint must also be ruled out. The earlier bind
+event is historical evidence, not a current liveness check. No packet capture or
+successful restricted-rule retry establishes a single root cause yet.
+
+CachyOS documents UFW as enabled by default with incoming traffic blocked. A
+different firewall configuration plausibly explains the earlier Mint success;
+there is no demonstrated distro-specific socket defect. Same Wi-Fi alone does
+not guarantee peer reachability. See [CachyOS firewall documentation](https://wiki.cachyos.org/configuration/post_install_setup/#configuring-firewall-ufw).
+
+When investigation resumes, start a fresh foreground send and check the **current**
+displayed port with `ss` while it is waiting. Only after confirming the listener,
+test a temporary incoming TCP exception restricted to the actual receiving peer,
+Wi-Fi interface and current port, then remove it. Record both devices' reports
+and any matching firewall drop metadata. If that still fails, distinguish host
+filtering from router client isolation/routing before changing the protocol.
+[UFW supports interface, source, destination and port restrictions and removal of the original rule](https://manpages.ubuntu.com/manpages/noble/man8/ufw.8.html).
+
+### LocalSend Comparison and Recommended Direction
+
+LocalSend's documented v2.2 protocol uses configurable defaults of TCP/UDP
+`53317`, multicast discovery at `224.0.0.167`, and a normal upload flow in which
+the receiver listens and accepts or rejects a transfer request. It also documents
+HTTP discovery fallback. Discovery removes routine address entry; a stable port
+makes firewall configuration reusable. Neither bypasses packet filtering.
+[LocalSend protocol](https://github.com/localsend/protocol)
+
+LocalSend documents HTTPS for normal app transfers, but still requires firewall
+access and warns about router client isolation. Its existence is not evidence
+that an application can safely avoid all network permission prompts.
+[LocalSend setup](https://github.com/localsend/localsend/blob/main/README.md#setup)
+
+Recommended Papercut follow-up, subject to a separate design/security review:
+
+| Area | Candidate and tradeoff |
+| --- | --- |
+| Stable port | Choose a Papercut-specific default after checking conflicts; do not take LocalSend's port. Keep listening foreground/session-scoped. Explain an occupied port and allow an explicit override rather than silently falling back to an unpredictable port. A fixed port improves configuration, not authentication. |
+| Discovery | Evaluate bounded UDP multicast against platform DNS-SD/mDNS support and packaging cost; select one discovery mechanism. Advertise only minimal temporary presence/capability metadata while the transfer flow is open. Keep manual address/key entry; evaluate QR as a convenience fallback. Do not begin with a subnet scanner. |
+| Connection direction | Evaluate receiver-listens/sender-connects against retaining the current sender listener. The former makes Linux-to-Android data upload outgoing from Linux, but the receiving host still needs inbound access and discovery may need its own exception. Do not promise a universal firewall fix or implement automatic dual-direction fallback first. |
+| Transport reuse | Reuse the native package, restore, progress, resume and diagnostic boundaries. LocalSend-style discovery does not require adopting its REST API or weakening Papercut's authenticated transport. Changing listener roles affects TLS/PAKE roles and framing; review those bindings and version changed wire semantics explicitly. |
+| Firewall UX | Explain discovery versus transfer reachability and show the actual listener state/port. Offer documented UFW/firewalld profiles or OS-supported permission guidance with explicit user/admin consent. Scope rules to the selected trusted interface/network, or a peer where practical; include removal instructions. Never silently elevate, disable filtering, open a broad port range, configure router forwarding/UPnP, or treat all private-address networks as trusted. |
+
+Discovery results are untrusted hints, never authorization. Bound announcement
+sizes, response rates, cached peers and lifetimes; reject malformed or unsupported
+capabilities without triggering transfers. Do not advertise pairing secrets,
+library metadata or persistent tracking identifiers. A received announcement must
+not trigger arbitrary endpoint probing; retain an explicit interface/address
+policy and review VPN, multiple-interface and IPv6 behavior. Recheck mobile
+local-network/multicast permissions and Apple service declarations before choosing
+the discovery mechanism.
+
+Preserve encryption, explicit transfer consent, one-use expiring pairing and
+mutual confirmation bound to the encrypted channel, archive validation, private
+staging, authenticated resume and operation guards. Never downgrade to plaintext
+or trust a self-signed certificate merely because discovery returned it. Keep
+bounded/redacted diagnostics and distinguish confirmed local failures from
+inferred firewall/routing causes. Legacy `PCLAN003` compatibility must be an
+explicitly tested decision; incompatible peers must fail clearly and closed.
+
+### Resume Checklist for the Separate Follow-Up
+
+- [ ] Confirm active listener versus blocked traffic using the narrow test above;
+      record both endpoint reports without secrets or private payloads.
+- [ ] Choose discovery, a stable default port and connection direction in a short
+      design review, including permission, lifecycle and firewall-rule ownership.
+- [ ] Define compatibility with existing apps before changing transport roles or
+      protocol framing; retain file export/import as the offline fallback.
+- [ ] Add regressions for port conflicts, listener teardown/expiry, discovery
+      spoofing/floods/stale peers, address policy, denied permissions, incompatible
+      peers, TLS/PAKE binding, cancellation, authenticated resume and redaction.
+- [ ] When smoke is resumed, test both directions on Linux with UFW/firewalld,
+      Android and supported Apple/Windows builds, including network changes,
+      multiple interfaces and isolated Wi-Fi. Verify scoped firewall rule removal
+      and manual fallback when multicast is unavailable.
+
+This documentation-only evaluation does not rerun the automated transfer suite,
+change firewall settings or perform device/network smoke. Earlier passing counts
+above remain evidence for the diagnostics commit, not for this proposed redesign.
+
 ## Delivery Checklist
 
 - [x] Architecture, package contract, merge rules, and staged scope documented.
@@ -345,6 +533,9 @@ required by Android's local-network privacy model.
 - [x] Review hardening: verify transferred WAV contents against measured playback metadata.
 - [x] Review hardening: classify terminal receiver failures and interrupt active sends on cancel.
 - [x] Review hardening: align local-address policy and prune stale transfer cache files.
+- [ ] Separate follow-up after search-v2: [evaluate discovery, a stable port and
+      secure firewall handling](#deferred-lan-redesign--2026-10-15); keep diagnostics
+      in this branch and leave transfer implementation/device smoke deferred.
 - [ ] Later: evaluate an optional reading-data category for bookmarks and preferences.
 
 ## Release Acceptance Gate

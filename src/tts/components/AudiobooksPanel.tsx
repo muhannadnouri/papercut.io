@@ -160,7 +160,6 @@ export function AudiobooksPanel({
             <AudioSetupDialog
               audioSetup={audioSetup}
               title={t('tts.audiobooks.audioSetup')}
-              doneLabel={t('common.done')}
               onClose={closeSetup}
             />
           )}

@@ -46,8 +46,9 @@ export function highlightSearchTarget(
   root: HTMLElement,
   text: string,
   occurrenceIndex: number,
+  pdfWordWraps = false,
 ): Range | null {
-  const match = findReaderTextMatches(root, text, occurrenceIndex + 1)[occurrenceIndex]
+  const match = findReaderTextMatches(root, text, occurrenceIndex + 1, pdfWordWraps)[occurrenceIndex]
   if (!match) return null
   const { range } = match
   if (setSearchTargetRegistryHighlight(root.ownerDocument, range)) return range

@@ -36,12 +36,16 @@ pub(super) type PairingState = Spake2<Ed25519Group>;
 pub(super) enum PairingError {
     Unauthenticated(String),
     IncorrectCode,
+    IncompatibleProtocol,
 }
 
 impl std::fmt::Display for PairingError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Unauthenticated(message) => formatter.write_str(message),
+            Self::IncompatibleProtocol => {
+                formatter.write_str("The other device is not using a compatible Papercut transfer")
+            }
             Self::IncorrectCode => {
                 formatter.write_str("Pairing code did not match the source device")
             }
@@ -112,9 +116,7 @@ pub(super) fn read_pairing_message<R: Read>(
             PairingError::Unauthenticated(format!("Failed to read library pairing exchange: {err}"))
         })?;
     if &magic != PROTOCOL_MAGIC {
-        return Err(PairingError::Unauthenticated(
-            "The other device is not using a compatible Papercut transfer".into(),
-        ));
+        return Err(PairingError::IncompatibleProtocol);
     }
     Ok(message)
 }
@@ -392,7 +394,7 @@ mod tests {
         let mut incompatible = [0u8; PROTOCOL_MAGIC.len() + PAKE_MESSAGE_BYTES].as_slice();
         assert!(matches!(
             read_pairing_message(&mut incompatible),
-            Err(PairingError::Unauthenticated(_))
+            Err(PairingError::IncompatibleProtocol)
         ));
 
         assert_eq!(normalize_code("2345-abcd-ghjk").unwrap(), code);

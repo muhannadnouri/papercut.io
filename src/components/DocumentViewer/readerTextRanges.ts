@@ -1,4 +1,5 @@
 import { isReadableHtmlBlock } from '../../tts/alignment/htmlStructure'
+import { isPdfWordWrap } from '../../pdf/pdfWordWrap'
 import {
   normalizeSearchCharacter,
   normalizeSearchPunctuation,
@@ -64,15 +65,16 @@ export function findReaderTextMatches(
   root: HTMLElement,
   query: string,
   limit = Number.POSITIVE_INFINITY,
+  pdfWordWraps = false,
 ): ReaderTextMatch[] {
-  const index = createReaderTextIndex(root)
+  const index = createReaderTextIndex(root, pdfWordWraps)
   return findReaderTextIndexMatches(index, query, limit)
     .map((match) => materializeReaderTextMatch(index, match))
 }
 
 // Build the DOM-to-text map once per rendered document. Find can then search
 // plain strings on each keystroke without repeatedly walking the reader DOM.
-export function createReaderTextIndex(root: HTMLElement): ReaderTextIndex {
+export function createReaderTextIndex(root: HTMLElement, pdfWordWraps = false): ReaderTextIndex {
   return {
     root,
     segments: collectReaderTextSegments(root).map((segment) => ({
@@ -80,6 +82,7 @@ export function createReaderTextIndex(root: HTMLElement): ReaderTextIndex {
       search: buildSearchText(
         segment.nodes.map((node) => node.data),
         segment.breaksBefore,
+        pdfWordWraps,
       ),
     })),
   }
@@ -139,11 +142,12 @@ export function findTextPartMatches(
   query: string,
   limit = Number.POSITIVE_INFINITY,
   breaksBefore: readonly boolean[] = [],
+  pdfWordWraps = false,
 ): TextPartMatch[][] {
   const needle = normalizeSearchQuery(query)
   if (!needle || limit <= 0) return []
 
-  const search = buildSearchText(parts, breaksBefore)
+  const search = buildSearchText(parts, breaksBefore, pdfWordWraps)
   return findSearchTextMatches(search.text, needle, limit)
     .map((match) => partsForIndexedMatch(parts, search, match))
 }
@@ -215,12 +219,14 @@ function nearestReadableOwner(element: Element, root: HTMLElement): Element | nu
 function buildSearchText(
   parts: readonly string[],
   breaksBefore: readonly boolean[],
+  pdfWordWraps: boolean,
 ): SearchTextIndex {
   let text = ''
   const partIndexes: number[] = []
   const startOffsets: number[] = []
   const endOffsets: number[] = []
   let pendingWhitespace: SearchTextPoint | null = null
+  let pendingLineBreak = false
 
   const append = (value: string, point: SearchTextPoint) => {
     text += value
@@ -232,6 +238,7 @@ function buildSearchText(
   }
 
   parts.forEach((part, partIndex) => {
+    pendingLineBreak ||= !!breaksBefore[partIndex]
     // A <br> has no Text node of its own. Map its searchable space to a
     // zero-width point; trimmed queries ensure it can never become a range end.
     if (breaksBefore[partIndex] && text && !pendingWhitespace) {
@@ -246,8 +253,26 @@ function buildSearchText(
 
       if (/\s/u.test(character)) {
         if (text) pendingWhitespace = point
+        pendingLineBreak ||= character === '\n' || character === '\r'
         continue
       }
+      if (pdfWordWraps && pendingLineBreak && text.endsWith('-')) {
+        const sourceEnd = [-2, -1].map((index) => {
+          const part = partIndexes.at(index)
+          const start = startOffsets.at(index)
+          const end = endOffsets.at(index)
+          return part === undefined || start === undefined || end === undefined
+            ? '' : parts[part].slice(start, end)
+        }).join('')
+        if (isPdfWordWrap(sourceEnd, character)) {
+          text = text.slice(0, -1)
+          partIndexes.pop()
+          startOffsets.pop()
+          endOffsets.pop()
+          pendingWhitespace = null
+        }
+      }
+      pendingLineBreak = false
       if (pendingWhitespace) {
         append(' ', pendingWhitespace)
         pendingWhitespace = null

@@ -115,19 +115,19 @@ resources. Old imports can show generic placeholders for surviving source-less
 images, but markup erased by an older parser cannot be diagnosed retroactively.
 Runtime decode failures appear in the reader, not the earlier import summary.
 
-The AI Agents in Depth sample now retains all 15 reading-order documents and all
-115 images on a fresh parse: 112 external SVG illustrations, two PNG illustrations,
-and one generated SVG containing the original JPEG cover. The cover's bytes,
-viewport, and aspect-ratio rule are checked. The sample is not committed; its
-optional regression check is:
+The generated EPUB regression covers reading-order chapter retention, local
+raster/external SVG assets, a missing-image diagnostic and an inline SVG cover
+with its original raster bytes and viewport. Asset references must also survive
+reader sanitization. It runs in the ordinary suite without a personal book or
+repository-root sample file:
 
 ```sh
 cd src-tauri
-cargo test --lib ai_agents_sample_retains_all_images_and_chapters -- --ignored
+cargo test --lib generated_epub_retains_spine_images_and_embedded_cover
 ```
 
-Local Linux WebKitGTK verification decoded all 115 images from the actual parser's
-generated reading HTML, and the cover was visually checked. A separate SVG probe
+Earlier local Linux WebKitGTK verification decoded the parser's generated image
+assets, and the cover was visually checked. A separate SVG probe
 decoded while its script, event handler, external stylesheet, and nested external
 image made no requests. This was an isolated rendering check, not an end-to-end
 Papercut import or a Windows/mobile WebView check; those platforms still need

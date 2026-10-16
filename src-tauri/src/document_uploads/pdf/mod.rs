@@ -5,8 +5,8 @@
 //! spreading binary-format details through the HTML/EPUB pipeline.
 
 mod index;
-mod narration;
-mod page_text;
+pub(super) mod narration;
+pub(super) mod page_text;
 mod source;
 
 pub(crate) use index::{

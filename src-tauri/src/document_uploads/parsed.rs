@@ -73,6 +73,8 @@ pub(crate) struct ParsedSection {
     pub(crate) heading: Option<String>,
     pub(crate) text: String,
     pub(crate) page_index: Option<u32>,
+    /// Derived UTF-8 spans only; None is legacy/unknown, empty means auxiliary content.
+    pub(crate) body_ranges: Option<Vec<std::ops::Range<usize>>>,
 }
 
 #[cfg(test)]

@@ -283,7 +283,7 @@
     background: var(--surface-accent);
   }
 
-  .app-settings-data-action:hover {
+  .app-settings-data-action:hover:not(:disabled) {
     border-color: transparent;
     color: var(--accent-text);
     background: var(--surface-accent);
@@ -310,6 +310,8 @@
   .app-settings-btn {
     width: 2.75rem;
     height: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
   }
 
   .app-settings-data-action,

@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getVersion } from '@tauri-apps/api/app'
 import { isTauri } from '@tauri-apps/api/core'
@@ -14,6 +14,11 @@ import { openExternalUrl } from '../../utils/openExternalUrl'
 import { isMobileUserAgent } from '../../utils/platform'
 import { AppDialog } from '../AppDialog/AppDialog'
 import { AppSelect } from '../AppSelect/AppSelect'
+import { SettingsIcon } from '../SettingsIcon/SettingsIcon'
+import { SearchModelSetup } from './SearchModelSetup'
+import { SearchActivity } from '../../search-semantic/SearchActivity'
+import { semanticSearchStatus } from '../../search-semantic/semanticSearchStatus'
+import type { SemanticSearchController } from '../../search-semantic/useSemanticSearch'
 import aiAudioUseNotice from '../../../AI_AUDIO_USE_NOTICE.md?raw'
 import papercutLicense from '../../../LICENSE.md?raw'
 import thirdPartyNotices from '../../../THIRD_PARTY_NOTICES.md?raw'
@@ -44,6 +49,9 @@ interface AppSettingsProps {
   developerMode: boolean
   onDeveloperModeChange: (enabled: boolean) => void
   onLibraryImported: () => void | Promise<void>
+  semanticSearch: SemanticSearchController
+  searchOpen: boolean
+  onSearchOpenChange: (open: boolean) => void
 }
 
 export function AppSettings({
@@ -52,6 +60,9 @@ export function AppSettings({
   developerMode,
   onDeveloperModeChange,
   onLibraryImported,
+  semanticSearch,
+  searchOpen,
+  onSearchOpenChange: setSearchOpen,
 }: AppSettingsProps) {
   const { t } = useTranslation()
   const tauriRuntime = isTauri()
@@ -60,12 +71,14 @@ export function AppSettings({
   const [selectedLegalNotice, setSelectedLegalNotice] = useState<LegalNoticeId | null>(null)
   const [transferOpen, setTransferOpen] = useState(false)
   const [version, setVersion] = useState<string | null>(() => tauriRuntime ? null : '')
+  const settingsButton = useRef<HTMLButtonElement>(null)
   const zoom = useAppZoom()
   const closeSettings = useCallback(() => {
     setOpen(false)
+    setSearchOpen(false)
     setLegalNoticesOpen(false)
     setSelectedLegalNotice(null)
-  }, [])
+  }, [setSearchOpen])
   const themeOption = {
     system: t('settings.themeSystem'),
     light: t('settings.themeLight'),
@@ -91,35 +104,42 @@ export function AppSettings({
 
   return (
     <div className="app-settings">
+      {tauriRuntime && <SearchActivity semantic={semanticSearch} onManage={() => {
+        setOpen(true)
+        setSearchOpen(true)
+        setLegalNoticesOpen(false)
+      }} />}
+
       <button
         type="button"
         className="app-settings-btn"
+        ref={settingsButton}
         aria-label={t('settings.button')}
         aria-haspopup="dialog"
         title={t('settings.button')}
         onClick={() => setOpen(true)}
       >
-        <SettingsIcon />
+        <SettingsIcon className="app-settings-icon" />
       </button>
 
-      {open && legalNoticesOpen && (
+      {searchOpen && (
+        <AppDialog key="search" fallbackFocusRef={settingsButton} className="app-settings-search-dialog" title={t('settings.semantic.title')}
+          showCloseButton onCancel={closeSettings} onBack={() => { setOpen(true); setSearchOpen(false) }}>
+          <SearchModelSetup semantic={semanticSearch} />
+        </AppDialog>
+      )}
+
+      {open && !searchOpen && legalNoticesOpen && (
         <AppDialog
           key={selectedLegalNotice ?? 'legal-notices'}
           className="app-settings-legal-dialog"
           title={selectedNotice?.title ?? t('settings.legalAndNotices')}
+          showCloseButton
           onCancel={closeSettings}
-          actions={(
-            <button
-              type="button"
-              className="app-dialog-cancel"
-              onClick={() => {
-                if (selectedLegalNotice) setSelectedLegalNotice(null)
-                else setLegalNoticesOpen(false)
-              }}
-            >
-              {t('common.back')}
-            </button>
-          )}
+          onBack={() => {
+            if (selectedLegalNotice) setSelectedLegalNotice(null)
+            else setLegalNoticesOpen(false)
+          }}
         >
           {selectedLegalNotice ? (
             <LegalNoticeContent source={LEGAL_NOTICE_CONTENT[selectedLegalNotice]} />
@@ -141,15 +161,11 @@ export function AppSettings({
         </AppDialog>
       )}
 
-      {open && !legalNoticesOpen && (
+      {open && !searchOpen && !legalNoticesOpen && (
         <AppDialog
-          title={t('settings.title')}
+          key="general" fallbackFocusRef={settingsButton} title={t('settings.title')}
+          showCloseButton
           onCancel={closeSettings}
-          actions={(
-            <button type="button" className="app-dialog-submit" onClick={closeSettings}>
-              {t('common.done')}
-            </button>
-          )}
         >
           <section className="app-settings-section" aria-labelledby="app-settings-appearance">
             <h3 id="app-settings-appearance">{t('settings.appearance')}</h3>
@@ -233,6 +249,14 @@ export function AppSettings({
             </section>
           )}
 
+          {tauriRuntime && <section className="app-settings-section app-settings-data" aria-labelledby="app-settings-search">
+            <h3 id="app-settings-search">{t('settings.semantic.title')}</h3>
+            <p className="app-settings-search-summary">{t(`settings.semantic.summary.${semanticSearchStatus(semanticSearch)}`)}</p>
+            <button type="button" className="app-settings-data-action" onClick={() => setSearchOpen(true)}>
+              {t('settings.semantic.manage')}
+            </button>
+          </section>}
+
           <section className="app-settings-section app-settings-developer" aria-labelledby="app-settings-developer">
             <h3 id="app-settings-developer">{t('settings.developer')}</h3>
             <label className="app-setting app-setting-toggle">
@@ -268,6 +292,10 @@ export function AppSettings({
 
       {transferOpen && (
         <LibraryTransferDialog
+          onClose={() => {
+            setTransferOpen(false)
+            closeSettings()
+          }}
           onBack={() => {
             setTransferOpen(false)
             setOpen(true)
@@ -276,15 +304,6 @@ export function AppSettings({
         />
       )}
     </div>
-  )
-}
-
-function SettingsIcon() {
-  return (
-    <svg className="app-settings-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
-      <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.08A1.7 1.7 0 0 0 9 19.36a1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.63 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.08A1.7 1.7 0 0 0 4.64 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.63a1.7 1.7 0 0 0 1-1.56V3a2 2 0 1 1 4 0v.08A1.7 1.7 0 0 0 15 4.64a1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.36 9a1.7 1.7 0 0 0 1.56 1H21a2 2 0 1 1 0 4h-.08A1.7 1.7 0 0 0 19.4 15Z" />
-    </svg>
   )
 }
 

@@ -18,6 +18,10 @@ on:
           - mobile
           - silma-runtime
           - cheap
+      provider_inference:
+        description: "Run provider inference checks (downloads pinned test models)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -130,6 +134,7 @@ jobs:
               src-tauri/Cargo.toml | \
               src-tauri/Cargo.lock | \
               src-tauri/build.rs | \
+              src-tauri/windows-app-manifest.xml | \
               src-tauri/tauri.conf.json | \
               src-tauri/plugins/* | \
               src-tauri/src/* | \
@@ -157,6 +162,7 @@ jobs:
             esac
             case "$path" in
               scripts/build-android.js | \
+              scripts/check-mobile-provider-inference*.mjs | \
               scripts/lib/android/*)
                 android_packaging=true
                 ;;
@@ -167,6 +173,7 @@ jobs:
               src-tauri/icons/ios/* | \
               scripts/build-ios.js | \
               scripts/check-ios-device-build.js | \
+              scripts/check-mobile-provider-inference*.mjs | \
               scripts/lib/ios/*)
                 ios_packaging=true
                 ;;
@@ -219,6 +226,9 @@ jobs:
       - name: Model download monitor regression check
         run: node --test scripts/check-model-downloads-selftest.js
 
+      - name: Mobile provider runner regression check
+        run: node --test scripts/check-mobile-provider-inference-selftest.mjs
+
       - name: Build frontend + Pagefind index
         run: npm run build
 
@@ -269,6 +279,51 @@ jobs:
           # Tauri validates this generated Linux bundle resource before tests run.
           mkdir -p src-tauri/tts/runtime/linux-x64-shared-libs
           cargo test --manifest-path src-tauri/Cargo.toml --locked --lib
+
+      - name: Compile opt-in search provider with native TTS
+        run: |
+          cargo build --manifest-path src-tauri/Cargo.toml --locked --lib \
+            --features native-tts-shared,experimental-search-embeddings
+
+      - name: Opt-in search provider regressions
+        run: |
+          # Reuse Cargo's prepared runtime; cached-model inference checks remain explicit.
+          node scripts/copy-sherpa-linux-libs.js
+          task_shared_dir="$PWD/src-tauri/tts/runtime/linux-x64-shared-libs"
+          LD_LIBRARY_PATH="$task_shared_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+            cargo test --manifest-path src-tauri/Cargo.toml --locked --lib \
+            --features native-tts-shared,experimental-search-embeddings
+
+      - name: Cache explicit provider inference models
+        if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        uses: actions/cache@v5
+        with:
+          path: ${{ runner.temp }}/search-provider-models
+          key: ${{ runner.os }}-search-provider-models-${{ hashFiles('src-tauri/src/search_embeddings/cache.rs') }}
+
+      - name: Provider initialization and model inference (Linux)
+        if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        env:
+          PAPERCUT_EMBEDDING_TEST_MODELS: ${{ runner.temp }}/search-provider-models
+          PAPERCUT_EMBEDDING_TEST_DOWNLOAD: "1"
+        run: |
+          task_shared_dir="$PWD/src-tauri/tts/runtime/linux-x64-shared-libs"
+          LD_LIBRARY_PATH="$task_shared_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+            cargo test --manifest-path src-tauri/Cargo.toml --locked --lib \
+            --features native-tts-shared,experimental-search-embeddings \
+            search_embeddings::provider::tests::cached_provider_activation_switch_failure_and_unload \
+            -- --ignored --exact --nocapture
+
+      # Share only verified test assets; mobile targets never run the downloader/mock app.
+      - name: Share verified mobile inference assets
+        if: github.event_name == 'workflow_dispatch' && inputs.provider_inference && (inputs.validation_scope == 'mobile' || inputs.validation_scope == 'full')
+        uses: actions/upload-artifact@v7
+        with:
+          name: search-provider-validation-models
+          path: ${{ runner.temp }}/search-provider-models/
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 1
 
   build:
     needs: [changes, checks]
@@ -390,6 +445,60 @@ jobs:
           path: src-tauri/target/release/bundle/dmg/*.dmg
           retention-days: 7
 
+      - name: Cache explicit provider inference models
+        if: matrix.platform != 'linux' && github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        uses: actions/cache@v5
+        with:
+          path: ${{ runner.temp }}/search-provider-models
+          key: ${{ runner.os }}-search-provider-models-${{ hashFiles('src-tauri/src/search_embeddings/cache.rs') }}
+
+      - name: Provider initialization and model inference (macOS)
+        if: matrix.platform == 'macos' && github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        env:
+          PAPERCUT_EMBEDDING_TEST_MODELS: ${{ runner.temp }}/search-provider-models
+          PAPERCUT_EMBEDDING_TEST_DOWNLOAD: "1"
+        run: |
+          task_shared_dir="$PWD/src-tauri/tts/runtime/macos-shared-libs"
+          DYLD_LIBRARY_PATH="$task_shared_dir${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" \
+            cargo test --manifest-path src-tauri/Cargo.toml --locked --release --lib \
+            --features native-tts-shared,experimental-search-embeddings \
+            search_embeddings::provider::tests::cached_provider_activation_switch_failure_and_unload \
+            -- --ignored --exact --nocapture
+
+      - name: Provider initialization and model inference (Windows)
+        id: windows_provider_inference
+        if: matrix.platform == 'windows' && github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        env:
+          PAPERCUT_EMBEDDING_TEST_MODELS: ${{ runner.temp }}/search-provider-models
+          PAPERCUT_EMBEDDING_TEST_DOWNLOAD: "1"
+        run: |
+          $env:PATH = "$pwd/src-tauri/target/release;$env:PATH"
+          cargo test --manifest-path src-tauri/Cargo.toml --locked --release --lib `
+            --features "native-tts-shared,experimental-search-embeddings" `
+            search_embeddings::provider::tests::cached_provider_activation_switch_failure_and_unload `
+            -- --ignored --exact --nocapture
+
+      - name: Diagnose Windows provider loader failure
+        if: failure() && steps.windows_provider_inference.conclusion == 'failure'
+        run: |
+          # A pre-harness loader error hides the missing export; retain the actual PE tables.
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $dumpbin = & $vswhere -latest -products '*' -find 'VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe' | Select-Object -First 1
+          if (-not $dumpbin) { throw "Visual Studio dumpbin not found" }
+          $deps = "$pwd/src-tauri/target/release/deps"
+          $tests = @(Get-ChildItem "$deps/app_lib-*.exe")
+          $dlls = @(Get-ChildItem "$deps/*.dll")
+          if (-not $tests -or -not $dlls) { throw "Provider test executables or runtime DLLs missing" }
+          foreach ($file in $tests + $dlls) {
+            Get-FileHash $file.FullName -Algorithm SHA256 | Format-List Path, Hash
+            & $dumpbin /IMPORTS $file.FullName
+            if ($LASTEXITCODE -ne 0) { throw "Cannot inspect imports: $($file.Name)" }
+            if ($file.Extension -eq '.dll') {
+              & $dumpbin /EXPORTS $file.FullName
+              if ($LASTEXITCODE -ne 0) { throw "Cannot inspect exports: $($file.Name)" }
+            }
+          }
+
   build-android:
     needs: [changes, checks]
     if: needs.changes.outputs.android_packaging == 'true'
@@ -447,6 +556,54 @@ jobs:
           name: papercut-android-native-tts-apk
           path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/*.apk
           retention-days: 7
+
+      - name: Download verified mobile inference assets
+        if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        uses: actions/download-artifact@v8
+        with:
+          name: search-provider-validation-models
+          path: ${{ runner.temp }}/search-provider-models
+
+      - name: Compile Android emulator provider regression
+        if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        env:
+          NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/29.0.13846066
+        run: |
+          task_toolchain="$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          export CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER="$task_toolchain/x86_64-linux-android26-clang"
+          export CC_x86_64_linux_android="$CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER"
+          export CXX_x86_64_linux_android="$task_toolchain/x86_64-linux-android26-clang++"
+          # Direct Cargo builds need LLVM archive tools; the NDK has no target-prefixed ar.
+          export AR_x86_64_linux_android="$task_toolchain/llvm-ar"
+          export RANLIB_x86_64_linux_android="$task_toolchain/llvm-ranlib"
+          export SHERPA_ONNX_LIB_DIR="$PWD/src-tauri/tts/runtime/sherpa-onnx-android/jniLibs/x86_64"
+          export ORT_LIB_LOCATION="$SHERPA_ONNX_LIB_DIR"
+          cargo test --manifest-path src-tauri/Cargo.toml --locked --release --lib \
+            --target x86_64-linux-android --features native-tts-shared,experimental-search-embeddings \
+            --no-run --message-format=json > "$RUNNER_TEMP/android-provider-tests.json"
+
+      - name: Enable emulator acceleration
+        if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # shortcut: x86_64 validates Android runtime behavior; arm64 execution needs an arm64 runner/device.
+      - name: Provider initialization and model inference (Android emulator)
+        if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          ram-size: 4096M
+          disable-animations: true
+          script: >-
+            node scripts/check-mobile-provider-inference.mjs --platform android
+            --build-log "$RUNNER_TEMP/android-provider-tests.json"
+            --models "$RUNNER_TEMP/search-provider-models"
+            --runtime-libs "$PWD/src-tauri/tts/runtime/sherpa-onnx-android/jniLibs/x86_64"
 
   build-ios:
     needs: [changes, checks]
@@ -527,6 +684,33 @@ jobs:
 
       - name: Build unsigned iOS device app with native TTS
         run: npm run ios:ci:device
+
+      - name: Download verified mobile inference assets
+        if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        uses: actions/download-artifact@v8
+        with:
+          name: search-provider-validation-models
+          path: ${{ runner.temp }}/search-provider-models
+
+      - name: Compile iOS simulator provider regression
+        if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        run: |
+          test "$(uname -m)" = arm64
+          export SDKROOT="$(xcrun --sdk iphonesimulator --show-sdk-path)"
+          # Match the native simulator archive's minimum; this is not minimum-OS acceptance.
+          export IPHONEOS_DEPLOYMENT_TARGET=15.1
+          export SHERPA_ONNX_LIB_DIR="$PWD/src-tauri/tts/runtime/sherpa-onnx-ios/cargo-libs/ios-arm64-simulator"
+          export ORT_LIB_LOCATION="$SHERPA_ONNX_LIB_DIR"
+          cargo test --manifest-path src-tauri/Cargo.toml --locked --release --lib \
+            --target aarch64-apple-ios-sim --features native-tts-ios,experimental-search-embeddings-linked \
+            --no-run --message-format=json > "$RUNNER_TEMP/ios-provider-tests.json"
+
+      - name: Provider initialization and model inference (iOS simulator)
+        if: github.event_name == 'workflow_dispatch' && inputs.provider_inference
+        run: >-
+          node scripts/check-mobile-provider-inference.mjs --platform ios
+          --build-log "$RUNNER_TEMP/ios-provider-tests.json"
+          --models "$RUNNER_TEMP/search-provider-models"
 
   build-silma-runtime:
     needs: [changes, checks]

@@ -10,6 +10,9 @@ use std::{collections::HashSet, ffi::OsString};
 use bzip2::read::BzDecoder;
 use tar::Archive;
 
+mod runtime_copy;
+use runtime_copy::copy_file_atomically;
+
 const RELEASE_BASE_URL: &str = "https://github.com/k2-fsa/sherpa-onnx/releases/download";
 const SHERPA_ONNX_STATIC_LIBS: &[&str] = &[
     "sherpa-onnx-c-api",
@@ -377,7 +380,8 @@ fn copy_unix_runtime_libs(lib_dir: &Path, target_os: &str) -> Result<(), DynErro
         fs::create_dir_all(&dest_dir)?;
         for (source, dest_name) in &copy_plan {
             let dest = dest_dir.join(dest_name);
-            fs::copy(source, &dest)?;
+            // Replace the inode; a running app may still map the previous library.
+            copy_file_atomically(source, &dest)?;
         }
     }
 
@@ -391,16 +395,6 @@ fn temp_path_for(path: &Path) -> PathBuf {
         .unwrap_or_else(|| OsString::from("tmp"));
     temp_name.push(".part");
     path.with_file_name(temp_name)
-}
-
-fn copy_file_atomically(src: &Path, dst: &Path) -> Result<(), DynError> {
-    let temp_path = temp_path_for(dst);
-    if temp_path.exists() {
-        let _ = fs::remove_file(&temp_path);
-    }
-    fs::copy(src, &temp_path)?;
-    fs::rename(&temp_path, dst)?;
-    Ok(())
 }
 
 fn write_reader_atomically(reader: &mut dyn io::Read, dst: &Path) -> Result<(), DynError> {
@@ -434,7 +428,8 @@ fn copy_windows_runtime_dlls(lib_dir: &Path) -> Result<(), DynError> {
     }
 
     let [profile_dir, examples_dir] = profile_output_dirs()?;
-    for dest_dir in [profile_dir.clone(), examples_dir] {
+    // Tests live in deps; app-local DLLs must take precedence over system/PATH copies.
+    for dest_dir in [profile_dir.clone(), examples_dir, profile_dir.join("deps")] {
         fs::create_dir_all(&dest_dir)?;
         for dll in &dlls {
             let dest = dest_dir.join(
@@ -446,7 +441,8 @@ fn copy_windows_runtime_dlls(lib_dir: &Path) -> Result<(), DynError> {
     }
 
     println!(
-        "cargo:warning=Copied Windows runtime DLLs to {} and {}/examples",
+        "cargo:warning=Copied Windows runtime DLLs to {}, {}/examples and {}/deps",
+        profile_dir.display(),
         profile_dir.display(),
         profile_dir.display()
     );

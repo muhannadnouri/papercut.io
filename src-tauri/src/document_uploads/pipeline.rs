@@ -726,6 +726,134 @@ mod tests {
     };
     use crate::document_uploads::parsed::{ParsedDocument, ParsedDocumentCover, ParsedSection};
 
+    // Exercise the same parser/persistence and sanitized reader source as import,
+    // without a picker, AppHandle or installed application data.
+    fn check_epub_reader_import(root: &std::path::Path, bytes: &[u8]) -> serde_json::Value {
+        let id = super::source_upload_id(bytes);
+        let url = super::upload_url(&id, super::StoredSourceKind::Html);
+        let mut parsed = super::parse_epub_document(bytes, "Evaluation book").unwrap();
+        assert_eq!(parsed.format, "epub");
+        let mut db = crate::document_uploads::store::open_db_in(root).unwrap();
+        let dir = root.join(&id);
+        write_and_index_document(
+            &dir,
+            &mut db,
+            &id,
+            &url,
+            &mut parsed,
+            None,
+            100,
+            bytes.len() as u64,
+        )
+        .unwrap();
+        let source = fs::read_to_string(dir.join("source.html")).unwrap();
+        assert_eq!(source, parsed.view_html);
+        let reader = super::sanitize_html(&source);
+        assert!(super::has_complete_section_locators(
+            &reader,
+            parsed.sections.len()
+        ));
+        let reopened = super::parse_html_document(&reader);
+        assert_eq!(reopened.sections.len(), parsed.sections.len());
+        let mut statement = db.prepare(
+            "SELECT ordinal, heading, text, page_index FROM uploaded_sections WHERE document_id = ?1 ORDER BY ordinal"
+        ).unwrap();
+        let stored = statement
+            .query_map([&id], |row| {
+                Ok((
+                    row.get::<_, usize>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, Option<u32>>(3)?,
+                ))
+            })
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(stored.len(), parsed.sections.len());
+        for (index, (original, reopened)) in
+            parsed.sections.iter().zip(&reopened.sections).enumerate()
+        {
+            assert_eq!(
+                stored[index],
+                (
+                    index,
+                    original.heading.clone(),
+                    original.text.clone(),
+                    original.page_index
+                )
+            );
+            assert_eq!(original.heading, reopened.heading);
+            assert_eq!(original.text, reopened.text);
+        }
+        serde_json::json!({"id": id, "url": url, "title": parsed.title,
+            "format": parsed.format, "readerHtml": reader,
+            "sections": parsed.sections.iter().map(|section| serde_json::json!({
+                "heading": section.heading, "text": section.text, "page_index": section.page_index
+            })).collect::<Vec<_>>()})
+    }
+
+    #[test]
+    fn epub_import_preserves_stored_reader_section_targets() {
+        let root = std::env::temp_dir().join(format!(
+            "papercut-epub-reader-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let result = check_epub_reader_import(
+            &root,
+            include_bytes!("../../../scripts/fixtures/epub/image-diagnostics.epub"),
+        );
+        assert!(!result["sections"].as_array().unwrap().is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    #[ignore = "requires external EPUB paths, empty library directory and new report path"]
+    fn search_v2_epub_import_evaluation() {
+        use std::io::Read;
+        let input = fs::read(std::env::var("PAPERCUT_EPUB_EVAL_INPUT").unwrap()).unwrap();
+        let input: serde_json::Value = serde_json::from_slice(&input).unwrap();
+        let paths: Vec<std::path::PathBuf> =
+            serde_json::from_value(input["files"].clone()).unwrap();
+        assert!(!paths.is_empty());
+        let root = std::env::var("PAPERCUT_EPUB_EVAL_LIBRARY").unwrap();
+        let root = std::path::Path::new(&root);
+        assert!(
+            fs::read_dir(root).unwrap().next().is_none(),
+            "library must be empty"
+        );
+        let mut seen = std::collections::HashSet::new();
+        let documents = paths
+            .iter()
+            .map(|path| {
+                let mut bytes = Vec::new();
+                fs::File::open(path)
+                    .unwrap()
+                    .take(super::MAX_EPUB_UPLOAD_BYTES + 1)
+                    .read_to_end(&mut bytes)
+                    .unwrap();
+                assert!(bytes.len() as u64 <= super::MAX_EPUB_UPLOAD_BYTES);
+                assert!(
+                    seen.insert(super::source_upload_id(&bytes)),
+                    "duplicate EPUB source"
+                );
+                let mut result = check_epub_reader_import(root, &bytes);
+                result["inputPath"] = serde_json::json!(path);
+                result
+            })
+            .collect::<Vec<_>>();
+        let output = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(std::env::var("PAPERCUT_EPUB_EVAL_OUTPUT").unwrap())
+            .unwrap();
+        serde_json::to_writer_pretty(output, &serde_json::json!({"documents":documents})).unwrap();
+    }
+
     #[test]
     fn stored_cover_names_are_fixed_to_safe_raster_types() {
         assert_eq!(stored_cover_file_name("image/png"), Some("cover.png"));
@@ -758,6 +886,7 @@ mod tests {
                 heading: None,
                 text: "Test".into(),
                 page_index: None,
+                body_ranges: None,
             }],
             cover: Some(ParsedDocumentCover {
                 media_type: "image/png",

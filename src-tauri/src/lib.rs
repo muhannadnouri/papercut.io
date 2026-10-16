@@ -2,7 +2,13 @@ mod document_scanner;
 mod document_uploads;
 mod library_transfer;
 mod native_tts;
+#[cfg(any(
+    feature = "native-text-preprocessing-core",
+    feature = "experimental-search-embeddings-core"
+))]
+mod onnx_runtime;
 mod open_documents;
+mod search_embeddings;
 
 #[cfg(desktop)]
 use tauri::Manager;
@@ -35,7 +41,20 @@ pub fn run() {
         .manage(document_uploads::DocumentUploadState::default())
         .manage(library_transfer::LibraryTransferState::default())
         .manage(native_tts::NativeTtsState::default())
+        .manage(search_embeddings::SearchEmbeddingState::default())
+        .manage(document_uploads::semantic::SemanticIndexState::default())
         .invoke_handler(tauri::generate_handler![
+            document_uploads::semantic::query::search_semantic_query,
+            document_uploads::semantic::search_semantic_index_status,
+            document_uploads::semantic::search_semantic_index_build,
+            document_uploads::semantic::search_semantic_index_cancel,
+            document_uploads::semantic::search_semantic_index_remove,
+            search_embeddings::search_embedding_status,
+            search_embeddings::search_embedding_configure,
+            search_embeddings::search_embedding_cache_status,
+            search_embeddings::search_embedding_download,
+            search_embeddings::search_embedding_cancel_download,
+            search_embeddings::search_embedding_remove,
             open_documents::open_documents_take_sources,
             document_uploads::commands::document_uploads_import_batch,
             document_uploads::commands::document_uploads_import_folder,
@@ -68,6 +87,7 @@ pub fn run() {
             document_scanner::commands::document_scanner_availability,
             document_scanner::commands::document_scanner_scan,
             document_scanner::commands::document_scanner_import_images,
+            library_transfer::diagnostics::library_transfer_diagnostics,
             library_transfer::library_transfer_export,
             library_transfer::library_transfer_import,
             library_transfer::network::library_transfer_send_start,
@@ -93,6 +113,7 @@ pub fn run() {
         ])
         .setup(|app| {
             library_transfer::initialize_storage(app.handle()).map_err(std::io::Error::other)?;
+            document_uploads::schedule_search_index_rebuild(app.handle().clone());
             #[cfg(desktop)]
             open_documents::queue_cli_paths(
                 app.handle(),
