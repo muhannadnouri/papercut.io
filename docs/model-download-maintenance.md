@@ -61,12 +61,25 @@ without dependency upgrades. Both generated WAVs were finite, non-silent and
 acceptance. Full scheduled archive checks and hosted CI were not rerun here.
 Local validation passed: 312 frontend tests / 1 skipped, 198 default Rust tests / 4 ignored, 257 provider-enabled Rust tests / 10 ignored, plus the explicit cached Nabra regression. Lint, locale parity, TypeScript, Vite build, monitor self-test and metadata for all four archives passed. Device smoke and the application version bump remain deferred. Native-speaker
 checks must assess unvocalized text through Libtashkeel as well as Original text
-with supplied diacritics, particularly the logged unsupported `U+032A` phoneme mark.
+with supplied diacritics, including pronunciation and pacing. Skipped `U+032A`
+and `U+02E4` warnings alone do not establish incorrect synthesis; Nabra's reference
+frontend deliberately removes those modifiers.
 
 The follow-up review found [Nabra merge blockers](kokoro-tts.md#known-nabra-merge-blockers)
-in token-boundary handling and phoneme cleanup. The short compatibility regression
-does not cover those failures. Local C++ patches and a custom runtime-build script
-were rejected; retain official runtimes and require a verified upstream fix.
+in token-boundary handling and phoneme cleanup. On 2026-10-16 both standalone repros
+also reproduced on unmodified official Sherpa **1.13.8** / bundled ONNX Runtime
+**1.28.2**, using the same checksum-verified Nabra archive and a matching C API
+header. The boundary input still exits 255 with `510 vs 510`; a diagnostic copy of
+the token table still exposes the internal dot. These isolated Linux tests are
+recorded in [Sherpa issue #4057](https://github.com/k2-fsa/sherpa-onnx/issues/4057)
+and the linked TTS section; they did not upgrade Papercut's runtime or dependencies.
+
+The short compatibility regression does not cover those failures or establish
+audio quality. Keep the branch unmerged pending resolution of the native process
+exit and upstream confirmation of Nabra's intended cleanup. Local C++ patches and
+a custom runtime-build script were rejected; require a verified official fix and
+English/Arabic compatibility checks before adopting it. Smoke and the application
+version bump remain deferred.
 
 ### Existing multilingual Kokoro mirror
 

@@ -103,29 +103,51 @@ also includes Nabra; the existing immutable Kokoro mirror is not replaced.
 #### Known Nabra merge blockers
 
 Review on 2026-10-16 found that successful short-sentence synthesis does not
-qualify the integration for merging. Two upstream frontend issues remain open:
+qualify the integration for merging. Both observations are now reported in
+[Sherpa issue #4057](https://github.com/k2-fsa/sherpa-onnx/issues/4057).
+
+The standalone C repros were also tested on Linux x86_64 CPU with the unmodified
+official [Sherpa v1.13.8 release](https://github.com/k2-fsa/sherpa-onnx/releases/tag/v1.13.8),
+the latest official release checked on 2026-10-16. Runtime APIs reported Sherpa
+**1.13.8** and bundled ONNX Runtime **1.28.2**. The runtime archive matched GitHub's
+published SHA-256, and both repros used the same checksum-verified Nabra archive
+as the earlier 1.13.4 test. These isolated tests used the matching C API header;
+they did not upgrade Papercut's runtime or dependencies.
+
+| Standalone v1.13.8 test | Observed result |
+| --- | --- |
+| Short control, original assets | Exit 0; 39,600 samples at 24 kHz |
+| 356-character boundary input, original assets | Exit 255; `Bad things happened! 510 vs 510` |
+| Period-free `الطَّالِبُ`, original tokens / diagnostic copy without the dot entry | Exit 0; 21,000 / 17,400 samples at 24 kHz; diagnostic copy logs unknown `U+002E` |
+
+The crash and internally emitted dot persist on both tested releases:
 
 - **Native process exit at the token boundary.** With the pinned model and official
-  Sherpa 1.13.4 runtime, the 356-character input formed by
+  Sherpa 1.13.4 and 1.13.8 runtimes, the 356-character input formed by
   `("لا هذه في ب ب من هل درس " + "الطائرات " * 37).strip()` terminates an isolated
   synthesis process with `Bad things happened! 510 vs 510` (exit 255). It fits both
   Papercut's save and preview limits. Sherpa's
-  [Kokoro token splitter](https://github.com/k2-fsa/sherpa-onnx/blob/v1.13.4/sherpa-onnx/csrc/piper-phonemize-lexicon.cc)
+  [Kokoro token splitter](https://github.com/k2-fsa/sherpa-onnx/blob/v1.13.8/sherpa-onnx/csrc/piper-phonemize-lexicon.cc)
   does not account for the extra space emitted after a period when checking the
-  style-table limit. Rust error handling cannot catch a native `exit()`.
-- **Missing Nabra-specific phoneme cleanup.** The
-  [reference frontend](https://gist.github.com/Oddadmix/dc699f7942a9516ce29d4842c7aed756)
+  style-table limit; this is the source-level diagnosis of the confirmed exit.
+  Rust error handling cannot catch a native `exit()`.
+- **Nabra-specific phoneme cleanup needs upstream confirmation.** The
+  [pinned reference frontend](https://gist.githubusercontent.com/Oddadmix/dc699f7942a9516ce29d4842c7aed756/raw/827b541c892a862f9ef3b44006a6e27b100d1bdd/arabic_g2p.py)
   removes mid-word syllable dots while retaining sentence punctuation and the
   distinct `ʕ`/`ħ` consonants. The generic Sherpa frontend retains these dots as
-  pause tokens. Its warnings for skipped `U+02E4` and `U+032A` modifiers are a
-  separate issue: the reference frontend intentionally removes those modifiers.
+  pause tokens. The diagnostic token-file copy exposes the internally emitted
+  dot; it is instrumentation only, not a workaround, and leaves original assets
+  untouched. Its sample count does not establish audible quality or timing
+  correctness. Warnings for skipped `U+02E4` and `U+032A` modifiers alone are not
+  evidence of incorrect synthesis: the reference intentionally removes them.
 
 Papercut will not maintain a local Sherpa C++ patch or a custom runtime-build
-script for this integration. The next step is to prepare upstream reproductions
-and use an official runtime/frontend fix once available and verified. The inspected
-upstream `master` implementation still contains the boundary check and exposes no
-public Kokoro phoneme-input/cleanup hook. Do not assume a version or FP16 upgrade
-resolves either issue without reproducing the failures and checking the fix.
+script for this integration. Keep this branch unmerged while the native process
+exit remains unresolved and the intended Nabra cleanup needs upstream agreement.
+The next step is to verify an official runtime/frontend fix against both repros,
+then check English synthesis, cache compatibility, highlighting and Arabic output
+before adopting it. A v1.13.8 upgrade alone does not resolve these observations;
+an FP16 upgrade is also not an established fix.
 
 The rejected backport was removed without changing production synthesis, runtime
 pins, model archives, cache identities, bundle formats, canonical chunks or source
