@@ -188,7 +188,8 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
         if (!sendStatus && !['preparing', 'binding', 'waiting', 'sending'].includes(next.state)) return
         setStatusUnavailable(false)
         setSendStatus(next)
-        if (next.state === 'cancelled') { setStatus({ state: 'idle' }); setCancelling(false) }
+        if (['complete', 'cancelled', 'failed'].includes(next.state)) setCancelling(false)
+        if (next.state === 'cancelled') setStatus({ state: 'idle' })
       }).catch(() => {
         if (!disposed) setStatusUnavailable(true)
       }).finally(() => { pending = false })
@@ -331,6 +332,8 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
   const selectMode = (nextMode: TransferMode) => {
     if (busy) return
     setMode(nextMode)
+    setSendStatus(null)
+    setCancelling(false)
     setControlError(null)
     setStatusUnavailable(false)
     setStatus({ state: 'idle' })

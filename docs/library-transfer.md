@@ -292,7 +292,11 @@ multiple recognizable Wi-Fi/Ethernet interfaces are available. Tunnel, loopback
 and unknown interfaces are never selected automatically. Recognition uses
 platform interface names and the point-to-point flag; it is a convenience, not
 a guarantee about physical hardware or network trust. Listeners bind selected
-addresses, never wildcard addresses. Receives bind a matching source address;
+addresses, never wildcard addresses. Receives bind a matching source address.
+On adapters with multiple compatible addresses, the most specific matching OS
+subnet prefix selects the source. If none matches, Receive reports ambiguity
+instead of guessing; use a peer address on that network or choose another
+network. A single compatible source still permits routed local transfers.
 OS routing and firewall policy remain authoritative. Global-only IPv6 networks
 require transfer-file fallback. IPv6 link-local scope comes from the receiving
 device's selected interface, never the remote device's numeric zone. Windows
@@ -705,6 +709,13 @@ the native command is still active. Receive-progress events before the first
 native generation snapshot are ignored; the native diagnostic history retains
 them.
 
+The foundation review fixes preserve native subnet prefixes without exposing
+them through IPC. Prefix changes also invalidate an active network snapshot.
+Switching Send/Receive clears terminal sender state so network controls and
+Receive errors stay visible, while retaining the content selection. A matching
+terminal sender snapshot clears pending cancellation even when failure or expiry
+wins the race; snapshots from another generation cannot unlock recovery.
+
 Regression coverage includes offline/ambiguous interface selection, explicit
 advanced interfaces, legacy `IPv4:port`, bare-IP default ports, IPv6 scope
 replacement, unsafe destinations, dual-family partial-bind rollback, expiry and
@@ -713,12 +724,16 @@ races, network loss, connect-budget cancellation, blocked TLS cancellation,
 authenticated staging cancellation with private resume files, and the atomic
 restore boundary. Existing wrong-code, channel binding, malformed traffic,
 authenticated resume, package validation and bounded/redacted diagnostics tests
-remain in place. Dialog regressions cover selection/override validation,
-expiry, stale polls/progress, cancellation errors and Finishing Import.
+remain in place. Source-selection regressions cover multiple IPv4/ULA subnets,
+overlapping prefixes, reversed enumeration, link-local scope and ambiguous
+routed destinations. Dialog regressions cover selection/override validation,
+expiry, stale polls/progress, cancellation errors, cancellation/failure races,
+mode changes after terminal Send states, visible Receive errors and Finishing Import.
 
-Validation on Linux: `npm test` passed **320 tests** (one existing skip);
+Validation on Linux after the review fixes: `npm test` passed **324 tests** (one existing skip);
 `cargo test --manifest-path src-tauri/Cargo.toml --lib --no-default-features`
-passed **209 tests** (four existing ignored tests). `npm run build` passed i18n,
+passed **212 tests** (four existing ignored tests). All seven new regression cases
+failed against the previous implementation and passed after the fixes. `npm run build` passed i18n,
 TypeScript, Vite and Pagefind; lint, Rust formatting and documentation-link checks
 passed. Vite retains its module/chunk-size warnings. `cargo-audit` is not installed
 locally, so no fresh local Rust advisory audit is claimed; the existing CI audit
@@ -822,9 +837,9 @@ with packaged builds and record the platform, network type, and result:
 | Incorrect code | Enter a complete valid-format code that differs from the source code. | Both devices report pairing failure, no package bytes move, and the source requires a new session and code. |
 | Unrelated traffic | While the source waits, connect to its displayed port with a browser or raw TCP client where available. | The source stays waiting without showing an unrelated transfer failure. |
 | Resume | Interrupt a large authenticated transfer, restore the same connection path, and receive again with the same address and code. | Transfer resumes from retained bytes and the completed package passes full checksum and import validation. |
-| Cancel and recovery | Cancel while waiting and during transfer; retry after an insufficient-storage failure. | Sockets close promptly, controls recover, partial files do not accumulate, and retry succeeds after storage is available. |
+| Cancel and recovery | Cancel while waiting and during transfer; retry after an insufficient-storage failure. Exercise cancellation near expiry/failure and switch from a terminal Send session to Receive. | Sockets close promptly, controls recover, partial files do not accumulate, and retry succeeds after storage is available. Change Selection stays usable after terminal failure; Receive retains its network controls and shows errors. |
 | Public network | Try a guest or public Wi-Fi network with client isolation, then one that permits device-to-device traffic. | Isolation produces a clear connection failure; when peer traffic is permitted, only the correct code authenticates and content remains encrypted in transit. |
-| Interface selection | Exercise representative Wi-Fi, Ethernet, hotspot, and VPN routes supported by the test devices. | The displayed address matches the interface Papercut listens on; other interfaces are not exposed implicitly. |
+| Interface selection | Exercise representative Wi-Fi, Ethernet, hotspot, and VPN routes supported by the test devices, including an adapter with multiple local subnets where available. | The displayed address matches the interface Papercut listens on; other interfaces are not exposed implicitly. Receive uses the peer's matching subnet, or reports an ambiguous source instead of choosing an unrelated address. |
 | Protocol mismatch | Connect a `PCLAN003` build to the last pre-`PCLAN003` development build. | Pairing fails closed and neither build imports partial or unauthenticated data. |
 | Transfer-file fallback | Save, move, and import a `.papercut-library` file after reviewing its privacy notice. | The file route preserves the same selection and validation behavior and never implies that the saved package is encrypted. |
 

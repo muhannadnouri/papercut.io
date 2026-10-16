@@ -20,6 +20,8 @@ pub struct TransferInterface {
     ipv6_index: u32,
     #[serde(skip)]
     broadcasts: Vec<IpAddr>,
+    #[serde(skip)]
+    prefixes: Vec<(IpAddr, u8)>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -67,6 +69,7 @@ fn group_interfaces(rows: Vec<if_addrs::Interface>) -> Vec<TransferInterface> {
                 addresses: Vec::new(),
                 automatic,
                 broadcasts: Vec::new(),
+                prefixes: Vec::new(),
             });
         if row.ip().is_ipv4() {
             entry.index = index;
@@ -74,6 +77,13 @@ fn group_interfaces(rows: Vec<if_addrs::Interface>) -> Vec<TransferInterface> {
             entry.ipv6_index = index;
         }
         entry.addresses.push(row.ip());
+        entry.prefixes.push((
+            row.ip(),
+            match &row.addr {
+                if_addrs::IfAddr::V4(addr) => addr.prefixlen,
+                if_addrs::IfAddr::V6(addr) => addr.prefixlen,
+            },
+        ));
         if let if_addrs::IfAddr::V4(addr) = row.addr {
             if let Some(broadcast) = addr.broadcast {
                 entry.broadcasts.push(IpAddr::V4(broadcast));
@@ -85,6 +95,8 @@ fn group_interfaces(rows: Vec<if_addrs::Interface>) -> Vec<TransferInterface> {
         .map(|mut i| {
             i.addresses.sort();
             i.addresses.dedup();
+            i.prefixes.sort();
+            i.prefixes.dedup();
             i
         })
         .collect()
@@ -206,6 +218,7 @@ pub(super) fn still_available(network: &TransferInterface) -> bool {
                 && i.index == network.index
                 && i.ipv6_index == network.ipv6_index
                 && i.addresses == network.addresses
+                && i.prefixes == network.prefixes
         })
     })
 }
@@ -214,10 +227,11 @@ pub(super) fn source_address(
     network: &TransferInterface,
     peer: SocketAddr,
 ) -> Result<SocketAddr, String> {
-    network
+    let candidates: Vec<_> = network
         .addresses
         .iter()
-        .find(|ip| {
+        .copied()
+        .filter(|ip| {
             ip.is_ipv4() == peer.is_ipv4()
                 && (ip.is_loopback() == peer.ip().is_loopback())
                 && match (ip, peer.ip()) {
@@ -227,8 +241,31 @@ pub(super) fn source_address(
                     _ => true,
                 }
         })
-        .map(|ip| socket_address(*ip, 0, network.ipv6_index))
-        .ok_or_else(|| "Selected network has no matching source address.".into())
+        .collect();
+    let source = match candidates.as_slice() {
+        [] => return Err("Selected network has no matching source address.".into()),
+        [ip] => *ip,
+        _ => network
+            .prefixes
+            .iter()
+            .filter(|(ip, _)| candidates.contains(ip))
+            .filter(|(ip, prefix)| {
+                let shared_bits = match (*ip, peer.ip()) {
+                    (IpAddr::V4(local), IpAddr::V4(remote)) => {
+                        (u32::from(local) ^ u32::from(remote)).leading_zeros()
+                    }
+                    (IpAddr::V6(local), IpAddr::V6(remote)) => {
+                        (u128::from(local) ^ u128::from(remote)).leading_zeros()
+                    }
+                    _ => return false,
+                };
+                shared_bits >= u32::from(*prefix)
+            })
+            .max_by_key(|(_, prefix)| *prefix)
+            .map(|(ip, _)| *ip)
+            .ok_or("Selected network has multiple possible source addresses. Enter an address on that network or choose another network.")?,
+    };
+    Ok(socket_address(source, 0, network.ipv6_index))
 }
 
 #[cfg(test)]
@@ -276,6 +313,80 @@ mod tests {
             "tun0"
         );
         assert!(select_interface(&all, Some("2:gone")).is_err());
+    }
+
+    #[test]
+    fn receive_source_uses_the_most_specific_local_subnet_in_either_enumeration_order() {
+        let mut broad = row("wlan0", 2, [10, 0, 0, 20]);
+        if let IfAddr::V4(addr) = &mut broad.addr {
+            addr.netmask = Ipv4Addr::new(255, 0, 0, 0);
+            addr.prefixlen = 8;
+            addr.broadcast = Some(Ipv4Addr::new(10, 255, 255, 255));
+        }
+        let mut rows = vec![
+            broad,
+            row("wlan0", 2, [10, 42, 1, 20]),
+            row("wlan0", 2, [192, 168, 1, 20]),
+        ];
+        for _ in 0..2 {
+            let network = group_interfaces(rows.clone()).remove(0);
+            for (peer, expected) in [
+                ("192.168.1.21:53318", "192.168.1.20:0"),
+                ("10.42.1.21:53318", "10.42.1.20:0"),
+                ("10.1.2.21:53318", "10.0.0.20:0"),
+            ] {
+                assert_eq!(
+                    source_address(&network, peer.parse().unwrap()).unwrap(),
+                    expected.parse::<SocketAddr>().unwrap()
+                );
+            }
+            rows.reverse();
+        }
+    }
+
+    #[test]
+    fn receive_source_preserves_ipv6_subnets_and_local_link_scope() {
+        let mut rows = vec![row("wlan0", 2, [192, 168, 1, 20])];
+        for ip in ["fd00:1::20", "fd00:2::20", "fe80::20"] {
+            let mut ipv6 = rows[0].clone();
+            ipv6.addr = IfAddr::V6(if_addrs::Ifv6Addr {
+                ip: ip.parse().unwrap(),
+                netmask: "ffff:ffff:ffff:ffff::".parse().unwrap(),
+                prefixlen: 64,
+                broadcast: None,
+            });
+            rows.push(ipv6);
+        }
+        for _ in 0..2 {
+            let network = group_interfaces(rows.clone()).remove(0);
+            for (peer, expected) in [
+                ("[fd00:2::21]:53318", "[fd00:2::20]:0"),
+                ("[fd00:1::21]:53318", "[fd00:1::20]:0"),
+                ("[fe80::21%999]:53318", "[fe80::20%2]:0"),
+            ] {
+                assert_eq!(
+                    source_address(&network, parse_endpoint(peer, &network).unwrap()).unwrap(),
+                    expected.parse::<SocketAddr>().unwrap()
+                );
+            }
+            rows.reverse();
+        }
+    }
+
+    #[test]
+    fn receive_source_allows_one_routed_address_but_rejects_ambiguous_sources() {
+        let rows = vec![row("wlan0", 2, [192, 168, 1, 20])];
+        let network = group_interfaces(rows.clone()).remove(0);
+        let peer = "192.168.2.21:53318".parse().unwrap();
+        assert_eq!(
+            source_address(&network, peer).unwrap(),
+            "192.168.1.20:0".parse::<SocketAddr>().unwrap()
+        );
+        let network =
+            group_interfaces([rows, vec![row("wlan0", 2, [10, 0, 0, 20])]].concat()).remove(0);
+        assert!(source_address(&network, peer).is_err());
+        assert!(source_address(&network, "[fd00::21]:53318".parse().unwrap()).is_err());
+        assert!(source_address(&network, "127.0.0.1:53318".parse().unwrap()).is_err());
     }
 
     #[test]
