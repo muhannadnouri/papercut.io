@@ -323,8 +323,8 @@ and overlapping transfer restores.
 iOS and macOS bundles include `NSLocalNetworkUsageDescription`, and the transfer
 starts only from a user action while Papercut is foregrounded. Android currently
 targets SDK 36 and uses its existing normal `INTERNET` permission. Before raising
-the target to Android 17 / SDK 37, add and request `ACCESS_LOCAL_NETWORK` as
-required by Android's local-network privacy model.
+the target to Android 17 / SDK 37, implement the required permission or supported
+system-picker path described in the connection design below.
 
 ## Transfer Diagnostics
 
@@ -400,12 +400,12 @@ Validation for this follow-up: **311 frontend passed / 1 optional skipped in 57 
 
 ## Deferred LAN Redesign — 2026-10-15
 
-**Decision:** keep the bounded diagnostics from `bfc7245` in `feature/search-v2`.
-Further transfer investigation and implementation belong in a separate follow-up
-after this branch. This is an evaluation and TODO, not an approved transport
-change, a repaired connection, or an additional search-v2 implementation gate.
-Existing release acceptance requirements still apply; device smoke remains
-explicitly deferred.
+**History:** bounded diagnostics from `bfc7245` were retained in the merged
+search-v2 work. On 2026-10-16 the follow-up moved to `refactor/library-transfer`.
+The selected connection design below supersedes the earlier candidate list;
+this commit documents decisions only. The current transport remains manual,
+and the reported connection failure is not claimed repaired. Existing release
+acceptance requirements still apply; device smoke remains deferred.
 
 ### Reported Failure and Remaining Uncertainty
 
@@ -440,7 +440,7 @@ filtering from router client isolation/routing before changing the protocol.
 
 ### LocalSend Comparison and Recommended Direction
 
-LocalSend's documented v2.2 protocol uses configurable defaults of TCP/UDP
+LocalSend's documented v2 protocol uses configurable defaults of TCP/UDP
 `53317`, multicast discovery at `224.0.0.167`, and a normal upload flow in which
 the receiver listens and accepts or rejects a transfer request. It also documents
 HTTP discovery fallback. Discovery removes routine address entry; a stable port
@@ -452,52 +452,239 @@ access and warns about router client isolation. Its existence is not evidence
 that an application can safely avoid all network permission prompts.
 [LocalSend setup](https://github.com/localsend/localsend/blob/main/README.md#setup)
 
-Recommended Papercut follow-up, subject to a separate design/security review:
+### Selected Connection Design — 2026-10-16
 
-| Area | Candidate and tradeoff |
-| --- | --- |
-| Stable port | Choose a Papercut-specific default after checking conflicts; do not take LocalSend's port. Keep listening foreground/session-scoped. Explain an occupied port and allow an explicit override rather than silently falling back to an unpredictable port. A fixed port improves configuration, not authentication. |
-| Discovery | Evaluate bounded UDP multicast against platform DNS-SD/mDNS support and packaging cost; select one discovery mechanism. Advertise only minimal temporary presence/capability metadata while the transfer flow is open. Keep manual address/key entry; evaluate QR as a convenience fallback. Do not begin with a subnet scanner. |
-| Connection direction | Evaluate receiver-listens/sender-connects against retaining the current sender listener. The former makes Linux-to-Android data upload outgoing from Linux, but the receiving host still needs inbound access and discovery may need its own exception. Do not promise a universal firewall fix or implement automatic dual-direction fallback first. |
-| Transport reuse | Reuse the native package, restore, progress, resume and diagnostic boundaries. LocalSend-style discovery does not require adopting its REST API or weakening Papercut's authenticated transport. Changing listener roles affects TLS/PAKE roles and framing; review those bindings and version changed wire semantics explicitly. |
-| Firewall UX | Explain discovery versus transfer reachability and show the actual listener state/port. Offer documented UFW/firewalld profiles or OS-supported permission guidance with explicit user/admin consent. Scope rules to the selected trusted interface/network, or a peer where practical; include removal instructions. Never silently elevate, disable filtering, open a broad port range, configure router forwarding/UPnP, or treat all private-address networks as trusted. |
+Replace endpoint selection and session orchestration, keeping the existing
+package/import boundary, native streaming, TLS-channel-bound SPAKE2 pairing,
+one-use codes, authenticated resume and bounded diagnostics. Retain the
+**sender-listens / receiver-connects** direction and `PCLAN003` wire format.
+Reversing the connection would move the inbound-firewall requirement, not remove
+it, and would require reviewing TLS, pairing and framing roles. No HTTP server,
+LocalSend compatibility layer, cloud relay, background service or sync engine is
+needed for this redesign.
 
-Discovery results are untrusted hints, never authorization. Bound announcement
-sizes, response rates, cached peers and lifetimes; reject malformed or unsupported
-capabilities without triggering transfers. Do not advertise pairing secrets,
-library metadata or persistent tracking identifiers. A received announcement must
-not trigger arbitrary endpoint probing; retain an explicit interface/address
-policy and review VPN, multiple-interface and IPv6 behavior. Recheck mobile
-local-network/multicast permissions and Apple service declarations before choosing
-the discovery mechanism.
+The normal flow is: sender selects content and starts a session; receiver opens
+Receive, chooses a nearby session, enters the code shown on the sender, and
+receives the existing package. Discovery replaces routine address entry, not
+authentication. Keep manual address entry and transfer-file fallback available
+throughout discovery failure or denial.
 
-Preserve encryption, explicit transfer consent, one-use expiring pairing and
-mutual confirmation bound to the encrypted channel, archive validation, private
-staging, authenticated resume and operation guards. Never downgrade to plaintext
-or trust a self-signed certificate merely because discovery returned it. Keep
-bounded/redacted diagnostics and distinguish confirmed local failures from
-inferred firewall/routing causes. Legacy `PCLAN003` compatibility must be an
-explicitly tested decision; incompatible peers must fail clearly and closed.
+#### DNS-SD Feasibility and Platform Choice
 
-### Resume Checklist for the Separate Follow-Up
+Use standard DNS-SD over local mDNS, with **system discovery adapters** rather
+than an app-owned multicast protocol. Source/API inspection establishes a viable
+integration path, not a compiled or device-tested implementation:
 
-- [ ] Confirm active listener versus blocked traffic using the narrow test above;
-      record both endpoint reports without secrets or private payloads.
-- [ ] Choose discovery, a stable default port and connection direction in a short
-      design review, including permission, lifecycle and firewall-rule ownership.
-- [ ] Define compatibility with existing apps before changing transport roles or
-      protocol framing; retain file export/import as the offline fallback.
-- [ ] Add regressions for port conflicts, listener teardown/expiry, discovery
-      spoofing/floods/stale peers, address policy, denied permissions, incompatible
-      peers, TLS/PAKE binding, cancellation, authenticated resume and redaction.
-- [ ] When smoke is resumed, test both directions on Linux with UFW/firewalld,
-      Android and supported Apple/Windows builds, including network changes,
-      multiple interfaces and isolated Wi-Fi. Verify scoped firewall rule removal
-      and manual fallback when multicast is unavailable.
+| Platform | Selected adapter | Packaging and permission implications |
+| --- | --- | --- |
+| iOS / macOS | System `DNSServiceRegister`, `DNSServiceBrowse`, resolve/address callbacks and explicit reference disposal. Register the existing Rust listener's port on the selected interface; do not introduce a second data listener. | Apple supplies Bonjour. Declare `_papercut-xfer._tcp` in `NSBonjourServices`, retain the local-network usage description, and handle permission failure. Use the C API for compatibility with the current macOS 10.13 / iOS 15.0 floors; this does not require a custom multicast entitlement or an OS-version bump. |
+| Android | Kotlin `NsdManager` through a narrow Tauri native plugin, with a selected `Network`. | Network-scoped browse and `NsdServiceInfo.setNetwork` are available from API 33. For the app's API 26–32 range, retain manual/file transfer and report discovery as unsupported rather than silently searching/advertising on all networks. Keep the current minimum SDK. |
+| Windows | Native `DnsServiceBrowse`, `DnsServiceResolve`, `DnsServiceRegister` and cancellation/deregistration APIs, through Rust bindings. | Windows 10 desktop APIs avoid requiring a separate Bonjour installation. Availability and callback cleanup must be checked in the existing Windows build; missing APIs disable discovery, not manual transfer. |
+| Linux | Avahi's system D-Bus API: service browser/resolver and entry groups scoped to the selected interface. | Discovery requires an accessible system bus and running Avahi service. Use a maintained Rust D-Bus binding; do not bundle, install or start a daemon. AppImage hosts without Avahi retain manual/file transfer with an explicit unavailable state. |
 
-This documentation-only evaluation does not rerun the automated transfer suite,
-change firewall settings or perform device/network smoke. Earlier passing counts
-above remain evidence for the diagnostics commit, not for this proposed redesign.
+Apple documents interface-scoped discovery and service-reference cleanup in its
+[DNS-SD browsing](https://developer.apple.com/library/archive/documentation/Networking/Conceptual/dns_discovery_api/Articles/browse.html)
+and [registration](https://developer.apple.com/library/archive/documentation/Networking/Conceptual/dns_discovery_api/Articles/registering.html)
+guides. Declared Bonjour services avoid the restricted entitlement required for
+custom multicast/broadcast traffic; local-network consent still applies.
+[Apple privacy guidance](https://developer.apple.com/news/?id=0oi77447)
+
+Android's [NSD APIs](https://developer.android.com/reference/android/net/nsd/NsdManager)
+and [network-scoped service information](https://developer.android.com/reference/android/net/nsd/NsdServiceInfo#setNetwork(android.net.Network))
+support the selected-network policy. Target SDK 36 currently uses `INTERNET`;
+do not add or request `ACCESS_LOCAL_NETWORK` at this target. Before targeting
+SDK 37, implement its runtime permission for manual/general LAN access; the
+supported system NSD picker can grant access to a selected discovered endpoint
+without broad permission, but does not authorize sender advertising/listening or
+arbitrary manual addresses. [Android permission guidance](https://developer.android.com/privacy-and-security/local-network-permission)
+
+Microsoft documents [Windows DNS-SD browsing](https://learn.microsoft.com/en-us/windows/win32/api/windns/nf-windns-dnsservicebrowse)
+and [interface-scoped registration](https://learn.microsoft.com/en-us/windows/win32/api/windns/ns-windns-dns_service_register_request).
+Resolve optional discovery entry points without making app startup depend on
+their presence. On Linux, check for an existing Avahi bus owner and disable
+[D-Bus service activation](https://dbus.freedesktop.org/doc/dbus-specification.html);
+discovery must not implicitly start the daemon.
+Avahi's [server](https://github.com/avahi/avahi/blob/master/avahi-daemon/org.freedesktop.Avahi.Server.xml)
+and [entry-group](https://github.com/avahi/avahi/blob/master/avahi-daemon/org.freedesktop.Avahi.EntryGroup.xml)
+interfaces provide the Linux browser, resolver and publisher boundary.
+
+The pure-Rust [mdns-sd alternative](https://docs.rs/mdns-sd/0.21.5/mdns_sd/)
+supports desktop discovery without Avahi, but adds an in-process multicast
+parser, worker and cache to bound and maintain. Its desktop support does not
+establish mobile permission compliance. Do not adopt it or add a second
+discovery backend in the initial redesign; accepting an optional Avahi dependency
+and graceful fallback is the smaller system-service design. Exact binding-crate
+versions and their dependency/license audits belong to implementation, with no
+dependency changes in this design commit.
+
+Reuse the existing [native-plugin pattern](../src-tauri/plugins/document-scanner/src/mobile.rs),
+not the scanner plugin itself. Tauri supports Rust-to-Kotlin calls and native
+callbacks; discovery adapters return bounded metadata to the Rust session owner.
+The WebView neither opens sockets nor parses DNS packets. Apple/Windows system
+API calls and Linux D-Bus stay in platform-specific Rust modules; Android alone
+needs the Kotlin bridge. [Tauri mobile plugin guide](https://v2.tauri.app/develop/plugins/develop-mobile/)
+
+#### Endpoints, Port and Compatibility
+
+- Use **TCP 53318** as Papercut's default, distinct from LocalSend's 53317. It is
+  a private-use default, not an IANA assignment or a promise that the port is
+  free. Bind failure must offer Retry or an explicit advanced port override;
+  never silently pick another random port. Do not use UDP 53318: discovery uses
+  the platform mDNS service on UDP 5353. [IANA port ranges](https://www.iana.org/assignments/service-names-port-numbers/)
+- Enumerate active interfaces and their addresses through native APIs. Prefer
+  an eligible Wi-Fi/Ethernet interface, ask when ambiguous, and make the selected
+  network visible. Do not rely on the current default-route UDP probe or require
+  Internet access. Never automatically select a VPN/tunnel, cellular or loopback
+  interface; an unknown or advanced interface requires explicit selection.
+- Bind the eligible addresses of the selected interface, never wildcard
+  `0.0.0.0` / `::`. If one required bind fails, close the others and report the
+  failure before advertising readiness. Permit
+  private/link-local IPv4 and ULA/link-local IPv6; keep loopback for explicit
+  same-device testing. Reject public, multicast, unspecified and broadcast peer
+  destinations. For IPv6 link-local addresses, derive the scope from the local
+  selected interface, not a peer-supplied interface number. Global-only IPv6
+  networks remain outside this policy and need file fallback.
+- Use a typed endpoint containing address family, port and local interface
+  scope. Attempt only eligible addresses for the user-selected session, within
+  one cancellable 30-second total connect budget. Discovery must not trigger
+  TCP probes. Stop on authentication/protocol failure rather than trying more
+  endpoints with the same one-use code.
+- Revalidate addresses on selection and immediately before connecting. If the
+  selected address/interface disappears, stop the session and withdraw its
+  advertisement; do not migrate a code or partial transfer silently to another
+  network. A replacement session gets a new code and public discovery name.
+- Retain full legacy `IPv4:port` input, including old random ports. New receivers
+  may accept an IP alone using 53318, and new senders still display a full manual
+  endpoint for old receivers. IPv6 literals use brackets when a port is supplied.
+  Prefer IPv4 when available for legacy compatibility: old apps support IPv4
+  only, so IPv6-only sessions require two IPv6-aware builds or file fallback.
+  Existing apps remain manual-only peers. App versions need not match; the
+  authenticated wire protocol and package schema determine compatibility.
+- Neither the discovery TXT schema nor endpoint selection changes `PCLAN003`.
+  Any later change to pairing roles or authenticated framing requires a new
+  protocol marker and explicit compatibility decision; never downgrade security
+  based on an advertisement.
+
+#### Discovery Contract and Bounds
+
+Publish `_papercut-xfer._tcp.local.` only after the selected TCP listeners are
+ready. Browse only that service while Receive is foregrounded. Use an ephemeral
+random instance name, shown on the sender for recognition; TXT contains only
+`v=1` (discovery schema) and `p=PCLAN003` (wire capability). SRV supplies the port.
+Do not add pairing codes, titles, counts, paths or persistent Papercut device IDs.
+Normal DNS-SD/IP metadata and OS-managed hostnames may still be visible on the
+LAN; this is not anonymous discovery. Names and compatibility hints are untrusted
+display data, not proof of identity or authority to import.
+
+Keep at most 64 application peer entries, 8 addresses per peer, 512 bytes of TXT
+data per peer, and 128 queued adapter events. Validate DNS name limits and treat
+labels as plain text. Coalesce UI updates to at most four per second. Browse in
+30-second windows with an explicit Refresh; remove lost records immediately and
+discard retained entries after at most 60 seconds or when the dialog closes.
+Bound outstanding resolve handles as well as the displayed list, and stop
+discovery with a recoverable error if an adapter cannot enforce its queue bounds.
+These are Papercut-owned bounds, not claims about system-daemon internal caches.
+Let system mDNS perform protocol retransmission; add no subnet scans or custom
+announcement loops. A result only becomes a connection attempt after explicit
+selection and code entry. Native validation rejects out-of-policy addresses even
+when a discovered name resolves to them.
+
+#### Session Lifecycle and Cancellation
+
+Rust owns one foreground session generation, its package guard, listener set,
+active socket, cancellation state, discovery registrations and cleanup. React
+reads a snapshot and receives state updates; late callbacks from a replaced
+generation cannot revive old entries or alter the current session. Separate
+listener readiness from discovery availability so an unavailable browser does
+not disable a working manual path. A historical bind event is not a liveness
+check, and a local Ready state is not proof of remote reachability.
+
+Send progresses through preparation, binding, waiting, authentication, streaming,
+receiver import and a terminal result. Expose the native waiting/pairing deadline
+and expiry reason. Retain the existing ten-minute pairing window, authentication
+timeouts and authenticated-stream/import timeouts; discovery refreshes do not
+extend them. Withdraw advertising after successful pairing, re-advertise only
+after an eligible authenticated interruption, and preserve the same code/package
+only within its unexpired session. Incomplete unauthenticated traffic must not
+consume the code; a completed incorrect proof still does.
+
+Add receiver cancellation for connect, TLS/pairing and staging. It must interrupt
+native I/O and release the restore reservation, not merely hide the dialog or
+await the full connect timeout. Once package restore starts, show **Finishing
+Import** and disable cancellation until the existing importer reaches its result;
+do not claim rollback of already imported items. Preserve retryable partials
+under the existing authenticated-resume policy and retain successful imports
+even if the sender disconnects before acknowledgement.
+
+On mobile app backgrounding, cancel the foreground network session and stop
+browsing and advertising; finish an already-started import safely. Permission or
+system-picker presentation is not user backgrounding, and desktop focus loss or
+minimization does not cancel an explicitly started transfer. On close, cancel, expiry,
+network loss or terminal failure, unregister/dispose all discovery handles and
+close sockets idempotently. Resume is promised only for an authenticated
+interruption within the same unexpired foreground session and endpoint, not
+after app termination, background cancellation or network replacement. Do not
+start a background service or automatically restart sharing on foreground entry.
+
+#### Firewall, Errors and Diagnostics
+
+Expose separate states for unavailable/denied discovery, no results, local bind
+failure, expiry, connection refusal/timeout, protocol incompatibility and pairing
+failure. Preserve safe OS error facts in the existing 200-event diagnostic
+history. Do not label every timeout as a firewall failure or claim discovery
+proves the TCP port is reachable. Keep IPs, interface names, device labels and
+pairing secrets out of copied reports; show the chosen endpoint only in the
+interactive transfer UI.
+
+Offer user/admin-controlled firewall instructions scoped to the selected trusted
+interface/network, or the actual peer where practical, with exact removal steps.
+Explain that transfer TCP 53318 (or the override) and discovery mDNS UDP 5353 are
+different paths; existing system discovery/firewall rules may already cover the
+latter. Do not install rules from the transfer code, start Avahi, silently
+elevate, disable a firewall, open a range, configure UPnP/router forwarding or
+classify all private networks as trusted. Windows/Apple OS permission prompts
+remain authoritative. File fallback remains usable on isolated Wi-Fi.
+
+### Delivery Order and Validation Gates
+
+This is a finalized design for staged implementation, not completed discovery:
+
+1. **Endpoint/session foundation:** implement typed interface-aware endpoints,
+   stable binding, authoritative readiness/deadlines, cancellable receive and
+   cleanup. Keep the manual `PCLAN003` path working first; do not call a port-only
+   change the completed redesign.
+2. **Native discovery adapters and UI:** add bounded metadata adapters, device
+   selection, permissions and manual fallback. Compile/link each adapter on its
+   supported minimum OS, verify Tauri callback teardown and Linux missing-bus /
+   missing-Avahi behavior. No minimum-OS increase or third-party DNS daemon is
+   implied. Unsupported discovery must be explicit rather than a silent scan.
+3. **Automated regression gate:** cover port conflicts, partial-bind cleanup,
+   permission errors,
+   ambiguous/no-default-route interfaces, scoped IPv6, endpoint revalidation,
+   expiry, background/close cleanup, late callbacks and cancellation in every
+   pre-import phase. Include malformed/oversized/spoofed/stale peers, event/resolve
+   bounds, denied/unavailable discovery, no automatic TCP probes, legacy manual
+   interoperability, TLS/PAKE binding, wrong-code consumption, authenticated
+   resume, partial import, acknowledgement failure and report redaction.
+4. **Deferred physical acceptance:** resolve the original listener/firewall
+   uncertainty using both endpoint reports; then test both directions on Linux
+   with UFW/firewalld, Windows, Android and Apple builds. Include SDK 26–32 manual
+   fallback, SDK 33+ scoped NSD, Linux without Avahi, multiple interfaces/VPNs,
+   network changes, blocked multicast, isolated Wi-Fi and scoped rule removal.
+
+Implementation will touch `network.rs` for session ownership, address helpers
+currently in `network/security.rs`, endpoint/cancellation plumbing in
+`network/transport.rs`, native plugin/platform bindings and packaging declarations,
+the transfer command/status types, dialog/diagnostic UI, locale strings and their
+existing tests. Package/import storage and pairing cryptography remain their
+existing owners; no package or audiobook schema change is planned. The app
+version bump remains deferred.
+
+This commit checks documentation and primary API sources only. It adds no
+implementation, dependency, firewall rule or protocol change and runs no device
+or discovery smoke. Cross-platform compilation, actual daemon/permission behavior
+and Wi-Fi reachability remain implementation/release gates. Earlier passing test
+counts describe the shipped transfer/diagnostics work, not this redesign.
 
 ## Delivery Checklist
 
@@ -533,9 +720,10 @@ above remain evidence for the diagnostics commit, not for this proposed redesign
 - [x] Review hardening: verify transferred WAV contents against measured playback metadata.
 - [x] Review hardening: classify terminal receiver failures and interrupt active sends on cancel.
 - [x] Review hardening: align local-address policy and prune stale transfer cache files.
-- [ ] Separate follow-up after search-v2: [evaluate discovery, a stable port and
-      secure firewall handling](#deferred-lan-redesign--2026-10-15); keep diagnostics
-      in this branch and leave transfer implementation/device smoke deferred.
+- [x] Follow-up design: [select DNS-SD backends, endpoints, compatibility and
+      session lifecycle](#selected-connection-design--2026-10-16).
+- [ ] Implement the connection redesign on `refactor/library-transfer` following
+      the documented delivery order; retain diagnostics and defer device smoke.
 - [ ] Later: evaluate an optional reading-data category for bookmarks and preferences.
 
 ## Release Acceptance Gate
@@ -564,8 +752,9 @@ The v1.9.0 packaged-build smoke test passed every case in this matrix.
 - Saved transfer files intentionally remain unencrypted. Passphrase-based
   authenticated encryption needs an explicit user requirement because it adds
   password, recovery, compatibility, and package-version UX.
-- Android 17 local-network permission handling is required when Papercut raises
-  its Android target from SDK 36 to SDK 37.
+- Android 17 local-network permission/system-picker handling is required when
+  Papercut raises its Android target from SDK 36 to SDK 37; a selected-endpoint
+  picker grant does not cover arbitrary manual connections or sender listening.
 - Original EPUB archives are not transferable because the current upload
   pipeline stores only generated, sanitized reading HTML. Retaining originals
   would be a separate storage and migration feature.
