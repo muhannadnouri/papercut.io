@@ -39,11 +39,11 @@ skipped as intended for this transfer change.
 - The Linux CPU SILMA runtime packaging job passed.
 
 The ZIP preflight re-review found no further actionable code findings. This run
-clears the outstanding automated build/test gate for the reviewed code. The
-validation-record commit changes documentation only; it does not imply another
-full run on that new documentation commit. Push the record and open the PR to
-`main`, carrying this run link and the explicit deferrals into its description;
-normal PR checks and review still apply.
+clears the automated build/test gate for `d0409fe`, not subsequent UI changes.
+Android screenshots later exposed clipped task controls and a confusing task/
+connection-method hierarchy. The first layout repair and remaining guided-flow
+work are recorded below. Complete that UI pass and review before opening the PR;
+carry this run link, later validation and explicit deferrals into its description.
 
 Physical discovery, permissions/firewall behavior, transfer/resume/cancellation
 and lifecycle acceptance remain unverified on packaged devices. Keep those smoke
@@ -312,6 +312,50 @@ predictable failures but cannot reserve disk space against another process, so
 normal write errors remain authoritative.
 
 ## User Experience
+
+### Mobile Layout Repair — 2026-10-17
+
+Android screenshots showed the Send/Receive control disappearing in taller
+connection forms. It was still rendered: automatic grid-row sizing inside the
+shared scrolling dialog body could collapse its clipped control group to 2 px.
+Navigable dialogs now keep rows at their content height and scroll excess content
+instead. The header remains outside the body scroll area. Discovery search,
+refresh and peer buttons now share the existing transfer button treatment,
+including disabled and keyboard-focus styling.
+
+`LibraryTransferDialog.layout.test.tsx` renders the real `AppDialog` and
+`NearbySessions` components with representative listener/connector content and
+the production CSS in headless Chrome/Chromium. Eight cases check compact,
+expanded and collapsed content at phone/desktop widths, RTL, and a shorter
+viewport with 150% base text size. They verify full control-group height,
+reachable lower actions, header visibility, no horizontal body overflow, and
+consistent enabled/disabled discovery-button styling. Existing DOM tests retain
+ownership, cancellation, mode-switch and discovery-consent coverage.
+
+The browser cases run through `npm test` without a new npm dependency or custom
+build script. They detect Chrome/Chromium on PATH or use `CHROME_BIN`. A local
+machine without a browser explicitly skips them; CI fails rather than silently
+skipping. The current [Ubuntu CI runner image includes Chrome and Chromium](https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md#browsers-and-drivers).
+Run `npx vitest run src/library-transfer/LibraryTransferDialog.layout.test.tsx`
+for the focused browser check. These local HTML fixtures are not Android WebView,
+virtual-keyboard or physical LAN acceptance.
+
+All eight final browser cases fail against the saved pre-fix CSS and pass with
+the repair. The focused transfer/dialog suite passes 60 tests; the full frontend
+suite passes 352 tests with one existing skip. Lint, typecheck, the production
+frontend/Pagefind build, i18n validation and documentation checks pass. This is
+local validation after the linked full CI run, not a new platform CI result.
+
+Next, simplify the task flow: choose Send/Receive first, handle content selection
+and empty libraries before connecting, prioritize nearby selection plus pairing,
+and progressively disclose manual addresses, network changes and ports. Keep an
+explicit, understandable alternate connection method for blocked incoming traffic;
+no silent role reversal or firewall mutation. A stable mobile transfer view and
+clear step-specific instructions remain part of that pass. The current repair
+does not implement that redesign. Device smoke and the app version bump remain
+deferred.
+
+### Current Flow
 
 App Settings owns the entry point because transfer is device-level data
 management rather than another document format. A **Data** section opens a

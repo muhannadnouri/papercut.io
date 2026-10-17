@@ -52,6 +52,8 @@
 .app-dialog-navigable .app-dialog-body {
   min-height: 0;
   overflow: auto;
+  /* Scroll overflowing content instead of collapsing clipped control groups. */
+  grid-auto-rows: max-content;
   padding-inline-end: 0.4rem;
 }
 
