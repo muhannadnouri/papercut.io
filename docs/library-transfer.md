@@ -346,14 +346,54 @@ suite passes 352 tests with one existing skip. Lint, typecheck, the production
 frontend/Pagefind build, i18n validation and documentation checks pass. This is
 local validation after the linked full CI run, not a new platform CI result.
 
-Next, simplify the task flow: choose Send/Receive first, handle content selection
-and empty libraries before connecting, prioritize nearby selection plus pairing,
-and progressively disclose manual addresses, network changes and ports. Keep an
-explicit, understandable alternate connection method for blocked incoming traffic;
-no silent role reversal or firewall mutation. A stable mobile transfer view and
-clear step-specific instructions remain part of that pass. The current repair
-does not implement that redesign. Device smoke and the app version bump remain
-deferred.
+The subsequent task-first flow below implements the interaction changes. A stable
+mobile transfer view and a review of the combined flow remain the next stage.
+Device smoke and the app version bump remain deferred.
+
+### Task-first Transfer Flow — 2026-10-17
+
+An idle dialog begins with Send/Receive choices and no connection form. Send opens
+content selection; Continue opens connection setup only after content has loaded
+and at least one item is selected. An empty library explains what is missing while
+Receive remains available. Change Selection returns without losing the chosen
+items. Receive goes directly to pairing setup without requiring local content.
+The header identifies the chosen task; keyboard/screen-reader focus follows the
+content/connection step heading. Back still returns to Settings and Close exits
+Settings; changing the selected task uses the existing native-dismissal guard.
+
+Nearby sessions are the primary connector path. Explicit peer selection displays
+its unverified name as escaped, bidirectionally isolated text; the pairing code
+then appears, and starting the transfer remains a separate explicit action.
+Enter Address Manually reveals the address fallback. Network Settings contains
+network selection/refresh and the listener port override. A unique eligible
+automatic interface gets a compact name summary; ambiguous or unavailable
+networks keep those settings open and block starting until resolved. Saving a
+transfer file remains available on the content step without a network.
+
+Other Connection Method replaces the second segmented control. Its explicit
+action describes the next pairing behavior: Show a Pairing Code Instead or Use
+the Other Device's Code. Both devices' instructions use these labels. The default
+receiver-listens mode, selected-network consent, authenticated v4 role/mode
+binding and guarded cancellation/restore behavior are unchanged. A method switch,
+network change/refresh or a different peer clears old connection credentials;
+there is no automatic direction fallback, TCP probe or firewall change.
+
+Existing native foreground sessions still reattach before new work is enabled;
+they bypass the new idle task choice so cancellation and retained results remain
+reachable. Terminal dismissal failures keep the old result and its error visible.
+Discovery and transfer begin only on explicit actions, not on step changes.
+Diagnostics stay available during connection setup, active/recovered sessions
+and file export/import activity or results. All eight locales include the new
+labels and matching instructions.
+
+Local validation: the full frontend suite passes 366 tests with one existing
+skip, including all eight browser layout cases. Regressions cover task/step
+navigation, retained content selections, empty libraries, explicit peer choice,
+untrusted names, credential clearing, restored native ownership, file-error
+diagnostics and matching instructions in every locale. Lint, typecheck, i18n,
+the production frontend/Pagefind build and documentation checks pass. This does
+not replace fresh platform CI or physical-device acceptance; smoke and the app
+version bump remain deferred.
 
 ### Current Flow
 
@@ -361,11 +401,10 @@ App Settings owns the entry point because transfer is device-level data
 management rather than another document format. A **Data** section opens a
 dedicated **Transfer Library** dialog organized by the user's role:
 
-- **Send** presents **Send over a local network** as the primary action and keeps
-  **Save Transfer File** under an expandable manual fallback;
-- **Receive** presents **Receive over a local network**, accepts the sending
-  device's address and one-use code, and keeps **Import Transfer File** under
-  the same secondary fallback.
+- **Send** presents content selection, then nearby-device selection and pairing,
+  and keeps **Save Transfer File** under an expandable fallback on selection;
+- **Receive** presents pairing details for the sender to use, with an explicit
+  alternate connector method and **Import Transfer File** as a secondary fallback.
 
 The role control remains visible throughout the dialog. Local-network transfer
 is the default path, while the transfer-file disclosures explain that files can
@@ -408,8 +447,9 @@ shared explanation for the disabled local-network and file actions. The dialog
 also exposes explicit source and target roles for same-network transfer. The
 listening device displays its local address and pairing code; the connecting
 device enters both. By default the receiver listens and the sender connects.
-**Let Receiver Connect** on Send pairs with **Connect to Sender** on Receive
-when the receiver needs an outgoing connection. Neither choice is automatic.
+**Show a Pairing Code Instead** on Send pairs with **Use the Other Device's Code**
+on Receive when the receiver needs an outgoing connection. Neither choice is
+automatic; both are under **Other Connection Method**.
 
 While Papercut checks and packages the selected content, the initiating action
 stays disabled and an adjacent live status explains that large items can take
@@ -455,13 +495,14 @@ and existing libraries/audiobooks are unchanged.
 1. The sender prepares an app-owned temporary package, closes its writable
    handle and computes its SHA-256 using cancellable bounded reads before
    connecting or showing its own pairing details.
-2. In the normal flow, choose **Receive → Let Sender Connect → Show Pairing
-   Details** on the receiver. On the sender choose **Send → Connect to Receiver**,
+2. In the normal flow, choose **Receive → Show Pairing Details** on the receiver.
+   On the sender choose **Send → select content → Continue**,
    use **Find Nearby** and choose the name shown on the receiver, or enter its
    address manually, then enter the code and choose **Start Sending**. Discovery
    never chooses a peer or begins a transfer automatically. To receive
-   through an outgoing socket instead, choose **Let Receiver Connect** on the
-   sender and **Connect to Sender** on the receiver. The selected listener binds
+   through an outgoing socket instead, use **Other Connection Method → Show a
+   Pairing Code Instead** on the sender and **Other Connection Method → Use the
+   Other Device's Code** on the receiver. The selected listener binds
    TCP **53318**, or an explicit advanced port 1024–65535, on every eligible
    address of the selected interface. It alone displays a 12-symbol, 60-bit code.
    Partial bind failure closes the whole set; ports never change silently.
@@ -793,8 +834,9 @@ transfer; no LAN-only architecture can promise reachability under every policy.
 Use these bounded UI/session rules:
 
 1. Keep ordinary **Send** / **Receive** controls. Default Receive waits for the
-   sender. Offer **Connect to Sender** before an attempt or as explicit recovery;
-   the other device selects content and chooses **Let Receiver Connect**. Explain
+   sender. Offer **Use the Other Device's Code** under **Other Connection Method**
+   before an attempt or as explicit recovery; the other device selects content
+   and chooses **Show a Pairing Code Instead**. Explain
    the two actions in place without requiring firewall diagnosis or port entry.
    This is a session choice, not a persistent setting or an OS-name heuristic.
 2. The chosen listener alone displays the ephemeral name and one-use code.
@@ -1165,7 +1207,7 @@ warnings; new transfer warnings were corrected.
 This was automated testing, not device smoke. CI/native platform packaging and
 physical Linux ↔ Android acceptance in both modes are still required. On Linux
 with incoming-deny UFW, keep Linux on the connecting side: default Send for
-Linux → Android, explicit Connect to Sender for Android → Linux. No UFW rule
+Linux → Android, explicit receiver-connects mode for Android → Linux. No UFW rule
 or terminal step was added. If neither device can accept inbound connections,
 use transfer-file recovery rather than promising LAN success.
 
@@ -1311,7 +1353,7 @@ needs the Kotlin bridge. [Tauri mobile plugin guide](https://v2.tauri.app/develo
   network. A replacement session gets a new code and public discovery name.
 - The endpoint policy retains explicit `IPv4:port` input, including
   random ports, bare-IP defaults and IPv6 literals. The new receiver-listens
-  manual fallback enters the receiving endpoint on the sender; Connect to Sender
+  manual fallback enters the receiving endpoint on the sender; receiver-connects mode
   instead enters the sending listener's endpoint on the receiver. Do not imply that
   an address makes incompatible wire versions interoperate. App versions need
   not match exactly; authenticated wire and package compatibility are decisive.
@@ -1710,7 +1752,7 @@ Papercut UFW helper now.** Package-managed profiles plus an existing firewall GU
 are the smallest maintainable administrator fallback, but do **not** satisfy the
 full no-address/no-port-knowledge, selected-network consent flow. That acceptance
 gate remains unmet for an incoming listener under UFW. The subsequent outbound
-evaluation above selects an explicit Connect to Sender alternative before
+evaluation above selects an explicit receiver-connects alternative before
 privileged firewall software. That avoids the Linux listener in the target
 device pair; it does not grant UFW access or establish device acceptance.
 
@@ -1995,7 +2037,7 @@ new-design cases become required when that implementation is available:
 | Protocol mismatch | Connect current `PCLAN004` builds to released v3 peers in both directions. | Fail closed without downgrade or import; a different received marker proves incompatibility, while EOF only warrants connection/update/file guidance. |
 | New protocol cutover | Pair either v4 mode with v3 in both content directions; spoof compatibility/mode metadata. | Clear incompatible-peer/update/file recovery; no direction switch, authenticated-protocol downgrade or partial import. |
 | Linux sending to Android | Use incoming-deny Linux with no Papercut transfer rule; start Receive on Android and follow the new nearby-device/code flow. | Linux uses an outgoing connection; no Linux inbound transfer-TCP exception or terminal setup is required. Validate mDNS/discovery access separately. |
-| Linux receiving | Use Connect to Sender on incoming-deny Linux/AppImage, and Let Receiver Connect on Android with selected content. Separately exercise default listening on OSes with supported grants. | Linux receives over an outgoing authenticated connection without a Linux incoming transfer-TCP rule, terminal or per-phone exceptions. Android must be reachable and foregrounded; discovery/permissions remain separate gates. Any OS grant explains scope/duration. |
+| Linux receiving | Under Other Connection Method, use Use the Other Device's Code on receiving Linux/AppImage, and Show a Pairing Code Instead on Android after selecting content and Continue. Separately exercise default listening on OSes with supported grants. | Linux receives over an outgoing authenticated connection without a Linux incoming transfer-TCP rule, terminal or per-phone exceptions. Android must be reachable and foregrounded; discovery/permissions remain separate gates. Any OS grant explains scope/duration. |
 | Explicit mode and role safety | Switch modes before pairing and near cancellation/expiry; tamper or reflect the advertised/authenticated mode and content roles. | Old listeners/codes/advertisements cannot survive or alter the new generation. Only complementary, mutually authenticated expected roles move metadata/data; no automatic fallback, callback connection or second listener. |
 | Resume in both modes | Interrupt an authenticated transfer in each connection direction; retry the same session, then offer a different prepared package or switch modes. | Same-session data resumes safely. Changed package/invalid offset is rejected before append; new mode/code/peer selection cannot reuse a prior partial. Import and acknowledgement behavior remain unchanged. |
 | Completed-byte/result ambiguity | Lose the last write/flush or final Status, inject invalid post-copy Status, and disconnect/background either device during admitted import. | Sender reports Outcome Unknown where delivery may be complete and never automatically resends. Receiver finishes admitted work safely while allowed by the OS; network teardown cannot cancel import or reopen the generation for replay. |
@@ -2027,7 +2069,7 @@ test-owned temporary grant after testing without changing unrelated policy.
   picker grant does not cover arbitrary manual connections or advertising/listening.
 - Automatic negotiation of either connection direction is deferred until a
   demonstrated need justifies its discovery, authentication and lifecycle cost.
-  The explicit Connect to Sender alternative is selected and does not authorize
+  The explicit receiver-connects alternative is selected and does not authorize
   automatic negotiation. External relays remain excluded from the LAN-only design.
 - Original EPUB archives are not transferable because the current upload
   pipeline stores only generated, sanitized reading HTML. Retaining originals

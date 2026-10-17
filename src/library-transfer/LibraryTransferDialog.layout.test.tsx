@@ -31,7 +31,7 @@ function fixture(connector: boolean) {
     showCloseButton onBack={() => {}} onCancel={() => {}}>
     <div className="library-transfer-mode" id="task-mode"><button>Send</button><button>Receive</button></div>
     <section className="library-transfer-primary-section">
-      <div className="library-transfer-mode" id="connection-mode"><button>Connect to Receiver</button><button>Let Receiver Connect</button></div>
+      <header><h3>Connect Devices</h3><p>Choose the session on the other device and enter its pairing code.</p></header>
       <button id="refresh">Refresh Networks</button>
       {connector ? <>
         <NearbySessions interfaceId="test-network" mode="push" disabled={false} onSelect={() => {}} />
@@ -52,7 +52,7 @@ function fixture(connector: boolean) {
 const measure = `
 const body = document.querySelector('.app-dialog-body');
 const rect = element => { const r = element.getBoundingClientRect(); return {top:r.top,bottom:r.bottom,height:r.height}; };
-const modes = () => ['task-mode','connection-mode'].map(id => {
+const modes = () => ['task-mode'].map(id => {
   const group = document.getElementById(id);
   return {group:rect(group).height,button:rect(group.querySelector('button')).height};
 });

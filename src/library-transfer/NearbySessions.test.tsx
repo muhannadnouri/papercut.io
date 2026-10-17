@@ -35,7 +35,7 @@ it('starts only by request and selects an untrusted plain-text label without con
   expect(selected).not.toHaveBeenCalled()
   await click(peer.name)
   expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_discovery_select', { id: 1, peer: 'session' })
-  expect(selected).toHaveBeenCalledExactlyOnceWith('192.168.1.3:53318')
+  expect(selected).toHaveBeenCalledExactlyOnceWith('192.168.1.3:53318', peer.name)
   expect(ipc.invoke.mock.calls.every(([command]) => command.startsWith('library_transfer_discovery_'))).toBe(true)
 })
 

@@ -16,6 +16,20 @@ vi.mock('../i18n', () => ({
   default: {},
 }))
 
+const locales = import.meta.glob<{ libraryTransfer: Record<string, unknown> }>('../i18n/locales/*.json', { eager: true, import: 'default' })
+it.each(Object.entries(locales))('uses the actual pairing-action labels in %s instructions', (_path, locale) => {
+  const copy = locale.libraryTransfer
+  for (const [instruction, labels] of [
+    ['sendDescription', ['modeReceive', 'showPairingDetails']],
+    ['senderListensDescription', ['modeReceive', 'otherConnectionMethod', 'useOtherCode']],
+    ['receiverConnectsDescription', ['modeSend', 'continueToConnection', 'otherConnectionMethod', 'showCodeHere']],
+    ['receiverPairingStep', ['modeSend', 'continueToConnection']],
+    ['senderPairingStep', ['modeReceive', 'otherConnectionMethod', 'useOtherCode']],
+  ] as const) {
+    for (const label of labels) expect(copy[instruction]).toContain(copy[label])
+  }
+})
+
 describe('library transfer send flow', () => {
   it('announces indeterminate package preparation', () => {
     const html = renderToStaticMarkup(<TransferPreparationMessage />)

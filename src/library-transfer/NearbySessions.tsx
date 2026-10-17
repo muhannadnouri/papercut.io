@@ -4,7 +4,7 @@ import { getTransferDiscovery, selectTransferPeer, startTransferDiscovery, stopT
   type TransferConnectionMode, type TransferDiscoverySnapshot } from './libraryTransfer'
 
 export function NearbySessions({ interfaceId, mode, disabled, onSelect }: {
-  interfaceId: string; mode: TransferConnectionMode; disabled: boolean; onSelect: (address: string) => void
+  interfaceId: string; mode: TransferConnectionMode; disabled: boolean; onSelect: (address: string, name: string) => void
 }) {
   const { t } = useTranslation()
   const [snapshot, setSnapshot] = useState<TransferDiscoverySnapshot | null>(null)
@@ -50,9 +50,10 @@ export function NearbySessions({ interfaceId, mode, disabled, onSelect }: {
   async function choose(peer: string) {
     if (!snapshot || disabled || pending) return
     setPending(true); setFailed(false)
+    const name = snapshot.peers.find(candidate => candidate.id === peer)?.name ?? ''
     try {
       const address = await selectTransferPeer(snapshot.id, peer)
-      if (alive.current) onSelect(address)
+      if (alive.current) onSelect(address, name)
     } catch { if (alive.current) setFailed(true) }
     finally { if (alive.current) setPending(false) }
   }

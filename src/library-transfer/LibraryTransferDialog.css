@@ -421,6 +421,9 @@ html[dir="rtl"] .library-transfer-content[open] summary::before {
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .library-transfer-pairing-fields label {
@@ -649,6 +652,7 @@ html[dir="rtl"] .library-transfer-content[open] summary::before {
   min-width: 0;
   gap: 0.65rem;
   text-align: start;
+  overflow-wrap: anywhere;
 }
 
 .library-transfer-port {
