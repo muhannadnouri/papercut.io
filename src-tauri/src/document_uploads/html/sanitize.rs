@@ -330,6 +330,21 @@ mod tests {
     }
 
     #[test]
+    fn strips_css_url_variants_and_preserves_readable_text() {
+        for function in ["url", "URL", "uRl"] {
+            let sanitized = sanitize_html(&format!(
+                r#"<style>p {{ background-image: {function}("https://tracker.invalid/pixel"); }}</style>
+                <p style='background-image: {function}("https://tracker.invalid/pixel"); color: red'>Readable passage.</p>"#
+            ));
+
+            assert!(!sanitized.contains("<style"));
+            assert!(!sanitized.contains("style="));
+            assert!(!sanitized.contains("tracker.invalid"));
+            assert!(sanitized.contains("Readable passage."));
+        }
+    }
+
+    #[test]
     fn keeps_only_generated_images_and_legacy_raster_data() {
         let asset_name = format!("image-{}.png", "a".repeat(64));
         let svg_name = format!("image-{}.svg", "b".repeat(64));

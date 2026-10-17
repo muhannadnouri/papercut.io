@@ -46,6 +46,11 @@ presentation are recorded below. Their combined local review found no additional
 code blockers. Run fresh CI for the UI changes, then carry both validation records
 and explicit device-acceptance deferrals into the PR description.
 
+The later [CI run 39065709932](https://github.com/muhannadnouri/papercut.io/actions/runs/39065709932/job/117492826914)
+at `de1a566` failed its Rust audit on newly published Ammonia advisory
+`RUSTSEC-2026-0373`. The 4.2.4 repair and local validation below do not constitute
+a passing rerun of that CI attempt.
+
 Packaged-device validation remains incomplete for discovery, permissions/firewall
 behavior, reverse transfers, resume/cancellation and lifecycle handling. Keep the
 remaining smoke tests and the app version bump deferred. Passing CI does not
@@ -146,6 +151,28 @@ needs a new GitHub CI run before mobile packaging can be claimed successful.
 The owner subsequently reported a successful Android APK build of `7525feb`.
 No subsequent run URL/full CI result was independently verified here, and the
 Linux-to-Android transfer below still failed; APK packaging is not LAN acceptance.
+
+The October 17, 2026 audit follow-up raises the Ammonia minimum and locked version
+from 4.2.3 to **4.2.4** for
+[RUSTSEC-2026-0373](https://github.com/RustSec/advisory-db/blob/main/crates/ammonia/RUSTSEC-2026-0373.md).
+The upstream flaw bypasses URL filtering for quoted, mixed-case CSS `URL(...)`
+when an application enables inline CSS. Papercut's reader and EPUB chapter
+sanitizers strip styles and do not enable that affected configuration. The patch
+still removes the vulnerable dependency; both application boundaries now test
+lowercase, uppercase and mixed-case CSS URLs while retaining readable text and
+EPUB anchors. These tests protect the existing no-style policy rather than
+claiming an application exploit was reproduced. No sanitizer policy, stored
+document format or audiobook data changes.
+
+Only Ammonia's version/checksum changes in the lockfile. Using CI's pinned
+`cargo-audit` 0.22.2 and the same freshly fetched 1,338-advisory database, the
+committed 4.2.3 lockfile fails solely on this advisory and the repaired lockfile
+passes with **zero blocking vulnerabilities**. All 13 allowed warnings remain
+visible (11 maintenance and two unsoundness notices), with no new waiver or CI
+policy change. `cargo test --manifest-path src-tauri/Cargo.toml --lib
+--no-default-features --locked --quiet` passes 267 tests with four existing
+ignored tests; Rust formatting and documentation checks pass. Full CI must be
+rerun with `provider_inference` off; smoke and the app version bump remain deferred.
 
 The later [CI run 38996924208](https://github.com/muhannadnouri/papercut.io/actions/runs/38996924208/job/117291439491)
 on `dc92ed5` failed correctly: RustSec reported `RUSTSEC-2026-0367`,

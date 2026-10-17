@@ -596,6 +596,22 @@ mod tests {
     }
 
     #[test]
+    fn chapter_sanitizer_strips_css_url_variants() {
+        for function in ["url", "URL", "uRl"] {
+            let sanitized = sanitize_epub_fragment(&format!(
+                r#"<style>p {{ background-image: {function}("https://tracker.invalid/pixel"); }}</style>
+                <p id="passage" style='background-image: {function}("https://tracker.invalid/pixel"); color: red'>Readable passage.</p>"#
+            ));
+
+            assert!(!sanitized.contains("<style"));
+            assert!(!sanitized.contains("style="));
+            assert!(!sanitized.contains("tracker.invalid"));
+            assert!(sanitized.contains(r#"id="passage""#));
+            assert!(sanitized.contains("Readable passage."));
+        }
+    }
+
+    #[test]
     fn note_roles_survive_both_epub_and_reader_sanitizers() {
         let safe = sanitize_epub_fragment(
             r#"<aside epub:type="footnote" id="note" onclick="alert(1)"><p>Harbor note.</p></aside>

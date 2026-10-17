@@ -64,7 +64,7 @@ libtashkeel_base = { version = "=1.5.0", optional = true, default-features = fal
 ort = { version = "=2.0.0-rc.13", optional = true, default-features = false, features = ["std", "api-17"] }
 fastembed = { version = "=7.1.0", optional = true, default-features = false }
 rusqlite = { version = "0.32", features = ["bundled"] }
-ammonia = "4.2.3"
+ammonia = "4.2.4"
 encoding_rs = "0.8"
 fs4 = { version = "1", features = ["sync"] }
 image = { version = "=0.25.2", default-features = false, features = ["gif", "jpeg", "png", "webp"] }
