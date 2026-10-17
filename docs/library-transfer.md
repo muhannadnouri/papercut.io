@@ -22,11 +22,11 @@ network can still prevent LAN transfer; explain that limit and offer file export
 
 ## Current Validation and PR Readiness
 
-[Full CI run 39003088519](https://github.com/muhannadnouri/papercut.io/actions/runs/39003088519)
-completed successfully on October 17, 2026 (UTC), for `refactor/library-transfer`
-at `d0409fec706f0c65dc1bf9a28e652312c00ae044`. The dispatch used
-`validation_scope: full`; all nine jobs passed. Provider-inference steps were
-skipped as intended for this transfer change.
+[Full CI run 39068099023](https://github.com/muhannadnouri/papercut.io/actions/runs/39068099023)
+completed successfully after the Apple Silicon job rerun on October 17, 2026,
+for `refactor/library-transfer` at `48a2fb6acaddcdfa24c4e5f64e55775764f0d9f2`.
+All nine jobs passed across the full validation scope. Provider-inference steps
+were skipped as intended (`provider_inference: false`).
 
 - Checks passed: npm/Rust dependency audits, lint, frontend and Rust tests,
   download/provider-runner regressions, frontend/Pagefind build, SILMA self-test
@@ -38,18 +38,30 @@ skipped as intended for this transfer change.
   the Apple Bonjour linking repair against both SDK targets.
 - The Linux CPU SILMA runtime packaging job passed.
 
-The ZIP preflight re-review found no further actionable code findings. This run
-clears the automated build/test gate for `d0409fe`, not subsequent UI changes.
-Android screenshots later exposed clipped task controls and a confusing task/
-connection-method hierarchy. The layout repair, task-first flow and stable mobile
-presentation are recorded below. Their combined local review found no additional
-code blockers. Run fresh CI for the UI changes, then carry both validation records
-and explicit device-acceptance deferrals into the PR description.
+The checks job passed 372 frontend tests (one existing skip), 267 ordinary Rust
+library tests (four existing ignored tests) and 325 tests with native TTS and the
+opt-in search capability compiled (nine ignored tests). These compilation/test
+checks are separate from the deliberately skipped model-inference acceptance.
 
-The later [CI run 39065709932](https://github.com/muhannadnouri/papercut.io/actions/runs/39065709932/job/117492826914)
+The [rerun Apple Silicon job](https://github.com/muhannadnouri/papercut.io/actions/runs/39068099023/job/117515950022)
+created and uploaded the DMG, passed 21 native transfer-discovery tests and
+verified the bundled runtime libraries. The first attempt had failed during DMG
+creation after successful compilation and `.app` bundling. The unchanged commit
+passed on rerun without packaging, signing or application changes; the original
+disk-image failure's exact cause remains unconfirmed.
+
+This run clears the automated build/test gate for the task-first flow, mobile
+presentation, wider desktop dialog, explicit Send selection and Ammonia repair.
+Their local reviews found no further actionable code issues. The earlier
+[full CI run 39003088519](https://github.com/muhannadnouri/papercut.io/actions/runs/39003088519)
+validated the ZIP/Apple linking fixes at `d0409fe`; the latest run also covers
+the subsequent changes. Carry the latest validation and explicit device-acceptance
+deferrals into the PR description. No additional implementation blocker is known.
+
+The earlier [CI run 39065709932](https://github.com/muhannadnouri/papercut.io/actions/runs/39065709932/job/117492826914)
 at `de1a566` failed its Rust audit on newly published Ammonia advisory
-`RUSTSEC-2026-0373`. The 4.2.4 repair and local validation below do not constitute
-a passing rerun of that CI attempt.
+`RUSTSEC-2026-0373`. The 4.2.4 repair below is now validated by the successful
+full run at `48a2fb6`, with the existing warning policy and sole waiver unchanged.
 
 Packaged-device validation remains incomplete for discovery, permissions/firewall
 behavior, reverse transfers, resume/cancellation and lifecycle handling. Keep the
@@ -171,8 +183,9 @@ passes with **zero blocking vulnerabilities**. All 13 allowed warnings remain
 visible (11 maintenance and two unsoundness notices), with no new waiver or CI
 policy change. `cargo test --manifest-path src-tauri/Cargo.toml --lib
 --no-default-features --locked --quiet` passes 267 tests with four existing
-ignored tests; Rust formatting and documentation checks pass. Full CI must be
-rerun with `provider_inference` off; smoke and the app version bump remain deferred.
+ignored tests; Rust formatting and documentation checks pass. The subsequent
+full CI run `39068099023` passes at `48a2fb6` after the Apple Silicon DMG rerun,
+with `provider_inference` off. Smoke and the app version bump remain deferred.
 
 The later [CI run 38996924208](https://github.com/muhannadnouri/papercut.io/actions/runs/38996924208/job/117291439491)
 on `dc92ed5` failed correctly: RustSec reported `RUSTSEC-2026-0367`,
@@ -455,8 +468,8 @@ native ownership restoration, cancellation/dismissal guards, file fallback and
 diagnostics, assuming the existing single foreground session. It found no further
 actionable code issues in this UI pass. The browser fixtures measure layout, not
 hydrated native transfers, Android/iOS WebView keyboard behavior or screen-reader
-acceptance. Those smoke checks and the version bump remain deferred. The next
-step is fresh platform CI for the completed UI changes and PR readiness review.
+acceptance. Those smoke checks and the version bump remain deferred. The passing
+platform CI is recorded above; the next step is PR readiness review.
 
 Desktop follow-up: at 768 CSS pixels and above, the transfer dialog uses a
 viewport-bounded 32rem width instead of the shared 24rem default, giving diagnostic
