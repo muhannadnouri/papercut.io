@@ -20,6 +20,36 @@ port forwarding. This is a planned acceptance requirement, not a capability the
 current manual transport already delivers. An isolated or administrator-blocked
 network can still prevent LAN transfer; explain that limit and offer file export.
 
+## Current Validation and PR Readiness
+
+[Full CI run 39003088519](https://github.com/muhannadnouri/papercut.io/actions/runs/39003088519)
+completed successfully on October 17, 2026 (UTC), for `refactor/library-transfer`
+at `d0409fec706f0c65dc1bf9a28e652312c00ae044`. The dispatch used
+`validation_scope: full`; all nine jobs passed. Provider-inference steps were
+skipped as intended for this transfer change.
+
+- Checks passed: npm/Rust dependency audits, lint, frontend and Rust tests,
+  download/provider-runner regressions, frontend/Pagefind build, SILMA self-test
+  and opt-in search-provider compilation/regressions.
+- Linux AppImage/deb, Windows MSI/NSIS, both macOS architectures and Android APK
+  builds passed, including the applicable bundle checks and Windows/macOS native
+  discovery tests. Android discovery callback tests passed.
+- Unsigned iOS simulator and device builds with native TTS passed, confirming
+  the Apple Bonjour linking repair against both SDK targets.
+- The Linux CPU SILMA runtime packaging job passed.
+
+The ZIP preflight re-review found no further actionable code findings. This run
+clears the outstanding automated build/test gate for the reviewed code. The
+validation-record commit changes documentation only; it does not imply another
+full run on that new documentation commit. Push the record and open the PR to
+`main`, carrying this run link and the explicit deferrals into its description;
+normal PR checks and review still apply.
+
+Physical discovery, permissions/firewall behavior, transfer/resume/cancellation
+and lifecycle acceptance remain unverified on packaged devices. Keep those smoke
+tests and the app version bump deferred. Passing CI does not establish the
+no-terminal LAN UX or authorize an automatic UFW exception.
+
 ## Architecture
 
 One versioned `.papercut-library` package is the boundary between storage and
@@ -153,8 +183,8 @@ The existing 22 discovery regressions pass after this correction. Isolated
 static-library compilation of the actual adapter for Intel macOS and ARM64 iOS
 retains all seven Bonjour imports; Rust's native-link requirements retain
 `-lSystem` and no longer contain `-ldns_sd`. These checks do not resolve symbols
-against an Apple SDK or build a packaged app: both macOS jobs and the iOS
-simulator/device builds still need a new CI run on the repaired revision.
+against an Apple SDK or build a packaged app. That remaining build gate was
+subsequently cleared by the full run in [Current Validation and PR Readiness](#current-validation-and-pr-readiness).
 The newer compiler's `fetch_update` deprecation is nonblocking; it is separate
 from this linker failure and the existing Rust 1.88 minimum stays unchanged.
 Smoke and the app version bump remain deferred.
@@ -185,9 +215,10 @@ Verification: all 21 package tests pass, the full native suite passes (265 passe
 four existing ignored), and the native TTS/search-feature suite passes (323 passed,
 nine existing ignored). Formatting, whitespace and local documentation-link checks
 pass. The pinned audit CLI/database above still reports zero blocking findings,
-eight maintenance warnings and two upstream unsoundness warnings. A fresh full CI
-run on the pushed fix, including the Apple linking jobs, remains required; smoke
-and the app version bump remain deferred.
+eight maintenance warnings and two upstream unsoundness warnings. The subsequent
+full CI success, including the Apple linking jobs, is recorded in
+[Current Validation and PR Readiness](#current-validation-and-pr-readiness).
+Smoke and the app version bump remain deferred.
 
 Transferred display-title overrides and available original filenames are
 restored after parsing so metadata corrections survive a device move.
@@ -1419,10 +1450,10 @@ Frontend build/i18n/typecheck, lint, Rust formatting, Clippy, plist declarations
 CI YAML and docs checks pass. Clippy completes with existing unrelated warnings
 and none in discovery. No physical smoke or platform acceptance is claimed.
 
-Next: review all four backends and the Android fixes together, then run full CI
-with `provider_inference` off (unrelated to transfers). Validate packaged
-cross-platform discovery, permission denial, address updates and teardown when
-smoke resumes. Version bump and physical smoke remain deferred.
+The subsequent joint review/fixes and full CI are complete; see
+[Current Validation and PR Readiness](#current-validation-and-pr-readiness).
+Validate packaged cross-platform discovery, permission denial, address updates
+and teardown when smoke resumes. Version bump and physical smoke remain deferred.
 
 #### Discovery Review and Fixes — 2026-10-16
 
@@ -1848,7 +1879,8 @@ transport/UI integration without dependencies or firewall mutation.
 - [x] Stage 3: add one-use expiry and foreground sender cancellation.
 - [x] Foundation: explicit interfaces, stable port/override, scoped IPv6,
   generation-owned snapshots and cancellable receive with protected restore.
-- [ ] Foundation platform builds and physical lifecycle/network acceptance.
+- [x] Foundation platform builds: full CI run 39003088519 on `d0409fe`.
+- [ ] Physical lifecycle/network acceptance (smoke deferred).
 - [x] Revised LAN-only/no-terminal UX, connection direction and native
   authorization constraints documented; native v4 cutover implemented below.
 - [x] Evaluate UFW/AppImage GUI and packaging options against upstream source;
@@ -1867,7 +1899,8 @@ transport/UI integration without dependencies or firewall mutation.
 - [ ] Implement/test supported native OS permission paths without a custom UFW helper.
 - [x] Implement native DNS-SD adapters for Linux, Android, Apple and Windows,
   with nearby-session UI and bounded callback regressions.
-- [ ] Joint discovery review, full native/platform CI and packaged discovery acceptance.
+- [x] Joint discovery review/fixes and full native/platform CI.
+- [ ] Packaged discovery acceptance (smoke deferred).
 - [x] Stage 3: add byte-level transfer and item-level restore phases.
 - [x] Stage 3: reject package staging and restoration when storage is insufficient.
 - [x] Stage 3: resume interrupted transfers, especially large audio.
