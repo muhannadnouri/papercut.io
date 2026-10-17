@@ -138,6 +138,27 @@ database `64f92cdc64401fab47baa10e2e11fe382aa57155`, with eight maintenance
 and two upstream unsoundness warnings still visible. Full platform CI must run
 again on the repaired revision; packaged smoke and the version bump stay deferred.
 
+The subsequent [full CI run 38998060565](https://github.com/muhannadnouri/papercut.io/actions/runs/38998060565)
+on `5efed41` passed the checks job (including the Rust audit and both Rust test
+configurations), Linux packaging, Windows packaging/discovery tests and Android
+APK/JVM tests. iOS simulator and both macOS architectures failed at linking with
+`ld: library 'dns_sd' not found`; this was an Apple discovery binding error,
+not a ZIP or TTS failure. The binding no longer requests that standalone library:
+Apple includes `system_dnssd` in [libSystem's required libraries](https://github.com/apple-oss-distributions/Libsystem/blob/main/requiredlibs)
+and [reexports those libraries](https://github.com/apple-oss-distributions/Libsystem/blob/main/xcodescripts/linker_arguments.sh).
+Rust already links libSystem on these targets. No SDK search paths, copied
+libraries, third-party Bonjour installation or additional build script is needed.
+
+The existing 22 discovery regressions pass after this correction. Isolated
+static-library compilation of the actual adapter for Intel macOS and ARM64 iOS
+retains all seven Bonjour imports; Rust's native-link requirements retain
+`-lSystem` and no longer contain `-ldns_sd`. These checks do not resolve symbols
+against an Apple SDK or build a packaged app: both macOS jobs and the iOS
+simulator/device builds still need a new CI run on the repaired revision.
+The newer compiler's `fetch_update` deprecation is nonblocking; it is separate
+from this linker failure and the existing Rust 1.88 minimum stays unchanged.
+Smoke and the app version bump remain deferred.
+
 Transferred display-title overrides and available original filenames are
 restored after parsing so metadata corrections survive a device move.
 Document ids come from the manifest rather than a hash of normalized HTML;

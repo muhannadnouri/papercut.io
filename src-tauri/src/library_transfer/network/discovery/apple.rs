@@ -96,7 +96,7 @@ struct Api {
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 mod native {
     use super::*;
-    #[link(name = "dns_sd")]
+    // Apple reexports Bonjour through libSystem, which Rust already links.
     unsafe extern "C" {
         fn DNSServiceBrowse(
             r: *mut Ref,
