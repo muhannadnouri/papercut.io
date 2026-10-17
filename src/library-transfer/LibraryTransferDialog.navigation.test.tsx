@@ -3,6 +3,7 @@ import { act, StrictMode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { LibraryTransferNetworkStatus } from './libraryTransfer'
+import { DEFAULT_TTS_MODEL_ID } from '../tts/types'
 
 const ipc = vi.hoisted(() => ({ invoke: vi.fn(), stop: vi.fn(), listen: vi.fn() }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: ipc.invoke, isTauri: () => true }))
@@ -71,8 +72,16 @@ async function mount() {
 function button(label: string) { return Array.from(container.querySelectorAll('button')).find(b => b.textContent === label)! }
 async function click(label: string) { await act(() => button(label).click()) }
 async function poll() { await act(async () => { await vi.advanceTimersByTimeAsync(500) }) }
+async function selectFirstDocument() {
+  await act(() => {
+    const picker = container.querySelector<HTMLDetailsElement>('.library-transfer-content')!
+    picker.open = true
+    picker.querySelector<HTMLInputElement>('.library-transfer-picker-list input[type="checkbox"]')!.click()
+  })
+}
 async function openSender() {
   await click('libraryTransfer.modeSend')
+  await selectFirstDocument()
   await click('libraryTransfer.continueToConnection')
 }
 async function enterPeer() {
@@ -124,10 +133,18 @@ it('starts with a task choice and keeps content selection ahead of connection se
   expect(container.textContent).toContain('Harbor Guide')
   expect(container.querySelector('.library-transfer-network')).toBeNull()
   expect(document.activeElement?.textContent).toBe('libraryTransfer.chooseContent')
-  await act(() => {
-    container.querySelector<HTMLDetailsElement>('.library-transfer-content')!.open = true
-    container.querySelectorAll<HTMLInputElement>('.library-transfer-content input[type="checkbox"]')[1].click()
-  })
+  const documents = () => [...container.querySelectorAll<HTMLInputElement>('.library-transfer-picker-list input[type="checkbox"]')]
+  expect(documents().map(input => input.checked)).toEqual([false, false])
+  expect(button('libraryTransfer.continueToConnection').disabled).toBe(true)
+  expect(button('libraryTransfer.export').disabled).toBe(true)
+  await click('libraryTransfer.continueToConnection'); await click('libraryTransfer.export')
+  expect(ipc.invoke.mock.calls.some(([command]) => /network_start|library_transfer_export/.test(command))).toBe(false)
+  await act(() => { container.querySelector<HTMLDetailsElement>('.library-transfer-content')!.open = true })
+  await click('common.selectAll')
+  expect(documents().every(input => input.checked)).toBe(true)
+  await click('common.deselectAll')
+  expect(documents().every(input => !input.checked)).toBe(true)
+  await selectFirstDocument()
   await click('libraryTransfer.continueToConnection')
   expect(document.activeElement?.textContent).toBe('libraryTransfer.chooseReceiver')
   expect(button('libraryTransfer.nearby.find')).toBeDefined()
@@ -138,6 +155,49 @@ it('starts with a task choice and keeps content selection ahead of connection se
   expect(container.querySelector<HTMLInputElement>('.library-transfer-content input[type="checkbox"]')?.checked).toBe(true)
   expect(container.querySelectorAll<HTMLInputElement>('.library-transfer-content input[type="checkbox"]')[1].checked).toBe(false)
   expect(container.querySelector('.library-transfer-network')).toBeNull()
+  await act(() => root.unmount())
+  root = createRoot(container); await mount(); await click('libraryTransfer.modeSend')
+  expect(documents().map(input => input.checked)).toEqual([false, false])
+  expect(button('libraryTransfer.continueToConnection').disabled).toBe(true)
+})
+
+it('starts audiobooks unselected and includes their source only after an explicit selection', async () => {
+  const fallback = ipc.invoke.getMockImplementation()!
+  ipc.invoke.mockImplementation((command: string, args: unknown) => command === 'tts_list_saved_audiobooks'
+    ? Promise.resolve([{ id: 'audio1', documentUrl: '/uploads/abc123.html', title: 'Saved Harbor Guide', modelId: DEFAULT_TTS_MODEL_ID,
+      voice: 'af_heart', speed: 1, textPreprocessor: 'none', dtype: 'float32', savedAt: 1, chunks: 1 }]) : fallback(command, args))
+  await mount(); await click('libraryTransfer.modeSend')
+  const pickers = container.querySelectorAll<HTMLDetailsElement>('.library-transfer-content')
+  const source = pickers[0].querySelector<HTMLInputElement>('.library-transfer-picker-list input')!
+  const audio = pickers[1].querySelector<HTMLInputElement>('.library-transfer-picker-list input')!
+  expect(source.checked).toBe(false); expect(audio.checked).toBe(false)
+  expect(button('libraryTransfer.continueToConnection').disabled).toBe(true)
+  await act(() => { pickers[1].open = true; audio.click() })
+  expect(source.checked).toBe(true); expect(source.disabled).toBe(true)
+  expect(button('libraryTransfer.continueToConnection').disabled).toBe(false)
+  await act(() => audio.click())
+  expect(source.checked).toBe(false); expect(source.disabled).toBe(false)
+  expect(button('libraryTransfer.continueToConnection').disabled).toBe(true)
+  await act(() => audio.click())
+  await click('libraryTransfer.continueToConnection'); await enterPeer(); await click('libraryTransfer.startSending')
+  expect(ipc.invoke).toHaveBeenCalledWith('library_transfer_network_start', { request: expect.objectContaining({
+    selection: { documentIds: ['abc123'], audiobookIds: ['audio1'] },
+  }) })
+})
+
+it('does not opt documents into sending after retrying a failed document load', async () => {
+  const fallback = ipc.invoke.getMockImplementation()!
+  let failed = false
+  ipc.invoke.mockImplementation((command: string, args: unknown) => {
+    if (command === 'document_uploads_list' && !failed) { failed = true; return Promise.reject(new Error('List failed')) }
+    return fallback(command, args)
+  })
+  await mount(); await click('libraryTransfer.modeSend')
+  expect(container.textContent).toContain('libraryTransfer.documentsLoadFailed')
+  await click('common.retry')
+  expect(container.querySelector<HTMLInputElement>('.library-transfer-picker-list input')?.checked).toBe(false)
+  expect(button('libraryTransfer.continueToConnection').disabled).toBe(true)
+  expect(button('libraryTransfer.export').disabled).toBe(true)
 })
 
 it('explains an empty library before showing address, code or network controls', async () => {
@@ -158,6 +218,7 @@ it('keeps diagnostic details available after a file-export failure on the conten
     ? Promise.reject(new Error('Export failed')) : fallback(command, args))
   await mount(); await click('libraryTransfer.modeSend')
   expect(container.querySelector('.library-transfer-diagnostics')).toBeNull()
+  await selectFirstDocument()
   await click('libraryTransfer.export')
   expect(container.querySelector('.library-transfer-network')).toBeNull()
   expect(container.textContent).toContain('Export failed')
@@ -336,6 +397,7 @@ it('requires an explicit interface when several are eligible and still permits s
     ? [{ id: '2:wlan0', name: 'wlan0', addresses: ['192.168.1.20'], automatic: true }, { id: '3:eth0', name: 'eth0', addresses: ['10.0.0.20'], automatic: true }]
     : fallback(command, args))
   await mount(); await click('libraryTransfer.modeSend')
+  await selectFirstDocument()
   expect(button('libraryTransfer.export').disabled).toBe(false)
   await click('libraryTransfer.continueToConnection'); await enterPeer()
   expect(button('libraryTransfer.startSending').disabled).toBe(true)

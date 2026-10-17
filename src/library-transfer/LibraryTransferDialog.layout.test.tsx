@@ -60,7 +60,7 @@ function fixture(connector: boolean) {
 
 const measure = `
 const body = document.querySelector('.app-dialog-body');
-const rect = element => { const r = element.getBoundingClientRect(); return {top:r.top,bottom:r.bottom,height:r.height}; };
+const rect = element => { const r = element.getBoundingClientRect(); return {top:r.top,bottom:r.bottom,height:r.height,width:r.width}; };
 const dialog = document.querySelector('.app-dialog'), navigation = document.querySelector('.app-dialog-navigation');
 const bounds = () => ({dialog:rect(dialog),navigation:rect(navigation)});
 const entry = bounds();
@@ -109,6 +109,7 @@ describe.skipIf(!browser)('transfer dialog browser layout', () => {
     { width: 320, height: 568, font: 16, dir: 'rtl' },
     { width: 390, height: 500, font: 24, dir: 'ltr' },
     { width: 740, height: 360, font: 16, dir: 'ltr' },
+    { width: 800, height: 800, font: 24, dir: 'rtl' },
     { width: 1280, height: 800, font: 16, dir: 'ltr' },
   ]
   for (const viewport of viewports) {
@@ -142,6 +143,8 @@ describe.skipIf(!browser)('transfer dialog browser layout', () => {
         expect(result.overflowing).toBe(true)
         expect(result.reachable).toBe(true)
         expect(result.horizontalOverflow).toBeLessThanOrEqual(1)
+        expect(result.entry.dialog.width).toBeCloseTo(Math.min(viewport.width - 2 * viewport.font, (viewport.width <= 767 ? 24 : 32) * viewport.font), 0)
+        expect(result.ordinaryDialog.width).toBeCloseTo(Math.min(viewport.width - 2 * viewport.font, 24 * viewport.font), 0)
         if (viewport.width <= 767) {
           expect(result.entry.dialog.height).toBeCloseTo(viewport.height - 3.35 * viewport.font - 22, 0)
           for (const stage of ['selection', 'connection', 'scrolled', 'completion']) {
@@ -152,7 +155,8 @@ describe.skipIf(!browser)('transfer dialog browser layout', () => {
           expect(result.entry.dialog.bottom).toBeLessThanOrEqual(viewport.height - viewport.font - 22 + 0.5)
         } else {
           expect(result.entry.dialog.height).toBeLessThan(result.selection.dialog.height)
-          expect(result.selection.dialog.height).toBeLessThan(result.connection.dialog.height)
+          expect(result.selection.dialog.height).toBeLessThanOrEqual(result.connection.dialog.height)
+          expect(result.connection.dialog.height).toBeCloseTo(viewport.height - 2 * viewport.font - 22, 0)
         }
         expect(result.ordinaryDialog.height).toBeLessThan(result.connection.dialog.height)
         if (connector) {

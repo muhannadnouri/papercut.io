@@ -46,10 +46,14 @@ presentation are recorded below. Their combined local review found no additional
 code blockers. Run fresh CI for the UI changes, then carry both validation records
 and explicit device-acceptance deferrals into the PR description.
 
-Physical discovery, permissions/firewall behavior, transfer/resume/cancellation
-and lifecycle acceptance remain unverified on packaged devices. Keep those smoke
-tests and the app version bump deferred. Passing CI does not establish the
-no-terminal LAN UX or authorize an automatic UFW exception.
+Packaged-device validation remains incomplete for discovery, permissions/firewall
+behavior, reverse transfers, resume/cancellation and lifecycle handling. Keep the
+remaining smoke tests and the app version bump deferred. Passing CI does not
+establish the no-terminal LAN UX or authorize an automatic UFW exception.
+
+The user subsequently reported a successful Linux → Android transfer on October
+17, 2026. This is one successful device case; the broader permission, reverse-
+direction, resume/cancellation and lifecycle matrix remains unverified.
 
 ## Architecture
 
@@ -427,6 +431,22 @@ hydrated native transfers, Android/iOS WebView keyboard behavior or screen-reade
 acceptance. Those smoke checks and the version bump remain deferred. The next
 step is fresh platform CI for the completed UI changes and PR readiness review.
 
+Desktop follow-up: at 768 CSS pixels and above, the transfer dialog uses a
+viewport-bounded 32rem width instead of the shared 24rem default, giving diagnostic
+events more room before wrapping. Mobile sizing and other dialogs retain their
+existing widths. Browser coverage includes desktop width, enlarged-text RTL at
+the viewport limit, and the unchanged ordinary-dialog width.
+
+Fresh Send dialogs now leave documents and audiobooks unselected. A document-load
+retry also leaves documents unselected; choosing an audiobook still includes its
+required uploaded source. Explicit Select All remains available, and moving back
+from pairing preserves the choices. Three selection regressions fail before the
+change and pass afterward. The four desktop width cases likewise fail against the
+24rem styling and pass at 32rem. The follow-up frontend suite passes 372 tests
+with one existing skip, including all twelve browser cases; lint, typecheck,
+i18n and the production frontend/Pagefind build pass. This is local validation,
+not a new CI or complete smoke result.
+
 ### Current Flow
 
 App Settings owns the entry point because transfer is device-level data
@@ -449,9 +469,10 @@ confirmation. The dialog consistently describes transfer as copying selected
 content; it does not imply that the source device loses its library.
 
 The send action offers separate collapsed checklists for uploaded books and
-documents and for completed audiobooks. Documents default to selected to
-preserve the original whole-library behavior; audiobooks default to excluded
-because their audio can add gigabytes. Both lists support select-all and
+documents and for completed audiobooks. Both lists start with nothing selected
+on a fresh dialog, including after a document-loading retry. Continue and file
+export require an explicit selection; moving between selection and pairing
+preserves the user's choices. Both lists support select-all and
 deselect-all, while document filtering appears only for larger libraries.
 When a document filter is active, its bulk actions apply only to matching
 results and preserve selections hidden by the filter. Larger libraries also
@@ -2060,7 +2081,7 @@ type, wire version and result; these device checks remain deferred in this stage
 
 | Case | Action | Pass criteria |
 | --- | --- | --- |
-| Task-first entry and empty library | Open Transfer Library, choose Send with and without content, select items and Continue, then Change Selection. Switch to Receive. | No address form precedes selection; empty Send explains the missing content; selections survive the step change; Receive needs no local content; no discovery or transfer starts merely by choosing a task. |
+| Task-first entry and empty library | Open Transfer Library, choose Send with and without content, select items and Continue, then Change Selection. Switch to Receive. | Fresh Send starts with nothing selected and Continue/export disabled; explicit selection enables them. No address form precedes selection; empty Send explains the missing content; selections survive the step change; Receive needs no local content; no discovery or transfer starts merely by choosing a task. |
 | Mobile step layout | On Android/iOS, walk task choice, content selection, pairing, progress and results; expand manual settings/diagnostics, rotate, enlarge text and open the keyboard in the pairing field. Repeat in RTL. | Dialog/navigation stay within usable safe-area bounds as steps change. The header identifies the task, controls do not collapse, focused inputs and lower actions can be reached, and no horizontal scrolling is needed. Record actual keyboard/WebView behavior separately from browser-fixture results. |
 | Normal transfer | Send selected documents with and without a saved audiobook between two current builds. | Only selected content arrives; required source documents, folders, EPUB images, PDF sources, and playable audio remain intact. |
 | Incorrect code | Enter a complete valid-format code that differs from the listening device's code. | Both devices report pairing failure, no package bytes move, and a new session and code are required. |

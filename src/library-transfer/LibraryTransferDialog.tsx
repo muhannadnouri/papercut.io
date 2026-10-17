@@ -122,7 +122,7 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
     try {
       const nextDocuments = await listUploadedDocuments()
       setDocuments(nextDocuments)
-      setSelectedDocumentIds(nextDocuments.map((document) => document.id))
+      setSelectedDocumentIds([])
     } catch {
       setDocumentsLoadFailed(true)
     } finally {

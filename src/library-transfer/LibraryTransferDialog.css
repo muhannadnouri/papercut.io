@@ -1,3 +1,9 @@
+@media (min-width: 768px) {
+  .app-dialog.library-transfer-dialog {
+    width: min(100%, 32rem);
+  }
+}
+
 @media (max-width: 767px) {
   .app-dialog.library-transfer-dialog {
     height: 100%;
