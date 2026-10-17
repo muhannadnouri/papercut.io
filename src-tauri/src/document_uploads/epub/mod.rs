@@ -515,7 +515,7 @@ fn is_html_void_element(tag_name: &str) -> bool {
 mod tests {
     use super::*;
     use std::io::Write;
-    use zip::write::FileOptions;
+    use zip::write::SimpleFileOptions;
     use zip::CompressionMethod;
 
     #[test]
@@ -545,7 +545,8 @@ mod tests {
         {
             let cursor = Cursor::new(&mut archive);
             let mut zip = zip::ZipWriter::new(cursor);
-            let deflated = FileOptions::default().compression_method(CompressionMethod::Deflated);
+            let deflated =
+                SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
             zip.start_file("OPS/text/chapter.xhtml", deflated).unwrap();
             zip.write_all(b"123456789").unwrap();
             zip.finish().unwrap();
@@ -770,8 +771,9 @@ mod tests {
         {
             let cursor = Cursor::new(&mut archive);
             let mut zip = zip::ZipWriter::new(cursor);
-            let stored = FileOptions::default().compression_method(CompressionMethod::Stored);
-            let deflated = FileOptions::default().compression_method(CompressionMethod::Deflated);
+            let stored = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+            let deflated =
+                SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
             zip.start_file("mimetype", stored).unwrap();
             zip.write_all(b"application/epub+zip").unwrap();
             zip.start_file(CONTAINER_PATH, deflated).unwrap();
@@ -799,8 +801,9 @@ mod tests {
         {
             let cursor = Cursor::new(&mut archive);
             let mut zip = zip::ZipWriter::new(cursor);
-            let stored = FileOptions::default().compression_method(CompressionMethod::Stored);
-            let deflated = FileOptions::default().compression_method(CompressionMethod::Deflated);
+            let stored = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+            let deflated =
+                SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
             zip.start_file("mimetype", stored).unwrap();
             zip.write_all(b"application/epub+zip").unwrap();
             zip.start_file(CONTAINER_PATH, deflated).unwrap();
@@ -835,8 +838,9 @@ mod tests {
         {
             let cursor = Cursor::new(&mut archive);
             let mut zip = zip::ZipWriter::new(cursor);
-            let stored = FileOptions::default().compression_method(CompressionMethod::Stored);
-            let deflated = FileOptions::default().compression_method(CompressionMethod::Deflated);
+            let stored = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+            let deflated =
+                SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
             zip.start_file("mimetype", stored).unwrap();
             zip.write_all(b"application/epub+zip").unwrap();
             zip.start_file(CONTAINER_PATH, deflated).unwrap();
@@ -931,8 +935,9 @@ mod tests {
         {
             let cursor = Cursor::new(&mut archive);
             let mut zip = zip::ZipWriter::new(cursor);
-            let stored = FileOptions::default().compression_method(CompressionMethod::Stored);
-            let deflated = FileOptions::default().compression_method(CompressionMethod::Deflated);
+            let stored = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+            let deflated =
+                SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
             zip.start_file("mimetype", stored).unwrap();
             zip.write_all(b"application/epub+zip").unwrap();
             zip.start_file(CONTAINER_PATH, deflated).unwrap();

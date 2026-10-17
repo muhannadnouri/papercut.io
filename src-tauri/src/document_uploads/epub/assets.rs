@@ -239,7 +239,7 @@ mod tests {
             ("budget.png", 1),
             ("empty.png", 0),
         ] {
-            zip.start_file(name, zip::write::FileOptions::default())
+            zip.start_file(name, zip::write::SimpleFileOptions::default())
                 .unwrap();
             zip.write_all(&vec![0; size]).unwrap();
         }

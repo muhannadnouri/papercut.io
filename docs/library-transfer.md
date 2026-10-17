@@ -112,6 +112,32 @@ The owner subsequently reported a successful Android APK build of `7525feb`.
 No subsequent run URL/full CI result was independently verified here, and the
 Linux-to-Android transfer below still failed; APK packaging is not LAN acceptance.
 
+The later [CI run 38996924208](https://github.com/muhannadnouri/papercut.io/actions/runs/38996924208/job/117291439491)
+on `dc92ed5` failed correctly: RustSec reported `RUSTSEC-2026-0367`,
+`RUSTSEC-2026-0368` and `RUSTSEC-2026-0369` against the direct `zip` 0.6.6
+dependency. These affect automatic extraction of permissions and symlinks;
+Papercut instead reads declared entries through its own bounded, checksummed
+import path and does not use those extraction APIs. The repair upgrades to
+`zip` 9.0.4 with only the portable Rust DEFLATE backend enabled, without adding
+waivers or changing the audit policy, package schema, LAN protocol or app version.
+The dependency's Apple filesystem support requires `nix` 0.31.3 and a compatible
+`libc` patch, so the lockfile also moves `libc` from 0.2.182 to 0.2.191.
+
+ZIP 9 indexes entries by filename and collapses duplicates. The existing
+standard/ZIP64 preflight now returns the original directory entry count;
+opening a library package rejects a mismatch with the reader's unique entry
+count before manifest validation or storage changes. Filename decoding errors
+also fail closed. Fixed ZIP 0.6.6 stored/deflated Unicode-content vectors and
+a duplicate-name vector cover compatibility and that rejection. A temporary
+two-version harness also checked new DEFLATE output against the old reader.
+Existing EPUB, image, audiobook, package/path/checksum and ZIP64 regressions
+remain active. Full native tests pass (258 passed, four existing ignored), as
+does the native TTS/search-feature suite (316 passed, nine existing ignored).
+The same pinned audit CLI reports zero blocking vulnerabilities against RustSec
+database `64f92cdc64401fab47baa10e2e11fe382aa57155`, with eight maintenance
+and two upstream unsoundness warnings still visible. Full platform CI must run
+again on the repaired revision; packaged smoke and the version bump stay deferred.
+
 Transferred display-title overrides and available original filenames are
 restored after parsing so metadata corrections survive a device move.
 Document ids come from the manifest rather than a hash of normalized HTML;

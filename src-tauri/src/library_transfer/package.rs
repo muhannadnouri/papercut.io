@@ -6,7 +6,7 @@ use std::path::{Component, Path};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use zip::write::FileOptions;
+use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipArchive, ZipWriter};
 
 use crate::document_uploads::is_reader_asset_file_name;
@@ -181,7 +181,7 @@ where
         return Err("Library-transfer manifest is too large".into());
     }
 
-    let options = FileOptions::default()
+    let options = SimpleFileOptions::default()
         .compression_method(CompressionMethod::Deflated)
         .unix_permissions(0o644);
     let mut archive = ZipWriter::new(writer);
@@ -234,7 +234,7 @@ where
 
 fn write_payload<W: Write + Seek, O: FnMut(&str) -> Result<Box<dyn Read>, String>>(
     archive: &mut ZipWriter<W>,
-    options: FileOptions,
+    options: SimpleFileOptions,
     path: &str,
     expected_bytes: u64,
     expected_sha256: &str,
@@ -270,7 +270,7 @@ fn write_payload<W: Write + Seek, O: FnMut(&str) -> Result<Box<dyn Read>, String
 ///
 /// ponytail: remove this narrow preflight when `zip` exposes equivalent entry
 /// and central-directory byte limits in its stable reader configuration.
-pub(super) fn preflight_archive<R: Read + Seek>(reader: &mut R) -> Result<(), String> {
+fn preflight_archive<R: Read + Seek>(reader: &mut R) -> Result<u64, String> {
     const END_SIGNATURE: [u8; 4] = [0x50, 0x4b, 0x05, 0x06];
     const ZIP64_END_SIGNATURE: [u8; 4] = [0x50, 0x4b, 0x06, 0x06];
     const ZIP64_LOCATOR_SIGNATURE: [u8; 4] = [0x50, 0x4b, 0x06, 0x07];
@@ -300,7 +300,7 @@ pub(super) fn preflight_archive<R: Read + Seek>(reader: &mut R) -> Result<(), St
         .ok_or_else(|| "Library-transfer archive is missing its central directory".to_string())?;
     let end_position = file_bytes - tail_bytes as u64 + end_offset as u64;
 
-    if end_offset >= ZIP64_LOCATOR_BYTES
+    let entries = if end_offset >= ZIP64_LOCATOR_BYTES
         && tail[end_offset - ZIP64_LOCATOR_BYTES..end_offset - ZIP64_LOCATOR_BYTES + 4]
             == ZIP64_LOCATOR_SIGNATURE
     {
@@ -330,7 +330,9 @@ pub(super) fn preflight_archive<R: Read + Seek>(reader: &mut R) -> Result<(), St
         {
             return Err("Library-transfer ZIP64 metadata is invalid".into());
         }
-        validate_central_directory_limits(read_u64(&zip64, 32), read_u64(&zip64, 40))?;
+        let entries = read_u64(&zip64, 32);
+        validate_central_directory_limits(entries, read_u64(&zip64, 40))?;
+        entries
     } else {
         if read_u16(&tail, end_offset + 4) != 0
             || read_u16(&tail, end_offset + 6) != 0
@@ -338,15 +340,28 @@ pub(super) fn preflight_archive<R: Read + Seek>(reader: &mut R) -> Result<(), St
         {
             return Err("Multi-disk library-transfer archives are not supported".into());
         }
-        validate_central_directory_limits(
-            read_u16(&tail, end_offset + 10) as u64,
-            read_u32(&tail, end_offset + 12) as u64,
-        )?;
-    }
+        let entries = read_u16(&tail, end_offset + 10) as u64;
+        validate_central_directory_limits(entries, read_u32(&tail, end_offset + 12) as u64)?;
+        entries
+    };
 
     reader
         .rewind()
-        .map_err(|err| format!("Failed to rewind library-transfer archive: {err}"))
+        .map_err(|err| format!("Failed to rewind library-transfer archive: {err}"))?;
+    Ok(entries)
+}
+
+pub(super) fn open_archive<R: Read + Seek>(mut reader: R) -> Result<ZipArchive<R>, String> {
+    let entries = preflight_archive(&mut reader)?;
+    let archive = ZipArchive::new(reader)
+        .map_err(|err| format!("Selected file is not a valid Papercut library: {err}"))?;
+    // ZIP 9 collapses duplicate names; compare with the original directory count before import.
+    if archive.len() as u64 != entries {
+        return Err(
+            "Library-transfer archive contains duplicate entries or inconsistent metadata".into(),
+        );
+    }
+    Ok(archive)
 }
 
 fn validate_central_directory_limits(entries: u64, bytes: u64) -> Result<(), String> {
@@ -838,7 +853,10 @@ fn validate_archive_entries<R: Read + Seek>(
         let entry = archive
             .by_index(index)
             .map_err(|err| format!("Failed to inspect library-transfer archive: {err}"))?;
-        let name = entry.name().to_string();
+        let name = entry
+            .name()
+            .map_err(|err| format!("Invalid library-transfer archive filename: {err}"))?
+            .into_owned();
         if entry.is_dir() || !expected.contains(name.as_str()) || !seen.insert(name.clone()) {
             return Err(format!("Unexpected library-transfer archive entry: {name}"));
         }
@@ -893,6 +911,51 @@ mod tests {
         }
     }
 
+    // Fixed vectors from zip 0.6.6, so reader compatibility does not depend on the current writer.
+    #[test]
+    fn patched_reader_accepts_legacy_stored_and_deflated_unicode_payloads() {
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+        let legacy_archives = [
+            concat!(
+                "UEsDBBQAAAAAAAAAIQBYPm3WKAAAACgAAAALAAAAc2FtcGxlLmh0bWw8cD5BcmNoaXZlIGNvbXBhdGliaWxpdHk6INmF2LHY",
+                "rdio2Kc8L3A+UEsBAi4DFAAAAAAAAAAhAFg+bdYoAAAAKAAAAAsAAAAAAAAAAAAAAKSBAAAAAHNhbXBsZS5odG1sUEsFBgAA",
+                "AAABAAEAOQAAAFEAAAAAAA==",
+            ),
+            concat!(
+                "UEsDBBQAAAAIAAAAIQBYPm3WKwAAACgAAAALAAAAc2FtcGxlLmh0bWyzKbBzLErOyCxLVUjOzy1ILMlMyszJLKm0UrjZemPj",
+                "jbU3VtxYbqNfYAcAUEsBAi4DFAAAAAgAAAAhAFg+bdYrAAAAKAAAAAsAAAAAAAAAAAAAAKSBAAAAAHNhbXBsZS5odG1sUEsF",
+                "BgAAAAABAAEAOQAAAFQAAAAAAA==",
+            ),
+        ];
+        for encoded in legacy_archives {
+            let bytes = STANDARD.decode(encoded).unwrap();
+            let mut archive =
+                open_archive(Cursor::new(bytes)).expect("legacy ZIP remains readable");
+            let mut source = String::new();
+            archive
+                .by_name("sample.html")
+                .unwrap()
+                .read_to_string(&mut source)
+                .unwrap();
+            assert_eq!(source, "<p>Archive compatibility: مرحبا</p>");
+        }
+    }
+
+    #[test]
+    fn duplicate_archive_names_are_rejected_before_the_reader_can_hide_them() {
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+        let bytes = STANDARD.decode(concat!(
+                "UEsDBBQAAAAIAAAAIQDl1F0/BQAAAAMAAAAJAAAAc2FtZS5odG1sy89JAQBQSwMEFAAAAAgAAAAhAEVE42sFAAAAAwAAAAkA",
+                "AABzYW1lLmh0bWzLSy0HAFBLAQIuAxQAAAAIAAAAIQDl1F0/BQAAAAMAAAAJAAAAAAAAAAAAAACkgQAAAABzYW1lLmh0bWxQ",
+                "SwECLgMUAAAACAAAACEARUTjawUAAAADAAAACQAAAAAAAAAAAAAApIEsAAAAc2FtZS5odG1sUEsFBgAAAAACAAIAbgAAAFgA",
+                "AAAAAA==",
+            )).unwrap();
+        assert_eq!(ZipArchive::new(Cursor::new(&bytes)).unwrap().len(), 1);
+        assert!(open_archive(Cursor::new(bytes))
+            .unwrap_err()
+            .contains("duplicate entries"));
+    }
+
     #[test]
     fn package_round_trip_validates_manifest_entries_and_checksum() {
         let source = b"<html><title>Test</title><body><p>Hello</p></body></html>".to_vec();
@@ -904,8 +967,7 @@ mod tests {
         .expect("write package");
 
         bytes.set_position(0);
-        preflight_archive(&mut bytes).expect("preflight package");
-        let mut archive = ZipArchive::new(bytes).expect("open package");
+        let mut archive = open_archive(bytes).expect("open package");
         let restored_manifest = read_manifest(&mut archive).expect("read manifest");
         let restored = read_document_source(&mut archive, &restored_manifest.documents[0])
             .expect("read source");
@@ -961,7 +1023,7 @@ mod tests {
         let mut bytes = Cursor::new(Vec::new());
         {
             let mut zip = ZipWriter::new(&mut bytes);
-            let options = FileOptions::default();
+            let options = SimpleFileOptions::default();
             zip.start_file(MANIFEST_PATH, options).unwrap();
             zip.write_all(&serde_json::to_vec(&manifest).unwrap())
                 .unwrap();
@@ -987,7 +1049,7 @@ mod tests {
         let mut bytes = Cursor::new(Vec::new());
         {
             let mut zip = ZipWriter::new(&mut bytes);
-            let options = FileOptions::default();
+            let options = SimpleFileOptions::default();
             zip.start_file(MANIFEST_PATH, options).unwrap();
             zip.write_all(&serde_json::to_vec(&manifest).unwrap())
                 .unwrap();
