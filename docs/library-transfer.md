@@ -245,8 +245,10 @@ The dialog reports document and audiobook counts plus failures. The transfer-fil
 summary repeats both selected counts, and an empty selection gets one visible,
 shared explanation for the disabled local-network and file actions. The dialog
 also exposes explicit source and target roles for same-network transfer. The
-source displays a local address and pairing code; the target enters both values
-and receives the same package through the normal import boundary.
+listening device displays its local address and pairing code; the connecting
+device enters both. By default the receiver listens and the sender connects.
+**Let Receiver Connect** on Send pairs with **Connect to Sender** on Receive
+when the receiver needs an outgoing connection. Neither choice is automatic.
 
 While Papercut checks and packages the selected content, the initiating action
 stays disabled and an adjacent live status explains that large items can take
@@ -258,15 +260,17 @@ After sending starts, the selection lists and transfer-file fallback are
 replaced in place by a compact guided state so current work remains above the
 fold. Preparation leads to two numbered pairing instructions, the address and
 one-use code, existing byte and receiver-import progress, and the final result.
-**Change Selection** cancels a waiting session and restores the retained choices;
-an in-flight transfer instead exposes **Stop Sending**. This uses the existing
+**Cancel Transfer** stops active network work; after native cleanup,
+**Change Selection** restores the retained choices. This uses the existing
 dialog and session state rather than introducing routes or a multi-page wizard.
 
 The header has icon-only **Back** and **Close** controls on a separate row above
 the title. Back returns to Settings; Close dismisses the entire Settings flow.
 During export, import, preparation, receiving or waiting/sending, both controls
 are disabled and Escape/backdrop dismissal is blocked. Session cancellation
-remains an explicit **Change Selection** or **Stop Sending** action in the body.
+remains an explicit **Cancel Transfer** action in the body. **Finishing Import**
+keeps navigation blocked and cannot be cancelled; network teardown still closes
+sockets without aborting admitted local restore.
 
 Completion also replaces the active controls in place and keeps the result open
 until the user chooses **Back** or **Close**. The source reports the document and audiobook
@@ -277,44 +281,68 @@ presenting every completed operation as an unqualified success.
 
 ## Same-Network Transport
 
-The implemented `PCLAN003` path remains foreground and manual. The revised v4
-core is tested but its receiver-listens flow is not exposed by the UI yet.
-The current production flow is:
+The production path now uses **`PCLAN004` only**, through one native session
+controller for both modes. There is no v3 fallback, automatic direction switch,
+Internet relay or firewall mutation. Optional nearby discovery is implemented
+through Linux Avahi, Android 14/API 34+ NSD, Apple Bonjour (macOS and iOS),
+and Windows DNS-SD. Manual address/code entry remains available on every
+platform; Android API 26–33 reports discovery as unsupported. Both
+devices need v4-capable builds: the unchanged **1.9.2** app label alone does not
+prove compatibility with an older released 1.9.2 build. Transfer-file formats
+and existing libraries/audiobooks are unchanged.
 
-1. The source builds an app-owned temporary `.papercut-library` package.
-2. It binds TCP **53318**, or an explicit advanced override (1024–65535), on
-   every eligible address of the selected interface. IPv4 private/link-local and
-   IPv6 ULA/link-local addresses are supported; loopback requires explicit
-   selection for same-device testing. A twelve-character base-32 pairing code provides
-   60 bits of entropy and is grouped as `XXXX-XXXX-XXXX` for transcription. The
-   waiting/pairing session expires after ten minutes. A port conflict fails
-   visibly without silently changing ports; any earlier successful binds are closed.
-3. The target connects over ephemeral TLS. The target and source use the
-   one-use code as the password for a role-separated SPAKE2 exchange, then send
-   mutual HMAC-SHA256 key confirmations bound to the TLS exporter. This prevents
-   a captured exchange from becoming an offline code-guessing oracle and
-   authenticates the self-signed channel without a permanent app key or
-   certificate prompt. The `PCLAN003` marker versions these wire semantics so
-   incompatible builds fail closed instead of interpreting another protocol.
-4. The target reports the size of any partial package retained for this source
-   address and pairing code. The source seeks to that offset and sends only the
-   remaining bytes. An authenticated interruption returns the source to its
-   waiting state, and choosing **Receive Library** again resumes the transfer.
-5. The target stages the bytes in app cache and invokes the same archive parser,
-   checksums, sanitizer, merge rules, and index rebuild used by file import.
-   Starting a different authenticated session removes older partial packages.
-6. The target forwards its verification and restore progress over the same TLS
-   connection. The source mirrors those phases and reports success only after
-   the target confirms that import has completed.
+1. The sender prepares an app-owned temporary package, closes its writable
+   handle and computes its SHA-256 using cancellable bounded reads before
+   connecting or showing its own pairing details.
+2. In the normal flow, choose **Receive → Let Sender Connect → Show Pairing
+   Details** on the receiver. On the sender choose **Send → Connect to Receiver**,
+   use **Find Nearby** and choose the name shown on the receiver, or enter its
+   address manually, then enter the code and choose **Start Sending**. Discovery
+   never chooses a peer or begins a transfer automatically. To receive
+   through an outgoing socket instead, choose **Let Receiver Connect** on the
+   sender and **Connect to Sender** on the receiver. The selected listener binds
+   TCP **53318**, or an explicit advanced port 1024–65535, on every eligible
+   address of the selected interface. It alone displays a 12-symbol, 60-bit code.
+   Partial bind failure closes the whole set; ports never change silently.
+3. The connector opens selected-interface TCP, then both devices complete fresh
+   TLS 1.3 and channel-bound SPAKE2 confirmation before content metadata or bytes.
+   The listener checks the connector's proof before releasing its own. Protocol,
+   mode, ordered hellos, listener ID and TLS exporter are bound to confirmation.
+   TLS tickets, resumption and 0-RTT are disabled. An incompatible marker fails
+   closed; incomplete authentication gives connection/update/file guidance
+   without pretending that EOF proves a version mismatch.
+4. The sender offers the immutable archive size and digest. The receiver checks
+   private staging capacity (including existing storage headroom), then announces
+   its retained length. Raw bytes follow, then a full staged SHA-256 check, even
+   for a complete-length partial. Resume is owned by the same native foreground
+   generation, mode, authenticated listener ID/endpoint and Offer. The private
+   file is never recovered merely by matching an address/code or a filename.
+5. The receiver atomically admits the verified file to the existing importer,
+   preserving ZIP/path limits, checksums, sanitization, merge and index rebuild.
+   Successful imported items survive cancellation of the network or a lost
+   acknowledgement. All admitted import outcomes are terminal for this session,
+   including storage failure; there is no automatic re-import.
+6. The receiver forwards bounded verification/import status, stopping forwarding
+   after its first failure. The sender reports success only after Complete. If
+   delivery may be complete but the result is lost, malformed or cancelled, it
+   reports **Outcome Unknown** and asks the user to check the receiver before
+   sending again. It does not offer Retry for that terminal outcome.
 
-Connections that do not complete TLS and the versioned Papercut PAKE exchange
-within five seconds return the source to its waiting state without showing
-unrelated network traffic as a transfer failure. A complete but incorrect key
-confirmation still consumes the source session to prevent repeated online code
-guessing. Partial files survive network interruption and insufficient-space
-errors, but are removed after a successful import or a non-recoverable package
-error. A resumed package is always checksum-verified in full before restore, so
-the byte offset is an optimization rather than a trust boundary.
+The waiting/pairing eligibility window is ten absolute monotonic minutes and
+never renews on noise or Retry. Each TLS-plus-PAKE attempt has one five-second
+absolute budget; TCP connect has one cancellable 30-second budget. Successful
+streaming/import can outlive the pairing window, but cannot reconnect after it.
+The detailed inactivity, frame assembly and receiver-result budgets below apply;
+there is no new total archive-transfer deadline.
+
+Incomplete unauthenticated traffic closes only that socket and preserves the
+listener's code/deadline. A complete incorrect proof consumes its session. For
+eligible I/O interruption or a pre-Ready storage rejection, the listener waits
+in the same generation; the connector must explicitly choose **Retry**. There
+is no automatic reconnect, alternate endpoint probe or mode change. The native
+package/partial guard is retained only while that session remains eligible.
+Terminal cleanup closes listeners/sockets and removes private temporary files
+before recovery controls become available.
 
 Native interface enumeration replaces the default-route UDP probe and needs no
 Internet route. The dialog shows the selected interface and its local addresses,
@@ -323,13 +351,13 @@ multiple recognizable Wi-Fi/Ethernet interfaces are available. Tunnel, loopback
 and unknown interfaces are never selected automatically. Recognition uses
 platform interface names and the point-to-point flag; it is a convenience, not
 a guarantee about physical hardware or network trust. Listeners bind selected
-addresses, never wildcard addresses. Receives bind a matching source address.
+addresses, never wildcard addresses. Connectors bind a matching source address.
 On adapters with multiple compatible addresses, the most specific matching OS
-subnet prefix selects the source. If none matches, Receive reports ambiguity
+subnet prefix selects the source. If none matches, the connector reports ambiguity
 instead of guessing; use a peer address on that network or choose another
 network. A single compatible source still permits routed local transfers.
 OS routing and firewall policy remain authoritative. Global-only IPv6 networks
-require transfer-file fallback. IPv6 link-local scope comes from the receiving
+require transfer-file fallback. IPv6 link-local scope comes from the connecting
 device's selected interface, never the remote device's numeric zone. Windows
 adapter identity groups both address families while retaining their separate
 interface indices.
@@ -347,40 +375,45 @@ Within one running app session, authenticated retries keep their partial file;
 transfer files left untouched for seven days are also removed on the next
 transfer operation. Other cache entries are never matched by this cleanup.
 
-The receiver marks only explicit insufficient-storage failures as retryable.
-Invalid schemas, checksums, payloads, or restore data fail the sender session
-instead of offering a retry that would reproduce the same result. Cancelling the
-source closes its active socket, including while it waits for target-side import.
-The receiver can cancel TCP connection, TLS/pairing and package staging. Once
-restore is admitted atomically, native status becomes **Finishing Import** and
-cancellation is disabled; successful imports are retained even if acknowledgement
-fails. Sender cancellation during preparation waits for the current synchronous
-package build to finish, then discards it without exposing a listener.
-Transfer failures cross the LAN and Tauri boundaries as a structured code,
-diagnostic message, and optional storage byte counts, so retry decisions and
-localized storage guidance never depend on parsing human-readable text.
+Only pre-Ready insufficient-storage rejection can retain the same session for
+retry after a storage check. Invalid schemas, checksums, payloads and admitted
+restore failures are terminal. Native requests and status messages use structured
+error codes and optional storage counts, so the UI never parses human error text
+to decide whether retry or import is allowed. Preparation cancellation still
+waits for the synchronous package build, then discards it before networking.
 
-The command and session lifecycle lives in
-`src-tauri/src/library_transfer/network.rs`, resumable package streaming and
-progress framing live in `network/transport.rs`, interface/address policy and
-all-or-nothing binding live in `network/endpoints.rs`, socket cancellation and
-interface watching live in `network/session.rs`, and TLS plus one-use SPAKE2
-pairing live in `network/security.rs`. Storage remains owned by `package.rs` and
-`mod.rs`. React polls native send/receive snapshots and listens
-for locale-neutral receiver progress events. Native snapshots identify session
-generations, listener readiness and the waiting deadline. Terminal sender
-snapshots clear every endpoint, pairing code and deadline after closing listeners.
-Cancel commands and local receive-progress events carry generation IDs; stale
-polls/events cannot overwrite or cancel a newer session. Local event IDs are not
-added to `PCLAN003` progress frames. Rust reports transferred bytes,
-package verification, document counts, and optional audiobook counts; it never
-moves library bytes or networking into the WebView.
+Native responsibilities are split by job:
 
-Native reservations are acquired before send preparation enters the blocking
-pool and before either file import or LAN receive can mutate the library. The
-reservations release automatically on every exit path. This makes Rust—not the
-dialog's disabled controls—the authority preventing duplicate send preparation
-and overlapping transfer restores.
+- `network.rs`: one generation, IPC, device-wide network/import reservation,
+  foreground ownership, immutable result/status snapshots and terminal dismissal.
+- `network/operation.rs`: prepared-file/private-partial guards, listener lifetime
+  and expiry, explicit retry, the shared channel-to-importer adapter and safe
+  diagnostic mapping.
+- `network/v4/`: authentication, bounded codec/streaming, resume pins and atomic
+  restore admission. `network/security.rs` owns ephemeral TLS/code primitives.
+- `network/endpoints.rs`: interface/address policy and all-or-nothing binding;
+  `network/transport.rs`: cancellable source-bound TCP setup; `network/session.rs`:
+  cancellation, atomic native admission and interface watching.
+- `package.rs`/`mod.rs`: canonical storage/package validation and the same importer
+  used by transfer-file import. Library bytes never pass through the WebView.
+
+React uses one start/status/cancel/retry/dismiss IPC contract. It polls by native
+generation, displays native byte/import facts, ignores stale replies/events and
+never reconstructs eligibility from progress. On view recreation it can reattach
+to active work or a retained terminal result, without restarting networking or
+import. Successful receiver results update frontend audiobook references and
+refresh the library once per displayed generation. Back/Close acknowledges a
+terminal result; a stale dismissal cannot clear a newer owner. File-import
+progress retains the existing event subscription. Local generation IDs stay out
+of authenticated peer progress messages and copied diagnostic reports.
+
+A single native reservation covers network preparation/waiting/retry/import and
+file import; cleanup releases it before terminal recovery is observable.
+Background/close/network loss cancels pre-import work. After atomic admission it
+still tears down the network while preserving local restore and its result.
+This does not promise execution after OS suspension/process termination. The
+existing identical-address network replacement limitation remains pending native
+network identity adapters; interface polling alone cannot identify every switch.
 
 iOS and macOS bundles include `NSLocalNetworkUsageDescription`, and the transfer
 starts only from a user action while Papercut is foregrounded. Android currently
@@ -547,8 +580,9 @@ hide a blocked local connection.
 
 **Revised after the foundation device test and no-terminal requirement.** This
 supersedes the earlier recommendation to retain sender-listens as the permanent
-design. The implemented `PCLAN003` foundation remains unchanged and useful; the
-changes below are design decisions and implementation gates only.
+design. The endpoint foundation is retained under the production v4 cutover.
+Manual modes are implemented; discovery, OS authorization and packaged acceptance
+remain gates rather than claims of universal reachability.
 
 Reuse the package/import boundary, maintained TLS/SPAKE2 primitives, native
 streaming, one-use codes, authenticated resume and bounded diagnostics. Choose
@@ -575,15 +609,14 @@ Only after authentication may package metadata/data be accepted. Discovery
 replaces routine address entry, not authentication. Manual endpoints remain an
 advanced fallback; file export/import remains available without network access.
 
-#### Explicit Outbound Receiving — Selected Design, Not Implemented
+#### Explicit Outbound Receiving — Implemented, Device Acceptance Pending
 
 **Recommend an explicit connection choice, not automatic direction negotiation.**
 TCP is bidirectional: opening a connection does not determine which device sends
-the library. The current v3 `start_send`/`send_package` already listen on the
-source while `receive_package` connects from the target. Thus Android-to-Linux
-has the desired socket direction today; this is code evidence, not device
-acceptance. The next protocol should retain that useful direction while adding
-the receiver-listens default needed for the reported Linux-to-Android case.
+the library. The earlier v3 transport listened only on the sender. The v4
+controller retains that useful direction as the explicit alternative and adds
+receiver-listens as the default. This is code and automated-test evidence, not
+packaged Android/Linux acceptance.
 
 | Content direction | Listening device / code owner | Connecting device | Package flow |
 | --- | --- | --- | --- |
@@ -638,9 +671,9 @@ model for Papercut's encrypted native transfer.
 
 #### Connection Roles and Protocol Cutover
 
-**v4 core implemented/tested 2026-10-16; production cutover pending.**
-`network/v4/` implements the contract below. The current IPC/dialog still use
-the `PCLAN003` path in `security.rs`/`transport.rs`. The following wire change
+**v4 production integration implemented/tested 2026-10-16; device acceptance pending.**
+`network/v4/` and the shared controller/dialog implement the contract below.
+The v3 runtime and temporary dead-code allowance have been removed. The wire change
 is deliberate: new peers use **only `PCLAN004`**, with no version negotiation or
 fallback to v3 after failure. Read the eight-byte marker before any remaining
 pairing bytes; a different marker closes the connection and gives a local
@@ -919,82 +952,125 @@ path/ZIP bounds, partial import, private staging and diagnostic-redaction tests.
 
 **Review verdict:** the native core now has executable codec/state and real
 TLS/PAKE regressions; this is not a release-ready transport or an independent
-cryptographic audit. Production orchestration, platform builds and packaged LAN
-acceptance remain gates. Smoke and app version bump stay deferred.
+cryptographic audit. Packaged platform builds and LAN acceptance remain gates. Smoke and app version bump stay deferred.
 
-##### Native v4 Core Implementation Record — 2026-10-16
+##### Production Integration Record — 2026-10-16
 
-The compiled `network/v4/` module provides one authenticated `Channel` for both
-Push and Pull, with content roles derived from the locally selected mode:
+The core introduced by `7a9a503` is now used by production commands and both UI
+modes. Old v3 pairing/framing and split sender/receiver orchestration were
+removed. The implementation reuses the existing TLS verifier, code generation,
+locked crypto dependencies, error/status models and importer; no dependency,
+app-version, machine-policy or firewall changes accompany this cutover.
 
-- `auth.rs` uses the existing certificate/signature verifier and locked PAKE,
-  HMAC and rustls dependencies. Its transfer-only TLS configuration permits
-  TLS 1.3, disables resumption/tickets/early data, and shares one absolute
-  TLS-plus-PAKE deadline. Fixed hellos, the exact exporter/transcript and
-  connector-first proof order gate construction of an authenticated channel.
-- `codec.rs` bounds/validates Offer, Ready and existing receiver Status messages
-  before reading their bodies. Only a rejection is legal before Ready; raw
-  archive copying and subsequent status parsing have separate states.
-- `mod.rs` owns per-generation credentials, monotonic eligibility, one active
-  connection, authenticated listener ID/endpoint and immutable Offer pins.
-  It implements bounded hashing/copying, capacity rejection, offset validation,
-  full staged SHA-256 verification (including a complete-length partial), atomic
-  restore admission, terminal cleanup and unknown sender outcomes after copy.
-  A retained channel prevents another attempt until it releases ownership.
-  Network teardown after admission preserves local import completion; progress
-  forwarding stops after its first failure. No credentials/session types have
-  Debug or serialization implementations.
+The controller publishes a generation immediately so preparation can be
+cancelled once its ID is known. Its worker owns all bound listeners, the closed
+prepared archive, its digest, the unique private staging file and the global
+reservation. A channel must release ownership before another attempt can start.
+Explicit connector Retry keeps these objects and the authenticated pins without
+renewing eligibility; terminal cleanup drops them before publishing recovery.
+A lost or late result never turns a cancelled generation into success.
 
-The integration boundary is deliberate. The existing v3 commands, diagnostics
-protocol header, UI, package formats and saved data remain unchanged. The v4
-module is compiled in normal builds, with one documented temporary dead-code
-allowance until the coordinated cutover; it is not a parallel advertised
-protocol, a preference or a runtime fallback.
+The UI has localized, explicit action labels in all eight locales. Listener-only
+port controls and code/address displays follow connection role rather than Send
+or Receive. Active work blocks navigation and mode changes; cancellation waits
+for native cleanup. Import admission rejects cancellation while lifecycle
+teardown can close the socket without aborting restore. Partial receiver results
+remain distinct from sender package counts. There is no automatic direction
+fallback, new route/wizard, probe or repeated result replay.
 
-Orchestration must supply only the selected interface's successfully bound
-endpoint set, retain/close its listeners and package guard, serialize device-wide
-send/restore reservations, and invoke `begin_connect` before cancellable TCP
-connect using its returned deadline. It supplies app-owned private staging,
-deletes terminal/untrusted partials, calls the existing importer only after
-`admit_import`, and passes that importer's result to `finish_import`. The core
-does not replace ZIP/path/checksum/sanitization/merge checks or turn peer strings
-into diagnostics. Production lifecycle/IPC/result translation, private staging
-ownership, listener expiry timers and both dialog modes are the next stage;
-discovery and OS permission adapters follow separately.
+Diagnostics remain bounded to 200 safe events and exclude pairing codes, native
+session IDs, addresses, paths, document contents and peer error/item strings.
+They now identify connector/listener plus Push/Pull, report `PCLAN004`, retain
+TCP OS errors and byte facts, and distinguish wrong proof, protocol mismatch,
+expiry, digest/identity failure and unknown outcomes. UI status/cancel/retry/
+dismissal errors remain visible; stale generations cannot replace current work.
 
-Validation: `cargo test --offline --manifest-path src-tauri/Cargo.toml --locked
---lib --no-default-features --quiet` passes **236 tests, 4 existing opt-in tests
-ignored**, including **24 v4 regressions**. Loopback sockets required running
-the automated suite outside the socket-restricted sandbox; this was not device
-smoke. New coverage includes both mode mappings over real TLS/PAKE, empty/nonzero/
-complete resume, fresh matching TLS exporters/full TLS 1.3 handshakes on resume,
-wrong-code consumption and proof-release order, old marker/mode/reflected/invalid
-PAKE rejection, changed authenticated session/package, corrupt full-length
-partials, pre-Ready versus admitted-import storage errors, cancellation/import
-admission races, stale channel ownership, lost/invalid results, forwarding
-failure, absolute eligibility/authentication limits and trickled TLS bytes.
-Codec tests exercise truncation, invalid lengths/offsets, unknown/out-of-order
-types and malformed UTF-8/JSON, alongside the published transcript fixtures.
-Formatting and diff whitespace checks pass. Strict library Clippy was also
-attempted; `-D warnings` is blocked by 14 existing findings in document uploads,
-transfer diagnostics and the unchanged sender function, with none reported in
-the new v4 core. Those unrelated cleanups are outside this stage.
+Validation on Linux: full Rust suite **234 passed, 4 existing opt-in tests ignored**;
+full frontend suite **328 passed, 1 existing skip**. Existing core coverage is
+retained and extended with a final-delivery disconnect case; obsolete v3-only
+regressions were replaced rather than preserving a second protocol. Production
+adapter tests use real loopback TLS/PAKE and private files in both modes, verify
+exactly one importer call, retain partial results after acknowledgement loss,
+reject corrupt full-length staging before import and make admitted storage
+errors terminal. Additional regressions cover listener closure/rebinding before
+terminal publication, reservation release, stale dismissal/commands, explicit
+UI mode requests, cancellation refusal, generation-scoped retry, status failures,
+late replies, reopened results and navigation. TCP cancellation/refusal and code
+normalization regressions remain in place. `npm run build` passes i18n, TypeScript,
+Vite and Pagefind; lint and Rust formatting pass. Vite retains its existing
+module/chunk-size warnings. Clippy completes with unrelated existing repository
+warnings; new transfer warnings were corrected.
 
-Still required at integration: actual file/importer fault injection (including
-final-write/flush ambiguity), listener/reservation/lifecycle cleanup in both UI
-modes, safe diagnostic/state mapping, platform build/link checks and physical
-LAN acceptance. No firewall rules, dependencies or app versions changed here.
+This was automated testing, not device smoke. CI/native platform packaging and
+physical Linux ↔ Android acceptance in both modes are still required. On Linux
+with incoming-deny UFW, keep Linux on the connecting side: default Send for
+Linux → Android, explicit Connect to Sender for Android → Linux. No UFW rule
+or terminal step was added. If neither device can accept inbound connections,
+use transfer-file recovery rather than promising LAN success.
+
+##### Production Integration Review — 2026-10-16
+
+Ponytail Review covered the uncommitted production cutover against `7a9a503`,
+including the IPC callers, dialog, native lifecycle hooks, endpoint policy,
+TLS/PAKE core, importer boundary, diagnostics and regression tests. Expected
+load is one foreground transfer on a personal device, including large libraries
+and interrupted connections. The saved MemSearch journal confirmed the explicit
+direction, no-firewall-helper decisions and the existing synchronous-preparation
+and same-IP network-change limitations; these remain documented limits rather
+than newly introduced findings. This review is not an independent crypto audit.
+
+Two P2 recovery defects were reproduced during review and are now fixed:
+
+1. **Resolve native ownership before enabling new work.** Previously, changing
+   roles while the initial status request was pending invalidated its reply,
+   leaving an active native transfer without a status poll or Cancel control.
+   Role/mode changes, file import/export and network starts now remain disabled
+   until the lookup resolves. A failed lookup shows a localized error and Retry;
+   Close remains available. A successful lookup reattaches the native generation
+   and restores polling/cancellation. Replies from disposed effects are ignored,
+   including the repeated setup/cleanup used by React Strict Mode.
+2. **Acknowledge terminal native state before returning to setup.** Change
+   Selection previously cleared only React state, so closing and reopening could
+   restore the old failure, expiry or unknown-outcome panel. Change Selection and
+   role/mode changes now await dismissal of the matching generation before
+   clearing their UI. Controls and navigation stay locked while dismissal is
+   pending. A dismissal failure preserves the result and exposes the error so
+   the user can retry; stale dismissal still cannot remove a newer native owner.
+   Active-transfer cancellation and admitted-import protection are unchanged.
+
+Permanent jsdom regressions use the real dialog and existing IPC harness to
+cover delayed active ownership, blocked actions/navigation, cancellation after
+reattachment, lookup failure/retry, stale Strict Mode replies, Change Selection
+followed by Close/reopen for all three warning/error states, failed dismissal,
+role-change acknowledgement and a newer generation surviving a delayed stale
+dismissal. The earlier temporary reproductions remain superseded by these tests.
+
+Validation after the fixes: **335 frontend tests passed, 1 existing skip** across
+57 files; the focused transfer suite passes **38 tests**. Frontend build (locale
+parity, TypeScript, Vite and Pagefind), lint and documentation checks pass. No
+native code, protocol, dependency, app version or firewall policy changed in
+this follow-up; the preceding full native review run remains **234 passed,
+4 existing opt-in tests ignored**. Physical transfers were not exercised.
+
+**Follow-up verdict: both review code blockers are resolved.** CI/native
+platform packaging and physical Linux ↔ Android acceptance remain outstanding;
+no claim is made that the original UFW timeout is fixed on actual devices.
+Device smoke and the app version bump remain deferred. Bounded system DNS-SD
+adapters and nearby-session selection followed this review; see the system
+discovery implementation record below. All four backends are now implemented;
+platform packaging and acceptance remain separate gates.
 
 #### DNS-SD Feasibility and Platform Choice
 
 Use standard DNS-SD over local mDNS, with **system discovery adapters** rather
 than an app-owned multicast protocol. Source/API inspection establishes a viable
-integration path, not a compiled or device-tested implementation:
+integration path. All four backends are now implemented as described below;
+physical acceptance and full platform packaging remain outstanding:
 
 | Platform | Selected adapter | Packaging and permission implications |
 | --- | --- | --- |
 | iOS / macOS | System `DNSServiceRegister`, `DNSServiceBrowse`, resolve/address callbacks and explicit reference disposal. Register the chosen session listener's Rust port on the selected interface. | Apple supplies Bonjour. Declare `_papercut-xfer._tcp` in `NSBonjourServices`, retain the local-network usage description, and handle permission failure. Use the C API for compatibility with the current macOS 10.13 / iOS 15.0 floors; this does not require a custom multicast entitlement or an OS-version bump. |
-| Android | Kotlin `NsdManager` through a narrow Tauri native plugin, with a selected `Network`. | Network-scoped browse and `NsdServiceInfo.setNetwork` are available from API 33. For the app's API 26–32 range, retain manual/file transfer and report discovery as unsupported rather than silently searching/advertising on all networks. Keep the current minimum SDK. |
+| Android | Kotlin `NsdManager` through a narrow Tauri native plugin, with a selected `Network`. | Network-scoped browse and `NsdServiceInfo.setNetwork` are available from API 33. The implementation uses API 34 cancellable service-info callbacks. API 26–33 retains manual/file transfer and reports discovery as unsupported; API 33 extension-specific support is deferred. Keep the current minimum SDK. |
 | Windows | Native `DnsServiceBrowse`, `DnsServiceResolve`, `DnsServiceRegister` and cancellation/deregistration APIs, through Rust bindings. | Windows 10 desktop APIs avoid requiring a separate Bonjour installation. Availability and callback cleanup must be checked in the existing Windows build; missing APIs disable discovery, not manual transfer. |
 | Linux | Avahi's system D-Bus API: service browser/resolver and entry groups scoped to the selected interface. | Discovery requires an accessible system bus and running Avahi service. Use a maintained Rust D-Bus binding; do not bundle, install or start a daemon. AppImage hosts without Avahi retain manual/file transfer with an explicit unavailable state. |
 
@@ -1029,9 +1105,12 @@ supports desktop discovery without Avahi, but adds an in-process multicast
 parser, worker and cache to bound and maintain. Its desktop support does not
 establish mobile permission compliance. Do not adopt it or add a second
 discovery backend in the initial redesign; accepting an optional Avahi dependency
-and graceful fallback is the smaller system-service design. Exact binding-crate
-versions and their dependency/license audits belong to implementation, with no
-dependency changes in this design commit.
+and graceful fallback is the smaller system-service design. The implementation uses the already-locked `dbus` 0.9.12 Rust binding (MIT/Apache-2.0)
+as a direct Linux dependency and already-locked `windows-sys` 0.61.2 (MIT/Apache-2.0)
+bindings as a direct Windows dependency. The bindings also compile in host tests
+against fake APIs. No package version or transitive package was added/updated
+in the lockfile; these add direct dependency edges only. Its existing
+libdbus build/runtime dependency remains part of Linux packaging validation.
 
 Reuse the existing [native-plugin pattern](../src-tauri/plugins/document-scanner/src/mobile.rs),
 not the scanner plugin itself. Tauri supports Rust-to-Kotlin calls and native
@@ -1069,13 +1148,13 @@ needs the Kotlin bridge. [Tauri mobile plugin guide](https://v2.tauri.app/develo
   selected address/interface disappears, stop the session and withdraw its
   advertisement; do not migrate a code or partial transfer silently to another
   network. A replacement session gets a new code and public discovery name.
-- The existing v3 foundation retains full legacy `IPv4:port` input, including
+- The endpoint policy retains explicit `IPv4:port` input, including
   random ports, bare-IP defaults and IPv6 literals. The new receiver-listens
   manual fallback enters the receiving endpoint on the sender; Connect to Sender
   instead enters the sending listener's endpoint on the receiver. Do not imply that
   an address makes incompatible wire versions interoperate. App versions need
   not match exactly; authenticated wire and package compatibility are decisive.
-- Advertise only an implemented wire capability. The proposed v4 flow must not
+- Advertise only an implemented wire capability. Discovery for the v4 flow must not
   announce or impersonate v3 to preserve old discovery behavior. Incompatible
   peers receive a clear update/file-transfer option, not automatic downgrade.
 
@@ -1084,13 +1163,13 @@ needs the Kotlin bridge. [Tauri mobile plugin guide](https://v2.tauri.app/develo
 Publish `_papercut-xfer._tcp.local.` only after the chosen TCP listeners are
 ready. Browse only on the connecting device while its transfer dialog is
 foregrounded. Use an ephemeral random instance name shown on the listening
-device; TXT contains only `v=1` (the proposed discovery schema), the implemented
+device; TXT contains only `v=1` (the discovery schema), the implemented
 `p` wire capability and `m=push` (receiver listens) or `m=pull` (sender listens).
 Reject missing, malformed or unknown mode values in the proposed schema.
 The mode hint can filter the nearby list, but must match the explicitly selected
 mode and subsequent authenticated exchange. It cannot trigger a mode switch,
-callback connection or firewall action. The proposed v4 path uses `p=PCLAN004`
-only after cutover; no discovery is implemented today. SRV supplies the port.
+callback connection or firewall action. The production discovery path uses `p=PCLAN004`; it never advertises v3.
+SRV supplies the port.
 Do not add pairing codes, titles, counts, paths or persistent Papercut device IDs.
 Normal DNS-SD/IP metadata and OS-managed hostnames may still be visible on the
 LAN; this is not anonymous discovery. Names and compatibility hints are untrusted
@@ -1109,6 +1188,233 @@ announcement loops. A result only becomes a connection attempt after explicit
 selection and code entry. Native validation rejects out-of-policy addresses even
 when a discovered name resolves to them.
 
+#### System Discovery Implementation — 2026-10-16
+
+Scope includes all four backends together: Linux, Android, Apple (macOS/iOS)
+and Windows, as explicitly requested. Every platform retains manual/file recovery. This
+stage changes no app version, wire/package format, pairing proof or firewall
+policy. It adds no relay, multicast parser, background service or daemon startup.
+The review below found four Android defects, now fixed with native Android JVM
+regressions. The real Tauri plugin and Android framework compile/test together;
+packaged-device acceptance remains a separate gate.
+
+- **Linux:** a private system-bus connection looks up Avahi's existing unique
+  owner. Every Avahi method disables D-Bus auto-start. The browser, resolver
+  and entry-group objects use the selected interface index and `.local` service
+  type. At most 64 resolver handles exist per worker; IPv4 and IPv6 sources merge into a
+  peer without losing the other address family when one source disappears.
+  All client objects are disposed with the private connection; publication is
+  explicitly freed as well. Missing bus/owner and policy denial become discovery
+  errors while manual transfer remains available. No Avahi installation or
+  firewall instruction is added to the user flow.
+- **Android:** the existing library-transfer plugin calls `NsdManager` on the
+  activity thread. It maps the explicitly selected interface to exactly one
+  `Network`; it never substitutes the default route, binds the whole process or
+  browses all networks. API 34+ uses cancellable service-info callbacks, eight
+  addresses per peer, a 128-event queue and bounded callback handles. API 26–33
+  returns unsupported. Although network-scoped NSD exists at API 33, its older
+  one-shot resolver is not reliably cancellable without extension-specific
+  support. Keeping that optional support deferred is smaller and safer than
+  leaving resolutions alive after teardown. The normal `ACCESS_NETWORK_STATE`
+  manifest permission enables mapping; target SDK 36 and minimum SDK 26 stay
+  unchanged. No broad local-network runtime permission is requested.
+- **Apple:** the system Bonjour C API runs on the existing discovery worker.
+  Browse, resolve, address-query and registration references use the selected
+  interface index and `.local.` domain. Hostnames outside `.local.` are rejected
+  before address lookup. File descriptors are polled without blocking before
+  processing results; references and their callback contexts are disposed on
+  that same worker. Resolver/address/publication tokens reject stale replies,
+  and address deletion or TTL zero removes prior source data. Native errors
+  distinguish local-network policy denial. `NSBonjourServices` declares
+  `_papercut-xfer._tcp` in the macOS/iOS plist sources and generated iOS plist;
+  the usage descriptions and macOS 10.13 / iOS 15.0 floors remain unchanged.
+- **Windows:** the system DNS-SD browse/resolve/register APIs are loaded once
+  from `dnsapi.dll` in System32. Missing entry points report unsupported rather
+  than preventing app startup; no Bonjour installation is required. Requests
+  specify the selected nonzero interface index, publication is mDNS-only, and
+  registration includes only selected local addresses and the three nonsecret
+  TXT fields. Resolver results are checked for matching interface, local service/
+  host names and bounded metadata before entering the shared endpoint filter.
+  Callback contexts are opaque IDs in a bounded registry, not pointers into a
+  dropped worker. Request/query/cancel buffers and input instances stay alive
+  until completion, including late callbacks after cancellation. Output records
+  and instances are freed through their matching system APIs. Registration that
+  succeeds during cancellation is explicitly deregistered. Re-publication waits
+  for the old completion, with a five-second limit, rather than overlapping
+  registrations or renewing the pairing window.
+- **Lifecycle:** only ready listener generations advertise. A random
+  `Papercut-…` name is shown after the system confirms registration; Android's
+  collision-renamed name is reflected in the UI. Successful v4 pairing withdraws
+  publication; an eligible interruption can publish the same session name again
+  without renewing the pairing window. Cancellation, expiry, network loss and
+  terminal cleanup dispose the advertisement. Android also detects loss of its
+  captured `Network` handle. Linux/Apple/Windows retain the documented
+  identical-interface/address replacement limitation of the shared address watch;
+  these adapters do not prove Wi-Fi access-point identity. Android backgrounding immediately stops native
+  handles. Browser teardown signals cancellation without joining a system-API
+  worker from a native UI callback. At most two workers, including cancellation
+  tails waiting on system APIs, can exist; further starts fail visibly until a
+  slot is released. Cancelled caches clear immediately. Linux/Apple/Windows
+  use 64-event queues per worker, preserving the 128-event overlap budget. A new listener can therefore overlap one closing browser
+  without blocking the activity thread or accumulating blocked workers. Listener
+  cleanup closes the discovery owner before publishing terminal transfer state.
+  Apple reference disposal is synchronous; Android/Windows OS acknowledgement
+  can follow the cancellation request. Old callbacks cannot republish results,
+  and a replacement waits for confirmed cleanup. OS failure to acknowledge can
+  keep a bounded pending registration until process exit; the native transfer
+  generation and its listener are still closed, and no pairing key is advertised.
+  Windows caps all outstanding requests, including cancelled tails after worker
+  exit, at 130 (two sets of 64 resolvers plus a browser/publication each). Further
+  requests fail closed while manual/file recovery remains available.
+- **Bounds and selection:** native code rejects malformed TXT, mismatched mode/
+  protocol and out-of-policy endpoints; invalid updates remove old source data.
+  It caps peers/addresses/TXT/events, expires retained rows at 60 seconds and
+  stops the browser at 30 seconds. Refresh starts a fresh native generation.
+  The dialog polls at most four times per second and drops stale replies. It
+  selects nothing automatically. Choosing a row asks Rust to validate the live
+  row, retention deadline, selected interface and endpoint, then fills the manual
+  address field. Starting still requires code entry and the normal endpoint
+  validation/PAKE boundary; a name is not an authenticated identity. A lost row
+  cannot be selected from cache after the OS reports its loss. An already-filled
+  address remains manual input,
+  rather than a claim that the DNS-SD record remains live. In particular, Windows
+  native browse callbacks do not promise immediate removal notifications; TTL-zero
+  records are removed when delivered and the shared 60-second retention limit
+  bounds unsignalled stale hints. There are no automatic TCP reachability probes.
+- **Failure handling:** denied, unavailable, unsupported and resource-limit
+  states are separate from TCP readiness. Manual/file recovery remains visible.
+  On Android, replacement discovery waits for all previous handles to confirm
+  teardown. Only the latest pending request is kept; no extra registration starts
+  during cleanup. The existing native poll loop advances it without blocking the
+  activity thread, with a five-second cleanup deadline. Cancel, backgrounding or
+  timeout discards the pending request; late callbacks cannot restart it.
+  Safe fixed discovery codes enter the existing 200-event diagnostic history;
+  peer labels, interface names, IPs, TXT and pairing codes do not.
+
+Regression coverage includes an isolated private D-Bus/fake Avahi service
+(interface/type/port/TXT signatures, disabled activation, resolve/loss and
+publication cleanup), metadata and endpoint rejection, IPv6 local scope, source
+loss, peer/address/event limits, retention, browser deadlines/cancellation,
+background teardown, optional permission failure preserving manual pairing and
+captured-network loss cancelling pairing. A real loopback v4 handshake verifies
+withdrawal after authentication and re-publication after an eligible disconnect.
+UI tests cover explicit selection, escaped labels, stale/lost rows, late Refresh
+responses, close during startup and unsupported-discovery manual sending.
+The Linux CI check explicitly installs `dbus-daemon` for the isolated test bus;
+this is a test dependency, not an app-started production daemon.
+
+Initial discovery-stage validation: **244 native tests passed / 4 existing opt-in tests ignored**, and
+**344 frontend tests passed / 1 existing skip** in 58 files; formatting, lint,
+locale parity and the TypeScript/Vite/Pagefind build pass. The Android Kotlin
+sources compile with Kotlin 2.1 and Google's API 34 reference jar, Tauri's actual
+argument annotations/JSON type and temporary bridge stubs. This is an API check,
+not a full Android plugin/Rust/Gradle build or device acceptance. Android's
+one-time `getAllNetworks` snapshot is deprecated but is used only to map an
+explicit interface rather than silently using the default network. CI must
+compile the real plugin and manifests. No smoke was run on real Avahi, mDNS or
+Android devices; those checks remain deferred.
+
+All-platform follow-up validation: **256 native tests passed / 4 existing ignored**
+and **344 frontend tests passed / 1 existing skip**. The nine Android JVM tests
+remain green from the preceding fix. Twelve Apple/Windows fake-API regressions were added. They cover actual API
+arguments, both modes' TXT, byte order, IPv6 and
+TTL loss, malformed/null metadata, selected-interface filtering, stale callbacks,
+reference disposal, cancellation/completion races, compensation deregistration,
+cleanup timeout, queue caps and pending-request bounds. These tests call no real
+Bonjour or Windows discovery service. CI runs the native discovery subset on
+macOS/Windows in addition to the full Linux native suite, and the Android JVM
+subset after APK build.
+
+The actual adapter source files also pass isolated `cargo check` for
+`x86_64-pc-windows-gnu`, `x86_64-apple-darwin` and `aarch64-apple-ios`, using the
+same locked libc/windows-sys versions in a temporary host. This checks platform
+FFI types/configuration, not full Tauri builds, native linking or runtime consent.
+Frontend build/i18n/typecheck, lint, Rust formatting, Clippy, plist declarations,
+CI YAML and docs checks pass. Clippy completes with existing unrelated warnings
+and none in discovery. No physical smoke or platform acceptance is claimed.
+
+Next: review all four backends and the Android fixes together, then run full CI
+with `provider_inference` off (unrelated to transfers). Validate packaged
+cross-platform discovery, permission denial, address updates and teardown when
+smoke resumes. Version bump and physical smoke remain deferred.
+
+#### Discovery Review and Fixes — 2026-10-16
+
+Ponytail Review traced the common discovery owner, Avahi adapter, Android plugin,
+UI selection/polling and connected transfer lifecycle. Expected load is one
+foreground transfer per app, up to 64 nearby records, plus bounded cleanup
+overlap. Manual/file fallback and the documented identical-address network
+replacement limit remain explicit decisions. Apple/Windows adapters were added
+after this Android-focused review when the all-platform scope was confirmed.
+
+The four reproduced Android findings are now addressed:
+
+1. **P1 — Null TXT values could crash discovery.** Android permits null attribute
+   values, but the callback read their length before Rust metadata validation.
+   `TransferDiscovery` now rejects null values before sizing/encoding and emits
+   loss for that source, removing any previously selectable row. Android JVM
+   tests cover null values in each of the three expected keys, followed by a
+   valid update. See the platform's
+   [attribute contract](https://developer.android.com/reference/android/net/nsd/NsdServiceInfo).
+2. **P1 — Publication escaped the selected network.** Kotlin's `apply` receiver
+   made `setNetwork(network)` read the new service object's null field. Android
+   interprets null as all connected networks. The call now explicitly references
+   `this@TransferDiscovery.network`. A test with two available networks inspects
+   the actual registration and browse arguments. Pairing authentication and TCP
+   listener binding are unchanged. See Android's
+   [network scoping contract](https://developer.android.com/reference/android/net/nsd/NsdServiceInfo#setNetwork(android.net.Network)).
+3. **P2 — Old resolver callbacks could remove their replacements.** A service
+   could disappear and return with callback B before callback A finished.
+   Update/loss/failure now require ownership of the current callback, while old
+   unregistration/failure acknowledgements still release their handles. A
+   regression drives loss → rediscovery → late old loss/update/failure, verifies
+   B remains usable, and checks callbacks after close cannot publish data.
+4. **P2 — Refresh failed during normal asynchronous cleanup.** The plugin
+   previously requested stop, immediately required `released`, and returned
+   unavailable while acknowledgements were still pending. It now retains one
+   latest pending request, returns starting, and begins it through the existing
+   poll command once every old handle is released. Cleanup has a monotonic
+   five-second deadline; expiry returns one unavailable event and requires an
+   explicit new request. Stale polling/Stop cannot advance or cancel a newer
+   request. Tests cover delayed browser/resolver cleanup, repeated Refresh,
+   cancellation, background/resume, exact timeout, network revalidation, and
+   withdrawal/re-publication of the same listener generation. No activity-thread
+   sleep, extra timer, unbounded request queue or simultaneous registration is
+   introduced.
+
+Android's
+[asynchronous unregistration contract](https://developer.android.com/reference/android/net/nsd/NsdManager#unregisterServiceInfoCallback(android.net.nsd.NsdManager.ServiceInfoCallback))
+remains the cleanup boundary. No new registration is started while an old handle
+is unconfirmed. An OS cleanup failure may therefore leave discovery unavailable;
+manual/file transfer remains available. This keeps the resource bound rather
+than accumulating abandoned registrations.
+
+**Follow-up validation:** all **9 Android JVM tests passed** through
+`:tauri-plugin-library-transfer:testDebugUnitTest`, using JUnit 4.13.2 and
+Robolectric 4.17 with API 34 framework classes and deterministic system-service
+shadows. Gradle 8.14.3/AGP 8.11.0/Kotlin 1.9.25 compiled the production plugin,
+manifest and the actual Tauri 2.11.5 Android module against compile SDK 36. The
+local test-only Gradle host and downloaded SDK/build outputs stayed in `/tmp`;
+no custom build script or platform stubs were added to production. The permanent
+tests are in the plugin's normal `src/test` source set, and Android CI now runs
+that same task after APK build. These are test dependencies only; the app
+version, minimum/target SDK, wire protocol and production dependencies did not
+change in this follow-up.
+
+The **10 shared/Linux discovery native regressions** and **47 transfer UI tests**
+also passed again. CI YAML parsing, local doc links/fences and whitespace checks
+passed. The earlier full-suite results remain recorded above; they were not
+rerun for this Android-only fix. Existing deprecation warnings remain, including
+the selected-interface `getAllNetworks` snapshot.
+
+**The four review code blockers are resolved.** Re-review the fixes before CI
+packaging. No full Rust/Gradle APK was built locally, and no real Avahi/mDNS or
+physical-device acceptance was run. Packaged LAN behavior, permissions and
+background cleanup remain acceptance gates when smoke resumes. Smoke, the app
+version bump stay deferred. Apple/Windows adapters are now implemented above
+and need the same review and platform acceptance. This is not a cryptographic
+certification.
+
 #### Session Lifecycle and Cancellation
 
 Rust owns one foreground session generation, its package guard, listener set,
@@ -1124,7 +1430,7 @@ window; the connector owns the outgoing connection. The content sender owns
 package preparation and the content receiver owns staging/import. Both expose
 authentication, streaming, receiver import and a terminal result. Expose the
 native waiting/pairing deadline and expiry reason. The exact v4 deadlines and
-phase-gated resume rules above take precedence over the current v3 timeouts;
+phase-gated resume rules above apply to both modes;
 the ten-minute pairing window remains unextended by discovery or retries.
 Withdraw advertising after successful pairing, re-advertise only
 after an eligible authenticated interruption, and preserve the same code/package
@@ -1311,10 +1617,12 @@ relaxes the ordinary-user requirement. The selected outbound alternative needs
 protocol tests and packaged acceptance before claiming that requirement met;
 networks blocking both directions remain an explicit product limitation.
 
-### Endpoint/Session Foundation — Implemented 2026-10-16
+### Endpoint/Session Foundation — Historical v3 Record, 2026-10-16
 
-This stage implements the manual `PCLAN003` endpoint/session foundation, not the
+This earlier stage implemented the manual `PCLAN003` endpoint/session foundation, not the
 new connection direction, firewall authorization or nearby-device discovery.
+The production v4 record above supersedes its transport/IPC descriptions; the
+original evidence and test results below remain historical.
 `if-addrs` **0.15.0** (MIT OR BSD-3-Clause) supplies native
 interface enumeration; `socket2` **0.6.3** and Unix `libc` already existed in the
 lockfile and are now direct dependencies for scoped listeners and cancellable
@@ -1389,8 +1697,8 @@ needs platform validation before claiming the complete transfer UX:
 
 1. **Endpoint/session foundation (implemented; platform acceptance pending):** typed interface-aware endpoints,
    stable binding, authoritative readiness/deadlines, cancellable receive and
-   cleanup. The manual `PCLAN003` path remains the first integration gate;
-   the full discovery redesign is not complete.
+   cleanup, reused by the v4 production path. All four discovery backends are implemented;
+   v3 is no longer a runtime compatibility path.
 2. **Authorization/packaging source evaluation complete; inbound UFW gate unmet:** the
    inspected UFW GUIs and profile-only packages do not provide the required
    scoped approval flow. Keep AppImage unprivileged and a custom helper
@@ -1398,9 +1706,10 @@ needs platform validation before claiming the complete transfer UX:
    pair; no direction or firewall fallback may run without user intent.
    Firewalld/native permission paths still need scope, denial, expiry, crash and
    packaging validation. Static profiles/GUI recovery are not acceptance.
-3. **v4 core implemented/tested; next is coordinated integration:** wire one
-   authenticated stream boundary to shared package framing and native generations, followed by the
-   default/Connect to Sender UI and bounded native DNS-SD adapters. Add only
+3. **v4 production integration implemented/tested:** both manual dialog modes
+   use one authenticated stream, native owner/reservation and importer boundary.
+   The cutover review and recovery fixes are complete. All four system DNS-SD
+   backends are implemented and need joint review/platform acceptance. Add only
    supported OS permission paths, not an automatic UFW grant. Compile
    and link adapters on the supported minimum OS; verify callback teardown,
    Linux missing-bus/missing-Avahi behavior and explicit unsupported discovery.
@@ -1427,7 +1736,7 @@ needs platform validation before claiming the complete transfer UX:
    must use a reviewed connection/authorization flow without terminal or
    per-phone exceptions. Exercise both directions across UFW/firewalld, Windows,
    Android and Apple builds. Keep
-   SDK 26–32 manual fallback, SDK 33+ scoped NSD, Linux without Avahi, multiple
+   SDK 26–33 manual fallback, SDK 34+ scoped NSD, Linux without Avahi, multiple
    interfaces/VPNs, network changes, blocked multicast, isolated Wi-Fi and grant
    revocation cases. File fallback is recovery, not proof of LAN success. Smoke
    and the app version bump stay deferred until explicitly scheduled.
@@ -1437,8 +1746,8 @@ visibility callbacks, transfer IPC, dialog controls, locale resources and their
 tests. Package/import storage remains reusable; changing connection roles now
 requires an explicit protocol/security review. The earlier design-only commit
 `7a69843` contains the initial DNS-SD evaluation, whose permanent sender-listens
-recommendation is superseded here. No implementation, dependency change or
-firewall mutation accompanies this revised design.
+recommendation is superseded here. The current stage implements manual v4
+transport/UI integration without dependencies or firewall mutation.
 
 ## Delivery Checklist
 
@@ -1455,7 +1764,7 @@ firewall mutation accompanies this revised design.
   generation-owned snapshots and cancellable receive with protected restore.
 - [ ] Foundation platform builds and physical lifecycle/network acceptance.
 - [x] Revised LAN-only/no-terminal UX, connection direction and native
-  authorization constraints documented; runtime unchanged.
+  authorization constraints documented; native v4 cutover implemented below.
 - [x] Evaluate UFW/AppImage GUI and packaging options against upstream source;
   record profile/catalog differences and reject an assumed approval API.
 - [x] Evaluate/select explicit outbound receiving before privileged UFW integration;
@@ -1464,13 +1773,15 @@ firewall mutation accompanies this revised design.
   deadlines and old-peer cutover; validate mechanical confirmation fixtures.
 - [x] Implement/test the v4 codec/authentication and per-generation state contract
   with real TLS/PAKE before integrating the shared stream boundary and dialog controls.
-- [ ] Integrate v4 with production listener/package/staging ownership, native
+- [x] Integrate v4 with production listener/package/staging ownership, native
   reservations/lifecycle/diagnostics and both dialog modes; remove the temporary
   dead-code allowance and cut over from v3 without fallback.
 - [ ] Validate the no-terminal flow with packaged builds; inbound UFW approval
   remains unsupported without separately reviewed integration or administrator setup.
 - [ ] Implement/test supported native OS permission paths without a custom UFW helper.
-- [ ] Native DNS-SD adapters, nearby-session UI and platform discovery acceptance.
+- [x] Implement native DNS-SD adapters for Linux, Android, Apple and Windows,
+  with nearby-session UI and bounded callback regressions.
+- [ ] Joint discovery review, full native/platform CI and packaged discovery acceptance.
 - [x] Stage 3: add byte-level transfer and item-level restore phases.
 - [x] Stage 3: reject package staging and restoration when storage is insufficient.
 - [x] Stage 3: resume interrupted transfers, especially large audio.
@@ -1518,8 +1829,8 @@ new-design cases become required when that implementation is available:
 | Cancel and recovery | Cancel while waiting and during transfer; retry after an insufficient-storage failure. Exercise cancellation near expiry/failure and switch from a terminal Send session to Receive. | Sockets close promptly, controls recover, partial files do not accumulate, and retry succeeds after storage is available. Change Selection stays usable after terminal failure; Receive retains its network controls and shows errors. |
 | Public network | Try a guest or public Wi-Fi network with client isolation, then one that permits device-to-device traffic. | Isolation produces a clear connection failure; when peer traffic is permitted, only the correct code authenticates and content remains encrypted in transit. |
 | Interface selection | Exercise representative Wi-Fi, Ethernet, hotspot, and explicitly selected advanced routes supported by the test devices, including an adapter with multiple local subnets where available. | The displayed address matches the listening interface; other interfaces are not exposed implicitly. The connecting side uses the peer's matching subnet, or reports an ambiguous source instead of choosing an unrelated address. |
-| Protocol mismatch | Connect a `PCLAN003` build to the last pre-`PCLAN003` development build. | Pairing fails closed and neither build imports partial or unauthenticated data. |
-| New protocol cutover | Pair either future v4 mode with v3 in both content directions; spoof compatibility/mode metadata. | Clear incompatible-peer/update/file recovery; no direction switch, authenticated-protocol downgrade or partial import. |
+| Protocol mismatch | Connect current `PCLAN004` builds to released v3 peers in both directions. | Fail closed without downgrade or import; a different received marker proves incompatibility, while EOF only warrants connection/update/file guidance. |
+| New protocol cutover | Pair either v4 mode with v3 in both content directions; spoof compatibility/mode metadata. | Clear incompatible-peer/update/file recovery; no direction switch, authenticated-protocol downgrade or partial import. |
 | Linux sending to Android | Use incoming-deny Linux with no Papercut transfer rule; start Receive on Android and follow the new nearby-device/code flow. | Linux uses an outgoing connection; no Linux inbound transfer-TCP exception or terminal setup is required. Validate mDNS/discovery access separately. |
 | Linux receiving | Use Connect to Sender on incoming-deny Linux/AppImage, and Let Receiver Connect on Android with selected content. Separately exercise default listening on OSes with supported grants. | Linux receives over an outgoing authenticated connection without a Linux incoming transfer-TCP rule, terminal or per-phone exceptions. Android must be reachable and foregrounded; discovery/permissions remain separate gates. Any OS grant explains scope/duration. |
 | Explicit mode and role safety | Switch modes before pairing and near cancellation/expiry; tamper or reflect the advertised/authenticated mode and content roles. | Old listeners/codes/advertisements cannot survive or alter the new generation. Only complementary, mutually authenticated expected roles move metadata/data; no automatic fallback, callback connection or second listener. |

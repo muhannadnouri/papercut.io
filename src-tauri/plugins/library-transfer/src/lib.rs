@@ -81,3 +81,17 @@ struct Observer<R: Runtime> {
 struct ObserveArgs<'a> {
     on_state: &'a tauri::ipc::Channel<bool>,
 }
+
+#[cfg(target_os = "android")]
+pub fn discovery_call<R: Runtime, T: serde::de::DeserializeOwned>(
+    app: &AppHandle<R>,
+    command: &str,
+    payload: serde_json::Value,
+) -> Result<T, String> {
+    use tauri::Manager;
+    let observer = app.state::<Observer<R>>();
+    observer
+        .handle
+        .run_mobile_plugin(command, payload)
+        .map_err(|_| "Discovery is unavailable".into())
+}

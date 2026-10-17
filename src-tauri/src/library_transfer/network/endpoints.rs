@@ -3,10 +3,24 @@ use std::collections::BTreeMap;
 use std::io;
 use std::net::{IpAddr, SocketAddr, SocketAddrV6, TcpListener};
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use socket2::{Domain, Protocol, Socket, Type};
 
 pub(super) const DEFAULT_PORT: u16 = 53318;
+
+#[cfg(test)]
+pub(super) fn discovery_test_interface() -> TransferInterface {
+    TransferInterface {
+        id: "42:test".into(),
+        name: "test".into(),
+        index: 42,
+        ipv6_index: 42,
+        addresses: vec!["192.168.1.2".parse().unwrap(), "fe80::2".parse().unwrap()],
+        automatic: false,
+        broadcasts: vec!["192.168.1.255".parse().unwrap()],
+        prefixes: vec![("192.168.1.2".parse().unwrap(), 24)],
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -22,13 +36,6 @@ pub struct TransferInterface {
     broadcasts: Vec<IpAddr>,
     #[serde(skip)]
     prefixes: Vec<(IpAddr, u8)>,
-}
-
-#[derive(Clone, Debug, Default, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ConnectionOptions {
-    pub interface_id: Option<String>,
-    pub port: Option<u16>,
 }
 
 pub(super) fn interfaces() -> Result<Vec<TransferInterface>, String> {

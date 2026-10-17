@@ -47,23 +47,64 @@ export interface ImportedAudiobookRecord {
   wavBytes: number
 }
 
-export type LibraryTransferSendState = 'preparing' | 'binding' | 'waiting' | 'sending' | 'complete' | 'cancelled' | 'failed'
+export type TransferConnectionMode = 'push' | 'pull'
+export type NetworkTransferState = 'preparing' | 'binding' | 'waiting' | 'connecting' | 'authenticating'
+  | 'sending' | 'receiving' | 'verifying' | 'finishingImport' | 'awaitingResult' | 'waitingResume'
+  | 'complete' | 'cancelled' | 'expired' | 'failed' | 'outcomeUnknown'
 
-export interface LibraryTransferSendStatus {
+export interface LibraryTransferNetworkStatus {
   id: number
+  role: 'sender' | 'receiver'
+  mode: TransferConnectionMode
+  state: NetworkTransferState
   listenerReady: boolean
   addresses: string[]
-  expiresAtMs?: number | null
-  reason?: string | null
-  state: LibraryTransferSendState
-  address: string
   code: string
+  expiresAtMs: number | null
+  cancellable: boolean
+  canRetry: boolean
   documents: number
   audiobooks: number
   packageBytes: number
   bytesTransferred: number
-  receiverProgress?: LibraryTransferProgress | null
-  error?: string | null
+  receiverProgress: LibraryTransferProgress | null
+  error: LibraryTransferErrorPayload | null
+  result: LibraryTransferImportResult | null
+  discovery?: TransferDiscoverySnapshot | null
+}
+
+export type TransferDiscoveryState = 'starting' | 'searching' | 'finished' | 'advertising' | 'idle' | 'unavailable' | 'denied' | 'unsupported' | 'limited'
+export interface TransferDiscoverySnapshot {
+  id: number
+  state: TransferDiscoveryState
+  name: string | null
+  peers: Array<{ id: string; name: string; addresses: string[] }>
+}
+export function startTransferDiscovery(interfaceId: string, mode: TransferConnectionMode): Promise<TransferDiscoverySnapshot> {
+  return invoke('library_transfer_discovery_start', { request: { interfaceId, mode } })
+}
+export function getTransferDiscovery(id: number): Promise<TransferDiscoverySnapshot | null> {
+  return invoke('library_transfer_discovery_status', { id })
+}
+export function stopTransferDiscovery(id: number): Promise<void> {
+  return invoke('library_transfer_discovery_stop', { id })
+}
+export function selectTransferPeer(id: number, peer: string): Promise<string> {
+  return invoke('library_transfer_discovery_select', { id, peer })
+}
+
+export interface NetworkTransferRequest {
+  role: 'sender' | 'receiver'
+  mode: TransferConnectionMode
+  interfaceId: string
+  port?: number
+  address?: string
+  code?: string
+  selection?: { documentIds: string[]; audiobookIds: string[] }
+}
+
+export function isNetworkTransferActive(status: LibraryTransferNetworkStatus | null): boolean {
+  return Boolean(status && !['complete', 'cancelled', 'expired', 'failed', 'outcomeUnknown'].includes(status.state))
 }
 
 export interface TransferInterface {
@@ -74,28 +115,9 @@ export interface TransferInterface {
   automatic: boolean
 }
 
-export interface TransferConnection {
-  interfaceId: string
-  port: number
-}
-
-export interface LibraryTransferReceiveStatus {
-  id: number
-  phase: 'connecting' | 'receiving' | 'finishingImport' | 'complete' | 'cancelled' | 'failed'
-  cancellable: boolean
-}
-
 export async function getTransferInterfaces(): Promise<TransferInterface[]> {
   if (!isTauri()) return []
   return invoke('library_transfer_interfaces')
-}
-
-export async function getLibraryReceiveStatus(): Promise<LibraryTransferReceiveStatus | null> {
-  return invoke('library_transfer_receive_status')
-}
-
-export async function cancelLibraryReceive(id: number): Promise<boolean> {
-  return invoke('library_transfer_receive_cancel', { id })
 }
 
 export type LibraryTransferOperation = 'import' | 'receive'
@@ -189,31 +211,25 @@ export async function importLibrary(): Promise<LibraryTransferImportResult | nul
   return invoke<LibraryTransferImportResult | null>('library_transfer_import')
 }
 
-export async function startLibrarySend(
-  documentIds: string[],
-  audiobookIds: string[] = [],
-  connection?: TransferConnection,
-): Promise<LibraryTransferSendStatus> {
-  return invoke<LibraryTransferSendStatus>('library_transfer_send_start', {
-    ...(connection ? { connection } : {}),
-    request: { documentIds, audiobookIds },
-  })
+export async function startNetworkTransfer(request: NetworkTransferRequest): Promise<LibraryTransferNetworkStatus> {
+  return invoke('library_transfer_network_start', { request })
 }
 
-export async function getLibrarySendStatus(): Promise<LibraryTransferSendStatus | null> {
+export async function getNetworkTransferStatus(id?: number): Promise<LibraryTransferNetworkStatus | null> {
   if (!isTauri()) return null
-  return invoke<LibraryTransferSendStatus | null>('library_transfer_send_status')
+  return invoke('library_transfer_network_status', id === undefined ? {} : { id })
 }
 
-export async function cancelLibrarySend(id: number): Promise<void> {
-  if (!isTauri()) return
-  await invoke('library_transfer_send_cancel', { id })
+export async function cancelNetworkTransfer(id: number): Promise<boolean> {
+  return invoke('library_transfer_network_cancel', { id })
 }
 
-export async function receiveLibrary(address: string, code: string, interfaceId?: string): Promise<LibraryTransferImportResult> {
-  return invoke<LibraryTransferImportResult>('library_transfer_receive', {
-    request: { address, code, ...(interfaceId ? { interfaceId } : {}) },
-  })
+export async function retryNetworkTransfer(id: number): Promise<LibraryTransferNetworkStatus> {
+  return invoke('library_transfer_network_retry', { id })
+}
+
+export async function dismissNetworkTransfer(id: number): Promise<void> {
+  return invoke('library_transfer_network_dismiss', { id })
 }
 
 export async function listenLibraryTransferProgress(

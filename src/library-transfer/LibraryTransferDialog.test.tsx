@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import {
-  LibrarySendFlow,
+  LibraryNetworkFlow,
   LibraryTransferCompletion,
   TransferPreparationMessage,
 } from './LibraryTransferDialog'
@@ -28,14 +28,16 @@ describe('library transfer send flow', () => {
 
   it('prioritizes pairing instructions while waiting for the receiving device', () => {
     const html = renderToStaticMarkup(
-      <LibrarySendFlow
-        preparing={false}
+      <LibraryNetworkFlow
+        role="sender"
+        starting={false}
         locale="en"
+        onRetry={() => undefined}
         onExit={() => undefined}
         status={{
           id: 1, listenerReady: true, addresses: ['192.168.1.20:49152'],
-          state: 'waiting',
-          address: '192.168.1.20:49152',
+          role: 'sender', mode: 'pull', state: 'waiting',
+          expiresAtMs: null, cancellable: true, canRetry: false, receiverProgress: null, error: null, result: null,
           code: 'ABCD-EFGH-JKLM',
           documents: 2,
           audiobooks: 1,
@@ -46,11 +48,11 @@ describe('library transfer send flow', () => {
     )
 
     expect(html).toContain('<ol>')
-    expect(html).toContain('libraryTransfer.connectStepOpen')
+    expect(html).toContain('libraryTransfer.senderPairingStep')
     expect(html).toContain('libraryTransfer.connectStepEnter')
     expect(html).toContain('192.168.1.20:49152')
     expect(html).toContain('ABCD-EFGH-JKLM')
-    expect(html).toContain('libraryTransfer.changeSelection')
+    expect(html).toContain('libraryTransfer.cancelTransfer')
   })
 
   it('summarizes completed sends without claiming receiver-side import counts', () => {
@@ -59,8 +61,8 @@ describe('library transfer send flow', () => {
         kind="send"
         status={{
           id: 1, listenerReady: true, addresses: ['192.168.1.20:49152'],
-          state: 'complete',
-          address: '192.168.1.20:49152',
+          role: 'sender', mode: 'push', state: 'complete',
+          expiresAtMs: null, cancellable: false, canRetry: false, receiverProgress: null, error: null, result: null,
           code: 'ABCD-EFGH-JKLM',
           documents: 2,
           audiobooks: 1,
@@ -103,4 +105,12 @@ describe('library transfer send flow', () => {
     expect(html).toContain('Damaged book')
     expect(html).toContain('Checksum failed')
   })
+})
+
+it('describes receiver preparation without suggesting its local content is being packaged', () => {
+  const html = renderToStaticMarkup(<LibraryNetworkFlow role="receiver" starting status={null} locale="en"
+    onExit={() => undefined} onRetry={() => undefined} />)
+  expect(html).toContain('libraryTransfer.receiveTitle')
+  expect(html).toContain('libraryTransfer.exporting')
+  expect(html).not.toContain('libraryTransfer.preparingSelection')
 })

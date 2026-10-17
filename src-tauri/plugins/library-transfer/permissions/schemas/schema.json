@@ -295,6 +295,42 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the discoveryPoll command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-discoveryPoll",
+          "markdownDescription": "Enables the discoveryPoll command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the discoveryPoll command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-discoveryPoll",
+          "markdownDescription": "Denies the discoveryPoll command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the discoveryStart command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-discoveryStart",
+          "markdownDescription": "Enables the discoveryStart command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the discoveryStart command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-discoveryStart",
+          "markdownDescription": "Denies the discoveryStart command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the discoveryStop command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-discoveryStop",
+          "markdownDescription": "Enables the discoveryStop command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the discoveryStop command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-discoveryStop",
+          "markdownDescription": "Denies the discoveryStop command without any pre-configured scope."
+        },
+        {
           "description": "Enables the observe command without any pre-configured scope.",
           "type": "string",
           "const": "allow-observe",

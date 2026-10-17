@@ -17,6 +17,7 @@ pub(super) struct TransferControl {
 #[derive(Default)]
 struct ControlState {
     socket: Option<TcpStream>,
+    protocol: Option<Arc<super::v4::Session>>,
     importing: bool,
     reason: Option<&'static str>,
 }
@@ -26,14 +27,27 @@ impl TransferControl {
         let Ok(mut inner) = self.inner.lock() else {
             return false;
         };
-        if inner.importing {
+        let mut terminal_fact = false;
+        if let Some(protocol) = &inner.protocol {
+            let _ = protocol.cancel();
+            terminal_fact = protocol.phase().is_ok_and(|phase| {
+                matches!(
+                    phase,
+                    super::v4::Phase::Complete
+                        | super::v4::Phase::Failed
+                        | super::v4::Phase::Expired
+                        | super::v4::Phase::OutcomeUnknown
+                )
+            });
+        }
+        if let Some(socket) = inner.socket.take() {
+            let _ = socket.shutdown(Shutdown::Both);
+        }
+        if inner.importing || terminal_fact {
             return false;
         }
         if !self.cancelled.swap(true, Ordering::AcqRel) {
             inner.reason = Some(reason);
-        }
-        if let Some(socket) = inner.socket.take() {
-            let _ = socket.shutdown(Shutdown::Both);
         }
         true
     }
@@ -73,14 +87,43 @@ impl TransferControl {
         }
     }
 
+    pub fn install(&self, protocol: Arc<super::v4::Session>) -> io::Result<()> {
+        let mut inner = self
+            .inner
+            .lock()
+            .map_err(|_| io::Error::other("Transfer state unavailable"))?;
+        self.check()?;
+        inner.protocol = Some(protocol);
+        Ok(())
+    }
+
+    pub fn protocol(&self) -> Option<Arc<super::v4::Session>> {
+        self.inner.lock().ok()?.protocol.clone()
+    }
+
+    pub fn release(&self) {
+        if let Ok(mut inner) = self.inner.lock() {
+            if let Some(socket) = inner.socket.take() {
+                let _ = socket.shutdown(Shutdown::Both);
+            }
+            if let Some(protocol) = inner.protocol.take() {
+                let _ = protocol.cancel();
+            }
+        }
+    }
+
     pub fn begin_import(&self) -> io::Result<()> {
         let mut inner = self
             .inner
             .lock()
             .map_err(|_| io::Error::other("Transfer state unavailable"))?;
         self.check()?;
+        if let Some(protocol) = &inner.protocol {
+            protocol
+                .admit_import()
+                .map_err(|_| io::Error::other("Restore admission denied"))?;
+        }
         inner.importing = true;
-        inner.socket = None;
         Ok(())
     }
 }

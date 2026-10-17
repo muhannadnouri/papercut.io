@@ -18,8 +18,11 @@ android {
     kotlinOptions {
         jvmTarget = "1.8"
     }
+    testOptions.unitTests.isIncludeAndroidResources = true
 }
 
 dependencies {
     implementation(project(":tauri-android"))
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.17")
 }

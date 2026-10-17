@@ -127,7 +127,7 @@ pub struct LibraryTransferExportResult {
     audiobooks: usize,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LibraryTransferImportResult {
     selected: usize,
@@ -196,7 +196,7 @@ pub(crate) fn emit_transfer_progress(
     } else {
         None
     };
-    // Generation metadata is local IPC only; the PCLAN003 progress frames stay unchanged.
+    // Generation metadata is local IPC only; authenticated progress frames contain no native IDs.
     let _ = app.emit(
         LIBRARY_TRANSFER_PROGRESS_EVENT,
         LocalProgress {
@@ -256,7 +256,7 @@ impl Drop for TransferTempFile {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct LibraryTransferFailure {
     item: String,

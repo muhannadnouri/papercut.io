@@ -78,12 +78,20 @@ tauri-plugin-opener = "=2.5.3"
 [dev-dependencies]
 # Existing Tauri mock runtime; no WebView or installed app data in command checks.
 tauri = { version = "2.11.2", features = ["test"] }
+# Compile and exercise the Windows callback adapter with fake APIs on the host as well.
+windows-sys = { version = "=0.61.2", features = ["Win32_NetworkManagement_Dns", "Win32_System_LibraryLoader"] }
 
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = "2"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+dbus = "=0.9.12"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "=0.61.2", features = ["Win32_NetworkManagement_Dns", "Win32_System_LibraryLoader"] }
 
 [profile.dev.package.image]
 opt-level = 2

@@ -10,7 +10,7 @@ use rustls::pki_types::ServerName;
 use rustls::{ClientConnection, ServerConfig, ServerConnection, StreamOwned};
 use spake2::{Ed25519Group, Identity, Password, Spake2};
 
-use super::super::security::v4_client_tls_config;
+use super::super::security::client_tls_config;
 use super::{Error, Mode, Result, Side, IO_TIMEOUT};
 
 pub(super) const MAGIC: &[u8; 8] = b"PCLAN004";
@@ -74,6 +74,7 @@ impl SecureStream {
         config: Option<Arc<ServerConfig>>,
         deadline: Instant,
     ) -> Result<Self> {
+        socket.set_nonblocking(false)?;
         socket.set_nodelay(true)?;
         let mut socket = BudgetSocket {
             socket,
@@ -83,8 +84,7 @@ impl SecureStream {
         let stream = match side {
             Side::Connector => {
                 let mut connection = ClientConnection::new(
-                    v4_client_tls_config()
-                        .map_err(|_| Error::Protocol("TLS configuration failed"))?,
+                    client_tls_config().map_err(|_| Error::Protocol("TLS configuration failed"))?,
                     ServerName::try_from("papercut.local").unwrap().to_owned(),
                 )
                 .map_err(|_| Error::Protocol("TLS initialization failed"))?;

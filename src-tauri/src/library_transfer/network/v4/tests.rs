@@ -22,6 +22,7 @@ fn exchange(
     thread::scope(|scope| {
         let server = scope.spawn(|| {
             let (socket, _) = listener.accept().unwrap();
+            socket.set_nonblocking(true).unwrap();
             let mut channel = l.authenticate(socket).unwrap();
             server(&mut channel);
         });
@@ -65,14 +66,14 @@ fn sender(channel: &mut Channel<'_>, bytes: &[u8], offset: u64) {
     assert_eq!(updates, 1);
 }
 fn receiver(channel: &mut Channel<'_>, bytes: &[u8], prefix: usize) {
-    assert!(channel.admit_import().is_err());
+    assert!(channel.session.admit_import().is_err());
     assert!(channel.send_offer(offer(bytes)).is_err());
     assert!(channel.receive_offer().unwrap() == offer(bytes));
     let mut staging = Cursor::new(bytes[..prefix].to_vec());
     channel.receive_archive(&mut staging, u64::MAX).unwrap();
     assert_eq!(staging.into_inner(), bytes);
-    channel.admit_import().unwrap();
-    assert!(channel.admit_import().is_err());
+    channel.session.admit_import().unwrap();
+    assert!(channel.session.admit_import().is_err());
     channel.progress(progress()).unwrap();
     channel.finish_import(Ok(())).unwrap();
     assert!(channel.finish_import(Ok(())).is_err());
@@ -139,7 +140,7 @@ fn full_length_corrupt_partial_never_admits_import_in_either_mode() {
                     channel.receive_archive(&mut partial, 0),
                     Err(Error::DigestMismatch)
                 ));
-                assert!(channel.admit_import().is_err());
+                assert!(channel.session.admit_import().is_err());
                 assert_eq!(channel.session.phase().unwrap(), Phase::Failed);
             }
         };
@@ -182,7 +183,7 @@ fn incomplete_copy_can_resume_with_fresh_tls_and_pake_in_same_generation() {
                     .receive_archive(&mut *partial.lock().unwrap(), u64::MAX)
                     .unwrap();
                 assert_eq!(partial.lock().unwrap().get_ref(), &bytes);
-                channel.admit_import().unwrap();
+                channel.session.admit_import().unwrap();
                 channel.progress(progress()).unwrap();
                 channel.finish_import(Ok(())).unwrap();
             }
@@ -304,7 +305,7 @@ fn authenticated_changed_offer_and_listener_identity_cannot_repurpose_resume() {
                 channel.receive_offer(),
                 Err(Error::ChangedPackage)
             ));
-            assert!(channel.admit_import().is_err());
+            assert!(channel.session.admit_import().is_err());
         },
         |channel| {
             channel
@@ -363,11 +364,11 @@ fn storage_rejection_allows_retry_only_before_import_admission() {
             channel
                 .receive_archive(&mut Cursor::new(Vec::new()), 100)
                 .unwrap();
-            channel.admit_import().unwrap();
+            channel.session.admit_import().unwrap();
             channel
                 .finish_import(Err(LibraryTransferError::insufficient_space(200, 100)))
                 .unwrap();
-            assert!(channel.admit_import().is_err());
+            assert!(channel.session.admit_import().is_err());
         },
         |channel| {
             channel.send_offer(offer(b"archive")).unwrap();
@@ -395,7 +396,7 @@ fn background_after_restore_admission_closes_network_but_keeps_local_result() {
             channel
                 .receive_archive(&mut Cursor::new(Vec::new()), 100)
                 .unwrap();
-            channel.admit_import().unwrap();
+            channel.session.admit_import().unwrap();
             channel.session.cancel().unwrap();
             assert_eq!(channel.session.phase().unwrap(), Phase::FinishingImport);
             assert!(channel.session.lock().unwrap().socket.is_none());
@@ -436,7 +437,7 @@ fn cancellation_and_restore_admission_have_one_atomic_winner() {
                     channel.session.cancel().unwrap();
                 });
                 barrier.wait();
-                let admitted = channel.admit_import();
+                let admitted = channel.session.admit_import();
                 cancel.join().unwrap();
                 assert_eq!(
                     channel.session.phase().unwrap(),
@@ -679,7 +680,7 @@ fn invalid_post_copy_status_is_unknown_and_never_replays() {
                 channel
                     .receive_archive(&mut Cursor::new(Vec::new()), 100)
                     .unwrap();
-                channel.admit_import().unwrap();
+                channel.session.admit_import().unwrap();
                 channel.write_frame(Frame::Ready(0)).unwrap();
                 // Import completed locally even though the remote result stream is invalid.
                 channel.finish_import(Ok(())).unwrap();
@@ -701,7 +702,7 @@ fn failed_progress_forwarding_is_disabled_without_cancelling_import() {
             channel
                 .receive_archive(&mut Cursor::new(Vec::new()), 100)
                 .unwrap();
-            channel.admit_import().unwrap();
+            channel.session.admit_import().unwrap();
             let mut large = progress();
             large.item = Some("x".repeat(codec::STATUS_LIMIT));
             channel.progress(large).unwrap();
@@ -800,7 +801,7 @@ fn trickled_tls_application_bytes_cannot_renew_an_absolute_budget() {
             let mut stream = SecureStream::tls(
                 listener.accept().unwrap().0,
                 Side::Listener,
-                Some(v4_server_tls_config().unwrap()),
+                Some(server_tls_config().unwrap()),
                 Instant::now() + Duration::from_secs(2),
             )
             .unwrap();
@@ -869,4 +870,39 @@ fn cancellation_wins_over_a_late_buffered_complete_status() {
     );
     assert_eq!(l.phase().unwrap(), Phase::Complete);
     assert_eq!(c.phase().unwrap(), Phase::OutcomeUnknown);
+}
+
+#[test]
+fn disconnect_at_final_delivery_is_unknown_not_an_automatic_resume() {
+    for mode in [Mode::Push, Mode::Pull] {
+        let (listener, l, c) = peers(mode);
+        let (ready_tx, ready_rx) = std::sync::mpsc::channel();
+        let (closed_tx, closed_rx) = std::sync::mpsc::channel();
+        let send = move |channel: &mut Channel<'_>| {
+            channel.send_offer(offer(b"archive")).unwrap();
+            channel.wait_ready().unwrap();
+            ready_tx.send(()).unwrap();
+            closed_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+            match channel.send_archive(&mut Cursor::new(b"archive")) {
+                Ok(()) => assert!(matches!(
+                    channel.await_result(|_| {}),
+                    Err(Error::OutcomeUnknown)
+                )),
+                Err(error) => assert!(matches!(error, Error::OutcomeUnknown)),
+            }
+            assert_eq!(channel.session.phase().unwrap(), Phase::OutcomeUnknown);
+        };
+        let receive = move |channel: &mut Channel<'_>| {
+            channel.receive_offer().unwrap();
+            channel.write_frame(Frame::Ready(0)).unwrap();
+            ready_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+            channel.session.cancel().unwrap();
+            closed_tx.send(()).unwrap();
+        };
+        if mode == Mode::Push {
+            exchange(&listener, &l, &c, receive, send)
+        } else {
+            exchange(&listener, &l, &c, send, receive)
+        }
+    }
 }

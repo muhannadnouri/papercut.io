@@ -114,6 +114,7 @@ dependencies = [
  "ammonia",
  "base64 0.22.1",
  "bzip2",
+ "dbus",
  "encoding_rs",
  "fastembed",
  "fs4",
@@ -151,6 +152,7 @@ dependencies = [
  "tauri-plugin-native-audio",
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
+ "windows-sys 0.61.2",
  "zip",
 ]
 

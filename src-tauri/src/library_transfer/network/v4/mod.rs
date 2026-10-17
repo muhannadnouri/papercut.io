@@ -1,5 +1,5 @@
 //! Native v4 stream boundary, independent of which content role connects.
-//! The existing v3 IPC remains active until the coordinated dialog cutover.
+//! Production orchestration supplies native staging and device-wide reservations.
 
 mod auth;
 mod codec;
@@ -11,9 +11,10 @@ use std::net::{Shutdown, SocketAddr, TcpStream};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use super::security::{new_pairing_code, normalize_code, v4_server_tls_config};
+use super::security::{new_pairing_code, normalize_code, server_tls_config};
 use super::transport::ReceiverMessage;
 use crate::library_transfer::{LibraryTransferError, LibraryTransferProgress};
 use auth::{Credentials, SecureStream};
@@ -24,6 +25,9 @@ const IO_TIMEOUT: Duration = Duration::from_secs(30);
 const WINDOW: Duration = Duration::from_secs(600);
 const AUTH_TIMEOUT: Duration = Duration::from_secs(5);
 const BUFFER: usize = 64 * 1024;
+pub(super) fn protocol_version() -> &'static str {
+    std::str::from_utf8(auth::MAGIC).expect("fixed ASCII protocol marker")
+}
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -47,7 +51,8 @@ impl From<io::Error> for Error {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 #[repr(u8)]
 pub(super) enum Mode {
     Push = 1,
@@ -58,13 +63,22 @@ pub(super) enum Side {
     Connector,
     Listener,
 }
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(super) enum Content {
     Sender,
     Receiver,
 }
 
 impl Mode {
+    pub fn side(self, content: Content) -> Side {
+        if self.content(Side::Connector) == content {
+            Side::Connector
+        } else {
+            Side::Listener
+        }
+    }
+
     fn content(self, side: Side) -> Content {
         if matches!(
             (self, side),
@@ -97,7 +111,7 @@ pub(super) enum Phase {
     OutcomeUnknown,
 }
 impl Phase {
-    fn terminal(self) -> bool {
+    pub fn terminal(self) -> bool {
         matches!(
             self,
             Self::Complete | Self::Failed | Self::Cancelled | Self::Expired | Self::OutcomeUnknown
@@ -123,6 +137,8 @@ struct Inner {
     pinned_endpoint: Option<SocketAddr>,
     offer: Option<Offer>,
     offset: Option<u64>,
+    copied: u64,
+    total: u64,
     verified: bool,
     socket: Option<TcpStream>,
     network_closed: bool,
@@ -181,6 +197,38 @@ impl Inner {
 }
 
 impl Session {
+    #[cfg(test)]
+    pub fn expire_for_test(&self) {
+        self.lock().unwrap().deadline = Some(Instant::now());
+    }
+    pub fn generation(&self) -> u64 {
+        self.generation
+    }
+    pub fn bytes(&self) -> Result<(u64, u64)> {
+        let inner = self.lock()?;
+        Ok((inner.copied, inner.total))
+    }
+    pub fn deadline(&self) -> Result<Option<Instant>> {
+        Ok(self.lock()?.deadline)
+    }
+    pub fn is_listener(&self) -> bool {
+        self.side == Side::Listener
+    }
+    pub fn admit_import(&self) -> Result<()> {
+        let mut inner = self.lock()?;
+        if inner.network_closed {
+            return Err(Error::Cancelled);
+        }
+        if self.mode.content(self.side) != Content::Receiver
+            || inner.phase != Phase::Verifying
+            || !inner.verified
+        {
+            return Err(Error::Protocol("Unverified archive cannot be imported"));
+        }
+        inner.phase = Phase::FinishingImport;
+        Ok(())
+    }
+
     pub fn listener(generation: u64, mode: Mode, endpoints: Vec<SocketAddr>) -> Result<Self> {
         if endpoints.is_empty()
             || endpoints
@@ -193,8 +241,7 @@ impl Session {
         getrandom::fill(&mut id).map_err(|_| Error::Protocol("Session randomness unavailable"))?;
         let code =
             new_pairing_code().map_err(|_| Error::Protocol("Pairing randomness unavailable"))?;
-        let tls =
-            v4_server_tls_config().map_err(|_| Error::Protocol("TLS configuration failed"))?;
+        let tls = server_tls_config().map_err(|_| Error::Protocol("TLS configuration failed"))?;
         let session = Self::new(generation, mode, Side::Listener, endpoints, None);
         {
             let mut inner = session.lock()?;
@@ -245,6 +292,8 @@ impl Session {
                 pinned_endpoint: None,
                 offer: None,
                 offset: None,
+                copied: 0,
+                total: 0,
                 verified: false,
                 socket: None,
                 network_closed: false,
@@ -437,6 +486,7 @@ impl Session {
             return Err(Error::ChangedPackage);
         }
         inner.offer = Some(offer);
+        inner.total = offer.size;
         inner.offset = None;
         inner.phase = Phase::Ready;
         Ok(())
@@ -483,6 +533,17 @@ pub(super) struct Channel<'a> {
 }
 
 impl Channel<'_> {
+    pub fn reject(&mut self, error: LibraryTransferError) -> Result<()> {
+        self.session.check(Phase::Ready, Content::Receiver)?;
+        let retryable = error.is_retryable();
+        let result = self.write_frame(Frame::Status(ReceiverMessage::Failed(error)));
+        if retryable {
+            self.session.connection_lost();
+        } else {
+            self.session.lock()?.end(Phase::Failed);
+        }
+        result
+    }
     fn read_frame(&mut self, expected: Expected, wait: Duration) -> Result<Frame> {
         let outer = Instant::now() + wait;
         self.stream.limits(wait, Some(outer));
@@ -596,6 +657,7 @@ impl Channel<'_> {
             return Err(Error::ChangedPackage);
         }
         archive.seek(SeekFrom::Start(offset))?;
+        self.session.lock()?.copied = offset;
         let mut left = offer.size - offset;
         let mut buffer = [0; BUFFER];
         while left > 0 {
@@ -619,6 +681,7 @@ impl Channel<'_> {
                 });
             }
             left -= n as u64;
+            self.session.lock()?.copied = offer.size - left;
         }
         if offer.size == offset {
             self.session
@@ -658,6 +721,7 @@ impl Channel<'_> {
         self.write_frame(Frame::Ready(offset))
             .inspect_err(|_| self.session.connection_lost())?;
         self.session.transition(Phase::Ready, Phase::Streaming)?;
+        self.session.lock()?.copied = offset;
         let result = (|| {
             let mut left = offer.size - offset;
             let mut buffer = [0; BUFFER];
@@ -671,6 +735,7 @@ impl Channel<'_> {
                 }
                 staging.write_all(&buffer[..n])?;
                 left -= n as u64;
+                self.session.lock()?.copied = offer.size - left;
             }
             if offset == offer.size {
                 self.session
@@ -700,21 +765,6 @@ impl Channel<'_> {
             }
         }
         result
-    }
-
-    pub fn admit_import(&self) -> Result<()> {
-        let mut inner = self.session.lock()?;
-        if inner.network_closed {
-            return Err(Error::Cancelled);
-        }
-        if self.session.mode.content(self.session.side) != Content::Receiver
-            || inner.phase != Phase::Verifying
-            || !inner.verified
-        {
-            return Err(Error::Protocol("Unverified archive cannot be imported"));
-        }
-        inner.phase = Phase::FinishingImport;
-        Ok(())
     }
 
     pub fn progress(&mut self, progress: LibraryTransferProgress) -> Result<()> {

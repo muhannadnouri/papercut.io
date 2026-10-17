@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-discoveryStop"
+description = "Enables the discoveryStop command without any pre-configured scope."
+commands.allow = ["discoveryStop"]
+
+[[permission]]
+identifier = "deny-discoveryStop"
+description = "Denies the discoveryStop command without any pre-configured scope."
+commands.deny = ["discoveryStop"]
