@@ -41,9 +41,10 @@ skipped as intended for this transfer change.
 The ZIP preflight re-review found no further actionable code findings. This run
 clears the automated build/test gate for `d0409fe`, not subsequent UI changes.
 Android screenshots later exposed clipped task controls and a confusing task/
-connection-method hierarchy. The first layout repair and remaining guided-flow
-work are recorded below. Complete that UI pass and review before opening the PR;
-carry this run link, later validation and explicit deferrals into its description.
+connection-method hierarchy. The layout repair, task-first flow and stable mobile
+presentation are recorded below. Their combined local review found no additional
+code blockers. Run fresh CI for the UI changes, then carry both validation records
+and explicit device-acceptance deferrals into the PR description.
 
 Physical discovery, permissions/firewall behavior, transfer/resume/cancellation
 and lifecycle acceptance remain unverified on packaged devices. Keep those smoke
@@ -346,9 +347,8 @@ suite passes 352 tests with one existing skip. Lint, typecheck, the production
 frontend/Pagefind build, i18n validation and documentation checks pass. This is
 local validation after the linked full CI run, not a new platform CI result.
 
-The subsequent task-first flow below implements the interaction changes. A stable
-mobile transfer view and a review of the combined flow remain the next stage.
-Device smoke and the app version bump remain deferred.
+The subsequent task-first flow and stable mobile presentation below complete the
+interaction/layout pass. Device smoke and the app version bump remain deferred.
 
 ### Task-first Transfer Flow — 2026-10-17
 
@@ -395,6 +395,38 @@ the production frontend/Pagefind build and documentation checks pass. This does
 not replace fresh platform CI or physical-device acceptance; smoke and the app
 version bump remain deferred.
 
+### Stable Mobile Presentation and Combined Review — 2026-10-17
+
+At the app's mobile breakpoint (767 CSS pixels or narrower), the transfer dialog
+fills the height available inside the existing dialog gutters and safe-area
+insets. It stays in the same place when the task description disappears, content
+expands, pairing is shown or results replace progress. The existing header keeps
+navigation and the chosen task visible; the body owns scrolling and lower actions
+remain reachable. The role choices remain in that body rather than adding another
+fixed toolbar that would cover content on short screens. Desktop dialogs keep
+their natural bounded height. Other dialogs do not acquire this presentation.
+
+The implementation uses the existing `AppDialog.className` hook and transfer CSS;
+there is no new dialog API, router, viewport listener or dependency. The browser
+regression now starts with the actual `LibraryTransferDialog` shell, then inserts
+representative step content to measure growing/shrinking layouts. Ten cases cover
+portrait, narrow RTL, reduced height with 150% base text, landscape and desktop,
+with explicit top/bottom inset fixtures. They verify stable mobile dialog and
+navigation bounds, ordinary/desktop auto sizing, body scrolling, reachable lower
+actions and discovery-button styling. Six of the final cases fail with the
+committed pre-fix CSS; all ten pass with this change. The constrained-height and
+desktop cases also preserve behavior that already worked.
+
+Local validation: 368 frontend tests pass with one existing skip. Lint, typecheck,
+i18n validation, the production frontend/Pagefind build and documentation checks
+pass. Ponytail Review traced both connection modes, task/selection transitions,
+native ownership restoration, cancellation/dismissal guards, file fallback and
+diagnostics, assuming the existing single foreground session. It found no further
+actionable code issues in this UI pass. The browser fixtures measure layout, not
+hydrated native transfers, Android/iOS WebView keyboard behavior or screen-reader
+acceptance. Those smoke checks and the version bump remain deferred. The next
+step is fresh platform CI for the completed UI changes and PR readiness review.
+
 ### Current Flow
 
 App Settings owns the entry point because transfer is device-level data
@@ -406,8 +438,9 @@ dedicated **Transfer Library** dialog organized by the user's role:
 - **Receive** presents pairing details for the sender to use, with an explicit
   alternate connector method and **Import Transfer File** as a secondary fallback.
 
-The role control remains visible throughout the dialog. Local-network transfer
-is the default path, while the transfer-file disclosures explain that files can
+The role control remains available in every task step, and the fixed header
+identifies the chosen task while the body scrolls. Local-network transfer is the
+default path, while the transfer-file disclosures explain that files can
 be copied through USB, shared storage, or another user-chosen method. The save
 action also states that the ZIP-based package is not encrypted, contains readable
 copies of the selection, and should be kept private and deleted when no longer
@@ -2020,13 +2053,15 @@ transport/UI integration without dependencies or firewall mutation.
 
 The automated library-transfer suite covers package validation, private staging,
 SPAKE2 agreement, TLS-channel and role binding, wrong-code rejection, malformed
-traffic, and resumable streaming. It does not establish the proposed new protocol
-or authorization behavior. Before release, run the following manual cases with
-packaged builds and record the platform, network type, wire version and result;
-new-design cases become required when that implementation is available:
+traffic, and resumable streaming in v4. It does not establish packaged-device
+discovery, permission, firewall or WebView behavior. Before release, run the
+following manual cases with packaged builds and record the platform, network
+type, wire version and result; these device checks remain deferred in this stage:
 
 | Case | Action | Pass criteria |
 | --- | --- | --- |
+| Task-first entry and empty library | Open Transfer Library, choose Send with and without content, select items and Continue, then Change Selection. Switch to Receive. | No address form precedes selection; empty Send explains the missing content; selections survive the step change; Receive needs no local content; no discovery or transfer starts merely by choosing a task. |
+| Mobile step layout | On Android/iOS, walk task choice, content selection, pairing, progress and results; expand manual settings/diagnostics, rotate, enlarge text and open the keyboard in the pairing field. Repeat in RTL. | Dialog/navigation stay within usable safe-area bounds as steps change. The header identifies the task, controls do not collapse, focused inputs and lower actions can be reached, and no horizontal scrolling is needed. Record actual keyboard/WebView behavior separately from browser-fixture results. |
 | Normal transfer | Send selected documents with and without a saved audiobook between two current builds. | Only selected content arrives; required source documents, folders, EPUB images, PDF sources, and playable audio remain intact. |
 | Incorrect code | Enter a complete valid-format code that differs from the listening device's code. | Both devices report pairing failure, no package bytes move, and a new session and code are required. |
 | Unrelated traffic | While the listening device waits, connect to its displayed port with a browser or raw TCP client where available. | It stays waiting without showing an unrelated transfer failure. |

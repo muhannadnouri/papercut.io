@@ -6,14 +6,22 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
-import { AppDialog } from '../components/AppDialog/AppDialog'
+import { LibraryTransferDialog } from './LibraryTransferDialog'
 import en from '../i18n/locales/en.json'
 import { NearbySessions } from './NearbySessions'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => {
-  const message = key.split('.').at(-1) as keyof typeof en.libraryTransfer.nearby
-  return en.libraryTransfer.nearby[message] ?? key
-} }) }))
+function translate(key: string) {
+  let message: unknown = en
+  for (const part of key.split('.')) {
+    if (!message || typeof message !== 'object') return key
+    message = (message as Record<string, unknown>)[part]
+  }
+  return typeof message === 'string' ? message : key
+}
+vi.mock('react-i18next', () => ({ useTranslation: () => ({
+  t: translate, i18n: { language: 'en', getFixedT: () => translate },
+}) }))
+vi.mock('../i18n', () => ({ currentAppLocale: () => 'en', default: {} }))
 
 const browser = [process.env.CHROME_BIN, 'chromium', 'chromium-browser', 'google-chrome', 'google-chrome-stable']
   .find(candidate => {
@@ -27,8 +35,8 @@ const css = ['src/components/AppDialog/AppDialog.css', 'src/library-transfer/Lib
 
 // Real components/CSS in a browser: jsdom cannot detect grid tracks collapsing under overflow.
 function fixture(connector: boolean) {
-  return renderToStaticMarkup(<AppDialog title="Transfer Library" description="Copy selected library content between Papercut devices without an account."
-    showCloseButton onBack={() => {}} onCancel={() => {}}>
+  const dialog = renderToStaticMarkup(<LibraryTransferDialog onBack={() => {}} onClose={() => {}} onImported={() => {}} />)
+  const content = renderToStaticMarkup(<>
     <div className="library-transfer-mode" id="task-mode"><button>Send</button><button>Receive</button></div>
     <section className="library-transfer-primary-section">
       <header><h3>Connect Devices</h3><p>Choose the session on the other device and enter its pairing code.</p></header>
@@ -46,24 +54,35 @@ function fixture(connector: boolean) {
     </section>
     <div id="expanding-content" />
     <div className="library-transfer-primary-section"><button id="last-action">Last Action</button></div>
-  </AppDialog>)
+  </>)
+  return `${dialog}<template id="flow-content">${content}</template>`
 }
 
 const measure = `
 const body = document.querySelector('.app-dialog-body');
 const rect = element => { const r = element.getBoundingClientRect(); return {top:r.top,bottom:r.bottom,height:r.height}; };
+const dialog = document.querySelector('.app-dialog'), navigation = document.querySelector('.app-dialog-navigation');
+const bounds = () => ({dialog:rect(dialog),navigation:rect(navigation)});
+const entry = bounds();
+body.replaceChildren(document.querySelector('#flow-content').content.cloneNode(true));
+const content = [...body.children].filter(element => element.id !== 'task-mode');
+document.querySelector('.app-dialog-header h2').textContent = 'Send';
+document.querySelector('.app-dialog-header p').style.display = 'none';
 const modes = () => ['task-mode'].map(id => {
   const group = document.getElementById(id);
   return {group:rect(group).height,button:rect(group.querySelector('button')).height};
 });
 const compact = modes();
+const selection = bounds();
 document.querySelector('#expanding-content').style.height = '900px';
 const expanded = modes();
+const connection = bounds();
 const header = rect(document.querySelector('.app-dialog-header'));
 const overflowing = body.scrollHeight > body.clientHeight;
 document.querySelector('#last-action').focus();
 const last = rect(document.querySelector('#last-action')), viewport = rect(body);
 const reachable = last.top >= viewport.top - 1 && last.bottom <= viewport.bottom + 1;
+const scrolled = bounds();
 const horizontalOverflow = body.scrollWidth - body.clientWidth;
 const style = button => { const s = getComputedStyle(button); return [s.minHeight,s.borderRadius,s.backgroundColor,s.color,s.fontSize,s.fontFamily,s.cursor]; };
 const reference = document.querySelector('#refresh'), nearby = document.querySelector('.library-transfer-nearby button');
@@ -77,7 +96,11 @@ if (nearby) {
 }
 document.querySelector('#expanding-content').style.height = '0';
 body.scrollTop = 0;
-parent.postMessage({type:'papercut-layout',result:{width:innerWidth,height:innerHeight,compact,expanded,collapsed:modes(),header,overflowing,reachable,horizontalOverflow,buttons}},'*');
+const completion = bounds();
+content.forEach(element => element.style.display = 'none');
+dialog.classList.remove('library-transfer-dialog');
+const ordinaryDialog = rect(dialog);
+parent.postMessage({type:'papercut-layout',result:{width:innerWidth,height:innerHeight,compact,expanded,collapsed:modes(),header,overflowing,reachable,horizontalOverflow,buttons,entry,selection,connection,scrolled,completion,ordinaryDialog}},'*');
 `
 
 describe.skipIf(!browser)('transfer dialog browser layout', () => {
@@ -85,6 +108,7 @@ describe.skipIf(!browser)('transfer dialog browser layout', () => {
     { width: 390, height: 780, font: 16, dir: 'ltr' },
     { width: 320, height: 568, font: 16, dir: 'rtl' },
     { width: 390, height: 500, font: 24, dir: 'ltr' },
+    { width: 740, height: 360, font: 16, dir: 'ltr' },
     { width: 1280, height: 800, font: 16, dir: 'ltr' },
   ]
   for (const viewport of viewports) {
@@ -93,9 +117,10 @@ describe.skipIf(!browser)('transfer dialog browser layout', () => {
       try {
         const path = join(directory, 'fixture.html'), frame = join(directory, 'frame.html')
         writeFileSync(frame, `<!doctype html><html dir="${viewport.dir}"><meta charset="utf-8"><style>
-          :root {font-size:${viewport.font}px;--control-surface:#303640;--surface-muted:#20242a;--surface-accent:#363367;
+          :root {font-size:${viewport.font}px;--mobile-safe-top-space:1.35rem;--control-surface:#303640;--surface-muted:#20242a;--surface-accent:#363367;
           --text-body:#ddd;--accent-text:#bbf;--accent-strong:#ccf;--text-soft:#888;--radius-control:8px;--shadow-focus:#8899ff}
-          *{box-sizing:border-box}body{font-family:Arial}${css}</style>${fixture(connector)}<script>${measure}</script></html>`)
+          *{box-sizing:border-box}body{font-family:Arial}${css}
+          .app-dialog-backdrop{--dialog-safe-bottom:22px}</style>${fixture(connector)}<script>${measure}</script></html>`)
         // An iframe gives exact CSS viewports below Chrome's 500px desktop-window minimum.
         writeFileSync(path, `<!doctype html><script>addEventListener('message', ({data}) => {
           if(data?.type !== 'papercut-layout') return;
@@ -117,6 +142,19 @@ describe.skipIf(!browser)('transfer dialog browser layout', () => {
         expect(result.overflowing).toBe(true)
         expect(result.reachable).toBe(true)
         expect(result.horizontalOverflow).toBeLessThanOrEqual(1)
+        if (viewport.width <= 767) {
+          expect(result.entry.dialog.height).toBeCloseTo(viewport.height - 3.35 * viewport.font - 22, 0)
+          for (const stage of ['selection', 'connection', 'scrolled', 'completion']) {
+            expect(result[stage].dialog).toEqual(result.entry.dialog)
+            expect(result[stage].navigation).toEqual(result.entry.navigation)
+          }
+          expect(result.entry.dialog.top).toBeGreaterThanOrEqual(2.35 * viewport.font - 0.5)
+          expect(result.entry.dialog.bottom).toBeLessThanOrEqual(viewport.height - viewport.font - 22 + 0.5)
+        } else {
+          expect(result.entry.dialog.height).toBeLessThan(result.selection.dialog.height)
+          expect(result.selection.dialog.height).toBeLessThan(result.connection.dialog.height)
+        }
+        expect(result.ordinaryDialog.height).toBeLessThan(result.connection.dialog.height)
         if (connector) {
           expect(result.buttons.normal.nearby).toEqual(result.buttons.normal.reference)
           expect(result.buttons.disabled.nearby).toEqual(result.buttons.disabled.reference)

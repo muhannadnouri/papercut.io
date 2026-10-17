@@ -387,6 +387,7 @@ export function LibraryTransferDialog({ onBack, onClose, onImported }: LibraryTr
 
   return (
     <AppDialog
+      className="library-transfer-dialog"
       title={t(!mode ? 'libraryTransfer.title' : mode === 'send' ? 'libraryTransfer.modeSend' : 'libraryTransfer.modeReceive')}
       description={!mode ? t('libraryTransfer.description') : undefined}
       showCloseButton
