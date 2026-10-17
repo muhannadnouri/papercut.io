@@ -159,6 +159,36 @@ The newer compiler's `fetch_update` deprecation is nonblocking; it is separate
 from this linker failure and the existing Rust 1.88 minimum stays unchanged.
 Smoke and the app version bump remain deferred.
 
+The follow-up ZIP review found a defensive import-boundary bypass: ZIP 9 can
+recover an earlier end record when the final one is invalid, then collapse
+duplicate names. An attacker-controlled comment could therefore make the old
+preflight check two entries while the reader parsed a different, larger
+directory. This affects arbitrary files selected as libraries and authenticated
+LAN packages; it does not demonstrate filesystem writes or code execution.
+The library-package opener now rejects ambiguous end records before constructing
+the ZIP reader, uses explicit archive offsets, and checks the physical directory
+headers against the advertised count and byte boundary. Fixed ZIP64 end records
+must meet their locator exactly, preventing a different ZIP64 candidate or an
+unbounded extensible-data allocation. The patched ZIP dependency and audit policy
+stay unchanged.
+
+Regression fixtures reproduce the standard-ZIP duplicate-name bypass and a
+125,001-entry ZIP64 directory hidden by a forged footer comment; both failed the
+new rejection assertions before the fix. Further cases cover the reader's wider
+footer-recovery window, inconsistent directory counts/lengths, ZIP64 locator and
+record-size manipulation, trailing data and inferred offsets. Ordinary comments,
+standard/ZIP64 payload-and-checksum round trips and the fixed ZIP 0.6.6 compatibility
+vectors remain accepted. These are synthetic local archive tests, not device smoke.
+The ZIP64 bypass regression also gives the opener only a 128 KiB read budget:
+rejection must finish in the tail scan without parsing the hidden large directory.
+Verification: all 21 package tests pass, the full native suite passes (265 passed,
+four existing ignored), and the native TTS/search-feature suite passes (323 passed,
+nine existing ignored). Formatting, whitespace and local documentation-link checks
+pass. The pinned audit CLI/database above still reports zero blocking findings,
+eight maintenance warnings and two upstream unsoundness warnings. A fresh full CI
+run on the pushed fix, including the Apple linking jobs, remains required; smoke
+and the app version bump remain deferred.
+
 Transferred display-title overrides and available original filenames are
 restored after parsing so metadata corrections survive a device move.
 Document ids come from the manifest rather than a hash of normalized HTML;
@@ -201,11 +231,20 @@ checksum before restoring it. Versions 1 through 3 remain import-compatible.
 All versions are limited to 500 documents. Versions 2 through 4 are also limited to 500
 completed audiobooks and 100,000 audiobook files, with an 8 GiB expanded package
 limit. EPUB reader images retain the import limits of 5 MB per image and 100 MB
-per document. Before the ZIP reader allocates metadata for every entry, Papercut
-reads only the fixed standard/ZIP64 end records and rejects more than 125,000
-entries or a central directory larger than 64 MiB. The ZIP crate still owns all
-archive parsing; the preflight only bounds work that otherwise occurs before the
-manifest limits can run. Reading preferences are not represented.
+per document. Before the library-package ZIP reader allocates entry metadata,
+Papercut rejects more than 125,000 entries or a central directory larger than
+64 MiB. A bounded 128 KiB tail scan covers ZIP 9's footer-recovery window and
+requires one unambiguous end record whose comment ends at EOF. Preflight checks
+fixed standard/ZIP64 end metadata and walks the 46-byte directory headers without
+allocating entry names or extra fields, requiring the count and variable-field
+lengths to fit the exact advertised directory. The reader uses known offsets
+instead of searching for an alternative directory. The ZIP crate still decodes
+and validates entries; Papercut validates the manifest, paths and checksums.
+This deliberately rejects ambiguous footer-like comment/payload data, trailing
+data, archives needing offset recovery and extended ZIP64 end records that
+Papercut does not write. Ordinary comments and existing Papercut exports remain
+supported. This preflight is specific to library-package imports, not the
+separate EPUB document parser. Reading preferences are not represented.
 
 Import rules:
 

@@ -6,6 +6,7 @@ use std::path::{Component, Path};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use zip::read::{ArchiveOffset, Config};
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipArchive, ZipWriter};
 
@@ -37,6 +38,8 @@ const MAX_CENTRAL_DIRECTORY_BYTES: u64 = 64 * 1024 * 1024;
 const ZIP_END_BYTES: usize = 22;
 const ZIP64_END_BYTES: usize = 56;
 const ZIP64_LOCATOR_BYTES: usize = 20;
+// Cover ZIP 9's recovery scan, which extends beyond the standard 65,557-byte footer window.
+const ZIP_END_SEARCH_BYTES: usize = 128 * 1024;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -265,10 +268,10 @@ fn write_payload<W: Write + Seek, O: FnMut(&str) -> Result<Box<dyn Read>, String
 }
 
 /// Bound central-directory work before `zip` allocates metadata for every
-/// entry. This reads only the standard EOCD and optional fixed ZIP64 records;
-/// the crate remains responsible for parsing and validating the archive.
+/// entry. Reject footer recovery and walk only fixed directory headers; `zip`
+/// remains responsible for decoding entries and validating their contents.
 ///
-/// ponytail: remove this narrow preflight when `zip` exposes equivalent entry
+/// shortcut: remove this narrow preflight when `zip` exposes equivalent entry
 /// and central-directory byte limits in its stable reader configuration.
 fn preflight_archive<R: Read + Seek>(reader: &mut R) -> Result<u64, String> {
     const END_SIGNATURE: [u8; 4] = [0x50, 0x4b, 0x05, 0x06];
@@ -282,7 +285,7 @@ fn preflight_archive<R: Read + Seek>(reader: &mut R) -> Result<u64, String> {
         return Err("Library-transfer archive is missing its central directory".into());
     }
 
-    let tail_bytes = file_bytes.min((ZIP_END_BYTES + u16::MAX as usize) as u64) as usize;
+    let tail_bytes = file_bytes.min(ZIP_END_SEARCH_BYTES as u64) as usize;
     reader
         .seek(SeekFrom::End(-(tail_bytes as i64)))
         .map_err(|err| format!("Failed to inspect library-transfer archive: {err}"))?;
@@ -291,19 +294,31 @@ fn preflight_archive<R: Read + Seek>(reader: &mut R) -> Result<u64, String> {
         .read_exact(&mut tail)
         .map_err(|err| format!("Failed to inspect library-transfer archive: {err}"))?;
 
-    let end_offset = (0..=tail.len() - ZIP_END_BYTES)
-        .rev()
-        .find(|&offset| {
-            tail[offset..offset + 4] == END_SIGNATURE
-                && offset + ZIP_END_BYTES + read_u16(&tail, offset + 20) as usize == tail.len()
-        })
+    let mut end_offsets = (0..=tail.len() - ZIP_END_BYTES).filter(|&offset| {
+        tail[offset..offset + 4] == END_SIGNATURE
+            && offset + ZIP_END_BYTES + read_u16(&tail, offset + 20) as usize <= tail.len()
+    });
+    let end_offset = end_offsets
+        .next()
         .ok_or_else(|| "Library-transfer archive is missing its central directory".to_string())?;
+    if end_offsets.next().is_some() {
+        return Err("Library-transfer archive has ambiguous end records".into());
+    }
+    if end_offset + ZIP_END_BYTES + read_u16(&tail, end_offset + 20) as usize != tail.len() {
+        return Err("Library-transfer archive has trailing data".into());
+    }
     let end_position = file_bytes - tail_bytes as u64 + end_offset as u64;
 
-    let entries = if end_offset >= ZIP64_LOCATOR_BYTES
-        && tail[end_offset - ZIP64_LOCATOR_BYTES..end_offset - ZIP64_LOCATOR_BYTES + 4]
-            == ZIP64_LOCATOR_SIGNATURE
-    {
+    let is_zip64 = read_u16(&tail, end_offset + 10) == u16::MAX
+        || read_u32(&tail, end_offset + 12) == u32::MAX
+        || read_u32(&tail, end_offset + 16) == u32::MAX;
+    let (entries, directory_bytes, directory_position, directory_end) = if is_zip64 {
+        if end_offset < ZIP64_LOCATOR_BYTES
+            || tail[end_offset - ZIP64_LOCATOR_BYTES..end_offset - ZIP64_LOCATOR_BYTES + 4]
+                != ZIP64_LOCATOR_SIGNATURE
+        {
+            return Err("Library-transfer ZIP64 locator is missing".into());
+        }
         let locator = &tail[end_offset - ZIP64_LOCATOR_BYTES..end_offset];
         if read_u32(locator, 4) != 0 || read_u32(locator, 16) != 1 {
             return Err("Multi-disk library-transfer archives are not supported".into());
@@ -311,7 +326,7 @@ fn preflight_archive<R: Read + Seek>(reader: &mut R) -> Result<u64, String> {
         let zip64_position = read_u64(locator, 8);
         if zip64_position
             .checked_add(ZIP64_END_BYTES as u64)
-            .is_none_or(|end| end > end_position - ZIP64_LOCATOR_BYTES as u64)
+            .is_none_or(|end| end != end_position - ZIP64_LOCATOR_BYTES as u64)
         {
             return Err("Library-transfer ZIP64 metadata is invalid".into());
         }
@@ -323,16 +338,19 @@ fn preflight_archive<R: Read + Seek>(reader: &mut R) -> Result<u64, String> {
             .read_exact(&mut zip64)
             .map_err(|err| format!("Failed to inspect library-transfer ZIP64 metadata: {err}"))?;
         if zip64[..4] != ZIP64_END_SIGNATURE
-            || read_u64(&zip64, 4) < 44
+            || read_u64(&zip64, 4) != 44
             || read_u32(&zip64, 16) != 0
             || read_u32(&zip64, 20) != 0
             || read_u64(&zip64, 24) != read_u64(&zip64, 32)
         {
             return Err("Library-transfer ZIP64 metadata is invalid".into());
         }
-        let entries = read_u64(&zip64, 32);
-        validate_central_directory_limits(entries, read_u64(&zip64, 40))?;
-        entries
+        (
+            read_u64(&zip64, 32),
+            read_u64(&zip64, 40),
+            read_u64(&zip64, 48),
+            zip64_position,
+        )
     } else {
         if read_u16(&tail, end_offset + 4) != 0
             || read_u16(&tail, end_offset + 6) != 0
@@ -340,10 +358,44 @@ fn preflight_archive<R: Read + Seek>(reader: &mut R) -> Result<u64, String> {
         {
             return Err("Multi-disk library-transfer archives are not supported".into());
         }
-        let entries = read_u16(&tail, end_offset + 10) as u64;
-        validate_central_directory_limits(entries, read_u32(&tail, end_offset + 12) as u64)?;
-        entries
+        (
+            read_u16(&tail, end_offset + 10) as u64,
+            read_u32(&tail, end_offset + 12) as u64,
+            read_u32(&tail, end_offset + 16) as u64,
+            end_position,
+        )
     };
+    validate_central_directory_limits(entries, directory_bytes)?;
+    if directory_position.checked_add(directory_bytes) != Some(directory_end) {
+        return Err("Library-transfer archive directory bounds are invalid".into());
+    }
+    // ZIP 9 trusts entry lengths rather than the advertised directory byte count.
+    let mut position = directory_position;
+    for _ in 0..entries {
+        if directory_end.saturating_sub(position) < 46 {
+            return Err("Library-transfer archive directory is truncated".into());
+        }
+        reader
+            .seek(SeekFrom::Start(position))
+            .map_err(|err| format!("Failed to inspect library-transfer directory: {err}"))?;
+        let mut header = [0; 46];
+        reader
+            .read_exact(&mut header)
+            .map_err(|err| format!("Failed to inspect library-transfer directory: {err}"))?;
+        if header[..4] != [0x50, 0x4b, 0x01, 0x02] {
+            return Err("Library-transfer archive directory header is invalid".into());
+        }
+        position += 46
+            + read_u16(&header, 28) as u64
+            + read_u16(&header, 30) as u64
+            + read_u16(&header, 32) as u64;
+        if position > directory_end {
+            return Err("Library-transfer archive entry exceeds directory bounds".into());
+        }
+    }
+    if position != directory_end {
+        return Err("Library-transfer archive directory count is inconsistent".into());
+    }
 
     reader
         .rewind()
@@ -353,8 +405,13 @@ fn preflight_archive<R: Read + Seek>(reader: &mut R) -> Result<u64, String> {
 
 pub(super) fn open_archive<R: Read + Seek>(mut reader: R) -> Result<ZipArchive<R>, String> {
     let entries = preflight_archive(&mut reader)?;
-    let archive = ZipArchive::new(reader)
-        .map_err(|err| format!("Selected file is not a valid Papercut library: {err}"))?;
+    let archive = ZipArchive::with_config(
+        Config {
+            archive_offset: ArchiveOffset::Known(0),
+        },
+        reader,
+    )
+    .map_err(|err| format!("Selected file is not a valid Papercut library: {err}"))?;
     // ZIP 9 collapses duplicate names; compare with the original directory count before import.
     if archive.len() as u64 != entries {
         return Err(
@@ -895,6 +952,26 @@ mod tests {
     /// matching the storage failure that `BufWriter::drop` would otherwise hide.
     struct FlushFailWriter(Cursor<Vec<u8>>);
 
+    #[derive(Debug)]
+    struct ReadBudget(Cursor<Vec<u8>>, usize);
+
+    impl Read for ReadBudget {
+        fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+            if buffer.len() > self.1 {
+                return Err(io::Error::other("metadata read budget exceeded"));
+            }
+            let read = self.0.read(buffer)?;
+            self.1 -= read;
+            Ok(read)
+        }
+    }
+
+    impl Seek for ReadBudget {
+        fn seek(&mut self, position: SeekFrom) -> io::Result<u64> {
+            self.0.seek(position)
+        }
+    }
+
     impl Write for FlushFailWriter {
         fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
             self.0.write(buffer)
@@ -1004,6 +1081,170 @@ mod tests {
         let mut empty_zip64 = Cursor::new(zip64_end(0, 0));
         preflight_archive(&mut empty_zip64).expect("bounded ZIP64 metadata");
         ZipArchive::new(empty_zip64).expect("ZIP reader accepts bounded ZIP64 metadata");
+    }
+
+    #[test]
+    fn standard_zip_comment_cannot_hide_duplicate_directory_entries() {
+        let mut fake_end = zip_end(2, 0);
+        fake_end[16..20].copy_from_slice(&u32::MAX.to_le_bytes());
+        let bytes = package_directory_fixture(3, false, &fake_end);
+        assert!(preflight_archive(&mut Cursor::new(&bytes))
+            .expect_err("reject before ZIP metadata allocation")
+            .contains("ambiguous"));
+        assert!(open_archive(Cursor::new(bytes)).is_err());
+    }
+
+    #[test]
+    fn zip64_comment_cannot_hide_an_over_limit_directory() {
+        let mut fake_end = zip_end(2, 0);
+        fake_end[16..20].copy_from_slice(&u32::MAX.to_le_bytes());
+        let bytes = package_directory_fixture(MAX_ARCHIVE_ENTRIES as usize + 1, true, &fake_end);
+        assert!(preflight_archive(&mut Cursor::new(&bytes))
+            .expect_err("reject before ZIP metadata allocation")
+            .contains("ambiguous"));
+        let mut without_comment = bytes[..bytes.len() - fake_end.len()].to_vec();
+        let end = without_comment.len() - ZIP_END_BYTES;
+        without_comment[end + 20..end + 22].copy_from_slice(&0u16.to_le_bytes());
+        assert!(preflight_archive(&mut Cursor::new(without_comment))
+            .expect_err("the real ZIP64 count exceeds the limit")
+            .contains("more than"));
+        assert!(
+            open_archive(ReadBudget(Cursor::new(bytes), ZIP_END_SEARCH_BYTES))
+                .expect_err(
+                    "reject within the bounded tail read, without parsing the large directory"
+                )
+                .contains("ambiguous")
+        );
+    }
+
+    #[test]
+    fn footer_recovery_outside_the_standard_comment_window_is_rejected() {
+        for zip64 in [false, true] {
+            let mut comment = vec![0; u16::MAX as usize];
+            let mut fake_end = zip_end(2, 0);
+            fake_end[16..20].copy_from_slice(&u32::MAX.to_le_bytes());
+            fake_end[20..22].copy_from_slice(&15u16.to_le_bytes());
+            let offset = comment.len() - fake_end.len();
+            comment[offset..].copy_from_slice(&fake_end);
+            let mut bytes = package_directory_fixture(3, zip64, &comment);
+            bytes.extend_from_slice(&[0; 15]);
+            // ZIP 9 also considers an older footer whose comment ends before EOF.
+            assert!(open_archive(Cursor::new(bytes))
+                .unwrap_err()
+                .contains("ambiguous"));
+        }
+    }
+
+    #[test]
+    fn standard_and_zip64_packages_accept_ordinary_comments_and_payloads() {
+        for zip64 in [false, true] {
+            // A signature without a complete end record is ordinary comment data.
+            for comment in [
+                b"Archive comment: PK\x05\x06".to_vec(),
+                vec![b'x'; u16::MAX as usize],
+            ] {
+                let bytes = package_directory_fixture(2, zip64, &comment);
+                let mut archive = open_archive(Cursor::new(bytes)).expect("unambiguous package");
+                let manifest = read_manifest(&mut archive).unwrap();
+                assert_eq!(
+                    read_document_source(&mut archive, &manifest.documents[0]).unwrap(),
+                    b"<p>Synthetic archive fixture</p>"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn standard_and_zip64_directory_lengths_are_checked_before_decoding() {
+        for zip64 in [false, true] {
+            let original = package_directory_fixture(2, zip64, b"");
+            let end = original.len() - ZIP_END_BYTES;
+            let metadata = if zip64 {
+                end - ZIP64_LOCATOR_BYTES - ZIP64_END_BYTES
+            } else {
+                end
+            };
+            let (count_offset, size_offset, position_offset) =
+                if zip64 { (32, 40, 48) } else { (10, 12, 16) };
+            let directory_position = if zip64 {
+                read_u64(&original, metadata + position_offset) as usize
+            } else {
+                read_u32(&original, metadata + position_offset) as usize
+            };
+
+            let mut invalid_bounds = original.clone();
+            invalid_bounds[metadata + size_offset] ^= 1;
+            assert!(open_archive(Cursor::new(invalid_bounds))
+                .unwrap_err()
+                .contains("bounds"));
+
+            let mut long_entry = original.clone();
+            long_entry[directory_position + 28..directory_position + 30]
+                .copy_from_slice(&u16::MAX.to_le_bytes());
+            assert!(open_archive(Cursor::new(long_entry))
+                .unwrap_err()
+                .contains("exceeds directory bounds"));
+
+            let mut wrong_count = original.clone();
+            wrong_count[metadata + count_offset] = 1;
+            wrong_count[metadata + count_offset - if zip64 { 8 } else { 2 }] = 1;
+            assert!(open_archive(Cursor::new(wrong_count))
+                .unwrap_err()
+                .contains("count is inconsistent"));
+
+            let mut truncated = original.clone();
+            truncated[metadata + count_offset] = 3;
+            truncated[metadata + count_offset - if zip64 { 8 } else { 2 }] = 3;
+            assert!(open_archive(Cursor::new(truncated))
+                .unwrap_err()
+                .contains("truncated"));
+
+            let mut invalid_header = original;
+            invalid_header[directory_position] = 0;
+            assert!(open_archive(Cursor::new(invalid_header))
+                .unwrap_err()
+                .contains("header is invalid"));
+        }
+    }
+
+    #[test]
+    fn zip64_metadata_cannot_redirect_or_expand_the_preflight() {
+        let original = package_directory_fixture(2, true, b"");
+        let end = original.len() - ZIP_END_BYTES;
+        let locator = end - ZIP64_LOCATOR_BYTES;
+        let record = locator - ZIP64_END_BYTES;
+        for (offset, value) in [(locator + 8, 0u64), (record + 4, u64::MAX)] {
+            let mut bytes = original.clone();
+            bytes[offset..offset + 8].copy_from_slice(&value.to_le_bytes());
+            assert!(open_archive(Cursor::new(bytes))
+                .unwrap_err()
+                .contains("ZIP64 metadata is invalid"));
+        }
+        let mut no_locator = original.clone();
+        no_locator[locator] = 0;
+        assert!(open_archive(Cursor::new(no_locator))
+            .unwrap_err()
+            .contains("ZIP64 locator is missing"));
+
+        // ZIP 9 ignores the locator without a ZIP64 sentinel in the standard footer.
+        let mut no_sentinel = original;
+        no_sentinel[end..].copy_from_slice(&zip_end(2, record as u32));
+        assert!(open_archive(Cursor::new(no_sentinel)).is_err());
+    }
+
+    #[test]
+    fn package_rejects_trailing_data_and_inferred_archive_offsets() {
+        for zip64 in [false, true] {
+            let original = package_directory_fixture(2, zip64, b"");
+            let mut trailing = original.clone();
+            trailing.extend_from_slice(b"unexpected trailing data");
+            assert!(open_archive(Cursor::new(trailing))
+                .unwrap_err()
+                .contains("trailing data"));
+            let mut prepended = b"unexpected prefix".to_vec();
+            prepended.extend_from_slice(&original);
+            assert!(open_archive(Cursor::new(prepended)).is_err());
+        }
     }
 
     #[test]
@@ -1261,6 +1502,47 @@ mod tests {
             bytes: payload.len() as u64,
             sha256: format!("{:x}", Sha256::digest(payload)),
         }
+    }
+
+    // Repeat real directory records while keeping valid manifest, payload and checksum data.
+    fn package_directory_fixture(entries: usize, zip64: bool, comment: &[u8]) -> Vec<u8> {
+        let source = b"<p>Synthetic archive fixture</p>".to_vec();
+        let manifest = test_manifest(&source);
+        let mut original = Cursor::new(Vec::new());
+        write_package(&mut original, &manifest, |_| {
+            Ok(Box::new(Cursor::new(source.clone())))
+        })
+        .unwrap();
+        let original = original.into_inner();
+        let end = original.len() - ZIP_END_BYTES;
+        let directory_start = read_u32(&original, end + 16) as usize;
+        let directory = &original[directory_start..end];
+        let first_entry_bytes = 46
+            + read_u16(directory, 28) as usize
+            + read_u16(directory, 30) as usize
+            + read_u16(directory, 32) as usize;
+        let mut bytes = original[..directory_start].to_vec();
+        bytes.extend_from_slice(&directory[..first_entry_bytes]);
+        for _ in 1..entries {
+            bytes.extend_from_slice(&directory[first_entry_bytes..]);
+        }
+        let directory_bytes = bytes.len() - directory_start;
+        if zip64 {
+            let zip64_position = bytes.len() as u64;
+            let mut footer = zip64_end(entries as u64, directory_bytes as u64);
+            footer[48..56].copy_from_slice(&(directory_start as u64).to_le_bytes());
+            footer[ZIP64_END_BYTES + 8..ZIP64_END_BYTES + 16]
+                .copy_from_slice(&zip64_position.to_le_bytes());
+            bytes.extend_from_slice(&footer);
+        } else {
+            let mut footer = zip_end(entries as u16, directory_bytes as u32);
+            footer[16..20].copy_from_slice(&(directory_start as u32).to_le_bytes());
+            bytes.extend_from_slice(&footer);
+        }
+        let end = bytes.len() - ZIP_END_BYTES;
+        bytes[end + 20..end + 22].copy_from_slice(&(comment.len() as u16).to_le_bytes());
+        bytes.extend_from_slice(comment);
+        bytes
     }
 
     fn zip_end(entries: u16, directory_bytes: u32) -> Vec<u8> {
