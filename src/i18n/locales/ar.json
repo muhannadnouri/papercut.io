@@ -574,7 +574,7 @@
     "loadingDocuments": "جارٍ تحميل المستندات...",
     "documentsLoadFailed": "تعذّر على Papercut تحميل المستندات المتاحة للإرسال.",
     "includeDocuments": "الكتب والمستندات (تم تحديد {{selected, number}} من {{count, number}})",
-    "includeDocumentsDescription": "اختر المستندات المرفوعة التي تريد تضمينها. يتم تحديدها كلها افتراضيًا.",
+    "includeDocumentsDescription": "اختر المستندات المرفوعة التي تريد تضمينها.",
     "filterDocuments": "تصفية الكتب والمستندات",
     "showingDocuments": "المستندات المعروضة: {{shown, number}} من {{count, number}}",
     "showSelectedDocuments": "عرض المحدد فقط",

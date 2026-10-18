@@ -546,7 +546,7 @@
     "loadingDocuments": "दस्तावेज़ लोड हो रहे हैं...",
     "documentsLoadFailed": "Papercut भेजने के लिए उपलब्ध दस्तावेज़ लोड नहीं कर सका।",
     "includeDocuments": "किताबें और दस्तावेज़ ({{count, number}} में से {{selected, number}} चुने गए)",
-    "includeDocumentsDescription": "शामिल करने के लिए अपलोड किए गए दस्तावेज़ चुनें। डिफ़ॉल्ट रूप से सभी चुने जाते हैं।",
+    "includeDocumentsDescription": "शामिल करने के लिए अपलोड किए गए दस्तावेज़ चुनें।",
     "filterDocuments": "किताबें और दस्तावेज़ फ़िल्टर करें",
     "showingDocuments": "दिखाए गए दस्तावेज़: {{count, number}} में से {{shown, number}}",
     "showSelectedDocuments": "केवल चुने हुए दिखाएँ",

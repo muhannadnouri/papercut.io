@@ -111,8 +111,16 @@ unsafe extern "system" fn construct(
         .collect();
     let key_ptrs: Vec<_> = keys.iter().map(|v| v.as_ptr().cast_mut()).collect();
     let value_ptrs: Vec<_> = values.iter().map(|v| v.as_ptr().cast_mut()).collect();
-    let v4 = (!v4.is_null()).then(|| Box::new(unsafe { *v4 }));
-    let v6 = (!v6.is_null()).then(|| Box::new(unsafe { *v6 }));
+    let v4 = if v4.is_null() {
+        None
+    } else {
+        Some(Box::new(unsafe { *v4 }))
+    };
+    let v6 = if v6.is_null() {
+        None
+    } else {
+        Some(Box::new(unsafe { *v6 }))
+    };
     let value = DNS_SERVICE_INSTANCE {
         pszInstanceName: name.as_ptr().cast_mut(),
         pszHostName: host.as_ptr().cast_mut(),
@@ -247,6 +255,73 @@ fn cleanup(adapter: Windows) {
     assert!(calls().is_empty());
     assert_eq!(INSTANCES.load(Ordering::SeqCst), 0);
     assert_eq!(RECORDS.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn windows_null_browse_results_preserve_pending_ownership_until_cancellation() {
+    let _guard = TEST.lock().unwrap();
+    let mut adapter = adapter();
+    adapter.browse().unwrap();
+    let id = adapter.browser.as_ref().unwrap().id;
+    unsafe {
+        browsed(0, id as *const c_void, ptr::null());
+    }
+    assert!(adapter.poll().unwrap().is_empty());
+    assert!(calls().contains_key(&id));
+    assert!(!adapter.context.overflow.load(Ordering::Acquire));
+    unsafe {
+        browsed(5, id as *const c_void, ptr::null());
+    }
+    assert!(matches!(adapter.poll(), Err(Status::Denied)));
+    assert!(calls().contains_key(&id));
+    adapter.browser.as_ref().unwrap().close();
+    unsafe {
+        browsed(ERROR_CANCELLED, id as *const c_void, ptr::null());
+        browsed(0, id as *const c_void, ptr::null());
+    }
+    assert!(!calls().contains_key(&id));
+    assert!(adapter.poll().unwrap().is_empty());
+    cleanup(adapter);
+}
+
+#[test]
+fn windows_test_instances_own_copies_of_optional_ip_addresses() {
+    let _guard = TEST.lock().unwrap();
+    for (ipv4, ipv6) in [(false, false), (true, false), (false, true), (true, true)] {
+        let v4 = u32::from_ne_bytes([192, 168, 1, 3]);
+        let v6 = IP6_ADDRESS {
+            IP6Byte: "fd00::3".parse::<Ipv6Addr>().unwrap().octets(),
+        };
+        let value = unsafe {
+            construct(
+                wide("Papercut-peer._papercut-xfer._tcp.local").as_ptr(),
+                wide("peer.local").as_ptr(),
+                if ipv4 { &v4 } else { ptr::null() },
+                if ipv6 { &v6 } else { ptr::null() },
+                53318,
+                0,
+                0,
+                0,
+                ptr::null(),
+                ptr::null(),
+            )
+        };
+        let instance = unsafe { value.as_ref() }.expect("constructed instance");
+        let v4_copy = unsafe { instance.ip4Address.as_ref() };
+        let v6_copy = unsafe { instance.ip6Address.as_ref() };
+        assert_eq!(v4_copy.is_some(), ipv4);
+        assert_eq!(v6_copy.is_some(), ipv6);
+        if let Some(copy) = v4_copy {
+            assert_ne!(ptr::from_ref(copy), ptr::from_ref(&v4));
+            assert_eq!(*copy, v4);
+        }
+        if let Some(copy) = v6_copy {
+            assert_ne!(ptr::from_ref(copy), ptr::from_ref(&v6));
+            assert_eq!(unsafe { copy.IP6Byte }, unsafe { v6.IP6Byte });
+        }
+        unsafe { free_instance(value) };
+        assert_eq!(INSTANCES.load(Ordering::SeqCst), 0);
+    }
 }
 
 #[test]

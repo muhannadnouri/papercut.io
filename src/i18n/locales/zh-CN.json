@@ -539,7 +539,7 @@
     "loadingDocuments": "正在加载文档...",
     "documentsLoadFailed": "Papercut 无法加载可发送的文档。",
     "includeDocuments": "书籍和文档（已选择 {{selected, number}}/{{count, number}}）",
-    "includeDocumentsDescription": "选择要包含的已上传文档。默认全部选中。",
+    "includeDocumentsDescription": "选择要包含的已上传文档。",
     "filterDocuments": "筛选书籍和文档",
     "showingDocuments": "显示的文档：{{shown, number}} / {{count, number}}",
     "showSelectedDocuments": "仅显示已选择项",

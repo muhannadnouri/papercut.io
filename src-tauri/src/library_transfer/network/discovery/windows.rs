@@ -582,12 +582,11 @@ unsafe extern "system" fn browsed(status: u32, ctx: *const c_void, records: *con
                     state: classify(status),
                 });
             } else {
-                let mut record = records;
+                let mut record = ptr::NonNull::new(records.cast_mut());
                 for _ in 0..EVENTS / 2 {
-                    if record.is_null() {
-                        break;
-                    }
-                    let row = unsafe { &*record };
+                    let Some(current) = record else { break };
+                    // SAFETY: Windows owns the non-null list until this callback frees it below.
+                    let row = unsafe { current.as_ref() };
                     if row.wType == DNS_TYPE_PTR
                         && unsafe { text(row.pName, 253) }.is_some_and(|v| {
                             v.trim_end_matches('.')
@@ -604,9 +603,9 @@ unsafe extern "system" fn browsed(status: u32, ctx: *const c_void, records: *con
                             }
                         }
                     }
-                    record = row.pNext;
+                    record = ptr::NonNull::new(row.pNext);
                 }
-                if !record.is_null() {
+                if record.is_some() {
                     call.context.overflow.store(true, Ordering::Release);
                 }
             }

@@ -56,7 +56,8 @@ Their local reviews found no further actionable code issues. The earlier
 [full CI run 39003088519](https://github.com/muhannadnouri/papercut.io/actions/runs/39003088519)
 validated the ZIP/Apple linking fixes at `d0409fe`; the latest run also covers
 the subsequent changes. Carry the latest validation and explicit device-acceptance
-deferrals into the PR description. No additional implementation blocker is known.
+deferrals into the PR description. The subsequent PR review follow-up below
+records the remaining CodeQL validation gate.
 
 The earlier [CI run 39065709932](https://github.com/muhannadnouri/papercut.io/actions/runs/39065709932/job/117492826914)
 at `de1a566` failed its Rust audit on newly published Ammonia advisory
@@ -71,6 +72,50 @@ establish the no-terminal LAN UX or authorize an automatic UFW exception.
 The user subsequently reported a successful Linux → Android transfer on October
 17, 2026. This is one successful device case; the broader permission, reverse-
 direction, resume/cancellation and lifecycle matrix remains unverified.
+
+### PR 80 Review Follow-Up — October 17, 2026
+
+The [PR CI run 39076396122](https://github.com/muhannadnouri/papercut.io/actions/runs/39076396122)
+passed its application checks and platform builds at `0be20ab`. The separate
+CodeQL alert gate failed on two Windows discovery null-pointer paths; successful
+CodeQL analysis execution does not mean those alerts were cleared.
+
+All eight `includeDocumentsDescription` translations now omit the stale claim
+that every document starts selected. The task-first navigation regression renders
+the real English resource beside unchecked document controls and disabled
+Continue/export actions; restoring the old sentence makes that test fail.
+
+Windows browse traversal now represents each record as `Option<NonNull<_>>`
+before borrowing it, retaining the iteration cap and matching list cleanup.
+The fake Windows constructor uses explicit null branches for both optional IP
+arguments. These clarify existing guards rather than repair a demonstrated null
+dereference: cancellation never entered record traversal, and `bool::then` was
+already lazy. Two new native regressions cover null success/error/cancel/late
+browse callbacks and all four optional IPv4/IPv6 combinations, including copied
+address ownership and cleanup. Both tests passed before and after the rewrite.
+
+The ZIP preflight restriction remains deliberate: invalid footer-like bytes in
+otherwise valid ZIP comment/payload data can cause rejection. Relaxing this needs
+a separate bounded design that preserves the original directory-allocation and
+duplicate-entry defenses; do not simply enable ZIP's recovery behavior. No ZIP,
+protocol, package-format, audit-policy or app-version changes accompany this
+follow-up. Existing archive regressions remain active.
+
+FOSSAbot's visible fixture-i18n, translation-key-format and trusted test-template
+reports do not establish production vulnerabilities. Native FFI still requires
+ownership/lifetime review; a generic `unsafe` warning is not proof of a defect.
+Its PR summary omits individual findings, so it is not a complete audit clearance.
+No bot rule exclusions or docstring-coverage changes were made.
+
+Local validation passed: 269 ordinary Rust tests (four existing ignored), all
+75 transfer UI tests including 12 real-browser layout cases, lint, TypeScript,
+eight-locale resource validation and Rust formatting. The focused nine Windows
+callback tests also passed after the final test-helper assertions. Initial
+sandbox runs could not create loopback/D-Bus or Chromium sockets; reruns outside
+the sandbox passed. No physical LAN traffic or installed-app smoke was exercised.
+
+Fresh GitHub CI and CodeQL analysis are required for this follow-up before claiming
+the alert gate is green. Packaged-device smoke and the version bump stay deferred.
 
 ## Architecture
 

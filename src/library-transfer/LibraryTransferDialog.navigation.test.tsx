@@ -4,12 +4,14 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { LibraryTransferNetworkStatus } from './libraryTransfer'
 import { DEFAULT_TTS_MODEL_ID } from '../tts/types'
+import en from '../i18n/locales/en.json'
 
 const ipc = vi.hoisted(() => ({ invoke: vi.fn(), stop: vi.fn(), listen: vi.fn() }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: ipc.invoke, isTauri: () => true }))
 vi.mock('@tauri-apps/api/event', () => ({ listen: ipc.listen }))
 vi.mock('react-i18next', () => ({ useTranslation: () => ({
-  t: (key: string) => key,
+  t: (key: string) => key === 'libraryTransfer.includeDocumentsDescription'
+    ? en.libraryTransfer.includeDocumentsDescription : key,
   i18n: { language: 'en', getFixedT: () => (key: string) => key },
 }) }))
 vi.mock('../i18n', () => ({ currentAppLocale: () => 'en', default: {} }))
@@ -135,6 +137,8 @@ it('starts with a task choice and keeps content selection ahead of connection se
   expect(document.activeElement?.textContent).toBe('libraryTransfer.chooseContent')
   const documents = () => [...container.querySelectorAll<HTMLInputElement>('.library-transfer-picker-list input[type="checkbox"]')]
   expect(documents().map(input => input.checked)).toEqual([false, false])
+  expect(container.querySelector('.library-transfer-content small')?.textContent)
+    .toBe('Choose which uploaded documents to include.')
   expect(button('libraryTransfer.continueToConnection').disabled).toBe(true)
   expect(button('libraryTransfer.export').disabled).toBe(true)
   await click('libraryTransfer.continueToConnection'); await click('libraryTransfer.export')

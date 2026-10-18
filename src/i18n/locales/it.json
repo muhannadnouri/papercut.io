@@ -553,7 +553,7 @@
     "loadingDocuments": "Caricamento dei documenti...",
     "documentsLoadFailed": "Papercut non ha potuto caricare i documenti disponibili per l’invio.",
     "includeDocuments": "Libri e documenti ({{selected, number}} di {{count, number}} selezionati)",
-    "includeDocumentsDescription": "Scegli i documenti caricati da includere. Sono tutti selezionati per impostazione predefinita.",
+    "includeDocumentsDescription": "Scegli i documenti caricati da includere.",
     "filterDocuments": "Filtra libri e documenti",
     "showingDocuments": "Documenti mostrati: {{shown, number}} di {{count, number}}",
     "showSelectedDocuments": "Mostra solo selezionati",
