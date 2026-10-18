@@ -45,9 +45,12 @@ tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-native-audio = "=1.0.5"
 tauri-plugin-document-scanner = { path = "plugins/document-scanner" }
+tauri-plugin-library-transfer = { path = "plugins/library-transfer" }
 base64 = "0.22"
 getrandom = "0.3"
 hmac = "0.12"
+if-addrs = "=0.15.0"
+socket2 = "=0.6.3"
 num2words = { version = "1.2", optional = true }
 rcgen = "0.13"
 rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
@@ -61,12 +64,12 @@ libtashkeel_base = { version = "=1.5.0", optional = true, default-features = fal
 ort = { version = "=2.0.0-rc.13", optional = true, default-features = false, features = ["std", "api-17"] }
 fastembed = { version = "=7.1.0", optional = true, default-features = false }
 rusqlite = { version = "0.32", features = ["bundled"] }
-ammonia = "4.2.3"
+ammonia = "4.2.4"
 encoding_rs = "0.8"
 fs4 = { version = "1", features = ["sync"] }
 image = { version = "=0.25.2", default-features = false, features = ["gif", "jpeg", "png", "webp"] }
 roxmltree = "0.20"
-zip = { version = "0.6", default-features = false, features = ["deflate"] }
+zip = { version = "9.0.4", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 percent-encoding = "2.3"
 kuchikiki = "=0.8.8-speedreader"
 pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
@@ -75,9 +78,20 @@ tauri-plugin-opener = "=2.5.3"
 [dev-dependencies]
 # Existing Tauri mock runtime; no WebView or installed app data in command checks.
 tauri = { version = "2.11.2", features = ["test"] }
+# Compile and exercise the Windows callback adapter with fake APIs on the host as well.
+windows-sys = { version = "=0.61.2", features = ["Win32_NetworkManagement_Dns", "Win32_System_LibraryLoader"] }
 
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = "2"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+dbus = "=0.9.12"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "=0.61.2", features = ["Win32_NetworkManagement_Dns", "Win32_System_LibraryLoader"] }
 
 [profile.dev.package.image]
 opt-level = 2

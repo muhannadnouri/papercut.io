@@ -52,7 +52,7 @@ export function TransferDiagnostics({ active, revision }: { active: boolean; rev
           #{event.attempt} {event.role} +{event.elapsedMs}ms · {event.phase} · {event.code}
           {event.bytes !== null && ` · ${event.bytes}/${event.totalBytes ?? '—'} bytes`}
           {event.items !== null && ` · ${event.items}/${event.totalItems ?? '—'} items`}
-          {event.port !== null && ` · IPv4 ${event.addressScope} · port ${event.port}`}
+          {event.port !== null && ` · ${event.addressScope} · port ${event.port}`}
           {event.requiredBytes !== null && ` · required ${event.requiredBytes} / available ${event.availableBytes ?? '—'} bytes`}
           {event.imported !== null && ` · imported ${event.imported} / skipped ${event.skipped ?? 0} / failed ${event.failed ?? 0}`}
           {event.ioKind && ` · ${event.ioKind}`}{event.osCode !== null && ` · OS ${event.osCode}`}

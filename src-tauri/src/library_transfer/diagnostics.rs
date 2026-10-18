@@ -1,7 +1,7 @@
 //! Bounded process-local diagnostics. Only fixed labels and numeric facts cross this boundary.
 use std::collections::{BTreeMap, VecDeque};
 use std::io;
-use std::net::SocketAddrV4;
+use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -71,7 +71,7 @@ pub struct DiagnosticSnapshot {
 enum Facts<'a> {
     Progress(&'a LibraryTransferProgress),
     Io(&'a io::Error),
-    Endpoint(SocketAddrV4),
+    Endpoint(SocketAddr),
     Failure(&'a LibraryTransferError),
     ImportResult(&'a LibraryTransferImportResult),
 }
@@ -189,7 +189,7 @@ impl Trace {
             Some(Facts::ImportResult(result)),
         );
     }
-    pub fn endpoint(&self, address: SocketAddrV4) {
+    pub fn endpoint(&self, address: SocketAddr) {
         self.record(
             "",
             "info",
@@ -333,7 +333,8 @@ impl Trace {
             address_scope: endpoint.map(|address| {
                 if address.ip().is_loopback() {
                     "loopback"
-                } else if address.ip().is_link_local() {
+                } else if matches!(address.ip(), std::net::IpAddr::V4(ip) if ip.is_link_local())
+                    || matches!(address.ip(), std::net::IpAddr::V6(ip) if ip.is_unicast_link_local()) {
                     "link-local"
                 } else {
                     "private"
@@ -452,6 +453,25 @@ mod tests {
             diagnostics.snapshot().unwrap().events.last().unwrap().code,
             "cancelled"
         );
+    }
+
+    #[test]
+    fn ipv6_endpoints_retain_only_port_and_scope() {
+        for (address, scope) in [
+            ("[fe80::abcd%27]:53318", "link-local"),
+            ("[fd12::abcd]:53318", "private"),
+            ("[::1]:53318", "loopback"),
+        ] {
+            let diagnostics = Diagnostics::default();
+            let trace = diagnostics.begin("receive");
+            trace.endpoint(address.parse().unwrap());
+            let report = serde_json::to_value(diagnostics.snapshot().unwrap()).unwrap();
+            let event = report["events"].as_array().unwrap().last().unwrap();
+            assert_eq!(event["port"], 53318);
+            assert_eq!(event["addressScope"], scope);
+            assert!(!report.to_string().contains("abcd"));
+            assert!(!report.to_string().contains("%27"));
+        }
     }
 
     #[test]

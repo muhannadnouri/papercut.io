@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+  <key>NSBonjourServices</key>
+  <array><string>_papercut-xfer._tcp</string></array>
   <key>LSSupportsOpeningDocumentsInPlace</key>
   <false/>
   <key>NSCameraUsageDescription</key>

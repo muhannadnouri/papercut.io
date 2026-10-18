@@ -207,7 +207,7 @@ mod tests {
 
     fn archive() -> ZipArchive<Cursor<Vec<u8>>> {
         let mut zip = zip::ZipWriter::new(Cursor::new(Vec::new()));
-        zip.start_file("OPS/cover.jpg", zip::write::FileOptions::default())
+        zip.start_file("OPS/cover.jpg", zip::write::SimpleFileOptions::default())
             .unwrap();
         zip.write_all(b"raster fixture").unwrap();
         ZipArchive::new(zip.finish().unwrap()).unwrap()

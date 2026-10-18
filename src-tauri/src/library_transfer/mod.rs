@@ -32,7 +32,7 @@ use crate::document_uploads::{
 };
 use package::{
     audiobook_file_path, copy_audiobook_file, document_asset_path, document_source_path,
-    preflight_archive, read_document_asset, read_document_source, read_manifest, sha256_reader,
+    open_archive, read_document_asset, read_document_source, read_manifest, sha256_reader,
     write_package, TransferAudiobook, TransferAudiobookFile, TransferDocument,
     TransferDocumentAsset, TransferDocumentLocation, TransferFolder, TransferManifest,
     TransferOrganization, MAX_AUDIOBOOKS, MAX_DOCUMENTS, MAX_PACKAGE_BYTES, PACKAGE_KIND,
@@ -127,7 +127,7 @@ pub struct LibraryTransferExportResult {
     audiobooks: usize,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LibraryTransferImportResult {
     selected: usize,
@@ -182,7 +182,28 @@ pub(crate) fn emit_transfer_progress(
     if let Some(state) = app.try_state::<LibraryTransferState>() {
         state.diagnostics.progress(&progress);
     }
-    let _ = app.emit(LIBRARY_TRANSFER_PROGRESS_EVENT, progress.clone());
+    #[derive(Clone, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct LocalProgress<'a> {
+        #[serde(flatten)]
+        progress: &'a LibraryTransferProgress,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        session_id: Option<u64>,
+    }
+    let session_id = if operation == "receive" {
+        app.try_state::<LibraryTransferState>()
+            .and_then(|state| state.receive_session_id())
+    } else {
+        None
+    };
+    // Generation metadata is local IPC only; authenticated progress frames contain no native IDs.
+    let _ = app.emit(
+        LIBRARY_TRANSFER_PROGRESS_EVENT,
+        LocalProgress {
+            progress: &progress,
+            session_id,
+        },
+    );
     progress
 }
 
@@ -235,7 +256,7 @@ impl Drop for TransferTempFile {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct LibraryTransferFailure {
     item: String,
@@ -413,15 +434,13 @@ fn import_library_package(
         None,
         &mut forwarder,
     );
-    let mut file = File::open(path).map_err(|err| {
+    let file = File::open(path).map_err(|err| {
         format!(
             "Failed to open temporary library package {}: {err}",
             path.display()
         )
     })?;
-    preflight_archive(&mut file)?;
-    let mut archive = ZipArchive::new(BufReader::new(file))
-        .map_err(|err| format!("Selected file is not a valid Papercut library: {err}"))?;
+    let mut archive = open_archive(BufReader::new(file))?;
     let manifest = read_manifest(&mut archive)?;
     restore_manifest(app, &mut archive, manifest, operation, &mut forwarder)
 }
