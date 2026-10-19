@@ -18,8 +18,8 @@ use super::config::{
 };
 use super::ctranslate2::CTranslate2Engine;
 use super::engine::{
-    validate_outputs, TranslationBatchInput, TranslationEngine, TranslationSegmentContext,
-    TranslationSegmentInput,
+    validate_mapped_outputs, validate_outputs, TranslationBatchInput, TranslationEngine,
+    TranslationSegmentContext, TranslationSegmentInput,
 };
 use super::hy_mt2::HyMt2Engine;
 use super::inline_markup::{inline_phrase_probes_by_block, InlinePhraseProbe};
@@ -403,6 +403,7 @@ impl BatchRunState<'_> {
 /// Segments are batched for engine throughput, but storage needs section-sized
 /// text again. The source block index lets us stitch translated segments back
 /// into their original document sections before the durable variant is written.
+/// Rich providers validate DOM-bound replies as a whole batch before caching; text providers retain probes.
 #[allow(clippy::too_many_arguments)]
 fn run_translation_batches<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
@@ -432,7 +433,13 @@ fn run_translation_batches<R: tauri::Runtime>(
     let mut translated_blocks = vec![String::new(); source.blocks.len()];
     let mut translated_fragments =
         vec![Vec::<PersistTranslationFragment>::new(); source.blocks.len()];
-    let inline_phrase_probes = {
+    let rich_dom = engine
+        .supports_protected_markup()
+        .then(|| super::dom::DomPlan::new(&source.view_html));
+    let mut rich_source = None;
+    let inline_phrase_probes = if rich_dom.is_some() {
+        Vec::new()
+    } else {
         let probes = inline_phrase_probes_by_block(&source.view_html);
         // Probe offsets are only meaningful when reader-DOM blocks line up
         // one-to-one with planned source blocks; on mismatch, skipping hints
@@ -468,6 +475,33 @@ fn run_translation_batches<R: tauri::Runtime>(
         .map_err(|err| run.failure("failed", err))?;
         let (inline_phrase_hints, stored_probe_translations) =
             translate_inline_phrase_hints(engine, plan, batch, &inline_phrase_probes, &mut cache);
+        // Rebuild only this bounded batch from the current DOM, including on resume.
+        let mut markup_plans = BTreeMap::new();
+        if let Some(dom) = &rich_dom {
+            if dom.blocks.len() != source.blocks.len() {
+                return Err(run.failure("failed", "Protected DOM block mismatch"));
+            }
+            for segment in &batch.segments {
+                let block = &dom.blocks[segment.source_block_index];
+                if rich_source.as_ref().map(|(index, _)| *index) != Some(segment.source_block_index)
+                {
+                    if block.inline.text != source.blocks[segment.source_block_index].text {
+                        return Err(run.failure("failed", "Protected DOM source mismatch"));
+                    }
+                    let extracted =
+                        super::inline_markup::protected::ProtectedSource::new(&block.node)
+                            .map_err(|e| run.failure("failed", e))?;
+                    rich_source = Some((segment.source_block_index, extracted));
+                }
+                let mapping = rich_source
+                    .as_ref()
+                    .ok_or_else(|| run.failure("failed", "Missing protected source"))?
+                    .1
+                    .fragment(segment.source_start..segment.source_end, &segment.text)
+                    .map_err(|e| run.failure("failed", e))?;
+                markup_plans.insert(segment.id.clone(), mapping);
+            }
+        }
         let mut pending_batch = TranslationBatchPlan {
             index: batch.index,
             segments: Vec::new(),
@@ -475,7 +509,26 @@ fn run_translation_batches<R: tauri::Runtime>(
         let mut reused_segments_in_batch = 0;
         let mut materialized_memory_reuse = false;
         for segment in &batch.segments {
-            if let Some(cached_text) = cache.translated_text_for(segment).map(str::to_owned) {
+            if let Some(mapping) = markup_plans.get(&segment.id) {
+                if let Some(output) = cache.mapped_output_for(segment, mapping) {
+                    run.completed_segments += 1;
+                    run.cached_segments += 1;
+                    reused_segments_in_batch += 1;
+                    append_translated_segment(
+                        &mut translated_blocks,
+                        &mut translated_fragments,
+                        segment,
+                        segment.source_block_index,
+                        &output.text,
+                        Vec::new(),
+                        output.markup,
+                    );
+                    run.note_preview(&output.text);
+                } else {
+                    pending_batch.segments.push(segment.clone());
+                }
+            } else if let Some(cached_text) = cache.translated_text_for(segment).map(str::to_owned)
+            {
                 run.completed_segments += 1;
                 run.cached_segments += 1;
                 reused_segments_in_batch += 1;
@@ -489,6 +542,7 @@ fn run_translation_batches<R: tauri::Runtime>(
                         .get(&segment.id)
                         .cloned()
                         .unwrap_or_default(),
+                    None,
                 );
                 run.note_preview(&cached_text);
             } else if let Some(memory_text) =
@@ -508,6 +562,7 @@ fn run_translation_batches<R: tauri::Runtime>(
                         .get(&segment.id)
                         .cloned()
                         .unwrap_or_default(),
+                    None,
                 );
                 run.note_preview(&memory_text);
                 cache.store_translation(segment, memory_text);
@@ -523,30 +578,25 @@ fn run_translation_batches<R: tauri::Runtime>(
                 run.progress("translating-batch", "Translating current batch", 0),
             )
             .map_err(|err| run.failure("failed", err))?;
-            let outputs = engine
-                .translate_batch(batch_input(plan, &pending_batch))
-                .map_err(|err| {
-                    run.failure(
-                        if is_cancelled(&state.cancelled_jobs, job_id).unwrap_or(false) {
-                            "cancelled"
-                        } else {
-                            "failed"
-                        },
-                        format!("In-memory translation did not complete: {err}"),
-                    )
-                })?;
-            validate_outputs(
-                &pending_batch
-                    .segments
-                    .iter()
-                    .map(|segment| (segment.id.as_str(), segment.text.as_str()))
-                    .collect::<Vec<_>>(),
-                &outputs,
-            )
-            .map_err(|error| run.failure("failed", error))?;
+            let mut input = batch_input(plan, &pending_batch);
+            for segment in &mut input.segments {
+                segment.markup = markup_plans.get(&segment.id).cloned();
+            }
+            let outputs = engine.translate_batch(input.clone()).map_err(|err| {
+                run.failure(
+                    if is_cancelled(&state.cancelled_jobs, job_id).unwrap_or(false) {
+                        "cancelled"
+                    } else {
+                        "failed"
+                    },
+                    format!("In-memory translation did not complete: {err}"),
+                )
+            })?;
+            validate_mapped_outputs(&input.segments, &outputs)
+                .map_err(|error| run.failure("failed", error))?;
             let mut translated_count = 0;
             for (segment, output) in pending_batch.segments.iter().zip(outputs.iter()) {
-                let translated_text = output.text.trim().to_string();
+                let translated_text = output.text.clone();
                 translated_count += 1;
                 append_translated_segment(
                     &mut translated_blocks,
@@ -558,9 +608,14 @@ fn run_translation_batches<R: tauri::Runtime>(
                         .get(&segment.id)
                         .cloned()
                         .unwrap_or_default(),
+                    output.markup.clone(),
                 );
                 run.note_preview(&translated_text);
-                cache.store_translation(segment, translated_text);
+                if let Some(mapping) = markup_plans.get(&segment.id) {
+                    cache.store_mapped_output(segment, mapping, output);
+                } else {
+                    cache.store_translation(segment, translated_text.trim().to_string());
+                }
             }
             run.completed_segments += translated_count;
             save_segment_cache(app, plan, &cache).map_err(|err| run.failure("failed", err))?;
@@ -618,7 +673,7 @@ fn run_translation_batches<R: tauri::Runtime>(
 /// Main OPUS-MT output does not expose word alignment. These probes give the
 /// renderer a target phrase to exact-match when bold/italic source text was
 /// translated rather than carried over unchanged. Probe failure is non-fatal:
-/// plain/proportional inline rendering is safer than failing a completed book.
+/// conservative inline rendering is safer than failing a completed book.
 ///
 /// Probe phrases go through the shared translation memory first, so resumed or
 /// repeated jobs do not re-run the engine for every emphasized phrase. Returns
@@ -650,6 +705,7 @@ fn translate_inline_phrase_hints(
             let id = format!("{}:inline:{index}", segment.id);
             owners.push((id.clone(), segment.id.clone(), probe.text.clone()));
             inputs.push(TranslationSegmentInput {
+                markup: None,
                 id,
                 text: probe.text,
                 context: TranslationSegmentContext {
@@ -733,6 +789,7 @@ fn inline_phrase_probes_for_segment(
         .collect()
 }
 
+/// Retain provider markup beside exact fragment text; rendering revalidates it against the source DOM.
 fn append_translated_segment(
     blocks: &mut [String],
     fragments: &mut [Vec<PersistTranslationFragment>],
@@ -740,6 +797,7 @@ fn append_translated_segment(
     source_block_index: usize,
     text: &str,
     inline_phrases: Vec<PersistTranslationInlinePhrase>,
+    markup: Option<String>,
 ) {
     let Some(block_text) = blocks.get_mut(source_block_index) else {
         return;
@@ -754,6 +812,7 @@ fn append_translated_segment(
     block_text.push_str(text);
     if let Some(block_fragments) = fragments.get_mut(source_block_index) {
         block_fragments.push(PersistTranslationFragment {
+            markup,
             source_start: segment.source_start,
             source_end: segment.source_end,
             source_text: segment.text.trim().to_string(),
@@ -779,6 +838,7 @@ fn batch_input(plan: &TranslationJobPlan, batch: &TranslationBatchPlan) -> Trans
             .segments
             .iter()
             .map(|segment| TranslationSegmentInput {
+                markup: None,
                 id: segment.id.clone(),
                 text: segment.text.clone(),
                 context: TranslationSegmentContext {

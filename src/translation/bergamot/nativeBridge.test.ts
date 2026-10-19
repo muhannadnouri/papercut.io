@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { runBergamotBatch, type BergamotFiles } from './nativeBridge'
+import { runBergamotBatch, validateBergamotSegments, type BergamotFiles } from './nativeBridge'
 import { runInstalledBergamotBatch, runInstalledBergamotDocument } from './assets'
 
 const mock = vi.hoisted(() => ({ invoke: vi.fn(), channel: null as null | { onmessage: (message: unknown) => void } }))
@@ -46,6 +46,24 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 describe('bounded Bergamot native/worker bridge', () => {
+  it('relays opaque HTML intact and leaves structural validation to the Rust provider boundary', async () => {
+    const { promise, worker } = start()
+    const text = '<span data-pc="0">' + 'x'.repeat(900) + '</span>'
+    const richBatch = { ...batch, segments: [{ id: 'b0:s0', text, html: true }] }
+    validateBergamotSegments(richBatch.segments)
+    expect(() => validateBergamotSegments([{ id: 'x', text }])).toThrow('bounded')
+    expect(() => validateBergamotSegments([{ id: 'x', text: '🙂'.repeat(8193), html: true }])).toThrow('bounded')
+    mock.channel!.onmessage(richBatch)
+    worker.reply({ kind: 'ready' })
+    expect(worker.postMessage).toHaveBeenLastCalledWith(richBatch)
+    const reply = { ...result, outputs: [{ id: 'b0:s0', sourceText: text, text: '<span data-pc="0">translated</span>' }] }
+    worker.reply(reply)
+    expect(mock.invoke).toHaveBeenLastCalledWith('translation_bergamot_reply', { reply })
+    resolveNative(outputs)
+    await promise
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it('transfers binary files outside JSON and lets Rust own final success', async () => {
     const { promise, worker, binary } = start()
     mock.channel!.onmessage(batch)

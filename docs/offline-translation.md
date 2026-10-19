@@ -17,7 +17,7 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 - Installed models can be removed independently to reclaim storage. Removal is serialized against model installs and active translation jobs, while translated documents and reusable segment caches remain available.
 - The translation workbench lists only pinned, supported models; future quality-model candidates remain informational.
 - Translation jobs run through the shared Rust engine boundary, emit progress/cancel events, reuse segment cache entries, run first-pass quality gates, and persist successful output as derived uploaded documents.
-- The internal Bergamot document entry point now reuses one worker across a complete French/Spanish → English HTML/EPUB job, resumes completed batches and confirms a live host before saving. It uses the same Rust runner and atomic writer as native providers. It is still excluded from the advertised model catalog pending protected rich mapping and packaged-device acceptance.
+- The internal Bergamot document entry point now reuses one worker across a complete French/Spanish → English HTML/EPUB job, resumes completed batches and confirms a live host before saving. It uses the same Rust runner and atomic writer as native providers. It now uses validated protected-code mapping through the shared provider contract. It remains excluded from the advertised model catalog pending review and packaged-device acceptance.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
 - OPUS-MT exposes no quality, glossary, or repair controls because that engine cannot honor them; direct requests using those options are rejected.
 - Translation controls, normal progress states, confirmations, counts, language names, and expected native failures use the app's eight locale resources. Translation commands return stable error codes while retaining the original Rust diagnostic; unexpected failures still fall back to that detail.
@@ -593,6 +593,11 @@ validation, not a claim about engine quality or packaged WebViews.
 
 #### Provider Mapping Contract And Validation Slice (2026-10-19)
 
+The initial slice below is historical. The later
+[protected rich-markup integration](#protected-rich-markup-integration-2026-10-19)
+now wires the optional contract through the Bergamot adapter, cache and shared
+renderer; OPUS-MT/HY-MT2 remain text-only.
+
 The next provider must fit the existing job and storage flow. Keep
 `TranslationEngine::translate_batch` and its text-only OPUS-MT/HY-MT2 adapters
 working until a real adapter needs a richer result. Do not introduce a provider
@@ -1102,10 +1107,103 @@ historical evidence. No dependencies, stock engine/loader, model weights,
 source-format scope, cache identity/epoch, stored variants, original documents,
 audio/highlighting or app version changed.
 
-Next: review this recovery slice, then implement validated protected rich
-mapping through the shared provider contract before catalog exposure. Packaged
-desktop/mobile acceptance remains unverified; benchmarks, installed-app smoke
-and the version bump remain deferred.
+The recovery review found no further issues. Its protected rich-mapping follow-up
+is implemented below; catalog exposure and packaged desktop/mobile acceptance
+remain pending. Benchmarks, installed-app smoke and the version bump stay deferred.
+
+#### Protected Rich-Markup Integration (2026-10-19)
+
+The shared engine contract now has an optional retained `ProtectedPlan` input
+and protected-markup output. `supports_protected_markup` opts an adapter into
+this path; it does not infer support from a model name. The Bergamot document
+adapter opts in. Existing OPUS-MT/HY-MT2 adapters keep their text-only behavior,
+conservative formatting and phrase probes. No provider registry, second writer,
+new dependency, native engine patch or copied Bergamot HTML implementation was
+added. Translation remains HTML/EPUB-only.
+
+**Ownership and flow.** `inline_markup/protected.rs` derives bounded fragment
+plans from the same normalized source DOM/scalar offsets used by the planner.
+The runner extracts each source block once and retains only the current block's
+scalar table, so long paragraphs are not rescanned for every bounded segment.
+Rust retains the actual tags, attributes, URLs, ids and literal subtrees. The
+worker receives only escaped prose and synthetic `<span data-pc="…">` codes;
+code, `translate="no"` content, notes and image/media subtrees become opaque
+`translate="no"` tokens, without sending their text, paths or targets. Whole
+sentence context across inline tags is retained within each existing segment.
+The stock worker uses the supported response options `html: true` and
+`alignment: true` for these requests; the plain batch prototype remains text-only.
+The vendored loader, runtime and model pins are unchanged. This call shape follows
+Mozilla's [pinned engine wrapper](https://github.com/mozilla/translations/blob/69455acaecbe8650cdba988dbcf7c10ca20e7c48/inference/wasm/tests/engine/translations-engine.worker.mjs).
+
+**Validation and reconstruction.** Reply owner/attempt/sequence and exact
+transport-source checks still precede consumption. The adapter and shared runner
+validate all rich results before caching any result from the batch. A strict
+parser requires every retained identity exactly once under its original parent;
+siblings may reorder, but crossing/reparented/missing/duplicate/unknown codes,
+changed opaque tokens, unexpected tags/attributes/namespaces and malformed
+markup fail. Provider HTML never replaces the reader document. The renderer
+rebuilds only source-owned shells and opaque subtrees, escapes translated text,
+and revalidates fragment/source/text coverage against the cloned DOM. Existing
+sanitization, independent asset ownership, indexing, quality checks and atomic
+save/cancellation admission remain the final shared boundaries.
+
+For example, `La bague en <strong>or</strong> est perdue.` can become
+`The <strong>gold</strong> ring is lost.` through its source identity rather
+than a proportional range or independent phrase guess. A link keeps its source
+`href`/id while its label is translated; note markers retain their exact source
+subtree. Zero-width notes at a segment boundary belong to the preceding fragment
+and occur exactly once. Opaque literals retain source word-boundary spaces even
+if the provider HTML alignment loses a separator.
+
+**Resume and provenance.** Rich cache entries store the raw code response plus
+an identity of the exact source plan, literals and `protected-codes-v1` strategy.
+They are location-bound and revalidated on every read. Plain translation memory
+cannot satisfy a rich request; missing/corrupt/mismatched mappings trigger fresh
+inference. Provider identity is now `bergamot-protected-codes-v1:<hash>`, retaining
+the existing exact asset/worker/loader hash binding. Old Bergamot text caches are
+incompatible; native text caches and alignment epoch **3** are unchanged. Existing
+completed variants, originals, generated audiobooks and highlighting are not
+migrated or rewritten by this change. A failed new attempt keeps the previous
+completed variant intact.
+
+**Deliberate bounds and limits.** Main source segments remain at most 900 Unicode
+scalars, with at most 16 per request. Each source block supports at most 128 codes
+and depth 64; encoded input and output have a 32 KiB per-fragment ceiling, with
+the existing 256 KiB aggregate transport reply cap. A protected literal or an
+authored inline id/name that crosses a planned segment boundary fails safely before
+saving instead of duplicating an id or translating half a literal. Formatting
+without an authored id may span fragments. Provider XML must be well formed
+(including escaped entities); unsupported output fails instead of being repaired
+into a different identity tree. Broader structural/splitting support requires
+its own tests, not a permissive fallback. Structural validation does not prove
+semantic placement or translation quality, and actual stock-model rich output
+has not been accepted on packaged devices in this stage.
+
+Regression coverage includes reordered/repeated/nested formatting, French and
+Unicode/Arabic combining-mark/emoji text, literal/code/image/note preservation,
+namespace/attribute/tag/code injection, missing/duplicate/reparented identities,
+strict bounds, fragment clipping and a note exactly at a segment boundary. Actual
+Rust worker-mailbox tests verify that source literals do not cross IPC. The real
+runner/cache/SQLite/file writer is exercised for HTML and EPUB source snapshots:
+a malformed later result caches none of the batch, valid markup and owned image
+bytes survive saving, a second attempt resumes without inference, and invalid
+replacement leaves the previous variant and original document intact. Worker and
+host tests verify exact opaque payloads and the HTML API/transport limits without
+claiming model inference.
+
+Validation: **424 Rust library tests passed, 4 existing ignored**;
+**148 translation tests passed with `native-translation` enabled**, including the
+real loopback downloader regression; **439 frontend tests passed, 1 existing
+skipped** (63 worker/delivery cases). The complete production build (i18n,
+TypeScript, Vite, Pagefind), changed-file ESLint, Rustfmt/diff checks and a locked,
+offline CTranslate2 feature check passed. Vite retains its existing large-chunk
+warning; the CT2 check retains three existing unused HY-MT2 helper warnings.
+Sandboxed full-suite attempts initially hit existing loopback/Chromium permission
+restrictions; permitted reruns passed. No model inference, new benchmark, installed-app smoke or app version change was
+performed. HY-MT2/Vulkan packaging and packaged WebView behavior remain unverified.
+Next: focused review of this rich-mapping slice before catalog/UI exposure.
+Benchmarks, installed-app smoke, real packaged WebView acceptance and the app
+version bump remain deferred; no default-model or mobile-support claim is made.
 
 ### Stage 7: Quality Upgrades - Mostly Done
 
@@ -1381,16 +1479,17 @@ A responsive desktop browser at a mobile viewport would not fill that gap.
 
 1. The shared DOM/asset foundation and hardening review are complete. The
    [provider validation slice](#provider-mapping-contract-and-validation-slice-2026-10-19)
-   is now fixture-tested; production adapters remain text-only. Extend inline
-   mapping only with validated annotations/alignments; do not reintroduce
-   positional emphasis guesses.
+   and the protected-code integration are implemented. Review the rich adapter,
+   cache and renderer before catalog exposure; do not reintroduce positional
+   emphasis guesses. OPUS-MT/HY-MT2 remain text-only.
 2. The bounded worker, verified delivery, lifecycle fix and full-document
    reuse/resume/save-admission slice are implemented above. Review the shared
    job integration before catalog exposure; packaged WebView suspension and
    memory behavior still need device acceptance. No native FFI or copied
    Bergamot HTML C++ is required.
-3. Normalize provider results into that shared plan: annotated source/target
-   spans or validated protected markup. `HTML::restore` needs token annotations
+3. Bergamot now normalizes protected markup into the shared plan. Further
+   providers need annotated source/target spans or the same validated codes.
+   `HTML::restore` needs token annotations
    and alignments; it is not a supported engine-independent HTML-only package.
    `ct2rs` 0.9.19 does not return attention through its FFI/result type even
    though it exposes the request option. Use an upstream-supported binding/API
@@ -1409,8 +1508,8 @@ A responsive desktop browser at a mobile viewport would not fill that gap.
 
 Version cache/alignment semantics when mapping changes; preserve existing
 variants, original documents and already generated audio/highlighting.
-There is no Bergamot production integration, new model catalog entry, app
-version bump or installed-app smoke result in this stage.
+Bergamot has an internal document integration, but no advertised model catalog
+entry, app version bump or installed-app smoke result in this stage.
 
 ### Benchmark Deferral
 

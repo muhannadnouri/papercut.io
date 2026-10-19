@@ -82,7 +82,9 @@ fn render_translated_dom(title: &str, request: &PersistTranslationRequest) -> Op
         if section.text.trim().is_empty() {
             continue;
         }
-        if requires_preserved_block(&node) {
+        if section.fragments.iter().any(|f| f.markup.is_some()) {
+            replace_protected_fragments(&node, section).ok()?;
+        } else if requires_preserved_block(&node) {
             insert_translation_after(&node, section);
         } else if replace_text_with_fragment_formatting(&node, &section.fragments) {
             // Segment-level source/target pairs give safer inline placement than
@@ -105,6 +107,63 @@ fn render_translated_dom(title: &str, request: &PersistTranslationRequest) -> Op
         return None;
     }
     serialize_document(&document)
+}
+
+/// Rebind every rich fragment to the cloned source DOM; never fall back after a malformed rich reply.
+fn replace_protected_fragments(
+    node: &NodeRef,
+    section: &PersistTranslationSection,
+) -> Result<(), String> {
+    let source = source_inline_model(node).text.chars().collect::<Vec<_>>();
+    let rich_source = super::inline_markup::protected::ProtectedSource::new(node)?;
+    let mut html = Vec::new();
+    let mut texts = Vec::new();
+    let mut cursor = 0;
+    for fragment in &section.fragments {
+        if source
+            .get(cursor..fragment.source_start)
+            .is_none_or(|gap| gap.iter().any(|c| !c.is_whitespace()))
+        {
+            return Err("Protected fragments overlap or omit source prose".into());
+        }
+        let plan = rich_source.fragment(
+            fragment.source_start..fragment.source_end,
+            &fragment.source_text,
+        )?;
+        let restored = plan.restore(
+            fragment
+                .markup
+                .as_deref()
+                .ok_or("Missing protected fragment")?,
+        )?;
+        if restored.text != fragment.text {
+            return Err("Protected fragment text changed after validation".into());
+        }
+        html.push(restored.html);
+        texts.push(restored.text);
+        cursor = fragment.source_end;
+    }
+    if source
+        .get(cursor..)
+        .is_none_or(|gap| gap.iter().any(|c| !c.is_whitespace()))
+        || texts.join(" ") != section.text
+    {
+        return Err("Protected fragments do not cover the source/result".into());
+    }
+    let document = parse_html_document(format!(
+        "<html><body><div>{}</div></body></html>",
+        html.join(" ")
+    ));
+    let wrapper = document
+        .select_first("body > div")
+        .map_err(|_| "Invalid protected render")?;
+    for child in node.children().collect::<Vec<_>>() {
+        child.detach();
+    }
+    for child in wrapper.as_node().children().collect::<Vec<_>>() {
+        node.append(child);
+    }
+    Ok(())
 }
 
 /// Update the document title when the cloned reader HTML has one.
@@ -1341,6 +1400,66 @@ mod tests {
         }
     }
 
+    #[test]
+    fn rich_fragment_render_preserves_nested_styles_links_and_refuses_partial_or_stale_markup() {
+        let source = "<p><strong>Bonjour. Merci.</strong> <a href='#n'>Note</a><a role='doc-noteref' href='#n'><sup>1</sup></a></p>";
+        let text = super::DomPlan::new(source).blocks[0].inline.text.clone();
+        let mut f = fragment(&text, "Hello. Thanks. Note");
+        f.source_end = text.chars().count();
+        f.markup = Some("<span data-pc='0'>Hello. Thanks.</span> <span data-pc='1'>Note</span><span data-pc='2' translate='no'>PC2</span>".into());
+        let mut req = request(
+            source,
+            vec![section_with_fragments(0, false, &f.text, vec![f.clone()])],
+        );
+        let rendered = render_translated_html("English", &req).unwrap();
+        assert!(rendered.contains("<strong>Hello. Thanks.</strong>"));
+        assert!(rendered.contains("href=\"#n\""));
+        for invalid in [None, Some("invented without codes".into())] {
+            // A mixed rich/plain block must not silently fall back to approximate formatting.
+            let mut broken = f.clone();
+            broken.markup = invalid;
+            req.translated_sections[0].fragments = vec![f.clone(), broken];
+            assert!(render_translated_html("English", &req).is_err());
+        }
+        req.translated_sections[0].fragments = vec![f.clone()];
+        req.translated_sections[0].fragments[0].text = "changed text".into();
+        assert!(render_translated_html("English", &req).is_err());
+        req.translated_sections[0].fragments = vec![f];
+        req.translated_sections[0].fragments[0].source_start = 1;
+        assert!(render_translated_html("English", &req).is_err());
+    }
+
+    #[test]
+    fn rich_multiple_segments_keep_each_style_and_do_not_duplicate_boundary_note_ids() {
+        let source = "<p><strong>Bonjour.<a role='doc-noteref' href='#n' id='middle'><sup>1</sup></a> Merci.</strong><a role='doc-noteref' href='#n' id='ref'><sup>2</sup></a></p>";
+        let mut first = fragment("Bonjour.", "Hello.");
+        first.source_end = 8;
+        first.markup = Some(
+            "<span data-pc='0'>Hello.<span data-pc='1' translate='no'>PC1</span></span>".into(),
+        );
+        let mut second = fragment("Merci.", "Thanks.");
+        second.source_start = 9;
+        second.source_end = 15;
+        second.markup = Some(
+            "<span data-pc='0'>Thanks.</span><span data-pc='2' translate='no'>PC2</span>".into(),
+        );
+        let req = request(
+            source,
+            vec![section_with_fragments(
+                0,
+                false,
+                "Hello. Thanks.",
+                vec![first, second],
+            )],
+        );
+        let html = render_translated_html("English", &req).unwrap();
+        let dom = parse_html_document(html);
+        assert_eq!(dom.select("strong").unwrap().count(), 2);
+        assert_eq!(dom.select("#ref").unwrap().count(), 1);
+        assert_eq!(dom.select("#middle").unwrap().count(), 1);
+        assert_eq!(dom.select_first("#ref").unwrap().text_contents(), "2");
+    }
+
     fn request(
         view_html: &str,
         translated_sections: Vec<PersistTranslationSection>,
@@ -1396,6 +1515,7 @@ mod tests {
 
     fn fragment(source_text: &str, text: &str) -> PersistTranslationFragment {
         PersistTranslationFragment {
+            markup: None,
             source_start: 0,
             source_end: 0,
             source_text: source_text.into(),

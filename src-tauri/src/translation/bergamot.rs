@@ -1,4 +1,4 @@
-//! Bounded text-only bridge to one WebView-owned Bergamot worker attempt.
+//! Bounded text/protected-code bridge to one WebView-owned Bergamot worker attempt.
 //! Rust owns document planning, resume and persistence; the WebView owns inference.
 
 use std::collections::HashSet;
@@ -21,6 +21,8 @@ const MAX_OUTPUT_BYTES: usize = 256 * 1024;
 pub(crate) struct Segment {
     pub id: String,
     pub text: String,
+    #[serde(default, skip_deserializing)]
+    pub html: bool,
 }
 
 #[derive(Deserialize)]
@@ -98,6 +100,7 @@ struct Active {
 pub(crate) struct WorkerBridge(Mutex<Option<Active>>);
 
 impl WorkerBridge {
+    /// Admit one owner-bound attempt; the same mailbox serves sequential document batches.
     pub fn open(
         self: &Arc<Self>,
         owner: String,
@@ -166,7 +169,10 @@ impl WorkerBridge {
                     .checked_add(o.source_text.len())?
                     .checked_add(o.text.len())
             });
-            if outputs.len() > MAX_SEGMENTS || size.is_none_or(|size| size > MAX_OUTPUT_BYTES) {
+            if outputs.iter().any(|o| o.markup.is_some())
+                || outputs.len() > MAX_SEGMENTS
+                || size.is_none_or(|size| size > MAX_OUTPUT_BYTES)
+            {
                 reply = WorkerReply::Failed {
                     attempt_id: active.id.clone(),
                     batch_id: batch,
@@ -206,6 +212,7 @@ impl WorkerEngine {
         Ok(())
     }
 
+    /// Convert protected plans into opaque HTML, then validate and restore replies before the shared runner.
     fn batch(
         &mut self,
         input: TranslationBatchInput,
@@ -248,12 +255,41 @@ impl WorkerEngine {
                 .iter()
                 .map(|s| Segment {
                     id: s.id.clone(),
-                    text: s.text.clone(),
+                    text: s
+                        .markup
+                        .as_ref()
+                        .map(|p| p.html.clone())
+                        .unwrap_or_else(|| s.text.clone()),
+                    html: s.markup.is_some(),
                 })
                 .collect(),
         })?;
         match reply {
-            WorkerReply::Result { outputs, .. } => {
+            WorkerReply::Result { mut outputs, .. } => {
+                let transport = input
+                    .segments
+                    .iter()
+                    .map(|s| {
+                        (
+                            s.id.as_str(),
+                            s.markup
+                                .as_ref()
+                                .map(|p| p.html.as_str())
+                                .unwrap_or(&s.text),
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                validate_outputs(&transport, &outputs)?;
+                for (segment, output) in input.segments.iter().zip(&mut outputs) {
+                    if output.markup.is_some() {
+                        return Err("Worker cannot supply trusted mappings".into());
+                    }
+                    if let Some(plan) = &segment.markup {
+                        let restored = plan.restore(&output.text)?;
+                        output.markup = Some(std::mem::replace(&mut output.text, restored.text));
+                        output.source_text = segment.text.clone();
+                    }
+                }
                 validate_outputs(&expected, &outputs)?;
                 Ok(outputs)
             }
@@ -261,6 +297,7 @@ impl WorkerEngine {
         }
     }
 
+    /// One nonce/sequence mailbox and absolute deadline prevent stale replies extending an attempt.
     fn exchange(
         &mut self,
         request: impl FnOnce(String, u32) -> WorkerRequest,
@@ -333,6 +370,10 @@ impl WorkerEngine {
     }
 }
 impl TranslationEngine for WorkerEngine {
+    fn supports_protected_markup(&self) -> bool {
+        true
+    }
+
     fn before_save(&mut self) -> Result<(), String> {
         let result = self
             .exchange(|attempt_id, batch_id| WorkerRequest::Confirm {
@@ -396,6 +437,7 @@ pub(super) fn run_batch(
                 .segments
                 .into_iter()
                 .map(|s| super::engine::TranslationSegmentInput {
+                    markup: None,
                     id: s.id,
                     text: s.text,
                     context: Default::default(),

@@ -67,6 +67,29 @@ describe('stock Bergamot worker adapter', () => {
     expect(h.translated.delete).toHaveBeenCalled()
   })
 
+  it('uses the stock HTML/alignment API only for protected requests and echoes the exact opaque payload', async () => {
+    const h = harness()
+    await h.send({ kind: 'initialize', sourceLanguage: 'fr', targetLanguage: 'en', files: h.files })
+    const text = 'Une bague en <span data-pc="0">or</span>.'
+    const target = 'A <span data-pc="0">gold</span> ring.'
+    h.translated.values[0].getTranslatedText = () => target
+    await h.send({ kind: 'batch', attemptId: 'a'.repeat(32), batchId: 1, sourceLanguage: 'fr', targetLanguage: 'en', segments: [{ id: 'x', text, html: true }] })
+    expect(h.vectors.at(-2)!.values).toEqual([text])
+    expect(h.vectors.at(-1)!.values).toEqual([{ qualityScores: false, alignment: true, html: true }])
+    expect(h.messages.at(-1)!.outputs).toEqual([{ id: 'x', sourceText: text, text: target }])
+    expect(h.translated.delete).toHaveBeenCalled()
+  })
+
+  it('keeps protected HTML byte-bounded and retains the existing plain-text scalar cap', async () => {
+    for (const [text, html] of [['x'.repeat(901), false], ['x'.repeat(32 * 1024 + 1), true], ['x', 'true']]) {
+      const h = harness()
+      await h.send({ kind: 'initialize', sourceLanguage: 'fr', targetLanguage: 'en', files: h.files })
+      await h.send({ kind: 'batch', attemptId: 'a'.repeat(32), batchId: 1, sourceLanguage: 'fr', targetLanguage: 'en', segments: [{ id: 'x', text, html }] })
+      expect(h.translate).not.toHaveBeenCalled()
+      expect(h.messages.at(-1)!.kind).toBe('failed')
+    }
+  })
+
   it('rejects wrong sizes and checksums before loading any executable code', async () => {
     for (const mode of ['size', 'hash', 'pair']) {
       const h = harness()

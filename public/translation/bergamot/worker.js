@@ -1,4 +1,4 @@
-/* Bergamot text-only worker. Uses the unmodified MPL-2.0 loader beside this file.
+/* Bergamot text/protected-code worker. Uses the unmodified MPL-2.0 loader beside this file.
  * API reference: mozilla/translations 69455acaecbe8650cdba988dbcf7c10ca20e7c48,
  * inference/wasm/tests/engine/translations-engine.worker.mjs.
  * Asset pins come from docs/offline-translation-evaluation.json. */
@@ -19,6 +19,7 @@ let loading = false
 let engine = null
 let busy = false
 
+// Verify pinned binary assets before constructing the stock WASM service.
 async function initialize(data) {
   if (loading || engine) throw new Error('Already initialized')
   loading = true
@@ -61,6 +62,7 @@ async function initialize(data) {
   self.postMessage({ kind: 'ready' })
 }
 
+// HTML carries Rust-owned opaque codes only; Rust validates/restores every returned identity.
 function translate(data) {
   if (!engine || busy || data.sourceLanguage !== engine.sourceLanguage || data.targetLanguage !== 'en'
       || typeof data.attemptId !== 'string' || data.attemptId.length !== 32
@@ -69,7 +71,9 @@ function translate(data) {
   const ids = new Set()
   for (const s of data.segments) {
     if (typeof s.id !== 'string' || !s.id || s.id.length > 128 || ids.has(s.id)
-        || typeof s.text !== 'string' || !s.text.trim() || s.text.length > 1800 || Array.from(s.text).length > 900) throw new Error('Invalid segment')
+        || typeof s.text !== 'string' || !s.text.trim()
+        || (s.html !== undefined && typeof s.html !== 'boolean')
+        || (s.html ? new TextEncoder().encode(s.text).byteLength > 32 * 1024 : s.text.length > 1800 || Array.from(s.text).length > 900)) throw new Error('Invalid segment')
     ids.add(s.id)
   }
   busy = true
@@ -79,7 +83,7 @@ function translate(data) {
   try {
     for (const s of data.segments) {
       messages.push_back(s.text)
-      options.push_back({ qualityScores: false, alignment: false, html: false })
+      options.push_back({ qualityScores: false, alignment: s.html === true, html: s.html === true })
     }
     responses = engine.service.translate(engine.model, messages, options)
     if (responses.size() !== data.segments.length) throw new Error('Invalid reply count')

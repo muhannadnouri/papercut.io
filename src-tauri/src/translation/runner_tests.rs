@@ -36,8 +36,8 @@ fn fixture() -> (
     let html =
         "<html><body><p>Bonjour le monde.</p><p>Merci beaucoup.</p><p>Au revoir.</p></body></html>";
     let source = TranslationSourceDocument {
-        document_id: "source".into(),
-        document_url: "/uploads/source.html".into(),
+        document_id: "abc123".into(),
+        document_url: "/uploads/abc123.html".into(),
         title: "Example".into(),
         format: "html".into(),
         view_html: html.into(),
@@ -129,6 +129,7 @@ fn worker(
                                 outputs: segments
                                     .into_iter()
                                     .map(|s| TranslationSegmentOutput {
+                                        markup: None,
                                         id: s.id,
                                         text: match s.text.as_str() {
                                             "Bonjour le monde." => "Hello world.",
@@ -230,7 +231,7 @@ fn failed_later_batch_resumes_only_completed_work_and_stores_one_provenanced_var
         )
         .unwrap();
     assert_eq!(engine_id, "bergamot");
-    assert!(settings.contains("bergamot-text-v1:"));
+    assert!(settings.contains("bergamot-protected-codes-v1:"));
     assert_eq!(
         super::super::storage::list_translated_documents(app.handle())
             .unwrap()
@@ -316,6 +317,7 @@ fn inline_probes_use_bounded_requests_and_resume_without_more_inference() {
                 .segments
                 .into_iter()
                 .map(|s| TranslationSegmentOutput {
+                    markup: None,
                     id: s.id,
                     source_text: s.text.clone(),
                     text: format!("Translated {}", s.text),
@@ -452,5 +454,160 @@ fn worker_document_preflight_rejects_options_it_cannot_honor_before_opening_an_e
             super::super::types::TranslationCommandError::new(error).code,
             "unsupported-translation-option"
         );
+    }
+}
+
+/// Exercise the real bridge and writer with deterministic protected-code replies, including a bad later result.
+#[test]
+fn rich_document_validates_entire_batch_before_cache_then_resumes_source_owned_markup() {
+    for format in ["html", "epub"] {
+        let (_dir, app, mut source, old_plan) = fixture();
+        let original =
+            load_translation_source_document(app.handle(), &source.document_url).unwrap();
+        let asset = crate::document_uploads::ParsedDocumentAsset::new(
+            "image/png",
+            b"rich job image bytes".to_vec(),
+        )
+        .unwrap();
+        source.assets = Arc::new(vec![asset.clone()]);
+        source.format = format.into();
+        source.view_html = "<html><body><p>La bague en <strong>or</strong> est perdue.</p><p>Gardez <code>private_id</code> et <span translate='no'>42</span><a role='doc-noteref' href='#note'><sup>1</sup></a>.</p><p id='note' translate='no'>Note originale.</p></body></html>".into();
+        source.view_html = source.view_html.replace(
+            "</a>.</p>",
+            &format!("</a><img data-papercut-asset='{}'>.</p>", asset.file_name),
+        );
+        source.blocks = super::super::dom::DomPlan::new(&source.view_html)
+            .blocks
+            .into_iter()
+            .map(|b| TranslationSourceBlock {
+                ordinal: b.ordinal,
+                is_heading: b.is_heading,
+                heading: b.heading,
+                text: b.inline.text,
+            })
+            .collect();
+        let plan = plan_translation_job(
+            old_plan.request,
+            source.blocks.iter().map(|b| &b.text),
+            900,
+            16,
+        )
+        .unwrap();
+        let state = TranslationState::default();
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let make_worker = |invalid: bool| {
+            let host = state.clone();
+            let seen = seen.clone();
+            state.bergamot.open("main".into(), "document-job".into(), state.cancelled_jobs.clone(), move |request| {
+            let reply = match request {
+                WorkerRequest::Batch { attempt_id, batch_id, segments, .. } => {
+                    seen.lock().unwrap().extend(segments.iter().map(|s| s.id.clone()));
+                    let outputs = segments.into_iter().map(|s| {
+                        assert!(s.html);
+                        for secret in ["private_id", "42", "#note", "data-papercut-asset"] { assert!(!s.text.contains(secret)); }
+                        let target = if s.id == "b0:s0" { "The <span data-pc='0'>gold</span> ring is lost." }
+                            else if invalid { "Keep a private identifier and the number." }
+                            else { "Keep <span data-pc='0' translate='no'>PC0</span> and <span data-pc='1' translate='no'>PC1</span><span data-pc='2' translate='no'>PC2</span><span data-pc='3' translate='no'>PC3</span>." };
+                        TranslationSegmentOutput { id: s.id, source_text: s.text, text: target.into(), markup: None }
+                    }).collect();
+                    WorkerReply::Result { attempt_id, batch_id, outputs }
+                },
+                WorkerRequest::Confirm { attempt_id, batch_id } => WorkerReply::Confirmed { attempt_id, batch_id },
+                WorkerRequest::Stop { .. } => return Ok(()),
+            };
+            host.bergamot.reply("main", reply).map(|_| ())
+        }).unwrap()
+        };
+        let mut invalid = make_worker(true);
+        assert!(finish_translation(
+            app.handle(),
+            &state,
+            &mut invalid,
+            &plan,
+            &source,
+            "document-job",
+            Instant::now()
+        )
+        .is_err());
+        drop(invalid);
+        let cache = load_segment_cache(app.handle(), &plan).unwrap();
+        assert!(cache
+            .translated_text_for(&plan.batches[0].segments[0])
+            .is_none());
+        assert!(
+            super::super::storage::list_translated_documents(app.handle())
+                .unwrap()
+                .is_empty()
+        );
+        let mut valid = make_worker(false);
+        finish_translation(
+            app.handle(),
+            &state,
+            &mut valid,
+            &plan,
+            &source,
+            "document-job",
+            Instant::now(),
+        )
+        .unwrap();
+        drop(valid);
+        let variants = super::super::storage::list_translated_documents(app.handle()).unwrap();
+        let saved =
+            load_translation_source_document(app.handle(), &variants[0].document_url).unwrap();
+        assert!(saved.view_html.contains("<strong>gold</strong>"));
+        assert!(saved.view_html.contains("<code>private_id</code>"));
+        assert!(saved.view_html.contains("href=\"#note\""));
+        assert!(saved.view_html.contains("Note originale."));
+        assert!(!saved.view_html.contains("data-pc"));
+        assert!(!saved.view_html.contains("PC0"));
+        assert_eq!(saved.assets.as_ref(), &vec![asset]);
+        seen.lock().unwrap().clear();
+        let mut resumed = make_worker(false);
+        finish_translation(
+            app.handle(),
+            &state,
+            &mut resumed,
+            &plan,
+            &source,
+            "document-job",
+            Instant::now(),
+        )
+        .unwrap();
+        drop(resumed);
+        assert!(seen.lock().unwrap().is_empty());
+        assert_eq!(
+            super::super::storage::list_translated_documents(app.handle())
+                .unwrap()
+                .len(),
+            1
+        );
+        // A new malformed attempt must leave the previous completed variant intact.
+        let mut changed = source.clone();
+        changed.view_html = source
+            .view_html
+            .replace("<strong>or</strong>", "<em>or</em>");
+        let mut invalid = make_worker(true);
+        // The invalid second block is cached, so change both source-owned structures to force both results.
+        changed.view_html = changed.view_html.replace(
+            "<code>private_id</code>",
+            "<code id='literal'>private_id</code>",
+        );
+        assert!(finish_translation(
+            app.handle(),
+            &state,
+            &mut invalid,
+            &plan,
+            &changed,
+            "document-job",
+            Instant::now()
+        )
+        .is_err());
+        drop(invalid);
+        let unchanged =
+            load_translation_source_document(app.handle(), &variants[0].document_url).unwrap();
+        assert_eq!(saved.view_html, unchanged.view_html);
+        let unchanged_original =
+            load_translation_source_document(app.handle(), &source.document_url).unwrap();
+        assert_eq!(original, unchanged_original);
     }
 }

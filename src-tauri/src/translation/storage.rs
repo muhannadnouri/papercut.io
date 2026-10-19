@@ -84,6 +84,7 @@ pub(crate) struct PersistTranslationFragment {
     pub(crate) source_text: String,
     pub(crate) text: String,
     pub(crate) inline_phrases: Vec<PersistTranslationInlinePhrase>,
+    pub(crate) markup: Option<String>,
 }
 
 #[derive(Debug, Clone)]

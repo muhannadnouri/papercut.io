@@ -185,5 +185,9 @@ pub(crate) fn provider_identity(model_id: &str) -> Option<String> {
     hash.update(include_bytes!(
         "../../../../public/translation/bergamot/bergamot-translator.js"
     ));
-    Some(format!("bergamot-text-v1:{:x}", hash.finalize()))
+    Some(format!(
+        "bergamot-{}:{:x}",
+        crate::translation::inline_markup::protected::MAPPING_VERSION,
+        hash.finalize()
+    ))
 }

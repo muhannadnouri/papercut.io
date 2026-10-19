@@ -11,6 +11,7 @@ fn input() -> TranslationBatchInput {
         repair_mode: Default::default(),
         glossary: vec![],
         segments: vec![TranslationSegmentInput {
+            markup: None,
             id: "b0:s0".into(),
             text: "Résumé 🙂".into(),
             context: TranslationSegmentContext::default(),
@@ -53,6 +54,7 @@ fn result(id: &str, batch: u32, source: &str) -> WorkerReply {
         attempt_id: id.into(),
         batch_id: batch,
         outputs: vec![TranslationSegmentOutput {
+            markup: None,
             id: "b0:s0".into(),
             source_text: source.into(),
             text: "Summary 🙂".into(),
@@ -263,6 +265,7 @@ fn real_command_and_tauri_channel_round_trip_keeps_job_claims_and_camel_case_bin
             source_language: "fr".into(),
             target_language: "en".into(),
             segments: vec![Segment {
+                html: false,
                 id: "b0:s0".into(),
                 text: "Résumé 🙂".into(),
             }],
@@ -333,4 +336,56 @@ fn save_checkpoint_requires_its_own_owner_nonce_and_confirmation_shape() {
         assert_eq!(worker.join().unwrap().is_ok(), valid);
         assert!(matches!(rx.recv().unwrap(), WorkerRequest::Stop { .. }));
     }
+}
+
+#[test]
+fn protected_worker_transports_only_opaque_codes_and_rebinds_source_after_validation() {
+    let (bridge, mut engine, rx) = setup();
+    let dom = crate::translation::dom::DomPlan::new(
+        "<p>Gardez <code>private_id</code> et <strong>or</strong>.</p>",
+    );
+    let source = dom.blocks[0].inline.text.clone();
+    let mapping = crate::translation::inline_markup::protected::plan_fragment(
+        &dom.blocks[0].node,
+        0..source.chars().count(),
+        &source,
+    )
+    .unwrap();
+    let mut input = input();
+    input.segments[0].text = source.clone();
+    input.segments[0].markup = Some(mapping);
+    let work = thread::spawn(move || engine.translate_batch(input));
+    let WorkerRequest::Batch {
+        attempt_id,
+        batch_id,
+        segments,
+        ..
+    } = rx.recv().unwrap()
+    else {
+        panic!("expected batch")
+    };
+    assert!(segments[0].html);
+    assert!(!segments[0].text.contains("private_id"));
+    assert!(!segments[0].text.contains("<code>"));
+    let target =
+        "Keep <span data-pc='0' translate='no'>PC0</span> and <span data-pc='1'>gold</span>.";
+    bridge
+        .reply(
+            "main",
+            WorkerReply::Result {
+                attempt_id,
+                batch_id,
+                outputs: vec![TranslationSegmentOutput {
+                    id: segments[0].id.clone(),
+                    source_text: segments[0].text.clone(),
+                    text: target.into(),
+                    markup: None,
+                }],
+            },
+        )
+        .unwrap();
+    let output = work.join().unwrap().unwrap().remove(0);
+    assert_eq!(output.source_text, source);
+    assert_eq!(output.text, "Keep private_id and gold.");
+    assert_eq!(output.markup.as_deref(), Some(target));
 }

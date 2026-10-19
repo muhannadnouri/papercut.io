@@ -49,9 +49,55 @@ pub(crate) struct TranslationSegmentCache {
 struct CachedTranslationSegment {
     source_hash: String,
     translated_text: String,
+    #[serde(default)]
+    markup: Option<String>,
+    #[serde(default)]
+    markup_identity: Option<String>,
 }
 
 impl TranslationSegmentCache {
+    /// Rich resume is location/DOM-bound and revalidated; plain translation memory cannot supply mappings.
+    pub(crate) fn mapped_output_for(
+        &self,
+        segment: &TranslationTextSegment,
+        plan: &super::inline_markup::protected::ProtectedPlan,
+    ) -> Option<super::engine::TranslationSegmentOutput> {
+        let cached = self.segments.get(&segment.id)?;
+        if cached.source_hash != hash_segment_text(&segment.text)
+            || cached.markup_identity.as_deref() != Some(plan.identity().as_str())
+        {
+            return None;
+        }
+        let markup = cached.markup.as_ref()?;
+        if plan.restore(markup).ok()?.text != cached.translated_text {
+            return None;
+        }
+        Some(super::engine::TranslationSegmentOutput {
+            id: segment.id.clone(),
+            source_text: segment.text.clone(),
+            text: cached.translated_text.clone(),
+            markup: Some(markup.clone()),
+        })
+    }
+
+    /// Persist only validated rich replies, without adding provider HTML to plain-text translation memory.
+    pub(crate) fn store_mapped_output(
+        &mut self,
+        segment: &TranslationTextSegment,
+        plan: &super::inline_markup::protected::ProtectedPlan,
+        output: &super::engine::TranslationSegmentOutput,
+    ) {
+        self.segments.insert(
+            segment.id.clone(),
+            CachedTranslationSegment {
+                source_hash: hash_segment_text(&segment.text),
+                translated_text: output.text.clone(),
+                markup: output.markup.clone(),
+                markup_identity: Some(plan.identity()),
+            },
+        );
+    }
+
     /// Return a cached translation only when the segment id and source text
     /// still match.
     ///
@@ -120,6 +166,8 @@ impl TranslationSegmentCache {
             CachedTranslationSegment {
                 source_hash,
                 translated_text,
+                markup: None,
+                markup_identity: None,
             },
         );
     }
@@ -294,6 +342,46 @@ mod tests {
         assert!(!cache_is_compatible(&cache, &worker));
         cache.provider_identity = None;
         assert!(!cache_is_compatible(&cache, &worker));
+    }
+
+    #[test]
+    fn rich_cache_requires_structure_binding_and_revalidates_payload_instead_of_reusing_text_memory(
+    ) {
+        use crate::translation::{
+            dom::DomPlan, engine::TranslationSegmentOutput, inline_markup::protected::plan_fragment,
+        };
+        let job = plan();
+        let mut segment = job.batches[0].segments[0].clone();
+        segment.text = "Une bague".into();
+        let mapping = |tag: &str| {
+            let dom = DomPlan::new(&format!("<p>Une <{tag}>bague</{tag}></p>"));
+            plan_fragment(&dom.blocks[0].node, 0..9, &segment.text).unwrap()
+        };
+        let strong = mapping("strong");
+        let emphasis = mapping("em");
+        let mut cache = new_segment_cache(&job);
+        cache.store_translation(&segment, "A ring".into());
+        assert!(cache.mapped_output_for(&segment, &strong).is_none());
+        let output = TranslationSegmentOutput {
+            id: segment.id.clone(),
+            source_text: segment.text.clone(),
+            text: "A ring".into(),
+            markup: Some("A <span data-pc='0'>ring</span>".into()),
+        };
+        cache.store_mapped_output(&segment, &strong, &output);
+        assert!(cache.mapped_output_for(&segment, &strong).is_some());
+        assert!(cache.mapped_output_for(&segment, &emphasis).is_none());
+        let mut moved = segment.clone();
+        moved.id.push_str("-different-location");
+        assert!(cache.mapped_output_for(&moved, &strong).is_none());
+        cache.segments.get_mut(&segment.id).unwrap().markup = Some("A ring".into());
+        assert!(cache.mapped_output_for(&segment, &strong).is_none());
+        cache.store_mapped_output(&segment, &strong, &output);
+        cache.segments.get_mut(&segment.id).unwrap().translated_text = "different prose".into();
+        assert!(cache.mapped_output_for(&segment, &strong).is_none());
+        let roundtrip: super::TranslationSegmentCache =
+            serde_json::from_str(&serde_json::to_string(&cache).unwrap()).unwrap();
+        assert!(roundtrip.mapped_output_for(&segment, &strong).is_none());
     }
 
     #[test]

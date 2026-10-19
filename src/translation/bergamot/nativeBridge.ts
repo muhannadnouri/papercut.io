@@ -8,7 +8,7 @@ export interface BergamotFiles {
   lex: ArrayBuffer
   vocab: ArrayBuffer
 }
-export interface TextSegment { id: string; text: string }
+export interface TextSegment { id: string; text: string; html?: boolean }
 export interface WorkerOutput extends TextSegment { sourceText: string }
 interface Batch {
   kind: 'batch'
@@ -22,11 +22,13 @@ interface Confirm { kind: 'confirm'; attemptId: string; batchId: number }
 interface Stop { kind: 'stop'; attemptId: string }
 type Failure = 'cancelled' | 'workerLost' | 'unavailable' | 'engineFailed'
 
+/** Enforce transport ceilings; protected HTML identities are validated against retained plans in Rust. */
 export function validateBergamotSegments(segments: TextSegment[]): void {
   if (!segments.length || segments.length > 16
       || new Set(segments.map(s => s.id)).size !== segments.length
       || segments.some(s => !s.id || new TextEncoder().encode(s.id).byteLength > 128
-        || !s.text.trim() || s.text.length > 1800 || Array.from(s.text).length > 900)) {
+        || !s.text.trim() || (s.html !== undefined && typeof s.html !== 'boolean')
+        || (s.html ? new TextEncoder().encode(s.text).byteLength > 32 * 1024 : s.text.length > 1800 || Array.from(s.text).length > 900))) {
     throw new Error('Bergamot requires a bounded French/Spanish to English text batch')
   }
 }
@@ -42,6 +44,7 @@ export async function runBergamotBatch(
   }), false)
 }
 
+/** Keep one host for all rich document batches; only Rust may authorize persistence. */
 export async function runBergamotDocument(
   request: TranslationStartRequest, files: BergamotFiles, signal?: AbortSignal,
 ): Promise<TranslationStartResult> {
@@ -51,6 +54,7 @@ export async function runBergamotDocument(
   }), true)
 }
 
+/** Bind callbacks to one attempt and await Rust through the save/cancel cutoff, with bounded loss recovery. */
 async function runWorker<T>(
   files: BergamotFiles, signal: AbortSignal | undefined, jobId: string,
   start: (channel: { jobId: string; requests: Channel<Batch | Confirm | Stop> }) => Promise<T>,
@@ -192,6 +196,7 @@ async function runWorker<T>(
   }
 }
 
+/** Match the exact transport echo before IPC; HTML is still untrusted until Rust restores it. */
 function validOutputs(value: unknown, batch: Batch): value is WorkerOutput[] {
   if (!Array.isArray(value) || value.length !== batch.segments.length || value.length > 16) return false
   let bytes = 0

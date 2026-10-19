@@ -11,7 +11,7 @@ use kuchikiki::NodeRef;
 use super::dom::DomPlan;
 use super::storage::{PersistTranslationFragment, PersistTranslationInlinePhrase};
 
-// shortcut: current adapters return text only; consume these checked spans with the first aligned adapter.
+pub(super) mod protected;
 #[allow(dead_code)]
 pub(super) mod provider;
 
@@ -565,6 +565,7 @@ mod tests {
     #[test]
     fn prefers_verified_fragment_offsets() {
         let fragment = PersistTranslationFragment {
+            markup: None,
             source_start: 14,
             source_end: 19,
             source_text: "again".into(),
