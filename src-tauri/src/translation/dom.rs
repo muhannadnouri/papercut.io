@@ -29,15 +29,19 @@ impl DomPlan {
             .into_iter()
             .enumerate()
             .filter_map(|(ordinal, node)| {
-                if node.inclusive_ancestors().any(|ancestor| {
-                    ancestor.as_element().is_some_and(|element| {
-                        element
-                            .attributes
-                            .borrow()
-                            .get("translate")
-                            .is_some_and(|value| value.eq_ignore_ascii_case("no"))
+                let protected = node
+                    .inclusive_ancestors()
+                    .find_map(|ancestor| {
+                        ancestor.as_element().and_then(|element| {
+                            element
+                                .attributes
+                                .borrow()
+                                .get("translate")
+                                .map(|value| value.eq_ignore_ascii_case("no"))
+                        })
                     })
-                }) {
+                    .unwrap_or(false);
+                if protected {
                     return None;
                 }
                 let inline = source_inline_model(&node);
@@ -124,5 +128,56 @@ mod tests {
         assert!(plan.blocks[0].is_heading);
         assert!(!plan.blocks[1].is_heading);
         assert_eq!(plan.blocks[1].heading.as_deref(), Some("Titre"));
+    }
+
+    #[test]
+    fn sanitized_source_respects_protection_and_strips_note_labels() {
+        let safe = crate::document_uploads::sanitize_html(
+            r#"<section translate="no">
+            <p>user_id</p><p translate="yes">Texte<a role="doc-noteref button" href='#n'>1</a>.</p>
+            </section><p id="n">Note<a role="doc-backlink" href='#r'>Back</a>.</p>
+            <p>Autre<a epub:type="noteref" href='#n'>2</a>.</p>"#,
+        );
+        let plan = DomPlan::new(&safe);
+        assert_eq!(
+            plan.blocks
+                .iter()
+                .map(|block| block.inline.text.as_str())
+                .collect::<Vec<_>>(),
+            ["Texte.", "Note.", "Autre."]
+        );
+        assert_eq!(
+            plan.blocks
+                .iter()
+                .map(|block| block.ordinal)
+                .collect::<Vec<_>>(),
+            [1, 2, 3]
+        );
+        assert!(plan
+            .blocks
+            .iter()
+            .all(|block| block.inline.markers.len() == 1));
+    }
+
+    #[test]
+    fn table_and_structural_boundaries_match_importer_without_splitting_inline_words() {
+        let safe = crate::document_uploads::sanitize_html("<table><caption>Résumé</caption><tr><th><b>B</b><i>onjour</i></th><td>港🙂</td></tr><tr><td>عَرَبِيّ</td><td><strong>monde</strong></td></tr></table>");
+        let plan = DomPlan::new(&safe);
+        assert_eq!(plan.blocks[0].inline.text, "Résumé Bonjour 港🙂 عَرَبِيّ monde");
+        let spans = &plan.blocks[0].inline.spans;
+        let last = spans.last().unwrap();
+        assert_eq!(
+            plan.blocks[0]
+                .inline
+                .text
+                .chars()
+                .skip(last.start)
+                .take(last.end - last.start)
+                .collect::<String>(),
+            "monde"
+        );
+        let document = super::parse_html_document(&safe);
+        let indexed = crate::document_uploads::reader_block_nodes(&document);
+        assert_eq!(indexed.len(), plan.blocks.len());
     }
 }

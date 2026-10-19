@@ -76,4 +76,5 @@ pub(crate) use types::{
     UploadedLibraryFolder, UploadedLibraryMoveDocumentsRequest, UploadedLibraryOrganization,
 };
 
-pub(crate) use html::{reader_block_nodes, sanitize_html};
+pub(crate) use html::{reader_block_nodes, sanitize_html, tag_separates_text};
+pub(crate) use search_content::is_note_marker;

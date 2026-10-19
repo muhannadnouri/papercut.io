@@ -63,9 +63,19 @@ where
     F: FnOnce(&Transaction<'_>) -> Result<(), String>,
 {
     let dir = upload_dir(app, id)?;
-    let mut parsed = parsed_html_document(title.into(), format, sanitize_html(&view_html));
-    parsed.assets = owned_assets(&parsed.view_html, assets)?;
+    let parsed = prepare_derived_document(title, format, &view_html, assets)?;
     persist_derived_document_at(&dir, db, id, url, parsed, imported_at_ms, persist_metadata)
+}
+
+fn prepare_derived_document(
+    title: &str,
+    format: &str,
+    html: &str,
+    assets: &[ParsedDocumentAsset],
+) -> Result<ParsedDocument, String> {
+    let mut parsed = parsed_html_document(title.into(), format, sanitize_html(html));
+    parsed.assets = owned_assets(&parsed.view_html, assets)?;
+    Ok(parsed)
 }
 
 fn persist_derived_document_at<F>(
@@ -293,9 +303,48 @@ mod tests {
     use super::{recover_interrupted_replacement, DERIVED_GENERATION_FILE};
 
     #[test]
+    fn saved_reader_retains_protection_markers_and_formatting_through_the_real_preparation_path() {
+        use super::{persist_derived_document_at, prepare_derived_document, sanitize_html};
+        use crate::document_uploads::store::open_db_in;
+        let root = test_root("metadata");
+        let mut db = open_db_in(&root).unwrap();
+        let html = r#"<p translate="no">user_id</p><p id="r"><strong>Translated<a role="doc-noteref" href='#n'>1</a>.</strong></p><p id="n" role="doc-endnote">Note<a role="doc-backlink" href='#r'>Back</a></p>"#;
+        let parsed = prepare_derived_document("English", "html", html, &[]).unwrap();
+        let expected = parsed.view_html.clone();
+        let live = root.join("variant");
+        persist_derived_document_at(
+            &live,
+            &mut db,
+            "variant",
+            "/uploads/variant.html",
+            parsed,
+            1,
+            |_| Ok(()),
+        )
+        .unwrap();
+        let saved = fs::read_to_string(live.join("source.html")).unwrap();
+        assert_eq!(saved, expected);
+        let reader = sanitize_html(&saved);
+        assert!(reader.contains("translate=\"no\""));
+        assert!(reader.contains("role=\"doc-noteref\""));
+        assert!(reader.contains("role=\"doc-backlink\""));
+        assert!(reader.contains("<strong>Translated"));
+        let rows: Vec<(String, String)> = db.prepare("SELECT text,body_ranges FROM uploaded_sections WHERE document_id='variant' ORDER BY ordinal").unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?))).unwrap().collect::<Result<_,_>>().unwrap();
+        assert_eq!(
+            rows.iter().map(|row| row.0.as_str()).collect::<Vec<_>>(),
+            ["user_id", "Translated1.", "NoteBack"]
+        );
+        assert_eq!(rows[2].1, "[]");
+        drop(db);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn derived_assets_survive_source_deletion_and_failed_replacement_rolls_back() {
         use super::{
-            parsed_html_document, persist_derived_document_at, snapshot_assets, ParsedDocumentAsset,
+            parsed_html_document, persist_derived_document_at, prepare_derived_document,
+            snapshot_assets, ParsedDocumentAsset,
         };
         use crate::document_uploads::{pipeline::stored_reader_asset_paths, store::open_db_in};
         let root = test_root("asset-rollback");
@@ -308,8 +357,7 @@ mod tests {
         let html = format!("<article><h1>Chapter</h1><div>Hello <a href='#note'>note</a><img data-papercut-asset='{}'></div><aside role=doc-endnotes><p id=note>Note body</p></aside></article>", asset.file_name);
         let paths = stored_reader_asset_paths(&source).unwrap();
         let assets = snapshot_assets(&html, &paths).unwrap();
-        let mut parsed = parsed_html_document("English".into(), "html", html);
-        parsed.assets = assets;
+        let parsed = prepare_derived_document("English", "html", &html, &assets).unwrap();
         let expected_html = parsed.view_html.clone();
         let expected_bytes = expected_html.len() + asset.bytes.len();
         let live = root.join("variant");

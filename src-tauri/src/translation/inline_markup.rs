@@ -5,6 +5,7 @@
 //! normalization, source-span collection, fragment-offset matching, and
 //! conservative source-to-target span matching used by `render.rs`.
 
+use crate::document_uploads::{is_note_marker, tag_separates_text};
 use kuchikiki::NodeRef;
 
 use super::dom::DomPlan;
@@ -16,7 +17,7 @@ const MAX_INLINE_PHRASE_CHARS: usize = 120;
 ///
 /// Bump this when matching/projection semantics change so resume caches that
 /// start persisting alignment-derived data cannot silently mix strategies.
-pub(crate) const INLINE_ALIGNMENT_VERSION: u32 = 2;
+pub(crate) const INLINE_ALIGNMENT_VERSION: u32 = 3;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct InlinePhraseProbe {
@@ -85,17 +86,6 @@ pub(crate) fn source_inline_model(node: &NodeRef) -> InlineSourceModel {
         spans: coalesce_inline_spans(spans),
         markers,
     }
-}
-
-pub(crate) fn is_nontranslatable_inline_marker(node: &NodeRef) -> bool {
-    let Some(element) = node.as_element() else {
-        return false;
-    };
-    if element.name.local.as_ref() != "a" {
-        return false;
-    }
-    let attrs = element.attributes.borrow();
-    matches!(attrs.get("role"), Some("doc-noteref" | "doc-backlink"))
 }
 
 /// Resolve one translated fragment back to the normalized source text.
@@ -250,7 +240,7 @@ fn collect_inline_model(
     markers: &mut Vec<InlinePreservedMarker>,
     pending_space: &mut bool,
 ) {
-    if is_nontranslatable_inline_marker(node) {
+    if is_note_marker(node) {
         if let Some(html) = serialize_node(node) {
             markers.push(InlinePreservedMarker {
                 source_offset: text.chars().count(),
@@ -272,10 +262,10 @@ fn collect_inline_model(
         return;
     }
 
-    if node
+    let separates_text = node
         .as_element()
-        .is_some_and(|element| matches!(element.name.local.as_ref(), "br" | "hr"))
-    {
+        .is_some_and(|element| tag_separates_text(element.name.local.as_ref()));
+    if separates_text {
         *pending_space = true;
     }
     let pushed_tag = inline_formatting_tag_name(node);
@@ -287,6 +277,9 @@ fn collect_inline_model(
     }
     if pushed_tag.is_some() {
         active_tags.pop();
+    }
+    if separates_text {
+        *pending_space = true;
     }
 }
 

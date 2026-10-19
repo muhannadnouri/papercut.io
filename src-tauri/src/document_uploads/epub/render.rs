@@ -7,12 +7,18 @@ pub(super) fn render_chapter(
     body: &str,
     language: Option<&str>,
     direction: Option<&str>,
+    translate: Option<&str>,
 ) -> String {
     let mut html = format!(
         "<section class=\"epub-chapter\" id=\"chapter-{index}\" data-source=\"{}\"",
         escape_attr(path),
     );
     push_document_attributes(&mut html, language, direction);
+    if let Some(value) = translate {
+        html.push_str(" translate=\"");
+        html.push_str(&escape_attr(value));
+        html.push('"');
+    }
     html.push('>');
     html.push_str(body);
     html.push_str("</section>");

@@ -88,7 +88,7 @@ pub(crate) fn parse_epub_document(
             &package.manifest,
             &mut image_assets,
         );
-        let (language, direction) = extract_xhtml_metadata(&raw);
+        let (language, direction, translate) = extract_xhtml_metadata(&raw);
         let body = extract_body_inner(&raw).unwrap_or(raw.as_str());
         let sanitized = sanitize_epub_fragment(body);
         let image_paths = collect_image_paths(&sanitized, chapter_path);
@@ -107,6 +107,7 @@ pub(crate) fn parse_epub_document(
             image_paths,
             language,
             direction,
+            translate,
         });
     }
 
@@ -151,6 +152,7 @@ pub(crate) fn parse_epub_document(
             &rewritten,
             chapter.language.as_deref(),
             chapter.direction.as_deref(),
+            chapter.translate,
         ));
     }
 
@@ -190,6 +192,7 @@ struct ChapterDraft {
     image_paths: HashSet<String>,
     language: Option<String>,
     direction: Option<String>,
+    translate: Option<&'static str>,
 }
 
 /// Verify the EPUB-required `mimetype` entry before trusting the ZIP contents.
@@ -329,9 +332,19 @@ fn parse_opf(opf: &str, opf_path: &str, fallback_title: &str) -> Result<ParsedPa
 }
 
 /// Read root/body metadata before EPUB chapter wrappers are discarded.
-fn extract_xhtml_metadata(html: &str) -> (Option<String>, Option<String>) {
-    let Ok(doc) = Document::parse(html) else {
-        return (None, None);
+fn extract_xhtml_metadata(html: &str) -> (Option<String>, Option<String>, Option<&'static str>) {
+    // EPUB doctypes are common; authored entity declarations must not be expanded.
+    if html.contains("<!ENTITY") {
+        return (None, None, None);
+    }
+    let Ok(doc) = Document::parse_with_options(
+        html,
+        roxmltree::ParsingOptions {
+            allow_dtd: true,
+            ..Default::default()
+        },
+    ) else {
+        return (None, None, None);
     };
     let root = doc.root_element();
     let body = doc
@@ -349,7 +362,14 @@ fn extract_xhtml_metadata(html: &str) -> (Option<String>, Option<String>) {
         body.and_then(|node| node.attribute("dir"))
             .or_else(|| root.attribute("dir")),
     );
-    (language, direction)
+    let translate = body
+        .and_then(|node| node.attribute("translate"))
+        .and_then(super::html::valid_translate)
+        .or_else(|| {
+            root.attribute("translate")
+                .and_then(super::html::valid_translate)
+        });
+    (language, direction, translate)
 }
 
 fn document_language(value: Option<&str>) -> Option<String> {
@@ -421,10 +441,12 @@ fn sanitize_epub_fragment(fragment: &str) -> String {
     let annotated = rewrite::annotate_image_issues(&normalized);
     let mut builder = ammonia::Builder::default();
     builder.add_tags(&["aside", "nav", "section"]);
-    builder.add_generic_attributes(&["id", "name", "role", "epub:type"]);
+    builder.add_generic_attributes(&["id", "name", "role", "epub:type", "translate"]);
     builder.attribute_filter(|_, attribute, value| {
         if matches!(attribute, "role" | "epub:type") {
             super::search_content::safe_role(attribute, value).map(std::borrow::Cow::Owned)
+        } else if attribute == "translate" {
+            super::html::valid_translate(value).map(std::borrow::Cow::Borrowed)
         } else {
             Some(std::borrow::Cow::Borrowed(value))
         }
@@ -641,6 +663,80 @@ mod tests {
     }
 
     #[test]
+    fn imported_epub_preserves_translation_metadata_through_reader_sanitization() {
+        let mut bytes = Vec::new();
+        {
+            let mut zip = zip::ZipWriter::new(Cursor::new(&mut bytes));
+            let options =
+                SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+            for (name, content) in [
+                ("mimetype", "application/epub+zip"),
+                ("META-INF/container.xml", flat_container_xml()),
+                (
+                    "content.opf",
+                    r#"<package><metadata><title>Metadata fixture</title></metadata><manifest><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="chapter"/></spine></package>"#,
+                ),
+                (
+                    "chapter.xhtml",
+                    r#"<!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" translate="no"><body translate="yes"><p translate="NO">user_id</p><p id="r">Texte<a role="doc-noteref button" epub:type="noteref" href='#n'>1</a>.</p><p id="n">Note<a role="doc-backlink" href='#r'>Back</a>.</p><span translate="invalid" onclick="alert(1)">Safe</span></body></html>"#,
+                ),
+            ] {
+                zip.start_file(name, options).unwrap();
+                zip.write_all(content.as_bytes()).unwrap();
+            }
+            zip.finish().unwrap();
+        }
+        let parsed = parse_epub_document(&bytes, "Fallback").unwrap();
+        let reader = crate::document_uploads::sanitize_html(&parsed.view_html);
+        use kuchikiki::{parse_html, traits::TendrilSink};
+        let document = parse_html().one(reader.clone()).document_node;
+        assert_eq!(
+            document
+                .select_first("section.epub-chapter")
+                .unwrap()
+                .attributes
+                .borrow()
+                .get("translate"),
+            Some("yes")
+        );
+        assert_eq!(
+            document
+                .select_first("p")
+                .unwrap()
+                .attributes
+                .borrow()
+                .get("translate"),
+            Some("no")
+        );
+        for selector in [
+            "a[role=doc-noteref]",
+            "a[role=doc-backlink]",
+            "a[epub\\:type=noteref]",
+        ] {
+            assert!(document.select_first(selector).is_ok(), "{selector}");
+        }
+        assert!(document.select_first("span[translate]").is_err());
+        assert!(!reader.contains("onclick"));
+        assert!(reader.contains("href=\"#ch0-n\""));
+        assert!(reader.contains("href=\"#ch0-r\""));
+        assert_eq!(
+            extract_xhtml_metadata(r#"<html translate="no"><body><p>Protected</p></body></html>"#)
+                .2,
+            Some("no")
+        );
+        assert_eq!(
+            extract_xhtml_metadata(r#"<html translate="no"><body translate="invalid"/></html>"#).2,
+            Some("no")
+        );
+        assert_eq!(
+            extract_xhtml_metadata(
+                r#"<!DOCTYPE html [<!ENTITY flag "no">]><html translate="&flag;"><body/></html>"#
+            ),
+            (None, None, None)
+        );
+    }
+
+    #[test]
     fn preserves_package_and_chapter_language_direction() {
         let package = parse_opf(
             r#"<package dir="rtl"><metadata><title>Arabic Book</title><language>ar</language></metadata><manifest><item id="c1" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c1"/></spine></package>"#,
@@ -651,7 +747,7 @@ mod tests {
         assert_eq!(package.language.as_deref(), Some("ar"));
         assert_eq!(package.direction.as_deref(), Some("rtl"));
 
-        let (language, direction) = extract_xhtml_metadata(
+        let (language, direction, translate) = extract_xhtml_metadata(
             r#"<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" dir="ltr"><body lang="ar" dir="rtl"><p>نص</p></body></html>"#,
         );
         assert_eq!(language.as_deref(), Some("ar"));
@@ -663,6 +759,7 @@ mod tests {
             "<p>نص</p>",
             language.as_deref(),
             direction.as_deref(),
+            translate,
         );
         let html = render_reading_html(
             &package.title,

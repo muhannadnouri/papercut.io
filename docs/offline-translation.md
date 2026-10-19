@@ -503,7 +503,9 @@ Responsibilities:
   inline models. Segment/source offsets remain **Unicode scalar indices**;
   target rendering ranges are **UTF-8 byte offsets**, with explicit conversion.
 - `translation::inline_markup`: normalization, emphasis spans, footnote/backlink
-  markers and conservative phrase matching. `<br>`/`<hr>` separate words.
+  markers and conservative phrase matching. Structural word boundaries reuse the
+  importer policy, including table cells/rows and line breaks; adjacent inline
+  formatting does not split a word.
 - `translation::render`: verifies the mapping and mutates the cloned reader DOM.
   Engine output is text, never trusted HTML. Existing block ids survive; links,
   notes and whole-block emphasis retain their existing conservative handling.
@@ -519,7 +521,7 @@ Responsibilities:
 There is **no proportional emphasis projection** in new output. Whole-block
 formatting and unique carry-over/phrase-hint matches can survive; uncertain
 partial emphasis becomes plain text. Phrase probes remain a best-effort aid,
-not proof of semantic alignment. The cache alignment version is now **2**, so
+not proof of semantic alignment. The cache alignment version is now **3**, so
 old strategy caches are not silently reused. Variant identity is unchanged;
 existing saved variants, original files, audio and highlighting are not migrated
 or rewritten. Explicitly rerunning the same settings can replace that variant.
@@ -534,20 +536,57 @@ placement remains best effort. Exact inline translation, translated table-cell
 mapping and provider annotations/alignments are future work, not guarantees of
 this foundation.
 
+Review hardening (2026-10-18) closes the three boundary gaps found after the
+foundation commit:
+
+- Both HTML and EPUB sanitizers retain canonical `translate="yes"`/`"no"`
+  declarations and the narrowly allowed `doc-noteref`, `doc-backlink` and
+  `epub:type="noteref"` annotations. Invalid values, unrelated roles, scripts and
+  event handlers remain rejected. Marker recognition is shared with document
+  metadata handling; this does not change the search auxiliary-range policy.
+- HTML root/body declarations survive reader loading. EPUB root/body protection
+  is copied to the generated chapter wrapper before those source elements are
+  discarded. The nearest block declaration wins, so `translate="yes"` can opt a
+  child block back in. Standard EPUB doctypes are supported without expanding
+  authored entity declarations. Partial protected inline content keeps the
+  conservative behavior described above.
+- Table cells/rows and other structural elements now separate model-input words
+  on entry and exit using the importer's existing rule. Punctuation and adjacent
+  inline spans retain their prior behavior, including Unicode scalar offsets.
+- Fragment rendering operates inside existing whole-block formatting wrappers.
+  A bold paragraph with a partly italic phrase keeps its outer bold across one
+  or multiple fragments; uniquely matched inner emphasis still survives, while
+  uncertain inner emphasis stays plain. The normal planner-offset path, not
+  only legacy fragments without offsets, is covered.
+- Derived-document tests use the production preparation path before storing
+  files and index rows. Sanitization is exercised on source reading and output
+  preparation, not bypassed by every fixture.
+
+Existing imports may already have lost these annotations under the previous
+sanitizer. The new rules preserve annotations still present in stored sources;
+they cannot reconstruct discarded publisher metadata. Reimport the original
+HTML/EPUB when that protection matters. No migration or guessed reconstruction
+modifies existing documents or audio.
+
 Regression coverage includes shared leaf-block order, repeated text, line-break
 boundaries, Arabic combining marks/emoji offsets, protected blocks, stale and
 reordered mappings/replies, real French gold/Spanish king emphasis failures,
 escaped model output, image snapshot tampering/limits, source deletion, actual
-saved section/body-range rows, and replacement rollback.
+saved section/body-range rows, and replacement rollback. The hardening cases add
+a real EPUB ZIP, safe metadata round trips, protected note-label extraction,
+multilingual table input, mixed whole-block formatting with planner-generated
+fragment offsets, and saved-reader/SQLite metadata checks.
 
-Validation (2026-10-18): `cargo test --manifest-path src-tauri/Cargo.toml
---no-default-features --locked --offline --lib` passed **377 tests**, with
+Latest validation (2026-10-18): `cargo test --manifest-path src-tauri/Cargo.toml
+--no-default-features --locked --offline --lib` passed **384 tests**, with
 **4 existing ignored**. `cargo check` with the same no-default/locked/offline
-configuration, `npm run build:typecheck`, Rust formatting and diff checks passed.
-The frontend suite passed **373 tests**, with **1 existing skipped**. Feature-disabled native
-adapter dead-code warnings remain. No new runtime, dependency, provider or app
-version was introduced. Benchmarks, model inference/hardware comparisons,
-installed-app smoke and the version bump remain deferred.
+configuration, Rust formatting and diff checks passed. The original three
+review repros also passed against the actual sanitizer/mapper/renderer using
+fixture translations, without running an engine. Feature-disabled native adapter
+dead-code warnings remain. No runtime, dependency, provider, or app version
+changed. Benchmarks, model inference/hardware comparisons, installed-app smoke
+and the version bump remain deferred. The next stage is review of this hardening,
+then a validated provider mapping contract before a supported Bergamot adapter.
 
 ### Stage 7: Quality Upgrades - Mostly Done
 

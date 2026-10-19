@@ -6,15 +6,15 @@
 //! translated blocks; media/table-heavy blocks keep the original block intact
 //! and insert translated text nearby instead of destroying assets.
 
+use crate::document_uploads::is_note_marker;
 use kuchikiki::NodeRef;
 
 use super::dom::DomPlan;
 use super::html::parse_html_document;
 use super::inline_markup::{
     byte_index_for_char, fold_phrase_char, fragment_char_range, is_inline_formatting_element,
-    is_nontranslatable_inline_marker, is_word_char, local_spans_for_fragment,
-    projected_translated_spans_best_effort, serialize_node, source_inline_model,
-    InlinePreservedMarker, ProjectedInlineSpan,
+    is_word_char, local_spans_for_fragment, projected_translated_spans_best_effort, serialize_node,
+    source_inline_model, InlinePreservedMarker, ProjectedInlineSpan,
 };
 use super::storage::{
     PersistTranslationFragment, PersistTranslationInlinePhrase, PersistTranslationRequest,
@@ -209,6 +209,9 @@ fn replace_text_preserving_full_inline_formatting(node: &NodeRef, text: &str) ->
     let Some(leaf) = full_block_inline_formatting_leaf(node) else {
         return false;
     };
+    if !subtree_is_inline_formatting_only(&leaf) {
+        return false;
+    }
     replace_children_with_text(&leaf, text);
     true
 }
@@ -220,10 +223,6 @@ fn full_block_inline_formatting_leaf(node: &NodeRef) -> Option<NodeRef> {
     }
 
     let mut leaf = significant[0].clone();
-    if !subtree_is_inline_formatting_only(&leaf) {
-        return None;
-    }
-
     loop {
         let children = significant_children(&leaf);
         if children.len() != 1 || !is_inline_formatting_element(&children[0]) {
@@ -349,7 +348,15 @@ fn replace_text_with_fragment_formatting(
         return false;
     }
 
-    let source_model = source_inline_model(node);
+    let content = full_block_inline_formatting_leaf(node).unwrap_or_else(|| node.clone());
+    let mut source_model = source_inline_model(&content);
+    if content != *node {
+        // The enclosing DOM already supplies this tag; match only its inner emphasis.
+        for span in &mut source_model.spans {
+            span.tags.remove(0);
+        }
+        source_model.spans.retain(|span| !span.tags.is_empty());
+    }
     if source_model.text.is_empty() {
         return false;
     }
@@ -393,18 +400,18 @@ fn replace_text_with_fragment_formatting(
         ));
     }
 
-    let preserved_anchors = serialized_anchor_nodes(node);
-    let children = node.children().collect::<Vec<_>>();
+    let preserved_anchors = serialized_anchor_nodes(&content);
+    let children = content.children().collect::<Vec<_>>();
     for child in children {
         child.detach();
     }
     for (index, (text, spans, markers)) in rendered_fragments.iter().enumerate() {
         if index > 0 {
-            node.append(NodeRef::new_text(" "));
+            content.append(NodeRef::new_text(" "));
         }
-        append_projected_formatting(node, text, spans, markers);
+        append_projected_formatting(&content, text, spans, markers);
     }
-    append_preserved_anchor_nodes(node, &preserved_anchors);
+    append_preserved_anchor_nodes(&content, &preserved_anchors);
     true
 }
 
@@ -619,7 +626,7 @@ fn serialized_anchor_nodes(node: &NodeRef) -> Vec<String> {
         return Vec::new();
     };
     anchors
-        .filter(|anchor| !is_nontranslatable_inline_marker(anchor.as_node()))
+        .filter(|anchor| !is_note_marker(anchor.as_node()))
         .filter_map(|anchor| serialize_node(anchor.as_node()))
         .collect()
 }
@@ -1124,6 +1131,146 @@ mod tests {
                 .text_contents(),
             "Name Value"
         );
+    }
+
+    #[test]
+    fn sanitized_note_references_and_protected_text_survive_render_and_save() {
+        let source = crate::document_uploads::sanitize_html(
+            r#"<p translate="no">user_id</p>
+            <p id="r"><strong>Le sujet<a role="doc-noteref" href='#n'><sup>1</sup></a> change.</strong></p>
+            <p id="n" role="doc-endnote">Une note.<a role="doc-backlink" href='#r'>Back</a></p>"#,
+        );
+        let mut request = request(
+            &source,
+            vec![
+                section_with_fragments(
+                    1,
+                    false,
+                    "The topic changes.",
+                    vec![fragment("Le sujet change.", "The topic changes.")],
+                ),
+                section_with_fragments(2, false, "A note.", vec![fragment("Une note.", "A note.")]),
+            ],
+        );
+        for (source, section) in request
+            .source
+            .blocks
+            .iter()
+            .zip(&mut request.translated_sections)
+        {
+            section.fragments[0].source_end = source.text.chars().count();
+        }
+        assert_eq!(
+            request
+                .source
+                .blocks
+                .iter()
+                .map(|block| block.text.as_str())
+                .collect::<Vec<_>>(),
+            ["Le sujet change.", "Une note."]
+        );
+        let rendered = render_translated_html("English", &request).unwrap();
+        let saved = crate::document_uploads::sanitize_html(&rendered);
+        let document = parse_html_document(&saved);
+        assert_eq!(
+            document
+                .select_first("p[translate=no]")
+                .unwrap()
+                .text_contents(),
+            "user_id"
+        );
+        assert_eq!(
+            document
+                .select("#r strong a[role=doc-noteref]")
+                .unwrap()
+                .count(),
+            1
+        );
+        assert_eq!(
+            document
+                .select_first("a[role=doc-noteref]")
+                .unwrap()
+                .text_contents(),
+            "1"
+        );
+        assert_eq!(document.select("a[role=doc-backlink]").unwrap().count(), 1);
+        assert!(document
+            .select_first("#r strong")
+            .unwrap()
+            .text_contents()
+            .contains("topic"));
+        let output_plan = super::DomPlan::new(&saved);
+        assert_eq!(
+            output_plan
+                .blocks
+                .iter()
+                .map(|block| block.inline.text.as_str())
+                .collect::<Vec<_>>(),
+            ["The topic changes.", "A note."]
+        );
+    }
+
+    #[test]
+    fn mixed_whole_block_formatting_survives_real_one_and_multiple_fragment_paths() {
+        for (source, fragments, target) in [
+            (
+                "<p><strong>Bonjour <em>monde</em> !</strong></p>",
+                vec![fragment("Bonjour monde !", "Hello world!")],
+                "Hello world!",
+            ),
+            (
+                "<p><strong>Bonjour <em>Orion</em>. Salut <i>monde</i>.</strong></p>",
+                vec![
+                    fragment("Bonjour Orion.", "Hello Orion."),
+                    fragment("Salut monde.", "Hi world."),
+                ],
+                "Hello Orion. Hi world.",
+            ),
+        ] {
+            let source = crate::document_uploads::sanitize_html(source);
+            let mut request = request(
+                &source,
+                vec![section_with_fragments(0, false, target, fragments)],
+            );
+            let limit = if request.translated_sections[0].fragments.len() == 1 {
+                900
+            } else {
+                14
+            };
+            let planned = crate::translation::segment::segment_text_blocks(
+                [request.source.blocks[0].text.as_str()],
+                limit,
+            )
+            .unwrap();
+            let fragments = &mut request.translated_sections[0].fragments;
+            assert_eq!(planned.len(), fragments.len());
+            for (planned, fragment) in planned.iter().zip(fragments) {
+                assert_eq!(planned.text, fragment.source_text);
+                fragment.source_start = planned.source_start;
+                fragment.source_end = planned.source_end;
+            }
+            let saved = crate::document_uploads::sanitize_html(
+                &render_translated_html("English", &request).unwrap(),
+            );
+            let document = parse_html_document(&saved);
+            assert_eq!(document.select("strong").unwrap().count(), 1);
+            assert_eq!(
+                document.select_first("p > strong").unwrap().text_contents(),
+                target
+            );
+            assert!(document.select_first("i").is_err());
+            if target.contains("Orion") {
+                assert_eq!(
+                    document
+                        .select_first("strong > em")
+                        .unwrap()
+                        .text_contents(),
+                    "Orion"
+                );
+            } else {
+                assert!(document.select_first("em").is_err());
+            }
+        }
     }
 
     fn request(

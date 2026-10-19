@@ -347,7 +347,7 @@ mod tests {
         let mut cache = new_segment_cache(&plan);
 
         assert!(cache_is_compatible(&cache, &plan));
-        cache.inline_alignment_version = 0;
+        cache.inline_alignment_version = super::INLINE_ALIGNMENT_VERSION - 1;
         assert!(!cache_is_compatible(&cache, &plan));
     }
 

@@ -13,5 +13,7 @@ pub(crate) use parser::{
     add_section_locators, has_complete_section_locators, parse_html_document, parsed_html_document,
     reader_block_nodes,
 };
-pub(crate) use sanitize::{decode_entities, normalize_text, sanitize_html, strip_tags};
+pub(crate) use sanitize::{
+    decode_entities, normalize_text, sanitize_html, strip_tags, tag_separates_text, valid_translate,
+};
 pub(crate) use util::extract_body_inner;

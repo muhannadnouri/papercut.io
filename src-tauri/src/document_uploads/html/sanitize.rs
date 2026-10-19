@@ -21,6 +21,10 @@ pub(crate) fn sanitize_html(html: &str) -> String {
     let root_direction = selected_attribute(&document, "html", "dir").and_then(valid_direction);
     let body_language = selected_attribute(&document, "body", "lang").and_then(valid_language);
     let body_direction = selected_attribute(&document, "body", "dir").and_then(valid_direction);
+    let root_translate = selected_attribute(&document, "html", "translate")
+        .and_then(|value| valid_translate(&value));
+    let body_translate = selected_attribute(&document, "body", "translate")
+        .and_then(|value| valid_translate(&value));
     let body = document
         .select_first("body")
         .ok()
@@ -37,6 +41,7 @@ pub(crate) fn sanitize_html(html: &str) -> String {
             "data-papercut-section",
             "role",
             "epub:type",
+            "translate",
         ])
         .add_tag_attributes(
             "img",
@@ -57,6 +62,7 @@ pub(crate) fn sanitize_html(html: &str) -> String {
         &mut safe,
         root_language.as_deref(),
         root_direction.as_deref(),
+        root_translate,
     );
     safe.push_str("><head>");
     if let Some(title) = title.filter(|title| !title.is_empty()) {
@@ -69,6 +75,7 @@ pub(crate) fn sanitize_html(html: &str) -> String {
         &mut safe,
         body_language.as_deref(),
         body_direction.as_deref(),
+        body_translate,
     );
     safe.push('>');
     safe.push_str(&safe_body);
@@ -87,6 +94,7 @@ fn filter_reader_attribute<'a>(
     value: &'a str,
 ) -> Option<Cow<'a, str>> {
     match (element, attribute) {
+        (_, "translate") => valid_translate(value).map(Cow::Borrowed),
         (_, "role" | "epub:type") => {
             super::super::search_content::safe_role(attribute, value).map(Cow::Owned)
         }
@@ -175,7 +183,21 @@ fn valid_direction(value: String) -> Option<String> {
     matches!(value.as_str(), "ltr" | "rtl" | "auto").then_some(value)
 }
 
-fn push_document_attributes(html: &mut String, language: Option<&str>, direction: Option<&str>) {
+/// Canonical inert values only; an empty HTML translate attribute means yes.
+pub(crate) fn valid_translate(value: &str) -> Option<&'static str> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "no" => Some("no"),
+        "yes" | "" => Some("yes"),
+        _ => None,
+    }
+}
+
+fn push_document_attributes(
+    html: &mut String,
+    language: Option<&str>,
+    direction: Option<&str>,
+    translate: Option<&str>,
+) {
     if let Some(language) = language {
         html.push_str(" lang=\"");
         html.push_str(language);
@@ -184,6 +206,11 @@ fn push_document_attributes(html: &mut String, language: Option<&str>, direction
     if let Some(direction) = direction {
         html.push_str(" dir=\"");
         html.push_str(direction);
+        html.push('"');
+    }
+    if let Some(value) = translate {
+        html.push_str(" translate=\"");
+        html.push_str(value);
         html.push('"');
     }
 }
@@ -239,7 +266,7 @@ pub(crate) fn strip_tags(html: &str) -> String {
 /// The list is intentionally a small block/row/line-break set. Inline tags like
 /// `b`, `i`, `span`, and `a` are omitted so styled words remain searchable as
 /// the continuous text users see.
-pub(super) fn tag_separates_text(tag: &str) -> bool {
+pub(crate) fn tag_separates_text(tag: &str) -> bool {
     matches!(
         tag_name(tag).as_str(),
         "address"
@@ -306,6 +333,60 @@ pub(crate) fn normalize_text(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn protection_and_marker_metadata_survive_without_active_attributes() {
+        let safe = sanitize_html(
+            r#"<html translate="NO" onload="alert(1)"><body translate="Yes">
+            <p translate=" no ">user_id</p><p translate="">Translatable</p>
+            <span translate="javascript:alert(1)">Invalid</span>
+            <a role="button doc-noteref" href='#n' onclick="alert(1)">1</a>
+            <a role="doc-backlink" href='#r'>Back</a><a epub:type="noteref" href='#n'>2</a>
+            <script>alert(1)</script></body></html>"#,
+        );
+        let document = parse_html().one(safe.clone()).document_node;
+        for (selector, expected) in [("html", "no"), ("body", "yes"), ("p", "no")] {
+            assert_eq!(
+                document
+                    .select_first(selector)
+                    .unwrap()
+                    .attributes
+                    .borrow()
+                    .get("translate"),
+                Some(expected)
+            );
+        }
+        assert_eq!(
+            document
+                .select_first("p + p")
+                .unwrap()
+                .attributes
+                .borrow()
+                .get("translate"),
+            Some("yes")
+        );
+        assert!(document
+            .select_first("span")
+            .unwrap()
+            .attributes
+            .borrow()
+            .get("translate")
+            .is_none());
+        assert_eq!(
+            document
+                .select_first("a")
+                .unwrap()
+                .attributes
+                .borrow()
+                .get("role"),
+            Some("doc-noteref")
+        );
+        assert!(!safe.contains("onclick"));
+        assert!(!safe.contains("onload"));
+        assert!(!safe.contains("<script"));
+        assert!(!safe.contains("javascript:"));
+        assert_eq!(sanitize_html(&safe), safe);
+    }
 
     #[test]
     fn removes_active_content_and_decoded_script_urls() {

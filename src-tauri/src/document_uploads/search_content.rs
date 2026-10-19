@@ -58,10 +58,35 @@ pub(super) fn auxiliary(node: &kuchikiki::NodeRef) -> bool {
 pub(super) fn safe_role(attribute: &str, value: &str) -> Option<String> {
     let tokens = value
         .split_whitespace()
-        .filter(|token| auxiliary_role(attribute, token))
+        .filter(|token| auxiliary_role(attribute, token) || marker_role(attribute, token))
         .collect::<Vec<_>>()
         .join(" ");
     (!tokens.is_empty()).then_some(tokens)
+}
+
+fn marker_role(attribute: &str, token: &str) -> bool {
+    matches!(
+        (attribute, token),
+        ("role", "doc-noteref" | "doc-backlink") | ("epub:type", "noteref")
+    )
+}
+
+/// Inline navigation markers are not prose sent to translation engines.
+pub(crate) fn is_note_marker(node: &kuchikiki::NodeRef) -> bool {
+    let Some(element) = node
+        .as_element()
+        .filter(|element| element.name.local.as_ref() == "a")
+    else {
+        return false;
+    };
+    let attrs = element.attributes.borrow();
+    ["role", "epub:type"].iter().any(|attribute| {
+        attrs.get(*attribute).is_some_and(|value| {
+            value
+                .split_whitespace()
+                .any(|token| marker_role(attribute, token))
+        })
+    })
 }
 
 fn auxiliary_role(attribute: &str, token: &str) -> bool {
