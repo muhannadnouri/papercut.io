@@ -55,6 +55,34 @@ pub async fn translation_bergamot_asset<R: tauri::Runtime>(
     .map_err(TranslationCommandError::from)
 }
 
+/// Full document job using the shared Rust cache, DOM renderer and atomic writer.
+#[tauri::command]
+pub async fn translation_bergamot_document<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    state: tauri::State<'_, TranslationState>,
+    window: tauri::WebviewWindow<R>,
+    request: TranslationStartRequest,
+    on_request: tauri::ipc::Channel<super::bergamot::WorkerRequest>,
+) -> Result<TranslationStartResponse, TranslationCommandError> {
+    if window.label() != "main" {
+        return Err(TranslationCommandError::new(
+            "Bergamot worker requires the main WebView".into(),
+        ));
+    }
+    let state = state.inner().clone();
+    let owner = window.label().to_string();
+    tauri::async_runtime::spawn_blocking(move || {
+        super::runner::start_bergamot_translation(&app, &state, request, owner, move |message| {
+            on_request
+                .send(message)
+                .map_err(|_| "Bergamot worker channel was lost".into())
+        })
+    })
+    .await
+    .map_err(|_| TranslationCommandError::new("Bergamot document task failed".into()))?
+    .map_err(TranslationCommandError::from)
+}
+
 /// Text-only bridge prototype; no model catalog admission, files, caches or document writes.
 #[tauri::command]
 pub async fn translation_bergamot_batch<R: tauri::Runtime>(

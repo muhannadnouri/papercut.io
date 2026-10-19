@@ -280,3 +280,57 @@ fn real_command_and_tauri_channel_round_trip_keeps_job_claims_and_camel_case_bin
         .claim_job("bergamot-worker-prototype", "bergamot-worker-prototype")
         .is_ok());
 }
+
+#[test]
+fn save_checkpoint_requires_its_own_owner_nonce_and_confirmation_shape() {
+    for valid in [true, false] {
+        let (bridge, mut engine, rx) = setup();
+        let worker = thread::spawn(move || engine.before_save());
+        let WorkerRequest::Confirm {
+            attempt_id,
+            batch_id,
+        } = rx.recv().unwrap()
+        else {
+            panic!("expected save checkpoint")
+        };
+        assert_eq!(batch_id, 1); // All-cache jobs still contact their live owner.
+        assert!(!bridge
+            .reply(
+                "other",
+                WorkerReply::Confirmed {
+                    attempt_id: attempt_id.clone(),
+                    batch_id
+                }
+            )
+            .unwrap());
+        assert!(!bridge
+            .reply(
+                "main",
+                WorkerReply::Confirmed {
+                    attempt_id: "stale".into(),
+                    batch_id
+                }
+            )
+            .unwrap());
+        assert!(!bridge
+            .reply(
+                "main",
+                WorkerReply::Confirmed {
+                    attempt_id: attempt_id.clone(),
+                    batch_id: 0
+                }
+            )
+            .unwrap());
+        let reply = if valid {
+            WorkerReply::Confirmed {
+                attempt_id,
+                batch_id,
+            }
+        } else {
+            result(&attempt_id, batch_id, "Résumé 🙂")
+        };
+        assert!(bridge.reply("main", reply).unwrap());
+        assert_eq!(worker.join().unwrap().is_ok(), valid);
+        assert!(matches!(rx.recv().unwrap(), WorkerRequest::Stop { .. }));
+    }
+}

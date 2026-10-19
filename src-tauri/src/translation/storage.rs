@@ -124,8 +124,13 @@ pub(crate) fn persist_translated_document<R: Runtime>(
         &request.glossary,
         &request.target_language,
     )?;
+    let engine_id = super::models::find_planned_model(&request.model_id)
+        .map(|model| model.engine)
+        .or_else(|| super::bergamot::assets::manifest_by_id(&request.model_id).map(|_| "bergamot"))
+        .ok_or("Unknown translation engine for stored variant")?;
     on_validated()?;
     let settings_json = serde_json::json!({
+        "providerIdentity": super::bergamot::assets::provider_identity(&request.model_id),
         "jobId": request.job_id,
         "qualityMode": request.quality_mode,
         "repairMode": request.repair_mode.label(),
@@ -151,7 +156,7 @@ pub(crate) fn persist_translated_document<R: Runtime>(
              (id, source_document_id, source_document_url, title, source_language, target_language, \
               model_id, engine_id, quality_mode, settings_json, glossary_hash, status, source_path, \
               created_at_ms, updated_at_ms) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'ctranslate2', ?8, ?9, ?10, 'ready', ?11, ?12, ?13) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?14, ?8, ?9, ?10, 'ready', ?11, ?12, ?13) \
              ON CONFLICT(id) DO UPDATE SET \
                source_document_id = excluded.source_document_id, \
                source_document_url = excluded.source_document_url, \
@@ -179,6 +184,7 @@ pub(crate) fn persist_translated_document<R: Runtime>(
                 document_url.as_str(),
                 now as i64,
                 now as i64,
+                engine_id,
             ],
         )
         .map_err(db_err)?;

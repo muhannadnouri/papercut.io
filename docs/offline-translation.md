@@ -16,7 +16,8 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 - HY-MT2 1.8B Q8 is a pinned, installable quality model for Arabic, German, Spanish, French, Russian, and Chinese translation into English. Desktop CPU inference remains the default. On Linux, the workbench offers Vulkan acceleration only when llama.cpp reports a real integrated or discrete Vulkan GPU.
 - Installed models can be removed independently to reclaim storage. Removal is serialized against model installs and active translation jobs, while translated documents and reusable segment caches remain available.
 - The translation workbench lists only pinned, supported models; future quality-model candidates remain informational.
-- Translation jobs run through the native engine boundary, emit progress/cancel events, reuse segment cache entries, run first-pass quality gates, and persist successful output as derived uploaded documents.
+- Translation jobs run through the shared Rust engine boundary, emit progress/cancel events, reuse segment cache entries, run first-pass quality gates, and persist successful output as derived uploaded documents.
+- The internal Bergamot document entry point now reuses one worker across a complete French/Spanish → English HTML/EPUB job, resumes completed batches and confirms a live host before saving. It uses the same Rust runner and atomic writer as native providers. It is still excluded from the advertised model catalog pending protected rich mapping and packaged-device acceptance.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
 - OPUS-MT exposes no quality, glossary, or repair controls because that engine cannot honor them; direct requests using those options are rejected.
 - Translation controls, normal progress states, confirmations, counts, language names, and expected native failures use the app's eight locale resources. Translation commands return stable error codes while retaining the original Rust diagnostic; unexpected failures still fall back to that detail.
@@ -752,10 +753,11 @@ installed-app or mobile/WebView validation was added by this review.
 
 ##### Bounded Bergamot Worker Bridge — Prototype (2026-10-19)
 
-The text-only worker bridge now exists. It is **not selectable in the Translation
-panel or used by `translation_start` yet**. The native OPUS-MT/HY-MT2 document
-jobs remain unchanged. This stage proves the bounded runtime/transport boundary
-before installer delivery, full-book wiring or HTML-aware rendering is enabled.
+At this initial slice, the text-only bridge was **not selectable in the Translation
+panel or used by `translation_start`**. It proved the bounded runtime/transport
+boundary before verified asset delivery and the full-document integration
+described below. The model picker still excludes Bergamot; HTML-aware engine
+rendering is not enabled.
 It does not add a second document writer or a benchmark kit.
 
 Responsibilities:
@@ -938,10 +940,9 @@ Header-only requests to all seven pinned Mozilla attachments returned HTTP 200
 and the expected sizes; no model weights were downloaded for this check.
 
 The delivery review found one page-lifecycle gap, fixed in the following slice.
-Next, integrate worker lifetime and verified model identities into the existing
-Rust document job/cache flow. Full-book reuse,
-resume, pre-save cancellation, protected rich mapping/cache provenance and
-packaged desktop/mobile acceptance remain separate work. Benchmarks,
+The full-document slice below integrates worker lifetime, verified model identity,
+resume and pre-save cancellation into the Rust runner. Protected rich mapping
+and packaged desktop/mobile acceptance remain separate work. Benchmarks,
 installed-app smoke and the app version bump remain deferred; no originals,
 existing variants, audio, highlighting or cache epoch are migrated.
 
@@ -968,11 +969,85 @@ the fix. Targeted tests now pass **45 cases**; full frontend validation passed
 **418 tests, 1 existing skipped**. TypeScript, changed-file ESLint and diff checks
 passed. Rust/installer code is unchanged and was not rerun for this frontend fix.
 
-This closes review finding 1 for the bounded prototype. Full-document worker
-reuse/resume, cancellation before saving and rich mapping/cache provenance remain
-the next integration work. Packaged desktop/mobile lifecycle behavior is not
+This closes review finding 1 for the bounded prototype. The following slice
+implements full-document reuse/resume, cancellation before saving and text-cache
+provenance; protected rich mapping remains separate work. Packaged desktop/mobile lifecycle behavior is not
 claimed by these mocked-boundary regressions. Benchmarks, installed-app smoke
 and the app version bump remain deferred.
+
+##### Full-Document Worker Jobs, Resume And Save Admission (2026-10-19)
+
+`startTranslationJob` routes the two internal `bergamot-{fr,es}-en-worker` IDs
+through `runInstalledBergamotDocument` and the main-WebView-only
+`translation_bergamot_document` command. The backend rejects mismatched models
+and language pairs, non-balanced quality, repair, hardware acceleration and
+glossary options that the adapter cannot honor. This is an internal job path,
+not a new advertised model/default or a mobile-support claim.
+
+The native and worker adapters now share the same runner: source provenance and
+HTML/EPUB admission, DOM block planning, bounded phrase probes, progress,
+segment memory, whole-document validation, asset ownership and atomic derived
+upload/SQLite/FTS persistence. One model-file lease prevents same-model install
+or removal while the job uses its verified snapshot. No second installer,
+document writer, engine fork, dependency, schema migration or public cache epoch
+was added. Stored metadata uses the actual engine ID instead of always saying
+`ctranslate2`.
+
+The worker initializes its stock runtime once per document attempt. Sequential
+main/probe batches share its random nonce and strictly increasing request IDs;
+only one request is outstanding. Phrase probes are split to the same 16-input
+limit instead of sending up to 128 at once. Each Rust request and each valid
+host request has an independent 120-second deadline; stale/duplicate replies
+cannot extend one. Asset acquisition has a separate 120-second budget. A whole
+book can therefore take longer than two minutes without being killed by a
+single prototype-wide timer. Workers/listeners are cleaned up on every exit.
+
+Only completely validated batches are checkpointed in the existing segment
+cache. A new attempt reuses completed segments/probes and translates the rest;
+there is no restored worker heap or concurrent batch replay. Bergamot caches
+also bind to all four asset pins, the shipped stock JS loader, worker adapter
+bytes and the `bergamot-text-v1` strategy. Missing/changed provider identities
+invalidate worker caches; legacy native caches remain compatible. Stored
+Bergamot metadata records that identity. Bump the strategy when introducing
+alignment/protected-markup semantics; text caches must not imply rich mappings.
+
+After rendering and quality checks, Rust requests an owner/nonce/sequence-bound
+`confirm` acknowledgement **even for an entirely cached job**. A hidden,
+aborted, closed or lost host cannot approve saving. Cancellation flags survive
+batch completion and validation and are cleaned up when the job exits. A shared
+lock arbitrates the final cancellation check and save admission. Before that
+boundary, cancellation prevents all durable variant writes; after it, the
+atomic writer finishes and cancellation returns an “already being saved” error.
+The document host waits for Rust's final command result rather than racing a
+late page/abort event against a commit and incorrectly reporting a saved book
+as cancelled. Completed resume-cache batches may remain after cancellation.
+
+Regression coverage uses the real planner, on-disk cache, DOM renderer and
+SQLite/file writer with a deterministic worker transport: failure on a later
+batch, retry of only unfinished work, engine provenance, all-cache owner loss,
+cancellation during final validation/confirmation, preservation of an existing
+variant/original files, 128 bounded phrase probes with cache reuse, and the
+native adapter's default save checkpoint. Bridge tests reject wrong-owner,
+stale and wrongly shaped confirmation replies. Frontend regressions use the
+actual loader/bridge with fake IPC/Worker boundaries to verify one initialization,
+multiple long batches, per-request deadlines, all-cache cancellation/hidden/pagehide,
+late-save success, sequence rejection, cleanup and retry. These tests do not
+measure translation quality, WASM memory or real WebView suspension.
+
+Validation: **412 Rust tests passed, 4 existing ignored**; the downloader-enabled
+translation suite passed **136 tests**; **427 frontend tests passed, 1 existing
+skipped**, including **54 bridge/worker/delivery tests**. TypeScript, changed-file
+ESLint, Rust formatting/diff checks, Vite asset bundling and the locked/offline
+CTranslate2-feature compile check passed. The latter retains three existing
+HY-MT2 dead-code warnings when llama.cpp is disabled; Vite retains its existing
+large-chunk warning. These are local checks, not a CI or physical-device result.
+The HY-MT2/Vulkan build still needs CI because local Vulkan headers are absent.
+
+Next: review this integration, then implement validated protected rich mapping through the shared
+provider contract before exposing Bergamot in the catalog. Packaged desktop/mobile
+acceptance, benchmarks, installed-app smoke and the app version bump remain
+deferred. Original documents, existing variants and generated audio/highlighting
+are not migrated.
 
 ### Stage 7: Quality Upgrades - Mostly Done
 
@@ -1251,12 +1326,11 @@ A responsive desktop browser at a mobile viewport would not fill that gap.
    is now fixture-tested; production adapters remain text-only. Extend inline
    mapping only with validated annotations/alignments; do not reintroduce
    positional emphasis guesses.
-2. The bounded text worker prototype, its review, verified binary delivery and
-   runtime feature gates are complete above. Review the delivery slice, then
-   wire it into native document jobs. Keep Rust job/storage authority and durable batch
-   progress; test full-book worker reuse, disappearance/suspension, resume and
-   cancellation before saving. No native FFI or copied Bergamot HTML C++ is
-   required by this prototype.
+2. The bounded worker, verified delivery, lifecycle fix and full-document
+   reuse/resume/save-admission slice are implemented above. Review the shared
+   job integration before catalog exposure; packaged WebView suspension and
+   memory behavior still need device acceptance. No native FFI or copied
+   Bergamot HTML C++ is required.
 3. Normalize provider results into that shared plan: annotated source/target
    spans or validated protected markup. `HTML::restore` needs token annotations
    and alignments; it is not a supported engine-independent HTML-only package.

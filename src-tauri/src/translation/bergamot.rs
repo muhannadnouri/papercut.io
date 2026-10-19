@@ -1,5 +1,5 @@
 //! Bounded text-only bridge to one WebView-owned Bergamot worker attempt.
-//! This prototype does not admit catalog models or write document/cache data.
+//! Rust owns document planning, resume and persistence; the WebView owns inference.
 
 use std::collections::HashSet;
 use std::sync::{mpsc, Arc, Mutex};
@@ -46,6 +46,10 @@ pub(crate) enum WorkerRequest {
         target_language: String,
         segments: Vec<Segment>,
     },
+    Confirm {
+        attempt_id: String,
+        batch_id: u32,
+    },
     Stop {
         attempt_id: String,
     },
@@ -63,6 +67,10 @@ pub(crate) enum WorkerReply {
         attempt_id: String,
         batch_id: u32,
         outputs: Vec<TranslationSegmentOutput>,
+    },
+    Confirmed {
+        attempt_id: String,
+        batch_id: u32,
     },
     Failed {
         attempt_id: String,
@@ -134,6 +142,10 @@ impl WorkerBridge {
                 attempt_id,
                 batch_id,
                 ..
+            }
+            | WorkerReply::Confirmed {
+                attempt_id,
+                batch_id,
             }
             | WorkerReply::Failed {
                 attempt_id,
@@ -226,6 +238,37 @@ impl WorkerEngine {
         if expected.iter().any(|(id, _)| !ids.insert(*id)) {
             return Err("Duplicate Bergamot segment identities".into());
         }
+        let reply = self.exchange(|attempt_id, batch_id| WorkerRequest::Batch {
+            attempt_id,
+            batch_id,
+            source_language: input.source_language.clone(),
+            target_language: input.target_language.clone(),
+            segments: input
+                .segments
+                .iter()
+                .map(|s| Segment {
+                    id: s.id.clone(),
+                    text: s.text.clone(),
+                })
+                .collect(),
+        })?;
+        match reply {
+            WorkerReply::Result { outputs, .. } => {
+                validate_outputs(&expected, &outputs)?;
+                Ok(outputs)
+            }
+            _ => Err("Unexpected Bergamot worker reply".into()),
+        }
+    }
+
+    fn exchange(
+        &mut self,
+        request: impl FnOnce(String, u32) -> WorkerRequest,
+    ) -> Result<WorkerReply, String> {
+        if self.closed {
+            return Err("Bergamot worker attempt is closed".into());
+        }
+        self.check_cancelled()?;
         self.batch_id = self
             .batch_id
             .checked_add(1)
@@ -244,20 +287,7 @@ impl WorkerEngine {
                 .ok_or("Bergamot worker attempt is closed")?;
             active.pending = Some((self.batch_id, sender));
         }
-        (self.emit)(WorkerRequest::Batch {
-            attempt_id: self.id.clone(),
-            batch_id: self.batch_id,
-            source_language: input.source_language.clone(),
-            target_language: input.target_language.clone(),
-            segments: input
-                .segments
-                .iter()
-                .map(|s| Segment {
-                    id: s.id.clone(),
-                    text: s.text.clone(),
-                })
-                .collect(),
-        })?;
+        (self.emit)(request(self.id.clone(), self.batch_id))?;
         let reply = loop {
             self.check_cancelled()?;
             let remaining = deadline
@@ -276,10 +306,6 @@ impl WorkerEngine {
             return Err("Bergamot worker timed out".into());
         }
         match reply {
-            WorkerReply::Result { outputs, .. } => {
-                validate_outputs(&expected, &outputs)?;
-                Ok(outputs)
-            }
             WorkerReply::Failed { reason, .. } => Err(match reason {
                 Failure::Cancelled => "Translation cancelled",
                 Failure::WorkerLost => "Bergamot worker was lost",
@@ -287,6 +313,7 @@ impl WorkerEngine {
                 Failure::EngineFailed => "Bergamot worker failed",
             }
             .into()),
+            reply => Ok(reply),
         }
     }
 
@@ -306,6 +333,22 @@ impl WorkerEngine {
     }
 }
 impl TranslationEngine for WorkerEngine {
+    fn before_save(&mut self) -> Result<(), String> {
+        let result = self
+            .exchange(|attempt_id, batch_id| WorkerRequest::Confirm {
+                attempt_id,
+                batch_id,
+            })
+            .and_then(|reply| match reply {
+                WorkerReply::Confirmed { .. } => Ok(()),
+                _ => Err("Bergamot save confirmation missing".into()),
+            });
+        if result.is_err() {
+            self.close();
+        }
+        result
+    }
+
     fn translate_batch(
         &mut self,
         input: TranslationBatchInput,

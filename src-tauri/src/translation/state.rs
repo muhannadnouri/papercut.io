@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex};
 #[derive(Default)]
 struct TranslationModelActivity {
     active_jobs: HashSet<String>,
+    saving_jobs: HashSet<String>,
     model_operations: HashSet<String>,
 }
 
@@ -31,6 +32,44 @@ impl Default for TranslationState {
 }
 
 impl TranslationState {
+    pub(crate) fn cancel(&self, job_id: &str) -> Result<(), String> {
+        let mut cancelled = self
+            .cancelled_jobs
+            .lock()
+            .map_err(|_| "Translation cancellation lock poisoned")?;
+        let activity = self
+            .model_activity
+            .lock()
+            .map_err(|_| "Translation activity lock poisoned")?;
+        if activity.saving_jobs.contains(job_id) {
+            return Err("Translation is already being saved; wait for completion".into());
+        }
+        cancelled.insert(job_id.into());
+        Ok(())
+    }
+
+    /// Serialize cancellation with the last check before the atomic document writer.
+    pub(crate) fn claim_save(&self, job_id: &str) -> Result<TranslationSave, String> {
+        let cancelled = self
+            .cancelled_jobs
+            .lock()
+            .map_err(|_| "Translation cancellation lock poisoned")?;
+        let mut activity = self
+            .model_activity
+            .lock()
+            .map_err(|_| "Translation activity lock poisoned")?;
+        if cancelled.contains(job_id) {
+            return Err("Translation cancelled".into());
+        }
+        if !activity.saving_jobs.insert(job_id.into()) {
+            return Err("Translation is already being saved".into());
+        }
+        Ok(TranslationSave {
+            activity: self.model_activity.clone(),
+            job_id: job_id.into(),
+        })
+    }
+
     /// Claim one document/settings cache key until the returned guard drops.
     ///
     /// The UI normally starts one job at a time, but the command boundary can
@@ -123,6 +162,18 @@ impl TranslationState {
     }
 }
 
+pub(crate) struct TranslationSave {
+    activity: Arc<Mutex<TranslationModelActivity>>,
+    job_id: String,
+}
+impl Drop for TranslationSave {
+    fn drop(&mut self) {
+        if let Ok(mut activity) = self.activity.lock() {
+            activity.saving_jobs.remove(&self.job_id);
+        }
+    }
+}
+
 pub(crate) struct ActiveTranslationJob {
     model_activity: Arc<Mutex<TranslationModelActivity>>,
     cache_key: String,
@@ -152,6 +203,25 @@ impl Drop for TranslationModelOperation {
 #[cfg(test)]
 mod tests {
     use super::TranslationState;
+
+    #[test]
+    fn cancellation_and_save_have_one_atomic_cutoff() {
+        let state = TranslationState::default();
+        state.cancel("cancel-first").unwrap();
+        assert!(state.claim_save("cancel-first").is_err());
+        let saving = state.claim_save("save-first").unwrap();
+        assert!(state
+            .cancel("save-first")
+            .unwrap_err()
+            .contains("already being saved"));
+        let error = super::super::types::TranslationCommandError::new(
+            state.cancel("save-first").unwrap_err(),
+        );
+        assert_ne!(error.code, "operation-cancelled");
+        assert!(!state.cancelled_jobs.lock().unwrap().contains("save-first"));
+        drop(saving);
+        assert!(state.cancel("save-first").is_ok());
+    }
 
     #[test]
     fn duplicate_job_claim_is_released_when_guard_drops() {

@@ -171,3 +171,19 @@ const ES_FILES: &[TranslationModelFile] = &[
 
 #[cfg(test)]
 mod tests;
+
+/// Bind resume data to the exact assets and shipped worker/loader implementation.
+pub(crate) fn provider_identity(model_id: &str) -> Option<String> {
+    let manifest = manifest_by_id(model_id)?;
+    let mut hash = Sha256::new();
+    for file in manifest.files {
+        hash.update(file.sha256);
+    }
+    hash.update(include_bytes!(
+        "../../../../public/translation/bergamot/worker.js"
+    ));
+    hash.update(include_bytes!(
+        "../../../../public/translation/bergamot/bergamot-translator.js"
+    ));
+    Some(format!("bergamot-text-v1:{:x}", hash.finalize()))
+}

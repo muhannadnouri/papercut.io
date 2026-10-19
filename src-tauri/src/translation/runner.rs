@@ -62,17 +62,64 @@ pub(super) fn start_translation<R: tauri::Runtime>(
             model.name
         ));
     }
-    let model_dir = resolve_translation_model_dir(app, manifest).map_err(|_| {
-        format!(
-            "{} must be installed before translation can run. Open the Translation tab and install the model first.",
-            model.name
-        )
-    })?;
+    start_with_engine(app, state, request, manifest, |dir, request, _job_id| {
+        load_translation_engine(model, dir, request.use_hardware_acceleration)
+    })
+}
 
-    let _active_job = state.claim_job(
-        &build_translation_cache_key(&request),
-        manifest.directory_name,
-    )?;
+pub(super) fn start_bergamot_translation<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    state: &TranslationState,
+    request: TranslationStartRequest,
+    owner: String,
+    emit: impl Fn(super::bergamot::WorkerRequest) -> Result<(), String> + Send + 'static,
+) -> Result<TranslationStartResponse, String> {
+    let manifest = super::bergamot::assets::manifest_for_language(&request.source_language)?;
+    if request.model_id != manifest.model_id
+        || request.target_language != "en"
+        || request.quality_mode != DEFAULT_TRANSLATION_QUALITY_MODE
+        || request.repair_mode != TranslationRepairMode::Off
+        || request.use_hardware_acceleration
+        || !request.glossary.is_empty()
+    {
+        return Err(
+            "Bergamot does not support the requested model, language pair or non-default settings"
+                .into(),
+        );
+    }
+    start_with_engine(app, state, request, manifest, move |_, _, job_id| {
+        state
+            .bergamot
+            .open(owner, job_id.into(), state.cancelled_jobs.clone(), emit)
+            .map(|engine| Box::new(engine) as Box<dyn TranslationEngine>)
+    })
+}
+
+fn start_with_engine<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    state: &TranslationState,
+    request: TranslationStartRequest,
+    manifest: super::model_store::TranslationModelManifest,
+    load: impl FnOnce(
+        &std::path::Path,
+        &TranslationStartRequest,
+        &str,
+    ) -> Result<Box<dyn TranslationEngine>, String>,
+) -> Result<TranslationStartResponse, String> {
+    let cache_key = build_translation_cache_key(&request);
+    let _active_job = state.claim_job(&cache_key, manifest.directory_name)?;
+    let job_id = request
+        .job_id
+        .as_deref()
+        .filter(|id| !id.trim().is_empty())
+        .unwrap_or(&cache_key)
+        .to_string();
+    let _cancellation = CancellationCleanup {
+        state,
+        job_id: job_id.clone(),
+    };
+    let _model_read = state.claim_model_read(manifest.directory_name)?;
+    let model_dir = resolve_translation_model_dir(app, manifest)?;
     let source = load_translation_source_document(app, &request.document_url)?;
     let source_blocks = source.blocks.iter().map(|block| block.text.as_str());
     let plan = plan_translation_job(
@@ -81,14 +128,6 @@ pub(super) fn start_translation<R: tauri::Runtime>(
         DEFAULT_MAX_SEGMENT_CHARS,
         DEFAULT_BATCH_SEGMENT_LIMIT,
     )?;
-    let job_id = plan
-        .request
-        .job_id
-        .as_deref()
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or(&plan.cache_key)
-        .to_string();
-    clear_cancelled(&state.cancelled_jobs, &job_id)?;
     let started = Instant::now();
     emit_translation_progress(
         app,
@@ -106,9 +145,8 @@ pub(super) fn start_translation<R: tauri::Runtime>(
             "",
         ),
     )?;
-    let mut engine =
-        load_translation_engine(model, &model_dir, plan.request.use_hardware_acceleration)?;
-    match run_translation_batches(
+    let mut engine = load(&model_dir, &plan.request, &job_id)?;
+    finish_translation(
         app,
         state,
         engine.as_mut(),
@@ -116,7 +154,30 @@ pub(super) fn start_translation<R: tauri::Runtime>(
         &source,
         &job_id,
         started,
-    ) {
+    )
+}
+
+struct CancellationCleanup<'a> {
+    state: &'a TranslationState,
+    job_id: String,
+}
+impl Drop for CancellationCleanup<'_> {
+    fn drop(&mut self) {
+        let _ = clear_cancelled(&self.state.cancelled_jobs, &self.job_id);
+    }
+}
+
+fn finish_translation<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    state: &TranslationState,
+    engine: &mut dyn TranslationEngine,
+    plan: &TranslationJobPlan,
+    source: &TranslationSourceDocument,
+    job_id: &str,
+    started: Instant,
+) -> Result<TranslationStartResponse, String> {
+    let mut saving = None;
+    match run_translation_batches(app, state, engine, plan, source, job_id, started) {
         Ok(summary) => {
             let TranslationRunSummary {
                 preview,
@@ -126,10 +187,10 @@ pub(super) fn start_translation<R: tauri::Runtime>(
             emit_translation_progress(
                 app,
                 progress(
-                    &job_id,
+                    job_id,
                     "validating",
                     "Validating translated document",
-                    &plan,
+                    plan,
                     started,
                     None,
                     plan.total_segments,
@@ -148,18 +209,20 @@ pub(super) fn start_translation<R: tauri::Runtime>(
                     model_id: plan.request.model_id.clone(),
                     quality_mode: plan.request.quality_mode.clone(),
                     repair_mode: plan.request.repair_mode.clone(),
-                    job_id: job_id.clone(),
+                    job_id: job_id.to_string(),
                     glossary: plan.request.glossary.clone(),
                     translated_sections: sections,
                 },
                 || {
+                    engine.before_save()?;
+                    saving = Some(state.claim_save(job_id)?);
                     emit_translation_progress(
                         app,
                         progress(
-                            &job_id,
+                            job_id,
                             "storing",
                             "Saving translated document",
-                            &plan,
+                            plan,
                             started,
                             None,
                             plan.total_segments,
@@ -170,14 +233,38 @@ pub(super) fn start_translation<R: tauri::Runtime>(
                         ),
                     )
                 },
-            )?;
+            )
+            .map_err(|error| {
+                let status = if is_cancelled(&state.cancelled_jobs, job_id).unwrap_or(false) {
+                    "cancelled"
+                } else {
+                    "failed"
+                };
+                let _ = emit_translation_progress(
+                    app,
+                    progress(
+                        job_id,
+                        status,
+                        &error,
+                        plan,
+                        started,
+                        None,
+                        plan.total_segments,
+                        cached_segments,
+                        0,
+                        plan.batches.len(),
+                        &preview,
+                    ),
+                );
+                error
+            })?;
             emit_translation_progress(
                 app,
                 progress(
-                    &job_id,
+                    job_id,
                     "stored",
                     "Translated document stored",
-                    &plan,
+                    plan,
                     started,
                     None,
                     plan.total_segments,
@@ -188,7 +275,7 @@ pub(super) fn start_translation<R: tauri::Runtime>(
                 ),
             )?;
             Ok(TranslationStartResponse {
-                job_id,
+                job_id: job_id.to_string(),
                 status: "stored".into(),
                 message: format!(
                     "Stored translated document '{}': {} segment(s), {} batch(es), preview: {}",
@@ -200,32 +287,28 @@ pub(super) fn start_translation<R: tauri::Runtime>(
             })
         }
         Err(err) => {
-            let _ = clear_cancelled(&state.cancelled_jobs, &job_id);
-            if err.status != "cancelled" {
-                let _ = emit_translation_progress(
-                    app,
-                    progress(
-                        &job_id,
-                        err.status,
-                        &err.message,
-                        &plan,
-                        started,
-                        None,
-                        err.completed_segments,
-                        err.cached_segments,
-                        0,
-                        err.completed_batches,
-                        &err.preview,
-                    ),
-                );
-            }
+            let _ = emit_translation_progress(
+                app,
+                progress(
+                    job_id,
+                    err.status,
+                    &err.message,
+                    plan,
+                    started,
+                    None,
+                    err.completed_segments,
+                    err.cached_segments,
+                    0,
+                    err.completed_batches,
+                    &err.preview,
+                ),
+            );
             Err(format!(
-                "Translation did not complete. Planned {} translatable segments in {} batches for '{}', using installed model {} at {}. {}",
+                "Translation did not complete. Planned {} translatable segments in {} batches for '{}', using installed model {}. {}",
                 plan.total_segments,
                 plan.batches.len(),
                 source.title,
                 plan.request.model_id,
-                model_dir.display(),
                 err.message
             ))
         }
@@ -241,12 +324,7 @@ pub(super) fn cancel_translation(
     state: &TranslationState,
     request: TranslationCancelRequest,
 ) -> Result<(), String> {
-    let mut cancelled = state
-        .cancelled_jobs
-        .lock()
-        .map_err(|_| "Translation cancellation lock poisoned".to_string())?;
-    cancelled.insert(request.job_id);
-    Ok(())
+    state.cancel(&request.job_id)
 }
 
 struct TranslationRunSummary {
@@ -380,10 +458,6 @@ fn run_translation_batches<R: tauri::Runtime>(
             .and_then(|segment| source.blocks.get(segment.source_block_index))
             .and_then(|block| block.heading.clone());
         if is_cancelled(&state.cancelled_jobs, job_id).map_err(|err| run.failure("failed", err))? {
-            emit_translation_progress(app, run.progress("cancelled", "Translation cancelled", 0))
-                .map_err(|err| run.failure("failed", err))?;
-            clear_cancelled(&state.cancelled_jobs, job_id)
-                .map_err(|err| run.failure("failed", err))?;
             return Err(run.failure("cancelled", "Translation cancelled"));
         }
 
@@ -453,8 +527,12 @@ fn run_translation_batches<R: tauri::Runtime>(
                 .translate_batch(batch_input(plan, &pending_batch))
                 .map_err(|err| {
                     run.failure(
-                        "failed",
-                        format!("Native in-memory translation did not complete: {err}"),
+                        if is_cancelled(&state.cancelled_jobs, job_id).unwrap_or(false) {
+                            "cancelled"
+                        } else {
+                            "failed"
+                        },
+                        format!("In-memory translation did not complete: {err}"),
                     )
                 })?;
             validate_outputs(
@@ -511,7 +589,6 @@ fn run_translation_batches<R: tauri::Runtime>(
         run.progress("completed", "Translation completed in memory", 0),
     )
     .map_err(|err| run.failure("failed", err))?;
-    clear_cancelled(&state.cancelled_jobs, job_id).map_err(|err| run.failure("failed", err))?;
     let sections = translated_blocks
         .into_iter()
         .enumerate()
@@ -585,34 +662,40 @@ fn translate_inline_phrase_hints(
         return (hints, false);
     }
 
-    let input = TranslationBatchInput {
-        model_id: plan.request.model_id.clone(),
-        source_language: plan.request.source_language.clone(),
-        target_language: plan.request.target_language.clone(),
-        quality_mode: plan.request.quality_mode.clone(),
-        repair_mode: plan.request.repair_mode.clone(),
-        glossary: plan.request.glossary.clone(),
-        segments: inputs,
-    };
-    let outputs = match engine.translate_batch(input) {
-        Ok(outputs) => outputs,
-        Err(err) => {
-            // Non-fatal by design: the job continues without phrase hints;
-            // uncertain emphasis remains plain text.
-            log::warn!("translation: inline phrase probe batch failed: {err}");
+    let mut outputs = Vec::new();
+    for (index, chunk) in inputs.chunks(plan.batch_segment_limit).enumerate() {
+        let offset = index * plan.batch_segment_limit;
+        let input = TranslationBatchInput {
+            model_id: plan.request.model_id.clone(),
+            source_language: plan.request.source_language.clone(),
+            target_language: plan.request.target_language.clone(),
+            quality_mode: plan.request.quality_mode.clone(),
+            repair_mode: plan.request.repair_mode.clone(),
+            glossary: plan.request.glossary.clone(),
+            segments: chunk.to_vec(),
+        };
+        let translated = match engine.translate_batch(input) {
+            Ok(outputs) => outputs,
+            Err(err) => {
+                // Non-fatal by design: the job continues without phrase hints;
+                // uncertain emphasis remains plain text.
+                log::warn!("translation: inline phrase probe batch failed: {err}");
+                return (hints, false);
+            }
+        };
+
+        if let Err(error) = validate_outputs(
+            &owners[offset..offset + chunk.len()]
+                .iter()
+                .map(|(id, _, source)| (id.as_str(), source.as_str()))
+                .collect::<Vec<_>>(),
+            &translated,
+        ) {
+            log::warn!("translation: invalid inline phrase probe reply: {error}");
             return (hints, false);
         }
-    };
 
-    if let Err(error) = validate_outputs(
-        &owners
-            .iter()
-            .map(|(id, _, source)| (id.as_str(), source.as_str()))
-            .collect::<Vec<_>>(),
-        &outputs,
-    ) {
-        log::warn!("translation: invalid inline phrase probe reply: {error}");
-        return (hints, false);
+        outputs.extend(translated);
     }
 
     let mut stored_new_translation = false;
@@ -974,3 +1057,7 @@ mod tests {
         assert!(validate_model_request(model, &request).is_ok());
     }
 }
+
+#[cfg(test)]
+#[path = "runner_tests.rs"]
+mod document_tests;

@@ -1,4 +1,5 @@
 import { Channel, invoke } from '@tauri-apps/api/core'
+import type { TranslationStartRequest, TranslationStartResult } from '../api/nativeTranslation'
 
 export interface BergamotFiles {
   sourceLanguage: 'fr' | 'es'
@@ -17,6 +18,7 @@ interface Batch {
   targetLanguage: string
   segments: TextSegment[]
 }
+interface Confirm { kind: 'confirm'; attemptId: string; batchId: number }
 interface Stop { kind: 'stop'; attemptId: string }
 type Failure = 'cancelled' | 'workerLost' | 'unavailable' | 'engineFailed'
 
@@ -33,6 +35,27 @@ export function validateBergamotSegments(segments: TextSegment[]): void {
 export async function runBergamotBatch(
   segments: TextSegment[], files: BergamotFiles, signal?: AbortSignal,
 ): Promise<WorkerOutput[]> {
+  validateBergamotSegments(segments)
+  return runWorker<WorkerOutput[]>(files, signal, crypto.randomUUID(), channel => invoke('translation_bergamot_batch', {
+    request: { jobId: channel.jobId, sourceLanguage: files.sourceLanguage, targetLanguage: 'en', segments },
+    onRequest: channel.requests,
+  }), false)
+}
+
+export async function runBergamotDocument(
+  request: TranslationStartRequest, files: BergamotFiles, signal?: AbortSignal,
+): Promise<TranslationStartResult> {
+  const jobId = request.jobId || crypto.randomUUID()
+  return runWorker<TranslationStartResult>(files, signal, jobId, channel => invoke('translation_bergamot_document', {
+    request: { ...request, jobId }, onRequest: channel.requests,
+  }), true)
+}
+
+async function runWorker<T>(
+  files: BergamotFiles, signal: AbortSignal | undefined, jobId: string,
+  start: (channel: { jobId: string; requests: Channel<Batch | Confirm | Stop> }) => Promise<T>,
+  documentJob: boolean,
+): Promise<T> {
   signal?.throwIfAborted()
   if (document.visibilityState === 'hidden') throw new Error('Bergamot requires a visible page')
   const buffers = [files.wasm, files.model, files.lex, files.vocab]
@@ -43,17 +66,16 @@ export async function runBergamotBatch(
   if (!['fr', 'es'].includes(files.sourceLanguage)) {
     throw new Error('Bergamot requires a bounded French/Spanish to English text batch')
   }
-  validateBergamotSegments(segments)
-  const jobId = crypto.randomUUID()
   const worker = new Worker('/translation/bergamot/worker.js')
-  let current: Batch | undefined
+  let current: Batch | Confirm | undefined
+  let initialized = false
   let ready = false
   let closed = false
   let replied = false
   let failure: Failure = 'workerLost'
   let rejectLifecycle: (error: Error) => void = () => {}
   const lifecycle = new Promise<never>((_, reject) => { rejectLifecycle = reject })
-  const reportFailure = (batch: Batch, reason: Failure) => {
+  const reportFailure = (batch: Batch | Confirm, reason: Failure) => {
     void invoke('translation_bergamot_reply', { reply: {
       kind: 'failed', attemptId: batch.attemptId, batchId: batch.batchId, reason,
     } }).catch(() => { /* Rust's independent deadline still releases a lost IPC channel. */ })
@@ -64,6 +86,11 @@ export async function runBergamotBatch(
     failure = reason
     worker.terminate()
     if (current) reportFailure(current, reason)
+    if (documentJob) {
+      void invoke('translation_cancel', { request: { jobId } }).catch(() => {
+        // Saving may already own the atomic commit; await Rust's final outcome below.
+      })
+    }
     rejectLifecycle(new Error(reason === 'cancelled' ? 'Translation cancelled' : 'Bergamot worker unavailable or lost'))
   }
   const onAbort = () => fail('cancelled')
@@ -71,11 +98,11 @@ export async function runBergamotBatch(
   const onVisibility = () => { if (document.visibilityState === 'hidden') fail('workerLost') }
   const onError = (event: Event) => { event.preventDefault(); fail('workerLost') }
   const sendBatch = () => {
-    if (!current || closed) return
+    if (!current || current.kind !== 'batch' || closed) return
     try { worker.postMessage(current) } catch { fail('workerLost') }
   }
   worker.onmessage = ({ data }: MessageEvent<unknown>) => {
-    if (closed || !current || !data || typeof data !== 'object') return
+    if (closed || !current || current.kind !== 'batch' || !data || typeof data !== 'object') return
     const reply = data as Record<string, unknown>
     if (reply.kind === 'ready') {
       if (ready) { fail('engineFailed'); return }
@@ -98,20 +125,38 @@ export async function runBergamotBatch(
   window.addEventListener('pagehide', onPageHide)
   document.addEventListener('visibilitychange', onVisibility)
   signal?.addEventListener('abort', onAbort, { once: true })
-  const timer = setTimeout(() => fail('workerLost'), 120_000)
-  const onRequest = (message: Batch | Stop) => {
+  let timer = setTimeout(() => fail('workerLost'), 120_000)
+  const renewDeadline = () => {
+    clearTimeout(timer)
+    timer = setTimeout(() => fail('workerLost'), 120_000)
+  }
+  const onRequest = (message: Batch | Confirm | Stop) => {
     if (message.kind === 'stop') {
       if (message.attemptId === current?.attemptId) worker.terminate()
       return // Rust still owns final success/failure of the command.
     }
     if (closed) { reportFailure(message, failure); return }
-    if (current || message.sourceLanguage !== files.sourceLanguage || message.targetLanguage !== 'en') {
-      current = message
+    if (current && (message.attemptId !== current.attemptId || message.batchId !== current.batchId + 1 || !replied)) {
+      reportFailure(message, 'engineFailed')
       fail('engineFailed')
       return
     }
+    if (!current && message.batchId !== 1) { reportFailure(message, 'engineFailed'); fail('engineFailed'); return }
     current = message
+    replied = false
+    renewDeadline()
+    if (message.kind === 'confirm') {
+      replied = true
+      void invoke('translation_bergamot_reply', { reply: {
+        kind: 'confirmed', attemptId: message.attemptId, batchId: message.batchId,
+      } }).catch(() => fail('workerLost'))
+      return
+    }
     try {
+      validateBergamotSegments(message.segments)
+      if (message.sourceLanguage !== files.sourceLanguage || message.targetLanguage !== 'en') throw new Error('Wrong language pair')
+      if (initialized) { if (ready) sendBatch(); return }
+      initialized = true
       worker.postMessage({ kind: 'initialize', sourceLanguage: files.sourceLanguage, targetLanguage: 'en', files: {
         wasm: files.wasm, model: files.model, lex: files.lex, vocab: files.vocab,
       } }, buffers)
@@ -120,11 +165,13 @@ export async function runBergamotBatch(
   try {
     if (signal?.aborted) fail('cancelled')
     if (closed) return await lifecycle
-    const channel = new Channel<Batch | Stop>(onRequest)
-    const native = invoke<WorkerOutput[]>('translation_bergamot_batch', {
-      request: { jobId, sourceLanguage: files.sourceLanguage, targetLanguage: 'en', segments },
-      onRequest: channel,
-    })
+    const channel = new Channel<Batch | Confirm | Stop>(onRequest)
+    const native = start({ jobId, requests: channel })
+    if (documentJob) {
+      // Cancellation is cooperative until Rust starts saving. Its result is authoritative.
+      void lifecycle.catch(() => {})
+      return await native
+    }
     return await Promise.race([native, lifecycle])
   } finally {
     closed = true

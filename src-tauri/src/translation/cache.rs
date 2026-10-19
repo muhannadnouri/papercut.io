@@ -23,6 +23,8 @@ const SEGMENT_CACHE_FILE: &str = "segments.json";
 #[serde(rename_all = "camelCase")]
 pub(crate) struct TranslationSegmentCache {
     version: u32,
+    #[serde(default)]
+    provider_identity: Option<String>,
     cache_key: String,
     model_id: String,
     source_language: String,
@@ -190,6 +192,7 @@ pub(crate) fn save_segment_cache<R: Runtime>(
 fn new_segment_cache(plan: &TranslationJobPlan) -> TranslationSegmentCache {
     TranslationSegmentCache {
         version: SEGMENT_CACHE_VERSION,
+        provider_identity: super::bergamot::assets::provider_identity(&plan.request.model_id),
         cache_key: plan.cache_key.clone(),
         model_id: plan.request.model_id.clone(),
         source_language: plan.request.source_language.clone(),
@@ -204,7 +207,8 @@ fn new_segment_cache(plan: &TranslationJobPlan) -> TranslationSegmentCache {
 }
 
 fn cache_is_compatible(cache: &TranslationSegmentCache, plan: &TranslationJobPlan) -> bool {
-    cache.version == SEGMENT_CACHE_VERSION
+    cache.provider_identity == super::bergamot::assets::provider_identity(&plan.request.model_id)
+        && cache.version == SEGMENT_CACHE_VERSION
         && cache.cache_key == plan.cache_key
         && cache.model_id == plan.request.model_id
         && cache.source_language == plan.request.source_language
@@ -272,6 +276,25 @@ mod tests {
     use super::{cache_is_compatible, hash_segment_text, new_segment_cache};
     use crate::translation::job::plan_translation_job;
     use crate::translation::types::TranslationStartRequest;
+
+    #[test]
+    fn worker_resume_requires_current_provider_identity_without_invalidating_native_caches() {
+        let native = plan();
+        let cache = new_segment_cache(&native);
+        assert!(cache.provider_identity.is_none());
+        let mut json = serde_json::to_value(&cache).unwrap();
+        json.as_object_mut().unwrap().remove("providerIdentity");
+        let legacy = serde_json::from_value(json).unwrap();
+        assert!(cache_is_compatible(&legacy, &native));
+        let mut worker = native.clone();
+        worker.request.model_id = "bergamot-fr-en-worker".into();
+        let mut cache = new_segment_cache(&worker);
+        assert!(cache_is_compatible(&cache, &worker));
+        cache.provider_identity = Some("previous-runtime-or-model".into());
+        assert!(!cache_is_compatible(&cache, &worker));
+        cache.provider_identity = None;
+        assert!(!cache_is_compatible(&cache, &worker));
+    }
 
     #[test]
     fn source_hash_changes_when_text_changes() {

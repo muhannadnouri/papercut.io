@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runBergamotBatch, type BergamotFiles } from './nativeBridge'
-import { runInstalledBergamotBatch } from './assets'
+import { runInstalledBergamotBatch, runInstalledBergamotDocument } from './assets'
 
 const mock = vi.hoisted(() => ({ invoke: vi.fn(), channel: null as null | { onmessage: (message: unknown) => void } }))
 vi.mock('@tauri-apps/api/core', () => ({
@@ -37,7 +37,7 @@ beforeEach(() => {
   vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
   FakeWorker.instances = []
   mock.invoke.mockReset()
-  mock.invoke.mockImplementation((command) => command === 'translation_bergamot_batch'
+  mock.invoke.mockImplementation((command) => ['translation_bergamot_batch', 'translation_bergamot_document'].includes(command)
     ? new Promise((resolve, reject) => { resolveNative = resolve; rejectNative = reject })
     : command === 'translation_bergamot_asset'
       ? Promise.resolve(Uint8Array.from([0, 97, 115, 109, 1, 0, 0, 0]).buffer) : Promise.resolve(true))
@@ -266,5 +266,133 @@ describe('page lifecycle across asset loading and the real worker bridge', () =>
     }
     expect(vi.getTimerCount()).toBe(0)
     expect(FakeWorker.instances[0].terminate).toHaveBeenCalled()
+  })
+})
+
+describe('full-document worker lifecycle', () => {
+  const request = { jobId: 'book-job', documentUrl: '/uploads/example.html', sourceLanguage: 'fr', targetLanguage: 'en', modelId: 'bergamot-fr-en-worker', qualityMode: 'balanced' }
+  const stored = { jobId: 'book-job', status: 'stored', message: 'Stored document' }
+  async function documentJob(signal?: AbortSignal) {
+    const { runBergamotDocument } = await import('./nativeBridge')
+    mock.invoke.mockImplementation((command) => command === 'translation_bergamot_document'
+      ? new Promise((resolve, reject) => { resolveNative = resolve; rejectNative = reject }) : Promise.resolve(true))
+    const promise = runBergamotDocument(request, files(), signal)
+    return { promise, worker: FakeWorker.instances.at(-1)! }
+  }
+
+  it('initializes once and reuses the same worker beyond two minutes with independent batch deadlines', async () => {
+    const { promise, worker } = await documentJob()
+    mock.channel!.onmessage(batch)
+    worker.reply({ kind: 'ready' })
+    for (let sequence = 1; sequence <= 3; sequence++) {
+      if (sequence > 1) mock.channel!.onmessage({ ...batch, batchId: sequence })
+      await vi.advanceTimersByTimeAsync(90_000)
+      worker.reply({ ...result, batchId: sequence })
+      await Promise.resolve()
+    }
+    mock.channel!.onmessage({ kind: 'confirm', attemptId: batch.attemptId, batchId: 4 })
+    expect(mock.invoke).toHaveBeenLastCalledWith('translation_bergamot_reply', { reply: {
+      kind: 'confirmed', attemptId: batch.attemptId, batchId: 4,
+    } })
+    expect(FakeWorker.instances).toHaveLength(1)
+    expect(worker.postMessage.mock.calls.filter(([v]) => v.kind === 'initialize')).toHaveLength(1)
+    expect(worker.postMessage.mock.calls.filter(([v]) => v.kind === 'batch')).toHaveLength(3)
+    resolveNative(stored)
+    await expect(promise).resolves.toEqual(stored)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it.each(['abort', 'hidden', 'pagehide'])('refuses even a fully cached save after %s while waiting for Rust to finish', async mode => {
+    const controller = new AbortController()
+    const { promise, worker } = await documentJob(controller.signal)
+    let settled = false
+    void promise.then(() => { settled = true }, () => { settled = true })
+    if (mode === 'abort') controller.abort()
+    else if (mode === 'pagehide') window.dispatchEvent(new Event('pagehide'))
+    else {
+      vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+      document.dispatchEvent(new Event('visibilitychange'))
+    }
+    await Promise.resolve()
+    expect(settled).toBe(false)
+    expect(mock.invoke).toHaveBeenCalledWith('translation_cancel', { request: { jobId: 'book-job' } })
+    mock.channel!.onmessage({ kind: 'confirm', attemptId: batch.attemptId, batchId: 1 })
+    expect(mock.invoke).toHaveBeenLastCalledWith('translation_bergamot_reply', { reply: {
+      kind: 'failed', attemptId: batch.attemptId, batchId: 1, reason: mode === 'abort' ? 'cancelled' : 'workerLost',
+    } })
+    expect(worker.postMessage).not.toHaveBeenCalled()
+    rejectNative(new Error('Translation cancelled before saving'))
+    await expect(promise).rejects.toThrow('cancelled before saving')
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('keeps installed document admission through multiple long batches, then releases it for retry', async () => {
+    const promise = runInstalledBergamotDocument(request)
+    await vi.waitFor(() => expect(mock.invoke).toHaveBeenCalledWith('translation_bergamot_document', expect.anything()))
+    const worker = FakeWorker.instances.at(-1)!
+    mock.channel!.onmessage(batch)
+    worker.reply({ kind: 'ready' })
+    await vi.advanceTimersByTimeAsync(90_000)
+    worker.reply(result)
+    await Promise.resolve()
+    mock.channel!.onmessage({ ...batch, batchId: 2 })
+    await vi.advanceTimersByTimeAsync(90_000)
+    expect(worker.terminate).not.toHaveBeenCalled()
+    worker.reply({ ...result, batchId: 2 })
+    resolveNative(stored)
+    await expect(promise).resolves.toEqual(stored)
+    expect(vi.getTimerCount()).toBe(0)
+    const retry = runInstalledBergamotDocument(request)
+    await vi.waitFor(() => expect(FakeWorker.instances).toHaveLength(2))
+    resolveNative(stored)
+    await expect(retry).resolves.toEqual(stored)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('routes the public job API through asset delivery and retains structured native errors', async () => {
+    const { startTranslationJob, TranslationError } = await import('../api/nativeTranslation')
+    vi.stubGlobal('__TAURI_INTERNALS__', {})
+    mock.invoke.mockImplementation(command => command === 'translation_bergamot_asset'
+      ? Promise.resolve(Uint8Array.from([0, 97, 115, 109, 1, 0, 0, 0]).buffer)
+      : Promise.reject({ code: 'model-not-installed', message: 'Pinned worker files are not installed' }))
+    const error = await startTranslationJob(request).catch(error => error)
+    expect(error).toBeInstanceOf(TranslationError)
+    expect(error).toMatchObject({ code: 'model-not-installed', message: 'Pinned worker files are not installed' })
+    expect(mock.invoke).toHaveBeenCalledWith('translation_bergamot_document', expect.anything())
+    expect(mock.invoke).not.toHaveBeenCalledWith('translation_start', expect.anything())
+  })
+
+  it('keeps native model jobs on their existing command without loading worker assets', async () => {
+    const { startTranslationJob } = await import('../api/nativeTranslation')
+    vi.stubGlobal('__TAURI_INTERNALS__', {})
+    mock.invoke.mockResolvedValue(stored)
+    const native = { ...request, modelId: 'opus-mt-fr-en-ctranslate2' }
+    await expect(startTranslationJob(native)).resolves.toEqual(stored)
+    expect(mock.invoke).toHaveBeenCalledExactlyOnceWith('translation_start', { request: native })
+    expect(FakeWorker.instances).toHaveLength(0)
+  })
+
+  it('returns stored rather than cancelled if the atomic writer already owns the commit', async () => {
+    const controller = new AbortController()
+    const { promise } = await documentJob(controller.signal)
+    mock.channel!.onmessage({ kind: 'confirm', attemptId: batch.attemptId, batchId: 1 })
+    mock.invoke.mockImplementation(command => command === 'translation_cancel'
+      ? Promise.reject(new Error('Translation is already being saved')) : Promise.resolve(true))
+    controller.abort()
+    resolveNative(stored)
+    await expect(promise).resolves.toEqual(stored)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('rejects overlapping batches and out-of-sequence confirmation without reinitializing', async () => {
+    const { promise, worker } = await documentJob()
+    mock.channel!.onmessage(batch)
+    mock.channel!.onmessage({ kind: 'confirm', attemptId: batch.attemptId, batchId: 2 })
+    expect(mock.invoke).not.toHaveBeenCalledWith('translation_bergamot_reply', { reply: {
+      kind: 'confirmed', attemptId: batch.attemptId, batchId: 2,
+    } })
+    expect(worker.terminate).toHaveBeenCalled()
+    rejectNative(new Error('Bergamot worker failed'))
+    await expect(promise).rejects.toThrow('worker failed')
   })
 })

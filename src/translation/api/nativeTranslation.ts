@@ -206,6 +206,14 @@ export async function startTranslationJob(request: TranslationStartRequest): Pro
   if (!isNativeTranslationRuntime()) {
     throw unavailableError()
   }
+  if (['bergamot-fr-en-worker', 'bergamot-es-en-worker'].includes(request.modelId)) {
+    const { runInstalledBergamotDocument } = await import('../bergamot/assets')
+    try {
+      return await runInstalledBergamotDocument(request)
+    } catch (error) {
+      throw toTranslationError(error)
+    }
+  }
   return invokeTranslation<TranslationStartResult>('translation_start', { request })
 }
 

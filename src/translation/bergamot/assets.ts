@@ -1,5 +1,6 @@
+import type { TranslationStartRequest } from '../api/nativeTranslation'
 import { invoke } from '@tauri-apps/api/core'
-import { runBergamotBatch, validateBergamotSegments, type BergamotFiles, type TextSegment } from './nativeBridge'
+import { runBergamotBatch, runBergamotDocument, validateBergamotSegments, type BergamotFiles, type TextSegment } from './nativeBridge'
 
 type Language = BergamotFiles['sourceLanguage']
 
@@ -20,16 +21,31 @@ export function bergamotWorkerUnavailableReason(): string | null {
 }
 
 let active = false
-// shortcut: assets and one text batch only; enable document selection after full-job integration.
 export async function runInstalledBergamotBatch(
   segments: TextSegment[], sourceLanguage: Language, signal?: AbortSignal,
 ) {
+  validateBergamotSegments(segments)
+  return withInstalledAssets(sourceLanguage, signal, (files, signal) => runBergamotBatch(segments, files, signal), false)
+}
+
+export async function runInstalledBergamotDocument(request: TranslationStartRequest, signal?: AbortSignal) {
+  if (!['fr', 'es'].includes(request.sourceLanguage) || request.targetLanguage !== 'en'
+      || request.modelId !== `bergamot-${request.sourceLanguage}-en-worker`) {
+    throw new Error('Unsupported Bergamot document model or language pair')
+  }
+  return withInstalledAssets(request.sourceLanguage as Language, signal,
+    (files, signal) => runBergamotDocument(request, files, signal), true)
+}
+
+async function withInstalledAssets<T>(
+  sourceLanguage: Language, signal: AbortSignal | undefined,
+  run: (files: BergamotFiles, signal: AbortSignal) => Promise<T>, documentJob: boolean,
+): Promise<T> {
   signal?.throwIfAborted()
   if (document.visibilityState === 'hidden') throw new Error('Bergamot requires a visible page')
   const unavailable = bergamotWorkerUnavailableReason()
   if (unavailable) throw new Error(unavailable)
   if (!['fr', 'es'].includes(sourceLanguage)) throw new Error('Unsupported Bergamot language pair')
-  validateBergamotSegments(segments)
   if (active) throw new Error('A Bergamot asset operation is already in progress')
   active = true
   const controller = new AbortController()
@@ -64,7 +80,9 @@ export async function runInstalledBergamotBatch(
         throw new Error('Bergamot runtime is unsupported by this WebView')
       }
     }
-    return await runBergamotBatch(segments, files, controller.signal)
+    // Document inference has a fresh bounded deadline per request, not per book.
+    if (documentJob) clearTimeout(timer)
+    return await run(files, controller.signal)
   } finally {
     clearTimeout(timer)
     signal?.removeEventListener('abort', onAbort)

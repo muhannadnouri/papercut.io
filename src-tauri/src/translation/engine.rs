@@ -54,6 +54,11 @@ pub(crate) struct TranslationSegmentOutput {
 }
 
 pub(crate) trait TranslationEngine {
+    /// Confirm that a remote owner still admits this job before durable writes.
+    fn before_save(&mut self) -> Result<(), String> {
+        Ok(())
+    }
+
     /// Translate a bounded batch of document segments.
     ///
     /// Adapters retain exact segment ids and source text so the caller can
