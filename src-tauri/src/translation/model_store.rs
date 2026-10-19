@@ -27,8 +27,10 @@ pub(crate) struct TranslationModelManifest {
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct TranslationModelFile {
     pub(crate) path: &'static str,
+    /// Explicit pinned attachment URL; native models retain revision-based Hugging Face URLs.
+    pub(crate) download_url: Option<&'static str>,
     pub(crate) bytes: u64,
-    /// Verified only by the feature-gated downloader.
+    /// Checked by the downloader and again when worker assets cross binary IPC.
     #[cfg_attr(not(feature = "native-translation"), allow(dead_code))]
     pub(crate) sha256: &'static str,
 }
@@ -49,6 +51,13 @@ impl TranslationModelManifest {
     pub(crate) fn total_bytes(self) -> u64 {
         self.files.iter().map(|file| file.bytes).sum()
     }
+}
+
+/// Resolve only catalog-owned models or the bounded worker's pinned asset sets.
+pub(crate) fn manifest_by_id(id: &str) -> Option<TranslationModelManifest> {
+    super::models::find_planned_model(id)
+        .map(manifest_for)
+        .or_else(|| super::bergamot::assets::manifest_by_id(id))
 }
 
 /// Convert catalog metadata into the install manifest shape.
@@ -141,7 +150,10 @@ pub(crate) fn resolve_translation_model_dir<R: Runtime>(
     manifest: TranslationModelManifest,
 ) -> Result<PathBuf, String> {
     let model_dir = installed_translation_model_dir(app, manifest)?;
-    if manifest.has_required_files(&model_dir) {
+    if manifest.has_required_files(&model_dir)
+        && (super::bergamot::assets::manifest_by_id(manifest.model_id).is_none()
+            || super::bergamot::assets::verify_install(&model_dir, manifest).is_ok())
+    {
         return Ok(model_dir);
     }
 
@@ -189,41 +201,49 @@ fn translation_models_root<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<Path
 
 const OPUS_MT_ES_EN_CT2_FILES: &[TranslationModelFile] = &[
     TranslationModelFile {
+        download_url: None,
         path: "config.json",
         bytes: 159,
         sha256: "0c2f6fa2057c7264d052fb4a62ba3476eeae70487acddfa8e779a53a00cbf44c",
     },
     TranslationModelFile {
+        download_url: None,
         path: "generation_config.json",
         bytes: 293,
         sha256: "524dc91570823feb51fbd33a35e5aee3050a4441bdf65e66f6f5e945e5838e40",
     },
     TranslationModelFile {
+        download_url: None,
         path: "model.bin",
         bytes: 155_502_501,
         sha256: "3a3b91dcb396ee7b682554e7d9f501909385c48b478a691bfe9bf9e3e32d3656",
     },
     TranslationModelFile {
+        download_url: None,
         path: "shared_vocabulary.txt",
         bytes: 666_435,
         sha256: "77aee99211b7b8e569e0fb5b95dac01aba9f31bca2d1380b1fc6050797825ec6",
     },
     TranslationModelFile {
+        download_url: None,
         path: "source.spm",
         bytes: 825_924,
         sha256: "e236ee6d866b635c0142114f8647f39831f9d92534aa2aad75c942f6a78ad0e3",
     },
     TranslationModelFile {
+        download_url: None,
         path: "target.spm",
         bytes: 801_636,
         sha256: "4dd547c24816a335e7b0b2e63376a8f1b3cbfc671eda5ab808dd44fdadaa8791",
     },
     TranslationModelFile {
+        download_url: None,
         path: "tokenizer_config.json",
         bytes: 44,
         sha256: "dd009536f1cd954180a3004be20e9963eaf3d68b485d062ea1b90d3b9ded2bc5",
     },
     TranslationModelFile {
+        download_url: None,
         path: "vocab.json",
         bytes: 1_590_040,
         sha256: "257f346d7a6b2ecceafcca8ba05648ce2fd68dfaf105fb0e913dca7198f3f6d5",
@@ -232,41 +252,49 @@ const OPUS_MT_ES_EN_CT2_FILES: &[TranslationModelFile] = &[
 
 const OPUS_MT_FR_EN_CT2_FILES: &[TranslationModelFile] = &[
     TranslationModelFile {
+        download_url: None,
         path: "config.json",
         bytes: 159,
         sha256: "0c2f6fa2057c7264d052fb4a62ba3476eeae70487acddfa8e779a53a00cbf44c",
     },
     TranslationModelFile {
+        download_url: None,
         path: "generation_config.json",
         bytes: 293,
         sha256: "4cf5099aea4b599387562f1e52b8b872b997a51b64203647864239c3979ef17b",
     },
     TranslationModelFile {
+        download_url: None,
         path: "model.bin",
         bytes: 149_872_839,
         sha256: "c32de81be5de6b9a5d03298173c724f02249371fb7ed6b6fd1ee7501578fe7fc",
     },
     TranslationModelFile {
+        download_url: None,
         path: "shared_vocabulary.txt",
         bytes: 556_777,
         sha256: "e87446c025bbe57cc4f9ef90fa6e28ab303a2e31479b7355c2a2d3a6a3a43a0a",
     },
     TranslationModelFile {
+        download_url: None,
         path: "source.spm",
         bytes: 802_397,
         sha256: "78d0e717c77053f1c4b856d8661d9cb87c64f083a35418c087b9146300e4f585",
     },
     TranslationModelFile {
+        download_url: None,
         path: "target.spm",
         bytes: 778_395,
         sha256: "173e9f493a668fe396d599e28d414a201193094e6ffd7a4678e5aab0f6d3d838",
     },
     TranslationModelFile {
+        download_url: None,
         path: "tokenizer_config.json",
         bytes: 42,
         sha256: "47de9ce87378593016432f8dc657202c03913ab3ce0c15d7f78d51edfc3ff9a3",
     },
     TranslationModelFile {
+        download_url: None,
         path: "vocab.json",
         bytes: 1_339_166,
         sha256: "945c604346ce15ce4aff9001001e7f925e336d942c4087017f191871162cbdc4",
@@ -274,6 +302,7 @@ const OPUS_MT_FR_EN_CT2_FILES: &[TranslationModelFile] = &[
 ];
 
 const HY_MT2_1_8B_Q8_FILES: &[TranslationModelFile] = &[TranslationModelFile {
+    download_url: None,
     path: "Hy-MT2-1.8B-Q8_0.gguf",
     bytes: 1_908_528_192,
     sha256: "5c3fe0b1408a5ceb0143184ef247b11b579c525f4b02b060e6c851bb76fef1a4",

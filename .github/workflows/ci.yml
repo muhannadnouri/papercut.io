@@ -277,6 +277,9 @@ jobs:
           mkdir -p src-tauri/tts/runtime/linux-x64-shared-libs
           cargo test --manifest-path src-tauri/Cargo.toml --locked --lib
 
+      - name: Translation downloader regressions (no inference)
+        run: cargo test --manifest-path src-tauri/Cargo.toml --locked --lib --no-default-features --features native-translation translation::model_install::tests
+
       - name: Compile opt-in search provider with native TTS
         run: |
           cargo build --manifest-path src-tauri/Cargo.toml --locked --lib \

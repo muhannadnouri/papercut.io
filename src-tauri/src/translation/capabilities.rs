@@ -9,7 +9,7 @@ use super::config::{
     TRANSLATION_BACKEND_UNAVAILABLE,
 };
 use super::hy_mt2::hy_mt2_hardware_acceleration;
-use super::model_store::{directory_size, manifest_for, resolve_translation_model_dir};
+use super::model_store::{directory_size, manifest_by_id, resolve_translation_model_dir};
 use super::models::{find_planned_model, planned_models};
 use super::state::TranslationState;
 use super::types::{
@@ -50,10 +50,10 @@ pub(super) fn translation_capabilities() -> TranslationCapabilities {
 /// why they cannot run yet, while pinned manifests can report real disk state.
 pub(super) fn translation_model_status<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
-    state: &tauri::State<'_, TranslationState>,
+    state: &TranslationState,
     request: TranslationModelStatusRequest,
 ) -> TranslationModelStatus {
-    let Some(model) = find_planned_model(&request.model_id) else {
+    let Some(manifest) = manifest_by_id(&request.model_id) else {
         return TranslationModelStatus {
             model_id: request.model_id,
             installed: false,
@@ -68,7 +68,7 @@ pub(super) fn translation_model_status<R: tauri::Runtime>(
         };
     };
 
-    let manifest = manifest_for(model);
+    let model = find_planned_model(&request.model_id);
     let installing = state.model_operation_active(manifest.directory_name);
     match resolve_translation_model_dir(app, manifest) {
         Ok(model_dir) => TranslationModelStatus {
@@ -81,7 +81,11 @@ pub(super) fn translation_model_status<R: tauri::Runtime>(
             archive_bytes: manifest.total_bytes(),
             installed_bytes: directory_size(&model_dir).unwrap_or(0),
             sha256: String::new(),
-            message: "Offline translation model installed".into(),
+            message: if model.is_none() {
+                "Bergamot assets verified; worker readiness and document translation are separate checks".into()
+            } else {
+                "Offline translation model installed".into()
+            },
         },
         Err(_) => TranslationModelStatus {
             model_id: manifest.model_id.into(),
@@ -89,21 +93,23 @@ pub(super) fn translation_model_status<R: tauri::Runtime>(
             installing,
             model_dir: None,
             source_url: manifest.source_url.into(),
-            source_label: format!("{} ({})", model.name, model.manifest_state),
+            source_label: model
+                .map(|model| format!("{} ({})", model.name, model.manifest_state))
+                .unwrap_or_else(|| manifest.source_label.into()),
             archive_bytes: manifest.total_bytes(),
             installed_bytes: 0,
             sha256: String::new(),
             message: if manifest.files.is_empty() {
-                format!(
-                    "{NOT_IMPLEMENTED} This candidate is not downloadable until source URL, checksum, license, required files, and platform gates are reviewed."
-                )
-            } else if model_engine_available(model) {
+                format!("{NOT_IMPLEMENTED} This candidate is not downloadable until source URL, checksum, license, required files, and platform gates are reviewed.")
+            } else if model.is_none() {
+                "Bergamot worker prototype assets are missing or invalid; no document translation support is enabled".into()
+            } else if model.is_some_and(model_engine_available) {
                 "Translation model is installable. Install it before starting a translation job."
                     .into()
             } else {
                 format!(
                     "{NOT_IMPLEMENTED} The file manifest is pinned, but the native {} engine is not compiled in this build.",
-                    model.engine
+                    model.map(|model| model.engine).unwrap_or("unavailable")
                 )
             },
         },

@@ -28,6 +28,33 @@ use super::types::{
     TranslationModelStatusRequest, TranslationStartRequest, TranslationStartResponse,
 };
 
+/// Only pinned, verified worker assets leave Rust, as binary IPC rather than JSON.
+#[tauri::command]
+pub async fn translation_bergamot_asset<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    state: tauri::State<'_, TranslationState>,
+    window: tauri::WebviewWindow<R>,
+    source_language: String,
+    asset: super::bergamot::assets::Asset,
+) -> Result<tauri::ipc::Response, TranslationCommandError> {
+    if window.label() != "main" {
+        return Err(TranslationCommandError::new(
+            "Bergamot assets require the main WebView".into(),
+        ));
+    }
+    let manifest = super::bergamot::assets::manifest_for_language(&source_language)?;
+    let claim = state.claim_job("bergamot-asset-read", manifest.directory_name)?;
+    let lease = state.claim_model_read(manifest.directory_name)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _claims = (claim, lease);
+        let dir = super::model_store::installed_translation_model_dir(&app, manifest)?;
+        super::bergamot::assets::read_asset(&dir, manifest, asset).map(tauri::ipc::Response::new)
+    })
+    .await
+    .map_err(|_| TranslationCommandError::new("Bergamot asset task failed".into()))?
+    .map_err(TranslationCommandError::from)
+}
+
 /// Text-only bridge prototype; no model catalog admission, files, caches or document writes.
 #[tauri::command]
 pub async fn translation_bergamot_batch<R: tauri::Runtime>(
@@ -75,12 +102,17 @@ pub fn translation_capabilities() -> TranslationCapabilities {
 
 /// Return install status for a planned translation model.
 #[tauri::command]
-pub fn translation_model_status<R: tauri::Runtime>(
+pub async fn translation_model_status<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     state: tauri::State<'_, TranslationState>,
     request: TranslationModelStatusRequest,
-) -> TranslationModelStatus {
-    translation_model_status_backend(&app, &state, request)
+) -> Result<TranslationModelStatus, TranslationCommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        translation_model_status_backend(&app, &state, request)
+    })
+    .await
+    .map_err(|_| TranslationCommandError::new("Translation model status task failed".into()))
 }
 
 /// Download and verify a pinned translation model manifest.

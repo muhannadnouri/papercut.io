@@ -826,9 +826,9 @@ proof of Tauri/WebView/mobile packaging**. The harness and model files are not
 checked in. Existing originals, translated variants, audio and highlighting are
 unchanged; rich mappings are still fixture-only and no cache epoch changed.
 
-The worker-boundary review below is complete. Next, add verified
-installer-to-worker asset delivery and capability gates before connecting it to
-full document jobs. The prototype command is deliberately one bounded batch, not a way to bypass native
+The worker-boundary review and verified asset-delivery slice below are complete.
+Review the delivery slice before connecting it to full document jobs. The
+prototype command is deliberately one bounded batch, not a way to bypass native
 document preflight or persistence. Full-book worker reuse/resume, packaged
 WebView/CSP behavior, cancellation before durable saving and platform support
 need that integration. Only then enable validated inline/protected-content
@@ -863,7 +863,7 @@ implementation evidence, not fresh runs in this review. HY-MT2/Vulkan compilatio
 still needs CI; packaged WebView/CSP/mobile behavior was not checked. Benchmarks,
 installed-app smoke and the app version bump remain deferred.
 
-The next bounded implementation should reuse `model_store`, `model_install`
+The review recommended reusing `model_store`, `model_install`
 and capability reporting for the pinned runtime/model files. Deliver only
 catalog-owned, bounded binary assets to the worker; do not add arbitrary path
 reads, JSON/base64 model transport, broader filesystem scopes or a second
@@ -871,6 +871,78 @@ installer. Keep install status distinct from runtime readiness, and test corrupt
 missing and unsupported assets plus worker capability failures before advertising
 document translation. Full-book reuse/resume and validated rich mapping follow
 as separate stages.
+
+##### Verified Asset Delivery And Capability Gates (2026-10-19)
+
+The internal worker entry point can now load installed files through Rust.
+It still does not enable Bergamot in the Translation panel, `translation_start`
+or document persistence. The shared document capability and native model picker
+remain unchanged.
+
+- `translation::bergamot::assets` owns two pinned asset manifests:
+  `bergamot-fr-en-worker` and `bergamot-es-en-worker`. Each contains WASM 3.0
+  plus that pair's model/lexicon/vocabulary 2.0, using the exact Mozilla attachment
+  URLs, sizes and SHA-256 values in the retained evaluation JSON. Each install
+  owns its own WASM copy so installation/removal needs no shared-file registry.
+- Existing `translation_install_model`, `translation_model_status` and
+  `translation_remove_model` accept these internal ids. Downloads still require
+  the existing `native-translation` Cargo feature and explicit installation;
+  inference never downloads files. The existing installer stages and verifies
+  complete sets. An explicit per-file attachment URL supplements the existing
+  revision-based Hugging Face URLs; OPUS-MT/HY-MT2 pins do not change. Oversized
+  responses now fail before writing bytes beyond the pinned size.
+- Resolving an existing Bergamot install verifies all four files, so presence
+  alone cannot make a corrupt install appear valid or skip reinstallation.
+  Status reports **assets verified**, separately from worker readiness or
+  document support. Status hashing and the install fast path run on blocking
+  tasks rather than the UI thread.
+- `translation_bergamot_asset` accepts only the invoking main WebView, `fr`/`es`
+  and an enum naming `wasm`, `model`, `lex` or `vocab`. It accepts no path or URL.
+  A translation job claim serializes asset reads; an exclusive model-file lease
+  also blocks installation/removal in either ordering while a read is active.
+  The read rejects symlinked roots/leaves,
+  non-regular files, unexpected locations/sizes and checksum mismatches. It
+  reads at most the pin plus one byte, with a 32 MiB per-file ceiling, and returns
+  a raw Tauri binary response. Papercut does not JSON/base64-encode model bytes
+  or widen filesystem/CSP scopes. The worker checks the resulting snapshot again.
+- `src/translation/bergamot/assets.ts` exposes
+  `runInstalledBergamotBatch(segments, sourceLanguage, signal)`. It validates text
+  before reading files, serializes frontend admission, loads four ArrayBuffers
+  sequentially under a 64 MiB combined ceiling and hands them to the existing
+  bounded bridge. A 120-second absolute host budget includes asset loading and
+  the worker batch. Cancellation/timeout releases frontend admission even if a
+  binary IPC reply is lost; native bounded disk reads finish independently.
+- Capability checks require a secure context, Worker, WebCrypto and WASM SIMD,
+  using a minimal `v128.const` module rather than OS-version guesses. The actual
+  downloaded WASM is validated before loading model files. Worker initialization
+  remains the final runtime check; passing feature probes does not assert enough
+  RAM, successful CSP loading or packaged-device support. The byte ceilings are
+  transport limits, **not a bound on WASM/workspace or total app memory**.
+
+New regressions cover pin/URL coherence, native-model URL preservation, invalid
+selectors, missing/corrupt/truncated/oversized/non-regular/symlinked files, raw
+response type, window ownership and read/mutation claims. Frontend tests cover
+capability failures before reads, actual-WASM rejection, binary-only replies,
+size limits, sequential delivery, cancellation, a lost-IPC deadline and retry.
+The actual downloader is tested against tiny loopback HTTP responses for valid,
+bad-hash and oversized bodies; no model download or inference is needed. CI now
+runs that feature-enabled downloader regression with `provider_inference` off.
+
+Validation: **404 Rust tests passed, 4 existing ignored**; the downloader-enabled
+translation suite passed **128 tests**; **408 frontend tests passed, 1 existing
+skipped**, including **35 bridge/worker/delivery tests**. TypeScript, changed-file
+ESLint, the Vite asset build, Rust formatting/diff checks and the locked/offline
+CTranslate2-feature compile check passed. CI YAML parsing also passed. This is
+local regression evidence, not a new CI or installed-WebView acceptance result.
+Header-only requests to all seven pinned Mozilla attachments returned HTTP 200
+and the expected sizes; no model weights were downloaded for this check.
+
+Next, review this delivery slice, then integrate worker lifetime and verified
+model identities into the existing Rust document job/cache flow. Full-book reuse,
+resume, pre-save cancellation, protected rich mapping/cache provenance and
+packaged desktop/mobile acceptance remain separate work. Benchmarks,
+installed-app smoke and the app version bump remain deferred; no originals,
+existing variants, audio, highlighting or cache epoch are migrated.
 
 ### Stage 7: Quality Upgrades - Mostly Done
 
@@ -1149,9 +1221,9 @@ A responsive desktop browser at a mobile viewport would not fill that gap.
    is now fixture-tested; production adapters remain text-only. Extend inline
    mapping only with validated annotations/alignments; do not reintroduce
    positional emphasis guesses.
-2. The bounded text worker prototype and its review are complete above. Add
-   verified binary delivery and platform capability gates before wiring it into
-   native document jobs. Keep Rust job/storage authority and durable batch
+2. The bounded text worker prototype, its review, verified binary delivery and
+   runtime feature gates are complete above. Review the delivery slice, then
+   wire it into native document jobs. Keep Rust job/storage authority and durable batch
    progress; test full-book worker reuse, disappearance/suspension, resume and
    cancellation before saving. No native FFI or copied Bergamot HTML C++ is
    required by this prototype.

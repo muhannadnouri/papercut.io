@@ -20,7 +20,16 @@ interface Batch {
 interface Stop { kind: 'stop'; attemptId: string }
 type Failure = 'cancelled' | 'workerLost' | 'unavailable' | 'engineFailed'
 
-// shortcut: no installed Bergamot catalog assets yet; wire this entry point when verified delivery lands.
+export function validateBergamotSegments(segments: TextSegment[]): void {
+  if (!segments.length || segments.length > 16
+      || new Set(segments.map(s => s.id)).size !== segments.length
+      || segments.some(s => !s.id || new TextEncoder().encode(s.id).byteLength > 128
+        || !s.text.trim() || s.text.length > 1800 || Array.from(s.text).length > 900)) {
+    throw new Error('Bergamot requires a bounded French/Spanish to English text batch')
+  }
+}
+
+// Internal text boundary; installed callers deliver verified buffers through assets.ts.
 export async function runBergamotBatch(
   segments: TextSegment[], files: BergamotFiles, signal?: AbortSignal,
 ): Promise<WorkerOutput[]> {
@@ -30,12 +39,10 @@ export async function runBergamotBatch(
       || new Set(buffers).size !== 4 || buffers.reduce((bytes, buffer) => bytes + buffer.byteLength, 0) > 64 * 1024 * 1024) {
     throw new Error('Bergamot requires four distinct binary assets within 64 MiB')
   }
-  if (!['fr', 'es'].includes(files.sourceLanguage) || !segments.length || segments.length > 16
-      || new Set(segments.map(s => s.id)).size !== segments.length
-      || segments.some(s => !s.id || new TextEncoder().encode(s.id).byteLength > 128
-        || !s.text.trim() || s.text.length > 1800 || Array.from(s.text).length > 900)) {
+  if (!['fr', 'es'].includes(files.sourceLanguage)) {
     throw new Error('Bergamot requires a bounded French/Spanish to English text batch')
   }
+  validateBergamotSegments(segments)
   const jobId = crypto.randomUUID()
   const worker = new Worker('/translation/bergamot/worker.js')
   let current: Batch | undefined

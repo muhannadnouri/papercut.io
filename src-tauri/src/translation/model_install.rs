@@ -12,10 +12,9 @@ use tauri::{Emitter, Runtime};
 
 use super::config::TRANSLATION_MODEL_INSTALL_PROGRESS_EVENT;
 use super::model_store::{
-    directory_size, installed_translation_model_dir, manifest_for, resolve_translation_model_dir,
+    directory_size, installed_translation_model_dir, manifest_by_id, resolve_translation_model_dir,
     translation_model_work_dir, TranslationModelFile, TranslationModelManifest,
 };
-use super::models::find_planned_model;
 use super::state::TranslationState;
 use super::types::{
     TranslationModelInstallProgress, TranslationModelInstallResponse,
@@ -31,28 +30,26 @@ pub(crate) async fn install_translation_model<R: Runtime>(
         return Err("Offline translation model downloads are not compiled in this build".into());
     }
 
-    let model = find_planned_model(&model_id)
+    let manifest = manifest_by_id(&model_id)
         .ok_or_else(|| format!("Translation model {model_id:?} is not in the planned catalog"))?;
-    let manifest = manifest_for(model);
     if !manifest.installable {
         return Err(format!(
             "{} is not installable yet; its model manifest is not pinned for downloads.",
-            model.name
+            manifest.model_id
         ));
     }
-    if let Ok(model_dir) = resolve_translation_model_dir(&app, manifest) {
-        return Ok(TranslationModelInstallResponse {
-            model_id: manifest.model_id.into(),
-            model_dir: model_dir.display().to_string(),
-            bytes: directory_size(&model_dir).unwrap_or(0),
-        });
-    }
-
     let operation = state.claim_model_install(manifest.directory_name)?;
 
     let app_for_task = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let _operation = operation;
+        if let Ok(model_dir) = resolve_translation_model_dir(&app_for_task, manifest) {
+            return Ok(TranslationModelInstallResponse {
+                model_id: manifest.model_id.into(),
+                model_dir: model_dir.display().to_string(),
+                bytes: directory_size(&model_dir).unwrap_or(0),
+            });
+        }
         install_model_blocking(app_for_task, manifest)
     })
     .await
@@ -66,13 +63,12 @@ pub(crate) async fn remove_translation_model<R: Runtime>(
     state: tauri::State<'_, TranslationState>,
     model_id: String,
 ) -> Result<TranslationModelRemoveResponse, String> {
-    let model = find_planned_model(&model_id)
+    let manifest = manifest_by_id(&model_id)
         .ok_or_else(|| format!("Translation model {model_id:?} is not in the planned catalog"))?;
-    let manifest = manifest_for(model);
     if !manifest.installable {
         return Err(format!(
             "{} does not have installed model files.",
-            model.name
+            manifest.model_id
         ));
     }
     let operation = state.claim_model_removal(manifest.directory_name)?;
@@ -248,6 +244,9 @@ fn download_and_verify_file<R: Runtime>(
         if read == 0 {
             break;
         }
+        if downloaded_file.saturating_add(read as u64) > file.bytes {
+            return Err("Translation model download exceeded its pinned size".into());
+        }
         writer.write_all(&buffer[..read]).map_err(|err| {
             format!(
                 "Failed to write translation model file {}: {err}",
@@ -301,6 +300,9 @@ fn download_and_verify_file<R: Runtime>(
 // all builds so it stays reviewed alongside the manifest shape.
 #[cfg_attr(not(feature = "native-translation"), allow(dead_code))]
 fn model_file_url(manifest: TranslationModelManifest, file: &TranslationModelFile) -> String {
+    if let Some(url) = file.download_url {
+        return url.into();
+    }
     format!(
         "https://huggingface.co/{}/resolve/{}/{}",
         manifest.source_label, manifest.revision, file.path
@@ -366,5 +368,88 @@ mod tests {
         assert_eq!(download_percent(0, 0), 0);
         assert_eq!(download_percent(50, 100), 50);
         assert_eq!(download_percent(250, 100), 100);
+    }
+
+    #[test]
+    fn explicit_mozilla_urls_do_not_change_hugging_face_pins() {
+        use crate::translation::model_store::manifest_by_id;
+        let opus = manifest_by_id("opus-mt-fr-en-ctranslate2").unwrap();
+        assert_eq!(super::model_file_url(opus, &opus.files[0]),
+            "https://huggingface.co/michaelfeil/ct2fast-opus-mt-fr-en/resolve/cb3b2d680bf35591a508d8479e2c99c44e281ef3/config.json");
+        let worker = manifest_by_id("bergamot-fr-en-worker").unwrap();
+        assert_eq!(
+            super::model_file_url(worker, &worker.files[0]),
+            worker.files[0].download_url.unwrap()
+        );
+    }
+
+    #[cfg(feature = "native-translation")]
+    #[test]
+    fn actual_downloader_verifies_bytes_and_rejects_oversize_before_writing() {
+        use crate::translation::model_store::{manifest_by_id, TranslationModelFile};
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+        use std::time::{Duration, Instant};
+        for body in [b"abc".as_slice(), b"abd", b"abcd"] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            listener.set_nonblocking(true).unwrap();
+            let url: &'static str = Box::leak(
+                format!("http://{}/asset", listener.local_addr().unwrap()).into_boxed_str(),
+            );
+            let body = body.to_vec();
+            let good = body == b"abc";
+            let oversize = body.len() > 3;
+            let server = std::thread::spawn(move || {
+                let deadline = Instant::now() + Duration::from_secs(5);
+                let mut socket = loop {
+                    if let Ok((socket, _)) = listener.accept() {
+                        break socket;
+                    }
+                    assert!(Instant::now() < deadline, "test downloader did not connect");
+                    std::thread::sleep(Duration::from_millis(5));
+                };
+                socket
+                    .set_read_timeout(Some(Duration::from_secs(2)))
+                    .unwrap();
+                let mut request = [0; 2048];
+                socket.read(&mut request).unwrap();
+                write!(
+                    socket,
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                )
+                .unwrap();
+                socket.write_all(&body).unwrap();
+            });
+            let manifest = manifest_by_id("bergamot-fr-en-worker").unwrap();
+            let pin = TranslationModelFile {
+                path: "fixture.bin",
+                download_url: Some(url),
+                bytes: 3,
+                sha256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+            };
+            let mut nonce = [0u8; 16];
+            getrandom::fill(&mut nonce).unwrap();
+            let dir = std::env::temp_dir().join(format!("papercut-download-{nonce:x?}"));
+            let guard = super::WorkDirGuard::new(dir.clone());
+            let target = dir.join(pin.path);
+            let app = tauri::test::mock_builder()
+                .build(tauri::test::mock_context(tauri::test::noop_assets()))
+                .unwrap();
+            let mut total = 0;
+            let result =
+                super::download_and_verify_file(app.handle(), manifest, &pin, &target, &mut total);
+            server.join().unwrap();
+            assert_eq!(result.is_ok(), good);
+            if good {
+                assert_eq!(std::fs::read(&target).unwrap(), b"abc");
+            }
+            if oversize {
+                assert_eq!(std::fs::metadata(&target).unwrap().len(), 0);
+                assert_eq!(total, 0);
+            }
+            drop(guard);
+            assert!(!dir.exists());
+        }
     }
 }

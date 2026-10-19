@@ -69,6 +69,14 @@ impl TranslationState {
         self.claim_model_operation(model_id, false)
     }
 
+    /// Hold the same exclusive file lease as install/remove during binary delivery.
+    pub(crate) fn claim_model_read(
+        &self,
+        model_id: &str,
+    ) -> Result<TranslationModelOperation, String> {
+        self.claim_model_operation(model_id, false)
+    }
+
     /// Prevent model deletion while any translation job may still use its files.
     ///
     /// Papercut currently runs one foreground translation job, so a global

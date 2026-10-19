@@ -10,6 +10,8 @@ use super::engine::{
 };
 use serde::{Deserialize, Serialize};
 
+pub(super) mod assets;
+
 const MAX_SEGMENTS: usize = 16;
 const MAX_SOURCE_CHARS: usize = 900;
 const MAX_OUTPUT_BYTES: usize = 256 * 1024;
