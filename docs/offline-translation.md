@@ -826,15 +826,51 @@ proof of Tauri/WebView/mobile packaging**. The harness and model files are not
 checked in. Existing originals, translated variants, audio and highlighting are
 unchanged; rich mappings are still fixture-only and no cache epoch changed.
 
-Next, review the worker boundary, then add verified installer-to-worker asset
-delivery and capability gates before connecting it to full document jobs. The
-prototype command is deliberately one bounded batch, not a way to bypass native
+The worker-boundary review below is complete. Next, add verified
+installer-to-worker asset delivery and capability gates before connecting it to
+full document jobs. The prototype command is deliberately one bounded batch, not a way to bypass native
 document preflight or persistence. Full-book worker reuse/resume, packaged
 WebView/CSP behavior, cancellation before durable saving and platform support
 need that integration. Only then enable validated inline/protected-content
 restoration and rich-cache provenance. No default-model or mobile-support
 decision is made here. Benchmarks, installed-app smoke and the app version bump
 remain deferred.
+
+##### Worker Bridge Review (2026-10-19)
+
+Reviewed commit `e4df3bc` with Ponytail against the connected Tauri commands,
+translation job admission/cancellation, shared output validator, frontend host,
+worker, pinned loader, tests and current CSP. Assumed one local foreground
+worker attempt, 1–16 segments of at most 900 scalars each and the documented
+fr→en/es→en assets. **No actionable findings for this prototype; it can advance
+to asset delivery.** This is not approval to enable full-document or mobile
+Bergamot translation yet.
+
+Checked main-WebView ownership, random attempt/batch binding, stale/duplicate
+reply rejection, single-slot admission, independent deadlines, cancellation
+before result acceptance, worker loss and terminal cleanup. Asset verification
+precedes runtime initialization; only fixed app-owned code is loaded. Existing
+document jobs still own their persistence, and the prototype has no source-file,
+cache or variant write path. The one-batch frontend entry point and absence of
+catalog/UI integration are deliberate limits of this stage.
+
+Fresh review validation passed **399 Rust tests, 4 existing ignored**, including
+the command/channel and lifecycle regressions, and **20 frontend bridge/worker
+tests**. TypeScript, changed-file ESLint, Rust formatting, diff checks and the
+locked/offline CTranslate2-feature compile check passed. The earlier full
+frontend suite, Vite asset build and two real Node-worker inference checks are
+implementation evidence, not fresh runs in this review. HY-MT2/Vulkan compilation
+still needs CI; packaged WebView/CSP/mobile behavior was not checked. Benchmarks,
+installed-app smoke and the app version bump remain deferred.
+
+The next bounded implementation should reuse `model_store`, `model_install`
+and capability reporting for the pinned runtime/model files. Deliver only
+catalog-owned, bounded binary assets to the worker; do not add arbitrary path
+reads, JSON/base64 model transport, broader filesystem scopes or a second
+installer. Keep install status distinct from runtime readiness, and test corrupt,
+missing and unsupported assets plus worker capability failures before advertising
+document translation. Full-book reuse/resume and validated rich mapping follow
+as separate stages.
 
 ### Stage 7: Quality Upgrades - Mostly Done
 
@@ -1113,7 +1149,7 @@ A responsive desktop browser at a mobile viewport would not fill that gap.
    is now fixture-tested; production adapters remain text-only. Extend inline
    mapping only with validated annotations/alignments; do not reintroduce
    positional emphasis guesses.
-2. The bounded text worker prototype is implemented above. Review it, then add
+2. The bounded text worker prototype and its review are complete above. Add
    verified binary delivery and platform capability gates before wiring it into
    native document jobs. Keep Rust job/storage authority and durable batch
    progress; test full-book worker reuse, disappearance/suspension, resume and
