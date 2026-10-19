@@ -23,6 +23,7 @@ pub(crate) struct ParsedDocumentCover {
 }
 
 /// One generated-name image resource owned by a sanitized reader document.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ParsedDocumentAsset {
     pub(crate) file_name: String,
     pub(crate) bytes: Vec<u8>,

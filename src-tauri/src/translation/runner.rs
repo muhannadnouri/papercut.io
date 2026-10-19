@@ -18,7 +18,8 @@ use super::config::{
 };
 use super::ctranslate2::CTranslate2Engine;
 use super::engine::{
-    TranslationBatchInput, TranslationEngine, TranslationSegmentContext, TranslationSegmentInput,
+    validate_output_ids, TranslationBatchInput, TranslationEngine, TranslationSegmentContext,
+    TranslationSegmentInput,
 };
 use super::hy_mt2::HyMt2Engine;
 use super::inline_markup::{inline_phrase_probes_by_block, InlinePhraseProbe};
@@ -456,6 +457,15 @@ fn run_translation_batches<R: tauri::Runtime>(
                         format!("Native in-memory translation did not complete: {err}"),
                     )
                 })?;
+            validate_output_ids(
+                &pending_batch
+                    .segments
+                    .iter()
+                    .map(|segment| segment.id.as_str())
+                    .collect::<Vec<_>>(),
+                &outputs,
+            )
+            .map_err(|error| run.failure("failed", error))?;
             let mut translated_count = 0;
             for (segment, output) in pending_batch.segments.iter().zip(outputs.iter()) {
                 let translated_text = output.text.trim().to_string();
@@ -511,7 +521,6 @@ fn run_translation_batches<R: tauri::Runtime>(
     )
     .map_err(|err| run.failure("failed", err))?;
     clear_cancelled(&state.cancelled_jobs, job_id).map_err(|err| run.failure("failed", err))?;
-    let mut current_translated_heading: Option<String> = None;
     let sections = translated_blocks
         .into_iter()
         .enumerate()
@@ -519,19 +528,8 @@ fn run_translation_batches<R: tauri::Runtime>(
             let text = text.trim().to_string();
             let source_block = source.blocks.get(index);
             let heading = source_block.and_then(|block| block.heading.clone());
-            let is_heading = source_block.is_some_and(|block| {
-                block
-                    .heading
-                    .as_deref()
-                    .is_some_and(|heading| heading.trim() == block.text.trim())
-            });
-            if is_heading {
-                current_translated_heading = Some(text.clone());
-            }
+            let is_heading = source_block.is_some_and(|block| block.is_heading);
             PersistTranslationSection {
-                heading: current_translated_heading
-                    .clone()
-                    .or_else(|| heading.clone()),
                 source_heading: heading,
                 source_ordinal: source_block.map(|block| block.ordinal).unwrap_or(index),
                 is_heading,
@@ -600,7 +598,7 @@ fn translate_inline_phrase_hints(
         .into_iter()
         .map(|(probe_id, owner_id, source_text)| (probe_id, (owner_id, source_text)))
         .collect::<BTreeMap<_, _>>();
-    let outputs = match engine.translate_batch(TranslationBatchInput {
+    let input = TranslationBatchInput {
         model_id: plan.request.model_id.clone(),
         source_language: plan.request.source_language.clone(),
         target_language: plan.request.target_language.clone(),
@@ -608,15 +606,29 @@ fn translate_inline_phrase_hints(
         repair_mode: plan.request.repair_mode.clone(),
         glossary: plan.request.glossary.clone(),
         segments: inputs,
-    }) {
+    };
+    let expected_ids = input
+        .segments
+        .iter()
+        .map(|segment| segment.id.clone())
+        .collect::<Vec<_>>();
+    let outputs = match engine.translate_batch(input) {
         Ok(outputs) => outputs,
         Err(err) => {
-            // Non-fatal by design: the job continues with proportional inline
-            // projection, but the degradation must be visible in logs.
+            // Non-fatal by design: the job continues without phrase hints;
+            // uncertain emphasis remains plain text.
             log::warn!("translation: inline phrase probe batch failed: {err}");
             return (hints, false);
         }
     };
+
+    if let Err(error) = validate_output_ids(
+        &expected_ids.iter().map(String::as_str).collect::<Vec<_>>(),
+        &outputs,
+    ) {
+        log::warn!("translation: inline phrase probe identities do not match: {error}");
+        return (hints, false);
+    }
 
     let mut stored_new_translation = false;
     for output in outputs {

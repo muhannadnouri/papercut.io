@@ -125,6 +125,14 @@ fn indexed_reader_html(html: &str) -> (String, Vec<TextBlock>) {
     (serialize_node(&document), blocks)
 }
 
+/// Reuse the importer's leaf-block contract for transformations of reader HTML.
+pub(crate) fn reader_block_nodes(document: &NodeRef) -> Vec<NodeRef> {
+    extract_text_blocks(&document_body(document))
+        .into_iter()
+        .map(|block| block.node)
+        .collect()
+}
+
 fn extract_text_blocks(root: &NodeRef) -> Vec<TextBlock> {
     let mut blocks = Vec::new();
 

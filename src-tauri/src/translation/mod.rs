@@ -10,6 +10,7 @@ mod capabilities;
 pub(crate) mod commands;
 mod config;
 mod ctranslate2;
+mod dom;
 mod engine;
 mod hash;
 mod html;

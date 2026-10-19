@@ -34,6 +34,7 @@ mod organization;
 mod parsed;
 mod pdf;
 mod pipeline;
+mod reader_assets;
 mod search;
 mod search_content;
 mod search_form;
@@ -48,7 +49,7 @@ mod types;
 pub(crate) use batch::import_scanner_source;
 pub(crate) use derived::{
     delete_derived_document, open_document_uploads_db, persist_derived_document,
-    read_uploaded_document_source, DerivedDocumentSection,
+    read_uploaded_document_source,
 };
 pub(crate) use state::DocumentUploadState;
 pub(crate) use store::schedule_search_index_rebuild;
@@ -75,4 +76,4 @@ pub(crate) use types::{
     UploadedLibraryFolder, UploadedLibraryMoveDocumentsRequest, UploadedLibraryOrganization,
 };
 
-pub(crate) use html::sanitize_html;
+pub(crate) use html::{reader_block_nodes, sanitize_html};

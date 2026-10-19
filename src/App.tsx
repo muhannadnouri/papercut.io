@@ -308,7 +308,7 @@ function App() {
   const selectedTitle = selectedDocument?.title
   const selectedFormat = selectedDocument?.format
   const canTranslateSelectedDocument =
-    selectedDocument?.source === 'upload' && selectedFormat !== 'pdf'
+    selectedDocument?.source === 'upload' && (selectedFormat === 'html' || selectedFormat === 'epub')
 
   const handleRequestDocumentTranslation = useCallback(() => {
     if (!selectedDoc || !canTranslateSelectedDocument) return

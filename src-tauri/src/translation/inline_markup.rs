@@ -3,11 +3,11 @@
 //! Translation engines consume plain text, but reader output needs to preserve
 //! author emphasis where it can be placed safely. This module owns the text
 //! normalization, source-span collection, fragment-offset matching, and
-//! conservative source-to-target span projection used by `render.rs`.
+//! conservative source-to-target span matching used by `render.rs`.
 
 use kuchikiki::NodeRef;
 
-use super::html::parse_html_document;
+use super::dom::DomPlan;
 use super::storage::{PersistTranslationFragment, PersistTranslationInlinePhrase};
 
 const MAX_INLINE_PHRASE_CHARS: usize = 120;
@@ -16,7 +16,7 @@ const MAX_INLINE_PHRASE_CHARS: usize = 120;
 ///
 /// Bump this when matching/projection semantics change so resume caches that
 /// start persisting alignment-derived data cannot silently mix strategies.
-pub(crate) const INLINE_ALIGNMENT_VERSION: u32 = 1;
+pub(crate) const INLINE_ALIGNMENT_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct InlinePhraseProbe {
@@ -63,19 +63,6 @@ pub(crate) fn is_inline_formatting_element(node: &NodeRef) -> bool {
     )
 }
 
-/// Extract normalized source text plus inline formatting ranges.
-///
-/// The returned text intentionally matches translation segmentation whitespace:
-/// all runs collapse to one space. That keeps renderer offsets compatible with
-/// `TranslationTextSegment.source_start/source_end` even when source HTML has
-/// line breaks or split text nodes inside a paragraph.
-pub(crate) fn source_text_and_inline_formatting_spans(
-    node: &NodeRef,
-) -> (String, Vec<InlineFormattingSpan>) {
-    let model = source_inline_model(node);
-    (model.text, model.spans)
-}
-
 /// Extract one marker-aware inline model from a readable source block.
 ///
 /// This is the document-translation equivalent of XLIFF inline-code
@@ -98,22 +85,6 @@ pub(crate) fn source_inline_model(node: &NodeRef) -> InlineSourceModel {
         spans: coalesce_inline_spans(spans),
         markers,
     }
-}
-
-/// Extract source block text from reader HTML while skipping reader markers.
-///
-/// Uploaded section text comes from plain DOM text extraction, so inline
-/// footnote anchors can become normal characters such as `topic1`. Translation
-/// should see the prose only; marker placement is handled during rendering.
-pub(crate) fn source_text_blocks_excluding_nontranslatable_markers(view_html: &str) -> Vec<String> {
-    if view_html.trim().is_empty() {
-        return Vec::new();
-    }
-    let document = parse_html_document(view_html.to_string());
-    collect_probe_blocks(&document)
-        .into_iter()
-        .map(|node| source_text_and_inline_formatting_spans(&node).0)
-        .collect()
 }
 
 pub(crate) fn is_nontranslatable_inline_marker(node: &NodeRef) -> bool {
@@ -172,32 +143,21 @@ pub(crate) fn local_spans_for_fragment(
 
 /// Project spans independently and keep every safe non-overlapping result.
 ///
-/// Strict projection is useful for tests and simple paragraphs, but real books
-/// often contain dense nested emphasis. One bad projected range should not drop
-/// all other formatting in the same fragment, so rendering uses this tolerant
-/// path and lets unsafe spans fall back to plain text.
+/// Without provider alignment, only unique carry-over terms or exact phrase
+/// hints can be placed. Never infer emphasis from relative character position;
+/// uncertain spans remain plain text. Hints still need semantic review.
 pub(crate) fn projected_translated_spans_best_effort(
     spans: &[InlineFormattingSpan],
     source_text: &str,
     translated_text: &str,
     translation_hints: &[PersistTranslationInlinePhrase],
 ) -> Vec<ProjectedInlineSpan> {
-    let source_len = source_text.chars().count();
     let mut projected = spans
         .iter()
         .filter_map(|span| {
-            let span = exact_translated_span(span, source_text, translated_text, translation_hints)
-                .or_else(|| {
-                    let (start, end) =
-                        projected_translated_byte_range(span, source_len, translated_text)?;
-                    Some(ProjectedInlineSpan {
-                        start,
-                        end,
-                        tags: span.tags.clone(),
-                    })
-                })?;
-            (span.start < span.end).then_some(span)
+            exact_translated_span(span, source_text, translated_text, translation_hints)
         })
+        .filter(|span| span.start < span.end)
         .collect::<Vec<_>>();
     projected.sort_by_key(|span| (span.start, span.end));
 
@@ -228,6 +188,13 @@ fn exact_translated_span(
     translated_text: &str,
     translation_hints: &[PersistTranslationInlinePhrase],
 ) -> Option<ProjectedInlineSpan> {
+    if span.start == 0 && span.end == source_text.chars().count() {
+        return Some(ProjectedInlineSpan {
+            start: 0,
+            end: translated_text.len(),
+            tags: span.tags.clone(),
+        });
+    }
     let source_phrase = char_slice(source_text, span.start, span.end)?;
     let phrase = source_phrase.trim();
     if !phrase_is_specific_enough(phrase) {
@@ -255,20 +222,21 @@ fn exact_translated_span(
 /// Collect emphasized source phrases per readable block for optional repair.
 ///
 /// The job runner can translate these small phrases as probes, then renderer
-/// can exact-match the translated phrase. This is cheaper and less risky than
-/// inferring cross-language word alignment from whole paragraphs.
+/// can exact-match the translated phrase. These hints are best effort, not semantic
+/// alignment; ambiguous or absent matches remain plain text.
 pub(crate) fn inline_phrase_probes_by_block(view_html: &str) -> Vec<Vec<InlinePhraseProbe>> {
     if view_html.trim().is_empty() {
         return Vec::new();
     }
-    let document = parse_html_document(view_html.to_string());
-    collect_probe_blocks(&document)
+    DomPlan::new(view_html)
+        .blocks
         .into_iter()
-        .map(|node| {
-            let (source_text, spans) = source_text_and_inline_formatting_spans(&node);
-            spans
+        .map(|block| {
+            block
+                .inline
+                .spans
                 .into_iter()
-                .filter_map(|span| inline_phrase_probe(&source_text, span))
+                .filter_map(|span| inline_phrase_probe(&block.inline.text, span))
                 .collect()
         })
         .collect()
@@ -304,6 +272,12 @@ fn collect_inline_model(
         return;
     }
 
+    if node
+        .as_element()
+        .is_some_and(|element| matches!(element.name.local.as_ref(), "br" | "hr"))
+    {
+        *pending_space = true;
+    }
     let pushed_tag = inline_formatting_tag_name(node);
     if let Some(tag) = pushed_tag.clone() {
         active_tags.push(tag);
@@ -327,37 +301,6 @@ fn inline_phrase_probe(source_text: &str, span: InlineFormattingSpan) -> Option<
         source_end: span.end,
         text: text.to_string(),
     })
-}
-
-fn collect_probe_blocks(document: &NodeRef) -> Vec<NodeRef> {
-    let root = document
-        .select_first("body")
-        .ok()
-        .map(|body| body.as_node().clone())
-        .unwrap_or_else(|| document.clone());
-    let mut blocks = Vec::new();
-    collect_probe_blocks_from(&root, &mut blocks);
-    blocks
-}
-
-fn collect_probe_blocks_from(node: &NodeRef, blocks: &mut Vec<NodeRef>) {
-    for child in node.children() {
-        if is_probe_block(&child) {
-            blocks.push(child);
-        } else {
-            collect_probe_blocks_from(&child, blocks);
-        }
-    }
-}
-
-fn is_probe_block(node: &NodeRef) -> bool {
-    let Some(element) = node.as_element() else {
-        return false;
-    };
-    matches!(
-        element.name.local.as_ref(),
-        "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "p" | "li" | "blockquote"
-    )
 }
 
 /// Append text using the same whitespace contract as translation segments.
@@ -424,27 +367,6 @@ fn coalesce_inline_spans(spans: Vec<InlineFormattingSpan>) -> Vec<InlineFormatti
         merged.push(span);
     }
     merged
-}
-
-fn projected_translated_byte_range(
-    span: &InlineFormattingSpan,
-    source_len: usize,
-    translated_text: &str,
-) -> Option<(usize, usize)> {
-    if source_len == 0 {
-        return None;
-    }
-    let translated_len = translated_text.chars().count();
-    if translated_len == 0 {
-        return None;
-    }
-
-    let start = span.start.saturating_mul(translated_len) / source_len;
-    let mut end = span.end.saturating_mul(translated_len).div_ceil(source_len);
-    if end <= start {
-        end = (start + 1).min(translated_len);
-    }
-    translated_word_byte_range(translated_text, start, end)
 }
 
 fn phrase_is_specific_enough(phrase: &str) -> bool {
@@ -567,59 +489,6 @@ fn phrase_has_word_boundaries(text: &str, start: usize, end: usize) -> bool {
 /// translation expands/contracts a phrase. The rule is language-light: it uses
 /// Unicode alphanumeric characters plus apostrophe/hyphen, which is good enough
 /// for the first OPUS-MT MVP and easy to swap for a tokenizer-aware aligner.
-fn translated_word_byte_range(
-    text: &str,
-    start_char: usize,
-    end_char: usize,
-) -> Option<(usize, usize)> {
-    let chars = text.char_indices().collect::<Vec<_>>();
-    if chars.is_empty() {
-        return None;
-    }
-    let len = chars.len();
-    let mut start = start_char.min(len.saturating_sub(1));
-    let mut end = end_char.min(len);
-    if end <= start {
-        end = (start + 1).min(len);
-    }
-
-    // A start that lands mid-word snaps to the closer word edge. Always
-    // extending backward drags the span across the preceding word whenever
-    // translation shifts a phrase slightly right, styling one word too many.
-    if start > 0 && is_word_char(chars[start].1) && is_word_char(chars[start - 1].1) {
-        let mut word_start = start;
-        while word_start > 0 && is_word_char(chars[word_start - 1].1) {
-            word_start -= 1;
-        }
-        let mut word_end = start;
-        while word_end < len && is_word_char(chars[word_end].1) {
-            word_end += 1;
-        }
-        start = if start - word_start <= word_end - start {
-            word_start
-        } else {
-            word_end
-        };
-    }
-    while end < len && end > start && is_word_char(chars[end - 1].1) && is_word_char(chars[end].1) {
-        end += 1;
-    }
-
-    while start < end && !is_word_char(chars[start].1) {
-        start += 1;
-    }
-    while end > start && !is_word_char(chars[end - 1].1) {
-        end -= 1;
-    }
-
-    if start >= end {
-        return None;
-    }
-    let byte_start = chars[start].0;
-    let byte_end = if end < len { chars[end].0 } else { text.len() };
-    Some((byte_start, byte_end))
-}
-
 pub(crate) fn is_word_char(ch: char) -> bool {
     ch.is_alphanumeric() || ch == '\'' || ch == '\u{2019}' || ch == '-'
 }
@@ -672,8 +541,7 @@ pub(crate) fn byte_index_for_char(text: &str, char_index: usize) -> usize {
 mod tests {
     use super::{
         fragment_char_range, inline_phrase_probes_by_block, projected_translated_spans_best_effort,
-        source_inline_model, source_text_and_inline_formatting_spans,
-        source_text_blocks_excluding_nontranslatable_markers,
+        source_inline_model,
     };
     use crate::translation::html::parse_html_document;
     use crate::translation::storage::{PersistTranslationFragment, PersistTranslationInlinePhrase};
@@ -685,7 +553,8 @@ mod tests {
         );
         let node = document.select_first("p").expect("paragraph");
 
-        let (text, spans) = source_text_and_inline_formatting_spans(node.as_node());
+        let model = source_inline_model(node.as_node());
+        let (text, spans) = (model.text, model.spans);
 
         assert_eq!(text, "La puerta azul es importante.");
         assert_eq!(spans.len(), 2);
@@ -713,7 +582,7 @@ mod tests {
     }
 
     #[test]
-    fn best_effort_projection_keeps_safe_spans_when_one_overlaps() {
+    fn refuses_partial_word_carryover_without_alignment() {
         let spans = vec![
             super::InlineFormattingSpan {
                 start: 0,
@@ -730,8 +599,7 @@ mod tests {
         let projected =
             projected_translated_spans_best_effort(&spans, "abcdefghij", "abcdefghij", &[]);
 
-        assert_eq!(projected.len(), 1);
-        assert_eq!(projected[0].tags, vec!["strong"]);
+        assert!(projected.is_empty());
     }
 
     #[test]
@@ -868,7 +736,11 @@ mod tests {
     fn excludes_footnote_markers_from_translation_source_text() {
         let html = "<!doctype html><html><body><article><p>Topic<a href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> changes.</p></article></body></html>";
 
-        let blocks = source_text_blocks_excluding_nontranslatable_markers(html);
+        let blocks = super::DomPlan::new(html)
+            .blocks
+            .into_iter()
+            .map(|block| block.inline.text)
+            .collect::<Vec<_>>();
         let document = parse_html_document(html);
         let paragraph = document.select_first("p").expect("paragraph");
         let markers = source_inline_model(paragraph.as_node()).markers;

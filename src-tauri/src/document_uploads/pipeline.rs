@@ -42,8 +42,8 @@ use super::types::{
 };
 
 const MAX_STORED_COVER_BYTES: u64 = 5 * 1024 * 1024;
-const MAX_STORED_READER_ASSET_BYTES: u64 = 5 * 1024 * 1024;
-const MAX_TOTAL_READER_ASSET_BYTES: u64 = 100 * 1024 * 1024;
+pub(super) const MAX_STORED_READER_ASSET_BYTES: u64 = 5 * 1024 * 1024;
+pub(super) const MAX_TOTAL_READER_ASSET_BYTES: u64 = 100 * 1024 * 1024;
 const READER_SOURCE_FILE_NAME: &str = "reader.html";
 
 /// Import one already-selected HTML source without coupling parsing to a picker.
@@ -455,7 +455,10 @@ fn write_reader_source(path: &Path, html: &str) -> Result<(), String> {
 
 /// Persist parser-owned reader images only after rechecking the shared filename
 /// and size contract. Parser checks alone are insufficient for transfer restores.
-fn write_reader_assets(dir: &Path, assets: &[ParsedDocumentAsset]) -> Result<(), String> {
+pub(super) fn write_reader_assets(
+    dir: &Path,
+    assets: &[ParsedDocumentAsset],
+) -> Result<(), String> {
     if assets.is_empty() {
         return Ok(());
     }

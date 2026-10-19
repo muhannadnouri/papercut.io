@@ -1,16 +1,16 @@
 //! Source-document reads for translation jobs.
 //!
-//! Upload parsers already normalize HTML/EPUB into `uploaded_sections` and a
-//! sanitized reader HTML file. Translation consumes both: sections drive stable
-//! batching/search text, while reader HTML lets rendered translations preserve
-//! document structure where possible.
+//! SQLite supplies provenance; the sanitized reader snapshot supplies the DOM
+//! plan and owned assets. Extraction and rendering share that same snapshot.
 
-use rusqlite::{params, OptionalExtension};
+use rusqlite::OptionalExtension;
 use tauri::Runtime;
 
 use crate::document_uploads::{open_document_uploads_db, read_uploaded_document_source};
 
-use super::inline_markup::source_text_blocks_excluding_nontranslatable_markers;
+use super::dom::DomPlan;
+use crate::document_uploads::ParsedDocumentAsset;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TranslationSourceDocument {
@@ -20,11 +20,14 @@ pub(crate) struct TranslationSourceDocument {
     pub(crate) format: String,
     pub(crate) view_html: String,
     pub(crate) blocks: Vec<TranslationSourceBlock>,
+    // Share up to 100 MiB of snapshot bytes across runner/persistence clones.
+    pub(crate) assets: Arc<Vec<ParsedDocumentAsset>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TranslationSourceBlock {
     pub(crate) ordinal: usize,
+    pub(crate) is_heading: bool,
     pub(crate) heading: Option<String>,
     pub(crate) text: String,
 }
@@ -40,35 +43,23 @@ pub(crate) fn load_translation_source_document<R: Runtime>(
 ) -> Result<TranslationSourceDocument, String> {
     let db = open_document_uploads_db(app)?;
     let mut source = query_translation_source_document(&db, document_url)?;
-    source.view_html = read_uploaded_document_source(app, document_url)?;
-    apply_marker_free_reader_text(&mut source);
+    let (html, assets) = read_uploaded_document_source(app, document_url)?;
+    source.view_html = html;
+    source.assets = Arc::new(assets);
+    source.blocks = DomPlan::new(&source.view_html)
+        .blocks
+        .into_iter()
+        .map(|block| TranslationSourceBlock {
+            ordinal: block.ordinal,
+            is_heading: block.is_heading,
+            heading: block.heading,
+            text: block.inline.text,
+        })
+        .collect();
+    if source.blocks.is_empty() {
+        return Err("Source document has no translatable sections".into());
+    }
     Ok(source)
-}
-
-/// Prefer reader-DOM text when it maps exactly to uploaded sections.
-///
-/// The DB section text is plain extraction from upload time, so footnote labels
-/// embedded in anchors can look like prose (`topic1`) and leak into MT output.
-/// Reader HTML still has marker structure, letting us strip those labels before
-/// translation while keeping persisted ordinals/headings unchanged.
-fn apply_marker_free_reader_text(source: &mut TranslationSourceDocument) {
-    let blocks = source_text_blocks_excluding_nontranslatable_markers(&source.view_html);
-    if blocks.len() != source.blocks.len() {
-        // MT input falls back to DB section text, so footnote labels may leak
-        // into translated prose for this document; keep that traceable.
-        log::warn!(
-            "translation: reader DOM has {} blocks but uploaded sections have {} for '{}'; marker labels may leak into MT input",
-            blocks.len(),
-            source.blocks.len(),
-            source.title
-        );
-        return;
-    }
-    for (block, text) in source.blocks.iter_mut().zip(blocks) {
-        if !text.trim().is_empty() {
-            block.text = text;
-        }
-    }
 }
 
 fn query_translation_source_document(
@@ -93,32 +84,10 @@ fn query_translation_source_document(
     let Some((document_id, document_url, title, format)) = metadata else {
         return Err("Source document was not found for translation".into());
     };
-
-    let mut stmt = db
-        .prepare(
-            "SELECT ordinal, heading, text \
-             FROM uploaded_sections \
-             WHERE document_id = ?1 \
-             ORDER BY ordinal ASC",
-        )
-        .map_err(db_err)?;
-    let blocks = stmt
-        .query_map(params![&document_id], |row| {
-            let ordinal = row.get::<_, i64>(0)?;
-            let ordinal = usize::try_from(ordinal)
-                .map_err(|_| rusqlite::Error::IntegralValueOutOfRange(0, ordinal))?;
-            Ok(TranslationSourceBlock {
-                ordinal,
-                heading: row.get(1)?,
-                text: row.get(2)?,
-            })
-        })
-        .map_err(db_err)?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(db_err)?;
-
-    if blocks.is_empty() {
-        return Err("Source document has no translatable sections".into());
+    if !matches!(format.as_str(), "html" | "epub") {
+        return Err(
+            "Translation does not support this document format; choose HTML or EPUB".into(),
+        );
     }
 
     Ok(TranslationSourceDocument {
@@ -127,7 +96,8 @@ fn query_translation_source_document(
         title,
         format,
         view_html: String::new(),
-        blocks,
+        assets: Arc::default(),
+        blocks: Vec::new(),
     })
 }
 
@@ -142,7 +112,7 @@ mod tests {
     use super::query_translation_source_document;
 
     #[test]
-    fn reads_sections_in_document_order_by_url() {
+    fn reads_provenance_by_url_without_using_stale_index_text() {
         let db = test_db();
 
         let source =
@@ -153,13 +123,7 @@ mod tests {
         assert_eq!(source.title, "Book");
         assert_eq!(source.format, "html");
         assert_eq!(source.view_html, "");
-        assert_eq!(source.blocks.len(), 2);
-        assert_eq!(source.blocks[0].ordinal, 0);
-        assert_eq!(source.blocks[0].heading.as_deref(), Some("Intro"));
-        assert_eq!(source.blocks[0].text, "First block");
-        assert_eq!(source.blocks[1].ordinal, 1);
-        assert_eq!(source.blocks[1].heading.as_deref(), Some("Chapter"));
-        assert_eq!(source.blocks[1].text, "Second block");
+        assert!(source.blocks.is_empty());
     }
 
     #[test]
@@ -172,12 +136,30 @@ mod tests {
     }
 
     #[test]
-    fn rejects_document_without_sections() {
-        let db = test_db_with_empty_document();
-        let error =
-            query_translation_source_document(&db, "/empty.html").expect_err("empty document");
-
-        assert!(error.contains("no translatable sections"));
+    fn accepts_only_html_and_epub_before_loading_reader_files() {
+        let db = test_db();
+        for format in ["html", "epub"] {
+            db.execute(
+                "UPDATE uploaded_documents SET format=?1 WHERE id='doc1'",
+                [format],
+            )
+            .unwrap();
+            assert!(query_translation_source_document(&db, "/user-uploads/book.html").is_ok());
+        }
+        for format in ["pdf", "txt", "docx", "", "unknown"] {
+            db.execute(
+                "UPDATE uploaded_documents SET format=?1 WHERE id='doc1'",
+                [format],
+            )
+            .unwrap();
+            let error =
+                query_translation_source_document(&db, "/user-uploads/book.html").unwrap_err();
+            assert!(error.contains("choose HTML or EPUB"));
+            assert_eq!(
+                crate::translation::types::TranslationCommandError::new(error).code,
+                "unsupported-translation-option"
+            );
+        }
     }
 
     fn test_db() -> Connection {
@@ -201,18 +183,6 @@ mod tests {
             [],
         )
         .expect("insert first");
-        db
-    }
-
-    fn test_db_with_empty_document() -> Connection {
-        let db = test_schema();
-        db.execute(
-            "INSERT INTO uploaded_documents \
-             (id, url, title, format, imported_at_ms, bytes, sections) \
-             VALUES ('empty', '/empty.html', 'Empty', 'html', 1, 0, 0)",
-            [],
-        )
-        .expect("insert empty document");
         db
     }
 

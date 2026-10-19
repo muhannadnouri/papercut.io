@@ -61,3 +61,41 @@ pub(crate) trait TranslationEngine {
         input: TranslationBatchInput,
     ) -> Result<Vec<TranslationSegmentOutput>, String>;
 }
+
+/// Reject missing, duplicated or reordered replies before associating text with a DOM block/cache key.
+pub(super) fn validate_output_ids(
+    expected: &[&str],
+    outputs: &[TranslationSegmentOutput],
+) -> Result<(), String> {
+    if expected.len() != outputs.len()
+        || expected
+            .iter()
+            .zip(outputs)
+            .any(|(id, output)| *id != output.id)
+    {
+        return Err("Translation engine returned mismatched segment identities".into());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn rejects_missing_extra_duplicate_and_reordered_replies() {
+        let output = |id: &str| TranslationSegmentOutput {
+            id: id.into(),
+            text: "translated".into(),
+        };
+        for replies in [
+            vec![],
+            vec![output("a")],
+            vec![output("a"), output("b"), output("c")],
+            vec![output("a"), output("a")],
+            vec![output("b"), output("a")],
+        ] {
+            assert!(validate_output_ids(&["a", "b"], &replies).is_err());
+        }
+        assert!(validate_output_ids(&["a", "b"], &[output("a"), output("b")]).is_ok());
+    }
+}

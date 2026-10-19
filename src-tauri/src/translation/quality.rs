@@ -737,7 +737,6 @@ mod tests {
 
     fn section_with_ordinal(source_ordinal: usize, text: &str) -> PersistTranslationSection {
         PersistTranslationSection {
-            heading: None,
             source_heading: None,
             source_ordinal,
             is_heading: false,
@@ -749,6 +748,7 @@ mod tests {
     fn source_block(ordinal: usize, text: &str) -> TranslationSourceBlock {
         TranslationSourceBlock {
             ordinal,
+            is_heading: false,
             heading: None,
             text: text.into(),
         }

@@ -8,6 +8,8 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 
 ## Current Implementation Status
 
+- Translation accepts **HTML and EPUB only**, enforced in both the UI and native source loader. PDF and other formats remain unsupported.
+
 - Desktop builds on this branch enable `native-tts-shared,experimental-search-embeddings,native-translation-ctranslate2,native-translation-llama` through `npm run desktop`.
 - `npm run desktop:no-translation` keeps shared TTS and conceptual search while disabling translation for packaging/debug isolation.
 - Spanish -> English and French -> English OPUS-MT CTranslate2 manifests are pinned and installable.
@@ -82,11 +84,12 @@ src-tauri/src/translation/
   commands.rs       # Tauri command edge and event subscription plumbing
   config.rs         # size limits, chunk limits, feature constants
   ctranslate2.rs    # CTranslate2/OPUS-MT engine adapter
+  dom.rs            # shared importer-backed DOM plan and source identities
   engine.rs         # shared engine trait and batch/segment contracts
   hash.rs           # stable non-cryptographic hashing for cache identity
   html.rs           # shared HTML parser boundary for DOM-preserving transforms
   hy_mt2.rs         # llama.cpp/HY-MT2 engine adapter
-  inline_markup.rs  # marker-aware inline models and span projection
+  inline_markup.rs  # marker-aware inline models and conservative phrase matching
   job.rs            # request validation, segmentation batching, cache keys
   model_install.rs  # download, verify, install, remove
   model_store.rs    # model manifests, install paths, model status helpers
@@ -136,8 +139,8 @@ The document list should show translated variants as durable documents, not tran
 Long documents need bounded, resumable work. Recommended flow:
 
 1. Validate selected source document and target language.
-2. Load source section metadata and stored safe HTML.
-3. Segment by chapter, heading, paragraph, sentence, and protected inline ranges. Current builds now carry translated segment fragments with normalized source offsets into rendering, and each readable block is extracted into a marker-aware inline model: prose text goes to MT, formatting spans stay as side data, and footnote/backlink markers are preserved as non-translatable inline codes. Inline rendering keeps exact carry-over emphasis for unique terms that survive translation unchanged and uses translated emphasized-phrase hints where available; hint matching is tolerant of MT probe noise (sentence casing, accent folding, wrapping quotes/punctuation) but still requires one unambiguous word-bounded target occurrence. Each projected span is treated independently so one unsafe range does not drop all nearby formatting, and distinct source spans that project onto overlapping target ranges are dropped rather than merged into fabricated combined emphasis. Full cross-language phrase alignment remains future work.
+2. Load source provenance and a safe reader HTML/asset snapshot; derive text from the shared DOM plan.
+3. Segment by chapter, heading, paragraph, sentence, and protected inline ranges. Current builds now carry translated segment fragments with normalized source offsets into rendering, and each readable block is extracted into a marker-aware inline model: prose text goes to MT, formatting spans stay as side data, and footnote/backlink markers are preserved as non-translatable inline codes. Inline rendering keeps exact carry-over emphasis for unique terms that survive translation unchanged and uses translated emphasized-phrase hints where available; hint matching is tolerant of MT probe noise (sentence casing, accent folding, wrapping quotes/punctuation) but still requires one unambiguous word-bounded target occurrence. Each projected span is treated independently so one unsafe range does not drop all nearby formatting, and distinct source spans that project onto overlapping target ranges are dropped rather than merged into fabricated combined emphasis. Proportional emphasis guesses were removed in the shared DOM foundation; uncertain spans now remain plain text. Full cross-language phrase alignment remains future work.
 4. Future context-rich engines may build a document memory packet:
    - title
    - author, if known
@@ -480,43 +483,71 @@ Status:
 - Needs proof: release CI artifacts on supported desktop targets.
 - Not done: Android translation packaging.
 
-### Stage 6: HTML/EPUB Preservation - Mostly Done
+### Stage 6: Shared DOM Mapping And Asset Preservation — Foundation Complete
 
-- Preserve document order and heading shape from the existing section data:
-  - Carry source section ordinals into translated output.
-  - Render translated heading blocks as headings instead of duplicating original-language headings.
-  - Add stable translated-section anchors and source metadata attributes.
-- Add first-pass DOM transform rendering:
-  - Use the sanitized reader `view_html` as the source of truth.
-  - Use the existing HTML parser stack (`kuchikiki`) to replace mapped readable text in place.
-  - Keep inline emphasis span collection/projection in `translation::inline_markup` so future phrase alignment or placeholder repair can replace the projection strategy without rewriting DOM rendering.
-  - Extract readable blocks into a marker-aware inline model before translation: text is translated, footnote/backlink markers are preserved as inline codes, and formatting spans are carried as side data.
-  - Collect render blocks with the same descendant-skipping behavior as the importer so nested endnote `<li><p>...</p></li>` structures do not shift section mapping.
-  - Preserve simple block attributes, existing ids, links, images, tables, and EPUB-rewritten assets from the cloned safe DOM.
-  - Preserve whole-block inline emphasis when one safe formatting wrapper owns the entire source block, such as `<strong>...</strong>` or nested `<em><strong>...</strong></em>`.
-  - Carry translated segment fragments and normalized source offsets through storage-time rendering so mixed inline emphasis is projected inside sentence/segment windows before falling back to block-level projection.
-  - Prefer exact carry-over matches for unique emphasized phrases that survive translation unchanged before using proportional projection.
-  - Translate small emphasized source phrases as best-effort repair probes and store them with their segment fragments, so renderer can match the translated phrase rather than only proportional position. Probe translations are reused through the segment cache's translation memory, and probe hints are only attached when reader-DOM blocks align one-to-one with planned source blocks.
-  - Match hint/carry-over phrases exactly first, then with case/accent folding and wrapping-punctuation trimming, always requiring a unique word-bounded occurrence in the translated text. Accent folding uses Unicode canonical decomposition, so all combining-mark Latin diacritics fold consistently across language pairs.
-  - Project safe partial inline emphasis spans onto translated text by relative text position snapped to word boundaries (mid-word starts snap to the nearest word edge), retaining safe non-overlapping spans independently instead of dropping a whole fragment when one span cannot be trusted; overlapping projections are dropped, never merged.
-  - Fragment hints also feed block-level projection when fragment-to-source pairing fails, so probe work is not lost with the fragment path.
-  - Preserve footnote/noteref anchors and ordered-list endnote structure when replacing translated text; marker labels are stripped from MT input and reinserted near their translated anchor word, with word-boundary fallback to avoid markers landing inside words. Block-final markers (such as endnote backlinks) are placed after the whole translated text, including MT-added trailing punctuation.
-  - Keep inline text extraction free of invented whitespace: punctuation text nodes directly after a formatting element stay attached to the preceding word so MT input and fragment matching see natural prose.
-  - Insert translated fallback text beside blocks that contain media/table content instead of destroying assets or table structure.
-- Next preservation work requires a stronger section locator layer:
-  - Add phrase/word alignment for translated phrases that reorder substantially across languages.
-  - Map translated segments to exact DOM text nodes rather than only block order when source fragments are split across complex nested markup.
-  - Add coverage for complex nested links, footnotes, reordered phrases, and tables.
-- Add fixtures for footnotes, links, RTL text, images, and tables.
-- Add first-pass quality checks for broken internal links and empty translated output before storing translated variants.
-- Later quality checks should add language detection, repeated-output detection, length-ratio checks, protected term checks, and richer tag/anchor validation.
+`translation::dom::DomPlan` is the engine-independent mapping boundary. It
+uses the importer's leaf-block selector, so EPUB `div` blocks, nested lists and
+blockquotes have the same source order during extraction, phrase probes and
+rendering. SQLite supplies provenance; the sanitized reader snapshot supplies
+text. Block identities use importer ordinals (gaps are allowed for protected or
+marker-only blocks), and source text is checked again before rendering. Missing,
+extra, reordered or stale mappings fail before durable writes, instead of
+falling back to an HTML document that silently loses assets or links. Engine
+batch replies must retain the exact requested segment identities and order.
 
-Status:
+Responsibilities:
 
-- Done: DOM-preserving render path uses sanitized `view_html`; parser details are centralized in `translation::html`; inline markup collection/projection is isolated in `translation::inline_markup`; render block collection now matches importer block units; simple block text is replaced in place; real translation jobs carry source/target segment fragments plus normalized source offsets into translated sections; readable blocks are extracted into marker-aware inline models; whole-block inline emphasis is preserved when structurally unambiguous; mixed inline emphasis spans are projected inside segment windows before block-level fallback; exact carry-over emphasized phrases are preserved when one unique target match exists; small emphasized phrases are translated as best-effort repair hints for exact target phrase matching; safe non-overlapping inline spans survive even when nearby spans cannot be placed; footnote anchors and ordered endnote list items survive replacement without entering MT prose; media/table-heavy blocks keep source markup and insert translated fallback text nearby; generated output carries source ordinals and stable translated-section anchors.
-- Done: first-pass broken internal-link and empty-output validation, including source-section-specific errors when one section returns blank after all segments finish.
-- Done: focused renderer regressions cover reordered emphasis placed through translated phrase hints, nested internal-link markup, and internal links retained inside preserved table blocks.
-- Still needed: general phrase alignment for reordered translations without a reliable hint, real-world complex-document fixtures, and richer tag/anchor validation.
+- `document_uploads::html`: canonical block selection, sanitizer, section locators
+  and search body ranges; the saved DOM is parsed once for its actual index rows.
+- `translation::dom`: shared block identities, heading context and normalized
+  inline models. Segment/source offsets remain **Unicode scalar indices**;
+  target rendering ranges are **UTF-8 byte offsets**, with explicit conversion.
+- `translation::inline_markup`: normalization, emphasis spans, footnote/backlink
+  markers and conservative phrase matching. `<br>`/`<hr>` separate words.
+- `translation::render`: verifies the mapping and mutates the cloned reader DOM.
+  Engine output is text, never trusted HTML. Existing block ids survive; links,
+  notes and whole-block emphasis retain their existing conservative handling.
+- `document_uploads::reader_assets`: snapshots only referenced canonical image
+  names, deduplicates them, rejects missing/nonregular/symlinked/empty/oversized
+  files and content-hash mismatches. Existing limits apply: 5 MiB per asset,
+  100 MiB total. No hard links or source-directory pointers are persisted.
+- `document_uploads::derived`: sanitizes and indexes the rendered HTML, stages
+  its independently owned images with the HTML, and commits upload/search and
+  translation metadata together. Failed replacements restore both old files
+  and database rows. Stored size includes HTML plus unique referenced images.
+
+There is **no proportional emphasis projection** in new output. Whole-block
+formatting and unique carry-over/phrase-hint matches can survive; uncertain
+partial emphasis becomes plain text. Phrase probes remain a best-effort aid,
+not proof of semantic alignment. The cache alignment version is now **2**, so
+old strategy caches are not silently reused. Variant identity is unchanged;
+existing saved variants, original files, audio and highlighting are not migrated
+or rewritten. Explicitly rerunning the same settings can replace that variant.
+
+Limitations are deliberate: media/table-heavy blocks and blocks containing code,
+protected inline content or nested non-link ids retain the original block and
+receive translated prose beside it. Entire `translate="no"` blocks are not sent
+to the engine. Protected inline text may still occur in the plain-text request;
+the renderer preserves its original markup, rather than trusting a generated
+replacement. Ordinary link labels may remain in the source language. Footnote
+placement remains best effort. Exact inline translation, translated table-cell
+mapping and provider annotations/alignments are future work, not guarantees of
+this foundation.
+
+Regression coverage includes shared leaf-block order, repeated text, line-break
+boundaries, Arabic combining marks/emoji offsets, protected blocks, stale and
+reordered mappings/replies, real French gold/Spanish king emphasis failures,
+escaped model output, image snapshot tampering/limits, source deletion, actual
+saved section/body-range rows, and replacement rollback.
+
+Validation (2026-10-18): `cargo test --manifest-path src-tauri/Cargo.toml
+--no-default-features --locked --offline --lib` passed **377 tests**, with
+**4 existing ignored**. `cargo check` with the same no-default/locked/offline
+configuration, `npm run build:typecheck`, Rust formatting and diff checks passed.
+The frontend suite passed **373 tests**, with **1 existing skipped**. Feature-disabled native
+adapter dead-code warnings remain. No new runtime, dependency, provider or app
+version was introduced. Benchmarks, model inference/hardware comparisons,
+installed-app smoke and the version bump remain deferred.
 
 ### Stage 7: Quality Upgrades - Mostly Done
 
@@ -754,10 +785,10 @@ parallel jobs or a low-memory phone.
 
 ### Translation And Markup Findings
 
-| Case | Bergamot observation | OPUS-MT / current renderer observation |
+| Case | Bergamot observation | OPUS-MT / renderer at evaluation time |
 | --- | --- | --- |
-| `La bague en <strong>or</strong> est perdue.` | `The <strong>gold</strong> ring is lost.` | Text is correct; current renderer bolds **ring**. Spanish `oro` bolds **ring has**. |
-| `La casa del <strong>rey</strong> es grande.` | Bolds **king's** correctly. | Text is correct; current renderer bolds **house**. |
+| `La bague en <strong>or</strong> est perdue.` | `The <strong>gold</strong> ring is lost.` | Text is correct; then-current renderer bolded **ring**. Spanish `oro` bolds **ring has**. |
+| `La casa del <strong>rey</strong> es grande.` | Bolds **king's** correctly. | Text is correct; then-current renderer bolded **house**. |
 | French size / nested emphasis | “king's house is big”; nesting retained. | “king's house is great”; French nested case loses italic and includes “a” in bold despite phrase probes. |
 | French library notice | Changes “three books” to **“three pounds.”** | Retains “three books.” Both retain the broad notice structure. |
 | Rain idioms | French becomes “raining ropes”; Spanish loses the rain meaning. | French also becomes “raining ropes”; Spanish retains rain but weakens the idiom. |
@@ -790,11 +821,10 @@ A responsive desktop browser at a mobile viewport would not fill that gap.
 
 ### Next Bounded Work Before Production Integration
 
-1. Preserve job/download/cache/cancel/derived-document/TTS architecture. Define
-   one shared DOM plan: stable block/inline identities and normalized UTF-8
-   offsets; protect links, ids, notes, code and assets independently of engines.
-   Replace proportional projection as a fidelity strategy. Validate reordered
-   emphasis and protected boundaries using the real failure cases above.
+1. The shared DOM/asset foundation is implemented above. Extend its inline
+   mapping only with validated provider annotations/alignments; do not reintroduce
+   positional emphasis guesses. The existing normalized scalar-offset contract
+   must be converted explicitly at any provider UTF-8 boundary.
 2. Prototype the supported WASM worker boundary before choosing a native
    Bergamot FFI. It runs today without a maintained C++ fork, but it cannot be
    dropped into the synchronous Rust `TranslationEngine` trait unchanged.
@@ -809,12 +839,10 @@ A responsive desktop browser at a mobile viewport would not fill that gap.
    though it exposes the request option. Use an upstream-supported binding/API
    or a separately evaluated aligner if OPUS semantic inline mapping is retained.
    LLMs remain optional future providers, not trusted raw-HTML generators.
-4. Repair integration gaps before release: main now stores reader images as
-   owned external assets, while the translation bridge consumes only `.html`
-   and creates variants with empty assets. Explicitly copy/re-own verified
-   assets and test a variant after source deletion; do not assume old inline
-   image behavior still applies. Recheck section/body-range and semantic-index
-   behavior on derived updates as part of that integration test.
+4. Asset ownership and actual-DOM indexing are now implemented and regression
+   tested. Installed-app validation still needs complex EPUB images, semantic
+   search after replacement, reader navigation and TTS/highlighting on new
+   translated variants. Existing generated audio is not migrated.
 5. Run a larger **blinded bilingual** French/Spanish book/technical corpus on
    both candidates, including idioms, numbers, omissions and semantic emphasis.
    Benchmark the actual packaged adapter on the weakest supported Android
@@ -826,6 +854,15 @@ Version cache/alignment semantics when mapping changes; preserve existing
 variants, original documents and already generated audio/highlighting.
 There is no Bergamot production integration, new model catalog entry, app
 version bump or installed-app smoke result in this stage.
+
+### Benchmark Deferral
+
+The user deferred further benchmarks and model-default selection. The uncommitted
+Pixel 7/Termux benchmark scripts, guide and generated package/cache were removed;
+none is required by builds or tests. The committed evaluation JSON remains the
+historical evidence behind the comparison above. No Pixel 7 speed/RAM or mobile
+translation support is claimed. Reintroduce a bounded benchmark only when an
+actual provider adapter is ready to evaluate.
 
 ### Reproducing Or Extending The Comparison
 

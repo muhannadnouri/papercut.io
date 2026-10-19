@@ -12,7 +12,6 @@ use tauri::Runtime;
 
 use crate::document_uploads::{
     delete_derived_document, open_document_uploads_db, persist_derived_document,
-    DerivedDocumentSection,
 };
 
 use super::hash::StableHasher;
@@ -71,7 +70,6 @@ pub(crate) struct PersistTranslationRequest {
 
 #[derive(Debug, Clone)]
 pub(crate) struct PersistTranslationSection {
-    pub(crate) heading: Option<String>,
     pub(crate) source_heading: Option<String>,
     pub(crate) source_ordinal: usize,
     pub(crate) is_heading: bool,
@@ -118,7 +116,7 @@ pub(crate) fn persist_translated_document<R: Runtime>(
         request.source.title,
         format_language_label(&request.target_language)
     );
-    let view_html = render_translated_html(&title, &request);
+    let view_html = render_translated_html(&title, &request)?;
     validate_translated_output(
         &view_html,
         &request.source.blocks,
@@ -127,15 +125,6 @@ pub(crate) fn persist_translated_document<R: Runtime>(
         &request.target_language,
     )?;
     on_validated()?;
-    let bytes = view_html.as_bytes().len() as u64;
-    let sections = request
-        .translated_sections
-        .iter()
-        .map(|section| DerivedDocumentSection {
-            heading: section.heading.clone(),
-            text: section.text.clone(),
-        })
-        .collect();
     let settings_json = serde_json::json!({
         "jobId": request.job_id,
         "qualityMode": request.quality_mode,
@@ -154,9 +143,8 @@ pub(crate) fn persist_translated_document<R: Runtime>(
         &title,
         "html",
         view_html,
-        sections,
+        &request.source.assets,
         now,
-        bytes,
         |tx| {
             tx.execute(
             "INSERT INTO translated_documents \
@@ -434,6 +422,7 @@ mod tests {
                 title: "Livre".into(),
                 format: "html".into(),
                 view_html: String::new(),
+                assets: Default::default(),
                 blocks: Vec::new(),
             },
             source_language: "fr".into(),
@@ -448,7 +437,7 @@ mod tests {
     }
 
     #[test]
-    fn translated_html_preserves_section_order_and_heading_shape() {
+    fn refuses_storage_render_without_the_source_dom() {
         let request = PersistTranslationRequest {
             source: TranslationSourceDocument {
                 document_id: "source1".into(),
@@ -456,14 +445,17 @@ mod tests {
                 title: "Livre".into(),
                 format: "html".into(),
                 view_html: String::new(),
+                assets: Default::default(),
                 blocks: vec![
                     TranslationSourceBlock {
                         ordinal: 0,
+                        is_heading: true,
                         heading: Some("Chapitre".into()),
                         text: "Chapitre".into(),
                     },
                     TranslationSourceBlock {
                         ordinal: 1,
+                        is_heading: false,
                         heading: Some("Chapitre".into()),
                         text: "Bonjour".into(),
                     },
@@ -478,7 +470,6 @@ mod tests {
             glossary: Vec::new(),
             translated_sections: vec![
                 PersistTranslationSection {
-                    heading: Some("Chapitre".into()),
                     source_heading: Some("Chapitre".into()),
                     source_ordinal: 0,
                     is_heading: true,
@@ -486,7 +477,6 @@ mod tests {
                     fragments: Vec::new(),
                 },
                 PersistTranslationSection {
-                    heading: Some("Chapitre".into()),
                     source_heading: Some("Chapitre".into()),
                     source_ordinal: 1,
                     is_heading: false,
@@ -497,12 +487,6 @@ mod tests {
         };
 
         let html = render_translated_html("Livre (English translation)", &request);
-
-        assert!(html.contains("id=\"translation-section-1\""));
-        assert!(html.contains("data-source-ordinal=\"0\""));
-        assert!(html.contains("<h2 id=\"translation-section-1-heading\">Chapter</h2>"));
-        assert!(html.contains("id=\"translation-section-2\""));
-        assert!(html.contains("<p>Hello</p>"));
-        assert!(!html.contains("<h2>Chapitre</h2>"));
+        assert!(html.is_err());
     }
 }

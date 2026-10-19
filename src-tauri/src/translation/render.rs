@@ -8,6 +8,7 @@
 
 use kuchikiki::NodeRef;
 
+use super::dom::DomPlan;
 use super::html::parse_html_document;
 use super::inline_markup::{
     byte_index_for_char, fold_phrase_char, fragment_char_range, is_inline_formatting_element,
@@ -20,8 +21,6 @@ use super::storage::{
     PersistTranslationSection,
 };
 
-const MEDIA_DESCENDANT_SELECTOR: &str = "img,table,figure,audio,video";
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ProjectedInlineMarker {
     byte_offset: usize,
@@ -30,18 +29,16 @@ struct ProjectedInlineMarker {
 
 /// Render a persisted translated document.
 ///
-/// The DOM-preserving path is best-effort by design: if the stored reader HTML
-/// cannot be parsed/mapped safely, we fall back to section-only HTML so a
-/// completed translation is still viewable, searchable, and durable.
-pub(crate) fn render_translated_html(title: &str, request: &PersistTranslationRequest) -> String {
-    render_translated_dom(title, request).unwrap_or_else(|| {
-        // Losing DOM preservation drops links/images/anchors down to plain
-        // sections; that trade-off should be visible when triaging output.
-        log::warn!(
-            "translation: DOM-preserving render failed for '{title}'; using section-only fallback document"
-        );
-        render_section_document(title, request)
-    })
+/// Reject a stale/incomplete mapping instead of silently dropping document structure.
+pub(crate) fn render_translated_html(
+    title: &str,
+    request: &PersistTranslationRequest,
+) -> Result<String, String> {
+    if request.source.view_html.trim().is_empty() {
+        return Err("Translation source reader HTML is missing".into());
+    }
+    render_translated_dom(title, request)
+        .ok_or_else(|| "Translation source/result DOM mapping does not match".into())
 }
 
 /// Clone the safe reader HTML and replace readable blocks in source order.
@@ -53,23 +50,39 @@ fn render_translated_dom(title: &str, request: &PersistTranslationRequest) -> Op
     if request.source.view_html.trim().is_empty() {
         return None;
     }
-    let document = parse_html_document(request.source.view_html.clone());
+    let plan = DomPlan::new(&request.source.view_html);
+    if plan.blocks.len() != request.source.blocks.len()
+        || plan.blocks.len() != request.translated_sections.len()
+    {
+        return None;
+    }
+    for ((block, source), section) in plan
+        .blocks
+        .iter()
+        .zip(&request.source.blocks)
+        .zip(&request.translated_sections)
+    {
+        if block.ordinal != source.ordinal
+            || source.ordinal != section.source_ordinal
+            || block.inline.text != source.text
+            || block.is_heading != source.is_heading
+            || source.is_heading != section.is_heading
+        {
+            return None;
+        }
+    }
+    let document = plan.document;
     update_title(&document, title);
     annotate_article(&document, request);
 
-    let mut sections = request.translated_sections.iter();
     let mut replaced_any = false;
-    let mut mapped_sections = 0usize;
-    for node in collect_render_blocks(&document) {
-        let Some(section) = sections.next() else {
-            break;
-        };
-        mapped_sections += 1;
+    for (block, section) in plan.blocks.into_iter().zip(&request.translated_sections) {
+        let node = block.node;
         annotate_block(&node, section);
         if section.text.trim().is_empty() {
             continue;
         }
-        if has_media_descendant(&node) {
+        if requires_preserved_block(&node) {
             insert_translation_after(&node, section);
         } else if replace_text_with_fragment_formatting(&node, &section.fragments) {
             // Segment-level source/target pairs give safer inline placement than
@@ -81,120 +94,17 @@ fn render_translated_dom(title: &str, request: &PersistTranslationRequest) -> Op
             section.text.trim(),
             &section_inline_phrase_hints(section),
         ) {
-            // The helper projected safe source emphasis spans onto translated text.
+            // Only unique phrase matches are styled; uncertain spans stay plain text.
         } else {
             replace_children_with_text(&node, section.text.trim());
         }
         replaced_any = true;
     }
 
-    if !replaced_any || mapped_sections != request.translated_sections.len() {
+    if !replaced_any {
         return None;
     }
     serialize_document(&document)
-}
-
-/// Collect the same block units the upload parser extracts.
-///
-/// CSS selection returns both `<li>` and its nested `<p>`, which shifts
-/// translated sections out of alignment and scrambles endnotes. This traversal
-/// takes the first readable block and does not recurse into it, matching the
-/// importer scanner's "consume block and skip its descendants" behavior.
-fn collect_render_blocks(document: &NodeRef) -> Vec<NodeRef> {
-    let root = document
-        .select_first("body")
-        .ok()
-        .map(|body| body.as_node().clone())
-        .unwrap_or_else(|| document.clone());
-    let mut blocks = Vec::new();
-    collect_render_blocks_from(&root, &mut blocks);
-    blocks
-}
-
-fn collect_render_blocks_from(node: &NodeRef, blocks: &mut Vec<NodeRef>) {
-    for child in node.children() {
-        if is_render_block(&child) {
-            blocks.push(child);
-        } else {
-            collect_render_blocks_from(&child, blocks);
-        }
-    }
-}
-
-fn is_render_block(node: &NodeRef) -> bool {
-    let Some(element) = node.as_element() else {
-        return false;
-    };
-    matches!(
-        element.name.local.as_ref(),
-        "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "p" | "li" | "blockquote"
-    )
-}
-
-/// Build a simple translated document when source DOM preservation is not safe.
-///
-/// This fallback is deliberately boring HTML: escaped text, stable section ids,
-/// source ordinals, and heading metadata. It is less rich visually, but it keeps
-/// search and future audiobook generation on the same generated-document path.
-fn render_section_document(title: &str, request: &PersistTranslationRequest) -> String {
-    let mut body = String::new();
-    for section in &request.translated_sections {
-        append_section_html(&mut body, section);
-    }
-
-    format!(
-        "<!doctype html><html><head><meta charset=\"utf-8\"><title>{}</title></head>\
-         <body><article data-papercut-translation=\"true\" data-source-document=\"{}\" data-target-language=\"{}\">\
-         <h1>{}</h1>{}</article></body></html>",
-        escape_html(title),
-        escape_html(&request.source.document_url),
-        escape_html(&request.target_language),
-        escape_html(title),
-        body
-    )
-}
-
-/// Append one translated section to the fallback HTML renderer.
-///
-/// Heading sections become real heading nodes so the generated document keeps a
-/// useful outline even if the original DOM could not be reused.
-fn append_section_html(body: &mut String, section: &PersistTranslationSection) {
-    let section_id = section_anchor_id(section);
-    body.push_str("<section id=\"");
-    body.push_str(&section_id);
-    body.push_str("\" data-source-ordinal=\"");
-    body.push_str(&section.source_ordinal.to_string());
-    body.push('"');
-    if let Some(heading) = section
-        .source_heading
-        .as_deref()
-        .filter(|heading| !heading.trim().is_empty())
-    {
-        body.push_str(" data-source-heading=\"");
-        body.push_str(&escape_html(heading));
-        body.push('"');
-    }
-    body.push('>');
-    if section.is_heading {
-        body.push_str("<h2 id=\"");
-        body.push_str(&section_id);
-        body.push_str("-heading\">");
-        body.push_str(&escape_html(section.text.trim()));
-        body.push_str("</h2>");
-        body.push_str("</section>");
-        return;
-    }
-    for paragraph in section
-        .text
-        .split('\n')
-        .map(str::trim)
-        .filter(|paragraph| !paragraph.is_empty())
-    {
-        body.push_str("<p>");
-        body.push_str(&escape_html(paragraph));
-        body.push_str("</p>");
-    }
-    body.push_str("</section>");
 }
 
 /// Update the document title when the cloned reader HTML has one.
@@ -260,15 +170,33 @@ fn insert_translation_after(node: &NodeRef, section: &PersistTranslationSection)
     let Ok(inserted) = wrapper.select_first(&format!("{tag}.papercut-translation-inline")) else {
         return;
     };
-    node.insert_after(inserted.as_node().clone());
+    if node
+        .as_element()
+        .is_some_and(|element| element.name.local.as_ref() == "body")
+    {
+        node.append(inserted.as_node().clone());
+    } else {
+        node.insert_after(inserted.as_node().clone());
+    }
 }
 
-/// Detect media/table descendants whose behavior should survive rendering.
-fn has_media_descendant(node: &NodeRef) -> bool {
-    node.select(MEDIA_DESCENDANT_SELECTOR)
-        .ok()
-        .and_then(|mut nodes| nodes.next())
-        .is_some()
+/// Keep source nodes whose content/identity cannot be reconstructed from plain MT text.
+fn requires_preserved_block(node: &NodeRef) -> bool {
+    node.descendants()
+        .filter(|child| child != node)
+        .any(|child| {
+            let Some(element) = child.as_element() else {
+                return false;
+            };
+            let attrs = element.attributes.borrow();
+            matches!(
+                element.name.local.as_ref(),
+                "img" | "table" | "figure" | "audio" | "video" | "code"
+            ) || attrs
+                .get("translate")
+                .is_some_and(|value| value.eq_ignore_ascii_case("no"))
+                || (element.name.local.as_ref() != "a" && attrs.get("id").is_some())
+        })
 }
 
 /// Preserve whole-block inline emphasis when it is structurally unambiguous.
@@ -334,8 +262,7 @@ fn subtree_is_inline_formatting_only(node: &NodeRef) -> bool {
 /// Project mixed inline emphasis spans onto translated text.
 ///
 /// This is still conservative: source DOM text nodes give us inline span
-/// positions/tag stacks, then we map each span by relative character position
-/// snapped to translated word boundaries. If projected spans overlap or cannot
+/// positions/tag stacks, then we keep only exact, unique phrase matches. If projected spans overlap or cannot
 /// land cleanly, we keep the plain-text fallback rather than drawing misleading
 /// emphasis.
 fn replace_text_projecting_inline_formatting(
@@ -803,7 +730,7 @@ mod tests {
             ],
         );
 
-        let html = render_translated_html("Translated", &request);
+        let html = render_translated_html("Translated", &request).expect("mapped render");
 
         assert!(html.contains("href=\"#note\""));
         assert!(html.contains("Voir la note."));
@@ -818,7 +745,7 @@ mod tests {
             vec![section(0, true, "Chapter"), section(1, false, "Hello")],
         );
 
-        let html = render_translated_html("Translated", &request);
+        let html = render_translated_html("Translated", &request).expect("mapped render");
 
         assert!(html.contains("<h1"));
         assert!(html.contains(">Chapter</h1>"));
@@ -837,7 +764,7 @@ mod tests {
             ],
         );
 
-        let html = render_translated_html("Translated", &request);
+        let html = render_translated_html("Translated", &request).expect("mapped render");
 
         assert!(html.contains("<strong>Important.</strong>"));
         assert!(html.contains("<em><strong>Very urgent.</strong></em>"));
@@ -845,28 +772,46 @@ mod tests {
     }
 
     #[test]
-    fn projects_single_partial_inline_emphasis_to_translated_word_boundary() {
+    fn real_segment_path_preserves_whole_block_nested_formatting() {
+        let request = request(
+            "<p><strong><em>Importante</em></strong></p>",
+            vec![section_with_fragments(
+                0,
+                false,
+                "Important",
+                vec![fragment("Importante", "Important")],
+            )],
+        );
+        let html = render_translated_html("English", &request).unwrap();
+        assert!(html.contains("<strong><em>Important</em></strong>"));
+    }
+
+    #[test]
+    fn omits_unaligned_partial_emphasis() {
         let request = request(
             "<!doctype html><html><body><article><p>Esto es <strong>importante</strong>.</p></article></body></html>",
             vec![section(0, false, "This is important.")],
         );
 
-        let html = render_translated_html("Translated", &request);
+        let html = render_translated_html("Translated", &request).expect("mapped render");
 
-        assert!(html.contains(">This is <strong>important</strong>.</p>"));
+        assert!(html.contains(">This is important.</p>"));
+        assert!(!html.contains("<strong>"));
         assert!(!html.contains("importante"));
     }
 
     #[test]
-    fn projects_multiple_partial_inline_spans_when_ranges_do_not_overlap() {
+    fn does_not_guess_multiple_cross_language_spans() {
         let request = request(
             "<!doctype html><html><body><article><p>Esto es <strong>importante</strong> y <em>urgente</em>.</p></article></body></html>",
             vec![section(0, false, "This is important and urgent.")],
         );
 
-        let html = render_translated_html("Translated", &request);
+        let html = render_translated_html("Translated", &request).expect("mapped render");
 
-        assert!(html.contains(">This is <strong>important</strong> and <em>urgent</em>.</p>"));
+        assert!(html.contains(">This is important and urgent.</p>"));
+        assert!(!html.contains("<strong>"));
+        assert!(!html.contains("<em>"));
         assert!(!html.contains("importante"));
         assert!(!html.contains("urgente"));
     }
@@ -886,10 +831,11 @@ mod tests {
             )],
         );
 
-        let html = render_translated_html("Translated", &request);
+        let html = render_translated_html("Translated", &request).expect("mapped render");
 
-        assert!(html.contains("<em>blue door</em>"));
-        assert!(html.contains("<strong>important</strong>"));
+        assert!(html.contains("The blue door is important."));
+        assert!(!html.contains("<em>blue door</em>"));
+        assert!(!html.contains("<strong>important</strong>"));
         assert!(html.contains("<em><strong>Orion</strong></em>"));
         assert!(!html.contains("puerta azul"));
         assert!(!html.contains("importante."));
@@ -917,7 +863,7 @@ mod tests {
             )],
         );
 
-        let html = render_translated_html("Translated", &request);
+        let html = render_translated_html("Translated", &request).expect("mapped render");
 
         assert!(html.contains("<strong>blue door</strong>"));
         assert!(!html.contains("puerta azul"));
@@ -945,7 +891,7 @@ mod tests {
             )],
         );
 
-        let html = render_translated_html("Translated", &request);
+        let html = render_translated_html("Translated", &request).expect("mapped render");
 
         assert!(html.contains("The <strong>practical method</strong> is needed to advance."));
         assert!(!html.contains("método práctico"));
@@ -961,7 +907,7 @@ mod tests {
             ],
         );
 
-        let html = render_translated_html("Translated", &request);
+        let html = render_translated_html("Translated", &request).expect("mapped render");
         let document = parse_html_document(html.clone());
 
         assert_eq!(html.matches("href=\"#details\"").count(), 1);
@@ -984,7 +930,7 @@ mod tests {
             ],
         );
 
-        let html = render_translated_html("Translated", &request);
+        let html = render_translated_html("Translated", &request).expect("mapped render");
 
         assert!(html.contains("<ol>"));
         assert!(html.contains("<li id=\"sdfootnote1sym\""));
@@ -1011,7 +957,7 @@ mod tests {
             ],
         );
 
-        let html = render_translated_html("Translated", &request);
+        let html = render_translated_html("Translated", &request).expect("mapped render");
 
         assert!(html.contains(
             "The topic<a href=\"#fn1\" id=\"ref1\" role=\"doc-noteref\"><sup>1</sup></a> changes."
@@ -1036,7 +982,7 @@ mod tests {
             ],
         );
 
-        let html = render_translated_html("Translated", &request);
+        let html = render_translated_html("Translated", &request).expect("mapped render");
 
         assert!(html.contains("src=\"asset://cover.png\""));
         assert!(html.contains("<table>"));
@@ -1055,7 +1001,7 @@ mod tests {
             ],
         );
 
-        let html = render_translated_html("Translated", &request);
+        let html = render_translated_html("Translated", &request).expect("mapped render");
 
         assert_eq!(html.matches("href=\"#table-note\"").count(), 1);
         assert!(html.contains("<table>"));
@@ -1074,7 +1020,7 @@ mod tests {
             ],
         );
 
-        let html = render_translated_html("Translated", &request);
+        let html = render_translated_html("Translated", &request).expect("mapped render");
 
         assert!(html.contains("dir=\"rtl\""));
         assert!(html.contains("href=\"#fn1\""));
@@ -1084,18 +1030,100 @@ mod tests {
     }
 
     #[test]
-    fn falls_back_when_dom_cannot_map_every_translated_section() {
+    fn rejects_incomplete_mapping_without_a_destructive_fallback() {
         let request = request(
             "<!doctype html><html><body><article><h1>Chapitre</h1></article></body></html>",
             vec![section(0, true, "Chapter"), section(1, false, "Hello")],
         );
 
-        let html = render_translated_html("Translated", &request);
+        assert!(render_translated_html("Translated", &request).is_err());
+    }
 
-        assert!(html.contains("data-papercut-translation=\"true\""));
-        assert!(html.contains("Chapter"));
-        assert!(html.contains("Hello"));
-        assert!(html.contains("translation-section-2"));
+    #[test]
+    fn rejects_same_length_stale_source_and_reordered_results() {
+        let mut request = request(
+            "<div>Bonjour</div><blockquote><p>Salut</p></blockquote>",
+            vec![section(0, false, "Hello"), section(1, false, "Hi")],
+        );
+        request.translated_sections.swap(0, 1);
+        assert!(render_translated_html("English", &request).is_err());
+        request.translated_sections.swap(0, 1);
+        request.source.view_html = "<div>Salut</div><blockquote><p>Bonjour</p></blockquote>".into();
+        assert!(render_translated_html("English", &request).is_err());
+    }
+
+    #[test]
+    fn real_french_and_spanish_reordering_never_guesses_wrong_emphasis() {
+        for (source, translation) in [
+            (
+                "<p>La bague en <strong>or</strong> est perdue.</p>",
+                "The gold ring is lost.",
+            ),
+            (
+                "<p>La casa del <strong>rey</strong> es grande.</p>",
+                "The king's house is big.",
+            ),
+        ] {
+            let request = request(source, vec![section(0, false, translation)]);
+            let html = render_translated_html("English", &request).unwrap();
+            assert!(html.contains(translation));
+            assert!(!html.contains("<strong>"));
+        }
+    }
+
+    #[test]
+    fn leaf_blocks_repeated_text_protected_content_and_untrusted_output_stay_separate() {
+        let source = "<article><div id='start'>Même texte</div><ul><li><p>Même texte</p></li></ul><p translate=no>user_id</p><p>Utiliser <code translate=no>user_id</code> et <span id='answer'>42</span>.</p></article>";
+        let request = request(
+            source,
+            vec![
+                section(0, false, "First translation"),
+                section(1, false, "Second translation"),
+                section(3, false, "Use <script>alert(1)</script>"),
+            ],
+        );
+        let html = render_translated_html("English", &request).unwrap();
+        let dom = parse_html_document(html.clone());
+        assert_eq!(
+            dom.select_first("#start").unwrap().text_contents(),
+            "First translation"
+        );
+        assert_eq!(
+            dom.select_first("li p").unwrap().text_contents(),
+            "Second translation"
+        );
+        assert_eq!(
+            dom.select_first("code[translate=no]")
+                .unwrap()
+                .text_contents(),
+            "user_id"
+        );
+        assert_eq!(dom.select_first("#answer").unwrap().text_contents(), "42");
+        assert_eq!(dom.select("#answer").unwrap().count(), 1);
+        assert_eq!(dom.select("p[translate=no]").unwrap().count(), 1);
+        assert!(html.contains("&lt;script&gt;"));
+        assert!(dom.select_first("script").is_err());
+    }
+
+    #[test]
+    fn bare_table_fallback_keeps_assets_and_translation_inside_body() {
+        let request = request(
+            "<table><tr><td>Nom</td><td>Valeur</td></tr></table>",
+            vec![section(0, false, "Name Value")],
+        );
+        let html = render_translated_html("English", &request).unwrap();
+        let document = parse_html_document(&html);
+        assert_eq!(
+            document.select_first("body table").unwrap().text_contents(),
+            "NomValeur"
+        );
+        assert_eq!(
+            document
+                .select_first("body > p.papercut-translation-inline")
+                .unwrap()
+                .text_contents(),
+            "Name Value"
+        );
     }
 
     fn request(
@@ -1109,18 +1137,17 @@ mod tests {
                 title: "Source".into(),
                 format: "html".into(),
                 view_html: view_html.into(),
-                blocks: vec![
-                    TranslationSourceBlock {
-                        ordinal: 0,
-                        heading: Some("Chapitre".into()),
-                        text: "Chapitre".into(),
-                    },
-                    TranslationSourceBlock {
-                        ordinal: 1,
-                        heading: Some("Chapitre".into()),
-                        text: "Bonjour".into(),
-                    },
-                ],
+                blocks: super::DomPlan::new(view_html)
+                    .blocks
+                    .into_iter()
+                    .map(|block| TranslationSourceBlock {
+                        ordinal: block.ordinal,
+                        is_heading: block.is_heading,
+                        heading: block.heading,
+                        text: block.inline.text,
+                    })
+                    .collect(),
+                assets: Default::default(),
             },
             source_language: "fr".into(),
             target_language: "en".into(),
@@ -1144,7 +1171,6 @@ mod tests {
         fragments: Vec<PersistTranslationFragment>,
     ) -> PersistTranslationSection {
         PersistTranslationSection {
-            heading: Some("Chapter".into()),
             source_heading: Some("Chapitre".into()),
             source_ordinal,
             is_heading,

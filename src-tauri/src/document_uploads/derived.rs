@@ -6,8 +6,10 @@ use std::path::Path;
 use rusqlite::{Connection, OptionalExtension, Transaction};
 use tauri::Runtime;
 
-use super::parsed::{ParsedDocument, ParsedSection};
+use super::html::{parsed_html_document, sanitize_html};
+use super::parsed::{ParsedDocument, ParsedDocumentAsset};
 use super::pipeline;
+use super::reader_assets::{owned_assets, snapshot_assets};
 use super::storage::{upload_dir, StoredSourceKind};
 use super::store::{
     delete_document_rows_in_transaction, open_db, upsert_document_in_transaction, PdfTextStatus,
@@ -15,11 +17,6 @@ use super::store::{
 use super::types::UploadedDocumentSourceRequest;
 
 const DERIVED_GENERATION_FILE: &str = ".generation";
-
-pub(crate) struct DerivedDocumentSection {
-    pub(crate) heading: Option<String>,
-    pub(crate) text: String,
-}
 
 /// Open the shared upload database without exposing the store module.
 pub(crate) fn open_document_uploads_db<R: Runtime>(
@@ -32,14 +29,15 @@ pub(crate) fn open_document_uploads_db<R: Runtime>(
 pub(crate) fn read_uploaded_document_source<R: Runtime>(
     app: &tauri::AppHandle<R>,
     document_url: &str,
-) -> Result<String, String> {
-    pipeline::get_source(
+) -> Result<(String, Vec<ParsedDocumentAsset>), String> {
+    let source = pipeline::get_source(
         app,
         UploadedDocumentSourceRequest {
             document_url: document_url.into(),
         },
-    )
-    .map(|source| source.html)
+    )?;
+    let assets = snapshot_assets(&source.html, &source.asset_paths)?;
+    Ok((source.html, assets))
 }
 
 /// Stage and index a generated HTML document without exposing parser internals.
@@ -56,9 +54,8 @@ pub(crate) fn persist_derived_document<R, F>(
     title: &str,
     format: &str,
     view_html: String,
-    sections: Vec<DerivedDocumentSection>,
+    assets: &[ParsedDocumentAsset],
     imported_at_ms: u128,
-    bytes: u64,
     persist_metadata: F,
 ) -> Result<bool, String>
 where
@@ -66,9 +63,32 @@ where
     F: FnOnce(&Transaction<'_>) -> Result<(), String>,
 {
     let dir = upload_dir(app, id)?;
+    let mut parsed = parsed_html_document(title.into(), format, sanitize_html(&view_html));
+    parsed.assets = owned_assets(&parsed.view_html, assets)?;
+    persist_derived_document_at(&dir, db, id, url, parsed, imported_at_ms, persist_metadata)
+}
+
+fn persist_derived_document_at<F>(
+    dir: &Path,
+    db: &mut Connection,
+    id: &str,
+    url: &str,
+    parsed: ParsedDocument,
+    imported_at_ms: u128,
+    persist_metadata: F,
+) -> Result<bool, String>
+where
+    F: FnOnce(&Transaction<'_>) -> Result<(), String>,
+{
+    let bytes = parsed.view_html.len() as u64
+        + parsed
+            .assets
+            .iter()
+            .map(|asset| asset.bytes.len() as u64)
+            .sum::<u64>();
     let staging_dir = dir.with_file_name(format!(".{id}.staging"));
     let backup_dir = dir.with_file_name(format!(".{id}.replacing"));
-    recover_interrupted_replacement(db, id, &dir, &backup_dir)?;
+    recover_interrupted_replacement(db, id, dir, &backup_dir)?;
     if staging_dir.exists() {
         fs::remove_dir_all(&staging_dir).map_err(|err| {
             format!(
@@ -94,10 +114,14 @@ where
     }
     if let Err(err) = fs::write(
         staging_dir.join(StoredSourceKind::Html.file_name()),
-        view_html.as_bytes(),
+        parsed.view_html.as_bytes(),
     ) {
         let _ = fs::remove_dir_all(&staging_dir);
         return Err(format!("Failed to write derived document source: {err}"));
+    }
+    if let Err(error) = pipeline::write_reader_assets(&staging_dir, &parsed.assets) {
+        let _ = fs::remove_dir_all(&staging_dir);
+        return Err(error);
     }
     let replaced = dir.exists();
     if replaced {
@@ -121,22 +145,6 @@ where
         ));
     }
 
-    let parsed = ParsedDocument {
-        title: title.into(),
-        format: format.into(),
-        view_html,
-        sections: sections
-            .into_iter()
-            .map(|section| ParsedSection {
-                heading: section.heading,
-                text: section.text,
-                page_index: None,
-                body_ranges: None,
-            })
-            .collect(),
-        cover: None,
-        assets: Vec::new(),
-    };
     let transaction_result = (|| {
         let tx = db.transaction().map_err(db_err)?;
         upsert_document_in_transaction(
@@ -283,6 +291,122 @@ mod tests {
     use rusqlite::{params, Connection};
 
     use super::{recover_interrupted_replacement, DERIVED_GENERATION_FILE};
+
+    #[test]
+    fn derived_assets_survive_source_deletion_and_failed_replacement_rolls_back() {
+        use super::{
+            parsed_html_document, persist_derived_document_at, snapshot_assets, ParsedDocumentAsset,
+        };
+        use crate::document_uploads::{pipeline::stored_reader_asset_paths, store::open_db_in};
+        let root = test_root("asset-rollback");
+        let mut db = open_db_in(&root).unwrap();
+        let source = root.join("source");
+        fs::create_dir_all(source.join("assets")).unwrap();
+        let asset =
+            ParsedDocumentAsset::new("image/png", b"original image bytes".to_vec()).unwrap();
+        fs::write(source.join("assets").join(&asset.file_name), &asset.bytes).unwrap();
+        let html = format!("<article><h1>Chapter</h1><div>Hello <a href='#note'>note</a><img data-papercut-asset='{}'></div><aside role=doc-endnotes><p id=note>Note body</p></aside></article>", asset.file_name);
+        let paths = stored_reader_asset_paths(&source).unwrap();
+        let assets = snapshot_assets(&html, &paths).unwrap();
+        let mut parsed = parsed_html_document("English".into(), "html", html);
+        parsed.assets = assets;
+        let expected_html = parsed.view_html.clone();
+        let expected_bytes = expected_html.len() + asset.bytes.len();
+        let live = root.join("variant");
+        assert!(!persist_derived_document_at(
+            &live,
+            &mut db,
+            "variant",
+            "/uploads/variant.html",
+            parsed,
+            1,
+            |_| Ok(())
+        )
+        .unwrap());
+        fs::remove_dir_all(source).unwrap();
+        assert_eq!(
+            fs::read(live.join("assets").join(&asset.file_name)).unwrap(),
+            asset.bytes
+        );
+        assert_eq!(
+            fs::read_to_string(live.join("source.html")).unwrap(),
+            expected_html
+        );
+        let sections: Vec<(String, String)> = db.prepare("SELECT text, body_ranges FROM uploaded_sections WHERE document_id='variant' ORDER BY ordinal").unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?))).unwrap().collect::<Result<_,_>>().unwrap();
+        assert_eq!(sections.len(), 3);
+        assert_eq!(sections[0], ("Chapter".into(), "[]".into()));
+        assert_eq!(sections[1].0, "Hello note");
+        assert_ne!(sections[1].1, "[]");
+        assert_eq!(sections[2], ("Note body".into(), "[]".into()));
+        let bytes: i64 = db
+            .query_row(
+                "SELECT bytes FROM uploaded_documents WHERE id='variant'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(bytes as usize, expected_bytes);
+        let replacement = parsed_html_document(
+            "Replacement".into(),
+            "html",
+            "<p>Replacement text</p>".into(),
+        );
+        assert!(persist_derived_document_at(
+            &live,
+            &mut db,
+            "variant",
+            "/uploads/variant.html",
+            replacement,
+            2,
+            |_| Err("metadata failure".into())
+        )
+        .is_err());
+        assert_eq!(
+            fs::read_to_string(live.join("source.html")).unwrap(),
+            expected_html
+        );
+        assert_eq!(
+            fs::read(live.join("assets").join(&asset.file_name)).unwrap(),
+            asset.bytes
+        );
+        let indexed: String = db
+            .query_row(
+                "SELECT text FROM uploaded_sections WHERE document_id='variant' AND ordinal=1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(indexed, "Hello note");
+        assert!(!root.join(".variant.staging").exists());
+        assert!(!root.join(".variant.replacing").exists());
+        let replacement = parsed_html_document(
+            "New edition".into(),
+            "html",
+            "<h1>New chapter</h1><p>New body</p>".into(),
+        );
+        assert!(persist_derived_document_at(
+            &live,
+            &mut db,
+            "variant",
+            "/uploads/variant.html",
+            replacement,
+            3,
+            |_| Ok(())
+        )
+        .unwrap());
+        assert!(!live.join("assets").exists());
+        let indexed: String = db
+            .query_row(
+                "SELECT text FROM uploaded_sections WHERE document_id='variant' AND ordinal=1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(indexed, "New body");
+        drop(db);
+        fs::remove_dir_all(root).unwrap();
+    }
 
     fn test_root(name: &str) -> std::path::PathBuf {
         let nonce = SystemTime::now()
