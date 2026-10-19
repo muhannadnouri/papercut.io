@@ -11,8 +11,13 @@
 //! touches the engine at a time; `.lock()` is like awaiting that lock.
 
 use std::collections::HashMap;
+use std::fs;
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
+
+use base64::{engine::general_purpose, Engine as _};
+use tauri::Manager;
 
 use sherpa_onnx::{
     GeneratedAudio, GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsKokoroModelConfig,
@@ -21,12 +26,17 @@ use sherpa_onnx::{
 
 use super::models::{model_definition, ModelDefinition, SherpaModelFamily, TtsModelBackend};
 use super::paths::{audio_duration_sec, resolve_model_dir};
-use super::silma_sidecar::{normalize_silma_nfe_step, SilmaSidecar};
+use super::preprocess::TextPreprocessor;
+use super::silma_sidecar::{normalize_silma_nfe_step, SilmaSidecar, DEFAULT_SILMA_NFE_STEP};
 use super::text_normalization::{normalize_english_synthesis_text, sanitize_tts_text};
 use super::wav_sink::{
     commit_synthesis_wav, write_silent_placeholder, FileSynthesisResult, SILENT_PLACEHOLDER_SEC,
 };
 use crate::native_tts::platform::resolve_thread_count;
+use crate::native_tts::state::NativeTtsState;
+use crate::native_tts::types::{NativeTtsChunkResponse, NativeTtsPreviewRequest};
+
+const MAX_PREVIEW_TEXT_CHARS: usize = 500;
 
 /// A loaded sherpa-onnx model plus the settings it was built with. Kept alive
 /// in shared state and reused across syntheses; rebuilt when the requested
@@ -54,6 +64,115 @@ pub(crate) struct SilmaTtsEngine {
 pub(crate) enum LoadedTtsEngine {
     Sherpa(SherpaTtsEngine),
     Silma(SilmaTtsEngine),
+}
+
+/// Generate one short preview in the cache directory, return it to the WebView,
+/// and remove it immediately. It shares the normal engine and preprocessing path.
+pub(crate) async fn preview_voice(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, NativeTtsState>,
+    request: NativeTtsPreviewRequest,
+) -> Result<NativeTtsChunkResponse, String> {
+    let engine = state.engine.clone();
+    tauri::async_runtime::spawn_blocking(move || preview_voice_blocking(app, engine, request))
+        .await
+        .map_err(|err| format!("Voice preview task failed: {err}"))?
+}
+
+fn preview_voice_blocking(
+    app: tauri::AppHandle,
+    engine_state: Arc<Mutex<Option<LoadedTtsEngine>>>,
+    request: NativeTtsPreviewRequest,
+) -> Result<NativeTtsChunkResponse, String> {
+    validate_preview_text(&request.text)?;
+    let model = model_definition(&request.model_id)?;
+    let preprocessor = TextPreprocessor::create(model, &request.text_preprocessor)?;
+    let text = preprocessor.process(&request.text)?;
+    let thread_count = resolve_thread_count(request.thread_count);
+    let preview_dir = app
+        .path()
+        .app_cache_dir()
+        .or_else(|_| app.path().app_data_dir())
+        .map_err(|err| format!("Failed to resolve voice preview cache dir: {err}"))?
+        .join("voice-previews");
+    let output_path = preview_dir.join(format!(
+        "preview-{}-{}.wav",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|err| format!("System clock error: {err}"))?
+            .as_nanos()
+    ));
+
+    let mut guard = engine_state
+        .lock()
+        .map_err(|_| "Native TTS engine lock poisoned".to_string())?;
+    let silma_nfe_step =
+        normalize_silma_nfe_step(request.silma_nfe_step.unwrap_or(DEFAULT_SILMA_NFE_STEP));
+    let (result, sample_rate, backend) = match model.backend {
+        TtsModelBackend::SherpaOnnx => {
+            let engine =
+                ensure_sherpa_engine(&app, &mut guard, &request.model_id, Some(thread_count))?;
+            let result =
+                synthesize_to_file(engine, &text, &request.voice, request.speed, &output_path)?;
+            (
+                result,
+                engine.tts.sample_rate(),
+                format!(
+                    "{}:{}:preview",
+                    engine.model.backend_name(),
+                    engine.model.id
+                ),
+            )
+        }
+        TtsModelBackend::SilmaSidecar => {
+            ensure_silma_engine(&app, &mut guard, &request.model_id, Some(thread_count))?;
+            let Some(LoadedTtsEngine::Silma(engine)) = guard.as_mut() else {
+                return Err("Native SILMA sidecar engine unavailable".into());
+            };
+            let result = synthesize_silma_to_file(
+                engine,
+                &text,
+                &request.voice,
+                request.speed,
+                silma_nfe_step,
+                &output_path,
+            )?;
+            (
+                result,
+                engine.sample_rate,
+                format!(
+                    "{}:{}:preview",
+                    engine.model.backend_name(),
+                    engine.model.id
+                ),
+            )
+        }
+    };
+    drop(guard);
+
+    let wav = fs::read(&output_path);
+    let _ = fs::remove_file(&output_path);
+    let wav = wav.map_err(|err| format!("Failed to read generated voice preview: {err}"))?;
+    Ok(NativeTtsChunkResponse {
+        chunk_id: None,
+        wav_base64: general_purpose::STANDARD.encode(wav),
+        sample_rate,
+        audio_duration_sec: result.audio_duration_sec,
+        wav_bytes: result.wav_bytes,
+        generate_ms: result.generate_ms,
+        backend,
+    })
+}
+
+fn validate_preview_text(text: &str) -> Result<(), String> {
+    let text_chars = text.chars().count();
+    if text.trim().is_empty() || text_chars > MAX_PREVIEW_TEXT_CHARS {
+        return Err(format!(
+            "Voice preview text must contain 1 to {MAX_PREVIEW_TEXT_CHARS} characters"
+        ));
+    }
+    Ok(())
 }
 
 impl LoadedTtsEngine {
@@ -310,13 +429,15 @@ fn generate_audio(
 fn generation_language(model: &ModelDefinition, voice: &str) -> Option<&'static str> {
     match model.require_sherpa_family().ok()? {
         SherpaModelFamily::Kokoro if voice.starts_with('a') => Some("en-us"),
-        SherpaModelFamily::Kokoro if voice.starts_with('b') => Some("en-gb"),
+        // The bundled eSpeak data accepts `en` for British phonemization, not `en-gb`.
+        SherpaModelFamily::Kokoro if voice.starts_with('b') => Some("en"),
         SherpaModelFamily::Kokoro if voice.starts_with('e') => Some("es"),
         SherpaModelFamily::Kokoro if voice.starts_with('f') => Some("fr"),
         SherpaModelFamily::Kokoro if voice.starts_with('h') => Some("hi"),
         SherpaModelFamily::Kokoro if voice.starts_with('i') => Some("it"),
         SherpaModelFamily::Kokoro if voice.starts_with('p') => Some("pt-br"),
-        SherpaModelFamily::Kokoro if voice.starts_with('z') => Some("zh"),
+        // Mandarin uses the loaded Chinese/English lexicons; `zh` is not an eSpeak voice.
+        SherpaModelFamily::Kokoro if voice.starts_with('z') => None,
         SherpaModelFamily::Supertonic => model.supertonic_lang,
         _ => None,
     }
@@ -413,6 +534,125 @@ mod tests {
     use super::super::models::{model_definition, DEFAULT_MODEL_ID, KOKORO_ZH_MODEL_ID};
     use super::*;
 
+    /// Read cached assets explicitly; never download models during ordinary tests.
+    #[cfg(feature = "native-text-preprocessing-core")]
+    #[test]
+    #[ignore = "requires PAPERCUT_ARABIC_TTS_MODEL_DIR pointing to cached Arabic VITS assets"]
+    fn cached_arabic_preprocessing_smoke() {
+        let model = model_definition("sherpa-onnx/vits-piper-ar_JO-kareem-medium").unwrap();
+        let model_dir = std::path::PathBuf::from(
+            std::env::var_os("PAPERCUT_ARABIC_TTS_MODEL_DIR")
+                .expect("PAPERCUT_ARABIC_TTS_MODEL_DIR is required"),
+        );
+        assert!(model.has_required_files(&model_dir));
+        let preprocessor =
+            TextPreprocessor::create(model, super::super::models::TEXT_PREPROCESSOR_LIBTASHKEEL)
+                .unwrap();
+        let text = preprocessor.process("كتب الطالب الدرس").unwrap();
+        assert_eq!(text, "كَتَبَ الطَّالِبُ الدَّرْس");
+        let engine = SherpaTtsEngine {
+            tts: create_engine(model, &model_dir, 2).unwrap(),
+            model,
+            model_dir,
+            num_threads: 2,
+        };
+        let audio = generate_audio(&engine, &text, model.default_voice, 1.0)
+            .unwrap()
+            .unwrap();
+        assert!(audio.sample_rate() > 0);
+        assert!(audio.samples().len() > audio.sample_rate() as usize / 4);
+        assert!(audio.samples().iter().all(|sample| sample.is_finite()));
+        assert!(audio.samples().iter().any(|sample| sample.abs() > 0.001));
+    }
+
+    /// Run explicitly after downloading archives with scripts/check-model-downloads.js.
+    #[test]
+    #[ignore = "requires real model archives; run by the model-download workflow"]
+    fn model_archive_smoke() {
+        use super::super::{
+            model::{extract_model_archive, verify_model_archive},
+            models::MODELS,
+        };
+        let archive_dir = std::path::PathBuf::from(
+            std::env::var_os("PAPERCUT_MODEL_ARCHIVE_DIR")
+                .expect("PAPERCUT_MODEL_ARCHIVE_DIR is required"),
+        );
+        let only_kokoro = std::env::var_os("PAPERCUT_SMOKE_KOKORO_ONLY").is_some();
+        let work = archive_dir.join(format!("smoke-{}", std::process::id()));
+        assert!(
+            !work.exists(),
+            "Smoke directory already exists: {}",
+            work.display()
+        );
+        fs::create_dir_all(&work).unwrap();
+        let mut extracted = std::collections::HashSet::new();
+        for model in MODELS
+            .iter()
+            .filter(|model| matches!(model.backend, TtsModelBackend::SherpaOnnx))
+        {
+            if only_kokoro && model.require_sherpa_family().unwrap() != SherpaModelFamily::Kokoro {
+                continue;
+            }
+            if extracted.insert(model.directory_name) {
+                let archive = archive_dir.join(format!("{}.tar.bz2", model.directory_name));
+                verify_model_archive(&archive, model).unwrap();
+                extract_model_archive(&archive, &work).unwrap();
+            }
+            let model_dir = work.join(model.directory_name);
+            assert!(
+                model.has_required_files(&model_dir),
+                "Missing files: {}",
+                model.id
+            );
+            let engine = SherpaTtsEngine {
+                tts: create_engine(model, &model_dir, 2).unwrap(),
+                model,
+                model_dir,
+                num_threads: 2,
+            };
+            for voice in model.voices {
+                assert!(
+                    voice.speaker_id >= 0 && voice.speaker_id < engine.tts.num_speakers(),
+                    "Invalid speaker: {}",
+                    voice.id
+                );
+            }
+            let text = match model.language {
+                "en-US" => "This is a short voice download test.",
+                "zh-CN" => "你好，这是语音测试。",
+                "es-ES" => "Hola, esta es una prueba de voz.",
+                "fr-FR" => "Bonjour, ceci est un test de voix.",
+                "hi-IN" => "नमस्ते, यह आवाज़ का परीक्षण है।",
+                "it-IT" => "Ciao, questa è una prova della voce.",
+                "pt-BR" => "Olá, este é um teste de voz.",
+                "ar" | "ar-JO" => "مرحبا هذا اختبار للصوت",
+                language => panic!("Add a smoke sample for {language}"),
+            };
+            let audio = generate_audio(&engine, text, model.default_voice, 1.0)
+                .unwrap()
+                .unwrap();
+            assert!(
+                audio.sample_rate() > 0 && audio.samples().len() > audio.sample_rate() as usize / 4
+            );
+            assert!(audio.samples().iter().all(|sample| sample.is_finite()));
+            assert!(
+                audio.samples().iter().any(|sample| sample.abs() > 0.001),
+                "Silent audio: {}",
+                model.id
+            );
+            let wav = work.join(format!("{}.wav", model.id.replace('/', "-")));
+            assert!(audio.save(wav.to_str().unwrap()));
+            assert!(super::super::cache::wav_info(&wav).is_some());
+            println!(
+                "PASS {}: {} speakers, {} samples",
+                model.id,
+                engine.tts.num_speakers(),
+                audio.samples().len()
+            );
+        }
+        fs::remove_dir_all(work).unwrap();
+    }
+
     #[test]
     fn only_english_models_normalize_text() {
         assert!(model_definition(DEFAULT_MODEL_ID)
@@ -426,13 +666,13 @@ mod tests {
     }
 
     #[test]
-    fn kokoro_voice_prefix_selects_its_phonemizer_language() {
+    fn kokoro_voice_prefix_selects_supported_frontend_mode() {
         let model = model_definition(DEFAULT_MODEL_ID).unwrap();
         assert_eq!(generation_language(model, "af_heart"), Some("en-us"));
-        assert_eq!(generation_language(model, "bf_emma"), Some("en-gb"));
+        assert_eq!(generation_language(model, "bf_emma"), Some("en"));
         assert_eq!(
             generation_language(model_definition(KOKORO_ZH_MODEL_ID).unwrap(), "zf_xiaobei"),
-            Some("zh")
+            None
         );
         for (model_id, voice, language) in [
             ("sherpa-onnx/kokoro-multi-lang-v1_0-es", "ef_dora", "es"),
@@ -450,5 +690,12 @@ mod tests {
                 Some(language)
             );
         }
+    }
+
+    #[test]
+    fn preview_text_is_short_and_speakable() {
+        assert!(validate_preview_text("A short preview.").is_ok());
+        assert!(validate_preview_text("   ").is_err());
+        assert!(validate_preview_text(&"x".repeat(MAX_PREVIEW_TEXT_CHARS + 1)).is_err());
     }
 }

@@ -1,23 +1,44 @@
+import { imageIssueReason } from '../../viewers/imageIssues'
 import { Trans, useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { AuthorGroup } from '../../hooks/useDocumentFilters'
 import type { DocumentImportStatus } from '../../hooks/useUploadedLibrary'
+import { PdfRecognitionStatus } from '../../pdf/ocr/PdfRecognitionStatus'
+import type { PdfOcrLanguage } from '../../pdf/ocr/tesseractOcr'
 import type { DocumentInfo } from '../../types/search'
-import type { UploadedDocumentDeleteBatchResult, UploadedLibraryOrganization } from '../../uploads/DocumentUploads'
+import type {
+  UploadedDocumentDeleteBatchResult,
+  UploadedDocumentImportStage,
+  UploadedLibraryOrganization,
+} from '../../uploads/DocumentUploads'
 import { formatStorageSize } from '../../utils/formatUtils'
 import { isMobileUserAgent } from '../../utils/platform'
 import { DocumentsPanel } from '../DocumentsPanel/DocumentsPanel'
+import { DocumentInfoDialog } from '../DocumentInfoDialog/DocumentInfoDialog'
+import { PasteTextDialog } from '../PasteTextDialog/PasteTextDialog'
+import { documentDropAction } from './documentDrop'
+
+const IMPORT_STAGE_KEYS = {
+  detectingFormat: 'library.status.importStage.detectingFormat',
+  readingFile: 'library.status.importStage.readingFile',
+  preparingDocument: 'library.status.importStage.preparingDocument',
+  preparingBook: 'library.status.importStage.preparingBook',
+  storingDocument: 'library.status.importStage.storingDocument',
+  extractingPdfText: 'library.status.importStage.extractingPdfText',
+} as const satisfies Record<UploadedDocumentImportStage, string>
 
 interface LibraryTabProps {
   allDocuments: DocumentInfo[]
   audioSavedOnly: boolean
+  bookmarkedDocumentUrls: ReadonlySet<string>
   collapsedAuthors: Set<string>
   docFilterLower: string
   documentFilter: string
   documentImport: DocumentImportStatus
+  documentScannerSupported: boolean
+  documentPhotoImportSupported: boolean
   documentOpening: boolean
-  developerMode: boolean
   documentsLoading: boolean
   groupedDocs: AuthorGroup[]
   libraryOrganization: UploadedLibraryOrganization
@@ -25,31 +46,45 @@ interface LibraryTabProps {
   savedAudiobookDocumentUrls: ReadonlySet<string>
   showDocuments: boolean
   onAudioSavedOnlyChange: (enabled: boolean) => void
+  onAcceptRecognizedDocument: (documentUrl: string) => void | Promise<boolean>
   onCreateLibraryFolder: (parentId: string | null, name: string) => void | Promise<void>
   onDeleteDocument: (doc: DocumentInfo) => void | Promise<void>
   onDeleteDocuments: (docs: DocumentInfo[]) => Promise<UploadedDocumentDeleteBatchResult | null>
-  onDeleteLibraryFolder: (folderId: string) => void | Promise<void>
+  onDeleteLibraryFolder: (folderId: string) => Promise<UploadedDocumentDeleteBatchResult | null>
   onDismissDocumentImportStatus: () => void
   onFilterChange: (value: string) => void
   onCancelDocumentBatch: () => void | Promise<void>
   onImportDocumentBatch: () => void | Promise<void>
   onImportDocumentFolder: () => void | Promise<void>
+  onImportDocumentPaths: (paths: string[]) => void | Promise<void>
+  onImportDocumentPhotos: () => void | Promise<void>
+  onImportPastedText: (title: string, text: string) => Promise<void>
+  onScanDocument: () => void | Promise<void>
   onMoveLibraryDocuments: (documentIds: string[], folderId: string | null) => void | Promise<void>
+  onRecognizeDocument: (
+    documentUrl: string,
+    language?: PdfOcrLanguage,
+    improveIssues?: DocumentImportStatus['recognitionIssues'],
+  ) => void | Promise<boolean>
   onRenameLibraryFolder: (folderId: string, name: string) => void | Promise<void>
   onToggleAuthor: (author: string) => void
   onToggleShow: () => void
+  onUpdateDocumentTitle: (documentUrl: string, title: string) => Promise<void>
+  onViewAudiobooks: () => void
   onViewDocument: (url: string) => void | Promise<void>
 }
 
 export function LibraryTab({
   allDocuments,
   audioSavedOnly,
+  bookmarkedDocumentUrls,
   collapsedAuthors,
   docFilterLower,
   documentFilter,
   documentImport,
+  documentScannerSupported,
+  documentPhotoImportSupported,
   documentOpening,
-  developerMode,
   documentsLoading,
   groupedDocs,
   libraryOrganization,
@@ -57,6 +92,7 @@ export function LibraryTab({
   savedAudiobookDocumentUrls,
   showDocuments,
   onAudioSavedOnlyChange,
+  onAcceptRecognizedDocument,
   onCreateLibraryFolder,
   onDeleteDocument,
   onDeleteDocuments,
@@ -66,16 +102,60 @@ export function LibraryTab({
   onCancelDocumentBatch,
   onImportDocumentBatch,
   onImportDocumentFolder,
+  onImportDocumentPaths,
+  onImportDocumentPhotos,
+  onImportPastedText,
+  onScanDocument,
   onMoveLibraryDocuments,
+  onRecognizeDocument,
   onRenameLibraryFolder,
   onToggleAuthor,
   onToggleShow,
+  onUpdateDocumentTitle,
+  onViewAudiobooks,
   onViewDocument,
 }: LibraryTabProps) {
   const { t } = useTranslation()
-  const operationBusy = documentImport.status === 'importing' || documentImport.status === 'deleting'
-  const statusMessage = documentImportStatusMessage(documentImport, t, onCancelDocumentBatch, allDocuments)
+  const [infoDocument, setInfoDocument] = useState<DocumentInfo | null>(null)
+  const [pasteTextOpen, setPasteTextOpen] = useState(false)
+  const [dropActive, setDropActive] = useState(false)
+  const operationBusy = documentImport.status === 'importing' ||
+    documentImport.status === 'recognizing' || documentImport.status === 'deleting'
+  const statusMessage = documentImportStatusMessage(
+    documentImport,
+    t,
+    onCancelDocumentBatch,
+    onRecognizeDocument,
+    onAcceptRecognizedDocument,
+    allDocuments,
+  )
   const folderImportSupported = !isMobileUserAgent()
+
+  /** Tauri owns filesystem authorization for native drops; React only provides
+   * immediate feedback and forwards the already-scoped paths to the batch API. */
+  useEffect(() => {
+    if (!folderImportSupported || infoDocument || pasteTextOpen || !('__TAURI_INTERNALS__' in window)) {
+      setDropActive(false)
+      return
+    }
+    let disposed = false
+    let unlisten: (() => void) | undefined
+    void import('@tauri-apps/api/webview')
+      .then(({ getCurrentWebview }) => getCurrentWebview().onDragDropEvent(({ payload }) => {
+        const action = documentDropAction(payload, operationBusy)
+        setDropActive(action.active)
+        if (action.paths) void onImportDocumentPaths(action.paths)
+      }))
+      .then((stop) => {
+        if (disposed) stop()
+        else unlisten = stop
+      })
+      .catch((error) => console.warn('Unable to listen for document drops:', error))
+    return () => {
+      disposed = true
+      unlisten?.()
+    }
+  }, [folderImportSupported, infoDocument, onImportDocumentPaths, operationBusy, pasteTextOpen])
 
   return (
     <section className="tab-panel" role="tabpanel" aria-label={t('library.tabLabel')} data-tab="library">
@@ -84,6 +164,7 @@ export function LibraryTab({
         showDocuments={showDocuments}
         allDocuments={allDocuments}
         audioSavedOnly={audioSavedOnly}
+        bookmarkedDocumentUrls={bookmarkedDocumentUrls}
         documentFilter={documentFilter}
         groupedDocs={groupedDocs}
         docFilterLower={docFilterLower}
@@ -98,6 +179,16 @@ export function LibraryTab({
             disabled: operationBusy,
             onSelect: onImportDocumentBatch,
           },
+          {
+            id: 'paste',
+            label: t('library.import.pasteText'),
+            detail: t('library.import.pasteTextDetail'),
+            statusLabel: documentImport.status === 'importing' && documentImport.format === 'paste'
+              ? t('library.pasteText.saving')
+              : undefined,
+            disabled: operationBusy,
+            onSelect: () => setPasteTextOpen(true),
+          },
           ...(folderImportSupported ? [{
             id: 'folder',
             label: t('library.import.folder'),
@@ -108,16 +199,36 @@ export function LibraryTab({
             disabled: operationBusy,
             onSelect: onImportDocumentFolder,
           }] : []),
+          ...(documentScannerSupported ? [{
+            id: 'scan',
+            label: t('library.import.scanPages'),
+            detail: t('library.import.scanPagesDetail'),
+            statusLabel: documentImport.status === 'importing' && documentImport.format === 'scan'
+              ? t('library.import.scanningPages')
+              : undefined,
+            disabled: operationBusy,
+            onSelect: onScanDocument,
+          }] : []),
+          ...(documentPhotoImportSupported ? [{
+            id: 'photos',
+            label: t('library.import.photos'),
+            detail: t('library.import.photosDetail'),
+            statusLabel: documentImport.status === 'importing' && documentImport.format === 'photos'
+              ? t('library.import.importingPhotos')
+              : undefined,
+            disabled: operationBusy,
+            onSelect: onImportDocumentPhotos,
+          }] : []),
           // { id: 'pdf', label: 'PDF', detail: 'Import PDFs when text extraction support lands', future: true },
         ]}
         importStatuses={statusMessage ? [{
           status: documentImport.status,
           message: statusMessage,
+          manageContext: documentImport.format === 'delete-batch',
           onDismiss: operationBusy ? undefined : onDismissDocumentImportStatus,
         }] : []}
         libraryOrganization={libraryOrganization}
         documentOpening={documentOpening}
-        developerMode={developerMode}
         openingDocumentUrl={openingDocumentUrl}
         savedAudiobookDocumentUrls={savedAudiobookDocumentUrls}
         collapsedAuthors={collapsedAuthors}
@@ -131,8 +242,39 @@ export function LibraryTab({
         onMoveLibraryDocuments={onMoveLibraryDocuments}
         onRenameLibraryFolder={onRenameLibraryFolder}
         onToggleAuthor={onToggleAuthor}
+        onViewAudiobooks={onViewAudiobooks}
+        onViewDocumentInfo={setInfoDocument}
         onViewDocument={onViewDocument}
       />
+      {infoDocument && (
+        <DocumentInfoDialog
+          document={infoDocument}
+          onCancel={() => setInfoDocument(null)}
+          onSave={async (document, title) => {
+            await onUpdateDocumentTitle(document.url, title)
+          }}
+        />
+      )}
+      {pasteTextOpen && (
+        <PasteTextDialog
+          onCancel={() => setPasteTextOpen(false)}
+          onSubmit={async (title, text) => {
+            await onImportPastedText(title, text)
+            setPasteTextOpen(false)
+          }}
+        />
+      )}
+      {dropActive && (
+        <div className="document-drop-overlay" role="status" aria-live="polite" aria-atomic="true">
+          <div className="document-drop-card">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14" />
+            </svg>
+            <strong>{t(operationBusy ? 'library.import.dropUnavailable' : 'library.import.dropTitle')}</strong>
+            {!operationBusy && <span>{t('library.import.filesDetail')}</span>}
+          </div>
+        </div>
+      )}
     </section>
   )
 }
@@ -142,17 +284,37 @@ function documentImportStatusMessage(
   status: DocumentImportStatus,
   t: TFunction,
   onCancelBatch: () => void | Promise<void>,
+  onRecognizeDocument: (
+    documentUrl: string,
+    language?: PdfOcrLanguage,
+    improveIssues?: DocumentImportStatus['recognitionIssues'],
+  ) => void | Promise<boolean>,
+  onAcceptRecognizedDocument: (documentUrl: string) => void | Promise<boolean>,
   documents: DocumentInfo[],
 ): ReactNode {
   if (status.status === 'idle') return null
   if (status.format === 'delete-batch') {
     return <DocumentBatchDeleteStatus status={status} t={t} documents={documents} />
   }
-  if (status.format === 'batch' || status.format === 'folder') {
+  if (status.format === 'pdf-ocr') {
+    return <PdfRecognitionStatus
+      status={status}
+      t={t}
+      onCancel={onCancelBatch}
+      onRecognize={onRecognizeDocument}
+      onAccept={onAcceptRecognizedDocument}
+      showDocumentTitle
+    />
+  }
+  if (status.format === 'batch' || status.format === 'drop' || status.format === 'open' || status.format === 'folder' || status.format === 'scan' ||
+      status.format === 'photos') {
     return <DocumentBatchImportStatus status={status} t={t} onCancel={onCancelBatch} />
   }
   if (status.status === 'cancelled') return t('library.status.cancelled')
   if (status.status === 'error') return status.message ?? null
+  if (status.status === 'importing' && status.format === 'paste') {
+    return t('library.pasteText.saving')
+  }
 
   const title = status.title ?? ''
   if (status.status === 'imported') {
@@ -241,10 +403,19 @@ function DocumentBatchImportStatus({
   const progress = status.batchProgress
   const result = status.batchResult
   const failures = result?.failures ?? []
+  const alreadyInLibrary = result?.alreadyInLibrary ?? []
+  const imageWarnings = (result?.imported ?? []).filter((document) =>
+    Object.values(document.importImageWarnings ?? {}).some((count) => count > 0),
+  )
+  const imageWarningCount = imageWarnings
+    .flatMap((document) => Object.values(document.importImageWarnings ?? {}))
+    .reduce((total, count) => total + count, 0)
+  const added = Math.max(0, (result?.imported.length ?? 0) - alreadyInLibrary.length)
   const importing = status.status === 'importing'
   const total = progress?.total ?? 0
   const processed = progress?.processed ?? 0
   const current = progress?.fileName ? Math.min(processed + 1, total) : processed
+  const stageMessage = progress?.stage ? t(IMPORT_STAGE_KEYS[progress.stage]) : null
 
   let message: ReactNode
   if (importing && status.cancelRequested) {
@@ -258,13 +429,32 @@ function DocumentBatchImportStatus({
           total,
         })}
         {progress?.fileName ? <> · <bdi>{progress.fileName}</bdi></> : null}
+        {stageMessage ? (
+          <span key={progress?.stage} className="document-batch-stage">
+            {stageMessage}
+          </span>
+        ) : null}
       </>
     )
   } else if (importing) {
-    message = t('library.status.preparingBatch')
+    message = t(status.format === 'scan'
+      ? 'library.status.capturingPages'
+      : status.format === 'photos'
+        ? 'library.status.preparingPhotos'
+        : status.format === 'drop'
+          ? 'library.status.preparingDrop'
+          : status.format === 'open'
+            ? 'library.status.preparingOpen'
+            : 'library.status.preparingBatch')
   } else if (result) {
-    message = t(result.cancelled ? 'library.status.batchCancelled' : 'library.status.batchComplete', {
-      imported: result.imported.length,
+    const messageKey = result.cancelled
+      ? 'library.status.batchCancelled'
+      : added === 0 && alreadyInLibrary.length > 0 && failures.length === 0
+        ? 'library.status.batchNoChanges'
+        : 'library.status.batchComplete'
+    message = t(messageKey, {
+      imported: added,
+      already: alreadyInLibrary.length,
       failed: failures.length,
     })
   } else {
@@ -274,7 +464,10 @@ function DocumentBatchImportStatus({
   return (
     <div className="document-batch-status">
       <div className="document-batch-status-row">
-        <span>{message}</span>
+        <div className="document-batch-status-message">
+          {importing && <span className="spinner document-batch-spinner" aria-hidden="true" />}
+          <span>{message}</span>
+        </div>
         {importing && (
           <button
             type="button"
@@ -302,6 +495,29 @@ function DocumentBatchImportStatus({
               <li key={`${failure.fileName}-${index}`}>
                 <bdi>{failure.fileName}</bdi>: <span dir="auto">{failure.error}</span>
               </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {imageWarnings.length > 0 && (
+        <details className="document-batch-failures" open>
+          <summary>{t('imageIssues.summary', { count: imageWarningCount })}</summary>
+          <ul>
+            {imageWarnings.map((document) => (
+              <li key={document.id}>
+                <bdi>{document.originalFileName ?? document.title}</bdi>: {' '}
+                {Object.entries(document.importImageWarnings ?? {}).map(([reason, count]) => `${imageIssueReason(reason, t)} (${count})`).join('; ')}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {alreadyInLibrary.length > 0 && (
+        <details className="document-batch-existing">
+          <summary>{t('library.status.alreadyInLibraryFiles', { count: alreadyInLibrary.length })}</summary>
+          <ul>
+            {alreadyInLibrary.map((fileName, index) => (
+              <li key={`${fileName}-${index}`}><bdi>{fileName}</bdi></li>
             ))}
           </ul>
         </details>

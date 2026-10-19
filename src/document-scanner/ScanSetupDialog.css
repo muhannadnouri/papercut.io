@@ -1,0 +1,28 @@
+.scan-setup-dialog {
+  width: min(100%, 28rem);
+}
+
+.scan-setup-field {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--text-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.scan-setup-field input {
+  width: 100%;
+  min-height: 2.45rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--control-surface);
+  color: var(--text-heading);
+  font: inherit;
+  outline: none;
+}
+
+.scan-setup-field input:focus {
+  background: var(--surface-accent);
+  box-shadow: 0 0 0 3px var(--shadow-focus);
+}

@@ -17,7 +17,7 @@ use super::types::{
     NativeImportedAudiobookMetadataResponse, NativeImportedAudiobookSourceRequest,
     NativeSavedAudiobookRecord, NativeSilmaSidecarProbeResponse, NativeTtsCapabilities,
     NativeTtsChunkResponse, NativeTtsCommandError, NativeTtsModelInstallResponse,
-    NativeTtsModelStatus,
+    NativeTtsModelStatus, NativeTtsPreviewRequest,
 };
 
 #[cfg(feature = "native-tts-core")]
@@ -25,7 +25,7 @@ use super::engine::{
     cancel_audiobook_save, delete_audiobook_native, export_audiobook_native,
     get_imported_audiobook_metadata, get_imported_audiobook_source, get_native_audiobook_chunk,
     import_audiobook_native, install_model, list_saved_audiobooks, model_status,
-    native_audiobook_status, native_capabilities, prepare_native_audiobook_playback,
+    native_audiobook_status, native_capabilities, prepare_native_audiobook_playback, preview_voice,
     probe_silma_sidecar, save_audiobook_native,
 };
 
@@ -34,7 +34,7 @@ use super::stub::{
     cancel_audiobook_save, delete_audiobook_native, export_audiobook_native,
     get_imported_audiobook_metadata, get_imported_audiobook_source, get_native_audiobook_chunk,
     import_audiobook_native, install_model, list_saved_audiobooks, model_status,
-    native_audiobook_status, native_capabilities, prepare_native_audiobook_playback,
+    native_audiobook_status, native_capabilities, prepare_native_audiobook_playback, preview_voice,
     probe_silma_sidecar, save_audiobook_native,
 };
 
@@ -90,6 +90,16 @@ pub fn tts_get_native_audiobook_chunk(
     request: NativeAudiobookChunkRequest,
 ) -> Result<NativeTtsChunkResponse, NativeTtsCommandError> {
     get_native_audiobook_chunk(app, request).map_err(Into::into)
+}
+
+/// Generate a short disposable preview with the selected model and voice.
+#[tauri::command]
+pub async fn tts_preview_voice(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, NativeTtsState>,
+    request: NativeTtsPreviewRequest,
+) -> Result<NativeTtsChunkResponse, NativeTtsCommandError> {
+    preview_voice(app, state, request).await.map_err(Into::into)
 }
 
 /// Prepare/reuse one seekable native track and return global chunk boundaries.

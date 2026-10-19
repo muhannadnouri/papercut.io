@@ -3,14 +3,18 @@
 use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use serde::{Deserialize, Serialize};
 
 const SCHEMA_VERSION: u32 = 1;
 const PAGE_TEXT_DIR: &str = "page-text";
+const OCR_TEXT_MARKER_FILE: &str = ".has-ocr-text";
 const MAX_LAYER_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_BLOCKS: usize = 50_000;
 const MAX_TEXT_BYTES: usize = 2 * 1024 * 1024;
+
+static NEXT_TEMP_FILE: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -51,7 +55,7 @@ pub(crate) fn write_page_text_layer(
         .ok_or_else(|| "PDF page text path is invalid".to_string())?;
     fs::create_dir_all(parent)
         .map_err(|err| format!("Failed to create PDF page text directory: {err}"))?;
-    fs::write(&path, bytes).map_err(|err| format!("Failed to store PDF page text: {err}"))
+    write_atomically(&path, &bytes)
 }
 
 /// Read one page layer with a decompressed byte cap and revalidate every value;
@@ -84,6 +88,61 @@ fn layer_path(upload_dir: &Path, page_index: u32) -> PathBuf {
     upload_dir
         .join(PAGE_TEXT_DIR)
         .join(format!("{page_index:08}.json"))
+}
+
+/// Replace one derived sidecar only after its complete contents are staged.
+/// A same-directory temporary file keeps the final rename atomic and leaves a
+/// previous valid layer readable if writing or committing fails. These files
+/// are rebuildable, so forcing a disk sync for every PDF page is unnecessary.
+fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| "PDF page text file name is invalid".to_string())?;
+    let nonce = NEXT_TEMP_FILE.fetch_add(1, Ordering::Relaxed);
+    let temporary =
+        path.with_file_name(format!(".{file_name}.{}.{}.tmp", std::process::id(), nonce));
+
+    let result = (|| {
+        fs::write(&temporary, bytes)
+            .map_err(|err| format!("Failed to stage PDF page text: {err}"))?;
+        fs::rename(&temporary, path).map_err(|err| format!("Failed to commit PDF page text: {err}"))
+    })();
+
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
+}
+
+/// Record whether finalized page sidecars contain OCR-derived text.
+///
+/// The viewer reads this tiny derived marker when choosing its Find adapter,
+/// avoiding an O(page count) sidecar scan every time a PDF is opened.
+pub(crate) fn sync_ocr_text_marker(upload_dir: &Path, present: bool) -> Result<(), String> {
+    let path = upload_dir.join(PAGE_TEXT_DIR).join(OCR_TEXT_MARKER_FILE);
+    if present {
+        let parent = path
+            .parent()
+            .ok_or_else(|| "PDF OCR marker path is invalid".to_string())?;
+        fs::create_dir_all(parent)
+            .map_err(|err| format!("Failed to create PDF page text directory: {err}"))?;
+        fs::write(path, []).map_err(|err| format!("Failed to store PDF OCR marker: {err}"))
+    } else {
+        match fs::remove_file(path) {
+            Ok(()) => Ok(()),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(err) => Err(format!("Failed to remove PDF OCR marker: {err}")),
+        }
+    }
+}
+
+/// Return the finalized OCR-presence decision without opening page sidecars.
+pub(crate) fn has_ocr_text_marker(upload_dir: &Path) -> bool {
+    upload_dir
+        .join(PAGE_TEXT_DIR)
+        .join(OCR_TEXT_MARKER_FILE)
+        .is_file()
 }
 
 /// Enforce the sidecar trust boundary on both writes and reads. Derived files
@@ -135,7 +194,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn page_text_layer_round_trips_and_rejects_invalid_geometry() {
+    fn page_text_layer_replaces_atomically_and_rejects_invalid_geometry() {
         let dir = std::env::temp_dir().join(format!(
             "papercut-pdf-layer-{}",
             SystemTime::now()
@@ -158,6 +217,32 @@ mod tests {
 
         write_page_text_layer(&dir, &layer).expect("write layer");
         assert_eq!(read_page_text_layer(&dir, 3).expect("read layer"), layer);
+
+        let mut replacement = layer.clone();
+        replacement.blocks[0].text = "Replacement text".into();
+        write_page_text_layer(&dir, &replacement).expect("replace layer");
+        assert_eq!(
+            read_page_text_layer(&dir, 3).expect("read replacement"),
+            replacement
+        );
+
+        let blocked_destination = dir.join(PAGE_TEXT_DIR).join("blocked.json");
+        fs::create_dir(&blocked_destination).expect("create blocked destination");
+        assert!(write_atomically(&blocked_destination, b"staged text").is_err());
+        assert!(blocked_destination.is_dir());
+        assert!(fs::read_dir(dir.join(PAGE_TEXT_DIR))
+            .expect("read page text directory")
+            .all(|entry| !entry
+                .expect("read page text entry")
+                .path()
+                .to_string_lossy()
+                .ends_with(".tmp")));
+
+        assert!(!has_ocr_text_marker(&dir));
+        sync_ocr_text_marker(&dir, true).expect("store OCR marker");
+        assert!(has_ocr_text_marker(&dir));
+        sync_ocr_text_marker(&dir, false).expect("remove OCR marker");
+        assert!(!has_ocr_text_marker(&dir));
 
         let mut invalid = layer;
         invalid.width = f32::NAN;

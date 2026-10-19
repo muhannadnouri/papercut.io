@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { Button, Menu, MenuItem, MenuSection, MenuTrigger, Popover } from 'react-aria-components'
 import './PdfControls.css'
 import {
   clampPdfPage,
@@ -15,13 +16,16 @@ const ZOOM_STEP = 10
 type PdfControlsProps = {
   currentPage: number
   fitMode: PdfFitMode
+  fullscreen: boolean
   hasOutline: boolean
   outlineOpen: boolean
   pages: number
+  popoverContainer?: Element | null
   ready: boolean
   spreadMode: PdfSpreadMode
   zoom: number
   onFitChange: (mode: Exclude<PdfFitMode, null>) => void
+  onFullscreenChange: () => void
   onOutlineChange: (open: boolean) => void
   onPageChange: (page: number) => void
   onPageNext: () => void
@@ -33,13 +37,16 @@ type PdfControlsProps = {
 export function PdfControls({
   currentPage,
   fitMode,
+  fullscreen,
   hasOutline,
   outlineOpen,
   pages,
+  popoverContainer,
   ready,
   spreadMode,
   zoom,
   onFitChange,
+  onFullscreenChange,
   onOutlineChange,
   onPageChange,
   onPageNext,
@@ -190,7 +197,8 @@ export function PdfControls({
           onClick={() => onFitChange('page-fit')}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" />
+            <rect x="5" y="3" width="14" height="18" rx="1.5" />
+            <path d="M12 6v12M9.5 8.5 12 6l2.5 2.5M9.5 15.5 12 18l2.5-2.5" />
           </svg>
         </button>
         <button
@@ -225,6 +233,141 @@ export function PdfControls({
             </svg>
           </button>
         )}
+        <button
+          type="button"
+          className={`pdf-control-button${fullscreen ? ' active' : ''}`}
+          disabled={!ready}
+          aria-label={t(fullscreen ? 'reader.pdf.exitFullscreen' : 'reader.pdf.enterFullscreen')}
+          aria-pressed={fullscreen}
+          title={t(fullscreen ? 'reader.pdf.exitFullscreen' : 'reader.pdf.enterFullscreen')}
+          onClick={onFullscreenChange}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            {fullscreen ? (
+              <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
+            ) : (
+              <path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5" />
+            )}
+          </svg>
+        </button>
+      </div>
+
+      <div className="pdf-control-group pdf-view-options">
+        <MenuTrigger>
+          <Button
+            className="pdf-control-button pdf-view-options-trigger"
+            isDisabled={!ready}
+            aria-label={t('reader.pdf.view')}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <circle cx="12" cy="5" r="1.5" />
+              <circle cx="12" cy="12" r="1.5" />
+              <circle cx="12" cy="19" r="1.5" />
+            </svg>
+          </Button>
+          <Popover
+            className="pdf-view-options-popover"
+            placement="bottom end"
+            offset={6}
+            containerPadding={8}
+            shouldFlip
+            UNSTABLE_portalContainer={popoverContainer ?? undefined}
+          >
+            <Menu className="pdf-view-options-menu" aria-label={t('reader.pdf.view')}>
+              <MenuSection
+                selectionMode="single"
+                selectedKeys={fitMode ? [fitMode] : []}
+              >
+                <MenuItem
+                  id="page-width"
+                  className="pdf-view-option"
+                  textValue={t('reader.pdf.fitWidth')}
+                  onAction={() => onFitChange('page-width')}
+                >
+                  {({ isSelected }) => (
+                    <>
+                      <span className="pdf-view-option-check" aria-hidden="true">
+                        {isSelected ? '✓' : ''}
+                      </span>
+                      <span>{t('reader.pdf.fitWidth')}</span>
+                    </>
+                  )}
+                </MenuItem>
+                <MenuItem
+                  id="page-fit"
+                  className="pdf-view-option"
+                  textValue={t('reader.pdf.fitPage')}
+                  onAction={() => onFitChange('page-fit')}
+                >
+                  {({ isSelected }) => (
+                    <>
+                      <span className="pdf-view-option-check" aria-hidden="true">
+                        {isSelected ? '✓' : ''}
+                      </span>
+                      <span>{t('reader.pdf.fitPage')}</span>
+                    </>
+                  )}
+                </MenuItem>
+              </MenuSection>
+              <MenuSection
+                selectionMode="multiple"
+                selectedKeys={[
+                  ...(spreadMode === 'spread' ? ['spread'] : []),
+                  ...(outlineOpen ? ['outline'] : []),
+                  ...(fullscreen ? ['fullscreen'] : []),
+                ]}
+              >
+                <MenuItem
+                  id="spread"
+                  className="pdf-view-option"
+                  textValue={t('reader.pdf.twoPageSpread')}
+                  onAction={() => onSpreadChange(spreadMode === 'spread' ? 'single' : 'spread')}
+                >
+                  {({ isSelected }) => (
+                    <>
+                      <span className="pdf-view-option-check" aria-hidden="true">
+                        {isSelected ? '✓' : ''}
+                      </span>
+                      <span>{t('reader.pdf.twoPageSpread')}</span>
+                    </>
+                  )}
+                </MenuItem>
+                {hasOutline && (
+                  <MenuItem
+                    id="outline"
+                    className="pdf-view-option"
+                    textValue={t('reader.pdf.outline')}
+                    onAction={() => onOutlineChange(!outlineOpen)}
+                  >
+                    {({ isSelected }) => (
+                      <>
+                        <span className="pdf-view-option-check" aria-hidden="true">
+                          {isSelected ? '✓' : ''}
+                        </span>
+                        <span>{t('reader.pdf.outline')}</span>
+                      </>
+                    )}
+                  </MenuItem>
+                )}
+                <MenuItem
+                  id="fullscreen"
+                  className="pdf-view-option"
+                  textValue={t(fullscreen ? 'reader.pdf.exitFullscreen' : 'reader.pdf.enterFullscreen')}
+                  onAction={onFullscreenChange}
+                >
+                  {({ isSelected }) => (
+                    <>
+                      <span className="pdf-view-option-check" aria-hidden="true">
+                        {isSelected ? '✓' : ''}
+                      </span>
+                      <span>{t(fullscreen ? 'reader.pdf.exitFullscreen' : 'reader.pdf.enterFullscreen')}</span>
+                    </>
+                  )}
+                </MenuItem>
+              </MenuSection>
+            </Menu>
+          </Popover>
+        </MenuTrigger>
       </div>
     </div>
   )

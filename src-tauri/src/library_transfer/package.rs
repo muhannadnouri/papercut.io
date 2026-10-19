@@ -1,21 +1,25 @@
 //! Versioned `.papercut-library` archive contract and trust-boundary checks.
 
 use std::collections::{HashMap, HashSet};
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Component, Path};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use zip::write::FileOptions;
+use zip::read::{ArchiveOffset, Config};
+use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipArchive, ZipWriter};
 
+use crate::document_uploads::is_reader_asset_file_name;
+
 pub(super) const PACKAGE_KIND: &str = "papercut-library";
-pub(super) const PACKAGE_VERSION: u32 = 3;
+pub(super) const PACKAGE_VERSION: u32 = 4;
 const DOCUMENTS_ONLY_PACKAGE_VERSION: u32 = 1;
 const AUDIOBOOK_PACKAGE_VERSION: u32 = 2;
+const PDF_PACKAGE_VERSION: u32 = 3;
 const MANIFEST_PATH: &str = "manifest.json";
-const MAX_DOCUMENTS: usize = 500;
-const MAX_AUDIOBOOKS: usize = 500;
+pub(super) const MAX_DOCUMENTS: usize = 500;
+pub(super) const MAX_AUDIOBOOKS: usize = 500;
 const MAX_AUDIOBOOK_FILES: usize = 100_000;
 const MAX_FOLDERS: usize = 2_000;
 const MAX_FOLDER_DEPTH: usize = 4;
@@ -26,6 +30,16 @@ const MAX_IMPORTED_AUDIOBOOK_SOURCE_BYTES: u64 = 256 * 1024 * 1024;
 const MAX_IMPORTED_AUDIOBOOK_METADATA_BYTES: u64 = 4 * 1024 * 1024;
 pub(super) const MAX_PACKAGE_BYTES: u64 = 8 * 1024 * 1024 * 1024;
 const MAX_DOCUMENT_SOURCE_BYTES: u64 = 128 * 1024 * 1024;
+const MAX_DOCUMENT_ASSET_BYTES: u64 = 5 * 1024 * 1024;
+const MAX_DOCUMENT_ASSETS_BYTES: u64 = 100 * 1024 * 1024;
+const MAX_DOCUMENT_ASSETS: usize = 10_000;
+const MAX_ARCHIVE_ENTRIES: u64 = 125_000;
+const MAX_CENTRAL_DIRECTORY_BYTES: u64 = 64 * 1024 * 1024;
+const ZIP_END_BYTES: usize = 22;
+const ZIP64_END_BYTES: usize = 56;
+const ZIP64_LOCATOR_BYTES: usize = 20;
+// Cover ZIP 9's recovery scan, which extends beyond the standard 65,557-byte footer window.
+const ZIP_END_SEARCH_BYTES: usize = 128 * 1024;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -44,6 +58,8 @@ pub(super) struct TransferManifest {
 pub(super) struct TransferDocument {
     pub(super) id: String,
     pub(super) title: String,
+    #[serde(default)]
+    pub(super) original_file_name: Option<String>,
     pub(super) format: String,
     #[serde(default = "default_source_kind")]
     pub(super) source_kind: String,
@@ -52,6 +68,17 @@ pub(super) struct TransferDocument {
     pub(super) source_path: String,
     pub(super) source_bytes: u64,
     pub(super) source_sha256: String,
+    #[serde(default)]
+    pub(super) assets: Vec<TransferDocumentAsset>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct TransferDocumentAsset {
+    pub(super) file_name: String,
+    pub(super) path: String,
+    pub(super) bytes: u64,
+    pub(super) sha256: String,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -109,6 +136,12 @@ pub(super) fn document_source_path(id: &str, source_kind: &str) -> String {
     format!("documents/{id}/source.{source_kind}")
 }
 
+/// Keep v4 reader assets under a manifest-verifiable canonical path. Import
+/// compares against this exact value and never extracts a ZIP-provided pathname.
+pub(super) fn document_asset_path(id: &str, file_name: &str) -> String {
+    format!("documents/{id}/assets/{file_name}")
+}
+
 pub(super) fn audiobook_file_path(storage_key: &str, relative_path: &str) -> String {
     format!("audiobooks/{storage_key}/{relative_path}")
 }
@@ -151,7 +184,7 @@ where
         return Err("Library-transfer manifest is too large".into());
     }
 
-    let options = FileOptions::default()
+    let options = SimpleFileOptions::default()
         .compression_method(CompressionMethod::Deflated)
         .unix_permissions(0o644);
     let mut archive = ZipWriter::new(writer);
@@ -171,6 +204,16 @@ where
             &document.source_sha256,
             &mut open_payload,
         )?;
+        for asset in &document.assets {
+            write_payload(
+                &mut archive,
+                options,
+                &asset.path,
+                asset.bytes,
+                &asset.sha256,
+                &mut open_payload,
+            )?;
+        }
     }
     for audiobook in &manifest.audiobooks {
         for file in &audiobook.files {
@@ -185,13 +228,16 @@ where
         }
     }
 
-    archive.finish().map_err(zip_write_err)?;
+    let mut writer = archive.finish().map_err(zip_write_err)?;
+    writer
+        .flush()
+        .map_err(|err| format!("Failed to flush library-transfer package: {err}"))?;
     Ok(())
 }
 
 fn write_payload<W: Write + Seek, O: FnMut(&str) -> Result<Box<dyn Read>, String>>(
     archive: &mut ZipWriter<W>,
-    options: FileOptions,
+    options: SimpleFileOptions,
     path: &str,
     expected_bytes: u64,
     expected_sha256: &str,
@@ -219,6 +265,196 @@ fn write_payload<W: Write + Seek, O: FnMut(&str) -> Result<Box<dyn Read>, String
         return Err(format!("Payload changed while exporting: {path}"));
     }
     Ok(())
+}
+
+/// Bound central-directory work before `zip` allocates metadata for every
+/// entry. Reject footer recovery and walk only fixed directory headers; `zip`
+/// remains responsible for decoding entries and validating their contents.
+///
+/// shortcut: remove this narrow preflight when `zip` exposes equivalent entry
+/// and central-directory byte limits in its stable reader configuration.
+fn preflight_archive<R: Read + Seek>(reader: &mut R) -> Result<u64, String> {
+    const END_SIGNATURE: [u8; 4] = [0x50, 0x4b, 0x05, 0x06];
+    const ZIP64_END_SIGNATURE: [u8; 4] = [0x50, 0x4b, 0x06, 0x06];
+    const ZIP64_LOCATOR_SIGNATURE: [u8; 4] = [0x50, 0x4b, 0x06, 0x07];
+
+    let file_bytes = reader
+        .seek(SeekFrom::End(0))
+        .map_err(|err| format!("Failed to inspect library-transfer archive: {err}"))?;
+    if file_bytes < ZIP_END_BYTES as u64 {
+        return Err("Library-transfer archive is missing its central directory".into());
+    }
+
+    let tail_bytes = file_bytes.min(ZIP_END_SEARCH_BYTES as u64) as usize;
+    reader
+        .seek(SeekFrom::End(-(tail_bytes as i64)))
+        .map_err(|err| format!("Failed to inspect library-transfer archive: {err}"))?;
+    let mut tail = vec![0; tail_bytes];
+    reader
+        .read_exact(&mut tail)
+        .map_err(|err| format!("Failed to inspect library-transfer archive: {err}"))?;
+
+    let mut end_offsets = (0..=tail.len() - ZIP_END_BYTES).filter(|&offset| {
+        tail[offset..offset + 4] == END_SIGNATURE
+            && offset + ZIP_END_BYTES + read_u16(&tail, offset + 20) as usize <= tail.len()
+    });
+    let end_offset = end_offsets
+        .next()
+        .ok_or_else(|| "Library-transfer archive is missing its central directory".to_string())?;
+    if end_offsets.next().is_some() {
+        return Err("Library-transfer archive has ambiguous end records".into());
+    }
+    if end_offset + ZIP_END_BYTES + read_u16(&tail, end_offset + 20) as usize != tail.len() {
+        return Err("Library-transfer archive has trailing data".into());
+    }
+    let end_position = file_bytes - tail_bytes as u64 + end_offset as u64;
+
+    let is_zip64 = read_u16(&tail, end_offset + 10) == u16::MAX
+        || read_u32(&tail, end_offset + 12) == u32::MAX
+        || read_u32(&tail, end_offset + 16) == u32::MAX;
+    let (entries, directory_bytes, directory_position, directory_end) = if is_zip64 {
+        if end_offset < ZIP64_LOCATOR_BYTES
+            || tail[end_offset - ZIP64_LOCATOR_BYTES..end_offset - ZIP64_LOCATOR_BYTES + 4]
+                != ZIP64_LOCATOR_SIGNATURE
+        {
+            return Err("Library-transfer ZIP64 locator is missing".into());
+        }
+        let locator = &tail[end_offset - ZIP64_LOCATOR_BYTES..end_offset];
+        if read_u32(locator, 4) != 0 || read_u32(locator, 16) != 1 {
+            return Err("Multi-disk library-transfer archives are not supported".into());
+        }
+        let zip64_position = read_u64(locator, 8);
+        if zip64_position
+            .checked_add(ZIP64_END_BYTES as u64)
+            .is_none_or(|end| end != end_position - ZIP64_LOCATOR_BYTES as u64)
+        {
+            return Err("Library-transfer ZIP64 metadata is invalid".into());
+        }
+        reader
+            .seek(SeekFrom::Start(zip64_position))
+            .map_err(|err| format!("Failed to inspect library-transfer ZIP64 metadata: {err}"))?;
+        let mut zip64 = [0; ZIP64_END_BYTES];
+        reader
+            .read_exact(&mut zip64)
+            .map_err(|err| format!("Failed to inspect library-transfer ZIP64 metadata: {err}"))?;
+        if zip64[..4] != ZIP64_END_SIGNATURE
+            || read_u64(&zip64, 4) != 44
+            || read_u32(&zip64, 16) != 0
+            || read_u32(&zip64, 20) != 0
+            || read_u64(&zip64, 24) != read_u64(&zip64, 32)
+        {
+            return Err("Library-transfer ZIP64 metadata is invalid".into());
+        }
+        (
+            read_u64(&zip64, 32),
+            read_u64(&zip64, 40),
+            read_u64(&zip64, 48),
+            zip64_position,
+        )
+    } else {
+        if read_u16(&tail, end_offset + 4) != 0
+            || read_u16(&tail, end_offset + 6) != 0
+            || read_u16(&tail, end_offset + 8) != read_u16(&tail, end_offset + 10)
+        {
+            return Err("Multi-disk library-transfer archives are not supported".into());
+        }
+        (
+            read_u16(&tail, end_offset + 10) as u64,
+            read_u32(&tail, end_offset + 12) as u64,
+            read_u32(&tail, end_offset + 16) as u64,
+            end_position,
+        )
+    };
+    validate_central_directory_limits(entries, directory_bytes)?;
+    if directory_position.checked_add(directory_bytes) != Some(directory_end) {
+        return Err("Library-transfer archive directory bounds are invalid".into());
+    }
+    // ZIP 9 trusts entry lengths rather than the advertised directory byte count.
+    let mut position = directory_position;
+    for _ in 0..entries {
+        if directory_end.saturating_sub(position) < 46 {
+            return Err("Library-transfer archive directory is truncated".into());
+        }
+        reader
+            .seek(SeekFrom::Start(position))
+            .map_err(|err| format!("Failed to inspect library-transfer directory: {err}"))?;
+        let mut header = [0; 46];
+        reader
+            .read_exact(&mut header)
+            .map_err(|err| format!("Failed to inspect library-transfer directory: {err}"))?;
+        if header[..4] != [0x50, 0x4b, 0x01, 0x02] {
+            return Err("Library-transfer archive directory header is invalid".into());
+        }
+        position += 46
+            + read_u16(&header, 28) as u64
+            + read_u16(&header, 30) as u64
+            + read_u16(&header, 32) as u64;
+        if position > directory_end {
+            return Err("Library-transfer archive entry exceeds directory bounds".into());
+        }
+    }
+    if position != directory_end {
+        return Err("Library-transfer archive directory count is inconsistent".into());
+    }
+
+    reader
+        .rewind()
+        .map_err(|err| format!("Failed to rewind library-transfer archive: {err}"))?;
+    Ok(entries)
+}
+
+pub(super) fn open_archive<R: Read + Seek>(mut reader: R) -> Result<ZipArchive<R>, String> {
+    let entries = preflight_archive(&mut reader)?;
+    let archive = ZipArchive::with_config(
+        Config {
+            archive_offset: ArchiveOffset::Known(0),
+        },
+        reader,
+    )
+    .map_err(|err| format!("Selected file is not a valid Papercut library: {err}"))?;
+    // ZIP 9 collapses duplicate names; compare with the original directory count before import.
+    if archive.len() as u64 != entries {
+        return Err(
+            "Library-transfer archive contains duplicate entries or inconsistent metadata".into(),
+        );
+    }
+    Ok(archive)
+}
+
+fn validate_central_directory_limits(entries: u64, bytes: u64) -> Result<(), String> {
+    if entries > MAX_ARCHIVE_ENTRIES {
+        return Err(format!(
+            "Library-transfer archive contains more than {MAX_ARCHIVE_ENTRIES} entries"
+        ));
+    }
+    if bytes > MAX_CENTRAL_DIRECTORY_BYTES {
+        return Err("Library-transfer archive directory is too large".into());
+    }
+    Ok(())
+}
+
+fn read_u16(bytes: &[u8], offset: usize) -> u16 {
+    u16::from_le_bytes(
+        bytes[offset..offset + 2]
+            .try_into()
+            .expect("bounded ZIP field"),
+    )
+}
+
+fn read_u32(bytes: &[u8], offset: usize) -> u32 {
+    u32::from_le_bytes(
+        bytes[offset..offset + 4]
+            .try_into()
+            .expect("bounded ZIP field"),
+    )
+}
+
+fn read_u64(bytes: &[u8], offset: usize) -> u64 {
+    u64::from_le_bytes(
+        bytes[offset..offset + 8]
+            .try_into()
+            .expect("bounded ZIP field"),
+    )
 }
 
 /// Read and validate the manifest and exact archive entry set before any target
@@ -276,6 +512,34 @@ pub(super) fn read_document_source<R: Read + Seek>(
     Ok(bytes)
 }
 
+/// Read one v4 EPUB image only after manifest validation established its safe
+/// generated name and bounded size; verify the payload again before persistence.
+pub(super) fn read_document_asset<R: Read + Seek>(
+    archive: &mut ZipArchive<R>,
+    asset: &TransferDocumentAsset,
+) -> Result<Vec<u8>, String> {
+    let mut entry = archive
+        .by_name(&asset.path)
+        .map_err(|_| format!("Library-transfer payload is missing: {}", asset.path))?;
+    if entry.is_dir() || entry.size() != asset.bytes {
+        return Err(format!(
+            "Library-transfer payload size does not match: {}",
+            asset.path
+        ));
+    }
+    let mut bytes = Vec::with_capacity(entry.size() as usize);
+    entry
+        .read_to_end(&mut bytes)
+        .map_err(|err| format!("Failed to read {}: {err}", asset.path))?;
+    if format!("{:x}", Sha256::digest(&bytes)) != asset.sha256 {
+        return Err(format!(
+            "Library-transfer payload checksum does not match: {}",
+            asset.path
+        ));
+    }
+    Ok(bytes)
+}
+
 /// Stream one declared binary payload to a staged path while enforcing its
 /// decompressed size and checksum. No archive pathname is ever extracted.
 pub(super) fn copy_audiobook_file<R: Read + Seek, W: Write>(
@@ -323,7 +587,10 @@ fn validate_manifest(manifest: &TransferManifest) -> Result<(), String> {
     if manifest.kind != PACKAGE_KIND
         || !matches!(
             manifest.schema_version,
-            DOCUMENTS_ONLY_PACKAGE_VERSION | AUDIOBOOK_PACKAGE_VERSION | PACKAGE_VERSION
+            DOCUMENTS_ONLY_PACKAGE_VERSION
+                | AUDIOBOOK_PACKAGE_VERSION
+                | PDF_PACKAGE_VERSION
+                | PACKAGE_VERSION
         )
     {
         return Err(format!(
@@ -358,12 +625,18 @@ fn validate_manifest(manifest: &TransferManifest) -> Result<(), String> {
                 document.id
             ));
         }
-        if manifest.schema_version < PACKAGE_VERSION && document.source_kind != "html" {
+        if manifest.schema_version < PDF_PACKAGE_VERSION && document.source_kind != "html" {
             return Err("Library-transfer package versions 1 and 2 cannot contain PDFs".into());
+        }
+        if manifest.schema_version < PACKAGE_VERSION && !document.assets.is_empty() {
+            return Err(
+                "Library-transfer package versions 1 through 3 cannot contain document assets"
+                    .into(),
+            );
         }
         let valid_source = matches!(
             (document.format.as_str(), document.source_kind.as_str()),
-            ("html" | "epub", "html") | ("pdf", "pdf")
+            ("html" | "epub" | "txt" | "markdown", "html") | ("pdf", "pdf")
         );
         if !valid_source {
             return Err(format!(
@@ -398,6 +671,45 @@ fn validate_manifest(manifest: &TransferManifest) -> Result<(), String> {
             .ok_or_else(|| "Library-transfer package is too large".to_string())?;
         if total_source_bytes > MAX_PACKAGE_BYTES {
             return Err("Library-transfer package expands beyond the supported size".into());
+        }
+        if !document.assets.is_empty() && document.format != "epub" {
+            return Err("Only transferred EPUB documents can contain reader images".into());
+        }
+        if document.assets.len() > MAX_DOCUMENT_ASSETS {
+            return Err(format!(
+                "Transferred document contains too many reader images: {}",
+                document.title
+            ));
+        }
+        let mut document_asset_bytes = 0u64;
+        let mut file_names = HashSet::new();
+        for asset in &document.assets {
+            let expected_path = document_asset_path(&document.id, &asset.file_name);
+            if !is_reader_asset_file_name(&asset.file_name)
+                || asset.path != expected_path
+                || !file_names.insert(asset.file_name.as_str())
+                || !source_paths.insert(asset.path.as_str())
+                || asset.bytes == 0
+                || asset.bytes > MAX_DOCUMENT_ASSET_BYTES
+            {
+                return Err(format!("Invalid transferred reader image: {}", asset.path));
+            }
+            validate_sha256(&asset.sha256)?;
+            document_asset_bytes = document_asset_bytes
+                .checked_add(asset.bytes)
+                .ok_or_else(|| "Transferred document reader images are too large".to_string())?;
+            if document_asset_bytes > MAX_DOCUMENT_ASSETS_BYTES {
+                return Err(format!(
+                    "Transferred document reader images are too large: {}",
+                    document.title
+                ));
+            }
+            total_source_bytes = total_source_bytes
+                .checked_add(asset.bytes)
+                .ok_or_else(|| "Library-transfer package is too large".to_string())?;
+            if total_source_bytes > MAX_PACKAGE_BYTES {
+                return Err("Library-transfer package expands beyond the supported size".into());
+            }
         }
     }
 
@@ -582,6 +894,12 @@ fn validate_archive_entries<R: Read + Seek>(
         .collect();
     expected.extend(
         manifest
+            .documents
+            .iter()
+            .flat_map(|document| document.assets.iter().map(|asset| asset.path.as_str())),
+    );
+    expected.extend(
+        manifest
             .audiobooks
             .iter()
             .flat_map(|audiobook| audiobook.files.iter().map(|file| file.path.as_str())),
@@ -592,7 +910,10 @@ fn validate_archive_entries<R: Read + Seek>(
         let entry = archive
             .by_index(index)
             .map_err(|err| format!("Failed to inspect library-transfer archive: {err}"))?;
-        let name = entry.name().to_string();
+        let name = entry
+            .name()
+            .map_err(|err| format!("Invalid library-transfer archive filename: {err}"))?
+            .into_owned();
         if entry.is_dir() || !expected.contains(name.as_str()) || !seen.insert(name.clone()) {
             return Err(format!("Unexpected library-transfer archive entry: {name}"));
         }
@@ -623,9 +944,94 @@ fn zip_write_err(err: zip::result::ZipError) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
+    use std::io::{self, Cursor, Seek, SeekFrom, Write};
 
     use super::*;
+
+    /// Accepts every ZIP write but exposes an error only at the final flush,
+    /// matching the storage failure that `BufWriter::drop` would otherwise hide.
+    struct FlushFailWriter(Cursor<Vec<u8>>);
+
+    #[derive(Debug)]
+    struct ReadBudget(Cursor<Vec<u8>>, usize);
+
+    impl Read for ReadBudget {
+        fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+            if buffer.len() > self.1 {
+                return Err(io::Error::other("metadata read budget exceeded"));
+            }
+            let read = self.0.read(buffer)?;
+            self.1 -= read;
+            Ok(read)
+        }
+    }
+
+    impl Seek for ReadBudget {
+        fn seek(&mut self, position: SeekFrom) -> io::Result<u64> {
+            self.0.seek(position)
+        }
+    }
+
+    impl Write for FlushFailWriter {
+        fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+            self.0.write(buffer)
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Err(io::Error::other("simulated flush failure"))
+        }
+    }
+
+    impl Seek for FlushFailWriter {
+        fn seek(&mut self, position: SeekFrom) -> io::Result<u64> {
+            self.0.seek(position)
+        }
+    }
+
+    // Fixed vectors from zip 0.6.6, so reader compatibility does not depend on the current writer.
+    #[test]
+    fn patched_reader_accepts_legacy_stored_and_deflated_unicode_payloads() {
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+        let legacy_archives = [
+            concat!(
+                "UEsDBBQAAAAAAAAAIQBYPm3WKAAAACgAAAALAAAAc2FtcGxlLmh0bWw8cD5BcmNoaXZlIGNvbXBhdGliaWxpdHk6INmF2LHY",
+                "rdio2Kc8L3A+UEsBAi4DFAAAAAAAAAAhAFg+bdYoAAAAKAAAAAsAAAAAAAAAAAAAAKSBAAAAAHNhbXBsZS5odG1sUEsFBgAA",
+                "AAABAAEAOQAAAFEAAAAAAA==",
+            ),
+            concat!(
+                "UEsDBBQAAAAIAAAAIQBYPm3WKwAAACgAAAALAAAAc2FtcGxlLmh0bWyzKbBzLErOyCxLVUjOzy1ILMlMyszJLKm0UrjZemPj",
+                "jbU3VtxYbqNfYAcAUEsBAi4DFAAAAAgAAAAhAFg+bdYrAAAAKAAAAAsAAAAAAAAAAAAAAKSBAAAAAHNhbXBsZS5odG1sUEsF",
+                "BgAAAAABAAEAOQAAAFQAAAAAAA==",
+            ),
+        ];
+        for encoded in legacy_archives {
+            let bytes = STANDARD.decode(encoded).unwrap();
+            let mut archive =
+                open_archive(Cursor::new(bytes)).expect("legacy ZIP remains readable");
+            let mut source = String::new();
+            archive
+                .by_name("sample.html")
+                .unwrap()
+                .read_to_string(&mut source)
+                .unwrap();
+            assert_eq!(source, "<p>Archive compatibility: مرحبا</p>");
+        }
+    }
+
+    #[test]
+    fn duplicate_archive_names_are_rejected_before_the_reader_can_hide_them() {
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+        let bytes = STANDARD.decode(concat!(
+                "UEsDBBQAAAAIAAAAIQDl1F0/BQAAAAMAAAAJAAAAc2FtZS5odG1sy89JAQBQSwMEFAAAAAgAAAAhAEVE42sFAAAAAwAAAAkA",
+                "AABzYW1lLmh0bWzLSy0HAFBLAQIuAxQAAAAIAAAAIQDl1F0/BQAAAAMAAAAJAAAAAAAAAAAAAACkgQAAAABzYW1lLmh0bWxQ",
+                "SwECLgMUAAAACAAAACEARUTjawUAAAADAAAACQAAAAAAAAAAAAAApIEsAAAAc2FtZS5odG1sUEsFBgAAAAACAAIAbgAAAFgA",
+                "AAAAAA==",
+            )).unwrap();
+        assert_eq!(ZipArchive::new(Cursor::new(&bytes)).unwrap().len(), 1);
+        assert!(open_archive(Cursor::new(bytes))
+            .unwrap_err()
+            .contains("duplicate entries"));
+    }
 
     #[test]
     fn package_round_trip_validates_manifest_entries_and_checksum() {
@@ -638,12 +1044,217 @@ mod tests {
         .expect("write package");
 
         bytes.set_position(0);
-        let mut archive = ZipArchive::new(bytes).expect("open package");
+        let mut archive = open_archive(bytes).expect("open package");
         let restored_manifest = read_manifest(&mut archive).expect("read manifest");
         let restored = read_document_source(&mut archive, &restored_manifest.documents[0])
             .expect("read source");
 
         assert_eq!(restored, source);
+    }
+
+    #[test]
+    fn package_reports_final_flush_failure() {
+        let source = b"<p>Hello</p>".to_vec();
+        let manifest = test_manifest(&source);
+
+        let error = write_package(FlushFailWriter(Cursor::new(Vec::new())), &manifest, |_| {
+            Ok(Box::new(Cursor::new(source.clone())))
+        })
+        .expect_err("final flush failure");
+
+        assert!(error.contains("Failed to flush library-transfer package"));
+    }
+
+    #[test]
+    fn package_preflight_bounds_standard_and_zip64_directory_metadata() {
+        let mut oversized_directory =
+            Cursor::new(zip_end(1, (MAX_CENTRAL_DIRECTORY_BYTES + 1) as u32));
+        assert!(preflight_archive(&mut oversized_directory)
+            .expect_err("oversized central directory")
+            .contains("directory is too large"));
+
+        let mut too_many_entries = Cursor::new(zip64_end(MAX_ARCHIVE_ENTRIES + 1, 0));
+        assert!(preflight_archive(&mut too_many_entries)
+            .expect_err("too many ZIP64 entries")
+            .contains("more than"));
+
+        let mut empty_zip64 = Cursor::new(zip64_end(0, 0));
+        preflight_archive(&mut empty_zip64).expect("bounded ZIP64 metadata");
+        ZipArchive::new(empty_zip64).expect("ZIP reader accepts bounded ZIP64 metadata");
+    }
+
+    #[test]
+    fn standard_zip_comment_cannot_hide_duplicate_directory_entries() {
+        let mut fake_end = zip_end(2, 0);
+        fake_end[16..20].copy_from_slice(&u32::MAX.to_le_bytes());
+        let bytes = package_directory_fixture(3, false, &fake_end);
+        assert!(preflight_archive(&mut Cursor::new(&bytes))
+            .expect_err("reject before ZIP metadata allocation")
+            .contains("ambiguous"));
+        assert!(open_archive(Cursor::new(bytes)).is_err());
+    }
+
+    #[test]
+    fn zip64_comment_cannot_hide_an_over_limit_directory() {
+        let mut fake_end = zip_end(2, 0);
+        fake_end[16..20].copy_from_slice(&u32::MAX.to_le_bytes());
+        let bytes = package_directory_fixture(MAX_ARCHIVE_ENTRIES as usize + 1, true, &fake_end);
+        assert!(preflight_archive(&mut Cursor::new(&bytes))
+            .expect_err("reject before ZIP metadata allocation")
+            .contains("ambiguous"));
+        let mut without_comment = bytes[..bytes.len() - fake_end.len()].to_vec();
+        let end = without_comment.len() - ZIP_END_BYTES;
+        without_comment[end + 20..end + 22].copy_from_slice(&0u16.to_le_bytes());
+        assert!(preflight_archive(&mut Cursor::new(without_comment))
+            .expect_err("the real ZIP64 count exceeds the limit")
+            .contains("more than"));
+        assert!(
+            open_archive(ReadBudget(Cursor::new(bytes), ZIP_END_SEARCH_BYTES))
+                .expect_err(
+                    "reject within the bounded tail read, without parsing the large directory"
+                )
+                .contains("ambiguous")
+        );
+    }
+
+    #[test]
+    fn footer_recovery_outside_the_standard_comment_window_is_rejected() {
+        for zip64 in [false, true] {
+            let mut comment = vec![0; u16::MAX as usize];
+            let mut fake_end = zip_end(2, 0);
+            fake_end[16..20].copy_from_slice(&u32::MAX.to_le_bytes());
+            fake_end[20..22].copy_from_slice(&15u16.to_le_bytes());
+            let offset = comment.len() - fake_end.len();
+            comment[offset..].copy_from_slice(&fake_end);
+            let mut bytes = package_directory_fixture(3, zip64, &comment);
+            bytes.extend_from_slice(&[0; 15]);
+            // ZIP 9 also considers an older footer whose comment ends before EOF.
+            assert!(open_archive(Cursor::new(bytes))
+                .unwrap_err()
+                .contains("ambiguous"));
+        }
+    }
+
+    #[test]
+    fn standard_and_zip64_packages_accept_ordinary_comments_and_payloads() {
+        for zip64 in [false, true] {
+            // A signature without a complete end record is ordinary comment data.
+            for comment in [
+                b"Archive comment: PK\x05\x06".to_vec(),
+                vec![b'x'; u16::MAX as usize],
+            ] {
+                let bytes = package_directory_fixture(2, zip64, &comment);
+                let mut archive = open_archive(Cursor::new(bytes)).expect("unambiguous package");
+                let manifest = read_manifest(&mut archive).unwrap();
+                assert_eq!(
+                    read_document_source(&mut archive, &manifest.documents[0]).unwrap(),
+                    b"<p>Synthetic archive fixture</p>"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn standard_and_zip64_directory_lengths_are_checked_before_decoding() {
+        for zip64 in [false, true] {
+            let original = package_directory_fixture(2, zip64, b"");
+            let end = original.len() - ZIP_END_BYTES;
+            let metadata = if zip64 {
+                end - ZIP64_LOCATOR_BYTES - ZIP64_END_BYTES
+            } else {
+                end
+            };
+            let (count_offset, size_offset, position_offset) =
+                if zip64 { (32, 40, 48) } else { (10, 12, 16) };
+            let directory_position = if zip64 {
+                read_u64(&original, metadata + position_offset) as usize
+            } else {
+                read_u32(&original, metadata + position_offset) as usize
+            };
+
+            let mut invalid_bounds = original.clone();
+            invalid_bounds[metadata + size_offset] ^= 1;
+            assert!(open_archive(Cursor::new(invalid_bounds))
+                .unwrap_err()
+                .contains("bounds"));
+
+            let mut long_entry = original.clone();
+            long_entry[directory_position + 28..directory_position + 30]
+                .copy_from_slice(&u16::MAX.to_le_bytes());
+            assert!(open_archive(Cursor::new(long_entry))
+                .unwrap_err()
+                .contains("exceeds directory bounds"));
+
+            let mut wrong_count = original.clone();
+            wrong_count[metadata + count_offset] = 1;
+            wrong_count[metadata + count_offset - if zip64 { 8 } else { 2 }] = 1;
+            assert!(open_archive(Cursor::new(wrong_count))
+                .unwrap_err()
+                .contains("count is inconsistent"));
+
+            let mut truncated = original.clone();
+            truncated[metadata + count_offset] = 3;
+            truncated[metadata + count_offset - if zip64 { 8 } else { 2 }] = 3;
+            assert!(open_archive(Cursor::new(truncated))
+                .unwrap_err()
+                .contains("truncated"));
+
+            let mut invalid_header = original;
+            invalid_header[directory_position] = 0;
+            assert!(open_archive(Cursor::new(invalid_header))
+                .unwrap_err()
+                .contains("header is invalid"));
+        }
+    }
+
+    #[test]
+    fn zip64_metadata_cannot_redirect_or_expand_the_preflight() {
+        let original = package_directory_fixture(2, true, b"");
+        let end = original.len() - ZIP_END_BYTES;
+        let locator = end - ZIP64_LOCATOR_BYTES;
+        let record = locator - ZIP64_END_BYTES;
+        for (offset, value) in [(locator + 8, 0u64), (record + 4, u64::MAX)] {
+            let mut bytes = original.clone();
+            bytes[offset..offset + 8].copy_from_slice(&value.to_le_bytes());
+            assert!(open_archive(Cursor::new(bytes))
+                .unwrap_err()
+                .contains("ZIP64 metadata is invalid"));
+        }
+        let mut no_locator = original.clone();
+        no_locator[locator] = 0;
+        assert!(open_archive(Cursor::new(no_locator))
+            .unwrap_err()
+            .contains("ZIP64 locator is missing"));
+
+        // ZIP 9 ignores the locator without a ZIP64 sentinel in the standard footer.
+        let mut no_sentinel = original;
+        no_sentinel[end..].copy_from_slice(&zip_end(2, record as u32));
+        assert!(open_archive(Cursor::new(no_sentinel)).is_err());
+    }
+
+    #[test]
+    fn package_rejects_trailing_data_and_inferred_archive_offsets() {
+        for zip64 in [false, true] {
+            let original = package_directory_fixture(2, zip64, b"");
+            let mut trailing = original.clone();
+            trailing.extend_from_slice(b"unexpected trailing data");
+            assert!(open_archive(Cursor::new(trailing))
+                .unwrap_err()
+                .contains("trailing data"));
+            let mut prepended = b"unexpected prefix".to_vec();
+            prepended.extend_from_slice(&original);
+            assert!(open_archive(Cursor::new(prepended)).is_err());
+        }
+    }
+
+    #[test]
+    fn package_accepts_normalized_text_reader_sources() {
+        let source = b"<html><body><p>Plain text</p></body></html>".to_vec();
+        for format in ["txt", "markdown"] {
+            let mut manifest = test_manifest(&source);
+            manifest.documents[0].format = format.into();
+            validate_manifest(&manifest).expect("text document manifest");
+        }
     }
 
     #[test]
@@ -653,7 +1264,7 @@ mod tests {
         let mut bytes = Cursor::new(Vec::new());
         {
             let mut zip = ZipWriter::new(&mut bytes);
-            let options = FileOptions::default();
+            let options = SimpleFileOptions::default();
             zip.start_file(MANIFEST_PATH, options).unwrap();
             zip.write_all(&serde_json::to_vec(&manifest).unwrap())
                 .unwrap();
@@ -679,7 +1290,7 @@ mod tests {
         let mut bytes = Cursor::new(Vec::new());
         {
             let mut zip = ZipWriter::new(&mut bytes);
-            let options = FileOptions::default();
+            let options = SimpleFileOptions::default();
             zip.start_file(MANIFEST_PATH, options).unwrap();
             zip.write_all(&serde_json::to_vec(&manifest).unwrap())
                 .unwrap();
@@ -699,6 +1310,7 @@ mod tests {
     fn package_v3_round_trips_a_canonical_pdf_source() {
         let source = b"%PDF-1.7\nfixture".to_vec();
         let mut manifest = test_manifest(&source);
+        manifest.schema_version = PDF_PACKAGE_VERSION;
         let document = &mut manifest.documents[0];
         document.format = "pdf".into();
         document.source_kind = "pdf".into();
@@ -717,6 +1329,51 @@ mod tests {
                 .expect("read PDF source"),
             source
         );
+    }
+
+    #[test]
+    fn package_v4_round_trips_epub_reader_images() {
+        for (extension, image) in [
+            ("png", b"PNG fixture".as_slice()),
+            (
+                "svg",
+                br#"<svg xmlns="http://www.w3.org/2000/svg"/>"#.as_slice(),
+            ),
+        ] {
+            let file_name = format!("image-{}.{extension}", "b".repeat(64));
+            let source = format!("<p><img data-papercut-asset=\"{file_name}\"></p>").into_bytes();
+            let image = image.to_vec();
+            let mut manifest = test_manifest(&source);
+            let document = &mut manifest.documents[0];
+            document.format = "epub".into();
+            document.assets.push(TransferDocumentAsset {
+                path: document_asset_path(&document.id, &file_name),
+                file_name,
+                bytes: image.len() as u64,
+                sha256: format!("{:x}", Sha256::digest(&image)),
+            });
+            let asset_path = document.assets[0].path.clone();
+            let mut bytes = Cursor::new(Vec::new());
+
+            write_package(&mut bytes, &manifest, |path| {
+                let payload = if path == asset_path.as_str() {
+                    image.clone()
+                } else {
+                    source.clone()
+                };
+                Ok(Box::new(Cursor::new(payload)))
+            })
+            .expect("write EPUB package");
+            bytes.set_position(0);
+            let mut archive = ZipArchive::new(bytes).expect("open EPUB package");
+            let restored = read_manifest(&mut archive).expect("read EPUB manifest");
+
+            assert_eq!(
+                read_document_asset(&mut archive, &restored.documents[0].assets[0])
+                    .expect("read image"),
+                image
+            );
+        }
     }
 
     #[test]
@@ -820,12 +1477,14 @@ mod tests {
                 source_path: document_source_path(&id, "html"),
                 id,
                 title: "Test".into(),
+                original_file_name: Some("test.html".into()),
                 format: "html".into(),
                 source_kind: "html".into(),
                 imported_at_ms: 1,
                 original_bytes: source.len() as u64,
                 source_bytes: source.len() as u64,
                 source_sha256: format!("{:x}", Sha256::digest(source)),
+                assets: Vec::new(),
             }],
             organization: TransferOrganization::default(),
             audiobooks: Vec::new(),
@@ -843,5 +1502,79 @@ mod tests {
             bytes: payload.len() as u64,
             sha256: format!("{:x}", Sha256::digest(payload)),
         }
+    }
+
+    // Repeat real directory records while keeping valid manifest, payload and checksum data.
+    fn package_directory_fixture(entries: usize, zip64: bool, comment: &[u8]) -> Vec<u8> {
+        let source = b"<p>Synthetic archive fixture</p>".to_vec();
+        let manifest = test_manifest(&source);
+        let mut original = Cursor::new(Vec::new());
+        write_package(&mut original, &manifest, |_| {
+            Ok(Box::new(Cursor::new(source.clone())))
+        })
+        .unwrap();
+        let original = original.into_inner();
+        let end = original.len() - ZIP_END_BYTES;
+        let directory_start = read_u32(&original, end + 16) as usize;
+        let directory = &original[directory_start..end];
+        let first_entry_bytes = 46
+            + read_u16(directory, 28) as usize
+            + read_u16(directory, 30) as usize
+            + read_u16(directory, 32) as usize;
+        let mut bytes = original[..directory_start].to_vec();
+        bytes.extend_from_slice(&directory[..first_entry_bytes]);
+        for _ in 1..entries {
+            bytes.extend_from_slice(&directory[first_entry_bytes..]);
+        }
+        let directory_bytes = bytes.len() - directory_start;
+        if zip64 {
+            let zip64_position = bytes.len() as u64;
+            let mut footer = zip64_end(entries as u64, directory_bytes as u64);
+            footer[48..56].copy_from_slice(&(directory_start as u64).to_le_bytes());
+            footer[ZIP64_END_BYTES + 8..ZIP64_END_BYTES + 16]
+                .copy_from_slice(&zip64_position.to_le_bytes());
+            bytes.extend_from_slice(&footer);
+        } else {
+            let mut footer = zip_end(entries as u16, directory_bytes as u32);
+            footer[16..20].copy_from_slice(&(directory_start as u32).to_le_bytes());
+            bytes.extend_from_slice(&footer);
+        }
+        let end = bytes.len() - ZIP_END_BYTES;
+        bytes[end + 20..end + 22].copy_from_slice(&(comment.len() as u16).to_le_bytes());
+        bytes.extend_from_slice(comment);
+        bytes
+    }
+
+    fn zip_end(entries: u16, directory_bytes: u32) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(ZIP_END_BYTES);
+        bytes.extend_from_slice(&[0x50, 0x4b, 0x05, 0x06]);
+        bytes.extend_from_slice(&0u16.to_le_bytes());
+        bytes.extend_from_slice(&0u16.to_le_bytes());
+        bytes.extend_from_slice(&entries.to_le_bytes());
+        bytes.extend_from_slice(&entries.to_le_bytes());
+        bytes.extend_from_slice(&directory_bytes.to_le_bytes());
+        bytes.extend_from_slice(&0u32.to_le_bytes());
+        bytes.extend_from_slice(&0u16.to_le_bytes());
+        bytes
+    }
+
+    fn zip64_end(entries: u64, directory_bytes: u64) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(ZIP64_END_BYTES + ZIP64_LOCATOR_BYTES + ZIP_END_BYTES);
+        bytes.extend_from_slice(&[0x50, 0x4b, 0x06, 0x06]);
+        bytes.extend_from_slice(&44u64.to_le_bytes());
+        bytes.extend_from_slice(&45u16.to_le_bytes());
+        bytes.extend_from_slice(&45u16.to_le_bytes());
+        bytes.extend_from_slice(&0u32.to_le_bytes());
+        bytes.extend_from_slice(&0u32.to_le_bytes());
+        bytes.extend_from_slice(&entries.to_le_bytes());
+        bytes.extend_from_slice(&entries.to_le_bytes());
+        bytes.extend_from_slice(&directory_bytes.to_le_bytes());
+        bytes.extend_from_slice(&0u64.to_le_bytes());
+        bytes.extend_from_slice(&[0x50, 0x4b, 0x06, 0x07]);
+        bytes.extend_from_slice(&0u32.to_le_bytes());
+        bytes.extend_from_slice(&0u64.to_le_bytes());
+        bytes.extend_from_slice(&1u32.to_le_bytes());
+        bytes.extend_from_slice(&zip_end(u16::MAX, u32::MAX));
+        bytes
     }
 }

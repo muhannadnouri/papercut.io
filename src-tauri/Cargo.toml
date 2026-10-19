@@ -1,12 +1,12 @@
 [package]
 name = "app"
-version = "1.7.4"
+version = "1.9.2"
 description = "Search, Read, & Listen Offline"
 authors = ["Muhannad"]
 license = "MIT"
 repository = "https://github.com/muhannadnouri/papercut.io"
 edition = "2021"
-rust-version = "1.85"
+rust-version = "1.88"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -15,15 +15,17 @@ name = "app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2.5.6", features = [] }
+tauri-build = { version = "2.6.2", features = [] }
+serde_json = "1.0"
+sha2 = "0.10"
 
 [features]
 default = []
 native-tts = ["native-tts-static"]
 native-tts-core = ["dep:bzip2", "dep:num2words", "dep:reqwest", "dep:tar", "dep:sherpa-onnx"]
 native-text-preprocessing = ["native-text-preprocessing-dynamic"]
-native-text-preprocessing-core = ["dep:libtashkeel_base", "dep:ort", "dep:ort-sys", "libtashkeel_base/ort", "ort/ndarray"]
-native-text-preprocessing-dynamic = ["native-text-preprocessing-core", "libtashkeel_base/ort-dylib", "ort/load-dynamic", "ort-sys/load-dynamic"]
+native-text-preprocessing-core = ["dep:libtashkeel_base", "dep:ort"]
+native-text-preprocessing-dynamic = ["native-text-preprocessing-core", "ort/load-dynamic"]
 native-text-preprocessing-static = ["native-text-preprocessing-core"]
 native-tts-ios = ["native-tts-core", "native-text-preprocessing-static", "sherpa-onnx/static"]
 native-tts-static = ["native-tts-core", "sherpa-onnx/static"]
@@ -31,50 +33,76 @@ native-tts-shared = ["native-tts-core", "native-text-preprocessing", "sherpa-onn
 native-translation = ["dep:reqwest"]
 native-translation-ctranslate2 = ["native-translation", "dep:ct2rs"]
 native-translation-llama = ["native-translation", "dep:llama-cpp-2"]
+# Shipping scripts compile this optional capability; ordinary search never enables or loads it.
+experimental-search-embeddings = ["experimental-search-embeddings-core", "ort/load-dynamic"]
+experimental-search-embeddings-linked = ["experimental-search-embeddings-core"]
+experimental-search-embeddings-core = ["dep:fastembed", "dep:ort", "dep:reqwest"]
 
 [dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
-tauri = { version = "2.10.3", features = ["protocol-asset"] }
+tauri = { version = "2.11.2", features = ["protocol-asset"] }
 tauri-plugin-log = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-native-audio = "=1.0.5"
+tauri-plugin-document-scanner = { path = "plugins/document-scanner" }
+tauri-plugin-library-transfer = { path = "plugins/library-transfer" }
 base64 = "0.22"
 getrandom = "0.3"
 hmac = "0.12"
+if-addrs = "=0.15.0"
+socket2 = "=0.6.3"
 num2words = { version = "1.2", optional = true }
 rcgen = "0.13"
-rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
 sha2 = "0.10"
+spake2 = "0.4"
 tar = { version = "0.4", optional = true }
 bzip2 = { version = "0.4", optional = true }
 reqwest = { version = "0.12", optional = true, default-features = false, features = ["blocking", "rustls-tls"] }
 ct2rs = { version = "=0.9.19", optional = true, default-features = false, features = ["ruy", "sentencepiece"] }
 sherpa-onnx = { version = "1.13.4", optional = true, default-features = false }
 libtashkeel_base = { version = "=1.5.0", optional = true, default-features = false }
-ort = { version = "=2.0.0-rc.1", optional = true, default-features = false }
-ort-sys = { version = "=2.0.0-rc.1", optional = true, default-features = false }
+ort = { version = "=2.0.0-rc.13", optional = true, default-features = false, features = ["std", "api-17"] }
+fastembed = { version = "=7.1.0", optional = true, default-features = false }
 rusqlite = { version = "0.32", features = ["bundled"] }
-ammonia = "3.3"
+ammonia = "4.2.4"
 encoding_rs = "0.8"
 fs4 = { version = "1", features = ["sync"] }
 image = { version = "=0.25.2", default-features = false, features = ["gif", "jpeg", "png", "webp"] }
 roxmltree = "0.20"
-zip = { version = "0.6", default-features = false, features = ["deflate"] }
+zip = { version = "9.0.4", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 percent-encoding = "2.3"
 kuchikiki = "=0.8.8-speedreader"
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
 tauri-plugin-opener = "=2.5.3"
 unicode-segmentation = "1.13"
 unicode-normalization = "0.1"
 whatlang = "0.16"
 
 [target.'cfg(target_os = "linux")'.dependencies]
+dbus = "=0.9.12"
 llama-cpp-2 = { version = "=0.1.153", optional = true, default-features = false, features = ["common", "vulkan"] }
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 llama-cpp-2 = { version = "=0.1.153", optional = true, default-features = false, features = ["common"] }
+
+[dev-dependencies]
+# Existing Tauri mock runtime; no WebView or installed app data in command checks.
+tauri = { version = "2.11.2", features = ["test"] }
+# Compile and exercise the Windows callback adapter with fake APIs on the host as well.
+windows-sys = { version = "=0.61.2", features = ["Win32_NetworkManagement_Dns", "Win32_System_LibraryLoader"] }
+
+[target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
+tauri-plugin-single-instance = "2"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "=0.61.2", features = ["Win32_NetworkManagement_Dns", "Win32_System_LibraryLoader"] }
 
 [profile.dev.package.image]
 opt-level = 2

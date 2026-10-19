@@ -1,0 +1,1762 @@
+{
+  "sourceCommit": "8be9952fe02a10921ea4955df204b115268bc686",
+  "corpusVersion": 1,
+  "corpusSha256": "bebf246ea039f2f49a3d0eb143f63919a0b2bd5dab0a5aca09d9f8602568e4b4",
+  "device": {
+    "os": "linux",
+    "arch": "x86_64",
+    "build": "debug",
+    "cpu": "Intel(R) Core(TM) Ultra 5 325",
+    "memoryMethod": "Linux process VmHWM; includes the test binary and fixture creation",
+    "peakRssKiB": 14636
+  },
+  "corpus": {
+    "documents": 24,
+    "sections": 53,
+    "sqliteBytes": 106496,
+    "queries": 30
+  },
+  "timingMethod": "First run after fixture creation and five repeats, each reopening SQLite; OS page cache is not cleared. Milliseconds are native search pipeline timings.",
+  "metricsNote": "Grades are 0 irrelevant, 1 useful, 2 direct. Labels are incomplete; unlabeled returns are scored as 0 for nDCG. Empty-relevance cases are contract checks and excluded from ranking averages.",
+  "metrics": {
+    "all": {
+      "queries": 30,
+      "judgedQueries": 29,
+      "document": {
+        "labeledRelevant": 37,
+        "recallAt10": 0.8378378378378378,
+        "mrrAt10": 0.8275862068965517,
+        "ndcgAt10": 0.8154327024738739
+      },
+      "passage": {
+        "judgedQueries": 3,
+        "labeledRelevant": 4,
+        "recallAt10": 1,
+        "mrrAt10": 1,
+        "ndcgAt10": 1
+      }
+    },
+    "bySplit": {
+      "dev": {
+        "queries": 23,
+        "judgedQueries": 22,
+        "document": {
+          "labeledRelevant": 28,
+          "recallAt10": 0.7857142857142857,
+          "mrrAt10": 0.7727272727272727,
+          "ndcgAt10": 0.7648288480512981
+        },
+        "passage": {
+          "judgedQueries": 2,
+          "labeledRelevant": 3,
+          "recallAt10": 1,
+          "mrrAt10": 1,
+          "ndcgAt10": 1
+        }
+      },
+      "holdout": {
+        "queries": 7,
+        "judgedQueries": 7,
+        "document": {
+          "labeledRelevant": 9,
+          "recallAt10": 1,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.974473387801969
+        },
+        "passage": {
+          "judgedQueries": 1,
+          "labeledRelevant": 1,
+          "recallAt10": 1,
+          "mrrAt10": 1,
+          "ndcgAt10": 1
+        }
+      }
+    },
+    "byLanguage": {
+      "ar": {
+        "queries": 6,
+        "judgedQueries": 6,
+        "document": {
+          "labeledRelevant": 6,
+          "recallAt10": 0.5,
+          "mrrAt10": 0.5,
+          "ndcgAt10": 0.5
+        },
+        "passage": {
+          "judgedQueries": 0,
+          "labeledRelevant": 0,
+          "recallAt10": null,
+          "mrrAt10": null,
+          "ndcgAt10": null
+        }
+      },
+      "en": {
+        "queries": 22,
+        "judgedQueries": 21,
+        "document": {
+          "labeledRelevant": 29,
+          "recallAt10": 0.896551724137931,
+          "mrrAt10": 0.9047619047619048,
+          "ndcgAt10": 0.8879784938924925
+        },
+        "passage": {
+          "judgedQueries": 3,
+          "labeledRelevant": 4,
+          "recallAt10": 1,
+          "mrrAt10": 1,
+          "ndcgAt10": 1
+        }
+      },
+      "mixed": {
+        "queries": 2,
+        "judgedQueries": 2,
+        "document": {
+          "labeledRelevant": 2,
+          "recallAt10": 1,
+          "mrrAt10": 1,
+          "ndcgAt10": 1
+        },
+        "passage": {
+          "judgedQueries": 0,
+          "labeledRelevant": 0,
+          "recallAt10": null,
+          "mrrAt10": null,
+          "ndcgAt10": null
+        }
+      }
+    },
+    "byCategory": {
+      "concept-gap": {
+        "queries": 1,
+        "judgedQueries": 1,
+        "document": {
+          "labeledRelevant": 1,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0
+        },
+        "passage": {
+          "judgedQueries": 0,
+          "labeledRelevant": 0,
+          "recallAt10": null,
+          "mrrAt10": null,
+          "ndcgAt10": null
+        }
+      },
+      "cross-section": {
+        "queries": 3,
+        "judgedQueries": 3,
+        "document": {
+          "labeledRelevant": 4,
+          "recallAt10": 1,
+          "mrrAt10": 1,
+          "ndcgAt10": 1
+        },
+        "passage": {
+          "judgedQueries": 0,
+          "labeledRelevant": 0,
+          "recallAt10": null,
+          "mrrAt10": null,
+          "ndcgAt10": null
+        }
+      },
+      "evidence": {
+        "queries": 3,
+        "judgedQueries": 3,
+        "document": {
+          "labeledRelevant": 3,
+          "recallAt10": 1,
+          "mrrAt10": 1,
+          "ndcgAt10": 1
+        },
+        "passage": {
+          "judgedQueries": 1,
+          "labeledRelevant": 1,
+          "recallAt10": 1,
+          "mrrAt10": 1,
+          "ndcgAt10": 1
+        }
+      },
+      "filter": {
+        "queries": 1,
+        "judgedQueries": 1,
+        "document": {
+          "labeledRelevant": 1,
+          "recallAt10": 1,
+          "mrrAt10": 1,
+          "ndcgAt10": 1
+        },
+        "passage": {
+          "judgedQueries": 0,
+          "labeledRelevant": 0,
+          "recallAt10": null,
+          "mrrAt10": null,
+          "ndcgAt10": null
+        }
+      },
+      "literal": {
+        "queries": 5,
+        "judgedQueries": 5,
+        "document": {
+          "labeledRelevant": 6,
+          "recallAt10": 1,
+          "mrrAt10": 1,
+          "ndcgAt10": 1
+        },
+        "passage": {
+          "judgedQueries": 0,
+          "labeledRelevant": 0,
+          "recallAt10": null,
+          "mrrAt10": null,
+          "ndcgAt10": null
+        }
+      },
+      "navigation": {
+        "queries": 1,
+        "judgedQueries": 1,
+        "document": {
+          "labeledRelevant": 1,
+          "recallAt10": 1,
+          "mrrAt10": 1,
+          "ndcgAt10": 1
+        },
+        "passage": {
+          "judgedQueries": 1,
+          "labeledRelevant": 1,
+          "recallAt10": 1,
+          "mrrAt10": 1,
+          "ndcgAt10": 1
+        }
+      },
+      "normalization": {
+        "queries": 2,
+        "judgedQueries": 2,
+        "document": {
+          "labeledRelevant": 3,
+          "recallAt10": 0.6666666666666666,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.91311732856428
+        },
+        "passage": {
+          "judgedQueries": 0,
+          "labeledRelevant": 0,
+          "recallAt10": null,
+          "mrrAt10": null,
+          "ndcgAt10": null
+        }
+      },
+      "normalization-gap": {
+        "queries": 3,
+        "judgedQueries": 3,
+        "document": {
+          "labeledRelevant": 3,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0
+        },
+        "passage": {
+          "judgedQueries": 0,
+          "labeledRelevant": 0,
+          "recallAt10": null,
+          "mrrAt10": null,
+          "ndcgAt10": null
+        }
+      },
+      "quote": {
+        "queries": 6,
+        "judgedQueries": 5,
+        "document": {
+          "labeledRelevant": 6,
+          "recallAt10": 1,
+          "mrrAt10": 1,
+          "ndcgAt10": 1
+        },
+        "passage": {
+          "judgedQueries": 1,
+          "labeledRelevant": 2,
+          "recallAt10": 1,
+          "mrrAt10": 1,
+          "ndcgAt10": 1
+        }
+      },
+      "ranking": {
+        "queries": 4,
+        "judgedQueries": 4,
+        "document": {
+          "labeledRelevant": 8,
+          "recallAt10": 1,
+          "mrrAt10": 1,
+          "ndcgAt10": 0.9553284286534457
+        },
+        "passage": {
+          "judgedQueries": 0,
+          "labeledRelevant": 0,
+          "recallAt10": null,
+          "mrrAt10": null,
+          "ndcgAt10": null
+        }
+      },
+      "typo-gap": {
+        "queries": 1,
+        "judgedQueries": 1,
+        "document": {
+          "labeledRelevant": 1,
+          "recallAt10": 0,
+          "mrrAt10": 0,
+          "ndcgAt10": 0
+        },
+        "passage": {
+          "judgedQueries": 0,
+          "labeledRelevant": 0,
+          "recallAt10": null,
+          "mrrAt10": null,
+          "ndcgAt10": null
+        }
+      }
+    }
+  },
+  "performance": {
+    "firstMs": {
+      "p50": 1.082891,
+      "p95": 2.0305269999999997
+    },
+    "warmPhases": {
+      "db_ms": {
+        "p50": 0.414576,
+        "p95": 0.575749
+      },
+      "candidate_ms": {
+        "p50": 0.347553,
+        "p95": 0.709901
+      },
+      "verification_ms": {
+        "p50": 0.000073,
+        "p95": 0.111273
+      },
+      "exact_evidence_ms": {
+        "p50": 0.000044999999999999996,
+        "p95": 0.128343
+      },
+      "result_evidence_ms": {
+        "p50": 0.196991,
+        "p95": 0.363193
+      },
+      "term_matches_ms": {
+        "p50": 0.000152,
+        "p95": 0.44525800000000004
+      },
+      "result_ms": {
+        "p50": 0.24201499999999998,
+        "p95": 0.726659
+      },
+      "total_ms": {
+        "p50": 1.120842,
+        "p95": 2.032797
+      }
+    }
+  },
+  "queries": [
+    {
+      "id": "en-title",
+      "mode": "all",
+      "split": "dev",
+      "language": "en",
+      "category": "ranking",
+      "rationale": "Substantive history should beat a copied catalogue title.",
+      "labels": [
+        {
+          "id": "a001",
+          "grade": 2
+        }
+      ],
+      "ids": [
+        "a001",
+        "a003"
+      ],
+      "passages": [
+        {
+          "document": "a001",
+          "page": null,
+          "section": 1
+        },
+        {
+          "document": "a003",
+          "page": null,
+          "section": 0
+        }
+      ],
+      "candidateDocuments": 2,
+      "totalDocuments": 2,
+      "firstMs": 1.507656,
+      "warmMs": [
+        1.8426269999999998,
+        1.3693170000000001,
+        1.68254,
+        1.329988,
+        1.246823
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 2,
+        "candidate_ms": 0.47404199999999996,
+        "db_ms": 0.44129,
+        "exact_evidence_ms": 0.000156,
+        "result_evidence_ms": 0.245166,
+        "result_ms": 0.493155,
+        "term_matches_ms": 0.24764600000000003,
+        "total_ms": 1.507656,
+        "verification_ms": 0.00008499999999999999
+      }
+    },
+    {
+      "id": "en-heading",
+      "mode": "all",
+      "split": "dev",
+      "language": "en",
+      "category": "ranking",
+      "rationale": "Heading and body agree on the topic.",
+      "labels": [
+        {
+          "id": "a001",
+          "grade": 2
+        }
+      ],
+      "ids": [
+        "a001"
+      ],
+      "passages": [
+        {
+          "document": "a001",
+          "page": null,
+          "section": 0
+        }
+      ],
+      "candidateDocuments": 1,
+      "totalDocuments": 1,
+      "firstMs": 1.498731,
+      "warmMs": [
+        1.487471,
+        1.323601,
+        1.4399490000000001,
+        1.424846,
+        3.32972
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 1,
+        "candidate_ms": 0.46486299999999997,
+        "db_ms": 0.403802,
+        "exact_evidence_ms": 0.000039,
+        "result_evidence_ms": 0.240085,
+        "result_ms": 0.6001850000000001,
+        "term_matches_ms": 0.359844,
+        "total_ms": 1.498731,
+        "verification_ms": 0.000068
+      }
+    },
+    {
+      "id": "en-body",
+      "mode": "all",
+      "split": "dev",
+      "language": "en",
+      "category": "literal",
+      "rationale": "Both passages discuss gasoline use.",
+      "labels": [
+        {
+          "id": "a001",
+          "grade": 2
+        },
+        {
+          "id": "a00a",
+          "grade": 1
+        }
+      ],
+      "ids": [
+        "a001",
+        "a00a"
+      ],
+      "passages": [
+        {
+          "document": "a001",
+          "page": null,
+          "section": 0
+        },
+        {
+          "document": "a00a",
+          "page": null,
+          "section": 0
+        }
+      ],
+      "candidateDocuments": 2,
+      "totalDocuments": 2,
+      "firstMs": 1.624085,
+      "warmMs": [
+        1.47045,
+        1.453786,
+        1.465937,
+        1.494146,
+        1.482776
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 2,
+        "candidate_ms": 0.42446999999999996,
+        "db_ms": 0.47208500000000003,
+        "exact_evidence_ms": 0.000037,
+        "result_evidence_ms": 0.299033,
+        "result_ms": 0.6861309999999999,
+        "term_matches_ms": 0.386898,
+        "total_ms": 1.624085,
+        "verification_ms": 0.00006599999999999999
+      }
+    },
+    {
+      "id": "en-phrase",
+      "mode": "all",
+      "split": "dev",
+      "language": "en",
+      "category": "quote",
+      "rationale": "An intervening word invalidates the quoted phrase.",
+      "labels": [
+        {
+          "id": "a004",
+          "grade": 2,
+          "section": 0
+        },
+        {
+          "id": "a013",
+          "grade": 1,
+          "section": 1
+        }
+      ],
+      "ids": [
+        "a004",
+        "a013"
+      ],
+      "passages": [
+        {
+          "document": "a004",
+          "page": null,
+          "section": 0
+        },
+        {
+          "document": "a013",
+          "page": 6,
+          "section": 1
+        }
+      ],
+      "candidateDocuments": 2,
+      "totalDocuments": 2,
+      "firstMs": 1.127687,
+      "warmMs": [
+        1.120842,
+        1.079588,
+        1.0611329999999999,
+        1.152244,
+        1.288254
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 2,
+        "candidate_ms": 0.29988,
+        "db_ms": 0.430506,
+        "exact_evidence_ms": 0.129748,
+        "result_evidence_ms": 0.126,
+        "result_ms": 0.256055,
+        "term_matches_ms": 0.00013099999999999999,
+        "total_ms": 1.127687,
+        "verification_ms": 0.113798
+      }
+    },
+    {
+      "id": "en-mixed",
+      "mode": "all",
+      "split": "dev",
+      "language": "en",
+      "category": "cross-section",
+      "rationale": "Required word and phrase may live in separate sections.",
+      "labels": [
+        {
+          "id": "a004",
+          "grade": 2
+        },
+        {
+          "id": "a007",
+          "grade": 2
+        }
+      ],
+      "ids": [
+        "a004",
+        "a007"
+      ],
+      "passages": [
+        {
+          "document": "a004",
+          "page": null,
+          "section": 1
+        },
+        {
+          "document": "a007",
+          "page": null,
+          "section": 0
+        }
+      ],
+      "candidateDocuments": 2,
+      "totalDocuments": 2,
+      "firstMs": 2.0305269999999997,
+      "warmMs": [
+        1.719653,
+        1.6353550000000001,
+        2.057092,
+        1.730791,
+        1.786016
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 2,
+        "candidate_ms": 0.778617,
+        "db_ms": 0.48148100000000005,
+        "exact_evidence_ms": 0.11967499999999999,
+        "result_evidence_ms": 0.500833,
+        "result_ms": 0.6212369999999999,
+        "term_matches_ms": 0.00033,
+        "total_ms": 2.0305269999999997,
+        "verification_ms": 0.114444
+      }
+    },
+    {
+      "id": "en-two-quotes",
+      "mode": "all",
+      "split": "dev",
+      "language": "en",
+      "category": "quote",
+      "rationale": "Both source-verified phrases are mandatory.",
+      "labels": [
+        {
+          "id": "a004",
+          "grade": 2
+        }
+      ],
+      "ids": [
+        "a004"
+      ],
+      "passages": [
+        {
+          "document": "a004",
+          "page": null,
+          "section": 0
+        }
+      ],
+      "candidateDocuments": 1,
+      "totalDocuments": 1,
+      "firstMs": 1.394699,
+      "warmMs": [
+        1.4096600000000001,
+        1.45338,
+        1.488602,
+        1.249071,
+        1.220946
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 1,
+        "candidate_ms": 0.491468,
+        "db_ms": 0.507792,
+        "exact_evidence_ms": 0.105698,
+        "result_evidence_ms": 0.138456,
+        "result_ms": 0.24444799999999997,
+        "term_matches_ms": 0.000143,
+        "total_ms": 1.394699,
+        "verification_ms": 0.12019
+      }
+    },
+    {
+      "id": "en-stem",
+      "mode": "all",
+      "split": "dev",
+      "language": "en",
+      "category": "normalization",
+      "rationale": "Porter can find environmental alongside environment.",
+      "labels": [
+        {
+          "id": "a001",
+          "grade": 1
+        },
+        {
+          "id": "a009",
+          "grade": 2
+        }
+      ],
+      "ids": [
+        "a009"
+      ],
+      "passages": [
+        {
+          "document": "a009",
+          "page": null,
+          "section": 0
+        }
+      ],
+      "candidateDocuments": 1,
+      "totalDocuments": 1,
+      "firstMs": 0.846275,
+      "warmMs": [
+        0.939599,
+        0.885901,
+        0.8813300000000001,
+        0.880416,
+        0.831063
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 1,
+        "candidate_ms": 0.23597,
+        "db_ms": 0.398252,
+        "exact_evidence_ms": 0.000043,
+        "result_evidence_ms": 0.18856799999999999,
+        "result_ms": 0.18890700000000002,
+        "term_matches_ms": 0.000135,
+        "total_ms": 0.846275,
+        "verification_ms": 0.000067
+      }
+    },
+    {
+      "id": "en-stem-quote",
+      "mode": "all",
+      "split": "dev",
+      "language": "en",
+      "category": "quote",
+      "rationale": "A Porter candidate is not a literal source phrase.",
+      "labels": [],
+      "ids": [],
+      "passages": [],
+      "candidateDocuments": 1,
+      "totalDocuments": 0,
+      "firstMs": 0.7910429999999999,
+      "warmMs": [
+        0.848556,
+        0.790612,
+        0.786379,
+        0.869783,
+        1.944801
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 1,
+        "candidate_ms": 0.29746100000000003,
+        "db_ms": 0.391502,
+        "exact_evidence_ms": 0.019456,
+        "result_evidence_ms": 0.000418,
+        "result_ms": 0.020146,
+        "term_matches_ms": 0.000133,
+        "total_ms": 0.7910429999999999,
+        "verification_ms": 0.058492999999999996
+      }
+    },
+    {
+      "id": "en-cross",
+      "mode": "all",
+      "split": "dev",
+      "language": "en",
+      "category": "cross-section",
+      "rationale": "All words are required at document scope.",
+      "labels": [
+        {
+          "id": "a007",
+          "grade": 2
+        }
+      ],
+      "ids": [
+        "a007"
+      ],
+      "passages": [
+        {
+          "document": "a007",
+          "page": null,
+          "section": 0
+        },
+        {
+          "document": "a007",
+          "page": null,
+          "section": 1
+        }
+      ],
+      "candidateDocuments": 1,
+      "totalDocuments": 1,
+      "firstMs": 1.875768,
+      "warmMs": [
+        1.5792140000000001,
+        1.791132,
+        1.652483,
+        1.592694,
+        1.899505
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 1,
+        "candidate_ms": 0.571388,
+        "db_ms": 0.43084500000000003,
+        "exact_evidence_ms": 0.00004,
+        "result_evidence_ms": 0.270544,
+        "result_ms": 0.84477,
+        "term_matches_ms": 0.574016,
+        "total_ms": 1.875768,
+        "verification_ms": 0.000074
+      }
+    },
+    {
+      "id": "en-typo",
+      "mode": "all",
+      "split": "dev",
+      "language": "en",
+      "category": "typo-gap",
+      "rationale": "Misspelling currently has no correction.",
+      "labels": [
+        {
+          "id": "a009",
+          "grade": 2
+        }
+      ],
+      "ids": [],
+      "passages": [],
+      "candidateDocuments": 0,
+      "totalDocuments": 0,
+      "firstMs": 0.785956,
+      "warmMs": [
+        0.700226,
+        0.6058,
+        0.570484,
+        1.375931,
+        0.6996669999999999
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 0,
+        "candidate_ms": 0.19795300000000002,
+        "db_ms": 0.556805,
+        "exact_evidence_ms": 0.000041,
+        "result_evidence_ms": 0.000501,
+        "result_ms": 0.000816,
+        "term_matches_ms": 0.000142,
+        "total_ms": 0.785956,
+        "verification_ms": 0.00007000000000000001
+      }
+    },
+    {
+      "id": "en-concept",
+      "mode": "all",
+      "split": "dev",
+      "language": "en",
+      "category": "concept-gap",
+      "rationale": "Relevant passage has no complete lexical overlap.",
+      "labels": [
+        {
+          "id": "a00a",
+          "grade": 2
+        }
+      ],
+      "ids": [],
+      "passages": [],
+      "candidateDocuments": 0,
+      "totalDocuments": 0,
+      "firstMs": 0.936566,
+      "warmMs": [
+        0.7631060000000001,
+        0.759095,
+        0.767877,
+        0.774045,
+        0.770925
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 0,
+        "candidate_ms": 0.370359,
+        "db_ms": 0.52139,
+        "exact_evidence_ms": 0.000044999999999999996,
+        "result_evidence_ms": 0.0006150000000000001,
+        "result_ms": 0.0009540000000000001,
+        "term_matches_ms": 0.00016999999999999999,
+        "total_ms": 0.936566,
+        "verification_ms": 0.000068
+      }
+    },
+    {
+      "id": "en-hyphen",
+      "mode": "all",
+      "split": "dev",
+      "language": "en",
+      "category": "normalization",
+      "rationale": "PDF line-break hyphen and dash aliases.",
+      "labels": [
+        {
+          "id": "a008",
+          "grade": 2
+        }
+      ],
+      "ids": [
+        "a008"
+      ],
+      "passages": [
+        {
+          "document": "a008",
+          "page": null,
+          "section": 0
+        }
+      ],
+      "candidateDocuments": 1,
+      "totalDocuments": 1,
+      "firstMs": 1.193527,
+      "warmMs": [
+        1.071412,
+        1.1247049999999998,
+        1.102325,
+        1.086378,
+        1.096644
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 1,
+        "candidate_ms": 0.373556,
+        "db_ms": 0.474744,
+        "exact_evidence_ms": 0.000039,
+        "result_evidence_ms": 0.300474,
+        "result_ms": 0.30080500000000004,
+        "term_matches_ms": 0.000147,
+        "total_ms": 1.193527,
+        "verification_ms": 0.000071
+      }
+    },
+    {
+      "id": "en-curly-phrase",
+      "mode": "all",
+      "split": "dev",
+      "language": "en",
+      "category": "quote",
+      "rationale": "Typographic punctuation canonicalization must retain a source phrase.",
+      "labels": [
+        {
+          "id": "a008",
+          "grade": 2
+        }
+      ],
+      "ids": [
+        "a008"
+      ],
+      "passages": [
+        {
+          "document": "a008",
+          "page": null,
+          "section": 0
+        }
+      ],
+      "candidateDocuments": 1,
+      "totalDocuments": 1,
+      "firstMs": 1.321822,
+      "warmMs": [
+        1.287996,
+        1.380187,
+        1.368122,
+        1.2576040000000002,
+        1.253999
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 1,
+        "candidate_ms": 0.537497,
+        "db_ms": 0.418242,
+        "exact_evidence_ms": 0.07726899999999999,
+        "result_evidence_ms": 0.17017900000000002,
+        "result_ms": 0.247724,
+        "term_matches_ms": 0.00012700000000000002,
+        "total_ms": 1.321822,
+        "verification_ms": 0.082838
+      }
+    },
+    {
+      "id": "en-repeat",
+      "mode": "all",
+      "split": "dev",
+      "language": "en",
+      "category": "evidence",
+      "rationale": "Twenty-four supporting sections, twenty-five literal occurrences, three passages, twelve distribution bins.",
+      "labels": [
+        {
+          "id": "a010",
+          "grade": 2
+        }
+      ],
+      "ids": [
+        "a010"
+      ],
+      "passages": [
+        {
+          "document": "a010",
+          "page": null,
+          "section": 0
+        },
+        {
+          "document": "a010",
+          "page": null,
+          "section": 1
+        },
+        {
+          "document": "a010",
+          "page": null,
+          "section": 2
+        }
+      ],
+      "candidateDocuments": 1,
+      "totalDocuments": 1,
+      "firstMs": 2.1023639999999997,
+      "warmMs": [
+        2.1102719999999997,
+        2.0341650000000002,
+        2.394041,
+        2.032797,
+        2.117214
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 1,
+        "candidate_ms": 0.583643,
+        "db_ms": 0.420803,
+        "exact_evidence_ms": 0.000043,
+        "result_evidence_ms": 0.438602,
+        "result_ms": 1.070945,
+        "term_matches_ms": 0.632035,
+        "total_ms": 2.1023639999999997,
+        "verification_ms": 0.000069
+      }
+    },
+    {
+      "id": "en-title-only",
+      "mode": "all",
+      "split": "dev",
+      "language": "en",
+      "category": "evidence",
+      "rationale": "Repeated indexed title is not a body-section occurrence.",
+      "labels": [
+        {
+          "id": "a011",
+          "grade": 1
+        }
+      ],
+      "ids": [
+        "a011"
+      ],
+      "passages": [
+        {
+          "document": "a011",
+          "page": null,
+          "section": 0
+        }
+      ],
+      "candidateDocuments": 1,
+      "totalDocuments": 1,
+      "firstMs": 0.934328,
+      "warmMs": [
+        0.9276030000000001,
+        0.943818,
+        0.89286,
+        0.924334,
+        0.887324
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 1,
+        "candidate_ms": 0.296642,
+        "db_ms": 0.417342,
+        "exact_evidence_ms": 0.000047,
+        "result_evidence_ms": 0.195006,
+        "result_ms": 0.195342,
+        "term_matches_ms": 0.000153,
+        "total_ms": 0.934328,
+        "verification_ms": 0.00008999999999999999
+      }
+    },
+    {
+      "id": "en-filter",
+      "mode": "all",
+      "split": "dev",
+      "language": "en",
+      "category": "filter",
+      "rationale": "Scope must exclude other relevant records.",
+      "labels": [
+        {
+          "id": "a012",
+          "grade": 2
+        }
+      ],
+      "ids": [
+        "a012"
+      ],
+      "passages": [
+        {
+          "document": "a012",
+          "page": null,
+          "section": 0
+        }
+      ],
+      "candidateDocuments": 1,
+      "totalDocuments": 1,
+      "firstMs": 0.857961,
+      "warmMs": [
+        1.123249,
+        0.920936,
+        0.8702259999999999,
+        1.032252,
+        1.107652
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 1,
+        "candidate_ms": 0.255757,
+        "db_ms": 0.390269,
+        "exact_evidence_ms": 0.000041,
+        "result_evidence_ms": 0.186685,
+        "result_ms": 0.18705,
+        "term_matches_ms": 0.000155,
+        "total_ms": 0.857961,
+        "verification_ms": 0.000071
+      }
+    },
+    {
+      "id": "en-name",
+      "mode": "all",
+      "split": "dev",
+      "language": "en",
+      "category": "literal",
+      "rationale": "Rare name and year remain required.",
+      "labels": [
+        {
+          "id": "a012",
+          "grade": 2
+        }
+      ],
+      "ids": [
+        "a012"
+      ],
+      "passages": [
+        {
+          "document": "a012",
+          "page": null,
+          "section": 0
+        }
+      ],
+      "candidateDocuments": 1,
+      "totalDocuments": 1,
+      "firstMs": 1.3851440000000002,
+      "warmMs": [
+        2.0942220000000002,
+        1.5674409999999999,
+        1.289113,
+        1.320624,
+        1.272187
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 1,
+        "candidate_ms": 0.37570000000000003,
+        "db_ms": 0.412024,
+        "exact_evidence_ms": 0.00004,
+        "result_evidence_ms": 0.24835500000000002,
+        "result_ms": 0.564214,
+        "term_matches_ms": 0.315637,
+        "total_ms": 1.3851440000000002,
+        "verification_ms": 0.00006599999999999999
+      }
+    },
+    {
+      "id": "en-pdf",
+      "mode": "all",
+      "split": "dev",
+      "language": "en",
+      "category": "navigation",
+      "rationale": "PDF result must retain the indexed page locator.",
+      "labels": [
+        {
+          "id": "a013",
+          "grade": 2,
+          "section": 1,
+          "page": 6
+        }
+      ],
+      "ids": [
+        "a013"
+      ],
+      "passages": [
+        {
+          "document": "a013",
+          "page": 6,
+          "section": 1
+        }
+      ],
+      "candidateDocuments": 1,
+      "totalDocuments": 1,
+      "firstMs": 0.841199,
+      "warmMs": [
+        0.9492879999999999,
+        0.8913449999999999,
+        0.8859509999999999,
+        0.824249,
+        0.887799
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 1,
+        "candidate_ms": 0.242627,
+        "db_ms": 0.395601,
+        "exact_evidence_ms": 0.000048,
+        "result_evidence_ms": 0.178013,
+        "result_ms": 0.178335,
+        "term_matches_ms": 0.000126,
+        "total_ms": 0.841199,
+        "verification_ms": 0.000063
+      }
+    },
+    {
+      "id": "en-tie",
+      "mode": "all",
+      "split": "dev",
+      "language": "en",
+      "category": "ranking",
+      "rationale": "Same score: newest import, then stable document ID.",
+      "labels": [
+        {
+          "id": "a014",
+          "grade": 1
+        },
+        {
+          "id": "a015",
+          "grade": 1
+        },
+        {
+          "id": "a016",
+          "grade": 1
+        }
+      ],
+      "ids": [
+        "a015",
+        "a016",
+        "a014"
+      ],
+      "passages": [
+        {
+          "document": "a015",
+          "page": null,
+          "section": 0
+        },
+        {
+          "document": "a016",
+          "page": null,
+          "section": 0
+        },
+        {
+          "document": "a014",
+          "page": null,
+          "section": 0
+        }
+      ],
+      "candidateDocuments": 3,
+      "totalDocuments": 3,
+      "firstMs": 0.960385,
+      "warmMs": [
+        0.967152,
+        0.9256190000000001,
+        1.494594,
+        1.051085,
+        1.213811
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 3,
+        "candidate_ms": 0.275109,
+        "db_ms": 0.414184,
+        "exact_evidence_ms": 0.000048,
+        "result_evidence_ms": 0.24489500000000003,
+        "result_ms": 0.245244,
+        "term_matches_ms": 0.000141,
+        "total_ms": 0.960385,
+        "verification_ms": 0.000052000000000000004
+      }
+    },
+    {
+      "id": "ar-plain",
+      "mode": "all",
+      "split": "dev",
+      "language": "ar",
+      "category": "literal",
+      "rationale": "Arabic tokens in authored unmarked text.",
+      "labels": [
+        {
+          "id": "a00b",
+          "grade": 2
+        }
+      ],
+      "ids": [
+        "a00b"
+      ],
+      "passages": [
+        {
+          "document": "a00b",
+          "page": null,
+          "section": 0
+        }
+      ],
+      "candidateDocuments": 1,
+      "totalDocuments": 1,
+      "firstMs": 1.483771,
+      "warmMs": [
+        1.402942,
+        1.410053,
+        1.4980289999999998,
+        1.436777,
+        1.576026
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 1,
+        "candidate_ms": 0.416802,
+        "db_ms": 0.435805,
+        "exact_evidence_ms": 0.000039,
+        "result_evidence_ms": 0.252932,
+        "result_ms": 0.597281,
+        "term_matches_ms": 0.344146,
+        "total_ms": 1.483771,
+        "verification_ms": 0.000075
+      }
+    },
+    {
+      "id": "ar-mark-gap",
+      "mode": "all",
+      "split": "dev",
+      "language": "ar",
+      "category": "normalization-gap",
+      "rationale": "Arabic combining marks can change query matching.",
+      "labels": [
+        {
+          "id": "a00c",
+          "grade": 2
+        }
+      ],
+      "ids": [],
+      "passages": [],
+      "candidateDocuments": 0,
+      "totalDocuments": 0,
+      "firstMs": 0.766847,
+      "warmMs": [
+        0.681395,
+        0.6757949999999999,
+        0.886425,
+        0.7687510000000001,
+        1.001131
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 0,
+        "candidate_ms": 0.293494,
+        "db_ms": 0.44286899999999996,
+        "exact_evidence_ms": 0.000044,
+        "result_evidence_ms": 0.000511,
+        "result_ms": 0.000857,
+        "term_matches_ms": 0.00017800000000000002,
+        "total_ms": 0.766847,
+        "verification_ms": 0.000087
+      }
+    },
+    {
+      "id": "ar-tatweel-gap",
+      "mode": "all",
+      "split": "dev",
+      "language": "ar",
+      "category": "normalization-gap",
+      "rationale": "Tatweel orthography merits a measured normalization choice.",
+      "labels": [
+        {
+          "id": "a00d",
+          "grade": 2
+        }
+      ],
+      "ids": [],
+      "passages": [],
+      "candidateDocuments": 0,
+      "totalDocuments": 0,
+      "firstMs": 0.627566,
+      "warmMs": [
+        0.604623,
+        0.611985,
+        0.595739,
+        0.596478,
+        0.581897
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 0,
+        "candidate_ms": 0.20321,
+        "db_ms": 0.397804,
+        "exact_evidence_ms": 0.00004,
+        "result_evidence_ms": 0.000491,
+        "result_ms": 0.000805,
+        "term_matches_ms": 0.000143,
+        "total_ms": 0.627566,
+        "verification_ms": 0.000065
+      }
+    },
+    {
+      "id": "ar-alef-gap",
+      "mode": "all",
+      "split": "dev",
+      "language": "ar",
+      "category": "normalization-gap",
+      "rationale": "Alef variant is relevant but currently distinct.",
+      "labels": [
+        {
+          "id": "a00e",
+          "grade": 2
+        }
+      ],
+      "ids": [],
+      "passages": [],
+      "candidateDocuments": 0,
+      "totalDocuments": 0,
+      "firstMs": 0.585216,
+      "warmMs": [
+        0.638296,
+        0.617778,
+        0.5839629999999999,
+        0.643755,
+        0.594561
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 0,
+        "candidate_ms": 0.185769,
+        "db_ms": 0.376147,
+        "exact_evidence_ms": 0.000039,
+        "result_evidence_ms": 0.000437,
+        "result_ms": 0.000747,
+        "term_matches_ms": 0.000143,
+        "total_ms": 0.585216,
+        "verification_ms": 0.00006400000000000001
+      }
+    },
+    {
+      "id": "ar-quoted",
+      "mode": "all",
+      "split": "holdout",
+      "language": "ar",
+      "category": "quote",
+      "rationale": "Arabic phrase must be verified in source text.",
+      "labels": [
+        {
+          "id": "a00b",
+          "grade": 2
+        }
+      ],
+      "ids": [
+        "a00b"
+      ],
+      "passages": [
+        {
+          "document": "a00b",
+          "page": null,
+          "section": 0
+        }
+      ],
+      "candidateDocuments": 1,
+      "totalDocuments": 1,
+      "firstMs": 1.082891,
+      "warmMs": [
+        1.073769,
+        0.994812,
+        0.9640780000000001,
+        1.717405,
+        1.089413
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 1,
+        "candidate_ms": 0.389702,
+        "db_ms": 0.38165699999999997,
+        "exact_evidence_ms": 0.078216,
+        "result_evidence_ms": 0.119011,
+        "result_ms": 0.197496,
+        "term_matches_ms": 0.000116,
+        "total_ms": 1.082891,
+        "verification_ms": 0.088341
+      }
+    },
+    {
+      "id": "ar-cross",
+      "mode": "all",
+      "split": "holdout",
+      "language": "ar",
+      "category": "cross-section",
+      "rationale": "Arabic terms can appear in different chapters.",
+      "labels": [
+        {
+          "id": "a018",
+          "grade": 2
+        }
+      ],
+      "ids": [
+        "a018"
+      ],
+      "passages": [
+        {
+          "document": "a018",
+          "page": null,
+          "section": 1
+        },
+        {
+          "document": "a018",
+          "page": null,
+          "section": 0
+        }
+      ],
+      "candidateDocuments": 1,
+      "totalDocuments": 1,
+      "firstMs": 1.6901119999999998,
+      "warmMs": [
+        1.5748890000000002,
+        1.585863,
+        1.584868,
+        1.547864,
+        1.5292210000000002
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 1,
+        "candidate_ms": 0.5954400000000001,
+        "db_ms": 0.43709499999999996,
+        "exact_evidence_ms": 0.000047,
+        "result_evidence_ms": 0.26897299999999996,
+        "result_ms": 0.628526,
+        "term_matches_ms": 0.359296,
+        "total_ms": 1.6901119999999998,
+        "verification_ms": 0.000077
+      }
+    },
+    {
+      "id": "mixed-codes",
+      "mode": "all",
+      "split": "holdout",
+      "language": "mixed",
+      "category": "literal",
+      "rationale": "Mixed script and technical token retained.",
+      "labels": [
+        {
+          "id": "a00f",
+          "grade": 2
+        }
+      ],
+      "ids": [
+        "a00f"
+      ],
+      "passages": [
+        {
+          "document": "a00f",
+          "page": null,
+          "section": 0
+        }
+      ],
+      "candidateDocuments": 1,
+      "totalDocuments": 1,
+      "firstMs": 1.429947,
+      "warmMs": [
+        1.3489870000000002,
+        1.631342,
+        1.8155999999999999,
+        1.717343,
+        1.380711
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 1,
+        "candidate_ms": 0.38718800000000003,
+        "db_ms": 0.42413999999999996,
+        "exact_evidence_ms": 0.000048,
+        "result_evidence_ms": 0.266663,
+        "result_ms": 0.59102,
+        "term_matches_ms": 0.324146,
+        "total_ms": 1.429947,
+        "verification_ms": 0.00008
+      }
+    },
+    {
+      "id": "mixed-emoji",
+      "mode": "all",
+      "split": "holdout",
+      "language": "mixed",
+      "category": "quote",
+      "rationale": "Non-BMP character and source phrase share a locator.",
+      "labels": [
+        {
+          "id": "a00f",
+          "grade": 2
+        }
+      ],
+      "ids": [
+        "a00f"
+      ],
+      "passages": [
+        {
+          "document": "a00f",
+          "page": null,
+          "section": 0
+        }
+      ],
+      "candidateDocuments": 1,
+      "totalDocuments": 1,
+      "firstMs": 0.941317,
+      "warmMs": [
+        0.898546,
+        0.858062,
+        0.951516,
+        0.988827,
+        0.88906
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 1,
+        "candidate_ms": 0.255326,
+        "db_ms": 0.439195,
+        "exact_evidence_ms": 0.064001,
+        "result_evidence_ms": 0.08627800000000001,
+        "result_ms": 0.150545,
+        "term_matches_ms": 0.00011999999999999999,
+        "total_ms": 0.941317,
+        "verification_ms": 0.071287
+      }
+    },
+    {
+      "id": "en-identifier",
+      "mode": "all",
+      "split": "holdout",
+      "language": "en",
+      "category": "literal",
+      "rationale": "Technical ID is protected from future typo substitutions.",
+      "labels": [
+        {
+          "id": "a012",
+          "grade": 2
+        }
+      ],
+      "ids": [
+        "a012"
+      ],
+      "passages": [
+        {
+          "document": "a012",
+          "page": null,
+          "section": 0
+        }
+      ],
+      "candidateDocuments": 1,
+      "totalDocuments": 1,
+      "firstMs": 0.934964,
+      "warmMs": [
+        0.9925960000000001,
+        0.925102,
+        0.967528,
+        0.903182,
+        1.884593
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 1,
+        "candidate_ms": 0.289286,
+        "db_ms": 0.40753399999999995,
+        "exact_evidence_ms": 0.000043,
+        "result_evidence_ms": 0.215901,
+        "result_ms": 0.216232,
+        "term_matches_ms": 0.000141,
+        "total_ms": 0.934964,
+        "verification_ms": 0.00007000000000000001
+      }
+    },
+    {
+      "id": "en-phrase-count",
+      "mode": "all",
+      "split": "holdout",
+      "language": "en",
+      "category": "evidence",
+      "rationale": "Literal phrase occurrence count differs from matching-section count.",
+      "labels": [
+        {
+          "id": "a010",
+          "grade": 2,
+          "section": 0
+        }
+      ],
+      "ids": [
+        "a010"
+      ],
+      "passages": [
+        {
+          "document": "a010",
+          "page": null,
+          "section": 0
+        }
+      ],
+      "candidateDocuments": 1,
+      "totalDocuments": 1,
+      "firstMs": 1.4027079999999998,
+      "warmMs": [
+        1.368301,
+        1.341718,
+        1.3044440000000002,
+        1.316114,
+        1.348409
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 1,
+        "candidate_ms": 0.43170600000000003,
+        "db_ms": 0.451291,
+        "exact_evidence_ms": 0.28666800000000003,
+        "result_evidence_ms": 0.13637,
+        "result_ms": 0.423324,
+        "term_matches_ms": 0.00013199999999999998,
+        "total_ms": 1.4027079999999998,
+        "verification_ms": 0.06872099999999999
+      }
+    },
+    {
+      "id": "en-title-rank",
+      "mode": "all",
+      "split": "holdout",
+      "language": "en",
+      "category": "ranking",
+      "rationale": "Specific title should compete with body mentions.",
+      "labels": [
+        {
+          "id": "a017",
+          "grade": 2
+        },
+        {
+          "id": "a012",
+          "grade": 1
+        },
+        {
+          "id": "a013",
+          "grade": 1
+        }
+      ],
+      "ids": [
+        "a013",
+        "a017",
+        "a012"
+      ],
+      "passages": [
+        {
+          "document": "a013",
+          "page": 6,
+          "section": 1
+        },
+        {
+          "document": "a017",
+          "page": null,
+          "section": 0
+        },
+        {
+          "document": "a012",
+          "page": null,
+          "section": 0
+        }
+      ],
+      "candidateDocuments": 3,
+      "totalDocuments": 3,
+      "firstMs": 0.9802890000000001,
+      "warmMs": [
+        0.9330280000000001,
+        0.92946,
+        0.908001,
+        0.897268,
+        0.902079
+      ],
+      "firstPhasesMs": {
+        "candidate_documents": 3,
+        "candidate_ms": 0.25512799999999997,
+        "db_ms": 0.437838,
+        "exact_evidence_ms": 0.000041,
+        "result_evidence_ms": 0.263474,
+        "result_ms": 0.263848,
+        "term_matches_ms": 0.00016299999999999998,
+        "total_ms": 0.9802890000000001,
+        "verification_ms": 0.000061000000000000005
+      }
+    }
+  ]
+}

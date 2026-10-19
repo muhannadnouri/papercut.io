@@ -4,20 +4,26 @@
 //! build and read them while the structs stay private to the upload feature.
 
 use serde::{Deserialize, Serialize};
+use tauri_plugin_dialog::FilePath;
 
 /// Metadata for one stored upload, returned by import and list.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocument {
+    /// Diagnostics for this import attempt; list metadata does not re-read source HTML.
+    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub(crate) import_image_warnings: std::collections::BTreeMap<String, usize>,
     pub(crate) id: String,
     pub(crate) url: String,
     pub(crate) title: String,
+    pub(crate) original_file_name: Option<String>,
     pub(crate) format: String,
     pub(crate) source_kind: String,
     pub(crate) imported_at_ms: u128,
     pub(crate) bytes: u64,
     pub(crate) sections: usize,
     pub(crate) cover_media_type: Option<String>,
+    pub(crate) text_status: String,
 }
 
 /// One file that could not be imported while the rest of its batch continued.
@@ -29,29 +35,80 @@ pub(crate) struct UploadedDocumentBatchFailure {
 }
 
 /// Count-based progress emitted while a sequential document batch runs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum UploadedDocumentImportStage {
+    DetectingFormat,
+    ReadingFile,
+    PreparingDocument,
+    PreparingBook,
+    StoringDocument,
+}
+
+/// Count-based progress with an optional semantic stage. Stages deliberately
+/// describe work without claiming a percentage the parser cannot measure.
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentBatchProgress {
     pub(crate) phase: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) stage: Option<UploadedDocumentImportStage>,
     pub(crate) processed: usize,
     pub(crate) total: usize,
     pub(crate) imported: usize,
+    pub(crate) already_in_library: usize,
     pub(crate) failed: usize,
     pub(crate) file_name: Option<String>,
 }
 
-/// Final batch outcome, including successes retained alongside per-file failures.
+/// Final batch outcome. `imported` retains every successful document for
+/// downstream indexing, while `already_in_library` identifies reused sources.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentBatchResult {
     pub(crate) selected: usize,
     pub(crate) processed: usize,
     pub(crate) imported: Vec<UploadedDocument>,
+    pub(crate) already_in_library: Vec<String>,
     pub(crate) failures: Vec<UploadedDocumentBatchFailure>,
     pub(crate) cancelled: bool,
 }
 
-/// One FTS hit: a matching section with a highlighted snippet.
+/// One source-linked passage retained for an uploaded-document result.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentSearchPassage {
+    pub(crate) excerpt: String,
+    pub(crate) section_title: Option<String>,
+    pub(crate) section_index: usize,
+    pub(crate) page_index: Option<usize>,
+}
+
+/// One bounded distribution bin and its first literal matching-section target.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentSearchLocation {
+    pub(crate) bin_index: usize,
+    pub(crate) section_index: usize,
+    pub(crate) page_index: Option<usize>,
+    pub(crate) match_count: usize,
+    pub(crate) text: Option<String>,
+}
+
+/// One query term's bounded count and first literal source target.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentSearchTermMatch {
+    pub(crate) term: String,
+    pub(crate) matching_sections: usize,
+    pub(crate) section_index: Option<usize>,
+    pub(crate) page_index: Option<usize>,
+    pub(crate) text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) matched: Option<bool>,
+}
+
+/// One document-level FTS hit with bounded supporting evidence.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentSearchResult {
@@ -64,6 +121,62 @@ pub(crate) struct UploadedDocumentSearchResult {
     pub(crate) section_index: usize,
     pub(crate) page_index: Option<usize>,
     pub(crate) match_scope: String,
+    pub(crate) matching_sections: usize,
+    pub(crate) match_count: Option<usize>,
+    pub(crate) passages: Vec<UploadedDocumentSearchPassage>,
+    pub(crate) match_locations: Vec<UploadedDocumentSearchLocation>,
+    pub(crate) term_matches: Vec<UploadedDocumentSearchTermMatch>,
+}
+
+/// Bounded search results plus counts computed before the result limit.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentSearchResponse {
+    pub(crate) results: Vec<UploadedDocumentSearchResult>,
+    pub(crate) total_documents: usize,
+    pub(crate) total_matching_sections: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) suggested_query: Option<String>,
+}
+
+/// One bounded page request for literal occurrences inside one uploaded document.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentConcordanceRequest {
+    pub(crate) document_url: String,
+    pub(crate) query: String,
+    pub(crate) offset: Option<usize>,
+    pub(crate) limit: Option<usize>,
+}
+
+/// One context line and its exact source occurrence within an indexed section.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentConcordanceEntry {
+    pub(crate) occurrence_index: usize,
+    pub(crate) section_occurrence_index: usize,
+    pub(crate) excerpt: String,
+    pub(crate) section_title: Option<String>,
+    pub(crate) section_index: usize,
+    pub(crate) page_index: Option<usize>,
+}
+
+/// Bounded concordance lines plus the complete literal occurrence count.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentConcordanceResponse {
+    pub(crate) total_matches: usize,
+    pub(crate) entries: Vec<UploadedDocumentConcordanceEntry>,
+    pub(crate) next_offset: Option<usize>,
+}
+
+/// Stable SQLite search stages streamed to the invoking WebView.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum UploadedDocumentSearchStage {
+    FindingCandidates,
+    VerifyingPhrases,
+    BuildingResults,
 }
 
 /// Outcome of a delete, including bytes reclaimed from app data.
@@ -113,14 +226,56 @@ pub(crate) struct UploadedDocumentSourceRequest {
     pub(crate) document_url: String,
 }
 
+/// Sanitized reader HTML plus validated local image paths for the WebView.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentSource {
+    pub(crate) html: String,
+    pub(crate) asset_paths: std::collections::HashMap<String, String>,
+}
+
 /// Request to run an FTS search over uploaded documents.
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum UploadedDocumentSearchMode {
+    #[default]
+    All,
+    Broader,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentSearchRequest {
     pub(crate) query: String,
+    #[serde(default)]
+    pub(crate) mode: UploadedDocumentSearchMode,
     pub(crate) limit: Option<usize>,
     pub(crate) document_urls: Option<Vec<String>>,
     pub(crate) exact_phrases: Option<Vec<String>>,
+}
+
+/// Request to find literal text within one indexed uploaded PDF.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedPdfFindRequest {
+    pub(crate) document_url: String,
+    pub(crate) query: String,
+}
+
+/// Match count for one indexed PDF page.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedPdfFindPage {
+    pub(crate) page_index: usize,
+    pub(crate) match_count: usize,
+}
+
+/// Compact whole-document Find result; geometry stays in page sidecars.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedPdfFindResult {
+    pub(crate) match_count: usize,
+    pub(crate) pages: Vec<UploadedPdfFindPage>,
 }
 
 /// Request to delete one uploaded document by its URL.
@@ -128,6 +283,29 @@ pub(crate) struct UploadedDocumentSearchRequest {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedDocumentDeleteRequest {
     pub(crate) document_url: String,
+}
+
+/// Request to change only Papercut's display title for one uploaded document.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentTitleUpdateRequest {
+    pub(crate) document_url: String,
+    pub(crate) title: String,
+}
+
+/// User-authored plain text submitted without an intermediary filesystem file.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentPastedTextRequest {
+    pub(crate) title: String,
+    pub(crate) text: String,
+}
+
+/// Files or provider URLs selected by a native drop or file-open request.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UploadedDocumentPathImportRequest {
+    pub(crate) paths: Vec<FilePath>,
 }
 
 /// Request to delete a bounded set of uploaded documents by URL.
@@ -183,7 +361,7 @@ pub(crate) struct UploadedLibraryRenameFolderRequest {
     pub(crate) name: String,
 }
 
-/// Request to delete an empty user-created library folder.
+/// Request to permanently delete one user-created library folder subtree.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct UploadedLibraryDeleteFolderRequest {
@@ -220,4 +398,23 @@ pub(crate) struct UploadedLibraryOrderItem {
 pub(crate) struct UploadedLibraryReorderRequest {
     pub(crate) parent_id: Option<String>,
     pub(crate) items: Vec<UploadedLibraryOrderItem>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::UploadedDocumentSearchStage;
+
+    #[test]
+    fn search_stages_keep_the_frontend_channel_contract() {
+        let stages = [
+            UploadedDocumentSearchStage::FindingCandidates,
+            UploadedDocumentSearchStage::VerifyingPhrases,
+            UploadedDocumentSearchStage::BuildingResults,
+        ];
+
+        assert_eq!(
+            serde_json::to_value(stages).expect("serialize search stages"),
+            serde_json::json!(["findingCandidates", "verifyingPhrases", "buildingResults"]),
+        );
+    }
 }

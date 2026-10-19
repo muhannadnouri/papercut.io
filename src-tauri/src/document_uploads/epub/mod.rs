@@ -14,14 +14,17 @@ use super::html::{extract_body_inner, normalize_text, parsed_html_document, stri
 use super::parsed::{ParsedDocument, ParsedDocumentCover};
 
 mod assets;
+mod inline_svg;
 mod paths;
 mod render;
 mod rewrite;
 
-use assets::{load_cover_asset, load_image_assets, ManifestItem};
+use assets::{load_cover_asset, load_image_assets, LoadedImageAssets, ManifestItem};
 use paths::{opf_base_dir, resolve_archive_path};
 use render::{render_chapter, render_reading_html};
-use rewrite::{collect_fragment_anchors, rewrite_epub_fragment};
+use rewrite::{collect_fragment_anchors, collect_image_paths, rewrite_epub_fragment};
+
+pub(crate) use assets::externalize_inline_image_assets;
 
 const CONTAINER_PATH: &str = "META-INF/container.xml";
 const MAX_MIMETYPE_BYTES: u64 = 128;
@@ -59,7 +62,6 @@ pub(crate) fn parse_epub_document(
             file_name: cover.file_name,
             bytes: cover.bytes,
         });
-    let image_assets = load_image_assets(&mut archive, &package.manifest);
     let chapter_indexes: HashMap<String, usize> = package
         .spine_paths
         .iter()
@@ -67,7 +69,9 @@ pub(crate) fn parse_epub_document(
         .map(|(index, path)| (path.clone(), index))
         .collect();
 
+    let mut image_assets = LoadedImageAssets::default();
     let mut chapter_drafts = Vec::new();
+    let mut referenced_image_paths = HashSet::new();
     let mut total_chapter_text_bytes = 0u64;
     for (index, chapter_path) in package.spine_paths.iter().enumerate() {
         let raw = read_zip_text_limited(&mut archive, chapter_path, MAX_CHAPTER_TEXT_BYTES)?;
@@ -77,22 +81,50 @@ pub(crate) fn parse_epub_document(
         if total_chapter_text_bytes > MAX_TOTAL_CHAPTER_TEXT_BYTES {
             return Err("EPUB chapter text is too large to import".into());
         }
+        let raw = inline_svg::externalize_inline_svgs(
+            &raw,
+            chapter_path,
+            &mut archive,
+            &package.manifest,
+            &mut image_assets,
+        );
         let (language, direction) = extract_xhtml_metadata(&raw);
         let body = extract_body_inner(&raw).unwrap_or(raw.as_str());
         let sanitized = sanitize_epub_fragment(body);
-        if normalize_text(&strip_tags(&sanitized)).is_empty() {
+        let image_paths = collect_image_paths(&sanitized, chapter_path);
+        if normalize_text(&strip_tags(&sanitized)).is_empty()
+            && image_paths.is_empty()
+            && !sanitized.contains("data-papercut-image-error=")
+        {
             continue;
         }
+        referenced_image_paths.extend(image_paths.iter().cloned());
         chapter_drafts.push(ChapterDraft {
             index,
             path: chapter_path.clone(),
             anchors: collect_fragment_anchors(&sanitized),
             sanitized,
+            image_paths,
             language,
             direction,
         });
     }
 
+    load_image_assets(
+        &mut archive,
+        &package.manifest,
+        &referenced_image_paths,
+        &mut image_assets,
+    );
+    if !chapter_drafts.iter().any(|chapter| {
+        !normalize_text(&strip_tags(&chapter.sanitized)).is_empty()
+            || chapter
+                .image_paths
+                .iter()
+                .any(|path| image_assets.paths.contains_key(path))
+    }) {
+        return Err("EPUB did not contain readable text or supported images".into());
+    }
     let readable_paths: HashSet<String> = chapter_drafts
         .iter()
         .map(|chapter| chapter.path.clone())
@@ -137,6 +169,7 @@ pub(crate) fn parse_epub_document(
         return Err("EPUB did not contain readable sections".into());
     }
     parsed.cover = cover;
+    parsed.assets = image_assets.files;
     Ok(parsed)
 }
 
@@ -154,6 +187,7 @@ struct ChapterDraft {
     path: String,
     sanitized: String,
     anchors: HashSet<String>,
+    image_paths: HashSet<String>,
     language: Option<String>,
     direction: Option<String>,
 }
@@ -383,11 +417,20 @@ fn read_zip_text_limited<R: Read + std::io::Seek>(
 /// IDs are needed for TOC links, footnotes, and backlinks. We preserve them here
 /// and prefix them later so duplicate ids across chapters cannot collide.
 fn sanitize_epub_fragment(fragment: &str) -> String {
+    let normalized = normalize_empty_xhtml_elements(fragment);
+    let annotated = rewrite::annotate_image_issues(&normalized);
     let mut builder = ammonia::Builder::default();
-    builder.add_generic_attributes(&["id", "name"]);
-    builder
-        .clean(&normalize_empty_xhtml_elements(fragment))
-        .to_string()
+    builder.add_tags(&["aside", "nav", "section"]);
+    builder.add_generic_attributes(&["id", "name", "role", "epub:type"]);
+    builder.attribute_filter(|_, attribute, value| {
+        if matches!(attribute, "role" | "epub:type") {
+            super::search_content::safe_role(attribute, value).map(std::borrow::Cow::Owned)
+        } else {
+            Some(std::borrow::Cow::Borrowed(value))
+        }
+    });
+    builder.add_tag_attributes("img", &["data-papercut-image-error"]);
+    builder.clean(&annotated).to_string()
 }
 
 /// Preserve XHTML empty-element semantics before parsing fragments as HTML.
@@ -472,7 +515,7 @@ fn is_html_void_element(tag_name: &str) -> bool {
 mod tests {
     use super::*;
     use std::io::Write;
-    use zip::write::FileOptions;
+    use zip::write::SimpleFileOptions;
     use zip::CompressionMethod;
 
     #[test]
@@ -502,7 +545,8 @@ mod tests {
         {
             let cursor = Cursor::new(&mut archive);
             let mut zip = zip::ZipWriter::new(cursor);
-            let deflated = FileOptions::default().compression_method(CompressionMethod::Deflated);
+            let deflated =
+                SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
             zip.start_file("OPS/text/chapter.xhtml", deflated).unwrap();
             zip.write_all(b"123456789").unwrap();
             zip.finish().unwrap();
@@ -552,6 +596,51 @@ mod tests {
     }
 
     #[test]
+    fn chapter_sanitizer_strips_css_url_variants() {
+        for function in ["url", "URL", "uRl"] {
+            let sanitized = sanitize_epub_fragment(&format!(
+                r#"<style>p {{ background-image: {function}("https://tracker.invalid/pixel"); }}</style>
+                <p id="passage" style='background-image: {function}("https://tracker.invalid/pixel"); color: red'>Readable passage.</p>"#
+            ));
+
+            assert!(!sanitized.contains("<style"));
+            assert!(!sanitized.contains("style="));
+            assert!(!sanitized.contains("tracker.invalid"));
+            assert!(sanitized.contains(r#"id="passage""#));
+            assert!(sanitized.contains("Readable passage."));
+        }
+    }
+
+    #[test]
+    fn note_roles_survive_both_epub_and_reader_sanitizers() {
+        let safe = sanitize_epub_fragment(
+            r#"<aside epub:type="footnote" id="note" onclick="alert(1)"><p>Harbor note.</p></aside>
+            <section role="doc-bibliography button"><p>A citation.</p></section>
+            <p>港 Ferry routes. <span epub:type="footnote"><b>Inline note.</b></span> Island stops.</p>"#,
+        );
+        let parsed = parsed_html_document(
+            "Transit guide".into(),
+            "epub",
+            crate::document_uploads::html::sanitize_html(&safe),
+        );
+        assert_eq!(parsed.sections.len(), 3);
+        assert!(parsed.sections[..2]
+            .iter()
+            .all(|section| section.body_ranges == Some(Vec::new())));
+        assert_eq!(
+            crate::document_uploads::search_content::body_text(
+                &parsed.sections[2].text,
+                parsed.sections[2].body_ranges.as_ref().unwrap()
+            ),
+            "港 Ferry routes.\nIsland stops."
+        );
+        assert!(parsed.sections[2].text.contains("Inline note."));
+        assert!(parsed.view_html.contains("id=\"note\""));
+        assert!(!parsed.view_html.contains("onclick"));
+        assert!(parsed.view_html.contains("role=\"doc-bibliography\""));
+    }
+
+    #[test]
     fn preserves_package_and_chapter_language_direction() {
         let package = parse_opf(
             r#"<package dir="rtl"><metadata><title>Arabic Book</title><language>ar</language></metadata><manifest><item id="c1" href="chapter.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c1"/></spine></package>"#,
@@ -592,10 +681,51 @@ mod tests {
         assert!(parsed.view_html.contains("href=\"#ch1-start\""));
         assert!(parsed.view_html.contains("href=\"#chapter-2\""));
         assert!(parsed.view_html.contains("id=\"ch1-start\""));
-        assert!(parsed.view_html.contains("src=\"data:image/png;base64,"));
+        assert!(parsed.view_html.contains("data-papercut-asset=\"image-"));
+        assert!(parsed.view_html.contains("loading=\"lazy\""));
+        assert!(parsed.view_html.contains("decoding=\"async\""));
         assert!(parsed.view_html.contains("alt=\"Cover\""));
+        assert!(parsed.view_html.contains("alt=\"Photo-only section\""));
         assert!(!parsed.view_html.contains("OPS/text/chapter1.xhtml#start"));
         assert!(!parsed.view_html.contains("../images/cover.png"));
+        assert_eq!(parsed.assets.len(), 4);
+        assert!(parsed
+            .view_html
+            .contains("data-source=\"OPS/text/inline-cover.xhtml\""));
+        let svg = parsed
+            .assets
+            .iter()
+            .find(|asset| asset.bytes == SVG_FIXTURE)
+            .unwrap();
+        assert_eq!(parsed.view_html.matches(&svg.file_name).count(), 2);
+        assert_eq!(
+            super::super::parsed::image_import_warnings(&parsed.view_html).get("missing"),
+            Some(&1)
+        );
+        assert!(parsed
+            .view_html
+            .contains("data-source=\"OPS/text/missing-image.xhtml\""));
+        assert!(!parsed.view_html.contains("<svg"));
+        assert!(!parsed.view_html.contains("svg-script-sentinel"));
+        let sanitized = super::super::html::sanitize_html(&parsed.view_html);
+        assert_eq!(sanitized.matches(&svg.file_name).count(), 2);
+        let mut archive = ZipArchive::new(Cursor::new(&bytes)).unwrap();
+        assert!(load_cover_asset(
+            &mut archive,
+            Some(&ManifestItem {
+                href: "OPS/images/diagram.svg".into(),
+                media_type: "image/svg+xml".into(),
+            }),
+        )
+        .is_none());
+        assert!(parsed
+            .assets
+            .iter()
+            .any(|asset| asset.bytes == b"\x89PNG\r\n\x1a\nimage"));
+        assert!(parsed
+            .assets
+            .iter()
+            .any(|asset| asset.bytes == b"\x89PNG\r\n\x1a\nphoto"));
         let cover = parsed.cover.expect("EPUB 3 cover-image asset");
         assert_eq!(cover.media_type, "image/png");
         assert_eq!(cover.file_name, "cover.png");
@@ -657,14 +787,15 @@ mod tests {
         {
             let cursor = Cursor::new(&mut archive);
             let mut zip = zip::ZipWriter::new(cursor);
-            let stored = FileOptions::default().compression_method(CompressionMethod::Stored);
-            let deflated = FileOptions::default().compression_method(CompressionMethod::Deflated);
+            let stored = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+            let deflated =
+                SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
             zip.start_file("mimetype", stored).unwrap();
             zip.write_all(b"application/epub+zip").unwrap();
             zip.start_file(CONTAINER_PATH, deflated).unwrap();
             zip.write_all(container_xml().as_bytes()).unwrap();
             zip.start_file("OPS/package.opf", deflated).unwrap();
-            zip.write_all(opf_xml().as_bytes()).unwrap();
+            zip.write_all(empty_spine_opf_xml().as_bytes()).unwrap();
             zip.start_file("OPS/nav.xhtml", deflated).unwrap();
             zip.write_all(b"<html><body></body></html>").unwrap();
             zip.start_file("OPS/text/chapter1.xhtml", deflated).unwrap();
@@ -686,8 +817,9 @@ mod tests {
         {
             let cursor = Cursor::new(&mut archive);
             let mut zip = zip::ZipWriter::new(cursor);
-            let stored = FileOptions::default().compression_method(CompressionMethod::Stored);
-            let deflated = FileOptions::default().compression_method(CompressionMethod::Deflated);
+            let stored = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+            let deflated =
+                SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
             zip.start_file("mimetype", stored).unwrap();
             zip.write_all(b"application/epub+zip").unwrap();
             zip.start_file(CONTAINER_PATH, deflated).unwrap();
@@ -722,8 +854,9 @@ mod tests {
         {
             let cursor = Cursor::new(&mut archive);
             let mut zip = zip::ZipWriter::new(cursor);
-            let stored = FileOptions::default().compression_method(CompressionMethod::Stored);
-            let deflated = FileOptions::default().compression_method(CompressionMethod::Deflated);
+            let stored = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+            let deflated =
+                SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
             zip.start_file("mimetype", stored).unwrap();
             zip.write_all(b"application/epub+zip").unwrap();
             zip.start_file(CONTAINER_PATH, deflated).unwrap();
@@ -740,14 +873,87 @@ mod tests {
         archive
     }
 
-    /// Build a minimal nested-path EPUB fixture with a local manifest image.
+    #[test]
+    fn manual_image_diagnostics_fixture_matches_acceptance_counts() {
+        let bytes = include_bytes!("../../../../scripts/fixtures/epub/image-diagnostics.epub");
+        let parsed = parse_epub_document(bytes, "Diagnostics").unwrap();
+        let warnings = super::super::parsed::image_import_warnings(&parsed.view_html);
+        assert_eq!(
+            warnings,
+            std::collections::BTreeMap::from([
+                ("missing".into(), 3),
+                ("unsupported".into(), 1),
+                ("remote".into(), 1),
+                ("size-limit".into(), 1),
+                ("svg".into(), 1),
+                ("unavailable".into(), 1),
+                ("invalid-path".into(), 1),
+            ])
+        );
+        assert_eq!(parsed.assets.len(), 3); // Two SVGs and the deliberately corrupt PNG.
+        assert_eq!(
+            parsed.view_html.matches("class=\"epub-chapter\"").count(),
+            2
+        );
+        assert_eq!(parsed.view_html.matches("data-papercut-asset=").count(), 3);
+        assert_eq!(
+            super::super::parsed::image_import_warnings(&super::super::html::sanitize_html(
+                &parsed.view_html
+            )),
+            warnings
+        );
+    }
+
+    #[test]
+    fn generated_epub_retains_spine_images_and_embedded_cover() {
+        let parsed = parse_epub_document(&fixture_epub(), "Sample").unwrap();
+        assert_eq!(parsed.assets.len(), 4);
+        assert_eq!(
+            super::super::parsed::image_import_warnings(&parsed.view_html),
+            std::collections::BTreeMap::from([("missing".into(), 1)])
+        );
+        assert_eq!(
+            parsed
+                .assets
+                .iter()
+                .filter(|asset| asset.file_name.ends_with(".svg"))
+                .count(),
+            2
+        );
+        assert_eq!(parsed.view_html.matches("data-papercut-asset=").count(), 5);
+        assert!(!parsed.view_html.contains("<svg"));
+        assert_eq!(
+            parsed.view_html.matches("class=\"epub-chapter\"").count(),
+            6
+        );
+        let cover_svg = parsed
+            .assets
+            .iter()
+            .filter_map(|asset| std::str::from_utf8(&asset.bytes).ok())
+            .find(|svg| svg.contains("viewBox=\"0 0 100 200\""))
+            .expect("generated cover SVG keeps its viewport");
+        assert!(cover_svg.contains("preserveAspectRatio=\"xMidYMid\""));
+        use base64::Engine as _;
+        let cover =
+            base64::engine::general_purpose::STANDARD.encode(&parsed.cover.as_ref().unwrap().bytes);
+        assert!(cover_svg.contains(&format!("data:image/png;base64,{cover}")));
+        let sanitized = super::super::html::sanitize_html(&parsed.view_html);
+        for asset in &parsed.assets {
+            assert!(sanitized.contains(&asset.file_name));
+        }
+    }
+
+    const SVG_FIXTURE: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50"><style>text{fill:red}</style><text x="5" y="25">Diagram</text><script>/*svg-script-sentinel*/</script></svg>"#;
+
+    /// Build a minimal nested-path EPUB fixture with local raster and SVG images.
     fn fixture_epub() -> Vec<u8> {
         let mut archive = Vec::new();
         {
             let cursor = Cursor::new(&mut archive);
             let mut zip = zip::ZipWriter::new(cursor);
-            let stored = FileOptions::default().compression_method(CompressionMethod::Stored);
-            let deflated = FileOptions::default().compression_method(CompressionMethod::Deflated);
+            let stored = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+            let deflated =
+                SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
             zip.start_file("mimetype", stored).unwrap();
             zip.write_all(b"application/epub+zip").unwrap();
             zip.start_file(CONTAINER_PATH, deflated).unwrap();
@@ -761,14 +967,29 @@ mod tests {
             .unwrap();
             zip.start_file("OPS/text/chapter1.xhtml", deflated).unwrap();
             zip.write_all(
-                b"<html><body><h1 id='start'>Start</h1><p>First chapter.</p><img src='../images/cover.png' alt='Cover'/></body></html>",
+                b"<html><body><h1 id='start'>Start</h1><p>First chapter.</p><img src='../images/cover.png' alt='Cover'/><img src='../images/diagram.svg' alt='Diagram'/></body></html>",
             )
             .unwrap();
             zip.start_file("OPS/text/chapter2.xhtml", deflated).unwrap();
             zip.write_all(b"<html><body><p>Second chapter.</p></body></html>")
                 .unwrap();
+            zip.start_file("OPS/text/photos.xhtml", deflated).unwrap();
+            zip.write_all(
+                b"<html><body><img src='../images/photo.png' alt='Photo-only section'/><img src='../images/diagram.svg' alt='Diagram again'/></body></html>",
+            )
+            .unwrap();
+            zip.start_file("OPS/text/missing-image.xhtml", deflated)
+                .unwrap();
+            zip.write_all(b"<html><body><img src='../missing.png' alt='Missing chapter image'/></body></html>").unwrap();
+            zip.start_file("OPS/text/inline-cover.xhtml", deflated)
+                .unwrap();
+            zip.write_all(br#"<!DOCTYPE html><html><body><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 200" preserveAspectRatio="xMidYMid"><image href="../images/cover.png" width="100" height="200"/></svg></body></html>"#).unwrap();
             zip.start_file("OPS/images/cover.png", deflated).unwrap();
             zip.write_all(b"\x89PNG\r\n\x1a\nimage").unwrap();
+            zip.start_file("OPS/images/photo.png", deflated).unwrap();
+            zip.write_all(b"\x89PNG\r\n\x1a\nphoto").unwrap();
+            zip.start_file("OPS/images/diagram.svg", deflated).unwrap();
+            zip.write_all(SVG_FIXTURE).unwrap();
             zip.finish().unwrap();
         }
         archive
@@ -790,7 +1011,11 @@ mod tests {
         r#"<?xml version="1.0"?><package><metadata><title>Hostile Fixture</title></metadata><manifest><item id="c1" href="text/chapter1.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c1"/></spine></package>"#
     }
 
+    fn empty_spine_opf_xml() -> &'static str {
+        r#"<?xml version="1.0"?><package><metadata><title>Empty Fixture</title></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml"/><item id="c1" href="text/chapter1.xhtml" media-type="application/xhtml+xml"/><item id="c2" href="text/chapter2.xhtml" media-type="application/xhtml+xml"/><item id="img" href="images/cover.png" media-type="image/png"/></manifest><spine><itemref idref="nav"/><itemref idref="c1"/><itemref idref="c2"/></spine></package>"#
+    }
+
     fn opf_xml() -> &'static str {
-        r#"<?xml version="1.0"?><package><metadata><title>Fixture</title></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml"/><item id="c1" href="text/chapter1.xhtml" media-type="application/xhtml+xml"/><item id="c2" href="text/chapter2.xhtml" media-type="application/xhtml+xml"/><item id="img" href="images/cover.png" media-type="image/png" properties="cover-image"/></manifest><spine><itemref idref="nav"/><itemref idref="c1"/><itemref idref="c2"/></spine></package>"#
+        r#"<?xml version="1.0"?><package><metadata><title>Fixture</title></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml"/><item id="c1" href="text/chapter1.xhtml" media-type="application/xhtml+xml"/><item id="c2" href="text/chapter2.xhtml" media-type="application/xhtml+xml"/><item id="photos" href="text/photos.xhtml" media-type="application/xhtml+xml"/><item id="img" href="images/cover.png" media-type="image/png" properties="cover-image"/><item id="photo" href="images/photo.png" media-type="image/png"/><item id="diagram" href="images/diagram.svg" media-type="image/svg+xml"/><item id="inline-cover" href="text/inline-cover.xhtml" media-type="application/xhtml+xml"/><item id="missing-image" href="text/missing-image.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="nav"/><itemref idref="c1"/><itemref idref="c2"/><itemref idref="photos"/><itemref idref="inline-cover"/><itemref idref="missing-image"/></spine></package>"#
     }
 }

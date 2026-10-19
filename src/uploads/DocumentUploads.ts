@@ -1,13 +1,24 @@
+import type { SearchMode } from '../types/search'
+
+export type UploadedDocumentTextStatus =
+  | 'processing'
+  | 'ready'
+  | 'recognition-available'
+  | 'recognition-required'
+
 export interface UploadedDocument {
+  importImageWarnings?: Record<string, number>
   id: string
   url: string
   title: string
+  originalFileName?: string | null
   format: 'html' | string
   sourceKind: 'html' | 'pdf'
   importedAtMs: number
   bytes: number
   sections: number
   coverMediaType?: string | null
+  textStatus: UploadedDocumentTextStatus
 }
 
 export interface UploadedDocumentSearchResult {
@@ -20,6 +31,67 @@ export interface UploadedDocumentSearchResult {
   sectionIndex: number
   pageIndex?: number | null
   matchScope?: 'section' | 'document'
+  matchingSections: number
+  matchCount?: number | null
+  passages: UploadedDocumentSearchPassage[]
+  matchLocations: UploadedDocumentSearchLocation[]
+  termMatches: UploadedDocumentSearchTermMatch[]
+}
+
+export interface UploadedDocumentSearchPassage {
+  excerpt: string
+  sectionTitle?: string | null
+  sectionIndex: number
+  pageIndex?: number | null
+}
+
+export interface UploadedDocumentSearchLocation {
+  binIndex: number
+  sectionIndex: number
+  pageIndex?: number | null
+  matchCount: number
+  text?: string | null
+}
+
+export interface UploadedDocumentSearchTermMatch {
+  term: string
+  matchingSections: number
+  sectionIndex?: number | null
+  pageIndex?: number | null
+  text?: string | null
+  matched?: boolean
+}
+
+export interface UploadedDocumentSearchResponse {
+  results: UploadedDocumentSearchResult[]
+  totalDocuments: number
+  totalMatchingSections: number
+  suggestedQuery?: string
+}
+
+export interface UploadedDocumentConcordanceEntry {
+  occurrenceIndex: number
+  sectionOccurrenceIndex: number
+  excerpt: string
+  sectionTitle?: string | null
+  sectionIndex: number
+  pageIndex?: number | null
+}
+
+export interface UploadedDocumentConcordanceResponse {
+  totalMatches: number
+  entries: UploadedDocumentConcordanceEntry[]
+  nextOffset?: number | null
+}
+
+export type UploadedDocumentSearchStage =
+  | 'findingCandidates'
+  | 'verifyingPhrases'
+  | 'buildingResults'
+
+interface UploadedDocumentSource {
+  html: string
+  assetPaths: Record<string, string>
 }
 
 export interface UploadedDocumentDeleteResult {
@@ -55,11 +127,21 @@ export interface UploadedDocumentBatchFailure {
   error: string
 }
 
+export type UploadedDocumentImportStage =
+  | 'detectingFormat'
+  | 'readingFile'
+  | 'preparingDocument'
+  | 'preparingBook'
+  | 'storingDocument'
+  | 'extractingPdfText'
+
 export interface UploadedDocumentBatchProgress {
   phase: 'importing' | 'completed' | 'cancelled'
+  stage?: UploadedDocumentImportStage | null
   processed: number
   total: number
   imported: number
+  alreadyInLibrary: number
   failed: number
   fileName?: string | null
 }
@@ -68,6 +150,7 @@ export interface UploadedDocumentBatchResult {
   selected: number
   processed: number
   imported: UploadedDocument[]
+  alreadyInLibrary: string[]
   failures: UploadedDocumentBatchFailure[]
   cancelled: boolean
 }
@@ -94,6 +177,14 @@ export interface PdfNarrationSegment {
     endOffset: number
     sourceStartOffset: number
     sourceEndOffset: number
+  }>
+}
+
+export interface PdfFindResult {
+  matchCount: number
+  pages: Array<{
+    pageIndex: number
+    matchCount: number
   }>
 }
 
@@ -148,6 +239,39 @@ export async function importDocumentFolder(): Promise<UploadedDocumentBatchResul
   return invoke<UploadedDocumentBatchResult>('document_uploads_import_folder')
 }
 
+/** Native drop and platform file-open entry points share Rust's normal format,
+ * size, duplicate, and parser validation instead of parallel importers. */
+export async function importDocumentPaths(paths: string[]): Promise<UploadedDocumentBatchResult> {
+  const invoke = await loadTauriInvoke()
+  return invoke<UploadedDocumentBatchResult>('document_uploads_import_paths', {
+    request: { paths },
+  })
+}
+
+/** Drain file-association requests queued before React was ready or while a
+ * Library operation was active. Values can be paths or mobile provider URLs. */
+export async function takeOpenDocumentSources(): Promise<string[]> {
+  const invoke = await loadTauriInvoke()
+  return invoke<string[]>('open_documents_take_sources')
+}
+
+/** The event is only a wake-up signal; the native queue remains authoritative
+ * so startup races and requests received during an import cannot lose paths. */
+export async function listenOpenDocumentRequests(handler: () => void): Promise<() => void> {
+  if (!isTauriRuntime()) return () => {}
+  const mod = await import('@tauri-apps/api/event')
+  return mod.listen('open-documents', handler)
+}
+
+/** Create a local plain-text document without reading from the clipboard or
+ * staging a temporary file; Rust applies the same TXT validation and parser. */
+export async function importPastedText(title: string, text: string): Promise<UploadedDocument> {
+  const invoke = await loadTauriInvoke()
+  return invoke<UploadedDocument>('document_uploads_import_pasted_text', {
+    request: { title, text },
+  })
+}
+
 export async function cancelDocumentBatch(): Promise<boolean> {
   const invoke = await loadTauriInvoke()
   return invoke<boolean>('document_uploads_cancel_import_batch')
@@ -169,24 +293,78 @@ export async function listUploadedDocuments(): Promise<UploadedDocument[]> {
   return invoke<UploadedDocument[]>('document_uploads_list')
 }
 
+export async function updateUploadedDocumentTitle(
+  documentUrl: string,
+  title: string,
+): Promise<UploadedDocument> {
+  const invoke = await loadTauriInvoke()
+  return invoke<UploadedDocument>('document_uploads_update_title', {
+    request: { documentUrl, title },
+  })
+}
+
 export async function searchUploadedDocuments(
   query: string,
   limit = 50,
   documentUrls?: string[],
   exactPhrases?: string[],
-): Promise<UploadedDocumentSearchResult[]> {
-  if (!isTauriRuntime() || query.trim().length === 0) return []
+  onProgress: (stage: UploadedDocumentSearchStage) => void = () => {},
+  mode: SearchMode = 'all',
+): Promise<UploadedDocumentSearchResponse> {
+  const hasExactPhrases = exactPhrases?.some((phrase) => phrase.trim().length > 0) ?? false
+  if (!isTauriRuntime() || (query.trim().length === 0 && !hasExactPhrases)) {
+    return { results: [], totalDocuments: 0, totalMatchingSections: 0 }
+  }
+  const mod = await import('@tauri-apps/api/core')
+  const progress = new mod.Channel<UploadedDocumentSearchStage>(onProgress)
+  return mod.invoke<UploadedDocumentSearchResponse>('document_uploads_search', {
+    request: { query, limit, documentUrls, exactPhrases, mode },
+    onProgress: progress,
+  })
+}
+
+export async function findUploadedDocumentOccurrences(
+  documentUrl: string,
+  query: string,
+  offset = 0,
+  limit = 50,
+): Promise<UploadedDocumentConcordanceResponse> {
   const invoke = await loadTauriInvoke()
-  return invoke<UploadedDocumentSearchResult[]>('document_uploads_search', {
-    request: { query, limit, documentUrls, exactPhrases },
+  return invoke<UploadedDocumentConcordanceResponse>('document_uploads_concordance', {
+    request: { documentUrl, query, offset, limit },
   })
 }
 
 export async function getUploadedDocumentSource(documentUrl: string): Promise<string> {
-  const invoke = await loadTauriInvoke()
-  return invoke<string>('document_uploads_get_source', {
+  const mod = await import('@tauri-apps/api/core')
+  const source = await mod.invoke<UploadedDocumentSource>('document_uploads_get_source', {
     request: { documentUrl },
   })
+  return resolveUploadedDocumentAssets(source, mod.convertFileSrc)
+}
+
+/**
+ * Resolve only generated markers that Rust paired with validated absolute paths.
+ * Do not broaden this into generic HTML URL rewriting: that would bypass the
+ * sanitizer/storage contract and could expose unrelated local files.
+ */
+export function resolveUploadedDocumentAssets(
+  source: UploadedDocumentSource,
+  convertFileSrc: (path: string) => string,
+): string {
+  return source.html.replace(
+    /data-papercut-asset="(image-[a-f0-9]{64}\.(?:png|jpg|gif|webp|svg))"/g,
+    (attribute, fileName: string) => {
+      const path = source.assetPaths[fileName]
+      if (!path) return attribute
+      return `src="${escapeHtmlAttribute(convertFileSrc(path))}" ${attribute}`
+    },
+  )
+}
+
+/** Keep converted asset URLs inert when inserted into already-sanitized HTML. */
+function escapeHtmlAttribute(value: string): string {
+  return value.replaceAll('&', '&amp;').replaceAll('"', '&quot;')
 }
 
 export async function getUploadedDocumentCover(documentUrl: string): Promise<string | null> {
@@ -223,6 +401,33 @@ export async function getUploadedPdfNarrationSegments(
   })
 }
 
+export async function getUploadedPdfPageText(
+  documentUrl: string,
+  pageIndex: number,
+): Promise<PdfPageTextLayer> {
+  const invoke = await loadTauriInvoke()
+  return invoke<PdfPageTextLayer>('document_uploads_get_pdf_page_text', {
+    request: { documentUrl, pageIndex },
+  })
+}
+
+export async function uploadedPdfHasOcrText(documentUrl: string): Promise<boolean> {
+  const invoke = await loadTauriInvoke()
+  return invoke<boolean>('document_uploads_pdf_has_ocr_text', {
+    request: { documentUrl },
+  })
+}
+
+export async function findUploadedPdfText(
+  documentUrl: string,
+  query: string,
+): Promise<PdfFindResult> {
+  const invoke = await loadTauriInvoke()
+  return invoke<PdfFindResult>('document_uploads_find_pdf_text', {
+    request: { documentUrl, query },
+  })
+}
+
 export async function storeUploadedPdfPageText(
   documentUrl: string,
   layer: PdfPageTextLayer,
@@ -238,10 +443,11 @@ export async function finalizeUploadedPdf(
   title: string | undefined,
   pageCount: number,
   thumbnail?: number[],
+  textStatus: Exclude<UploadedDocumentTextStatus, 'processing'> = 'ready',
 ): Promise<UploadedDocument> {
   const invoke = await loadTauriInvoke()
   return invoke<UploadedDocument>('document_uploads_finalize_pdf', {
-    request: { documentUrl, title, pageCount, thumbnail },
+    request: { documentUrl, title, pageCount, thumbnail, textStatus },
   })
 }
 
@@ -289,9 +495,9 @@ export async function renameUploadedLibraryFolder(folderId: string, name: string
   })
 }
 
-export async function deleteUploadedLibraryFolder(folderId: string): Promise<void> {
+export async function deleteUploadedLibraryFolder(folderId: string): Promise<UploadedDocumentDeleteBatchResult> {
   const invoke = await loadTauriInvoke()
-  await invoke<void>('document_uploads_delete_folder', {
+  return invoke<UploadedDocumentDeleteBatchResult>('document_uploads_delete_folder', {
     request: { folderId },
   })
 }

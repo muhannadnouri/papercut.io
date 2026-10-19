@@ -6,8 +6,8 @@ The goal is high-quality offline translation for long-form HTML and EPUB books, 
 
 ## Current Implementation Status
 
-- Desktop production builds now compile with `native-tts-shared,native-translation-ctranslate2,native-translation-llama` through `npm run desktop`.
-- `npm run desktop:no-translation` keeps the desktop build on native TTS only for packaging/debug isolation.
+- Desktop production builds now compile with `native-tts-shared,experimental-search-embeddings,native-translation-ctranslate2,native-translation-llama` through `npm run desktop`.
+- `npm run desktop:no-translation` keeps shared TTS and conceptual search while disabling translation for packaging/debug isolation.
 - Spanish -> English and French -> English OPUS-MT CTranslate2 manifests are pinned and installable.
 - HY-MT2 1.8B Q8 is a pinned, installable quality model for Arabic, German, Spanish, French, Russian, and Chinese translation into English. Desktop CPU inference remains the default. On Linux, the workbench offers Vulkan acceleration only when llama.cpp reports a real integrated or discrete Vulkan GPU.
 - Installed models can be removed independently to reclaim storage. Removal is serialized against model installs and active translation jobs, while translated documents and reusable segment caches remain available.

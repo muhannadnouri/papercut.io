@@ -1,4 +1,11 @@
-import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react'
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { resolveViewer } from '../../viewers/registry'
@@ -8,6 +15,7 @@ import { ScrollTopButton } from '../ScrollTopButton/ScrollTopButton'
 import { ReaderSettings } from '../ReaderSettings/ReaderSettings'
 import { useReaderSettings } from '../ReaderSettings/useReaderSettings'
 import { ExternalLinkPrompt } from '../ExternalLinkPrompt/ExternalLinkPrompt'
+import { ReaderBookmarkButton } from './ReaderBookmarkButton'
 import { getExternalLinkUrl, getInternalDocumentHash } from './linkUtils'
 import { useFindInPage } from '../../hooks/useFindInPage'
 import { useReaderBookmark } from '../../hooks/useReaderBookmark'
@@ -16,15 +24,24 @@ import type { SearchOpenTarget } from '../../types/search'
 import type { TtsChunk } from '../../tts/types'
 import { openExternalUrl } from '../../utils/openExternalUrl'
 import {
+  isFullscreenToolbarTap,
+  type PointerPosition,
+} from './fullscreenToolbar'
+import {
   clearSearchTargetHighlight,
   decodeReaderHash,
   highlightFirstSearchTarget,
+  highlightSearchTarget,
+  readerSectionSelector,
   readerScrollBehavior,
+  scrollToReaderElement,
   scrollToReaderRange,
 } from './readerTarget'
 import './DocumentViewer.css'
 
 const FLOATING_READER_ACTION_SCROLL_Y = 180
+const PDF_FULLSCREEN_TOOLBAR_HIDE_MS = 3000
+const PDF_FULLSCREEN_POINTER_THROTTLE_MS = 400
 
 interface TtsHighlightOptions {
   enabled: boolean
@@ -69,21 +86,32 @@ export function DocumentViewer({
   onClose,
 }: DocumentViewerProps) {
   const { t } = useTranslation()
+  const readerShellRef = useRef<HTMLDivElement | null>(null)
   const readerRef = useRef<HTMLElement | null>(null)
+  const fullscreenToolbarTimerRef = useRef<number | null>(null)
+  const fullscreenPointerActivityRef = useRef(0)
+  const fullscreenTouchStartRef = useRef<(PointerPosition & { id: number }) | null>(null)
   const plugin = resolveViewer(url, format)
   const [viewerBookmarkApi, setViewerBookmarkApi] = useState<ViewerBookmarkApi | null>(null)
   const [viewerFindApi, setViewerFindApi] = useState<ViewerFindApi | null>(null)
   const [viewerToolbarTarget, setViewerToolbarTarget] = useState<HTMLDivElement | null>(null)
+  const [pdfFullscreen, setPdfFullscreen] = useState(false)
+  const [pdfToolbarVisible, setPdfToolbarVisible] = useState(true)
   const [showScrollTop, setShowScrollTop] = useState(false)
   const [pendingExternalUrl, setPendingExternalUrl] = useState<string | null>(null)
   const [externalLinkError, setExternalLinkError] = useState('')
-  const { readerSettingsStyle, readerSettingsProps } = useReaderSettings()
+  const { applyingFontFamily, readerSettingsStyle, readerSettingsProps } = useReaderSettings()
   const {
     bookmarkNotice,
+    canUndoBookmarkChange,
     dismissBookmarkNotice,
     hasBookmark,
     isAtBookmark,
-    toggleBookmark,
+    moveBookmark,
+    removeBookmark,
+    restoreBookmark: returnToBookmark,
+    saveBookmark,
+    undoBookmarkChange,
   } = useReaderBookmark(url, {
     enabled: !loading &&
       !loadError &&
@@ -104,7 +132,7 @@ export function DocumentViewer({
     closeFind,
     setShowFind,
     handleViewerFindResult,
-  } = useFindInPage(readerRef, viewerFindApi)
+  } = useFindInPage(readerRef, viewerFindApi, content)
 
   useTtsHighlight(readerRef, ttsHighlight
     ? { ...ttsHighlight, enabled: ttsHighlight.enabled && plugin.id !== 'pdf' }
@@ -120,6 +148,141 @@ export function DocumentViewer({
     ? ttsHighlight.chunks[ttsHighlight.currentChunkIndex]?.pdfSourceSpans
     : undefined
 
+  const togglePdfFullscreen = useCallback(() => {
+    const shell = readerShellRef.current
+    if (!shell) return
+    const doc = shell.ownerDocument
+    const next = !pdfFullscreen
+
+    setShowFind(false)
+    if (next) setPdfToolbarVisible(true)
+    setPdfFullscreen(next)
+    if (next && typeof shell.requestFullscreen === 'function') {
+      // Keep the CSS reading mode when a mobile WebView rejects native fullscreen.
+      void shell.requestFullscreen().catch(() => {})
+    } else if (!next && doc.fullscreenElement && typeof doc.exitFullscreen === 'function') {
+      void doc.exitFullscreen().catch(() => {})
+    }
+  }, [pdfFullscreen, setShowFind])
+
+  const clearFullscreenToolbarTimer = useCallback(() => {
+    if (fullscreenToolbarTimerRef.current === null) return
+    window.clearTimeout(fullscreenToolbarTimerRef.current)
+    fullscreenToolbarTimerRef.current = null
+  }, [])
+
+  const scheduleFullscreenToolbarHide = useCallback(() => {
+    clearFullscreenToolbarTimer()
+    if (!pdfFullscreen) return
+
+    const hideWhenIdle = () => {
+      const toolbar = viewerToolbarTarget
+      const finePointerHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches &&
+        toolbar?.matches(':hover')
+      const menuOpen = toolbar?.querySelector('[aria-expanded="true"]')
+      const activeElement = toolbar?.ownerDocument.activeElement
+      const toolbarFocused = Boolean(activeElement && toolbar?.contains(activeElement))
+      if (finePointerHover || toolbarFocused || menuOpen) {
+        fullscreenToolbarTimerRef.current = window.setTimeout(hideWhenIdle, 1000)
+        return
+      }
+      fullscreenToolbarTimerRef.current = null
+      setPdfToolbarVisible(false)
+    }
+
+    fullscreenToolbarTimerRef.current = window.setTimeout(
+      hideWhenIdle,
+      PDF_FULLSCREEN_TOOLBAR_HIDE_MS,
+    )
+  }, [clearFullscreenToolbarTimer, pdfFullscreen, viewerToolbarTarget])
+
+  const revealFullscreenToolbar = useCallback(() => {
+    if (!pdfFullscreen) return
+    setPdfToolbarVisible(true)
+    scheduleFullscreenToolbarHide()
+  }, [pdfFullscreen, scheduleFullscreenToolbarHide])
+
+  useEffect(() => {
+    if (pdfFullscreen) scheduleFullscreenToolbarHide()
+    else clearFullscreenToolbarTimer()
+    return clearFullscreenToolbarTimer
+  }, [clearFullscreenToolbarTimer, pdfFullscreen, scheduleFullscreenToolbarHide])
+
+  const handleFullscreenPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!pdfFullscreen || event.pointerType === 'mouse') return
+    fullscreenTouchStartRef.current = {
+      id: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+    }
+  }, [pdfFullscreen])
+
+  const handleFullscreenPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!pdfFullscreen || event.pointerType !== 'mouse') return
+    const now = performance.now()
+    if (now - fullscreenPointerActivityRef.current < PDF_FULLSCREEN_POINTER_THROTTLE_MS) return
+    fullscreenPointerActivityRef.current = now
+    revealFullscreenToolbar()
+  }, [pdfFullscreen, revealFullscreenToolbar])
+
+  const handleFullscreenPointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const start = fullscreenTouchStartRef.current
+    fullscreenTouchStartRef.current = null
+    if (!pdfFullscreen || event.pointerType === 'mouse' || start?.id !== event.pointerId) return
+    if (!isFullscreenToolbarTap(start, { x: event.clientX, y: event.clientY })) return
+
+    const target = event.target
+    if (target instanceof Element && target.closest('button, a, input, select, [role="button"], [role="menu"]')) return
+    const selection = event.currentTarget.ownerDocument.getSelection()
+    if (selection && !selection.isCollapsed) return
+
+    if (pdfToolbarVisible) {
+      setPdfToolbarVisible(false)
+      clearFullscreenToolbarTimer()
+    } else {
+      setPdfToolbarVisible(true)
+      scheduleFullscreenToolbarHide()
+    }
+  }, [
+    clearFullscreenToolbarTimer,
+    pdfFullscreen,
+    pdfToolbarVisible,
+    scheduleFullscreenToolbarHide,
+  ])
+
+  useEffect(() => {
+    if (plugin.id !== 'pdf') return
+    const shell = readerShellRef.current
+    if (!shell) return
+    const doc = shell.ownerDocument
+    const handleFullscreenChange = () => {
+      if (doc.fullscreenElement !== shell) setPdfFullscreen(false)
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !doc.fullscreenElement) setPdfFullscreen(false)
+      if (event.key === 'Tab' && pdfFullscreen) revealFullscreenToolbar()
+    }
+
+    doc.addEventListener('fullscreenchange', handleFullscreenChange)
+    doc.addEventListener('keydown', handleKeyDown)
+    return () => {
+      doc.removeEventListener('fullscreenchange', handleFullscreenChange)
+      doc.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [pdfFullscreen, plugin.id, revealFullscreenToolbar])
+
+  useEffect(() => {
+    if (plugin.id !== 'pdf') return
+    const shell = readerShellRef.current
+    if (!shell) return
+    const doc = shell.ownerDocument
+    return () => {
+      if (doc.fullscreenElement === shell && typeof doc.exitFullscreen === 'function') {
+        void doc.exitFullscreen().catch(() => {})
+      }
+    }
+  }, [plugin.id])
+
   // Uploaded HTML/EPUB is already sanitized by the backend and rendered in the
   // app DOM. Handle internal anchors here so ToC/footnote clicks do not mutate
   // the app URL and can account for the fixed document header offset.
@@ -134,8 +297,7 @@ export function DocumentViewer({
     const target = idTarget && root.contains(idTarget) ? idTarget : namedTarget
     if (!target) return
 
-    const targetTop = window.scrollY + target.getBoundingClientRect().top
-    window.scrollTo({ top: Math.max(targetTop - 120, 0), behavior: readerScrollBehavior() })
+    scrollToReaderElement(target)
   }, [])
 
   useEffect(() => {
@@ -147,9 +309,30 @@ export function DocumentViewer({
       if (!root) return
       highlightedRoot = root
       clearSearchTargetHighlight(root)
-      if (searchTarget.hash) scrollToHash(searchTarget.hash)
-      const target = searchTarget.text ? highlightFirstSearchTarget(root, searchTarget.text) : null
-      if (target) scrollToReaderRange(target)
+      const sectionSelector = readerSectionSelector(searchTarget.sectionIndex)
+      const section = sectionSelector ? root.querySelector<HTMLElement>(sectionSelector) : null
+      const sectionTarget = searchTarget.text
+        ? highlightSearchTarget(
+            section ?? root,
+            searchTarget.text,
+            searchTarget.occurrenceIndex ?? 0,
+          )
+        : null
+      // Exact-phrase verification can find a phrase in a different section
+      // from SQLite's best broad candidate. Keep the whole-reader fallback for
+      // that case instead of scrolling confidently to the wrong block.
+      const target = sectionTarget ?? (
+        section && searchTarget.text
+          ? highlightFirstSearchTarget(root, searchTarget.text)
+          : null
+      )
+      if (target) {
+        scrollToReaderRange(target)
+      } else if (section) {
+        scrollToReaderElement(section)
+      } else if (searchTarget.hash) {
+        scrollToHash(searchTarget.hash)
+      }
     })
 
     return () => {
@@ -242,11 +425,22 @@ export function DocumentViewer({
     'app',
     'app-reader',
     plugin.id === 'pdf' ? 'app-reader-pdf' : '',
+    pdfFullscreen ? 'app-reader-pdf-fullscreen' : '',
+    pdfFullscreen && !pdfToolbarVisible ? 'app-reader-pdf-toolbar-hidden' : '',
     className,
   ].filter(Boolean).join(' ')
 
   return (
-    <div className={appClassName}>
+    <div
+      ref={readerShellRef}
+      className={appClassName}
+      data-reader-theme={plugin.id !== 'pdf' ? readerSettingsProps.settings.pageTheme : undefined}
+      onFocusCapture={revealFullscreenToolbar}
+      onPointerCancel={() => { fullscreenTouchStartRef.current = null }}
+      onPointerDown={handleFullscreenPointerDown}
+      onPointerMove={handleFullscreenPointerMove}
+      onPointerUp={handleFullscreenPointerUp}
+    >
       <header className="header doc-header">
         <div className="header-left">
           <button className="back-button" onClick={onClose}>
@@ -305,13 +499,25 @@ export function DocumentViewer({
         />
       )}
 
-      {beforeDocument}
+      {!pdfFullscreen && beforeDocument}
 
-      <main className="document-view" style={readerSettingsStyle}>
+      <main
+        className="document-view"
+        style={readerSettingsStyle}
+        aria-busy={Boolean(applyingFontFamily) || undefined}
+      >
         {loading ? (
           <div className="document-html-surface document-loading-surface" role="status" aria-live="polite">
             <span className="spinner" aria-hidden="true" />
-            <span>{t('reader.openingDocument')}</span>
+            <span className="document-loading-message">
+              <span>{t('reader.openingDocument')}</span>
+              <span className="document-loading-detail">
+                {t(format === 'epub' ? 'reader.preparingBook' : 'reader.preparingDocument')}
+              </span>
+              <span className="document-loading-detail document-loading-detail-slow">
+                {t('reader.largeDocumentDelay')}
+              </span>
+            </span>
           </div>
         ) : loadError ? (
           <div className="document-html-surface document-loading-surface document-load-error" role="alert">
@@ -327,27 +533,25 @@ export function DocumentViewer({
             toolbarTarget={viewerToolbarTarget}
             searchTarget={searchTarget}
             pdfTtsHighlightSpans={pdfTtsHighlightSpans}
+            fullscreen={pdfFullscreen}
             onBookmarkApiChange={setViewerBookmarkApi}
             onFindApiChange={setViewerFindApi}
             onFindResult={handleViewerFindResult}
+            onFullscreenChange={togglePdfFullscreen}
           />
         )}
       </main>
 
       {showScrollTop && (
         <div className="reader-floating-actions">
-          <button
-            type="button"
-            className={'reader-bookmark-btn' + (isAtBookmark ? ' reader-bookmark-btn-active' : '')}
-            aria-label={bookmarkActionLabel(hasBookmark, isAtBookmark, t)}
-            title={bookmarkActionLabel(hasBookmark, isAtBookmark, t)}
-            onClick={toggleBookmark}
-          >
-            <svg className="reader-bookmark-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M6 4.75A2.75 2.75 0 0 1 8.75 2h6.5A2.75 2.75 0 0 1 18 4.75V21l-6-3.5L6 21z" />
-              {hasBookmark && <path d="m9 10.8 2 2 4-4" />}
-            </svg>
-          </button>
+          <ReaderBookmarkButton
+            hasBookmark={hasBookmark}
+            isAtBookmark={isAtBookmark}
+            onMove={moveBookmark}
+            onRemove={removeBookmark}
+            onRestore={returnToBookmark}
+            onSave={saveBookmark}
+          />
 
           <ScrollTopButton
             visible={showScrollTop}
@@ -360,6 +564,9 @@ export function DocumentViewer({
         <div className="reader-bookmark-notice" role="status" aria-live="polite">
           <span>{bookmarkNoticeText(bookmarkNotice, t)}</span>
           {bookmarkNotice === 'restored' && <button type="button" onClick={scrollToTop}>{t('reader.top')}</button>}
+          {canUndoBookmarkChange && (
+            <button type="button" onClick={undoBookmarkChange}>{t('reader.undoBookmarkChange')}</button>
+          )}
           <button
             type="button"
             className="reader-bookmark-dismiss"
@@ -384,19 +591,11 @@ export function DocumentViewer({
 }
 
 function bookmarkNoticeText(
-  notice: 'restored' | 'saved' | 'updated' | 'removed',
+  notice: 'restored' | 'saved' | 'updated' | 'removed' | 'changeUndone',
   t: TFunction,
 ): string {
   if (notice === 'restored') return t('reader.bookmarkRestored')
   if (notice === 'removed') return t('reader.bookmarkRemoved')
+  if (notice === 'changeUndone') return t('reader.bookmarkChangeUndone')
   return notice === 'updated' ? t('reader.bookmarkUpdated') : t('reader.bookmarkSaved')
-}
-
-function bookmarkActionLabel(
-  hasBookmark: boolean,
-  isAtBookmark: boolean,
-  t: TFunction,
-): string {
-  if (isAtBookmark) return t('reader.removeBookmark')
-  return hasBookmark ? t('reader.updateBookmark') : t('reader.saveBookmark')
 }

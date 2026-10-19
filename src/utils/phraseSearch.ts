@@ -1,4 +1,4 @@
-import { normalizeForDisplay, escapeHtml, escapeRegex } from './textUtils'
+import { normalizeForDisplay, normalizeSearchPunctuation, escapeHtml, escapeRegex } from './textUtils'
 
 interface DocText {
   raw: string
@@ -46,21 +46,59 @@ async function fetchSource(url: string): Promise<string> {
   return res.text()
 }
 
-export function extractQuotedPhrases(q: string): string[] {
-  const query = normalizeQueryQuotes(q)
-  const matches = query.match(/"([^"]+)"/g)
-  if (!matches) return []
-  return matches
-    .map((m) => m.slice(1, -1).trim())
-    .filter((p) => p.length > 0)
+export interface ParsedSearchQuery {
+  exactPhrases: string[]
+  providerQuery: string
+  unquotedText: string
+  unmatchedQuote: boolean
 }
 
-export function stripQuotes(q: string): string {
-  return normalizeQueryQuotes(q).replace(/"/g, ' ').replace(/\s+/g, ' ').trim()
-}
+/** Keep provider input and the user-visible query clauses derived from the same
+ * quote scan so mixed searches cannot be presented as phrase-only searches. */
+export function parseSearchQuery(q: string): ParsedSearchQuery {
+  const exactPhrases: string[] = []
+  let providerQuery = ''
+  let unquotedText = ''
+  let phrase = ''
+  const closingQuotes: string[] = []
+  let mismatchedQuote = false
 
-function normalizeQueryQuotes(q: string): string {
-  return q.replace(/[“”]/g, '"')
+  for (const character of q) {
+    if (character === '"' || character === '“' || character === '”') {
+      // Keep inner quotation marks in source verification. Their delimiter
+      // type must not close an outer phrase of a different type.
+      if (character === closingQuotes.at(-1)) {
+        closingQuotes.pop()
+        if (closingQuotes.length > 0) {
+          phrase += '"'
+        } else {
+          const value = phrase.trim()
+          if (value) exactPhrases.push(value)
+          phrase = ''
+        }
+      } else if (character === '”') {
+        mismatchedQuote = true
+      } else {
+        if (closingQuotes.length > 0) phrase += '"'
+        closingQuotes.push(character === '“' ? '”' : '"')
+      }
+      providerQuery += ' '
+      unquotedText += ' '
+    } else if (closingQuotes.length > 0) {
+      phrase += character
+      providerQuery += character
+    } else {
+      providerQuery += character
+      unquotedText += character
+    }
+  }
+
+  return {
+    exactPhrases,
+    providerQuery: providerQuery.replace(/\s+/g, ' ').trim(),
+    unquotedText: unquotedText.replace(/\s+/g, ' ').trim(),
+    unmatchedQuote: mismatchedQuote || closingQuotes.length > 0,
+  }
 }
 
 export async function docContainsAllPhrases(
@@ -123,4 +161,21 @@ export async function buildPhraseExcerpt(
     html = html.replace(re, (m) => '<mark>' + m + '</mark>')
   }
   return html
+}
+
+/** Match the native query budget before either provider starts; IPC still validates independently. */
+export function searchQueryWithinLimits(query: string, phrases: readonly string[]): boolean {
+  const parts = [query, ...phrases]
+  if (parts.reduce((count, part) => count + Array.from(part).length, 0) > 4096) return false
+  let terms = 0
+  for (const part of parts) {
+    const tokens = normalizeSearchPunctuation(part)
+      .replace(/(\p{Alphabetic})-\p{White_Space}+(?=\p{Alphabetic})/gu, '$1-')
+      .split(/\p{White_Space}+/u)
+    for (const token of tokens) {
+      if (token.replace(/^[^\p{Alphabetic}\p{N}_-]+|[^\p{Alphabetic}\p{N}_-]+$/gu, '')) terms++
+      if (terms > 128) return false
+    }
+  }
+  return true
 }

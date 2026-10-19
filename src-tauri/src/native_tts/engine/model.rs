@@ -121,10 +121,10 @@ pub(crate) fn model_status(
             installed_bytes: directory_size(&model_dir).unwrap_or(0),
             model_dir: Some(model_dir.display().to_string()),
             runtime_dir: model_runtime_dir(runtime_status.as_ref()),
-            source_url: model.source_url.into(),
+            source_url: model.download.url.into(),
             source_label: model.source_label.into(),
             archive_bytes: model_archive_bytes(model, runtime_status.as_ref()),
-            sha256: model.sha256.into(),
+            sha256: model.download.sha256.into(),
             message: "Offline voice model installed".into(),
             runtime_message: model_runtime_message(runtime_status.as_ref()),
         },
@@ -136,11 +136,11 @@ pub(crate) fn model_status(
             runtime_installed: model_runtime_installed(runtime_status.as_ref()),
             model_dir: missing_model_dir(model, &model_dir),
             runtime_dir: model_runtime_dir(runtime_status.as_ref()),
-            source_url: model.source_url.into(),
+            source_url: model.download.url.into(),
             source_label: model.source_label.into(),
             archive_bytes: model_archive_bytes(model, runtime_status.as_ref()),
             installed_bytes: directory_size(&model_dir).unwrap_or(0),
-            sha256: model.sha256.into(),
+            sha256: model.download.sha256.into(),
             message: missing_model_message(model, installing),
             runtime_message: model_runtime_message(runtime_status.as_ref()),
         },
@@ -152,11 +152,11 @@ pub(crate) fn model_status(
             runtime_installed: model_runtime_installed(runtime_status.as_ref()),
             model_dir: None,
             runtime_dir: model_runtime_dir(runtime_status.as_ref()),
-            source_url: model.source_url.into(),
+            source_url: model.download.url.into(),
             source_label: model.source_label.into(),
             archive_bytes: model_archive_bytes(model, runtime_status.as_ref()),
             installed_bytes: 0,
-            sha256: model.sha256.into(),
+            sha256: model.download.sha256.into(),
             message: err,
             runtime_message: model_runtime_message(runtime_status.as_ref()),
         },
@@ -172,9 +172,9 @@ fn model_archive_bytes(
         return status
             .filter(|status| !status.installed && status.archive_bytes > 0)
             .map(|status| status.archive_bytes)
-            .unwrap_or(model.archive_bytes);
+            .unwrap_or(model.download.bytes);
     }
-    model.archive_bytes
+    model.download.bytes
 }
 
 fn model_install_supported(
@@ -772,7 +772,7 @@ fn install_model_blocking(
         model,
         "extracting",
         "Extracting offline voice model",
-        model.archive_bytes,
+        model.download.bytes,
     );
     fs::create_dir_all(&extract_dir).map_err(|err| {
         format!(
@@ -818,7 +818,7 @@ fn install_model_blocking(
         model,
         "installed",
         "Offline voice model installed",
-        model.archive_bytes,
+        model.download.bytes,
     );
     Ok(NativeTtsModelInstallResponse {
         model_id: model.id.into(),
@@ -864,27 +864,14 @@ fn download_model_archive(
     let message = format!("Downloading {}", model.display_name);
     emit_model_progress(app, model, "downloading", &message, 0);
     let client = reqwest::blocking::Client::builder()
+        .connect_timeout(Duration::from_secs(30))
         .timeout(Duration::from_secs(60 * 30))
         .user_agent("Papercut native TTS model installer")
         .build()
         .map_err(|err| format!("Failed to create model downloader: {err}"))?;
-    let mut response = client
-        .get(model.source_url)
-        .send()
-        .map_err(|err| {
-            format!(
-                "Failed to download offline voice model from {}: {err}",
-                model.source_url
-            )
-        })?
-        .error_for_status()
-        .map_err(|err| {
-            format!(
-                "Failed to download offline voice model from {}: {err}",
-                model.source_url
-            )
-        })?;
-    let total = response.content_length().unwrap_or(model.archive_bytes);
+    let mut response =
+        model_archive_response(&client, model.download.url, model.download.fallback_url)?;
+    let total = response.content_length().unwrap_or(model.download.bytes);
     let file = fs::File::create(archive_path).map_err(|err| {
         format!(
             "Failed to create model archive {}: {err}",
@@ -925,15 +912,55 @@ fn download_model_archive(
     Ok(())
 }
 
+/// A fallback is another location for the exact same checksum-pinned bytes.
+fn model_archive_response(
+    client: &reqwest::blocking::Client,
+    primary: &str,
+    fallback: Option<&str>,
+) -> Result<reqwest::blocking::Response, String> {
+    // ponytail: fallback only before streaming; add full-transfer retries with resumable downloads.
+    let mut failures = Vec::new();
+    for url in std::iter::once(primary).chain(fallback) {
+        match client
+            .get(url)
+            .send()
+            .and_then(|response| response.error_for_status())
+        {
+            Ok(response) => return Ok(response),
+            Err(error) => {
+                log::warn!("Voice model source unavailable: {url}: {error}");
+                failures.push(format!("{url}: {error}"));
+            }
+        }
+    }
+    Err(format!(
+        "Failed to download offline voice model: {}",
+        failures.join("; ")
+    ))
+}
+
 /// Verify the downloaded archive's SHA-256 matches the pinned hash, reading in
 /// 256 KB blocks. Guards against corrupt or tampered downloads before extract.
-fn verify_model_archive(archive_path: &Path, model: &ModelDefinition) -> Result<(), String> {
+pub(super) fn verify_model_archive(
+    archive_path: &Path,
+    model: &ModelDefinition,
+) -> Result<(), String> {
     let file = fs::File::open(archive_path).map_err(|err| {
         format!(
             "Failed to open model archive {}: {err}",
             archive_path.display()
         )
     })?;
+    let bytes = file
+        .metadata()
+        .map_err(|err| format!("Failed to stat model archive: {err}"))?
+        .len();
+    if bytes != model.download.bytes {
+        return Err(format!(
+            "Downloaded voice model size mismatch. Expected {} bytes, got {bytes}",
+            model.download.bytes
+        ));
+    }
     let mut reader = BufReader::new(file);
     let mut hasher = Sha256::new();
     let mut buffer = [0u8; 256 * 1024];
@@ -947,10 +974,10 @@ fn verify_model_archive(archive_path: &Path, model: &ModelDefinition) -> Result<
         hasher.update(&buffer[..read]);
     }
     let actual = format!("{:x}", hasher.finalize());
-    if actual != model.sha256 {
+    if actual != model.download.sha256 {
         return Err(format!(
             "Downloaded voice model checksum mismatch. Expected {}, got {actual}",
-            model.sha256
+            model.download.sha256
         ));
     }
     Ok(())
@@ -958,7 +985,7 @@ fn verify_model_archive(archive_path: &Path, model: &ModelDefinition) -> Result<
 
 /// Decompress (bzip2) and untar the verified archive into `extract_dir`.
 /// Safe to unpack directly because the archive was checksum-pinned above.
-fn extract_model_archive(archive_path: &Path, extract_dir: &Path) -> Result<(), String> {
+pub(super) fn extract_model_archive(archive_path: &Path, extract_dir: &Path) -> Result<(), String> {
     let file = fs::File::open(archive_path).map_err(|err| {
         format!(
             "Failed to open model archive {}: {err}",
@@ -990,8 +1017,8 @@ fn emit_model_progress(
             status: status.into(),
             message: message.into(),
             downloaded_bytes,
-            total_bytes: model.archive_bytes,
-            percent: download_percent(downloaded_bytes, model.archive_bytes),
+            total_bytes: model.download.bytes,
+            percent: download_percent(downloaded_bytes, model.download.bytes),
         },
     );
 }
@@ -1025,4 +1052,65 @@ fn download_percent(downloaded: u64, total: u64) -> u8 {
         return 0;
     }
     ((downloaded.saturating_mul(100) / total).min(100)) as u8
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mirror_fallback_still_checks_bytes_and_cleans_failed_installs() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let server = std::thread::spawn(move || {
+            for status in ["404 Not Found", "200 OK"] {
+                let (mut stream, _) = listener.accept().unwrap();
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(5)))
+                    .unwrap();
+                let mut request = [0; 4096];
+                stream.read(&mut request).unwrap();
+                write!(
+                    stream,
+                    "HTTP/1.1 {status}\r\nContent-Length: 3\r\nConnection: close\r\n\r\nabc"
+                )
+                .unwrap();
+            }
+        });
+        let client = reqwest::blocking::Client::builder()
+            .no_proxy()
+            .timeout(Duration::from_secs(5))
+            .build()
+            .unwrap();
+        let response = model_archive_response(&client, &url, Some(&url)).unwrap();
+        let body = response.bytes().unwrap();
+        server.join().unwrap();
+
+        let work = std::env::temp_dir().join(format!(
+            "papercut-model-check-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir(&work).unwrap();
+        let guard = WorkDirGuard::new(work.clone());
+        let archive = work.join("archive");
+        let mut model = *model_definition(super::super::models::DEFAULT_MODEL_ID).unwrap();
+        model.download.sha256 = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        model.download.bytes = 3;
+        fs::write(&archive, body).unwrap();
+        verify_model_archive(&archive, &model).unwrap();
+        fs::write(&archive, b"abd").unwrap();
+        assert!(verify_model_archive(&archive, &model)
+            .unwrap_err()
+            .contains("checksum mismatch"));
+        fs::write(&archive, b"ab").unwrap();
+        assert!(verify_model_archive(&archive, &model)
+            .unwrap_err()
+            .contains("size mismatch"));
+        drop(guard);
+        assert!(!work.exists());
+    }
 }

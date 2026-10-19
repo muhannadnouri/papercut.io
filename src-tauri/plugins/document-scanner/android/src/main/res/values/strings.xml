@@ -1,0 +1,40 @@
+<resources>
+    <string name="scanner_title">Scan Document</string>
+    <string name="scanner_capture">Capture Page</string>
+    <string name="scanner_finish">Finish</string>
+    <string name="scanner_cancel">Cancel</string>
+    <string name="scanner_retake">Retake</string>
+    <string name="scanner_rotate">Rotate</string>
+    <string name="scanner_add_page">Add Page</string>
+    <string name="scanner_manage_page">Manage Page %1$d</string>
+    <string name="scanner_page_number">%1$d</string>
+    <string name="scanner_page_position">Page %1$d of %2$d</string>
+    <string name="scanner_move_earlier">Move Earlier</string>
+    <string name="scanner_move_later">Move Later</string>
+    <string name="scanner_delete_page">Delete Page</string>
+    <string name="scanner_delete_page_confirm">Delete this scanned page?</string>
+    <string name="scanner_back_to_camera">Back to Camera</string>
+    <string name="scanner_adjust_corners">Drag the corners to the edges of the page.</string>
+    <string name="scanner_crop_preview_accessibility">Page crop preview. Corner adjustment is optional; use Add Page or Finish to accept the current crop.</string>
+    <plurals name="scanner_pages_captured">
+        <item quantity="one">%1$d page captured</item>
+        <item quantity="other">%1$d pages captured</item>
+    </plurals>
+    <plurals name="scanner_resume_draft">
+        <item quantity="one">Continue your unfinished scan with %1$d page?</item>
+        <item quantity="other">Continue your unfinished scan with %1$d pages?</item>
+    </plurals>
+    <string name="scanner_continue">Continue Scan</string>
+    <string name="scanner_start_new">Start New</string>
+    <string name="scanner_camera_permission">Camera access is required to scan documents.</string>
+    <string name="scanner_open_settings">Open Settings</string>
+    <string name="scanner_processing">Preparing scanned document…</string>
+    <string name="scanner_camera_unavailable">No usable camera is available.</string>
+    <string name="scanner_low_storage">Free some storage before capturing or finishing this scan. Your accepted pages have been kept.</string>
+    <string name="scanner_document_limit">This document exceeds the 500-page or 250 MB scan limit. Your accepted pages have been kept.</string>
+    <string name="scanner_operation_failed">That page could not be prepared. Your accepted pages have been kept.</string>
+    <string name="scanner_finish_failed">The scanned PDF could not be created. Your accepted pages have been kept.</string>
+    <string name="scanner_discard">Discard this document scan?</string>
+    <string name="scanner_keep_scanning">Keep Scanning</string>
+    <string name="scanner_discard_scan">Discard Scan</string>
+</resources>

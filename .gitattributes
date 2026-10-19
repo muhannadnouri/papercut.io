@@ -1,0 +1,2 @@
+# Preserve this ASCII PDF's xref byte offsets on CRLF checkouts.
+scripts/fixtures/pdf/find-unicode-wraps.pdf binary

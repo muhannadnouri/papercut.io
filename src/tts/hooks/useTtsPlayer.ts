@@ -764,7 +764,7 @@ export function useTtsPlayer(playbackRate = DEFAULT_PLAYBACK_RATE) {
     const sourceStarted = performance.now()
     const sourceState = await setNativeAudioSource({
       src: playback.audioUrl,
-      title: options.title || 'Papercut Audiobook',
+      title: playback.title || options.title || 'Papercut Audiobook',
       artist: 'Papercut',
     })
     logTtsDiagnostic('[tts-playback] native source loaded', {

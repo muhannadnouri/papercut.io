@@ -1,11 +1,14 @@
 .app-dialog-backdrop {
+  --dialog-safe-top: env(safe-area-inset-top, 0px);
+  --dialog-safe-bottom: env(safe-area-inset-bottom, 0px);
   position: fixed;
   inset: 0;
   z-index: 120;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  padding: calc(1rem + var(--dialog-safe-top)) calc(1rem + env(safe-area-inset-right, 0px))
+    calc(1rem + var(--dialog-safe-bottom)) calc(1rem + env(safe-area-inset-left, 0px));
   background: var(--backdrop);
 }
 
@@ -13,11 +16,12 @@
   display: grid;
   gap: 0.85rem;
   width: min(100%, 24rem);
-  max-height: calc(100vh - 2rem);
+  max-height: calc(100vh - 2rem - var(--dialog-safe-top) - var(--dialog-safe-bottom));
+  max-height: calc(100dvh - 2rem - var(--dialog-safe-top) - var(--dialog-safe-bottom));
   overflow: auto;
   padding: 1rem;
-  border: 1px solid var(--border-strong);
-  border-radius: 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-surface);
   background: var(--surface);
   color: var(--text-heading);
   font-family: var(--ui-font);
@@ -33,8 +37,87 @@
   gap: 0.35rem;
 }
 
+/* Keep navigation visible without changing the scrolling of existing form dialogs. */
+.app-dialog-navigable {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.app-dialog-navigable .app-dialog-header,
+.app-dialog-navigable .app-dialog-actions {
+  flex-shrink: 0;
+}
+
+.app-dialog-navigable .app-dialog-body {
+  min-height: 0;
+  overflow: auto;
+  /* Scroll overflowing content instead of collapsing clipped control groups. */
+  grid-auto-rows: max-content;
+  padding-inline-end: 0.4rem;
+}
+
+.app-dialog-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.app-dialog-close {
+  margin-inline-start: auto;
+}
+
+.app-dialog-navigation button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: 0;
+  border-radius: var(--radius-control);
+  color: var(--text-body);
+  cursor: pointer;
+}
+
+.app-dialog-navigation svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (max-width: 767px) {
+  .app-dialog-backdrop {
+    /* Match the app fallback where mobile WebViews do not expose a top inset. */
+    --dialog-safe-top: var(--mobile-safe-top-space, env(safe-area-inset-top, 0px));
+  }
+
+  .app-dialog-navigation button {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+}
+
+@media (pointer: coarse) {
+  .app-dialog-navigation button {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+}
+
+.app-dialog-back:dir(rtl) svg {
+  transform: scaleX(-1);
+}
+
 .app-dialog-header h2 {
   margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 1rem;
   line-height: 1.25;
 }
@@ -57,7 +140,7 @@
   max-width: 100%;
   padding: 0.65rem;
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--surface-muted);
   color: var(--text-body);
   font-size: 0.78rem;
@@ -76,8 +159,8 @@
   gap: 0.45rem;
   margin: 0;
   padding: 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
   background: var(--surface-muted);
 }
 
@@ -113,49 +196,47 @@
 .app-dialog-actions button {
   min-height: 2.35rem;
   padding: 0 0.85rem;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
 }
 
 .app-dialog-cancel {
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
-  color: var(--text-body);
+  border: 1px solid transparent;
+  background: var(--control-surface);
+  color: var(--accent-text);
 }
 
 .app-dialog-submit {
-  border: 1px solid var(--accent);
+  border: 1px solid transparent;
   background: var(--accent);
   color: var(--text-inverse);
 }
 
 .app-dialog-submit-danger {
-  border-color: var(--danger-accent);
+  border-color: transparent;
   background: var(--surface-danger);
   color: var(--danger-strong);
 }
 
-.app-dialog-cancel:hover:not(:disabled),
 .app-dialog-cancel:focus-visible {
-  border-color: var(--accent-text);
-  color: var(--accent-text);
+  border-color: transparent;
+  background: var(--surface-accent);
+  color: var(--accent-strong);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
-.app-dialog-submit:hover:not(:disabled),
 .app-dialog-submit:focus-visible {
-  border-color: var(--accent-text);
+  border-color: transparent;
   background: var(--accent-hover);
   outline: none;
   box-shadow: 0 0 0 3px var(--shadow-focus);
 }
 
-.app-dialog-submit-danger:hover:not(:disabled),
 .app-dialog-submit-danger:focus-visible {
-  border-color: var(--danger-accent);
+  border-color: transparent;
   background: var(--surface-danger);
   color: var(--danger-strong);
   outline: none;
@@ -174,8 +255,28 @@
   outline: none;
 }
 
-.app-dialog-actions button:disabled {
-  border-color: var(--border);
+@media (hover: hover) and (pointer: fine) {
+  .app-dialog-cancel:hover:not(:disabled) {
+    border-color: transparent;
+    background: var(--surface-accent);
+    color: var(--accent-strong);
+  }
+
+  .app-dialog-submit:hover:not(:disabled) {
+    border-color: transparent;
+    background: var(--accent-hover);
+  }
+
+  .app-dialog-submit-danger:hover:not(:disabled) {
+    border-color: transparent;
+    background: var(--surface-danger);
+    color: var(--danger-strong);
+  }
+}
+
+.app-dialog-actions button:disabled,
+.app-dialog-navigation button:disabled {
+  border-color: transparent;
   background: var(--surface-muted);
   color: var(--text-soft);
   cursor: not-allowed;

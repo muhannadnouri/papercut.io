@@ -120,16 +120,19 @@ fn save_audiobook_native_blocking(
     }
     let dir = audiobook_dir(&app, &request.audiobook_id)?;
     let chunks_dir = dir.join("chunks");
-    fs::create_dir_all(&chunks_dir).map_err(|err| {
-        format!(
-            "Failed to create native audiobook directory {}: {err}",
-            chunks_dir.display()
-        )
-    })?;
+    crate::native_tts::with_audiobook_reference_lock(|| {
+        crate::document_uploads::ensure_uploaded_source_exists(&app, &request.document_url)?;
+        fs::create_dir_all(&chunks_dir).map_err(|err| {
+            format!(
+                "Failed to create native audiobook directory {}: {err}",
+                chunks_dir.display()
+            )
+        })?;
 
-    // Persist the source index before generation so interrupted saves remain
-    // discoverable without sending every chunk through later status IPC.
-    write_pending_manifest(&dir, &request, &chunks)?;
+        // Persist the source index before generation so interrupted saves remain
+        // discoverable without sending every chunk through later status IPC.
+        write_pending_manifest(&dir, &request, &chunks)
+    })?;
 
     // Sweep chunk WAVs left by an earlier save of now-edited source text before
     // regenerating. Editing the source reuses the same audiobook id (its hash

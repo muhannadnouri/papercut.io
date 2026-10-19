@@ -176,6 +176,7 @@ export function useSavedAudiobookActions({
             selected: 1,
             processed: 1,
             imported: [document],
+            alreadyInLibrary: [],
             failures: [],
             cancelled: false,
           } satisfies UploadedDocumentBatchResult)

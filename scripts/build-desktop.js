@@ -9,6 +9,7 @@ const linkMode = isStatic ? "static" : "shared"
 const ttsFeature = isStatic ? "native-tts-static" : "native-tts-shared"
 const features = [
   ttsFeature,
+  ...(!isStatic ? ["experimental-search-embeddings"] : []),
   ...(translationEnabled ? ["native-translation-ctranslate2", "native-translation-llama"] : []),
 ]
 const platform = currentDesktopPlatform()
@@ -19,7 +20,7 @@ const env = desktopBuildEnv(platform, {
   PAPERCUT_NATIVE_TTS_LINK: linkMode,
 })
 
-await prepareDesktopBundleResources(platform, { linkMode, feature: ttsFeature, env })
+await prepareDesktopBundleResources(platform, { linkMode, feature: features.join(","), env })
 runTauriBuild(env, bundles, features.join(","))
 
 // Build with native TTS plus desktop translation unless explicitly disabled.

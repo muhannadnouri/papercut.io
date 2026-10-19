@@ -6,6 +6,8 @@
 //! their library.
 
 use std::collections::hash_map::DefaultHasher;
+#[cfg(desktop)]
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 
@@ -15,14 +17,14 @@ use tauri::Runtime;
 use super::storage::now_ms;
 use super::store::{db_err, open_db};
 use super::types::{
-    UploadedDocumentLocation, UploadedLibraryCreateFolderRequest,
-    UploadedLibraryDeleteFolderRequest, UploadedLibraryFolder, UploadedLibraryMoveDocumentsRequest,
-    UploadedLibraryMoveFolderRequest, UploadedLibraryOrderItem, UploadedLibraryOrganization,
-    UploadedLibraryRenameFolderRequest, UploadedLibraryReorderRequest,
+    UploadedDocumentLocation, UploadedLibraryCreateFolderRequest, UploadedLibraryFolder,
+    UploadedLibraryMoveDocumentsRequest, UploadedLibraryMoveFolderRequest,
+    UploadedLibraryOrderItem, UploadedLibraryOrganization, UploadedLibraryRenameFolderRequest,
+    UploadedLibraryReorderRequest,
 };
 
 /// Root folders use depth 0, so a max depth of 4 allows five visible folder levels.
-const MAX_FOLDER_DEPTH: usize = 4;
+pub(crate) const MAX_FOLDER_DEPTH: usize = 4;
 const MAX_FOLDER_NAME_CHARS: usize = 80;
 const ORDER_STEP: i64 = 1000;
 
@@ -62,6 +64,162 @@ pub(crate) fn list_organization<R: Runtime>(
         folders: list_folders(&db)?,
         document_locations: list_document_locations(&db)?,
     })
+}
+
+/// Create one isolated folder tree for a desktop folder import and place only
+/// newly imported documents inside it.
+///
+/// A conflicting root name receives a numeric suffix instead of merging with
+/// an existing user tree. The transaction is all-or-nothing, so an error leaves
+/// the successfully imported documents at Library root rather than half moved.
+#[cfg(desktop)]
+pub(crate) fn organize_folder_import<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    root_name: &str,
+    documents: &[(String, Vec<String>)],
+) -> Result<(), String> {
+    if documents.is_empty() {
+        return Ok(());
+    }
+
+    let mut db = open_db(app)?;
+    let tx = db
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(db_err)?;
+    let now = now_ms()?;
+    let root_name = available_import_folder_name(&tx, None, root_name)?;
+    let root_id = insert_import_folder(&tx, None, &root_name, 0, now)?;
+    let mut folders = HashMap::<Vec<String>, String>::new();
+    let mut next_orders = HashMap::<String, i64>::new();
+
+    for (document_id, relative_folder) in documents {
+        ensure_document_exists(&tx, document_id)?;
+        let mut prefix = Vec::new();
+        let mut parent_id = root_id.clone();
+        for (index, segment) in relative_folder.iter().take(MAX_FOLDER_DEPTH).enumerate() {
+            prefix.push(segment.clone());
+            parent_id = match folders.get(&prefix) {
+                Some(id) => id.clone(),
+                None => {
+                    let name = available_import_folder_name(&tx, Some(&parent_id), segment)?;
+                    let id = insert_import_folder(&tx, Some(&parent_id), &name, index + 1, now)?;
+                    folders.insert(prefix.clone(), id.clone());
+                    id
+                }
+            };
+        }
+
+        let sort_order = match next_orders.get_mut(&parent_id) {
+            Some(order) => {
+                let current = *order;
+                *order += ORDER_STEP;
+                current
+            }
+            None => {
+                let current = next_sort_order(&tx, Some(&parent_id))?;
+                next_orders.insert(parent_id.clone(), current + ORDER_STEP);
+                current
+            }
+        };
+        tx.execute(
+            "INSERT INTO uploaded_document_locations (document_id, folder_id, sort_order) \
+             VALUES (?1, ?2, ?3) \
+             ON CONFLICT(document_id) DO UPDATE SET \
+               folder_id = excluded.folder_id, sort_order = excluded.sort_order",
+            params![document_id, parent_id, sort_order],
+        )
+        .map_err(db_err)?;
+    }
+
+    tx.commit().map_err(db_err)
+}
+
+/// Insert one already-validated import folder within the caller's transaction.
+#[cfg(desktop)]
+fn insert_import_folder(
+    db: &Connection,
+    parent_id: Option<&str>,
+    name: &str,
+    depth: usize,
+    now: u128,
+) -> Result<String, String> {
+    let id = folder_id(parent_id, name, now);
+    let sort_order = next_sort_order(db, parent_id)?;
+    db.execute(
+        "INSERT INTO uploaded_folders \
+         (id, parent_id, name, depth, sort_order, created_at_ms, updated_at_ms) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            id,
+            parent_id,
+            name,
+            depth as i64,
+            sort_order,
+            now as i64,
+            now as i64,
+        ],
+    )
+    .map_err(db_err)?;
+    Ok(id)
+}
+
+/// Return a bounded sibling-unique name, preserving the selected folder name
+/// when possible and otherwise appending ` (2)`, ` (3)`, and so on.
+#[cfg(desktop)]
+fn available_import_folder_name(
+    db: &Connection,
+    parent_id: Option<&str>,
+    requested_name: &str,
+) -> Result<String, String> {
+    let base = requested_name.trim();
+    let base = if base.is_empty() {
+        "Imported Folder"
+    } else {
+        base
+    };
+    let mut sequence = 1usize;
+    loop {
+        let suffix = (sequence > 1).then(|| format!(" ({sequence})"));
+        let suffix_len = suffix.as_ref().map_or(0, |value| value.chars().count());
+        let mut candidate = base
+            .chars()
+            .take(MAX_FOLDER_NAME_CHARS - suffix_len)
+            .collect::<String>();
+        if let Some(suffix) = suffix {
+            candidate.push_str(&suffix);
+        }
+        if !folder_name_exists(db, parent_id, &candidate)? {
+            return Ok(candidate);
+        }
+        sequence += 1;
+    }
+}
+
+#[cfg(desktop)]
+fn folder_name_exists(
+    db: &Connection,
+    parent_id: Option<&str>,
+    name: &str,
+) -> Result<bool, String> {
+    let id: Option<String> = match parent_id {
+        Some(parent_id) => db
+            .query_row(
+                "SELECT id FROM uploaded_folders WHERE parent_id = ?1 AND lower(name) = lower(?2)",
+                params![parent_id, name],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(db_err)?,
+        None => db
+            .query_row(
+                "SELECT id FROM uploaded_folders WHERE parent_id IS NULL AND lower(name) = lower(?1)",
+                [name],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(db_err)?,
+    };
+    Ok(id.is_some())
 }
 
 /// Create a folder at root or under a parent folder, enforcing name and depth rules.
@@ -122,40 +280,61 @@ pub(crate) fn rename_folder<R: Runtime>(
     Ok(load_folder(&db, &folder.id)?.into())
 }
 
-/// Delete only empty folders so document loss or surprising recursive moves are impossible.
-pub(crate) fn delete_folder<R: Runtime>(
-    app: &tauri::AppHandle<R>,
-    request: UploadedLibraryDeleteFolderRequest,
-) -> Result<(), String> {
-    let mut db = open_db(app)?;
+/// Resolve document URLs from one folder and every descendant using SQLite's
+/// recursive tree support rather than trusting a frontend-supplied list.
+pub(crate) fn folder_tree_document_urls(
+    db: &Connection,
+    folder_id: &str,
+) -> Result<Vec<String>, String> {
+    load_folder(db, folder_id)?;
+    let mut stmt = db
+        .prepare(
+            "WITH RECURSIVE subtree(id) AS (
+               SELECT id FROM uploaded_folders WHERE id = ?1
+               UNION ALL
+               SELECT f.id FROM uploaded_folders f
+               JOIN subtree s ON f.parent_id = s.id
+             )
+             SELECT d.url
+             FROM uploaded_documents d
+             JOIN uploaded_document_locations l ON l.document_id = d.id
+             WHERE l.folder_id IN (SELECT id FROM subtree)
+             ORDER BY l.folder_id, l.sort_order, d.url",
+        )
+        .map_err(db_err)?;
+    let rows = stmt
+        .query_map([folder_id], |row| row.get::<_, String>(0))
+        .map_err(db_err)?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(db_err)
+}
+
+/// Delete a folder subtree only after rechecking that no documents remain;
+/// the foreign key then cascades through descendant folder metadata safely.
+pub(crate) fn delete_folder_tree(db: &mut Connection, folder_id: &str) -> Result<(), String> {
     let tx = db
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(db_err)?;
-    load_folder(&tx, &request.folder_id)?;
-
-    let child_count: i64 = tx
-        .query_row(
-            "SELECT COUNT(*) FROM uploaded_folders WHERE parent_id = ?1",
-            [request.folder_id.as_str()],
-            |row| row.get(0),
-        )
-        .map_err(db_err)?;
+    load_folder(&tx, folder_id)?;
     let document_count: i64 = tx
         .query_row(
-            "SELECT COUNT(*) FROM uploaded_document_locations WHERE folder_id = ?1",
-            [request.folder_id.as_str()],
+            "WITH RECURSIVE subtree(id) AS (
+               SELECT id FROM uploaded_folders WHERE id = ?1
+               UNION ALL
+               SELECT f.id FROM uploaded_folders f
+               JOIN subtree s ON f.parent_id = s.id
+             )
+             SELECT COUNT(*) FROM uploaded_document_locations
+             WHERE folder_id IN (SELECT id FROM subtree)",
+            [folder_id],
             |row| row.get(0),
         )
         .map_err(db_err)?;
-    if child_count > 0 || document_count > 0 {
-        return Err("Folder must be empty before it can be deleted".into());
+    if document_count > 0 {
+        return Err("Folder contents changed during deletion; retry the remaining items".into());
     }
 
-    tx.execute(
-        "DELETE FROM uploaded_folders WHERE id = ?1",
-        [request.folder_id.as_str()],
-    )
-    .map_err(db_err)?;
+    tx.execute("DELETE FROM uploaded_folders WHERE id = ?1", [folder_id])
+        .map_err(db_err)?;
     tx.commit().map_err(db_err)?;
     Ok(())
 }
@@ -641,4 +820,98 @@ fn folder_id(parent_id: Option<&str>, name: &str, created_at_ms: u128) -> String
     name.hash(&mut hasher);
     created_at_ms.hash(&mut hasher);
     format!("{:016x}", hasher.finish())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(desktop)]
+    #[test]
+    fn imported_root_folders_receive_a_bounded_numeric_suffix() {
+        let db = Connection::open_in_memory().expect("open database");
+        db.execute_batch(
+            "CREATE TABLE uploaded_folders (
+               id TEXT PRIMARY KEY,
+               parent_id TEXT,
+               name TEXT NOT NULL,
+               depth INTEGER NOT NULL,
+               sort_order INTEGER NOT NULL,
+               created_at_ms INTEGER NOT NULL,
+               updated_at_ms INTEGER NOT NULL
+             );",
+        )
+        .expect("create folders table");
+        for (id, name) in [("one", "Books"), ("two", "Books (2)")] {
+            db.execute(
+                "INSERT INTO uploaded_folders VALUES (?1, NULL, ?2, 0, 0, 0, 0)",
+                params![id, name],
+            )
+            .expect("insert folder");
+        }
+
+        assert_eq!(
+            available_import_folder_name(&db, None, "Books").expect("available name"),
+            "Books (3)"
+        );
+        let long_name = "x".repeat(MAX_FOLDER_NAME_CHARS + 20);
+        let bounded =
+            available_import_folder_name(&db, None, &long_name).expect("bounded available name");
+        assert_eq!(bounded.chars().count(), MAX_FOLDER_NAME_CHARS);
+    }
+
+    #[test]
+    fn recursive_folder_delete_stays_scoped_and_requires_empty_documents() {
+        let mut db = Connection::open_in_memory().expect("open database");
+        db.execute_batch(
+            "PRAGMA foreign_keys = ON;
+             CREATE TABLE uploaded_documents (id TEXT PRIMARY KEY, url TEXT NOT NULL);
+             CREATE TABLE uploaded_folders (
+               id TEXT PRIMARY KEY,
+               parent_id TEXT REFERENCES uploaded_folders(id) ON DELETE CASCADE,
+               name TEXT NOT NULL,
+               depth INTEGER NOT NULL,
+               sort_order INTEGER NOT NULL,
+               created_at_ms INTEGER NOT NULL,
+               updated_at_ms INTEGER NOT NULL
+             );
+             CREATE TABLE uploaded_document_locations (
+               document_id TEXT PRIMARY KEY REFERENCES uploaded_documents(id) ON DELETE CASCADE,
+               folder_id TEXT REFERENCES uploaded_folders(id) ON DELETE SET NULL,
+               sort_order INTEGER NOT NULL
+             );
+             INSERT INTO uploaded_folders VALUES ('root', NULL, 'Root', 0, 0, 0, 0);
+             INSERT INTO uploaded_folders VALUES ('child', 'root', 'Child', 1, 0, 0, 0);
+             INSERT INTO uploaded_folders VALUES ('other', NULL, 'Other', 0, 1, 0, 0);
+             INSERT INTO uploaded_documents VALUES ('aa', '/uploads/aa.html');
+             INSERT INTO uploaded_documents VALUES ('bb', '/uploads/bb.pdf');
+             INSERT INTO uploaded_documents VALUES ('cc', '/uploads/cc.html');
+             INSERT INTO uploaded_document_locations VALUES ('aa', 'root', 0);
+             INSERT INTO uploaded_document_locations VALUES ('bb', 'child', 0);
+             INSERT INTO uploaded_document_locations VALUES ('cc', 'other', 0);",
+        )
+        .expect("create folder tree");
+
+        assert_eq!(
+            folder_tree_document_urls(&db, "root").expect("list subtree documents"),
+            vec!["/uploads/bb.pdf", "/uploads/aa.html"]
+        );
+        assert!(delete_folder_tree(&mut db, "root").is_err());
+
+        db.execute(
+            "DELETE FROM uploaded_documents WHERE id IN ('aa', 'bb')",
+            [],
+        )
+        .expect("delete subtree documents");
+        delete_folder_tree(&mut db, "root").expect("delete empty subtree metadata");
+
+        let remaining: Vec<String> = db
+            .prepare("SELECT id FROM uploaded_folders ORDER BY id")
+            .expect("prepare remaining folders")
+            .query_map([], |row| row.get(0))
+            .expect("query remaining folders")
+            .collect::<Result<_, _>>()
+            .expect("collect remaining folders");
+        assert_eq!(remaining, vec!["other"]);
+    }
 }

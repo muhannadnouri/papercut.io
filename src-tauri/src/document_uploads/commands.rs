@@ -5,31 +5,35 @@
 //! filesystem or SQLite I/O, then maps a join error into a `String`. All real
 //! logic lives in the modules these delegate to.
 
-use tauri::Runtime;
+use tauri::{ipc::Channel, Runtime};
 
-use super::batch::{delete_batch, import_batch, import_folder};
+use super::batch::{delete_batch, delete_folder, import_batch, import_folder, import_paths};
 use super::organization::{
-    create_folder, delete_folder, list_organization, move_documents, move_folder, rename_folder,
-    reorder,
+    create_folder, list_organization, move_documents, move_folder, rename_folder, reorder,
 };
 use super::pdf::{
-    finalize_pdf_index, get_pdf_narration_segments, get_pdf_source_bytes, get_pdf_source_path,
-    store_pdf_page_text, PdfFinalizeRequest, PdfNarrationSegment, PdfPageTextRequest,
+    finalize_pdf_index, get_pdf_narration_segments, get_pdf_page_text_layer, get_pdf_source_bytes,
+    get_pdf_source_path, pdf_has_ocr_text, store_pdf_page_text, PageTextLayer, PdfFinalizeRequest,
+    PdfNarrationSegment, PdfPageTextReadRequest, PdfPageTextRequest,
 };
-use super::pipeline::{delete_upload, get_cover, get_source};
-use super::search::search_uploads;
-use super::store::list_uploads;
+use super::pipeline::{delete_upload, get_cover, get_source, import_pasted_text};
+use super::search::{concordance_upload, find_pdf_text, search_uploads};
+use super::store::{list_uploads, open_db, update_document_title};
 use super::types::{
-    UploadedDocument, UploadedDocumentBatchResult, UploadedDocumentDeleteBatchRequest,
+    UploadedDocument, UploadedDocumentBatchResult, UploadedDocumentConcordanceRequest,
+    UploadedDocumentConcordanceResponse, UploadedDocumentDeleteBatchRequest,
     UploadedDocumentDeleteBatchResult, UploadedDocumentDeleteRequest, UploadedDocumentDeleteResult,
-    UploadedDocumentSearchRequest, UploadedDocumentSearchResult, UploadedDocumentSourceRequest,
+    UploadedDocumentPastedTextRequest, UploadedDocumentPathImportRequest,
+    UploadedDocumentSearchRequest, UploadedDocumentSearchResponse, UploadedDocumentSearchStage,
+    UploadedDocumentSource, UploadedDocumentSourceRequest, UploadedDocumentTitleUpdateRequest,
     UploadedLibraryCreateFolderRequest, UploadedLibraryDeleteFolderRequest,
     UploadedLibraryMoveDocumentsRequest, UploadedLibraryMoveFolderRequest,
     UploadedLibraryOrganization, UploadedLibraryRenameFolderRequest, UploadedLibraryReorderRequest,
+    UploadedPdfFindRequest, UploadedPdfFindResult,
 };
 use super::DocumentUploadState;
 
-/// Pick multiple HTML, EPUB, or PDF files and import them as one cancellable batch.
+/// Pick multiple HTML, EPUB, PDF, TXT, or Markdown files and import them as one cancellable batch.
 #[tauri::command]
 pub async fn document_uploads_import_batch<R: Runtime>(
     app: tauri::AppHandle<R>,
@@ -41,7 +45,7 @@ pub async fn document_uploads_import_batch<R: Runtime>(
         .map_err(|err| format!("Document batch import task failed: {err}"))?
 }
 
-/// Pick one desktop folder and import its direct supported children as a batch.
+/// Pick one desktop folder and preserve supported files through five visible levels.
 #[tauri::command]
 pub async fn document_uploads_import_folder<R: Runtime>(
     app: tauri::AppHandle<R>,
@@ -51,6 +55,33 @@ pub async fn document_uploads_import_folder<R: Runtime>(
     tauri::async_runtime::spawn_blocking(move || import_folder(app, control))
         .await
         .map_err(|err| format!("Document folder import task failed: {err}"))?
+}
+
+/// Save user-authored plain text through the same parser and local index used
+/// by imported TXT files; no clipboard or temporary-file access is required.
+#[tauri::command]
+pub async fn document_uploads_import_pasted_text<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedDocumentPastedTextRequest,
+) -> Result<UploadedDocument, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        import_pasted_text(&app, &request.title, &request.text)
+    })
+    .await
+    .map_err(|err| format!("Pasted text import task failed: {err}"))?
+}
+
+/// Import files selected through a native drop or platform file-open entry point.
+#[tauri::command]
+pub async fn document_uploads_import_paths<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    state: tauri::State<'_, DocumentUploadState>,
+    request: UploadedDocumentPathImportRequest,
+) -> Result<UploadedDocumentBatchResult, String> {
+    let control = state.begin_batch()?;
+    tauri::async_runtime::spawn_blocking(move || import_paths(app, control, request.paths))
+        .await
+        .map_err(|err| format!("Opened document import task failed: {err}"))?
 }
 
 /// Request cancellation after the currently importing file finishes.
@@ -71,15 +102,56 @@ pub async fn document_uploads_list<R: Runtime>(
         .map_err(|err| format!("Document upload list task failed: {err}"))?
 }
 
+/// Update an uploaded document's display title and FTS metadata atomically.
+#[tauri::command]
+pub async fn document_uploads_update_title<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedDocumentTitleUpdateRequest,
+) -> Result<UploadedDocument, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut db = open_db(&app)?;
+        update_document_title(&mut db, &request.document_url, &request.title)
+    })
+    .await
+    .map_err(|err| format!("Document title update task failed: {err}"))?
+}
+
 /// Run a full-text search across uploaded documents.
 #[tauri::command]
 pub async fn document_uploads_search<R: Runtime>(
     app: tauri::AppHandle<R>,
     request: UploadedDocumentSearchRequest,
-) -> Result<Vec<UploadedDocumentSearchResult>, String> {
-    tauri::async_runtime::spawn_blocking(move || search_uploads(&app, request))
+    on_progress: Channel<UploadedDocumentSearchStage>,
+) -> Result<UploadedDocumentSearchResponse, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        search_uploads(&app, request, |stage| {
+            let _ = on_progress.send(stage);
+        })
+    })
+    .await
+    .map_err(|err| format!("Document upload search task failed: {err}"))?
+}
+
+/// Return bounded source-linked context lines for one uploaded document and term.
+#[tauri::command]
+pub async fn document_uploads_concordance<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedDocumentConcordanceRequest,
+) -> Result<UploadedDocumentConcordanceResponse, String> {
+    tauri::async_runtime::spawn_blocking(move || concordance_upload(&app, request))
         .await
-        .map_err(|err| format!("Document upload search task failed: {err}"))?
+        .map_err(|err| format!("Document concordance task failed: {err}"))?
+}
+
+/// Find literal matches in one PDF without loading its page text into the WebView.
+#[tauri::command]
+pub async fn document_uploads_find_pdf_text<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedPdfFindRequest,
+) -> Result<UploadedPdfFindResult, String> {
+    tauri::async_runtime::spawn_blocking(move || find_pdf_text(&app, request))
+        .await
+        .map_err(|err| format!("PDF Find task failed: {err}"))?
 }
 
 /// Read the stored sanitized source HTML for an uploaded document URL.
@@ -87,7 +159,7 @@ pub async fn document_uploads_search<R: Runtime>(
 pub async fn document_uploads_get_source<R: Runtime>(
     app: tauri::AppHandle<R>,
     request: UploadedDocumentSourceRequest,
-) -> Result<String, String> {
+) -> Result<UploadedDocumentSource, String> {
     tauri::async_runtime::spawn_blocking(move || get_source(&app, request))
         .await
         .map_err(|err| format!("Document upload source task failed: {err}"))?
@@ -145,6 +217,28 @@ pub async fn document_uploads_get_pdf_narration_segments<R: Runtime>(
     })
     .await
     .map_err(|err| format!("PDF narration text task failed: {err}"))?
+}
+
+/// Read one validated derived PDF page layer for the currently rendered page.
+#[tauri::command]
+pub async fn document_uploads_get_pdf_page_text<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: PdfPageTextReadRequest,
+) -> Result<PageTextLayer, String> {
+    tauri::async_runtime::spawn_blocking(move || get_pdf_page_text_layer(&app, request))
+        .await
+        .map_err(|err| format!("PDF page text read task failed: {err}"))?
+}
+
+/// Return the finalized document-level OCR signal used to select viewer Find.
+#[tauri::command]
+pub async fn document_uploads_pdf_has_ocr_text<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    request: UploadedDocumentSourceRequest,
+) -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(move || pdf_has_ocr_text(&app, &request.document_url))
+        .await
+        .map_err(|err| format!("PDF OCR marker task failed: {err}"))?
 }
 
 /// Persist one bounded page text layer emitted by PDF.js.
@@ -223,13 +317,13 @@ pub async fn document_uploads_rename_folder<R: Runtime>(
         .map_err(|err| format!("Document folder rename task failed: {err}"))?
 }
 
-/// Delete an empty user folder.
+/// Permanently delete a folder, its descendants, and every contained document.
 #[tauri::command]
 pub async fn document_uploads_delete_folder<R: Runtime>(
     app: tauri::AppHandle<R>,
     request: UploadedLibraryDeleteFolderRequest,
-) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || delete_folder(&app, request))
+) -> Result<UploadedDocumentDeleteBatchResult, String> {
+    tauri::async_runtime::spawn_blocking(move || delete_folder(app, request))
         .await
         .map_err(|err| format!("Document folder delete task failed: {err}"))?
 }

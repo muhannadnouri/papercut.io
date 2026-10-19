@@ -48,7 +48,7 @@ export function formatSavedAudiobookMeta(
   seconds: number | undefined,
   bytes: number | undefined,
 ): string {
-  return formatSavedAudiobookMetaParts(
+  const parts = formatSavedAudiobookMetaParts(
     t,
     modelId,
     voice,
@@ -56,7 +56,8 @@ export function formatSavedAudiobookMeta(
     textPreprocessor,
     seconds,
     bytes,
-  ).join(' • ')
+  )
+  return parts.filter((part) => part !== t('tts.audiobooks.aiGenerated')).join(' • ')
 }
 
 export function formatSavedAudiobookMetaParts(

@@ -23,7 +23,7 @@ if (nativeTts) {
   await runTauriAndroidBuild(args)
 }
 
-// Native TTS APKs need sherpa shared libs staged before Tauri invokes Gradle/Cargo.
+// Shipping TTS/search APKs reuse the same staged ORT; custom arguments retain explicit feature selection.
 async function runNativeTtsAndroidBuild(extraArgs) {
   const abi = SHERPA_DEFAULT_ANDROID_ABI
   const rustTarget = SHERPA_DEFAULT_ANDROID_RUST_TARGET
@@ -38,7 +38,7 @@ async function runNativeTtsAndroidBuild(extraArgs) {
 
   const args = extraArgs.length > 0
     ? extraArgs
-    : ["android", "build", "--apk", "--debug", "--target", tauriTarget, "--features", "native-tts-shared"]
+    : ["android", "build", "--apk", "--debug", "--target", tauriTarget, "--features", "native-tts-shared,experimental-search-embeddings"]
 
   console.log("[sherpa-android-build] SHERPA_ONNX_LIB_DIR=" + libDir)
   console.log("[sherpa-android-build] runtime model download is enabled; model assets are not packaged into the APK")

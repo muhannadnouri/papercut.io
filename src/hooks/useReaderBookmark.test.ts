@@ -1,5 +1,30 @@
 import { describe, expect, it } from 'vitest'
-import { parseReaderBookmark } from './useReaderBookmark'
+import { parseReaderBookmark, readBookmarkedDocumentUrls } from './useReaderBookmark'
+
+function bookmarkStorage(entries: Record<string, string>) {
+  const keys = Object.keys(entries)
+  return {
+    length: keys.length,
+    key: (index: number) => keys[index] ?? null,
+    getItem: (key: string) => entries[key] ?? null,
+  }
+}
+
+describe('readBookmarkedDocumentUrls', () => {
+  it('returns only URLs backed by valid current bookmarks', () => {
+    const valid = JSON.stringify({
+      updatedAtMs: 10,
+      viewerLocation: { textOffset: 1842 },
+    })
+    const urls = readBookmarkedDocumentUrls(bookmarkStorage({
+      'papercut:reader-bookmark:/documents/book.html': valid,
+      'papercut:reader-bookmark:upload://invalid': '{',
+      'unrelated-setting': valid,
+    }))
+
+    expect([...urls]).toEqual(['/documents/book.html'])
+  })
+})
 
 describe('parseReaderBookmark', () => {
   it('keeps PDF page coordinates', () => {

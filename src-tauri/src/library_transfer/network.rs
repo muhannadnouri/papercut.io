@@ -1,432 +1,600 @@
-//! Foreground, one-use library transfer over the local network.
-//!
-//! High-level flow:
-//! 1. The source builds the same checked `.papercut-library` package used by
-//!    file export, binds an IPv4 listener, and displays its address plus a
-//!    random one-use code.
-//! 2. The target enters those values. Both peers establish ephemeral TLS, then
-//!    prove knowledge of the code with HMACs bound to that exact TLS session.
-//!    This authenticates the self-signed connection without a permanent key or
-//!    certificate warning.
-//! 3. The target reports how many bytes of the authenticated session it already
-//!    has, then retains that partial package if the connection drops. Retrying
-//!    with the same address and code continues from that byte offset.
-//! 4. Once all bytes arrive, the target invokes the normal package importer and
-//!    forwards its verification and restore progress to the source. The source
-//!    reports completion only after the target confirms that import finished.
-//!
-//! Sessions stay foreground-only and expire after ten minutes. Failed
-//! authentication consumes the code to prevent online guessing; an authenticated
-//! interruption may reconnect with the same code. Background transfer remains
-//! outside this module.
-
-use std::fs;
-use std::io;
-use std::net::{Ipv4Addr, Shutdown, SocketAddrV4, TcpListener, TcpStream};
-use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering};
+//! One foreground v4 session; connection and content roles are independent.
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-use rustls::ServerConfig;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
+use super::diagnostics::{Diagnostics, Trace};
 use super::{
-    build_library_package, emit_transfer_progress, import_library_package, transfer_temp_path,
     LibraryTransferError, LibraryTransferExportRequest, LibraryTransferImportResult,
     LibraryTransferProgress, LibraryTransferResult,
 };
-
+pub(crate) mod discovery;
+mod endpoints;
+mod operation;
 mod security;
+mod session;
 mod transport;
+mod v4;
+use endpoints::{TransferInterface, DEFAULT_PORT};
+use session::TransferControl;
+use v4::{Content, Mode, Phase, Side};
 
-use security::{
-    display_code, local_ipv4, new_pairing_code, normalize_code, parse_local_address,
-    server_tls_config,
-};
-use transport::{
-    receive_package, receive_resume_path, send_package, write_receiver_message, ReceiverMessage,
-    SendAttemptError,
-};
-
-const SESSION_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+pub(super) fn protocol_version() -> &'static str {
+    v4::protocol_version()
+}
 
 #[derive(Clone, Default)]
 pub struct LibraryTransferState {
-    send: Arc<Mutex<Option<SendSession>>>,
+    pub(super) diagnostics: Diagnostics,
+    current: Arc<Mutex<Option<Arc<Operation>>>>,
+    next_id: Arc<AtomicU64>,
+    active: Arc<AtomicBool>,
+    backgrounded: Arc<Mutex<bool>>,
+    visibility_known: Arc<AtomicBool>,
+    visibility_epoch: Arc<AtomicU64>,
+    discovery: Arc<Mutex<Option<discovery::Job>>>,
 }
 
-#[derive(Clone)]
-struct SendSession {
-    cancel: Arc<AtomicBool>,
-    active_socket: Arc<Mutex<Option<TcpStream>>>,
-    status: Arc<Mutex<LibraryTransferSendStatus>>,
+impl LibraryTransferState {
+    pub(super) fn begin_restore(&self) -> LibraryTransferResult<TransferOperationReservation> {
+        reserve_operation(&self.active)
+    }
+    fn check_foreground(&self) -> LibraryTransferResult<u64> {
+        if cfg!(mobile) && !self.visibility_known.load(Ordering::Acquire) {
+            return Err(
+                "App visibility tracking is unavailable. Restart Papercut or use a transfer file."
+                    .into(),
+            );
+        }
+        if *lock(&self.backgrounded)? {
+            return Err("Open Papercut to start a transfer.".into());
+        }
+        Ok(self.visibility_epoch.load(Ordering::Acquire))
+    }
+    pub(crate) fn set_backgrounded(&self, backgrounded: bool) {
+        let Ok(mut current) = self.backgrounded.lock() else {
+            return;
+        };
+        *current = backgrounded;
+        self.visibility_known.store(true, Ordering::Release);
+        if backgrounded {
+            self.cancel_network_sessions("backgrounded");
+        }
+    }
+    pub(crate) fn cancel_network_sessions(&self, reason: &'static str) {
+        self.visibility_epoch.fetch_add(1, Ordering::AcqRel);
+        self.stop_discovery();
+        if let Ok(current) = self.current.lock() {
+            if let Some(operation) = current.as_ref() {
+                operation.control.cancel(reason);
+            }
+        }
+    }
+    fn stop_discovery(&self) {
+        if let Ok(mut job) = self.discovery.lock() {
+            job.take();
+        }
+    }
+    pub(super) fn receive_session_id(&self) -> Option<u64> {
+        let current = self.current.lock().ok()?;
+        let status = current.as_ref()?.status.lock().ok()?;
+        (status.role == Content::Receiver && status.state.active()).then_some(status.id)
+    }
+    fn install(&self, operation: Arc<Operation>, epoch: u64) -> LibraryTransferResult<()> {
+        let foreground = lock(&self.backgrounded)?;
+        if *foreground || self.visibility_epoch.load(Ordering::Acquire) != epoch {
+            return Err("App visibility changed. Start a new transfer.".into());
+        }
+        let mut current = lock(&self.current)?;
+        if current
+            .as_ref()
+            .is_some_and(|o| o.status.lock().map(|s| s.state.active()).unwrap_or(true))
+        {
+            return Err("A library transfer is already active".into());
+        }
+        *current = Some(operation);
+        Ok(())
+    }
+    fn operation(&self, id: u64) -> LibraryTransferResult<Arc<Operation>> {
+        lock(&self.current)?
+            .as_ref()
+            .filter(|o| o.id == id)
+            .cloned()
+            .ok_or_else(|| "This transfer is no longer active".into())
+    }
+    fn dismiss(&self, id: u64) -> LibraryTransferResult<()> {
+        let mut current = lock(&self.current)?;
+        if let Some(operation) = current.as_ref().filter(|operation| operation.id == id) {
+            if lock(&operation.status)?.state.active() {
+                return Err("An active transfer cannot be dismissed".into());
+            }
+            current.take();
+        }
+        Ok(())
+    }
 }
 
-#[derive(Clone, Debug, Serialize)]
+pub(super) struct TransferOperationReservation {
+    active: Arc<AtomicBool>,
+}
+impl Drop for TransferOperationReservation {
+    fn drop(&mut self) {
+        self.active.store(false, Ordering::Release);
+    }
+}
+fn reserve_operation(
+    active: &Arc<AtomicBool>,
+) -> LibraryTransferResult<TransferOperationReservation> {
+    if active.swap(true, Ordering::AcqRel) {
+        return Err("Another library transfer is already running".into());
+    }
+    Ok(TransferOperationReservation {
+        active: active.clone(),
+    })
+}
+
+struct Operation {
+    id: u64,
+    role: Content,
+    mode: Mode,
+    control: Arc<TransferControl>,
+    retry: AtomicBool,
+    status: Mutex<LibraryTransferNetworkStatus>,
+    trace: Trace,
+    reservation: Mutex<Option<TransferOperationReservation>>,
+    publication: Mutex<Option<discovery::View>>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LibraryTransferSendStatus {
-    state: LibraryTransferSendState,
-    address: String,
+enum NetworkState {
+    Preparing,
+    Binding,
+    Waiting,
+    Connecting,
+    Authenticating,
+    Sending,
+    Receiving,
+    Verifying,
+    FinishingImport,
+    AwaitingResult,
+    WaitingResume,
+    Complete,
+    Cancelled,
+    Expired,
+    Failed,
+    OutcomeUnknown,
+}
+impl NetworkState {
+    fn active(self) -> bool {
+        !matches!(
+            self,
+            Self::Complete | Self::Cancelled | Self::Expired | Self::Failed | Self::OutcomeUnknown
+        )
+    }
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryTransferNetworkStatus {
+    id: u64,
+    role: Content,
+    mode: Mode,
+    state: NetworkState,
+    listener_ready: bool,
+    addresses: Vec<String>,
     code: String,
+    expires_at_ms: Option<u64>,
+    cancellable: bool,
+    can_retry: bool,
     documents: usize,
     audiobooks: usize,
     package_bytes: u64,
     bytes_transferred: u64,
     receiver_progress: Option<LibraryTransferProgress>,
-    error: Option<String>,
+    error: Option<LibraryTransferError>,
+    result: Option<LibraryTransferImportResult>,
+    discovery: Option<discovery::Snapshot>,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-enum LibraryTransferSendState {
-    Waiting,
-    Sending,
-    Complete,
-    Cancelled,
-    Failed,
+// Pairing credentials are accepted only for an explicit connector; never Debug/log this request.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LibraryTransferNetworkRequest {
+    role: Content,
+    mode: Mode,
+    interface_id: String,
+    port: Option<u16>,
+    address: Option<String>,
+    code: Option<String>,
+    selection: Option<LibraryTransferExportRequest>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LibraryTransferReceiveRequest {
-    address: String,
-    code: String,
-}
-
-/// Prepare one package, bind a foreground listener, and return the address and
-/// one-use code before a receiver connects. A second active send is rejected so
-/// two callers cannot replace each other's package or session credentials.
 #[tauri::command]
-pub async fn library_transfer_send_start(
+pub fn library_transfer_interfaces() -> LibraryTransferResult<Vec<TransferInterface>> {
+    endpoints::interfaces().map_err(Into::into)
+}
+
+#[tauri::command]
+pub fn library_transfer_network_start(
     app: tauri::AppHandle,
     state: State<'_, LibraryTransferState>,
-    request: Option<LibraryTransferExportRequest>,
-) -> LibraryTransferResult<LibraryTransferSendStatus> {
-    let state = state.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        start_send(app, state, request.unwrap_or_default().include_audiobooks)
-    })
-    .await
-    .map_err(|err| format!("Library send task failed: {err}"))?
-}
-
-#[tauri::command]
-pub fn library_transfer_send_status(
-    state: State<'_, LibraryTransferState>,
-) -> LibraryTransferResult<Option<LibraryTransferSendStatus>> {
-    let send = lock(&state.send)?;
-    Ok(send
-        .as_ref()
-        .map(|session| lock(&session.status).map(|status| status.clone()))
-        .transpose()?)
-}
-
-/// Stop a waiting or active foreground sender. The worker owns package cleanup
-/// so cancellation cannot remove a file while another thread is reading it.
-#[tauri::command]
-pub fn library_transfer_send_cancel(
-    state: State<'_, LibraryTransferState>,
-) -> LibraryTransferResult<()> {
-    let send = lock(&state.send)?;
-    if let Some(session) = send.as_ref() {
-        session.cancel.store(true, Ordering::Relaxed);
-        if let Some(socket) = take_active_socket(&session.active_socket) {
-            let _ = socket.shutdown(Shutdown::Both);
-        }
-    }
-    Ok(())
-}
-
-/// Receive exactly one authenticated package into app cache, then hand it to
-/// the normal package importer. Network bytes never bypass archive validation,
-/// checksums, HTML sanitization, or target-side index rebuilding.
-#[tauri::command]
-pub async fn library_transfer_receive(
-    app: tauri::AppHandle,
-    request: LibraryTransferReceiveRequest,
-) -> LibraryTransferResult<LibraryTransferImportResult> {
-    tauri::async_runtime::spawn_blocking(move || receive_library(app, request))
-        .await
-        .map_err(|err| format!("Library receive task failed: {err}"))?
-}
-
-/// Build the reusable package before exposing session credentials, then hand
-/// listener ownership to the background sender so command return is immediate.
-fn start_send(
-    app: tauri::AppHandle,
-    state: LibraryTransferState,
-    include_audiobooks: bool,
-) -> LibraryTransferResult<LibraryTransferSendStatus> {
-    {
-        let send = lock(&state.send)?;
-        if send.as_ref().is_some_and(|session| {
-            lock(&session.status)
-                .map(|status| {
-                    matches!(
-                        status.state,
-                        LibraryTransferSendState::Waiting | LibraryTransferSendState::Sending
-                    )
-                })
-                .unwrap_or(true)
-        }) {
-            return Err("A library send is already active".into());
-        }
-    }
-
-    let package_path = transfer_temp_path(&app, "lan-send")?;
-    let prepared = build_library_package(&app, &package_path, include_audiobooks);
-    let prepared = match prepared {
-        Ok(prepared) => prepared,
-        Err(error) => {
-            let _ = fs::remove_file(&package_path);
-            return Err(error);
-        }
-    };
-    let setup = (|| {
-        let package_bytes = fs::metadata(&package_path)
-            .map_err(|err| format!("Failed to inspect prepared library package: {err}"))?
-            .len();
-        let listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0))
-            .map_err(|err| format!("Failed to start local library transfer: {err}"))?;
-        listener
-            .set_nonblocking(true)
-            .map_err(|err| format!("Failed to configure local library transfer: {err}"))?;
-        let port = listener
-            .local_addr()
-            .map_err(|err| format!("Failed to read local library transfer address: {err}"))?
-            .port();
-        let address = SocketAddrV4::new(local_ipv4()?, port).to_string();
-        let code = new_pairing_code()?;
-        let tls_config = server_tls_config()?;
-        let status = Arc::new(Mutex::new(LibraryTransferSendStatus {
-            state: LibraryTransferSendState::Waiting,
-            address,
-            code: display_code(&code),
-            documents: prepared.documents,
-            audiobooks: prepared.audiobooks,
-            package_bytes,
-            bytes_transferred: 0,
-            receiver_progress: None,
-            error: None,
-        }));
-        let cancel = Arc::new(AtomicBool::new(false));
-        let active_socket = Arc::new(Mutex::new(None));
-        *lock(&state.send)? = Some(SendSession {
-            cancel: Arc::clone(&cancel),
-            active_socket: Arc::clone(&active_socket),
-            status: Arc::clone(&status),
-        });
-        Ok::<_, LibraryTransferError>((listener, tls_config, code, status, cancel, active_socket))
-    })();
-    let (listener, tls_config, code, status, cancel, active_socket) = match setup {
-        Ok(setup) => setup,
-        Err(error) => {
-            let _ = fs::remove_file(&package_path);
-            return Err(error);
-        }
-    };
-
-    let thread_status = Arc::clone(&status);
-    thread::spawn(move || {
-        run_sender(
-            listener,
-            tls_config,
-            &code,
-            &package_path,
-            &thread_status,
-            &cancel,
-            &active_socket,
-        );
-        let _ = fs::remove_file(package_path);
+    request: LibraryTransferNetworkRequest,
+) -> LibraryTransferResult<LibraryTransferNetworkStatus> {
+    let epoch = state.check_foreground()?;
+    let reservation = state.begin_restore()?;
+    let trace = state.diagnostics.begin(if request.role == Content::Sender {
+        "send"
+    } else {
+        "receive"
     });
-    Ok(lock(&status).map(|status| status.clone())?)
-}
-
-/// Keep one package/code alive for authenticated resume attempts until import
-/// completes, cancellation, or expiry. An unauthenticated failure still consumes
-/// the session so reconnect support cannot become an online guessing oracle.
-fn run_sender(
-    listener: TcpListener,
-    tls_config: Arc<ServerConfig>,
-    code: &str,
-    package_path: &Path,
-    status: &Arc<Mutex<LibraryTransferSendStatus>>,
-    cancel: &AtomicBool,
-    active_socket: &Mutex<Option<TcpStream>>,
-) {
-    let deadline = Instant::now() + SESSION_TIMEOUT;
-    loop {
-        if cancel.load(Ordering::Relaxed) {
-            set_send_status(status, LibraryTransferSendState::Cancelled, None);
-            return;
-        }
-        if Instant::now() >= deadline {
-            set_send_status(
-                status,
-                LibraryTransferSendState::Failed,
-                Some("Library send timed out".into()),
-            );
-            return;
-        }
-        match listener.accept() {
-            Ok((stream, _)) => {
-                if let Err(error) = track_active_socket(&stream, active_socket) {
-                    set_send_status(status, LibraryTransferSendState::Failed, Some(error));
-                    return;
-                }
-                if cancel.load(Ordering::Relaxed) {
-                    if let Some(socket) = take_active_socket(active_socket) {
-                        let _ = socket.shutdown(Shutdown::Both);
-                    }
-                    set_send_status(status, LibraryTransferSendState::Cancelled, None);
-                    return;
-                }
-                set_send_active(status);
-                let result = send_package(
-                    stream,
-                    Arc::clone(&tls_config),
-                    code,
-                    package_path,
-                    status,
-                    cancel,
-                );
-                let _ = take_active_socket(active_socket);
-                if cancel.load(Ordering::Relaxed) {
-                    set_send_status(status, LibraryTransferSendState::Cancelled, None);
-                    return;
-                }
-                match result {
-                    Ok(()) => {
-                        set_send_status(status, LibraryTransferSendState::Complete, None);
-                        return;
-                    }
-                    Err(SendAttemptError::Fatal(error)) => {
-                        set_send_status(status, LibraryTransferSendState::Failed, Some(error));
-                        return;
-                    }
-                    Err(SendAttemptError::Retryable(error)) => {
-                        set_send_retry_waiting(status, error);
-                    }
-                }
+    let validated: LibraryTransferResult<_> = (|| {
+        trace.stage("address-selection");
+        let network =
+            endpoints::select_interface(&endpoints::interfaces()?, Some(&request.interface_id))?;
+        let side = request.mode.side(request.role);
+        let peer = if side == Side::Connector {
+            trace.stage("address-and-code-validation");
+            Some((
+                endpoints::parse_endpoint(
+                    request.address.as_deref().unwrap_or_default(),
+                    &network,
+                )?,
+                security::normalize_code(request.code.as_deref().unwrap_or_default())?,
+            ))
+        } else {
+            if request.address.is_some() || request.code.is_some() {
+                return Err("A listening transfer does not accept peer credentials".into());
             }
-            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
-                thread::sleep(Duration::from_millis(100));
-            }
-            Err(error) => {
-                set_send_status(
-                    status,
-                    LibraryTransferSendState::Failed,
-                    Some(format!("Local library transfer failed: {error}")),
-                );
-                return;
-            }
-        }
-    }
-}
-
-/// Keep the authenticated stream open across package import so every target-side
-/// restore phase, final success, or failure reaches the waiting source device.
-fn receive_library(
-    app: tauri::AppHandle,
-    request: LibraryTransferReceiveRequest,
-) -> LibraryTransferResult<LibraryTransferImportResult> {
-    emit_transfer_progress(&app, "receive", "connecting", None, None, None);
-    let address = parse_local_address(&request.address)?;
-    let code = normalize_code(&request.code)?;
-    let temp_path = receive_resume_path(&app, address, &code)?;
-    (|| {
-        let mut stream = receive_package(address, &code, &temp_path, |processed, total| {
-            emit_transfer_progress(
-                &app,
-                "receive",
-                "receiving",
-                Some((processed, total)),
-                None,
-                None,
-            );
-        })?;
-
-        let import_result = {
-            let mut forward = |progress: &LibraryTransferProgress| {
-                let _ = write_receiver_message(
-                    &mut stream,
-                    &ReceiverMessage::Progress(progress.clone()),
-                );
-            };
-            import_library_package(&app, &temp_path, "receive", Some(&mut forward))
+            None
         };
-        match import_result {
-            Ok(result) => {
-                let _ = write_receiver_message(&mut stream, &ReceiverMessage::Complete);
-                let _ = fs::remove_file(&temp_path);
-                Ok(result)
-            }
-            Err(error) => {
-                let retryable = error.is_retryable();
-                let _ =
-                    write_receiver_message(&mut stream, &ReceiverMessage::Failed(error.clone()));
-                if !retryable {
-                    let _ = fs::remove_file(&temp_path);
+        let port = request.port.unwrap_or(DEFAULT_PORT);
+        if side == Side::Listener && !(1024..=65535).contains(&port) {
+            return Err("Choose a TCP port from 1024 to 65535".into());
+        }
+        if side == Side::Connector && request.port.is_some() {
+            return Err("Use the port in the listening device address".into());
+        }
+        if request.role == Content::Receiver && request.selection.is_some() {
+            return Err("Receiving does not accept a content selection".into());
+        }
+        Ok((network, port, peer))
+    })();
+    let (network, port, peer) = validated.inspect_err(|error| trace.finish(Some(error)))?;
+    state.stop_discovery();
+    let operation = Arc::new(Operation::new(
+        state.next_id.fetch_add(1, Ordering::Relaxed) + 1,
+        request.role,
+        request.mode,
+        trace.clone(),
+    ));
+    *lock(&operation.reservation)? = Some(reservation);
+    state
+        .install(operation.clone(), epoch)
+        .inspect_err(|error| trace.finish(Some(error)))?;
+    let initial = operation.snapshot()?;
+    tauri::async_runtime::spawn(async move {
+        let worker = operation.clone();
+        let result = tauri::async_runtime::spawn_blocking(move || {
+            let _watch = session::NetworkWatch::start(worker.control.clone(), network.clone());
+            operation::run(
+                &app, &worker, network, port, peer, request.selection.unwrap_or_default(),
+            )
+        })
+        .await
+        .unwrap_or_else(|_| {
+            Err(LibraryTransferError::message(
+                "The transfer task stopped unexpectedly. Check the receiving device before trying again.",
+            ))
+        });
+        operation.finish(result);
+    });
+    Ok(initial)
+}
+
+#[tauri::command]
+pub fn library_transfer_network_status(
+    state: State<'_, LibraryTransferState>,
+    id: Option<u64>,
+) -> LibraryTransferResult<Option<LibraryTransferNetworkStatus>> {
+    lock(&state.current)?
+        .as_ref()
+        .filter(|o| id.is_none_or(|id| id == o.id))
+        .map(|o| o.snapshot())
+        .transpose()
+}
+#[tauri::command]
+pub fn library_transfer_network_cancel(
+    state: State<'_, LibraryTransferState>,
+    id: u64,
+) -> LibraryTransferResult<bool> {
+    Ok(state.operation(id)?.control.cancel("cancelled"))
+}
+#[tauri::command]
+pub fn library_transfer_network_retry(
+    state: State<'_, LibraryTransferState>,
+    id: u64,
+) -> LibraryTransferResult<LibraryTransferNetworkStatus> {
+    let operation = state.operation(id)?;
+    if !operation.snapshot()?.can_retry {
+        return Err("This transfer cannot be resumed. Start a new transfer.".into());
+    }
+    operation
+        .retry
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .map_err(|_| LibraryTransferError::message("A retry is already pending"))?;
+    operation.snapshot()
+}
+
+#[tauri::command]
+pub fn library_transfer_network_dismiss(
+    state: State<'_, LibraryTransferState>,
+    id: u64,
+) -> LibraryTransferResult<()> {
+    state.dismiss(id)
+}
+
+impl Operation {
+    fn new(id: u64, role: Content, mode: Mode, trace: Trace) -> Self {
+        Self {
+            id,
+            role,
+            mode,
+            control: Arc::new(TransferControl::default()),
+            retry: AtomicBool::new(false),
+            trace,
+            reservation: Mutex::new(None),
+            publication: Mutex::new(None),
+            status: Mutex::new(LibraryTransferNetworkStatus {
+                id,
+                role,
+                mode,
+                state: NetworkState::Preparing,
+                listener_ready: false,
+                addresses: vec![],
+                code: String::new(),
+                expires_at_ms: None,
+                cancellable: true,
+                can_retry: false,
+                documents: 0,
+                audiobooks: 0,
+                package_bytes: 0,
+                bytes_transferred: 0,
+                receiver_progress: None,
+                error: None,
+                result: None,
+                discovery: None,
+            }),
+        }
+    }
+    fn snapshot(&self) -> LibraryTransferResult<LibraryTransferNetworkStatus> {
+        let protocol = self.control.protocol();
+        let mut status = lock(&self.status)?.clone();
+        status.discovery = lock(&self.publication)?
+            .as_ref()
+            .map(discovery::View::snapshot)
+            .transpose()?;
+        if status.state.active() {
+            if let Some(protocol) = protocol.filter(|p| p.generation() == self.id) {
+                if let Ok(phase) = protocol.phase() {
+                    // Only the worker publishes terminal states, after all guards/listeners close.
+                    status.state = match phase {
+                        Phase::Waiting => NetworkState::Waiting,
+                        Phase::Connecting => NetworkState::Connecting,
+                        Phase::Authenticating => NetworkState::Authenticating,
+                        Phase::Offer | Phase::Ready | Phase::Streaming => {
+                            if self.role == Content::Sender {
+                                NetworkState::Sending
+                            } else {
+                                NetworkState::Receiving
+                            }
+                        }
+                        Phase::Verifying => NetworkState::Verifying,
+                        Phase::FinishingImport => NetworkState::FinishingImport,
+                        Phase::AwaitingResult => NetworkState::AwaitingResult,
+                        Phase::WaitingResume => NetworkState::WaitingResume,
+                        _ => status.state,
+                    };
+                    status.cancellable = !phase.terminal()
+                        && phase != Phase::FinishingImport
+                        && status.state.active();
+                    status.can_retry = phase == Phase::WaitingResume
+                        && !protocol.is_listener()
+                        && !self.retry.load(Ordering::Acquire);
+                    status.listener_ready = matches!(phase, Phase::Waiting | Phase::WaitingResume)
+                        && protocol.is_listener()
+                        && status.listener_ready
+                        && !status.addresses.is_empty()
+                        && !status.code.is_empty()
+                        && protocol.pairing_code().is_ok();
+                    if !status.listener_ready {
+                        status.clear_pairing();
+                    }
                 }
-                Err(error)
+                if let Ok((bytes, total)) = protocol.bytes() {
+                    status.bytes_transferred = bytes;
+                    if total > 0 {
+                        status.package_bytes = total;
+                        self.trace.bytes(bytes, total);
+                    }
+                }
+            } else {
+                status.clear_pairing();
             }
         }
-    })()
-}
-
-fn set_send_status(
-    status: &Mutex<LibraryTransferSendStatus>,
-    state: LibraryTransferSendState,
-    error: Option<String>,
-) {
-    if let Ok(mut status) = status.lock() {
-        status.state = state;
-        status.error = error;
+        Ok(status)
+    }
+    fn finish(&self, result: LibraryTransferResult<Option<LibraryTransferImportResult>>) {
+        let protocol = self.control.protocol();
+        let phase = protocol.as_ref().and_then(|p| p.phase().ok());
+        let counts = protocol.as_ref().and_then(|p| p.bytes().ok());
+        if let Some((bytes, total)) = counts.filter(|(_, total)| *total > 0) {
+            self.trace.bytes(bytes, total);
+        }
+        self.control.release();
+        let mut status = match self.status.lock() {
+            Ok(status) => status,
+            Err(_) => return,
+        };
+        status.state = if phase == Some(Phase::OutcomeUnknown)
+            || result
+                .as_ref()
+                .err()
+                .is_some_and(|e| e.code == "TRANSFER_OUTCOME_UNKNOWN")
+        {
+            NetworkState::OutcomeUnknown
+        } else if phase == Some(Phase::Complete) && result.is_ok() {
+            NetworkState::Complete
+        } else if phase == Some(Phase::Expired) {
+            NetworkState::Expired
+        } else if phase == Some(Phase::Failed) {
+            NetworkState::Failed
+        } else if self.control.check().is_err() {
+            NetworkState::Cancelled
+        } else if result.is_ok() {
+            NetworkState::Complete
+        } else {
+            NetworkState::Failed
+        };
+        status.error = result.as_ref().err().cloned();
+        if status.state == NetworkState::OutcomeUnknown {
+            status.error = Some(operation::unknown_outcome());
+            self.trace.failure("outcome-unknown");
+        }
+        if status.state == NetworkState::Cancelled {
+            status.error = None;
+            self.trace.note("cleanup", self.control.reason());
+            self.trace.cancelled();
+        } else {
+            self.trace.finish(status.error.as_ref());
+        }
+        status.result = result.ok().flatten();
+        if let Some((bytes, total)) = counts {
+            status.bytes_transferred = bytes;
+            if total > 0 {
+                status.package_bytes = total;
+            }
+        }
+        status.clear_pairing();
+        status.cancellable = false;
+        status.can_retry = false;
+        // Release the native reservation before a terminal snapshot becomes observable.
+        if let Ok(mut reservation) = self.reservation.lock() {
+            reservation.take();
+        }
     }
 }
-
-fn set_send_active(status: &Mutex<LibraryTransferSendStatus>) {
-    if let Ok(mut status) = status.lock() {
-        status.state = LibraryTransferSendState::Sending;
-        status.receiver_progress = None;
-        status.error = None;
+impl LibraryTransferNetworkStatus {
+    fn clear_pairing(&mut self) {
+        self.listener_ready = false;
+        self.addresses.clear();
+        self.code.clear();
+        self.expires_at_ms = None;
     }
 }
-
-/// Return an authenticated interrupted session to its pairing screen while
-/// retaining the source package and target partial for an explicit retry.
-fn set_send_retry_waiting(status: &Mutex<LibraryTransferSendStatus>, error: String) {
-    if let Ok(mut status) = status.lock() {
-        status.state = LibraryTransferSendState::Waiting;
-        status.receiver_progress = None;
-        status.error = Some(error);
-    }
+fn expires_at(deadline: Instant) -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+        + deadline
+            .saturating_duration_since(Instant::now())
+            .as_millis() as u64
 }
-
-/// Keep a clone solely so the command thread can interrupt blocking TLS I/O
-/// without taking ownership from the sender worker.
-fn track_active_socket(
-    socket: &TcpStream,
-    active_socket: &Mutex<Option<TcpStream>>,
-) -> Result<(), String> {
-    let cancellation_socket = socket
-        .try_clone()
-        .map_err(|error| format!("Failed to prepare library send cancellation: {error}"))?;
-    *lock(active_socket)? = Some(cancellation_socket);
-    Ok(())
-}
-
-/// Take the cancellation-only socket clone so shutting it down wakes whichever
-/// blocking TLS phase currently owns the original stream.
-fn take_active_socket(active_socket: &Mutex<Option<TcpStream>>) -> Option<TcpStream> {
-    active_socket.lock().ok()?.take()
-}
-
-fn lock<T>(mutex: &Mutex<T>) -> Result<std::sync::MutexGuard<'_, T>, String> {
+fn lock<T>(mutex: &Mutex<T>) -> LibraryTransferResult<std::sync::MutexGuard<'_, T>> {
     mutex
         .lock()
-        .map_err(|_| "Library transfer state is unavailable".to_string())
+        .map_err(|_| LibraryTransferError::message("Library transfer state is unavailable"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn native_reservation_serializes_network_generations_and_file_imports() {
+        let state = LibraryTransferState::default();
+        let active = state.begin_restore().unwrap();
+        assert!(state.begin_restore().is_err());
+        drop(active);
+        assert!(state.begin_restore().is_ok());
+    }
+    #[test]
+    fn stale_commands_and_backgrounded_preparation_cannot_change_the_next_generation() {
+        let state = LibraryTransferState::default();
+        state.set_backgrounded(false);
+        let epoch = state.check_foreground().unwrap();
+        let first = Arc::new(Operation::new(
+            1,
+            Content::Sender,
+            Mode::Push,
+            state.diagnostics.begin("send"),
+        ));
+        state.install(first.clone(), epoch).unwrap();
+        assert!(state.operation(999).is_err());
+        assert!(first.control.check().is_ok());
+        state.cancel_network_sessions("closed");
+        first.finish(Err(LibraryTransferError::message("cancelled")));
+        let next = Arc::new(Operation::new(
+            2,
+            Content::Receiver,
+            Mode::Push,
+            state.diagnostics.begin("receive"),
+        ));
+        assert!(state.install(next.clone(), epoch).is_err());
+        state
+            .install(next.clone(), state.check_foreground().unwrap())
+            .unwrap();
+        assert!(state.operation(1).is_err());
+        assert!(next.control.check().is_ok());
+        state.set_backgrounded(true);
+        assert!(next.control.check().is_err());
+        assert!(state.check_foreground().is_err());
+    }
+    #[test]
+    fn request_contract_rejects_legacy_or_automatic_mode_negotiation() {
+        for mode in ["auto", "PCLAN003", "", "Push"] {
+            assert!(serde_json::from_value::<LibraryTransferNetworkRequest>(
+                serde_json::json!({"role":"sender","mode":mode,"interfaceId":"selected"})
+            )
+            .is_err());
+        }
+        assert!(serde_json::from_value::<LibraryTransferNetworkRequest>(serde_json::json!({"role":"sender","mode":"push","interfaceId":"selected","callbackAddress":"private"})).is_err());
+        assert_eq!(protocol_version(), "PCLAN004");
+    }
+
+    #[test]
+    fn terminal_publication_releases_the_reservation_and_stale_dismiss_cannot_clear_a_new_owner() {
+        let state = LibraryTransferState::default();
+        let operation = Arc::new(Operation::new(
+            1,
+            Content::Sender,
+            Mode::Push,
+            state.diagnostics.begin("send"),
+        ));
+        *operation.reservation.lock().unwrap() = Some(state.begin_restore().unwrap());
+        state
+            .install(operation.clone(), state.check_foreground().unwrap())
+            .unwrap();
+        assert!(state.dismiss(1).is_err());
+        assert!(state.begin_restore().is_err());
+        operation.control.cancel("cancelled");
+        operation.finish(Err(LibraryTransferError::message("cancelled")));
+        assert!(!operation.snapshot().unwrap().state.active());
+        assert!(state.begin_restore().is_ok());
+        state.dismiss(1).unwrap();
+        let next = Arc::new(Operation::new(
+            2,
+            Content::Receiver,
+            Mode::Pull,
+            state.diagnostics.begin("receive"),
+        ));
+        state
+            .install(next, state.check_foreground().unwrap())
+            .unwrap();
+        state.dismiss(1).unwrap();
+        assert!(state.operation(2).is_ok());
+    }
 }

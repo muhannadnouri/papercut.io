@@ -110,6 +110,14 @@ export function collectDocuments(node: LibraryNode): DocumentInfo[] {
   return node.children.flatMap(collectDocuments)
 }
 
+/** Count folders below a selected folder without including the selected folder itself. */
+export function countDescendantFolders(node: LibraryNode): number {
+  if (node.kind === 'document') return 0
+  return node.children.reduce((total, child) => (
+    total + (child.kind === 'folder' ? 1 + countDescendantFolders(child) : 0)
+  ), 0)
+}
+
 /** Group folders by parent id, using an empty string as the root bucket key. */
 function groupFoldersByParent(folders: UploadedLibraryFolder[]): Map<string, UploadedLibraryFolder[]> {
   const groups = new Map<string, UploadedLibraryFolder[]>()

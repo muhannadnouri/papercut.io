@@ -1,123 +1,49 @@
 {
-  "schemaVersion": 1,
-  "models": [
+  "schemaVersion": 2,
+  "archives": [
     {
-      "id": "sherpa-onnx/kokoro-multi-lang-v1_0",
       "family": "kokoro",
-      "language": "en-US",
       "modelName": "kokoro-multi-lang-v1_0",
       "sourceLabel": "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
-      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
-      "sha256": "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
-      "archiveBytes": 349418188,
-      "platforms": ["desktop", "android"]
+      "url": "https://github.com/muhannadnouri/papercut.io/releases/download/tts-kokoro-v1.0-2026-09-08/kokoro-multi-lang-v1_0.tar.bz2",
+      "sha256": "c5f7e2d2caf082bc1d20fb70334a61d99d20b484500aad32e7cf84c128ea3298",
+      "archiveBytes": 349906910,
+      "platforms": [
+        "desktop",
+        "android"
+      ],
+      "fallbackUrl": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2"
     },
     {
-      "id": "sherpa-onnx/kokoro-multi-lang-v1_0-zh",
-      "family": "kokoro",
-      "language": "zh-CN",
-      "modelName": "kokoro-multi-lang-v1_0",
-      "sourceLabel": "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
-      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
-      "sha256": "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
-      "archiveBytes": 349418188,
-      "platforms": ["desktop", "android"]
-    },
-    {
-      "id": "sherpa-onnx/kokoro-multi-lang-v1_0-es",
-      "family": "kokoro",
-      "language": "es-ES",
-      "modelName": "kokoro-multi-lang-v1_0",
-      "sourceLabel": "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
-      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
-      "sha256": "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
-      "archiveBytes": 349418188,
-      "platforms": ["desktop", "android"]
-    },
-    {
-      "id": "sherpa-onnx/kokoro-multi-lang-v1_0-fr",
-      "family": "kokoro",
-      "language": "fr-FR",
-      "modelName": "kokoro-multi-lang-v1_0",
-      "sourceLabel": "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
-      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
-      "sha256": "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
-      "archiveBytes": 349418188,
-      "platforms": ["desktop", "android"]
-    },
-    {
-      "id": "sherpa-onnx/kokoro-multi-lang-v1_0-hi",
-      "family": "kokoro",
-      "language": "hi-IN",
-      "modelName": "kokoro-multi-lang-v1_0",
-      "sourceLabel": "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
-      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
-      "sha256": "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
-      "archiveBytes": 349418188,
-      "platforms": ["desktop", "android"]
-    },
-    {
-      "id": "sherpa-onnx/kokoro-multi-lang-v1_0-it",
-      "family": "kokoro",
-      "language": "it-IT",
-      "modelName": "kokoro-multi-lang-v1_0",
-      "sourceLabel": "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
-      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
-      "sha256": "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
-      "archiveBytes": 349418188,
-      "platforms": ["desktop", "android"]
-    },
-    {
-      "id": "sherpa-onnx/kokoro-multi-lang-v1_0-pt-br",
-      "family": "kokoro",
-      "language": "pt-BR",
-      "modelName": "kokoro-multi-lang-v1_0",
-      "sourceLabel": "k2-fsa/sherpa-onnx Kokoro multi-lang v1.0",
-      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
-      "sha256": "c133d26353d776da730870dac7da07dbfc9a5e3bc80cc5e8e83ab6e823be7046",
-      "archiveBytes": 349418188,
-      "platforms": ["desktop", "android"]
-    },
-    {
-      "id": "sherpa-onnx/vits-piper-ar_JO-kareem-medium",
       "family": "vits",
-      "language": "ar-JO",
       "modelName": "vits-piper-ar_JO-kareem-medium",
       "sourceLabel": "k2-fsa/sherpa-onnx Piper ar_JO Kareem medium",
       "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-ar_JO-kareem-medium.tar.bz2",
       "sha256": "9ebbcea30e0fbd588f7b2cb45ee897d6aeb1bf5791cbc037a7b5a3f641e3dbce",
       "archiveBytes": 67177830,
-      "platforms": ["desktop", "android"],
+      "platforms": [
+        "desktop",
+        "android"
+      ],
       "licenseNote": "Model repository is MIT; training-dataset license/provenance needs review before redistribution."
     },
     {
-      "id": "sherpa-onnx/supertonic-3-en",
       "family": "supertonic",
-      "language": "en-US",
       "modelName": "sherpa-onnx-supertonic-3-tts-int8-2026-05-11",
       "sourceLabel": "k2-fsa/sherpa-onnx SupertonicTTS 3 int8",
       "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/sherpa-onnx-supertonic-3-tts-int8-2026-05-11.tar.bz2",
       "sha256": "82fa96f91c4ef8abaae3a14a3f4153facf88bed821d1f7331cec2700f432c427",
-      "archiveBytes": 123000000,
-      "platforms": ["desktop", "android"],
-      "licenseNote": "Experimental multilingual SupertonicTTS 3 entry; performance and quality should be benchmarked per device."
-    },
-    {
-      "id": "sherpa-onnx/supertonic-3-ar",
-      "family": "supertonic",
-      "language": "ar",
-      "modelName": "sherpa-onnx-supertonic-3-tts-int8-2026-05-11",
-      "sourceLabel": "k2-fsa/sherpa-onnx SupertonicTTS 3 int8",
-      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/sherpa-onnx-supertonic-3-tts-int8-2026-05-11.tar.bz2",
-      "sha256": "82fa96f91c4ef8abaae3a14a3f4153facf88bed821d1f7331cec2700f432c427",
-      "archiveBytes": 123000000,
-      "platforms": ["desktop", "android"],
+      "archiveBytes": 128774318,
+      "platforms": [
+        "desktop",
+        "android"
+      ],
       "licenseNote": "Experimental multilingual SupertonicTTS 3 entry; performance and quality should be benchmarked per device."
     }
   ],
   "notes": [
     "Model archives are downloaded on demand and are not packaged into installers or APKs.",
     "Platform-specific sherpa-onnx libraries are handled separately by Cargo or Android prep scripts.",
-    "Rust source catalog metadata is authoritative at runtime; this file documents pinned release inputs."
+    "Authoritative download metadata: build.rs compiles these URLs, hashes, and exact sizes into the Rust catalog; monitoring reads the same file."
   ]
 }

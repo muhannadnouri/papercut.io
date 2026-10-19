@@ -154,7 +154,6 @@ function DocumentRow({
       {t('common.delete')}
     </button>
   )
-
   // Selection rows are labels so the whole row toggles the checkbox.
   if (selectable) {
     return (

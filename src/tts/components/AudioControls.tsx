@@ -14,6 +14,7 @@ interface AudioControlsProps {
   canSkipBackward: boolean
   canSkipForward: boolean
   canTranslateDocument: boolean
+  modelSetupLabel: string | null
   saveInProgress: boolean
   onManageSave: () => void
   onPause: () => void
@@ -23,6 +24,7 @@ interface AudioControlsProps {
   onSelectSavedAudiobook: (record: SavedAudiobookRecord) => void
   onJumpToChunk: (index: number) => void
   onPlaybackRateChange: (rate: number) => void
+  onOpenAudioSetup: () => void
   onSave: () => void
   onSkipBackward: () => void
   onSkipForward: () => void
@@ -47,6 +49,7 @@ export function AudioControls({
   canSkipBackward,
   canSkipForward,
   canTranslateDocument,
+  modelSetupLabel,
   saveInProgress,
   onManageSave,
   onPause,
@@ -56,6 +59,7 @@ export function AudioControls({
   onSelectSavedAudiobook,
   onJumpToChunk,
   onPlaybackRateChange,
+  onOpenAudioSetup,
   onSave,
   onSkipBackward,
   onSkipForward,
@@ -162,7 +166,7 @@ export function AudioControls({
       )}
 
       {showFloatingPlayback && (
-        <div className="audio-floating-playback" aria-label={t('tts.controls.playbackControls')}>
+        <div className="audio-floating-playback" dir="ltr" aria-label={t('tts.controls.playbackControls')}>
           <button className="audio-icon-btn" onClick={onSkipBackward} disabled={!canSkipBackward} aria-label={t('tts.controls.previousChunk')} title={t('tts.controls.previousChunkTitle')}>
             <AudioIcon name="back" />
           </button>
@@ -250,14 +254,17 @@ export function AudioControls({
       ? t('tts.controls.saveCurrentSetup')
       : t('tts.controls.save')
     const buttonLabel = audiobookState.complete ? t('tts.controls.savedForCurrentSetup') : saveLabel
+    const modelSetupRequired = modelSetupLabel !== null
 
     return (
       <button
-        className={'audio-icon-btn' + (audiobookState.complete ? ' audio-save-complete' : '')}
-        onClick={onSave}
-        disabled={!canSaveAudiobook || audiobookState.complete}
-        aria-label={buttonLabel}
-        title={buttonLabel}
+        className={'audio-icon-btn' +
+          (audiobookState.complete ? ' audio-save-complete' : '') +
+          (modelSetupRequired ? ' audio-setup-required' : '')}
+        onClick={modelSetupRequired ? onOpenAudioSetup : onSave}
+        disabled={!modelSetupRequired && (!canSaveAudiobook || audiobookState.complete)}
+        aria-label={modelSetupLabel ?? buttonLabel}
+        title={modelSetupLabel ?? buttonLabel}
       >
         <AudioIcon name="save" />
       </button>

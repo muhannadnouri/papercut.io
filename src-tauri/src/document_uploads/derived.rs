@@ -9,7 +9,9 @@ use tauri::Runtime;
 use super::parsed::{ParsedDocument, ParsedSection};
 use super::pipeline;
 use super::storage::{upload_dir, StoredSourceKind};
-use super::store::{delete_document_rows_in_transaction, open_db, upsert_document_in_transaction};
+use super::store::{
+    delete_document_rows_in_transaction, open_db, upsert_document_in_transaction, PdfTextStatus,
+};
 use super::types::UploadedDocumentSourceRequest;
 
 const DERIVED_GENERATION_FILE: &str = ".generation";
@@ -37,6 +39,7 @@ pub(crate) fn read_uploaded_document_source<R: Runtime>(
             document_url: document_url.into(),
         },
     )
+    .map(|source| source.html)
 }
 
 /// Stage and index a generated HTML document without exposing parser internals.
@@ -128,9 +131,11 @@ where
                 heading: section.heading,
                 text: section.text,
                 page_index: None,
+                body_ranges: None,
             })
             .collect(),
         cover: None,
+        assets: Vec::new(),
     };
     let transaction_result = (|| {
         let tx = db.transaction().map_err(db_err)?;
@@ -139,9 +144,11 @@ where
             id,
             url,
             &parsed,
+            None,
             StoredSourceKind::Html,
             imported_at_ms,
             bytes,
+            PdfTextStatus::Ready,
         )?;
         persist_metadata(&tx)?;
         tx.commit().map_err(db_err)
