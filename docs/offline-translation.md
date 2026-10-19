@@ -725,6 +725,31 @@ blocked by missing Vulkan headers required by HY-MT2 in this environment; that
 feature still needs CI validation.
 No model inference or new translation-quality result is claimed.
 
+##### Validation Slice Review — 2026-10-19
+
+Reviewed commit `14440d4` and its connected adapter, runner, cache, source-model
+and shared renderer paths. **No actionable findings in this slice.** The expected
+load is local book translation using the existing 900-scalar segment and
+16-segment batch defaults, with at most eight phrase probes per segment.
+
+Confirmed that both batch paths reject mismatched or empty replies before
+accepting returned text; probe ownership follows the validated reply order.
+Mapping range checks precede indexing/slicing, known source-run identities are
+used exactly once, and sorting rejects target overlaps before rendering. Source
+DOM extraction supplies the formatting tag stacks. The renderer fixture keeps
+HTML-looking target text inert and preserves original note/backlink targets.
+
+The emphasis module's fixture-only status and narrow run representation are
+intentional. They do not claim semantic alignment, protected-HTML restoration,
+worker authentication or asynchronous lifecycle safety. Those requirements must
+be implemented before a new provider can use the boundary in production.
+
+Fresh validation repeated **392 passed, 4 existing ignored**, including
+**115 translation tests**; the locked/offline CTranslate2 compile check, Rust
+formatting and diff checks passed. The HY-MT2/Vulkan feature still needs CI
+validation because the local headers are unavailable. No model inference,
+installed-app or mobile/WebView validation was added by this review.
+
 Next, prototype one supported Bergamot worker/interface using bounded text
 requests through the current job lifecycle before enabling rich rendering. That
 stage must establish attempt/batch identities, cancellation, timeout, worker loss
