@@ -92,3 +92,78 @@ it("unsigned iOS device validation checks the same linked provider and packaged 
   expect(cargo[1][cargo[1].indexOf("--features") + 1]).toBe("native-tts-ios,experimental-search-embeddings-linked,tauri/custom-protocol")
   expect(calls.runSync.mock.calls.find(([command]) => command === "xcodebuild")[1]).toContain("CODE_SIGNING_ALLOWED=NO")
 })
+
+// A worker opt-in adds only the base host and leaves existing SDK/TTS choices alone.
+it.each([false, true])("Android worker opt-in composes with native TTS=%s", async nativeTts => {
+  await build("build-android.js", "linux", [...(nativeTts ? ["--native-tts"] : []), "--translation-worker"])
+  const args = calls.android.mock.calls[0][0]
+  expect(args.slice(0, 4)).toEqual(["android", "build", "--features", "native-translation"])
+  expect(args).not.toContain("--translation-worker")
+  expect(args.join(" ")).not.toMatch(/native-translation-(ctranslate2|llama)/)
+  expect(args).toContain("--apk")
+  expect(calls.androidLibs).toHaveBeenCalledTimes(nativeTts ? 1 : 0)
+  if (nativeTts) {
+    expect(args).toContain("native-tts-shared,experimental-search-embeddings")
+    expect(calls.android.mock.calls[0][1].ORT_LIB_LOCATION).toBe("/prepared/android")
+  }
+})
+it("Android worker opt-in retains custom features, target and runner arguments", async () => {
+  const args = ["android", "build", "--apk", "--target", "x86_64", "--features=experimental-search-embeddings", "--", "--stacktrace"]
+  await build("build-android.js", "linux", ["--translation-worker", ...args])
+  expect(calls.android.mock.calls[0][0]).toEqual(["android", "build", "--features", "native-translation", ...args.slice(2)])
+  expect(calls.androidLibs).not.toHaveBeenCalled()
+})
+it("Android rejects the worker build flag on initialization before invoking SDK tools", async () => {
+  await expect(build("build-android.js", "linux", ["--translation-worker", "android", "init"])).rejects.toThrow("requires an Android build")
+  expect(calls.android).not.toHaveBeenCalled()
+  expect(calls.androidLibs).not.toHaveBeenCalled()
+})
+it.each([false, true])("iOS worker-only export/archive needs no Sherpa setup (ci=%s)", async ci => {
+  await build("build-ios.js", "darwin", ["--translation-worker", ...(ci ? ["--ci-check"] : [])])
+  const args = calls.runSync.mock.calls[0][1]
+  expect(args).toContain("native-translation")
+  expect(args).not.toContain("--translation-worker")
+  expect(args.join(" ")).not.toMatch(/native-translation-(ctranslate2|llama)|native-tts/)
+  expect(calls.iosLibs).not.toHaveBeenCalled()
+  if (ci) expect(args).toContain("--archive-only")
+  else expect(args).toContain("app-store-connect")
+})
+it.each([{ args: [] }, { args: ["--ci-check"] }])("iOS native TTS and worker opt-in share one feature list with $args", async ({ args }) => {
+  await build("build-ios.js", "darwin", ["--native-tts", "--translation-worker", ...args])
+  const call = calls.runSync.mock.calls[0]
+  expect(call[1]).toContain("native-tts-ios,experimental-search-embeddings-linked,native-translation")
+  expect(call[1].filter(arg => arg === "--features")).toHaveLength(1)
+  expect(call[2].env.ORT_LIB_LOCATION).toEqual(call[2].env.SHERPA_ONNX_LIB_DIR)
+  expect(calls.iosLibs).toHaveBeenCalledOnce()
+})
+it("iOS worker opt-in preserves custom target, features and export arguments", async () => {
+  await build("build-ios.js", "darwin", ["--translation-worker", "--target", "aarch64", "--features=tauri/custom-protocol", "--export-method", "ad-hoc"])
+  expect(calls.runSync.mock.calls[0][1]).toEqual(["ios", "build", "--features", "native-translation", "--target", "aarch64", "--features=tauri/custom-protocol", "--export-method", "ad-hoc"])
+})
+it("iOS rejects worker opt-in during project initialization", async () => {
+  vi.spyOn(process, "exit").mockImplementation(() => { throw new Error("invalid build flags") })
+  vi.spyOn(console, "error").mockImplementation(() => {})
+  await expect(build("build-ios.js", "darwin", ["--translation-worker", "--init"])).rejects.toThrow("invalid build flags")
+  expect(console.error).toHaveBeenCalledWith(expect.stringContaining("cannot be used with --init"))
+  expect(calls.runSync).not.toHaveBeenCalled()
+  expect(calls.iosLibs).not.toHaveBeenCalled()
+})
+it("iOS unsigned device opt-in retains the deployment target, provider and custom features", async () => {
+  await build("check-ios-device-build.js", "darwin", ["--translation-worker", "--features", "extra-test-feature"])
+  const cargo = calls.runSync.mock.calls.find(([command]) => command === "cargo")
+  const features = cargo[1][cargo[1].indexOf("--features") + 1]
+  expect(features).toBe("native-tts-ios,experimental-search-embeddings-linked,tauri/custom-protocol,native-translation,extra-test-feature")
+  expect(cargo[2].env.IPHONEOS_DEPLOYMENT_TARGET).toBeTruthy()
+  expect(features).not.toMatch(/native-translation-(ctranslate2|llama)/)
+  expect(calls.runSync.mock.calls.find(([command]) => command === "xcodebuild")[1]).toContain("CODE_SIGNING_ALLOWED=NO")
+})
+it.each([false, true])("Android keeps a runner's worker-named argument opaque (opt-in=%s)", async enabled => {
+  const args = ["android", "build", "--apk", "--", "--translation-worker"]
+  await build("build-android.js", "linux", [...(enabled ? ["--translation-worker"] : []), ...args])
+  expect(calls.android.mock.calls[0][0]).toEqual(enabled ? ["android", "build", "--features", "native-translation", ...args.slice(2)] : args)
+})
+it.each([false, true])("iOS keeps runner flags/targets opaque (opt-in=%s)", async enabled => {
+  const runner = ["--", "--translation-worker", "--target", "xcode-only-target"]
+  await build("build-ios.js", "darwin", ["--ci-check", ...(enabled ? ["--translation-worker"] : []), ...runner])
+  expect(calls.runSync.mock.calls[0][1]).toEqual(["ios", "build", "--target", "aarch64-sim", "--archive-only", ...(enabled ? ["--features", "native-translation"] : []), ...runner])
+})

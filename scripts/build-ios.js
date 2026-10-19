@@ -6,14 +6,19 @@ import { exitFromResult, runSync } from "./lib/process.js"
 import { SRC_TAURI_DIR } from "./lib/paths.js"
 import { tauriCommand } from "./lib/tauri.js"
 
-const initProject = process.argv.includes("--init")
-const nativeTts = process.argv.includes("--native-tts")
-const ciCheck = process.argv.includes("--ci-check")
+// Parse only wrapper/build options; Xcode runner arguments after '--' are opaque.
 const rawArgs = process.argv.slice(2)
-const extraArgs = rawArgs.filter((arg) => arg !== "--init" && arg !== "--native-tts" && arg !== "--ci-check")
+const runnerIndex = rawArgs.indexOf("--")
+const buildArgs = runnerIndex < 0 ? rawArgs : rawArgs.slice(0, runnerIndex)
+const runnerArgs = runnerIndex < 0 ? [] : rawArgs.slice(runnerIndex)
+const initProject = buildArgs.includes("--init")
+const nativeTts = buildArgs.includes("--native-tts")
+const ciCheck = buildArgs.includes("--ci-check")
+const translationWorker = buildArgs.includes("--translation-worker")
+const extraArgs = buildArgs.filter((arg) => arg !== "--init" && arg !== "--native-tts" && arg !== "--ci-check" && arg !== "--translation-worker")
 const requestedTarget = optionValue(extraArgs, "--target")
 const effectiveTarget = ciCheck ? "aarch64-sim" : requestedTarget
-const forwardedExtraArgs = ciCheck ? withoutOption(extraArgs, "--target") : extraArgs
+const forwardedExtraArgs = [...(ciCheck ? withoutOption(extraArgs, "--target") : extraArgs), ...runnerArgs]
 const appleProjectDir = join(SRC_TAURI_DIR, "gen", "apple")
 const iosConfigPath = join(SRC_TAURI_DIR, "tauri.ios.conf.json")
 const expectedIosBundleId = "io.papercut.app"
@@ -28,6 +33,10 @@ if (ciCheck && initProject) {
   fail("Use either --ci-check or --init, not both.")
 }
 
+if (initProject && translationWorker) {
+  fail("--translation-worker is a build option; it cannot be used with --init.")
+}
+
 if (ciCheck && requestedTarget && requestedTarget !== "aarch64-sim") {
   fail("--ci-check only supports --target aarch64-sim, got " + requestedTarget)
 }
@@ -40,7 +49,7 @@ if (initProject) {
   }
 
   const env = { ...process.env }
-  const featureArgs = []
+  const features = []
   if (nativeTts) {
     const slice = sherpaSliceForTarget(effectiveTarget)
     await ensureIosSherpaLibs({ includeSimulator: slice === SHERPA_IOS_SIMULATOR_ARM64_SLICE })
@@ -48,14 +57,17 @@ if (initProject) {
     env.SHERPA_ONNX_LIB_DIR = libDir
     env.ORT_LIB_LOCATION = libDir
     // iOS uses linked ORT; compiling the provider does not enable saved user consent.
-    featureArgs.push("--features", "native-tts-ios,experimental-search-embeddings-linked")
+    features.push("native-tts-ios", "experimental-search-embeddings-linked")
     console.log("[ios-build] native TTS enabled with SHERPA_ONNX_LIB_DIR=" + env.SHERPA_ONNX_LIB_DIR)
   }
+  // The base host runs WASM workers; it does not pull native CT2/llama runtimes into mobile builds.
+  if (translationWorker) features.push("native-translation")
+  const featureArgs = features.length ? ["--features", features.join(",")] : []
 
   // CI needs compilation/linking, not an export that collides on repeated simulator builds.
   const args = ciCheck
     ? ["ios", "build", "--target", "aarch64-sim", "--archive-only", ...featureArgs, ...forwardedExtraArgs]
-    : extraArgs.length > 0
+    : forwardedExtraArgs.length > 0
       ? ["ios", "build", ...featureArgs, ...forwardedExtraArgs]
       : ["ios", "build", "--export-method", "app-store-connect", ...featureArgs]
 

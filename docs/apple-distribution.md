@@ -409,6 +409,14 @@ Native TTS on iOS must be validated through TestFlight on a real iPhone or iPad.
 
 Regular PR CI now includes a `build-ios` job on `macos-26`, with an explicit iOS SDK 26+ guard before building. This job does not use Apple secrets and does not upload to App Store Connect. It verifies the generated Apple project files, builds the frontend, installs iOS Rust targets, runs `npm run ios:ci -- --native-tts` for the arm64 simulator, and runs `npm run ios:ci:device`, which prepares iOS native TTS libs, builds the `aarch64-apple-ios` Rust static library directly with Cargo using the configured iOS minimum deployment target, stages Cargo's `libapp_lib.a` output as `libapp.a` where Xcode expects it, and runs an unsigned `xcodebuild build` for a release-class generic iPhoneOS device link check without archive/export or App Store signing.
 
+Experimental Bergamot translation is a separate, default-off build opt-in:
+manual CI with `validation_scope: mobile` or `full` and `mobile_translation: true`
+passes `--translation-worker` to both iOS checks. Keep `provider_inference: false`
+for compilation without inference assets. Local commands accept the same flag.
+This adds only `native-translation`, retains native TTS/search and the configured
+iOS minimum, and does not change signed release builds or establish device
+acceptance. See [offline translation build instructions](offline-translation.md#worker-only-mobile-build-and-ci-opt-in-2026-10-19).
+
 The simulator CI helper uses `--archive-only`: it compiles/links an app archive
 without exporting a simulator `.app`. This avoids Tauri's nonempty export
 destination error when normal and provider checks run sequentially. Release

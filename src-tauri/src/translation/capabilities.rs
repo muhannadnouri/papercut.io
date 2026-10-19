@@ -50,7 +50,7 @@ pub(super) fn translation_capabilities() -> TranslationCapabilities {
         reason: if worker {
             "Translation engines are compiled; Bergamot also requires a compatible foreground WebView. Model files must be installed separately.".into()
         } else {
-            translation_capability_reason(ctranslate2, llama)
+            format!("{NOT_IMPLEMENTED} Planned defaults: max {DEFAULT_MAX_SEGMENT_CHARS} chars/segment, {DEFAULT_BATCH_SEGMENT_LIMIT} segments/batch.")
         },
         platform: std::env::consts::OS.into(),
         default_quality_mode: DEFAULT_TRANSLATION_QUALITY_MODE.into(),
@@ -126,20 +126,6 @@ pub(super) fn translation_model_status<R: tauri::Runtime>(
                 )
             },
         },
-    }
-}
-
-fn translation_capability_reason(ctranslate2: bool, llama: bool) -> String {
-    let limits = format!(
-        "max {DEFAULT_MAX_SEGMENT_CHARS} chars/segment, {DEFAULT_BATCH_SEGMENT_LIMIT} segments/batch"
-    );
-    match (ctranslate2, llama) {
-        (true, true) => {
-            format!("OPUS-MT and HY-MT2 offline translation are available; {limits}.")
-        }
-        (true, false) => format!("OPUS-MT offline translation is available; {limits}."),
-        (false, true) => format!("HY-MT2 offline translation is available; {limits}."),
-        (false, false) => format!("{NOT_IMPLEMENTED} Planned defaults: {limits}."),
     }
 }
 

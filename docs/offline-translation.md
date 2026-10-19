@@ -12,6 +12,7 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 
 - Desktop builds on this branch enable `native-tts-shared,experimental-search-embeddings,native-translation-ctranslate2,native-translation-llama` through `npm run desktop`.
 - `npm run desktop:no-translation` keeps shared TTS and conceptual search while disabling translation for packaging/debug isolation.
+- Mobile build scripts now accept explicit `--translation-worker` opt-in; CI exposes a default-off `mobile_translation` input for `mobile`/`full` scope. This enables only the experimental Bergamot host, not native CTranslate2/llama.cpp; ordinary PR/release builds remain unchanged. See [mobile build opt-in](#worker-only-mobile-build-and-ci-opt-in-2026-10-19).
 - Spanish -> English and French -> English OPUS-MT CTranslate2 manifests are pinned and installable.
 - HY-MT2 1.8B Q8 is a pinned, installable quality model for Arabic, German, Spanish, French, Russian, and Chinese translation into English. Desktop CPU inference remains the default. On Linux, the workbench offers Vulkan acceleration only when llama.cpp reports a real integrated or discrete Vulkan GPU.
 - Installed models can be removed independently to reclaim storage. Removal is serialized against model installs and active translation jobs, while translated documents and reusable segment caches remain available.
@@ -1273,11 +1274,9 @@ Availability has two owners:
   CSP, memory pressure or packaged-device inference will succeed.
 
 Desktop translation build scripts already enable the base feature transitively.
-Standard Android/iOS build scripts and their CI packaging jobs still omit
-`native-translation`; this stage does not silently enable a new mobile feature.
-Their model rows therefore explain the missing engine. A later mobile build/CI
-slice must opt in to the worker host before packaged acceptance can begin; no
-native CTranslate2/llama.cpp mobile runtime is needed for that worker-only build.
+Standard Android/iOS builds still omit `native-translation` by default; their
+rows explain the missing engine. The subsequent [mobile opt-in slice](#worker-only-mobile-build-and-ci-opt-in-2026-10-19) adds an explicit build/CI switch without enabling native
+CTranslate2/llama.cpp or claiming packaged acceptance.
 The existing no-inference CI translation step now runs the complete
 `native-translation` suite, covering the true build gate as well as downloads;
 the ordinary Rust suite also covers disabled gates.
@@ -1337,9 +1336,84 @@ Manual acceptance remains pending (not run in this stage):
    build: only the former may offer runnable worker choices. Repeat on packaged
    desktop/Android/iOS before claiming platform support.
 
-Next: focused review of catalog/gate/UI integration, then an explicit mobile
-build/CI opt-in slice before packaged acceptance when smoke is resumed. Blinded model quality/RAM/speed comparisons and default selection
-remain deferred, along with installed-app smoke and the version bump.
+The catalog/UI review found no blocker and one dead-branch cleanup, addressed
+in the mobile opt-in slice below. Packaged acceptance, blinded quality/RAM/speed
+comparisons, default selection, installed-app smoke and the version bump remain
+deferred.
+
+##### Worker-Only Mobile Build And CI Opt-In (2026-10-19)
+
+The existing Android/iOS entry scripts accept `--translation-worker` and add only
+Cargo's base `native-translation` feature. They retain the previous build defaults,
+custom target/features/runner arguments and native-TTS/search setup. Wrapper
+flags stop at `--`, so runner tokens cannot silently enable translation or be
+consumed as wrapper flags. No native
+CT2/llama translation runtime, new dependency, model weights, deployment-target
+change or automatic download is introduced. The iOS device-link helper accepts
+the same flag so simulator and generic iPhoneOS validation agree. Using this
+build-only option during project initialization fails before SDK work.
+
+Use the existing commands; no extra build script is needed:
+
+```sh
+# Linux/macOS/Windows with Android SDK/NDK: shipping TTS/search plus worker host.
+npm run android:apk:native-tts -- --translation-worker
+
+# macOS/Xcode: unsigned arm64 simulator archive and generic iPhoneOS link check.
+npm run ios:ci -- --native-tts --translation-worker
+npm run ios:ci:device -- --translation-worker
+```
+
+For a worker-only Android build without preparing native TTS libraries, explicit
+custom Tauri arguments still work:
+
+```sh
+npm run android:apk -- --translation-worker android build --apk --debug --target aarch64
+```
+
+In **CI → Run workflow**, select the current branch, `validation_scope: mobile`
+(or `full`), **`mobile_translation: true`**, and **`provider_inference: false`**.
+The new boolean defaults off, is independent of provider inference and rejects
+non-mobile scopes instead of silently ignoring an enabled checkbox. It forwards
+the flag to APK packaging and both iOS link checks. The opt-in APK artifact is
+`papercut-android-native-tts-translation-worker-apk`; default APK naming and the
+release workflow remain unchanged. Do not enable provider inference merely to
+compile translation: that separate option downloads search-provider test models
+and runs their inference checks, not a Bergamot quality test.
+
+These builds only make the host available. Runtime secure-context/worker/
+WebCrypto/SIMD checks still gate the model picker; actual WASM integrity/module
+checks and protected-markup validation still guard jobs. Install the chosen
+French/Spanish model explicitly before offline use. No CPU/GPU/mobile quality,
+peak-RAM or background-execution claim follows from compiling the host.
+
+The catalog review's obsolete native-description branches were removed: when
+the base host feature is absent, both native engine features are necessarily
+absent too. The unavailable description retains the same limits and wording.
+
+Regression coverage executes the real build entrypoints with only their native
+command/download boundaries mocked, and executes the actual CI Bash blocks with
+an npm stub. It covers unchanged defaults, standalone/combined worker opt-ins,
+custom features/targets/runner arguments, invalid initialization, default-off
+release isolation, independent inference toggles, scope validation and feature
+propagation to Android/iOS simulator/device commands. The active worker-only
+Cargo graph excludes `ct2rs`, `llama-cpp-2` and `llama-cpp-sys-2`.
+
+Validation: **429 Rust library tests passed, 4 existing ignored**;
+**153 worker-enabled translation tests passed**, including the real loopback
+downloader; **481 frontend/script tests passed, 1 existing skipped**. The
+36 focused shipping/CI cases include 26 new opt-in/scope/runner-boundary cases.
+TypeScript, eight-locale validation, changed Node scripts' ESLint recommended
+rules, Node syntax checks, CI YAML parsing, Rustfmt and diff checks passed.
+The worker-only active Cargo dependency graph was checked without native engine
+features. Existing build/CT2 checks from the preceding catalog stage are historical;
+this build-script slice does not claim a new Vite or mobile bundle result.
+
+Actual Android target/NDK compilation and macOS/Xcode linking have not been run
+here, nor have packaged acceptance, model inference, benchmarks or installed-app
+smoke. Run the opt-in CI build before claiming a cross-platform compile/link
+result. Next: focused review, then that CI build; smoke, benchmarks and version
+bump stay deferred.
 
 ### Stage 7: Quality Upgrades - Mostly Done
 
@@ -1617,7 +1691,9 @@ A responsive desktop browser at a mobile viewport would not fill that gap.
    [provider validation slice](#provider-mapping-contract-and-validation-slice-2026-10-19)
    and protected-code hierarchy fixes have passed focused review. The experimental
    capability-gated catalog/UI slice is implemented; review its admission and
-   selection flow next. Do not reintroduce positional emphasis guesses.
+   selection flow passed focused review; worker-only mobile build/CI opt-in is
+   now implemented. Review the build slice and run opt-in CI next. Do not
+   reintroduce positional emphasis guesses.
    OPUS-MT/HY-MT2 remain text-only.
 2. The bounded worker, verified delivery, lifecycle fix and full-document
    reuse/resume/save-admission slice are implemented and reviewed above.

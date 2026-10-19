@@ -22,6 +22,10 @@ on:
         description: "Run provider inference checks (downloads pinned test models)"
         type: boolean
         default: false
+      mobile_translation:
+        description: "Enable experimental Bergamot workers in mobile/full builds (no translation inference)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -56,6 +60,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
           VALIDATION_SCOPE: ${{ inputs.validation_scope || '' }}
+          PAPERCUT_MOBILE_TRANSLATION: ${{ inputs.mobile_translation || false }}
         run: |
           set -euo pipefail
           android_packaging=false
@@ -73,6 +78,10 @@ jobs:
           }
 
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ "$PAPERCUT_MOBILE_TRANSLATION" = true ] && [ "$VALIDATION_SCOPE" != mobile ] && [ "$VALIDATION_SCOPE" != full ]; then
+              echo "mobile_translation requires validation_scope mobile or full" >&2
+              exit 1
+            fi
             code_checks=true
             case "$VALIDATION_SCOPE" in
               full)
@@ -515,6 +524,8 @@ jobs:
     if: needs.changes.outputs.android_packaging == 'true'
 
     runs-on: ubuntu-24.04
+    env:
+      PAPERCUT_MOBILE_TRANSLATION: ${{ github.event_name == 'workflow_dispatch' && inputs.mobile_translation }}
 
     steps:
       - uses: actions/checkout@v6
@@ -557,7 +568,10 @@ jobs:
         run: npm ci
 
       - name: Build Android APK
-        run: npm run android:apk:native-tts
+        run: |
+          translation_args=()
+          if [ "$PAPERCUT_MOBILE_TRANSLATION" = true ]; then translation_args+=(--translation-worker); fi
+          npm run android:apk:native-tts -- "${translation_args[@]}"
         env:
           NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/29.0.13846066
 
@@ -568,7 +582,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v7
         with:
-          name: papercut-android-native-tts-apk
+          name: papercut-android-native-tts${{ inputs.mobile_translation && '-translation-worker' || '' }}-apk
           path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/*.apk
           retention-days: 7
 
@@ -625,6 +639,8 @@ jobs:
     if: needs.changes.outputs.ios_packaging == 'true'
 
     runs-on: macos-26
+    env:
+      PAPERCUT_MOBILE_TRANSLATION: ${{ github.event_name == 'workflow_dispatch' && inputs.mobile_translation }}
 
     steps:
       - uses: actions/checkout@v6
@@ -695,10 +711,16 @@ jobs:
           test -f src-tauri/gen/apple/app_iOS/app_iOS.entitlements
 
       - name: Build unsigned iOS simulator app with native TTS
-        run: npm run ios:ci -- --native-tts
+        run: |
+          translation_args=()
+          if [ "$PAPERCUT_MOBILE_TRANSLATION" = true ]; then translation_args+=(--translation-worker); fi
+          npm run ios:ci -- --native-tts "${translation_args[@]}"
 
       - name: Build unsigned iOS device app with native TTS
-        run: npm run ios:ci:device
+        run: |
+          translation_args=()
+          if [ "$PAPERCUT_MOBILE_TRANSLATION" = true ]; then translation_args+=(--translation-worker); fi
+          npm run ios:ci:device -- "${translation_args[@]}"
 
       - name: Download verified mobile inference assets
         if: github.event_name == 'workflow_dispatch' && inputs.provider_inference

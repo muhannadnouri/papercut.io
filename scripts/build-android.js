@@ -11,23 +11,38 @@ import {
   ensureAndroidSherpaLibs
 } from "./lib/android/sherpa.js"
 
-const nativeTts = process.argv.includes("--native-tts")
-const extraArgs = process.argv.slice(2).filter((arg) => arg !== "--native-tts")
+// Wrapper flags stop at '--'; SDK runner arguments must remain untouched.
+const rawArgs = process.argv.slice(2)
+const runnerIndex = rawArgs.indexOf("--")
+const buildArgs = runnerIndex < 0 ? rawArgs : rawArgs.slice(0, runnerIndex)
+const runnerArgs = runnerIndex < 0 ? [] : rawArgs.slice(runnerIndex)
+const nativeTts = buildArgs.includes("--native-tts")
+const translationWorker = buildArgs.includes("--translation-worker")
+const extraArgs = [...buildArgs.filter((arg) => arg !== "--native-tts" && arg !== "--translation-worker"), ...runnerArgs]
+const args = extraArgs.length > 0
+  ? extraArgs
+  : nativeTts
+    ? ["android", "build", "--apk", "--debug", "--target", SHERPA_DEFAULT_ANDROID_TAURI_TARGET, "--features", "native-tts-shared,experimental-search-embeddings"]
+    : ["android", "build", "--apk", "--debug"]
+
+// Tauri accepts repeated feature options; insert before any runner '--' without replacing custom features.
+if (translationWorker) {
+  if (args[0] !== "android" || args[1] !== "build") {
+    throw new Error("--translation-worker requires an Android build command")
+  }
+  args.splice(2, 0, "--features", "native-translation")
+}
 
 if (nativeTts) {
-  await runNativeTtsAndroidBuild(extraArgs)
+  await runNativeTtsAndroidBuild(args)
 } else {
-  const args = extraArgs.length > 0
-    ? extraArgs
-    : ["android", "build", "--apk", "--debug"]
   await runTauriAndroidBuild(args)
 }
 
 // Shipping TTS/search APKs reuse the same staged ORT; custom arguments retain explicit feature selection.
-async function runNativeTtsAndroidBuild(extraArgs) {
+async function runNativeTtsAndroidBuild(args) {
   const abi = SHERPA_DEFAULT_ANDROID_ABI
   const rustTarget = SHERPA_DEFAULT_ANDROID_RUST_TARGET
-  const tauriTarget = SHERPA_DEFAULT_ANDROID_TAURI_TARGET
   const libDir = androidSherpaLibDir(abi)
 
   await ensureAndroidSherpaLibs()
@@ -35,10 +50,6 @@ async function runNativeTtsAndroidBuild(extraArgs) {
   if (!existsSync(join(libDir, "libsherpa-onnx-c-api.so"))) {
     throw new Error("Missing Android sherpa native libraries at " + libDir)
   }
-
-  const args = extraArgs.length > 0
-    ? extraArgs
-    : ["android", "build", "--apk", "--debug", "--target", tauriTarget, "--features", "native-tts-shared,experimental-search-embeddings"]
 
   console.log("[sherpa-android-build] SHERPA_ONNX_LIB_DIR=" + libDir)
   console.log("[sherpa-android-build] runtime model download is enabled; model assets are not packaged into the APK")
