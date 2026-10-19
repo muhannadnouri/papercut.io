@@ -37,7 +37,7 @@ where
     segment_blocks(blocks, max_chars, false)
 }
 
-/// Bergamot keeps sentences separate and prefers clause edges before the word-boundary fallback.
+/// Keep fitting blocks intact; split oversized Bergamot blocks at sentence/clause edges before words.
 /// shortcut: scalar bounds are not token limits; upgrade when stock WASM exposes supported token budgeting.
 pub(crate) fn segment_bergamot_blocks<I, S>(
     blocks: I,
@@ -113,7 +113,8 @@ fn split_block_into_segments(
     max_chars: usize,
     bergamot: bool,
 ) -> Result<Vec<TranslationTextPart>, String> {
-    if !bergamot && text.chars().count() <= max_chars {
+    // A sentence preference must not force authored identities across cuts in a block that already fits.
+    if text.chars().count() <= max_chars {
         return Ok(vec![TranslationTextPart {
             start: 0,
             end: text.chars().count(),
@@ -124,7 +125,7 @@ fn split_block_into_segments(
     split_block_text_into_segments(text, max_chars, bergamot)
 }
 
-/// Native jobs pack neighboring sentences; Bergamot keeps each sentence as a separate inference unit.
+/// Native jobs pack neighboring sentences; oversized Bergamot blocks keep sentences as separate units.
 fn split_block_text_into_segments(
     text: &str,
     max_chars: usize,

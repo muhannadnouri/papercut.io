@@ -231,7 +231,7 @@ fn failed_later_batch_resumes_only_completed_work_and_stores_one_provenanced_var
         )
         .unwrap();
     assert_eq!(engine_id, "bergamot");
-    assert!(settings.contains("bergamot-protected-codes-v5:"));
+    assert!(settings.contains("bergamot-protected-codes-v6:"));
     assert_eq!(
         super::super::storage::list_translated_documents(app.handle())
             .unwrap()
@@ -868,6 +868,112 @@ fn segmented_worker_document_keeps_nested_markup_assets_quote_notes_and_cache_re
         .unwrap_err()
         .contains("cancel"));
         drop(cancelled);
+        assert_eq!(
+            saved.view_html,
+            load_translation_source_document(app.handle(), &variants[0].document_url)
+                .unwrap()
+                .view_html
+        );
+        assert_eq!(
+            original,
+            load_translation_source_document(app.handle(), &source.document_url).unwrap()
+        );
+    }
+}
+
+/// A short authored ID and reverse quote order must survive the real HTML/EPUB writer and cache-only resume.
+#[test]
+fn compact_ids_and_reverse_quote_notes_save_and_resume_without_identity_loss() {
+    for format in ["html", "epub"] {
+        let (_dir, app, mut source, old_plan) = fixture();
+        let original =
+            load_translation_source_document(app.handle(), &source.document_url).unwrap();
+        source.format = format.into();
+        source.view_html = "<html><body><p><span id='authored'>Bonjour. Merci.</span> «Salut.<a id='ref' role='doc-noteref' href='#note'>1</a>»</p><p id='note' translate='no'>Note originale.</p></body></html>".into();
+        source.blocks = super::super::dom::DomPlan::new(&source.view_html)
+            .blocks
+            .into_iter()
+            .map(|b| TranslationSourceBlock {
+                ordinal: b.ordinal,
+                is_heading: b.is_heading,
+                heading: b.heading,
+                text: b.inline.text,
+            })
+            .collect();
+        let plan = plan_translation_job(
+            old_plan.request,
+            source.blocks.iter().map(|b| &b.text),
+            900,
+            16,
+        )
+        .unwrap();
+        assert_eq!(plan.total_segments, 1);
+        let state = TranslationState::default();
+        let calls = Arc::new(Mutex::new(0));
+        let make_worker = || {
+            let host = state.clone();
+            let calls = calls.clone();
+            state.bergamot.open("main".into(), "document-job".into(), state.cancelled_jobs.clone(), move |request| {
+                let reply = match request {
+                    WorkerRequest::Batch { attempt_id, batch_id, segments, .. } => {
+                        *calls.lock().unwrap() += 1;
+                        let outputs = segments.into_iter().map(|s| {
+                            assert!(s.html);
+                            assert!(s.text.contains("Bonjour. Merci."));
+                            TranslationSegmentOutput { id:s.id, source_text:s.text, text:"<span data-pc='0'>Hello. Thanks.</span> “Hi”.<span data-pc='1' translate='no'></span>".into(), markup:None }
+                        }).collect();
+                        WorkerReply::Result { attempt_id, batch_id, outputs }
+                    }
+                    WorkerRequest::Confirm { attempt_id, batch_id } => WorkerReply::Confirmed { attempt_id, batch_id },
+                    WorkerRequest::Stop { .. } => return Ok(()),
+                };
+                host.bergamot.reply("main", reply).map(|_| ())
+            }).unwrap()
+        };
+        let mut worker = make_worker();
+        finish_translation(
+            app.handle(),
+            &state,
+            &mut worker,
+            &plan,
+            &source,
+            "document-job",
+            Instant::now(),
+        )
+        .unwrap();
+        drop(worker);
+        let variants = super::super::storage::list_translated_documents(app.handle()).unwrap();
+        let saved =
+            load_translation_source_document(app.handle(), &variants[0].document_url).unwrap();
+        let dom = super::super::html::parse_html_document(&saved.view_html);
+        assert_eq!(dom.select("span#authored").unwrap().count(), 1);
+        assert_eq!(
+            dom.select_first("span#authored").unwrap().text_contents(),
+            "Hello. Thanks."
+        );
+        assert_eq!(dom.select("a#ref[href='#note']").unwrap().count(), 1);
+        assert!(saved.view_html.contains("“Hi<a"), "{}", saved.view_html);
+        assert!(saved.view_html.contains("</a>”."), "{}", saved.view_html);
+        assert!(saved.view_html.contains("Note originale."));
+        let mut resumed = make_worker();
+        finish_translation(
+            app.handle(),
+            &state,
+            &mut resumed,
+            &plan,
+            &source,
+            "document-job",
+            Instant::now(),
+        )
+        .unwrap();
+        drop(resumed);
+        assert_eq!(*calls.lock().unwrap(), 1);
+        assert_eq!(
+            super::super::storage::list_translated_documents(app.handle())
+                .unwrap()
+                .len(),
+            1
+        );
         assert_eq!(
             saved.view_html,
             load_translation_source_document(app.handle(), &variants[0].document_url)

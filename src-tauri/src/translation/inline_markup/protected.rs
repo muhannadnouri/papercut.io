@@ -14,7 +14,7 @@ use crate::translation::html::parse_html_document;
 mod boundaries;
 
 /// Source normalization and hierarchy semantics participate in worker cache compatibility.
-pub(crate) const MAPPING_VERSION: &str = "protected-codes-v5";
+pub(crate) const MAPPING_VERSION: &str = "protected-codes-v6";
 const MAX_CODES: usize = 128;
 pub(crate) const MAX_HTML_BYTES: usize = 32 * 1024;
 
@@ -758,6 +758,61 @@ mod tests {
         assert!(p.restore("<span data-pc='0'></span><span data-pc='0'>An important quote</span> and a conclusion.").is_ok());
         let quoted = plan("<p><em>Primera cita</em> y «<em>Última cita</em>»<a role='doc-noteref' href='#n'>1</a>.</p>");
         assert!(quoted.restore("<span data-pc='0'></span> and “<span data-pc='1'>Last quote</span>.”<span data-pc='2' translate='no'></span>").err().unwrap().contains("empty target mapping"));
+    }
+
+    /// Sentence preferences must not split authored IDs when the complete block already fits the cap.
+    #[test]
+    fn compact_bergamot_blocks_keep_authored_identities_across_sentences() {
+        for shell in ["span", "strong", "a"] {
+            let dom = DomPlan::new(&format!(
+                "<p><{shell} id='authored'>Bonjour. Merci.</{shell}></p>"
+            ));
+            let block = &dom.blocks[0];
+            let source = ProtectedSource::new(&block.node).unwrap();
+            let segments =
+                crate::translation::segment::segment_bergamot_blocks([&block.inline.text], 320)
+                    .unwrap();
+            assert_eq!(segments.len(), 1, "{shell}");
+            let segment = &segments[0];
+            let plan = source
+                .fragment(segment.source_start..segment.source_end, &segment.text)
+                .unwrap();
+            let restored = plan
+                .restore("<span data-pc='0'>Hello. Thanks.</span>")
+                .unwrap();
+            assert_eq!(
+                parse_html_document(restored.html)
+                    .select("#authored")
+                    .unwrap()
+                    .count(),
+                1
+            );
+        }
+    }
+
+    /// Period movement must never pull an inside-quote note across its closing quote.
+    #[test]
+    fn reverse_quote_order_preserves_inside_and_between_quote_notes() {
+        let note = "<a id='ref' role='doc-noteref' href='#n'>1</a>";
+        for (source, target, expected) in [
+            (format!("<p>«Bonjour.{note}»</p>"), "“Hello”.", "“Hello<a"),
+            (
+                format!("<p>«‘Bonjour.{note}’»</p>"),
+                "“‘Hello’”.",
+                "“‘Hello<a",
+            ),
+            (
+                format!("<p>«‘Bonjour.’{note}»</p>"),
+                "“‘Hello’”.",
+                "“‘Hello’<a",
+            ),
+        ] {
+            let restored = plan(&source)
+                .restore(&format!("{target}<span data-pc='0' translate='no'></span>"))
+                .unwrap();
+            assert!(restored.html.contains(expected), "{}", restored.html);
+            assert_eq!(restored.text, target);
+        }
     }
 
     /// The smaller policy still clips shared DOM ranges, and must not clone an authored identity.

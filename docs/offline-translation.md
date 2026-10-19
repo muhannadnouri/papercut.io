@@ -19,7 +19,7 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 - The workbench selects only pinned models whose engine and WebView gates pass. Unavailable pinned models remain visible with an explanation; future model candidates remain informational. Existing native catalog ordering/defaults are unchanged.
 - Translation jobs run through the shared Rust engine boundary, emit progress/cancel events, reuse segment cache entries, run first-pass quality gates, and persist successful output as derived uploaded documents.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
-- Bergamot document planning uses separate sentences and a 320-scalar cap, preferring clause boundaries in oversized sentences. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
+- Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
 - OPUS-MT exposes no quality, glossary, or repair controls because that engine cannot honor them; direct requests using those options are rejected.
 - Translation controls, normal progress states, confirmations, counts, language names, and expected native failures use the app's eight locale resources. Translation commands return stable error codes while retaining the original Rust diagnostic; unexpected failures still fall back to that detail.
@@ -1165,11 +1165,11 @@ and occur exactly once. Opaque literals retain source word-boundary spaces even
 if the provider HTML alignment loses a separator.
 
 **Resume and provenance.** Rich cache entries store the raw code response plus
-an identity of the exact source plan, literals and `protected-codes-v5` strategy.
+an identity of the exact source plan, literals and `protected-codes-v6` strategy.
 They are location-bound and revalidated on every read. Plain translation memory
 cannot satisfy a rich request; missing/corrupt/mismatched mappings trigger fresh
-inference. Provider identity is now `bergamot-protected-codes-v5:<hash>`, retaining
-the existing exact asset/worker/loader hash binding. Old Bergamot text and v1/v2/v3/v4
+inference. Provider identity is now `bergamot-protected-codes-v6:<hash>`, retaining
+the existing exact asset/worker/loader hash binding. Old Bergamot text and v1/v2/v3/v4/v5
 rich caches are incompatible; native text caches and alignment epoch **3** are
 unchanged. Existing
 completed variants, originals, generated audiobooks and highlighting are not
@@ -1343,6 +1343,45 @@ shipping/CI tests passed**. Rustfmt and diff checks passed. The private 14-respo
 probe was also checked against actual full-block planning and restoration; no
 temporary test harness remains in production or committed tests. Latest-head CI
 and rebuilt-AppImage acceptance remain follow-ups.
+
+**Compact authored IDs and reverse quote order (2026-10-19).** V6 fixes the
+follow-up review cases in the shared paths. A normalized block already within
+its caller/provider scalar cap stays whole, even if it contains several
+sentences. Thus `<span id="authored">Bonjour. Merci.</span>` no longer splits a
+15-scalar identity into two invalid fragments. The 320 cap and sentence/clause
+policy still apply to oversized Bergamot blocks; native planning is unchanged.
+Planning of larger blocks remains text-based: an indivisible identity crossing a
+required cut still fails safely, even if that element itself is short. The guard
+is not weakened to clone IDs; supporting those crossings requires protected-range
+cut selection in a later stage.
+
+Quote containment now takes precedence in both punctuation directions. Source
+`«Bonjour.[note]»` with target `“Hello”.` becomes `“Hello[note]”.`, rather than
+moving the note outside. A marker between nested closing quotes also stays
+between them. The quote-order fallback still requires matching punctuation
+inventories, so it changes attachment without removing, inventing or accepting
+changed terminal punctuation.
+The source relationship to closing quotes wins when preserving both that
+relationship and before/after-period placement is impossible.
+
+Regressions cover short multi-sentence span/strong/link identities, reverse
+inside-quote placement, nested and between-quote notes. A real HTML/EPUB job
+combines a short authored ID and the reversed period/quote order through the
+bridge, shared renderer, file/SQLite writer and cache-only resume. It asserts
+unique IDs, intact note targets, stable saved HTML, no second inference and an
+unchanged original. V6 mapping identity invalidates older worker resume results;
+native caches and completed documents/audio/highlighting are unchanged.
+
+No engine, worker, loader, WASM, model pins, dependencies or app version changed.
+The prior 14-response stock-engine reproduction remains historical evidence;
+this follow-up used deterministic regressions and a narrow local code probe,
+with no new model inference. Latest-head CI and rebuilt-AppImage acceptance remain
+pending. Benchmarks, broader smoke and the version bump remain deferred.
+
+Validation: **445 Rust library tests passed, 4 existing ignored**;
+**169 worker-enabled translation tests passed**; **118 frontend translation and
+shipping/CI tests passed**. Rustfmt and diff checks passed. The short-ID and
+reverse-quote unit regressions failed before the fixes and pass afterward.
 
 **Plan for formatting with non-Bergamot providers.** Keep one shared DOM plan,
 cache, validator, renderer and atomic writer. Providers should return translated

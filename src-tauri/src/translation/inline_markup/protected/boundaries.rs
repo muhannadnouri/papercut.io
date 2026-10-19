@@ -175,7 +175,7 @@ fn edge_punctuation(ch: char) -> bool {
 }
 
 /// Keep exact source attachment unless closing quotes move around otherwise unchanged terminal punctuation.
-/// Outside-quote notes stay outside the target quote, even when English moves the period inside it.
+/// Preserve the source position among closing quotes in either direction of period movement.
 fn before_suffix(text: &str, edge: &Edge) -> Result<usize, String> {
     let text = text.trim_end();
     if let Some(prefix) = text.strip_suffix(&edge.suffix) {
@@ -204,7 +204,11 @@ fn before_suffix(text: &str, edge: &Edge) -> Result<usize, String> {
             break;
         }
         if closing_quote(ch) {
-            quote_count = quote_count.saturating_sub(1);
+            // Quote containment takes precedence if the target period moved outside this quote.
+            if quote_count == 0 {
+                break;
+            }
+            quote_count -= 1;
         } else if !ch.is_whitespace() {
             punctuation_count = punctuation_count.saturating_sub(1);
         }
