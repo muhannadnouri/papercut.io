@@ -750,15 +750,91 @@ formatting and diff checks passed. The HY-MT2/Vulkan feature still needs CI
 validation because the local headers are unavailable. No model inference,
 installed-app or mobile/WebView validation was added by this review.
 
-Next, prototype one supported Bergamot worker/interface using bounded text
-requests through the current job lifecycle before enabling rich rendering. That
-stage must establish attempt/batch identities, cancellation, timeout, worker loss
-and late-reply handling; none is implemented by this synchronous validation
-slice. Only then connect validated provider mappings and protected-content
-restoration, cache provenance and capability reporting. Worker packaging, model
-verification and real-device quality/performance remain acceptance work; no
-default-model or mobile-support decision is made here. Benchmarks, installed-app
-smoke and the app version bump remain deferred.
+##### Bounded Bergamot Worker Bridge — Prototype (2026-10-19)
+
+The text-only worker bridge now exists. It is **not selectable in the Translation
+panel or used by `translation_start` yet**. The native OPUS-MT/HY-MT2 document
+jobs remain unchanged. This stage proves the bounded runtime/transport boundary
+before installer delivery, full-book wiring or HTML-aware rendering is enabled.
+It does not add a second document writer or a benchmark kit.
+
+Responsibilities:
+
+- `translation::bergamot`: one active, main-WebView-owned worker attempt,
+  single-slot reply mailbox and a `TranslationEngine` implementation. The backend
+  reuses `TranslationState` job admission/cancellation and `validate_outputs`.
+  The thin `translation_bergamot_batch` / `translation_bergamot_reply` commands
+  pass text and control messages through a Tauri channel. The prototype returns
+  validated text only; it never opens document files or writes cache/variant rows.
+- `src/translation/bergamot/nativeBridge.ts`: starts the worker, transfers binary
+  files, relays bounded requests/replies, handles AbortSignal, worker/message
+  errors and pagehide/hidden-document events, and terminates/cleans up on every
+  exit. It waits for Rust's command result rather than treating a worker message
+  as durable completion. This helper is an internal prototype entry point, not
+  an advertised app capability.
+- `public/translation/bergamot/worker.js`: verifies binary size/SHA-256 pins,
+  initializes the stock runtime and calls its public `BlockingService.translate`
+  API with **HTML and alignment disabled**. Source echoes come from the request,
+  not model-generated text. Per-call vectors/responses are released; the host
+  terminates the worker to release model memory on completion or interruption.
+
+The only vendored engine code is the **unmodified 100,187-byte Mozilla loader**
+at [Firefox revision 48d55cf7ec80093903e2ef7f58b61a84a22ef716](https://github.com/mozilla-firefox/firefox/blob/48d55cf7ec80093903e2ef7f58b61a84a22ef716/toolkit/components/translations/bergamot-translator/bergamot-translator.js),
+SHA-256 `faff1ef6285b0d26f01787776fd49299dfb756ecb9688aa990c250e66797b47d`.
+Its MPL-2.0 license is included alongside it. The adapter follows the
+[pinned Mozilla WASM test API](https://github.com/mozilla/translations/blob/69455acaecbe8650cdba988dbcf7c10ca20e7c48/inference/wasm/tests/engine/translations-engine.worker.mjs);
+there are no engine/C++ patches or custom engine build scripts. A regression
+checks the loader hash and all WASM/model pins against the retained evaluation
+JSON. Only the worker, loader and license are allowlisted in Git; WASM and model
+weights are not bundled or downloaded automatically.
+
+| Boundary | Enforced limit/behavior |
+| --- | --- |
+| Work in flight | One Rust worker attempt and one reply mailbox; no unbounded request queue. |
+| Text request | 1–16 segments, at most 900 Unicode scalars per segment; unique nonempty ids, at most 128 UTF-8 bytes each. Prototype pairs are fr→en and es→en only. |
+| Binary startup | Four distinct, nonempty ArrayBuffers, at most 64 MiB total. Worker checks exact coherent WASM 3.0 and model/lexicon/vocab 2.0 size/hash pins before loading the runtime. |
+| Reply | At most 256 KiB across ids, source and translated text; exact requested count/order/source and nonempty text. |
+| Identity | Rust-generated 128-bit random attempt nonce, checked batch counter and invoking WebView ownership. Stale/duplicate/other-window replies cannot fill a new mailbox. |
+| Deadline | Independent 120-second Rust and host deadlines include initialization and inference. Stale messages never renew them. Rust polls cancellation at most every 25 ms while waiting and checks it again before accepting a reply. |
+| Failure | Timeout, cancellation, lost channel/worker, bad output and engine failure close the attempt and release its slot. Explicit worker errors/lifecycle events notify Rust; if a WebView disappears without notification, Rust's deadline still releases the attempt. |
+
+The future installer must supply verified local binary buffers to
+`runBergamotBatch(segments, files, signal)`. These are transferred to the worker
+outside JSON/base64. Transfer consumes the buffers; a failed/cancelled call may
+already have detached them, so reload buffers for a retry. The loader is a fixed
+app-owned same-origin script, not an IPC URL.
+No CSP relaxation, remote script origin, native filesystem permission or model
+download was added. Existing WASM/worker CSP directives are retained. Secure
+WebCrypto/worker/WASM support is required; unsupported runtimes fail closed.
+
+Validation includes **7 Rust bridge regressions** (one real Tauri mock-runtime
+command/channel round trip), **20 frontend regressions**, TypeScript/lint checks,
+and the Vite asset build. Cases cover bounded inputs/assets, source binding,
+other-window/old-attempt/old-batch/duplicate replies, cancellation winning a
+result race, timeout/channel loss, cleanup, hidden/closed pages, late requests
+after frontend cancellation, corrupt assets and generic errors without runtime
+stacks. Full suites passed **399 Rust tests, 4 existing ignored** and
+**393 frontend tests, 1 existing skipped**. CTranslate2-feature compilation also
+passes; the existing HY-MT2/Vulkan-header CI gap is not waived.
+
+The exact new worker also ran one actual French→English and one Spanish→English
+request using the stock loader, verified cached WASM/model files and Node worker
+threads with browser worker globals supplied by a temporary test harness. Both
+returned nonempty English output with exact source/id binding. This is an API
+integration check, **not a benchmark, quality comparison, installed-app smoke or
+proof of Tauri/WebView/mobile packaging**. The harness and model files are not
+checked in. Existing originals, translated variants, audio and highlighting are
+unchanged; rich mappings are still fixture-only and no cache epoch changed.
+
+Next, review the worker boundary, then add verified installer-to-worker asset
+delivery and capability gates before connecting it to full document jobs. The
+prototype command is deliberately one bounded batch, not a way to bypass native
+document preflight or persistence. Full-book worker reuse/resume, packaged
+WebView/CSP behavior, cancellation before durable saving and platform support
+need that integration. Only then enable validated inline/protected-content
+restoration and rich-cache provenance. No default-model or mobile-support
+decision is made here. Benchmarks, installed-app smoke and the app version bump
+remain deferred.
 
 ### Stage 7: Quality Upgrades - Mostly Done
 
@@ -1037,13 +1113,12 @@ A responsive desktop browser at a mobile viewport would not fill that gap.
    is now fixture-tested; production adapters remain text-only. Extend inline
    mapping only with validated annotations/alignments; do not reintroduce
    positional emphasis guesses.
-2. Then prototype the supported WASM worker boundary before choosing a native
-   Bergamot FFI. It runs today without a maintained C++ fork, but it cannot be
-   dropped into the synchronous Rust `TranslationEngine` trait unchanged.
-   Keep Rust job/storage authority, bounded requests and durable batch progress;
-   explicitly handle WebView disappearance/suspension and late worker replies.
-   Compare that small bridge with a supported upstream native build; avoid
-   copying Bergamot's internal HTML C++ into Papercut.
+2. The bounded text worker prototype is implemented above. Review it, then add
+   verified binary delivery and platform capability gates before wiring it into
+   native document jobs. Keep Rust job/storage authority and durable batch
+   progress; test full-book worker reuse, disappearance/suspension, resume and
+   cancellation before saving. No native FFI or copied Bergamot HTML C++ is
+   required by this prototype.
 3. Normalize provider results into that shared plan: annotated source/target
    spans or validated protected markup. `HTML::restore` needs token annotations
    and alignments; it is not a supported engine-independent HTML-only package.
@@ -1055,7 +1130,7 @@ A responsive desktop browser at a mobile viewport would not fill that gap.
    tested. Installed-app validation still needs complex EPUB images, semantic
    search after replacement, reader navigation and TTS/highlighting on new
    translated variants. Existing generated audio is not migrated.
-5. Run a larger **blinded bilingual** French/Spanish book/technical corpus on
+5. When benchmarks resume, run a larger **blinded bilingual** French/Spanish book/technical corpus on
    both candidates, including idioms, numbers, omissions and semantic emphasis.
    Benchmark the actual packaged adapter on the weakest supported Android
    device and WKWebView, including cancellation, restart and sustained load.

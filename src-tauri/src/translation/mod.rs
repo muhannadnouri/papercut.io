@@ -5,6 +5,7 @@
 //! while this feature consumes that stable contract and creates translated
 //! document variants through a feature-gated native engine.
 
+mod bergamot;
 mod cache;
 mod capabilities;
 pub(crate) mod commands;

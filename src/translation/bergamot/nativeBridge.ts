@@ -1,0 +1,146 @@
+import { Channel, invoke } from '@tauri-apps/api/core'
+
+export interface BergamotFiles {
+  sourceLanguage: 'fr' | 'es'
+  wasm: ArrayBuffer
+  model: ArrayBuffer
+  lex: ArrayBuffer
+  vocab: ArrayBuffer
+}
+export interface TextSegment { id: string; text: string }
+export interface WorkerOutput extends TextSegment { sourceText: string }
+interface Batch {
+  kind: 'batch'
+  attemptId: string
+  batchId: number
+  sourceLanguage: string
+  targetLanguage: string
+  segments: TextSegment[]
+}
+interface Stop { kind: 'stop'; attemptId: string }
+type Failure = 'cancelled' | 'workerLost' | 'unavailable' | 'engineFailed'
+
+// shortcut: no installed Bergamot catalog assets yet; wire this entry point when verified delivery lands.
+export async function runBergamotBatch(
+  segments: TextSegment[], files: BergamotFiles, signal?: AbortSignal,
+): Promise<WorkerOutput[]> {
+  signal?.throwIfAborted()
+  const buffers = [files.wasm, files.model, files.lex, files.vocab]
+  if (buffers.some(buffer => !(buffer instanceof ArrayBuffer) || !buffer.byteLength)
+      || new Set(buffers).size !== 4 || buffers.reduce((bytes, buffer) => bytes + buffer.byteLength, 0) > 64 * 1024 * 1024) {
+    throw new Error('Bergamot requires four distinct binary assets within 64 MiB')
+  }
+  if (!['fr', 'es'].includes(files.sourceLanguage) || !segments.length || segments.length > 16
+      || new Set(segments.map(s => s.id)).size !== segments.length
+      || segments.some(s => !s.id || new TextEncoder().encode(s.id).byteLength > 128
+        || !s.text.trim() || s.text.length > 1800 || Array.from(s.text).length > 900)) {
+    throw new Error('Bergamot requires a bounded French/Spanish to English text batch')
+  }
+  const jobId = crypto.randomUUID()
+  const worker = new Worker('/translation/bergamot/worker.js')
+  let current: Batch | undefined
+  let ready = false
+  let closed = false
+  let replied = false
+  let failure: Failure = 'workerLost'
+  let rejectLifecycle: (error: Error) => void = () => {}
+  const lifecycle = new Promise<never>((_, reject) => { rejectLifecycle = reject })
+  const reportFailure = (batch: Batch, reason: Failure) => {
+    void invoke('translation_bergamot_reply', { reply: {
+      kind: 'failed', attemptId: batch.attemptId, batchId: batch.batchId, reason,
+    } }).catch(() => { /* Rust's independent deadline still releases a lost IPC channel. */ })
+  }
+  const fail = (reason: Failure) => {
+    if (closed) return
+    closed = true
+    failure = reason
+    worker.terminate()
+    if (current) reportFailure(current, reason)
+    rejectLifecycle(new Error(reason === 'cancelled' ? 'Translation cancelled' : 'Bergamot worker unavailable or lost'))
+  }
+  const onAbort = () => fail('cancelled')
+  const onPageHide = () => fail('workerLost')
+  const onVisibility = () => { if (document.visibilityState === 'hidden') fail('workerLost') }
+  const onError = (event: Event) => { event.preventDefault(); fail('workerLost') }
+  const sendBatch = () => {
+    if (!current || closed) return
+    try { worker.postMessage(current) } catch { fail('workerLost') }
+  }
+  worker.onmessage = ({ data }: MessageEvent<unknown>) => {
+    if (closed || !current || !data || typeof data !== 'object') return
+    const reply = data as Record<string, unknown>
+    if (reply.kind === 'ready') {
+      if (ready) { fail('engineFailed'); return }
+      ready = true
+      sendBatch()
+    } else if (reply.kind === 'failed') {
+      if (ready && (reply.attemptId !== current.attemptId || reply.batchId !== current.batchId)) return
+      // Initialization fails before the worker has a batch identity.
+      fail(ready ? 'engineFailed' : 'unavailable')
+    } else if (reply.kind === 'result') {
+      if (replied) return
+      if (reply.attemptId !== current.attemptId || reply.batchId !== current.batchId) return
+      if (!ready || !validOutputs(reply.outputs, current)) { fail('engineFailed'); return }
+      replied = true
+      void invoke('translation_bergamot_reply', { reply }).catch(() => fail('workerLost'))
+    } else { fail('engineFailed') }
+  }
+  worker.addEventListener('error', onError)
+  worker.addEventListener('messageerror', onError)
+  window.addEventListener('pagehide', onPageHide)
+  document.addEventListener('visibilitychange', onVisibility)
+  signal?.addEventListener('abort', onAbort, { once: true })
+  const timer = setTimeout(() => fail('workerLost'), 120_000)
+  const onRequest = (message: Batch | Stop) => {
+    if (message.kind === 'stop') {
+      if (message.attemptId === current?.attemptId) worker.terminate()
+      return // Rust still owns final success/failure of the command.
+    }
+    if (closed) { reportFailure(message, failure); return }
+    if (current || message.sourceLanguage !== files.sourceLanguage || message.targetLanguage !== 'en') {
+      current = message
+      fail('engineFailed')
+      return
+    }
+    current = message
+    try {
+      worker.postMessage({ kind: 'initialize', sourceLanguage: files.sourceLanguage, targetLanguage: 'en', files: {
+        wasm: files.wasm, model: files.model, lex: files.lex, vocab: files.vocab,
+      } }, buffers)
+    } catch { fail('unavailable') }
+  }
+  try {
+    if (signal?.aborted) fail('cancelled')
+    if (closed) return await lifecycle
+    const channel = new Channel<Batch | Stop>(onRequest)
+    const native = invoke<WorkerOutput[]>('translation_bergamot_batch', {
+      request: { jobId, sourceLanguage: files.sourceLanguage, targetLanguage: 'en', segments },
+      onRequest: channel,
+    })
+    return await Promise.race([native, lifecycle])
+  } finally {
+    closed = true
+    clearTimeout(timer)
+    signal?.removeEventListener('abort', onAbort)
+    window.removeEventListener('pagehide', onPageHide)
+    document.removeEventListener('visibilitychange', onVisibility)
+    worker.removeEventListener('error', onError)
+    worker.removeEventListener('messageerror', onError)
+    worker.onmessage = null
+    worker.terminate()
+  }
+}
+
+function validOutputs(value: unknown, batch: Batch): value is WorkerOutput[] {
+  if (!Array.isArray(value) || value.length !== batch.segments.length || value.length > 16) return false
+  let bytes = 0
+  const encoder = new TextEncoder()
+  return value.every((output: unknown, i) => {
+    if (!output || typeof output !== 'object') return false
+    const o = output as Record<string, unknown>
+    const source = batch.segments[i]
+    if (o.id !== source.id || o.sourceText !== source.text || typeof o.text !== 'string' || !o.text.trim()) return false
+    bytes += encoder.encode(source.id + source.text + o.text).byteLength
+    return bytes <= 256 * 1024
+  })
+}

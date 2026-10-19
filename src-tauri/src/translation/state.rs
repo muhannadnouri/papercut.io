@@ -15,6 +15,7 @@ struct TranslationModelActivity {
 
 #[derive(Clone)]
 pub struct TranslationState {
+    pub(crate) bergamot: Arc<super::bergamot::WorkerBridge>,
     model_activity: Arc<Mutex<TranslationModelActivity>>,
     pub(crate) cancelled_jobs: Arc<Mutex<HashSet<String>>>,
 }
@@ -22,6 +23,7 @@ pub struct TranslationState {
 impl Default for TranslationState {
     fn default() -> Self {
         Self {
+            bergamot: Arc::default(),
             model_activity: Arc::new(Mutex::new(TranslationModelActivity::default())),
             cancelled_jobs: Arc::new(Mutex::new(HashSet::new())),
         }

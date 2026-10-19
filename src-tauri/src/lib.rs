@@ -126,6 +126,8 @@ pub fn run() {
             translation::commands::translation_install_model,
             translation::commands::translation_remove_model,
             translation::commands::translation_start,
+            translation::commands::translation_bergamot_batch,
+            translation::commands::translation_bergamot_reply,
             translation::commands::translation_cancel,
             translation::commands::translation_list_documents,
             translation::commands::translation_delete_document,

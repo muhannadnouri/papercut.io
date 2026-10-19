@@ -28,6 +28,13 @@ public/*
 !public/fonts/
 !public/fonts/reader/
 !public/fonts/reader/**
+!public/translation/
+public/translation/*
+!public/translation/bergamot/
+public/translation/bergamot/*
+!public/translation/bergamot/worker.js
+!public/translation/bergamot/bergamot-translator.js
+!public/translation/bergamot/LICENSE
 .cache/*
 
 # Downloaded local TTS assets are large and platform-specific.

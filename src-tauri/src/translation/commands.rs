@@ -28,6 +28,45 @@ use super::types::{
     TranslationModelStatusRequest, TranslationStartRequest, TranslationStartResponse,
 };
 
+/// Text-only bridge prototype; no model catalog admission, files, caches or document writes.
+#[tauri::command]
+pub async fn translation_bergamot_batch<R: tauri::Runtime>(
+    state: tauri::State<'_, TranslationState>,
+    window: tauri::WebviewWindow<R>,
+    request: super::bergamot::BatchRequest,
+    on_request: tauri::ipc::Channel<super::bergamot::WorkerRequest>,
+) -> Result<Vec<super::engine::TranslationSegmentOutput>, TranslationCommandError> {
+    if window.label() != "main" {
+        return Err(TranslationCommandError::new(
+            "Bergamot worker requires the main WebView".into(),
+        ));
+    }
+    let state = state.inner().clone();
+    let owner = window.label().to_string();
+    tauri::async_runtime::spawn_blocking(move || {
+        super::bergamot::run_batch(&state, owner, request, move |message| {
+            on_request
+                .send(message)
+                .map_err(|_| "Bergamot worker channel was lost".to_string())
+        })
+    })
+    .await
+    .map_err(|_| TranslationCommandError::new("Bergamot bridge task failed".into()))?
+    .map_err(TranslationCommandError::from)
+}
+
+#[tauri::command]
+pub fn translation_bergamot_reply<R: tauri::Runtime>(
+    state: tauri::State<'_, TranslationState>,
+    window: tauri::WebviewWindow<R>,
+    reply: super::bergamot::WorkerReply,
+) -> Result<bool, TranslationCommandError> {
+    state
+        .bergamot
+        .reply(window.label(), reply)
+        .map_err(TranslationCommandError::from)
+}
+
 /// Return planned offline translation capabilities and candidate catalog entries.
 #[tauri::command]
 pub fn translation_capabilities() -> TranslationCapabilities {
