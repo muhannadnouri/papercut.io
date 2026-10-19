@@ -179,6 +179,7 @@ impl TranslationEngine for CTranslate2Engine {
                 .enumerate()
                 .map(|(index, segment)| TranslationSegmentOutput {
                     id: segment.id,
+                    source_text: segment.text,
                     text: joined_outputs[index].clone(),
                 })
                 .collect())

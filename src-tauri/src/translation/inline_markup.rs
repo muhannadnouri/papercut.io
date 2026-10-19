@@ -11,6 +11,10 @@ use kuchikiki::NodeRef;
 use super::dom::DomPlan;
 use super::storage::{PersistTranslationFragment, PersistTranslationInlinePhrase};
 
+// shortcut: current adapters return text only; consume these checked spans with the first aligned adapter.
+#[allow(dead_code)]
+pub(super) mod provider;
+
 const MAX_INLINE_PHRASE_CHARS: usize = 120;
 
 /// Version of the inline-alignment strategy (probes, folding, projection).

@@ -169,6 +169,7 @@ impl TranslationEngine for HyMt2Engine {
                 let text = generate_translation(&self.model, &mut context, &prompt)?;
                 outputs.push(TranslationSegmentOutput {
                     id: segment.id,
+                    source_text: segment.text,
                     text,
                 });
             }

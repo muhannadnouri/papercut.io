@@ -1134,6 +1134,74 @@ mod tests {
     }
 
     #[test]
+    fn validated_provider_spans_use_the_shared_text_renderer_without_trusting_html() {
+        use crate::translation::inline_markup::provider::{
+            validate_inline_mapping, InlineSpanMapping,
+        };
+        let source = crate::document_uploads::sanitize_html(
+            r#"<p id="r">Une bague en <strong>or</strong><a role="doc-noteref" href='#n'>1</a>.</p><p id="n">Note<a role="doc-backlink" href='#r'>Back</a></p>"#,
+        );
+        let plan = super::DomPlan::new(&source);
+        let block = &plan.blocks[0];
+        let target = "A gold ring. <a href='#forged'>Fake</a><script>bad()</script>";
+        let spans = validate_inline_mapping(
+            &block.inline,
+            &block.inline.text,
+            target,
+            &[InlineSpanMapping {
+                source_span: 0,
+                target: 2..6,
+            }],
+        )
+        .unwrap();
+        let markers = super::project_inline_markers(
+            &block.inline.markers,
+            0,
+            block.inline.text.chars().count(),
+            target,
+        );
+        super::replace_children_with_projected_formatting(&block.node, target, &spans, &markers);
+        let saved = crate::document_uploads::sanitize_html(
+            &super::serialize_document(&plan.document).unwrap(),
+        );
+        let document = parse_html_document(&saved);
+        assert_eq!(
+            document.select_first("#r strong").unwrap().text_contents(),
+            "gold"
+        );
+        assert_eq!(document.select("a").unwrap().count(), 2);
+        assert_eq!(
+            document
+                .select_first("a[role=doc-noteref]")
+                .unwrap()
+                .attributes
+                .borrow()
+                .get("href"),
+            Some("#n")
+        );
+        assert_eq!(
+            document
+                .select_first("a[role=doc-backlink]")
+                .unwrap()
+                .attributes
+                .borrow()
+                .get("href"),
+            Some("#r")
+        );
+        assert!(document.select_first("script").is_err());
+        document
+            .select_first("a[role=doc-noteref]")
+            .unwrap()
+            .as_node()
+            .detach();
+        assert!(document
+            .select_first("#r")
+            .unwrap()
+            .text_contents()
+            .contains("<a href='#forged'>Fake</a><script>bad()</script>"));
+    }
+
+    #[test]
     fn sanitized_note_references_and_protected_text_survive_render_and_save() {
         let source = crate::document_uploads::sanitize_html(
             r#"<p translate="no">user_id</p>

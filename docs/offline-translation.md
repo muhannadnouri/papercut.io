@@ -585,8 +585,155 @@ review repros also passed against the actual sanitizer/mapper/renderer using
 fixture translations, without running an engine. Feature-disabled native adapter
 dead-code warnings remain. No runtime, dependency, provider, or app version
 changed. Benchmarks, model inference/hardware comparisons, installed-app smoke
-and the version bump remain deferred. The next stage is review of this hardening,
-then a validated provider mapping contract before a supported Bergamot adapter.
+and the version bump remain deferred. Review of hardening commit `dea421a` on
+2026-10-19 found no new blockers in the changed import, mapping and persistence
+paths. A fresh run repeated **384 passed, 4 ignored**. This is code/regression
+validation, not a claim about engine quality or packaged WebViews.
+
+#### Provider Mapping Contract And Validation Slice (2026-10-19)
+
+The next provider must fit the existing job and storage flow. Keep
+`TranslationEngine::translate_batch` and its text-only OPUS-MT/HY-MT2 adapters
+working until a real adapter needs a richer result. Do not introduce a provider
+registry, second document store, copied Bergamot HTML implementation or parallel
+renderer. The validation slice below implements reply checks and fixture-tested
+emphasis mapping; the rest of this contract remains a requirement for future
+integration. No new translation engine or HTML-aware capability is enabled.
+
+| Owner | Responsibility |
+| --- | --- |
+| Rust job runner | Read the sanitized source snapshot, plan bounded batches, bind replies to the active attempt, manage cancellation and durable progress. |
+| DOM/inline mapping | Own block identities, normalized source text, formatting identities and protected content; validate provider mappings. |
+| Provider adapter | Translate complete sentence/segment context across inline tags; convert its own token/offset or HTML representation into validated text and mappings. |
+| Shared renderer/storage | Change only authorized text/formatting locations in the cloned source DOM; sanitize, index and persist with independently owned assets. |
+
+**Result binding and offsets.** One result belongs to one requested segment,
+under the exact source snapshot, language pair, model artifact/runtime and
+mapping strategy used for that attempt. Keep exact id/count/order checks before
+cache writes. A source fingerprint identifies the snapshot; validate mappings
+against the retained exact normalized source, not a returned hash alone. Repeated
+sentences in different blocks are different locations even when their text is
+identical. A worker bridge must additionally bind request, batch and attempt
+identities: a late reply from a cancelled/restarted worker cannot satisfy a new
+request. A mismatch is an error, not a reason to attach the result by position.
+
+Use half-open `[start, end)` **Unicode scalar ranges** against the exact normalized
+segment text for source and target mapping. Convert provider UTF-8 byte offsets,
+UTF-16 code units or token positions explicitly in the adapter. Rendering converts
+validated target ranges into UTF-8 byte offsets only at its existing boundary.
+Do not normalize or trim text after establishing ranges without rebasing them.
+Reject negative, reversed, out-of-bounds and non-boundary provider ranges; never
+round an offset into a different character. Token alignment additionally needs
+the provider's matching tokenization and normalization mapping to the original
+segment, not offsets guessed from token string lengths.
+
+**Text remains the baseline.** The existing adapters return text and may use the
+documented conservative phrase hints. They do not claim semantic alignment.
+Richer mapping is optional and must be established for the actual adapter/model
+combination, not inferred from an engine option or model name. Normalized richer
+results contain target text and target ranges associated with source-owned inline
+identities. Provider HTML, if used by a supported API, is only an intermediate
+adapter representation; it is never a replacement reader document.
+
+**Validate before reconstructing markup.** Keep the authoritative tags and
+attributes in Papercut's DOM plan. The adapter may associate translated text with
+known inline identities, but cannot invent tags, URLs, ids, asset paths or note
+targets. A protected-code HTML representation must preserve each required identity
+and its allowed nesting/multiplicity; reject unknown, missing, duplicated or
+changed codes and attributes. Sanitizing generated HTML alone is insufficient:
+it can remove active content while still accepting the wrong footnote target or
+dropping an image. Reconstruct from the source-owned DOM after validation.
+
+Target order may differ from source order. For example, French
+`Une bague en <strong>or</strong>.` may map that source emphasis to `gold` in
+`A <strong>gold</strong> ring.`; it must not map by relative position to `ring`.
+Nested ranges must form valid nesting, never crossing overlaps. An adapter may
+report more than one disjoint target range for a source identity only when its
+representation supports that case explicitly; do not fill the gap with invented
+emphasis. Structural validity does not prove translation quality: reordered,
+omitted and ambiguous words still need linguistic acceptance later.
+
+**Protected content and failure behavior.** Links, assets, ids, code, note
+identities and `translate="no"` content remain source-owned. A future rich path
+must keep protected literal contents out of translatable payloads and validate
+their unchanged restoration; an instruction to an LLM is not that guarantee.
+The current partial-inline/code/media preservation fallback remains in force
+until that path exists. If text is valid but emphasis mapping is unsupported or
+ambiguous, retain the current safe plain-text/conservative rendering and report
+the formatting limitation. If protected structure cannot be restored, retain
+the source block with translated prose beside it or fail before saving; do not
+silently discard content. Missing/empty text, wrong identities, stale replies or
+invalid protected-code output fail the batch and leave the previous saved variant
+intact. Do not silently select a different model or engine.
+
+**Cache and worker lifetime.** Rich mappings are not reusable just because the
+plain source string matches: their DOM identities must be rebound and validated
+against the current plan. When implemented, include provider/model artifact,
+normalization and mapping-strategy identity in cache compatibility; old text-only
+cache entries cannot become aligned results. Preserve completed variants and
+existing audio/highlighting. New variants derive indexing and future audio
+positions from the actual saved DOM. For WASM, retain Rust job/storage authority;
+use bounded messages and response deadlines, account for worker loss/WebView
+suspension, discard late replies and resume only completed validated batches.
+No full-book/model payloads as JSON/base64 and no detached worker may finish a
+cancelled job by writing a variant. The synchronous native trait does not itself
+provide this lifecycle bridge.
+
+##### Implemented Validation Slice
+
+- `translation::engine::validate_outputs` checks the whole reply for exact
+  count/order, unique nonempty requested ids, exact source text and nonempty
+  translated text before consuming any returned segment. Both normal batches
+  and optional phrase probes use it. CTranslate2 and HY-MT2 retain their input
+  text in the internal reply; this is adapter bookkeeping, not text generated by
+  the model or authentication of an external worker. Invalid probe replies are
+  nonfatal and contribute no new hints. Existing valid cached hints remain usable.
+- `translation::inline_markup::provider` validates emphasis-only mappings against
+  a retained `InlineSourceModel`. Each mapping references a source-local
+  formatting-run index and a target scalar range. All requested runs must occur
+  exactly once; unknown/missing/duplicate runs, empty/reversed/out-of-bounds ranges
+  and all target overlaps are rejected. Target order may change, and nested styles
+  use the source run's tag stack. This deliberately narrow representation cannot
+  express multiple disjoint targets for one run or overlapping target runs, even
+  when contained. Such mappings need an explicitly supported representation later,
+  not guessed merging or expanded emphasis now.
+- Target ranges convert strictly into UTF-8 bytes for the existing renderer.
+  A separate strict UTF-8-to-scalar conversion rejects offsets inside an accent,
+  emoji or combining-mark scalar. Offsets are scalar boundaries, not a claim of
+  grapheme/linguistic alignment. UTF-16 and tokenizer adapters are not implemented.
+- Mapping input has no tag, attribute, URL, asset or note-target fields. Tags come
+  only from the retained source model; code cannot be remapped as emphasis. A
+  renderer fixture verifies reordered `or` → `gold` emphasis and escaped
+  HTML-looking output while original note/reference targets survive sanitization.
+  This is not a provider-HTML or protected-code parser: structural code identity,
+  nesting and multiplicity checks are still required before accepting such output.
+- The emphasis boundary is compiled and fixture-tested but **not wired into a
+  production engine or cache**. Current adapters still return plain text, and
+  their existing conservative rendering/preservation paths remain active. There
+  is no new UI capability, formatting-warning flow or rich-cache schema. Existing
+  alignment epoch **3**, saved variants, originals, audio and highlighting remain
+  unchanged. The ordinary text-only result DTO changes only inside Rust.
+
+Validation: **392 Rust library tests passed, 4 existing ignored**, including
+**115 translation tests**. New cases cover reply/source binding, a later empty
+output in a batch, reordered and repeated emphasis, nested source tag stacks,
+missing/duplicate/unknown runs, overlapping and invalid scalar/UTF-8 ranges,
+plain-text/no-mapping input, code rejection and escaped HTML-looking output.
+CTranslate2-feature `cargo check` with the locked/offline dependencies, Rust
+formatting and diff checks passed. The combined native-feature compile check was
+blocked by missing Vulkan headers required by HY-MT2 in this environment; that
+feature still needs CI validation.
+No model inference or new translation-quality result is claimed.
+
+Next, prototype one supported Bergamot worker/interface using bounded text
+requests through the current job lifecycle before enabling rich rendering. That
+stage must establish attempt/batch identities, cancellation, timeout, worker loss
+and late-reply handling; none is implemented by this synchronous validation
+slice. Only then connect validated provider mappings and protected-content
+restoration, cache provenance and capability reporting. Worker packaging, model
+verification and real-device quality/performance remain acceptance work; no
+default-model or mobile-support decision is made here. Benchmarks, installed-app
+smoke and the app version bump remain deferred.
 
 ### Stage 7: Quality Upgrades - Mostly Done
 
@@ -860,11 +1007,12 @@ A responsive desktop browser at a mobile viewport would not fill that gap.
 
 ### Next Bounded Work Before Production Integration
 
-1. The shared DOM/asset foundation is implemented above. Extend its inline
-   mapping only with validated provider annotations/alignments; do not reintroduce
-   positional emphasis guesses. The existing normalized scalar-offset contract
-   must be converted explicitly at any provider UTF-8 boundary.
-2. Prototype the supported WASM worker boundary before choosing a native
+1. The shared DOM/asset foundation and hardening review are complete. The
+   [provider validation slice](#provider-mapping-contract-and-validation-slice-2026-10-19)
+   is now fixture-tested; production adapters remain text-only. Extend inline
+   mapping only with validated annotations/alignments; do not reintroduce
+   positional emphasis guesses.
+2. Then prototype the supported WASM worker boundary before choosing a native
    Bergamot FFI. It runs today without a maintained C++ fork, but it cannot be
    dropped into the synchronous Rust `TranslationEngine` trait unchanged.
    Keep Rust job/storage authority, bounded requests and durable batch progress;

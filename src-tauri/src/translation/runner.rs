@@ -18,7 +18,7 @@ use super::config::{
 };
 use super::ctranslate2::CTranslate2Engine;
 use super::engine::{
-    validate_output_ids, TranslationBatchInput, TranslationEngine, TranslationSegmentContext,
+    validate_outputs, TranslationBatchInput, TranslationEngine, TranslationSegmentContext,
     TranslationSegmentInput,
 };
 use super::hy_mt2::HyMt2Engine;
@@ -457,11 +457,11 @@ fn run_translation_batches<R: tauri::Runtime>(
                         format!("Native in-memory translation did not complete: {err}"),
                     )
                 })?;
-            validate_output_ids(
+            validate_outputs(
                 &pending_batch
                     .segments
                     .iter()
-                    .map(|segment| segment.id.as_str())
+                    .map(|segment| (segment.id.as_str(), segment.text.as_str()))
                     .collect::<Vec<_>>(),
                 &outputs,
             )
@@ -469,15 +469,6 @@ fn run_translation_batches<R: tauri::Runtime>(
             let mut translated_count = 0;
             for (segment, output) in pending_batch.segments.iter().zip(outputs.iter()) {
                 let translated_text = output.text.trim().to_string();
-                if translated_text.is_empty() {
-                    return Err(run.failure(
-                        "failed",
-                        format!(
-                            "Native translation returned empty output for source section {}",
-                            segment.source_block_index + 1
-                        ),
-                    ));
-                }
                 translated_count += 1;
                 append_translated_segment(
                     &mut translated_blocks,
@@ -594,10 +585,6 @@ fn translate_inline_phrase_hints(
         return (hints, false);
     }
 
-    let owner_by_probe = owners
-        .into_iter()
-        .map(|(probe_id, owner_id, source_text)| (probe_id, (owner_id, source_text)))
-        .collect::<BTreeMap<_, _>>();
     let input = TranslationBatchInput {
         model_id: plan.request.model_id.clone(),
         source_language: plan.request.source_language.clone(),
@@ -607,11 +594,6 @@ fn translate_inline_phrase_hints(
         glossary: plan.request.glossary.clone(),
         segments: inputs,
     };
-    let expected_ids = input
-        .segments
-        .iter()
-        .map(|segment| segment.id.clone())
-        .collect::<Vec<_>>();
     let outputs = match engine.translate_batch(input) {
         Ok(outputs) => outputs,
         Err(err) => {
@@ -622,30 +604,27 @@ fn translate_inline_phrase_hints(
         }
     };
 
-    if let Err(error) = validate_output_ids(
-        &expected_ids.iter().map(String::as_str).collect::<Vec<_>>(),
+    if let Err(error) = validate_outputs(
+        &owners
+            .iter()
+            .map(|(id, _, source)| (id.as_str(), source.as_str()))
+            .collect::<Vec<_>>(),
         &outputs,
     ) {
-        log::warn!("translation: inline phrase probe identities do not match: {error}");
+        log::warn!("translation: invalid inline phrase probe reply: {error}");
         return (hints, false);
     }
 
     let mut stored_new_translation = false;
-    for output in outputs {
-        let Some((owner_id, source_text)) = owner_by_probe.get(&output.id) else {
-            continue;
-        };
+    for (output, (_, owner_id, source_text)) in outputs.into_iter().zip(owners) {
         let translated = output.text.trim();
-        if translated.is_empty() {
-            continue;
-        }
-        cache.store_probe_translation(source_text, translated.to_string());
+        cache.store_probe_translation(&source_text, translated.to_string());
         stored_new_translation = true;
         hints
-            .entry(owner_id.clone())
+            .entry(owner_id)
             .or_default()
             .push(PersistTranslationInlinePhrase {
-                source_text: source_text.clone(),
+                source_text,
                 text: translated.to_string(),
             });
     }
