@@ -338,6 +338,10 @@ mod tests {
         worker.request.model_id = "bergamot-fr-en-worker".into();
         let mut cache = new_segment_cache(&worker);
         assert!(cache_is_compatible(&cache, &worker));
+        cache.provider_identity = cache
+            .provider_identity
+            .map(|identity| identity.replace("protected-codes-v2", "protected-codes-v1"));
+        assert!(!cache_is_compatible(&cache, &worker));
         cache.provider_identity = Some("previous-runtime-or-model".into());
         assert!(!cache_is_compatible(&cache, &worker));
         cache.provider_identity = None;

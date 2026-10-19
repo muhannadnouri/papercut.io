@@ -1156,12 +1156,13 @@ and occur exactly once. Opaque literals retain source word-boundary spaces even
 if the provider HTML alignment loses a separator.
 
 **Resume and provenance.** Rich cache entries store the raw code response plus
-an identity of the exact source plan, literals and `protected-codes-v1` strategy.
+an identity of the exact source plan, literals and `protected-codes-v2` strategy.
 They are location-bound and revalidated on every read. Plain translation memory
 cannot satisfy a rich request; missing/corrupt/mismatched mappings trigger fresh
-inference. Provider identity is now `bergamot-protected-codes-v1:<hash>`, retaining
-the existing exact asset/worker/loader hash binding. Old Bergamot text caches are
-incompatible; native text caches and alignment epoch **3** are unchanged. Existing
+inference. Provider identity is now `bergamot-protected-codes-v2:<hash>`, retaining
+the existing exact asset/worker/loader hash binding. Old Bergamot text and v1
+rich caches are incompatible; native text caches and alignment epoch **3** are
+unchanged. Existing
 completed variants, originals, generated audiobooks and highlighting are not
 migrated or rewritten by this change. A failed new attempt keeps the previous
 completed variant intact.
@@ -1201,9 +1202,50 @@ warning; the CT2 check retains three existing unused HY-MT2 helper warnings.
 Sandboxed full-suite attempts initially hit existing loopback/Chromium permission
 restrictions; permitted reruns passed. No model inference, new benchmark, installed-app smoke or app version change was
 performed. HY-MT2/Vulkan packaging and packaged WebView behavior remain unverified.
-Next: focused review of this rich-mapping slice before catalog/UI exposure.
-Benchmarks, installed-app smoke, real packaged WebView acceptance and the app
-version bump remain deferred; no default-model or mobile-support claim is made.
+##### Hierarchy Review Fixes (2026-10-19)
+
+The review found two P2 failures on valid source HTML: whitespace normalization
+could move a formatting parent's start past a leading note/image/line break, and
+fragment selection could retain a boundary note while omitting its parent when
+the parent started exactly at the 900-scalar cut. Both failed safely before a
+variant was saved, but could stop a complete book job.
+
+The shared protected planner now restores parent containment after normalization
+and retains each selected node's full ancestor chain before clipping. Source
+identities are assigned in preorder, so a bounded reverse pass handles nested
+grandparents as well as immediate parents. Anonymous formatting wrappers may be
+empty in the preceding fragment to carry its boundary child; the child still
+occurs exactly once. Existing indivisible id/name/literal checks, strict reply
+validation, source ownership, transport bounds and atomic persistence remain in
+force. No permissive fallback or second rendering path was added. Function-level
+comments explain the empty-wrapper and ancestor-selection behavior.
+
+Three new regressions cover normalized containment and round trips with nested
+notes/images/line breaks; the actual 900-scalar segmenter, translated fragments
+and shared renderer together (ASCII and non-ASCII byte offsets); and rejection
+of id/name ancestors or literals that would be split. The boundary cases verify
+one restored child under all original formatting ancestors and keep unknown or
+reparented output rejected. Both positive regressions failed on the reviewed
+implementation before the fixes. The source-owned line break intentionally
+contributes a normalized space, so its second segment begins at scalar 901
+while the first ends at 900. The review's independent 48-case source matrix now
+passes completely, including the original two reproductions.
+
+Mapping strategy **v2** deliberately invalidates the initial v1 rich resume
+entries; a compatibility regression covers that change. The app version,
+native text-cache epoch, completed variants, originals, generated audio and
+highlighting are unchanged. New worker provenance records v2 only for new jobs.
+
+Validation: **427 Rust library tests passed, 4 existing ignored** and
+**151 translation tests passed with `native-translation` enabled**, including the
+real loopback downloader fixture. The locked/offline CTranslate2 feature check,
+Rustfmt and diff checks passed; CT2 retains three existing unused HY-MT2 helper
+warnings. Frontend tests/build were not repeated for this Rust-only fix; their
+439-test/build results above are historical implementation evidence. No model
+inference, packaged-device test, benchmark or app version change was performed.
+Next: review the hierarchy fixes before catalog/UI exposure. Benchmarks,
+installed-app smoke, real model/device acceptance and the app version bump remain
+deferred; no default-model or mobile-support claim is made.
 
 ### Stage 7: Quality Upgrades - Mostly Done
 

@@ -9,7 +9,8 @@ use super::{append_normalized_text, serialize_node, source_inline_model};
 use crate::document_uploads::{is_note_marker, tag_separates_text};
 use crate::translation::html::parse_html_document;
 
-pub(crate) const MAPPING_VERSION: &str = "protected-codes-v1";
+/// Source normalization and hierarchy semantics participate in worker cache compatibility.
+pub(crate) const MAPPING_VERSION: &str = "protected-codes-v2";
 const MAX_CODES: usize = 128;
 pub(crate) const MAX_HTML_BYTES: usize = 32 * 1024;
 
@@ -44,7 +45,7 @@ pub(crate) struct ProtectedSource {
 }
 
 impl ProtectedSource {
-    /// Extract source ownership once using the same normalized text contract as the shared DOM plan.
+    /// Extract once using the shared DOM text contract, keeping normalized wrappers around leading children.
     pub(crate) fn new(node: &NodeRef) -> Result<Self, String> {
         let mut text = String::new();
         let mut codes = Vec::new();
@@ -62,10 +63,17 @@ impl ProtectedSource {
                 code.start += 1;
             }
         }
+        // Preorder ids put parents first; walking backward keeps every wrapper around its children.
+        for index in (0..codes.len()).rev() {
+            if let Some(parent) = codes[index].parent {
+                codes[parent].start = codes[parent].start.min(codes[index].start);
+            }
+        }
         Ok(Self { chars, codes })
     }
 
-    /// Clip formatting to exact source scalars, but never divide a protected literal or anchor identity.
+    /// Clip formatting with all selected ancestors; boundary children may need an empty wrapper.
+    /// Protected literals and authored anchor identities remain indivisible even when selected as ancestors.
     pub(crate) fn fragment(
         &self,
         range: Range<usize>,
@@ -81,15 +89,29 @@ impl ProtectedSource {
         {
             return Err("Protected markup does not match the source fragment".into());
         }
+        let mut included = self
+            .codes
+            .iter()
+            .map(|code| {
+                // Zero-width notes belong to the preceding fragment, including its final boundary.
+                if code.start == code.end {
+                    (range.start < code.start && code.start <= range.end)
+                        || (range.start == 0 && code.start == 0)
+                } else {
+                    code.start < range.end && code.end > range.start
+                }
+            })
+            .collect::<Vec<_>>();
+        // A child assigned to this fragment still needs its source-owned parent chain.
+        for index in (0..self.codes.len()).rev() {
+            if included[index] {
+                if let Some(parent) = self.codes[index].parent {
+                    included[parent] = true;
+                }
+            }
+        }
         let mut retained = Vec::new();
-        for code in &self.codes {
-            // Zero-width notes belong to the preceding fragment, including its final boundary.
-            let included = if code.start == code.end {
-                (range.start < code.start && code.start <= range.end)
-                    || (range.start == 0 && code.start == 0)
-            } else {
-                code.start < range.end && code.end > range.start
-            };
+        for (code, included) in self.codes.iter().zip(included) {
             if !included {
                 continue;
             }
@@ -373,6 +395,91 @@ mod tests {
             &block.inline.text,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn leading_zero_width_children_stay_inside_all_normalized_formatting_parents() {
+        let asset = crate::document_uploads::ParsedDocumentAsset::new(
+            "image/png",
+            b"owned hierarchy image".to_vec(),
+        )
+        .unwrap();
+        let atoms = [
+            (
+                "<a role='doc-noteref' href='#n' id='ref'><sup>1</sup></a>".to_string(),
+                "a#ref",
+            ),
+            (
+                format!("<img data-papercut-asset='{}'>", asset.file_name),
+                "img",
+            ),
+            ("<br>".into(), "br"),
+        ];
+        for (atom, selector) in atoms {
+            for (prefix, content) in [
+                ("Bonjour.", format!("{atom} Merci.")),
+                ("Bonjour. ", format!("{atom}Merci.")),
+                ("Bonjour.", format!(" {atom}Merci.")),
+            ] {
+                let safe = crate::document_uploads::sanitize_html(&format!(
+                    "<p>{prefix}<strong><em>{content}</em></strong></p>"
+                ));
+                let dom = DomPlan::new(&safe);
+                let block = &dom.blocks[0];
+                let extracted = ProtectedSource::new(&block.node).unwrap();
+                for code in &extracted.codes {
+                    if let Some(parent) = code.parent {
+                        let parent = &extracted.codes[parent];
+                        assert!(
+                            parent.start <= code.start && parent.end >= code.end,
+                            "parent excludes {selector}: {safe}"
+                        );
+                    }
+                }
+                let plan = extracted
+                    .fragment(0..block.inline.text.chars().count(), &block.inline.text)
+                    .unwrap();
+                let restored = plan.restore(&plan.html).unwrap();
+                assert_eq!(restored.text, block.inline.text);
+                let doc = parse_html_document(&restored.html);
+                assert_eq!(
+                    doc.select(&format!("strong > em > {selector}"))
+                        .unwrap()
+                        .count(),
+                    1
+                );
+                assert!(!plan.html.contains("href"));
+                assert!(!plan.html.contains(&asset.file_name));
+            }
+        }
+    }
+
+    #[test]
+    fn boundary_ancestor_retention_cannot_split_authored_identities_or_literals() {
+        let prefix = format!("{}fin!", "Bonjour ".repeat(112));
+        for identity in ["id='keep'", "name='keep'"] {
+            let safe = crate::document_uploads::sanitize_html(&format!("<p>{prefix}<strong {identity}><em><a role='doc-noteref' href='#n'>1</a>Suite.</em></strong></p>"));
+            let dom = DomPlan::new(&safe);
+            let extracted = ProtectedSource::new(&dom.blocks[0].node).unwrap();
+            assert!(extracted
+                .fragment(0..900, &prefix)
+                .unwrap_err()
+                .contains("crosses a segment boundary"));
+        }
+        let prefix = "Bonjour ".repeat(112);
+        let dom = DomPlan::new(&format!(
+            "<p>{prefix}<strong><code>user id value</code></strong></p>"
+        ));
+        let block = &dom.blocks[0];
+        let segment = crate::translation::segment::segment_text_blocks([&block.inline.text], 900)
+            .unwrap()
+            .remove(0);
+        assert_eq!(segment.source_end, 900);
+        assert!(ProtectedSource::new(&block.node)
+            .unwrap()
+            .fragment(segment.source_start..segment.source_end, &segment.text)
+            .unwrap_err()
+            .contains("crosses a segment boundary"));
     }
 
     #[test]

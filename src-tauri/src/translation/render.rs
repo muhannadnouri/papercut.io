@@ -1460,6 +1460,121 @@ mod tests {
         assert_eq!(dom.select_first("#ref").unwrap().text_contents(), "2");
     }
 
+    /// Exercise the real scalar cut and renderer together, including non-ASCII source byte offsets.
+    #[test]
+    fn real_900_scalar_segments_keep_boundary_children_with_their_formatting_ancestors() {
+        use crate::translation::inline_markup::protected::ProtectedSource;
+        use crate::translation::segment::segment_text_blocks;
+        let asset = crate::document_uploads::ParsedDocumentAsset::new(
+            "image/png",
+            b"owned boundary image".to_vec(),
+        )
+        .unwrap();
+        for prefix in [
+            format!("{}fin!", "Bonjour ".repeat(112)),
+            format!("{}fin!!", "Été🙂 ".repeat(179)),
+        ] {
+            assert_eq!(prefix.chars().count(), 900);
+            for (atom, selector) in [
+                (
+                    "<a role='doc-noteref' href='#n' id='ref'><sup>1</sup></a>".to_string(),
+                    "a#ref",
+                ),
+                (
+                    format!("<img data-papercut-asset='{}'>", asset.file_name),
+                    "img",
+                ),
+                ("<br>".into(), "br"),
+            ] {
+                let safe = crate::document_uploads::sanitize_html(&format!(
+                    "<p>{prefix}<strong><em>{atom}Suite.</em></strong></p>"
+                ));
+                let dom = super::DomPlan::new(&safe);
+                let block = &dom.blocks[0];
+                let extracted = ProtectedSource::new(&block.node).unwrap();
+                let full = extracted
+                    .fragment(0..block.inline.text.chars().count(), &block.inline.text)
+                    .unwrap();
+                assert_eq!(full.restore(&full.html).unwrap().text, block.inline.text);
+                let segments = segment_text_blocks([&block.inline.text], 900).unwrap();
+                assert_eq!(segments.len(), 2);
+                assert_eq!(
+                    (
+                        segments[0].source_start,
+                        segments[0].source_end,
+                        segments[1].source_start
+                    ),
+                    (0, 900, if selector == "br" { 901 } else { 900 })
+                );
+                let mut fragments = Vec::new();
+                for (index, segment) in segments.iter().enumerate() {
+                    let plan = extracted
+                        .fragment(segment.source_start..segment.source_end, &segment.text)
+                        .unwrap();
+                    assert!(!plan.html.contains("href"));
+                    assert!(!plan.html.contains(&asset.file_name));
+                    let roundtrip = plan.restore(&plan.html).unwrap();
+                    assert_eq!(roundtrip.text, segment.text);
+                    let restored_dom = parse_html_document(&roundtrip.html);
+                    assert_eq!(
+                        restored_dom
+                            .select(&format!("strong > em > {selector}"))
+                            .unwrap()
+                            .count(),
+                        usize::from(index == 0)
+                    );
+                    // Providers still cannot move the boundary child outside its retained parent.
+                    if index == 0 {
+                        assert!(plan
+                            .restore(&plan.html.replace("data-pc=\"2\"", "data-pc=\"99\""))
+                            .is_err());
+                        assert!(plan
+                            .restore(&plan.html.replace("<span data-pc=\"1\">", "").replacen(
+                                "</span></span>",
+                                "</span>",
+                                1
+                            ))
+                            .is_err());
+                    }
+                    let target = plan
+                        .html
+                        .replace("Bonjour", "Hello")
+                        .replace("Été🙂", "Summer🙂")
+                        .replace("fin!", "end!")
+                        .replace("Suite.", "Next.");
+                    let restored = plan.restore(&target).unwrap();
+                    let mut result = fragment(&segment.text, &restored.text);
+                    result.source_start = segment.source_start;
+                    result.source_end = segment.source_end;
+                    result.markup = Some(target);
+                    fragments.push(result);
+                }
+                let text = fragments
+                    .iter()
+                    .map(|f| f.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                let req = request(
+                    &safe,
+                    vec![section_with_fragments(0, false, &text, fragments)],
+                );
+                let html = render_translated_html("English", &req).unwrap();
+                let output = parse_html_document(&html);
+                assert_eq!(output.select(selector).unwrap().count(), 1);
+                assert_eq!(
+                    output
+                        .select(&format!("strong > em > {selector}"))
+                        .unwrap()
+                        .count(),
+                    1
+                );
+                assert_eq!(output.select("p > strong > em").unwrap().count(), 2);
+                assert!(html.contains("Next."));
+                assert!(!html.contains("data-pc"));
+            }
+        }
+    }
+
     fn request(
         view_html: &str,
         translated_sections: Vec<PersistTranslationSection>,

@@ -231,7 +231,7 @@ fn failed_later_batch_resumes_only_completed_work_and_stores_one_provenanced_var
         )
         .unwrap();
     assert_eq!(engine_id, "bergamot");
-    assert!(settings.contains("bergamot-protected-codes-v1:"));
+    assert!(settings.contains("bergamot-protected-codes-v2:"));
     assert_eq!(
         super::super::storage::list_translated_documents(app.handle())
             .unwrap()
