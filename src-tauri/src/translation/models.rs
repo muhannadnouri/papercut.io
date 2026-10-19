@@ -1,8 +1,8 @@
 //! Offline translation model catalog.
 //!
-//! Pinned CTranslate2 and llama.cpp entries are installable on supported
-//! desktop builds; candidate-only models remain descriptive until their
-//! runtime, licensing, and platform constraints are validated.
+//! Native engine flags and WebView worker prerequisites gate runnable choices.
+//! Candidate-only models stay descriptive; experimental worker entries do not
+//! establish packaged-device acceptance or replace the native defaults.
 
 use super::config::DEFAULT_TRANSLATION_QUALITY_MODE;
 use super::types::TranslationModelInfo;
@@ -27,6 +27,7 @@ impl TranslationModelDefinition {
     pub(crate) fn to_info(self) -> TranslationModelInfo {
         TranslationModelInfo {
             id: self.id.into(),
+            available: self.engine_available() && self.manifest_state == "pinned-file-manifest",
             name: self.name.into(),
             engine: self.engine.into(),
             tier: self.tier.into(),
@@ -50,6 +51,16 @@ impl TranslationModelDefinition {
             license_notes: self.license_notes.into(),
             size_notes: self.size_notes.into(),
             notes: self.notes.into(),
+        }
+    }
+
+    /// Keep compile gates per engine; one enabled backend cannot admit another backend's models.
+    pub(crate) fn engine_available(self) -> bool {
+        match self.engine {
+            "ctranslate2" => cfg!(feature = "native-translation-ctranslate2"),
+            "llama.cpp" => cfg!(feature = "native-translation-llama"),
+            "bergamot" => cfg!(feature = "native-translation"),
+            _ => false,
         }
     }
 }
@@ -110,6 +121,32 @@ pub(crate) const PLANNED_TRANSLATION_MODELS: &[TranslationModelDefinition] = &[
         license_notes: "Requires model-license, prompt-policy, and redistribution review.",
         size_notes: "Large desktop experiment; not a default mobile candidate.",
         notes: "Context-rich academic-prose experiment; needs strict prompts and QA to avoid paraphrase drift.",
+    },
+    TranslationModelDefinition {
+        id: "bergamot-fr-en-worker",
+        name: "Bergamot French to English (Experimental)",
+        engine: "bergamot",
+        tier: "fast",
+        manifest_state: "pinned-file-manifest",
+        source_languages: &["fr"],
+        target_languages: &["en"],
+        recommended_platforms: &[],
+        license_notes: "Mozilla runtime notices and MPL-2.0 source attribution are bundled in translation/bergamot; model files are downloaded from Mozilla on request.",
+        size_notes: "About 42 MB including the runtime; download size is not peak memory usage.",
+        notes: "Experimental foreground WebView worker with protected HTML markup. Requires workers, WebCrypto and WebAssembly SIMD. Packaged-device quality and memory acceptance remain pending.",
+    },
+    TranslationModelDefinition {
+        id: "bergamot-es-en-worker",
+        name: "Bergamot Spanish to English (Experimental)",
+        engine: "bergamot",
+        tier: "fast",
+        manifest_state: "pinned-file-manifest",
+        source_languages: &["es"],
+        target_languages: &["en"],
+        recommended_platforms: &[],
+        license_notes: "Mozilla runtime notices and MPL-2.0 source attribution are bundled in translation/bergamot; model files are downloaded from Mozilla on request.",
+        size_notes: "About 42 MB including the runtime; download size is not peak memory usage.",
+        notes: "Experimental foreground WebView worker with protected HTML markup. Requires workers, WebCrypto and WebAssembly SIMD. Packaged-device quality and memory acceptance remain pending.",
     },
 ];
 

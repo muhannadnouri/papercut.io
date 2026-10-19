@@ -54,6 +54,9 @@ pub(super) fn start_translation<R: tauri::Runtime>(
             request.model_id
         )
     })?;
+    if model.engine == "bergamot" {
+        return Err("Bergamot requires the WebView document worker command".into());
+    }
     validate_model_request(model, &request)?;
     let manifest = manifest_for(model);
     if !manifest.installable {
@@ -86,6 +89,9 @@ pub(super) fn start_bergamot_translation<R: tauri::Runtime>(
             "Bergamot does not support the requested model, language pair or non-default settings"
                 .into(),
         );
+    }
+    if !cfg!(feature = "native-translation") {
+        return Err("Bergamot translation is not compiled in this build".into());
     }
     start_with_engine(app, state, request, manifest, move |_, _, job_id| {
         state

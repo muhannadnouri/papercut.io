@@ -457,6 +457,23 @@ fn worker_document_preflight_rejects_options_it_cannot_honor_before_opening_an_e
     }
 }
 
+/// Catalog admission must not route a worker model into the native loader or bypass the build gate.
+#[test]
+fn worker_catalog_requires_the_document_bridge_and_compiled_feature() {
+    let (_dir, app, _source, plan) = fixture();
+    let state = TranslationState::default();
+    let error = start_translation(app.handle(), &state, plan.request.clone()).unwrap_err();
+    assert!(error.contains("WebView document worker command"));
+    if !cfg!(feature = "native-translation") {
+        let error =
+            start_bergamot_translation(app.handle(), &state, plan.request, "main".into(), |_| {
+                panic!("disabled worker reached inference")
+            })
+            .unwrap_err();
+        assert!(error.contains("not compiled"));
+    }
+}
+
 /// Exercise the real bridge and writer with deterministic protected-code replies, including a bad later result.
 #[test]
 fn rich_document_validates_entire_batch_before_cache_then_resumes_source_owned_markup() {

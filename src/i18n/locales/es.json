@@ -69,7 +69,8 @@
       "noDocument": "No hay ningún documento seleccionado. Abra un documento y elija Traducir en su menú de acciones.",
       "hardwareAcceleration": "Usar Aceleración Por Hardware",
       "hardwareAccelerationDescription": "Usar {{device}} mediante Vulkan para este trabajo de HY-MT2.",
-      "document": "Documento"
+      "document": "Documento",
+      "htmlEpubOnly": "La traducción solo admite documentos HTML y EPUB."
     },
     "models": {
       "ariaLabel": "Modelos de traducción",
@@ -86,7 +87,11 @@
       "installableCount": "Instalables: {{count, number}}",
       "plannedCount": "Planificados: {{count, number}}",
       "highResourceTitle": "Modelo de altos recursos.",
-      "hyMt2ResourceNote": "HY-MT2 requiere una descarga de 1,9 GB y puede ser muy lento en sistemas que solo usan CPU. La aceleración por hardware aparece cuando Papercut detecta una GPU Vulkan compatible."
+      "hyMt2ResourceNote": "HY-MT2 requiere una descarga de 1,9 GB y puede ser muy lento en sistemas que solo usan CPU. La aceleración por hardware aparece cuando Papercut detecta una GPU Vulkan compatible.",
+      "unavailable": "No disponible",
+      "engineUnavailable": "Este motor de traducción no está compilado en esta versión.",
+      "webviewUnavailable": "Bergamot requiere una WebView segura con workers, WebCrypto y WebAssembly SIMD. No está disponible en esta WebView.",
+      "bergamotNote": "Experimental: conserva el marcado HTML protegido. Mantén Papercut en primer plano; pasar a segundo plano detiene la tarea. La calidad y el uso de memoria en dispositivos aún no se han validado."
     },
     "documents": {
       "ariaLabel": "Documentos traducidos",

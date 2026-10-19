@@ -69,7 +69,8 @@
       "noDocument": "لم يتم تحديد مستند. افتح مستندًا واختر «ترجمة» من قائمة إجراءاته.",
       "hardwareAcceleration": "استخدام تسريع الأجهزة",
       "hardwareAccelerationDescription": "استخدام {{device}} عبر Vulkan لمهمة HY-MT2 هذه.",
-      "document": "مستند"
+      "document": "مستند",
+      "htmlEpubOnly": "الترجمة تدعم مستندات HTML وEPUB فقط."
     },
     "models": {
       "ariaLabel": "نماذج الترجمة",
@@ -86,7 +87,11 @@
       "installableCount": "القابلة للتثبيت: {{count, number}}",
       "plannedCount": "المخطط لها: {{count, number}}",
       "highResourceTitle": "نموذج يتطلب موارد عالية.",
-      "hyMt2ResourceNote": "يتطلب HY-MT2 تنزيل 1.9 غيغابايت، وقد يكون بطيئًا جدًا على الأنظمة التي تستخدم المعالج المركزي فقط. يظهر تسريع الأجهزة عندما يكتشف Papercut وحدة معالجة رسومات متوافقة مع Vulkan."
+      "hyMt2ResourceNote": "يتطلب HY-MT2 تنزيل 1.9 غيغابايت، وقد يكون بطيئًا جدًا على الأنظمة التي تستخدم المعالج المركزي فقط. يظهر تسريع الأجهزة عندما يكتشف Papercut وحدة معالجة رسومات متوافقة مع Vulkan.",
+      "unavailable": "غير متاح",
+      "engineUnavailable": "محرك الترجمة هذا غير مضمّن في هذا الإصدار.",
+      "webviewUnavailable": "يتطلب Bergamot عارض ويب آمنًا يدعم العمال وWebCrypto وWebAssembly SIMD. وهو غير متاح في عارض الويب الحالي.",
+      "bergamotNote": "تجريبي: يحافظ على ترميز HTML المحمي. أبقِ Papercut في المقدمة؛ فالانتقال إلى الخلفية يوقف المهمة. لم تُختبر الجودة واستهلاك الذاكرة على الأجهزة بعد."
     },
     "documents": {
       "ariaLabel": "المستندات المترجمة",

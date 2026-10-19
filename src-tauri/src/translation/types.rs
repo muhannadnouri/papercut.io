@@ -96,6 +96,8 @@ pub(crate) struct TranslationHardwareAcceleration {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct TranslationModelInfo {
     pub(crate) id: String,
+    /// Compiled engine availability; worker models still need a WebView probe.
+    pub(crate) available: bool,
     pub(crate) name: String,
     pub(crate) engine: String,
     pub(crate) tier: String,

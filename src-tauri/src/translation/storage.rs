@@ -127,7 +127,6 @@ pub(crate) fn persist_translated_document<R: Runtime>(
     )?;
     let engine_id = super::models::find_planned_model(&request.model_id)
         .map(|model| model.engine)
-        .or_else(|| super::bergamot::assets::manifest_by_id(&request.model_id).map(|_| "bergamot"))
         .ok_or("Unknown translation engine for stored variant")?;
     on_validated()?;
     let settings_json = serde_json::json!({

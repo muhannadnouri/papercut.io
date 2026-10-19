@@ -1,7 +1,7 @@
 //! Capability and model-status reporting for the Translation UI.
 //!
-//! These are read-only views over the feature flag, planned model catalog, and
-//! on-disk install state; job execution lives in `runner`.
+//! These are read-only views over compiled engines, the model catalog and
+//! on-disk state; the frontend narrows worker availability for its WebView.
 
 use super::config::{
     DEFAULT_BATCH_SEGMENT_LIMIT, DEFAULT_MAX_SEGMENT_CHARS, DEFAULT_TRANSLATION_QUALITY_MODE,
@@ -26,21 +26,36 @@ pub(super) const NOT_IMPLEMENTED: &str =
 pub(super) fn translation_capabilities() -> TranslationCapabilities {
     let ctranslate2 = cfg!(feature = "native-translation-ctranslate2");
     let llama = cfg!(feature = "native-translation-llama");
-    let available = ctranslate2 || llama;
+    let worker = cfg!(feature = "native-translation");
+    let models = planned_models();
+    let available = models.iter().any(|model| model.available);
+    let native_backend = match (ctranslate2, llama) {
+        (true, true) => TRANSLATION_BACKEND_MULTI,
+        (true, false) => TRANSLATION_BACKEND_CTRANSLATE2,
+        (false, true) => TRANSLATION_BACKEND_LLAMA_CPP,
+        (false, false) => "",
+    };
+    let backend = [native_backend, if worker { "bergamot-worker" } else { "" }]
+        .into_iter()
+        .filter(|name| !name.is_empty())
+        .collect::<Vec<_>>()
+        .join("+");
     TranslationCapabilities {
         available,
-        backend: match (ctranslate2, llama) {
-            (true, true) => TRANSLATION_BACKEND_MULTI,
-            (true, false) => TRANSLATION_BACKEND_CTRANSLATE2,
-            (false, true) => TRANSLATION_BACKEND_LLAMA_CPP,
-            (false, false) => TRANSLATION_BACKEND_UNAVAILABLE,
-        }
-        .into(),
-        reason: translation_capability_reason(ctranslate2, llama),
+        backend: if backend.is_empty() {
+            TRANSLATION_BACKEND_UNAVAILABLE.into()
+        } else {
+            backend
+        },
+        reason: if worker {
+            "Translation engines are compiled; Bergamot also requires a compatible foreground WebView. Model files must be installed separately.".into()
+        } else {
+            translation_capability_reason(ctranslate2, llama)
+        },
         platform: std::env::consts::OS.into(),
         default_quality_mode: DEFAULT_TRANSLATION_QUALITY_MODE.into(),
         hardware_acceleration: hy_mt2_hardware_acceleration(),
-        models: planned_models(),
+        models,
     }
 }
 
@@ -81,7 +96,7 @@ pub(super) fn translation_model_status<R: tauri::Runtime>(
             archive_bytes: manifest.total_bytes(),
             installed_bytes: directory_size(&model_dir).unwrap_or(0),
             sha256: String::new(),
-            message: if model.is_none() {
+            message: if model.is_some_and(|model| model.engine == "bergamot") {
                 "Bergamot assets verified; worker readiness and document translation are separate checks".into()
             } else {
                 "Offline translation model installed".into()
@@ -101,14 +116,12 @@ pub(super) fn translation_model_status<R: tauri::Runtime>(
             sha256: String::new(),
             message: if manifest.files.is_empty() {
                 format!("{NOT_IMPLEMENTED} This candidate is not downloadable until source URL, checksum, license, required files, and platform gates are reviewed.")
-            } else if model.is_none() {
-                "Bergamot worker prototype assets are missing or invalid; no document translation support is enabled".into()
-            } else if model.is_some_and(model_engine_available) {
+            } else if model.is_some_and(|model| model.engine_available()) {
                 "Translation model is installable. Install it before starting a translation job."
                     .into()
             } else {
                 format!(
-                    "{NOT_IMPLEMENTED} The file manifest is pinned, but the native {} engine is not compiled in this build.",
+                    "{NOT_IMPLEMENTED} The file manifest is pinned, but the {} engine is not compiled in this build.",
                     model.map(|model| model.engine).unwrap_or("unavailable")
                 )
             },
@@ -130,10 +143,37 @@ fn translation_capability_reason(ctranslate2: bool, llama: bool) -> String {
     }
 }
 
-fn model_engine_available(model: super::models::TranslationModelDefinition) -> bool {
-    match model.engine {
-        "ctranslate2" => cfg!(feature = "native-translation-ctranslate2"),
-        "llama.cpp" => cfg!(feature = "native-translation-llama"),
-        _ => false,
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Run in both minimal and engine-enabled builds: pinned files alone must not imply execution support.
+    #[test]
+    fn catalog_gates_each_engine_without_changing_native_order_or_admitting_candidates() {
+        let caps = translation_capabilities();
+        assert_eq!(caps.models[0].id, "opus-mt-es-en-ctranslate2");
+        assert_eq!(caps.models[1].id, "opus-mt-fr-en-ctranslate2");
+        assert_eq!(
+            caps.available,
+            caps.models.iter().any(|model| model.available)
+        );
+        for model in caps.models {
+            let expected = match model.engine.as_str() {
+                "ctranslate2" => cfg!(feature = "native-translation-ctranslate2"),
+                "llama.cpp" => cfg!(feature = "native-translation-llama"),
+                "bergamot" => cfg!(feature = "native-translation"),
+                _ => false,
+            } && model.manifest_state == "pinned-file-manifest";
+            assert_eq!(model.available, expected, "{}", model.id);
+            if model.engine == "bergamot" {
+                assert!(model.name.contains("Experimental"));
+                assert!(model.recommended_platforms.is_empty());
+                assert_eq!(model.target_languages, ["en"]);
+            }
+        }
+        assert_eq!(
+            caps.backend.contains("bergamot-worker"),
+            cfg!(feature = "native-translation")
+        );
     }
 }

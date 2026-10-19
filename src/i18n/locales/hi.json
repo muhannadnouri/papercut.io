@@ -69,7 +69,8 @@
       "noDocument": "कोई दस्तावेज़ चयनित नहीं है। दस्तावेज़ खोलें और उसके क्रिया मेनू से अनुवाद चुनें।",
       "hardwareAcceleration": "हार्डवेयर त्वरण का उपयोग करें",
       "hardwareAccelerationDescription": "इस HY-MT2 कार्य के लिए Vulkan के माध्यम से {{device}} का उपयोग करें।",
-      "document": "दस्तावेज़"
+      "document": "दस्तावेज़",
+      "htmlEpubOnly": "अनुवाद केवल HTML और EPUB दस्तावेज़ों का समर्थन करता है।"
     },
     "models": {
       "ariaLabel": "अनुवाद मॉडल",
@@ -86,7 +87,11 @@
       "installableCount": "इंस्टॉल योग्य: {{count, number}}",
       "plannedCount": "नियोजित: {{count, number}}",
       "highResourceTitle": "अधिक संसाधन वाला मॉडल।",
-      "hyMt2ResourceNote": "HY-MT2 के लिए 1.9 जीबी डाउनलोड आवश्यक है और केवल CPU वाले सिस्टम पर यह बहुत धीमा हो सकता है। Papercut द्वारा संगत Vulkan GPU का पता लगाने पर हार्डवेयर त्वरण दिखाई देता है।"
+      "hyMt2ResourceNote": "HY-MT2 के लिए 1.9 जीबी डाउनलोड आवश्यक है और केवल CPU वाले सिस्टम पर यह बहुत धीमा हो सकता है। Papercut द्वारा संगत Vulkan GPU का पता लगाने पर हार्डवेयर त्वरण दिखाई देता है।",
+      "unavailable": "अनुपलब्ध",
+      "engineUnavailable": "इस बिल्ड में यह अनुवाद इंजन संकलित नहीं है।",
+      "webviewUnavailable": "Bergamot के लिए workers, WebCrypto और WebAssembly SIMD वाला सुरक्षित WebView आवश्यक है। यह इस WebView में उपलब्ध नहीं है।",
+      "bergamotNote": "प्रायोगिक: सुरक्षित HTML मार्कअप को संरक्षित करता है। Papercut को अग्रभूमि में रखें; पृष्ठभूमि में जाने से कार्य रुक जाता है। उपकरणों पर गुणवत्ता और मेमोरी उपयोग अभी सत्यापित नहीं हैं।"
     },
     "documents": {
       "ariaLabel": "अनुवादित दस्तावेज़",

@@ -1,0 +1,114 @@
+// @vitest-environment jsdom
+import { act, type ComponentProps } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { TranslationPanel } from './TranslationPanel'
+import type { TranslationModelInfo, TranslationModelStatus } from '../api/nativeTranslation'
+
+vi.mock('react-i18next', async original => ({ ...await original<typeof import('react-i18next')>(), useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'en' } }) }))
+vi.mock('../../i18n', () => ({ default: { t: (key: string) => key }, currentAppLocale: () => 'en' }))
+const opus: TranslationModelInfo = {
+  id: 'opus-mt-fr-en-ctranslate2', name: 'OPUS French', engine: 'ctranslate2', available: true,
+  tier: 'fast', manifestState: 'pinned-file-manifest', sourceLanguages: ['fr'], targetLanguages: ['en'],
+  defaultQualityMode: 'balanced', recommendedPlatforms: ['desktop'], licenseNotes: '', sizeNotes: '', notes: '',
+}
+const french: TranslationModelInfo = { ...opus, id: 'bergamot-fr-en-worker', name: 'Bergamot French (Experimental)', engine: 'bergamot' }
+const spanish: TranslationModelInfo = { ...french, id: 'bergamot-es-en-worker', name: 'Bergamot Spanish (Experimental)', sourceLanguages: ['es'] }
+const installed: TranslationModelStatus = { modelId: french.id, installed: true, installing: false, sourceUrl: '', sourceLabel: '', archiveBytes: 42, installedBytes: 42, sha256: '', message: '' }
+let root: Root
+let container: HTMLDivElement
+let props: ComponentProps<typeof TranslationPanel>
+
+/** Render the real picker and action handlers; no browser-layout or model-inference claim. */
+async function render(overrides: Partial<typeof props> = {}) {
+  props = { ...props, ...overrides }
+  await act(async () => { root.render(<TranslationPanel {...props} />) })
+}
+function button(text: string) {
+  const found = [...container.querySelectorAll('button')].find(b => b.textContent?.includes(text))
+  if (!found) throw new Error(`Missing button ${text}`)
+  return found
+}
+async function click(text: string) { await act(async () => { button(text).click() }) }
+function picker() { return container.querySelector('select')! }
+async function select(id: string) {
+  await act(async () => { picker().value = id; picker().dispatchEvent(new Event('change', { bubbles: true })) })
+}
+beforeEach(async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  container = document.createElement('div'); document.body.append(container); root = createRoot(container)
+  props = {
+    capabilities: { available: true, backend: 'test', reason: '', platform: 'android', defaultQualityMode: 'balanced', hardwareAcceleration: null, models: [opus, french, spanish] },
+    deleteState: null, error: '', loading: false, modelInstallState: { installingModelId: '', progress: null, result: null, message: '' },
+    modelRemoveState: { removingModelId: '', result: null, message: '' }, modelStatuses: {},
+    selectedDocument: { title: 'Book', url: '/uploads/book.html', format: 'html' },
+    startState: { checking: false, cancelling: false, jobId: '', progress: null, result: null, message: '' }, translatedDocuments: [],
+    onCancelTranslation: vi.fn(), onDeleteTranslatedDocument: vi.fn(), onOpenTranslatedDocument: vi.fn(),
+    onInstallTranslationModel: vi.fn(), onRemoveTranslationModel: vi.fn(), onStartTranslationPreflight: vi.fn(), refresh: vi.fn(),
+  }
+  await render()
+})
+afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.unstubAllGlobals() })
+
+describe('Bergamot catalog workbench', () => {
+  it('preserves the native default and requires explicit installation before running', async () => {
+    expect(picker().value).toBe(opus.id)
+    await select(french.id)
+    expect(button('translation.workbench.run').disabled).toBe(true)
+    expect(container.textContent).toContain('translation.errors.modelNotInstalled')
+    expect(props.onInstallTranslationModel).not.toHaveBeenCalled()
+    await click('translation.models.title')
+    const row = [...container.querySelectorAll('.translation-model-item')].find(r => r.textContent?.includes(french.name))!
+    await act(async () => (row.querySelector('button') as HTMLButtonElement).click())
+    expect(props.onInstallTranslationModel).toHaveBeenCalledExactlyOnceWith(french.id)
+    expect(props.onStartTranslationPreflight).not.toHaveBeenCalled()
+  })
+
+  it.each(['html', 'epub'])('runs installed %s with the selected fixed pair and foreground guidance', async format => {
+    await render({ modelStatuses: { [french.id]: installed, [spanish.id]: { ...installed, modelId: spanish.id } }, selectedDocument: { ...props.selectedDocument!, format } })
+    await select(spanish.id)
+    const selectors = container.querySelectorAll('select')
+    expect(selectors[1].value).toBe('es'); expect(selectors[1].disabled).toBe(true)
+    expect(selectors[2].value).toBe('en'); expect(selectors[2].options).toHaveLength(1)
+    expect(container.textContent).toContain('translation.models.bergamotNote')
+    expect(container.querySelector('input[type=checkbox]')).toBeNull()
+    await click('translation.workbench.run')
+    expect(props.onStartTranslationPreflight).toHaveBeenCalledExactlyOnceWith({ documentUrl: '/uploads/book.html', modelId: spanish.id, sourceLanguage: 'es', targetLanguage: 'en', qualityMode: 'balanced', useHardwareAcceleration: false })
+  })
+
+  it('selects a supported worker in worker-only builds and disables uncompiled native choices', async () => {
+    await render({ capabilities: { ...props.capabilities!, models: [{ ...opus, available: false }, french, spanish] } })
+    expect(picker().value).toBe(french.id)
+    expect(picker().options[0].disabled).toBe(true)
+    await click('translation.models.title')
+    expect(container.textContent).toContain('translation.models.engineUnavailable')
+  })
+
+  it('explains failed WebView gates, keeps native translation usable and permits removal of unavailable installed files', async () => {
+    await select(french.id)
+    await render({ capabilities: { ...props.capabilities!, models: [opus, { ...french, available: false, unavailableReason: 'webview' }] }, modelStatuses: { [opus.id]: installed, [french.id]: installed } })
+    expect(picker().value).toBe(opus.id)
+    expect(picker().options[1].disabled).toBe(true)
+    expect(button('translation.workbench.run').disabled).toBe(false)
+    await click('translation.models.title')
+    expect(container.textContent).toContain('translation.models.webviewUnavailable')
+    const workerRow = [...container.querySelectorAll('.translation-model-item')].find(r => r.textContent?.includes(french.name))!
+    expect(workerRow.querySelector<HTMLButtonElement>('button')?.disabled).toBe(false)
+  })
+
+  it('disables document jobs for unsupported formats even with installed worker files', async () => {
+    await render({ selectedDocument: { ...props.selectedDocument!, format: 'pdf' }, modelStatuses: { [french.id]: installed } })
+    await select(french.id)
+    expect(button('translation.workbench.run').disabled).toBe(true)
+    expect(container.textContent).toContain('translation.workbench.htmlEpubOnly')
+    await click('translation.workbench.run')
+    expect(props.onStartTranslationPreflight).not.toHaveBeenCalled()
+  })
+
+  it('keeps saved variants available when no engine is runnable', async () => {
+    await render({ capabilities: { ...props.capabilities!, available: false, models: [{ ...french, available: false, unavailableReason: 'webview' }] }, translatedDocuments: [{ id: 'saved', title: 'Saved', documentUrl: '/uploads/translated.html', sourceDocumentUrl: '/uploads/book.html', sourceLanguage: 'fr', targetLanguage: 'en', modelId: french.id, status: 'stored', createdAtMs: 1, updatedAtMs: 1 }] })
+    expect(container.querySelector('select')).toBeNull()
+    await click('common.view')
+    expect(props.onOpenTranslatedDocument).toHaveBeenCalledExactlyOnceWith('/uploads/translated.html')
+  })
+})

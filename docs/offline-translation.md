@@ -15,9 +15,9 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 - Spanish -> English and French -> English OPUS-MT CTranslate2 manifests are pinned and installable.
 - HY-MT2 1.8B Q8 is a pinned, installable quality model for Arabic, German, Spanish, French, Russian, and Chinese translation into English. Desktop CPU inference remains the default. On Linux, the workbench offers Vulkan acceleration only when llama.cpp reports a real integrated or discrete Vulkan GPU.
 - Installed models can be removed independently to reclaim storage. Removal is serialized against model installs and active translation jobs, while translated documents and reusable segment caches remain available.
-- The translation workbench lists only pinned, supported models; future quality-model candidates remain informational.
+- The workbench selects only pinned models whose engine and WebView gates pass. Unavailable pinned models remain visible with an explanation; future model candidates remain informational. Existing native catalog ordering/defaults are unchanged.
 - Translation jobs run through the shared Rust engine boundary, emit progress/cancel events, reuse segment cache entries, run first-pass quality gates, and persist successful output as derived uploaded documents.
-- The internal Bergamot document entry point now reuses one worker across a complete French/Spanish → English HTML/EPUB job, resumes completed batches and confirms a live host before saving. It uses the same Rust runner and atomic writer as native providers. It now uses validated protected-code mapping through the shared provider contract. It remains excluded from the advertised model catalog pending review and packaged-device acceptance.
+- Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
 - OPUS-MT exposes no quality, glossary, or repair controls because that engine cannot honor them; direct requests using those options are rejected.
 - Translation controls, normal progress states, confirmations, counts, language names, and expected native failures use the app's eight locale resources. Translation commands return stable error codes while retaining the original Rust diagnostic; unexpected failures still fall back to that detail.
@@ -30,7 +30,7 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 - Translated variants are separate durable documents that can be opened, searched, deleted, and later used by the normal TTS flow.
 - HTML/EPUB rendering uses the sanitized reader HTML where possible and preserves links, ids, images, tables, and EPUB-rewritten assets conservatively.
 - Historical Stage 5B validation, before the latest main merge, covered local desktop and packaged `.deb` model-install, translation, open/search/delete, cancellation, restart recovery, cache-assisted retry, removal, and reinstall smoke tests. It does not validate the merged build; current smoke and release validation remain pending.
-- Android and iOS translation are not supported yet; native runtime packaging, memory, thermals, and model-size behavior must be validated separately from desktop.
+- Packaged Android/iOS translation support is not accepted yet. Experimental Bergamot choices can appear when their build and WebView gates pass, but mobile memory, thermals, lifecycle and actual-model quality still need device validation; native runtime packaging remains separate work.
 - Chapter-level repair has not started. Qwen remains research-only.
 
 ## Product Goals
@@ -1243,9 +1243,103 @@ Rustfmt and diff checks passed; CT2 retains three existing unused HY-MT2 helper
 warnings. Frontend tests/build were not repeated for this Rust-only fix; their
 439-test/build results above are historical implementation evidence. No model
 inference, packaged-device test, benchmark or app version change was performed.
-Next: review the hierarchy fixes before catalog/UI exposure. Benchmarks,
-installed-app smoke, real model/device acceptance and the app version bump remain
-deferred; no default-model or mobile-support claim is made.
+The subsequent hierarchy review found no actionable remaining issue. The next
+[catalog/UI slice](#capability-gated-bergamot-catalog-and-ui-2026-10-19) is implemented below. Benchmarks, installed-app smoke, real model/device
+acceptance and the app version bump remain deferred; no default-model or
+mobile-support claim is made.
+
+##### Capability-Gated Bergamot Catalog And UI (2026-10-19)
+
+`bergamot-fr-en-worker` and `bergamot-es-en-worker` now appear as experimental
+French/Spanish → English choices. They reuse the exact existing pinned four-file
+manifests, verified installer/status/removal, raw binary asset delivery and full
+worker document bridge. No runtime/model/dependency pins, cache strategy, app
+version, platform deployment target or default model changed. The canonical
+stored engine id stays `bergamot`, preserving prototype provenance; catalog
+resolution replaces the old out-of-catalog fallback.
+
+Availability has two owners:
+
+- Rust reports per-model `available` from its compiled engine feature and pinned
+  manifest state. `native-translation` enables the Bergamot host/download path
+  without requiring CTranslate2 or llama.cpp; each native model still requires
+  its own compiled engine. Qwen stays candidate-only even with llama.cpp enabled.
+- The frontend narrows worker availability using the existing secure-context,
+  Worker, WebCrypto/randomUUID and real WebAssembly SIMD probe. An unsupported
+  WebView disables only Bergamot choices, supplies a localized explanation and
+  leaves compiled native engines usable. Native feature gates cannot be
+  overridden by a successful browser probe. The full runtime module and asset
+  integrity checks still run at job start; a feature probe does not prove that
+  CSP, memory pressure or packaged-device inference will succeed.
+
+Desktop translation build scripts already enable the base feature transitively.
+Standard Android/iOS build scripts and their CI packaging jobs still omit
+`native-translation`; this stage does not silently enable a new mobile feature.
+Their model rows therefore explain the missing engine. A later mobile build/CI
+slice must opt in to the worker host before packaged acceptance can begin; no
+native CTranslate2/llama.cpp mobile runtime is needed for that worker-only build.
+The existing no-inference CI translation step now runs the complete
+`native-translation` suite, covering the true build gate as well as downloads;
+the ordinary Rust suite also covers disabled gates.
+
+The picker retains native ordering and falls back only to runnable models. A
+worker-only build selects the first compatible Bergamot entry. Unavailable
+choices cannot be selected or downloaded from the UI; existing files can still
+be removed and saved variants can still be viewed. Model counts do not label
+unavailable downloads as installable. Run requires installed files and an
+HTML/EPUB source; missing installation explains the disabled action and never
+starts an automatic download. Fixed source/target selectors and the existing
+balanced request contract do not expose unsupported glossary, repair or hardware
+options for Bergamot. The eight locales include foreground/experimental guidance
+and unavailable-engine/WebView explanations.
+
+`startTranslationJob` continues to dispatch worker ids through
+`runInstalledBergamotDocument`, with the manager owning cancellation, job progress,
+Library refresh and unknown-save-outcome handling. The native-only command now
+rejects worker catalog models before file access; the worker document runner also
+rejects builds without `native-translation`. Source validation, strict rich reply
+checks, v2 rich cache binding, save admission and atomic persistence are unchanged.
+Original documents, completed variants, audio and read-along data are not migrated.
+
+Regression coverage includes real component selection/install/run handlers for
+both source formats, fixed language pairs, worker-only selection, absent files,
+unsupported WebViews, stale selection fallback, removal while unavailable, and
+opening a saved variant with no runnable engine. API tests use the real feature
+probe, preserve native dispatch and verify worker document/signal routing. Rust
+checks each compiled engine gate, candidate exclusion, unchanged default ordering,
+exact retained asset pins, native-command rejection, disabled worker entry and
+unchanged `bergamot` writer provenance. No tests claim model quality or device RAM.
+
+Validation: **429 Rust library tests passed, 4 existing ignored**;
+**153 translation tests passed with `native-translation` enabled**, including
+the actual loopback downloader. **455 frontend tests passed, 1 existing skipped**
+(82 translation tests, including 16 new API/component cases). The complete
+production build (eight-locale validation, TypeScript, Vite, Pagefind),
+changed-file ESLint, Rustfmt/diff checks and locked/offline CTranslate2 feature
+check passed. Vite retains its large-chunk warning; CT2 retains three existing
+unused HY-MT2 helper warnings. These are automated checks, not a packaged-device
+or inference benchmark. No new dependency, model download, app version change or
+installed-app smoke was involved.
+
+Manual acceptance remains pending (not run in this stage):
+
+1. In a translation-enabled packaged build, install either experimental pair
+   explicitly, disconnect the network and translate an HTML and an EPUB containing
+   nested emphasis, links, notes and owned images. Check source order, rendering,
+   search/indexing, Library replacement, and TTS/read-along on the new variant.
+2. Cancel during asset loading and during inference; retry the same document and
+   verify completed work resumes without duplicate variants. Switch away from the
+   foreground WebView and verify safe interruption/resume, not background success.
+3. On an unsupported WebView, confirm both worker choices explain why they are
+   unavailable, no worker download/run starts, compiled native models still work,
+   and old variants/model removal remain usable.
+4. Compare a worker-only `native-translation` build and a translation-disabled
+   build: only the former may offer runnable worker choices. Repeat on packaged
+   desktop/Android/iOS before claiming platform support.
+
+Next: focused review of catalog/gate/UI integration, then an explicit mobile
+build/CI opt-in slice before packaged acceptance when smoke is resumed. Blinded model quality/RAM/speed comparisons and default selection
+remain deferred, along with installed-app smoke and the version bump.
 
 ### Stage 7: Quality Upgrades - Mostly Done
 
@@ -1521,13 +1615,14 @@ A responsive desktop browser at a mobile viewport would not fill that gap.
 
 1. The shared DOM/asset foundation and hardening review are complete. The
    [provider validation slice](#provider-mapping-contract-and-validation-slice-2026-10-19)
-   and the protected-code integration are implemented. Review the rich adapter,
-   cache and renderer before catalog exposure; do not reintroduce positional
-   emphasis guesses. OPUS-MT/HY-MT2 remain text-only.
+   and protected-code hierarchy fixes have passed focused review. The experimental
+   capability-gated catalog/UI slice is implemented; review its admission and
+   selection flow next. Do not reintroduce positional emphasis guesses.
+   OPUS-MT/HY-MT2 remain text-only.
 2. The bounded worker, verified delivery, lifecycle fix and full-document
-   reuse/resume/save-admission slice are implemented above. Review the shared
-   job integration before catalog exposure; packaged WebView suspension and
-   memory behavior still need device acceptance. No native FFI or copied
+   reuse/resume/save-admission slice are implemented and reviewed above.
+   Packaged WebView suspension and memory behavior still need device acceptance,
+   despite experimental catalog exposure. No native FFI or copied
    Bergamot HTML C++ is required.
 3. Bergamot now normalizes protected markup into the shared plan. Further
    providers need annotated source/target spans or the same validated codes.
@@ -1550,8 +1645,9 @@ A responsive desktop browser at a mobile viewport would not fill that gap.
 
 Version cache/alignment semantics when mapping changes; preserve existing
 variants, original documents and already generated audio/highlighting.
-Bergamot has an internal document integration, but no advertised model catalog
-entry, app version bump or installed-app smoke result in this stage.
+Bergamot now has experimental capability-gated catalog entries and the shared
+document integration. This does not change defaults or establish packaged-device
+acceptance. No app version bump or installed-app smoke result is claimed.
 
 ### Benchmark Deferral
 

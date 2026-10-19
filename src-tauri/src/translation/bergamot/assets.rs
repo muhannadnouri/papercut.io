@@ -38,7 +38,7 @@ pub(crate) fn manifest_by_id(id: &str) -> Option<TranslationModelManifest> {
     Some(TranslationModelManifest {
         model_id: id,
         directory_name: id,
-        source_label: "Mozilla Remote Settings (worker prototype)",
+        source_label: "Mozilla Remote Settings (Bergamot)",
         source_url: "https://firefox-source-docs.mozilla.org/toolkit/components/translations/resources/03_bergamot.html",
         revision: "wasm-3.0-models-2.0",
         files,

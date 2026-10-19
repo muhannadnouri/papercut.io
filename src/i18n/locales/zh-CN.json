@@ -69,7 +69,8 @@
       "noDocument": "尚未选择文档。请打开文档，然后在操作菜单中选择“翻译”。",
       "hardwareAcceleration": "使用硬件加速",
       "hardwareAccelerationDescription": "通过 Vulkan 使用 {{device}} 运行此 HY-MT2 任务。",
-      "document": "文档"
+      "document": "文档",
+      "htmlEpubOnly": "翻译仅支持 HTML 和 EPUB 文档。"
     },
     "models": {
       "ariaLabel": "翻译模型",
@@ -86,7 +87,11 @@
       "installableCount": "可安装：{{count, number}}",
       "plannedCount": "计划中：{{count, number}}",
       "highResourceTitle": "高资源需求模型。",
-      "hyMt2ResourceNote": "HY-MT2 需要下载 1.9 GB，在仅使用 CPU 的系统上可能非常慢。当 Papercut 检测到兼容的 Vulkan GPU 时，会显示硬件加速选项。"
+      "hyMt2ResourceNote": "HY-MT2 需要下载 1.9 GB，在仅使用 CPU 的系统上可能非常慢。当 Papercut 检测到兼容的 Vulkan GPU 时，会显示硬件加速选项。",
+      "unavailable": "不可用",
+      "engineUnavailable": "此版本未编译此翻译引擎。",
+      "webviewUnavailable": "Bergamot 需要支持 Worker、WebCrypto 和 WebAssembly SIMD 的安全 WebView。当前 WebView 无法使用。",
+      "bergamotNote": "实验性：保留受保护的 HTML 标记。请保持 Papercut 在前台；切换到后台会停止任务。设备上的质量和内存使用情况尚未验证。"
     },
     "documents": {
       "ariaLabel": "翻译文档",

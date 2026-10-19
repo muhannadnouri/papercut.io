@@ -82,11 +82,12 @@ export function TranslationPanel({
 }: TranslationPanelProps) {
   const { t, i18n } = useTranslation()
   const locale = i18n.resolvedLanguage ?? i18n.language
+  const webviewUnavailable = capabilities?.models.some(model => model.unavailableReason === 'webview') ?? false
   const statusLabel = loading
     ? t('translation.status.checking')
     : capabilities?.available
       ? t('translation.status.available')
-      : t('translation.status.unavailable')
+      : t(webviewUnavailable ? 'translation.models.unavailable' : 'translation.status.unavailable')
   const modelOptions = useMemo(() => capabilities?.models ?? [], [capabilities])
   const installableModels = useMemo(
     () => modelOptions.filter((model) => model.manifestState === 'pinned-file-manifest'),
@@ -95,6 +96,10 @@ export function TranslationPanel({
   const plannedModels = useMemo(
     () => modelOptions.filter((model) => model.manifestState !== 'pinned-file-manifest'),
     [modelOptions],
+  )
+  const runnableModels = useMemo(
+    () => installableModels.filter(model => model.available),
+    [installableModels],
   )
   const [confirmingDeleteId, setConfirmingDeleteId] = useState('')
   const [confirmingModelId, setConfirmingModelId] = useState('')
@@ -114,9 +119,10 @@ export function TranslationPanel({
   const [sourceLanguage, setSourceLanguage] = useState('')
   const [targetLanguage, setTargetLanguage] = useState('en')
   const [useHardwareAcceleration, setUseHardwareAcceleration] = useState(false)
-  const activeModelId = installableModels.some((model) => model.id === modelId)
+  // Preserve catalog ordering/defaults, but never fall back to an unavailable engine.
+  const activeModelId = runnableModels.some((model) => model.id === modelId)
     ? modelId
-    : installableModels[0]?.id ?? ''
+    : runnableModels[0]?.id ?? ''
   const selectedModel = useMemo(
     () => installableModels.find((model) => model.id === activeModelId) ?? null,
     [activeModelId, installableModels],
@@ -136,6 +142,8 @@ export function TranslationPanel({
   const activeQualityMode = selectedModel?.defaultQualityMode
     ?? capabilities?.defaultQualityMode
     ?? 'balanced'
+  const bergamotSelected = selectedModel?.engine === 'bergamot'
+  const supportedDocument = Boolean(selectedDocument && ['html', 'epub'].includes(selectedDocument.format ?? ''))
   const hardwareAcceleration = selectedModel?.id === 'hy-mt2-1.8b-q8'
     ? capabilities?.hardwareAcceleration ?? null
     : null
@@ -228,7 +236,9 @@ export function TranslationPanel({
 
           {backendUnavailable && capabilities && (
             <div className="translation-alert">
-              <span>{t('translation.status.unavailableReason')}</span>
+              <span>{t(webviewUnavailable
+                ? 'translation.models.webviewUnavailable'
+                : 'translation.status.unavailableReason')}</span>
             </div>
           )}
 
@@ -350,7 +360,7 @@ export function TranslationPanel({
               <span>{t('translation.workbench.model')}</span>
               <select
                 value={activeModelId}
-                disabled={!installableModels.length || startState.checking}
+                disabled={!runnableModels.length || startState.checking}
                 onChange={(event) => {
                   const nextModelId = event.target.value
                   const nextModel = installableModels.find((model) => model.id === nextModelId)
@@ -360,8 +370,8 @@ export function TranslationPanel({
                 }}
               >
                 {installableModels.length ? installableModels.map((model) => (
-                  <option key={model.id} value={model.id}>
-                    {model.name}
+                  <option key={model.id} value={model.id} disabled={!model.available}>
+                    {model.name}{model.available ? '' : ' · ' + t('translation.models.unavailable')}
                   </option>
                 )) : (
                   <option value="">{t('translation.workbench.noSupportedModels')}</option>
@@ -397,6 +407,14 @@ export function TranslationPanel({
               </select>
             </label>
           </div>
+          {bergamotSelected && (
+            <p className="translation-resource-note">{t('translation.models.bergamotNote')}</p>
+          )}
+          {!supportedDocument ? (
+            <p role="status">{t('translation.workbench.htmlEpubOnly')}</p>
+          ) : selectedModel && !modelStatuses[activeModelId]?.installed && (
+            <p role="status">{t('translation.errors.modelNotInstalled')}</p>
+          )}
           {selectedModel?.id === 'hy-mt2-1.8b-q8' && (
             <p className="translation-resource-note">
               <strong>{t('translation.models.highResourceTitle')}</strong>{' '}
@@ -428,7 +446,9 @@ export function TranslationPanel({
                 startState.checking ||
                 Boolean(modelInstallState.installingModelId) ||
                 Boolean(modelRemoveState.removingModelId) ||
-                !activeModelId
+                !activeModelId ||
+                !supportedDocument ||
+                !modelStatuses[activeModelId]?.installed
               }
               title={t('translation.workbench.runTitle')}
               onClick={() => {
@@ -478,6 +498,11 @@ export function TranslationPanel({
                 <div>
                   <strong title={model.notes}>{model.name}</strong>
                   <span>{formatModelLanguagePair(model, locale, t)}{size ? ' · ' + size : ''}</span>
+                  {!model.available && (
+                    <small>{t(model.unavailableReason === 'webview'
+                      ? 'translation.models.webviewUnavailable'
+                      : 'translation.models.engineUnavailable')}</small>
+                  )}
                 </div>
                 <TranslationModelInstallButton
                   model={model}
@@ -486,7 +511,7 @@ export function TranslationPanel({
                   disabled={Boolean(
                     modelInstallState.installingModelId ||
                     modelRemoveState.removingModelId ||
-                    startState.checking
+                    startState.checking || (!model.available && !modelStatuses[model.id]?.installed)
                   )}
                   onInstall={onInstallTranslationModel}
                   onRequestRemove={setConfirmingModelId}
@@ -806,7 +831,7 @@ function formatModelsSummary(
     pieces.push(t('translation.models.installing', { percent: installProgress.percent }))
   }
   const installed = installableModels.filter((model) => modelStatuses[model.id]?.installed).length
-  const installable = installableModels.length - installed
+  const installable = installableModels.filter(model => model.available && !modelStatuses[model.id]?.installed).length
   if (installed) pieces.push(t('translation.models.installedCount', { count: installed }))
   if (installable) pieces.push(t('translation.models.installableCount', { count: installable }))
   if (plannedModels.length) {

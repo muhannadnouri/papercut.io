@@ -53,19 +53,20 @@ impl TranslationModelManifest {
     }
 }
 
-/// Resolve only catalog-owned models or the bounded worker's pinned asset sets.
+/// Resolve only catalog-owned models, including the pinned worker asset sets.
 pub(crate) fn manifest_by_id(id: &str) -> Option<TranslationModelManifest> {
-    super::models::find_planned_model(id)
-        .map(manifest_for)
-        .or_else(|| super::bergamot::assets::manifest_by_id(id))
+    super::models::find_planned_model(id).map(manifest_for)
 }
 
 /// Convert catalog metadata into the install manifest shape.
 ///
-/// Runnable models are pinned to exact Hugging Face revisions and file
-/// checksums. Candidate-only rows intentionally stay empty so they cannot be
+/// Runnable models reuse pinned Hugging Face revisions or Mozilla attachment
+/// manifests. Candidate-only rows intentionally stay empty so they cannot be
 /// mistaken for supported downloads.
 pub(crate) fn manifest_for(model: TranslationModelDefinition) -> TranslationModelManifest {
+    if let Some(manifest) = super::bergamot::assets::manifest_by_id(model.id) {
+        return manifest;
+    }
     if model.id == "opus-mt-es-en-ctranslate2" {
         return TranslationModelManifest {
             model_id: model.id,

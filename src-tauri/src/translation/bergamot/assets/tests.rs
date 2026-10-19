@@ -26,7 +26,7 @@ const TINY: TranslationModelFile = TranslationModelFile {
 };
 
 #[test]
-fn pins_match_retained_evidence_and_remain_out_of_the_document_catalog() {
+fn catalog_entries_reuse_the_exact_retained_asset_pins() {
     let evidence: serde_json::Value = serde_json::from_str(include_str!(
         "../../../../../docs/offline-translation-evaluation.json"
     ))
@@ -34,8 +34,15 @@ fn pins_match_retained_evidence_and_remain_out_of_the_document_catalog() {
     for language in ["fr", "es"] {
         let manifest = manifest_for_language(language).unwrap();
         assert!(model_store::manifest_by_id(manifest.model_id).is_some());
-        assert!(models::find_planned_model(manifest.model_id).is_none());
-        assert!(!models::planned_models()
+        let model = models::find_planned_model(manifest.model_id).unwrap();
+        assert_eq!(model.engine, "bergamot");
+        assert_eq!(model.source_languages, &[language]);
+        assert_eq!(model.target_languages, &["en"]);
+        assert_eq!(
+            model_store::manifest_for(model).total_bytes(),
+            manifest.total_bytes()
+        );
+        assert!(models::planned_models()
             .iter()
             .any(|m| m.id == manifest.model_id));
         assert!(manifest.total_bytes() < 64 * 1024 * 1024);
@@ -178,7 +185,13 @@ fn raw_asset_command_rejects_other_windows_and_releases_its_claim_on_failure() {
         ))
         .unwrap();
     assert!(!status.installed);
-    assert!(status.message.contains("prototype"));
+    assert!(status
+        .message
+        .contains(if cfg!(feature = "native-translation") {
+            "installable"
+        } else {
+            "not compiled"
+        }));
     let window = app.get_webview_window("main").unwrap();
     let result =
         tauri::async_runtime::block_on(crate::translation::commands::translation_bergamot_asset(

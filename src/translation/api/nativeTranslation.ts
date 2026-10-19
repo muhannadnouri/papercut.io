@@ -16,6 +16,9 @@ const TRANSLATION_PROGRESS_EVENT = 'translation-progress'
 
 export interface TranslationModelInfo {
   id: string
+  available: boolean
+  /** Local probe result; Rust reports only compiled-engine availability. */
+  unavailableReason?: 'webview'
   name: string
   engine: string
   tier: string
@@ -257,7 +260,14 @@ async function loadTranslationCapabilities(): Promise<TranslationCapabilities> {
   }
 
   try {
-    return await invokeTranslation<TranslationCapabilities>('translation_capabilities')
+    const capabilities = await invokeTranslation<TranslationCapabilities>('translation_capabilities')
+    // Rust knows compiled engines; only this WebView can establish worker prerequisites.
+    const workerUnavailable = capabilities.models.some(model => isBergamotModel(model.id) && model.available)
+      && (await import('../bergamot/assets')).bergamotWorkerUnavailableReason() !== null
+    const models = capabilities.models.map(model => isBergamotModel(model.id) && model.available && workerUnavailable
+      ? { ...model, available: false, unavailableReason: 'webview' as const }
+      : model)
+    return { ...capabilities, models, available: models.some(model => model.available) }
   } catch (err) {
     return {
       available: false,
