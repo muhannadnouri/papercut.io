@@ -1164,11 +1164,11 @@ and occur exactly once. Opaque literals retain source word-boundary spaces even
 if the provider HTML alignment loses a separator.
 
 **Resume and provenance.** Rich cache entries store the raw code response plus
-an identity of the exact source plan, literals and `protected-codes-v3` strategy.
+an identity of the exact source plan, literals and `protected-codes-v4` strategy.
 They are location-bound and revalidated on every read. Plain translation memory
 cannot satisfy a rich request; missing/corrupt/mismatched mappings trigger fresh
-inference. Provider identity is now `bergamot-protected-codes-v3:<hash>`, retaining
-the existing exact asset/worker/loader hash binding. Old Bergamot text and v1/v2
+inference. Provider identity is now `bergamot-protected-codes-v4:<hash>`, retaining
+the existing exact asset/worker/loader hash binding. Old Bergamot text and v1/v2/v3
 rich caches are incompatible; native text caches and alignment epoch **3** are
 unchanged. Existing
 completed variants, originals, generated audiobooks and highlighting are not
@@ -1193,9 +1193,9 @@ has not been accepted on packaged devices in this stage.
 The shipped worker and pinned Spanish model reproduced disjoint emphasis in
 56 segments; blanket duplicate rejection was too strict. Replaying the remaining
 results exposed a second issue: synthetic note text could move outside its
-opaque span. The v3 rules above address both without relaxing single-use marker,
-attribute or hierarchy checks. All **234** corrected stock-worker responses were
-replayed through the current Rust source-plan validator successfully. This is a
+opaque span. V3 addressed these transport failures without relaxing single-use
+marker, attribute or hierarchy checks. At that stage, all **234** corrected
+stock-worker responses passed the structural source-plan validator. This was a
 local correctness reproduction, not an installed-AppImage or quality benchmark.
 The loader, WASM, model pins and native engines are unchanged. Rebuild and repeat
 the packaged translation before marking that
@@ -1220,6 +1220,84 @@ resume, while preserving owned images, notes, the original and a previous valid
 variant after failure. V2 worker resume entries invalidate under v3; native text
 caches and completed documents/audio/highlighting are untouched. Rustfmt and diff
 checks passed. No benchmark tooling or user article was added to the repository.
+
+**Reconstruction and note-boundary hardening (2026-10-19).** V4 adds the two
+follow-ups from the v3 review. One reconstruction buffer checks every append
+before growth, across all nested elements. Its allowance is the retained source
+shells/literals once plus six times the 32 KiB transport ceiling for worst-case
+escaped text. Thus a large original literal can survive once, while repeated
+formatting cannot multiply arbitrarily large source attributes. A 26 KB reply
+that previously expanded an 8 KiB title into 8.2 MB of reader HTML now fails
+before that expanded HTML is built or parsed.
+
+The separate `inline_markup/protected/boundaries.rs` module owns known note
+attachment. Strict XML and source identity/attribute checks run before DOM
+movement; the result is checked again before source-owned HTML restoration.
+Notes at a parent edge or a Unicode sentence boundary are placed at that target
+boundary, preserving whether they precede or follow its terminal punctuation.
+The module uses the same Unicode sentence segmentation library as the planner,
+never relative text lengths or guessed word positions. It can split repeatable
+formatting to retain the note's original parent, but cannot split a link,
+literal or authored identity. Shared boundary markers retain source order.
+Changed sentence counts, ambiguous split parents, incompatible punctuation and
+unsafe identity splits fail before cache or document promotion. Mid-clause
+references that do not identify a known boundary retain stock engine alignment;
+this is not a guarantee of their semantic attachment or of emphasis quality.
+
+The supplied article's recorded responses were replayed without more inference:
+**230 of 234** pass the stronger checks, and the reported note-2 placement is
+corrected. Four responses (`b18:s2`, `b33:s2`, `b40:s1`, `b57:s1`) fail because
+their required terminal punctuation is missing or changed; at least the first
+also truncates the source thought. Do not equate the earlier 234 structural
+passes with accepted translation quality, or weaken the boundary checks to
+force completion. A new packaged run still needs acceptance; investigating
+these model-output/completeness failures is a separate next step.
+
+Regressions cover amplification across sibling/nested output, preservation of a
+large source payload once, misplaced parent/sentence-end notes, Unicode/entities,
+split formatting parents, source-order markers/images and rejection of unsafe
+link splitting or ambiguous boundaries. The real HTML/EPUB job test repairs a
+misplaced note through saving and cache-only resume; a bounded reconstruction
+failure leaves the previous variant and cache unchanged. V4 invalidates only
+older worker resume entries. Native caches, completed documents, originals and
+audio/highlighting remain unchanged. No engine/loader/runtime/model changes.
+
+Validation: **436 Rust library tests passed, 4 existing ignored**;
+**160 worker-enabled translation tests passed**; **118 frontend translation and
+shipping/CI tests passed**. Rustfmt and diff checks passed. The 234-response replay
+above used cached model responses in a temporary local harness, removed afterward;
+it did not run new inference, benchmark throughput or modify installed app data.
+The rebuilt AppImage, mobile acceptance, broader smoke and version bump remain
+unverified/deferred. Keep the four recorded model-output failures visible when
+reviewing merge readiness.
+
+**Plan for formatting with non-Bergamot providers.** Keep one shared DOM plan,
+cache, validator, renderer and atomic writer. Providers should return translated
+text plus an optional, explicit alignment result; they must not recreate reader
+HTML, URLs or identities themselves. Extend the existing provider mapping
+validator when a real aligned adapter is ready, including one-to-many target
+ranges for reordered/disjoint emphasis, hierarchy and stable note attachment.
+Bind ranges to the exact source and target strings with documented Unicode
+coordinates and versioned tokenizer/alignment/cache identities.
+
+1. Start with CTranslate2/OPUS-MT: evaluate supported upstream Rust binding
+   access to attention, source/target tokens and tokenizer offsets. Upstream
+   [CTranslate2 exposes attention matrices](https://opennmt.net/CTranslate2/python/ctranslate2.TranslationResult.html)
+   when requested, but the current `ct2rs` result does not expose that matrix.
+   Attention still needs a tested alignment conversion; a flag is not reliable
+   formatting support. Prefer upstream binding support over local C++ patches.
+2. Feed validated mappings into shared source-owned reconstruction. Test nested
+   and disjoint styles, repeated words, reordered phrases, UTF-8/scalar offsets,
+   links/notes/assets, bounds, cancellation and resume before enabling it in UI.
+3. For HY-MT2 and future models without reliable alignment, retain an explicit
+   best-effort/plain-text capability. Prompts or generated HTML/JSON alone do not
+   prove that styles landed on the correct words. Evaluate a supported aligner
+   separately if full formatting is required; do not add another phrase-guessing
+   renderer or translate each inline text node without sentence context.
+4. Validate representative HTML/EPUB output before claiming formatting fidelity
+   for any provider. Model quality/default selection, benchmarks, broader smoke
+   and the app version bump remain deferred. This plan adds no new provider or
+   alignment dependency in the current fix.
 
 Regression coverage includes reordered/repeated/nested formatting, French and
 Unicode/Arabic combining-mark/emoji text, literal/code/image/note preservation,

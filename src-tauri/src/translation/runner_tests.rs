@@ -231,7 +231,7 @@ fn failed_later_batch_resumes_only_completed_work_and_stores_one_provenanced_var
         )
         .unwrap();
     assert_eq!(engine_id, "bergamot");
-    assert!(settings.contains("bergamot-protected-codes-v3:"));
+    assert!(settings.contains("bergamot-protected-codes-v4:"));
     assert_eq!(
         super::super::storage::list_translated_documents(app.handle())
             .unwrap()
@@ -512,7 +512,13 @@ fn rich_document_validates_entire_batch_before_cache_then_resumes_source_owned_m
         .unwrap();
         let state = TranslationState::default();
         let seen = Arc::new(Mutex::new(Vec::new()));
-        let make_worker = |invalid: bool| {
+        #[derive(Clone, Copy)]
+        enum ReplyMode {
+            Valid,
+            MissingCode,
+            Expansion,
+        }
+        let make_worker = |mode: ReplyMode| {
             let host = state.clone();
             let seen = seen.clone();
             state.bergamot.open("main".into(), "document-job".into(), state.cancelled_jobs.clone(), move |request| {
@@ -522,10 +528,12 @@ fn rich_document_validates_entire_batch_before_cache_then_resumes_source_owned_m
                     let outputs = segments.into_iter().map(|s| {
                         assert!(s.html);
                         for secret in ["private_id", "42", "#note", "data-papercut-asset"] { assert!(!s.text.contains(secret)); }
-                        let target = if s.id == "b0:s0" { "The <span data-pc='0'>gold</span> ring is lost." }
+                        let target = if s.id == "b0:s0" && matches!(mode, ReplyMode::Expansion) {
+                            "<span data-pc='0'>x</span>".repeat(1000)
+                        } else { (if s.id == "b0:s0" { "The <span data-pc='0'>gold</span> ring is lost." }
                             else if s.id == "b2:s0" { "<span data-pc='0'>The</span> blue <span data-pc='0'>dog</span>." }
-                            else if invalid { "Keep a private identifier and the number." }
-                            else { "Keep <span data-pc='0' translate='no'>PC0</span> and <span data-pc='1' translate='no'>PC1</span><span data-pc='2' translate='no'></span><span data-pc='3' translate='no'></span>." };
+                            else if matches!(mode, ReplyMode::MissingCode) { "Keep a private identifier and the number." }
+                            else { "<span data-pc='2' translate='no'></span>Keep <span data-pc='0' translate='no'>PC0</span> and <span data-pc='1' translate='no'>PC1</span><span data-pc='3' translate='no'></span>." }).to_string() };
                         TranslationSegmentOutput { id: s.id, source_text: s.text, text: target.into(), markup: None }
                     }).collect();
                     WorkerReply::Result { attempt_id, batch_id, outputs }
@@ -536,7 +544,7 @@ fn rich_document_validates_entire_batch_before_cache_then_resumes_source_owned_m
             host.bergamot.reply("main", reply).map(|_| ())
         }).unwrap()
         };
-        let mut invalid = make_worker(true);
+        let mut invalid = make_worker(ReplyMode::MissingCode);
         assert!(finish_translation(
             app.handle(),
             &state,
@@ -557,7 +565,7 @@ fn rich_document_validates_entire_batch_before_cache_then_resumes_source_owned_m
                 .unwrap()
                 .is_empty()
         );
-        let mut valid = make_worker(false);
+        let mut valid = make_worker(ReplyMode::Valid);
         finish_translation(
             app.handle(),
             &state,
@@ -580,11 +588,19 @@ fn rich_document_validates_entire_batch_before_cache_then_resumes_source_owned_m
         assert!(saved.view_html.contains("<code>private_id</code>"));
         assert!(saved.view_html.contains("href=\"#note\""));
         assert!(saved.view_html.contains("Note originale."));
+        let saved_dom = super::super::html::parse_html_document(&saved.view_html);
+        assert_eq!(
+            saved_dom
+                .select("p > span[translate='no'] + a[role='doc-noteref'] + img")
+                .unwrap()
+                .count(),
+            1
+        );
         assert!(!saved.view_html.contains("data-pc"));
         assert!(!saved.view_html.contains("PC0"));
         assert_eq!(saved.assets.as_ref(), &vec![asset]);
         seen.lock().unwrap().clear();
-        let mut resumed = make_worker(false);
+        let mut resumed = make_worker(ReplyMode::Valid);
         finish_translation(
             app.handle(),
             &state,
@@ -611,7 +627,7 @@ fn rich_document_validates_entire_batch_before_cache_then_resumes_source_owned_m
         changed.view_html = source
             .view_html
             .replace("<strong>or</strong>", "<em>or</em>");
-        let mut invalid = make_worker(true);
+        let mut invalid = make_worker(ReplyMode::MissingCode);
         // The invalid second block is cached, so change both source-owned structures to force both results.
         changed.view_html = changed.view_html.replace(
             "<code>private_id</code>",
@@ -631,6 +647,37 @@ fn rich_document_validates_entire_batch_before_cache_then_resumes_source_owned_m
         let unchanged =
             load_translation_source_document(app.handle(), &variants[0].document_url).unwrap();
         assert_eq!(saved.view_html, unchanged.view_html);
+        // A source-owned long attribute must not amplify a small reply or replace an existing variant/cache.
+        let before =
+            serde_json::to_value(load_segment_cache(app.handle(), &plan).unwrap()).unwrap();
+        let mut expanded = source.clone();
+        expanded.view_html = source.view_html.replace(
+            "<strong>or</strong>",
+            &format!("<strong title='{}'>or</strong>", "x".repeat(8192)),
+        );
+        let mut worker = make_worker(ReplyMode::Expansion);
+        let error = finish_translation(
+            app.handle(),
+            &state,
+            &mut worker,
+            &plan,
+            &expanded,
+            "document-job",
+            Instant::now(),
+        )
+        .unwrap_err();
+        assert!(error.contains("reconstruction"), "{error}");
+        drop(worker);
+        assert_eq!(
+            before,
+            serde_json::to_value(load_segment_cache(app.handle(), &plan).unwrap()).unwrap()
+        );
+        assert_eq!(
+            saved.view_html,
+            load_translation_source_document(app.handle(), &variants[0].document_url)
+                .unwrap()
+                .view_html
+        );
         let unchanged_original =
             load_translation_source_document(app.handle(), &source.document_url).unwrap();
         assert_eq!(original, unchanged_original);

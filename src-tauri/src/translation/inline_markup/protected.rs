@@ -11,8 +11,10 @@ use super::{
 use crate::document_uploads::{is_note_marker, tag_separates_text};
 use crate::translation::html::parse_html_document;
 
+mod boundaries;
+
 /// Source normalization and hierarchy semantics participate in worker cache compatibility.
-pub(crate) const MAPPING_VERSION: &str = "protected-codes-v3";
+pub(crate) const MAPPING_VERSION: &str = "protected-codes-v4";
 const MAX_CODES: usize = 128;
 pub(crate) const MAX_HTML_BYTES: usize = 32 * 1024;
 
@@ -34,6 +36,7 @@ struct Code {
     literal: Option<String>,
     indivisible: bool,
     repeatable: bool,
+    note_marker: bool,
 }
 
 impl Code {
@@ -177,7 +180,8 @@ fn collect(
     };
     let tag = element.name.local.as_ref();
     let attrs = element.attributes.borrow();
-    let opaque = is_note_marker(node)
+    let note_marker = is_note_marker(node);
+    let opaque = note_marker
         || matches!(
             tag,
             "code" | "img" | "svg" | "math" | "audio" | "video" | "table" | "figure"
@@ -206,6 +210,7 @@ fn collect(
         close,
         literal: None,
         indivisible: opaque || attrs.get("id").is_some() || attrs.get("name").is_some(),
+        note_marker,
         // HTML alignment can split emphasis across target words; never duplicate authored identities or literals.
         repeatable: is_inline_formatting_element(node)
             && !opaque
@@ -214,7 +219,7 @@ fn collect(
     });
     if opaque {
         // Notes are excluded by the shared model; all other literals retain their normalized offsets.
-        if !is_note_marker(node) {
+        if !note_marker {
             collect_plain(node, text, pending);
         }
         codes[id].literal =
@@ -308,11 +313,23 @@ impl ProtectedPlan {
         let wrapped = format!("<root>{output}</root>");
         let doc =
             roxmltree::Document::parse(&wrapped).map_err(|_| "Invalid protected markup syntax")?;
-        let mut seen = std::collections::HashSet::new();
-        let html = self.restore_children(doc.root_element(), None, &mut seen)?;
-        if seen.len() != self.codes.len() {
-            return Err("Protected markup is missing source identities".into());
-        }
+        // Never let an HTML parser repair unvalidated provider markup before repositioning notes.
+        let normalized = if self.codes.iter().any(|code| code.note_marker) {
+            let mut seen = std::collections::HashSet::new();
+            self.validate_children(doc.root_element(), None, &mut seen)?;
+            self.require_all_codes(&seen)?;
+            boundaries::reposition(self, output)?
+        } else {
+            None
+        };
+        let html = if let Some(normalized) = normalized {
+            let wrapped = format!("<root>{normalized}</root>");
+            let normalized = roxmltree::Document::parse(&wrapped)
+                .map_err(|_| "Invalid repositioned protected markup")?;
+            self.render(normalized.root_element())?
+        } else {
+            self.render(doc.root_element())?
+        };
         let parsed = parse_html_document(format!("<html><body><div>{html}</div></body></html>"));
         let node = parsed
             .select_first("body > div")
@@ -324,72 +341,151 @@ impl ProtectedPlan {
         Ok(RestoredMarkup { html, text })
     }
 
-    /// Allow disjoint copies of formatting only, under the same parent; all other identities remain single-use.
-    /// Provider tags/attributes never reach the reader, even on a repeated formatting code.
+    /// Charge retained source payload once plus worst-case escaped transport text; repeats cannot amplify it.
+    fn render(&self, root: roxmltree::Node<'_, '_>) -> Result<String, String> {
+        let limit = self
+            .codes
+            .iter()
+            .try_fold(MAX_HTML_BYTES * 6, |total, code| {
+                let size = code.literal.as_ref().map_or_else(
+                    || code.open.len().checked_add(code.close.len()),
+                    |literal| Some(literal.len()),
+                )?;
+                total.checked_add(size)
+            })
+            .ok_or("Protected reconstruction budget overflow")?;
+        let mut output = Reconstruction {
+            html: String::new(),
+            limit,
+        };
+        let mut seen = std::collections::HashSet::new();
+        self.restore_children(root, None, &mut seen, &mut output)?;
+        self.require_all_codes(&seen)?;
+        Ok(output.html)
+    }
+
+    /// Validate without constructing reader HTML before the bounded synthetic DOM is rearranged.
+    fn validate_children(
+        &self,
+        node: roxmltree::Node<'_, '_>,
+        parent: Option<usize>,
+        seen: &mut std::collections::HashSet<usize>,
+    ) -> Result<(), String> {
+        for child in node.children().filter(|child| !child.is_text()) {
+            let code = self.checked_code(child, parent, seen)?;
+            if code.literal.is_none() {
+                self.validate_children(child, Some(code.id), seen)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Every source identity is mandatory even when formatting has several target occurrences.
+    fn require_all_codes(&self, seen: &std::collections::HashSet<usize>) -> Result<(), String> {
+        if seen.len() != self.codes.len() {
+            return Err("Protected markup is missing source identities".into());
+        }
+        Ok(())
+    }
+
+    /// Share the trust boundary before and after note movement; only plain formatting can be split.
+    fn checked_code(
+        &self,
+        child: roxmltree::Node<'_, '_>,
+        parent: Option<usize>,
+        seen: &mut std::collections::HashSet<usize>,
+    ) -> Result<&Code, String> {
+        if !child.is_element()
+            || child.tag_name().name() != "span"
+            || child.tag_name().namespace().is_some()
+            || child.namespaces().len() != 0
+        {
+            return Err("Unexpected protected markup node".into());
+        }
+        let raw = child
+            .attribute("data-pc")
+            .ok_or("Missing protected identity")?;
+        let code = self
+            .codes
+            .iter()
+            .find(|code| code.id.to_string() == raw)
+            .ok_or("Unknown protected identity")?;
+        let opaque = code.literal.is_some();
+        if code.parent != parent
+            || (!seen.insert(code.id) && !code.repeatable)
+            || child.attributes().len() != if opaque { 2 } else { 1 }
+            || child.attributes().any(|attr| {
+                attr.namespace().is_some()
+                    || (attr.name() != "data-pc"
+                        && !(opaque && attr.name() == "translate" && attr.value() == "no"))
+            })
+        {
+            return Err("Changed, duplicated or reparented protected identity".into());
+        }
+        if opaque
+            && (child.children().any(|node| !node.is_text())
+                || child
+                    .children()
+                    .filter_map(|node| node.text())
+                    .collect::<String>()
+                    != code.literal_placeholder())
+        {
+            return Err("Changed protected literal code".into());
+        }
+        Ok(code)
+    }
+
+    /// Write all levels into one budgeted buffer, without intermediate copies of expanded subtrees.
     fn restore_children(
         &self,
         node: roxmltree::Node<'_, '_>,
         parent: Option<usize>,
         seen: &mut std::collections::HashSet<usize>,
-    ) -> Result<String, String> {
-        let mut html = String::new();
+        output: &mut Reconstruction,
+    ) -> Result<(), String> {
         for child in node.children() {
             if child.is_text() {
-                html.push_str(&escape(child.text().unwrap_or_default()));
+                output.push(&escape(child.text().unwrap_or_default()))?;
                 continue;
             }
-            if !child.is_element()
-                || child.tag_name().name() != "span"
-                || child.tag_name().namespace().is_some()
-                || child.namespaces().len() != 0
-            {
-                return Err("Unexpected protected markup node".into());
-            }
-            let raw = child
-                .attribute("data-pc")
-                .ok_or("Missing protected identity")?;
-            let code = self
-                .codes
-                .iter()
-                .find(|c| c.id.to_string() == raw)
-                .ok_or("Unknown protected identity")?;
-            let opaque = code.literal.is_some();
-            if code.parent != parent
-                || (!seen.insert(code.id) && !code.repeatable)
-                || child.attributes().len() != if opaque { 2 } else { 1 }
-                || child.attributes().any(|a| {
-                    a.namespace().is_some()
-                        || (a.name() != "data-pc"
-                            && !(opaque && a.name() == "translate" && a.value() == "no"))
-                })
-            {
-                return Err("Changed, duplicated or reparented protected identity".into());
-            }
+            let code = self.checked_code(child, parent, seen)?;
             if let Some(literal) = &code.literal {
-                if child.children().any(|c| !c.is_text())
-                    || child
-                        .children()
-                        .filter_map(|c| c.text())
-                        .collect::<String>()
-                        != code.literal_placeholder()
-                {
-                    return Err("Changed protected literal code".into());
-                }
-                // Keep source whitespace at opaque boundaries even if HTML alignment swallowed it.
                 if code.start > 0 && self.source.chars().nth(code.start - 1) == Some(' ') {
-                    html.push(' ');
+                    output.push(" ")?;
                 }
-                html.push_str(literal);
+                output.push(literal)?;
                 if self.source.chars().nth(code.end) == Some(' ') {
-                    html.push(' ');
+                    output.push(" ")?;
                 }
             } else {
-                html.push_str(&code.open);
-                html.push_str(&self.restore_children(child, Some(code.id), seen)?);
-                html.push_str(&code.close);
+                output.push(&code.open)?;
+                self.restore_children(child, Some(code.id), seen, output)?;
+                output.push(&code.close)?;
             }
         }
-        Ok(html)
+        Ok(())
+    }
+}
+
+/// A source-sized allowance preserves original literals; every repeated byte still consumes the same budget.
+struct Reconstruction {
+    html: String,
+    limit: usize,
+}
+
+impl Reconstruction {
+    /// Check before String growth, including source attributes repeated by a small provider reply.
+    fn push(&mut self, text: &str) -> Result<(), String> {
+        if self
+            .html
+            .len()
+            .checked_add(text.len())
+            .is_none_or(|size| size > self.limit)
+        {
+            return Err("Protected reconstruction exceeds its bound".into());
+        }
+        self.html.push_str(text);
+        Ok(())
     }
 }
 
@@ -503,6 +599,145 @@ mod tests {
             .fragment(segment.source_start..segment.source_end, &segment.text)
             .unwrap_err()
             .contains("crosses a segment boundary"));
+    }
+
+    #[test]
+    fn reconstruction_bounds_expansion_but_retains_large_source_payload_once() {
+        let p = plan(&format!(
+            "<p><strong title='{}'>Hola</strong></p>",
+            "x".repeat(8192)
+        ));
+        assert!(p.restore(&p.html).unwrap().html.contains(&"x".repeat(8192)));
+        let reply = "<span data-pc='0'>x</span>".repeat(1000);
+        assert!(reply.len() < MAX_HTML_BYTES);
+        assert!(p.restore(&reply).err().unwrap().contains("reconstruction"));
+        let split = p
+            .restore("<span data-pc='0'>The</span> blue <span data-pc='0'>dog</span>.")
+            .unwrap();
+        assert_eq!(split.text, "The blue dog.");
+
+        // Owned literals may exceed the transport ceiling; preserving one is not amplification.
+        let p = plan(&format!(
+            "<p>Gardez <code title='{}'>id</code>.</p>",
+            "y".repeat(MAX_HTML_BYTES * 2)
+        ));
+        assert!(p.restore(&p.html).unwrap().html.len() > MAX_HTML_BYTES * 2);
+
+        // The allowance is shared across siblings, not restarted for each formatting subtree.
+        let p = plan(&format!(
+            "<p><strong title='{}'>Hola</strong> <em title='{}'>mundo</em></p>",
+            "a".repeat(8192),
+            "b".repeat(8192)
+        ));
+        let left = "<span data-pc='0'>x</span>".repeat(14);
+        let right = "<span data-pc='1'>y</span>".repeat(14);
+        assert!(p.restore(&(left + &right)).is_err());
+    }
+
+    #[test]
+    fn misplaced_end_and_sentence_notes_return_to_the_source_boundary() {
+        let note = "<a id='ref' role='doc-noteref' href='#note'><sup>2</sup></a>";
+        for (source, target, expected) in [
+            (
+                format!("<p>La république islamique iranienne{note}.</p>"),
+                "The <span data-pc='0' translate='no'></span>Iranian Islamic Republic.",
+                "The Iranian Islamic Republic<a",
+            ),
+            (
+                format!("<p>Bonjour{note}. Merci.</p>"),
+                "Hello <span data-pc='0' translate='no'></span>world. Thanks.",
+                "Hello world<a",
+            ),
+            (
+                format!("<p>Bonjour.{note}</p>"),
+                "<span data-pc='0' translate='no'></span>Hello.",
+                "Hello.<a",
+            ),
+            (
+                format!("<p>{note}Bonjour.</p>"),
+                "Hello<span data-pc='0' translate='no'></span>.",
+                "</sup></a>Hello.",
+            ),
+        ] {
+            let restored = plan(&source).restore(target).unwrap();
+            assert!(restored.html.contains(expected), "{}", restored.html);
+            assert_eq!(
+                parse_html_document(restored.html)
+                    .select("a#ref")
+                    .unwrap()
+                    .count(),
+                1
+            );
+        }
+        let p = plan(&format!("<p>Bonjour{note}. Merci.</p>"));
+        assert!(p
+            .restore("Hello <span data-pc='0' translate='no'></span>world and thanks.")
+            .is_err());
+        // The model may truncate the sentence; a missing terminal period cannot establish this boundary.
+        let p = plan(&format!("<p>Bonjour{note}.</p>"));
+        assert!(p
+            .restore("Hello<span data-pc='0' translate='no'></span>)")
+            .is_err());
+    }
+
+    #[test]
+    fn note_placement_preserves_nested_parents_unicode_and_single_use_links() {
+        let note = "<a role='doc-noteref' href='#n' id='ref'>1</a>";
+        let p = plan(&format!("<p><strong>Été🙂 et café</strong>{note}.</p>"));
+        let restored = p.restore("<span data-pc='1' translate='no'></span><span data-pc='0'>Summer🙂 &amp; coffee.</span>").unwrap();
+        assert!(restored
+            .html
+            .contains("<strong>Summer🙂 &amp; coffee</strong><a"));
+        assert_eq!(restored.text, "Summer🙂 & coffee.");
+        let p = plan(&format!("<p><strong><em>Bonjour{note}.</em></strong></p>"));
+        let restored = p.restore("<span data-pc='0'><span data-pc='1'><span data-pc='2' translate='no'></span>Hello.</span></span>").unwrap();
+        assert!(restored.html.contains("<strong><em>Hello<a"));
+        assert_eq!(
+            parse_html_document(restored.html)
+                .select("strong > em > a#ref")
+                .unwrap()
+                .count(),
+            1
+        );
+        let p = plan(&format!("<p><strong>Bonjour{note}.</strong></p>"));
+        let restored = p.restore("<span data-pc='0'>Hello<span data-pc='1' translate='no'></span> </span><span data-pc='0'>world.</span>").unwrap();
+        assert!(restored.html.contains("<strong>world<a"));
+        let p = plan(&format!("<p><strong>Bonjour{note}. Merci.</strong></p>"));
+        assert!(p.restore("<span data-pc='0'>Hello<span data-pc='1' translate='no'></span>.</span> <span data-pc='0'>Thanks.</span>").is_err());
+        // A note outside an authored link cannot be placed inside it or duplicate its id.
+        let p = plan(&format!("<p><a id='link' href='#n'>Bonjour</a>{note}.</p>"));
+        assert!(p
+            .restore("<span data-pc='1' translate='no'></span><span data-pc='0'>Hello.</span>")
+            .is_err());
+        assert!(p
+            .restore("<span data-pc='1' translate='no'></span><span data-pc='0'>Hello</span>.")
+            .is_ok());
+    }
+
+    #[test]
+    fn shared_boundary_notes_and_assets_keep_source_order() {
+        let asset = crate::document_uploads::ParsedDocumentAsset::new(
+            "image/png",
+            b"ordered note image".to_vec(),
+        )
+        .unwrap();
+        let image = format!("<img data-papercut-asset='{}'>", asset.file_name);
+        for (shell, selector) in [
+            (format!("<a id='one' role='doc-noteref' href='#n'>1</a><a id='two' role='doc-noteref' href='#n'>2</a>"), "a#one + a#two"),
+            (format!("{image}<a id='two' role='doc-noteref' href='#n'>2</a>"), "img + a#two"),
+            (format!("<a id='one' role='doc-noteref' href='#n'>1</a>{image}"), "a#one + img"),
+        ] {
+            let p = plan(&format!("<p>Bonjour{shell}.</p>"));
+            let target = if selector == "a#one + img" {
+                "<span data-pc='0' translate='no'></span>Hello<span data-pc='1' translate='no'></span>."
+            } else {
+                "<span data-pc='1' translate='no'></span>Hello<span data-pc='0' translate='no'></span>."
+            };
+            let restored = p.restore(target).unwrap();
+            let doc = parse_html_document(restored.html);
+            assert_eq!(doc.select(selector).unwrap().count(), 1, "{selector}");
+            assert!(doc.select_first("body").unwrap().text_contents().starts_with("Hello"));
+        }
     }
 
     #[test]
