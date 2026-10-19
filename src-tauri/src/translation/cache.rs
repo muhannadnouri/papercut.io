@@ -340,7 +340,7 @@ mod tests {
         assert!(cache_is_compatible(&cache, &worker));
         cache.provider_identity = cache
             .provider_identity
-            .map(|identity| identity.replace("protected-codes-v2", "protected-codes-v1"));
+            .map(|identity| identity.replace("protected-codes-v3", "protected-codes-v2"));
         assert!(!cache_is_compatible(&cache, &worker));
         cache.provider_identity = Some("previous-runtime-or-model".into());
         assert!(!cache_is_compatible(&cache, &worker));

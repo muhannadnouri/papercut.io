@@ -1139,10 +1139,17 @@ Mozilla's [pinned engine wrapper](https://github.com/mozilla/translations/blob/6
 **Validation and reconstruction.** Reply owner/attempt/sequence and exact
 transport-source checks still precede consumption. The adapter and shared runner
 validate all rich results before caching any result from the batch. A strict
-parser requires every retained identity exactly once under its original parent;
-siblings may reorder, but crossing/reparented/missing/duplicate/unknown codes,
-changed opaque tokens, unexpected tags/attributes/namespaces and malformed
-markup fail. Provider HTML never replaces the reader document. The renderer
+parser requires every retained identity under its original parent. Ordinary
+formatting without an authored id/name may occur in several disjoint target
+ranges: `<strong>El perro</strong> azul` can map to
+`<strong>The</strong> blue <strong>dog</strong>`. This repeats formatting, not
+the intervening word or the source content. Links, generic containers, authored
+identities and opaque subtrees remain single-use. Siblings may reorder, but
+crossing/reparented/missing/unknown codes, forbidden duplicates, changed opaque
+tokens, unexpected tags/attributes/namespaces and malformed markup fail.
+Zero-width notes/images use empty opaque spans instead of invented `PC…` words;
+nonempty literal codes still require their exact placeholder. Provider HTML
+never replaces the reader document. The renderer
 rebuilds only source-owned shells and opaque subtrees, escapes translated text,
 and revalidates fragment/source/text coverage against the cloned DOM. Existing
 sanitization, independent asset ownership, indexing, quality checks and atomic
@@ -1157,11 +1164,11 @@ and occur exactly once. Opaque literals retain source word-boundary spaces even
 if the provider HTML alignment loses a separator.
 
 **Resume and provenance.** Rich cache entries store the raw code response plus
-an identity of the exact source plan, literals and `protected-codes-v2` strategy.
+an identity of the exact source plan, literals and `protected-codes-v3` strategy.
 They are location-bound and revalidated on every read. Plain translation memory
 cannot satisfy a rich request; missing/corrupt/mismatched mappings trigger fresh
-inference. Provider identity is now `bergamot-protected-codes-v2:<hash>`, retaining
-the existing exact asset/worker/loader hash binding. Old Bergamot text and v1
+inference. Provider identity is now `bergamot-protected-codes-v3:<hash>`, retaining
+the existing exact asset/worker/loader hash binding. Old Bergamot text and v1/v2
 rich caches are incompatible; native text caches and alignment epoch **3** are
 unchanged. Existing
 completed variants, originals, generated audiobooks and highlighting are not
@@ -1180,6 +1187,39 @@ into a different identity tree. Broader structural/splitting support requires
 its own tests, not a permissive fallback. Structural validation does not prove
 semantic placement or translation quality, and actual stock-model rich output
 has not been accepted on packaged devices in this stage.
+
+**Spanish smoke follow-up (2026-10-19).** A user-built Linux AppImage failed with
+`Changed, duplicated or reparented protected identity` on a 234-segment article.
+The shipped worker and pinned Spanish model reproduced disjoint emphasis in
+56 segments; blanket duplicate rejection was too strict. Replaying the remaining
+results exposed a second issue: synthetic note text could move outside its
+opaque span. The v3 rules above address both without relaxing single-use marker,
+attribute or hierarchy checks. All **234** corrected stock-worker responses were
+replayed through the current Rust source-plan validator successfully. This is a
+local correctness reproduction, not an installed-AppImage or quality benchmark.
+The loader, WASM, model pins and native engines are unchanged. Rebuild and repeat
+the packaged translation before marking that
+acceptance complete; general smoke, benchmarks and the app version bump remain
+deferred.
+
+The same user's successful CTranslate2 translation still omitted some emphasis.
+That adapter does not return word alignment: emphasis relies on unique target
+phrase matches, with isolated phrase probes capped at 120 source characters.
+Context-dependent wording, longer phrases and ambiguous repeats can remain plain
+text. This is an existing limitation, not fixed by Bergamot's transport changes;
+complete native-engine formatting needs supported alignment through the shared
+provider contract, not proportional positioning or relaxed HTML validation.
+
+Regression checks: **432 Rust library tests passed, 4 existing ignored**;
+**156 worker-enabled translation tests passed**; **118 translation frontend and
+shipping/CI tests passed**. New cases cover disjoint nested emphasis, the observed
+Spanish punctuation split, empty zero-width codes, and rejection of duplicate
+notes/links/authored identities, reparenting and injected attributes. The existing
+HTML/EPUB runner test now carries split formatting through saving and a cache-only
+resume, while preserving owned images, notes, the original and a previous valid
+variant after failure. V2 worker resume entries invalidate under v3; native text
+caches and completed documents/audio/highlighting are untouched. Rustfmt and diff
+checks passed. No benchmark tooling or user article was added to the repository.
 
 Regression coverage includes reordered/repeated/nested formatting, French and
 Unicode/Arabic combining-mark/emoji text, literal/code/image/note preservation,

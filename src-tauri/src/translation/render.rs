@@ -1406,7 +1406,7 @@ mod tests {
         let text = super::DomPlan::new(source).blocks[0].inline.text.clone();
         let mut f = fragment(&text, "Hello. Thanks. Note");
         f.source_end = text.chars().count();
-        f.markup = Some("<span data-pc='0'>Hello. Thanks.</span> <span data-pc='1'>Note</span><span data-pc='2' translate='no'>PC2</span>".into());
+        f.markup = Some("<span data-pc='0'>Hello. Thanks.</span> <span data-pc='1'>Note</span><span data-pc='2' translate='no'></span>".into());
         let mut req = request(
             source,
             vec![section_with_fragments(0, false, &f.text, vec![f.clone()])],
@@ -1434,15 +1434,13 @@ mod tests {
         let source = "<p><strong>Bonjour.<a role='doc-noteref' href='#n' id='middle'><sup>1</sup></a> Merci.</strong><a role='doc-noteref' href='#n' id='ref'><sup>2</sup></a></p>";
         let mut first = fragment("Bonjour.", "Hello.");
         first.source_end = 8;
-        first.markup = Some(
-            "<span data-pc='0'>Hello.<span data-pc='1' translate='no'>PC1</span></span>".into(),
-        );
+        first.markup =
+            Some("<span data-pc='0'>Hello.<span data-pc='1' translate='no'></span></span>".into());
         let mut second = fragment("Merci.", "Thanks.");
         second.source_start = 9;
         second.source_end = 15;
-        second.markup = Some(
-            "<span data-pc='0'>Thanks.</span><span data-pc='2' translate='no'>PC2</span>".into(),
-        );
+        second.markup =
+            Some("<span data-pc='0'>Thanks.</span><span data-pc='2' translate='no'></span>".into());
         let req = request(
             source,
             vec![section_with_fragments(

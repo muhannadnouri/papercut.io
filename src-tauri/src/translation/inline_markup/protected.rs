@@ -5,12 +5,14 @@ use std::ops::Range;
 use kuchikiki::NodeRef;
 use serde::Serialize;
 
-use super::{append_normalized_text, serialize_node, source_inline_model};
+use super::{
+    append_normalized_text, is_inline_formatting_element, serialize_node, source_inline_model,
+};
 use crate::document_uploads::{is_note_marker, tag_separates_text};
 use crate::translation::html::parse_html_document;
 
 /// Source normalization and hierarchy semantics participate in worker cache compatibility.
-pub(crate) const MAPPING_VERSION: &str = "protected-codes-v2";
+pub(crate) const MAPPING_VERSION: &str = "protected-codes-v3";
 const MAX_CODES: usize = 128;
 pub(crate) const MAX_HTML_BYTES: usize = 32 * 1024;
 
@@ -31,6 +33,18 @@ struct Code {
     close: String,
     literal: Option<String>,
     indivisible: bool,
+    repeatable: bool,
+}
+
+impl Code {
+    /// Notes/images have no source text: an invented word can be translated or aligned outside its code.
+    fn literal_placeholder(&self) -> String {
+        if self.start == self.end {
+            String::new()
+        } else {
+            format!("PC{}", self.id)
+        }
+    }
 }
 
 pub(crate) struct RestoredMarkup {
@@ -192,6 +206,11 @@ fn collect(
         close,
         literal: None,
         indivisible: opaque || attrs.get("id").is_some() || attrs.get("name").is_some(),
+        // HTML alignment can split emphasis across target words; never duplicate authored identities or literals.
+        repeatable: is_inline_formatting_element(node)
+            && !opaque
+            && attrs.get("id").is_none()
+            && attrs.get("name").is_none(),
     });
     if opaque {
         // Notes are excluded by the shared model; all other literals retain their normalized offsets.
@@ -256,7 +275,10 @@ fn encode_children(
         ));
         html.push_str(&format!("<span data-pc=\"{}\"", code.id));
         if code.literal.is_some() {
-            html.push_str(&format!(" translate=\"no\">PC{}</span>", code.id));
+            html.push_str(&format!(
+                " translate=\"no\">{}</span>",
+                code.literal_placeholder()
+            ));
         } else {
             html.push('>');
             html.push_str(&encode_children(plan, Some(code.id), code.start..code.end)?);
@@ -302,7 +324,8 @@ impl ProtectedPlan {
         Ok(RestoredMarkup { html, text })
     }
 
-    /// Validate each code once and under its original parent; provider tags/attributes never reach the reader.
+    /// Allow disjoint copies of formatting only, under the same parent; all other identities remain single-use.
+    /// Provider tags/attributes never reach the reader, even on a repeated formatting code.
     fn restore_children(
         &self,
         node: roxmltree::Node<'_, '_>,
@@ -332,7 +355,7 @@ impl ProtectedPlan {
                 .ok_or("Unknown protected identity")?;
             let opaque = code.literal.is_some();
             if code.parent != parent
-                || !seen.insert(code.id)
+                || (!seen.insert(code.id) && !code.repeatable)
                 || child.attributes().len() != if opaque { 2 } else { 1 }
                 || child.attributes().any(|a| {
                     a.namespace().is_some()
@@ -348,7 +371,7 @@ impl ProtectedPlan {
                         .children()
                         .filter_map(|c| c.text())
                         .collect::<String>()
-                        != format!("PC{}", code.id)
+                        != code.literal_placeholder()
                 {
                     return Err("Changed protected literal code".into());
                 }
@@ -483,6 +506,80 @@ mod tests {
     }
 
     #[test]
+    fn zero_width_markers_send_no_synthetic_prose_and_remain_single_use() {
+        let p = plan("<p>Bonjour<a role='doc-noteref' id='ref' href='#note'><sup>1</sup></a>.</p>");
+        assert_eq!(
+            p.html,
+            "Bonjour<span data-pc=\"0\" translate=\"no\"></span>."
+        );
+        let valid = "Hello<span data-pc='0' translate='no'></span>.";
+        let restored = p.restore(valid).unwrap();
+        assert_eq!(restored.text, "Hello.");
+        assert_eq!(
+            parse_html_document(restored.html)
+                .select("a#ref[href='#note'] > sup")
+                .unwrap()
+                .count(),
+            1
+        );
+        for invalid in [
+            valid.replace("></span>", ">PC0</span>"),
+            valid.replace("></span>", ">translated words</span>"),
+            format!("{valid}{valid}"),
+            "Hello.".into(),
+        ] {
+            assert!(p.restore(&invalid).is_err(), "{invalid}");
+        }
+    }
+
+    #[test]
+    fn restores_discontinuous_formatting_without_styling_intervening_words() {
+        let p = plan("<p><strong><em>El perro</em></strong> azul.</p>");
+        let restored = p.restore("<span data-pc='0'><span data-pc='1'>The</span></span> blue <span data-pc='0'><span data-pc='1'>dog🙂</span></span>.").unwrap();
+        assert_eq!(restored.text, "The blue dog🙂.");
+        assert_eq!(
+            restored.html,
+            "<strong><em>The</em></strong> blue <strong><em>dog🙂</em></strong>."
+        );
+
+        // Stock es→en splits one emphasized source phrase around target disarmament.
+        let p =
+            plan("<p>aceptar un desarme <em>parcial,</em> contraviniendo las líneas rojas.</p>");
+        let restored = p.restore("accepting <span data-pc='0'>partial</span> disarmament<span data-pc='0'>,</span> contravening the red lines.").unwrap();
+        assert_eq!(
+            restored.html,
+            "accepting <em>partial</em> disarmament<em>,</em> contravening the red lines."
+        );
+    }
+
+    #[test]
+    fn discontinuous_formatting_does_not_allow_duplicated_identities_or_reparenting() {
+        for shell in [
+            "<strong id='unique'>Bonjour</strong>",
+            "<em name='unique'>Bonjour</em>",
+            "<strong translate='no'>Bonjour</strong>",
+            "<strong><a id='unique' href='#note'>Bonjour</a></strong>",
+            "<a href='#note'>Bonjour</a>",
+            "<span>Bonjour</span>",
+            "<code>Bonjour</code>",
+            "<span translate='no'>Bonjour</span>",
+            "<a role='doc-noteref' href='#note'>1</a>",
+        ] {
+            let p = plan(&format!("<p>Texte {shell} fin.</p>"));
+            assert!(
+                p.restore(&format!("{}{}", p.html, p.html)).is_err(),
+                "{shell}"
+            );
+        }
+        let p = plan("<p><strong><em>Bonjour</em></strong></p>");
+        for invalid in [
+            "<span data-pc='0'>Hello</span><span data-pc='1'>world</span>",
+            "<span data-pc='0'><span data-pc='1'>Hello</span></span><span data-pc='0' onclick='bad()'>world</span>",
+            "<span data-pc='0'><span data-pc='1'>Hello</span><span data-pc='0'>world</span></span>",
+        ] { assert!(p.restore(invalid).is_err(), "{invalid}"); }
+    }
+
+    #[test]
     fn reorders_repeated_nested_emphasis_and_keeps_source_link_attributes() {
         let p = plan(
             "<p>Une <strong><em>bague</em></strong> et <a href='#note' id='link'>bague</a>.</p>",
@@ -507,7 +604,7 @@ mod tests {
         for secret in ["private_user_id", "42", "#n", asset.file_name.as_str()] {
             assert!(!p.html.contains(secret));
         }
-        let restored = p.restore("Keep<span data-pc=\"0\" translate=\"no\">PC0</span>and<span data-pc=\"1\" translate=\"no\">PC1</span><span data-pc=\"2\" translate=\"no\">PC2</span><span data-pc=\"3\" translate=\"no\">PC3</span>.").unwrap();
+        let restored = p.restore("Keep<span data-pc=\"0\" translate=\"no\">PC0</span>and<span data-pc=\"1\" translate=\"no\">PC1</span><span data-pc=\"2\" translate=\"no\"></span><span data-pc=\"3\" translate=\"no\"></span>.").unwrap();
         assert_eq!(restored.text, "Keep private_user_id and 42.");
         for retained in [
             "<code>private_user_id</code>",

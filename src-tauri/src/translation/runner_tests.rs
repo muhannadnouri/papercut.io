@@ -231,7 +231,7 @@ fn failed_later_batch_resumes_only_completed_work_and_stores_one_provenanced_var
         )
         .unwrap();
     assert_eq!(engine_id, "bergamot");
-    assert!(settings.contains("bergamot-protected-codes-v2:"));
+    assert!(settings.contains("bergamot-protected-codes-v3:"));
     assert_eq!(
         super::super::storage::list_translated_documents(app.handle())
             .unwrap()
@@ -488,7 +488,7 @@ fn rich_document_validates_entire_batch_before_cache_then_resumes_source_owned_m
         .unwrap();
         source.assets = Arc::new(vec![asset.clone()]);
         source.format = format.into();
-        source.view_html = "<html><body><p>La bague en <strong>or</strong> est perdue.</p><p>Gardez <code>private_id</code> et <span translate='no'>42</span><a role='doc-noteref' href='#note'><sup>1</sup></a>.</p><p id='note' translate='no'>Note originale.</p></body></html>".into();
+        source.view_html = "<html><body><p>La bague en <strong>or</strong> est perdue.</p><p>Gardez <code>private_id</code> et <span translate='no'>42</span><a role='doc-noteref' href='#note'><sup>1</sup></a>.</p><p><strong>Le chien</strong> bleu.</p><p id='note' translate='no'>Note originale.</p></body></html>".into();
         source.view_html = source.view_html.replace(
             "</a>.</p>",
             &format!("</a><img data-papercut-asset='{}'>.</p>", asset.file_name),
@@ -523,8 +523,9 @@ fn rich_document_validates_entire_batch_before_cache_then_resumes_source_owned_m
                         assert!(s.html);
                         for secret in ["private_id", "42", "#note", "data-papercut-asset"] { assert!(!s.text.contains(secret)); }
                         let target = if s.id == "b0:s0" { "The <span data-pc='0'>gold</span> ring is lost." }
+                            else if s.id == "b2:s0" { "<span data-pc='0'>The</span> blue <span data-pc='0'>dog</span>." }
                             else if invalid { "Keep a private identifier and the number." }
-                            else { "Keep <span data-pc='0' translate='no'>PC0</span> and <span data-pc='1' translate='no'>PC1</span><span data-pc='2' translate='no'>PC2</span><span data-pc='3' translate='no'>PC3</span>." };
+                            else { "Keep <span data-pc='0' translate='no'>PC0</span> and <span data-pc='1' translate='no'>PC1</span><span data-pc='2' translate='no'></span><span data-pc='3' translate='no'></span>." };
                         TranslationSegmentOutput { id: s.id, source_text: s.text, text: target.into(), markup: None }
                     }).collect();
                     WorkerReply::Result { attempt_id, batch_id, outputs }
@@ -572,6 +573,10 @@ fn rich_document_validates_entire_batch_before_cache_then_resumes_source_owned_m
         let saved =
             load_translation_source_document(app.handle(), &variants[0].document_url).unwrap();
         assert!(saved.view_html.contains("<strong>gold</strong>"));
+        // Disjoint formatting survives adapter validation, cache replay and source-owned rendering.
+        assert!(saved
+            .view_html
+            .contains("<strong>The</strong> blue <strong>dog</strong>."));
         assert!(saved.view_html.contains("<code>private_id</code>"));
         assert!(saved.view_html.contains("href=\"#note\""));
         assert!(saved.view_html.contains("Note originale."));
@@ -592,6 +597,9 @@ fn rich_document_validates_entire_batch_before_cache_then_resumes_source_owned_m
         .unwrap();
         drop(resumed);
         assert!(seen.lock().unwrap().is_empty());
+        let replayed =
+            load_translation_source_document(app.handle(), &variants[0].document_url).unwrap();
+        assert_eq!(saved.view_html, replayed.view_html);
         assert_eq!(
             super::super::storage::list_translated_documents(app.handle())
                 .unwrap()
