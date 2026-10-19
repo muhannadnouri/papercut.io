@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   deleteTranslatedDocument,
   getTranslationModelStatus,
@@ -10,6 +10,8 @@ import {
   listTranslatedDocuments,
   removeTranslationModel,
   startTranslationJob,
+  isBergamotModel,
+  TranslationError,
   type TranslatedDocumentInfo,
   type TranslationCapabilities,
   type TranslationDeleteResult,
@@ -72,6 +74,7 @@ export function useTranslationManager({
   enabled,
   onDocumentLibraryChanged,
 }: TranslationManagerOptions): TranslationManagerState {
+  const workerJob = useRef<{ jobId: string; controller: AbortController } | null>(null)
   const [capabilities, setCapabilities] = useState<TranslationCapabilities | null>(null)
   const [translatedDocuments, setTranslatedDocuments] = useState<TranslatedDocumentInfo[]>([])
   const [loading, setLoading] = useState(true)
@@ -179,6 +182,8 @@ export function useTranslationManager({
       if (disposed) return
       setStartState((current) => {
         if (current.jobId && progress.jobId !== current.jobId) return current
+        // Late progress must not replace an ended job's error or unknown outcome.
+        if (current.jobId && !current.checking && !current.result) return current
         return {
           ...current,
           progress,
@@ -272,6 +277,8 @@ export function useTranslationManager({
 
   const onStartTranslationPreflight = useCallback(async (request: TranslationStartRequest) => {
     const jobId = createTranslationJobId()
+    const controller = isBergamotModel(request.modelId) ? new AbortController() : undefined
+    if (controller) workerJob.current = { jobId, controller }
     setStartState({
       cancelling: false,
       checking: true,
@@ -281,7 +288,7 @@ export function useTranslationManager({
       message: 'Preparing translation job',
     })
     try {
-      const result = await startTranslationJob({ ...request, jobId })
+      const result = await startTranslationJob({ ...request, jobId }, controller?.signal)
       setStartState((current) => ({
         cancelling: false,
         checking: false,
@@ -300,6 +307,11 @@ export function useTranslationManager({
         result: null,
         message: translationErrorMessage(err),
       }))
+      if (err instanceof TranslationError && err.code === 'translation-outcome-unknown') {
+        await refreshGeneratedDocuments()
+      }
+    } finally {
+      if (workerJob.current?.jobId === jobId) workerJob.current = null
     }
   }, [refreshGeneratedDocuments])
 
@@ -312,6 +324,11 @@ export function useTranslationManager({
       message: 'Cancelling translation job',
     }))
     try {
+      if (workerJob.current?.jobId === jobId) {
+        // The worker host sends Rust cancellation only once that document job exists.
+        workerJob.current.controller.abort(new TranslationError('operation-cancelled', 'Translation cancelled'))
+        return
+      }
       await cancelTranslationJob(jobId)
     } catch (err) {
       setStartState((current) => ({

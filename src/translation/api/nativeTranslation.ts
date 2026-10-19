@@ -202,14 +202,18 @@ export async function listenTranslationProgress(
   })
 }
 
-export async function startTranslationJob(request: TranslationStartRequest): Promise<TranslationStartResult> {
+export function isBergamotModel(modelId: string): boolean {
+  return ['bergamot-fr-en-worker', 'bergamot-es-en-worker'].includes(modelId)
+}
+
+export async function startTranslationJob(request: TranslationStartRequest, signal?: AbortSignal): Promise<TranslationStartResult> {
   if (!isNativeTranslationRuntime()) {
     throw unavailableError()
   }
-  if (['bergamot-fr-en-worker', 'bergamot-es-en-worker'].includes(request.modelId)) {
+  if (isBergamotModel(request.modelId)) {
     const { runInstalledBergamotDocument } = await import('../bergamot/assets')
     try {
-      return await runInstalledBergamotDocument(request)
+      return await runInstalledBergamotDocument(request, signal)
     } catch (error) {
       throw toTranslationError(error)
     }

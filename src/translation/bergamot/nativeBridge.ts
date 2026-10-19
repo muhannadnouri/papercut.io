@@ -1,5 +1,5 @@
 import { Channel, invoke } from '@tauri-apps/api/core'
-import type { TranslationStartRequest, TranslationStartResult } from '../api/nativeTranslation'
+import { TranslationError, type TranslationStartRequest, type TranslationStartResult } from '../api/nativeTranslation'
 
 export interface BergamotFiles {
   sourceLanguage: 'fr' | 'es'
@@ -168,9 +168,15 @@ async function runWorker<T>(
     const channel = new Channel<Batch | Confirm | Stop>(onRequest)
     const native = start({ jobId, requests: channel })
     if (documentJob) {
-      // Cancellation is cooperative until Rust starts saving. Its result is authoritative.
-      void lifecycle.catch(() => {})
-      return await native
+      // Rust may already be committing. Allow its result a bounded grace period.
+      const finalResponse = lifecycle.catch(() => new Promise<never>((_, reject) => {
+        clearTimeout(timer)
+        timer = setTimeout(() => reject(new TranslationError(
+          'translation-outcome-unknown',
+          'The translation outcome could not be confirmed. Check the Library before trying again.',
+        )), 30_000)
+      }))
+      return await Promise.race([native, finalResponse])
     }
     return await Promise.race([native, lifecycle])
   } finally {

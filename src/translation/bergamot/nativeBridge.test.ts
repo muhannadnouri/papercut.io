@@ -372,6 +372,91 @@ describe('full-document worker lifecycle', () => {
     expect(FakeWorker.instances).toHaveLength(0)
   })
 
+  it.each(['timeout', 'abort', 'pagehide'])('releases document admission when the final native reply is lost after %s', async mode => {
+    const controller = new AbortController()
+    const promise = runInstalledBergamotDocument(request, controller.signal)
+    let finished = false
+    void promise.then(() => { finished = true }, () => { finished = true })
+    await vi.waitFor(() => expect(mock.invoke).toHaveBeenCalledWith('translation_bergamot_document', expect.anything()))
+    const oldChannel = mock.channel!
+    const oldWorker = FakeWorker.instances.at(-1)!
+    const oldResolve = resolveNative
+    oldChannel.onmessage({ kind: 'confirm', attemptId: batch.attemptId, batchId: 1 })
+    oldChannel.onmessage({ kind: 'stop', attemptId: batch.attemptId })
+    if (mode === 'timeout') await vi.advanceTimersByTimeAsync(120_000)
+    else if (mode === 'abort') controller.abort()
+    else window.dispatchEvent(new Event('pagehide'))
+    expect(oldWorker.terminate).toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(29_999)
+    oldChannel.onmessage({ kind: 'confirm', attemptId: batch.attemptId, batchId: 2 })
+    oldWorker.reply(result)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(finished).toBe(true)
+    await expect(promise).rejects.toMatchObject({ code: 'translation-outcome-unknown' })
+    expect(vi.getTimerCount()).toBe(0)
+    const calls = mock.invoke.mock.calls.length
+    window.dispatchEvent(new Event('pagehide'))
+    expect(mock.invoke.mock.calls).toHaveLength(calls)
+    const retry = runInstalledBergamotDocument({ ...request, jobId: 'retry-job' })
+    await vi.waitFor(() => expect(FakeWorker.instances).toHaveLength(2))
+    // An old command's late success cannot finish or close this new owner.
+    oldResolve(stored)
+    oldChannel.onmessage({ kind: 'confirm', attemptId: batch.attemptId, batchId: 2 })
+    await Promise.resolve()
+    expect(FakeWorker.instances[1].terminate).not.toHaveBeenCalled()
+    resolveNative({ ...stored, jobId: 'retry-job' })
+    await expect(retry).resolves.toMatchObject({ jobId: 'retry-job' })
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('keeps a late known save result authoritative during the final-response grace period', async () => {
+    const { promise } = await documentJob()
+    let settled = false
+    void promise.then(() => { settled = true }, () => { settled = true })
+    mock.channel!.onmessage({ kind: 'confirm', attemptId: batch.attemptId, batchId: 1 })
+    await vi.advanceTimersByTimeAsync(120_000 + 29_999)
+    expect(settled).toBe(false)
+    resolveNative(stored)
+    await expect(promise).resolves.toEqual(stored)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it.each([0, 3])('public job cancellation stops a pending asset read at index %s without starting Rust', async index => {
+    const { startTranslationJob, TranslationError } = await import('../api/nativeTranslation')
+    vi.stubGlobal('__TAURI_INTERNALS__', {})
+    const controller = new AbortController()
+    let release: (buffer: ArrayBuffer) => void = () => {}
+    let reads = 0
+    mock.invoke.mockImplementation(command => {
+      if (command === 'translation_bergamot_asset') {
+        const current = reads++
+        return current === index ? new Promise(resolve => { release = resolve })
+          : Promise.resolve(Uint8Array.from([0, 97, 115, 109, 1, 0, 0, 0]).buffer)
+      }
+      return Promise.resolve(true)
+    })
+    const promise = startTranslationJob(request, controller.signal)
+    const rejected = expect(promise).rejects.toMatchObject({ code: 'operation-cancelled' })
+    await vi.waitFor(() => expect(reads).toBe(index + 1))
+    controller.abort(new TranslationError('operation-cancelled', 'Translation cancelled'))
+    await rejected
+    release(Uint8Array.from([0, 97, 115, 109, 1, 0, 0, 0]).buffer)
+    await Promise.resolve()
+    expect(reads).toBe(index + 1)
+    expect(FakeWorker.instances).toHaveLength(0)
+    expect(mock.invoke.mock.calls.some(([cmd]) => cmd === 'translation_bergamot_document' || cmd === 'translation_cancel')).toBe(false)
+    expect(vi.getTimerCount()).toBe(0)
+    mock.invoke.mockImplementation(command => command === 'translation_bergamot_asset'
+      ? Promise.resolve(Uint8Array.from([0, 97, 115, 109, 1, 0, 0, 0]).buffer)
+      : command === 'translation_bergamot_document'
+        ? new Promise(resolve => { resolveNative = resolve }) : Promise.resolve(true))
+    const retry = startTranslationJob({ ...request, jobId: 'retry-job' }, new AbortController().signal)
+    await vi.waitFor(() => expect(FakeWorker.instances).toHaveLength(1))
+    resolveNative({ ...stored, jobId: 'retry-job' })
+    await expect(retry).resolves.toMatchObject({ jobId: 'retry-job' })
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it('returns stored rather than cancelled if the atomic writer already owns the commit', async () => {
     const controller = new AbortController()
     const { promise } = await documentJob(controller.signal)

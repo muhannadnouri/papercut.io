@@ -1018,9 +1018,10 @@ batch completion and validation and are cleaned up when the job exits. A shared
 lock arbitrates the final cancellation check and save admission. Before that
 boundary, cancellation prevents all durable variant writes; after it, the
 atomic writer finishes and cancellation returns an “already being saved” error.
-The document host waits for Rust's final command result rather than racing a
-late page/abort event against a commit and incorrectly reporting a saved book
-as cancelled. Completed resume-cache batches may remain after cancellation.
+The document host allows Rust's final command result to settle after a late
+page/abort event rather than incorrectly reporting a saved book as cancelled.
+The lifecycle hardening below bounds that wait when the final reply is lost.
+Completed resume-cache batches may remain after cancellation.
 
 Regression coverage uses the real planner, on-disk cache, DOM renderer and
 SQLite/file writer with a deterministic worker transport: failure on a later
@@ -1043,11 +1044,68 @@ HY-MT2 dead-code warnings when llama.cpp is disabled; Vite retains its existing
 large-chunk warning. These are local checks, not a CI or physical-device result.
 The HY-MT2/Vulkan build still needs CI because local Vulkan headers are absent.
 
-Next: review this integration, then implement validated protected rich mapping through the shared
-provider contract before exposing Bergamot in the catalog. Packaged desktop/mobile
-acceptance, benchmarks, installed-app smoke and the app version bump remain
+The following recovery slice addresses two frontend findings from this
+integration's review. Validated protected rich mapping through the shared
+provider contract is still required before exposing Bergamot in the catalog.
+Packaged desktop/mobile acceptance, benchmarks, installed-app smoke and the app version bump remain
 deferred. Original documents, existing variants and generated audio/highlighting
 are not migrated.
+
+##### Full-Document Lifecycle Recovery (2026-10-19)
+
+Review of `87f6ebf` confirmed two P2 frontend gaps: a lost final command reply
+left document admission busy indefinitely, and the manager's Cancel action
+never reached the asset loader's cancellation signal. Both are now addressed.
+
+After a worker timeout, page lifecycle interruption or abort, the document host
+gives Rust **30 seconds** to return its known outcome. A successful save reply
+within that grace period still wins, including after cancellation was refused
+because the atomic writer already owned the commit. If no final reply arrives,
+the host returns `translation-outcome-unknown`, releases its frontend admission
+and removes its timers/listeners. The existing 120-second asset/request budgets
+and support for books taking longer than two minutes remain unchanged. Stale
+requests/results cannot extend the grace period or affect a new attempt.
+
+An unknown outcome means the variant **may already have been saved**. The
+manager refreshes the existing generated-document/Library list and keeps an
+explicit instruction to check the Library before retrying; a refresh is not
+proof that a still-running native job finished. Late progress cannot overwrite
+that ended job's error/unknown message or a newer job's state. Rust retains its
+own model/job claims and atomic-save guards, so releasing frontend admission
+does not authorize a second writer or roll back a committed variant. A retry
+may still be rejected while the original native operation owns those claims.
+
+The manager owns one AbortController for its current Bergamot job and passes
+its signal through `startTranslationJob` to the existing asset loader/worker
+host. Cancel during a pending binary read releases frontend admission promptly;
+that bounded native read may finish, but its late reply cannot trigger later
+asset reads, create a worker or start a document job. Before a Rust document job
+exists, no cancellation command is sent for a nonexistent job. After worker
+handoff, the existing host forwards cancellation to Rust and observes the same
+save cutoff/grace period. Native OPUS-MT/HY-MT2 jobs continue to use their existing
+Rust cancellation command.
+
+Nine added regressions cover missing final replies after timeout/abort/pagehide,
+a known save reply just before the grace deadline, stale messages and retry
+ownership, cancellation during the first/final asset read, manager signal
+ownership/cleanup, native cancellation and Library refresh/late-progress
+handling after an unknown outcome. They exercise the actual loader/bridge/API
+and a mounted React manager with mocked native/Worker boundaries. The deadline,
+manager-signal and late-progress checks failed before their respective fixes.
+
+Validation: **436 frontend tests passed, 1 existing skipped**, including
+**63 worker/delivery/manager cases**; changed-file ESLint and the complete build
+(i18n check, TypeScript, Vite assets and Pagefind) passed. Vite retains its existing
+large-chunk warning. Rust, native inference and packaging checks were not rerun
+for these frontend-only fixes; the previous backend results above remain
+historical evidence. No dependencies, stock engine/loader, model weights,
+source-format scope, cache identity/epoch, stored variants, original documents,
+audio/highlighting or app version changed.
+
+Next: review this recovery slice, then implement validated protected rich
+mapping through the shared provider contract before catalog exposure. Packaged
+desktop/mobile acceptance remains unverified; benchmarks, installed-app smoke
+and the version bump remain deferred.
 
 ### Stage 7: Quality Upgrades - Mostly Done
 
