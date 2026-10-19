@@ -25,6 +25,7 @@ export async function runInstalledBergamotBatch(
   segments: TextSegment[], sourceLanguage: Language, signal?: AbortSignal,
 ) {
   signal?.throwIfAborted()
+  if (document.visibilityState === 'hidden') throw new Error('Bergamot requires a visible page')
   const unavailable = bergamotWorkerUnavailableReason()
   if (unavailable) throw new Error(unavailable)
   if (!['fr', 'es'].includes(sourceLanguage)) throw new Error('Unsupported Bergamot language pair')
@@ -33,12 +34,16 @@ export async function runInstalledBergamotBatch(
   active = true
   const controller = new AbortController()
   const onAbort = () => controller.abort(signal?.reason)
+  const onPageHide = () => controller.abort(new Error('Bergamot page was hidden'))
+  const onVisibility = () => { if (document.visibilityState === 'hidden') onPageHide() }
   let onStop: () => void = () => {}
   const stopped = new Promise<never>((_, reject) => {
     onStop = () => reject(controller.signal.reason)
     controller.signal.addEventListener('abort', onStop, { once: true })
   })
   signal?.addEventListener('abort', onAbort, { once: true })
+  window.addEventListener('pagehide', onPageHide)
+  document.addEventListener('visibilitychange', onVisibility)
   const timer = setTimeout(() => controller.abort(new Error('Bergamot operation timed out')), 120_000)
   try {
     const files = { sourceLanguage } as BergamotFiles
@@ -63,6 +68,8 @@ export async function runInstalledBergamotBatch(
   } finally {
     clearTimeout(timer)
     signal?.removeEventListener('abort', onAbort)
+    window.removeEventListener('pagehide', onPageHide)
+    document.removeEventListener('visibilitychange', onVisibility)
     controller.signal.removeEventListener('abort', onStop)
     active = false
   }

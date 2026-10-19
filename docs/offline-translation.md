@@ -827,7 +827,7 @@ checked in. Existing originals, translated variants, audio and highlighting are
 unchanged; rich mappings are still fixture-only and no cache epoch changed.
 
 The worker-boundary review and verified asset-delivery slice below are complete.
-Review the delivery slice before connecting it to full document jobs. The
+The delivery review's page-lifecycle finding is addressed below. The
 prototype command is deliberately one bounded batch, not a way to bypass native
 document preflight or persistence. Full-book worker reuse/resume, packaged
 WebView/CSP behavior, cancellation before durable saving and platform support
@@ -937,12 +937,42 @@ local regression evidence, not a new CI or installed-WebView acceptance result.
 Header-only requests to all seven pinned Mozilla attachments returned HTTP 200
 and the expected sizes; no model weights were downloaded for this check.
 
-Next, review this delivery slice, then integrate worker lifetime and verified
-model identities into the existing Rust document job/cache flow. Full-book reuse,
+The delivery review found one page-lifecycle gap, fixed in the following slice.
+Next, integrate worker lifetime and verified model identities into the existing
+Rust document job/cache flow. Full-book reuse,
 resume, pre-save cancellation, protected rich mapping/cache provenance and
 packaged desktop/mobile acceptance remain separate work. Benchmarks,
 installed-app smoke and the app version bump remain deferred; no originals,
 existing variants, audio, highlighting or cache epoch are migrated.
+
+##### Asset Loading Lifecycle Hardening (2026-10-19)
+
+Review of `cf2d9cd` found that hiding the page during a pending asset read missed
+the worker's later lifecycle listeners. After the read completed, the old path
+could finish loading and create a worker while the page was already hidden.
+
+Both the installed-assets entry point and direct worker bridge now reject
+already-hidden starts before allocating work. The installed entry point also
+handles `pagehide` and hidden `visibilitychange` from before the first read
+through worker completion, forwarding cancellation through its existing
+AbortController. All listeners and timers are removed on every terminal path.
+An already-running bounded native disk read may finish independently; its late
+reply cannot trigger another read or create a worker after cancellation.
+
+Ten new regressions exercise the actual asset loader and worker bridge together
+with mocked IPC/Worker boundaries: hidden admission through either entry point,
+both lifecycle events during the first and final pending reads, late replies,
+successful retry, cancellation after worker handoff and listener cleanup on
+success/failure. Six cases failed against the previous implementation before
+the fix. Targeted tests now pass **45 cases**; full frontend validation passed
+**418 tests, 1 existing skipped**. TypeScript, changed-file ESLint and diff checks
+passed. Rust/installer code is unchanged and was not rerun for this frontend fix.
+
+This closes review finding 1 for the bounded prototype. Full-document worker
+reuse/resume, cancellation before saving and rich mapping/cache provenance remain
+the next integration work. Packaged desktop/mobile lifecycle behavior is not
+claimed by these mocked-boundary regressions. Benchmarks, installed-app smoke
+and the app version bump remain deferred.
 
 ### Stage 7: Quality Upgrades - Mostly Done
 

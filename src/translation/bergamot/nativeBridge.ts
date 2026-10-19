@@ -34,6 +34,7 @@ export async function runBergamotBatch(
   segments: TextSegment[], files: BergamotFiles, signal?: AbortSignal,
 ): Promise<WorkerOutput[]> {
   signal?.throwIfAborted()
+  if (document.visibilityState === 'hidden') throw new Error('Bergamot requires a visible page')
   const buffers = [files.wasm, files.model, files.lex, files.vocab]
   if (buffers.some(buffer => !(buffer instanceof ArrayBuffer) || !buffer.byteLength)
       || new Set(buffers).size !== 4 || buffers.reduce((bytes, buffer) => bytes + buffer.byteLength, 0) > 64 * 1024 * 1024) {

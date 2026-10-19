@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runBergamotBatch, type BergamotFiles } from './nativeBridge'
+import { runInstalledBergamotBatch } from './assets'
 
 const mock = vi.hoisted(() => ({ invoke: vi.fn(), channel: null as null | { onmessage: (message: unknown) => void } }))
 vi.mock('@tauri-apps/api/core', () => ({
@@ -32,10 +33,14 @@ function start(signal?: AbortSignal) {
 }
 beforeEach(() => {
   vi.useFakeTimers()
+  vi.stubGlobal('isSecureContext', true)
+  vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
   FakeWorker.instances = []
   mock.invoke.mockReset()
   mock.invoke.mockImplementation((command) => command === 'translation_bergamot_batch'
-    ? new Promise((resolve, reject) => { resolveNative = resolve; rejectNative = reject }) : Promise.resolve(true))
+    ? new Promise((resolve, reject) => { resolveNative = resolve; rejectNative = reject })
+    : command === 'translation_bergamot_asset'
+      ? Promise.resolve(Uint8Array.from([0, 97, 115, 109, 1, 0, 0, 0]).buffer) : Promise.resolve(true))
   vi.stubGlobal('Worker', FakeWorker)
 })
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
@@ -147,5 +152,119 @@ describe('bounded Bergamot native/worker bridge', () => {
     }
     expect(FakeWorker.instances).toHaveLength(0)
     expect(mock.invoke).not.toHaveBeenCalled()
+  })
+})
+
+describe('page lifecycle across asset loading and the real worker bridge', () => {
+  it.each(['direct', 'installed'])('rejects already-hidden %s admission without reads or workers', async mode => {
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+    mock.invoke.mockRejectedValue(new Error('unexpected native call'))
+    const pending = mode === 'direct'
+      ? runBergamotBatch(batch.segments, files())
+      : runInstalledBergamotBatch(batch.segments, 'fr')
+    await expect(pending).rejects.toThrow('visible page')
+    expect(mock.invoke).not.toHaveBeenCalled()
+    expect(FakeWorker.instances).toHaveLength(0)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it.each([
+    ['hidden', 1], ['pagehide', 1], ['hidden', 4], ['pagehide', 4],
+  ] as const)('cancels %s during asset read %s, ignores its late reply and permits retry', async (event, heldRead) => {
+    const addWindow = vi.spyOn(window, 'addEventListener')
+    const removeWindow = vi.spyOn(window, 'removeEventListener')
+    const addDocument = vi.spyOn(document, 'addEventListener')
+    const removeDocument = vi.spyOn(document, 'removeEventListener')
+    const invoke = mock.invoke.getMockImplementation()!
+    let reads = 0
+    let finish: (value: ArrayBuffer) => void = () => {}
+    mock.invoke.mockImplementation((command, ...args) => {
+      if (command === 'translation_bergamot_asset' && ++reads === heldRead) {
+        return new Promise(resolve => { finish = resolve })
+      }
+      return invoke(command, ...args)
+    })
+    const controller = new AbortController()
+    const pending = runInstalledBergamotBatch(batch.segments, 'fr', controller.signal)
+    const rejected = vi.fn()
+    const settled = pending.then(() => {}, rejected)
+    try {
+      await vi.advanceTimersByTimeAsync(0)
+      expect(reads).toBe(heldRead)
+      if (event === 'hidden') {
+        vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+        document.dispatchEvent(new Event('visibilitychange'))
+      } else window.dispatchEvent(new Event('pagehide'))
+      await vi.advanceTimersByTimeAsync(0)
+      expect(rejected).toHaveBeenCalledTimes(1)
+      expect(FakeWorker.instances).toHaveLength(0)
+      expect(vi.getTimerCount()).toBe(0)
+      for (const [, listener] of addWindow.mock.calls.filter(([name]) => name === 'pagehide')) {
+        expect(removeWindow).toHaveBeenCalledWith('pagehide', listener)
+      }
+      for (const [, listener] of addDocument.mock.calls.filter(([name]) => name === 'visibilitychange')) {
+        expect(removeDocument).toHaveBeenCalledWith('visibilitychange', listener)
+      }
+      finish(new ArrayBuffer(4))
+      await vi.advanceTimersByTimeAsync(0)
+      expect(reads).toBe(heldRead)
+      expect(FakeWorker.instances).toHaveLength(0)
+      vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+      const retry = runInstalledBergamotBatch(batch.segments, 'fr')
+      await vi.advanceTimersByTimeAsync(0)
+      const worker = FakeWorker.instances.at(-1)!
+      expect(FakeWorker.instances).toHaveLength(1)
+      mock.channel!.onmessage(batch)
+      worker.reply({ kind: 'ready' })
+      worker.reply(result)
+      resolveNative(outputs)
+      await expect(retry).resolves.toEqual(outputs)
+      expect(worker.terminate).toHaveBeenCalled()
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      controller.abort()
+      await settled
+    }
+  })
+
+  it.each(['hidden', 'pagehide'])('cancels %s after handing assets to the real worker bridge', async event => {
+    const pending = runInstalledBergamotBatch(batch.segments, 'fr')
+    const rejected = expect(pending).rejects.toThrow('cancelled')
+    await vi.advanceTimersByTimeAsync(0)
+    const worker = FakeWorker.instances.at(-1)!
+    mock.channel!.onmessage(batch)
+    if (event === 'hidden') {
+      vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+      document.dispatchEvent(new Event('visibilitychange'))
+    } else window.dispatchEvent(new Event('pagehide'))
+    await rejected
+    expect(worker.terminate).toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
+    const replies = mock.invoke.mock.calls.filter(([command]) => command === 'translation_bergamot_reply')
+    expect(replies).toHaveLength(1)
+    expect(replies[0][1].reply).toEqual({ kind: 'failed', attemptId: batch.attemptId, batchId: 1, reason: 'cancelled' })
+    worker.reply(result)
+    expect(mock.invoke.mock.calls.filter(([command]) => command === 'translation_bergamot_reply')).toHaveLength(1)
+  })
+
+  it.each(['success', 'failure'])('removes all page lifecycle listeners after %s', async mode => {
+    const addWindow = vi.spyOn(window, 'addEventListener')
+    const removeWindow = vi.spyOn(window, 'removeEventListener')
+    const addDocument = vi.spyOn(document, 'addEventListener')
+    const removeDocument = vi.spyOn(document, 'removeEventListener')
+    const pending = runInstalledBergamotBatch(batch.segments, 'fr')
+    const checked = mode === 'success' ? expect(pending).resolves.toEqual(outputs) : expect(pending).rejects.toThrow('busy')
+    await vi.advanceTimersByTimeAsync(0)
+    if (mode === 'success') resolveNative(outputs)
+    else rejectNative(new Error('busy'))
+    await checked
+    for (const [, listener] of addWindow.mock.calls.filter(([name]) => name === 'pagehide')) {
+      expect(removeWindow).toHaveBeenCalledWith('pagehide', listener)
+    }
+    for (const [, listener] of addDocument.mock.calls.filter(([name]) => name === 'visibilitychange')) {
+      expect(removeDocument).toHaveBeenCalledWith('visibilitychange', listener)
+    }
+    expect(vi.getTimerCount()).toBe(0)
+    expect(FakeWorker.instances[0].terminate).toHaveBeenCalled()
   })
 })
