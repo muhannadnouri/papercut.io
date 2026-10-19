@@ -1,0 +1,1170 @@
+{
+  "reportVersion": 1,
+  "date": "2026-10-18",
+  "branchMergeCommit": "834529d",
+  "baseMainCommit": "871d702",
+  "translationParentCommit": "0adce42",
+  "scope": "Isolated Linux CPU engine evaluation, not packaged Papercut smoke or physical mobile acceptance.",
+  "host": {
+    "cpu": "Intel Core Ultra 5 325",
+    "os": "Linux",
+    "arch": "x86_64",
+    "node": "24.21.0",
+    "python": "3.12.14",
+    "chromium": "154.0.8037.97"
+  },
+  "method": {
+    "casesPerLanguage": 12,
+    "warmPasses": 5,
+    "wordCountPerLanguage": 143,
+    "coldDefinition": "Fresh engine/model to first translated case; excludes interpreter process launch and imports, not an OS page-cache cold measurement.",
+    "memoryDefinition": "Whole isolated process ru_maxrss in KiB; Node includes worker, Python includes its runtime. Not model bytes, incremental app memory or physical phone RAM.",
+    "timingDefinition": "Sequential plain-text requests, no phrase probes or Papercut job/storage/render overhead in timed region. Bergamot cache disabled. One WASM worker; OPUS intra/inter threads both one. Different beam sizes and CPU kernels are deliberate configurations, not an apples-to-apples engine contest.",
+    "qualityDefinition": "Authored diagnostic references and agent inspection, not blinded human review, a representative book benchmark, or release acceptance.",
+    "runtimeCaveat": "OPUS models match the branch pins, but the official CTranslate2 4.8.3 Python wheel has different kernels/runtime from the branch ct2rs 0.9.19 Ruy build."
+  },
+  "mozillaSourceRevision": "69455acaecbe8650cdba988dbcf7c10ca20e7c48",
+  "bergamotRuntimeLabel": "v0.6.0+eea6e5a8",
+  "bergamotGlue": {
+    "url": "https://raw.githubusercontent.com/mozilla-firefox/firefox/48d55cf7ec80093903e2ef7f58b61a84a22ef716/toolkit/components/translations/bergamot-translator/bergamot-translator.js",
+    "sha256": "faff1ef6285b0d26f01787776fd49299dfb756ecb9688aa990c250e66797b47d",
+    "bytes": 100187,
+    "repositoryRevision": "48d55cf7ec80093903e2ef7f58b61a84a22ef716"
+  },
+  "mozillaAttachmentBaseUrl": "https://firefox-settings-attachments.cdn.mozilla.net/",
+  "bergamotWasmRecord": {
+    "name": "bergamot-translator",
+    "schema": 1749068911282,
+    "license": "MPL-2.0",
+    "release": "v0.6.0",
+    "version": "3.0",
+    "revision": "1de4a085d3a7afb625c51a60aabb5ad298e4059f",
+    "attachment": {
+      "hash": "a3a89d9ad0a4ed8f27bf3e403701b23f5709816f6376438503f2fa5b0182c2dc",
+      "size": 4960506,
+      "filename": "bergamot-translator.wasm",
+      "location": "main-workspace/translations-wasm/05082c31-aee8-4249-9e01-c1865afd7520.wasm",
+      "mimetype": "application/wasm"
+    },
+    "fx_release": "141.0a1",
+    "filter_expression": "",
+    "id": "4fd32605-9889-4dd9-9fc7-577ad1136746",
+    "last_modified": 1749069444811
+  },
+  "bergamotModelRecords": {
+    "fr": [
+      {
+        "hash": "87c6752ea908f5f0347c10ac0cf7d80d9c2f4f20c81c90168f3e8230b56d4440",
+        "name": "lex.50.50.fren.s2t.bin",
+        "schema": 1758214160130,
+        "toLang": "en",
+        "version": "2.0",
+        "fileType": "lex",
+        "fromLang": "fr",
+        "attachment": {
+          "hash": "87c6752ea908f5f0347c10ac0cf7d80d9c2f4f20c81c90168f3e8230b56d4440",
+          "size": 4824120,
+          "filename": "lex.50.50.fren.s2t.bin",
+          "location": "main-workspace/translations-models/c4d99496-81bf-480f-b0bb-3aebacdcbe8e.bin",
+          "mimetype": "application/octet-stream"
+        },
+        "filter_expression": "",
+        "id": "a39f1d28-96ab-4b7e-860b-ec53bd646b78",
+        "last_modified": 1758219707417
+      },
+      {
+        "hash": "15f997bc0d13808b0b0fbd0786e684a3c8a52adcd8071844b76123fdacbf2b90",
+        "name": "model.fren.intgemm.alphas.bin",
+        "schema": 1758214152726,
+        "toLang": "en",
+        "version": "2.0",
+        "fileType": "model",
+        "fromLang": "fr",
+        "attachment": {
+          "hash": "15f997bc0d13808b0b0fbd0786e684a3c8a52adcd8071844b76123fdacbf2b90",
+          "size": 31561787,
+          "filename": "model.fren.intgemm.alphas.bin",
+          "location": "main-workspace/translations-models/8ef78b1c-df6c-49fc-8cae-cf8c0c2a6630.bin",
+          "mimetype": "application/octet-stream"
+        },
+        "filter_expression": "",
+        "id": "c17f1314-6d24-477b-b253-66fcba910091",
+        "last_modified": 1758219707389
+      },
+      {
+        "hash": "783abf3abe075afdf8d85d233994bef2c3a064e935ab1bed946820aff6ac002a",
+        "name": "vocab.fren.spm",
+        "schema": 1758214150625,
+        "toLang": "en",
+        "version": "2.0",
+        "fileType": "vocab",
+        "fromLang": "fr",
+        "attachment": {
+          "hash": "783abf3abe075afdf8d85d233994bef2c3a064e935ab1bed946820aff6ac002a",
+          "size": 814404,
+          "filename": "vocab.fren.spm",
+          "location": "main-workspace/translations-models/11ecb9da-60dd-4b39-aa12-27883099294b.spm",
+          "mimetype": "text/plain"
+        },
+        "filter_expression": "",
+        "id": "0aa86c2a-190c-4007-8e55-89ec6be82f93",
+        "last_modified": 1758219707373
+      }
+    ],
+    "es": [
+      {
+        "hash": "4aed7734152ae0045d1a69ae49c86cfda18f53c61f90e95e1d1de1c7c7c3b033",
+        "name": "model.esen.intgemm.alphas.bin",
+        "schema": 1758214108944,
+        "toLang": "en",
+        "version": "2.0",
+        "fileType": "model",
+        "fromLang": "es",
+        "attachment": {
+          "hash": "4aed7734152ae0045d1a69ae49c86cfda18f53c61f90e95e1d1de1c7c7c3b033",
+          "size": 31561787,
+          "filename": "model.esen.intgemm.alphas.bin",
+          "location": "main-workspace/translations-models/d7256ea9-7731-4f15-866c-62998eef93b9.bin",
+          "mimetype": "application/octet-stream"
+        },
+        "filter_expression": "",
+        "id": "81134968-ebdb-41f0-bf23-bf95f796b491",
+        "last_modified": 1758219707362
+      },
+      {
+        "hash": "e2610211d3b9577d012638fe7e7e74ed7b4b708ce96b9e792e67c282a6492daa",
+        "name": "lex.50.50.esen.s2t.bin",
+        "schema": 1758214117953,
+        "toLang": "en",
+        "version": "2.0",
+        "fileType": "lex",
+        "fromLang": "es",
+        "attachment": {
+          "hash": "e2610211d3b9577d012638fe7e7e74ed7b4b708ce96b9e792e67c282a6492daa",
+          "size": 4636248,
+          "filename": "lex.50.50.esen.s2t.bin",
+          "location": "main-workspace/translations-models/a55a9cf2-8a8c-4942-a528-91e93d081746.bin",
+          "mimetype": "application/octet-stream"
+        },
+        "filter_expression": "",
+        "id": "521d7a12-4fa0-44cb-8fce-7364046dbdb2",
+        "last_modified": 1758219707330
+      },
+      {
+        "hash": "5ae254fa9b15aa182e70fd2a6186b1333c63a29a48043a9224c6aa4fcac058ad",
+        "name": "vocab.esen.spm",
+        "schema": 1758214116313,
+        "toLang": "en",
+        "version": "2.0",
+        "fileType": "vocab",
+        "fromLang": "es",
+        "attachment": {
+          "hash": "5ae254fa9b15aa182e70fd2a6186b1333c63a29a48043a9224c6aa4fcac058ad",
+          "size": 816054,
+          "filename": "vocab.esen.spm",
+          "location": "main-workspace/translations-models/8695cc3d-7897-4c29-808b-bc983a93d1cd.spm",
+          "mimetype": "text/plain"
+        },
+        "filter_expression": "",
+        "id": "c5072437-0234-48c1-ac78-dbe50715bcc8",
+        "last_modified": 1758219707257
+      }
+    ]
+  },
+  "opusModels": {
+    "fr": {
+      "repository": "michaelfeil/ct2fast-opus-mt-fr-en",
+      "revision": "cb3b2d680bf35591a508d8479e2c99c44e281ef3",
+      "files": [
+        {
+          "path": "config.json",
+          "size": 159,
+          "sha256": "0c2f6fa2057c7264d052fb4a62ba3476eeae70487acddfa8e779a53a00cbf44c"
+        },
+        {
+          "path": "generation_config.json",
+          "size": 293,
+          "sha256": "4cf5099aea4b599387562f1e52b8b872b997a51b64203647864239c3979ef17b"
+        },
+        {
+          "path": "model.bin",
+          "size": 149872839,
+          "sha256": "c32de81be5de6b9a5d03298173c724f02249371fb7ed6b6fd1ee7501578fe7fc"
+        },
+        {
+          "path": "shared_vocabulary.txt",
+          "size": 556777,
+          "sha256": "e87446c025bbe57cc4f9ef90fa6e28ab303a2e31479b7355c2a2d3a6a3a43a0a"
+        },
+        {
+          "path": "source.spm",
+          "size": 802397,
+          "sha256": "78d0e717c77053f1c4b856d8661d9cb87c64f083a35418c087b9146300e4f585"
+        },
+        {
+          "path": "target.spm",
+          "size": 778395,
+          "sha256": "173e9f493a668fe396d599e28d414a201193094e6ffd7a4678e5aab0f6d3d838"
+        },
+        {
+          "path": "tokenizer_config.json",
+          "size": 42,
+          "sha256": "47de9ce87378593016432f8dc657202c03913ab3ce0c15d7f78d51edfc3ff9a3"
+        },
+        {
+          "path": "vocab.json",
+          "size": 1339166,
+          "sha256": "945c604346ce15ce4aff9001001e7f925e336d942c4087017f191871162cbdc4"
+        }
+      ]
+    },
+    "es": {
+      "repository": "michaelfeil/ct2fast-opus-mt-es-en",
+      "revision": "437f5ffc6c8544943c685ea405650e0d17cf6098",
+      "files": [
+        {
+          "path": "config.json",
+          "size": 159,
+          "sha256": "0c2f6fa2057c7264d052fb4a62ba3476eeae70487acddfa8e779a53a00cbf44c"
+        },
+        {
+          "path": "generation_config.json",
+          "size": 293,
+          "sha256": "524dc91570823feb51fbd33a35e5aee3050a4441bdf65e66f6f5e945e5838e40"
+        },
+        {
+          "path": "model.bin",
+          "size": 155502501,
+          "sha256": "3a3b91dcb396ee7b682554e7d9f501909385c48b478a691bfe9bf9e3e32d3656"
+        },
+        {
+          "path": "shared_vocabulary.txt",
+          "size": 666435,
+          "sha256": "77aee99211b7b8e569e0fb5b95dac01aba9f31bca2d1380b1fc6050797825ec6"
+        },
+        {
+          "path": "source.spm",
+          "size": 825924,
+          "sha256": "e236ee6d866b635c0142114f8647f39831f9d92534aa2aad75c942f6a78ad0e3"
+        },
+        {
+          "path": "target.spm",
+          "size": 801636,
+          "sha256": "4dd547c24816a335e7b0b2e63376a8f1b3cbfc671eda5ab808dd44fdadaa8791"
+        },
+        {
+          "path": "tokenizer_config.json",
+          "size": 44,
+          "sha256": "dd009536f1cd954180a3004be20e9963eaf3d68b485d062ea1b90d3b9ded2bc5"
+        },
+        {
+          "path": "vocab.json",
+          "size": 1590040,
+          "sha256": "257f346d7a6b2ecceafcca8ba05648ce2fd68dfaf105fb0e913dca7198f3f6d5"
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "id": "fr-gold",
+      "lang": "fr",
+      "html": "<p>La bague en <strong>or</strong> est perdue.</p>",
+      "text": "La bague en  or  est perdue.",
+      "reference": "The gold ring is lost.",
+      "reviewNote": ""
+    },
+    {
+      "id": "fr-king",
+      "lang": "fr",
+      "html": "<p>La maison du <strong>roi</strong> est grande.</p>",
+      "text": "La maison du  roi  est grande.",
+      "reference": "The king’s house is large.",
+      "reviewNote": "OPUS translates size as great rather than large; Bergamot says big."
+    },
+    {
+      "id": "fr-negation",
+      "lang": "fr",
+      "html": "<p>Ne prenez pas ce médicament si vous êtes allergique à la pénicilline.</p>",
+      "text": "Ne prenez pas ce médicament si vous êtes allergique à la pénicilline.",
+      "reference": "Do not take this medicine if you are allergic to penicillin.",
+      "reviewNote": ""
+    },
+    {
+      "id": "fr-number",
+      "lang": "fr",
+      "html": "<p>Le train part à 14 h 35 et le billet coûte 27,50 euros.</p>",
+      "text": "Le train part à 14 h 35 et le billet coûte 27,50 euros.",
+      "reference": "The train leaves at 14:35 and the ticket costs 27.50 euros.",
+      "reviewNote": ""
+    },
+    {
+      "id": "fr-idiom",
+      "lang": "fr",
+      "html": "<p>Il pleut des cordes, mais nous devons quand même partir.</p>",
+      "text": "Il pleut des cordes, mais nous devons quand même partir.",
+      "reference": "It is pouring with rain, but we still have to leave.",
+      "reviewNote": "Both engines translate the idiom literally as raining ropes."
+    },
+    {
+      "id": "fr-technical",
+      "lang": "fr",
+      "html": "<p>Une panne du serveur principal ne doit pas entraîner la perte des données confirmées.</p>",
+      "text": "Une panne du serveur principal ne doit pas entraîner la perte des données confirmées.",
+      "reference": "A failure of the primary server must not cause the loss of committed data.",
+      "reviewNote": ""
+    },
+    {
+      "id": "fr-pronoun",
+      "lang": "fr",
+      "html": "<p>Marie a prêté son livre à Paul parce qu’il voulait le lire.</p>",
+      "text": "Marie a prêté son livre à Paul parce qu’il voulait le lire.",
+      "reference": "Marie lent her book to Paul because he wanted to read it.",
+      "reviewNote": ""
+    },
+    {
+      "id": "fr-link",
+      "lang": "fr",
+      "html": "<p>Consultez <a href=\"#note-1\">la note</a> avant de continuer.</p>",
+      "text": "Consultez  la note  avant de continuer.",
+      "reference": "Read the note before continuing.",
+      "reviewNote": ""
+    },
+    {
+      "id": "fr-nested",
+      "lang": "fr",
+      "html": "<p>C’est une <strong>question <em>très importante</em></strong> pour tous.</p>",
+      "text": "C’est une  question  très importante  pour tous.",
+      "reference": "This is a very important issue for everyone.",
+      "reviewNote": ""
+    },
+    {
+      "id": "fr-protected",
+      "lang": "fr",
+      "html": "<p>Gardez <code translate=\"no\">user_id</code> et le nombre <span translate=\"no\">42</span> inchangés.</p>",
+      "text": "Gardez  user_id  et le nombre  42  inchangés.",
+      "reference": "Keep user_id and the number 42 unchanged.",
+      "reviewNote": "Both retain user_id and 42. Bergamot HTML joins user_idand, so protected contents alone are not sufficient for acceptance."
+    },
+    {
+      "id": "fr-table",
+      "lang": "fr",
+      "html": "<table><tr><th>Produit</th><th>Prix</th></tr><tr><td>Livres</td><td>12 €</td></tr></table>",
+      "text": "Produit Prix Livres 12 €",
+      "reference": "Product Price Books 12 €",
+      "reviewNote": ""
+    },
+    {
+      "id": "fr-long",
+      "lang": "fr",
+      "html": "<p>La bibliothèque est ouverte à tous les habitants. Vous pouvez emprunter trois livres pendant deux semaines. Si un ouvrage est déjà réservé, le personnel vous préviendra par courrier électronique dès qu’il sera disponible. Aucun compte en ligne n’est nécessaire pour consulter les documents sur place.</p>",
+      "text": "La bibliothèque est ouverte à tous les habitants. Vous pouvez emprunter trois livres pendant deux semaines. Si un ouvrage est déjà réservé, le personnel vous préviendra par courrier électronique dès qu’il sera disponible. Aucun compte en ligne n’est nécessaire pour consulter les documents sur place.",
+      "reference": "The library is open to all residents. You can borrow three books for two weeks. If a work is already reserved, staff will notify you by email as soon as it is available. No online account is needed to consult documents on the premises.",
+      "reviewNote": "Bergamot changes three books to three pounds; OPUS retains books."
+    },
+    {
+      "id": "es-gold",
+      "lang": "es",
+      "html": "<p>El anillo de <strong>oro</strong> se ha perdido.</p>",
+      "text": "El anillo de  oro  se ha perdido.",
+      "reference": "The gold ring is lost.",
+      "reviewNote": ""
+    },
+    {
+      "id": "es-king",
+      "lang": "es",
+      "html": "<p>La casa del <strong>rey</strong> es grande.</p>",
+      "text": "La casa del  rey  es grande.",
+      "reference": "The king’s house is large.",
+      "reviewNote": ""
+    },
+    {
+      "id": "es-negation",
+      "lang": "es",
+      "html": "<p>No tome este medicamento si es alérgico a la penicilina.</p>",
+      "text": "No tome este medicamento si es alérgico a la penicilina.",
+      "reference": "Do not take this medicine if you are allergic to penicillin.",
+      "reviewNote": "Bergamot produces the ungrammatical Not take; OPUS produces Do not take."
+    },
+    {
+      "id": "es-number",
+      "lang": "es",
+      "html": "<p>El tren sale a las 14:35 y el billete cuesta 27,50 euros.</p>",
+      "text": "El tren sale a las 14:35 y el billete cuesta 27,50 euros.",
+      "reference": "The train leaves at 14:35 and the ticket costs 27.50 euros.",
+      "reviewNote": ""
+    },
+    {
+      "id": "es-idiom",
+      "lang": "es",
+      "html": "<p>Llueve a cántaros, pero tenemos que salir de todos modos.</p>",
+      "text": "Llueve a cántaros, pero tenemos que salir de todos modos.",
+      "reference": "It is pouring with rain, but we still have to leave.",
+      "reviewNote": "Bergamot loses the rain meaning; OPUS retains rain but weakens the idiom."
+    },
+    {
+      "id": "es-technical",
+      "lang": "es",
+      "html": "<p>Un fallo del servidor principal no debe provocar la pérdida de los datos confirmados.</p>",
+      "text": "Un fallo del servidor principal no debe provocar la pérdida de los datos confirmados.",
+      "reference": "A failure of the primary server must not cause the loss of committed data.",
+      "reviewNote": ""
+    },
+    {
+      "id": "es-pronoun",
+      "lang": "es",
+      "html": "<p>María le prestó su libro a Pablo porque él quería leerlo.</p>",
+      "text": "María le prestó su libro a Pablo porque él quería leerlo.",
+      "reference": "Marie lent her book to Paul because he wanted to read it.",
+      "reviewNote": "Bergamot changes her book to his book; OPUS retains her book."
+    },
+    {
+      "id": "es-link",
+      "lang": "es",
+      "html": "<p>Consulte <a href=\"#note-1\">la nota</a> antes de continuar.</p>",
+      "text": "Consulte  la nota  antes de continuar.",
+      "reference": "Read the note before continuing.",
+      "reviewNote": ""
+    },
+    {
+      "id": "es-nested",
+      "lang": "es",
+      "html": "<p>Es una <strong>cuestión <em>muy importante</em></strong> para todos.</p>",
+      "text": "Es una  cuestión  muy importante  para todos.",
+      "reference": "This is a very important issue for everyone.",
+      "reviewNote": ""
+    },
+    {
+      "id": "es-protected",
+      "lang": "es",
+      "html": "<p>Mantenga <code translate=\"no\">user_id</code> y el número <span translate=\"no\">42</span> sin cambios.</p>",
+      "text": "Mantenga  user_id  y el número  42  sin cambios.",
+      "reference": "Keep user_id and the number 42 unchanged.",
+      "reviewNote": "Both retain user_id and 42. Bergamot HTML joins user_idand, so protected contents alone are not sufficient for acceptance."
+    },
+    {
+      "id": "es-table",
+      "lang": "es",
+      "html": "<table><tr><th>Producto</th><th>Precio</th></tr><tr><td>Libros</td><td>12 €</td></tr></table>",
+      "text": "Producto Precio Libros 12 €",
+      "reference": "Product Price Books 12 €",
+      "reviewNote": ""
+    },
+    {
+      "id": "es-long",
+      "lang": "es",
+      "html": "<p>La biblioteca está abierta a todos los vecinos. Puede tomar prestados tres libros durante dos semanas. Si una obra ya está reservada, el personal le avisará por correo electrónico en cuanto esté disponible. No es necesaria una cuenta en línea para consultar los documentos en el local.</p>",
+      "text": "La biblioteca está abierta a todos los vecinos. Puede tomar prestados tres libros durante dos semanas. Si una obra ya está reservada, el personal le avisará por correo electrónico en cuanto esté disponible. No es necesaria una cuenta en línea para consultar los documentos en el local.",
+      "reference": "The library is open to all residents. You can borrow three books for two weeks. If a work is already reserved, staff will notify you by email as soon as it is available. No online account is needed to consult documents on the premises.",
+      "reviewNote": ""
+    }
+  ],
+  "results": {
+    "bergamot": {
+      "fr": {
+        "engine": "Bergamot WASM v0.6.0+eea6e5a8 / remote engine 3.0",
+        "lang": "fr",
+        "firstMs": 233.473661,
+        "firstPassMs": 574.823277,
+        "rounds": [
+          345.42121199999997,
+          342.5997350000001,
+          341.4642610000001,
+          341.8938149999999,
+          339.8479279999999
+        ],
+        "peakRssKiB": 378724,
+        "textPeakRssKiB": 378724,
+        "rows": [
+          {
+            "id": "fr-gold",
+            "text": "The gold ring is lost.",
+            "ms": 230.50992199999996
+          },
+          {
+            "id": "fr-king",
+            "text": "The king's house is big.",
+            "ms": 16.42643400000003
+          },
+          {
+            "id": "fr-negation",
+            "text": "Do not take this medicine if you are allergic to penicillin.",
+            "ms": 29.541038000000015
+          },
+          {
+            "id": "fr-number",
+            "text": "The train leaves at 14 h 35 and the ticket costs 27.50 euros.",
+            "ms": 30.356550999999968
+          },
+          {
+            "id": "fr-idiom",
+            "text": "It's raining ropes, but we still have to leave.",
+            "ms": 26.986366999999973
+          },
+          {
+            "id": "fr-technical",
+            "text": "A failure of the main server must not result in the loss of confirmed data.",
+            "ms": 28.638736999999992
+          },
+          {
+            "id": "fr-pronoun",
+            "text": "Mary lent her book to Paul because he wanted to read it.",
+            "ms": 26.664496999999983
+          },
+          {
+            "id": "fr-link",
+            "text": "Check the note before continuing.",
+            "ms": 13.07065799999998
+          },
+          {
+            "id": "fr-nested",
+            "text": "This is a very important question for all.",
+            "ms": 17.945671000000004
+          },
+          {
+            "id": "fr-protected",
+            "text": "Keep user_id and the number 42 unchanged.",
+            "ms": 19.65958999999998
+          },
+          {
+            "id": "fr-table",
+            "text": "Product Price Books 12 €",
+            "ms": 16.363961000000018
+          },
+          {
+            "id": "fr-long",
+            "text": "The library is open to all residents. You can borrow three pounds for two weeks. If a book is already booked, the staff will email you as soon as it is available. No online account is required to view documents on site.",
+            "ms": 118.65985100000006
+          }
+        ],
+        "html": [
+          {
+            "id": "fr-gold",
+            "html": "<p>The <strong>gold</strong> ring is lost.</p>"
+          },
+          {
+            "id": "fr-king",
+            "html": "<p>The <strong>king's</strong> house is big.</p>"
+          },
+          {
+            "id": "fr-negation",
+            "html": "<p>Do not take this medicine if you are allergic to penicillin.</p>"
+          },
+          {
+            "id": "fr-number",
+            "html": "<p>The train leaves at 14 h 35 and the ticket costs 27.50 euros.</p>"
+          },
+          {
+            "id": "fr-idiom",
+            "html": "<p>It's raining ropes, but we still have to leave.</p>"
+          },
+          {
+            "id": "fr-technical",
+            "html": "<p>A failure of the main server must not result in the loss of confirmed data.</p>"
+          },
+          {
+            "id": "fr-pronoun",
+            "html": "<p>Mary lent her book to Paul because he wanted to read it.</p>"
+          },
+          {
+            "id": "fr-link",
+            "html": "<p>Check <a href=\"#note-1\">the note</a> before continuing.</p>"
+          },
+          {
+            "id": "fr-nested",
+            "html": "<p>This is a <strong><em>very important</em> question</strong> for all.</p>"
+          },
+          {
+            "id": "fr-protected",
+            "html": "<p>Keep  <code translate=\"no\">user_id</code>and the number <span translate=\"no\">42</span> unchanged.</p>"
+          },
+          {
+            "id": "fr-table",
+            "html": "<table><tr><th>Product</th><th>Price</th></tr><tr><td>Books</td><td>12 €</td></tr></table>"
+          },
+          {
+            "id": "fr-long",
+            "html": "<p>The library is open to all residents. You can borrow three pounds for two weeks. If a book is already booked, the staff will email you as soon as it is available. No online account is required to view documents on site.</p>"
+          }
+        ],
+        "initialMemoryBytes": 41943040,
+        "beamSize": 1,
+        "workspaceMiB": 128,
+        "cacheSize": 0
+      },
+      "es": {
+        "engine": "Bergamot WASM v0.6.0+eea6e5a8 / remote engine 3.0",
+        "lang": "es",
+        "firstMs": 232.308758,
+        "firstPassMs": 570.5707029999999,
+        "rounds": [
+          340.518104,
+          339.86451,
+          339.5550270000001,
+          338.91049699999985,
+          336.1208780000002
+        ],
+        "peakRssKiB": 383700,
+        "textPeakRssKiB": 383700,
+        "rows": [
+          {
+            "id": "es-gold",
+            "text": "The gold ring is lost.",
+            "ms": 230.36951200000001
+          },
+          {
+            "id": "es-king",
+            "text": "The king's house is big.",
+            "ms": 16.65319900000003
+          },
+          {
+            "id": "es-negation",
+            "text": "Not take this medicine if you are allergic to penicillin.",
+            "ms": 28.699006000000054
+          },
+          {
+            "id": "es-number",
+            "text": "The train leaves at 14:35 and the ticket costs 27.50 euros.",
+            "ms": 30.864434999999958
+          },
+          {
+            "id": "es-idiom",
+            "text": "It's going to be pitched, but we have to go out anyway.",
+            "ms": 31.46773399999995
+          },
+          {
+            "id": "es-technical",
+            "text": "A primary server failure should not cause loss of confirmed data.",
+            "ms": 26.078837999999962
+          },
+          {
+            "id": "es-pronoun",
+            "text": "Mary lent Paul his book because he wanted to read it.",
+            "ms": 25.037709000000007
+          },
+          {
+            "id": "es-link",
+            "text": "Please refer to the note before continuing.",
+            "ms": 14.815950999999984
+          },
+          {
+            "id": "es-nested",
+            "text": "It is a very important issue for everyone.",
+            "ms": 16.489536999999984
+          },
+          {
+            "id": "es-protected",
+            "text": "Keep user_id and number 42 unchanged.",
+            "ms": 19.179048999999964
+          },
+          {
+            "id": "es-table",
+            "text": "Product Price Books 12 €",
+            "ms": 17.45482400000003
+          },
+          {
+            "id": "es-long",
+            "text": "The library is open to all neighbors. You can borrow three books for two weeks. If a work is already booked, the staff will notify you by email as soon as it is available. An online account is not required to consult the documents on the premises.",
+            "ms": 113.46090899999996
+          }
+        ],
+        "html": [
+          {
+            "id": "es-gold",
+            "html": "<p>The <strong>gold</strong> ring is lost.</p>"
+          },
+          {
+            "id": "es-king",
+            "html": "<p>The <strong>king's</strong> house is big.</p>"
+          },
+          {
+            "id": "es-negation",
+            "html": "<p>Not take this medicine if you are allergic to penicillin.</p>"
+          },
+          {
+            "id": "es-number",
+            "html": "<p>The train leaves at 14:35 and the ticket costs 27.50 euros.</p>"
+          },
+          {
+            "id": "es-idiom",
+            "html": "<p>It's going to be pitched, but we have to go out anyway.</p>"
+          },
+          {
+            "id": "es-technical",
+            "html": "<p>A primary server failure should not cause loss of confirmed data.</p>"
+          },
+          {
+            "id": "es-pronoun",
+            "html": "<p>Mary lent Paul his book because he wanted to read it.</p>"
+          },
+          {
+            "id": "es-link",
+            "html": "<p>Please refer <a href=\"#note-1\">to the note</a> before continuing.</p>"
+          },
+          {
+            "id": "es-nested",
+            "html": "<p>It is a <strong><em>very important</em> issue</strong> for everyone.</p>"
+          },
+          {
+            "id": "es-protected",
+            "html": "<p>Keep  <code translate=\"no\">user_id</code>and number <span translate=\"no\">42</span> unchanged.</p>"
+          },
+          {
+            "id": "es-table",
+            "html": "<table><tr><th>Product</th><th>Price</th></tr><tr><td>Books</td><td>12 €</td></tr></table>"
+          },
+          {
+            "id": "es-long",
+            "html": "<p>The library is open to all neighbors. You can borrow three books for two weeks. If a work is already booked, the staff will notify you by email as soon as it is available. An online account is not required to consult the documents on the premises.</p>"
+          }
+        ],
+        "initialMemoryBytes": 41943040,
+        "beamSize": 1,
+        "workspaceMiB": 128,
+        "cacheSize": 0
+      }
+    },
+    "opus": {
+      "fr": {
+        "engine": "CTranslate2 4.8.3",
+        "lang": "fr",
+        "firstMs": 244.32710401015356,
+        "rounds": [
+          621.756522989017,
+          623.8625719997799,
+          622.4879899964435,
+          623.4762989915907,
+          621.734390995698
+        ],
+        "peakRssKiB": 387360,
+        "rows": [
+          {
+            "id": "fr-gold",
+            "text": "The gold ring is lost.",
+            "ms": 25.218094990123063
+          },
+          {
+            "id": "fr-king",
+            "text": "The king's house is great.",
+            "ms": 30.16628099430818
+          },
+          {
+            "id": "fr-negation",
+            "text": "Do not take this medicine if you are allergic to penicillin.",
+            "ms": 47.20472700137179
+          },
+          {
+            "id": "fr-number",
+            "text": "The train leaves at 2:35 p.m. and the ticket costs 27.50 euros.",
+            "ms": 63.58321598963812
+          },
+          {
+            "id": "fr-idiom",
+            "text": "It's raining ropes, but we still have to leave.",
+            "ms": 54.134263991727494
+          },
+          {
+            "id": "fr-technical",
+            "text": "A main server failure should not result in the loss of confirmed data.",
+            "ms": 56.9181250029942
+          },
+          {
+            "id": "fr-pronoun",
+            "text": "Mary lent her book to Paul because he wanted to read it.",
+            "ms": 46.96827399311587
+          },
+          {
+            "id": "fr-link",
+            "text": "Check the note before continuing.",
+            "ms": 23.79504700365942
+          },
+          {
+            "id": "fr-nested",
+            "text": "This is a very important issue for all.",
+            "ms": 33.86104899982456
+          },
+          {
+            "id": "fr-protected",
+            "text": "Keep user_id and number 42 unchanged.",
+            "ms": 33.91740200459026
+          },
+          {
+            "id": "fr-table",
+            "text": "Product Price Books 12 €",
+            "ms": 23.65421599824913
+          },
+          {
+            "id": "fr-long",
+            "text": "The library is open to all residents. You can borrow three books for two weeks. If a book is already booked, the staff will notify you by e-mail as soon as it is available. No online account is required to view the documents on site.",
+            "ms": 184.92501499713399
+          }
+        ],
+        "computeType": "int8",
+        "intraThreads": 1,
+        "interThreads": 1,
+        "beamSize": 2,
+        "sourceEosToken": "</s>"
+      },
+      "es": {
+        "engine": "CTranslate2 4.8.3",
+        "lang": "es",
+        "firstMs": 265.87527300580405,
+        "rounds": [
+          653.4605449996889,
+          654.3278210010612,
+          654.0669820096809,
+          677.6195190032013,
+          658.9158459973987
+        ],
+        "peakRssKiB": 390784,
+        "rows": [
+          {
+            "id": "es-gold",
+            "text": "The gold ring has been lost.",
+            "ms": 30.31081000517588
+          },
+          {
+            "id": "es-king",
+            "text": "The king's house is big.",
+            "ms": 31.65446400817018
+          },
+          {
+            "id": "es-negation",
+            "text": "Do not take this medicine if you are allergic to penicillin.",
+            "ms": 49.517500010551885
+          },
+          {
+            "id": "es-number",
+            "text": "The train leaves at 14:35 and the ticket costs 27.50 euros.",
+            "ms": 60.59428499429487
+          },
+          {
+            "id": "es-idiom",
+            "text": "It's raining, but we have to get out anyway.",
+            "ms": 53.880585997831076
+          },
+          {
+            "id": "es-technical",
+            "text": "A failure of the main server should not cause the loss of confirmed data.",
+            "ms": 57.060675011598505
+          },
+          {
+            "id": "es-pronoun",
+            "text": "Mary lent Paul her book because he wanted to read it.",
+            "ms": 49.79677000665106
+          },
+          {
+            "id": "es-link",
+            "text": "Refer to the note before continuing.",
+            "ms": 28.516721009509638
+          },
+          {
+            "id": "es-nested",
+            "text": "It's a very important issue for everyone.",
+            "ms": 39.20623500016518
+          },
+          {
+            "id": "es-protected",
+            "text": "Keep user_id and number 42 unchanged.",
+            "ms": 36.38729600061197
+          },
+          {
+            "id": "es-table",
+            "text": "Product Price Books 12 €",
+            "ms": 25.55354600190185
+          },
+          {
+            "id": "es-long",
+            "text": "The library is open to all neighbors. You can borrow three books for two weeks. If a work is already booked, the staff will notify you by email as soon as it is available. An online account is not required to check the documents on the premises.",
+            "ms": 194.3832730030408
+          }
+        ],
+        "computeType": "int8",
+        "intraThreads": 1,
+        "interThreads": 1,
+        "beamSize": 2,
+        "sourceEosToken": "</s>"
+      }
+    }
+  },
+  "opusRendererCheck": {
+    "description": "Exact merged production render.rs/html.rs/inline_markup.rs compiled in a temporary Rust harness with storage DTO stubs. One fragment per fixture, real translated phrase probes. This isolates renderer behavior, not full job/import/asset integration.",
+    "rows": [
+      {
+        "html": "<html><head></head><body data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><p id=\"translation-section-1\" data-source-ordinal=\"0\">The gold <strong>ring</strong> is lost.</p></body></html>",
+        "id": "fr-gold"
+      },
+      {
+        "html": "<html><head></head><body data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><p id=\"translation-section-1\" data-source-ordinal=\"0\">The king's <strong>house</strong> is great.</p></body></html>",
+        "id": "fr-king"
+      },
+      {
+        "html": "<html><head></head><body data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><p id=\"translation-section-1\" data-source-ordinal=\"0\">Do not take this medicine if you are allergic to penicillin.</p></body></html>",
+        "id": "fr-negation"
+      },
+      {
+        "html": "<html><head></head><body data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><p id=\"translation-section-1\" data-source-ordinal=\"0\">The train leaves at 2:35 p.m. and the ticket costs 27.50 euros.</p></body></html>",
+        "id": "fr-number"
+      },
+      {
+        "html": "<html><head></head><body data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><p id=\"translation-section-1\" data-source-ordinal=\"0\">It's raining ropes, but we still have to leave.</p></body></html>",
+        "id": "fr-idiom"
+      },
+      {
+        "html": "<html><head></head><body data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><p id=\"translation-section-1\" data-source-ordinal=\"0\">A main server failure should not result in the loss of confirmed data.</p></body></html>",
+        "id": "fr-technical"
+      },
+      {
+        "html": "<html><head></head><body data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><p id=\"translation-section-1\" data-source-ordinal=\"0\">Mary lent her book to Paul because he wanted to read it.</p></body></html>",
+        "id": "fr-pronoun"
+      },
+      {
+        "html": "<html><head></head><body data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><p id=\"translation-section-1\" data-source-ordinal=\"0\">Check the note before continuing. <a href=\"#note-1\">la note</a></p></body></html>",
+        "id": "fr-link"
+      },
+      {
+        "html": "<html><head></head><body data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><p id=\"translation-section-1\" data-source-ordinal=\"0\">This is <strong>a very important</strong> issue for all.</p></body></html>",
+        "id": "fr-nested"
+      },
+      {
+        "html": "<html><head></head><body data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><p id=\"translation-section-1\" data-source-ordinal=\"0\">Keep <code>user_id</code> and number 42 unchanged.</p></body></html>",
+        "id": "fr-protected"
+      },
+      {
+        "html": "<!doctype html><html><head><meta charset=\"utf-8\"><title>Evaluation</title></head><body><article data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><h1>Evaluation</h1><section id=\"translation-section-1\" data-source-ordinal=\"0\"><p>Product Price Books 12 €</p></section></article></body></html>",
+        "id": "fr-table"
+      },
+      {
+        "html": "<html><head></head><body data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><p id=\"translation-section-1\" data-source-ordinal=\"0\">The library is open to all residents. You can borrow three books for two weeks. If a book is already booked, the staff will notify you by e-mail as soon as it is available. No online account is required to view the documents on site.</p></body></html>",
+        "id": "fr-long"
+      },
+      {
+        "html": "<html><head></head><body data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><p id=\"translation-section-1\" data-source-ordinal=\"0\">The gold <strong>ring has</strong> been lost.</p></body></html>",
+        "id": "es-gold"
+      },
+      {
+        "html": "<html><head></head><body data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><p id=\"translation-section-1\" data-source-ordinal=\"0\">The king's <strong>house</strong> is big.</p></body></html>",
+        "id": "es-king"
+      },
+      {
+        "html": "<html><head></head><body data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><p id=\"translation-section-1\" data-source-ordinal=\"0\">Do not take this medicine if you are allergic to penicillin.</p></body></html>",
+        "id": "es-negation"
+      },
+      {
+        "html": "<html><head></head><body data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><p id=\"translation-section-1\" data-source-ordinal=\"0\">The train leaves at 14:35 and the ticket costs 27.50 euros.</p></body></html>",
+        "id": "es-number"
+      },
+      {
+        "html": "<html><head></head><body data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><p id=\"translation-section-1\" data-source-ordinal=\"0\">It's raining, but we have to get out anyway.</p></body></html>",
+        "id": "es-idiom"
+      },
+      {
+        "html": "<html><head></head><body data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><p id=\"translation-section-1\" data-source-ordinal=\"0\">A failure of the main server should not cause the loss of confirmed data.</p></body></html>",
+        "id": "es-technical"
+      },
+      {
+        "html": "<html><head></head><body data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><p id=\"translation-section-1\" data-source-ordinal=\"0\">Mary lent Paul her book because he wanted to read it.</p></body></html>",
+        "id": "es-pronoun"
+      },
+      {
+        "html": "<html><head></head><body data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><p id=\"translation-section-1\" data-source-ordinal=\"0\">Refer to the note before continuing. <a href=\"#note-1\">la nota</a></p></body></html>",
+        "id": "es-link"
+      },
+      {
+        "html": "<html><head></head><body data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><p id=\"translation-section-1\" data-source-ordinal=\"0\">It's a <strong><em>very important</em></strong> <strong>issue</strong> for everyone.</p></body></html>",
+        "id": "es-nested"
+      },
+      {
+        "html": "<html><head></head><body data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><p id=\"translation-section-1\" data-source-ordinal=\"0\">Keep <code>user_id</code> and number 42 unchanged.</p></body></html>",
+        "id": "es-protected"
+      },
+      {
+        "html": "<!doctype html><html><head><meta charset=\"utf-8\"><title>Evaluation</title></head><body><article data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><h1>Evaluation</h1><section id=\"translation-section-1\" data-source-ordinal=\"0\"><p>Product Price Books 12 €</p></section></article></body></html>",
+        "id": "es-table"
+      },
+      {
+        "html": "<html><head></head><body data-papercut-translation=\"true\" data-source-document=\"/uploads/evaluation.html\" data-target-language=\"en\"><p id=\"translation-section-1\" data-source-ordinal=\"0\">The library is open to all neighbors. You can borrow three books for two weeks. If a work is already booked, the staff will notify you by email as soon as it is available. An online account is not required to check the documents on the premises.</p></body></html>",
+        "id": "es-long"
+      }
+    ],
+    "phraseProbes": [
+      {
+        "id": "fr-gold",
+        "lang": "fr",
+        "probes": [],
+        "translated": []
+      },
+      {
+        "id": "fr-king",
+        "lang": "fr",
+        "probes": [],
+        "translated": []
+      },
+      {
+        "id": "fr-negation",
+        "lang": "fr",
+        "probes": [],
+        "translated": []
+      },
+      {
+        "id": "fr-number",
+        "lang": "fr",
+        "probes": [],
+        "translated": []
+      },
+      {
+        "id": "fr-idiom",
+        "lang": "fr",
+        "probes": [],
+        "translated": []
+      },
+      {
+        "id": "fr-technical",
+        "lang": "fr",
+        "probes": [],
+        "translated": []
+      },
+      {
+        "id": "fr-pronoun",
+        "lang": "fr",
+        "probes": [],
+        "translated": []
+      },
+      {
+        "id": "fr-link",
+        "lang": "fr",
+        "probes": [],
+        "translated": []
+      },
+      {
+        "id": "fr-nested",
+        "lang": "fr",
+        "probes": [
+          "question",
+          "très importante"
+        ],
+        "translated": [
+          "question",
+          "very important"
+        ]
+      },
+      {
+        "id": "fr-protected",
+        "lang": "fr",
+        "probes": [
+          "user_id"
+        ],
+        "translated": [
+          "user_id"
+        ]
+      },
+      {
+        "id": "fr-table",
+        "lang": "fr",
+        "probes": [],
+        "translated": []
+      },
+      {
+        "id": "fr-long",
+        "lang": "fr",
+        "probes": [],
+        "translated": []
+      },
+      {
+        "id": "es-gold",
+        "lang": "es",
+        "probes": [],
+        "translated": []
+      },
+      {
+        "id": "es-king",
+        "lang": "es",
+        "probes": [],
+        "translated": []
+      },
+      {
+        "id": "es-negation",
+        "lang": "es",
+        "probes": [],
+        "translated": []
+      },
+      {
+        "id": "es-number",
+        "lang": "es",
+        "probes": [],
+        "translated": []
+      },
+      {
+        "id": "es-idiom",
+        "lang": "es",
+        "probes": [],
+        "translated": []
+      },
+      {
+        "id": "es-technical",
+        "lang": "es",
+        "probes": [],
+        "translated": []
+      },
+      {
+        "id": "es-pronoun",
+        "lang": "es",
+        "probes": [],
+        "translated": []
+      },
+      {
+        "id": "es-link",
+        "lang": "es",
+        "probes": [],
+        "translated": []
+      },
+      {
+        "id": "es-nested",
+        "lang": "es",
+        "probes": [
+          "cuestión",
+          "muy importante"
+        ],
+        "translated": [
+          "issue",
+          "very important"
+        ]
+      },
+      {
+        "id": "es-protected",
+        "lang": "es",
+        "probes": [
+          "user_id"
+        ],
+        "translated": [
+          "user_id"
+        ]
+      },
+      {
+        "id": "es-table",
+        "lang": "es",
+        "probes": [],
+        "translated": []
+      },
+      {
+        "id": "es-long",
+        "lang": "es",
+        "probes": [],
+        "translated": []
+      }
+    ]
+  },
+  "browserCheck": {
+    "runtimeUnmodified": true,
+    "wrapper": "Upstream Node worker simulator replaced by native Worker globals; initial memory set to Firefox current 40 MiB. No C++ or runtime-glue changes.",
+    "result": "PASS <p>The <strong>gold</strong> ring is lost.</p>"
+  },
+  "mobile": {
+    "physicalDeviceMeasured": false,
+    "reason": "No connected Android/iOS device or adb available in this environment.",
+    "androidMinSdk": 26,
+    "iosDeploymentTarget": "15.0",
+    "iosWasmSimdIntroduced": "16.4",
+    "status": "Feasibility only; current branch mobile builds do not enable translation."
+  }
+}

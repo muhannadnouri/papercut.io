@@ -1,12 +1,14 @@
 # Offline Translation Roadmap And Status
 
-Papercut now has an in-progress offline translation pipeline. The production desktop build includes CTranslate2 and llama.cpp translation features so pinned OPUS-MT and HY-MT2 models use the same model-download, job, cache, validation, and storage pipeline. Linux builds include optional Vulkan acceleration for HY-MT2; Android and other GPU backends remain roadmap work.
+Papercut now has an in-progress offline translation pipeline. This branch’s desktop build configuration enables CTranslate2 and llama.cpp translation features so pinned OPUS-MT and HY-MT2 models use the same model-download, job, cache, validation, and storage pipeline. Linux builds include optional Vulkan acceleration for HY-MT2; Android and other GPU backends remain roadmap work.
 
 The goal is high-quality offline translation for long-form HTML and EPUB books, primarily into English, while keeping the app responsive on desktop and mobile. The feature should feel like audiobook saving: the user starts a long-running job, the backend performs bounded native work, progress is visible, results are cached, and the finished output becomes durable user data.
 
+The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--2026-10-18) records actual desktop inference, markup failures and conditional mobile feasibility. It does not approve a production engine replacement.
+
 ## Current Implementation Status
 
-- Desktop production builds now compile with `native-tts-shared,experimental-search-embeddings,native-translation-ctranslate2,native-translation-llama` through `npm run desktop`.
+- Desktop builds on this branch enable `native-tts-shared,experimental-search-embeddings,native-translation-ctranslate2,native-translation-llama` through `npm run desktop`.
 - `npm run desktop:no-translation` keeps shared TTS and conceptual search while disabling translation for packaging/debug isolation.
 - Spanish -> English and French -> English OPUS-MT CTranslate2 manifests are pinned and installable.
 - HY-MT2 1.8B Q8 is a pinned, installable quality model for Arabic, German, Spanish, French, Russian, and Chinese translation into English. Desktop CPU inference remains the default. On Linux, the workbench offers Vulkan acceleration only when llama.cpp reports a real integrated or discrete Vulkan GPU.
@@ -24,7 +26,7 @@ The goal is high-quality offline translation for long-form HTML and EPUB books, 
 - OPUS-MT jobs use both a conservative 900-character planner cap and an engine-local tokenizer split before CTranslate2 inference, so long Spanish/French prose can be subdivided below Marian's 512-position limit without changing public cache segment ids.
 - Translated variants are separate durable documents that can be opened, searched, deleted, and later used by the normal TTS flow.
 - HTML/EPUB rendering uses the sanitized reader HTML where possible and preserves links, ids, images, tables, and EPUB-rewritten assets conservatively.
-- Stage 5B has passed local desktop and packaged `.deb` model-install, translation, open/search/delete, cancellation, restart recovery, cache-assisted retry, removal, and reinstall smoke tests. Release CI still needs validation.
+- Historical Stage 5B validation, before the latest main merge, covered local desktop and packaged `.deb` model-install, translation, open/search/delete, cancellation, restart recovery, cache-assisted retry, removal, and reinstall smoke tests. It does not validate the merged build; current smoke and release validation remain pending.
 - Android and iOS translation are not supported yet; native runtime packaging, memory, thermals, and model-size behavior must be validated separately from desktop.
 - Chapter-level repair has not started. Qwen remains research-only.
 
@@ -247,7 +249,7 @@ Each pair should have at least one short sample, one long chapter sample, and on
    - Native C++ packaging work is the main cost.
    - Start with OPUS-MT/Marian Spanish -> English and French -> English candidates.
    - Use `ct2rs` as the fastest desktop proof if it builds cleanly, but keep Papercut's `TranslationEngine` trait as the real boundary.
-   - Before marking Android supported, validate whether `ct2rs` can package CTranslate2 cleanly with the Android NDK. If not, keep the Rust API and replace the internals with a thin direct C++/FFI wrapper.
+   - Before marking Android supported, validate whether `ct2rs` can package CTranslate2 cleanly with the Android NDK. If not, evaluate supported upstream bindings/build targets before introducing a maintained direct C++/FFI wrapper; see the latest Bergamot evaluation.
    - iOS should be treated as a later packaging validation target, not assumed from the desktop spike.
 
 2. **llama.cpp / GGUF integration**
@@ -415,7 +417,7 @@ Each stage should be easy to review and commit independently.
 
 - Add native engine spike for OPUS-MT/Marian Spanish -> English and French -> English candidates.
 - Keep `ct2rs` as the first desktop proof route, but do not couple storage/job code to it.
-- Validate desktop and Android packaging before treating the CTranslate2 backend as supported. Use direct C++/FFI if Rust binding packaging is not good enough for Android/iOS.
+- Validate desktop and Android packaging before treating the CTranslate2 backend as supported. Evaluate upstream-supported packaging alternatives if the binding does not work on Android/iOS; do not assume a custom FFI fork is the default fallback.
 - Add model manifest/cache plumbing before downloads:
   - Translation model files live under `<app-data>/translation/models/{model-id}`.
   - Future installer scratch work should live under the OS cache directory, then promote verified files into app data.
@@ -650,3 +652,224 @@ Language samples:
 - CTranslate2 French -> English candidate: https://huggingface.co/michaelfeil/ct2fast-opus-mt-fr-en
 - Bergamot / Firefox Translations docs: https://firefox-source-docs.mozilla.org/toolkit/components/translations/resources/03_bergamot.html
 - ALMA / X-ALMA repository: https://github.com/fe1ixxu/ALMA
+
+## Bergamot Versus OPUS-MT Evaluation — 2026-10-18
+
+**Decision: keep OPUS-MT as the baseline and continue a bounded Bergamot
+packaging/DOM-mapping prototype. Do not replace the production engine or promise
+mobile support yet.** Bergamot is the stronger compact HTML-aware candidate,
+but this evaluation found meaning errors and a protected-inline spacing defect.
+It does not establish a translation-quality winner for books.
+
+This supersedes earlier assumptions that a small model download implies low
+runtime RAM, that the existing formatting projection preserves semantic
+emphasis, or that an Android-friendly catalog entry proves mobile support.
+Raw inputs, references, outputs, model hashes, configuration and measurements
+are in [the evaluation evidence](offline-translation-evaluation.json). The JSON
+is a research record, not a production catalog or a passing-quality oracle.
+
+### Branch Integration And Validation
+
+- Switched from `main` to `feature/offline-translation`; merge `834529d` has
+  parents translation `0adce42` and main `871d702`.
+- Preserved main's Ammonia 4.2.4, ZIP 9.0.4, ORT rc.13, current transfer/search
+  work, Rust 1.88 minimum and the shared runtime setup. Translation keeps
+  `ct2rs` 0.9.19 and llama.cpp binding/sys 0.1.153. Dependency resolution added
+  translation transitives to main's lockfile; no Bergamot dependency was added.
+- Reconciled changed document-source and parsed-document types and passed
+  filename/PDF readiness metadata through the caller-owned transaction helper.
+  Desktop build regression checks cover translation alongside conceptual
+  search, the static alternative and disabling translation without disabling
+  conceptual search.
+- Passed: TypeScript build, eight-locale validation, frontend suite **373 passed,
+  1 skipped**, Rust no-default-feature library suite **364 passed, 4 ignored**,
+  and no-default-feature `cargo check`. Local socket/browser tests required
+  running outside the restricted test sandbox; those retries passed.
+- These checks do **not** validate a merged desktop native-translation release,
+  Android/iOS packaging, installed-app smoke or a version bump. Those remain
+  unclaimed/deferred. Original documents and existing audiobooks were not
+  migrated or rewritten during this investigation.
+
+### What Actually Ran
+
+The isolated experiment used an Intel Core Ultra 5 325 Linux x86-64 host,
+Node 24.21.0 and Python 3.12.14. No GPU was used. A synthetic diagnostic corpus
+contains 12 French and 12 Spanish cases into English, including reordered bold,
+nested emphasis, links, protected code/numbers, a table, negation, an idiom,
+pronouns, technical vocabulary and a short multi-sentence library notice.
+These are agent-authored references and an unblinded agent assessment, not
+professional bilingual acceptance or a representative long-form book sample.
+
+- **Bergamot:** official Firefox runtime `v0.6.0+eea6e5a8`, Remote Settings WASM
+  3.0 and coherent fr→en/es→en model/lexicon/vocabulary version 2.0 sets.
+  All downloaded artifacts were checked against their advertised SHA-256 and
+  byte size. The stock runtime/glue and C++ were not patched. The upstream
+  Mozilla Node worker test wrapper was used with Firefox's current **40 MiB
+  initial WASM memory** instead of that test wrapper's older 234,291,200-byte
+  setting; beam 1, workspace 128 MiB, soft alignment, one worker, cache disabled.
+- **OPUS-MT:** exactly the branch's pinned model revisions and all eight verified
+  files per direction. Official CTranslate2 **4.8.3 Python wheel**, CPU INT8,
+  one inter/intra thread, beam 2 and `replace_unknowns=True`. SentencePiece
+  source encoding appends `</s>`, matching `ct2rs`'s tokenizer. This is a model
+  baseline through an official runtime, **not a measurement of the branch's
+  compiled ct2rs/Ruy adapter**; wheel kernels and runtime versions differ.
+- Both performed identical sequential plain-text requests, then five warm
+  corpus passes. Timing excludes downloads, phrase probes, the Papercut planner,
+  persistence and renderer. Different decoding settings are disclosed rather
+  than presented as an equal-kernel engine comparison. Every case fits the
+  branch's 448-token safety budget.
+- Bergamot additionally translated the original HTML. A temporary Rust harness
+  compiled the exact merged `render.rs`, `html.rs` and `inline_markup.rs` with
+  storage DTO stubs and rendered actual OPUS output plus actual phrase-probe
+  translations. That isolates rendering; it is not an end-to-end import/job test.
+- The official Bergamot runtime also passed an HTML translation in a standard
+  **Chromium 154 Web Worker**, with files served only on temporary localhost,
+  no Firefox privileged APIs and no runtime patches. Transferable buffers were
+  used. Node/Python inference ran after acquisition with network access blocked;
+  it does not require a translation service connection.
+
+### Size, RAM And Speed
+
+| Measurement | Bergamot fr→en | OPUS-MT fr→en | Bergamot es→en | OPUS-MT es→en |
+| --- | ---: | ---: | ---: | ---: |
+| Model files, decimal MB | 37.20 | 153.35 | 37.01 | 159.39 |
+| Fresh model to first short result, ms | 233.5 | 244.3 | 232.3 | 265.9 |
+| Median warm 12-case pass, ms | 341.9 | 622.5 | 339.6 | 654.3 |
+| Approx. source whitespace words/s | 418 | 230 | 421 | 219 |
+| Whole-process peak RSS, MiB | 369.8 | 378.3 | 374.7 | 381.6 |
+
+Bergamot also needs the shared 4,960,506-byte WASM and 100,187-byte JS glue.
+Both language packs together are 74.21 MB before that shared runtime, versus
+312.74 MB for both OPUS packs. Runtime packaging overhead for native CT2 is
+not included in these model totals.
+
+These are one fresh process per engine/language, with warm medians over five
+passes, not repeated cold-start distributions. “Fresh” excludes interpreter
+launch/imports and does not flush the OS file cache. Peak RSS includes Node
+plus its worker or Python plus its libraries, not just tensors or incremental
+Papercut memory. In this setup a four-times-smaller download did **not** produce
+a four-times-smaller RAM footprint. No phone RAM, thermal or battery result is
+available. Do not extrapolate these numbers to the ct2rs/Ruy build, whole books,
+parallel jobs or a low-memory phone.
+
+### Translation And Markup Findings
+
+| Case | Bergamot observation | OPUS-MT / current renderer observation |
+| --- | --- | --- |
+| `La bague en <strong>or</strong> est perdue.` | `The <strong>gold</strong> ring is lost.` | Text is correct; current renderer bolds **ring**. Spanish `oro` bolds **ring has**. |
+| `La casa del <strong>rey</strong> es grande.` | Bolds **king's** correctly. | Text is correct; current renderer bolds **house**. |
+| French size / nested emphasis | “king's house is big”; nesting retained. | “king's house is great”; French nested case loses italic and includes “a” in bold despite phrase probes. |
+| French library notice | Changes “three books” to **“three pounds.”** | Retains “three books.” Both retain the broad notice structure. |
+| Rain idioms | French becomes “raining ropes”; Spanish loses the rain meaning. | French also becomes “raining ropes”; Spanish retains rain but weakens the idiom. |
+| Spanish possessive | Changes **her book** to **his book**. | Retains **her book**. |
+| Link | Translates link text and retains `href="#note-1"`. | Isolated renderer retains the href but appends the original French/Spanish link text after the English sentence. |
+| Protected `user_id` / `42` | Contents/attributes retained, but HTML yields **`user_idand`** with no separating space. | Plain output retains contents; renderer keeps `<code>` but drops `translate="no"` and the number's span. This fixture alone does not prove arbitrary protected text is safe. |
+| Simple table | Retains the table/cell structure with English labels. | The text API returns English labels only. A synthetic bare-table request hits section fallback in the renderer; import/planner coverage for this shape was not tested. |
+
+Keeping the same tags is insufficient: the emphasis must still refer to the
+same meaning, protected text needs correct surrounding boundaries, and links
+must keep their intended translated label. Bergamot's own alignment-based
+restoration is materially better on the reorder examples, but still needs
+validation. Generic attention or model-generated placeholders are not an
+accuracy guarantee either. Neither engine's output is ready to be a golden
+reference merely because it is fluent.
+
+### Desktop And Mobile Feasibility
+
+| Path | Evidence | Remaining gate |
+| --- | --- | --- |
+| Desktop Bergamot WASM | Actual Node and Chromium worker inference/HTML passed. One portable upstream runtime; no C++ fork needed. | Tauri CSP/asset access, verified model delivery without large JSON/base64 copies, cancellation, worker lifetime and native job integration; test actual Windows/macOS/Linux WebViews. |
+| Desktop native Bergamot | Maintained source has native CMake targets and ARM/Ruy paths. | No native Bergamot build, Rust binding or all-desktop packaging was validated here. Source availability is not a supported turnkey mobile binary. |
+| Android Bergamot WASM | Mozilla ships offline translation on Firefox Android; the Web Worker approach is plausible. | Firefox uses Gecko, Papercut uses Android WebView. SDK 26 alone does not establish SIMD support. Feature-detect on the installed WebView; test model load, offline operation, RSS/PSS, background/restart, cancellation, thermals and storage on a physical low-end device. |
+| iOS Bergamot WASM | WebKit added WASM SIMD in **16.4**; current Papercut deployment target is **15.0**. | Do not silently raise deployment target. A WASM provider needs a runtime capability gate and an unavailable explanation on unsupported WebViews; test WKWebView/CSP, memory pressure and background suspension. No physical iOS result exists here. |
+| OPUS-MT / CTranslate2 mobile | Upstream supports ARM64 and Ruy; the branch already selects Ruy. | Existing translation feature is still desktop-only. Neither Android NDK packaging nor iOS linking/lifecycle/performance is validated. The Python wheel benchmark does not fill those gaps. |
+
+No connected Android/iOS device or `adb` was available for this investigation.
+Mobile feasibility is therefore conditional; **mobile speed/RAM are unmeasured**.
+A responsive desktop browser at a mobile viewport would not fill that gap.
+
+### Next Bounded Work Before Production Integration
+
+1. Preserve job/download/cache/cancel/derived-document/TTS architecture. Define
+   one shared DOM plan: stable block/inline identities and normalized UTF-8
+   offsets; protect links, ids, notes, code and assets independently of engines.
+   Replace proportional projection as a fidelity strategy. Validate reordered
+   emphasis and protected boundaries using the real failure cases above.
+2. Prototype the supported WASM worker boundary before choosing a native
+   Bergamot FFI. It runs today without a maintained C++ fork, but it cannot be
+   dropped into the synchronous Rust `TranslationEngine` trait unchanged.
+   Keep Rust job/storage authority, bounded requests and durable batch progress;
+   explicitly handle WebView disappearance/suspension and late worker replies.
+   Compare that small bridge with a supported upstream native build; avoid
+   copying Bergamot's internal HTML C++ into Papercut.
+3. Normalize provider results into that shared plan: annotated source/target
+   spans or validated protected markup. `HTML::restore` needs token annotations
+   and alignments; it is not a supported engine-independent HTML-only package.
+   `ct2rs` 0.9.19 does not return attention through its FFI/result type even
+   though it exposes the request option. Use an upstream-supported binding/API
+   or a separately evaluated aligner if OPUS semantic inline mapping is retained.
+   LLMs remain optional future providers, not trusted raw-HTML generators.
+4. Repair integration gaps before release: main now stores reader images as
+   owned external assets, while the translation bridge consumes only `.html`
+   and creates variants with empty assets. Explicitly copy/re-own verified
+   assets and test a variant after source deletion; do not assume old inline
+   image behavior still applies. Recheck section/body-range and semantic-index
+   behavior on derived updates as part of that integration test.
+5. Run a larger **blinded bilingual** French/Spanish book/technical corpus on
+   both candidates, including idioms, numbers, omissions and semantic emphasis.
+   Benchmark the actual packaged adapter on the weakest supported Android
+   device and WKWebView, including cancellation, restart and sustained load.
+   Only then select defaults. Test Arabic RTL/combining marks/reordering as a
+   separate extension, not an inferred success from fr/es results.
+
+Version cache/alignment semantics when mapping changes; preserve existing
+variants, original documents and already generated audio/highlighting.
+There is no Bergamot production integration, new model catalog entry, app
+version bump or installed-app smoke result in this stage.
+
+### Reproducing Or Extending The Comparison
+
+The evidence JSON includes the exact corpus, both plain-text outputs, Bergamot
+HTML outputs, OPUS phrase probes/renderer outputs, raw warm timings, artifact
+hashes and Remote Settings records. Fetch Mozilla attachments from the recorded
+base URL plus each `attachment.location`; reject size/hash mismatches. Download
+OPUS files from `https://huggingface.co/{repository}/resolve/{revision}/{path}`
+and verify the recorded hashes. Use the recorded immutable Firefox JS revision and verify its hash as well as
+WASM; a moving `main` URL is not sufficient to reproduce the runtime.
+
+For Bergamot use the [upstream Node engine test wrapper](https://github.com/mozilla/translations/tree/69455acaecbe8650cdba988dbcf7c10ca20e7c48/inference/wasm/tests/engine),
+placing official artifacts under `generated/` and model files under
+`models/fren/` and `models/esen/`. Set its loader `INITIAL_MEMORY` to 41,943,040
+as [current Firefox does](https://github.com/mozilla-firefox/firefox/blob/main/toolkit/components/translations/content/translations-engine.worker.js).
+Construct `TranslationsEngine(lang, 'en')`, await `translate(case.text, false)`
+for each language's cases, then repeat that sequence five times with cache zero.
+Use `translate(case.html, true)` separately for markup and terminate the worker.
+Record `performance.now()` and `process.resourceUsage().maxRSS` from the isolated
+process. Adapting the wrapper to browser-native Worker globals verified the same
+runtime in Chromium; no Emscripten/C++ build was needed.
+
+For OPUS use Python `ctranslate2==4.8.3`, `sentencepiece==0.2.2` and the source
+and target `.spm` files. The matching inference call is:
+
+```python
+translator = ctranslate2.Translator(model_dir, device="cpu", compute_type="int8",
+                                   inter_threads=1, intra_threads=1)
+source_tokens = source_sp.encode(text, out_type=str) + ["</s>"]
+result = translator.translate_batch([source_tokens], beam_size=2,
+                                    replace_unknowns=True)[0]
+translated = target_sp.decode(result.hypotheses[0])
+```
+
+Use the same first pass/five-repeat sequence, `time.perf_counter()` and Linux
+`resource.getrusage(resource.RUSAGE_SELF).ru_maxrss`. Do not include warm-up,
+model acquisition or invented EOS settings in only one engine's comparison.
+Exact wrapper/runner scratch files for this run are under
+`/tmp/papercut-translation-investigation/`; they are disposable, not a production
+build path. Durable evidence/configuration is retained in the linked JSON.
+
+Primary feasibility references: [Firefox Android offline translation](https://support.mozilla.org/en-US/kb/android-translation),
+[WebKit 16.4 SIMD](https://webkit.org/blog/13966/webkit-features-in-safari-16-4/),
+[CTranslate2 hardware](https://opennmt.net/CTranslate2/hardware_support.html),
+[CTranslate2 build/install options](https://opennmt.net/CTranslate2/installation.html),
+[Bergamot HTML restoration](https://github.com/mozilla/translations/blob/69455acaecbe8650cdba988dbcf7c10ca20e7c48/inference/src/translator/html.cpp),
+and [pinned ct2rs tokenizer](https://github.com/jkawamoto/ctranslate2-rs/blob/v0.9.19/ct2rs/src/tokenizers/sentencepiece.rs).
