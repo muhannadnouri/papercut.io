@@ -231,7 +231,7 @@ fn failed_later_batch_resumes_only_completed_work_and_stores_one_provenanced_var
         )
         .unwrap();
     assert_eq!(engine_id, "bergamot");
-    assert!(settings.contains("bergamot-protected-codes-v4:"));
+    assert!(settings.contains("bergamot-protected-codes-v5:"));
     assert_eq!(
         super::super::storage::list_translated_documents(app.handle())
             .unwrap()
@@ -681,5 +681,202 @@ fn rich_document_validates_entire_batch_before_cache_then_resumes_source_owned_m
         let unchanged_original =
             load_translation_source_document(app.handle(), &source.document_url).unwrap();
         assert_eq!(original, unchanged_original);
+    }
+}
+
+/// Exercise provider planning through the real protected DOM, writer and cache for both source formats.
+#[test]
+fn segmented_worker_document_keeps_nested_markup_assets_quote_notes_and_cache_resume() {
+    for format in ["html", "epub"] {
+        let (_dir, app, mut source, old_plan) = fixture();
+        let original =
+            load_translation_source_document(app.handle(), &source.document_url).unwrap();
+        let asset = crate::document_uploads::ParsedDocumentAsset::new(
+            "image/png",
+            b"segmented quote image".to_vec(),
+        )
+        .unwrap();
+        source.assets = Arc::new(vec![asset.clone()]);
+        source.format = format.into();
+        let prose = format!(
+            "{}: {}; {}. Fin.",
+            "Une introduction avec café 🙂 ".repeat(12),
+            "Un développement avec des archives ".repeat(12),
+            "Une conclusion sur ces archives ".repeat(12)
+        );
+        source.view_html = format!("<html><body><p><strong><em>{prose}</em></strong> «Bonjour»<a id='ref' role='doc-noteref' href='#note'>1</a><img data-papercut-asset='{}'>.</p><p id='note' translate='no'>Note originale.</p></body></html>", asset.file_name);
+        source.blocks = super::super::dom::DomPlan::new(&source.view_html)
+            .blocks
+            .into_iter()
+            .map(|b| TranslationSourceBlock {
+                ordinal: b.ordinal,
+                is_heading: b.is_heading,
+                heading: b.heading,
+                text: b.inline.text,
+            })
+            .collect();
+        let plan = plan_translation_job(
+            old_plan.request,
+            source.blocks.iter().map(|b| &b.text),
+            900,
+            2,
+        )
+        .unwrap();
+        assert_eq!(plan.max_segment_chars, 320);
+        assert!(plan.total_segments > 3);
+        let state = TranslationState::default();
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let make_worker = |cancel: bool| {
+            let host = state.clone();
+            let seen = seen.clone();
+            state
+                .bergamot
+                .open(
+                    "main".into(),
+                    "document-job".into(),
+                    state.cancelled_jobs.clone(),
+                    move |request| {
+                        let reply = match request {
+                            WorkerRequest::Batch {
+                                attempt_id,
+                                batch_id,
+                                segments,
+                                ..
+                            } => {
+                                seen.lock()
+                                    .unwrap()
+                                    .extend(segments.iter().map(|s| s.id.clone()));
+                                let outputs = segments
+                                    .into_iter()
+                                    .map(|s| {
+                                        assert!(s.html);
+                                        let text = if s.text.contains("«Bonjour»") {
+                                            let marker =
+                                                "<span data-pc=\"2\" translate=\"no\"></span>";
+                                            assert!(s.text.contains(marker));
+                                            let moved = s.text.replace("«Bonjour»", "“Hello.”");
+                                            format!(
+                                                "{marker}{}",
+                                                moved
+                                                    .strip_suffix('.')
+                                                    .unwrap()
+                                                    .replace(marker, "")
+                                            )
+                                        } else {
+                                            s.text.clone()
+                                        };
+                                        TranslationSegmentOutput {
+                                            id: s.id,
+                                            source_text: s.text,
+                                            text,
+                                            markup: None,
+                                        }
+                                    })
+                                    .collect();
+                                WorkerReply::Result {
+                                    attempt_id,
+                                    batch_id,
+                                    outputs,
+                                }
+                            }
+                            WorkerRequest::Confirm {
+                                attempt_id,
+                                batch_id,
+                            } => {
+                                if cancel {
+                                    host.cancel("document-job").unwrap();
+                                }
+                                WorkerReply::Confirmed {
+                                    attempt_id,
+                                    batch_id,
+                                }
+                            }
+                            WorkerRequest::Stop { .. } => return Ok(()),
+                        };
+                        host.bergamot.reply("main", reply).map(|_| ())
+                    },
+                )
+                .unwrap()
+        };
+        let mut worker = make_worker(false);
+        finish_translation(
+            app.handle(),
+            &state,
+            &mut worker,
+            &plan,
+            &source,
+            "document-job",
+            Instant::now(),
+        )
+        .unwrap();
+        drop(worker);
+        assert_eq!(seen.lock().unwrap().len(), plan.total_segments);
+        let variants = super::super::storage::list_translated_documents(app.handle()).unwrap();
+        let saved =
+            load_translation_source_document(app.handle(), &variants[0].document_url).unwrap();
+        assert!(
+            saved.view_html.contains("“Hello.”<a"),
+            "{}",
+            saved.view_html
+        );
+        assert_eq!(saved.assets.as_ref(), &vec![asset]);
+        let dom = super::super::html::parse_html_document(&saved.view_html);
+        assert_eq!(dom.select("a#ref[href='#note'] + img").unwrap().count(), 1);
+        assert!(dom.select("strong > em").unwrap().count() >= 1);
+        let styled = dom
+            .select("strong > em")
+            .unwrap()
+            .map(|node| node.text_contents())
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert_eq!(
+            styled.split_whitespace().collect::<Vec<_>>().join(" "),
+            prose.split_whitespace().collect::<Vec<_>>().join(" ")
+        );
+        assert!(!saved.view_html.contains("data-pc"));
+        seen.lock().unwrap().clear();
+        let mut resumed = make_worker(false);
+        let result = finish_translation(
+            app.handle(),
+            &state,
+            &mut resumed,
+            &plan,
+            &source,
+            "document-job",
+            Instant::now(),
+        )
+        .unwrap();
+        drop(resumed);
+        assert_eq!(result.status, "stored");
+        assert!(seen.lock().unwrap().is_empty());
+        assert_eq!(
+            saved.view_html,
+            load_translation_source_document(app.handle(), &variants[0].document_url)
+                .unwrap()
+                .view_html
+        );
+        let mut cancelled = make_worker(true);
+        assert!(finish_translation(
+            app.handle(),
+            &state,
+            &mut cancelled,
+            &plan,
+            &source,
+            "document-job",
+            Instant::now()
+        )
+        .unwrap_err()
+        .contains("cancel"));
+        drop(cancelled);
+        assert_eq!(
+            saved.view_html,
+            load_translation_source_document(app.handle(), &variants[0].document_url)
+                .unwrap()
+                .view_html
+        );
+        assert_eq!(
+            original,
+            load_translation_source_document(app.handle(), &source.document_url).unwrap()
+        );
     }
 }

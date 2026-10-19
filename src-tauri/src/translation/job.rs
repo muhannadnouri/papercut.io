@@ -5,10 +5,12 @@
 //! middle step so performance limits stay testable without loading a model.
 
 use super::hash::StableHasher;
-use super::segment::{segment_text_blocks, TranslationTextSegment};
+use super::segment::{segment_bergamot_blocks, segment_text_blocks, TranslationTextSegment};
 use super::types::TranslationStartRequest;
 
 const MAX_GLOSSARY_TERMS: usize = 200;
+// App-side bound: the pinned WASM does not wire max-length-break into its sentence processor.
+const BERGAMOT_MAX_SEGMENT_CHARS: usize = 320;
 
 #[derive(Debug, Clone)]
 pub(crate) struct TranslationJobPlan {
@@ -46,7 +48,17 @@ where
         return Err("Translation batch size must be greater than zero".into());
     }
 
-    let segments = segment_text_blocks(source_blocks, max_segment_chars)?;
+    let bergamot = super::bergamot::assets::manifest_by_id(&request.model_id).is_some();
+    let max_segment_chars = if bergamot {
+        max_segment_chars.min(BERGAMOT_MAX_SEGMENT_CHARS)
+    } else {
+        max_segment_chars
+    };
+    let segments = if bergamot {
+        segment_bergamot_blocks(source_blocks, max_segment_chars)?
+    } else {
+        segment_text_blocks(source_blocks, max_segment_chars)?
+    };
     if segments.is_empty() {
         return Err("Document has no translatable text".into());
     }
@@ -189,6 +201,57 @@ mod tests {
         assert_eq!(plan.batches[0].segments.len(), 2);
         assert_eq!(plan.batches[1].index, 1);
         assert_eq!(plan.batches[1].segments.len(), 2);
+    }
+
+    /// Worker planning must not change native segmentation or silently retain the 900-character policy.
+    #[test]
+    fn bergamot_uses_sentence_and_clause_segments_without_losing_source_ranges() {
+        let text = format!(
+            "{}: {}; {}. Fin.",
+            "Premier élément avec du café 🙂 ".repeat(6),
+            "Segundo elemento de la lista ".repeat(6),
+            "Dernier élément de la liste ".repeat(6)
+        );
+        let normalized = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        let mut worker_request = request();
+        worker_request.model_id = "bergamot-fr-en-worker".into();
+        let worker = plan_translation_job(worker_request.clone(), [&text], 900, 2).unwrap();
+        let native = plan_translation_job(request(), [&text], 900, 2).unwrap();
+        assert_eq!(native.total_segments, 1);
+        assert_eq!(native.max_segment_chars, 900);
+        assert_eq!(worker.max_segment_chars, 320);
+        assert!(worker.total_segments > 2);
+        let segments = worker
+            .batches
+            .iter()
+            .flat_map(|b| &b.segments)
+            .collect::<Vec<_>>();
+        assert_eq!(segments.last().unwrap().text, "Fin.");
+        assert!(segments[0].text.ends_with(':'));
+        let chars = normalized.chars().collect::<Vec<_>>();
+        let mut cursor = 0;
+        for (index, segment) in segments.iter().enumerate() {
+            assert_eq!(segment.id, format!("b0:s{index}"));
+            assert!(segment.text.chars().count() <= 320);
+            assert!(chars[cursor..segment.source_start]
+                .iter()
+                .all(|c| c.is_whitespace()));
+            assert_eq!(
+                chars[segment.source_start..segment.source_end]
+                    .iter()
+                    .collect::<String>(),
+                segment.text
+            );
+            cursor = segment.source_end;
+        }
+        assert_eq!(cursor, chars.len());
+        let small = plan_translation_job(worker_request, ["One. Two. Three."], 6, 2).unwrap();
+        assert_eq!(small.max_segment_chars, 6);
+        assert!(small
+            .batches
+            .iter()
+            .flat_map(|b| &b.segments)
+            .all(|s| s.text.chars().count() <= 6));
     }
 
     #[test]

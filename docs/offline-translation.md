@@ -19,6 +19,7 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
 - The workbench selects only pinned models whose engine and WebView gates pass. Unavailable pinned models remain visible with an explanation; future model candidates remain informational. Existing native catalog ordering/defaults are unchanged.
 - Translation jobs run through the shared Rust engine boundary, emit progress/cancel events, reuse segment cache entries, run first-pass quality gates, and persist successful output as derived uploaded documents.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
+- Bergamot document planning uses separate sentences and a 320-scalar cap, preferring clause boundaries in oversized sentences. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
 - OPUS-MT exposes no quality, glossary, or repair controls because that engine cannot honor them; direct requests using those options are rejected.
 - Translation controls, normal progress states, confirmations, counts, language names, and expected native failures use the app's eight locale resources. Translation commands return stable error codes while retaining the original Rust diagnostic; unexpected failures still fall back to that detail.
@@ -1164,11 +1165,11 @@ and occur exactly once. Opaque literals retain source word-boundary spaces even
 if the provider HTML alignment loses a separator.
 
 **Resume and provenance.** Rich cache entries store the raw code response plus
-an identity of the exact source plan, literals and `protected-codes-v4` strategy.
+an identity of the exact source plan, literals and `protected-codes-v5` strategy.
 They are location-bound and revalidated on every read. Plain translation memory
 cannot satisfy a rich request; missing/corrupt/mismatched mappings trigger fresh
-inference. Provider identity is now `bergamot-protected-codes-v4:<hash>`, retaining
-the existing exact asset/worker/loader hash binding. Old Bergamot text and v1/v2/v3
+inference. Provider identity is now `bergamot-protected-codes-v5:<hash>`, retaining
+the existing exact asset/worker/loader hash binding. Old Bergamot text and v1/v2/v3/v4
 rich caches are incompatible; native text caches and alignment epoch **3** are
 unchanged. Existing
 completed variants, originals, generated audiobooks and highlighting are not
@@ -1244,14 +1245,14 @@ unsafe identity splits fail before cache or document promotion. Mid-clause
 references that do not identify a known boundary retain stock engine alignment;
 this is not a guarantee of their semantic attachment or of emphasis quality.
 
-The supplied article's recorded responses were replayed without more inference:
+At v4, the supplied article's recorded responses were replayed without more inference:
 **230 of 234** pass the stronger checks, and the reported note-2 placement is
 corrected. Four responses (`b18:s2`, `b33:s2`, `b40:s1`, `b57:s1`) fail because
 their required terminal punctuation is missing or changed; at least the first
 also truncates the source thought. Do not equate the earlier 234 structural
 passes with accepted translation quality, or weaken the boundary checks to
 force completion. A new packaged run still needs acceptance; investigating
-these model-output/completeness failures is a separate next step.
+these model-output/completeness failures led to the focused v5 follow-up below.
 
 Regressions cover amplification across sibling/nested output, preservation of a
 large source payload once, misplaced parent/sentence-end notes, Unicode/entities,
@@ -1268,8 +1269,80 @@ shipping/CI tests passed**. Rustfmt and diff checks passed. The 234-response rep
 above used cached model responses in a temporary local harness, removed afterward;
 it did not run new inference, benchmark throughput or modify installed app data.
 The rebuilt AppImage, mobile acceptance, broader smoke and version bump remain
-unverified/deferred. Keep the four recorded model-output failures visible when
-reviewing merge readiness.
+unverified/deferred. These are the v4 results; the focused v5 follow-up below
+records the newer targeted evidence without claiming packaged acceptance.
+
+**Bergamot input planning and quote-aware notes (2026-10-19).** The four v4
+failures were not equivalent: `b18:s2` and `b33:s2` omitted closing clauses;
+`b40:s1` reached its ending but moved a period inside an English closing quote;
+`b57:s1` both omitted quoted material and changed punctuation placement. Plain-text
+probes reproduced the omissions before DOM reconstruction. Increasing the output
+length factor or beam size did not resolve them. Changing `max-length-break`
+also had no effect: the [pinned upstream WASM constructor](https://github.com/mozilla/translations/blob/1de4a085d3a7afb625c51a60aabb5ad298e4059f/inference/src/translator/text_processor.h#L61)
+does not initialize its wrapping limit from that option. This merits an upstream
+report, not a local C++ or generated-loader patch; it is not proof that this one
+upstream defect caused every omission.
+
+V5 selects Bergamot planning from the catalog-owned worker manifest in `job.rs`.
+The shared scalar-range segmenter keeps complete sentences separate, caps their
+parts at **320 Unicode scalars** (or a smaller caller limit), and prefers comma,
+semicolon or colon boundaries followed by whitespace in oversized sentences.
+Oversized clauses retain the existing word/scalar fallback. Every non-whitespace
+source character remains covered in order with deterministic block/segment ids.
+This is a conservative app-side policy informed by the reported reproduction,
+not an established optimal threshold, token limit or translation-quality promise.
+Native OPUS-MT/HY-MT planning and the worker transport's existing size ceilings
+are unchanged. The engine, worker, generated loader, WASM and model pins are
+unchanged too.
+
+The existing `ProtectedSource::fragment` still owns all clipping, ancestor
+retention, source attributes and asset/note identities. Serialized HTML is never
+split with text rules. Large indivisible literals or authored identities that
+would cross a smaller segment boundary fail safely instead of being cloned or
+partially translated; this remains a supported-input limitation.
+
+Known footnote boundaries now distinguish adjacent closing quotes from terminal
+punctuation. For example, source `«phrase»[note].` may become target
+`“phrase.”[note]`: staying outside the quoted material takes precedence over
+remaining before a period that English moved inside the quote. An inside-quote
+note remains inside. Quote-style/order changes are accepted only with the same
+adjacent closing-quote count and non-quote punctuation sequence; missing periods,
+changed question/exclamation marks, ambiguous sentence counts, identity splits
+and the reconstruction bound still reject. Exact supported source suffixes keep
+their prior placement. Mid-clause attachment still depends on engine alignment.
+
+A nonempty source formatting identity must have some non-whitespace target
+content across its disjoint copies. Individual empty split shells remain legal
+when another copy carries content; an entirely empty mapping fails before cache
+promotion. This catches the observed lost emphasis/quotation case without
+pretending that all omissions can be detected structurally. Matching sentence
+counts and valid markup are not semantic-completeness checks.
+
+Targeted reproduction used the **unmodified pinned Spanish worker/model** on only
+the four failing inputs after shared DOM fragmentation. All **14** resulting
+responses passed the current Rust restoration checks, with the previously missing
+closing clauses and quoted material present. Outputs still show wording,
+capitalization and spelling problems (including the tiny authored split within
+“doctrina”); this is not full-article or quality acceptance. The temporary private
+harness and article are not repository fixtures. No speed/RAM comparison,
+packaged application or broader smoke was run.
+
+Regressions cover provider isolation, sentence/clause planning, scalar source
+coverage and stable ids, Unicode/URLs/unpunctuated fallbacks, nested formatting,
+indivisible identities, before/after/inside/outside-quote notes, missing/changed
+punctuation and empty target mappings. The long HTML/EPUB job regression covers
+owned assets and a misplaced quote note through real saving, cache-only resume
+and cancellation before saving; the original and previous variant stay intact.
+V5 mapping identity and the actual 320-scalar plan invalidate older worker resume
+data. Native caches, completed variants, originals, audiobooks and highlighting
+remain unchanged. Benchmarks, broader smoke and the app version bump stay deferred.
+
+Validation for this slice: **442 Rust library tests passed, 4 existing ignored**;
+**166 worker-enabled translation tests passed**; **118 frontend translation and
+shipping/CI tests passed**. Rustfmt and diff checks passed. The private 14-response
+probe was also checked against actual full-block planning and restoration; no
+temporary test harness remains in production or committed tests. Latest-head CI
+and rebuilt-AppImage acceptance remain follow-ups.
 
 **Plan for formatting with non-Bergamot providers.** Keep one shared DOM plan,
 cache, validator, renderer and atomic writer. Providers should return translated

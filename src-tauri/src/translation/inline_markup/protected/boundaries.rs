@@ -9,12 +9,32 @@ use crate::translation::html::parse_html_document;
 
 enum Boundary {
     Start,
-    End(String),
+    End(Edge),
     Sentence {
         index: usize,
         count: usize,
-        suffix: String,
+        edge: Edge,
     },
+}
+
+/// Only punctuation adjacent to the source note participates; translated words never determine its offset.
+struct Edge {
+    prefix: String,
+    suffix: String,
+}
+
+impl Edge {
+    /// Keep only adjacent punctuation, so the target position never depends on matching translated phrases.
+    fn new(scope: &str, offset: usize, suffix: &str) -> Self {
+        let byte = scope
+            .char_indices()
+            .nth(offset)
+            .map_or(scope.len(), |(byte, _)| byte);
+        Self {
+            prefix: punctuation_tail(&scope[..byte]).trim().into(),
+            suffix: suffix.trim().into(),
+        }
+    }
 }
 
 /// Reattach known boundaries, leaving mid-clause notes on the existing engine alignment path.
@@ -57,18 +77,14 @@ pub(super) fn reposition(plan: &ProtectedPlan, output: &str) -> Result<Option<St
         let text = parent.text_contents();
         let offset = match boundary {
             Boundary::Start => 0,
-            Boundary::End(suffix) => before_suffix(&text, &suffix)?,
-            Boundary::Sentence {
-                index,
-                count,
-                suffix,
-            } => {
+            Boundary::End(edge) => before_suffix(&text, &edge)?,
+            Boundary::Sentence { index, count, edge } => {
                 let sentences = text.split_sentence_bound_indices().collect::<Vec<_>>();
                 if sentences.len() != count {
                     return Err("Ambiguous translated sentence boundary for footnote".into());
                 }
                 let (byte, sentence) = sentences[index];
-                text[..byte].chars().count() + before_suffix(sentence, &suffix)?
+                text[..byte].chars().count() + before_suffix(sentence, &edge)?
             }
         };
         marker.detach();
@@ -109,7 +125,7 @@ fn boundary(plan: &ProtectedPlan, note: &Code) -> Option<Boundary> {
     }
     let tail = scope.chars().skip(offset).collect::<String>();
     if punctuation_only(&tail) {
-        return Some(Boundary::End(tail.trim().into()));
+        return Some(Boundary::End(Edge::new(&scope, offset, &tail)));
     }
     let sentences = scope.split_sentence_bounds().collect::<Vec<_>>();
     let mut position = 0;
@@ -121,7 +137,7 @@ fn boundary(plan: &ProtectedPlan, note: &Code) -> Option<Boundary> {
                 return Some(Boundary::Sentence {
                     index,
                     count: sentences.len(),
-                    suffix: suffix.trim().into(),
+                    edge: Edge::new(&scope, offset, &suffix),
                 });
             }
         }
@@ -132,35 +148,83 @@ fn boundary(plan: &ProtectedPlan, note: &Code) -> Option<Boundary> {
 
 /// Punctuation-only tails identify an edge, not an arbitrary mid-clause reference.
 fn punctuation_only(text: &str) -> bool {
-    text.chars().all(|ch| {
-        ch.is_whitespace()
-            || matches!(
-                ch,
-                '.' | '!'
-                    | '?'
-                    | '…'
-                    | '。'
-                    | '！'
-                    | '？'
-                    | ')'
-                    | ']'
-                    | '}'
-                    | '"'
-                    | '\''
-                    | '»'
-                    | '›'
-                    | '”'
-                    | '’'
-            )
-    })
+    text.chars().all(edge_punctuation)
 }
 
-/// Preserve before/after-punctuation attachment; changed punctuation is an unsupported mapping, not a guess.
-fn before_suffix(text: &str, suffix: &str) -> Result<usize, String> {
-    text.trim_end()
-        .strip_suffix(suffix)
-        .map(|prefix| prefix.chars().count())
-        .ok_or_else(|| "Changed punctuation at protected footnote boundary".into())
+/// Share the recognized edge characters with cluster extraction without allocating per character.
+fn edge_punctuation(ch: char) -> bool {
+    ch.is_whitespace()
+        || matches!(
+            ch,
+            '.' | '!'
+                | '?'
+                | '…'
+                | '。'
+                | '！'
+                | '？'
+                | ')'
+                | ']'
+                | '}'
+                | '"'
+                | '\''
+                | '»'
+                | '›'
+                | '”'
+                | '’'
+        )
+}
+
+/// Keep exact source attachment unless closing quotes move around otherwise unchanged terminal punctuation.
+/// Outside-quote notes stay outside the target quote, even when English moves the period inside it.
+fn before_suffix(text: &str, edge: &Edge) -> Result<usize, String> {
+    let text = text.trim_end();
+    if let Some(prefix) = text.strip_suffix(&edge.suffix) {
+        return Ok(prefix.chars().count());
+    }
+    let tail = punctuation_tail(text);
+    let source = format!("{}{}", edge.prefix, edge.suffix);
+    let quotes = source.chars().filter(|ch| closing_quote(*ch)).count();
+    let without_quotes = |value: &str| {
+        value
+            .chars()
+            .filter(|ch| !closing_quote(*ch) && !ch.is_whitespace())
+            .collect::<String>()
+    };
+    if quotes == 0
+        || tail.chars().filter(|ch| closing_quote(*ch)).count() != quotes
+        || without_quotes(&source) != without_quotes(tail)
+    {
+        return Err("Changed punctuation at protected footnote boundary".into());
+    }
+    let mut quote_count = edge.prefix.chars().filter(|ch| closing_quote(*ch)).count();
+    let mut punctuation_count = without_quotes(&edge.prefix).chars().count();
+    let mut consumed = 0;
+    for ch in tail.chars() {
+        if quote_count == 0 && punctuation_count == 0 {
+            break;
+        }
+        if closing_quote(ch) {
+            quote_count = quote_count.saturating_sub(1);
+        } else if !ch.is_whitespace() {
+            punctuation_count = punctuation_count.saturating_sub(1);
+        }
+        consumed += 1;
+    }
+    Ok(text[..text.len() - tail.len()].chars().count() + consumed)
+}
+
+/// The full adjacent cluster prevents accepting a missing period or a changed question/exclamation mark.
+fn punctuation_tail(text: &str) -> &str {
+    let start = text
+        .char_indices()
+        .rev()
+        .find(|(_, ch)| !edge_punctuation(*ch))
+        .map_or(0, |(byte, ch)| byte + ch.len_utf8());
+    &text[start..]
+}
+
+fn closing_quote(ch: char) -> bool {
+    matches!(ch, '\"' | '\'' | '»' | '›' | '”' | '’')
 }
 
 /// Numeric ids are retained source identities, never user-supplied selector strings.

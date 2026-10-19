@@ -34,6 +34,32 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<str>,
 {
+    segment_blocks(blocks, max_chars, false)
+}
+
+/// Bergamot keeps sentences separate and prefers clause edges before the word-boundary fallback.
+/// shortcut: scalar bounds are not token limits; upgrade when stock WASM exposes supported token budgeting.
+pub(crate) fn segment_bergamot_blocks<I, S>(
+    blocks: I,
+    max_chars: usize,
+) -> Result<Vec<TranslationTextSegment>, String>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    segment_blocks(blocks, max_chars, true)
+}
+
+/// Both policies retain the same normalized scalar ranges, ids and source-coverage rules.
+fn segment_blocks<I, S>(
+    blocks: I,
+    max_chars: usize,
+    bergamot: bool,
+) -> Result<Vec<TranslationTextSegment>, String>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
     if max_chars == 0 {
         return Err("Translation segment size must be greater than zero".into());
     }
@@ -44,7 +70,7 @@ where
         if normalized.is_empty() {
             continue;
         }
-        let parts = split_block_into_segments(&normalized, max_chars)?;
+        let parts = split_block_into_segments(&normalized, max_chars, bergamot)?;
         if parts.is_empty() {
             return Err(format!(
                 "Translation planner could not segment source block {}",
@@ -85,8 +111,9 @@ struct TranslationTextPart {
 fn split_block_into_segments(
     text: &str,
     max_chars: usize,
+    bergamot: bool,
 ) -> Result<Vec<TranslationTextPart>, String> {
-    if text.chars().count() <= max_chars {
+    if !bergamot && text.chars().count() <= max_chars {
         return Ok(vec![TranslationTextPart {
             start: 0,
             end: text.chars().count(),
@@ -94,12 +121,14 @@ fn split_block_into_segments(
         }]);
     }
 
-    split_block_text_into_segments(text, max_chars)
+    split_block_text_into_segments(text, max_chars, bergamot)
 }
 
+/// Native jobs pack neighboring sentences; Bergamot keeps each sentence as a separate inference unit.
 fn split_block_text_into_segments(
     text: &str,
     max_chars: usize,
+    bergamot: bool,
 ) -> Result<Vec<TranslationTextPart>, String> {
     let mut segments = Vec::<TranslationTextPart>::new();
     let mut current: Option<PartBuilder> = None;
@@ -107,10 +136,18 @@ fn split_block_text_into_segments(
     for sentence in sentence_like_parts(text) {
         if sentence.char_len > max_chars {
             push_current_part(text, &mut segments, &mut current);
-            segments.extend(split_oversized_part(text, sentence, max_chars)?);
+            if bergamot {
+                segments.extend(split_bergamot_sentence(text, sentence, max_chars)?);
+            } else {
+                segments.extend(split_oversized_part(text, sentence, max_chars)?);
+            }
             continue;
         }
 
+        if bergamot {
+            segments.push(PartBuilder::from_range(sentence).into_part(text));
+            continue;
+        }
         let proposed_len = current
             .as_ref()
             .map(|builder| builder.char_len + sentence.char_len + 1)
@@ -187,6 +224,52 @@ fn sentence_like_parts(text: &str) -> Vec<SourceRange> {
         next_char_start += raw_char_len;
     }
     ranges
+}
+
+/// Prefer punctuation followed by whitespace, so URL punctuation does not create artificial clauses.
+/// An oversized clause still uses the existing word/scalar fallback; no text is discarded.
+fn split_bergamot_sentence(
+    source: &str,
+    sentence: SourceRange,
+    max_chars: usize,
+) -> Result<Vec<TranslationTextPart>, String> {
+    let slice = &source[sentence.byte_start..sentence.byte_end];
+    let mut clauses = Vec::new();
+    let mut start_byte = sentence.byte_start;
+    let mut start_char = sentence.char_start;
+    for (relative, (byte, ch)) in slice.char_indices().enumerate() {
+        let end_byte = sentence.byte_start + byte + ch.len_utf8();
+        if matches!(ch, ',' | ';' | ':')
+            && source[end_byte..sentence.byte_end].starts_with(char::is_whitespace)
+        {
+            if let Some(range) = trim_source_range(source, start_byte, end_byte, start_char) {
+                clauses.push(range);
+            }
+            start_byte = end_byte;
+            start_char = sentence.char_start + relative + 1;
+        }
+    }
+    if let Some(range) = trim_source_range(source, start_byte, sentence.byte_end, start_char) {
+        clauses.push(range);
+    }
+    let mut segments = Vec::new();
+    let mut current: Option<PartBuilder> = None;
+    for clause in clauses {
+        if clause.char_len > max_chars {
+            push_current_part(source, &mut segments, &mut current);
+            segments.extend(split_oversized_part(source, clause, max_chars)?);
+            continue;
+        }
+        if current
+            .as_ref()
+            .is_some_and(|part| clause.char_end - part.char_start > max_chars)
+        {
+            push_current_part(source, &mut segments, &mut current);
+        }
+        append_range(&mut current, clause);
+    }
+    push_current_part(source, &mut segments, &mut current);
+    Ok(segments)
 }
 
 fn split_oversized_part(
@@ -446,6 +529,44 @@ mod tests {
             segments.last().map(|segment| segment.text.as_str()),
             Some("Short close.")
         );
+    }
+
+    /// Policy changes must preserve scalar coverage even without Latin punctuation or ordinary words.
+    #[test]
+    fn bergamot_fallback_preserves_unicode_urls_and_unpunctuated_text() {
+        for text in [
+            "كلمة بلا تشكيل 🙂 e\u{301} ".repeat(55),
+            format!(
+                "{} https://example.org/a:b/path {}",
+                "archive ".repeat(35),
+                "notes ".repeat(35)
+            ),
+            "🙂é".repeat(200),
+            "just words without punctuation ".repeat(35),
+        ] {
+            let normalized = super::normalize_translation_whitespace(&text);
+            let chars = normalized.chars().collect::<Vec<_>>();
+            let segments = super::segment_bergamot_blocks([&text], 320).unwrap();
+            assert_eq!(
+                segments,
+                super::segment_bergamot_blocks([&text], 320).unwrap()
+            );
+            let mut cursor = 0;
+            for segment in segments {
+                assert!(segment.text.chars().count() <= 320);
+                assert!(chars[cursor..segment.source_start]
+                    .iter()
+                    .all(|ch| ch.is_whitespace()));
+                assert_eq!(
+                    chars[segment.source_start..segment.source_end]
+                        .iter()
+                        .collect::<String>(),
+                    segment.text
+                );
+                cursor = segment.source_end;
+            }
+            assert_eq!(cursor, chars.len());
+        }
     }
 
     #[test]

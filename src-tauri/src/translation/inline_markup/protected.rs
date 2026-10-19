@@ -14,7 +14,7 @@ use crate::translation::html::parse_html_document;
 mod boundaries;
 
 /// Source normalization and hierarchy semantics participate in worker cache compatibility.
-pub(crate) const MAPPING_VERSION: &str = "protected-codes-v4";
+pub(crate) const MAPPING_VERSION: &str = "protected-codes-v5";
 const MAX_CODES: usize = 128;
 pub(crate) const MAX_HTML_BYTES: usize = 32 * 1024;
 
@@ -317,7 +317,7 @@ impl ProtectedPlan {
         let normalized = if self.codes.iter().any(|code| code.note_marker) {
             let mut seen = std::collections::HashSet::new();
             self.validate_children(doc.root_element(), None, &mut seen)?;
-            self.require_all_codes(&seen)?;
+            self.require_all_codes(&seen, doc.root_element())?;
             boundaries::reposition(self, output)?
         } else {
             None
@@ -360,7 +360,7 @@ impl ProtectedPlan {
         };
         let mut seen = std::collections::HashSet::new();
         self.restore_children(root, None, &mut seen, &mut output)?;
-        self.require_all_codes(&seen)?;
+        self.require_all_codes(&seen, root)?;
         Ok(output.html)
     }
 
@@ -381,9 +381,32 @@ impl ProtectedPlan {
     }
 
     /// Every source identity is mandatory even when formatting has several target occurrences.
-    fn require_all_codes(&self, seen: &std::collections::HashSet<usize>) -> Result<(), String> {
+    fn require_all_codes(
+        &self,
+        seen: &std::collections::HashSet<usize>,
+        root: roxmltree::Node<'_, '_>,
+    ) -> Result<(), String> {
         if seen.len() != self.codes.len() {
             return Err("Protected markup is missing source identities".into());
+        }
+        // Several disjoint copies may include empty shells; at least one must still carry target content.
+        let nonempty = root
+            .descendants()
+            .filter(|node| node.is_element())
+            .filter(|node| {
+                node.descendants()
+                    .filter_map(|child| child.text())
+                    .any(|text| !text.trim().is_empty())
+            })
+            .filter_map(|node| {
+                node.attribute("data-pc")
+                    .and_then(|id| id.parse::<usize>().ok())
+            })
+            .collect::<std::collections::HashSet<_>>();
+        if self.codes.iter().any(|code| {
+            code.literal.is_none() && code.start < code.end && !nonempty.contains(&code.id)
+        }) {
+            return Err("Protected source content has an empty target mapping".into());
         }
         Ok(())
     }
@@ -678,6 +701,114 @@ mod tests {
         assert!(p
             .restore("Hello<span data-pc='0' translate='no'></span>)")
             .is_err());
+    }
+
+    /// Quotation typography may change language; a note must stay outside/inside the quoted material.
+    #[test]
+    fn notes_follow_quote_edges_without_accepting_missing_terminal_punctuation() {
+        let note = "<a role='doc-noteref' href='#n' id='ref'>1</a>";
+        for (source, target, expected) in [
+            (
+                format!("<p>«Bonjour»{note}.</p>"),
+                "<span data-pc='0' translate='no'></span>“Hello.”",
+                "“Hello.”<a",
+            ),
+            (
+                format!("<p>«Bonjour{note}».</p>"),
+                "<span data-pc='0' translate='no'></span>“Hello.”",
+                "“Hello<a",
+            ),
+            (
+                format!("<p>«Bonjour.{note}»</p>"),
+                "<span data-pc='0' translate='no'></span>“Hello.”",
+                "“Hello.<a",
+            ),
+            (
+                format!("<p>«Bonjour»{note}. Merci.</p>"),
+                "<span data-pc='0' translate='no'></span>“Hello.” Thanks.",
+                "“Hello.”<a",
+            ),
+            (
+                format!("<p>«Bonjour»{note}!</p>"),
+                "<span data-pc='0' translate='no'></span>“Hello!”",
+                "“Hello!”<a",
+            ),
+        ] {
+            let restored = plan(&source).restore(target).unwrap();
+            assert!(restored.html.contains(expected), "{}", restored.html);
+        }
+        let p = plan(&format!("<p>«Bonjour»{note}.</p>"));
+        for target in ["“Hello”", "“Hello?”", "“Hello!)”"] {
+            assert!(p
+                .restore(&format!("<span data-pc='0' translate='no'></span>{target}"))
+                .is_err());
+        }
+    }
+
+    /// A present but empty identity is not evidence that its source phrase was translated.
+    #[test]
+    fn nonempty_formatting_requires_some_target_text_across_disjoint_copies() {
+        let p = plan("<p><em>Una cita importante</em> y una conclusión.</p>");
+        assert!(p
+            .restore("<span data-pc='0'></span> A conclusion.")
+            .is_err());
+        assert!(p
+            .restore("<span data-pc='0'> </span> A conclusion.")
+            .is_err());
+        assert!(p.restore("<span data-pc='0'></span><span data-pc='0'>An important quote</span> and a conclusion.").is_ok());
+        let quoted = plan("<p><em>Primera cita</em> y «<em>Última cita</em>»<a role='doc-noteref' href='#n'>1</a>.</p>");
+        assert!(quoted.restore("<span data-pc='0'></span> and “<span data-pc='1'>Last quote</span>.”<span data-pc='2' translate='no'></span>").err().unwrap().contains("empty target mapping"));
+    }
+
+    /// The smaller policy still clips shared DOM ranges, and must not clone an authored identity.
+    #[test]
+    fn bergamot_segments_clip_only_repeatable_formatting_and_keep_boundary_notes_once() {
+        let prose = "Introduction avec café 🙂, puis une suite de mots français; ".repeat(18);
+        let note = "<a id='ref' role='doc-noteref' href='#n'>1</a>";
+        let dom = DomPlan::new(&format!("<p><strong><em>{prose}{note}.</em></strong></p>"));
+        let block = &dom.blocks[0];
+        let source = ProtectedSource::new(&block.node).unwrap();
+        let segments =
+            crate::translation::segment::segment_bergamot_blocks([&block.inline.text], 320)
+                .unwrap();
+        assert!(segments.len() > 3);
+        let mut html = String::new();
+        for segment in segments {
+            let plan = source
+                .fragment(segment.source_start..segment.source_end, &segment.text)
+                .unwrap();
+            let restored = plan.restore(&plan.html).unwrap();
+            assert_eq!(restored.text, segment.text);
+            assert_eq!(
+                parse_html_document(restored.html.clone())
+                    .select("strong > em")
+                    .unwrap()
+                    .count(),
+                1
+            );
+            html.push_str(&restored.html);
+        }
+        assert_eq!(
+            parse_html_document(html)
+                .select("strong > em > a#ref")
+                .unwrap()
+                .count(),
+            1
+        );
+        let dom = DomPlan::new(&format!("<p><a id='authored' href='#n'>{prose}</a></p>"));
+        let block = &dom.blocks[0];
+        let source = ProtectedSource::new(&block.node).unwrap();
+        let segments =
+            crate::translation::segment::segment_bergamot_blocks([&block.inline.text], 320)
+                .unwrap();
+        assert!(source
+            .fragment(
+                segments[0].source_start..segments[0].source_end,
+                &segments[0].text
+            )
+            .err()
+            .unwrap()
+            .contains("crosses a segment boundary"));
     }
 
     #[test]
