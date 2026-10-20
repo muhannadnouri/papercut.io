@@ -32,6 +32,9 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   application caller, word-link extraction, formatting projection or installer
   entry; its [session review](#stage-3-bounded-session-review--2026-10-20) found
   no must-fix issue within that internal scope. The candidate remains unavailable.
+- The [redistribution/installer evaluation](#stage-3-redistribution-and-installer-admission-evaluation--2026-10-20)
+  found a published Apache-2.0 permission path. Notice delivery and safe installer
+  admission still need implementation; no aligner download is enabled.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -978,8 +981,10 @@ no standalone `LICENSE` or `NOTICE`. The export and original mBERT cards label
 Apache-2.0; that is recorded evidence, not completed redistribution approval.
 No upstream extraction implementation is copied in this slice. Finish the full
 base/export attribution and applicable notice inventory before installer or
-release admission. No model weights, vocabulary, model card, private article or
-sample-derived fixture is committed.
+release admission; the later [redistribution evaluation](#stage-3-redistribution-and-installer-admission-evaluation--2026-10-20)
+clarifies published permission and the remaining packaging work. No model
+weights, vocabulary, model card, private article or sample-derived fixture is
+committed.
 
 ### Raw tokenizer evidence and bounds
 
@@ -1252,15 +1257,145 @@ a running kernel or prove a cancellation deadline. Formatting and diff checks
 passed. Earlier full-suite and combined-feature build receipts above remain
 applicable; this review did not rerun full CI, app packaging or device tests.
 
-**Next bounded stage:** resolve the alignment pack's redistribution notices and
-asset-role/installer admission before adding downloads. Reuse the existing
-model manager, staged promotion and removal guards; keep alignment out of the
+**Review recommendation, evaluated below:** resolve the alignment pack's
+redistribution notices and asset-role/installer admission before adding
+downloads. Reuse the existing model manager, staged promotion and removal guards; keep alignment out of the
 translation selector. Then complete the application two-model job lifecycle and
 cancellation/save integration, with failed-install, removal-race and repeated-job
 tests, before Stage 4's exact-piece/literal-island planning. Actual word-link
 extraction/projection, mandatory auxiliary-scope success, held-out coverage,
 combined RAM/latency and platform/device qualification remain open. Benchmarks,
 smoke and the version bump stay deferred; the candidate stays unavailable.
+
+## Stage 3 redistribution and installer admission evaluation — 2026-10-20
+
+**Decision: prepare a notice-complete auxiliary pack and harden the existing
+installer; do not add another downloader or translation engine entry.** Published
+permission is stronger than the earlier card-only receipt: Google's original
+release explicitly covers its models. Missing standalone Hub license files are
+a packaging task, not by themselves a reason to fork, re-export or wait for an
+upstream change. This evaluation adds no production code, notice payloads or
+download URLs to the application. Stage 3 and formatting acceptance remain open.
+
+### Verified provenance and notice scope
+
+| Component | Evidence checked | Admission consequence |
+| --- | --- | --- |
+| Selected INT8 export | [Pinned Hub inventory](https://huggingface.co/api/models/cstr/awesome-align-onnx-int8/revision/e803a2f501474044099b539160aaca461976ecd0) and [original card](https://huggingface.co/cstr/awesome-align-onnx-int8/blob/e803a2f501474044099b539160aaca461976ecd0/README.md), revision `e803a2f501474044099b539160aaca461976ecd0`, declare Apache-2.0 and mBERT ancestry; no standalone `LICENSE`/`NOTICE` | Retain the unmodified card, exporter identity and pinned source. Seven existing runtime files total 153,638,839 bytes; legal payloads add to this inventory and its accounting. |
+| Original mBERT model/tokenizer | [Hub snapshot](https://huggingface.co/google-bert/bert-base-multilingual-cased/tree/3f076fdb1ab68d5b2880cb87a0886f315b8146f8) declares Apache-2.0. Google's [original release README](https://github.com/google-research/bert/blob/eedf5716ce1268e56f0a50264a88cafad334ac61/README.md#pre-trained-models) explicitly licenses models under the same terms as its [Apache-2.0 license](https://github.com/google-research/bert/blob/eedf5716ce1268e56f0a50264a88cafad334ac61/LICENSE). | Record Google/BERT and Hugging Face card attribution. This observed base snapshot is evidence, not a claim that the exporter used that exact checkpoint revision. |
+| Awesome-align research/source | [Pinned BSD-3-Clause license](https://github.com/neulab/awesome-align/blob/5f150d45bbe51e167daf0a84abebaeb07c3323d1/LICENSE), copyright Zi-Yi Dou; its README identifies additional borrowed code. | Research attribution does not change the weight license. Current Rust code copies no extraction implementation; if later code is adapted, retain applicable source licenses/notices at that point. No upstream Python package ships. |
+| Existing native runtime/binding/tokenizer | Existing pinned ORT Rust binding and tokenizers, plus the already-used official shared runtime; [ORT runtime license](https://github.com/microsoft/onnxruntime/blob/v1.27.0/LICENSE) and [third-party notices](https://github.com/microsoft/onnxruntime/blob/v1.27.0/ThirdPartyNotices.txt) are separate from model terms. | Reuse the runtime, without dependency upgrades. Check actual packaged binaries and their existing notice delivery before platform release; the alignment pack's license does not cover those components. |
+
+The export's freshly fetched card matches the existing pin exactly: SHA-256
+`e358416e1e88ba918f506b4988ad6ec29d85c0964bd988d9e6cd9473c24df9fa`.
+Both inspected Hub inventories lack a standalone `NOTICE`; the original BERT
+repository's complete tree at the linked revision contains `LICENSE`, no
+`NOTICE`. This is the inspected scope, not a claim about every historical
+dependency or training-data license.
+
+[Apache-2.0 section 4](https://www.apache.org/licenses/LICENSE-2.0)
+requires license delivery, preservation of relevant notices and identification
+of modifications. Carrying upstream `NOTICE` attribution is conditional on one
+being supplied; do not invent an upstream notice or require special permission
+merely because none exists. Keep copyright/attribution separate from optional
+paper citations and do not relicense the model under Papercut's MIT license.
+
+For this pack, deliver a full `LICENSE-APACHE-2.0.txt` and a Papercut-maintained
+`ATTRIBUTION.md`, alongside the pinned upstream card. The canonical license
+checked from BERT and Apache is 11,358 bytes, SHA-256
+`cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30`.
+Pin that file through the installer's existing explicit-URL support. Bundle the
+small app-owned attribution payload and copy/verify it during staging; do not
+create an external hosting service for it. Both legal files must be required,
+available offline with the installed pack and included in storage accounting.
+
+Attribution must identify the base, exporter, immutable artifact revision,
+license and first-eight-layer INT8 export, and state that Papercut uses the
+upstream bytes unchanged. The exporter card's specific eight-layer description
+and metadata conflict with its generic assertion of no architecture change.
+Record the specific observed artifact and this limitation; do not claim it is
+an untouched twelve-layer mBERT or a reproducible conversion from a known base
+commit. That uncertainty does not erase the published license, establish
+numeric/reference parity or justify changing the graph/tokenizer pins.
+
+### Installer fit and gaps to address before admission
+
+The current [manifest resolver](../src-tauri/src/translation/model_store.rs)
+derives every entry from `find_planned_model`; install, status and removal use
+that resolver. Adding the aligner to `models.rs` solely to get a download would
+incorrectly make an auxiliary dependency look like a translator. The runtime's
+existing lease key is `alignment-awesome-align-int8`; future installer/removal
+claims must use that exact identity.
+
+Reuse the current file manifest, pinned HTTPS URL construction, streaming size/
+SHA-256 verification, progress events, work-directory cleanup and state guards.
+Add an explicit auxiliary lookup behind the default-off alignment feature; keep
+translation engine selection restricted to the translation catalog. The caller
+must obtain role and paths from those trusted lookups, never from a user-supplied
+role/path/URL. Reuse the current install/status/remove command plumbing with
+role-aware status messages; installed auxiliary files must not imply engine or
+formatting readiness. No new public selector, automatic download or shipping
+build flag is needed in this stage.
+
+Reusing the installer also requires these concrete corrections:
+
+- **Re-admission:** native installed status currently checks file presence only
+  (Bergamot additionally verifies its pack). Thus an existing corrupt native
+  directory can trigger install's early-success path. The alignment path must
+  verify the complete runtime/notice inventory before reporting installed or
+  skipping a repair. Runtime still rechecks the bytes it actually loads.
+- **Promotion:** current download staging is under app cache and final storage
+  under app data. The installer removes the old final directory before renaming
+  staged files. A rename failure, including separate cache/data filesystems, can
+  leave no final install. Stage on the destination filesystem, preserve the old
+  directory until verified replacement, and recover interrupted replacement.
+  Use a bounded staging/previous-directory sequence, not a claim that replacing
+  a nonempty directory is one portable atomic rename. Keep this correction in
+  the shared installer rather than duplicating a safer alignment-only version.
+- **Space/cleanup:** there is no free-space preflight in this installer. Reserve
+  space for a full new pack while retaining the old install. Reuse
+  `library_transfer::ensure_available_space`, already used by search, with its
+  64-MiB reserve; account for every retained copy if cache copying remains.
+  Check the destination volume and propagate write failures; preflight cannot
+  reserve space against other applications. Cleanup/recovery must not delete a
+  valid old pack or touch originals, variants, audiobooks or segment caches.
+- **Lifecycle:** reuse install/read/remove claims under the same alignment key.
+  The application job still needs ownership of both translator and alignment
+  resources, cancellation and the existing save cutoff. Installer work alone
+  does not complete that later integration. No new pause/resume download API is
+  implied; interrupted-install cleanup/recovery is required.
+
+### Next implementation and completion checks
+
+1. Prepare the small pinned license/attribution payloads and auxiliary manifest
+   from the existing asset pins, with no duplicate graph/tokenizer inventory.
+   Keep actual download admission disabled until the following checks pass.
+2. Harden shared re-admission/promotion/cleanup and destination-space checks
+   before connecting the auxiliary resolver. Tests must use synthetic bytes and
+   temporary directories, not model downloads or private articles.
+3. Require regressions for missing/changed legal and runtime files, wrong hash/
+   size, symlink/path rejection, interrupted downloads, insufficient space,
+   failed final rename, recovery at each replacement boundary and retention of
+   the previous valid pack. Exercise a successful install/repair/status/remove
+   round trip through the real installer, with injected I/O failures.
+4. Test matching install/read/removal keys, contention and guard cleanup;
+   feature-off/unknown IDs must reject and the engine selector must never list
+   the pack. Regression checks must preserve existing OPUS-MT/HY-MT/Bergamot URL
+   pins and behavior. Do not claim an interrupted native load was preempted.
+5. Review this bounded installer slice, then finish the two-model application
+   lifecycle before Stage 4. Semantic/auxiliary-scope success, held-out coverage,
+   numeric reference parity and resource/platform acceptance remain independent
+   gates; neither notice completion nor a successful install enables alignment.
+
+**Evaluation validation:** rechecked published immutable inventories/card bytes,
+the original BERT license/model release and upstream notice scope. Read the
+connected installer, status/catalog, path and state-guard code. Existing focused
+translation regressions passed **206 tests**, with three external-pack tests
+ignored; this includes the real downloader's synthetic localhost size/hash
+checks. There are currently no promotion-failure/space/recovery regressions in
+this installer; the checklist above is required future coverage, not a claim
+that it passed. No weights were downloaded or redistributed, upstream contacted,
+production code changed, or benchmark/smoke/version-bump work performed.
 
 ## Product Goals
 
