@@ -315,6 +315,12 @@ fn actual_native_french_spanish_pieces_project_through_the_shared_contract() {
             .project_translation(&translated, &Cancellation::default(), None)
             .unwrap();
         assert_eq!(projected.nodes()[0].targets, [2..6]);
+        let restored = projected.restore::<SessionError>(|| Ok(())).unwrap();
+        assert_eq!(restored.text, expected);
+        assert_eq!(
+            restored.html,
+            format!("{}<em>{}</em>", &expected[..2], &expected[2..])
+        );
         let cancelled = Cancellation::default();
         cancelled.cancel().unwrap();
         assert_eq!(

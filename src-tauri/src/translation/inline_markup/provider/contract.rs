@@ -119,6 +119,7 @@ pub(crate) enum Rejection {
     PartialWord,
     LiteralRequiresIsolation,
     AttachmentRequiresEvidence,
+    Reconstruction,
     Unresolved(ScopeIssue),
 }
 
@@ -335,7 +336,10 @@ fn check_nodes(
     }
     for (i, (a, ar)) in ranges.iter().enumerate() {
         for (b, br) in &ranges[i + 1..] {
-            if ar.start < br.end
+            // Points occupy no text; reconstruction must split repeatable siblings or reject identity splits.
+            if !ar.is_empty()
+                && !br.is_empty()
+                && ar.start < br.end
                 && br.start < ar.end
                 && !(ancestors.contains(&(*a, *b)) && contains(ar, br)
                     || ancestors.contains(&(*b, *a)) && contains(br, ar))
@@ -348,7 +352,7 @@ fn check_nodes(
 }
 
 /// Recheck the combined tree after piece-local projection; no clipped tree grants final identity approval.
-pub(super) fn check_projected_nodes(
+pub(in crate::translation::inline_markup) fn check_projected_nodes(
     plan: &ProtectedPlan,
     target: &str,
     nodes: &[NodeMapping],

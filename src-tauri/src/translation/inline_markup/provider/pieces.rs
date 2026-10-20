@@ -1,4 +1,4 @@
-//! Exact model pairs and source-owned literal islands. No projection, HTML output, IPC or cache writes.
+//! Exact model pairs and source-owned islands; checked projection/reconstruction stays internal, without IPC/cache writes.
 use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
 

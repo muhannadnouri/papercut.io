@@ -54,9 +54,13 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   now runs the fixed extraction rule over checked raw-tokenizer evidence and
   projects exact pieces against the retained source hierarchy. Missing links,
   conflicting ownership and declared scope blockers remain explicit rejections.
-  Attachments, DOM reconstruction and mapped cache/save integration remain later
-  work. The mandatory positive scope and runtime/quality/resource gates are unmet;
+  The mandatory positive scope and runtime/quality/resource gates are unmet;
   the candidate remains disabled.
+- [Stage 6 source-owned reconstruction](#stage-6-source-owned-mapped-reconstruction--2026-10-20)
+  now converts checked scopes and lexical/punctuation attachment evidence into
+  the existing protected renderer. This internal path preserves hierarchy,
+  literal islands and source-owned assets; ambiguous attachment scopes reject.
+  Public runner, mapped cache/resume/save and packaged acceptance remain pending.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -320,6 +324,11 @@ mapping, proving there is no hidden CTranslate2 dependency. Passing by rejecting
 all formatted inputs is not success: mandatory positive cases must render.
 
 #### 6. Reconstruct hierarchy, links and attachments through the shared renderer
+
+**Status:** internal reconstruction and synthetic/native regression evidence are
+recorded in the [Stage 6 receipt](#stage-6-source-owned-mapped-reconstruction--2026-10-20).
+This does not close the Stage 5 semantic gates or enable public strict output;
+Stage 7 mapped-cache/save admission is separate work.
 
 **Tasks.** Feed validated mappings into source-owned protected reconstruction.
 Allow repeated style-only wrappers for disjoint emphasis; retain source-owned
@@ -2005,6 +2014,109 @@ restoration checks passed. No fresh CI or packaged/device acceptance ran.
 Known unresolved scopes, attachment admission, public capability gates, caches,
 saved documents, runtime/model versions and shipping flags remain unchanged.
 Benchmarks, smoke and the version bump remain deferred.
+
+### Stage 6 source-owned mapped reconstruction — 2026-10-20
+
+**Scope.** An internal `Projection::restore` consumer now reconstructs checked
+exact-piece output through the existing `ProtectedPlan` source renderer. No
+public command, selector, runner, persisted fragment, cache epoch, app version,
+model file or native runtime changes. The auxiliary candidate remains disabled
+for public translation; HTML/EPUB remain the supported document formats.
+
+**Separation of concerns.** `WordLinks::attachment` derives bounded lexical
+boundary evidence. Piece projection combines those point mappings with copied
+literal/whitespace coordinates and the original hierarchy. The new
+`protected/mapped.rs` adapter converts validated scalar ranges into escaped,
+opaque transport; it never accepts provider tags or attributes. The existing
+protected renderer alone emits retained source tags, attributes and literal
+payloads. Its byte budget and strict identity validation are shared with worker
+reconstruction. Strict maps bypass the legacy worker note-repositioning and
+best-effort formatting paths entirely.
+
+**Hierarchy and literals.** The complete source tree is checked again before
+reconstruction. A boundary sweep opens/closes only source-owned identities;
+disjoint style-only ranges may repeat, while links, authored IDs and literals
+cannot reopen or clone. An outside attachment may interrupt repeatable emphasis
+without becoming its child; an unrepresentable identity split rejects. Copied
+literals must exactly match their retained source scalar slice, are replaced by
+their original DOM payload once, and never enter either model. Opaque tables
+retain their original cells and nested assets: this does **not** add translated
+table-cell planning. Source block order/context and external owned asset bytes
+remain the existing DOM/writer's responsibility, not an aligner output.
+
+**Attachment policy.** Zero-width notes, backreferences, images and required
+empty ancestor wrappers retain their one Stage 4 owner at piece cuts. In a
+translated piece, the nearest lexical words on each side must have unique
+reciprocal target anchors. The target gap must contain the same punctuation
+scope, allowing documented opening/closing quote glyph equivalents and closing
+quote/terminal-punctuation movement. Quote containment takes precedence when a
+period moves across a closing quote, as in the existing punctuation rule.
+There is no sentence-count zipping, label matching, relative-position estimate,
+retry or phrase-probe fallback. Missing/fused anchors, reversed boundaries,
+extra target words, changed punctuation, inside-word positions and incompatible
+parents remain explicit `AttachmentRequiresEvidence`/hierarchy rejections.
+Attachments in copied units use their exact unchanged coordinates.
+
+**Text and resource contract.** The exact target already contains copied literal
+text; source-owned note labels and image markup are excluded from its normalized
+reader text. After reconstruction, the shared reader extractor must equal that
+target exactly. A target whose whitespace/control characters normalize to a
+different reader string rejects rather than silently changing mapped offsets.
+The adapter caps escaped synthetic transport at eight times the 32 KiB text
+bound, reuses the 512-range/128-code bounds, and the final renderer charges all
+repeated source bytes against its existing expansion allowance. Source payloads
+are never amplified without charge. Cancellation is checked before and after
+reconstruction; a late result is discarded. Cooperative checks do not promise
+native-call preemption or replace Stage 7's atomic save guard.
+
+The strict policy identity is now
+`word-ownership-v2:whole-unit-or-complete-links:no-hull:unique-anchor-gap-v1:source-dom-v1`.
+The worker mapping identity and existing stored variants are unchanged. Stage 7
+must bind this strict policy and source/target identities into mapped cache
+admission and use the retained source block's parsing context when inserting
+fragments. It must not route strict output back through worker note adjustment
+or a legacy formatting fallback.
+
+**Regression evidence.** Synthetic gold links/maps (not model-quality evidence)
+cover nested/disjoint styles, reordered source links, compact authored identities
+across actual pieces, copied code/whitespace, forward/reverse/nested quote notes,
+duplicate note labels/source order at a cut, an empty styled link around an
+owned image, standalone image/line-break/backreference restoration, and an
+opaque mixed-content table with literal code and an owned image. Assertions
+check exact styled words, source ancestor chains, exactly-once IDs, unchanged
+URLs/asset keys and readable text. Target strings resembling tags/attributes
+remain escaped text and cannot become reader markup. Rejections cover
+stale/malformed mappings, crossings, ID splits, changed literals,
+grapheme cuts, unresolved attachment evidence, excessive output/attribute
+expansion and reader-text normalization changes. New reconstruction cancellation
+tests cover both entry rejection and suppression after successful work.
+
+The existing explicit cached native regression suite now also reconstructs
+the actual OPUS-MT French/Spanish minimal outputs with the existing aligner on
+the bundled runtime. This is a correctness check of those cases, not a broader
+quality/resource benchmark. The three previously recorded unmet native semantic
+scopes remain unresolved; no extraction threshold or runtime was changed.
+
+**Validation:** full offline Rust library suites passed **519 tests with features
+off** (four ignored), **546 with the alignment runtime** (ten ignored), and
+**545 with CTranslate2 plus alignment runtime** (twelve ignored). The two
+explicit cached native regressions passed separately with unavailable network
+proxies, including exact reconstructed French/Spanish emphasis and casing.
+Use `cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --lib
+--no-default-features`. Add `--features native-translation-alignment-runtime`
+or `--features native-translation-ctranslate2,native-translation-alignment-runtime`
+for the other suites; the native asset/environment invocation remains in the
+Stage 5 receipt. Formatting
+and diff checks passed. No fresh CI, packaged/device acceptance or quality/RAM/
+speed benchmark is claimed.
+
+**Next:** review this internal slice, then implement Stage 7's mapping-aware
+batch cache/resume and atomic save integration while keeping public capability
+disabled until semantic, numeric/held-out, runtime notices and packaged
+resource/platform gates pass. Invalid strict output currently returns no
+reconstructed result and has no cache/writer caller; durable failure/no-save
+acceptance belongs to Stage 7. Benchmarks, broader smoke and version bump remain
+deferred.
 
 ## Product Goals
 

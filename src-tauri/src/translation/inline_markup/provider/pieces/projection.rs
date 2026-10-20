@@ -1,4 +1,4 @@
-//! Combine checked piece scopes against the retained identity tree; attachments and HTML remain later gates.
+//! Combine checked piece scopes and anchored attachments against one retained source identity tree.
 use super::*;
 use crate::translation::inline_markup::{
     protected::SourceCode,
@@ -13,6 +13,21 @@ pub(crate) struct Projection<'a, 'p> {
     nodes: Vec<NodeMapping>,
 }
 impl Projection<'_, '_> {
+    /// Use only the protected source renderer, bypassing every legacy formatting/note fallback.
+    /// Cancellation discards a late reconstruction before it becomes eligible for later save admission.
+    pub(crate) fn restore<E: From<Rejection>>(
+        &self,
+        check_cancelled: impl Fn() -> Result<(), E>,
+    ) -> Result<crate::translation::inline_markup::protected::RestoredMarkup, E> {
+        check_cancelled()?;
+        let result = self
+            .translation
+            .plan
+            .protected
+            .restore_mapped(&self.translation.text, &self.nodes)?;
+        check_cancelled()?;
+        Ok(result)
+    }
     /// Version scope semantics separately from the extraction model/rule; later cache admission needs both.
     pub(crate) fn policy(&self) -> &'static str {
         super::super::contract::PROJECTION_POLICY
@@ -35,9 +50,6 @@ impl<'p> Translation<'p> {
             return Err(Rejection::Unresolved(issue).into());
         }
         let codes = self.plan.protected.source_codes().collect::<Vec<_>>();
-        if codes.iter().any(|c| c.range.is_empty()) {
-            return Err(Rejection::AttachmentRequiresEvidence.into());
-        }
         if self.targets.len() != self.plan.units.len() || self.text.len() > MAX_HTML_BYTES {
             return Err(Rejection::Binding.into());
         }
@@ -52,7 +64,7 @@ impl<'p> Translation<'p> {
             })
             .collect::<Vec<_>>();
         let mut previous = 0;
-        for (unit, target) in self.plan.units.iter().zip(&self.targets) {
+        for (index, (unit, target)) in self.plan.units.iter().zip(&self.targets).enumerate() {
             check_cancelled()?;
             if target.start != previous || target.start > target.end || target.end >= tb.len() {
                 return Err(Rejection::Binding.into());
@@ -63,7 +75,11 @@ impl<'p> Translation<'p> {
             // Clip coordinates only; the original source tree and authored identities remain unique.
             let local = codes
                 .iter()
-                .filter(|c| c.range.start < unit.source.end && unit.source.start < c.range.end)
+                .filter(|c| {
+                    !c.range.is_empty()
+                        && c.range.start < unit.source.end
+                        && unit.source.start < c.range.end
+                })
                 .map(|c| SourceCode {
                     id: c.id,
                     parent: c.parent,
@@ -73,15 +89,31 @@ impl<'p> Translation<'p> {
                         ..c.range.end.min(unit.source.end) - unit.source.start,
                 })
                 .collect::<Vec<_>>();
-            let mapped = if unit.kind == Kind::Prose {
+            let attachments = self
+                .plan
+                .attachments
+                .iter()
+                .filter(|a| a.owner == index)
+                .collect::<Vec<_>>();
+            let mut anchored = Vec::new();
+            let mut mapped = if unit.kind == Kind::Prose {
                 let links = align(st, tt)?;
                 if !links.matches(st, tt) {
                     return Err(Rejection::Binding.into());
+                }
+                for attachment in &attachments {
+                    anchored.push((
+                        attachment.source_id,
+                        links.attachment(attachment.offset - unit.source.start)?,
+                    ));
                 }
                 links.project(&local)?
             } else {
                 if st != tt {
                     return Err(Rejection::Binding.into());
+                }
+                for attachment in &attachments {
+                    anchored.push((attachment.source_id, attachment.offset - unit.source.start));
                 }
                 local
                     .iter()
@@ -91,6 +123,10 @@ impl<'p> Translation<'p> {
                     })
                     .collect()
             };
+            mapped.extend(anchored.into_iter().map(|(source_id, offset)| NodeMapping {
+                source_id,
+                targets: vec![offset..offset],
+            }));
             for mapped in mapped {
                 let node = nodes
                     .iter_mut()

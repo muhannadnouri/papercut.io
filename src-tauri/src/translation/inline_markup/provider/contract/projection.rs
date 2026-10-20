@@ -1,7 +1,8 @@
 //! Checked word correspondence and conservative scope construction; never HTML or semantic certification.
 use super::*;
 
-pub(crate) const POLICY: &str = "word-ownership-v1:whole-unit-or-complete-links:no-hull";
+pub(crate) const POLICY: &str =
+    "word-ownership-v2:whole-unit-or-complete-links:no-hull:unique-anchor-gap-v1:source-dom-v1";
 
 /// Exact input borrows bind word IDs to their original strings, not a second sentence/token split.
 pub(crate) struct WordLinks<'a> {
@@ -45,6 +46,76 @@ impl<'a> WordLinks<'a> {
 
     pub(crate) fn links(&self) -> &[(usize, usize)] {
         &self.links
+    }
+
+    /// Adjacent lexical words must have unique reciprocal anchors; fused/missing/reversed gaps reject.
+    /// Only the intervening punctuation may move a note relative to quotes, never another target word.
+    pub(in crate::translation::inline_markup::provider) fn attachment(
+        &self,
+        offset: usize,
+    ) -> Result<usize, Rejection> {
+        if offset > self.source.chars().count()
+            || self
+                .source_words
+                .iter()
+                .any(|w| w.lexical && w.range.start < offset && offset < w.range.end)
+        {
+            return Err(Rejection::AttachmentRequiresEvidence);
+        }
+        let left = self
+            .source_words
+            .iter()
+            .enumerate()
+            .rfind(|(_, w)| w.lexical && w.range.end <= offset);
+        let right = self
+            .source_words
+            .iter()
+            .enumerate()
+            .find(|(_, w)| w.lexical && offset <= w.range.start);
+        if left.is_none() && right.is_none() {
+            return Err(Rejection::AttachmentRequiresEvidence);
+        }
+        let anchor = |s: usize| -> Result<&Word, Rejection> {
+            let targets = self
+                .links
+                .iter()
+                .filter(|(i, _)| *i == s)
+                .map(|(_, t)| *t)
+                .collect::<Vec<_>>();
+            let [t] = targets.as_slice() else {
+                return Err(Rejection::AttachmentRequiresEvidence);
+            };
+            if !self.target_words[*t].lexical || self.links.iter().any(|(i, j)| j == t && *i != s) {
+                return Err(Rejection::AttachmentRequiresEvidence);
+            }
+            Ok(&self.target_words[*t])
+        };
+        let sl = left.map_or(0, |(_, w)| w.range.end);
+        let sr = right.map_or(self.source.chars().count(), |(_, w)| w.range.start);
+        let tl = left
+            .map(|(i, _)| anchor(i).map(|w| w.range.end))
+            .transpose()?
+            .unwrap_or(0);
+        let tr = right
+            .map(|(i, _)| anchor(i).map(|w| w.range.start))
+            .transpose()?
+            .unwrap_or(self.target.chars().count());
+        if sl > offset || offset > sr || tl > tr {
+            return Err(Rejection::AttachmentRequiresEvidence);
+        }
+        let gap = |text: &str, start, end| {
+            text.chars()
+                .skip(start)
+                .take(end - start)
+                .collect::<String>()
+        };
+        let delta = crate::translation::inline_markup::protected::boundaries::map_gap(
+            &gap(self.source, sl, sr),
+            offset - sl,
+            &gap(self.target, tl, tr),
+        )
+        .map_err(|_| Rejection::AttachmentRequiresEvidence)?;
+        Ok(tl + delta)
     }
 
     /// Reject stale/wrong-pair results even if the provider returns a plausible correspondence graph.

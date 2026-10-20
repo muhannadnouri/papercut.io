@@ -231,6 +231,67 @@ fn closing_quote(ch: char) -> bool {
     matches!(ch, '\"' | '\'' | '»' | '›' | '”' | '’')
 }
 
+/// Map only the punctuation gap between checked lexical anchors; never zip sentence counts or guess a ratio.
+pub(in crate::translation::inline_markup) fn map_gap(
+    source: &str,
+    offset: usize,
+    target: &str,
+) -> Result<usize, String> {
+    // Quote glyphs may change by language; their opening/closing roles and nesting count must not.
+    let canonical = |ch| match ch {
+        '«' | '“' => '“',
+        '»' | '”' => '”',
+        '‹' | '‘' => '‘',
+        '›' | '’' => '’',
+        other => other,
+    };
+    let significant = |text: &str| {
+        text.chars()
+            .filter(|c| !c.is_whitespace())
+            .map(canonical)
+            .collect::<String>()
+    };
+    let source_chars = source.chars().collect::<Vec<_>>();
+    if offset > source_chars.len()
+        || source
+            .chars()
+            .chain(target.chars())
+            .any(|c| c.is_alphanumeric() || unicode_normalization::char::is_combining_mark(c))
+    {
+        return Err("Attachment gap is not punctuation".into());
+    }
+    let prefix = significant(&source_chars[..offset].iter().collect::<String>());
+    let suffix = significant(&source_chars[offset..].iter().collect::<String>());
+    let target_clean = significant(target);
+    let source_clean = format!("{prefix}{suffix}");
+    let clean_offset = if source_clean == target_clean {
+        prefix.chars().count()
+    } else {
+        let mut a = source_clean.chars().collect::<Vec<_>>();
+        let mut b = target_clean.chars().collect::<Vec<_>>();
+        a.sort_unstable();
+        b.sort_unstable();
+        if a != b
+            || !source_clean.chars().all(edge_punctuation)
+            || !target_clean.chars().all(edge_punctuation)
+        {
+            return Err("Changed attachment punctuation scope".into());
+        }
+        before_suffix(&target_clean, &Edge { prefix, suffix })?
+    };
+    // Place an empty-prefix marker directly after its left anchor, before target whitespace.
+    if clean_offset == 0 {
+        return Ok(0);
+    }
+    target
+        .chars()
+        .enumerate()
+        .filter(|(_, c)| !c.is_whitespace())
+        .nth(clean_offset - 1)
+        .map(|(i, _)| i + 1)
+        .ok_or_else(|| "Attachment exceeds target gap".into())
+}
+
 /// Numeric ids are retained source identities, never user-supplied selector strings.
 fn find_codes(root: &NodeRef, id: usize) -> Result<Vec<NodeRef>, String> {
     root.select(&format!("span[data-pc='{id}']"))

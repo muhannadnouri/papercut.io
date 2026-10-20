@@ -11,7 +11,8 @@ use super::{
 use crate::document_uploads::{is_note_marker, tag_separates_text};
 use crate::translation::html::parse_html_document;
 
-mod boundaries;
+pub(super) mod boundaries;
+mod mapped;
 
 /// Source normalization and hierarchy semantics participate in worker cache compatibility.
 pub(crate) const MAPPING_VERSION: &str = "protected-codes-v6";
@@ -370,6 +371,11 @@ impl ProtectedPlan {
         } else {
             self.render(doc.root_element())?
         };
+        Self::read_restored(html)
+    }
+
+    /// Re-extract using the same normalized reader text contract after either strict reconstruction path.
+    fn read_restored(html: String) -> Result<RestoredMarkup, String> {
         let parsed = parse_html_document(format!("<html><body><div>{html}</div></body></html>"));
         let node = parsed
             .select_first("body > div")
@@ -381,7 +387,7 @@ impl ProtectedPlan {
         Ok(RestoredMarkup { html, text })
     }
 
-    /// Charge retained source payload once plus worst-case escaped transport text; repeats cannot amplify it.
+    /// Both worker transport and checked word maps share one source-owned renderer and expansion budget.
     fn render(&self, root: roxmltree::Node<'_, '_>) -> Result<String, String> {
         let limit = self
             .codes

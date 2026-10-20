@@ -5,7 +5,7 @@ use std::ops::Range;
 
 use super::{InlineSourceModel, ProjectedInlineSpan};
 
-// Contract-only: no engine, catalog entry or renderer consumes this evidence yet.
+// Internal strict evidence; public jobs/catalog/cache/writer do not consume these mappings yet.
 pub(crate) mod contract;
 // Internal strict planning only; public translation/cache/rendering do not consume it yet.
 #[allow(dead_code)]

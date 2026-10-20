@@ -115,10 +115,19 @@ fn actual_subdivisions_and_copied_literal_whitespace_keep_one_authored_identity(
     );
     assert_eq!(plan.protected.identity(), identity);
     assert!(translated.text.contains("secret🙂"));
+    let restored = mapped.restore::<Rejection>(|| Ok(())).unwrap();
+    assert_eq!(restored.text, translated.text);
+    let dom = crate::translation::html::parse_html_document(restored.html);
+    assert_eq!(dom.select("#one").unwrap().count(), 1);
+    assert_eq!(dom.select("#one > code").unwrap().count(), 1);
+    assert_eq!(
+        dom.select_first("code").unwrap().text_contents(),
+        "secret🙂"
+    );
 }
 
 #[test]
-fn known_scope_blockers_and_zero_width_attachments_fail_without_inference() {
+fn known_scope_blockers_fail_without_inference() {
     let plan = plan("<p><em>Un livre</em></p>", 10);
     let translated = plan
         .translate(&mut Translator { limit: 10 }, |_, _| Ok(true), || false)
@@ -137,16 +146,6 @@ fn known_scope_blockers_and_zero_width_attachments_fail_without_inference() {
             .err();
         assert_eq!(error, Some(Rejection::Unresolved(issue)));
     }
-    let plan = self::plan("<p>Un livre<a role='doc-noteref' href='#n'>1</a></p>", 10);
-    let translated = plan
-        .translate(&mut Translator { limit: 10 }, |_, _| Ok(true), || false)
-        .unwrap();
-    assert_eq!(
-        translated
-            .project::<Rejection>(|_, _| panic!("attachments remain Stage 6"), None, || Ok(()))
-            .err(),
-        Some(Rejection::AttachmentRequiresEvidence)
-    );
 }
 
 #[test]
@@ -282,4 +281,292 @@ fn late_cancellation_after_final_pair_discards_the_assembled_projection() {
     );
     assert_eq!(calls.get(), pairs); // All pairs returned valid links; there is no next piece to catch cancellation.
     assert_eq!(result.err(), Some(CancelError::Cancelled));
+}
+
+/// Supply one exact decoded target through the real planning/admission path, not a forged Translation.
+struct Fixed<'a>(&'a str);
+impl ExactPieceTranslator for Fixed<'_> {
+    fn source_fits(&self, _: &str) -> Result<bool, String> {
+        Ok(true)
+    }
+    fn translate_exact(&mut self, sources: &[&str]) -> Result<Vec<String>, String> {
+        assert_eq!(sources.len(), 1);
+        Ok(vec![self.0.into()])
+    }
+}
+
+/// Gold lexical anchors ignore punctuation links so quote placement cannot accidentally rely on MT punctuation.
+fn lexical_links<'a>(
+    source: &'a str,
+    target: &'a str,
+    pairs: Vec<(usize, usize)>,
+) -> Result<WordLinks<'a>, Rejection> {
+    let st = tokens(source);
+    let tt = tokens(target);
+    WordLinks::new(
+        source,
+        target,
+        &rules(),
+        &TokenizedText {
+            normalized: source,
+            tokens: &st,
+        },
+        &TokenizedText {
+            normalized: target,
+            tokens: &tt,
+        },
+        pairs,
+    )
+}
+
+#[test]
+fn forward_reverse_and_nested_quotes_anchor_notes_without_sentence_zipping() {
+    let note = "<a role='doc-noteref' id='ref' href='#n'><sup>1</sup></a>";
+    for (source, target, expected) in [
+        (format!("<p>«Bonjour»{note}.</p>"), "“Hello.”", "“Hello.”<a"),
+        (format!("<p>«Bonjour{note}.»</p>"), "“Hello”.", "“Hello<a"),
+        (format!("<p>«Bonjour.{note}»</p>"), "“Hello”.", "“Hello<a"),
+        (
+            format!("<p>«‘Bonjour.{note}’»</p>"),
+            "“‘Hello’”.",
+            "“‘Hello<a",
+        ),
+        (
+            format!("<p><strong><em>«‘Bonjour.’{note}»</em></strong></p>"),
+            "“‘Hello’”.",
+            "“‘Hello’<a",
+        ),
+    ] {
+        let p = plan(&source, 20);
+        let translated = p
+            .translate(&mut Fixed(target), |_, _| Ok(true), || false)
+            .unwrap();
+        let mapped = translated
+            .project(
+                |s, t| {
+                    let lexical = |text: &str| {
+                        tokens(text)
+                            .into_iter()
+                            .skip(1)
+                            .take_while(|t| !t.special)
+                            .enumerate()
+                            .filter(|(_, token)| {
+                                text[token.bytes.clone()].chars().any(char::is_alphanumeric)
+                            })
+                            .map(|(i, _)| i)
+                            .next()
+                            .unwrap()
+                    };
+                    lexical_links(s, t, vec![(lexical(s), lexical(t))])
+                },
+                None,
+                || Ok(()),
+            )
+            .unwrap();
+        let r = mapped.restore::<Rejection>(|| Ok(())).unwrap();
+        assert_eq!(r.text, target);
+        assert!(r.html.contains(expected), "{}", r.html);
+        let dom = crate::translation::html::parse_html_document(r.html);
+        assert_eq!(dom.select("a#ref[href='#n'] > sup").unwrap().count(), 1);
+        if source.contains("<strong>") {
+            assert_eq!(dom.select("strong > em > a#ref").unwrap().count(), 1);
+        }
+    }
+}
+
+#[test]
+fn multiple_identical_note_labels_follow_lexical_owners_and_source_order_at_piece_cuts() {
+    let p = plan("<p><span id='one'>Un deux;<a role='doc-noteref' id='r1' href='#n'>1</a><a role='doc-noteref' id='r2' href='#n'>1</a> Trois quatre.</span></p>", 2);
+    let translated = p
+        .translate(&mut Translator { limit: 2 }, |_, _| Ok(true), || false)
+        .unwrap();
+    assert!(p.units().len() > 1);
+    let mapped = translated.project(align, None, || Ok(())).unwrap();
+    let r = mapped.restore::<Rejection>(|| Ok(())).unwrap();
+    assert_eq!(r.text, "UN DEUX; TROIS QUATRE.");
+    let dom = crate::translation::html::parse_html_document(r.html);
+    assert_eq!(dom.select("#one").unwrap().count(), 1);
+    assert_eq!(dom.select("#one > #r1 + #r2").unwrap().count(), 1);
+    assert_eq!(dom.select("#r1,#r2").unwrap().count(), 2);
+}
+
+#[test]
+fn empty_styled_link_image_and_note_keep_source_hierarchy_and_asset_reference() {
+    let asset =
+        crate::document_uploads::ParsedDocumentAsset::new("image/png", b"owned pixels".to_vec())
+            .unwrap();
+    let p = plan(&format!("<p><a id='image-link' href='../notes.xhtml#n'><strong><img data-papercut-asset='{}'></strong></a> Bonjour<a role='doc-noteref' id='ref' href='../notes.xhtml#n'>1</a>.</p>", asset.file_name), 20);
+    let translated = p
+        .translate(&mut Translator { limit: 20 }, |_, _| Ok(true), || false)
+        .unwrap();
+    let r = translated
+        .project(align, None, || Ok(()))
+        .unwrap()
+        .restore::<Rejection>(|| Ok(()))
+        .unwrap();
+    assert_eq!(r.text, "BONJOUR.");
+    let dom = crate::translation::html::parse_html_document(r.html);
+    let image = dom.select_first("a#image-link > strong > img").unwrap();
+    assert_eq!(
+        image.attributes.borrow().get("data-papercut-asset"),
+        Some(asset.file_name.as_str())
+    );
+    assert_eq!(
+        dom.select_first("a#image-link")
+            .unwrap()
+            .attributes
+            .borrow()
+            .get("href"),
+        Some("../notes.xhtml#n")
+    );
+    assert_eq!(dom.select("#image-link,#ref").unwrap().count(), 2);
+    assert_eq!(asset.bytes, b"owned pixels");
+}
+
+#[test]
+fn opaque_mixed_content_table_preserves_cells_literals_and_owned_images_once() {
+    let asset = crate::document_uploads::ParsedDocumentAsset::new(
+        "image/png",
+        b"table image bytes".to_vec(),
+    )
+    .unwrap();
+    let p = plan(&format!("<table id='grid'><tr><th><b>Nom</b></th><td>Oui <code>id42</code><img data-papercut-asset='{}'></td></tr></table>", asset.file_name), 20);
+    let identity = p.protected.identity();
+    let translated = p
+        .translate(&mut Translator { limit: 20 }, |_, _| Ok(true), || false)
+        .unwrap();
+    let mapped = translated.project(align, None, || Ok(())).unwrap();
+    let restored = mapped.restore::<Rejection>(|| Ok(())).unwrap();
+    // The existing source planner treats this whole table as an immutable island, not new translatable cells.
+    assert_eq!(restored.text, "Nom Oui id42");
+    let dom = crate::translation::html::parse_html_document(restored.html);
+    assert_eq!(
+        dom.select("table#grid > tbody > tr > th > b")
+            .unwrap()
+            .count(),
+        1
+    );
+    assert_eq!(dom.select_first("th").unwrap().text_contents(), "Nom");
+    assert_eq!(dom.select("table#grid").unwrap().count(), 1);
+    assert_eq!(
+        dom.select_first("td > code").unwrap().text_contents(),
+        "id42"
+    );
+    assert_eq!(
+        dom.select_first("td > img")
+            .unwrap()
+            .attributes
+            .borrow()
+            .get("data-papercut-asset"),
+        Some(asset.file_name.as_str())
+    );
+    assert_eq!(p.protected.identity(), identity);
+}
+
+#[test]
+fn attachments_in_copied_units_do_not_enter_either_model() {
+    let p = plan(
+        "<p><code>abc</code><a role='doc-noteref' id='ref' href='#n'>1</a></p>",
+        20,
+    );
+    let translated = p
+        .translate(
+            &mut Fixed("must not infer"),
+            |_, _| panic!("literal must not enter tokenizer"),
+            || false,
+        )
+        .unwrap();
+    let mapped = translated
+        .project::<Rejection>(
+            |_, _| panic!("literal must not enter aligner"),
+            None,
+            || Ok(()),
+        )
+        .unwrap();
+    let restored = mapped.restore::<Rejection>(|| Ok(())).unwrap();
+    assert_eq!(restored.text, "abc");
+    let dom = crate::translation::html::parse_html_document(restored.html);
+    assert_eq!(dom.select("code + a#ref[href='#n']").unwrap().count(), 1);
+}
+
+#[test]
+fn standalone_image_line_break_and_backreference_are_each_restored_once() {
+    let p = plan("<p><img id='cover' src='../images/cover.png'>Bonjour<br> monde<a role='doc-backlink' id='back' href='#ref'>↩</a>.</p>", 20);
+    let translated = p
+        .translate(&mut Translator { limit: 20 }, |_, _| Ok(true), || false)
+        .unwrap();
+    let r = translated
+        .project(align, None, || Ok(()))
+        .unwrap()
+        .restore::<Rejection>(|| Ok(()))
+        .unwrap();
+    assert_eq!(r.text, "BONJOUR MONDE.");
+    let dom = crate::translation::html::parse_html_document(r.html);
+    assert_eq!(
+        dom.select("img#cover[src='../images/cover.png']")
+            .unwrap()
+            .count(),
+        1
+    );
+    assert_eq!(dom.select("br").unwrap().count(), 1);
+    assert_eq!(dom.select("a#back[href='#ref']").unwrap().count(), 1);
+    assert_eq!(dom.select_first("a#back").unwrap().text_contents(), "↩");
+}
+
+#[test]
+fn missing_fused_reversed_or_changed_punctuation_attachment_evidence_rejects() {
+    let p = plan("<p>Un<a role='doc-noteref' href='#n'>1</a> deux</p>", 20);
+    for (target, pairs) in [
+        ("ONE TWO", vec![(0, 0)]),
+        ("ONE TWO", vec![(0, 0), (0, 1), (1, 1)]),
+        ("TWO ONE", vec![(0, 1), (1, 0)]),
+        ("ONE extra TWO", vec![(0, 0), (1, 2)]),
+    ] {
+        let translated = p
+            .translate(&mut Fixed(target), |_, _| Ok(true), || false)
+            .unwrap();
+        assert_eq!(
+            translated
+                .project(|s, t| lexical_links(s, t, pairs.clone()), None, || Ok(()))
+                .err(),
+            Some(Rejection::AttachmentRequiresEvidence)
+        );
+    }
+    let p = plan("<p>Bonjour<a role='doc-noteref' href='#n'>1</a>.</p>", 20);
+    let translated = p
+        .translate(&mut Fixed("HELLO!"), |_, _| Ok(true), || false)
+        .unwrap();
+    assert_eq!(
+        translated
+            .project(|s, t| lexical_links(s, t, vec![(0, 0)]), None, || Ok(()))
+            .err(),
+        Some(Rejection::AttachmentRequiresEvidence)
+    );
+}
+
+#[test]
+fn reconstruction_checks_cancellation_before_work_and_before_admitting_output() {
+    let p = plan("<p><em>Un livre</em></p>", 20);
+    let translated = p
+        .translate(&mut Translator { limit: 20 }, |_, _| Ok(true), || false)
+        .unwrap();
+    let mapped = translated.project(align, None, || Ok(())).unwrap();
+    let calls = Cell::new(0);
+    let result = mapped.restore(|| {
+        calls.set(calls.get() + 1);
+        if calls.get() == 2 {
+            Err(CancelError::Cancelled)
+        } else {
+            Ok(())
+        }
+    });
+    assert_eq!(calls.get(), 2);
+    assert_eq!(result.err(), Some(CancelError::Cancelled));
+    assert!(mapped
+        .restore(|| Err::<(), _>(CancelError::Cancelled))
+        .is_err());
+    assert_eq!(
+        mapped.restore::<Rejection>(|| Ok(())).unwrap().text,
+        translated.text
+    );
 }
