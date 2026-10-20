@@ -28,8 +28,8 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   found no must-fix issue within this internal scope. That original slice added
   no downloads, model selector entry, inference or saved-document migration.
 - A separate default-off [bounded ONNX session](#stage-3-bounded-onnx-session--2026-10-20)
-  now loads verified graph bytes and returns checked CPU embeddings. It has no
-  translation-job caller, word-link extraction or formatting projection;
+  now loads verified graph bytes and returns checked CPU embeddings. Public
+  translation starts do not call it; word-link extraction and formatting projection remain pending;
   its [session review](#stage-3-bounded-session-review--2026-10-20) found
   no must-fix issue within that internal scope. The candidate remains unavailable.
 - The [redistribution/installer evaluation](#stage-3-redistribution-and-installer-admission-evaluation--2026-10-20)
@@ -39,6 +39,11 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   now supports explicit install/status/remove behind the existing default-off
   alignment feature. Shipping flags and translation engine choices are unchanged;
   installing the auxiliary pack does not enable document alignment.
+- The internal [two-model job lifecycle](#stage-3-two-model-job-lifecycle--2026-10-20)
+  now holds translator/aligner ownership through the shared runner, bridges job
+  cancellation to native alignment and retains the existing atomic save cutoff.
+  Its alignment load hook remains internal and unused by public starts; exact
+  piece planning, word links and strict formatting projection are still pending.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
 - Fixed-pair OPUS-MT models use their actual source language; the UI and backend no longer imply automatic language detection.
@@ -219,10 +224,10 @@ or widening a span over unrelated prose.
 #### 3. Add verified assets and a bounded local alignment runtime
 
 **Status 2026-10-20:** local asset/raw-tokenizer admission and a bounded internal
-CPU session and notice-complete auxiliary installer admission are implemented
-below. Document-job/two-model lifecycle, packaged notice/runtime qualification
-and resource/platform acceptance remain pending; this stage is not complete or
-accepted.
+CPU session, notice-complete auxiliary installer admission and an internal
+two-model job lifecycle are implemented below. Public alignment admission,
+packaged notice/runtime qualification and resource/platform acceptance remain
+pending; this stage is not complete or accepted.
 
 **Tasks.** Extend the current installer/manifest with a distinct alignment asset
 role, not an item in the translation-engine selector. Pin weights, tokenizer,
@@ -1572,6 +1577,112 @@ application's two-model ownership/cancellation/save lifecycle. Exact-piece
 planning, word-link extraction/projection, mandatory auxiliary-scope success,
 held-out semantics and resource/platform qualification remain separate gates.
 Benchmarks, broader smoke and the app version bump remain deferred.
+
+## Stage 3 two-model job lifecycle — 2026-10-20
+
+**Internal ownership/cancellation integration, not formatting enablement.** The
+shared runner now owns a job scope in `runner/lifecycle.rs`. Normal native and
+Bergamot starts still load only their translator. With the default-off
+`native-translation-alignment-runtime` feature, an internal loader can attach
+one installed alignment session to that same job. No command argument, model
+selector entry, shipping flag, cache format, dependency or version was added.
+Public starts do not call that alignment hook until strict mapping admission is
+implemented; merely compiling the feature or installing the pack changes no
+document's formatting path.
+
+### Ownership and admission
+
+- The existing cache/job claim and translator file lease remain held throughout
+  source planning, native loading, batches, final validation and saving. The
+  optional alignment session owns the same auxiliary lease as install/remove.
+  Contention rejects immediately; failed auxiliary admission unwinds its claim
+  without releasing the translator early. Any failed overall load releases the
+  whole job scope, allowing retry.
+- Installed alignment admission reads the full nine-file inventory, including
+  both notices, under the auxiliary lease. Graph/tokenizer bytes come from the
+  verified snapshots used by the existing runtime. Raw seven-file developer
+  probes remain separate. No metadata-only status check authorizes a load.
+- The loader may reuse the attached session within a job. The native translator
+  is destroyed before the scope; the alignment session is destroyed before its
+  auxiliary lease and cancellation registration, then the translator lease is
+  released. Cancellation cleanup precedes release of the cache/job claim, so an
+  exiting attempt cannot clear a same-cache retry's cancellation.
+
+### Cancellation and save boundary
+
+- Alignment registration, cancellation and save admission use the existing
+  cancellation-then-activity lock order. Cancellation before registration
+  rejects it; cancellation after registration reaches that job's monotonic
+  native handle. Other jobs' handles are unaffected. Native termination runs
+  outside the application locks; there is no polling thread or waiting queue.
+  Registration drops on every load failure and job exit; retries get a fresh
+  handle rather than stale native termination state.
+- The runner checks cancellation before/after model loading and after native
+  batch inference. A completed late batch is discarded before validation,
+  caching or rendering. A cancellation after the legacy phrase-probe phase also
+  prevents starting the main batch. This does not introduce preemption inside
+  native translator calls or rewrite the legacy phrase-probe algorithm.
+- The final renderer/validation callback still checks the engine's live-owner
+  admission and then calls `claim_save`. Cancellation accepted before that
+  cutoff prevents durable writes, including a fully cached retry. Once saving
+  is admitted, cancellation is rejected and does not terminate the aligner.
+  Existing atomic writer/rollback behavior and saved variant identities remain
+  unchanged. ORT session creation is still uninterruptible; a cancellation
+  during creation discards the new session when the call returns.
+
+### Regression receipt and limits
+
+Ordinary synthetic tests exercise the real shared loader/runner/cache/renderer
+and SQLite writer with a deterministic translator. They cover failed loads,
+cancellation during loading and inference, pre-save rejection, a failing SQLite
+transaction, successful saving, model claims during engine destruction, late
+reply cache rejection and clean retry admission. State tests cover both
+registration/cancel orderings, concurrent registration/cancellation, duplicate
+registration, job isolation and the save-first cutoff. Missing/busy auxiliary
+loads release their registrations and leave translator ownership intact.
+
+An explicit ignored integration test uses the externally cached pinned INT8
+graph and official shared ORT library, copying the pack plus bundled notices to
+a temporary app root. A deterministic translator runs through the real writer
+while the actual aligner loads, infers and is reused. It checks both model
+leases, translator load failure after aligner admission, late load/batch
+cancellation, pre-save cancellation, saved-HTML byte stability, retry without
+duplicate variants and missing-notice rejection. This is lifecycle/storage
+integration, not actual translation quality, word-link/projection correctness,
+packaged-device smoke or a performance benchmark. No model weights or private
+sample documents are committed or downloaded by these tests.
+
+The existing explicit native-session test additionally sends cancellation
+through application state to registered ORT run options and verifies native
+termination plus rejected save admission. It cancels before execution; it does
+not establish mid-kernel cancellation latency. Both explicit external tests
+passed locally with the pinned INT8 pack and official ORT **1.23.2** shared
+library; the application test used unavailable local HTTP proxies to prevent
+unexpected network delivery.
+
+Full Rust library suites passed **480 tests with features off** (four ignored),
+**492 with tokenizer/auxiliary admission** (six ignored) and **499 with the
+internal runtime feature** (nine ignored). The two external tests above passed
+separately; ordinary runs skip model/runtime-dependent tests. Formatting/diff
+checks passed. No fresh packaged build, CI or device qualification was run.
+
+Reproduce the application lifecycle test using an external pinned pack and the
+official shared runtime:
+
+```sh
+PAPERCUT_ALIGNMENT_ASSETS_DIR=/path/to/pinned-alignment-pack \
+ORT_DYLIB_PATH=/path/to/official/libonnxruntime.so \
+  cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --lib \
+  --no-default-features --features native-translation-alignment-runtime \
+  installed_two_model_runner_reuses_session_cancels_and_preserves_saved_variants \
+  -- --ignored
+```
+
+**Next:** review this lifecycle slice, then Stage 4 exact-piece/literal-island
+planning. Word-link extraction, strict source-owned projection, mapping/cache
+integration, mandatory auxiliary-scope success, numeric/held-out semantics and
+runtime redistribution/resource/platform qualification remain open. Candidate
+enablement, benchmarks, broader smoke and the app version bump stay deferred.
 
 ## Product Goals
 

@@ -186,15 +186,16 @@ fn pinned_graph_reuses_session_obeys_cancel_and_releases_lease() {
         )
         .is_err());
     // A concurrently cancelled registered run must reach ORT's own termination API, not just a Rust flag.
-    let cancellation = Arc::new(Cancellation::default());
+    let registration = state.register_alignment_cancellation("native-job").unwrap();
+    let cancellation = registration.cancellation.clone();
     let options = Arc::new(RunOptions::new().unwrap());
     let active = cancellation.register(options.clone()).unwrap();
     assert_eq!(
         cancellation.register(options).err(),
         Some(SessionError::Busy)
     );
-    let other = cancellation.clone();
-    std::thread::spawn(move || other.cancel().unwrap())
+    let other = state.clone();
+    std::thread::spawn(move || other.cancel("native-job").unwrap())
         .join()
         .unwrap();
     let ids = Tensor::from_array(([1usize, 3], vec![101i64, 34551, 102])).unwrap();
@@ -206,6 +207,7 @@ fn pinned_graph_reuses_session_obeys_cancel_and_releases_lease() {
             &*active.options
         )
         .is_err());
+    assert!(state.claim_save("native-job").is_err());
     drop(active);
     assert!(cancellation.active.lock().unwrap().is_none());
     assert!(session

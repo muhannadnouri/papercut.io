@@ -1,4 +1,4 @@
-//! Bounded CPU embeddings only. Word-link extraction, projection and application jobs stay separate.
+//! Bounded CPU embeddings; runner::lifecycle owns installed job sessions. No word-link projection.
 use std::{
     path::Path,
     sync::{
@@ -129,11 +129,35 @@ impl AlignmentSession {
         dir: &Path,
         cancellation: &Cancellation,
     ) -> Result<Self, SessionError> {
+        Self::load_pack(state, dir, cancellation, false)
+    }
+
+    /// Application admission includes installed notices; raw developer probes retain their seven-file gate.
+    pub(crate) fn load_installed(
+        state: &TranslationState,
+        dir: &Path,
+        cancellation: &Cancellation,
+    ) -> Result<Self, SessionError> {
+        Self::load_pack(state, dir, cancellation, true)
+    }
+
+    /// Keep the lease through snapshot admission and native creation, including failed/cancelled loads.
+    fn load_pack(
+        state: &TranslationState,
+        dir: &Path,
+        cancellation: &Cancellation,
+        installed: bool,
+    ) -> Result<Self, SessionError> {
         cancellation.check()?;
         let lease = state
             .claim_model_read(assets::MODEL_KEY)
             .map_err(|_| SessionError::Busy)?;
-        let (tokenizer, weights) = assets::runtime_snapshot(dir, &|| cancellation.is_cancelled())?;
+        let cancelled = || cancellation.is_cancelled();
+        let (tokenizer, weights) = if installed {
+            assets::installed_runtime_snapshot(dir, &cancelled)?
+        } else {
+            assets::runtime_snapshot(dir, &cancelled)?
+        };
         cancellation.check()?;
         let tokenizer = CandidateTokenizer::from_snapshot(&tokenizer)?;
         crate::onnx_runtime::initialize().map_err(|_| SessionError::RuntimeUnavailable)?;

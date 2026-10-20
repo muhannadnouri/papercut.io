@@ -7,7 +7,7 @@ use crate::translation::model_store::{verified, TranslationModelFile, Translatio
 pub(super) const REPOSITORY: &str = "cstr/awesome-align-onnx-int8";
 pub(super) const REVISION: &str = "e803a2f501474044099b539160aaca461976ecd0";
 pub(super) const TOKENIZER_ID: &str = "mbert-raw-v1:tokenizers-0.23.2:bf1b59b7b11c95f194f51708d918eea378e09d05f84c0e1656dc5180e8117088";
-pub(super) const MODEL_KEY: &str = "alignment-awesome-align-int8";
+pub(in crate::translation) const MODEL_KEY: &str = "alignment-awesome-align-int8";
 const PACK_LIMIT: u64 = 200 * 1024 * 1024;
 
 // Raw developer admission keeps these seven pins; installer admission additionally requires both notices.
@@ -114,6 +114,15 @@ pub(super) fn runtime_snapshot(
     cancelled: &dyn Fn() -> bool,
 ) -> Result<(Vec<u8>, Vec<u8>), AdmissionError> {
     snapshots(dir, FILES, true, cancelled)
+}
+
+/// Installed jobs require legal files in the same cancellable admission pass as the graph bytes.
+#[cfg(feature = "native-translation-alignment-runtime")]
+pub(super) fn installed_runtime_snapshot(
+    dir: &Path,
+    cancelled: &dyn Fn() -> bool,
+) -> Result<(Vec<u8>, Vec<u8>), AdmissionError> {
+    snapshots(dir, INSTALL_FILES, true, cancelled)
 }
 
 /// One inventory pass; only runtime admission retains weights, and no partial pack escapes.

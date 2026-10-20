@@ -41,6 +41,7 @@ use super::types::{
 };
 
 const MAX_INLINE_PHRASE_PROBES_PER_SEGMENT: usize = 8;
+mod lifecycle;
 
 /// Start a translation job and persist the completed output as a derived upload.
 pub(super) fn start_translation<R: tauri::Runtime>(
@@ -93,10 +94,10 @@ pub(super) fn start_bergamot_translation<R: tauri::Runtime>(
     if !cfg!(feature = "native-translation") {
         return Err("Bergamot translation is not compiled in this build".into());
     }
-    start_with_engine(app, state, request, manifest, move |_, _, job_id| {
+    start_with_engine(app, state, request, manifest, move |_, _, job| {
         state
             .bergamot
-            .open(owner, job_id.into(), state.cancelled_jobs.clone(), emit)
+            .open(owner, job.id().into(), state.cancelled_jobs.clone(), emit)
             .map(|engine| Box::new(engine) as Box<dyn TranslationEngine>)
     })
 }
@@ -109,22 +110,17 @@ fn start_with_engine<R: tauri::Runtime>(
     load: impl FnOnce(
         &std::path::Path,
         &TranslationStartRequest,
-        &str,
+        &mut lifecycle::Job<'_>,
     ) -> Result<Box<dyn TranslationEngine>, String>,
 ) -> Result<TranslationStartResponse, String> {
     let cache_key = build_translation_cache_key(&request);
-    let _active_job = state.claim_job(&cache_key, manifest.directory_name)?;
     let job_id = request
         .job_id
         .as_deref()
         .filter(|id| !id.trim().is_empty())
         .unwrap_or(&cache_key)
         .to_string();
-    let _cancellation = CancellationCleanup {
-        state,
-        job_id: job_id.clone(),
-    };
-    let _model_read = state.claim_model_read(manifest.directory_name)?;
+    let mut job = lifecycle::Job::new(state, &cache_key, &job_id, manifest.directory_name)?;
     let model_dir = resolve_translation_model_dir(app, manifest)?;
     let source = load_translation_source_document(app, &request.document_url)?;
     let source_blocks = source.blocks.iter().map(|block| block.text.as_str());
@@ -151,7 +147,9 @@ fn start_with_engine<R: tauri::Runtime>(
             "",
         ),
     )?;
-    let mut engine = load(&model_dir, &plan.request, &job_id)?;
+    job.check_cancelled()?;
+    let mut engine = load(&model_dir, &plan.request, &mut job)?;
+    job.check_cancelled()?;
     finish_translation(
         app,
         state,
@@ -161,16 +159,6 @@ fn start_with_engine<R: tauri::Runtime>(
         &job_id,
         started,
     )
-}
-
-struct CancellationCleanup<'a> {
-    state: &'a TranslationState,
-    job_id: String,
-}
-impl Drop for CancellationCleanup<'_> {
-    fn drop(&mut self) {
-        let _ = clear_cancelled(&self.state.cancelled_jobs, &self.job_id);
-    }
 }
 
 fn finish_translation<R: tauri::Runtime>(
@@ -481,6 +469,9 @@ fn run_translation_batches<R: tauri::Runtime>(
         .map_err(|err| run.failure("failed", err))?;
         let (inline_phrase_hints, stored_probe_translations) =
             translate_inline_phrase_hints(engine, plan, batch, &inline_phrase_probes, &mut cache);
+        if is_cancelled(&state.cancelled_jobs, job_id).map_err(|err| run.failure("failed", err))? {
+            return Err(run.failure("cancelled", "Translation cancelled"));
+        }
         // Rebuild only this bounded batch from the current DOM, including on resume.
         let mut markup_plans = BTreeMap::new();
         if let Some(dom) = &rich_dom {
@@ -598,6 +589,12 @@ fn run_translation_batches<R: tauri::Runtime>(
                     format!("In-memory translation did not complete: {err}"),
                 )
             })?;
+            // Native translation can finish after cancellation; never cache or render its late reply.
+            if is_cancelled(&state.cancelled_jobs, job_id)
+                .map_err(|err| run.failure("failed", err))?
+            {
+                return Err(run.failure("cancelled", "Translation cancelled"));
+            }
             validate_mapped_outputs(&input.segments, &outputs)
                 .map_err(|error| run.failure("failed", error))?;
             let mut translated_count = 0;

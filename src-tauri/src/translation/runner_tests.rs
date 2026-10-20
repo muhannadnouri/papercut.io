@@ -5,7 +5,7 @@ use crate::translation::engine::TranslationSegmentOutput;
 use crate::translation::source::TranslationSourceBlock;
 use tauri::Manager;
 
-struct Fixture(std::path::PathBuf);
+pub(super) struct Fixture(std::path::PathBuf);
 impl Fixture {
     fn new() -> Self {
         let mut nonce = [0u8; 16];
@@ -21,7 +21,7 @@ impl Drop for Fixture {
     }
 }
 
-fn fixture() -> (
+pub(super) fn fixture() -> (
     Fixture,
     tauri::App<tauri::test::MockRuntime>,
     TranslationSourceDocument,
@@ -288,7 +288,7 @@ fn fully_cached_jobs_require_live_confirmation_and_cancel_before_save_preserves_
     }
 }
 
-fn snapshot(root: &std::path::Path) -> BTreeMap<std::path::PathBuf, Vec<u8>> {
+pub(super) fn snapshot(root: &std::path::Path) -> BTreeMap<std::path::PathBuf, Vec<u8>> {
     let mut entries = BTreeMap::new();
     for entry in std::fs::read_dir(root).unwrap() {
         let path = entry.unwrap().path();
