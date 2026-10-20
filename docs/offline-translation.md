@@ -24,7 +24,8 @@ The latest [Bergamot/OPUS-MT evaluation](#bergamot-versus-opus-mt-evaluation--20
   the offline aligner candidate remains disabled and formatting acceptance open.
 - The [Stage 3 asset/tokenizer slice](#stage-3-asset-and-raw-tokenizer-admission--2026-10-20)
   verifies local candidate files and connects real raw-tokenizer evidence to the
-  contract behind a default-off internal feature. It adds no downloads, model
+  contract behind a default-off internal feature. Its [admission review](#stage-3-admission-review--2026-10-20)
+  found no must-fix issue within this internal scope. It adds no downloads, model
   selector entry, inference, automatic alignment or saved-document migration.
 - Bergamot French/Spanish → English are now **experimental, capability-gated catalog choices**. The document path reuses one foreground worker, resumes completed batches, validates protected markup and confirms a live host before the shared Rust atomic writer saves. Explicit verified installation is required. Catalog availability is not packaged-device or translation-quality acceptance; see [catalog integration](#capability-gated-bergamot-catalog-and-ui-2026-10-19).
 - Bergamot document planning keeps blocks that fit the 320-scalar cap intact, then uses sentence/clause boundaries for oversized blocks. This is an app-side mitigation for long-input omissions, not a model-token budget or a completeness guarantee; native provider planning stays unchanged.
@@ -1027,7 +1028,8 @@ unknown/reserved strings, hidden normalization loss, both-side rejection,
 graphemes and word IDs, exact pair binding and catalog/installer absence.
 Feature dependency checks, Rust formatting and diff checks pass.
 
-**Next:** review this admission slice before adding the bounded ONNX session.
+The [admission review](#stage-3-admission-review--2026-10-20) is recorded below.
+**Next:** add the bounded ONNX session as a separate internal slice.
 That later slice must reuse shared-runtime initialization, validate actual graph
 inputs/outputs and non-finite values, enforce tokens/tensors/threads/queue limits,
 and test real model load independently of mocks. It must verify the bytes actually
@@ -1036,6 +1038,65 @@ path-based load guarantee. Installer promotion/removal races and cancellation
 also remain separate gates; do not add another model manager. Keep the candidate
 unavailable while notices, auxiliary-scope success, held-out acceptance,
 resource/device qualification and the remaining lifecycle work are unresolved.
+
+### Stage 3 admission review — 2026-10-20
+
+**Scope:** `259d8d1`, committed before this review. Read the asset inventory,
+shared verifier, real-tokenizer adapter, pure contract and all new tests, plus
+the connected Bergamot delivery/status, model-operation guards, catalog,
+capabilities and cache/render admission paths. Expected load remains one
+foreground document job with bounded pairs. There is no aligner application
+caller or graph session to qualify yet.
+
+**Verdict: no must-fix findings within the admission-only scope.** In particular:
+
+- Extracting the shared verifier preserves Bergamot's file-size/hash/snapshot
+  checks and 32-MiB limit. Its existing command holds the model-file lease;
+  worker-side verification remains in place. The helper also checks the opened
+  handle's file type/size. This review does not claim protection against every
+  hostile concurrent filesystem mutation or guarantee a later path-based load.
+- The alignment inventory is immutable and separate from translation selection.
+  No unverified file, UI argument or environment variable constructs the adapter
+  through a production entry point. The environment-selected pack is confined
+  to the explicitly invoked test. Streaming verification retains no weight
+  buffer or reusable graph-load authorization.
+- The tokenizer is private after verified-snapshot construction. Its real raw
+  encoding supplies offsets, word/sequence IDs and masks; there is no independent
+  word splitting or caller-selected framing. Exact pair strings and the pinned
+  tokenizer identity are checked before structural evidence can be returned.
+  Unknown/normalization/scope rejection and semantic limitations remain explicit.
+- Token/text/inventory limits bound this layer's work. The new feature is off in
+  shipping scripts; its dependency closure adds the pinned tokenizer but no
+  ONNX/search/TTS/translation-engine runtime. Existing saved data and cache
+  identities require no migration. No additional parser, model manager or
+  parallel lifecycle framework is needed for this slice.
+
+**Fresh checks:** the translation test filter passes **192 tests with the feature
+off**, and **200 with it on** (one external-pack test ignored in that ordinary
+run). The external pinned-pack test was then explicitly rerun and **passed**,
+including all 23 policy patterns on both sides, known token IDs and 256/257-token
+admission. Existing Bergamot/shared-file, lifecycle, cache and reconstruction
+tests are included in those filtered suites. Formatting, diff and feature
+dependency checks pass. This is a fresh targeted review receipt, not a repeat of
+the full 469/477-test suites or CI. No new tests or production code changes were
+needed for this review.
+
+**Next bounded slice:** implement the ONNX session behind an internal opt-in,
+reusing the shared runtime initializer without depending on search or TTS. Bind
+the actual graph bytes loaded to their pin under the existing model-use guard;
+a checked filename from an earlier call is insufficient. Validate graph input
+names/types, output shape/finite values and memory/token/tensor/thread/queue
+bounds before exposing embeddings. Test session admission/release, rejected
+loads, cancellation/error cleanup and real pinned-graph execution separately
+from mocks. Keep extraction/projection, document-job integration and installer
+promotion as their own later work; a passing session test does not establish
+semantic alignment or full Stage 3 acceptance.
+
+Redistribution notices, mandatory auxiliary-scope success, held-out coverage,
+resource/device qualification and the remaining lifecycle gates still block
+enabling the candidate. Benchmarks, smoke and the app version bump remain
+deferred. No app/package build, fresh graph inference, platform-device test or
+model download ran in this review.
 
 ## Product Goals
 
